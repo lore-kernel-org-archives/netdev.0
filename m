@@ -1,65 +1,94 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] tcp: don't allow syn packets without timestamps to
- pass tcp_tw_recycle logic
-Date: Thu, 14 Aug 2014 11:37:45 +0200
-Message-ID: <1408009065.2751.6.camel@localhost>
-References: <69ff43477a795a1117302b11583bc8ea8c5dc811.1407802666.git.hannes@stressinduktion.org>
-	 <20140811.200807.1174604291924802129.davem@davemloft.net>
-	 <1407830922.3313272.151751729.150ABE1E@webmail.messagingengine.com>
+From: Stephane Chazelas <stephane.chazelas@gmail.com>
+Subject: Re: network interfaces called "all", "default" or "config"
+Date: Thu, 14 Aug 2014 10:41:39 +0100
+Message-ID: <CACsCDOP8DOnB0zZtT_WLhiBXjxXh1aH1eGF9_h0dRN1i9YDU-A@mail.gmail.com>
+References: <20140723113314.GA7798@chaz.gmail.com>
+	<53CFCD26.1020409@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:46479 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752068AbaHNJhr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 05:37:47 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by gateway1.nyi.internal (Postfix) with ESMTP id 39B5F21FC7
-	for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 05:37:47 -0400 (EDT)
-In-Reply-To: <1407830922.3313272.151751729.150ABE1E@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Randy Dunlap <rdunlap@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53CFCD26.1020409@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+By the way, this is related:
 
-On Di, 2014-08-12 at 10:08 +0200, Hannes Frederic Sowa wrote:
-> 
-> On Tue, Aug 12, 2014, at 05:08, David Miller wrote:
-> > From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > Date: Tue, 12 Aug 2014 02:21:36 +0200
-> > 
-> > > Thus this broken situation could easily arise by a Linux and Windows
-> > > box sharing one IP address and talking to a tcp_tw_recycle enabled
-> > > server.
-> > 
-> > As Eric Dumazet mentioned, timewait recycling does not work if any
-> > traffic goes through a NAT box.
-> > 
-> > So this situation of two boxes "sharing one IP address" fundamentally
-> > makes timewait recycling unusable.
-> 
-> Exactly, I'll just throw away the SYN packet instead of opening a
-> connection where we couldn't very if the preconditions for timewait
-> recycling did not hold.
+$ ip link add link eth0 eth0:123 type vlan id 123
+$ ip link del link eth0 eth0:123
+RTNETLINK answers: Operation not supported
 
-did you have a chance to look at this patch again?
+vconfig rem eth0:123
 
-I found this during code review. Non time stamped SYN packets could
-eventually trigger the completion of a 3WHS even though we had
-tw_recycle enabled and the SYN arrived in a TCP_PAWS_MSL of this host
-period.
+using a different API, is OK.
 
-I don't want to make this feature more general usable (without time
-stamps), they are absolutely required. It just adds protection against
-accidental 3WHS completion of 3WHS if a packet without time stamps
-arrived.
+ip link del:
 
-I don't have a strong opinion on that but it just seems to be natural,
-as we also conditional schedule the timeout for the tw buckets depending
-on if we saw time stamps on the prior connection.
+bind(3, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+getsockname(3, {sa_family=AF_NETLINK, pid=22135, groups=00000000}, [12]) = 0
+sendto(3, " \0\0\0\20\0\5\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+32, 0, NULL, 0) = 32
+recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, pid=0,
+groups=00000000},
+msg_iov(1)=[{"4\0\0\0\2\0\0\0\0\0\0\0wV\0\0\355\377\377\377
+\0\0\0\20\0\5\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+8192}], msg_controllen=0, msg_flags=0}, 0) = 52
+access("/proc/net", R_OK)               = 0
+access("/proc/net/unix", R_OK)          = 0
+socket(PF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0) = 4
+ioctl(4, SIOCGIFINDEX, {ifr_name="eth0:123", ifr_index=2}) = 0
+close(4)                                = 0
+sendmsg(3, {msg_name(12)={sa_family=AF_NETLINK, pid=0,
+groups=00000000}, msg_iov(1)=[{"
+\0\0\0\21\0\5\0\305\202\354S\0\0\0\0\0\0\0\0\2\0\0\0\0\0\0\0\0\0\0\0",
+32}], msg_controllen=0, msg_flags=0}, 0) = 32
+recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, pid=0,
+groups=00000000},
+msg_iov(1)=[{"4\0\0\0\2\0\0\0\305\202\354SwV\0\0\241\377\377\377
+\0\0\0\21\0\5\0\305\202\354S\0\0\0\0\0\0\0\0\2\0\0\0\0\0\0\0\0\0\0\0",
+16384}], msg_controllen=0, msg_flags=0}, 0) = 52
+write(2, "RTNETLINK answers: Operation not supported\n", 43) = 43
+exit_group(2)                           = ?
 
-Thanks,
-Hannes
+vconfig rem:
+
+socket(PF_INET, SOCK_STREAM, IPPROTO_IP) = 3
+ioctl(3, SIOCSIFVLAN, 0x7fff67a00110)   = 0
+
+
+Cheers,
+Stephane
+
+
+On 23 July 2014 15:56, Randy Dunlap <rdunlap@infradead.org> wrote:
+>
+> [adding netdev]
+>
+> On 07/23/2014 04:33 AM, Stephane Chazelas wrote:
+> > Hiya,
+> >
+> > you may want to forbid the creation of interfaces whose name is
+> > one of the special files in /proc/net and /proc/sys.
+> >
+> > I can see some characters (like space, tab, newline, slash,
+> > dot...) are alread forbidden in interface names (EINVAL), but
+> > one can do for instance:
+> >
+> > sudo ip link add link eth0 all type vlan id 2
+> > sudo ip link add link eth0 default type vlan id 3
+> > sudo ip link add link eth0 config type vlan id 4
+> >
+> > Interestingly, after you add a "all" or "default", the
+> > corresponding /proc/sys/net/ipv[46]/conf/(all|default) become
+> > empty, and remain so even after you've removed the interface.
+> >
+> > Adding an interface called "config" masks /proc/net/vlan/config
+> >
+> > (tested with 3.14-1-amd64 on debian)
+> >
+>
+>
+> --
+> ~Randy
