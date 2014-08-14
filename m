@@ -1,148 +1,114 @@
 From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: [PATCH stable 3.4 v2 1/2] ipv4: move route garbage collector to work queue
-Date: Thu, 14 Aug 2014 16:44:52 -0300
-Message-ID: <547688b69ee9a258cc04e4dad17a90ca6ab182d0.1408045325.git.mleitner@redhat.com>
+Subject: [PATCH stable 3.4 v2 2/2] ipv4: avoid parallel route cache gc executions
+Date: Thu, 14 Aug 2014 16:44:53 -0300
+Message-ID: <973a161edcf9df5d4fcc0e6382c916c6f2458c3b.1408045325.git.mleitner@redhat.com>
+References: <547688b69ee9a258cc04e4dad17a90ca6ab182d0.1408045325.git.mleitner@redhat.com>
 Cc: hannes@redhat.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50198 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52901 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752402AbaHNTpC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2014 15:45:02 -0400
+	id S1752402AbaHNTpF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2014 15:45:05 -0400
+In-Reply-To: <547688b69ee9a258cc04e4dad17a90ca6ab182d0.1408045325.git.mleitner@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the route garbage collector gets called by dst_alloc() if it
-have more entries than the threshold. But it's an expensive call, that
-don't really need to be done by then.
+When rt_intern_hash() has to deal with neighbour cache overflowing,
+it triggers the route cache garbage collector in an attempt to free
+some references on neighbour entries.
 
-Another issue with current way is that it allows running the garbage
-collector with the same start parameters on multiple CPUs at once, which
-is not optimal. A system may even soft lockup if the cache is big enough
-as the garbage collectors will be fighting over the hash lock entries.
+Such call cannot be done async but should also not run in parallel with
+an already-running one, so that they don't collapse fighting over the
+hash lock entries.
 
-This patch thus moves the garbage collector to run asynchronously on a
-work queue, much similar to how rt_expire_check runs.
-
-There is one condition left that allows multiple executions, which is
-handled by the next patch.
+This patch thus blocks parallel executions with spinlocks:
+- A call from worker and from rt_intern_hash() are not the same, and
+cannot be merged, thus they will wait each other on rt_gc_lock.
+- Calls to gc from rt_intern_hash() may happen in parallel but we must
+wait for it to finish in order to try again. This dedup and
+synchrinozation is then performed by the locking just before calling
+__do_rt_garbage_collect().
 
 Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
 Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
 
 Notes:
-    Hi,
+    v1->v2:
+    Addressed David Miller's concern on making rt_intern_hash fail if the
+    neighbour cache is full and the async gc is running at that time.
     
-    This set is needed for stables <= 3.4, as the IPv4 route cache was
-    removed after that.
-    
-    v1->v2: addressed indentation issue noticed by David Miller
-    
-    Thanks!
+    With this patch it will now wait for the async run and then perform the
+    aggressive one (with the special parameters) before retrying.
 
- net/ipv4/route.c | 43 +++++++++++++++++++++++++++++--------------
- 1 file changed, 29 insertions(+), 14 deletions(-)
+ net/ipv4/route.c | 21 ++++++++++++++++-----
+ 1 file changed, 16 insertions(+), 5 deletions(-)
 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 90bc88bbd2a4f73304671e0182df72f450fa901a..9017f2f8aff196b665fc7d4e36116bfda7450011 100644
+index 9017f2f8aff196b665fc7d4e36116bfda7450011..2389c444f02c753b2e6fea53e76a957adcdafd85 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -150,6 +150,9 @@ static void		 ipv4_link_failure(struct sk_buff *skb);
- static void		 ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
- static int rt_garbage_collect(struct dst_ops *ops);
- 
-+static void __rt_garbage_collect(struct work_struct *w);
-+static DECLARE_WORK(rt_gc_worker, __rt_garbage_collect);
-+
- static void ipv4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
- 			    int how)
- {
-@@ -977,7 +980,7 @@ static void rt_emergency_hash_rebuild(struct net *net)
-    and when load increases it reduces to limit cache size.
-  */
- 
--static int rt_garbage_collect(struct dst_ops *ops)
-+static void __do_rt_garbage_collect(int elasticity, int min_interval)
- {
- 	static unsigned long expire = RT_GC_TIMEOUT;
+@@ -986,6 +986,7 @@ static void __do_rt_garbage_collect(int elasticity, int min_interval)
  	static unsigned long last_gc;
-@@ -996,7 +999,7 @@ static int rt_garbage_collect(struct dst_ops *ops)
+ 	static int rover;
+ 	static int equilibrium;
++	static DEFINE_SPINLOCK(rt_gc_lock);
+ 	struct rtable *rth;
+ 	struct rtable __rcu **rthp;
+ 	unsigned long now = jiffies;
+@@ -997,6 +998,8 @@ static void __do_rt_garbage_collect(int elasticity, int min_interval)
+ 	 * do not make it too frequently.
+ 	 */
  
++	spin_lock(&rt_gc_lock);
++
  	RT_CACHE_STAT_INC(gc_total);
  
--	if (now - last_gc < ip_rt_gc_min_interval &&
-+	if (now - last_gc < min_interval &&
- 	    entries < ip_rt_max_size) {
- 		RT_CACHE_STAT_INC(gc_ignored);
- 		goto out;
-@@ -1004,7 +1007,7 @@ static int rt_garbage_collect(struct dst_ops *ops)
- 
- 	entries = dst_entries_get_slow(&ipv4_dst_ops);
- 	/* Calculate number of entries, which we want to expire now. */
--	goal = entries - (ip_rt_gc_elasticity << rt_hash_log);
-+	goal = entries - (elasticity << rt_hash_log);
- 	if (goal <= 0) {
- 		if (equilibrium < ipv4_dst_ops.gc_thresh)
- 			equilibrium = ipv4_dst_ops.gc_thresh;
-@@ -1021,7 +1024,7 @@ static int rt_garbage_collect(struct dst_ops *ops)
- 		equilibrium = entries - goal;
- 	}
- 
--	if (now - last_gc >= ip_rt_gc_min_interval)
-+	if (now - last_gc >= min_interval)
- 		last_gc = now;
- 
- 	if (goal <= 0) {
-@@ -1086,15 +1089,33 @@ static int rt_garbage_collect(struct dst_ops *ops)
+ 	if (now - last_gc < min_interval &&
+@@ -1089,7 +1092,7 @@ static void __do_rt_garbage_collect(int elasticity, int min_interval)
  	if (net_ratelimit())
  		pr_warn("dst cache overflow\n");
  	RT_CACHE_STAT_INC(gc_dst_overflow);
--	return 1;
-+	return;
+-	return;
++	goto out;
  
  work_done:
--	expire += ip_rt_gc_min_interval;
-+	expire += min_interval;
- 	if (expire > ip_rt_gc_timeout ||
+ 	expire += min_interval;
+@@ -1097,7 +1100,8 @@ work_done:
  	    dst_entries_get_fast(&ipv4_dst_ops) < ipv4_dst_ops.gc_thresh ||
  	    dst_entries_get_slow(&ipv4_dst_ops) < ipv4_dst_ops.gc_thresh)
  		expire = ip_rt_gc_timeout;
--out:	return 0;
-+out:	return;
-+}
-+
-+static void __rt_garbage_collect(struct work_struct *w)
-+{
-+	__do_rt_garbage_collect(ip_rt_gc_elasticity, ip_rt_gc_min_interval);
-+}
-+
-+static int rt_garbage_collect(struct dst_ops *ops)
-+{
-+	if (!work_pending(&rt_gc_worker))
-+		schedule_work(&rt_gc_worker);
-+
-+	if (dst_entries_get_fast(&ipv4_dst_ops) >= ip_rt_max_size ||
-+	    dst_entries_get_slow(&ipv4_dst_ops) >= ip_rt_max_size) {
-+		RT_CACHE_STAT_INC(gc_dst_overflow);
-+		return 1;
-+	}
-+	return 0;
+-out:	return;
++out:
++	spin_unlock(&rt_gc_lock);
  }
  
- /*
-@@ -1288,13 +1309,7 @@ restart:
+ static void __rt_garbage_collect(struct work_struct *w)
+@@ -1172,7 +1176,7 @@ static struct rtable *rt_intern_hash(unsigned hash, struct rtable *rt,
+ 	unsigned long	now;
+ 	u32 		min_score;
+ 	int		chain_length;
+-	int attempts = !in_softirq();
++	int attempts = 1;
+ 
+ restart:
+ 	chain_length = 0;
+@@ -1308,8 +1312,15 @@ restart:
+ 			   can be released. Try to shrink route cache,
  			   it is most likely it holds some neighbour records.
  			 */
- 			if (attempts-- > 0) {
--				int saved_elasticity = ip_rt_gc_elasticity;
--				int saved_int = ip_rt_gc_min_interval;
--				ip_rt_gc_elasticity	= 1;
--				ip_rt_gc_min_interval	= 0;
--				rt_garbage_collect(&ipv4_dst_ops);
--				ip_rt_gc_min_interval	= saved_int;
--				ip_rt_gc_elasticity	= saved_elasticity;
-+				__do_rt_garbage_collect(1, 0);
+-			if (attempts-- > 0) {
+-				__do_rt_garbage_collect(1, 0);
++			if (!in_softirq() && attempts-- > 0) {
++				static DEFINE_SPINLOCK(lock);
++
++				if (spin_trylock(&lock)) {
++					__do_rt_garbage_collect(1, 0);
++					spin_unlock(&lock);
++				} else {
++					spin_unlock_wait(&lock);
++				}
  				goto restart;
  			}
  
