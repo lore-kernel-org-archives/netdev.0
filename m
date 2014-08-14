@@ -1,70 +1,59 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] cdc-ether: clean packet filter upon probe
-Date: Thu, 14 Aug 2014 13:11:16 +0200
-Message-ID: <87a977z5pn.fsf@nemi.mork.no>
-References: <1406537796-20156-1-git-send-email-oneukum@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.de>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH net] net: xgene: Check negative return value of xgene_enet_get_ring_size()
+Date: Thu, 14 Aug 2014 13:59:42 +0200
+Message-ID: <1408017582-1133-1-git-send-email-tklauser@distanz.ch>
+Cc: netdev@vger.kernel.org
+To: Iyappan Subramanian <isubramanian@apm.com>,
+	Keyur Chudgar <kchudgar@apm.com>, Ravi Patel <rapatel@apm.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:49389 "EHLO canardo.mork.no"
+Received: from mail.zhinst.com ([212.126.164.98]:52561 "EHLO mail.zhinst.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752473AbaHNLLr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 07:11:47 -0400
-In-Reply-To: <1406537796-20156-1-git-send-email-oneukum@suse.de> (Oliver
-	Neukum's message of "Mon, 28 Jul 2014 10:56:36 +0200")
+	id S1752368AbaHNL7s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2014 07:59:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum <oneukum@suse.de> writes:
+xgene_enet_get_ring_size() returns a negative value in case of an error,
+but its only caller in xgene_enet_create_desc_ring() currently uses the
+return value directly as u32. Instead, check for a negative value first and
+error out in case. Also move the call to xgene_enet_get_ring_size() before
+devm_kzalloc() so we don't need to free anything in the error path.
 
-> There are devices that don't do reset all the way. So the packet filt=
-er should
-> be set to a sane initial value. Failure to do so leads to intermitten=
-t failures
-> of DHCP on some systems under some conditions.
->
-> Signed-off-by: Oliver Neukum <oneukum@suse.de>
-> ---
->  drivers/net/usb/cdc_ether.c | 16 ++++++++++++++++
->  1 file changed, 16 insertions(+)
->
-> diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.=
-c
-> index 9ea4bfe..2a32d91 100644
-> --- a/drivers/net/usb/cdc_ether.c
-> +++ b/drivers/net/usb/cdc_ether.c
-> @@ -341,6 +341,22 @@ next_desc:
->  		usb_driver_release_interface(driver, info->data);
->  		return -ENODEV;
->  	}
-> +
-> +	/* Some devices don't initialise properly. In particular
-> +	 * the packet filter is not reset. There are devices that
-> +	 * don't do reset all the way. So the packet filter should
-> +	 * be set to a sane initial value.
-> +	 */
-> +	usb_control_msg(dev->udev,
-> +			usb_sndctrlpipe(dev->udev, 0),
-> +			USB_CDC_SET_ETHERNET_PACKET_FILTER,
-> +			USB_TYPE_CLASS | USB_RECIP_INTERFACE,
-> +			USB_CDC_PACKET_TYPE_ALL_MULTICAST | USB_CDC_PACKET_TYPE_DIRECTED =
-| USB_CDC_PACKET_TYPE_BROADCAST,
-> +			intf->cur_altsetting->desc.bInterfaceNumber,
-> +			NULL,
-> +			0,
-> +			USB_CTRL_SET_TIMEOUT
-> +		);
->  	return 0;
-> =20
->  bad_desc:
+This fixes the following issue reported by the Coverity Scanner:
 
-Hmm, the usbnet_generic_cdc_bind() function is used by the vendor
-specific zaurus and rndis_host drivers as well.  Are we sure the
-USB_CDC_SET_ETHERNET_PACKET_FILTER message is supported by all devices
-supported by these drivers?
+** CID 1231336:  Improper use of negative value  (NEGATIVE_RETURNS)
+/drivers/net/ethernet/apm/xgene/xgene_enet_main.c: 596 in xgene_enet_create_desc_ring()
 
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-Bj=C3=B8rn
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index af7c40a..e1a8f4e 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -581,7 +581,11 @@ static struct xgene_enet_desc_ring *xgene_enet_create_desc_ring(
+ 	struct xgene_enet_desc_ring *ring;
+ 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+ 	struct device *dev = ndev_to_dev(ndev);
+-	u32 size;
++	int size;
++
++	size = xgene_enet_get_ring_size(dev, cfgsize);
++	if (size < 0)
++		return NULL;
+ 
+ 	ring = devm_kzalloc(dev, sizeof(struct xgene_enet_desc_ring),
+ 			    GFP_KERNEL);
+@@ -593,7 +597,6 @@ static struct xgene_enet_desc_ring *xgene_enet_create_desc_ring(
+ 	ring->cfgsize = cfgsize;
+ 	ring->id = ring_id;
+ 
+-	size = xgene_enet_get_ring_size(dev, cfgsize);
+ 	ring->desc_addr = dma_zalloc_coherent(dev, size, &ring->dma,
+ 					      GFP_KERNEL);
+ 	if (!ring->desc_addr) {
+-- 
+2.0.1
