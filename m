@@ -1,58 +1,43 @@
-From: =?UTF-8?q?S=C3=A9bastien=20Barr=C3=A9?=
-	<sebastien.barre@uclouvain.be>
-Subject: [PATCH] ipv4: Restore accept_local behaviour in fib_validate_source()
-Date: Thu, 14 Aug 2014 14:45:52 +0200
-Message-ID: <1408020352-22841-1-git-send-email-sebastien.barre@uclouvain.be>
+From: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Subject: [PATCH net-next] lec: Use rtnl lock/unlock when updating MTU
+Date: Thu, 14 Aug 2014 09:19:47 -0400
+Message-ID: <201408141319.s7EDJl9l031767@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?S=C3=A9bastien=20Barr=C3=A9?=
-	<sebastien.barre@uclouvain.be>, <netdev@vger.kernel.org>,
-	Gregory Detal <gregory.detal@uclouvain.be>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:52246 "EHLO
-	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754791AbaHNMwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 08:52:42 -0400
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:35771 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753902AbaHNNUG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 09:20:06 -0400
+Content-ID: <31765.1408022387.1@thirdoffive.cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 7a9bc9b introduced a short-circuit to avoid calling
-fib_validate_source when not needed. That change took rp_filter
-into account, but not accept_local. This resulted in a change
-of behaviour: with rp_filter and accept_local off, incoming
-packets with a local address in the source field should be
-dropped.
+The LECS response contains the MTU that should be used.  Correctly
+synchronize with other layers when updating.
 
-Here is how to reproduce the change pre/post 7a9bc9b commit:
--configure the same IPv4 address on hosts A and B.
--try to send an arp request from B to A.
--The arp request will be dropped before commit 7a9bc9b,
-but accepted and answered after that commit.
-
-This adds a check for ACCEPT_LOCAL, to maintain full
-fib validation in case it is 0.
-
-Signed-off-by: S=C3=A9bastien Barr=C3=A9 <sebastien.barre@uclouvain.be>
-
+Signed-off-by: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 ---
- net/ipv4/fib_frontend.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/atm/lec.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 255aa99..fa1fb2d 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -321,6 +321,7 @@ int fib_validate_source(struct sk_buff *skb, __be32=
- src, __be32 dst,
- 	int r =3D secpath_exists(skb) ? 0 : IN_DEV_RPFILTER(idev);
-=20
- 	if (!r && !fib_num_tclassid_users(dev_net(dev)) &&
-+	    IN_DEV_ACCEPT_LOCAL(idev) &&
- 	    (dev->ifindex !=3D oif || !IN_DEV_TX_REDIRECTS(idev))) {
- 		*itag =3D 0;
- 		return 0;
---=20
-tg: (f0094b2..) net-next/accept_local-fib_validate_source (depends on: =
-net-next/master)
+diff --git a/net/atm/lec.c b/net/atm/lec.c
+index 4c5b8ba..6e13369 100644
+--- a/net/atm/lec.c
++++ b/net/atm/lec.c
+@@ -410,9 +410,11 @@ static int lec_atm_send(struct atm_vcc *vcc, struct sk_buff *skb)
+ 		priv->lane2_ops = NULL;
+ 		if (priv->lane_version > 1)
+ 			priv->lane2_ops = &lane2_ops;
++		rtnl_lock();
+ 		if (dev_set_mtu(dev, mesg->content.config.mtu))
+ 			pr_info("%s: change_mtu to %d failed\n",
+ 				dev->name, mesg->content.config.mtu);
++		rtnl_unlock();
+ 		priv->is_proxy = mesg->content.config.is_proxy;
+ 		break;
+ 	case l_flush_tran_id:
+-- 
+1.9.3
