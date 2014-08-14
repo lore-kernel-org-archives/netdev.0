@@ -1,59 +1,30 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH net] net: xgene: Check negative return value of xgene_enet_get_ring_size()
-Date: Thu, 14 Aug 2014 13:59:42 +0200
-Message-ID: <1408017582-1133-1-git-send-email-tklauser@distanz.ch>
-Cc: netdev@vger.kernel.org
-To: Iyappan Subramanian <isubramanian@apm.com>,
-	Keyur Chudgar <kchudgar@apm.com>, Ravi Patel <rapatel@apm.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH v2] sit: Fix ipip6_tunnel_lookup device matching criteria
+Date: Thu, 14 Aug 2014 14:03:28 +0200
+Message-ID: <53ECA590.8030306@6wind.com>
+References: <53EC8CA1.6060909@6wind.com> <1408013390-17273-1-git-send-email-shmulik.ladkani@gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sascha Hlusiak <contact@saschahlusiak.de>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:52561 "EHLO mail.zhinst.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752368AbaHNL7s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2014 07:59:48 -0400
+Received: from mail-we0-f171.google.com ([74.125.82.171]:48505 "EHLO
+	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753901AbaHNMDb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 08:03:31 -0400
+Received: by mail-we0-f171.google.com with SMTP id p10so1004919wes.16
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 05:03:30 -0700 (PDT)
+In-Reply-To: <1408013390-17273-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xgene_enet_get_ring_size() returns a negative value in case of an error,
-but its only caller in xgene_enet_create_desc_ring() currently uses the
-return value directly as u32. Instead, check for a negative value first and
-error out in case. Also move the call to xgene_enet_get_ring_size() before
-devm_kzalloc() so we don't need to free anything in the error path.
-
-This fixes the following issue reported by the Coverity Scanner:
-
-** CID 1231336:  Improper use of negative value  (NEGATIVE_RETURNS)
-/drivers/net/ethernet/apm/xgene/xgene_enet_main.c: 596 in xgene_enet_create_desc_ring()
-
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index af7c40a..e1a8f4e 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -581,7 +581,11 @@ static struct xgene_enet_desc_ring *xgene_enet_create_desc_ring(
- 	struct xgene_enet_desc_ring *ring;
- 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
- 	struct device *dev = ndev_to_dev(ndev);
--	u32 size;
-+	int size;
-+
-+	size = xgene_enet_get_ring_size(dev, cfgsize);
-+	if (size < 0)
-+		return NULL;
- 
- 	ring = devm_kzalloc(dev, sizeof(struct xgene_enet_desc_ring),
- 			    GFP_KERNEL);
-@@ -593,7 +597,6 @@ static struct xgene_enet_desc_ring *xgene_enet_create_desc_ring(
- 	ring->cfgsize = cfgsize;
- 	ring->id = ring_id;
- 
--	size = xgene_enet_get_ring_size(dev, cfgsize);
- 	ring->desc_addr = dma_zalloc_coherent(dev, size, &ring->dma,
- 					      GFP_KERNEL);
- 	if (!ring->desc_addr) {
--- 
-2.0.1
+Le 14/08/2014 12:49, Shmulik Ladkani a =C3=A9crit :
+> As of 4fddbf5d78 ("sit: strictly restrict incoming traffic to tunnel
+> link device"), when looking up a tunnel, tunnel's underlying
+Nitpicking, but David always asks to not split subject in two lines, ev=
+en
+if it's more than 80 columns.
