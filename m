@@ -1,45 +1,44 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] sit: Fix ipip6_tunnel_lookup device matching criteria
-Date: Thu, 14 Aug 2014 16:08:36 +0400
-Message-ID: <53ECA6C4.9080305@cogentembedded.com>
-References: <1408008729-16982-1-git-send-email-shmulik.ladkani@gmail.com>
+From: Yoann Juet <veilletechno-irts@univ-nantes.fr>
+Subject: ixgbe: SR-IOV, macvlan filter on VFs
+Date: Thu, 14 Aug 2014 14:04:25 +0200
+Message-ID: <53ECA5C9.2020904@univ-nantes.fr>
+Reply-To: Yoann Juet <veilletechno-irts@univ-nantes.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sascha Hlusiak <contact@saschahlusiak.de>
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8BIT
+Cc: Yoann Juet <yoann.juet@univ-nantes.fr>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:34325 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754437AbaHNMIl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 08:08:41 -0400
-Received: by mail-lb0-f172.google.com with SMTP id z11so905190lbi.17
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 05:08:39 -0700 (PDT)
-In-Reply-To: <1408008729-16982-1-git-send-email-shmulik.ladkani@gmail.com>
+Received: from smtptls1-cha.cpub.univ-nantes.fr ([193.52.103.113]:50219 "EHLO
+	smtp-tls.univ-nantes.fr" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753901AbaHNMKV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 08:10:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi all,
 
-On 8/14/2014 1:32 PM, Shmulik Ladkani wrote:
+We are trying to make VRRP with VMAC address work on VMs using SR-IOV. 
+The well known Keepalived VRRP framework implements such a feature with 
+a macvlan device per physical interface. In our setup, this means we get 
+a new macvlan device per VF. To make it partially work, we first have to 
+disable the ixgbe anti-spoofing feature on the PFs that are involved:
 
-> As of 4fddbf5d78, when looking up a tunnel, tunnel's underlying
+ip link set dev <ethX> vf <x> spoofchk off
 
-    Please also specify that commit's summary line in parens.
+Now, VIPs' Virtual Mac Address are known from clients (arp answers are 
+transmitted). But this is not enough ; VIPs are still not reachable from 
+clients as they are attached to a macvlan device. Each time a VMAC is 
+set on a macvlan device, we get the following messages:
 
-> interface (t->parms.link) is verified to match incoming traffic's
-> ingress device.
+[674943.437989] ixgbe 0000:04:00.0 eth2: VF 0 requested MACVLAN filter 
+but is administratively denied
+[674943.458875] ixgbe 0000:04:00.0 eth2: VF 1 requested MACVLAN filter 
+but is administratively denied
 
-> However the comparison was incorrectly based on skb->dev->iflink.
+Looks like macvlan on VF only works for outbound traffic from VMs. 
+Inbound traffic is filtered. Is there a solution to disable macvlan 
+filtering on a VF basis ?
 
-> Instead, dev->ifindex should be used, which correctly represents the
-> interface from which the IP stack hands the ipip6 packets.
-
-> This allows setting up sit tunnels bound to vlan interfaces (otherwise
-> incoming ipip6 traffic on the vlan interface was dropped due to
-> ipip6_tunnel_lookup match failure).
-
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-
-WBR, Sergei
+Thanks,
+Best Regards,
