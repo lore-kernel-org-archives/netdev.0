@@ -1,30 +1,41 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net-next] lec: Use rtnl lock/unlock when updating MTU
-Date: Thu, 14 Aug 2014 14:37:06 -0700 (PDT)
-Message-ID: <20140814.143706.1833450188258591738.davem@redhat.com>
-References: <201408141319.s7EDJl9l031767@thirdoffive.cmf.nrl.navy.mil>
+Subject: Re: [PATCH] tcp: don't use timestamp from repaired skb-s to
+ calculate RTT (v2)
+Date: Thu, 14 Aug 2014 14:39:29 -0700 (PDT)
+Message-ID: <20140814.143929.1671828120262010871.davem@redhat.com>
+References: <1407931390-3162-1-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net
-To: chas@cmf.nrl.navy.mil
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21727 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753162AbaHNVi0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2014 17:38:26 -0400
-In-Reply-To: <201408141319.s7EDJl9l031767@thirdoffive.cmf.nrl.navy.mil>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	edumazet@google.com, xemul@parallels.com
+To: avagin@openvz.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407931390-3162-1-git-send-email-avagin@openvz.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Date: Thu, 14 Aug 2014 09:19:47 -0400
+From: Andrey Vagin <avagin@openvz.org>
+Date: Wed, 13 Aug 2014 16:03:10 +0400
 
-> The LECS response contains the MTU that should be used.  Correctly
-> synchronize with other layers when updating.
+> We don't know right timestamp for repaired skb-s. Wrong RTT estimations
+> isn't good, because some congestion modules heavily depends on it.
 > 
-> Signed-off-by: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+> This patch adds the TCPCB_REPAIRED flag, which is included in
+> TCPCB_RETRANS.
+> 
+> Thanks to Eric for the advice how to fix this issue.
+> 
+> This patch fixes the warning:
+ ...
+> v2: moving setting of skb->when for repaired skb-s in tcp_write_xmit,
+>     where it's set for other skb-s.
+> 
+> Fixes: 431a91242d8d ("tcp: timestamp SYN+DATA messages")
+> Fixes: 740b0f1841f6 ("tcp: switch rtt estimations to usec resolution")
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Pavel Emelyanov <xemul@parallels.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Andrey Vagin <avagin@openvz.org>
 
-I don't think you can sleep from this function, which rtnl_lock() may
-require.  Look elsewhere in this routine, it's doing GFP_ATOMIC
-allocations even.
+Applied.
