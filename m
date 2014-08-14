@@ -1,138 +1,77 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: smsc911x_suspend crash (was: Re: [PATCH] ARM: shmobile: r8a7778: Add
- missing call to shmobile_init_late())
-Date: Thu, 14 Aug 2014 10:52:30 +0200
-Message-ID: <CAMuHMdV7u-9DQ=TGBYSh2GvQgzQE3EAabXoEGU=3N4XyZ_Dx6w@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: Query: Is it possible  to lose interrupts between vhost and virtio_net
+ during migration?
+Date: Thu, 14 Aug 2014 16:52:40 +0800
+Message-ID: <53EC78D8.6070405@redhat.com>
+References: <53DA2CCC.1040606@huawei.com> <20140731143100.GA3834@redhat.com> <20140731143725.GA3875@redhat.com> <53DB705F.2000405@redhat.com> <53DB76A9.8010305@redhat.com> <53E079C8.7050700@huawei.com> <20140805094957.GB24619@redhat.com> <53E0CAA4.8010303@huawei.com> <53E37561.5060302@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
-	Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	Kevin Hilman <khilman@linaro.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, qinchuanyu@huawei.com,
+	liuyongan@huawei.com, davem@davemloft.net
+To: "Zhangjie (HZ)" <zhangjie14@huawei.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:33597 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755211AbaHNIwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 04:52:32 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:8128 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754770AbaHNI5y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2014 04:57:54 -0400
+In-Reply-To: <53E37561.5060302@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Simon,
+On 08/07/2014 08:47 PM, Zhangjie (HZ) wrote:
+> On 2014/8/5 20:14, Zhangjie (HZ) wrote:
+>> On 2014/8/5 17:49, Michael S. Tsirkin wrote:
+>>> On Tue, Aug 05, 2014 at 02:29:28PM +0800, Zhangjie (HZ) wrote:
+>>>> Jason is right, the new order is not the cause of network unreachable.
+>>>> Changing order seems not work. After about 40 times, the problem occurs again.
+>>>> Maybe there is other hidden reasons for that.
+>> I modified the code to change the order myself yesterday.
+>> This result is about my code.
+>>> To make sure, you tested the patch that I posted to list:
+>>> "vhost_net: stop guest notifiers after backend"?
+>>>
+>>> Please confirm.
+>>>
+>> OK, I will test with your patch "vhost_net: stop guest notifiers after backend".
+>>
+> Unfortunately, after using the patch "vhost_net: stop guest notifiers after backend",
+> Linux VMs stopt themselves a few minutes after they were started.
+>> @@ -308,6 +308,12 @@ int vhost_net_start(VirtIODevice *dev, NetClientState *ncs,
+>>         goto err;
+>>     }
+>>
+>> +    r = k->set_guest_notifiers(qbus->parent, total_queues * 2, true);
+>> +    if (r < 0) {
+>> +        error_report("Error binding guest notifier: %d", -r);
+>> +        goto err;
+>> +    }
+>> +
+>>     for (i = 0; i < total_queues; i++) {
+>>         r = vhost_net_start_one(get_vhost_net(ncs[i].peer), dev, i * 2);
+>>
+>> @@ -316,12 +322,6 @@ int vhost_net_start(VirtIODevice *dev, NetClientState *ncs,
+>>         }
+>>     }
+>>
+>> -    r = k->set_guest_notifiers(qbus->parent, total_queues * 2, true);
+>> -    if (r < 0) {
+>> -        error_report("Error binding guest notifier: %d", -r);
+>> -        goto err;
+>> -    }
+>> -
+>>     return 0;
+> I wonder if k->set_guest_notifiers should be called after "hdev->started = true;" in vhost_dev_start.
 
-(taking this to netdev for the crash in smsc911x_suspend())
+Michael, can we just remove those assertions? Since you may want to set
+guest notifiers before starting the backend.
 
-On Thu, Aug 14, 2014 at 8:16 AM, Simon Horman <horms@verge.net.au> wrote:
-> while this may be part of the puzzle my light testing shows
-> that suspend-to-ram does not appear to work with this patch applied.
+Another question for virtio_pci_vector_poll(): why not using
+msix_notify() instead of msix_set_pending(). If so, there's no need to
+change the vhost_net_start() ?
 
-Thanks for testing!
+Zhang Jie, is this a regression? If yes, could you please do a bisection
+to find the first bad commit.
 
-> My procedure is as followw.
->
-> 1. Apply this patch on top of renesas-devel-v3.16-20140811
-> 2. make bockw_defconfig
-> 3. Select CONFIG_SUSPEND
-> 4. Update r8a7778-bockw.dts to include no_console_suspend in bootargs
-
-Alternative:
-
-echo 0 > /sys/module/printk/parameters/console_suspend
-
-> 4. Boot and then:
->
->    i. echo enabled > /sys/devices/platform/sh-sci.0/tty/ttySC0/power/wakeup
->    ii. echo mem > /sys/power/wakeup_count
-
-Uh?
-
-echo mem > /sys/power/state
-
-> root@debian:~# echo mem > /sys/power/wakeup_count
-> -bash: echo: write error: Invalid argument
-
-I guess there's an "echo mem > /sys/power/state" here?
-
-> INIT: Id "2" respawning too fast: disabled for 5 minutes
-> INIT: Id "1" respawning too fast: disabled for 5 minutes
-> ate
-> PM: Syncing filesystems ... done.
-> Freezing user space processes ... (elapsed 0.002 seconds) done.
-> Freezing remaining freezable tasks ... (elapsed 0.002 seconds) done.
-> rtc-rx8581 0-0051: low voltage detected, date/time is not reliable.
-> Unable to handle kernel NULL pointer dereference at virtual address 00000620
-> pgd = cfbec000
-> [00000620] *pgd=6fbd1831, *pte=00000000, *ppte=00000000
-> Internal error: Oops: 17 [#1] ARM
-> CPU: 0 PID: 1591 Comm: bash Not tainted 3.16.0-00001-g535da58-dirty #44
-> task: cfaa54c0 ti: cfaa8000 task.ti: cfaa8000
-> PC is at smsc911x_suspend+0x18/0x3c
-> LR is at dpm_run_callback.isra.11+0x24/0x50
-> pc : [<c01d588c>]    lr : [<c019c004>]    psr: a0000093
-> sp : cfaa9d98  ip : cfaa9db0  fp : cfaa9dac
-> r10: 00000000  r9 : c03fbe78  r8 : 00000000
-> r7 : cfa24474  r6 : c0426b7c  r5 : c01d5874  r4 : a0000013
-> r3 : 00000000  r2 : 00000000  r1 : cfa24440  r0 : 00000000
-
-drivers/net/ethernet/smsc/smsc911x.c:
-
-static int smsc911x_suspend(struct device *dev)
-{
-        struct net_device *ndev = dev_get_drvdata(dev);
-
-So ndev == NULL, boom!
-
-        struct smsc911x_data *pdata = netdev_priv(ndev);
-
-        /* enable wake on LAN, energy detection and the external PME
-         * signal. */
-        smsc911x_reg_write(pdata, PMT_CTRL,
-                PMT_CTRL_PM_MODE_D1_ | PMT_CTRL_WOL_EN_ |
-                PMT_CTRL_ED_EN_ | PMT_CTRL_PME_EN_);
-
-        return 0;
-}
-
-However, I don't immediately see how this can be NULL.
-smsc911x_drv_probe() does call "platform_set_drvdata(pdev, dev);".
-
-And
-
-        struct net_device *ndev = dev_get_drvdata(dev);
-
-should be equivalent to
-
-        struct platform_device *pdev = to_platform_device(dev);
-        struct net_device *ndev = platform_get_drvdata(pdev);
-
-Another SMSC driver, drivers/net/ethernet/smsc/smc91x.c has an explicit
-NULL-check for ndev:
-
-static int smc_drv_resume(struct device *dev)
-{
-        struct platform_device *pdev = to_platform_device(dev);
-        struct net_device *ndev = platform_get_drvdata(pdev);
-
-        if (ndev) {
-                struct smc_local *lp = netdev_priv(ndev);
-                ....
-        }
-        return 0;
-}
-
-But other drivers like igb don't.
-
-Anyone with a clue? Thanks!
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Thanks
