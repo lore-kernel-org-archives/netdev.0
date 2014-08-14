@@ -1,52 +1,58 @@
-From: Tom Herbert <therbert@google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Performance regression on kernels 3.10 and newer
-Date: Thu, 14 Aug 2014 16:25:53 -0700
-Message-ID: <CA+mtBx-c0HCAES9PCyGn7cChZsX0KaLgdziFL_e1iRmkdG0dsQ@mail.gmail.com>
+Date: Thu, 14 Aug 2014 16:48:13 -0700
+Message-ID: <1408060093.6804.44.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <53ECFDAB.5010701@intel.com>
-	<1408041962.6804.31.camel@edumazet-glaptop2.roam.corp.google.com>
-	<53ED4354.9090904@intel.com>
-	<20140814.162024.2218312002979492106.davem@davemloft.net>
+	 <1408041962.6804.31.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <53ED4354.9090904@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:40401 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754446AbaHNXZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 19:25:54 -0400
-Received: by mail-ig0-f176.google.com with SMTP id hn18so433589igb.15
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 16:25:54 -0700 (PDT)
-In-Reply-To: <20140814.162024.2218312002979492106.davem@davemloft.net>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:52100 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754446AbaHNXsP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 19:48:15 -0400
+Received: by mail-pa0-f44.google.com with SMTP id eu11so2501767pac.17
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 16:48:14 -0700 (PDT)
+In-Reply-To: <53ED4354.9090904@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 14, 2014 at 4:20 PM, David Miller <davem@davemloft.net> wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> Date: Thu, 14 Aug 2014 16:16:36 -0700
->
->> Are you sure about each socket having it's own DST?  Everything I see
->> seems to indicate it is somehow associated with IP.
->
-> Right it should be, unless you have exception entries created by path
-> MTU or redirects.
->
-> WRT prequeue, it does the right thing for dumb apps that block in
-> receive.  But because it causes the packet to cross domains as it
-> does, we can't do a lot of tricks which we normally can do, and that's
-> why the refcounting on the dst is there now.
->
-> Perhaps we can find a clever way to elide that refcount, who knows.
+On Thu, 2014-08-14 at 16:16 -0700, Alexander Duyck wrote:
+> On 08/14/2014 11:46 AM, Eric Dumazet wrote:
+> > In real life, applications do not use prequeue, because nobody wants one
+> > thread per flow.
+> 
+> I still say this is just an argument to remove it.  It looks like you
+> submitted a patch to allow stripping it from the build about 7 years go.
+>  I assume it was rejected.
+> 
+> > Each socket has its own dst now route cache was removed, but if your
+> > netperf migrates cpu (and NUMA node), we do not detect the dst should be
+> > re-created onto a different NUMA node.
+> 
+> Are you sure about each socket having it's own DST?  Everything I see
+> seems to indicate it is somehow associated with IP.  For example I can
+> actually work around the issue by setting up a second subnet on the same
+> port and then running the tests with each subnet affinitized to a
+> specific node.
 
-I don't know if it's the same problem, but I did post a patch back in
-January that would resolve false sharing of dst->__refcnt and rt_genid
-in the same cacheline. We could revisit that if it helps.
+Here is the thing
 
-Tom
+nh_pcpu_rth_output is a per cpu cache.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+But nh_rth_input is not, because we did not optimize the case where dst
+has to be refcounted, yet.
+
+Rationale is explained in d26b3a7c4b3b26319f18bb645de93eba8f4bdcd5
+("ipv4: percpu nh_rth_output cache")
+
+If you guys really believe we should have a percpu dst, go for it, but
+again, if the softirq handler runs on a different cpu than the
+application thread, it wont work.
+
+And, given 72 core servers are now on the way, we'll consume more ram,
+for netperf users.
