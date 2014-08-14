@@ -1,39 +1,44 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Performance regression on kernels 3.10 and newer
-Date: Thu, 14 Aug 2014 13:46:02 -0700
-Message-ID: <1408049162.6804.36.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Thu, 14 Aug 2014 13:51:06 -0700
+Message-ID: <1408049466.6804.40.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <53ECFDAB.5010701@intel.com>
 	 <1408041962.6804.31.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <53ED1516.6020801@hp.com>
+	 <53ED1516.6020801@hp.com> <53ED1CB2.7050006@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+Cc: Rick Jones <rick.jones2@hp.com>,
 	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:51425 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752493AbaHNUqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 16:46:04 -0400
-Received: by mail-pd0-f174.google.com with SMTP id fp1so2184131pdb.19
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 13:46:03 -0700 (PDT)
-In-Reply-To: <53ED1516.6020801@hp.com>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:43538 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752493AbaHNUvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 16:51:08 -0400
+Received: by mail-pd0-f173.google.com with SMTP id w10so2199974pde.18
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 13:51:07 -0700 (PDT)
+In-Reply-To: <53ED1CB2.7050006@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-08-14 at 12:59 -0700, Rick Jones wrote:
+On Thu, 2014-08-14 at 13:31 -0700, Alexander Duyck wrote:
 
-> Presumably, the -T $i,$j option in Alex's netperf command lines will 
-> have bound netperf and netserver to a specific CPU where they will have 
-> remained.
+> My concern here is that netperf is a standard tool to use for testing
+> network performance, and the kernel default is to run with
+> tcp_low_latency disabled.  As such the prequeue is a part of the
+> standard path is it not?  If the prequeue isn't really useful anymore
+> should we consider pulling it out of the kernel, or disabling it by
+> making tcp_low_latency the default?
 
-Thats the problem.
+Feel free to use netperf, but please do not complain if linux kernel is
+not optimized for netperf, using a 20 years old application design (one
+thread per flow)
 
-Softirq are receiving packets from other cpus. (RX queue X is handling
-packets and one cpu is generally draining RX queue X and feed stack with
-packets)
+prequeue only works when few TCP flows are active.
 
-With RFS, RX path of IP and TCP stack would been handled by cpu Y (where
-user thread is bound)
+For dozen of active flows, then you probably need some tweaks,
+like the ones in Documentation/networking/scaling.txt
+
+Then, prequeue or not, you would not notice.
