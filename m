@@ -1,38 +1,44 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net-next 1/2] qlge: Fix compilation warning
-Date: Thu, 14 Aug 2014 14:31:07 -0700 (PDT)
-Message-ID: <20140814.143107.519984079758340157.davem@redhat.com>
-References: <1407953289-23460-1-git-send-email-harish.patil@qlogic.com>
-	<1407953289-23460-2-git-send-email-harish.patil@qlogic.com>
+Subject: Re: [PATCH net] macvlan: Fix the bug when destroy macvlan dev port
+Date: Thu, 14 Aug 2014 14:32:36 -0700 (PDT)
+Message-ID: <20140814.143236.466435177296125156.davem@redhat.com>
+References: <53EC7D8C.6060908@huawei.com>
+	<CAHA+R7MarK5Jx4ZVmyAnQp-DZ6aRNi=rqd3aKBW7OnB8YWsrbQ@mail.gmail.com>
+	<1408037910.6804.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept-GELinuxNICDev@qlogic.com,
-	sudarsana.kalluru@qlogic.com
-To: harish.patil@qlogic.com
+Cc: cwang@twopensource.com, dingtianhong@huawei.com,
+	jacob.e.keller@intel.com, kaber@trash.net, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3568 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40113 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754251AbaHNVbK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2014 17:31:10 -0400
-In-Reply-To: <1407953289-23460-2-git-send-email-harish.patil@qlogic.com>
+	id S932132AbaHNVcv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2014 17:32:51 -0400
+In-Reply-To: <1408037910.6804.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harish Patil <harish.patil@qlogic.com>
-Date: Wed, 13 Aug 2014 14:08:08 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 14 Aug 2014 10:38:30 -0700
 
-> From: Harish Patil <harish.patil@qlogic.com>
+> On Thu, 2014-08-14 at 09:58 -0700, Cong Wang wrote:
+>> On Thu, Aug 14, 2014 at 2:12 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+>> >
+>> > To fix this problem, we need to check whether the port is exist when calling
+>> > macvlan_port_destroy(), do nothing if the port has been destroyed yet.
+>> >
+>> 
+>> As I said, this will make the first call of macvlan_port_destroy()
+>> free the port,
+>> which was freed by the last one before.
+>> 
+>> Why not just revert your change? It doesn't give any benefit.
+>> --
 > 
-> Fix the below warning message observed during qlge compilation:
-> qlge_main.c:1754: warning: 'lbq_desc' may be used uninitialized in this function
-> 
-> Signed-off-by: Harish Patil <harish.patil@qlogic.com>
+> Yes please, I think patch should be reverted.
 
-Please fix this differently.  The problem is that the compiler can't see that
-you've done the !length check at the top of the function, so when it later
-sees the while (length > 0) loop, it doesn't know that this loop will always
-execute at least once.
+I agree, this should be reverted, I'm going to do it myself.
 
-Just change that loop to a do { } while() loop and the compiler will be able
-to see everything.
+ 
