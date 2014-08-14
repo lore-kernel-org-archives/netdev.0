@@ -1,65 +1,40 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] tcp: don't allow syn packets without timestamps to
- pass tcp_tw_recycle logic
-Date: Thu, 14 Aug 2014 20:39:23 +0200
-Message-ID: <1408041563.25187.1.camel@localhost>
-References: <69ff43477a795a1117302b11583bc8ea8c5dc811.1407802666.git.hannes@stressinduktion.org>
-	 <20140811.200807.1174604291924802129.davem@davemloft.net>
-	 <1407830922.3313272.151751729.150ABE1E@webmail.messagingengine.com>
-	 <1408009065.2751.6.camel@localhost>
-	 <1408030715.6804.21.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net] tcp: fix tcp_release_cb() to dispatch via address
+ family for mtu_reduced()
+Date: Thu, 14 Aug 2014 20:39:33 +0200
+Message-ID: <1408041573.25187.2.camel@localhost>
+References: <1408034405-30596-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	fw@strlen.de
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Eric Dumazet <edumazet@google.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [66.111.4.27] ([66.111.4.27]:59032 "EHLO
+Received: from [66.111.4.27] ([66.111.4.27]:60130 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752879AbaHNSkB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 14:40:01 -0400
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by gateway1.nyi.internal (Postfix) with ESMTP id 9D6982342C
-	for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 14:39:25 -0400 (EDT)
-In-Reply-To: <1408030715.6804.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	by vger.kernel.org with ESMTP id S1754585AbaHNSkL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 14:40:11 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by gateway1.nyi.internal (Postfix) with ESMTP id 219A2242D7
+	for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 14:39:46 -0400 (EDT)
+In-Reply-To: <1408034405-30596-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Do, 2014-08-14 at 08:38 -0700, Eric Dumazet wrote:
-> On Thu, 2014-08-14 at 11:37 +0200, Hannes Frederic Sowa wrote:
+On Do, 2014-08-14 at 12:40 -0400, Neal Cardwell wrote:
+> Make sure we use the correct address-family-specific function for
+> handling MTU reductions from within tcp_release_cb().
 > 
-> > did you have a chance to look at this patch again?
-> > 
-> > I found this during code review. Non time stamped SYN packets could
-> > eventually trigger the completion of a 3WHS even though we had
-> > tw_recycle enabled and the SYN arrived in a TCP_PAWS_MSL of this host
-> > period.
+> Previously AF_INET6 sockets were incorrectly always using the IPv6
+> code path when sometimes they were handling IPv4 traffic and thus had
+> an IPv4 dst.
 > 
-> 
-> > 
-> > I don't want to make this feature more general usable (without time
-> > stamps), they are absolutely required. It just adds protection against
-> > accidental 3WHS completion of 3WHS if a packet without time stamps
-> > arrived.
-> > 
-> > I don't have a strong opinion on that but it just seems to be natural,
-> > as we also conditional schedule the timeout for the tw buckets depending
-> > on if we saw time stamps on the prior connection.
-> 
-> I believe this patch gives a wrong sense of comfort, and honestly this
-> is caused by its changelog.
-> 
-> Sane people should not use tw_recycle, and eventually we should remove
-> its support.
-> 
-> Your changelog is misleading because it could give bad incentive about
-> _using_ tw_recycle.
-> 
-> Please rephrase it so that no doubt is possible.
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Diagnosed-by: Willem de Bruijn <willemb@google.com>
+> Fixes: 563d34d057862 ("tcp: dont drop MTU reduction indications")
 
-Yep, I also thought the changelog might be too poor after your response.
-Will resend soon with updated changelog.
+Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Thanks,
-Hannes
+Thanks!
