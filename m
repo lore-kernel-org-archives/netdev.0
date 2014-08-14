@@ -1,43 +1,34 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: Intel wireless microcode problem..
-Date: Thu, 14 Aug 2014 10:46:38 -0600
-Message-ID: <CA+55aFwhjkhwa+fNE7ZQm_0H0gpjgMNo=C8Cqa6byJUYaq80Jw@mail.gmail.com>
-References: <CA+55aFxdt-9e9X0EYCu2Ku8sSTspUGPk5qKa72XH63zrkdPthw@mail.gmail.com>
-	<53ECD8D0.4050709@lwfinger.net>
-	<CA+55aFw1LWO+zxePYtUBi9YOWHPX+98xbM2h3j4pcN+6V0G1zA@mail.gmail.com>
-	<0BA3FCBA62E2DC44AF3030971E174FB31B266E67@hasmsx107.ger.corp.intel.com>
-	<CANUX_P2KXKO9UcJbF1TniP64uY6ZJY2SqbKsoEsNqDTT0KFhdw@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net] macvlan: Fix the bug when destroy macvlan dev port
+Date: Thu, 14 Aug 2014 09:58:21 -0700
+Message-ID: <CAHA+R7MarK5Jx4ZVmyAnQp-DZ6aRNi=rqd3aKBW7OnB8YWsrbQ@mail.gmail.com>
+References: <53EC7D8C.6060908@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Emmanuel Grumbach <egrumbach@gmail.com>
+Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f180.google.com ([209.85.220.180]:42653 "EHLO
-	mail-vc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751676AbaHNQqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 12:46:39 -0400
-In-Reply-To: <CANUX_P2KXKO9UcJbF1TniP64uY6ZJY2SqbKsoEsNqDTT0KFhdw@mail.gmail.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:57990 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751131AbaHNQ6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 12:58:23 -0400
+Received: by mail-lb0-f174.google.com with SMTP id c11so1062924lbj.5
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 09:58:21 -0700 (PDT)
+In-Reply-To: <53EC7D8C.6060908@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 14, 2014 at 10:34 AM, Emmanuel Grumbach <egrumbach@gmail.com> wrote:
+On Thu, Aug 14, 2014 at 2:12 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
 >
-> Ok - I think I have a fix. I could reproduce your problem and I verified my fix.
+> To fix this problem, we need to check whether the port is exist when calling
+> macvlan_port_destroy(), do nothing if the port has been destroyed yet.
+>
 
-Yes. The patch didn't apply for me (maybe whitespace damage, maybe you
-have other changes there too), but I commented out the
-WIPHY_FLAG_SUPPORTS_SCHED_SCAN flag setting, and things seem to work
-much better for me now. Of course, maybe I was lucky, but it seemed to
-happen pretty much all the time when looking for access points before.
+As I said, this will make the first call of macvlan_port_destroy()
+free the port,
+which was freed by the last one before.
 
-So you can add a tested-by from me if you haven't already committed things.
-
-Thanks,
-
-       Linus
+Why not just revert your change? It doesn't give any benefit.
