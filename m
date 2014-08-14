@@ -1,39 +1,77 @@
-From: Yoann Juet <veilletechno-irts@univ-nantes.fr>
-Subject: Re: ixgbe: SR-IOV, macvlan filter on VFs
-Date: Thu, 14 Aug 2014 17:56:52 +0200
-Message-ID: <53ECDC44.5030300@univ-nantes.fr>
-References: <53ECA5C9.2020904@univ-nantes.fr> <53ECCC01.4050400@gmail.com> <53ECD560.4000700@univ-nantes.fr> <53ECD82B.6080209@intel.com>
-Reply-To: Yoann Juet <veilletechno-irts@univ-nantes.fr>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: Intel wireless microcode problem..
+Date: Thu, 14 Aug 2014 15:56:13 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB31B266E67@hasmsx107.ger.corp.intel.com>
+References: <CA+55aFxdt-9e9X0EYCu2Ku8sSTspUGPk5qKa72XH63zrkdPthw@mail.gmail.com>
+	<53ECD8D0.4050709@lwfinger.net>
+ <CA+55aFw1LWO+zxePYtUBi9YOWHPX+98xbM2h3j4pcN+6V0G1zA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Yoann Juet <yoann.juet@univ-nantes.fr>
-To: John Fastabend <john.r.fastabend@intel.com>,
-	John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtptls2-lmb.cpub.univ-nantes.fr ([193.52.103.111]:58243 "EHLO
-	smtp-tls.univ-nantes.fr" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755214AbaHNP4j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 11:56:39 -0400
-In-Reply-To: <53ECD82B.6080209@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Berg, Johannes" <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"Linux Wireless List" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+55aFw1LWO+zxePYtUBi9YOWHPX+98xbM2h3j4pcN+6V0G1zA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> Right this seems to be the case. My guess is libvirt uses the IFLA_VF_MAC
-> attribute to set the MAC from the host side. After this is done the PF
-> driver will deny any additional MAC requests from the VF which is where
-> you get that error message.
->
-> I need to check the libvirt theory but if that is the case I'm not sure
-> what the best fix off hand is. Maybe an option to libvirt not to set the
-> MAC via the PF. The other option would be to add another knob to allow the
-> setting of MAC addrs from the VF via 'ip link' similar to the TX spoofing
-> bit already in place. Both would presumably resolve your use case.
->
-> .John
-
-Thanks a lot for your assistance John. Hope that a fix will be found 
-regarding this issue.
-
-Yoann.
+PiA+DQo+ID4gVGhlcmUgaXMgYSBuZXcgZmlybXdhcmUgdGhhdCBzZWVtcyB0byBoZWxwIHRoZSBw
+cm9ibGVtLiBZb3UgY2FuIGdldCBpdA0KPiA+IGZyb20gRW1tYW51ZWwncyBnaXQgY2xvbmUuIEFz
+IGhlIHdyb3RlIGVhcmxpZXINCj4gDQo+IFNvIHF1aXRlIGZyYW5rbHksIHRoaXMgaXMgKm5vdCog
+YWNjZXB0YWJsZS4gV2UgaGF2ZSByZWdyZXNzaW9uIHBvbGljaWVzIGZvciB0aGUNCj4ga2VybmVs
+LCBhbmQgdGhpcyBzZWVtcyB0byBiZSBhIGtlcm5lbCByZWdyZXNzaW9uIHdpdGggdGhlIGN1cnJl
+bnRseSByZWxlYXNlZA0KPiBmaXJtd2FyZS4gQW5kIEknbSBub3QgZG93bmxvYWRpbmcgZXhwZXJp
+bWVudGFsIGZpcm13YXJlIHdoaWxlIHRyYXZlbGluZw0KPiB3aXRoIHRoaXMgbGFwdG9wIGJlaW5n
+IG15IG9ubHkgd2F5IHRvIHdvcmsuDQo+IA0KPiBUaGUgd2FybmluZ3MgY2F1c2UgKnNvKiBtdWNo
+IG1lc3NhZ2UgbG9nIHNwYW0gdGhhdCB0aGUgbWFjaGluZSBpcw0KPiBvY2Nhc2lvbmFsbHkgc3Bl
+bmRpbmcgNSUgb2YgQ1BVIHRpbWUgb24gc3lzdGVtZCBqb3VybmFsaW5nLCBhbmQNCj4gcHJlc3Vt
+YWJseSBmaWxsaW5nIHVwIGRpc2sgc3BhY2UgdG9vLg0KPiANCj4gQW5kIHRoZSBzYW1lIHdheSB3
+ZSBkb24ndCB0ZWxsIHBlb3BsZSAidXBkYXRlIHlvdXIgYnVnZ3kgdXNlciBzcGFjZSINCj4gd2hl
+biB3ZSBpbnRyb2R1Y2Uga2VybmVsIHJlZ3Jlc3Npb25zLCB3ZSBkb24ndCB0ZWxsIHBlb3BsZSAi
+dHJ5IGEgbmV3DQo+IGZpcm13YXJlIi4NCj4gDQo+IFBlb3BsZSB3aG8gaGF2ZSBvbGQgc3lzdGVt
+cyAob2xkIGRpc3RyaWJ1dGlvbnMsIG9sZCBmaXJtd2FyZSwgb2xkIGhhcmR3YXJlLA0KPiBvbGQg
+KmFueXRoaW5nKikgdGhhdCB3b3JrcyB3aXRoIHRoZWlyIHByZXZpb3VzIGtlcm5lbCwgYXJlIHN1
+cHBvc2VkIHRvIGJlDQo+IGFibGUgdG8gdXBncmFkZSB0aGVpciBrZXJuZWwgd2l0aCBubyByZWdy
+ZXNzaW9ucy4NCj4gVGhhdCdzIHRoZSBydWxlcyBmb3IgdGhlIGtlcm5lbCwgYW5kIHRoYXQncyB3
+aGF0IHRoZSBydWxlcyBoYXZlIGJlZW4gZm9yIGEgbG9uZw0KPiB0aW1lLiBLZXJuZWwgZGV2ZWxv
+cGVycyAtIGluY2x1ZGluZyB3aXJlbGVzcyBkcml2ZXIgd3JpdGVycw0KPiAtIGhhZCBiZXR0ZXIg
+dW5kZXJzdGFuZCB0aGF0IHJ1bGUuIEl0J3MgdGhlIGFic29sdXRlICMxIHJ1bGUgd2hlbiBpdCBj
+b21lcyB0bw0KPiBrZXJuZWwgZGV2ZWxvcG1lbnQuIFRoaXMgaXMgbm90IHNvbWV0aGluZyBuZXcg
+YW5kIHN1cnByb3NpbmcuDQo+IA0KPiBUaGUgaW5zYW5lIGFtb3VudCBvZiBsb2dnaW5nIG5lZWRz
+IHRvIGJlIGZpeGVkLiBUaGUgd2lyZWxlc3MgKndvcmtzKiwgYnV0DQo+IHRoZSBsb2dnaW5nIGlz
+IHRvbyB2ZXJib3NlLg0KPiANCj4gTm93LCBtYXliZSB0aGlzIGlzbid0IGFjdHVhbGx5IGEga2Vy
+bmVsIHJlZ3Jlc3Npb24gYXQgYWxsIC0gbWF5YmUgdHJpZ2dlcmVkIGJ5DQo+IHRoZSBob3JyaWQg
+aW50ZXJuZXQgSSBoYXZlIHdoaWxlIHRyYXZlbGluZyAtIGJ1dCBJIHRyaWVkIHR3aWNlLCBhbmQg
+d2hlbiBJDQo+IGJvb3RlZCBpbnRvIHRoZSByZWd1bGFyIEZlZG9yYSBrZXJuZWwgZm9yIHRlc3Rp
+bmcgKG9oLCBqdXN0IG5vdGljZWQgdGhhdCBpdCdzDQo+IDMuMTUuOCwgbm90IDMuMTYtYmFzZWQp
+LCBJIGRpZG4ndCBzZWUgdGhpcyBraW5kIG9mIGxvZyBzcGFtbWluZy4gU28gaXQgbG9va3MgbGlr
+ZQ0KPiBhIHJlZ3Jlc3Npb24gdG8gbWUsIGFuZCB3ZSBoYXZlIHJ1bGVzIGFib3V0IHJlZ3Jlc3Np
+b25zLiBBbmQgdGhleSBhcmUganVzdA0KPiBhYm91dCB0aGUgT05MWSBoYXJkIHJ1bGVzIHdlIGhh
+dmUuIEJ1dCB0aGF0IHJlZ3Jlc3Npb24gcnVsZSByZWFsbHkgaXMgdmVyeQ0KPiB2ZXJ5IGltcG9y
+dGFudCBpbmRlZWQuDQo+IA0KPiBUaGUgd2lyZWxlc3MgKndvcmtzKiB3aXRoIHRoZSBjdXJyZW50
+IGZpcm13YXJlLCBzbyBhbGwgdGhhdCBpcyByZXF1aXJlZCBpcyB0bw0KPiBtYWtlIHN1cmUgdGhh
+dCB0aGUga2VybmVsIHN0b3BzIHNwYW1taW5nIHRoZSBsb2dzIHNvIGhlYXZpbHkuIEl0IHdvdWxk
+DQo+IG9idmlvdXNseSBiZSBiZXR0ZXIgdG8gdHJ5IHRvIGZpZ3VyZSBvdXQgKndoeSogdGhlIG1p
+Y3JvY29kZSBlcnJvciBoYXBwZW5zLA0KPiBhbmQgd2hhdCBjaGFuZ2VkIGluIHRoZSBrZXJuZWwg
+dG8gdHJpZ2dlciBpdCwgYnV0IHRoZSAiZG9uJ3QgbWFrZSB0aGUNCj4gbWFjaGluZSBoYXZlIHRy
+b3VibGUgd2l0aCB0aGUgaW5zYW5lIGFtb3VudCBvZiBsb2dzIiBpcyBhdCBsZWFzdCBhbg0KPiBh
+Y2NlcHRhYmxlIHdvcmthcm91bmQuDQo+IA0KPiBPaz8NCj4gDQpBcyBJIHNhaWQsIEkgYW0gdHly
+aW5nIHRvIHJlcHJvIHJpZ2h0IG5vdyAtIHlvdSBhcmUgMTAwJSByaWdodCB3ZSBhcmUgZnVsbHkg
+Y29tbWl0dGVkIHRvIG1ha2UgdGhlIGN1cnJlbnQgZmlybXdhcmUgd29yay4gVGhlICJleHBlcmlt
+ZW50YWwiIGZpcm13YXJlIGlzIGp1c3QgYSBmaXJtd2FyZSB3aXRoIGEgdmVyc2lvbiBwcm9ibGVt
+IC0gdGhpcyBpcyB3aHkgSSBkaWRuJ3QgcmVsZWFzZSBpdCBmb3JtYWxseS4gWW91IGNhbiBzYWZl
+bHkgdXNlIGl0IHVudGlsIHdlIGZpeCB0aGUgcHJvYmxlbS4NCkFuZCB3ZSB3aWxsIGZpeCBpdC4N
+CkFuZCBubyAtIGl0IGlzIG5vdCByZWxhdGVkIHRvIHRoZSBpbnRlcm5ldCAtIHRoaXMgaXMgc3Vy
+ZWx5IGEgYnVnIGluIG91ciBkcml2ZXIgLyBmaXJtd2FyZSBpbnRlcmZhY2UuIEkgYW0gY3VycmVu
+dGx5IHRyeWluZyB0byBzZWUgaG93IEkgY2FuIGZpeCBpdCAtIGJ1dCBJIGFtIGFsc28gdHJhdmVs
+bGluZy4uLg0K
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
