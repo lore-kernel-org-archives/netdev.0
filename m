@@ -1,77 +1,64 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next v3 3/3] enic: Add tunable_ops support for rx_copybreak
-Date: Thu, 14 Aug 2014 14:59:20 +0530
-Message-ID: <1408008560-1067-4-git-send-email-_govind@gmx.com>
-References: <1408008560-1067-1-git-send-email-_govind@gmx.com>
-Cc: ben@decadent.org.uk, stephen@networkplumber.org, ssujith@cisco.com,
-	benve@cisco.com, Govindarajulu Varadarajan <_govind@gmx.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [PATCH] sit: Fix ipip6_tunnel_lookup device matching criteria
+Date: Thu, 14 Aug 2014 12:32:09 +0300
+Message-ID: <1408008729-16982-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: Sascha Hlusiak <contact@saschahlusiak.de>,
+	Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:57637 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754327AbaHNJaX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2014 05:30:23 -0400
-In-Reply-To: <1408008560-1067-1-git-send-email-_govind@gmx.com>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:44919 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752402AbaHNJcy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 05:32:54 -0400
+Received: by mail-wi0-f177.google.com with SMTP id ho1so1991063wib.4
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 02:32:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for setting/getting rx_copybreak using
-tunable_ops.
+As of 4fddbf5d78, when looking up a tunnel, tunnel's underlying
+interface (t->parms.link) is verified to match incoming traffic's
+ingress device.
 
-Defines enic_get_rx_copybreak() & enic_set_rx_copybreak() tunable_ops.
+However the comparison was incorrectly based on skb->dev->iflink.
 
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+Instead, dev->ifindex should be used, which correctly represents the
+interface from which the IP stack hands the ipip6 packets.
+
+This allows setting up sit tunnels bound to vlan interfaces (otherwise
+incoming ipip6 traffic on the vlan interface was dropped due to
+ipip6_tunnel_lookup match failure).
+
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 ---
- drivers/net/ethernet/cisco/enic/enic_ethtool.c | 30 ++++++++++++++++++++++++++
- 1 file changed, 30 insertions(+)
+ net/ipv6/sit.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-index 523c9ce..9bf53fc 100644
---- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-@@ -379,6 +379,30 @@ static int enic_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
- 	return ret;
- }
- 
-+static int enic_get_rx_copybreak(struct net_device *dev,
-+				 struct ethtool_tunable *tuna)
-+{
-+	struct enic *enic = netdev_priv(dev);
-+
-+	if (tuna->len < sizeof(tuna->data.rx_copybreak))
-+		return -ENOSPC;
-+	tuna->data.rx_copybreak = enic->rx_copybreak;
-+
-+	return 0;
-+}
-+
-+static int enic_set_rx_copybreak(struct net_device *dev,
-+				 struct ethtool_tunable *tuna)
-+{
-+	struct enic *enic = netdev_priv(dev);
-+
-+	if (tuna->len != sizeof(tuna->data.rx_copybreak))
-+		return -EINVAL;
-+	enic->rx_copybreak = tuna->data.rx_copybreak;
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops enic_ethtool_ops = {
- 	.get_settings = enic_get_settings,
- 	.get_drvinfo = enic_get_drvinfo,
-@@ -391,6 +415,12 @@ static const struct ethtool_ops enic_ethtool_ops = {
- 	.get_coalesce = enic_get_coalesce,
- 	.set_coalesce = enic_set_coalesce,
- 	.get_rxnfc = enic_get_rxnfc,
-+	.tunable_ops = {
-+		[ETHTOOL_RX_COPYBREAK] = {
-+			.set = enic_set_rx_copybreak,
-+			.get = enic_get_rx_copybreak,
-+		},
-+	},
- };
- 
- void enic_set_ethtool_ops(struct net_device *netdev)
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 2e9ba035fb..6163f851dc 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -101,19 +101,19 @@ static struct ip_tunnel *ipip6_tunnel_lookup(struct net *net,
+ 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r_l[h0 ^ h1]) {
+ 		if (local == t->parms.iph.saddr &&
+ 		    remote == t->parms.iph.daddr &&
+-		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
++		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
+ 		    (t->dev->flags & IFF_UP))
+ 			return t;
+ 	}
+ 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r[h0]) {
+ 		if (remote == t->parms.iph.daddr &&
+-		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
++		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
+ 		    (t->dev->flags & IFF_UP))
+ 			return t;
+ 	}
+ 	for_each_ip_tunnel_rcu(t, sitn->tunnels_l[h1]) {
+ 		if (local == t->parms.iph.saddr &&
+-		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
++		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
+ 		    (t->dev->flags & IFF_UP))
+ 			return t;
+ 	}
 -- 
-2.0.4
+1.9.0
