@@ -1,15 +1,14 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
 Subject: Re: [PATCH RFC v4 net-next 17/26] tracing: allow eBPF programs to be
  attached to events
-Date: Fri, 15 Aug 2014 11:56:12 -0700
-Message-ID: <CAMEtUuzT53jeH-L+saW-RopSR2EERO5UKVHyeORTGHVMCHbYag@mail.gmail.com>
+Date: Fri, 15 Aug 2014 12:02:51 -0700
+Message-ID: <CALCETrUNvg88_VrwE+9RKnSgts=3zVcXbX6tuNLgUxJU436CrQ@mail.gmail.com>
 References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
-	<1407916658-8731-18-git-send-email-ast@plumgrid.com>
-	<CAE40pdf0pNYyazjpdkzxNJi7iC4LOOr_XEu078OUqP_uoCXnHg@mail.gmail.com>
-	<CAMEtUuymPDhYBe42i4DJNXsdgZRaq9LuEU_nGSsqrY1FcFHqhQ@mail.gmail.com>
-	<CALCETrVH8KXr8uSHAVy5eBsqmi1LjB5QZpboAGcjYswXvW1opA@mail.gmail.com>
-	<CAMEtUuzey7PanznrAguOpvPLxyhgJB++ovE8RNys7srs=EY1qg@mail.gmail.com>
-	<CALCETrVhjO5c7ob1vntx031c5RmxRHimkRt1F2EsmzdKB53_NA@mail.gmail.com>
+ <1407916658-8731-18-git-send-email-ast@plumgrid.com> <CAE40pdf0pNYyazjpdkzxNJi7iC4LOOr_XEu078OUqP_uoCXnHg@mail.gmail.com>
+ <CAMEtUuymPDhYBe42i4DJNXsdgZRaq9LuEU_nGSsqrY1FcFHqhQ@mail.gmail.com>
+ <CALCETrVH8KXr8uSHAVy5eBsqmi1LjB5QZpboAGcjYswXvW1opA@mail.gmail.com>
+ <CAMEtUuzey7PanznrAguOpvPLxyhgJB++ovE8RNys7srs=EY1qg@mail.gmail.com>
+ <CALCETrVhjO5c7ob1vntx031c5RmxRHimkRt1F2EsmzdKB53_NA@mail.gmail.com> <CAMEtUuzT53jeH-L+saW-RopSR2EERO5UKVHyeORTGHVMCHbYag@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
@@ -27,29 +26,38 @@ Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
 	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
 	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrVhjO5c7ob1vntx031c5RmxRHimkRt1F2EsmzdKB53_NA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+In-Reply-To: <CAMEtUuzT53jeH-L+saW-RopSR2EERO5UKVHyeORTGHVMCHbYag-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 15, 2014 at 11:50 AM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
-> On Aug 15, 2014 10:36 AM, "Alexei Starovoitov" <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+On Fri, Aug 15, 2014 at 11:56 AM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+> On Fri, Aug 15, 2014 at 11:50 AM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>> On Aug 15, 2014 10:36 AM, "Alexei Starovoitov" <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+>>>
+>>> On Fri, Aug 15, 2014 at 10:20 AM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>>> > The downside of this approach is that compat support might be
+>>> > difficult or impossible.
+>>>
+>>> Would do you mean by compat? 32-bit programs on 64-bit kernels?
+>>> There is no such concept for eBPF. All eBPF programs are always
+>>> operating on 64-bit registers.
 >>
->> On Fri, Aug 15, 2014 at 10:20 AM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
->> > The downside of this approach is that compat support might be
->> > difficult or impossible.
->>
->> Would do you mean by compat? 32-bit programs on 64-bit kernels?
->> There is no such concept for eBPF. All eBPF programs are always
->> operating on 64-bit registers.
+>> Doesn't the eBPF program need to know sizeof(long) to read these
+>> fields correctly?  Or am I misunderstanding what the code does?
 >
-> Doesn't the eBPF program need to know sizeof(long) to read these
-> fields correctly?  Or am I misunderstanding what the code does?
+> correct. eBPF program would be using 8-byte read on 64-bit kernel
+> and 4-byte read on 32-bit kernel. Same with access to ptrace fields
+> and pretty much all other fields in the kernel. The program will be
+> different on different kernels.
+> Say, this bpf_context struct doesn't exist at all. The programs would
+> still need to be different to walk in-kernel data structures...
 
-correct. eBPF program would be using 8-byte read on 64-bit kernel
-and 4-byte read on 32-bit kernel. Same with access to ptrace fields
-and pretty much all other fields in the kernel. The program will be
-different on different kernels.
-Say, this bpf_context struct doesn't exist at all. The programs would
-still need to be different to walk in-kernel data structures...
+Hmm.  I guess this isn't so bad.
+
+What's the actual difficulty with using u64?  ISTM that, if the clang
+front-end can't deal with u64, there's a bigger problem.  Or is it
+something else I don't understand.
+
+--Andy
