@@ -1,70 +1,110 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH net] tipc: fix message importance range
-	check
-Date: Fri, 15 Aug 2014 16:44:35 +0200
-Message-ID: <1408113875-30655-1-git-send-email-erik.hugne@ericsson.com>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH v3 1/3] init / kthread: add module_long_probe_init()
+	and module_long_probe_exit()
+Date: Fri, 15 Aug 2014 16:39:02 +0200
+Message-ID: <20140815143902.GB13222@redhat.com>
+References: <1407882507-325-1-git-send-email-mcgrof@do-not-panic.com> <1407882507-325-2-git-send-email-mcgrof@do-not-panic.com> <20140813175101.GA7156@redhat.com> <20140814231028.GQ21930@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: tipc-discussion@lists.sourceforge.net
-To: <jon.maloy@ericsson.com>, <ying.xue@windriver.com>,
-	<richard.alpe@ericsson.com>, <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	gregkh@linuxfoundation.org, tiwai@suse.de,
+	linux-kernel@vger.kernel.org,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Luis R. Rodriguez" <mcgrof@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140814231028.GQ21930@wotan.suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+On 08/15, Luis R. Rodriguez wrote:
+>
+> On Wed, Aug 13, 2014 at 07:51:01PM +0200, Oleg Nesterov wrote:
+> > On 08/12, Luis R. Rodriguez wrote:
+> > >
+> > > +/* To be used by modules which can take over 30 seconds at probe */
+> >
+> > Probably the comment should explain that this hack should only be
+> > used if the driver is buggy and is wating for "real fix".
+> >
+> > > +#define module_long_probe_init(initfn)				\
+> > > +	static struct task_struct *__init_thread;		\
+> > > +	static int _long_probe_##initfn(void *arg)		\
+> > > +	{							\
+> > > +		return initfn();				\
+> > > +	}							\
+> > > +	static inline __init int __long_probe_##initfn(void)	\
+> > > +	{							\
+> > > +		__init_thread = kthread_run(_long_probe_##initfn,\
+> > > +					    NULL,		\
+> > > +					    #initfn);		\
+> > > +		if (IS_ERR(__init_thread))			\
+> > > +			return PTR_ERR(__init_thread);		\
+> > > +		return 0;					\
+> > > +	}							\
+> > > +	module_init(__long_probe_##initfn);
+> > > +/* To be used by modules that require module_long_probe_init() */
+> > > +#define module_long_probe_exit(exitfn)				\
+> > > +	static inline void __long_probe_##exitfn(void)		\
+> > > +	{							\
+> > > +		exitfn();					\
+> > > +		if (__init_thread)				\
+> > > +			kthread_stop(__init_thread);		\
+> > > +	}							\
+> >
+> > exitfn() should be called after kthread_stop(), and only if initfn()
+> > returns 0. So it should probably do
+> >
+> > 	int err = kthread_stop(__init_thread);
+> > 	if (!err)
+> > 		exitfn();
+>
+> Thanks! With the check for __init_thread as well as it can be
+> ERR_PTR(-ENOMEM), ERR_PTR(-EINTR), or NULL (for whatever other
+> reason).
 
-Commit 3b4f302d8578 ("tipc: eliminate
-redundant locking") introduced a bug by removing the sanity check
-for message importance, allowing programs to assign any value to
-the msg_user field. This will mess up the packet reception logic
-and may cause random link resets.
+Do you mean __long_probe_##exitfn() should also check ERR_PTR(__init_thread)?
+I don't think so. If kthread_run() above fails, module_init() should return
+the error (it does), so module_exit() won't be called.
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
----
- net/tipc/port.h   | 4 +++-
- net/tipc/socket.c | 2 +-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+> > But there is an additional complication, you can't use __init_thread
+> > without get_task_struct(),
+>
+> Can you elaborate why ? kthread_stop() uses get_task_struct(),
 
-diff --git a/net/tipc/port.h b/net/tipc/port.h
-index 3f93454..a69118f 100644
---- a/net/tipc/port.h
-+++ b/net/tipc/port.h
-@@ -179,8 +179,10 @@ static inline int tipc_port_importance(struct tipc_port *port)
- 	return msg_importance(&port->phdr);
- }
- 
--static inline void tipc_port_set_importance(struct tipc_port *port, int imp)
-+static inline int tipc_port_set_importance(struct tipc_port *port, int imp)
- {
-+	if (imp > TIPC_CRITICAL_IMPORTANCE)
-+		return -EINVAL
- 	msg_set_importance(&port->phdr, (u32)imp);
- }
- 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 7d423ee..ff8c811 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -1973,7 +1973,7 @@ static int tipc_setsockopt(struct socket *sock, int lvl, int opt,
- 
- 	switch (opt) {
- 	case TIPC_IMPORTANCE:
--		tipc_port_set_importance(port, value);
-+		res = tipc_port_set_importance(port, value);
- 		break;
- 	case TIPC_SRC_DROPPABLE:
- 		if (sock->type != SOCK_STREAM)
--- 
-1.8.3.2
+This is too late. This task_struct can be already freed/reused. See below.
 
+> wake_up_process() and finally put_task_struct(), and we're the
+> only user of this thread. Also kthread_run() ensures wake_up_process()
+> gets called on startup, so not sure where the race would be provided
+> all users here and with the respective helpers on buggy drivers.
+>
+> > so  __long_probe_##initfn() can't use
+> > kthread_run(). It needs kthread_create() + get_task_struct() + wakeup.
+>
+> I fail to see why we'd need to add get_task_struct() on
+> module_long_probe_init(), can you clarify?
 
-------------------------------------------------------------------------------
+kthread_stop(kthread_run(callback)) is only safe if callback() can not exit
+on its own, without checking kthread_should_stop(). And btw that is why
+kthread_stop() does get_task_struct()).
+
+If callback() can exit (if it calls do_exit() or simply returns), then nothing
+protects this task_struct, it will be freed.
+
+Oleg.
