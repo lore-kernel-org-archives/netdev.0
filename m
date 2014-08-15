@@ -1,106 +1,72 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next,
- v3] hyperv: Increase the buffer length for netvsc_channel_cb()
-Date: Fri, 15 Aug 2014 19:18:19 +0000
-Message-ID: <1408130299-50848-1-git-send-email-haiyangz@microsoft.com>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH RFC v4 net-next 17/26] tracing: allow eBPF programs to be
+ attached to events
+Date: Fri, 15 Aug 2014 12:18:53 -0700
+Message-ID: <CALCETrUqop+UB-BhyX4Y41kELO+6kcFdS1F7ZyN0CzRwg4UGhA@mail.gmail.com>
+References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
+ <1407916658-8731-18-git-send-email-ast@plumgrid.com> <CAE40pdf0pNYyazjpdkzxNJi7iC4LOOr_XEu078OUqP_uoCXnHg@mail.gmail.com>
+ <CAMEtUuymPDhYBe42i4DJNXsdgZRaq9LuEU_nGSsqrY1FcFHqhQ@mail.gmail.com>
+ <CALCETrVH8KXr8uSHAVy5eBsqmi1LjB5QZpboAGcjYswXvW1opA@mail.gmail.com>
+ <CAMEtUuzey7PanznrAguOpvPLxyhgJB++ovE8RNys7srs=EY1qg@mail.gmail.com>
+ <CALCETrVhjO5c7ob1vntx031c5RmxRHimkRt1F2EsmzdKB53_NA@mail.gmail.com>
+ <CAMEtUuzT53jeH-L+saW-RopSR2EERO5UKVHyeORTGHVMCHbYag@mail.gmail.com>
+ <CALCETrUNvg88_VrwE+9RKnSgts=3zVcXbX6tuNLgUxJU436CrQ@mail.gmail.com> <CAMEtUuwF2_+qzkaW6rkw9cyYJ2eb01B_ZyBcwrJ7nd+GqN5-mQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMEtUuwF2_+qzkaW6rkw9cyYJ2eb01B_ZyBcwrJ7nd+GqN5-mQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When the buffer is too small for a packet from VMBus, a bigger buffer will be
-allocated in netvsc_channel_cb() and retry reading the packet from VMBus.
-Increasing this buffer size will reduce the retry overhead.
+On Fri, Aug 15, 2014 at 12:16 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+> On Fri, Aug 15, 2014 at 12:02 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>>>
+>>> correct. eBPF program would be using 8-byte read on 64-bit kernel
+>>> and 4-byte read on 32-bit kernel. Same with access to ptrace fields
+>>> and pretty much all other fields in the kernel. The program will be
+>>> different on different kernels.
+>>> Say, this bpf_context struct doesn't exist at all. The programs would
+>>> still need to be different to walk in-kernel data structures...
+>>
+>> Hmm.  I guess this isn't so bad.
+>>
+>> What's the actual difficulty with using u64?  ISTM that, if the clang
+>> front-end can't deal with u64, there's a bigger problem.  Or is it
+>> something else I don't understand.
+>
+> clang/llvm has no problem with u64 :)
+> This bpf_context struct for tracing is trying to answer the question:
+>  'what's the most convenient way to access tracepoint arguments
+> from a script'.
+> When kernel code has something like:
+>  trace_kfree_skb(skb, net_tx_action);
+> the script needs to be able to access this 'skb' and 'net_tx_action'
+> values through _single_ data structure.
+> In this proposal they are ctx->arg1 and ctx->arg2.
+> I've considered having different bpf_context's for every event, but
+> the complexity explodes. I need to hack all event definitions and so on.
+> imo it's better to move complexity to userspace, so program author
+> or high level language abstracts these details.
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: Dexuan Cui <decui@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h |    4 ++--
- drivers/net/hyperv/netvsc.c     |   16 ++++++++++++++--
- 2 files changed, 16 insertions(+), 4 deletions(-)
+I still don't understand why making them long instead of u64 is
+helpful, though.  I feel like I'm missing obvious here.
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index d5e07de..2f48f79 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -591,7 +591,7 @@ struct nvsp_message {
- 
- #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
- 
--#define NETVSC_PACKET_SIZE                      2048
-+#define NETVSC_PACKET_SIZE                      4096
- 
- #define VRSS_SEND_TAB_SIZE 16
- 
-@@ -642,7 +642,7 @@ struct netvsc_device {
- 	int ring_size;
- 
- 	/* The primary channel callback buffer */
--	unsigned char cb_buffer[NETVSC_PACKET_SIZE];
-+	unsigned char *cb_buffer;
- 	/* The sub channel callback buffer */
- 	unsigned char *sub_cb_buf;
- };
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 66979cf..5b5644a 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -42,6 +42,12 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
- 	if (!net_device)
- 		return NULL;
- 
-+	net_device->cb_buffer = kzalloc(NETVSC_PACKET_SIZE, GFP_KERNEL);
-+	if (!net_device->cb_buffer) {
-+		kfree(net_device);
-+		return NULL;
-+	}
-+
- 	init_waitqueue_head(&net_device->wait_drain);
- 	net_device->start_remove = false;
- 	net_device->destroy = false;
-@@ -52,6 +58,12 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
- 	return net_device;
- }
- 
-+static void free_netvsc_device(struct netvsc_device *nvdev)
-+{
-+	kfree(nvdev->cb_buffer);
-+	kfree(nvdev);
-+}
-+
- static struct netvsc_device *get_outbound_net_device(struct hv_device *device)
- {
- 	struct netvsc_device *net_device;
-@@ -551,7 +563,7 @@ int netvsc_device_remove(struct hv_device *device)
- 	if (net_device->sub_cb_buf)
- 		vfree(net_device->sub_cb_buf);
- 
--	kfree(net_device);
-+	free_netvsc_device(net_device);
- 	return 0;
- }
- 
-@@ -1093,7 +1105,7 @@ close:
- 	vmbus_close(device->channel);
- 
- cleanup:
--	kfree(net_device);
-+	free_netvsc_device(net_device);
- 
- 	return ret;
- }
 -- 
-1.7.1
+Andy Lutomirski
+AMA Capital Management, LLC
