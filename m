@@ -1,46 +1,49 @@
-From: "GVA Abogados." <o.nyvlt@post.cz>
-Subject: Transaction XLK-14-TTF/ESP.
-Date: Fri, 15 Aug 2014 15:10:46 +0200
-Message-ID: <21d7699d437546cdb4b2bbba3d7c3703@i-net.ro>
-Reply-To: gvaintencia@aim.com
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: phy: smsc: move smsc_phy_config_init reset part
+ in a soft_reset function
+Date: Fri, 15 Aug 2014 18:36:39 +0400
+Message-ID: <53EE1AF7.4030206@cogentembedded.com>
+References: <1408089161-94989-1-git-send-email-gwenhael.goavec-merou@armadeus.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from p2.i-net.ro ([193.230.184.10]:18632 "EHLO
-	mail.comtelnetworks.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027AbaHONlZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 09:41:25 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1408089161-94989-1-git-send-email-gwenhael.goavec-merou@armadeus.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Friend,
+Hello.
 
-                  Please acknowledge and accept my proposal.
+On 08/15/2014 11:52 AM, Gwenhael Goavec-Merou wrote:
 
-My name is Barrister Miguel Martinez Moreno, an Attorney at Law, in 
-Alicante-Spain.
+> On the one hand, phy_device.c provides a generic reset function if the phy
+> driver does not provide a soft_reset pointer. This generic reset does not take
+> into account the state of the phy, with a potential failure if the phy is in
+> powerdown mode. On the other hand, smsc driver provides a function with both
+> correct reset behaviour and configuration.
 
-I am writing to notify you of the unclaimed inheritance deposit of our 
-late client, who passed on to Great beyond on August 21st, 2010 in a 
-motor accident in auto pista de Alcala Del Henares, Madrid-Spain.
+> This patch moves the reset part into a new smsc_phy_reset function and provides
+> the soft_reset pointer to have a correct reset behaviour by default.
 
-I got your name and email address through a web search engine in my 
-quest to get a reliable individual who shall work with me in claiming 
-this inheritance deposit since all my efforts to get the biological 
-relative has proved abortive.
+> Signed-off-by: Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>
+> ---
+>   drivers/net/phy/smsc.c | 33 +++++++++++++++++++++------------
+>   1 file changed, 21 insertions(+), 12 deletions(-)
 
-Conclusively, I await your urgent response to include the following :( 
-1).Your full Names & Address. (2).Your Telephone and Fax numbers. 
-(3).Your business name if any: for more information on how to release 
-the inheritance deposit, amount, procedure and legality of this claim 
-send me an email via: gva_abogados@aim.com
+> diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+> index 180c494..fda13f4 100644
+> --- a/drivers/net/phy/smsc.c
+> +++ b/drivers/net/phy/smsc.c
+[...]
+> @@ -142,6 +147,7 @@ static struct phy_driver smsc_phy_driver[] = {
+>   	.config_aneg	= genphy_config_aneg,
+>   	.read_status	= genphy_read_status,
+>   	.config_init	= smsc_phy_config_init,
+> +	.soft_reset		= smsc_phy_reset,
 
-Have a very nice day my friend!
+    Please align with the other ='s above here and below.
 
-Regards,
-Miguel Martinez Moreno (Esq)
-Attorney At Law.
-gvaintencia@aim.com
+WBR, Sergei
