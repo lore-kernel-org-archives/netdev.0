@@ -1,51 +1,40 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: network interfaces called "all", "default" or "config"
-Date: Fri, 15 Aug 2014 10:32:50 -0700
-Message-ID: <CAHA+R7PpGqNYQcGZrsDB2kfmUM7HdXz2=t2PY8XeouF-PoGOFw@mail.gmail.com>
-References: <20140723113314.GA7798@chaz.gmail.com>
-	<53CFCD26.1020409@infradead.org>
-	<CACsCDOP8DOnB0zZtT_WLhiBXjxXh1aH1eGF9_h0dRN1i9YDU-A@mail.gmail.com>
-	<CAHA+R7MLQtYF5vBN0D66Wk8iyGZABf5=Az293gUH6w=4THv8Gw@mail.gmail.com>
-	<CACsCDONU9Zq902rj6aJXGZGnPfAWbxsiFe9mMS8usyyUdTYa9A@mail.gmail.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH RFC v4 net-next 17/26] tracing: allow eBPF programs to be
+ attached to events
+Date: Fri, 15 Aug 2014 10:36:17 -0700
+Message-ID: <CAMEtUuzey7PanznrAguOpvPLxyhgJB++ovE8RNys7srs=EY1qg@mail.gmail.com>
+References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
+	<1407916658-8731-18-git-send-email-ast@plumgrid.com>
+	<CAE40pdf0pNYyazjpdkzxNJi7iC4LOOr_XEu078OUqP_uoCXnHg@mail.gmail.com>
+	<CAMEtUuymPDhYBe42i4DJNXsdgZRaq9LuEU_nGSsqrY1FcFHqhQ@mail.gmail.com>
+	<CALCETrVH8KXr8uSHAVy5eBsqmi1LjB5QZpboAGcjYswXvW1opA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Randy Dunlap <rdunlap@infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephane Chazelas <stephane.chazelas@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:45537 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751116AbaHORcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 13:32:52 -0400
-Received: by mail-la0-f46.google.com with SMTP id b8so2585479lan.33
-        for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 10:32:50 -0700 (PDT)
-In-Reply-To: <CACsCDONU9Zq902rj6aJXGZGnPfAWbxsiFe9mMS8usyyUdTYa9A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALCETrVH8KXr8uSHAVy5eBsqmi1LjB5QZpboAGcjYswXvW1opA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 15, 2014 at 1:33 AM, Stephane Chazelas
-<stephane.chazelas@gmail.com> wrote:
-> Yes, I know  those are also used for the eth0:1 "aliases", but the bug
-> is, since it is allowed to do
->
->     ip link add link eth0 eth0:123 type vlan id 123
->
-> Then the
->
->     ip link del link eth0 eth0:123
->
-> should be allowed as well. Or probably better to avoid confusion
->
->     ip link add link eth0 foo:bar type vlan id 123
->
-> should not be allowed.
->
+On Fri, Aug 15, 2014 at 10:20 AM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+> The downside of this approach is that compat support might be
+> difficult or impossible.
 
-Good point! I think the reason is that in the past we used ioctl()
-to add or remove network interface so kernel just checks that
-code path for name alias, so we probably need to check netlink
-path as well since it makes really little sense that we allow create
-names with a colon but disallow to delete them.
-
-Stephen should know better than me.
+Would do you mean by compat? 32-bit programs on 64-bit kernels?
+There is no such concept for eBPF. All eBPF programs are always
+operating on 64-bit registers.
