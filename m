@@ -1,75 +1,88 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: Re: [PATCH net] net: xgene: Check negative return value of xgene_enet_get_ring_size()
-Date: Fri, 15 Aug 2014 11:45:42 -0700
-Message-ID: <CAKh23F=q8G6QUWXQo0qF-oPks--8CsbRg2fsTg_oXZFR8=DwjA@mail.gmail.com>
-References: <1408017582-1133-1-git-send-email-tklauser@distanz.ch>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: Performance regression on kernels 3.10 and newer
+Date: Fri, 15 Aug 2014 11:49:02 -0700
+Message-ID: <CA+mtBx_aEe6SvWV6tfqzGWcPvVM+FE6kbnyFE5FbECU9HN7EXg@mail.gmail.com>
+References: <53ECFDAB.5010701@intel.com>
+	<1408041962.6804.31.camel@edumazet-glaptop2.roam.corp.google.com>
+	<53ED4354.9090904@intel.com>
+	<20140814.162024.2218312002979492106.davem@davemloft.net>
+	<53EE4023.6080902@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Keyur Chudgar <kchudgar@apm.com>, Ravi Patel <rapatel@apm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Tobias Klauser <tklauser@distanz.ch>
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og106.obsmtp.com ([64.18.0.182]:38799 "HELO
-	exprod5og106.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751122AbaHOSpo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 14:45:44 -0400
-Received: by mail-la0-f52.google.com with SMTP id b17so2583058lan.39
-        for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 11:45:42 -0700 (PDT)
-In-Reply-To: <1408017582-1133-1-git-send-email-tklauser@distanz.ch>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:39294 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751138AbaHOStD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 14:49:03 -0400
+Received: by mail-ig0-f170.google.com with SMTP id h3so3052188igd.3
+        for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 11:49:03 -0700 (PDT)
+In-Reply-To: <53EE4023.6080902@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 14, 2014 at 4:59 AM, Tobias Klauser <tklauser@distanz.ch> wrote:
-> xgene_enet_get_ring_size() returns a negative value in case of an error,
-> but its only caller in xgene_enet_create_desc_ring() currently uses the
-> return value directly as u32. Instead, check for a negative value first and
-> error out in case. Also move the call to xgene_enet_get_ring_size() before
-> devm_kzalloc() so we don't need to free anything in the error path.
+On Fri, Aug 15, 2014 at 10:15 AM, Alexander Duyck
+<alexander.h.duyck@intel.com> wrote:
+> On 08/14/2014 04:20 PM, David Miller wrote:
+>> From: Alexander Duyck <alexander.h.duyck@intel.com>
+>> Date: Thu, 14 Aug 2014 16:16:36 -0700
+>>
+>>> Are you sure about each socket having it's own DST?  Everything I see
+>>> seems to indicate it is somehow associated with IP.
+>>
+>> Right it should be, unless you have exception entries created by path
+>> MTU or redirects.
+>>
+>> WRT prequeue, it does the right thing for dumb apps that block in
+>> receive.  But because it causes the packet to cross domains as it
+>> does, we can't do a lot of tricks which we normally can do, and that's
+>> why the refcounting on the dst is there now.
+>>
+>> Perhaps we can find a clever way to elide that refcount, who knows.
 >
-> This fixes the following issue reported by the Coverity Scanner:
+> Actually I would consider the refcount issue just the coffin nail in all
+> of this.  It seems like there are multiple issues that have been there
+> for some time and they are just getting worse with the refcount change
+> in 3.10.
 >
-> ** CID 1231336:  Improper use of negative value  (NEGATIVE_RETURNS)
-> /drivers/net/ethernet/apm/xgene/xgene_enet_main.c: 596 in xgene_enet_create_desc_ring()
+> With the prequeue disabled what happens is that the frames are making it
+> up and hitting tcp_rcv_established before being pushed into the backlog
+> queues and coalesced there.  I believe the lack of coalescing on the
+> prequeue path is one of the reasons why it is twice as expensive as the
+> non-prequeue path CPU wise even if you eliminate the refcount issue.
 >
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-> ---
->  drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
+> I realize most of my data is anecdotal as I only have the ixgbe/igb
+> adapters and netperf to work with.  This is one of the reasons why I
+> keep asking if someone can tell me what the use case is for this where
+> it performs well.  From what I can tell it might have had some value
+> back in the day before the introduction of things such as RPS/RFS where
+> some of the socket processing would be offloaded to other CPUs for a
+> single queue device, but even that use case is now deprecated since
+> RPS/RFS are there and function better than this.  What I am basically
+> looking for is a way to weight the gain versus the penalties to
+> determine if this code is even viable anymore.
 >
-> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-> index af7c40a..e1a8f4e 100644
-> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-> @@ -581,7 +581,11 @@ static struct xgene_enet_desc_ring *xgene_enet_create_desc_ring(
->         struct xgene_enet_desc_ring *ring;
->         struct xgene_enet_pdata *pdata = netdev_priv(ndev);
->         struct device *dev = ndev_to_dev(ndev);
-> -       u32 size;
-> +       int size;
-> +
-> +       size = xgene_enet_get_ring_size(dev, cfgsize);
-> +       if (size < 0)
-> +               return NULL;
+Alex, I tried to repro your problem running your script (on bnx2x).
+Didn't see see the issue and in fact ip_dest_check did not appear in
+top perf functions on perf. I assume this is more related to the
+steering configuration rather than the device (although flow director
+might be a fundamental difference).
+
+> In the meantime I think I will put together a patch to default
+> tcp_low_latency to 1 for net and stable, and if we cannot find a good
+> reason for keeping it then I can submit a patch to net-next that will
+> strip it out since I don't see any benefit to having this code.
 >
->         ring = devm_kzalloc(dev, sizeof(struct xgene_enet_desc_ring),
->                             GFP_KERNEL);
-> @@ -593,7 +597,6 @@ static struct xgene_enet_desc_ring *xgene_enet_create_desc_ring(
->         ring->cfgsize = cfgsize;
->         ring->id = ring_id;
+> Thanks,
 >
-> -       size = xgene_enet_get_ring_size(dev, cfgsize);
->         ring->desc_addr = dma_zalloc_coherent(dev, size, &ring->dma,
->                                               GFP_KERNEL);
->         if (!ring->desc_addr) {
+> Alex
+>
+>
+>
 > --
-> 2.0.1
->
->
-
-I am sorry I wasn't able to see this until today.
-
-Thanks for addressing the problem.  Even though the patch has already
-been applied, here is my ACK.
-
-Acked-by: Iyappan Subramanian <isubramanian@apm.com>
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
