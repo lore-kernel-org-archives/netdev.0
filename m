@@ -1,9 +1,10 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [RFC] packet: handle too big packets for PACKET_V3
-Date: Thu, 14 Aug 2014 17:54:59 -0700
-Message-ID: <1408064099.6804.64.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Thu, 14 Aug 2014 17:56:20 -0700
+Message-ID: <1408064180.6804.65.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1408061394.6804.55.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <1408063438.861699.152907025.0F25AB17@webmail.messagingengine.com>
+	 <1408063859.864295.152910193.45470221@webmail.messagingengine.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -14,27 +15,22 @@ Cc: Daniel Borkmann <dborkman@redhat.com>,
 	netdev <netdev@vger.kernel.org>
 To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:46939 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751198AbaHOAzB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 20:55:01 -0400
-Received: by mail-pd0-f175.google.com with SMTP id r10so2486289pdi.20
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 17:55:00 -0700 (PDT)
-In-Reply-To: <1408063438.861699.152907025.0F25AB17@webmail.messagingengine.com>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:54753 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750869AbaHOA4W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 20:56:22 -0400
+Received: by mail-pd0-f181.google.com with SMTP id g10so2481561pdj.40
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 17:56:22 -0700 (PDT)
+In-Reply-To: <1408063859.864295.152910193.45470221@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-08-15 at 02:43 +0200, Hannes Frederic Sowa wrote:
+On Fri, 2014-08-15 at 02:50 +0200, Hannes Frederic Sowa wrote:
 
-> Someone could use GRO to create packet trains to hide from intrustion
-> detection systems, which maybe are the main user of TPACKET_V3. I don't
-> think this is a good idea.
+> 5) Or let a setsockopt control the NETIF_F_GRO bit of an interface if it
+> is bound to it? This will likely result in an implementation where we
+> must count current TPACKET_V3 sockets disabling GRO on an interface,
+> much like promisc counter.
 
-Presumably these tools already use a large enough bloc_size, and not a
-4KB one ;)
-
-Even without GRO, a jumbo frame (9K) can trigger the bug.
-
-I do not think we need to skb_gso_segment() for the cases user setup a
-really small bloc_size. This looks like a lot of consumed cycles (we
-even might have to recompute the TCP checksums)
+loopback interface has MTU = 64K, it looks like the problem is not tied
+to GRO.
