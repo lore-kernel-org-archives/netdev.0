@@ -1,36 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] packet: handle too big packets for PACKET_V3
-Date: Thu, 14 Aug 2014 17:56:20 -0700
-Message-ID: <1408064180.6804.65.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1408061394.6804.55.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1408063438.861699.152907025.0F25AB17@webmail.messagingengine.com>
-	 <1408063859.864295.152910193.45470221@webmail.messagingengine.com>
+From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH net-next] lec: Use rtnl lock/unlock when updating MTU
+Date: Thu, 14 Aug 2014 20:56:27 -0400
+Message-ID: <201408150056.s7F0uRg7003712@thirdoffive.cmf.nrl.navy.mil>
+References: <20140814.143706.1833450188258591738.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net
+To: David Miller <davem@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:54753 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750869AbaHOA4W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 20:56:22 -0400
-Received: by mail-pd0-f181.google.com with SMTP id g10so2481561pdj.40
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 17:56:22 -0700 (PDT)
-In-Reply-To: <1408063859.864295.152910193.45470221@webmail.messagingengine.com>
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:36629 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750869AbaHOA4w convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 20:56:52 -0400
+In-reply-to: <20140814.143706.1833450188258591738.davem@redhat.com>
+Content-ID: <3710.1408064187.1@thirdoffive.cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-08-15 at 02:50 +0200, Hannes Frederic Sowa wrote:
+In message <20140814.143706.1833450188258591738.davem@redhat.com>,David Miller writes:
+>From: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+>Date: Thu, 14 Aug 2014 09:19:47 -0400
+>
+>> The LECS response contains the MTU that should be used.  Correctly
+>> synchronize with other layers when updating.
+>> 
+>> Signed-off-by: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+>
+>I don't think you can sleep from this function, which rtnl_lock() may
+>require.  Look elsewhere in this routine, it's doing GFP_ATOMIC
+>allocations even.
 
-> 5) Or let a setsockopt control the NETIF_F_GRO bit of an interface if it
-> is bound to it? This will likely result in an implementation where we
-> must count current TPACKET_V3 sockets disabling GRO on an interface,
-> much like promisc counter.
+Its been a while but...
 
-loopback interface has MTU = 64K, it looks like the problem is not tied
-to GRO.
+This is the send routine for a virtual atm device that is the control
+interface bewteen the user space client and the kernel.  The user space
+client creates an atm socket and uses an ioctl to connect that atm socket
+to the this virtual device.  So the call path is something like:
+
+sendmsg() -> vcc_sendmsg() -> virtual atm device.send()
+
+Generally speaking, you can't sleep in the send routine of an atm device
+since there are other potential users besides sockets.
+
+The GFP_ATOMIC usage is probably a lack of understanding.  The other
+IRQ level locks are necessary for coordination.
