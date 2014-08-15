@@ -1,80 +1,61 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: SCTP_PEER_ADDR_CHANGE Notification over UNCONFIRMED path
-Date: Fri, 15 Aug 2014 17:32:41 +0800
-Message-ID: <53EDD3B9.9070301@gmail.com>
-References: <53EDC9AA.9080500@gmail.com>
+From: wangyufen <wangyufen@huawei.com>
+Subject: Re: your netlink permission checks backport to v3.4
+Date: Fri, 15 Aug 2014 17:52:08 +0800
+Message-ID: <53EDD848.6090709@huawei.com>
+References: <20140807.135339.1840856785990746406.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Vlad Yasevich <vyasevich@gmail.com>, tuexen@fh-muenster.de,
-	khandelwal.deepak.1987@gmail.com,
-	"Tao, Yue" <Yue.Tao@windriver.com>,
-	Alexandre Dietsch <alexandre.dietsch@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	zhuyj <zyjzyj2000@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53EDC9AA.9080500@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <stable@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20140807.135339.1840856785990746406.davem@davemloft.net>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry. I used attachment to send patch. Maybe it is not convenient. Now 
-I resend it again. Please ignore this mail.
+On 2014/8/8 4:53, David Miller wrote:
+> 
+> I don't think you properly compile tested this code:
+> 
+> diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
+> index c00e307..b79ce1e 100644
+> --- a/net/decnet/dn_dev.c
+> +++ b/net/decnet/dn_dev.c
+> @@ -440,7 +440,7 @@ int dn_dev_ioctl(unsigned int cmd, void __user *arg)
+>  	case SIOCGIFADDR:
+>  		break;
+>  	case SIOCSIFADDR:
+> -		if (!capable(CAP_NET_ADMIN))
+> +		if (!netlink_capable(skb, CAP_NET_ADMIN))
+>  			return -EACCES;
+>  		if (sdn->sdn_family != AF_DECnet)
+>  			return -EINVAL;
+> 
+> There is no "skb" variable in this function.
+> 
+> I think we're at the point where this backport makes no sense to submit
+> to the -stable tree.
+> 
+> Multiple rounds of attempting to backport these changes has been tries
+> and all such attempts have had problems.  Compile problems, authorship
+> errors, lack of follow-up bug fixes, etc.
+> 
+> This is why I did not try to backport these changes to v3.4 and
+> earlier.  The possiblity for introducing more regressions is larger
+> than the benefit from including these changes.
+> 
+> Please do not ask me to include this backport into my v3.4 -stable
+> series submissions any longer, thank you.
+> 
+> Sorry.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
 
-Best Regards!
-Zhu Yanjun
-On 08/15/2014 04:49 PM, zhuyj wrote:
-> Hi, Vlad && DEEPAK && Michael && David
->
-> From Michael && DEEPAK
-> "
->  lxr SCTP implementation, doesn't transit the path state to INACTIVE, 
-> if it was never confirmed. this leads to SCTP_PEER_ADDRESS_CHANGE 
-> notification after each failed probe from this time.
->  Is there any specific reason to have same notification to SCTP User 
-> with each probe in RTO time period ?
->  806 case SCTP_TRANSPORT_DOWN:
->  807 /* If the transport was never confirmed, do not transition it
->  808 * to inactive state. Also, release the cached route since
->  809 * there may be a better route next time.
->  810 */
->  811 if (transport->state != SCTP_UNCONFIRMED)
->
->  812 transport->state = SCTP_INACTIVE;
->
->  http://lxr.free-electrons.com/source/net/sctp/associola.c#L806
->
->  we checked RFC and here it is mentioned as  Path Verification 
-> Section(5.4) of RFC 4960  http://tools.ietf.org/html/rfc4960
->
->  In each RTO, a probe may be sent on an active UNCONFIRMED path in an
->  attempt to move it to the CONFIRMED state. If during this probing
->  the path becomes inactive, this rate is lowered to the normal
->  HEARTBEAT rate. At the expiration of the RTO timer, the error
->  counter of any path that was probed but not CONFIRMED is incremented
->  by one and subjected to path failure detection, as defined in
->  Section
->
->
->  8.2
->  . When probing UNCONFIRMED addresses, however, the association
->  overall error counter is not incremented
->
->
->  Does this mean that in attempt to move a UNCONFIRMED path to 
-> CONFIRMED State, the path can become INACTIVE, when transport error 
-> counter reaches to path_max_retrans counter ?
->  I would say that the path stays UNCONFIRMED.
->
->
->  I would also only expect a  SCTP_PEER_ADDRESS_CHANGE notification 
-> when a path state changes, not on every  try.
->
-> "
->
-> I made a patch to disable sending SCTP_PEER_ADDRESS_CHANGE 
-> notification every try. Now the patch is in the attachment. Please 
-> check it.
->
-> Zhu Yanjun
+I did not open the CONFIG_DECNET option and the code did not build-in.
+It's my first time to do backport. I'm ashamed that I made so many mistakes.
+
+Sincerely sorry to trouble you so much.
