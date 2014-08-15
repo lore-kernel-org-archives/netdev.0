@@ -1,73 +1,162 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH RFC v4 net-next 17/26] tracing: allow eBPF programs to be
- attached to events
-Date: Thu, 14 Aug 2014 23:08:10 -0700
-Message-ID: <CAMEtUuymPDhYBe42i4DJNXsdgZRaq9LuEU_nGSsqrY1FcFHqhQ@mail.gmail.com>
-References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
-	<1407916658-8731-18-git-send-email-ast@plumgrid.com>
-	<CAE40pdf0pNYyazjpdkzxNJi7iC4LOOr_XEu078OUqP_uoCXnHg@mail.gmail.com>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH v3 1/1] net: fec: ptp: avoid register access when ipg clock is disabled
+Date: Fri, 15 Aug 2014 13:52:55 +0800
+Message-ID: <1408081975-15087-2-git-send-email-b38611@freescale.com>
+References: <1408081975-15087-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAE40pdf0pNYyazjpdkzxNJi7iC4LOOr_XEu078OUqP_uoCXnHg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <shawn.guo@linaro.org>,
+	<b38611@freescale.com>
+To: <richardcochran@gmail.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2lp0211.outbound.protection.outlook.com ([207.46.163.211]:55298
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751729AbaHOGI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Aug 2014 02:08:28 -0400
+In-Reply-To: <1408081975-15087-1-git-send-email-b38611@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 14, 2014 at 2:20 PM, Brendan Gregg
-<brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Wed, Aug 13, 2014 at 12:57 AM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
-> [...]
->> +/* For tracing filters save first six arguments of tracepoint events.
->> + * On 64-bit architectures argN fields will match one to one to arguments passed
->> + * to tracepoint events.
->> + * On 32-bit architectures u64 arguments to events will be seen into two
->> + * consecutive argN, argN+1 fields. Pointers, u32, u16, u8, bool types will
->> + * match one to one
->> + */
->> +struct bpf_context {
->> +       unsigned long arg1;
->> +       unsigned long arg2;
->> +       unsigned long arg3;
->> +       unsigned long arg4;
->> +       unsigned long arg5;
->> +       unsigned long arg6;
->> +       unsigned long ret;
->> +};
->
-> While this works, the argN+1 shift for 32-bit is a gotcha to learn.
-> Lets say arg1 was 64-bit, and my program only examined arg2. I'd need
-> two programs, one for 64-bit (using arg2) and 32-bit (arg3). If there
+The current kernel hang on i.MX6SX with rootfs mount from MMC.
+The root cause is ptp rise up period timer to access enet register
+even if ipg clock is disabled.
 
-correct.
-I've picked 'long' type for these tracepoint 'arguments' to match
-what is going on at assembler level.
-32-bit archs are passing 64-bit values in two consecutive registers
-or two stack slots. So it's partially exposing architectural details.
-I've tried to use u64 here, but it complicated tracepoint+ebpf patch
-a lot, since I need per-architecture support for moving C arguments
-into u64 variables and hacking tracepoint event definitions in a nasty
-ways. This 'long' type approach is the least intrusive I could find.
-Also out of 1842 total tracepoint fields, only 144 fields are 64-bit,
-so rarely one would need to deal with u64. Most of the tracepoint
-arguments are either longs, ints or pointers, which fits this approach
-the best.
-In general the eBPF design approach is to keep kernel bits as simple
-as possible and move complexity to user space.
-In this case some higher language than C for writing scripts can
-hide this oddity.
+FEC ptp driver start one period timer to read 1588 counter register in the
+ptp init function that is called after FEC driver is probed.
+
+To save power, after FEC probe finish, FEC driver disable all clocks including
+ipg clock that is needed for register access.
+
+i.MX5x, i.MX6q/dl/sl FEC register access don't cause system hang when ipg clock
+is disabled, just return zero value. But for i.MX6sx SOC, it cause system hang.
+
+To avoid the issue, we need to check ptp clock status before ptp timer count access.
+
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec.h      |    3 ++-
+ drivers/net/ethernet/freescale/fec_main.c |    8 ++++++--
+ drivers/net/ethernet/freescale/fec_ptp.c  |   27 ++++++++++++++++-----------
+ 3 files changed, 24 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index bd53caf..ee0879f 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -274,6 +274,7 @@ struct fec_enet_private {
+ 	struct clk *clk_ahb;
+ 	struct clk *clk_enet_out;
+ 	struct clk *clk_ptp;
++	bool ptp_clk_on;
+ 
+ 	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
+ 	unsigned char *tx_bounce[TX_RING_SIZE];
+@@ -334,7 +335,7 @@ struct fec_enet_private {
+ 	u32 cycle_speed;
+ 	int hwts_rx_en;
+ 	int hwts_tx_en;
+-	struct timer_list time_keep;
++	struct delayed_work time_keep;
+ 	struct regulator *reg_phy;
+ };
+ 
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 66fe1f6..ba35994 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1613,14 +1613,18 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 			ret = clk_prepare_enable(fep->clk_ptp);
+ 			if (ret)
+ 				goto failed_clk_ptp;
++			else
++				fep->ptp_clk_on = true;
+ 		}
+ 	} else {
+ 		clk_disable_unprepare(fep->clk_ahb);
+ 		clk_disable_unprepare(fep->clk_ipg);
+ 		if (fep->clk_enet_out)
+ 			clk_disable_unprepare(fep->clk_enet_out);
+-		if (fep->clk_ptp)
++		if (fep->clk_ptp) {
+ 			clk_disable_unprepare(fep->clk_ptp);
++			fep->ptp_clk_on = false;
++		}
+ 	}
+ 
+ 	return 0;
+@@ -2682,10 +2686,10 @@ fec_drv_remove(struct platform_device *pdev)
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 
++	cancel_delayed_work_sync(&fep->time_keep);
+ 	cancel_work_sync(&fep->tx_timeout_work);
+ 	unregister_netdev(ndev);
+ 	fec_enet_mii_remove(fep);
+-	del_timer_sync(&fep->time_keep);
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+ 	if (fep->ptp_clock)
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index 82386b2..8084aaf 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -245,6 +245,10 @@ static int fec_ptp_settime(struct ptp_clock_info *ptp,
+ 	u64 ns;
+ 	unsigned long flags;
+ 
++	/* Check the ptp clock */
++	if (!fep->ptp_clk_on)
++		return -EINVAL;
++
+ 	ns = ts->tv_sec * 1000000000ULL;
+ 	ns += ts->tv_nsec;
+ 
+@@ -338,17 +342,20 @@ int fec_ptp_get(struct net_device *ndev, struct ifreq *ifr)
+  * fec_time_keep - call timecounter_read every second to avoid timer overrun
+  *                 because ENET just support 32bit counter, will timeout in 4s
+  */
+-static void fec_time_keep(unsigned long _data)
++static void fec_time_keep(struct work_struct *work)
+ {
+-	struct fec_enet_private *fep = (struct fec_enet_private *)_data;
++	struct delayed_work *dwork = to_delayed_work(work);
++	struct fec_enet_private *fep = container_of(dwork, struct fec_enet_private, time_keep);
+ 	u64 ns;
+ 	unsigned long flags;
+ 
+-	spin_lock_irqsave(&fep->tmreg_lock, flags);
+-	ns = timecounter_read(&fep->tc);
+-	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
++	if (fep->ptp_clk_on) {
++		spin_lock_irqsave(&fep->tmreg_lock, flags);
++		ns = timecounter_read(&fep->tc);
++		spin_unlock_irqrestore(&fep->tmreg_lock, flags);
++	}
+ 
+-	mod_timer(&fep->time_keep, jiffies + HZ);
++	schedule_delayed_work(&fep->time_keep, HZ);
+ }
+ 
+ /**
+@@ -386,15 +393,13 @@ void fec_ptp_init(struct platform_device *pdev)
+ 
+ 	fec_ptp_start_cyclecounter(ndev);
+ 
+-	init_timer(&fep->time_keep);
+-	fep->time_keep.data = (unsigned long)fep;
+-	fep->time_keep.function = fec_time_keep;
+-	fep->time_keep.expires = jiffies + HZ;
+-	add_timer(&fep->time_keep);
++	INIT_DELAYED_WORK(&fep->time_keep, fec_time_keep);
+ 
+ 	fep->ptp_clock = ptp_clock_register(&fep->ptp_caps, &pdev->dev);
+ 	if (IS_ERR(fep->ptp_clock)) {
+ 		fep->ptp_clock = NULL;
+ 		pr_err("ptp_clock_register failed\n");
+ 	}
++
++	schedule_delayed_work(&fep->time_keep, HZ);
+ }
+-- 
+1.7.8
