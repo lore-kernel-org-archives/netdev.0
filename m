@@ -1,47 +1,75 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/3] ipv6: check propagates sk in sk_mc_loop instead of skb->sk
-Date: Fri, 15 Aug 2014 20:32:56 +0200
-Message-ID: <1408127576-11518-3-git-send-email-jiri@resnulli.us>
-References: <1408127576-11518-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, stephen@networkplumber.org,
-	cwang@twopensource.com, pshelar@nicira.com,
-	nicolas.dichtel@6wind.com, therbert@google.com,
-	dborkman@redhat.com, edumazet@google.com
-To: netdev@vger.kernel.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: Re: [PATCH net] net: xgene: Check negative return value of xgene_enet_get_ring_size()
+Date: Fri, 15 Aug 2014 11:45:42 -0700
+Message-ID: <CAKh23F=q8G6QUWXQo0qF-oPks--8CsbRg2fsTg_oXZFR8=DwjA@mail.gmail.com>
+References: <1408017582-1133-1-git-send-email-tklauser@distanz.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Keyur Chudgar <kchudgar@apm.com>, Ravi Patel <rapatel@apm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Tobias Klauser <tklauser@distanz.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:40481 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751176AbaHOSdD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 14:33:03 -0400
-Received: by mail-we0-f177.google.com with SMTP id w62so2661121wes.22
-        for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 11:33:02 -0700 (PDT)
-In-Reply-To: <1408127576-11518-1-git-send-email-jiri@resnulli.us>
+Received: from exprod5og106.obsmtp.com ([64.18.0.182]:38799 "HELO
+	exprod5og106.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751122AbaHOSpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 14:45:44 -0400
+Received: by mail-la0-f52.google.com with SMTP id b17so2583058lan.39
+        for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 11:45:42 -0700 (PDT)
+In-Reply-To: <1408017582-1133-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the dst->output() path for ip6tunnel_xmit, the code assumes the skb
-it has to transmit is attached to an inet socket, specifically via
-ip6_finish_output2(): The sk_mc_loop() test triggers a WARN_ON() when the
-provider of the packet is an AF_PACKET socket.
+On Thu, Aug 14, 2014 at 4:59 AM, Tobias Klauser <tklauser@distanz.ch> wrote:
+> xgene_enet_get_ring_size() returns a negative value in case of an error,
+> but its only caller in xgene_enet_create_desc_ring() currently uses the
+> return value directly as u32. Instead, check for a negative value first and
+> error out in case. Also move the call to xgene_enet_get_ring_size() before
+> devm_kzalloc() so we don't need to free anything in the error path.
+>
+> This fixes the following issue reported by the Coverity Scanner:
+>
+> ** CID 1231336:  Improper use of negative value  (NEGATIVE_RETURNS)
+> /drivers/net/ethernet/apm/xgene/xgene_enet_main.c: 596 in xgene_enet_create_desc_ring()
+>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> ---
+>  drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 7 +++++--
+>  1 file changed, 5 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> index af7c40a..e1a8f4e 100644
+> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> @@ -581,7 +581,11 @@ static struct xgene_enet_desc_ring *xgene_enet_create_desc_ring(
+>         struct xgene_enet_desc_ring *ring;
+>         struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+>         struct device *dev = ndev_to_dev(ndev);
+> -       u32 size;
+> +       int size;
+> +
+> +       size = xgene_enet_get_ring_size(dev, cfgsize);
+> +       if (size < 0)
+> +               return NULL;
+>
+>         ring = devm_kzalloc(dev, sizeof(struct xgene_enet_desc_ring),
+>                             GFP_KERNEL);
+> @@ -593,7 +597,6 @@ static struct xgene_enet_desc_ring *xgene_enet_create_desc_ring(
+>         ring->cfgsize = cfgsize;
+>         ring->id = ring_id;
+>
+> -       size = xgene_enet_get_ring_size(dev, cfgsize);
+>         ring->desc_addr = dma_zalloc_coherent(dev, size, &ring->dma,
+>                                               GFP_KERNEL);
+>         if (!ring->desc_addr) {
+> --
+> 2.0.1
+>
+>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/ipv6/ip6_output.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I am sorry I wasn't able to see this until today.
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index e2c93c6..a889a96 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -70,7 +70,7 @@ static int ip6_finish_output2(struct sock *sk, struct sk_buff *skb)
- 	if (ipv6_addr_is_multicast(&ipv6_hdr(skb)->daddr)) {
- 		struct inet6_dev *idev = ip6_dst_idev(skb_dst(skb));
- 
--		if (!(dev->flags & IFF_LOOPBACK) && sk_mc_loop(skb->sk) &&
-+		if (!(dev->flags & IFF_LOOPBACK) && sk_mc_loop(sk) &&
- 		    ((mroute6_socket(dev_net(dev), skb) &&
- 		     !(IP6CB(skb)->flags & IP6SKB_FORWARDED)) ||
- 		     ipv6_chk_mcast_addr(dev, &ipv6_hdr(skb)->daddr,
--- 
-1.9.3
+Thanks for addressing the problem.  Even though the patch has already
+been applied, here is my ACK.
+
+Acked-by: Iyappan Subramanian <isubramanian@apm.com>
