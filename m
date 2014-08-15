@@ -1,110 +1,48 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH v3 1/3] init / kthread: add module_long_probe_init()
-	and module_long_probe_exit()
-Date: Fri, 15 Aug 2014 16:39:02 +0200
-Message-ID: <20140815143902.GB13222@redhat.com>
-References: <1407882507-325-1-git-send-email-mcgrof@do-not-panic.com> <1407882507-325-2-git-send-email-mcgrof@do-not-panic.com> <20140813175101.GA7156@redhat.com> <20140814231028.GQ21930@wotan.suse.de>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless 2014-08-14
+Date: Fri, 15 Aug 2014 10:30:14 -0400
+Message-ID: <20140815143014.GK4953@tuxdriver.com>
+References: <20140814183253.GF4953@tuxdriver.com>
+ <20140814.151809.1355093138463959620.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	gregkh@linuxfoundation.org, tiwai@suse.de,
-	linux-kernel@vger.kernel.org,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20140814231028.GQ21930@wotan.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20140814.151809.1355093138463959620.davem-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 08/15, Luis R. Rodriguez wrote:
->
-> On Wed, Aug 13, 2014 at 07:51:01PM +0200, Oleg Nesterov wrote:
-> > On 08/12, Luis R. Rodriguez wrote:
-> > >
-> > > +/* To be used by modules which can take over 30 seconds at probe */
-> >
-> > Probably the comment should explain that this hack should only be
-> > used if the driver is buggy and is wating for "real fix".
-> >
-> > > +#define module_long_probe_init(initfn)				\
-> > > +	static struct task_struct *__init_thread;		\
-> > > +	static int _long_probe_##initfn(void *arg)		\
-> > > +	{							\
-> > > +		return initfn();				\
-> > > +	}							\
-> > > +	static inline __init int __long_probe_##initfn(void)	\
-> > > +	{							\
-> > > +		__init_thread = kthread_run(_long_probe_##initfn,\
-> > > +					    NULL,		\
-> > > +					    #initfn);		\
-> > > +		if (IS_ERR(__init_thread))			\
-> > > +			return PTR_ERR(__init_thread);		\
-> > > +		return 0;					\
-> > > +	}							\
-> > > +	module_init(__long_probe_##initfn);
-> > > +/* To be used by modules that require module_long_probe_init() */
-> > > +#define module_long_probe_exit(exitfn)				\
-> > > +	static inline void __long_probe_##exitfn(void)		\
-> > > +	{							\
-> > > +		exitfn();					\
-> > > +		if (__init_thread)				\
-> > > +			kthread_stop(__init_thread);		\
-> > > +	}							\
-> >
-> > exitfn() should be called after kthread_stop(), and only if initfn()
-> > returns 0. So it should probably do
-> >
-> > 	int err = kthread_stop(__init_thread);
-> > 	if (!err)
-> > 		exitfn();
->
-> Thanks! With the check for __init_thread as well as it can be
-> ERR_PTR(-ENOMEM), ERR_PTR(-EINTR), or NULL (for whatever other
-> reason).
+On Thu, Aug 14, 2014 at 03:18:09PM -0700, David Miller wrote:
+> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Date: Thu, 14 Aug 2014 14:32:53 -0400
+> 
+> > Please pull this batch of fixes intended for the 3.17 stream...
+> > 
+> > Arend van Spriel brings two brcmfmac fixes, one which fixes a memory
+> > leak and one which corrects some merge damage.
+> > 
+> > Emmanuel Grumbach fixes Linus's iwlwifi firmware-related log spam.
+> > 
+> > Rickard Strandqvist does some proper NULL termination after a call
+> > to strncpy.
+> > 
+> > Ronald Wahl corrects a carl9170 problem with sending URBs with the
+> > wrong endpoint type (resulting in log spam).
+> > 
+> > Please let me know if there are problems!
+> 
+> Pulled, thanks John.
+> 
+> I'm really happy that you send the iwlwifi regression fix so quickly!
 
-Do you mean __long_probe_##exitfn() should also check ERR_PTR(__init_thread)?
-I don't think so. If kthread_run() above fails, module_init() should return
-the error (it does), so module_exit() won't be called.
+One-liners with a "Tested-by: Linus Torvalds" get a lot of respect... :-)
 
-> > But there is an additional complication, you can't use __init_thread
-> > without get_task_struct(),
->
-> Can you elaborate why ? kthread_stop() uses get_task_struct(),
-
-This is too late. This task_struct can be already freed/reused. See below.
-
-> wake_up_process() and finally put_task_struct(), and we're the
-> only user of this thread. Also kthread_run() ensures wake_up_process()
-> gets called on startup, so not sure where the race would be provided
-> all users here and with the respective helpers on buggy drivers.
->
-> > so  __long_probe_##initfn() can't use
-> > kthread_run(). It needs kthread_create() + get_task_struct() + wakeup.
->
-> I fail to see why we'd need to add get_task_struct() on
-> module_long_probe_init(), can you clarify?
-
-kthread_stop(kthread_run(callback)) is only safe if callback() can not exit
-on its own, without checking kthread_should_stop(). And btw that is why
-kthread_stop() does get_task_struct()).
-
-If callback() can exit (if it calls do_exit() or simply returns), then nothing
-protects this task_struct, it will be freed.
-
-Oleg.
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
