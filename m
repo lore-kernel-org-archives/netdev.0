@@ -1,104 +1,110 @@
-From: Gerhard Stenzel <gstenzel@linux.vnet.ibm.com>
-Subject: [PATCH net] vxlan: fix incorrect initializer in union vxlan_addr
-Date: Fri, 15 Aug 2014 11:03:58 +0200
-Message-ID: <53EDCCFE.5090301@linux.vnet.ibm.com>
-References: <53EDCC19.70702@linux.vnet.ibm.com>
+From: christophe leroy <christophe.leroy@c-s.fr>
+Subject: Re: Issue with commit 33c133cc7598e60976a phy: IRQ cannot be shared
+Date: Fri, 15 Aug 2014 11:10:07 +0200
+Message-ID: <53EDCE6F.9000307@c-s.fr>
+References: <53EC57B9.8080903@c-s.fr> <53EC9783.3020809@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:57615 "EHLO
-	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751162AbaHOJEC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 05:04:02 -0400
-Received: from /spool/local
-	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <gstenzel@linux.vnet.ibm.com>;
-	Fri, 15 Aug 2014 10:04:00 +0100
-Received: from b06cxnps3075.portsmouth.uk.ibm.com (d06relay10.portsmouth.uk.ibm.com [9.149.109.195])
-	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id CB0AD2190045
-	for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 10:03:41 +0100 (BST)
-Received: from d06av09.portsmouth.uk.ibm.com (d06av09.portsmouth.uk.ibm.com [9.149.37.250])
-	by b06cxnps3075.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id s7F93wuS35913976
-	for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 09:03:58 GMT
-Received: from d06av09.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av09.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s7F93wC7018413
-	for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 03:03:58 -0600
-Received: from oc4745424800.ibm.com (dyn-9-152-214-79.boeblingen.de.ibm.com [9.152.214.79])
-	by d06av09.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVin) with ESMTP id s7F93wH1018409
-	for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 03:03:58 -0600
-In-Reply-To: <53EDCC19.70702@linux.vnet.ibm.com>
+Received: from pegase1.c-s.fr ([93.17.236.30]:22187 "EHLO mailhub1.si.c-s.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750917AbaHOJKS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Aug 2014 05:10:18 -0400
+In-Reply-To: <53EC9783.3020809@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-The first initializer in the following
+Le 14/08/2014 13:03, Sergei Shtylyov a =E9crit :
+> Hello.
+>
+> On 8/14/2014 10:31 AM, leroy christophe wrote:
+>
+>> I have an hardware with two ethernet interfaces, and with the two=20
+>> PHYs inside
+>> the same component INTEL LXT973 which has only one interrupt.
+>> I also have another hardware with two ethernet interfaces and two=20
+>> independant
+>> PHYs. But the two PHYs are wired to the same interrupt.
+>> This is working perfectly up to Linux 3.12.
+>
+>    Hm, I'm surprised it works. Are you sure you're getting interrupts=
+=20
+> from both PHYs? Because if both Ethernet controllers are active=20
+> simultaneously, only the first registered PHY IRQ handler should get=20
+> all the interrupts.
+Yes it works. Why should only the first one get the interrupts ?=20
+handle_irq_event_percpu() (from kernel/irq/handle.c, extract below)=20
+calls all handlers regardless of whether they answer IRQ_NONE or=20
+IRQ_HANDLED. The break applies to the switch(), not to the while(). So=20
+all handlers are called.
 
-		union vxlan_addr ipa = {
-			.sin.sin_addr.s_addr = tip,
-			.sa.sa_family = AF_INET,
-		};
+irqreturn_t
+handle_irq_event_percpu(struct irq_desc *desc, struct irqaction *action=
+)
+{
+     irqreturn_t retval =3D IRQ_NONE;
+     unsigned int flags =3D 0, irq =3D desc->irq_data.irq;
 
-is optimised away by the compiler, due to the second initializer,
-therefore initialising .sin.sin_addr.s_addr always to 0.
-This results in netlink messages indicating a L3 miss never contain the
-missed IP address. This was observed with GCC 4.8 and 4.9. I do not know 
-about previous versions.
-The problem affects user space programs relying on an IP address being
-sent as part of a netlink message indicating a L3 miss.
+     do {
+[...]
+         switch (res) {
+         case IRQ_WAKE_THREAD:
+[...]
+         case IRQ_HANDLED:
+             flags |=3D action->flags;
+             break;
 
-Changing
-			.sa.sa_family = AF_INET,
-to
-			.sin.sin_family = AF_INET,
-fixes the problem.
+         default:
+             break;
+         }
 
-     Signed-off-by: Gerhard Stenzel <gerhard.stenzel@de.ibm.com>
+         retval |=3D res;
+         action =3D action->next;
+     } while (action);
+
+>
+>> But since your commit, introduced in Linux 3.13, my interfaces don't=
+=20
+>> work
+>> anymore as the second PHYs can't register IRQ.
+>
+>    Strange too, the phylib should use polling in case request_irq()=20
+> fails.
+Well, you are right, I didn't check closely enough, was assuming they=20
+didn't register due to the messages saying interrupt mismatch.
+>
+>> Reading the commit log, I can't really understand the reason for the=
+=20
+>> change.
+>
+>    The shared IRQ handler should check for IRQ from its device and=20
+> return IRQ_NONE if there's no IRQ active; phy_interrupt() doesn't do=20
+> that (this is pushed to the workqueue).
+Well, as seen above, this has no impact on whether other handlers are=20
+called or not.
+>
+>> Is it really worth it, and therefore how shall my case be handled ?
+>
+>    PHY IRQs are not necessary for the phylib state machine.
+However, polling is less efficient than IRQs. It wastes CPU and link=20
+loss detection is slower.
+>
+>> Christophe
+>
+> WBR, Sergei
+>
+BR
+Christophe
 
 ---
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 1fb7b37..beb377b 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1327,7 +1327,7 @@ static int arp_reduce(struct net_device *dev,
-struct sk_buff *skb)
-  	} else if (vxlan->flags & VXLAN_F_L3MISS) {
-  		union vxlan_addr ipa = {
-  			.sin.sin_addr.s_addr = tip,
--			.sa.sa_family = AF_INET,
-+			.sin.sin_family = AF_INET,
-  		};
-
-  		vxlan_ip_miss(dev, &ipa);
-@@ -1488,7 +1488,7 @@ static int neigh_reduce(struct net_device *dev,
-struct sk_buff *skb)
-  	} else if (vxlan->flags & VXLAN_F_L3MISS) {
-  		union vxlan_addr ipa = {
-  			.sin6.sin6_addr = msg->target,
--			.sa.sa_family = AF_INET6,
-+			.sin6.sin6_family = AF_INET6,
-  		};
-
-  		vxlan_ip_miss(dev, &ipa);
-@@ -1521,7 +1521,7 @@ static bool route_shortcircuit(struct net_device
-*dev, struct sk_buff *skb)
-  		if (!n && (vxlan->flags & VXLAN_F_L3MISS)) {
-  			union vxlan_addr ipa = {
-  				.sin.sin_addr.s_addr = pip->daddr,
--				.sa.sa_family = AF_INET,
-+				.sin.sin_family = AF_INET,
-  			};
-
-  			vxlan_ip_miss(dev, &ipa);
-@@ -1542,7 +1542,7 @@ static bool route_shortcircuit(struct net_device
-*dev, struct sk_buff *skb)
-  		if (!n && (vxlan->flags & VXLAN_F_L3MISS)) {
-  			union vxlan_addr ipa = {
-  				.sin6.sin6_addr = pip6->daddr,
--				.sa.sa_family = AF_INET6,
-+				.sin6.sin6_family = AF_INET6,
-  			};
-
-  			vxlan_ip_miss(dev, &ipa);
+Ce courrier =E9lectronique ne contient aucun virus ou logiciel malveill=
+ant parce que la protection avast! Antivirus est active.
+http://www.avast.com
