@@ -1,70 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: Issue with commit 33c133cc7598e60976a phy: IRQ cannot be shared
-Date: Fri, 15 Aug 2014 17:39:05 +0400
-Message-ID: <53EE0D79.3020809@cogentembedded.com>
-References: <53EC57B9.8080903@c-s.fr> <53EC9783.3020809@cogentembedded.com> <53EDCE6F.9000307@c-s.fr>
+From: "GVA Abogados." <o.nyvlt@post.cz>
+Subject: Transaction XLK-14-TTF/ESP.
+Date: Fri, 15 Aug 2014 15:10:46 +0200
+Message-ID: <21d7699d437546cdb4b2bbba3d7c3703@i-net.ro>
+Reply-To: gvaintencia@aim.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: christophe leroy <christophe.leroy@c-s.fr>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:51545 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751101AbaHONjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 09:39:09 -0400
-Received: by mail-la0-f48.google.com with SMTP id gl10so2342839lab.35
-        for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 06:39:07 -0700 (PDT)
-In-Reply-To: <53EDCE6F.9000307@c-s.fr>
+Received: from p2.i-net.ro ([193.230.184.10]:18632 "EHLO
+	mail.comtelnetworks.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751027AbaHONlZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 09:41:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Dear Friend,
 
-On 08/15/2014 01:10 PM, christophe leroy wrote:
+                  Please acknowledge and accept my proposal.
 
->>> I have an hardware with two ethernet interfaces, and with the two PHYs inside
->>> the same component INTEL LXT973 which has only one interrupt.
->>> I also have another hardware with two ethernet interfaces and two independant
->>> PHYs. But the two PHYs are wired to the same interrupt.
->>> This is working perfectly up to Linux 3.12.
+My name is Barrister Miguel Martinez Moreno, an Attorney at Law, in 
+Alicante-Spain.
 
->>    Hm, I'm surprised it works. Are you sure you're getting interrupts from
->> both PHYs? Because if both Ethernet controllers are active simultaneously,
->> only the first registered PHY IRQ handler should get all the interrupts.
+I am writing to notify you of the unclaimed inheritance deposit of our 
+late client, who passed on to Great beyond on August 21st, 2010 in a 
+motor accident in auto pista de Alcala Del Henares, Madrid-Spain.
 
-> Yes it works. Why should only the first one get the interrupts ?
-> handle_irq_event_percpu() (from kernel/irq/handle.c, extract below) calls all
-> handlers regardless of whether they answer IRQ_NONE or IRQ_HANDLED. The break
-> applies to the switch(), not to the while(). So all handlers are called.
+I got your name and email address through a web search engine in my 
+quest to get a reliable individual who shall work with me in claiming 
+this inheritance deposit since all my efforts to get the biological 
+relative has proved abortive.
 
-    Indeed, my reasoning seems obsolete now, if ever valid at all. :-/
-    I couldn't yet remember other reasons that caused me to do that patch last 
-December. Perhaps it was also connected to the "rude" behaviour of the 
-phylib's IRQ handler, which calls disable_irq_nosync()...
+Conclusively, I await your urgent response to include the following :( 
+1).Your full Names & Address. (2).Your Telephone and Fax numbers. 
+(3).Your business name if any: for more information on how to release 
+the inheritance deposit, amount, procedure and legality of this claim 
+send me an email via: gva_abogados@aim.com
 
-[...]
+Have a very nice day my friend!
 
->>> Reading the commit log, I can't really understand the reason for the change.
-
->>> Is it really worth it, and therefore how shall my case be handled ?
-
->>    PHY IRQs are not necessary for the phylib state machine.
-
-> However, polling is less efficient than IRQs. It wastes CPU and link loss
-> detection is slower.
-
-    Yes, but you can't avoid it even with valid IRQ, the way phylib is 
-written: the state workqueue is activated once a second even in the absence of 
-interrupts.
-
-    What can also be done is getting rid of the IRQ workqueue and using 
-threaded IRQs,
-
-> BR
-> Christophe
-
-WBR, Sergei
+Regards,
+Miguel Martinez Moreno (Esq)
+Attorney At Law.
+gvaintencia@aim.com
