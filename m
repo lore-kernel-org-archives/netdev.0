@@ -1,71 +1,115 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+From: Andy Lutomirski <luto@amacapital.net>
 Subject: Re: [PATCH RFC v4 net-next 17/26] tracing: allow eBPF programs to be
  attached to events
-Date: Fri, 15 Aug 2014 12:18:53 -0700
-Message-ID: <CALCETrUqop+UB-BhyX4Y41kELO+6kcFdS1F7ZyN0CzRwg4UGhA@mail.gmail.com>
+Date: Fri, 15 Aug 2014 12:20:04 -0700
+Message-ID: <CALCETrW4Yscrte9=_ks_1BhSE9FTe-KZTv_a=g5wrwKhKkiuow@mail.gmail.com>
 References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
- <1407916658-8731-18-git-send-email-ast@plumgrid.com> <CAE40pdf0pNYyazjpdkzxNJi7iC4LOOr_XEu078OUqP_uoCXnHg@mail.gmail.com>
- <CAMEtUuymPDhYBe42i4DJNXsdgZRaq9LuEU_nGSsqrY1FcFHqhQ@mail.gmail.com>
- <CALCETrVH8KXr8uSHAVy5eBsqmi1LjB5QZpboAGcjYswXvW1opA@mail.gmail.com>
- <CAMEtUuzey7PanznrAguOpvPLxyhgJB++ovE8RNys7srs=EY1qg@mail.gmail.com>
- <CALCETrVhjO5c7ob1vntx031c5RmxRHimkRt1F2EsmzdKB53_NA@mail.gmail.com>
- <CAMEtUuzT53jeH-L+saW-RopSR2EERO5UKVHyeORTGHVMCHbYag@mail.gmail.com>
- <CALCETrUNvg88_VrwE+9RKnSgts=3zVcXbX6tuNLgUxJU436CrQ@mail.gmail.com> <CAMEtUuwF2_+qzkaW6rkw9cyYJ2eb01B_ZyBcwrJ7nd+GqN5-mQ@mail.gmail.com>
+ <1407916658-8731-18-git-send-email-ast@plumgrid.com> <CALCETrV7vO6r--G2ns+A6qmDQYSzNXeemT=x41EF+XWmayM95g@mail.gmail.com>
+ <CAMEtUuzCyxdOo+yYYZfDPRAu2yeQOw8TbUABwU-HD0+78PnV7A@mail.gmail.com>
+ <CALCETrUQN=vt3EUO=jNFC+sDHAiJdNyZWg4rwiEF7WKjPLi8Bg@mail.gmail.com> <CAMEtUuyDJeEJjzsZemFLT_y_QJ+vnJjze=KOxV+7g58Tsf4cTw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMEtUuwF2_+qzkaW6rkw9cyYJ2eb01B_ZyBcwrJ7nd+GqN5-mQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:49201 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751634AbaHOTU0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 15:20:26 -0400
+Received: by mail-lb0-f177.google.com with SMTP id s7so2219082lbd.8
+        for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 12:20:24 -0700 (PDT)
+In-Reply-To: <CAMEtUuyDJeEJjzsZemFLT_y_QJ+vnJjze=KOxV+7g58Tsf4cTw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 15, 2014 at 12:16 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
-> On Fri, Aug 15, 2014 at 12:02 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+On Fri, Aug 15, 2014 at 12:07 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On Fri, Aug 15, 2014 at 11:53 AM, Andy Lutomirski <luto@amacapital.net> wrote:
+>> On Fri, Aug 15, 2014 at 10:51 AM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>>> On Fri, Aug 15, 2014 at 10:25 AM, Andy Lutomirski <luto@amacapital.net> wrote:
+>>>> On Wed, Aug 13, 2014 at 12:57 AM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>>>>> User interface:
+>>>>> fd = open("/sys/kernel/debug/tracing/__event__/filter")
+>>>>>
+>>>>> write(fd, "bpf_123")
+>>>>
+>>>> I didn't follow all the code flow leading to parsing the "bpf_123"
+>>>> string, but if it works the way I imagine it does, it's a security
+>>>> problem.  In general, write(2) should never do anything that involves
+>>>> any security-relevant context of the caller.
+>>>>
+>>>> Ideally, you would look up fd 123 in the file table of whomever called
+>>>> open.  If that's difficult to implement efficiently, then it would be
+>>>> nice to have some check that the callers of write(2) and open(2) are
+>>>> the same task and that exec wasn't called in between.
+>>>>
+>>>> This isn't a very severe security issue because you need privilege to
+>>>> open the thing in the first place, but it would still be nice to
+>>>> address.
 >>>
->>> correct. eBPF program would be using 8-byte read on 64-bit kernel
->>> and 4-byte read on 32-bit kernel. Same with access to ptrace fields
->>> and pretty much all other fields in the kernel. The program will be
->>> different on different kernels.
->>> Say, this bpf_context struct doesn't exist at all. The programs would
->>> still need to be different to walk in-kernel data structures...
+>>> hmm. you need to be root to open the events anyway.
+>>> pretty much the whole tracing for root only, since any kernel data
+>>> structures can be printed, stored into maps and so on.
+>>> So I don't quite follow your security concern here.
+>>>
+>>> Even say root opens a tracepoint and does exec() of another
+>>> app that uploads ebpf program, gets program_fd and does
+>>> write into tracepoint fd. The root app that did this open() is
+>>> doing exec() on purpose. It's not like it's exec-ing something
+>>> it doesn't know about.
 >>
->> Hmm.  I guess this isn't so bad.
+>> As long as everyone who can debugfs/tracing/whatever has all
+>> privileges, then this is fine.
 >>
->> What's the actual difficulty with using u64?  ISTM that, if the clang
->> front-end can't deal with u64, there's a bigger problem.  Or is it
->> something else I don't understand.
+>> If not, then it's a minor capability or MAC bypass.  Suppose you only
+>> have one capability or, more realistically, limited MAC permissions.
 >
-> clang/llvm has no problem with u64 :)
-> This bpf_context struct for tracing is trying to answer the question:
->  'what's the most convenient way to access tracepoint arguments
-> from a script'.
-> When kernel code has something like:
->  trace_kfree_skb(skb, net_tx_action);
-> the script needs to be able to access this 'skb' and 'net_tx_action'
-> values through _single_ data structure.
-> In this proposal they are ctx->arg1 and ctx->arg2.
-> I've considered having different bpf_context's for every event, but
-> the complexity explodes. I need to hack all event definitions and so on.
-> imo it's better to move complexity to userspace, so program author
-> or high level language abstracts these details.
+> Hard to think of MAC abbreviation other than in networking way... ;)
+> MAC bypass... kinda sounds like L3 networking without L2... ;)
+>
+>> You can still open the tracing file, pass it to an unwitting program
+>> with elevated permission (e.g. using selinux's entrypoint mechanism),
+>> and trick that program into writing bpf_123.
+>
+> hmm, but to open tracing file you'd need to be root already...
+> otherwise yeah, if non-root could open it and pass it, then it
+> would be nasty.
+>
+>> Admittedly, it's unlikely that fd 123 will be an *eBPF* fd, but the
+>> attack is possible.
+>>
+>> I don't think that fixing this should be a prerequisite for merging,
+>> since the risk is so small.  Nonetheless, it would be nice.  (This
+>> family of attacks has lead to several root vulnerabilities in the
+>> past.)
+>
+> Ok. I think keeping a track of pid between open and write is kinda
+> ugly.
 
-I still don't understand why making them long instead of u64 is
-helpful, though.  I feel like I'm missing obvious here.
+Agreed.
+
+TBH, I would just add a comment to the open implementation saying
+that, if unprivileged or less privileged open is allowed, then this
+needs to be fixed.
+
+> Should we add some new CAP flag and check it for all file
+> ops? Another option is to conditionally make open() of tracing
+> files as cloexec...
+
+That won't help.  The same attack can be done with SCM_RIGHTS, and
+cloexec can be cleared.
 
 -- 
 Andy Lutomirski
