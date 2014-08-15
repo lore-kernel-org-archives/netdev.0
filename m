@@ -1,45 +1,122 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 0/3][pull request] Intel Wired LAN Driver Updates 2014-08-15
-Date: Fri, 15 Aug 2014 04:37:50 -0700
-Message-ID: <1408102673-27206-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com
+Subject: [net 2/3] i40e: Fix a few potential VF dereferences
+Date: Fri, 15 Aug 2014 04:37:52 -0700
+Message-ID: <1408102673-27206-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1408102673-27206-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:39386 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751122AbaHOLi3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Aug 2014 07:38:29 -0400
+	id S1751219AbaHOLic (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Aug 2014 07:38:32 -0400
+In-Reply-To: <1408102673-27206-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains fixes to i40e only.
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Anjali provides two fixes for i40e, first adds a check for non-active
-VF before sending admin queue messages to the VFS.  This resolves a
-potential kernel panic which would happen whenever we got a Tx hang and
-there were VFS that were not up or enabled.  The second fix adds
-additional checks so that we do try to access a VF that is not up or
-enabled which would dereference a null pointer.
+In some functions we might be doing potential dereference
+without a check. This patch puts the check in place for all these
+functions. Also fix the "for loops" so that we increment VF at the
+right place so that we always do it even if we are short-circuiting
+the loop through continue.
 
-Jesse fixes a i40e PTP bug where the hang detection routine was never
-being run when PTP was enabled.
+Change-ID: Id4276cfb1e841031bb7b6d6790c414242f364a9f
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 30 ++++++++++++++--------
+ 1 file changed, 19 insertions(+), 11 deletions(-)
 
-The following are changes since commit c9d26423e56ce1ab4d786f92aebecf859d419293:
-  Merge tag 'pm+acpi-3.17-rc1-2' of git://git.kernel.org/pub/scm/linux/kernel/git/rafael/linux-pm
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
-
-Anjali Singhai Jain (2):
-  i40e: Fix for recent kernel panic
-  i40e: Fix a few potential VF dereferences
-
-Jesse Brandeburg (1):
-  i40e: fix PTP bug
-
- drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 44 ++++++++++++++++------
- 2 files changed, 33 insertions(+), 13 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 502b534..3ac6a0d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1003,11 +1003,19 @@ int i40e_pci_sriov_configure(struct pci_dev *pdev, int num_vfs)
+ static int i40e_vc_send_msg_to_vf(struct i40e_vf *vf, u32 v_opcode,
+ 				  u32 v_retval, u8 *msg, u16 msglen)
+ {
+-	struct i40e_pf *pf = vf->pf;
+-	struct i40e_hw *hw = &pf->hw;
+-	int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
++	struct i40e_pf *pf;
++	struct i40e_hw *hw;
++	int abs_vf_id;
+ 	i40e_status aq_ret;
+ 
++	/* validate the request */
++	if (!vf || vf->vf_id >= vf->pf->num_alloc_vfs)
++		return -EINVAL;
++
++	pf = vf->pf;
++	hw = &pf->hw;
++	abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
++
+ 	/* single place to detect unsuccessful return values */
+ 	if (v_retval) {
+ 		vf->num_invalid_msgs++;
+@@ -1928,10 +1936,10 @@ static void i40e_vc_vf_broadcast(struct i40e_pf *pf,
+ {
+ 	struct i40e_hw *hw = &pf->hw;
+ 	struct i40e_vf *vf = pf->vf;
+-	int abs_vf_id;
+ 	int i;
+ 
+-	for (i = 0; i < pf->num_alloc_vfs; i++) {
++	for (i = 0; i < pf->num_alloc_vfs; i++, vf++) {
++		int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 		/* Not all vfs are enabled so skip the ones that are not */
+ 		if (!test_bit(I40E_VF_STAT_INIT, &vf->vf_states) &&
+ 		    !test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states))
+@@ -1940,10 +1948,8 @@ static void i40e_vc_vf_broadcast(struct i40e_pf *pf,
+ 		/* Ignore return value on purpose - a given VF may fail, but
+ 		 * we need to keep going and send to all of them
+ 		 */
+-		abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 		i40e_aq_send_msg_to_vf(hw, abs_vf_id, v_opcode, v_retval,
+ 				       msg, msglen, NULL);
+-		vf++;
+ 	}
+ }
+ 
+@@ -1959,12 +1965,12 @@ void i40e_vc_notify_link_state(struct i40e_pf *pf)
+ 	struct i40e_hw *hw = &pf->hw;
+ 	struct i40e_vf *vf = pf->vf;
+ 	struct i40e_link_status *ls = &pf->hw.phy.link_info;
+-	int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 	int i;
+ 
+ 	pfe.event = I40E_VIRTCHNL_EVENT_LINK_CHANGE;
+ 	pfe.severity = I40E_PF_EVENT_SEVERITY_INFO;
+-	for (i = 0; i < pf->num_alloc_vfs; i++) {
++	for (i = 0; i < pf->num_alloc_vfs; i++, vf++) {
++		int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 		if (vf->link_forced) {
+ 			pfe.event_data.link_event.link_status = vf->link_up;
+ 			pfe.event_data.link_event.link_speed =
+@@ -1977,8 +1983,6 @@ void i40e_vc_notify_link_state(struct i40e_pf *pf)
+ 		i40e_aq_send_msg_to_vf(hw, abs_vf_id, I40E_VIRTCHNL_OP_EVENT,
+ 				       0, (u8 *)&pfe, sizeof(pfe),
+ 				       NULL);
+-		vf++;
+-		abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 	}
+ }
+ 
+@@ -2009,6 +2013,10 @@ void i40e_vc_notify_vf_reset(struct i40e_vf *vf)
+ 	struct i40e_virtchnl_pf_event pfe;
+ 	int abs_vf_id;
+ 
++	/* validate the request */
++	if (!vf || vf->vf_id >= vf->pf->num_alloc_vfs)
++		return;
++
+ 	/* verify if the VF is in either init or active before proceeding */
+ 	if (!test_bit(I40E_VF_STAT_INIT, &vf->vf_states) &&
+ 	    !test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states))
 -- 
 1.9.3
