@@ -1,69 +1,99 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 3/3] net: phy: bcm7xxx: remove suspend callback for 28nm PHYs
-Date: Thu, 14 Aug 2014 16:52:53 -0700
-Message-ID: <1408060373-5996-4-git-send-email-f.fainelli@gmail.com>
-References: <1408060373-5996-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] packet: handle too big packets for PACKET_V3
+Date: Thu, 14 Aug 2014 17:09:54 -0700
+Message-ID: <1408061394.6804.55.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:40959 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751251AbaHNXxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 19:53:19 -0400
-Received: by mail-pa0-f51.google.com with SMTP id ey11so2511261pad.38
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 16:53:18 -0700 (PDT)
-In-Reply-To: <1408060373-5996-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:39382 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750869AbaHOAJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 20:09:55 -0400
+Received: by mail-pd0-f170.google.com with SMTP id g10so2442852pdj.29
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 17:09:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-BCM7xxx internal Gigabit PHY on 28nm process do not need anything
-special to be done during suspend, remove the suspend callback since it
-might be harmful rather than useful. While at it, update the comment
-above bcm7xxx_suspend() to reflect that it applies only to 40nm and 65nm
-process PHY devices.
+It looks like PACKET_V3 has no check that a packet can always fit in a
+block.
 
-Fixes: b560a58c45c6 ("net: phy: add Broadcom BCM7xxx internal PHY driver")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/bcm7xxx.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+Its trivial with GRO to break the assumption and write into kernel
+memory.
 
-diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
-index a8ca03ff4f1e..fdce1ea28790 100644
---- a/drivers/net/phy/bcm7xxx.c
-+++ b/drivers/net/phy/bcm7xxx.c
-@@ -229,7 +229,7 @@ static int bcm7xxx_config_init(struct phy_device *phydev)
- }
+[  840.989881] BUG: unable to handle kernel paging req0
+[  840.997667] IP: [<ffffffff9ed17466>] memcpy+0x6/0x110
+[  841.003314] PGD 2068b067 PUD 20371d3067 PMD 20370e7067 PTE 80000001dd6b2060
+[  841.011120] Oops: 0002 [#1] SMP DEBUG_PAGEALLOC
+[  841.016199] Modules linked in: nf_conntrack_ipv6 nf_defrag_ipv6 xt_NFLOG nfnetlink_log nfo
+[  841.060739] CPU: 12 PID: 0 Comm: swapper/12 Not tainted 3.16
+[  841.077824] task: ffff880119ad2580 ti: ffff880119ad8000 task.ti: ffff880119ad8000
+[  841.086173] RIP: 0010:[<ffffffff9ed17466>]  [<ffffffff9ed17466>] memcpy+0x6/0x110
+[  841.094531] RSP: 0018:ffff880fffac3b48  EFLAGS: 00010286
+[  841.100461] RAX: ffff8801dd6b1b9c RBX: 0000000000000a74 RCX: 00000000000000d6
+[  841.108412] RDX: 000000000000053a RSI: ffff880132a769ce RDI: ffff8801dd6b2000
+[  841.116373] RBP: ffff880fffac3bb0 R08: 0000000000000ff0 R09: ffff8801dd6b1b9c
+[  841.124332] R10: ffff8801bb529f00 R11: 000000000000053a R12: 0000000000000ab6
+[  841.132292] R13: ffff880119ad8000 R14: 0000000000000001 R15: ffff8801bb529f00
+[  841.140252] FS:  0000000000000000(0000) GS:ffff880fffac0000(0000) knlGS:0000000000000000
+[  841.149279] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  841.155689] CR2: ffff8801dd6b2000 CR3: 000000001f40e000 CR4: 00000000001427e0
+[  841.163649] Stack:
+[  841.165888]  ffffffff9eed1a15 ffff8801e1d06800 ffff88010000053a 000000000000053a
+[  841.174176]  ffff8801dd6b1b9c ffff880100000ff0 ffff880119adbfd8 ffff880132a755b6
+[  841.182466]  ffff8801bb529f00 ffff8801e1d06800 000000000000151c ffff880132a755b6
+[  841.190764] Call Trace:
+[  841.193490]  <IRQ>
+[  841.195632]  [<ffffffff9eed1a15>] ? skb_copy_bits+0x145/0x290
+[  841.202272]  [<ffffffff9ef95899>] tpacket_rcv+0x249/0x820
+[  841.208295]  [<ffffffff9eee3358>] __netif_receive_skb_core+0x388/0x950
+[  841.215578]  [<ffffffff9eee30fb>] ? __netif_receive_skb_core+0x12b/0x950
+[  841.223054]  [<ffffffff9eee3941>] __netif_receive_skb+0x21/0x70
+[  841.229658]  [<ffffffff9eee3b35>] netif_receive_skb+0x25/0x120
+[  841.236166]  [<ffffffff9eee3b60>] ? netif_receive_skb+0x50/0x120
+[  841.242869]  [<ffffffff9ef67b5e>] ? inet_gro_receive+0x6e/0x290
+[  841.249474]  [<ffffffff9eee3d6e>] napi_gro_complete.isra.77+0x13e/0x160
+[  841.256853]  [<ffffffff9eee3c60>] ? napi_gro_complete.isra.77+0x30/0x160
+[  841.264331]  [<ffffffffc03dc0bd>] ? gro_cell_poll+0x8d/0xd0 [ip_tunnel]
+[  841.271711]  [<ffffffff9eee4178>] napi_gro_flush+0x78/0xa0
+[  841.277830]  [<ffffffff9eee41d3>] napi_complete+0x33/0x80
+[  841.283852]  [<ffffffffc03dc0d4>] gro_cell_poll+0xa4/0xd0 [ip_tunnel]
+[  841.291038]  [<ffffffff9eee435a>] net_rx_action+0x13a/0x240
+[  841.297254]  [<ffffffff9ea575c0>] __do_softirq+0x100/0x290
+[  841.303374]  [<ffffffff9efb1b0c>] call_softirq+0x1c/0x30
+[  841.309300]  [<ffffffff9ea0bdbd>] do_softirq+0x8d/0xc0
+[  841.315032]  [<ffffffff9ea5791d>] irq_exit+0xcd/0xd0
+[  841.320571]  [<ffffffff9ea05db3>] do_IRQ+0x63/0xe0
+[  841.325915]  [<ffffffff9efa762f>] common_interrupt+0x6f/0x6f
+
+Not sure how to fix this.
+
+This patch only shows where the problem is, but should we :
+
+1) drop the too long packet
+2) clamp size to maximal admissible size
+3) other solution ? (PACKET_V2 can queue a clone of skb in
+receive_queue, but PACKET_V3 has no such capability)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 8d9f8042705a..6ee072b746fb 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1073,6 +1073,11 @@ static void *__packet_lookup_frame_in_block(struct packet_sock *po,
+ 		return (void *)curr;
+ 	}
  
- /* Workaround for putting the PHY in IDDQ mode, required
-- * for all BCM7XXX PHYs
-+ * for all BCM7XXX 40nm and 65nm PHYs
-  */
- static int bcm7xxx_suspend(struct phy_device *phydev)
- {
-@@ -274,7 +274,6 @@ static struct phy_driver bcm7xxx_driver[] = {
- 	.config_init	= bcm7xxx_28nm_afe_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
--	.suspend	= bcm7xxx_suspend,
- 	.resume		= bcm7xxx_28nm_resume,
- 	.driver		= { .owner = THIS_MODULE },
- }, {
-@@ -287,7 +286,6 @@ static struct phy_driver bcm7xxx_driver[] = {
- 	.config_init	= bcm7xxx_28nm_afe_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
--	.suspend	= bcm7xxx_suspend,
- 	.resume		= bcm7xxx_28nm_resume,
- 	.driver		= { .owner = THIS_MODULE },
- }, {
-@@ -300,7 +298,6 @@ static struct phy_driver bcm7xxx_driver[] = {
- 	.config_init	= bcm7xxx_28nm_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
--	.suspend	= bcm7xxx_suspend,
- 	.resume		= bcm7xxx_28nm_afe_config_init,
- 	.driver		= { .owner = THIS_MODULE },
- }, {
--- 
-1.9.1
++	/* If frame do not fit on a single block, bail out */
++	if (BLK_PLUS_PRIV(pkc->blk_sizeof_priv) +
++	    TOTAL_PKT_LEN_INCL_ALIGN(len) >= pkc->kblk_size)
++		return NULL;
++
+ 	/* Ok, close the current block */
+ 	prb_retire_current_block(pkc, po, 0);
+ 
