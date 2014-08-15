@@ -1,125 +1,81 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2] net: phy: smsc: move smsc_phy_config_init reset part
- in a soft_reset function
-Date: Fri, 15 Aug 2014 08:02:36 -0700
-Message-ID: <CAGVrzcYqRXqmQp5T8ULfP9PdUWWbTg0g+NbWuSt9VzcRQcAoQg@mail.gmail.com>
-References: <1408107638-96143-1-git-send-email-gwenhael.goavec-merou@armadeus.com>
+From: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH v2 0/3] net: Add Keystone NetCP ethernet driver support
+Date: Fri, 15 Aug 2014 11:12:39 -0400
+Message-ID: <1408115562-22487-1-git-send-email-santosh.shilimkar@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408107638-96143-1-git-send-email-gwenhael.goavec-merou@armadeus.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<sandeep_n-l0cyMroinI0@public.gmane.org>, Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-2014-08-15 6:00 GMT-07:00 Gwenhael Goavec-Merou
-<gwenhael.goavec-merou@armadeus.com>:
-> On the one hand, phy_device.c provides a generic reset function if the phy
-> driver does not provide a soft_reset pointer. This generic reset does not take
-> into account the state of the phy, with a potential failure if the phy is in
-> powerdown mode. On the other hand, smsc driver provides a function with both
-> correct reset behaviour and configuration.
->
-> This patch moves the reset part into a new smsc_phy_reset function and provides
-> the soft_reset pointer to have a correct reset behaviour by default.
->
-> Signed-off-by: Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>
+Update version after incorporating David Miller's comment from earlier
+posting [1]. I would like to get these merged for upcoming 3.18 merge
+window if there are no concerns on this version.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+The network coprocessor (NetCP) is a hardware accelerator that processes
+Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsystem with a ethernet
+switch sub-module to send and receive packets. NetCP also includes a packet
+accelerator (PA) module to perform packet classification operations such as
+header matching, and packet modification operations such as checksum
+generation. NetCP can also optionally include a Security Accelerator(SA)
+capable of performing IPSec operations on ingress/egress packets.
+    
+Keystone SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
+includes a 3-port Ethernet switch sub-module capable of 10Gb/s and
+1Gb/s rates per Ethernet port.
+    
+NetCP driver has a plug-in module architecture where each of the NetCP
+sub-modules exist as a loadable kernel module which plug in to the netcp
+core. These sub-modules are represented as "netcp-devices" in the dts
+bindings. It is mandatory to have the ethernet switch sub-module for
+the ethernet interface to be operational. Any other sub-module like the
+PA is optional.
 
-> ---
-> Changes since v1 (as advised by Sergei Shtylyov):
->  * fix '=' alignment
->
->  drivers/net/phy/smsc.c | 33 +++++++++++++++++++++------------
->  1 file changed, 21 insertions(+), 12 deletions(-)
->
-> diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-> index 180c494..a4b0819 100644
-> --- a/drivers/net/phy/smsc.c
-> +++ b/drivers/net/phy/smsc.c
-> @@ -43,6 +43,22 @@ static int smsc_phy_ack_interrupt(struct phy_device *phydev)
->
->  static int smsc_phy_config_init(struct phy_device *phydev)
->  {
-> +       int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
-> +
-> +       if (rc < 0)
-> +               return rc;
-> +
-> +       /* Enable energy detect mode for this SMSC Transceivers */
-> +       rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
-> +                      rc | MII_LAN83C185_EDPWRDOWN);
-> +       if (rc < 0)
-> +               return rc;
-> +
-> +       return smsc_phy_ack_interrupt(phydev);
-> +}
-> +
-> +static int smsc_phy_reset(struct phy_device *phydev)
-> +{
->         int rc = phy_read(phydev, MII_LAN83C185_SPECIAL_MODES);
->         if (rc < 0)
->                 return rc;
-> @@ -66,18 +82,7 @@ static int smsc_phy_config_init(struct phy_device *phydev)
->                         rc = phy_read(phydev, MII_BMCR);
->                 } while (rc & BMCR_RESET);
->         }
-> -
-> -       rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
-> -       if (rc < 0)
-> -               return rc;
-> -
-> -       /* Enable energy detect mode for this SMSC Transceivers */
-> -       rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
-> -                      rc | MII_LAN83C185_EDPWRDOWN);
-> -       if (rc < 0)
-> -               return rc;
-> -
-> -       return smsc_phy_ack_interrupt (phydev);
-> +       return 0;
->  }
->
->  static int lan911x_config_init(struct phy_device *phydev)
-> @@ -142,6 +147,7 @@ static struct phy_driver smsc_phy_driver[] = {
->         .config_aneg    = genphy_config_aneg,
->         .read_status    = genphy_read_status,
->         .config_init    = smsc_phy_config_init,
-> +       .soft_reset     = smsc_phy_reset,
->
->         /* IRQ related */
->         .ack_interrupt  = smsc_phy_ack_interrupt,
-> @@ -164,6 +170,7 @@ static struct phy_driver smsc_phy_driver[] = {
->         .config_aneg    = genphy_config_aneg,
->         .read_status    = genphy_read_status,
->         .config_init    = smsc_phy_config_init,
-> +       .soft_reset     = smsc_phy_reset,
->
->         /* IRQ related */
->         .ack_interrupt  = smsc_phy_ack_interrupt,
-> @@ -186,6 +193,7 @@ static struct phy_driver smsc_phy_driver[] = {
->         .config_aneg    = genphy_config_aneg,
->         .read_status    = genphy_read_status,
->         .config_init    = smsc_phy_config_init,
-> +       .soft_reset     = smsc_phy_reset,
->
->         /* IRQ related */
->         .ack_interrupt  = smsc_phy_ack_interrupt,
-> @@ -230,6 +238,7 @@ static struct phy_driver smsc_phy_driver[] = {
->         .config_aneg    = genphy_config_aneg,
->         .read_status    = lan87xx_read_status,
->         .config_init    = smsc_phy_config_init,
-> +       .soft_reset     = smsc_phy_reset,
->
->         /* IRQ related */
->         .ack_interrupt  = smsc_phy_ack_interrupt,
-> --
-> 1.8.5.5
->
+Both GBE and XGBE network processors supported using common driver. It
+is also designed to handle future variants of NetCP.
 
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Cc: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Cc: Sandeep Nair <sandeep_n-l0cyMroinI0@public.gmane.org>
 
+Sandeep Nair (3):
+  Documentation: dt: net: Add binding doc for Keystone NetCP ethernet
+    driver
+  net: Add Keystone NetCP ethernet driver
+  MAINTAINER: net: Add TI NETCP Ethernet driver entry
+
+ .../devicetree/bindings/net/keystone-netcp.txt     |  197 ++
+ MAINTAINERS                                        |    6 +
+ drivers/net/ethernet/ti/Kconfig                    |   15 +-
+ drivers/net/ethernet/ti/Makefile                   |    4 +
+ drivers/net/ethernet/ti/netcp.h                    |  227 ++
+ drivers/net/ethernet/ti/netcp_core.c               | 2276 ++++++++++++++++++++
+ drivers/net/ethernet/ti/netcp_ethss.c              | 2178 +++++++++++++++++++
+ drivers/net/ethernet/ti/netcp_sgmii.c              |  130 ++
+ drivers/net/ethernet/ti/netcp_xgbepcsr.c           |  502 +++++
+ 9 files changed, 5532 insertions(+), 3 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/keystone-netcp.txt
+ create mode 100644 drivers/net/ethernet/ti/netcp.h
+ create mode 100644 drivers/net/ethernet/ti/netcp_core.c
+ create mode 100644 drivers/net/ethernet/ti/netcp_ethss.c
+ create mode 100644 drivers/net/ethernet/ti/netcp_sgmii.c
+ create mode 100644 drivers/net/ethernet/ti/netcp_xgbepcsr.c
+
+regards,
+Santosh
+
+[1] https://lkml.org/lkml/2014/4/22/805
 
 -- 
-Florian
+1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
