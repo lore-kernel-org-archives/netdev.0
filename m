@@ -1,101 +1,50 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: Query: Is it possible  to lose interrupts between vhost and virtio_net
- during migration?
-Date: Fri, 15 Aug 2014 10:55:32 +0800
-Message-ID: <53ED76A4.4090005@redhat.com>
-References: <53DA2CCC.1040606@huawei.com> <20140731143100.GA3834@redhat.com> <20140731143725.GA3875@redhat.com> <53DB705F.2000405@redhat.com> <53DB76A9.8010305@redhat.com> <53E079C8.7050700@huawei.com> <20140805094957.GB24619@redhat.com> <53E0CAA4.8010303@huawei.com> <53E37561.5060302@huawei.com> <53EC78D8.6070405@redhat.com> <20140814100231.GB30944@redhat.com>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH v2 1/1] net: fec: ptp: avoid register access when ipg
+ clock is disabled
+Date: Fri, 15 Aug 2014 03:23:42 +0000
+Message-ID: <b0886e9bf4d54c008f78998ae930d712@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1407905705-27984-1-git-send-email-b38611@freescale.com>
+ <1407905705-27984-2-git-send-email-b38611@freescale.com>
+ <20140813211941.GB4840@netboy>
+ <4dcf48cd1c11473c82fcec0c8963ece2@BLUPR03MB373.namprd03.prod.outlook.com>
+ <20140814081036.GB7555@netboy>
+ <e84f5b51501e4add8cf08819c64ef554@BLUPR03MB373.namprd03.prod.outlook.com>
+ <20140814084251.GC7555@netboy>
+ <4977c4d325c949019549211d74c6982d@BLUPR03MB373.namprd03.prod.outlook.com>
+ <20140814091259.GA11727@netboy>
+ <4f93901dbe7a4746aacc795ae825ee60@BLUPR03MB373.namprd03.prod.outlook.com>
+ <20140814143351.GA29615@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "Zhangjie (HZ)" <zhangjie14@huawei.com>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, qinchuanyu@huawei.com,
-	liuyongan@huawei.com, davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20140814100231.GB30944@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1lp0140.outbound.protection.outlook.com ([207.46.163.140]:1338
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753405AbaHODXr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 23:23:47 -0400
+In-Reply-To: <20140814143351.GA29615@netboy>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/14/2014 06:02 PM, Michael S. Tsirkin wrote:
-> On Thu, Aug 14, 2014 at 04:52:40PM +0800, Jason Wang wrote:
->> On 08/07/2014 08:47 PM, Zhangjie (HZ) wrote:
->>> On 2014/8/5 20:14, Zhangjie (HZ) wrote:
->>>> On 2014/8/5 17:49, Michael S. Tsirkin wrote:
->>>>> On Tue, Aug 05, 2014 at 02:29:28PM +0800, Zhangjie (HZ) wrote:
->>>>>> Jason is right, the new order is not the cause of network unreachable.
->>>>>> Changing order seems not work. After about 40 times, the problem occurs again.
->>>>>> Maybe there is other hidden reasons for that.
->>>> I modified the code to change the order myself yesterday.
->>>> This result is about my code.
->>>>> To make sure, you tested the patch that I posted to list:
->>>>> "vhost_net: stop guest notifiers after backend"?
->>>>>
->>>>> Please confirm.
->>>>>
->>>> OK, I will test with your patch "vhost_net: stop guest notifiers after backend".
->>>>
->>> Unfortunately, after using the patch "vhost_net: stop guest notifiers after backend",
->>> Linux VMs stopt themselves a few minutes after they were started.
->>>> @@ -308,6 +308,12 @@ int vhost_net_start(VirtIODevice *dev, NetClientState *ncs,
->>>>         goto err;
->>>>     }
->>>>
->>>> +    r = k->set_guest_notifiers(qbus->parent, total_queues * 2, true);
->>>> +    if (r < 0) {
->>>> +        error_report("Error binding guest notifier: %d", -r);
->>>> +        goto err;
->>>> +    }
->>>> +
->>>>     for (i = 0; i < total_queues; i++) {
->>>>         r = vhost_net_start_one(get_vhost_net(ncs[i].peer), dev, i * 2);
->>>>
->>>> @@ -316,12 +322,6 @@ int vhost_net_start(VirtIODevice *dev, NetClientState *ncs,
->>>>         }
->>>>     }
->>>>
->>>> -    r = k->set_guest_notifiers(qbus->parent, total_queues * 2, true);
->>>> -    if (r < 0) {
->>>> -        error_report("Error binding guest notifier: %d", -r);
->>>> -        goto err;
->>>> -    }
->>>> -
->>>>     return 0;
->>> I wonder if k->set_guest_notifiers should be called after "hdev->started = true;" in vhost_dev_start.
->> Michael, can we just remove those assertions? Since you may want to set
->> guest notifiers before starting the backend.
-> Which assertions?
-
-I mean assert(hdev->started) in vhost.c. Your patch may hit them.
-
->> Another question for virtio_pci_vector_poll(): why not using
->> msix_notify() instead of msix_set_pending().
-> We can do that but the effect will be same since we know
-> vector is masked.
-
-Perhaps not in during current vhost starting. We start backend before
-setting guest notifiers now. So backend are using masked notifier in
-this time but the vector was not masked.
-
+From: Richard Cochran <richardcochran@gmail.com> Data: Thursday, August 14, 2014 10:34 PM
+>To: Duan Fugang-B38611
+>Cc: shawn.guo@linaro.org; davem@davemloft.net; netdev@vger.kernel.org
+>Subject: Re: [PATCH v2 1/1] net: fec: ptp: avoid register access when ipg
+>clock is disabled
 >
->> If so, there's no need to
->> change the vhost_net_start() ?
-> Confused, don't see the connection.
+>On Thu, Aug 14, 2014 at 09:26:45AM +0000, fugang.duan@freescale.com wrote:
+>> When ethx disable, all clocks are disabled. For gettime(), your mean
+>> that we check clock is on or not, If clock is disabled, return an error
+>in .fec_ptp_gettime() ?
+>
+>Yes.
+>
+I will change it. Thanks! I will submit the next version.
 
-If we use msix_notify(), it will raise the irq if backend want it before
-setting guest notifiers. So no need to check the order of setting guest
-notifiers and starting backend in vhost_net_start().
->
->> Zhang Jie, is this a regression? If yes, could you please do a bisection
->> to find the first bad commit.
->>
->> Thanks
-> Pretty sure it's the mq patch: a9f98bb5ebe6fb1869321dcc58e72041ae626ad8
->
->     Since we may have many vhost/net devices for a virtio-net device.  The setting of
->     guest notifiers were moved out of the starting/stopping of a specific vhost
->     thread. The vhost_net_{start|stop}() were renamed to
->     vhost_net_{start|stop}_one(), and a new vhost_net_{start|stop}() were introduced
->     to configure the guest notifiers and start/stop all vhost/vhost_net devices.
->
-
-Ok.
+Thanks for your review.
