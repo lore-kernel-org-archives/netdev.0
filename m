@@ -1,60 +1,95 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Performance regression on kernels 3.10 and newer
-Date: Fri, 15 Aug 2014 10:59:24 -0700
-Message-ID: <1408125564.6804.98.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <53ECFDAB.5010701@intel.com>
-		<1408041962.6804.31.camel@edumazet-glaptop2.roam.corp.google.com>
-		<53ED4354.9090904@intel.com>
-	 <20140814.162024.2218312002979492106.davem@davemloft.net>
-	 <53EE4023.6080902@intel.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v3 1/1] net: fec: ptp: avoid register access when ipg
+ clock is disabled
+Date: Fri, 15 Aug 2014 20:08:54 +0200
+Message-ID: <20140815180854.GA6897@localhost.localdomain>
+References: <1408081975-15087-1-git-send-email-b38611@freescale.com>
+ <1408081975-15087-2-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, shawn.guo@linaro.org
+To: Fugang Duan <b38611@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36778 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027AbaHOR70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 13:59:26 -0400
-Received: by mail-pa0-f52.google.com with SMTP id bj1so3874101pad.11
-        for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 10:59:25 -0700 (PDT)
-In-Reply-To: <53EE4023.6080902@intel.com>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:52644 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751027AbaHOSJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 14:09:23 -0400
+Received: by mail-wi0-f171.google.com with SMTP id hi2so1176178wib.16
+        for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 11:09:22 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1408081975-15087-2-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-08-15 at 10:15 -0700, Alexander Duyck wrote:
+Looks better, but ...
 
-> I realize most of my data is anecdotal as I only have the ixgbe/igb
-> adapters and netperf to work with.  This is one of the reasons why I
-> keep asking if someone can tell me what the use case is for this where
-> it performs well.  From what I can tell it might have had some value
-> back in the day before the introduction of things such as RPS/RFS where
-> some of the socket processing would be offloaded to other CPUs for a
-> single queue device, but even that use case is now deprecated since
-> RPS/RFS are there and function better than this.  What I am basically
-> looking for is a way to weight the gain versus the penalties to
-> determine if this code is even viable anymore.
-> 
-> In the meantime I think I will put together a patch to default
-> tcp_low_latency to 1 for net and stable, and if we cannot find a good
-> reason for keeping it then I can submit a patch to net-next that will
-> strip it out since I don't see any benefit to having this code.
+On Fri, Aug 15, 2014 at 01:52:55PM +0800, Fugang Duan wrote:
 
-prequeue is useful on low end hosts, because it allows an application to
-delay ACK packets if it is slow. You get a nicer TCP behavior, because
-its more tied to scheduling glitches. Especially if TCP windows are not
-autotuned. I guess some embedded platforms benefit from this.
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 66fe1f6..ba35994 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1613,14 +1613,18 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+>  			ret = clk_prepare_enable(fep->clk_ptp);
+>  			if (ret)
+>  				goto failed_clk_ptp;
+> +			else
+> +				fep->ptp_clk_on = true;
+>  		}
+>  	} else {
+>  		clk_disable_unprepare(fep->clk_ahb);
+>  		clk_disable_unprepare(fep->clk_ipg);
+>  		if (fep->clk_enet_out)
+>  			clk_disable_unprepare(fep->clk_enet_out);
+> -		if (fep->clk_ptp)
+> +		if (fep->clk_ptp) {
+>  			clk_disable_unprepare(fep->clk_ptp);
+> +			fep->ptp_clk_on = false;
 
-I would keep it the way it is, because modern high performance
-applications do not trigger prequeue anyway.
+Set the flag to false first, because this races ...
 
-It is trivial to add into netperf a poll() before recvmsg() to avoid the
-prequeue, or start your benchmarks with appropriate sysctl.
+> diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+> index 82386b2..8084aaf 100644
+> --- a/drivers/net/ethernet/freescale/fec_ptp.c
+> +++ b/drivers/net/ethernet/freescale/fec_ptp.c
+> @@ -245,6 +245,10 @@ static int fec_ptp_settime(struct ptp_clock_info *ptp,
+>  	u64 ns;
+>  	unsigned long flags;
+>  
+> +	/* Check the ptp clock */
+> +	if (!fep->ptp_clk_on)
+> +		return -EINVAL;
 
-It is certainly not a 'stable' candidate change, it has been there for
-years.
+with this and ...
 
-Note that we have include/linux/percpu-refcount.h now, we might
-autodetect some dst are heavily used by different cpus and switch to a
-percpu refcount.
+> +
+>  	ns = ts->tv_sec * 1000000000ULL;
+>  	ns += ts->tv_nsec;
+>  
+> @@ -338,17 +342,20 @@ int fec_ptp_get(struct net_device *ndev, struct ifreq *ifr)
+>   * fec_time_keep - call timecounter_read every second to avoid timer overrun
+>   *                 because ENET just support 32bit counter, will timeout in 4s
+>   */
+> -static void fec_time_keep(unsigned long _data)
+> +static void fec_time_keep(struct work_struct *work)
+>  {
+> -	struct fec_enet_private *fep = (struct fec_enet_private *)_data;
+> +	struct delayed_work *dwork = to_delayed_work(work);
+> +	struct fec_enet_private *fep = container_of(dwork, struct fec_enet_private, time_keep);
+>  	u64 ns;
+>  	unsigned long flags;
+>  
+> -	spin_lock_irqsave(&fep->tmreg_lock, flags);
+> -	ns = timecounter_read(&fep->tc);
+> -	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+> +	if (fep->ptp_clk_on) {
+
+with this.
+
+> +		spin_lock_irqsave(&fep->tmreg_lock, flags);
+> +		ns = timecounter_read(&fep->tc);
+> +		spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+> +	}
+
+Thanks,
+Richard
