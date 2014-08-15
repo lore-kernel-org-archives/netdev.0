@@ -1,11 +1,11 @@
 From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH RFC v4 net-next 25/26] samples: bpf: counting eBPF example
- in C
-Date: Thu, 14 Aug 2014 23:19:57 -0700
-Message-ID: <CAMEtUuxFmGz7hEYf+_Kux5ir28ehJjTPFPfc0k4xfSZ6RcbM+g@mail.gmail.com>
+Subject: Re: [PATCH RFC v4 net-next 03/26] bpf: introduce syscall(BPF, ...)
+ and BPF maps
+Date: Thu, 14 Aug 2014 23:40:53 -0700
+Message-ID: <CAMEtUux5UCxvJyVSXDixy2fjHOXhRFLipgN7aLj_ovYm2Svy9g@mail.gmail.com>
 References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
-	<1407916658-8731-26-git-send-email-ast@plumgrid.com>
-	<CAE40pdcdgRASVEWCrUjHUH3eHp2ohTrK27FCv=Ji62sKNcKggQ@mail.gmail.com>
+	<1407916658-8731-4-git-send-email-ast@plumgrid.com>
+	<CAE40pdcCqu6zBqDgAXBpKHzX=y7hXtz83yEadYTE2yACiqyT3g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
@@ -25,63 +25,52 @@ Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 To: Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAE40pdcdgRASVEWCrUjHUH3eHp2ohTrK27FCv=Ji62sKNcKggQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+In-Reply-To: <CAE40pdcCqu6zBqDgAXBpKHzX=y7hXtz83yEadYTE2yACiqyT3g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 14, 2014 at 3:13 PM, Brendan Gregg
+On Thu, Aug 14, 2014 at 3:28 PM, Brendan Gregg
 <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 > On Wed, Aug 13, 2014 at 12:57 AM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
->> this example has two probes in C that use two different maps.
+> [...]
+>> maps can have different types: hash, bloom filter, radix-tree, etc.
 >>
->> 1st probe is the similar to dropmon.c. It attaches to kfree_skb tracepoint and
->> count number of packet drops at different locations
->>
->> 2nd probe attaches to kprobe/sys_write and computes a histogram of different
->> write sizes
->>
->> Usage:
->> $ sudo ex2
->>
->> Should see:
->> writing bpf-5 -> /sys/kernel/debug/tracing/events/skb/kfree_skb/filter
->> writing bpf-8 -> /sys/kernel/debug/tracing/events/kprobes/sys_write/filter
->> location 0xffffffff816efc67 count 1
->>
->> location 0xffffffff815d8030 count 1
->> location 0xffffffff816efc67 count 3
->>
->> location 0xffffffff815d8030 count 4
->> location 0xffffffff816efc67 count 9
->>
->>            syscall write() stats
->>      byte_size       : count     distribution
->>        1 -> 1        : 3141     |****                                  |
->>        2 -> 3        : 2        |                                      |
->>        4 -> 7        : 14       |                                      |
->>        8 -> 15       : 3268     |*****                                 |
->>       16 -> 31       : 732      |                                      |
->>       32 -> 63       : 20042    |************************************* |
->>       64 -> 127      : 12154    |**********************                |
->>      128 -> 255      : 2215     |***                                   |
->>      256 -> 511      : 9        |                                      |
->>      512 -> 1023     : 0        |                                      |
->>     1024 -> 2047     : 1        |                                      |
+>> The map is defined by:
+>>   . type
+>>   . max number of elements
+>>   . key size in bytes
+>>   . value size in bytes
 >
-> This is pretty awesome.
+> Can values be strings or byte arrays? How would user-level bpf read
+> them? The two types of uses I'm thinking are:
 >
-> Given that this is tracing two tracepoints at once, I'd like to see a
-> similar example where time is stored on the first tracepoint,
-> retrieved on the second for a delta calculation, then presented with a
-> similar histogram as seen above.
+> A. Constructing a custom string in kernel-context, and using that as
+> the value. Eg, a truncated filename, or a dotted quad IP address, or
+> the raw contents of a packet.
+> B. I have a pointer to an existing buffer or string, eg a filename,
+> that will likely be around for some time (>1s). Instead of the value
+> storing the string, it could just be a ptr, so long as user-level bpf
+> has a way to read it.
+>
+> Also, can keys be strings? I'd ask about multiple keys, but if they
+> can be a string, I can delimit in the key (eg, "PID:filename").
 
-Very good point. The time related helpers are missing. In V5 I'm
-thinking to add something like bpf_ktime_get_ns().
-To associate begin and end events I think bpf_gettid() would be
-needed, but that doesn't feel generic enough for helper function,
-so I'm leaning toward 'bpf_get_current()' helper that will return
-'current' task pointer. eBPF program can use this pointer for
-correlation of events or can go exploring task fields with
-bpf_fetch_() helpers...
-
-Thank you very much for trying things out and for your feedback!
+Both map keys and values are opaque byte arrays. eBPF program
+can decide to store strings in there. Or concatenate multiple
+strings as long as sizes are bounded.
+High level scripting languages are dazzling with native strings
+support, but I'm trying to stay away from it in the kernel.
+Scripting languages should be able to convert string operations
+into low level eBPF primitives which are being worked on.
+So far I've been able to use ids and pointers and concatenations
+of binary things as keys and values, and have user space interpret
+them. I agree that having a script that does map[probe_name()]++
+is definitely more human readable than storing probe ip into
+ebpf map and converting addresses to names in userspace.
+I'm hoping that the urge to make cool scripting language will push
+somebody to have a dtrace/ktap/stap language compiler into eBPF :)
+That will also address your concern of embedded setup where
+full llvm is too big, but dtrace_into_ebpf compiler may be just right.
+At the same time people who care about last bit of performance
+will be using C and llvm or ebpf assembler directly.
+Anyway will share string related ebpf helpers soon (not in V5 though)
