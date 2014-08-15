@@ -1,66 +1,83 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: Performance regression on kernels 3.10 and newer
-Date: Fri, 15 Aug 2014 10:15:15 -0700
-Message-ID: <53EE4023.6080902@intel.com>
-References: <53ECFDAB.5010701@intel.com>	<1408041962.6804.31.camel@edumazet-glaptop2.roam.corp.google.com>	<53ED4354.9090904@intel.com> <20140814.162024.2218312002979492106.davem@davemloft.net>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH RFC v4 net-next 17/26] tracing: allow eBPF programs to be
+ attached to events
+Date: Fri, 15 Aug 2014 10:20:25 -0700
+Message-ID: <CALCETrVH8KXr8uSHAVy5eBsqmi1LjB5QZpboAGcjYswXvW1opA@mail.gmail.com>
+References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
+ <1407916658-8731-18-git-send-email-ast@plumgrid.com> <CAE40pdf0pNYyazjpdkzxNJi7iC4LOOr_XEu078OUqP_uoCXnHg@mail.gmail.com>
+ <CAMEtUuymPDhYBe42i4DJNXsdgZRaq9LuEU_nGSsqrY1FcFHqhQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:45668 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751027AbaHORPc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Aug 2014 13:15:32 -0400
-In-Reply-To: <20140814.162024.2218312002979492106.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMEtUuymPDhYBe42i4DJNXsdgZRaq9LuEU_nGSsqrY1FcFHqhQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/14/2014 04:20 PM, David Miller wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> Date: Thu, 14 Aug 2014 16:16:36 -0700
-> 
->> Are you sure about each socket having it's own DST?  Everything I see
->> seems to indicate it is somehow associated with IP.
-> 
-> Right it should be, unless you have exception entries created by path
-> MTU or redirects.
-> 
-> WRT prequeue, it does the right thing for dumb apps that block in
-> receive.  But because it causes the packet to cross domains as it
-> does, we can't do a lot of tricks which we normally can do, and that's
-> why the refcounting on the dst is there now.
-> 
-> Perhaps we can find a clever way to elide that refcount, who knows.
+On Thu, Aug 14, 2014 at 11:08 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+> On Thu, Aug 14, 2014 at 2:20 PM, Brendan Gregg
+> <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> On Wed, Aug 13, 2014 at 12:57 AM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+>> [...]
+>>> +/* For tracing filters save first six arguments of tracepoint events.
+>>> + * On 64-bit architectures argN fields will match one to one to arguments passed
+>>> + * to tracepoint events.
+>>> + * On 32-bit architectures u64 arguments to events will be seen into two
+>>> + * consecutive argN, argN+1 fields. Pointers, u32, u16, u8, bool types will
+>>> + * match one to one
+>>> + */
+>>> +struct bpf_context {
+>>> +       unsigned long arg1;
+>>> +       unsigned long arg2;
+>>> +       unsigned long arg3;
+>>> +       unsigned long arg4;
+>>> +       unsigned long arg5;
+>>> +       unsigned long arg6;
+>>> +       unsigned long ret;
+>>> +};
+>>
+>> While this works, the argN+1 shift for 32-bit is a gotcha to learn.
+>> Lets say arg1 was 64-bit, and my program only examined arg2. I'd need
+>> two programs, one for 64-bit (using arg2) and 32-bit (arg3). If there
+>
+> correct.
+> I've picked 'long' type for these tracepoint 'arguments' to match
+> what is going on at assembler level.
+> 32-bit archs are passing 64-bit values in two consecutive registers
+> or two stack slots. So it's partially exposing architectural details.
+> I've tried to use u64 here, but it complicated tracepoint+ebpf patch
+> a lot, since I need per-architecture support for moving C arguments
+> into u64 variables and hacking tracepoint event definitions in a nasty
+> ways. This 'long' type approach is the least intrusive I could find.
+> Also out of 1842 total tracepoint fields, only 144 fields are 64-bit,
+> so rarely one would need to deal with u64. Most of the tracepoint
+> arguments are either longs, ints or pointers, which fits this approach
+> the best.
+> In general the eBPF design approach is to keep kernel bits as simple
+> as possible and move complexity to user space.
+> In this case some higher language than C for writing scripts can
+> hide this oddity.
 
-Actually I would consider the refcount issue just the coffin nail in all
-of this.  It seems like there are multiple issues that have been there
-for some time and they are just getting worse with the refcount change
-in 3.10.
+The downside of this approach is that compat support might be
+difficult or impossible.
 
-With the prequeue disabled what happens is that the frames are making it
-up and hitting tcp_rcv_established before being pushed into the backlog
-queues and coalesced there.  I believe the lack of coalescing on the
-prequeue path is one of the reasons why it is twice as expensive as the
-non-prequeue path CPU wise even if you eliminate the refcount issue.
+--Andy
 
-I realize most of my data is anecdotal as I only have the ixgbe/igb
-adapters and netperf to work with.  This is one of the reasons why I
-keep asking if someone can tell me what the use case is for this where
-it performs well.  From what I can tell it might have had some value
-back in the day before the introduction of things such as RPS/RFS where
-some of the socket processing would be offloaded to other CPUs for a
-single queue device, but even that use case is now deprecated since
-RPS/RFS are there and function better than this.  What I am basically
-looking for is a way to weight the gain versus the penalties to
-determine if this code is even viable anymore.
-
-In the meantime I think I will put together a patch to default
-tcp_low_latency to 1 for net and stable, and if we cannot find a good
-reason for keeping it then I can submit a patch to net-next that will
-strip it out since I don't see any benefit to having this code.
-
-Thanks,
-
-Alex
+-- 
+Andy Lutomirski
+AMA Capital Management, LLC
