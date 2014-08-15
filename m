@@ -1,99 +1,124 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [RFC] packet: handle too big packets for PACKET_V3
-Date: Thu, 14 Aug 2014 17:09:54 -0700
-Message-ID: <1408061394.6804.55.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH v3 2/3] cxgb4: use
+	module_long_probe_init()
+Date: Fri, 15 Aug 2014 02:14:58 +0200
+Message-ID: <20140815001458.GT21930@wotan.suse.de>
+References: <525DB349B3FB5444AE057A887CB2A8D85A0977@nice.asicdesigners.com>
+ <53ECE709.5030008@chelsio.com> <20140814195321.GO21930@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:39382 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750869AbaHOAJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 20:09:55 -0400
-Received: by mail-pd0-f170.google.com with SMTP id g10so2442852pdj.29
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 17:09:55 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+ "tiwai@suse.de" <tiwai@suse.de>,
+ Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+ Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+ Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+ Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+ "MPT-FusionLinux.pdl@avagotech.com" <MPT-FusionLinux.pdl@avagotech.com>,
+ Tim Gardner <tim.gardner@canonical.com>, Benjamin Poirier <bpoirier@suse.de>,
+ Santosh Rastapur <santosh@chelsio.com>, Hariprasad S <hariprasad@chelsio.com>,
+ Pierre Fersing <pierre-fersing@pierref.org>, Anish Bhatt <anish@chelsio.com>,
+ Oleg Nesterov <oleg@redhat.com>,
+ Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+ systemd-devel@lists.freedesktop.org,
+ "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux
+To: Casey Leedom <leedom@chelsio.com>,
+ Lennart Poettering <lennart@poettering.net>, Kay Sievers <kay@vrfy.org>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "Alexander E. Patrakov" <patrakov@gmail.com>, tj@kernel.org
+Return-path: <systemd-devel-bounces@lists.freedesktop.org>
+Content-Disposition: inline
+In-Reply-To: <20140814195321.GO21930@wotan.suse.de>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/systemd-devel>
+List-Post: <mailto:systemd-devel@lists.freedesktop.org>
+List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: systemd-devel-bounces@lists.freedesktop.org
+Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-It looks like PACKET_V3 has no check that a packet can always fit in a
-block.
+On Thu, Aug 14, 2014 at 09:53:21PM +0200, Luis R. Rodriguez wrote:
+> On Thu, Aug 14, 2014 at 09:42:49AM -0700, Casey Leedom wrote:
+> >   Part of the problem is that the current 
+> > architecture has Device Probe happening out of the Module Initialization 
+> > when we call pci_register_driver() with our PCI Device ID Table.
+> >
+> >   Running the Device Probes asynchronously has been discussed but that has 
+> > the problem that it's then impossible to return the Device Probe Status.  
+> > This is a problem for Driver Fallback and, if the probe fails, we're not 
+> > supposed to call the Device Remove function. To make this work, the 
+> > synchronous/asynchronous boundary would really need to be up in the PCI 
+> > Infrastructure layer so the Device Probe status could be captured in the 
+> > normal logic.  This would be a moderately large change there ...
+> 
+> Some maintainers consider most of the work to get what you need done
+> simple, I've tried to explain it ain't so, so glad you provided a bit
+> of details here. To be clear its not just about asynch firmware loading,
+> you need a bit more work. Can you evaluate using a bus driver?
 
-Its trivial with GRO to break the assumption and write into kernel
-memory.
+<-- snip -->
 
-[  840.989881] BUG: unable to handle kernel paging req0
-[  840.997667] IP: [<ffffffff9ed17466>] memcpy+0x6/0x110
-[  841.003314] PGD 2068b067 PUD 20371d3067 PMD 20370e7067 PTE 80000001dd6b2060
-[  841.011120] Oops: 0002 [#1] SMP DEBUG_PAGEALLOC
-[  841.016199] Modules linked in: nf_conntrack_ipv6 nf_defrag_ipv6 xt_NFLOG nfnetlink_log nfo
-[  841.060739] CPU: 12 PID: 0 Comm: swapper/12 Not tainted 3.16
-[  841.077824] task: ffff880119ad2580 ti: ffff880119ad8000 task.ti: ffff880119ad8000
-[  841.086173] RIP: 0010:[<ffffffff9ed17466>]  [<ffffffff9ed17466>] memcpy+0x6/0x110
-[  841.094531] RSP: 0018:ffff880fffac3b48  EFLAGS: 00010286
-[  841.100461] RAX: ffff8801dd6b1b9c RBX: 0000000000000a74 RCX: 00000000000000d6
-[  841.108412] RDX: 000000000000053a RSI: ffff880132a769ce RDI: ffff8801dd6b2000
-[  841.116373] RBP: ffff880fffac3bb0 R08: 0000000000000ff0 R09: ffff8801dd6b1b9c
-[  841.124332] R10: ffff8801bb529f00 R11: 000000000000053a R12: 0000000000000ab6
-[  841.132292] R13: ffff880119ad8000 R14: 0000000000000001 R15: ffff8801bb529f00
-[  841.140252] FS:  0000000000000000(0000) GS:ffff880fffac0000(0000) knlGS:0000000000000000
-[  841.149279] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  841.155689] CR2: ffff8801dd6b2000 CR3: 000000001f40e000 CR4: 00000000001427e0
-[  841.163649] Stack:
-[  841.165888]  ffffffff9eed1a15 ffff8801e1d06800 ffff88010000053a 000000000000053a
-[  841.174176]  ffff8801dd6b1b9c ffff880100000ff0 ffff880119adbfd8 ffff880132a755b6
-[  841.182466]  ffff8801bb529f00 ffff8801e1d06800 000000000000151c ffff880132a755b6
-[  841.190764] Call Trace:
-[  841.193490]  <IRQ>
-[  841.195632]  [<ffffffff9eed1a15>] ? skb_copy_bits+0x145/0x290
-[  841.202272]  [<ffffffff9ef95899>] tpacket_rcv+0x249/0x820
-[  841.208295]  [<ffffffff9eee3358>] __netif_receive_skb_core+0x388/0x950
-[  841.215578]  [<ffffffff9eee30fb>] ? __netif_receive_skb_core+0x12b/0x950
-[  841.223054]  [<ffffffff9eee3941>] __netif_receive_skb+0x21/0x70
-[  841.229658]  [<ffffffff9eee3b35>] netif_receive_skb+0x25/0x120
-[  841.236166]  [<ffffffff9eee3b60>] ? netif_receive_skb+0x50/0x120
-[  841.242869]  [<ffffffff9ef67b5e>] ? inet_gro_receive+0x6e/0x290
-[  841.249474]  [<ffffffff9eee3d6e>] napi_gro_complete.isra.77+0x13e/0x160
-[  841.256853]  [<ffffffff9eee3c60>] ? napi_gro_complete.isra.77+0x30/0x160
-[  841.264331]  [<ffffffffc03dc0bd>] ? gro_cell_poll+0x8d/0xd0 [ip_tunnel]
-[  841.271711]  [<ffffffff9eee4178>] napi_gro_flush+0x78/0xa0
-[  841.277830]  [<ffffffff9eee41d3>] napi_complete+0x33/0x80
-[  841.283852]  [<ffffffffc03dc0d4>] gro_cell_poll+0xa4/0xd0 [ip_tunnel]
-[  841.291038]  [<ffffffff9eee435a>] net_rx_action+0x13a/0x240
-[  841.297254]  [<ffffffff9ea575c0>] __do_softirq+0x100/0x290
-[  841.303374]  [<ffffffff9efb1b0c>] call_softirq+0x1c/0x30
-[  841.309300]  [<ffffffff9ea0bdbd>] do_softirq+0x8d/0xc0
-[  841.315032]  [<ffffffff9ea5791d>] irq_exit+0xcd/0xd0
-[  841.320571]  [<ffffffff9ea05db3>] do_IRQ+0x63/0xe0
-[  841.325915]  [<ffffffff9efa762f>] common_interrupt+0x6f/0x6f
+> >   On the whole, I think that introducing these Module Load Timeouts hasn't 
+> > been well thought out with respect to the repercussions and I'd be more 
+> > inclined to back that out till a well thought out design is developed.  But 
+> > I'm here for the discussion.
+> 
+> The way that the 30 second timeout was introduced as a new driver
+> initialization requirement was certainly not ideal specially since
+> the respective systemd patch that intended to trigger the SIGKILL on
+> kmod module loading only took effect once kernel commit 786235ee
+> went in about a year later, and since the original systemd commit
+> was only addressing asynchronous firmware loading as a possible
+> issue that drivers may need to fix. The cxgb4 driver is a good
+> example that needs quite a bit of more work. Regardless systemd
+> folks are right -- but again, having this be introduced as a new
+> requirement that otherwise simply kills drivers seems a bit too
+> aggressive specially if its killing boot on some systems due to
+> delays on storage drivers. What's done is done -- and we need to
+> move on. We already reviewed twice now reverting 786235ee and that
+> won't happen, as a compromise we're looking for an easy agreeable
+> general driver work around that would both circumvent the issue
+> and let us easily grep for broken drivers. The deferred probe trick
+> was the first approach and this series addresses the more agreeable
+> solution. This 2 line patch then is what we are looking as work
+> around until your driver gets properly fixed.
+> 
+> Apart from these kernel changes there are systemd changes we've
+> looked at modifying, Hannes' patch 9719859c07a, now merged upstream on
+> systemd lets you override the timeout value through the kernel command
+> line. This will only help for all systems if you use a high enough
+> large timeout value, or on a case by case basis for each system.
+> I recently proposed replacing a kill for a warn only for udev
+> kmod built in commands, that's unacceptable for systemd's architecture
+> though so the last thing I proposed instead to use *for now* is a
+> multiplier for each different type of udev built-in command and
+> for kmod we'd use a high enough value, the timeout therefore would
+> be really large for module loading for now, but we'd still want to
+> collect logs of drivers taking long to probe. That's still being
+> discussed [0] but my hope is that with this series and that other
+> systemd discussion we'll have covered both areas affected and have
+> a good strategy to move forward with this new driver requirement.
+> 
+> [0] http://comments.gmane.org/gmane.comp.sysutils.systemd.devel/21689
 
-Not sure how to fix this.
+Here's another affected driver:
 
-This patch only shows where the problem is, but should we :
+https://bugzilla.kernel.org/show_bug.cgi?id=59581
 
-1) drop the too long packet
-2) clamp size to maximal admissible size
-3) other solution ? (PACKET_V2 can queue a clone of skb in
-receive_queue, but PACKET_V3 has no such capability)
+pata_marvell, and using the work around in this series should work,
+just as the deferred probe work around. Alexander however notes that
+the pata_marvell driver is just a simple wrapper and other devices
+can act the same way. This can surely be fixed perhaps in libata
+but its an example of an old driver and folks not being around to
+care much over drivers which are affected.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 8d9f8042705a..6ee072b746fb 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1073,6 +1073,11 @@ static void *__packet_lookup_frame_in_block(struct packet_sock *po,
- 		return (void *)curr;
- 	}
- 
-+	/* If frame do not fit on a single block, bail out */
-+	if (BLK_PLUS_PRIV(pkc->blk_sizeof_priv) +
-+	    TOTAL_PKT_LEN_INCL_ALIGN(len) >= pkc->kblk_size)
-+		return NULL;
-+
- 	/* Ok, close the current block */
- 	prb_retire_current_block(pkc, po, 0);
- 
+This driver also uses module_pci_driver() so a module_long_probe_driver()
+and respective module_long_probe_pci_driver() would need to be considered
+if but easily implemented (sent to Alex to test).
+
+  Luis
