@@ -1,47 +1,57 @@
-From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH net-next] lec: Use rtnl lock/unlock when updating MTU
-Date: Thu, 14 Aug 2014 20:56:27 -0400
-Message-ID: <201408150056.s7F0uRg7003712@thirdoffive.cmf.nrl.navy.mil>
-References: <20140814.143706.1833450188258591738.davem@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC] packet: handle too big packets for PACKET_V3
+Date: Fri, 15 Aug 2014 03:04:01 +0200
+Message-ID: <1408064641.867439.152913861.09367C24@webmail.messagingengine.com>
+References: <1408061394.6804.55.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1408063438.861699.152907025.0F25AB17@webmail.messagingengine.com>
+ <1408064099.6804.64.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net
-To: David Miller <davem@redhat.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:36629 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750869AbaHOA4w convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 20:56:52 -0400
-In-reply-to: <20140814.143706.1833450188258591738.davem@redhat.com>
-Content-ID: <3710.1408064187.1@thirdoffive.cmf.nrl.navy.mil>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:51239 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750869AbaHOBED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 21:04:03 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by gateway1.nyi.internal (Postfix) with ESMTP id 546322A462
+	for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 21:04:01 -0400 (EDT)
+In-Reply-To: <1408064099.6804.64.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In message <20140814.143706.1833450188258591738.davem@redhat.com>,David Miller writes:
->From: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
->Date: Thu, 14 Aug 2014 09:19:47 -0400
->
->> The LECS response contains the MTU that should be used.  Correctly
->> synchronize with other layers when updating.
->> 
->> Signed-off-by: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
->
->I don't think you can sleep from this function, which rtnl_lock() may
->require.  Look elsewhere in this routine, it's doing GFP_ATOMIC
->allocations even.
+Hi,
 
-Its been a while but...
+On Fri, Aug 15, 2014, at 02:54, Eric Dumazet wrote:
+> On Fri, 2014-08-15 at 02:43 +0200, Hannes Frederic Sowa wrote:
+> 
+> > Someone could use GRO to create packet trains to hide from intrustion
+> > detection systems, which maybe are the main user of TPACKET_V3. I don't
+> > think this is a good idea.
+> 
+> Presumably these tools already use a large enough bloc_size, and not a
+> 4KB one ;)
+> 
+> Even without GRO, a jumbo frame (9K) can trigger the bug.
 
-This is the send routine for a virtual atm device that is the control
-interface bewteen the user space client and the kernel.  The user space
-client creates an atm socket and uses an ioctl to connect that atm socket
-to the this virtual device.  So the call path is something like:
+Sure, but if I would have written such a tool without knowledge of GRO I
+would have queried at least the MTU. ;)
+If an IDS allocates block_sizes below the MTU there is not much we can
+do. But up to the MTU we should let GRO behave transparently and here we
+violate this. There are also interfaces which extremely large MTUs but
+at least they report the MTU size correctly to user space.
 
-sendmsg() -> vcc_sendmsg() -> virtual atm device.send()
+> I do not think we need to skb_gso_segment() for the cases user setup a
+> really small bloc_size. This looks like a lot of consumed cycles (we
+> even might have to recompute the TCP checksums)
 
-Generally speaking, you can't sleep in the send routine of an atm device
-since there are other potential users besides sockets.
+Yes, I feared that, too. Attacker could specifically target a slow path.
 
-The GFP_ATOMIC usage is probably a lack of understanding.  The other
-IRQ level locks are necessary for coordination.
+Bye,
+Hannes
