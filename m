@@ -1,110 +1,45 @@
-From: Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>
-Subject: [PATCH] net: phy: smsc: move smsc_phy_config_init reset part in a soft_reset function
-Date: Fri, 15 Aug 2014 09:52:41 +0200
-Message-ID: <1408089161-94989-1-git-send-email-gwenhael.goavec-merou@armadeus.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>
-To: linux-kernel@vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC] packet: handle too big packets for PACKET_V3
+Date: Fri, 15 Aug 2014 06:19:32 -0400
+Message-ID: <20140815101932.GA26489@hmsreliant.think-freely.org>
+References: <1408061394.6804.55.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1408063438.861699.152907025.0F25AB17@webmail.messagingengine.com>
+ <1408063859.864295.152910193.45470221@webmail.messagingengine.com>
+ <1408064180.6804.65.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kmf.trabucayre.com ([91.121.117.161]:60137 "EHLO mail"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751347AbaHOJ60 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Aug 2014 05:58:26 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60742 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753533AbaHOKTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 06:19:42 -0400
+Content-Disposition: inline
+In-Reply-To: <1408064180.6804.65.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On the one hand, phy_device.c provides a generic reset function if the phy
-driver does not provide a soft_reset pointer. This generic reset does not take
-into account the state of the phy, with a potential failure if the phy is in
-powerdown mode. On the other hand, smsc driver provides a function with both
-correct reset behaviour and configuration.
+On Thu, Aug 14, 2014 at 05:56:20PM -0700, Eric Dumazet wrote:
+> On Fri, 2014-08-15 at 02:50 +0200, Hannes Frederic Sowa wrote:
+> 
+> > 5) Or let a setsockopt control the NETIF_F_GRO bit of an interface if it
+> > is bound to it? This will likely result in an implementation where we
+> > must count current TPACKET_V3 sockets disabling GRO on an interface,
+> > much like promisc counter.
+> 
+> loopback interface has MTU = 64K, it looks like the problem is not tied
+> to GRO.
+> 
+Can we add a listener to the af packet code to resize the block length of the
+socket based on the MTU?  
 
-This patch moves the reset part into a new smsc_phy_reset function and provides
-the soft_reset pointer to have a correct reset behaviour by default.
+I realize that overloads user configuration, but if we warn them...
 
-Signed-off-by: Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>
----
- drivers/net/phy/smsc.c | 33 +++++++++++++++++++++------------
- 1 file changed, 21 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index 180c494..fda13f4 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -43,6 +43,22 @@ static int smsc_phy_ack_interrupt(struct phy_device *phydev)
- 
- static int smsc_phy_config_init(struct phy_device *phydev)
- {
-+	int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
-+
-+	if (rc < 0)
-+		return rc;
-+
-+	/* Enable energy detect mode for this SMSC Transceivers */
-+	rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
-+		       rc | MII_LAN83C185_EDPWRDOWN);
-+	if (rc < 0)
-+		return rc;
-+
-+	return smsc_phy_ack_interrupt(phydev);
-+}
-+
-+static int smsc_phy_reset(struct phy_device *phydev)
-+{
- 	int rc = phy_read(phydev, MII_LAN83C185_SPECIAL_MODES);
- 	if (rc < 0)
- 		return rc;
-@@ -66,18 +82,7 @@ static int smsc_phy_config_init(struct phy_device *phydev)
- 			rc = phy_read(phydev, MII_BMCR);
- 		} while (rc & BMCR_RESET);
- 	}
--
--	rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
--	if (rc < 0)
--		return rc;
--
--	/* Enable energy detect mode for this SMSC Transceivers */
--	rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
--		       rc | MII_LAN83C185_EDPWRDOWN);
--	if (rc < 0)
--		return rc;
--
--	return smsc_phy_ack_interrupt (phydev);
-+	return 0;
- }
- 
- static int lan911x_config_init(struct phy_device *phydev)
-@@ -142,6 +147,7 @@ static struct phy_driver smsc_phy_driver[] = {
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
- 	.config_init	= smsc_phy_config_init,
-+	.soft_reset		= smsc_phy_reset,
- 
- 	/* IRQ related */
- 	.ack_interrupt	= smsc_phy_ack_interrupt,
-@@ -164,6 +170,7 @@ static struct phy_driver smsc_phy_driver[] = {
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
- 	.config_init	= smsc_phy_config_init,
-+	.soft_reset		= smsc_phy_reset,
- 
- 	/* IRQ related */
- 	.ack_interrupt	= smsc_phy_ack_interrupt,
-@@ -186,6 +193,7 @@ static struct phy_driver smsc_phy_driver[] = {
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
- 	.config_init	= smsc_phy_config_init,
-+	.soft_reset		= smsc_phy_reset,
- 
- 	/* IRQ related */
- 	.ack_interrupt	= smsc_phy_ack_interrupt,
-@@ -230,6 +238,7 @@ static struct phy_driver smsc_phy_driver[] = {
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= lan87xx_read_status,
- 	.config_init	= smsc_phy_config_init,
-+	.soft_reset		= smsc_phy_reset,
- 
- 	/* IRQ related */
- 	.ack_interrupt	= smsc_phy_ack_interrupt,
--- 
-1.8.5.5
+Neil
+> 
+> 
