@@ -1,126 +1,45 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC] packet: handle too big packets for PACKET_V3
-Date: Fri, 15 Aug 2014 13:37:10 +0200
-Message-ID: <1408102630.8789.6.camel@localhost>
-References: <1408061394.6804.55.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1408063438.861699.152907025.0F25AB17@webmail.messagingengine.com>
-	 <1408064099.6804.64.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1408064641.867439.152913861.09367C24@webmail.messagingengine.com>
-	 <F5AD4339-AD85-4023-9FAF-543E99661D75@alum.mit.edu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Guy Harris <guy@alum.mit.edu>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/3][pull request] Intel Wired LAN Driver Updates 2014-08-15
+Date: Fri, 15 Aug 2014 04:37:50 -0700
+Message-ID: <1408102673-27206-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:54692 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750743AbaHOLhN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 07:37:13 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by gateway1.nyi.internal (Postfix) with ESMTP id A8E412CB3B
-	for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 07:37:12 -0400 (EDT)
-In-Reply-To: <F5AD4339-AD85-4023-9FAF-543E99661D75@alum.mit.edu>
+Received: from mga01.intel.com ([192.55.52.88]:39386 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751122AbaHOLi3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Aug 2014 07:38:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This series contains fixes to i40e only.
 
-On Do, 2014-08-14 at 21:54 -0700, Guy Harris wrote:
-> On Aug 14, 2014, at 6:04 PM, Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> 
-> > On Fri, Aug 15, 2014, at 02:54, Eric Dumazet wrote:
-> >> On Fri, 2014-08-15 at 02:43 +0200, Hannes Frederic Sowa wrote:
-> >> 
-> >>> Someone could use GRO to create packet trains to hide from intrustion
-> >>> detection systems, which maybe are the main user of TPACKET_V3. I don't
-> >>> think this is a good idea.
-> >> 
-> >> Presumably these tools already use a large enough bloc_size, and not a
-> >> 4KB one ;)
-> >> 
-> >> Even without GRO, a jumbo frame (9K) can trigger the bug.
-> > 
-> > Sure, but if I would have written such a tool without knowledge of GRO I
-> > would have queried at least the MTU. ;)
-> 
-> ...and then queried the maximum size of the headers that precede the link-layer payload.
+Anjali provides two fixes for i40e, first adds a check for non-active
+VF before sending admin queue messages to the VFS.  This resolves a
+potential kernel panic which would happen whenever we got a Tx hang and
+there were VFS that were not up or enabled.  The second fix adds
+additional checks so that we do try to access a VF that is not up or
+enabled which would dereference a null pointer.
 
-But those are mostly constant, no?
+Jesse fixes a i40e PTP bug where the hang detection routine was never
+being run when PTP was enabled.
 
-> Except that you *can't* do that, and it can be variable-length without an obvious maximum (think 802.11 in monitor mode, where you have radiotap headers).  This causes much pain for libpcap when using TPACKET_V1 and TPACKET_V2, forcing it to allocate huge blocks when smaller ones might be sufficient.
-> > If an IDS allocates block_sizes below the MTU there is not much we can
-> > do.
-> 
-> If an IDS uses libpcap, it will get libpcap's behavior, which, for TPACKET_V3 is, roughly
-> 
-> 	req.tp_frame_size = MAXIMUM_SNAPLEN;
-> 	req.tp_frame_nr = handle->opt.buffer_size/req.tp_frame_size;
-> 
-> 	/* compute the minumum block size that will handle this frame. 
-> 	 * The block has to be page size aligned. 
-> 	 * The max block size allowed by the kernel is arch-dependent and 
-> 	 * it's not explicitly checked here. */
-> 	req.tp_block_size = getpagesize();
-> 	while (req.tp_block_size < req.tp_frame_size) 
-> 		req.tp_block_size <<= 1;
-> 
-> 	frames_per_block = req.tp_block_size/req.tp_frame_size;
-> 
-> 	req.tp_block_nr = req.tp_frame_nr / frames_per_block;
-> 
-> 	/* req.tp_frame_nr is requested to match frames_per_block*req.tp_block_nr */
-> 	req.tp_frame_nr = req.tp_block_nr * frames_per_block;
-> 
-> (the last two C statements are actually part of a loop, where it'll reduce req.tp_frame_nr if it gets told "I don't have enough room for that big a ring").
-> 
-> MAXIMUM_SNAPLEN is 65535 in older versions of libpcap and 262144 in newer versions; it's the maximum frame size.
-> 
-> handle->opt.buffer_size is the buffer size requested by the application; it defaults to 2 MiB.
-> 
-> That calculation, with the default values for the latest version of libpcap, ends up with:
-> 
-> 	req.tp_frame_size = 262144;
-> 	req.tp_frame_nr = /* 2097152/262144 */ 8;
-> 
-> 	/* compute the minumum block size that will handle this frame. 
-> 	 * The block has to be page size aligned. 
-> 	 * The max block size allowed by the kernel is arch-dependent and 
-> 	 * it's not explicitly checked here. */
-> 	req.tp_block_size = 4096;	/* IA-32 and x86-64, and probably many others */
-> 	while (req.tp_block_size < req.tp_frame_size) 
-> 		req.tp_block_size <<= 1;
-> 	/* ends up with req.tp_block_size = 262144 */
-> 
-> 	frames_per_block = /* 262144/262144 */ 1;
-> 
-> 	req.tp_block_nr = /* 8 / 1 */ 8;
-> 
-> 	/* req.tp_frame_nr is requested to match frames_per_block*req.tp_block_nr */
-> 	req.tp_frame_nr = /* 8 * 1 / 8;
-> 
-> which I think means "8 256 KiB blocks".
-> 
-> > But up to the MTU we should let GRO behave transparently and here we
-> > violate this. There are also interfaces which extremely large MTUs but
-> > at least they report the MTU size correctly to user space.
-> 
-> Reporting the MTU to user space is insufficient for libpcap; it needs to know the *maximum packet size*, which includes link-layer headers (which I guess it could compute based on the ARPHRD_ for the interface, although for 802.11 that may be subject to change, e.g. the maximum link-layer header length grew when the QoS stuff was added) *and* metadata headers (such as radiotap, for which there really is no generic maximum length other than the 65535 byte limit imposed by the header length field being 16 bits, but a given driver can presumably return its maximum).
-> 
-> It also doesn't help with segmentation/reassembly offloading, where the MTU is decoupled from the maximum packet size.
+The following are changes since commit c9d26423e56ce1ab4d786f92aebecf859d419293:
+  Merge tag 'pm+acpi-3.17-rc1-2' of git://git.kernel.org/pub/scm/linux/kernel/git/rafael/linux-pm
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
 
-Thanks, that answered the question above. Still, I think that the most
-commonly use-cases would get covered by querying the MTU. libpcap needs
-to be much more general and so must pay more attention.
+Anjali Singhai Jain (2):
+  i40e: Fix for recent kernel panic
+  i40e: Fix a few potential VF dereferences
 
-Also, IMHO GRO is something special and does not fit that model very
-well. But I am also fine with clamping. If people complain, we can
-revisit that topic.
+Jesse Brandeburg (1):
+  i40e: fix PTP bug
 
-Thanks,
-Hannes
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  2 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 44 ++++++++++++++++------
+ 2 files changed, 33 insertions(+), 13 deletions(-)
+
+-- 
+1.9.3
