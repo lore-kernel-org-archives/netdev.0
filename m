@@ -1,63 +1,101 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC] packet: handle too big packets for PACKET_V3
-Date: Fri, 15 Aug 2014 04:08:13 +0200
-Message-ID: <1408068493.883799.152927037.00E71092@webmail.messagingengine.com>
-References: <1408061394.6804.55.camel@edumazet-glaptop2.roam.corp.google.com>
- <1408063438.861699.152907025.0F25AB17@webmail.messagingengine.com>
- <1408064099.6804.64.camel@edumazet-glaptop2.roam.corp.google.com>
- <1408064641.867439.152913861.09367C24@webmail.messagingengine.com>
- <1408068085.6804.75.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: Query: Is it possible  to lose interrupts between vhost and virtio_net
+ during migration?
+Date: Fri, 15 Aug 2014 10:55:32 +0800
+Message-ID: <53ED76A4.4090005@redhat.com>
+References: <53DA2CCC.1040606@huawei.com> <20140731143100.GA3834@redhat.com> <20140731143725.GA3875@redhat.com> <53DB705F.2000405@redhat.com> <53DB76A9.8010305@redhat.com> <53E079C8.7050700@huawei.com> <20140805094957.GB24619@redhat.com> <53E0CAA4.8010303@huawei.com> <53E37561.5060302@huawei.com> <53EC78D8.6070405@redhat.com> <20140814100231.GB30944@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:32950 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751763AbaHOCIS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 22:08:18 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by gateway1.nyi.internal (Postfix) with ESMTP id 39A0F2A43F
-	for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 22:08:13 -0400 (EDT)
-In-Reply-To: <1408068085.6804.75.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Zhangjie (HZ)" <zhangjie14@huawei.com>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, qinchuanyu@huawei.com,
+	liuyongan@huawei.com, davem@davemloft.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20140814100231.GB30944@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 15, 2014, at 04:01, Eric Dumazet wrote:
-> On Fri, 2014-08-15 at 03:04 +0200, Hannes Frederic Sowa wrote:
-> 
-> > Sure, but if I would have written such a tool without knowledge of GRO I
-> > would have queried at least the MTU. ;)
-> 
-> Would all existing tools react to a mtu change properly ?
-> 
-> (It would have to reinit its af_packet ring)
-> 
-> I do not think its a GRO issue, really, but an optimistic PACKET_V3
-> implementation. GRO was already there when PACKET_V3 was added.
-> 
-> Even a non GRO packet might not fit and we need to avoid the
-> crash/corruption.
-> 
-> I believe I am going to implement 2)  (clamp the snaplen)
+On 08/14/2014 06:02 PM, Michael S. Tsirkin wrote:
+> On Thu, Aug 14, 2014 at 04:52:40PM +0800, Jason Wang wrote:
+>> On 08/07/2014 08:47 PM, Zhangjie (HZ) wrote:
+>>> On 2014/8/5 20:14, Zhangjie (HZ) wrote:
+>>>> On 2014/8/5 17:49, Michael S. Tsirkin wrote:
+>>>>> On Tue, Aug 05, 2014 at 02:29:28PM +0800, Zhangjie (HZ) wrote:
+>>>>>> Jason is right, the new order is not the cause of network unreachable.
+>>>>>> Changing order seems not work. After about 40 times, the problem occurs again.
+>>>>>> Maybe there is other hidden reasons for that.
+>>>> I modified the code to change the order myself yesterday.
+>>>> This result is about my code.
+>>>>> To make sure, you tested the patch that I posted to list:
+>>>>> "vhost_net: stop guest notifiers after backend"?
+>>>>>
+>>>>> Please confirm.
+>>>>>
+>>>> OK, I will test with your patch "vhost_net: stop guest notifiers after backend".
+>>>>
+>>> Unfortunately, after using the patch "vhost_net: stop guest notifiers after backend",
+>>> Linux VMs stopt themselves a few minutes after they were started.
+>>>> @@ -308,6 +308,12 @@ int vhost_net_start(VirtIODevice *dev, NetClientState *ncs,
+>>>>         goto err;
+>>>>     }
+>>>>
+>>>> +    r = k->set_guest_notifiers(qbus->parent, total_queues * 2, true);
+>>>> +    if (r < 0) {
+>>>> +        error_report("Error binding guest notifier: %d", -r);
+>>>> +        goto err;
+>>>> +    }
+>>>> +
+>>>>     for (i = 0; i < total_queues; i++) {
+>>>>         r = vhost_net_start_one(get_vhost_net(ncs[i].peer), dev, i * 2);
+>>>>
+>>>> @@ -316,12 +322,6 @@ int vhost_net_start(VirtIODevice *dev, NetClientState *ncs,
+>>>>         }
+>>>>     }
+>>>>
+>>>> -    r = k->set_guest_notifiers(qbus->parent, total_queues * 2, true);
+>>>> -    if (r < 0) {
+>>>> -        error_report("Error binding guest notifier: %d", -r);
+>>>> -        goto err;
+>>>> -    }
+>>>> -
+>>>>     return 0;
+>>> I wonder if k->set_guest_notifiers should be called after "hdev->started = true;" in vhost_dev_start.
+>> Michael, can we just remove those assertions? Since you may want to set
+>> guest notifiers before starting the backend.
+> Which assertions?
 
-Ok, cool, I think this is the best way forward for now.
+I mean assert(hdev->started) in vhost.c. Your patch may hit them.
 
-Do you think a a printk_once if the packet gets clamped because of GRO
-would be sensible with a hint that GRO could be disabled in such cases?
+>> Another question for virtio_pci_vector_poll(): why not using
+>> msix_notify() instead of msix_set_pending().
+> We can do that but the effect will be same since we know
+> vector is masked.
 
-> An application should catch that tp_len might be bigger than tp_snaplen
-> and eventually do something sensible about it.
-> 
-> BTW, tp_sizeof_priv doesnt look to be checked at all, user input is
-> accepted as is.
+Perhaps not in during current vhost starting. We start backend before
+setting guest notifiers now. So backend are using masked notifier in
+this time but the vector was not masked.
 
-Hmm...
+>
+>> If so, there's no need to
+>> change the vhost_net_start() ?
+> Confused, don't see the connection.
 
-Bye,
-Hannes
+If we use msix_notify(), it will raise the irq if backend want it before
+setting guest notifiers. So no need to check the order of setting guest
+notifiers and starting backend in vhost_net_start().
+>
+>> Zhang Jie, is this a regression? If yes, could you please do a bisection
+>> to find the first bad commit.
+>>
+>> Thanks
+> Pretty sure it's the mq patch: a9f98bb5ebe6fb1869321dcc58e72041ae626ad8
+>
+>     Since we may have many vhost/net devices for a virtio-net device.  The setting of
+>     guest notifiers were moved out of the starting/stopping of a specific vhost
+>     thread. The vhost_net_{start|stop}() were renamed to
+>     vhost_net_{start|stop}_one(), and a new vhost_net_{start|stop}() were introduced
+>     to configure the guest notifiers and start/stop all vhost/vhost_net devices.
+>
+
+Ok.
