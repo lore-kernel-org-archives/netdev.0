@@ -1,89 +1,87 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/3] i40e: Fix for recent kernel panic
-Date: Fri, 15 Aug 2014 04:37:51 -0700
-Message-ID: <1408102673-27206-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1408102673-27206-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	Ashish N Shah <ashish.n.shah@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: William Dauchy <william@gandi.net>
+Subject: igbvf warning on 3.14.x
+Date: Fri, 15 Aug 2014 15:14:26 +0200
+Message-ID: <20140815131426.GA4638@gandi.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="a8Wt8u1KmwUX3Y2C"
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:39386 "EHLO mga01.intel.com"
+Received: from mail4.gandi.net ([217.70.183.210]:36372 "EHLO mail4.gandi.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751199AbaHOLi3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Aug 2014 07:38:29 -0400
-In-Reply-To: <1408102673-27206-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751138AbaHONWH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Aug 2014 09:22:07 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Whenever we get a Tx hang we issue a PFR, which means we send AQ
-messages to VFS about the reset coming. Unfortunately with the recent
-fix to be able to send messages to all VFS which earlier was not
-happening at all we now are sending messages to not just the VFS that
-are up but also to VFS that are not up.  AQ complains about this and
-sends us an error in ARQ called LAN overflow event for a queue. We
-check if the queue belongs to a VF and if it does we try to send a
-vc_notify_vf_reset message to that VF. Well if the VF is not up/enabled
-we will be entering this function with a non-active VF id. In this
-function we were assuming VF struct is populated but it won't be if
-the VF is not active.
+--a8Wt8u1KmwUX3Y2C
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Change-ID: Ic6733cda4582d3609fe6d83b2872bb2dcdc73f4a
-Signed-off-by: Ashish N Shah <ashish.n.shah@intel.com>
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 18 +++++++++++++++---
- 1 file changed, 15 insertions(+), 3 deletions(-)
+Hello,
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 8967255..502b534 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1928,17 +1928,22 @@ static void i40e_vc_vf_broadcast(struct i40e_pf *pf,
- {
- 	struct i40e_hw *hw = &pf->hw;
- 	struct i40e_vf *vf = pf->vf;
--	int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
-+	int abs_vf_id;
- 	int i;
- 
- 	for (i = 0; i < pf->num_alloc_vfs; i++) {
-+		/* Not all vfs are enabled so skip the ones that are not */
-+		if (!test_bit(I40E_VF_STAT_INIT, &vf->vf_states) &&
-+		    !test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states))
-+			continue;
-+
- 		/* Ignore return value on purpose - a given VF may fail, but
- 		 * we need to keep going and send to all of them
- 		 */
-+		abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
- 		i40e_aq_send_msg_to_vf(hw, abs_vf_id, v_opcode, v_retval,
- 				       msg, msglen, NULL);
- 		vf++;
--		abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
- 	}
- }
- 
-@@ -2002,7 +2007,14 @@ void i40e_vc_notify_reset(struct i40e_pf *pf)
- void i40e_vc_notify_vf_reset(struct i40e_vf *vf)
- {
- 	struct i40e_virtchnl_pf_event pfe;
--	int abs_vf_id = vf->vf_id + vf->pf->hw.func_caps.vf_base_id;
-+	int abs_vf_id;
-+
-+	/* verify if the VF is in either init or active before proceeding */
-+	if (!test_bit(I40E_VF_STAT_INIT, &vf->vf_states) &&
-+	    !test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states))
-+		return;
-+
-+	abs_vf_id = vf->vf_id + vf->pf->hw.func_caps.vf_base_id;
- 
- 	pfe.event = I40E_VIRTCHNL_EVENT_RESET_IMPENDING;
- 	pfe.severity = I40E_PF_EVENT_SEVERITY_CERTAIN_DOOM;
--- 
-1.9.3
+I'm sometimes getting the following trace on a 3.14.x x86_64
+the boot cmdline has igb.max_vfs=3D2
+
+igbvf 0000:01:10.3: PF still resetting
+igbvf 0000:01:10.1: PF still resetting
+------------[ cut here ]------------
+WARNING: CPU: 11 PID: 1 at
+drivers/net/ethernet/intel/igbvf/netdev.c:1718 igbvf_close+0x66/0x70()
+CPU: 11 PID: 1 Comm: swapper/0 Not tainted 3.14.17 #1
+Hardware name: Dell =A0 =A0 =A0 C6100 =A0 =A0 =A0 =A0 =A0 /0D61XP, BIOS 1.6=
+9 06/22/2012
+=A00000000000000009 ffffffffa95a5d15 0000000000000000 ffffffffa90954e8
+=A0ffff880c1d33e000 ffff880c1d33e7c0 8000000000000000 0000000000000001
+=A00000000000000001 ffffffffa93a6676 ffff880c1d33e000 ffffc9000624bdb8
+Call Trace:
+=A0[<ffffffffa95a5d15>] ? dump_stack+0x49/0x7c
+=A0[<ffffffffa90954e8>] ? warn_slowpath_common+0x68/0x80
+=A0[<ffffffffa93a6676>] ? igbvf_close+0x66/0x70
+=A0[<ffffffffa946d878>] ? __dev_close_many+0x88/0xe0
+=A0[<ffffffffa946d9f5>] ? __dev_close+0x25/0x40
+=A0[<ffffffffa947440b>] ? __dev_change_flags+0xab/0x180
+=A0[<ffffffffa94744fe>] ? dev_change_flags+0x1e/0x60
+=A0[<ffffffffa9c401fb>] ? ic_close_devs+0x2c/0x40
+=A0[<ffffffffa9c41946>] ? ip_auto_config+0xbf3/0xec7
+=A0[<ffffffffa9273890>] ? kset_register+0x50/0x70
+=A0[<ffffffffa909a2fe>] ? __insert_resource+0x1e/0x130
+=A0[<ffffffffa9c40d53>] ? root_nfs_parse_addr+0xa7/0xa7
+=A0[<ffffffffa9c10ee5>] ? do_one_initcall+0x8c/0x107
+=A0[<ffffffffa9c110ba>] ? kernel_init_freeable+0x15a/0x1e1
+=A0[<ffffffffa9c10857>] ? do_early_param+0x9b/0x9b
+=A0[<ffffffffa959e9f0>] ? rest_init+0x80/0x80
+=A0[<ffffffffa959e9f5>] ? kernel_init+0x5/0xf0
+=A0[<ffffffffa95ac764>] ? ret_from_fork+0x74/0xa0
+=A0[<ffffffffa959e9f0>] ? rest_init+0x80/0x80
+---[ end trace 90b2a2646f143695 ]---
+igbvf 0000:01:10.1: PF still resetting
+igbvf 0000:01:10.3: PF still resetting
+ixgbe 0000:03:00.0: removed PHC on eth6
+ixgbe 0000:03:00.1: removed PHC on eth7
+
+
+What can I do to help debug this trace? Or should I consider this a
+normal case?
+
+Regards,
+--=20
+William
+
+--a8Wt8u1KmwUX3Y2C
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlPuB7IACgkQ1I6eqOUidQEXHACfWRgxp+5wv6QYdOaNM8mymvyn
+hUIAoLK5p8GhFO6KiCzxGoqhjCq5gYYa
+=EMd+
+-----END PGP SIGNATURE-----
+
+--a8Wt8u1KmwUX3Y2C--
