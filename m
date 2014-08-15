@@ -1,49 +1,51 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH RFC v4 net-next 17/26] tracing: allow eBPF programs to be
- attached to events
-Date: Fri, 15 Aug 2014 10:25:44 -0700
-Message-ID: <CALCETrV7vO6r--G2ns+A6qmDQYSzNXeemT=x41EF+XWmayM95g@mail.gmail.com>
-References: <1407916658-8731-1-git-send-email-ast@plumgrid.com> <1407916658-8731-18-git-send-email-ast@plumgrid.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: network interfaces called "all", "default" or "config"
+Date: Fri, 15 Aug 2014 10:32:50 -0700
+Message-ID: <CAHA+R7PpGqNYQcGZrsDB2kfmUM7HdXz2=t2PY8XeouF-PoGOFw@mail.gmail.com>
+References: <20140723113314.GA7798@chaz.gmail.com>
+	<53CFCD26.1020409@infradead.org>
+	<CACsCDOP8DOnB0zZtT_WLhiBXjxXh1aH1eGF9_h0dRN1i9YDU-A@mail.gmail.com>
+	<CAHA+R7MLQtYF5vBN0D66Wk8iyGZABf5=Az293gUH6w=4THv8Gw@mail.gmail.com>
+	<CACsCDONU9Zq902rj6aJXGZGnPfAWbxsiFe9mMS8usyyUdTYa9A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407916658-8731-18-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Randy Dunlap <rdunlap@infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephane Chazelas <stephane.chazelas@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:45537 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751116AbaHORcw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 13:32:52 -0400
+Received: by mail-la0-f46.google.com with SMTP id b8so2585479lan.33
+        for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 10:32:50 -0700 (PDT)
+In-Reply-To: <CACsCDONU9Zq902rj6aJXGZGnPfAWbxsiFe9mMS8usyyUdTYa9A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 13, 2014 at 12:57 AM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> User interface:
-> fd = open("/sys/kernel/debug/tracing/__event__/filter")
+On Fri, Aug 15, 2014 at 1:33 AM, Stephane Chazelas
+<stephane.chazelas@gmail.com> wrote:
+> Yes, I know  those are also used for the eth0:1 "aliases", but the bug
+> is, since it is allowed to do
 >
-> write(fd, "bpf_123")
+>     ip link add link eth0 eth0:123 type vlan id 123
+>
+> Then the
+>
+>     ip link del link eth0 eth0:123
+>
+> should be allowed as well. Or probably better to avoid confusion
+>
+>     ip link add link eth0 foo:bar type vlan id 123
+>
+> should not be allowed.
+>
 
-I didn't follow all the code flow leading to parsing the "bpf_123"
-string, but if it works the way I imagine it does, it's a security
-problem.  In general, write(2) should never do anything that involves
-any security-relevant context of the caller.
+Good point! I think the reason is that in the past we used ioctl()
+to add or remove network interface so kernel just checks that
+code path for name alias, so we probably need to check netlink
+path as well since it makes really little sense that we allow create
+names with a colon but disallow to delete them.
 
-Ideally, you would look up fd 123 in the file table of whomever called
-open.  If that's difficult to implement efficiently, then it would be
-nice to have some check that the callers of write(2) and open(2) are
-the same task and that exec wasn't called in between.
-
-This isn't a very severe security issue because you need privilege to
-open the thing in the first place, but it would still be nice to
-address.
-
---Andy
+Stephen should know better than me.
