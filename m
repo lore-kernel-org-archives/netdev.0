@@ -1,63 +1,56 @@
-From: Stephane Chazelas <stephane.chazelas@gmail.com>
-Subject: Re: network interfaces called "all", "default" or "config"
-Date: Fri, 15 Aug 2014 09:33:51 +0100
-Message-ID: <CACsCDONU9Zq902rj6aJXGZGnPfAWbxsiFe9mMS8usyyUdTYa9A@mail.gmail.com>
-References: <20140723113314.GA7798@chaz.gmail.com>
-	<53CFCD26.1020409@infradead.org>
-	<CACsCDOP8DOnB0zZtT_WLhiBXjxXh1aH1eGF9_h0dRN1i9YDU-A@mail.gmail.com>
-	<CAHA+R7MLQtYF5vBN0D66Wk8iyGZABf5=Az293gUH6w=4THv8Gw@mail.gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: dev: remove unused variable from can_calc_bittiming()
+ function
+Date: Fri, 15 Aug 2014 10:37:17 +0200
+Message-ID: <53EDC6BD.6060200@pengutronix.de>
+References: <1407399444-16427-1-git-send-email-prabhakar.csengg@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Randy Dunlap <rdunlap@infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHA+R7MLQtYF5vBN0D66Wk8iyGZABf5=Az293gUH6w=4THv8Gw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="u6QTOxh7TXJHV5hNdxQ4D5e3T1fw3ToAP"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1407399444-16427-1-git-send-email-prabhakar.csengg@gmail.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yes, I know  those are also used for the eth0:1 "aliases", but the bug
-is, since it is allowed to do
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--u6QTOxh7TXJHV5hNdxQ4D5e3T1fw3ToAP
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-    ip link add link eth0 eth0:123 type vlan id 123
+On 08/07/2014 10:17 AM, Lad, Prabhakar wrote:
+> this patch removes best_rate variable from can_calc_bittiming()
+> function which was set but was never used.
+>=20
+> Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
 
-Then the
+Applied to can-next.
 
-    ip link del link eth0 eth0:123
+Thanks,
+Marc
 
-should be allowed as well. Or probably better to avoid confusion
-
-    ip link add link eth0 foo:bar type vlan id 123
-
-should not be allowed.
-
-Worse:
-
-   ip link add link eth0 foo:bar type vlan id 1
-   ip link add link eth0 foo type vlan id 2
-
-   ip link del foo:bar
-
-deletes foo instead of foo:bar.
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
+--u6QTOxh7TXJHV5hNdxQ4D5e3T1fw3ToAP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-On 14 August 2014 19:37, Cong Wang <cwang@twopensource.com> wrote:
-> On Thu, Aug 14, 2014 at 2:41 AM, Stephane Chazelas
-> <stephane.chazelas@gmail.com> wrote:
->> By the way, this is related:
->>
->> $ ip link add link eth0 eth0:123 type vlan id 123
->> $ ip link del link eth0 eth0:123
->> RTNETLINK answers: Operation not supported
->
-> Kernel reads "eth0:123" as an alias of "eth0", so it will just
-> truncate the dev name into "eth0":
->
->
->         ifr.ifr_name[IFNAMSIZ-1] = 0;
->
->         colon = strchr(ifr.ifr_name, ':');
->         if (colon)
->                 *colon = 0;
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlPtxr0ACgkQjTAFq1RaXHMZYQCggxNa5yiPtv05eVkZ8KNvnz7s
+Z3IAnAhSG4zxlIPIu/db2fcQ0toeJq7i
+=6nTI
+-----END PGP SIGNATURE-----
+
+--u6QTOxh7TXJHV5hNdxQ4D5e3T1fw3ToAP--
