@@ -1,289 +1,56 @@
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Subject: [PATCH v2 1/3] Documentation: dt: net: Add binding doc for Keystone
- NetCP ethernet driver
-Date: Fri, 15 Aug 2014 11:12:40 -0400
-Message-ID: <1408115562-22487-2-git-send-email-santosh.shilimkar@ti.com>
-References: <1408115562-22487-1-git-send-email-santosh.shilimkar@ti.com>
+From: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v3 2/3] cxgb4: use
+	module_long_probe_init()
+Date: Fri, 15 Aug 2014 15:12:05 +0800
+Message-ID: <20140815071205.GA6293@kroah.com>
+References: <525DB349B3FB5444AE057A887CB2A8D85A0977@nice.asicdesigners.com>
+ <53ECE709.5030008@chelsio.com>
+ <20140814195321.GO21930@wotan.suse.de>
+ <20140815001458.GT21930@wotan.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
- Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
- linux-kernel@vger.kernel.org, sandeep_n@ti.com, robh+dt@kernel.org,
- Santosh Shilimkar <santosh.shilimkar@ti.com>,
- Kumar Gala <galak@codeaurora.org>, grant.likely@linaro.org,
- linux-arm-kernel@lists.infradead.org
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1408115562-22487-1-git-send-email-santosh.shilimkar@ti.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+ "tiwai@suse.de" <tiwai@suse.de>, Kay Sievers <kay@vrfy.org>,
+ Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+ Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+ Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+ Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+ "MPT-FusionLinux.pdl@avagotech.com" <MPT-FusionLinux.pdl@avagotech.com>,
+ Tim Gardner <tim.gardner@canonical.com>, Benjamin Poirier <bpoirier@suse.de>,
+ Santosh Rastapur <santosh@chelsio.com>, Casey Leedom <leedom@chelsio.com>,
+ Hariprasad S <hariprasad@chelsio.com>,
+ Pierre Fersing <pierre-fersing@pierref.org>, Anish Bhatt <anish@chelsio.com>,
+ Oleg Nesterov <oleg@redhat.com>,
+ Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+ systemd-devel@lists.freedesktop.org,
+ "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+ "netdev@vger.kernel.org"
+To: "Luis R. Rodriguez" <mcgrof@suse.com>
+Return-path: <systemd-devel-bounces@lists.freedesktop.org>
+Content-Disposition: inline
+In-Reply-To: <20140815001458.GT21930@wotan.suse.de>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/systemd-devel>
+List-Post: <mailto:systemd-devel@lists.freedesktop.org>
+List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: systemd-devel-bounces@lists.freedesktop.org
+Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-From: Sandeep Nair <sandeep_n@ti.com>
+On Fri, Aug 15, 2014 at 02:14:58AM +0200, Luis R. Rodriguez wrote:
+> This driver also uses module_pci_driver() so a module_long_probe_driver()
+> and respective module_long_probe_pci_driver() would need to be considered
+> if but easily implemented (sent to Alex to test).
 
-The network coprocessor (NetCP) is a hardware accelerator that processes
-Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsystem with a ethernet
-switch sub-module to send and receive packets. NetCP also includes a packet
-accelerator (PA) module to perform packet classification operations such as
-header matching, and packet modification operations such as checksum
-generation. NetCP can also optionally include a Security Accelerator(SA)
-capable of performing IPSec operations on ingress/egress packets.
+No, don't create bus-only versions of the "long probe" function, just
+unwrap the module_pci_driver() logic and use the module_long_probe()
+call, we want it to be "obvious" that something is odd here and needs to
+be fixed someday.
 
-Keystone SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
-includes a 3-port Ethernet switch sub-module capable of 10Gb/s and
-1Gb/s rates per Ethernet port.
+thanks,
 
-NetCP Subsystem device tree layout looks something like below:
-
------------------------------
-  NetCP subsystem(10G or 1G)
------------------------------
-	|
-	|-> NetCP Devices ->	|
-	|			|-> GBE/XGBE Switch
-	|			|
-	|			|-> Packet Accelerator
-	|			|
-	|			|-> Security Accelerator
-	|
-	|
-	|
-	|-> NetCP Interfaces ->	|
-				|-> Ethernet Port 0
-				|
-				|-> Ethernet Port 1
-				|
-				|-> Ethernet Port 2
-				|
-				|-> Ethernet Port 3
-
-Common driver supports GBE as well XGBE network processors.
-
-Cc: Rob Herring <robh+dt@kernel.org>
-Cc: Grant Likely <grant.likely@linaro.org>
-Cc: Pawel Moll <pawel.moll@arm.com>
-Cc: Mark Rutland <mark.rutland@arm.com>
-Cc: Ian Campbell <ijc+devicetree@hellion.org.uk>
-Cc: Kumar Gala <galak@codeaurora.org>
-Cc: David Miller <davem@davemloft.net>
-
-Signed-off-by: Sandeep Nair <sandeep_n@ti.com>
-Signed-off-by: Santosh Shilimkar <santosh.shilimkar@ti.com>
----
- .../devicetree/bindings/net/keystone-netcp.txt     |  197 ++++++++++++++++++++
- 1 file changed, 197 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/keystone-netcp.txt
-
-diff --git a/Documentation/devicetree/bindings/net/keystone-netcp.txt b/Documentation/devicetree/bindings/net/keystone-netcp.txt
-new file mode 100644
-index 0000000..a7d061b
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/keystone-netcp.txt
-@@ -0,0 +1,197 @@
-+This document describes the device tree bindings associated with the
-+keystone network coprocessor(NetCP) driver support.
-+
-+The network coprocessor (NetCP) is a hardware accelerator that processes
-+Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsytem with a ethernet
-+switch sub-module to send and receive packets. NetCP also includes a packet
-+accelerator (PA) module to perform packet classification operations such as
-+header matching, and packet modification operations such as checksum
-+generation. NetCP can also optionally include a Security Accelerator (SA)
-+capable of performing IPSec operations on ingress/egress packets.
-+
-+Keystone II SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
-+includes a 3-port Ethernet switch sub-module capable of 10Gb/s and 1Gb/s rates
-+per Ethernet port.
-+
-+Keystone NetCP driver has a plug-in module architecture where each of the NetCP
-+sub-modules exist as a loadable kernel module which plug in to the netcp core.
-+These sub-modules are represented as "netcp-devices" in the dts bindings. It is
-+mandatory to have the ethernet switch sub-module for the ethernet interface to
-+be operational. Any other sub-module like the PA is optional.
-+
-+NetCP Ethernet SubSystem Layout:
-+
-+-----------------------------
-+  NetCP subsystem(10G or 1G)
-+-----------------------------
-+	|
-+	|-> NetCP Devices ->	|
-+	|			|-> GBE/XGBE Switch
-+	|			|
-+	|			|-> Packet Accelerator
-+	|			|
-+	|			|-> Security Accelerator
-+	|
-+	|
-+	|
-+	|-> NetCP Interfaces ->	|
-+				|-> Ethernet Port 0
-+				|
-+				|-> Ethernet Port 1
-+				|
-+				|-> Ethernet Port 2
-+				|
-+				|-> Ethernet Port 3
-+
-+
-+NetCP subsystem properties:
-+Required properties:
-+- compatible:	Should be "ti,netcp-1.0"
-+- clocks:	phandle to the reference clocks for the subsystem.
-+- dma-id:	Navigator packet dma instance id.
-+
-+Optional properties:
-+- reg:		register location and the size for the following register
-+		regions in the specified order.
-+		- Efuse MAC address register
-+- dma-coherent:	Present if dma operations are coherent
-+- big-endian:	Keystone devices can be operated in a mode where the DSP is in
-+		the big endian mode. In such cases enable this option. This
-+		option should also be enabled if the ARM is operated in
-+		big endian mode with the DSP in little endian.
-+
-+NetCP device properties: Device specification for NetCP sub-modules.
-+1Gb/10Gb (gbe/xgbe) ethernet switch sub-module specifications.
-+Required properties:
-+- label:	Must be "netcp-gbe" for 1Gb & "netcp-xgbe" for 10Gb.
-+- reg:		register location and the size for the following register
-+		regions in the specified order.
-+		- subsystem registers
-+		- serdes registers
-+- tx-channel:	the navigator packet dma channel number for tx.
-+- tx-queue:	the navigator queue number associated with the tx dma channel.
-+- interfaces:	specification for each of the switch port to be registered as a
-+		network interface in the stack.
-+-- slave-port:	Switch port number, 0 based numbering.
-+-- link-interface:	type of link interface, supported options are
-+			- mac<->mac auto negotiate mode: 0
-+			- mac<->phy mode: 1
-+			- mac<->mac forced mode: 2
-+			- mac<->fiber mode: 3
-+			- mac<->phy mode with no mdio: 4
-+			- 10Gb mac<->phy mode : 10
-+			- 10Gb mac<->mac forced mode : 11
-+----phy-handle:	phandle to PHY device
-+
-+Optional properties:
-+- enable-ale:	NetCP driver keeps the address learning feature in the ethernet
-+		switch module disabled. This attribute is to enable the address
-+		learning.
-+- secondary-slave-ports:	specification for each of the switch port not be
-+				registered as a network interface. NetCP driver
-+				will only initialize these ports and attach PHY
-+				driver to them if needed.
-+
-+NetCP interface properties: Interface specification for NetCP sub-modules.
-+Required properties:
-+- rx-channel:	the navigator packet dma channel number for rx.
-+- rx-queue:	the navigator queue number associated with rx dma channel.
-+- rx-pool:	specifies the number of descriptors to be used & the region-id
-+		for creating the rx descriptor pool.
-+- tx-pool:	specifies the number of descriptors to be used & the region-id
-+		for creating the tx descriptor pool.
-+- rx-queue-depth:	number of descriptors in each of the free descriptor
-+			queue (FDQ) for the pktdma Rx flow. There can be at
-+			present a maximum of 4 queues per Rx flow.
-+- rx-buffer-size:	the buffer size for each of the Rx flow FDQ.
-+- tx-completion-queue:	the navigator queue number where the descriptors are
-+			recycled after Tx DMA completion.
-+
-+Optional properties:
-+- efuse-mac:	If this is 1, then the MAC address for the interface is
-+		obtained from the device efuse mac address register
-+- local-mac-address:	the driver is designed to use the of_get_mac_address api
-+			only if efuse-mac is 0. When efuse-mac is 0, the MAC
-+			address is obtained from local-mac-address. If this
-+			attribute is not present, then the driver will use a
-+			random MAC address.
-+- "netcp-device label":	phandle to the device specification for each of NetCP
-+			sub-module attached to this interface.
-+
-+Example binding:
-+
-+netcp: netcp@2090000 {
-+	reg = <0x2620110 0x8>;
-+	reg-names = "efuse";
-+	compatible = "ti,netcp-1.0";
-+	#address-cells = <1>;
-+	#size-cells = <1>;
-+	ranges;
-+
-+	clocks = <&papllclk>, <&clkcpgmac>, <&chipclk12>;
-+	dma-coherent;
-+	/* big-endian; */
-+	dma-id = <0>;
-+
-+	netcp-devices {
-+		#address-cells = <1>;
-+		#size-cells = <1>;
-+		ranges;
-+		gbe@0x2090000 {
-+			label = "netcp-gbe";
-+			reg = <0x2090000 0xf00>;
-+			/* enable-ale; */
-+			tx-queue = <648>;
-+			tx-channel = <8>;
-+
-+			interfaces {
-+				gbe0: interface-0 {
-+					slave-port = <0>;
-+					link-interface	= <4>;
-+				};
-+				gbe1: interface-1 {
-+					slave-port = <1>;
-+					link-interface	= <4>;
-+				};
-+			};
-+
-+			secondary-slave-ports {
-+				port-2 {
-+					slave-port = <2>;
-+					link-interface	= <2>;
-+				};
-+				port-3 {
-+					slave-port = <3>;
-+					link-interface	= <2>;
-+				};
-+			};
-+		};
-+	};
-+
-+	netcp-interfaces {
-+		interface-0 {
-+			rx-channel = <22>;
-+			rx-pool = <1024 12>;
-+			tx-pool = <1024 12>;
-+			rx-queue-depth = <128 128 0 0>;
-+			rx-buffer-size = <1518 4096 0 0>;
-+			rx-queue = <8704>;
-+			tx-completion-queue = <8706>;
-+			efuse-mac = <1>;
-+			netcp-gbe = <&gbe0>;
-+
-+		};
-+		interface-1 {
-+			rx-channel = <23>;
-+			rx-pool = <1024 12>;
-+			tx-pool = <1024 12>;
-+			rx-queue-depth = <128 128 0 0>;
-+			rx-buffer-size = <1518 4096 0 0>;
-+			rx-queue = <8705>;
-+			tx-completion-queue = <8707>;
-+			efuse-mac = <0>;
-+			local-mac-address = [02 18 31 7e 3e 6f];
-+			netcp-gbe = <&gbe1>;
-+		};
-+	};
-+};
--- 
-1.7.9.5
+greg k-h
