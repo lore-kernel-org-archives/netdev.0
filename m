@@ -1,47 +1,40 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH] macvlan: Allow setting multicast filter on all macvlan
- types
-Date: Fri, 15 Aug 2014 12:04:28 -0700
-Message-ID: <53EE59BC.1070605@intel.com>
-References: <1408122299-29632-1-git-send-email-vyasevic@redhat.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: Performance regression on kernels 3.10 and newer
+Date: Fri, 15 Aug 2014 12:10:29 -0700
+Message-ID: <53EE5B25.3040206@intel.com>
+References: <53ECFDAB.5010701@intel.com>	<1408041962.6804.31.camel@edumazet-glaptop2.roam.corp.google.com>	<53ED4354.9090904@intel.com>	<20140814.162024.2218312002979492106.davem@davemloft.net>	<53EE4023.6080902@intel.com> <CA+mtBx_aEe6SvWV6tfqzGWcPvVM+FE6kbnyFE5FbECU9HN7EXg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>, roopa@cumulusnetworks.com
-To: Vladislav Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34689 "EHLO mga01.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:19242 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751210AbaHOTKR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Aug 2014 15:10:17 -0400
-In-Reply-To: <1408122299-29632-1-git-send-email-vyasevic@redhat.com>
+	id S1751221AbaHOTKx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Aug 2014 15:10:53 -0400
+In-Reply-To: <CA+mtBx_aEe6SvWV6tfqzGWcPvVM+FE6kbnyFE5FbECU9HN7EXg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/15/2014 10:04 AM, Vladislav Yasevich wrote:
-> Currently, macvlan code restricts multicast and unicast
-> filter setting only to passthru devices.  As a result,
-> if a guest using macvtap wants to receive multicast
-> traffic, it has to set IFF_ALLMULTI or IFF_PROMISC.
+On 08/15/2014 11:49 AM, Tom Herbert wrote:
+> Alex, I tried to repro your problem running your script (on bnx2x).
+> Didn't see see the issue and in fact ip_dest_check did not appear in
+> top perf functions on perf. I assume this is more related to the
+> steering configuration rather than the device (although flow director
+> might be a fundamental difference).
 > 
-> This patch makes it possible to use the fdb interface
-> to add multicast addresses to the filter thus allowing
-> a guest to receive only targeted multicast traffic.
-> 
-> CC: John Fastabend <john.r.fastabend@intel.com>
-> CC: Michael S. Tsirkin <mst@redhat.com>
-> CC: Jason Wang <jasowang@redhat.com>
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-> ---
 
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
+So the original script I put out had a typo.  It was supposed to run all
+60 at the same time, not one at a time.  So make sure you add an
+ampersand to the end of the netperf command line if you run the test so
+that it is 60 at once, not 60 in series.
 
-Looks good to me. Although I am trying to recall why
-we restrict unicast addresses? It looks like an additional
-check could be made to detect duplicate MAC addresses
-in fdb_add and then we could support this as well. But
-I might be missing why this wasn't supported originally.
+Also one other thing I had to do was disable tcp_autocork.  Without that
+the test is a large packets test instead of a small packet test.
 
 Thanks,
-John
+
+Alex
