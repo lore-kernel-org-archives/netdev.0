@@ -1,48 +1,113 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: pull request: wireless 2014-08-14
-Date: Fri, 15 Aug 2014 10:30:14 -0400
-Message-ID: <20140815143014.GK4953@tuxdriver.com>
-References: <20140814183253.GF4953@tuxdriver.com>
- <20140814.151809.1355093138463959620.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20140814.151809.1355093138463959620.davem-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>
+Subject: [PATCH v2] net: phy: smsc: move smsc_phy_config_init reset part in a soft_reset function
+Date: Fri, 15 Aug 2014 15:00:38 +0200
+Message-ID: <1408107638-96143-1-git-send-email-gwenhael.goavec-merou@armadeus.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kmf.trabucayre.com ([91.121.117.161]:64238 "EHLO mail"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750884AbaHOO7k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Aug 2014 10:59:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 14, 2014 at 03:18:09PM -0700, David Miller wrote:
-> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Date: Thu, 14 Aug 2014 14:32:53 -0400
-> 
-> > Please pull this batch of fixes intended for the 3.17 stream...
-> > 
-> > Arend van Spriel brings two brcmfmac fixes, one which fixes a memory
-> > leak and one which corrects some merge damage.
-> > 
-> > Emmanuel Grumbach fixes Linus's iwlwifi firmware-related log spam.
-> > 
-> > Rickard Strandqvist does some proper NULL termination after a call
-> > to strncpy.
-> > 
-> > Ronald Wahl corrects a carl9170 problem with sending URBs with the
-> > wrong endpoint type (resulting in log spam).
-> > 
-> > Please let me know if there are problems!
-> 
-> Pulled, thanks John.
-> 
-> I'm really happy that you send the iwlwifi regression fix so quickly!
+On the one hand, phy_device.c provides a generic reset function if the phy
+driver does not provide a soft_reset pointer. This generic reset does not take
+into account the state of the phy, with a potential failure if the phy is in
+powerdown mode. On the other hand, smsc driver provides a function with both
+correct reset behaviour and configuration.
 
-One-liners with a "Tested-by: Linus Torvalds" get a lot of respect... :-)
+This patch moves the reset part into a new smsc_phy_reset function and provides
+the soft_reset pointer to have a correct reset behaviour by default.
 
+Signed-off-by: Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>
+---
+Changes since v1 (as advised by Sergei Shtylyov): 
+ * fix '=' alignment
+
+ drivers/net/phy/smsc.c | 33 +++++++++++++++++++++------------
+ 1 file changed, 21 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index 180c494..a4b0819 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -43,6 +43,22 @@ static int smsc_phy_ack_interrupt(struct phy_device *phydev)
+ 
+ static int smsc_phy_config_init(struct phy_device *phydev)
+ {
++	int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
++
++	if (rc < 0)
++		return rc;
++
++	/* Enable energy detect mode for this SMSC Transceivers */
++	rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
++		       rc | MII_LAN83C185_EDPWRDOWN);
++	if (rc < 0)
++		return rc;
++
++	return smsc_phy_ack_interrupt(phydev);
++}
++
++static int smsc_phy_reset(struct phy_device *phydev)
++{
+ 	int rc = phy_read(phydev, MII_LAN83C185_SPECIAL_MODES);
+ 	if (rc < 0)
+ 		return rc;
+@@ -66,18 +82,7 @@ static int smsc_phy_config_init(struct phy_device *phydev)
+ 			rc = phy_read(phydev, MII_BMCR);
+ 		} while (rc & BMCR_RESET);
+ 	}
+-
+-	rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
+-	if (rc < 0)
+-		return rc;
+-
+-	/* Enable energy detect mode for this SMSC Transceivers */
+-	rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
+-		       rc | MII_LAN83C185_EDPWRDOWN);
+-	if (rc < 0)
+-		return rc;
+-
+-	return smsc_phy_ack_interrupt (phydev);
++	return 0;
+ }
+ 
+ static int lan911x_config_init(struct phy_device *phydev)
+@@ -142,6 +147,7 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+ 	.config_init	= smsc_phy_config_init,
++	.soft_reset	= smsc_phy_reset,
+ 
+ 	/* IRQ related */
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
+@@ -164,6 +170,7 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+ 	.config_init	= smsc_phy_config_init,
++	.soft_reset	= smsc_phy_reset,
+ 
+ 	/* IRQ related */
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
+@@ -186,6 +193,7 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+ 	.config_init	= smsc_phy_config_init,
++	.soft_reset	= smsc_phy_reset,
+ 
+ 	/* IRQ related */
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
+@@ -230,6 +238,7 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= lan87xx_read_status,
+ 	.config_init	= smsc_phy_config_init,
++	.soft_reset	= smsc_phy_reset,
+ 
+ 	/* IRQ related */
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.8.5.5
