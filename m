@@ -1,49 +1,50 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net] macvlan: Fix the bug when destroy macvlan dev port
-Date: Fri, 15 Aug 2014 09:41:50 +0800
-Message-ID: <53ED655E.6090309@huawei.com>
-References: <53EC7D8C.6060908@huawei.com>	<CAHA+R7MarK5Jx4ZVmyAnQp-DZ6aRNi=rqd3aKBW7OnB8YWsrbQ@mail.gmail.com>	<1408037910.6804.22.camel@edumazet-glaptop2.roam.corp.google.com> <20140814.143236.466435177296125156.davem@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] packet: handle too big packets for PACKET_V3
+Date: Thu, 14 Aug 2014 19:01:25 -0700
+Message-ID: <1408068085.6804.75.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1408061394.6804.55.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1408063438.861699.152907025.0F25AB17@webmail.messagingengine.com>
+	 <1408064099.6804.64.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1408064641.867439.152913861.09367C24@webmail.messagingengine.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <cwang@twopensource.com>, <jacob.e.keller@intel.com>,
-	<kaber@trash.net>, <netdev@vger.kernel.org>
-To: David Miller <davem@redhat.com>, <eric.dumazet@gmail.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:15466 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750869AbaHOBmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 21:42:06 -0400
-In-Reply-To: <20140814.143236.466435177296125156.davem@redhat.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:59486 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752415AbaHOCBf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 22:01:35 -0400
+Received: by mail-pa0-f45.google.com with SMTP id eu11so2684837pac.32
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 19:01:34 -0700 (PDT)
+In-Reply-To: <1408064641.867439.152913861.09367C24@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/8/15 5:32, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 14 Aug 2014 10:38:30 -0700
-> 
->> On Thu, 2014-08-14 at 09:58 -0700, Cong Wang wrote:
->>> On Thu, Aug 14, 2014 at 2:12 AM, Ding Tianhong <dingtianhong@huawei.com> wrote:
->>>>
->>>> To fix this problem, we need to check whether the port is exist when calling
->>>> macvlan_port_destroy(), do nothing if the port has been destroyed yet.
->>>>
->>>
->>> As I said, this will make the first call of macvlan_port_destroy()
->>> free the port,
->>> which was freed by the last one before.
->>>
->>> Why not just revert your change? It doesn't give any benefit.
->>> --
->>
->> Yes please, I think patch should be reverted.
-> 
-> I agree, this should be reverted, I'm going to do it myself.
-> 
->  
+On Fri, 2014-08-15 at 03:04 +0200, Hannes Frederic Sowa wrote:
 
-Ok, sorry to trouble you.
+> Sure, but if I would have written such a tool without knowledge of GRO I
+> would have queried at least the MTU. ;)
 
-> 
-> .
-> 
+Would all existing tools react to a mtu change properly ?
+
+(It would have to reinit its af_packet ring)
+
+I do not think its a GRO issue, really, but an optimistic PACKET_V3
+implementation. GRO was already there when PACKET_V3 was added.
+
+Even a non GRO packet might not fit and we need to avoid the
+crash/corruption.
+
+I believe I am going to implement 2)  (clamp the snaplen)
+
+An application should catch that tp_len might be bigger than tp_snaplen
+and eventually do something sensible about it.
+
+BTW, tp_sizeof_priv doesnt look to be checked at all, user input is
+accepted as is.
