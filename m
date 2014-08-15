@@ -1,64 +1,60 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH RFC v4 net-next 17/26] tracing: allow eBPF programs to be
- attached to events
-Date: Fri, 15 Aug 2014 10:51:27 -0700
-Message-ID: <CAMEtUuzCyxdOo+yYYZfDPRAu2yeQOw8TbUABwU-HD0+78PnV7A@mail.gmail.com>
-References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
-	<1407916658-8731-18-git-send-email-ast@plumgrid.com>
-	<CALCETrV7vO6r--G2ns+A6qmDQYSzNXeemT=x41EF+XWmayM95g@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Performance regression on kernels 3.10 and newer
+Date: Fri, 15 Aug 2014 10:59:24 -0700
+Message-ID: <1408125564.6804.98.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <53ECFDAB.5010701@intel.com>
+		<1408041962.6804.31.camel@edumazet-glaptop2.roam.corp.google.com>
+		<53ED4354.9090904@intel.com>
+	 <20140814.162024.2218312002979492106.davem@davemloft.net>
+	 <53EE4023.6080902@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrV7vO6r--G2ns+A6qmDQYSzNXeemT=x41EF+XWmayM95g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:36778 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751027AbaHOR70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Aug 2014 13:59:26 -0400
+Received: by mail-pa0-f52.google.com with SMTP id bj1so3874101pad.11
+        for <netdev@vger.kernel.org>; Fri, 15 Aug 2014 10:59:25 -0700 (PDT)
+In-Reply-To: <53EE4023.6080902@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 15, 2014 at 10:25 AM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
-> On Wed, Aug 13, 2014 at 12:57 AM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
->> User interface:
->> fd = open("/sys/kernel/debug/tracing/__event__/filter")
->>
->> write(fd, "bpf_123")
->
-> I didn't follow all the code flow leading to parsing the "bpf_123"
-> string, but if it works the way I imagine it does, it's a security
-> problem.  In general, write(2) should never do anything that involves
-> any security-relevant context of the caller.
->
-> Ideally, you would look up fd 123 in the file table of whomever called
-> open.  If that's difficult to implement efficiently, then it would be
-> nice to have some check that the callers of write(2) and open(2) are
-> the same task and that exec wasn't called in between.
->
-> This isn't a very severe security issue because you need privilege to
-> open the thing in the first place, but it would still be nice to
-> address.
+On Fri, 2014-08-15 at 10:15 -0700, Alexander Duyck wrote:
 
-hmm. you need to be root to open the events anyway.
-pretty much the whole tracing for root only, since any kernel data
-structures can be printed, stored into maps and so on.
-So I don't quite follow your security concern here.
+> I realize most of my data is anecdotal as I only have the ixgbe/igb
+> adapters and netperf to work with.  This is one of the reasons why I
+> keep asking if someone can tell me what the use case is for this where
+> it performs well.  From what I can tell it might have had some value
+> back in the day before the introduction of things such as RPS/RFS where
+> some of the socket processing would be offloaded to other CPUs for a
+> single queue device, but even that use case is now deprecated since
+> RPS/RFS are there and function better than this.  What I am basically
+> looking for is a way to weight the gain versus the penalties to
+> determine if this code is even viable anymore.
+> 
+> In the meantime I think I will put together a patch to default
+> tcp_low_latency to 1 for net and stable, and if we cannot find a good
+> reason for keeping it then I can submit a patch to net-next that will
+> strip it out since I don't see any benefit to having this code.
 
-Even say root opens a tracepoint and does exec() of another
-app that uploads ebpf program, gets program_fd and does
-write into tracepoint fd. The root app that did this open() is
-doing exec() on purpose. It's not like it's exec-ing something
-it doesn't know about.
+prequeue is useful on low end hosts, because it allows an application to
+delay ACK packets if it is slow. You get a nicer TCP behavior, because
+its more tied to scheduling glitches. Especially if TCP windows are not
+autotuned. I guess some embedded platforms benefit from this.
 
-Remember, FDs was your idea in the first place ;)
-I had global ids and everything root initially.
+I would keep it the way it is, because modern high performance
+applications do not trigger prequeue anyway.
+
+It is trivial to add into netperf a poll() before recvmsg() to avoid the
+prequeue, or start your benchmarks with appropriate sysctl.
+
+It is certainly not a 'stable' candidate change, it has been there for
+years.
+
+Note that we have include/linux/percpu-refcount.h now, we might
+autodetect some dst are heavily used by different cpus and switch to a
+percpu refcount.
