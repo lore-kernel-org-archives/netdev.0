@@ -1,66 +1,147 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH] isdn/gigaset: use USB API functions rather than constants
-Date: Sat, 16 Aug 2014 12:54:15 +0200
-Message-ID: <53EF3857.1070000@imap.cc>
-References: <20140815162412.GA7192@himangi-Dell>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <isdn@linux-pingi.de>,
-	gigaset307x-common@lists.sourceforge.net,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Himangi Saraogi <himangi774@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140815162412.GA7192@himangi-Dell>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ian Morris <ipm@chirality.org.uk>
+Subject: [PATCH 2/4] IPV6: checkpatch corrections
+Date: Sat, 16 Aug 2014 13:04:45 +0100
+Message-ID: <1408190687-28941-2-git-send-email-ipm@chirality.org.uk>
+References: <1408190687-28941-1-git-send-email-ipm@chirality.org.uk>
+Cc: Ian Morris <ipm@chirality.org.uk>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from inet-gw.chirality.org.uk ([88.97.209.22]:43159 "EHLO
+	oak.chirality.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751529AbaHPME6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2014 08:04:58 -0400
+In-Reply-To: <1408190687-28941-1-git-send-email-ipm@chirality.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 15.08.2014 um 18:24 schrieb Himangi Saraogi:
-> This patch introduces the use of the function usb_endpoint_num.
->=20
-> The Coccinelle semantic patch that makes these changes is as follows:
->=20
-> @@ struct usb_endpoint_descriptor *epd; @@
->=20
-> - (epd->bEndpointAddress & \(USB_ENDPOINT_NUMBER_MASK\|0x0f\))
-> + usb_endpoint_num(epd)
->=20
-> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
-Acked-by: Tilman Schmidt <tilman@imap.cc>
+No changes to logic, just whitespace adjustments to coding style of structure definitions
+objdump shows no differences
 
-Nice.
-Are you planning a similar patch for bas-gigaset.c too?
-Otherwise I'll prepare one myself.
+Signed-off-by: Ian Morris <ipm@chirality.org.uk>
+---
+ net/ipv6/ah6.c        |    5 ++---
+ net/ipv6/esp6.c       |    7 +++----
+ net/ipv6/ipcomp6.c    |    6 ++----
+ net/ipv6/mip6.c       |   10 ++++------
+ net/ipv6/reassembly.c |    6 ++----
+ 5 files changed, 13 insertions(+), 21 deletions(-)
 
-Thanks,
-Tilman
-
-
-> ---
->  drivers/isdn/gigaset/usb-gigaset.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/isdn/gigaset/usb-gigaset.c b/drivers/isdn/gigase=
-t/usb-gigaset.c
-> index d0a41cb..00d4077 100644
-> --- a/drivers/isdn/gigaset/usb-gigaset.c
-> +++ b/drivers/isdn/gigaset/usb-gigaset.c
-> @@ -751,7 +751,7 @@ static int gigaset_probe(struct usb_interface *in=
-terface,
->  	/* Fill the interrupt urb and send it to the core */
->  	usb_fill_int_urb(ucs->read_urb, udev,
->  			 usb_rcvintpipe(udev,
-> -					endpoint->bEndpointAddress & 0x0f),
-> +					usb_endpoint_num(endpoint)),
->  			 ucs->rcvbuf, buffer_size,
->  			 gigaset_read_int_callback,
->  			 cs, endpoint->bInterval);
->=20
-
---=20
-Tilman Schmidt                              E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index ac71d9e..fcffd4e 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -755,11 +755,10 @@ static int ah6_rcv_cb(struct sk_buff *skb, int err)
+ 	return 0;
+ }
+ 
+-static const struct xfrm_type ah6_type =
+-{
++static const struct xfrm_type ah6_type = {
+ 	.description	= "AH6",
+ 	.owner		= THIS_MODULE,
+-	.proto	     	= IPPROTO_AH,
++	.proto		= IPPROTO_AH,
+ 	.flags		= XFRM_TYPE_REPLAY_PROT,
+ 	.init_state	= ah6_init_state,
+ 	.destructor	= ah6_destroy,
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 7b6e830..83fc3a3 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -621,11 +621,10 @@ static int esp6_rcv_cb(struct sk_buff *skb, int err)
+ 	return 0;
+ }
+ 
+-static const struct xfrm_type esp6_type =
+-{
++static const struct xfrm_type esp6_type = {
+ 	.description	= "ESP6",
+-	.owner	     	= THIS_MODULE,
+-	.proto	     	= IPPROTO_ESP,
++	.owner		= THIS_MODULE,
++	.proto		= IPPROTO_ESP,
+ 	.flags		= XFRM_TYPE_REPLAY_PROT,
+ 	.init_state	= esp6_init_state,
+ 	.destructor	= esp6_destroy,
+diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+index d1c793c..1b9316e 100644
+--- a/net/ipv6/ipcomp6.c
++++ b/net/ipv6/ipcomp6.c
+@@ -181,8 +181,7 @@ static int ipcomp6_rcv_cb(struct sk_buff *skb, int err)
+ 	return 0;
+ }
+ 
+-static const struct xfrm_type ipcomp6_type =
+-{
++static const struct xfrm_type ipcomp6_type = {
+ 	.description	= "IPCOMP6",
+ 	.owner		= THIS_MODULE,
+ 	.proto		= IPPROTO_COMP,
+@@ -193,8 +192,7 @@ static const struct xfrm_type ipcomp6_type =
+ 	.hdr_offset	= xfrm6_find_1stfragopt,
+ };
+ 
+-static struct xfrm6_protocol ipcomp6_protocol =
+-{
++static struct xfrm6_protocol ipcomp6_protocol = {
+ 	.handler	= xfrm6_rcv,
+ 	.cb_handler	= ipcomp6_rcv_cb,
+ 	.err_handler	= ipcomp6_err,
+diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
+index db9b6cb..f61429d 100644
+--- a/net/ipv6/mip6.c
++++ b/net/ipv6/mip6.c
+@@ -336,11 +336,10 @@ static void mip6_destopt_destroy(struct xfrm_state *x)
+ {
+ }
+ 
+-static const struct xfrm_type mip6_destopt_type =
+-{
++static const struct xfrm_type mip6_destopt_type = {
+ 	.description	= "MIP6DESTOPT",
+ 	.owner		= THIS_MODULE,
+-	.proto	     	= IPPROTO_DSTOPTS,
++	.proto		= IPPROTO_DSTOPTS,
+ 	.flags		= XFRM_TYPE_NON_FRAGMENT | XFRM_TYPE_LOCAL_COADDR,
+ 	.init_state	= mip6_destopt_init_state,
+ 	.destructor	= mip6_destopt_destroy,
+@@ -469,11 +468,10 @@ static void mip6_rthdr_destroy(struct xfrm_state *x)
+ {
+ }
+ 
+-static const struct xfrm_type mip6_rthdr_type =
+-{
++static const struct xfrm_type mip6_rthdr_type = {
+ 	.description	= "MIP6RT",
+ 	.owner		= THIS_MODULE,
+-	.proto	     	= IPPROTO_ROUTING,
++	.proto		= IPPROTO_ROUTING,
+ 	.flags		= XFRM_TYPE_NON_FRAGMENT | XFRM_TYPE_REMOTE_COADDR,
+ 	.init_state	= mip6_rthdr_init_state,
+ 	.destructor	= mip6_rthdr_destroy,
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index fe156d9..1a157ca 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -62,8 +62,7 @@
+ 
+ static const char ip6_frag_cache_name[] = "ip6-frags";
+ 
+-struct ip6frag_skb_cb
+-{
++struct ip6frag_skb_cb {
+ 	struct inet6_skb_parm	h;
+ 	int			offset;
+ };
+@@ -575,8 +574,7 @@ fail_hdr:
+ 	return -1;
+ }
+ 
+-static const struct inet6_protocol frag_protocol =
+-{
++static const struct inet6_protocol frag_protocol = {
+ 	.handler	=	ipv6_frag_rcv,
+ 	.flags		=	INET6_PROTO_NOPOLICY,
+ };
+-- 
+1.7.9.5
