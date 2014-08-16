@@ -1,78 +1,119 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: Performance regression on kernels 3.10 and newer
-Date: Fri, 15 Aug 2014 16:23:43 -0700
-Message-ID: <53EE967F.9090101@intel.com>
-References: <53ECFDAB.5010701@intel.com>	<1408041962.6804.31.camel@edumazet-glaptop2.roam.corp.google.com>	<53ED4354.9090904@intel.com>	<20140814.162024.2218312002979492106.davem@davemloft.net>	<53EE4023.6080902@intel.com>	<CA+mtBx_aEe6SvWV6tfqzGWcPvVM+FE6kbnyFE5FbECU9HN7EXg@mail.gmail.com>	<53EE5B25.3040206@intel.com> <CA+mtBx-LZgnpWAf3Jn0htoga32UaMc-NAqURmXezmZmwg2oGRQ@mail.gmail.com>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH v3 1/3] init / kthread: add module_long_probe_init()
+	and module_long_probe_exit()
+Date: Sat, 16 Aug 2014 04:50:07 +0200
+Message-ID: <20140816025007.GB3347@wotan.suse.de>
+References: <1407882507-325-1-git-send-email-mcgrof@do-not-panic.com> <1407882507-325-2-git-send-email-mcgrof@do-not-panic.com> <20140813175101.GA7156@redhat.com> <20140814231028.GQ21930@wotan.suse.de> <20140815143902.GB13222@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Rick Jones <rick.jones2@hp.com>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:56262 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751138AbaHOXXq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Aug 2014 19:23:46 -0400
-In-Reply-To: <CA+mtBx-LZgnpWAf3Jn0htoga32UaMc-NAqURmXezmZmwg2oGRQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	gregkh@linuxfoundation.org, tiwai@suse.de,
+	linux-kernel@vger.kernel.org,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Oleg Nesterov <oleg@redhat.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140815143902.GB13222@redhat.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/15/2014 03:16 PM, Tom Herbert wrote:
-> On Fri, Aug 15, 2014 at 12:10 PM, Alexander Duyck
-> <alexander.h.duyck@intel.com> wrote:
->> On 08/15/2014 11:49 AM, Tom Herbert wrote:
->>> Alex, I tried to repro your problem running your script (on bnx2x).
->>> Didn't see see the issue and in fact ip_dest_check did not appear in
->>> top perf functions on perf. I assume this is more related to the
->>> steering configuration rather than the device (although flow director
->>> might be a fundamental difference).
->>>
->>
->> So the original script I put out had a typo.  It was supposed to run all
->> 60 at the same time, not one at a time.  So make sure you add an
->> ampersand to the end of the netperf command line if you run the test so
->> that it is 60 at once, not 60 in series.
->>
->> Also one other thing I had to do was disable tcp_autocork.  Without that
->> the test is a large packets test instead of a small packet test.
->>
-> Okay, by running netperf in background, disabling autoconf, and
-> turning off RPS/RFS I'm able to get ipv4_dst_check to come up in perf;
-> but t's not nearly as bad as what you've reported though, only about
-> 1.5%. When I applied path to move rt_genid to different cacheline
-> ipv4_dst_check goes away (ipv4: move rt_genid to different cache
-> line). Can you try this patch in your setup?
+On Fri, Aug 15, 2014 at 04:39:02PM +0200, Oleg Nesterov wrote:
+> On 08/15, Luis R. Rodriguez wrote:
+> >
+> > On Wed, Aug 13, 2014 at 07:51:01PM +0200, Oleg Nesterov wrote:
+> > > On 08/12, Luis R. Rodriguez wrote:
+> > > >
+> > > > +/* To be used by modules which can take over 30 seconds at probe */
+> > >
+> > > Probably the comment should explain that this hack should only be
+> > > used if the driver is buggy and is wating for "real fix".
+> > >
+> > > > +#define module_long_probe_init(initfn)				\
+> > > > +	static struct task_struct *__init_thread;		\
+> > > > +	static int _long_probe_##initfn(void *arg)		\
+> > > > +	{							\
+> > > > +		return initfn();				\
+> > > > +	}							\
+> > > > +	static inline __init int __long_probe_##initfn(void)	\
+> > > > +	{							\
+> > > > +		__init_thread = kthread_run(_long_probe_##initfn,\
+> > > > +					    NULL,		\
+> > > > +					    #initfn);		\
+> > > > +		if (IS_ERR(__init_thread))			\
+> > > > +			return PTR_ERR(__init_thread);		\
+> > > > +		return 0;					\
+> > > > +	}							\
+> > > > +	module_init(__long_probe_##initfn);
+> > > > +/* To be used by modules that require module_long_probe_init() */
+> > > > +#define module_long_probe_exit(exitfn)				\
+> > > > +	static inline void __long_probe_##exitfn(void)		\
+> > > > +	{							\
+> > > > +		exitfn();					\
+> > > > +		if (__init_thread)				\
+> > > > +			kthread_stop(__init_thread);		\
+> > > > +	}							\
+> > >
+> > > exitfn() should be called after kthread_stop(), and only if initfn()
+> > > returns 0. So it should probably do
+> > >
+> > > 	int err = kthread_stop(__init_thread);
+> > > 	if (!err)
+> > > 		exitfn();
+> >
+> > Thanks! With the check for __init_thread as well as it can be
+> > ERR_PTR(-ENOMEM), ERR_PTR(-EINTR), or NULL (for whatever other
+> > reason).
+> 
+> Do you mean __long_probe_##exitfn() should also check ERR_PTR(__init_thread)?
+> I don't think so. If kthread_run() above fails, module_init() should return
+> the error (it does), so module_exit() won't be called.
 
-The issue doesn't occur for me until I start using netperf on both
-sockets with the same IP address on both ends.  Then I see the dst
-bouncing between the two nodes and the CPU utilization skyrockets.  If I
-am only on one node the dst bouncing is tolerable as it doesn't go any
-further than the LLC.
+Good point.
 
-With your patch applied I see ipv4_dst_check drop off to 5% CPU
-utilization from the 36% that it was.  However ip_rcv_finish has climbed
-up to about 16% so it isn't as though much was saved.  It just pushed it
-to the next item to hit in that cacheline.  Throughput was 2.5Gb/s with
-100% CPU utilization on the receiver.
+> > > But there is an additional complication, you can't use __init_thread
+> > > without get_task_struct(),
+> >
+> > Can you elaborate why ? kthread_stop() uses get_task_struct(),
+> 
+> This is too late. This task_struct can be already freed/reused. See below.
+> 
+> > wake_up_process() and finally put_task_struct(), and we're the
+> > only user of this thread. Also kthread_run() ensures wake_up_process()
+> > gets called on startup, so not sure where the race would be provided
+> > all users here and with the respective helpers on buggy drivers.
+> >
+> > > so  __long_probe_##initfn() can't use
+> > > kthread_run(). It needs kthread_create() + get_task_struct() + wakeup.
+> >
+> > I fail to see why we'd need to add get_task_struct() on
+> > module_long_probe_init(), can you clarify?
+> 
+> kthread_stop(kthread_run(callback)) is only safe if callback() can not exit
+> on its own, without checking kthread_should_stop(). And btw that is why
+> kthread_stop() does get_task_struct()).
+> 
+> If callback() can exit (if it calls do_exit() or simply returns), then nothing
+> protects this task_struct, it will be freed.
 
-Even if the refcount issue is fixed the performance still suffers
-compared to the low_latency path in my testing.  When I reverted the
-refcount change the CPU utilization dropped from 100% to about 25%, but
-that is still double the 12% I am seeing when tcp_low_latency is set.
-That is one of the reasons why I am not all that interested in the ref
-count fix as I am still likely going to have to work around other issues
-in the prequeue path.
+OK thanks, yeah I see the issue now, and I was able to create a null
+pointer dereference by simply calling schedule() quite a bit, will
+roll in the required fixes, but come to think of it if there are
+other uses (I haven't SmPLd grep'd for grammar uses yet) perhaps
+generic helpers would be good? kthread_run_alloc() kthread_run_free().
 
-Another test I tried was to hack the nettest_bsd.c file in netperf to
-perform a poll() based receive.  That resolved the issue and had all the
-performance of the tcp_low_latency case.  I may see if I can work with
-Rick to push something like that into netperf as I really would prefer
-to avoid having to advise everyone on how to setup the sysctl for
-tcp_low_latency.
-
-Thanks,
-
-Alex
+  Luis
