@@ -1,51 +1,393 @@
-From: Ian Morris <ipm@chirality.org.uk>
-Subject: Re: RFC : [PATCH] IPV6: checkpatch whitespace corrections
-Date: Sat, 16 Aug 2014 09:48:16 +0100
-Message-ID: <53EF1AD0.7080704@chirality.org.uk>
-References: <1407960167-9437-1-git-send-email-ipm@chirality.org.uk> <1407970011.2683.9.camel@joe-AO725>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from inet-gw.chirality.org.uk ([88.97.209.22]:42745 "EHLO
-	oak.chirality.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751058AbaHPIsV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2014 04:48:21 -0400
-In-Reply-To: <1407970011.2683.9.camel@joe-AO725>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
+Subject: [PATCH] drivers: net: ethernet: intel: e1000: e1000_ethtool.c coding style fixes
+Date: Sat, 16 Aug 2014 11:12:08 +0200
+Message-ID: <1408180328-4827-1-git-send-email-cristos@vipserv.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
+To: jeffrey.t.kirsher@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Many thanks for taking the time to provide feedback. Accordingly I will 
-break the patch into better structured parts and submit.
+Fixed many errors/warnings and checks in e1000_ethtool.c reported by checkpatch.pl
 
-On 13/08/14 23:46, Joe Perches wrote:
-> On Wed, 2014-08-13 at 21:02 +0100, Ian Morris wrote:
->> I started looking at the ipv6 code to educate myself but in the process
->> noticed a fair few trivial checkpatch issues. There are some more interesting
->> ones also present but before tackling those I decided to try to reduce the
->> volume of output from checkpatch by fixing whitespace issues. Question is
->> are such patches wanted?
-> Like most things, it depends.
->
-> To make reviewing these patches easier, it's better to
-> separate these changes into at least 2 patches.
->
-> 1: Horizontal line whitespace changes where git diff -w can be
->     shown to have no differences
-> 2: Vertical line whitespace changes where newlines are only
->     added or deleted.
->
-> In both cases, scripts/objdiff should be run to show no compiler
-> object output changes occur as well.
->
-> In a quick scan, I don't see anything objectionable here.
->
-> I'm not a big fan of the forced blank line between declarations
-> and code though.
->
-> You can get checkpatch to not emit those with --ignore=line_spacing
->
->
->
+Signed-off-by: Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
+---
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 135 +++++++++++------------
+ 1 file changed, 65 insertions(+), 70 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+index cca5bca..d5c5a38 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+@@ -1,35 +1,30 @@
+ /*******************************************************************************
+-
+-  Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2006 Intel Corporation.
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Contact Information:
+-  Linux NICS <linux.nics@intel.com>
+-  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+-  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+-
+-*******************************************************************************/
++ * Intel PRO/1000 Linux driver
++ *  Copyright(c) 1999 - 2006 Intel Corporation.
++ *
++ *  This program is free software; you can redistribute it and/or modify it
++ *  under the terms and conditions of the GNU General Public License,
++ *  version 2, as published by the Free Software Foundation.
++ *
++ *  This program is distributed in the hope it will be useful, but WITHOUT
++ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ *  more details.
++ *
++ *  The full GNU General Public License is included in this distribution in
++ *  the file called "COPYING".
++ *
++ *  Contact Information:
++ *  Linux NICS <linux.nics@intel.com>
++ *  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ *  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
+ 
+ /* ethtool support for e1000 */
+ 
+ #include "e1000.h"
+-#include <asm/uaccess.h>
++#include <linux/uaccess.h>
+ 
+ enum {NETDEV_STATS, E1000_STATS};
+ 
+@@ -42,7 +37,7 @@ struct e1000_stats {
+ 
+ #define E1000_STAT(m)		E1000_STATS, \
+ 				sizeof(((struct e1000_adapter *)0)->m), \
+-		      		offsetof(struct e1000_adapter, m)
++				offsetof(struct e1000_adapter, m)
+ #define E1000_NETDEV_STAT(m)	NETDEV_STATS, \
+ 				sizeof(((struct net_device *)0)->m), \
+ 				offsetof(struct net_device, m)
+@@ -104,6 +99,7 @@ static const char e1000_gstrings_test[][ETH_GSTRING_LEN] = {
+ 	"Interrupt test (offline)", "Loopback test  (offline)",
+ 	"Link test   (on/offline)"
+ };
++
+ #define E1000_TEST_LEN	ARRAY_SIZE(e1000_gstrings_test)
+ 
+ static int e1000_get_settings(struct net_device *netdev,
+@@ -113,7 +109,6 @@ static int e1000_get_settings(struct net_device *netdev,
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+ 	if (hw->media_type == e1000_media_type_copper) {
+-
+ 		ecmd->supported = (SUPPORTED_10baseT_Half |
+ 				   SUPPORTED_10baseT_Full |
+ 				   SUPPORTED_100baseT_Half |
+@@ -155,9 +150,8 @@ static int e1000_get_settings(struct net_device *netdev,
+ 	}
+ 
+ 	if (er32(STATUS) & E1000_STATUS_LU) {
+-
+ 		e1000_get_speed_and_duplex(hw, &adapter->link_speed,
+-		                                   &adapter->link_duplex);
++					   &adapter->link_duplex);
+ 		ethtool_cmd_speed_set(ecmd, adapter->link_speed);
+ 
+ 		/* unfortunately FULL_DUPLEX != DUPLEX_FULL
+@@ -247,9 +241,9 @@ static int e1000_set_settings(struct net_device *netdev,
+ 	if (netif_running(adapter->netdev)) {
+ 		e1000_down(adapter);
+ 		e1000_up(adapter);
+-	} else
++	} else {
+ 		e1000_reset(adapter);
+-
++	}
+ 	clear_bit(__E1000_RESETTING, &adapter->flags);
+ 	return 0;
+ }
+@@ -279,11 +273,11 @@ static void e1000_get_pauseparam(struct net_device *netdev,
+ 	pause->autoneg =
+ 		(adapter->fc_autoneg ? AUTONEG_ENABLE : AUTONEG_DISABLE);
+ 
+-	if (hw->fc == E1000_FC_RX_PAUSE)
++	if (hw->fc == E1000_FC_RX_PAUSE) {
+ 		pause->rx_pause = 1;
+-	else if (hw->fc == E1000_FC_TX_PAUSE)
++	} else if (hw->fc == E1000_FC_TX_PAUSE) {
+ 		pause->tx_pause = 1;
+-	else if (hw->fc == E1000_FC_FULL) {
++	} else if (hw->fc == E1000_FC_FULL) {
+ 		pause->rx_pause = 1;
+ 		pause->tx_pause = 1;
+ 	}
+@@ -316,8 +310,9 @@ static int e1000_set_pauseparam(struct net_device *netdev,
+ 		if (netif_running(adapter->netdev)) {
+ 			e1000_down(adapter);
+ 			e1000_up(adapter);
+-		} else
++		} else {
+ 			e1000_reset(adapter);
++		}
+ 	} else
+ 		retval = ((hw->media_type == e1000_media_type_fiber) ?
+ 			  e1000_setup_link(hw) : e1000_force_mac_fc(hw));
+@@ -329,12 +324,14 @@ static int e1000_set_pauseparam(struct net_device *netdev,
+ static u32 e1000_get_msglevel(struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
++
+ 	return adapter->msg_enable;
+ }
+ 
+ static void e1000_set_msglevel(struct net_device *netdev, u32 data)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
++
+ 	adapter->msg_enable = data;
+ }
+ 
+@@ -526,7 +523,7 @@ static int e1000_set_eeprom(struct net_device *netdev,
+ 		 * only the first byte of the word is being modified
+ 		 */
+ 		ret_val = e1000_read_eeprom(hw, last_word, 1,
+-		                  &eeprom_buff[last_word - first_word]);
++					    &eeprom_buff[last_word - first_word]);
+ 	}
+ 
+ 	/* Device's eeprom is always little-endian, word addressable */
+@@ -618,13 +615,12 @@ static int e1000_set_ringparam(struct net_device *netdev,
+ 	adapter->tx_ring = txdr;
+ 	adapter->rx_ring = rxdr;
+ 
+-	rxdr->count = max(ring->rx_pending,(u32)E1000_MIN_RXD);
+-	rxdr->count = min(rxdr->count,(u32)(mac_type < e1000_82544 ?
++	rxdr->count = max(ring->rx_pending, (u32)E1000_MIN_RXD);
++	rxdr->count = min(rxdr->count, (u32)(mac_type < e1000_82544 ?
+ 			  E1000_MAX_RXD : E1000_MAX_82544_RXD));
+ 	rxdr->count = ALIGN(rxdr->count, REQ_RX_DESCRIPTOR_MULTIPLE);
+-
+-	txdr->count = max(ring->tx_pending,(u32)E1000_MIN_TXD);
+-	txdr->count = min(txdr->count,(u32)(mac_type < e1000_82544 ?
++	txdr->count = max(ring->tx_pending, (u32)E1000_MIN_TXD);
++	txdr->count = min(txdr->count, (u32)(mac_type < e1000_82544 ?
+ 			  E1000_MAX_TXD : E1000_MAX_82544_TXD));
+ 	txdr->count = ALIGN(txdr->count, REQ_TX_DESCRIPTOR_MULTIPLE);
+ 
+@@ -680,8 +676,8 @@ static bool reg_pattern_test(struct e1000_adapter *adapter, u64 *data, int reg,
+ 			     u32 mask, u32 write)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+-	static const u32 test[] =
+-		{0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF};
++	static const u32 test[] = {0x5A5A5A5A, 0xA5A5A5A5,
++				   0x00000000, 0xFFFFFFFF};
+ 	u8 __iomem *address = hw->hw_addr + reg;
+ 	u32 read;
+ 	int i;
+@@ -792,10 +788,9 @@ static int e1000_reg_test(struct e1000_adapter *adapter, u64 *data)
+ 		REG_PATTERN_TEST(TDBAL, 0xFFFFFFF0, 0xFFFFFFFF);
+ 		REG_PATTERN_TEST(TIDV, 0x0000FFFF, 0x0000FFFF);
+ 		value = E1000_RAR_ENTRIES;
+-		for (i = 0; i < value; i++) {
+-			REG_PATTERN_TEST(RA + (((i << 1) + 1) << 2), 0x8003FFFF,
+-			                 0xFFFFFFFF);
+-		}
++		for (i = 0; i < value; i++)
++			REG_PATTERN_TEST(RA + (((i << 1) + 1) << 2),
++					 0x8003FFFF, 0xFFFFFFFF);
+ 	} else {
+ 		REG_SET_AND_CHECK(RCTL, 0xFFFFFFFF, 0x01FFFFFF);
+ 		REG_PATTERN_TEST(RDBAL, 0xFFFFF000, 0xFFFFFFFF);
+@@ -877,7 +872,6 @@ static int e1000_intr_test(struct e1000_adapter *adapter, u64 *data)
+ 
+ 	/* Test each interrupt */
+ 	for (; i < 10; i++) {
+-
+ 		/* Interrupt to test */
+ 		mask = 1 << i;
+ 
+@@ -1149,8 +1143,7 @@ static void e1000_phy_reset_clk_and_crs(struct e1000_adapter *adapter)
+ 	 */
+ 	e1000_read_phy_reg(hw, M88E1000_EXT_PHY_SPEC_CTRL, &phy_reg);
+ 	phy_reg |= M88E1000_EPSCR_TX_CLK_25;
+-	e1000_write_phy_reg(hw,
+-		M88E1000_EXT_PHY_SPEC_CTRL, phy_reg);
++	e1000_write_phy_reg(hw, M88E1000_EXT_PHY_SPEC_CTRL, phy_reg);
+ 
+ 	/* In addition, because of the s/w reset above, we need to enable
+ 	 * CRS on TX.  This must be set for both full and half duplex
+@@ -1158,8 +1151,7 @@ static void e1000_phy_reset_clk_and_crs(struct e1000_adapter *adapter)
+ 	 */
+ 	e1000_read_phy_reg(hw, M88E1000_PHY_SPEC_CTRL, &phy_reg);
+ 	phy_reg |= M88E1000_PSCR_ASSERT_CRS_ON_TX;
+-	e1000_write_phy_reg(hw,
+-		M88E1000_PHY_SPEC_CTRL, phy_reg);
++	e1000_write_phy_reg(hw, M88E1000_PHY_SPEC_CTRL, phy_reg);
+ }
+ 
+ static int e1000_nonintegrated_phy_loopback(struct e1000_adapter *adapter)
+@@ -1216,7 +1208,7 @@ static int e1000_nonintegrated_phy_loopback(struct e1000_adapter *adapter)
+ 	/* Check Phy Configuration */
+ 	e1000_read_phy_reg(hw, PHY_CTRL, &phy_reg);
+ 	if (phy_reg != 0x4100)
+-		 return 9;
++		return 9;
+ 
+ 	e1000_read_phy_reg(hw, M88E1000_EXT_PHY_SPEC_CTRL, &phy_reg);
+ 	if (phy_reg != 0x0070)
+@@ -1261,7 +1253,7 @@ static int e1000_integrated_phy_loopback(struct e1000_adapter *adapter)
+ 			E1000_CTRL_FD); /* Force Duplex to FULL */
+ 
+ 	if (hw->media_type == e1000_media_type_copper &&
+-	   hw->phy_type == e1000_phy_m88)
++	    hw->phy_type == e1000_phy_m88)
+ 		ctrl_reg |= E1000_CTRL_ILOS; /* Invert Loss of Signal */
+ 	else {
+ 		/* Set the ILOS bit on the fiber Nic is half
+@@ -1299,7 +1291,7 @@ static int e1000_set_phy_loopback(struct e1000_adapter *adapter)
+ 			 * attempt this 10 times.
+ 			 */
+ 			while (e1000_nonintegrated_phy_loopback(adapter) &&
+-			      count++ < 10);
++			       count++ < 10);
+ 			if (count < 11)
+ 				return 0;
+ 		}
+@@ -1348,8 +1340,9 @@ static int e1000_setup_loopback_test(struct e1000_adapter *adapter)
+ 			ew32(RCTL, rctl);
+ 			return 0;
+ 		}
+-	} else if (hw->media_type == e1000_media_type_copper)
++	} else if (hw->media_type == e1000_media_type_copper) {
+ 		return e1000_set_phy_loopback(adapter);
++	}
+ 
+ 	return 7;
+ }
+@@ -1397,7 +1390,7 @@ static int e1000_check_lbtest_frame(struct sk_buff *skb,
+ 	frame_size &= ~1;
+ 	if (*(skb->data + 3) == 0xFF) {
+ 		if ((*(skb->data + frame_size / 2 + 10) == 0xBE) &&
+-		   (*(skb->data + frame_size / 2 + 12) == 0xAF)) {
++		    (*(skb->data + frame_size / 2 + 12) == 0xAF)) {
+ 			return 0;
+ 		}
+ 	}
+@@ -1410,7 +1403,7 @@ static int e1000_run_loopback_test(struct e1000_adapter *adapter)
+ 	struct e1000_tx_ring *txdr = &adapter->test_tx_ring;
+ 	struct e1000_rx_ring *rxdr = &adapter->test_rx_ring;
+ 	struct pci_dev *pdev = adapter->pdev;
+-	int i, j, k, l, lc, good_cnt, ret_val=0;
++	int i, j, k, l, lc, good_cnt, ret_val = 0;
+ 	unsigned long time;
+ 
+ 	ew32(RDT, rxdr->count - 1);
+@@ -1429,12 +1422,13 @@ static int e1000_run_loopback_test(struct e1000_adapter *adapter)
+ 	for (j = 0; j <= lc; j++) { /* loop count loop */
+ 		for (i = 0; i < 64; i++) { /* send the packets */
+ 			e1000_create_lbtest_frame(txdr->buffer_info[i].skb,
+-					1024);
++						  1024);
+ 			dma_sync_single_for_device(&pdev->dev,
+ 						   txdr->buffer_info[k].dma,
+ 						   txdr->buffer_info[k].length,
+ 						   DMA_TO_DEVICE);
+-			if (unlikely(++k == txdr->count)) k = 0;
++			if (unlikely(++k == txdr->count))
++				k = 0;
+ 		}
+ 		ew32(TDT, k);
+ 		E1000_WRITE_FLUSH();
+@@ -1452,7 +1446,8 @@ static int e1000_run_loopback_test(struct e1000_adapter *adapter)
+ 					1024);
+ 			if (!ret_val)
+ 				good_cnt++;
+-			if (unlikely(++l == rxdr->count)) l = 0;
++			if (unlikely(++l == rxdr->count))
++				l = 0;
+ 			/* time + 20 msecs (200 msecs on 2.4) is more than
+ 			 * enough time to complete the receives, if it's
+ 			 * exceeded, break and error off
+@@ -1494,6 +1489,7 @@ static int e1000_link_test(struct e1000_adapter *adapter, u64 *data)
+ 	*data = 0;
+ 	if (hw->media_type == e1000_media_type_internal_serdes) {
+ 		int i = 0;
++
+ 		hw->serdes_has_link = false;
+ 
+ 		/* On some blade server designs, link establishment
+@@ -1512,9 +1508,8 @@ static int e1000_link_test(struct e1000_adapter *adapter, u64 *data)
+ 		if (hw->autoneg)  /* if auto_neg is set wait for it */
+ 			msleep(4000);
+ 
+-		if (!(er32(STATUS) & E1000_STATUS_LU)) {
++		if (!(er32(STATUS) & E1000_STATUS_LU))
+ 			*data = 1;
+-		}
+ 	}
+ 	return *data;
+ }
+@@ -1665,8 +1660,7 @@ static void e1000_get_wol(struct net_device *netdev,
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+-	wol->supported = WAKE_UCAST | WAKE_MCAST |
+-	                 WAKE_BCAST | WAKE_MAGIC;
++	wol->supported = WAKE_UCAST | WAKE_MCAST | WAKE_BCAST | WAKE_MAGIC;
+ 	wol->wolopts = 0;
+ 
+ 	/* this function will set ->supported = 0 and return 1 if wol is not
+@@ -1819,6 +1813,7 @@ static int e1000_set_coalesce(struct net_device *netdev,
+ static int e1000_nway_reset(struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
++
+ 	if (netif_running(netdev))
+ 		e1000_reinit_locked(adapter);
+ 	return 0;
+@@ -1835,11 +1830,11 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
+ 	for (i = 0; i < E1000_GLOBAL_STATS_LEN; i++) {
+ 		switch (e1000_gstrings_stats[i].type) {
+ 		case NETDEV_STATS:
+-			p = (char *) netdev +
++			p = (char *)netdev +
+ 					e1000_gstrings_stats[i].stat_offset;
+ 			break;
+ 		case E1000_STATS:
+-			p = (char *) adapter +
++			p = (char *)adapter +
+ 					e1000_gstrings_stats[i].stat_offset;
+ 			break;
+ 		}
+@@ -1859,7 +1854,7 @@ static void e1000_get_strings(struct net_device *netdev, u32 stringset,
+ 	switch (stringset) {
+ 	case ETH_SS_TEST:
+ 		memcpy(data, *e1000_gstrings_test,
+-			sizeof(e1000_gstrings_test));
++		       sizeof(e1000_gstrings_test));
+ 		break;
+ 	case ETH_SS_STATS:
+ 		for (i = 0; i < E1000_GLOBAL_STATS_LEN; i++) {
+-- 
+2.0.3
