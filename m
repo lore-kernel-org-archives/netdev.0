@@ -1,23 +1,24 @@
 From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
 Subject: [PATCH] rcu: Replace rcu_dereference() with rcu_access_pointer()
-Date: Sat, 16 Aug 2014 22:34:42 +0300
-Message-ID: <20140816193442.GA6471@ada>
+Date: Sat, 16 Aug 2014 23:12:53 +0300
+Message-ID: <20140816201253.GA18580@ada>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: paulmck@linux.vnet.ibm.com
-To: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, mchan@broadcom.com, eddie.wai@broadcom.com,
+	peterz@infradead.org, joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This "rcu_dereference()" call is used directly in a condition.
-Since its return value is never dereferenced it is recommended to use
+The "rcu_dereference()" calls are used directly in conditions.
+Since their return values are never dereferenced it is recommended to use
 "rcu_access_pointer()" instead of "rcu_dereference()".
-Therefore, this patch makes this replacement.
+Therefore, this patch makes the replacements.
 
-The following Coccinelle semantic patch was used for solving it:
+The following Coccinelle semantic patch was used:
 @@
 @@
 
@@ -27,7 +28,7 @@ The following Coccinelle semantic patch was used for solving it:
 - rcu_dereference
 + rcu_access_pointer
   (...)
- ...+>)) {...}
+  ...+>)) {...}
 |
  while(
  (<+...
@@ -39,21 +40,39 @@ The following Coccinelle semantic patch was used for solving it:
 
 Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
 ---
- drivers/net/bonding/bond_alb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/cnic.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 76c0dad..1319c5b 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1385,7 +1385,7 @@ static int bond_do_alb_xmit(struct sk_buff *skb, struct bonding *bond,
- 	}
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index 8244e2b..dad9cb7 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -381,7 +381,7 @@ static int cnic_iscsi_nl_msg_recv(struct cnic_dev *dev, u32 msg_type,
+ 			break;
  
- 	if (tx_slave && bond_slave_can_tx(tx_slave)) {
--		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
-+		if (tx_slave != rcu_access_pointer(bond->curr_active_slave)) {
- 			ether_addr_copy(eth_data->h_source,
- 					tx_slave->dev->dev_addr);
- 		}
+ 		rcu_read_lock();
+-		if (!rcu_dereference(cp->ulp_ops[CNIC_ULP_L4])) {
++		if (!rcu_access_pointer(cp->ulp_ops[CNIC_ULP_L4])) {
+ 			rc = -ENODEV;
+ 			rcu_read_unlock();
+ 			break;
+@@ -525,7 +525,7 @@ int cnic_unregister_driver(int ulp_type)
+ 	list_for_each_entry(dev, &cnic_dev_list, list) {
+ 		struct cnic_local *cp = dev->cnic_priv;
+ 
+-		if (rcu_dereference(cp->ulp_ops[ulp_type])) {
++		if (rcu_access_pointer(cp->ulp_ops[ulp_type])) {
+ 			pr_err("%s: Type %d still has devices registered\n",
+ 			       __func__, ulp_type);
+ 			read_unlock(&cnic_dev_lock);
+@@ -573,7 +573,7 @@ static int cnic_register_device(struct cnic_dev *dev, int ulp_type,
+ 		mutex_unlock(&cnic_lock);
+ 		return -EAGAIN;
+ 	}
+-	if (rcu_dereference(cp->ulp_ops[ulp_type])) {
++	if (rcu_access_pointer(cp->ulp_ops[ulp_type])) {
+ 		pr_err("%s: Type %d has already been registered to this device\n",
+ 		       __func__, ulp_type);
+ 		mutex_unlock(&cnic_lock);
 -- 
 1.9.1
