@@ -1,65 +1,52 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: Re: [PATCH V2] net: ethernet: myricom: myri10ge: myri10ge.c: Cleaning
- up missing null-terminate after strncpy call
-Date: Sat, 16 Aug 2014 23:18:54 +0200
-Message-ID: <CAFo99gZXrgn7SZsS+GYXrf65JcfwuCP-qej08yQCs5Z0g3e2rA@mail.gmail.com>
-References: <1407784696-31698-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
- <20140813170639.GB1869@nanopsycho.orion>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net] vxlan: fix incorrect initializer in union vxlan_addr
+Date: Sat, 16 Aug 2014 15:48:06 -0700
+Message-ID: <CAHA+R7M1DwPgLMYaSMEiU2eXZFqYYL03CJODhmuUrOthpeotzw@mail.gmail.com>
+References: <53EDCC19.70702@linux.vnet.ibm.com>
+	<53EDCCFE.5090301@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Hyong-Youb Kim <hykim@myri.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140813170639.GB1869@nanopsycho.orion>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Gerhard Stenzel <gstenzel@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:33357 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751713AbaHPWsI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2014 18:48:08 -0400
+Received: by mail-lb0-f179.google.com with SMTP id v6so3006339lbi.10
+        for <netdev@vger.kernel.org>; Sat, 16 Aug 2014 15:48:06 -0700 (PDT)
+In-Reply-To: <53EDCCFE.5090301@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-08-13 19:06 GMT+02:00 Jiri Pirko <jiri@resnulli.us>:
-> Mon, Aug 11, 2014 at 09:18:16PM CEST, rickard_strandqvist@spectrumdigital.se wrote:
->>Added a guaranteed null-terminate after call to strncpy.
->>
->>Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
->>---
->> drivers/net/ethernet/myricom/myri10ge/myri10ge.c |    1 +
->> 1 file changed, 1 insertion(+)
->>
->>diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
->>index f3d5d79..69c26f0 100644
->>--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
->>+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
->>@@ -574,6 +574,7 @@ myri10ge_validate_firmware(struct myri10ge_priv *mgp,
->>
->>       /* save firmware version for ethtool */
->>       strncpy(mgp->fw_version, hdr->version, sizeof(mgp->fw_version));
->>+      mgp->fw_version[sizeof(mgp->fw_version) - 1] = '\0';
+On Fri, Aug 15, 2014 at 2:03 AM, Gerhard Stenzel
+<gstenzel@linux.vnet.ibm.com> wrote:
 >
->         Why not to use strlcpy?
+> The first initializer in the following
 >
->>
->>       sscanf(mgp->fw_version, "%d.%d.%d", &mgp->fw_ver_major,
->>              &mgp->fw_ver_minor, &mgp->fw_ver_tiny);
->>--
->>1.7.10.4
+>                 union vxlan_addr ipa = {
+>                         .sin.sin_addr.s_addr = tip,
+>                         .sa.sa_family = AF_INET,
+>                 };
+>
+> is optimised away by the compiler, due to the second initializer,
+> therefore initialising .sin.sin_addr.s_addr always to 0.
+> This results in netlink messages indicating a L3 miss never contain the
+> missed IP address. This was observed with GCC 4.8 and 4.9. I do not know
+> about previous versions.
+> The problem affects user space programs relying on an IP address being
+> sent as part of a netlink message indicating a L3 miss.
+>
+> Changing
+>                         .sa.sa_family = AF_INET,
+> to
+>                         .sin.sin_family = AF_INET,
+> fixes the problem.
 
+So GCC can't figure out we are initializing different parts of this
+union through
+different members... Or maybe we should not use initializer at all.
 
-Hi
+Anyway,
 
-Sure, strlcpy is preferable in many ways if we only can guarantee that
-it is safe.
-I have seldom received so much criticism when I start switching to
-strlcpy, although much of it was justified :)
-Even Linus was getting into the debate.  See more:
-
-https://plus.google.com/111049168280159033135/posts/1amLbuhWbh5
-
-
-I change to strlcpy only when I'm sure it will not cause any other problems.
-But if you or anyone else can guarantee that in this case, so I'd make
-a new patch with strlcpy.
-
-
-Kind regards
-
-Rickard Strandqvist
+Acked-by: Cong Wang <cwang@twopensource.com>
