@@ -1,78 +1,39 @@
-From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
-Subject: [PATCH] rcu: Replace rcu_dereference() with rcu_access_pointer()
-Date: Sat, 16 Aug 2014 23:12:53 +0300
-Message-ID: <20140816201253.GA18580@ada>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: paulmck@linux.vnet.ibm.com
-To: davem@davemloft.net, mchan@broadcom.com, eddie.wai@broadcom.com,
-	peterz@infradead.org, joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Alan Ott <alan@signal11.us>
+Subject: [PATCH net-next] MAINTAINERS: Add section for MRF24J40 IEEE 802.15.4 radio driver
+Date: Sat, 16 Aug 2014 17:09:03 -0400
+Message-ID: <1408223343-6031-1-git-send-email-alan@signal11.us>
+Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Alan Ott <alan@signal11.us>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexander Aring <alex.aring@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The "rcu_dereference()" calls are used directly in conditions.
-Since their return values are never dereferenced it is recommended to use
-"rcu_access_pointer()" instead of "rcu_dereference()".
-Therefore, this patch makes the replacements.
+Alan is the original author of the driver. This change was discussed
+with the 802.15.4 subsystem maintainer, Alexander Aring.
 
-The following Coccinelle semantic patch was used:
-@@
-@@
-
-(
- if(
- (<+...
-- rcu_dereference
-+ rcu_access_pointer
-  (...)
-  ...+>)) {...}
-|
- while(
- (<+...
-- rcu_dereference
-+ rcu_access_pointer
-  (...)
-  ...+>)) {...}
-)
-
-Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+Signed-off-by: Alan Ott <alan@signal11.us>
 ---
- drivers/net/ethernet/broadcom/cnic.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ MAINTAINERS | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index 8244e2b..dad9cb7 100644
---- a/drivers/net/ethernet/broadcom/cnic.c
-+++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -381,7 +381,7 @@ static int cnic_iscsi_nl_msg_recv(struct cnic_dev *dev, u32 msg_type,
- 			break;
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2f85f55..c066da4 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5972,6 +5972,12 @@ T:	git git://linuxtv.org/media_tree.git
+ S:	Maintained
+ F:	drivers/media/radio/radio-mr800.c
  
- 		rcu_read_lock();
--		if (!rcu_dereference(cp->ulp_ops[CNIC_ULP_L4])) {
-+		if (!rcu_access_pointer(cp->ulp_ops[CNIC_ULP_L4])) {
- 			rc = -ENODEV;
- 			rcu_read_unlock();
- 			break;
-@@ -525,7 +525,7 @@ int cnic_unregister_driver(int ulp_type)
- 	list_for_each_entry(dev, &cnic_dev_list, list) {
- 		struct cnic_local *cp = dev->cnic_priv;
- 
--		if (rcu_dereference(cp->ulp_ops[ulp_type])) {
-+		if (rcu_access_pointer(cp->ulp_ops[ulp_type])) {
- 			pr_err("%s: Type %d still has devices registered\n",
- 			       __func__, ulp_type);
- 			read_unlock(&cnic_dev_lock);
-@@ -573,7 +573,7 @@ static int cnic_register_device(struct cnic_dev *dev, int ulp_type,
- 		mutex_unlock(&cnic_lock);
- 		return -EAGAIN;
- 	}
--	if (rcu_dereference(cp->ulp_ops[ulp_type])) {
-+	if (rcu_access_pointer(cp->ulp_ops[ulp_type])) {
- 		pr_err("%s: Type %d has already been registered to this device\n",
- 		       __func__, ulp_type);
- 		mutex_unlock(&cnic_lock);
++MRF24J40 IEEE 802.15.4 RADIO DRIVER
++M:	Alan Ott <alan@signal11.us>
++L:	linux-wpan@vger.kernel.org
++S:	Maintained
++F:	drivers/net/ieee802154/mrf24j40.c
++
+ MSI LAPTOP SUPPORT
+ M:	"Lee, Chun-Yi" <jlee@suse.com>
+ L:	platform-driver-x86@vger.kernel.org
 -- 
-1.9.1
+1.8.1.2
