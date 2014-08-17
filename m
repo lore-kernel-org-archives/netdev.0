@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net 0/3][pull request] Intel Wired LAN Driver Updates
- 2014-08-15
-Date: Sat, 16 Aug 2014 19:25:22 -0700 (PDT)
-Message-ID: <20140816.192522.1351565465513320332.davem@davemloft.net>
-References: <1408102673-27206-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2] net: phy: smsc: move smsc_phy_config_init reset
+ part in a soft_reset function
+Date: Sat, 16 Aug 2014 20:16:29 -0700 (PDT)
+Message-ID: <20140816.201629.1009178063004110712.davem@davemloft.net>
+References: <1408107638-96143-1-git-send-email-gwenhael.goavec-merou@armadeus.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57578 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751547AbaHQCZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2014 22:25:07 -0400
-In-Reply-To: <1408102673-27206-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, f.fainelli@gmail.com,
+	netdev@vger.kernel.org
+To: gwenhael.goavec-merou@armadeus.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1408107638-96143-1-git-send-email-gwenhael.goavec-merou@armadeus.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 15 Aug 2014 04:37:50 -0700
+From: Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>
+Date: Fri, 15 Aug 2014 15:00:38 +0200
 
-> This series contains fixes to i40e only.
+> On the one hand, phy_device.c provides a generic reset function if the phy
+> driver does not provide a soft_reset pointer. This generic reset does not take
+> into account the state of the phy, with a potential failure if the phy is in
+> powerdown mode. On the other hand, smsc driver provides a function with both
+> correct reset behaviour and configuration.
 > 
-> Anjali provides two fixes for i40e, first adds a check for non-active
-> VF before sending admin queue messages to the VFS.  This resolves a
-> potential kernel panic which would happen whenever we got a Tx hang and
-> there were VFS that were not up or enabled.  The second fix adds
-> additional checks so that we do try to access a VF that is not up or
-> enabled which would dereference a null pointer.
+> This patch moves the reset part into a new smsc_phy_reset function and provides
+> the soft_reset pointer to have a correct reset behaviour by default.
 > 
-> Jesse fixes a i40e PTP bug where the hang detection routine was never
-> being run when PTP was enabled.
+> Signed-off-by: Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>
 
-Pulled, thanks Jeff.
+Applied, thanks.
