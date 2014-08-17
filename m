@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: phy: smsc: move smsc_phy_config_init reset
- part in a soft_reset function
-Date: Sat, 16 Aug 2014 20:16:29 -0700 (PDT)
-Message-ID: <20140816.201629.1009178063004110712.davem@davemloft.net>
-References: <1408107638-96143-1-git-send-email-gwenhael.goavec-merou@armadeus.com>
+Subject: Re: [PATCH net] tipc: fix message importance range check
+Date: Sat, 16 Aug 2014 20:17:55 -0700 (PDT)
+Message-ID: <20140816.201755.717945178998298041.davem@davemloft.net>
+References: <1408113875-30655-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, f.fainelli@gmail.com,
-	netdev@vger.kernel.org
-To: gwenhael.goavec-merou@armadeus.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408107638-96143-1-git-send-email-gwenhael.goavec-merou@armadeus.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jon.maloy@ericsson.com, ying.xue@windriver.com,
+	richard.alpe@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: erik.hugne@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57986 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751778AbaHQDRk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2014 23:17:40 -0400
+In-Reply-To: <1408113875-30655-1-git-send-email-erik.hugne@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>
-Date: Fri, 15 Aug 2014 15:00:38 +0200
+From: <erik.hugne@ericsson.com>
+Date: Fri, 15 Aug 2014 16:44:35 +0200
 
-> On the one hand, phy_device.c provides a generic reset function if the phy
-> driver does not provide a soft_reset pointer. This generic reset does not take
-> into account the state of the phy, with a potential failure if the phy is in
-> powerdown mode. On the other hand, smsc driver provides a function with both
-> correct reset behaviour and configuration.
+> From: Erik Hugne <erik.hugne@ericsson.com>
 > 
-> This patch moves the reset part into a new smsc_phy_reset function and provides
-> the soft_reset pointer to have a correct reset behaviour by default.
+> Commit 3b4f302d8578 ("tipc: eliminate
+> redundant locking") introduced a bug by removing the sanity check
+> for message importance, allowing programs to assign any value to
+> the msg_user field. This will mess up the packet reception logic
+> and may cause random link resets.
 > 
-> Signed-off-by: Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>
+> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
 
-Applied, thanks.
+Applied, thank you.
