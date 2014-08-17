@@ -1,255 +1,138 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: [PATCH 12/35] [PATCH 12/36] net: Replace get_cpu_var through this_cpu_ptr
-Date: Sun, 17 Aug 2014 12:30:35 -0500
-Message-ID: <20140817173034.793528138@linux.com>
-References: <20140817173023.439660246@linux.com>
-Content-Type: text/plain; charset=UTF-8
-Cc: akpm@linuxfoundation.org, rostedt@goodmis.org,
-	linux-kernel@vger.kernel.org, Ingo Molnar <mingo@kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Tejun Heo <tj@kernel.org>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH v3 1/3] init / kthread: add module_long_probe_init()
+	and module_long_probe_exit()
+Date: Sun, 17 Aug 2014 19:46:24 +0200
+Message-ID: <20140817174624.GE3347@wotan.suse.de>
+References: <1407882507-325-1-git-send-email-mcgrof@do-not-panic.com> <1407882507-325-2-git-send-email-mcgrof@do-not-panic.com> <20140813175101.GA7156@redhat.com> <20140814231028.GQ21930@wotan.suse.de> <20140815143902.GB13222@redhat.com> <20140816025007.GB3347@wotan.suse.de> <s5h1tsfwqi2.wl-tiwai@suse.de> <20140817122527.GA30546@redhat.com> <20140817124803.GA31996@redhat.com> <20140817125505.GA32429@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Takashi Iwai <tiwai@suse.de>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline; filename=0012-net-Replace-get_cpu_var-through-this_cpu_ptr.patch
+Content-Disposition: inline
+In-Reply-To: <20140817125505.GA32429@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replace uses of get_cpu_var for address calculation through this_cpu_ptr.
+On Sun, Aug 17, 2014 at 02:55:05PM +0200, Oleg Nesterov wrote:
+> Damn, sorry for noise ;)
+> 
+> I was going to suggest to introduce module_put_and_exit() to simplify
+> this and potentially other users, but it already exists. So this code
+> can use it too without additional complications.
 
-Cc: netdev@vger.kernel.org
-Cc: Eric Dumazet <edumazet@google.com>
-Acked-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Christoph Lameter <cl@linux.com>
----
- include/net/netfilter/nf_conntrack.h |  2 +-
- include/net/snmp.h                   |  6 +++---
- net/core/dev.c                       | 14 +++++++-------
- net/core/drop_monitor.c              |  2 +-
- net/core/skbuff.c                    |  2 +-
- net/ipv4/route.c                     |  4 ++--
- net/ipv4/syncookies.c                |  2 +-
- net/ipv4/tcp.c                       |  2 +-
- net/ipv4/tcp_output.c                |  2 +-
- net/ipv6/syncookies.c                |  2 +-
- net/rds/ib_rdma.c                    |  2 +-
- 11 files changed, 20 insertions(+), 20 deletions(-)
+In the last iteration that I have stress tested for corner cases I just
+get_task_struct() on the init and then put_task_struct() at the exit, is that
+fine too or are there reasons to prefer the module stuff?
 
-Index: linux/include/net/netfilter/nf_conntrack.h
-===================================================================
---- linux.orig/include/net/netfilter/nf_conntrack.h
-+++ linux/include/net/netfilter/nf_conntrack.h
-@@ -242,7 +242,7 @@ extern s32 (*nf_ct_nat_offset)(const str
- DECLARE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
- static inline struct nf_conn *nf_ct_untracked_get(void)
- {
--	return &__raw_get_cpu_var(nf_conntrack_untracked);
-+	return raw_cpu_ptr(&nf_conntrack_untracked);
- }
- void nf_ct_untracked_status_or(unsigned long bits);
+Note that technically the issue is not that init is taking long its probe that
+takes long but since the driver core runs it immediately after init on buses
+that autoprobe probe is also then collaterally of concern, but see the other
+reply for that.
+
+Moving this to device.h worked better as you don't have to add extra
+lines on drivers to include kthread.h.
+
+diff --git a/include/linux/device.h b/include/linux/device.h
+index 43d183a..dc7c0ba7 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -27,6 +27,7 @@
+ #include <linux/ratelimit.h>
+ #include <linux/uidgid.h>
+ #include <linux/gfp.h>
++#include <linux/kthread.h>
+ #include <asm/device.h>
  
-Index: linux/include/net/snmp.h
-===================================================================
---- linux.orig/include/net/snmp.h
-+++ linux/include/net/snmp.h
-@@ -168,7 +168,7 @@ struct linux_xfrm_mib {
+ struct device;
+@@ -1227,4 +1228,72 @@ static void __exit __driver##_exit(void) \
+ } \
+ module_exit(__driver##_exit);
  
- #define SNMP_ADD_STATS64_BH(mib, field, addend) 			\
- 	do {								\
--		__typeof__(*mib) *ptr = __this_cpu_ptr(mib);		\
-+		__typeof__(*mib) *ptr = raw_cpu_ptr(mib);		\
- 		u64_stats_update_begin(&ptr->syncp);			\
- 		ptr->mibs[field] += addend;				\
- 		u64_stats_update_end(&ptr->syncp);			\
-@@ -189,8 +189,8 @@ struct linux_xfrm_mib {
- #define SNMP_INC_STATS64(mib, field) SNMP_ADD_STATS64(mib, field, 1)
- #define SNMP_UPD_PO_STATS64_BH(mib, basefield, addend)			\
- 	do {								\
--		__typeof__(*mib) *ptr;					\
--		ptr = __this_cpu_ptr(mib);				\
-+		__typeof__(*mib) *ptr;				\
-+		ptr = raw_cpu_ptr((mib));				\
- 		u64_stats_update_begin(&ptr->syncp);			\
- 		ptr->mibs[basefield##PKTS]++;				\
- 		ptr->mibs[basefield##OCTETS] += addend;			\
-Index: linux/net/core/dev.c
-===================================================================
---- linux.orig/net/core/dev.c
-+++ linux/net/core/dev.c
-@@ -2153,7 +2153,7 @@ static inline void __netif_reschedule(st
- 	unsigned long flags;
- 
- 	local_irq_save(flags);
--	sd = &__get_cpu_var(softnet_data);
-+	sd = this_cpu_ptr(&softnet_data);
- 	q->next_sched = NULL;
- 	*sd->output_queue_tailp = q;
- 	sd->output_queue_tailp = &q->next_sched;
-@@ -3195,7 +3195,7 @@ static void rps_trigger_softirq(void *da
- static int rps_ipi_queued(struct softnet_data *sd)
- {
- #ifdef CONFIG_RPS
--	struct softnet_data *mysd = &__get_cpu_var(softnet_data);
-+	struct softnet_data *mysd = this_cpu_ptr(&softnet_data);
- 
- 	if (sd != mysd) {
- 		sd->rps_ipi_next = mysd->rps_ipi_list;
-@@ -3222,7 +3222,7 @@ static bool skb_flow_limit(struct sk_buf
- 	if (qlen < (netdev_max_backlog >> 1))
- 		return false;
- 
--	sd = &__get_cpu_var(softnet_data);
-+	sd = this_cpu_ptr(&softnet_data);
- 
- 	rcu_read_lock();
- 	fl = rcu_dereference(sd->flow_limit);
-@@ -3369,7 +3369,7 @@ EXPORT_SYMBOL(netif_rx_ni);
- 
- static void net_tx_action(struct softirq_action *h)
- {
--	struct softnet_data *sd = &__get_cpu_var(softnet_data);
-+	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
- 
- 	if (sd->completion_queue) {
- 		struct sk_buff *clist;
-@@ -3794,7 +3794,7 @@ EXPORT_SYMBOL(netif_receive_skb);
- static void flush_backlog(void *arg)
- {
- 	struct net_device *dev = arg;
--	struct softnet_data *sd = &__get_cpu_var(softnet_data);
-+	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
- 	struct sk_buff *skb, *tmp;
- 
- 	rps_lock(sd);
-@@ -4301,7 +4301,7 @@ void __napi_schedule(struct napi_struct
- 	unsigned long flags;
- 
- 	local_irq_save(flags);
--	____napi_schedule(&__get_cpu_var(softnet_data), n);
-+	____napi_schedule(this_cpu_ptr(&softnet_data), n);
- 	local_irq_restore(flags);
- }
- EXPORT_SYMBOL(__napi_schedule);
-@@ -4422,7 +4422,7 @@ EXPORT_SYMBOL(netif_napi_del);
- 
- static void net_rx_action(struct softirq_action *h)
- {
--	struct softnet_data *sd = &__get_cpu_var(softnet_data);
-+	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
- 	unsigned long time_limit = jiffies + 2;
- 	int budget = netdev_budget;
- 	void *have;
-Index: linux/net/core/drop_monitor.c
-===================================================================
---- linux.orig/net/core/drop_monitor.c
-+++ linux/net/core/drop_monitor.c
-@@ -146,7 +146,7 @@ static void trace_drop_common(struct sk_
- 	unsigned long flags;
- 
- 	local_irq_save(flags);
--	data = &__get_cpu_var(dm_cpu_data);
-+	data = this_cpu_ptr(&dm_cpu_data);
- 	spin_lock(&data->lock);
- 	dskb = data->skb;
- 
-Index: linux/net/core/skbuff.c
-===================================================================
---- linux.orig/net/core/skbuff.c
-+++ linux/net/core/skbuff.c
-@@ -345,7 +345,7 @@ static void *__netdev_alloc_frag(unsigne
- 	unsigned long flags;
- 
- 	local_irq_save(flags);
--	nc = &__get_cpu_var(netdev_alloc_cache);
-+	nc = this_cpu_ptr(&netdev_alloc_cache);
- 	if (unlikely(!nc->frag.page)) {
- refill:
- 		for (order = NETDEV_FRAG_PAGE_MAX_ORDER; ;) {
-Index: linux/net/ipv4/route.c
-===================================================================
---- linux.orig/net/ipv4/route.c
-+++ linux/net/ipv4/route.c
-@@ -1311,7 +1311,7 @@ static bool rt_cache_route(struct fib_nh
- 	if (rt_is_input_route(rt)) {
- 		p = (struct rtable **)&nh->nh_rth_input;
- 	} else {
--		p = (struct rtable **)__this_cpu_ptr(nh->nh_pcpu_rth_output);
-+		p = (struct rtable **)raw_cpu_ptr(nh->nh_pcpu_rth_output);
- 	}
- 	orig = *p;
- 
-@@ -1939,7 +1939,7 @@ static struct rtable *__mkroute_output(c
- 				do_cache = false;
- 				goto add;
- 			}
--			prth = __this_cpu_ptr(nh->nh_pcpu_rth_output);
-+			prth = raw_cpu_ptr(nh->nh_pcpu_rth_output);
- 		}
- 		rth = rcu_dereference(*prth);
- 		if (rt_cache_valid(rth)) {
-Index: linux/net/ipv4/syncookies.c
-===================================================================
---- linux.orig/net/ipv4/syncookies.c
-+++ linux/net/ipv4/syncookies.c
-@@ -40,7 +40,7 @@ static u32 cookie_hash(__be32 saddr, __b
- 
- 	net_get_random_once(syncookie_secret, sizeof(syncookie_secret));
- 
--	tmp  = __get_cpu_var(ipv4_cookie_scratch);
-+	tmp  = this_cpu_ptr(ipv4_cookie_scratch);
- 	memcpy(tmp + 4, syncookie_secret[c], sizeof(syncookie_secret[c]));
- 	tmp[0] = (__force u32)saddr;
- 	tmp[1] = (__force u32)daddr;
-Index: linux/net/ipv4/tcp.c
-===================================================================
---- linux.orig/net/ipv4/tcp.c
-+++ linux/net/ipv4/tcp.c
-@@ -3058,7 +3058,7 @@ struct tcp_md5sig_pool *tcp_get_md5sig_p
- 	local_bh_disable();
- 	p = ACCESS_ONCE(tcp_md5sig_pool);
- 	if (p)
--		return __this_cpu_ptr(p);
-+		return raw_cpu_ptr(p);
- 
- 	local_bh_enable();
- 	return NULL;
-Index: linux/net/ipv4/tcp_output.c
-===================================================================
---- linux.orig/net/ipv4/tcp_output.c
-+++ linux/net/ipv4/tcp_output.c
-@@ -842,7 +842,7 @@ void tcp_wfree(struct sk_buff *skb)
- 
- 		/* queue this socket to tasklet queue */
- 		local_irq_save(flags);
--		tsq = &__get_cpu_var(tsq_tasklet);
-+		tsq = this_cpu_ptr(&tsq_tasklet);
- 		list_add(&tp->tsq_node, &tsq->head);
- 		tasklet_schedule(&tsq->tasklet);
- 		local_irq_restore(flags);
-Index: linux/net/ipv6/syncookies.c
-===================================================================
---- linux.orig/net/ipv6/syncookies.c
-+++ linux/net/ipv6/syncookies.c
-@@ -67,7 +67,7 @@ static u32 cookie_hash(const struct in6_
- 
- 	net_get_random_once(syncookie6_secret, sizeof(syncookie6_secret));
- 
--	tmp  = __get_cpu_var(ipv6_cookie_scratch);
-+	tmp  = this_cpu_ptr(ipv6_cookie_scratch);
- 
- 	/*
- 	 * we have 320 bits of information to hash, copy in the remaining
-Index: linux/net/rds/ib_rdma.c
-===================================================================
---- linux.orig/net/rds/ib_rdma.c
-+++ linux/net/rds/ib_rdma.c
-@@ -267,7 +267,7 @@ static inline struct rds_ib_mr *rds_ib_r
- 	unsigned long *flag;
- 
- 	preempt_disable();
--	flag = &__get_cpu_var(clean_list_grace);
-+	flag = this_cpu_ptr(&clean_list_grace);
- 	set_bit(CLEAN_LIST_BUSY_BIT, flag);
- 	ret = llist_del_first(&pool->clean_list);
- 	if (ret)
++#ifndef MODULE
++
++#define module_long_probe_init(x)      __initcall(x);
++#define module_long_probe_exit(x)      __exitcall(x);
++
++#else
++/*
++ * Linux device drivers must strive to handle driver initialization
++ * within less than 30 seconds, if device probing takes longer
++ * for whatever reason asynchronous probing of devices / loading
++ * firmware should be used. If a driver takes longer than 30 second
++ * on the initialization path this macro can be used to help annotate
++ * the driver as needing work and prevent userspace init processes
++ * from killing drivers not loading within a specified timeout.
++ *
++ * module probe will return immediately and since we are not waiting
++ * for the kthread to end on init we won't be able to inform userspace
++ * of the result of the full init sequence. Probing should initialize
++ * the device driver, probing for devices should be handled asynchronously
++ * behind the scenes.
++ *
++ * Drivers that use this helper should be considered broken and in need
++ * of some serious love.
++ */
++#define module_long_probe_init(initfn)				\
++	static struct task_struct *__init_thread;		\
++	static int _long_probe_##initfn(void *arg)		\
++	{							\
++		return initfn();				\
++	}							\
++	static inline __init int __long_probe_##initfn(void)	\
++	{							\
++		__init_thread = kthread_create(_long_probe_##initfn,\
++					       NULL,		\
++					       #initfn);	\
++		if (IS_ERR(__init_thread))			\
++			return PTR_ERR(__init_thread);		\
++		/*						\
++		 * callback won't check kthread_should_stop()	\
++		 * before bailing, so we need to protect it	\
++		 * before running it.				\
++		 */						\
++		get_task_struct(__init_thread); 		\
++		wake_up_process(__init_thread);			\
++		return 0;					\
++	}							\
++	module_init(__long_probe_##initfn);
++
++/* To be used by modules that require module_long_probe_init() */
++#define module_long_probe_exit(exitfn)				\
++	static inline void __long_probe_##exitfn(void)		\
++	{							\
++		int err;					\
++		/*						\
++		 * exitfn() will not be run if the driver's	\
++		 * real probe which is run on the kthread	\
++		 * failed for whatever reason, this will	\
++		 * wait for it to end.				\
++		 */						\
++		err = kthread_stop(__init_thread);		\
++		if (!err)					\
++			exitfn();				\
++		put_task_struct(__init_thread);	 		\
++	}							\
++	module_exit(__long_probe_##exitfn);
++
++#endif /* MODULE */
++
+ #endif /* _DEVICE_H_ */
