@@ -1,73 +1,40 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] macvlan: Allow setting multicast filter on all macvlan
- types
-Date: Sun, 17 Aug 2014 11:43:08 +0200
-Message-ID: <20140817094308.GD21143@redhat.com>
-References: <1408122299-29632-1-git-send-email-vyasevic@redhat.com>
+From: Andreea Bernat <bernat.ada@gmail.com>
+Subject: Re: [PATCH] rcu: Replace rcu_dereference() with rcu_access_pointer()
+Date: Sun, 17 Aug 2014 13:04:21 +0300
+Message-ID: <CALDM6bov98jkjiUgPevE=Ha0Uh_QDR7Ee-enB5DtQ1WKVLUnig@mail.gmail.com>
+References: <20140816193442.GA6471@ada>
+	<20140816.185002.1499212551659532229.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jason Wang <jasowang@redhat.com>
-To: Vladislav Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>, vfalico@gmail.com,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Paul McKenney <paulmck@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16722 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751092AbaHQJmf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Aug 2014 05:42:35 -0400
-Content-Disposition: inline
-In-Reply-To: <1408122299-29632-1-git-send-email-vyasevic@redhat.com>
+Received: from mail-we0-f181.google.com ([74.125.82.181]:52197 "EHLO
+	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751392AbaHQKEX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2014 06:04:23 -0400
+In-Reply-To: <20140816.185002.1499212551659532229.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 15, 2014 at 01:04:59PM -0400, Vladislav Yasevich wrote:
-> Currently, macvlan code restricts multicast and unicast
-> filter setting only to passthru devices.  As a result,
-> if a guest using macvtap wants to receive multicast
-> traffic, it has to set IFF_ALLMULTI or IFF_PROMISC.
-> 
-> This patch makes it possible to use the fdb interface
-> to add multicast addresses to the filter thus allowing
-> a guest to receive only targeted multicast traffic.
-> 
-> CC: John Fastabend <john.r.fastabend@intel.com>
-> CC: Michael S. Tsirkin <mst@redhat.com>
-> CC: Jason Wang <jasowang@redhat.com>
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+Sorry, I will send a version two of the patches with the subject line
+changed.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Thank you,
+Andreea
 
-> ---
->  drivers/net/macvlan.c | 10 ++++++++--
->  1 file changed, 8 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> index ef8a5c2..fad4b9e 100644
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -739,7 +739,10 @@ static int macvlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
->  	struct macvlan_dev *vlan = netdev_priv(dev);
->  	int err = -EINVAL;
->  
-> -	if (!vlan->port->passthru)
-> +	/* Support unicast filter only on passthru devices.
-> +	 * Multicast filter should be allowed on all devices.
-> +	 */
-> +	if (!vlan->port->passthru && is_unicast_ether_addr(addr))
->  		return -EOPNOTSUPP;
->  
->  	if (flags & NLM_F_REPLACE)
-> @@ -760,7 +763,10 @@ static int macvlan_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
->  	struct macvlan_dev *vlan = netdev_priv(dev);
->  	int err = -EINVAL;
->  
-> -	if (!vlan->port->passthru)
-> +	/* Support unicast filter only on passthru devices.
-> +	 * Multicast filter should be allowed on all devices.
-> +	 */
-> +	if (!vlan->port->passthru && is_unicast_ether_addr(addr))
->  		return -EOPNOTSUPP;
->  
->  	if (is_unicast_ether_addr(addr))
-> -- 
-> 1.9.3
+2014-08-17 4:50 GMT+03:00 David Miller <davem@davemloft.net>:
+>
+> Please do not use the same exact Subject line for all of these patches.
+>
+> Otherwise nobody reading the shortlog can tell what might be different
+> from one patch to another.
+>
+> Instead, use a subsystem prefix for the place where you're making
+> your change.  For example, for the two networking patches you could
+> replace "rcu: " with "bonding: " and "cnic: ".
+>
+> Thanks.
