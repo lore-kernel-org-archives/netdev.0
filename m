@@ -1,40 +1,84 @@
-From: Andreea Bernat <bernat.ada@gmail.com>
-Subject: Re: [PATCH] rcu: Replace rcu_dereference() with rcu_access_pointer()
-Date: Sun, 17 Aug 2014 13:04:21 +0300
-Message-ID: <CALDM6bov98jkjiUgPevE=Ha0Uh_QDR7Ee-enB5DtQ1WKVLUnig@mail.gmail.com>
-References: <20140816193442.GA6471@ada>
-	<20140816.185002.1499212551659532229.davem@davemloft.net>
+From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+Subject: [PATCH v2] cnic: Replace rcu_dereference() with rcu_access_pointer()
+Date: Sun, 17 Aug 2014 13:12:09 +0300
+Message-ID: <20140817101149.GA3692@ada>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>, vfalico@gmail.com,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:52197 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751392AbaHQKEX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2014 06:04:23 -0400
-In-Reply-To: <20140816.185002.1499212551659532229.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: paulmck@linux.vnet.ibm.com
+To: davem@davemloft.net, mchan@broadcom.com, eddie.wai@broadcom.com,
+	joe@perches.com, mingo@kernel.org, peterz@infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sorry, I will send a version two of the patches with the subject line
-changed.
+The "rcu_dereference()" calls are used directly in conditions.
+Since their return values are never dereferenced it is recommended to use
+"rcu_access_pointer()" instead of "rcu_dereference()".
+Therefore, this patch makes the replacements.
 
-Thank you,
-Andreea
+The following Coccinelle semantic patch was used:
+@@
+@@
 
-2014-08-17 4:50 GMT+03:00 David Miller <davem@davemloft.net>:
->
-> Please do not use the same exact Subject line for all of these patches.
->
-> Otherwise nobody reading the shortlog can tell what might be different
-> from one patch to another.
->
-> Instead, use a subsystem prefix for the place where you're making
-> your change.  For example, for the two networking patches you could
-> replace "rcu: " with "bonding: " and "cnic: ".
->
-> Thanks.
+(
+ if(
+ (<+...
+- rcu_dereference
++ rcu_access_pointer
+  (...)
+  ...+>)) {...}
+|
+ while(
+ (<+...
+- rcu_dereference
++ rcu_access_pointer
+  (...)
+  ...+>)) {...}
+)
+
+Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+---
+v2: Modified subject line from
+ "rcu: Replace rcu_dereference() with rcu_access_pointer()"
+ to
+ "cnic: Replace rcu_dereference() with rcu_access_pointer()",
+ noted by David Miller <davem@davemloft.net>
+
+ drivers/net/ethernet/broadcom/cnic.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index 8244e2b..dad9cb7 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -381,7 +381,7 @@ static int cnic_iscsi_nl_msg_recv(struct cnic_dev *dev, u32 msg_type,
+ 			break;
+ 
+ 		rcu_read_lock();
+-		if (!rcu_dereference(cp->ulp_ops[CNIC_ULP_L4])) {
++		if (!rcu_access_pointer(cp->ulp_ops[CNIC_ULP_L4])) {
+ 			rc = -ENODEV;
+ 			rcu_read_unlock();
+ 			break;
+@@ -525,7 +525,7 @@ int cnic_unregister_driver(int ulp_type)
+ 	list_for_each_entry(dev, &cnic_dev_list, list) {
+ 		struct cnic_local *cp = dev->cnic_priv;
+ 
+-		if (rcu_dereference(cp->ulp_ops[ulp_type])) {
++		if (rcu_access_pointer(cp->ulp_ops[ulp_type])) {
+ 			pr_err("%s: Type %d still has devices registered\n",
+ 			       __func__, ulp_type);
+ 			read_unlock(&cnic_dev_lock);
+@@ -573,7 +573,7 @@ static int cnic_register_device(struct cnic_dev *dev, int ulp_type,
+ 		mutex_unlock(&cnic_lock);
+ 		return -EAGAIN;
+ 	}
+-	if (rcu_dereference(cp->ulp_ops[ulp_type])) {
++	if (rcu_access_pointer(cp->ulp_ops[ulp_type])) {
+ 		pr_err("%s: Type %d has already been registered to this device\n",
+ 		       __func__, ulp_type);
+ 		mutex_unlock(&cnic_lock);
+-- 
+1.9.1
