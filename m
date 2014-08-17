@@ -1,115 +1,113 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH v3 1/3] init / kthread: add module_long_probe_init()
-	and module_long_probe_exit()
-Date: Sun, 17 Aug 2014 20:21:38 +0200
-Message-ID: <20140817182138.GA4411@redhat.com>
-References: <1407882507-325-2-git-send-email-mcgrof@do-not-panic.com> <20140813175101.GA7156@redhat.com> <20140814231028.GQ21930@wotan.suse.de> <20140815143902.GB13222@redhat.com> <20140816025007.GB3347@wotan.suse.de> <s5h1tsfwqi2.wl-tiwai@suse.de> <20140817122527.GA30546@redhat.com> <20140817124803.GA31996@redhat.com> <20140817125505.GA32429@redhat.com> <20140817174624.GE3347@wotan.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Takashi Iwai <tiwai@suse.de>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140817174624.GE3347@wotan.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wolfram Sang <wsa@the-dreams.de>
+Subject: [PATCH] net: can: use kbuild magic to inherit debug settings
+Date: Sun, 17 Aug 2014 17:38:24 -0500
+Message-ID: <1408315120-8422-1-git-send-email-wsa@the-dreams.de>
+Cc: Wolfram Sang <wsa@the-dreams.de>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org
+To: linux-can@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sauhun.de ([89.238.76.85]:46318 "EHLO pokefinder.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751671AbaHQWi5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Aug 2014 18:38:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/17, Luis R. Rodriguez wrote:
->
-> In the last iteration that I have stress tested for corner cases I just
-> get_task_struct() on the init and then put_task_struct() at the exit, is that
-> fine too or are there reasons to prefer the module stuff?
+No need to manually copy debug settings into subdir Makefiles. kbuild
+has a mechanism for inheriting, so let's use it.
 
-I am fine either way.
+Signed-off-by: Wolfram Sang <wsa@the-dreams.de>
+---
+ drivers/net/can/Makefile         | 2 +-
+ drivers/net/can/c_can/Makefile   | 2 --
+ drivers/net/can/cc770/Makefile   | 2 --
+ drivers/net/can/mscan/Makefile   | 2 --
+ drivers/net/can/sja1000/Makefile | 2 --
+ drivers/net/can/softing/Makefile | 2 --
+ drivers/net/can/spi/Makefile     | 2 --
+ drivers/net/can/usb/Makefile     | 2 --
+ 8 files changed, 1 insertion(+), 15 deletions(-)
 
-I like the Takashi's idea because if sys_delete_module() is called before
-initfn() completes it will return -EBUSY and not hang in TASK_UNINTERRUPTIBLE
-state. But this is not necessarily good, so I leave this to you and Takashi.
-
-> +/*
-> + * Linux device drivers must strive to handle driver initialization
-> + * within less than 30 seconds,
-
-Well, perhaps the comment should name the reason ;)
-
-> if device probing takes longer
-> + * for whatever reason asynchronous probing of devices / loading
-> + * firmware should be used. If a driver takes longer than 30 second
-> + * on the initialization path
-
-Or if the initialization code can't handle the errors properly (say,
-mptsas can't handle the errors caused by SIGKILL).
-
-> + * Drivers that use this helper should be considered broken and in need
-> + * of some serious love.
-> + */
-
-Yes.
-
-> +#define module_long_probe_init(initfn)				\
-> +	static struct task_struct *__init_thread;		\
-> +	static int _long_probe_##initfn(void *arg)		\
-> +	{							\
-> +		return initfn();				\
-> +	}							\
-> +	static inline __init int __long_probe_##initfn(void)	\
-> +	{							\
-> +		__init_thread = kthread_create(_long_probe_##initfn,\
-> +					       NULL,		\
-> +					       #initfn);	\
-> +		if (IS_ERR(__init_thread))			\
-> +			return PTR_ERR(__init_thread);		\
-> +		/*						\
-> +		 * callback won't check kthread_should_stop()	\
-> +		 * before bailing, so we need to protect it	\
-> +		 * before running it.				\
-> +		 */						\
-> +		get_task_struct(__init_thread); 		\
-> +		wake_up_process(__init_thread);			\
-> +		return 0;					\
-> +	}							\
-> +	module_init(__long_probe_##initfn);
-> +
-> +/* To be used by modules that require module_long_probe_init() */
-> +#define module_long_probe_exit(exitfn)				\
-> +	static inline void __long_probe_##exitfn(void)		\
-> +	{							\
-> +		int err;					\
-> +		/*						\
-> +		 * exitfn() will not be run if the driver's	\
-> +		 * real probe which is run on the kthread	\
-> +		 * failed for whatever reason, this will	\
-> +		 * wait for it to end.				\
-> +		 */						\
-> +		err = kthread_stop(__init_thread);		\
-> +		if (!err)					\
-> +			exitfn();				\
-> +		put_task_struct(__init_thread);	 		\
-> +	}							\
-> +	module_exit(__long_probe_##exitfn);
-
-Both inline's look misleading, gcc will generate the code out-of-line
-anyway. But this is cosmetic. And for cosmetic reasons, since the 1st
-macro uses __init, the 2nd one should probably use __exit.
-
-I believe this version is correct.
-
-Oleg.
+diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
+index 1697f22353a9..14b4c2af1e5d 100644
+--- a/drivers/net/can/Makefile
++++ b/drivers/net/can/Makefile
+@@ -28,4 +28,4 @@ obj-$(CONFIG_CAN_GRCAN)		+= grcan.o
+ obj-$(CONFIG_CAN_RCAR)		+= rcar_can.o
+ obj-$(CONFIG_CAN_XILINXCAN)	+= xilinx_can.o
+ 
+-ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
++subdir-ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+diff --git a/drivers/net/can/c_can/Makefile b/drivers/net/can/c_can/Makefile
+index ad1cc842170a..9fdc678b5b37 100644
+--- a/drivers/net/can/c_can/Makefile
++++ b/drivers/net/can/c_can/Makefile
+@@ -5,5 +5,3 @@
+ obj-$(CONFIG_CAN_C_CAN) += c_can.o
+ obj-$(CONFIG_CAN_C_CAN_PLATFORM) += c_can_platform.o
+ obj-$(CONFIG_CAN_C_CAN_PCI) += c_can_pci.o
+-
+-ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+diff --git a/drivers/net/can/cc770/Makefile b/drivers/net/can/cc770/Makefile
+index 9fb8321b33eb..8657f879ae19 100644
+--- a/drivers/net/can/cc770/Makefile
++++ b/drivers/net/can/cc770/Makefile
+@@ -5,5 +5,3 @@
+ obj-$(CONFIG_CAN_CC770) += cc770.o
+ obj-$(CONFIG_CAN_CC770_ISA) += cc770_isa.o
+ obj-$(CONFIG_CAN_CC770_PLATFORM) += cc770_platform.o
+-
+-ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+diff --git a/drivers/net/can/mscan/Makefile b/drivers/net/can/mscan/Makefile
+index c9fab17cd8b4..58903b45f5fb 100644
+--- a/drivers/net/can/mscan/Makefile
++++ b/drivers/net/can/mscan/Makefile
+@@ -1,5 +1,3 @@
+ 
+ obj-$(CONFIG_CAN_MPC5XXX)	+= mscan-mpc5xxx.o
+ mscan-mpc5xxx-objs		:= mscan.o mpc5xxx_can.o
+-
+-ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+diff --git a/drivers/net/can/sja1000/Makefile b/drivers/net/can/sja1000/Makefile
+index 531d5fcc97e5..be11ddd11b87 100644
+--- a/drivers/net/can/sja1000/Makefile
++++ b/drivers/net/can/sja1000/Makefile
+@@ -12,5 +12,3 @@ obj-$(CONFIG_CAN_PEAK_PCMCIA) += peak_pcmcia.o
+ obj-$(CONFIG_CAN_PEAK_PCI) += peak_pci.o
+ obj-$(CONFIG_CAN_PLX_PCI) += plx_pci.o
+ obj-$(CONFIG_CAN_TSCAN1) += tscan1.o
+-
+-ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+diff --git a/drivers/net/can/softing/Makefile b/drivers/net/can/softing/Makefile
+index c5e5016c742e..a23da492dad5 100644
+--- a/drivers/net/can/softing/Makefile
++++ b/drivers/net/can/softing/Makefile
+@@ -2,5 +2,3 @@
+ softing-y := softing_main.o softing_fw.o
+ obj-$(CONFIG_CAN_SOFTING) += softing.o
+ obj-$(CONFIG_CAN_SOFTING_CS) += softing_cs.o
+-
+-ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+diff --git a/drivers/net/can/spi/Makefile b/drivers/net/can/spi/Makefile
+index 90bcacffbc65..0e86040cdd8c 100644
+--- a/drivers/net/can/spi/Makefile
++++ b/drivers/net/can/spi/Makefile
+@@ -4,5 +4,3 @@
+ 
+ 
+ obj-$(CONFIG_CAN_MCP251X)	+= mcp251x.o
+-
+-ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+diff --git a/drivers/net/can/usb/Makefile b/drivers/net/can/usb/Makefile
+index 7b9a393b1ac8..a64cf983fb87 100644
+--- a/drivers/net/can/usb/Makefile
++++ b/drivers/net/can/usb/Makefile
+@@ -8,5 +8,3 @@ obj-$(CONFIG_CAN_GS_USB) += gs_usb.o
+ obj-$(CONFIG_CAN_KVASER_USB) += kvaser_usb.o
+ obj-$(CONFIG_CAN_PEAK_USB) += peak_usb/
+ obj-$(CONFIG_CAN_8DEV_USB) += usb_8dev.o
+-
+-ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
+-- 
+2.0.0
