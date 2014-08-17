@@ -1,41 +1,60 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Query: Is it possible  to lose interrupts between vhost and
- virtio_net during migration?
-Date: Sun, 17 Aug 2014 12:22:33 +0200
-Message-ID: <20140817102233.GC21622@redhat.com>
-References: <20140731143725.GA3875@redhat.com>
- <53DB705F.2000405@redhat.com>
- <53DB76A9.8010305@redhat.com>
- <53E079C8.7050700@huawei.com>
- <20140805094957.GB24619@redhat.com>
- <53E0CAA4.8010303@huawei.com>
- <53E37561.5060302@huawei.com>
- <53EC78D8.6070405@redhat.com>
- <20140814100231.GB30944@redhat.com>
- <53ED76A4.4090005@redhat.com>
+From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+Subject: [PATCH] carl9170: Replace rcu_dereference() with rcu_access_pointer()
+Date: Sun, 17 Aug 2014 13:48:07 +0300
+Message-ID: <20140817104806.GA14533@ada>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Zhangjie (HZ)" <zhangjie14@huawei.com>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, qinchuanyu@huawei.com,
-	liuyongan@huawei.com, davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61798 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751828AbaHQKWK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Aug 2014 06:22:10 -0400
+Cc: paulmck@linux.vnet.ibm.com
+To: chunkeey@googlemail.com, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <53ED76A4.4090005@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 15, 2014 at 10:55:32AM +0800, Jason Wang wrote:
-> >>> I wonder if k->set_guest_notifiers should be called after "hdev->started = true;" in vhost_dev_start.
-> >> Michael, can we just remove those assertions? Since you may want to set
-> >> guest notifiers before starting the backend.
-> > Which assertions?
-> 
-> I mean assert(hdev->started) in vhost.c. Your patch may hit them.
-I don't follow, but since my patch doesn't help anyway, pls go ahead
-and post your idea in form of a patch, will be clearer and can
-be tested.
+The rcu_dereference() call is used directly in a condition.
+Since its return value is never dereferenced it is recommended to use
+"rcu_access_pointer()" instead of "rcu_dereference()".
+Therefore, this patch makes the replacement.
+
+The following Coccinelle semantic patch was used:
+@@
+@@
+
+(
+ if(
+ (<+...
+- rcu_dereference
++ rcu_access_pointer
+  (...)
+  ...+>)) {...}
+|
+  while(
+  (<+...
+- rcu_dereference
++ rcu_access_pointer
+  (...)
+  ...+>)) {...}
+)
+
+Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+---
+ drivers/net/wireless/ath/carl9170/main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ath/carl9170/main.c b/drivers/net/wireless/ath/carl9170/main.c
+index f8ded84..12018ff 100644
+--- a/drivers/net/wireless/ath/carl9170/main.c
++++ b/drivers/net/wireless/ath/carl9170/main.c
+@@ -1431,7 +1431,7 @@ static int carl9170_op_ampdu_action(struct ieee80211_hw *hw,
+ 			return -EOPNOTSUPP;
+ 
+ 		rcu_read_lock();
+-		if (rcu_dereference(sta_info->agg[tid])) {
++		if (rcu_access_pointer(sta_info->agg[tid])) {
+ 			rcu_read_unlock();
+ 			return -EBUSY;
+ 		}
+-- 
+1.9.1
