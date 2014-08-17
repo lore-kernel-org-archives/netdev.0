@@ -1,52 +1,50 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] net: can: use kbuild magic to inherit debug settings
-Date: Mon, 18 Aug 2014 01:04:31 +0200
-Message-ID: <53F134FF.2090407@pengutronix.de>
-References: <1408315120-8422-1-git-send-email-wsa@the-dreams.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="h5d5iCLAD7e2dKWIP85Qeg5loWH09ceQD"
-Cc: Wolfgang Grandegger <wg@grandegger.com>, netdev@vger.kernel.org
-To: Wolfram Sang <wsa@the-dreams.de>, linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1408315120-8422-1-git-send-email-wsa@the-dreams.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Csaba Kiraly <csaba.kiraly@gmail.com>
+Subject: [PATCH] ath9k_htc: advertise support for TDLS
+Date: Mon, 18 Aug 2014 01:53:34 +0200
+Message-ID: <1408319614-16041-1-git-send-email-csaba.kiraly@gmail.com>
+Cc: linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	netdev@vger.kernel.org, Csaba Kiraly <csaba.kiraly@gmail.com>
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:51651 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751793AbaHQXyV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2014 19:54:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---h5d5iCLAD7e2dKWIP85Qeg5loWH09ceQD
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Based on a quick test with AR9271, TDLS seems to be working fine.
 
-On 08/18/2014 12:38 AM, Wolfram Sang wrote:
-> No need to manually copy debug settings into subdir Makefiles. kbuild
-> has a mechanism for inheriting, so let's use it.
->=20
-> Signed-off-by: Wolfram Sang <wsa@the-dreams.de>
+Tests were done with 2 Atheros AR9271 based devices with firmware
+1.3 (sha1 8d49f928aa40ac53c729189bff1333cd373a7fb5), associated
+with a WAP54G access point. TDLS worked fine both in WPA2 mode and
+without encryption. Stations maintained ping flood traffic between
+each other and towards the AP without significant losses.
 
-Applied to can-next.
+Not tested with AR7010.
 
-Thanks, Marc
+TDLS was enabled in earlier patches the same way for other
+Atheros drivers:
+ath9k (fd6562344dea2b8b2a5d644cf971f4e56004500a),
+and carl9170 (d1f3de71a584a82ee4e84505fce9acccf40215ff).
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Signed-off-by: Csaba Kiraly <csaba.kiraly@gmail.com>
+---
+ drivers/net/wireless/ath/ath9k/htc_drv_init.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-
---h5d5iCLAD7e2dKWIP85Qeg5loWH09ceQD
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlPxNQwACgkQjTAFq1RaXHM45ACffLzL5mvfXaILVHb03kALjOQD
-IuYAmwSMhEHyvP1q1aC5+Ka4yzhMQjXP
-=agEi
------END PGP SIGNATURE-----
-
---h5d5iCLAD7e2dKWIP85Qeg5loWH09ceQD--
+diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_init.c b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
+index 8a3bd5f..d779f4f 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_drv_init.c
++++ b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
+@@ -592,6 +592,8 @@ static void ath9k_set_hw_capab(struct ath9k_htc_priv *priv,
+ 	hw->wiphy->flags |= WIPHY_FLAG_IBSS_RSN |
+ 			    WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL;
+ 
++	hw->wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS;
++
+ 	hw->queues = 4;
+ 	hw->max_listen_interval = 1;
+ 
+-- 
+1.9.1
