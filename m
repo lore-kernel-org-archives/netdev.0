@@ -1,97 +1,240 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 5/9] bnx2x: Safe bnx2x_panic_dump()
-Date: Sun, 17 Aug 2014 16:47:47 +0300
-Message-ID: <1408283271-16176-6-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 9/9] bnx2x: FW assertion changes
+Date: Sun, 17 Aug 2014 16:47:51 +0300
+Message-ID: <1408283271-16176-10-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1408283271-16176-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:32749 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:44881 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751282AbaHQNsP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2014 09:48:15 -0400
+	by vger.kernel.org with ESMTP id S1751778AbaHQNs1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Aug 2014 09:48:27 -0400
 In-Reply-To: <1408283271-16176-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bnx2x panic dump spills a lot of information from the driver's
-fastpath, but may be called while some of the fastpath is uninitialized.
+From: Ariel Elior <Ariel.Elior@qlogic.com>
 
-This patch verifies that pointers are already allocated before dereferencing
-them to prevent possible kernel panics.
+This is mostly a semantic change which modifies the code parsing and printing
+of FW asserts.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   29 ++++++++++++++++++++++
- 1 files changed, 29 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  193 ++++++++++------------
+ 1 files changed, 86 insertions(+), 107 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 17c629a..b4b8fc3 100644
+index b4b8fc3..6ff63fa 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -987,6 +987,12 @@ void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
- 		u32 *sb_data_p;
- 		struct bnx2x_fp_txdata txdata;
+@@ -650,119 +650,98 @@ static void bnx2x_write_dmae_phys_len(struct bnx2x *bp, dma_addr_t phys_addr,
+ 	bnx2x_write_dmae(bp, phys_addr + offset, addr + offset, len);
+ }
  
-+		if (!bp->fp)
-+			break;
++enum storms {
++	   XSTORM,
++	   TSTORM,
++	   CSTORM,
++	   USTORM,
++	   MAX_STORMS
++};
 +
-+		if (!fp->rx_cons_sb)
-+			continue;
++#define STORMS_NUM 4
++#define REGS_IN_ENTRY 4
 +
- 		/* Rx */
- 		BNX2X_ERR("fp%d: rx_bd_prod(0x%x)  rx_bd_cons(0x%x)  rx_comp_prod(0x%x)  rx_comp_cons(0x%x)  *rx_cons_sb(0x%x)\n",
- 			  i, fp->rx_bd_prod, fp->rx_bd_cons,
-@@ -999,7 +1005,14 @@ void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
- 		/* Tx */
- 		for_each_cos_in_tx_queue(fp, cos)
- 		{
-+			if (!fp->txdata_ptr)
++static inline int bnx2x_get_assert_list_entry(struct bnx2x *bp,
++					      enum storms storm,
++					      int entry)
++{
++	switch (storm) {
++	case XSTORM:
++		return XSTORM_ASSERT_LIST_OFFSET(entry);
++	case TSTORM:
++		return TSTORM_ASSERT_LIST_OFFSET(entry);
++	case CSTORM:
++		return CSTORM_ASSERT_LIST_OFFSET(entry);
++	case USTORM:
++		return USTORM_ASSERT_LIST_OFFSET(entry);
++	case MAX_STORMS:
++	default:
++		BNX2X_ERR("unknown storm\n");
++	}
++	return -EINVAL;
++}
++
+ static int bnx2x_mc_assert(struct bnx2x *bp)
+ {
+ 	char last_idx;
+-	int i, rc = 0;
+-	u32 row0, row1, row2, row3;
+-
+-	/* XSTORM */
+-	last_idx = REG_RD8(bp, BAR_XSTRORM_INTMEM +
+-			   XSTORM_ASSERT_LIST_INDEX_OFFSET);
+-	if (last_idx)
+-		BNX2X_ERR("XSTORM_ASSERT_LIST_INDEX 0x%x\n", last_idx);
+-
+-	/* print the asserts */
+-	for (i = 0; i < STROM_ASSERT_ARRAY_SIZE; i++) {
+-
+-		row0 = REG_RD(bp, BAR_XSTRORM_INTMEM +
+-			      XSTORM_ASSERT_LIST_OFFSET(i));
+-		row1 = REG_RD(bp, BAR_XSTRORM_INTMEM +
+-			      XSTORM_ASSERT_LIST_OFFSET(i) + 4);
+-		row2 = REG_RD(bp, BAR_XSTRORM_INTMEM +
+-			      XSTORM_ASSERT_LIST_OFFSET(i) + 8);
+-		row3 = REG_RD(bp, BAR_XSTRORM_INTMEM +
+-			      XSTORM_ASSERT_LIST_OFFSET(i) + 12);
+-
+-		if (row0 != COMMON_ASM_INVALID_ASSERT_OPCODE) {
+-			BNX2X_ERR("XSTORM_ASSERT_INDEX 0x%x = 0x%08x 0x%08x 0x%08x 0x%08x\n",
+-				  i, row3, row2, row1, row0);
+-			rc++;
+-		} else {
+-			break;
+-		}
+-	}
+-
+-	/* TSTORM */
+-	last_idx = REG_RD8(bp, BAR_TSTRORM_INTMEM +
+-			   TSTORM_ASSERT_LIST_INDEX_OFFSET);
+-	if (last_idx)
+-		BNX2X_ERR("TSTORM_ASSERT_LIST_INDEX 0x%x\n", last_idx);
+-
+-	/* print the asserts */
+-	for (i = 0; i < STROM_ASSERT_ARRAY_SIZE; i++) {
+-
+-		row0 = REG_RD(bp, BAR_TSTRORM_INTMEM +
+-			      TSTORM_ASSERT_LIST_OFFSET(i));
+-		row1 = REG_RD(bp, BAR_TSTRORM_INTMEM +
+-			      TSTORM_ASSERT_LIST_OFFSET(i) + 4);
+-		row2 = REG_RD(bp, BAR_TSTRORM_INTMEM +
+-			      TSTORM_ASSERT_LIST_OFFSET(i) + 8);
+-		row3 = REG_RD(bp, BAR_TSTRORM_INTMEM +
+-			      TSTORM_ASSERT_LIST_OFFSET(i) + 12);
+-
+-		if (row0 != COMMON_ASM_INVALID_ASSERT_OPCODE) {
+-			BNX2X_ERR("TSTORM_ASSERT_INDEX 0x%x = 0x%08x 0x%08x 0x%08x 0x%08x\n",
+-				  i, row3, row2, row1, row0);
+-			rc++;
+-		} else {
+-			break;
+-		}
+-	}
++	int i, j, rc = 0;
++	enum storms storm;
++	u32 regs[REGS_IN_ENTRY];
++	u32 bar_storm_intmem[STORMS_NUM] = {
++		BAR_XSTRORM_INTMEM,
++		BAR_TSTRORM_INTMEM,
++		BAR_CSTRORM_INTMEM,
++		BAR_USTRORM_INTMEM
++	};
++	u32 storm_assert_list_index[STORMS_NUM] = {
++		XSTORM_ASSERT_LIST_INDEX_OFFSET,
++		TSTORM_ASSERT_LIST_INDEX_OFFSET,
++		CSTORM_ASSERT_LIST_INDEX_OFFSET,
++		USTORM_ASSERT_LIST_INDEX_OFFSET
++	};
++	char *storms_string[STORMS_NUM] = {
++		"XSTORM",
++		"TSTORM",
++		"CSTORM",
++		"USTORM"
++	};
+ 
+-	/* CSTORM */
+-	last_idx = REG_RD8(bp, BAR_CSTRORM_INTMEM +
+-			   CSTORM_ASSERT_LIST_INDEX_OFFSET);
+-	if (last_idx)
+-		BNX2X_ERR("CSTORM_ASSERT_LIST_INDEX 0x%x\n", last_idx);
+-
+-	/* print the asserts */
+-	for (i = 0; i < STROM_ASSERT_ARRAY_SIZE; i++) {
+-
+-		row0 = REG_RD(bp, BAR_CSTRORM_INTMEM +
+-			      CSTORM_ASSERT_LIST_OFFSET(i));
+-		row1 = REG_RD(bp, BAR_CSTRORM_INTMEM +
+-			      CSTORM_ASSERT_LIST_OFFSET(i) + 4);
+-		row2 = REG_RD(bp, BAR_CSTRORM_INTMEM +
+-			      CSTORM_ASSERT_LIST_OFFSET(i) + 8);
+-		row3 = REG_RD(bp, BAR_CSTRORM_INTMEM +
+-			      CSTORM_ASSERT_LIST_OFFSET(i) + 12);
+-
+-		if (row0 != COMMON_ASM_INVALID_ASSERT_OPCODE) {
+-			BNX2X_ERR("CSTORM_ASSERT_INDEX 0x%x = 0x%08x 0x%08x 0x%08x 0x%08x\n",
+-				  i, row3, row2, row1, row0);
+-			rc++;
+-		} else {
+-			break;
++	for (storm = XSTORM; storm < MAX_STORMS; storm++) {
++		last_idx = REG_RD8(bp, bar_storm_intmem[storm] +
++				   storm_assert_list_index[storm]);
++		if (last_idx)
++			BNX2X_ERR("%s_ASSERT_LIST_INDEX 0x%x\n",
++				  storms_string[storm], last_idx);
++
++		/* print the asserts */
++		for (i = 0; i < STROM_ASSERT_ARRAY_SIZE; i++) {
++			/* read a single assert entry */
++			for (j = 0; j < REGS_IN_ENTRY; j++)
++				regs[j] = REG_RD(bp, bar_storm_intmem[storm] +
++					  bnx2x_get_assert_list_entry(bp,
++								      storm,
++								      i) +
++					  sizeof(u32) * j);
++
++			/* log entry if it contains a valid assert */
++			if (regs[0] != COMMON_ASM_INVALID_ASSERT_OPCODE) {
++				BNX2X_ERR("%s_ASSERT_INDEX 0x%x = 0x%08x 0x%08x 0x%08x 0x%08x\n",
++					  storms_string[storm], i, regs[3],
++					  regs[2], regs[1], regs[0]);
++				rc++;
++			} else {
 +				break;
-+
- 			txdata = *fp->txdata_ptr[cos];
-+
-+			if (!txdata.tx_cons_sb)
-+				continue;
-+
- 			BNX2X_ERR("fp%d: tx_pkt_prod(0x%x)  tx_pkt_cons(0x%x)  tx_bd_prod(0x%x)  tx_bd_cons(0x%x)  *tx_cons_sb(0x%x)\n",
- 				  i, txdata.tx_pkt_prod,
- 				  txdata.tx_pkt_cons, txdata.tx_bd_prod,
-@@ -1101,6 +1114,12 @@ void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
- 	for_each_valid_rx_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
++			}
+ 		}
+ 	}
  
-+		if (!bp->fp)
-+			break;
-+
-+		if (!fp->rx_cons_sb)
-+			continue;
-+
- 		start = RX_BD(le16_to_cpu(*fp->rx_cons_sb) - 10);
- 		end = RX_BD(le16_to_cpu(*fp->rx_cons_sb) + 503);
- 		for (j = start; j != end; j = RX_BD(j + 1)) {
-@@ -1134,9 +1153,19 @@ void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
- 	/* Tx */
- 	for_each_valid_tx_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
-+
-+		if (!bp->fp)
-+			break;
-+
- 		for_each_cos_in_tx_queue(fp, cos) {
- 			struct bnx2x_fp_txdata *txdata = fp->txdata_ptr[cos];
+-	/* USTORM */
+-	last_idx = REG_RD8(bp, BAR_USTRORM_INTMEM +
+-			   USTORM_ASSERT_LIST_INDEX_OFFSET);
+-	if (last_idx)
+-		BNX2X_ERR("USTORM_ASSERT_LIST_INDEX 0x%x\n", last_idx);
+-
+-	/* print the asserts */
+-	for (i = 0; i < STROM_ASSERT_ARRAY_SIZE; i++) {
+-
+-		row0 = REG_RD(bp, BAR_USTRORM_INTMEM +
+-			      USTORM_ASSERT_LIST_OFFSET(i));
+-		row1 = REG_RD(bp, BAR_USTRORM_INTMEM +
+-			      USTORM_ASSERT_LIST_OFFSET(i) + 4);
+-		row2 = REG_RD(bp, BAR_USTRORM_INTMEM +
+-			      USTORM_ASSERT_LIST_OFFSET(i) + 8);
+-		row3 = REG_RD(bp, BAR_USTRORM_INTMEM +
+-			      USTORM_ASSERT_LIST_OFFSET(i) + 12);
+-
+-		if (row0 != COMMON_ASM_INVALID_ASSERT_OPCODE) {
+-			BNX2X_ERR("USTORM_ASSERT_INDEX 0x%x = 0x%08x 0x%08x 0x%08x 0x%08x\n",
+-				  i, row3, row2, row1, row0);
+-			rc++;
+-		} else {
+-			break;
+-		}
+-	}
++	BNX2X_ERR("Chip Revision: %s, FW Version: %d_%d_%d\n",
++		  CHIP_IS_E1(bp) ? "everest1" :
++		  CHIP_IS_E1H(bp) ? "everest1h" :
++		  CHIP_IS_E2(bp) ? "everest2" : "everest3",
++		  BCM_5710_FW_MAJOR_VERSION,
++		  BCM_5710_FW_MINOR_VERSION,
++		  BCM_5710_FW_REVISION_VERSION);
  
-+			if (!fp->txdata_ptr)
-+				break;
-+
-+			if (!txdata.tx_cons_sb)
-+				continue;
-+
- 			start = TX_BD(le16_to_cpu(*txdata->tx_cons_sb) - 10);
- 			end = TX_BD(le16_to_cpu(*txdata->tx_cons_sb) + 245);
- 			for (j = start; j != end; j = TX_BD(j + 1)) {
+ 	return rc;
+ }
 -- 
 1.7.1
