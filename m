@@ -1,52 +1,46 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] vxlan: fix incorrect initializer in union vxlan_addr
-Date: Sat, 16 Aug 2014 15:48:06 -0700
-Message-ID: <CAHA+R7M1DwPgLMYaSMEiU2eXZFqYYL03CJODhmuUrOthpeotzw@mail.gmail.com>
-References: <53EDCC19.70702@linux.vnet.ibm.com>
-	<53EDCCFE.5090301@linux.vnet.ibm.com>
+From: Himangi Saraogi <himangi774@gmail.com>
+Subject: [PATCH] isdn/bas_gigaset: use USB API functions rather than constants
+Date: Sun, 17 Aug 2014 06:01:20 +0530
+Message-ID: <20140817003120.GA11815@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Gerhard Stenzel <gstenzel@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:33357 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751713AbaHPWsI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Aug 2014 18:48:08 -0400
-Received: by mail-lb0-f179.google.com with SMTP id v6so3006339lbi.10
-        for <netdev@vger.kernel.org>; Sat, 16 Aug 2014 15:48:06 -0700 (PDT)
-In-Reply-To: <53EDCCFE.5090301@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julia Lawall <julia.lawall@lip6.fr>
+To: Hansjoerg Lipp <hjlipp@web.de>, Tilman Schmidt <tilman@imap.cc>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 15, 2014 at 2:03 AM, Gerhard Stenzel
-<gstenzel@linux.vnet.ibm.com> wrote:
->
-> The first initializer in the following
->
->                 union vxlan_addr ipa = {
->                         .sin.sin_addr.s_addr = tip,
->                         .sa.sa_family = AF_INET,
->                 };
->
-> is optimised away by the compiler, due to the second initializer,
-> therefore initialising .sin.sin_addr.s_addr always to 0.
-> This results in netlink messages indicating a L3 miss never contain the
-> missed IP address. This was observed with GCC 4.8 and 4.9. I do not know
-> about previous versions.
-> The problem affects user space programs relying on an IP address being
-> sent as part of a netlink message indicating a L3 miss.
->
-> Changing
->                         .sa.sa_family = AF_INET,
-> to
->                         .sin.sin_family = AF_INET,
-> fixes the problem.
+This patch introduces the use of the function usb_endpoint_num.
 
-So GCC can't figure out we are initializing different parts of this
-union through
-different members... Or maybe we should not use initializer at all.
+The Coccinelle semantic patch that makes these changes is as follows:
 
-Anyway,
+@@ struct usb_endpoint_descriptor *epd; @@
 
-Acked-by: Cong Wang <cwang@twopensource.com>
+- (epd->bEndpointAddress & \(USB_ENDPOINT_NUMBER_MASK\|0x0f\))
++ usb_endpoint_num(epd)
+
+Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+---
+ drivers/isdn/gigaset/bas-gigaset.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigaset/bas-gigaset.c
+index b7ae0a0..aecec6d 100644
+--- a/drivers/isdn/gigaset/bas-gigaset.c
++++ b/drivers/isdn/gigaset/bas-gigaset.c
+@@ -2365,7 +2365,7 @@ static int gigaset_probe(struct usb_interface *interface,
+ 	endpoint = &hostif->endpoint[0].desc;
+ 	usb_fill_int_urb(ucs->urb_int_in, udev,
+ 			 usb_rcvintpipe(udev,
+-					(endpoint->bEndpointAddress) & 0x0f),
++					usb_endpoint_num(endpoint)),
+ 			 ucs->int_in_buf, IP_MSGSIZE, read_int_callback, cs,
+ 			 endpoint->bInterval);
+ 	rc = usb_submit_urb(ucs->urb_int_in, GFP_KERNEL);
+-- 
+1.9.1
