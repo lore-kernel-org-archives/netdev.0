@@ -1,71 +1,92 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH v3 1/3] init / kthread: add module_long_probe_init() and
-	module_long_probe_exit()
-Date: Mon, 18 Aug 2014 14:22:17 +0200
-Message-ID: <20140818122217.GA12707@redhat.com>
-References: <20140814231028.GQ21930@wotan.suse.de> <20140815143902.GB13222@redhat.com> <20140816025007.GB3347@wotan.suse.de> <s5h1tsfwqi2.wl-tiwai@suse.de> <20140817122527.GA30546@redhat.com> <20140817124803.GA31996@redhat.com> <20140817125505.GA32429@redhat.com> <20140817174624.GE3347@wotan.suse.de> <20140817182138.GA4411@redhat.com> <s5hfvguw570.wl-tiwai@suse.de>
+From: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
+Subject: 3.17-rc1 oops during network interface configuration
+Date: Mon, 18 Aug 2014 14:18:32 +0200
+Message-ID: <53F1EF18.7010909@acm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@suse.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Takashi Iwai <tiwai@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23731 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750762AbaHRMZa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Aug 2014 08:25:30 -0400
-Content-Disposition: inline
-In-Reply-To: <s5hfvguw570.wl-tiwai@suse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/18, Takashi Iwai wrote:
->
-> #define module_long_probe_init(initfn)				\
-> 	static int _long_probe_##initfn(void *arg)		\
-> 	{							\
-> 		module_put_and_exit(initfn());			\
-> 		return 0;					\
-> 	}							\
-> 	static int __init __long_probe_##initfn(void)		\
-> 	{							\
-> 		struct task_struct *__init_thread =		\
-> 			kthread_create(_long_probe_##initfn,	\
-> 				       NULL, #initfn);		\
-> 		if (IS_ERR(__init_thread))			\
-> 			return PTR_ERR(__init_thread);		\
-> 		__module_get(THIS_MODULE);			\
-> 		wake_up_process(__init_thread);			\
-> 		return 0;					\
-> 	}							\
-> 	module_init(__long_probe_##initfn)
->
-> ... and module_exit() remains identical as the normal version.
+Hello,
 
-Aaaah. This is not true, module_exit() should not call exitfn() if initfn()
-fails... So _long_probe_##initfn() needs to save the error code which should
-be checked by module_exit().
+Has anyone else already tried to boot kernel 3.17-rc1 on an IB system ? The
+following call trace is triggered during boot on a system on which kernel
+3.16 runs fine:
 
-> But, it's really a small difference, and I don't mind much which way
-> to take, too.
+BUG: unable to handle kernel paging request at ffff88090000007e
+IP: __dev_queue_xmit+0x519
+Call Trace:
+? __dev_queue_xmit+0x49
+dev_queue_xmit+0x10
+neigh_connected_output
+? ip_finish_output
+ip_finish_output
+? ip_finish_output
+? netif_rx_ni
+ip_mc_output
+ip_local_out_sk
+ip_send_skb
+udp_send_skb
+udp_sendmsg
+? ip_reply_glue_bits
+? __lock_is_held
+inet_sendmsg
+? inet_sendmsg
+sock_sendmsg
+? might_fault
+? might_fault
+? move_addr_to_kernel.part.38
+SYSC_sendto
+? sysret_check
+? trace_hardirqs_on_caller
+? trace_hardirqs_on_thunk
+SyS_sendto
+system_call_fastpath
 
-Agreed.
+Kernel panic - not syncing: Fatal exception in interrupt
+Kernel Offset: 0x0 from 0xffffffff81000000 (relocation range: 0xffffffff80000000-0xffffffff9fffffff)
+drm_kms_helper: panic occurred, switching back to text console
 
-Oleg.
+A screenshot of this kernel oops can be found here:
+https://drive.google.com/file/d/0B1YQOreL3_FxVDB5UTNwekF6LVU/
+
+gdb translates the crash address into the following (not sure this makes sense
+since offset 0x519 is past the end of __dev_queue_xmit()):
+
+(gdb) list *(__dev_queue_xmit+0x519) 
+0xffffffff8136bc89 is in netdev_adjacent_rename_links (net/core/dev.c:5167).
+5162    void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
+5163    {
+5164            struct netdev_adjacent *iter;
+5165
+5166            list_for_each_entry(iter, &dev->adj_list.upper, list) {
+5167                    netdev_adjacent_sysfs_del(iter->dev, oldname,
+5168                                              &iter->dev->adj_list.lower);
+5169                    netdev_adjacent_sysfs_add(iter->dev, dev,
+5170                                              &iter->dev->adj_list.lower);
+5171            }
+
+And the address __dev_queue_xmit+0x49 is translated by gdb into:
+
+(gdb) list *(__dev_queue_xmit+0x49)
+0xffffffff8136b7b9 is in __dev_queue_xmit (./arch/x86/include/asm/preempt.h:75).
+70       * The various preempt_count add/sub methods
+71       */
+72
+73      static __always_inline void __preempt_count_add(int val)
+74      {
+75              raw_cpu_add_4(__preempt_count, val);
+76      }
+77
+78      static __always_inline void __preempt_count_sub(int val)
+79      {
+
+Bart.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
