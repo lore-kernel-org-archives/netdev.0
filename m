@@ -1,50 +1,86 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Performance regression on kernels 3.10 and newer
-Date: Mon, 18 Aug 2014 09:03:21 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1747969E@AcuExch.aculab.com>
-References: <53ECFDAB.5010701@intel.com>
-	<1408041962.6804.31.camel@edumazet-glaptop2.roam.corp.google.com>
-	<53ED4354.9090904@intel.com>
-	<20140814.162024.2218312002979492106.davem@davemloft.net>
-	<53EE4023.6080902@intel.com>
-	<CA+mtBx_aEe6SvWV6tfqzGWcPvVM+FE6kbnyFE5FbECU9HN7EXg@mail.gmail.com>
-	<53EE5B25.3040206@intel.com>
- <CA+mtBx-LZgnpWAf3Jn0htoga32UaMc-NAqURmXezmZmwg2oGRQ@mail.gmail.com>
- <53EE967F.9090101@intel.com>
+From: Luca Coelho <luca@coelho.fi>
+Subject: Re: More wireless problems..
+Date: Mon, 18 Aug 2014 11:50:16 +0300
+Message-ID: <1408351816.29649.8.camel@dubbel>
+References: <CA+55aFwTGDFgRuPS5DaQ9-XMLgbZ0y6ZtvXLsZhFkM6P_kXQHw@mail.gmail.com>
+	 <CA+55aFwUJLZUi4wDKwiX1XAht=H9exmvUD5P_aNHK9=XBSixjA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Rick Jones <rick.jones2@hp.com>
-To: 'Alexander Duyck' <alexander.h.duyck@intel.com>,
-	Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes.berg@intel.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Michal Kazior <michal.kazior@tieto.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:47268 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750711AbaHRJEc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Aug 2014 05:04:32 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 18765-02 for <netdev@vger.kernel.org>;
- Mon, 18 Aug 2014 10:04:23 +0100 (BST)
-In-Reply-To: <53EE967F.9090101@intel.com>
-Content-Language: en-US
+Received: from dedo.coelho.fi ([88.198.205.34]:41558 "EHLO dedo.coelho.fi"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750775AbaHRJS1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Aug 2014 05:18:27 -0400
+In-Reply-To: <CA+55aFwUJLZUi4wDKwiX1XAht=H9exmvUD5P_aNHK9=XBSixjA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQWxleGFuZGVyIER1eWNrDQo+IC4uLg0KPiBBbm90aGVyIHRlc3QgSSB0cmllZCB3YXMg
-dG8gaGFjayB0aGUgbmV0dGVzdF9ic2QuYyBmaWxlIGluIG5ldHBlcmYgdG8NCj4gcGVyZm9ybSBh
-IHBvbGwoKSBiYXNlZCByZWNlaXZlLiAgVGhhdCByZXNvbHZlZCB0aGUgaXNzdWUgYW5kIGhhZCBh
-bGwgdGhlDQo+IHBlcmZvcm1hbmNlIG9mIHRoZSB0Y3BfbG93X2xhdGVuY3kgY2FzZS4gIEkgbWF5
-IHNlZSBpZiBJIGNhbiB3b3JrIHdpdGgNCj4gUmljayB0byBwdXNoIHNvbWV0aGluZyBsaWtlIHRo
-YXQgaW50byBuZXRwZXJmIGFzIEkgcmVhbGx5IHdvdWxkIHByZWZlcg0KPiB0byBhdm9pZCBoYXZp
-bmcgdG8gYWR2aXNlIGV2ZXJ5b25lIG9uIGhvdyB0byBzZXR1cCB0aGUgc3lzY3RsIGZvcg0KPiB0
-Y3BfbG93X2xhdGVuY3kuDQoNCkRvZXNuJ3QgdGhhdCBnZW5lcmF0ZSAyIHN5c3RlbSBjYWxscyBw
-ZXIgcmVjZWl2ZT8NClVubGVzcyBpdCBub3cgcmV0dXJucyBtb3JlIGRhdGEgcGVyIHJlY2VpdmUg
-SSdtIHN1cnByaXNlZCB0aGF0DQppdCBhY3R1YWxseSBmYXN0ZXIuDQoNCk9UT0ggSSd2ZSBzb21l
-IGNvZGUgdGhhdCBydW5zIGEgbG90IGJldHRlciB3aGVuIEkgcnVuIHdoaWxlIDo7IGRvIDo7IGRv
-bmUNCmZvciBhbGwgYnV0IG9uZSBvZiB0aGUgY3B1cy4NCkkgdGhpbmsgdGhhdCBpcyBiZWNhdXNl
-IHRoZSBwcm9jZXNzZXMgc3Bpbm5pbmcgaW4gdXNlcnNwYWNlIGRvbid0DQpnZXQgcHJlLWVtcHRl
-ZC4NCg0KCURhdmlkDQoNCg==
+Hi Linus,
+
+On Sun, 2014-08-17 at 23:37 -0500, Linus Torvalds wrote:
+> On Sun, Aug 17, 2014 at 11:01 PM, Linus Torvalds
+> <torvalds@linux-foundation.org> wrote:
+> >
+> >   BUG: unable to handle kernel NULL pointer dereference at 0000000000000020
+> >   IP: ieee80211_vif_use_reserved_switch+0x71c/0xb00 [mac80211]
+> 
+> Looking at the Code: line and the code generation for that function,
+> this *looks* to be this code:
+> 
+>                         list_del(&sdata->reserved_chanctx_list);
+>                         list_move(&sdata->assigned_chanctx_list,
+>                                   &new_ctx->assigned_vifs);
+>                         sdata->reserved_chanctx = NULL;
+> 
+> in ieee80211_vif_use_reserved_switch(), where "new_ctx" is NULL, so
+> the "list_move()" ends up oopsing. But maybe I screwed up the
+> analysis, I don't know the code.
+> 
+> Looks like that is all-new code introduced by commit 5bcae31d9cb1
+> ("mac80211: implement multi-vif in-place reservations")
+> 
+> And doesn't look at all IWL-specific. Adding Michal Kazior to the list
+> of people.
+
+Unfortunately I don't think channel switch on the client side has been
+tested very thoroughly yet, from the iwlwifi point of view, we're still
+fine-tuning things in the firmware configuration.  So I'd rather disable
+channel-switch entirely for iwlwifi.
+
+Probably better to disable it in mac80211, since this oops will probably
+happen with other drivers too, since doesn't seem to be iwlwifi related.
+
+I'll sent a patch soon.  Meanwhile, you can apply this directly, to make
+the problem go away:
+
+diff --git a/net/mac80211/main.c b/net/mac80211/main.c
+index e0ab432..4b8eee8 100644
+--- a/net/mac80211/main.c
++++ b/net/mac80211/main.c
+@@ -758,6 +758,12 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
+        netdev_features_t feature_whitelist;
+        struct cfg80211_chan_def dflt_chandef = {};
+ 
++       /* The CSA client code is not very stable yet and seems to be
++        * causing trouble.  Disable it for all drivers until
++        * everything has been fixed and tested properly.
++        */
++       hw->flags &= ~IEEE80211_HW_CHANCTX_STA_CSA;
++
+        if (hw->flags & IEEE80211_HW_QUEUE_CONTROL &&
+            (local->hw.offchannel_tx_hw_queue ==
+IEEE80211_INVAL_HW_QUEUE ||
+             local->hw.offchannel_tx_hw_queue >= local->hw.queues))
+
+--
+Cheers,
+Luca.
