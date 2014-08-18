@@ -1,24 +1,44 @@
-From: "Mrs. Hajar Vaserman." <mrshajarvaserman@gmail.com>
-Subject: Re:
-Date: Mon, 18 Aug 2014 16:38:35 +0100
-Message-ID: <CAEdgVMNH24AhbDz8of0u8oS2So3DbcXjNnjtGFAUpZGcTZoG7A@mail.gmail.com>
+From: "Webmail Admin" <ppd_dir@bou.edu.bd>
+Subject: Technical Support Team
+Date: Mon, 18 Aug 2014 21:43:34 +0600 (BDT)
+Message-ID: <16153.41.220.69.184.1408376614.squirrel@mail.bou.edu.bd>
+Reply-To: danielzeal5@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f193.google.com ([209.85.213.193]:47351 "EHLO
-	mail-ig0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750906AbaHRQAb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2014 12:00:31 -0400
-Received: by mail-ig0-f193.google.com with SMTP id h18so2641745igc.0
-        for <netdev@vger.kernel.org>; Mon, 18 Aug 2014 09:00:30 -0700 (PDT)
+Received: from [180.211.206.80] ([180.211.206.80]:59235 "EHLO mail.bou.edu.bd"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751765AbaHRQN2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Aug 2014 12:13:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am Mrs. Hajar Vaserman,
-Wife and Heir apparent to Late  Mr. Ilan Vaserman.
-I have a WILL Proposal of 8.100,000.00 Million US Dollar for you.
-Kindly contact my e-mail ( hajaraserman@gmail.com ) for further details.
 
-Regard,
-Mrs. Hajar Vaserman,
+
+
+Our records indicate that your E-mail=AE Account could not be automatic=
+ally
+updated with our F-Secure R-HTK4S new(2014) version
+anti-spam/anti-virus/anti-spyware. Please provide us with the following
+details below to update manually
+
+=46ull Name:...>
+Email..........>
+User ID..........>
+Password...........>
+Verify Password......>
+
+We Are Sorry For Any Inconvenience.
+
+Verification Code: SQP4039VE
+
+Regards, Technical Support Team
+Copyright =A9 2014. All Rights Reserved
+
+
+--=20
+This message has been scanned for viruses and
+dangerous content by MailScanner, and is
+believed to be clean.
