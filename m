@@ -1,188 +1,44 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net] bnx2x: Revert UNDI flushing mechanism
-Date: Mon, 18 Aug 2014 22:36:23 +0300
-Message-ID: <1408390583-22693-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v3 1/1] net: fec: ptp: avoid register access when ipg
+ clock is disabled
+Date: Mon, 18 Aug 2014 21:42:10 +0200
+Message-ID: <20140818194151.GA4048@netboy>
+References: <1408081975-15087-1-git-send-email-b38611@freescale.com>
+ <1408081975-15087-2-git-send-email-b38611@freescale.com>
+ <20140815180854.GA6897@localhost.localdomain>
+ <b50df5011728419887508cbf3af0a5a7@BLUPR03MB373.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:24382 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751258AbaHRTgx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2014 15:36:53 -0400
+Received: from mail-qg0-f41.google.com ([209.85.192.41]:48039 "EHLO
+	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245AbaHRTmR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2014 15:42:17 -0400
+Received: by mail-qg0-f41.google.com with SMTP id z107so1580378qgd.28
+        for <netdev@vger.kernel.org>; Mon, 18 Aug 2014 12:42:16 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <b50df5011728419887508cbf3af0a5a7@BLUPR03MB373.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 91ebb929b6f8 ("bnx2x: Add support for Multi-Function UNDI") [which was
-later supposedly fixed by de682941eef3 ("bnx2x: Fix UNDI driver unload")]
-introduced a bug in which in some [yet-to-be-determined] scenarios the
-alternative flushing mechanism which was to guarantee the Rx buffers are
-empty before resetting them during device probe will fail.
-If this happens, when device will be loaded once more a fatal attention will
-occur; Since this most likely happens in boot from SAN scenarios, the machine
-will fail to load.
+On Mon, Aug 18, 2014 at 06:07:00AM +0000, fugang.duan@freescale.com wrote:
+> 1. Set the flag to false firstly.
 
-Notice this may occur not only in the 'Multi-Function' scenario but in the
-regular scenario as well, i.e., this introduced a regression in the driver's
-ability to perform boot from SAN.
+Yes.
 
-The patch reverts the mechanism and applies the old scheme to multi-function
-devices as well as to single-function devices.
+> 2. Don't need to add mutex to protect the flag.(My previous mail ask one mutex to protect the flag)
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
----
-Hi Dave,
+You *do* need a mutex to protect the state of the physical clock. One
+process might turn it off while another process is still reading it.
 
-Please consider applying this patch to `net'.
+>    Just pull the flag into the protected field by spin_lock_irqsave() like :
+> fec_time_keep()
+
+No, the spin only protects the register access.
 
 Thanks,
-Yuval Mintz
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 94 +++++-------------------
- 1 file changed, 18 insertions(+), 76 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index c13364b..c036426 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -10052,6 +10052,8 @@ static void bnx2x_prev_unload_close_mac(struct bnx2x *bp,
- }
-
- #define BNX2X_PREV_UNDI_PROD_ADDR(p) (BAR_TSTRORM_INTMEM + 0x1508 + ((p) << 4))
-+#define BNX2X_PREV_UNDI_PROD_ADDR_H(f) (BAR_TSTRORM_INTMEM + \
-+					0x1848 + ((f) << 4))
- #define BNX2X_PREV_UNDI_RCQ(val)	((val) & 0xffff)
- #define BNX2X_PREV_UNDI_BD(val)		((val) >> 16 & 0xffff)
- #define BNX2X_PREV_UNDI_PROD(rcq, bd)	((bd) << 16 | (rcq))
-@@ -10059,8 +10061,6 @@ static void bnx2x_prev_unload_close_mac(struct bnx2x *bp,
- #define BCM_5710_UNDI_FW_MF_MAJOR	(0x07)
- #define BCM_5710_UNDI_FW_MF_MINOR	(0x08)
- #define BCM_5710_UNDI_FW_MF_VERS	(0x05)
--#define BNX2X_PREV_UNDI_MF_PORT(p) (BAR_TSTRORM_INTMEM + 0x150c + ((p) << 4))
--#define BNX2X_PREV_UNDI_MF_FUNC(f) (BAR_TSTRORM_INTMEM + 0x184c + ((f) << 4))
-
- static bool bnx2x_prev_is_after_undi(struct bnx2x *bp)
- {
-@@ -10079,72 +10079,25 @@ static bool bnx2x_prev_is_after_undi(struct bnx2x *bp)
- 	return false;
- }
-
--static bool bnx2x_prev_unload_undi_fw_supports_mf(struct bnx2x *bp)
--{
--	u8 major, minor, version;
--	u32 fw;
--
--	/* Must check that FW is loaded */
--	if (!(REG_RD(bp, MISC_REG_RESET_REG_1) &
--	     MISC_REGISTERS_RESET_REG_1_RST_XSEM)) {
--		BNX2X_DEV_INFO("XSEM is reset - UNDI MF FW is not loaded\n");
--		return false;
--	}
--
--	/* Read Currently loaded FW version */
--	fw = REG_RD(bp, XSEM_REG_PRAM);
--	major = fw & 0xff;
--	minor = (fw >> 0x8) & 0xff;
--	version = (fw >> 0x10) & 0xff;
--	BNX2X_DEV_INFO("Loaded FW: 0x%08x: Major 0x%02x Minor 0x%02x Version 0x%02x\n",
--		       fw, major, minor, version);
--
--	if (major > BCM_5710_UNDI_FW_MF_MAJOR)
--		return true;
--
--	if ((major == BCM_5710_UNDI_FW_MF_MAJOR) &&
--	    (minor > BCM_5710_UNDI_FW_MF_MINOR))
--		return true;
--
--	if ((major == BCM_5710_UNDI_FW_MF_MAJOR) &&
--	    (minor == BCM_5710_UNDI_FW_MF_MINOR) &&
--	    (version >= BCM_5710_UNDI_FW_MF_VERS))
--		return true;
--
--	return false;
--}
--
--static void bnx2x_prev_unload_undi_mf(struct bnx2x *bp)
--{
--	int i;
--
--	/* Due to legacy (FW) code, the first function on each engine has a
--	 * different offset macro from the rest of the functions.
--	 * Setting this for all 8 functions is harmless regardless of whether
--	 * this is actually a multi-function device.
--	 */
--	for (i = 0; i < 2; i++)
--		REG_WR(bp, BNX2X_PREV_UNDI_MF_PORT(i), 1);
--
--	for (i = 2; i < 8; i++)
--		REG_WR(bp, BNX2X_PREV_UNDI_MF_FUNC(i - 2), 1);
--
--	BNX2X_DEV_INFO("UNDI FW (MF) set to discard\n");
--}
--
--static void bnx2x_prev_unload_undi_inc(struct bnx2x *bp, u8 port, u8 inc)
-+static void bnx2x_prev_unload_undi_inc(struct bnx2x *bp, u8 inc)
- {
- 	u16 rcq, bd;
--	u32 tmp_reg = REG_RD(bp, BNX2X_PREV_UNDI_PROD_ADDR(port));
--
-+	u32 addr, tmp_reg;
-+
-+	if (BP_FUNC(bp) < 2)
-+		addr = BNX2X_PREV_UNDI_PROD_ADDR(BP_PORT(bp));
-+	else
-+		addr = BNX2X_PREV_UNDI_PROD_ADDR_H(BP_FUNC(bp) - 2);
-+
-+	tmp_reg = REG_RD(bp, addr);
- 	rcq = BNX2X_PREV_UNDI_RCQ(tmp_reg) + inc;
- 	bd = BNX2X_PREV_UNDI_BD(tmp_reg) + inc;
-
- 	tmp_reg = BNX2X_PREV_UNDI_PROD(rcq, bd);
--	REG_WR(bp, BNX2X_PREV_UNDI_PROD_ADDR(port), tmp_reg);
-+	REG_WR(bp, addr, tmp_reg);
-
--	BNX2X_DEV_INFO("UNDI producer [%d] rings bd -> 0x%04x, rcq -> 0x%04x\n",
--		       port, bd, rcq);
-+	BNX2X_DEV_INFO("UNDI producer [%d/%d][%08x] rings bd -> 0x%04x, rcq -> 0x%04x\n",
-+		       BP_PORT(bp), BP_FUNC(bp), addr, bd, rcq);
- }
-
- static int bnx2x_prev_mcp_done(struct bnx2x *bp)
-@@ -10383,7 +10336,6 @@ static int bnx2x_prev_unload_common(struct bnx2x *bp)
- 	/* Reset should be performed after BRB is emptied */
- 	if (reset_reg & MISC_REGISTERS_RESET_REG_1_RST_BRB1) {
- 		u32 timer_count = 1000;
--		bool need_write = true;
-
- 		/* Close the MAC Rx to prevent BRB from filling up */
- 		bnx2x_prev_unload_close_mac(bp, &mac_vals);
-@@ -10420,20 +10372,10 @@ static int bnx2x_prev_unload_common(struct bnx2x *bp)
- 			else
- 				timer_count--;
-
--			/* New UNDI FW supports MF and contains better
--			 * cleaning methods - might be redundant but harmless.
--			 */
--			if (bnx2x_prev_unload_undi_fw_supports_mf(bp)) {
--				if (need_write) {
--					bnx2x_prev_unload_undi_mf(bp);
--					need_write = false;
--				}
--			} else if (prev_undi) {
--				/* If UNDI resides in memory,
--				 * manually increment it
--				 */
--				bnx2x_prev_unload_undi_inc(bp, BP_PORT(bp), 1);
--			}
-+			/* If UNDI resides in memory, manually increment it */
-+			if (prev_undi)
-+				bnx2x_prev_unload_undi_inc(bp, 1);
-+
- 			udelay(10);
- 		}
-
---
-1.8.3.1
+Richard
