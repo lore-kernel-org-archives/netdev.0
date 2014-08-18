@@ -1,120 +1,166 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] vhost_net: stop rx net polling when possible
-Date: Mon, 18 Aug 2014 11:11:15 +0800
-Message-ID: <53F16ED3.3070101@redhat.com>
-References: <1408074008-4357-1-git-send-email-jasowang@redhat.com>
-	<20140817102056.GB21622@redhat.com>
+From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: More wireless problems..
+Date: Mon, 18 Aug 2014 00:01:30 -0400
+Message-ID: <CA+55aFwTGDFgRuPS5DaQ9-XMLgbZ0y6ZtvXLsZhFkM6P_kXQHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140817102056.GB21622@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: multipart/mixed; boundary=089e013cba22088d2b0500df6d2a
+Cc: Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 08/17/2014 06:20 PM, Michael S. Tsirkin wrote:
-> On Fri, Aug 15, 2014 at 11:40:08AM +0800, Jason Wang wrote:
->> After rx vq was enabled, we never stop polling its socket. This is sub optimal
->> when may lead unnecessary wake-ups after the rx net work has already been
->> queued. This could be optimized by stopping polling the rx net sock when
->> processing both rx and tx and restart it afterward. This could save unnecessary
->> wake-ups and even unnecessary spin locks acquiring with the help of commit
->> 9e641bdcfa4ef4d6e2fbaa59c1be0ad5d1551fd5 "net-tun: restructure tun_do_read for
->> better sleep/wakeup efficiency".
-> OK so the point is to avoid expensive wake_up_process calls?
-> It's a bit unfortunate that we are adding/removing things from wait
-> queue which certainly does take extra spin-locks.
+--089e013cba22088d2b0500df6d2a
+Content-Type: text/plain; charset=UTF-8
 
-When nothing new were queued during vhost thread is running. This change
-may add two more spin-locks which may not but optimal. But if several
-packets were queued by tun during vhost thread is running, it may save
-lots of unnecessary wake ups. So the patch helps the performance in the
-heavy load case for sure. In light load case, it may hurt some
-throughput but cpu and thru/cpu is still saved.
+So there's still something seriously wrong with the wireless changes
+in the current merge window. Maybe it's not new, and is triggered by
+something with the hotel wireless here at the kernel summit, but I
+just got a NULL pointer dereference:
 
->
->
->
->> Test shows significant CPU% savings during almost all the cases:
->>
->> Guest rx stream:
->> size(B)/sessions/throughput/cpu/normalized thru/
->> 64/1/+0.7773%   -8.6224%     +10.2866%
->> 64/2/+0.6335%   -13.9109%    +16.8946%
->> 64/4/-0.8182%   -14.8336%    +16.4565%
->> 64/8/+0.4830%   -13.7675%    +16.5256%
->> 256/1/-7.0963%  -12.6880%    +6.4043%
->> 256/2/-1.3982%  -11.5424%    +11.4678%
->> 256/4/-0.0350%  -11.8323%    +13.3806%
->> 256/8/-1.5830%  -12.7693%    +12.8238%
->> 1024/1/-7.4895% -19.1449%       +14.4152%
->> 1024/2/-7.4575% -19.4018%       +14.8195%
->> 1024/4/-0.3881% -9.1183%        +9.6061%
->> 1024/8/+0.4713% -11.0155%       +12.9087%
->> 4096/1/+0.8786%  -8.4050%        +10.1355%
->> 4096/2/+0.0098%  -15.3094%       +18.0885%
->> 4096/4/+0.0445%  -10.8247%       +12.1886%
->> 4096/8/-2.1317%  -12.5111%       +11.8637%
->> 16384/1/-0.0008% -6.1891%        +6.5966%
->> 16384/2/-0.0117% -16.2716%       +19.4198%
->> 16384/4/+0.0001% -5.9197%        +6.2923%
->> 16384/8/+0.0173% -7.6681%        +8.3236%
->> 65535/1/+0.0011% -10.3594%       +11.5578%
->> 65535/2/-0.4108%  -14.4304%       +16.3838%
->> 65535/4/+0.0011%  -10.3594%       +11.5578%
->> 65535/8/-0.4108%  -14.4304%       +16.3838%
->>
->> Guest tx stream:
->> size(B)/sessions/throughput/cpu/normalized thru/
->> 64/1/-0.6228%     -2.1936%     +1.6060%
->> 64/2/+0.8646%     -3.5063%     +4.5297%
->> 64/4/+0.8733%     -3.2495%     +4.2613%
->> 64/8/+1.4290%     -3.5593%     +5.1724%
->> 256/1/+7.2098%    -3.1122%     +10.6535%
->> 256/2/-10.1408%   -6.8230%     -3.5607%
->> 256/4/-11.3531%   -6.7085%     -4.9785%
->> 256/8/-10.2723%   -6.5628%     -3.9701%
->> 1024/1/-18.9329%  -13.6162%    -6.1547%
->> 1024/2/-0.3728%   -1.3181%     +0.9580%
->> 1024/4/+0.0125%   -3.6338%     +3.7838%
->> 1024/8/-0.0030%   -2.7282%     +2.8017%
->> 4096/1/+16.9367%  -1.9435%     +19.2543%
->> 4096/2/+0.0121%   -6.1682%     +6.5866%
->> 4096/4/+0.0019%   -3.8510%     +4.0072%
->> 4096/8/-0.0222%   -4.1368%     +4.2922%
->> 16384/1/-0.0026%  -8.6892%     +9.5132%
->> 16384/2/-0.0012%  -10.1676%    +11.3171%
->> 16384/4/+0.0196%  -1.2551%     +1.2908%
->> 16384/8/+0.1303%  -3.2634%     +3.5082%
->> 65535/1/+0.0019%  -3.4694%     +3.5961%
->> 65535/2/-0.0003%  -0.7635%     +0.7690%
->> 65535/4/-0.0219%  -2.7875%     +2.8448%
->> 65535/8/+0.1137%  -2.7922%     +2.9894%
->>
->> TCP_RR:
->> size(B)/sessions/throughput/cpu/normalized thru/
->> 256/1/+1.9004%    -4.7985%     +7.0366%
->> 256/25/-4.7366%   -11.0809%    +7.1349%
->> 256/50/+3.9808%   -5.2037%     +9.6887%
->> 4096/1/+2.1619%   -0.7303%     +2.9134%
->> 4096/25/-13.1836% -14.7298%    +1.8134%
->> 4096/50/-11.1990% -15.4763%    +5.0605%
->>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->
-> Could you split RX/TX parts out please, and benchmark separately?
->
-> They are really independent.
+  BUG: unable to handle kernel NULL pointer dereference at 0000000000000020
+  IP: ieee80211_vif_use_reserved_switch+0x71c/0xb00 [mac80211]
 
-Ok.
+this may not be iwl-specific at all, but the second oops (which is
+likely just a result of the first one) does end up having iwl-related
+functions on the stack , so I'm cc'ing both generic wireless people
+and intel wireless people. It's the same machine that showed the intel
+wireless scanning microcode problem, but the oops looks very
+different.
+
+The end result is a dead machine (when kworkers die, things tend to go
+downhill fast), so it would be good to have people give this a good
+look.
+
+Attached is the more complete oops details. I don't know what
+triggered it, the machine was largely idle.
+
+Ideas?
+
+               Linus
+
+--089e013cba22088d2b0500df6d2a
+Content-Type: application/octet-stream; name=oops
+Content-Disposition: attachment; filename=oops
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hyz9xl9r0
+
+CiAgQlVHOiB1bmFibGUgdG8gaGFuZGxlIGtlcm5lbCBOVUxMIHBvaW50ZXIgZGVyZWZlcmVuY2Ug
+YXQgMDAwMDAwMDAwMDAwMDAyMAogIElQOiBbPGZmZmZmZmZmYzAzZmU5N2M+XSBpZWVlODAyMTFf
+dmlmX3VzZV9yZXNlcnZlZF9zd2l0Y2grMHg3MWMvMHhiMDAgW21hYzgwMjExXQogIFBHRCAwIAog
+IE9vcHM6IDAwMDAgWyMxXSBTTVAgCiAgTW9kdWxlcyBsaW5rZWQgaW46IGZ0ZGlfc2lvIHJmY29t
+bSBmdXNlIGlwNnRfcnBmaWx0ZXIgaXA2dF9SRUpFQ1QgeHRfY29ubnRyYWNrIGVidGFibGVfbmF0
+IGVidGFibGVfYnJvdXRlIGJyaWRnZSBzdHAgbGxjIGVidGFibGVfZmlsdGVyIGVidGFibGVzIGlw
+NnRhYmxlX25hdCBuZl9jb25udHJhY2tfaXB2NiBuZl9kZWZyYWdfaXB2NiBuZl9uYXRfaXB2NiBp
+cDZ0YWJsZV9tYW5nbGUgaXA2dGFibGVfc2VjdXJpdHkgaXA2dGFibGVfcmF3IGlwNnRhYmxlX2Zp
+bHRlciBpcDZfdGFibGVzIGlwdGFibGVfbmF0IG5mX2Nvbm50cmFja19pcHY0IG5mX2RlZnJhZ19p
+cHY0IG5mX25hdF9pcHY0IG5mX25hdCBuZl9jb25udHJhY2sgaXB0YWJsZV9tYW5nbGUgaXB0YWJs
+ZV9zZWN1cml0eSBpcHRhYmxlX3JhdyBibmVwIG1tY19ibG9jayBhcmM0IHZmYXQgZmF0IHBuNTQ0
+X21laSBtZWlfcGh5IHBuNTQ0IGhjaSBzbmRfaGRhX2NvZGVjX3JlYWx0ZWsgbmZjIHJ0c3hfcGNp
+X3NkbW1jIHNuZF9oZGFfY29kZWNfZ2VuZXJpYyBzbmRfaGRhX2NvZGVjX2hkbWkgbW1jX2NvcmUg
+aVRDT193ZHQgaVRDT192ZW5kb3Jfc3VwcG9ydCBzbmRfaGRhX2ludGVsIGl3bG12bSBzbmRfaGRh
+X2NvbnRyb2xsZXIgdXZjdmlkZW8gc25kX2hkYV9jb2RlYyBtYWM4MDIxMSB4ODZfcGtnX3RlbXBf
+dGhlcm1hbCBzbmRfaHdkZXAgY29yZXRlbXAgdmlkZW9idWYyX3ZtYWxsb2Mgc25kX3NlcSB2aWRl
+b2J1ZjJfbWVtb3BzIHZpZGVvYnVmMl9jb3JlIHNuZF9zZXFfZGV2aWNlIHY0bDJfY29tbW9uIHZp
+ZGVvZGV2IHNuZF9wY20gbWljcm9jb2RlCiAgIGl3bHdpZmkgam95ZGV2IG1lZGlhIGhpZF9tdWx0
+aXRvdWNoIHJ0c3hfcGNpIGNmZzgwMjExIGJ0dXNiIGxwY19pY2ggc2VyaW9fcmF3IGJsdWV0b290
+aCBzbmRfdGltZXIgc25kIHNocGNocCBtZWlfbWUgc291bmRjb3JlIGkyY19pODAxIG1mZF9jb3Jl
+IHNvbnlfbGFwdG9wIG1laSByZmtpbGwgZG1fY3J5cHQgY3JjdDEwZGlmX3BjbG11bCBjcmMzMl9w
+Y2xtdWwgaTkxNSBjcmMzMmNfaW50ZWwgZ2hhc2hfY2xtdWxuaV9pbnRlbCBpMmNfYWxnb19iaXQg
+ZHJtX2ttc19oZWxwZXIgZHJtIHZpZGVvCiAgQ1BVOiAyIFBJRDogMTI5MzYgQ29tbToga3dvcmtl
+ci91ODowIFRhaW50ZWQ6IEcgICAgICAgIFcgICAgICAzLjE2LjAtMTEzODMtZ2M5ZDI2NDIzZTU2
+YyAjNQogIEhhcmR3YXJlIG5hbWU6IFNvbnkgQ29ycG9yYXRpb24gU1ZQMTEyMTNDWEIvVkFJTywg
+QklPUyBSMDI3MFY3IDA1LzE3LzIwMTMKICBXb3JrcXVldWU6IHBoeTAgaWVlZTgwMjExX2Noc3dp
+dGNoX3dvcmsgW21hYzgwMjExXQogIHRhc2s6IGZmZmY4ODAwYmE1MWQwNzAgdGk6IGZmZmY4ODAw
+MGJjNTgwMDAgdGFzay50aTogZmZmZjg4MDAwYmM1ODAwMAogIFJJUDogMDAxMDpbPGZmZmZmZmZm
+YzAzZmU5N2M+XSAgWzxmZmZmZmZmZmMwM2ZlOTdjPl0gaWVlZTgwMjExX3ZpZl91c2VfcmVzZXJ2
+ZWRfc3dpdGNoKzB4NzFjLzB4YjAwIFttYWM4MDIxMV0KICBSU1A6IDAwMTg6ZmZmZjg4MDAwYmM1
+YmQ4MCAgRUZMQUdTOiAwMDAxMDI0NgogIFJBWDogZmZmZjg4MDBkMjE3NmUwOCBSQlg6IGZmZmY4
+ODAwOThlMGM5YzAgUkNYOiAwMDAwMDAwMDAwMDAwMDIwCiAgUkRYOiBmZmZmODgwMDFlZTI4N2Ew
+IFJTSTogMDAwMDAwMDAwMDAwMDAwMCBSREk6IGZmZmY4ODAwZDIxNzY4ODAKICBSQlA6IGZmZmY4
+ODAwOThlMGM5ZjAgUjA4OiBmZmZmODgwMDBiYzU4MDAwIFIwOTogMDAwMDAwMDAwMDAwMDAwMAog
+IFIxMDogMDAwMDAwMDAwMDAwMDAwNCBSMTE6IDAwMDAwMDAwMDAwMDAwMDUgUjEyOiAwMDAwMDAw
+MDAwMDAwMDAwCiAgUjEzOiBmZmZmODgwMDk4ZTBjNDU4IFIxNDogZmZmZjg4MDBkMzY4MTc1OCBS
+MTU6IGZmZmY4ODAwZDM2ODA2NjAKICBGUzogIDAwMDAwMDAwMDAwMDAwMDAoMDAwMCkgR1M6ZmZm
+Zjg4MDExZmIwMDAwMCgwMDAwKSBrbmxHUzowMDAwMDAwMDAwMDAwMDAwCiAgQ1M6ICAwMDEwIERT
+OiAwMDAwIEVTOiAwMDAwIENSMDogMDAwMDAwMDA4MDA1MDAzMwogIENSMjogMDAwMDAwMDAwMDAw
+MDAyMCBDUjM6IDAwMDAwMDAwMDFhMTEwMDAgQ1I0OiAwMDAwMDAwMDAwMTQwN2UwCiAgQ2FsbCBU
+cmFjZToKICAgIGllZWU4MDIxMV92aWZfdXNlX3Jlc2VydmVkX2NvbnRleHQrMHg4OC8weDExMCBb
+bWFjODAyMTFdCiAgICBpZWVlODAyMTFfY2hzd2l0Y2hfd29yaysweGI4LzB4MTgwIFttYWM4MDIx
+MV0KICAgIHByb2Nlc3Nfb25lX3dvcmsrMHgxNjAvMHgzNzAKICAgIHdvcmtlcl90aHJlYWQrMHgx
+MTQvMHg0NzAKICAgIHJlc2N1ZXJfdGhyZWFkKzB4MmEwLzB4MmEwCiAgICBrdGhyZWFkKzB4Yjgv
+MHhkMAogICAga3RocmVhZF9jcmVhdGVfb25fbm9kZSsweDE3MC8weDE3MAogICAgcmV0X2Zyb21f
+Zm9yaysweDdjLzB4YjAKICAgIGt0aHJlYWRfY3JlYXRlX29uX25vZGUrMHgxNzAvMHgxNzAKICBD
+b2RlOiA0OCBiOCAwMCAwMiAyMCAwMCAwMCAwMCBhZCBkZSA0OCA4YiA5NyA5MCAwNSAwMCAwMCA0
+OCA4OSA4NyBhMCAwNSAwMCAwMCA0OCA4ZCA4NyA4OCAwNSAwMCAwMCA0OCA4OSA1MSAwOCA0OCA4
+OSAwYSA0OCA4YiA0YyAyNCAwOCA8NDg+IDhiIDU2IDIwIDQ4IDg5IDQyIDA4IDQ4IDg5IDk3IDg4
+IDA1IDAwIDAwIDQ4IDg5IDhmIDkwIDA1IDAwIAogIFJJUCAgWzxmZmZmZmZmZmMwM2ZlOTdjPl0g
+aWVlZTgwMjExX3ZpZl91c2VfcmVzZXJ2ZWRfc3dpdGNoKzB4NzFjLzB4YjAwIFttYWM4MDIxMV0K
+ICAgUlNQIDxmZmZmODgwMDBiYzViZDgwPgogIENSMjogMDAwMDAwMDAwMDAwMDAyMAogIC0tLVsg
+ZW5kIHRyYWNlIDExODQ5ZmFjMTRhOWMxMjkgXS0tLQoKICBCVUc6IHVuYWJsZSB0byBoYW5kbGUg
+a2VybmVsIHBhZ2luZyByZXF1ZXN0IGF0IGZmZmZmZmZmZmZmZmZmZDgKICBJUDogWzxmZmZmZmZm
+ZjgxMDdlYmY3Pl0ga3RocmVhZF9kYXRhKzB4Ny8weDEwCiAgUEdEIDFhMTIwNjcgUFVEIDFhMTQw
+NjcgUE1EIDAgCiAgT29wczogMDAwMCBbIzJdIFNNUCAKICBNb2R1bGVzIGxpbmtlZCBpbjogZnRk
+aV9zaW8gcmZjb21tIGZ1c2UgaXA2dF9ycGZpbHRlciBpcDZ0X1JFSkVDVCB4dF9jb25udHJhY2sg
+ZWJ0YWJsZV9uYXQgZWJ0YWJsZV9icm91dGUgYnJpZGdlIHN0cCBsbGMgZWJ0YWJsZV9maWx0ZXIg
+ZWJ0YWJsZXMgaXA2dGFibGVfbmF0IG5mX2Nvbm50cmFja19pcHY2IG5mX2RlZnJhZ19pcHY2IG5m
+X25hdF9pcHY2IGlwNnRhYmxlX21hbmdsZSBpcDZ0YWJsZV9zZWN1cml0eSBpcDZ0YWJsZV9yYXcg
+aXA2dGFibGVfZmlsdGVyIGlwNl90YWJsZXMgaXB0YWJsZV9uYXQgbmZfY29ubnRyYWNrX2lwdjQg
+bmZfZGVmcmFnX2lwdjQgbmZfbmF0X2lwdjQgbmZfbmF0IG5mX2Nvbm50cmFjayBpcHRhYmxlX21h
+bmdsZSBpcHRhYmxlX3NlY3VyaXR5IGlwdGFibGVfcmF3IGJuZXAgbW1jX2Jsb2NrIGFyYzQgdmZh
+dCBmYXQgcG41NDRfbWVpIG1laV9waHkgcG41NDQgaGNpIHNuZF9oZGFfY29kZWNfcmVhbHRlayBu
+ZmMgcnRzeF9wY2lfc2RtbWMgc25kX2hkYV9jb2RlY19nZW5lcmljIHNuZF9oZGFfY29kZWNfaGRt
+aSBtbWNfY29yZSBpVENPX3dkdCBpVENPX3ZlbmRvcl9zdXBwb3J0IHNuZF9oZGFfaW50ZWwgaXds
+bXZtIHNuZF9oZGFfY29udHJvbGxlciB1dmN2aWRlbyBzbmRfaGRhX2NvZGVjIG1hYzgwMjExIHg4
+Nl9wa2dfdGVtcF90aGVybWFsIHNuZF9od2RlcCBjb3JldGVtcCB2aWRlb2J1ZjJfdm1hbGxvYyBz
+bmRfc2VxIHZpZGVvYnVmMl9tZW1vcHMgdmlkZW9idWYyX2NvcmUgc25kX3NlcV9kZXZpY2UgdjRs
+Ml9jb21tb24gdmlkZW9kZXYgc25kX3BjbSBtaWNyb2NvZGUKICAgaXdsd2lmaSBqb3lkZXYgbWVk
+aWEgaGlkX211bHRpdG91Y2ggcnRzeF9wY2kgY2ZnODAyMTEgYnR1c2IgbHBjX2ljaCBzZXJpb19y
+YXcgYmx1ZXRvb3RoIHNuZF90aW1lciBzbmQgc2hwY2hwIG1laV9tZSBzb3VuZGNvcmUgaTJjX2k4
+MDEgbWZkX2NvcmUgc29ueV9sYXB0b3AgbWVpIHJma2lsbCBkbV9jcnlwdCBjcmN0MTBkaWZfcGNs
+bXVsIGNyYzMyX3BjbG11bCBpOTE1IGNyYzMyY19pbnRlbCBnaGFzaF9jbG11bG5pX2ludGVsIGky
+Y19hbGdvX2JpdCBkcm1fa21zX2hlbHBlciBkcm0gdmlkZW8KICBDUFU6IDIgUElEOiAxMjkzNiBD
+b21tOiBrd29ya2VyL3U4OjAgVGFpbnRlZDogRyAgICAgIEQgVyAgICAgIDMuMTYuMC0xMTM4My1n
+YzlkMjY0MjNlNTZjICM1CiAgSGFyZHdhcmUgbmFtZTogU29ueSBDb3Jwb3JhdGlvbiBTVlAxMTIx
+M0NYQi9WQUlPLCBCSU9TIFIwMjcwVjcgMDUvMTcvMjAxMwogIHRhc2s6IGZmZmY4ODAwYmE1MWQw
+NzAgdGk6IGZmZmY4ODAwMGJjNTgwMDAgdGFzay50aTogZmZmZjg4MDAwYmM1ODAwMAogIFJJUDog
+MDAxMDpbPGZmZmZmZmZmODEwN2ViZjc+XSAgWzxmZmZmZmZmZjgxMDdlYmY3Pl0ga3RocmVhZF9k
+YXRhKzB4Ny8weDEwCiAgUlNQOiAwMDE4OmZmZmY4ODAwMGJjNWJhOTggIEVGTEFHUzogMDAwMTAw
+MDIKICBSQVg6IDAwMDAwMDAwMDAwMDAwMDAgUkJYOiAwMDAwMDAwMDAwMDAwMDAyIFJDWDogMDAw
+MDAwMDAwMDAwMDAwNgogIFJEWDogMDAwMDAwMDAwMDAwMDAwMSBSU0k6IDAwMDAwMDAwMDAwMDAw
+MDIgUkRJOiBmZmZmODgwMGJhNTFkMDcwCiAgUkJQOiBmZmZmODgwMGJhNTFkMDcwIFIwODogZmZm
+Zjg4MDExZmIwMDAwMCBSMDk6IDAwMDAwMDAxODAyYTAwMTMKICBSMTA6IGZmZmZmZmZmODEwNjg1
+ZTUgUjExOiBmZmZmZWEwMDAyNjE5MzAwIFIxMjogZmZmZjg4MDBiYTUxZDRhMAogIFIxMzogMDAw
+MDAwMDAwMDAwMDAwMiBSMTQ6IDAwMDAwMDAwMDAwMDAwMDAgUjE1OiBmZmZmODgwMGJhNTFkMDcw
+CiAgRlM6ICAwMDAwMDAwMDAwMDAwMDAwKDAwMDApIEdTOmZmZmY4ODAxMWZiMDAwMDAoMDAwMCkg
+a25sR1M6MDAwMDAwMDAwMDAwMDAwMAogIENTOiAgMDAxMCBEUzogMDAwMCBFUzogMDAwMCBDUjA6
+IDAwMDAwMDAwODAwNTAwMzMKICBDUjI6IDAwMDAwMDAwMDAwMDAwMjggQ1IzOiAwMDAwMDAwMDAx
+YTExMDAwIENSNDogMDAwMDAwMDAwMDE0MDdlMAogIENhbGwgVHJhY2U6CiAgICB3cV93b3JrZXJf
+c2xlZXBpbmcrMHg4LzB4OTAKICAgIF9fc2NoZWR1bGUrMHgzZDMvMHg2YjAKICAgIGRvX2V4aXQr
+MHg2YzIvMHhhMjAKICAgIG9vcHNfZW5kKzB4NjMvMHg5MAogICAgbm9fY29udGV4dCsweDJkMS8w
+eDMyZQogICAgX19kb19wYWdlX2ZhdWx0KzB4NzIvMHg0NDAKICAgIHByZXBhcmVfdG9fd2FpdF9l
+dmVudCsweGYwLzB4ZjAKICAgIGl3bF9tdm1fc2VuZF9jbWQrMHgzOC8weGIwIFtpd2xtdm1dCiAg
+ICBpd2xfbXZtX3NlbmRfY21kX3BkdSsweDNjLzB4NTAgW2l3bG12bV0KICAgIHBhZ2VfZmF1bHQr
+MHgyMi8weDMwCiAgICBpZWVlODAyMTFfdmlmX3VzZV9yZXNlcnZlZF9zd2l0Y2grMHg3MWMvMHhi
+MDAgW21hYzgwMjExXQogICAgaWVlZTgwMjExX3ZpZl91c2VfcmVzZXJ2ZWRfY29udGV4dCsweDg4
+LzB4MTEwIFttYWM4MDIxMV0KICAgIGllZWU4MDIxMV9jaHN3aXRjaF93b3JrKzB4YjgvMHgxODAg
+W21hYzgwMjExXQogICAgcHJvY2Vzc19vbmVfd29yaysweDE2MC8weDM3MAogICAgd29ya2VyX3Ro
+cmVhZCsweDExNC8weDQ3MAogICAgcmVzY3Vlcl90aHJlYWQrMHgyYTAvMHgyYTAKICAgIGt0aHJl
+YWQrMHhiOC8weGQwCiAgICBrdGhyZWFkX2NyZWF0ZV9vbl9ub2RlKzB4MTcwLzB4MTcwCiAgICBy
+ZXRfZnJvbV9mb3JrKzB4N2MvMHhiMAogICAga3RocmVhZF9jcmVhdGVfb25fbm9kZSsweDE3MC8w
+eDE3MAogIENvZGU6IDAwIDAwIDAwIDAwIDY1IDQ4IDhiIDA0IDI1IGMwIGI4IDAwIDAwIDQ4IDhi
+IDgwIGQ4IDAzIDAwIDAwIDQ4IDhiIDQwIGM4IDQ4IGMxIGU4IDAyIDgzIGUwIDAxIGMzIDBmIDFm
+IDQwIDAwIDQ4IDhiIDg3IGQ4IDAzIDAwIDAwIDw0OD4gOGIgNDAgZDggYzMgMGYgMWYgNDAgMDAg
+NDggODMgZWMgMDggYmEgMDggMDAgMDAgMDAgNDggOGIgYjcgCiAgUklQICBbPGZmZmZmZmZmODEw
+N2ViZjc+XSBrdGhyZWFkX2RhdGErMHg3LzB4MTAKICAgUlNQIDxmZmZmODgwMDBiYzViYTk4Pgog
+IENSMjogZmZmZmZmZmZmZmZmZmZkOAogIC0tLVsgZW5kIHRyYWNlIDExODQ5ZmFjMTRhOWMxMmEg
+XS0tLQo=
+--089e013cba22088d2b0500df6d2a--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
