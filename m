@@ -1,177 +1,109 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 2/3] qlcnic: Fix endianess issue in FW dump template header
-Date: Mon, 18 Aug 2014 09:31:54 -0400
-Message-ID: <1408368715-8048-3-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net 3/3] qlcnic: Fix endianess issue in firmware load from file operation
+Date: Mon, 18 Aug 2014 09:31:55 -0400
+Message-ID: <1408368715-8048-4-git-send-email-shahed.shaikh@qlogic.com>
 References: <1408368715-8048-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:10079 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:31983 "EHLO
 	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751714AbaHROEc (ORCPT
+	by vger.kernel.org with ESMTP id S1751638AbaHROEc (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2014 10:04:32 -0400
 In-Reply-To: <1408368715-8048-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-Firmware dump template header is read from adapter using
-readl() which swaps the data. So, adjust structure
-element on the boundary of 32bit dword.
+Firmware binary file is in little endian. On big-endian architecture, while
+writing this binary FW file to adapters memory, writel() swaps the data resulting into
+corruption of FW image. So, swap the data before writing into adapters memory.
 
-Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   |   57 ++++++++++++++++++++
- 1 files changed, 57 insertions(+), 0 deletions(-)
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   35 ++++++++++++++------
+ 1 files changed, 25 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-index e46fc39..c9f57fb 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-@@ -47,15 +47,26 @@ struct qlcnic_common_entry_hdr {
- 	u32     type;
- 	u32     offset;
- 	u32     cap_size;
-+#if defined(__LITTLE_ENDIAN)
- 	u8      mask;
- 	u8      rsvd[2];
- 	u8      flags;
-+#else
-+	u8      flags;
-+	u8      rsvd[2];
-+	u8      mask;
-+#endif
- } __packed;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index f33559b..86783e1 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -1378,31 +1378,45 @@ static int qlcnic_83xx_copy_fw_file(struct qlcnic_adapter *adapter)
+ {
+ 	struct qlc_83xx_fw_info *fw_info = adapter->ahw->fw_info;
+ 	const struct firmware *fw = fw_info->fw;
+-	u32 dest, *p_cache;
++	u32 dest, *p_cache, *temp;
+ 	int i, ret = -EIO;
++	__le32 *temp_le;
+ 	u8 data[16];
+ 	size_t size;
+ 	u64 addr;
  
- struct __crb {
- 	u32	addr;
-+#if defined(__LITTLE_ENDIAN)
- 	u8	stride;
- 	u8	rsvd1[3];
-+#else
-+	u8	rsvd1[3];
-+	u8	stride;
-+#endif
- 	u32	data_size;
- 	u32	no_ops;
- 	u32	rsvd2[4];
-@@ -63,15 +74,28 @@ struct __crb {
++	temp = kzalloc(fw->size, GFP_KERNEL);
++	if (!temp) {
++		release_firmware(fw);
++		fw_info->fw = NULL;
++		return -ENOMEM;
++	}
++
++	temp_le = (__le32 *)fw->data;
++
++	/* FW image in file is in little endian, swap the data to nullify
++	 * the effect of writel() operation on big endian platform.
++	 */
++	for (i = 0; i < fw->size / sizeof(u32); i++)
++		temp[i] = __le32_to_cpu(temp_le[i]);
++
+ 	dest = QLCRDX(adapter->ahw, QLCNIC_FW_IMAGE_ADDR);
+ 	size = (fw->size & ~0xF);
+-	p_cache = (u32 *)fw->data;
++	p_cache = temp;
+ 	addr = (u64)dest;
  
- struct __ctrl {
- 	u32	addr;
-+#if defined(__LITTLE_ENDIAN)
- 	u8	stride;
- 	u8	index_a;
- 	u16	timeout;
-+#else
-+	u16	timeout;
-+	u8	index_a;
-+	u8	stride;
-+#endif
- 	u32	data_size;
- 	u32	no_ops;
-+#if defined(__LITTLE_ENDIAN)
- 	u8	opcode;
- 	u8	index_v;
- 	u8	shl_val;
- 	u8	shr_val;
-+#else
-+	u8	shr_val;
-+	u8	shl_val;
-+	u8	index_v;
-+	u8	opcode;
-+#endif
- 	u32	val1;
- 	u32	val2;
- 	u32	val3;
-@@ -79,16 +103,27 @@ struct __ctrl {
+ 	ret = qlcnic_ms_mem_write128(adapter, addr,
+ 				     p_cache, size / 16);
+ 	if (ret) {
+ 		dev_err(&adapter->pdev->dev, "MS memory write failed\n");
+-		release_firmware(fw);
+-		fw_info->fw = NULL;
+-		return -EIO;
++		goto exit;
+ 	}
  
- struct __cache {
- 	u32	addr;
-+#if defined(__LITTLE_ENDIAN)
- 	u16	stride;
- 	u16	init_tag_val;
-+#else
-+	u16	init_tag_val;
-+	u16	stride;
-+#endif
- 	u32	size;
- 	u32	no_ops;
- 	u32	ctrl_addr;
- 	u32	ctrl_val;
- 	u32	read_addr;
-+#if defined(__LITTLE_ENDIAN)
- 	u8	read_addr_stride;
- 	u8	read_addr_num;
- 	u8	rsvd1[2];
-+#else
-+	u8	rsvd1[2];
-+	u8	read_addr_num;
-+	u8	read_addr_stride;
-+#endif
- } __packed;
+ 	/* alignment check */
+ 	if (fw->size & 0xF) {
+ 		addr = dest + size;
+ 		for (i = 0; i < (fw->size & 0xF); i++)
+-			data[i] = fw->data[size + i];
++			data[i] = temp[size + i];
+ 		for (; i < 16; i++)
+ 			data[i] = 0;
+ 		ret = qlcnic_ms_mem_write128(adapter, addr,
+@@ -1410,15 +1424,16 @@ static int qlcnic_83xx_copy_fw_file(struct qlcnic_adapter *adapter)
+ 		if (ret) {
+ 			dev_err(&adapter->pdev->dev,
+ 				"MS memory write failed\n");
+-			release_firmware(fw);
+-			fw_info->fw = NULL;
+-			return -EIO;
++			goto exit;
+ 		}
+ 	}
++
++exit:
+ 	release_firmware(fw);
+ 	fw_info->fw = NULL;
++	kfree(temp);
  
- struct __ocm {
-@@ -122,23 +157,39 @@ struct __mux {
+-	return 0;
++	return ret;
+ }
  
- struct __queue {
- 	u32	sel_addr;
-+#if defined(__LITTLE_ENDIAN)
- 	u16	stride;
- 	u8	rsvd[2];
-+#else
-+	u8	rsvd[2];
-+	u16	stride;
-+#endif
- 	u32	size;
- 	u32	no_ops;
- 	u8	rsvd2[8];
- 	u32	read_addr;
-+#if defined(__LITTLE_ENDIAN)
- 	u8	read_addr_stride;
- 	u8	read_addr_cnt;
- 	u8	rsvd3[2];
-+#else
-+	u8	rsvd3[2];
-+	u8	read_addr_cnt;
-+	u8	read_addr_stride;
-+#endif
- } __packed;
- 
- struct __pollrd {
- 	u32	sel_addr;
- 	u32	read_addr;
- 	u32	sel_val;
-+#if defined(__LITTLE_ENDIAN)
- 	u16	sel_val_stride;
- 	u16	no_ops;
-+#else
-+	u16	no_ops;
-+	u16	sel_val_stride;
-+#endif
- 	u32	poll_wait;
- 	u32	poll_mask;
- 	u32	data_size;
-@@ -153,9 +204,15 @@ struct __mux2 {
- 	u32	no_ops;
- 	u32	sel_val_mask;
- 	u32	read_addr;
-+#if defined(__LITTLE_ENDIAN)
- 	u8	sel_val_stride;
- 	u8	data_size;
- 	u8	rsvd[2];
-+#else
-+	u8	rsvd[2];
-+	u8	data_size;
-+	u8	sel_val_stride;
-+#endif
- } __packed;
- 
- struct __pollrdmwr {
+ static void qlcnic_83xx_dump_pause_control_regs(struct qlcnic_adapter *adapter)
 -- 
 1.5.6
