@@ -1,44 +1,90 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Please backport commit e43ac79a4bc6ca9 to stable
-Date: Mon, 18 Aug 2014 14:55:36 -0700
-Message-ID: <CAHA+R7NrE5O+pncDFtXOV6MkitO+TuZiu5h0_oj0ybCtEAQpcA@mail.gmail.com>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [PATCH v2] cnic: Replace rcu_dereference() with
+ rcu_access_pointer()
+Date: Mon, 18 Aug 2014 16:13:39 -0700
+Message-ID: <1408403619.7460.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <20140817101149.GA3692@ada>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>, netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:45747 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751941AbaHRVzi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2014 17:55:38 -0400
-Received: by mail-la0-f53.google.com with SMTP id gl10so5067465lab.40
-        for <netdev@vger.kernel.org>; Mon, 18 Aug 2014 14:55:36 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="cp1252"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <eddie.wai@broadcom.com>, <joe@perches.com>,
+	<mingo@kernel.org>, <peterz@infradead.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<paulmck@linux.vnet.ibm.com>
+To: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140817101149.GA3692@ada>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, David
+On Sun, 2014-08-17 at 13:12 +0300, Andreea-Cristina Bernat wrote: 
+> The "rcu_dereference()" calls are used directly in conditions.
+> Since their return values are never dereferenced it is recommended to use
+> "rcu_access_pointer()" instead of "rcu_dereference()".
+> Therefore, this patch makes the replacements.
+> 
+> The following Coccinelle semantic patch was used:
+> @@
+> @@
+> 
+> (
+>  if(
+>  (<+...
+> - rcu_dereference
+> + rcu_access_pointer
+>   (...)
+>   ...+>)) {...}
+> |
+>  while(
+>  (<+...
+> - rcu_dereference
+> + rcu_access_pointer
+>   (...)
+>   ...+>)) {...}
+> )
+> 
+> Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
 
+Acked-by: Michael Chan <mchan@broadcom.com>
 
-Please consider backporting the follow commit to stable:
-
-commit e43ac79a4bc6ca90de4ba10983b4ca39cd215b4b
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Tue May 21 08:16:46 2013 +0000
-
-    sch_tbf: segment too big GSO packets
-
-Since GSO is turned on by default on modern NIC, this basically fixes
-TBF with default configuration.
-
-The following one is needed as well:
-
-commit 4d0820cf6a55d72350cb2d24a4504f62fbde95d9
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Sat Nov 23 12:59:20 2013 -0800
-
-    sch_tbf: handle too small burst
-
-
-Does this make any sense to you?
-
-Thanks.
+> ---
+> v2: Modified subject line from
+>  "rcu: Replace rcu_dereference() with rcu_access_pointer()"
+>  to
+>  "cnic: Replace rcu_dereference() with rcu_access_pointer()",
+>  noted by David Miller <davem@davemloft.net>
+> 
+>  drivers/net/ethernet/broadcom/cnic.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+> index 8244e2b..dad9cb7 100644
+> --- a/drivers/net/ethernet/broadcom/cnic.c
+> +++ b/drivers/net/ethernet/broadcom/cnic.c
+> @@ -381,7 +381,7 @@ static int cnic_iscsi_nl_msg_recv(struct cnic_dev *dev, u32 msg_type,
+>  			break;
+>  
+>  		rcu_read_lock();
+> -		if (!rcu_dereference(cp->ulp_ops[CNIC_ULP_L4])) {
+> +		if (!rcu_access_pointer(cp->ulp_ops[CNIC_ULP_L4])) {
+>  			rc = -ENODEV;
+>  			rcu_read_unlock();
+>  			break;
+> @@ -525,7 +525,7 @@ int cnic_unregister_driver(int ulp_type)
+>  	list_for_each_entry(dev, &cnic_dev_list, list) {
+>  		struct cnic_local *cp = dev->cnic_priv;
+>  
+> -		if (rcu_dereference(cp->ulp_ops[ulp_type])) {
+> +		if (rcu_access_pointer(cp->ulp_ops[ulp_type])) {
+>  			pr_err("%s: Type %d still has devices registered\n",
+>  			       __func__, ulp_type);
+>  			read_unlock(&cnic_dev_lock);
+> @@ -573,7 +573,7 @@ static int cnic_register_device(struct cnic_dev *dev, int ulp_type,
+>  		mutex_unlock(&cnic_lock);
+>  		return -EAGAIN;
+>  	}
+> -	if (rcu_dereference(cp->ulp_ops[ulp_type])) {
+> +	if (rcu_access_pointer(cp->ulp_ops[ulp_type])) {
+>  		pr_err("%s: Type %d has already been registered to this device\n",
+>  		       __func__, ulp_type);
+>  		mutex_unlock(&cnic_lock);
