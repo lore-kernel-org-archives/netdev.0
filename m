@@ -1,34 +1,115 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: Query: Is it possible  to lose interrupts between vhost and virtio_net
- during migration?
-Date: Mon, 18 Aug 2014 13:23:11 +0800
-Message-ID: <53F18DBF.4090208@redhat.com>
-References: <20140731143725.GA3875@redhat.com> <53DB705F.2000405@redhat.com> <53DB76A9.8010305@redhat.com> <53E079C8.7050700@huawei.com> <20140805094957.GB24619@redhat.com> <53E0CAA4.8010303@huawei.com> <53E37561.5060302@huawei.com> <53EC78D8.6070405@redhat.com> <20140814100231.GB30944@redhat.com> <53ED76A4.4090005@redhat.com> <20140817102233.GC21622@redhat.com>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH v3 1/1] net: fec: ptp: avoid register access when ipg
+ clock is disabled
+Date: Mon, 18 Aug 2014 05:26:18 +0000
+Message-ID: <4503eedb949c4d56b426f1d4c0f0eed1@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1408081975-15087-1-git-send-email-b38611@freescale.com>
+ <1408081975-15087-2-git-send-email-b38611@freescale.com>
+ <20140815180854.GA6897@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "Zhangjie (HZ)" <zhangjie14@huawei.com>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, qinchuanyu@huawei.com,
-	liuyongan@huawei.com, davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21531 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750762AbaHRFXX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Aug 2014 01:23:23 -0400
-In-Reply-To: <20140817102233.GC21622@redhat.com>
+Received: from mail-by2lp0237.outbound.protection.outlook.com ([207.46.163.237]:53932
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750825AbaHRF0W convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2014 01:26:22 -0400
+In-Reply-To: <20140815180854.GA6897@localhost.localdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/17/2014 06:22 PM, Michael S. Tsirkin wrote:
-> On Fri, Aug 15, 2014 at 10:55:32AM +0800, Jason Wang wrote:
->>>>> I wonder if k->set_guest_notifiers should be called after "hdev->started = true;" in vhost_dev_start.
->>>> Michael, can we just remove those assertions? Since you may want to set
->>>> guest notifiers before starting the backend.
->>> Which assertions?
->> I mean assert(hdev->started) in vhost.c. Your patch may hit them.
-> I don't follow, but since my patch doesn't help anyway, pls go ahead
-> and post your idea in form of a patch, will be clearer and can
-> be tested.
+From: Richard Cochran <richardcochran@gmail.com> Data: Saturday, August 16, 2014 2:09 AM
+>To: Duan Fugang-B38611
+>Cc: davem@davemloft.net; netdev@vger.kernel.org; shawn.guo@linaro.org
+>Subject: Re: [PATCH v3 1/1] net: fec: ptp: avoid register access when ipg
+>clock is disabled
+>
+>Looks better, but ...
+>
+>On Fri, Aug 15, 2014 at 01:52:55PM +0800, Fugang Duan wrote:
+>
+>> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+>b/drivers/net/ethernet/freescale/fec_main.c
+>> index 66fe1f6..ba35994 100644
+>> --- a/drivers/net/ethernet/freescale/fec_main.c
+>> +++ b/drivers/net/ethernet/freescale/fec_main.c
+>> @@ -1613,14 +1613,18 @@ static int fec_enet_clk_enable(struct net_device
+>*ndev, bool enable)
+>>  			ret = clk_prepare_enable(fep->clk_ptp);
+>>  			if (ret)
+>>  				goto failed_clk_ptp;
+>> +			else
+>> +				fep->ptp_clk_on = true;
+>>  		}
+>>  	} else {
+>>  		clk_disable_unprepare(fep->clk_ahb);
+>>  		clk_disable_unprepare(fep->clk_ipg);
+>>  		if (fep->clk_enet_out)
+>>  			clk_disable_unprepare(fep->clk_enet_out);
+>> -		if (fep->clk_ptp)
+>> +		if (fep->clk_ptp) {
+>>  			clk_disable_unprepare(fep->clk_ptp);
+>> +			fep->ptp_clk_on = false;
+>
+>Set the flag to false first, because this races ...	
+I will change it. Thanks!
+If there have race, so it is better to add mutex to protect the flag ?
 
-Ok, will post the patch.
+>
+>> diff --git a/drivers/net/ethernet/freescale/fec_ptp.c
+>b/drivers/net/ethernet/freescale/fec_ptp.c
+>> index 82386b2..8084aaf 100644
+>> --- a/drivers/net/ethernet/freescale/fec_ptp.c
+>> +++ b/drivers/net/ethernet/freescale/fec_ptp.c
+>> @@ -245,6 +245,10 @@ static int fec_ptp_settime(struct ptp_clock_info
+>*ptp,
+>>  	u64 ns;
+>>  	unsigned long flags;
+>>
+>> +	/* Check the ptp clock */
+>> +	if (!fep->ptp_clk_on)
+>> +		return -EINVAL;
+>
+>with this and ...
+>
+>> +
+>>  	ns = ts->tv_sec * 1000000000ULL;
+>>  	ns += ts->tv_nsec;
+>>
+>> @@ -338,17 +342,20 @@ int fec_ptp_get(struct net_device *ndev, struct
+>ifreq *ifr)
+>>   * fec_time_keep - call timecounter_read every second to avoid timer
+>overrun
+>>   *                 because ENET just support 32bit counter, will
+>timeout in 4s
+>>   */
+>> -static void fec_time_keep(unsigned long _data)
+>> +static void fec_time_keep(struct work_struct *work)
+>>  {
+>> -	struct fec_enet_private *fep = (struct fec_enet_private *)_data;
+>> +	struct delayed_work *dwork = to_delayed_work(work);
+>> +	struct fec_enet_private *fep = container_of(dwork, struct
+>fec_enet_private, time_keep);
+>>  	u64 ns;
+>>  	unsigned long flags;
+>>
+>> -	spin_lock_irqsave(&fep->tmreg_lock, flags);
+>> -	ns = timecounter_read(&fep->tc);
+>> -	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+>> +	if (fep->ptp_clk_on) {
+>
+>with this.
+>
+>> +		spin_lock_irqsave(&fep->tmreg_lock, flags);
+>> +		ns = timecounter_read(&fep->tc);
+>> +		spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+>> +	}
+>
+>Thanks,
+>Richard
