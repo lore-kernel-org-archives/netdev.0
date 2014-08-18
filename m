@@ -1,74 +1,55 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC 1/4] net: allow large number of rx queues
-Date: Mon, 18 Aug 2014 21:43:40 +0400
-Message-ID: <53F23B4C.2000507@cogentembedded.com>
-References: <1408369040-1216-1-git-send-email-pagupta@redhat.com> <1408369040-1216-2-git-send-email-pagupta@redhat.com>
+From: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: Re: [PATCH] carl9170: Replace rcu_dereference() with rcu_access_pointer()
+Date: Mon, 18 Aug 2014 21:29:36 +0200
+Message-ID: <3029076.uaUkTd8nru@debian64>
+References: <20140817104806.GA14533@ada>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
-	dgibson@redhat.com, vfalico@gmail.com, edumazet@google.com,
-	vyasevic@redhat.com, hkchu@google.com, wuzhy@linux.vnet.ibm.com,
-	xemul@parallels.com, therbert@google.com,
-	bhutchings@solarflare.com, xii@google.com,
-	stephen@networkplumber.org
-To: Pankaj Gupta <pagupta@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408369040-1216-2-git-send-email-pagupta@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+To: Andreea-Cristina Bernat <bernat.ada-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140817104806.GA14533@ada>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 08/18/2014 05:37 PM, Pankaj Gupta wrote:
-
-> netif_alloc_rx_queues() uses kcalloc() to allocate memory
-> for "struct netdev_queue *_rx" array.
-> If we are doing large rx queue allocation kcalloc() might
-> fail, so this patch does a fallback to vzalloc().
-> Similar implementation is done for tx queue allocation in
-> netif_alloc_netdev_queues().
-
-> We avoid failure of high order memory allocation
-> with the help of vzalloc(), this allows us to do large
-> rx and tx queue allocation which in turn helps us to
-> increase the number of queues in tun.
-
-> As vmalloc() adds overhead on a critical network path,
-> __GFP_REPEAT flag is used with kzalloc() to do this fallback
-> only when really needed.
-
-> Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
-> Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
-> Reviewed-by: David Gibson <dgibson@redhat.com>
+On Sunday, August 17, 2014 01:48:07 PM Andreea-Cristina Bernat wrote:
+> The rcu_dereference() call is used directly in a condition.
+> Since its return value is never dereferenced it is recommended to use
+> "rcu_access_pointer()" instead of "rcu_dereference()".
+> Therefore, this patch makes the replacement.
+> [...]
+> Signed-off-by: Andreea-Cristina Bernat <bernat.ada-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > ---
->   net/core/dev.c | 20 +++++++++++++-------
->   1 file changed, 13 insertions(+), 7 deletions(-)
+>  drivers/net/wireless/ath/carl9170/main.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/ath/carl9170/main.c b/drivers/net/wireless/ath/carl9170/main.c
+> index f8ded84..12018ff 100644
+> --- a/drivers/net/wireless/ath/carl9170/main.c
+> +++ b/drivers/net/wireless/ath/carl9170/main.c
+> @@ -1431,7 +1431,7 @@ static int carl9170_op_ampdu_action(struct ieee80211_hw *hw,
+>  			return -EOPNOTSUPP;
+>  
+>  		rcu_read_lock();
+> -		if (rcu_dereference(sta_info->agg[tid])) {
+> +		if (rcu_access_pointer(sta_info->agg[tid])) {
+>  			rcu_read_unlock();
+>  			return -EBUSY;
+>  		}
 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 1c15b18..a455a02 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5942,17 +5942,24 @@ void netif_stacked_transfer_operstate(const struct net_device *rootdev,
->   EXPORT_SYMBOL(netif_stacked_transfer_operstate);
->
->   #ifdef CONFIG_SYSFS
-> +static void netif_free_rx_queues(struct net_device *dev)
-> +{
-> +	kvfree(dev->_rx);
-> +}
-> +
->   static int netif_alloc_rx_queues(struct net_device *dev)
->   {
->   	unsigned int i, count = dev->num_rx_queues;
->   	struct netdev_rx_queue *rx;
-> -
-> +	size_t sz = count * sizeof(*rx);
+There's more. The check does not do a whole lot. I think *it* [the check] and the
+rcu_read_[un]lock [and the return -EBUSY] can be removed completely from the
+IEEE80211_AMPDU_TX_START code-path in carl9170_op_ampdu_action.
 
-   Please keep an empty line after declarations.
+It would be awesome, if you could you make a patch which removes this 
+unneeded cosmic-ray-protection check :-) .
 
->   	BUG_ON(count < 1);
->
-
-WBR, Sergei
+Thanks
+Christian
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
