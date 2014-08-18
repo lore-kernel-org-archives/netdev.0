@@ -1,57 +1,57 @@
-From: Pankaj Gupta <pagupta@redhat.com>
-Subject: [RFC 4/4] tuntap: Increase the number of queues in tun
-Date: Mon, 18 Aug 2014 19:07:20 +0530
-Message-ID: <1408369040-1216-5-git-send-email-pagupta@redhat.com>
-References: <1408369040-1216-1-git-send-email-pagupta@redhat.com>
-Cc: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
-	dgibson@redhat.com, vfalico@gmail.com, edumazet@google.com,
-	vyasevic@redhat.com, hkchu@google.com, wuzhy@linux.vnet.ibm.com,
-	xemul@parallels.com, therbert@google.com,
-	bhutchings@solarflare.com, xii@google.com,
-	stephen@networkplumber.org, Pankaj Gupta <pagupta@redhat.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408369040-1216-1-git-send-email-pagupta@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Luca Coelho <luca@coelho.fi>
+Subject: Re: [PATCH] mac80211: fix channel switch for chanctx-based drivers
+Date: Mon, 18 Aug 2014 16:40:28 +0300
+Message-ID: <1408369228.20137.6.camel@dubbel>
+References: <1408351816.29649.8.camel@dubbel>
+	 <1408360749-10233-1-git-send-email-michal.kazior@tieto.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Michal Kazior <michal.kazior@tieto.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dedo.coelho.fi ([88.198.205.34]:41858 "EHLO dedo.coelho.fi"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750806AbaHRNkr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Aug 2014 09:40:47 -0400
+In-Reply-To: <1408360749-10233-1-git-send-email-michal.kazior@tieto.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Networking under kvm works best if we allocate a per-vCPU RX and TX
-queue in a virtual NIC. This requires a per-vCPU queue on the host side.
+On Mon, 2014-08-18 at 13:19 +0200, Michal Kazior wrote:
+> The new_ctx pointer is set only for non-chanctx
+> drivers. This yielded a crash for chanctx-based
+> drivers during channel switch finalization:
+> 
+>   BUG: unable to handle kernel NULL pointer dereference at 0000000000000020
+>   IP: ieee80211_vif_use_reserved_switch+0x71c/0xb00 [mac80211]
+> 
+> Use an adequate chanctx pointer to fix this.
+> 
+> Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+> Signed-off-by: Michal Kazior <michal.kazior@tieto.com>
+> ---
+> Note: This is based on mac80211-next/master albeit
+> it should apply cleanly on wireless-next/master
+> and v3.17-rc1.
+> 
+> I've verified this fix with iwlmvm & 7260.
 
-It is now safe to increase the maximum number of queues.
-Preceding patches:
-	net: allow large number of rx queues
-  	tuntap: Reduce the size of tun_struct by using flex array
-	tuntap: Publish tuntap max queue length as module_param
+Cool!  I've also tested this (with P2P client) and it works fine.  You
+can add my:
 
-	made sure this won't cause failures due to high order memory
-allocations. Increase it to 256: this is the max number of vCPUs
-KVM supports.
+Tested-by: Luciano Coelho <luciano.coelho@intel.com>
 
-Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
----
- drivers/net/tun.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+The reason I haven't seen this before is because I've been using 2
+channels support with iwlmvm, so we never get an in-place channel
+switch. :( The normal case is to have single channel support...
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 98bad1f..893eba8 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -111,10 +111,11 @@ struct tap_filter {
- 	unsigned char	addr[FLT_EXACT_COUNT][ETH_ALEN];
- };
- 
--/* DEFAULT_MAX_NUM_RSS_QUEUES were chosen to let the rx/tx queues allocated for
-- * the netdevice to be fit in one page. So we can make sure the success of
-- * memory allocation. TODO: increase the limit. */
--#define MAX_TAP_QUEUES DEFAULT_MAX_NUM_RSS_QUEUES
-+/* MAX_TAP_QUEUES 256 is chosen to allow rx/tx queues to be equal
-+ * to max number of vCPUS in guest. Also, we are making sure here
-+ * queue memory allocation do not fail.
-+ */
-+#define MAX_TAP_QUEUES 256
- #define MAX_TAP_FLOWS  4096
- 
- #define TUN_FLOW_EXPIRE (3 * HZ)
--- 
-1.8.3.1
+--
+Cheers,
+Luca.
