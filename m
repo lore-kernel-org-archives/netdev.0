@@ -1,35 +1,219 @@
-From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: [PATCH] mac80211: fix channel switch for chanctx-based drivers
-Date: Mon, 18 Aug 2014 08:59:49 -0500
-Message-ID: <CA+55aFxSPqqxeF4okdo9836zikov8ah1wBxPe=ZaNEOYZJ-xfQ@mail.gmail.com>
-References: <1408351816.29649.8.camel@dubbel>
-	<1408360749-10233-1-git-send-email-michal.kazior@tieto.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: [PATCH net 1/3] qlcnic: Fix flash access interface to application
+Date: Mon, 18 Aug 2014 09:31:53 -0400
+Message-ID: <1408368715-8048-2-git-send-email-shahed.shaikh@qlogic.com>
+References: <1408368715-8048-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>
-To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1408360749-10233-1-git-send-email-michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:63057 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751680AbaHROEc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2014 10:04:32 -0400
+In-Reply-To: <1408368715-8048-1-git-send-email-shahed.shaikh@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 18, 2014 at 6:19 AM, Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org> wrote:
->
-> I've verified this fix with iwlmvm & 7260.
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-So I'm running a kernel with this manually applied, and so far so
-good. But I don't know what actually triggered the problem, and it
-definitely didn't happen all the time, so my testing of this is
-dubious. But the patch certainly seems to match the symptoms. Thanks,
+Application expects flash data in little endian, but driver reads/writes
+flash data using readl()/writel() APIs which swaps data on big endian machine.
+So, swap the data after reading from and before writing to flash memory.
 
-          Linus
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   15 ++++++++++++++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |    6 +++---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c  |   16 +++++++++++++++-
+ 3 files changed, 32 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index 16039d1..b84f5ea 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -268,7 +268,7 @@ struct qlcnic_fdt {
+ 	u16	cksum;
+ 	u16	unused;
+ 	u8	model[16];
+-	u16	mfg_id;
++	u8	mfg_id;
+ 	u16	id;
+ 	u8	flag;
+ 	u8	erase_cmd;
+@@ -2362,6 +2362,19 @@ static inline u32 qlcnic_get_vnic_func_count(struct qlcnic_adapter *adapter)
+ 		return QLC_DEFAULT_VNIC_COUNT;
+ }
+ 
++static inline void qlcnic_swap32_buffer(u32 *buffer, int count)
++{
++#if defined(__BIG_ENDIAN)
++	u32 *tmp = buffer;
++	int i;
++
++	for (i = 0; i < count; i++) {
++		*tmp = swab32(*tmp);
++		tmp++;
++	}
++#endif
++}
++
+ #ifdef CONFIG_QLCNIC_HWMON
+ void qlcnic_register_hwmon_dev(struct qlcnic_adapter *);
+ void qlcnic_unregister_hwmon_dev(struct qlcnic_adapter *);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index a4a4ec0..476e499 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -2603,7 +2603,7 @@ int qlcnic_83xx_lockless_flash_read32(struct qlcnic_adapter *adapter,
+ 	}
+ 
+ 	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_DIRECT_WINDOW,
+-				     (addr));
++				     (addr & 0xFFFF0000));
+ 
+ 	range = flash_offset + (count * sizeof(u32));
+ 	/* Check if data is spread across multiple sectors */
+@@ -2753,7 +2753,7 @@ int qlcnic_83xx_read_flash_descriptor_table(struct qlcnic_adapter *adapter)
+ 	ret = qlcnic_83xx_lockless_flash_read32(adapter, QLCNIC_FDT_LOCATION,
+ 						(u8 *)&adapter->ahw->fdt,
+ 						count);
+-
++	qlcnic_swap32_buffer((u32 *)&adapter->ahw->fdt, count);
+ 	qlcnic_83xx_unlock_flash(adapter);
+ 	return ret;
+ }
+@@ -2788,7 +2788,7 @@ int qlcnic_83xx_erase_flash_sector(struct qlcnic_adapter *adapter,
+ 
+ 	addr1 = (sector_start_addr & 0xFF) << 16;
+ 	addr2 = (sector_start_addr & 0xFF0000) >> 16;
+-	reversed_addr = addr1 | addr2;
++	reversed_addr = addr1 | addr2 | (sector_start_addr & 0xFF00);
+ 
+ 	qlcnic_83xx_wrt_reg_indirect(adapter, QLC_83XX_FLASH_WRDATA,
+ 				     reversed_addr);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+index f5786d5..59a721f 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+@@ -280,6 +280,7 @@ static ssize_t qlcnic_sysfs_read_crb(struct file *filp, struct kobject *kobj,
+ 	if (ret != 0)
+ 		return ret;
+ 	qlcnic_read_crb(adapter, buf, offset, size);
++	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
+ 
+ 	return size;
+ }
+@@ -296,6 +297,7 @@ static ssize_t qlcnic_sysfs_write_crb(struct file *filp, struct kobject *kobj,
+ 	if (ret != 0)
+ 		return ret;
+ 
++	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
+ 	qlcnic_write_crb(adapter, buf, offset, size);
+ 	return size;
+ }
+@@ -329,6 +331,7 @@ static ssize_t qlcnic_sysfs_read_mem(struct file *filp, struct kobject *kobj,
+ 		return -EIO;
+ 
+ 	memcpy(buf, &data, size);
++	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
+ 
+ 	return size;
+ }
+@@ -346,6 +349,7 @@ static ssize_t qlcnic_sysfs_write_mem(struct file *filp, struct kobject *kobj,
+ 	if (ret != 0)
+ 		return ret;
+ 
++	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
+ 	memcpy(&data, buf, size);
+ 
+ 	if (qlcnic_pci_mem_write_2M(adapter, offset, data))
+@@ -412,6 +416,7 @@ static ssize_t qlcnic_sysfs_write_pm_config(struct file *filp,
+ 	if (rem)
+ 		return QL_STATUS_INVALID_PARAM;
+ 
++	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
+ 	pm_cfg = (struct qlcnic_pm_func_cfg *)buf;
+ 	ret = validate_pm_config(adapter, pm_cfg, count);
+ 
+@@ -474,6 +479,7 @@ static ssize_t qlcnic_sysfs_read_pm_config(struct file *filp,
+ 		pm_cfg[pci_func].dest_npar = 0;
+ 		pm_cfg[pci_func].pci_func = i;
+ 	}
++	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
+ 	return size;
+ }
+ 
+@@ -555,6 +561,7 @@ static ssize_t qlcnic_sysfs_write_esw_config(struct file *file,
+ 	if (rem)
+ 		return QL_STATUS_INVALID_PARAM;
+ 
++	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
+ 	esw_cfg = (struct qlcnic_esw_func_cfg *)buf;
+ 	ret = validate_esw_config(adapter, esw_cfg, count);
+ 	if (ret)
+@@ -649,6 +656,7 @@ static ssize_t qlcnic_sysfs_read_esw_config(struct file *file,
+ 		if (qlcnic_get_eswitch_port_config(adapter, &esw_cfg[pci_func]))
+ 			return QL_STATUS_INVALID_PARAM;
+ 	}
++	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
+ 	return size;
+ }
+ 
+@@ -688,6 +696,7 @@ static ssize_t qlcnic_sysfs_write_npar_config(struct file *file,
+ 	if (rem)
+ 		return QL_STATUS_INVALID_PARAM;
+ 
++	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
+ 	np_cfg = (struct qlcnic_npar_func_cfg *)buf;
+ 	ret = validate_npar_config(adapter, np_cfg, count);
+ 	if (ret)
+@@ -759,6 +768,7 @@ static ssize_t qlcnic_sysfs_read_npar_config(struct file *file,
+ 		np_cfg[pci_func].max_tx_queues = nic_info.max_tx_ques;
+ 		np_cfg[pci_func].max_rx_queues = nic_info.max_rx_ques;
+ 	}
++	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
+ 	return size;
+ }
+ 
+@@ -916,6 +926,7 @@ static ssize_t qlcnic_sysfs_read_pci_config(struct file *file,
+ 
+ 	pci_cfg = (struct qlcnic_pci_func_cfg *)buf;
+ 	count = size / sizeof(struct qlcnic_pci_func_cfg);
++	qlcnic_swap32_buffer((u32 *)pci_info, size / sizeof(u32));
+ 	for (i = 0; i < count; i++) {
+ 		pci_cfg[i].pci_func = pci_info[i].id;
+ 		pci_cfg[i].func_type = pci_info[i].type;
+@@ -969,6 +980,7 @@ static ssize_t qlcnic_83xx_sysfs_flash_read_handler(struct file *filp,
+ 	}
+ 
+ 	qlcnic_83xx_unlock_flash(adapter);
++	qlcnic_swap32_buffer((u32 *)p_read_buf, count);
+ 	memcpy(buf, p_read_buf, size);
+ 	kfree(p_read_buf);
+ 
+@@ -986,9 +998,10 @@ static int qlcnic_83xx_sysfs_flash_bulk_write(struct qlcnic_adapter *adapter,
+ 	if (!p_cache)
+ 		return -ENOMEM;
+ 
++	count = size / sizeof(u32);
++	qlcnic_swap32_buffer((u32 *)buf, count);
+ 	memcpy(p_cache, buf, size);
+ 	p_src = p_cache;
+-	count = size / sizeof(u32);
+ 
+ 	if (qlcnic_83xx_lock_flash(adapter) != 0) {
+ 		kfree(p_cache);
+@@ -1053,6 +1066,7 @@ static int qlcnic_83xx_sysfs_flash_write(struct qlcnic_adapter *adapter,
+ 	if (!p_cache)
+ 		return -ENOMEM;
+ 
++	qlcnic_swap32_buffer((u32 *)buf, size / sizeof(u32));
+ 	memcpy(p_cache, buf, size);
+ 	p_src = p_cache;
+ 	count = size / sizeof(u32);
+-- 
+1.5.6
