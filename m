@@ -1,60 +1,93 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: Performance regression on kernels 3.10 and newer
-Date: Mon, 18 Aug 2014 08:22:32 -0700
-Message-ID: <53F21A38.50905@intel.com>
-References: <53ECFDAB.5010701@intel.com>	<1408041962.6804.31.camel@edumazet-glaptop2.roam.corp.google.com>	<53ED4354.9090904@intel.com>	<20140814.162024.2218312002979492106.davem@davemloft.net>	<53EE4023.6080902@intel.com>	<CA+mtBx_aEe6SvWV6tfqzGWcPvVM+FE6kbnyFE5FbECU9HN7EXg@mail.gmail.com>	<53EE5B25.3040206@intel.com> <CA+mtBx-LZgnpWAf3Jn0htoga32UaMc-NAqURmXezmZmwg2oGRQ@mail.gmail.com> <53EE967F.9090101@intel.com> <063D6719AE5E284EB5DD2968C1650D6D1747969E@AcuExch.aculab.com>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH v3 1/3] init / kthread: add module_long_probe_init()
+	and module_long_probe_exit()
+Date: Mon, 18 Aug 2014 17:19:54 +0200
+Message-ID: <20140818151954.GA20284@redhat.com>
+References: <20140816025007.GB3347@wotan.suse.de> <s5h1tsfwqi2.wl-tiwai@suse.de> <20140817122527.GA30546@redhat.com> <20140817124803.GA31996@redhat.com> <20140817125505.GA32429@redhat.com> <20140817174624.GE3347@wotan.suse.de> <20140817182138.GA4411@redhat.com> <s5hfvguw570.wl-tiwai@suse.de> <20140818122217.GA12707@redhat.com> <s5ha97253yo.wl-tiwai@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Rick Jones <rick.jones2@hp.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-	Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:13080 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750789AbaHRPWt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Aug 2014 11:22:49 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1747969E@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Luis R. Rodriguez" <mcgrof@suse.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Takashi Iwai <tiwai@suse.de>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <s5ha97253yo.wl-tiwai@suse.de>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/18/2014 02:03 AM, David Laight wrote:
-> From: Alexander Duyck
->> ...
->> Another test I tried was to hack the nettest_bsd.c file in netperf to
->> perform a poll() based receive.  That resolved the issue and had all the
->> performance of the tcp_low_latency case.  I may see if I can work with
->> Rick to push something like that into netperf as I really would prefer
->> to avoid having to advise everyone on how to setup the sysctl for
->> tcp_low_latency.
-> 
-> Doesn't that generate 2 system calls per receive?
-> Unless it now returns more data per receive I'm surprised that
-> it actually faster.
+On 08/18, Takashi Iwai wrote:
+>
+> At Mon, 18 Aug 2014 14:22:17 +0200,
+> Oleg Nesterov wrote:
+> >
+> > On 08/18, Takashi Iwai wrote:
+> > >
+> > > #define module_long_probe_init(initfn)				\
+> > > 	static int _long_probe_##initfn(void *arg)		\
+> > > 	{							\
+> > > 		module_put_and_exit(initfn());			\
+> > > 		return 0;					\
+> > > 	}							\
+> > > 	static int __init __long_probe_##initfn(void)		\
+> > > 	{							\
+> > > 		struct task_struct *__init_thread =		\
+> > > 			kthread_create(_long_probe_##initfn,	\
+> > > 				       NULL, #initfn);		\
+> > > 		if (IS_ERR(__init_thread))			\
+> > > 			return PTR_ERR(__init_thread);		\
+> > > 		__module_get(THIS_MODULE);			\
+> > > 		wake_up_process(__init_thread);			\
+> > > 		return 0;					\
+> > > 	}							\
+> > > 	module_init(__long_probe_##initfn)
+> > >
+> > > ... and module_exit() remains identical as the normal version.
+> >
+> > Aaaah. This is not true, module_exit() should not call exitfn() if initfn()
+> > fails... So _long_probe_##initfn() needs to save the error code which should
+> > be checked by module_exit().
+>
+> Oh, right.  So we need a reference in the module exit path in anyway,
 
-If you haven't been keeping up with the thread what I am gaining by
-doing this is avoiding a significant cache thrash issue with the dst
-entry as the prequeue path involves updating the reference count that is
-shared by all of my CPUs.
+We only need to save the error code,
 
-By using poll to wait for it I don't load frames onto the TCP prequeue
-and thereby avoid it.
+	static int _long_probe_retval;
 
-> OTOH I've some code that runs a lot better when I run while :; do :; done
-> for all but one of the cpus.
-> I think that is because the processes spinning in userspace don't
-> get pre-empted.
-> 
-> 	David
-> 
+	static int _long_probe_##initfn(void *arg)
+	{
+		_long_probe_retval = initfn();
+		module_put_and_exit(0); /* noreturn */
+	}
 
-What you are probably seeing is that the CPU doesn't go into a deep
-sleep state so it likely runs better.  You might try the same thing with
-a kernel booted with idle=poll and you would probably see the same result.
+	static void __long_probe_##exitfn(void)
+	{
+		if (!_long_probe_retval)
+			exitfn();
+	}
 
-Thanks,
+> and Luis' version might be shorter in the end.
 
-Alex
+I dont't think that "shorter" does matter in this case. The real difference
+is sys_delete_module() behaviour if it is called before initfn() completes.
+
+And, again, I do not really know which version is better.
+
+Oleg.
+
