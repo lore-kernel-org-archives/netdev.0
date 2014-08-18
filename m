@@ -1,166 +1,48 @@
-From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: More wireless problems..
-Date: Mon, 18 Aug 2014 00:01:30 -0400
-Message-ID: <CA+55aFwTGDFgRuPS5DaQ9-XMLgbZ0y6ZtvXLsZhFkM6P_kXQHw@mail.gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: More wireless problems..
+Date: Sun, 17 Aug 2014 23:37:11 -0500
+Message-ID: <CA+55aFwUJLZUi4wDKwiX1XAht=H9exmvUD5P_aNHK9=XBSixjA@mail.gmail.com>
+References: <CA+55aFwTGDFgRuPS5DaQ9-XMLgbZ0y6ZtvXLsZhFkM6P_kXQHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=089e013cba22088d2b0500df6d2a
-Cc: Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
---089e013cba22088d2b0500df6d2a
 Content-Type: text/plain; charset=UTF-8
+Cc: Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Johannes Berg <johannes.berg@intel.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Michal Kazior <michal.kazior@tieto.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f169.google.com ([209.85.220.169]:51845 "EHLO
+	mail-vc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750762AbaHREhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Aug 2014 00:37:12 -0400
+In-Reply-To: <CA+55aFwTGDFgRuPS5DaQ9-XMLgbZ0y6ZtvXLsZhFkM6P_kXQHw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-So there's still something seriously wrong with the wireless changes
-in the current merge window. Maybe it's not new, and is triggered by
-something with the hotel wireless here at the kernel summit, but I
-just got a NULL pointer dereference:
+On Sun, Aug 17, 2014 at 11:01 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+>
+>   BUG: unable to handle kernel NULL pointer dereference at 0000000000000020
+>   IP: ieee80211_vif_use_reserved_switch+0x71c/0xb00 [mac80211]
 
-  BUG: unable to handle kernel NULL pointer dereference at 0000000000000020
-  IP: ieee80211_vif_use_reserved_switch+0x71c/0xb00 [mac80211]
+Looking at the Code: line and the code generation for that function,
+this *looks* to be this code:
 
-this may not be iwl-specific at all, but the second oops (which is
-likely just a result of the first one) does end up having iwl-related
-functions on the stack , so I'm cc'ing both generic wireless people
-and intel wireless people. It's the same machine that showed the intel
-wireless scanning microcode problem, but the oops looks very
-different.
+                        list_del(&sdata->reserved_chanctx_list);
+                        list_move(&sdata->assigned_chanctx_list,
+                                  &new_ctx->assigned_vifs);
+                        sdata->reserved_chanctx = NULL;
 
-The end result is a dead machine (when kworkers die, things tend to go
-downhill fast), so it would be good to have people give this a good
-look.
+in ieee80211_vif_use_reserved_switch(), where "new_ctx" is NULL, so
+the "list_move()" ends up oopsing. But maybe I screwed up the
+analysis, I don't know the code.
 
-Attached is the more complete oops details. I don't know what
-triggered it, the machine was largely idle.
+Looks like that is all-new code introduced by commit 5bcae31d9cb1
+("mac80211: implement multi-vif in-place reservations")
 
-Ideas?
+And doesn't look at all IWL-specific. Adding Michal Kazior to the list
+of people.
 
-               Linus
-
---089e013cba22088d2b0500df6d2a
-Content-Type: application/octet-stream; name=oops
-Content-Disposition: attachment; filename=oops
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hyz9xl9r0
-
-CiAgQlVHOiB1bmFibGUgdG8gaGFuZGxlIGtlcm5lbCBOVUxMIHBvaW50ZXIgZGVyZWZlcmVuY2Ug
-YXQgMDAwMDAwMDAwMDAwMDAyMAogIElQOiBbPGZmZmZmZmZmYzAzZmU5N2M+XSBpZWVlODAyMTFf
-dmlmX3VzZV9yZXNlcnZlZF9zd2l0Y2grMHg3MWMvMHhiMDAgW21hYzgwMjExXQogIFBHRCAwIAog
-IE9vcHM6IDAwMDAgWyMxXSBTTVAgCiAgTW9kdWxlcyBsaW5rZWQgaW46IGZ0ZGlfc2lvIHJmY29t
-bSBmdXNlIGlwNnRfcnBmaWx0ZXIgaXA2dF9SRUpFQ1QgeHRfY29ubnRyYWNrIGVidGFibGVfbmF0
-IGVidGFibGVfYnJvdXRlIGJyaWRnZSBzdHAgbGxjIGVidGFibGVfZmlsdGVyIGVidGFibGVzIGlw
-NnRhYmxlX25hdCBuZl9jb25udHJhY2tfaXB2NiBuZl9kZWZyYWdfaXB2NiBuZl9uYXRfaXB2NiBp
-cDZ0YWJsZV9tYW5nbGUgaXA2dGFibGVfc2VjdXJpdHkgaXA2dGFibGVfcmF3IGlwNnRhYmxlX2Zp
-bHRlciBpcDZfdGFibGVzIGlwdGFibGVfbmF0IG5mX2Nvbm50cmFja19pcHY0IG5mX2RlZnJhZ19p
-cHY0IG5mX25hdF9pcHY0IG5mX25hdCBuZl9jb25udHJhY2sgaXB0YWJsZV9tYW5nbGUgaXB0YWJs
-ZV9zZWN1cml0eSBpcHRhYmxlX3JhdyBibmVwIG1tY19ibG9jayBhcmM0IHZmYXQgZmF0IHBuNTQ0
-X21laSBtZWlfcGh5IHBuNTQ0IGhjaSBzbmRfaGRhX2NvZGVjX3JlYWx0ZWsgbmZjIHJ0c3hfcGNp
-X3NkbW1jIHNuZF9oZGFfY29kZWNfZ2VuZXJpYyBzbmRfaGRhX2NvZGVjX2hkbWkgbW1jX2NvcmUg
-aVRDT193ZHQgaVRDT192ZW5kb3Jfc3VwcG9ydCBzbmRfaGRhX2ludGVsIGl3bG12bSBzbmRfaGRh
-X2NvbnRyb2xsZXIgdXZjdmlkZW8gc25kX2hkYV9jb2RlYyBtYWM4MDIxMSB4ODZfcGtnX3RlbXBf
-dGhlcm1hbCBzbmRfaHdkZXAgY29yZXRlbXAgdmlkZW9idWYyX3ZtYWxsb2Mgc25kX3NlcSB2aWRl
-b2J1ZjJfbWVtb3BzIHZpZGVvYnVmMl9jb3JlIHNuZF9zZXFfZGV2aWNlIHY0bDJfY29tbW9uIHZp
-ZGVvZGV2IHNuZF9wY20gbWljcm9jb2RlCiAgIGl3bHdpZmkgam95ZGV2IG1lZGlhIGhpZF9tdWx0
-aXRvdWNoIHJ0c3hfcGNpIGNmZzgwMjExIGJ0dXNiIGxwY19pY2ggc2VyaW9fcmF3IGJsdWV0b290
-aCBzbmRfdGltZXIgc25kIHNocGNocCBtZWlfbWUgc291bmRjb3JlIGkyY19pODAxIG1mZF9jb3Jl
-IHNvbnlfbGFwdG9wIG1laSByZmtpbGwgZG1fY3J5cHQgY3JjdDEwZGlmX3BjbG11bCBjcmMzMl9w
-Y2xtdWwgaTkxNSBjcmMzMmNfaW50ZWwgZ2hhc2hfY2xtdWxuaV9pbnRlbCBpMmNfYWxnb19iaXQg
-ZHJtX2ttc19oZWxwZXIgZHJtIHZpZGVvCiAgQ1BVOiAyIFBJRDogMTI5MzYgQ29tbToga3dvcmtl
-ci91ODowIFRhaW50ZWQ6IEcgICAgICAgIFcgICAgICAzLjE2LjAtMTEzODMtZ2M5ZDI2NDIzZTU2
-YyAjNQogIEhhcmR3YXJlIG5hbWU6IFNvbnkgQ29ycG9yYXRpb24gU1ZQMTEyMTNDWEIvVkFJTywg
-QklPUyBSMDI3MFY3IDA1LzE3LzIwMTMKICBXb3JrcXVldWU6IHBoeTAgaWVlZTgwMjExX2Noc3dp
-dGNoX3dvcmsgW21hYzgwMjExXQogIHRhc2s6IGZmZmY4ODAwYmE1MWQwNzAgdGk6IGZmZmY4ODAw
-MGJjNTgwMDAgdGFzay50aTogZmZmZjg4MDAwYmM1ODAwMAogIFJJUDogMDAxMDpbPGZmZmZmZmZm
-YzAzZmU5N2M+XSAgWzxmZmZmZmZmZmMwM2ZlOTdjPl0gaWVlZTgwMjExX3ZpZl91c2VfcmVzZXJ2
-ZWRfc3dpdGNoKzB4NzFjLzB4YjAwIFttYWM4MDIxMV0KICBSU1A6IDAwMTg6ZmZmZjg4MDAwYmM1
-YmQ4MCAgRUZMQUdTOiAwMDAxMDI0NgogIFJBWDogZmZmZjg4MDBkMjE3NmUwOCBSQlg6IGZmZmY4
-ODAwOThlMGM5YzAgUkNYOiAwMDAwMDAwMDAwMDAwMDIwCiAgUkRYOiBmZmZmODgwMDFlZTI4N2Ew
-IFJTSTogMDAwMDAwMDAwMDAwMDAwMCBSREk6IGZmZmY4ODAwZDIxNzY4ODAKICBSQlA6IGZmZmY4
-ODAwOThlMGM5ZjAgUjA4OiBmZmZmODgwMDBiYzU4MDAwIFIwOTogMDAwMDAwMDAwMDAwMDAwMAog
-IFIxMDogMDAwMDAwMDAwMDAwMDAwNCBSMTE6IDAwMDAwMDAwMDAwMDAwMDUgUjEyOiAwMDAwMDAw
-MDAwMDAwMDAwCiAgUjEzOiBmZmZmODgwMDk4ZTBjNDU4IFIxNDogZmZmZjg4MDBkMzY4MTc1OCBS
-MTU6IGZmZmY4ODAwZDM2ODA2NjAKICBGUzogIDAwMDAwMDAwMDAwMDAwMDAoMDAwMCkgR1M6ZmZm
-Zjg4MDExZmIwMDAwMCgwMDAwKSBrbmxHUzowMDAwMDAwMDAwMDAwMDAwCiAgQ1M6ICAwMDEwIERT
-OiAwMDAwIEVTOiAwMDAwIENSMDogMDAwMDAwMDA4MDA1MDAzMwogIENSMjogMDAwMDAwMDAwMDAw
-MDAyMCBDUjM6IDAwMDAwMDAwMDFhMTEwMDAgQ1I0OiAwMDAwMDAwMDAwMTQwN2UwCiAgQ2FsbCBU
-cmFjZToKICAgIGllZWU4MDIxMV92aWZfdXNlX3Jlc2VydmVkX2NvbnRleHQrMHg4OC8weDExMCBb
-bWFjODAyMTFdCiAgICBpZWVlODAyMTFfY2hzd2l0Y2hfd29yaysweGI4LzB4MTgwIFttYWM4MDIx
-MV0KICAgIHByb2Nlc3Nfb25lX3dvcmsrMHgxNjAvMHgzNzAKICAgIHdvcmtlcl90aHJlYWQrMHgx
-MTQvMHg0NzAKICAgIHJlc2N1ZXJfdGhyZWFkKzB4MmEwLzB4MmEwCiAgICBrdGhyZWFkKzB4Yjgv
-MHhkMAogICAga3RocmVhZF9jcmVhdGVfb25fbm9kZSsweDE3MC8weDE3MAogICAgcmV0X2Zyb21f
-Zm9yaysweDdjLzB4YjAKICAgIGt0aHJlYWRfY3JlYXRlX29uX25vZGUrMHgxNzAvMHgxNzAKICBD
-b2RlOiA0OCBiOCAwMCAwMiAyMCAwMCAwMCAwMCBhZCBkZSA0OCA4YiA5NyA5MCAwNSAwMCAwMCA0
-OCA4OSA4NyBhMCAwNSAwMCAwMCA0OCA4ZCA4NyA4OCAwNSAwMCAwMCA0OCA4OSA1MSAwOCA0OCA4
-OSAwYSA0OCA4YiA0YyAyNCAwOCA8NDg+IDhiIDU2IDIwIDQ4IDg5IDQyIDA4IDQ4IDg5IDk3IDg4
-IDA1IDAwIDAwIDQ4IDg5IDhmIDkwIDA1IDAwIAogIFJJUCAgWzxmZmZmZmZmZmMwM2ZlOTdjPl0g
-aWVlZTgwMjExX3ZpZl91c2VfcmVzZXJ2ZWRfc3dpdGNoKzB4NzFjLzB4YjAwIFttYWM4MDIxMV0K
-ICAgUlNQIDxmZmZmODgwMDBiYzViZDgwPgogIENSMjogMDAwMDAwMDAwMDAwMDAyMAogIC0tLVsg
-ZW5kIHRyYWNlIDExODQ5ZmFjMTRhOWMxMjkgXS0tLQoKICBCVUc6IHVuYWJsZSB0byBoYW5kbGUg
-a2VybmVsIHBhZ2luZyByZXF1ZXN0IGF0IGZmZmZmZmZmZmZmZmZmZDgKICBJUDogWzxmZmZmZmZm
-ZjgxMDdlYmY3Pl0ga3RocmVhZF9kYXRhKzB4Ny8weDEwCiAgUEdEIDFhMTIwNjcgUFVEIDFhMTQw
-NjcgUE1EIDAgCiAgT29wczogMDAwMCBbIzJdIFNNUCAKICBNb2R1bGVzIGxpbmtlZCBpbjogZnRk
-aV9zaW8gcmZjb21tIGZ1c2UgaXA2dF9ycGZpbHRlciBpcDZ0X1JFSkVDVCB4dF9jb25udHJhY2sg
-ZWJ0YWJsZV9uYXQgZWJ0YWJsZV9icm91dGUgYnJpZGdlIHN0cCBsbGMgZWJ0YWJsZV9maWx0ZXIg
-ZWJ0YWJsZXMgaXA2dGFibGVfbmF0IG5mX2Nvbm50cmFja19pcHY2IG5mX2RlZnJhZ19pcHY2IG5m
-X25hdF9pcHY2IGlwNnRhYmxlX21hbmdsZSBpcDZ0YWJsZV9zZWN1cml0eSBpcDZ0YWJsZV9yYXcg
-aXA2dGFibGVfZmlsdGVyIGlwNl90YWJsZXMgaXB0YWJsZV9uYXQgbmZfY29ubnRyYWNrX2lwdjQg
-bmZfZGVmcmFnX2lwdjQgbmZfbmF0X2lwdjQgbmZfbmF0IG5mX2Nvbm50cmFjayBpcHRhYmxlX21h
-bmdsZSBpcHRhYmxlX3NlY3VyaXR5IGlwdGFibGVfcmF3IGJuZXAgbW1jX2Jsb2NrIGFyYzQgdmZh
-dCBmYXQgcG41NDRfbWVpIG1laV9waHkgcG41NDQgaGNpIHNuZF9oZGFfY29kZWNfcmVhbHRlayBu
-ZmMgcnRzeF9wY2lfc2RtbWMgc25kX2hkYV9jb2RlY19nZW5lcmljIHNuZF9oZGFfY29kZWNfaGRt
-aSBtbWNfY29yZSBpVENPX3dkdCBpVENPX3ZlbmRvcl9zdXBwb3J0IHNuZF9oZGFfaW50ZWwgaXds
-bXZtIHNuZF9oZGFfY29udHJvbGxlciB1dmN2aWRlbyBzbmRfaGRhX2NvZGVjIG1hYzgwMjExIHg4
-Nl9wa2dfdGVtcF90aGVybWFsIHNuZF9od2RlcCBjb3JldGVtcCB2aWRlb2J1ZjJfdm1hbGxvYyBz
-bmRfc2VxIHZpZGVvYnVmMl9tZW1vcHMgdmlkZW9idWYyX2NvcmUgc25kX3NlcV9kZXZpY2UgdjRs
-Ml9jb21tb24gdmlkZW9kZXYgc25kX3BjbSBtaWNyb2NvZGUKICAgaXdsd2lmaSBqb3lkZXYgbWVk
-aWEgaGlkX211bHRpdG91Y2ggcnRzeF9wY2kgY2ZnODAyMTEgYnR1c2IgbHBjX2ljaCBzZXJpb19y
-YXcgYmx1ZXRvb3RoIHNuZF90aW1lciBzbmQgc2hwY2hwIG1laV9tZSBzb3VuZGNvcmUgaTJjX2k4
-MDEgbWZkX2NvcmUgc29ueV9sYXB0b3AgbWVpIHJma2lsbCBkbV9jcnlwdCBjcmN0MTBkaWZfcGNs
-bXVsIGNyYzMyX3BjbG11bCBpOTE1IGNyYzMyY19pbnRlbCBnaGFzaF9jbG11bG5pX2ludGVsIGky
-Y19hbGdvX2JpdCBkcm1fa21zX2hlbHBlciBkcm0gdmlkZW8KICBDUFU6IDIgUElEOiAxMjkzNiBD
-b21tOiBrd29ya2VyL3U4OjAgVGFpbnRlZDogRyAgICAgIEQgVyAgICAgIDMuMTYuMC0xMTM4My1n
-YzlkMjY0MjNlNTZjICM1CiAgSGFyZHdhcmUgbmFtZTogU29ueSBDb3Jwb3JhdGlvbiBTVlAxMTIx
-M0NYQi9WQUlPLCBCSU9TIFIwMjcwVjcgMDUvMTcvMjAxMwogIHRhc2s6IGZmZmY4ODAwYmE1MWQw
-NzAgdGk6IGZmZmY4ODAwMGJjNTgwMDAgdGFzay50aTogZmZmZjg4MDAwYmM1ODAwMAogIFJJUDog
-MDAxMDpbPGZmZmZmZmZmODEwN2ViZjc+XSAgWzxmZmZmZmZmZjgxMDdlYmY3Pl0ga3RocmVhZF9k
-YXRhKzB4Ny8weDEwCiAgUlNQOiAwMDE4OmZmZmY4ODAwMGJjNWJhOTggIEVGTEFHUzogMDAwMTAw
-MDIKICBSQVg6IDAwMDAwMDAwMDAwMDAwMDAgUkJYOiAwMDAwMDAwMDAwMDAwMDAyIFJDWDogMDAw
-MDAwMDAwMDAwMDAwNgogIFJEWDogMDAwMDAwMDAwMDAwMDAwMSBSU0k6IDAwMDAwMDAwMDAwMDAw
-MDIgUkRJOiBmZmZmODgwMGJhNTFkMDcwCiAgUkJQOiBmZmZmODgwMGJhNTFkMDcwIFIwODogZmZm
-Zjg4MDExZmIwMDAwMCBSMDk6IDAwMDAwMDAxODAyYTAwMTMKICBSMTA6IGZmZmZmZmZmODEwNjg1
-ZTUgUjExOiBmZmZmZWEwMDAyNjE5MzAwIFIxMjogZmZmZjg4MDBiYTUxZDRhMAogIFIxMzogMDAw
-MDAwMDAwMDAwMDAwMiBSMTQ6IDAwMDAwMDAwMDAwMDAwMDAgUjE1OiBmZmZmODgwMGJhNTFkMDcw
-CiAgRlM6ICAwMDAwMDAwMDAwMDAwMDAwKDAwMDApIEdTOmZmZmY4ODAxMWZiMDAwMDAoMDAwMCkg
-a25sR1M6MDAwMDAwMDAwMDAwMDAwMAogIENTOiAgMDAxMCBEUzogMDAwMCBFUzogMDAwMCBDUjA6
-IDAwMDAwMDAwODAwNTAwMzMKICBDUjI6IDAwMDAwMDAwMDAwMDAwMjggQ1IzOiAwMDAwMDAwMDAx
-YTExMDAwIENSNDogMDAwMDAwMDAwMDE0MDdlMAogIENhbGwgVHJhY2U6CiAgICB3cV93b3JrZXJf
-c2xlZXBpbmcrMHg4LzB4OTAKICAgIF9fc2NoZWR1bGUrMHgzZDMvMHg2YjAKICAgIGRvX2V4aXQr
-MHg2YzIvMHhhMjAKICAgIG9vcHNfZW5kKzB4NjMvMHg5MAogICAgbm9fY29udGV4dCsweDJkMS8w
-eDMyZQogICAgX19kb19wYWdlX2ZhdWx0KzB4NzIvMHg0NDAKICAgIHByZXBhcmVfdG9fd2FpdF9l
-dmVudCsweGYwLzB4ZjAKICAgIGl3bF9tdm1fc2VuZF9jbWQrMHgzOC8weGIwIFtpd2xtdm1dCiAg
-ICBpd2xfbXZtX3NlbmRfY21kX3BkdSsweDNjLzB4NTAgW2l3bG12bV0KICAgIHBhZ2VfZmF1bHQr
-MHgyMi8weDMwCiAgICBpZWVlODAyMTFfdmlmX3VzZV9yZXNlcnZlZF9zd2l0Y2grMHg3MWMvMHhi
-MDAgW21hYzgwMjExXQogICAgaWVlZTgwMjExX3ZpZl91c2VfcmVzZXJ2ZWRfY29udGV4dCsweDg4
-LzB4MTEwIFttYWM4MDIxMV0KICAgIGllZWU4MDIxMV9jaHN3aXRjaF93b3JrKzB4YjgvMHgxODAg
-W21hYzgwMjExXQogICAgcHJvY2Vzc19vbmVfd29yaysweDE2MC8weDM3MAogICAgd29ya2VyX3Ro
-cmVhZCsweDExNC8weDQ3MAogICAgcmVzY3Vlcl90aHJlYWQrMHgyYTAvMHgyYTAKICAgIGt0aHJl
-YWQrMHhiOC8weGQwCiAgICBrdGhyZWFkX2NyZWF0ZV9vbl9ub2RlKzB4MTcwLzB4MTcwCiAgICBy
-ZXRfZnJvbV9mb3JrKzB4N2MvMHhiMAogICAga3RocmVhZF9jcmVhdGVfb25fbm9kZSsweDE3MC8w
-eDE3MAogIENvZGU6IDAwIDAwIDAwIDAwIDY1IDQ4IDhiIDA0IDI1IGMwIGI4IDAwIDAwIDQ4IDhi
-IDgwIGQ4IDAzIDAwIDAwIDQ4IDhiIDQwIGM4IDQ4IGMxIGU4IDAyIDgzIGUwIDAxIGMzIDBmIDFm
-IDQwIDAwIDQ4IDhiIDg3IGQ4IDAzIDAwIDAwIDw0OD4gOGIgNDAgZDggYzMgMGYgMWYgNDAgMDAg
-NDggODMgZWMgMDggYmEgMDggMDAgMDAgMDAgNDggOGIgYjcgCiAgUklQICBbPGZmZmZmZmZmODEw
-N2ViZjc+XSBrdGhyZWFkX2RhdGErMHg3LzB4MTAKICAgUlNQIDxmZmZmODgwMDBiYzViYTk4Pgog
-IENSMjogZmZmZmZmZmZmZmZmZmZkOAogIC0tLVsgZW5kIHRyYWNlIDExODQ5ZmFjMTRhOWMxMmEg
-XS0tLQo=
---089e013cba22088d2b0500df6d2a--
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+                Linus
