@@ -1,51 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2] drivers: net: ethernet: intel: e1000:
- e1000_ethertoo.c coding style fixes
-Date: Tue, 19 Aug 2014 11:01:48 -0700
-Message-ID: <1408471308.23250.10.camel@joe-AO725>
-References: <1408393263-18027-1-git-send-email-cristos@vipserv.org>
-	 <CAL3LdT7+5FFbP5Rf1MoY2GJ9cQ0LJnecQb66ZA2ofwD28vy1jw@mail.gmail.com>
-	 <53F38A84.3070702@vipserv.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 2/2] net: moxa: replace build_skb() with
+ netdev_alloc_skb_ip_align() / memcpy()
+Date: Tue, 19 Aug 2014 11:31:59 -0700
+Message-ID: <1408473119.5604.4.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1408459784-9385-1-git-send-email-jonas.jensen@gmail.com>
+	 <1408459784-9385-2-git-send-email-jonas.jensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53F38A84.3070702@vipserv.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	f.fainelli@gmail.com, bhutchings@solarflare.com
+To: Jonas Jensen <jonas.jensen@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:39742 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751576AbaHSScF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2014 14:32:05 -0400
+In-Reply-To: <1408459784-9385-2-git-send-email-jonas.jensen@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-08-19 at 19:33 +0200, Krzysztof Majzerowicz-Jaszcz wrote:
-> On 19/08/14 18:04, Jeff Kirsher wrote:
-> > On Mon, Aug 18, 2014 at 3:21 PM, Krzysztof Majzerowicz-Jaszcz
-> > <cristos@vipserv.org> wrote:
-> >> Fixed many errors/warnings and checks in e1000_ethtool.c reported by checkpatch.pl
-> >> Suggestions from Joe Perches and Alexander Duyck applied as well
-> >>
-> >> Signed-off-by: Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
-> >> ---
-> >>  drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 155 ++++++++++++-----------
-> >>  1 file changed, 79 insertions(+), 76 deletions(-)
-> >>
-> > 
-> > Thanks Krzysztof, I will add your patch to my queue and I can fix up
-> > the patch title for you. :-)
-> >
+On Tue, 2014-08-19 at 16:49 +0200, Jonas Jensen wrote:
+> build_skb() is used to make skbs out of existing RX ring memory
+> which is bad because the RX ring is allocated only once, on probe.
+> Memory corruption occur because said memory is reclaimed, i.e.
+> __kfree_skb() (and eventually put_page()).
 > 
-> Thank you :). Sorry for that patch title - I guess that 'first pancake is always spoiled'.
-> Nonetheless, that makes my first successful contribution to the kernel <yay> ;)
+> Replace build_skb() with netdev_alloc_skb_ip_align() and use memcpy().
+> Also, synchronize DMA memory before passing skb to napi_gro_receive().
+> 
+> Addresses https://bugzilla.kernel.org/show_bug.cgi?id=69041
 
-Yay for Krzysztof.
+Wow, this driver was really buggy.
 
-Now you could fix the same "*(foo + bar) == 0xXX" uses
-in drivers/net/ethernet/intel/e1000e/ethtool.c
+Patch is not complete.
 
-drivers/net/ethernet/intel/e1000e/ethtool.c:	if (*(skb->data + 3) == 0xFF)
-drivers/net/ethernet/intel/e1000e/ethtool.c:		if ((*(skb->data + frame_size / 2 + 10) == 0xBE) &&
-drivers/net/ethernet/intel/e1000e/ethtool.c:		    (*(skb->data + frame_size / 2 + 12) == 0xAF))
+Instead of :
 
-as well if you wanted to follow up on your first success.
+priv->rx_buf_size = RX_BUF_SIZE + 
+		SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+
+I think rx_buf_size can now be RX_BUF_SIZE
+
+Another point is that priv->stats seems not needed, as ndev->stats could
+be used instead (and remove moxart_mac_get_stats())
