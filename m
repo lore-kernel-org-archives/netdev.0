@@ -1,61 +1,58 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: [PATCH] TCP: add option for silent port knocking with integrity
- protection
-Date: Tue, 19 Aug 2014 21:36:25 +0200
-Message-ID: <53F3A739.4070203@ahsoftware.de>
-References: <52A75EF8.3010308@in.tum.de>	 <20131211.150137.368953964178408437.davem@davemloft.net>	 <52A8C8B4.4060109@in.tum.de>	 <20131211122637.75b09074@nehalam.linuxnetplumber.net>	 <87bo0nulkt.fsf@tassilo.jf.intel.com> <52A8ECF5.3070604@in.tum.de>	 <20131212012317.GL21717@two.firstfloor.org>	 <52A98DBF.4090702@appelbaum.net> <52A9A17F.6050505@in.tum.de> <1386858864.19078.60.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [PATCH stable 3.4 v2 1/2] ipv4: move route garbage collector
+ to work queue
+Date: Tue, 19 Aug 2014 17:31:50 -0300
+Message-ID: <53F3B436.8050407@redhat.com>
+References: <547688b69ee9a258cc04e4dad17a90ca6ab182d0.1408045325.git.mleitner@redhat.com>
+Reply-To: mleitner@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jacob Appelbaum <jacob@appelbaum.net>,
-	Andi Kleen <andi@firstfloor.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, knock@gnunet.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Christian Grothoff <grothoff@in.tum.de>
+Cc: hannes@redhat.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h1446028.stratoserver.net ([85.214.92.142]:37975 "EHLO
-	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751918AbaHSTgp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2014 15:36:45 -0400
-In-Reply-To: <1386858864.19078.60.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:23839 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750808AbaHSUb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Aug 2014 16:31:57 -0400
+In-Reply-To: <547688b69ee9a258cc04e4dad17a90ca6ab182d0.1408045325.git.mleitner@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 12.12.2013 15:34, schrieb Eric Dumazet:
+Em 14-08-2014 16:44, Marcelo Ricardo Leitner escreveu:
+> Currently the route garbage collector gets called by dst_alloc() if it
+> have more entries than the threshold. But it's an expensive call, that
+> don't really need to be done by then.
+>
+> Another issue with current way is that it allows running the garbage
+> collector with the same start parameters on multiple CPUs at once, which
+> is not optimal. A system may even soft lockup if the cache is big enough
+> as the garbage collectors will be fighting over the hash lock entries.
+>
+> This patch thus moves the garbage collector to run asynchronously on a
+> work queue, much similar to how rt_expire_check runs.
+>
+> There is one condition left that allows multiple executions, which is
+> handled by the next patch.
+>
+> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>
+> Notes:
+>      Hi,
+>
+>      This set is needed for stables <= 3.4, as the IPv4 route cache was
+>      removed after that.
+>
+>      v1->v2: addressed indentation issue noticed by David Miller
+>
+>      Thanks!
+>
 
-A bit late, but I've just stumbled over that feature which I do like a lot.
+Hi Dave,
 
-> Very soon you'll need to support different secrets. You do not want all
-> clients share a common secret, do you ? How can a server change its
-> secret without disrupting clients ?
+Sorry to bother you but WDYT, is this patchset more appropriate?
 
-Impossible because you already need a channel if you want to identify 
-the client. But that isn't the intention of the patch. You still have 
-the usual authentication stuff in the service you want to hide. It's 
-about hiding (from someone outside a closed group) the possibility to 
-authenticate.
-
-> How having a constant initial sequence number can even be valid ?
-> What about TCP timestamps being not available at all ?
-> How typical servers can be behind a load balancer ?
-> Or am I missing something ?
-
-It doesn't have to work in every environment and it doesn't have to 
-solve all existing problems in the world. ;)
-
-But it enables people to protect a bit more against malicious people or 
-governments.
-
-And it is really very easy to use. It took me around half an hour to 
-find the places in openvpn and openssh where I had to add the 
-setsockopt() call and it can be used even easier with preloading 
-libknockify.so.
-
-There can be found much more useless options in the kernel. At least I 
-like it and it fits my needs too.
-
-Regards,
-
-Alexander Holler
+Thanks,
+Marcelo
