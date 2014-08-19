@@ -1,22 +1,50 @@
-From: MADAM SAFIA HASSAN <lequintero@mij.gov.ve>
-Subject: For Partnership
-Date: Mon, 18 Aug 2014 19:38:19 -0430 (VET)
-Message-ID: <6482635.3621408406899104.JavaMail.root__24559.6461616971$1408457960$gmane$org@mail.mij.gov.ve>
-Reply-To: MADAM SAFIA HASSAN <hsafia11@outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mij.gov.ve ([200.11.241.122]:40264 "EHLO mail.mij.gov.ve"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751837AbaHSOS0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Aug 2014 10:18:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jonas Jensen <jonas.jensen@gmail.com>
+Subject: [PATCH v4 1/2] net: moxa: clear TX descriptor length bits
+Date: Tue, 19 Aug 2014 16:49:43 +0200
+Message-ID: <1408459784-9385-1-git-send-email-jonas.jensen@gmail.com>
+Cc: davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, f.fainelli@gmail.com,
+	bhutchings@solarflare.com, Jonas Jensen <jonas.jensen@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+TX buffer length is not cleared on ndo_start_xmit().
+Failing to do so can bug/hang the controller and
+cause TX interrupts to stop altogether.
 
+Add TX_DESC1_BUF_SIZE_MASK to bits that are cleared,
+before the TX buffer length is set.
 
-I am from syria mother of two kids I have a proposal to present to you for the benefit of both of us kindly reply me back for details. kindly 
-reply for more details
-hsafia11@outlook.com
+Addresses https://bugzilla.kernel.org/show_bug.cgi?id=69031
+
+Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
+---
+
+Notes:
+    Changes since v3:
+    
+    1. commit message reworded
+    
+    Applies to next-20140818
+
+ drivers/net/ethernet/moxa/moxart_ether.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
+index 5020fd4..aa45607 100644
+--- a/drivers/net/ethernet/moxa/moxart_ether.c
++++ b/drivers/net/ethernet/moxa/moxart_ether.c
+@@ -348,7 +348,8 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 
+ 	txdes1 = readl(desc + TX_REG_OFFSET_DESC1);
+ 	txdes1 |= TX_DESC1_LTS | TX_DESC1_FTS;
+-	txdes1 &= ~(TX_DESC1_FIFO_COMPLETE | TX_DESC1_INTR_COMPLETE);
++	txdes1 &= ~(TX_DESC1_FIFO_COMPLETE | TX_DESC1_INTR_COMPLETE |
++		    TX_DESC1_BUF_SIZE_MASK);
+ 	txdes1 |= (len & TX_DESC1_BUF_SIZE_MASK);
+ 	writel(txdes1, desc + TX_REG_OFFSET_DESC1);
+ 	writel(TX_DESC0_DMA_OWN, desc + TX_REG_OFFSET_DESC0);
+-- 
+1.8.2.1
