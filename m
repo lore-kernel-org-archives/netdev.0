@@ -1,92 +1,71 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [patch net-next] bonding: create netlink event when bonding
- option is changed
-Date: Tue, 19 Aug 2014 16:46:34 -0400
-Message-ID: <20140819204634.GB1954@gospo.home.greyhouse.net>
-References: <1408456932-10318-1-git-send-email-jiri@resnulli.us>
- <20140819203401.GA1954@gospo.home.greyhouse.net>
- <20140819203748.GA4326@nanopsycho.orion>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] hyperv: Add handling of IP header with option field
+ in netvsc_set_hash()
+Date: Tue, 19 Aug 2014 20:53:55 +0000
+Message-ID: <1408481635-29639-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, j.vosburgh@gmail.com,
-	vfalico@gmail.com, andy@greyhouse.net, nikolay@redhat.com,
-	dingtianhong@huawei.com, sfeldma@cumulusnetworks.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:35192 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751056AbaHSUqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2014 16:46:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20140819203748.GA4326@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 19, 2014 at 10:37:48PM +0200, Jiri Pirko wrote:
-> Tue, Aug 19, 2014 at 10:34:01PM CEST, gospo@cumulusnetworks.com wrote:
-> >On Tue, Aug 19, 2014 at 04:02:12PM +0200, Jiri Pirko wrote:
-> >> Userspace needs to be notified if one changes some option.
-> >> 
-> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> >> ---
-> >>  drivers/net/bonding/bond_options.c | 2 ++
-> >>  include/linux/netdevice.h          | 1 +
-> >>  2 files changed, 3 insertions(+)
-> >> 
-> >> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-> >> index dc73463..d8dc17f 100644
-> >> --- a/drivers/net/bonding/bond_options.c
-> >> +++ b/drivers/net/bonding/bond_options.c
-> >> @@ -625,6 +625,8 @@ int __bond_opt_set(struct bonding *bond,
-> >>  out:
-> >>  	if (ret)
-> >>  		bond_opt_error_interpret(bond, opt, ret, val);
-> >> +	else
-> >> +		call_netdevice_notifiers(NETDEV_CHANGEINFODATA, bond->dev);
-> >Is this valuable where the configuration change to the bonding driver
-> >came from netlink.  Do you have a good example why this useful in the
-> >netlink path as well as when using sysfs?  It would seem more logical to
-> >add call_netdevice_notifiers to bonding_sysfs_store_option so anything
-> >listening to netlink messages or the netlink cache can know to check for
-> >changes.
-> 
-> But this is called for sysfs as well.
-Sorry for the confusion.  I was suggesting that this call is *only* used
-for sysfs changes not for changes from sysfs and netlink as it would
-with your patch.
+In case that the IP header has optional field at the end, this patch will 
+get the port numbers after that field, and compute the hash.
 
-> Example of use is that application can monitor rtnetlink to see if for
-> example active slave changed, or whatever other option changed.
-Any application monitoring netlink messages will already know about the
-configuration change if it came down via netlink.  There would not be a
-need for an extra message.
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-My question was:  Is there a need for 2 netlink messages to indicate
-that a bonding configuration change was needed when the config came over
-netlink.  I did not see the need for 2 netlink messages in this case and
-was asking for clarification from you.
+---
+ drivers/net/hyperv/netvsc_drv.c |   16 ++++++++++++----
+ 1 files changed, 12 insertions(+), 4 deletions(-)
 
-> 
-> >
-> >>  
-> >>  	return ret;
-> >>  }
-> >> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> >> index 967ddcc..44bc4bd 100644
-> >> --- a/include/linux/netdevice.h
-> >> +++ b/include/linux/netdevice.h
-> >> @@ -2017,6 +2017,7 @@ struct pcpu_sw_netstats {
-> >>  #define NETDEV_CHANGEUPPER	0x0015
-> >>  #define NETDEV_RESEND_IGMP	0x0016
-> >>  #define NETDEV_PRECHANGEMTU	0x0017 /* notify before mtu change happened */
-> >> +#define NETDEV_CHANGEINFODATA	0x0018
-> >>  
-> >>  int register_netdevice_notifier(struct notifier_block *nb);
-> >>  int unregister_netdevice_notifier(struct notifier_block *nb);
-> >> -- 
-> >> 1.9.3
-> >> 
-> >> --
-> >> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >> the body of a message to majordomo@vger.kernel.org
-> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index a9c5eaa..b12dcd9 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -191,6 +191,8 @@ static u32 comp_hash(u8 *key, int klen, u8 *data, int dlen)
+ static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
+ {
+ 	struct iphdr *iphdr;
++	u8 dbuf[12];
++	u8 *data;
+ 	int data_len;
+ 	bool ret = false;
+ 
+@@ -200,12 +202,18 @@ static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
+ 	iphdr = ip_hdr(skb);
+ 
+ 	if (iphdr->version == 4) {
+-		if (iphdr->protocol == IPPROTO_TCP)
++		data = (u8 *)&iphdr->saddr;
++		if (iphdr->protocol == IPPROTO_TCP) {
+ 			data_len = 12;
+-		else
++			if (iphdr->ihl > 5) {
++				memcpy(dbuf, &iphdr->saddr, 8);
++				memcpy(&dbuf[8], &tcp_hdr(skb)->source, 4);
++				data = dbuf;
++			}
++		} else {
+ 			data_len = 8;
+-		*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN,
+-				  (u8 *)&iphdr->saddr, data_len);
++		}
++		*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, data, data_len);
+ 		ret = true;
+ 	}
+ 
+-- 
+1.7.1
