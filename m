@@ -1,58 +1,70 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH stable 3.4 v2 1/2] ipv4: move route garbage collector
- to work queue
-Date: Tue, 19 Aug 2014 17:31:50 -0300
-Message-ID: <53F3B436.8050407@redhat.com>
-References: <547688b69ee9a258cc04e4dad17a90ca6ab182d0.1408045325.git.mleitner@redhat.com>
-Reply-To: mleitner@redhat.com
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [patch net-next] bonding: create netlink event when bonding
+ option is changed
+Date: Tue, 19 Aug 2014 16:34:01 -0400
+Message-ID: <20140819203401.GA1954@gospo.home.greyhouse.net>
+References: <1408456932-10318-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hannes@redhat.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, j.vosburgh@gmail.com,
+	vfalico@gmail.com, andy@greyhouse.net, nikolay@redhat.com,
+	dingtianhong@huawei.com, sfeldma@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23839 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750808AbaHSUb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Aug 2014 16:31:57 -0400
-In-Reply-To: <547688b69ee9a258cc04e4dad17a90ca6ab182d0.1408045325.git.mleitner@redhat.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:33728 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750897AbaHSUeF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2014 16:34:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1408456932-10318-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em 14-08-2014 16:44, Marcelo Ricardo Leitner escreveu:
-> Currently the route garbage collector gets called by dst_alloc() if it
-> have more entries than the threshold. But it's an expensive call, that
-> don't really need to be done by then.
->
-> Another issue with current way is that it allows running the garbage
-> collector with the same start parameters on multiple CPUs at once, which
-> is not optimal. A system may even soft lockup if the cache is big enough
-> as the garbage collectors will be fighting over the hash lock entries.
->
-> This patch thus moves the garbage collector to run asynchronously on a
-> work queue, much similar to how rt_expire_check runs.
->
-> There is one condition left that allows multiple executions, which is
-> handled by the next patch.
->
-> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+On Tue, Aug 19, 2014 at 04:02:12PM +0200, Jiri Pirko wrote:
+> Userspace needs to be notified if one changes some option.
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 > ---
->
-> Notes:
->      Hi,
->
->      This set is needed for stables <= 3.4, as the IPv4 route cache was
->      removed after that.
->
->      v1->v2: addressed indentation issue noticed by David Miller
->
->      Thanks!
->
+>  drivers/net/bonding/bond_options.c | 2 ++
+>  include/linux/netdevice.h          | 1 +
+>  2 files changed, 3 insertions(+)
+> 
+> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+> index dc73463..d8dc17f 100644
+> --- a/drivers/net/bonding/bond_options.c
+> +++ b/drivers/net/bonding/bond_options.c
+> @@ -625,6 +625,8 @@ int __bond_opt_set(struct bonding *bond,
+>  out:
+>  	if (ret)
+>  		bond_opt_error_interpret(bond, opt, ret, val);
+> +	else
+> +		call_netdevice_notifiers(NETDEV_CHANGEINFODATA, bond->dev);
+Is this valuable where the configuration change to the bonding driver
+came from netlink.  Do you have a good example why this useful in the
+netlink path as well as when using sysfs?  It would seem more logical to
+add call_netdevice_notifiers to bonding_sysfs_store_option so anything
+listening to netlink messages or the netlink cache can know to check for
+changes.
 
-Hi Dave,
-
-Sorry to bother you but WDYT, is this patchset more appropriate?
-
-Thanks,
-Marcelo
+>  
+>  	return ret;
+>  }
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 967ddcc..44bc4bd 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -2017,6 +2017,7 @@ struct pcpu_sw_netstats {
+>  #define NETDEV_CHANGEUPPER	0x0015
+>  #define NETDEV_RESEND_IGMP	0x0016
+>  #define NETDEV_PRECHANGEMTU	0x0017 /* notify before mtu change happened */
+> +#define NETDEV_CHANGEINFODATA	0x0018
+>  
+>  int register_netdevice_notifier(struct notifier_block *nb);
+>  int unregister_netdevice_notifier(struct notifier_block *nb);
+> -- 
+> 1.9.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
