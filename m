@@ -1,51 +1,164 @@
-From: Benjamin Poirier <bpoirier@suse.de>
-Subject: [PATCH 3/3] tg3: Fix tx_pending check for MAX_SKB_FRAGS
-Date: Tue, 19 Aug 2014 11:52:51 -0700
-Message-ID: <1408474371-19509-3-git-send-email-bpoirier@suse.de>
-References: <1408474371-19509-1-git-send-email-bpoirier@suse.de>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Prashant Sreedharan <prashant@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
+From: Csaba Kiraly <csaba.kiraly@gmail.com>
+Subject: Re: [PATCH] ath9k_htc: advertise support for TDLS
+Date: Tue, 19 Aug 2014 21:00:59 +0200
+Message-ID: <53F39EEB.9060107@gmail.com>
+References: <1408319614-16041-1-git-send-email-csaba.kiraly@gmail.com> <53F309F5.4020101@gmx.net> <53F30A8B.6000202@rempel-privat.de>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------040700010504050201050400"
+Cc: linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	netdev@vger.kernel.org
+To: Oleksij Rempel <linux@rempel-privat.de>, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:40414 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753614AbaHSSx2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2014 14:53:28 -0400
-In-Reply-To: <1408474371-19509-1-git-send-email-bpoirier@suse.de>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:59500 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752307AbaHSTBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2014 15:01:08 -0400
+In-Reply-To: <53F30A8B.6000202@rempel-privat.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The rest of the driver assumes at least one free descriptor in the tx ring.
-Therefore, since an skb with max frags takes up (MAX_SKB_FRAGS + 1)
-descriptors, tx_pending must be > (MAX_SKB_FRAGS + 1).
+This is a multi-part message in MIME format.
+--------------040700010504050201050400
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
----
+On 19/08/2014 10:27, Oleksij Rempel wrote:
+> Oppss... wrong email address.
+>
+> Am 19.08.2014 um 10:25 schrieb Oleksij Rempel:
+>> Am 18.08.2014 um 01:53 schrieb Csaba Kiraly:
+>>> Based on a quick test with AR9271, TDLS seems to be working fine.
+>>>
+>>> Tests were done with 2 Atheros AR9271 based devices with firmware
+>>> 1.3 (sha1 8d49f928aa40ac53c729189bff1333cd373a7fb5), associated
+>>> with a WAP54G access point.
+>>
+>> please, don't use firmware 1.3. Use git source, or you can get
+>> precompiled version here:
+>> https://github.com/olerem/ath9k-htc-firmware-blob
 
-Currently, it is possible to set tx_pending = MAX_SKB_FRAGS + 1. This leads to
-a netdev watchdog tx timeout. Depending on whether the previous patches in
-this series are applied or not, the timeout happens as soon as tx_pending is
-updated or after an skb with max frags is submitted for transmission.
+I have just tried it with the latest firmware from git 
+(dc465e811c0272df7ec93b67de393129ff614173). Works fine.
 
-I reproduced this bug using the same approach explained in patch 1.
-The bug reproduces with tx_pending = 18
+>>
+>>> TDLS worked fine both in WPA2 mode and
+>>> without encryption. Stations maintained ping flood traffic between
+>>> each other and towards the AP without significant losses.
+>>>
+>>> Not tested with AR7010.
+>>
+>> Seems ok for me. How can i reproduce testing environment?
 
----
- drivers/net/ethernet/broadcom/tg3.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Here it comes. I try to give a detailed description, although I suppose
+you don't need most of it :)
+I have used two laptops, two TP-Link TL-WN722N USB devices, and a
+Linksys WAP54g AP.
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 7022f6d..27e2701 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -12328,7 +12328,7 @@ static int tg3_set_ringparam(struct net_device *dev, struct ethtool_ringparam *e
- 	if ((ering->rx_pending > tp->rx_std_ring_mask) ||
- 	    (ering->rx_jumbo_pending > tp->rx_jmb_ring_mask) ||
- 	    (ering->tx_pending > TG3_TX_RING_SIZE - 1) ||
--	    (ering->tx_pending <= MAX_SKB_FRAGS))
-+	    (ering->tx_pending <= MAX_SKB_FRAGS + 1))
- 		return -EINVAL;
- 
- 	if (netif_running(dev)) {
--- 
-1.8.4.5
+# 0) stop conflicting services, clean up files
+service network-manager stop
+killall wpa_supplicant
+killall dhclient
+rm -rf /run/wpa_supplicant
+
+# 1) on both nodes, start wpa_supplicant and connect to the same AP.
+# Conf files attached
+hostap/wpa_supplicant/wpa_supplicant -D nl80211 -i wlan2 -c wpa_supplicant_wap54g_WPA2.conf
+
+# 2) on each node, configure IP addresses (or start dhclient)
+ifconfig wlan2 $IP1
+ifconfig wlan2 $IP2
+
+# 3) start pinging the other node
+ping $IP2
+
+# 4) start pinging the AP
+ping $IPAP
+
+# 5) get MAC of node2's Atheros card
+# get it on node2, or directly on node1 from the arp cache
+arp -n
+
+# 6) on node1, start wpa_cli
+hostap/wpa_supplicant/wpa_cli -i wlan2
+
+# 7) on node1, in wpa_cli, start the TDLS setup
+tdls_setup <MAC2>
+
+# 8) verify that TDLS works
+# - ping time will reduce (in my case it went from 1.6 ms to 1 ms)
+# - ping time to the AP should remain the same
+# - node2's MAC will appear in ath9k_htc debugfs
+ls /sys/kernel/debug/ieee80211/phy1/netdev:wlan2/stations
+# - look inside the debugfs folder for more details
+
+# 9) stress test
+ping -f $IP2
+
+# 10) disable encryption in the AP and repeat the same with the "open" config file
+
+# pitfalls and notes
+- APs could interfere in various ways with the test. Some models could
+set the TDLS prohibit flag. Others (like my Huawei E587) could
+work at the beginning but deauthenticate the nodes after 20-30 seconds.
+- I didn't check 802.11n
+- I have used the stock 3.16.0 kernel as the base, since 
+wireless-testing with tag master-2014-08-11 gave kernel panic
+during wlan scan, even without my patch (but this is for another mail)
+- use wpa_passphrase to generate the wpa_supplicant WPA2 config file
+
+Csaba
+
+>>
+>>> TDLS was enabled in earlier patches the same way for other
+>>> Atheros drivers:
+>>> ath9k (fd6562344dea2b8b2a5d644cf971f4e56004500a),
+>>> and carl9170 (d1f3de71a584a82ee4e84505fce9acccf40215ff).
+>>>
+>>> Signed-off-by: Csaba Kiraly <csaba.kiraly@gmail.com>
+>>> ---
+>>>   drivers/net/wireless/ath/ath9k/htc_drv_init.c | 2 ++
+>>>   1 file changed, 2 insertions(+)
+>>>
+>>> diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_init.c b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
+>>> index 8a3bd5f..d779f4f 100644
+>>> --- a/drivers/net/wireless/ath/ath9k/htc_drv_init.c
+>>> +++ b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
+>>> @@ -592,6 +592,8 @@ static void ath9k_set_hw_capab(struct ath9k_htc_priv *priv,
+>>>   	hw->wiphy->flags |= WIPHY_FLAG_IBSS_RSN |
+>>>   			    WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL;
+>>>
+>>> +	hw->wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS;
+>>> +
+>>>   	hw->queues = 4;
+>>>   	hw->max_listen_interval = 1;
+>>>
+>>>
+>>
+>>
+>
+>
+
+
+--------------040700010504050201050400
+Content-Type: text/plain; charset=UTF-8;
+ name="wpa_supplicant_wap54g_open.conf"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="wpa_supplicant_wap54g_open.conf"
+
+Y3RybF9pbnRlcmZhY2U9L3J1bi93cGFfc3VwcGxpY2FudAojIHJlYWRpbmcgcGFzc3BocmFz
+ZSBmcm9tIHN0ZGluCm5ldHdvcms9ewoJc3NpZD0id2FwNTRnIgoJa2V5X21nbXQ9Tk9ORQp9
+Cg==
+--------------040700010504050201050400
+Content-Type: text/plain; charset=UTF-8;
+ name="wpa_supplicant_wap54g_WPA2.conf"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="wpa_supplicant_wap54g_WPA2.conf"
+
+Y3RybF9pbnRlcmZhY2U9L3J1bi93cGFfc3VwcGxpY2FudAojIHJlYWRpbmcgcGFzc3BocmFz
+ZSBmcm9tIHN0ZGluCm5ldHdvcms9ewoJc3NpZD0id2FwNTRnIgoJI3Bzaz0iYXRoZXJvczky
+NzEiCglwc2s9ZDViNjZlNWQyOTVhZmI1ODkyZjJhOGFkNzlkOGE4MmIzNWY0NTU0ZjhjYzkx
+N2IwNjA4NWY4YjdmZmI1ZGQxMwp9Cg==
+--------------040700010504050201050400--
