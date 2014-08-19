@@ -1,37 +1,97 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Lost ping responses
-Date: Tue, 19 Aug 2014 11:35:07 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1747B268@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1747B1C0@AcuExch.aculab.com>
- <53F331B4.10802@mojatatu.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v2 2/3] net: Add Keystone NetCP ethernet driver
+Date: Tue, 19 Aug 2014 07:38:55 -0400
+Message-ID: <53F3374F.1000808@mojatatu.com>
+References: <1408115562-22487-1-git-send-email-santosh.shilimkar@ti.com> <1408115562-22487-3-git-send-email-santosh.shilimkar@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Jamal Hadi Salim' <jhs@mojatatu.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	robh+dt@kernel.org, grant.likely@linaro.org,
+	devicetree@vger.kernel.org, sandeep_n@ti.com
+To: Santosh Shilimkar <santosh.shilimkar@ti.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:39468 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750911AbaHSLgX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2014 07:36:23 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 29372-10 for <netdev@vger.kernel.org>;
- Tue, 19 Aug 2014 12:36:13 +0100 (BST)
-In-Reply-To: <53F331B4.10802@mojatatu.com>
-Content-Language: en-US
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:40476 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752215AbaHSLjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2014 07:39:23 -0400
+Received: by mail-ie0-f174.google.com with SMTP id rp18so894466iec.33
+        for <netdev@vger.kernel.org>; Tue, 19 Aug 2014 04:39:22 -0700 (PDT)
+In-Reply-To: <1408115562-22487-3-git-send-email-santosh.shilimkar@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim
+On 08/15/14 11:12, Santosh Shilimkar wrote:
 
-> > Any ideas how to find out where the discards are happening?
-> > It might just be somewhere that would affect other traffic flows.
-> 
-> netstat -s
 
-Thanks - 'Ip: outgoing packets dropped' increments for every lost response.
+I am curious about these two calls below(netcp_process_one_rx_packet
+and netcp_tx_submit_skb):
+On tx you seem to be broadcasting to all "sub-modules" and on receive
+you seem to be invoking from all as well.
+I couldnt find the code for any of the sub-modules but i suspect
+things like switching/bridging or ipsec etc could be sub-modules.
+If yes, have you thought about integrating these features into
+Linux proper instead?
 
-Next step is to work out what that means...
+cheers,
+jamal
 
-	David
+> +
+> +static inline int netcp_process_one_rx_packet(struct netcp_intf *netcp)
+> +{
+
+
+> +
+> +	/* Call each of the RX hooks */
+> +	p_info.skb = skb;
+> +	p_info.rxtstamp_complete = false;
+> +	list_for_each_entry(rx_hook, &netcp->rxhook_list_head, list) {
+> +		int ret;
+> +
+> +		ret = rx_hook->hook_rtn(rx_hook->order, rx_hook->hook_data,
+> +					&p_info);
+> +		if (unlikely(ret)) {
+> +			dev_err(netcp->ndev_dev, "RX hook %d failed: %d\n",
+> +				rx_hook->order, ret);
+> +			netcp->ndev->stats.rx_errors++;
+> +			dev_kfree_skb(skb);
+> +			return 0;
+> +		}
+> +	}
+..
+....
+> +	return 0;
+> +}
+
+[..]
+
+> +static inline int netcp_tx_submit_skb(struct netcp_intf *netcp,
+> +				      struct sk_buff *skb,
+> +				      struct knav_dma_desc *desc)
+> +{
+> +	struct netcp_tx_pipe *tx_pipe = NULL;
+
+> +
+> +	p_info.netcp = netcp;
+> +	p_info.skb = skb;
+> +	p_info.tx_pipe = NULL;
+> +	p_info.psdata_len = 0;
+> +	p_info.ts_context = NULL;
+> +	p_info.txtstamp_complete = NULL;
+> +	p_info.epib = desc->epib;
+> +	p_info.psdata = desc->psdata;
+> +	memset(p_info.epib, 0, KNAV_DMA_NUM_EPIB_WORDS * sizeof(u32));
+> +
+> +	/* Find out where to inject the packet for transmission */
+> +	list_for_each_entry(tx_hook, &netcp->txhook_list_head, list) {
+> +		ret = tx_hook->hook_rtn(tx_hook->order, tx_hook->hook_data,
+> +					&p_info);
+> +		if (unlikely(ret != 0)) {
+> +			dev_err(netcp->ndev_dev, "TX hook %d rejected the packet with reason(%d)\n",
+> +				tx_hook->order, ret);
+> +			ret = (ret < 0) ? ret : NETDEV_TX_OK;
+> +			goto out;
+> +		}
+> +	}
+> +
