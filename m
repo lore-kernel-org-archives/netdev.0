@@ -1,8 +1,9 @@
 From: Michael Chan <mchan@broadcom.com>
-Subject: Re: [PATCH 1/3] tg3: Limit minimum tx queue wakeup threshold
-Date: Tue, 19 Aug 2014 15:00:47 -0700
-Message-ID: <1408485647.7404.3.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Subject: Re: [PATCH 2/3] tg3: Fix tx_pending checks for tg3_tso_bug
+Date: Tue, 19 Aug 2014 16:10:52 -0700
+Message-ID: <1408489852.7404.60.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 References: <1408474371-19509-1-git-send-email-bpoirier@suse.de>
+	 <1408474371-19509-2-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="cp1252"
 Content-Transfer-Encoding: 7bit
@@ -10,26 +11,34 @@ Cc: Prashant Sreedharan <prashant@broadcom.com>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 To: Benjamin Poirier <bpoirier@suse.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408474371-19509-1-git-send-email-bpoirier@suse.de>
+In-Reply-To: <1408474371-19509-2-git-send-email-bpoirier@suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Tue, 2014-08-19 at 11:52 -0700, Benjamin Poirier wrote: 
-> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-> index 3ac5d23..b11c0fd 100644
-> --- a/drivers/net/ethernet/broadcom/tg3.c
-> +++ b/drivers/net/ethernet/broadcom/tg3.c
-> @@ -202,7 +202,8 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
->  #endif
+> @@ -7838,11 +7838,14 @@ static int tg3_tso_bug(struct tg3 *tp, struct tg3_napi *tnapi,
+>                        struct netdev_queue *txq, struct sk_buff *skb)
+>  {
+>         struct sk_buff *segs, *nskb;
+> -       u32 frag_cnt_est = skb_shinfo(skb)->gso_segs * 3;
 >  
->  /* minimum number of free TX descriptors required to wake up TX process */
-> -#define TG3_TX_WAKEUP_THRESH(tnapi)            ((tnapi)->tx_pending / 4)
-> +#define TG3_TX_WAKEUP_THRESH(tnapi)    max_t(u32, (tnapi)->tx_pending / 4, \
-> +                                             MAX_SKB_FRAGS + 1)
+> -       /* Estimate the number of fragments in the worst case */
+> -       if (unlikely(tg3_tx_avail(tnapi) <= frag_cnt_est)) {
+> +       if (unlikely(tg3_tx_avail(tnapi) <= skb_shinfo(skb)->gso_segs)) {
+> +               trace_printk("stopping queue, %d <= %d\n",
+> +                            tg3_tx_avail(tnapi), skb_shinfo(skb)->gso_segs);
+>                 netif_tx_stop_queue(txq);
+> +               trace_printk("stopped queue\n");
+> +               tnapi->wakeup_thresh = skb_shinfo(skb)->gso_segs;
+> +               BUG_ON(tnapi->wakeup_thresh >= tnapi->tx_pending);
+>  
+>                 /* netif_tx_stop_queue() must be done before checking
+>                  * checking tx index in tg3_tx_avail() below, because in 
 
-I think we should precompute this and store it in something like
-tp->tx_wake_thresh.
-
->  #define TG3_TX_BD_DMA_MAX_2K           2048
->  #define TG3_TX_BD_DMA_MAX_4K           4096
->   
+I don't quite understand this logic and I must be missing something.
+gso_segs is the number of TCP segments the large packet will be broken
+up into.  If it exceeds dev->gso_max_segs, it means it exceeds
+hardware's capabilty and it will do GSO instead of TSO.  But in this
+case in tg3_tso_bug(), we are doing GSO and we may not have enough DMA
+descriptors to do GSO.  Each gso_seg typically requires 2 DMA
+descriptors.
