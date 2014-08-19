@@ -1,97 +1,61 @@
-From: Oleksij Rempel <linux@rempel-privat.de>
-Subject: Re: [PATCH] ath9k_htc: advertise support for TDLS
-Date: Tue, 19 Aug 2014 10:27:55 +0200
-Message-ID: <53F30A8B.6000202@rempel-privat.de>
-References: <1408319614-16041-1-git-send-email-csaba.kiraly@gmail.com> <53F309F5.4020101@gmx.net>
+From: Razya Ladelsky <RAZYA@il.ibm.com>
+Subject: Re: [PATCH] vhost: Add polling mode
+Date: Tue, 19 Aug 2014 11:36:31 +0300
+Message-ID: <OFB79DEF3C.1ADC0F14-ONC2257D39.002F0F0A-C2257D39.002F3CBC@il.ibm.com>
+References: <1407659404-razya@il.ibm.com>
+	<20140810083035.0CF58380729@moren.haifa.ibm.com>
+	<20140810194559.GA4344@redhat.com>
+	<20140811.124621.576073630604147753.davem@davemloft.net>
+	<20140812091850.GD6440@redhat.com>
+	<OF93E480CE.EFA0854D-ONC2257D32.003BE092-C2257D32.003C1F49@il.ibm.com>
+	<20140813121550.GA21026@redhat.com>
+	<OFFB3DD9F0.3A92A6A0-ONC2257D37.0043D722-C2257D37.004522A0@il.ibm.com>
+	<20140817125809.GA22213@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="CcumbSQrWVagTR3p3vdKkP05U6osaV7kr"
-Cc: linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	netdev@vger.kernel.org
-To: Csaba Kiraly <csaba.kiraly@gmail.com>, linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.20]:55058 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750721AbaHSI2H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Aug 2014 04:28:07 -0400
-In-Reply-To: <53F309F5.4020101@gmx.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Eran Raichstein <ERANRA@il.ibm.com>, kvm-owner@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	abel.gordon@gmail.com, Alex Glikson <GLIKSON@il.ibm.com>,
+	Yossi Kuperman1 <YOSSIKU@il.ibm.com>,
+	Joel Nider <JOELN@il.ibm.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140817125809.GA22213@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---CcumbSQrWVagTR3p3vdKkP05U6osaV7kr
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+> That was just one example. There many other possibilities.  Either
+> actually make the systems load all host CPUs equally, or divide
+> throughput by host CPU.
+> 
 
-Oppss... wrong email address.
+The polling patch adds this capability to vhost, reducing costly exit 
+overhead when the vm is loaded.
 
-Am 19.08.2014 um 10:25 schrieb Oleksij Rempel:
-> Am 18.08.2014 um 01:53 schrieb Csaba Kiraly:
->> Based on a quick test with AR9271, TDLS seems to be working fine.
->>
->> Tests were done with 2 Atheros AR9271 based devices with firmware
->> 1.3 (sha1 8d49f928aa40ac53c729189bff1333cd373a7fb5), associated
->> with a WAP54G access point.
->=20
-> please, don't use firmware 1.3. Use git source, or you can get
-> precompiled version here:
-> https://github.com/olerem/ath9k-htc-firmware-blob
->=20
->> TDLS worked fine both in WPA2 mode and
->> without encryption. Stations maintained ping flood traffic between
->> each other and towards the AP without significant losses.
->>
->> Not tested with AR7010.
->=20
-> Seems ok for me. How can i reproduce testing environment?
->=20
->> TDLS was enabled in earlier patches the same way for other
->> Atheros drivers:
->> ath9k (fd6562344dea2b8b2a5d644cf971f4e56004500a),
->> and carl9170 (d1f3de71a584a82ee4e84505fce9acccf40215ff).
->>
->> Signed-off-by: Csaba Kiraly <csaba.kiraly@gmail.com>
->> ---
->>  drivers/net/wireless/ath/ath9k/htc_drv_init.c | 2 ++
->>  1 file changed, 2 insertions(+)
->>
->> diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_init.c b/drivers/n=
-et/wireless/ath/ath9k/htc_drv_init.c
->> index 8a3bd5f..d779f4f 100644
->> --- a/drivers/net/wireless/ath/ath9k/htc_drv_init.c
->> +++ b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
->> @@ -592,6 +592,8 @@ static void ath9k_set_hw_capab(struct ath9k_htc_pr=
-iv *priv,
->>  	hw->wiphy->flags |=3D WIPHY_FLAG_IBSS_RSN |
->>  			    WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL;
->> =20
->> +	hw->wiphy->flags |=3D WIPHY_FLAG_SUPPORTS_TDLS;
->> +
->>  	hw->queues =3D 4;
->>  	hw->max_listen_interval =3D 1;
->> =20
->>
->=20
->=20
+In order to load the vm I ran netperf  with msg size of 256:
 
+Without polling:  2480 Mbits/sec,  utilization: vm - 100%   vhost - 64% 
+With Polling: 4160 Mbits/sec,  utilization: vm - 100%   vhost - 100% 
 
---=20
-Regards,
-Oleksij
+Therefore, throughput/cpu without polling is 15.1, and 20.8 with polling.
 
+My intention was to load vhost as close as possible to 100% utilization 
+without polling, in order to compare it to the polling utilization case 
+(where vhost is always 100%). 
+The best use case, of course, would be when the shared vhost thread work 
+(TBD) is integrated and then vhost will actually be using its polling 
+cycles to handle requests of multiple devices (even from multiple vms).
 
---CcumbSQrWVagTR3p3vdKkP05U6osaV7kr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iF4EAREIAAYFAlPzCosACgkQHwImuRkmbWkGiwD+JmpQeFraPmVedMYNhFRXdlhZ
-HS40puJ46UHMI1iM+70BAIyKt/q/rQGpwTzAgLUNqfFYjnHdCJ6ZMY7wNBoaLkwY
-=k1gj
------END PGP SIGNATURE-----
-
---CcumbSQrWVagTR3p3vdKkP05U6osaV7kr--
+Thanks,
+Razya
