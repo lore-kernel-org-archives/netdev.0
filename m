@@ -1,42 +1,63 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: pktgen and tos
-Date: Wed, 20 Aug 2014 14:52:00 -0700
-Message-ID: <53F51880.5060704@candelatech.com>
+From: Mark Einon <mark.einon@gmail.com>
+Subject: [PATCH 0/8] Implement NAPI in et131x
+Date: Wed, 20 Aug 2014 23:17:50 +0100
+Message-ID: <1408573078-9320-1-git-send-email-mark.einon@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:51810 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752893AbaHTV5M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2014 17:57:12 -0400
-Received: from [50.54.140.2] (50-54-140-2.evrt.wa.frontiernet.net [50.54.140.2])
-	(using TLSv1 with cipher DHE-RSA-CAMELLIA256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mail2.candelatech.com (Postfix) with ESMTPSA id B210540CC1A
-	for <netdev@vger.kernel.org>; Wed, 20 Aug 2014 14:52:00 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Mark Einon <mark.einon@gmail.com>
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-Here's a half-arsed bug report, in case someone is bored.
+Let's put a NAPI on this baby...
 
-At least in my hacked up pktgen, you cannot set a one-digit tos,
-because the parser fails if length is not 2 digits.
+NAPI support was identified by Dave Miller <davem@davemloft.net> as a
+must to get this driver out of staging. This patchset first tidies up
+the code enough to make adding NAPI easier, and the final patch mostly
+adds the 'boilerplate' NAPI code as described by:
 
-echo tos 4 > /proc/net/pktgen/rddVR2 && cat /proc/net/pktgen/rddVR2
+http://www.linuxfoundation.org/collaborate/workgroups/networking/napi
 
-...
-Result: ERROR: tos must be 00-ff
+The code has been tested on hardware, with no issues found to date.
 
-If you use '04' instead, it works.  In my case, it will be easier to hack user-space
-to deal with this than fix pktgen, but I thought someone might want to fix it proper.
+**GregKH** - this patchset is based upon my previous bugfix 'Fix errors
+caused by phydev->addr accesses' which is currently only on your
+staging-linus branch, not staging-next - so won't apply cleanly in it's
+current state. Please let me know if I need to do anything about this.
 
-Also, could be that upstream code doesn't have this limitation...
+Cheers,
 
-Thanks,
-Ben
+Mark
+
+---
+Mark Einon (8):
+  staging: et131x: Use eth_mac_addr() instead of duplicating the
+    functionality
+  staging: et131x: Don't handle rx/tx packets when changing mtu
+  staging: et131x: Use for loop to initialise contiguous registers to
+    zero
+  staging: et131x: Use for loop to initialise contiguous macstat
+    registers to zero
+  staging: et131x: Remove unnecessary i2c_wack variable
+  staging: et131x: Rename NUM_PACKETS_HANDLED to MAX_PACKETS_HANDLED
+  staging: et131x: Fix ET_INTR_TXDMA_ISR register name typo
+  staging: et131x: Implement NAPI support
+
+ drivers/staging/et131x/README   |   1 -
+ drivers/staging/et131x/et131x.c | 271 ++++++++++------------------------------
+ drivers/staging/et131x/et131x.h |  96 +-------------
+ 3 files changed, 69 insertions(+), 299 deletions(-)
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+2.1.0
