@@ -1,109 +1,175 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] bonding: create netlink event when bonding
- option is changed
-Date: Wed, 20 Aug 2014 08:44:58 +0200
-Message-ID: <20140820064458.GA1916@nanopsycho.orion>
-References: <1408456932-10318-1-git-send-email-jiri@resnulli.us>
- <20140819203401.GA1954@gospo.home.greyhouse.net>
- <20140819203748.GA4326@nanopsycho.orion>
- <20140819204634.GB1954@gospo.home.greyhouse.net>
+From: "LF.Tan" <lftan.linux@gmail.com>
+Subject: Re: [PATCH] net: stmmac: add fix_mac_speed support for socfpga
+Date: Wed, 20 Aug 2014 14:57:15 +0800
+Message-ID: <CAFiDJ59usgQGA7rGiR_D+cBdVLRPhAMgLUb2F4tgHBSXFwk7Pw@mail.gmail.com>
+References: <1408516413-2928-1-git-send-email-lftan@altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, j.vosburgh@gmail.com,
-	vfalico@gmail.com, andy@greyhouse.net, nikolay@redhat.com,
-	dingtianhong@huawei.com, sfeldma@cumulusnetworks.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:52536 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750916AbaHTGpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2014 02:45:04 -0400
-Received: by mail-lb0-f175.google.com with SMTP id 10so6491429lbg.34
-        for <netdev@vger.kernel.org>; Tue, 19 Aug 2014 23:45:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140819204634.GB1954@gospo.home.greyhouse.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Ley Foon Tan <lftan@altera.com>,
+	LeyFoon Tan <lftan.linux@gmail.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Vince Bridgers <vbridger@altera.com>, davem@davemloft.net
+To: netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1408516413-2928-1-git-send-email-lftan@altera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Aug 19, 2014 at 10:46:34PM CEST, gospo@cumulusnetworks.com wrote:
->On Tue, Aug 19, 2014 at 10:37:48PM +0200, Jiri Pirko wrote:
->> Tue, Aug 19, 2014 at 10:34:01PM CEST, gospo@cumulusnetworks.com wrote:
->> >On Tue, Aug 19, 2014 at 04:02:12PM +0200, Jiri Pirko wrote:
->> >> Userspace needs to be notified if one changes some option.
->> >> 
->> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> >> ---
->> >>  drivers/net/bonding/bond_options.c | 2 ++
->> >>  include/linux/netdevice.h          | 1 +
->> >>  2 files changed, 3 insertions(+)
->> >> 
->> >> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
->> >> index dc73463..d8dc17f 100644
->> >> --- a/drivers/net/bonding/bond_options.c
->> >> +++ b/drivers/net/bonding/bond_options.c
->> >> @@ -625,6 +625,8 @@ int __bond_opt_set(struct bonding *bond,
->> >>  out:
->> >>  	if (ret)
->> >>  		bond_opt_error_interpret(bond, opt, ret, val);
->> >> +	else
->> >> +		call_netdevice_notifiers(NETDEV_CHANGEINFODATA, bond->dev);
->> >Is this valuable where the configuration change to the bonding driver
->> >came from netlink.  Do you have a good example why this useful in the
->> >netlink path as well as when using sysfs?  It would seem more logical to
->> >add call_netdevice_notifiers to bonding_sysfs_store_option so anything
->> >listening to netlink messages or the netlink cache can know to check for
->> >changes.
->> 
->> But this is called for sysfs as well.
->Sorry for the confusion.  I was suggesting that this call is *only* used
->for sysfs changes not for changes from sysfs and netlink as it would
->with your patch.
+On Wed, Aug 20, 2014 at 2:33 PM, Ley Foon Tan <lftan@altera.com> wrote:
+> This patch adds fix_mac_speed() support for
+> Altera socfpga Ethernet controller. Emac splitter is a
+> soft IP core in FPGA system that converts GMII interface from
+> Synopsys mac to RGMII/SGMII interface. This splitter core is
+> an optional IP if user would like to use RGMII/SGMII
+> interface in their system. Software needs to update a register
+> in splitter core when there is speed change.
 >
->> Example of use is that application can monitor rtnetlink to see if for
->> example active slave changed, or whatever other option changed.
->Any application monitoring netlink messages will already know about the
->configuration change if it came down via netlink.  There would not be a
->need for an extra message.
+> Signed-off-by: Ley Foon Tan <lftan@altera.com>
+> ---
+>  .../devicetree/bindings/net/socfpga-dwmac.txt      |  4 ++
+>  .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 63 ++++++++++++++++++++++
+>  2 files changed, 67 insertions(+)
 >
->My question was:  Is there a need for 2 netlink messages to indicate
->that a bonding configuration change was needed when the config came over
->netlink.  I did not see the need for 2 netlink messages in this case and
->was asking for clarification from you.
+> diff --git a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
+> index 2a60cd3..3a9d679 100644
+> --- a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
+> +++ b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
+> @@ -12,6 +12,10 @@ Required properties:
+>   - altr,sysmgr-syscon : Should be the phandle to the system manager node that
+>     encompasses the glue register, the register offset, and the register shift.
+>
+> +Optional properties:
+> +altr,emac-splitter: Should be the phandle to the emac splitter soft IP node if
+> +               DWMAC controller is connected emac splitter.
+> +
+>  Example:
+>
+>  gmac0: ethernet@ff700000 {
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+> index ec632e6..cd613d7 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+> @@ -17,6 +17,7 @@
+>
+>  #include <linux/mfd/syscon.h>
+>  #include <linux/of.h>
+> +#include <linux/of_address.h>
+>  #include <linux/of_net.h>
+>  #include <linux/phy.h>
+>  #include <linux/regmap.h>
+> @@ -30,6 +31,12 @@
+>  #define SYSMGR_EMACGRP_CTRL_PHYSEL_WIDTH 2
+>  #define SYSMGR_EMACGRP_CTRL_PHYSEL_MASK 0x00000003
+>
+> +#define EMAC_SPLITTER_CTRL_REG                 0x0
+> +#define EMAC_SPLITTER_CTRL_SPEED_MASK          0x3
+> +#define EMAC_SPLITTER_CTRL_SPEED_10            0x2
+> +#define EMAC_SPLITTER_CTRL_SPEED_100           0x3
+> +#define EMAC_SPLITTER_CTRL_SPEED_1000          0x0
+> +
+>  struct socfpga_dwmac {
+>         int     interface;
+>         u32     reg_offset;
+> @@ -37,14 +44,46 @@ struct socfpga_dwmac {
+>         struct  device *dev;
+>         struct regmap *sys_mgr_base_addr;
+>         struct reset_control *stmmac_rst;
+> +       void __iomem *splitter_base;
+>  };
+>
+> +static void socfpga_dwmac_fix_mac_speed(void *priv, unsigned int speed)
+> +{
+> +       struct socfpga_dwmac *dwmac = (struct socfpga_dwmac *)priv;
+> +       void __iomem *splitter_base = dwmac->splitter_base;
+> +       u32 val;
+> +
+> +       if (!splitter_base)
+> +               return;
+> +
+> +       val = readl(splitter_base + EMAC_SPLITTER_CTRL_REG);
+> +       val &= ~EMAC_SPLITTER_CTRL_SPEED_MASK;
+> +
+> +       switch (speed) {
+> +       case 1000:
+> +               val |= EMAC_SPLITTER_CTRL_SPEED_1000;
+> +               break;
+> +       case 100:
+> +               val |= EMAC_SPLITTER_CTRL_SPEED_100;
+> +               break;
+> +       case 10:
+> +               val |= EMAC_SPLITTER_CTRL_SPEED_10;
+> +               break;
+> +       default:
+> +               return;
+> +       }
+> +
+> +       writel(val, splitter_base + EMAC_SPLITTER_CTRL_REG);
+> +}
+> +
+>  static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *dev)
+>  {
+>         struct device_node *np = dev->of_node;
+>         struct regmap *sys_mgr_base_addr;
+>         u32 reg_offset, reg_shift;
+>         int ret;
+> +       struct device_node *np_splitter;
+> +       struct resource res_splitter;
+>
+>         dwmac->stmmac_rst = devm_reset_control_get(dev,
+>                                                   STMMAC_RESOURCE_NAME);
+> @@ -73,6 +112,21 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+>                 return -EINVAL;
+>         }
+>
+> +       np_splitter = of_parse_phandle(np, "altr,emac-splitter", 0);
+> +       if (np_splitter) {
+> +               if (of_address_to_resource(np_splitter, 0, &res_splitter)) {
+> +                       dev_info(dev, "Missing emac splitter address\n");
+> +                       return -EINVAL;
+> +               }
+> +
+> +               dwmac->splitter_base = (void *)devm_ioremap_resource(dev,
+> +                       &res_splitter);
+> +               if (!dwmac->splitter_base) {
+> +                       dev_info(dev, "Failed to mapping emac splitter\n");
+> +                       return -EINVAL;
+> +               }
+> +       }
+> +
+>         dwmac->reg_offset = reg_offset;
+>         dwmac->reg_shift = reg_shift;
+>         dwmac->sys_mgr_base_addr = sys_mgr_base_addr;
+> @@ -91,6 +145,7 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
+>
+>         switch (phymode) {
+>         case PHY_INTERFACE_MODE_RGMII:
+> +       case PHY_INTERFACE_MODE_RGMII_ID:
+>                 val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII;
+>                 break;
+>         case PHY_INTERFACE_MODE_MII:
+> @@ -102,6 +157,13 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
+>                 return -EINVAL;
+>         }
+>
+> +       /* Overwrite val to GMII if splitter core is enabled. The phymode here
+> +        * is the actual phy mode on phy hardware, but phy interface from
+> +        * EMAC core is GMII.
+> +        */
+> +       if (dwmac->splitter_base)
+> +               val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII;
+> +
+>         regmap_read(sys_mgr_base_addr, reg_offset, &ctrl);
+>         ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << reg_shift);
+>         ctrl |= val << reg_shift;
+> @@ -196,4 +258,5 @@ const struct stmmac_of_data socfpga_gmac_data = {
+>         .setup = socfpga_dwmac_probe,
+>         .init = socfpga_dwmac_init,
+>         .exit = socfpga_dwmac_exit,
+> +       .fix_mac_speed = socfpga_dwmac_fix_mac_speed,
+>  };
+> --
+> 1.8.2.1
+>
 
-Imagine 2 applications. One is just monitoring netlink events ("ip
-mon"), the second is setting up bond via netlink. Now, the second sends
-a message to kernel, that is unicast to kernel. The first application
-does not see that message. Therefore there is need to generate the event
-message in kernel and send it back to userspace via multicast.
-That message the first application will see. And that is exactly what
-my patch is doing.
-
->
->> 
->> >
->> >>  
->> >>  	return ret;
->> >>  }
->> >> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> >> index 967ddcc..44bc4bd 100644
->> >> --- a/include/linux/netdevice.h
->> >> +++ b/include/linux/netdevice.h
->> >> @@ -2017,6 +2017,7 @@ struct pcpu_sw_netstats {
->> >>  #define NETDEV_CHANGEUPPER	0x0015
->> >>  #define NETDEV_RESEND_IGMP	0x0016
->> >>  #define NETDEV_PRECHANGEMTU	0x0017 /* notify before mtu change happened */
->> >> +#define NETDEV_CHANGEINFODATA	0x0018
->> >>  
->> >>  int register_netdevice_notifier(struct notifier_block *nb);
->> >>  int unregister_netdevice_notifier(struct notifier_block *nb);
->> >> -- 
->> >> 1.9.3
->> >> 
->> >> --
->> >> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> >> the body of a message to majordomo@vger.kernel.org
->> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Adding David S. Miller to CC list.
