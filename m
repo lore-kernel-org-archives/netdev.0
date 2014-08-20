@@ -1,56 +1,76 @@
-From: Himangi Saraogi <himangi774@gmail.com>
-Subject: [PATCH] af_decnet: Use time_after_eq
-Date: Wed, 20 Aug 2014 23:24:40 +0530
-Message-ID: <20140820175440.GA4556@himangi-Dell>
+From: Christian Lamparter <chunkeey@googlemail.com>
+Subject: Re: [PATCH] carl9170: Replace rcu_dereference() with rcu_access_pointer()
+Date: Wed, 20 Aug 2014 13:20:02 -0700 (PDT)
+Message-ID: <3042528.E5hT1D5bWz@debian64>
+References: <20140817104806.GA14533@ada> <3029076.uaUkTd8nru@debian64> <20140820173210.GA18892@ada>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julia Lawall <julia.lawall@lip6.fr>
-To: "David S. Miller" <davem@davemloft.net>,
-	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	paulmck@linux.vnet.ibm.com
+To: Andreea Bernat <bernat.ada@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <20140820173210.GA18892@ada>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The functions time_before, time_before_eq, time_after, and time_after_eq
-are more robust for comparing jiffies against other values.
+On Wednesday, August 20, 2014 08:32:11 PM Andreea Bernat wrote:
+> On Mon, Aug 18, 2014 at 09:29:36PM +0200, Christian Lamparter wrote:
+> > On Sunday, August 17, 2014 01:48:07 PM Andreea-Cristina Bernat wrote:
+> > > The rcu_dereference() call is used directly in a condition.
+> > > Since its return value is never dereferenced it is recommended to use
+> > > "rcu_access_pointer()" instead of "rcu_dereference()".
+> > > Therefore, this patch makes the replacement.
+> > > [...]
+> > > Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+> > > ---
+> > >  drivers/net/wireless/ath/carl9170/main.c | 2 +-
+> > >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > > 
+> > > diff --git a/drivers/net/wireless/ath/carl9170/main.c b/drivers/net/wireless/ath/carl9170/main.c
+> > > index f8ded84..12018ff 100644
+> > > --- a/drivers/net/wireless/ath/carl9170/main.c
+> > > +++ b/drivers/net/wireless/ath/carl9170/main.c
+> > > @@ -1431,7 +1431,7 @@ static int carl9170_op_ampdu_action(struct ieee80211_hw *hw,
+> > >  			return -EOPNOTSUPP;
+> > >  
+> > >  		rcu_read_lock();
+> > > -		if (rcu_dereference(sta_info->agg[tid])) {
+> > > +		if (rcu_access_pointer(sta_info->agg[tid])) {
+> > >  			rcu_read_unlock();
+> > >  			return -EBUSY;
+> > >  		}
+> > 
+> > There's more. The check does not do a whole lot. I think *it* [the check] and the
+> > rcu_read_[un]lock [and the return -EBUSY] can be removed completely from the
+> > IEEE80211_AMPDU_TX_START code-path in carl9170_op_ampdu_action.
+> > 
+> > It would be awesome, if you could you make a patch which removes this 
+> > unneeded cosmic-ray-protection check :-) .
+> 
+> Could you tell me why you think that those lines have to be removed?
+The carl9170_op_ampdu_action callback is used exclusively by the mac80211
+framework to notify the driver about setup and tear down of TX and RX 
+aggregation sessions. Hence, mac80211 takes great care of performing
+sanity checks and properly serializing calls to the driver's ampdu_action
+callback.
 
-A simplified version of the Coccinelle semantic patch making this change
-is as follows:
+Specifically mac80211 already prevents the START of an TX aggregation session,
+if the aggregation session is already active [0]. Therefore the driver doesn't
+need to perform a similar check as well. This is why:
+ - the expression (rcu_dereference(sta_info->agg[tid])) never evaluates to true
+ -> the -EBUSY exit path is "dead code"
 
-@change@
-expression E1,E2,E3;
-@@
-- jiffies - E1 >= (E2*E3)
-+ time_after_eq(jiffies, E1+E2*E3)
+And without the rcu_dereference(...) the rcu_read protection is not needed
+either. So it can be removed for this case as well.
 
-Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-Acked-by: Julia Lawall <julia.lawall@lip6.fr>
----
- net/decnet/af_decnet.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> I would like to fully understand this before I remove them.
+Let me know if the explanation above answers sufficient :).
+If not, I need some *pointers* to what needs further 
+explanation.
 
-diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
-index ae011b4..25733d5 100644
---- a/net/decnet/af_decnet.c
-+++ b/net/decnet/af_decnet.c
-@@ -127,6 +127,7 @@ Version 0.0.6    2.1.110   07-aug-98   Eduardo Marcelo Serrat
- #include <linux/stat.h>
- #include <linux/init.h>
- #include <linux/poll.h>
-+#include <linux/jiffies.h>
- #include <net/net_namespace.h>
- #include <net/neighbour.h>
- #include <net/dst.h>
-@@ -598,7 +599,7 @@ int dn_destroy_timer(struct sock *sk)
- 	if (sk->sk_socket)
- 		return 0;
- 
--	if ((jiffies - scp->stamp) >= (HZ * decnet_time_wait)) {
-+	if (time_after_eq(jiffies, scp->stamp + HZ * decnet_time_wait)) {
- 		dn_unhash_sock(sk);
- 		sock_put(sk);
- 		return 1;
--- 
-1.9.1
+Regards
+Christian
+
+[0] <http://lxr.free-electrons.com/source/net/mac80211/agg-tx.c#L583>
