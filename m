@@ -1,124 +1,88 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: team: Bug when macvlans are defined on top of the slaves
-Date: Wed, 20 Aug 2014 18:08:04 +0200
-Message-ID: <20140820160804.GG32293@eerihug-hybrid.rnd.ki.sw.ericsson.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <libteam@fedorahosted.org>
-To: <netdev@vger.kernel.org>, <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg23.ericsson.net ([193.180.251.37]:60814 "EHLO
-	sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751411AbaHTQIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2014 12:08:07 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Benjamin Block <bebl@mageta.org>
+Subject: [PATCH] net: ipv6: fib: don't sleep inside atomic lock
+Date: Wed, 20 Aug 2014 18:16:06 +0200
+Message-ID: <1408551366-24237-1-git-send-email-bebl@mageta.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Benjamin Block <bebl@mageta.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When macvlans are defined on top of the team port devices, the following oops
-happens immediately when teamd is started.
+The function fib6_commit_metrics() allocates a piece of memory in mode
+GFP_KERNEL while holding an atomic lock from higher up in the stack, in
+the function __ip6_ins_rt(). This produces the following BUG:
 
+> BUG: sleeping function called from invalid context at mm/slub.c:1250
+> in_atomic(): 1, irqs_disabled(): 0, pid: 2909, name: dhcpcd
+> 2 locks held by dhcpcd/2909:
+>  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81978e67>] rtnl_lock+0x17/0x20
+>  #1:  (&tb->tb6_lock){++--+.}, at: [<ffffffff81a6951a>] ip6_route_add+0x65a/0x800
+> CPU: 1 PID: 2909 Comm: dhcpcd Not tainted 3.17.0-rc1 #1
+> Hardware name: ASUS All Series/Q87T, BIOS 0216 10/16/2013
+>  0000000000000008 ffff8800c8f13858 ffffffff81af135a 0000000000000000
+>  ffff880212202430 ffff8800c8f13878 ffffffff810f8d3a ffff880212202c98
+>  0000000000000010 ffff8800c8f138c8 ffffffff8121ad0e 0000000000000001
+> Call Trace:
+>  [<ffffffff81af135a>] dump_stack+0x4e/0x68
+>  [<ffffffff810f8d3a>] __might_sleep+0x10a/0x120
+>  [<ffffffff8121ad0e>] kmem_cache_alloc_trace+0x4e/0x190
+>  [<ffffffff81a6bcd6>] ? fib6_commit_metrics+0x66/0x110
+>  [<ffffffff81a6bcd6>] fib6_commit_metrics+0x66/0x110
+>  [<ffffffff81a6cbf3>] fib6_add+0x883/0xa80
+>  [<ffffffff81a6951a>] ? ip6_route_add+0x65a/0x800
+>  [<ffffffff81a69535>] ip6_route_add+0x675/0x800
+>  [<ffffffff81a68f2a>] ? ip6_route_add+0x6a/0x800
+>  [<ffffffff81a6990c>] inet6_rtm_newroute+0x5c/0x80
+>  [<ffffffff8197cf01>] rtnetlink_rcv_msg+0x211/0x260
+>  [<ffffffff81978e67>] ? rtnl_lock+0x17/0x20
+>  [<ffffffff81119708>] ? lock_release_holdtime+0x28/0x180
+>  [<ffffffff81978e67>] ? rtnl_lock+0x17/0x20
+>  [<ffffffff8197ccf0>] ? __rtnl_unlock+0x20/0x20
+>  [<ffffffff819a989e>] netlink_rcv_skb+0x6e/0xd0
+>  [<ffffffff81978ee5>] rtnetlink_rcv+0x25/0x40
+>  [<ffffffff819a8e59>] netlink_unicast+0xd9/0x180
+>  [<ffffffff819a9600>] netlink_sendmsg+0x700/0x770
+>  [<ffffffff81103735>] ? local_clock+0x25/0x30
+>  [<ffffffff8194e83c>] sock_sendmsg+0x6c/0x90
+>  [<ffffffff811f98e3>] ? might_fault+0xa3/0xb0
+>  [<ffffffff8195ca6d>] ? verify_iovec+0x7d/0xf0
+>  [<ffffffff8194ec3e>] ___sys_sendmsg+0x37e/0x3b0
+>  [<ffffffff8111ef15>] ? trace_hardirqs_on_caller+0x185/0x220
+>  [<ffffffff81af979e>] ? mutex_unlock+0xe/0x10
+>  [<ffffffff819a55ec>] ? netlink_insert+0xbc/0xe0
+>  [<ffffffff819a65e5>] ? netlink_autobind.isra.30+0x125/0x150
+>  [<ffffffff819a6520>] ? netlink_autobind.isra.30+0x60/0x150
+>  [<ffffffff819a84f9>] ? netlink_bind+0x159/0x230
+>  [<ffffffff811f989a>] ? might_fault+0x5a/0xb0
+>  [<ffffffff8194f25e>] ? SYSC_bind+0x7e/0xd0
+>  [<ffffffff8194f8cd>] __sys_sendmsg+0x4d/0x80
+>  [<ffffffff8194f912>] SyS_sendmsg+0x12/0x20
+>  [<ffffffff81afc692>] system_call_fastpath+0x16/0x1b
 
-[  108.224148] team0: Mode changed to "activebackup"
-[  108.230450] e1000: eth1 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: None
-[  108.234107] 8021q: adding VLAN 0 to HW filter on device eth1
-[  108.235593] BUG: unable to handle kernel NULL pointer dereference at 0000000000000018
-[  108.236397] IP: [<ffffffff815ddb7e>] __mutex_lock_slowpath+0x4e/0x310
-[  108.236397] PGD 3fb2e067 PUD 3fb23067 PMD 0 
-[  108.236397] Oops: 0002 [#1] SMP 
-[  108.236397] Modules linked in: team_mode_activebackup team macvlan
-[  108.236397] CPU: 0 PID: 201 Comm: teamd Not tainted 3.16.0+ #237
-[  108.236397] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[  108.236397] task: ffff88003f958ed0 ti: ffff88003d15c000 task.ti: ffff88003d15c000
-[  108.236397] RIP: 0010:[<ffffffff815ddb7e>]  [<ffffffff815ddb7e>] __mutex_lock_slowpath+0x4e/0x310
-[  108.236397] RSP: 0018:ffff88003d15f698  EFLAGS: 00010046
-[  108.236397] RAX: 0000000000000100 RBX: 0000000000000010 RCX: 0000000000000001
-[  108.236397] RDX: 0000000000000000 RSI: 0000000000000001 RDI: 0000000000000010
-[  108.236397] RBP: ffff88003d15f6e8 R08: ffff88003f850900 R09: ffff88003e400008
-[  108.236397] R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000010
-[  108.236397] R13: ffff88003f958ed0 R14: 0000000000000018 R15: 0000000000000246
-[  108.236397] FS:  00007ff10a811740(0000) GS:ffff88003ec00000(0000) knlGS:0000000000000000
-[  108.236397] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[  108.236397] CR2: 0000000000000018 CR3: 000000003fa96000 CR4: 00000000000006f0
-[  108.236397] Stack:
-[  108.236397]  ffff88003d3d6000 0000000000000081 ffff88003d3d6000 0000000000000001
-[  108.251189]  ffff88003d15f710 0000000000000010 0000000000000010 0000000000000001
-[  108.251189]  ffff88003d15f7d0 0000000000000000 ffff88003d15f700 ffffffff815dde55
-[  108.251189] Call Trace:
-[  108.251189]  [<ffffffff815dde55>] mutex_lock+0x15/0x25
-[  108.251189]  [<ffffffffa000a0df>] team_port_change_check+0x1f/0x60 [team]
-[  108.251189]  [<ffffffffa000afc8>] team_device_event+0xa8/0x150 [team]
-[  108.251189]  [<ffffffff810631ec>] notifier_call_chain+0x4c/0x70
-[  108.251189]  [<ffffffff81063301>] raw_notifier_call_chain+0x11/0x20
-[  108.251189]  [<ffffffff814b5330>] call_netdevice_notifiers_info+0x30/0x60
-[  108.251189]  [<ffffffff814bcdac>] dev_open+0x5c/0x70
-[  108.251189]  [<ffffffffa000a582>] team_add_slave+0x2b2/0x6c0 [team]
-[  108.251189]  [<ffffffff81564390>] ? inet6_fill_ifla6_attrs+0x360/0x390
-[  108.251189]  [<ffffffff814cb73e>] do_setlink+0x9be/0xa20
-[  108.251189]  [<ffffffff814c99f9>] ? rtnl_fill_ifinfo+0x899/0xb40
-[  108.251189]  [<ffffffff814cbdcf>] rtnl_newlink+0x4ff/0x730
-[  108.251189]  [<ffffffff814cb9d8>] ? rtnl_newlink+0x108/0x730
-[  108.251189]  [<ffffffff814e5e51>] ? netlink_sendskb+0x11/0x40
-[  108.251189]  [<ffffffff814e6033>] ? netlink_unicast+0x1b3/0x250
-[  108.251189]  [<ffffffff814ca8e0>] ? rtnl_getlink+0x130/0x1d0
-[  108.251189]  [<ffffffff814caa70>] rtnetlink_rcv_msg+0x90/0x250
-[  108.251189]  [<ffffffff814ca9e0>] ? rtnetlink_rcv+0x30/0x30
-[  108.251189]  [<ffffffff814e6739>] netlink_rcv_skb+0xa9/0xc0
-[  108.251189]  [<ffffffff814ca9d3>] rtnetlink_rcv+0x23/0x30
-[  108.251189]  [<ffffffff814e5fd8>] netlink_unicast+0x158/0x250
-[  108.251189]  [<ffffffff8128912d>] ? memcpy_fromiovec+0x4d/0x90
-[  108.251189]  [<ffffffff814e6487>] netlink_sendmsg+0x317/0x410
-[  108.251189]  [<ffffffff814a0490>] sock_sendmsg+0xa0/0xc0
-[  108.251189]  [<ffffffff814a1d68>] ? move_addr_to_kernel+0x38/0x80
-[  108.251189]  [<ffffffff814a1d23>] ___sys_sendmsg+0x373/0x380
-[  108.251189]  [<ffffffff8103d034>] ? __do_page_fault+0x284/0x520
-[  108.251189]  [<ffffffff814a2bbd>] __sys_sendmsg+0x3d/0x80
-[  108.251189]  [<ffffffff814a2c0d>] SyS_sendmsg+0xd/0x20
-[  108.251189]  [<ffffffff815dfb52>] system_call_fastpath+0x16/0x1b
-[  108.251189] Code: 35 20 0d 60 00 45 85 f6 75 13 65 8b 04 25 20 b8 00 00 a9 00 ff 1f 00 0f 85 83 02 00 00 9c 41 5f fa b8 00 01 00 00 4d 8d 74 24 08 <f0> 66 41 0f c1 44 24 08 0f b6 d4 38 c2 0f 85 43 02 00 00 44 8b 
-[  108.251189] RIP  [<ffffffff815ddb7e>] __mutex_lock_slowpath+0x4e/0x310
-[  108.251189]  RSP <ffff88003d15f698>
-[  108.251189] CR2: 0000000000000018
-[  108.251189] ---[ end trace 97bf1f31f04db01b ]---
+Fixing this by replacing the mode GFP_KERNEL with GFP_NOWAIT.
 
+Signed-off-by: Benjamin Block <bebl@mageta.org>
+---
+ net/ipv6/ip6_fib.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Interface config:
- 
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default 
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT group default qlen 1000
-    link/ether 00:0f:ff:10:03:01 brd ff:ff:ff:ff:ff:ff
-3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether 00:0f:ff:11:04:01 brd ff:ff:ff:ff:ff:ff
-4: eth2: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether 00:0f:ff:11:05:01 brd ff:ff:ff:ff:ff:ff
-5: macvlan0@eth1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN mode DEFAULT group default 
-    link/ether da:ad:a9:57:7a:82 brd ff:ff:ff:ff:ff:ff
-6: macvlan1@eth2: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN mode DEFAULT group default 
-    link/ether e6:4d:af:76:55:a2 brd ff:ff:ff:ff:ff:ff
-
-
-Teamd config:
-{
-         "device":       "team0",
-         "runner":       {"name": "activebackup"},
-         "link_watch":   {   
-                 "name": "arp_ping",
-                 "interval": 100,
-                 "missed_max": 30, 
-                 "source_host": "192.168.123.101",
-                 "target_host": "192.168.123.1"
-         },  
-         "ports":        {   
-                 "eth1": {
-                         "prio": -10,
-                         "sticky": true
-                 },  
-                 "eth2": {
-                         "prio": 100 
-                 }   
-         }   
-}
-
-teamd version: v1.12
-kernel version: recent net-next (33caee3)
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index cb4459b..7eef9fc 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -643,7 +643,7 @@ static int fib6_commit_metrics(struct dst_entry *dst,
+ 	if (dst->flags & DST_HOST) {
+ 		mp = dst_metrics_write_ptr(dst);
+ 	} else {
+-		mp = kzalloc(sizeof(u32) * RTAX_MAX, GFP_KERNEL);
++		mp = kzalloc(sizeof(u32) * RTAX_MAX, GFP_NOWAIT);
+ 		if (!mp)
+ 			return -ENOMEM;
+ 		dst_init_metrics(dst, mp, 0);
+-- 
+1.8.5.5
