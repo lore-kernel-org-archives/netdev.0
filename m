@@ -1,45 +1,43 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH] TCP: add option for silent port knocking with integrity protection
-Date: Wed, 20 Aug 2014 11:28:21 +0200
-Message-ID: <CAPh34mc8eGqLyGrq1AH6AP5yBGnJgePkK03Ys-Zhw9cz9h3Y2g@mail.gmail.com>
-References: <52A75EF8.3010308@in.tum.de>
-	<20131211.150137.368953964178408437.davem@davemloft.net>
-	<52A8C8B4.4060109@in.tum.de>
-	<20131211122637.75b09074@nehalam.linuxnetplumber.net>
-	<87bo0nulkt.fsf@tassilo.jf.intel.com>
-	<52A8ECF5.3070604@in.tum.de>
-	<20131212012317.GL21717@two.firstfloor.org>
-	<52A98DBF.4090702@appelbaum.net>
-	<52A9A17F.6050505@in.tum.de>
-	<1386858864.19078.60.camel@edumazet-glaptop2.roam.corp.google.com>
-	<53F3A739.4070203@ahsoftware.de>
-	<CAPh34mckmKkRqG7M=37hHRJjBzZ+43BaPnjvpC5sEFnpPqj0aA@mail.gmail.com>
-	<53F4654C.10101@ahsoftware.de>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Lost ping responses
+Date: Wed, 20 Aug 2014 09:29:07 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1747BBCF@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D1747B1C0@AcuExch.aculab.com>
+	<53F331B4.10802@mojatatu.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1747B268@AcuExch.aculab.com>
+ <CAHA+R7Pv9HaeNFnOAEr9BHqBRsWKnbeo7R4beOUQe9zyzmKfBA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Christian Grothoff <grothoff@in.tum.de>,
-	Jacob Appelbaum <jacob@appelbaum.net>,
-	Andi Kleen <andi@firstfloor.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	knock@gnunet.org
-To: Alexander Holler <holler@ahsoftware.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53F4654C.10101@ahsoftware.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: 'Cong Wang' <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:55150 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752258AbaHTJaZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Aug 2014 05:30:25 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 17488-02 for <netdev@vger.kernel.org>;
+ Wed, 20 Aug 2014 10:30:16 +0100 (BST)
+In-Reply-To: <CAHA+R7Pv9HaeNFnOAEr9BHqBRsWKnbeo7R4beOUQe9zyzmKfBA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20 August 2014 11:07, Alexander Holler <holler@ahsoftware.de> wrote:
-
-> For sure it could be better, but I'm already happy with the current
-> imperfect solution which I can use now and not some perfect solution which
-> might be available in some years.
-
-Alexander, to make it clear: we cannot include mechanisms which
-probably open other (security) issues. This is not how things work
-out. TCP had so many issues in the past - regarding security,
-implementation f*ups, etc. pp. It is utterly important that there is
-no problem with an extension. Please join the discussion ob tcpm if
-you will drive things forward. That's all what I can say - sorry!
+RnJvbTogQ29uZyBXYW5nDQo+IE9uIFR1ZSwgQXVnIDE5LCAyMDE0IGF0IDQ6MzUgQU0sIERhdmlk
+IExhaWdodCA8RGF2aWQuTGFpZ2h0QGFjdWxhYi5jb20+IHdyb3RlOg0KPiA+IEZyb206IEphbWFs
+IEhhZGkgU2FsaW0NCj4gPg0KPiA+PiA+IEFueSBpZGVhcyBob3cgdG8gZmluZCBvdXQgd2hlcmUg
+dGhlIGRpc2NhcmRzIGFyZSBoYXBwZW5pbmc/DQo+ID4+ID4gSXQgbWlnaHQganVzdCBiZSBzb21l
+d2hlcmUgdGhhdCB3b3VsZCBhZmZlY3Qgb3RoZXIgdHJhZmZpYyBmbG93cy4NCj4gPj4NCj4gPj4g
+bmV0c3RhdCAtcw0KPiA+DQo+ID4gVGhhbmtzIC0gJ0lwOiBvdXRnb2luZyBwYWNrZXRzIGRyb3Bw
+ZWQnIGluY3JlbWVudHMgZm9yIGV2ZXJ5IGxvc3QgcmVzcG9uc2UuDQo+ID4NCj4gPiBOZXh0IHN0
+ZXAgaXMgdG8gd29yayBvdXQgd2hhdCB0aGF0IG1lYW5zLi4uDQo+ID4NCj4gDQo+IFRyeSBkcm9w
+d2F0Y2gsIGl0IHNob3VsZCBnaXZlIHlvdSBiZXR0ZXIgaGludHMuDQoNClRoYXQgaW52b2x2ZXMg
+ZmluZGluZy9jb21waWxpbmcgYSB2ZXJzaW9uIHRoYXQgd2lsbCBydW4gb24gdWJ1bnR1IDEzLjEw
+IHNlcnZlci4NCkFuZCB3b3JraW5nIG91dCB3aGljaCBleHRyYSB1YnVudHUgcGFja2FnZXMgaXQg
+bmVlZHMgdG8gd29yay4NCk9uIGEgc3lzdGVtIEkndmUgYnVpbHQgdGhlIHNvdXJjZXMgb24gKGFm
+dGVyIGZpeGluZyBMRExJQlMpIEkgZ2V0IHRoZQ0KZXJyb3IgJ1VuYWJsZSB0byBmaW5kIE5FVF9E
+TSBmYW1pbHknIC0gd2hhdGV2ZXIgdGhhdCBtZWFucy4NCmJ1dCB0aGF0IGlzbid0IHRoZSBzeXN0
+ZW0gZHJvcHBpbmcgcGFja2V0cy4NCg0KCURhdmlkDQoNCg==
