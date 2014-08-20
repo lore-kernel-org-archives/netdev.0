@@ -1,37 +1,34 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: [PATCH] net: ethernet: broadcom: bnx2x: Remove redundant #ifdef
-Date: Wed, 20 Aug 2014 15:14:49 +0200
-Message-ID: <1408540489-1795-1-git-send-email-linux@rasmusvillemoes.dk>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>
-To: Ariel Elior <ariel.elior@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Daniele Forsi <dforsi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 4/4] r8152: support firmware files
+Date: Wed, 20 Aug 2014 15:32:45 +0200
+Message-ID: <CAN_we7O=wmpRfJ0Rts_sCxL-BUE2XemiekLRwmCMudEd05ZFXg@mail.gmail.com>
+References: <1394712342-15778-16-Taiwan-albertk@realtek.com>
+	<1394712342-15778-20-Taiwan-albertk@realtek.com>
+	<CAN_we7P2LDvR8miAsoSeL6+iEOK+ucgjRDC8jtPbc4_-2nn7MQ@mail.gmail.com>
+	<0835B3720019904CB8F7AA43166CEEB251585A@RTITMBSV03.realtek.com.tw>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB251585A-JIZ+AM9kKNzuvTFwvkocLypo8c9IxeqyAjHCUHv49ws@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Nothing defines _ASM_GENERIC_INT_L64_H, it is a weird way to check for
-64 bit longs, and u64 should be printed using %llx anyway.
+2014-08-20 14:35 GMT+02:00 Hayes Wang:
 
-Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 4 ----
- 1 file changed, 4 deletions(-)
+> Is this necessary? Besides the check of the "start",
+> there are checks of the "size" and rtl_fw_data_ok().
+> I think they cover the situations which you indicate.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 4e6c82e..4ccc806 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -483,11 +483,7 @@ static void bnx2x_tpa_start(struct bnx2x_fastpath *fp, u16 queue,
- 
- #ifdef BNX2X_STOP_ON_ERROR
- 	fp->tpa_queue_used |= (1 << queue);
--#ifdef _ASM_GENERIC_INT_L64_H
--	DP(NETIF_MSG_RX_STATUS, "fp->tpa_queue_used = 0x%lx\n",
--#else
- 	DP(NETIF_MSG_RX_STATUS, "fp->tpa_queue_used = 0x%llx\n",
--#endif
- 	   fp->tpa_queue_used);
- #endif
- }
+it's not necessary and it's better checked later as you did!
+
 -- 
-1.9.2
+Daniele Forsi
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
