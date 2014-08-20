@@ -1,175 +1,139 @@
-From: "LF.Tan" <lftan.linux@gmail.com>
-Subject: Re: [PATCH] net: stmmac: add fix_mac_speed support for socfpga
-Date: Wed, 20 Aug 2014 14:57:15 +0800
-Message-ID: <CAFiDJ59usgQGA7rGiR_D+cBdVLRPhAMgLUb2F4tgHBSXFwk7Pw@mail.gmail.com>
-References: <1408516413-2928-1-git-send-email-lftan@altera.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: [PATCH v2] ethernet: arc: Add support for specific SoC glue
+ layer device tree bindings
+Date: Wed, 20 Aug 2014 09:50:50 +0200
+Message-ID: <20140820075050.GA3614@distanz.ch>
+References: <1408286882-10186-1-git-send-email-romain.perier@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ley Foon Tan <lftan@altera.com>,
-	LeyFoon Tan <lftan.linux@gmail.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Vince Bridgers <vbridger@altera.com>, davem@davemloft.net
-To: netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408516413-2928-1-git-send-email-lftan@altera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, heiko@sntech.de, b.galvani@gmail.com,
+	eric.dumazet@gmail.com, yongjun_wei@trendmicro.com.cn,
+	f.fainelli@gmail.com, netdev@vger.kernel.org
+To: Romain Perier <romain.perier@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sym2.noone.org ([178.63.92.236]:46636 "EHLO sym2.noone.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750822AbaHTHux (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Aug 2014 03:50:53 -0400
+Content-Disposition: inline
+In-Reply-To: <1408286882-10186-1-git-send-email-romain.perier@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 20, 2014 at 2:33 PM, Ley Foon Tan <lftan@altera.com> wrote:
-> This patch adds fix_mac_speed() support for
-> Altera socfpga Ethernet controller. Emac splitter is a
-> soft IP core in FPGA system that converts GMII interface from
-> Synopsys mac to RGMII/SGMII interface. This splitter core is
-> an optional IP if user would like to use RGMII/SGMII
-> interface in their system. Software needs to update a register
-> in splitter core when there is speed change.
->
-> Signed-off-by: Ley Foon Tan <lftan@altera.com>
+On 2014-08-17 at 16:48:02 +0200, Romain Perier <romain.perier@gmail.com> wrote:
+> Some platforms have special bank registers which might be used to select
+> the correct clock or the right mode for Media Indepent Interface controllers.
+> Sometimes, it is also required to activate vcc regulators in the right order to supply
+> the ethernet controller at the right time. This patch is a refactoring of the arc-emac
+> device driver, it adds a new software architecture design which allows to add specific
+> platform glue layer. Each platform has now its own module which performs custom initialization
+> and remove for the target and then calls to the core driver.
+> 
+> Signed-off-by: Romain Perier <romain.perier@gmail.com>
 > ---
->  .../devicetree/bindings/net/socfpga-dwmac.txt      |  4 ++
->  .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 63 ++++++++++++++++++++++
->  2 files changed, 67 insertions(+)
->
-> diff --git a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-> index 2a60cd3..3a9d679 100644
-> --- a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-> +++ b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-> @@ -12,6 +12,10 @@ Required properties:
->   - altr,sysmgr-syscon : Should be the phandle to the system manager node that
->     encompasses the glue register, the register offset, and the register shift.
->
-> +Optional properties:
-> +altr,emac-splitter: Should be the phandle to the emac splitter soft IP node if
-> +               DWMAC controller is connected emac splitter.
+>  drivers/net/ethernet/arc/Kconfig     |  13 ++--
+>  drivers/net/ethernet/arc/Makefile    |   3 +-
+>  drivers/net/ethernet/arc/emac.h      |  21 ++++-
+>  drivers/net/ethernet/arc/emac_arc.c  |  77 +++++++++++++++++++
+>  drivers/net/ethernet/arc/emac_main.c | 145 +++++++++++++++--------------------
+>  drivers/net/ethernet/arc/emac_mdio.c |  11 ++-
+>  6 files changed, 170 insertions(+), 100 deletions(-)
+>  create mode 100644 drivers/net/ethernet/arc/emac_arc.c
+[...]
+> diff --git a/drivers/net/ethernet/arc/emac_arc.c b/drivers/net/ethernet/arc/emac_arc.c
+> new file mode 100644
+> index 0000000..be10943
+> --- /dev/null
+> +++ b/drivers/net/ethernet/arc/emac_arc.c
+> @@ -0,0 +1,77 @@
+> +/**
+> + * emac_arc.c - ARC EMAC specific glue layer
+> + *
+> + * Copyright (C) 2014 Romain Perier
+> + *
+> + * Romain Perier  <romain.perier@gmail.com>
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + */
 > +
->  Example:
->
->  gmac0: ethernet@ff700000 {
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-> index ec632e6..cd613d7 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-> @@ -17,6 +17,7 @@
->
->  #include <linux/mfd/syscon.h>
->  #include <linux/of.h>
-> +#include <linux/of_address.h>
->  #include <linux/of_net.h>
->  #include <linux/phy.h>
->  #include <linux/regmap.h>
-> @@ -30,6 +31,12 @@
->  #define SYSMGR_EMACGRP_CTRL_PHYSEL_WIDTH 2
->  #define SYSMGR_EMACGRP_CTRL_PHYSEL_MASK 0x00000003
->
-> +#define EMAC_SPLITTER_CTRL_REG                 0x0
-> +#define EMAC_SPLITTER_CTRL_SPEED_MASK          0x3
-> +#define EMAC_SPLITTER_CTRL_SPEED_10            0x2
-> +#define EMAC_SPLITTER_CTRL_SPEED_100           0x3
-> +#define EMAC_SPLITTER_CTRL_SPEED_1000          0x0
+> +#include "emac.h"
+
+Private headers should come after global ones.
+
+> +#include <linux/of_net.h>
+> +#include <linux/platform_device.h>
+> +#include <linux/module.h>
+> +#include <linux/clk.h>
 > +
->  struct socfpga_dwmac {
->         int     interface;
->         u32     reg_offset;
-> @@ -37,14 +44,46 @@ struct socfpga_dwmac {
->         struct  device *dev;
->         struct regmap *sys_mgr_base_addr;
->         struct reset_control *stmmac_rst;
-> +       void __iomem *splitter_base;
->  };
->
-> +static void socfpga_dwmac_fix_mac_speed(void *priv, unsigned int speed)
+> +#define DRV_NAME "emac_arc"
+> +#define DRV_VERSION "1.0"
+> +
+> +static int emac_arc_probe(struct platform_device *pdev)
 > +{
-> +       struct socfpga_dwmac *dwmac = (struct socfpga_dwmac *)priv;
-> +       void __iomem *splitter_base = dwmac->splitter_base;
-> +       u32 val;
+> +	struct arc_emac_platform_data *plat_data = NULL;
+> +	struct device *dev = &pdev->dev;
 > +
-> +       if (!splitter_base)
-> +               return;
+> +	plat_data = devm_kzalloc(dev, sizeof(*plat_data), GFP_KERNEL);
+> +	if (!plat_data)
+> +		return -ENOMEM;
+> +	plat_data->name = DRV_NAME;
+> +	plat_data->version = DRV_VERSION;
 > +
-> +       val = readl(splitter_base + EMAC_SPLITTER_CTRL_REG);
-> +       val &= ~EMAC_SPLITTER_CTRL_SPEED_MASK;
+> +	plat_data->interface = of_get_phy_mode(dev->of_node);
+> +	if (plat_data->interface < 0)
+> +		plat_data->interface = PHY_INTERFACE_MODE_MII;
 > +
-> +       switch (speed) {
-> +       case 1000:
-> +               val |= EMAC_SPLITTER_CTRL_SPEED_1000;
-> +               break;
-> +       case 100:
-> +               val |= EMAC_SPLITTER_CTRL_SPEED_100;
-> +               break;
-> +       case 10:
-> +               val |= EMAC_SPLITTER_CTRL_SPEED_10;
-> +               break;
-> +       default:
-> +               return;
-> +       }
+> +	plat_data->clk = devm_clk_get(dev, "hclk");
+> +        if (IS_ERR(plat_data->clk)) {
+
+Indentation looks strange here.
+
+> +		dev_err(dev, "failed to retrieve host clock from device tree\n");
+> +		return PTR_ERR_OR_ZERO(plat_data->clk);
+
+You test for IS_ERR(plat_data->clk) above, so PTR_ERR() should be
+sufficient here.
+
+> +	}
 > +
-> +       writel(val, splitter_base + EMAC_SPLITTER_CTRL_REG);
+> +	return arc_emac_probe(dev, plat_data);
 > +}
 > +
->  static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *dev)
->  {
->         struct device_node *np = dev->of_node;
->         struct regmap *sys_mgr_base_addr;
->         u32 reg_offset, reg_shift;
->         int ret;
-> +       struct device_node *np_splitter;
-> +       struct resource res_splitter;
->
->         dwmac->stmmac_rst = devm_reset_control_get(dev,
->                                                   STMMAC_RESOURCE_NAME);
-> @@ -73,6 +112,21 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
->                 return -EINVAL;
->         }
->
-> +       np_splitter = of_parse_phandle(np, "altr,emac-splitter", 0);
-> +       if (np_splitter) {
-> +               if (of_address_to_resource(np_splitter, 0, &res_splitter)) {
-> +                       dev_info(dev, "Missing emac splitter address\n");
-> +                       return -EINVAL;
-> +               }
+> +static int emac_arc_remove(struct platform_device *pdev)
+> +{
+> +	struct net_device *ndev = dev_get_drvdata(&pdev->dev);
 > +
-> +               dwmac->splitter_base = (void *)devm_ioremap_resource(dev,
-> +                       &res_splitter);
-> +               if (!dwmac->splitter_base) {
-> +                       dev_info(dev, "Failed to mapping emac splitter\n");
-> +                       return -EINVAL;
-> +               }
-> +       }
+> +	return arc_emac_remove(ndev);
+> +}
 > +
->         dwmac->reg_offset = reg_offset;
->         dwmac->reg_shift = reg_shift;
->         dwmac->sys_mgr_base_addr = sys_mgr_base_addr;
-> @@ -91,6 +145,7 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
->
->         switch (phymode) {
->         case PHY_INTERFACE_MODE_RGMII:
-> +       case PHY_INTERFACE_MODE_RGMII_ID:
->                 val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII;
->                 break;
->         case PHY_INTERFACE_MODE_MII:
-> @@ -102,6 +157,13 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
->                 return -EINVAL;
->         }
->
-> +       /* Overwrite val to GMII if splitter core is enabled. The phymode here
-> +        * is the actual phy mode on phy hardware, but phy interface from
-> +        * EMAC core is GMII.
-> +        */
-> +       if (dwmac->splitter_base)
-> +               val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII;
+> +static const struct of_device_id emac_arc_dt_ids[] = {
+> +	{ .compatible = "snps,arc-emac" },
+> +	{ /* Sentinel */ }
+> +};
 > +
->         regmap_read(sys_mgr_base_addr, reg_offset, &ctrl);
->         ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << reg_shift);
->         ctrl |= val << reg_shift;
-> @@ -196,4 +258,5 @@ const struct stmmac_of_data socfpga_gmac_data = {
->         .setup = socfpga_dwmac_probe,
->         .init = socfpga_dwmac_init,
->         .exit = socfpga_dwmac_exit,
-> +       .fix_mac_speed = socfpga_dwmac_fix_mac_speed,
->  };
-> --
-> 1.8.2.1
->
+> +static struct platform_driver emac_arc_driver = {
+> +	.probe = emac_arc_probe,
+> +	.remove = emac_arc_remove,
+> +	.driver = {
+> +		.name = DRV_NAME,
+> +		.of_match_table  = emac_arc_dt_ids,
+> +	},
+> +};
+> +
+> +module_platform_driver(emac_arc_driver);
+> +
+> +MODULE_AUTHOR("Romain Perier <romain.perier@gmail.com>");
+> +MODULE_DESCRIPTION("ARC EMAC platform driver");
+> +MODULE_LICENSE("GPL");
 
-Adding David S. Miller to CC list.
+You already have these in emac_main.c (with different author), though
+they are built together into the same module. Better merge them and only
+specifiy them once.
