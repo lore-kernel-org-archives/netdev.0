@@ -1,44 +1,32 @@
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
-Subject: [PATCH 1/1] sctp: not send SCTP_PEER_ADDR_CHANGE notifications with failed probe
-Date: Wed, 20 Aug 2014 17:31:43 +0800
-Message-ID: <1408527103-22772-2-git-send-email-Yanjun.Zhu@windriver.com>
-References: <1408527103-22772-1-git-send-email-Yanjun.Zhu@windriver.com>
-Cc: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-To: dborkman@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, vyasevich@gmail.com, tuexen@fh-muenster.de,
-	khandelwal.deepak.1987@gmail.com, Yue.Tao@windriver.com,
-	alexandre.dietsch@windriver.com, davem@davemloft.net,
-	zyjzyj2000@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408527103-22772-1-git-send-email-Yanjun.Zhu@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Zhangjie (HZ)" <zhangjie14@huawei.com>
+Subject: [Questions]
+Date: Wed, 20 Aug 2014 17:37:01 +0800
+Message-ID: <53F46C3D.1030106@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <liuyongan@huawei.com>, <qinchuanyu@huawei.com>,
+	<zhangjie14@huawei.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Jason Wang <jasowang@redhat.com>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>, <kvm@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:34110 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750864AbaHTJhw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2014 05:37:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since the transport has always been in state SCTP_UNCONFIRMED, it
-therefore wasn't active before and hasn't been used before, and it
-always has been, so it is unnecessary to bug the user with a 
-notification.
+Hi MST,
 
-Reported-by: Deepak Khandelwal <khandelwal.deepak.1987@gmail.com>  
-Suggested-by: Vlad Yasevich <vyasevich@gmail.com> 
-Suggested-by: Michael Tuexen <tuexen@fh-muenster.de>
-Suggested-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
----
- net/sctp/associola.c | 1 +
- 1 file changed, 1 insertion(+)
+I see "reduce networking latency"
+from Networking Todo, the idea is to "allow handling short packets from softirq or VCPU context".
+If from softirq context, how could softirq copy skb to guest memory? If the method is to use mmstruct of Qemu,
+would it be expensive?
+If from VCPU context, maybe the internal operation of the virtual machine will have a significant delay.
 
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 9de23a2..2e23f6b 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -813,6 +813,7 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
- 		else {
- 			dst_release(transport->dst);
- 			transport->dst = NULL;
-+			ulp_notify = false;
- 		}
- 
- 		spc_state = SCTP_ADDR_UNREACHABLE;
+Thanks!
 -- 
-1.9.1
+Best Wishes!
+Zhang Jie
