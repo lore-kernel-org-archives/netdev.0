@@ -1,88 +1,58 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC 2/4] tuntap: Publish tuntap maximum number of queues as
- module_param
-Date: Wed, 20 Aug 2014 13:53:44 +0200
-Message-ID: <20140820115344.GD1916@nanopsycho.orion>
-References: <1408369040-1216-1-git-send-email-pagupta@redhat.com>
- <1408369040-1216-3-git-send-email-pagupta@redhat.com>
- <20140820105817.GB1916@nanopsycho.orion>
- <20140820111724.GE17371@redhat.com>
- <20140820114620.GC1916@nanopsycho.orion>
- <20140820114907.GA17943@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 3/4] r8152: remove clear_bp function
+Date: Wed, 20 Aug 2014 16:00:51 +0400
+Message-ID: <53F48DF3.8000705@cogentembedded.com>
+References: <1394712342-15778-16-Taiwan-albertk@realtek.com> <1394712342-15778-19-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pankaj Gupta <pagupta@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net, jasowang@redhat.com,
-	dgibson@redhat.com, vfalico@gmail.com, edumazet@google.com,
-	vyasevic@redhat.com, hkchu@google.com, wuzhy@linux.vnet.ibm.com,
-	xemul@parallels.com, therbert@google.com,
-	bhutchings@solarflare.com, xii@google.com,
-	stephen@networkplumber.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nic_swsd@realtek.com, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140820114907.GA17943@redhat.com>
+In-Reply-To: <1394712342-15778-19-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wed, Aug 20, 2014 at 01:49:07PM CEST, mst@redhat.com wrote:
->On Wed, Aug 20, 2014 at 01:46:20PM +0200, Jiri Pirko wrote:
->> Wed, Aug 20, 2014 at 01:17:24PM CEST, mst@redhat.com wrote:
->> >On Wed, Aug 20, 2014 at 12:58:17PM +0200, Jiri Pirko wrote:
->> >> Mon, Aug 18, 2014 at 03:37:18PM CEST, pagupta@redhat.com wrote:
->> >> > This patch publishes maximum number of tun/tap queues allocated as a
->> >> > read_only module parameter which a user space application like libvirt
->> >> > can make use of to limit maximum number of queues. Value of read_only
->> >> > module parameter can be writable only at module load time. If no value is set
->> >> > at module load time a default value 256 is used which is equal to maximum number
->> >> > of vCPUS allowed by KVM.
->> >> >
->> >> > Administrator can specify maximum number of queues only at the driver
->> >> > module load time.
->> >> >
->> >> >Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
->> >> >---
->> >> > drivers/net/tun.c |   13 +++++++++++--
->> >> > 1 files changed, 11 insertions(+), 2 deletions(-)
->> >> >
->> >> >diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> >> >index acaaf67..1f518e2 100644
->> >> >--- a/drivers/net/tun.c
->> >> >+++ b/drivers/net/tun.c
->> >> >@@ -119,6 +119,9 @@ struct tap_filter {
->> >> > 
->> >> > #define TUN_FLOW_EXPIRE (3 * HZ)
->> >> > 
->> >> >+static int max_tap_queues = MAX_TAP_QUEUES;
->> >> >+module_param(max_tap_queues, int, S_IRUGO);
->> >> 
->> >> Please do not introduce new module paramaters. Please other ways to
->> >> interchange values with userspace.
->> >
->> >I suggested this initially, but thinking more about it, I agree.
->> >
->> >It's a global limit (necessary to limit memory utilization by
->> >userspace), but it should be possible to change it
->> >after module load.
->> >
->> >Additionally, userspace that has the FD should be able to
->> >retrieve the value without guessing that the FD is
->> >for the tun device (and not e.g. macvtap).
->> >To retrieve the value, an ioctl is probably the
->> >cleanest approach.
->> >
->> >To set it, how about a sysctl? I think the limit can also apply to
->> >all devices, not just tun.
->> 
->> Or netlink?
->
->Are there examples of netlink being used to set global defaults
->as opposed to per-device parameters?
+Hello.
 
-That is so far not possible. But I believe that it can be implemented.
-I'm just thinking out loud.
+On 8/20/2014 12:58 PM, Hayes Wang wrote:
 
+> The functions are used to update the firmware. Move the actions into
+> the firmware files.
+
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> ---
+>   drivers/net/usb/r8152.c | 24 ------------------------
+>   1 file changed, 24 deletions(-)
+
+> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+> index 33dcc97..937d132 100644
+> --- a/drivers/net/usb/r8152.c
+> +++ b/drivers/net/usb/r8152.c
+[...]
+> @@ -2248,7 +2226,6 @@ static void r8152b_hw_phy_cfg(struct r8152 *tp)
 >
->> >
->> >-- 
->> >MST
+>   	r8152b_disable_aldps(tp);
+>
+> -	rtl_clear_bp(tp);
+>
+
+    Why leave 2 empty lines? One is enough.
+
+>   	r8152b_enable_aldps(tp);
+>   	set_bit(PHY_RESET, &tp->flags);
+> @@ -2404,7 +2381,6 @@ static void r8153_hw_phy_cfg(struct r8152 *tp)
+>   		r8152_mdio_write(tp, MII_BMCR, data);
+>   	}
+>
+> -	r8153_clear_bp(tp);
+>
+
+    Ditto.
+
+>   	if (tp->version == RTL_VER_03) {
+>   		data = ocp_reg_read(tp, OCP_EEE_CFG);
+>
+
+WBR, Sergei
