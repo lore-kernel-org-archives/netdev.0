@@ -1,44 +1,37 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: [PATCH 2/3] tg3: Fix tx_pending checks for tg3_tso_bug
-Date: Tue, 19 Aug 2014 16:10:52 -0700
-Message-ID: <1408489852.7404.60.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1408474371-19509-1-git-send-email-bpoirier@suse.de>
-	 <1408474371-19509-2-git-send-email-bpoirier@suse.de>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Lost ping responses
+Date: Tue, 19 Aug 2014 20:19:52 -0700
+Message-ID: <CAHA+R7Pv9HaeNFnOAEr9BHqBRsWKnbeo7R4beOUQe9zyzmKfBA@mail.gmail.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D1747B1C0@AcuExch.aculab.com>
+	<53F331B4.10802@mojatatu.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1747B268@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="cp1252"
-Content-Transfer-Encoding: 7bit
-Cc: Prashant Sreedharan <prashant@broadcom.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Benjamin Poirier <bpoirier@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408474371-19509-2-git-send-email-bpoirier@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:42982 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751683AbaHTDTy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Aug 2014 23:19:54 -0400
+Received: by mail-lb0-f177.google.com with SMTP id s7so6053218lbd.8
+        for <netdev@vger.kernel.org>; Tue, 19 Aug 2014 20:19:52 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1747B268@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-08-19 at 11:52 -0700, Benjamin Poirier wrote: 
-> @@ -7838,11 +7838,14 @@ static int tg3_tso_bug(struct tg3 *tp, struct tg3_napi *tnapi,
->                        struct netdev_queue *txq, struct sk_buff *skb)
->  {
->         struct sk_buff *segs, *nskb;
-> -       u32 frag_cnt_est = skb_shinfo(skb)->gso_segs * 3;
->  
-> -       /* Estimate the number of fragments in the worst case */
-> -       if (unlikely(tg3_tx_avail(tnapi) <= frag_cnt_est)) {
-> +       if (unlikely(tg3_tx_avail(tnapi) <= skb_shinfo(skb)->gso_segs)) {
-> +               trace_printk("stopping queue, %d <= %d\n",
-> +                            tg3_tx_avail(tnapi), skb_shinfo(skb)->gso_segs);
->                 netif_tx_stop_queue(txq);
-> +               trace_printk("stopped queue\n");
-> +               tnapi->wakeup_thresh = skb_shinfo(skb)->gso_segs;
-> +               BUG_ON(tnapi->wakeup_thresh >= tnapi->tx_pending);
->  
->                 /* netif_tx_stop_queue() must be done before checking
->                  * checking tx index in tg3_tx_avail() below, because in 
+On Tue, Aug 19, 2014 at 4:35 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Jamal Hadi Salim
+>
+>> > Any ideas how to find out where the discards are happening?
+>> > It might just be somewhere that would affect other traffic flows.
+>>
+>> netstat -s
+>
+> Thanks - 'Ip: outgoing packets dropped' increments for every lost response.
+>
+> Next step is to work out what that means...
+>
 
-I don't quite understand this logic and I must be missing something.
-gso_segs is the number of TCP segments the large packet will be broken
-up into.  If it exceeds dev->gso_max_segs, it means it exceeds
-hardware's capabilty and it will do GSO instead of TSO.  But in this
-case in tg3_tso_bug(), we are doing GSO and we may not have enough DMA
-descriptors to do GSO.  Each gso_seg typically requires 2 DMA
-descriptors.
+Try dropwatch, it should give you better hints.
