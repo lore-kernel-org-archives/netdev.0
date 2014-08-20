@@ -1,7 +1,7 @@
 From: Himangi Saraogi <himangi774@gmail.com>
-Subject: [PATCH] decnet: Use time_after_eq
-Date: Wed, 20 Aug 2014 23:20:09 +0530
-Message-ID: <20140820175009.GA4316@himangi-Dell>
+Subject: [PATCH] af_decnet: Use time_after_eq
+Date: Wed, 20 Aug 2014 23:24:40 +0530
+Message-ID: <20140820175440.GA4556@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Julia Lawall <julia.lawall@lip6.fr>
@@ -20,37 +20,37 @@ A simplified version of the Coccinelle semantic patch making this change
 is as follows:
 
 @change@
-expression E1,E2;
+expression E1,E2,E3;
 @@
-- (jiffies - E1) >= E2
-+ time_after_eq(jiffies, E1+E2)
+- jiffies - E1 >= (E2*E3)
++ time_after_eq(jiffies, E1+E2*E3)
 
 Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
 Acked-by: Julia Lawall <julia.lawall@lip6.fr>
 ---
- net/decnet/dn_timer.c | 3 ++-
+ net/decnet/af_decnet.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/decnet/dn_timer.c b/net/decnet/dn_timer.c
-index d9c150c..1d330fd 100644
---- a/net/decnet/dn_timer.c
-+++ b/net/decnet/dn_timer.c
-@@ -23,6 +23,7 @@
- #include <linux/spinlock.h>
- #include <net/sock.h>
- #include <linux/atomic.h>
+diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+index ae011b4..25733d5 100644
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -127,6 +127,7 @@ Version 0.0.6    2.1.110   07-aug-98   Eduardo Marcelo Serrat
+ #include <linux/stat.h>
+ #include <linux/init.h>
+ #include <linux/poll.h>
 +#include <linux/jiffies.h>
- #include <net/flow.h>
- #include <net/dn.h>
+ #include <net/net_namespace.h>
+ #include <net/neighbour.h>
+ #include <net/dst.h>
+@@ -598,7 +599,7 @@ int dn_destroy_timer(struct sock *sk)
+ 	if (sk->sk_socket)
+ 		return 0;
  
-@@ -91,7 +92,7 @@ static void dn_slow_timer(unsigned long arg)
- 	 * since the last successful transmission.
- 	 */
- 	if (scp->keepalive && scp->keepalive_fxn && (scp->state == DN_RUN)) {
--		if ((jiffies - scp->stamp) >= scp->keepalive)
-+		if (time_after_eq(jiffies, scp->stamp + scp->keepalive))
- 			scp->keepalive_fxn(sk);
- 	}
- 
+-	if ((jiffies - scp->stamp) >= (HZ * decnet_time_wait)) {
++	if (time_after_eq(jiffies, scp->stamp + HZ * decnet_time_wait)) {
+ 		dn_unhash_sock(sk);
+ 		sock_put(sk);
+ 		return 1;
 -- 
 1.9.1
