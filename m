@@ -1,167 +1,190 @@
-From: Ley Foon Tan <lftan@altera.com>
-Subject: [PATCH] net: stmmac: add fix_mac_speed support for socfpga
-Date: Wed, 20 Aug 2014 14:33:33 +0800
-Message-ID: <1408516413-2928-1-git-send-email-lftan@altera.com>
+From: PERIER Romain <romain.perier@gmail.com>
+Subject: Re: [PATCH v2] ethernet: arc: Add support for specific SoC glue layer
+ device tree bindings
+Date: Wed, 20 Aug 2014 08:39:22 +0200
+Message-ID: <CABgxDoK2_EYhhGm2XWAAO-nOQZa4Om-b0fMm5ezRdWrse7owrg@mail.gmail.com>
+References: <1408286882-10186-1-git-send-email-romain.perier@gmail.com>
+	<CABgxDoL5WZ_r6hDuWF2=LJA6wFB4h6voqXdOEHG1jAbpdPN9ZQ@mail.gmail.com>
+	<201408191413.12337.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ley Foon Tan <lftan@altera.com>, <lftan.linux@gmail.com>,
-	"Giuseppe Cavallaro" <peppe.cavallaro@st.com>,
-	Vince Bridgers <vbridger@altera.com>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: davem <davem@davemloft.net>,
+	=?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko@sntech.de>,
+	Tobias Klauser <tklauser@distanz.ch>,
+	Beniamino Galvani <b.galvani@gmail.com>,
+	"eric.dumazet" <eric.dumazet@gmail.com>,
+	yongjun_wei@trendmicro.com.cn,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f46.google.com ([209.85.192.46]:45915 "EHLO
+	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751208AbaHTGjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2014 02:39:23 -0400
+Received: by mail-qg0-f46.google.com with SMTP id z60so3444498qgd.19
+        for <netdev@vger.kernel.org>; Tue, 19 Aug 2014 23:39:22 -0700 (PDT)
+In-Reply-To: <201408191413.12337.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds fix_mac_speed() support for
-Altera socfpga Ethernet controller. Emac splitter is a
-soft IP core in FPGA system that converts GMII interface from
-Synopsys mac to RGMII/SGMII interface. This splitter core is
-an optional IP if user would like to use RGMII/SGMII
-interface in their system. Software needs to update a register
-in splitter core when there is speed change.
+2014-08-19 14:13 GMT+02:00 Arnd Bergmann <arnd@arndb.de>:
+> On Monday 18 August 2014, PERIER Romain wrote:
+>> Adding Arnd to the loop, as he was interested by these changes.
+>>
+>> 2014-08-17 16:48 GMT+02:00 Romain Perier <romain.perier@gmail.com>:
+>> > Some platforms have special bank registers which might be used to select
+>> > the correct clock or the right mode for Media Indepent Interface controllers.
+>> > Sometimes, it is also required to activate vcc regulators in the right order to supply
+>> > the ethernet controller at the right time. This patch is a refactoring of the arc-emac
+>> > device driver, it adds a new software architecture design which allows to add specific
+>> > platform glue layer. Each platform has now its own module which performs custom initialization
+>> > and remove for the target and then calls to the core driver.
+>
+> Looks quite good to me overall, I only have minor stylistic comments
+>
+>> > +/* Platform data for SoC glue layer device tree bindings */
+>> > +struct arc_emac_platform_data
+>> > +{
+>> > +       const char *name;
+>> > +       const char *version;
+>> > +       int interface;
+>> > +       struct clk *clk;
+>> > +       void (*set_mac_speed)(void *priv, unsigned int speed);
+>> > +       void *priv;
+>> > +};
+>> > +
+>> >  /**
+>> >   * struct arc_emac_priv - Storage of EMAC's private information.
+>> >   * @dev:       Pointer to the current device.
+>> >   * @phy_dev:   Pointer to attached PHY device.
+>> >   * @bus:       Pointer to the current MII bus.
+>> > + * @plat_data: Pointer to SoC specific data.
+>> >   * @regs:      Base address of EMAC memory-mapped control registers.
+>> >   * @napi:      Structure for NAPI.
+>> >   * @rxbd:      Pointer to Rx BD ring.
+>
+> Any reason why these are separate structures? It seems to me you could
+> just move everything into arc_emac_priv.
 
-Signed-off-by: Ley Foon Tan <lftan@altera.com>
----
- .../devicetree/bindings/net/socfpga-dwmac.txt      |  4 ++
- .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 63 ++++++++++++++++++++++
- 2 files changed, 67 insertions(+)
+The idea is that arc_emac_priv is the private data structure for the
+core driver, it should not be used outside of the core (emac_main.c,
+emac_mdio.c).
+arc_emac_platform_data contains all the variant data exported by the
+platform driver. That's a logical seperation, nothing more.
+The priv data structure should not go outside of the component for
+which it was designed, imho (at least with the current design, see
+below).
 
-diff --git a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-index 2a60cd3..3a9d679 100644
---- a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-+++ b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-@@ -12,6 +12,10 @@ Required properties:
-  - altr,sysmgr-syscon : Should be the phandle to the system manager node that
-    encompasses the glue register, the register offset, and the register shift.
- 
-+Optional properties:
-+altr,emac-splitter: Should be the phandle to the emac splitter soft IP node if
-+		DWMAC controller is connected emac splitter.
-+
- Example:
- 
- gmac0: ethernet@ff700000 {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index ec632e6..cd613d7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -17,6 +17,7 @@
- 
- #include <linux/mfd/syscon.h>
- #include <linux/of.h>
-+#include <linux/of_address.h>
- #include <linux/of_net.h>
- #include <linux/phy.h>
- #include <linux/regmap.h>
-@@ -30,6 +31,12 @@
- #define SYSMGR_EMACGRP_CTRL_PHYSEL_WIDTH 2
- #define SYSMGR_EMACGRP_CTRL_PHYSEL_MASK 0x00000003
- 
-+#define EMAC_SPLITTER_CTRL_REG			0x0
-+#define EMAC_SPLITTER_CTRL_SPEED_MASK		0x3
-+#define EMAC_SPLITTER_CTRL_SPEED_10		0x2
-+#define EMAC_SPLITTER_CTRL_SPEED_100		0x3
-+#define EMAC_SPLITTER_CTRL_SPEED_1000		0x0
-+
- struct socfpga_dwmac {
- 	int	interface;
- 	u32	reg_offset;
-@@ -37,14 +44,46 @@ struct socfpga_dwmac {
- 	struct	device *dev;
- 	struct regmap *sys_mgr_base_addr;
- 	struct reset_control *stmmac_rst;
-+	void __iomem *splitter_base;
- };
- 
-+static void socfpga_dwmac_fix_mac_speed(void *priv, unsigned int speed)
-+{
-+	struct socfpga_dwmac *dwmac = (struct socfpga_dwmac *)priv;
-+	void __iomem *splitter_base = dwmac->splitter_base;
-+	u32 val;
-+
-+	if (!splitter_base)
-+		return;
-+
-+	val = readl(splitter_base + EMAC_SPLITTER_CTRL_REG);
-+	val &= ~EMAC_SPLITTER_CTRL_SPEED_MASK;
-+
-+	switch (speed) {
-+	case 1000:
-+		val |= EMAC_SPLITTER_CTRL_SPEED_1000;
-+		break;
-+	case 100:
-+		val |= EMAC_SPLITTER_CTRL_SPEED_100;
-+		break;
-+	case 10:
-+		val |= EMAC_SPLITTER_CTRL_SPEED_10;
-+		break;
-+	default:
-+		return;
-+	}
-+
-+	writel(val, splitter_base + EMAC_SPLITTER_CTRL_REG);
-+}
-+
- static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *dev)
- {
- 	struct device_node *np = dev->of_node;
- 	struct regmap *sys_mgr_base_addr;
- 	u32 reg_offset, reg_shift;
- 	int ret;
-+	struct device_node *np_splitter;
-+	struct resource res_splitter;
- 
- 	dwmac->stmmac_rst = devm_reset_control_get(dev,
- 						  STMMAC_RESOURCE_NAME);
-@@ -73,6 +112,21 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
- 		return -EINVAL;
- 	}
- 
-+	np_splitter = of_parse_phandle(np, "altr,emac-splitter", 0);
-+	if (np_splitter) {
-+		if (of_address_to_resource(np_splitter, 0, &res_splitter)) {
-+			dev_info(dev, "Missing emac splitter address\n");
-+			return -EINVAL;
-+		}
-+
-+		dwmac->splitter_base = (void *)devm_ioremap_resource(dev,
-+			&res_splitter);
-+		if (!dwmac->splitter_base) {
-+			dev_info(dev, "Failed to mapping emac splitter\n");
-+			return -EINVAL;
-+		}
-+	}
-+
- 	dwmac->reg_offset = reg_offset;
- 	dwmac->reg_shift = reg_shift;
- 	dwmac->sys_mgr_base_addr = sys_mgr_base_addr;
-@@ -91,6 +145,7 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
- 
- 	switch (phymode) {
- 	case PHY_INTERFACE_MODE_RGMII:
-+	case PHY_INTERFACE_MODE_RGMII_ID:
- 		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII;
- 		break;
- 	case PHY_INTERFACE_MODE_MII:
-@@ -102,6 +157,13 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
- 		return -EINVAL;
- 	}
- 
-+	/* Overwrite val to GMII if splitter core is enabled. The phymode here
-+	 * is the actual phy mode on phy hardware, but phy interface from
-+	 * EMAC core is GMII.
-+	 */
-+	if (dwmac->splitter_base)
-+		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII;
-+
- 	regmap_read(sys_mgr_base_addr, reg_offset, &ctrl);
- 	ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << reg_shift);
- 	ctrl |= val << reg_shift;
-@@ -196,4 +258,5 @@ const struct stmmac_of_data socfpga_gmac_data = {
- 	.setup = socfpga_dwmac_probe,
- 	.init = socfpga_dwmac_init,
- 	.exit = socfpga_dwmac_exit,
-+	.fix_mac_speed = socfpga_dwmac_fix_mac_speed,
- };
--- 
-1.8.2.1
+>
+> While it can make sense to pass a structure containting constant data
+> (e.g. callback pointers and the name field) as a pointer, for the
+> rest I don't see an advantage.
+
+* interface is required when the core driver connects to the phy for
+the first time (of_phy_connect). It could be passed as parameter of
+arc_emac_probe directly.
+* clk is the host clock for emac, it might change according to the
+platform and needs to be shared with probe and remove.
+* priv is the private data structure of the platform (arc or rockchip for now)
+
+>
+> The new fields in arc_emac_platform_data should be documented the same
+> way the fields in arc_emac_priv are.
+
+Good point.
+
+>
+> You could solve both issues if you move the alloc_etherdev() call into the
+> front-end, and pass that to both probe() and remove() callbacks.
+> That way you could also avoid the additional priv pointer if you just
+> embed the arc_emac_priv structure into the per-frontend structure.
+
+Moving alloc_etherdev() to the front-end is a good idea, indeed.
+What I could do is the following :
+
+- Move alloc_etherdev to the front-end
+- Move arc_emac_platform_data into arc_emac_priv (except the field
+interface which is a parameter of probe)
+- I would keep the priv field, i.e, the private data structure for the
+platform driver. In this way if we need to add modifications to this
+private data structure, we don't need to modify arc_emac_priv. Also,
+some platform drivers might have special dependencies like regulator
+or syscon. It avoids to move these dependencies to the core.
+- arc_emac_probe would be :    int arc_emac_probe(struct net_device
+*netdev, int interface);
+- arc_emac_remove would be: int arc_emac_remove(struct net_device *netdev);
+
+>
+>> > +
+>> > +#define DRV_NAME "emac_arc"
+>> > +#define DRV_VERSION "1.0"
+>> > +
+>> > +static int emac_arc_probe(struct platform_device *pdev)
+>> > +{
+>> > +       struct arc_emac_platform_data *plat_data = NULL;
+>> > +       struct device *dev = &pdev->dev;
+>> > +
+>> > +       plat_data = devm_kzalloc(dev, sizeof(*plat_data), GFP_KERNEL);
+>
+> Remove the "= NULL" above, it is pointless here.
+
+ack
+
+>
+>> > +       if (!plat_data)
+>> > +               return -ENOMEM;
+>> > +       plat_data->name = DRV_NAME;
+>> > +       plat_data->version = DRV_VERSION;
+>
+> I don't see much use in having a per-frontend DRV_NAME/DRV_VERSION pased
+> here and would just leave those as part of the backend library.
+
+the platform driver might contain code which might change the behavior
+of the ethernet driver, according to the selected platform , this is
+not exactly the same driver. That's why I did this change.
+
+>
+>> > +       plat_data->interface = of_get_phy_mode(dev->of_node);
+>> > +       if (plat_data->interface < 0)
+>> > +               plat_data->interface = PHY_INTERFACE_MODE_MII;
+>> > +
+>> > +       plat_data->clk = devm_clk_get(dev, "hclk");
+>> > +        if (IS_ERR(plat_data->clk)) {
+>> > +               dev_err(dev, "failed to retrieve host clock from device tree\n");
+>> > +               return PTR_ERR_OR_ZERO(plat_data->clk);
+>> > +       }
+>
+> devm_clk_get() might return -EPROBE_DEFER, in and in that case you should silently
+> return that to the caller as well.
+
+ack
+
+>
+>> > -static int arc_emac_probe(struct platform_device *pdev)
+>> > +int arc_emac_probe(struct device *dev, const struct arc_emac_platform_data *plat_data)
+>> >  {
+>> >         struct resource res_regs;
+>> >         struct device_node *phy_node;
+>
+> I would keep passing a platform_device pointer rather than device. If you think
+> it's a worthwhile simplification to pass just the device, that could be a separate
+> patch.
+
+platform_device should not be in the core driver, this is platform
+dependent, so it should not be outside of the platform drivers
+(emac_arc.c, emac_rockchip.c). Imho. (
+
+I will probably re-send two commits for all these changes :
+* 1st commit:
+   - int arc_emac_probe(struct platform_device *, int interface);
+   - int arc_emac_remove(struct platform_device *);
+   - alloc_etherdev in the front-end
+* 2nd commit:
+   - int arc_emac_probe(struct net_device *, int interface);
+   - int arc_emac_remove(struct net_device *);
+
+What do you think about the above proposals ?
+Thanks
+
+Romain
