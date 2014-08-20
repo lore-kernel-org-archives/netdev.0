@@ -1,76 +1,151 @@
-From: Christian Lamparter <chunkeey@googlemail.com>
-Subject: Re: [PATCH] carl9170: Replace rcu_dereference() with rcu_access_pointer()
-Date: Wed, 20 Aug 2014 13:20:02 -0700 (PDT)
-Message-ID: <3042528.E5hT1D5bWz@debian64>
-References: <20140817104806.GA14533@ada> <3029076.uaUkTd8nru@debian64> <20140820173210.GA18892@ada>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com
-To: Andreea Bernat <bernat.ada@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140820173210.GA18892@ada>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net v2] cxgb4: Fix race condition in cleanup
+Date: Wed, 20 Aug 2014 13:44:06 -0700
+Message-ID: <1408567446-6598-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
+	svemuri@chelsio.com, nhorman@redhat.com,
+	Anish Bhatt <anish@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:59950
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752960AbaHTUoR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2014 16:44:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, August 20, 2014 08:32:11 PM Andreea Bernat wrote:
-> On Mon, Aug 18, 2014 at 09:29:36PM +0200, Christian Lamparter wrote:
-> > On Sunday, August 17, 2014 01:48:07 PM Andreea-Cristina Bernat wrote:
-> > > The rcu_dereference() call is used directly in a condition.
-> > > Since its return value is never dereferenced it is recommended to use
-> > > "rcu_access_pointer()" instead of "rcu_dereference()".
-> > > Therefore, this patch makes the replacement.
-> > > [...]
-> > > Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
-> > > ---
-> > >  drivers/net/wireless/ath/carl9170/main.c | 2 +-
-> > >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > > 
-> > > diff --git a/drivers/net/wireless/ath/carl9170/main.c b/drivers/net/wireless/ath/carl9170/main.c
-> > > index f8ded84..12018ff 100644
-> > > --- a/drivers/net/wireless/ath/carl9170/main.c
-> > > +++ b/drivers/net/wireless/ath/carl9170/main.c
-> > > @@ -1431,7 +1431,7 @@ static int carl9170_op_ampdu_action(struct ieee80211_hw *hw,
-> > >  			return -EOPNOTSUPP;
-> > >  
-> > >  		rcu_read_lock();
-> > > -		if (rcu_dereference(sta_info->agg[tid])) {
-> > > +		if (rcu_access_pointer(sta_info->agg[tid])) {
-> > >  			rcu_read_unlock();
-> > >  			return -EBUSY;
-> > >  		}
-> > 
-> > There's more. The check does not do a whole lot. I think *it* [the check] and the
-> > rcu_read_[un]lock [and the return -EBUSY] can be removed completely from the
-> > IEEE80211_AMPDU_TX_START code-path in carl9170_op_ampdu_action.
-> > 
-> > It would be awesome, if you could you make a patch which removes this 
-> > unneeded cosmic-ray-protection check :-) .
-> 
-> Could you tell me why you think that those lines have to be removed?
-The carl9170_op_ampdu_action callback is used exclusively by the mac80211
-framework to notify the driver about setup and tear down of TX and RX 
-aggregation sessions. Hence, mac80211 takes great care of performing
-sanity checks and properly serializing calls to the driver's ampdu_action
-callback.
+There is a possible race condition when we unregister the PCI Driver and then
+flush/destroy the global "workq". This could lead to situations where there
+are tasks on the Work Queue with references to now deleted adapter data
+structures. Instead, have per-adapter Work Queues which were instantiated and
+torn down in init_one() and remove_one(), respectively.
 
-Specifically mac80211 already prevents the START of an TX aggregation session,
-if the aggregation session is already active [0]. Therefore the driver doesn't
-need to perform a similar check as well. This is why:
- - the expression (rcu_dereference(sta_info->agg[tid])) never evaluates to true
- -> the -EBUSY exit path is "dead code"
+v2: Remove unnecessary call to flush_workqueue() before destroy_workqueue()
 
-And without the rcu_dereference(...) the rcu_read protection is not needed
-either. So it can be removed for this case as well.
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 32 ++++++++++++++-----------
+ 2 files changed, 19 insertions(+), 14 deletions(-)
 
-> I would like to fully understand this before I remove them.
-Let me know if the explanation above answers sufficient :).
-If not, I need some *pointers* to what needs further 
-explanation.
-
-Regards
-Christian
-
-[0] <http://lxr.free-electrons.com/source/net/mac80211/agg-tx.c#L583>
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index d572821..c067b78 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -652,6 +652,7 @@ struct adapter {
+ 	struct tid_info tids;
+ 	void **tid_release_head;
+ 	spinlock_t tid_release_lock;
++	struct workqueue_struct *workq;
+ 	struct work_struct tid_release_task;
+ 	struct work_struct db_full_task;
+ 	struct work_struct db_drop_task;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 1afee70..18fb9c6 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -643,8 +643,6 @@ static int set_rxmode(struct net_device *dev, int mtu, bool sleep_ok)
+ 	return ret;
+ }
+ 
+-static struct workqueue_struct *workq;
+-
+ /**
+  *	link_start - enable a port
+  *	@dev: the port to enable
+@@ -3340,7 +3338,7 @@ static void cxgb4_queue_tid_release(struct tid_info *t, unsigned int chan,
+ 	adap->tid_release_head = (void **)((uintptr_t)p | chan);
+ 	if (!adap->tid_release_task_busy) {
+ 		adap->tid_release_task_busy = true;
+-		queue_work(workq, &adap->tid_release_task);
++		queue_work(adap->workq, &adap->tid_release_task);
+ 	}
+ 	spin_unlock_bh(&adap->tid_release_lock);
+ }
+@@ -4140,7 +4138,7 @@ void t4_db_full(struct adapter *adap)
+ 		notify_rdma_uld(adap, CXGB4_CONTROL_DB_FULL);
+ 		t4_set_reg_field(adap, SGE_INT_ENABLE3,
+ 				 DBFIFO_HP_INT | DBFIFO_LP_INT, 0);
+-		queue_work(workq, &adap->db_full_task);
++		queue_work(adap->workq, &adap->db_full_task);
+ 	}
+ }
+ 
+@@ -4150,7 +4148,7 @@ void t4_db_dropped(struct adapter *adap)
+ 		disable_dbs(adap);
+ 		notify_rdma_uld(adap, CXGB4_CONTROL_DB_FULL);
+ 	}
+-	queue_work(workq, &adap->db_drop_task);
++	queue_work(adap->workq, &adap->db_drop_task);
+ }
+ 
+ static void uld_attach(struct adapter *adap, unsigned int uld)
+@@ -6517,6 +6515,12 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto out_disable_device;
+ 	}
+ 
++	adapter->workq = create_singlethread_workqueue("cxgb4");
++	if (!adapter->workq) {
++		err = -ENOMEM;
++		goto out_free_adapter;
++	}
++
+ 	/* PCI device has been enabled */
+ 	adapter->flags |= DEV_ENABLED;
+ 
+@@ -6715,6 +6719,9 @@ sriov:
+  out_unmap_bar0:
+ 	iounmap(adapter->regs);
+  out_free_adapter:
++	if (adapter->workq)
++		destroy_workqueue(adapter->workq);
++
+ 	kfree(adapter);
+  out_disable_device:
+ 	pci_disable_pcie_error_reporting(pdev);
+@@ -6736,6 +6743,11 @@ static void remove_one(struct pci_dev *pdev)
+ 	if (adapter) {
+ 		int i;
+ 
++		/* Tear down per-adapter Work Queue first since it can contain
++		 * references to our adapter data structure.
++		 */
++		destroy_workqueue(adapter->workq);
++
+ 		if (is_offload(adapter))
+ 			detach_ulds(adapter);
+ 
+@@ -6788,20 +6800,14 @@ static int __init cxgb4_init_module(void)
+ {
+ 	int ret;
+ 
+-	workq = create_singlethread_workqueue("cxgb4");
+-	if (!workq)
+-		return -ENOMEM;
+-
+ 	/* Debugfs support is optional, just warn if this fails */
+ 	cxgb4_debugfs_root = debugfs_create_dir(KBUILD_MODNAME, NULL);
+ 	if (!cxgb4_debugfs_root)
+ 		pr_warn("could not create debugfs entry, continuing\n");
+ 
+ 	ret = pci_register_driver(&cxgb4_driver);
+-	if (ret < 0) {
++	if (ret < 0)
+ 		debugfs_remove(cxgb4_debugfs_root);
+-		destroy_workqueue(workq);
+-	}
+ 
+ 	register_inet6addr_notifier(&cxgb4_inet6addr_notifier);
+ 
+@@ -6813,8 +6819,6 @@ static void __exit cxgb4_cleanup_module(void)
+ 	unregister_inet6addr_notifier(&cxgb4_inet6addr_notifier);
+ 	pci_unregister_driver(&cxgb4_driver);
+ 	debugfs_remove(cxgb4_debugfs_root);  /* NULL ok */
+-	flush_workqueue(workq);
+-	destroy_workqueue(workq);
+ }
+ 
+ module_init(cxgb4_init_module);
+-- 
+2.1.0
