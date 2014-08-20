@@ -1,8 +1,8 @@
 From: Mark Einon <mark.einon@gmail.com>
-Subject: [PATCH 3/8] staging: et131x: Use for loop to initialise contiguous
- registers to zero
-Date: Wed, 20 Aug 2014 23:17:53 +0100
-Message-ID: <1408573078-9320-4-git-send-email-mark.einon@gmail.com>
+Subject: [PATCH 1/8] staging: et131x: Use eth_mac_addr() instead of
+ duplicating the functionality
+Date: Wed, 20 Aug 2014 23:17:51 +0100
+Message-ID: <1408573078-9320-2-git-send-email-mark.einon@gmail.com>
 References: <1408573078-9320-1-git-send-email-mark.einon@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,58 +23,83 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Replace a long list of contiguous writel() calls with a for loop iterating
-over the same values.
+There's already working code to set the mac address, so let's use it.
 
 Signed-off-by: Mark Einon <mark.einon@gmail.com>
 ---
- drivers/staging/et131x/et131x.c | 27 +++------------------------
- 1 file changed, 3 insertions(+), 24 deletions(-)
+ drivers/staging/et131x/et131x.c | 53 +----------------------------------------
+ 1 file changed, 1 insertion(+), 52 deletions(-)
 
 diff --git a/drivers/staging/et131x/et131x.c b/drivers/staging/et131x/et131x.c
-index fffe763..44cc684 100644
+index 831b7c6..ac6700b 100644
 --- a/drivers/staging/et131x/et131x.c
 +++ b/drivers/staging/et131x/et131x.c
-@@ -1138,6 +1138,7 @@ static void et1310_config_rxmac_regs(struct et131x_adapter *adapter)
- 	u32 sa_lo;
- 	u32 sa_hi = 0;
- 	u32 pf_ctrl = 0;
-+	u32 *wolw;
+@@ -4468,57 +4468,6 @@ static int et131x_change_mtu(struct net_device *netdev, int new_mtu)
+ 	return result;
+ }
  
- 	/* Disable the MAC while it is being configured (also disable WOL) */
- 	writel(0x8, &rxmac->ctrl);
-@@ -1151,30 +1152,8 @@ static void et1310_config_rxmac_regs(struct et131x_adapter *adapter)
- 	 * its default Values of 0x00000000 because there are not WOL masks
- 	 * as of this time.
- 	 */
--	writel(0, &rxmac->mask0_word0);
--	writel(0, &rxmac->mask0_word1);
--	writel(0, &rxmac->mask0_word2);
--	writel(0, &rxmac->mask0_word3);
+-/* et131x_set_mac_addr - handler to change the MAC address for the device */
+-static int et131x_set_mac_addr(struct net_device *netdev, void *new_mac)
+-{
+-	int result = 0;
+-	struct et131x_adapter *adapter = netdev_priv(netdev);
+-	struct sockaddr *address = new_mac;
 -
--	writel(0, &rxmac->mask1_word0);
--	writel(0, &rxmac->mask1_word1);
--	writel(0, &rxmac->mask1_word2);
--	writel(0, &rxmac->mask1_word3);
+-	if (adapter == NULL)
+-		return -ENODEV;
 -
--	writel(0, &rxmac->mask2_word0);
--	writel(0, &rxmac->mask2_word1);
--	writel(0, &rxmac->mask2_word2);
--	writel(0, &rxmac->mask2_word3);
+-	/* Make sure the requested MAC is valid */
+-	if (!is_valid_ether_addr(address->sa_data))
+-		return -EADDRNOTAVAIL;
 -
--	writel(0, &rxmac->mask3_word0);
--	writel(0, &rxmac->mask3_word1);
--	writel(0, &rxmac->mask3_word2);
--	writel(0, &rxmac->mask3_word3);
+-	et131x_disable_txrx(netdev);
+-	et131x_handle_send_interrupt(adapter);
+-	et131x_handle_recv_interrupt(adapter);
 -
--	writel(0, &rxmac->mask4_word0);
--	writel(0, &rxmac->mask4_word1);
--	writel(0, &rxmac->mask4_word2);
--	writel(0, &rxmac->mask4_word3);
-+	for (wolw = &rxmac->mask0_word0; wolw <= &rxmac->mask4_word3; wolw++)
-+		writel(0, wolw);
- 
- 	/* Lets setup the WOL Source Address */
- 	sa_lo = (adapter->addr[2] << ET_RX_WOL_LO_SA3_SHIFT) |
+-	/* Set the new MAC */
+-	/* netdev->set_mac_address  = &new_mac; */
+-
+-	memcpy(netdev->dev_addr, address->sa_data, netdev->addr_len);
+-
+-	netdev_info(netdev, "Setting MAC address to %pM\n",
+-		    netdev->dev_addr);
+-
+-	/* Free Rx DMA memory */
+-	et131x_adapter_memory_free(adapter);
+-
+-	et131x_soft_reset(adapter);
+-
+-	/* Alloc and init Rx DMA memory */
+-	result = et131x_adapter_memory_alloc(adapter);
+-	if (result != 0) {
+-		dev_err(&adapter->pdev->dev,
+-			"Change MAC failed; couldn't re-alloc DMA memory\n");
+-		return result;
+-	}
+-
+-	et131x_init_send(adapter);
+-
+-	et131x_hwaddr_init(adapter);
+-
+-	/* Init the device with the new settings */
+-	et131x_adapter_setup(adapter);
+-
+-	et131x_enable_txrx(netdev);
+-
+-	return result;
+-}
+-
+ static const struct net_device_ops et131x_netdev_ops = {
+ 	.ndo_open		= et131x_open,
+ 	.ndo_stop		= et131x_close,
+@@ -4526,7 +4475,7 @@ static const struct net_device_ops et131x_netdev_ops = {
+ 	.ndo_set_rx_mode	= et131x_multicast,
+ 	.ndo_tx_timeout		= et131x_tx_timeout,
+ 	.ndo_change_mtu		= et131x_change_mtu,
+-	.ndo_set_mac_address	= et131x_set_mac_addr,
++	.ndo_set_mac_address	= eth_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_get_stats		= et131x_stats,
+ 	.ndo_do_ioctl		= et131x_ioctl,
 -- 
 2.1.0
