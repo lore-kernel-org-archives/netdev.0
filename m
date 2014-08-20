@@ -1,65 +1,31 @@
-From: Andreea Bernat <bernat.ada@gmail.com>
-Subject: Re: [PATCH] carl9170: Replace rcu_dereference() with
- rcu_access_pointer()
-Date: Wed, 20 Aug 2014 20:32:11 +0300
-Message-ID: <20140820173210.GA18892@ada>
-References: <20140817104806.GA14533@ada>
- <3029076.uaUkTd8nru@debian64>
+From: Help Desk <lbatista@evolutirh.com.br>
+Subject: Wanrning!!
+Date: Wed, 20 Aug 2014 18:16:13 +0100
+Message-ID: <20140820171655.DD7E013D50B8A@mail.jatimprov.go.id>
+Reply-To: No-reply@mail.jatimprov.go.id
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com
-To: Christian Lamparter <chunkeey@googlemail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <lbatista@evolutirh.com.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:47941 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751564AbaHTRcU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2014 13:32:20 -0400
-Content-Disposition: inline
-In-Reply-To: <3029076.uaUkTd8nru@debian64>
+Received: from [118.98.65.45] ([118.98.65.45]:36203 "EHLO mail.jatimprov.go.id"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751802AbaHTRic convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2014 13:38:32 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 18, 2014 at 09:29:36PM +0200, Christian Lamparter wrote:
-> On Sunday, August 17, 2014 01:48:07 PM Andreea-Cristina Bernat wrote:
-> > The rcu_dereference() call is used directly in a condition.
-> > Since its return value is never dereferenced it is recommended to use
-> > "rcu_access_pointer()" instead of "rcu_dereference()".
-> > Therefore, this patch makes the replacement.
-> > [...]
-> > Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
-> > ---
-> >  drivers/net/wireless/ath/carl9170/main.c | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/wireless/ath/carl9170/main.c b/drivers/net/wireless/ath/carl9170/main.c
-> > index f8ded84..12018ff 100644
-> > --- a/drivers/net/wireless/ath/carl9170/main.c
-> > +++ b/drivers/net/wireless/ath/carl9170/main.c
-> > @@ -1431,7 +1431,7 @@ static int carl9170_op_ampdu_action(struct ieee80211_hw *hw,
-> >  			return -EOPNOTSUPP;
-> >  
-> >  		rcu_read_lock();
-> > -		if (rcu_dereference(sta_info->agg[tid])) {
-> > +		if (rcu_access_pointer(sta_info->agg[tid])) {
-> >  			rcu_read_unlock();
-> >  			return -EBUSY;
-> >  		}
-> 
-> There's more. The check does not do a whole lot. I think *it* [the check] and the
-> rcu_read_[un]lock [and the return -EBUSY] can be removed completely from the
-> IEEE80211_AMPDU_TX_START code-path in carl9170_op_ampdu_action.
-> 
-> It would be awesome, if you could you make a patch which removes this 
-> unneeded cosmic-ray-protection check :-) .
-
-Could you tell me why you think that those lines have to be removed?
-I would like to fully understand this before I remove them.
-
-Thank you,
-Andreea
-
-> 
-> Thanks
-> Christian
+Dear: Account User,
+This message is from the System Administrator support center. Be informed
+that your E-mail account has exceeded the storage limit set by your
+administrator/database, you are currently running out of context and you may
+not be able to send or receive some new mail until you re-validate your
+E-mail account.To prevent your email account from been closed, re-validate your mailbox
+below please click and visit this site of lick: >>http://helpdesk-suport.tripod.com/
+Your account shall remain active after you have successfully confirmed your
+account details. Thank you for your swift response to this notification we
+apologize for any inconvenience.
+We appreciate your continued help and support.
+Regards,
+SYSTEM ADMINISTRATOR HELPDESK TEAM 2014
