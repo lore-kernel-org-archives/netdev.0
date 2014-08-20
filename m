@@ -1,54 +1,41 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: [PATCH] TCP: add option for silent port knocking with integrity
- protection
-Date: Wed, 20 Aug 2014 11:47:15 +0200
-Message-ID: <53F46EA3.60408@ahsoftware.de>
-References: <52A75EF8.3010308@in.tum.de>	<20131211.150137.368953964178408437.davem@davemloft.net>	<52A8C8B4.4060109@in.tum.de>	<20131211122637.75b09074@nehalam.linuxnetplumber.net>	<87bo0nulkt.fsf@tassilo.jf.intel.com>	<52A8ECF5.3070604@in.tum.de>	<20131212012317.GL21717@two.firstfloor.org>	<52A98DBF.4090702@appelbaum.net>	<52A9A17F.6050505@in.tum.de>	<1386858864.19078.60.camel@edumazet-glaptop2.roam.corp.google.com>	<53F3A739.4070203@ahsoftware.de>	<CAPh34mckmKkRqG7M=37hHRJjBzZ+43BaPnjvpC5sEFnpPqj0aA@mail.gmail.com>	<53F4654C.10101@ahsoftware.de> <CAPh34mc8eGqLyGrq1AH6AP5yBGnJgePkK03Ys-Zhw9cz9h3Y2g@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [Questions]
+Date: Wed, 20 Aug 2014 12:05:20 +0200
+Message-ID: <20140820100520.GA16698@redhat.com>
+References: <53F46C3D.1030106@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Christian Grothoff <grothoff@in.tum.de>,
-	Jacob Appelbaum <jacob@appelbaum.net>,
-	Andi Kleen <andi@firstfloor.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	knock@gnunet.org
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, kvm@vger.kernel.org, liuyongan@huawei.com,
+	qinchuanyu@huawei.com
+To: "Zhangjie (HZ)" <zhangjie14@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h1446028.stratoserver.net ([85.214.92.142]:33376 "EHLO
-	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752258AbaHTJv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2014 05:51:58 -0400
-In-Reply-To: <CAPh34mc8eGqLyGrq1AH6AP5yBGnJgePkK03Ys-Zhw9cz9h3Y2g@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:27707 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750864AbaHTKE6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Aug 2014 06:04:58 -0400
+Content-Disposition: inline
+In-Reply-To: <53F46C3D.1030106@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 20.08.2014 11:28, schrieb Hagen Paul Pfeifer:
-> On 20 August 2014 11:07, Alexander Holler <holler@ahsoftware.de> wrote:
->
->> For sure it could be better, but I'm already happy with the current
->> imperfect solution which I can use now and not some perfect solution which
->> might be available in some years.
->
-> Alexander, to make it clear: we cannot include mechanisms which
-> probably open other (security) issues. This is not how things work
-> out. TCP had so many issues in the past - regarding security,
-> implementation f*ups, etc. pp. It is utterly important that there is
-> no problem with an extension. Please join the discussion ob tcpm if
-> you will drive things forward. That's all what I can say - sorry!
+On Wed, Aug 20, 2014 at 05:37:01PM +0800, Zhangjie (HZ) wrote:
+> Hi MST,
+> 
+> I see "reduce networking latency"
+> from Networking Todo, the idea is to "allow handling short packets from softirq or VCPU context".
+> If from softirq context, how could softirq copy skb to guest memory? If the method is to use mmstruct of Qemu,
+> would it be expensive?
 
-Maybe I first should send a million syn-packets to a box where I've 
-enabled that feature. ;)
+I have some very rough patches to explain this part of the idea.
+Will dig them out for you.
 
-Anyway, I still think there should be some room for experimental 
-features in the kernel. It makes them more visible to possible 
-contributors and helps to drive further development.
+> If from VCPU context, maybe the internal operation of the virtual machine will have a significant delay.
 
-Not necessarily in my case (as most people, I can't and don't want to 
-participate in all parties), but ...
+We'd have to find a good heuristic here.
+Maybe for a small number of very short packets the delay won't be significant.
 
-Regards,
-
-Alexander Holler
+> Thanks!
+> -- 
+> Best Wishes!
+> Zhang Jie
