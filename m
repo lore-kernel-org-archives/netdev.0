@@ -1,79 +1,57 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost: Add polling mode
-Date: Wed, 20 Aug 2014 13:05:15 +0200
-Message-ID: <20140820110515.GD17371@redhat.com>
-References: <1407659404-razya@il.ibm.com>
-	<20140810083035.0CF58380729@moren.haifa.ibm.com>
-	<20140810194559.GA4344@redhat.com>
-	<20140811.124621.576073630604147753.davem@davemloft.net>
-	<20140812091850.GD6440@redhat.com>
-	<OF93E480CE.EFA0854D-ONC2257D32.003BE092-C2257D32.003C1F49@il.ibm.com>
-	<20140813121550.GA21026@redhat.com>
-	<OFFB3DD9F0.3A92A6A0-ONC2257D37.0043D722-C2257D37.004522A0@il.ibm.com>
-	<20140817125809.GA22213@redhat.com>
-	<OFB79DEF3C.1ADC0F14-ONC2257D39.002F0F0A-C2257D39.002F3CBC@il.ibm.com>
+From: Veaceslav Falico <vfalico@gmail.com>
+Subject: Re: [patch net-next] bonding: create netlink event when bonding
+ option is changed
+Date: Wed, 20 Aug 2014 13:11:14 +0200
+Message-ID: <20140820111114.GA8421@mikrodark.usersys.redhat.com>
+References: <1408456932-10318-1-git-send-email-jiri@resnulli.us>
+ <20140819203401.GA1954@gospo.home.greyhouse.net>
+ <20140819203748.GA4326@nanopsycho.orion>
+ <20140819204634.GB1954@gospo.home.greyhouse.net>
+ <20140820064458.GA1916@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Eran Raichstein <ERANRA@il.ibm.com>, kvm-owner@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
-	abel.gordon@gmail.com, Alex Glikson <GLIKSON@il.ibm.com>,
-	Yossi Kuperman1 <YOSSIKU@il.ibm.com>,
-	Joel Nider <JOELN@il.ibm.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: Razya Ladelsky <RAZYA@il.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, j.vosburgh@gmail.com,
+	andy@greyhouse.net, nikolay@redhat.com, dingtianhong@huawei.com,
+	sfeldma@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f179.google.com ([74.125.82.179]:34427 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751292AbaHTLOO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2014 07:14:14 -0400
+Received: by mail-we0-f179.google.com with SMTP id u57so7687835wes.38
+        for <netdev@vger.kernel.org>; Wed, 20 Aug 2014 04:14:13 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <OFB79DEF3C.1ADC0F14-ONC2257D39.002F0F0A-C2257D39.002F3CBC@il.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140820064458.GA1916@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 19, 2014 at 11:36:31AM +0300, Razya Ladelsky wrote:
-> > That was just one example. There many other possibilities.  Either
-> > actually make the systems load all host CPUs equally, or divide
-> > throughput by host CPU.
-> > 
-> 
-> The polling patch adds this capability to vhost, reducing costly exit 
-> overhead when the vm is loaded.
-> 
-> In order to load the vm I ran netperf  with msg size of 256:
-> 
-> Without polling:  2480 Mbits/sec,  utilization: vm - 100%   vhost - 64% 
-> With Polling: 4160 Mbits/sec,  utilization: vm - 100%   vhost - 100% 
-> 
-> Therefore, throughput/cpu without polling is 15.1, and 20.8 with polling.
-> 
+On Wed, Aug 20, 2014 at 08:44:58AM +0200, Jiri Pirko wrote:
+>Tue, Aug 19, 2014 at 10:46:34PM CEST, gospo@cumulusnetworks.com wrote:
+>>On Tue, Aug 19, 2014 at 10:37:48PM +0200, Jiri Pirko wrote:
+>>> Tue, Aug 19, 2014 at 10:34:01PM CEST, gospo@cumulusnetworks.com wrote:
+>>> >On Tue, Aug 19, 2014 at 04:02:12PM +0200, Jiri Pirko wrote:
+...snip...
+>>> >>  	if (ret)
+>>> >>  		bond_opt_error_interpret(bond, opt, ret, val);
+>>> >> +	else
+>>> >> +		call_netdevice_notifiers(NETDEV_CHANGEINFODATA, bond->dev);
+...snip...
+>>My question was:  Is there a need for 2 netlink messages to indicate
+>>that a bonding configuration change was needed when the config came over
+>>netlink.  I did not see the need for 2 netlink messages in this case and
+>>was asking for clarification from you.
+>
+>Imagine 2 applications. One is just monitoring netlink events ("ip
+>mon"), the second is setting up bond via netlink. Now, the second sends
+>a message to kernel, that is unicast to kernel. The first application
+>does not see that message. Therefore there is need to generate the event
+>message in kernel and send it back to userspace via multicast.
+>That message the first application will see. And that is exactly what
+>my patch is doing.
 
-Can you please present results in a form that makes
-it possible to see the effect on various configurations
-and workloads?
+Seems fair, as there's no other way to catch those modifications, even
+though they're known to the "changing" application.
 
-Here's one example where this was done:
-https://lkml.org/lkml/2014/8/14/495
-
-You really should also provide data about your host
-configuration (missing in the above link).
-
-> My intention was to load vhost as close as possible to 100% utilization 
-> without polling, in order to compare it to the polling utilization case 
-> (where vhost is always 100%). 
-> The best use case, of course, would be when the shared vhost thread work 
-> (TBD) is integrated and then vhost will actually be using its polling 
-> cycles to handle requests of multiple devices (even from multiple vms).
-> 
-> Thanks,
-> Razya
-
-
--- 
-MST
+Acked-by: Veaceslav Falico <vfalico@gmail.com>
