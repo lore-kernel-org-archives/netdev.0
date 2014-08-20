@@ -1,7 +1,7 @@
 From: Mark Einon <mark.einon@gmail.com>
-Subject: [PATCH 7/8] staging: et131x: Fix ET_INTR_TXDMA_ISR register name typo
-Date: Wed, 20 Aug 2014 23:17:57 +0100
-Message-ID: <1408573078-9320-8-git-send-email-mark.einon@gmail.com>
+Subject: [PATCH 5/8] staging: et131x: Remove unnecessary i2c_wack variable
+Date: Wed, 20 Aug 2014 23:17:55 +0100
+Message-ID: <1408573078-9320-6-git-send-email-mark.einon@gmail.com>
 References: <1408573078-9320-1-git-send-email-mark.einon@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,27 +22,55 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-We actually mean to clear the ET_INTR_TXDMA_ISR reg after handling
-a completed transfer, not the ET_INTR_TXDMA_ERR reg, which should
-get handled immediately after.
+i2c_wack is only used to implement a while(1) loop, so let's remove it.
 
 Signed-off-by: Mark Einon <mark.einon@gmail.com>
 ---
- drivers/staging/et131x/et131x.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/staging/et131x/et131x.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/staging/et131x/et131x.c b/drivers/staging/et131x/et131x.c
-index df83ea3..bf9ac15 100644
+index fc18e8d..551b250 100644
 --- a/drivers/staging/et131x/et131x.c
 +++ b/drivers/staging/et131x/et131x.c
-@@ -3891,7 +3891,7 @@ static void et131x_isr_handler(struct work_struct *work)
- 	if (status & ET_INTR_RXDMA_XFR_DONE)
- 		et131x_handle_recv_interrupt(adapter);
+@@ -573,7 +573,6 @@ static int eeprom_write(struct et131x_adapter *adapter, u32 addr, u8 data)
+ 	int index = 0;
+ 	int retries;
+ 	int err = 0;
+-	int i2c_wack = 0;
+ 	int writeok = 0;
+ 	u32 status;
+ 	u32 val = 0;
+@@ -599,8 +598,6 @@ static int eeprom_write(struct et131x_adapter *adapter, u32 addr, u8 data)
+ 			LBCIF_CONTROL_LBCIF_ENABLE | LBCIF_CONTROL_I2C_WRITE))
+ 		return -EIO;
  
--	status &= ~(ET_INTR_TXDMA_ERR | ET_INTR_RXDMA_XFR_DONE);
-+	status &= ~(ET_INTR_TXDMA_ISR | ET_INTR_RXDMA_XFR_DONE);
+-	i2c_wack = 1;
+-
+ 	/* Prepare EEPROM address for Step 3 */
  
- 	if (!status)
- 		goto out;
+ 	for (retries = 0; retries < MAX_NUM_WRITE_RETRIES; retries++) {
+@@ -656,9 +653,9 @@ static int eeprom_write(struct et131x_adapter *adapter, u32 addr, u8 data)
+ 	 */
+ 	udelay(10);
+ 
+-	while (i2c_wack) {
++	while (1) {
+ 		if (pci_write_config_byte(pdev, LBCIF_CONTROL_REGISTER,
+-			LBCIF_CONTROL_LBCIF_ENABLE))
++					  LBCIF_CONTROL_LBCIF_ENABLE))
+ 			writeok = 0;
+ 
+ 		/* Do read until internal ACK_ERROR goes away meaning write
+@@ -670,7 +667,8 @@ static int eeprom_write(struct et131x_adapter *adapter, u32 addr, u8 data)
+ 					       addr);
+ 			do {
+ 				pci_read_config_dword(pdev,
+-					LBCIF_DATA_REGISTER, &val);
++						      LBCIF_DATA_REGISTER,
++						      &val);
+ 			} while ((val & 0x00010000) == 0);
+ 		} while (val & 0x00040000);
+ 
 -- 
 2.1.0
