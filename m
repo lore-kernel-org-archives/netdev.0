@@ -1,61 +1,70 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v4 1/1] net: fec: ptp: avoid register access when ipg
- clock is disabled
-Date: Thu, 21 Aug 2014 09:02:41 +0200
-Message-ID: <20140821070241.GB6231@netboy>
-References: <1408418453-28012-1-git-send-email-b38611@freescale.com>
- <1408418453-28012-2-git-send-email-b38611@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, shawn.guo@linaro.org
-To: Fugang Duan <b38611@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:43884 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750965AbaHUHCw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 03:02:52 -0400
-Received: by mail-wi0-f180.google.com with SMTP id n3so7947555wiv.1
-        for <netdev@vger.kernel.org>; Thu, 21 Aug 2014 00:02:50 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1408418453-28012-2-git-send-email-b38611@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next 2/2] net: exit busy loop when another process is runnable
+Date: Thu, 21 Aug 2014 16:05:10 +0800
+Message-ID: <1408608310-13579-2-git-send-email-jasowang@redhat.com>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
+Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 19, 2014 at 11:20:53AM +0800, Fugang Duan wrote:
-> The current kernel hang on i.MX6SX with rootfs mount from MMC.
-> The root cause is ptp rise up period timer to access enet register
+Rx busy loop does not scale well in the case when several parallel
+sessions is active. This is because we keep looping even if there's
+another process is runnable. For example, if that process is about to
+send packet, keep busy polling in current process will brings extra
+delay and damage the performance.
 
-s/ptp rise up period/that ptp uses a periodic/
+This patch solves this issue by exiting the busy loop when there's
+another process is runnable in current cpu. Simple test that pin two
+netperf sessions in the same cpu in receiving side shows obvious
+improvement:
 
-> even if ipg clock is disabled.
+Before:
+netperf -H 192.168.100.2 -T 0,0 -t TCP_RR -P 0 & \
+netperf -H 192.168.100.2 -T 1,0 -t TCP_RR -P 0
+16384  87380  1        1       10.00    15513.74
+16384  87380
+16384  87380  1        1       10.00    15092.78
+16384  87380
 
-...
+After:
+netperf -H 192.168.100.2 -T 0,0 -t TCP_RR -P 0 & \
+netperf -H 192.168.100.2 -T 1,0 -t TCP_RR -P 0
+16384  87380  1        1       10.00    23334.53
+16384  87380
+16384  87380  1        1       10.00    23327.58
+16384  87380
 
-> diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-> index 82386b2..6d65555 100644
-> --- a/drivers/net/ethernet/freescale/fec_ptp.c
-> +++ b/drivers/net/ethernet/freescale/fec_ptp.c
-> @@ -245,12 +245,18 @@ static int fec_ptp_settime(struct ptp_clock_info *ptp,
->  	u64 ns;
->  	unsigned long flags;
->  
-> +	mutex_lock(&fep->ptp_clk_mutex);
-> +	/* Check the ptp clock */
-> +	if (!fep->ptp_clk_on)
-> +		return -EINVAL;
+Benchmark was done through two 8 cores Xeon machine back to back connected
+with mlx4 through netperf TCP_RR test (busy_read were set to 50):
 
-You are still holding the mutex here.
+sessions/bytes/before/after/+improvement%/busy_read=0/
+1/1/30062.10/30034.72/+0%/20228.96/
+16/1/214719.83/307669.01/+43%/268997.71/
+32/1/231252.81/345845.16/+49%/336157.442/
+64/512/212467.39/373464.93/+75%/397449.375/
 
-> +
->  	ns = ts->tv_sec * 1000000000ULL;
->  	ns += ts->tv_nsec;
->  
->  	spin_lock_irqsave(&fep->tmreg_lock, flags);
->  	timecounter_init(&fep->tc, &fep->cc, ns);
->  	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
-> +	mutex_unlock(&fep->ptp_clk_mutex);
->  	return 0;
->  }
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ include/net/busy_poll.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Thanks,
-Richard
+diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+index 1d67fb6..8a33fb2 100644
+--- a/include/net/busy_poll.h
++++ b/include/net/busy_poll.h
+@@ -109,7 +109,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
+ 		cpu_relax();
+ 
+ 	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
+-		 !need_resched() && !busy_loop_timeout(end_time));
++		 !need_resched() && !busy_loop_timeout(end_time) &&
++		 nr_running_this_cpu() < 2);
+ 
+ 	rc = !skb_queue_empty(&sk->sk_receive_queue);
+ out:
+-- 
+1.8.3.1
