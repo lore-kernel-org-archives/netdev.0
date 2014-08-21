@@ -1,119 +1,228 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next RFC 04/12] rtnl: expose physical switch id for particular device
-Date: Thu, 21 Aug 2014 18:18:57 +0200
-Message-ID: <1408637945-10390-5-git-send-email-jiri@resnulli.us>
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Subject: [patch net-next RFC 06/12] net: introduce dummy switch
+Date: Thu, 21 Aug 2014 18:18:59 +0200
+Message-ID: <1408637945-10390-7-git-send-email-jiri@resnulli.us>
 References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@cumulusnetworks.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
-	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
-	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
-	Neil.Jerram@metaswitch.com, ronye@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:60177 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752374AbaHUQTY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 12:19:24 -0400
-Received: by mail-wi0-f176.google.com with SMTP id bs8so8965565wib.9
-        for <netdev@vger.kernel.org>; Thu, 21 Aug 2014 09:19:23 -0700 (PDT)
-In-Reply-To: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+ dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
+ buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+ aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1408637945-10390-1-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-The netdevice represents a port in a switch, it will expose
-IFLA_PHYS_SWITCH_ID value via rtnl. Two netdevices with the same value
-belong to one physical switch.
+Dummy switch implementation using switchdev interface
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
 ---
- include/uapi/linux/if_link.h |  1 +
- net/core/rtnetlink.c         | 26 +++++++++++++++++++++++++-
- 2 files changed, 26 insertions(+), 1 deletion(-)
+ drivers/net/Kconfig          |   7 +++
+ drivers/net/Makefile         |   1 +
+ drivers/net/dummyswitch.c    | 131 +++++++++++++++++++++++++++++++++++++++++++
+ include/uapi/linux/if_link.h |   9 +++
+ 4 files changed, 148 insertions(+)
+ create mode 100644 drivers/net/dummyswitch.c
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index ff95760..fe6c4c5 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -145,6 +145,7 @@ enum {
- 	IFLA_CARRIER,
- 	IFLA_PHYS_PORT_ID,
- 	IFLA_CARRIER_CHANGES,
-+	IFLA_PHYS_SWITCH_ID,
- 	__IFLA_MAX
- };
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index c6f6f69..7822c74 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -71,6 +71,13 @@ config DUMMY
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called dummy.
  
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 80c135a..2c08fe4 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -43,6 +43,7 @@
- 
- #include <linux/inet.h>
- #include <linux/netdevice.h>
++config NET_DUMMY_SWITCH
++	tristate "Dummy switch net driver support"
++	depends on NET_SWITCHDEV
++	---help---
++	  To compile this driver as a module, choose M here: the module
++	  will be called dummyswitch.
++
+ config EQUALIZER
+ 	tristate "EQL (serial line load balancing) support"
+ 	---help---
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 61aefdd..3c835ba 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -7,6 +7,7 @@
+ #
+ obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_DUMMY) += dummy.o
++obj-$(CONFIG_NET_DUMMY_SWITCH) += dummyswitch.o
+ obj-$(CONFIG_EQUALIZER) += eql.o
+ obj-$(CONFIG_IFB) += ifb.o
+ obj-$(CONFIG_MACVLAN) += macvlan.o
+diff --git a/drivers/net/dummyswitch.c b/drivers/net/dummyswitch.c
+new file mode 100644
+index 0000000..9d80c14
+--- /dev/null
++++ b/drivers/net/dummyswitch.c
+@@ -0,0 +1,131 @@
++/*
++ * drivers/net/dummyswitch.c - Dummy switch device
++ * Copyright (c) 2014 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/etherdevice.h>
 +#include <linux/switchdev.h>
- #include <net/ip.h>
- #include <net/protocol.h>
- #include <net/arp.h>
-@@ -868,7 +869,8 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
- 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
- 	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
--	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_PORT_ID */
-+	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
-+	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_SWITCH_ID */
- }
- 
- static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-@@ -967,6 +969,24 @@ static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
- 	return 0;
- }
- 
-+static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
-+{
-+	int err;
++
++#include <net/rtnetlink.h>
++
++struct dummyswport_priv {
 +	struct netdev_phys_item_id psid;
++};
 +
-+	err = swdev_get_id(dev, &psid);
-+	if (err) {
-+		if (err == -EOPNOTSUPP)
-+			return 0;
++static netdev_tx_t dummyswport_start_xmit(struct sk_buff *skb,
++					  struct net_device *dev)
++{
++	dev_kfree_skb(skb);
++	return NETDEV_TX_OK;
++}
++
++static int dummyswport_swdev_get_id(struct net_device *dev,
++				    struct netdev_phys_item_id *psid)
++{
++	struct dummyswport_priv *dsp = netdev_priv(dev);
++
++	memcpy(psid, &dsp->psid, sizeof(*psid));
++	return 0;
++}
++
++static int dummyswport_change_carrier(struct net_device *dev, bool new_carrier)
++{
++	if (new_carrier)
++		netif_carrier_on(dev);
++	else
++		netif_carrier_off(dev);
++	return 0;
++}
++
++static const struct net_device_ops dummyswport_netdev_ops = {
++	.ndo_start_xmit		= dummyswport_start_xmit,
++	.ndo_swdev_get_id	= dummyswport_swdev_get_id,
++	.ndo_change_carrier	= dummyswport_change_carrier,
++};
++
++static void dummyswport_setup(struct net_device *dev)
++{
++	ether_setup(dev);
++
++	/* Initialize the device structure. */
++	dev->netdev_ops = &dummyswport_netdev_ops;
++	dev->destructor = free_netdev;
++
++	/* Fill in device structure with ethernet-generic values. */
++	dev->tx_queue_len = 0;
++	dev->flags |= IFF_NOARP;
++	dev->flags &= ~IFF_MULTICAST;
++	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
++	dev->features	|= NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_TSO;
++	dev->features	|= NETIF_F_HW_CSUM | NETIF_F_HIGHDMA | NETIF_F_LLTX;
++	eth_hw_addr_random(dev);
++}
++
++static int dummyswport_validate(struct nlattr *tb[], struct nlattr *data[])
++{
++	if (tb[IFLA_ADDRESS])
++		return -EINVAL;
++	if (!data || !data[IFLA_DYMMYSWPORT_PHYS_SWITCH_ID])
++		return -EINVAL;
++	return 0;
++}
++
++static int dummyswport_newlink(struct net *src_net, struct net_device *dev,
++			       struct nlattr *tb[], struct nlattr *data[])
++{
++	struct dummyswport_priv *dsp = netdev_priv(dev);
++	int err;
++
++	dsp->psid.id_len = nla_len(data[IFLA_DYMMYSWPORT_PHYS_SWITCH_ID]);
++	memcpy(dsp->psid.id, nla_data(data[IFLA_DYMMYSWPORT_PHYS_SWITCH_ID]),
++	       dsp->psid.id_len);
++
++	err = register_netdevice(dev);
++	if (err)
 +		return err;
-+	}
 +
-+	if (nla_put(skb, IFLA_PHYS_SWITCH_ID, psid.id_len, psid.id))
-+		return -EMSGSIZE;
++	netif_carrier_on(dev);
 +
 +	return 0;
 +}
 +
- static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			    int type, u32 pid, u32 seq, u32 change,
- 			    unsigned int flags, u32 ext_filter_mask)
-@@ -1039,6 +1059,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	if (rtnl_phys_port_id_fill(skb, dev))
- 		goto nla_put_failure;
- 
-+	if (rtnl_phys_switch_id_fill(skb, dev))
-+		goto nla_put_failure;
++static const struct nla_policy dummyswport_policy[IFLA_DUMMYSWPORT_MAX + 1] = {
++	[IFLA_DYMMYSWPORT_PHYS_SWITCH_ID] = { .type = NLA_BINARY,
++					      .len = MAX_PHYS_ITEM_ID_LEN },
++};
 +
- 	attr = nla_reserve(skb, IFLA_STATS,
- 			sizeof(struct rtnl_link_stats));
- 	if (attr == NULL)
-@@ -1198,6 +1221,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
- 	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
- 	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
-+	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
- };
++static struct rtnl_link_ops dummyswport_link_ops __read_mostly = {
++	.kind		= "dummyswport",
++	.priv_size	= sizeof(struct dummyswport_priv),
++	.setup		= dummyswport_setup,
++	.validate	= dummyswport_validate,
++	.newlink	= dummyswport_newlink,
++	.policy		= dummyswport_policy,
++	.maxtype	= IFLA_DUMMYSWPORT_MAX,
++};
++
++static int __init dummysw_module_init(void)
++{
++	return rtnl_link_register(&dummyswport_link_ops);
++}
++
++static void __exit dummysw_module_exit(void)
++{
++	rtnl_link_unregister(&dummyswport_link_ops);
++}
++
++module_init(dummysw_module_init);
++module_exit(dummysw_module_exit);
++
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>");
++MODULE_DESCRIPTION("Dummy switch device");
++MODULE_ALIAS_RTNL_LINK("dummyswport");
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index fe6c4c5..e7e122b 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -562,4 +562,13 @@ enum {
  
- static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+ #define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
+ 
++/* DUMMYSWPORT section */
++enum {
++	IFLA_DUMMYSWPORT_UNSPEC,
++	IFLA_DYMMYSWPORT_PHYS_SWITCH_ID,
++	__IFLA_DUMMYSWPORT_MAX,
++};
++
++#define IFLA_DUMMYSWPORT_MAX (__IFLA_DUMMYSWPORT_MAX - 1)
++
+ #endif /* _UAPI_LINUX_IF_LINK_H */
 -- 
 1.9.3
