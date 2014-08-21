@@ -1,205 +1,109 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: Is it normal to have cross namespace symlinks?
-Date: Thu, 21 Aug 2014 17:29:41 +0200
-Message-ID: <20140821152940.GT9476@redhat.com>
-References: <20140821143816.48c5ad08@mad-cat.int.e5.ru>
- <20140821121205.GR9476@redhat.com>
- <20140821191316.27807ef7@mad-cat.int.e5.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org
-To: "Alexander Y. Fomichev" <git.user@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next RFC 00/12] introduce rocker switch driver with openvswitch hardware accelerated datapath
+Date: Thu, 21 Aug 2014 18:18:53 +0200
+Message-ID: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@cumulusnetworks.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58151 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751449AbaHUPcm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Aug 2014 11:32:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20140821191316.27807ef7@mad-cat.int.e5.ru>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:40913 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751810AbaHUQTL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 12:19:11 -0400
+Received: by mail-wi0-f171.google.com with SMTP id hi2so8965239wib.4
+        for <netdev@vger.kernel.org>; Thu, 21 Aug 2014 09:19:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 21, 2014 at 07:13:16PM +0400, Alexander Y. Fomichev wrote:
->On Thu, 21 Aug 2014 14:12:05 +0200
->Veaceslav Falico <vfalico@redhat.com> wrote:
->
->> On Thu, Aug 21, 2014 at 02:38:16PM +0400, Alexander Y. Fomichev wrote:
->> >Hello guys!
->> >
->> >Recently i switched to 3.14.x stable branch and i've got a bunch of
->> >warnings:
->> >
->> >[   44.717746] ------------[ cut here ]------------
->> >[   44.717750] WARNING: CPU: 1 PID: 7007 at fs/sysfs/dir.c:52
->> >sysfs_warn_dup+0x86/0xa0() [   44.717751] sysfs: cannot create
->> >duplicate filename
->> >'/devices/pci0000:00/0000:00:1c.4/0000:05:00.0/net/eth1/upper_eth1'
->> >
->> >[   37.759856] ------------[ cut here ]------------
->> >[   37.759863] WARNING: CPU: 1 PID: 3822 at fs/sysfs/dir.c:52
->> >sysfs_warn_dup+0x86/0xa0() [   37.759864] sysfs: cannot create
->> >duplicate filename '/devices/virtual/net/bond0/upper_eth0'
->> >....
->> >
->> >It was triggered by renaming of macvlan interfaces in a freshly
->> >created network namespaces. Just start two lxc containers one by one
->> >with macvlans on the same lowerdev and rename devices inside
->> >containers (with the same name) and voila.
->> >v
->> >I investigated problem a bit and i see that code in net/core/dev.c
->> >which working with sysfs symlinks upper_dev / lower_dev is absolutely
->> >unaware of namespaces. I mean code which uses functions
->> >netdev_adjacent_sysfs_del,netdev_adjacent_sysfs_add
->> >netdev_adjacent_rename_links,dev_change_name
->> >just not takes into account that dev and adj_dev could be in a
->> >different namespaces.
->>
->> That's indeed so. When I've implemented it, I indeed didn't take into
->> account net_ns, my bad.
->>
->> Before the code, though, I'm not sure on how exactly to fix this. The
->> only idea which comes to mind is to prohibit inter-net_ns symlinks
->> (which can be done without much hassle) - i.e. to remove/add them on
->> net_ns change, and to prohibit creating them on adding an inter-ns
->> upper links.
->
->uh.. seems like this is a first and only what come to mind. At least i
->have something similar in my local tree. Though it looks pretty ugly and
->required two ad-hoc functions traversing both adj_list(s). Though
->again it works as expected in both directions so i attached it just in
->case.
+This patchset can be divided into 3 main sections:
+- introduce switchdev api for implementing switch drivers
+- add hardware acceleration bits into openvswitch datapath, This uses
+  previously mentioned switchdev api
+- introduce rocker switch driver which implenets switchdev api
 
-It doesn't really matter in this case, as adj_lists are small, and the
-renaming happens once per reboot.
+More info in separate patches.
 
-Anyway, feel free to post it. Even if it doesn't get accepted, it'll be a
-good starting point.
+So now there is possible out of the box to create ovs bridge over rocker
+switch ports and the flows will be offloaded into hardware.
 
->
->> However, as I definitely lack experience using net_ns, maybe there are
->> other, better way, to fix this?
->
->I can not say with confidence.. Someone of namespace guys better be
->here.  as far as i can see the most notable thing in this context,
->netdev belongs to only one net_ns at any one time and a little sense to
->have a symlink on non-existent device.
+Jiri Pirko (12):
+  openvswitch: split flow structures into ovs specific and generic ones
+  net: rename netdev_phys_port_id to more generic name
+  net: introduce generic switch devices support
+  rtnl: expose physical switch id for particular device
+  net-sysfs: expose physical switch id for particular device
+  net: introduce dummy switch
+  dsa: implement ndo_swdev_get_id
+  net: introduce netdev_phys_item_ids_match helper
+  openvswitch: introduce vport_op get_netdev
+  openvswitch: add support for datapath hardware offload
+  sw_flow: add misc section to key with in_port_ifindex field
+  rocker: introduce rocker switch driver
 
-Yep, agreed.
+ Documentation/networking/switchdev.txt           |   53 +
+ MAINTAINERS                                      |    6 +
+ drivers/net/Kconfig                              |   15 +
+ drivers/net/Makefile                             |    3 +
+ drivers/net/dummyswitch.c                        |  131 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c      |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    2 +-
+ drivers/net/rocker.c                             | 3446 ++++++++++++++++++++++
+ drivers/net/rocker.h                             |  465 +++
+ include/linux/netdevice.h                        |   51 +-
+ include/linux/sw_flow.h                          |  115 +
+ include/linux/switchdev.h                        |   44 +
+ include/uapi/linux/if_link.h                     |   10 +
+ net/Kconfig                                      |    6 +
+ net/core/Makefile                                |    1 +
+ net/core/dev.c                                   |    2 +-
+ net/core/net-sysfs.c                             |   26 +-
+ net/core/rtnetlink.c                             |   30 +-
+ net/core/switchdev.c                             |  173 ++
+ net/dsa/Kconfig                                  |    2 +-
+ net/dsa/slave.c                                  |   16 +
+ net/openvswitch/Makefile                         |    3 +-
+ net/openvswitch/actions.c                        |    3 +-
+ net/openvswitch/datapath.c                       |  109 +-
+ net/openvswitch/datapath.h                       |    7 +-
+ net/openvswitch/dp_notify.c                      |    7 +-
+ net/openvswitch/flow.c                           |    6 +-
+ net/openvswitch/flow.h                           |  102 +-
+ net/openvswitch/flow_netlink.c                   |   53 +-
+ net/openvswitch/flow_netlink.h                   |   10 +-
+ net/openvswitch/flow_table.c                     |  119 +-
+ net/openvswitch/flow_table.h                     |   30 +-
+ net/openvswitch/hw_offload.c                     |  258 ++
+ net/openvswitch/hw_offload.h                     |   22 +
+ net/openvswitch/vport-gre.c                      |    4 +-
+ net/openvswitch/vport-internal_dev.c             |   56 +-
+ net/openvswitch/vport-netdev.c                   |   19 +
+ net/openvswitch/vport-netdev.h                   |   12 -
+ net/openvswitch/vport-vxlan.c                    |    2 +-
+ net/openvswitch/vport.c                          |    2 +-
+ net/openvswitch/vport.h                          |    6 +-
+ 43 files changed, 5145 insertions(+), 288 deletions(-)
+ create mode 100644 Documentation/networking/switchdev.txt
+ create mode 100644 drivers/net/dummyswitch.c
+ create mode 100644 drivers/net/rocker.c
+ create mode 100644 drivers/net/rocker.h
+ create mode 100644 include/linux/sw_flow.h
+ create mode 100644 include/linux/switchdev.h
+ create mode 100644 net/core/switchdev.c
+ create mode 100644 net/openvswitch/hw_offload.c
+ create mode 100644 net/openvswitch/hw_offload.h
 
-Thank you!
-
->
->-- 
->
->Best regards.
->        Alexander Y. Fomichev <Aleksandr.Fomichev@x5.ru>
->	        +7-495-662-88-88 ext. 11346
-
->diff --git a/net/core/dev.c b/net/core/dev.c
->index b65a505..683cedf 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -4889,7 +4889,8 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
-> 	if (adj->master)
-> 		sysfs_remove_link(&(dev->dev.kobj), "master");
-> 
->-	if (netdev_adjacent_is_neigh_list(dev, dev_list))
->+	if (netdev_adjacent_is_neigh_list(dev, dev_list) &&
->+		net_eq(dev_net(dev),dev_net(adj_dev)))
-> 		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
-> 
-> 	list_del_rcu(&adj->list);
->@@ -5159,11 +5160,65 @@ void netdev_upper_dev_unlink(struct net_device *dev,
-> }
-> EXPORT_SYMBOL(netdev_upper_dev_unlink);
-> 
->+void netdev_adjacent_add_links(struct net_device *dev)
->+{
->+	struct netdev_adjacent *iter;
->+
->+	struct net *net = dev_net(dev);
->+
->+	list_for_each_entry(iter, &dev->adj_list.upper, list) {
->+		if (!net_eq(net,dev_net(iter->dev)))
->+			continue;
->+		netdev_adjacent_sysfs_add(iter->dev, dev,
->+					  &iter->dev->adj_list.lower);
->+		netdev_adjacent_sysfs_add(dev, iter->dev,
->+					  &dev->adj_list.upper);
->+	}
->+
->+	list_for_each_entry(iter, &dev->adj_list.lower, list) {
->+		if (!net_eq(net,dev_net(iter->dev)))
->+			continue;
->+		netdev_adjacent_sysfs_add(iter->dev, dev,
->+					  &iter->dev->adj_list.upper);
->+		netdev_adjacent_sysfs_add(dev, iter->dev,
->+					  &dev->adj_list.lower);
->+	}
->+}
->+
->+void netdev_adjacent_del_links(struct net_device *dev)
->+{
->+	struct netdev_adjacent *iter;
->+
->+	struct net *net = dev_net(dev);
->+
->+	list_for_each_entry(iter, &dev->adj_list.upper, list) {
->+		if (!net_eq(net,dev_net(iter->dev)))
->+			continue;
->+		netdev_adjacent_sysfs_del(iter->dev, dev->name,
->+					  &iter->dev->adj_list.lower);
->+		netdev_adjacent_sysfs_del(dev, iter->dev->name,
->+					  &dev->adj_list.upper);
->+	}
->+
->+	list_for_each_entry(iter, &dev->adj_list.lower, list) {
->+		if (!net_eq(net,dev_net(iter->dev)))
->+			continue;
->+		netdev_adjacent_sysfs_del(iter->dev, dev->name,
->+					  &iter->dev->adj_list.upper);
->+		netdev_adjacent_sysfs_del(dev, iter->dev->name,
->+					  &dev->adj_list.lower);
->+	}
->+}
->+
-> void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
-> {
-> 	struct netdev_adjacent *iter;
-> 
->+	struct net *net = dev_net(dev);
->+
-> 	list_for_each_entry(iter, &dev->adj_list.upper, list) {
->+		if (!net_eq(net,dev_net(iter->dev)))
->+			continue;
-> 		netdev_adjacent_sysfs_del(iter->dev, oldname,
-> 					  &iter->dev->adj_list.lower);
-> 		netdev_adjacent_sysfs_add(iter->dev, dev,
->@@ -5171,6 +5226,8 @@ void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
-> 	}
-> 
-> 	list_for_each_entry(iter, &dev->adj_list.lower, list) {
->+		if (!net_eq(net,dev_net(iter->dev)))
->+			continue;
-> 		netdev_adjacent_sysfs_del(iter->dev, oldname,
-> 					  &iter->dev->adj_list.upper);
-> 		netdev_adjacent_sysfs_add(iter->dev, dev,
->@@ -6771,8 +6828,10 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
-> 	dev_uc_flush(dev);
-> 	dev_mc_flush(dev);
-> 
->+
-> 	/* Send a netdev-removed uevent to the old namespace */
-> 	kobject_uevent(&dev->dev.kobj, KOBJ_REMOVE);
->+	netdev_adjacent_del_links(dev);
-> 
-> 	/* Actually switch the network namespace */
-> 	dev_net_set(dev, net);
->@@ -6787,6 +6846,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
-> 
-> 	/* Send a netdev-add uevent to the new namespace */
-> 	kobject_uevent(&dev->dev.kobj, KOBJ_ADD);
->+	netdev_adjacent_add_links(dev);
-> 
-> 	/* Fixup kobjects */
-> 	err = device_rename(&dev->dev, dev->name);
+-- 
+1.9.3
