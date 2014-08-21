@@ -1,80 +1,49 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
- runnable
-Date: Thu, 21 Aug 2014 10:11:40 +0200
-Message-ID: <20140821081140.GA29116@redhat.com>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
- <1408608310-13579-2-git-send-email-jasowang@redhat.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 4/8] staging: et131x: Use for loop to initialise
+ contiguous macstat registers to zero
+Date: Thu, 21 Aug 2014 08:40:20 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1747D483@AcuExch.aculab.com>
+References: <1408573078-9320-1-git-send-email-mark.einon@gmail.com>
+ <1408573078-9320-5-git-send-email-mark.einon@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Mark Einon' <mark.einon@gmail.com>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1408608310-13579-2-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1408573078-9320-5-git-send-email-mark.einon@gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 21, 2014 at 04:05:10PM +0800, Jason Wang wrote:
-> Rx busy loop does not scale well in the case when several parallel
-> sessions is active. This is because we keep looping even if there's
-> another process is runnable. For example, if that process is about to
-> send packet, keep busy polling in current process will brings extra
-> delay and damage the performance.
+From: Mark Einon
+> Replace a long list of contiguous writel() calls with a for loop iterating
+> over the same address values.
 > 
-> This patch solves this issue by exiting the busy loop when there's
-> another process is runnable in current cpu. Simple test that pin two
-> netperf sessions in the same cpu in receiving side shows obvious
-> improvement:
+> Also remove redundant comments on the macstat registers, the variable names
+> are good enough.
+...
+> -	writel(0, &macstat->txrx_0_64_byte_frames);
+...
+> -	writel(0, &macstat->carry_reg2);
+> +	/* initialize all the macstat registers to zero on the device  */
+> +	for (reg = &macstat->txrx_0_64_byte_frames;
+> +	     reg <= &macstat->carry_reg2; reg++)
+> +		writel(0, reg);
+...
+>  struct macstat_regs {			/* Location: */
+>  	u32 pad[32];			/*  0x6000 - 607C */
 > 
-> Before:
-> netperf -H 192.168.100.2 -T 0,0 -t TCP_RR -P 0 & \
-> netperf -H 192.168.100.2 -T 1,0 -t TCP_RR -P 0
-> 16384  87380  1        1       10.00    15513.74
-> 16384  87380
-> 16384  87380  1        1       10.00    15092.78
-> 16384  87380
-> 
-> After:
-> netperf -H 192.168.100.2 -T 0,0 -t TCP_RR -P 0 & \
-> netperf -H 192.168.100.2 -T 1,0 -t TCP_RR -P 0
-> 16384  87380  1        1       10.00    23334.53
-> 16384  87380
-> 16384  87380  1        1       10.00    23327.58
-> 16384  87380
-> 
-> Benchmark was done through two 8 cores Xeon machine back to back connected
-> with mlx4 through netperf TCP_RR test (busy_read were set to 50):
-> 
-> sessions/bytes/before/after/+improvement%/busy_read=0/
-> 1/1/30062.10/30034.72/+0%/20228.96/
-> 16/1/214719.83/307669.01/+43%/268997.71/
-> 32/1/231252.81/345845.16/+49%/336157.442/
-> 64/512/212467.39/373464.93/+75%/397449.375/
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  include/net/busy_poll.h | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
-> index 1d67fb6..8a33fb2 100644
-> --- a/include/net/busy_poll.h
-> +++ b/include/net/busy_poll.h
-> @@ -109,7 +109,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
->  		cpu_relax();
->  
->  	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
-> -		 !need_resched() && !busy_loop_timeout(end_time));
-> +		 !need_resched() && !busy_loop_timeout(end_time) &&
-> +		 nr_running_this_cpu() < 2);
+> -	/* Tx/Rx 0-64 Byte Frame Counter */
+> +	/* counters */
+>  	u32 txrx_0_64_byte_frames;	/*  0x6080 */
+> -
+> -	/* Tx/Rx 65-127 Byte Frame Counter */
+>  	u32 txrx_65_127_byte_frames;	/*  0x6084 */
 
-<= 1 would be a bit clearer? We want at most one process here.
+I think it would be best to also convert the stats counters to an array.
 
-
->  
->  	rc = !skb_queue_empty(&sk->sk_receive_queue);
->  out:
-> -- 
-> 1.8.3.1
+	David
