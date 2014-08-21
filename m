@@ -1,22 +1,16 @@
 From: Mark Einon <mark.einon@gmail.com>
-Subject: Re: [PATCH 5/8] staging: et131x: Remove unnecessary i2c_wack variable
-Date: Thu, 21 Aug 2014 15:59:23 +0100
-Message-ID: <20140821145923.GA23151@msilap.einon.net>
-References: <1408573078-9320-1-git-send-email-mark.einon@gmail.com>
- <1408573078-9320-6-git-send-email-mark.einon@gmail.com>
- <CAOMZO5Du34=jpr5B_fHGZ+D_jNR0VSDy2BiO6jj8QByh7V40RQ@mail.gmail.com>
- <20140821091819.GA2230@msilap.einon.net>
- <CAOMZO5DYppH8kURS-eGk9sTD-CfBYt4hWQehKE01Hj=1JXMAdg@mail.gmail.com>
+Subject: [PATCH 5/8 v2] staging: et131x: Remove unnecessary i2c_wack variable
+Date: Thu, 21 Aug 2014 16:02:32 +0100
+Message-ID: <1408633352-23310-1-git-send-email-mark.einon@gmail.com>
+References: <1408572883-9235-6-git-send-email-mark.einon@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- linux-kernel <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Fabio Estevam <festevam@gmail.com>
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Mark Einon <mark.einon@gmail.com>
+To: gregkh@linuxfoundation.org
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <CAOMZO5DYppH8kURS-eGk9sTD-CfBYt4hWQehKE01Hj=1JXMAdg@mail.gmail.com>
+In-Reply-To: <1408572883-9235-6-git-send-email-mark.einon@gmail.com>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
@@ -28,31 +22,46 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 21, 2014 at 09:06:40AM -0300, Fabio Estevam wrote:
-> Hi Mark,
-> 
-> On Thu, Aug 21, 2014 at 6:18 AM, Mark Einon <mark.einon@gmail.com> wrote:
-> 
-> >
-> > Hi Fabio, thanks for the review.
-> >
-> > It's a space alignment of parameters to go with the previous change, to
-> > keep wrapping consistent in the file:
-> >
-> > -       while (i2c_wack) {
-> > +       while (1) {
-> >                 if (pci_write_config_byte(pdev, LBCIF_CONTROL_REGISTER,
-> > -                       LBCIF_CONTROL_LBCIF_ENABLE))
-> > +                                         LBCIF_CONTROL_LBCIF_ENABLE))
-> >
-> > So what are you saying - are you just commenting, document it, put it
-> > in a seperate patch?
-> 
-> Yes, it would be better if this part was part of a separate patch.
+i2c_wack is only used to implement a while(1) loop, so let's remove it.
 
-Ok, I'll remove the indenting changes and sned them in a future patch.
-I'll submit a revised v2 of this one.
+Signed-off-by: Mark Einon <mark.einon@gmail.com>
+---
 
-Cheers,
+Modified to remove function parameter indenting changes, which are
+largely unrelated.
 
-Mark
+ drivers/staging/et131x/et131x.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/drivers/staging/et131x/et131x.c b/drivers/staging/et131x/et131x.c
+index fc18e8d..245e048 100644
+--- a/drivers/staging/et131x/et131x.c
++++ b/drivers/staging/et131x/et131x.c
+@@ -573,7 +573,6 @@ static int eeprom_write(struct et131x_adapter *adapter, u32 addr, u8 data)
+ 	int index = 0;
+ 	int retries;
+ 	int err = 0;
+-	int i2c_wack = 0;
+ 	int writeok = 0;
+ 	u32 status;
+ 	u32 val = 0;
+@@ -599,8 +598,6 @@ static int eeprom_write(struct et131x_adapter *adapter, u32 addr, u8 data)
+ 			LBCIF_CONTROL_LBCIF_ENABLE | LBCIF_CONTROL_I2C_WRITE))
+ 		return -EIO;
+ 
+-	i2c_wack = 1;
+-
+ 	/* Prepare EEPROM address for Step 3 */
+ 
+ 	for (retries = 0; retries < MAX_NUM_WRITE_RETRIES; retries++) {
+@@ -656,7 +653,7 @@ static int eeprom_write(struct et131x_adapter *adapter, u32 addr, u8 data)
+ 	 */
+ 	udelay(10);
+ 
+-	while (i2c_wack) {
++	while (1) {
+ 		if (pci_write_config_byte(pdev, LBCIF_CONTROL_REGISTER,
+ 			LBCIF_CONTROL_LBCIF_ENABLE))
+ 			writeok = 0;
+-- 
+2.1.0
