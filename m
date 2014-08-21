@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [PATCH 8/8] staging: et131x: Implement NAPI support
-Date: Wed, 20 Aug 2014 20:25:45 -0700
-Message-ID: <20140820202545.3a8bafd0@uryu.home.lan>
+Date: Wed, 20 Aug 2014 20:25:01 -0700
+Message-ID: <20140820202501.558fdb3f@uryu.home.lan>
 References: <1408573078-9320-1-git-send-email-mark.einon@gmail.com>
 	<1408573078-9320-9-git-send-email-mark.einon@gmail.com>
 Mime-Version: 1.0
@@ -18,9 +18,8 @@ List-Id: netdev.vger.kernel.org
 On Wed, 20 Aug 2014 23:17:58 +0100
 Mark Einon <mark.einon@gmail.com> wrote:
 
-> -	bool done = true;
-> +	int count = 0;
-> +	int limit = budget;
-> +	bool not_done = false;
+>  
+> +	if (budget > MAX_PACKETS_HANDLED)
+> +		limit = MAX_PACKETS_HANDLED;
 
-Don't use negative variables. Better to keep the original done variable.
+Why this artificial restriction?
