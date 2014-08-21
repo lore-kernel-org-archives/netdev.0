@@ -1,63 +1,70 @@
-From: Zhi Li <lznuaa@gmail.com>
-Subject: Re: [PATCH 1/1] net:fec: buffer descriptor member variable order in IMX6
-Date: Thu, 21 Aug 2014 14:30:12 -0500
-Message-ID: <CAHrpEqTtsLk3x3ocHSXh3C1ysvqq+RSg-sD0YZ5O8iuZfMYvEg@mail.gmail.com>
-References: <1408612915-8657-1-git-send-email-Yanjun.Zhu@windriver.com>
-	<1408612915-8657-2-git-send-email-Yanjun.Zhu@windriver.com>
+From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net] openvswitch: fix panic with multiple vlan
+	headers
+Date: Thu, 21 Aug 2014 21:33:44 +0200
+Message-ID: <b490744c980813b54d54f628c719e03cdb143302.1408649593.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kernel list <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Zhu Yanjun <Yanjun.Zhu@windriver.com>,
-	Frank Li <Frank.Li@freescale.com>
-To: Zhu Yanjun <zyjzyj2000@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408612915-8657-2-git-send-email-Yanjun.Zhu@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 21, 2014 at 4:21 AM, Zhu Yanjun <zyjzyj2000@gmail.com> wrote:
-> From Reference Manual, freescale IMX6 is little endian mode. Therefore
-> the first structure field is length, the second is status.
->
-> CC: David Miller <davem@davemloft.net>
-> CC: Frank Li <Frank.Li@freescale.com>
-> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-> ---
->  drivers/net/ethernet/freescale/fec.h | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-> index 671d080..96a5f8a 100644
-> --- a/drivers/net/ethernet/freescale/fec.h
-> +++ b/drivers/net/ethernet/freescale/fec.h
-> @@ -147,7 +147,8 @@
->  /*
->   *     Define the buffer descriptor structure.
->   */
-> -#if defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28)
-> +#if defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28) || \
-> +                       defined(CONFIG_ARCH_MX6)
+When there are multiple vlan headers present in a received frame, the first
+one is put into vlan_tci and protocol is set to ETH_P_8021Q. Anything in the
+skb beyond the VLAN TPID may be still non-linear, including the inner TCI
+and ethertype. While ovs_flow_extract takes care of IP and IPv6 headers, it
+does nothing with ETH_P_8021Q. Later, if OVS_ACTION_ATTR_POP_VLAN is
+executed, __pop_vlan_tci pulls the next vlan header into vlan_tci.
 
-CONFIG_ARCH_MXC already included CONFIG_ARCH_MX6
-ARCH_MXC included whole MX serial, MX35, MX5x, MX6x.
+This leads to two things:
 
-IMX28 is special, coming from sigmatel chip.
+1. Part of the resulting ethernet header is in the non-linear part of the
+   skb. When eth_type_trans is called later as the result of
+   OVS_ACTION_ATTR_OUTPUT, kernel BUGs in __skb_pull. Also, __pop_vlan_tci
+   is in fact accessing random data when it reads past the TPID.
 
-So it is not necessary to add ARCH_MX6
+2. network_header points into the ethernet header instead of behind it.
+   mac_len is set to a wrong value (10), too.
 
+Reported-by: Yulong Pei <ypei-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ net/openvswitch/actions.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Best regards
-Frank Li
-
->  struct bufdesc {
->         unsigned short cbd_datlen;      /* Data length */
->         unsigned short cbd_sc;  /* Control and status info */
-> --
-> 1.9.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index fe5cda0deb39..5231652a95d9 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -42,6 +42,9 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 
+ static int make_writable(struct sk_buff *skb, int write_len)
+ {
++	if (!pskb_may_pull(skb, write_len))
++		return -ENOMEM;
++
+ 	if (!skb_cloned(skb) || skb_clone_writable(skb, write_len))
+ 		return 0;
+ 
+@@ -70,6 +73,8 @@ static int __pop_vlan_tci(struct sk_buff *skb, __be16 *current_tci)
+ 
+ 	vlan_set_encap_proto(skb, vhdr);
+ 	skb->mac_header += VLAN_HLEN;
++	if (skb_network_offset(skb) < ETH_HLEN)
++		skb_set_network_header(skb, ETH_HLEN);
+ 	skb_reset_mac_len(skb);
+ 
+ 	return 0;
+-- 
+1.8.3.1
