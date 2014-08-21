@@ -1,48 +1,31 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH 5/8] staging: et131x: Remove unnecessary i2c_wack variable
-Date: Thu, 21 Aug 2014 09:06:40 -0300
-Message-ID: <CAOMZO5DYppH8kURS-eGk9sTD-CfBYt4hWQehKE01Hj=1JXMAdg@mail.gmail.com>
-References: <1408573078-9320-1-git-send-email-mark.einon@gmail.com>
- <1408573078-9320-6-git-send-email-mark.einon@gmail.com>
- <CAOMZO5Du34=jpr5B_fHGZ+D_jNR0VSDy2BiO6jj8QByh7V40RQ@mail.gmail.com>
- <20140821091819.GA2230@msilap.einon.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 1/1] netfilter/jump_label: use HAVE_JUMP_LABEL?
+Date: Thu, 21 Aug 2014 14:11:32 +0200
+Message-ID: <20140821121132.GA16498@breakpoint.cc>
+References: <1408589568-27046-1-git-send-email-yizhouzhou@ict.ac.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- linux-kernel <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Mark Einon <mark.einon@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140821091819.GA2230@msilap.einon.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jbaron@akamai.com,
+	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+To: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1408589568-27046-1-git-send-email-yizhouzhou@ict.ac.cn>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Mark,
+Zhouyi Zhou <zhouzhouyi@gmail.com> wrote:
+> 
+> CONFIG_JUMP_LABEL doesn't ensure HAVE_JUMP_LABEL, if it
+> is not the case use maintainers's own mutex to guard
+> the modification of global values.
 
-On Thu, Aug 21, 2014 at 6:18 AM, Mark Einon <mark.einon@gmail.com> wrote:
+I don't understand this patch.
 
->
-> Hi Fabio, thanks for the review.
->
-> It's a space alignment of parameters to go with the previous change, to
-> keep wrapping consistent in the file:
->
-> -       while (i2c_wack) {
-> +       while (1) {
->                 if (pci_write_config_byte(pdev, LBCIF_CONTROL_REGISTER,
-> -                       LBCIF_CONTROL_LBCIF_ENABLE))
-> +                                         LBCIF_CONTROL_LBCIF_ENABLE))
->
-> So what are you saying - are you just commenting, document it, put it
-> in a seperate patch?
+What is the problem you are fixing?
 
-Yes, it would be better if this part was part of a separate patch.
+The intent is to only use static_key infrastructure
+if user has enabled CONFIG_JUMP_LABEL.
