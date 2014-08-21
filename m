@@ -1,175 +1,61 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next v2 2/2] xfrm: configure policy hash table
- thresholds by netlink
-Date: Thu, 21 Aug 2014 08:09:44 +0200
-Message-ID: <20140821060944.GC6390@secunet.com>
-References: <1399902325-1788-1-git-send-email-christophe.gouault@6wind.com>
- <1406884348-12423-1-git-send-email-christophe.gouault@6wind.com>
- <1406884348-12423-3-git-send-email-christophe.gouault@6wind.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v4 1/1] net: fec: ptp: avoid register access when ipg
+ clock is disabled
+Date: Thu, 21 Aug 2014 09:02:41 +0200
+Message-ID: <20140821070241.GB6231@netboy>
+References: <1408418453-28012-1-git-send-email-b38611@freescale.com>
+ <1408418453-28012-2-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Christophe Gouault <christophe.gouault@6wind.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, shawn.guo@linaro.org
+To: Fugang Duan <b38611@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:52727 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750780AbaHUGJ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Aug 2014 02:09:57 -0400
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:43884 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750965AbaHUHCw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 03:02:52 -0400
+Received: by mail-wi0-f180.google.com with SMTP id n3so7947555wiv.1
+        for <netdev@vger.kernel.org>; Thu, 21 Aug 2014 00:02:50 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1406884348-12423-3-git-send-email-christophe.gouault@6wind.com>
+In-Reply-To: <1408418453-28012-2-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 01, 2014 at 11:12:28AM +0200, Christophe Gouault wrote:
-> diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-> index 41902a8..9da7982 100644
-> --- a/include/net/netns/xfrm.h
-> +++ b/include/net/netns/xfrm.h
-> @@ -19,6 +19,15 @@ struct xfrm_policy_hash {
->  	u8			sbits6;
->  };
+On Tue, Aug 19, 2014 at 11:20:53AM +0800, Fugang Duan wrote:
+> The current kernel hang on i.MX6SX with rootfs mount from MMC.
+> The root cause is ptp rise up period timer to access enet register
+
+s/ptp rise up period/that ptp uses a periodic/
+
+> even if ipg clock is disabled.
+
+...
+
+> diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+> index 82386b2..6d65555 100644
+> --- a/drivers/net/ethernet/freescale/fec_ptp.c
+> +++ b/drivers/net/ethernet/freescale/fec_ptp.c
+> @@ -245,12 +245,18 @@ static int fec_ptp_settime(struct ptp_clock_info *ptp,
+>  	u64 ns;
+>  	unsigned long flags;
 >  
-> +struct xfrm_policy_hthresh {
-> +	struct work_struct	work;
-> +	seqlock_t		lock;
+> +	mutex_lock(&fep->ptp_clk_mutex);
+> +	/* Check the ptp clock */
+> +	if (!fep->ptp_clk_on)
+> +		return -EINVAL;
 
-This newly introduced lock is not initialized. It triggers an
-inconsistent lock state warning when acquired for the first time.
+You are still holding the mutex here.
 
+> +
+>  	ns = ts->tv_sec * 1000000000ULL;
+>  	ns += ts->tv_nsec;
 >  
-> +static void xfrm_hash_rebuild(struct work_struct *work)
-> +{
-> +	struct net *net = container_of(work, struct net,
-> +				       xfrm.policy_hthresh.work);
-> +	unsigned int hmask;
-> +	struct xfrm_policy *pol;
-> +	struct xfrm_policy *policy;
-> +	struct hlist_head *chain;
-> +	struct hlist_head *odst;
-> +	struct hlist_node *newpos;
-> +	int i;
-> +	int dir;
-> +	unsigned seq;
-> +	u8 lbits4, rbits4, lbits6, rbits6;
-> +
-> +	mutex_lock(&hash_resize_mutex);
-> +
-> +	/* read selector prefixlen thresholds */
-> +	do {
-> +		seq = read_seqbegin(&net->xfrm.policy_hthresh.lock);
-> +
-> +		lbits4 = net->xfrm.policy_hthresh.lbits4;
-> +		rbits4 = net->xfrm.policy_hthresh.rbits4;
-> +		lbits6 = net->xfrm.policy_hthresh.lbits6;
-> +		rbits6 = net->xfrm.policy_hthresh.rbits6;
-> +	} while (read_seqretry(&net->xfrm.policy_hthresh.lock, seq));
-> +
-> +	write_lock_bh(&net->xfrm.xfrm_policy_lock);
-> +
-> +	pr_info("rebuilding SPD hash table: thresholds (%u,%u)(%u,%u)\n",
-> +		lbits4, rbits4, lbits6, rbits6);
+>  	spin_lock_irqsave(&fep->tmreg_lock, flags);
+>  	timecounter_init(&fep->tc, &fep->cc, ns);
+>  	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+> +	mutex_unlock(&fep->ptp_clk_mutex);
+>  	return 0;
+>  }
 
-Do we really need to print this?
-
-> +
-> +	/* reset the bydst and inexact table in all directions */
-> +	for (dir = 0; dir < XFRM_POLICY_MAX * 2; dir++) {
-> +		INIT_HLIST_HEAD(&net->xfrm.policy_inexact[dir]);
-> +		hmask = net->xfrm.policy_bydst[dir].hmask;
-> +		odst = net->xfrm.policy_bydst[dir].table;
-> +		for (i = hmask; i >= 0; i--)
-> +			INIT_HLIST_HEAD(odst + i);
-> +		if ((dir & XFRM_POLICY_MASK) == XFRM_POLICY_OUT) {
-> +			/* dir out => dst = remote, src = local */
-> +			net->xfrm.policy_bydst[dir].dbits4 = rbits4;
-> +			net->xfrm.policy_bydst[dir].sbits4 = lbits4;
-> +			net->xfrm.policy_bydst[dir].dbits6 = rbits6;
-> +			net->xfrm.policy_bydst[dir].sbits6 = lbits6;
-> +		} else {
-> +			/* dir in/fwd => dst = local, src = remote */
-> +			net->xfrm.policy_bydst[dir].dbits4 = lbits4;
-> +			net->xfrm.policy_bydst[dir].sbits4 = rbits4;
-> +			net->xfrm.policy_bydst[dir].dbits6 = lbits6;
-> +			net->xfrm.policy_bydst[dir].sbits6 = rbits6;
-> +		}
-> +	}
-> +
-> +	/* re-insert all policies by order of creation */
-> +	list_for_each_entry_reverse(policy, &net->xfrm.policy_all, walk.all) {
-> +		newpos = NULL;
-> +		chain = policy_hash_bysel(net, &policy->selector,
-> +					  policy->family,
-> +					  xfrm_policy_id2dir(policy->index));
-> +		hlist_for_each_entry(pol, chain, bydst) {
-> +			if (policy->priority >= pol->priority)
-> +				newpos = &pol->bydst;
-> +			else
-> +				break;
-> +		}
-> +		if (newpos)
-> +			hlist_add_after(newpos, &policy->bydst);
-
-hlist_add_after() does not exist any more, it was replaced by
-hlist_add_behind() recently.
-
->  
-> +static int xfrm_set_spdinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
-> +			    struct nlattr **attrs)
-> +{
-> +	struct net *net = sock_net(skb->sk);
-> +	struct sk_buff *r_skb;
-> +	u32 *flags = nlmsg_data(nlh);
-> +	u32 sportid = NETLINK_CB(skb).portid;
-> +	u32 seq = nlh->nlmsg_seq;
-> +	struct xfrmu_spdhthresh *thresh4 = NULL;
-> +	struct xfrmu_spdhthresh *thresh6 = NULL;
-> +
-> +	/* selector prefixlen thresholds to hash policies */
-> +	if (attrs[XFRMA_SPD_IPV4_HTHRESH]) {
-> +		struct nlattr *rta = attrs[XFRMA_SPD_IPV4_HTHRESH];
-> +
-> +		if (nla_len(rta) < sizeof(*thresh4))
-> +			return -EINVAL;
-> +		thresh4 = nla_data(rta);
-> +		if (thresh4->lbits > 32 || thresh4->rbits > 32)
-> +			return -EINVAL;
-> +	}
-> +	if (attrs[XFRMA_SPD_IPV6_HTHRESH]) {
-> +		struct nlattr *rta = attrs[XFRMA_SPD_IPV6_HTHRESH];
-> +
-> +		if (nla_len(rta) < sizeof(*thresh6))
-> +			return -EINVAL;
-> +		thresh6 = nla_data(rta);
-> +		if (thresh6->lbits > 128 || thresh6->rbits > 128)
-> +			return -EINVAL;
-> +	}
-> +
-> +	if (thresh4 || thresh6) {
-> +		write_seqlock(&net->xfrm.policy_hthresh.lock);
-> +		if (thresh4) {
-> +			net->xfrm.policy_hthresh.lbits4 = thresh4->lbits;
-> +			net->xfrm.policy_hthresh.rbits4 = thresh4->rbits;
-> +		}
-> +		if (thresh6) {
-> +			net->xfrm.policy_hthresh.lbits6 = thresh6->lbits;
-> +			net->xfrm.policy_hthresh.rbits6 = thresh6->rbits;
-> +		}
-> +		write_sequnlock(&net->xfrm.policy_hthresh.lock);
-> +
-> +		xfrm_policy_hash_rebuild(net);
-> +	}
-> +
-> +	r_skb = nlmsg_new(xfrm_spdinfo_msgsize(), GFP_ATOMIC);
-> +	if (r_skb == NULL)
-> +		return -ENOMEM;
-> +
-> +	if (build_spdinfo(r_skb, net, sportid, seq, *flags) < 0)
-> +		BUG();
-> +
-> +	return nlmsg_unicast(net->xfrm.nlsk, r_skb, sportid);
-
-Why do you send these informations to userspace? This is a set
-operation, not get.
-
-
-The rest looks quite good, thanks!
+Thanks,
+Richard
