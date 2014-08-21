@@ -1,84 +1,63 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next RFC 07/12] dsa: implement ndo_swdev_get_id
-Date: Thu, 21 Aug 2014 09:56:13 -0700
-Message-ID: <CAGVrzcbs1yGb5RW++XZ=2PFsqUjZGVGfWx5=QQYcEX6x4WOq9Q@mail.gmail.com>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us> <1408637945-10390-8-git-send-email-jiri@resnulli.us>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 03/12] net: introduce generic switch devices
+ support
+Date: Thu, 21 Aug 2014 19:03:01 +0200
+Message-ID: <20140821170301.GA10633@nanopsycho.lan>
+References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
+ <1408637945-10390-4-git-send-email-jiri@resnulli.us>
+ <1408639283.13073.3.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>, tgraf <tgraf@suug.ch>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>,
-	dev <dev@openvswitch.org>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@cumulusnetworks.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:62338 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752214AbaHUQ4y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 12:56:54 -0400
-Received: by mail-ie0-f172.google.com with SMTP id lx4so5021917iec.3
-        for <netdev@vger.kernel.org>; Thu, 21 Aug 2014 09:56:53 -0700 (PDT)
-In-Reply-To: <1408637945-10390-8-git-send-email-jiri@resnulli.us>
+Received: from mail-we0-f173.google.com ([74.125.82.173]:45664 "EHLO
+	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751902AbaHURDG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 13:03:06 -0400
+Received: by mail-we0-f173.google.com with SMTP id q58so9654466wes.32
+        for <netdev@vger.kernel.org>; Thu, 21 Aug 2014 10:03:05 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1408639283.13073.3.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-08-21 9:19 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  net/dsa/Kconfig |  2 +-
->  net/dsa/slave.c | 16 ++++++++++++++++
->  2 files changed, 17 insertions(+), 1 deletion(-)
+Thu, Aug 21, 2014 at 06:41:23PM CEST, ben@decadent.org.uk wrote:
+>On Thu, 2014-08-21 at 18:18 +0200, Jiri Pirko wrote:
+>> The goal of this is to provide a possibility to suport various switch
+>> chips. Drivers should implement relevant ndos to do so. Now there is a
+>> couple of ndos defines:
+>> - for getting physical switch id is in place.
+>> - for work with flows.
+>> 
+>> Note that user can use random port netdevice to access the switch.
+>[...]
 >
-> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-> index f5eede1..66c445a 100644
-> --- a/net/dsa/Kconfig
-> +++ b/net/dsa/Kconfig
-> @@ -1,6 +1,6 @@
->  config HAVE_NET_DSA
->         def_bool y
-> -       depends on NETDEVICES && !S390
-> +       depends on NETDEVICES && NET_SWITCHDEV && !S390
->
->  # Drivers must select NET_DSA and the appropriate tagging format
->
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index 45a1e34..e069ba3 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -171,6 +171,19 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
->         return -EOPNOTSUPP;
->  }
->
-> +static int dsa_slave_swdev_get_id(struct net_device *dev,
-> +                                 struct netdev_phys_item_id *psid)
-> +{
-> +       struct dsa_slave_priv *p = netdev_priv(dev);
-> +       struct dsa_switch *ds = p->parent;
-> +       u64 tmp = (u64) ds;
-> +
-> +       /* TODO: add more sophisticated id generation */
-> +       memcpy(&psid->id, &tmp, sizeof(tmp));
-> +       psid->id_len = sizeof(tmp);
+>Why isn't the switch treated as a real device (not necessarily a net
+>device) that's included in the device model and that the port devices
+>refer to?
 
-There is already an unique id generated, which is the index in the
-switch tree, and which is stored in struct dsa_switch, so this could
-probably be simplified to:
+That is certainly possible. But so far, there is no need for it. But I
+guess that it's probably a good idea at least to put it into sysfs
+structure.
 
-psid->id = ds->index
---
-Florian
+Noted, thanks Ben.
+
+>
+>Ben.
+>
+>-- 
+>Ben Hutchings
+>If at first you don't succeed, you're doing about average.
