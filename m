@@ -1,81 +1,97 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] net: ipv6: fib: don't sleep inside atomic lock
-Date: Fri, 22 Aug 2014 00:12:14 +0200
-Message-ID: <1408659134.14700.1.camel@localhost>
-References: <20140821143103.GA25021@kalium.Speedport_W723_V_Typ_A_1_01_001>
-	 <1408642668-5808-1-git-send-email-bebl@mageta.org>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH net-next v3 3/3] enic: Add tunable_ops support for rx_copybreak
+Date: Fri, 22 Aug 2014 00:12:03 +0200
+Message-ID: <CAHXqBFKS+LOPWW+CjuSc3sNDMvBGL100qwLL3L9jeyKgGD0ZgQ@mail.gmail.com>
+References: <1408008560-1067-1-git-send-email-_govind@gmx.com> <1408008560-1067-4-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Benjamin Block <bebl@mageta.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408642668-5808-1-git-send-email-bebl@mageta.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, ben@decadent.org.uk,
+	stephen@networkplumber.org, ssujith@cisco.com, benve@cisco.com
+To: Govindarajulu Varadarajan <_govind@gmx.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:35122 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755396AbaHUWMY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 18:12:24 -0400
+Received: by mail-ie0-f169.google.com with SMTP id rd18so5540415iec.0
+        for <netdev@vger.kernel.org>; Thu, 21 Aug 2014 15:12:23 -0700 (PDT)
+In-Reply-To: <1408008560-1067-4-git-send-email-_govind@gmx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Do, 2014-08-21 at 19:37 +0200, Benjamin Block wrote:
-> The function fib6_commit_metrics() allocates a piece of memory in mode
-> GFP_KERNEL while holding an atomic lock from higher up in the stack, in
-> the function __ip6_ins_rt(). This produces the following BUG:
-> 
-> > BUG: sleeping function called from invalid context at mm/slub.c:1250
-> > in_atomic(): 1, irqs_disabled(): 0, pid: 2909, name: dhcpcd
-> > 2 locks held by dhcpcd/2909:
-> >  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81978e67>] rtnl_lock+0x17/0x20
-> >  #1:  (&tb->tb6_lock){++--+.}, at: [<ffffffff81a6951a>] ip6_route_add+0x65a/0x800
-> > CPU: 1 PID: 2909 Comm: dhcpcd Not tainted 3.17.0-rc1 #1
-> > Hardware name: ASUS All Series/Q87T, BIOS 0216 10/16/2013
-> >  0000000000000008 ffff8800c8f13858 ffffffff81af135a 0000000000000000
-> >  ffff880212202430 ffff8800c8f13878 ffffffff810f8d3a ffff880212202c98
-> >  0000000000000010 ffff8800c8f138c8 ffffffff8121ad0e 0000000000000001
-> > Call Trace:
-> >  [<ffffffff81af135a>] dump_stack+0x4e/0x68
-> >  [<ffffffff810f8d3a>] __might_sleep+0x10a/0x120
-> >  [<ffffffff8121ad0e>] kmem_cache_alloc_trace+0x4e/0x190
-> >  [<ffffffff81a6bcd6>] ? fib6_commit_metrics+0x66/0x110
-> >  [<ffffffff81a6bcd6>] fib6_commit_metrics+0x66/0x110
-> >  [<ffffffff81a6cbf3>] fib6_add+0x883/0xa80
-> >  [<ffffffff81a6951a>] ? ip6_route_add+0x65a/0x800
-> >  [<ffffffff81a69535>] ip6_route_add+0x675/0x800
-> >  [<ffffffff81a68f2a>] ? ip6_route_add+0x6a/0x800
-> >  [<ffffffff81a6990c>] inet6_rtm_newroute+0x5c/0x80
-> >  [<ffffffff8197cf01>] rtnetlink_rcv_msg+0x211/0x260
-> >  [<ffffffff81978e67>] ? rtnl_lock+0x17/0x20
-> >  [<ffffffff81119708>] ? lock_release_holdtime+0x28/0x180
-> >  [<ffffffff81978e67>] ? rtnl_lock+0x17/0x20
-> >  [<ffffffff8197ccf0>] ? __rtnl_unlock+0x20/0x20
-> >  [<ffffffff819a989e>] netlink_rcv_skb+0x6e/0xd0
-> >  [<ffffffff81978ee5>] rtnetlink_rcv+0x25/0x40
-> >  [<ffffffff819a8e59>] netlink_unicast+0xd9/0x180
-> >  [<ffffffff819a9600>] netlink_sendmsg+0x700/0x770
-> >  [<ffffffff81103735>] ? local_clock+0x25/0x30
-> >  [<ffffffff8194e83c>] sock_sendmsg+0x6c/0x90
-> >  [<ffffffff811f98e3>] ? might_fault+0xa3/0xb0
-> >  [<ffffffff8195ca6d>] ? verify_iovec+0x7d/0xf0
-> >  [<ffffffff8194ec3e>] ___sys_sendmsg+0x37e/0x3b0
-> >  [<ffffffff8111ef15>] ? trace_hardirqs_on_caller+0x185/0x220
-> >  [<ffffffff81af979e>] ? mutex_unlock+0xe/0x10
-> >  [<ffffffff819a55ec>] ? netlink_insert+0xbc/0xe0
-> >  [<ffffffff819a65e5>] ? netlink_autobind.isra.30+0x125/0x150
-> >  [<ffffffff819a6520>] ? netlink_autobind.isra.30+0x60/0x150
-> >  [<ffffffff819a84f9>] ? netlink_bind+0x159/0x230
-> >  [<ffffffff811f989a>] ? might_fault+0x5a/0xb0
-> >  [<ffffffff8194f25e>] ? SYSC_bind+0x7e/0xd0
-> >  [<ffffffff8194f8cd>] __sys_sendmsg+0x4d/0x80
-> >  [<ffffffff8194f912>] SyS_sendmsg+0x12/0x20
-> >  [<ffffffff81afc692>] system_call_fastpath+0x16/0x1b
-> 
-> Fixing this by replacing the mode GFP_KERNEL with GFP_ATOMIC.
-> 
-> Signed-off-by: Benjamin Block <bebl@mageta.org>
+2014-08-14 11:29 GMT+02:00 Govindarajulu Varadarajan <_govind@gmx.com>:
+> This patch adds support for setting/getting rx_copybreak using
+> tunable_ops.
+>
+> Defines enic_get_rx_copybreak() & enic_set_rx_copybreak() tunable_ops=
+=2E
+>
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> ---
+>  drivers/net/ethernet/cisco/enic/enic_ethtool.c | 30 ++++++++++++++++=
+++++++++++
+>  1 file changed, 30 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers=
+/net/ethernet/cisco/enic/enic_ethtool.c
+> index 523c9ce..9bf53fc 100644
+> --- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+> +++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+> @@ -379,6 +379,30 @@ static int enic_get_rxnfc(struct net_device *dev=
+, struct ethtool_rxnfc *cmd,
+>         return ret;
+>  }
+>
+> +static int enic_get_rx_copybreak(struct net_device *dev,
+> +                                struct ethtool_tunable *tuna)
+> +{
+> +       struct enic *enic =3D netdev_priv(dev);
+> +
+> +       if (tuna->len < sizeof(tuna->data.rx_copybreak))
+> +               return -ENOSPC;
+> +       tuna->data.rx_copybreak =3D enic->rx_copybreak;
+> +
+> +       return 0;
+> +}
+> +
+> +static int enic_set_rx_copybreak(struct net_device *dev,
+> +                                struct ethtool_tunable *tuna)
+> +{
+> +       struct enic *enic =3D netdev_priv(dev);
+> +
+> +       if (tuna->len !=3D sizeof(tuna->data.rx_copybreak))
+> +               return -EINVAL;
+> +       enic->rx_copybreak =3D tuna->data.rx_copybreak;
+> +
+> +       return 0;
+> +}
+> +
+>  static const struct ethtool_ops enic_ethtool_ops =3D {
+>         .get_settings =3D enic_get_settings,
+>         .get_drvinfo =3D enic_get_drvinfo,
+> @@ -391,6 +415,12 @@ static const struct ethtool_ops enic_ethtool_ops=
+ =3D {
+>         .get_coalesce =3D enic_get_coalesce,
+>         .set_coalesce =3D enic_set_coalesce,
+>         .get_rxnfc =3D enic_get_rxnfc,
+> +       .tunable_ops =3D {
+> +               [ETHTOOL_RX_COPYBREAK] =3D {
+> +                       .set =3D enic_set_rx_copybreak,
+> +                       .get =3D enic_get_rx_copybreak,
+> +               },
+> +       },
+>  };
+>
+>  void enic_set_ethtool_ops(struct net_device *netdev)
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+This is a lot of boilerplate code to write for such a simple variable.
 
-Thanks,
-Hannes
+BTW, there are a lot of drivers that use rx_copybreak idea. Some time
+ago, I tried to unify rx packet handling, but got into too many leafs
+of the theme.You could google up 'rx_copybreak handling' if you'd like
+to revive the idea.
+
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
