@@ -1,43 +1,194 @@
 From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH v5 0/1] net: fec: ptp: avoid register access when ipg clock is disabled
-Date: Thu, 21 Aug 2014 17:09:37 +0800
-Message-ID: <1408612178-13906-1-git-send-email-b38611@freescale.com>
+Subject: [PATCH v5 1/1] net: fec: ptp: avoid register access when ipg clock is disabled
+Date: Thu, 21 Aug 2014 17:09:38 +0800
+Message-ID: <1408612178-13906-2-git-send-email-b38611@freescale.com>
+References: <1408612178-13906-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>
 To: <richardcochran@gmail.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0185.outbound.protection.outlook.com ([207.46.163.185]:38817
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mail-bl2lp0203.outbound.protection.outlook.com ([207.46.163.203]:23010
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751007AbaHUJ0v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Aug 2014 05:26:51 -0400
+	id S1753444AbaHUJ1M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Aug 2014 05:27:12 -0400
+In-Reply-To: <1408612178-13906-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-V5:
-  Unlock the mutex when ptp clk is off in fec_ptp_settime() function.
+The current kernel hang on i.MX6SX with rootfs mount from MMC.
+The root cause is that ptp uses a periodic timer to access enet register
+even if ipg clock is disabled.
 
-V4:
-* Init the ptp_clk_on flag to false in .probe(), and add mutex to protect the ptp clock
-  status.
+FEC ptp driver start one period timer to read 1588 counter register in the
+ptp init function that is called after FEC driver is probed.
 
-V3:
-* Suggest from Richard Cochran, time_keep work is COMPLETELY INDEPENDENT from time stamping,
-  let it always run. In .fec_ptp_gettime() function will return an error when ptp physical
-  clock is disabled.
+To save power, after FEC probe finish, FEC driver disable all clocks including
+ipg clock that is needed for register access.
 
-V2:
-* As Richard Cochran's suggestion, use schedule_delayed_work instead of period timer.
-* Stop delayed work before ipg clock disable like suspend, ethx close.
+i.MX5x, i.MX6q/dl/sl FEC register access don't cause system hang when ipg clock
+is disabled, just return zero value. But for i.MX6sx SOC, it cause system hang.
 
-Fugang Duan (1):
-  net: fec: ptp: avoid register access when ipg clock is disabled
+To avoid the issue, we need to check ptp clock status before ptp timer count access.
 
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
  drivers/net/ethernet/freescale/fec.h      |    5 +++-
- drivers/net/ethernet/freescale/fec_main.c |   18 ++++++++++++++--
- drivers/net/ethernet/freescale/fec_ptp.c  |   31 ++++++++++++++++++----------
- 3 files changed, 39 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c |   18 +++++++++++++--
+ drivers/net/ethernet/freescale/fec_ptp.c  |   33 +++++++++++++++++++---------
+ 3 files changed, 41 insertions(+), 15 deletions(-)
 
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index bd53caf..bf30dd6 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -275,6 +275,9 @@ struct fec_enet_private {
+ 	struct clk *clk_enet_out;
+ 	struct clk *clk_ptp;
+ 
++	bool ptp_clk_on;
++	struct mutex ptp_clk_mutex;
++
+ 	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
+ 	unsigned char *tx_bounce[TX_RING_SIZE];
+ 	struct	sk_buff *tx_skbuff[TX_RING_SIZE];
+@@ -334,7 +337,7 @@ struct fec_enet_private {
+ 	u32 cycle_speed;
+ 	int hwts_rx_en;
+ 	int hwts_tx_en;
+-	struct timer_list time_keep;
++	struct delayed_work time_keep;
+ 	struct regulator *reg_phy;
+ };
+ 
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 66fe1f6..8e583bd 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1610,17 +1610,27 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 				goto failed_clk_enet_out;
+ 		}
+ 		if (fep->clk_ptp) {
++			mutex_lock(&fep->ptp_clk_mutex);
+ 			ret = clk_prepare_enable(fep->clk_ptp);
+-			if (ret)
++			if (ret) {
++				mutex_unlock(&fep->ptp_clk_mutex);
+ 				goto failed_clk_ptp;
++			} else {
++				fep->ptp_clk_on = true;
++			}
++			mutex_unlock(&fep->ptp_clk_mutex);
+ 		}
+ 	} else {
+ 		clk_disable_unprepare(fep->clk_ahb);
+ 		clk_disable_unprepare(fep->clk_ipg);
+ 		if (fep->clk_enet_out)
+ 			clk_disable_unprepare(fep->clk_enet_out);
+-		if (fep->clk_ptp)
++		if (fep->clk_ptp) {
++			mutex_lock(&fep->ptp_clk_mutex);
+ 			clk_disable_unprepare(fep->clk_ptp);
++			fep->ptp_clk_on = false;
++			mutex_unlock(&fep->ptp_clk_mutex);
++		}
+ 	}
+ 
+ 	return 0;
+@@ -2594,6 +2604,8 @@ fec_probe(struct platform_device *pdev)
+ 	if (IS_ERR(fep->clk_enet_out))
+ 		fep->clk_enet_out = NULL;
+ 
++	fep->ptp_clk_on = false;
++	mutex_init(&fep->ptp_clk_mutex);
+ 	fep->clk_ptp = devm_clk_get(&pdev->dev, "ptp");
+ 	fep->bufdesc_ex =
+ 		pdev->id_entry->driver_data & FEC_QUIRK_HAS_BUFDESC_EX;
+@@ -2682,10 +2694,10 @@ fec_drv_remove(struct platform_device *pdev)
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 
++	cancel_delayed_work_sync(&fep->time_keep);
+ 	cancel_work_sync(&fep->tx_timeout_work);
+ 	unregister_netdev(ndev);
+ 	fec_enet_mii_remove(fep);
+-	del_timer_sync(&fep->time_keep);
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+ 	if (fep->ptp_clock)
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index 82386b2..cca3617 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -245,12 +245,20 @@ static int fec_ptp_settime(struct ptp_clock_info *ptp,
+ 	u64 ns;
+ 	unsigned long flags;
+ 
++	mutex_lock(&fep->ptp_clk_mutex);
++	/* Check the ptp clock */
++	if (!fep->ptp_clk_on) {
++		mutex_unlock(&fep->ptp_clk_mutex);
++		return -EINVAL;
++	}
++
+ 	ns = ts->tv_sec * 1000000000ULL;
+ 	ns += ts->tv_nsec;
+ 
+ 	spin_lock_irqsave(&fep->tmreg_lock, flags);
+ 	timecounter_init(&fep->tc, &fep->cc, ns);
+ 	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
++	mutex_unlock(&fep->ptp_clk_mutex);
+ 	return 0;
+ }
+ 
+@@ -338,17 +346,22 @@ int fec_ptp_get(struct net_device *ndev, struct ifreq *ifr)
+  * fec_time_keep - call timecounter_read every second to avoid timer overrun
+  *                 because ENET just support 32bit counter, will timeout in 4s
+  */
+-static void fec_time_keep(unsigned long _data)
++static void fec_time_keep(struct work_struct *work)
+ {
+-	struct fec_enet_private *fep = (struct fec_enet_private *)_data;
++	struct delayed_work *dwork = to_delayed_work(work);
++	struct fec_enet_private *fep = container_of(dwork, struct fec_enet_private, time_keep);
+ 	u64 ns;
+ 	unsigned long flags;
+ 
+-	spin_lock_irqsave(&fep->tmreg_lock, flags);
+-	ns = timecounter_read(&fep->tc);
+-	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
++	mutex_lock(&fep->ptp_clk_mutex);
++	if (fep->ptp_clk_on) {
++		spin_lock_irqsave(&fep->tmreg_lock, flags);
++		ns = timecounter_read(&fep->tc);
++		spin_unlock_irqrestore(&fep->tmreg_lock, flags);
++	}
++	mutex_unlock(&fep->ptp_clk_mutex);
+ 
+-	mod_timer(&fep->time_keep, jiffies + HZ);
++	schedule_delayed_work(&fep->time_keep, HZ);
+ }
+ 
+ /**
+@@ -386,15 +399,13 @@ void fec_ptp_init(struct platform_device *pdev)
+ 
+ 	fec_ptp_start_cyclecounter(ndev);
+ 
+-	init_timer(&fep->time_keep);
+-	fep->time_keep.data = (unsigned long)fep;
+-	fep->time_keep.function = fec_time_keep;
+-	fep->time_keep.expires = jiffies + HZ;
+-	add_timer(&fep->time_keep);
++	INIT_DELAYED_WORK(&fep->time_keep, fec_time_keep);
+ 
+ 	fep->ptp_clock = ptp_clock_register(&fep->ptp_caps, &pdev->dev);
+ 	if (IS_ERR(fep->ptp_clock)) {
+ 		fep->ptp_clock = NULL;
+ 		pr_err("ptp_clock_register failed\n");
+ 	}
++
++	schedule_delayed_work(&fep->time_keep, HZ);
+ }
 -- 
 1.7.8
