@@ -1,70 +1,76 @@
-From: "Alexander Y. Fomichev" <git.user@gmail.com>
-Subject: Is it normal to have cross namespace symlinks?
-Date: Thu, 21 Aug 2014 14:38:16 +0400
-Message-ID: <20140821143816.48c5ad08@mad-cat.int.e5.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net] cxgb4: Free completed tx skbs promptly
+Date: Thu, 21 Aug 2014 17:04:46 +0530
+Message-ID: <1408620886-20065-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	kumaras@chelsio.com, anish@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:42091 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754379AbaHUKi3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 06:38:29 -0400
-Received: by mail-lb0-f181.google.com with SMTP id 10so7778802lbg.26
-        for <netdev@vger.kernel.org>; Thu, 21 Aug 2014 03:38:28 -0700 (PDT)
-Received: from mad-cat.int.e5.ru ([109.238.246.114])
-        by mx.google.com with ESMTPSA id lm8sm16081661lac.36.2014.08.21.03.38.27
-        for <netdev@vger.kernel.org>
-        (version=SSLv3 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
-        Thu, 21 Aug 2014 03:38:27 -0700 (PDT)
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:32857
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754583AbaHUL3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 07:29:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello guys!
+Description of problem:
+The NIC card is not reporting back to the driver the transmitted skbs,
+so they get stuck in the TX ring causing issues with reference
+counters in other kernel components.
 
-Recently i switched to 3.14.x stable branch and i've got a bunch of
-warnings:
+Developed a new Automatic Egress Queue Update firmware facility to slowly tick
+through Egress Queues and send back any outstanding CIDX Updates which are
+laying around.
 
-[   44.717746] ------------[ cut here ]------------
-[   44.717750] WARNING: CPU: 1 PID: 7007 at fs/sysfs/dir.c:52
-sysfs_warn_dup+0x86/0xa0() [   44.717751] sysfs: cannot create
-duplicate filename
-'/devices/pci0000:00/0000:00:1c.4/0000:05:00.0/net/eth1/upper_eth1'
+Based on original work by Casey Leedom <leedom@chelsio.com>
 
-[   37.759856] ------------[ cut here ]------------
-[   37.759863] WARNING: CPU: 1 PID: 3822 at fs/sysfs/dir.c:52
-sysfs_warn_dup+0x86/0xa0() [   37.759864] sysfs: cannot create
-duplicate filename '/devices/virtual/net/bond0/upper_eth0'
-....
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c      |    3 ++-
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h |    1 +
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c    |    3 ++-
+ 3 files changed, 5 insertions(+), 2 deletions(-)
 
-It was triggered by renaming of macvlan interfaces in a freshly created
-network namespaces. Just start two lxc containers one by one with
-macvlans on the same lowerdev and rename devices inside containers (with
-the same name) and voila.
-
-I investigated problem a bit and i see that code in net/core/dev.c
-which working with sysfs symlinks upper_dev / lower_dev is absolutely
-unaware of namespaces. I mean code which uses functions
-netdev_adjacent_sysfs_del,netdev_adjacent_sysfs_add
-netdev_adjacent_rename_links,dev_change_name
-just not takes into account that dev and adj_dev could be in a
-different namespaces. If userland asks to rename interface in a
-new namespace this code renames an upper_dev link
-in a parent namespace accordingly. I hadn't tried but i'll
-bet it works vice-versa as well. It leads to warnings i've wrote above
-and also creation inside namespaces a pretty meaningless links:
-/sys/devices/virtual/net/eth1/lower_eth1
--> ../../../pci0000:00/0000:00:1c.4/0000:05:00.0/net/eth1
-or probably deletion of symlinks of a perfectly valid devices. 
-
-At the same time this issue is not affecting most of current
-functionality and seems like nobody cares about that. I suspect that
-there's (almost) no real users of sysfs uppder_dev/lower_dev simlinks,
-am i right?
-
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index b0bba32..d22d728 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2303,7 +2303,8 @@ int t4_sge_alloc_eth_txq(struct adapter *adap, struct sge_eth_txq *txq,
+ 			    FW_EQ_ETH_CMD_PFN(adap->fn) | FW_EQ_ETH_CMD_VFN(0));
+ 	c.alloc_to_len16 = htonl(FW_EQ_ETH_CMD_ALLOC |
+ 				 FW_EQ_ETH_CMD_EQSTART | FW_LEN16(c));
+-	c.viid_pkd = htonl(FW_EQ_ETH_CMD_VIID(pi->viid));
++	c.viid_pkd = htonl(FW_EQ_ETH_CMD_AUTOEQUEQE |
++			   FW_EQ_ETH_CMD_VIID(pi->viid));
+ 	c.fetchszm_to_iqid = htonl(FW_EQ_ETH_CMD_HOSTFCMODE(2) |
+ 				   FW_EQ_ETH_CMD_PCIECHN(pi->tx_chan) |
+ 				   FW_EQ_ETH_CMD_FETCHRO(1) |
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index 0549170..5f2729e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -1227,6 +1227,7 @@ struct fw_eq_eth_cmd {
+ #define FW_EQ_ETH_CMD_CIDXFTHRESH(x) ((x) << 16)
+ #define FW_EQ_ETH_CMD_EQSIZE(x) ((x) << 0)
+ 
++#define FW_EQ_ETH_CMD_AUTOEQUEQE (1U << 30)
+ #define FW_EQ_ETH_CMD_VIID(x) ((x) << 16)
+ 
+ struct fw_eq_ctrl_cmd {
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index bdfa80c..a5fb949 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@ -2250,7 +2250,8 @@ int t4vf_sge_alloc_eth_txq(struct adapter *adapter, struct sge_eth_txq *txq,
+ 	cmd.alloc_to_len16 = cpu_to_be32(FW_EQ_ETH_CMD_ALLOC |
+ 					 FW_EQ_ETH_CMD_EQSTART |
+ 					 FW_LEN16(cmd));
+-	cmd.viid_pkd = cpu_to_be32(FW_EQ_ETH_CMD_VIID(pi->viid));
++	cmd.viid_pkd = cpu_to_be32(FW_EQ_ETH_CMD_AUTOEQUEQE |
++				   FW_EQ_ETH_CMD_VIID(pi->viid));
+ 	cmd.fetchszm_to_iqid =
+ 		cpu_to_be32(FW_EQ_ETH_CMD_HOSTFCMODE(SGE_HOSTFCMODE_STPG) |
+ 			    FW_EQ_ETH_CMD_PCIECHN(pi->port_id) |
 -- 
-
-Best regards.
-        Alexander Y. Fomichev <Aleksandr.Fomichev@x5.ru>
-	        +7-495-662-88-88 ext. 11346
+1.7.1
