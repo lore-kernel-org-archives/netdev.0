@@ -1,88 +1,63 @@
-From: Amos Kong <akong@redhat.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
- runnable
-Date: Fri, 22 Aug 2014 03:03:36 +0800
-Message-ID: <20140821190336.GB20066@z.redhat.com>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
- <1408608310-13579-2-git-send-email-jasowang@redhat.com>
+From: Zhi Li <lznuaa@gmail.com>
+Subject: Re: [PATCH 1/1] net:fec: buffer descriptor member variable order in IMX6
+Date: Thu, 21 Aug 2014 14:30:12 -0500
+Message-ID: <CAHrpEqTtsLk3x3ocHSXh3C1ysvqq+RSg-sD0YZ5O8iuZfMYvEg@mail.gmail.com>
+References: <1408612915-8657-1-git-send-email-Yanjun.Zhu@windriver.com>
+	<1408612915-8657-2-git-send-email-Yanjun.Zhu@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: kernel list <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Zhu Yanjun <Yanjun.Zhu@windriver.com>,
+	Frank Li <Frank.Li@freescale.com>
+To: Zhu Yanjun <zyjzyj2000@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1408608310-13579-2-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1408612915-8657-2-git-send-email-Yanjun.Zhu@windriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 21, 2014 at 04:05:10PM +0800, Jason Wang wrote:
-> Rx busy loop does not scale well in the case when several parallel
-> sessions is active. This is because we keep looping even if there's
-> another process is runnable. For example, if that process is about to
-> send packet, keep busy polling in current process will brings extra
-> delay and damage the performance.
-> 
-> This patch solves this issue by exiting the busy loop when there's
-> another process is runnable in current cpu. Simple test that pin two
-> netperf sessions in the same cpu in receiving side shows obvious
-> improvement:
-> 
-> Before:
-> netperf -H 192.168.100.2 -T 0,0 -t TCP_RR -P 0 & \
-> netperf -H 192.168.100.2 -T 1,0 -t TCP_RR -P 0
-> 16384  87380  1        1       10.00    15513.74
-> 16384  87380
-> 16384  87380  1        1       10.00    15092.78
-> 16384  87380
-> 
-> After:
-> netperf -H 192.168.100.2 -T 0,0 -t TCP_RR -P 0 & \
-> netperf -H 192.168.100.2 -T 1,0 -t TCP_RR -P 0
-> 16384  87380  1        1       10.00    23334.53
-> 16384  87380
-> 16384  87380  1        1       10.00    23327.58
-> 16384  87380
-> 
-> Benchmark was done through two 8 cores Xeon machine back to back connected
-> with mlx4 through netperf TCP_RR test (busy_read were set to 50):
-> 
-> sessions/bytes/before/after/+improvement%/busy_read=0/
-> 1/1/30062.10/30034.72/+0%/20228.96/
-> 16/1/214719.83/307669.01/+43%/268997.71/
-> 32/1/231252.81/345845.16/+49%/336157.442/
-> 64/512/212467.39/373464.93/+75%/397449.375/
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+On Thu, Aug 21, 2014 at 4:21 AM, Zhu Yanjun <zyjzyj2000@gmail.com> wrote:
+> From Reference Manual, freescale IMX6 is little endian mode. Therefore
+> the first structure field is length, the second is status.
+>
+> CC: David Miller <davem@davemloft.net>
+> CC: Frank Li <Frank.Li@freescale.com>
+> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
 > ---
->  include/net/busy_poll.h | 3 ++-
+>  drivers/net/ethernet/freescale/fec.h | 3 ++-
 >  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
-> index 1d67fb6..8a33fb2 100644
-> --- a/include/net/busy_poll.h
-> +++ b/include/net/busy_poll.h
-> @@ -109,7 +109,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
->  		cpu_relax();
->  
->  	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
-> -		 !need_resched() && !busy_loop_timeout(end_time));
-> +		 !need_resched() && !busy_loop_timeout(end_time) &&
-> +		 nr_running_this_cpu() < 2);
+>
+> diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+> index 671d080..96a5f8a 100644
+> --- a/drivers/net/ethernet/freescale/fec.h
+> +++ b/drivers/net/ethernet/freescale/fec.h
+> @@ -147,7 +147,8 @@
+>  /*
+>   *     Define the buffer descriptor structure.
+>   */
+> -#if defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28)
+> +#if defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28) || \
+> +                       defined(CONFIG_ARCH_MX6)
+
+CONFIG_ARCH_MXC already included CONFIG_ARCH_MX6
+ARCH_MXC included whole MX serial, MX35, MX5x, MX6x.
+
+IMX28 is special, coming from sigmatel chip.
+
+So it is not necessary to add ARCH_MX6
 
 
-Reviewed-by: Amos Kong <akong@redhat.com>
-  
->  	rc = !skb_queue_empty(&sk->sk_receive_queue);
->  out:
-> -- 
-> 1.8.3.1
-> 
+Best regards
+Frank Li
+
+>  struct bufdesc {
+>         unsigned short cbd_datlen;      /* Data length */
+>         unsigned short cbd_sc;  /* Control and status info */
 > --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> 1.9.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-
--- 
-			Amos.
