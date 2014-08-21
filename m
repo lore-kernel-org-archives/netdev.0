@@ -1,12 +1,13 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [patch net-next RFC 07/12] dsa: implement ndo_swdev_get_id
-Date: Thu, 21 Aug 2014 09:38:09 -0700
-Message-ID: <1408639089.13073.0.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: [patch net-next RFC 03/12] net: introduce generic switch
+ devices support
+Date: Thu, 21 Aug 2014 09:41:23 -0700
+Message-ID: <1408639283.13073.3.camel@deadeye.wl.decadent.org.uk>
 References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
-	 <1408637945-10390-8-git-send-email-jiri@resnulli.us>
+	 <1408637945-10390-4-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-5KPflYU7E8gDjAfuFdMc"
+	protocol="application/pgp-signature"; boundary="=-yeCm4XXD+lH5l3qfC3w3"
 Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
 	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
 	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
@@ -22,40 +23,32 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
 	Neil.Jerram@metaswitch.com, ronye@mellanox.com
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:48635 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:48663 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751857AbaHUQic (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 12:38:32 -0400
-In-Reply-To: <1408637945-10390-8-git-send-email-jiri@resnulli.us>
+	by vger.kernel.org with ESMTP id S1750858AbaHUQlb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 12:41:31 -0400
+In-Reply-To: <1408637945-10390-4-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-5KPflYU7E8gDjAfuFdMc
+--=-yeCm4XXD+lH5l3qfC3w3
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2014-08-21 at 18:19 +0200, Jiri Pirko wrote:
-[...]
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -171,6 +171,19 @@ static int dsa_slave_ioctl(struct net_device *dev, s=
-truct ifreq *ifr, int cmd)
->  	return -EOPNOTSUPP;
->  }
-> =20
-> +static int dsa_slave_swdev_get_id(struct net_device *dev,
-> +				  struct netdev_phys_item_id *psid)
-> +{
-> +	struct dsa_slave_priv *p =3D netdev_priv(dev);
-> +	struct dsa_switch *ds =3D p->parent;
-> +	u64 tmp =3D (u64) ds;
-> +
-> +	/* TODO: add more sophisticated id generation */
-> +	memcpy(&psid->id, &tmp, sizeof(tmp));
+On Thu, 2014-08-21 at 18:18 +0200, Jiri Pirko wrote:
+> The goal of this is to provide a possibility to suport various switch
+> chips. Drivers should implement relevant ndos to do so. Now there is a
+> couple of ndos defines:
+> - for getting physical switch id is in place.
+> - for work with flows.
+>=20
+> Note that user can use random port netdevice to access the switch.
 [...]
 
-Right, you must not expose kernel addresses to userland.
+Why isn't the switch treated as a real device (not necessarily a net
+device) that's included in the device model and that the port devices
+refer to?
 
 Ben.
 
@@ -63,26 +56,26 @@ Ben.
 Ben Hutchings
 If at first you don't succeed, you're doing about average.
 
---=-5KPflYU7E8gDjAfuFdMc
+--=-yeCm4XXD+lH5l3qfC3w3
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIVAwUAU/Ygdue/yOyVhhEJAQoBlw//cAuMzmvIW6KL4HAqX4MhJQQsa1Ed/dpf
-VGKe6GxyIbvu7Q6h2AFULI28vbYyuYBvI2CO95cOGuPWbuvFRAUqEce/ibqYo/wy
-bIw8wGuj69Isbdj31+bu/Drjjo/p1LB9fNGOt1aktUjkZGf0Zog/kwSplMHKpq/2
-/DSipa6kCBoMI7GFMjEkl9jF/TTEwQX1pP7jZzPNJik/VQiR7lF7UH1X2KdorPS+
-uSAfVyurhxLbdx5Ieqh1k29FWf5yDcjxfq8RLnlS7AcN4v0LvvjngdQaUklpyMPf
-fIKWBnYmOXwdC1oKAFUtq7vfVAGALaB7nrdbB0gz7eJ/mtE9ozcEj6+0rcrJ/Itg
-OwPbgc08vVySOA+aoOvHU8FeZqpxoP7elh5F0/dqo61V0I48PnmevDulSJklfSnw
-H8cQzddZ9RzzSet+EXweNDlXVQ9FPaWpvcAqcT/afWy7NmBTAHqnZEJB3xWVuWXx
-sNizRb2oKq/6/Q+2us8MvCvWyEd3096xMmyUI3xkZ8t3ILE04Xij27t8z0jBzp/5
-wX9/8a5lHb/FjuXCz61NjfBNMDx6O4kUFm6km98ABDzmm1rGAWYMooqpZpRblksf
-D4PCGsDMbu/fZ1DdmhQCknIRCayZurceZqZGJKkzuaCOaOIDla4gXgTl+MwbjlJc
-e8sDRad5QAo=
-=llLe
+iQIVAwUAU/YhM+e/yOyVhhEJAQoOZxAAzpZhEF5kpa7ljM50jq22dV2Osn32Xd3d
+B8cX8xIL8TMxvt5lbvO2R40bpz3+AKO4Ae+yxyLj8pb8Oe9UCGDddRuy+MWc4KSv
+w3CjFlzrazMPp+AUou1uSnstFkpnhWb1/BsTncCAjRADb8hBXDoHgWoyd5YUINSY
+EDeELoCsqpUt78t9URoIl1VLcANs334tMryxBMWmKz7Au7HsmexU/7BMXSmXPAXp
+RE6RjAlAh9gBTlULSoBRIu0DarEiBOd3x+U6fQD3rbV0quZXh9vlSPzUaAUKMDP/
+Mx3VniKJxzIzFpPTCSqAlcaNI4wF2huspugUjVjv/qv+RP9Wqfh5GKiPL+9Y1crz
+eBOC0C1zgBMVIEEEH6XEWQ+4bX4pP7tyTp2t3rCBpnTtQOI15VeKq1+Ee2w+S4VX
+7H9lzt2KQxaroMHIfRNjvPbCj3WX6HzbPqJnPYdlBltTXbYRDlOmLfnX3mvRtRR+
+2Du53qDyrMim5k9vDFAHUyF1TmpSMkMCqlmDfmFpgxdk6984V1fXqrrgvqt5EFXi
+LHFpDPdZhCdB/2WvaJQC04HFbdFLDNlMzTJiQKIYPT8vWPqgQUwvX0jHcufTHtvs
+kDqZKJVutN/FD2A3yzA7Orb3rLcpP1Fdc/kCTHOItPFFntYGtQbKyqAgTYwpF7dP
+8mIfK/ggdwA=
+=JTfZ
 -----END PGP SIGNATURE-----
 
---=-5KPflYU7E8gDjAfuFdMc--
+--=-yeCm4XXD+lH5l3qfC3w3--
