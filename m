@@ -1,78 +1,82 @@
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
-Subject: [PATCH 1/1] ipv4: net namespace does not inherit network configurations
-Date: Thu, 21 Aug 2014 10:32:01 +0800
-Message-ID: <1408588321-13537-2-git-send-email-Yanjun.Zhu@windriver.com>
-References: <1408588321-13537-1-git-send-email-Yanjun.Zhu@windriver.com>
-Cc: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	zyjzyj2000@gmail.com, Yue.Tao@windriver.com,
-	alexandre.dietsch@windriver.com, davem@davemloft.net,
-	honkiko@gmail.com, cwang@twopensource.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408588321-13537-1-git-send-email-Yanjun.Zhu@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Subject: [PATCH 1/1] netfilter/jump_label: use HAVE_JUMP_LABEL?
+Date: Thu, 21 Aug 2014 10:52:48 +0800
+Message-ID: <1408589568-27046-1-git-send-email-yizhouzhou@ict.ac.cn>
+Cc: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+To: <pablo@netfilter.org>, <kaber@trash.net>,
+	<kadlec@blackhole.kfki.hu>, <davem@davemloft.net>,
+	<netfilter-devel@vger.kernel.org>, <coreteam@netfilter.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jbaron@akamai.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ipv4 net namespace requires a similar logic change as commit c900a800
-[ipv6: fix bad free of addrconf_init_net] introduces for newer kernels.
 
-Since a net namespace is independent to another. That is, there
-is no any relationship between the net namespaces. So a new net
-namespace should not inherit network configurations from another
-net namespace including the host.
+CONFIG_JUMP_LABEL doesn't ensure HAVE_JUMP_LABEL, if it
+is not the case use maintainers's own mutex to guard
+the modification of global values.
 
-CC: Hong Zhiguo <honkiko@gmail.com>
-CC: David S. Miller <davem@davemloft.net>
-Suggested-by: Cong Wang <cwang@twopensource.com>
-Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
 ---
- net/ipv4/devinet.c | 29 ++++++++++++-----------------
- 1 file changed, 12 insertions(+), 17 deletions(-)
+ include/linux/netfilter.h |    5 +++--
+ net/netfilter/core.c      |    6 +++---
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index e944937..a16aa39 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -2220,28 +2220,23 @@ static __net_init int devinet_init_net(struct net *net)
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 2077489..83a1952 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -9,6 +9,7 @@
+ #include <linux/in6.h>
+ #include <linux/wait.h>
+ #include <linux/list.h>
++#include <linux/static_key.h>
+ #include <uapi/linux/netfilter.h>
+ #ifdef CONFIG_NETFILTER
+ static inline int NF_DROP_GETERR(int verdict)
+@@ -99,8 +100,8 @@ void nf_unregister_sockopt(struct nf_sockopt_ops *reg);
+ 
+ extern struct list_head nf_hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
+ 
+-#if defined(CONFIG_JUMP_LABEL)
+-#include <linux/static_key.h>
++#ifdef HAVE_JUMP_LABEL
++
+ extern struct static_key nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
+ static inline bool nf_hooks_active(u_int8_t pf, unsigned int hook)
+ {
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index a93c97f..024a2e2 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -54,7 +54,7 @@ EXPORT_SYMBOL_GPL(nf_unregister_afinfo);
+ struct list_head nf_hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS] __read_mostly;
+ EXPORT_SYMBOL(nf_hooks);
+ 
+-#if defined(CONFIG_JUMP_LABEL)
++#ifdef HAVE_JUMP_LABEL
+ struct static_key nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
+ EXPORT_SYMBOL(nf_hooks_needed);
  #endif
- 
- 	err = -ENOMEM;
--	all = &ipv4_devconf;
--	dflt = &ipv4_devconf_dflt;
- 
--	if (!net_eq(net, &init_net)) {
--		all = kmemdup(all, sizeof(ipv4_devconf), GFP_KERNEL);
--		if (all == NULL)
--			goto err_alloc_all;
--
--		dflt = kmemdup(dflt, sizeof(ipv4_devconf_dflt), GFP_KERNEL);
--		if (dflt == NULL)
--			goto err_alloc_dflt;
-+	all = kmemdup(&ipv4_devconf, sizeof(ipv4_devconf), GFP_KERNEL);
-+	if (all == NULL)
-+		goto err_alloc_all;
- 
-+	dflt = kmemdup(&ipv4_devconf_dflt, sizeof(ipv4_devconf_dflt), GFP_KERNEL);
-+	if (dflt == NULL)
-+		goto err_alloc_dflt;
- #ifdef CONFIG_SYSCTL
--		tbl = kmemdup(tbl, sizeof(ctl_forward_entry), GFP_KERNEL);
--		if (tbl == NULL)
--			goto err_alloc_ctl;
-+	tbl = kmemdup(tbl, sizeof(ctl_forward_entry), GFP_KERNEL);
-+	if (tbl == NULL)
-+		goto err_alloc_ctl;
- 
--		tbl[0].data = &all->data[IPV4_DEVCONF_FORWARDING - 1];
--		tbl[0].extra1 = all;
--		tbl[0].extra2 = net;
-+	tbl[0].data = &all->data[IPV4_DEVCONF_FORWARDING - 1];
-+	tbl[0].extra1 = all;
-+	tbl[0].extra2 = net;
+@@ -72,7 +72,7 @@ int nf_register_hook(struct nf_hook_ops *reg)
+ 	}
+ 	list_add_rcu(&reg->list, elem->list.prev);
+ 	mutex_unlock(&nf_hook_mutex);
+-#if defined(CONFIG_JUMP_LABEL)
++#ifdef HAVE_JUMP_LABEL
+ 	static_key_slow_inc(&nf_hooks_needed[reg->pf][reg->hooknum]);
  #endif
--	}
- 
- #ifdef CONFIG_SYSCTL
- 	err = __devinet_sysctl_register(net, "all", all);
+ 	return 0;
+@@ -84,7 +84,7 @@ void nf_unregister_hook(struct nf_hook_ops *reg)
+ 	mutex_lock(&nf_hook_mutex);
+ 	list_del_rcu(&reg->list);
+ 	mutex_unlock(&nf_hook_mutex);
+-#if defined(CONFIG_JUMP_LABEL)
++#ifdef HAVE_JUMP_LABEL
+ 	static_key_slow_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
+ #endif
+ 	synchronize_net();
 -- 
-1.9.1
+1.7.10.4
+
