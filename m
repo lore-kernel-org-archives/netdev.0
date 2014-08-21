@@ -1,32 +1,48 @@
-From: Neil Horman <nhorman@redhat.com>
-Subject: Re: [PATCH net v2] cxgb4: Fix race condition in cleanup
-Date: Thu, 21 Aug 2014 07:54:01 -0400
-Message-ID: <20140821115401.GB1237@hmsreliant.think-freely.org>
-References: <1408567446-6598-1-git-send-email-anish@chelsio.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH 5/8] staging: et131x: Remove unnecessary i2c_wack variable
+Date: Thu, 21 Aug 2014 09:06:40 -0300
+Message-ID: <CAOMZO5DYppH8kURS-eGk9sTD-CfBYt4hWQehKE01Hj=1JXMAdg@mail.gmail.com>
+References: <1408573078-9320-1-git-send-email-mark.einon@gmail.com>
+ <1408573078-9320-6-git-send-email-mark.einon@gmail.com>
+ <CAOMZO5Du34=jpr5B_fHGZ+D_jNR0VSDy2BiO6jj8QByh7V40RQ@mail.gmail.com>
+ <20140821091819.GA2230@msilap.einon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	hariprasad@chelsio.com, leedom@chelsio.com, svemuri@chelsio.com
-To: Anish Bhatt <anish@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22708 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753955AbaHULyF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Aug 2014 07:54:05 -0400
-Content-Disposition: inline
-In-Reply-To: <1408567446-6598-1-git-send-email-anish@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ linux-kernel <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Mark Einon <mark.einon@gmail.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140821091819.GA2230@msilap.einon.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 20, 2014 at 01:44:06PM -0700, Anish Bhatt wrote:
-> There is a possible race condition when we unregister the PCI Driver and then
-> flush/destroy the global "workq". This could lead to situations where there
-> are tasks on the Work Queue with references to now deleted adapter data
-> structures. Instead, have per-adapter Work Queues which were instantiated and
-> torn down in init_one() and remove_one(), respectively.
-> 
-> v2: Remove unnecessary call to flush_workqueue() before destroy_workqueue()
-> 
-> Signed-off-by: Anish Bhatt <anish@chelsio.com>
-> Signed-off-by: Casey Leedom <leedom@chelsio.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Hi Mark,
+
+On Thu, Aug 21, 2014 at 6:18 AM, Mark Einon <mark.einon@gmail.com> wrote:
+
+>
+> Hi Fabio, thanks for the review.
+>
+> It's a space alignment of parameters to go with the previous change, to
+> keep wrapping consistent in the file:
+>
+> -       while (i2c_wack) {
+> +       while (1) {
+>                 if (pci_write_config_byte(pdev, LBCIF_CONTROL_REGISTER,
+> -                       LBCIF_CONTROL_LBCIF_ENABLE))
+> +                                         LBCIF_CONTROL_LBCIF_ENABLE))
+>
+> So what are you saying - are you just commenting, document it, put it
+> in a seperate patch?
+
+Yes, it would be better if this part was part of a separate patch.
