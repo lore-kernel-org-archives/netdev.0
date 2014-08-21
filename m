@@ -1,21 +1,21 @@
 From: Razya Ladelsky <RAZYA@il.ibm.com>
 Subject: Re: [PATCH] vhost: Add polling mode
-Date: Thu, 21 Aug 2014 16:53:47 +0300
-Message-ID: <OF9D20825B.8FFA2829-ONC2257D3B.004A777F-C2257D3B.004C47BC@il.ibm.com>
+Date: Thu, 21 Aug 2014 17:23:55 +0300
+Message-ID: <OFBE98487F.0F49BDD7-ONC2257D3B.004C908C-C2257D3B.004F09FD@il.ibm.com>
 References: <1407659404-razya@il.ibm.com>
 	<20140810083035.0CF58380729@moren.haifa.ibm.com>
-	<53F45F3C.5000207@de.ibm.com>
+	<20140820105710.GC17371@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: Eran Raichstein <ERANRA@il.ibm.com>, Alex Glikson <GLIKSON@il.ibm.com>,
-	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, abel.gordon@gmail.com,
 	Yossi Kuperman1 <YOSSIKU@il.ibm.com>, Joel Nider <JOELN@il.ibm.com>,
 	virtualization@lists.linux-foundation.org
-To: Christian Borntraeger <borntraeger@de.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <53F45F3C.5000207@de.ibm.com>
+In-Reply-To: <20140820105710.GC17371@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -27,11 +27,8 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Christian Borntraeger <borntraeger@de.ibm.com> wrote on 20/08/2014 
-11:41:32 AM:
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 20/08/2014 01:57:10 PM:
 
-
-> > 
 > > Results:
 > > 
 > > Netperf, 1 vm:
@@ -51,45 +48,26 @@ numbers.
 > > 
 > > Signed-off-by: Razya Ladelsky <razya@il.ibm.com>
 > 
-> Gave it a quick try on s390/kvm. As expected it makes no difference 
-> for big streaming workload like iperf.
-> uperf with a 1-1 round robin got indeed faster by about 30%.
-> The high CPU consumption is something that bothers me though, as 
-> virtualized systems tend to be full.
-> 
-> 
+> This really needs more thourough benchmarking report, including
+> system data.  One good example for a related patch:
+> http://lwn.net/Articles/551179/
+> though for virtualization, we need data about host as well, and if you
+> want to look at streaming benchmarks, you need to test different message
+> sizes and measure packet size.
+>
 
-Thanks for confirming the results!
-The best way to use this patch would be along with a shared vhost thread 
-for multiple
-devices/vms, as described in:
-http://domino.research.ibm.com/library/cyberdig.nsf/1e4115aea78b6e7c85256b360066f0d4/479e3578ed05bfac85257b4200427735!OpenDocument
-This work assumes having a dedicated I/O core where the vhost thread 
-serves multiple vms, which 
-makes the high cpu utilization less of a concern. 
+Hi Michael,
+I have already tried running netperf with several message sizes: 
+64,128,256,512,600,800...
+But the results are inconsistent even in the baseline/unpatched 
+configuration.
+For smaller msg sizes, I get consistent numbers. However, at some point, 
+when I increase the msg size
+I get unstable results. For example, for a 512B msg, I get two scenarios:
+vm utilization 100%, vhost utilization 75%, throughput ~6300 
+vm utilization 80%, vhost utilization 13%, throughput ~9400 (line rate)
 
-
-
-> > +static int poll_start_rate = 0;
-> > +module_param(poll_start_rate, int, S_IRUGO|S_IWUSR);
-> > +MODULE_PARM_DESC(poll_start_rate, "Start continuous polling of 
-> virtqueue when rate of events is at least this number per jiffy. If 
-> 0, never start polling.");
-> > +
-> > +static int poll_stop_idle = 3*HZ; /* 3 seconds */
-> > +module_param(poll_stop_idle, int, S_IRUGO|S_IWUSR);
-> > +MODULE_PARM_DESC(poll_stop_idle, "Stop continuous polling of 
-> virtqueue after this many jiffies of no work.");
-> 
-> This seems ridicoudly high. Even one jiffie is an eternity, so 
-> setting it to 1 as a default would reduce the CPU overhead for most 
-cases.
-> If we dont have a packet in one millisecond, we can surely go back 
-> to the kick approach, I think.
-> 
-> Christian
-> 
-
-Good point, will reduce it and recheck.
+I don't know why vhost is behaving that way for certain message sizes.
+Do you have any insight to why this is happening?
 Thank you,
 Razya
