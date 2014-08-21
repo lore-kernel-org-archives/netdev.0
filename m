@@ -1,59 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 2/3] ethtool: Add generic options for
- tunables
-Date: Thu, 21 Aug 2014 16:18:16 -0700 (PDT)
-Message-ID: <20140821.161816.1372290442061854758.davem@davemloft.net>
-References: <1408008560-1067-1-git-send-email-_govind@gmx.com>
-	<1408008560-1067-3-git-send-email-_govind@gmx.com>
+Subject: Re: Performance regression on kernels 3.10 and newer
+Date: Thu, 21 Aug 2014 16:24:06 -0700 (PDT)
+Message-ID: <20140821.162406.2076033247433267586.davem@davemloft.net>
+References: <53ED4354.9090904@intel.com>
+	<20140814.162024.2218312002979492106.davem@davemloft.net>
+	<CA+mtBx-c0HCAES9PCyGn7cChZsX0KaLgdziFL_e1iRmkdG0dsQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ben@decadent.org.uk,
-	stephen@networkplumber.org, ssujith@cisco.com, benve@cisco.com
-To: _govind@gmx.com
+Cc: alexander.h.duyck@intel.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43903 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43960 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754920AbaHUXSU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 19:18:20 -0400
-In-Reply-To: <1408008560-1067-3-git-send-email-_govind@gmx.com>
+	with ESMTP id S1755295AbaHUXYH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 19:24:07 -0400
+In-Reply-To: <CA+mtBx-c0HCAES9PCyGn7cChZsX0KaLgdziFL_e1iRmkdG0dsQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Thu, 14 Aug 2014 14:59:19 +0530
+From: Tom Herbert <therbert@google.com>
+Date: Thu, 14 Aug 2014 16:25:53 -0700
 
-> @@ -1621,6 +1621,50 @@ static int ethtool_get_module_eeprom(struct net_device *dev,
->  				      modinfo.eeprom_len);
->  }
->  
-> +static int ethtool_get_tunable(struct net_device *dev, void __user *useraddr)
-> +{
-> +	int ret;
-> +	struct ethtool_tunable tuna;
-> +	const struct ethtool_tunable_ops *ops;
-> +
-> +	if (copy_from_user(&tuna, useraddr, sizeof(tuna)))
-> +		return -EFAULT;
-> +	if (tuna.tcmd >= ETHTOOL_TUNABLE_MAX)
-> +		return -EOPNOTSUPP;
-> +	ops = &dev->ethtool_ops->tunable_ops[tuna.tcmd];
-> +	if (!ops->get)
-> +		return -EOPNOTSUPP;
-> +	ret = ops->get(dev, &tuna);
-> +	if (ret)
-> +		return ret;
-> +	if (copy_to_user(useraddr, &tuna, sizeof(tuna)))
-> +		return -EFAULT;
-> +
-> +	return 0;
-> +}
+> I don't know if it's the same problem, but I did post a patch back in
+> January that would resolve false sharing of dst->__refcnt and rt_genid
+> in the same cacheline. We could revisit that if it helps.
 
-You should be validating tuna.len here, it should not be happening in the drivers
-as I see you are doing in your enic implementation.
-
-Also, having a seperate OP for each tunable might be overkill.
-Consider instead one "get_tunable" and one "set_tunable" callback,
-which contains a switch statement over 'tcmd'.  The generic
-ethtool_{g,s}et_tunable() would still validate the length, so that the
-driver method does not need to do so.
+I think that regardless of what happens in the discussion here, you
+should repost that patch.
