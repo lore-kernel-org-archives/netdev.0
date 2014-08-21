@@ -1,33 +1,91 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] net: ipv4: drop unicast encapsulated in L2 multicast
-Date: Thu, 21 Aug 2014 19:32:11 +0200
-Message-ID: <1408642331.4388.2.camel@jlt4.sipsolutions.net>
-References: <1408641747-22199-1-git-send-email-johannes@sipsolutions.net>
-	 (sfid-20140821_192515_304437_37E734D5)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:37675 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752818AbaHUReM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Aug 2014 13:34:12 -0400
-In-Reply-To: <1408641747-22199-1-git-send-email-johannes@sipsolutions.net> (sfid-20140821_192515_304437_37E734D5)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Benjamin Block <bebl@mageta.org>
+Subject: [PATCH v2] net: ipv6: fib: don't sleep inside atomic lock
+Date: Thu, 21 Aug 2014 19:37:48 +0200
+Message-ID: <1408642668-5808-1-git-send-email-bebl@mageta.org>
+References: <20140821143103.GA25021@kalium.Speedport_W723_V_Typ_A_1_01_001>
+Cc: Benjamin Block <bebl@mageta.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140821143103.GA25021@kalium.Speedport_W723_V_Typ_A_1_01_001>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-08-21 at 19:22 +0200, Johannes Berg wrote:
-> From: Johannes Berg <johannes.berg@intel.com>
-> 
-> RFC 1122 says that unicast packets encapsulated in broadcast
-> link-layer packets should be dropped. Implement that, but also
-> extend it to link-layer multicast packets.
+The function fib6_commit_metrics() allocates a piece of memory in mode
+GFP_KERNEL while holding an atomic lock from higher up in the stack, in
+the function __ip6_ins_rt(). This produces the following BUG:
 
-I cannot find anything equivalent in the IPv6 RFCs - anyone more
-familiar with that who could help check for that?
+> BUG: sleeping function called from invalid context at mm/slub.c:1250
+> in_atomic(): 1, irqs_disabled(): 0, pid: 2909, name: dhcpcd
+> 2 locks held by dhcpcd/2909:
+>  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81978e67>] rtnl_lock+0x17/0x20
+>  #1:  (&tb->tb6_lock){++--+.}, at: [<ffffffff81a6951a>] ip6_route_add+0x65a/0x800
+> CPU: 1 PID: 2909 Comm: dhcpcd Not tainted 3.17.0-rc1 #1
+> Hardware name: ASUS All Series/Q87T, BIOS 0216 10/16/2013
+>  0000000000000008 ffff8800c8f13858 ffffffff81af135a 0000000000000000
+>  ffff880212202430 ffff8800c8f13878 ffffffff810f8d3a ffff880212202c98
+>  0000000000000010 ffff8800c8f138c8 ffffffff8121ad0e 0000000000000001
+> Call Trace:
+>  [<ffffffff81af135a>] dump_stack+0x4e/0x68
+>  [<ffffffff810f8d3a>] __might_sleep+0x10a/0x120
+>  [<ffffffff8121ad0e>] kmem_cache_alloc_trace+0x4e/0x190
+>  [<ffffffff81a6bcd6>] ? fib6_commit_metrics+0x66/0x110
+>  [<ffffffff81a6bcd6>] fib6_commit_metrics+0x66/0x110
+>  [<ffffffff81a6cbf3>] fib6_add+0x883/0xa80
+>  [<ffffffff81a6951a>] ? ip6_route_add+0x65a/0x800
+>  [<ffffffff81a69535>] ip6_route_add+0x675/0x800
+>  [<ffffffff81a68f2a>] ? ip6_route_add+0x6a/0x800
+>  [<ffffffff81a6990c>] inet6_rtm_newroute+0x5c/0x80
+>  [<ffffffff8197cf01>] rtnetlink_rcv_msg+0x211/0x260
+>  [<ffffffff81978e67>] ? rtnl_lock+0x17/0x20
+>  [<ffffffff81119708>] ? lock_release_holdtime+0x28/0x180
+>  [<ffffffff81978e67>] ? rtnl_lock+0x17/0x20
+>  [<ffffffff8197ccf0>] ? __rtnl_unlock+0x20/0x20
+>  [<ffffffff819a989e>] netlink_rcv_skb+0x6e/0xd0
+>  [<ffffffff81978ee5>] rtnetlink_rcv+0x25/0x40
+>  [<ffffffff819a8e59>] netlink_unicast+0xd9/0x180
+>  [<ffffffff819a9600>] netlink_sendmsg+0x700/0x770
+>  [<ffffffff81103735>] ? local_clock+0x25/0x30
+>  [<ffffffff8194e83c>] sock_sendmsg+0x6c/0x90
+>  [<ffffffff811f98e3>] ? might_fault+0xa3/0xb0
+>  [<ffffffff8195ca6d>] ? verify_iovec+0x7d/0xf0
+>  [<ffffffff8194ec3e>] ___sys_sendmsg+0x37e/0x3b0
+>  [<ffffffff8111ef15>] ? trace_hardirqs_on_caller+0x185/0x220
+>  [<ffffffff81af979e>] ? mutex_unlock+0xe/0x10
+>  [<ffffffff819a55ec>] ? netlink_insert+0xbc/0xe0
+>  [<ffffffff819a65e5>] ? netlink_autobind.isra.30+0x125/0x150
+>  [<ffffffff819a6520>] ? netlink_autobind.isra.30+0x60/0x150
+>  [<ffffffff819a84f9>] ? netlink_bind+0x159/0x230
+>  [<ffffffff811f989a>] ? might_fault+0x5a/0xb0
+>  [<ffffffff8194f25e>] ? SYSC_bind+0x7e/0xd0
+>  [<ffffffff8194f8cd>] __sys_sendmsg+0x4d/0x80
+>  [<ffffffff8194f912>] SyS_sendmsg+0x12/0x20
+>  [<ffffffff81afc692>] system_call_fastpath+0x16/0x1b
 
-And if it's *not* in the IPv6 RFCs, how should we implement this?
+Fixing this by replacing the mode GFP_KERNEL with GFP_ATOMIC.
 
-johannes
+Signed-off-by: Benjamin Block <bebl@mageta.org>
+---
+ net/ipv6/ip6_fib.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index cb4459b..76b7f5e 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -643,7 +643,7 @@ static int fib6_commit_metrics(struct dst_entry *dst,
+ 	if (dst->flags & DST_HOST) {
+ 		mp = dst_metrics_write_ptr(dst);
+ 	} else {
+-		mp = kzalloc(sizeof(u32) * RTAX_MAX, GFP_KERNEL);
++		mp = kzalloc(sizeof(u32) * RTAX_MAX, GFP_ATOMIC);
+ 		if (!mp)
+ 			return -ENOMEM;
+ 		dst_init_metrics(dst, mp, 0);
+-- 
+1.8.5.5
