@@ -1,97 +1,46 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH net-next v3 3/3] enic: Add tunable_ops support for rx_copybreak
-Date: Fri, 22 Aug 2014 00:12:03 +0200
-Message-ID: <CAHXqBFKS+LOPWW+CjuSc3sNDMvBGL100qwLL3L9jeyKgGD0ZgQ@mail.gmail.com>
-References: <1408008560-1067-1-git-send-email-_govind@gmx.com> <1408008560-1067-4-git-send-email-_govind@gmx.com>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [PATCH 1/3] tg3: Limit minimum tx queue wakeup threshold
+Date: Thu, 21 Aug 2014 15:32:35 -0700
+Message-ID: <1408660355.7644.50.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1408474371-19509-1-git-send-email-bpoirier@suse.de>
+	 <1408485647.7404.3.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <20140821220424.GB7117@f1.synalogic.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, ben@decadent.org.uk,
-	stephen@networkplumber.org, ssujith@cisco.com, benve@cisco.com
-To: Govindarajulu Varadarajan <_govind@gmx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:35122 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755396AbaHUWMY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 18:12:24 -0400
-Received: by mail-ie0-f169.google.com with SMTP id rd18so5540415iec.0
-        for <netdev@vger.kernel.org>; Thu, 21 Aug 2014 15:12:23 -0700 (PDT)
-In-Reply-To: <1408008560-1067-4-git-send-email-_govind@gmx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="cp1252"
+Content-Transfer-Encoding: 7bit
+Cc: Prashant Sreedharan <prashant@broadcom.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Benjamin Poirier <bpoirier@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140821220424.GB7117@f1.synalogic.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2014-08-14 11:29 GMT+02:00 Govindarajulu Varadarajan <_govind@gmx.com>:
-> This patch adds support for setting/getting rx_copybreak using
-> tunable_ops.
->
-> Defines enic_get_rx_copybreak() & enic_set_rx_copybreak() tunable_ops=
-=2E
->
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
-> ---
->  drivers/net/ethernet/cisco/enic/enic_ethtool.c | 30 ++++++++++++++++=
-++++++++++
->  1 file changed, 30 insertions(+)
->
-> diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers=
-/net/ethernet/cisco/enic/enic_ethtool.c
-> index 523c9ce..9bf53fc 100644
-> --- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-> +++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-> @@ -379,6 +379,30 @@ static int enic_get_rxnfc(struct net_device *dev=
-, struct ethtool_rxnfc *cmd,
->         return ret;
->  }
->
-> +static int enic_get_rx_copybreak(struct net_device *dev,
-> +                                struct ethtool_tunable *tuna)
-> +{
-> +       struct enic *enic =3D netdev_priv(dev);
-> +
-> +       if (tuna->len < sizeof(tuna->data.rx_copybreak))
-> +               return -ENOSPC;
-> +       tuna->data.rx_copybreak =3D enic->rx_copybreak;
-> +
-> +       return 0;
-> +}
-> +
-> +static int enic_set_rx_copybreak(struct net_device *dev,
-> +                                struct ethtool_tunable *tuna)
-> +{
-> +       struct enic *enic =3D netdev_priv(dev);
-> +
-> +       if (tuna->len !=3D sizeof(tuna->data.rx_copybreak))
-> +               return -EINVAL;
-> +       enic->rx_copybreak =3D tuna->data.rx_copybreak;
-> +
-> +       return 0;
-> +}
-> +
->  static const struct ethtool_ops enic_ethtool_ops =3D {
->         .get_settings =3D enic_get_settings,
->         .get_drvinfo =3D enic_get_drvinfo,
-> @@ -391,6 +415,12 @@ static const struct ethtool_ops enic_ethtool_ops=
- =3D {
->         .get_coalesce =3D enic_get_coalesce,
->         .set_coalesce =3D enic_set_coalesce,
->         .get_rxnfc =3D enic_get_rxnfc,
-> +       .tunable_ops =3D {
-> +               [ETHTOOL_RX_COPYBREAK] =3D {
-> +                       .set =3D enic_set_rx_copybreak,
-> +                       .get =3D enic_get_rx_copybreak,
-> +               },
-> +       },
->  };
->
->  void enic_set_ethtool_ops(struct net_device *netdev)
+On Thu, 2014-08-21 at 15:04 -0700, Benjamin Poirier wrote: 
+> On 2014/08/19 15:00, Michael Chan wrote:
+> > On Tue, 2014-08-19 at 11:52 -0700, Benjamin Poirier wrote: 
+> > > diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> > > index 3ac5d23..b11c0fd 100644
+> > > --- a/drivers/net/ethernet/broadcom/tg3.c
+> > > +++ b/drivers/net/ethernet/broadcom/tg3.c
+> > > @@ -202,7 +202,8 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
+> > >  #endif
+> > >  
+> > >  /* minimum number of free TX descriptors required to wake up TX process */
+> > > -#define TG3_TX_WAKEUP_THRESH(tnapi)            ((tnapi)->tx_pending / 4)
+> > > +#define TG3_TX_WAKEUP_THRESH(tnapi)    max_t(u32, (tnapi)->tx_pending / 4, \
+> > > +                                             MAX_SKB_FRAGS + 1)
+> > 
+> > I think we should precompute this and store it in something like
+> > tp->tx_wake_thresh.
+> 
+> I've tried this by adding the following patch at the end of the v2
+> series but I did not measure a significant latency improvement. Was
+> there another reason for the change? 
 
-This is a lot of boilerplate code to write for such a simple variable.
-
-BTW, there are a lot of drivers that use rx_copybreak idea. Some time
-ago, I tried to unify rx packet handling, but got into too many leafs
-of the theme.You could google up 'rx_copybreak handling' if you'd like
-to revive the idea.
-
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+Just performance.  The wake up threshold is checked in the tx fast path
+in both start_xmit() and tg3_tx().  I would optimize such code for speed
+as much as possible.  In the current code, it was just a right shift
+operation.  Now, with max_t() added, I think I prefer having it
+pre-computed.  The performance difference may not be measurable, but I
+think the compiled code size may be smaller too.
