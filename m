@@ -1,93 +1,89 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC] net: ipv4: drop unicast encapsulated in L2 multicast
-Date: Thu, 21 Aug 2014 22:51:02 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1408212119510.1896@ja.home.ssi.bg>
-References: <1408641747-22199-1-git-send-email-johannes@sipsolutions.net>
+From: Andreea Bernat <bernat.ada@gmail.com>
+Subject: Re: [PATCH] carl9170: Replace rcu_dereference() with
+ rcu_access_pointer()
+Date: Thu, 21 Aug 2014 23:10:26 +0300
+Message-ID: <20140821201026.GA26428@ada>
+References: <20140817104806.GA14533@ada>
+ <3029076.uaUkTd8nru@debian64>
+ <20140820173210.GA18892@ada>
+ <3042528.E5hT1D5bWz@debian64>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Johannes Berg <johannes.berg@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:35921 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753138AbaHUTxD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Aug 2014 15:53:03 -0400
-In-Reply-To: <1408641747-22199-1-git-send-email-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	paulmck@linux.vnet.ibm.com
+To: Christian Lamparter <chunkeey@googlemail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <3042528.E5hT1D5bWz@debian64>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Thu, 21 Aug 2014, Johannes Berg wrote:
-
-> From: Johannes Berg <johannes.berg@intel.com>
+On Wed, Aug 20, 2014 at 01:20:02PM -0700, Christian Lamparter wrote:
+> On Wednesday, August 20, 2014 08:32:11 PM Andreea Bernat wrote:
+> > On Mon, Aug 18, 2014 at 09:29:36PM +0200, Christian Lamparter wrote:
+> > > On Sunday, August 17, 2014 01:48:07 PM Andreea-Cristina Bernat wrote:
+> > > > The rcu_dereference() call is used directly in a condition.
+> > > > Since its return value is never dereferenced it is recommended to use
+> > > > "rcu_access_pointer()" instead of "rcu_dereference()".
+> > > > Therefore, this patch makes the replacement.
+> > > > [...]
+> > > > Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+> > > > ---
+> > > >  drivers/net/wireless/ath/carl9170/main.c | 2 +-
+> > > >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > > > 
+> > > > diff --git a/drivers/net/wireless/ath/carl9170/main.c b/drivers/net/wireless/ath/carl9170/main.c
+> > > > index f8ded84..12018ff 100644
+> > > > --- a/drivers/net/wireless/ath/carl9170/main.c
+> > > > +++ b/drivers/net/wireless/ath/carl9170/main.c
+> > > > @@ -1431,7 +1431,7 @@ static int carl9170_op_ampdu_action(struct ieee80211_hw *hw,
+> > > >  			return -EOPNOTSUPP;
+> > > >  
+> > > >  		rcu_read_lock();
+> > > > -		if (rcu_dereference(sta_info->agg[tid])) {
+> > > > +		if (rcu_access_pointer(sta_info->agg[tid])) {
+> > > >  			rcu_read_unlock();
+> > > >  			return -EBUSY;
+> > > >  		}
+> > > 
+> > > There's more. The check does not do a whole lot. I think *it* [the check] and the
+> > > rcu_read_[un]lock [and the return -EBUSY] can be removed completely from the
+> > > IEEE80211_AMPDU_TX_START code-path in carl9170_op_ampdu_action.
+> > > 
+> > > It would be awesome, if you could you make a patch which removes this 
+> > > unneeded cosmic-ray-protection check :-) .
+> > 
+> > Could you tell me why you think that those lines have to be removed?
+> The carl9170_op_ampdu_action callback is used exclusively by the mac80211
+> framework to notify the driver about setup and tear down of TX and RX 
+> aggregation sessions. Hence, mac80211 takes great care of performing
+> sanity checks and properly serializing calls to the driver's ampdu_action
+> callback.
 > 
-> RFC 1122 says that unicast packets encapsulated in broadcast
-> link-layer packets should be dropped. Implement that, but also
-> extend it to link-layer multicast packets.
+> Specifically mac80211 already prevents the START of an TX aggregation session,
+> if the aggregation session is already active [0]. Therefore the driver doesn't
+> need to perform a similar check as well. This is why:
+>  - the expression (rcu_dereference(sta_info->agg[tid])) never evaluates to true
+>  -> the -EBUSY exit path is "dead code"
 > 
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-> ---
->  net/ipv4/route.c | 17 +++++++++++++++++
->  1 file changed, 17 insertions(+)
+> And without the rcu_dereference(...) the rcu_read protection is not needed
+> either. So it can be removed for this case as well.
 > 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index eaa4b000c7b4..c374fcc73ee0 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -1710,6 +1710,23 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
->  		goto no_route;
->  	}
->  
-> +	/* RFC 1122 3.3.6:
-> +	 *
-> +	 *   When a host sends a datagram to a link-layer broadcast address,
-> +	 *   the IP destination address MUST be a legal IP broadcast or IP
-> +	 *   multicast address.
-> +	 *
-> +	 *   A host SHOULD silently discard a datagram that is received via
-> +	 *   a link-layer broadcast (see Section 2.4) but does not specify
-> +	 *   an IP multicast or broadcast destination address.
-> +	 *
-> +	 * We also do this for link-layer multicast.
-> +	 */
-> +	if ((skb->pkt_type == PACKET_BROADCAST ||
-> +	     skb->pkt_type == PACKET_MULTICAST) &&
-> +	    res.type != RTN_BROADCAST)
-> +		goto e_inval;
+> > I would like to fully understand this before I remove them.
+> Let me know if the explanation above answers sufficient :).
+> If not, I need some *pointers* to what needs further 
+> explanation.
 
-	This place is ok for IP context but ip_route_input
-is also called from ARP context and other places.
-You are using pkt_type in route.c for first time.
-At least inet_rtm_getroute() does not set it. You
-have to audit all call sites, may be skb->protocol check
-can be needed too, I guess ARP is broken otherwise.
-And I'm not sure if skb->protocol is actual in
-ip4ip6_err() after decapsulation. Adding more skb
-fields to check is risky due to such places.
+Your explanation is clear. I will send a version two of the patch with
+those lines removed.
 
-	OTOH, the receive routines for protocols like
-UDP, TCP, SCTP already have pkt_type checks. As result,
-this is an extra check for them.
+Thank you,
+Andreea
 
-	You should also consider that this change breaks
-CLUSTERIP which uses multicast link-layer address and
-local (shared) IP.
-
->  	if (res.type == RTN_BROADCAST)
->  		goto brd_input;
-
-	Is this place better, after checking for RTN_BROADCAST?
-
-	/* ARP link-layer broadcasts are acceptable here */
-	if ((skb->pkt_type == PACKET_BROADCAST ||
-	     skb->pkt_type == PACKET_MULTICAST) &&
-	    skb->protocol == htons(ETH_P_IP))
-		goto e_inval;
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+> 
+> Regards
+> Christian
+> 
+> [0] <http://lxr.free-electrons.com/source/net/mac80211/agg-tx.c#L583>
+> 
