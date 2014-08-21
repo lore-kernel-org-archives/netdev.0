@@ -1,53 +1,61 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: pktgen and tos
-Date: Wed, 20 Aug 2014 20:05:46 -0700
-Message-ID: <CAHA+R7OKfg5C2dEz2JuxWncoo8gBX=r2MuHUdsGvALNXRSQoiQ@mail.gmail.com>
-References: <53F51880.5060704@candelatech.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH V2 0/1] ipv4: net namespace does not inherit network
+ configurations
+Date: Wed, 20 Aug 2014 20:18:43 -0700
+Message-ID: <20140820201843.083a45d9@uryu.home.lan>
+References: <1408588321-13537-1-git-send-email-Yanjun.Zhu@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:53127 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753345AbaHUDFs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2014 23:05:48 -0400
-Received: by mail-lb0-f182.google.com with SMTP id z11so7374761lbi.41
-        for <netdev@vger.kernel.org>; Wed, 20 Aug 2014 20:05:46 -0700 (PDT)
-In-Reply-To: <53F51880.5060704@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Yue.Tao@windriver.com, alexandre.dietsch@windriver.com,
+	davem@davemloft.net, honkiko@gmail.com, cwang@twopensource.com,
+	Zhu Yanjun <Yanjun.Zhu@windriver.com>
+To: Zhu Yanjun <zyjzyj2000@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1408588321-13537-1-git-send-email-Yanjun.Zhu@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 20, 2014 at 2:52 PM, Ben Greear <greearb@candelatech.com> wrote:
-> Here's a half-arsed bug report, in case someone is bored.
->
-> At least in my hacked up pktgen, you cannot set a one-digit tos,
-> because the parser fails if length is not 2 digits.
->
-> echo tos 4 > /proc/net/pktgen/rddVR2 && cat /proc/net/pktgen/rddVR2
->
-> ...
-> Result: ERROR: tos must be 00-ff
->
-> If you use '04' instead, it works.  In my case, it will be easier to hack
-> user-space
-> to deal with this than fix pktgen, but I thought someone might want to fix
-> it proper.
->
-> Also, could be that upstream code doesn't have this limitation...
+On Thu, 21 Aug 2014 10:32:00 +0800
+Zhu Yanjun <zyjzyj2000@gmail.com> wrote:
 
-We need something like this:
+> V2: Following the advice from Cong Wang, I submit a patch as normal.
+> 
+> Hi,all
+> 
+> I did a test on kernel3.16 rc6:
+> 
+> root@qemu1:~# echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+> root@qemu1:~# echo 1 > /proc/sys/net/ipv4/conf/all/forwarding
+> root@qemu1:~# ip netns list
+> root@qemu1:~# ip netns add fib1
+> root@qemu1:~# ip netns exec fib1 bash
+> root@qemu1:~# cat /proc/sys/net/ipv6/conf/all/forwarding
+> 0
+> root@qemu1:~# cat /proc/sys/net/ipv4/conf/all/forwarding
+> 1
+> 
+> The behavior of ipv4 and ipv6 is very inconsistent. I checked
+> the kernel source code. I found that from this patch
+> [ipv6: fix bad free of addrconf_init_net], the above difference
+> appeared.
+> 
+> Since a net namespace is independent to another. That is, there
+> is no any relationship between the net namespaces. So the behavior
+> of ipv4 is not correct.
+> 
+> Based on this patch [ipv6: fix bad free of addrconf_init_net], I made
+> a new patch to fix this problem on ipv4.
+> 
+> Any reply is appreciated. 
+> 
+> Zhu Yanjun (1):
+>   ipv4: net namespace does not inherit network configurations
+> 
+>  net/ipv4/devinet.c | 29 ++++++++++++-----------------
+>  1 file changed, 12 insertions(+), 17 deletions(-)
+> 
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 8b849dd..f8cb428 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -1674,7 +1674,7 @@ static ssize_t pktgen_if_write(struct file *file,
-  return len;
-
-  i += len;
-- if (len == 2) {
-+ if (len <= 2) {
-  pkt_dev->tos = tmp_value;
-  sprintf(pg_result, "OK: tos=0x%02x", pkt_dev->tos);
-  } else {
+This a semantic change to network namespaces and therefore is
+likely to break existing applications using network namespaces.
