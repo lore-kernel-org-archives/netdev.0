@@ -1,29 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Performance regression on kernels 3.10 and newer
-Date: Thu, 21 Aug 2014 16:51:36 -0700 (PDT)
-Message-ID: <20140821.165136.653027228264864005.davem@davemloft.net>
-References: <53ED4354.9090904@intel.com>
-	<20140814.162024.2218312002979492106.davem@davemloft.net>
-	<53EE4023.6080902@intel.com>
+Subject: Re: [PATCH] macvlan: Allow setting multicast filter on all macvlan
+ types
+Date: Thu, 21 Aug 2014 16:54:53 -0700 (PDT)
+Message-ID: <20140821.165453.2108983276232183602.davem@davemloft.net>
+References: <1408122299-29632-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: alexander.h.duyck@intel.com
+Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com, mst@redhat.com,
+	jasowang@redhat.com
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44227 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44262 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751401AbaHUXvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 19:51:38 -0400
-In-Reply-To: <53EE4023.6080902@intel.com>
+	with ESMTP id S1750861AbaHUXyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 19:54:54 -0400
+In-Reply-To: <1408122299-29632-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Fri, 15 Aug 2014 10:15:15 -0700
+From: Vladislav Yasevich <vyasevic@redhat.com>
+Date: Fri, 15 Aug 2014 13:04:59 -0400
 
-> This is one of the reasons why I keep asking if someone can tell me
-> what the use case is for this where it performs well.
+> Currently, macvlan code restricts multicast and unicast
+> filter setting only to passthru devices.  As a result,
+> if a guest using macvtap wants to receive multicast
+> traffic, it has to set IFF_ALLMULTI or IFF_PROMISC.
+> 
+> This patch makes it possible to use the fdb interface
+> to add multicast addresses to the filter thus allowing
+> a guest to receive only targeted multicast traffic.
+> 
+> CC: John Fastabend <john.r.fastabend@intel.com>
+> CC: Michael S. Tsirkin <mst@redhat.com>
+> CC: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 
-It allows the TCP connection to be paced by the process scheduler's
-ability to put the thread doing the I/O on a cpu.
+Applied, thanks Vlad.
