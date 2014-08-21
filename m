@@ -1,43 +1,43 @@
-From: Mark Einon <mark.einon@gmail.com>
-Subject: Re: [PATCH 8/8] staging: et131x: Implement NAPI support
-Date: Thu, 21 Aug 2014 10:25:09 +0100
-Message-ID: <20140821092508.GC2230@msilap.einon.net>
-References: <1408573078-9320-1-git-send-email-mark.einon@gmail.com>
- <1408573078-9320-9-git-send-email-mark.einon@gmail.com>
- <20140820202545.3a8bafd0@uryu.home.lan>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH v5 0/1] net: fec: ptp: avoid register access when ipg clock is disabled
+Date: Thu, 21 Aug 2014 17:09:37 +0800
+Message-ID: <1408612178-13906-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <20140820202545.3a8bafd0@uryu.home.lan>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>
+To: <richardcochran@gmail.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1blp0185.outbound.protection.outlook.com ([207.46.163.185]:38817
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751007AbaHUJ0v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Aug 2014 05:26:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 20, 2014 at 08:25:45PM -0700, Stephen Hemminger wrote:
-> On Wed, 20 Aug 2014 23:17:58 +0100
-> Mark Einon <mark.einon@gmail.com> wrote:
-> 
-> > -	bool done = true;
-> > +	int count = 0;
-> > +	int limit = budget;
-> > +	bool not_done = false;
-> 
-> Don't use negative variables. Better to keep the original done variable.
+V5:
+  Unlock the mutex when ptp clk is off in fec_ptp_settime() function.
 
-Fair comment, I'll send a v2.
+V4:
+* Init the ptp_clk_on flag to false in .probe(), and add mutex to protect the ptp clock
+  status.
 
-Cheers,
+V3:
+* Suggest from Richard Cochran, time_keep work is COMPLETELY INDEPENDENT from time stamping,
+  let it always run. In .fec_ptp_gettime() function will return an error when ptp physical
+  clock is disabled.
 
-Mark
+V2:
+* As Richard Cochran's suggestion, use schedule_delayed_work instead of period timer.
+* Stop delayed work before ipg clock disable like suspend, ethx close.
+
+Fugang Duan (1):
+  net: fec: ptp: avoid register access when ipg clock is disabled
+
+ drivers/net/ethernet/freescale/fec.h      |    5 +++-
+ drivers/net/ethernet/freescale/fec_main.c |   18 ++++++++++++++--
+ drivers/net/ethernet/freescale/fec_ptp.c  |   31 ++++++++++++++++++----------
+ 3 files changed, 39 insertions(+), 15 deletions(-)
+
+-- 
+1.7.8
