@@ -1,44 +1,33 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH net-next 3/4] r8152: remove clear_bp function
-Date: Thu, 21 Aug 2014 21:29:28 +0400
-Message-ID: <53F62C78.8040404@cogentembedded.com>
-References: <1394712342-15778-16-Taiwan-albertk@realtek.com> <1394712342-15778-19-Taiwan-albertk@realtek.com> <201408210131.s7L1VuAJ031162@rtits1.realtek.com> <0835B3720019904CB8F7AA43166CEEB2515BB5@RTITMBSV03.realtek.com.tw>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC] net: ipv4: drop unicast encapsulated in L2 multicast
+Date: Thu, 21 Aug 2014 19:32:11 +0200
+Message-ID: <1408642331.4388.2.camel@jlt4.sipsolutions.net>
+References: <1408641747-22199-1-git-send-email-johannes@sipsolutions.net>
+	 (sfid-20140821_192515_304437_37E734D5)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2515BB5-JIZ+AM9kKNzuvTFwvkocLypo8c9IxeqyAjHCUHv49ws@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: linux-wireless@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:37675 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752818AbaHUReM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Aug 2014 13:34:12 -0400
+In-Reply-To: <1408641747-22199-1-git-send-email-johannes@sipsolutions.net> (sfid-20140821_192515_304437_37E734D5)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/21/2014 06:12 AM, Hayes Wang wrote:
+On Thu, 2014-08-21 at 19:22 +0200, Johannes Berg wrote:
+> From: Johannes Berg <johannes.berg@intel.com>
+> 
+> RFC 1122 says that unicast packets encapsulated in broadcast
+> link-layer packets should be dropped. Implement that, but also
+> extend it to link-layer multicast packets.
 
-> [...]
->>>    	r8152b_disable_aldps(tp);
->>>
->>> -	rtl_clear_bp(tp);
->>>
+I cannot find anything equivalent in the IPv6 RFCs - anyone more
+familiar with that who could help check for that?
 
->>      Why leave 2 empty lines? One is enough.
+And if it's *not* in the IPv6 RFCs, how should we implement this?
 
-> The next patch would use another fucntion at the
-> same location. I skip removing the empty line and
-> re-adding it again. Is that better to do so? I would
-> resend the patches if the answer is yes.
-
-    Sorry, I haven't looked at your next patch, too big for me. :-)
-
-> Best Regards,
-> Hayes
-
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+johannes
