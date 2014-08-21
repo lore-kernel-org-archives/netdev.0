@@ -1,55 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] lec: Use rtnl lock/unlock when updating MTU
-Date: Thu, 21 Aug 2014 16:31:53 -0700 (PDT)
-Message-ID: <20140821.163153.979300888539356946.davem@davemloft.net>
-References: <20140814.143706.1833450188258591738.davem@redhat.com>
-	<201408150056.s7F0uRg7003712@thirdoffive.cmf.nrl.navy.mil>
+Subject: Re: [PATCH net] net: fix checksum features handling in
+ netif_skb_features()
+Date: Thu, 21 Aug 2014 16:33:20 -0700 (PDT)
+Message-ID: <20140821.163320.476216950054835385.davem@davemloft.net>
+References: <20140815095617.3006CA0BED@unicorn.suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net
-To: chas@cmf.nrl.navy.mil
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44022 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754792AbaHUXby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 19:31:54 -0400
-In-Reply-To: <201408150056.s7F0uRg7003712@thirdoffive.cmf.nrl.navy.mil>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mkubecek@suse.cz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140815095617.3006CA0BED@unicorn.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-Date: Thu, 14 Aug 2014 20:56:27 -0400
+From: Michal Kubecek <mkubecek@suse.cz>
+Date: Fri, 15 Aug 2014 11:56:17 +0200 (CEST)
 
-> In message <20140814.143706.1833450188258591738.davem@redhat.com>,David Miller writes:
->>From: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
->>Date: Thu, 14 Aug 2014 09:19:47 -0400
->>
->>> The LECS response contains the MTU that should be used.  Correctly
->>> synchronize with other layers when updating.
->>> 
->>> Signed-off-by: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
->>
->>I don't think you can sleep from this function, which rtnl_lock() may
->>require.  Look elsewhere in this routine, it's doing GFP_ATOMIC
->>allocations even.
-> 
-> Its been a while but...
-> 
-> This is the send routine for a virtual atm device that is the control
-> interface bewteen the user space client and the kernel.  The user space
-> client creates an atm socket and uses an ioctl to connect that atm socket
-> to the this virtual device.  So the call path is something like:
-> 
-> sendmsg() -> vcc_sendmsg() -> virtual atm device.send()
-> 
-> Generally speaking, you can't sleep in the send routine of an atm device
-> since there are other potential users besides sockets.
-> 
-> The GFP_ATOMIC usage is probably a lack of understanding.  The other
-> IRQ level locks are necessary for coordination.
+> @@ -2587,13 +2587,18 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
+>  		return harmonize_features(skb, features);
+>  	}
+>  
+> -	features &= (skb->dev->vlan_features | NETIF_F_HW_VLAN_CTAG_TX |
+> -					       NETIF_F_HW_VLAN_STAG_TX);
+> +	features = netdev_intersect_features(features, skb->dev->vlan_features |
+> +						       NETIF_F_HW_VLAN_CTAG_TX |
+> +						       NETIF_F_HW_VLAN_STAG_TX);
 
-Ok, that makes sense, thanks for explaining the context in which this is
-invoked.
+This is not indented properly.
 
-Patch applied, thanks again.
+The second and subsequent lines of the function call should start precisely
+at the first column after the openning parenthesis on the first line.  You
+should use the appropriate number of TAB and SPACE characters necessary
+to do so.
+
+Thanks.
