@@ -1,79 +1,59 @@
-From: Benjamin Poirier <bpoirier@suse.de>
-Subject: Re: [PATCH 1/3] tg3: Limit minimum tx queue wakeup threshold
-Date: Thu, 21 Aug 2014 16:06:07 -0700
-Message-ID: <20140821230607.GB7724@f1.synalogic.ca>
-References: <1408474371-19509-1-git-send-email-bpoirier@suse.de>
- <1408485647.7404.3.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <20140821220424.GB7117@f1.synalogic.ca>
- <1408660355.7644.50.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 2/3] ethtool: Add generic options for
+ tunables
+Date: Thu, 21 Aug 2014 16:18:16 -0700 (PDT)
+Message-ID: <20140821.161816.1372290442061854758.davem@davemloft.net>
+References: <1408008560-1067-1-git-send-email-_govind@gmx.com>
+	<1408008560-1067-3-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Prashant Sreedharan <prashant@broadcom.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ben@decadent.org.uk,
+	stephen@networkplumber.org, ssujith@cisco.com, benve@cisco.com
+To: _govind@gmx.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:50374 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752342AbaHUXGP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Aug 2014 19:06:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1408660355.7644.50.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43903 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754920AbaHUXSU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 19:18:20 -0400
+In-Reply-To: <1408008560-1067-3-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/08/21 15:32, Michael Chan wrote:
-> On Thu, 2014-08-21 at 15:04 -0700, Benjamin Poirier wrote: 
-> > On 2014/08/19 15:00, Michael Chan wrote:
-> > > On Tue, 2014-08-19 at 11:52 -0700, Benjamin Poirier wrote: 
-> > > > diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-> > > > index 3ac5d23..b11c0fd 100644
-> > > > --- a/drivers/net/ethernet/broadcom/tg3.c
-> > > > +++ b/drivers/net/ethernet/broadcom/tg3.c
-> > > > @@ -202,7 +202,8 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
-> > > >  #endif
-> > > >  
-> > > >  /* minimum number of free TX descriptors required to wake up TX process */
-> > > > -#define TG3_TX_WAKEUP_THRESH(tnapi)            ((tnapi)->tx_pending / 4)
-> > > > +#define TG3_TX_WAKEUP_THRESH(tnapi)    max_t(u32, (tnapi)->tx_pending / 4, \
-> > > > +                                             MAX_SKB_FRAGS + 1)
-> > > 
-> > > I think we should precompute this and store it in something like
-> > > tp->tx_wake_thresh.
-> > 
-> > I've tried this by adding the following patch at the end of the v2
-> > series but I did not measure a significant latency improvement. Was
-> > there another reason for the change? 
-> 
-> Just performance.  The wake up threshold is checked in the tx fast path
-> in both start_xmit() and tg3_tx().  I would optimize such code for speed
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Thu, 14 Aug 2014 14:59:19 +0530
 
-I don't see what you mean. The code in those two functions that used to
-invoke TG3_TX_WAKEUP_THRESH is wrapped in unlikely() conditions. You
-can't tell me that's the fast path ;) It's only checked when the queue
-is stopped.
+> @@ -1621,6 +1621,50 @@ static int ethtool_get_module_eeprom(struct net_device *dev,
+>  				      modinfo.eeprom_len);
+>  }
+>  
+> +static int ethtool_get_tunable(struct net_device *dev, void __user *useraddr)
+> +{
+> +	int ret;
+> +	struct ethtool_tunable tuna;
+> +	const struct ethtool_tunable_ops *ops;
+> +
+> +	if (copy_from_user(&tuna, useraddr, sizeof(tuna)))
+> +		return -EFAULT;
+> +	if (tuna.tcmd >= ETHTOOL_TUNABLE_MAX)
+> +		return -EOPNOTSUPP;
+> +	ops = &dev->ethtool_ops->tunable_ops[tuna.tcmd];
+> +	if (!ops->get)
+> +		return -EOPNOTSUPP;
+> +	ret = ops->get(dev, &tuna);
+> +	if (ret)
+> +		return ret;
+> +	if (copy_to_user(useraddr, &tuna, sizeof(tuna)))
+> +		return -EFAULT;
+> +
+> +	return 0;
+> +}
 
-Moreover, the patches I've sent already add tg3_napi.wakeup_thresh. It
-is over those patches that I've made the measurements.
+You should be validating tuna.len here, it should not be happening in the drivers
+as I see you are doing in your enic implementation.
 
-> as much as possible.  In the current code, it was just a right shift
-> operation.  Now, with max_t() added, I think I prefer having it
-> pre-computed.  The performance difference may not be measurable, but I
-> think the compiled code size may be smaller too.
-
-Maybe in certain areas, but not overall:
-
-with v2 patches 1-3
-   text    data     bss     dec     hex filename
- 149495    1247       0  150742   24cd6 drivers/net/ethernet/broadcom/tg3.o
-with v2 patches 1-3 + tx_wake_thresh_def
-   text    data     bss     dec     hex filename
- 149524    1247       0  150771   24cf3 drivers/net/ethernet/broadcom/tg3.o
-
-I really don't see a gain.
-
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Also, having a seperate OP for each tunable might be overkill.
+Consider instead one "get_tunable" and one "set_tunable" callback,
+which contains a switch statement over 'tcmd'.  The generic
+ethtool_{g,s}et_tunable() would still validate the length, so that the
+driver method does not need to do so.
