@@ -1,56 +1,40 @@
-From: Mark Einon <mark.einon@gmail.com>
-Subject: Re: [PATCH 5/8] staging: et131x: Remove unnecessary i2c_wack variable
-Date: Thu, 21 Aug 2014 10:18:19 +0100
-Message-ID: <20140821091819.GA2230@msilap.einon.net>
-References: <1408573078-9320-1-git-send-email-mark.einon@gmail.com>
- <1408573078-9320-6-git-send-email-mark.einon@gmail.com>
- <CAOMZO5Du34=jpr5B_fHGZ+D_jNR0VSDy2BiO6jj8QByh7V40RQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- linux-kernel <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Fabio Estevam <festevam@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <CAOMZO5Du34=jpr5B_fHGZ+D_jNR0VSDy2BiO6jj8QByh7V40RQ@mail.gmail.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+From: Zhu Yanjun <zyjzyj2000@gmail.com>
+Subject: [PATCH 1/1] net:fec: buffer descriptor member variable order in IMX6
+Date: Thu, 21 Aug 2014 17:21:55 +0800
+Message-ID: <1408612915-8657-2-git-send-email-Yanjun.Zhu@windriver.com>
+References: <1408612915-8657-1-git-send-email-Yanjun.Zhu@windriver.com>
+Cc: Zhu Yanjun <Yanjun.Zhu@windriver.com>,
+	Frank Li <Frank.Li@freescale.com>
+To: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, zyjzyj2000@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1408612915-8657-1-git-send-email-Yanjun.Zhu@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 20, 2014 at 07:22:54PM -0300, Fabio Estevam wrote:
-> On Wed, Aug 20, 2014 at 7:17 PM, Mark Einon <mark.einon@gmail.com> wrote:
-> 
-> >                         do {
-> >                                 pci_read_config_dword(pdev,
-> > -                                       LBCIF_DATA_REGISTER, &val);
-> > +                                                     LBCIF_DATA_REGISTER,
-> > +                                                     &val);
-> 
-> This seems to be an unrelated change.
+>From Reference Manual, freescale IMX6 is little endian mode. Therefore
+the first structure field is length, the second is status.
 
-Hi Fabio, thanks for the review.
+CC: David Miller <davem@davemloft.net>
+CC: Frank Li <Frank.Li@freescale.com>
+Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+---
+ drivers/net/ethernet/freescale/fec.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-It's a space alignment of parameters to go with the previous change, to
-keep wrapping consistent in the file:
-
--       while (i2c_wack) {
-+       while (1) {
-                if (pci_write_config_byte(pdev, LBCIF_CONTROL_REGISTER,
--                       LBCIF_CONTROL_LBCIF_ENABLE))
-+                                         LBCIF_CONTROL_LBCIF_ENABLE))
-
-So what are you saying - are you just commenting, document it, put it
-in a seperate patch?
-
-Cheers,
-
-Mark
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 671d080..96a5f8a 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -147,7 +147,8 @@
+ /*
+  *	Define the buffer descriptor structure.
+  */
+-#if defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28)
++#if defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28) || \
++			defined(CONFIG_ARCH_MX6)
+ struct bufdesc {
+ 	unsigned short cbd_datlen;	/* Data length */
+ 	unsigned short cbd_sc;	/* Control and status info */
+-- 
+1.9.1
