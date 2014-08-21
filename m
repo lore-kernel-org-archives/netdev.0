@@ -1,35 +1,56 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH 1/1] sctp: not send SCTP_PEER_ADDR_CHANGE notifications
- with failed probe
-Date: Thu, 21 Aug 2014 10:47:38 +0200
-Message-ID: <53F5B22A.5010307@redhat.com>
-References: <1408527103-22772-1-git-send-email-Yanjun.Zhu@windriver.com> <1408527103-22772-2-git-send-email-Yanjun.Zhu@windriver.com>
+From: Mark Einon <mark.einon@gmail.com>
+Subject: Re: [PATCH 5/8] staging: et131x: Remove unnecessary i2c_wack variable
+Date: Thu, 21 Aug 2014 10:18:19 +0100
+Message-ID: <20140821091819.GA2230@msilap.einon.net>
+References: <1408573078-9320-1-git-send-email-mark.einon@gmail.com>
+ <1408573078-9320-6-git-send-email-mark.einon@gmail.com>
+ <CAOMZO5Du34=jpr5B_fHGZ+D_jNR0VSDy2BiO6jj8QByh7V40RQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	vyasevich@gmail.com, tuexen@fh-muenster.de,
-	khandelwal.deepak.1987@gmail.com, Yue.Tao@windriver.com,
-	alexandre.dietsch@windriver.com, davem@davemloft.net,
-	Zhu Yanjun <Yanjun.Zhu@windriver.com>
-To: Zhu Yanjun <zyjzyj2000@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408527103-22772-2-git-send-email-Yanjun.Zhu@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: devel@driverdev.osuosl.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ linux-kernel <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <CAOMZO5Du34=jpr5B_fHGZ+D_jNR0VSDy2BiO6jj8QByh7V40RQ@mail.gmail.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On 08/20/2014 11:31 AM, Zhu Yanjun wrote:
-> Since the transport has always been in state SCTP_UNCONFIRMED, it
-> therefore wasn't active before and hasn't been used before, and it
-> always has been, so it is unnecessary to bug the user with a
-> notification.
->
-> Reported-by: Deepak Khandelwal <khandelwal.deepak.1987@gmail.com>
-> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
-> Suggested-by: Michael Tuexen <tuexen@fh-muenster.de>
-> Suggested-by: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+On Wed, Aug 20, 2014 at 07:22:54PM -0300, Fabio Estevam wrote:
+> On Wed, Aug 20, 2014 at 7:17 PM, Mark Einon <mark.einon@gmail.com> wrote:
+> 
+> >                         do {
+> >                                 pci_read_config_dword(pdev,
+> > -                                       LBCIF_DATA_REGISTER, &val);
+> > +                                                     LBCIF_DATA_REGISTER,
+> > +                                                     &val);
+> 
+> This seems to be an unrelated change.
 
-Looks a bit better, thanks!
+Hi Fabio, thanks for the review.
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+It's a space alignment of parameters to go with the previous change, to
+keep wrapping consistent in the file:
+
+-       while (i2c_wack) {
++       while (1) {
+                if (pci_write_config_byte(pdev, LBCIF_CONTROL_REGISTER,
+-                       LBCIF_CONTROL_LBCIF_ENABLE))
++                                         LBCIF_CONTROL_LBCIF_ENABLE))
+
+So what are you saying - are you just commenting, document it, put it
+in a seperate patch?
+
+Cheers,
+
+Mark
