@@ -1,11 +1,12 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: [patch net-next RFC 07/12] dsa: implement
 	ndo_swdev_get_id
-Date: Thu, 21 Aug 2014 19:06:45 +0200
-Message-ID: <20140821170645.GB10633@nanopsycho.lan>
+Date: Thu, 21 Aug 2014 10:12:05 -0700
+Message-ID: <CAGVrzcb=vkqPw2LUc4YO4Bs-eady2=1uN-jkG=kW2RnGx=24PQ@mail.gmail.com>
 References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
  <1408637945-10390-8-git-send-email-jiri@resnulli.us>
  <CAGVrzcbs1yGb5RW++XZ=2PFsqUjZGVGfWx5=QQYcEX6x4WOq9Q@mail.gmail.com>
+ <20140821170645.GB10633@nanopsycho.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -25,10 +26,9 @@ Cc: Sergey Ryazanov <ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
  Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
  "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
  David Mi
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAGVrzcbs1yGb5RW++XZ=2PFsqUjZGVGfWx5=QQYcEX6x4WOq9Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+In-Reply-To: <20140821170645.GB10633-6KJVSR23iU5sFDB2n11ItA@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
  <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -40,54 +40,61 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Thu, Aug 21, 2014 at 06:56:13PM CEST, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
->2014-08-21 9:19 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
->> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
->> ---
->>  net/dsa/Kconfig |  2 +-
->>  net/dsa/slave.c | 16 ++++++++++++++++
->>  2 files changed, 17 insertions(+), 1 deletion(-)
+2014-08-21 10:06 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
+> Thu, Aug 21, 2014 at 06:56:13PM CEST, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
+>>2014-08-21 9:19 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
+>>> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+>>> ---
+>>>  net/dsa/Kconfig |  2 +-
+>>>  net/dsa/slave.c | 16 ++++++++++++++++
+>>>  2 files changed, 17 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+>>> index f5eede1..66c445a 100644
+>>> --- a/net/dsa/Kconfig
+>>> +++ b/net/dsa/Kconfig
+>>> @@ -1,6 +1,6 @@
+>>>  config HAVE_NET_DSA
+>>>         def_bool y
+>>> -       depends on NETDEVICES && !S390
+>>> +       depends on NETDEVICES && NET_SWITCHDEV && !S390
+>>>
+>>>  # Drivers must select NET_DSA and the appropriate tagging format
+>>>
+>>> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+>>> index 45a1e34..e069ba3 100644
+>>> --- a/net/dsa/slave.c
+>>> +++ b/net/dsa/slave.c
+>>> @@ -171,6 +171,19 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+>>>         return -EOPNOTSUPP;
+>>>  }
+>>>
+>>> +static int dsa_slave_swdev_get_id(struct net_device *dev,
+>>> +                                 struct netdev_phys_item_id *psid)
+>>> +{
+>>> +       struct dsa_slave_priv *p = netdev_priv(dev);
+>>> +       struct dsa_switch *ds = p->parent;
+>>> +       u64 tmp = (u64) ds;
+>>> +
+>>> +       /* TODO: add more sophisticated id generation */
+>>> +       memcpy(&psid->id, &tmp, sizeof(tmp));
+>>> +       psid->id_len = sizeof(tmp);
 >>
->> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
->> index f5eede1..66c445a 100644
->> --- a/net/dsa/Kconfig
->> +++ b/net/dsa/Kconfig
->> @@ -1,6 +1,6 @@
->>  config HAVE_NET_DSA
->>         def_bool y
->> -       depends on NETDEVICES && !S390
->> +       depends on NETDEVICES && NET_SWITCHDEV && !S390
+>>There is already an unique id generated, which is the index in the
+>>switch tree, and which is stored in struct dsa_switch, so this could
+>>probably be simplified to:
 >>
->>  # Drivers must select NET_DSA and the appropriate tagging format
->>
->> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
->> index 45a1e34..e069ba3 100644
->> --- a/net/dsa/slave.c
->> +++ b/net/dsa/slave.c
->> @@ -171,6 +171,19 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
->>         return -EOPNOTSUPP;
->>  }
->>
->> +static int dsa_slave_swdev_get_id(struct net_device *dev,
->> +                                 struct netdev_phys_item_id *psid)
->> +{
->> +       struct dsa_slave_priv *p = netdev_priv(dev);
->> +       struct dsa_switch *ds = p->parent;
->> +       u64 tmp = (u64) ds;
->> +
->> +       /* TODO: add more sophisticated id generation */
->> +       memcpy(&psid->id, &tmp, sizeof(tmp));
->> +       psid->id_len = sizeof(tmp);
+>>psid->id = ds->index
 >
->There is already an unique id generated, which is the index in the
->switch tree, and which is stored in struct dsa_switch, so this could
->probably be simplified to:
->
->psid->id = ds->index
+> That index is 0..n if I understand that correctly. That is not enough.
+> The point is to have unique id for every chip in the system. If we would
+> have 0,1,2... the collision is very likely.
 
-That index is 0..n if I understand that correctly. That is not enough.
-The point is to have unique id for every chip in the system. If we would
-have 0,1,2... the collision is very likely.
+Good point, so an unique index for DSA switches could look like the
+DSA platform device id plus the switch index in the tree..., but then
+we would need something like (pdev->id << N) | switch index, so that
+would not give a consistent naming scheme across different devices.
 
->--
->Florian
+Maybe we are just better with using the Linux IDR API in include/linux/idr.h?
+-- 
+Florian
