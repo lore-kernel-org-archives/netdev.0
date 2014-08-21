@@ -1,82 +1,53 @@
-From: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Subject: [PATCH 1/1] netfilter/jump_label: use HAVE_JUMP_LABEL?
-Date: Thu, 21 Aug 2014 10:52:48 +0800
-Message-ID: <1408589568-27046-1-git-send-email-yizhouzhou@ict.ac.cn>
-Cc: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-To: <pablo@netfilter.org>, <kaber@trash.net>,
-	<kadlec@blackhole.kfki.hu>, <davem@davemloft.net>,
-	<netfilter-devel@vger.kernel.org>, <coreteam@netfilter.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jbaron@akamai.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: pktgen and tos
+Date: Wed, 20 Aug 2014 20:05:46 -0700
+Message-ID: <CAHA+R7OKfg5C2dEz2JuxWncoo8gBX=r2MuHUdsGvALNXRSQoiQ@mail.gmail.com>
+References: <53F51880.5060704@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:53127 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753345AbaHUDFs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Aug 2014 23:05:48 -0400
+Received: by mail-lb0-f182.google.com with SMTP id z11so7374761lbi.41
+        for <netdev@vger.kernel.org>; Wed, 20 Aug 2014 20:05:46 -0700 (PDT)
+In-Reply-To: <53F51880.5060704@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Aug 20, 2014 at 2:52 PM, Ben Greear <greearb@candelatech.com> wrote:
+> Here's a half-arsed bug report, in case someone is bored.
+>
+> At least in my hacked up pktgen, you cannot set a one-digit tos,
+> because the parser fails if length is not 2 digits.
+>
+> echo tos 4 > /proc/net/pktgen/rddVR2 && cat /proc/net/pktgen/rddVR2
+>
+> ...
+> Result: ERROR: tos must be 00-ff
+>
+> If you use '04' instead, it works.  In my case, it will be easier to hack
+> user-space
+> to deal with this than fix pktgen, but I thought someone might want to fix
+> it proper.
+>
+> Also, could be that upstream code doesn't have this limitation...
 
-CONFIG_JUMP_LABEL doesn't ensure HAVE_JUMP_LABEL, if it
-is not the case use maintainers's own mutex to guard
-the modification of global values.
+We need something like this:
 
-Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
----
- include/linux/netfilter.h |    5 +++--
- net/netfilter/core.c      |    6 +++---
- 2 files changed, 6 insertions(+), 5 deletions(-)
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 8b849dd..f8cb428 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -1674,7 +1674,7 @@ static ssize_t pktgen_if_write(struct file *file,
+  return len;
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 2077489..83a1952 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -9,6 +9,7 @@
- #include <linux/in6.h>
- #include <linux/wait.h>
- #include <linux/list.h>
-+#include <linux/static_key.h>
- #include <uapi/linux/netfilter.h>
- #ifdef CONFIG_NETFILTER
- static inline int NF_DROP_GETERR(int verdict)
-@@ -99,8 +100,8 @@ void nf_unregister_sockopt(struct nf_sockopt_ops *reg);
- 
- extern struct list_head nf_hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
- 
--#if defined(CONFIG_JUMP_LABEL)
--#include <linux/static_key.h>
-+#ifdef HAVE_JUMP_LABEL
-+
- extern struct static_key nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
- static inline bool nf_hooks_active(u_int8_t pf, unsigned int hook)
- {
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index a93c97f..024a2e2 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -54,7 +54,7 @@ EXPORT_SYMBOL_GPL(nf_unregister_afinfo);
- struct list_head nf_hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS] __read_mostly;
- EXPORT_SYMBOL(nf_hooks);
- 
--#if defined(CONFIG_JUMP_LABEL)
-+#ifdef HAVE_JUMP_LABEL
- struct static_key nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
- EXPORT_SYMBOL(nf_hooks_needed);
- #endif
-@@ -72,7 +72,7 @@ int nf_register_hook(struct nf_hook_ops *reg)
- 	}
- 	list_add_rcu(&reg->list, elem->list.prev);
- 	mutex_unlock(&nf_hook_mutex);
--#if defined(CONFIG_JUMP_LABEL)
-+#ifdef HAVE_JUMP_LABEL
- 	static_key_slow_inc(&nf_hooks_needed[reg->pf][reg->hooknum]);
- #endif
- 	return 0;
-@@ -84,7 +84,7 @@ void nf_unregister_hook(struct nf_hook_ops *reg)
- 	mutex_lock(&nf_hook_mutex);
- 	list_del_rcu(&reg->list);
- 	mutex_unlock(&nf_hook_mutex);
--#if defined(CONFIG_JUMP_LABEL)
-+#ifdef HAVE_JUMP_LABEL
- 	static_key_slow_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
- #endif
- 	synchronize_net();
--- 
-1.7.10.4
-
+  i += len;
+- if (len == 2) {
++ if (len <= 2) {
+  pkt_dev->tos = tmp_value;
+  sprintf(pg_result, "OK: tos=0x%02x", pkt_dev->tos);
+  } else {
