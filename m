@@ -1,59 +1,34 @@
-From: "Webmail Admin" <admin@kimo.com>
-Subject: Technical Support Team
-Date: Fri, 22 Aug 2014 21:48:01 +0530 (IST)
-Message-ID: <46571.82.222.247.84.1408724281.squirrel@rcctvm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [14.139.181.155] ([14.139.181.155]:34490 "EHLO rcctvm.org"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932317AbaHVQe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Aug 2014 12:34:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: [PATCH] drivers: isdn: eicon: xdi_msg.h: Fix typo in #ifndef
+Date: Fri, 22 Aug 2014 18:39:14 +0200
+Message-ID: <1408725554-2524-1-git-send-email-linux@rasmusvillemoes.dk>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>
+To: Armin Schindler <mac@melware.de>,
+	Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Test for definedness of the macro which is actually defined (the
+change is hard to see: it is s/SSS/SSA/).
 
-Our records indicate that your E-mail=AE Account could not be automatic=
-ally
-updated with our F-Secure R-HTK4S new(2014) version
-anti-spam/anti-virus/anti-spyware. Please click this link below to upda=
-te
-manually
+Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+---
+ drivers/isdn/hardware/eicon/xdi_msg.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-http://free.allforms.mailjol.net/u/405ee038.php
-
-We Are Sorry For Any Inconvenience.
-
-Verification Code: SQP4039VE
-
-Regards, Technical Support Team
-Copyright =A9 2014. All Rights Reserved
-
-
-
-
---=20
-DISCLAIMER:
------------------------------------------------------------------------=
-------------------------------------------------
- This email and any files transmitted with it are confidential and inte=
-nded solely for the use of the individual or entity to whom they are ad=
-dressed. If you have received this email in error please notify the sys=
-tem manager. This message contains confidential information and is inte=
-nded only for the individual named. If you are not the named addressee =
-you should not disseminate, distribute or copy this e-mail. Please noti=
-fy the sender immediately by e-mail if you have received this e-mail by=
- mistake and delete this e-mail from your system. Before opening any ma=
-il and attachments please check them for viruses and defect If you are =
-not the intended recipient you are notified that disclosing, copying, d=
-istributing or taking any action in reliance on the contents of this in=
-formation is strictly prohibited.
------------------------------------------------------------------------=
---------------------------------------------------
-This message has been scanned for viruses and
-dangerous content, and is believed to be clean.
-
-Regional Cancer Centre, Thiruvananthapuram
-www.rcctvm.org
+diff --git a/drivers/isdn/hardware/eicon/xdi_msg.h b/drivers/isdn/hardware/eicon/xdi_msg.h
+index 58368f7..2498c34 100644
+--- a/drivers/isdn/hardware/eicon/xdi_msg.h
++++ b/drivers/isdn/hardware/eicon/xdi_msg.h
+@@ -1,6 +1,6 @@
+ /* $Id: xdi_msg.h,v 1.1.2.2 2001/02/16 08:40:36 armin Exp $ */
+ 
+-#ifndef __DIVA_XDI_UM_CFG_MESSSGE_H__
++#ifndef __DIVA_XDI_UM_CFG_MESSAGE_H__
+ #define __DIVA_XDI_UM_CFG_MESSAGE_H__
+ 
+ /*
+-- 
+2.0.4
