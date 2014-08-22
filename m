@@ -1,45 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] carl9170: Remove redundant protection check
-Date: Fri, 22 Aug 2014 16:23:19 -0700
-Message-ID: <1408749799.5604.38.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140822191431.GA5827@ada> <1679858.MgakDZE2Vr@debian64>
-	 <1408741732.5604.23.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1931285.KsvFbLZH2Q@debian64>
+From: Prashant Sreedharan <prashant@broadcom.com>
+Subject: Re: [PATCH v2 3/3] tg3: Fix tx_pending checks for tg3_tso_bug
+Date: Fri, 22 Aug 2014 16:17:27 -0700
+Message-ID: <1408749447.8268.53.camel@prashant>
+References: <1408658240-6811-1-git-send-email-bpoirier@suse.de>
+	 <1408658240-6811-3-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andreea-Cristina Bernat <bernat.ada@gmail.com>,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com
-To: Christian Lamparter <chunkeey@googlemail.com>
+Cc: Michael Chan <mchan@broadcom.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Benjamin Poirier <bpoirier@suse.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1931285.KsvFbLZH2Q@debian64>
+In-Reply-To: <1408658240-6811-3-git-send-email-bpoirier@suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-08-22 at 23:53 +0200, Christian Lamparter wrote:
+Benjamin, thanks for the patch. Broadcom QA will be testing the changes.
+Couple of comments below.
+>  	segs = skb_gso_segment(skb, tp->dev->features &
+>  				    ~(NETIF_F_TSO | NETIF_F_TSO6));
+> -	if (IS_ERR(segs) || !segs)
+> +	if (IS_ERR_OR_NULL(segs))
+>  		goto tg3_tso_bug_end;
+>  
+>  	do {
+> +		unsigned int desc_cnt = skb_shinfo(segs)->nr_frags + 1;
+> +
+>  		nskb = segs;
+>  		segs = segs->next;
+>  		nskb->next = NULL;
+> -		tg3_start_xmit(nskb, tp->dev);
+> +
+> +		if (tg3_tx_avail(tnapi) <= segs_remaining - 1 + desc_cnt &&
+> +		    skb_linearize(nskb)) {
+> +			nskb->next = segs;
+> +			segs = nskb;
+> +			do {
+> +				nskb = segs->next;
+> +
+> +				dev_kfree_skb_any(segs);
+> +				segs = nskb;
+> +			} while (segs);
 
-> The sta_info->agg[tid] check is not needed (for reference, see [0]).
-> (There is already a check in mac80211 which prevents the leak of
-> sta_info->agg[tid] [1]).
-> 
-> Regards
-> Christian
-> 
-> [0] <https://lkml.org/lkml/2014/8/20/725>
-> [1] <http://lxr.free-electrons.com/source/net/mac80211/agg-tx.c#L583>
-> 
+If skb_linearize() fails need to increment the tp->tx_dropped count
 
-Hmpfff... this code is quite confusing. RCU is used both in tricky way
-(carl9170_ampdu_gc() is an example) and a talisman (the part you remove)
+> +			goto tg3_tso_bug_end;
+> +		}
+> +		segs_remaining--;
+> +		if (segs_remaining)
+> +			__tg3_start_xmit(nskb, tp->dev, segs_remaining);
 
-Why is rcu_assign_pointer(sta_info->agg[tid], tid_info);
-done inside the spinlock protected region, I don't know.
+To clarify passing segs_remaining will make sure the queue is never
+stopped correct ?
 
-If this code relies on external protection, a comment would help its
-comprehension for sure.
-
-For example, you could add a 
-BUG_ON(rcu_access_pointer(sta_info->agg[tid]));
-so that we are sure requirements are not changed in the callers one day.
+> +		else
+> +			tg3_start_xmit(nskb, tp->dev);
+>  	} while (segs);
+>  
