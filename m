@@ -1,33 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP output handling bug ?
-Date: Fri, 22 Aug 2014 11:30:08 -0700
-Message-ID: <1408732208.5604.20.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140821172445.7c1ba422@uryu.home.lan>
-	 <20140822021341.GB14353@redhat.com>
-	 <1408715790.5604.13.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140822.104118.710757967194596933.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ethernet: broadcom: bnx2x: Remove redundant #ifdef
+Date: Fri, 22 Aug 2014 11:30:19 -0700 (PDT)
+Message-ID: <20140822.113019.1690922235326790002.davem@davemloft.net>
+References: <1408540489-1795-1-git-send-email-linux@rasmusvillemoes.dk>
+	<20140821.213750.2151406448495608410.davem@davemloft.net>
+	<87mwaxrnbg.fsf@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, stephen@networkplumber.org,
-	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org, ycheng@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:58406 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932410AbaHVSaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 14:30:10 -0400
-Received: by mail-pa0-f54.google.com with SMTP id fa1so17281913pad.27
-        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 11:30:09 -0700 (PDT)
-In-Reply-To: <20140822.104118.710757967194596933.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux@rasmusvillemoes.dk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87mwaxrnbg.fsf@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-08-22 at 10:41 -0700, David Miller wrote:
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Date: Fri, 22 Aug 2014 09:33:07 +0200
 
-> What about ECE/CWR?
+> David Miller <davem@davemloft.net> writes:
+> 
+>> From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+>> Date: Wed, 20 Aug 2014 15:14:49 +0200
+>>
+>>> Nothing defines _ASM_GENERIC_INT_L64_H, it is a weird way to check for
+>>> 64 bit longs, and u64 should be printed using %llx anyway.
+>>> 
+>>> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+>>
+>> It's not correct and will warn on some platforms where "u64" is just
+>> a plain "unsigned long".
+>>
+>> Ie. all of those which use include/asm-generic/int-l64.h
+> 
+> Of which there are none; that file no longer exists (as I said, nothing
+> defines that macro). Please see 0c79a8e2 ("asm/types.h: Remove
+> include/asm-generic/int-l64.h") and 2a7930bd
+> ("Documentation/printk-formats.txt: No casts needed for u64/s64").
 
-TCP fastopen begins its life with a fresh socket.
-
-We received no packet from the peer yet for this flow that we are
-building.
+Ok that makes sense, applied, thank you.
