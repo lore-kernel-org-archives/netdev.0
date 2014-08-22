@@ -1,56 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hyperv: Add handling of IP header with option
- field in netvsc_set_hash()
-Date: Thu, 21 Aug 2014 21:30:57 -0700 (PDT)
-Message-ID: <20140821.213057.1438247518790500739.davem@davemloft.net>
-References: <1408481635-29639-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH 1/1] sctp: not send SCTP_PEER_ADDR_CHANGE notifications
+ with failed probe
+Date: Thu, 21 Aug 2014 21:35:23 -0700 (PDT)
+Message-ID: <20140821.213523.1210166206674176289.davem@davemloft.net>
+References: <1408527103-22772-1-git-send-email-Yanjun.Zhu@windriver.com>
+	<1408527103-22772-2-git-send-email-Yanjun.Zhu@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1408481635-29639-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: dborkman@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, vyasevich@gmail.com, tuexen@fh-muenster.de,
+	khandelwal.deepak.1987@gmail.com, Yue.Tao@windriver.com,
+	alexandre.dietsch@windriver.com, Yanjun.Zhu@windriver.com
+To: zyjzyj2000@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1408527103-22772-2-git-send-email-Yanjun.Zhu@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Tue, 19 Aug 2014 20:53:55 +0000
+From: Zhu Yanjun <zyjzyj2000@gmail.com>
+Date: Wed, 20 Aug 2014 17:31:43 +0800
 
-> @@ -200,12 +202,18 @@ static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
->  	iphdr = ip_hdr(skb);
->  
->  	if (iphdr->version == 4) {
-> -		if (iphdr->protocol == IPPROTO_TCP)
-> +		data = (u8 *)&iphdr->saddr;
-> +		if (iphdr->protocol == IPPROTO_TCP) {
->  			data_len = 12;
-> -		else
-> +			if (iphdr->ihl > 5) {
-> +				memcpy(dbuf, &iphdr->saddr, 8);
-> +				memcpy(&dbuf[8], &tcp_hdr(skb)->source, 4);
+> Since the transport has always been in state SCTP_UNCONFIRMED, it
+> therefore wasn't active before and hasn't been used before, and it
+> always has been, so it is unnecessary to bug the user with a 
+> notification.
+> 
+> Reported-by: Deepak Khandelwal <khandelwal.deepak.1987@gmail.com>  
+> Suggested-by: Vlad Yasevich <vyasevich@gmail.com> 
+> Suggested-by: Michael Tuexen <tuexen@fh-muenster.de>
+> Suggested-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
 
-This is rediculous.
-
-Make hash_comp() take a void pointer for the buffer.
-
-Then your code is simply:
-
-	be32 dbuf[2];
-
-	dbuf[1] = iph->saddr;
-	dbuf[2] = iph->daddr;
-	dbuf[3] = *(be32 *)tcph->source;
-
-	*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, dbuf, 12);
-
-No special cases for IP options or any garbage like that.
+Applied, thanks.
