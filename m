@@ -1,58 +1,95 @@
-From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
-Subject: [PATCH v2] carl9170: Remove redundant protection check
-Date: Fri, 22 Aug 2014 22:14:31 +0300
-Message-ID: <20140822191431.GA5827@ada>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [patch net-next RFC 03/12] net: introduce generic switch devices
+ support
+Date: Fri, 22 Aug 2014 12:14:36 -0700
+Message-ID: <53F7969C.1060509@gmail.com>
+References: <1408637945-10390-1-git-send-email-jiri@resnulli.us> <1408637945-10390-4-git-send-email-jiri@resnulli.us> <CAGVrzcYtnpcP4pfCJ0GSya01LTk0WwbSV1f+voF2K=S5CR3Arg@mail.gmail.com> <53F73A9C.4000209@mojatatu.com> <20140822125655.GB1916@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: paulmck@linux.vnet.ibm.com
-To: chunkeey@googlemail.com, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>, tgraf <tgraf@suug.ch>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>,
+	dev <dev@openvswitch.org>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"Eri
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:38399 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750733AbaHVTOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 15:14:41 -0400
-Content-Disposition: inline
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:42548 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750924AbaHVTPT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 15:15:19 -0400
+Received: by mail-ob0-f181.google.com with SMTP id va2so8647744obc.26
+        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 12:15:19 -0700 (PDT)
+In-Reply-To: <20140822125655.GB1916@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The carl9170_op_ampdu_action() function is used only by the mac80211
-framework.
-Since the mac80211 already takes care of checks and properly serializing
-calls to the driver's function there is no need for the driver to do the same
-thing.
+On 08/22/2014 05:56 AM, Jiri Pirko wrote:
+> Fri, Aug 22, 2014 at 02:42:04PM CEST, jhs@mojatatu.com wrote:
+>> On 08/21/14 13:05, Florian Fainelli wrote:
+>>> 2014-08-21 9:18 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
+>>>> The goal of this is to provide a possibility to suport various switch
+>>>> chips. Drivers should implement relevant ndos to do so. Now there is a
+>>>> couple of ndos defines:
+>>>> - for getting physical switch id is in place.
+>>>> - for work with flows.
+>>>>
+>>>> Note that user can use random port netdevice to access the switch.
+>>>
+>>> I read through this patch set, and I still think that DSA is the
+>>> generic switch infrastructure we already have because it does provide
+>>> the following:
+>>>
+>>> - taking a generic platform data structure (C struct or Device Tree),
+>>> validate, parse it and map it to internal kernel structures
+>>> - instantiate per-port network devices based on the configuration data provided
+>>> - delegate netdev_ops to the switch driver and/or the CPU NIC when relevant
+>>> - provide support for hooking RX and TX traffic coming from the CPU NIC
+>>>
+>>> I would rather we build on the existing DSA infrastructure and add the
+>>> flow-related netdev_ops rather than having the two remain in
+>>> disconnect while flow-oriented switches driver get progressively
+>>> added. I guess I should take a closer look at the rocker driver to see
+>>> how hard would that be for you.
+>>>
+>>> What do you think?
+>>
+>>
+>> I thought we had concluded that DSA was a good path forward?  Or maybe at
+>> this stage we need to have several alternative approaches
+>> and we eventually converge?
+>
+> That is true. I'm still unsure how to fit this on to DSA or how to change DSA
+> the way this fits. This is my quest now. Will report back in a week or so.
+>
 
-Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
----
-Changes in v2:
- - Change subject line from
-   "carl9170: Replace rcu_dereference() with rcu_access_pointer()"
-   to
-   "carl9170: Remove redundant protection check"
- - Update the commit message according to the modifications
- - Delete the lines of interest at the suggestion and explanations of
-   Christian Lamparter <chunkeey@googlemail.com>
+I would like to use the flow ops in some of our NICs that have
+a limited flow table in hardware. It might be easier to use the
+NICs as the first implementers of the API even though they are
+usually not as capable or large as flow tables in some of the
+larger switch asics.
 
- drivers/net/wireless/ath/carl9170/main.c | 6 ------
- 1 file changed, 6 deletions(-)
+In my opinion it can replace the ioctl flow director APIs although
+I don't like how it is tied to OVS in the some of the later RFC patches
+but we can work on that.
 
-diff --git a/drivers/net/wireless/ath/carl9170/main.c b/drivers/net/wireless/ath/carl9170/main.c
-index 12018ff..6758b9a 100644
---- a/drivers/net/wireless/ath/carl9170/main.c
-+++ b/drivers/net/wireless/ath/carl9170/main.c
-@@ -1430,12 +1430,6 @@ static int carl9170_op_ampdu_action(struct ieee80211_hw *hw,
- 		if (!sta_info->ht_sta)
- 			return -EOPNOTSUPP;
- 
--		rcu_read_lock();
--		if (rcu_access_pointer(sta_info->agg[tid])) {
--			rcu_read_unlock();
--			return -EBUSY;
--		}
--
- 		tid_info = kzalloc(sizeof(struct carl9170_sta_tid),
- 				   GFP_ATOMIC);
- 		if (!tid_info) {
+.John
+
 -- 
-1.9.1
+John Fastabend         Intel Corporation
