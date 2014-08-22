@@ -1,187 +1,130 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next 1/6] net: skb_gro_checksum_* functions
-Date: Fri, 22 Aug 2014 13:33:47 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1408221315390.1355@tomh.mtv.corp.google.com>
+Subject: [PATCH v2 net-next 0/6] net: Checksum offload changes - Part V
+Date: Fri, 22 Aug 2014 13:33:38 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1408221315240.1209@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f74.google.com ([209.85.219.74]:46335 "EHLO
-	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751894AbaHVUds (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 16:33:48 -0400
-Received: by mail-oa0-f74.google.com with SMTP id eb12so2285879oac.1
-        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 13:33:47 -0700 (PDT)
+Received: from mail-ie0-f202.google.com ([209.85.223.202]:39888 "EHLO
+	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751750AbaHVUdk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 16:33:40 -0400
+Received: by mail-ie0-f202.google.com with SMTP id rl12so1020983iec.3
+        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 13:33:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add skb_gro_checksum_validate, skb_gro_checksum_validate_zero_check,
-and skb_gro_checksum_simple_validate, and __skb_gro_checksum_complete.
-These are the cognates of the normal checksum functions but are used
-in the gro_receive path and operate on GRO related fields in sk_buffs.
+I am working on overhauling RX checksum offload. Goals of this effort
+are:
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- include/linux/netdevice.h | 76 +++++++++++++++++++++++++++++++++++++++++++++--
- net/core/dev.c            | 34 ++++++++++++++++++++-
- 2 files changed, 107 insertions(+), 3 deletions(-)
+- Specify what exactly it means when driver returns CHECKSUM_UNNECESSARY
+- Preserve CHECKSUM_COMPLETE through encapsulation layers
+- Don't do skb_checksum more than once per packet
+- Unify GRO and non-GRO csum verification as much as possible
+- Unify the checksum functions (checksum_init)
+- Simplify code
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3837739..0fac884 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1883,7 +1883,13 @@ struct napi_gro_cb {
- 	u16	proto;
- 
- 	/* Used in udp_gro_receive */
--	u16	udp_mark;
-+	u8	udp_mark:1;
-+
-+	/* GRO checksum is valid */
-+	u8	csum_valid:1;
-+
-+	/* Number encapsulation layers crossed */
-+	u8	encapsulation;
- 
- 	/* used to support CHECKSUM_COMPLETE for tunneling protocols */
- 	__wsum	csum;
-@@ -2153,11 +2159,77 @@ static inline void *skb_gro_network_header(struct sk_buff *skb)
- static inline void skb_gro_postpull_rcsum(struct sk_buff *skb,
- 					const void *start, unsigned int len)
- {
--	if (skb->ip_summed == CHECKSUM_COMPLETE)
-+	if (NAPI_GRO_CB(skb)->csum_valid)
- 		NAPI_GRO_CB(skb)->csum = csum_sub(NAPI_GRO_CB(skb)->csum,
- 						  csum_partial(start, len, 0));
- }
- 
-+/* GRO checksum functions. These are logical equivalents of the normal
-+ * checksum functions (in skbuff.h) except that they operate on the GRO
-+ * offsets and fields in sk_buff.
-+ */
-+
-+__sum16 __skb_gro_checksum_complete(struct sk_buff *skb);
-+
-+static inline bool __skb_gro_checksum_validate_needed(struct sk_buff *skb,
-+						      bool zero_okay,
-+						      __sum16 check)
-+{
-+	return (skb->ip_summed != CHECKSUM_PARTIAL &&
-+		(skb->ip_summed != CHECKSUM_UNNECESSARY ||
-+		 (NAPI_GRO_CB(skb)->encapsulation > skb->encapsulation)) &&
-+		(!zero_okay || check));
-+}
-+
-+static inline __sum16 __skb_gro_checksum_validate_complete(struct sk_buff *skb,
-+							   __wsum psum)
-+{
-+	if (NAPI_GRO_CB(skb)->csum_valid &&
-+	    !csum_fold(csum_add(psum, NAPI_GRO_CB(skb)->csum)))
-+		return 0;
-+
-+	NAPI_GRO_CB(skb)->csum = psum;
-+
-+	return __skb_gro_checksum_complete(skb);
-+}
-+
-+/* Update skb for CHECKSUM_UNNECESSARY when we verified a top level
-+ * checksum or an encapsulated one during GRO. This saves work
-+ * if we fallback to normal path with the packet.
-+ */
-+static inline void skb_gro_incr_csum_unnecessary(struct sk_buff *skb)
-+{
-+	if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
-+		if (NAPI_GRO_CB(skb)->encapsulation)
-+			skb->encapsulation = 1;
-+	} else if (skb->ip_summed != CHECKSUM_PARTIAL) {
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		skb->encapsulation = 0;
-+	}
-+}
-+
-+#define __skb_gro_checksum_validate(skb, proto, zero_okay, check,	\
-+				    compute_pseudo)			\
-+({									\
-+	__sum16 __ret = 0;						\
-+	if (__skb_gro_checksum_validate_needed(skb, zero_okay, check))	\
-+		__ret = __skb_gro_checksum_validate_complete(skb,	\
-+				compute_pseudo(skb, proto));		\
-+	if (!__ret)							\
-+		skb_gro_incr_csum_unnecessary(skb);			\
-+	__ret;								\
-+})
-+
-+#define skb_gro_checksum_validate(skb, proto, compute_pseudo)		\
-+	__skb_gro_checksum_validate(skb, proto, false, 0, compute_pseudo)
-+
-+#define skb_gro_checksum_validate_zero_check(skb, proto, check,		\
-+					     compute_pseudo)		\
-+	__skb_gro_checksum_validate(skb, proto, true, check, compute_pseudo)
-+
-+#define skb_gro_checksum_simple_validate(skb)				\
-+	__skb_gro_checksum_validate(skb, 0, false, 0, null_compute_pseudo)
-+
- static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
- 				  unsigned short type,
- 				  const void *daddr, const void *saddr,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b65a505..2a0d416 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3963,7 +3963,13 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 		goto normal;
- 
- 	gro_list_prepare(napi, skb);
--	NAPI_GRO_CB(skb)->csum = skb->csum; /* Needed for CHECKSUM_COMPLETE */
-+
-+	if (skb->ip_summed == CHECKSUM_COMPLETE) {
-+		NAPI_GRO_CB(skb)->csum = skb->csum;
-+		NAPI_GRO_CB(skb)->csum_valid = 1;
-+	} else {
-+		NAPI_GRO_CB(skb)->csum_valid = 0;
-+	}
- 
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(ptype, head, list) {
-@@ -3976,6 +3982,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 		NAPI_GRO_CB(skb)->flush = 0;
- 		NAPI_GRO_CB(skb)->free = 0;
- 		NAPI_GRO_CB(skb)->udp_mark = 0;
-+		NAPI_GRO_CB(skb)->encapsulation = 0;
- 
- 		pp = ptype->callbacks.gro_receive(&napi->gro_list, skb);
- 		break;
-@@ -4206,6 +4213,31 @@ gro_result_t napi_gro_frags(struct napi_struct *napi)
- }
- EXPORT_SYMBOL(napi_gro_frags);
- 
-+/* Compute the checksum from gro_offset and return the folded value
-+ * after adding in any pseudo checksum.
-+ */
-+__sum16 __skb_gro_checksum_complete(struct sk_buff *skb)
-+{
-+	__wsum wsum;
-+	__sum16 sum;
-+
-+	wsum = skb_checksum(skb, skb_gro_offset(skb), skb_gro_len(skb), 0);
-+
-+	/* NAPI_GRO_CB(skb)->csum holds pseudo checksum */
-+	sum = csum_fold(csum_add(NAPI_GRO_CB(skb)->csum, wsum));
-+	if (likely(!sum)) {
-+		if (unlikely(skb->ip_summed == CHECKSUM_COMPLETE) &&
-+		    !skb->csum_complete_sw)
-+			netdev_rx_csum_fault(skb->dev);
-+	}
-+
-+	NAPI_GRO_CB(skb)->csum = wsum;
-+	NAPI_GRO_CB(skb)->csum_valid = 1;
-+
-+	return sum;
-+}
-+EXPORT_SYMBOL(__skb_gro_checksum_complete);
-+
- /*
-  * net_rps_action_and_irq_enable sends any pending IPI's for rps.
-  * Note: called with local irq disabled, but exits with local irq enabled.
--- 
-2.1.0.rc2.206.gedb03e5
+What is in this fifth patch set:
+
+- Added GRO checksum validation functions
+- Call the GRO validations functions from TCP and GRE gro_receive
+- Perform checksum verification in the UDP gro_receive path using
+  GRO functions and add support for gro_receive in UDP6
+
+Changes in V2:
+
+- Change ip_summed to CHECKSUM_UNNECESSARY instead of moving it
+  to CHECKSUM_COMPLETE from GRO checksum validation. This avoids
+  performance penalty in checksumming bytes which are before the header
+  GRO is at.
+
+Please review carefully and test if possible, mucking with basic
+checksum functions is always a little precarious :-)
+
+----
+
+Test results with this patch set are below. I did not notice any
+performace regression.
+
+Tests run:
+   TCP_STREAM: super_netperf with 200 streams
+   TCP_RR: super_netperf with 200 streams and -r 1,1
+
+Device bnx2x (10Gbps):
+   No GRE RSS hash (RX interrupts occur on one core)
+   UDP RSS port hashing enabled.
+
+* GRE with checksum with IPv4 encapsulated packets
+  With fix:
+    TCP_STREAM
+        9.91% CPU utilization
+        5163.78 Mbps
+    TCP_RR
+        50.64% CPU utilization
+        219/347/502 90/95/99% latencies
+        834103 tps
+  Without fix:
+    TCP_STREAM
+        10.05% CPU utilization
+        5186.22 tps
+    TCP_RR
+        49.70% CPU utilization
+        227/338/486 90/95/99% latencies
+        813450 tps
+
+* GRE without checksum with IPv4 encapsulated packets
+  With fix:
+    TCP_STREAM
+        10.18% CPU utilization
+        5159 Mbps
+    TCP_RR
+        51.86% CPU utilization
+        214/325/471 90/95/99% latencies
+        865943 tps
+  Without fix:
+    TCP_STREAM
+        10.26% CPU utilization
+        5307.87 Mbps
+    TCP_RR
+        50.59% CPU utilization
+        224/325/476 90/95/99% latencies
+        846429 tps
+
+*** Simulate device returns CHECKSUM_COMPLETE
+
+* VXLAN with checksum
+  With fix:
+    TCP_STREAM
+        13.03% CPU utilization
+        9093.9 Mbps
+    TCP_RR
+        95.96% CPU utilization
+        161/259/474 90/95/99% latencies
+        1.14806e+06 tps
+  Without fix:
+    TCP_STREAM
+        13.59% CPU utilization
+        9093.97 Mbps
+    TCP_RR
+        93.95% CPU utilization
+        160/259/484 90/95/99% latencies
+        1.10262e+06 tps
+
+* VXLAN without checksum
+  With fix:
+    TCP_STREAM
+        13.28% CPU utilization
+        9093.87 Mbps
+    TCP_RR
+        95.04% CPU utilization
+        155/246/439 90/95/99% latencies
+        1.15e+06 tps
+  Without fix:
+    TCP_STREAM
+        13.37% CPU utilization
+        9178.45 Mbps
+    TCP_RR
+        93.74% CPU utilization
+        161/257/469 90/95/99% latencies
+        1.1068e+06 Mbps
