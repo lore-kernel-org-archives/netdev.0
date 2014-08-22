@@ -1,130 +1,67 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next 0/6] net: Checksum offload changes - Part V
-Date: Fri, 22 Aug 2014 13:33:38 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1408221315240.1209@tomh.mtv.corp.google.com>
+Subject: [PATCH v2 net-next 2/6] net: add gro_compute_pseudo functions
+Date: Fri, 22 Aug 2014 13:34:04 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1408221315540.1488@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f202.google.com ([209.85.223.202]:39888 "EHLO
-	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751750AbaHVUdk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 16:33:40 -0400
-Received: by mail-ie0-f202.google.com with SMTP id rl12so1020983iec.3
-        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 13:33:39 -0700 (PDT)
+Received: from mail-pa0-f74.google.com ([209.85.220.74]:55854 "EHLO
+	mail-pa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751978AbaHVUeF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 16:34:05 -0400
+Received: by mail-pa0-f74.google.com with SMTP id lj1so3009955pab.1
+        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 13:34:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am working on overhauling RX checksum offload. Goals of this effort
-are:
+Add inet_gro_compute_pseudo and ip6_gro_compute_pseudo. These are
+the logical equivalents of inet_compute_pseudo and ip6_compute_pseudo
+for GRO path. The IP header is taken from skb_gro_network_header.
 
-- Specify what exactly it means when driver returns CHECKSUM_UNNECESSARY
-- Preserve CHECKSUM_COMPLETE through encapsulation layers
-- Don't do skb_checksum more than once per packet
-- Unify GRO and non-GRO csum verification as much as possible
-- Unify the checksum functions (checksum_init)
-- Simplify code
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ include/net/ip.h           | 8 ++++++++
+ include/net/ip6_checksum.h | 8 ++++++++
+ 2 files changed, 16 insertions(+)
 
-What is in this fifth patch set:
-
-- Added GRO checksum validation functions
-- Call the GRO validations functions from TCP and GRE gro_receive
-- Perform checksum verification in the UDP gro_receive path using
-  GRO functions and add support for gro_receive in UDP6
-
-Changes in V2:
-
-- Change ip_summed to CHECKSUM_UNNECESSARY instead of moving it
-  to CHECKSUM_COMPLETE from GRO checksum validation. This avoids
-  performance penalty in checksumming bytes which are before the header
-  GRO is at.
-
-Please review carefully and test if possible, mucking with basic
-checksum functions is always a little precarious :-)
-
-----
-
-Test results with this patch set are below. I did not notice any
-performace regression.
-
-Tests run:
-   TCP_STREAM: super_netperf with 200 streams
-   TCP_RR: super_netperf with 200 streams and -r 1,1
-
-Device bnx2x (10Gbps):
-   No GRE RSS hash (RX interrupts occur on one core)
-   UDP RSS port hashing enabled.
-
-* GRE with checksum with IPv4 encapsulated packets
-  With fix:
-    TCP_STREAM
-        9.91% CPU utilization
-        5163.78 Mbps
-    TCP_RR
-        50.64% CPU utilization
-        219/347/502 90/95/99% latencies
-        834103 tps
-  Without fix:
-    TCP_STREAM
-        10.05% CPU utilization
-        5186.22 tps
-    TCP_RR
-        49.70% CPU utilization
-        227/338/486 90/95/99% latencies
-        813450 tps
-
-* GRE without checksum with IPv4 encapsulated packets
-  With fix:
-    TCP_STREAM
-        10.18% CPU utilization
-        5159 Mbps
-    TCP_RR
-        51.86% CPU utilization
-        214/325/471 90/95/99% latencies
-        865943 tps
-  Without fix:
-    TCP_STREAM
-        10.26% CPU utilization
-        5307.87 Mbps
-    TCP_RR
-        50.59% CPU utilization
-        224/325/476 90/95/99% latencies
-        846429 tps
-
-*** Simulate device returns CHECKSUM_COMPLETE
-
-* VXLAN with checksum
-  With fix:
-    TCP_STREAM
-        13.03% CPU utilization
-        9093.9 Mbps
-    TCP_RR
-        95.96% CPU utilization
-        161/259/474 90/95/99% latencies
-        1.14806e+06 tps
-  Without fix:
-    TCP_STREAM
-        13.59% CPU utilization
-        9093.97 Mbps
-    TCP_RR
-        93.95% CPU utilization
-        160/259/484 90/95/99% latencies
-        1.10262e+06 tps
-
-* VXLAN without checksum
-  With fix:
-    TCP_STREAM
-        13.28% CPU utilization
-        9093.87 Mbps
-    TCP_RR
-        95.04% CPU utilization
-        155/246/439 90/95/99% latencies
-        1.15e+06 tps
-  Without fix:
-    TCP_STREAM
-        13.37% CPU utilization
-        9178.45 Mbps
-    TCP_RR
-        93.74% CPU utilization
-        161/257/469 90/95/99% latencies
-        1.1068e+06 Mbps
+diff --git a/include/net/ip.h b/include/net/ip.h
+index db4a771..c8fd611 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -364,6 +364,14 @@ static inline void inet_set_txhash(struct sock *sk)
+ 	sk->sk_txhash = flow_hash_from_keys(&keys);
+ }
+ 
++static inline __wsum inet_gro_compute_pseudo(struct sk_buff *skb, int proto)
++{
++	const struct iphdr *iph = skb_gro_network_header(skb);
++
++	return csum_tcpudp_nofold(iph->saddr, iph->daddr,
++				  skb_gro_len(skb), proto, 0);
++}
++
+ /*
+  *	Map a multicast IP onto multicast MAC for type ethernet.
+  */
+diff --git a/include/net/ip6_checksum.h b/include/net/ip6_checksum.h
+index 55236cb..1a49b73 100644
+--- a/include/net/ip6_checksum.h
++++ b/include/net/ip6_checksum.h
+@@ -48,6 +48,14 @@ static inline __wsum ip6_compute_pseudo(struct sk_buff *skb, int proto)
+ 					    skb->len, proto, 0));
+ }
+ 
++static inline __wsum ip6_gro_compute_pseudo(struct sk_buff *skb, int proto)
++{
++	const struct ipv6hdr *iph = skb_gro_network_header(skb);
++
++	return ~csum_unfold(csum_ipv6_magic(&iph->saddr, &iph->daddr,
++					    skb_gro_len(skb), proto, 0));
++}
++
+ static __inline__ __sum16 tcp_v6_check(int len,
+ 				   const struct in6_addr *saddr,
+ 				   const struct in6_addr *daddr,
+-- 
+2.1.0.rc2.206.gedb03e5
