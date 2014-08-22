@@ -1,29 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/9] bnx2x: Start utilizing 7.10.51
-Date: Fri, 22 Aug 2014 12:31:43 -0700 (PDT)
-Message-ID: <20140822.123143.927535104433843282.davem@davemloft.net>
-References: <1408283271-16176-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: Re: [PATCH] stmmac: simple cleanups
+Date: Fri, 22 Aug 2014 12:34:08 -0700 (PDT)
+Message-ID: <20140822.123408.2064974279443073401.davem@davemloft.net>
+References: <20140819105646.GA27984@amd>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53585 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751464AbaHVTbo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 15:31:44 -0400
-In-Reply-To: <1408283271-16176-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: pavel@ucw.cz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140819105646.GA27984@amd>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Sun, 17 Aug 2014 16:47:42 +0300
+From: Pavel Machek <pavel@ucw.cz>
+Date: Tue, 19 Aug 2014 12:56:46 +0200
 
-> This series will enable bnx2x to start utlizing its 7.10.51 FW.
-> In addition, it will also add timestamping support, as well as a couple
-> of routine semantic cleanups.
+> This adds simple cleanups for stmmac, removing test we know is always
+> true, fixing whitespace, and moving code out of if().
 > 
-> Please consider applying this series to `net-next'.
+> Signed-off-by: Pavel Machek <pavel@denx.de>
 
-Series applied, thanks.
+This does not apply cleanly to the current net-next tree.
