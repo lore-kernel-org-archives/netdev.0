@@ -1,42 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: Revert UNDI flushing mechanism
-Date: Thu, 21 Aug 2014 17:55:32 -0700 (PDT)
-Message-ID: <20140821.175532.2001740724595557372.davem@davemloft.net>
-References: <1408390583-22693-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: Re: pull request (net-next): ipsec-next 2014-07-30
+Date: Thu, 21 Aug 2014 18:11:10 -0700 (PDT)
+Message-ID: <20140821.181110.1691992766308370922.davem@davemloft.net>
+References: <1406718748-21144-1-git-send-email-steffen.klassert@secunet.com>
+	<20140730.200616.70801919910766783.davem@davemloft.net>
+	<20140819102932.GA6390@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44727 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44837 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755487AbaHVAzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 20:55:33 -0400
-In-Reply-To: <1408390583-22693-1-git-send-email-Yuval.Mintz@qlogic.com>
+	with ESMTP id S1751701AbaHVBLL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 21:11:11 -0400
+In-Reply-To: <20140819102932.GA6390@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Mon, 18 Aug 2014 22:36:23 +0300
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Tue, 19 Aug 2014 12:29:32 +0200
 
-> Commit 91ebb929b6f8 ("bnx2x: Add support for Multi-Function UNDI") [which was
-> later supposedly fixed by de682941eef3 ("bnx2x: Fix UNDI driver unload")]
-> introduced a bug in which in some [yet-to-be-determined] scenarios the
-> alternative flushing mechanism which was to guarantee the Rx buffers are
-> empty before resetting them during device probe will fail.
-> If this happens, when device will be loaded once more a fatal attention will
-> occur; Since this most likely happens in boot from SAN scenarios, the machine
-> will fail to load.
+> On Wed, Jul 30, 2014 at 08:06:16PM -0700, David Miller wrote:
+>> From: Steffen Klassert <steffen.klassert@secunet.com>
+>> Date: Wed, 30 Jul 2014 13:12:25 +0200
+>> 
+>> > This is the last pull request for ipsec-next before I'll be
+>> > off for two weeks starting on friday. David, can you please
+>> > take urgent ipsec patches directly into net/net-next during
+>> > this time?
+>> 
+>> Sure, no problem.
+>> 
 > 
-> Notice this may occur not only in the 'Multi-Function' scenario but in the
-> regular scenario as well, i.e., this introduced a regression in the driver's
-> ability to perform boot from SAN.
+> I'm back and continue to run the IPsec trees.
 > 
-> The patch reverts the mechanism and applies the old scheme to multi-function
-> devices as well as to single-function devices.
-> 
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-> Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+> Thanks for helping out in the meantime!
 
-Applied and queued up for -stable, thanks.
+Welcome back :-)
