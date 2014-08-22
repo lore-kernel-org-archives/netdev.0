@@ -1,67 +1,87 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next 2/6] net: add gro_compute_pseudo functions
-Date: Fri, 22 Aug 2014 13:34:04 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1408221315540.1488@tomh.mtv.corp.google.com>
+Subject: [PATCH v2 net-next 3/6] gre: call skb_gro_checksum_simple_validate
+Date: Fri, 22 Aug 2014 13:34:22 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1408221316100.1634@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f74.google.com ([209.85.220.74]:55854 "EHLO
-	mail-pa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751978AbaHVUeF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 16:34:05 -0400
-Received: by mail-pa0-f74.google.com with SMTP id lj1so3009955pab.1
-        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 13:34:05 -0700 (PDT)
+Received: from mail-pd0-f201.google.com ([209.85.192.201]:46316 "EHLO
+	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752005AbaHVUeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 16:34:23 -0400
+Received: by mail-pd0-f201.google.com with SMTP id g10so2932927pdj.4
+        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 13:34:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add inet_gro_compute_pseudo and ip6_gro_compute_pseudo. These are
-the logical equivalents of inet_compute_pseudo and ip6_compute_pseudo
-for GRO path. The IP header is taken from skb_gro_network_header.
-
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/net/ip.h           | 8 ++++++++
- include/net/ip6_checksum.h | 8 ++++++++
- 2 files changed, 16 insertions(+)
+ net/ipv4/gre_offload.c | 43 +++++++------------------------------------
+ 1 file changed, 7 insertions(+), 36 deletions(-)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index db4a771..c8fd611 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -364,6 +364,14 @@ static inline void inet_set_txhash(struct sock *sk)
- 	sk->sk_txhash = flow_hash_from_keys(&keys);
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index 6556263..d1bd169 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -119,28 +119,6 @@ out:
+ 	return segs;
  }
  
-+static inline __wsum inet_gro_compute_pseudo(struct sk_buff *skb, int proto)
-+{
-+	const struct iphdr *iph = skb_gro_network_header(skb);
+-/* Compute the whole skb csum in s/w and store it, then verify GRO csum
+- * starting from gro_offset.
+- */
+-static __sum16 gro_skb_checksum(struct sk_buff *skb)
+-{
+-	__sum16 sum;
+-
+-	skb->csum = skb_checksum(skb, 0, skb->len, 0);
+-	NAPI_GRO_CB(skb)->csum = csum_sub(skb->csum,
+-		csum_partial(skb->data, skb_gro_offset(skb), 0));
+-	sum = csum_fold(NAPI_GRO_CB(skb)->csum);
+-	if (unlikely(skb->ip_summed == CHECKSUM_COMPLETE)) {
+-		if (unlikely(!sum) && !skb->csum_complete_sw)
+-			netdev_rx_csum_fault(skb->dev);
+-	} else {
+-		skb->ip_summed = CHECKSUM_COMPLETE;
+-		skb->csum_complete_sw = 1;
+-	}
+-
+-	return sum;
+-}
+-
+ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
+ 					struct sk_buff *skb)
+ {
+@@ -192,22 +170,15 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
+ 		if (unlikely(!greh))
+ 			goto out_unlock;
+ 	}
+-	if (greh->flags & GRE_CSUM) { /* Need to verify GRE csum first */
+-		__sum16 csum = 0;
+-
+-		if (skb->ip_summed == CHECKSUM_COMPLETE)
+-			csum = csum_fold(NAPI_GRO_CB(skb)->csum);
+-		/* Don't trust csum error calculated/reported by h/w */
+-		if (skb->ip_summed == CHECKSUM_NONE || csum != 0)
+-			csum = gro_skb_checksum(skb);
+-
+-		/* GRE CSUM is the 1's complement of the 1's complement sum
+-		 * of the GRE hdr plus payload so it should add up to 0xffff
+-		 * (and 0 after csum_fold()) just like the IPv4 hdr csum.
+-		 */
+-		if (csum)
 +
-+	return csum_tcpudp_nofold(iph->saddr, iph->daddr,
-+				  skb_gro_len(skb), proto, 0);
-+}
++	/* Don't bother verifying checksum if we're going to flush anyway. */
++	if (greh->flags & GRE_CSUM) {
++		if (!NAPI_GRO_CB(skb)->flush &&
++		    skb_gro_checksum_simple_validate(skb))
+ 			goto out_unlock;
++		NAPI_GRO_CB(skb)->encapsulation++;
+ 	}
 +
- /*
-  *	Map a multicast IP onto multicast MAC for type ethernet.
-  */
-diff --git a/include/net/ip6_checksum.h b/include/net/ip6_checksum.h
-index 55236cb..1a49b73 100644
---- a/include/net/ip6_checksum.h
-+++ b/include/net/ip6_checksum.h
-@@ -48,6 +48,14 @@ static inline __wsum ip6_compute_pseudo(struct sk_buff *skb, int proto)
- 					    skb->len, proto, 0));
- }
+ 	flush = 0;
  
-+static inline __wsum ip6_gro_compute_pseudo(struct sk_buff *skb, int proto)
-+{
-+	const struct ipv6hdr *iph = skb_gro_network_header(skb);
-+
-+	return ~csum_unfold(csum_ipv6_magic(&iph->saddr, &iph->daddr,
-+					    skb_gro_len(skb), proto, 0));
-+}
-+
- static __inline__ __sum16 tcp_v6_check(int len,
- 				   const struct in6_addr *saddr,
- 				   const struct in6_addr *daddr,
+ 	for (p = *head; p; p = p->next) {
 -- 
 2.1.0.rc2.206.gedb03e5
