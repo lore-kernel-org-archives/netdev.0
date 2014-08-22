@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] cxgb4: Fix race condition in cleanup
-Date: Thu, 21 Aug 2014 21:45:47 -0700 (PDT)
-Message-ID: <20140821.214547.1331125403351758274.davem@davemloft.net>
-References: <1408567446-6598-1-git-send-email-anish@chelsio.com>
+Subject: Re: pull-request: can 2014-08-21
+Date: Thu, 21 Aug 2014 21:53:39 -0700 (PDT)
+Message-ID: <20140821.215339.1016944928830108729.davem@davemloft.net>
+References: <1408613002-29693-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hariprasad@chelsio.com, leedom@chelsio.com,
-	svemuri@chelsio.com, nhorman@redhat.com
-To: anish@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46308 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750898AbaHVEps (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 00:45:48 -0400
-In-Reply-To: <1408567446-6598-1-git-send-email-anish@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1408613002-29693-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Anish Bhatt <anish@chelsio.com>
-Date: Wed, 20 Aug 2014 13:44:06 -0700
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Thu, 21 Aug 2014 11:23:18 +0200
 
-> There is a possible race condition when we unregister the PCI Driver and then
-> flush/destroy the global "workq". This could lead to situations where there
-> are tasks on the Work Queue with references to now deleted adapter data
-> structures. Instead, have per-adapter Work Queues which were instantiated and
-> torn down in init_one() and remove_one(), respectively.
-> 
-> v2: Remove unnecessary call to flush_workqueue() before destroy_workqueue()
-> 
-> Signed-off-by: Anish Bhatt <anish@chelsio.com>
-> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+> The first patch is from Mirza Krak, it fixes the initialization of the hardware
+> in the sja1000 driver. The next patch is contributed by Dan Carpenter, it fixes
+> the error handling in the c_can's probe function. Then there are two patches
+> for the flexcan driver, one by Alexander Stein, which fixes the resetting of
+> the bus error interrupt mask, the other one by Sebastian Andrzej Siewior which
+> adds an additional error state transition message.
 
-Applied thanks.
+Pulled, thanks Marc.
