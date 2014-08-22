@@ -1,14 +1,14 @@
 From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
-Subject: [PATCH] br_multicast: Replace rcu_assign_pointer() with
+Subject: [PATCH] mac80211: scan: Replace rcu_assign_pointer() with
  RCU_INIT_POINTER()
-Date: Fri, 22 Aug 2014 16:06:09 +0300
-Message-ID: <20140822130609.GA19576@ada>
+Date: Fri, 22 Aug 2014 16:14:49 +0300
+Message-ID: <20140822131449.GA19959@ada>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: paulmck@linux.vnet.ibm.com
-To: stephen@networkplumber.org, davem@davemloft.net,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com, johannes@sipsolutions.net,
+	davem@davemloft.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
@@ -30,21 +30,21 @@ The following Coccinelle semantic patch was used:
 
 Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
 ---
- net/bridge/br_multicast.c | 2 +-
+ net/mac80211/scan.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index abfa0b65..9b64383 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1822,7 +1822,7 @@ static void br_multicast_query_expired(struct net_bridge *br,
- 	if (query->startup_sent < br->multicast_startup_query_count)
- 		query->startup_sent++;
- 
--	rcu_assign_pointer(querier, NULL);
-+	RCU_INIT_POINTER(querier, NULL);
- 	br_multicast_send_query(br, NULL, query);
- 	spin_unlock(&br->multicast_lock);
- }
+diff --git a/net/mac80211/scan.c b/net/mac80211/scan.c
+index f40661e..6c69d09 100644
+--- a/net/mac80211/scan.c
++++ b/net/mac80211/scan.c
+@@ -1058,7 +1058,7 @@ int ieee80211_request_sched_scan_stop(struct ieee80211_sub_if_data *sdata)
+ 	if (rcu_access_pointer(local->sched_scan_sdata)) {
+ 		ret = drv_sched_scan_stop(local, sdata);
+ 		if (!ret)
+-			rcu_assign_pointer(local->sched_scan_sdata, NULL);
++			RCU_INIT_POINTER(local->sched_scan_sdata, NULL);
+ 	}
+ out:
+ 	mutex_unlock(&local->mtx);
 -- 
 1.9.1
