@@ -1,86 +1,98 @@
-From: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
- for datapath hardware offload
-Date: Fri, 22 Aug 2014 12:39:00 -0700
-Message-ID: <53F79C54.5050701@gmail.com>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-11-git-send-email-jiri@resnulli.us>
+From: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH v2 0/3] net: Add Keystone NetCP ethernet driver support
+Date: Fri, 22 Aug 2014 15:45:09 -0400
+Message-ID: <53F79DC5.8030003@ti.com>
+References: <1408115562-22487-1-git-send-email-santosh.shilimkar@ti.com> <20140821.163612.282672926741753926.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
- buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
- aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
- dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1408637945-10390-11-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<sandeep_n-l0cyMroinI0@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140821.163612.282672926741753926.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 08/21/2014 09:19 AM, Jiri Pirko wrote:
-> Benefit from the possibility to work with flows in switch devices and
-> use the swdev api to offload flow datapath.
+Hi David,
 
-we should add a description here on the strategy being used.
+On Thursday 21 August 2014 07:36 PM, David Miller wrote:
+> From: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+> Date: Fri, 15 Aug 2014 11:12:39 -0400
+> 
+>> Update version after incorporating David Miller's comment from earlier
+>> posting [1]. I would like to get these merged for upcoming 3.18 merge
+>> window if there are no concerns on this version.
+>>
+>> The network coprocessor (NetCP) is a hardware accelerator that processes
+>> Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsystem with a ethernet
+>> switch sub-module to send and receive packets. NetCP also includes a packet
+>> accelerator (PA) module to perform packet classification operations such as
+>> header matching, and packet modification operations such as checksum
+>> generation. NetCP can also optionally include a Security Accelerator(SA)
+>> capable of performing IPSec operations on ingress/egress packets.
+>>     
+>> Keystone SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
+>> includes a 3-port Ethernet switch sub-module capable of 10Gb/s and
+>> 1Gb/s rates per Ethernet port.
+>>     
+>> NetCP driver has a plug-in module architecture where each of the NetCP
+>> sub-modules exist as a loadable kernel module which plug in to the netcp
+>> core. These sub-modules are represented as "netcp-devices" in the dts
+>> bindings. It is mandatory to have the ethernet switch sub-module for
+>> the ethernet interface to be operational. Any other sub-module like the
+>> PA is optional.
+>>
+>> Both GBE and XGBE network processors supported using common driver. It
+>> is also designed to handle future variants of NetCP.
+> 
+> I don't want to see an offload driver that doesn't plug into the existing
+> generic frameworks for configuration et al.
+> 
+> If no existing facility exists to support what you need, you must work
+> with the upstream maintainers to design and create one.
+> 
+> It is absolutely no reasonable for every "switch on a chip" driver to
+> export it's own configuration knob, we need a standard interface all
+> such drivers will plug into and provide.
+> 
+The NetCP plugin module infrastructure use all the standard kernel
+infrastructure and its very tiny. To best represent the Network processor
+and its sub module hardware which have inter dependency and ordering
+needs, we needed such infrastructure. This lets us handle all the
+hardware needs without any code duplication per module.
 
-If I read this correctly this will try to add any flow to the
-hardware along with the actions and duplicate it in software.
+To elaborate more, there are 4 variants of network switch modules and
+then few accelerator modules like Packet accelerator, QOS and Security
+accelerator. There can be multiple instances of switches on same SOC.
+Example 1 Gbe and 10 Gbe switches. Then additional accelerator modules
+are inter connected with switch, streaming fabric and packet DMA.
+Packet routing changes based on the various offload modules presence and hence
+needs hooks for tx/rx to be called in particular order with special
+handling. This scheme is very hardware specific and doesn't have ways
+to isolate the modules from each other.
 
-There are a couple things I don't like,
+On the other hand, we definitely wanted to have minimal code
+instead of duplicating ndo operations and core packet processing logic
+in multiple drivers or layers. The module approach helps
+to isolate the code based on the customer choice who can choose
+say not to build 10 Gbe hardware or say don't need QOS or Security
+accelerators. That way we keep the packet processing hot path as
+what we need without any overhead.
 
-  - this requires OVS to be loaded to work. If all I want is
-    direct access to the hardware flow tables requiring openvswitch.ko
-    shouldn't be needed IMO. For example I may want to use the
-    hardware flow tables with something not openvswitch and we
-    shouldn't preclude that.
+As you can see, the tiny module handling was added more to represent
+the hardware, keep the modularity and avoid code duplication. The
+infrastructure is very minimal and NETCP specific. With this small
+infrastructure we are able to re-use code for NetCP1.0, NetCP1.5,
+10 GBe and upcoming NetCP variants from just *one* driver.
 
-  - Also there is no programmatic way to learn which flows are
-    in hardware and which in software. There is a pr_warn but
-    that doesn't help when interacting with the hardware remotely.
-    I need some mechanism to dump the set of hardware tables and
-    the set of software tables.
+Hope this gives you a better idea and rationale behind the design.
 
-  - Simply duplicating the software flow/action into
-    hardware may not optimally use the hardware tables. If I have
-    a TCAM in hardware for instance. (This is how I read the patch
-    let me know if I missed something)
-
-  - I need a way to specify put this flow/action in hardware,
-    put this flow/action in software, or put this in both software
-    and hardware.
-
-    We did this with a bitmask in the fdb L2 stuff and it seems to
-    work reasonable well so maybe something like that would help.
-
-    For example if I don't have this what happens if I have an
-    entry to decrement TTL in both hardware and software. If the
-    flow hits both the hardware path and software path the TTL
-    gets decremented. Here userspace needs to indicate where to
-    do the decrement to avoid the duplication.
-
-I think if we can pull this out OVS and add the hw/sw bitmask (or
-maybe a better implementation of that idea) then this should work
-for the stuff I'm looking at. I want to try and get it working on
-the i40e driver as a fdir replacement but it might take me a bit
-to get to it.
-
-
-Thanks,
-John
-
-
--- 
-John Fastabend         Intel Corporation
+Regards,
+Santosh
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
