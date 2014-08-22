@@ -1,50 +1,32 @@
-From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
-Subject: [PATCH] mac80211: scan: Replace rcu_assign_pointer() with
- RCU_INIT_POINTER()
-Date: Fri, 22 Aug 2014 16:14:49 +0300
-Message-ID: <20140822131449.GA19959@ada>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: Re: [PATCH] drivers: net: wireless: Add include guards
+Date: Fri, 22 Aug 2014 15:32:58 +0200
+Message-ID: <87egw8sl85.fsf@rasmusvillemoes.dk>
+References: <1408710414-13810-1-git-send-email-linux@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: paulmck@linux.vnet.ibm.com
-To: linville@tuxdriver.com, johannes@sipsolutions.net,
-	davem@davemloft.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <1408710414-13810-1-git-send-email-linux@rasmusvillemoes.dk>
+	(Rasmus Villemoes's message of "Fri, 22 Aug 2014 14:26:54 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The use of "rcu_assign_pointer()" is NULLing out the pointer.
-According to RCU_INIT_POINTER()'s block comment:
-"1.   This use of RCU_INIT_POINTER() is NULLing out the pointer"
-it is better to use it instead of rcu_assign_pointer() because it has a
-smaller overhead.
+Rasmus Villemoes <linux@rasmusvillemoes.dk> writes:
 
-The following Coccinelle semantic patch was used:
-@@
-@@
+> The files ray_cs.h and rayctl.h both contain two thirds of what
+> appears to be an include guard using the macro name RAYLINK_H (both
+> lack the #define). Since RAYLINK_H is not defined anywhere, the
+> guards using different macro names.
+>
 
-- rcu_assign_pointer
-+ RCU_INIT_POINTER
-  (..., NULL)
+I need to stop using the # character in my commit messages, or at least
+check that git didn't eat any of my lines.
 
-Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
----
- net/mac80211/scan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This was supposed to be something like "... defined anywhere, the
+#ifndefs are simply confusing no-ops. Add proper include guards using
+different macro names".
 
-diff --git a/net/mac80211/scan.c b/net/mac80211/scan.c
-index f40661e..6c69d09 100644
---- a/net/mac80211/scan.c
-+++ b/net/mac80211/scan.c
-@@ -1058,7 +1058,7 @@ int ieee80211_request_sched_scan_stop(struct ieee80211_sub_if_data *sdata)
- 	if (rcu_access_pointer(local->sched_scan_sdata)) {
- 		ret = drv_sched_scan_stop(local, sdata);
- 		if (!ret)
--			rcu_assign_pointer(local->sched_scan_sdata, NULL);
-+			RCU_INIT_POINTER(local->sched_scan_sdata, NULL);
- 	}
- out:
- 	mutex_unlock(&local->mtx);
--- 
-1.9.1
+Rasmus
