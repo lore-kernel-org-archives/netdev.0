@@ -1,49 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
- is runnable
-Date: Fri, 22 Aug 2014 07:16:16 -0700
-Message-ID: <1408716976.5604.18.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
-	 <1408608310-13579-2-git-send-email-jasowang@redhat.com>
-	 <1408683665.5648.69.camel@marge.simpson.net>
-	 <20140822073653.GA7372@gmail.com> <53F70887.8030602@redhat.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net 1/2] net: sctp: spare unnecessary comparison in sctp_trans_elect_best
+Date: Fri, 22 Aug 2014 10:38:01 -0400
+Message-ID: <53F755C9.3020103@gmail.com>
+References: <1408705410-28558-1-git-send-email-dborkman@redhat.com> <1408705410-28558-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53F70887.8030602@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f179.google.com ([209.85.216.179]:63713 "EHLO
+	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932083AbaHVOiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 10:38:05 -0400
+In-Reply-To: <1408705410-28558-2-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-08-22 at 17:08 +0800, Jason Wang wrote:
-
-> But this is just for current process. We want to determine whether or
-> not it was worth to loop busily in current process by checking if
-> there's any another runnable processes or callbacks. And what we need
-> here is just a simple and lockless hint which can't be wrong but may be
-> inaccurate to exit the busy loop. The net code does not depends on this
-> hint to do scheduling or yielding.
+On 08/22/2014 07:03 AM, Daniel Borkmann wrote:
+> When both transports are the same, we don't have to go down that
+> road only to realize that we will return the very same transport.
+> We are guaranteed that curr is always non-NULL. Therefore, just
+> short-circuit this special case.
 > 
-> How about just introducing a boolean helper like current_can_busy_loop()
-> and return true in one of the following conditions:
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+
+-vlad
+
+> ---
+>  net/sctp/associola.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> - Current task is SCHED_FIFO
-> - Current task is neither SCHED_FIFO nor SCHED_IDLE and no other
-> runnable processes or pending RCU callbacks in current cpu
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index aaafb32..104fae4 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -1245,7 +1245,7 @@ static struct sctp_transport *sctp_trans_elect_best(struct sctp_transport *curr,
+>  {
+>  	u8 score_curr, score_best;
+>  
+> -	if (best == NULL)
+> +	if (best == NULL || curr == best)
+>  		return curr;
+>  
+>  	score_curr = sctp_trans_score(curr);
 > 
-> And add warns to make sure it can only be called in process context.
-
-
-1) Any reasons Eliezer Tamir is not included in the CC list ?
-
-   He is the busypoll author after all, and did nothing wrong to be
-banned from these patches ;)
-
-2) It looks like sk_buy_loop() should not be inlined, its is already too
-big.
