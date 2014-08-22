@@ -1,40 +1,49 @@
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Subject: Re: [PATCH v2 2/3] net: Add Keystone NetCP ethernet driver
-Date: Fri, 22 Aug 2014 15:50:25 -0400
-Message-ID: <53F79F01.6090804@ti.com>
-References: <1408115562-22487-1-git-send-email-santosh.shilimkar@ti.com>	<1408115562-22487-3-git-send-email-santosh.shilimkar@ti.com> <20140821194838.32f2c3f1@uryu.home.lan>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] phylib: use MDIO_DEVS[12]
+Date: Fri, 22 Aug 2014 23:56:47 +0400
+Message-ID: <1920521.UOn8o4CGAS@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <robh+dt@kernel.org>,
-	<grant.likely@linaro.org>, <devicetree@vger.kernel.org>,
-	<sandeep_n@ti.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140821194838.32f2c3f1@uryu.home.lan>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org, f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:61977 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750921AbaHVT4v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 15:56:51 -0400
+Received: by mail-la0-f44.google.com with SMTP id el20so10713744lab.3
+        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 12:56:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 21 August 2014 10:48 PM, Stephen Hemminger wrote:
-> On Fri, 15 Aug 2014 11:12:41 -0400
-> Santosh Shilimkar <santosh.shilimkar@ti.com> wrote:
-> 
->> NetCP driver has a plug-in module architecture where each of the NetCP
->> sub-modules exist as a loadable kernel module which plug in to the netcp
->> core. These sub-modules are represented as "netcp-devices" in the dts
->> bindings. It is mandatory to have the ethernet switch sub-module for
->> the ethernet interface to be operational. Any other sub-module like the
->> PA is optional.
-> 
-> What are you doing to prevent/discourage proprietary binary only
-> sub-modules?
-> 
-Not sure if you mistook this infrastructure as a replacement for the
-kernel module. The sub modules are traditional kernel modules that
-just registers into the NetCP framework. Kernel module infrastructure
-already discourages the proprietary binary only sub-modules.
+The bare register numbers are used despite <uapi/linux/mdio.h> has MDIO_DEVS[12]
+#define'd for those.
 
-Regards,
-Santosh
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+---
+This patch is against DaveM's 'net-next.git' repo.
+
+ drivers/net/phy/phy_device.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+Index: net-next/drivers/net/phy/phy_device.c
+===================================================================
+--- net-next.orig/drivers/net/phy/phy_device.c
++++ net-next/drivers/net/phy/phy_device.c
+@@ -230,13 +230,13 @@ static int get_phy_c45_ids(struct mii_bu
+ 	for (i = 1;
+ 	     i < num_ids && c45_ids->devices_in_package == 0;
+ 	     i++) {
+-		reg_addr = MII_ADDR_C45 | i << 16 | 6;
++		reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS2;
+ 		phy_reg = mdiobus_read(bus, addr, reg_addr);
+ 		if (phy_reg < 0)
+ 			return -EIO;
+ 		c45_ids->devices_in_package = (phy_reg & 0xffff) << 16;
+ 
+-		reg_addr = MII_ADDR_C45 | i << 16 | 5;
++		reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS1;
+ 		phy_reg = mdiobus_read(bus, addr, reg_addr);
+ 		if (phy_reg < 0)
+ 			return -EIO;
