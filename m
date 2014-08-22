@@ -1,40 +1,109 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: order:1 failure in ipoib_cm_alloc_rx_skb
-Date: Fri, 22 Aug 2014 09:00:50 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1747EEE3@AcuExch.aculab.com>
-References: <b2996322-2711-466b-8c41-7f4c13c7c0dc@default>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: Re: [patch net-next RFC 07/12] dsa: implement
+	ndo_swdev_get_id
+Date: Fri, 22 Aug 2014 09:05:54 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1747EF01@AcuExch.aculab.com>
+References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
+ <1408637945-10390-8-git-send-email-jiri@resnulli.us>
+ <CAGVrzcbs1yGb5RW++XZ=2PFsqUjZGVGfWx5=QQYcEX6x4WOq9Q@mail.gmail.com>
+ <20140821170645.GB10633@nanopsycho.lan>
+ <CAGVrzcb=vkqPw2LUc4YO4Bs-eady2=1uN-jkG=kW2RnGx=24PQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Venkat Venkatsubra' <venkat.x.venkatsubra@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33476 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752042AbaHVJCP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 05:02:15 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 20251-06 for <netdev@vger.kernel.org>;
- Fri, 22 Aug 2014 10:02:06 +0100 (BST)
-In-Reply-To: <b2996322-2711-466b-8c41-7f4c13c7c0dc@default>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sergey Ryazanov <ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ "jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ Neil Jerram <Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+ Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, "ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+ Jeff
+ Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+ Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+ Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
+ Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+ Aviad Raveh <aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>,
+ vyasevic <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ "Eric W. Biederman" <ebiederm@
+To: 'Florian Fainelli' <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAGVrzcb=vkqPw2LUc4YO4Bs-eady2=1uN-jkG=kW2RnGx=24PQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Venkat Venkatsubra
-> Hello All,
+From: Florian Fainelli
+> 2014-08-21 10:06 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
+> > Thu, Aug 21, 2014 at 06:56:13PM CEST, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
+> >>2014-08-21 9:19 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
+> >>> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+> >>> ---
+> >>>  net/dsa/Kconfig |  2 +-
+> >>>  net/dsa/slave.c | 16 ++++++++++++++++
+> >>>  2 files changed, 17 insertions(+), 1 deletion(-)
+> >>>
+> >>> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+> >>> index f5eede1..66c445a 100644
+> >>> --- a/net/dsa/Kconfig
+> >>> +++ b/net/dsa/Kconfig
+> >>> @@ -1,6 +1,6 @@
+> >>>  config HAVE_NET_DSA
+> >>>         def_bool y
+> >>> -       depends on NETDEVICES && !S390
+> >>> +       depends on NETDEVICES && NET_SWITCHDEV && !S390
+> >>>
+> >>>  # Drivers must select NET_DSA and the appropriate tagging format
+> >>>
+> >>> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> >>> index 45a1e34..e069ba3 100644
+> >>> --- a/net/dsa/slave.c
+> >>> +++ b/net/dsa/slave.c
+> >>> @@ -171,6 +171,19 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int
+> cmd)
+> >>>         return -EOPNOTSUPP;
+> >>>  }
+> >>>
+> >>> +static int dsa_slave_swdev_get_id(struct net_device *dev,
+> >>> +                                 struct netdev_phys_item_id *psid)
+> >>> +{
+> >>> +       struct dsa_slave_priv *p = netdev_priv(dev);
+> >>> +       struct dsa_switch *ds = p->parent;
+> >>> +       u64 tmp = (u64) ds;
+> >>> +
+> >>> +       /* TODO: add more sophisticated id generation */
+> >>> +       memcpy(&psid->id, &tmp, sizeof(tmp));
+> >>> +       psid->id_len = sizeof(tmp);
+> >>
+> >>There is already an unique id generated, which is the index in the
+> >>switch tree, and which is stored in struct dsa_switch, so this could
+> >>probably be simplified to:
+> >>
+> >>psid->id = ds->index
+> >
+> > That index is 0..n if I understand that correctly. That is not enough.
+> > The point is to have unique id for every chip in the system. If we would
+> > have 0,1,2... the collision is very likely.
 > 
-> Many of our customers have hit this order:1 failure in ipoib_cm_alloc_rx_skb causing softlockup:
-> ....
->         skb = dev_alloc_skb(IPOIB_CM_HEAD_SIZE + 12);
-> ....
+> Good point, so an unique index for DSA switches could look like the
+> DSA platform device id plus the switch index in the tree..., but then
+> we would need something like (pdev->id << N) | switch index, so that
+> would not give a consistent naming scheme across different devices.
 
-Notwithstanding any other problems, that allocation could fail even if the size were
-small enough that the entire skb would fit in one page.
-So the driver needs changing so that the allocation failure doesn't cause a deadlock.
-
-OTOH if you can't allocate 8k of contiguous address space and memory the system
-is unlikely to be working very well at all.
+Do you also need to worry about the 'lifetime' of these ids?
+In which case some of the high bits need to be used as 'generation number'.
 
 	David
+
+> Maybe we are just better with using the Linux IDR API in include/linux/idr.h?
+> --
+> Florian
