@@ -1,34 +1,71 @@
-From: "Sharma, Sanjeev" <Sanjeev_Sharma@mentor.com>
-Subject: RE: [PATCH] zd1211rw: replace ZD_ASSERT with lockdep_assert_held()
-Date: Fri, 22 Aug 2014 11:40:15 +0000
-Message-ID: <FDC088D3B5555644AE135ED28A7ABDE94DF3165A@EU-MBX-02.mgc.mentorg.com>
-References: <1407827133-29493-1-git-send-email-sanjeev_sharma@mentor.com>
-	 <FDC088D3B5555644AE135ED28A7ABDE94DF2FDC2@EU-MBX-02.mgc.mentorg.com>
-	 (sfid-20140819_083957_833442_DEE44B0A)
- <1408707084.4349.0.camel@jlt4.sipsolutions.net>
+From: Pankaj Gupta <pagupta@redhat.com>
+Subject: Re: [RFC 2/4] tuntap: Publish tuntap maximum number of queues as
+ module_param
+Date: Fri, 22 Aug 2014 07:52:22 -0400 (EDT)
+Message-ID: <175719847.27217377.1408708342392.JavaMail.zimbra@redhat.com>
+References: <1408369040-1216-1-git-send-email-pagupta@redhat.com> <1408369040-1216-3-git-send-email-pagupta@redhat.com> <20140820105817.GB1916@nanopsycho.orion> <20140820111724.GE17371@redhat.com> <53F575F8.7000208@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dsd@gentoo.org" <dsd@gentoo.org>,
-	"kune@deine-taler.de" <kune@deine-taler.de>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Jiri Pirko <jiri@resnulli.us>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net, dgibson@redhat.com,
+	vfalico@gmail.com, edumazet@google.com, vyasevic@redhat.com,
+	hkchu@google.com, wuzhy@linux.vnet.ibm.com, xemul@parallels.com,
+	therbert@google.com, bhutchings@solarflare.com, xii@google.com,
+	stephen@networkplumber.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408707084.4349.0.camel@jlt4.sipsolutions.net>
-Content-Language: en-US
+In-Reply-To: <53F575F8.7000208@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-WWVzLCBpdCBjb21waWxpbmcgc3VjY2Vzc2Z1bGx5Lg0KDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2Fn
-ZS0tLS0tDQpGcm9tOiBKb2hhbm5lcyBCZXJnIFttYWlsdG86am9oYW5uZXNAc2lwc29sdXRpb25z
-Lm5ldF0gDQpTZW50OiBGcmlkYXksIEF1Z3VzdCAyMiwgMjAxNCA1OjAxIFBNDQpUbzogU2hhcm1h
-LCBTYW5qZWV2DQpDYzogZHNkQGdlbnRvby5vcmc7IGt1bmVAZGVpbmUtdGFsZXIuZGU7IGxpbnZp
-bGxlQHR1eGRyaXZlci5jb207IGxpbnV4LXdpcmVsZXNzQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2
-QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDog
-UmU6IFtQQVRDSF0gemQxMjExcnc6IHJlcGxhY2UgWkRfQVNTRVJUIHdpdGggbG9ja2RlcF9hc3Nl
-cnRfaGVsZCgpDQoNCk9uIFR1ZSwgMjAxNC0wOC0xOSBhdCAwNjozOSArMDAwMCwgU2hhcm1hLCBT
-YW5qZWV2IHdyb3RlOg0KPiBQaW5nIGZvciByZXZpZXcgdGhlIHBhdGNoLg0KDQpNYWtlIHN1cmUg
-aXQgY29tcGlsZXMgLi4uDQoNCg0KDQo=
+
+> 
+> On 08/20/2014 07:17 PM, Michael S. Tsirkin wrote:
+> > On Wed, Aug 20, 2014 at 12:58:17PM +0200, Jiri Pirko wrote:
+> >> > Mon, Aug 18, 2014 at 03:37:18PM CEST, pagupta@redhat.com wrote:
+> >>> > > This patch publishes maximum number of tun/tap queues allocated as a
+> >>> > > read_only module parameter which a user space application like
+> >>> > > libvirt
+> >>> > > can make use of to limit maximum number of queues. Value of read_only
+> >>> > > module parameter can be writable only at module load time. If no
+> >>> > > value is set
+> >>> > > at module load time a default value 256 is used which is equal to
+> >>> > > maximum number
+> >>> > > of vCPUS allowed by KVM.
+> >>> > >
+> >>> > > Administrator can specify maximum number of queues only at the driver
+> >>> > > module load time.
+> >>> > >
+> >>> > >Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
+> >>> > >---
+> >>> > > drivers/net/tun.c |   13 +++++++++++--
+> >>> > > 1 files changed, 11 insertions(+), 2 deletions(-)
+> >>> > >
+> >>> > >diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> >>> > >index acaaf67..1f518e2 100644
+> >>> > >--- a/drivers/net/tun.c
+> >>> > >+++ b/drivers/net/tun.c
+> >>> > >@@ -119,6 +119,9 @@ struct tap_filter {
+> >>> > > 
+> >>> > > #define TUN_FLOW_EXPIRE (3 * HZ)
+> >>> > > 
+> >>> > >+static int max_tap_queues = MAX_TAP_QUEUES;
+> >>> > >+module_param(max_tap_queues, int, S_IRUGO);
+> >> > 
+> >> > Please do not introduce new module paramaters. Please other ways to
+> >> > interchange values with userspace.
+> > I suggested this initially, but thinking more about it, I agree.
+> >
+> > It's a global limit (necessary to limit memory utilization by
+> > userspace), but it should be possible to change it
+> > after module load.
+> 
+> How about pass this limit through ifr during TUNSETIFF, then
+> alloc_netdev_mq() can use this limit.
+
+Any other ideas/comments from the experts. Or shall I re-repost other patches 
+in the series except this patch until we agree on one.
+
+> 
