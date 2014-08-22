@@ -1,71 +1,44 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH] ibmveth: Fix endian issues with rx_no_buffer statistic
-Date: Fri, 22 Aug 2014 11:36:52 +1000
-Message-ID: <20140822113652.7e4bdc78@kryten>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: TCP output handling bug ?
+Date: Thu, 21 Aug 2014 22:13:41 -0400
+Message-ID: <20140822021341.GB14353@redhat.com>
+References: <20140821190208.208e0de1@www.etchedpixels.co.uk>
+ <20140821172445.7c1ba422@uryu.home.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
-To: santil@linux.vnet.ibm.com, paulus@samba.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:47649 "EHLO ozlabs.org"
+Received: from mx1.redhat.com ([209.132.183.28]:42189 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755703AbaHVBgx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Aug 2014 21:36:53 -0400
+	id S1752757AbaHVCN7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Aug 2014 22:13:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20140821172445.7c1ba422@uryu.home.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hidden away in the last 8 bytes of the buffer_list page is a solitary
-statistic. It needs to be byte swapped or else ethtool -S will
-produce numbers that terrify the user.
+On Thu, Aug 21, 2014 at 05:24:45PM -0700, Stephen Hemminger wrote:
+ > On Thu, 21 Aug 2014 19:02:08 +0100
+ > Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
+ > 
+ > > 
+ > > tcp_send_syn_data:
+ > > 
+ > >         TCP_SKB_CB(data)->tcp_flags &= ~TCPHDR_SYN;
+ > >         TCP_SKB_CB(data)->tcp_flags = (TCPHDR_ACK|TCPHDR_PSH);
+ > > 
+ > > the reporter has a point 8)
+ > > 
+ > > https://bugzilla.kernel.org/show_bug.cgi?id=82101
+ > 
+ > I wonder if covertity or smatch could be smart enough to catch this kind of bug?
 
-Since we do this in multiple places, create a helper function with a
-comment explaining what is going on.
+For coverity: it should be, but isn't :)
+I've pointed them at the bugzilla, maybe they can add a check in a
+future update.
 
-Signed-off-by: Anton Blanchard <anton@samba.org>
-Cc: stable@vger.kernel.org
----
+I bet this isn't the only instance of a bug like this left in the tree.
+We've definitely had similar cases before.
 
-Index: b/drivers/net/ethernet/ibm/ibmveth.c
-===================================================================
---- a/drivers/net/ethernet/ibm/ibmveth.c
-+++ b/drivers/net/ethernet/ibm/ibmveth.c
-@@ -292,6 +292,18 @@ failure:
- 	atomic_add(buffers_added, &(pool->available));
- }
- 
-+/*
-+ * The final 8 bytes of the buffer list is a counter of frames dropped
-+ * because there was not a buffer in the buffer list capable of holding
-+ * the frame.
-+ */
-+static void ibmveth_update_rx_no_buffer(struct ibmveth_adapter *adapter)
-+{
-+	__be64 *p = adapter->buffer_list_addr + 4096 - 8;
-+
-+	adapter->rx_no_buffer = be64_to_cpup(p);
-+}
-+
- /* replenish routine */
- static void ibmveth_replenish_task(struct ibmveth_adapter *adapter)
- {
-@@ -307,8 +319,7 @@ static void ibmveth_replenish_task(struc
- 			ibmveth_replenish_buffer_pool(adapter, pool);
- 	}
- 
--	adapter->rx_no_buffer = *(u64 *)(((char*)adapter->buffer_list_addr) +
--						4096 - 8);
-+	ibmveth_update_rx_no_buffer(adapter);
- }
- 
- /* empty and free ana buffer pool - also used to do cleanup in error paths */
-@@ -698,8 +709,7 @@ static int ibmveth_close(struct net_devi
- 
- 	free_irq(netdev->irq, netdev);
- 
--	adapter->rx_no_buffer = *(u64 *)(((char *)adapter->buffer_list_addr) +
--						4096 - 8);
-+	ibmveth_update_rx_no_buffer(adapter);
- 
- 	ibmveth_cleanup(adapter);
- 
+	Dave
