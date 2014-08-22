@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 06/17] tipc: clean up socket
-	timer function
-Date: Fri, 22 Aug 2014 18:09:09 -0400
-Message-ID: <1408745360-23560-7-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 16/17] tipc: remove files ref.h
+	and ref.c
+Date: Fri, 22 Aug 2014 18:09:19 -0400
+Message-ID: <1408745360-23560-17-git-send-email-jon.maloy@ericsson.com>
 References: <1408745360-23560-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,290 +23,716 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The last remaining BH upcall to the socket, apart for the message
-reception function tipc_sk_rcv(), is the timer function.
+The reference table is now 'socket aware' instead of being generic,
+and has in reality become a socket internal table. In order to be
+able to minimize the API exposed by the socket layer towards the rest
+of the stack, we now move the reference table definitions and functions
+into the file socket.c, and rename the functions accordingly.
 
-We prefer to let this function continue executing in BH, since it only
-does read-acces to semi-permanent data, but we make three changes to it:
-
-1) We introduce a bh_lock_sock()/bh_unlock_sock() inside the scope
-   of port_lock.  This is a preparation for replacing port_lock with
-   bh_lock_sock() at the locations where it is still used.
-
-2) We move the function from port.c to socket.c, as a further step
-   of eliminating the port code level altogether.
-
-3) We let it make use of the newly introduced tipc_msg_create()
-   function. This enables us to get rid of three context specific
-   functions (port_create_self_abort_msg() etc.) in port.c
+There are no functional changes in this commit.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/port.c   |  126 ++++++++++-------------------------------------------
- net/tipc/socket.c |   46 +++++++++++++++++++
- 2 files changed, 69 insertions(+), 103 deletions(-)
+ net/tipc/Makefile |    2 +-
+ net/tipc/core.c   |    7 +-
+ net/tipc/ref.c    |  270 -----------------------------------------------------
+ net/tipc/ref.h    |   56 -----------
+ net/tipc/socket.c |  247 +++++++++++++++++++++++++++++++++++++++++++++++-
+ net/tipc/socket.h |    2 +
+ 6 files changed, 250 insertions(+), 334 deletions(-)
+ delete mode 100644 net/tipc/ref.c
+ delete mode 100644 net/tipc/ref.h
 
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index edbd83d..6de79f2 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -48,9 +48,6 @@
- DEFINE_SPINLOCK(tipc_port_list_lock);
+diff --git a/net/tipc/Makefile b/net/tipc/Makefile
+index 5206a44..b8a13ca 100644
+--- a/net/tipc/Makefile
++++ b/net/tipc/Makefile
+@@ -7,7 +7,7 @@ obj-$(CONFIG_TIPC) := tipc.o
+ tipc-y	+= addr.o bcast.o bearer.o config.o \
+ 	   core.o link.o discover.o msg.o  \
+ 	   name_distr.o  subscr.o name_table.o net.o  \
+-	   netlink.o node.o node_subscr.o ref.o  \
++	   netlink.o node.o node_subscr.o \
+ 	   socket.o log.o eth_media.o server.o
  
- static LIST_HEAD(ports);
--static struct sk_buff *port_build_self_abort_msg(struct tipc_port *, u32 err);
--static struct sk_buff *port_build_peer_abort_msg(struct tipc_port *, u32 err);
--static void port_timeout(unsigned long ref);
+ tipc-$(CONFIG_TIPC_MEDIA_IB)	+= ib_media.o
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index b3b03ef..a5737b8 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -35,7 +35,6 @@
+  */
  
- /**
-  * tipc_port_peer_msg - verify message was sent by connected port's peer
-@@ -92,7 +89,6 @@ u32 tipc_port_init(struct tipc_port *p_ptr,
- 	p_ptr->max_pkt = MAX_PKT_DEFAULT;
- 	p_ptr->ref = ref;
- 	INIT_LIST_HEAD(&p_ptr->subscription.nodesub_list);
--	k_init_timer(&p_ptr->timer, (Handler)port_timeout, ref);
- 	INIT_LIST_HEAD(&p_ptr->publications);
- 	INIT_LIST_HEAD(&p_ptr->port_list);
- 
-@@ -114,7 +110,7 @@ void tipc_port_destroy(struct tipc_port *p_ptr)
- {
- 	struct sk_buff *buf = NULL;
- 	struct tipc_msg *msg = NULL;
--	u32 peer;
-+	u32 peer_node;
- 
- 	tipc_withdraw(p_ptr, 0, NULL);
- 
-@@ -124,11 +120,16 @@ void tipc_port_destroy(struct tipc_port *p_ptr)
- 
- 	k_cancel_timer(&p_ptr->timer);
- 	if (p_ptr->connected) {
--		buf = port_build_peer_abort_msg(p_ptr, TIPC_ERR_NO_PORT);
--		msg = buf_msg(buf);
--		peer = msg_destnode(msg);
--		tipc_link_xmit(buf, peer, msg_link_selector(msg));
--		tipc_node_remove_conn(peer, p_ptr->ref);
-+		peer_node = tipc_port_peernode(p_ptr);
-+		buf = tipc_msg_create(TIPC_CRITICAL_IMPORTANCE, TIPC_CONN_MSG,
-+				      SHORT_H_SIZE, 0, peer_node,
-+				      tipc_own_addr, tipc_port_peerport(p_ptr),
-+				      p_ptr->ref, TIPC_ERR_NO_PORT);
-+		if (buf) {
-+			msg = buf_msg(buf);
-+			tipc_link_xmit(buf, peer_node, msg_link_selector(msg));
-+		}
-+		tipc_node_remove_conn(peer_node, p_ptr->ref);
- 	}
- 	spin_lock_bh(&tipc_port_list_lock);
- 	list_del(&p_ptr->port_list);
-@@ -136,94 +137,6 @@ void tipc_port_destroy(struct tipc_port *p_ptr)
- 	k_term_timer(&p_ptr->timer);
+ #include "core.h"
+-#include "ref.h"
+ #include "name_table.h"
+ #include "subscr.h"
+ #include "config.h"
+@@ -85,7 +84,7 @@ static void tipc_core_stop(void)
+ 	tipc_netlink_stop();
+ 	tipc_subscr_stop();
+ 	tipc_nametbl_stop();
+-	tipc_ref_table_stop();
++	tipc_sk_ref_table_stop();
+ 	tipc_socket_stop();
+ 	tipc_unregister_sysctl();
  }
+@@ -99,7 +98,7 @@ static int tipc_core_start(void)
  
+ 	get_random_bytes(&tipc_random, sizeof(tipc_random));
+ 
+-	err = tipc_ref_table_init(tipc_max_ports, tipc_random);
++	err = tipc_sk_ref_table_init(tipc_max_ports, tipc_random);
+ 	if (err)
+ 		goto out_reftbl;
+ 
+@@ -139,7 +138,7 @@ out_socket:
+ out_netlink:
+ 	tipc_nametbl_stop();
+ out_nametbl:
+-	tipc_ref_table_stop();
++	tipc_sk_ref_table_stop();
+ out_reftbl:
+ 	return err;
+ }
+diff --git a/net/tipc/ref.c b/net/tipc/ref.c
+deleted file mode 100644
+index ea981be..0000000
+--- a/net/tipc/ref.c
++++ /dev/null
+@@ -1,270 +0,0 @@
 -/*
-- * port_build_proto_msg(): create connection protocol message for port
+- * net/tipc/ref.c: TIPC socket registry code
 - *
-- * On entry the port must be locked and connected.
+- * Copyright (c) 1991-2006, 2014, Ericsson AB
+- * Copyright (c) 2004-2007, Wind River Systems
+- * All rights reserved.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions are met:
+- *
+- * 1. Redistributions of source code must retain the above copyright
+- *    notice, this list of conditions and the following disclaimer.
+- * 2. Redistributions in binary form must reproduce the above copyright
+- *    notice, this list of conditions and the following disclaimer in the
+- *    documentation and/or other materials provided with the distribution.
+- * 3. Neither the names of the copyright holders nor the names of its
+- *    contributors may be used to endorse or promote products derived from
+- *    this software without specific prior written permission.
+- *
+- * Alternatively, this software may be distributed under the terms of the
+- * GNU General Public License ("GPL") version 2 as published by the Free
+- * Software Foundation.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+- * POSSIBILITY OF SUCH DAMAGE.
 - */
--static struct sk_buff *port_build_proto_msg(struct tipc_port *p_ptr,
--					    u32 type, u32 ack)
--{
--	struct sk_buff *buf;
--	struct tipc_msg *msg;
 -
--	buf = tipc_buf_acquire(INT_H_SIZE);
--	if (buf) {
--		msg = buf_msg(buf);
--		tipc_msg_init(msg, CONN_MANAGER, type, INT_H_SIZE,
--			      tipc_port_peernode(p_ptr));
--		msg_set_destport(msg, tipc_port_peerport(p_ptr));
--		msg_set_origport(msg, p_ptr->ref);
--		msg_set_msgcnt(msg, ack);
--		buf->next = NULL;
--	}
--	return buf;
+-#include "core.h"
+-#include "ref.h"
+-
+-/**
+- * struct reference - TIPC socket reference entry
+- * @tsk: pointer to socket associated with reference entry
+- * @ref: reference value for socket (combines instance & array index info)
+- */
+-struct reference {
+-	struct tipc_sock *tsk;
+-	u32 ref;
+-};
+-
+-/**
+- * struct tipc_ref_table - table of TIPC socket reference entries
+- * @entries: pointer to array of reference entries
+- * @capacity: array index of first unusable entry
+- * @init_point: array index of first uninitialized entry
+- * @first_free: array index of first unused socket reference entry
+- * @last_free: array index of last unused socket reference entry
+- * @index_mask: bitmask for array index portion of reference values
+- * @start_mask: initial value for instance value portion of reference values
+- */
+-struct ref_table {
+-	struct reference *entries;
+-	u32 capacity;
+-	u32 init_point;
+-	u32 first_free;
+-	u32 last_free;
+-	u32 index_mask;
+-	u32 start_mask;
+-};
+-
+-/*
+- * Socket reference table consists of 2**N entries.
+- *
+- * State	Socket ptr	Reference
+- * -----        ----------      ---------
+- * In use        non-NULL       XXXX|own index
+- *				(XXXX changes each time entry is acquired)
+- * Free            NULL         YYYY|next free index
+- *				(YYYY is one more than last used XXXX)
+- * Uninitialized   NULL         0
+- *
+- * Entry 0 is not used; this allows index 0 to denote the end of the free list.
+- *
+- * Note that a reference value of 0 does not necessarily indicate that an
+- * entry is uninitialized, since the last entry in the free list could also
+- * have a reference value of 0 (although this is unlikely).
+- */
+-
+-static struct ref_table tipc_ref_table;
+-
+-static DEFINE_RWLOCK(ref_table_lock);
+-
+-/**
+- * tipc_ref_table_init - create reference table for sockets
+- */
+-int tipc_ref_table_init(u32 requested_size, u32 start)
+-{
+-	struct reference *table;
+-	u32 actual_size;
+-
+-	/* account for unused entry, then round up size to a power of 2 */
+-
+-	requested_size++;
+-	for (actual_size = 16; actual_size < requested_size; actual_size <<= 1)
+-		/* do nothing */ ;
+-
+-	/* allocate table & mark all entries as uninitialized */
+-	table = vzalloc(actual_size * sizeof(struct reference));
+-	if (table == NULL)
+-		return -ENOMEM;
+-
+-	tipc_ref_table.entries = table;
+-	tipc_ref_table.capacity = requested_size;
+-	tipc_ref_table.init_point = 1;
+-	tipc_ref_table.first_free = 0;
+-	tipc_ref_table.last_free = 0;
+-	tipc_ref_table.index_mask = actual_size - 1;
+-	tipc_ref_table.start_mask = start & ~tipc_ref_table.index_mask;
+-
+-	return 0;
 -}
 -
--static void port_timeout(unsigned long ref)
+-/**
+- * tipc_ref_table_stop - destroy reference table for sockets
+- */
+-void tipc_ref_table_stop(void)
 -{
--	struct tipc_port *p_ptr = tipc_port_lock(ref);
--	struct sk_buff *buf = NULL;
--	struct tipc_msg *msg = NULL;
--
--	if (!p_ptr)
+-	if (!tipc_ref_table.entries)
 -		return;
+-	vfree(tipc_ref_table.entries);
+-	tipc_ref_table.entries = NULL;
+-}
 -
--	if (!p_ptr->connected) {
--		tipc_port_unlock(p_ptr);
+-/* tipc_ref_acquire - create reference to a socket
+- *
+- * Register an socket pointer in the reference table.
+- * Returns a unique reference value that is used from then on to retrieve the
+- * socket pointer, or to determine if the socket has been deregistered.
+- */
+-u32 tipc_ref_acquire(struct tipc_sock *tsk)
+-{
+-	u32 index;
+-	u32 index_mask;
+-	u32 next_plus_upper;
+-	u32 ref = 0;
+-	struct reference *entry;
+-
+-	if (unlikely(!tsk)) {
+-		pr_err("Attempt to acquire ref. to non-existent obj\n");
+-		return 0;
+-	}
+-	if (unlikely(!tipc_ref_table.entries)) {
+-		pr_err("Ref. table not found in acquisition attempt\n");
+-		return 0;
+-	}
+-
+-	/* Take a free entry, if available; otherwise initialize a new one */
+-	write_lock_bh(&ref_table_lock);
+-	index = tipc_ref_table.first_free;
+-	entry = &tipc_ref_table.entries[index];
+-
+-	if (likely(index)) {
+-		index = tipc_ref_table.first_free;
+-		entry = &(tipc_ref_table.entries[index]);
+-		index_mask = tipc_ref_table.index_mask;
+-		next_plus_upper = entry->ref;
+-		tipc_ref_table.first_free = next_plus_upper & index_mask;
+-		ref = (next_plus_upper & ~index_mask) + index;
+-		entry->tsk = tsk;
+-	} else if (tipc_ref_table.init_point < tipc_ref_table.capacity) {
+-		index = tipc_ref_table.init_point++;
+-		entry = &(tipc_ref_table.entries[index]);
+-		ref = tipc_ref_table.start_mask + index;
+-	}
+-
+-	if (ref) {
+-		entry->ref = ref;
+-		entry->tsk = tsk;
+-	}
+-	write_unlock_bh(&ref_table_lock);
+-	return ref;
+-}
+-
+-/* tipc_ref_discard - invalidate reference to an socket
+- *
+- * Disallow future references to an socket and free up the entry for re-use.
+- */
+-void tipc_ref_discard(u32 ref)
+-{
+-	struct reference *entry;
+-	u32 index;
+-	u32 index_mask;
+-
+-	if (unlikely(!tipc_ref_table.entries)) {
+-		pr_err("Ref. table not found during discard attempt\n");
 -		return;
 -	}
 -
--	/* Last probe answered ? */
--	if (p_ptr->probing_state == TIPC_CONN_PROBING) {
--		buf = port_build_self_abort_msg(p_ptr, TIPC_ERR_NO_PORT);
--	} else {
--		buf = port_build_proto_msg(p_ptr, CONN_PROBE, 0);
--		p_ptr->probing_state = TIPC_CONN_PROBING;
--		k_start_timer(&p_ptr->timer, p_ptr->probing_interval);
+-	index_mask = tipc_ref_table.index_mask;
+-	index = ref & index_mask;
+-	entry = &(tipc_ref_table.entries[index]);
+-
+-	write_lock_bh(&ref_table_lock);
+-
+-	if (unlikely(!entry->tsk)) {
+-		pr_err("Attempt to discard ref. to non-existent socket\n");
+-		goto exit;
 -	}
--	tipc_port_unlock(p_ptr);
--	msg = buf_msg(buf);
--	tipc_link_xmit(buf, msg_destnode(msg),	msg_link_selector(msg));
+-	if (unlikely(entry->ref != ref)) {
+-		pr_err("Attempt to discard non-existent reference\n");
+-		goto exit;
+-	}
+-
+-	/*
+-	 * Mark entry as unused; increment instance part of entry's reference
+-	 * to invalidate any subsequent references
+-	 */
+-	entry->tsk = NULL;
+-	entry->ref = (ref & ~index_mask) + (index_mask + 1);
+-
+-	/* Append entry to free entry list */
+-	if (unlikely(tipc_ref_table.first_free == 0))
+-		tipc_ref_table.first_free = index;
+-	else
+-		tipc_ref_table.entries[tipc_ref_table.last_free].ref |= index;
+-	tipc_ref_table.last_free = index;
+-exit:
+-	write_unlock_bh(&ref_table_lock);
 -}
 -
--static struct sk_buff *port_build_self_abort_msg(struct tipc_port *p_ptr, u32 err)
+-/* tipc_sk_get - find referenced socket and return pointer to it
+- */
+-struct tipc_sock *tipc_sk_get(u32 ref)
 -{
--	struct sk_buff *buf = port_build_peer_abort_msg(p_ptr, err);
+-	struct reference *entry;
+-	struct tipc_sock *tsk;
 -
--	if (buf) {
--		struct tipc_msg *msg = buf_msg(buf);
--		msg_swap_words(msg, 4, 5);
--		msg_swap_words(msg, 6, 7);
--		buf->next = NULL;
--	}
--	return buf;
--}
--
--static struct sk_buff *port_build_peer_abort_msg(struct tipc_port *p_ptr, u32 err)
--{
--	struct sk_buff *buf;
--	struct tipc_msg *msg;
--	u32 imp;
--
--	if (!p_ptr->connected)
+-	if (unlikely(!tipc_ref_table.entries))
 -		return NULL;
--
--	buf = tipc_buf_acquire(BASIC_H_SIZE);
--	if (buf) {
--		msg = buf_msg(buf);
--		memcpy(msg, &p_ptr->phdr, BASIC_H_SIZE);
--		msg_set_hdr_sz(msg, BASIC_H_SIZE);
--		msg_set_size(msg, BASIC_H_SIZE);
--		imp = msg_importance(msg);
--		if (imp < TIPC_CRITICAL_IMPORTANCE)
--			msg_set_importance(msg, ++imp);
--		msg_set_errcode(msg, err);
--		buf->next = NULL;
--	}
--	return buf;
+-	read_lock_bh(&ref_table_lock);
+-	entry = &tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
+-	tsk = entry->tsk;
+-	if (likely(tsk && (entry->ref == ref)))
+-		sock_hold(&tsk->sk);
+-	else
+-		tsk = NULL;
+-	read_unlock_bh(&ref_table_lock);
+-	return tsk;
 -}
 -
- static int port_print(struct tipc_port *p_ptr, char *buf, int len, int full_id)
- {
- 	struct publication *publ;
-@@ -321,12 +234,15 @@ void tipc_acknowledge(u32 ref, u32 ack)
- 	if (!p_ptr)
- 		return;
- 	if (p_ptr->connected)
--		buf = port_build_proto_msg(p_ptr, CONN_ACK, ack);
+-/* tipc_sk_get_next - lock & return next socket after referenced one
+-*/
+-struct tipc_sock *tipc_sk_get_next(u32 *ref)
+-{
+-	struct reference *entry;
+-	struct tipc_sock *tsk = NULL;
+-	uint index = *ref & tipc_ref_table.index_mask;
 -
-+		buf = tipc_msg_create(CONN_MANAGER, CONN_ACK, INT_H_SIZE,
-+				      0, tipc_port_peernode(p_ptr),
-+				      tipc_own_addr, tipc_port_peerport(p_ptr),
-+				      p_ptr->ref, TIPC_OK);
- 	tipc_port_unlock(p_ptr);
- 	if (!buf)
- 		return;
- 	msg = buf_msg(buf);
-+	msg_set_msgcnt(msg, ack);
- 	tipc_link_xmit(buf, msg_destnode(msg),	msg_link_selector(msg));
- }
- 
-@@ -478,14 +394,18 @@ int tipc_port_shutdown(u32 ref)
- 	struct tipc_msg *msg;
- 	struct tipc_port *p_ptr;
- 	struct sk_buff *buf = NULL;
-+	u32 peer_node;
- 
- 	p_ptr = tipc_port_lock(ref);
- 	if (!p_ptr)
- 		return -EINVAL;
+-	read_lock_bh(&ref_table_lock);
+-	while (++index < tipc_ref_table.capacity) {
+-		entry = &tipc_ref_table.entries[index];
+-		if (!entry->tsk)
+-			continue;
+-		tsk = entry->tsk;
+-		sock_hold(&tsk->sk);
+-		*ref = entry->ref;
+-		break;
+-	}
+-	read_unlock_bh(&ref_table_lock);
+-	return tsk;
+-}
+diff --git a/net/tipc/ref.h b/net/tipc/ref.h
+deleted file mode 100644
+index 2b75a89..0000000
+--- a/net/tipc/ref.h
++++ /dev/null
+@@ -1,56 +0,0 @@
+-/*
+- * net/tipc/ref.h: Include file for TIPC object registry code
+- *
+- * Copyright (c) 1991-2006, 2014, Ericsson AB
+- * Copyright (c) 2005-2006, Wind River Systems
+- * All rights reserved.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions are met:
+- *
+- * 1. Redistributions of source code must retain the above copyright
+- *    notice, this list of conditions and the following disclaimer.
+- * 2. Redistributions in binary form must reproduce the above copyright
+- *    notice, this list of conditions and the following disclaimer in the
+- *    documentation and/or other materials provided with the distribution.
+- * 3. Neither the names of the copyright holders nor the names of its
+- *    contributors may be used to endorse or promote products derived from
+- *    this software without specific prior written permission.
+- *
+- * Alternatively, this software may be distributed under the terms of the
+- * GNU General Public License ("GPL") version 2 as published by the Free
+- * Software Foundation.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+- * POSSIBILITY OF SUCH DAMAGE.
+- */
 -
--	buf = port_build_peer_abort_msg(p_ptr, TIPC_CONN_SHUTDOWN);
-+	peer_node = tipc_port_peernode(p_ptr);
-+	buf = tipc_msg_create(TIPC_CRITICAL_IMPORTANCE, TIPC_CONN_MSG,
-+			      SHORT_H_SIZE, 0, peer_node,
-+			      tipc_own_addr, tipc_port_peerport(p_ptr),
-+			      p_ptr->ref, TIPC_CONN_SHUTDOWN);
- 	tipc_port_unlock(p_ptr);
- 	msg = buf_msg(buf);
--	tipc_link_xmit(buf, msg_destnode(msg),	msg_link_selector(msg));
-+	tipc_link_xmit(buf, peer_node,	msg_link_selector(msg));
- 	return tipc_port_disconnect(ref);
- }
+-#ifndef _TIPC_REF_H
+-#define _TIPC_REF_H
+-
+-#include "socket.h"
+-
+-int tipc_ref_table_init(u32 requested_size, u32 start);
+-void tipc_ref_table_stop(void);
+-
+-u32 tipc_ref_acquire(struct tipc_sock *tsk);
+-void tipc_ref_discard(u32 ref);
+-
+-struct tipc_sock *tipc_sk_get(u32 ref);
+-struct tipc_sock *tipc_sk_get_next(u32 *ref);
+-
+-static inline void tipc_sk_put(struct tipc_sock *tsk)
+-{
+-	sock_put(&tsk->sk);
+-}
+-
+-#endif
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index a8be4d2..5f8376e 100644
+index 70eacea..6a69967 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -53,6 +53,7 @@ static void tipc_write_space(struct sock *sk);
- static int tipc_release(struct socket *sock);
- static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags);
- static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p);
-+static void tipc_sk_timeout(unsigned long ref);
+@@ -35,7 +35,6 @@
+  */
+ 
+ #include "core.h"
+-#include "ref.h"
+ #include "name_table.h"
+ #include "node.h"
+ #include "link.h"
+@@ -61,6 +60,11 @@ static int tipc_sk_publish(struct tipc_port *port, uint scope,
+ 			   struct tipc_name_seq const *seq);
+ static int tipc_sk_withdraw(struct tipc_port *port, uint scope,
+ 			    struct tipc_name_seq const *seq);
++static u32 tipc_sk_ref_acquire(struct tipc_sock *tsk);
++static void tipc_sk_ref_discard(u32 ref);
++static struct tipc_sock *tipc_sk_get(u32 ref);
++static struct tipc_sock *tipc_sk_get_next(u32 *ref);
++static void tipc_sk_put(struct tipc_sock *tsk);
  
  static const struct proto_ops packet_ops;
  static const struct proto_ops stream_ops;
-@@ -202,6 +203,7 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
- 	sock->state = state;
+@@ -271,7 +275,7 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
  
- 	sock_init_data(sock, sk);
-+	k_init_timer(&port->timer, (Handler)tipc_sk_timeout, ref);
- 	sk->sk_backlog_rcv = tipc_backlog_rcv;
- 	sk->sk_rcvbuf = sysctl_tipc_rmem[1];
- 	sk->sk_data_ready = tipc_data_ready;
-@@ -1946,6 +1948,50 @@ restart:
- 	return res;
+ 	tsk = tipc_sk(sk);
+ 	port = &tsk->port;
+-	ref = tipc_ref_acquire(tsk);
++	ref = tipc_sk_ref_acquire(tsk);
+ 	if (!ref) {
+ 		pr_warn("Socket create failed; reference table exhausted\n");
+ 		return -ENOMEM;
+@@ -434,7 +438,7 @@ static int tipc_release(struct socket *sock)
+ 	}
+ 
+ 	tipc_sk_withdraw(port, 0, NULL);
+-	tipc_ref_discard(port->ref);
++	tipc_sk_ref_discard(port->ref);
+ 	k_cancel_timer(&port->timer);
+ 	if (port->connected) {
+ 		buf = tipc_msg_create(TIPC_CRITICAL_IMPORTANCE, TIPC_CONN_MSG,
+@@ -2254,6 +2258,243 @@ void tipc_sk_reinit(void)
  }
  
-+static void tipc_sk_timeout(unsigned long ref)
-+{
-+	struct tipc_port *port = tipc_port_lock(ref);
+ /**
++ * struct reference - TIPC socket reference entry
++ * @tsk: pointer to socket associated with reference entry
++ * @ref: reference value for socket (combines instance & array index info)
++ */
++struct reference {
 +	struct tipc_sock *tsk;
-+	struct sock *sk;
-+	struct sk_buff *buf = NULL;
-+	struct tipc_msg *msg = NULL;
-+	u32 peer_port, peer_node;
++	u32 ref;
++};
 +
-+	if (!port)
-+		return;
++/**
++ * struct tipc_ref_table - table of TIPC socket reference entries
++ * @entries: pointer to array of reference entries
++ * @capacity: array index of first unusable entry
++ * @init_point: array index of first uninitialized entry
++ * @first_free: array index of first unused socket reference entry
++ * @last_free: array index of last unused socket reference entry
++ * @index_mask: bitmask for array index portion of reference values
++ * @start_mask: initial value for instance value portion of reference values
++ */
++struct ref_table {
++	struct reference *entries;
++	u32 capacity;
++	u32 init_point;
++	u32 first_free;
++	u32 last_free;
++	u32 index_mask;
++	u32 start_mask;
++};
 +
-+	if (!port->connected) {
-+		tipc_port_unlock(port);
-+		return;
-+	}
-+	tsk = tipc_port_to_sock(port);
-+	sk = &tsk->sk;
-+	bh_lock_sock(sk);
-+	peer_port = tipc_port_peerport(port);
-+	peer_node = tipc_port_peernode(port);
++/* Socket reference table consists of 2**N entries.
++ *
++ * State	Socket ptr	Reference
++ * -----        ----------      ---------
++ * In use        non-NULL       XXXX|own index
++ *				(XXXX changes each time entry is acquired)
++ * Free            NULL         YYYY|next free index
++ *				(YYYY is one more than last used XXXX)
++ * Uninitialized   NULL         0
++ *
++ * Entry 0 is not used; this allows index 0 to denote the end of the free list.
++ *
++ * Note that a reference value of 0 does not necessarily indicate that an
++ * entry is uninitialized, since the last entry in the free list could also
++ * have a reference value of 0 (although this is unlikely).
++ */
 +
-+	if (port->probing_state == TIPC_CONN_PROBING) {
-+		/* Previous probe not answered -> self abort */
-+		buf = tipc_msg_create(TIPC_CRITICAL_IMPORTANCE, TIPC_CONN_MSG,
-+				      SHORT_H_SIZE, 0, tipc_own_addr,
-+				      peer_node, ref, peer_port,
-+				      TIPC_ERR_NO_PORT);
-+	} else {
-+		buf = tipc_msg_create(CONN_MANAGER, CONN_PROBE, INT_H_SIZE,
-+				      0, peer_node, tipc_own_addr,
-+				      peer_port, ref, TIPC_OK);
-+		port->probing_state = TIPC_CONN_PROBING;
-+		k_start_timer(&port->timer, port->probing_interval);
-+	}
-+	bh_unlock_sock(sk);
-+	tipc_port_unlock(port);
-+	if (!buf)
-+		return;
++static struct ref_table tipc_ref_table;
 +
-+	msg = buf_msg(buf);
-+	tipc_link_xmit(buf, msg_destnode(msg),	msg_link_selector(msg));
++static DEFINE_RWLOCK(ref_table_lock);
++
++/**
++ * tipc_ref_table_init - create reference table for sockets
++ */
++int tipc_sk_ref_table_init(u32 req_sz, u32 start)
++{
++	struct reference *table;
++	u32 actual_sz;
++
++	/* account for unused entry, then round up size to a power of 2 */
++
++	req_sz++;
++	for (actual_sz = 16; actual_sz < req_sz; actual_sz <<= 1) {
++		/* do nothing */
++	};
++
++	/* allocate table & mark all entries as uninitialized */
++	table = vzalloc(actual_sz * sizeof(struct reference));
++	if (table == NULL)
++		return -ENOMEM;
++
++	tipc_ref_table.entries = table;
++	tipc_ref_table.capacity = req_sz;
++	tipc_ref_table.init_point = 1;
++	tipc_ref_table.first_free = 0;
++	tipc_ref_table.last_free = 0;
++	tipc_ref_table.index_mask = actual_sz - 1;
++	tipc_ref_table.start_mask = start & ~tipc_ref_table.index_mask;
++
++	return 0;
 +}
 +
- /**
++/**
++ * tipc_ref_table_stop - destroy reference table for sockets
++ */
++void tipc_sk_ref_table_stop(void)
++{
++	if (!tipc_ref_table.entries)
++		return;
++	vfree(tipc_ref_table.entries);
++	tipc_ref_table.entries = NULL;
++}
++
++/* tipc_ref_acquire - create reference to a socket
++ *
++ * Register an socket pointer in the reference table.
++ * Returns a unique reference value that is used from then on to retrieve the
++ * socket pointer, or to determine if the socket has been deregistered.
++ */
++u32 tipc_sk_ref_acquire(struct tipc_sock *tsk)
++{
++	u32 index;
++	u32 index_mask;
++	u32 next_plus_upper;
++	u32 ref = 0;
++	struct reference *entry;
++
++	if (unlikely(!tsk)) {
++		pr_err("Attempt to acquire ref. to non-existent obj\n");
++		return 0;
++	}
++	if (unlikely(!tipc_ref_table.entries)) {
++		pr_err("Ref. table not found in acquisition attempt\n");
++		return 0;
++	}
++
++	/* Take a free entry, if available; otherwise initialize a new one */
++	write_lock_bh(&ref_table_lock);
++	index = tipc_ref_table.first_free;
++	entry = &tipc_ref_table.entries[index];
++
++	if (likely(index)) {
++		index = tipc_ref_table.first_free;
++		entry = &tipc_ref_table.entries[index];
++		index_mask = tipc_ref_table.index_mask;
++		next_plus_upper = entry->ref;
++		tipc_ref_table.first_free = next_plus_upper & index_mask;
++		ref = (next_plus_upper & ~index_mask) + index;
++		entry->tsk = tsk;
++	} else if (tipc_ref_table.init_point < tipc_ref_table.capacity) {
++		index = tipc_ref_table.init_point++;
++		entry = &tipc_ref_table.entries[index];
++		ref = tipc_ref_table.start_mask + index;
++	}
++
++	if (ref) {
++		entry->ref = ref;
++		entry->tsk = tsk;
++	}
++	write_unlock_bh(&ref_table_lock);
++	return ref;
++}
++
++/* tipc_sk_ref_discard - invalidate reference to an socket
++ *
++ * Disallow future references to an socket and free up the entry for re-use.
++ */
++void tipc_sk_ref_discard(u32 ref)
++{
++	struct reference *entry;
++	u32 index;
++	u32 index_mask;
++
++	if (unlikely(!tipc_ref_table.entries)) {
++		pr_err("Ref. table not found during discard attempt\n");
++		return;
++	}
++
++	index_mask = tipc_ref_table.index_mask;
++	index = ref & index_mask;
++	entry = &tipc_ref_table.entries[index];
++
++	write_lock_bh(&ref_table_lock);
++
++	if (unlikely(!entry->tsk)) {
++		pr_err("Attempt to discard ref. to non-existent socket\n");
++		goto exit;
++	}
++	if (unlikely(entry->ref != ref)) {
++		pr_err("Attempt to discard non-existent reference\n");
++		goto exit;
++	}
++
++	/* Mark entry as unused; increment instance part of entry's
++	 *   reference to invalidate any subsequent references
++	 */
++
++	entry->tsk = NULL;
++	entry->ref = (ref & ~index_mask) + (index_mask + 1);
++
++	/* Append entry to free entry list */
++	if (unlikely(tipc_ref_table.first_free == 0))
++		tipc_ref_table.first_free = index;
++	else
++		tipc_ref_table.entries[tipc_ref_table.last_free].ref |= index;
++	tipc_ref_table.last_free = index;
++exit:
++	write_unlock_bh(&ref_table_lock);
++}
++
++/* tipc_sk_get - find referenced socket and return pointer to it
++ */
++struct tipc_sock *tipc_sk_get(u32 ref)
++{
++	struct reference *entry;
++	struct tipc_sock *tsk;
++
++	if (unlikely(!tipc_ref_table.entries))
++		return NULL;
++	read_lock_bh(&ref_table_lock);
++	entry = &tipc_ref_table.entries[ref & tipc_ref_table.index_mask];
++	tsk = entry->tsk;
++	if (likely(tsk && (entry->ref == ref)))
++		sock_hold(&tsk->sk);
++	else
++		tsk = NULL;
++	read_unlock_bh(&ref_table_lock);
++	return tsk;
++}
++
++/* tipc_sk_get_next - lock & return next socket after referenced one
++*/
++struct tipc_sock *tipc_sk_get_next(u32 *ref)
++{
++	struct reference *entry;
++	struct tipc_sock *tsk = NULL;
++	uint index = *ref & tipc_ref_table.index_mask;
++
++	read_lock_bh(&ref_table_lock);
++	while (++index < tipc_ref_table.capacity) {
++		entry = &tipc_ref_table.entries[index];
++		if (!entry->tsk)
++			continue;
++		tsk = entry->tsk;
++		sock_hold(&tsk->sk);
++		*ref = entry->ref;
++		break;
++	}
++	read_unlock_bh(&ref_table_lock);
++	return tsk;
++}
++
++static void tipc_sk_put(struct tipc_sock *tsk)
++{
++	sock_put(&tsk->sk);
++}
++
++/**
   * tipc_setsockopt - set socket option
   * @sock: socket structure
+  * @lvl: option level
+diff --git a/net/tipc/socket.h b/net/tipc/socket.h
+index b98725e..4877216 100644
+--- a/net/tipc/socket.h
++++ b/net/tipc/socket.h
+@@ -119,5 +119,7 @@ int tipc_sk_rcv(struct sk_buff *buf);
+ struct sk_buff *tipc_sk_socks_show(void);
+ void tipc_sk_mcast_rcv(struct sk_buff *buf);
+ void tipc_sk_reinit(void);
++int tipc_sk_ref_table_init(u32 requested_size, u32 start);
++void tipc_sk_ref_table_stop(void);
+ 
+ #endif
 -- 
 1.7.9.5
 
