@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: xgene: fix possible NULL dereference in
- xgene_enet_free_desc_rings()
-Date: Fri, 22 Aug 2014 11:25:41 -0700 (PDT)
-Message-ID: <20140822.112541.279712306018396613.davem@davemloft.net>
-References: <1408653888-10193-1-git-send-email-isubramanian@apm.com>
+Subject: Re: [PATCH] ibmveth: Fix endian issues with rx_no_buffer statistic
+Date: Fri, 22 Aug 2014 11:28:19 -0700 (PDT)
+Message-ID: <20140822.112819.1726017415445947463.davem@davemloft.net>
+References: <20140822113652.7e4bdc78@kryten>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com
-To: isubramanian@apm.com
+Cc: santil@linux.vnet.ibm.com, paulus@samba.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
+To: anton@samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52873 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52902 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932487AbaHVSZm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 14:25:42 -0400
-In-Reply-To: <1408653888-10193-1-git-send-email-isubramanian@apm.com>
+	with ESMTP id S932410AbaHVS2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 14:28:20 -0400
+In-Reply-To: <20140822113652.7e4bdc78@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Iyappan Subramanian <isubramanian@apm.com>
-Date: Thu, 21 Aug 2014 13:44:48 -0700
+From: Anton Blanchard <anton@samba.org>
+Date: Fri, 22 Aug 2014 11:36:52 +1000
 
-> A NULL pointer dereference is possible for the argument ring->buf_pool
-> which is passed to xgene_enet_free_desc_ring(), as ring could be NULL.
+> Hidden away in the last 8 bytes of the buffer_list page is a solitary
+> statistic. It needs to be byte swapped or else ethtool -S will
+> produce numbers that terrify the user.
 > 
-> And now since NULL pointers are being checked for before the calls to
-> xgene_enet_free_desc_ring(), might as well take advantage of them and
-> not call the function if the argument would be NULL.
+> Since we do this in multiple places, create a helper function with a
+> comment explaining what is going on.
 > 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+> Signed-off-by: Anton Blanchard <anton@samba.org>
 
-Applied, thanks.
+Applied, thanks Anton.
