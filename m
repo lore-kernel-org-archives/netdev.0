@@ -1,109 +1,99 @@
-From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: Re: [patch net-next RFC 07/12] dsa: implement
-	ndo_swdev_get_id
-Date: Fri, 22 Aug 2014 09:05:54 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1747EF01@AcuExch.aculab.com>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-8-git-send-email-jiri@resnulli.us>
- <CAGVrzcbs1yGb5RW++XZ=2PFsqUjZGVGfWx5=QQYcEX6x4WOq9Q@mail.gmail.com>
- <20140821170645.GB10633@nanopsycho.lan>
- <CAGVrzcb=vkqPw2LUc4YO4Bs-eady2=1uN-jkG=kW2RnGx=24PQ@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
+ is runnable
+Date: Fri, 22 Aug 2014 17:08:23 +0800
+Message-ID: <53F70887.8030602@redhat.com>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com> <1408608310-13579-2-git-send-email-jasowang@redhat.com> <1408683665.5648.69.camel@marge.simpson.net> <20140822073653.GA7372@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Sergey Ryazanov <ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- "jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- Neil Jerram <Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, "ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- Jeff
- Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
- Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
- Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
- Aviad Raveh <aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>,
- vyasevic <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- "Eric W. Biederman" <ebiederm@
-To: 'Florian Fainelli' <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAGVrzcb=vkqPw2LUc4YO4Bs-eady2=1uN-jkG=kW2RnGx=24PQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>
+To: Ingo Molnar <mingo@kernel.org>,
+	Mike Galbraith <umgwanakikbuti@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140822073653.GA7372@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli
-> 2014-08-21 10:06 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
-> > Thu, Aug 21, 2014 at 06:56:13PM CEST, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
-> >>2014-08-21 9:19 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
-> >>> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-> >>> ---
-> >>>  net/dsa/Kconfig |  2 +-
-> >>>  net/dsa/slave.c | 16 ++++++++++++++++
-> >>>  2 files changed, 17 insertions(+), 1 deletion(-)
-> >>>
-> >>> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-> >>> index f5eede1..66c445a 100644
-> >>> --- a/net/dsa/Kconfig
-> >>> +++ b/net/dsa/Kconfig
-> >>> @@ -1,6 +1,6 @@
-> >>>  config HAVE_NET_DSA
-> >>>         def_bool y
-> >>> -       depends on NETDEVICES && !S390
-> >>> +       depends on NETDEVICES && NET_SWITCHDEV && !S390
-> >>>
-> >>>  # Drivers must select NET_DSA and the appropriate tagging format
-> >>>
-> >>> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> >>> index 45a1e34..e069ba3 100644
-> >>> --- a/net/dsa/slave.c
-> >>> +++ b/net/dsa/slave.c
-> >>> @@ -171,6 +171,19 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int
-> cmd)
-> >>>         return -EOPNOTSUPP;
-> >>>  }
-> >>>
-> >>> +static int dsa_slave_swdev_get_id(struct net_device *dev,
-> >>> +                                 struct netdev_phys_item_id *psid)
-> >>> +{
-> >>> +       struct dsa_slave_priv *p = netdev_priv(dev);
-> >>> +       struct dsa_switch *ds = p->parent;
-> >>> +       u64 tmp = (u64) ds;
-> >>> +
-> >>> +       /* TODO: add more sophisticated id generation */
-> >>> +       memcpy(&psid->id, &tmp, sizeof(tmp));
-> >>> +       psid->id_len = sizeof(tmp);
-> >>
-> >>There is already an unique id generated, which is the index in the
-> >>switch tree, and which is stored in struct dsa_switch, so this could
-> >>probably be simplified to:
-> >>
-> >>psid->id = ds->index
-> >
-> > That index is 0..n if I understand that correctly. That is not enough.
-> > The point is to have unique id for every chip in the system. If we would
-> > have 0,1,2... the collision is very likely.
-> 
-> Good point, so an unique index for DSA switches could look like the
-> DSA platform device id plus the switch index in the tree..., but then
-> we would need something like (pdev->id << N) | switch index, so that
-> would not give a consistent naming scheme across different devices.
+On 08/22/2014 03:36 PM, Ingo Molnar wrote:
+>>> diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+>>> index 1d67fb6..8a33fb2 100644
+>>> --- a/include/net/busy_poll.h
+>>> +++ b/include/net/busy_poll.h
+>>> @@ -109,7 +109,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
+>>>  		cpu_relax();
+>>>  
+>>>  	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
+>>> -		 !need_resched() && !busy_loop_timeout(end_time));
+>>> +		 !need_resched() && !busy_loop_timeout(end_time) &&
+>>> +		 nr_running_this_cpu() < 2);
+> So it's generally a bad idea to couple to the scheduler through 
+> such a low level, implementation dependent value like 
+> 'nr_running', causing various problems:
+>
+>  - It misses important work that might be pending on this CPU,
+>    like RCU callbacks.
+>
+>  - It will also over-credit task contexts that might be
+>    runnable, but which are less important than the currently
+>    running one: such as a SCHED_IDLE task
+>
+>  - It will also over-credit even regular SCHED_NORMAL tasks, if
+>    this current task is more important than them: say
+>    SCHED_FIFO. A SCHED_FIFO workload should run just as fast 
+>    with SCHED_NORMAL tasks around, as a SCHED_NORMAL workload 
+>    on an otherwise idle system.
 
-Do you also need to worry about the 'lifetime' of these ids?
-In which case some of the high bits need to be used as 'generation number'.
+I see.
+> So what you want is a more sophisticated query to the 
+> scheduler, a sched_expected_runtime() method that returns the 
+> number of nsecs this task is expected to run in the future, 
+> which returns 0 if you will be scheduled away on the next 
+> schedule(), and returns infinity for a high prio SCHED_FIFO 
+> task, or if this SCHED_NORMAL task is on an otherwise idle CPU.
+>
+> It will return a regular time slice value in other cases, when 
+> there's some load on the CPU.
+>
+> The polling logic can then do its decision based on that time 
+> value.
 
-	David
+But this is just for current process. We want to determine whether or
+not it was worth to loop busily in current process by checking if
+there's any another runnable processes or callbacks. And what we need
+here is just a simple and lockless hint which can't be wrong but may be
+inaccurate to exit the busy loop. The net code does not depends on this
+hint to do scheduling or yielding.
 
-> Maybe we are just better with using the Linux IDR API in include/linux/idr.h?
+How about just introducing a boolean helper like current_can_busy_loop()
+and return true in one of the following conditions:
+
+- Current task is SCHED_FIFO
+- Current task is neither SCHED_FIFO nor SCHED_IDLE and no other
+runnable processes or pending RCU callbacks in current cpu
+
+And add warns to make sure it can only be called in process context.
+
+Thanks
+>
+> All this can be done reasonably fast and lockless in most 
+> cases, so that it can be called from busy-polling code.
+>
+> An added advantage would be that this approach consolidates the 
+> somewhat random need_resched() checks into this method as well.
+>
+> In any case I don't agree with the nr_running_this_cpu() 
+> method.
+>
+> (Please Cc: me and lkml to future iterations of this patchset.)
+>
+> Thanks,
+>
+> 	Ingo
 > --
-> Florian
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
