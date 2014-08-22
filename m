@@ -1,39 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macvlan: Allow setting multicast filter on all macvlan
- types
-Date: Thu, 21 Aug 2014 16:54:53 -0700 (PDT)
-Message-ID: <20140821.165453.2108983276232183602.davem@davemloft.net>
-References: <1408122299-29632-1-git-send-email-vyasevic@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: TCP output handling bug ?
+Date: Thu, 21 Aug 2014 17:24:45 -0700
+Message-ID: <20140821172445.7c1ba422@uryu.home.lan>
+References: <20140821190208.208e0de1@www.etchedpixels.co.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com, mst@redhat.com,
-	jasowang@redhat.com
-To: vyasevic@redhat.com
+Cc: netdev@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44262 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750861AbaHUXyy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 19:54:54 -0400
-In-Reply-To: <1408122299-29632-1-git-send-email-vyasevic@redhat.com>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:45919 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751701AbaHVAYw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 20:24:52 -0400
+Received: by mail-ig0-f175.google.com with SMTP id uq10so14177002igb.14
+        for <netdev@vger.kernel.org>; Thu, 21 Aug 2014 17:24:52 -0700 (PDT)
+In-Reply-To: <20140821190208.208e0de1@www.etchedpixels.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladislav Yasevich <vyasevic@redhat.com>
-Date: Fri, 15 Aug 2014 13:04:59 -0400
+On Thu, 21 Aug 2014 19:02:08 +0100
+Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
 
-> Currently, macvlan code restricts multicast and unicast
-> filter setting only to passthru devices.  As a result,
-> if a guest using macvtap wants to receive multicast
-> traffic, it has to set IFF_ALLMULTI or IFF_PROMISC.
 > 
-> This patch makes it possible to use the fdb interface
-> to add multicast addresses to the filter thus allowing
-> a guest to receive only targeted multicast traffic.
+> tcp_send_syn_data:
 > 
-> CC: John Fastabend <john.r.fastabend@intel.com>
-> CC: Michael S. Tsirkin <mst@redhat.com>
-> CC: Jason Wang <jasowang@redhat.com>
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>         TCP_SKB_CB(data)->tcp_flags &= ~TCPHDR_SYN;
+>         TCP_SKB_CB(data)->tcp_flags = (TCPHDR_ACK|TCPHDR_PSH);
+> 
+> the reporter has a point 8)
+> 
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=82101
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Applied, thanks Vlad.
+I wonder if covertity or smatch could be smart enough to catch this kind of bug?
