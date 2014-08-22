@@ -1,42 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: broadcom: bnx2x: Remove redundant #ifdef
-Date: Fri, 22 Aug 2014 11:30:19 -0700 (PDT)
-Message-ID: <20140822.113019.1690922235326790002.davem@davemloft.net>
-References: <1408540489-1795-1-git-send-email-linux@rasmusvillemoes.dk>
-	<20140821.213750.2151406448495608410.davem@davemloft.net>
-	<87mwaxrnbg.fsf@rasmusvillemoes.dk>
+Subject: Re: [PATCH] netdev_adjacent_sysfs_*: fix cross-namespace symlinks
+Date: Fri, 22 Aug 2014 11:30:39 -0700 (PDT)
+Message-ID: <20140822.113039.520798752693024139.davem@davemloft.net>
+References: <20140821191316.27807ef7@mad-cat.int.e5.ru>
+	<20140821152940.GT9476@redhat.com>
+	<1408703693-6265-1-git-send-email-git.user@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linux@rasmusvillemoes.dk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87mwaxrnbg.fsf@rasmusvillemoes.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vfalico@redhat.com
+To: git.user@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52938 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932735AbaHVSak (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 14:30:40 -0400
+In-Reply-To: <1408703693-6265-1-git-send-email-git.user@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Date: Fri, 22 Aug 2014 09:33:07 +0200
+From: "Alexander Y. Fomichev" <git.user@gmail.com>
+Date: Fri, 22 Aug 2014 14:34:53 +0400
 
-> David Miller <davem@davemloft.net> writes:
-> 
->> From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
->> Date: Wed, 20 Aug 2014 15:14:49 +0200
->>
->>> Nothing defines _ASM_GENERIC_INT_L64_H, it is a weird way to check for
->>> 64 bit longs, and u64 should be printed using %llx anyway.
->>> 
->>> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
->>
->> It's not correct and will warn on some platforms where "u64" is just
->> a plain "unsigned long".
->>
->> Ie. all of those which use include/asm-generic/int-l64.h
-> 
-> Of which there are none; that file no longer exists (as I said, nothing
-> defines that macro). Please see 0c79a8e2 ("asm/types.h: Remove
-> include/asm-generic/int-l64.h") and 2a7930bd
-> ("Documentation/printk-formats.txt: No casts needed for u64/s64").
+> fix code manipulating symlinks of adjacent net devices.
+> - prevent creation of sysfs symlink to / from adjacent device on
+>   another net_ns.
+> - Drop all existing symlinks from / to all adj_dev(s) on the current
+>   namespace before switching net_ns and recreate them just after.
 
-Ok that makes sense, applied, thank you.
+Please resubmit this with a proper Signed-off-by tag.
