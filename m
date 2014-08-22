@@ -1,73 +1,43 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: TCP output handling bug ?
-Date: Fri, 22 Aug 2014 11:18:22 -0700
-Message-ID: <CAK6E8=dXj0QRytufNe1p2KEn59yeb7a25cfMeeCS7M=Xvv837Q@mail.gmail.com>
-References: <20140821172445.7c1ba422@uryu.home.lan> <20140822021341.GB14353@redhat.com>
- <1408715790.5604.13.camel@edumazet-glaptop2.roam.corp.google.com> <20140822.104118.710757967194596933.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] openvswitch: fix panic with multiple vlan headers
+Date: Fri, 22 Aug 2014 11:24:39 -0700 (PDT)
+Message-ID: <20140822.112439.1786666004917748552.davem@davemloft.net>
+References: <b490744c980813b54d54f628c719e03cdb143302.1408649593.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Dave Jones <davej@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	alan@lxorguk.ukuu.org.uk, netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:56267 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932410AbaHVSTE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 14:19:04 -0400
-Received: by mail-ig0-f174.google.com with SMTP id c1so87686igq.7
-        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 11:19:02 -0700 (PDT)
-In-Reply-To: <20140822.104118.710757967194596933.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52866 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932487AbaHVSYm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 14:24:42 -0400
+In-Reply-To: <b490744c980813b54d54f628c719e03cdb143302.1408649593.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 22, 2014 at 10:41 AM, David Miller <davem@davemloft.net> wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 22 Aug 2014 06:56:30 -0700
->
-> CC:'ing Yuchung Cheng
->
->> On Thu, 2014-08-21 at 22:13 -0400, Dave Jones wrote:
->>> On Thu, Aug 21, 2014 at 05:24:45PM -0700, Stephen Hemminger wrote:
->>>  > On Thu, 21 Aug 2014 19:02:08 +0100
->>>  > Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
->>>  >
->>>  > >
->>>  > > tcp_send_syn_data:
->>>  > >
->>>  > >         TCP_SKB_CB(data)->tcp_flags &= ~TCPHDR_SYN;
->>>  > >         TCP_SKB_CB(data)->tcp_flags = (TCPHDR_ACK|TCPHDR_PSH);
->>>  > >
->>>  > > the reporter has a point 8)
->>>  > >
->>>  > > https://bugzilla.kernel.org/show_bug.cgi?id=82101
->>>  >
->>>  > I wonder if covertity or smatch could be smart enough to catch this kind of bug?
->>>
->>> For coverity: it should be, but isn't :)
->>> I've pointed them at the bugzilla, maybe they can add a check in a
->>> future update.
->>>
->>> I bet this isn't the only instance of a bug like this left in the tree.
->>> We've definitely had similar cases before.
->>>
->>>      Dave
->>
->> There is no bug here as a matter of fact.
->>
->> You can simply remove the first line, as it is useless.
->>
->> -     TCP_SKB_CB(data)->tcp_flags &= ~TCPHDR_SYN;
->>
->> At the end of the day, data segment has ACK and PSH flags only.
->
-> What about ECE/CWR?
+From: Jiri Benc <jbenc@redhat.com>
+Date: Thu, 21 Aug 2014 21:33:44 +0200
 
-sorry for the late response. my original intention was
-TCP_SKB_CB(data)->tcp_flags &= ~TCPHDR_SYN;
-TCP_SKB_CB(data)->tcp_flags |= (TCPHDR_ACK|TCPHDR_PSH);
+> When there are multiple vlan headers present in a received frame, the first
+> one is put into vlan_tci and protocol is set to ETH_P_8021Q. Anything in the
+> skb beyond the VLAN TPID may be still non-linear, including the inner TCI
+> and ethertype. While ovs_flow_extract takes care of IP and IPv6 headers, it
+> does nothing with ETH_P_8021Q. Later, if OVS_ACTION_ATTR_POP_VLAN is
+> executed, __pop_vlan_tci pulls the next vlan header into vlan_tci.
+> 
+> This leads to two things:
+> 
+> 1. Part of the resulting ethernet header is in the non-linear part of the
+>    skb. When eth_type_trans is called later as the result of
+>    OVS_ACTION_ATTR_OUTPUT, kernel BUGs in __skb_pull. Also, __pop_vlan_tci
+>    is in fact accessing random data when it reads past the TPID.
+> 
+> 2. network_header points into the ethernet header instead of behind it.
+>    mac_len is set to a wrong value (10), too.
+> 
+> Reported-by: Yulong Pei <ypei@redhat.com>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-so that we can keep other flags intact b/c in the future we may have
-xmas tree packet :-)
-I will send a patch soon.
+Applied and queued up for -stable, thanks Jiri.
