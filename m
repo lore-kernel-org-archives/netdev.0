@@ -1,80 +1,139 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] hyperv: Add handling of IP header with option
- field in netvsc_set_hash()
-Date: Fri, 22 Aug 2014 21:06:10 +0000
-Message-ID: <0d7d4fd9cf1448f3a92b07b241d21a7e@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1408481635-29639-1-git-send-email-haiyangz@microsoft.com>
- <20140821.213057.1438247518790500739.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] carl9170: Remove redundant protection check
+Date: Fri, 22 Aug 2014 14:08:52 -0700
+Message-ID: <1408741732.5604.23.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140822191431.GA5827@ada> <1679858.MgakDZE2Vr@debian64>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140821.213057.1438247518790500739.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: Andreea-Cristina Bernat <bernat.ada@gmail.com>,
+	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	paulmck@linux.vnet.ibm.com
+To: Christian Lamparter <chunkeey@googlemail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1679858.MgakDZE2Vr@debian64>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2014-08-22 at 22:38 +0200, Christian Lamparter wrote:
+> On Friday, August 22, 2014 10:14:31 PM Andreea-Cristina Bernat wrote:
+> > The carl9170_op_ampdu_action() function is used only by the mac80211
+> > framework. Since the mac80211 already takes care of checks and 
+> > properly serializing calls to the driver's function there is no
+> > need for the driver to do the same thing.
+> > 
+> > Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+> > ---
+> > Changes in v2:
+> >  - Change subject line from
+> >    "carl9170: Replace rcu_dereference() with rcu_access_pointer()"
+> >    to
+> >    "carl9170: Remove redundant protection check"
+> >  - Update the commit message according to the modifications
+> >  - Delete the lines of interest at the suggestion and explanations of
+> >    Christian Lamparter <chunkeey@googlemail.com>
+> > 
+> >  drivers/net/wireless/ath/carl9170/main.c | 6 ------
+> >  1 file changed, 6 deletions(-)
+> > 
+> > diff --git a/drivers/net/wireless/ath/carl9170/main.c b/drivers/net/wireless/ath/carl9170/main.c
+> > index 12018ff..6758b9a 100644
+> > --- a/drivers/net/wireless/ath/carl9170/main.c
+> > +++ b/drivers/net/wireless/ath/carl9170/main.c
+> > @@ -1430,12 +1430,6 @@ static int carl9170_op_ampdu_action(struct ieee80211_hw *hw,
+> >  		if (!sta_info->ht_sta)
+> >  			return -EOPNOTSUPP;
+> >  
+> > -		rcu_read_lock();
+> > -		if (rcu_access_pointer(sta_info->agg[tid])) {
+> > -			rcu_read_unlock();
+> > -			return -EBUSY;
+> > -		}
+> > -
+> >  		tid_info = kzalloc(sizeof(struct carl9170_sta_tid),
+> >  				   GFP_ATOMIC);
+> >  		if (!tid_info) {
+> > 
+> 
+> sparse [0] hit a bug when testing the patch:
+> 
+> drivers/net/wireless/ath/carl9170/main.c:1440:17: 
+>   warning: context imbalance in 'carl9170_op_ampdu_action' - unexpected unlock
+> 
+> This warning is caused by the remaining, stray rcu_read protection
+> in the code below (Sorry! Guess RCU needed a bit more explanation
+> in the previous post. If you are looking for *pointers*, there are
+> excellent resources available in Documentation/RCU/ [1]).
+> 
+> I've attached a full patch (see below) with all changes so far and
+> tested if the device/driver still behaves ;-). This patch applies 
+> cleanly on top of wireless-testing.
+> 
+> @John,
+> can you please take it?
+> 
+> ---
+> From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+> 
+> The carl9170_op_ampdu_action() function is used only by the mac80211
+> framework. Since the mac80211 already takes care of checks and 
+> properly serializing calls to the driver's function there is no
+> need for the driver to do the same thing.
+>  
+> Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+> [chunkeey@googlemail.com: remove two stray rcu_read_unlock()]
+> Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
+> ---
+> diff --git a/drivers/net/wireless/ath/carl9170/main.c b/drivers/net/wireless/ath/carl9170/main.c
+> index f8ded84..ef5b6dc 100644
+> --- a/drivers/net/wireless/ath/carl9170/main.c
+> +++ b/drivers/net/wireless/ath/carl9170/main.c
+> @@ -1430,18 +1430,10 @@ static int carl9170_op_ampdu_action(struct ieee80211_hw *hw,
+>  		if (!sta_info->ht_sta)
+>  			return -EOPNOTSUPP;
+>  
+> -		rcu_read_lock();
+> -		if (rcu_dereference(sta_info->agg[tid])) {
+> -			rcu_read_unlock();
+> -			return -EBUSY;
+> -		}
+> -
+>  		tid_info = kzalloc(sizeof(struct carl9170_sta_tid),
+>  				   GFP_ATOMIC);
+> -		if (!tid_info) {
+> -			rcu_read_unlock();
+> +		if (!tid_info)
+>  			return -ENOMEM;
+> -		}
+>  
+>  		tid_info->hsn = tid_info->bsn = tid_info->snx = (*ssn);
+>  		tid_info->state = CARL9170_TID_STATE_PROGRESS;
+> @@ -1460,7 +1452,6 @@ static int carl9170_op_ampdu_action(struct ieee80211_hw *hw,
+>  		list_add_tail_rcu(&tid_info->list, &ar->tx_ampdu_list);
+>  		rcu_assign_pointer(sta_info->agg[tid], tid_info);
+>  		spin_unlock_bh(&ar->tx_ampdu_list_lock);
+> -		rcu_read_unlock();
+>  
+>  		ieee80211_start_tx_ba_cb_irqsafe(vif, sta->addr, tid);
+>  		break;
+> ---
+> 
+> Regards
+> Christian
+> 
+> [0] <http://kernelnewbies.org/Sparse>
+> [1] <https://www.kernel.org/doc/Documentation/RCU/whatisRCU.txt>
+> 
 
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Friday, August 22, 2014 12:31 AM
-> To: Haiyang Zhang
-> Cc: netdev@vger.kernel.org; KY Srinivasan; olaf@aepfle.de;
-> jasowang@redhat.com; linux-kernel@vger.kernel.org; driverdev-
-> devel@linuxdriverproject.org
-> Subject: Re: [PATCH net-next] hyperv: Add handling of IP header with
-> option field in netvsc_set_hash()
-> 
-> From: Haiyang Zhang <haiyangz@microsoft.com>
-> Date: Tue, 19 Aug 2014 20:53:55 +0000
-> 
-> > @@ -200,12 +202,18 @@ static bool netvsc_set_hash(u32 *hash, struct
-> sk_buff *skb)
-> >  	iphdr = ip_hdr(skb);
-> >
-> >  	if (iphdr->version == 4) {
-> > -		if (iphdr->protocol == IPPROTO_TCP)
-> > +		data = (u8 *)&iphdr->saddr;
-> > +		if (iphdr->protocol == IPPROTO_TCP) {
-> >  			data_len = 12;
-> > -		else
-> > +			if (iphdr->ihl > 5) {
-> > +				memcpy(dbuf, &iphdr->saddr, 8);
-> > +				memcpy(&dbuf[8], &tcp_hdr(skb)->source, 4);
-> 
-> This is rediculous.
-> 
-> Make hash_comp() take a void pointer for the buffer.
-> 
-> Then your code is simply:
-> 
-> 	be32 dbuf[2];
-> 
-> 	dbuf[1] = iph->saddr;
-> 	dbuf[2] = iph->daddr;
-> 	dbuf[3] = *(be32 *)tcph->source;
-> 
-> 	*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, dbuf, 12);
-> 
-> No special cases for IP options or any garbage like that.
+Sorry but this patch is not complete.
 
-I have submitted a revised patch with the suggested changes.
+You need to somehow return -EBUSY if sta_info->agg[tid] is set.
 
-Thanks,
-- Haiyang
+The test has to be done inside the
+spin_lock_bh(&ar->tx_ampdu_list_lock) /
+spin_unlock_bh(&ar->tx_ampdu_list_lock); region.
+
+You are correct the RCU bits were wrong in this context, but we still
+have to avoid leaks.
