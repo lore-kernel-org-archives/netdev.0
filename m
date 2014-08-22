@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: add fix_mac_speed support for socfpga
-Date: Fri, 22 Aug 2014 12:35:51 -0700 (PDT)
-Message-ID: <20140822.123551.2188211356695902205.davem@davemloft.net>
-References: <1408516413-2928-1-git-send-email-lftan@altera.com>
+Subject: Re: [PATCH net-next] dp83640: Fix length check for event timestamp
+ status messages
+Date: Fri, 22 Aug 2014 12:36:16 -0700 (PDT)
+Message-ID: <20140822.123616.814889773296037742.davem@davemloft.net>
+References: <1408627024-12932-1-git-send-email-christian.riesch@omicron.at>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	lftan.linux@gmail.com, peppe.cavallaro@st.com, vbridger@altera.com
-To: lftan@altera.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408516413-2928-1-git-send-email-lftan@altera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com
+To: christian.riesch@omicron.at
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53640 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751008AbaHVTgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 15:36:17 -0400
+In-Reply-To: <1408627024-12932-1-git-send-email-christian.riesch@omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ley Foon Tan <lftan@altera.com>
-Date: Wed, 20 Aug 2014 14:33:33 +0800
+From: Christian Riesch <christian.riesch@omicron.at>
+Date: Thu, 21 Aug 2014 15:17:04 +0200
 
-> This patch adds fix_mac_speed() support for
-> Altera socfpga Ethernet controller. Emac splitter is a
-> soft IP core in FPGA system that converts GMII interface from
-> Synopsys mac to RGMII/SGMII interface. This splitter core is
-> an optional IP if user would like to use RGMII/SGMII
-> interface in their system. Software needs to update a register
-> in splitter core when there is speed change.
+> Event timestamp status messages have a variable length, ranging from
+> 1 to 5 words (16 bit words). The current code however requires
+> a minimum message length of sizeof(*phy_txts). In most cases this
+> condition is fulfilled due to padding bytes. However, if several events
+> are signaled in a single message, padding bytes may not be present.
+> For short event timestamp status messages, the length check will fail,
+> and the event timestamp will be dropped.
 > 
-> Signed-off-by: Ley Foon Tan <lftan@altera.com>
+> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
 
 Applied.
