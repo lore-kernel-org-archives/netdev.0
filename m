@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] sctp: not send SCTP_PEER_ADDR_CHANGE notifications
- with failed probe
-Date: Thu, 21 Aug 2014 21:35:23 -0700 (PDT)
-Message-ID: <20140821.213523.1210166206674176289.davem@davemloft.net>
-References: <1408527103-22772-1-git-send-email-Yanjun.Zhu@windriver.com>
-	<1408527103-22772-2-git-send-email-Yanjun.Zhu@windriver.com>
+Subject: Re: [PATCH] net: ethernet: broadcom: bnx2x: Remove redundant #ifdef
+Date: Thu, 21 Aug 2014 21:37:50 -0700 (PDT)
+Message-ID: <20140821.213750.2151406448495608410.davem@davemloft.net>
+References: <1408540489-1795-1-git-send-email-linux@rasmusvillemoes.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, vyasevich@gmail.com, tuexen@fh-muenster.de,
-	khandelwal.deepak.1987@gmail.com, Yue.Tao@windriver.com,
-	alexandre.dietsch@windriver.com, Yanjun.Zhu@windriver.com
-To: zyjzyj2000@gmail.com
+Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux@rasmusvillemoes.dk
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408527103-22772-2-git-send-email-Yanjun.Zhu@windriver.com>
+In-Reply-To: <1408540489-1795-1-git-send-email-linux@rasmusvillemoes.dk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
-Date: Wed, 20 Aug 2014 17:31:43 +0800
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Date: Wed, 20 Aug 2014 15:14:49 +0200
 
-> Since the transport has always been in state SCTP_UNCONFIRMED, it
-> therefore wasn't active before and hasn't been used before, and it
-> always has been, so it is unnecessary to bug the user with a 
-> notification.
+> Nothing defines _ASM_GENERIC_INT_L64_H, it is a weird way to check for
+> 64 bit longs, and u64 should be printed using %llx anyway.
 > 
-> Reported-by: Deepak Khandelwal <khandelwal.deepak.1987@gmail.com>  
-> Suggested-by: Vlad Yasevich <vyasevich@gmail.com> 
-> Suggested-by: Michael Tuexen <tuexen@fh-muenster.de>
-> Suggested-by: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
 
-Applied, thanks.
+It's not correct and will warn on some platforms where "u64" is just
+a plain "unsigned long".
+
+Ie. all of those which use include/asm-generic/int-l64.h
+
+I'm not applying this.
