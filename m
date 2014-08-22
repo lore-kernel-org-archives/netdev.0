@@ -1,71 +1,56 @@
-From: Pankaj Gupta <pagupta@redhat.com>
-Subject: Re: [RFC 2/4] tuntap: Publish tuntap maximum number of queues as
- module_param
-Date: Fri, 22 Aug 2014 07:52:22 -0400 (EDT)
-Message-ID: <175719847.27217377.1408708342392.JavaMail.zimbra@redhat.com>
-References: <1408369040-1216-1-git-send-email-pagupta@redhat.com> <1408369040-1216-3-git-send-email-pagupta@redhat.com> <20140820105817.GB1916@nanopsycho.orion> <20140820111724.GE17371@redhat.com> <53F575F8.7000208@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net 1/2] net: sctp: spare unnecessary comparison in
+ sctp_trans_elect_best
+Date: Fri, 22 Aug 2014 08:13:40 -0400
+Message-ID: <20140822121340.GB9307@hmsreliant.think-freely.org>
+References: <1408705410-28558-1-git-send-email-dborkman@redhat.com>
+ <1408705410-28558-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Jiri Pirko <jiri@resnulli.us>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net, dgibson@redhat.com,
-	vfalico@gmail.com, edumazet@google.com, vyasevic@redhat.com,
-	hkchu@google.com, wuzhy@linux.vnet.ibm.com, xemul@parallels.com,
-	therbert@google.com, bhutchings@solarflare.com, xii@google.com,
-	stephen@networkplumber.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53F575F8.7000208@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49007 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755919AbaHVMOE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 08:14:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1408705410-28558-2-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
+On Fri, Aug 22, 2014 at 01:03:29PM +0200, Daniel Borkmann wrote:
+> When both transports are the same, we don't have to go down that
+> road only to realize that we will return the very same transport.
+> We are guaranteed that curr is always non-NULL. Therefore, just
+> short-circuit this special case.
 > 
-> On 08/20/2014 07:17 PM, Michael S. Tsirkin wrote:
-> > On Wed, Aug 20, 2014 at 12:58:17PM +0200, Jiri Pirko wrote:
-> >> > Mon, Aug 18, 2014 at 03:37:18PM CEST, pagupta@redhat.com wrote:
-> >>> > > This patch publishes maximum number of tun/tap queues allocated as a
-> >>> > > read_only module parameter which a user space application like
-> >>> > > libvirt
-> >>> > > can make use of to limit maximum number of queues. Value of read_only
-> >>> > > module parameter can be writable only at module load time. If no
-> >>> > > value is set
-> >>> > > at module load time a default value 256 is used which is equal to
-> >>> > > maximum number
-> >>> > > of vCPUS allowed by KVM.
-> >>> > >
-> >>> > > Administrator can specify maximum number of queues only at the driver
-> >>> > > module load time.
-> >>> > >
-> >>> > >Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
-> >>> > >---
-> >>> > > drivers/net/tun.c |   13 +++++++++++--
-> >>> > > 1 files changed, 11 insertions(+), 2 deletions(-)
-> >>> > >
-> >>> > >diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> >>> > >index acaaf67..1f518e2 100644
-> >>> > >--- a/drivers/net/tun.c
-> >>> > >+++ b/drivers/net/tun.c
-> >>> > >@@ -119,6 +119,9 @@ struct tap_filter {
-> >>> > > 
-> >>> > > #define TUN_FLOW_EXPIRE (3 * HZ)
-> >>> > > 
-> >>> > >+static int max_tap_queues = MAX_TAP_QUEUES;
-> >>> > >+module_param(max_tap_queues, int, S_IRUGO);
-> >> > 
-> >> > Please do not introduce new module paramaters. Please other ways to
-> >> > interchange values with userspace.
-> > I suggested this initially, but thinking more about it, I agree.
-> >
-> > It's a global limit (necessary to limit memory utilization by
-> > userspace), but it should be possible to change it
-> > after module load.
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  net/sctp/associola.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> How about pass this limit through ifr during TUNSETIFF, then
-> alloc_netdev_mq() can use this limit.
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index aaafb32..104fae4 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -1245,7 +1245,7 @@ static struct sctp_transport *sctp_trans_elect_best(struct sctp_transport *curr,
+>  {
+>  	u8 score_curr, score_best;
+>  
+> -	if (best == NULL)
+> +	if (best == NULL || curr == best)
+>  		return curr;
+>  
+>  	score_curr = sctp_trans_score(curr);
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-Any other ideas/comments from the experts. Or shall I re-repost other patches 
-in the series except this patch until we agree on one.
-
+> -- 
+> 1.7.11.7
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
