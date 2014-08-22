@@ -1,39 +1,79 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: Re: [PATCH] net: ethernet: broadcom: bnx2x: Remove redundant #ifdef
-Date: Fri, 22 Aug 2014 09:33:07 +0200
-Message-ID: <87mwaxrnbg.fsf@rasmusvillemoes.dk>
-References: <1408540489-1795-1-git-send-email-linux@rasmusvillemoes.dk>
-	<20140821.213750.2151406448495608410.davem@davemloft.net>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
+ runnable
+Date: Fri, 22 Aug 2014 09:36:53 +0200
+Message-ID: <20140822073653.GA7372@gmail.com>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
+ <1408608310-13579-2-git-send-email-jasowang@redhat.com>
+ <1408683665.5648.69.camel@marge.simpson.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com, Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>
+To: Mike Galbraith <umgwanakikbuti@gmail.com>,
+	Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140821.213750.2151406448495608410.davem@davemloft.net> (David
-	Miller's message of "Thu, 21 Aug 2014 21:37:50 -0700 (PDT)")
+Content-Disposition: inline
+In-Reply-To: <1408683665.5648.69.camel@marge.simpson.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
 
-> From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-> Date: Wed, 20 Aug 2014 15:14:49 +0200
->
->> Nothing defines _ASM_GENERIC_INT_L64_H, it is a weird way to check for
->> 64 bit longs, and u64 should be printed using %llx anyway.
->> 
->> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
->
-> It's not correct and will warn on some platforms where "u64" is just
-> a plain "unsigned long".
->
-> Ie. all of those which use include/asm-generic/int-l64.h
+> > diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+> > index 1d67fb6..8a33fb2 100644
+> > --- a/include/net/busy_poll.h
+> > +++ b/include/net/busy_poll.h
+> > @@ -109,7 +109,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
+> >  		cpu_relax();
+> >  
+> >  	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
+> > -		 !need_resched() && !busy_loop_timeout(end_time));
+> > +		 !need_resched() && !busy_loop_timeout(end_time) &&
+> > +		 nr_running_this_cpu() < 2);
 
-Of which there are none; that file no longer exists (as I said, nothing
-defines that macro). Please see 0c79a8e2 ("asm/types.h: Remove
-include/asm-generic/int-l64.h") and 2a7930bd
-("Documentation/printk-formats.txt: No casts needed for u64/s64").
+So it's generally a bad idea to couple to the scheduler through 
+such a low level, implementation dependent value like 
+'nr_running', causing various problems:
+
+ - It misses important work that might be pending on this CPU,
+   like RCU callbacks.
+
+ - It will also over-credit task contexts that might be
+   runnable, but which are less important than the currently
+   running one: such as a SCHED_IDLE task
+
+ - It will also over-credit even regular SCHED_NORMAL tasks, if
+   this current task is more important than them: say
+   SCHED_FIFO. A SCHED_FIFO workload should run just as fast 
+   with SCHED_NORMAL tasks around, as a SCHED_NORMAL workload 
+   on an otherwise idle system.
+
+So what you want is a more sophisticated query to the 
+scheduler, a sched_expected_runtime() method that returns the 
+number of nsecs this task is expected to run in the future, 
+which returns 0 if you will be scheduled away on the next 
+schedule(), and returns infinity for a high prio SCHED_FIFO 
+task, or if this SCHED_NORMAL task is on an otherwise idle CPU.
+
+It will return a regular time slice value in other cases, when 
+there's some load on the CPU.
+
+The polling logic can then do its decision based on that time 
+value.
+
+All this can be done reasonably fast and lockless in most 
+cases, so that it can be called from busy-polling code.
+
+An added advantage would be that this approach consolidates the 
+somewhat random need_resched() checks into this method as well.
+
+In any case I don't agree with the nr_running_this_cpu() 
+method.
+
+(Please Cc: me and lkml to future iterations of this patchset.)
 
 Thanks,
-Rasmus
+
+	Ingo
