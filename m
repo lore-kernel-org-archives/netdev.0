@@ -1,130 +1,147 @@
-From: Scott Feldman <sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: Re: [patch net-next RFC 03/12] net: introduce generic
-	switch devices support
-Date: Fri, 22 Aug 2014 16:12:27 -0700
-Message-ID: <7BD4F14A-193B-49D9-817F-E4E3B72F5FF1@cumulusnetworks.com>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-4-git-send-email-jiri@resnulli.us>
- <CAGVrzcYtnpcP4pfCJ0GSya01LTk0WwbSV1f+voF2K=S5CR3Arg@mail.gmail.com>
- <53F73A9C.4000209@mojatatu.com> <20140822125655.GB1916@nanopsycho.orion>
- <53F7969C.1060509@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Cc: Sergey Ryazanov <ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- "jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- Neil Jerram <Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
- Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
- Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
- Aviad Raveh <aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>,
- vyasevic <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, dborkman <dbork
-To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <53F7969C.1060509-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: "Alexander Y. Fomichev" <git.user@gmail.com>
+Subject: [PATCH] net: prevent of emerging cross-namespace symlinks
+Date: Sat, 23 Aug 2014 03:15:10 +0400
+Message-ID: <1408749310-28622-1-git-send-email-git.user@gmail.com>
+References: <20140821143816.48c5ad08@mad-cat.int.e5.ru> <20140821121205.GR9476@redhat.com> <20140821191316.27807ef7@mad-cat.int.e5.ru> <20140821152940.GT9476@redhat.com> <1408703693-6265-1-git-send-email-git.user@gmail.com> <20140822.113039.520798752693024139.davem@davemloft.net>
+Cc: "Alexander Y. Fomichev" <git.user@gmail.com>, vfalico@redhat.com,
+	"David Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:43099 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751744AbaHVXQA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 19:16:00 -0400
+Received: by mail-lb0-f180.google.com with SMTP id v6so9900381lbi.25
+        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 16:15:57 -0700 (PDT)
+In-Reply-To: <20140822.113039.520798752693024139.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Code manipulating sysfs symlinks on adjacent net_devices(s)
+currently doesn't take into account that devices potentially
+belong to different namespaces.
 
-On Aug 22, 2014, at 12:14 PM, John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wro=
-te:
+This patch trying to fix an issue as follows:
+- check for net_ns before creating / deleting symlink.
+  for now only netdev_adjacent_rename_links and
+  __netdev_adjacent_dev_remove are affected, afaics
+  __netdev_adjacent_dev_insert implies both net_devs 
+  belong to the same namespace.
+- Drop all existing symlinks to / from all adj_devs before
+  switching namespace and recreate them just after.
 
-> On 08/22/2014 05:56 AM, Jiri Pirko wrote:
->> Fri, Aug 22, 2014 at 02:42:04PM CEST, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org wrote:
->>> On 08/21/14 13:05, Florian Fainelli wrote:
->>>> 2014-08-21 9:18 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
->>>>> The goal of this is to provide a possibility to suport various switch
->>>>> chips. Drivers should implement relevant ndos to do so. Now there is a
->>>>> couple of ndos defines:
->>>>> - for getting physical switch id is in place.
->>>>> - for work with flows.
->>>>> =
+Signed-off-by: Alexander Y. Fomichev <git.user@gmail.com>
+---
+ net/core/dev.c | 62 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 61 insertions(+), 1 deletion(-)
 
->>>>> Note that user can use random port netdevice to access the switch.
->>>> =
-
->>>> I read through this patch set, and I still think that DSA is the
->>>> generic switch infrastructure we already have because it does provide
->>>> the following:
->>>> =
-
->>>> - taking a generic platform data structure (C struct or Device Tree),
->>>> validate, parse it and map it to internal kernel structures
->>>> - instantiate per-port network devices based on the configuration data=
- provided
->>>> - delegate netdev_ops to the switch driver and/or the CPU NIC when rel=
-evant
->>>> - provide support for hooking RX and TX traffic coming from the CPU NIC
->>>> =
-
->>>> I would rather we build on the existing DSA infrastructure and add the
->>>> flow-related netdev_ops rather than having the two remain in
->>>> disconnect while flow-oriented switches driver get progressively
->>>> added. I guess I should take a closer look at the rocker driver to see
->>>> how hard would that be for you.
->>>> =
-
->>>> What do you think?
->>> =
-
->>> =
-
->>> I thought we had concluded that DSA was a good path forward?  Or maybe =
-at
->>> this stage we need to have several alternative approaches
->>> and we eventually converge?
->> =
-
->> That is true. I'm still unsure how to fit this on to DSA or how to chang=
-e DSA
->> the way this fits. This is my quest now. Will report back in a week or s=
-o.
->> =
-
-> =
-
-> I would like to use the flow ops in some of our NICs that have
-> a limited flow table in hardware. It might be easier to use the
-> NICs as the first implementers of the API even though they are
-> usually not as capable or large as flow tables in some of the
-> larger switch asics.
-> =
-
-> In my opinion it can replace the ioctl flow director APIs although
-> I don't like how it is tied to OVS in the some of the later RFC patches
-> but we can work on that.
-
-I think parallel efforts to get flow ops working on a real NIC with limited=
- capabilities as well our fake enterprise-class rocker switch with full cap=
-abilities will really help solidify the swdev API.  Maybe even someone in t=
-he background that has access to a real enterprise switch can play along ;)=
-.  I hope you=92re convinced from my other reply that the intent of swdev i=
-s to be independent of OVS.  If the implementation in the RFC doesn=92t mat=
-ch the intent, we should fix it.  The elements of the swdev API we need con=
-vergence on are:
-
-	- ndo_swdev_* ops to identify switch port and add/del flow match/action
-	- struct sw_flow as generic flow match/action description
-	- port netdevs to represent physical device ports
-
-And maybe:
-
-	- new device class to represent the switch itself
-	- capabilities to express HW capabilities (limits, constraints, etc)
-
-
--scott
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b65a5051361f..683cedfdad8e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4889,7 +4889,8 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
+ 	if (adj->master)
+ 		sysfs_remove_link(&(dev->dev.kobj), "master");
+ 
+-	if (netdev_adjacent_is_neigh_list(dev, dev_list))
++	if (netdev_adjacent_is_neigh_list(dev, dev_list) &&
++		net_eq(dev_net(dev),dev_net(adj_dev)))
+ 		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
+ 
+ 	list_del_rcu(&adj->list);
+@@ -5159,11 +5160,65 @@ void netdev_upper_dev_unlink(struct net_device *dev,
+ }
+ EXPORT_SYMBOL(netdev_upper_dev_unlink);
+ 
++void netdev_adjacent_add_links(struct net_device *dev)
++{
++	struct netdev_adjacent *iter;
++
++	struct net *net = dev_net(dev);
++
++	list_for_each_entry(iter, &dev->adj_list.upper, list) {
++		if (!net_eq(net,dev_net(iter->dev)))
++			continue;
++		netdev_adjacent_sysfs_add(iter->dev, dev,
++					  &iter->dev->adj_list.lower);
++		netdev_adjacent_sysfs_add(dev, iter->dev,
++					  &dev->adj_list.upper);
++	}
++
++	list_for_each_entry(iter, &dev->adj_list.lower, list) {
++		if (!net_eq(net,dev_net(iter->dev)))
++			continue;
++		netdev_adjacent_sysfs_add(iter->dev, dev,
++					  &iter->dev->adj_list.upper);
++		netdev_adjacent_sysfs_add(dev, iter->dev,
++					  &dev->adj_list.lower);
++	}
++}
++
++void netdev_adjacent_del_links(struct net_device *dev)
++{
++	struct netdev_adjacent *iter;
++
++	struct net *net = dev_net(dev);
++
++	list_for_each_entry(iter, &dev->adj_list.upper, list) {
++		if (!net_eq(net,dev_net(iter->dev)))
++			continue;
++		netdev_adjacent_sysfs_del(iter->dev, dev->name,
++					  &iter->dev->adj_list.lower);
++		netdev_adjacent_sysfs_del(dev, iter->dev->name,
++					  &dev->adj_list.upper);
++	}
++
++	list_for_each_entry(iter, &dev->adj_list.lower, list) {
++		if (!net_eq(net,dev_net(iter->dev)))
++			continue;
++		netdev_adjacent_sysfs_del(iter->dev, dev->name,
++					  &iter->dev->adj_list.upper);
++		netdev_adjacent_sysfs_del(dev, iter->dev->name,
++					  &dev->adj_list.lower);
++	}
++}
++
+ void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
+ {
+ 	struct netdev_adjacent *iter;
+ 
++	struct net *net = dev_net(dev);
++
+ 	list_for_each_entry(iter, &dev->adj_list.upper, list) {
++		if (!net_eq(net,dev_net(iter->dev)))
++			continue;
+ 		netdev_adjacent_sysfs_del(iter->dev, oldname,
+ 					  &iter->dev->adj_list.lower);
+ 		netdev_adjacent_sysfs_add(iter->dev, dev,
+@@ -5171,6 +5226,8 @@ void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
+ 	}
+ 
+ 	list_for_each_entry(iter, &dev->adj_list.lower, list) {
++		if (!net_eq(net,dev_net(iter->dev)))
++			continue;
+ 		netdev_adjacent_sysfs_del(iter->dev, oldname,
+ 					  &iter->dev->adj_list.upper);
+ 		netdev_adjacent_sysfs_add(iter->dev, dev,
+@@ -6771,8 +6828,10 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 	dev_uc_flush(dev);
+ 	dev_mc_flush(dev);
+ 
++
+ 	/* Send a netdev-removed uevent to the old namespace */
+ 	kobject_uevent(&dev->dev.kobj, KOBJ_REMOVE);
++	netdev_adjacent_del_links(dev);
+ 
+ 	/* Actually switch the network namespace */
+ 	dev_net_set(dev, net);
+@@ -6787,6 +6846,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 
+ 	/* Send a netdev-add uevent to the new namespace */
+ 	kobject_uevent(&dev->dev.kobj, KOBJ_ADD);
++	netdev_adjacent_add_links(dev);
+ 
+ 	/* Fixup kobjects */
+ 	err = device_rename(&dev->dev, dev->name);
+-- 
+2.0.4
