@@ -1,40 +1,56 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: TCP output handling bug ?
-Date: Thu, 21 Aug 2014 17:24:45 -0700
-Message-ID: <20140821172445.7c1ba422@uryu.home.lan>
-References: <20140821190208.208e0de1@www.etchedpixels.co.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 1/3] net: propagate sock pointer through
+ netfilter hooks
+Date: Thu, 21 Aug 2014 17:33:39 -0700 (PDT)
+Message-ID: <20140821.173339.1409243624518012670.davem@davemloft.net>
+References: <1408127576-11518-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, stephen@networkplumber.org,
+	cwang@twopensource.com, pshelar@nicira.com,
+	nicolas.dichtel@6wind.com, therbert@google.com,
+	dborkman@redhat.com, edumazet@google.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:45919 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751701AbaHVAYw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 20:24:52 -0400
-Received: by mail-ig0-f175.google.com with SMTP id uq10so14177002igb.14
-        for <netdev@vger.kernel.org>; Thu, 21 Aug 2014 17:24:52 -0700 (PDT)
-In-Reply-To: <20140821190208.208e0de1@www.etchedpixels.co.uk>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44538 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751701AbaHVAdn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Aug 2014 20:33:43 -0400
+In-Reply-To: <1408127576-11518-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 21 Aug 2014 19:02:08 +0100
-Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri, 15 Aug 2014 20:32:54 +0200
 
+> When output function (ip6_finish_output2 for example) needs to be called
+> with sock pointer, we need to push sock pointer through the netfilter
+> hooks. This patch does that.
 > 
-> tcp_send_syn_data:
-> 
->         TCP_SKB_CB(data)->tcp_flags &= ~TCPHDR_SYN;
->         TCP_SKB_CB(data)->tcp_flags = (TCPHDR_ACK|TCPHDR_PSH);
-> 
-> the reporter has a point 8)
-> 
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=82101
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-I wonder if covertity or smatch could be smart enough to catch this kind of bug?
+Ok, I'm going to admit that I am having second thoughts about this
+approach.  This is a quite large set of churn to fix this bug.
+
+However, in the same breath, I can't come up with a simpler way to
+propagate this information without the really unacceptable overhead of
+adding another sk_buff member.
+
+And even if we found some simple way to deal with that sk_mc_loop()
+test, ipv6 has other demons in this area.
+
+For example, look at what ip6_fragment() does, it also assumes skb->sk
+is an inet6 socket.
+
+	struct ipv6_pinfo *np = skb->sk ? inet6_sk(skb->sk) : NULL;
+ ...
+	if (np && np->frag_size < mtu) {
+		if (np->frag_size)
+			mtu = np->frag_size;
+	}
+
+The rest of the skb->sk usage in these place is fine, as they are
+simply propagating socket ownership from one packet to another, rather
+than doing protocol specific things with them.
