@@ -1,60 +1,62 @@
-From: Alima Toe <toe22.alima@gmail.com>
-Subject: I NEED YOUR URGENT REPLY
-Date: Fri, 22 Aug 2014 17:38:50 +0000
-Message-ID: <CAMbhoZbUQ6DjXyQaCS285ZrMgmC65AqXS80vLhxuB=CoH5MK0w@mail.gmail.com>
-Reply-To: alima.toe75@voila.fr
+From: David Miller <davem@davemloft.net>
+Subject: Re: TCP output handling bug ?
+Date: Fri, 22 Aug 2014 10:41:18 -0700 (PDT)
+Message-ID: <20140822.104118.710757967194596933.davem@davemloft.net>
+References: <20140821172445.7c1ba422@uryu.home.lan>
+	<20140822021341.GB14353@redhat.com>
+	<1408715790.5604.13.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davej@redhat.com, stephen@networkplumber.org,
+	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org, ycheng@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f194.google.com ([209.85.212.194]:63137 "EHLO
-	mail-wi0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932503AbaHVRiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 13:38:52 -0400
-Received: by mail-wi0-f194.google.com with SMTP id d1so8008wiv.9
-        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 10:38:50 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:52414 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932469AbaHVRlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 13:41:19 -0400
+In-Reply-To: <1408715790.5604.13.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Friend,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 22 Aug 2014 06:56:30 -0700
 
-I know that this mail will come to you as a surprise, please pay
-attention and understand my reason of contacting you today through
-this email; my name is Mrs.Alima Toe, Bill and Exchange Manager in
-Bank of Africa Ouagadougou Burkina-Faso. In my department, during the
-Auditing of the year I discovered an abounded sum of $15.500.000.00
-USD that belongs to one of our Late customer, a foreigner who
-unfortunately lost his life and entire family in a plane crash in
-the year 2008.
+CC:'ing Yuchung Cheng
 
-I desperately need your assistance to secure and move this huge sums
-of money left behind by my late client to the tune of $15.500.000.00,
-(fifteen million Five hundred thousand Dollars) out from Bank Of
-Africa to your own account, and according to the laws and constitution
-guiding this banking institution, it states that after the expiration
-of (10) ten years, if no body or person comes for the claim as the
-next of kin, the fund will be transferred to national treasury as
-unclaimed fund. Because of the static of this transaction I want you
-to stand as the next of kin so that our bank will accord you the
-recognition and have the fund transferred to your account.and l have
-all his documents.
+> On Thu, 2014-08-21 at 22:13 -0400, Dave Jones wrote:
+>> On Thu, Aug 21, 2014 at 05:24:45PM -0700, Stephen Hemminger wrote:
+>>  > On Thu, 21 Aug 2014 19:02:08 +0100
+>>  > Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
+>>  > 
+>>  > > 
+>>  > > tcp_send_syn_data:
+>>  > > 
+>>  > >         TCP_SKB_CB(data)->tcp_flags &= ~TCPHDR_SYN;
+>>  > >         TCP_SKB_CB(data)->tcp_flags = (TCPHDR_ACK|TCPHDR_PSH);
+>>  > > 
+>>  > > the reporter has a point 8)
+>>  > > 
+>>  > > https://bugzilla.kernel.org/show_bug.cgi?id=82101
+>>  > 
+>>  > I wonder if covertity or smatch could be smart enough to catch this kind of bug?
+>> 
+>> For coverity: it should be, but isn't :)
+>> I've pointed them at the bugzilla, maybe they can add a check in a
+>> future update.
+>> 
+>> I bet this isn't the only instance of a bug like this left in the tree.
+>> We've definitely had similar cases before.
+>> 
+>> 	Dave
+> 
+> There is no bug here as a matter of fact.
+> 
+> You can simply remove the first line, as it is useless.
+> 
+> -	TCP_SKB_CB(data)->tcp_flags &= ~TCPHDR_SYN;
+> 
+> At the end of the day, data segment has ACK and PSH flags only.
 
-that will back you up to claimed this $15.500.000.00,
-without any thing problem or Questions in this business transaction
-Meanwhile, for your smoothness of this transaction, our sharing ratio
-will be 50%50 for your co-operation in this matter. If you know that
-you are interested and capable to handle this business transaction,
-come up with your informations showed below:
-please this email is not a joke and dont take it as a joker messngers.
-
-
-Please I would like you to keep this proposal as a top secret
-As possible all these informations are submitted to me, I will
-immediately send you the next of kin application form so that you will
-proceed with the transaction by sending the Form to bank for the
-transferring of this fund into your bank account
-
-
-Yours Faithfully,
-Mrs.Alima Toe
-Your Urgent Reply Is Needed
+What about ECE/CWR?
