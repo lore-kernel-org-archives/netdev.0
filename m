@@ -1,90 +1,65 @@
-From: Mike Galbraith <umgwanakikbuti@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
- is runnable
-Date: Fri, 22 Aug 2014 07:01:05 +0200
-Message-ID: <1408683665.5648.69.camel@marge.simpson.net>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
-	 <1408608310-13579-2-git-send-email-jasowang@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/3] net: propagate sock pointer through
+ netfilter hooks
+Date: Fri, 22 Aug 2014 07:56:57 +0200
+Message-ID: <20140822055657.GA1847@nanopsycho.orion>
+References: <1408127576-11518-1-git-send-email-jiri@resnulli.us>
+ <20140821.173339.1409243624518012670.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408608310-13579-2-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, stephen@networkplumber.org,
+	cwang@twopensource.com, pshelar@nicira.com,
+	nicolas.dichtel@6wind.com, therbert@google.com,
+	dborkman@redhat.com, edumazet@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:58273 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752630AbaHVF5B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 01:57:01 -0400
+Received: by mail-wi0-f176.google.com with SMTP id bs8so9673423wib.15
+        for <netdev@vger.kernel.org>; Thu, 21 Aug 2014 22:57:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140821.173339.1409243624518012670.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-08-21 at 16:05 +0800, Jason Wang wrote: 
-> Rx busy loop does not scale well in the case when several parallel
-> sessions is active. This is because we keep looping even if there's
-> another process is runnable. For example, if that process is about to
-> send packet, keep busy polling in current process will brings extra
-> delay and damage the performance.
-> 
-> This patch solves this issue by exiting the busy loop when there's
-> another process is runnable in current cpu. Simple test that pin two
-> netperf sessions in the same cpu in receiving side shows obvious
-> improvement:
+Fri, Aug 22, 2014 at 02:33:39AM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Fri, 15 Aug 2014 20:32:54 +0200
+>
+>> When output function (ip6_finish_output2 for example) needs to be called
+>> with sock pointer, we need to push sock pointer through the netfilter
+>> hooks. This patch does that.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>
+>Ok, I'm going to admit that I am having second thoughts about this
+>approach.  This is a quite large set of churn to fix this bug.
+>
+>However, in the same breath, I can't come up with a simpler way to
+>propagate this information without the really unacceptable overhead of
+>adding another sk_buff member.
+>
+>And even if we found some simple way to deal with that sk_mc_loop()
+>test, ipv6 has other demons in this area.
+>
+>For example, look at what ip6_fragment() does, it also assumes skb->sk
+>is an inet6 socket.
+>
+>	struct ipv6_pinfo *np = skb->sk ? inet6_sk(skb->sk) : NULL;
+> ...
+>	if (np && np->frag_size < mtu) {
+>		if (np->frag_size)
+>			mtu = np->frag_size;
+>	}
+>
+>The rest of the skb->sk usage in these place is fine, as they are
+>simply propagating socket ownership from one packet to another, rather
+>than doing protocol specific things with them.
 
-That patch says to me it's a bad idea to spin when someone (anyone) else
-can get some work done on a CPU, which intuitively makes sense.  But..
 
-(ponders net goop: with silly 1 byte ping-pong load, throughput is bound
-by fastpath latency, net plus sched plus fixable nohz and governor crud
-if not polling, so you can't get a lot of data moved byte at a time no
-matter how sexy the pipe whether polling or not due to bound.  If OTOH
-net hardware is a blazing fast large bore packet cannon, net overhead
-per unit payload drops, sched+crud is a constant)
-
-Seems the only time it's a good idea to poll is if blasting big packets
-on sexy hardware, and if you're doing that, you want to poll regardless
-of whether somebody else is waiting, or?
-
-> Before:
-> netperf -H 192.168.100.2 -T 0,0 -t TCP_RR -P 0 & \
-> netperf -H 192.168.100.2 -T 1,0 -t TCP_RR -P 0
-> 16384  87380  1        1       10.00    15513.74
-> 16384  87380
-> 16384  87380  1        1       10.00    15092.78
-> 16384  87380
-> 
-> After:
-> netperf -H 192.168.100.2 -T 0,0 -t TCP_RR -P 0 & \
-> netperf -H 192.168.100.2 -T 1,0 -t TCP_RR -P 0
-> 16384  87380  1        1       10.00    23334.53
-> 16384  87380
-> 16384  87380  1        1       10.00    23327.58
-> 16384  87380
-> 
-> Benchmark was done through two 8 cores Xeon machine back to back connected
-> with mlx4 through netperf TCP_RR test (busy_read were set to 50):
-> 
-> sessions/bytes/before/after/+improvement%/busy_read=0/
-> 1/1/30062.10/30034.72/+0%/20228.96/
-> 16/1/214719.83/307669.01/+43%/268997.71/
-> 32/1/231252.81/345845.16/+49%/336157.442/
-> 64/512/212467.39/373464.93/+75%/397449.375/
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  include/net/busy_poll.h | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
-> index 1d67fb6..8a33fb2 100644
-> --- a/include/net/busy_poll.h
-> +++ b/include/net/busy_poll.h
-> @@ -109,7 +109,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
->  		cpu_relax();
->  
->  	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
-> -		 !need_resched() && !busy_loop_timeout(end_time));
-> +		 !need_resched() && !busy_loop_timeout(end_time) &&
-> +		 nr_running_this_cpu() < 2);
->  
->  	rc = !skb_queue_empty(&sk->sk_receive_queue);
->  out:
+You are correct. Another code can benefit from proparated sk as well. I
+found couple of other possible places on the way (which I unfortunatelly
+did not noted :/).
