@@ -1,28 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] bonding: Replace rcu_dereference() with
- rcu_access_pointer()
-Date: Fri, 22 Aug 2014 12:28:01 -0700 (PDT)
-Message-ID: <20140822.122801.607834249912014517.davem@davemloft.net>
-References: <20140817102145.GA3854@ada>
+Subject: Re: [PATCH] br_multicast: Replace rcu_assign_pointer()
+ with RCU_INIT_POINTER()
+Date: Fri, 22 Aug 2014 12:28:31 -0700 (PDT)
+Message-ID: <20140822.122831.451083152510385540.davem@davemloft.net>
+References: <20140822130609.GA19576@ada>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, paulmck@linux.vnet.ibm.com,
+	linux-kernel@vger.kernel.org
 To: bernat.ada@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140817102145.GA3854@ada>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140822130609.GA19576@ada>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
-Date: Sun, 17 Aug 2014 13:21:45 +0300
+Date: Fri, 22 Aug 2014 16:06:09 +0300
 
-> This "rcu_dereference()" call is used directly in a condition.
-> Since its return value is never dereferenced it is recommended to use
-> "rcu_access_pointer()" instead of "rcu_dereference()".
-> Therefore, this patch makes this replacement.
+> The use of "rcu_assign_pointer()" is NULLing out the pointer.
+> According to RCU_INIT_POINTER()'s block comment:
+> "1.   This use of RCU_INIT_POINTER() is NULLing out the pointer"
+> it is better to use it instead of rcu_assign_pointer() because it has a
+> smaller overhead.
  ...
 > Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
 
