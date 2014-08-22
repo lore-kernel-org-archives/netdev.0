@@ -1,27 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2014-08-21
-Date: Thu, 21 Aug 2014 21:53:39 -0700 (PDT)
-Message-ID: <20140821.215339.1016944928830108729.davem@davemloft.net>
-References: <1408613002-29693-1-git-send-email-mkl@pengutronix.de>
+Subject: Re: [PATCH net] cxgb4: Free completed tx skbs promptly
+Date: Thu, 21 Aug 2014 21:55:10 -0700 (PDT)
+Message-ID: <20140821.215510.1020820955556312798.davem@davemloft.net>
+References: <1408620886-20065-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1408613002-29693-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com,
+	kumaras@chelsio.com, anish@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46344 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755832AbaHVEzL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 00:55:11 -0400
+In-Reply-To: <1408620886-20065-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Thu, 21 Aug 2014 11:23:18 +0200
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Thu, 21 Aug 2014 17:04:46 +0530
 
-> The first patch is from Mirza Krak, it fixes the initialization of the hardware
-> in the sja1000 driver. The next patch is contributed by Dan Carpenter, it fixes
-> the error handling in the c_can's probe function. Then there are two patches
-> for the flexcan driver, one by Alexander Stein, which fixes the resetting of
-> the bus error interrupt mask, the other one by Sebastian Andrzej Siewior which
-> adds an additional error state transition message.
+> Description of problem:
+> The NIC card is not reporting back to the driver the transmitted skbs,
+> so they get stuck in the TX ring causing issues with reference
+> counters in other kernel components.
+> 
+> Developed a new Automatic Egress Queue Update firmware facility to slowly tick
+> through Egress Queues and send back any outstanding CIDX Updates which are
+> laying around.
+> 
+> Based on original work by Casey Leedom <leedom@chelsio.com>
+> 
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-Pulled, thanks Marc.
+Applied, thank you.
