@@ -1,49 +1,68 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] phylib: use MDIO_DEVS[12]
-Date: Fri, 22 Aug 2014 23:56:47 +0400
-Message-ID: <1920521.UOn8o4CGAS@wasted.cogentembedded.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next v2] ipv4: Restore accept_local behaviour in
+ fib_validate_source()
+Date: Fri, 22 Aug 2014 23:07:42 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1408222303460.7852@ja.home.ssi.bg>
+References: <1408259994-31458-1-git-send-email-sebastien.barre@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: netdev@vger.kernel.org, f.fainelli@gmail.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811672-432535614-1408738085=:7852"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Gregory Detal <gregory.detal@uclouvain.be>,
+	Christoph Paasch <christoph.paasch@uclouvain.be>,
+	Hannes Frederic Sowa <hannes@redhat.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: =?UTF-8?Q?S=C3=A9bastien_Barr=C3=A9?=
+	<sebastien.barre@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:61977 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750921AbaHVT4v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 15:56:51 -0400
-Received: by mail-la0-f44.google.com with SMTP id el20so10713744lab.3
-        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 12:56:49 -0700 (PDT)
+Received: from ja.ssi.bg ([178.16.129.10]:41229 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751316AbaHVUJU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Aug 2014 16:09:20 -0400
+In-Reply-To: <1408259994-31458-1-git-send-email-sebastien.barre@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bare register numbers are used despite <uapi/linux/mdio.h> has MDIO_DEVS[12]
-#define'd for those.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+---1463811672-432535614-1408738085=:7852
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
----
-This patch is against DaveM's 'net-next.git' repo.
 
- drivers/net/phy/phy_device.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+	Hello,
 
-Index: net-next/drivers/net/phy/phy_device.c
-===================================================================
---- net-next.orig/drivers/net/phy/phy_device.c
-+++ net-next/drivers/net/phy/phy_device.c
-@@ -230,13 +230,13 @@ static int get_phy_c45_ids(struct mii_bu
- 	for (i = 1;
- 	     i < num_ids && c45_ids->devices_in_package == 0;
- 	     i++) {
--		reg_addr = MII_ADDR_C45 | i << 16 | 6;
-+		reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS2;
- 		phy_reg = mdiobus_read(bus, addr, reg_addr);
- 		if (phy_reg < 0)
- 			return -EIO;
- 		c45_ids->devices_in_package = (phy_reg & 0xffff) << 16;
- 
--		reg_addr = MII_ADDR_C45 | i << 16 | 5;
-+		reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS1;
- 		phy_reg = mdiobus_read(bus, addr, reg_addr);
- 		if (phy_reg < 0)
- 			return -EIO;
+On Sun, 17 Aug 2014, Sébastien Barré wrote:
+
+> Commit 7a9bc9b81a5b ("ipv4: Elide fib_validate_source() completely when possible.")
+> introduced a short-circuit to avoid calling fib_validate_source when not
+> needed. That change took rp_filter into account, but not accept_local.
+> This resulted in a change of behaviour: with rp_filter and accept_local
+> off, incoming packets with a local address in the source field should be
+> dropped.
+> 
+> Here is how to reproduce the change pre/post 7a9bc9b81a5b commit:
+> -configure the same IPv4 address on hosts A and B.
+> -try to send an ARP request from B to A.
+> -The ARP request will be dropped before that commit, but accepted and answered
+> after that commit.
+> 
+> This adds a check for ACCEPT_LOCAL, to maintain full
+> fib validation in case it is 0. We also leave __fib_validate_source() earlier
+> when possible, based on the same check as fib_validate_source(), once the
+> accept_local stuff is verified.
+
+	I remember there was related change for docs,
+may be commit c801e3cc1925e0 should be reverted ?
+
+> Cc: Gregory Detal <gregory.detal@uclouvain.be>
+> Cc: Christoph Paasch <christoph.paasch@uclouvain.be>
+> Cc: Hannes Frederic Sowa <hannes@redhat.com>
+> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Signed-off-by: Sébastien Barré <sebastien.barre@uclouvain.be>
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
+---1463811672-432535614-1408738085=:7852--
