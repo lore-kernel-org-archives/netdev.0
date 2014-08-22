@@ -1,29 +1,54 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT PULL] Networking
-Date: Fri, 22 Aug 2014 14:47:36 -0700
-Message-ID: <CA+55aFy+2WiFDRDZwb9B3bh9HS_5Q8K=2PpTHkzi7keSzwc67g@mail.gmail.com>
-References: <20140822.114711.856705392345846995.davem@davemloft.net>
-	<CA+55aFxsf02Lt+rFOxf0rXu1WoqZW0omGzwdHUfSfo+O9EqUAw@mail.gmail.com>
-	<20140822.144011.1708163582352708529.davem@davemloft.net>
+From: Christian Lamparter <chunkeey@googlemail.com>
+Subject: Re: [PATCH v2] carl9170: Remove redundant protection check
+Date: Fri, 22 Aug 2014 23:53:40 +0200
+Message-ID: <1931285.KsvFbLZH2Q@debian64>
+References: <20140822191431.GA5827@ada> <1679858.MgakDZE2Vr@debian64> <1408741732.5604.23.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Andreea-Cristina Bernat <bernat.ada@gmail.com>,
+	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	paulmck@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140822.144011.1708163582352708529.davem@davemloft.net>
+In-Reply-To: <1408741732.5604.23.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 22, 2014 at 2:40 PM, David Miller <davem@davemloft.net> wrote:
->
-> I think you can apply it directly and none of us will mind, and GIT
-> will sort it all out during the next merge.
+On Friday, August 22, 2014 02:08:52 PM Eric Dumazet wrote:
+> On Fri, 2014-08-22 at 22:38 +0200, Christian Lamparter wrote:
+> [...]
+> > From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+> > 
+> > The carl9170_op_ampdu_action() function is used only by the mac80211
+> > framework. Since the mac80211 already takes care of checks and 
+> > properly serializing calls to the driver's function there is no
+> > need for the driver to do the same thing.
+> >  
+> > ---
+> > @@ -1430,18 +1430,10 @@ static int carl9170_op_ampdu_action(struct ieee80211_hw *hw,
+> >  		if (!sta_info->ht_sta)
+> >  			return -EOPNOTSUPP;
+> >  
+> > -		rcu_read_lock();
+> > -		if (rcu_dereference(sta_info->agg[tid])) {
+> > -			rcu_read_unlock();
+> > -			return -EBUSY;
+> > -		}
+> > -
+> > [...]
+> > ---
+> 
+> Sorry but this patch is not complete.
+> 
+> You need to somehow return -EBUSY if sta_info->agg[tid] is set.
+The sta_info->agg[tid] check is not needed (for reference, see [0]).
+(There is already a check in mac80211 which prevents the leak of
+sta_info->agg[tid] [1]).
 
-Ok, I'll apply it directly to my tree, since it affected my machine.
-Now that I'm back home I probably won't see the channel switch
-requests that caused the problem, but I just feel uncomfortable
-running a known-broken kernel.
+Regards
+Christian
 
-              Linus
+[0] <https://lkml.org/lkml/2014/8/20/725>
+[1] <http://lxr.free-electrons.com/source/net/mac80211/agg-tx.c#L583>
