@@ -1,36 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] vxlan: fix incorrect initializer in union
- vxlan_addr
-Date: Thu, 21 Aug 2014 21:27:08 -0700 (PDT)
-Message-ID: <20140821.212708.2127029655910110294.davem@davemloft.net>
-References: <53EDCCFE.5090301@linux.vnet.ibm.com>
-	<20140818.101143.2274310300741627370.davem@davemloft.net>
-	<53F3B55B.6070505@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next] hyperv: Add handling of IP header with option
+ field in netvsc_set_hash()
+Date: Thu, 21 Aug 2014 21:30:57 -0700 (PDT)
+Message-ID: <20140821.213057.1438247518790500739.davem@davemloft.net>
+References: <1408481635-29639-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gstenzel@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46081 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751497AbaHVE1J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 00:27:09 -0400
-In-Reply-To: <53F3B55B.6070505@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1408481635-29639-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: Gerhard Stenzel <gstenzel@linux.vnet.ibm.com>
-Date: Tue, 19 Aug 2014 22:36:43 +0200
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Tue, 19 Aug 2014 20:53:55 +0000
 
-> Trying again ... 
+> @@ -200,12 +202,18 @@ static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
+>  	iphdr = ip_hdr(skb);
+>  
+>  	if (iphdr->version == 4) {
+> -		if (iphdr->protocol == IPPROTO_TCP)
+> +		data = (u8 *)&iphdr->saddr;
+> +		if (iphdr->protocol == IPPROTO_TCP) {
+>  			data_len = 12;
+> -		else
+> +			if (iphdr->ihl > 5) {
+> +				memcpy(dbuf, &iphdr->saddr, 8);
+> +				memcpy(&dbuf[8], &tcp_hdr(skb)->source, 4);
 
-This is not the correct way to resubmit a patch properly.
+This is rediculous.
 
-Do not ever submit a new copy of a patch as a reply to a discussion
-thread, quoting unrelated material, etc.
+Make hash_comp() take a void pointer for the buffer.
 
-Instead, make a new, fresh, mailing list posting as if you were
-posting the patch for the first time.  Except you add
-"[PATCH v2 net]" or similar to indicate this is a new submission
-of the patch.
+Then your code is simply:
+
+	be32 dbuf[2];
+
+	dbuf[1] = iph->saddr;
+	dbuf[2] = iph->daddr;
+	dbuf[3] = *(be32 *)tcph->source;
+
+	*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN, dbuf, 12);
+
+No special cases for IP options or any garbage like that.
