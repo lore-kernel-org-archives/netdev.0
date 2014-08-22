@@ -1,21 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dn_dev: Use time_before
-Date: Fri, 22 Aug 2014 12:28:45 -0700 (PDT)
-Message-ID: <20140822.122845.47909761068311924.davem@davemloft.net>
-References: <20140820174306.GA4180@himangi-Dell>
+Subject: Re: [PATCH] ipconfig: Use time_before
+Date: Fri, 22 Aug 2014 12:28:50 -0700 (PDT)
+Message-ID: <20140822.122850.930825136664297515.davem@davemloft.net>
+References: <20140820174410.GA4225@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
 To: himangi774@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140820174306.GA4180@himangi-Dell>
+In-Reply-To: <20140820174410.GA4225@himangi-Dell>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Himangi Saraogi <himangi774@gmail.com>
-Date: Wed, 20 Aug 2014 23:13:07 +0530
+Date: Wed, 20 Aug 2014 23:14:10 +0530
 
 > The functions time_before, time_before_eq, time_after, and time_after_eq
 > are more robust for comparing jiffies against other values.
@@ -26,11 +27,8 @@ Date: Wed, 20 Aug 2014 23:13:07 +0530
 > @change@
 > expression E1,E2;
 > @@
-> 
-> (
-> - (jiffies - E1) < E2
+> - jiffies - E1 < E2
 > + time_before(jiffies, E1+E2)
-> )
 > 
 > Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
 > Acked-by: Julia Lawall <julia.lawall@lip6.fr>
