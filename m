@@ -1,35 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] net: Header length compution function
-Date: Sat, 23 Aug 2014 12:19:59 -0700 (PDT)
-Message-ID: <20140823.121959.890509134482478336.davem@davemloft.net>
-References: <53D90099.6040906@intel.com>
-	<20140730.183907.1435538533126954589.davem@davemloft.net>
-	<53DA61FE.40406@intel.com>
+Subject: Re: [PATCH net-next] net: use reciprocal_scale() helper
+Date: Sat, 23 Aug 2014 12:21:36 -0700 (PDT)
+Message-ID: <20140823.122136.1226327468462504584.davem@davemloft.net>
+References: <1408820334-2088-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, amirv@mellanox.com, netdev@vger.kernel.org,
-	ogerlitz@mellanox.com, yevgenyp@mellanox.com, idos@mellanox.com
-To: alexander.h.duyck@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35824 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750957AbaHWTUA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 15:20:00 -0400
-In-Reply-To: <53DA61FE.40406@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	hannes@stressinduktion.org
+To: dborkman@redhat.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1408820334-2088-1-git-send-email-dborkman@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Thu, 31 Jul 2014 08:34:22 -0700
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Sat, 23 Aug 2014 20:58:54 +0200
 
-> On 07/30/2014 06:39 PM, David Miller wrote:
->> I don't think my proposed patch is a bad trade off.  Where we have the
->> __skb_header_pointer() thing that takes preloaded pointers and header
->> length values.  It adds only one test which frankly should never
->> trigger and can be moved down into skb_copy_bits() or similar.
+> Replace open codings of (((u64) <x> * <y>) >> 32) with reciprocal_scale().
 > 
-> This works for me.  Once it is in I can see about pushing a patch to add
-> some FCoE support and work on moving over igb and ixgbe.
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-You should be able to do this against net-next now, just FYI.
+Applied, thanks Daniel.
