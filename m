@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 2/3] igb: Support netdev_ops->ndo_xmit_flush()
-Date: Sat, 23 Aug 2014 13:28:31 -0700 (PDT)
-Message-ID: <20140823.132831.1631728962695769922.davem@davemloft.net>
+Subject: [PATCH 3/3] virtio_net: Support netdev_ops->ndo_xmit_flush()
+Date: Sat, 23 Aug 2014 13:28:37 -0700 (PDT)
+Message-ID: <20140823.132837.1543009042943813804.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,99 +10,53 @@ Cc: therbert@google.com, jhs@mojatatu.com, hannes@stressinduktion.org,
 	rusty@rustcorp.com.au
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36288 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36295 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751540AbaHWU2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 16:28:32 -0400
+	with ESMTP id S1751796AbaHWU2i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 16:28:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 35 +++++++++++++++++++++----------
- 1 file changed, 24 insertions(+), 11 deletions(-)
+ drivers/net/virtio_net.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index cb14bbd..b9c020a 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -136,6 +136,7 @@ static void igb_update_phy_info(unsigned long);
- static void igb_watchdog(unsigned long);
- static void igb_watchdog_task(struct work_struct *);
- static netdev_tx_t igb_xmit_frame(struct sk_buff *skb, struct net_device *);
-+static void igb_xmit_flush(struct net_device *netdev, u16 queue);
- static struct rtnl_link_stats64 *igb_get_stats64(struct net_device *dev,
- 					  struct rtnl_link_stats64 *stats);
- static int igb_change_mtu(struct net_device *, int);
-@@ -2075,6 +2076,7 @@ static const struct net_device_ops igb_netdev_ops = {
- 	.ndo_open		= igb_open,
- 	.ndo_stop		= igb_close,
- 	.ndo_start_xmit		= igb_xmit_frame,
-+	.ndo_xmit_flush		= igb_xmit_flush,
- 	.ndo_get_stats64	= igb_get_stats64,
- 	.ndo_set_rx_mode	= igb_set_rx_mode,
- 	.ndo_set_mac_address	= igb_set_mac,
-@@ -4915,13 +4917,6 @@ static void igb_tx_map(struct igb_ring *tx_ring,
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 59caa06..6242108 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -934,7 +934,6 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		dev_kfree_skb_any(skb);
+ 		return NETDEV_TX_OK;
+ 	}
+-	virtqueue_kick(sq->vq);
  
- 	tx_ring->next_to_use = i;
- 
--	writel(i, tx_ring->tail);
--
--	/* we need this if more than one processor can write to our tail
--	 * at a time, it synchronizes IO on IA64/Altix systems
--	 */
--	mmiowb();
--
- 	return;
- 
- dma_error:
-@@ -5057,17 +5052,20 @@ out_drop:
+ 	/* Don't wait up for transmitted skbs to be freed. */
+ 	skb_orphan(skb);
+@@ -957,6 +956,14 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
  	return NETDEV_TX_OK;
  }
  
--static inline struct igb_ring *igb_tx_queue_mapping(struct igb_adapter *adapter,
--						    struct sk_buff *skb)
-+static struct igb_ring *__igb_tx_queue_mapping(struct igb_adapter *adapter, unsigned int r_idx)
- {
--	unsigned int r_idx = skb->queue_mapping;
--
- 	if (r_idx >= adapter->num_tx_queues)
- 		r_idx = r_idx % adapter->num_tx_queues;
- 
- 	return adapter->tx_ring[r_idx];
- }
- 
-+static inline struct igb_ring *igb_tx_queue_mapping(struct igb_adapter *adapter,
-+						    struct sk_buff *skb)
++static void xmit_flush(struct net_device *dev, u16 qnum)
 +{
-+	return __igb_tx_queue_mapping(adapter, skb->queue_mapping);
++	struct virtnet_info *vi = netdev_priv(dev);
++	struct send_queue *sq = &vi->sq[qnum];
++
++	virtqueue_kick(sq->vq);
 +}
 +
- static netdev_tx_t igb_xmit_frame(struct sk_buff *skb,
- 				  struct net_device *netdev)
- {
-@@ -5096,6 +5094,21 @@ static netdev_tx_t igb_xmit_frame(struct sk_buff *skb,
- 	return igb_xmit_frame_ring(skb, igb_tx_queue_mapping(adapter, skb));
- }
- 
-+static void igb_xmit_flush(struct net_device *netdev, u16 queue)
-+{
-+	struct igb_adapter *adapter = netdev_priv(netdev);
-+	struct igb_ring *tx_ring;
-+
-+	tx_ring = __igb_tx_queue_mapping(adapter, queue);
-+
-+	writel(tx_ring->next_to_use, tx_ring->tail);
-+
-+	/* we need this if more than one processor can write to our tail
-+	 * at a time, it synchronizes IO on IA64/Altix systems
-+	 */
-+	mmiowb();
-+}
-+
- /**
-  *  igb_tx_timeout - Respond to a Tx Hang
-  *  @netdev: network interface device structure
+ /*
+  * Send command via the control virtqueue and check status.  Commands
+  * supported by the hypervisor, as indicated by feature bits, should
+@@ -1386,6 +1393,7 @@ static const struct net_device_ops virtnet_netdev = {
+ 	.ndo_open            = virtnet_open,
+ 	.ndo_stop   	     = virtnet_close,
+ 	.ndo_start_xmit      = start_xmit,
++	.ndo_xmit_flush      = xmit_flush,
+ 	.ndo_validate_addr   = eth_validate_addr,
+ 	.ndo_set_mac_address = virtnet_set_mac_address,
+ 	.ndo_set_rx_mode     = virtnet_set_rx_mode,
 -- 
 1.7.11.7
