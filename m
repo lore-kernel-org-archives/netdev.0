@@ -1,177 +1,196 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next RFC 10/12] openvswitch: add support for datapath
- hardware offload
-Date: Sat, 23 Aug 2014 15:51:26 +0100
-Message-ID: <20140823145126.GB24116@casper.infradead.org>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-11-git-send-email-jiri@resnulli.us>
- <53F79C54.5050701@gmail.com>
- <464DB0A8-0073-4CE0-9483-0F36B73A53A1@cumulusnetworks.com>
- <20140823092458.GC1854@nanopsycho.orion>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] random32: improvements to prandom_bytes
+Date: Sat, 23 Aug 2014 17:03:28 +0200
+Message-ID: <1408806208-11072-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Scott Feldman <sfeldma@cumulusnetworks.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	dev@openvswitch.org, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: akinobu.mita@gmail.com, LW@KARO-electronics.de,
+	netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:33804 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751056AbaHWOvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 10:51:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20140823092458.GC1854@nanopsycho.orion>
+Received: from mx1.redhat.com ([209.132.183.28]:21337 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750867AbaHWPDo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Aug 2014 11:03:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/23/14 at 11:24am, Jiri Pirko wrote:
-> Sat, Aug 23, 2014 at 12:53:34AM CEST, sfeldma@cumulusnetworks.com wro=
-te:
-> >
-> >On Aug 22, 2014, at 12:39 PM, John Fastabend <john.fastabend@gmail.c=
-om> wrote:
-> >> - this requires OVS to be loaded to work. If all I want is
-> >>   direct access to the hardware flow tables requiring openvswitch.=
-ko
-> >>   shouldn't be needed IMO. For example I may want to use the
-> >>   hardware flow tables with something not openvswitch and we
-> >>   shouldn't preclude that.
-> >>=20
-> >
-> >The intent is to use openvswitch.ko=E2=80=99s struct sw_flow to prog=
-ram hardware via the ndo_swdev_flow_* ops, but otherwise be independent=
- of OVS.  So the upper layer of the driver is struct sw_flow and any mo=
-dule above the driver can construct a struct sw_flow and push it down v=
-ia ndo_swdev_flow_*.  So your non-OVS use-case should be handled.  OVS =
-is another use-case.  struct sw_flow should not be OVS-aware, but rathe=
-r a generic flow match/action sufficient to offload the data plane to H=
-W.
->=20
-> Yes. I was thinking about simple Netlink API that would expose direct
-> sw_flow manipulation (ndo_swdev_flow_* wrapper) to userspace. I will
-> think abou that more and perhaps add it to my next patchset version.
+This patch addresses a couple of minor items, mostly addesssing
+prandom_bytes(): 1) prandom_bytes{,_state}() should use size_t
+for length arguments, 2) We can use put_unaligned() when filling
+the array instead of open coding it [ perhaps some archs will
+further benefit from their own arch specific implementation when
+GCC cannot make up for it ], 3) Fix a typo, 4) Better use unsigned
+int as type for getting the arch seed, 5) Make use of
+prandom_u32_max() for timer slack.
 
-I agree that this might help to give a better API consumption example
-for everyone not familiar with OVS.
+Regarding the change to put_unaligned(), callers of prandom_bytes()
+which internally invoke prandom_bytes_state(), don't bother as
+they expect the array to be filled randomly and don't have any
+control of the internal state what-so-ever (that's also why we
+have periodic reseeding there, etc), so they really don't care.
 
-> >> - Also there is no programmatic way to learn which flows are
-> >>   in hardware and which in software. There is a pr_warn but
-> >>   that doesn't help when interacting with the hardware remotely.
-> >>   I need some mechanism to dump the set of hardware tables and
-> >>   the set of software tables.
-> >
-> >Agreed, we need a way to annotate which flows are installed hardware=
-=2E
->=20
-> Yes, we discussed that already. We need to make OVS daemon hw-offload
-> aware indicating which flow it want/prefers to be offloaded. This is =
-I
-> believe easily extentable feature and can be added whenever the right
-> time is.
+Now for the direct callers of prandom_bytes_state(), which
+are solely located in test cases for MTD devices, that is,
+drivers/mtd/tests/{oobtest.c,pagetest.c,subpagetest.c}:
 
-I think the swdev flow API is good as-is. The bitmask specyfing the
-offload preference with all the granularity (offload-or-fail,
-try-to-offload, never-offload) needed can be added later, either in
-OVS only or in swdev itself.
+These tests basically fill a test write-vector through
+prandom_bytes_state() with an a-priori defined seed each time
+and write that to a MTD device. Later on, they set up a read-vector
+and read back that blocks from the device. So in the verification
+phase, the write-vector is being re-setup [ so same seed and
+prandom_bytes_state() called ], and then memcmp()'ed against the
+read-vector to check if the data is the same.
 
-What is unclear in this patch is how OVS user space can know which
-flows are offloaded and which aren't. A status field would help here
-which indicates either: flow inserted and offloaded, flow inserted but
-not offloaded. Given that, the API consumer can easily keep track of
-which flows are currently offloaded.
+Akinobu, Lothar and I also tested this patch and it runs through
+the 3 relevant MTD test cases w/o any errors on the nandsim device
+(simulator for MTD devs) for x86_64, ppc64, ARM (i.MX28, i.MX53
+and i.MX6):
 
-Also, I'm not sure whether flow expiration is something the API must
-take care of. The current proposal assumes that HW flows are only
-ever removed by the API itself. Could the switch CPU run code which
-removes flows as well? That would call for Netlink notifications.
-Not that it's needed at this stage of the code but maybe worth
-considerating for the API design.
+  # modprobe nandsim first_id_byte=3D0x20 second_id_byte=3D0xac \
+                     third_id_byte=3D0x00 fourth_id_byte=3D0x15
+  # modprobe mtd_oobtest dev=3D0
+  # modprobe mtd_pagetest dev=3D0
+  # modprobe mtd_subpagetest dev=3D0
 
-> >> - Simply duplicating the software flow/action into
-> >>   hardware may not optimally use the hardware tables. If I have
-> >>   a TCAM in hardware for instance. (This is how I read the patch
-> >>   let me know if I missed something)
-> >
-> >The hardware-specific driver is the right place to handle optimizing=
- the flow/action in hardware since only the driver can know the size/sh=
-ape of the device.  struct sw_flow is a generic flow description; how (=
-or if) a flow gets programmed into hardware must be handled in the swde=
-v driver.  If the device driver can=E2=80=99t make the sw_flow fit into=
- HW because of resource limitations or the flow simply can=E2=80=99t be=
- represented in HW, then the flow is SW only. =20
-> >
-> >In the rocker driver posted in this patch set, the steps are to pars=
-e the struct sw_flow to figure out what type of flow match/action we=E2=
-=80=99re dealing with (L2 or L3 or L4, ucast or mcast, ipv4 or ipv6, et=
-c) and then install the correct entries into the corresponding device t=
-ables within the constraints of the device=E2=80=99s pipeline.  Any opt=
-imizations, like coalescing HW entries, is something only the driver ca=
-n do.
+We also don't have any users depending directly on a particular
+result of the PRNG (except the PRNG self-test itself), and that's
+just fine as it e.g. allowed us easily to do things like upgrading
+from taus88 to taus113.
 
-The later examples definitely make sense and I'm not argueing against
-that. There is also a non hardware capabilities perspective that I
-would like to present:
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Tested-by: Akinobu Mita <akinobu.mita@gmail.com>
+Tested-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ v1->v2:
+  - resending as per: http://patchwork.ozlabs.org/patch/375418/
+  - rebased, retested
 
-1) TCAM capacity is limtied, we offload based on some priority assigned
-to flows.  Some are critical and need to be in HW, others are best effo=
-rt,
-others never go into hardware. An API user will likely want to offload
-best-effort flows until some watermark is reached and then switch to
-critical flows only. The driver is not the right place for high level
-optimization like this. The kernel API might but doesn't really have to
-either because it would mean we need APIs to transfer all of the
-needed context for the decision in the kernel. It might be easier to
-expose the hardware context to user space instead and handle these
-kind of optimizations in something like Quagga.
+ include/linux/random.h |  4 ++--
+ lib/random32.c         | 39 ++++++++++++++++++---------------------
+ 2 files changed, 20 insertions(+), 23 deletions(-)
 
-2) There is definitely a desire to allow adapting the software flow tab=
-le
-based on the hardware capabilities. Example, given a route like this:
-
-   20.1.0.0/16, mark=3D50, tos=3D0x12, actions: output:eth1
-
-The hardware can satisfy everything except the mark=3D50 match. Given a
-a blind 1:1 copy between hardware and software we cannot offload
-because a mach would be illegal. With the full context as available
-north of the API, this could be translated into something like this:
-
-  HW: 20.1.0.0/16, tos=3D0x12, actions: meta=3D1, output:cpu
-  SW: meta=3D1, mark=3D50, output:eth1
-
-This will allow for partial offloads to bypass expensive masked flow
-table lookups by converting them into efficient flat exact match
-tables, offload TC classifiers, nftables or even the existing L2 and
-L3 forwarding path.
-
-In summary, I think the swdev API as proposed is a good start as the
-in-kernel flow abstraction is sufficient for many API users but we
-should consider enabling the model described above as well once we
-have the basic model put in place. I will be very interested in helping
-out on this for both existing classifiers and OVS flow tables.
-
-
-> >> - I need a way to specify put this flow/action in hardware,
-> >>   put this flow/action in software, or put this in both software
-> >>   and hardware.
-> >>=20
-> >
-> >This seems above the swdev layer.  In other words, don=E2=80=99t cal=
-l ndo_swdev_flow_* if you don=E2=80=99t want flow match/action install =
-in HW.
-
-It can certainly be done northbound but this seems like a basic
-requirement and we might end up avoiding the code duplication and
-extending the API instead.
+diff --git a/include/linux/random.h b/include/linux/random.h
+index 57fbbff..b05856e 100644
+--- a/include/linux/random.h
++++ b/include/linux/random.h
+@@ -26,7 +26,7 @@ unsigned int get_random_int(void);
+ unsigned long randomize_range(unsigned long start, unsigned long end, =
+unsigned long len);
+=20
+ u32 prandom_u32(void);
+-void prandom_bytes(void *buf, int nbytes);
++void prandom_bytes(void *buf, size_t nbytes);
+ void prandom_seed(u32 seed);
+ void prandom_reseed_late(void);
+=20
+@@ -35,7 +35,7 @@ struct rnd_state {
+ };
+=20
+ u32 prandom_u32_state(struct rnd_state *state);
+-void prandom_bytes_state(struct rnd_state *state, void *buf, int nbyte=
+s);
++void prandom_bytes_state(struct rnd_state *state, void *buf, size_t nb=
+ytes);
+=20
+ /**
+  * prandom_u32_max - returns a pseudo-random number in interval [0, ep=
+_ro)
+diff --git a/lib/random32.c b/lib/random32.c
+index c9b6bf3..0bee183 100644
+--- a/lib/random32.c
++++ b/lib/random32.c
+@@ -37,6 +37,7 @@
+ #include <linux/jiffies.h>
+ #include <linux/random.h>
+ #include <linux/sched.h>
++#include <asm/unaligned.h>
+=20
+ #ifdef CONFIG_RANDOM32_SELFTEST
+ static void __init prandom_state_selftest(void);
+@@ -96,27 +97,23 @@ EXPORT_SYMBOL(prandom_u32);
+  *	This is used for pseudo-randomness with no outside seeding.
+  *	For more random results, use prandom_bytes().
+  */
+-void prandom_bytes_state(struct rnd_state *state, void *buf, int bytes=
+)
++void prandom_bytes_state(struct rnd_state *state, void *buf, size_t by=
+tes)
+ {
+-	unsigned char *p =3D buf;
+-	int i;
+-
+-	for (i =3D 0; i < round_down(bytes, sizeof(u32)); i +=3D sizeof(u32))=
+ {
+-		u32 random =3D prandom_u32_state(state);
+-		int j;
++	u8 *ptr =3D buf;
+=20
+-		for (j =3D 0; j < sizeof(u32); j++) {
+-			p[i + j] =3D random;
+-			random >>=3D BITS_PER_BYTE;
+-		}
++	while (bytes >=3D sizeof(u32)) {
++		put_unaligned(prandom_u32_state(state), (u32 *) ptr);
++		ptr +=3D sizeof(u32);
++		bytes -=3D sizeof(u32);
+ 	}
+-	if (i < bytes) {
+-		u32 random =3D prandom_u32_state(state);
+=20
+-		for (; i < bytes; i++) {
+-			p[i] =3D random;
+-			random >>=3D BITS_PER_BYTE;
+-		}
++	if (bytes > 0) {
++		u32 rem =3D prandom_u32_state(state);
++		do {
++			*ptr++ =3D (u8) rem;
++			bytes--;
++			rem >>=3D BITS_PER_BYTE;
++		} while (bytes > 0);
+ 	}
+ }
+ EXPORT_SYMBOL(prandom_bytes_state);
+@@ -126,7 +123,7 @@ EXPORT_SYMBOL(prandom_bytes_state);
+  *	@buf: where to copy the pseudo-random bytes to
+  *	@bytes: the requested number of bytes
+  */
+-void prandom_bytes(void *buf, int bytes)
++void prandom_bytes(void *buf, size_t bytes)
+ {
+ 	struct rnd_state *state =3D &get_cpu_var(net_rand_state);
+=20
+@@ -137,7 +134,7 @@ EXPORT_SYMBOL(prandom_bytes);
+=20
+ static void prandom_warmup(struct rnd_state *state)
+ {
+-	/* Calling RNG ten times to satify recurrence condition */
++	/* Calling RNG ten times to satisfy recurrence condition */
+ 	prandom_u32_state(state);
+ 	prandom_u32_state(state);
+ 	prandom_u32_state(state);
+@@ -152,7 +149,7 @@ static void prandom_warmup(struct rnd_state *state)
+=20
+ static u32 __extract_hwseed(void)
+ {
+-	u32 val =3D 0;
++	unsigned int val =3D 0;
+=20
+ 	(void)(arch_get_random_seed_int(&val) ||
+ 	       arch_get_random_int(&val));
+@@ -228,7 +225,7 @@ static void __prandom_timer(unsigned long dontcare)
+ 	prandom_seed(entropy);
+=20
+ 	/* reseed every ~60 seconds, in [40 .. 80) interval with slack */
+-	expires =3D 40 + (prandom_u32() % 40);
++	expires =3D 40 + prandom_u32_max(40);
+ 	seed_timer.expires =3D jiffies + msecs_to_jiffies(expires * MSEC_PER_=
+SEC);
+=20
+ 	add_timer(&seed_timer);
+--=20
+1.7.11.7
