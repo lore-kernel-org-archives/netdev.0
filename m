@@ -1,62 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 3/3] virtio_net: Support netdev_ops->ndo_xmit_flush()
-Date: Sat, 23 Aug 2014 13:28:37 -0700 (PDT)
-Message-ID: <20140823.132837.1543009042943813804.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, jhs@mojatatu.com, hannes@stressinduktion.org,
-	edumazet@google.com, jeffrey.t.kirsher@intel.com,
-	rusty@rustcorp.com.au
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH RFC net-next 0/2] Fix pfmemalloc in __netdev_alloc_skb
+Date: Sun, 24 Aug 2014 03:07:17 +0530
+Message-ID: <1408829839-20742-1-git-send-email-_govind@gmx.com>
+Cc: davem@davemloft.net, edumazet@google.com, mgorman@suse.de,
+	Govindarajulu Varadarajan <_govind@gmx.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36295 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751796AbaHWU2i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 16:28:38 -0400
+Received: from mout.gmx.com ([74.208.4.201]:50129 "EHLO mout.gmx.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751143AbaHWVhk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Aug 2014 17:37:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/virtio_net.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+After the introduction of skb->pfmemalloc in
+c93bdd0e0:(allow skb allocation to use PFMEMALLOC reserves), skb->pfmemalloc
+should be set to true if buff is allocated from reserve memory.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 59caa06..6242108 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -934,7 +934,6 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		dev_kfree_skb_any(skb);
- 		return NETDEV_TX_OK;
- 	}
--	virtqueue_kick(sq->vq);
- 
- 	/* Don't wait up for transmitted skbs to be freed. */
- 	skb_orphan(skb);
-@@ -957,6 +956,14 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NETDEV_TX_OK;
- }
- 
-+static void xmit_flush(struct net_device *dev, u16 qnum)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	struct send_queue *sq = &vi->sq[qnum];
-+
-+	virtqueue_kick(sq->vq);
-+}
-+
- /*
-  * Send command via the control virtqueue and check status.  Commands
-  * supported by the hypervisor, as indicated by feature bits, should
-@@ -1386,6 +1393,7 @@ static const struct net_device_ops virtnet_netdev = {
- 	.ndo_open            = virtnet_open,
- 	.ndo_stop   	     = virtnet_close,
- 	.ndo_start_xmit      = start_xmit,
-+	.ndo_xmit_flush      = xmit_flush,
- 	.ndo_validate_addr   = eth_validate_addr,
- 	.ndo_set_mac_address = virtnet_set_mac_address,
- 	.ndo_set_rx_mode     = virtnet_set_rx_mode,
+But in a1c7fff7e(netdev_alloc_skb() use build_skb()), netdev_alloc_skb() does
+not set skb->pfmemalloc if the page is allocated from reserve memory.
+
+Also if the page in netdev_alloc_cache->frag is allocated from reserve memory,
+and if the next call to __netdev_alloc_frag does not have __GFP_MEMALLOC in
+flags, we should not return a reserved memory. Because the reserve memory could
+be sitting in receive queue waiting for packet to arrive. We should release
+the reserve memory as soon as possible.
+
+Is my understanding correct?
+
+Govindarajulu Varadarajan (2):
+  net: skbuff: propagate pfmemalloc to skb
+  net: skbuff: do not allocate emergency memory if flags is not
+    __GFP_MEMALLOC
+
+ net/core/skbuff.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
 -- 
-1.7.11.7
+2.1.0
