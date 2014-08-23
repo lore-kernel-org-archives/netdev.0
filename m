@@ -1,153 +1,91 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next v3 2/3] ethtool: Add generic options for
- tunables
-Date: Fri, 22 Aug 2014 16:26:05 -0700
-Message-ID: <1408749965.4672.29.camel@deadeye.wl.decadent.org.uk>
-References: <1408008560-1067-1-git-send-email-_govind@gmx.com>
-	 <1408008560-1067-3-git-send-email-_govind@gmx.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [patch net-next RFC 03/12] net: introduce generic
+	switch devices support
+Date: Fri, 22 Aug 2014 18:02:10 -0700
+Message-ID: <CAGVrzcZS=Y2stxSNMfVjWTpPT8GoDOpOD9tExnDnoF0jj_owoQ@mail.gmail.com>
+References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
+ <1408637945-10390-4-git-send-email-jiri@resnulli.us>
+ <CAGVrzcYtnpcP4pfCJ0GSya01LTk0WwbSV1f+voF2K=S5CR3Arg@mail.gmail.com>
+ <53F73A9C.4000209@mojatatu.com> <20140822125655.GB1916@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-OVYlsHsU7dKNDhSDTvnQ"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	stephen@networkplumber.org, ssujith@cisco.com, benve@cisco.com
-To: Govindarajulu Varadarajan <_govind@gmx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51278 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752308AbaHVX0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 19:26:22 -0400
-In-Reply-To: <1408008560-1067-3-git-send-email-_govind@gmx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sergey Ryazanov <ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ "jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ Neil Jerram <Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+ Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+ Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+ Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
+ Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+ Aviad Raveh <aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>,
+ vyasevic <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+ David Mi
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20140822125655.GB1916-6KJVSR23iU488b5SBfVpbw@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
+2014-08-22 5:56 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
+> Fri, Aug 22, 2014 at 02:42:04PM CEST, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org wrote:
+>>On 08/21/14 13:05, Florian Fainelli wrote:
+>>>2014-08-21 9:18 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
+>>>>The goal of this is to provide a possibility to suport various switch
+>>>>chips. Drivers should implement relevant ndos to do so. Now there is a
+>>>>couple of ndos defines:
+>>>>- for getting physical switch id is in place.
+>>>>- for work with flows.
+>>>>
+>>>>Note that user can use random port netdevice to access the switch.
+>>>
+>>>I read through this patch set, and I still think that DSA is the
+>>>generic switch infrastructure we already have because it does provide
+>>>the following:
+>>>
+>>>- taking a generic platform data structure (C struct or Device Tree),
+>>>validate, parse it and map it to internal kernel structures
+>>>- instantiate per-port network devices based on the configuration data provided
+>>>- delegate netdev_ops to the switch driver and/or the CPU NIC when relevant
+>>>- provide support for hooking RX and TX traffic coming from the CPU NIC
+>>>
+>>>I would rather we build on the existing DSA infrastructure and add the
+>>>flow-related netdev_ops rather than having the two remain in
+>>>disconnect while flow-oriented switches driver get progressively
+>>>added. I guess I should take a closer look at the rocker driver to see
+>>>how hard would that be for you.
+>>>
+>>>What do you think?
+>>
+>>
+>>I thought we had concluded that DSA was a good path forward?  Or maybe at
+>>this stage we need to have several alternative approaches
+>>and we eventually converge?
+>
+> That is true. I'm still unsure how to fit this on to DSA or how to change DSA
+> the way this fits. This is my quest now. Will report back in a week or so.
 
---=-OVYlsHsU7dKNDhSDTvnQ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I don't want to hold off this patch series, so let's proceed with your
+submission, since I believe John Fastabend would also directly benefit
+from this.
 
-On Thu, 2014-08-14 at 14:59 +0530, Govindarajulu Varadarajan wrote:
-> This patch adds new ethtool cmd, ETHTOOL_GTUNABLE & ETHTOOL_STUNABLE for =
-getting
-> tunable values from driver.
->=20
-> Add ethtool_tunable_ops array to ethtool_ops. The array index will be
-> the tunable tcmd as defined in enum tunable_cmd. ethtool_tunable_ops has =
-two
-> function pointers set & get. This is set by the driver for getting/settin=
-g
-> particular tunable.
->=20
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
-> ---
->  include/linux/ethtool.h      |  6 ++++++
->  include/uapi/linux/ethtool.h | 17 +++++++++++++++
->  net/core/ethtool.c           | 51 ++++++++++++++++++++++++++++++++++++++=
-++++++
->  3 files changed, 74 insertions(+)
->=20
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index e658229..33bff94 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -77,6 +77,11 @@ static inline u32 ethtool_rxfh_indir_default(u32 index=
-, u32 n_rx_rings)
->  	return index % n_rx_rings;
->  }
-> =20
-> +struct ethtool_tunable_ops {
-> +	int (*set)(struct net_device *, struct ethtool_tunable *);
+In the meantime, I will keep working on DSA, and prototype changes
+with the rocker driver.
 
-The second pointer type should be const-qualified.
-
-> +	int (*get)(struct net_device *, struct ethtool_tunable *);
-> +};
-> +
->  /**
->   * struct ethtool_ops - optional netdev operations
->   * @get_settings: Get various device settings including Ethernet link
-> @@ -257,6 +262,7 @@ struct ethtool_ops {
->  				     struct ethtool_eeprom *, u8 *);
->  	int	(*get_eee)(struct net_device *, struct ethtool_eee *);
->  	int	(*set_eee)(struct net_device *, struct ethtool_eee *);
-> +	struct ethtool_tunable_ops tunable_ops[ETHTOOL_TUNABLE_MAX];
-
-This is OK but if we add a lot of tunables then it bloats up each driver
-with a (probably quite sparse) array of function pointers.
-
-> =20
->=20
->  };
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index e3c7a71..99e43ca 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -209,6 +209,21 @@ struct ethtool_value {
->  	__u32	data;
->  };
-> =20
-> +enum tunable_cmd {
-> +	ETHTOOL_RX_COPYBREAK =3D 0,
-> +	ETHTOOL_TUNABLE_MAX,
-> +};
-> +
-> +struct ethtool_tunable {
-> +	u32 cmd;
-> +	u32 tcmd;
-> +	u32 len;
-> +	union {
-> +		u32 rx_copybreak;
-> +		u32 data[48];
-> +	} data;
-[...]
-
-This is not at all generic.  If tunables don't all have the same type,
-then the type - not just the length - should be explicit.
-
-I also think that if the length of a value can vary then we should not
-declare a data member at all.  So we would have something like:
-
-struct ethtool_tunable {
-	__u32	cmd;
-	__u32	id;
-	__u32	type_id;
-	__u32	len;
-	__u8	data[0];
-};
-
-Then the value buffer would be passed to the driver functions separately
-(as for other variable-length command structures).
-
-By the way, you must use double-underscore prefixes on fixed-width
-integer type names in UAPI headers.
-
-Ben.
-
---=20
-Ben Hutchings
-Lowery's Law:
-             If it jams, force it. If it breaks, it needed replacing anyway=
-.
-
---=-OVYlsHsU7dKNDhSDTvnQ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAU/fRk+e/yOyVhhEJAQpG9g//WVJUq9LSZI8h9f/Xu3TiG6IZralfss2k
-Lmue7SD1qbrkgM8SoEO5dACzuHxzhy9NZxXlPBdRHvMz3JbJpC1IpdfeKVkMjlgZ
-4oIqOgpv/+pBERkd0+CkrijwOnK35awxdxiunt3K4utF2DxG9bAqsE4sHjNesT2r
-JO/+PnbCIwDZsmX6H7lR0vXrP3epaG2meyX5m+lr197Oxahi7uvxFkx7oIq7hjY1
-PsSy4XE7HWN4JCk45Cr7DTVDj+hjY6f4wWoKaPfIfAUHl4fl0UWsTX1FP4nm/xpR
-3nLpehqrDzw1sU+SqVfY3IUmWwggJtJwR/Ot1sev54IvwNhPQ2flHIxC1TyFZxNn
-6+uZD4jBApyLBJk8n7Ll824jquPIkAbFbBJbZ5b4jVZKYvkarfDTcUQ4iSQLIywh
-e5w4eGJv5PFopHLzZdbrlSYyzH5+wg7rqJS+S2JROUMS5a20HRfXi+TOj/kVmYiR
-WE9XQm0nokpZXhAoN8BEzFhAMXtP8amhoj+elvn2/pigsDIfeK+i2yi6STTcykjk
-YE8Q2PeVG47bLxzoAzI6oh/GZGgRBoCH95zQJP1asKDXz06SrrSUKYlTIvdGBfWr
-EC8zPXe3K1jbeq0OOxNLMBAynKwyBVLLmXqm0qaZ7oMFiHp3fddMMlLCoRSCne2L
-mzLGF7vQyEQ=
-=8oXL
------END PGP SIGNATURE-----
-
---=-OVYlsHsU7dKNDhSDTvnQ--
+Once we are confident we have bridged the gap, we can unify things.
+How does that sound?
+-- 
+Florian
