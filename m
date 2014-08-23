@@ -1,273 +1,243 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: use reciprocal_scale() helper
-Date: Sat, 23 Aug 2014 20:58:54 +0200
-Message-ID: <1408820334-2088-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] net: Allow raw buffers to be passed into the flow
+ dissector.
+Date: Sat, 23 Aug 2014 12:18:55 -0700 (PDT)
+Message-ID: <20140823.121855.1259915921868754968.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
+	ogerlitz@mellanox.com, yevgenyp@mellanox.com, idos@mellanox.com,
+	eric.dumazet@gmail.com
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7812 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751546AbaHWS7A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Aug 2014 14:59:00 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:35810 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750957AbaHWTS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 15:18:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace open codings of (((u64) <x> * <y>) >> 32) with reciprocal_scale().
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Drivers, and perhaps other entities we have not yet considered,
+sometimes want to know how deep the protocol headers go before
+deciding how large of an SKB to allocate and how much of the packet to
+place into the linear SKB area.
+
+For example, consider a driver which has a device which DMAs into
+pools of pages and then tells the driver where the data went in the
+DMA descriptor(s).  The driver can then build an SKB and reference
+most of the data via SKB fragments (which are page/offset/length
+triplets).
+
+However at least some of the front of the packet should be placed into
+the linear SKB area, which comes before the fragments, so that packet
+processing can get at the headers efficiently.  The first thing each
+protocol layer is going to do is a "pskb_may_pull()" so we might as
+well aggregate as much of this as possible while we're building the
+SKB in the driver.
+
+Part of supporting this is that we don't have an SKB yet, so we want
+to be able to let the flow dissector operate on a raw buffer in order
+to compute the offset of the end of the headers.
+
+So now we have a __skb_flow_dissect() which takes an explicit data
+pointer and length.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/core/dev.c                      | 3 +--
- net/core/flow_dissector.c           | 7 +++----
- net/ipv4/inet_hashtables.c          | 2 +-
- net/ipv4/netfilter/ipt_CLUSTERIP.c  | 2 +-
- net/ipv4/udp.c                      | 6 +++---
- net/ipv6/inet6_hashtables.c         | 2 +-
- net/ipv6/udp.c                      | 4 ++--
- net/netfilter/nf_conntrack_core.c   | 2 +-
- net/netfilter/nf_conntrack_expect.c | 3 ++-
- net/netfilter/nf_nat_core.c         | 5 +++--
- net/netfilter/xt_HMARK.c            | 2 +-
- net/netfilter/xt_cluster.c          | 3 ++-
- net/netfilter/xt_hashlimit.c        | 2 +-
- net/sched/sch_fq_codel.c            | 3 ++-
- 14 files changed, 24 insertions(+), 22 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b65a505..1421dad 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3124,8 +3124,7 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 	}
+I'll commit this to net-next.
+
+Amir, please re-spin your changes on top of this.  Thanks!
+
+ include/linux/skbuff.h    | 18 ++++++++++++------
+ include/net/flow_keys.h   | 14 ++++++++++++--
+ net/core/flow_dissector.c | 40 ++++++++++++++++++++++++++--------------
+ 3 files changed, 50 insertions(+), 22 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index abde271..18ddf96 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2567,20 +2567,26 @@ __wsum __skb_checksum(const struct sk_buff *skb, int offset, int len,
+ __wsum skb_checksum(const struct sk_buff *skb, int offset, int len,
+ 		    __wsum csum);
  
- 	if (map) {
--		tcpu = map->cpus[((u64) hash * map->len) >> 32];
+-static inline void *skb_header_pointer(const struct sk_buff *skb, int offset,
+-				       int len, void *buffer)
++static inline void *__skb_header_pointer(const struct sk_buff *skb, int offset,
++					 int len, void *data, int hlen, void *buffer)
+ {
+-	int hlen = skb_headlen(skb);
 -
-+		tcpu = map->cpus[reciprocal_scale(hash, map->len)];
- 		if (cpu_online(tcpu)) {
- 			cpu = tcpu;
- 			goto done;
+ 	if (hlen - offset >= len)
+-		return skb->data + offset;
++		return data + offset;
+ 
+-	if (skb_copy_bits(skb, offset, buffer, len) < 0)
++	if (!skb ||
++	    skb_copy_bits(skb, offset, buffer, len) < 0)
+ 		return NULL;
+ 
+ 	return buffer;
+ }
+ 
++static inline void *skb_header_pointer(const struct sk_buff *skb, int offset,
++				       int len, void *buffer)
++{
++	return __skb_header_pointer(skb, offset, len, skb->data,
++				    skb_headlen(skb), buffer);
++}
++
+ /**
+  *	skb_needs_linearize - check if we need to linearize a given skb
+  *			      depending on the given device features.
+diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
+index 6667a05..4040f63 100644
+--- a/include/net/flow_keys.h
++++ b/include/net/flow_keys.h
+@@ -27,7 +27,17 @@ struct flow_keys {
+ 	u8 ip_proto;
+ };
+ 
+-bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow);
+-__be32 skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto);
++bool __skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow,
++			void *data, int hlen);
++static inline bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow)
++{
++	return __skb_flow_dissect(skb, flow, NULL, 0);
++}
++__be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
++			    void *data, int hlen_proto);
++static inline __be32 skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto)
++{
++	return __skb_flow_get_ports(skb, thoff, ip_proto, NULL, 0);
++}
+ u32 flow_hash_from_keys(struct flow_keys *keys);
+ #endif
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 5f362c1..624869c 100644
+index 5f362c1..660c649 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -286,7 +286,7 @@ u16 __skb_tx_hash(const struct net_device *dev, struct sk_buff *skb,
- 		qcount = dev->tc_to_txq[tc].count;
- 	}
- 
--	return (u16) (((u64)skb_get_hash(skb) * qcount) >> 32) + qoffset;
-+	return (u16) reciprocal_scale(skb_get_hash(skb), qcount) + qoffset;
- }
- EXPORT_SYMBOL(__skb_tx_hash);
- 
-@@ -359,9 +359,8 @@ static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
- 			if (map->len == 1)
- 				queue_index = map->queues[0];
- 			else
--				queue_index = map->queues[
--				    ((u64)skb_get_hash(skb) * map->len) >> 32];
--
-+				queue_index = map->queues[reciprocal_scale(skb_get_hash(skb),
-+									   map->len)];
- 			if (unlikely(queue_index >= dev->real_num_tx_queues))
- 				queue_index = -1;
- 		}
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 43116e8..9111a4e 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -229,7 +229,7 @@ begin:
- 			}
- 		} else if (score == hiscore && reuseport) {
- 			matches++;
--			if (((u64)phash * matches) >> 32 == 0)
-+			if (reciprocal_scale(phash, matches) == 0)
- 				result = sk;
- 			phash = next_pseudo_random32(phash);
- 		}
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index 2510c02..e90f83a 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -285,7 +285,7 @@ clusterip_hashfn(const struct sk_buff *skb,
- 	}
- 
- 	/* node numbers are 1..n, not 0..n */
--	return (((u64)hashval * config->num_total_nodes) >> 32) + 1;
-+	return reciprocal_scale(hashval, config->num_total_nodes) + 1;
- }
- 
- static inline int
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index f57c0e4..32f9571 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -224,7 +224,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 		remaining = (high - low) + 1;
- 
- 		rand = prandom_u32();
--		first = (((u64)rand * remaining) >> 32) + low;
-+		first = reciprocal_scale(rand, remaining) + low;
- 		/*
- 		 * force rand to be an odd multiple of UDP_HTABLE_SIZE
- 		 */
-@@ -448,7 +448,7 @@ begin:
- 			}
- 		} else if (score == badness && reuseport) {
- 			matches++;
--			if (((u64)hash * matches) >> 32 == 0)
-+			if (reciprocal_scale(hash, matches) == 0)
- 				result = sk;
- 			hash = next_pseudo_random32(hash);
- 		}
-@@ -529,7 +529,7 @@ begin:
- 			}
- 		} else if (score == badness && reuseport) {
- 			matches++;
--			if (((u64)hash * matches) >> 32 == 0)
-+			if (reciprocal_scale(hash, matches) == 0)
- 				result = sk;
- 			hash = next_pseudo_random32(hash);
- 		}
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 262e13c..8260190 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -198,7 +198,7 @@ begin:
- 			}
- 		} else if (score == hiscore && reuseport) {
- 			matches++;
--			if (((u64)phash * matches) >> 32 == 0)
-+			if (reciprocal_scale(phash, matches) == 0)
- 				result = sk;
- 			phash = next_pseudo_random32(phash);
- 		}
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 4836af8..25ffe73 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -243,7 +243,7 @@ begin:
- 				goto exact_match;
- 		} else if (score == badness && reuseport) {
- 			matches++;
--			if (((u64)hash * matches) >> 32 == 0)
-+			if (reciprocal_scale(hash, matches) == 0)
- 				result = sk;
- 			hash = next_pseudo_random32(hash);
- 		}
-@@ -323,7 +323,7 @@ begin:
- 			}
- 		} else if (score == badness && reuseport) {
- 			matches++;
--			if (((u64)hash * matches) >> 32 == 0)
-+			if (reciprocal_scale(hash, matches) == 0)
- 				result = sk;
- 			hash = next_pseudo_random32(hash);
- 		}
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index de88c4a..b7daee0 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -142,7 +142,7 @@ static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple, u16 zone)
- 
- static u32 __hash_bucket(u32 hash, unsigned int size)
+@@ -34,29 +34,40 @@ static void iph_to_flow_copy_addrs(struct flow_keys *flow, const struct iphdr *i
+  * The function will try to retrieve the ports at offset thoff + poff where poff
+  * is the protocol port offset returned from proto_ports_offset
+  */
+-__be32 skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto)
++__be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
++			    void *data, int hlen)
  {
--	return ((u64)hash * size) >> 32;
-+	return reciprocal_scale(hash, size);
- }
+ 	int poff = proto_ports_offset(ip_proto);
  
- static u32 hash_bucket(u32 hash, const struct net *net)
-diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-index f87e8f6..91a1837 100644
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -83,7 +83,8 @@ static unsigned int nf_ct_expect_dst_hash(const struct nf_conntrack_tuple *tuple
- 	hash = jhash2(tuple->dst.u3.all, ARRAY_SIZE(tuple->dst.u3.all),
- 		      (((tuple->dst.protonum ^ tuple->src.l3num) << 16) |
- 		       (__force __u16)tuple->dst.u.all) ^ nf_conntrack_hash_rnd);
--	return ((u64)hash * nf_ct_expect_hsize) >> 32;
++	if (!data) {
++		data = skb->data;
++		hlen = skb_headlen(skb);
++	}
 +
-+	return reciprocal_scale(hash, nf_ct_expect_hsize);
- }
+ 	if (poff >= 0) {
+ 		__be32 *ports, _ports;
  
- struct nf_conntrack_expect *
-diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index 552f97c..4e0b478 100644
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -126,7 +126,8 @@ hash_by_src(const struct net *net, u16 zone,
- 	/* Original src, to ensure we map it consistently if poss. */
- 	hash = jhash2((u32 *)&tuple->src, sizeof(tuple->src) / sizeof(u32),
- 		      tuple->dst.protonum ^ zone ^ nf_conntrack_hash_rnd);
--	return ((u64)hash * net->ct.nat_htable_size) >> 32;
-+
-+	return reciprocal_scale(hash, net->ct.nat_htable_size);
- }
- 
- /* Is this tuple already taken? (not by us) */
-@@ -274,7 +275,7 @@ find_best_ips_proto(u16 zone, struct nf_conntrack_tuple *tuple,
- 		}
- 
- 		var_ipp->all[i] = (__force __u32)
--			htonl(minip + (((u64)j * dist) >> 32));
-+			htonl(minip + reciprocal_scale(j, dist));
- 		if (var_ipp->all[i] != range->max_addr.all[i])
- 			full_range = true;
- 
-diff --git a/net/netfilter/xt_HMARK.c b/net/netfilter/xt_HMARK.c
-index 73b73f6..02afaf4 100644
---- a/net/netfilter/xt_HMARK.c
-+++ b/net/netfilter/xt_HMARK.c
-@@ -126,7 +126,7 @@ hmark_hash(struct hmark_tuple *t, const struct xt_hmark_info *info)
- 	hash = jhash_3words(src, dst, t->uports.v32, info->hashrnd);
- 	hash = hash ^ (t->proto & info->proto_mask);
- 
--	return (((u64)hash * info->hmodulus) >> 32) + info->hoffset;
-+	return reciprocal_scale(hash, info->hmodulus) + info->hoffset;
- }
- 
- static void
-diff --git a/net/netfilter/xt_cluster.c b/net/netfilter/xt_cluster.c
-index f4af1bf..96fa26b 100644
---- a/net/netfilter/xt_cluster.c
-+++ b/net/netfilter/xt_cluster.c
-@@ -55,7 +55,8 @@ xt_cluster_hash(const struct nf_conn *ct,
- 		WARN_ON(1);
- 		break;
+-		ports = skb_header_pointer(skb, thoff + poff,
+-					   sizeof(_ports), &_ports);
++		ports = __skb_header_pointer(skb, thoff + poff,
++					     sizeof(_ports), data, hlen, &_ports);
+ 		if (ports)
+ 			return *ports;
  	}
--	return (((u64)hash * info->total_nodes) >> 32);
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL(skb_flow_get_ports);
++EXPORT_SYMBOL(__skb_flow_get_ports);
+ 
+-bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow)
++bool __skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow, void *data, int hlen)
+ {
+ 	int nhoff = skb_network_offset(skb);
+ 	u8 ip_proto;
+ 	__be16 proto = skb->protocol;
+ 
++	if (!data) {
++		data = skb->data;
++		hlen = skb_headlen(skb);
++	}
 +
-+	return reciprocal_scale(hash, info->total_nodes);
- }
+ 	memset(flow, 0, sizeof(*flow));
  
- static inline bool
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 47dc683..52eb3e0 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -135,7 +135,7 @@ hash_dst(const struct xt_hashlimit_htable *ht, const struct dsthash_dst *dst)
- 	 * give results between [0 and cfg.size-1] and same hash distribution,
- 	 * but using a multiply, less expensive than a divide
- 	 */
--	return ((u64)hash * ht->cfg.size) >> 32;
-+	return reciprocal_scale(hash, ht->cfg.size);
- }
+ again:
+@@ -65,7 +76,7 @@ again:
+ 		const struct iphdr *iph;
+ 		struct iphdr _iph;
+ ip:
+-		iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
++		iph = __skb_header_pointer(skb, nhoff, sizeof(_iph), data, hlen, &_iph);
+ 		if (!iph || iph->ihl < 5)
+ 			return false;
+ 		nhoff += iph->ihl * 4;
+@@ -83,7 +94,7 @@ ip:
+ 		__be32 flow_label;
  
- static struct dsthash_ent *
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index 063b726..cc56c8b 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -77,7 +77,8 @@ static unsigned int fq_codel_hash(const struct fq_codel_sched_data *q,
- 	hash = jhash_3words((__force u32)keys.dst,
- 			    (__force u32)keys.src ^ keys.ip_proto,
- 			    (__force u32)keys.ports, q->perturbation);
--	return ((u64)hash * q->flows_cnt) >> 32;
-+
-+	return reciprocal_scale(hash, q->flows_cnt);
- }
+ ipv6:
+-		iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
++		iph = __skb_header_pointer(skb, nhoff, sizeof(_iph), data, hlen, &_iph);
+ 		if (!iph)
+ 			return false;
  
- static unsigned int fq_codel_classify(struct sk_buff *skb, struct Qdisc *sch,
+@@ -113,7 +124,7 @@ ipv6:
+ 		const struct vlan_hdr *vlan;
+ 		struct vlan_hdr _vlan;
+ 
+-		vlan = skb_header_pointer(skb, nhoff, sizeof(_vlan), &_vlan);
++		vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan), data, hlen, &_vlan);
+ 		if (!vlan)
+ 			return false;
+ 
+@@ -126,7 +137,7 @@ ipv6:
+ 			struct pppoe_hdr hdr;
+ 			__be16 proto;
+ 		} *hdr, _hdr;
+-		hdr = skb_header_pointer(skb, nhoff, sizeof(_hdr), &_hdr);
++		hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
+ 		if (!hdr)
+ 			return false;
+ 		proto = hdr->proto;
+@@ -151,7 +162,7 @@ ipv6:
+ 			__be16 proto;
+ 		} *hdr, _hdr;
+ 
+-		hdr = skb_header_pointer(skb, nhoff, sizeof(_hdr), &_hdr);
++		hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
+ 		if (!hdr)
+ 			return false;
+ 		/*
+@@ -171,8 +182,9 @@ ipv6:
+ 				const struct ethhdr *eth;
+ 				struct ethhdr _eth;
+ 
+-				eth = skb_header_pointer(skb, nhoff,
+-							 sizeof(_eth), &_eth);
++				eth = __skb_header_pointer(skb, nhoff,
++							   sizeof(_eth),
++							   data, hlen, &_eth);
+ 				if (!eth)
+ 					return false;
+ 				proto = eth->h_proto;
+@@ -194,12 +206,12 @@ ipv6:
+ 
+ 	flow->n_proto = proto;
+ 	flow->ip_proto = ip_proto;
+-	flow->ports = skb_flow_get_ports(skb, nhoff, ip_proto);
++	flow->ports = __skb_flow_get_ports(skb, nhoff, ip_proto, data, hlen);
+ 	flow->thoff = (u16) nhoff;
+ 
+ 	return true;
+ }
+-EXPORT_SYMBOL(skb_flow_dissect);
++EXPORT_SYMBOL(__skb_flow_dissect);
+ 
+ static u32 hashrnd __read_mostly;
+ static __always_inline void __flow_hash_secret_init(void)
 -- 
-1.9.3
+1.7.11.7
