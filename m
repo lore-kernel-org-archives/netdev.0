@@ -1,25 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: use reciprocal_scale() helper
-Date: Sat, 23 Aug 2014 12:21:36 -0700 (PDT)
-Message-ID: <20140823.122136.1226327468462504584.davem@davemloft.net>
-References: <1408820334-2088-1-git-send-email-dborkman@redhat.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v5 1/1] net: fec: ptp: avoid register access when ipg
+ clock is disabled
+Date: Sat, 23 Aug 2014 21:52:34 +0200
+Message-ID: <20140823195234.GA3878@localhost.localdomain>
+References: <1408612178-13906-1-git-send-email-b38611@freescale.com>
+ <1408612178-13906-2-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	hannes@stressinduktion.org
-To: dborkman@redhat.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1408820334-2088-1-git-send-email-dborkman@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Fugang Duan <b38611@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:61904 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750957AbaHWTww (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 15:52:52 -0400
+Received: by mail-wi0-f178.google.com with SMTP id hi2so979535wib.11
+        for <netdev@vger.kernel.org>; Sat, 23 Aug 2014 12:52:51 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1408612178-13906-2-git-send-email-b38611@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Sat, 23 Aug 2014 20:58:54 +0200
+On Thu, Aug 21, 2014 at 05:09:38PM +0800, Fugang Duan wrote:
+> diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+> index 82386b2..cca3617 100644
+> --- a/drivers/net/ethernet/freescale/fec_ptp.c
+> +++ b/drivers/net/ethernet/freescale/fec_ptp.c
+> @@ -245,12 +245,20 @@ static int fec_ptp_settime(struct ptp_clock_info *ptp,
+>  	u64 ns;
+>  	unsigned long flags;
+>  
+> +	mutex_lock(&fep->ptp_clk_mutex);
+> +	/* Check the ptp clock */
+> +	if (!fep->ptp_clk_on) {
+> +		mutex_unlock(&fep->ptp_clk_mutex);
+> +		return -EINVAL;
+> +	}
+> +
 
-> Replace open codings of (((u64) <x> * <y>) >> 32) with reciprocal_scale().
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Don't you need the same kind of check in fec_ptp_gettime, too?
 
-Applied, thanks Daniel.
+>  	ns = ts->tv_sec * 1000000000ULL;
+>  	ns += ts->tv_nsec;
+>  
+>  	spin_lock_irqsave(&fep->tmreg_lock, flags);
+>  	timecounter_init(&fep->tc, &fep->cc, ns);
+>  	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+> +	mutex_unlock(&fep->ptp_clk_mutex);
+>  	return 0;
+>  }
+>  
+
+Thanks,
+Richard
