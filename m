@@ -1,78 +1,74 @@
 From: vyasevich@gmail.com
-Subject: [PATCH 8/8] qlge: Fix TSO for non-accelerated vlan traffic
-Date: Fri, 22 Aug 2014 22:17:10 -0400
-Message-ID: <1408760230-7457-9-git-send-email-vysevich@gmail.com>
+Subject: [PATCH 7/8] mvneta: Fix TSO and checksum for non-acceleration vlan traffic
+Date: Fri, 22 Aug 2014 22:17:09 -0400
+Message-ID: <1408760230-7457-8-git-send-email-vysevich@gmail.com>
 References: <1408760230-7457-1-git-send-email-vysevich@gmail.com>
 Cc: Vladislav Yasevich <vyasevic@redhat.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Ron Mercer <ron.mercer@qlogic.com>, linux-driver@qlogic.com
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f41.google.com ([209.85.216.41]:57242 "EHLO
-	mail-qa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751750AbaHWCRk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 22:17:40 -0400
-Received: by mail-qa0-f41.google.com with SMTP id j7so10483854qaq.0
-        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 19:17:39 -0700 (PDT)
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:53375 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752035AbaHWCRi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 22:17:38 -0400
+Received: by mail-qa0-f46.google.com with SMTP id v10so10241872qac.33
+        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 19:17:37 -0700 (PDT)
 In-Reply-To: <1408760230-7457-1-git-send-email-vysevich@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vladislav Yasevich <vyasevic@redhat.com>
 
-This device claims TSO support for vlans.  It also allows a user to
-control vlan acceleration offloading.  As such, it is possible to turn
-off vlan acceleration and configure a vlan which will continue to send
-TSO traffic.
+This driver doesn't appear to support vlan acceleration at
+all.  However, it does claim to support TSO and IP checksums
+for vlan devices.  Thus any configured vlan device would
+end up passing down partial checksums or TSO frames.
 
-In such situation the packet passed down the the device will contain
-a vlan header and skb->protocol will be set to ETH_P_8021Q.
-The device assumes that skb->protocol contains network protocol
-value and uses that value to set up TSO information.
-This results in corrupted frames sent on the wire.
+The driver also uses the value from skb->protocol to
+determine TSO and checksum offload information, but assumes
+that skb->protocol holds the l3 protocol information.
+As a result, vlan traffic with partial checksums or TSO
+will fail those checks and TSO will not happen.
 
-This patch extracts the protocol value correctly by using a
-vlan_get_protocol() helper and corrects corrupt TSO frames.
+Fix this by using vlan_get_protocol() helper.
 
-CC: Shahed Shaikh <shahed.shaikh@qlogic.com>
-CC: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-CC: Ron Mercer <ron.mercer@qlogic.com>
-CC: linux-driver@qlogic.com
+CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/ethernet/qlogic/qlge/qlge_main.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index 188626e..3e96f26 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -2556,6 +2556,7 @@ static int ql_tso(struct sk_buff *skb, struct ob_mac_tso_iocb_req *mac_iocb_ptr)
- 
- 	if (skb_is_gso(skb)) {
- 		int err;
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index c9f1d1b..133f8c6 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -1371,15 +1371,16 @@ static u32 mvneta_skb_tx_csum(struct mvneta_port *pp, struct sk_buff *skb)
+ {
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		int ip_hdr_len = 0;
 +		__be16 l3_proto = vlan_get_protocol(skb);
+ 		u8 l4_proto;
  
- 		err = skb_cow_head(skb, 0);
- 		if (err < 0)
-@@ -2572,7 +2573,7 @@ static int ql_tso(struct sk_buff *skb, struct ob_mac_tso_iocb_req *mac_iocb_ptr)
- 				<< OB_MAC_TRANSPORT_HDR_SHIFT);
- 		mac_iocb_ptr->mss = cpu_to_le16(skb_shinfo(skb)->gso_size);
- 		mac_iocb_ptr->flags2 |= OB_MAC_TSO_IOCB_LSO;
--		if (likely(skb->protocol == htons(ETH_P_IP))) {
-+		if (likely(l3_proto == htons(ETH_P_IP))) {
- 			struct iphdr *iph = ip_hdr(skb);
- 			iph->check = 0;
- 			mac_iocb_ptr->flags1 |= OB_MAC_TSO_IOCB_IP4;
-@@ -2580,7 +2581,7 @@ static int ql_tso(struct sk_buff *skb, struct ob_mac_tso_iocb_req *mac_iocb_ptr)
- 								 iph->daddr, 0,
- 								 IPPROTO_TCP,
- 								 0);
+-		if (skb->protocol == htons(ETH_P_IP)) {
++		if (l3_proto == htons(ETH_P_IP)) {
+ 			struct iphdr *ip4h = ip_hdr(skb);
+ 
+ 			/* Calculate IPv4 checksum and L4 checksum */
+ 			ip_hdr_len = ip4h->ihl;
+ 			l4_proto = ip4h->protocol;
 -		} else if (skb->protocol == htons(ETH_P_IPV6)) {
 +		} else if (l3_proto == htons(ETH_P_IPV6)) {
- 			mac_iocb_ptr->flags1 |= OB_MAC_TSO_IOCB_IP6;
- 			tcp_hdr(skb)->check =
- 			    ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 			struct ipv6hdr *ip6h = ipv6_hdr(skb);
+ 
+ 			/* Read l4_protocol from one of IPv6 extra headers */
+@@ -1390,7 +1391,7 @@ static u32 mvneta_skb_tx_csum(struct mvneta_port *pp, struct sk_buff *skb)
+ 			return MVNETA_TX_L4_CSUM_NOT;
+ 
+ 		return mvneta_txq_desc_csum(skb_network_offset(skb),
+-				skb->protocol, ip_hdr_len, l4_proto);
++					    l3_proto, ip_hdr_len, l4_proto);
+ 	}
+ 
+ 	return MVNETA_TX_L4_CSUM_NOT;
 -- 
 1.9.3
