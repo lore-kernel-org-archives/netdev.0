@@ -1,88 +1,72 @@
 From: vyasevich@gmail.com
-Subject: [PATCH 0/8] Fix TSO and checksum issues with non-accelerated vlan traffic.
-Date: Fri, 22 Aug 2014 22:17:02 -0400
-Message-ID: <1408760230-7457-1-git-send-email-vysevich@gmail.com>
+Subject: [PATCH 3/8] bna: Support TSO and partial checksum with non-accelerated vlans.
+Date: Fri, 22 Aug 2014 22:17:05 -0400
+Message-ID: <1408760230-7457-4-git-send-email-vysevich@gmail.com>
+References: <1408760230-7457-1-git-send-email-vysevich@gmail.com>
 Cc: Vladislav Yasevich <vyasevic@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Linux NICS <linux.nics@intel.com>,
-	e1000-devel@lists.sourceforge.net, Rasesh Mody <rmody@brocade.com>,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Ron Mercer <ron.mercer@qlogic.com>, linux-driver@qlogic.com,
-	Chris Metcalf <cmetcalf@tilera.com>
+	Rasesh Mody <rmody@brocade.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:37805 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751733AbaHWCRX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 22:17:23 -0400
-Received: by mail-qc0-f174.google.com with SMTP id l6so11702293qcy.33
-        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 19:17:22 -0700 (PDT)
+Received: from mail-qc0-f170.google.com ([209.85.216.170]:39853 "EHLO
+	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751750AbaHWCRa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 22:17:30 -0400
+Received: by mail-qc0-f170.google.com with SMTP id x3so12066389qcv.29
+        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 19:17:29 -0700 (PDT)
+In-Reply-To: <1408760230-7457-1-git-send-email-vysevich@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vladislav Yasevich <vyasevic@redhat.com>
 
-I've recently ran across something rather interesting when testing vlans
-from inside VMs.  In some scenarios I was getting awfull thruput.
-Some debugging uncovered a very scary packet corruption.  I was
-seeing packets that had original TSO length as IP total length
-and their ip checksum was 0.  This was with e1000e driver.
+This device claims TSO and checksum support for vlans.  It also
+allows a user to control vlan acceleration offloading.  As such,
+it is possible to turn off vlan acceleration and configure a vlan
+which will continue to support TSO.
 
-A bit more debugging uncovered an assumption made by that driver
-that skb->protocol will contain l3 protocol information.  This
-was not the case in my setup since I manually turned off vlan
-tx acceleration for the device.  This caused the driver to not
-initialize the tso information correctly and resulted in
-corrupt TSO frames on the wire.
+In such situation the packet passed down the the device will contain
+a vlan header and skb->protocol will be set to ETH_P_8021Q.
+The device assumes that skb->protocol contains network protocol
+value and uses that value to set up TSO information.  This results
+in corrupted frames sent on the wire.
 
-I decided to do some auditing of the usage of skb->protocols
-in the drivers.  Out of all the drivers, the included 8 appear
-to be effected.  They all allow user to control vlan acceleration
-settings, all support TSO on vlan devices, and all use
-skb->protocol to decide how to encode TSO information.  Some
-also have similar problems when initializing hw checksum information.
-On such device, it is simple enough to reproduce the issue.
-Simply turn off TX VLAN acceleration on the device, create a vlan,
-and run you favorite network performance tool.
+This patch extract the protocol value correctly and corrects TSO
+and checksums for non-accelerated traffic.
 
-There is 1 driver I ran across that I belive will trigger a BUG
-in the system when used with vlans.  That driver is tile/tilepro.c
-I have not changed it in this patch set and would hope that
-the maintainer has time to look at it.
+CC: Rasesh Mody <rmody@brocade.com>
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+---
+ drivers/net/ethernet/brocade/bna/bnad.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-Thanks
--vlad
-
-Vladislav Yasevich (8):
-  e1000e: Fix TSO with non-accelerated vlans
-  e1000: Fix TSO for non-accelerated vlan traffic
-  bna: Support TSO and partial checksum with non-accelerated vlans.
-  ehea: Fix TSO and hw checksums with non-accelerated vlan packets.
-  i40e: Fix TSO and hw checksums for non-accelerated vlan packets.
-  i40evf: Fix TSO and hw checksums for non-accelerated vlan packets.
-  mvneta: Fix TSO and checksum for non-acceleration vlan traffic
-  qlge: Fix TSO for non-accelerated vlan traffic
-
- drivers/net/ethernet/brocade/bna/bnad.c       |  7 ++++---
- drivers/net/ethernet/ibm/ehea/ehea_main.c     |  2 +-
- drivers/net/ethernet/intel/e1000/e1000_main.c | 19 +++++++++++--------
- drivers/net/ethernet/intel/e1000e/netdev.c    | 21 +++++++++------------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   |  2 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c |  2 +-
- drivers/net/ethernet/marvell/mvneta.c         |  7 ++++---
- drivers/net/ethernet/qlogic/qlge/qlge_main.c  |  5 +++--
- 8 files changed, 34 insertions(+), 31 deletions(-)
-
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index ff8cae5..ffc92a4 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -2506,7 +2506,7 @@ bnad_tso_prepare(struct bnad *bnad, struct sk_buff *skb)
+ 	 * For TSO, the TCP checksum field is seeded with pseudo-header sum
+ 	 * excluding the length field.
+ 	 */
+-	if (skb->protocol == htons(ETH_P_IP)) {
++	if (vlan_get_protocol(skb) == htons(ETH_P_IP)) {
+ 		struct iphdr *iph = ip_hdr(skb);
+ 
+ 		/* Do we really need these? */
+@@ -2870,12 +2870,13 @@ bnad_txq_wi_prepare(struct bnad *bnad, struct bna_tcb *tcb,
+ 		}
+ 
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
++			__be16 net_proto = vlan_get_protocol(skb);
+ 			u8 proto = 0;
+ 
+-			if (skb->protocol == htons(ETH_P_IP))
++			if (net_proto == htons(ETH_P_IP))
+ 				proto = ip_hdr(skb)->protocol;
+ #ifdef NETIF_F_IPV6_CSUM
+-			else if (skb->protocol == htons(ETH_P_IPV6)) {
++			else if (net_proto == htons(ETH_P_IPV6)) {
+ 				/* nexthdr may not be TCP immediately. */
+ 				proto = ipv6_hdr(skb)->nexthdr;
+ 			}
 -- 
 1.9.3
