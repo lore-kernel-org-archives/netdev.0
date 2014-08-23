@@ -1,37 +1,28 @@
 From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [patch net-next RFC 03/12] net: introduce generic
- switch devices support
-Date: Sat, 23 Aug 2014 11:17:26 +0200
-Message-ID: <20140823091726.GB1854@nanopsycho.orion>
+Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
+ for datapath hardware offload
+Date: Sat, 23 Aug 2014 11:24:58 +0200
+Message-ID: <20140823092458.GC1854@nanopsycho.orion>
 References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-4-git-send-email-jiri@resnulli.us>
- <CAGVrzcYtnpcP4pfCJ0GSya01LTk0WwbSV1f+voF2K=S5CR3Arg@mail.gmail.com>
- <53F73A9C.4000209@mojatatu.com>
- <20140822125655.GB1916@nanopsycho.orion>
- <CAGVrzcZS=Y2stxSNMfVjWTpPT8GoDOpOD9tExnDnoF0jj_owoQ@mail.gmail.com>
+ <1408637945-10390-11-git-send-email-jiri@resnulli.us>
+ <53F79C54.5050701@gmail.com>
+ <464DB0A8-0073-4CE0-9483-0F36B73A53A1@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Sergey Ryazanov <ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- "jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- Neil Jerram <Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
- Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
- Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
- Aviad Raveh <aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>,
- vyasevic <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
- David Mi
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+ andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
+ roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Scott Feldman <sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CAGVrzcZS=Y2stxSNMfVjWTpPT8GoDOpOD9tExnDnoF0jj_owoQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+In-Reply-To: <464DB0A8-0073-4CE0-9483-0F36B73A53A1-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
  <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -43,53 +34,98 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Sat, Aug 23, 2014 at 03:02:10AM CEST, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
->2014-08-22 5:56 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
->> Fri, Aug 22, 2014 at 02:42:04PM CEST, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org wrote:
->>>On 08/21/14 13:05, Florian Fainelli wrote:
->>>>2014-08-21 9:18 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
->>>>>The goal of this is to provide a possibility to suport various switch
->>>>>chips. Drivers should implement relevant ndos to do so. Now there is a
->>>>>couple of ndos defines:
->>>>>- for getting physical switch id is in place.
->>>>>- for work with flows.
->>>>>
->>>>>Note that user can use random port netdevice to access the switch.
->>>>
->>>>I read through this patch set, and I still think that DSA is the
->>>>generic switch infrastructure we already have because it does provide
->>>>the following:
->>>>
->>>>- taking a generic platform data structure (C struct or Device Tree),
->>>>validate, parse it and map it to internal kernel structures
->>>>- instantiate per-port network devices based on the configuration data provided
->>>>- delegate netdev_ops to the switch driver and/or the CPU NIC when relevant
->>>>- provide support for hooking RX and TX traffic coming from the CPU NIC
->>>>
->>>>I would rather we build on the existing DSA infrastructure and add the
->>>>flow-related netdev_ops rather than having the two remain in
->>>>disconnect while flow-oriented switches driver get progressively
->>>>added. I guess I should take a closer look at the rocker driver to see
->>>>how hard would that be for you.
->>>>
->>>>What do you think?
->>>
->>>
->>>I thought we had concluded that DSA was a good path forward?  Or maybe at
->>>this stage we need to have several alternative approaches
->>>and we eventually converge?
->>
->> That is true. I'm still unsure how to fit this on to DSA or how to change DSA
->> the way this fits. This is my quest now. Will report back in a week or so.
->
->I don't want to hold off this patch series, so let's proceed with your
->submission, since I believe John Fastabend would also directly benefit
->from this.
->
->In the meantime, I will keep working on DSA, and prototype changes
->with the rocker driver.
->
->Once we are confident we have bridged the gap, we can unify things.
->How does that sound?
-
-Sounds good. 
+U2F0LCBBdWcgMjMsIDIwMTQgYXQgMTI6NTM6MzRBTSBDRVNULCBzZmVsZG1hQGN1bXVsdXNuZXR3
+b3Jrcy5jb20gd3JvdGU6Cj4KPk9uIEF1ZyAyMiwgMjAxNCwgYXQgMTI6MzkgUE0sIEpvaG4gRmFz
+dGFiZW5kIDxqb2huLmZhc3RhYmVuZEBnbWFpbC5jb20+IHdyb3RlOgo+Cj4+IE9uIDA4LzIxLzIw
+MTQgMDk6MTkgQU0sIEppcmkgUGlya28gd3JvdGU6Cj4+PiBCZW5lZml0IGZyb20gdGhlIHBvc3Np
+YmlsaXR5IHRvIHdvcmsgd2l0aCBmbG93cyBpbiBzd2l0Y2ggZGV2aWNlcyBhbmQKPj4+IHVzZSB0
+aGUgc3dkZXYgYXBpIHRvIG9mZmxvYWQgZmxvdyBkYXRhcGF0aC4KPj4gCj4+IHdlIHNob3VsZCBh
+ZGQgYSBkZXNjcmlwdGlvbiBoZXJlIG9uIHRoZSBzdHJhdGVneSBiZWluZyB1c2VkLgo+PiAKPj4g
+SWYgSSByZWFkIHRoaXMgY29ycmVjdGx5IHRoaXMgd2lsbCB0cnkgdG8gYWRkIGFueSBmbG93IHRv
+IHRoZQo+PiBoYXJkd2FyZSBhbG9uZyB3aXRoIHRoZSBhY3Rpb25zIGFuZCBkdXBsaWNhdGUgaXQg
+aW4gc29mdHdhcmUuCj4+IAo+PiBUaGVyZSBhcmUgYSBjb3VwbGUgdGhpbmdzIEkgZG9uJ3QgbGlr
+ZSwKPj4gCj4+IC0gdGhpcyByZXF1aXJlcyBPVlMgdG8gYmUgbG9hZGVkIHRvIHdvcmsuIElmIGFs
+bCBJIHdhbnQgaXMKPj4gICBkaXJlY3QgYWNjZXNzIHRvIHRoZSBoYXJkd2FyZSBmbG93IHRhYmxl
+cyByZXF1aXJpbmcgb3BlbnZzd2l0Y2gua28KPj4gICBzaG91bGRuJ3QgYmUgbmVlZGVkIElNTy4g
+Rm9yIGV4YW1wbGUgSSBtYXkgd2FudCB0byB1c2UgdGhlCj4+ICAgaGFyZHdhcmUgZmxvdyB0YWJs
+ZXMgd2l0aCBzb21ldGhpbmcgbm90IG9wZW52c3dpdGNoIGFuZCB3ZQo+PiAgIHNob3VsZG4ndCBw
+cmVjbHVkZSB0aGF0Lgo+PiAKPgo+VGhlIGludGVudCBpcyB0byB1c2Ugb3BlbnZzd2l0Y2gua2/i
+gJlzIHN0cnVjdCBzd19mbG93IHRvIHByb2dyYW0gaGFyZHdhcmUgdmlhIHRoZSBuZG9fc3dkZXZf
+Zmxvd18qIG9wcywgYnV0IG90aGVyd2lzZSBiZSBpbmRlcGVuZGVudCBvZiBPVlMuICBTbyB0aGUg
+dXBwZXIgbGF5ZXIgb2YgdGhlIGRyaXZlciBpcyBzdHJ1Y3Qgc3dfZmxvdyBhbmQgYW55IG1vZHVs
+ZSBhYm92ZSB0aGUgZHJpdmVyIGNhbiBjb25zdHJ1Y3QgYSBzdHJ1Y3Qgc3dfZmxvdyBhbmQgcHVz
+aCBpdCBkb3duIHZpYSBuZG9fc3dkZXZfZmxvd18qLiAgU28geW91ciBub24tT1ZTIHVzZS1jYXNl
+IHNob3VsZCBiZSBoYW5kbGVkLiAgT1ZTIGlzIGFub3RoZXIgdXNlLWNhc2UuICBzdHJ1Y3Qgc3df
+ZmxvdyBzaG91bGQgbm90IGJlIE9WUy1hd2FyZSwgYnV0IHJhdGhlciBhIGdlbmVyaWMgZmxvdyBt
+YXRjaC9hY3Rpb24gc3VmZmljaWVudCB0byBvZmZsb2FkIHRoZSBkYXRhIHBsYW5lIHRvIEhXLgoK
+WWVzLiBJIHdhcyB0aGlua2luZyBhYm91dCBzaW1wbGUgTmV0bGluayBBUEkgdGhhdCB3b3VsZCBl
+eHBvc2UgZGlyZWN0CnN3X2Zsb3cgbWFuaXB1bGF0aW9uIChuZG9fc3dkZXZfZmxvd18qIHdyYXBw
+ZXIpIHRvIHVzZXJzcGFjZS4gSSB3aWxsCnRoaW5rIGFib3UgdGhhdCBtb3JlIGFuZCBwZXJoYXBz
+IGFkZCBpdCB0byBteSBuZXh0IHBhdGNoc2V0IHZlcnNpb24uCgo+Cj4+IC0gQWxzbyB0aGVyZSBp
+cyBubyBwcm9ncmFtbWF0aWMgd2F5IHRvIGxlYXJuIHdoaWNoIGZsb3dzIGFyZQo+PiAgIGluIGhh
+cmR3YXJlIGFuZCB3aGljaCBpbiBzb2Z0d2FyZS4gVGhlcmUgaXMgYSBwcl93YXJuIGJ1dAo+PiAg
+IHRoYXQgZG9lc24ndCBoZWxwIHdoZW4gaW50ZXJhY3Rpbmcgd2l0aCB0aGUgaGFyZHdhcmUgcmVt
+b3RlbHkuCj4+ICAgSSBuZWVkIHNvbWUgbWVjaGFuaXNtIHRvIGR1bXAgdGhlIHNldCBvZiBoYXJk
+d2FyZSB0YWJsZXMgYW5kCj4+ICAgdGhlIHNldCBvZiBzb2Z0d2FyZSB0YWJsZXMuCj4KPkFncmVl
+ZCwgd2UgbmVlZCBhIHdheSB0byBhbm5vdGF0ZSB3aGljaCBmbG93cyBhcmUgaW5zdGFsbGVkIGhh
+cmR3YXJlLgoKWWVzLCB3ZSBkaXNjdXNzZWQgdGhhdCBhbHJlYWR5LiBXZSBuZWVkIHRvIG1ha2Ug
+T1ZTIGRhZW1vbiBody1vZmZsb2FkCmF3YXJlIGluZGljYXRpbmcgd2hpY2ggZmxvdyBpdCB3YW50
+L3ByZWZlcnMgdG8gYmUgb2ZmbG9hZGVkLiBUaGlzIGlzIEkKYmVsaWV2ZSBlYXNpbHkgZXh0ZW50
+YWJsZSBmZWF0dXJlIGFuZCBjYW4gYmUgYWRkZWQgd2hlbmV2ZXIgdGhlIHJpZ2h0CnRpbWUgaXMu
+Cgo+Cj4+IC0gU2ltcGx5IGR1cGxpY2F0aW5nIHRoZSBzb2Z0d2FyZSBmbG93L2FjdGlvbiBpbnRv
+Cj4+ICAgaGFyZHdhcmUgbWF5IG5vdCBvcHRpbWFsbHkgdXNlIHRoZSBoYXJkd2FyZSB0YWJsZXMu
+IElmIEkgaGF2ZQo+PiAgIGEgVENBTSBpbiBoYXJkd2FyZSBmb3IgaW5zdGFuY2UuIChUaGlzIGlz
+IGhvdyBJIHJlYWQgdGhlIHBhdGNoCj4+ICAgbGV0IG1lIGtub3cgaWYgSSBtaXNzZWQgc29tZXRo
+aW5nKQo+Cj5UaGUgaGFyZHdhcmUtc3BlY2lmaWMgZHJpdmVyIGlzIHRoZSByaWdodCBwbGFjZSB0
+byBoYW5kbGUgb3B0aW1pemluZyB0aGUgZmxvdy9hY3Rpb24gaW4gaGFyZHdhcmUgc2luY2Ugb25s
+eSB0aGUgZHJpdmVyIGNhbiBrbm93IHRoZSBzaXplL3NoYXBlIG9mIHRoZSBkZXZpY2UuICBzdHJ1
+Y3Qgc3dfZmxvdyBpcyBhIGdlbmVyaWMgZmxvdyBkZXNjcmlwdGlvbjsgaG93IChvciBpZikgYSBm
+bG93IGdldHMgcHJvZ3JhbW1lZCBpbnRvIGhhcmR3YXJlIG11c3QgYmUgaGFuZGxlZCBpbiB0aGUg
+c3dkZXYgZHJpdmVyLiAgSWYgdGhlIGRldmljZSBkcml2ZXIgY2Fu4oCZdCBtYWtlIHRoZSBzd19m
+bG93IGZpdCBpbnRvIEhXIGJlY2F1c2Ugb2YgcmVzb3VyY2UgbGltaXRhdGlvbnMgb3IgdGhlIGZs
+b3cgc2ltcGx5IGNhbuKAmXQgYmUgcmVwcmVzZW50ZWQgaW4gSFcsIHRoZW4gdGhlIGZsb3cgaXMg
+U1cgb25seS4gIAo+Cj5JbiB0aGUgcm9ja2VyIGRyaXZlciBwb3N0ZWQgaW4gdGhpcyBwYXRjaCBz
+ZXQsIHRoZSBzdGVwcyBhcmUgdG8gcGFyc2UgdGhlIHN0cnVjdCBzd19mbG93IHRvIGZpZ3VyZSBv
+dXQgd2hhdCB0eXBlIG9mIGZsb3cgbWF0Y2gvYWN0aW9uIHdl4oCZcmUgZGVhbGluZyB3aXRoIChM
+MiBvciBMMyBvciBMNCwgdWNhc3Qgb3IgbWNhc3QsIGlwdjQgb3IgaXB2NiwgZXRjKSBhbmQgdGhl
+biBpbnN0YWxsIHRoZSBjb3JyZWN0IGVudHJpZXMgaW50byB0aGUgY29ycmVzcG9uZGluZyBkZXZp
+Y2UgdGFibGVzIHdpdGhpbiB0aGUgY29uc3RyYWludHMgb2YgdGhlIGRldmljZeKAmXMgcGlwZWxp
+bmUuICBBbnkgb3B0aW1pemF0aW9ucywgbGlrZSBjb2FsZXNjaW5nIEhXIGVudHJpZXMsIGlzIHNv
+bWV0aGluZyBvbmx5IHRoZSBkcml2ZXIgY2FuIGRvLgo+Cj4+IAo+PiAtIEkgbmVlZCBhIHdheSB0
+byBzcGVjaWZ5IHB1dCB0aGlzIGZsb3cvYWN0aW9uIGluIGhhcmR3YXJlLAo+PiAgIHB1dCB0aGlz
+IGZsb3cvYWN0aW9uIGluIHNvZnR3YXJlLCBvciBwdXQgdGhpcyBpbiBib3RoIHNvZnR3YXJlCj4+
+ICAgYW5kIGhhcmR3YXJlLgo+PiAKPgo+VGhpcyBzZWVtcyBhYm92ZSB0aGUgc3dkZXYgbGF5ZXIu
+ICBJbiBvdGhlciB3b3JkcywgZG9u4oCZdCBjYWxsIG5kb19zd2Rldl9mbG93XyogaWYgeW91IGRv
+buKAmXQgd2FudCBmbG93IG1hdGNoL2FjdGlvbiBpbnN0YWxsIGluIEhXLgo+Cj4+ICAgV2UgZGlk
+IHRoaXMgd2l0aCBhIGJpdG1hc2sgaW4gdGhlIGZkYiBMMiBzdHVmZiBhbmQgaXQgc2VlbXMgdG8K
+Pj4gICB3b3JrIHJlYXNvbmFibGUgd2VsbCBzbyBtYXliZSBzb21ldGhpbmcgbGlrZSB0aGF0IHdv
+dWxkIGhlbHAuCj4+IAo+PiAgIEZvciBleGFtcGxlIGlmIEkgZG9uJ3QgaGF2ZSB0aGlzIHdoYXQg
+aGFwcGVucyBpZiBJIGhhdmUgYW4KPj4gICBlbnRyeSB0byBkZWNyZW1lbnQgVFRMIGluIGJvdGgg
+aGFyZHdhcmUgYW5kIHNvZnR3YXJlLiBJZiB0aGUKPj4gICBmbG93IGhpdHMgYm90aCB0aGUgaGFy
+ZHdhcmUgcGF0aCBhbmQgc29mdHdhcmUgcGF0aCB0aGUgVFRMCj4+ICAgZ2V0cyBkZWNyZW1lbnRl
+ZC4gSGVyZSB1c2Vyc3BhY2UgbmVlZHMgdG8gaW5kaWNhdGUgd2hlcmUgdG8KPj4gICBkbyB0aGUg
+ZGVjcmVtZW50IHRvIGF2b2lkIHRoZSBkdXBsaWNhdGlvbi4KPgo+SeKAmW0gbm90IGZvbGxvd2lu
+ZyB3aHkgYSBmbG93IHdvdWxkIGhpdCBib3RoIEhXIGFuZCBTVyBwYXRocy4gIFRoYXQgc2VlbXMg
+YmFkLCBhbmQgbmVnYXRpbmcgdG8gZWZmb3J0IG9mIG9mZmxvYWRpbmcgdGhlIGZsb3cgdG8gSFcg
+aW4gdGhlIGZpcnN0IHBsYWNlLiAgTXkgc2ltcGxlIHZpZXcgaXMgaWYgZmxvdyBoaXRzIEhXIHBh
+dGgsIHRoZW4gU1cgcGF0aCBpcyB1bmF3YXJlLiAgQ2xlYXJseSB3b3JrIGlzIG5lZWRlZCB0byBw
+cm92aWRlIGNvaGVyZW50IHZpZXcgdG8gdXNlciB3aXRoIHJlc3BlY3QgdG8gc3RhdCBjb3VudGVy
+cyBhbmQgc3VjaCwgYnV0IEkgYmVsaWV2ZSBkby1hYmxlLgo+Cj4+IAo+PiBJIHRoaW5rIGlmIHdl
+IGNhbiBwdWxsIHRoaXMgb3V0IE9WUyBhbmQgYWRkIHRoZSBody9zdyBiaXRtYXNrIChvcgo+PiBt
+YXliZSBhIGJldHRlciBpbXBsZW1lbnRhdGlvbiBvZiB0aGF0IGlkZWEpIHRoZW4gdGhpcyBzaG91
+bGQgd29yawo+PiBmb3IgdGhlIHN0dWZmIEknbSBsb29raW5nIGF0LiBJIHdhbnQgdG8gdHJ5IGFu
+ZCBnZXQgaXQgd29ya2luZyBvbgo+PiB0aGUgaTQwZSBkcml2ZXIgYXMgYSBmZGlyIHJlcGxhY2Vt
+ZW50IGJ1dCBpdCBtaWdodCB0YWtlIG1lIGEgYml0Cj4+IHRvIGdldCB0byBpdC4KPgo+VGhhdCBz
+b3VuZHMgY29vbCBhbmQgd291bGQgcmVhbGx5IGhlbHAgZ2V0IHRoZSBpbnRlcmZhY2UgaW4gcGxh
+Y2UuICBUYWtlIGFub3RoZXIgbG9vayBhdCB0aGUgd2F5IEppcmkgaGFzIGJ1c3RlZCBvdXQgc3df
+Zmxvdy5oIGFuZCBzZWUgaWYgdGhpcyB3b3JrcyBmb3IgeW91IG91dHNpZGUgb2YgYW4gT1ZTIGNv
+bnRleHQuICBJZiBub3QsIHdlIG5lZWQgdG8gZml4IGl0LgoKR3JlYXQuIEpvaG4sIHBsZWFzZSBr
+ZWVwIHVzIHBvc3RlZCBhYm91dCB5b3VyIHByb2dyZXNzLgpMZXQgbWUga25vdyBpZiB5b3UgbmVl
+ZCBhbnkgaGVscC4KCj4KPgo+PiAKPj4gVGhhbmtzLAo+PiBKb2huCj4+IAo+PiAKPj4gLS0gCj4+
+IEpvaG4gRmFzdGFiZW5kICAgICAgICAgSW50ZWwgQ29ycG9yYXRpb24KPj4gLS0KPj4gVG8gdW5z
+dWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRl
+diIgaW4KPj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5v
+cmcKPj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpv
+cmRvbW8taW5mby5odG1sCj4KPgo+LXNjb3R0Cj4KPgo+Cl9fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNo
+Lm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
