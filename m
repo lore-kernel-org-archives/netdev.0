@@ -1,45 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: improve undo on timeout
-Date: Fri, 22 Aug 2014 21:28:18 -0700 (PDT)
-Message-ID: <20140822.212818.342424006799582674.davem@davemloft.net>
-References: <1408742122-23674-1-git-send-email-ycheng@google.com>
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Subject: Re: [patch net-next RFC 03/12] net: introduce generic
+ switch devices support
+Date: Sat, 23 Aug 2014 11:17:26 +0200
+Message-ID: <20140823091726.GB1854@nanopsycho.orion>
+References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
+ <1408637945-10390-4-git-send-email-jiri@resnulli.us>
+ <CAGVrzcYtnpcP4pfCJ0GSya01LTk0WwbSV1f+voF2K=S5CR3Arg@mail.gmail.com>
+ <53F73A9C.4000209@mojatatu.com>
+ <20140822125655.GB1916@nanopsycho.orion>
+ <CAGVrzcZS=Y2stxSNMfVjWTpPT8GoDOpOD9tExnDnoF0jj_owoQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, netdev@vger.kernel.org
-To: ycheng@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57431 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752287AbaHWE2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 00:28:19 -0400
-In-Reply-To: <1408742122-23674-1-git-send-email-ycheng@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sergey Ryazanov <ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ "jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ Neil Jerram <Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+ Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+ Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+ Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
+ Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+ Aviad Raveh <aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>,
+ vyasevic <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+ David Mi
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAGVrzcZS=Y2stxSNMfVjWTpPT8GoDOpOD9tExnDnoF0jj_owoQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Fri, 22 Aug 2014 14:15:22 -0700
+Sat, Aug 23, 2014 at 03:02:10AM CEST, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
+>2014-08-22 5:56 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
+>> Fri, Aug 22, 2014 at 02:42:04PM CEST, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org wrote:
+>>>On 08/21/14 13:05, Florian Fainelli wrote:
+>>>>2014-08-21 9:18 GMT-07:00 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>:
+>>>>>The goal of this is to provide a possibility to suport various switch
+>>>>>chips. Drivers should implement relevant ndos to do so. Now there is a
+>>>>>couple of ndos defines:
+>>>>>- for getting physical switch id is in place.
+>>>>>- for work with flows.
+>>>>>
+>>>>>Note that user can use random port netdevice to access the switch.
+>>>>
+>>>>I read through this patch set, and I still think that DSA is the
+>>>>generic switch infrastructure we already have because it does provide
+>>>>the following:
+>>>>
+>>>>- taking a generic platform data structure (C struct or Device Tree),
+>>>>validate, parse it and map it to internal kernel structures
+>>>>- instantiate per-port network devices based on the configuration data provided
+>>>>- delegate netdev_ops to the switch driver and/or the CPU NIC when relevant
+>>>>- provide support for hooking RX and TX traffic coming from the CPU NIC
+>>>>
+>>>>I would rather we build on the existing DSA infrastructure and add the
+>>>>flow-related netdev_ops rather than having the two remain in
+>>>>disconnect while flow-oriented switches driver get progressively
+>>>>added. I guess I should take a closer look at the rocker driver to see
+>>>>how hard would that be for you.
+>>>>
+>>>>What do you think?
+>>>
+>>>
+>>>I thought we had concluded that DSA was a good path forward?  Or maybe at
+>>>this stage we need to have several alternative approaches
+>>>and we eventually converge?
+>>
+>> That is true. I'm still unsure how to fit this on to DSA or how to change DSA
+>> the way this fits. This is my quest now. Will report back in a week or so.
+>
+>I don't want to hold off this patch series, so let's proceed with your
+>submission, since I believe John Fastabend would also directly benefit
+>from this.
+>
+>In the meantime, I will keep working on DSA, and prototype changes
+>with the rocker driver.
+>
+>Once we are confident we have bridged the gap, we can unify things.
+>How does that sound?
 
-> Upon timeout, undo (via both timestamps/Eifel and DSACKs) was
-> disabled if any retransmits were still in flight.  The concern was
-> perhaps that spurious retransmission sent in a previous recovery
-> episode may trigger DSACKs to falsely undo the current recovery.
-> 
-> However, this inadvertently misses undo opportunities (using either
-> TCP timestamps or DSACKs) when timeout occurs during a loss episode,
-> i.e.  recurring timeouts or timeout during fast recovery. In these
-> cases some retransmissions will be in flight but we should allow
-> undo. Furthermore, we should only reset undo_marker and undo_retrans
-> upon timeout if we are starting a new recovery episode. Finally,
-> when we do reset our undo state, we now do so in a manner similar
-> to tcp_enter_recovery(), so that we require a DSACK for each of
-> the outstsanding retransmissions. This will achieve the original
-> goal by requiring that we receive the same number of DSACKs as
-> retransmissions.
-> 
-> This patch increases the undo events by 50% on Google servers.
-> 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-
-Looks good, applied, thanks!
+Sounds good. 
