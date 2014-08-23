@@ -1,41 +1,33 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next RFC 12/12] rocker: introduce rocker switch driver
-Date: Sat, 23 Aug 2014 15:04:50 +0100
-Message-ID: <20140823140450.GA24116@casper.infradead.org>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-13-git-send-email-jiri@resnulli.us>
+From: Abdul Nasser Sokariah <abdulsokariah10@gmail.com>
+Subject: Urgent Assistance from Syria
+Date: Sat, 23 Aug 2014 07:08:56 -0700
+Message-ID: <CAOCHuvzL5xwmNy0kbtDzuJHdyKb9sE4tpZJEA0MTbc0=dzTv8w__2629.00849706984$1408804407$gmane$org@mail.gmail.com>
+Reply-To: nabdul247@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@cumulusnetworks.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
-	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
-	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
-	Neil.Jerram@metaswitch.com, ronye@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:33605 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751242AbaHWOFA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 10:05:00 -0400
-Content-Disposition: inline
-In-Reply-To: <1408637945-10390-13-git-send-email-jiri@resnulli.us>
+Received: from mail-lb0-f196.google.com ([209.85.217.196]:47894 "EHLO
+	mail-lb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750935AbaHWOdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 10:33:16 -0400
+Received: by mail-lb0-f196.google.com with SMTP id 10so3612413lbg.7
+        for <netdev@vger.kernel.org>; Sat, 23 Aug 2014 07:33:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/21/14 at 06:19pm, Jiri Pirko wrote:
-> This patch introduces the first driver to benefit from the switchdev
-> infrastructure and to implement newly introduced switch ndos. This is a
-> driver for emulated switch chip implemented in qemu:
-> https://github.com/sfeldma/qemu-rocker/
+-- 
+Good Day From Syria,
 
-The design looks very clean. I noticed that the TLV API is almost an
-exact dupliate of the Netlink attributes API. Any specific reason for
-not reusing lib/nlattr.c and add what is missing?
+My name is Abdul Nasser Sokariah and I am writing you from Syria, I
+choose to contact you directly as I need a reliable person to trust
+who can help me make claims to my huge deposit with a vault company in
+AFRICA, and based on my present situation in Syria, I need you
+urgently to take  possession of everything and further
+modalities/directives will follow.
+
+Contact me  only on my private Email:nabdul247@gmail.com for
+clarifications,I await your response.
+
+Yours truly, Abdul Nasser Sokariah
+Contact Email:nabdul247@gmail.com
