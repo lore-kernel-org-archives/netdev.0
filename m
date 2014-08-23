@@ -1,89 +1,258 @@
-From: Christian Lamparter <chunkeey@googlemail.com>
-Subject: Re: [PATCH v2] carl9170: Remove redundant protection check
-Date: Sat, 23 Aug 2014 03:36:21 +0200
-Message-ID: <1605815.Y77AiltE7C@debian64>
-References: <20140822191431.GA5827@ada> <1931285.KsvFbLZH2Q@debian64> <1408749799.5604.38.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Andreea-Cristina Bernat <bernat.ada@gmail.com>,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com, j@w1.fi
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 1/7] net: phy: broadcom: extract all registers to brcmphy.h
+Date: Fri, 22 Aug 2014 18:55:39 -0700
+Message-ID: <1408758945-18908-2-git-send-email-f.fainelli@gmail.com>
+References: <1408758945-18908-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:57174 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751653AbaHWBg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 21:36:27 -0400
-In-Reply-To: <1408749799.5604.38.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:36922 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751733AbaHWB4P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Aug 2014 21:56:15 -0400
+Received: by mail-pd0-f170.google.com with SMTP id g10so17098254pdj.1
+        for <netdev@vger.kernel.org>; Fri, 22 Aug 2014 18:56:15 -0700 (PDT)
+In-Reply-To: <1408758945-18908-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday, August 22, 2014 04:23:19 PM Eric Dumazet wrote:
-> On Fri, 2014-08-22 at 23:53 +0200, Christian Lamparter wrote:
-> 
-> > The sta_info->agg[tid] check is not needed (for reference, see [0]).
-> > (There is already a check in mac80211 which prevents the leak of
-> > sta_info->agg[tid] [1]).
-> > 
-> > Regards
-> > Christian
-> > 
-> > [0] <https://lkml.org/lkml/2014/8/20/725>
-> > [1] <http://lxr.free-electrons.com/source/net/mac80211/agg-tx.c#L583>
-> > 
-> 
-> Hmpfff... this code is quite confusing. 
-That's true. Furthermore, parts of the logic are also embedded in
-the mac80211-stack and above. So, it's very hard to see the whole
-big picture, just by looking at the driver code.
+Commit 439d39a9ac8fbbba9c04581361188f33f21ced50 ("net: phy: broadcom:
+extract register definitions") added a bunch of registers to brcmphy.h
+but left some to broadcom.c, move all of them to the header file since
+the BCM54xx and BCM7xxx PHY drivers do share all of these registers.
 
-> RCU is used both in tricky way (carl9170_ampdu_gc() is an example)
-> and a talisman (the part you remove)
-I know that game ;-). But fair enough: if you have concerns about
-the complexity of the code in question: I'm willing to help you
-and explain the quirks in detail if necessary. I think this is a
-valuable addition, since "external consultants" are hard to come
-by.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/broadcom.c | 104 ---------------------------------------------
+ include/linux/brcmphy.h    | 103 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 103 insertions(+), 104 deletions(-)
 
-> Why is rcu_assign_pointer(sta_info->agg[tid], tid_info);
-> done inside the spinlock protected region, I don't know.
-The pointer in sta_info->agg[tid] is used exclusively by 
-the tx.c code... It is queried only if an outgoing frame
-has the IEEE80211_TX_CTL_AMPDU flag set. 
-
-But for this flag to be set, the aggregation session has
-to be operational. This requires two calls to ampdu_action [0].
-(first with: IEEE80211_AMPDU_TX_START and later with:
-IEEE80211_AMPDU_TX_OPERATIONAL).
-
-=> If you want to make a patch to move this rcu_assign_pointer(...)
-after the spin_unlock_bh() - Then: Yes, GO FOR IT!
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index 34088d60da74..6001d76d8676 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -25,110 +25,6 @@
+ #define BRCM_PHY_REV(phydev) \
+ 	((phydev)->drv->phy_id & ~((phydev)->drv->phy_id_mask))
  
-> If this code relies on external protection, a comment would help its
-> comprehension for sure.
-> 
-> For example, you could add a 
-> BUG_ON(rcu_access_pointer(sta_info->agg[tid]));
-> so that we are sure requirements are not changed
-> in the callers one day.
-Maybe, but then: Is a "specific driver" the right place for this?
-Other drivers may also depend on ampdu_action not changing.
-As for the logic: The AMPDU handshake itself is part of the 802.11
-spec. If you are interested you can get 802.11-2012 [1] and look 
-into Section 9.21 "Block Acknowledgment". It contains a message
-sequence chart and details about the setup and tear down procedures
-for aggregation session [which is at the heart of the ampdu_action
-callback issue].
-
-Note: mac80211 has a "software simulator" mac80211_hwsim [2].
-It can be (and is) used to test most of the mac80211 functionality.
-So what do you think?
-
-Regards
-Christian 
-
-[0] <https://www.kernel.org/doc/htmldocs/80211/aggregation.html>
-[1] <http://standards.ieee.org/findstds/standard/802.11-2012.html>
-[2] <http://wireless.kernel.org/en/users/Drivers/mac80211_hwsim>
+-/*
+- * Broadcom LED source encodings.  These are used in BCM5461, BCM5481,
+- * BCM5482, and possibly some others.
+- */
+-#define BCM_LED_SRC_LINKSPD1	0x0
+-#define BCM_LED_SRC_LINKSPD2	0x1
+-#define BCM_LED_SRC_XMITLED	0x2
+-#define BCM_LED_SRC_ACTIVITYLED	0x3
+-#define BCM_LED_SRC_FDXLED	0x4
+-#define BCM_LED_SRC_SLAVE	0x5
+-#define BCM_LED_SRC_INTR	0x6
+-#define BCM_LED_SRC_QUALITY	0x7
+-#define BCM_LED_SRC_RCVLED	0x8
+-#define BCM_LED_SRC_MULTICOLOR1	0xa
+-#define BCM_LED_SRC_OPENSHORT	0xb
+-#define BCM_LED_SRC_OFF		0xe	/* Tied high */
+-#define BCM_LED_SRC_ON		0xf	/* Tied low */
+-
+-
+-/*
+- * BCM5482: Shadow registers
+- * Shadow values go into bits [14:10] of register 0x1c to select a shadow
+- * register to access.
+- */
+-/* 00101: Spare Control Register 3 */
+-#define BCM54XX_SHD_SCR3		0x05
+-#define  BCM54XX_SHD_SCR3_DEF_CLK125	0x0001
+-#define  BCM54XX_SHD_SCR3_DLLAPD_DIS	0x0002
+-#define  BCM54XX_SHD_SCR3_TRDDAPD	0x0004
+-
+-/* 01010: Auto Power-Down */
+-#define BCM54XX_SHD_APD			0x0a
+-#define  BCM54XX_SHD_APD_EN		0x0020
+-
+-#define BCM5482_SHD_LEDS1	0x0d	/* 01101: LED Selector 1 */
+-					/* LED3 / ~LINKSPD[2] selector */
+-#define BCM5482_SHD_LEDS1_LED3(src)	((src & 0xf) << 4)
+-					/* LED1 / ~LINKSPD[1] selector */
+-#define BCM5482_SHD_LEDS1_LED1(src)	((src & 0xf) << 0)
+-#define BCM54XX_SHD_RGMII_MODE	0x0b	/* 01011: RGMII Mode Selector */
+-#define BCM5482_SHD_SSD		0x14	/* 10100: Secondary SerDes control */
+-#define BCM5482_SHD_SSD_LEDM	0x0008	/* SSD LED Mode enable */
+-#define BCM5482_SHD_SSD_EN	0x0001	/* SSD enable */
+-#define BCM5482_SHD_MODE	0x1f	/* 11111: Mode Control Register */
+-#define BCM5482_SHD_MODE_1000BX	0x0001	/* Enable 1000BASE-X registers */
+-
+-
+-/*
+- * EXPANSION SHADOW ACCESS REGISTERS.  (PHY REG 0x15, 0x16, and 0x17)
+- */
+-#define MII_BCM54XX_EXP_AADJ1CH0		0x001f
+-#define  MII_BCM54XX_EXP_AADJ1CH0_SWP_ABCD_OEN	0x0200
+-#define  MII_BCM54XX_EXP_AADJ1CH0_SWSEL_THPF	0x0100
+-#define MII_BCM54XX_EXP_AADJ1CH3		0x601f
+-#define  MII_BCM54XX_EXP_AADJ1CH3_ADCCKADJ	0x0002
+-#define MII_BCM54XX_EXP_EXP08			0x0F08
+-#define  MII_BCM54XX_EXP_EXP08_RJCT_2MHZ	0x0001
+-#define  MII_BCM54XX_EXP_EXP08_EARLY_DAC_WAKE	0x0200
+-#define MII_BCM54XX_EXP_EXP75			0x0f75
+-#define  MII_BCM54XX_EXP_EXP75_VDACCTRL		0x003c
+-#define  MII_BCM54XX_EXP_EXP75_CM_OSC		0x0001
+-#define MII_BCM54XX_EXP_EXP96			0x0f96
+-#define  MII_BCM54XX_EXP_EXP96_MYST		0x0010
+-#define MII_BCM54XX_EXP_EXP97			0x0f97
+-#define  MII_BCM54XX_EXP_EXP97_MYST		0x0c0c
+-
+-/*
+- * BCM5482: Secondary SerDes registers
+- */
+-#define BCM5482_SSD_1000BX_CTL		0x00	/* 1000BASE-X Control */
+-#define BCM5482_SSD_1000BX_CTL_PWRDOWN	0x0800	/* Power-down SSD */
+-#define BCM5482_SSD_SGMII_SLAVE		0x15	/* SGMII Slave Register */
+-#define BCM5482_SSD_SGMII_SLAVE_EN	0x0002	/* Slave mode enable */
+-#define BCM5482_SSD_SGMII_SLAVE_AD	0x0001	/* Slave auto-detection */
+-
+-
+-/*****************************************************************************/
+-/* Fast Ethernet Transceiver definitions. */
+-/*****************************************************************************/
+-
+-#define MII_BRCM_FET_INTREG		0x1a	/* Interrupt register */
+-#define MII_BRCM_FET_IR_MASK		0x0100	/* Mask all interrupts */
+-#define MII_BRCM_FET_IR_LINK_EN		0x0200	/* Link status change enable */
+-#define MII_BRCM_FET_IR_SPEED_EN	0x0400	/* Link speed change enable */
+-#define MII_BRCM_FET_IR_DUPLEX_EN	0x0800	/* Duplex mode change enable */
+-#define MII_BRCM_FET_IR_ENABLE		0x4000	/* Interrupt enable */
+-
+-#define MII_BRCM_FET_BRCMTEST		0x1f	/* Brcm test register */
+-#define MII_BRCM_FET_BT_SRE		0x0080	/* Shadow register enable */
+-
+-
+-/*** Shadow register definitions ***/
+-
+-#define MII_BRCM_FET_SHDW_MISCCTRL	0x10	/* Shadow misc ctrl */
+-#define MII_BRCM_FET_SHDW_MC_FAME	0x4000	/* Force Auto MDIX enable */
+-
+-#define MII_BRCM_FET_SHDW_AUXMODE4	0x1a	/* Auxiliary mode 4 */
+-#define MII_BRCM_FET_SHDW_AM4_LED_MASK	0x0003
+-#define MII_BRCM_FET_SHDW_AM4_LED_MODE1 0x0001
+-
+-#define MII_BRCM_FET_SHDW_AUXSTAT2	0x1b	/* Auxiliary status 2 */
+-#define MII_BRCM_FET_SHDW_AS2_APDE	0x0020	/* Auto power down enable */
+-
+-
+ MODULE_DESCRIPTION("Broadcom PHY driver");
+ MODULE_AUTHOR("Maciej W. Rozycki");
+ MODULE_LICENSE("GPL");
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 6f76277baf39..bf902d1c1b19 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -93,4 +93,107 @@
+ 
+ #define MII_BCM54XX_AUXCTL_SHDWSEL_AUXCTL	0x0000
+ 
++/*
++ * Broadcom LED source encodings.  These are used in BCM5461, BCM5481,
++ * BCM5482, and possibly some others.
++ */
++#define BCM_LED_SRC_LINKSPD1	0x0
++#define BCM_LED_SRC_LINKSPD2	0x1
++#define BCM_LED_SRC_XMITLED	0x2
++#define BCM_LED_SRC_ACTIVITYLED	0x3
++#define BCM_LED_SRC_FDXLED	0x4
++#define BCM_LED_SRC_SLAVE	0x5
++#define BCM_LED_SRC_INTR	0x6
++#define BCM_LED_SRC_QUALITY	0x7
++#define BCM_LED_SRC_RCVLED	0x8
++#define BCM_LED_SRC_MULTICOLOR1	0xa
++#define BCM_LED_SRC_OPENSHORT	0xb
++#define BCM_LED_SRC_OFF		0xe	/* Tied high */
++#define BCM_LED_SRC_ON		0xf	/* Tied low */
++
++
++/*
++ * BCM5482: Shadow registers
++ * Shadow values go into bits [14:10] of register 0x1c to select a shadow
++ * register to access.
++ */
++/* 00101: Spare Control Register 3 */
++#define BCM54XX_SHD_SCR3		0x05
++#define  BCM54XX_SHD_SCR3_DEF_CLK125	0x0001
++#define  BCM54XX_SHD_SCR3_DLLAPD_DIS	0x0002
++#define  BCM54XX_SHD_SCR3_TRDDAPD	0x0004
++
++/* 01010: Auto Power-Down */
++#define BCM54XX_SHD_APD			0x0a
++#define  BCM54XX_SHD_APD_EN		0x0020
++
++#define BCM5482_SHD_LEDS1	0x0d	/* 01101: LED Selector 1 */
++					/* LED3 / ~LINKSPD[2] selector */
++#define BCM5482_SHD_LEDS1_LED3(src)	((src & 0xf) << 4)
++					/* LED1 / ~LINKSPD[1] selector */
++#define BCM5482_SHD_LEDS1_LED1(src)	((src & 0xf) << 0)
++#define BCM54XX_SHD_RGMII_MODE	0x0b	/* 01011: RGMII Mode Selector */
++#define BCM5482_SHD_SSD		0x14	/* 10100: Secondary SerDes control */
++#define BCM5482_SHD_SSD_LEDM	0x0008	/* SSD LED Mode enable */
++#define BCM5482_SHD_SSD_EN	0x0001	/* SSD enable */
++#define BCM5482_SHD_MODE	0x1f	/* 11111: Mode Control Register */
++#define BCM5482_SHD_MODE_1000BX	0x0001	/* Enable 1000BASE-X registers */
++
++
++/*
++ * EXPANSION SHADOW ACCESS REGISTERS.  (PHY REG 0x15, 0x16, and 0x17)
++ */
++#define MII_BCM54XX_EXP_AADJ1CH0		0x001f
++#define  MII_BCM54XX_EXP_AADJ1CH0_SWP_ABCD_OEN	0x0200
++#define  MII_BCM54XX_EXP_AADJ1CH0_SWSEL_THPF	0x0100
++#define MII_BCM54XX_EXP_AADJ1CH3		0x601f
++#define  MII_BCM54XX_EXP_AADJ1CH3_ADCCKADJ	0x0002
++#define MII_BCM54XX_EXP_EXP08			0x0F08
++#define  MII_BCM54XX_EXP_EXP08_RJCT_2MHZ	0x0001
++#define  MII_BCM54XX_EXP_EXP08_EARLY_DAC_WAKE	0x0200
++#define MII_BCM54XX_EXP_EXP75			0x0f75
++#define  MII_BCM54XX_EXP_EXP75_VDACCTRL		0x003c
++#define  MII_BCM54XX_EXP_EXP75_CM_OSC		0x0001
++#define MII_BCM54XX_EXP_EXP96			0x0f96
++#define  MII_BCM54XX_EXP_EXP96_MYST		0x0010
++#define MII_BCM54XX_EXP_EXP97			0x0f97
++#define  MII_BCM54XX_EXP_EXP97_MYST		0x0c0c
++
++/*
++ * BCM5482: Secondary SerDes registers
++ */
++#define BCM5482_SSD_1000BX_CTL		0x00	/* 1000BASE-X Control */
++#define BCM5482_SSD_1000BX_CTL_PWRDOWN	0x0800	/* Power-down SSD */
++#define BCM5482_SSD_SGMII_SLAVE		0x15	/* SGMII Slave Register */
++#define BCM5482_SSD_SGMII_SLAVE_EN	0x0002	/* Slave mode enable */
++#define BCM5482_SSD_SGMII_SLAVE_AD	0x0001	/* Slave auto-detection */
++
++
++/*****************************************************************************/
++/* Fast Ethernet Transceiver definitions. */
++/*****************************************************************************/
++
++#define MII_BRCM_FET_INTREG		0x1a	/* Interrupt register */
++#define MII_BRCM_FET_IR_MASK		0x0100	/* Mask all interrupts */
++#define MII_BRCM_FET_IR_LINK_EN		0x0200	/* Link status change enable */
++#define MII_BRCM_FET_IR_SPEED_EN	0x0400	/* Link speed change enable */
++#define MII_BRCM_FET_IR_DUPLEX_EN	0x0800	/* Duplex mode change enable */
++#define MII_BRCM_FET_IR_ENABLE		0x4000	/* Interrupt enable */
++
++#define MII_BRCM_FET_BRCMTEST		0x1f	/* Brcm test register */
++#define MII_BRCM_FET_BT_SRE		0x0080	/* Shadow register enable */
++
++
++/*** Shadow register definitions ***/
++
++#define MII_BRCM_FET_SHDW_MISCCTRL	0x10	/* Shadow misc ctrl */
++#define MII_BRCM_FET_SHDW_MC_FAME	0x4000	/* Force Auto MDIX enable */
++
++#define MII_BRCM_FET_SHDW_AUXMODE4	0x1a	/* Auxiliary mode 4 */
++#define MII_BRCM_FET_SHDW_AM4_LED_MASK	0x0003
++#define MII_BRCM_FET_SHDW_AM4_LED_MODE1 0x0001
++
++#define MII_BRCM_FET_SHDW_AUXSTAT2	0x1b	/* Auxiliary status 2 */
++#define MII_BRCM_FET_SHDW_AS2_APDE	0x0020	/* Auto power down enable */
++
+ #endif /* _LINUX_BRCMPHY_H */
+-- 
+1.9.1
