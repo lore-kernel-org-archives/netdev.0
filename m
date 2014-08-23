@@ -1,28 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phylib: use MDIO_DEVS[12]
-Date: Fri, 22 Aug 2014 21:17:11 -0700 (PDT)
-Message-ID: <20140822.211711.942794350352409227.davem@davemloft.net>
-References: <1920521.UOn8o4CGAS@wasted.cogentembedded.com>
+Subject: Re: [PATCH net-next] tcp: improve undo on timeout
+Date: Fri, 22 Aug 2014 21:28:18 -0700 (PDT)
+Message-ID: <20140822.212818.342424006799582674.davem@davemloft.net>
+References: <1408742122-23674-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
-To: sergei.shtylyov@cogentembedded.com
+Cc: ncardwell@google.com, netdev@vger.kernel.org
+To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57378 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57431 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751179AbaHWERM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 00:17:12 -0400
-In-Reply-To: <1920521.UOn8o4CGAS@wasted.cogentembedded.com>
+	with ESMTP id S1752287AbaHWE2T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 00:28:19 -0400
+In-Reply-To: <1408742122-23674-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 22 Aug 2014 23:56:47 +0400
+From: Yuchung Cheng <ycheng@google.com>
+Date: Fri, 22 Aug 2014 14:15:22 -0700
 
-> The bare register numbers are used despite <uapi/linux/mdio.h> has MDIO_DEVS[12]
-> #define'd for those.
+> Upon timeout, undo (via both timestamps/Eifel and DSACKs) was
+> disabled if any retransmits were still in flight.  The concern was
+> perhaps that spurious retransmission sent in a previous recovery
+> episode may trigger DSACKs to falsely undo the current recovery.
 > 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> However, this inadvertently misses undo opportunities (using either
+> TCP timestamps or DSACKs) when timeout occurs during a loss episode,
+> i.e.  recurring timeouts or timeout during fast recovery. In these
+> cases some retransmissions will be in flight but we should allow
+> undo. Furthermore, we should only reset undo_marker and undo_retrans
+> upon timeout if we are starting a new recovery episode. Finally,
+> when we do reset our undo state, we now do so in a manner similar
+> to tcp_enter_recovery(), so that we require a DSACK for each of
+> the outstsanding retransmissions. This will achieve the original
+> goal by requiring that we receive the same number of DSACKs as
+> retransmissions.
+> 
+> This patch increases the undo events by 50% on Google servers.
+> 
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-Applied, thank you.
+Looks good, applied, thanks!
