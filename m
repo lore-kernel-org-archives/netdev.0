@@ -1,42 +1,47 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH RFC net-next 0/2] Fix pfmemalloc in __netdev_alloc_skb
-Date: Sun, 24 Aug 2014 03:07:17 +0530
-Message-ID: <1408829839-20742-1-git-send-email-_govind@gmx.com>
+Subject: [PATCH RFC net-next 1/2] net: skbuff: propagate pfmemalloc to skb
+Date: Sun, 24 Aug 2014 03:07:18 +0530
+Message-ID: <1408829839-20742-2-git-send-email-_govind@gmx.com>
+References: <1408829839-20742-1-git-send-email-_govind@gmx.com>
 Cc: davem@davemloft.net, edumazet@google.com, mgorman@suse.de,
 	Govindarajulu Varadarajan <_govind@gmx.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:50129 "EHLO mout.gmx.com"
+Received: from mout.gmx.com ([74.208.4.201]:61367 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751143AbaHWVhk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Aug 2014 17:37:40 -0400
+	id S1751143AbaHWVhp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Aug 2014 17:37:45 -0400
+In-Reply-To: <1408829839-20742-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+In __netdev_alloc_skb, __netdev_alloc_frag might have allocated page with
+flag __GFP_MEMALLOC. But we do not propagate it to the skb.
 
-After the introduction of skb->pfmemalloc in
-c93bdd0e0:(allow skb allocation to use PFMEMALLOC reserves), skb->pfmemalloc
-should be set to true if buff is allocated from reserve memory.
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+---
+ net/core/skbuff.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-But in a1c7fff7e(netdev_alloc_skb() use build_skb()), netdev_alloc_skb() does
-not set skb->pfmemalloc if the page is allocated from reserve memory.
-
-Also if the page in netdev_alloc_cache->frag is allocated from reserve memory,
-and if the next call to __netdev_alloc_frag does not have __GFP_MEMALLOC in
-flags, we should not return a reserved memory. Because the reserve memory could
-be sitting in receive queue waiting for packet to arrive. We should release
-the reserve memory as soon as possible.
-
-Is my understanding correct?
-
-Govindarajulu Varadarajan (2):
-  net: skbuff: propagate pfmemalloc to skb
-  net: skbuff: do not allocate emergency memory if flags is not
-    __GFP_MEMALLOC
-
- net/core/skbuff.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
-
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 163b673..51a3328 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -425,8 +425,14 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+ 
+ 		if (likely(data)) {
+ 			skb = build_skb(data, fragsz);
+-			if (unlikely(!skb))
++			if (unlikely(!skb)) {
+ 				put_page(virt_to_head_page(data));
++			} else {
++				struct page *page;
++
++				page = virt_to_head_page(data);
++				skb_propagate_pfmemalloc(page, skb);
++			}
+ 		}
+ 	} else {
+ 		skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask,
 -- 
 2.1.0
