@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v5 net-next 15/29] bpf: verifier (add state prunning optimization)
-Date: Sun, 24 Aug 2014 13:21:16 -0700
-Message-ID: <1408911690-7598-16-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v5 net-next 13/29] bpf: verifier (add branch/goto checks)
+Date: Sun, 24 Aug 2014 13:21:14 -0700
+Message-ID: <1408911690-7598-14-git-send-email-ast@plumgrid.com>
 References: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -23,225 +23,219 @@ In-Reply-To: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-since verifier walks all possible paths it's important to recognize
-equivalent verifier states to speed up verification.
+check that control flow graph of eBPF program is a directed acyclic graph
 
-If one of the old states is more strict than the current state, it means
-the current state doesn't need to be explored further, since verifier already
-concluded that more strict state leads to valid bpf_exit.
+check_cfg() does:
+- detect loops
+- detect unreachable instructions
+- check that program terminates with BPF_EXIT insn
+- check that all branches are within program boundary
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- kernel/bpf/verifier.c |  134 +++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 134 insertions(+)
+ kernel/bpf/verifier.c |  183 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 183 insertions(+)
 
 diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 14a0262b101c..49374066a5bd 100644
+index 28ce2cfa49db..454079b145b2 100644
 --- a/kernel/bpf/verifier.c
 +++ b/kernel/bpf/verifier.c
-@@ -220,6 +220,7 @@ struct verifier_env {
- 	struct verifier_stack_elem *head; /* stack of verifier states to be processed */
- 	int stack_size;			/* number of states to be processed */
- 	struct verifier_state cur_state; /* current verifier state */
-+	struct verifier_state_list **branch_landing; /* search prunning optimization */
- 	struct bpf_map *used_maps[MAX_USED_MAPS]; /* array of map's used by eBPF program */
- 	u32 used_map_cnt;		/* number of used maps */
- };
-@@ -1256,6 +1257,8 @@ enum {
- 	BRANCH = 2,
- };
- 
-+#define STATE_END ((struct verifier_state_list *) -1L)
-+
- #define PUSH_INT(I) \
- 	do { \
- 		if (cur_stack >= insn_cnt) { \
-@@ -1297,6 +1300,9 @@ enum {
- 			ret = -EINVAL; \
- 			goto free_st; \
- 		} \
-+		if (E == BRANCH) \
-+			/* mark branch target for state pruning */ \
-+			env->branch_landing[w] = STATE_END; \
- 		if (st[w] == 0) { \
- 			/* tree-edge */ \
- 			st[T] = DISCOVERED | E; \
-@@ -1364,6 +1370,10 @@ peek_stack:
- 				PUSH_INSN(t, t + 1, FALLTHROUGH);
- 				PUSH_INSN(t, t + insns[t].off + 1, BRANCH);
- 			}
-+			/* tell verifier to check for equivalent verifier states
-+			 * after every call and jump
-+			 */
-+			env->branch_landing[t + 1] = STATE_END;
- 		} else {
- 			/* all other non-branch instructions with single
- 			 * fall-through edge
-@@ -1395,6 +1405,88 @@ free_st:
- 	return ret;
+@@ -332,6 +332,185 @@ static struct bpf_map *ld_imm64_to_map_ptr(struct bpf_insn *insn)
+ 	return (struct bpf_map *) (unsigned long) imm64;
  }
  
-+/* compare two verifier states
++/* non-recursive DFS pseudo code
++ * 1  procedure DFS-iterative(G,v):
++ * 2      label v as discovered
++ * 3      let S be a stack
++ * 4      S.push(v)
++ * 5      while S is not empty
++ * 6            t <- S.pop()
++ * 7            if t is what we're looking for:
++ * 8                return t
++ * 9            for all edges e in G.adjacentEdges(t) do
++ * 10               if edge e is already labelled
++ * 11                   continue with the next edge
++ * 12               w <- G.adjacentVertex(t,e)
++ * 13               if vertex w is not discovered and not explored
++ * 14                   label e as tree-edge
++ * 15                   label w as discovered
++ * 16                   S.push(w)
++ * 17                   continue at 5
++ * 18               else if vertex w is discovered
++ * 19                   label e as back-edge
++ * 20               else
++ * 21                   // vertex w is explored
++ * 22                   label e as forward- or cross-edge
++ * 23           label t as explored
++ * 24           S.pop()
 + *
-+ * all states stored in state_list are known to be valid, since
-+ * verifier reached 'bpf_exit' instruction through them
-+ *
-+ * this function is called when verifier exploring different branches of
-+ * execution popped from the state stack. If it sees an old state that has
-+ * more strict register state and more strict stack state then this execution
-+ * branch doesn't need to be explored further, since verifier already
-+ * concluded that more strict state leads to valid finish.
-+ *
-+ * Therefore two states are equivalent if register state is more conservative
-+ * and explored stack state is more conservative than the current one.
-+ * Example:
-+ *       explored                   current
-+ * (slot1=INV slot2=MISC) == (slot1=MISC slot2=MISC)
-+ * (slot1=MISC slot2=MISC) != (slot1=INV slot2=MISC)
-+ *
-+ * In other words if current stack state (one being explored) has more
-+ * valid slots than old one that already passed validation, it means
-+ * the verifier can stop exploring and conclude that current state is valid too
-+ *
-+ * Similarly with registers. If explored state has register type as invalid
-+ * whereas register type in current state is meaningful, it means that
-+ * the current state will reach 'bpf_exit' instruction safely
++ * convention:
++ * 0x10 - discovered
++ * 0x11 - discovered and fall-through edge labelled
++ * 0x12 - discovered and fall-through and branch edges labelled
++ * 0x20 - explored
 + */
-+static bool states_equal(struct verifier_state *old, struct verifier_state *cur)
-+{
-+	int i;
 +
-+	for (i = 0; i < MAX_BPF_REG; i++) {
-+		if (memcmp(&old->regs[i], &cur->regs[i],
-+			   sizeof(old->regs[0])) != 0) {
-+			if (old->regs[i].type == NOT_INIT ||
-+			    old->regs[i].type == UNKNOWN_VALUE)
-+				continue;
-+			return false;
-+		}
++enum {
++	DISCOVERED = 0x10,
++	EXPLORED = 0x20,
++	FALLTHROUGH = 1,
++	BRANCH = 2,
++};
++
++#define PUSH_INT(I) \
++	do { \
++		if (cur_stack >= insn_cnt) { \
++			ret = -E2BIG; \
++			goto free_st; \
++		} \
++		stack[cur_stack++] = I; \
++	} while (0)
++
++#define PEEK_INT() \
++	({ \
++		int _ret; \
++		if (cur_stack == 0) \
++			_ret = -1; \
++		else \
++			_ret = stack[cur_stack - 1]; \
++		_ret; \
++	 })
++
++#define POP_INT() \
++	({ \
++		int _ret; \
++		if (cur_stack == 0) \
++			_ret = -1; \
++		else \
++			_ret = stack[--cur_stack]; \
++		_ret; \
++	 })
++
++#define PUSH_INSN(T, W, E) \
++	do { \
++		int w = W; \
++		if (E == FALLTHROUGH && st[T] >= (DISCOVERED | FALLTHROUGH)) \
++			break; \
++		if (E == BRANCH && st[T] >= (DISCOVERED | BRANCH)) \
++			break; \
++		if (w < 0 || w >= insn_cnt) { \
++			verbose("jump out of range from insn %d to %d\n", T, w); \
++			ret = -EINVAL; \
++			goto free_st; \
++		} \
++		if (st[w] == 0) { \
++			/* tree-edge */ \
++			st[T] = DISCOVERED | E; \
++			st[w] = DISCOVERED; \
++			PUSH_INT(w); \
++			goto peek_stack; \
++		} else if ((st[w] & 0xF0) == DISCOVERED) { \
++			verbose("back-edge from insn %d to %d\n", T, w); \
++			ret = -EINVAL; \
++			goto free_st; \
++		} else if (st[w] == EXPLORED) { \
++			/* forward- or cross-edge */ \
++			st[T] = DISCOVERED | E; \
++		} else { \
++			verbose("insn state internal bug\n"); \
++			ret = -EFAULT; \
++			goto free_st; \
++		} \
++	} while (0)
++
++/* non-recursive depth-first-search to detect loops in BPF program
++ * loop == back-edge in directed graph
++ */
++static int check_cfg(struct verifier_env *env)
++{
++	struct bpf_insn *insns = env->prog->insnsi;
++	int insn_cnt = env->prog->len;
++	int cur_stack = 0;
++	int *stack;
++	int ret = 0;
++	int *st;
++	int i, t;
++
++	st = kzalloc(sizeof(int) * insn_cnt, GFP_KERNEL);
++	if (!st)
++		return -ENOMEM;
++
++	stack = kzalloc(sizeof(int) * insn_cnt, GFP_KERNEL);
++	if (!stack) {
++		kfree(st);
++		return -ENOMEM;
 +	}
 +
-+	for (i = 0; i < MAX_BPF_STACK; i++) {
-+		if (memcmp(&old->stack[i], &cur->stack[i],
-+			   sizeof(old->stack[0])) != 0) {
-+			if (old->stack[i].stype == STACK_INVALID)
-+				continue;
-+			return false;
-+		}
-+	}
-+	return true;
-+}
++	st[0] = DISCOVERED; /* mark 1st insn as discovered */
++	PUSH_INT(0);
 +
-+static int is_state_visited(struct verifier_env *env, int insn_idx)
-+{
-+	struct verifier_state_list *new_sl;
-+	struct verifier_state_list *sl;
++peek_stack:
++	while ((t = PEEK_INT()) != -1) {
++		if (BPF_CLASS(insns[t].code) == BPF_JMP) {
++			u8 opcode = BPF_OP(insns[t].code);
 +
-+	sl = env->branch_landing[insn_idx];
-+	if (!sl)
-+		/* no branch jump to this insn, ignore it */
-+		return 0;
-+
-+	while (sl != STATE_END) {
-+		if (states_equal(&sl->state, &env->cur_state))
-+			/* reached equivalent register/stack state,
-+			 * prune the search
++			if (opcode == BPF_EXIT) {
++				goto mark_explored;
++			} else if (opcode == BPF_CALL) {
++				PUSH_INSN(t, t + 1, FALLTHROUGH);
++			} else if (opcode == BPF_JA) {
++				if (BPF_SRC(insns[t].code) != BPF_K) {
++					ret = -EINVAL;
++					goto free_st;
++				}
++				/* unconditional jump with single edge */
++				PUSH_INSN(t, t + insns[t].off + 1, FALLTHROUGH);
++			} else {
++				/* conditional jump with two edges */
++				PUSH_INSN(t, t + 1, FALLTHROUGH);
++				PUSH_INSN(t, t + insns[t].off + 1, BRANCH);
++			}
++		} else {
++			/* all other non-branch instructions with single
++			 * fall-through edge
 +			 */
-+			return 1;
-+		sl = sl->next;
-+	}
-+	new_sl = kmalloc(sizeof(struct verifier_state_list), GFP_KERNEL);
-+
-+	if (!new_sl)
-+		/* ignore ENOMEM, it doesn't affect correctness */
-+		return 0;
-+
-+	/* add new state to the head of linked list */
-+	memcpy(&new_sl->state, &env->cur_state, sizeof(env->cur_state));
-+	new_sl->next = env->branch_landing[insn_idx];
-+	env->branch_landing[insn_idx] = new_sl;
-+	return 0;
-+}
-+
- static int do_check(struct verifier_env *env)
- {
- 	struct verifier_state *state = &env->cur_state;
-@@ -1426,6 +1518,17 @@ static int do_check(struct verifier_env *env)
- 			return -E2BIG;
- 		}
- 
-+		if (is_state_visited(env, insn_idx)) {
-+			if (log_level) {
-+				if (do_print_state)
-+					verbose("\nfrom %d to %d: safe\n",
-+						prev_insn_idx, insn_idx);
-+				else
-+					verbose("%d: safe\n", insn_idx);
-+			}
-+			goto process_bpf_exit;
++			PUSH_INSN(t, t + 1, FALLTHROUGH);
 +		}
 +
- 		if (log_level && do_print_state) {
- 			verbose("\nfrom %d to %d:", prev_insn_idx, insn_idx);
- 			print_verifier_state(env);
-@@ -1536,6 +1639,7 @@ static int do_check(struct verifier_env *env)
- 				 * something into it earlier
- 				 */
- 				_(check_reg_arg(regs, BPF_REG_0, SRC_OP));
-+process_bpf_exit:
- 				insn_idx = pop_stack(env, &prev_insn_idx);
- 				if (insn_idx < 0) {
- 					break;
-@@ -1670,6 +1774,28 @@ static void convert_pseudo_ld_imm64(struct verifier_env *env)
- 			insn->src_reg = 0;
- }
- 
-+static void free_states(struct verifier_env *env)
-+{
-+	struct verifier_state_list *sl, *sln;
-+	int i;
-+
-+	if (!env->branch_landing)
-+		return;
-+
-+	for (i = 0; i < env->prog->len; i++) {
-+		sl = env->branch_landing[i];
-+
-+		if (sl)
-+			while (sl != STATE_END) {
-+				sln = sl->next;
-+				kfree(sl);
-+				sl = sln;
-+			}
++mark_explored:
++		st[t] = EXPLORED;
++		if (POP_INT() == -1) {
++			verbose("pop_int internal bug\n");
++			ret = -EFAULT;
++			goto free_st;
++		}
 +	}
 +
-+	kfree(env->branch_landing);
++
++	for (i = 0; i < insn_cnt; i++) {
++		if (st[i] != EXPLORED) {
++			verbose("unreachable insn %d\n", i);
++			ret = -EINVAL;
++			goto free_st;
++		}
++	}
++
++free_st:
++	kfree(st);
++	kfree(stack);
++	return ret;
 +}
 +
- int bpf_check(struct bpf_prog *prog, struct nlattr *tb[BPF_PROG_ATTR_MAX + 1])
- {
- 	void __user *log_ubuf = NULL;
-@@ -1719,6 +1845,13 @@ int bpf_check(struct bpf_prog *prog, struct nlattr *tb[BPF_PROG_ATTR_MAX + 1])
+ /* look for pseudo eBPF instructions that access map FDs and
+  * replace them with actual map pointers
+  */
+@@ -482,6 +661,10 @@ int bpf_check(struct bpf_prog *prog, struct nlattr *tb[BPF_PROG_ATTR_MAX + 1])
  	if (ret < 0)
  		goto skip_full_check;
  
-+	env->branch_landing = kcalloc(prog->len,
-+				      sizeof(struct verifier_state_list *),
-+				      GFP_KERNEL);
-+	ret = -ENOMEM;
-+	if (!env->branch_landing)
++	ret = check_cfg(env);
++	if (ret < 0)
 +		goto skip_full_check;
 +
- 	ret = check_cfg(env);
- 	if (ret < 0)
- 		goto skip_full_check;
-@@ -1727,6 +1860,7 @@ int bpf_check(struct bpf_prog *prog, struct nlattr *tb[BPF_PROG_ATTR_MAX + 1])
+ 	/* ret = do_check(env); */
  
  skip_full_check:
- 	while (pop_stack(env, NULL) >= 0);
-+	free_states(env);
- 
- 	if (log_level && log_len >= log_size - 1) {
- 		BUG_ON(log_len >= log_size);
 -- 
 1.7.9.5
