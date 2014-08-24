@@ -1,720 +1,350 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v5 net-next 03/29] net: filter: split filter.h and expose eBPF to user space
-Date: Sun, 24 Aug 2014 13:21:04 -0700
-Message-ID: <1408911690-7598-4-git-send-email-ast@plumgrid.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v5 net-next 06/29] bpf: add lookup/update/delete/iterate methods to BPF maps
+Date: Sun, 24 Aug 2014 13:21:07 -0700
+Message-ID: <1408911690-7598-7-git-send-email-ast@plumgrid.com>
 References: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	Namhyung Kim <namhyung@kernel.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:53429 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753453AbaHXUVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 16:21:48 -0400
-Received: by mail-pd0-f181.google.com with SMTP id g10so18887592pdj.12
-        for <netdev@vger.kernel.org>; Sun, 24 Aug 2014 13:21:48 -0700 (PDT)
-In-Reply-To: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1408911690-7598-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-eBPF can be used from user space.
+'maps' is a generic storage of different types for sharing data between kernel
+and userspace.
 
-uapi/linux/bpf.h: eBPF instruction set definition
+The maps are accessed from user space via BPF syscall, which has commands:
 
-linux/filter.h: the rest
+- create a map with given type and attributes
+  fd = bpf_map_create(map_type, struct nlattr *attr, int len)
+  returns fd or negative error
 
-This patch only moves macro definitions, but practically it freezes existing
-eBPF instruction set, though new instructions can still be added in the future.
+- lookup key in a given map referenced by fd
+  err = bpf_map_lookup_elem(int fd, void *key, void *value)
+  returns zero and stores found elem into value or negative error
 
-These eBPF definitions cannot go into uapi/linux/filter.h, since the names
-may conflict with existing applications.
+- create or update key/value pair in a given map
+  err = bpf_map_update_elem(int fd, void *key, void *value)
+  returns zero or negative error
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+- find and delete element by key in a given map
+  err = bpf_map_delete_elem(int fd, void *key)
+
+- iterate map elements (based on input key return next_key)
+  err = bpf_map_get_next_key(int fd, void *key, void *next_key)
+
+- close(fd) deletes the map
+
+Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 ---
- include/linux/filter.h    |  312 +------------------------------------------
- include/uapi/linux/Kbuild |    1 +
- include/uapi/linux/bpf.h  |  321 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 323 insertions(+), 311 deletions(-)
- create mode 100644 include/uapi/linux/bpf.h
+ include/linux/bpf.h      |    8 ++
+ include/uapi/linux/bpf.h |   25 ++++++
+ kernel/bpf/syscall.c     |  198 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 231 insertions(+)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index f3262b598262..f04793474d16 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -9,322 +9,12 @@
- #include <linux/skbuff.h>
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 607ca53fe2af..fd1ac4b5ba8b 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -9,6 +9,7 @@
+ 
+ #include <uapi/linux/bpf.h>
  #include <linux/workqueue.h>
- #include <uapi/linux/filter.h>
--
--/* Internally used and optimized filter representation with extended
-- * instruction set based on top of classic BPF.
-- */
--
--/* instruction classes */
--#define BPF_ALU64	0x07	/* alu mode in double word width */
--
--/* ld/ldx fields */
--#define BPF_DW		0x18	/* double word */
--#define BPF_XADD	0xc0	/* exclusive add */
--
--/* alu/jmp fields */
--#define BPF_MOV		0xb0	/* mov reg to reg */
--#define BPF_ARSH	0xc0	/* sign extending arithmetic shift right */
--
--/* change endianness of a register */
--#define BPF_END		0xd0	/* flags for endianness conversion: */
--#define BPF_TO_LE	0x00	/* convert to little-endian */
--#define BPF_TO_BE	0x08	/* convert to big-endian */
--#define BPF_FROM_LE	BPF_TO_LE
--#define BPF_FROM_BE	BPF_TO_BE
--
--#define BPF_JNE		0x50	/* jump != */
--#define BPF_JSGT	0x60	/* SGT is signed '>', GT in x86 */
--#define BPF_JSGE	0x70	/* SGE is signed '>=', GE in x86 */
--#define BPF_CALL	0x80	/* function call */
--#define BPF_EXIT	0x90	/* function return */
--
--/* Register numbers */
--enum {
--	BPF_REG_0 = 0,
--	BPF_REG_1,
--	BPF_REG_2,
--	BPF_REG_3,
--	BPF_REG_4,
--	BPF_REG_5,
--	BPF_REG_6,
--	BPF_REG_7,
--	BPF_REG_8,
--	BPF_REG_9,
--	BPF_REG_10,
--	__MAX_BPF_REG,
--};
--
--/* BPF has 10 general purpose 64-bit registers and stack frame. */
--#define MAX_BPF_REG	__MAX_BPF_REG
--
--/* ArgX, context and stack frame pointer register positions. Note,
-- * Arg1, Arg2, Arg3, etc are used as argument mappings of function
-- * calls in BPF_CALL instruction.
-- */
--#define BPF_REG_ARG1	BPF_REG_1
--#define BPF_REG_ARG2	BPF_REG_2
--#define BPF_REG_ARG3	BPF_REG_3
--#define BPF_REG_ARG4	BPF_REG_4
--#define BPF_REG_ARG5	BPF_REG_5
--#define BPF_REG_CTX	BPF_REG_6
--#define BPF_REG_FP	BPF_REG_10
--
--/* Additional register mappings for converted user programs. */
--#define BPF_REG_A	BPF_REG_0
--#define BPF_REG_X	BPF_REG_7
--#define BPF_REG_TMP	BPF_REG_8
--
--/* BPF program can access up to 512 bytes of stack space. */
--#define MAX_BPF_STACK	512
--
--/* Helper macros for filter block array initializers. */
--
--/* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
--
--#define BPF_ALU64_REG(OP, DST, SRC)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_X,	\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = 0 })
--
--#define BPF_ALU32_REG(OP, DST, SRC)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU | BPF_OP(OP) | BPF_X,		\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = 0 })
--
--/* ALU ops on immediates, bpf_add|sub|...: dst_reg += imm32 */
--
--#define BPF_ALU64_IMM(OP, DST, IMM)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_K,	\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--#define BPF_ALU32_IMM(OP, DST, IMM)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU | BPF_OP(OP) | BPF_K,		\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--/* Endianess conversion, cpu_to_{l,b}e(), {l,b}e_to_cpu() */
--
--#define BPF_ENDIAN(TYPE, DST, LEN)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU | BPF_END | BPF_SRC(TYPE),	\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = LEN })
--
--/* Short form of mov, dst_reg = src_reg */
--
--#define BPF_MOV64_REG(DST, SRC)					\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU64 | BPF_MOV | BPF_X,		\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = 0 })
--
--#define BPF_MOV32_REG(DST, SRC)					\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU | BPF_MOV | BPF_X,		\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = 0 })
--
--/* Short form of mov, dst_reg = imm32 */
--
--#define BPF_MOV64_IMM(DST, IMM)					\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU64 | BPF_MOV | BPF_K,		\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--#define BPF_MOV32_IMM(DST, IMM)					\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU | BPF_MOV | BPF_K,		\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--/* BPF_LD_IMM64 macro encodes single 'load 64-bit immediate' insn */
--#define BPF_LD_IMM64(DST, IMM)					\
--	BPF_LD_IMM64_RAW(DST, 0, IMM)
--
--#define BPF_LD_IMM64_RAW(DST, SRC, IMM)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_LD | BPF_DW | BPF_IMM,		\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = (__u32) (IMM) }),			\
--	((struct bpf_insn) {					\
--		.code  = 0, /* zero is reserved opcode */	\
--		.dst_reg = 0,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = ((__u64) (IMM)) >> 32 })
--
--/* Short form of mov based on type, BPF_X: dst_reg = src_reg, BPF_K: dst_reg = imm32 */
--
--#define BPF_MOV64_RAW(TYPE, DST, SRC, IMM)			\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU64 | BPF_MOV | BPF_SRC(TYPE),	\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--#define BPF_MOV32_RAW(TYPE, DST, SRC, IMM)			\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU | BPF_MOV | BPF_SRC(TYPE),	\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--/* Direct packet access, R0 = *(uint *) (skb->data + imm32) */
--
--#define BPF_LD_ABS(SIZE, IMM)					\
--	((struct bpf_insn) {					\
--		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_ABS,	\
--		.dst_reg = 0,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--/* Indirect packet access, R0 = *(uint *) (skb->data + src_reg + imm32) */
--
--#define BPF_LD_IND(SIZE, SRC, IMM)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_IND,	\
--		.dst_reg = 0,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--/* Memory load, dst_reg = *(uint *) (src_reg + off16) */
--
--#define BPF_LDX_MEM(SIZE, DST, SRC, OFF)			\
--	((struct bpf_insn) {					\
--		.code  = BPF_LDX | BPF_SIZE(SIZE) | BPF_MEM,	\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = OFF,					\
--		.imm   = 0 })
--
--/* Memory store, *(uint *) (dst_reg + off16) = src_reg */
--
--#define BPF_STX_MEM(SIZE, DST, SRC, OFF)			\
--	((struct bpf_insn) {					\
--		.code  = BPF_STX | BPF_SIZE(SIZE) | BPF_MEM,	\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = OFF,					\
--		.imm   = 0 })
--
--/* Memory store, *(uint *) (dst_reg + off16) = imm32 */
--
--#define BPF_ST_MEM(SIZE, DST, OFF, IMM)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_ST | BPF_SIZE(SIZE) | BPF_MEM,	\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = OFF,					\
--		.imm   = IMM })
--
--/* Conditional jumps against registers, if (dst_reg 'op' src_reg) goto pc + off16 */
--
--#define BPF_JMP_REG(OP, DST, SRC, OFF)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_JMP | BPF_OP(OP) | BPF_X,		\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = OFF,					\
--		.imm   = 0 })
--
--/* Conditional jumps against immediates, if (dst_reg 'op' imm32) goto pc + off16 */
--
--#define BPF_JMP_IMM(OP, DST, IMM, OFF)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_JMP | BPF_OP(OP) | BPF_K,		\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = OFF,					\
--		.imm   = IMM })
--
--/* Function call */
--
--#define BPF_EMIT_CALL(FUNC)					\
--	((struct bpf_insn) {					\
--		.code  = BPF_JMP | BPF_CALL,			\
--		.dst_reg = 0,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = ((FUNC) - __bpf_call_base) })
--
--/* Raw code statement block */
--
--#define BPF_RAW_INSN(CODE, DST, SRC, OFF, IMM)			\
--	((struct bpf_insn) {					\
--		.code  = CODE,					\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = OFF,					\
--		.imm   = IMM })
--
--/* Program exit */
--
--#define BPF_EXIT_INSN()						\
--	((struct bpf_insn) {					\
--		.code  = BPF_JMP | BPF_EXIT,			\
--		.dst_reg = 0,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = 0 })
--
--#define bytes_to_bpf_size(bytes)				\
--({								\
--	int bpf_size = -EINVAL;					\
--								\
--	if (bytes == sizeof(u8))				\
--		bpf_size = BPF_B;				\
--	else if (bytes == sizeof(u16))				\
--		bpf_size = BPF_H;				\
--	else if (bytes == sizeof(u32))				\
--		bpf_size = BPF_W;				\
--	else if (bytes == sizeof(u64))				\
--		bpf_size = BPF_DW;				\
--								\
--	bpf_size;						\
--})
-+#include <uapi/linux/bpf.h>
++#include <linux/file.h>
  
- /* Macro to invoke filter function. */
- #define SK_RUN_FILTER(filter, ctx) \
- 	(*filter->prog->bpf_func)(ctx, filter->prog->insnsi)
+ struct bpf_map;
+ struct nlattr;
+@@ -18,6 +19,12 @@ struct bpf_map_ops {
+ 	/* funcs callable from userspace (via syscall) */
+ 	struct bpf_map *(*map_alloc)(struct nlattr *attrs[BPF_MAP_ATTR_MAX + 1]);
+ 	void (*map_free)(struct bpf_map *);
++	int (*map_get_next_key)(struct bpf_map *map, void *key, void *next_key);
++
++	/* funcs callable from userspace and from eBPF programs */
++	void *(*map_lookup_elem)(struct bpf_map *map, void *key);
++	int (*map_update_elem)(struct bpf_map *map, void *key, void *value);
++	int (*map_delete_elem)(struct bpf_map *map, void *key);
+ };
  
--struct bpf_insn {
--	__u8	code;		/* opcode */
--	__u8	dst_reg:4;	/* dest register */
--	__u8	src_reg:4;	/* source register */
--	__s16	off;		/* signed offset */
--	__s32	imm;		/* signed immediate constant */
--};
--
- #ifdef CONFIG_COMPAT
- /* A struct sock_filter is architecture independent. */
- struct compat_sock_fprog {
-diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
-index 24e9033f8b3f..fb3f7b675229 100644
---- a/include/uapi/linux/Kbuild
-+++ b/include/uapi/linux/Kbuild
-@@ -67,6 +67,7 @@ header-y += bfs_fs.h
- header-y += binfmts.h
- header-y += blkpg.h
- header-y += blktrace_api.h
-+header-y += bpf.h
- header-y += bpqether.h
- header-y += bsg.h
- header-y += btrfs.h
+ struct bpf_map {
+@@ -38,5 +45,6 @@ struct bpf_map_type_list {
+ 
+ void bpf_register_map_type(struct bpf_map_type_list *tl);
+ void bpf_map_put(struct bpf_map *map);
++struct bpf_map *bpf_map_get(struct fd f);
+ 
+ #endif /* _LINUX_BPF_H */
 diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-new file mode 100644
-index 000000000000..45a09b46c578
---- /dev/null
+index de21c8ecf0bb..f68edb2681f8 100644
+--- a/include/uapi/linux/bpf.h
 +++ b/include/uapi/linux/bpf.h
-@@ -0,0 +1,321 @@
-+/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
+@@ -326,6 +326,31 @@ enum bpf_cmd {
+ 	 * map is deleted when fd is closed
+ 	 */
+ 	BPF_MAP_CREATE,
++
++	/* lookup key in a given map
++	 * err = bpf_map_lookup_elem(int fd, void *key, void *value)
++	 * returns zero and stores found elem into value
++	 * or negative error
++	 */
++	BPF_MAP_LOOKUP_ELEM,
++
++	/* create or update key/value pair in a given map
++	 * err = bpf_map_update_elem(int fd, void *key, void *value)
++	 * returns zero or negative error
++	 */
++	BPF_MAP_UPDATE_ELEM,
++
++	/* find and delete elem by key in a given map
++	 * err = bpf_map_delete_elem(int fd, void *key)
++	 * returns zero or negative error
++	 */
++	BPF_MAP_DELETE_ELEM,
++
++	/* lookup key in a given map and return next key
++	 * err = bpf_map_get_elem(int fd, void *key, void *next_key)
++	 * returns zero and stores next key or negative error
++	 */
++	BPF_MAP_GET_NEXT_KEY,
+ };
+ 
+ enum bpf_map_attributes {
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 04cdf7948f8f..45e100ece1b7 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -13,6 +13,7 @@
+ #include <linux/syscalls.h>
+ #include <net/netlink.h>
+ #include <linux/anon_inodes.h>
++#include <linux/file.h>
+ 
+ static LIST_HEAD(bpf_map_types);
+ 
+@@ -131,6 +132,189 @@ free_attr:
+ 	return err;
+ }
+ 
++/* if error is returned, fd is released.
++ * On success caller should complete fd access with matching fdput()
 + */
-+#ifndef _UAPI__LINUX_BPF_H__
-+#define _UAPI__LINUX_BPF_H__
++struct bpf_map *bpf_map_get(struct fd f)
++{
++	struct bpf_map *map;
 +
-+#include <linux/types.h>
++	if (!f.file)
++		return ERR_PTR(-EBADF);
 +
-+/* Extended instruction set based on top of classic BPF */
++	if (f.file->f_op != &bpf_map_fops) {
++		fdput(f);
++		return ERR_PTR(-EINVAL);
++	}
 +
-+/* instruction classes */
-+#define BPF_ALU64	0x07	/* alu mode in double word width */
++	map = f.file->private_data;
 +
-+/* ld/ldx fields */
-+#define BPF_DW		0x18	/* double word */
-+#define BPF_XADD	0xc0	/* exclusive add */
++	return map;
++}
 +
-+/* alu/jmp fields */
-+#define BPF_MOV		0xb0	/* mov reg to reg */
-+#define BPF_ARSH	0xc0	/* sign extending arithmetic shift right */
++static int map_lookup_elem(int ufd, void __user *ukey, void __user *uvalue)
++{
++	struct fd f = fdget(ufd);
++	struct bpf_map *map;
++	void *key, *value;
++	int err;
 +
-+/* change endianness of a register */
-+#define BPF_END		0xd0	/* flags for endianness conversion: */
-+#define BPF_TO_LE	0x00	/* convert to little-endian */
-+#define BPF_TO_BE	0x08	/* convert to big-endian */
-+#define BPF_FROM_LE	BPF_TO_LE
-+#define BPF_FROM_BE	BPF_TO_BE
++	map = bpf_map_get(f);
++	if (IS_ERR(map))
++		return PTR_ERR(map);
 +
-+#define BPF_JNE		0x50	/* jump != */
-+#define BPF_JSGT	0x60	/* SGT is signed '>', GT in x86 */
-+#define BPF_JSGE	0x70	/* SGE is signed '>=', GE in x86 */
-+#define BPF_CALL	0x80	/* function call */
-+#define BPF_EXIT	0x90	/* function return */
++	err = -ENOMEM;
++	key = kmalloc(map->key_size, GFP_USER);
++	if (!key)
++		goto err_put;
 +
-+/* Register numbers */
-+enum {
-+	BPF_REG_0 = 0,
-+	BPF_REG_1,
-+	BPF_REG_2,
-+	BPF_REG_3,
-+	BPF_REG_4,
-+	BPF_REG_5,
-+	BPF_REG_6,
-+	BPF_REG_7,
-+	BPF_REG_8,
-+	BPF_REG_9,
-+	BPF_REG_10,
-+	__MAX_BPF_REG,
-+};
++	err = -EFAULT;
++	if (copy_from_user(key, ukey, map->key_size) != 0)
++		goto free_key;
 +
-+/* BPF has 10 general purpose 64-bit registers and stack frame. */
-+#define MAX_BPF_REG	__MAX_BPF_REG
++	err = -ESRCH;
++	rcu_read_lock();
++	value = map->ops->map_lookup_elem(map, key);
++	if (!value)
++		goto err_unlock;
 +
-+/* ArgX, context and stack frame pointer register positions. Note,
-+ * Arg1, Arg2, Arg3, etc are used as argument mappings of function
-+ * calls in BPF_CALL instruction.
-+ */
-+#define BPF_REG_ARG1	BPF_REG_1
-+#define BPF_REG_ARG2	BPF_REG_2
-+#define BPF_REG_ARG3	BPF_REG_3
-+#define BPF_REG_ARG4	BPF_REG_4
-+#define BPF_REG_ARG5	BPF_REG_5
-+#define BPF_REG_CTX	BPF_REG_6
-+#define BPF_REG_FP	BPF_REG_10
++	err = -EFAULT;
++	if (copy_to_user(uvalue, value, map->value_size) != 0)
++		goto err_unlock;
 +
-+/* Additional register mappings for converted user programs. */
-+#define BPF_REG_A	BPF_REG_0
-+#define BPF_REG_X	BPF_REG_7
-+#define BPF_REG_TMP	BPF_REG_8
++	err = 0;
 +
-+/* BPF program can access up to 512 bytes of stack space. */
-+#define MAX_BPF_STACK	512
++err_unlock:
++	rcu_read_unlock();
++free_key:
++	kfree(key);
++err_put:
++	fdput(f);
++	return err;
++}
 +
-+/* Helper macros for filter block array initializers. */
++static int map_update_elem(int ufd, void __user *ukey, void __user *uvalue)
++{
++	struct fd f = fdget(ufd);
++	struct bpf_map *map;
++	void *key, *value;
++	int err;
 +
-+/* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
++	map = bpf_map_get(f);
++	if (IS_ERR(map))
++		return PTR_ERR(map);
 +
-+#define BPF_ALU64_REG(OP, DST, SRC)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_X,	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
++	err = -ENOMEM;
++	key = kmalloc(map->key_size, GFP_USER);
++	if (!key)
++		goto err_put;
 +
-+#define BPF_ALU32_REG(OP, DST, SRC)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_OP(OP) | BPF_X,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
++	err = -EFAULT;
++	if (copy_from_user(key, ukey, map->key_size) != 0)
++		goto free_key;
 +
-+/* ALU ops on immediates, bpf_add|sub|...: dst_reg += imm32 */
++	err = -ENOMEM;
++	value = kmalloc(map->value_size, GFP_USER);
++	if (!value)
++		goto free_key;
 +
-+#define BPF_ALU64_IMM(OP, DST, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_K,	\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
++	err = -EFAULT;
++	if (copy_from_user(value, uvalue, map->value_size) != 0)
++		goto free_value;
 +
-+#define BPF_ALU32_IMM(OP, DST, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_OP(OP) | BPF_K,		\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
++	/* eBPF program that use maps are running under rcu_read_lock(),
++	 * therefore all map accessors rely on this fact, so do the same here
++	 */
++	rcu_read_lock();
++	err = map->ops->map_update_elem(map, key, value);
++	rcu_read_unlock();
 +
-+/* Endianess conversion, cpu_to_{l,b}e(), {l,b}e_to_cpu() */
++free_value:
++	kfree(value);
++free_key:
++	kfree(key);
++err_put:
++	fdput(f);
++	return err;
++}
 +
-+#define BPF_ENDIAN(TYPE, DST, LEN)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_END | BPF_SRC(TYPE),	\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = LEN })
++static int map_delete_elem(int ufd, void __user *ukey)
++{
++	struct fd f = fdget(ufd);
++	struct bpf_map *map;
++	void *key;
++	int err;
 +
-+/* Short form of mov, dst_reg = src_reg */
++	map = bpf_map_get(f);
++	if (IS_ERR(map))
++		return PTR_ERR(map);
 +
-+#define BPF_MOV64_REG(DST, SRC)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_MOV | BPF_X,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
++	err = -ENOMEM;
++	key = kmalloc(map->key_size, GFP_USER);
++	if (!key)
++		goto err_put;
 +
-+#define BPF_MOV32_REG(DST, SRC)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_MOV | BPF_X,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
++	err = -EFAULT;
++	if (copy_from_user(key, ukey, map->key_size) != 0)
++		goto free_key;
 +
-+/* Short form of mov, dst_reg = imm32 */
++	rcu_read_lock();
++	err = map->ops->map_delete_elem(map, key);
++	rcu_read_unlock();
 +
-+#define BPF_MOV64_IMM(DST, IMM)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_MOV | BPF_K,		\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
++free_key:
++	kfree(key);
++err_put:
++	fdput(f);
++	return err;
++}
 +
-+#define BPF_MOV32_IMM(DST, IMM)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_MOV | BPF_K,		\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
++static int map_get_next_key(int ufd, void __user *ukey, void __user *unext_key)
++{
++	struct fd f = fdget(ufd);
++	struct bpf_map *map;
++	void *key, *next_key;
++	int err;
 +
-+/* BPF_LD_IMM64 macro encodes single 'load 64-bit immediate' insn */
-+#define BPF_LD_IMM64(DST, IMM)					\
-+	BPF_LD_IMM64_RAW(DST, 0, IMM)
++	map = bpf_map_get(f);
++	if (IS_ERR(map))
++		return PTR_ERR(map);
 +
-+#define BPF_LD_IMM64_RAW(DST, SRC, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_LD | BPF_DW | BPF_IMM,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = (__u32) (IMM) }),			\
-+	((struct bpf_insn) {					\
-+		.code  = 0, /* zero is reserved opcode */	\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = ((__u64) (IMM)) >> 32 })
++	err = -ENOMEM;
++	key = kmalloc(map->key_size, GFP_USER);
++	if (!key)
++		goto err_put;
 +
-+/* Short form of mov based on type, BPF_X: dst_reg = src_reg, BPF_K: dst_reg = imm32 */
++	err = -EFAULT;
++	if (copy_from_user(key, ukey, map->key_size) != 0)
++		goto free_key;
 +
-+#define BPF_MOV64_RAW(TYPE, DST, SRC, IMM)			\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_MOV | BPF_SRC(TYPE),	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
++	err = -ENOMEM;
++	next_key = kmalloc(map->key_size, GFP_USER);
++	if (!next_key)
++		goto free_key;
 +
-+#define BPF_MOV32_RAW(TYPE, DST, SRC, IMM)			\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_MOV | BPF_SRC(TYPE),	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
++	rcu_read_lock();
++	err = map->ops->map_get_next_key(map, key, next_key);
++	rcu_read_unlock();
++	if (err)
++		goto free_next_key;
 +
-+/* Direct packet access, R0 = *(uint *) (skb->data + imm32) */
++	err = -EFAULT;
++	if (copy_to_user(unext_key, next_key, map->key_size) != 0)
++		goto free_next_key;
 +
-+#define BPF_LD_ABS(SIZE, IMM)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_ABS,	\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
++	err = 0;
 +
-+/* Indirect packet access, R0 = *(uint *) (skb->data + src_reg + imm32) */
++free_next_key:
++	kfree(next_key);
++free_key:
++	kfree(key);
++err_put:
++	fdput(f);
++	return err;
++}
 +
-+#define BPF_LD_IND(SIZE, SRC, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_IND,	\
-+		.dst_reg = 0,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
+ SYSCALL_DEFINE5(bpf, int, cmd, unsigned long, arg2, unsigned long, arg3,
+ 		unsigned long, arg4, unsigned long, arg5)
+ {
+@@ -150,6 +334,20 @@ SYSCALL_DEFINE5(bpf, int, cmd, unsigned long, arg2, unsigned long, arg3,
+ 	case BPF_MAP_CREATE:
+ 		return map_create((enum bpf_map_type) arg2,
+ 				  (struct nlattr __user *) arg3, (int) arg4);
++	case BPF_MAP_LOOKUP_ELEM:
++		return map_lookup_elem((int) arg2, (void __user *) arg3,
++				       (void __user *) arg4);
++	case BPF_MAP_UPDATE_ELEM:
++		return map_update_elem((int) arg2, (void __user *) arg3,
++				       (void __user *) arg4);
++	case BPF_MAP_DELETE_ELEM:
++		if (arg4 != 0)
++			return -EINVAL;
++		return map_delete_elem((int) arg2, (void __user *) arg3);
 +
-+/* Memory load, dst_reg = *(uint *) (src_reg + off16) */
-+
-+#define BPF_LDX_MEM(SIZE, DST, SRC, OFF)			\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_LDX | BPF_SIZE(SIZE) | BPF_MEM,	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = OFF,					\
-+		.imm   = 0 })
-+
-+/* Memory store, *(uint *) (dst_reg + off16) = src_reg */
-+
-+#define BPF_STX_MEM(SIZE, DST, SRC, OFF)			\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_STX | BPF_SIZE(SIZE) | BPF_MEM,	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = OFF,					\
-+		.imm   = 0 })
-+
-+/* Memory store, *(uint *) (dst_reg + off16) = imm32 */
-+
-+#define BPF_ST_MEM(SIZE, DST, OFF, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ST | BPF_SIZE(SIZE) | BPF_MEM,	\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = OFF,					\
-+		.imm   = IMM })
-+
-+/* Conditional jumps against registers, if (dst_reg 'op' src_reg) goto pc + off16 */
-+
-+#define BPF_JMP_REG(OP, DST, SRC, OFF)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_JMP | BPF_OP(OP) | BPF_X,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = OFF,					\
-+		.imm   = 0 })
-+
-+/* Conditional jumps against immediates, if (dst_reg 'op' imm32) goto pc + off16 */
-+
-+#define BPF_JMP_IMM(OP, DST, IMM, OFF)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_JMP | BPF_OP(OP) | BPF_K,		\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = OFF,					\
-+		.imm   = IMM })
-+
-+/* Function call */
-+
-+#define BPF_EMIT_CALL(FUNC)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_JMP | BPF_CALL,			\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = ((FUNC) - __bpf_call_base) })
-+
-+/* Raw code statement block */
-+
-+#define BPF_RAW_INSN(CODE, DST, SRC, OFF, IMM)			\
-+	((struct bpf_insn) {					\
-+		.code  = CODE,					\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = OFF,					\
-+		.imm   = IMM })
-+
-+/* Program exit */
-+
-+#define BPF_EXIT_INSN()						\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_JMP | BPF_EXIT,			\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
-+
-+#define bytes_to_bpf_size(bytes)				\
-+({								\
-+	int bpf_size = -EINVAL;					\
-+								\
-+	if (bytes == sizeof(u8))				\
-+		bpf_size = BPF_B;				\
-+	else if (bytes == sizeof(u16))				\
-+		bpf_size = BPF_H;				\
-+	else if (bytes == sizeof(u32))				\
-+		bpf_size = BPF_W;				\
-+	else if (bytes == sizeof(u64))				\
-+		bpf_size = BPF_DW;				\
-+								\
-+	bpf_size;						\
-+})
-+
-+struct bpf_insn {
-+	__u8	code;		/* opcode */
-+	__u8	dst_reg:4;	/* dest register */
-+	__u8	src_reg:4;	/* source register */
-+	__s16	off;		/* signed offset */
-+	__s32	imm;		/* signed immediate constant */
-+};
-+
-+#endif /* _UAPI__LINUX_BPF_H__ */
++	case BPF_MAP_GET_NEXT_KEY:
++		return map_get_next_key((int) arg2, (void __user *) arg3,
++					(void __user *) arg4);
+ 	default:
+ 		return -EINVAL;
+ 	}
 -- 
 1.7.9.5
