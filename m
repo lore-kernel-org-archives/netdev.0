@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v5 net-next 06/29] bpf: add lookup/update/delete/iterate methods to BPF maps
-Date: Sun, 24 Aug 2014 13:21:07 -0700
-Message-ID: <1408911690-7598-7-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v5 net-next 05/29] bpf: enable bpf syscall on x64 and i386
+Date: Sun, 24 Aug 2014 13:21:06 -0700
+Message-ID: <1408911690-7598-6-git-send-email-ast@plumgrid.com>
 References: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
 	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
@@ -23,328 +23,77 @@ In-Reply-To: <1408911690-7598-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-'maps' is a generic storage of different types for sharing data between kernel
-and userspace.
-
-The maps are accessed from user space via BPF syscall, which has commands:
-
-- create a map with given type and attributes
-  fd = bpf_map_create(map_type, struct nlattr *attr, int len)
-  returns fd or negative error
-
-- lookup key in a given map referenced by fd
-  err = bpf_map_lookup_elem(int fd, void *key, void *value)
-  returns zero and stores found elem into value or negative error
-
-- create or update key/value pair in a given map
-  err = bpf_map_update_elem(int fd, void *key, void *value)
-  returns zero or negative error
-
-- find and delete element by key in a given map
-  err = bpf_map_delete_elem(int fd, void *key)
-
-- iterate map elements (based on input key return next_key)
-  err = bpf_map_get_next_key(int fd, void *key, void *next_key)
-
-- close(fd) deletes the map
+done as separate commit to ease conflict resolution
 
 Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 ---
- include/linux/bpf.h      |    8 ++
- include/uapi/linux/bpf.h |   25 ++++++
- kernel/bpf/syscall.c     |  198 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 231 insertions(+)
+ arch/x86/syscalls/syscall_32.tbl  |    1 +
+ arch/x86/syscalls/syscall_64.tbl  |    1 +
+ include/linux/syscalls.h          |    3 ++-
+ include/uapi/asm-generic/unistd.h |    4 +++-
+ kernel/sys_ni.c                   |    3 +++
+ 5 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 607ca53fe2af..fd1ac4b5ba8b 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -9,6 +9,7 @@
+diff --git a/arch/x86/syscalls/syscall_32.tbl b/arch/x86/syscalls/syscall_32.tbl
+index 028b78168d85..9fe1b5d002f0 100644
+--- a/arch/x86/syscalls/syscall_32.tbl
++++ b/arch/x86/syscalls/syscall_32.tbl
+@@ -363,3 +363,4 @@
+ 354	i386	seccomp			sys_seccomp
+ 355	i386	getrandom		sys_getrandom
+ 356	i386	memfd_create		sys_memfd_create
++357	i386	bpf			sys_bpf
+diff --git a/arch/x86/syscalls/syscall_64.tbl b/arch/x86/syscalls/syscall_64.tbl
+index 35dd922727b9..281150b539a2 100644
+--- a/arch/x86/syscalls/syscall_64.tbl
++++ b/arch/x86/syscalls/syscall_64.tbl
+@@ -327,6 +327,7 @@
+ 318	common	getrandom		sys_getrandom
+ 319	common	memfd_create		sys_memfd_create
+ 320	common	kexec_file_load		sys_kexec_file_load
++321	common	bpf			sys_bpf
  
- #include <uapi/linux/bpf.h>
- #include <linux/workqueue.h>
-+#include <linux/file.h>
+ #
+ # x32-specific system call numbers start at 512 to avoid cache impact
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index 0f86d85a9ce4..61bc112b9fa5 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -875,5 +875,6 @@ asmlinkage long sys_seccomp(unsigned int op, unsigned int flags,
+ 			    const char __user *uargs);
+ asmlinkage long sys_getrandom(char __user *buf, size_t count,
+ 			      unsigned int flags);
+-
++asmlinkage long sys_bpf(int cmd, unsigned long arg2, unsigned long arg3,
++			unsigned long arg4, unsigned long arg5);
+ #endif
+diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
+index 11d11bc5c78f..22749c134117 100644
+--- a/include/uapi/asm-generic/unistd.h
++++ b/include/uapi/asm-generic/unistd.h
+@@ -705,9 +705,11 @@ __SYSCALL(__NR_seccomp, sys_seccomp)
+ __SYSCALL(__NR_getrandom, sys_getrandom)
+ #define __NR_memfd_create 279
+ __SYSCALL(__NR_memfd_create, sys_memfd_create)
++#define __NR_bpf 280
++__SYSCALL(__NR_bpf, sys_bpf)
  
- struct bpf_map;
- struct nlattr;
-@@ -18,6 +19,12 @@ struct bpf_map_ops {
- 	/* funcs callable from userspace (via syscall) */
- 	struct bpf_map *(*map_alloc)(struct nlattr *attrs[BPF_MAP_ATTR_MAX + 1]);
- 	void (*map_free)(struct bpf_map *);
-+	int (*map_get_next_key)(struct bpf_map *map, void *key, void *next_key);
-+
-+	/* funcs callable from userspace and from eBPF programs */
-+	void *(*map_lookup_elem)(struct bpf_map *map, void *key);
-+	int (*map_update_elem)(struct bpf_map *map, void *key, void *value);
-+	int (*map_delete_elem)(struct bpf_map *map, void *key);
- };
+ #undef __NR_syscalls
+-#define __NR_syscalls 280
++#define __NR_syscalls 281
  
- struct bpf_map {
-@@ -38,5 +45,6 @@ struct bpf_map_type_list {
+ /*
+  * All syscalls below here should go away really,
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+index 391d4ddb6f4b..b4b5083f5f5e 100644
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -218,3 +218,6 @@ cond_syscall(sys_kcmp);
  
- void bpf_register_map_type(struct bpf_map_type_list *tl);
- void bpf_map_put(struct bpf_map *map);
-+struct bpf_map *bpf_map_get(struct fd f);
- 
- #endif /* _LINUX_BPF_H */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index de21c8ecf0bb..f68edb2681f8 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -326,6 +326,31 @@ enum bpf_cmd {
- 	 * map is deleted when fd is closed
- 	 */
- 	BPF_MAP_CREATE,
+ /* operate on Secure Computing state */
+ cond_syscall(sys_seccomp);
 +
-+	/* lookup key in a given map
-+	 * err = bpf_map_lookup_elem(int fd, void *key, void *value)
-+	 * returns zero and stores found elem into value
-+	 * or negative error
-+	 */
-+	BPF_MAP_LOOKUP_ELEM,
-+
-+	/* create or update key/value pair in a given map
-+	 * err = bpf_map_update_elem(int fd, void *key, void *value)
-+	 * returns zero or negative error
-+	 */
-+	BPF_MAP_UPDATE_ELEM,
-+
-+	/* find and delete elem by key in a given map
-+	 * err = bpf_map_delete_elem(int fd, void *key)
-+	 * returns zero or negative error
-+	 */
-+	BPF_MAP_DELETE_ELEM,
-+
-+	/* lookup key in a given map and return next key
-+	 * err = bpf_map_get_elem(int fd, void *key, void *next_key)
-+	 * returns zero and stores next key or negative error
-+	 */
-+	BPF_MAP_GET_NEXT_KEY,
- };
- 
- enum bpf_map_attributes {
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 04cdf7948f8f..45e100ece1b7 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -13,6 +13,7 @@
- #include <linux/syscalls.h>
- #include <net/netlink.h>
- #include <linux/anon_inodes.h>
-+#include <linux/file.h>
- 
- static LIST_HEAD(bpf_map_types);
- 
-@@ -131,6 +132,189 @@ free_attr:
- 	return err;
- }
- 
-+/* if error is returned, fd is released.
-+ * On success caller should complete fd access with matching fdput()
-+ */
-+struct bpf_map *bpf_map_get(struct fd f)
-+{
-+	struct bpf_map *map;
-+
-+	if (!f.file)
-+		return ERR_PTR(-EBADF);
-+
-+	if (f.file->f_op != &bpf_map_fops) {
-+		fdput(f);
-+		return ERR_PTR(-EINVAL);
-+	}
-+
-+	map = f.file->private_data;
-+
-+	return map;
-+}
-+
-+static int map_lookup_elem(int ufd, void __user *ukey, void __user *uvalue)
-+{
-+	struct fd f = fdget(ufd);
-+	struct bpf_map *map;
-+	void *key, *value;
-+	int err;
-+
-+	map = bpf_map_get(f);
-+	if (IS_ERR(map))
-+		return PTR_ERR(map);
-+
-+	err = -ENOMEM;
-+	key = kmalloc(map->key_size, GFP_USER);
-+	if (!key)
-+		goto err_put;
-+
-+	err = -EFAULT;
-+	if (copy_from_user(key, ukey, map->key_size) != 0)
-+		goto free_key;
-+
-+	err = -ESRCH;
-+	rcu_read_lock();
-+	value = map->ops->map_lookup_elem(map, key);
-+	if (!value)
-+		goto err_unlock;
-+
-+	err = -EFAULT;
-+	if (copy_to_user(uvalue, value, map->value_size) != 0)
-+		goto err_unlock;
-+
-+	err = 0;
-+
-+err_unlock:
-+	rcu_read_unlock();
-+free_key:
-+	kfree(key);
-+err_put:
-+	fdput(f);
-+	return err;
-+}
-+
-+static int map_update_elem(int ufd, void __user *ukey, void __user *uvalue)
-+{
-+	struct fd f = fdget(ufd);
-+	struct bpf_map *map;
-+	void *key, *value;
-+	int err;
-+
-+	map = bpf_map_get(f);
-+	if (IS_ERR(map))
-+		return PTR_ERR(map);
-+
-+	err = -ENOMEM;
-+	key = kmalloc(map->key_size, GFP_USER);
-+	if (!key)
-+		goto err_put;
-+
-+	err = -EFAULT;
-+	if (copy_from_user(key, ukey, map->key_size) != 0)
-+		goto free_key;
-+
-+	err = -ENOMEM;
-+	value = kmalloc(map->value_size, GFP_USER);
-+	if (!value)
-+		goto free_key;
-+
-+	err = -EFAULT;
-+	if (copy_from_user(value, uvalue, map->value_size) != 0)
-+		goto free_value;
-+
-+	/* eBPF program that use maps are running under rcu_read_lock(),
-+	 * therefore all map accessors rely on this fact, so do the same here
-+	 */
-+	rcu_read_lock();
-+	err = map->ops->map_update_elem(map, key, value);
-+	rcu_read_unlock();
-+
-+free_value:
-+	kfree(value);
-+free_key:
-+	kfree(key);
-+err_put:
-+	fdput(f);
-+	return err;
-+}
-+
-+static int map_delete_elem(int ufd, void __user *ukey)
-+{
-+	struct fd f = fdget(ufd);
-+	struct bpf_map *map;
-+	void *key;
-+	int err;
-+
-+	map = bpf_map_get(f);
-+	if (IS_ERR(map))
-+		return PTR_ERR(map);
-+
-+	err = -ENOMEM;
-+	key = kmalloc(map->key_size, GFP_USER);
-+	if (!key)
-+		goto err_put;
-+
-+	err = -EFAULT;
-+	if (copy_from_user(key, ukey, map->key_size) != 0)
-+		goto free_key;
-+
-+	rcu_read_lock();
-+	err = map->ops->map_delete_elem(map, key);
-+	rcu_read_unlock();
-+
-+free_key:
-+	kfree(key);
-+err_put:
-+	fdput(f);
-+	return err;
-+}
-+
-+static int map_get_next_key(int ufd, void __user *ukey, void __user *unext_key)
-+{
-+	struct fd f = fdget(ufd);
-+	struct bpf_map *map;
-+	void *key, *next_key;
-+	int err;
-+
-+	map = bpf_map_get(f);
-+	if (IS_ERR(map))
-+		return PTR_ERR(map);
-+
-+	err = -ENOMEM;
-+	key = kmalloc(map->key_size, GFP_USER);
-+	if (!key)
-+		goto err_put;
-+
-+	err = -EFAULT;
-+	if (copy_from_user(key, ukey, map->key_size) != 0)
-+		goto free_key;
-+
-+	err = -ENOMEM;
-+	next_key = kmalloc(map->key_size, GFP_USER);
-+	if (!next_key)
-+		goto free_key;
-+
-+	rcu_read_lock();
-+	err = map->ops->map_get_next_key(map, key, next_key);
-+	rcu_read_unlock();
-+	if (err)
-+		goto free_next_key;
-+
-+	err = -EFAULT;
-+	if (copy_to_user(unext_key, next_key, map->key_size) != 0)
-+		goto free_next_key;
-+
-+	err = 0;
-+
-+free_next_key:
-+	kfree(next_key);
-+free_key:
-+	kfree(key);
-+err_put:
-+	fdput(f);
-+	return err;
-+}
-+
- SYSCALL_DEFINE5(bpf, int, cmd, unsigned long, arg2, unsigned long, arg3,
- 		unsigned long, arg4, unsigned long, arg5)
- {
-@@ -150,6 +334,20 @@ SYSCALL_DEFINE5(bpf, int, cmd, unsigned long, arg2, unsigned long, arg3,
- 	case BPF_MAP_CREATE:
- 		return map_create((enum bpf_map_type) arg2,
- 				  (struct nlattr __user *) arg3, (int) arg4);
-+	case BPF_MAP_LOOKUP_ELEM:
-+		return map_lookup_elem((int) arg2, (void __user *) arg3,
-+				       (void __user *) arg4);
-+	case BPF_MAP_UPDATE_ELEM:
-+		return map_update_elem((int) arg2, (void __user *) arg3,
-+				       (void __user *) arg4);
-+	case BPF_MAP_DELETE_ELEM:
-+		if (arg4 != 0)
-+			return -EINVAL;
-+		return map_delete_elem((int) arg2, (void __user *) arg3);
-+
-+	case BPF_MAP_GET_NEXT_KEY:
-+		return map_get_next_key((int) arg2, (void __user *) arg3,
-+					(void __user *) arg4);
- 	default:
- 		return -EINVAL;
- 	}
++/* access BPF programs and maps */
++cond_syscall(sys_bpf);
 -- 
 1.7.9.5
