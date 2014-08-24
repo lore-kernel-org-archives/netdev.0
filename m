@@ -1,8 +1,9 @@
 From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next v3 09/12] net: dsa: add Broadcom tag RX/TX handler
-Date: Sun, 24 Aug 2014 15:51:01 -0700
-Message-ID: <53FA6C55.5040903@gmail.com>
-References: <1408905869-10471-1-git-send-email-f.fainelli@gmail.com> <1408905869-10471-10-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v3 06/12] net: dsa: allow switches to work without
+ tagging
+Date: Sun, 24 Aug 2014 16:27:05 -0700
+Message-ID: <53FA74C9.5090300@gmail.com>
+References: <1408905869-10471-1-git-send-email-f.fainelli@gmail.com> <1408905869-10471-7-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -10,116 +11,99 @@ Cc: davem@davemlof.net, jhs@mojatatu.com, linville@tuxdriver.com,
 	alexander.h.duyck@intel.com
 To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:61916 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753461AbaHXWvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 18:51:06 -0400
-Received: by mail-pd0-f176.google.com with SMTP id y10so18810784pdj.7
-        for <netdev@vger.kernel.org>; Sun, 24 Aug 2014 15:51:06 -0700 (PDT)
-In-Reply-To: <1408905869-10471-10-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:58995 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753804AbaHXX1J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 19:27:09 -0400
+Received: by mail-pd0-f181.google.com with SMTP id g10so18694487pdj.40
+        for <netdev@vger.kernel.org>; Sun, 24 Aug 2014 16:27:08 -0700 (PDT)
+In-Reply-To: <1408905869-10471-7-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 08/24/2014 11:44 AM, Florian Fainelli wrote:
-> Add support for the 4-bytes Broadcom tag that built-in switches such as
-> the Starfighter 2 might insert when receiving packets, or that we need
-> to insert while targetting specific switch ports. We use a fake
-> EtherType field for this 4-bytes switch tag: ETH_P_BRCMTAG since we need
-> to use the skb->protocol override in the receive path.
+> In case switch port tagging is disabled (voluntarily, or the switch just
+> does not support it), allow us to continue using the master net_device
+> operations instead of the tag-specific ones.
+>
+> dsa_protocol_is_tagged() is updated to check that the switch driver
+> tag_protocol field is not 0 to avoid overriding skb->protocol in the
+> eth_type_trans().
 >
 > Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 > ---
 > Changes in v3:
-> - add ETH_P_BRCMTAG as part of this changeset and not in a previous patch
-> - fixed an early de-reference in the receive hook
-
-I was just wondering.  Is there a reason we need to register this as yet
-another protocol?
-
-It seems like we should be able to just register one DSA tag protocol
-and then we could push the parsing function out to a function pointer
-contained in the DSA switch structure.  My concern is that as we add
-each new switch message format we are looking at the potential for yet
-another Ethertype and they are a limited resource.
-
-So for example in the section below you already have to dig out the
-dsa_switch structure and tree before you even start processing the
-headers. 
-
-> +
-> +static int brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
-> +			struct packet_type *pt, struct net_device *orig_dev)
+> - update logic with the helpers introduced in the firs patch set
+> - renamed dummy to notag
+>
+>  include/net/dsa.h |  2 +-
+>  net/dsa/slave.c   | 25 ++++++++++++++++++++++++-
+>  2 files changed, 25 insertions(+), 2 deletions(-)
+>
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index 89b44e8d2dc3..6620d4722efa 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -206,7 +206,7 @@ static inline void *ds_to_priv(struct dsa_switch *ds)
+>   */
+>  static inline bool dsa_protocol_is_tagged(struct dsa_switch_tree *dst)
+>  {
+> -	return dst->tag_protocol != ETH_P_EDSA;
+> +	return (dst->tag_protocol != 0) && (dst->tag_protocol != ETH_P_EDSA);
+>  }
+>  
+>  static inline __be16 dsa_tag_protocol(struct dsa_switch_tree *dst)
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index b4b6d457bfd0..35cd8b7a56b8 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -332,6 +332,28 @@ static const struct net_device_ops trailer_netdev_ops = {
+>  };
+>  #endif
+>  
+> +static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb,
+> +				  struct net_device *dev)
 > +{
-> +	struct dsa_switch_tree *dst = dev->dsa_ptr;
-> +	struct dsa_switch *ds;
-> +	int source_port;
-> +	u8 *brcm_tag;
+> +	struct dsa_slave_priv *p = netdev_priv(dev);
 > +
-> +	if (unlikely(dst == NULL))
-> +		goto out_drop;
+> +	skb->dev = p->parent->dst->master_netdev;
+> +	dev_queue_xmit(skb);
 > +
-> +	ds = dst->ds[0];
-> +
-> +	skb = skb_unshare(skb, GFP_ATOMIC);
-> +	if (skb == NULL)
-> +		goto out;
-
-At this point here we already have the dsa pointers and could just pull
-up a function pointer so all of the code below could potentially be
-moved into a separate function allowing us to drop the need to have
-multiple Ethertypes and so we could just use ETH_P_DSA for all DSA
-tagging type.  We could then also rewrite the check for if we need to
-insert a DSA tag to simply check for if this function pointer is set or not.
-
-> +	if (unlikely(!pskb_may_pull(skb, BRCM_TAG_LEN)))
-> +		goto out_drop;
-> +
-> +	/* skb->data points to the EtherType, the tag is right before it */
-> +	brcm_tag = skb->data - 2;
-> +
-> +	/* The opcode should never be different than 0b000 */
-> +	if (unlikely((brcm_tag[0] >> BRCM_OPCODE_SHIFT) & BRCM_OPCODE_MASK))
-> +		goto out_drop;
-> +
-> +	/* We should never see a reserved reason code without knowing how to
-> +	 * handle it
-> +	 */
-> +	WARN_ON(brcm_tag[2] & BRCM_EG_RC_RSVD);
-> +
-> +	/* Locate which port this is coming from */
-> +	source_port = brcm_tag[3] & BRCM_EG_PID_MASK;
-> +
-> +	/* Validate port against switch setup, either the port is totally */
-> +	if (source_port >= DSA_MAX_PORTS || ds->ports[source_port] == NULL)
-> +		goto out_drop;
-> +
-> +	/* Remove Broadcom tag and update checksum */
-> +	skb_pull_rcsum(skb, BRCM_TAG_LEN);
-> +
-> +	/* Move the Ethernet DA and SA */
-> +	memmove(skb->data - ETH_HLEN,
-> +		skb->data - ETH_HLEN - BRCM_TAG_LEN,
-> +		2 * ETH_ALEN);
-> +
-> +	skb_push(skb, ETH_HLEN);
-> +	skb->pkt_type = PACKET_HOST;
-> +	skb->dev = ds->ports[source_port];
-> +	skb->protocol = eth_type_trans(skb, skb->dev);
-> +
-> +	skb->dev->stats.rx_packets++;
-> +	skb->dev->stats.rx_bytes += skb->len;
-> +
-> +	netif_receive_skb(skb);
-> +
-> +	return 0;
-> +
-> +out_drop:
-> +	kfree_skb(skb);
-> +out:
-> +	return 0;
+> +	return NETDEV_TX_OK;
 > +}
 > +
-> +struct packet_type brcm_tag_packet_type __read_mostly = {
-> +	.type	= cpu_to_be16(ETH_P_BRCMTAG),
-> +	.func	= brcm_tag_rcv,
+> +static const struct net_device_ops notag_netdev_ops = {
+> +	.ndo_init		= dsa_slave_init,
+> +	.ndo_open		= dsa_slave_open,
+> +	.ndo_stop		= dsa_slave_close,
+> +	.ndo_start_xmit		= dsa_slave_xmit,
+> +	.ndo_change_rx_flags	= dsa_slave_change_rx_flags,
+> +	.ndo_set_rx_mode	= dsa_slave_set_rx_mode,
+> +	.ndo_set_mac_address	= dsa_slave_set_mac_address,
+> +	.ndo_do_ioctl		= dsa_slave_ioctl,
 > +};
+> +
+>  static void dsa_slave_adjust_link(struct net_device *dev)
+>  {
+>  	struct dsa_slave_priv *p = netdev_priv(dev);
+> @@ -432,7 +454,8 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+>  		break;
+>  #endif
+>  	default:
+> -		BUG();
+> +		slave_dev->netdev_ops = &notag_netdev_ops;
+> +		break;
+>  	}
+>  
+>  	SET_NETDEV_DEV(slave_dev, parent);
+
+Actually the more I look at this the more I think it might make sense to
+just have a pair of function pointers, maybe even a header ops structure
+that is maintained in the dsa_switch_tree for xmit and rcv.  Then
+instead of having to define 4 slaves each with only one function
+different between them you could have just one function that calls the
+xmit function pointer contained in the dsa_switch_tree structure.
+
+Thanks,
+
+Alex
