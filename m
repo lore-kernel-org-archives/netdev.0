@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v5 net-next 23/29] samples: bpf: example of tracing filters with eBPF
-Date: Sun, 24 Aug 2014 13:21:24 -0700
-Message-ID: <1408911690-7598-24-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v5 net-next 22/29] samples: bpf: add mini eBPF library to manipulate maps and programs
+Date: Sun, 24 Aug 2014 13:21:23 -0700
+Message-ID: <1408911690-7598-23-git-send-email-ast@plumgrid.com>
 References: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -23,164 +23,202 @@ In-Reply-To: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-simple packet drop monitor:
-- in-kernel eBPF program attaches to kfree_skb() event and records number
-  of packet drops at given location
-- userspace iterates over the map every second and prints stats
+the library includes a trivial set of BPF syscall wrappers:
+
+int bpf_create_map(int key_size, int value_size, int max_entries);
+
+int bpf_update_elem(int fd, void *key, void *value);
+
+int bpf_lookup_elem(int fd, void *key, void *value);
+
+int bpf_delete_elem(int fd, void *key);
+
+int bpf_get_next_key(int fd, void *key, void *next_key);
+
+int bpf_prog_load(enum bpf_prog_type prog_type,
+		  const struct sock_filter_int *insns, int insn_len,
+		  const char *license);
+
+bpf_prog_load() stores verifier log into global bpf_log_buf[] array
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- samples/bpf/Makefile  |   12 +++++
- samples/bpf/dropmon.c |  122 +++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 134 insertions(+)
- create mode 100644 samples/bpf/Makefile
- create mode 100644 samples/bpf/dropmon.c
+ samples/bpf/libbpf.c |  138 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ samples/bpf/libbpf.h |   21 ++++++++
+ 2 files changed, 159 insertions(+)
+ create mode 100644 samples/bpf/libbpf.c
+ create mode 100644 samples/bpf/libbpf.h
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
 new file mode 100644
-index 000000000000..8dfbacaef9ba
+index 000000000000..81396dab5caa
 --- /dev/null
-+++ b/samples/bpf/Makefile
-@@ -0,0 +1,12 @@
-+# kbuild trick to avoid linker error. Can be omitted if a module is built.
-+obj- := dummy.o
-+
-+# List of programs to build
-+hostprogs-y := dropmon
-+
-+dropmon-objs := dropmon.o libbpf.o
-+
-+# Tell kbuild to always build the programs
-+always := $(hostprogs-y)
-+
-+HOSTCFLAGS += -I$(objtree)/usr/include
-diff --git a/samples/bpf/dropmon.c b/samples/bpf/dropmon.c
-new file mode 100644
-index 000000000000..3b921e2f4c8f
---- /dev/null
-+++ b/samples/bpf/dropmon.c
-@@ -0,0 +1,122 @@
-+/* simple packet drop monitor:
-+ * - in-kernel eBPF program attaches to kfree_skb() event and records number
-+ *   of packet drops at given location
-+ * - userspace iterates over the map every second and prints stats
-+ */
++++ b/samples/bpf/libbpf.c
+@@ -0,0 +1,138 @@
++/* eBPF mini library */
++#include <stdlib.h>
 +#include <stdio.h>
++#include <linux/unistd.h>
 +#include <unistd.h>
++#include <string.h>
++#include <linux/netlink.h>
 +#include <linux/bpf.h>
 +#include <errno.h>
-+#include <linux/unistd.h>
-+#include <string.h>
-+#include <linux/filter.h>
-+#include <stdlib.h>
-+#include <sys/types.h>
-+#include <sys/stat.h>
-+#include <fcntl.h>
-+#include <stdbool.h>
 +#include "libbpf.h"
 +
-+#define TRACEPOINT "/sys/kernel/debug/tracing/events/skb/kfree_skb/"
++struct nlattr_u32 {
++	__u16 nla_len;
++	__u16 nla_type;
++	__u32 val;
++};
 +
-+static int write_to_file(const char *file, const char *str, bool keep_open)
++int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
++		   int max_entries)
 +{
-+	int fd, err;
-+
-+	fd = open(file, O_WRONLY);
-+	err = write(fd, str, strlen(str));
-+	(void) err;
-+
-+	if (keep_open) {
-+		return fd;
-+	} else {
-+		close(fd);
-+		return -1;
-+	}
-+}
-+
-+static int dropmon(void)
-+{
-+	/* the following eBPF program is equivalent to C:
-+	 * void filter(struct bpf_context *ctx)
-+	 * {
-+	 *   long loc = ctx->arg2;
-+	 *   long init_val = 1;
-+	 *   void *value;
-+	 *
-+	 *   value = bpf_map_lookup_elem(MAP_ID, &loc);
-+	 *   if (value) {
-+	 *      (*(long *) value) += 1;
-+	 *   } else {
-+	 *      bpf_map_update_elem(MAP_ID, &loc, &init_val);
-+	 *   }
-+	 * }
-+	 */
-+	static struct bpf_insn prog[] = {
-+		BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_1, 8), /* r2 = *(u64 *)(r1 + 8) */
-+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_2, -8), /* *(u64 *)(fp - 8) = r2 */
-+		BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8), /* r2 = fp - 8 */
-+		BPF_LD_MAP_FD(BPF_REG_1, 0),
-+		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-+		BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 3),
-+		BPF_MOV64_IMM(BPF_REG_1, 1), /* r1 = 1 */
-+		BPF_RAW_INSN(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_0, BPF_REG_1, 0, 0), /* xadd r0 += r1 */
-+		BPF_EXIT_INSN(),
-+		BPF_ST_MEM(BPF_DW, BPF_REG_10, -16, 1), /* *(u64 *)(fp - 16) = 1 */
-+		BPF_MOV64_REG(BPF_REG_3, BPF_REG_10),
-+		BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, -16), /* r3 = fp - 16 */
-+		BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8), /* r2 = fp - 8 */
-+		BPF_LD_MAP_FD(BPF_REG_1, 0),
-+		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_update_elem),
-+		BPF_EXIT_INSN(),
++	struct nlattr_u32 attr[] = {
++		{
++			.nla_len = sizeof(struct nlattr_u32),
++			.nla_type = BPF_MAP_KEY_SIZE,
++			.val = key_size,
++		},
++		{
++			.nla_len = sizeof(struct nlattr_u32),
++			.nla_type = BPF_MAP_VALUE_SIZE,
++			.val = value_size,
++		},
++		{
++			.nla_len = sizeof(struct nlattr_u32),
++			.nla_type = BPF_MAP_MAX_ENTRIES,
++			.val = max_entries,
++		},
 +	};
 +
-+	long long key, next_key, value = 0;
-+	int prog_fd, map_fd, i;
-+	char fmt[32];
++	return syscall(__NR_bpf, BPF_MAP_CREATE, map_type, attr, sizeof(attr), 0);
++}
 +
-+	map_fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value), 1024);
-+	if (map_fd < 0) {
-+		printf("failed to create map '%s'\n", strerror(errno));
-+		goto cleanup;
-+	}
 +
-+	prog[4].imm = map_fd;
-+	prog[16].imm = map_fd;
++int bpf_update_elem(int fd, void *key, void *value)
++{
++	return syscall(__NR_bpf, BPF_MAP_UPDATE_ELEM, fd, key, value, 0);
++}
 +
-+	prog_fd = bpf_prog_load(BPF_PROG_TYPE_TRACING_FILTER, prog,
-+				sizeof(prog), "GPL");
-+	if (prog_fd < 0) {
-+		printf("failed to load prog '%s'\n", strerror(errno));
++int bpf_lookup_elem(int fd, void *key, void *value)
++{
++	return syscall(__NR_bpf, BPF_MAP_LOOKUP_ELEM, fd, key, value, 0);
++}
++
++int bpf_delete_elem(int fd, void *key)
++{
++	return syscall(__NR_bpf, BPF_MAP_DELETE_ELEM, fd, key, 0, 0);
++}
++
++int bpf_get_next_key(int fd, void *key, void *next_key)
++{
++	return syscall(__NR_bpf, BPF_MAP_GET_NEXT_KEY, fd, key, next_key, 0);
++}
++
++#define ROUND_UP(x, n) (((x) + (n) - 1u) & ~((n) - 1u))
++
++char bpf_log_buf[LOG_BUF_SIZE];
++
++int bpf_prog_load(enum bpf_prog_type prog_type,
++		  const struct bpf_insn *insns, int prog_len,
++		  const char *license)
++{
++	int nlattr_size, license_len, err;
++	void *nlattr, *ptr;
++	char *log_buf = bpf_log_buf;
++	int log_size = LOG_BUF_SIZE;
++	int log_level = 1;
++
++	log_buf[0] = 0;
++
++	license_len = strlen(license) + 1;
++	nlattr_size = sizeof(struct nlattr) + prog_len + sizeof(struct nlattr) +
++		ROUND_UP(license_len, 4) +
++		sizeof(struct nlattr) + sizeof(log_level) +
++		sizeof(struct nlattr) + sizeof(log_buf) +
++		sizeof(struct nlattr) + sizeof(log_size);
++
++	ptr = nlattr = malloc(nlattr_size);
++	if (!ptr) {
++		errno = ENOMEM;
 +		return -1;
 +	}
 +
-+	sprintf(fmt, "bpf_%d", prog_fd);
++	*(struct nlattr *) ptr = (struct nlattr) {
++		.nla_len = prog_len + sizeof(struct nlattr),
++		.nla_type = BPF_PROG_TEXT,
++	};
++	ptr += sizeof(struct nlattr);
 +
-+	write_to_file(TRACEPOINT "filter", fmt, true);
++	memcpy(ptr, insns, prog_len);
++	ptr += prog_len;
 +
-+	for (i = 0; i < 10; i++) {
-+		key = 0;
-+		while (bpf_get_next_key(map_fd, &key, &next_key) == 0) {
-+			bpf_lookup_elem(map_fd, &next_key, &value);
-+			printf("location 0x%llx count %lld\n", next_key, value);
-+			key = next_key;
-+		}
-+		if (key)
-+			printf("\n");
-+		sleep(1);
-+	}
++	*(struct nlattr *) ptr = (struct nlattr) {
++		.nla_len = ROUND_UP(license_len, 4) + sizeof(struct nlattr),
++		.nla_type = BPF_PROG_LICENSE,
++	};
++	ptr += sizeof(struct nlattr);
 +
-+cleanup:
-+	/* maps, programs, tracepoint filters will auto cleanup on process exit */
++	memcpy(ptr, license, license_len);
++	ptr += ROUND_UP(license_len, 4);
 +
-+	return 0;
++	*(struct nlattr *) ptr = (struct nlattr) {
++		.nla_len = sizeof(log_level) + sizeof(struct nlattr),
++		.nla_type = BPF_PROG_LOG_LEVEL,
++	};
++	ptr += sizeof(struct nlattr);
++	memcpy(ptr, &log_level, sizeof(log_level));
++	ptr += sizeof(log_level);
++
++	*(struct nlattr *) ptr = (struct nlattr) {
++		.nla_len = sizeof(log_buf) + sizeof(struct nlattr),
++		.nla_type = BPF_PROG_LOG_BUF,
++	};
++	ptr += sizeof(struct nlattr);
++	memcpy(ptr, &log_buf, sizeof(log_buf));
++	ptr += sizeof(log_buf);
++
++	*(struct nlattr *) ptr = (struct nlattr) {
++		.nla_len = sizeof(log_size) + sizeof(struct nlattr),
++		.nla_type = BPF_PROG_LOG_SIZE,
++	};
++	ptr += sizeof(struct nlattr);
++	memcpy(ptr, &log_size, sizeof(log_size));
++	ptr += sizeof(log_size);
++
++	err = syscall(__NR_bpf, BPF_PROG_LOAD, prog_type, nlattr, nlattr_size, 0);
++
++	free(nlattr);
++	return err;
 +}
+diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
+new file mode 100644
+index 000000000000..b19e39794291
+--- /dev/null
++++ b/samples/bpf/libbpf.h
+@@ -0,0 +1,21 @@
++/* eBPF mini library */
++#ifndef __LIBBPF_H
++#define __LIBBPF_H
 +
-+int main(void)
-+{
-+	dropmon();
-+	return 0;
-+}
++struct bpf_insn;
++
++int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
++		   int max_entries);
++int bpf_update_elem(int fd, void *key, void *value);
++int bpf_lookup_elem(int fd, void *key, void *value);
++int bpf_delete_elem(int fd, void *key);
++int bpf_get_next_key(int fd, void *key, void *next_key);
++
++int bpf_prog_load(enum bpf_prog_type prog_type,
++		  const struct bpf_insn *insns, int insn_len,
++		  const char *license);
++
++#define LOG_BUF_SIZE 8192
++extern char bpf_log_buf[LOG_BUF_SIZE];
++
++#endif
 -- 
 1.7.9.5
