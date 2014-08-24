@@ -1,96 +1,40 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 06/12] net: dsa: allow switches to work without tagging
-Date: Sun, 24 Aug 2014 11:44:23 -0700
-Message-ID: <1408905869-10471-7-git-send-email-f.fainelli@gmail.com>
-References: <1408905869-10471-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemlof.net, jhs@mojatatu.com, linville@tuxdriver.com,
-	alexander.h.duyck@intel.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] Basic deferred TX queue flushing infrastructure.
+Date: Sun, 24 Aug 2014 12:08:54 -0700 (PDT)
+Message-ID: <20140824.120854.1649653834184145660.davem@davemloft.net>
+References: <20140823.132811.751469424156827125.davem@davemloft.net>
+	<20140823.213839.1953243016141233125.davem@davemloft.net>
+	<53F9FD5C.2090408@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, therbert@google.com,
+	hannes@stressinduktion.org, edumazet@google.com,
+	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:57875 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753152AbaHXSpK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 14:45:10 -0400
-Received: by mail-pd0-f171.google.com with SMTP id z10so18809623pdj.16
-        for <netdev@vger.kernel.org>; Sun, 24 Aug 2014 11:45:10 -0700 (PDT)
-In-Reply-To: <1408905869-10471-1-git-send-email-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48406 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752706AbaHXTIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 15:08:55 -0400
+In-Reply-To: <53F9FD5C.2090408@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case switch port tagging is disabled (voluntarily, or the switch just
-does not support it), allow us to continue using the master net_device
-operations instead of the tag-specific ones.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Sun, 24 Aug 2014 10:57:32 -0400
 
-dsa_protocol_is_tagged() is updated to check that the switch driver
-tag_protocol field is not 0 to avoid overriding skb->protocol in the
-eth_type_trans().
+> Clearly, the best thing to do is avoid altogether the need to have
+> such a list. The only reason you need a list around is because you
+> dont know how much you can send to the driver. tx_win idea may not
+> be the best but it tried to address that issue.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Changes in v3:
-- update logic with the helpers introduced in the firs patch set
-- renamed dummy to notag
+I think it is unavoidable for us to have to do a "send and recheck
+queue state" approach, because of the issues I brought up the other
+day.
 
- include/net/dsa.h |  2 +-
- net/dsa/slave.c   | 25 ++++++++++++++++++++++++-
- 2 files changed, 25 insertions(+), 2 deletions(-)
+Every driver has it's own set of restrictions and how many TX slots
+a given SKB can consume in it's TX queue.
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 89b44e8d2dc3..6620d4722efa 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -206,7 +206,7 @@ static inline void *ds_to_priv(struct dsa_switch *ds)
-  */
- static inline bool dsa_protocol_is_tagged(struct dsa_switch_tree *dst)
- {
--	return dst->tag_protocol != ETH_P_EDSA;
-+	return (dst->tag_protocol != 0) && (dst->tag_protocol != ETH_P_EDSA);
- }
- 
- static inline __be16 dsa_tag_protocol(struct dsa_switch_tree *dst)
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index b4b6d457bfd0..35cd8b7a56b8 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -332,6 +332,28 @@ static const struct net_device_ops trailer_netdev_ops = {
- };
- #endif
- 
-+static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb,
-+				  struct net_device *dev)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+
-+	skb->dev = p->parent->dst->master_netdev;
-+	dev_queue_xmit(skb);
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+static const struct net_device_ops notag_netdev_ops = {
-+	.ndo_init		= dsa_slave_init,
-+	.ndo_open		= dsa_slave_open,
-+	.ndo_stop		= dsa_slave_close,
-+	.ndo_start_xmit		= dsa_slave_xmit,
-+	.ndo_change_rx_flags	= dsa_slave_change_rx_flags,
-+	.ndo_set_rx_mode	= dsa_slave_set_rx_mode,
-+	.ndo_set_mac_address	= dsa_slave_set_mac_address,
-+	.ndo_do_ioctl		= dsa_slave_ioctl,
-+};
-+
- static void dsa_slave_adjust_link(struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
-@@ -432,7 +454,8 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 		break;
- #endif
- 	default:
--		BUG();
-+		slave_dev->netdev_ops = &notag_netdev_ops;
-+		break;
- 	}
- 
- 	SET_NETDEV_DEV(slave_dev, parent);
--- 
-1.9.1
+So from that perspective a list we perform retries on is an approach
+we must consider seriously.
