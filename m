@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v5 net-next 24/29] bpf: verifier test
-Date: Sun, 24 Aug 2014 13:21:25 -0700
-Message-ID: <1408911690-7598-25-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v5 net-next 29/29] samples: bpf: IO latency analysis (iosnoop/heatmap)
+Date: Sun, 24 Aug 2014 13:21:30 -0700
+Message-ID: <1408911690-7598-30-git-send-email-ast@plumgrid.com>
 References: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -18,651 +18,338 @@ Cc: Ingo Molnar <mingo@kernel.org>,
 	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:56287 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753889AbaHXUW6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 16:22:58 -0400
+Received: by mail-pd0-f173.google.com with SMTP id w10so18986154pde.4
+        for <netdev@vger.kernel.org>; Sun, 24 Aug 2014 13:22:58 -0700 (PDT)
 In-Reply-To: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-verifier testsuite from user space. Tests valid and invalid programs
-and expects predefined error log messages from kernel.
-42 tests so far.
+eBPF C program attaches to block_rq_issue/block_rq_complete events to calculate
+IO latency. Then it waits for the first 100 events to compute average latency
+and uses range [0 .. ave_lat * 2] to record histogram of events in this latency
+range.
+User space reads this histogram map every 2 seconds and prints it as a 'heatmap'
+using gray shades of text terminal. Black spaces have many events and white
+spaces have very few events. Left most space is the smallest latency, right most
+space is the largest latency in the range.
+If kernel sees too many events that fall out of histogram range, user space
+adjusts the range up, so heatmap for next 2 seconds will be more accurate.
 
-$ sudo ./test_verifier
- #0 add+sub+mul OK
- #1 dropmon OK
- #2 dropmon with non-looping jump back OK
- #3 unreachable OK
- ...
- #40 access memory with incorrect alignment OK
- #41 sometimes access memory with incorrect alignment OK
+Usage:
+$ sudo ./ex3
+and do 'sudo dd if=/dev/sda of=/dev/null' in other terminal.
+Observe IO latencies and how different activity (like 'make kernel') affects it.
+
+Similar experiments can be done for network transmit latencies, syscalls, etc
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- samples/bpf/Makefile        |    3 +-
- samples/bpf/test_verifier.c |  599 +++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 601 insertions(+), 1 deletion(-)
- create mode 100644 samples/bpf/test_verifier.c
+ samples/bpf/Makefile   |    6 +-
+ samples/bpf/ex3_kern.c |  104 +++++++++++++++++++++++++++++++++
+ samples/bpf/ex3_user.c |  149 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 257 insertions(+), 2 deletions(-)
+ create mode 100644 samples/bpf/ex3_kern.c
+ create mode 100644 samples/bpf/ex3_user.c
 
 diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 8dfbacaef9ba..7264ba51d496 100644
+index d2de86188925..9e7a9bc2194d 100644
 --- a/samples/bpf/Makefile
 +++ b/samples/bpf/Makefile
-@@ -2,9 +2,10 @@
+@@ -2,21 +2,23 @@
  obj- := dummy.o
  
  # List of programs to build
--hostprogs-y := dropmon
-+hostprogs-y := dropmon test_verifier
+-hostprogs-y := dropmon test_verifier ex1 ex2
++hostprogs-y := dropmon test_verifier ex1 ex2 ex3
  
  dropmon-objs := dropmon.o libbpf.o
-+test_verifier-objs := test_verifier.o libbpf.o
+ test_verifier-objs := test_verifier.o libbpf.o
+ ex1-objs := bpf_load.o libbpf.o ex1_user.o
+ ex2-objs := bpf_load.o libbpf.o ex2_user.o
++ex3-objs := bpf_load.o libbpf.o ex3_user.o
  
  # Tell kbuild to always build the programs
- always := $(hostprogs-y)
-diff --git a/samples/bpf/test_verifier.c b/samples/bpf/test_verifier.c
+-always := $(hostprogs-y) ex1_kern.o ex2_kern.o
++always := $(hostprogs-y) ex1_kern.o ex2_kern.o ex3_kern.o
+ 
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ 
+ HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
+ HOSTLOADLIBES_ex1 += -lelf
+ HOSTLOADLIBES_ex2 += -lelf
++HOSTLOADLIBES_ex3 += -lelf
+ 
+ LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
+ 
+diff --git a/samples/bpf/ex3_kern.c b/samples/bpf/ex3_kern.c
 new file mode 100644
-index 000000000000..aa70aa33d84c
+index 000000000000..45ff40ff1077
 --- /dev/null
-+++ b/samples/bpf/test_verifier.c
-@@ -0,0 +1,599 @@
-+/*
-+ * Testsuite for eBPF verifier
-+ *
-+ * Copyright (c) 2014 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
++++ b/samples/bpf/ex3_kern.c
+@@ -0,0 +1,104 @@
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <uapi/linux/bpf.h>
++#include <trace/bpf_trace.h>
++#include "bpf_helpers.h"
++
++struct bpf_map_def SEC("maps") my_map = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(long),
++	.value_size = sizeof(u64),
++	.max_entries = 4096,
++};
++
++/* alternative events:
++ * SEC("events/syscalls/sys_enter_write")
++ * SEC("events/net/net_dev_start_xmit")
 + */
-+#include <stdio.h>
-+#include <unistd.h>
-+#include <linux/bpf.h>
-+#include <errno.h>
-+#include <linux/unistd.h>
-+#include <string.h>
-+#include <linux/filter.h>
-+#include "libbpf.h"
-+
-+#define MAX_INSNS 512
-+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x)))
-+
-+struct bpf_test {
-+	const char *descr;
-+	struct bpf_insn	insns[MAX_INSNS];
-+	int fixup[32];
-+	const char *errstr;
-+	enum {
-+		ACCEPT,
-+		REJECT
-+	} result;
-+};
-+
-+static struct bpf_test tests[] = {
-+	{
-+		"add+sub+mul",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_1, 1),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 2),
-+			BPF_MOV64_IMM(BPF_REG_2, 3),
-+			BPF_ALU64_REG(BPF_SUB, BPF_REG_1, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, -1),
-+			BPF_ALU64_IMM(BPF_MUL, BPF_REG_1, 3),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+	},
-+	{
-+		"dropmon",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_1, 8), /* r2 = *(u64 *)(r1 + 8) */
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_2, -8), /* *(u64 *)(fp - 8) = r2 */
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8), /* r2 = fp - 8 */
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 3),
-+			BPF_MOV64_IMM(BPF_REG_1, 1), /* r1 = 1 */
-+			BPF_RAW_INSN(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_0, BPF_REG_1, 0, 0), /* xadd r0 += r1 */
-+			BPF_EXIT_INSN(),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, -16, 1), /* *(u64 *)(fp - 16) = 1 */
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, -16), /* r3 = fp - 16 */
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8), /* r2 = fp - 8 */
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_update_elem),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup = {4, 16},
-+		.result = ACCEPT,
-+	},
-+	{
-+		"dropmon with non-looping jump back",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_1, 8), /* r2 = *(u64 *)(r1 + 8) */
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_2, -8), /* *(u64 *)(fp - 8) = r2 */
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8), /* r2 = fp - 8 */
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 3),
-+			BPF_MOV64_IMM(BPF_REG_1, 1), /* r1 = 1 */
-+			BPF_RAW_INSN(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_0, BPF_REG_1, 0, 0), /* xadd r0 += r1 */
-+			BPF_EXIT_INSN(),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, -16, 1), /* *(u64 *)(fp - 16) = 1 */
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, -16), /* r3 = fp - 16 */
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8), /* r2 = fp - 8 */
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_update_elem),
-+			BPF_JMP_IMM(BPF_JA, 0, 0, -10),
-+		},
-+		.fixup = {4, 16},
-+		.result = ACCEPT,
-+	},
-+	{
-+		"unreachable",
-+		.insns = {
-+			BPF_EXIT_INSN(),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "unreachable",
-+		.result = REJECT,
-+	},
-+	{
-+		"unreachable2",
-+		.insns = {
-+			BPF_JMP_IMM(BPF_JA, 0, 0, 1),
-+			BPF_JMP_IMM(BPF_JA, 0, 0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "unreachable",
-+		.result = REJECT,
-+	},
-+	{
-+		"out of range jump",
-+		.insns = {
-+			BPF_JMP_IMM(BPF_JA, 0, 0, 1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "jump out of range",
-+		.result = REJECT,
-+	},
-+	{
-+		"out of range jump2",
-+		.insns = {
-+			BPF_JMP_IMM(BPF_JA, 0, 0, -2),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "jump out of range",
-+		.result = REJECT,
-+	},
-+	{
-+		"test1 ld_imm64",
-+		.insns = {
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_1, 0, 1),
-+			BPF_LD_IMM64(BPF_REG_0, 0),
-+			BPF_LD_IMM64(BPF_REG_0, 0),
-+			BPF_LD_IMM64(BPF_REG_0, 1),
-+			BPF_LD_IMM64(BPF_REG_0, 1),
-+			BPF_MOV64_IMM(BPF_REG_0, 2),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "invalid BPF_LD_IMM insn",
-+		.result = REJECT,
-+	},
-+	{
-+		"test2 ld_imm64",
-+		.insns = {
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_1, 0, 1),
-+			BPF_LD_IMM64(BPF_REG_0, 0),
-+			BPF_LD_IMM64(BPF_REG_0, 0),
-+			BPF_LD_IMM64(BPF_REG_0, 1),
-+			BPF_LD_IMM64(BPF_REG_0, 1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "invalid BPF_LD_IMM insn",
-+		.result = REJECT,
-+	},
-+	{
-+		"test3 ld_imm64",
-+		.insns = {
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_1, 0, 1),
-+			BPF_RAW_INSN(BPF_LD | BPF_IMM | BPF_DW, 0, 0, 0, 0),
-+			BPF_LD_IMM64(BPF_REG_0, 0),
-+			BPF_LD_IMM64(BPF_REG_0, 0),
-+			BPF_LD_IMM64(BPF_REG_0, 1),
-+			BPF_LD_IMM64(BPF_REG_0, 1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "invalid bpf_ld_imm64 insn",
-+		.result = REJECT,
-+	},
-+	{
-+		"test4 ld_imm64",
-+		.insns = {
-+			BPF_RAW_INSN(BPF_LD | BPF_IMM | BPF_DW, 0, 0, 0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "invalid bpf_ld_imm64 insn",
-+		.result = REJECT,
-+	},
-+	{
-+		"test5 ld_imm64",
-+		.insns = {
-+			BPF_RAW_INSN(BPF_LD | BPF_IMM | BPF_DW, 0, 0, 0, 0),
-+		},
-+		.errstr = "invalid bpf_ld_imm64 insn",
-+		.result = REJECT,
-+	},
-+	{
-+		"no bpf_exit",
-+		.insns = {
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_0, BPF_REG_2),
-+		},
-+		.errstr = "jump out of range",
-+		.result = REJECT,
-+	},
-+	{
-+		"loop (back-edge)",
-+		.insns = {
-+			BPF_JMP_IMM(BPF_JA, 0, 0, -1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "back-edge",
-+		.result = REJECT,
-+	},
-+	{
-+		"loop2 (back-edge)",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_0),
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_0),
-+			BPF_JMP_IMM(BPF_JA, 0, 0, -4),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "back-edge",
-+		.result = REJECT,
-+	},
-+	{
-+		"conditional loop",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_0),
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_0),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_1, 0, -3),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "back-edge",
-+		.result = REJECT,
-+	},
-+	{
-+		"read uninitialized register",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R2 !read_ok",
-+		.result = REJECT,
-+	},
-+	{
-+		"read invalid register",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_0, -1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R15 is invalid",
-+		.result = REJECT,
-+	},
-+	{
-+		"program doesn't init R0 before exit",
-+		.insns = {
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_2, BPF_REG_1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R0 !read_ok",
-+		.result = REJECT,
-+	},
-+	{
-+		"stack out of bounds",
-+		.insns = {
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, 8, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "invalid stack",
-+		.result = REJECT,
-+	},
-+	{
-+		"invalid call insn1",
-+		.insns = {
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL | BPF_X, 0, 0, 0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "BPF_CALL uses reserved",
-+		.result = REJECT,
-+	},
-+	{
-+		"invalid call insn2",
-+		.insns = {
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 1, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "BPF_CALL uses reserved",
-+		.result = REJECT,
-+	},
-+	{
-+		"invalid function call",
-+		.insns = {
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, 1234567),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "invalid func 1234567",
-+		.result = REJECT,
-+	},
-+	{
-+		"uninitialized stack1",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup = {2},
-+		.errstr = "invalid indirect read from stack",
-+		.result = REJECT,
-+	},
-+	{
-+		"uninitialized stack2",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_2, -8),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "invalid read from stack",
-+		.result = REJECT,
-+	},
-+	{
-+		"check valid spill/fill",
-+		.insns = {
-+			/* spill R1(ctx) into stack */
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_1, -8),
-+
-+			/* fill it back into R2 */
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_10, -8),
-+
-+			/* should be able to access R0 = *(R2 + 8) */
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_2, 8),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+	},
-+	{
-+		"check corrupted spill/fill",
-+		.insns = {
-+			/* spill R1(ctx) into stack */
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_1, -8),
-+
-+			/* mess up with R1 pointer on stack */
-+			BPF_ST_MEM(BPF_B, BPF_REG_10, -7, 0x23),
-+
-+			/* fill back into R0 should fail */
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_10, -8),
-+
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "corrupted spill",
-+		.result = REJECT,
-+	},
-+	{
-+		"invalid src register in STX",
-+		.insns = {
-+			BPF_STX_MEM(BPF_B, BPF_REG_10, -1, -1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R15 is invalid",
-+		.result = REJECT,
-+	},
-+	{
-+		"invalid dst register in STX",
-+		.insns = {
-+			BPF_STX_MEM(BPF_B, 14, BPF_REG_10, -1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R14 is invalid",
-+		.result = REJECT,
-+	},
-+	{
-+		"invalid dst register in ST",
-+		.insns = {
-+			BPF_ST_MEM(BPF_B, 14, -1, -1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R14 is invalid",
-+		.result = REJECT,
-+	},
-+	{
-+		"invalid src register in LDX",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_B, BPF_REG_0, 12, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R12 is invalid",
-+		.result = REJECT,
-+	},
-+	{
-+		"invalid dst register in LDX",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_B, 11, BPF_REG_1, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R11 is invalid",
-+		.result = REJECT,
-+	},
-+	{
-+		"junk insn",
-+		.insns = {
-+			BPF_RAW_INSN(0, 0, 0, 0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "invalid BPF_LD_IMM",
-+		.result = REJECT,
-+	},
-+	{
-+		"junk insn2",
-+		.insns = {
-+			BPF_RAW_INSN(1, 0, 0, 0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "BPF_LDX uses reserved fields",
-+		.result = REJECT,
-+	},
-+	{
-+		"junk insn3",
-+		.insns = {
-+			BPF_RAW_INSN(-1, 0, 0, 0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "invalid BPF_ALU opcode f0",
-+		.result = REJECT,
-+	},
-+	{
-+		"junk insn4",
-+		.insns = {
-+			BPF_RAW_INSN(-1, -1, -1, -1, -1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "invalid BPF_ALU opcode f0",
-+		.result = REJECT,
-+	},
-+	{
-+		"junk insn5",
-+		.insns = {
-+			BPF_RAW_INSN(0x7f, -1, -1, -1, -1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "BPF_ALU uses reserved fields",
-+		.result = REJECT,
-+	},
-+	{
-+		"misaligned read from stack",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_2, -4),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "misaligned access",
-+		.result = REJECT,
-+	},
-+	{
-+		"invalid map_fd for function call",
-+		.insns = {
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "fd 0 is not pointing to valid bpf_map",
-+		.result = REJECT,
-+	},
-+	{
-+		"don't check return value before access",
-+		.insns = {
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_0, 0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup = {3},
-+		.errstr = "R0 invalid mem access 'map_value_or_null'",
-+		.result = REJECT,
-+	},
-+	{
-+		"access memory with incorrect alignment",
-+		.insns = {
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_0, 4, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup = {3},
-+		.errstr = "misaligned access",
-+		.result = REJECT,
-+	},
-+	{
-+		"sometimes access memory with incorrect alignment",
-+		.insns = {
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 2),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_0, 0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_0, 0, 1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup = {3},
-+		.errstr = "R0 invalid mem access",
-+		.result = REJECT,
-+	},
-+};
-+
-+static int probe_filter_length(struct bpf_insn *fp)
++SEC("events/block/block_rq_issue")
++int bpf_prog1(struct bpf_context *ctx)
 +{
-+	int len = 0;
++	long rq = ctx->arg2; /* long rq = bpf_get_current(); */
++	u64 val = bpf_ktime_get_ns();
 +
-+	for (len = MAX_INSNS - 1; len > 0; --len)
-+		if (fp[len].code != 0 || fp[len].imm != 0)
-+			break;
-+
-+	return len + 1;
++	bpf_map_update_elem(&my_map, &rq, &val);
++	return 0;
 +}
 +
-+static int create_map(void)
++struct globals {
++	u64 lat_ave;
++	u64 lat_sum;
++	u64 missed;
++	u64 max_lat;
++	int num_samples;
++};
++
++struct bpf_map_def SEC("maps") global_map = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(int),
++	.value_size = sizeof(struct globals),
++	.max_entries = 1,
++};
++
++#define MAX_SLOT 32
++
++struct bpf_map_def SEC("maps") lat_map = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(int),
++	.value_size = sizeof(u64),
++	.max_entries = MAX_SLOT,
++};
++
++/* alternative evenets:
++ * SEC("events/syscalls/sys_exit_write")
++ * SEC("events/net/net_dev_xmit")
++ */
++SEC("events/block/block_rq_complete")
++int bpf_prog2(struct bpf_context *ctx)
 +{
-+	long long key, value = 0;
-+	int map_fd;
++	long rq = ctx->arg2;
++	void *value;
 +
-+	map_fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value), 1024);
-+	if (map_fd < 0) {
-+		printf("failed to create map '%s'\n", strerror(errno));
-+	}
++	value = bpf_map_lookup_elem(&my_map, &rq);
++	if (!value)
++		return 0;
 +
-+	return map_fd;
-+}
++	u64 cur_time = bpf_ktime_get_ns();
++	u64 delta = (cur_time - *(u64 *)value) / 1000;
 +
-+static int test(void)
-+{
-+	int prog_fd, i;
++	bpf_map_delete_elem(&my_map, &rq);
 +
-+	for (i = 0; i < ARRAY_SIZE(tests); i++) {
-+		struct bpf_insn *prog = tests[i].insns;
-+		int prog_len = probe_filter_length(prog);
-+		int *fixup = tests[i].fixup;
-+		int map_fd = -1;
-+
-+		if (*fixup) {
-+
-+			map_fd = create_map();
-+
-+			do {
-+				prog[*fixup].imm = map_fd;
-+				fixup++;
-+			} while (*fixup);
-+		}
-+		printf("#%d %s ", i, tests[i].descr);
-+
-+		prog_fd = bpf_prog_load(BPF_PROG_TYPE_TRACING_FILTER, prog,
-+					prog_len * sizeof(struct bpf_insn),
-+					"GPL");
-+
-+		if (tests[i].result == ACCEPT) {
-+			if (prog_fd < 0) {
-+				printf("FAIL\nfailed to load prog '%s'\n",
-+				       strerror(errno));
-+				printf("%s", bpf_log_buf);
-+				goto fail;
-+			}
-+		} else {
-+			if (prog_fd >= 0) {
-+				printf("FAIL\nunexpected success to load\n");
-+				printf("%s", bpf_log_buf);
-+				goto fail;
-+			}
-+			if (strstr(bpf_log_buf, tests[i].errstr) == 0) {
-+				printf("FAIL\nunexpected error message: %s",
-+				       bpf_log_buf);
-+				goto fail;
++	int ind = 1;
++	struct globals *g = bpf_map_lookup_elem(&global_map, &ind);
++	if (!g)
++		return 0;
++	if (g->lat_ave == 0) {
++		g->num_samples++;
++		g->lat_sum += delta;
++		if (g->num_samples >= 100) {
++			g->lat_ave = g->lat_sum / g->num_samples;
++			if (0/* debug */) {
++				char fmt[] = "after %d samples average latency %ld usec\n";
++				bpf_printk(fmt, sizeof(fmt), g->num_samples,
++					   g->lat_ave);
 +			}
 +		}
++	} else {
++		u64 max_lat = g->lat_ave * 2;
++		if (delta > max_lat) {
++			g->missed++;
++			if (delta > g->max_lat)
++				g->max_lat = delta;
++			return 0;
++		}
 +
-+		printf("OK\n");
-+fail:
-+		if (map_fd >= 0)
-+			close(map_fd);
-+		close(prog_fd);
-+
++		ind = delta * MAX_SLOT / max_lat;
++		value = bpf_map_lookup_elem(&lat_map, &ind);
++		if (!value)
++			return 0;
++		(*(u64 *)value) ++;
 +	}
 +
 +	return 0;
 +}
++char license[] SEC("license") = "GPL";
+diff --git a/samples/bpf/ex3_user.c b/samples/bpf/ex3_user.c
+new file mode 100644
+index 000000000000..508a7c3b61c5
+--- /dev/null
++++ b/samples/bpf/ex3_user.c
+@@ -0,0 +1,149 @@
++#include <stdio.h>
++#include <stdlib.h>
++#include <signal.h>
++#include <unistd.h>
++#include <linux/bpf.h>
++#include "libbpf.h"
++#include "bpf_load.h"
 +
-+int main(void)
++#define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x)))
++
++struct globals {
++	__u64 lat_ave;
++	__u64 lat_sum;
++	__u64 missed;
++	__u64 max_lat;
++	int num_samples;
++};
++
++static void clear_stats(int fd)
 +{
-+	return test();
++	int key;
++	__u64 value = 0;
++	for (key = 0; key < 32; key++)
++		bpf_update_elem(fd, &key, &value);
++}
++
++const char *color[] = {
++	"\033[48;5;255m",
++	"\033[48;5;252m",
++	"\033[48;5;250m",
++	"\033[48;5;248m",
++	"\033[48;5;246m",
++	"\033[48;5;244m",
++	"\033[48;5;242m",
++	"\033[48;5;240m",
++	"\033[48;5;238m",
++	"\033[48;5;236m",
++	"\033[48;5;234m",
++	"\033[48;5;232m",
++};
++const int num_colors = ARRAY_SIZE(color);
++
++const char nocolor[] = "\033[00m";
++
++static void print_banner(__u64 max_lat)
++{
++	printf("0 usec     ...          %lld usec\n", max_lat);
++}
++
++static void print_hist(int fd)
++{
++	int key;
++	__u64 value;
++	__u64 cnt[32];
++	__u64 max_cnt = 0;
++	__u64 total_events = 0;
++	int max_bucket = 0;
++
++	for (key = 0; key < 32; key++) {
++		value = 0;
++		bpf_lookup_elem(fd, &key, &value);
++		if (value > 0)
++			max_bucket = key;
++		cnt[key] = value;
++		total_events += value;
++		if (value > max_cnt)
++			max_cnt = value;
++	}
++	clear_stats(fd);
++	for (key = 0; key < 32; key++) {
++		int c = num_colors * cnt[key] / (max_cnt + 1);
++		printf("%s %s", color[c], nocolor);
++	}
++	printf(" captured=%lld", total_events);
++
++	key = 1;
++	struct globals g = {};
++	bpf_lookup_elem(map_fd[1], &key, &g);
++
++	printf(" missed=%lld max_lat=%lld usec\n",
++	       g.missed, g.max_lat);
++
++	if (g.missed > 10 && g.missed > total_events / 10) {
++		printf("adjusting range UP...\n");
++		g.lat_ave = g.max_lat / 2;
++		print_banner(g.lat_ave * 2);
++	} else if (max_bucket < 4 && total_events > 100) {
++		printf("adjusting range DOWN...\n");
++		g.lat_ave = g.lat_ave / 4;
++		print_banner(g.lat_ave * 2);
++	}
++	/* clear some globals */
++	g.missed = 0;
++	g.max_lat = 0;
++	bpf_update_elem(map_fd[1], &key, &g);
++}
++
++static void int_exit(int sig)
++{
++	print_hist(map_fd[2]);
++	exit(0);
++}
++
++int main(int ac, char **argv)
++{
++	char filename[256];
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++
++	clear_stats(map_fd[2]);
++
++	int key = 1;
++	struct globals g = {};
++	if (bpf_update_elem(map_fd[1], &key, &g) != 0) {
++		printf("bug\n");
++		return 1;
++	}
++	signal(SIGINT, int_exit);
++
++	if (fork() == 0) {
++		read_trace_pipe();
++	} else {
++		printf("waiting for events to determine average latency...\n");
++		for (;;) {
++			bpf_lookup_elem(map_fd[1], &key, &g);
++			if (g.lat_ave)
++				break;
++			sleep(1);
++		}
++
++		printf("  IO latency in usec\n"
++		       "  %s %s - many events with this latency\n"
++		       "  %s %s - few events\n",
++		       color[num_colors - 1], nocolor,
++		       color[0], nocolor);
++		print_banner(g.lat_ave * 2);
++		for (;;) {
++			print_hist(map_fd[2]);
++			sleep(2);
++		}
++	}
++
++	return 0;
 +}
 -- 
 1.7.9.5
