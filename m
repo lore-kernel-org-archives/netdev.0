@@ -1,51 +1,41 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 4/4] r8152: support firmware files
-Date: Sun, 24 Aug 2014 23:20:55 +0200
-Message-ID: <20140824212055.GA30857@electric-eye.fr.zoreil.com>
-References: <1394712342-15778-16-Taiwan-albertk@realtek.com>
- <1394712342-15778-20-Taiwan-albertk@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1394712342-15778-20-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] rtlwifi: rtl8192cu: Add new ID
+Date: Sun, 24 Aug 2014 17:49:43 -0500
+Message-ID: <1408920583-20496-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Nico Baggus <nico-linux@noci.xs4all.nl>,
+	Stable <stable@vger.kernel.org>
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:42933 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753483AbaHXWty (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 18:49:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hayes Wang <hayeswang@realtek.com> :
-> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-> index 937d132..63542cc 100644
-> --- a/drivers/net/usb/r8152.c
-> +++ b/drivers/net/usb/r8152.c
-[...]
-> +static void rtl_request_firmware(struct r8152 *tp)
-> +{
-> +	char *fw_name = NULL;
-> +
-> +	if (tp->rtl_fw.fw)
-> +		goto out_request;
-> +
-> +	switch (tp->version) {
-> +	case RTL_VER_01:
-> +		fw_name = "rtl_nic/rtl8152-1.fw";
-> +		break;
-> +	case RTL_VER_02:
-> +		fw_name = "rtl_nic/rtl8152-2.fw";
-> +		break;
-> +	case RTL_VER_03:
-> +		fw_name = "rtl_nic/rtl8153-1.fw";
-> +		break;
-> +	case RTL_VER_04:
-> +		fw_name = "rtl_nic/rtl8153-2.fw";
-> +		break;
-> +	case RTL_VER_05:
-> +		fw_name = "rtl_nic/rtl8153-3.fw";
-> +		break;
+The Sitecom WLA-2102 adapter uses this driver.
 
-The driver should use MODULE_FIRMWARE() for these files.
+Reported-by: Nico Baggus <nico-linux@noci.xs4all.nl>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Nico Baggus <nico-linux@noci.xs4all.nl>
+Cc: Stable <stable@vger.kernel.org>
+---
+ drivers/net/wireless/rtlwifi/rtl8192cu/sw.c | 1 +
+ 1 file changed, 1 insertion(+)
 
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+index 361435f..1ac6383 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+@@ -317,6 +317,7 @@ static struct usb_device_id rtl8192c_usb_ids[] = {
+ 	{RTL_USB_DEVICE(0x0bda, 0x5088, rtl92cu_hal_cfg)}, /*Thinkware-CC&C*/
+ 	{RTL_USB_DEVICE(0x0df6, 0x0052, rtl92cu_hal_cfg)}, /*Sitecom - Edimax*/
+ 	{RTL_USB_DEVICE(0x0df6, 0x005c, rtl92cu_hal_cfg)}, /*Sitecom - Edimax*/
++	{RTL_USB_DEVICE(0x0df6, 0x0070, rtl92cu_hal_cfg)}, /*Sitecom - 150N */
+ 	{RTL_USB_DEVICE(0x0df6, 0x0077, rtl92cu_hal_cfg)}, /*Sitecom-WLA2100V2*/
+ 	{RTL_USB_DEVICE(0x0eb0, 0x9071, rtl92cu_hal_cfg)}, /*NO Brand - Etop*/
+ 	{RTL_USB_DEVICE(0x4856, 0x0091, rtl92cu_hal_cfg)}, /*NetweeN - Feixun*/
 -- 
-Ueimor
+1.8.4.5
