@@ -1,53 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Basic deferred TX queue flushing infrastructure.
-Date: Sun, 24 Aug 2014 12:11:28 -0700 (PDT)
-Message-ID: <20140824.121128.714017644535675858.davem@davemloft.net>
-References: <20140823.132811.751469424156827125.davem@davemloft.net>
-	<20140823.213839.1953243016141233125.davem@davemloft.net>
-	<1408901868.5604.60.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next] net: Functions to report space available in device
+ TX queues
+Date: Sun, 24 Aug 2014 13:19:47 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1408241312500.30395@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, jhs@mojatatu.com,
-	hannes@stressinduktion.org, edumazet@google.com,
-	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au
-To: eric.dumazet@gmail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48431 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752435AbaHXTL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 15:11:29 -0400
-In-Reply-To: <1408901868.5604.60.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f73.google.com ([209.85.220.73]:54173 "EHLO
+	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751014AbaHXUTt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 16:19:49 -0400
+Received: by mail-pa0-f73.google.com with SMTP id kx10so3363432pab.2
+        for <netdev@vger.kernel.org>; Sun, 24 Aug 2014 13:19:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 24 Aug 2014 10:37:48 -0700
+This patch adds netdev_tx_avail_queue and netdev_avail_queue which are
+used to report number of bytes available in transmit queues per BQL. The
+functions call dql_avail which returns BQL limit minus number of
+inflight bytes. These functions can be called without txlock, for
+instance to ascertain how much data should be dequeued from a qdisc in
+a batch. When called without the tx_lock, the result is technically a
+hint, subsequently when the tx_lock is done for a transmit it is
+possible the availability has changed (for example a transmit
+completion may have freed up more space in the queue or changed the
+limit).
 
-> On Sat, 2014-08-23 at 21:38 -0700, David Miller wrote:
-> 
->> Like Tom Herbert has mentioned we have all the infrastructure (sort
->> of) already to handle a list of SKBs going down into
->> dev_hard_start_xmit() via the GSO handling.
->> 
->> But that code is funny, because it keeps the original GSO head SKB
->> around as a placeholder to maintain the list of segmented SKBs.
-> 
-> This is because dev_hard_start_xmit() do not return an skb, but a rc
-> code.
-> 
-> int ret = dev_hard_start_xmit(skb, dev, txq);
-> 
-> That can be changed so that we do not have to keep the original skb as
-> the GSO head :
-> 
-> sch_direct_xmit() would 'requeue' the new skb (might be in the middle of
-> the skb segmented chain), not the original one.
-> 
-> This would get rid of DEV_GSO_CB() presumably.
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ include/linux/netdevice.h | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
-I considered this, but then there is the ugly issue of how to return
-the netdev_tx_t code back into the call chain.
-
-I hate passing things back by reference, it's always a symptom of bad
-interface design :-/
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 0fac884..13883c1 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2544,6 +2544,30 @@ static inline void netdev_completed_queue(struct net_device *dev,
+ 	netdev_tx_completed_queue(netdev_get_tx_queue(dev, 0), pkts, bytes);
+ }
+ 
++static inline int netdev_tx_avail_queue(struct netdev_queue *dev_queue)
++{
++#ifdef CONFIG_BQL
++	return dql_avail(&dev_queue->dql);
++#else
++	return DQL_MAX_LIMIT;
++#endif
++}
++
++/**
++ *	netdev_avail_queue - report how much space is availble for xmit
++ *	@dev: network device
++ *
++ *	Report the amount of space available in the TX queue in terms of
++ *	number of bytes. This returns the number of bytes avaiable per
++ *	DQL. This function may be called without taking the txlock on
++ *	the device, however in that case the result should be taken as
++ *	a (strong) hint.
++ */
++static inline int netdev_avail_queue(struct net_device *dev_queue)
++{
++	return netdev_tx_avail_queue(netdev_get_tx_queue(dev_queue, 0));
++}
++
+ static inline void netdev_tx_reset_queue(struct netdev_queue *q)
+ {
+ #ifdef CONFIG_BQL
+-- 
+2.1.0.rc2.206.gedb03e5
