@@ -1,40 +1,53 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 0/3] Basic deferred TX queue flushing infrastructure.
-Date: Sun, 24 Aug 2014 12:08:54 -0700 (PDT)
-Message-ID: <20140824.120854.1649653834184145660.davem@davemloft.net>
+Date: Sun, 24 Aug 2014 12:11:28 -0700 (PDT)
+Message-ID: <20140824.121128.714017644535675858.davem@davemloft.net>
 References: <20140823.132811.751469424156827125.davem@davemloft.net>
 	<20140823.213839.1953243016141233125.davem@davemloft.net>
-	<53F9FD5C.2090408@mojatatu.com>
+	<1408901868.5604.60.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com,
+Cc: netdev@vger.kernel.org, therbert@google.com, jhs@mojatatu.com,
 	hannes@stressinduktion.org, edumazet@google.com,
 	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au
-To: jhs@mojatatu.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48406 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48431 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752706AbaHXTIz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 15:08:55 -0400
-In-Reply-To: <53F9FD5C.2090408@mojatatu.com>
+	with ESMTP id S1752435AbaHXTL3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 15:11:29 -0400
+In-Reply-To: <1408901868.5604.60.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Sun, 24 Aug 2014 10:57:32 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 24 Aug 2014 10:37:48 -0700
 
-> Clearly, the best thing to do is avoid altogether the need to have
-> such a list. The only reason you need a list around is because you
-> dont know how much you can send to the driver. tx_win idea may not
-> be the best but it tried to address that issue.
+> On Sat, 2014-08-23 at 21:38 -0700, David Miller wrote:
+> 
+>> Like Tom Herbert has mentioned we have all the infrastructure (sort
+>> of) already to handle a list of SKBs going down into
+>> dev_hard_start_xmit() via the GSO handling.
+>> 
+>> But that code is funny, because it keeps the original GSO head SKB
+>> around as a placeholder to maintain the list of segmented SKBs.
+> 
+> This is because dev_hard_start_xmit() do not return an skb, but a rc
+> code.
+> 
+> int ret = dev_hard_start_xmit(skb, dev, txq);
+> 
+> That can be changed so that we do not have to keep the original skb as
+> the GSO head :
+> 
+> sch_direct_xmit() would 'requeue' the new skb (might be in the middle of
+> the skb segmented chain), not the original one.
+> 
+> This would get rid of DEV_GSO_CB() presumably.
 
-I think it is unavoidable for us to have to do a "send and recheck
-queue state" approach, because of the issues I brought up the other
-day.
+I considered this, but then there is the ugly issue of how to return
+the netdev_tx_t code back into the call chain.
 
-Every driver has it's own set of restrictions and how many TX slots
-a given SKB can consume in it's TX queue.
-
-So from that perspective a list we perform retries on is an approach
-we must consider seriously.
+I hate passing things back by reference, it's always a symptom of bad
+interface design :-/
