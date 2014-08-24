@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v5 net-next 04/29] bpf: introduce syscall(BPF, ...) and BPF maps
-Date: Sun, 24 Aug 2014 13:21:05 -0700
-Message-ID: <1408911690-7598-5-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v5 net-next 01/29] bpf: x86: add missing 'shift by register' instructions to x64 eBPF JIT
+Date: Sun, 24 Aug 2014 13:21:02 -0700
+Message-ID: <1408911690-7598-2-git-send-email-ast@plumgrid.com>
 References: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -18,393 +18,121 @@ Cc: Ingo Molnar <mingo@kernel.org>,
 	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:47469 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753461AbaHXUVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 16:21:52 -0400
-Received: by mail-pd0-f178.google.com with SMTP id w10so18698768pde.23
-        for <netdev@vger.kernel.org>; Sun, 24 Aug 2014 13:21:51 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-BPF syscall is a demux for different BPF releated commands.
-
-'maps' is a generic storage of different types for sharing data between kernel
-and userspace.
-
-The maps can be created from user space via BPF syscall:
-- create a map with given type and attributes
-  fd = bpf_map_create(map_type, struct nlattr *attr, int len)
-  returns fd or negative error
-
-- close(fd) deletes the map
-
-Next patch allows userspace programs to populate/read maps that eBPF programs
-are concurrently updating.
-
-maps can have different types: hash, bloom filter, radix-tree, etc.
-
-The map is defined by:
-  . type
-  . max number of elements
-  . key size in bytes
-  . value size in bytes
-
-This patch establishes core infrastructure for BPF maps.
-Next patches implement lookup/update and hashtable type.
-More map types can be added in the future.
-
-syscall is using type-length-value style of passing arguments to be backwards
-compatible with future extensions to map attributes. Different map types may
-use different attributes as well.
-The concept of type-lenght-value is borrowed from netlink, but netlink itself
-is not applicable here, since BPF programs and maps can be used in NET-less
-configurations.
+'shift by register' operations are supported by eBPF interpreter, but were
+accidently left out of x64 JIT compiler. Fix it and add a testcase.
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- Documentation/networking/filter.txt |   71 ++++++++++++++++
- include/linux/bpf.h                 |   42 ++++++++++
- include/uapi/linux/bpf.h            |   24 ++++++
- kernel/bpf/Makefile                 |    2 +-
- kernel/bpf/syscall.c                |  156 +++++++++++++++++++++++++++++++++++
- 5 files changed, 294 insertions(+), 1 deletion(-)
- create mode 100644 include/linux/bpf.h
- create mode 100644 kernel/bpf/syscall.c
+ arch/x86/net/bpf_jit_comp.c |   42 ++++++++++++++++++++++++++++++++++++++++++
+ lib/test_bpf.c              |   38 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 80 insertions(+)
 
-diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
-index 81916ab5d96f..27a0a6c6acb4 100644
---- a/Documentation/networking/filter.txt
-+++ b/Documentation/networking/filter.txt
-@@ -1001,6 +1001,77 @@ instruction that loads 64-bit immediate value into a dst_reg.
- Classic BPF has similar instruction: BPF_LD | BPF_W | BPF_IMM which loads
- 32-bit immediate value into a register.
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 5c8cb8043c5a..b08a98c59530 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -515,6 +515,48 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
+ 			EMIT3(0xC1, add_1reg(b3, dst_reg), imm32);
+ 			break;
  
-+eBPF maps
-+---------
-+'maps' is a generic storage of different types for sharing data between kernel
-+and userspace.
++		case BPF_ALU | BPF_LSH | BPF_X:
++		case BPF_ALU | BPF_RSH | BPF_X:
++		case BPF_ALU | BPF_ARSH | BPF_X:
++		case BPF_ALU64 | BPF_LSH | BPF_X:
++		case BPF_ALU64 | BPF_RSH | BPF_X:
++		case BPF_ALU64 | BPF_ARSH | BPF_X:
 +
-+The maps are accessed from user space via BPF syscall, which has commands:
-+- create a map with given type and attributes
-+  map_fd = bpf_map_create(map_type, struct nlattr *attr, int len)
-+  returns process-local file descriptor or negative error
++			/* check for bad case when dst_reg == rcx */
++			if (dst_reg == BPF_REG_4) {
++				/* mov r11, dst_reg */
++				EMIT_mov(AUX_REG, dst_reg);
++				dst_reg = AUX_REG;
++			}
 +
-+- lookup key in a given map
-+  err = bpf_map_lookup_elem(int fd, void *key, void *value)
-+  returns zero and stores found elem into value or negative error
++			if (src_reg != BPF_REG_4) { /* common case */
++				EMIT1(0x51); /* push rcx */
 +
-+- create or update key/value pair in a given map
-+  err = bpf_map_update_elem(int fd, void *key, void *value)
-+  returns zero or negative error
++				/* mov rcx, src_reg */
++				EMIT_mov(BPF_REG_4, src_reg);
++			}
 +
-+- find and delete element by key in a given map
-+  err = bpf_map_delete_elem(int fd, void *key)
++			/* shl %rax, %cl | shr %rax, %cl | sar %rax, %cl */
++			if (BPF_CLASS(insn->code) == BPF_ALU64)
++				EMIT1(add_1mod(0x48, dst_reg));
++			else if (is_ereg(dst_reg))
++				EMIT1(add_1mod(0x40, dst_reg));
 +
-+- to delete map: close(fd)
-+  Exiting process will delete maps automatically
++			switch (BPF_OP(insn->code)) {
++			case BPF_LSH: b3 = 0xE0; break;
++			case BPF_RSH: b3 = 0xE8; break;
++			case BPF_ARSH: b3 = 0xF8; break;
++			}
++			EMIT2(0xD3, add_1reg(b3, dst_reg));
 +
-+userspace programs uses this API to create/populate/read maps that eBPF programs
-+are concurrently updating.
++			if (src_reg != BPF_REG_4)
++				EMIT1(0x59); /* pop rcx */
 +
-+maps can have different types: hash, array, bloom filter, radix-tree, etc.
++			if (insn->dst_reg == BPF_REG_4)
++				/* mov dst_reg, r11 */
++				EMIT_mov(insn->dst_reg, AUX_REG);
++			break;
 +
-+The map is defined by:
-+  . type
-+  . max number of elements
-+  . key size in bytes
-+  . value size in bytes
-+
-+The maps are accesible from eBPF program with API:
-+  void * bpf_map_lookup_elem(u32 map_fd, void *key);
-+  int bpf_map_update_elem(u32 map_fd, void *key, void *value);
-+  int bpf_map_delete_elem(u32 map_fd, void *key);
-+
-+The kernel replaces process-local map_fd with kernel internal map pointer,
-+while loading eBPF program.
-+
-+If eBPF verifier is configured to recognize extra calls in the program
-+bpf_map_lookup_elem() and bpf_map_update_elem() then access to maps looks like:
-+  ...
-+  ptr_to_value = bpf_map_lookup_elem(map_fd, key)
-+  access memory range [ptr_to_value, ptr_to_value + value_size_in_bytes)
-+  ...
-+  prepare key2 and value2 on stack of key_size and value_size
-+  err = bpf_map_update_elem(map_fd, key2, value2)
-+  ...
-+
-+eBPF program cannot create or delete maps
-+(such calls will be unknown to verifier)
-+
-+During program loading the refcnt of used maps is incremented, so they don't get
-+deleted while program is running
-+
-+bpf_map_update_elem() can fail if maximum number of elements reached.
-+if key2 already exists, bpf_map_update_elem() replaces it with value2 atomically
-+
-+bpf_map_lookup_elem() returns NULL or ptr_to_value, so program must do
-+if (ptr_to_value != NULL) check before accessing it.
-+NULL means that element with given 'key' was not found.
-+
-+The verifier will check that the program accesses map elements within specified
-+size. It will not let programs pass junk values to bpf_map_*_elem() functions,
-+so these functions (implemented in C inside kernel) can safely access
-+the pointers in all cases.
-+
- Testing
- -------
- 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-new file mode 100644
-index 000000000000..607ca53fe2af
---- /dev/null
-+++ b/include/linux/bpf.h
-@@ -0,0 +1,42 @@
-+/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#ifndef _LINUX_BPF_H
-+#define _LINUX_BPF_H 1
-+
-+#include <uapi/linux/bpf.h>
-+#include <linux/workqueue.h>
-+
-+struct bpf_map;
-+struct nlattr;
-+
-+/* map is generic key/value storage optionally accesible by eBPF programs */
-+struct bpf_map_ops {
-+	/* funcs callable from userspace (via syscall) */
-+	struct bpf_map *(*map_alloc)(struct nlattr *attrs[BPF_MAP_ATTR_MAX + 1]);
-+	void (*map_free)(struct bpf_map *);
-+};
-+
-+struct bpf_map {
-+	atomic_t refcnt;
-+	enum bpf_map_type map_type;
-+	u32 key_size;
-+	u32 value_size;
-+	u32 max_entries;
-+	struct bpf_map_ops *ops;
-+	struct work_struct work;
-+};
-+
-+struct bpf_map_type_list {
-+	struct list_head list_node;
-+	struct bpf_map_ops *ops;
-+	enum bpf_map_type type;
-+};
-+
-+void bpf_register_map_type(struct bpf_map_type_list *tl);
-+void bpf_map_put(struct bpf_map *map);
-+
-+#endif /* _LINUX_BPF_H */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 45a09b46c578..de21c8ecf0bb 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -318,4 +318,28 @@ struct bpf_insn {
- 	__s32	imm;		/* signed immediate constant */
- };
- 
-+/* BPF syscall commands */
-+enum bpf_cmd {
-+	/* create a map with given type and attributes
-+	 * fd = bpf_map_create(bpf_map_type, struct nlattr *attr, int len)
-+	 * returns fd or negative error
-+	 * map is deleted when fd is closed
-+	 */
-+	BPF_MAP_CREATE,
-+};
-+
-+enum bpf_map_attributes {
-+	BPF_MAP_UNSPEC,
-+	BPF_MAP_KEY_SIZE,	/* size of key in bytes */
-+	BPF_MAP_VALUE_SIZE,	/* size of value in bytes */
-+	BPF_MAP_MAX_ENTRIES,	/* maximum number of entries in a map */
-+	__BPF_MAP_ATTR_MAX,
-+};
-+#define BPF_MAP_ATTR_MAX (__BPF_MAP_ATTR_MAX - 1)
-+#define BPF_MAP_MAX_ATTR_SIZE 65535
-+
-+enum bpf_map_type {
-+	BPF_MAP_TYPE_UNSPEC,
-+};
-+
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
-index 6a71145e2769..e9f7334ed07a 100644
---- a/kernel/bpf/Makefile
-+++ b/kernel/bpf/Makefile
-@@ -1 +1 @@
--obj-y := core.o
-+obj-y := core.o syscall.o
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-new file mode 100644
-index 000000000000..04cdf7948f8f
---- /dev/null
-+++ b/kernel/bpf/syscall.c
-@@ -0,0 +1,156 @@
-+/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ */
-+#include <linux/bpf.h>
-+#include <linux/syscalls.h>
-+#include <net/netlink.h>
-+#include <linux/anon_inodes.h>
-+
-+static LIST_HEAD(bpf_map_types);
-+
-+static struct bpf_map *find_and_alloc_map(enum bpf_map_type type,
-+					  struct nlattr *tb[BPF_MAP_ATTR_MAX + 1])
-+{
-+	struct bpf_map_type_list *tl;
-+	struct bpf_map *map;
-+
-+	list_for_each_entry(tl, &bpf_map_types, list_node) {
-+		if (tl->type == type) {
-+			map = tl->ops->map_alloc(tb);
-+			if (IS_ERR(map))
-+				return map;
-+			map->ops = tl->ops;
-+			map->map_type = type;
-+			return map;
-+		}
-+	}
-+	return ERR_PTR(-EINVAL);
-+}
-+
-+/* boot time registration of different map implementations */
-+void bpf_register_map_type(struct bpf_map_type_list *tl)
-+{
-+	list_add(&tl->list_node, &bpf_map_types);
-+}
-+
-+/* called from workqueue */
-+static void bpf_map_free_deferred(struct work_struct *work)
-+{
-+	struct bpf_map *map = container_of(work, struct bpf_map, work);
-+
-+	/* implementation dependent freeing */
-+	map->ops->map_free(map);
-+}
-+
-+/* decrement map refcnt and schedule it for freeing via workqueue
-+ * (unrelying map implementation ops->map_free() might sleep)
-+ */
-+void bpf_map_put(struct bpf_map *map)
-+{
-+	if (atomic_dec_and_test(&map->refcnt)) {
-+		INIT_WORK(&map->work, bpf_map_free_deferred);
-+		schedule_work(&map->work);
-+	}
-+}
-+
-+static int bpf_map_release(struct inode *inode, struct file *filp)
-+{
-+	struct bpf_map *map = filp->private_data;
-+
-+	bpf_map_put(map);
-+	return 0;
-+}
-+
-+static const struct file_operations bpf_map_fops = {
-+        .release = bpf_map_release,
-+};
-+
-+static const struct nla_policy map_policy[BPF_MAP_ATTR_MAX + 1] = {
-+	[BPF_MAP_KEY_SIZE]    = { .type = NLA_U32 },
-+	[BPF_MAP_VALUE_SIZE]  = { .type = NLA_U32 },
-+	[BPF_MAP_MAX_ENTRIES] = { .type = NLA_U32 },
-+};
-+
-+/* called via syscall */
-+static int map_create(enum bpf_map_type type, struct nlattr __user *uattr, int len)
-+{
-+	struct nlattr *tb[BPF_MAP_ATTR_MAX + 1];
-+	struct bpf_map *map;
-+	struct nlattr *attr;
-+	int err;
-+
-+	if (len <= 0 || len > BPF_MAP_MAX_ATTR_SIZE)
-+		return -EINVAL;
-+
-+	attr = kmalloc(len, GFP_USER);
-+	if (!attr)
-+		return -ENOMEM;
-+
-+	/* copy map attributes from user space */
-+	err = -EFAULT;
-+	if (copy_from_user(attr, uattr, len) != 0)
-+		goto free_attr;
-+
-+	/* perform basic validation */
-+	err = nla_parse(tb, BPF_MAP_ATTR_MAX, attr, len, map_policy);
-+	if (err < 0)
-+		goto free_attr;
-+
-+	/* find map type and init map: hashtable vs rbtree vs bloom vs ... */
-+	map = find_and_alloc_map(type, tb);
-+	if (IS_ERR(map)) {
-+		err = PTR_ERR(map);
-+		goto free_attr;
-+	}
-+
-+	atomic_set(&map->refcnt, 1);
-+
-+	err = anon_inode_getfd("bpf-map", &bpf_map_fops, map, O_RDWR | O_CLOEXEC);
-+
-+	if (err < 0)
-+		/* failed to allocate fd */
-+		goto free_map;
-+
-+	/* user supplied array of map attributes is no longer needed */
-+	kfree(attr);
-+
-+	return err;
-+
-+free_map:
-+	map->ops->map_free(map);
-+free_attr:
-+	kfree(attr);
-+	return err;
-+}
-+
-+SYSCALL_DEFINE5(bpf, int, cmd, unsigned long, arg2, unsigned long, arg3,
-+		unsigned long, arg4, unsigned long, arg5)
-+{
-+	/* eBPF syscall is limited to root temporarily. This restriction will
-+	 * be lifted when verifier has enough mileage and security audit is
-+	 * clean. Note that tracing/networking analytics use cases will be
-+	 * turning off 'secure' mode of verifier, since they need to pass
-+	 * kernel data back to user space
-+	 */
-+	if (!capable(CAP_SYS_ADMIN))
-+		return -EPERM;
-+
-+	if (arg5 != 0)
-+		return -EINVAL;
-+
-+	switch (cmd) {
-+	case BPF_MAP_CREATE:
-+		return map_create((enum bpf_map_type) arg2,
-+				  (struct nlattr __user *) arg3, (int) arg4);
-+	default:
-+		return -EINVAL;
-+	}
-+}
+ 		case BPF_ALU | BPF_END | BPF_FROM_BE:
+ 			switch (imm32) {
+ 			case 16:
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index 89e0345733bd..8c66c6aace04 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -1342,6 +1342,44 @@ static struct bpf_test tests[] = {
+ 		{ { 0, -1 } }
+ 	},
+ 	{
++		"INT: shifts by register",
++		.u.insns_int = {
++			BPF_MOV64_IMM(R0, -1234),
++			BPF_MOV64_IMM(R1, 1),
++			BPF_ALU32_REG(BPF_RSH, R0, R1),
++			BPF_JMP_IMM(BPF_JEQ, R0, 0x7ffffd97, 1),
++			BPF_EXIT_INSN(),
++			BPF_MOV64_IMM(R2, 1),
++			BPF_ALU64_REG(BPF_LSH, R0, R2),
++			BPF_MOV32_IMM(R4, -1234),
++			BPF_JMP_REG(BPF_JEQ, R0, R4, 1),
++			BPF_EXIT_INSN(),
++			BPF_ALU64_IMM(BPF_AND, R4, 63),
++			BPF_ALU64_REG(BPF_LSH, R0, R4), /* R0 <= 46 */
++			BPF_MOV64_IMM(R3, 47),
++			BPF_ALU64_REG(BPF_ARSH, R0, R3),
++			BPF_JMP_IMM(BPF_JEQ, R0, -617, 1),
++			BPF_EXIT_INSN(),
++			BPF_MOV64_IMM(R2, 1),
++			BPF_ALU64_REG(BPF_LSH, R4, R2), /* R4 = 46 << 1 */
++			BPF_JMP_IMM(BPF_JEQ, R4, 92, 1),
++			BPF_EXIT_INSN(),
++			BPF_MOV64_IMM(R4, 4),
++			BPF_ALU64_REG(BPF_LSH, R4, R4), /* R4 = 4 << 4 */
++			BPF_JMP_IMM(BPF_JEQ, R4, 64, 1),
++			BPF_EXIT_INSN(),
++			BPF_MOV64_IMM(R4, 5),
++			BPF_ALU32_REG(BPF_LSH, R4, R4), /* R4 = 5 << 5 */
++			BPF_JMP_IMM(BPF_JEQ, R4, 160, 1),
++			BPF_EXIT_INSN(),
++			BPF_MOV64_IMM(R0, -1),
++			BPF_EXIT_INSN(),
++		},
++		INTERNAL,
++		{ },
++		{ { 0, -1 } }
++	},
++	{
+ 		"INT: DIV + ABS",
+ 		.u.insns_int = {
+ 			BPF_ALU64_REG(BPF_MOV, R6, R1),
 -- 
 1.7.9.5
