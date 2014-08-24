@@ -1,9 +1,9 @@
 From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next v3 06/12] net: dsa: allow switches to work without
- tagging
-Date: Sun, 24 Aug 2014 16:27:05 -0700
-Message-ID: <53FA74C9.5090300@gmail.com>
-References: <1408905869-10471-1-git-send-email-f.fainelli@gmail.com> <1408905869-10471-7-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v3 04/12] net: dsa: retain a per-port device_node
+ pointer
+Date: Sun, 24 Aug 2014 16:32:23 -0700
+Message-ID: <53FA7607.1080906@gmail.com>
+References: <1408905869-10471-1-git-send-email-f.fainelli@gmail.com> <1408905869-10471-5-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -11,99 +11,44 @@ Cc: davem@davemlof.net, jhs@mojatatu.com, linville@tuxdriver.com,
 	alexander.h.duyck@intel.com
 To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:58995 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753804AbaHXX1J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 19:27:09 -0400
-Received: by mail-pd0-f181.google.com with SMTP id g10so18694487pdj.40
-        for <netdev@vger.kernel.org>; Sun, 24 Aug 2014 16:27:08 -0700 (PDT)
-In-Reply-To: <1408905869-10471-7-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:33313 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753144AbaHXXc1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 19:32:27 -0400
+Received: by mail-pd0-f172.google.com with SMTP id y13so19233809pdi.3
+        for <netdev@vger.kernel.org>; Sun, 24 Aug 2014 16:32:26 -0700 (PDT)
+In-Reply-To: <1408905869-10471-5-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 08/24/2014 11:44 AM, Florian Fainelli wrote:
-> In case switch port tagging is disabled (voluntarily, or the switch just
-> does not support it), allow us to continue using the master net_device
-> operations instead of the tag-specific ones.
->
-> dsa_protocol_is_tagged() is updated to check that the switch driver
-> tag_protocol field is not 0 to avoid overriding skb->protocol in the
-> eth_type_trans().
+> We will later use the per-port device_node pointer to fetch a bunch of
+> port-specific properties.
 >
 > Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 > ---
-> Changes in v3:
-> - update logic with the helpers introduced in the firs patch set
-> - renamed dummy to notag
->
->  include/net/dsa.h |  2 +-
->  net/dsa/slave.c   | 25 ++++++++++++++++++++++++-
->  2 files changed, 25 insertions(+), 2 deletions(-)
+>  include/net/dsa.h | 1 +
+>  net/dsa/dsa.c     | 2 ++
+>  net/dsa/slave.c   | 1 +
+>  3 files changed, 4 insertions(+)
 >
 > diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index 89b44e8d2dc3..6620d4722efa 100644
+> index 91d5ba435ab6..66bb036831fd 100644
 > --- a/include/net/dsa.h
 > +++ b/include/net/dsa.h
-> @@ -206,7 +206,7 @@ static inline void *ds_to_priv(struct dsa_switch *ds)
->   */
->  static inline bool dsa_protocol_is_tagged(struct dsa_switch_tree *dst)
->  {
-> -	return dst->tag_protocol != ETH_P_EDSA;
-> +	return (dst->tag_protocol != 0) && (dst->tag_protocol != ETH_P_EDSA);
->  }
+> @@ -41,6 +41,7 @@ struct dsa_chip_data {
+>  	 * or any other string to indicate this is a physical port.
+>  	 */
+>  	char		*port_names[DSA_MAX_PORTS];
+> +	struct device_node *port_dn[DSA_MAX_PORTS];
 >  
->  static inline __be16 dsa_tag_protocol(struct dsa_switch_tree *dst)
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index b4b6d457bfd0..35cd8b7a56b8 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -332,6 +332,28 @@ static const struct net_device_ops trailer_netdev_ops = {
->  };
->  #endif
->  
-> +static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb,
-> +				  struct net_device *dev)
-> +{
-> +	struct dsa_slave_priv *p = netdev_priv(dev);
-> +
-> +	skb->dev = p->parent->dst->master_netdev;
-> +	dev_queue_xmit(skb);
-> +
-> +	return NETDEV_TX_OK;
-> +}
-> +
-> +static const struct net_device_ops notag_netdev_ops = {
-> +	.ndo_init		= dsa_slave_init,
-> +	.ndo_open		= dsa_slave_open,
-> +	.ndo_stop		= dsa_slave_close,
-> +	.ndo_start_xmit		= dsa_slave_xmit,
-> +	.ndo_change_rx_flags	= dsa_slave_change_rx_flags,
-> +	.ndo_set_rx_mode	= dsa_slave_set_rx_mode,
-> +	.ndo_set_mac_address	= dsa_slave_set_mac_address,
-> +	.ndo_do_ioctl		= dsa_slave_ioctl,
-> +};
-> +
->  static void dsa_slave_adjust_link(struct net_device *dev)
->  {
->  	struct dsa_slave_priv *p = netdev_priv(dev);
-> @@ -432,7 +454,8 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
->  		break;
->  #endif
->  	default:
-> -		BUG();
-> +		slave_dev->netdev_ops = &notag_netdev_ops;
-> +		break;
->  	}
->  
->  	SET_NETDEV_DEV(slave_dev, parent);
+>  	/*
+>  	 * An array (with nr_chips elements) of which element [a]
 
-Actually the more I look at this the more I think it might make sense to
-just have a pair of function pointers, maybe even a header ops structure
-that is maintained in the dsa_switch_tree for xmit and rcv.  Then
-instead of having to define 4 slaves each with only one function
-different between them you could have just one function that calls the
-xmit function pointer contained in the dsa_switch_tree structure.
+It might make sense to place name and device_node pointers members of a
+port struct, and move that array of structs to the end of the
+dsa_chip_data structure.
 
 Thanks,
 
-Alex
+ALex
