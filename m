@@ -1,57 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC net-next 2/2] net: skbuff: do not allocate emergency
- memory if flags is not __GFP_MEMALLOC
-Date: Sat, 23 Aug 2014 16:53:49 -0700
-Message-ID: <1408838029.5604.55.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1408829839-20742-1-git-send-email-_govind@gmx.com>
-	 <1408829839-20742-3-git-send-email-_govind@gmx.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] net: Add ops->ndo_xmit_flush()
+Date: Sat, 23 Aug 2014 17:19:03 -0700 (PDT)
+Message-ID: <20140823.171903.2039009790153576522.davem@davemloft.net>
+References: <20140823.132823.531609193955178433.davem@davemloft.net>
+	<53F9251A.80005@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	mgorman@suse.de
-To: Govindarajulu Varadarajan <_govind@gmx.com>
+Cc: netdev@vger.kernel.org, therbert@google.com, jhs@mojatatu.com,
+	hannes@stressinduktion.org, edumazet@google.com,
+	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au
+To: alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:35093 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751957AbaHWXxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 19:53:52 -0400
-Received: by mail-pd0-f181.google.com with SMTP id g10so17387918pdj.26
-        for <netdev@vger.kernel.org>; Sat, 23 Aug 2014 16:53:52 -0700 (PDT)
-In-Reply-To: <1408829839-20742-3-git-send-email-_govind@gmx.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37558 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751957AbaHXATH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Aug 2014 20:19:07 -0400
+In-Reply-To: <53F9251A.80005@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-08-24 at 03:07 +0530, Govindarajulu Varadarajan wrote:
-> It is possible that nc->frag.page is previously allocated from emergency memory.
-> For new alloc call, if the flags does not contain __GFP_MEMALLOC, do not
-> return pfmemalloc memory.
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Sat, 23 Aug 2014 16:34:50 -0700
+
+> On 08/23/2014 01:28 PM, David Miller wrote:
+>> @@ -3358,6 +3372,27 @@ int __init dev_proc_init(void);
+>>  #define dev_proc_init() 0
+>>  #endif
+>>  
+>> +static inline netdev_tx_t __netdev_start_xmit(const struct net_device_ops *ops,
+>> +					      struct sk_buff *skb, struct net_device *dev)
+>> +{
+>> +	netdev_tx_t ret;
+>> +	u16 q;
+>> +
+>> +	q = skb->queue_mapping;
+>> +	ret = ops->ndo_start_xmit(skb, dev);
+>> +	if (ops->ndo_xmit_flush)
+>> +		ops->ndo_xmit_flush(dev, q);
+>> +
+>> +	return ret;
+>> +}
+>> +
 > 
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
-> ---
->  net/core/skbuff.c | 7 +++++++
->  1 file changed, 7 insertions(+)
+> What about the case of ndo_start_xmit returning something like
+> NETDEV_TX_BUSY?  I am pretty sure you shouldn't be flushing unless
+> something has been enqueued.  You might want to add a new return that
+> specified that a frame has been enqueued but not flushed and then start
+> down the ndo_xmit_flush path.  Maybe something like NETDEV_TX_DEFERRED.
 > 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 51a3328..792ce89 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -364,6 +364,13 @@ recycle:
->  		atomic_set(&nc->frag.page->_count, NETDEV_PAGECNT_MAX_BIAS);
->  		nc->pagecnt_bias = NETDEV_PAGECNT_MAX_BIAS;
->  		nc->frag.offset = 0;
-> +	} else if (nc->frag.page->pfmemalloc && !(gfp_mask & __GFP_MEMALLOC)) {
-> +		if (atomic_sub_and_test(nc->pagecnt_bias,
-> +					&nc->frag.page->_count)) {
-> +			atomic_set(&nc->frag.page->_count, 1);
-> +			kfree(page_address(nc->frag.page));
+> You might even want to have a return from ndo_xmit_flush just to cover
+> any oddball cases like a lockless Tx where we might not be able to flush
+> because the queue is already being flushed by another entity.
 
-No idea of what you think you do.
+Indeed, the code as-is isn't correct and should guard the flush
+with a check of the 'ret' value.
 
-How have you tested this patch ?
-
-> +		}
-> +		goto refill;
->  	}
->  
->  	if (nc->frag.offset + fragsz > nc->frag.size) {
+I don't think LLTX drivers would be able to utilize the flush
+facility, which is even more incentive to not use LLTX.
