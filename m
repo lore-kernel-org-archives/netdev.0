@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v5 net-next 22/29] samples: bpf: add mini eBPF library to manipulate maps and programs
-Date: Sun, 24 Aug 2014 13:21:23 -0700
-Message-ID: <1408911690-7598-23-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v5 net-next 20/29] tracing: allow eBPF programs to be attached to kprobe/kretprobe
+Date: Sun, 24 Aug 2014 13:21:21 -0700
+Message-ID: <1408911690-7598-21-git-send-email-ast@plumgrid.com>
 References: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -23,202 +23,63 @@ In-Reply-To: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-the library includes a trivial set of BPF syscall wrappers:
-
-int bpf_create_map(int key_size, int value_size, int max_entries);
-
-int bpf_update_elem(int fd, void *key, void *value);
-
-int bpf_lookup_elem(int fd, void *key, void *value);
-
-int bpf_delete_elem(int fd, void *key);
-
-int bpf_get_next_key(int fd, void *key, void *next_key);
-
-int bpf_prog_load(enum bpf_prog_type prog_type,
-		  const struct sock_filter_int *insns, int insn_len,
-		  const char *license);
-
-bpf_prog_load() stores verifier log into global bpf_log_buf[] array
-
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- samples/bpf/libbpf.c |  138 ++++++++++++++++++++++++++++++++++++++++++++++++++
- samples/bpf/libbpf.h |   21 ++++++++
- 2 files changed, 159 insertions(+)
- create mode 100644 samples/bpf/libbpf.c
- create mode 100644 samples/bpf/libbpf.h
+ kernel/trace/trace_kprobe.c |   28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
 
-diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
-new file mode 100644
-index 000000000000..81396dab5caa
---- /dev/null
-+++ b/samples/bpf/libbpf.c
-@@ -0,0 +1,138 @@
-+/* eBPF mini library */
-+#include <stdlib.h>
-+#include <stdio.h>
-+#include <linux/unistd.h>
-+#include <unistd.h>
-+#include <string.h>
-+#include <linux/netlink.h>
-+#include <linux/bpf.h>
-+#include <errno.h>
-+#include "libbpf.h"
-+
-+struct nlattr_u32 {
-+	__u16 nla_len;
-+	__u16 nla_type;
-+	__u32 val;
-+};
-+
-+int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
-+		   int max_entries)
-+{
-+	struct nlattr_u32 attr[] = {
-+		{
-+			.nla_len = sizeof(struct nlattr_u32),
-+			.nla_type = BPF_MAP_KEY_SIZE,
-+			.val = key_size,
-+		},
-+		{
-+			.nla_len = sizeof(struct nlattr_u32),
-+			.nla_type = BPF_MAP_VALUE_SIZE,
-+			.val = value_size,
-+		},
-+		{
-+			.nla_len = sizeof(struct nlattr_u32),
-+			.nla_type = BPF_MAP_MAX_ENTRIES,
-+			.val = max_entries,
-+		},
-+	};
-+
-+	return syscall(__NR_bpf, BPF_MAP_CREATE, map_type, attr, sizeof(attr), 0);
-+}
-+
-+
-+int bpf_update_elem(int fd, void *key, void *value)
-+{
-+	return syscall(__NR_bpf, BPF_MAP_UPDATE_ELEM, fd, key, value, 0);
-+}
-+
-+int bpf_lookup_elem(int fd, void *key, void *value)
-+{
-+	return syscall(__NR_bpf, BPF_MAP_LOOKUP_ELEM, fd, key, value, 0);
-+}
-+
-+int bpf_delete_elem(int fd, void *key)
-+{
-+	return syscall(__NR_bpf, BPF_MAP_DELETE_ELEM, fd, key, 0, 0);
-+}
-+
-+int bpf_get_next_key(int fd, void *key, void *next_key)
-+{
-+	return syscall(__NR_bpf, BPF_MAP_GET_NEXT_KEY, fd, key, next_key, 0);
-+}
-+
-+#define ROUND_UP(x, n) (((x) + (n) - 1u) & ~((n) - 1u))
-+
-+char bpf_log_buf[LOG_BUF_SIZE];
-+
-+int bpf_prog_load(enum bpf_prog_type prog_type,
-+		  const struct bpf_insn *insns, int prog_len,
-+		  const char *license)
-+{
-+	int nlattr_size, license_len, err;
-+	void *nlattr, *ptr;
-+	char *log_buf = bpf_log_buf;
-+	int log_size = LOG_BUF_SIZE;
-+	int log_level = 1;
-+
-+	log_buf[0] = 0;
-+
-+	license_len = strlen(license) + 1;
-+	nlattr_size = sizeof(struct nlattr) + prog_len + sizeof(struct nlattr) +
-+		ROUND_UP(license_len, 4) +
-+		sizeof(struct nlattr) + sizeof(log_level) +
-+		sizeof(struct nlattr) + sizeof(log_buf) +
-+		sizeof(struct nlattr) + sizeof(log_size);
-+
-+	ptr = nlattr = malloc(nlattr_size);
-+	if (!ptr) {
-+		errno = ENOMEM;
-+		return -1;
+diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
+index 282f6e4e5539..b6db92207c99 100644
+--- a/kernel/trace/trace_kprobe.c
++++ b/kernel/trace/trace_kprobe.c
+@@ -19,6 +19,7 @@
+ 
+ #include <linux/module.h>
+ #include <linux/uaccess.h>
++#include <trace/bpf_trace.h>
+ 
+ #include "trace_probe.h"
+ 
+@@ -930,6 +931,22 @@ __kprobe_trace_func(struct trace_kprobe *tk, struct pt_regs *regs,
+ 	if (ftrace_trigger_soft_disabled(ftrace_file))
+ 		return;
+ 
++	if (call->flags & TRACE_EVENT_FL_BPF) {
++		struct bpf_context ctx = {};
++		unsigned long args[3];
++		/* get first 3 arguments of the function. x64 syscall ABI uses
++		 * the same 3 registers as x64 calling convention.
++		 * todo: implement it cleanly via arch specific
++		 * regs_get_argument_nth() helper
++		 */
++		syscall_get_arguments(current, regs, 0, 3, args);
++		ctx.arg1 = args[0];
++		ctx.arg2 = args[1];
++		ctx.arg3 = args[2];
++		trace_filter_call_bpf(ftrace_file->filter, &ctx);
++		return;
 +	}
 +
-+	*(struct nlattr *) ptr = (struct nlattr) {
-+		.nla_len = prog_len + sizeof(struct nlattr),
-+		.nla_type = BPF_PROG_TEXT,
-+	};
-+	ptr += sizeof(struct nlattr);
+ 	local_save_flags(irq_flags);
+ 	pc = preempt_count();
+ 
+@@ -978,6 +995,17 @@ __kretprobe_trace_func(struct trace_kprobe *tk, struct kretprobe_instance *ri,
+ 	if (ftrace_trigger_soft_disabled(ftrace_file))
+ 		return;
+ 
++	if (call->flags & TRACE_EVENT_FL_BPF) {
++		struct bpf_context ctx = {};
++		/* assume that register used to return a value from syscall is
++		 * the same as register used to return a value from a function
++		 * todo: provide arch specific helper
++		 */
++		ctx.ret = syscall_get_return_value(current, regs);
++		trace_filter_call_bpf(ftrace_file->filter, &ctx);
++		return;
++	}
 +
-+	memcpy(ptr, insns, prog_len);
-+	ptr += prog_len;
-+
-+	*(struct nlattr *) ptr = (struct nlattr) {
-+		.nla_len = ROUND_UP(license_len, 4) + sizeof(struct nlattr),
-+		.nla_type = BPF_PROG_LICENSE,
-+	};
-+	ptr += sizeof(struct nlattr);
-+
-+	memcpy(ptr, license, license_len);
-+	ptr += ROUND_UP(license_len, 4);
-+
-+	*(struct nlattr *) ptr = (struct nlattr) {
-+		.nla_len = sizeof(log_level) + sizeof(struct nlattr),
-+		.nla_type = BPF_PROG_LOG_LEVEL,
-+	};
-+	ptr += sizeof(struct nlattr);
-+	memcpy(ptr, &log_level, sizeof(log_level));
-+	ptr += sizeof(log_level);
-+
-+	*(struct nlattr *) ptr = (struct nlattr) {
-+		.nla_len = sizeof(log_buf) + sizeof(struct nlattr),
-+		.nla_type = BPF_PROG_LOG_BUF,
-+	};
-+	ptr += sizeof(struct nlattr);
-+	memcpy(ptr, &log_buf, sizeof(log_buf));
-+	ptr += sizeof(log_buf);
-+
-+	*(struct nlattr *) ptr = (struct nlattr) {
-+		.nla_len = sizeof(log_size) + sizeof(struct nlattr),
-+		.nla_type = BPF_PROG_LOG_SIZE,
-+	};
-+	ptr += sizeof(struct nlattr);
-+	memcpy(ptr, &log_size, sizeof(log_size));
-+	ptr += sizeof(log_size);
-+
-+	err = syscall(__NR_bpf, BPF_PROG_LOAD, prog_type, nlattr, nlattr_size, 0);
-+
-+	free(nlattr);
-+	return err;
-+}
-diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
-new file mode 100644
-index 000000000000..b19e39794291
---- /dev/null
-+++ b/samples/bpf/libbpf.h
-@@ -0,0 +1,21 @@
-+/* eBPF mini library */
-+#ifndef __LIBBPF_H
-+#define __LIBBPF_H
-+
-+struct bpf_insn;
-+
-+int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
-+		   int max_entries);
-+int bpf_update_elem(int fd, void *key, void *value);
-+int bpf_lookup_elem(int fd, void *key, void *value);
-+int bpf_delete_elem(int fd, void *key);
-+int bpf_get_next_key(int fd, void *key, void *next_key);
-+
-+int bpf_prog_load(enum bpf_prog_type prog_type,
-+		  const struct bpf_insn *insns, int insn_len,
-+		  const char *license);
-+
-+#define LOG_BUF_SIZE 8192
-+extern char bpf_log_buf[LOG_BUF_SIZE];
-+
-+#endif
+ 	local_save_flags(irq_flags);
+ 	pc = preempt_count();
+ 
 -- 
 1.7.9.5
