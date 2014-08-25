@@ -1,44 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: rds: Don't allocate rds_sock on stack
-Date: Mon, 25 Aug 2014 12:57:40 -0700 (PDT)
-Message-ID: <20140825.125740.214306460002405867.davem@davemloft.net>
-References: <1408926755-12277-1-git-send-email-broonie@kernel.org>
+Subject: Re: [PATCH net-next] r8152: check code with checkpatch.pl
+Date: Mon, 25 Aug 2014 12:58:52 -0700 (PDT)
+Message-ID: <20140825.125852.744688824103211496.davem@davemloft.net>
+References: <1394712342-15778-16-Taiwan-albertk@realtek.com>
+	<1394712342-15778-21-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chien.yen@oracle.com, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, linaro-kernel@lists.linaro.org,
-	broonie@linaro.org
-To: broonie@kernel.org
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36546 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36559 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751127AbaHYT5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 15:57:42 -0400
-In-Reply-To: <1408926755-12277-1-git-send-email-broonie@kernel.org>
+	with ESMTP id S1750834AbaHYT6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 15:58:53 -0400
+In-Reply-To: <1394712342-15778-21-Taiwan-albertk@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Brown <broonie@kernel.org>
-Date: Sun, 24 Aug 2014 19:32:35 -0500
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Mon, 25 Aug 2014 15:53:00 +0800
 
-> From: Mark Brown <broonie@linaro.org>
+>  626: CHECK: Alignment should match open parenthesis
+>  646: CHECK: Alignment should match open parenthesis
+>  655: CHECK: Alignment should match open parenthesis
+>  695: CHECK: Alignment should match open parenthesis
+>  729: CHECK: Alignment should match open parenthesis
+>  739: CHECK: Alignment should match open parenthesis
+>  976: WARNING: externs should be avoided in .c files
+>  1314: CHECK: Alignment should match open parenthesis
+>  1358: WARNING: networking block comments don't use an empty /* line, use /* Comment...
+>  1402: WARNING: networking block comments don't use an empty /* line, use /* Comment...
+>  1521: CHECK: multiple assignments should be avoided
+>  1775: CHECK: Alignment should match open parenthesis
+>  1838: CHECK: multiple assignments should be avoided
+>  1843: CHECK: multiple assignments should be avoided
+>  1847: CHECK: multiple assignments should be avoided
+>  1850: WARNING: Missing a blank line after declarations
+>  1864: CHECK: Alignment should match open parenthesis
+>  1872: CHECK: braces {} should be used on all arms of this statement
+>  1906: CHECK: usleep_range is preferred over udelay
+>  2865: WARNING: networking block comments don't use an empty /* line, use /* Comment...
+>  3088: CHECK: Alignment should match open parenthesis
+>  total: 0 errors, 5 warnings, 16 checks, 3567 lines checked
 > 
-> struct rds_sock is rather large ausing the following warning in an ARM
-> allmodconfig:
-> 
-> net/rds/iw_rdma.c:200:1: warning: the frame size of 1056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
-> 
-> Fix this by dynamically allocating struct rds_sock in rds_iw_update_cm_id
-> instead of allocating it on the stack.
-> 
-> Signed-off-by: Mark Brown <broonie@linaro.org>
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
-I'd like you to fix this differently.  Creating pseudo instances of
-objects, and partially initializing it, just to satisfy an interface
-is always a really bad sign.
-
-Create a key structure argument for rds_iw_get_device() and initialize that
-and pass it in instead, update the other caller similarly.
-
-Thanks.
+Applied, thanks.
