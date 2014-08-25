@@ -1,100 +1,59 @@
 From: KY Srinivasan <kys@microsoft.com>
 Subject: RE: [hyperv] BUG at drivers/hv/channel.c:462 while changing MTU
-Date: Mon, 25 Aug 2014 17:29:57 +0000
-Message-ID: <7f91b68831a84d488b8ae081c5b6ed9b@BY2PR0301MB0711.namprd03.prod.outlook.com>
-References: <20140819123655.GC12160@sucs.org>
-	<8dcf334714c44eeda54ecb129479719b@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-	<20140820034116.GA3407@sucs.org>
- <CAFLxGvx5_JSb7sRPXY01d+eNJ4p4fk=MySGyui91KNbdyLyQ_g@mail.gmail.com>
- <2c4d3b36d8be4fbf884d78c7507a29af@BY2PR0301MB0711.namprd03.prod.outlook.com>
- <53FB511E.5040906@nod.at>
+Date: Mon, 25 Aug 2014 17:34:27 +0000
+Message-ID: <cf94fd58947d4c5aa6d0d369c1126d7f@BY2PR0301MB0711.namprd03.prod.outlook.com>
+References: <20140819123655.GC12160@sucs.org> <20140825093648.GB5046@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Haiyang Zhang <haiyangz@microsoft.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Jason Wang <jasowang@redhat.com>,
-	"Daniel Borkmann" <dborkman@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Richard Weinberger <richard@nod.at>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	Haiyang Zhang <haiyangz@microsoft.com>
+To: Dan Carpenter <dan.carpenter@oracle.com>,
 	Sitsofe Wheeler <sitsofe@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53FB511E.5040906@nod.at>
+In-Reply-To: <20140825093648.GB5046@mwanda>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogUmljaGFyZCBXZWluYmVy
-Z2VyIFttYWlsdG86cmljaGFyZEBub2QuYXRdDQo+IFNlbnQ6IE1vbmRheSwgQXVndXN0IDI1LCAy
-MDE0IDg6MDcgQU0NCj4gVG86IEtZIFNyaW5pdmFzYW47IFNpdHNvZmUgV2hlZWxlcg0KPiBDYzog
-SGFpeWFuZyBaaGFuZzsgR3JlZyBLcm9haC1IYXJ0bWFuOyBkZXZlbEBsaW51eGRyaXZlcnByb2pl
-Y3Qub3JnOw0KPiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBKYXNvbiBXYW5nOyBEYW5p
-ZWwgQm9ya21hbm47IERhdmlkIFMuIE1pbGxlcjsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0K
-PiBTdWJqZWN0OiBSZTogW2h5cGVydl0gQlVHIGF0IGRyaXZlcnMvaHYvY2hhbm5lbC5jOjQ2MiB3
-aGlsZSBjaGFuZ2luZyBNVFUNCj4gDQo+IEFtIDI1LjA4LjIwMTQgMTY6NTMsIHNjaHJpZWIgS1kg
-U3Jpbml2YXNhbjoNCj4gPg0KPiA+DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+
-ID4+IEZyb206IFJpY2hhcmQgV2VpbmJlcmdlciBbbWFpbHRvOnJpY2hhcmQud2VpbmJlcmdlckBn
-bWFpbC5jb21dDQo+ID4+IFNlbnQ6IE1vbmRheSwgQXVndXN0IDI1LCAyMDE0IDM6NDggQU0NCj4g
-Pj4gVG86IFNpdHNvZmUgV2hlZWxlcg0KPiA+PiBDYzogSGFpeWFuZyBaaGFuZzsgS1kgU3Jpbml2
-YXNhbjsgR3JlZyBLcm9haC1IYXJ0bWFuOw0KPiA+PiBkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qu
-b3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBKYXNvbg0KPiA+PiBXYW5nOyBEYW5p
-ZWwgQm9ya21hbm47IERhdmlkIFMuIE1pbGxlcjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+
-PiBTdWJqZWN0OiBSZTogW2h5cGVydl0gQlVHIGF0IGRyaXZlcnMvaHYvY2hhbm5lbC5jOjQ2MiB3
-aGlsZSBjaGFuZ2luZw0KPiA+PiBNVFUNCj4gPj4NCj4gPj4gIHZpYQ0KPiA+Pg0KPiA+Pg0KPiA+
-PiBPbiBXZWQsIEF1ZyAyMCwgMjAxNCBhdCA1OjQxIEFNLCBTaXRzb2ZlIFdoZWVsZXIgPHNpdHNv
-ZmVAZ21haWwuY29tPg0KPiA+PiB3cm90ZToNCj4gPj4+IEF1ZyAyMCAwNDowNDo0MSB1YnVudHVo
-diBrZXJuZWw6IFsgICAgOS4yMzAzOTldIHJhbmRvbTogbm9uYmxvY2tpbmcgcG9vbA0KPiBpcw0K
-PiA+PiBpbml0aWFsaXplZA0KPiA+Pj4gQXVnIDIwIDA0OjA0OjQxIHVidW50dWh2IGtlcm5lbDog
-WyAgIDEwLjMzODQ4N10gRVhUNC1mcyAoc2RhMSk6IHJlLQ0KPiA+PiBtb3VudGVkLiBPcHRzOiBl
-cnJvcnM9cmVtb3VudC1ybw0KPiA+Pj4gQXVnIDIwIDA0OjA0OjQxIHVidW50dWh2IGtlcm5lbDog
-WyAgIDExLjA5OTA5NF0gaHZfc3RvcnZzYyB2bWJ1c18wXzE6DQo+ID4+IGNtZCAweDg1IHNjc2kg
-c3RhdHVzIDB4MiBzcmIgc3RhdHVzIDB4Ng0KPiA+Pj4gQXVnIDIwIDA0OjA0OjQxIHVidW50dWh2
-IGtlcm5lbDogWyAgIDExLjA5OTkwMV0gaHZfc3RvcnZzYyB2bWJ1c18wXzE6DQo+ID4+IGNtZCAw
-eDg1IHNjc2kgc3RhdHVzIDB4MiBzcmIgc3RhdHVzIDB4Ng0KPiA+Pj4gQXVnIDIwIDA0OjA0OjQz
-IHVidW50dWh2IGtlcm5lbDogWyAgIDEyLjk5OTgzMF0gcHNtb3VzZSBzZXJpbzE6DQo+IHRyYWNr
-cG9pbnQ6DQo+ID4+IElCTSBUcmFja1BvaW50IGZpcm13YXJlOiAweDAxLCBidXR0b25zOiAwLzAN
-Cj4gPj4+IEF1ZyAyMCAwMzo1NTo0NyB1YnVudHVodiBrZXJuZWw6IFsgICAxMy4wMDM2NTldIGlu
-cHV0OiBUUFBTLzIgSUJNDQo+ID4+IFRyYWNrUG9pbnQgYXMgL2RldmljZXMvcGxhdGZvcm0vaTgw
-NDIvc2VyaW8xL2lucHV0L2lucHV0NA0KPiA+Pj4gQXVnIDIwIDAzOjU3OjI4IHVidW50dWh2IGtl
-cm5lbDogWyAgMTEzLjcxMTgzMl0gaHZfbmV0dnNjIHZtYnVzXzBfMTQ6DQo+ID4+PiBuZXQgZGV2
-aWNlIHNhZmUgdG8gcmVtb3ZlIEF1ZyAyMCAwMzo1NzoyOCB1YnVudHVodiBrZXJuZWw6IFsNCj4g
-Pj4+IDExMy43MTM4ODJdIGh2X25ldHZzYzogaHZfbmV0dnNjIGNoYW5uZWwgb3BlbmVkIHN1Y2Nl
-c3NmdWxseSBBdWcgMjANCj4gPj4+IDAzOjU3OjI5IHVidW50dWh2IGtlcm5lbDogWyAgMTE0Ljk2
-MTMxMl0gaHZfbmV0dnNjIHZtYnVzXzBfMTQ6IFNlbmQNCj4gPj4+IHNlY3Rpb24gc2l6ZTogNjE0
-NCwgU2VjdGlvbiBjb3VudDoyNTYwIEF1ZyAyMCAwMzo1NzoyOSB1YnVudHVodg0KPiA+Pj4ga2Vy
-bmVsOiBbICAxMTQuOTYyNzExXSBodl9uZXR2c2Mgdm1idXNfMF8xNDogRGV2aWNlIE1BQw0KPiA+
-Pj4gMDA6MTU6NWQ6NmY6MDI6YWYgbGluayBzdGF0ZSB1cCBBdWcgMjAgMDM6NTc6MzQgdWJ1bnR1
-aHYga2VybmVsOiBbDQo+ID4+PiAxMjAuMDI3NzE4XSBodl9uZXR2c2Mgdm1idXNfMF8xNDogbmV0
-IGRldmljZSBzYWZlIHRvIHJlbW92ZSBBdWcgMjANCj4gPj4+IDAzOjU3OjM0IHVidW50dWh2IGtl
-cm5lbDogWyAgMTIwLjAzMDA0N10gaHZfbmV0dnNjOiBodl9uZXR2c2MNCj4gPj4+IGNoYW5uZWwg
-b3BlbmVkIHN1Y2Nlc3NmdWxseSBBdWcgMjAgMDM6NTc6MzQgdWJ1bnR1aHYga2VybmVsOiBbDQo+
-ID4+PiAxMjAuMDM1NDIyXQ0KPiA+PiBodl9uZXR2c2Mgdm1idXNfMF8xNCBldGgwOiB1bmFibGUg
-dG8gZXN0YWJsaXNoIHJlY2VpdmUgYnVmZmVyJ3MgZ3BhZGwNCj4gPj4gQXVnDQo+ID4+IDIwIDAz
-OjU3OjM0IHVidW50dWh2IGtlcm5lbDogWyAgMTIwLjAzOTc3OF0gaHZfbmV0dnNjIHZtYnVzXzBf
-MTQgZXRoMDoNCj4gPj4gdW5hYmxlIHRvIGNvbm5lY3QgdG8gTmV0VlNQIC0gNCBBdWcgMjAgMDM6
-NTc6MzQgdWJ1bnR1aHYga2VybmVsOiBbDQo+ID4+IDEyMC4wMzk4MThdIC0tLS0tLS0tLS0tLVsg
-Y3V0IGhlcmUgXS0tLS0tLS0tLS0tLSBBdWcgMjAgMDM6NTc6MzQgdWJ1bnR1aHYNCj4ga2VybmVs
-Og0KPiA+PiBbICAxMjAuMDM5ODMyXSBrZXJuZWwgQlVHIGF0IGRyaXZlcnMvaHYvY2hhbm5lbC5j
-OjUwNCENCj4gPj4NCj4gPj4gVGhpcyBpcyBvbmUgaXMgYWxzbyBhIHJ1ZGUgQlVHX09OOg0KPiA+
-PiAgICAgICAgIHJldCA9IHZtYnVzX3Bvc3RfbXNnKG1zZywgc2l6ZW9mKHN0cnVjdA0KPiA+PiB2
-bWJ1c19jaGFubmVsX2Nsb3NlX2NoYW5uZWwpKTsNCj4gPj4NCj4gPj4gICAgICAgICBCVUdfT04o
-cmV0ICE9IDApOw0KPiA+Pg0KPiA+PiB2bWJ1c19wb3N0X21zZygpIGh2X3Bvc3RfbWVzc2FnZSgp
-IGNhbiBlYXNpbHkgcmV0dXJuICEwLg0KPiA+PiBpLmUuIGlmIHRoaXMga21hbGxvYygpIGZhaWxz
-Og0KPiA+PiAgICAgICAgIGFkZHIgPSAodW5zaWduZWQgbG9uZylrbWFsbG9jKHNpemVvZihzdHJ1
-Y3QgYWxpZ25lZF9pbnB1dCksDQo+ID4+IEdGUF9BVE9NSUMpOw0KPiA+PiAgICAgICAgIGlmICgh
-YWRkcikNCj4gPj4gICAgICAgICAgICAgICAgIHJldHVybiAtRU5PTUVNOw0KPiA+DQo+ID4gSSB3
-aWxsIHN1Ym1pdCBhIHBhdGNoIHRvIGhhbmRsZSB0aGlzIGNhc2UuIEkgc3VzcGVjdCB0aG91Z2gg
-dGhhdCB0aGUNCj4gPiBvcmlnaW5hbCBBU1NFUlQgYXQgY2hhbm5lbC5jIChsaW5lIDUwNCkgaXMg
-bm90IHJlbGF0ZWQgdG8ga21hbGxvYyBmYWlsaW5nIGluDQo+IHZtYnVzX3Bvc3RfbXNnKCkuIEkg
-d2lsbCBhbHNvIGxvb2sgYXQgdGhhdCBpc3N1ZSBhcyB3ZWxsLg0KPiANCj4gSSdtIHN1cmUgeW91
-IGNhbiByZXBsYWNlIG1vc3QgQlVHX09OKCkgYnkgYSBXQVJOX09OKCkuDQo+IEFsc28gcHJpbnQg
-bW9yZSBkZXRhaWxzIHdoeSB0aGUgYXNzZXJ0aW9uIGRvZXMgbm90IGhvbGQuDQoNClRoZSBjYXNl
-cyB3aGVyZSBJIGhhdmUgaW50ZW5kZWQgdG8gdXNlIEJVR19PTiBhcmUgb25seSBjYXNlcyB3aGVy
-ZSB0aGVyZSB3YXMNCnJlYXNvbmFibGUgd2F5IHRvIHJvbGwgYmFjayBmcm9tIHRoZSBmYWlsdXJl
-IChiYXJyaW5nIGJ1Z3Mgc3VjaCBhcyB3aGF0IHdlIGFyZSBkaXNjdXNzaW5nIGhyZSkuDQpJIHdp
-bGwgYXVkaXQgYWxsIEJVR19PTiBjYWxscyBhbmQgYWxzbyBwcmludCBkZXRhaWxzIHRvIGhlbHAg
-ZGVidWcuDQoNClRoYW5rIHlvdSwNCg0KSy4gWSAgDQo+IA0KPiBUaGFua3MsDQo+IC8vcmljaGFy
-ZA0K
+
+
+> -----Original Message-----
+> From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
+> Sent: Monday, August 25, 2014 2:37 AM
+> To: Sitsofe Wheeler
+> Cc: KY Srinivasan; Greg Kroah-Hartman; Jason Wang; linux-
+> kernel@vger.kernel.org; David S. Miller; Daniel Borkmann;
+> netdev@vger.kernel.org; devel@linuxdriverproject.org; Haiyang Zhang
+> Subject: Re: [hyperv] BUG at drivers/hv/channel.c:462 while changing MTU
+> 
+> The code here is:
+> 
+> drivers/hv/channel.c
+>    460          BUG_ON(ret != 0);
+>    461          t = wait_for_completion_timeout(&info->waitevent, 5*HZ);
+>    462          BUG_ON(t == 0);
+> 
+> So it calls BUG_ON() if the teardown takes more than 5 seconds.  It's most
+> likely that there is a race condition somewhere.  It's also possible that it's just
+> taking longer than 5 seconds for some odd reason and the bug would go
+> away if we raised it to 60 seconds.
+> 
+> BUG_ON() after 5 seconds seems like a very aggressive thing.
+
+Dan,
+
+I am going to audit all BUG_ON() instances.
+
+Thanks,
+
+K. Y
+> 
+> regards,
+> dan carpenter
