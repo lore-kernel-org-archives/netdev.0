@@ -1,75 +1,56 @@
-From: Vivek Goyal <vgoyal@redhat.com>
-Subject: Re: [PATCH net-next V1 0/3] Make is_kdump_kernel() accessible from
- modules
-Date: Mon, 25 Aug 2014 14:06:14 -0400
-Message-ID: <20140825180614.GH14379@redhat.com>
-References: <1408972014-13319-1-git-send-email-amirv@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 02/17] tipc: Fix build.
+Date: Mon, 25 Aug 2014 11:44:20 -0700 (PDT)
+Message-ID: <20140825.114420.77676883396367108.davem@davemloft.net>
+References: <1408745360-23560-1-git-send-email-jon.maloy@ericsson.com>
+	<1408745360-23560-3-git-send-email-jon.maloy@ericsson.com>
+	<20140825102142.GA7151@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	paul.gortmaker@windriver.com, erik.hugne@ericsson.com,
+	ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28855 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933238AbaHYSGh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Aug 2014 14:06:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1408972014-13319-1-git-send-email-amirv@mellanox.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35716 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750938AbaHYSoX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 14:44:23 -0400
+In-Reply-To: <20140825102142.GA7151@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 25, 2014 at 04:06:51PM +0300, Amir Vadai wrote:
-> Hi,
-> 
-> I'm re-spinning this patchset. At the begining it was suggested to use a
-> different name for the parameter, but at the end [3] the resolution was to
-> leave it as it is in this patch.
-> 
-> Drivers need to know if running from kdump kernel in order to change their
-> memory profile - since kdump environment is limited by available memory.
-> Currently there are drivers that are using reset_devices as suggested in [2].
-> In [2] it was suggested to use reset_devices, but the context was, to enable
-> driver to know when the hardware device is needed to be reset, and not if this
-> is a kdump environment. We think that is_kdump_kernel() is better suited to
-> select between different memory profiles.
-> 
-> The first patch in this patchset exports a needed symbol in order to make
-> is_kdump_kernel() accessible from the drivers. The rest of the patches change
-> from reset_devices to is_kdump_kernel() in 2 networking drivers.
-> 
-> The idea of this patchset was suggested by Vivek Goyal.
-> 
-> Tested (only build) and applied on top of commit 8fc54f6: ("net: use
-> reciprocal_scale() helper")
-> 
-> [1] - ea1c1af: ("net/mlx4_en: Reduce memory consumption on kdump kernel")
-> [2] - https://lkml.org/lkml/2011/1/27/341
-> [3] - http://www.spinics.net/lists/netdev/msg291492.html
-> 
-> Thanks,
-> Amir
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 25 Aug 2014 06:21:42 -0400
 
-Looks good to me.
+> On Fri, Aug 22, 2014 at 06:09:05PM -0400, Jon Maloy wrote:
+>> From: "David S. Miller" <davem@davemloft.net>
+>> 
+>> Missing semicolon in range check fix.
+>> 
+>> Signed-off-by: David S. Miller <davem@davemloft.net>
+>> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+>> ---
+>>  net/tipc/port.h |    3 ++-
+>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>> 
+>> diff --git a/net/tipc/port.h b/net/tipc/port.h
+>> index a69118f..3087da3 100644
+>> --- a/net/tipc/port.h
+>> +++ b/net/tipc/port.h
+>> @@ -182,8 +182,9 @@ static inline int tipc_port_importance(struct tipc_port *port)
+>>  static inline int tipc_port_set_importance(struct tipc_port *port, int imp)
+>>  {
+>>  	if (imp > TIPC_CRITICAL_IMPORTANCE)
+>> -		return -EINVAL
+>> +		return -EINVAL;
+>>  	msg_set_importance(&port->phdr, (u32)imp);
+>> +	return 0;
+>>  }
+>>  
+> Fold this in with the previous patch to avoid a FTBFS during a bisect.
 
-Acked-by: Vivek Goyal <vgoyal@redhat.com>
-
-Vivek
-
-> 
-> Amir Vadai (3):
->   crash_dump: Make is_kdump_kernel() accessible from modules
->   net/mlx4: Use is_kdump_kernel() to detect kdump kernel
->   net/bnx2x: Use is_kdump_kernel() to detect kdump kernel
-> 
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  | 3 ++-
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 3 ++-
->  include/linux/mlx4/device.h                      | 3 ++-
->  kernel/crash_dump.c                              | 1 +
->  4 files changed, 7 insertions(+), 3 deletions(-)
-> 
-> -- 
-> 1.8.3.4
+See his header posting, these are changes already in mainline that hadn't
+hit net-next yet.
