@@ -1,93 +1,57 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH net-next 3/3] packet: make use of deferred TX queue
- flushing
-Date: Mon, 25 Aug 2014 17:16:34 +0200
-Message-ID: <20140825171634.180b5a07@redhat.com>
-References: <1408887738-7661-1-git-send-email-dborkman@redhat.com>
-	<1408887738-7661-4-git-send-email-dborkman@redhat.com>
-	<20140825155402.2f2a03d7@redhat.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next] net: Functions to report space available in
+ device TX queues
+Date: Mon, 25 Aug 2014 08:18:51 -0700
+Message-ID: <CA+mtBx8BJZPOH5zFFdXS0=RwRXqEiCmU-zLSbXLay2JCzyiKOA@mail.gmail.com>
+References: <alpine.DEB.2.02.1408241312500.30395@tomh.mtv.corp.google.com>
+	<20140824.223529.704627469513160252.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, Daniel Borkmann <dborkman@redhat.com>,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8085 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932637AbaHYPQi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Aug 2014 11:16:38 -0400
-In-Reply-To: <20140825155402.2f2a03d7@redhat.com>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:54136 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932412AbaHYPSw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 11:18:52 -0400
+Received: by mail-ie0-f182.google.com with SMTP id y20so9925206ier.41
+        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 08:18:51 -0700 (PDT)
+In-Reply-To: <20140824.223529.704627469513160252.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 25 Aug 2014 15:54:02 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+On Sun, Aug 24, 2014 at 10:35 PM, David Miller <davem@davemloft.net> wrote:
+> From: Tom Herbert <therbert@google.com>
+> Date: Sun, 24 Aug 2014 13:19:47 -0700 (PDT)
+>
+>> +/**
+>> + *   netdev_avail_queue - report how much space is availble for xmit
+>> + *   @dev: network device
+>> + *
+>> + *   Report the amount of space available in the TX queue in terms of
+>> + *   number of bytes. This returns the number of bytes avaiable per
+>> + *   DQL. This function may be called without taking the txlock on
+>> + *   the device, however in that case the result should be taken as
+>> + *   a (strong) hint.
+>> + */
+>> +static inline int netdev_avail_queue(struct net_device *dev_queue)
+>> +{
+>> +     return netdev_tx_avail_queue(netdev_get_tx_queue(dev_queue, 0));
+>> +}
+>> +
+>
+> This doesn't make any sense, you're only providing queue zero's
+> information.
+>
+It's consistent with the other BQL functions. netdev_*_queue is used
+for single queue devices, netdev_tx_*_queue is used for specific
+queues in MQ.
 
-> On Sun, 24 Aug 2014 15:42:18 +0200
-> Daniel Borkmann <dborkman@redhat.com> wrote:
-> 
-> > This adds a first use-case of deferred tail pointer flushing
-> > for AF_PACKET's TX_RING in QDISC_BYPASS mode.
-> 
-> Testing with trafgen.  I've updated patch 1/3 to NOT call mmiowb(),
-> during this testing, see why in my other post.
-> 
-> trafgen cmdline:
->  trafgen --cpp  --dev eth5 --conf udp_example01.trafgen -V --cpus 1
->  * Only use 1 CPU
->  * default is mmap
->  * default is QDISC_BYPASS mode
-> 
-> BASELINE(no-patches): trafgen QDISC_BYPASS and mmap:
->  - tx:1562539 pps
-> 
-> With PACKET_FLUSH_THRESH=8, and QDISC_BYPASS and mmap:
->  - tx:1683746 pps
-> 
-> Improvement:
->  + 121207 pps
->  - 46 ns (1/1562539*10^9)-(1/1683746*10^9)
-> 
-> This is a significant improvement! :-)
+> You're passing in a net_device, calling it a "dev_queue" in the
+> variable name, the exlicitly using queue zero of that device in the
+> netdev_get_tx_queue() call.
+>
+Cut and paste prototype from netdev_reset_queue which was doing
+that... I'll fix it.
 
-I'm unfortunately seeing a regression, if I'm NOT bypassing the qdisc
-layer, and still use mmap.  Trafgen have an option --qdisc-path for
-this. (I believe most other solutions, don't set the QDISC_BYPASS
-socket option)
-
-trafgen command:
- # trafgen --cpp --dev eth5 --conf udp_example01.trafgen -V  --qdisc-path --cpus 1
- * still use mmap
- * choose normal qdisc code path via --qdisc-path
-
-BASELINE(no-patches): trafgen using --qdisc-path and mmap:
- - tx:1371307 pps
-
-(Patched): trafgen using --qdisc-path and mmap
- - tx:1345999 pps
-
-Regression:
- * 25308 pps slower than before
- * 13.71 nanosec slower (1/1371307*10^9)-(1/1345999*10^9)
-
-How can we explain this?!?
-
-As can be deducted from the baseline numbers, the cost of the qdisc
-path is fairly high, with 89.24 ns ((1/1562539*10^9)-(1/1371307*10^9)).
-(This is a bit higher than I expected based on my data from:
-http://people.netfilter.org/hawk/presentations/nfws2014/dp-accel-qdisc-lockless.pdf
-where I measured it to be 60ns).
-
-(Does this makes sense?):  Above results say we can save 46ns by
-delaying tailptr updates.  But the qdisc path itself will add 89ns of
-delay between packet, which is then too large to take advantage of the
-tailptr win.  (not sure this explains the issue... feel free to come up
-with a better explanation)
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+> Pretty confusing if you ask me :)
