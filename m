@@ -1,72 +1,84 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH v2 7/8] mvneta: Fix TSO and checksum for non-acceleration vlan traffic
-Date: Mon, 25 Aug 2014 10:34:54 -0400
-Message-ID: <1408977295-9162-8-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v2 6/8] i40evf: Fix TSO and hw checksums for
+	non-accelerated vlan packets.
+Date: Mon, 25 Aug 2014 10:34:53 -0400
+Message-ID: <1408977295-9162-7-git-send-email-vyasevic@redhat.com>
 References: <1408977295-9162-1-git-send-email-vyasevic@redhat.com>
-Cc: Vladislav Yasevich <vyasevic@redhat.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Vladislav Yasevich <vyasevic@redhat.com>, Linux NICS <linux.nics@intel.com>,
+	e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Ronciak <john.ronciak@intel.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f53.google.com ([209.85.192.53]:62234 "EHLO
-	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932749AbaHYOf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 10:35:26 -0400
-Received: by mail-qg0-f53.google.com with SMTP id z60so9656459qgd.40
-        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 07:35:25 -0700 (PDT)
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 In-Reply-To: <1408977295-9162-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This driver doesn't appear to support vlan acceleration at
-all.  However, it does claim to support TSO and IP checksums
-for vlan devices.  Thus any configured vlan device would
-end up passing down partial checksums or TSO frames.
+This device claims TSO and checksum support for vlans.  It also
+allows a user to control vlan acceleration offloading.  As such,
+it is possible to turn off vlan acceleration and configure a vlan
+which will continue to support TSO and hw checksums.
 
-The driver also uses the value from skb->protocol to
-determine TSO and checksum offload information, but assumes
-that skb->protocol holds the l3 protocol information.
-As a result, vlan traffic with partial checksums or TSO
-will fail those checks and TSO will not happen.
+In such situation the packet passed down the the device will contain
+a vlan header and skb->protocol will be set to ETH_P_8021Q.
+The device assumes that skb->protocol contains network protocol
+value and uses that value to set up TSO and checksum information.
+This results in corrupted frames sent on the wire.
+
+This patch extract the protocol value correctly and corrects TSO
+and checksums for non-accelerated traffic.
 
 Fix this by using vlan_get_protocol() helper.
 
-CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Bruce Allan <bruce.w.allan@intel.com>
+CC: Carolyn Wyborny <carolyn.wyborny@intel.com>
+CC: Don Skidmore <donald.c.skidmore@intel.com>
+CC: Greg Rose <gregory.v.rose@intel.com>
+CC: Alex Duyck <alexander.h.duyck@intel.com>
+CC: John Ronciak <john.ronciak@intel.com>
+CC: Mitch Williams <mitch.a.williams@intel.com>
+CC: Linux NICS <linux.nics@intel.com>
+CC: e1000-devel@lists.sourceforge.net
 Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index c9f1d1b..133f8c6 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -1371,15 +1371,16 @@ static u32 mvneta_skb_tx_csum(struct mvneta_port *pp, struct sk_buff *skb)
- {
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		int ip_hdr_len = 0;
-+		__be16 l3_proto = vlan_get_protocol(skb);
- 		u8 l4_proto;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 79bf96c..95a3ec2 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1597,7 +1597,7 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 		goto out_drop;
  
--		if (skb->protocol == htons(ETH_P_IP)) {
-+		if (l3_proto == htons(ETH_P_IP)) {
- 			struct iphdr *ip4h = ip_hdr(skb);
+ 	/* obtain protocol of skb */
+-	protocol = skb->protocol;
++	protocol = vlan_get_protocol(skb);
  
- 			/* Calculate IPv4 checksum and L4 checksum */
- 			ip_hdr_len = ip4h->ihl;
- 			l4_proto = ip4h->protocol;
--		} else if (skb->protocol == htons(ETH_P_IPV6)) {
-+		} else if (l3_proto == htons(ETH_P_IPV6)) {
- 			struct ipv6hdr *ip6h = ipv6_hdr(skb);
- 
- 			/* Read l4_protocol from one of IPv6 extra headers */
-@@ -1390,7 +1391,7 @@ static u32 mvneta_skb_tx_csum(struct mvneta_port *pp, struct sk_buff *skb)
- 			return MVNETA_TX_L4_CSUM_NOT;
- 
- 		return mvneta_txq_desc_csum(skb_network_offset(skb),
--				skb->protocol, ip_hdr_len, l4_proto);
-+					    l3_proto, ip_hdr_len, l4_proto);
- 	}
- 
- 	return MVNETA_TX_L4_CSUM_NOT;
+ 	/* record the location of the first descriptor for this packet */
+ 	first = &tx_ring->tx_bi[tx_ring->next_to_use];
 -- 
 1.9.3
+
+
+------------------------------------------------------------------------------
+Slashdot TV.  
+Video for Nerds.  Stuff that matters.
+http://tv.slashdot.org/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
