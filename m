@@ -1,52 +1,127 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 5/5] bnx2x: Fix timesync endianity
-Date: Mon, 25 Aug 2014 17:48:33 +0300
-Message-ID: <1408978113-27902-6-git-send-email-Yuval.Mintz@qlogic.com>
-References: <1408978113-27902-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH net-next 1/2] tipc: refactor name table updates out of named packet receive routine
+Date: Mon, 25 Aug 2014 16:54:28 +0200
+Message-ID: <1408978469-10584-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <Ariel.Elior@qlogic.com>,
-	Michal Kalderon <Michal.Kalderon@qlogic.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Cc: <tipc-discussion@lists.sourceforge.net>,
+	Erik Hugne <erik.hugne@ericsson.com>
+To: <jon.maloy@ericsson.com>, <ying.xue@windriver.com>,
+	<richard.alpe@ericsson.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:20882 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932959AbaHYOtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 10:49:07 -0400
-In-Reply-To: <1408978113-27902-1-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from sessmg23.ericsson.net ([193.180.251.45]:51152 "EHLO
+	sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933008AbaHYOt6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 10:49:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kalderon <Michal.Kalderon@qlogic.com>
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-Commit eeed018cbfa30 ("bnx2x: Add timestamping and PTP hardware clock support")
-has a missing conversion to LE32, which will prevent the feature from working
-on big endian machines.
+We need to perform the same actions when processing deferred name
+table updates, so this functionality is moved to a separate
+function.
 
-Signed-off-by: Michal Kalderon <Michal.Kalderon@qlogic.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ net/tipc/name_distr.c | 74 ++++++++++++++++++++++++++-------------------------
+ 1 file changed, 38 insertions(+), 36 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-index 798e97f..38acecd 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-@@ -5877,8 +5877,10 @@ int bnx2x_func_send_set_timesync(struct bnx2x *bp,
- 		set_timesync_params->add_sub_drift_adjust_value;
- 	rdata->drift_adjust_value = set_timesync_params->drift_adjust_value;
- 	rdata->drift_adjust_period = set_timesync_params->drift_adjust_period;
--	rdata->offset_delta.lo = U64_LO(set_timesync_params->offset_delta);
--	rdata->offset_delta.hi = U64_HI(set_timesync_params->offset_delta);
-+	rdata->offset_delta.lo =
-+		cpu_to_le32(U64_LO(set_timesync_params->offset_delta));
-+	rdata->offset_delta.hi =
-+		cpu_to_le32(U64_HI(set_timesync_params->offset_delta));
+diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
+index dcc15bc..0591f33 100644
+--- a/net/tipc/name_distr.c
++++ b/net/tipc/name_distr.c
+@@ -263,52 +263,54 @@ static void named_purge_publ(struct publication *publ)
+ }
  
- 	DP(BNX2X_MSG_SP, "Set timesync command params: drift_cmd = %d, offset_cmd = %d, add_sub_drift = %d, drift_val = %d, drift_period = %d, offset_lo = %d, offset_hi = %d\n",
- 	   rdata->drift_adjust_cmd, rdata->offset_cmd,
+ /**
++ * tipc_update_nametbl - try to process a nametable update and notify
++ *			 subscribers
++ *
++ * tipc_nametbl_lock must be held.
++ * Returns the publication item if successful, otherwise NULL.
++ */
++struct publication *tipc_update_nametbl(struct distr_item *i, u32 node,
++					u32 dtype)
++{
++	struct publication *publ = NULL;
++
++	if (dtype == PUBLICATION) {
++		publ = tipc_nametbl_insert_publ(ntohl(i->type), ntohl(i->lower),
++						ntohl(i->upper),
++						TIPC_CLUSTER_SCOPE, node,
++						ntohl(i->ref), ntohl(i->key));
++		if (publ) {
++			tipc_nodesub_subscribe(&publ->subscr, node, publ,
++					       (net_ev_handler)
++					       named_purge_publ);
++		}
++	} else if (dtype == WITHDRAWAL) {
++		publ = tipc_nametbl_remove_publ(ntohl(i->type), ntohl(i->lower),
++						node, ntohl(i->ref),
++						ntohl(i->key));
++		if (publ) {
++			tipc_nodesub_unsubscribe(&publ->subscr);
++			kfree(publ);
++		}
++	} else {
++		pr_warn("Unrecognized name table message received\n");
++	}
++	return publ;
++}
++
++/**
+  * tipc_named_rcv - process name table update message sent by another node
+  */
+ void tipc_named_rcv(struct sk_buff *buf)
+ {
+-	struct publication *publ;
+ 	struct tipc_msg *msg = buf_msg(buf);
+ 	struct distr_item *item = (struct distr_item *)msg_data(msg);
+ 	u32 count = msg_data_sz(msg) / ITEM_SIZE;
+ 
+ 	write_lock_bh(&tipc_nametbl_lock);
+ 	while (count--) {
+-		if (msg_type(msg) == PUBLICATION) {
+-			publ = tipc_nametbl_insert_publ(ntohl(item->type),
+-							ntohl(item->lower),
+-							ntohl(item->upper),
+-							TIPC_CLUSTER_SCOPE,
+-							msg_orignode(msg),
+-							ntohl(item->ref),
+-							ntohl(item->key));
+-			if (publ) {
+-				tipc_nodesub_subscribe(&publ->subscr,
+-						       msg_orignode(msg),
+-						       publ,
+-						       (net_ev_handler)
+-						       named_purge_publ);
+-			}
+-		} else if (msg_type(msg) == WITHDRAWAL) {
+-			publ = tipc_nametbl_remove_publ(ntohl(item->type),
+-							ntohl(item->lower),
+-							msg_orignode(msg),
+-							ntohl(item->ref),
+-							ntohl(item->key));
+-
+-			if (publ) {
+-				tipc_nodesub_unsubscribe(&publ->subscr);
+-				kfree(publ);
+-			} else {
+-				pr_err("Unable to remove publication by node 0x%x\n"
+-				       " (type=%u, lower=%u, ref=%u, key=%u)\n",
+-				       msg_orignode(msg), ntohl(item->type),
+-				       ntohl(item->lower), ntohl(item->ref),
+-				       ntohl(item->key));
+-			}
+-		} else {
+-			pr_warn("Unrecognized name table message received\n");
+-		}
++		tipc_update_nametbl(item, msg_orignode(msg),
++				    msg_type(msg));
+ 		item++;
+ 	}
+ 	write_unlock_bh(&tipc_nametbl_lock);
 -- 
-1.8.3.1
+1.8.3.2
