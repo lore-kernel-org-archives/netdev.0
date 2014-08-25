@@ -1,54 +1,35 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next v3 04/12] net: dsa: retain a per-port device_node
- pointer
-Date: Sun, 24 Aug 2014 16:32:23 -0700
-Message-ID: <53FA7607.1080906@gmail.com>
-References: <1408905869-10471-1-git-send-email-f.fainelli@gmail.com> <1408905869-10471-5-git-send-email-f.fainelli@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v5 net-next 00/29] BPF syscall, maps, verifier,
+ samples, llvm
+Date: Sun, 24 Aug 2014 17:39:19 -0700 (PDT)
+Message-ID: <20140824.173919.1884241872806255607.davem@davemloft.net>
+References: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemlof.net, jhs@mojatatu.com, linville@tuxdriver.com,
-	alexander.h.duyck@intel.com
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:33313 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753144AbaHXXc1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 19:32:27 -0400
-Received: by mail-pd0-f172.google.com with SMTP id y13so19233809pdi.3
-        for <netdev@vger.kernel.org>; Sun, 24 Aug 2014 16:32:26 -0700 (PDT)
-In-Reply-To: <1408905869-10471-5-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org,
+	brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1408911690-7598-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/24/2014 11:44 AM, Florian Fainelli wrote:
-> We will later use the per-port device_node pointer to fetch a bunch of
-> port-specific properties.
->
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  include/net/dsa.h | 1 +
->  net/dsa/dsa.c     | 2 ++
->  net/dsa/slave.c   | 1 +
->  3 files changed, 4 insertions(+)
->
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index 91d5ba435ab6..66bb036831fd 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -41,6 +41,7 @@ struct dsa_chip_data {
->  	 * or any other string to indicate this is a physical port.
->  	 */
->  	char		*port_names[DSA_MAX_PORTS];
-> +	struct device_node *port_dn[DSA_MAX_PORTS];
->  
->  	/*
->  	 * An array (with nr_chips elements) of which element [a]
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Date: Sun, 24 Aug 2014 13:21:01 -0700
 
-It might make sense to place name and device_node pointers members of a
-port struct, and move that array of structs to the end of the
-dsa_chip_data structure.
+> enough RFCs, let's finalize it...
 
-Thanks,
+Please break this down into smaller, easier to review, sets
+of changes.
 
-ALex
+Asking people to review nearly 30 patches at once isn't reasonable.
+
+Shoot for something like about 10 at a time, at most.
+
+Thank you.
