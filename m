@@ -1,62 +1,60 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH] cdc-ether: clean packet filter upon probe
-Date: Mon, 25 Aug 2014 14:13:42 +0200
-Message-ID: <1408968822.10300.18.camel@linux-fkkt.site>
-References: <1406537796-20156-1-git-send-email-oneukum@suse.de>
-	 <87a977z5pn.fsf@nemi.mork.no> <1408083121.17565.4.camel@linux-fkkt.site>
-	 <87d2c2xm2k.fsf@nemi.mork.no> <1408954063.10300.1.camel@linux-fkkt.site>
-	 <87a96tc692.fsf@nemi.mork.no>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] crypto: tcrypt: new user interface with debugfs
+Date: Mon, 25 Aug 2014 20:14:55 +0800
+Message-ID: <20140825121455.GB27102@gondor.apana.org.au>
+References: <1407643462-3355-1-git-send-email-luca.clementi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:46425 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751731AbaHYMNo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Aug 2014 08:13:44 -0400
-In-Reply-To: <87a96tc692.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
+To: Luca Clementi <luca.clementi@gmail.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1407643462-3355-1-git-send-email-luca.clementi@gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-08-25 at 10:39 +0200, Bj=C3=B8rn Mork wrote:
-> Oliver Neukum <oneukum@suse.de> writes:
-> > On Fri, 2014-08-15 at 09:13 +0200, Bj=C3=B8rn Mork wrote:
-> >> Oliver Neukum <oneukum@suse.de> writes:
-> >>=20
-> >> > On Thu, 2014-08-14 at 13:11 +0200, Bj=C3=B8rn Mork wrote:
-> >
-> >> > Support for this request is mandatory.
-> >>=20
-> >> Yes, there is no problem for standard conforming ECM devices.  I f=
-ully
-> >> agree there.=20
-> >>=20
-> >> But standard conformance is unfortunately not something we can exp=
-ect.
-> >> My question was regarding the non-conforming devices, like the one=
-s
-> >> supported by th zaurus and rndis_host drivers.  These drivers are =
-made
-> >
-> > You have a point. Yet another flag? Do you see an alternative?
->=20
-> Note that I don't know whether this is a real problem or not. I don't
-> believe I have any zaurus or rndis_host devices.
->=20
-> But how about just splitting the .bind functions for true ECM devices
-> and the others, letting the zaurus and rndis_host driver continue to =
-use
-> usbnet_cdc_bind with no filter setting?  Maybe define a new unexporte=
-d
-> .bind in cdc_ether for this purpose, moving the ECM specific
-> initialization there?
->=20
-> Maybe something along this (instead of the change to
-> usbnet_generic_cdc_bind)?:
+On Sun, Aug 10, 2014 at 04:04:22AM +0000, Luca Clementi wrote:
+> tcrypt is a kernel module which can be used to trigger speed tests on
+> different parts of the crypto API. To trigger a test, users has to load the
+> module using various module parameters, e.g.:
+> 
+>  # modprobe tcrypt mode=404 sec=5
+> 
+> All tcrypt tests are implemented in the _init function, their output is sent to
+> the printk buffer, and once the test is over _init always returns a failure.
+> 
+> This patch modifies tcrypt in order to expose a debugfs user space interface
+> which can be used to trigger tcrypt tests and to get their output. All tests
+> output is redirected to an internal ring buffer.
+> 
+> The following files are available in the tcrypt debugfs directory:
+> 
+>  - command: this file can be use to control which test should be run simply
+>             writing the test name to it. it also supports clearing the 'output'
+>             buffer and listing all available tests
+> 
+>  - output:  holds a ring buffer with the output of the tests
+> 
+>  - seconds: this file can be used to control the number of seconds that a
+>             tests should be run consecutively. If zero it uses CPU cycles
+> 
+> This patch is not for inclusion, but I'd like to know if my approach makes
+> sense and if debugfs is the right place to expose a tcrypt interface.
+> 
+> Some functionalities available in the current version of the module are still
+> missing in this version (in particular test_available and do_alg_test are not
+> implemented yet). I also don't like the implementation of the 'fixed_tests' but
+> as i said, this is just a prototype.
+> 
+> Signed-off-by: Luca Clementi <luca.clementi@gmail.com>
 
-Yes, that looks superior.
+It's certainly an interesting idea.  However, one of the attractive
+things about the current setup is the ease of use.  So I'd like to
+hear from others who use tcrypt on what they feel about converting
+over to something like debugfs.
 
-	Regards
-		Oliver
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
