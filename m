@@ -1,48 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Basic deferred TX queue flushing infrastructure.
-Date: Mon, 25 Aug 2014 15:31:46 -0700 (PDT)
-Message-ID: <20140825.153146.2165451041039058085.davem@davemloft.net>
-References: <20140823.132811.751469424156827125.davem@davemloft.net>
-	<20140823.213839.1953243016141233125.davem@davemloft.net>
-	<CAHA+R7O_RSyKVNqcHXePbahvU+ayf77w61jos=G38M93okVWKw@mail.gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: Header length compution function
+Date: Mon, 25 Aug 2014 15:32:32 -0700 (PDT)
+Message-ID: <20140825.153232.123310243841432720.davem@davemloft.net>
+References: <53DA61FE.40406@intel.com>
+	<20140823.121959.890509134482478336.davem@davemloft.net>
+	<53FBB702.8080905@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, jhs@mojatatu.com,
-	hannes@stressinduktion.org, edumazet@google.com,
-	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au
-To: cwang@twopensource.com
+Cc: eric.dumazet@gmail.com, amirv@mellanox.com, netdev@vger.kernel.org,
+	ogerlitz@mellanox.com, yevgenyp@mellanox.com, idos@mellanox.com,
+	therbert@google.com
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38585 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38602 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755332AbaHYWbs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:31:48 -0400
-In-Reply-To: <CAHA+R7O_RSyKVNqcHXePbahvU+ayf77w61jos=G38M93okVWKw@mail.gmail.com>
+	with ESMTP id S1755148AbaHYWcd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:32:33 -0400
+In-Reply-To: <53FBB702.8080905@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <cwang@twopensource.com>
-Date: Mon, 25 Aug 2014 15:21:00 -0700
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Mon, 25 Aug 2014 15:21:54 -0700
 
-> When I tried to unify the list management of SKB's, I was surprised to see
-> there are still some places relying on skb->next and skb->prev to be
-> the head of the skb struct, since nowadays we have list API's, they still
-> play some magic on these pointers (sctp and tipc IIRC). This is why I
-> gave up, maybe it's time to revise this again.
+> On 08/23/2014 12:19 PM, David Miller wrote:
+>> From: Alexander Duyck <alexander.h.duyck@intel.com>
+>> Date: Thu, 31 Jul 2014 08:34:22 -0700
+>> 
+>>> On 07/30/2014 06:39 PM, David Miller wrote:
+>>>> I don't think my proposed patch is a bad trade off.  Where we have the
+>>>> __skb_header_pointer() thing that takes preloaded pointers and header
+>>>> length values.  It adds only one test which frankly should never
+>>>> trigger and can be moved down into skb_copy_bits() or similar.
+>>>
+>>> This works for me.  Once it is in I can see about pushing a patch to add
+>>> some FCoE support and work on moving over igb and ixgbe.
+>> 
+>> You should be able to do this against net-next now, just FYI.
+>> 
+> 
+> Actually I was just looking at the code.  It looks like commit
+> 19469a873bafd4e65daef3597db2bd724c1b03c9 "flow_dissector: Use IPv6 flow
+> label in flow_dissector" is likely breaking things in terms of trying to
+> use this function to get the header length since the code now returns
+> early if an IPv6 flow label is present.
 
-I think SCTP should be OK, and yes I do remember that protocol being one of
-the last subsystems making such SKB list pointer assumptions.
-
-It was using list_*() operations on sk_buff objects or something like that.
-
-> Talking about skb->next, fortunately we do gso segmentation after
-> going out of qdisc queues, otherwise it's scary to play with these
-> pointers at same time. I think all queues of SKB's are either using
-> just ->next or both ->prev and ->next.
-
-It occurs to me that perhaps the thing to do is to pass sk_buff ** to
-dev_hard_start_xmit().
-
-If it really is important to free the original GSO skb after the
-segmented parts, we can run that as part of the destructor of the
-final segment.
+Feel free to insert a facility to disable that logic.
