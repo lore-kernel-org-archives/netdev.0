@@ -1,46 +1,51 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net-next 1/2] net: Header length compution function
-Date: Mon, 25 Aug 2014 15:21:54 -0700
-Message-ID: <53FBB702.8080905@intel.com>
-References: <53D90099.6040906@intel.com>	<20140730.183907.1435538533126954589.davem@davemloft.net>	<53DA61FE.40406@intel.com> <20140823.121959.890509134482478336.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, amirv@mellanox.com, netdev@vger.kernel.org,
-	ogerlitz@mellanox.com, yevgenyp@mellanox.com, idos@mellanox.com,
-	Tom Herbert <therbert@google.com>
-To: David Miller <davem@davemloft.net>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [RFC PATCH net-next] ipv6: stop sending PTB packets for MTU < 1280
+Date: Tue, 26 Aug 2014 00:25:45 +0200
+Message-ID: <1409005545-24910-2-git-send-email-hagen@jauu.net>
+References: <53F39E50.1020209@gont.com.ar>
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
+	Fernando Gont <fgont@si6networks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:35951 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755147AbaHYWV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Aug 2014 18:21:56 -0400
-In-Reply-To: <20140823.121959.890509134482478336.davem@davemloft.net>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:42525 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751780AbaHYW0u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:26:50 -0400
+Received: by mail-wi0-f174.google.com with SMTP id d1so3272523wiv.13
+        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 15:26:49 -0700 (PDT)
+In-Reply-To: <53F39E50.1020209@gont.com.ar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/23/2014 12:19 PM, David Miller wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> Date: Thu, 31 Jul 2014 08:34:22 -0700
-> 
->> On 07/30/2014 06:39 PM, David Miller wrote:
->>> I don't think my proposed patch is a bad trade off.  Where we have the
->>> __skb_header_pointer() thing that takes preloaded pointers and header
->>> length values.  It adds only one test which frankly should never
->>> trigger and can be moved down into skb_copy_bits() or similar.
->>
->> This works for me.  Once it is in I can see about pushing a patch to add
->> some FCoE support and work on moving over igb and ixgbe.
-> 
-> You should be able to do this against net-next now, just FYI.
-> 
+Reduce the attack vector and stop generating ICMPv6 packet to big for
+packets smaller then the minimal required IPv6 MTU.
 
-Actually I was just looking at the code.  It looks like commit
-19469a873bafd4e65daef3597db2bd724c1b03c9 "flow_dissector: Use IPv6 flow
-label in flow_dissector" is likely breaking things in terms of trying to
-use this function to get the header length since the code now returns
-early if an IPv6 flow label is present.
+See
+http://tools.ietf.org/html/draft-gont-6man-deprecate-atomfrag-generation-00
 
-Thanks,
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+---
+ net/ipv6/route.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-Alex
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index f74b041..84ebacd 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1154,12 +1154,9 @@ static void ip6_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
+ 		struct net *net = dev_net(dst->dev);
+ 
+ 		rt6->rt6i_flags |= RTF_MODIFIED;
+-		if (mtu < IPV6_MIN_MTU) {
+-			u32 features = dst_metric(dst, RTAX_FEATURES);
++		if (mtu < IPV6_MIN_MTU)
+ 			mtu = IPV6_MIN_MTU;
+-			features |= RTAX_FEATURE_ALLFRAG;
+-			dst_metric_set(dst, RTAX_FEATURES, features);
+-		}
++
+ 		dst_metric_set(dst, RTAX_MTU, mtu);
+ 		rt6_update_expires(rt6, net->ipv6.sysctl.ip6_rt_mtu_expires);
+ 	}
+-- 
+2.1.0
