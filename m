@@ -1,29 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2] nstat: 64bit support on 32bit arches
-Date: Mon, 25 Aug 2014 15:52:54 -0700
-Message-ID: <1409007174.3173.1.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1408976874.5604.65.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140825144808.25459645@urahara>
+From: David Miller <davem@davemloft.net>
+Subject: using rhashtable in inethash
+Date: Mon, 25 Aug 2014 16:12:24 -0700 (PDT)
+Message-ID: <20140825.161224.1108200625385309828.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:42000 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933601AbaHYWwz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:52:55 -0400
-Received: by mail-pa0-f49.google.com with SMTP id hz1so21677488pad.8
-        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 15:52:55 -0700 (PDT)
-In-Reply-To: <20140825144808.25459645@urahara>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39047 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755133AbaHYXM0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 19:12:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-08-25 at 14:48 -0700, Stephen Hemminger wrote:
 
-> 
-> Maybe time to convert to using uint64_t and the printf formats in inttypes.h
+During the Networking Workshop I mentioned converting the inet hash
+tables over to rhashtable so that we don't allocate this insanely
+large hash table at boot time which goes largely unused.
 
-Yes, that would be a cleanup, but end result is quite ugly if you ask
-me.
+I took a quick look at this last night and the only thing we really
+need is the addition of a set of rhashtable interfaces which use
+NULLs lists, as the inet hashtables currently require.
+
+Also, I noticed in the netlink changes this really expensive
+synchronize_net() added to netlink_release(), is that _really_
+necessary?
+
+That's really expensive and my impression was that such a sync is only
+needed during hash table resizing, not when getting rid of objects
+that we in an rhashtable.
+
+Thomas?
