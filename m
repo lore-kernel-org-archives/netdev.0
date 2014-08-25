@@ -1,99 +1,133 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH net-next] ipv6: stop sending PTB packets for MTU <
- 1280
-Date: Tue, 26 Aug 2014 00:47:22 +0200
-Message-ID: <1409006842.6274.69.camel@localhost>
-References: <53F39E50.1020209@gont.com.ar>
-	 <1409005545-24910-2-git-send-email-hagen@jauu.net>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
+ for datapath hardware offload
+Date: Mon, 25 Aug 2014 23:50:57 +0100
+Message-ID: <20140825225057.GD30140@casper.infradead.org>
+References: <53F79C54.5050701@gmail.com>
+ <464DB0A8-0073-4CE0-9483-0F36B73A53A1@cumulusnetworks.com>
+ <53F9459B.2070801@mojatatu.com>
+ <20140824111218.GA32741@casper.infradead.org>
+ <53FA01AC.10507@mojatatu.com>
+ <A67C7591-19BF-4431-9119-F61361F5E618@cumulusnetworks.com>
+ <53FAA2A2.7070801@gmail.com> <53FB3FD5.2030905@mojatatu.com>
+ <20140825141754.GA30140@casper.infradead.org>
+ <53FB6122.2040901@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Fernando Gont <fgont@si6networks.com>
-To: Hagen Paul Pfeifer <hagen@jauu.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:42235 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754983AbaHYWrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:47:24 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 2D33E20C9A
-	for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 18:47:24 -0400 (EDT)
-In-Reply-To: <1409005545-24910-2-git-send-email-hagen@jauu.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+ Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
+ f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+ ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
+ roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
+ vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
+ dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <53FB6122.2040901-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Hi Hagen,
-
-On Di, 2014-08-26 at 00:25 +0200, Hagen Paul Pfeifer wrote:
-> Reduce the attack vector and stop generating ICMPv6 packet to big for
-> packets smaller then the minimal required IPv6 MTU.
+On 08/25/14 at 12:15pm, Jamal Hadi Salim wrote:
+> On 08/25/14 10:17, Thomas Graf wrote:
+> >On 08/25/14 at 09:53am, Jamal Hadi Salim wrote:
 > 
-> See
-> http://tools.ietf.org/html/draft-gont-6man-deprecate-atomfrag-generation-00
-
-I wonder if we should wait until this gets RFC status?
-
-I very much welcome this decision! I already raised this problem some
-time ago:
-http://lists.openwall.net/netdev/2013/12/31/17
-
-I wonder if we should add a mode alike ipv4 ip_no_pmtu_disc mode for
-ipv6:
-
-ip_no_pmtu_disc - INTEGER
-        Disable Path MTU Discovery. If enabled in mode 1 and a
-        fragmentation-required ICMP is received, the PMTU to this
-        destination will be set to min_pmtu (see below). You will need
-        to raise min_pmtu to the smallest interface MTU on your system
-        manually if you want to avoid locally generated fragments.
-
-        In mode 2 incoming Path MTU Discovery messages will be
-        discarded. Outgoing frames are handled the same as in mode 1,
-        implicitly setting IP_PMTUDISC_DONT on every created socket.
-
-        Mode 3 is a hardend pmtu discover mode. The kernel will only
-        accept fragmentation-needed errors if the underlying protocol
-        can verify them besides a plain socket lookup. Current
-        protocols for which pmtu events will be honored are TCP, SCTP
-        and DCCP as they verify e.g. the sequence number or the
-        association. This mode should not be enabled globally but is
-        only intended to secure e.g. name servers in namespaces where
-        TCP path mtu must still work but path MTU information of other
-        protocols should be discarded. If enabled globally this mode
-        could break other protocols.
-
-        Possible values: 0-3
-        Default: FALSE
-
-Not sure yet...
-
-> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
-> ---
->  net/ipv6/route.c | 7 ++-----
->  1 file changed, 2 insertions(+), 5 deletions(-)
+> >fdb_add() *is* flow based. At least in my understanding, the whole
+> >point here is to extend the idea of fdb_add() and make it understand
+> >L2-L4 in a more generic way for the most common protocols.
+> >
+> >The reason fdb_add() is not reused is because it is Netlink specific
+> >and only suitable for User -> HW offload. Kernel -> HW offload is
+> >technically possible but not clean.
+> >
 > 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index f74b041..84ebacd 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1154,12 +1154,9 @@ static void ip6_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
->  		struct net *net = dev_net(dst->dev);
->  
->  		rt6->rt6i_flags |= RTF_MODIFIED;
-> -		if (mtu < IPV6_MIN_MTU) {
-> -			u32 features = dst_metric(dst, RTAX_FEATURES);
-> +		if (mtu < IPV6_MIN_MTU)
->  			mtu = IPV6_MIN_MTU;
-> -			features |= RTAX_FEATURE_ALLFRAG;
-> -			dst_metric_set(dst, RTAX_FEATURES, features);
-> -		}
-> +
->  		dst_metric_set(dst, RTAX_MTU, mtu);
->  		rt6_update_expires(rt6, net->ipv6.sysctl.ip6_rt_mtu_expires);
->  	}
+> I dont think we have a problem handling any of this today.
 
-This patch is a starter, yes. We can now get rid of the dst_allfrag
-function altogether.
+Yes we do. It's restricted to L2 and we can't extend it easily
+because it is based on NDA_*. The use of Netlink makes in-kernel
+usage a pain. To me this is the sole reason for not using fdb_add()
+in the first place. It seems absolutely clear though that fdb_add()
+should be removed after the more generic ndo is in place providing
+a superset of what fdb_add() can do today.
 
-Thanks,
-Hannes
+> This is where our (shall i say strong) disagreement is.
+> I think you will find it non-trivial to show me how you can
+> actually take the simple L2 bridge and map it to a "flow".
+> Since your starting point is "everything can be represented via a flow
+> and some table" - we are at a crosspath.
+
+OK, let me do the convertion for you:
+
+NDA_DST		unused
+NDA_LLADDR	sw_flow_key.eth.dst
+NDA_CACHEINFO	unused
+NDA_PROBES	unused
+NDA_VLAN	sw_flow_key.eth.tci
+NDA_PORT	unused
+NDA_VNI		sw_flow_key.tun_key.tun_id
+NDA_IFINDEX	sw_flow_key.phys.in_port
+NDA_MASTER	unused
+
+> The tc filter API seems to be doing just that.
+> You have different types of classifiers - the h/w may not be able
+> to support some classifier types - but that is a capability discovery
+> challenge.
+
+Agreed but tc is only one out of many possible existing interfaces
+we have. macvtap (given we want to extend beyond L2), routing,
+OVS, bridge and eventually even things like a team device can and
+should make use of offloads. 
+
+> I am saying two things:
+> 1) There are a few "fundamental" interfaces; L2 and L3 being some.
+> Add crypto offload and a few i mentioned in  my presentation. We
+
+Can you share that preso? I was not present.
+
+> know how to do those. example; there is nothing i cant do with
+> the rtmsg that is L3. or the fdb/port/vlan filter for L2.
+> This flow thing should stay out of those.
+
+Let me remind you about the name of the structure behind all L3
+forwarding decisions:
+
+        struct flowi4 {   
+		[...]
+	}
+
+Adding a route means adding a flow. Can we please stop the flow
+bashing? The concept of a flow is very generic, well known and already
+very present in the kernel.
+
+The sw_flow_key proposed comes close to flowi4. Some fields are
+different. They can eventually get merged. The strict IPv4/IPv6
+separation is what makes it non obvious and probably why Jiri chose
+the OVS representation. If you say rtmsg is complete then that clearly
+is not the case. In particular VTEP fields, ARP, and TCP flags are
+clearly missing for many uses.
+
+Again, I'm not saying flow is the ultimate answer to everything. It
+is not. But a lot of hardware out there is aware of flows in combination
+with some form of action execution. Non flow based hardware can have
+their own classifier.
+
+> 2) The flow thing should allow a variety of classifiers to be
+> handled. Again capability discovery would take care of differences.
+
+So you want the flow to represent something that is not a flow. Again,
+this comes back to the conversation in the other email. If this is
+all about having a single ndo I'm sure we can find common grounds on
+that.
