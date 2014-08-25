@@ -1,142 +1,127 @@
-From: "Alexander Y. Fomichev" <git.user@gmail.com>
-Subject: [PATCH] net: prevent of emerging cross-namespace symlinks
-Date: Mon, 25 Aug 2014 16:06:45 +0400
-Message-ID: <1408968405-5599-1-git-send-email-git.user@gmail.com>
-References: <20140821143816.48c5ad08@mad-cat.int.e5.ru> <20140821121205.GR9476@redhat.com> <20140821191316.27807ef7@mad-cat.int.e5.ru> <20140821152940.GT9476@redhat.com> <1408703693-6265-1-git-send-email-git.user@gmail.com> <20140822.113039.520798752693024139.davem@davemloft.net> <20140824.182842.1083967994418672720.davem@davemloft.net>
-Cc: "Alexander Y. Fomichev" <git.user@gmail.com>, vfalico@redhat.com,
-	"David Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH net-next 1/3] ixgbe: support
+ netdev_ops->ndo_xmit_flush()
+Date: Mon, 25 Aug 2014 14:07:21 +0200
+Message-ID: <20140825140721.162a6c91@redhat.com>
+References: <1408887738-7661-1-git-send-email-dborkman@redhat.com>
+	<1408887738-7661-2-git-send-email-dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:35107 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752959AbaHYMHM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 08:07:12 -0400
-Received: by mail-lb0-f179.google.com with SMTP id v6so11968534lbi.38
-        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 05:07:10 -0700 (PDT)
-In-Reply-To: <20140824.182842.1083967994418672720.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:16480 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752997AbaHYMH1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Aug 2014 08:07:27 -0400
+In-Reply-To: <1408887738-7661-2-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Code manipulating sysfs symlinks on adjacent net_devices(s)
-currently doesn't take into account that devices potentially
-belong to different namespaces.
+On Sun, 24 Aug 2014 15:42:16 +0200
+Daniel Borkmann <dborkman@redhat.com> wrote:
 
-This patch trying to fix an issue as follows:
-- check for net_ns before creating / deleting symlink.
-  for now only netdev_adjacent_rename_links and
-  __netdev_adjacent_dev_remove are affected, afaics
-  __netdev_adjacent_dev_insert implies both net_devs
-  belong to the same namespace.
-- Drop all existing symlinks to / from all adj_devs before
-  switching namespace and recreate them just after.
----
- net/core/dev.c | 61 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 60 insertions(+), 1 deletion(-)
+> This implements the deferred tail pointer flush API for the ixgbe
+> driver. Similar version also proposed longer time ago by Alexander Duyck.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b65a5051361f..66738e9d66e4 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4889,7 +4889,8 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 	if (adj->master)
- 		sysfs_remove_link(&(dev->dev.kobj), "master");
+I've run some benchmarks with this patch only, which actually shows a
+performance regression.
+
+Using trafgen with QDISC_BYPASS and mmap mode, via cmdline:
+ trafgen --cpp  --dev eth5 --conf udp_example01.trafgen -V --cpus 1
+
+BASELINE(no-patch): trafgen QDISC_BYPASS and mmap:
+ - tx:1562539 pps
+
+(This patch only): ixgbe use of .ndo_xmit_flush.
+ - tx:1532299 pps
+
+Regression: -30240 pps
+ * In nanosec: (1/1562539*10^9)-(1/1532299*10^9) = -12.63 ns
+
+
+As DaveM points out, me might not need the mmiowb().
+Result when not performing the mmiowb():
+ - tx:1548352 pps
+
+Still a small regression: -14187 pps
+ * In nanosec: (1/1562539*10^9)-(1/1548352*10^9) = -5.86 ns
+
+
+I was not expecting this "slowdown", with this rather simple use of the
+new ndo_xmit_flush API.  Can anyone explain why this is happening?
+
+
+
  
--	if (netdev_adjacent_is_neigh_list(dev, dev_list))
-+	if (netdev_adjacent_is_neigh_list(dev, dev_list) &&
-+	    net_eq(dev_net(dev),dev_net(adj_dev)))
- 		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
- 
- 	list_del_rcu(&adj->list);
-@@ -5159,11 +5160,65 @@ void netdev_upper_dev_unlink(struct net_device *dev,
- }
- EXPORT_SYMBOL(netdev_upper_dev_unlink);
- 
-+void netdev_adjacent_add_links(struct net_device *dev)
-+{
-+	struct netdev_adjacent *iter;
-+
-+	struct net *net = dev_net(dev);
-+
-+	list_for_each_entry(iter, &dev->adj_list.upper, list) {
-+		if (!net_eq(net,dev_net(iter->dev)))
-+			continue;
-+		netdev_adjacent_sysfs_add(iter->dev, dev,
-+					  &iter->dev->adj_list.lower);
-+		netdev_adjacent_sysfs_add(dev, iter->dev,
-+					  &dev->adj_list.upper);
-+	}
-+
-+	list_for_each_entry(iter, &dev->adj_list.lower, list) {
-+		if (!net_eq(net,dev_net(iter->dev)))
-+			continue;
-+		netdev_adjacent_sysfs_add(iter->dev, dev,
-+					  &iter->dev->adj_list.upper);
-+		netdev_adjacent_sysfs_add(dev, iter->dev,
-+					  &dev->adj_list.lower);
-+	}
-+}
-+
-+void netdev_adjacent_del_links(struct net_device *dev)
-+{
-+	struct netdev_adjacent *iter;
-+
-+	struct net *net = dev_net(dev);
-+
-+	list_for_each_entry(iter, &dev->adj_list.upper, list) {
-+		if (!net_eq(net,dev_net(iter->dev)))
-+			continue;
-+		netdev_adjacent_sysfs_del(iter->dev, dev->name,
-+					  &iter->dev->adj_list.lower);
-+		netdev_adjacent_sysfs_del(dev, iter->dev->name,
-+					  &dev->adj_list.upper);
-+	}
-+
-+	list_for_each_entry(iter, &dev->adj_list.lower, list) {
-+		if (!net_eq(net,dev_net(iter->dev)))
-+			continue;
-+		netdev_adjacent_sysfs_del(iter->dev, dev->name,
-+					  &iter->dev->adj_list.upper);
-+		netdev_adjacent_sysfs_del(dev, iter->dev->name,
-+					  &dev->adj_list.lower);
-+	}
-+}
-+
- void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
- {
- 	struct netdev_adjacent *iter;
- 
-+	struct net *net = dev_net(dev);
-+
- 	list_for_each_entry(iter, &dev->adj_list.upper, list) {
-+		if (!net_eq(net,dev_net(iter->dev)))
-+			continue;
- 		netdev_adjacent_sysfs_del(iter->dev, oldname,
- 					  &iter->dev->adj_list.lower);
- 		netdev_adjacent_sysfs_add(iter->dev, dev,
-@@ -5171,6 +5226,8 @@ void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
- 	}
- 
- 	list_for_each_entry(iter, &dev->adj_list.lower, list) {
-+		if (!net_eq(net,dev_net(iter->dev)))
-+			continue;
- 		netdev_adjacent_sysfs_del(iter->dev, oldname,
- 					  &iter->dev->adj_list.upper);
- 		netdev_adjacent_sysfs_add(iter->dev, dev,
-@@ -6773,6 +6830,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 
- 	/* Send a netdev-removed uevent to the old namespace */
- 	kobject_uevent(&dev->dev.kobj, KOBJ_REMOVE);
-+	netdev_adjacent_del_links(dev);
- 
- 	/* Actually switch the network namespace */
- 	dev_net_set(dev, net);
-@@ -6787,6 +6845,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 
- 	/* Send a netdev-add uevent to the new namespace */
- 	kobject_uevent(&dev->dev.kobj, KOBJ_ADD);
-+	netdev_adjacent_add_links(dev);
- 
- 	/* Fixup kobjects */
- 	err = device_rename(&dev->dev, dev->name);
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 28 +++++++++++++++++++++++----
+>  1 file changed, 24 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index 87bd53f..4e073cf 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -6957,10 +6957,6 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+>  		i = 0;
+>  
+>  	tx_ring->next_to_use = i;
+> -
+> -	/* notify HW of packet */
+> -	ixgbe_write_tail(tx_ring, i);
+> -
+>  	return;
+>  dma_error:
+>  	dev_err(tx_ring->dev, "TX DMA map failed\n");
+> @@ -7301,6 +7297,29 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
+>  	return __ixgbe_xmit_frame(skb, netdev, NULL);
+>  }
+>  
+> +static inline struct ixgbe_ring *
+> +__ixgb_tx_queue_mapping(struct ixgbe_adapter *adapter, u16 queue)
+> +{
+> +	if (unlikely(queue >= adapter->num_tx_queues))
+> +		queue = queue % adapter->num_tx_queues;
+> +
+> +	return adapter->tx_ring[queue];
+> +}
+> +
+> +static void ixgbe_xmit_flush(struct net_device *netdev, u16 queue)
+> +{
+> +	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+> +	struct ixgbe_ring *tx_ring;
+> +
+> +	tx_ring = __ixgb_tx_queue_mapping(adapter, queue);
+> +	ixgbe_write_tail(tx_ring, tx_ring->next_to_use);
+> +
+> +	/* we need this if more than one processor can write to our tail
+> +	 * at a time, it synchronizes IO on IA64/Altix systems
+> +	 */
+> +	mmiowb();
+
+This is the mmiowb() which is avoided in above measurement.
+
+> +}
+> +
+>  /**
+>   * ixgbe_set_mac - Change the Ethernet Address of the NIC
+>   * @netdev: network interface device structure
+> @@ -7914,6 +7933,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+>  	.ndo_open		= ixgbe_open,
+>  	.ndo_stop		= ixgbe_close,
+>  	.ndo_start_xmit		= ixgbe_xmit_frame,
+> +	.ndo_xmit_flush		= ixgbe_xmit_flush,
+>  	.ndo_select_queue	= ixgbe_select_queue,
+>  	.ndo_set_rx_mode	= ixgbe_set_rx_mode,
+>  	.ndo_validate_addr	= eth_validate_addr,
+
+
+
 -- 
-2.0.4
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
