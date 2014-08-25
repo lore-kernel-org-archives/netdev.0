@@ -1,138 +1,46 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net-next] bpf: x86: add missing 'shift by register' instructions to x64 eBPF JIT
-Date: Mon, 25 Aug 2014 12:27:02 -0700
-Message-ID: <1408994822-14929-1-git-send-email-ast@plumgrid.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/3] net: propagate sock pointer through
+ netfilter hooks
+Date: Mon, 25 Aug 2014 21:29:26 +0200
+Message-ID: <20140825192926.GC1871@nanopsycho.lan>
+References: <1408127576-11518-1-git-send-email-jiri@resnulli.us>
+ <20140821.173339.1409243624518012670.davem@davemloft.net>
+ <20140825140510.GB1871@nanopsycho.lan>
+ <20140825.115103.943827907985622489.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, stephen@networkplumber.org,
+	cwang@twopensource.com, pshelar@nicira.com,
+	nicolas.dichtel@6wind.com, therbert@google.com,
+	dborkman@redhat.com, edumazet@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:40713 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752351AbaHYT1O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 15:27:14 -0400
-Received: by mail-pd0-f181.google.com with SMTP id g10so20906158pdj.12
-        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 12:27:14 -0700 (PDT)
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:50390 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754493AbaHYT33 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 15:29:29 -0400
+Received: by mail-wg0-f44.google.com with SMTP id m15so13331133wgh.3
+        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 12:29:28 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140825.115103.943827907985622489.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-'shift by register' operations are supported by eBPF interpreter, but were
-accidently left out of x64 JIT compiler. Fix it and add a testcase.
+Mon, Aug 25, 2014 at 08:51:03PM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Mon, 25 Aug 2014 16:05:10 +0200
+>
+>> Dave, I see that the patchset is in state "Changes requested". I do not
+>> think I understand what is needed to be done at this point. Would you
+>> please tell me? Thanks.
+>
+>I said there is too much churn so I want an alternative approach
+>considered.
+>
+>Also want you to fix the ipv6 fragmentation error too.
 
-Reported-by: Brendan Gregg <brendan.d.gregg@gmail.com>
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Fixes: 622582786c9e ("net: filter: x86: internal BPF JIT")
----
 
-Probably not worth sending to stable, but wouldn't hurt either.
-
- arch/x86/net/bpf_jit_comp.c |   42 ++++++++++++++++++++++++++++++++++++++++++
- lib/test_bpf.c              |   38 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 80 insertions(+)
-
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 5c8cb8043c5a..b08a98c59530 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -515,6 +515,48 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
- 			EMIT3(0xC1, add_1reg(b3, dst_reg), imm32);
- 			break;
- 
-+		case BPF_ALU | BPF_LSH | BPF_X:
-+		case BPF_ALU | BPF_RSH | BPF_X:
-+		case BPF_ALU | BPF_ARSH | BPF_X:
-+		case BPF_ALU64 | BPF_LSH | BPF_X:
-+		case BPF_ALU64 | BPF_RSH | BPF_X:
-+		case BPF_ALU64 | BPF_ARSH | BPF_X:
-+
-+			/* check for bad case when dst_reg == rcx */
-+			if (dst_reg == BPF_REG_4) {
-+				/* mov r11, dst_reg */
-+				EMIT_mov(AUX_REG, dst_reg);
-+				dst_reg = AUX_REG;
-+			}
-+
-+			if (src_reg != BPF_REG_4) { /* common case */
-+				EMIT1(0x51); /* push rcx */
-+
-+				/* mov rcx, src_reg */
-+				EMIT_mov(BPF_REG_4, src_reg);
-+			}
-+
-+			/* shl %rax, %cl | shr %rax, %cl | sar %rax, %cl */
-+			if (BPF_CLASS(insn->code) == BPF_ALU64)
-+				EMIT1(add_1mod(0x48, dst_reg));
-+			else if (is_ereg(dst_reg))
-+				EMIT1(add_1mod(0x40, dst_reg));
-+
-+			switch (BPF_OP(insn->code)) {
-+			case BPF_LSH: b3 = 0xE0; break;
-+			case BPF_RSH: b3 = 0xE8; break;
-+			case BPF_ARSH: b3 = 0xF8; break;
-+			}
-+			EMIT2(0xD3, add_1reg(b3, dst_reg));
-+
-+			if (src_reg != BPF_REG_4)
-+				EMIT1(0x59); /* pop rcx */
-+
-+			if (insn->dst_reg == BPF_REG_4)
-+				/* mov dst_reg, r11 */
-+				EMIT_mov(insn->dst_reg, AUX_REG);
-+			break;
-+
- 		case BPF_ALU | BPF_END | BPF_FROM_BE:
- 			switch (imm32) {
- 			case 16:
-diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index 89e0345733bd..8c66c6aace04 100644
---- a/lib/test_bpf.c
-+++ b/lib/test_bpf.c
-@@ -1342,6 +1342,44 @@ static struct bpf_test tests[] = {
- 		{ { 0, -1 } }
- 	},
- 	{
-+		"INT: shifts by register",
-+		.u.insns_int = {
-+			BPF_MOV64_IMM(R0, -1234),
-+			BPF_MOV64_IMM(R1, 1),
-+			BPF_ALU32_REG(BPF_RSH, R0, R1),
-+			BPF_JMP_IMM(BPF_JEQ, R0, 0x7ffffd97, 1),
-+			BPF_EXIT_INSN(),
-+			BPF_MOV64_IMM(R2, 1),
-+			BPF_ALU64_REG(BPF_LSH, R0, R2),
-+			BPF_MOV32_IMM(R4, -1234),
-+			BPF_JMP_REG(BPF_JEQ, R0, R4, 1),
-+			BPF_EXIT_INSN(),
-+			BPF_ALU64_IMM(BPF_AND, R4, 63),
-+			BPF_ALU64_REG(BPF_LSH, R0, R4), /* R0 <= 46 */
-+			BPF_MOV64_IMM(R3, 47),
-+			BPF_ALU64_REG(BPF_ARSH, R0, R3),
-+			BPF_JMP_IMM(BPF_JEQ, R0, -617, 1),
-+			BPF_EXIT_INSN(),
-+			BPF_MOV64_IMM(R2, 1),
-+			BPF_ALU64_REG(BPF_LSH, R4, R2), /* R4 = 46 << 1 */
-+			BPF_JMP_IMM(BPF_JEQ, R4, 92, 1),
-+			BPF_EXIT_INSN(),
-+			BPF_MOV64_IMM(R4, 4),
-+			BPF_ALU64_REG(BPF_LSH, R4, R4), /* R4 = 4 << 4 */
-+			BPF_JMP_IMM(BPF_JEQ, R4, 64, 1),
-+			BPF_EXIT_INSN(),
-+			BPF_MOV64_IMM(R4, 5),
-+			BPF_ALU32_REG(BPF_LSH, R4, R4), /* R4 = 5 << 5 */
-+			BPF_JMP_IMM(BPF_JEQ, R4, 160, 1),
-+			BPF_EXIT_INSN(),
-+			BPF_MOV64_IMM(R0, -1),
-+			BPF_EXIT_INSN(),
-+		},
-+		INTERNAL,
-+		{ },
-+		{ { 0, -1 } }
-+	},
-+	{
- 		"INT: DIV + ABS",
- 		.u.insns_int = {
- 			BPF_ALU64_REG(BPF_MOV, R6, R1),
--- 
-1.7.9.5
+Hmm. When skb->x adding is no-go and propagating sk through nf hooks is
+no go, I really do not see the way to fix this... I might be missing
+something though...
