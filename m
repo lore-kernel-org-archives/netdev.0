@@ -1,73 +1,46 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH 0/3] Basic deferred TX queue flushing infrastructure.
-Date: Mon, 25 Aug 2014 15:21:00 -0700
-Message-ID: <CAHA+R7O_RSyKVNqcHXePbahvU+ayf77w61jos=G38M93okVWKw@mail.gmail.com>
-References: <20140823.132811.751469424156827125.davem@davemloft.net>
-	<20140823.213839.1953243016141233125.davem@davemloft.net>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net-next 1/2] net: Header length compution function
+Date: Mon, 25 Aug 2014 15:21:54 -0700
+Message-ID: <53FBB702.8080905@intel.com>
+References: <53D90099.6040906@intel.com>	<20140730.183907.1435538533126954589.davem@davemloft.net>	<53DA61FE.40406@intel.com> <20140823.121959.890509134482478336.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>,
-	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, amirv@mellanox.com, netdev@vger.kernel.org,
+	ogerlitz@mellanox.com, yevgenyp@mellanox.com, idos@mellanox.com,
+	Tom Herbert <therbert@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:63464 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751780AbaHYWVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:21:01 -0400
-Received: by mail-lb0-f176.google.com with SMTP id c11so392791lbj.21
-        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 15:21:00 -0700 (PDT)
-In-Reply-To: <20140823.213839.1953243016141233125.davem@davemloft.net>
+Received: from mga03.intel.com ([143.182.124.21]:35951 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755147AbaHYWV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Aug 2014 18:21:56 -0400
+In-Reply-To: <20140823.121959.890509134482478336.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 23, 2014 at 9:38 PM, David Miller <davem@davemloft.net> wrote:
->
-> So today I was looking more into this aspect.
->
-> Like Tom Herbert has mentioned we have all the infrastructure (sort
-> of) already to handle a list of SKBs going down into
-> dev_hard_start_xmit() via the GSO handling.
->
-> But that code is funny, because it keeps the original GSO head SKB
-> around as a placeholder to maintain the list of segmented SKBs.
->
-> So the list walker basically walks starting at skb->next.  That's
-> awkward for what we want to do, which is pass in an arbitrary list of
-> SKBs.
->
-> All it really wants that head SKB for is essentially list management,
-> which seems like overkill to me.
->
-> Anyways, this got me thinking that we should have something that
-> provides the segment list management and stop keeping that head GSO
-> SKB around.
->
-> Then we can make that "gso:" label list walker generic enough that we
-> could pass down arbitrary lists of SKBs from the qdisc_restart() path.
->
-> This list management seems to be the only reason why we keep the GSO
-> head SKB around after dev_gso_segment(), we should be able to free it
-> up early without any problems right?
->
-> I'm also thinking about whether we should hang the generic SKB list
-> management off of the txq or the qdisc.  Right now the gso_skb thing
-> is in the qdisc.
->
-> Thoughts?
+On 08/23/2014 12:19 PM, David Miller wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> Date: Thu, 31 Jul 2014 08:34:22 -0700
+> 
+>> On 07/30/2014 06:39 PM, David Miller wrote:
+>>> I don't think my proposed patch is a bad trade off.  Where we have the
+>>> __skb_header_pointer() thing that takes preloaded pointers and header
+>>> length values.  It adds only one test which frankly should never
+>>> trigger and can be moved down into skb_copy_bits() or similar.
+>>
+>> This works for me.  Once it is in I can see about pushing a patch to add
+>> some FCoE support and work on moving over igb and ixgbe.
+> 
+> You should be able to do this against net-next now, just FYI.
+> 
 
+Actually I was just looking at the code.  It looks like commit
+19469a873bafd4e65daef3597db2bd724c1b03c9 "flow_dissector: Use IPv6 flow
+label in flow_dissector" is likely breaking things in terms of trying to
+use this function to get the header length since the code now returns
+early if an IPv6 flow label is present.
 
-When I tried to unify the list management of SKB's, I was surprised to see
-there are still some places relying on skb->next and skb->prev to be
-the head of the skb struct, since nowadays we have list API's, they still
-play some magic on these pointers (sctp and tipc IIRC). This is why I
-gave up, maybe it's time to revise this again.
+Thanks,
 
-Talking about skb->next, fortunately we do gso segmentation after
-going out of qdisc queues, otherwise it's scary to play with these
-pointers at same time. I think all queues of SKB's are either using
-just ->next or both ->prev and ->next.
-
-Just my two cents.
+Alex
