@@ -1,7 +1,8 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 0/3] Make is_kdump_kernel() accessible from modules
-Date: Mon, 25 Aug 2014 16:06:51 +0300
-Message-ID: <1408972014-13319-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 2/3] net/mlx4: Use is_kdump_kernel() to detect kdump kernel
+Date: Mon, 25 Aug 2014 16:06:53 +0300
+Message-ID: <1408972014-13319-3-git-send-email-amirv@mellanox.com>
+References: <1408972014-13319-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
 	Vivek Goyal <vgoyal@redhat.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -10,53 +11,41 @@ Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
 To: "David S. Miller" <davem@davemloft.net>,
 	Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37433 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:37445 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932121AbaHYNHr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Aug 2014 09:07:47 -0400
+	id S932232AbaHYNHv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Aug 2014 09:07:51 -0400
+In-Reply-To: <1408972014-13319-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Use is_kdump_kernel() to detect kdump kernel, instead of reset_devices.
 
-I'm re-spinning this patchset. At the begining it was suggested to use a
-different name for the parameter, but at the end [3] the resolution was to
-leave it as it is in this patch.
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ include/linux/mlx4/device.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Drivers need to know if running from kdump kernel in order to change their
-memory profile - since kdump environment is limited by available memory.
-Currently there are drivers that are using reset_devices as suggested in [2].
-In [2] it was suggested to use reset_devices, but the context was, to enable
-driver to know when the hardware device is needed to be reset, and not if this
-is a kdump environment. We think that is_kdump_kernel() is better suited to
-select between different memory profiles.
-
-The first patch in this patchset exports a needed symbol in order to make
-is_kdump_kernel() accessible from the drivers. The rest of the patches change
-from reset_devices to is_kdump_kernel() in 2 networking drivers.
-
-The idea of this patchset was suggested by Vivek Goyal.
-
-Tested (only build) and applied on top of commit 8fc54f6: ("net: use
-reciprocal_scale() helper")
-
-[1] - ea1c1af: ("net/mlx4_en: Reduce memory consumption on kdump kernel")
-[2] - https://lkml.org/lkml/2011/1/27/341
-[3] - http://www.spinics.net/lists/netdev/msg291492.html
-
-Thanks,
-Amir
-
-Amir Vadai (3):
-  crash_dump: Make is_kdump_kernel() accessible from modules
-  net/mlx4: Use is_kdump_kernel() to detect kdump kernel
-  net/bnx2x: Use is_kdump_kernel() to detect kdump kernel
-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  | 3 ++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 3 ++-
- include/linux/mlx4/device.h                      | 3 ++-
- kernel/crash_dump.c                              | 1 +
- 4 files changed, 7 insertions(+), 3 deletions(-)
-
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 071f6b2..783dd09 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -38,6 +38,7 @@
+ #include <linux/completion.h>
+ #include <linux/radix-tree.h>
+ #include <linux/cpu_rmap.h>
++#include <linux/crash_dump.h>
+ 
+ #include <linux/atomic.h>
+ 
+@@ -1275,7 +1276,7 @@ int mlx4_mr_rereg_mem_write(struct mlx4_dev *dev, struct mlx4_mr *mr,
+ /* Returns true if running in low memory profile (kdump kernel) */
+ static inline bool mlx4_low_memory_profile(void)
+ {
+-	return reset_devices;
++	return is_kdump_kernel();
+ }
+ 
+ #endif /* MLX4_DEVICE_H */
 -- 
 1.8.3.4
