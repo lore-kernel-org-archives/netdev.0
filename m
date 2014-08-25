@@ -1,44 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v2 02/15] net: rcu-ify tcf_proto
-Date: Sun, 24 Aug 2014 22:31:33 -0700 (PDT)
-Message-ID: <20140824.223133.170922940598584254.davem@davemloft.net>
-References: <20140825004659.2180.35028.stgit@nitbit.x32>
-	<20140825004830.2180.70308.stgit@nitbit.x32>
+Subject: Re: [PATCH net-next] net: Functions to report space available in
+ device TX queues
+Date: Sun, 24 Aug 2014 22:35:29 -0700 (PDT)
+Message-ID: <20140824.223529.704627469513160252.davem@davemloft.net>
+References: <alpine.DEB.2.02.1408241312500.30395@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	brouer@redhat.com
-To: john.fastabend@gmail.com
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54138 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54168 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752496AbaHYFbg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 01:31:36 -0400
-In-Reply-To: <20140825004830.2180.70308.stgit@nitbit.x32>
+	with ESMTP id S1752462AbaHYFfb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 01:35:31 -0400
+In-Reply-To: <alpine.DEB.2.02.1408241312500.30395@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Sun, 24 Aug 2014 17:48:31 -0700
+From: Tom Herbert <therbert@google.com>
+Date: Sun, 24 Aug 2014 13:19:47 -0700 (PDT)
 
-> @@ -722,8 +724,9 @@ static void sfq_free(void *addr)
->  static void sfq_destroy(struct Qdisc *sch)
->  {
->  	struct sfq_sched_data *q = qdisc_priv(sch);
-> +	struct tcf_proto *fl = rtnl_dereference(q->filter_list);
->  
-> -	tcf_destroy_chain(&q->filter_list);
-> +	tcf_destroy_chain(&fl);
+> +/**
+> + *	netdev_avail_queue - report how much space is availble for xmit
+> + *	@dev: network device
+> + *
+> + *	Report the amount of space available in the TX queue in terms of
+> + *	number of bytes. This returns the number of bytes avaiable per
+> + *	DQL. This function may be called without taking the txlock on
+> + *	the device, however in that case the result should be taken as
+> + *	a (strong) hint.
+> + */
+> +static inline int netdev_avail_queue(struct net_device *dev_queue)
+> +{
+> +	return netdev_tx_avail_queue(netdev_get_tx_queue(dev_queue, 0));
+> +}
+> +
 
-This will cause tcf_destroy_chain() to set the local variable
-'fl' to NULL rather than q->filter_list.
+This doesn't make any sense, you're only providing queue zero's
+information.
 
-I don't see how this can be correct at all.
+You're passing in a net_device, calling it a "dev_queue" in the
+variable name, the exlicitly using queue zero of that device in the
+netdev_get_tx_queue() call.
 
-You need to make tcf_destroy_chain() take a pointer to an __rcu
-pointer, and do the proper dereferencing and RCU assignments in
-that chain destroy loop.
-
-This might be why you're getting annotation warnings.
+Pretty confusing if you ask me :)
