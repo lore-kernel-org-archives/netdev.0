@@ -1,53 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: prevent of emerging cross-namespace symlinks
-Date: Sun, 24 Aug 2014 18:28:42 -0700 (PDT)
-Message-ID: <20140824.182842.1083967994418672720.davem@davemloft.net>
-References: <1408703693-6265-1-git-send-email-git.user@gmail.com>
-	<20140822.113039.520798752693024139.davem@davemloft.net>
-	<1408749310-28622-1-git-send-email-git.user@gmail.com>
+From: David Gibson <dgibson@redhat.com>
+Subject: Re: [RFC 3/4] tuntap: reduce the size of tun_struct by using flex
+ array
+Date: Mon, 25 Aug 2014 11:35:11 +1000
+Message-ID: <20140825113511.cc52779b6c2f13c9abef23ee@redhat.com>
+References: <1408369040-1216-1-git-send-email-pagupta@redhat.com>
+	<1408369040-1216-4-git-send-email-pagupta@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vfalico@redhat.com
-To: git.user@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52126 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753180AbaHYB2n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Aug 2014 21:28:43 -0400
-In-Reply-To: <1408749310-28622-1-git-send-email-git.user@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__25_Aug_2014_11_35_11_+1000_+OyL/QXpMUHP80Iz"
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
+	vfalico@gmail.com, edumazet@google.com, vyasevic@redhat.com,
+	hkchu@google.com, wuzhy@linux.vnet.ibm.com, xemul@parallels.com,
+	therbert@google.com, bhutchings@solarflare.com, xii@google.com,
+	stephen@networkplumber.org
+To: Pankaj Gupta <pagupta@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1408369040-1216-4-git-send-email-pagupta@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Alexander Y. Fomichev" <git.user@gmail.com>
-Date: Sat, 23 Aug 2014 03:15:10 +0400
+--Signature=_Mon__25_Aug_2014_11_35_11_+1000_+OyL/QXpMUHP80Iz
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Code manipulating sysfs symlinks on adjacent net_devices(s)
-> currently doesn't take into account that devices potentially
-> belong to different namespaces.
-> 
-> This patch trying to fix an issue as follows:
-> - check for net_ns before creating / deleting symlink.
->   for now only netdev_adjacent_rename_links and
->   __netdev_adjacent_dev_remove are affected, afaics
->   __netdev_adjacent_dev_insert implies both net_devs 
->   belong to the same namespace.
-> - Drop all existing symlinks to / from all adj_devs before
->   switching namespace and recreate them just after.
-> 
-> Signed-off-by: Alexander Y. Fomichev <git.user@gmail.com>
- ...
-> -	if (netdev_adjacent_is_neigh_list(dev, dev_list))
-> +	if (netdev_adjacent_is_neigh_list(dev, dev_list) &&
-> +		net_eq(dev_net(dev),dev_net(adj_dev)))
+On Mon, 18 Aug 2014 19:07:19 +0530
+Pankaj Gupta <pagupta@redhat.com> wrote:
 
-Please indent this properly.
+> This patch switches to flex array to implement the flow caches, it brings
+> several advantages:
+>=20
+> - Reduce the size of the tun_struct structure, which allows us to increas=
+e the
+>   upper limit of queues in future.
+> - Avoid higher order memory allocation. It will be useful when switching =
+to
+>   pure hashing in flow cache which may demand a larger size array in futu=
+re.
+>=20
+> After this patch, the size of tun_struct on x86_64 reduced from 8512 to
+> 328
+>=20
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
 
-For a multi-line conditional, the second and subsequent lines
-should begin exactly at the first column after the openning
-parenthesis of the first line.
+Reviewed-by: David Gibson <dgibson@redhat.com>
 
-You must use the appropriate number of TAB and SPACE characters
-necessary to do so.
+--=20
+David Gibson <dgibson@redhat.com>
 
-Thank you.
+--Signature=_Mon__25_Aug_2014_11_35_11_+1000_+OyL/QXpMUHP80Iz
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBAgAGBQJT+pLPAAoJEGw4ysog2bOSDY8QAJ/0tFaq4J0GUXknB4+4z7Z7
+asmSKDqtQD9oVKiaXjM39zd76cdfEuX0ZIXsRpqjU3mJ8EMNub82jBp51BN/PGjb
+8WyponHG30gMXBCgw6Vpdf1IQrQEJisifSWQtB1ASkMbTU3+/gWCTUza8NbAkCmK
+XlfSkObBuQJN73YcBh0zY5AbhjfqAF3G2i+1Jf3+taj8PbyxbNCvtyDaYA8Qkf+t
+gvSeAFBw12rZDA/PMd37nyC727M2mfZTi5FVwuCxIpC/kQAxgvhARhGWckQFv6A5
+U6dUsWPXDr3TpA1/x+pS4tErugqyMC9YbO89Je8xl1aV50xeydvcc6umbeL0saUf
+kSsU0JU/PZMZreIHO8ZRNK3LDp+NSFXgna+IOjrd6CHTOYjxnk28iMfxk0MgRCIz
+lvkFqmTB3+arZQq69+2xuVa8TH1gOqWtOp3zhzPYaDmRP4Jy5KDbMDk7n6NuLiaf
+YyaMM4Oz5v4cwfX+m/ES63HQmD9CoVZWn/3HLdGT+Uatiy4Ywq0KlQkR0zS5o0nv
+UeOWA5fC8pmJ93Q2Rr0CAJpVS3zoJmgPyh07+xnZ90fU/HFfbU5gAHtXuHyBD70d
+mEjVhDPpmBXZfGbGVT/gIPozd9Hlsas3GuDbfK2sf0UK9Y9tbUlrsL10kYQ3sEm3
+DNXtFDhoaoCrgjBpp/lC
+=/GtQ
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__25_Aug_2014_11_35_11_+1000_+OyL/QXpMUHP80Iz--
