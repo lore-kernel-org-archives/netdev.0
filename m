@@ -1,44 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Basic deferred TX queue flushing infrastructure.
-Date: Mon, 25 Aug 2014 15:41:24 -0700 (PDT)
-Message-ID: <20140825.154124.2068819758570615886.davem@davemloft.net>
-References: <CAHA+R7O_RSyKVNqcHXePbahvU+ayf77w61jos=G38M93okVWKw@mail.gmail.com>
-	<20140825.153146.2165451041039058085.davem@davemloft.net>
-	<1409006274.3173.0.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next V1 0/3] Make is_kdump_kernel() accessible from
+ modules
+Date: Mon, 25 Aug 2014 15:42:43 -0700 (PDT)
+Message-ID: <20140825.154243.238344646519450592.davem@davemloft.net>
+References: <1408972014-13319-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cwang@twopensource.com, netdev@vger.kernel.org,
-	therbert@google.com, jhs@mojatatu.com, hannes@stressinduktion.org,
-	edumazet@google.com, jeffrey.t.kirsher@intel.com,
-	rusty@rustcorp.com.au
-To: eric.dumazet@gmail.com
+Cc: andi@firstfloor.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, vgoyal@redhat.com,
+	ogerlitz@mellanox.com, yevgenyp@mellanox.com
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38707 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38738 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752917AbaHYWlZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:41:25 -0400
-In-Reply-To: <1409006274.3173.0.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751780AbaHYWmo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:42:44 -0400
+In-Reply-To: <1408972014-13319-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 25 Aug 2014 15:37:54 -0700
+From: Amir Vadai <amirv@mellanox.com>
+Date: Mon, 25 Aug 2014 16:06:51 +0300
 
-> On Mon, 2014-08-25 at 15:31 -0700, David Miller wrote:
+> I'm re-spinning this patchset. At the begining it was suggested to use a
+> different name for the parameter, but at the end [3] the resolution was to
+> leave it as it is in this patch.
 > 
->> It occurs to me that perhaps the thing to do is to pass sk_buff ** to
->> dev_hard_start_xmit().
+> Drivers need to know if running from kdump kernel in order to change their
+> memory profile - since kdump environment is limited by available memory.
+> Currently there are drivers that are using reset_devices as suggested in [2].
+> In [2] it was suggested to use reset_devices, but the context was, to enable
+> driver to know when the hardware device is needed to be reset, and not if this
+> is a kdump environment. We think that is_kdump_kernel() is better suited to
+> select between different memory profiles.
 > 
-> This was my suggestion ;)
+> The first patch in this patchset exports a needed symbol in order to make
+> is_kdump_kernel() accessible from the drivers. The rest of the patches change
+> from reset_devices to is_kdump_kernel() in 2 networking drivers.
 > 
-> int ret = dev_hard_start_xmit(skb, dev, txq);
+> The idea of this patchset was suggested by Vivek Goyal.
 > 
-> ->
+> Tested (only build) and applied on top of commit 8fc54f6: ("net: use
+> reciprocal_scale() helper")
 > 
-> int ret = dev_hard_start_xmit(&skb, dev, txq);
+> [1] - ea1c1af: ("net/mlx4_en: Reduce memory consumption on kdump kernel")
+> [2] - https://lkml.org/lkml/2011/1/27/341
+> [3] - http://www.spinics.net/lists/netdev/msg291492.html
 
-Ok and this can solve the GSO freeing issue too, if the caller was working
-with a segmented SKB, he can pass &skb->next to dev_hard_start_xmit() then
-if skb->next is NULL after dev_hard_start_xmit() returns we can free up
-the head GSO skb.
+Series applied, thanks Amir.
