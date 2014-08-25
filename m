@@ -1,106 +1,65 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH V4 3/8] namespaces: expose ns instance serial numbers
- in proc
-Date: Mon, 25 Aug 2014 15:30:46 +0200
-Message-ID: <53FB3A86.2060203@6wind.com>
-References: <cover.1408581429.git.rgb@redhat.com>	<cd6cd0622ce677b639afae18a69ff79c72490bab.1408581429.git.rgb@redhat.com>	<CALCETrUnzG1V8w+H9ctAJP+Hvo8LQax=dhLG4bBpBKmVi+C1cQ@mail.gmail.com>	<20140822015803.GG20529@madcap2.tricolour.ca> <CALCETrUkFD0iNi1SV_6ypN5Kf4GYybT5tzjRjRQuLzT9iBnQAg@mail.gmail.com>
-Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
+ for datapath hardware offload
+Date: Mon, 25 Aug 2014 09:42:54 -0400
+Message-ID: <53FB3D5E.6090200@mojatatu.com>
+References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
+ <1408637945-10390-11-git-send-email-jiri@resnulli.us>
+ <53F79C54.5050701@gmail.com>
+ <464DB0A8-0073-4CE0-9483-0F36B73A53A1@cumulusnetworks.com>
+ <53F9459B.2070801@mojatatu.com> <20140824111218.GA32741@casper.infradead.org>
+ <53FA01AC.10507@mojatatu.com>
+ <A67C7591-19BF-4431-9119-F61361F5E618@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrUkFD0iNi1SV_6ypN5Kf4GYybT5tzjRjRQuLzT9iBnQAg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+ Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
+ f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+ ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
+ roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
+ vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
+ dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Scott Feldman <sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <A67C7591-19BF-4431-9119-F61361F5E618-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Le 24/08/2014 19:52, Andy Lutomirski a =E9crit :
-> On Thu, Aug 21, 2014 at 6:58 PM, Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> =
-wrote:
->> On 14/08/21, Andy Lutomirski wrote:
->>> On Aug 20, 2014 8:12 PM, "Richard Guy Briggs" <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrot=
-e:
->>>> Expose the namespace instace serial numbers in the proc filesystem=
- at
->>>> /proc/<pid>/ns/<ns>_snum.  The link text gives the serial number i=
-n hex.
->>>
->>> What's the use case?
->>>
->>> I understand the utility of giving unique numbers to the audit code=
-,
->>> but I don't think this part is necessary for that, and I'd like to
->>> understand what else will use this before committing to a duplicati=
-ve
->>> API like this.
->>
->> How does a container manager get those numbers?  It could provoke a =
-task
->> to cause an audit event that emits a NS_INFO message, or it could ru=
-n a
->> task in that container to report its namespace serial numbers direct=
-ly
->> from its /proc mount.
+On 08/24/14 22:24, Scott Feldman wrote:
 >
-> Why does a container manager need them?  Is there any reason that
-> keeping them entirely contained within the audit system would be a
-> problem?
+> On Aug 24, 2014, at 8:15 AM, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org> wrote:
 >
->>
->> The discussion in this thread touches on the use cases:
->>          https://lkml.org/lkml/2014/4/22/662
->>
->>> Note that this API is thoroughly incompatible with CRIU.  If we do
->>> this, someone will ask for a namespace number namespace, and that w=
-ay
->>> lies madness.
->>
->> I had a very brief look at CRIU, but not enough to understand the is=
-sue.
->> Others have hinted at this problem.
->>
->> Do you have a suggestion of a different approach that would be
->> compatible with CRIU?
->>
->> I'd originally considered some sort of UUID that would be globally
->> unique, but that would be very hard to devise or guarantee, and besi=
-des,
->> namespaces aren't only used by containers and could be shared in oth=
-er
->> ways.  Tracking the usage and migration of namespaces should be the =
-task
->> of an upper layer.
->>
->
-> CRIU wants to save the complete state of a namespace and then restore
-> it.  For that to work, any information exposed to things in the
-> namespace *cannot* be globally unique or unique per boot, since CRIU
-> needs to arrange for that information to match whatever it was when
-> CRIU saved it.
-How are ifindex of network devices managed? These ifindexes are unique =
-per boot,
-thus can change depending on the order in which netdev are created.
-These ifindexes are unique per boot and exposed to userspace ...
 
 >
-> Also, I think that code running in a namespace has no business even
-> knowing a unique identity of that namespace from the perspective of
-> the host.
-Another scenario is when you have virtual network devices across two ne=
-tns. You
-need to identify the peer netns to have a netlink message which is full=
-y=20
-interpretable by the userspace.
+> With respect to focus on L2/L3, I have a pretty *good* hunch someone could
+ > write a kernel module that gleans from the L2/L3 netlink echoes 
+already flying
+>around and translates to sw_flows and in turn into ndo_swdev_flow_* calls.
 
+And herein lies the fundamental disagreement.
+I dont believe the flow interface is appropriate for either L2/3.
+We already have some L2 interfaces (they are incomplete if you want
+to capture everything a large switch does).
+L3 should go the same path.
 
-Regards,
-Nicolas
+And as i said earlier, i dont think the flow interface
+is appropriate as a universal classifier interface either.
+You need to allow for different types of classifiers. You
+need to allow for a mix and match of classifiers (although
+the later could be evolutionary).
+
+cheers,
+jamal
