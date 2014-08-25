@@ -1,95 +1,93 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 1/5] bnx2x: ethtool -d might cause timeout in log
-Date: Mon, 25 Aug 2014 17:48:29 +0300
-Message-ID: <1408978113-27902-2-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 2/5] bnx2x: Fix stop-on-error
+Date: Mon, 25 Aug 2014 17:48:30 +0300
+Message-ID: <1408978113-27902-3-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1408978113-27902-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <Ariel.Elior@qlogic.com>,
-	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>
+Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:12702 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932559AbaHYOsq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 10:48:46 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:31857 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932559AbaHYOsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 10:48:50 -0400
 In-Reply-To: <1408978113-27902-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+When STOP_ON_ERROR is set driver will not compile. Even if it did,
+traffic will not pass without this patch as several fields which are
+verified by FW/HW on the Tx path are not properly set.
 
-This changes slightly the set of registers read during `ethtool -d'.
-Without this change, it's possible the HW will generate a grc Attention which
-will be logged into system logs as `grc timeout'.
-
-Signed-off-by: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h | 14 +++++---------
- 1 file changed, 5 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  | 25 +++++++++++++++++++-----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  2 +-
+ 2 files changed, 21 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
-index 12eb4ba..741aa13 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
-@@ -40,7 +40,7 @@ struct	dump_header {
- 	u32 dump_meta_data; /* OR of CHIP and PATH. */
- };
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 2388144..2f210ba 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -3873,12 +3873,16 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		/* when transmitting in a vf, start bd must hold the ethertype
+ 		 * for fw to enforce it
+ 		 */
++#ifndef BNX2X_STOP_ON_ERROR
+ 		if (IS_VF(bp))
++#endif
+ 			tx_start_bd->vlan_or_ethertype =
+ 				cpu_to_le16(ntohs(eth->h_proto));
++#ifndef BNX2X_STOP_ON_ERROR
+ 		else
+ 			/* used by FW for packet accounting */
+ 			tx_start_bd->vlan_or_ethertype = cpu_to_le16(pkt_prod);
++#endif
+ 	}
  
--#define BNX2X_DUMP_VERSION 0x50acff01
-+#define  BNX2X_DUMP_VERSION 0x61111111
- struct reg_addr {
- 	u32 addr;
- 	u32 size;
-@@ -1464,7 +1464,6 @@ static const struct reg_addr reg_addrs[] = {
- 	{ 0x180398, 1, 0x1c, 0x924},
- 	{ 0x1803a0, 5, 0x1c, 0x924},
- 	{ 0x1803b4, 2, 0x18, 0x924},
--	{ 0x180400, 256, 0x3, 0xfff},
- 	{ 0x181000, 4, 0x1f, 0x93c},
- 	{ 0x181010, 1020, 0x1f, 0x38},
- 	{ 0x182000, 4, 0x18, 0x924},
-@@ -1576,7 +1575,6 @@ static const struct reg_addr reg_addrs[] = {
- 	{ 0x200398, 1, 0x1c, 0x924},
- 	{ 0x2003a0, 1, 0x1c, 0x924},
- 	{ 0x2003a8, 2, 0x1c, 0x924},
--	{ 0x200400, 256, 0x3, 0xfff},
- 	{ 0x202000, 4, 0x1f, 0x1927},
- 	{ 0x202010, 2044, 0x1f, 0x1007},
- 	{ 0x204000, 4, 0x18, 0x924},
-@@ -1688,7 +1686,6 @@ static const struct reg_addr reg_addrs[] = {
- 	{ 0x280398, 1, 0x1c, 0x924},
- 	{ 0x2803a0, 1, 0x1c, 0x924},
- 	{ 0x2803a8, 2, 0x1c, 0x924},
--	{ 0x280400, 256, 0x3, 0xfff},
- 	{ 0x282000, 4, 0x1f, 0x9e4},
- 	{ 0x282010, 2044, 0x1f, 0x1c0},
- 	{ 0x284000, 4, 0x18, 0x924},
-@@ -1800,7 +1797,6 @@ static const struct reg_addr reg_addrs[] = {
- 	{ 0x300398, 1, 0x1c, 0x924},
- 	{ 0x3003a0, 1, 0x1c, 0x924},
- 	{ 0x3003a8, 2, 0x1c, 0x924},
--	{ 0x300400, 256, 0x3, 0xfff},
- 	{ 0x302000, 4, 0x1f, 0xf24},
- 	{ 0x302010, 2044, 0x1f, 0xe00},
- 	{ 0x304000, 4, 0x18, 0x924},
-@@ -2206,10 +2202,10 @@ static const struct wreg_addr wreg_addr_e3b0 = {
- 	0x1b0c00, 128, 2, read_reg_e3b0, 0x1f, 0x1fff};
+ 	nbd = 2; /* start_bd + pbd + frags (updated when pages are mapped) */
+@@ -3951,11 +3955,22 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 					      &pbd_e2->data.mac_addr.dst_mid,
+ 					      &pbd_e2->data.mac_addr.dst_lo,
+ 					      eth->h_dest);
+-		} else if (bp->flags & TX_SWITCHING) {
+-			bnx2x_set_fw_mac_addr(&pbd_e2->data.mac_addr.dst_hi,
+-					      &pbd_e2->data.mac_addr.dst_mid,
+-					      &pbd_e2->data.mac_addr.dst_lo,
+-					      eth->h_dest);
++		} else {
++			if (bp->flags & TX_SWITCHING)
++				bnx2x_set_fw_mac_addr(
++						&pbd_e2->data.mac_addr.dst_hi,
++						&pbd_e2->data.mac_addr.dst_mid,
++						&pbd_e2->data.mac_addr.dst_lo,
++						eth->h_dest);
++#ifdef BNX2X_STOP_ON_ERROR
++			/* Enforce security is always set in Stop on Error -
++			 * source mac should be present in the parsing BD
++			 */
++			bnx2x_set_fw_mac_addr(&pbd_e2->data.mac_addr.src_hi,
++					      &pbd_e2->data.mac_addr.src_mid,
++					      &pbd_e2->data.mac_addr.src_lo,
++					      eth->h_source);
++#endif
+ 		}
  
- static const unsigned int dump_num_registers[NUM_CHIPS][NUM_PRESETS] = {
--	{20782, 18567, 27975, 19729, 18311, 27719, 20836, 32391, 41799, 20812,
--	 26247, 35655, 19074},
--	{32774, 19297, 33277, 31721, 19041, 33021, 32828, 33121, 47101, 32804,
--	 26977, 40957, 35895},
-+	{19758, 17543, 26951, 18705, 17287, 26695, 19812, 31367, 40775, 19788,
-+	 25223, 34631, 19074},
-+	{31750, 18273, 32253, 30697, 18017, 31997, 31804, 32097, 46077, 31780,
-+	 25953, 39933, 35895},
- 	{36527, 17928, 33697, 35474, 18700, 34466, 36581, 31752, 47521, 36557,
- 	 25608, 41377, 43903},
- 	{45239, 17936, 34387, 44186, 18708, 35156, 45293, 31760, 48211, 45269,
+ 		SET_FLAG(pbd_e2_parsing_data,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index a008f48..cf5b3b4 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -1142,7 +1142,7 @@ void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
+ 			if (!fp->txdata_ptr)
+ 				break;
+ 
+-			if (!txdata.tx_cons_sb)
++			if (!txdata->tx_cons_sb)
+ 				continue;
+ 
+ 			start = TX_BD(le16_to_cpu(*txdata->tx_cons_sb) - 10);
 -- 
 1.8.3.1
