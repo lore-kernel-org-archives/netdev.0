@@ -1,75 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2] nstat: 64bit support on 32bit arches
-Date: Mon, 25 Aug 2014 07:27:54 -0700
-Message-ID: <1408976874.5604.65.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH v2 0/8] Fix TSO and checksum issues with non-accelerated vlan traffic.
+Date: Mon, 25 Aug 2014 10:34:47 -0400
+Message-ID: <1408977295-9162-1-git-send-email-vyasevic@redhat.com>
+Cc: Vladislav Yasevich <vyasevic@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Linux NICS <linux.nics@intel.com>,
+	e1000-devel@lists.sourceforge.net, Rasesh Mody <rmody@brocade.com>,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	Ron Mercer <ron.mercer@qlogic.com>, linux-driver@qlogic.com,
+	Chris Metcalf <cmetcalf@tilera.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:37545 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932492AbaHYO17 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 10:27:59 -0400
-Received: by mail-pd0-f177.google.com with SMTP id p10so19702513pdj.8
-        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 07:27:55 -0700 (PDT)
+Received: from mail-qc0-f179.google.com ([209.85.216.179]:42488 "EHLO
+	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932345AbaHYOfK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 10:35:10 -0400
+Received: by mail-qc0-f179.google.com with SMTP id m20so14015750qcx.10
+        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 07:35:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+I've recently ran across something rather interesting when testing vlans
+from inside VMs.  In some scenarios I was getting awfull thruput.
+Some debugging uncovered a very scary packet corruption.  I was
+seeing packets that had original TSO length as IP total length
+and their ip checksum was 0.  This was with e1000e driver.
 
-SNMP counters can be provided as 64bit numbers.
-nstat needs to cope with this even if running in 32bit mode.
+A bit more debugging uncovered an assumption made by that driver
+that skb->protocol will contain l3 protocol information.  This
+was not the case in my setup since I manually turned off vlan
+tx acceleration for the device.  This caused the driver to not
+initialize the tso information correctly and resulted in
+corrupt TSO frames on the wire.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- misc/nstat.c |   13 +++++--------
- 1 file changed, 5 insertions(+), 8 deletions(-)
+I decided to do some auditing of the usage of skb->protocols
+in the drivers.  Out of all the drivers, the included 8 appear
+to be effected.  They all allow user to control vlan acceleration
+settings, all support TSO on vlan devices, and all use
+skb->protocol to decide how to encode TSO information.  Some
+also have similar problems when initializing hw checksum information.
+On such device, it is simple enough to reproduce the issue.
+Simply turn off TX VLAN acceleration on the device, create a vlan,
+and run you favorite network performance tool.
 
-diff --git a/misc/nstat.c b/misc/nstat.c
-index d3f8621..e54b3ae 100644
---- a/misc/nstat.c
-+++ b/misc/nstat.c
-@@ -77,7 +77,6 @@ struct nstat_ent
- 	struct nstat_ent *next;
- 	char		 *id;
- 	unsigned long long val;
--	unsigned long	   ival;
- 	double		   rate;
- };
- 
-@@ -143,7 +142,6 @@ static void load_good_table(FILE *fp)
- 		if ((n = malloc(sizeof(*n))) == NULL)
- 			abort();
- 		n->id = strdup(idbuf);
--		n->ival = (unsigned long)val;
- 		n->val = val;
- 		n->rate = rate;
- 		n->next = db;
-@@ -206,9 +204,8 @@ static void load_ugly_table(FILE *fp)
- 			if (!p)
- 				abort();
- 			*p = 0;
--			if (sscanf(p+1, "%lu", &n->ival) != 1)
-+			if (sscanf(p+1, "%llu", &n->val) != 1)
- 				abort();
--			n->val = n->ival;
- 			/* Trick to skip "dummy" trailing ICMP MIB in 2.4 */
- 			if (strcmp(idbuf, "IcmpOutAddrMaskReps") == 0)
- 				idbuf[5] = 0;
-@@ -365,10 +362,10 @@ static void update_db(int interval)
- 		for (h1 = h; h1; h1 = h1->next) {
- 			if (strcmp(h1->id, n->id) == 0) {
- 				double sample;
--				unsigned long incr = h1->ival - n->ival;
--				n->val += incr;
--				n->ival = h1->ival;
--				sample = (double)(incr*1000)/interval;
-+				unsigned long long incr = h1->val - n->val;
-+
-+				n->val = h1->val;
-+				sample = (double)incr * 1000.0 / interval;
- 				if (interval >= scan_interval) {
- 					n->rate += W*(sample-n->rate);
- 				} else if (interval >= 1000) {
+There is 1 driver I ran across that I belive will trigger a BUG
+in the system when used with vlans.  That driver is tile/tilepro.c
+I have not changed it in this patch set and would hope that
+the maintainer has time to look at it.
+
+V2: Fix i40ev using the wrong function name.  Full build.
+
+Thanks
+-vlad
+
+Vladislav Yasevich (8):
+  e1000e: Fix TSO with non-accelerated vlans
+  e1000: Fix TSO for non-accelerated vlan traffic
+  bna: Support TSO and partial checksum with non-accelerated vlans.
+  ehea: Fix TSO and hw checksums with non-accelerated vlan packets.
+  i40e: Fix TSO and hw checksums for non-accelerated vlan packets.
+  i40evf: Fix TSO and hw checksums for non-accelerated vlan packets.
+  mvneta: Fix TSO and checksum for non-acceleration vlan traffic
+  qlge: Fix TSO for non-accelerated vlan traffic
+
+ drivers/net/ethernet/brocade/bna/bnad.c       |  7 ++++---
+ drivers/net/ethernet/ibm/ehea/ehea_main.c     |  2 +-
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 19 +++++++++++--------
+ drivers/net/ethernet/intel/e1000e/netdev.c    | 21 +++++++++------------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   |  2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c |  2 +-
+ drivers/net/ethernet/marvell/mvneta.c         |  7 ++++---
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c  |  5 +++--
+ 8 files changed, 34 insertions(+), 31 deletions(-)
+
+-- 
+1.9.3
