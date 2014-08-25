@@ -1,28 +1,25 @@
 From: Jonas Jensen <jonas.jensen@gmail.com>
-Subject: [PATCH v6 2/4] net: moxa: replace build_skb() with netdev_alloc_skb_ip_align() / memcpy()
-Date: Mon, 25 Aug 2014 16:22:22 +0200
-Message-ID: <1408976542-15624-1-git-send-email-jonas.jensen@gmail.com>
-References: <1408544342-32058-1-git-send-email-jonas.jensen@gmail.com>
+Subject: [PATCH v6 1/4] net: moxa: clear DESC1 on ndo_start_xmit()
+Date: Mon, 25 Aug 2014 16:22:11 +0200
+Message-ID: <1408976531-15589-1-git-send-email-jonas.jensen@gmail.com>
+References: <1408544322-32023-1-git-send-email-jonas.jensen@gmail.com>
 Cc: davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
 	linux-kernel@vger.kernel.org, f.fainelli@gmail.com,
 	eric.dumazet@gmail.com, mirqus@gmail.com,
 	Jonas Jensen <jonas.jensen@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1408544342-32058-1-git-send-email-jonas.jensen@gmail.com>
+In-Reply-To: <1408544322-32023-1-git-send-email-jonas.jensen@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-build_skb() is used to make skbs out of existing RX ring memory
-which is bad because the RX ring is allocated only once, on probe.
-Memory corruption occur because said memory is reclaimed, i.e.
-__kfree_skb() (and eventually put_page()).
+TX buffer length is not cleared on ndo_start_xmit().
+Failing to do so can bug/hang the controller and
+cause TX interrupts to stop altogether.
 
-Replace build_skb() with netdev_alloc_skb_ip_align() and use memcpy().
+Remove the readl() and compute a new value for DESC1.
 
-Remove SKB_DATA_ALIGN() from RX buffer size while we're at it.
-
-Addresses https://bugzilla.kernel.org/show_bug.cgi?id=69041
+Addresses https://bugzilla.kernel.org/show_bug.cgi?id=69031
 
 Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
 ---
@@ -30,44 +27,32 @@ Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
 Notes:
     Changes since v5:
     
-    1. broke out DMA synchronization to separate patch
+    1. remove readl(desc + TX_REG_OFFSET_DESC1) in moxart_mac_start_xmit()
+    2. compute entirely new values for DESC1
+    3. set TX_DESC1_END if (tx_head == TX_DESC_NUM_MASK)
     
     Applies to next-20140825
 
- drivers/net/ethernet/moxa/moxart_ether.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/moxa/moxart_ether.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
-index eed70d9..d66058d 100644
+index 5020fd4..eed70d9 100644
 --- a/drivers/net/ethernet/moxa/moxart_ether.c
 +++ b/drivers/net/ethernet/moxa/moxart_ether.c
-@@ -226,13 +226,15 @@ static int moxart_rx_poll(struct napi_struct *napi, int budget)
- 		if (len > RX_BUF_SIZE)
- 			len = RX_BUF_SIZE;
+@@ -346,10 +346,9 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 		len = ETH_ZLEN;
+ 	}
  
--		skb = build_skb(priv->rx_buf[rx_head], priv->rx_buf_size);
-+		skb = netdev_alloc_skb_ip_align(ndev, len);
-+
- 		if (unlikely(!skb)) {
--			net_dbg_ratelimited("build_skb failed\n");
-+			net_dbg_ratelimited("netdev_alloc_skb_ip_align failed\n");
- 			priv->stats.rx_dropped++;
- 			priv->stats.rx_errors++;
- 		}
+-	txdes1 = readl(desc + TX_REG_OFFSET_DESC1);
+-	txdes1 |= TX_DESC1_LTS | TX_DESC1_FTS;
+-	txdes1 &= ~(TX_DESC1_FIFO_COMPLETE | TX_DESC1_INTR_COMPLETE);
+-	txdes1 |= (len & TX_DESC1_BUF_SIZE_MASK);
++	txdes1 = TX_DESC1_LTS | TX_DESC1_FTS | (len & TX_DESC1_BUF_SIZE_MASK);
++	if (tx_head == TX_DESC_NUM_MASK)
++		txdes1 |= TX_DESC1_END;
+ 	writel(txdes1, desc + TX_REG_OFFSET_DESC1);
+ 	writel(TX_DESC0_DMA_OWN, desc + TX_REG_OFFSET_DESC0);
  
-+		memcpy(skb->data, priv->rx_buf[rx_head], len);
- 		skb_put(skb, len);
- 		skb->protocol = eth_type_trans(skb, ndev);
- 		napi_gro_receive(&priv->napi, skb);
-@@ -464,8 +466,7 @@ static int moxart_mac_probe(struct platform_device *pdev)
- 	spin_lock_init(&priv->txlock);
- 
- 	priv->tx_buf_size = TX_BUF_SIZE;
--	priv->rx_buf_size = RX_BUF_SIZE +
--			    SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+	priv->rx_buf_size = RX_BUF_SIZE;
- 
- 	priv->tx_desc_base = dma_alloc_coherent(NULL, TX_REG_DESC_SIZE *
- 						TX_DESC_NUM, &priv->tx_base,
 -- 
 1.8.2.1
