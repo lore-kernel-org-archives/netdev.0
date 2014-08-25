@@ -1,81 +1,112 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v5 net-next 06/29] bpf: add lookup/update/delete/iterate
- methods to BPF maps
-Date: Mon, 25 Aug 2014 15:07:11 -0700
-Message-ID: <CAMEtUuzB3zc86W4SUY-L3BDRPmzPOD+V7-jfzS7cTEbg74YOoA@mail.gmail.com>
-References: <1408911690-7598-1-git-send-email-ast@plumgrid.com>
-	<1408911690-7598-7-git-send-email-ast@plumgrid.com>
-	<CAHA+R7MTJcsDpw=5P7hOsVf_pEOEZX_=cLrcw4ep4xntUxk=3Q@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next RFC 10/12] openvswitch: add support for datapath
+ hardware offload
+Date: Mon, 25 Aug 2014 23:11:48 +0100
+Message-ID: <20140825221148.GC30140@casper.infradead.org>
+References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
+ <1408637945-10390-11-git-send-email-jiri@resnulli.us>
+ <53F79C54.5050701@gmail.com>
+ <464DB0A8-0073-4CE0-9483-0F36B73A53A1@cumulusnetworks.com>
+ <53F9459B.2070801@mojatatu.com>
+ <20140824111218.GA32741@casper.infradead.org>
+ <53FA01AC.10507@mojatatu.com>
+ <20140825145449.GB30140@casper.infradead.org>
+ <53FB68EB.9060308@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAHA+R7MTJcsDpw=5P7hOsVf_pEOEZX_=cLrcw4ep4xntUxk=3Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <sfeldma@cumulusnetworks.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
+	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
+	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
+	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
+	john.r.fastabend@intel.com, edumazet@google.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:46363 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754997AbaHYWLz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:11:55 -0400
+Content-Disposition: inline
+In-Reply-To: <53FB68EB.9060308@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 25, 2014 at 2:33 PM, Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org> wrote:
-> On Sun, Aug 24, 2014 at 1:21 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
->> 'maps' is a generic storage of different types for sharing data between kernel
->> and userspace.
->>
->> The maps are accessed from user space via BPF syscall, which has commands:
->>
->> - create a map with given type and attributes
->>   fd = bpf_map_create(map_type, struct nlattr *attr, int len)
->>   returns fd or negative error
->>
->> - lookup key in a given map referenced by fd
->>   err = bpf_map_lookup_elem(int fd, void *key, void *value)
->>   returns zero and stores found elem into value or negative error
->>
->> - create or update key/value pair in a given map
->>   err = bpf_map_update_elem(int fd, void *key, void *value)
->>   returns zero or negative error
->>
->> - find and delete element by key in a given map
->>   err = bpf_map_delete_elem(int fd, void *key)
->>
->> - iterate map elements (based on input key return next_key)
->>   err = bpf_map_get_next_key(int fd, void *key, void *next_key)
->
->
-> I think you need to document the bpf() syscall instead of wrappers on it,
-> from a developer's point of view. You will anyway need to document a new
-> syscall with a man page as a general rule.
+First of all, thanks for the animated discussion, wouldn't
+want to miss our arguments ;-)
 
-yep. I've mentioned before that man page is on todo list. I'm delaying
-writing it, because it's the most difficult part and I don't want to keep
-rewriting it when interface changes (like it did from global id to fd).
-Once implementation lands, manpage will be the highest priority.
+On 08/25/14 at 12:48pm, Jamal Hadi Salim wrote:
+> On 08/25/14 10:54, Thomas Graf wrote:
+> >On 08/24/14 at 11:15am, Jamal Hadi Salim wrote:
+> 
+> >Let's keep vendors out of this discussion.
+> 
+> The API is from a vendor. It is clearly labelled as an OF API.
+> It covers well abstracting that vendors SDK to enable OF. That
+> is relevant info.
+> If it covers all other vendors (which is where
+> the quark handling comes in), I will be fine with it.
+> I dont believe it does.
 
-> In the changelog I mean something like:
->
-> err = bpf(BPF_MAP_LOOKUP_ELEM, ...);
+If I understand you correctly you are referring to the rocker
+patch here. That is not part of the API.
+ 
+> >That is simply not the case. The fact that John is using this model
+> >to replace the flow director ioctl API should prove this.
+> 
+> depends what NIC classifier John is mapping to. The Intels have
+> about 4-5 different types of classifier on different hardware
 
-Are you saying instead of:
-err = bpf_map_lookup_elem(int fd, void *key, void *value)
-write
-err = bpf(BPF_MAP_LOOKUP_ELEM, fd, key, value)
-in commit log?
-I think that style carries less information per line.
+Sorry for not addressing this but I think John should speak for
+himself here, I don't want to misrepresent his plans.
 
-For man page I'll document the syscall in a traditional way, but
-for commit log I like to have maximum info in the fewest lines.
+> I gave a simple example.
+> There are a hell more quarks than that.
+> There are cases where there are multiple tables in terms of net masks
+> etc.
+> Yes, this should be handled in the driver. The input is the route
+> message we already specify and not some XXX_Flow_XXx struct.
+
+I would argue that swflow is a superset of a Netlink route. It
+may infact be very useful to extend the API with something that
+understands the Netlink representation of a route and have the
+API translate that to a classifier that can be offloaded.
+
+> I would be tagging along with you guys for flows if you:
+> a) allow for different classifiers. This allows me to implement
+> u32 and offload it.
+
+Agreed. What you seem to disagree on is:
+
+ - ndo_add_type1([...])
+ - ndo_add_type2([...])
+ - ndo_add_type3([...])
+
+vs.
+
+ - ndo_add_classifier(type, [...])
+
+I honestly have little against the 2nd. It sounds a bit like an
+ioctl interface though where a giant switch statement will cast
+the data to a classifier specific struct which is why I slightly
+dislike it.
+
+It looks to me that a specific chip may either work in a flow/filter
+mode, in a generic programmable mode or by providing a list of very
+specific filters without a generic flow -> action relation. Having
+multiple classifier types for all of them gives the impression that
+an API user could use them in any combination which I would say will
+typically not be the case.
+
+> b) different actions (I think this part is not controversial, you
+> seem to be having it already).
+
+Agreed
