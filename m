@@ -1,102 +1,162 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [hyperv] BUG at drivers/hv/channel.c:462 while changing MTU
-Date: Mon, 25 Aug 2014 14:53:32 +0000
-Message-ID: <2c4d3b36d8be4fbf884d78c7507a29af@BY2PR0301MB0711.namprd03.prod.outlook.com>
-References: <20140819123655.GC12160@sucs.org>
- <8dcf334714c44eeda54ecb129479719b@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140820034116.GA3407@sucs.org>
- <CAFLxGvx5_JSb7sRPXY01d+eNJ4p4fk=MySGyui91KNbdyLyQ_g@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next RFC 10/12] openvswitch: add support for datapath
+ hardware offload
+Date: Mon, 25 Aug 2014 15:54:49 +0100
+Message-ID: <20140825145449.GB30140@casper.infradead.org>
+References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
+ <1408637945-10390-11-git-send-email-jiri@resnulli.us>
+ <53F79C54.5050701@gmail.com>
+ <464DB0A8-0073-4CE0-9483-0F36B73A53A1@cumulusnetworks.com>
+ <53F9459B.2070801@mojatatu.com>
+ <20140824111218.GA32741@casper.infradead.org>
+ <53FA01AC.10507@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Jason Wang <jasowang@redhat.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "David S. Miller" <davem@davemloft.net>, Daniel
- Borkmann <dborkman@redhat.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- Haiyang Zhang <haiyangz@microsoft.com>
-To: Richard Weinberger <richard.weinberger@gmail.com>, Sitsofe Wheeler
- <sitsofe@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <CAFLxGvx5_JSb7sRPXY01d+eNJ4p4fk=MySGyui91KNbdyLyQ_g@mail.gmail.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <sfeldma@cumulusnetworks.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
+	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
+	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
+	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
+	john.r.fastabend@intel.com, edumazet@google.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:44168 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932667AbaHYOyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 10:54:54 -0400
+Content-Disposition: inline
+In-Reply-To: <53FA01AC.10507@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 08/24/14 at 11:15am, Jamal Hadi Salim wrote:
+> The focus of the patches is on offloading flows (uses the
+> ovs or shall i say the broadcom OF-DPA API, which is one
+> vendor's view of the world).
 
+Let's keep vendors out of this discussion. I have no affiliation
+with this vendor. In fact I'm personally more interested in the
+host use case with the biggest concerns/focus on integration with
+existing APIs.
 
-> -----Original Message-----
-> From: Richard Weinberger [mailto:richard.weinberger@gmail.com]
-> Sent: Monday, August 25, 2014 3:48 AM
-> To: Sitsofe Wheeler
-> Cc: Haiyang Zhang; KY Srinivasan; Greg Kroah-Hartman;
-> devel@linuxdriverproject.org; linux-kernel@vger.kernel.org; Jason Wang;
-> Daniel Borkmann; David S. Miller; netdev@vger.kernel.org
-> Subject: Re: [hyperv] BUG at drivers/hv/channel.c:462 while changing MTU
+> >It proposes *a* interface which in this case is flow based with mask
+> >support to accomodate the typical ntuple filter API in HW. OVS happens
+> >to be one of the easiest to use examples as a consumer because it
+> >already provides a flat flow representation.
+> >
 > 
->  via
-> 
-> 
-> On Wed, Aug 20, 2014 at 5:41 AM, Sitsofe Wheeler <sitsofe@gmail.com>
-> wrote:
-> > Aug 20 04:04:41 ubuntuhv kernel: [    9.230399] random: nonblocking pool is
-> initialized
-> > Aug 20 04:04:41 ubuntuhv kernel: [   10.338487] EXT4-fs (sda1): re-
-> mounted. Opts: errors=remount-ro
-> > Aug 20 04:04:41 ubuntuhv kernel: [   11.099094] hv_storvsc vmbus_0_1:
-> cmd 0x85 scsi status 0x2 srb status 0x6
-> > Aug 20 04:04:41 ubuntuhv kernel: [   11.099901] hv_storvsc vmbus_0_1:
-> cmd 0x85 scsi status 0x2 srb status 0x6
-> > Aug 20 04:04:43 ubuntuhv kernel: [   12.999830] psmouse serio1: trackpoint:
-> IBM TrackPoint firmware: 0x01, buttons: 0/0
-> > Aug 20 03:55:47 ubuntuhv kernel: [   13.003659] input: TPPS/2 IBM
-> TrackPoint as /devices/platform/i8042/serio1/input/input4
-> > Aug 20 03:57:28 ubuntuhv kernel: [  113.711832] hv_netvsc vmbus_0_14:
-> > net device safe to remove Aug 20 03:57:28 ubuntuhv kernel: [
-> > 113.713882] hv_netvsc: hv_netvsc channel opened successfully Aug 20
-> > 03:57:29 ubuntuhv kernel: [  114.961312] hv_netvsc vmbus_0_14: Send
-> > section size: 6144, Section count:2560 Aug 20 03:57:29 ubuntuhv
-> > kernel: [  114.962711] hv_netvsc vmbus_0_14: Device MAC
-> > 00:15:5d:6f:02:af link state up Aug 20 03:57:34 ubuntuhv kernel: [
-> > 120.027718] hv_netvsc vmbus_0_14: net device safe to remove Aug 20
-> > 03:57:34 ubuntuhv kernel: [  120.030047] hv_netvsc: hv_netvsc channel
-> > opened successfully Aug 20 03:57:34 ubuntuhv kernel: [  120.035422]
-> hv_netvsc vmbus_0_14 eth0: unable to establish receive buffer's gpadl Aug
-> 20 03:57:34 ubuntuhv kernel: [  120.039778] hv_netvsc vmbus_0_14 eth0:
-> unable to connect to NetVSP - 4 Aug 20 03:57:34 ubuntuhv kernel: [
-> 120.039818] ------------[ cut here ]------------ Aug 20 03:57:34 ubuntuhv kernel:
-> [  120.039832] kernel BUG at drivers/hv/channel.c:504!
-> 
-> This is one is also a rude BUG_ON:
->         ret = vmbus_post_msg(msg, sizeof(struct
-> vmbus_channel_close_channel));
-> 
->         BUG_ON(ret != 0);
-> 
-> vmbus_post_msg() hv_post_message() can easily return !0.
-> i.e. if this kmalloc() fails:
->         addr = (unsigned long)kmalloc(sizeof(struct aligned_input),
-> GFP_ATOMIC);
->         if (!addr)
->                 return -ENOMEM;
+> In other words, there is a direct 1-1 map between this approach and OVS.
+> That is a contentious point.
 
-I will submit a patch to handle this case. I suspect though that the original ASSERT at channel.c (line 504)
-is not related to kmalloc failing in vmbus_post_msg(). I will also look at that issue as well.
+That is simply not the case. The fact that John is using this model
+to replace the flow director ioctl API should prove this.
 
-Regards,
+> Not at all.
+> I gave an example earlier with u32, but lets pick the other extreme
+> of well understood functions, say L3 (I could pick L2 as well).
+> This openflow api tries to describe different header
 
-K. Y
-> 
-> --
-> Thanks,
-> //richard
+There is not a single bit specific to OpenFlow and there is absolutely
+no awareness of OF within the kernel in OVS.
+
+> fields in the packet. That is not the challenge for such an
+> API. The challenge is dealing with the quarks.
+> Some chips implement FIB and NH conjoined; others implement
+> them separately.
+> I dont see how this is even being remotely touched on.
+
+First of all, that sounds like exactly like something that should
+be handled in the driver specific portion of the API. Secondly,
+can you provide additional information on these specific pieces of
+hardware so we take it into account?
+
+> You are asking me to go and add a new ndo() every time i have a new network
+> function? That is not scalable. I have no problem with
+> the approach that was posted - I have a problem that it is it
+> focused on flows (and is lacking ability to specify different
+> classifiers). It should not be called xxx_flow_xxx
+
+Realistically there will only be a handful, maybe something
+like:
+
+flow_insert / flow_remove
+p4_add / p4_remove
+[...]
+
+Maybe you can share some information the specific API you have
+in mind?
+
+> If you looked at all my presentations I have never laid such
+> claim but i have always said I want everything described in
+> iproute2 to work. I dont think anyone disagreed.
+> I dont expect tc to be used as *the interface*; but on the same
+> token i dont expect OVS to be used as *the interface*.
+
+Agreed, I don't think anybody expects anything else.
+
+> Lets start with hardware abstraction. Lets map to existing Linux APIs
+> and then see where some massaging maybe needed.
+
+That's what's being done. HW offload is being mapped to OVS and
+to an existing ioctl interface. Those are existing Linux APIs.
+Can you explain why swdev as proposed is not suitable for the
+other existing Linux APIs? They don't *have* to use the flow_insert(),
+they are free to exted the API to represent more generic programmable
+hardware.
+
+> This abstraction gives OVS 1-1 mapping which is something i object to.
+> You want to penalize me for the sake of getting the OVS api in place?
+
+I don't understand this.
+
+> Beginning with flows and laying claim to that one would be able to
+> cover everything is non-starter.
+
+Nobody claims that. In fact, I'm very interested in seeing the API
+extended for non flow based models. I'm actually convinced that flow
+based models are not the ultimate answers on HW level but a vast majority
+of hardware understands some form of protocol aware exact match or
+wildcard filters of limited capacity. This category of hardware is
+being addressed with the flow_insert() API.
+
+> I will simplify:
+> You cant possibly do the u32 classifier completely using the posted
+> hard-coded 15 tuple classifier. It is an NP-complete problem.
+> There are *a lot* of use cases which can be specified by u32 that are
+> not possible to specify with the tuples the patches posted propose.
+> The reverse is not true. You can fully specify the OVS classifier
+> with u32.
+> So if you want to specify the closest to a universal grammar for
+> specifying a classifier - use u32 and create templates for your
+> classifier.
+
+Completely agreed, this is why we have cls/act and nftables.
+
+> There are some cases where that approach doesnt make sense:
+> example if i wanted to specify a string classifier etc.
+> But if we are talking packet header classifier - it is flexible.
+> There are also good reasons to specify a universal 5 tuple classifier.
+> As there are good reasons to specify your latest OF classifier.
+> But that OF classifier being the starting point is not pragmatic.
+
+So you agree that at least on the driver level some form of ntuple
+awareness must be given because the hardware has limited capabilities.
+This is exactly what flow_insert() is, it is a generic ntuple
+classifier which can implement a subset of the 15 tuple in HW. So
+instead of adding a separate NDO for each fixed tuple, a generic
+NDO can handle the different levels of offloads. Very similar to how
+the xmit to the NIC can handle various protocol offloads already.
+
+What is being proposed is a generic ntuple with masking support to
+describe filtering needs. What is missing is a capabilities reporting
+channel so API users can know in advance what is supported to
+implement partial offloads.
