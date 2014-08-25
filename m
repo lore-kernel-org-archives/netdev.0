@@ -1,84 +1,65 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 0/2] Add TLS record layer encryption module
-Date: Mon, 25 Aug 2014 15:12:50 +0200
-Message-ID: <1408972370.8545.12.camel@localhost>
-References: <1406626353-23309-1-git-send-email-cristian.stoica@freescale.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
+ is runnable
+Date: Mon, 25 Aug 2014 16:16:05 +0300
+Message-ID: <53FB3715.7070009@linux.intel.com>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>	 <1408608310-13579-2-git-send-email-jasowang@redhat.com>	 <1408683665.5648.69.camel@marge.simpson.net>	 <20140822073653.GA7372@gmail.com> <53F70887.8030602@redhat.com> <1408716976.5604.18.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Cristian Stoica <cristian.stoica@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:35906 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754486AbaHYNMx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 09:12:53 -0400
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by gateway2.nyi.internal (Postfix) with ESMTP id A3DE9206EA
-	for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 09:12:52 -0400 (EDT)
-In-Reply-To: <1406626353-23309-1-git-send-email-cristian.stoica@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com, Peter Zijlstra <peterz@infradead.org>,
+	"Ingo Molnar jacob.e.keller@intel.com" <mingo@elte.hu>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1408716976.5604.18.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On 22/08/2014 17:16, Eric Dumazet wrote:
+> On Fri, 2014-08-22 at 17:08 +0800, Jason Wang wrote:
+> 
+>> But this is just for current process. We want to determine whether or
+>> not it was worth to loop busily in current process by checking if
+>> there's any another runnable processes or callbacks. And what we need
+>> here is just a simple and lockless hint which can't be wrong but may be
+>> inaccurate to exit the busy loop. The net code does not depends on this
+>> hint to do scheduling or yielding.
+>>
+>> How about just introducing a boolean helper like current_can_busy_loop()
+>> and return true in one of the following conditions:
+>>
+>> - Current task is SCHED_FIFO
+>> - Current task is neither SCHED_FIFO nor SCHED_IDLE and no other
+>> runnable processes or pending RCU callbacks in current cpu
+>>
+>> And add warns to make sure it can only be called in process context.
+> 
+> 
+> 1) Any reasons Eliezer Tamir is not included in the CC list ?
 
-On Di, 2014-07-29 at 12:32 +0300, Cristian Stoica wrote:
-> This set of patches introduces support for TLS 1.0 record layer
-> encryption/decryption with a corresponding algorithm called
-> tls10(hmac(<hash>),cbc(<cipher>)).
-> 
-> Similarly to authenc.c on which it is based, this module mixes the base
-> algorithms in software to produce an algorithm that does record layer
-> encryption and decryption for TLS1.0.
-> Any combination of hw and sw base algorithms is possible, but the purpose
-> is to take advantage of hardware acceleration for TLS record layer offloading
-> when hardware acceleration is present.
-> 
-> This is a software alternative to forthcoming Freescale caam patches that
-> will add support for one-pass hardware-only TLS record layer offloading.
-> 
-> Performance figures depend largely on several factors including hardware
-> support and record layer size. For user-space applications the
-> kernel/user-space interface is also important. That said, we have done several
-> performance tests using openssl and cryptodev on Freescale QorIQ platforms.
-> On P4080, for a single stream of records larger than 512 bytes, the performance
-> improved from about 22Mbytes/s to 64Mbytes/s while also reducing CPU load.
-> 
-> The purpose of this module is to enable TLS kernel offloading on hw platforms
-> that have acceleration for AES/SHA1 but do not have direct support for TLS
-> record layer.
-> 
-> (minor dependency on pending patch
->   crypto: testmgr.c: white space fix-ups on test_aead)
-> 
-> Cristian Stoica (2):
->   crypto: add support for TLS 1.0 record encryption
->   crypto: add TLS 1.0 test vectors for AES-CBC-HMAC-SHA1
-> 
->  crypto/Kconfig           |  20 ++
->  crypto/Makefile          |   1 +
->  crypto/authenc.c         |   5 +-
->  crypto/tcrypt.c          |   5 +
->  crypto/testmgr.c         |  41 +++-
->  crypto/testmgr.h         | 217 +++++++++++++++++++
->  crypto/tls.c             | 528 +++++++++++++++++++++++++++++++++++++++++++++++
->  include/crypto/authenc.h |   3 +
->  8 files changed, 808 insertions(+), 12 deletions(-)
->  create mode 100644 crypto/tls.c
-> 
+Thanks for remembering me, Eric ;)
 
-Maybe could you add netdev@vger.kernel.org to Cc on your next
-submission?
+Here are my 2 cents:
+I think Ingo's suggestion of only yielding to tasks with same or higher
+priority makes sense.
 
-It would be great if this feature would be made available in some way
-that user space does TLS handshaking over a socket and symmetric keys
-could later be installed via e.g. setsockopt and kernel offloads tls
-processing over this socket.
+IF you change the current behavior, please update the documentation.
+You are going to make people scratch their head and ask "what changed?"
+you owe them a clue.
 
-Alert message handling seems problematic, though and might require some
-out-of-band interface.
+I also would like to have some way to keep track of when/if/how much
+this yield happens.
 
-Thanks,
-Hannes
+> 2) It looks like sk_buy_loop() should not be inlined, its is already too
+> big.
+
+You made this comment in the past, my response was that it's inlnied so
+it can be optimized when nonblock is known at compile time to be true
+(e.g when called from sock_poll).
+IFF you think that's less important, then I will defer to your opinion.
+
+-Eliezer
