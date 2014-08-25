@@ -1,144 +1,142 @@
-From: Ley Foon Tan <lftan@altera.com>
-Subject: [PATCH] net: stmmac: add dcrs parameter
-Date: Mon, 25 Aug 2014 19:50:42 +0800
-Message-ID: <1408967442-2724-1-git-send-email-lftan@altera.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ley Foon Tan <lftan@altera.com>, <lftan.linux@gmail.com>,
-	"Giuseppe Cavallaro" <peppe.cavallaro@st.com>,
-	Vince Bridgers <vbridger@altera.com>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
+From: "Alexander Y. Fomichev" <git.user@gmail.com>
+Subject: [PATCH] net: prevent of emerging cross-namespace symlinks
+Date: Mon, 25 Aug 2014 16:06:45 +0400
+Message-ID: <1408968405-5599-1-git-send-email-git.user@gmail.com>
+References: <20140821143816.48c5ad08@mad-cat.int.e5.ru> <20140821121205.GR9476@redhat.com> <20140821191316.27807ef7@mad-cat.int.e5.ru> <20140821152940.GT9476@redhat.com> <1408703693-6265-1-git-send-email-git.user@gmail.com> <20140822.113039.520798752693024139.davem@davemloft.net> <20140824.182842.1083967994418672720.davem@davemloft.net>
+Cc: "Alexander Y. Fomichev" <git.user@gmail.com>, vfalico@redhat.com,
+	"David Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0190.outbound.protection.outlook.com ([207.46.163.190]:52728
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932203AbaHYLuv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Aug 2014 07:50:51 -0400
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:35107 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752959AbaHYMHM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 08:07:12 -0400
+Received: by mail-lb0-f179.google.com with SMTP id v6so11968534lbi.38
+        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 05:07:10 -0700 (PDT)
+In-Reply-To: <20140824.182842.1083967994418672720.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch add the option to enable DCRS bit in GMAC control register.
-Default is disabled if snps,dcrs is not defined.
+Code manipulating sysfs symlinks on adjacent net_devices(s)
+currently doesn't take into account that devices potentially
+belong to different namespaces.
 
-For MII, Carrier Sense (CRS) must be asserted during transmission
-whereas in RGMII, CRS is not. RGMII does not provide a way to signal
-loss of carrier during a transmission.
-
-When DCRS bit set high in control register, the MAC transmitter
-ignore the (G)MII Carrier Sense signal during frame transmission
-in the half-duplex mode. This request results in no errors generated
-because of Loss of Carrier or No Carrier during such transmission.
-
-Signed-off-by: Ley Foon Tan <lftan@altera.com>
+This patch trying to fix an issue as follows:
+- check for net_ns before creating / deleting symlink.
+  for now only netdev_adjacent_rename_links and
+  __netdev_adjacent_dev_remove are affected, afaics
+  __netdev_adjacent_dev_insert implies both net_devs
+  belong to the same namespace.
+- Drop all existing symlinks to / from all adj_devs before
+  switching namespace and recreate them just after.
 ---
- Documentation/devicetree/bindings/net/stmmac.txt      | 4 ++++
- drivers/net/ethernet/stmicro/stmmac/common.h          | 3 ++-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c  | 4 +++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 3 ++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 2 ++
- include/linux/stmmac.h                                | 1 +
- 6 files changed, 14 insertions(+), 3 deletions(-)
+ net/core/dev.c | 61 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 60 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index 9b03c57..a68e720 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -39,6 +39,10 @@ Optional properties:
-   further clocks may be specified in derived bindings.
- - clock-names: One name for each entry in the clocks property, the
-   first one should be "stmmaceth".
-+- snps,dcrs: Enable DCRS bit in GMAC control register. This DCRS bit makes the
-+	MAC transmitter ignore the (G)MII CRS signal during frame transmission
-+	in the half-duplex mode. This request results in no errors generated
-+	because of Loss of Carrier or No Carrier during such transmission.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b65a5051361f..66738e9d66e4 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4889,7 +4889,8 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
+ 	if (adj->master)
+ 		sysfs_remove_link(&(dev->dev.kobj), "master");
  
- Examples:
+-	if (netdev_adjacent_is_neigh_list(dev, dev_list))
++	if (netdev_adjacent_is_neigh_list(dev, dev_list) &&
++	    net_eq(dev_net(dev),dev_net(adj_dev)))
+ 		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
  
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index de507c3..9abe221 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -445,10 +445,11 @@ struct mac_device_info {
- 	int multicast_filter_bins;
- 	int unicast_filter_entries;
- 	int mcast_bits_log2;
-+	int dcrs;
- };
- 
- struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr, int mcbins,
--					int perfect_uc_entries);
-+					int perfect_uc_entries, int dcrs);
- struct mac_device_info *dwmac100_setup(void __iomem *ioaddr);
- 
- void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index d8ef187..924d450 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -37,6 +37,7 @@ static void dwmac1000_core_init(struct mac_device_info *hw, int mtu)
- 	void __iomem *ioaddr = hw->pcsr;
- 	u32 value = readl(ioaddr + GMAC_CONTROL);
- 	value |= GMAC_CORE_INIT;
-+	value |= hw->dcrs;
- 	if (mtu > 1500)
- 		value |= GMAC_CONTROL_2K;
- 	if (mtu > 2000)
-@@ -409,7 +410,7 @@ static const struct stmmac_ops dwmac1000_ops = {
- };
- 
- struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr, int mcbins,
--					int perfect_uc_entries)
-+					int perfect_uc_entries, int dcrs)
- {
- 	struct mac_device_info *mac;
- 	u32 hwid = readl(ioaddr + GMAC_VERSION);
-@@ -422,6 +423,7 @@ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr, int mcbins,
- 	mac->multicast_filter_bins = mcbins;
- 	mac->unicast_filter_entries = perfect_uc_entries;
- 	mac->mcast_bits_log2 = 0;
-+	mac->dcrs = dcrs;
- 
- 	if (mac->multicast_filter_bins)
- 		mac->mcast_bits_log2 = ilog2(mac->multicast_filter_bins);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 08addd6..bf35b19 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2600,7 +2600,8 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
- 		priv->dev->priv_flags |= IFF_UNICAST_FLT;
- 		mac = dwmac1000_setup(priv->ioaddr,
- 				      priv->plat->multicast_filter_bins,
--				      priv->plat->unicast_filter_entries);
-+				      priv->plat->unicast_filter_entries,
-+				      priv->plat->dcrs);
- 	} else {
- 		mac = dwmac100_setup(priv->ioaddr);
- 	}
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index bb524a9..07f895f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -227,6 +227,8 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
- 		pr_warn("force_sf_dma_mode is ignored if force_thresh_dma_mode is set.");
- 	}
- 
-+	plat->dcrs = of_property_read_bool(np, "snps,dcrs");
-+
- 	return 0;
+ 	list_del_rcu(&adj->list);
+@@ -5159,11 +5160,65 @@ void netdev_upper_dev_unlink(struct net_device *dev,
  }
- #else
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index cd63851..6367f42 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -114,6 +114,7 @@ struct plat_stmmacenet_data {
- 	int maxmtu;
- 	int multicast_filter_bins;
- 	int unicast_filter_entries;
-+	int dcrs;
- 	void (*fix_mac_speed)(void *priv, unsigned int speed);
- 	void (*bus_setup)(void __iomem *ioaddr);
- 	void *(*setup)(struct platform_device *pdev);
+ EXPORT_SYMBOL(netdev_upper_dev_unlink);
+ 
++void netdev_adjacent_add_links(struct net_device *dev)
++{
++	struct netdev_adjacent *iter;
++
++	struct net *net = dev_net(dev);
++
++	list_for_each_entry(iter, &dev->adj_list.upper, list) {
++		if (!net_eq(net,dev_net(iter->dev)))
++			continue;
++		netdev_adjacent_sysfs_add(iter->dev, dev,
++					  &iter->dev->adj_list.lower);
++		netdev_adjacent_sysfs_add(dev, iter->dev,
++					  &dev->adj_list.upper);
++	}
++
++	list_for_each_entry(iter, &dev->adj_list.lower, list) {
++		if (!net_eq(net,dev_net(iter->dev)))
++			continue;
++		netdev_adjacent_sysfs_add(iter->dev, dev,
++					  &iter->dev->adj_list.upper);
++		netdev_adjacent_sysfs_add(dev, iter->dev,
++					  &dev->adj_list.lower);
++	}
++}
++
++void netdev_adjacent_del_links(struct net_device *dev)
++{
++	struct netdev_adjacent *iter;
++
++	struct net *net = dev_net(dev);
++
++	list_for_each_entry(iter, &dev->adj_list.upper, list) {
++		if (!net_eq(net,dev_net(iter->dev)))
++			continue;
++		netdev_adjacent_sysfs_del(iter->dev, dev->name,
++					  &iter->dev->adj_list.lower);
++		netdev_adjacent_sysfs_del(dev, iter->dev->name,
++					  &dev->adj_list.upper);
++	}
++
++	list_for_each_entry(iter, &dev->adj_list.lower, list) {
++		if (!net_eq(net,dev_net(iter->dev)))
++			continue;
++		netdev_adjacent_sysfs_del(iter->dev, dev->name,
++					  &iter->dev->adj_list.upper);
++		netdev_adjacent_sysfs_del(dev, iter->dev->name,
++					  &dev->adj_list.lower);
++	}
++}
++
+ void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
+ {
+ 	struct netdev_adjacent *iter;
+ 
++	struct net *net = dev_net(dev);
++
+ 	list_for_each_entry(iter, &dev->adj_list.upper, list) {
++		if (!net_eq(net,dev_net(iter->dev)))
++			continue;
+ 		netdev_adjacent_sysfs_del(iter->dev, oldname,
+ 					  &iter->dev->adj_list.lower);
+ 		netdev_adjacent_sysfs_add(iter->dev, dev,
+@@ -5171,6 +5226,8 @@ void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
+ 	}
+ 
+ 	list_for_each_entry(iter, &dev->adj_list.lower, list) {
++		if (!net_eq(net,dev_net(iter->dev)))
++			continue;
+ 		netdev_adjacent_sysfs_del(iter->dev, oldname,
+ 					  &iter->dev->adj_list.upper);
+ 		netdev_adjacent_sysfs_add(iter->dev, dev,
+@@ -6773,6 +6830,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 
+ 	/* Send a netdev-removed uevent to the old namespace */
+ 	kobject_uevent(&dev->dev.kobj, KOBJ_REMOVE);
++	netdev_adjacent_del_links(dev);
+ 
+ 	/* Actually switch the network namespace */
+ 	dev_net_set(dev, net);
+@@ -6787,6 +6845,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 
+ 	/* Send a netdev-add uevent to the new namespace */
+ 	kobject_uevent(&dev->dev.kobj, KOBJ_ADD);
++	netdev_adjacent_add_links(dev);
+ 
+ 	/* Fixup kobjects */
+ 	err = device_rename(&dev->dev, dev->name);
 -- 
-1.8.2.1
+2.0.4
