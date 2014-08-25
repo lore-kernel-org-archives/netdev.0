@@ -1,97 +1,53 @@
-From: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
- for datapath hardware offload
-Date: Sun, 24 Aug 2014 19:42:42 -0700
-Message-ID: <53FAA2A2.7070801@gmail.com>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-11-git-send-email-jiri@resnulli.us>
- <53F79C54.5050701@gmail.com>
- <464DB0A8-0073-4CE0-9483-0F36B73A53A1@cumulusnetworks.com>
- <53F9459B.2070801@mojatatu.com> <20140824111218.GA32741@casper.infradead.org>
- <53FA01AC.10507@mojatatu.com>
- <A67C7591-19BF-4431-9119-F61361F5E618@cumulusnetworks.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
+ is runnable
+Date: Mon, 25 Aug 2014 10:54:41 +0800
+Message-ID: <53FAA571.9020901@redhat.com>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>	 <1408608310-13579-2-git-send-email-jasowang@redhat.com>	 <1408683665.5648.69.camel@marge.simpson.net>	 <20140822073653.GA7372@gmail.com> <53F70887.8030602@redhat.com> <1408716976.5604.18.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; Format="flowed"
-Content-Transfer-Encoding: quoted-printable
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
- Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
- f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
- Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
- Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Scott Feldman <sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <A67C7591-19BF-4431-9119-F61361F5E618-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com, Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>, eliezer.tamir@linux.intel.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:8442 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753767AbaHYCzj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Aug 2014 22:55:39 -0400
+In-Reply-To: <1408716976.5604.18.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/24/2014 07:24 PM, Scott Feldman wrote:
+On 08/22/2014 10:16 PM, Eric Dumazet wrote:
+> On Fri, 2014-08-22 at 17:08 +0800, Jason Wang wrote:
 >
-> On Aug 24, 2014, at 8:15 AM, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org> wrote:
+>> > But this is just for current process. We want to determine whether or
+>> > not it was worth to loop busily in current process by checking if
+>> > there's any another runnable processes or callbacks. And what we need
+>> > here is just a simple and lockless hint which can't be wrong but may be
+>> > inaccurate to exit the busy loop. The net code does not depends on this
+>> > hint to do scheduling or yielding.
+>> > 
+>> > How about just introducing a boolean helper like current_can_busy_loop()
+>> > and return true in one of the following conditions:
+>> > 
+>> > - Current task is SCHED_FIFO
+>> > - Current task is neither SCHED_FIFO nor SCHED_IDLE and no other
+>> > runnable processes or pending RCU callbacks in current cpu
+>> > 
+>> > And add warns to make sure it can only be called in process context.
+> 1) Any reasons Eliezer Tamir is not included in the CC list ?
 >
->> On 08/24/14 07:12, Thomas Graf wrote:
->>> On 08/23/14 at 09:53pm, Jamal Hadi Salim wrote:
->>
->>>
->>> I get what you are saying but I don't see that to be the case here. I
->>> don't see how this series proposes the OVS case as *the* interface.
->>
->> The focus of the patches is on offloading flows (uses the
->> ovs or shall i say the broadcom OF-DPA API, which is one
->> vendor's view of the world).
->>
->> Yes, people are going to deploy more hardware which knows how to do
->> a lot of flows (but today that is in the tiny tiny minority)
->>
->> I would have liked to see more focus on L2/3 as a first step because
->> they are more predominantly deployed than anything with flows. And
->> they are well understood from a functional perspective.
->> Then that would bring to the front API issues since you have
->> a large sample space of deployments and we can refactor as needed.
+>    He is the busypoll author after all, and did nothing wrong to be
+> banned from these patches ;)
+CC Eliezer Tamir
+
+
+No intentional, I just generate the CC list through get_maintainer.pl :(
 >
-> With respect to focus on L2/L3, I have a pretty *good* hunch someone
-could write a kernel module that gleans from the L2/L3 netlink echoes
-already flying around and translates to sw_flows and in turn into
-ndo_swdev_flow_* calls. So the existing linux bonds and bridges and
-vlans and ROUTEs and NEIGHs and LINKs and ADDRs work as normal,
-unchanged, with iproute2 still originating the netlink msgs from the
-user. The new kernel module (let=92s call it =93dagger=94 after the white s=
-py
-from spy vs. spy MAD comic) can figure out what forwarding gets
-offloaded to HW just from the netlink echoes. If someone wrote a dagger
-module in parallel with the other efforts being discussed here, I think
-we=92d have a pretty good idea what the API needs to look like, at least
-to cover existing L2/L3 world we're all familiar with. Gleaning netlink
-msgs isn=92t ideal for several reasons (and probably making more than a
-few in the audience squeamish), but it would be a quick way to get us
-closer to the answer we=92re seeking which is the swdev driver model.
->
-
-In the L2 case we already have the fdb_add and fdb_del semantics that
-are being used today by NICs with embedded switches. And we have a DSA
-patch we could dig out of patchwork for those drivers.
-
-So I think it makes more sense to use the explicit interface rather
-than put another shim layer in the kernel. Its simpler and more to the
-point IMO. I suspect the resulting code will be smaller and easier to
-read. I'm the squemish one in the audience here.
-
-.John
-
-
--- =
-
-John Fastabend         Intel Corporation
+> 2) It looks like sk_buy_loop() should not be inlined, its is already too
+> big.
