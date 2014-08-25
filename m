@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next 3/3] packet: make use of deferred TX queue
- flushing
-Date: Sun, 24 Aug 2014 22:57:41 -0700 (PDT)
-Message-ID: <20140824.225741.1546858244063296096.davem@davemloft.net>
-References: <1408887738-7661-1-git-send-email-dborkman@redhat.com>
-	<1408887738-7661-4-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH 0/3] Basic deferred TX queue flushing infrastructure.
+Date: Sun, 24 Aug 2014 23:10:55 -0700 (PDT)
+Message-ID: <20140824.231055.667855333558025304.davem@davemloft.net>
+References: <20140823.132811.751469424156827125.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dborkman@redhat.com
+Cc: therbert@google.com, jhs@mojatatu.com, hannes@stressinduktion.org,
+	edumazet@google.com, jeffrey.t.kirsher@intel.com,
+	rusty@rustcorp.com.au
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54387 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54579 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751780AbaHYF5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 01:57:42 -0400
-In-Reply-To: <1408887738-7661-4-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1753661AbaHYGK4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 02:10:56 -0400
+In-Reply-To: <20140823.132811.751469424156827125.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Sun, 24 Aug 2014 15:42:18 +0200
 
-> This adds a first use-case of deferred tail pointer flushing
-> for AF_PACKET's TX_RING in QDISC_BYPASS mode.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+In the interest of having something to readily build upon, I pushed
+my changes into net-next with the bug fixed that Alexander Duyck
+pointed out.
 
-If last_queue changes, you'll need to force a flush, does that
-end up happening with your changes here?  I really couldn't
-tell for sure.
+Don't panic, if this turns out to be the wrong interface we'll adjust
+it or just completely revert my changes.
