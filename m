@@ -1,41 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next 1/3] ixgbe: support
- netdev_ops->ndo_xmit_flush()
-Date: Mon, 25 Aug 2014 16:31:35 -0700 (PDT)
-Message-ID: <20140825.163135.1716545240924138406.davem@davemloft.net>
-References: <1408887738-7661-2-git-send-email-dborkman@redhat.com>
-	<20140825140721.162a6c91@redhat.com>
-	<20140825.153248.1202565040217198094.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: using rhashtable in inethash
+Date: Tue, 26 Aug 2014 00:33:46 +0100
+Message-ID: <20140825233346.GF30140@casper.infradead.org>
+References: <20140825.161224.1108200625385309828.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, netdev@vger.kernel.org
-To: brouer@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	paulmck@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39252 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752606AbaHYXbh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 19:31:37 -0400
-In-Reply-To: <20140825.153248.1202565040217198094.davem@davemloft.net>
+Received: from casper.infradead.org ([85.118.1.10]:46695 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752606AbaHYXdr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 19:33:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20140825.161224.1108200625385309828.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 25 Aug 2014 15:32:48 -0700 (PDT)
+On 08/25/14 at 04:12pm, David Miller wrote:
+> During the Networking Workshop I mentioned converting the inet hash
+> tables over to rhashtable so that we don't allocate this insanely
+> large hash table at boot time which goes largely unused.
 
-> Jesper, just for fun, could you revert all of the xmit flush stuff and
-> test this patch instead?
+> I took a quick look at this last night and the only thing we really
+> need is the addition of a set of rhashtable interfaces which use
+> NULLs lists, as the inet hashtables currently require.
 
-This doesn't work properly, sorry.  We need to explicitly set xmit_more
-to zero before ->ndo_start_xmit() calls, because the initial zero'ing
-of that value isn't propagated in copy_skb_header() (nor do we want to
-add that).
+Eric brought this up as well last week. I see no problem using
+a non-NULL token as the default to identify the end of the list.
 
-But I'm beyond convinced now that ->ndo_xmit_flush() is not the way to
-do this.
+We had a quick sitdown with Paul E. McKenney and came up with
+some ideas that should allow doing that even with resizes taking
+place by using the hash of the entry as the token.
 
-I'm about to post a set of patches which will go into net-next which:
+We also discussed the possibility to do the resizing outside of
+the insert/remove context and move it to a worker thread using
+per bucket locks. We think that we may have found something that
+might work and I will give that a shot. It will allow to use a
+resizing rhashtable with the insert/remove being in atomic
+context which I believe is needed for the inet cache.
 
-1) Converts the tree to skb->xmit_more
+> Also, I noticed in the netlink changes this really expensive
+> synchronize_net() added to netlink_release(), is that _really_
+> necessary?
+>
+> 
+> That's really expensive and my impression was that such a sync is only
+> needed during hash table resizing, not when getting rid of objects
+> that we in an rhashtable.
 
-2) Adds Daniel's IXGBE conversion, adjusted for xmit_more.
+The reason I added added the sync is because I could not see how
+else to prevent the sock_put() in netlink_release() to release
+socket memoray, specifically the embedded rhash_head, that is
+possibly being accessed in a RCU protected reader traversing the
+bucket. Such a reader would not hold a reference to the socket.
+I may be missing something though and I'm happy to change this for
+something better.
