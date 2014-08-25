@@ -1,59 +1,32 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: using rhashtable in inethash
-Date: Tue, 26 Aug 2014 00:33:46 +0100
-Message-ID: <20140825233346.GF30140@casper.infradead.org>
-References: <20140825.161224.1108200625385309828.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 0/2] Get rid of ndo_xmit_flush
+Date: Mon, 25 Aug 2014 16:34:58 -0700 (PDT)
+Message-ID: <20140825.163458.1117073971092495452.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: therbert@google.com, jhs@mojatatu.com, hannes@stressinduktion.org,
+	edumazet@google.com, jeffrey.t.kirsher@intel.com,
+	rusty@rustcorp.com.au, dborkman@redhat.com, brouer@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:46695 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752606AbaHYXdr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 19:33:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20140825.161224.1108200625385309828.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39291 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755221AbaHYXfA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 19:35:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/25/14 at 04:12pm, David Miller wrote:
-> During the Networking Workshop I mentioned converting the inet hash
-> tables over to rhashtable so that we don't allocate this insanely
-> large hash table at boot time which goes largely unused.
 
-> I took a quick look at this last night and the only thing we really
-> need is the addition of a set of rhashtable interfaces which use
-> NULLs lists, as the inet hashtables currently require.
+Given Jesper's performance numbers, it's not the way to go.
 
-Eric brought this up as well last week. I see no problem using
-a non-NULL token as the default to identify the end of the list.
+Instead, go with a signalling scheme via new boolean skb->xmit_more.
 
-We had a quick sitdown with Paul E. McKenney and came up with
-some ideas that should allow doing that even with resizes taking
-place by using the hash of the entry as the token.
+This has several advantages:
 
-We also discussed the possibility to do the resizing outside of
-the insert/remove context and move it to a worker thread using
-per bucket locks. We think that we may have found something that
-might work and I will give that a shot. It will allow to use a
-resizing rhashtable with the insert/remove being in atomic
-context which I believe is needed for the inet cache.
+1) Nearly trivial driver support, just protect the tail pointer
+   update with the skb->xmit_more check.
 
-> Also, I noticed in the netlink changes this really expensive
-> synchronize_net() added to netlink_release(), is that _really_
-> necessary?
->
-> 
-> That's really expensive and my impression was that such a sync is only
-> needed during hash table resizing, not when getting rid of objects
-> that we in an rhashtable.
+2) No extra indirect calls in the non-deferral cases.
 
-The reason I added added the sync is because I could not see how
-else to prevent the sock_put() in netlink_release() to release
-socket memoray, specifically the embedded rhash_head, that is
-possibly being accessed in a RCU protected reader traversing the
-bucket. Such a reader would not hold a reference to the socket.
-I may be missing something though and I'm happy to change this for
-something better.
+Signed-off-by: David S. Miller <davem@davemloft.net>
