@@ -1,56 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: using rhashtable in inethash
-Date: Mon, 25 Aug 2014 16:35:35 -0700
-Message-ID: <1409009735.3173.6.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Mon, 25 Aug 2014 16:36:45 -0700 (PDT)
+Message-ID: <20140825.163645.1024070177356241101.davem@davemloft.net>
 References: <20140825.161224.1108200625385309828.davem@davemloft.net>
+	<20140825233346.GF30140@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: David Miller <davem@davemloft.net>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	paulmck@linux.vnet.ibm.com
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:36074 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755148AbaHYXfh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 19:35:37 -0400
-Received: by mail-pa0-f47.google.com with SMTP id kx10so22161423pab.20
-        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 16:35:36 -0700 (PDT)
-In-Reply-To: <20140825.161224.1108200625385309828.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39335 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753344AbaHYXgq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 19:36:46 -0400
+In-Reply-To: <20140825233346.GF30140@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-08-25 at 16:12 -0700, David Miller wrote:
-> During the Networking Workshop I mentioned converting the inet hash
-> tables over to rhashtable so that we don't allocate this insanely
-> large hash table at boot time which goes largely unused.
-> 
-> I took a quick look at this last night and the only thing we really
-> need is the addition of a set of rhashtable interfaces which use
-> NULLs lists, as the inet hashtables currently require.
-> 
-> Also, I noticed in the netlink changes this really expensive
-> synchronize_net() added to netlink_release(), is that _really_
-> necessary?
-> 
-> That's really expensive and my impression was that such a sync is only
-> needed during hash table resizing, not when getting rid of objects
-> that we in an rhashtable.
-> 
-> Thomas?
+From: Thomas Graf <tgraf@suug.ch>
+Date: Tue, 26 Aug 2014 00:33:46 +0100
 
-After the workshop we had a discussion with Paul McKenney, Thomas, and
-John where we discussed all this.
+> The reason I added added the sync is because I could not see how
+> else to prevent the sock_put() in netlink_release() to release
+> socket memoray, specifically the embedded rhash_head, that is
+> possibly being accessed in a RCU protected reader traversing the
+> bucket. Such a reader would not hold a reference to the socket.
+> I may be missing something though and I'm happy to change this for
+> something better.
 
-An other issue we raised was that the grow should happen in process
-context, while inserts and deletes should happen from softirq.
+Ok, this is going to be a tree-wide issue where we try to use
+rhashtable with sockets of any type.
 
-We also mentioned the need of a per bucket spinlock, and keep the mutex
-only to protect the resizes. (Or an array of spinlocks as used by TCP)
-
-Paul gave a lot of ideas and this seems feasible.
-
-Thomas agreed to work on all this. If not I can do this myself.
-
-(Note that conntrack also uses the same nulls rcu hash tables)
+Perhaps we're overdue for RCU freeing of sockets, but that added
+noticable latency last time I tried it.
