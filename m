@@ -1,66 +1,98 @@
-From: Richard Weinberger <richard.weinberger@gmail.com>
-Subject: Re: [hyperv] BUG at drivers/hv/channel.c:462 while changing MTU
-Date: Mon, 25 Aug 2014 12:48:08 +0200
-Message-ID: <CAFLxGvx5_JSb7sRPXY01d+eNJ4p4fk=MySGyui91KNbdyLyQ_g@mail.gmail.com>
-References: <20140819123655.GC12160@sucs.org>
- <8dcf334714c44eeda54ecb129479719b@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140820034116.GA3407@sucs.org>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] cdc-ether: clean packet filter upon probe
+Date: Mon, 25 Aug 2014 10:39:53 +0200
+Message-ID: <87a96tc692.fsf@nemi.mork.no>
+References: <1406537796-20156-1-git-send-email-oneukum@suse.de>
+	<87a977z5pn.fsf@nemi.mork.no>
+	<1408083121.17565.4.camel@linux-fkkt.site>
+	<87d2c2xm2k.fsf@nemi.mork.no>
+	<1408954063.10300.1.camel@linux-fkkt.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Jason Wang <jasowang@redhat.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "David S. Miller" <davem@davemloft.net>, Daniel Borkmann <dborkman@redhat.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- Haiyang Zhang <haiyangz@microsoft.com>
-To: Sitsofe Wheeler <sitsofe@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140820034116.GA3407@sucs.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:45626 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753344AbaHYLBg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 07:01:36 -0400
+In-Reply-To: <1408954063.10300.1.camel@linux-fkkt.site> (Oliver Neukum's
+	message of "Mon, 25 Aug 2014 10:07:43 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- via
+Oliver Neukum <oneukum@suse.de> writes:
+> On Fri, 2014-08-15 at 09:13 +0200, Bj=C3=B8rn Mork wrote:
+>> Oliver Neukum <oneukum@suse.de> writes:
+>>=20
+>> > On Thu, 2014-08-14 at 13:11 +0200, Bj=C3=B8rn Mork wrote:
+>
+>> > Support for this request is mandatory.
+>>=20
+>> Yes, there is no problem for standard conforming ECM devices.  I ful=
+ly
+>> agree there.=20
+>>=20
+>> But standard conformance is unfortunately not something we can expec=
+t.
+>> My question was regarding the non-conforming devices, like the ones
+>> supported by th zaurus and rndis_host drivers.  These drivers are ma=
+de
+>
+> You have a point. Yet another flag? Do you see an alternative?
+
+Note that I don't know whether this is a real problem or not. I don't
+believe I have any zaurus or rndis_host devices.
+
+But how about just splitting the .bind functions for true ECM devices
+and the others, letting the zaurus and rndis_host driver continue to us=
+e
+usbnet_cdc_bind with no filter setting?  Maybe define a new unexported
+=2Ebind in cdc_ether for this purpose, moving the ECM specific
+initialization there?
+
+Maybe something along this (instead of the change to
+usbnet_generic_cdc_bind)?:
+
+static int usbnet_cdc_ecm_bind(struct usbnet *dev, struct usb_interface=
+ *intf)
+{
+        int rv =3D usbnet_cdc_bind(dev, intf);
+
+	if (rv < 0)
+		return rv;
+
+	/* Some devices don't initialise properly. In particular
+	 * the packet filter is not reset. There are devices that
+	 * don't do reset all the way. So the packet filter should
+	 * be set to a sane initial value.
+	 */
+	rv =3D usb_control_msg(dev->udev,
+			     usb_sndctrlpipe(dev->udev, 0),
+			     USB_CDC_SET_ETHERNET_PACKET_FILTER,
+			     USB_TYPE_CLASS | USB_RECIP_INTERFACE,
+			     USB_CDC_PACKET_TYPE_ALL_MULTICAST | USB_CDC_PACKET_TYPE_DIRECTE=
+D | USB_CDC_PACKET_TYPE_BROADCAST,
+			     intf->cur_altsetting->desc.bInterfaceNumber,
+			     NULL,
+			     0,
+			     USB_CTRL_SET_TIMEOUT);
+  	if (rv < 0)
+		return rv;
+        return 0;
+}
+
+=2E.
+
+static const struct driver_info	cdc_info =3D {
+	.description =3D	"CDC Ethernet Device",
+	.flags =3D	FLAG_ETHER | FLAG_POINTTOPOINT,
+	.bind =3D		usbnet_cdc_ecm_bind,
+	.unbind =3D	usbnet_cdc_unbind,
+	.status =3D	usbnet_cdc_status,
+	.manage_power =3D	usbnet_manage_power,
+};
 
 
-On Wed, Aug 20, 2014 at 5:41 AM, Sitsofe Wheeler <sitsofe@gmail.com> wrote:
-> Aug 20 04:04:41 ubuntuhv kernel: [    9.230399] random: nonblocking pool is initialized
-> Aug 20 04:04:41 ubuntuhv kernel: [   10.338487] EXT4-fs (sda1): re-mounted. Opts: errors=remount-ro
-> Aug 20 04:04:41 ubuntuhv kernel: [   11.099094] hv_storvsc vmbus_0_1: cmd 0x85 scsi status 0x2 srb status 0x6
-> Aug 20 04:04:41 ubuntuhv kernel: [   11.099901] hv_storvsc vmbus_0_1: cmd 0x85 scsi status 0x2 srb status 0x6
-> Aug 20 04:04:43 ubuntuhv kernel: [   12.999830] psmouse serio1: trackpoint: IBM TrackPoint firmware: 0x01, buttons: 0/0
-> Aug 20 03:55:47 ubuntuhv kernel: [   13.003659] input: TPPS/2 IBM TrackPoint as /devices/platform/i8042/serio1/input/input4
-> Aug 20 03:57:28 ubuntuhv kernel: [  113.711832] hv_netvsc vmbus_0_14: net device safe to remove
-> Aug 20 03:57:28 ubuntuhv kernel: [  113.713882] hv_netvsc: hv_netvsc channel opened successfully
-> Aug 20 03:57:29 ubuntuhv kernel: [  114.961312] hv_netvsc vmbus_0_14: Send section size: 6144, Section count:2560
-> Aug 20 03:57:29 ubuntuhv kernel: [  114.962711] hv_netvsc vmbus_0_14: Device MAC 00:15:5d:6f:02:af link state up
-> Aug 20 03:57:34 ubuntuhv kernel: [  120.027718] hv_netvsc vmbus_0_14: net device safe to remove
-> Aug 20 03:57:34 ubuntuhv kernel: [  120.030047] hv_netvsc: hv_netvsc channel opened successfully
-> Aug 20 03:57:34 ubuntuhv kernel: [  120.035422] hv_netvsc vmbus_0_14 eth0: unable to establish receive buffer's gpadl
-> Aug 20 03:57:34 ubuntuhv kernel: [  120.039778] hv_netvsc vmbus_0_14 eth0: unable to connect to NetVSP - 4
-> Aug 20 03:57:34 ubuntuhv kernel: [  120.039818] ------------[ cut here ]------------
-> Aug 20 03:57:34 ubuntuhv kernel: [  120.039832] kernel BUG at drivers/hv/channel.c:504!
-
-This is one is also a rude BUG_ON:
-        ret = vmbus_post_msg(msg, sizeof(struct vmbus_channel_close_channel));
-
-        BUG_ON(ret != 0);
-
-vmbus_post_msg() hv_post_message() can easily return !0.
-i.e. if this kmalloc() fails:
-        addr = (unsigned long)kmalloc(sizeof(struct aligned_input), GFP_ATOMIC);
-        if (!addr)
-                return -ENOMEM;
-
--- 
-Thanks,
-//richard
+Bj=C3=B8rn
