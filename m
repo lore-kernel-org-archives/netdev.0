@@ -1,36 +1,72 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [RFC PATCH net-next 3/3] packet: make use of deferred TX queue
- flushing
-Date: Mon, 25 Aug 2014 08:40:24 +0200
-Message-ID: <53FADA58.4020902@redhat.com>
-References: <1408887738-7661-1-git-send-email-dborkman@redhat.com> <1408887738-7661-4-git-send-email-dborkman@redhat.com> <20140824.225741.1546858244063296096.davem@davemloft.net>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH net-next 0/4] r8152: firmware support
+Date: Mon, 25 Aug 2014 06:43:02 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB25161DF@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-16-Taiwan-albertk@realtek.com>
+	<20140822.194111.760144805197214266.davem@davemloft.net>
+	<0835B3720019904CB8F7AA43166CEEB2516177@RTITMBSV03.realtek.com.tw>
+ <20140824.212614.2300459100680592586.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7530 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753254AbaHYGk3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Aug 2014 02:40:29 -0400
-In-Reply-To: <20140824.225741.1546858244063296096.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140824.212614.2300459100680592586.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Language: zh-TW
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/25/2014 07:57 AM, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Sun, 24 Aug 2014 15:42:18 +0200
->
->> This adds a first use-case of deferred tail pointer flushing
->> for AF_PACKET's TX_RING in QDISC_BYPASS mode.
->>
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->
-> If last_queue changes, you'll need to force a flush, does that
-> end up happening with your changes here?  I really couldn't
-> tell for sure.
+ From: David Miller [mailto:davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org] 
+[...]
+> That still doesn't convince me.
+> 
+> The functions I see you removing are just programming a set of
+> registers in some way.
 
-Yes indeed, I noticed that later on as well. :)
+That is to clear the break point of the firmware. If a firmware exists,
+you should clear it before updating a new one.
 
-I will fix that up and resubmit the series, thanks.
+> And the firmware that is replacing those functions is just going to be
+> causing the same register writes, just even more obfuscated than it is
+> now.
+> 
+> You should keep the C functions which document and show clearly what
+> is being programmed in each chip.
+> 
+> Don't hide register programming behind firmware files, please.
+
+Excuse me. Some settings are relative the content of the firmware.
+How should I deal with that parts. Take 8153 (RTL_VER_03) for
+example.
+
+	1. wait PLA 0xb800 bit 6 = 1.
+	2. set patch key = 0x7000.
+	3. update the PHY firmware.
+	4. enable the firmware.
+	5. set USB 0xcfca bit 14 = 0.
+	6. clear break point (That is r8153_clear_bp()).
+	7. load the firmware about PLA and USB parts.
+	8. set the break point of the firmware.
+	9. set USB 0xcfca bit 14 = 1.
+
+Except the step 3, 4, 6 and 7, the other steps depend on the
+context of the firmware. That is, for different firmware, some
+actions would be removed or added, and some settings would be
+different. Especially the step 8, it often different for
+different firmwares. Should I add some firmware version check
+in the source code? Such as
+
+	if (fw_version == v1) {
+		...
+		load firmware
+		set break point of the firmware
+		...
+	} else if (fw_version == v2) {
+	...--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
