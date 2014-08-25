@@ -1,98 +1,100 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] cdc-ether: clean packet filter upon probe
-Date: Mon, 25 Aug 2014 10:39:53 +0200
-Message-ID: <87a96tc692.fsf@nemi.mork.no>
-References: <1406537796-20156-1-git-send-email-oneukum@suse.de>
-	<87a977z5pn.fsf@nemi.mork.no>
-	<1408083121.17565.4.camel@linux-fkkt.site>
-	<87d2c2xm2k.fsf@nemi.mork.no>
-	<1408954063.10300.1.camel@linux-fkkt.site>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: [PATCH for -next] stmmac: simple cleanups
+Date: Mon, 25 Aug 2014 13:31:16 +0200
+Message-ID: <20140825113116.GA21632@amd>
+References: <20140819105646.GA27984@amd>
+ <20140822.123408.2064974279443073401.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:45626 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753344AbaHYLBg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 07:01:36 -0400
-In-Reply-To: <1408954063.10300.1.camel@linux-fkkt.site> (Oliver Neukum's
-	message of "Mon, 25 Aug 2014 10:07:43 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140822.123408.2064974279443073401.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Oliver Neukum <oneukum@suse.de> writes:
-> On Fri, 2014-08-15 at 09:13 +0200, Bj=C3=B8rn Mork wrote:
->> Oliver Neukum <oneukum@suse.de> writes:
->>=20
->> > On Thu, 2014-08-14 at 13:11 +0200, Bj=C3=B8rn Mork wrote:
->
->> > Support for this request is mandatory.
->>=20
->> Yes, there is no problem for standard conforming ECM devices.  I ful=
-ly
->> agree there.=20
->>=20
->> But standard conformance is unfortunately not something we can expec=
-t.
->> My question was regarding the non-conforming devices, like the ones
->> supported by th zaurus and rndis_host drivers.  These drivers are ma=
-de
->
-> You have a point. Yet another flag? Do you see an alternative?
+This adds simple cleanups for stmmac, removing test we know is always
+true, fixing whitespace, and moving code out of if().
 
-Note that I don't know whether this is a real problem or not. I don't
-believe I have any zaurus or rndis_host devices.
+Signed-off-by: Pavel Machek <pavel@denx.de>
 
-But how about just splitting the .bind functions for true ECM devices
-and the others, letting the zaurus and rndis_host driver continue to us=
-e
-usbnet_cdc_bind with no filter setting?  Maybe define a new unexported
-=2Ebind in cdc_ether for this purpose, moving the ECM specific
-initialization there?
+---
 
-Maybe something along this (instead of the change to
-usbnet_generic_cdc_bind)?:
+Now against -net-next.
 
-static int usbnet_cdc_ecm_bind(struct usbnet *dev, struct usb_interface=
- *intf)
-{
-        int rv =3D usbnet_cdc_bind(dev, intf);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index 9af50ba..493fe69 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -261,11 +261,11 @@ static int stmmac_ethtool_getsettings(struct net_device *dev,
+ 		ethtool_cmd_speed_set(cmd, priv->xstats.pcs_speed);
+ 
+ 		/* Get and convert ADV/LP_ADV from the HW AN registers */
+-		if (priv->hw->mac->get_adv)
+-			priv->hw->mac->get_adv(priv->hw, &adv);
+-		else
++		if (!priv->hw->mac->get_adv)
+ 			return -EOPNOTSUPP;	/* should never happen indeed */
+ 
++		priv->hw->mac->get_adv(priv->hw, &adv);
++
+ 		/* Encoding of PSE bits is defined in 802.3z, 37.2.1.4 */
+ 
+ 		if (adv.pause & STMMAC_PCS_PAUSE)
+@@ -340,19 +340,17 @@ static int stmmac_ethtool_setsettings(struct net_device *dev,
+ 		if (cmd->autoneg != AUTONEG_ENABLE)
+ 			return -EINVAL;
+ 
+-		if (cmd->autoneg == AUTONEG_ENABLE) {
+-			mask &= (ADVERTISED_1000baseT_Half |
++		mask &= (ADVERTISED_1000baseT_Half |
+ 			ADVERTISED_1000baseT_Full |
+ 			ADVERTISED_100baseT_Half |
+ 			ADVERTISED_100baseT_Full |
+ 			ADVERTISED_10baseT_Half |
+ 			ADVERTISED_10baseT_Full);
+ 
+-			spin_lock(&priv->lock);
+-			if (priv->hw->mac->ctrl_ane)
+-				priv->hw->mac->ctrl_ane(priv->hw, 1);
+-			spin_unlock(&priv->lock);
+-		}
++		spin_lock(&priv->lock);
++		if (priv->hw->mac->ctrl_ane)
++			priv->hw->mac->ctrl_ane(priv->hw, 1);
++		spin_unlock(&priv->lock);
+ 
+ 		return 0;
+ 	}
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 08addd6..8fcc64c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -818,7 +818,7 @@ static int stmmac_init_phy(struct net_device *dev)
+ 	/* Stop Advertising 1000BASE Capability if interface is not GMII */
+ 	if ((interface == PHY_INTERFACE_MODE_MII) ||
+ 	    (interface == PHY_INTERFACE_MODE_RMII) ||
+-		(max_speed < 1000 &&  max_speed > 0))
++		(max_speed < 1000 && max_speed > 0))
+ 		phydev->advertising &= ~(SUPPORTED_1000baseT_Half |
+ 					 SUPPORTED_1000baseT_Full);
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index a5b1e1b..8dd0408 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -253,7 +253,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 			}
+ 
+ 			/*
+-			 * If we're  going to bind the MAC to this PHY bus,
++			 * If we're going to bind the MAC to this PHY bus,
+ 			 * and no PHY number was provided to the MAC,
+ 			 * use the one probed here.
+ 			 */
 
-	if (rv < 0)
-		return rv;
-
-	/* Some devices don't initialise properly. In particular
-	 * the packet filter is not reset. There are devices that
-	 * don't do reset all the way. So the packet filter should
-	 * be set to a sane initial value.
-	 */
-	rv =3D usb_control_msg(dev->udev,
-			     usb_sndctrlpipe(dev->udev, 0),
-			     USB_CDC_SET_ETHERNET_PACKET_FILTER,
-			     USB_TYPE_CLASS | USB_RECIP_INTERFACE,
-			     USB_CDC_PACKET_TYPE_ALL_MULTICAST | USB_CDC_PACKET_TYPE_DIRECTE=
-D | USB_CDC_PACKET_TYPE_BROADCAST,
-			     intf->cur_altsetting->desc.bInterfaceNumber,
-			     NULL,
-			     0,
-			     USB_CTRL_SET_TIMEOUT);
-  	if (rv < 0)
-		return rv;
-        return 0;
-}
-
-=2E.
-
-static const struct driver_info	cdc_info =3D {
-	.description =3D	"CDC Ethernet Device",
-	.flags =3D	FLAG_ETHER | FLAG_POINTTOPOINT,
-	.bind =3D		usbnet_cdc_ecm_bind,
-	.unbind =3D	usbnet_cdc_unbind,
-	.status =3D	usbnet_cdc_status,
-	.manage_power =3D	usbnet_manage_power,
-};
-
-
-Bj=C3=B8rn
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
