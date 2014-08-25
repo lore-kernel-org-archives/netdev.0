@@ -1,78 +1,99 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: [PATCH 0/3] Basic deferred TX queue flushing infrastructure.
-Date: Mon, 25 Aug 2014 22:45:19 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D1C2BEF0A@eusaamb103.ericsson.se>
-References: <20140823.132811.751469424156827125.davem@davemloft.net>
-	<20140823.213839.1953243016141233125.davem@davemloft.net>
-	<CAHA+R7O_RSyKVNqcHXePbahvU+ayf77w61jos=G38M93okVWKw@mail.gmail.com>
- <20140825.153146.2165451041039058085.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC PATCH net-next] ipv6: stop sending PTB packets for MTU <
+ 1280
+Date: Tue, 26 Aug 2014 00:47:22 +0200
+Message-ID: <1409006842.6274.69.camel@localhost>
+References: <53F39E50.1020209@gont.com.ar>
+	 <1409005545-24910-2-git-send-email-hagen@jauu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"therbert@google.com" <therbert@google.com>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>
-To: David Miller <davem@davemloft.net>,
-	"cwang@twopensource.com" <cwang@twopensource.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Fernando Gont <fgont@si6networks.com>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usevmg20.ericsson.net ([198.24.6.45]:52129 "EHLO
-	usevmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932117AbaHYWpV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:45:21 -0400
-In-Reply-To: <20140825.153146.2165451041039058085.davem@davemloft.net>
-Content-Language: en-US
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:42235 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754983AbaHYWrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:47:24 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 2D33E20C9A
+	for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 18:47:24 -0400 (EDT)
+In-Reply-To: <1409005545-24910-2-git-send-email-hagen@jauu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Hagen,
 
+On Di, 2014-08-26 at 00:25 +0200, Hagen Paul Pfeifer wrote:
+> Reduce the attack vector and stop generating ICMPv6 packet to big for
+> packets smaller then the minimal required IPv6 MTU.
+> 
+> See
+> http://tools.ietf.org/html/draft-gont-6man-deprecate-atomfrag-generation-00
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of David Miller
-> Sent: August-25-14 6:32 PM
-> To: cwang@twopensource.com
-> Cc: netdev@vger.kernel.org; therbert@google.com; jhs@mojatatu.com;
-> hannes@stressinduktion.org; edumazet@google.com;
-> jeffrey.t.kirsher@intel.com; rusty@rustcorp.com.au
-> Subject: Re: [PATCH 0/3] Basic deferred TX queue flushing infrastructure.
-> 
-> From: Cong Wang <cwang@twopensource.com>
-> Date: Mon, 25 Aug 2014 15:21:00 -0700
-> 
-> > When I tried to unify the list management of SKB's, I was surprised to
-> > see there are still some places relying on skb->next and skb->prev to
-> > be the head of the skb struct, since nowadays we have list API's, they
-> > still play some magic on these pointers (sctp and tipc IIRC). This is
+I wonder if we should wait until this gets RFC status?
 
-I am not aware of any such assumptions in TIPC.  For me you can go ahead
-with this.
+I very much welcome this decision! I already raised this problem some
+time ago:
+http://lists.openwall.net/netdev/2013/12/31/17
 
-Regards
-///jon
+I wonder if we should add a mode alike ipv4 ip_no_pmtu_disc mode for
+ipv6:
 
+ip_no_pmtu_disc - INTEGER
+        Disable Path MTU Discovery. If enabled in mode 1 and a
+        fragmentation-required ICMP is received, the PMTU to this
+        destination will be set to min_pmtu (see below). You will need
+        to raise min_pmtu to the smallest interface MTU on your system
+        manually if you want to avoid locally generated fragments.
 
-> > why I gave up, maybe it's time to revise this again.
+        In mode 2 incoming Path MTU Discovery messages will be
+        discarded. Outgoing frames are handled the same as in mode 1,
+        implicitly setting IP_PMTUDISC_DONT on every created socket.
+
+        Mode 3 is a hardend pmtu discover mode. The kernel will only
+        accept fragmentation-needed errors if the underlying protocol
+        can verify them besides a plain socket lookup. Current
+        protocols for which pmtu events will be honored are TCP, SCTP
+        and DCCP as they verify e.g. the sequence number or the
+        association. This mode should not be enabled globally but is
+        only intended to secure e.g. name servers in namespaces where
+        TCP path mtu must still work but path MTU information of other
+        protocols should be discarded. If enabled globally this mode
+        could break other protocols.
+
+        Possible values: 0-3
+        Default: FALSE
+
+Not sure yet...
+
+> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+> ---
+>  net/ipv6/route.c | 7 ++-----
+>  1 file changed, 2 insertions(+), 5 deletions(-)
 > 
-> I think SCTP should be OK, and yes I do remember that protocol being one of
-> the last subsystems making such SKB list pointer assumptions.
-> 
-> It was using list_*() operations on sk_buff objects or something like that.
-> 
-> > Talking about skb->next, fortunately we do gso segmentation after
-> > going out of qdisc queues, otherwise it's scary to play with these
-> > pointers at same time. I think all queues of SKB's are either using
-> > just ->next or both ->prev and ->next.
-> 
-> It occurs to me that perhaps the thing to do is to pass sk_buff ** to
-> dev_hard_start_xmit().
-> 
-> If it really is important to free the original GSO skb after the segmented parts,
-> we can run that as part of the destructor of the final segment.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the body
-> of a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index f74b041..84ebacd 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1154,12 +1154,9 @@ static void ip6_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
+>  		struct net *net = dev_net(dst->dev);
+>  
+>  		rt6->rt6i_flags |= RTF_MODIFIED;
+> -		if (mtu < IPV6_MIN_MTU) {
+> -			u32 features = dst_metric(dst, RTAX_FEATURES);
+> +		if (mtu < IPV6_MIN_MTU)
+>  			mtu = IPV6_MIN_MTU;
+> -			features |= RTAX_FEATURE_ALLFRAG;
+> -			dst_metric_set(dst, RTAX_FEATURES, features);
+> -		}
+> +
+>  		dst_metric_set(dst, RTAX_MTU, mtu);
+>  		rt6_update_expires(rt6, net->ipv6.sysctl.ip6_rt_mtu_expires);
+>  	}
+
+This patch is a starter, yes. We can now get rid of the dst_allfrag
+function altogether.
+
+Thanks,
+Hannes
