@@ -1,74 +1,65 @@
-From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
- for datapath hardware offload
-Date: Mon, 25 Aug 2014 09:53:25 -0400
-Message-ID: <53FB3FD5.2030905@mojatatu.com>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-11-git-send-email-jiri@resnulli.us>
- <53F79C54.5050701@gmail.com>
- <464DB0A8-0073-4CE0-9483-0F36B73A53A1@cumulusnetworks.com>
- <53F9459B.2070801@mojatatu.com> <20140824111218.GA32741@casper.infradead.org>
- <53FA01AC.10507@mojatatu.com>
- <A67C7591-19BF-4431-9119-F61361F5E618@cumulusnetworks.com>
- <53FAA2A2.7070801@gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH net-next 3/3] packet: make use of deferred TX queue
+ flushing
+Date: Mon, 25 Aug 2014 15:54:02 +0200
+Message-ID: <20140825155402.2f2a03d7@redhat.com>
+References: <1408887738-7661-1-git-send-email-dborkman@redhat.com>
+	<1408887738-7661-4-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
- Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
- f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
- Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- Scott Feldman <sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <53FAA2A2.7070801-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: brouer@redhat.com, davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:21631 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932406AbaHYNyH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Aug 2014 09:54:07 -0400
+In-Reply-To: <1408887738-7661-4-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/24/14 22:42, John Fastabend wrote:
+On Sun, 24 Aug 2014 15:42:18 +0200
+Daniel Borkmann <dborkman@redhat.com> wrote:
 
-> In the L2 case we already have the fdb_add and fdb_del semantics that
-> are being used today by NICs with embedded switches. And we have a DSA
-> patch we could dig out of patchwork for those drivers.
+> This adds a first use-case of deferred tail pointer flushing
+> for AF_PACKET's TX_RING in QDISC_BYPASS mode.
 
-Indeed. That is an excellent starting point of something that is proven
-to work. I was hoping L3 would follow this path. For L2,
-there is the mess of claiming unicast NIC addresses as part of
-the fdb, but that can almost be ignored.
-Caveat: fdb_XXX works well for NICs as well as different larger
-ASICs - but some quark handling is going to be needed for the tinier
-openwrt type devices.
-For larger switches we are going to need more for L2:
-Really, the bridge already covers everthing large switches
-offer (Vlan filtering, bridge port setting etc). We just need
-to offload that...
+Testing with trafgen.  I've updated patch 1/3 to NOT call mmiowb(),
+during this testing, see why in my other post.
 
-> So I think it makes more sense to use the explicit interface rather
-> than put another shim layer in the kernel. Its simpler and more to the
-> point IMO. I suspect the resulting code will be smaller and easier to
-> read. I'm the squemish one in the audience here.
->
+trafgen cmdline:
+ trafgen --cpp  --dev eth5 --conf udp_example01.trafgen -V --cpus 1
+ * Only use 1 CPU
+ * default is mmap
+ * default is QDISC_BYPASS mode
 
-L2/3 should be left alone and go this path. My concern on excessive
-NDOs was more on the flow view of the world.
+BASELINE(no-patches): trafgen QDISC_BYPASS and mmap:
+ - tx:1562539 pps
 
-cheers,
-jamal
+With PACKET_FLUSH_THRESH=8, and QDISC_BYPASS and mmap:
+ - tx:1683746 pps
 
-> .John
->
->
+Improvement:
+ + 121207 pps
+ - 46 ns (1/1562539*10^9)-(1/1683746*10^9)
+
+This is a significant improvement! :-)
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+Setup details:
+--------------
+Network overload testing setup according to:
+ http://netoptimizer.blogspot.dk/2014/04/basic-tuning-for-network-overload.html
+
+Trafgen input file:
+ https://github.com/netoptimizer/network-testing/blob/master/trafgen/udp_example01.trafgen
+
+Driver/NIC: ixgbe
+CPU: E5-2695v2(ES)
