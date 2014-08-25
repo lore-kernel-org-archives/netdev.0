@@ -1,27 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH for -next] stmmac: simple cleanups
-Date: Mon, 25 Aug 2014 15:13:32 -0700 (PDT)
-Message-ID: <20140825.151332.884666922271843083.davem@davemloft.net>
-References: <20140819105646.GA27984@amd>
-	<20140822.123408.2064974279443073401.davem@davemloft.net>
-	<20140825113116.GA21632@amd>
+Subject: Re: [PATCH] net: prevent of emerging cross-namespace symlinks
+Date: Mon, 25 Aug 2014 15:18:40 -0700 (PDT)
+Message-ID: <20140825.151840.251699935053411845.davem@davemloft.net>
+References: <20140822.113039.520798752693024139.davem@davemloft.net>
+	<20140824.182842.1083967994418672720.davem@davemloft.net>
+	<1408969605-5800-1-git-send-email-git.user@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: pavel@ucw.cz
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140825113116.GA21632@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vfalico@redhat.com
+To: git.user@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38470 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755039AbaHYWSl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:18:41 -0400
+In-Reply-To: <1408969605-5800-1-git-send-email-git.user@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Machek <pavel@ucw.cz>
-Date: Mon, 25 Aug 2014 13:31:16 +0200
+From: "Alexander Y. Fomichev" <git.user@gmail.com>
+Date: Mon, 25 Aug 2014 16:26:45 +0400
 
-> This adds simple cleanups for stmmac, removing test we know is always
-> true, fixing whitespace, and moving code out of if().
+> Code manipulating sysfs symlinks on adjacent net_devices(s)
+> currently doesn't take into account that devices potentially
+> belong to different namespaces.
 > 
-> Signed-off-by: Pavel Machek <pavel@denx.de>
+> This patch trying to fix an issue as follows:
+> - check for net_ns before creating / deleting symlink.
+>   for now only netdev_adjacent_rename_links and
+>   __netdev_adjacent_dev_remove are affected, afaics
+>   __netdev_adjacent_dev_insert implies both net_devs
+>   belong to the same namespace.
+> - Drop all existing symlinks to / from all adj_devs before
+>   switching namespace and recreate them just after.
+> 
+> Signed-off-by: Alexander Y. Fomichev <git.user@gmail.com>
 
 Applied, thanks.
