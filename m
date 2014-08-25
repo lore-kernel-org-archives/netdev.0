@@ -1,29 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git) 2/2] stmmac: set ptp_clock to NULL while
- unregister
-Date: Mon, 25 Aug 2014 15:33:25 -0700 (PDT)
-Message-ID: <20140825.153325.309527944583234120.davem@davemloft.net>
-References: <1408971379-14871-1-git-send-email-peppe.cavallaro@st.com>
-	<1408971379-14871-2-git-send-email-peppe.cavallaro@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 0/3] Basic deferred TX queue flushing infrastructure.
+Date: Mon, 25 Aug 2014 15:37:54 -0700
+Message-ID: <1409006274.3173.0.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140823.132811.751469424156827125.davem@davemloft.net>
+	 <20140823.213839.1953243016141233125.davem@davemloft.net>
+	 <CAHA+R7O_RSyKVNqcHXePbahvU+ayf77w61jos=G38M93okVWKw@mail.gmail.com>
+	 <20140825.153146.2165451041039058085.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
+Cc: cwang@twopensource.com, netdev@vger.kernel.org,
+	therbert@google.com, jhs@mojatatu.com, hannes@stressinduktion.org,
+	edumazet@google.com, jeffrey.t.kirsher@intel.com,
+	rusty@rustcorp.com.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38632 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755148AbaHYWdZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:33:25 -0400
-In-Reply-To: <1408971379-14871-2-git-send-email-peppe.cavallaro@st.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:34513 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752917AbaHYWh4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 18:37:56 -0400
+Received: by mail-pa0-f46.google.com with SMTP id lj1so21936143pab.19
+        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 15:37:56 -0700 (PDT)
+In-Reply-To: <20140825.153146.2165451041039058085.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Date: Mon, 25 Aug 2014 14:56:19 +0200
+On Mon, 2014-08-25 at 15:31 -0700, David Miller wrote:
 
-> This is to properly put to NULL the ptp_clock while un-register the PTP support.
-> 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> It occurs to me that perhaps the thing to do is to pass sk_buff ** to
+> dev_hard_start_xmit().
 
-Applied.
+This was my suggestion ;)
+
+int ret = dev_hard_start_xmit(skb, dev, txq);
+
+->
+
+int ret = dev_hard_start_xmit(&skb, dev, txq);
