@@ -1,64 +1,95 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 1/3] net: propagate sock pointer through
- netfilter hooks
-Date: Mon, 25 Aug 2014 16:05:10 +0200
-Message-ID: <20140825140510.GB1871@nanopsycho.lan>
-References: <1408127576-11518-1-git-send-email-jiri@resnulli.us>
- <20140821.173339.1409243624518012670.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next RFC 10/12] openvswitch: add support for datapath
+ hardware offload
+Date: Mon, 25 Aug 2014 15:17:54 +0100
+Message-ID: <20140825141754.GA30140@casper.infradead.org>
+References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
+ <1408637945-10390-11-git-send-email-jiri@resnulli.us>
+ <53F79C54.5050701@gmail.com>
+ <464DB0A8-0073-4CE0-9483-0F36B73A53A1@cumulusnetworks.com>
+ <53F9459B.2070801@mojatatu.com>
+ <20140824111218.GA32741@casper.infradead.org>
+ <53FA01AC.10507@mojatatu.com>
+ <A67C7591-19BF-4431-9119-F61361F5E618@cumulusnetworks.com>
+ <53FAA2A2.7070801@gmail.com>
+ <53FB3FD5.2030905@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, stephen@networkplumber.org,
-	cwang@twopensource.com, pshelar@nicira.com,
-	nicolas.dichtel@6wind.com, therbert@google.com,
-	dborkman@redhat.com, edumazet@google.com
-To: David Miller <davem@davemloft.net>
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	dev@openvswitch.org, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mella
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f172.google.com ([74.125.82.172]:37294 "EHLO
-	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932516AbaHYOFN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 10:05:13 -0400
-Received: by mail-we0-f172.google.com with SMTP id x48so13456851wes.31
-        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 07:05:12 -0700 (PDT)
+Received: from casper.infradead.org ([85.118.1.10]:43887 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932395AbaHYOSD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 10:18:03 -0400
 Content-Disposition: inline
-In-Reply-To: <20140821.173339.1409243624518012670.davem@davemloft.net>
+In-Reply-To: <53FB3FD5.2030905@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Aug 22, 2014 at 02:33:39AM CEST, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Fri, 15 Aug 2014 20:32:54 +0200
->
->> When output function (ip6_finish_output2 for example) needs to be called
->> with sock pointer, we need to push sock pointer through the netfilter
->> hooks. This patch does that.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->
->Ok, I'm going to admit that I am having second thoughts about this
->approach.  This is a quite large set of churn to fix this bug.
->
->However, in the same breath, I can't come up with a simpler way to
->propagate this information without the really unacceptable overhead of
->adding another sk_buff member.
->
->And even if we found some simple way to deal with that sk_mc_loop()
->test, ipv6 has other demons in this area.
->
->For example, look at what ip6_fragment() does, it also assumes skb->sk
->is an inet6 socket.
->
->	struct ipv6_pinfo *np = skb->sk ? inet6_sk(skb->sk) : NULL;
-> ...
->	if (np && np->frag_size < mtu) {
->		if (np->frag_size)
->			mtu = np->frag_size;
->	}
->
->The rest of the skb->sk usage in these place is fine, as they are
->simply propagating socket ownership from one packet to another, rather
->than doing protocol specific things with them.
+On 08/25/14 at 09:53am, Jamal Hadi Salim wrote:
+> On 08/24/14 22:42, John Fastabend wrote:
+> 
+> >In the L2 case we already have the fdb_add and fdb_del semantics that
+> >are being used today by NICs with embedded switches. And we have a DSA
+> >patch we could dig out of patchwork for those drivers.
+> 
+> Indeed. That is an excellent starting point of something that is proven
+> to work. I was hoping L3 would follow this path. For L2,
+> there is the mess of claiming unicast NIC addresses as part of
+> the fdb, but that can almost be ignored.
+> Caveat: fdb_XXX works well for NICs as well as different larger
+> ASICs - but some quark handling is going to be needed for the tinier
+> openwrt type devices.
+> For larger switches we are going to need more for L2:
+> Really, the bridge already covers everthing large switches
+> offer (Vlan filtering, bridge port setting etc). We just need
+> to offload that...
 
-Dave, I see that the patchset is in state "Changes requested". I do not
-think I understand what is needed to be done at this point. Would you
-please tell me? Thanks.
+fdb_add() *is* flow based. At least in my understanding, the whole
+point here is to extend the idea of fdb_add() and make it understand
+L2-L4 in a more generic way for the most common protocols.
+
+The reason fdb_add() is not reused is because it is Netlink specific
+and only suitable for User -> HW offload. Kernel -> HW offload is
+technically possible but not clean.
+
+The only reason swdev is needed at all is to represent the port model
+and to allow for non flow based models built on top of the same
+hardware abstraction. I see now reason why br_fdb cannot be represented
+through swdev as soon as the code is stable.
+
+> >So I think it makes more sense to use the explicit interface rather
+> >than put another shim layer in the kernel. Its simpler and more to the
+> >point IMO. I suspect the resulting code will be smaller and easier to
+> >read. I'm the squemish one in the audience here.
+> >
+> 
+> L2/3 should be left alone and go this path. My concern on excessive
+> NDOs was more on the flow view of the world.
+
+The point I was trying to make earlier is that it is very hard to
+program both protocol aware and generic filtering hardware through
+a single NDO. It will make the driver specific part complex.
+
+If you are saying we need yet another classifier model in the kernel
+then I'm not sure that is needed in the presence of cls/act, iptables,
+and nftables. They seem suitable to represent non flow based models
+and I see nothing that would prevent an offload through swdev for them.
