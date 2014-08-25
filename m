@@ -1,37 +1,95 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [GIT PULL] Networking
-Date: Mon, 25 Aug 2014 10:31:02 -0400
-Message-ID: <20140825143102.GC1966@tuxdriver.com>
-References: <20140822.114711.856705392345846995.davem@davemloft.net>
- <CA+55aFxsf02Lt+rFOxf0rXu1WoqZW0omGzwdHUfSfo+O9EqUAw@mail.gmail.com>
- <20140822.144011.1708163582352708529.davem@davemloft.net>
- <CA+55aFy+2WiFDRDZwb9B3bh9HS_5Q8K=2PpTHkzi7keSzwc67g@mail.gmail.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 1/5] bnx2x: ethtool -d might cause timeout in log
+Date: Mon, 25 Aug 2014 17:48:29 +0300
+Message-ID: <1408978113-27902-2-git-send-email-Yuval.Mintz@qlogic.com>
+References: <1408978113-27902-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+55aFy+2WiFDRDZwb9B3bh9HS_5Q8K=2PpTHkzi7keSzwc67g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <Ariel.Elior@qlogic.com>,
+	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
+	Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:12702 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932559AbaHYOsq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 10:48:46 -0400
+In-Reply-To: <1408978113-27902-1-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 22, 2014 at 02:47:36PM -0700, Linus Torvalds wrote:
-> On Fri, Aug 22, 2014 at 2:40 PM, David Miller <davem@davemloft.net> wrote:
-> >
-> > I think you can apply it directly and none of us will mind, and GIT
-> > will sort it all out during the next merge.
-> 
-> Ok, I'll apply it directly to my tree, since it affected my machine.
-> Now that I'm back home I probably won't see the channel switch
-> requests that caused the problem, but I just feel uncomfortable
-> running a known-broken kernel.
+From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
 
-ACK, thanks!
+This changes slightly the set of registers read during `ethtool -d'.
+Without this change, it's possible the HW will generate a grc Attention which
+will be logged into system logs as `grc timeout'.
 
+Signed-off-by: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h | 14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
+index 12eb4ba..741aa13 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
+@@ -40,7 +40,7 @@ struct	dump_header {
+ 	u32 dump_meta_data; /* OR of CHIP and PATH. */
+ };
+ 
+-#define BNX2X_DUMP_VERSION 0x50acff01
++#define  BNX2X_DUMP_VERSION 0x61111111
+ struct reg_addr {
+ 	u32 addr;
+ 	u32 size;
+@@ -1464,7 +1464,6 @@ static const struct reg_addr reg_addrs[] = {
+ 	{ 0x180398, 1, 0x1c, 0x924},
+ 	{ 0x1803a0, 5, 0x1c, 0x924},
+ 	{ 0x1803b4, 2, 0x18, 0x924},
+-	{ 0x180400, 256, 0x3, 0xfff},
+ 	{ 0x181000, 4, 0x1f, 0x93c},
+ 	{ 0x181010, 1020, 0x1f, 0x38},
+ 	{ 0x182000, 4, 0x18, 0x924},
+@@ -1576,7 +1575,6 @@ static const struct reg_addr reg_addrs[] = {
+ 	{ 0x200398, 1, 0x1c, 0x924},
+ 	{ 0x2003a0, 1, 0x1c, 0x924},
+ 	{ 0x2003a8, 2, 0x1c, 0x924},
+-	{ 0x200400, 256, 0x3, 0xfff},
+ 	{ 0x202000, 4, 0x1f, 0x1927},
+ 	{ 0x202010, 2044, 0x1f, 0x1007},
+ 	{ 0x204000, 4, 0x18, 0x924},
+@@ -1688,7 +1686,6 @@ static const struct reg_addr reg_addrs[] = {
+ 	{ 0x280398, 1, 0x1c, 0x924},
+ 	{ 0x2803a0, 1, 0x1c, 0x924},
+ 	{ 0x2803a8, 2, 0x1c, 0x924},
+-	{ 0x280400, 256, 0x3, 0xfff},
+ 	{ 0x282000, 4, 0x1f, 0x9e4},
+ 	{ 0x282010, 2044, 0x1f, 0x1c0},
+ 	{ 0x284000, 4, 0x18, 0x924},
+@@ -1800,7 +1797,6 @@ static const struct reg_addr reg_addrs[] = {
+ 	{ 0x300398, 1, 0x1c, 0x924},
+ 	{ 0x3003a0, 1, 0x1c, 0x924},
+ 	{ 0x3003a8, 2, 0x1c, 0x924},
+-	{ 0x300400, 256, 0x3, 0xfff},
+ 	{ 0x302000, 4, 0x1f, 0xf24},
+ 	{ 0x302010, 2044, 0x1f, 0xe00},
+ 	{ 0x304000, 4, 0x18, 0x924},
+@@ -2206,10 +2202,10 @@ static const struct wreg_addr wreg_addr_e3b0 = {
+ 	0x1b0c00, 128, 2, read_reg_e3b0, 0x1f, 0x1fff};
+ 
+ static const unsigned int dump_num_registers[NUM_CHIPS][NUM_PRESETS] = {
+-	{20782, 18567, 27975, 19729, 18311, 27719, 20836, 32391, 41799, 20812,
+-	 26247, 35655, 19074},
+-	{32774, 19297, 33277, 31721, 19041, 33021, 32828, 33121, 47101, 32804,
+-	 26977, 40957, 35895},
++	{19758, 17543, 26951, 18705, 17287, 26695, 19812, 31367, 40775, 19788,
++	 25223, 34631, 19074},
++	{31750, 18273, 32253, 30697, 18017, 31997, 31804, 32097, 46077, 31780,
++	 25953, 39933, 35895},
+ 	{36527, 17928, 33697, 35474, 18700, 34466, 36581, 31752, 47521, 36557,
+ 	 25608, 41377, 43903},
+ 	{45239, 17936, 34387, 44186, 18708, 35156, 45293, 31760, 48211, 45269,
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+1.8.3.1
