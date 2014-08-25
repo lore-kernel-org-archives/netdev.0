@@ -1,61 +1,44 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [PATCH] net: bnx2x: fix build error with ptp
-Date: Mon, 25 Aug 2014 13:14:08 -0700
-Message-ID: <53FB9910.3020601@infradead.org>
-References: <53FB9884.8000707@infradead.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH RESEND] staging: r8188eu: Add new USB ID
+Date: Mon, 25 Aug 2014 16:05:38 -0500
+Message-ID: <1409000738-5442-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jim Davis <jim.epost@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Ariel Elior <ariel.elior@qlogic.com>
-To: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53FB9884.8000707@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Note: This patch fixes a build error in linux-next (not in mainline).
+The Elecom WDC-150SU2M uses this chip.
 
+Reported-by: Hiroki Kondo <kompiro@gmail.com>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
+ drivers/staging/rtl8188eu/os_dep/usb_intf.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-On 08/25/14 13:11, Randy Dunlap wrote:
-> From: Randy Dunlap <rdunlap@infradead.org>
-> 
-> bnx2x uses ptp functions, so it should select the provider of
-> those functions (PTP_1588_CLOCK).  Fixes these build errors:
-> 
-> drivers/built-in.o: In function `__bnx2x_remove':
-> /home/jim/linux/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:13409:
-> undefined reference to `ptp_clock_unregister'
-> drivers/built-in.o: In function `bnx2x_register_phc':
-> /home/jim/linux/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:13202:
-> undefined reference to `ptp_clock_register'
-> drivers/built-in.o: In function `bnx2x_get_ts_info':
-> /home/jim/linux/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c:3498:
-> undefined reference to `ptp_clock_index'
-> 
-> Reported-by: Jim Davis <jim.epost@gmail.com>
-> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-> ---
->  drivers/net/ethernet/broadcom/Kconfig |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> Index: linux-next-20140825/drivers/net/ethernet/broadcom/Kconfig
-> ===================================================================
-> --- linux-next-20140825.orig/drivers/net/ethernet/broadcom/Kconfig
-> +++ linux-next-20140825/drivers/net/ethernet/broadcom/Kconfig
-> @@ -122,6 +122,7 @@ config TIGON3
->  config BNX2X
->  	tristate "Broadcom NetXtremeII 10Gb support"
->  	depends on PCI
-> +	select PTP_1588_CLOCK
->  	select FW_LOADER
->  	select ZLIB_INFLATE
->  	select LIBCRC32C
-> --
-
-
+diff --git a/drivers/staging/rtl8188eu/os_dep/usb_intf.c b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
+index 264e639..407a318 100644
+--- a/drivers/staging/rtl8188eu/os_dep/usb_intf.c
++++ b/drivers/staging/rtl8188eu/os_dep/usb_intf.c
+@@ -43,6 +43,7 @@ static struct usb_device_id rtw_usb_id_tbl[] = {
+ 	{USB_DEVICE(USB_VENDER_ID_REALTEK, 0x0179)}, /* 8188ETV */
+ 	/*=== Customer ID ===*/
+ 	/****** 8188EUS ********/
++	{USB_DEVICE(0x056e, 0x4008)}, /* Elecom WDC-150SU2M */
+ 	{USB_DEVICE(0x07b8, 0x8179)}, /* Abocom - Abocom */
+ 	{USB_DEVICE(0x2001, 0x330F)}, /* DLink DWA-125 REV D1 */
+ 	{USB_DEVICE(0x2001, 0x3310)}, /* Dlink DWA-123 REV D1 */
 -- 
-~Randy
+1.8.4.5
