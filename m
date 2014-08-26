@@ -1,95 +1,130 @@
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git)] phy: fix EEE checks inside the phy_init_eee.
-Date: Tue, 26 Aug 2014 09:26:52 +0200
-Message-ID: <1409038012-11574-1-git-send-email-peppe.cavallaro@st.com>
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: Re: [PATCH net-next v2 2/2] xfrm: configure policy hash table
+ thresholds by netlink
+Date: Tue, 26 Aug 2014 09:27:26 +0200
+Message-ID: <CADdy8HoCSDXuC0VjXwaj14b9QHqSqHNdgK0Opnhzn8wwCawBuw@mail.gmail.com>
+References: <1399902325-1788-1-git-send-email-christophe.gouault@6wind.com>
+	<1406884348-12423-1-git-send-email-christophe.gouault@6wind.com>
+	<1406884348-12423-3-git-send-email-christophe.gouault@6wind.com>
+	<20140821060944.GC6390@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Nandini Sharma <nandini.sharma@st.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:48970 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755391AbaHZH1C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 03:27:02 -0400
-Received: from pps.filterd (m0046670.ppops.net [127.0.0.1])
-	by mx07-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id s7Q7K6cs002819
-	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 09:27:01 +0200
-Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
-	by mx07-00178001.pphosted.com with ESMTP id 1p0hrgs3hq-1
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 09:27:01 +0200
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 6AF843D
-	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 07:26:50 +0000 (GMT)
-Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id D50B315EF3
-	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 07:26:57 +0000 (GMT)
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:34074 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755391AbaHZH11 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 03:27:27 -0400
+Received: by mail-ie0-f177.google.com with SMTP id at20so11056230iec.36
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 00:27:27 -0700 (PDT)
+In-Reply-To: <20140821060944.GC6390@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to the Std 802.3az if the EEE Adv (Reg 7.60), Link partner ability
-(Reg 7.61) and EEE capability (Register 3.20) bits return 0 this  means no EEE
-is supported. So this patch fixes the checks inside the phy_init_eee function.
+2014-08-21 8:09 GMT+02:00 Steffen Klassert <steffen.klassert@secunet.com>:
+> On Fri, Aug 01, 2014 at 11:12:28AM +0200, Christophe Gouault wrote:
+>> diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
+>> index 41902a8..9da7982 100644
+>> --- a/include/net/netns/xfrm.h
+>> +++ b/include/net/netns/xfrm.h
+>> @@ -19,6 +19,15 @@ struct xfrm_policy_hash {
+>>       u8                      sbits6;
+>>  };
+>>
+>> +struct xfrm_policy_hthresh {
+>> +     struct work_struct      work;
+>> +     seqlock_t               lock;
+>
+> This newly introduced lock is not initialized. It triggers an
+> inconsistent lock state warning when acquired for the first time.
 
-Signed-off-by: Nandini Sharma <nandini.sharma@st.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/phy/phy.c |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
+oops! I'll fix that.
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index c94e2a2..a854d38 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -1036,31 +1036,31 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
- 		/* First check if the EEE ability is supported */
- 		eee_cap = phy_read_mmd_indirect(phydev, MDIO_PCS_EEE_ABLE,
- 						MDIO_MMD_PCS, phydev->addr);
--		if (eee_cap < 0)
--			return eee_cap;
-+		if (eee_cap <= 0)
-+			goto eee_exit_err;
- 
- 		cap = mmd_eee_cap_to_ethtool_sup_t(eee_cap);
- 		if (!cap)
--			return -EPROTONOSUPPORT;
-+			goto eee_exit_err;
- 
- 		/* Check which link settings negotiated and verify it in
- 		 * the EEE advertising registers.
- 		 */
- 		eee_lp = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_LPABLE,
- 					       MDIO_MMD_AN, phydev->addr);
--		if (eee_lp < 0)
--			return eee_lp;
-+		if (eee_lp <= 0)
-+			goto eee_exit_err;
- 
- 		eee_adv = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_ADV,
- 						MDIO_MMD_AN, phydev->addr);
--		if (eee_adv < 0)
--			return eee_adv;
-+		if (eee_adv <= 0)
-+			goto eee_exit_err;
- 
- 		adv = mmd_eee_adv_to_ethtool_adv_t(eee_adv);
- 		lp = mmd_eee_adv_to_ethtool_adv_t(eee_lp);
- 		idx = phy_find_setting(phydev->speed, phydev->duplex);
- 		if (!(lp & adv & settings[idx].setting))
--			return -EPROTONOSUPPORT;
-+			goto eee_exit_err;
- 
- 		if (clk_stop_enable) {
- 			/* Configure the PHY to stop receiving xMII
-@@ -1080,7 +1080,7 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
- 
- 		return 0; /* EEE supported */
- 	}
--
-+eee_exit_err:
- 	return -EPROTONOSUPPORT;
- }
- EXPORT_SYMBOL(phy_init_eee);
--- 
-1.7.4.4
+>> +     pr_info("rebuilding SPD hash table: thresholds (%u,%u)(%u,%u)\n",
+>> +             lbits4, rbits4, lbits6, rbits6);
+>
+> Do we really need to print this?
+
+No, it's not necessary, I will remove it.
+
+>> +             hlist_for_each_entry(pol, chain, bydst) {
+>> +                     if (policy->priority >= pol->priority)
+>> +                             newpos = &pol->bydst;
+>> +                     else
+>> +                             break;
+>> +             }
+>> +             if (newpos)
+>> +                     hlist_add_after(newpos, &policy->bydst);
+>
+> hlist_add_after() does not exist any more, it was replaced by
+> hlist_add_behind() recently.
+
+OK, I'll update the code accordingly.
+
+>> +static int xfrm_set_spdinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
+>> +                         struct nlattr **attrs)
+>> +{
+>> +     struct net *net = sock_net(skb->sk);
+>> +     struct sk_buff *r_skb;
+>> +     u32 *flags = nlmsg_data(nlh);
+>> +     u32 sportid = NETLINK_CB(skb).portid;
+>> +     u32 seq = nlh->nlmsg_seq;
+>> +     struct xfrmu_spdhthresh *thresh4 = NULL;
+>> +     struct xfrmu_spdhthresh *thresh6 = NULL;
+>> +
+>> +     /* selector prefixlen thresholds to hash policies */
+>> +     if (attrs[XFRMA_SPD_IPV4_HTHRESH]) {
+>> +             struct nlattr *rta = attrs[XFRMA_SPD_IPV4_HTHRESH];
+>> +
+>> +             if (nla_len(rta) < sizeof(*thresh4))
+>> +                     return -EINVAL;
+>> +             thresh4 = nla_data(rta);
+>> +             if (thresh4->lbits > 32 || thresh4->rbits > 32)
+>> +                     return -EINVAL;
+>> +     }
+>> +     if (attrs[XFRMA_SPD_IPV6_HTHRESH]) {
+>> +             struct nlattr *rta = attrs[XFRMA_SPD_IPV6_HTHRESH];
+>> +
+>> +             if (nla_len(rta) < sizeof(*thresh6))
+>> +                     return -EINVAL;
+>> +             thresh6 = nla_data(rta);
+>> +             if (thresh6->lbits > 128 || thresh6->rbits > 128)
+>> +                     return -EINVAL;
+>> +     }
+>> +
+>> +     if (thresh4 || thresh6) {
+>> +             write_seqlock(&net->xfrm.policy_hthresh.lock);
+>> +             if (thresh4) {
+>> +                     net->xfrm.policy_hthresh.lbits4 = thresh4->lbits;
+>> +                     net->xfrm.policy_hthresh.rbits4 = thresh4->rbits;
+>> +             }
+>> +             if (thresh6) {
+>> +                     net->xfrm.policy_hthresh.lbits6 = thresh6->lbits;
+>> +                     net->xfrm.policy_hthresh.rbits6 = thresh6->rbits;
+>> +             }
+>> +             write_sequnlock(&net->xfrm.policy_hthresh.lock);
+>> +
+>> +             xfrm_policy_hash_rebuild(net);
+>> +     }
+>> +
+>> +     r_skb = nlmsg_new(xfrm_spdinfo_msgsize(), GFP_ATOMIC);
+>> +     if (r_skb == NULL)
+>> +             return -ENOMEM;
+>> +
+>> +     if (build_spdinfo(r_skb, net, sportid, seq, *flags) < 0)
+>> +             BUG();
+>> +
+>> +     return nlmsg_unicast(net->xfrm.nlsk, r_skb, sportid);
+>
+> Why do you send these informations to userspace? This is a set
+> operation, not get.
+
+You're right, I'll remove this reply message.
+
+> The rest looks quite good, thanks!
+
+Thanks. I'll send an update.
+
+Christophe
