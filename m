@@ -1,84 +1,70 @@
 From: Benjamin Poirier <bpoirier@suse.de>
-Subject: Re: [PATCH v2 3/3] tg3: Fix tx_pending checks for tg3_tso_bug
-Date: Tue, 26 Aug 2014 12:25:21 -0700
-Message-ID: <20140826192521.GA4745@f1.synalogic.ca>
-References: <1408658240-6811-1-git-send-email-bpoirier@suse.de>
- <1408658240-6811-3-git-send-email-bpoirier@suse.de>
- <1408749447.8268.53.camel@prashant>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Prashant Sreedharan <prashant@broadcom.com>
+Subject: [PATCH net v3 1/4] tg3: Limit minimum tx queue wakeup threshold
+Date: Tue, 26 Aug 2014 12:26:15 -0700
+Message-ID: <1409081178-4877-1-git-send-email-bpoirier@suse.de>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Prashant Sreedharan <prashant@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1408749447.8268.53.camel@prashant>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2014/08/22 16:17, Prashant Sreedharan wrote:
-> Benjamin, thanks for the patch. Broadcom QA will be testing the changes.
-> Couple of comments below.
-> >  	segs = skb_gso_segment(skb, tp->dev->features &
-> >  				    ~(NETIF_F_TSO | NETIF_F_TSO6));
-> > -	if (IS_ERR(segs) || !segs)
-> > +	if (IS_ERR_OR_NULL(segs))
-> >  		goto tg3_tso_bug_end;
-> >  
-> >  	do {
-> > +		unsigned int desc_cnt = skb_shinfo(segs)->nr_frags + 1;
-> > +
-> >  		nskb = segs;
-> >  		segs = segs->next;
-> >  		nskb->next = NULL;
-> > -		tg3_start_xmit(nskb, tp->dev);
-> > +
-> > +		if (tg3_tx_avail(tnapi) <= segs_remaining - 1 + desc_cnt &&
-> > +		    skb_linearize(nskb)) {
-> > +			nskb->next = segs;
-> > +			segs = nskb;
-> > +			do {
-> > +				nskb = segs->next;
-> > +
-> > +				dev_kfree_skb_any(segs);
-> > +				segs = nskb;
-> > +			} while (segs);
-> 
-> If skb_linearize() fails need to increment the tp->tx_dropped count
+tx_pending may be set by the user (via ethtool -G) to a low enough value that
+TG3_TX_WAKEUP_THRESH becomes smaller than MAX_SKB_FRAGS + 1. This may cause
+the tx queue to be waked when there are in fact not enough descriptors to
+handle an skb with max frags. This in turn causes tg3_start_xmit() to return
+NETDEV_TX_BUSY and print error messages. Fix the problem by putting a limit to
+how low TG3_TX_WAKEUP_THRESH can go.
 
-Sorry for the delay, while testing this error path I noticed a potential
-problem. There should be an additional check here to stop the queue with
-the default threshold. Otherwise, the netdev_err message at the start of
-__tg3_start_xmit() could be triggered when the next frame is
-transmitted. That is because the previous calls to __tg3_start_xmit() in
-tg3_tso_bug() may have been using a stop_thresh=segs_remaining that is <
-MAX_SKB_FRAGS + 1.
+Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+---
 
-> 
-> > +			goto tg3_tso_bug_end;
-> > +		}
-> > +		segs_remaining--;
-> > +		if (segs_remaining)
-> > +			__tg3_start_xmit(nskb, tp->dev, segs_remaining);
-> 
-> To clarify passing segs_remaining will make sure the queue is never
-> stopped correct ?
+I noticed the problem in a 3.0 kernel when setting `ethtool eth0 -G tx 50` and
+running a netperf TCP_STREAM test. The console fills up with
+[10597.596155] tg3 0000:06:00.0: eth0: BUG! Tx Ring full when queue awake!
+The problem in tg3 remains in current kernels though it does not reproduce as
+easily since "5640f76 net: use a per task frag allocator (v3.7-rc1)". I
+reproduced on current kernels by using the fail_page_alloc fault injection
+mechanism to force the creation of skbs with many order-0 frags. Note that the
+following script may also trigger another bug (NETDEV WATCHDOG), which is
+fixed in the next patch.
 
-It makes sure the queue is not stopped before we are finished submitting
-all gso segments.
+$ cat /tmp/doit.sh
 
-This is what's alluded to in this part of the commit message:
-	This puts us in the exceptional situation that a single skb that
-	triggers tg3_tso_bug() may require the entire tx ring. [...]
-	Likewise, usually the tx queue is stopped as soon as an skb with
-	max frags may overrun it. Since the skbs submitted from
-	tg3_tso_bug() use a controlled number of descriptors, the tx
-	queue stop threshold may be lowered.
+F="/sys/kernel/debug/fail_page_alloc"
 
-> 
-> > +		else
-> > +			tg3_start_xmit(nskb, tp->dev);
-> >  	} while (segs);
-> >  
-> 
-> 
+echo -1 > "$F/times"
+echo 0 > "$F/verbose"
+echo 0 > "$F/ignore-gfp-wait"
+echo 1 > "$F/task-filter"
+echo 100 > "$F/probability"
+
+netperf -H 192.168.9.30 -l100 -t omni -- -d send &
+
+n=$!
+
+sleep 0.3
+echo 1 > "/proc/$n/make-it-fail"
+sleep 10
+
+kill "$n"
+---
+ drivers/net/ethernet/broadcom/tg3.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 3ac5d23..b11c0fd 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -202,7 +202,8 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
+ #endif
+ 
+ /* minimum number of free TX descriptors required to wake up TX process */
+-#define TG3_TX_WAKEUP_THRESH(tnapi)		((tnapi)->tx_pending / 4)
++#define TG3_TX_WAKEUP_THRESH(tnapi)	max_t(u32, (tnapi)->tx_pending / 4, \
++					      MAX_SKB_FRAGS + 1)
+ #define TG3_TX_BD_DMA_MAX_2K		2048
+ #define TG3_TX_BD_DMA_MAX_4K		4096
+ 
+-- 
+1.8.4.5
