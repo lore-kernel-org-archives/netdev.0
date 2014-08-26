@@ -1,40 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux/if_bridge.h no longer self contained (again)
-Date: Mon, 25 Aug 2014 18:18:04 -0700 (PDT)
-Message-ID: <20140825.181804.860202880963258005.davem@davemloft.net>
-References: <CAGVrzcamm6bgTc_-1OZGD0L4DqQd5RfoVYftZic3MDvD8YMjxA@mail.gmail.com>
-	<CAM_iQpV6EvvoYE17oi2XN0cbBkssQv0j=VXVR1-uCtMoJrSHwQ@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next 8/8] qlcnic: Set skb->csum_level for encapsulated
+ checksum
+Date: Mon, 25 Aug 2014 17:56:44 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1408251737500.5508@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	gregory.0xf0@gmail.com, carlos@redhat.com, eblake@redhat.com,
-	galak@codeaurora.org
-To: xiyou.wangcong@gmail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40366 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932159AbaHZBSG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 21:18:06 -0400
-In-Reply-To: <CAM_iQpV6EvvoYE17oi2XN0cbBkssQv0j=VXVR1-uCtMoJrSHwQ@mail.gmail.com>
+Received: from mail-yk0-f202.google.com ([209.85.160.202]:49026 "EHLO
+	mail-yk0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752606AbaHZBXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 21:23:30 -0400
+Received: by mail-yk0-f202.google.com with SMTP id q9so1670475ykb.5
+        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 18:23:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Wed, 30 Jul 2014 16:20:07 -0700
+Set skb->csum_level instead of skb->encapsulation when indicating
+CHECKSUM_UNNECESSARY for an encapsulated checksum.
 
-> On Wed, Jul 30, 2014 at 3:05 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>
->> What would be the recommended ways to move forward?
->>
->> Should we keep a local change that includes netinet/in6.h and just
->> hope it does not cause any re-definitions?
->>
-> 
-> I think we should just #include <linux/in6.h> since the redefinition error
-> was already fixed.
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Someone please submit a patch to do so, and please include all of the context
-such as the commits references in Florian's initial email of this thread.
-
-Thanks.
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+index e45bf09..18e5de7 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+@@ -1753,7 +1753,7 @@ qlcnic_83xx_process_rcv(struct qlcnic_adapter *adapter,
+ 
+ 	if (qlcnic_encap_length(sts_data[1]) &&
+ 	    skb->ip_summed == CHECKSUM_UNNECESSARY) {
+-		skb->encapsulation = 1;
++		skb->csum_level = 1;
+ 		adapter->stats.encap_rx_csummed++;
+ 	}
+ 
+-- 
+2.1.0.rc2.206.gedb03e5
