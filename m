@@ -1,33 +1,42 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v6 net-next 4/6] bpf: enable bpf syscall on x64 and i386
-Date: Mon, 25 Aug 2014 18:07:18 -0700 (PDT)
-Message-ID: <20140825.180718.137768107010295086.davem@davemloft.net>
-References: <1409014858-1410-1-git-send-email-ast@plumgrid.com>
-	<1409014858-1410-5-git-send-email-ast@plumgrid.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/8] net: Clarification of CHECKSUM_UNNECESSARY
+Date: Mon, 25 Aug 2014 18:13:41 -0700 (PDT)
+Message-ID: <20140825.181341.304248903530349010.davem@davemloft.net>
+References: <alpine.DEB.2.02.1408251738110.5541@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org,
-	brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1409014858-1410-5-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40328 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933438AbaHZBNm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 21:13:42 -0400
+In-Reply-To: <alpine.DEB.2.02.1408251738110.5541@tomh.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Date: Mon, 25 Aug 2014 18:00:56 -0700
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 25 Aug 2014 17:55:56 -0700 (PDT)
 
-> -
-> +asmlinkage long sys_bpf(int cmd, unsigned long arg2, unsigned long arg3,
-> +			unsigned long arg4, unsigned long arg5);
+> @@ -569,16 +590,13 @@ struct sk_buff {
+>  	__u8			wifi_acked:1;
+>  	__u8			no_fcs:1;
+>  	__u8			head_frag:1;
+> -	/* Encapsulation protocol and NIC drivers should use
+> -	 * this flag to indicate to each other if the skb contains
+> -	 * encapsulated packet or not and maybe use the inner packet
+> -	 * headers if needed
+> -	 */
+> +	/* Indicates the the inner headers are valid in the skbuff. */
+>  	__u8			encapsulation:1;
+>  	__u8			encap_hdr_csum:1;
+>  	__u8			csum_valid:1;
+>  	__u8			csum_complete_sw:1;
+> -	/* 2/4 bit hole (depending on ndisc_nodetype presence) */
+> +	__u8			csum_level:2;
+> +	/* 0/2 bit hole (depending on ndisc_nodetype presence) */
+>  	kmemcheck_bitfield_end(flags2);
 
-Please do not add interfaces with opaque types as arguments.
-
-It is impossible for the compiler to type check the args at
-compile time when userspace tries to use this stuff.
+Crap, with xmit_more, this actually bleeds us over into a new __u8.
