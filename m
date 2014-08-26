@@ -1,90 +1,127 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [patch net-next RFC 03/12] net: introduce generic
- switch devices support
-Date: Tue, 26 Aug 2014 10:34:52 +0200
-Message-ID: <20140826083452.GR1878@nanopsycho.lan>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-4-git-send-email-jiri@resnulli.us>
- <20140824114605.GC32741@casper.infradead.org>
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH v2 net-next 1/2] tipc: refactor name table updates out of named packet receive routine
+Date: Tue, 26 Aug 2014 10:57:56 +0200
+Message-ID: <1409043477-22761-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
- buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
- aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
- dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20140824114605.GC32741-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <tipc-discussion@lists.sourceforge.net>,
+	Erik Hugne <erik.hugne@ericsson.com>
+To: <jon.maloy@ericsson.com>, <ying.xue@windriver.com>,
+	<richard.alpe@ericsson.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sessmg23.ericsson.net ([193.180.251.45]:59155 "EHLO
+	sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933992AbaHZIxS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 04:53:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sun, Aug 24, 2014 at 01:46:05PM CEST, tgraf-G/eBtMaohhA@public.gmane.org wrote:
->On 08/21/14 at 06:18pm, Jiri Pirko wrote:
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 39294b9..8b5d14c 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -49,6 +49,8 @@
->>  
->>  #include <linux/netdev_features.h>
->>  #include <linux/neighbour.h>
->> +#include <linux/sw_flow.h>
->> +
->>  #include <uapi/linux/netdevice.h>
->>  
->>  struct netpoll_info;
->> @@ -997,6 +999,24 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
->> + * int (*ndo_swdev_flow_insert)(struct net_device *dev,
->> + *				const struct sw_flow *flow);
->> + *	Called to insert a flow into switch device. If driver does
->> + *	not implement this, it is assumed that the hw does not have
->> + *	a capability to work with flows.
->
->I asume you are planning to add an additional expandable struct
->paramter to handle insertion parameters when the first is introduced
->to avoid requiring to touch every driver every time.
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-Sure. That is the way to go.
+We need to perform the same actions when processing deferred name
+table updates, so this functionality is moved to a separate
+function.
 
->
->> +/**
->> + *	swdev_flow_insert - Insert a flow into switch
->> + *	@dev: port device
->> + *	@flow: flow descriptor
->> + *
->> + *	Insert a flow into switch this port is part of.
->> + */
->> +int swdev_flow_insert(struct net_device *dev, const struct sw_flow *flow)
->> +{
->> +	const struct net_device_ops *ops = dev->netdev_ops;
->> +
->> +	print_flow(flow, dev, "insert");
->> +	if (!ops->ndo_swdev_flow_insert)
->> +		return -EOPNOTSUPP;
->> +	WARN_ON(!ops->ndo_swdev_get_id);
->> +	BUG_ON(!flow->actions);
->> +	return ops->ndo_swdev_flow_insert(dev, flow);
->> +}
->> +EXPORT_SYMBOL(swdev_flow_insert);
->
->Splitting the flow specific API into a separate file (maybe
->swdev_flow.c?) might help resolve some of the concerns around the
->focus on flows. It would make it clear that it's one of multiple
->models to be supported.
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/name_distr.c | 74 ++++++++++++++++++++++++++-------------------------
+ 1 file changed, 38 insertions(+), 36 deletions(-)
 
-I understand your point. But the file is tiny as it is. I would keep all
-in one file for now.
+diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
+index dcc15bc..0591f33 100644
+--- a/net/tipc/name_distr.c
++++ b/net/tipc/name_distr.c
+@@ -263,52 +263,54 @@ static void named_purge_publ(struct publication *publ)
+ }
+ 
+ /**
++ * tipc_update_nametbl - try to process a nametable update and notify
++ *			 subscribers
++ *
++ * tipc_nametbl_lock must be held.
++ * Returns the publication item if successful, otherwise NULL.
++ */
++struct publication *tipc_update_nametbl(struct distr_item *i, u32 node,
++					u32 dtype)
++{
++	struct publication *publ = NULL;
++
++	if (dtype == PUBLICATION) {
++		publ = tipc_nametbl_insert_publ(ntohl(i->type), ntohl(i->lower),
++						ntohl(i->upper),
++						TIPC_CLUSTER_SCOPE, node,
++						ntohl(i->ref), ntohl(i->key));
++		if (publ) {
++			tipc_nodesub_subscribe(&publ->subscr, node, publ,
++					       (net_ev_handler)
++					       named_purge_publ);
++		}
++	} else if (dtype == WITHDRAWAL) {
++		publ = tipc_nametbl_remove_publ(ntohl(i->type), ntohl(i->lower),
++						node, ntohl(i->ref),
++						ntohl(i->key));
++		if (publ) {
++			tipc_nodesub_unsubscribe(&publ->subscr);
++			kfree(publ);
++		}
++	} else {
++		pr_warn("Unrecognized name table message received\n");
++	}
++	return publ;
++}
++
++/**
+  * tipc_named_rcv - process name table update message sent by another node
+  */
+ void tipc_named_rcv(struct sk_buff *buf)
+ {
+-	struct publication *publ;
+ 	struct tipc_msg *msg = buf_msg(buf);
+ 	struct distr_item *item = (struct distr_item *)msg_data(msg);
+ 	u32 count = msg_data_sz(msg) / ITEM_SIZE;
+ 
+ 	write_lock_bh(&tipc_nametbl_lock);
+ 	while (count--) {
+-		if (msg_type(msg) == PUBLICATION) {
+-			publ = tipc_nametbl_insert_publ(ntohl(item->type),
+-							ntohl(item->lower),
+-							ntohl(item->upper),
+-							TIPC_CLUSTER_SCOPE,
+-							msg_orignode(msg),
+-							ntohl(item->ref),
+-							ntohl(item->key));
+-			if (publ) {
+-				tipc_nodesub_subscribe(&publ->subscr,
+-						       msg_orignode(msg),
+-						       publ,
+-						       (net_ev_handler)
+-						       named_purge_publ);
+-			}
+-		} else if (msg_type(msg) == WITHDRAWAL) {
+-			publ = tipc_nametbl_remove_publ(ntohl(item->type),
+-							ntohl(item->lower),
+-							msg_orignode(msg),
+-							ntohl(item->ref),
+-							ntohl(item->key));
+-
+-			if (publ) {
+-				tipc_nodesub_unsubscribe(&publ->subscr);
+-				kfree(publ);
+-			} else {
+-				pr_err("Unable to remove publication by node 0x%x\n"
+-				       " (type=%u, lower=%u, ref=%u, key=%u)\n",
+-				       msg_orignode(msg), ntohl(item->type),
+-				       ntohl(item->lower), ntohl(item->ref),
+-				       ntohl(item->key));
+-			}
+-		} else {
+-			pr_warn("Unrecognized name table message received\n");
+-		}
++		tipc_update_nametbl(item, msg_orignode(msg),
++				    msg_type(msg));
+ 		item++;
+ 	}
+ 	write_unlock_bh(&tipc_nametbl_lock);
+-- 
+1.8.3.2
