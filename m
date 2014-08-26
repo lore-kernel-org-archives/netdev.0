@@ -1,99 +1,714 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v6 net-next 4/6] bpf: enable bpf syscall on x64 and i386
-Date: Mon, 25 Aug 2014 18:00:56 -0700
-Message-ID: <1409014858-1410-5-git-send-email-ast@plumgrid.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v6 net-next 2/6] net: filter: split filter.h and expose eBPF to user space
+Date: Mon, 25 Aug 2014 18:00:54 -0700
+Message-ID: <1409014858-1410-3-git-send-email-ast@plumgrid.com>
 References: <1409014858-1410-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	Namhyung Kim <namhyung@kernel.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409014858-1410-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409014858-1410-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-done as separate commit to ease conflict resolution
+eBPF can be used from user space.
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+uapi/linux/bpf.h: eBPF instruction set definition
+
+linux/filter.h: the rest
+
+This patch only moves macro definitions, but practically it freezes existing
+eBPF instruction set, though new instructions can still be added in the future.
+
+These eBPF definitions cannot go into uapi/linux/filter.h, since the names
+may conflict with existing applications.
+
+Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 ---
- arch/x86/syscalls/syscall_32.tbl  |    1 +
- arch/x86/syscalls/syscall_64.tbl  |    1 +
- include/linux/syscalls.h          |    3 ++-
- include/uapi/asm-generic/unistd.h |    4 +++-
- kernel/sys_ni.c                   |    3 +++
- 5 files changed, 10 insertions(+), 2 deletions(-)
+ include/linux/filter.h    |  312 +------------------------------------------
+ include/uapi/linux/Kbuild |    1 +
+ include/uapi/linux/bpf.h  |  321 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 323 insertions(+), 311 deletions(-)
+ create mode 100644 include/uapi/linux/bpf.h
 
-diff --git a/arch/x86/syscalls/syscall_32.tbl b/arch/x86/syscalls/syscall_32.tbl
-index 028b78168d85..9fe1b5d002f0 100644
---- a/arch/x86/syscalls/syscall_32.tbl
-+++ b/arch/x86/syscalls/syscall_32.tbl
-@@ -363,3 +363,4 @@
- 354	i386	seccomp			sys_seccomp
- 355	i386	getrandom		sys_getrandom
- 356	i386	memfd_create		sys_memfd_create
-+357	i386	bpf			sys_bpf
-diff --git a/arch/x86/syscalls/syscall_64.tbl b/arch/x86/syscalls/syscall_64.tbl
-index 35dd922727b9..281150b539a2 100644
---- a/arch/x86/syscalls/syscall_64.tbl
-+++ b/arch/x86/syscalls/syscall_64.tbl
-@@ -327,6 +327,7 @@
- 318	common	getrandom		sys_getrandom
- 319	common	memfd_create		sys_memfd_create
- 320	common	kexec_file_load		sys_kexec_file_load
-+321	common	bpf			sys_bpf
- 
- #
- # x32-specific system call numbers start at 512 to avoid cache impact
-diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index 0f86d85a9ce4..61bc112b9fa5 100644
---- a/include/linux/syscalls.h
-+++ b/include/linux/syscalls.h
-@@ -875,5 +875,6 @@ asmlinkage long sys_seccomp(unsigned int op, unsigned int flags,
- 			    const char __user *uargs);
- asmlinkage long sys_getrandom(char __user *buf, size_t count,
- 			      unsigned int flags);
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index f3262b598262..f04793474d16 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -9,322 +9,12 @@
+ #include <linux/skbuff.h>
+ #include <linux/workqueue.h>
+ #include <uapi/linux/filter.h>
 -
-+asmlinkage long sys_bpf(int cmd, unsigned long arg2, unsigned long arg3,
-+			unsigned long arg4, unsigned long arg5);
- #endif
-diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
-index 11d11bc5c78f..22749c134117 100644
---- a/include/uapi/asm-generic/unistd.h
-+++ b/include/uapi/asm-generic/unistd.h
-@@ -705,9 +705,11 @@ __SYSCALL(__NR_seccomp, sys_seccomp)
- __SYSCALL(__NR_getrandom, sys_getrandom)
- #define __NR_memfd_create 279
- __SYSCALL(__NR_memfd_create, sys_memfd_create)
-+#define __NR_bpf 280
-+__SYSCALL(__NR_bpf, sys_bpf)
+-/* Internally used and optimized filter representation with extended
+- * instruction set based on top of classic BPF.
+- */
+-
+-/* instruction classes */
+-#define BPF_ALU64	0x07	/* alu mode in double word width */
+-
+-/* ld/ldx fields */
+-#define BPF_DW		0x18	/* double word */
+-#define BPF_XADD	0xc0	/* exclusive add */
+-
+-/* alu/jmp fields */
+-#define BPF_MOV		0xb0	/* mov reg to reg */
+-#define BPF_ARSH	0xc0	/* sign extending arithmetic shift right */
+-
+-/* change endianness of a register */
+-#define BPF_END		0xd0	/* flags for endianness conversion: */
+-#define BPF_TO_LE	0x00	/* convert to little-endian */
+-#define BPF_TO_BE	0x08	/* convert to big-endian */
+-#define BPF_FROM_LE	BPF_TO_LE
+-#define BPF_FROM_BE	BPF_TO_BE
+-
+-#define BPF_JNE		0x50	/* jump != */
+-#define BPF_JSGT	0x60	/* SGT is signed '>', GT in x86 */
+-#define BPF_JSGE	0x70	/* SGE is signed '>=', GE in x86 */
+-#define BPF_CALL	0x80	/* function call */
+-#define BPF_EXIT	0x90	/* function return */
+-
+-/* Register numbers */
+-enum {
+-	BPF_REG_0 = 0,
+-	BPF_REG_1,
+-	BPF_REG_2,
+-	BPF_REG_3,
+-	BPF_REG_4,
+-	BPF_REG_5,
+-	BPF_REG_6,
+-	BPF_REG_7,
+-	BPF_REG_8,
+-	BPF_REG_9,
+-	BPF_REG_10,
+-	__MAX_BPF_REG,
+-};
+-
+-/* BPF has 10 general purpose 64-bit registers and stack frame. */
+-#define MAX_BPF_REG	__MAX_BPF_REG
+-
+-/* ArgX, context and stack frame pointer register positions. Note,
+- * Arg1, Arg2, Arg3, etc are used as argument mappings of function
+- * calls in BPF_CALL instruction.
+- */
+-#define BPF_REG_ARG1	BPF_REG_1
+-#define BPF_REG_ARG2	BPF_REG_2
+-#define BPF_REG_ARG3	BPF_REG_3
+-#define BPF_REG_ARG4	BPF_REG_4
+-#define BPF_REG_ARG5	BPF_REG_5
+-#define BPF_REG_CTX	BPF_REG_6
+-#define BPF_REG_FP	BPF_REG_10
+-
+-/* Additional register mappings for converted user programs. */
+-#define BPF_REG_A	BPF_REG_0
+-#define BPF_REG_X	BPF_REG_7
+-#define BPF_REG_TMP	BPF_REG_8
+-
+-/* BPF program can access up to 512 bytes of stack space. */
+-#define MAX_BPF_STACK	512
+-
+-/* Helper macros for filter block array initializers. */
+-
+-/* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
+-
+-#define BPF_ALU64_REG(OP, DST, SRC)				\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_X,	\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = 0 })
+-
+-#define BPF_ALU32_REG(OP, DST, SRC)				\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_ALU | BPF_OP(OP) | BPF_X,		\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = 0 })
+-
+-/* ALU ops on immediates, bpf_add|sub|...: dst_reg += imm32 */
+-
+-#define BPF_ALU64_IMM(OP, DST, IMM)				\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_K,	\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-#define BPF_ALU32_IMM(OP, DST, IMM)				\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_ALU | BPF_OP(OP) | BPF_K,		\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-/* Endianess conversion, cpu_to_{l,b}e(), {l,b}e_to_cpu() */
+-
+-#define BPF_ENDIAN(TYPE, DST, LEN)				\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_ALU | BPF_END | BPF_SRC(TYPE),	\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = LEN })
+-
+-/* Short form of mov, dst_reg = src_reg */
+-
+-#define BPF_MOV64_REG(DST, SRC)					\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_ALU64 | BPF_MOV | BPF_X,		\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = 0 })
+-
+-#define BPF_MOV32_REG(DST, SRC)					\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_ALU | BPF_MOV | BPF_X,		\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = 0 })
+-
+-/* Short form of mov, dst_reg = imm32 */
+-
+-#define BPF_MOV64_IMM(DST, IMM)					\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_ALU64 | BPF_MOV | BPF_K,		\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-#define BPF_MOV32_IMM(DST, IMM)					\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_ALU | BPF_MOV | BPF_K,		\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-/* BPF_LD_IMM64 macro encodes single 'load 64-bit immediate' insn */
+-#define BPF_LD_IMM64(DST, IMM)					\
+-	BPF_LD_IMM64_RAW(DST, 0, IMM)
+-
+-#define BPF_LD_IMM64_RAW(DST, SRC, IMM)				\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_LD | BPF_DW | BPF_IMM,		\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = (__u32) (IMM) }),			\
+-	((struct bpf_insn) {					\
+-		.code  = 0, /* zero is reserved opcode */	\
+-		.dst_reg = 0,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = ((__u64) (IMM)) >> 32 })
+-
+-/* Short form of mov based on type, BPF_X: dst_reg = src_reg, BPF_K: dst_reg = imm32 */
+-
+-#define BPF_MOV64_RAW(TYPE, DST, SRC, IMM)			\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_ALU64 | BPF_MOV | BPF_SRC(TYPE),	\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-#define BPF_MOV32_RAW(TYPE, DST, SRC, IMM)			\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_ALU | BPF_MOV | BPF_SRC(TYPE),	\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-/* Direct packet access, R0 = *(uint *) (skb->data + imm32) */
+-
+-#define BPF_LD_ABS(SIZE, IMM)					\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_ABS,	\
+-		.dst_reg = 0,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-/* Indirect packet access, R0 = *(uint *) (skb->data + src_reg + imm32) */
+-
+-#define BPF_LD_IND(SIZE, SRC, IMM)				\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_IND,	\
+-		.dst_reg = 0,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-/* Memory load, dst_reg = *(uint *) (src_reg + off16) */
+-
+-#define BPF_LDX_MEM(SIZE, DST, SRC, OFF)			\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_LDX | BPF_SIZE(SIZE) | BPF_MEM,	\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = OFF,					\
+-		.imm   = 0 })
+-
+-/* Memory store, *(uint *) (dst_reg + off16) = src_reg */
+-
+-#define BPF_STX_MEM(SIZE, DST, SRC, OFF)			\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_STX | BPF_SIZE(SIZE) | BPF_MEM,	\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = OFF,					\
+-		.imm   = 0 })
+-
+-/* Memory store, *(uint *) (dst_reg + off16) = imm32 */
+-
+-#define BPF_ST_MEM(SIZE, DST, OFF, IMM)				\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_ST | BPF_SIZE(SIZE) | BPF_MEM,	\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = OFF,					\
+-		.imm   = IMM })
+-
+-/* Conditional jumps against registers, if (dst_reg 'op' src_reg) goto pc + off16 */
+-
+-#define BPF_JMP_REG(OP, DST, SRC, OFF)				\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_JMP | BPF_OP(OP) | BPF_X,		\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = OFF,					\
+-		.imm   = 0 })
+-
+-/* Conditional jumps against immediates, if (dst_reg 'op' imm32) goto pc + off16 */
+-
+-#define BPF_JMP_IMM(OP, DST, IMM, OFF)				\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_JMP | BPF_OP(OP) | BPF_K,		\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = OFF,					\
+-		.imm   = IMM })
+-
+-/* Function call */
+-
+-#define BPF_EMIT_CALL(FUNC)					\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_JMP | BPF_CALL,			\
+-		.dst_reg = 0,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = ((FUNC) - __bpf_call_base) })
+-
+-/* Raw code statement block */
+-
+-#define BPF_RAW_INSN(CODE, DST, SRC, OFF, IMM)			\
+-	((struct bpf_insn) {					\
+-		.code  = CODE,					\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = OFF,					\
+-		.imm   = IMM })
+-
+-/* Program exit */
+-
+-#define BPF_EXIT_INSN()						\
+-	((struct bpf_insn) {					\
+-		.code  = BPF_JMP | BPF_EXIT,			\
+-		.dst_reg = 0,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = 0 })
+-
+-#define bytes_to_bpf_size(bytes)				\
+-({								\
+-	int bpf_size = -EINVAL;					\
+-								\
+-	if (bytes == sizeof(u8))				\
+-		bpf_size = BPF_B;				\
+-	else if (bytes == sizeof(u16))				\
+-		bpf_size = BPF_H;				\
+-	else if (bytes == sizeof(u32))				\
+-		bpf_size = BPF_W;				\
+-	else if (bytes == sizeof(u64))				\
+-		bpf_size = BPF_DW;				\
+-								\
+-	bpf_size;						\
+-})
++#include <uapi/linux/bpf.h>
  
- #undef __NR_syscalls
--#define __NR_syscalls 280
-+#define __NR_syscalls 281
+ /* Macro to invoke filter function. */
+ #define SK_RUN_FILTER(filter, ctx) \
+ 	(*filter->prog->bpf_func)(ctx, filter->prog->insnsi)
  
- /*
-  * All syscalls below here should go away really,
-diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
-index 391d4ddb6f4b..b4b5083f5f5e 100644
---- a/kernel/sys_ni.c
-+++ b/kernel/sys_ni.c
-@@ -218,3 +218,6 @@ cond_syscall(sys_kcmp);
- 
- /* operate on Secure Computing state */
- cond_syscall(sys_seccomp);
+-struct bpf_insn {
+-	__u8	code;		/* opcode */
+-	__u8	dst_reg:4;	/* dest register */
+-	__u8	src_reg:4;	/* source register */
+-	__s16	off;		/* signed offset */
+-	__s32	imm;		/* signed immediate constant */
+-};
+-
+ #ifdef CONFIG_COMPAT
+ /* A struct sock_filter is architecture independent. */
+ struct compat_sock_fprog {
+diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+index 24e9033f8b3f..fb3f7b675229 100644
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@ -67,6 +67,7 @@ header-y += bfs_fs.h
+ header-y += binfmts.h
+ header-y += blkpg.h
+ header-y += blktrace_api.h
++header-y += bpf.h
+ header-y += bpqether.h
+ header-y += bsg.h
+ header-y += btrfs.h
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+new file mode 100644
+index 000000000000..45a09b46c578
+--- /dev/null
++++ b/include/uapi/linux/bpf.h
+@@ -0,0 +1,321 @@
++/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#ifndef _UAPI__LINUX_BPF_H__
++#define _UAPI__LINUX_BPF_H__
 +
-+/* access BPF programs and maps */
-+cond_syscall(sys_bpf);
++#include <linux/types.h>
++
++/* Extended instruction set based on top of classic BPF */
++
++/* instruction classes */
++#define BPF_ALU64	0x07	/* alu mode in double word width */
++
++/* ld/ldx fields */
++#define BPF_DW		0x18	/* double word */
++#define BPF_XADD	0xc0	/* exclusive add */
++
++/* alu/jmp fields */
++#define BPF_MOV		0xb0	/* mov reg to reg */
++#define BPF_ARSH	0xc0	/* sign extending arithmetic shift right */
++
++/* change endianness of a register */
++#define BPF_END		0xd0	/* flags for endianness conversion: */
++#define BPF_TO_LE	0x00	/* convert to little-endian */
++#define BPF_TO_BE	0x08	/* convert to big-endian */
++#define BPF_FROM_LE	BPF_TO_LE
++#define BPF_FROM_BE	BPF_TO_BE
++
++#define BPF_JNE		0x50	/* jump != */
++#define BPF_JSGT	0x60	/* SGT is signed '>', GT in x86 */
++#define BPF_JSGE	0x70	/* SGE is signed '>=', GE in x86 */
++#define BPF_CALL	0x80	/* function call */
++#define BPF_EXIT	0x90	/* function return */
++
++/* Register numbers */
++enum {
++	BPF_REG_0 = 0,
++	BPF_REG_1,
++	BPF_REG_2,
++	BPF_REG_3,
++	BPF_REG_4,
++	BPF_REG_5,
++	BPF_REG_6,
++	BPF_REG_7,
++	BPF_REG_8,
++	BPF_REG_9,
++	BPF_REG_10,
++	__MAX_BPF_REG,
++};
++
++/* BPF has 10 general purpose 64-bit registers and stack frame. */
++#define MAX_BPF_REG	__MAX_BPF_REG
++
++/* ArgX, context and stack frame pointer register positions. Note,
++ * Arg1, Arg2, Arg3, etc are used as argument mappings of function
++ * calls in BPF_CALL instruction.
++ */
++#define BPF_REG_ARG1	BPF_REG_1
++#define BPF_REG_ARG2	BPF_REG_2
++#define BPF_REG_ARG3	BPF_REG_3
++#define BPF_REG_ARG4	BPF_REG_4
++#define BPF_REG_ARG5	BPF_REG_5
++#define BPF_REG_CTX	BPF_REG_6
++#define BPF_REG_FP	BPF_REG_10
++
++/* Additional register mappings for converted user programs. */
++#define BPF_REG_A	BPF_REG_0
++#define BPF_REG_X	BPF_REG_7
++#define BPF_REG_TMP	BPF_REG_8
++
++/* BPF program can access up to 512 bytes of stack space. */
++#define MAX_BPF_STACK	512
++
++/* Helper macros for filter block array initializers. */
++
++/* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
++
++#define BPF_ALU64_REG(OP, DST, SRC)				\
++	((struct bpf_insn) {					\
++		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_X,	\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = 0 })
++
++#define BPF_ALU32_REG(OP, DST, SRC)				\
++	((struct bpf_insn) {					\
++		.code  = BPF_ALU | BPF_OP(OP) | BPF_X,		\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = 0 })
++
++/* ALU ops on immediates, bpf_add|sub|...: dst_reg += imm32 */
++
++#define BPF_ALU64_IMM(OP, DST, IMM)				\
++	((struct bpf_insn) {					\
++		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_K,	\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = IMM })
++
++#define BPF_ALU32_IMM(OP, DST, IMM)				\
++	((struct bpf_insn) {					\
++		.code  = BPF_ALU | BPF_OP(OP) | BPF_K,		\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = IMM })
++
++/* Endianess conversion, cpu_to_{l,b}e(), {l,b}e_to_cpu() */
++
++#define BPF_ENDIAN(TYPE, DST, LEN)				\
++	((struct bpf_insn) {					\
++		.code  = BPF_ALU | BPF_END | BPF_SRC(TYPE),	\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = LEN })
++
++/* Short form of mov, dst_reg = src_reg */
++
++#define BPF_MOV64_REG(DST, SRC)					\
++	((struct bpf_insn) {					\
++		.code  = BPF_ALU64 | BPF_MOV | BPF_X,		\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = 0 })
++
++#define BPF_MOV32_REG(DST, SRC)					\
++	((struct bpf_insn) {					\
++		.code  = BPF_ALU | BPF_MOV | BPF_X,		\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = 0 })
++
++/* Short form of mov, dst_reg = imm32 */
++
++#define BPF_MOV64_IMM(DST, IMM)					\
++	((struct bpf_insn) {					\
++		.code  = BPF_ALU64 | BPF_MOV | BPF_K,		\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = IMM })
++
++#define BPF_MOV32_IMM(DST, IMM)					\
++	((struct bpf_insn) {					\
++		.code  = BPF_ALU | BPF_MOV | BPF_K,		\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = IMM })
++
++/* BPF_LD_IMM64 macro encodes single 'load 64-bit immediate' insn */
++#define BPF_LD_IMM64(DST, IMM)					\
++	BPF_LD_IMM64_RAW(DST, 0, IMM)
++
++#define BPF_LD_IMM64_RAW(DST, SRC, IMM)				\
++	((struct bpf_insn) {					\
++		.code  = BPF_LD | BPF_DW | BPF_IMM,		\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = (__u32) (IMM) }),			\
++	((struct bpf_insn) {					\
++		.code  = 0, /* zero is reserved opcode */	\
++		.dst_reg = 0,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = ((__u64) (IMM)) >> 32 })
++
++/* Short form of mov based on type, BPF_X: dst_reg = src_reg, BPF_K: dst_reg = imm32 */
++
++#define BPF_MOV64_RAW(TYPE, DST, SRC, IMM)			\
++	((struct bpf_insn) {					\
++		.code  = BPF_ALU64 | BPF_MOV | BPF_SRC(TYPE),	\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = IMM })
++
++#define BPF_MOV32_RAW(TYPE, DST, SRC, IMM)			\
++	((struct bpf_insn) {					\
++		.code  = BPF_ALU | BPF_MOV | BPF_SRC(TYPE),	\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = IMM })
++
++/* Direct packet access, R0 = *(uint *) (skb->data + imm32) */
++
++#define BPF_LD_ABS(SIZE, IMM)					\
++	((struct bpf_insn) {					\
++		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_ABS,	\
++		.dst_reg = 0,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = IMM })
++
++/* Indirect packet access, R0 = *(uint *) (skb->data + src_reg + imm32) */
++
++#define BPF_LD_IND(SIZE, SRC, IMM)				\
++	((struct bpf_insn) {					\
++		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_IND,	\
++		.dst_reg = 0,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = IMM })
++
++/* Memory load, dst_reg = *(uint *) (src_reg + off16) */
++
++#define BPF_LDX_MEM(SIZE, DST, SRC, OFF)			\
++	((struct bpf_insn) {					\
++		.code  = BPF_LDX | BPF_SIZE(SIZE) | BPF_MEM,	\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = OFF,					\
++		.imm   = 0 })
++
++/* Memory store, *(uint *) (dst_reg + off16) = src_reg */
++
++#define BPF_STX_MEM(SIZE, DST, SRC, OFF)			\
++	((struct bpf_insn) {					\
++		.code  = BPF_STX | BPF_SIZE(SIZE) | BPF_MEM,	\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = OFF,					\
++		.imm   = 0 })
++
++/* Memory store, *(uint *) (dst_reg + off16) = imm32 */
++
++#define BPF_ST_MEM(SIZE, DST, OFF, IMM)				\
++	((struct bpf_insn) {					\
++		.code  = BPF_ST | BPF_SIZE(SIZE) | BPF_MEM,	\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = OFF,					\
++		.imm   = IMM })
++
++/* Conditional jumps against registers, if (dst_reg 'op' src_reg) goto pc + off16 */
++
++#define BPF_JMP_REG(OP, DST, SRC, OFF)				\
++	((struct bpf_insn) {					\
++		.code  = BPF_JMP | BPF_OP(OP) | BPF_X,		\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = OFF,					\
++		.imm   = 0 })
++
++/* Conditional jumps against immediates, if (dst_reg 'op' imm32) goto pc + off16 */
++
++#define BPF_JMP_IMM(OP, DST, IMM, OFF)				\
++	((struct bpf_insn) {					\
++		.code  = BPF_JMP | BPF_OP(OP) | BPF_K,		\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = OFF,					\
++		.imm   = IMM })
++
++/* Function call */
++
++#define BPF_EMIT_CALL(FUNC)					\
++	((struct bpf_insn) {					\
++		.code  = BPF_JMP | BPF_CALL,			\
++		.dst_reg = 0,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = ((FUNC) - __bpf_call_base) })
++
++/* Raw code statement block */
++
++#define BPF_RAW_INSN(CODE, DST, SRC, OFF, IMM)			\
++	((struct bpf_insn) {					\
++		.code  = CODE,					\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = OFF,					\
++		.imm   = IMM })
++
++/* Program exit */
++
++#define BPF_EXIT_INSN()						\
++	((struct bpf_insn) {					\
++		.code  = BPF_JMP | BPF_EXIT,			\
++		.dst_reg = 0,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = 0 })
++
++#define bytes_to_bpf_size(bytes)				\
++({								\
++	int bpf_size = -EINVAL;					\
++								\
++	if (bytes == sizeof(u8))				\
++		bpf_size = BPF_B;				\
++	else if (bytes == sizeof(u16))				\
++		bpf_size = BPF_H;				\
++	else if (bytes == sizeof(u32))				\
++		bpf_size = BPF_W;				\
++	else if (bytes == sizeof(u64))				\
++		bpf_size = BPF_DW;				\
++								\
++	bpf_size;						\
++})
++
++struct bpf_insn {
++	__u8	code;		/* opcode */
++	__u8	dst_reg:4;	/* dest register */
++	__u8	src_reg:4;	/* source register */
++	__s16	off;		/* signed offset */
++	__s32	imm;		/* signed immediate constant */
++};
++
++#endif /* _UAPI__LINUX_BPF_H__ */
 -- 
 1.7.9.5
