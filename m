@@ -1,42 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 2/4] net: phy: broadcom: fix PHY_BCM_OUI_4
-Date: Tue, 26 Aug 2014 13:15:25 -0700
-Message-ID: <1409084127-30387-3-git-send-email-f.fainelli@gmail.com>
-References: <1409084127-30387-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net-next 1/1] r8169: add missing MODULE_FIRMWARE.
+Date: Tue, 26 Aug 2014 22:40:38 +0200
+Message-ID: <20140826204038.GA15087@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, Chun-Hao Lin <hau@realtek.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:39788 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753915AbaHZUQD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 16:16:03 -0400
-Received: by mail-pd0-f181.google.com with SMTP id g10so23204641pdj.12
-        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 13:16:03 -0700 (PDT)
-In-Reply-To: <1409084127-30387-1-git-send-email-f.fainelli@gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:39031 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753244AbaHZUkx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 16:40:53 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PHY_BCM_OUI_4 is missing two significant digits that actually make it an
-OUI, add those missing bits so it becomes usable again for matching.
+From: Francois Romieu <romieu@fr.zoreil.com>
 
-Fixes: b560a58c45c6 ("net: phy: add Broadcom BCM7xxx internal PHY driver")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Leftover from 6e1d0b8988188956dac091441c1492a79a342666 ("r8169:add
+support for RTL8168H and RTL8107E").
+
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Chun-Hao Lin <hau@realtek.com>
 ---
- include/linux/brcmphy.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/realtek/r8169.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
-index ee1431d976fa..921f17ca4c26 100644
---- a/include/linux/brcmphy.h
-+++ b/include/linux/brcmphy.h
-@@ -21,7 +21,7 @@
- #define PHY_BCM_OUI_1			0x00206000
- #define PHY_BCM_OUI_2			0x0143bc00
- #define PHY_BCM_OUI_3			0x03625c00
--#define PHY_BCM_OUI_4			0x600d0000
-+#define PHY_BCM_OUI_4			0x600d8400
- #define PHY_BCM_OUI_5			0x03625e00
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index c8375f6..02dd92a 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -852,6 +852,8 @@ MODULE_FIRMWARE(FIRMWARE_8168G_2);
+ MODULE_FIRMWARE(FIRMWARE_8168G_3);
+ MODULE_FIRMWARE(FIRMWARE_8168H_1);
+ MODULE_FIRMWARE(FIRMWARE_8168H_2);
++MODULE_FIRMWARE(FIRMWARE_8107E_1);
++MODULE_FIRMWARE(FIRMWARE_8107E_2);
  
- 
+ static void rtl_lock_work(struct rtl8169_private *tp)
+ {
 -- 
-1.9.1
+1.9.3
