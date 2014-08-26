@@ -1,81 +1,67 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: [PATCH v2 net-next 2/2] tipc: add name distributor resiliency
- queue
-Date: Tue, 26 Aug 2014 14:55:44 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D1C2BF77C@eusaamb103.ericsson.se>
-References: <1409043477-22761-1-git-send-email-erik.hugne@ericsson.com>
- <1409043477-22761-2-git-send-email-erik.hugne@ericsson.com>
- <20140826143245.GC24538@eerihug-hybrid.rnd.ki.sw.ericsson.se>
- <A2BAEFC30C8FD34388F02C9B3121859D1C2BF752@eusaamb103.ericsson.se>
- <20140826144816.GD24538@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
+Date: Tue, 26 Aug 2014 16:56:01 +0200
+Message-ID: <53FCA001.6090404@broadcom.com>
+References: <52BDE9DC.5040206@msgid.tls.msk.ru> <52BE9CF9.7030305@broadcom.com> <52BEC2F6.7010505@msgid.tls.msk.ru> <52D4FC8B.6090301@msgid.tls.msk.ru> <52F925A9.1030707@msgid.tls.msk.ru> <53526124.6050407@msgid.tls.msk.ru> <53FC1789.6020407@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "ying.xue@windriver.com" <ying.xue@windriver.com>,
-	Richard Alpe <richard.alpe@ericsson.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tipc-discussion@lists.sourceforge.net"
-	<tipc-discussion@lists.sourceforge.net>
-To: Erik Hugne <erik.hugne@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from usevmg21.ericsson.net ([198.24.6.65]:52821 "EHLO
-	usevmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751551AbaHZOzq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 10:55:46 -0400
-In-Reply-To: <20140826144816.GD24538@eerihug-hybrid.rnd.ki.sw.ericsson.se>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Michael Tokarev <mjt-XAri/EZa3C4vJsYlp49lxw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <53FC1789.6020407-Gdu+ltImwkhes2APU0mLOQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On 08/26/14 07:13, Michael Tokarev wrote:
+> [Adding netdev@ to the mix.
+>   Original thread, started at Dec-2013, can be found at
+>    http://marc.info/?t=138817851800006&r=1&w=2 or
+>    http://www.spinics.net/lists/linux-wireless/msg116502.html
+> ]
+>
+> 19.04.2014 15:42, Michael Tokarev wrote:
+>> [big skip]
+>>
+>>
+>> Tried kernel 3.14 with this device.  Still no go, the brcmsmac driver still
+>> does not work correctly, it stalls as before.
+>
+> Today I tried 3.16 kernel today too, just for fun (since this whole brcmsmac
+> thing looks not more like a non-working toy).  Now with another laptop and
+> the same broadcom wifi adaptor (BRCM4313 802.11bgn Wireless Network Adapter
+> rev 01) (because due to cracked usb port on my original notebook it does not
+> work anymore).
+>
+> This combination (kernel&  wifi) does not work at all.  Or, it is more jokish
+> than before -- the NIC works for ARP packets but nothing else, not even ping
+> or DNS or NTP.  I see the access point sending replies (to pings or dns), but
+> these replies are not shown by tcpdump on the laptop.  Even not all ARP packets
+> sent by the AP reaches the laptop.
+>
+> So, I'm curious -- why this driver is found in regular section of kernel?
+> It looks like it should be in staging at least, or better yet, in a new section
+> titled "toy drivers" or something like this.  Does it work for any device at
+> all?
 
+Hi Michael,
 
-> -----Original Message-----
-> From: Erik Hugne
-> Sent: August-26-14 10:48 AM
-> To: Jon Maloy
-> Cc: ying.xue@windriver.com; Richard Alpe; netdev@vger.kernel.org; tip=
-c-
-> discussion@lists.sourceforge.net
-> Subject: Re: [PATCH v2 net-next 2/2] tipc: add name distributor resil=
-iency
-> queue
->=20
-> On Tue, Aug 26, 2014 at 04:44:34PM +0200, Jon Maloy wrote:
-> > (netdev removed from receiver list)
-> >
-> > > -----Original Message-----
-> > > From: Erik Hugne
-> > > Sent: August-26-14 10:33 AM
-> > > To: Jon Maloy; ying.xue@windriver.com; Richard Alpe;
-> > > netdev@vger.kernel.org
-> > > Cc: tipc-discussion@lists.sourceforge.net
-> > > Subject: Re: [PATCH v2 net-next 2/2] tipc: add name distributor
-> > > resiliency queue
-> > >
-> > > if (e->expiry > now) should in fact be if (time_after(e->expiry,
-> > > now) to handle timer wraps correctly.
-> > >
-> > > Thanks Niklas S=F6derlund for pointing this out.
-> > >
-> > > v2 removed from patchwork
-> > >
-> > > //E
-> >
-> > Also, don't use the version label an comment when you send this to
-> > David. This has only relevance to us who are reviewing the series. =
-(I
-> > assume it was  a mistake)
->=20
-> No, this is in the general guidelines for submitting patches section =
-15.
-> https://www.kernel.org/doc/Documentation/SubmittingPatches
->=20
-> //E
+Thanks for your encouraging suggestions. I revisited the threads you 
+referred to. In the boardflags it shows you have a bt+wifi card. It 
+could be that is an issue. The brcmsmac supports other devices, ie. 
+bcm43224/5 and the bcm4313 comes in a number of varieties. From what you 
+tell here it seems you have trouble in rx path so I will look into that 
+area if there is any specifically done for your variant of the bcm4313.
 
-Ok. I missed that this actually was the second version you sent to
-netdev.  What I meant was the versioning we are using during our
-own, internal discussions at tipc-discussion. This certainly has no
-relevance for David & co.
+Regards,
+Arend
 
-Regards
-///jon
+> Thanks,
+>
+> /mjt
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
