@@ -1,16 +1,16 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
 Subject: [PATCH net-next 0/4] Broadcom BCM7xxx PHY updates for new entries
-Date: Tue, 26 Aug 2014 13:04:28 -0700
-Message-ID: <1409083472-29448-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemlof.net, Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 26 Aug 2014 13:05:06 -0700
+Message-ID: <1409083510-29511-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:56905 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754171AbaHZUFf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 16:05:35 -0400
-Received: by mail-pd0-f172.google.com with SMTP id y13so22850281pdi.31
-        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 13:05:35 -0700 (PDT)
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:46090 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754680AbaHZUFn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 16:05:43 -0400
+Received: by mail-pd0-f173.google.com with SMTP id w10so23209878pde.32
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 13:05:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
