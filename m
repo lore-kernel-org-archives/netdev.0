@@ -1,105 +1,131 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next RFC 10/12] openvswitch: add support for datapath
- hardware offload
-Date: Tue, 26 Aug 2014 21:54:19 +0100
-Message-ID: <20140826205419.GH15316@casper.infradead.org>
-References: <20140825225057.GD30140@casper.infradead.org>
- <53FC909D.8090000@cumulusnetworks.com>
- <20140826140630.GA1848@nanopsycho.lan>
- <53FCA0AE.9010304@mojatatu.com>
- <20140826152217.GA1843@nanopsycho.lan>
- <53FCA7C6.5070804@mojatatu.com>
- <20140826154459.GB1843@nanopsycho.lan>
- <20140826155426.GA5275@gospo.rtplab.test>
- <20140826161956.GA15316@casper.infradead.org>
- <CAADnVQLeNTQO9rekWRAb_2MWgiZqEiZ4p6GAsypdkhgg3xQffw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>, ben@decadent.org.uk,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	john.r.fastabend@intel.com, Eric Dumazet <edumazet@google.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	John Linville <linville@tuxdriver.com>,
-	"dev@openvswitch.org" <
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: add skb_get_tx_queue() helper
+Date: Tue, 26 Aug 2014 23:06:48 +0200
+Message-ID: <1409087208-25809-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:52820 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752427AbaHZUy1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 16:54:27 -0400
-Content-Disposition: inline
-In-Reply-To: <CAADnVQLeNTQO9rekWRAb_2MWgiZqEiZ4p6GAsypdkhgg3xQffw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:26415 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754228AbaHZVGu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Aug 2014 17:06:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/26/14 at 01:13pm, Alexei Starovoitov wrote:
-> I think it's important distinction. In-kernel OVS is not OF.
-> It's a networking function that has hard-coded packet parser,
-> N-tuple match and programmable actions.
-> There were times when HW vendors were using OF check-box
-> to sell more chips, but at the end there is not a single HW
-> that is fully OF compliant. OF brand is still around, but
-> OF 2.0 is not tcam+action anymore.
-> Imo trying to standardize HW offload interface based on OF 1.x
-> principles is strange. Does anyone has performance data
-> that shows that hard-parser+N-tuple-match offload actually speeds
-> up real life applications ?
+Replace occurences of skb_get_queue_mapping() and follow-up
+netdev_get_tx_queue() with an actual helper function.
 
-That really depends on your definition of application. A pure
-switch application will obviously benefit. The host case is more
-complicated, offloading packet switching doesn't buy you anything
-obviously but it does allow to use SR-IOV in a broader context. If
-I have to chose between a DPDK host stack bypass and a well
-abstracted and flexible SR-IOV bypass I would favour the VF approach.
-Especially once things like P4 make its way into hardware and
-the flexibility of hardware becomes less of an issue. My interest
-is mainly driven from this perspective.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ include/linux/netdevice.h | 8 ++++++++
+ net/core/netpoll.c        | 2 +-
+ net/core/pktgen.c         | 4 +---
+ net/packet/af_packet.c    | 4 +---
+ net/sched/sch_generic.c   | 6 ++++--
+ 5 files changed, 15 insertions(+), 9 deletions(-)
 
-> Why are we designing kernel offload based on 'rocker' emulator?
-> Enterprise silicon I've seen doesn't look like it...
-> I'm not saying that kernel should not have a driver for rocker.
-> It should, but it shouldn't be a golden model for HW offload.
-
-I agree that it shouldn't be the golden model. Is that even
-happening? Given the earlier discussions, the only reason rocker
-seems to exist is because of lack of public hardware specs. I doubt
-that Jiri and Scott are doing this excercise if they wouldn't have
-to.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 039b237..200ee4f 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1747,6 +1747,14 @@ struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
+ 	return &dev->_tx[index];
+ }
  
-> "straw-man proposal for OF 2.0" paper have very
-> interesting ideas:
-> http://arxiv.org/pdf/1312.1719.pdf
-> sooner or later off the shelf NICs will have similar functionality.
-> 
-> In Linux we already have bridge that is perfect abstraction of
-> L2 network functions. OF 1.x has to use 'tcam' to do bridge and
-> in-kernel OVS has to fall back to 'mega-flows', but HW has proper
-> exact match tables and HW mac learning,
-> so OF 1.x principles just don't fit to L2 offloading.
-
-Agreed but I don't think we should restrict this to L2. As you say,
-that problem is solved and we have fdb_add() to take care of the
-offload.
-
-What we're facing as minimal requirements are L2-L3 forwarding needs
-combined with encap and encryption. Does it have to be implemented
-with OF1.x flows? No. In fact I would love to use eBPF in the
-software path and will support you all the way ;-) P4 hardware will
-make that even sweeter. But using a flow model does seem kind of
-straight forward to allow for offload with today's available HW n-tuple
-filters.
++static inline struct netdev_queue *skb_get_tx_queue(const struct net_device *dev,
++						    const struct sk_buff *skb)
++{
++	u16 index = skb_get_queue_mapping(skb);
++
++	return netdev_get_tx_queue(dev, index);
++}
++
+ static inline void netdev_for_each_tx_queue(struct net_device *dev,
+ 					    void (*f)(struct net_device *,
+ 						      struct netdev_queue *,
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index a5ad068..12b1df9 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -115,7 +115,7 @@ static void queue_process(struct work_struct *work)
+ 			continue;
+ 		}
+ 
+-		txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
++		txq = skb_get_tx_queue(dev, skb);
+ 
+ 		local_irq_save(flags);
+ 		HARD_TX_LOCK(dev, txq, smp_processor_id());
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 83e2b4b..d81b540 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -3286,7 +3286,6 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ {
+ 	struct net_device *odev = pkt_dev->odev;
+ 	struct netdev_queue *txq;
+-	u16 queue_map;
+ 	int ret;
+ 
+ 	/* If device is offline, then don't send */
+@@ -3324,8 +3323,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 	if (pkt_dev->delay && pkt_dev->last_ok)
+ 		spin(pkt_dev, pkt_dev->next_tx);
+ 
+-	queue_map = skb_get_queue_mapping(pkt_dev->skb);
+-	txq = netdev_get_tx_queue(odev, queue_map);
++	txq = skb_get_tx_queue(odev, pkt_dev->skb);
+ 
+ 	local_bh_disable();
+ 
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 0dfa990..b7a7f5a 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -243,7 +243,6 @@ static int packet_direct_xmit(struct sk_buff *skb)
+ 	netdev_features_t features;
+ 	struct netdev_queue *txq;
+ 	int ret = NETDEV_TX_BUSY;
+-	u16 queue_map;
+ 
+ 	if (unlikely(!netif_running(dev) ||
+ 		     !netif_carrier_ok(dev)))
+@@ -254,8 +253,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
+ 	    __skb_linearize(skb))
+ 		goto drop;
+ 
+-	queue_map = skb_get_queue_mapping(skb);
+-	txq = netdev_get_tx_queue(dev, queue_map);
++	txq = skb_get_tx_queue(dev, skb);
+ 
+ 	local_bh_disable();
+ 
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index fc04fe9..05b3f5d 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -63,7 +63,7 @@ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
+ 
+ 	if (unlikely(skb)) {
+ 		/* check the reason of requeuing without tx lock first */
+-		txq = netdev_get_tx_queue(txq->dev, skb_get_queue_mapping(skb));
++		txq = skb_get_tx_queue(txq->dev, skb);
+ 		if (!netif_xmit_frozen_or_stopped(txq)) {
+ 			q->gso_skb = NULL;
+ 			q->q.qlen--;
+@@ -183,10 +183,12 @@ static inline int qdisc_restart(struct Qdisc *q)
+ 	skb = dequeue_skb(q);
+ 	if (unlikely(!skb))
+ 		return 0;
++
+ 	WARN_ON_ONCE(skb_dst_is_noref(skb));
++
+ 	root_lock = qdisc_lock(q);
+ 	dev = qdisc_dev(q);
+-	txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
++	txq = skb_get_tx_queue(dev, skb);
+ 
+ 	return sch_direct_xmit(skb, q, dev, txq, root_lock);
+ }
+-- 
+1.7.11.7
