@@ -1,92 +1,75 @@
-From: Tushar Shinde <mtk.tushar@gmail.com>
-Subject: IPv6 Policy based routing not working.
-Date: Tue, 26 Aug 2014 21:32:12 +0530
-Message-ID: <CABQpAL7X9_=RTS2cd_m3jkCzWOM8hjcu22yQdnRD6S4fs5AF2Q@mail.gmail.com>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
+Date: Tue, 26 Aug 2014 20:15:31 +0400
+Message-ID: <53FCB2A3.1050605@msgid.tls.msk.ru>
+References: <52BDE9DC.5040206@msgid.tls.msk.ru> <52BE9CF9.7030305@broadcom.com> <52BEC2F6.7010505@msgid.tls.msk.ru> <52D4FC8B.6090301@msgid.tls.msk.ru> <52F925A9.1030707@msgid.tls.msk.ru> <53526124.6050407@msgid.tls.msk.ru> <53FC1789.6020407@msgid.tls.msk.ru> <53FCA001.6090404@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: brcm80211-dev-list@broadcom.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Arend van Spriel <arend@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f66.google.com ([74.125.82.66]:37837 "EHLO
-	mail-wg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750985AbaHZQCN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 12:02:13 -0400
-Received: by mail-wg0-f66.google.com with SMTP id a1so4896039wgh.1
-        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 09:02:12 -0700 (PDT)
+Received: from isrv.corpit.ru ([86.62.121.231]:37617 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751204AbaHZQPe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Aug 2014 12:15:34 -0400
+In-Reply-To: <53FCA001.6090404@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello NetDev,
+26.08.2014 18:56, Arend van Spriel wrote:
+> On 08/26/14 07:13, Michael Tokarev wrote:
+[]
+>> So, I'm curious -- why this driver is found in regular section of kernel?
+>> It looks like it should be in staging at least, or better yet, in a new section
+>> titled "toy drivers" or something like this.  Does it work for any device at
+>> all?
+> 
+> Hi Michael,
+> 
+> Thanks for your encouraging suggestions.
 
-I am facing problem where if ipv6 route (outside to current subnet) is
-reachable only if route is present in main table. Policy based routes
-are not working.
+You might be a good politician :)  These are blames, quite strong...
 
-Following is my setup,
+Seriously. As you revisited this thread, I had quite some issues and
+money loss after all this, -- after initially especially choosing a
+model with a supported wifi card which turned out to be non-working,
+which I tried to fix by buying a new wifi NIC (which didn't work
+thanks to Lenovo), and which I finally broke due to usb wifi dongle
+I used.
 
-eth0   inet6 2001:1::10/120 scope global
-eth1   inet6 2001:1::11/120 scope global
-2001:1::1 is gateway
-2.6.32-431.11.2.el6.x86_64 kernel (I tried on 3.x also)
+But that's all "poetry", the main source of my blames is you reaction -
+your first reply was really ecoraging, I hoped we can have some solution
+together (I have strong programming background, just not as good with
+kernel and drivers as you).  But after your single reply, you never
+spoke again until now.  That's 8 months.  _That_ is where my frustration
+comes from.
 
-[root@ipv6node1 ~]# ip -6 route show tab 1
-2001:1::/120 dev eth0  metric 1024  mtu 1500 advmss 1440 hoplimit 4294967295
-default via 2001:1::1 dev eth0  metric 1024  mtu 1500 advmss 1440
-hoplimit 4294967295
-[root@ipv6node1 ~]#
-[root@ipv6node1 ~]# ip -6 route show tab 2
-2001:1::/120 dev eth1  metric 1024  mtu 1500 advmss 1440 hoplimit 4294967295
-default via 2001:1::1 dev eth1  metric 1024  mtu 1500 advmss 1440
-hoplimit 4294967295
-[root@ipv6node1 ~]#
-[root@ipv6node1 ~]# ip -6 rule show
-0:    from all lookup local
-16383:    from 2001:1::10 lookup 1
-16383:    from 2001:1::11 lookup 2
-32766:    from all lookup main
-[root@ipv6node1 ~]#
+And the actual facts are true - by now I have had 2 entirely different
+devices (my original laptop which is now thrown away and another, given
+by me by a friend because I needed something) - I dunno if that's
+exactly the same wifi card or not (lspci output looks similar, and
+this one is also bt/wifi combo), but they both doesn't work in a
+quite similar way.  So, the driver doesn't work with 2 out of 2 devices
+which I've seen.  Not a good statistics generally, but that's 100%
+"hit" ratio for me.  So I really am curious if this driver works at
+all.
 
-If I add default vai eth0 only ip of eth0 is reachable from outside or
-eth1 dont work. In above setup default route is not present.
+>    I revisited the threads you referred to. In the boardflags it shows you
+> have a bt+wifi card. It could be that is an issue. The brcmsmac supports other
+> devices, ie. bcm43224/5 and the bcm4313 comes in a number of varieties.
+> From what you tell here it seems you have trouble in rx path so I will look
+> into that area if there is any specifically done for your variant of the bcm4313.
 
-But default entry in "table" is never getting used to resolve route
+I tested this "new" laptop with 3.16 kernel just briefly.  I may try more
+complete analysis.  I can participate with the debugging/dumping (I already
+mentioned my strong programming background - but I'm really not into drivers
+and hardware internals).  So, basically, I'm all yours ;)  Not that I really
+need this driver anymore (since I will avoid these cards like a plague, for
+obvious reasons :), but I want to have some good outcome out of all this
+story :)
 
-[root@ipv6node1 ~]# ping6 -I eth0 2001:2::20
-connect: Network is unreachable
-[root@ipv6node1 ~]#
-[root@ipv6node1 ~]# ping6 -I eth1 2001:2::20
-connect: Network is unreachable
-[root@ipv6node1 ~]#
+Thanks,
 
-
-To dig further I added printks and found fib6_rule_match function
-return 1 only for table 255 and 254 rest all tables are skipped from
-search.
-
-fib6_rule_match
-if (r->src.plen) {
-                if (flags & RT6_LOOKUP_F_HAS_SADDR) {
-                        if (!ipv6_prefix_equal(&fl->fl6_src, &r->src.addr,
-                                               r->src.plen)) {
-                                printk(KERN_ALERT "TS: %s:%d ret 0\n",
-__func__, __LINE__);
-                                return 0;
-                        }
-                } else if (!(r->common.flags & FIB_RULE_FIND_SADDR)) {
-                        printk(KERN_ALERT "TS: %s:%d ret 0\n",
-__func__, __LINE__);
-           >>>             return 0;
-                }
-}
-
-In case of above ping code returns from FIB_RULE_FIND_SADDR check as
-pointed above.
-
-In above case flags is 1, that is RT6_LOOKUP_F_IFACE.
-Do I need to pass any extra option to ping?
-
-Same routing table works in case of IPv4 setup without any problem.
-Is policy based routing supported in ipv6?
-
-
-Thank you,
-Tushar
+/mjt
