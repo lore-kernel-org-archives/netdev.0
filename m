@@ -1,53 +1,65 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next RFC 10/12] openvswitch: add support for datapath
- hardware offload
-Date: Tue, 26 Aug 2014 10:58:54 -0400
-Message-ID: <53FCA0AE.9010304@mojatatu.com>
-References: <53F9459B.2070801@mojatatu.com> <20140824111218.GA32741@casper.infradead.org> <53FA01AC.10507@mojatatu.com> <A67C7591-19BF-4431-9119-F61361F5E618@cumulusnetworks.com> <53FAA2A2.7070801@gmail.com> <53FB3FD5.2030905@mojatatu.com> <20140825141754.GA30140@casper.infradead.org> <53FB6122.2040901@mojatatu.com> <20140825225057.GD30140@casper.infradead.org> <53FC909D.8090000@cumulusnetworks.com> <20140826140630.GA1848@nanopsycho.lan>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH 2/2] ixgbe: support skb->xmit_more in netdev_ops->ndo_start_xmit()
+Date: Tue, 26 Aug 2014 08:00:10 -0700
+Message-ID: <53FCA0FA.20600@intel.com>
+References: <20140825.163505.1969688661687017343.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, f.fainelli@gmail.com, linville@tuxdriver.com,
-	dev@openvswitch.org, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, Shrijeet Mukherjee <
-To: Jiri Pirko <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
+Cc: therbert@google.com, jhs@mojatatu.com, hannes@stressinduktion.org,
+	edumazet@google.com, jeffrey.t.kirsher@intel.com,
+	rusty@rustcorp.com.au, dborkman@redhat.com, brouer@redhat.com
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:48291 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934497AbaHZO65 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 10:58:57 -0400
-Received: by mail-pd0-f179.google.com with SMTP id v10so22545412pde.10
-        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 07:58:56 -0700 (PDT)
-In-Reply-To: <20140826140630.GA1848@nanopsycho.lan>
+Received: from mga03.intel.com ([143.182.124.21]:17016 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758273AbaHZPAU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Aug 2014 11:00:20 -0400
+In-Reply-To: <20140825.163505.1969688661687017343.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/26/14 10:06, Jiri Pirko wrote:
+On 08/25/2014 04:35 PM, David Miller wrote:
+> 
+> From: Daniel Borkmann <dborkman@redhat.com>
+> 
+> This implements the deferred tail pointer flush API for the ixgbe
+> driver. Similar version also proposed longer time ago by Alexander Duyck.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 7 ++++---
+>  1 file changed, 4 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index 87bd53f..ba9ceaa 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -6958,9 +6958,10 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+>  
+>  	tx_ring->next_to_use = i;
+>  
+> -	/* notify HW of packet */
+> -	ixgbe_write_tail(tx_ring, i);
+> -
+> +	if (!skb->xmit_more) {
+> +		/* notify HW of packet */
+> +		ixgbe_write_tail(tx_ring, i);
+> +	}
+>  	return;
+>  dma_error:
+>  	dev_err(tx_ring->dev, "TX DMA map failed\n");
+> 
 
-> Yes. Flows are phase one. The api will be extended in for whatever is
-> needed for l2/l3 as you said. Also I see a possibility to implement the
-> l2/l3 use case with flows as well.
+It might help to add some handling for the case where xmit_more is set,
+but the ring has become full.  This current implementation introduces
+the risk of triggering a Tx hang.
 
-And as a note: This is where i have the disagreement.
-It is good there is acknowledgement you are handling flows for now.
-Or whatever tuples you defined as "flow". I dont think L2 or 3 fit
-in that. If thats not what you are saying then we are in agreement.
+My advice would be to pull the ixgbe_maybe_stop_tx code at the end of
+xmit_frame into the if check here, and perhaps look into adding an
+additional check to see if BQL has stopped the ring as well.
 
-cheers,
-jamal
+Thanks,
+
+Alex
