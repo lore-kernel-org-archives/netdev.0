@@ -1,67 +1,41 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [patch net-next RFC 02/12] net: rename
- netdev_phys_port_id to more generic name
-Date: Tue, 26 Aug 2014 15:23:24 +0300
-Message-ID: <53FC7C3C.3090901@mellanox.com>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-3-git-send-email-jiri@resnulli.us>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Aw: Re: Routes with unreachable gateways are staying in the
+ routing table and they are functional
+Date: Tue, 26 Aug 2014 14:34:57 +0200
+Message-ID: <1409056497.9923.9.camel@localhost>
+References: <trinity-f1954363-c4ef-47d2-9508-7174b7e2501e-1408720289787@3capp-gmx-bs15>
+	, <alpine.LFD.2.11.1408221856210.7852@ja.home.ssi.bg>
+	 <trinity-760989cf-0ea4-496a-9992-02ed85a5ffe5-1409039594977@3capp-gmx-bs38>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
- roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1408637945-10390-3-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
+To: Fedor Babkin <fedor.babkin@gmx.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:53387 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751006AbaHZMfA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 08:35:00 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by gateway2.nyi.internal (Postfix) with ESMTP id D4A38206FB
+	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 08:34:59 -0400 (EDT)
+In-Reply-To: <trinity-760989cf-0ea4-496a-9992-02ed85a5ffe5-1409039594977@3capp-gmx-bs38>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 21/08/2014 19:18, Jiri Pirko wrote:
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -868,7 +868,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
->   	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
->   	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
->   	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
-> -	       + nla_total_size(MAX_PHYS_PORT_ID_LEN); /* IFLA_PHYS_PORT_ID */
-> +	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_PORT_ID */
->   }
->
->   static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-> @@ -952,7 +952,7 @@ static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev,
->   static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
->   {
->   	int err;
-> -	struct netdev_phys_port_id ppid;
-> +	struct netdev_phys_item_id ppid;
->
->   	err = dev_get_phys_port_id(dev, &ppid);
->   	if (err) {
-> @@ -1196,7 +1196,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
->   	[IFLA_PROMISCUITY]	= { .type = NLA_U32 },
->   	[IFLA_NUM_TX_QUEUES]	= { .type = NLA_U32 },
->   	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
-> -	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
-> +	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
->   	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
->   };
->
+Hi,
 
-just a nit, but if this approach/patch goes in, any reason not to change 
-IFLA_PHYS_PORT_ID to IFLA_PHYS_ITEM_ID?
+On Di, 2014-08-26 at 09:53 +0200, Fedor Babkin wrote:
+> Thanks for your feedback. For IPv4 the situation is clear, you have to configure more that one subnet to the interface in order to start experiencing this issue. However exactly the same issue exists in IPv6, where once you configure a single address, you have to count on effectively having 2 addresses on the interface, due to the presence of a link-local address fe80::xxxx. Moreover with IPv6 stateless address autoconfiguration (RFC 4862), there is more address configuration dynamics in IPv6 comparing to IPv4. I would say this issue has a higher visibility and side-effect potential. Is there anyone looking into this issue from IPv6 perspective?
 
-Or.
+Actually, it is an error and an implementation problem that we currently
+add interface routes when adding ipv6 addresses to an interface. Those
+routes should only be allocated when the host receives on-link
+information (redirect, router advertisment). So in case of IPv6 routing
+information should always be handled separate from routing information.
+
+Also see:
+$ git log -G IFA_F_NOPREFIXROUTE net/ipv6/addrconf.c
+
+Greetings,
+Hannes
