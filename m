@@ -1,52 +1,44 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [PATCH v6 net-next 4/6] bpf: enable bpf syscall on x64 and i386
-Date: Tue, 26 Aug 2014 09:46:55 +0200
-Message-ID: <20140826074655.GB19799@gmail.com>
-References: <1409014858-1410-1-git-send-email-ast@plumgrid.com>
- <1409014858-1410-5-git-send-email-ast@plumgrid.com>
- <20140825205201.10ac5ee3@uryu.home.lan>
- <CAMEtUuxicvHsEQ59CeG2kmLW0b4TQ9ExfDkKo2kktH-t8x5tBg@mail.gmail.com>
+From: Ley Foon Tan <lftan@altera.com>
+Subject: Re: [PATCH] net: stmmac: fix warning from Sparse for socfpga
+Date: Tue, 26 Aug 2014 15:47:28 +0800
+Message-ID: <CAFiDJ5_LspyDPnXnimZ=TRiZD191XQRvwqgfZSOU-ziu_DUx=Q@mail.gmail.com>
+References: <1409037076-14775-1-git-send-email-lftan@altera.com>
+	<53FC363E.6050604@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	Namhyung Kim <namhyung@kernel.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
+	Vince Bridgers <vbridger@altera.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAMEtUuxicvHsEQ59CeG2kmLW0b4TQ9ExfDkKo2kktH-t8x5tBg@mail.gmail.com>
+In-Reply-To: <53FC363E.6050604@st.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Aug 26, 2014 at 3:24 PM, Giuseppe CAVALLARO
+<peppe.cavallaro@st.com> wrote:
+>> @@ -119,7 +119,8 @@ static int socfpga_dwmac_parse_data(struct
+>> socfpga_dwmac *dwmac, struct device *
+>>                         return -EINVAL;
+>>                 }
+>>
+>> -               dwmac->splitter_base = (void *)devm_ioremap_resource(dev,
+>> +               dwmac->splitter_base =
+>> +                       (void __iomem *)devm_ioremap_resource(dev,
+>
+>
+> I think, no casting should be done:
+>
+>    dwmac->splitter_base = devm_ioremap_resource(dev, ....
+Oh ya, since both are same type. Will send new patch.
 
-* Alexei Starovoitov <ast@plumgrid.com> wrote:
+>
+> patch should be for net-next
+Do you mean the patch need based on net-next git?
+I'm using linux-next git now.
 
-> On Mon, Aug 25, 2014 at 8:52 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
-> > Per discussion at Kernel Summit. Every new syscall requires
-> > a manual page and test programs. We have had too many new syscalls
-> > that are DOA.
-> 
-> There is verifier testsuite that is testing eBPF verifier from userspace
-> via bpf syscall. Also there are multiple examples and libbpf.
-> I think test coverage for bpf syscall is quite substantial already.
+Thanks.
 
-This is in tools/bpf/, right?
-
-Thanks,
-
-	Ingo
+Regards
+Ley Foon
