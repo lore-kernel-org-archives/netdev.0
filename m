@@ -1,75 +1,69 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Tue, 26 Aug 2014 20:15:31 +0400
-Message-ID: <53FCB2A3.1050605@msgid.tls.msk.ru>
-References: <52BDE9DC.5040206@msgid.tls.msk.ru> <52BE9CF9.7030305@broadcom.com> <52BEC2F6.7010505@msgid.tls.msk.ru> <52D4FC8B.6090301@msgid.tls.msk.ru> <52F925A9.1030707@msgid.tls.msk.ru> <53526124.6050407@msgid.tls.msk.ru> <53FC1789.6020407@msgid.tls.msk.ru> <53FCA001.6090404@broadcom.com>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
+ for datapath hardware offload
+Date: Tue, 26 Aug 2014 17:19:56 +0100
+Message-ID: <20140826161956.GA15316@casper.infradead.org>
+References: <20140825141754.GA30140@casper.infradead.org>
+ <53FB6122.2040901@mojatatu.com>
+ <20140825225057.GD30140@casper.infradead.org>
+ <53FC909D.8090000@cumulusnetworks.com>
+ <20140826140630.GA1848@nanopsycho.lan>
+ <53FCA0AE.9010304@mojatatu.com>
+ <20140826152217.GA1843@nanopsycho.lan>
+ <53FCA7C6.5070804@mojatatu.com>
+ <20140826154459.GB1843@nanopsycho.lan>
+ <20140826155426.GA5275@gospo.rtplab.test>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: brcm80211-dev-list@broadcom.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([86.62.121.231]:37617 "EHLO isrv.corpit.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751204AbaHZQPe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Aug 2014 12:15:34 -0400
-In-Reply-To: <53FCA001.6090404@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+ Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
+ f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Shrijeet Mukherjee <shm-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
+ John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
+ Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
+ Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Andy Gospodarek <gospo-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140826155426.GA5275-Me9pkO/C/lgvPfuUPAiksl6hYfS7NtTn@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-26.08.2014 18:56, Arend van Spriel wrote:
-> On 08/26/14 07:13, Michael Tokarev wrote:
-[]
->> So, I'm curious -- why this driver is found in regular section of kernel?
->> It looks like it should be in staging at least, or better yet, in a new section
->> titled "toy drivers" or something like this.  Does it work for any device at
->> all?
-> 
-> Hi Michael,
-> 
-> Thanks for your encouraging suggestions.
+On 08/26/14 at 11:54am, Andy Gospodarek wrote:
+> It is easy to *say* it could be added later, but connecting to software
+> forwarding in the kernel outside of OVS (which is important to some)
+> would take significant effort since this set only connects switch
+> hardware to OVS.
 
-You might be a good politician :)  These are blames, quite strong...
+Can you explain why that effort is more significant if a flow API
+added first? I'm not saying it is easy to offload the existing
+forwarding path, otherwise it would have been done already, but
+I don't understand how the proposal makes this any more difficult.
 
-Seriously. As you revisited this thread, I had quite some issues and
-money loss after all this, -- after initially especially choosing a
-model with a supported wifi card which turned out to be non-working,
-which I tried to fix by buying a new wifi NIC (which didn't work
-thanks to Lenovo), and which I finally broke due to usb wifi dongle
-I used.
+> It may be that all software-based forwarding is done via OVS in the
+> future, but it feels like we are long way from that future for those
+> that do not want to use an external controller.
 
-But that's all "poetry", the main source of my blames is you reaction -
-your first reply was really ecoraging, I hoped we can have some solution
-together (I have strong programming background, just not as good with
-kernel and drivers as you).  But after your single reply, you never
-spoke again until now.  That's 8 months.  _That_ is where my frustration
-comes from.
+Wait... I don't want to use OpenFlow to configure my laptop ;-)
 
-And the actual facts are true - by now I have had 2 entirely different
-devices (my original laptop which is now thrown away and another, given
-by me by a friend because I needed something) - I dunno if that's
-exactly the same wifi card or not (lspci output looks similar, and
-this one is also bt/wifi combo), but they both doesn't work in a
-quite similar way.  So, the driver doesn't work with 2 out of 2 devices
-which I've seen.  Not a good statistics generally, but that's 100%
-"hit" ratio for me.  So I really am curious if this driver works at
-all.
-
->    I revisited the threads you referred to. In the boardflags it shows you
-> have a bt+wifi card. It could be that is an issue. The brcmsmac supports other
-> devices, ie. bcm43224/5 and the bcm4313 comes in a number of varieties.
-> From what you tell here it seems you have trouble in rx path so I will look
-> into that area if there is any specifically done for your variant of the bcm4313.
-
-I tested this "new" laptop with 3.16 kernel just briefly.  I may try more
-complete analysis.  I can participate with the debugging/dumping (I already
-mentioned my strong programming background - but I'm really not into drivers
-and hardware internals).  So, basically, I'm all yours ;)  Not that I really
-need this driver anymore (since I will avoid these cards like a plague, for
-obvious reasons :), but I want to have some good outcome out of all this
-story :)
-
-Thanks,
-
-/mjt
+We should leave the controller out of this discussion though. A
+controller is not required to run OVS at all. OpenStack Neutron
+is a very good example for that. There are even applications which
+use the OVS kernel datapath but not the OVS user space portion.
+We have a wide set of APIs serving different purposes and need to
+account for all of them. I'm as much interested in an offloaded
+nftables and tc command as you.
