@@ -1,131 +1,73 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: add skb_get_tx_queue() helper
-Date: Tue, 26 Aug 2014 23:06:48 +0200
-Message-ID: <1409087208-25809-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: Re: [PATCH net-next v3 2/3] ethtool: Add generic options for
+ tunables
+Date: Wed, 27 Aug 2014 03:03:23 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1408270247280.28873@ws.cisco>
+References: <1408008560-1067-1-git-send-email-_govind@gmx.com>  <1408008560-1067-3-git-send-email-_govind@gmx.com> <1408749965.4672.29.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, stephen@networkplumber.org,
+	ssujith@cisco.com, benve@cisco.com
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26415 "EHLO mx1.redhat.com"
+Received: from mout.gmx.com ([74.208.4.200]:54823 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754228AbaHZVGu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Aug 2014 17:06:50 -0400
+	id S1754175AbaHZVdt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Aug 2014 17:33:49 -0400
+In-Reply-To: <1408749965.4672.29.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace occurences of skb_get_queue_mapping() and follow-up
-netdev_get_tx_queue() with an actual helper function.
+On Fri, 22 Aug 2014, Ben Hutchings wrote:
+> On Thu, 2014-08-14 at 14:59 +0530, Govindarajulu Varadarajan wrote:
+>> @@ -257,6 +262,7 @@ struct ethtool_ops {
+>>  				     struct ethtool_eeprom *, u8 *);
+>>  	int	(*get_eee)(struct net_device *, struct ethtool_eee *);
+>>  	int	(*set_eee)(struct net_device *, struct ethtool_eee *);
+>> +	struct ethtool_tunable_ops tunable_ops[ETHTOOL_TUNABLE_MAX];
+>
+> This is OK but if we add a lot of tunables then it bloats up each driver
+> with a (probably quite sparse) array of function pointers.
+>
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- include/linux/netdevice.h | 8 ++++++++
- net/core/netpoll.c        | 2 +-
- net/core/pktgen.c         | 4 +---
- net/packet/af_packet.c    | 4 +---
- net/sched/sch_generic.c   | 6 ++++--
- 5 files changed, 15 insertions(+), 9 deletions(-)
+Will fix with David's suggestion.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 039b237..200ee4f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1747,6 +1747,14 @@ struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
- 	return &dev->_tx[index];
- }
- 
-+static inline struct netdev_queue *skb_get_tx_queue(const struct net_device *dev,
-+						    const struct sk_buff *skb)
-+{
-+	u16 index = skb_get_queue_mapping(skb);
-+
-+	return netdev_get_tx_queue(dev, index);
-+}
-+
- static inline void netdev_for_each_tx_queue(struct net_device *dev,
- 					    void (*f)(struct net_device *,
- 						      struct netdev_queue *,
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index a5ad068..12b1df9 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -115,7 +115,7 @@ static void queue_process(struct work_struct *work)
- 			continue;
- 		}
- 
--		txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
-+		txq = skb_get_tx_queue(dev, skb);
- 
- 		local_irq_save(flags);
- 		HARD_TX_LOCK(dev, txq, smp_processor_id());
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 83e2b4b..d81b540 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3286,7 +3286,6 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- {
- 	struct net_device *odev = pkt_dev->odev;
- 	struct netdev_queue *txq;
--	u16 queue_map;
- 	int ret;
- 
- 	/* If device is offline, then don't send */
-@@ -3324,8 +3323,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 	if (pkt_dev->delay && pkt_dev->last_ok)
- 		spin(pkt_dev, pkt_dev->next_tx);
- 
--	queue_map = skb_get_queue_mapping(pkt_dev->skb);
--	txq = netdev_get_tx_queue(odev, queue_map);
-+	txq = skb_get_tx_queue(odev, pkt_dev->skb);
- 
- 	local_bh_disable();
- 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 0dfa990..b7a7f5a 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -243,7 +243,6 @@ static int packet_direct_xmit(struct sk_buff *skb)
- 	netdev_features_t features;
- 	struct netdev_queue *txq;
- 	int ret = NETDEV_TX_BUSY;
--	u16 queue_map;
- 
- 	if (unlikely(!netif_running(dev) ||
- 		     !netif_carrier_ok(dev)))
-@@ -254,8 +253,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
- 	    __skb_linearize(skb))
- 		goto drop;
- 
--	queue_map = skb_get_queue_mapping(skb);
--	txq = netdev_get_tx_queue(dev, queue_map);
-+	txq = skb_get_tx_queue(dev, skb);
- 
- 	local_bh_disable();
- 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index fc04fe9..05b3f5d 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -63,7 +63,7 @@ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
- 
- 	if (unlikely(skb)) {
- 		/* check the reason of requeuing without tx lock first */
--		txq = netdev_get_tx_queue(txq->dev, skb_get_queue_mapping(skb));
-+		txq = skb_get_tx_queue(txq->dev, skb);
- 		if (!netif_xmit_frozen_or_stopped(txq)) {
- 			q->gso_skb = NULL;
- 			q->q.qlen--;
-@@ -183,10 +183,12 @@ static inline int qdisc_restart(struct Qdisc *q)
- 	skb = dequeue_skb(q);
- 	if (unlikely(!skb))
- 		return 0;
-+
- 	WARN_ON_ONCE(skb_dst_is_noref(skb));
-+
- 	root_lock = qdisc_lock(q);
- 	dev = qdisc_dev(q);
--	txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
-+	txq = skb_get_tx_queue(dev, skb);
- 
- 	return sch_direct_xmit(skb, q, dev, txq, root_lock);
- }
--- 
-1.7.11.7
+>> +struct ethtool_tunable {
+>> +	u32 cmd;
+>> +	u32 tcmd;
+>> +	u32 len;
+>> +	union {
+>> +		u32 rx_copybreak;
+>> +		u32 data[48];
+>> +	} data;
+> [...]
+>
+> This is not at all generic.  If tunables don't all have the same type,
+> then the type - not just the length - should be explicit.
+>
+> I also think that if the length of a value can vary then we should not
+> declare a data member at all.  So we would have something like:
+>
+> struct ethtool_tunable {
+> 	__u32	cmd;
+> 	__u32	id;
+> 	__u32	type_id;
+> 	__u32	len;
+> 	__u8	data[0];
+> };
+>
+> Then the value buffer would be passed to the driver functions separately
+> (as for other variable-length command structures).
+>
+
+OK. id show be the tunable command type right? Like RX_COPYBREAK, TX_COPYBREAK
+etc. What is the type_id?
+
+> By the way, you must use double-underscore prefixes on fixed-width
+> integer type names in UAPI headers.
+>
+
+will fix it.
+
+Thanks
