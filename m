@@ -1,54 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: rds: Don't allocate rds_sock on stack
-Date: Tue, 26 Aug 2014 08:29:06 -0700 (PDT)
-Message-ID: <20140826.082906.614050508596912545.davem@davemloft.net>
-References: <1408926755-12277-1-git-send-email-broonie@kernel.org>
-	<20140825.125740.214306460002405867.davem@davemloft.net>
-	<20140826065409.GT17528@sirena.org.uk>
+From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
+ for datapath hardware offload
+Date: Tue, 26 Aug 2014 11:29:10 -0400
+Message-ID: <53FCA7C6.5070804@mojatatu.com>
+References: <53FA01AC.10507@mojatatu.com>
+ <A67C7591-19BF-4431-9119-F61361F5E618@cumulusnetworks.com>
+ <53FAA2A2.7070801@gmail.com> <53FB3FD5.2030905@mojatatu.com>
+ <20140825141754.GA30140@casper.infradead.org> <53FB6122.2040901@mojatatu.com>
+ <20140825225057.GD30140@casper.infradead.org>
+ <53FC909D.8090000@cumulusnetworks.com> <20140826140630.GA1848@nanopsycho.lan>
+ <53FCA0AE.9010304@mojatatu.com> <20140826152217.GA1843@nanopsycho.lan>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: chien.yen@oracle.com, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, linaro-kernel@lists.linaro.org
-To: broonie@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48071 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933044AbaHZP3J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 11:29:09 -0400
-In-Reply-To: <20140826065409.GT17528@sirena.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+ Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
+ f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Shrijeet Mukherjee <shm-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
+ John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
+ Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20140826152217.GA1843-6KJVSR23iU5sFDB2n11ItA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Mark Brown <broonie@kernel.org>
-Date: Tue, 26 Aug 2014 07:54:09 +0100
+On 08/26/14 11:22, Jiri Pirko wrote:
 
-> On Mon, Aug 25, 2014 at 12:57:40PM -0700, David Miller wrote:
->> From: Mark Brown <broonie@kernel.org>
-> 
->> > From: Mark Brown <broonie@linaro.org>
-> 
->> > struct rds_sock is rather large ausing the following warning in an ARM
->> > allmodconfig:
-> 
->> > net/rds/iw_rdma.c:200:1: warning: the frame size of 1056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
-> 
->> > Fix this by dynamically allocating struct rds_sock in rds_iw_update_cm_id
->> > instead of allocating it on the stack.
-> 
->> > Signed-off-by: Mark Brown <broonie@linaro.org>
-> 
->> I'd like you to fix this differently.  Creating pseudo instances of
->> objects, and partially initializing it, just to satisfy an interface
->> is always a really bad sign.
-> 
->> Create a key structure argument for rds_iw_get_device() and initialize that
->> and pass it in instead, update the other caller similarly.
-> 
-> I agree that the existing code looks like it could be improved even more
-> but please bear in mind that I'm just looking for a clean build (we've
-> got less than 20 warnings in allmodconfig including staging at the
-> minute) rather than actively working on this code in particular - I've
-> no ability to do more than build testing here.
+> I do not think that really matters. Phase one is flows. After that we
+> can focus on l2/l3. If we would be able to fit in in flows (some drivers
+> may), then ok. If not, we extend the api with couple of more l2/l3
+> related ndos. I see no problem there.
 
-I understand that, but please fix this bug properly.
+Well, it matters because we are proceeding to implement L2/3.
+i.e the simple stuff first. We dont have anything to show yet - but
+we will hopefully have some useful bit by Plumbers.
+So maybe best path forward is we talk then and see how we can merge
+efforts since we cant seem to agree at this point.
+
+cheers,
+jamal
