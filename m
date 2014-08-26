@@ -1,70 +1,54 @@
-From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
-Subject: RE: igbvf warning on 3.14.x
-Date: Tue, 26 Aug 2014 15:25:59 +0000
-Message-ID: <9B4A1B1917080E46B64F07F2989DADD6533D2F95@ORSMSX114.amr.corp.intel.com>
-References: <20140815131426.GA4638@gandi.net>
- <1408109225.2391.30.camel@jtkirshe-mobl> <20140826073613.GH8801@gandi.net>
- <9BBC4E0CF881AA4299206E2E1412B6264FBD7D4B@ORSMSX102.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: rds: Don't allocate rds_sock on stack
+Date: Tue, 26 Aug 2014 08:29:06 -0700 (PDT)
+Message-ID: <20140826.082906.614050508596912545.davem@davemloft.net>
+References: <1408926755-12277-1-git-send-email-broonie@kernel.org>
+	<20140825.125740.214306460002405867.davem@davemloft.net>
+	<20140826065409.GT17528@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	William Dauchy <william@gandi.net>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: chien.yen@oracle.com, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linaro-kernel@lists.linaro.org
+To: broonie@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:7775 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751551AbaHZP0B convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 11:26:01 -0400
-In-Reply-To: <9BBC4E0CF881AA4299206E2E1412B6264FBD7D4B@ORSMSX102.amr.corp.intel.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:48071 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933044AbaHZP3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 11:29:09 -0400
+In-Reply-To: <20140826065409.GT17528@sirena.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry, I forgot about this one. And trimming replies on e1000-devel isn't going to help much because we're forced to use outlook here and the threading is abysmal.
+From: Mark Brown <broonie@kernel.org>
+Date: Tue, 26 Aug 2014 07:54:09 +0100
 
-Can you please send clear repro steps and I'll submit it to our lab for repro. We'll need what equipment you're running (on both sides of the link), the kind of traffic you're running, the OS & kernel you're running, etc. It might be easier to file a bug on sourceforge if you're able to do that.
-
-Thanks.
-
-Todd Fujinaka
-Software Application Engineer
-Networking Division (ND)
-Intel Corporation
-todd.fujinaka@intel.com
-(503) 712-4565
-
------Original Message-----
-From: Wyborny, Carolyn 
-Sent: Tuesday, August 26, 2014 8:18 AM
-To: William Dauchy; Williams, Mitch A; Fujinaka, Todd
-Cc: netdev@vger.kernel.org; e1000-devel; Kirsher, Jeffrey T
-Subject: RE: igbvf warning on 3.14.x
-
-Adding Todd Fujinaka, who is customer support for igbvf.  I'll assist if need be.
-
-Thanks,
-
-Carolyn
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of William Dauchy
-> Sent: Tuesday, August 26, 2014 12:36 AM
-> To: Wyborny, Carolyn; Williams, Mitch A
-> Cc: William Dauchy; netdev@vger.kernel.org; e1000-devel; Kirsher, Jeffrey T
-> Subject: Re: igbvf warning on 3.14.x
+> On Mon, Aug 25, 2014 at 12:57:40PM -0700, David Miller wrote:
+>> From: Mark Brown <broonie@kernel.org>
 > 
-> Hi,
+>> > From: Mark Brown <broonie@linaro.org>
 > 
-> On Aug15 06:27, Jeff Kirsher wrote:
-> > Adding Carolyn (igb maintainer) and e1000-devel mailing list...
+>> > struct rds_sock is rather large ausing the following warning in an ARM
+>> > allmodconfig:
 > 
-> any chance to get some feedback on this trace?
+>> > net/rds/iw_rdma.c:200:1: warning: the frame size of 1056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
 > 
-> Thanks,
-> --
-> William
+>> > Fix this by dynamically allocating struct rds_sock in rds_iw_update_cm_id
+>> > instead of allocating it on the stack.
+> 
+>> > Signed-off-by: Mark Brown <broonie@linaro.org>
+> 
+>> I'd like you to fix this differently.  Creating pseudo instances of
+>> objects, and partially initializing it, just to satisfy an interface
+>> is always a really bad sign.
+> 
+>> Create a key structure argument for rds_iw_get_device() and initialize that
+>> and pass it in instead, update the other caller similarly.
+> 
+> I agree that the existing code looks like it could be improved even more
+> but please bear in mind that I'm just looking for a clean build (we've
+> got less than 20 warnings in allmodconfig including staging at the
+> minute) rather than actively working on this code in particular - I've
+> no ability to do more than build testing here.
+
+I understand that, but please fix this bug properly.
