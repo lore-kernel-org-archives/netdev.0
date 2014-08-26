@@ -1,97 +1,42 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 1/4] net: phy: bcm7xxx: introduce helper macro
-Date: Tue, 26 Aug 2014 13:15:24 -0700
-Message-ID: <1409084127-30387-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 3/4] net: phy: broadcom: add new Broadcom OUI
+Date: Tue, 26 Aug 2014 13:15:26 -0700
+Message-ID: <1409084127-30387-4-git-send-email-f.fainelli@gmail.com>
 References: <1409084127-30387-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:55185 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754115AbaHZUQC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 16:16:02 -0400
-Received: by mail-pa0-f50.google.com with SMTP id et14so23798592pad.37
-        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 13:16:02 -0700 (PDT)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:52044 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754560AbaHZUQE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 16:16:04 -0400
+Received: by mail-pa0-f44.google.com with SMTP id eu11so24282187pac.17
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 13:16:04 -0700 (PDT)
 In-Reply-To: <1409084127-30387-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All 28nm Gigabit PHYs supported by the driver have the same
-callbacks, the only differences being the 32-bits OUI and the name. Use
-a macro to factor this, making it easier in the future to add new
-entries.
+Broadcom started to use a new OUI for its 2013 and newer products:
+D4-01-29 which translates into 0xae025000 for a 32-bits OUI, add its
+definition.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/bcm7xxx.c | 54 ++++++++++++++++-------------------------------
- 1 file changed, 18 insertions(+), 36 deletions(-)
+ include/linux/brcmphy.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
-index e98c510b75c5..948c7086679a 100644
---- a/drivers/net/phy/bcm7xxx.c
-+++ b/drivers/net/phy/bcm7xxx.c
-@@ -319,44 +319,26 @@ static int bcm7xxx_dummy_config_init(struct phy_device *phydev)
- 	return 0;
- }
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 921f17ca4c26..cbcfad36d4c0 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -23,7 +23,7 @@
+ #define PHY_BCM_OUI_3			0x03625c00
+ #define PHY_BCM_OUI_4			0x600d8400
+ #define PHY_BCM_OUI_5			0x03625e00
+-
++#define PHY_BCM_OUI_6			0xae025000
  
-+#define BCM7XXX_28NM_GPHY(_oui, _name)					\
-+{									\
-+	.phy_id		= (_oui),					\
-+	.phy_id_mask	= 0xfffffff0,					\
-+	.name		= _name,					\
-+	.features	= PHY_GBIT_FEATURES |				\
-+			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,	\
-+	.flags		= PHY_IS_INTERNAL,				\
-+	.config_init	= bcm7xxx_28nm_afe_config_init,			\
-+	.config_aneg	= genphy_config_aneg,				\
-+	.read_status	= genphy_read_status,				\
-+	.resume		= bcm7xxx_28nm_resume,				\
-+	.driver		= { .owner = THIS_MODULE },			\
-+}
-+
- static struct phy_driver bcm7xxx_driver[] = {
-+	BCM7XXX_28NM_GPHY(PHY_ID_BCM7366, "Broadcom BCM7366"),
-+	BCM7XXX_28NM_GPHY(PHY_ID_BCM7439, "Broadcom BCM7439"),
-+	BCM7XXX_28NM_GPHY(PHY_ID_BCM7445, "Broadcom BCM7445"),
- {
--	.phy_id		= PHY_ID_BCM7366,
--	.phy_id_mask	= 0xfffffff0,
--	.name		= "Broadcom BCM7366",
--	.features	= PHY_GBIT_FEATURES |
--			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
--	.flags		= PHY_IS_INTERNAL,
--	.config_init	= bcm7xxx_28nm_afe_config_init,
--	.config_aneg	= genphy_config_aneg,
--	.read_status	= genphy_read_status,
--	.resume		= bcm7xxx_28nm_resume,
--	.driver		= { .owner = THIS_MODULE },
--}, {
--	.phy_id		= PHY_ID_BCM7439,
--	.phy_id_mask	= 0xfffffff0,
--	.name		= "Broadcom BCM7439",
--	.features	= PHY_GBIT_FEATURES |
--			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
--	.flags		= PHY_IS_INTERNAL,
--	.config_init	= bcm7xxx_28nm_afe_config_init,
--	.config_aneg	= genphy_config_aneg,
--	.read_status	= genphy_read_status,
--	.resume		= bcm7xxx_28nm_resume,
--	.driver		= { .owner = THIS_MODULE },
--}, {
--	.phy_id		= PHY_ID_BCM7445,
--	.phy_id_mask	= 0xfffffff0,
--	.name		= "Broadcom BCM7445",
--	.features	= PHY_GBIT_FEATURES |
--			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
--	.flags		= PHY_IS_INTERNAL,
--	.config_init	= bcm7xxx_28nm_config_init,
--	.config_aneg	= genphy_config_aneg,
--	.read_status	= genphy_read_status,
--	.resume		= bcm7xxx_28nm_afe_config_init,
--	.driver		= { .owner = THIS_MODULE },
--}, {
- 	.phy_id		= PHY_BCM_OUI_4,
- 	.phy_id_mask	= 0xffff0000,
- 	.name		= "Broadcom BCM7XXX 40nm",
+ #define PHY_BCM_FLAGS_MODE_COPPER	0x00000001
+ #define PHY_BCM_FLAGS_MODE_1000BX	0x00000002
 -- 
 1.9.1
