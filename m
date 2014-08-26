@@ -1,84 +1,92 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net-next] ixgbe: flush when in xmit_more mode and under
- descriptor pressure
-Date: Tue, 26 Aug 2014 09:01:48 -0700
-Message-ID: <53FCAF6C.2070401@intel.com>
-References: <1409068105-16634-1-git-send-email-dborkman@redhat.com>
+From: Tushar Shinde <mtk.tushar@gmail.com>
+Subject: IPv6 Policy based routing not working.
+Date: Tue, 26 Aug 2014 21:32:12 +0530
+Message-ID: <CABQpAL7X9_=RTS2cd_m3jkCzWOM8hjcu22yQdnRD6S4fs5AF2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:47352 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750858AbaHZQBu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Aug 2014 12:01:50 -0400
-In-Reply-To: <1409068105-16634-1-git-send-email-dborkman@redhat.com>
+Received: from mail-wg0-f66.google.com ([74.125.82.66]:37837 "EHLO
+	mail-wg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750985AbaHZQCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 12:02:13 -0400
+Received: by mail-wg0-f66.google.com with SMTP id a1so4896039wgh.1
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 09:02:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/26/2014 08:48 AM, Daniel Borkmann wrote:
-> When xmit_more mode is being used and the ring is about to become
-> full, enforce a tail pointer write to the hw. Otherwise, we could
-> risk a Tx hang as pointed out by Alex.
-> 
-> Suggested-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  Hi Alex, something along that lines regarding your first comment?
-> 
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 67 +++++++++++++++------------
->  1 file changed, 38 insertions(+), 29 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index ba9ceaa..f851e84 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -6853,6 +6883,7 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
->  	u32 tx_flags = first->tx_flags;
->  	u32 cmd_type = ixgbe_tx_cmd_type(skb, tx_flags);
->  	u16 i = tx_ring->next_to_use;
-> +	bool desc_pressure;
->  
->  	tx_desc = IXGBE_TX_DESC(tx_ring, i);
->  
-> @@ -6958,10 +6989,15 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
->  
->  	tx_ring->next_to_use = i;
->  
-> -	if (!skb->xmit_more) {
-> +	desc_pressure = (ixgbe_desc_unused(tx_ring) < DESC_NEEDED);
-> +	if (!skb->xmit_more || unlikely(desc_pressure)) {
->  		/* notify HW of packet */
->  		ixgbe_write_tail(tx_ring, i);
-> +
-> +		if (unlikely(desc_pressure))
-> +			__ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
->  	}
-> +
->  	return;
->  dma_error:
->  	dev_err(tx_ring->dev, "TX DMA map failed\n");
-> @@ -6978,6 +7014,7 @@ dma_error:
->  	}
->  
->  	tx_ring->next_to_use = i;
-> +	ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
->  }
->  
+Hello NetDev,
 
-Actually this bit here is much more complicated than it probably needs
-to be.
+I am facing problem where if ipv6 route (outside to current subnet) is
+reachable only if route is present in main table. Policy based routes
+are not working.
 
-My thought is to just fold ixgbe_maybe_stop_tx into the if statement.
+Following is my setup,
 
-So it shoudl be:
- if (!skb->smit_more || ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED))
+eth0   inet6 2001:1::10/120 scope global
+eth1   inet6 2001:1::11/120 scope global
+2001:1::1 is gateway
+2.6.32-431.11.2.el6.x86_64 kernel (I tried on 3.x also)
 
-If the BQL bit is folded into the xmit_more check somewhere then that
-should be enough to resolve any possible ring stalls.
+[root@ipv6node1 ~]# ip -6 route show tab 1
+2001:1::/120 dev eth0  metric 1024  mtu 1500 advmss 1440 hoplimit 4294967295
+default via 2001:1::1 dev eth0  metric 1024  mtu 1500 advmss 1440
+hoplimit 4294967295
+[root@ipv6node1 ~]#
+[root@ipv6node1 ~]# ip -6 route show tab 2
+2001:1::/120 dev eth1  metric 1024  mtu 1500 advmss 1440 hoplimit 4294967295
+default via 2001:1::1 dev eth1  metric 1024  mtu 1500 advmss 1440
+hoplimit 4294967295
+[root@ipv6node1 ~]#
+[root@ipv6node1 ~]# ip -6 rule show
+0:    from all lookup local
+16383:    from 2001:1::10 lookup 1
+16383:    from 2001:1::11 lookup 2
+32766:    from all lookup main
+[root@ipv6node1 ~]#
 
-Thanks,
+If I add default vai eth0 only ip of eth0 is reachable from outside or
+eth1 dont work. In above setup default route is not present.
 
-Alex
+But default entry in "table" is never getting used to resolve route
+
+[root@ipv6node1 ~]# ping6 -I eth0 2001:2::20
+connect: Network is unreachable
+[root@ipv6node1 ~]#
+[root@ipv6node1 ~]# ping6 -I eth1 2001:2::20
+connect: Network is unreachable
+[root@ipv6node1 ~]#
+
+
+To dig further I added printks and found fib6_rule_match function
+return 1 only for table 255 and 254 rest all tables are skipped from
+search.
+
+fib6_rule_match
+if (r->src.plen) {
+                if (flags & RT6_LOOKUP_F_HAS_SADDR) {
+                        if (!ipv6_prefix_equal(&fl->fl6_src, &r->src.addr,
+                                               r->src.plen)) {
+                                printk(KERN_ALERT "TS: %s:%d ret 0\n",
+__func__, __LINE__);
+                                return 0;
+                        }
+                } else if (!(r->common.flags & FIB_RULE_FIND_SADDR)) {
+                        printk(KERN_ALERT "TS: %s:%d ret 0\n",
+__func__, __LINE__);
+           >>>             return 0;
+                }
+}
+
+In case of above ping code returns from FIB_RULE_FIND_SADDR check as
+pointed above.
+
+In above case flags is 1, that is RT6_LOOKUP_F_IFACE.
+Do I need to pass any extra option to ping?
+
+Same routing table works in case of IPv4 setup without any problem.
+Is policy based routing supported in ipv6?
+
+
+Thank you,
+Tushar
