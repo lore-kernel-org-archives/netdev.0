@@ -1,87 +1,97 @@
-From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
- for datapath hardware offload
-Date: Tue, 26 Aug 2014 13:13:30 -0700
-Message-ID: <CAADnVQLeNTQO9rekWRAb_2MWgiZqEiZ4p6GAsypdkhgg3xQffw@mail.gmail.com>
-References: <20140825141754.GA30140@casper.infradead.org>
- <53FB6122.2040901@mojatatu.com>
- <20140825225057.GD30140@casper.infradead.org>
- <53FC909D.8090000@cumulusnetworks.com>
- <20140826140630.GA1848@nanopsycho.lan>
- <53FCA0AE.9010304@mojatatu.com>
- <20140826152217.GA1843@nanopsycho.lan>
- <53FCA7C6.5070804@mojatatu.com>
- <20140826154459.GB1843@nanopsycho.lan>
- <20140826155426.GA5275@gospo.rtplab.test>
- <20140826161956.GA15316@casper.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org,
- Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
- "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
- Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- Andy Gospodarek <gospo-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
- Shrijeet Mukherjee <shm-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
- John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
- Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
- Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, dborkman <dborkman-H+wXaHxf7aJhl2p70BpVqQ@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20140826161956.GA15316-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 1/4] net: phy: bcm7xxx: introduce helper macro
+Date: Tue, 26 Aug 2014 13:15:24 -0700
+Message-ID: <1409084127-30387-2-git-send-email-f.fainelli@gmail.com>
+References: <1409084127-30387-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:55185 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754115AbaHZUQC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 16:16:02 -0400
+Received: by mail-pa0-f50.google.com with SMTP id et14so23798592pad.37
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 13:16:02 -0700 (PDT)
+In-Reply-To: <1409084127-30387-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 26, 2014 at 9:19 AM, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org> wrote:
->
-> Wait... I don't want to use OpenFlow to configure my laptop ;-)
+All 28nm Gigabit PHYs supported by the driver have the same
+callbacks, the only differences being the 32-bits OUI and the name. Use
+a macro to factor this, making it easier in the future to add new
+entries.
 
-+1
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/bcm7xxx.c | 54 ++++++++++++++++-------------------------------
+ 1 file changed, 18 insertions(+), 36 deletions(-)
 
-> We should leave the controller out of this discussion though. A
-> controller is not required to run OVS at all. OpenStack Neutron
-> is a very good example for that. There are even applications which
-> use the OVS kernel datapath but not the OVS user space portion.
-> We have a wide set of APIs serving different purposes and need to
-> account for all of them. I'm as much interested in an offloaded
-> nftables and tc command as you.
-
-I think it's important distinction. In-kernel OVS is not OF.
-It's a networking function that has hard-coded packet parser,
-N-tuple match and programmable actions.
-There were times when HW vendors were using OF check-box
-to sell more chips, but at the end there is not a single HW
-that is fully OF compliant. OF brand is still around, but
-OF 2.0 is not tcam+action anymore.
-Imo trying to standardize HW offload interface based on OF 1.x
-principles is strange. Does anyone has performance data
-that shows that hard-parser+N-tuple-match offload actually speeds
-up real life applications ?
-Why are we designing kernel offload based on 'rocker' emulator?
-Enterprise silicon I've seen doesn't look like it...
-I'm not saying that kernel should not have a driver for rocker.
-It should, but it shouldn't be a golden model for HW offload.
-
-"straw-man proposal for OF 2.0" paper have very
-interesting ideas:
-http://arxiv.org/pdf/1312.1719.pdf
-sooner or later off the shelf NICs will have similar functionality.
-
-In Linux we already have bridge that is perfect abstraction of
-L2 network functions. OF 1.x has to use 'tcam' to do bridge and
-in-kernel OVS has to fall back to 'mega-flows', but HW has proper
-exact match tables and HW mac learning,
-so OF 1.x principles just don't fit to L2 offloading.
+diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
+index e98c510b75c5..948c7086679a 100644
+--- a/drivers/net/phy/bcm7xxx.c
++++ b/drivers/net/phy/bcm7xxx.c
+@@ -319,44 +319,26 @@ static int bcm7xxx_dummy_config_init(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
++#define BCM7XXX_28NM_GPHY(_oui, _name)					\
++{									\
++	.phy_id		= (_oui),					\
++	.phy_id_mask	= 0xfffffff0,					\
++	.name		= _name,					\
++	.features	= PHY_GBIT_FEATURES |				\
++			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,	\
++	.flags		= PHY_IS_INTERNAL,				\
++	.config_init	= bcm7xxx_28nm_afe_config_init,			\
++	.config_aneg	= genphy_config_aneg,				\
++	.read_status	= genphy_read_status,				\
++	.resume		= bcm7xxx_28nm_resume,				\
++	.driver		= { .owner = THIS_MODULE },			\
++}
++
+ static struct phy_driver bcm7xxx_driver[] = {
++	BCM7XXX_28NM_GPHY(PHY_ID_BCM7366, "Broadcom BCM7366"),
++	BCM7XXX_28NM_GPHY(PHY_ID_BCM7439, "Broadcom BCM7439"),
++	BCM7XXX_28NM_GPHY(PHY_ID_BCM7445, "Broadcom BCM7445"),
+ {
+-	.phy_id		= PHY_ID_BCM7366,
+-	.phy_id_mask	= 0xfffffff0,
+-	.name		= "Broadcom BCM7366",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+-	.flags		= PHY_IS_INTERNAL,
+-	.config_init	= bcm7xxx_28nm_afe_config_init,
+-	.config_aneg	= genphy_config_aneg,
+-	.read_status	= genphy_read_status,
+-	.resume		= bcm7xxx_28nm_resume,
+-	.driver		= { .owner = THIS_MODULE },
+-}, {
+-	.phy_id		= PHY_ID_BCM7439,
+-	.phy_id_mask	= 0xfffffff0,
+-	.name		= "Broadcom BCM7439",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+-	.flags		= PHY_IS_INTERNAL,
+-	.config_init	= bcm7xxx_28nm_afe_config_init,
+-	.config_aneg	= genphy_config_aneg,
+-	.read_status	= genphy_read_status,
+-	.resume		= bcm7xxx_28nm_resume,
+-	.driver		= { .owner = THIS_MODULE },
+-}, {
+-	.phy_id		= PHY_ID_BCM7445,
+-	.phy_id_mask	= 0xfffffff0,
+-	.name		= "Broadcom BCM7445",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+-	.flags		= PHY_IS_INTERNAL,
+-	.config_init	= bcm7xxx_28nm_config_init,
+-	.config_aneg	= genphy_config_aneg,
+-	.read_status	= genphy_read_status,
+-	.resume		= bcm7xxx_28nm_afe_config_init,
+-	.driver		= { .owner = THIS_MODULE },
+-}, {
+ 	.phy_id		= PHY_BCM_OUI_4,
+ 	.phy_id_mask	= 0xffff0000,
+ 	.name		= "Broadcom BCM7XXX 40nm",
+-- 
+1.9.1
