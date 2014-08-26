@@ -1,65 +1,79 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v4 12/13] Documentation: devicetree: update dsa binding with optional properties
-Date: Mon, 25 Aug 2014 21:49:40 -0700
-Message-ID: <1409028581-17399-13-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v4 08/13] net: dsa: allow drivers to do link adjustment
+Date: Mon, 25 Aug 2014 21:49:36 -0700
+Message-ID: <1409028581-17399-9-git-send-email-f.fainelli@gmail.com>
 References: <1409028581-17399-1-git-send-email-f.fainelli@gmail.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
 	linville@tuxdriver.com, jhs@mojatatu.com, alexander.duyck@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:39558 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933729AbaHZEul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 00:50:41 -0400
-Received: by mail-pa0-f43.google.com with SMTP id lf10so22594442pab.16
-        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 21:50:41 -0700 (PDT)
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:40579 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932434AbaHZEug (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 00:50:36 -0400
+Received: by mail-pd0-f181.google.com with SMTP id g10so21744995pdj.12
+        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 21:50:36 -0700 (PDT)
 In-Reply-To: <1409028581-17399-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add documentation for a bunch of new optional properties described in
-ethernet.txt and fixed-link.txt, this includes: 'phy-handle', 'phy-mode'
-and the 'fixed-link' subnode.
+Whenever libphy determines that the link status of a given PHY/port has
+changed, allow to call into the switch driver link adjustment callback
+so proper actions can be taken care of by the switch driver upon link
+notification.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- Documentation/devicetree/bindings/net/dsa/dsa.txt | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+ include/net/dsa.h | 7 +++++++
+ net/dsa/slave.c   | 4 ++++
+ 2 files changed, 11 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/dsa/dsa.txt b/Documentation/devicetree/bindings/net/dsa/dsa.txt
-index 49f4f7ae3f51..6192f9a7aa89 100644
---- a/Documentation/devicetree/bindings/net/dsa/dsa.txt
-+++ b/Documentation/devicetree/bindings/net/dsa/dsa.txt
-@@ -39,6 +39,22 @@ Optionnal property:
- 			  This property is only used when switches are being
- 			  chained/cascaded together.
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 1035f6452d79..2d3835924dd2 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -16,6 +16,7 @@
+ #include <linux/timer.h>
+ #include <linux/workqueue.h>
+ #include <linux/of.h>
++#include <linux/phy.h>
  
-+- phy-handle		: Phandle to a PHY on an external MDIO bus, not the
-+			  switch internal one. See
-+			  Documentation/devicetree/bindings/net/ethernet.txt
-+			  for details.
-+
-+- phy-mode		: String representing the connection to the designeted
-+			  PHY node specified by the 'phy-handle' property. See
-+			  Documentation/devicetree/bindings/net/ethernet.txt
-+			  for details.
-+
-+Optionnal subnodes:
-+- fixed-link		: Fixed-link subnode describing a link to a non-MDIO
-+			  managed entity. See
-+			  Documentation/devicetree/bindings/net/fixed-link.txt
-+			  for details.
-+
- Example:
+ #define DSA_MAX_SWITCHES	4
+ #define DSA_MAX_PORTS		12
+@@ -182,6 +183,12 @@ struct dsa_switch_driver {
+ 	void	(*poll_link)(struct dsa_switch *ds);
  
- 	dsa@0 {
-@@ -58,6 +74,7 @@ Example:
- 			port@0 {
- 				reg = <0>;
- 				label = "lan1";
-+				phy-handle = <&phy0>;
- 			};
+ 	/*
++	 * Link state adjustment (called from libphy)
++	 */
++	void	(*adjust_link)(struct dsa_switch *ds, int port,
++				struct phy_device *phydev);
++
++	/*
+ 	 * ethtool hardware statistics.
+ 	 */
+ 	void	(*get_strings)(struct dsa_switch *ds, int port, uint8_t *data);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 241c2a1684cb..398d0663d3dd 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -333,6 +333,7 @@ static const struct dsa_device_ops notag_netdev_ops = {
+ static void dsa_slave_adjust_link(struct net_device *dev)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
+ 	unsigned int status_changed = 0;
  
- 			port@1 {
+ 	if (p->old_link != p->phy->link) {
+@@ -350,6 +351,9 @@ static void dsa_slave_adjust_link(struct net_device *dev)
+ 		p->old_pause = p->phy->pause;
+ 	}
+ 
++	if (ds->drv->adjust_link && status_changed)
++		ds->drv->adjust_link(ds, p->port, p->phy);
++
+ 	if (status_changed)
+ 		phy_print_status(p->phy);
+ }
 -- 
 1.9.1
