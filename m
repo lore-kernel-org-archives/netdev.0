@@ -1,53 +1,92 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Tue, 26 Aug 2014 09:13:45 +0400
-Message-ID: <53FC1789.6020407@msgid.tls.msk.ru>
-References: <52BDE9DC.5040206@msgid.tls.msk.ru> <52BE9CF9.7030305@broadcom.com> <52BEC2F6.7010505@msgid.tls.msk.ru> <52D4FC8B.6090301@msgid.tls.msk.ru> <52F925A9.1030707@msgid.tls.msk.ru> <53526124.6050407@msgid.tls.msk.ru>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] net: stmmac: add dcrs parameter
+Date: Tue, 26 Aug 2014 07:38:48 +0200
+Message-ID: <53FC1D68.1000600@st.com>
+References: <1408967442-2724-1-git-send-email-lftan@altera.com>	<CAGb2v65fi=D_TQBSospft4T5OrBCj5TwQfgtkX=11M8TWFftYg@mail.gmail.com>	<53FB313C.9010808@st.com> <CAOwfj2Oyy8EGxPhgJcgeGPMm3tJ9-fGOh5h7jU8q4_BO=vWrTA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: brcm80211-dev-list@broadcom.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([86.62.121.231]:51213 "EHLO isrv.corpit.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750731AbaHZFXs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Aug 2014 01:23:48 -0400
-In-Reply-To: <53526124.6050407@msgid.tls.msk.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Chen-Yu Tsai <wens@csie.org>, Ley Foon Tan <lftan@altera.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, <lftan.linux@gmail.com>,
+	Vince Bridgers <vbridger@altera.com>
+To: Vince Bridgers <vbridgers2013@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOwfj2Oyy8EGxPhgJcgeGPMm3tJ9-fGOh5h7jU8q4_BO=vWrTA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[Adding netdev@ to the mix.
- Original thread, started at Dec-2013, can be found at
-  http://marc.info/?t=138817851800006&r=1&w=2 or
-  http://www.spinics.net/lists/linux-wireless/msg116502.html
-]
+On 8/25/2014 5:10 PM, Vince Bridgers wrote:
+> Hi,
+>
+> On Mon, Aug 25, 2014 at 7:51 AM, Giuseppe CAVALLARO
+> <peppe.cavallaro@st.com> wrote:
+>> On 8/25/2014 2:34 PM, Chen-Yu Tsai wrote:
+>>>
+>>> Hi,
+>>>
+>>> On Mon, Aug 25, 2014 at 7:50 PM, Ley Foon Tan <lftan@altera.com> wrote:
+>>>>
+>>>> This patch add the option to enable DCRS bit in GMAC control register.
+>>>> Default is disabled if snps,dcrs is not defined.
+>>>>
+>>>> For MII, Carrier Sense (CRS) must be asserted during transmission
+>>>> whereas in RGMII, CRS is not. RGMII does not provide a way to signal
+>>>> loss of carrier during a transmission.
+>
+> While technically true, from a practical point of view, this is only
+> useful if using true half-duplex media (like the now obsolete 10Base2
+> and 10Base5 - think old school coax with vampire taps).
+>
+>>>>
+>>>> When DCRS bit set high in control register, the MAC transmitter
+>>>> ignore the (G)MII Carrier Sense signal during frame transmission
+>>>> in the half-duplex mode. This request results in no errors generated
+>>>> because of Loss of Carrier or No Carrier during such transmission.
+>>>>
+>>>> Signed-off-by: Ley Foon Tan <lftan@altera.com>
+>>>> ---
+>
+> <snip>
+>
+>>>
+>>> Since you know this is only required under (G)MII, could you not re-use
+>>> the "phy-mode" property, instead of adding another one?
+>>>
+>>> Better yet, use the "interface" field in the platform data. This way
+>>> you'll
+>>> fix non-DT devices as well. You could then avoid touching the platform
+>>> driver,
+>>> and just modify the driver core.
+>>
+>>
+>> yes this is what I asked. Thx ChenYu for the this detail.
+>> Ley Foon Tan, could you do that? Let me know
+>>
+>> peppe
+>>
+>>
+>
+> In the Synopsys EMAC case, carrier sense is used to stop transmitting
+> if no carrier is sensed during a transmission. This is only useful if
+> the media in use is true half duplex media (like obsolete 10Base2 or
+> 10Base5). If no one in using true half duplex media, then is it
+> possible to set this disable by default? If we're not sure, then
+> having an option feels like the right thing to do.
 
-19.04.2014 15:42, Michael Tokarev wrote:
-> [big skip]
-> 
-> 
-> Tried kernel 3.14 with this device.  Still no go, the brcmsmac driver still
-> does not work correctly, it stalls as before.
+Indeed this is what I had done in the patch.
 
-Today I tried 3.16 kernel today too, just for fun (since this whole brcmsmac
-thing looks not more like a non-working toy).  Now with another laptop and
-the same broadcom wifi adaptor (BRCM4313 802.11bgn Wireless Network Adapter
-rev 01) (because due to cracked usb port on my original notebook it does not
-work anymore).
+http://git.stlinux.com/?p=stm/linux-sh4-2.6.32.y.git;a=commit;h=b0b863bf65c36dc593f6b7b4b418394fd880dae2
 
-This combination (kernel & wifi) does not work at all.  Or, it is more jokish
-than before -- the NIC works for ARP packets but nothing else, not even ping
-or DNS or NTP.  I see the access point sending replies (to pings or dns), but
-these replies are not shown by tcpdump on the laptop.  Even not all ARP packets
-sent by the AP reaches the laptop.
+Also in case of carrier sense the frame will be dropped in any case
+later.
 
-So, I'm curious -- why this driver is found in regular section of kernel?
-It looks like it should be in staging at least, or better yet, in a new section
-titled "toy drivers" or something like this.  Does it work for any device at
-all?
+Let me know if you Acked this patch so I will rebase it on
+net.git and I send it soon
 
-Thanks,
+peppe
 
-/mjt
+>
+> Vince
+>
