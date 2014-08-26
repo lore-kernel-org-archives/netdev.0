@@ -1,41 +1,80 @@
-From: Ley Foon Tan <lftan@altera.com>
-Subject: [PATCH (net-next) v2] net: stmmac: fix warning from Sparse for socfpga
-Date: Tue, 26 Aug 2014 17:47:59 +0800
-Message-ID: <1409046479-18546-1-git-send-email-lftan@altera.com>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH 00/14] arm64: eBPF JIT compiler
+Date: Tue, 26 Aug 2014 10:58:04 +0100
+Message-ID: <20140826095804.GB23445@arm.com>
+References: <1405708100-13604-1-git-send-email-zlim.lnx@gmail.com>
+ <20140721091623.GA16122@arm.com>
+ <CAMEtUuyC+MykPDO0ghTc=oex7KPLEy=BLRgWBdW+qJY7JXQmDQ@mail.gmail.com>
+ <20140723103219.GA1366@localhost>
+ <CABg9mcvU44W5AkPLtyswNWdDdF_nnqvLyKqv7RWhpuRRSWDW3A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ley Foon Tan <lftan@altera.com>, <lftan.linux@gmail.com>,
-	"Giuseppe Cavallaro" <peppe.cavallaro@st.com>,
-	Vince Bridgers <vbridger@altera.com>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Catalin Marinas <Catalin.Marinas@arm.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	AKASHI Takahiro <takahiro.akashi@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Z Lim <zlim.lnx@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CABg9mcvU44W5AkPLtyswNWdDdF_nnqvLyKqv7RWhpuRRSWDW3A@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Warning:
-drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c:122:41:
-sparse: cast removes address space of expression
-drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c:122:38:
-sparse: incorrect type in assignment (different address spaces)
+Hi Z Lim,
 
-Signed-off-by: Ley Foon Tan <lftan@altera.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Thu, Jul 24, 2014 at 05:55:36AM +0100, Z Lim wrote:
+> On Wed, Jul 23, 2014 at 3:32 AM, Catalin Marinas
+> <catalin.marinas@arm.com> wrote:
+> > On Mon, Jul 21, 2014 at 04:49:29PM +0100, Alexei Starovoitov wrote:
+> >> On Mon, Jul 21, 2014 at 2:16 AM, Will Deacon <will.deacon@arm.com> wrote:
+> >> > On Fri, Jul 18, 2014 at 07:28:06PM +0100, Zi Shen Lim wrote:
+> [...]
+> >> >> This series applies against net-next and is tested working
+> >> >> with lib/test_bpf on ARMv8 Foundation Model.
+> >> >
+> >> > Looks like it works on my Juno board too, so:
+> >> >
+> >> >   Acked-by: Will Deacon <will.deacon@arm.com>
+> >> >
+> >> > for the series.
+> >> >
+> >> > It's a bit late for 3.17 now, so I guess we'll queue this for 3.18 (which
+> >> > also means the dependency on -next isn't an issue). Perhaps you could repost
+> >> > around -rc3?
+> >>
+> >> Thanks for testing! Nice to see it working on real hw.
+> >> I'm not sure why you're proposing a 4+ week delay. The patches
+> >> will rot instead of getting used and tested. Imo it makes sense to
+> >> get them into net-next now for 3.17.
+> >> JIT is disabled by sysctl by default anyway.
+> >
+> > We normally like some patches (especially new functionality) to sit in
+> > linux-next for a while before the mering window (ideally starting with
+> > -rc4 or -rc5). We are at -rc6 already, so getting close to the 3.17
+> > merging window.
+> >
+> > Another aspect is that the arm64/bpf branch depends on the net tree, so
+> > it can't easily go in via the arm64 tree for 3.17 (3.18 would not be a
+> > problem).
+> 
+> Hi Catalin, I take it you prefer this series going through arm64 tree,
+> targeting 3.18, is that right?
+> 
+> I understand your preference to have it sitting in linux-next for a
+> longer period for arm64 material, I'll repost this again after 3.17 so
+> it gets more exposure in linux-next.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index cd613d7..ff54a1f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -119,7 +119,7 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
- 			return -EINVAL;
- 		}
- 
--		dwmac->splitter_base = (void *)devm_ioremap_resource(dev,
-+		dwmac->splitter_base = devm_ioremap_resource(dev,
- 			&res_splitter);
- 		if (!dwmac->splitter_base) {
- 			dev_info(dev, "Failed to mapping emac splitter\n");
--- 
-1.8.2.1
+Any chance you could post a new version of this, based on a 3.17 -rc,
+please? Whilst your current patches apply, I get a bunch of errors if I try
+to build them.
+
+Cheers,
+
+Will
