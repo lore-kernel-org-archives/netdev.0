@@ -1,73 +1,96 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: Re: [PATCH net-next v3 2/3] ethtool: Add generic options for
- tunables
-Date: Wed, 27 Aug 2014 03:03:23 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1408270247280.28873@ws.cisco>
-References: <1408008560-1067-1-git-send-email-_govind@gmx.com>  <1408008560-1067-3-git-send-email-_govind@gmx.com> <1408749965.4672.29.camel@deadeye.wl.decadent.org.uk>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
+Date: Tue, 26 Aug 2014 23:37:30 +0200
+Message-ID: <53FCFE1A.3060508@broadcom.com>
+References: <52BDE9DC.5040206@msgid.tls.msk.ru> <52BE9CF9.7030305@broadcom.com> <52BEC2F6.7010505@msgid.tls.msk.ru> <52D4FC8B.6090301@msgid.tls.msk.ru> <52F925A9.1030707@msgid.tls.msk.ru> <53526124.6050407@msgid.tls.msk.ru> <53FC1789.6020407@msgid.tls.msk.ru> <53FCA001.6090404@broadcom.com> <53FCB2A3.1050605@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Govindarajulu Varadarajan <_govind@gmx.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, stephen@networkplumber.org,
-	ssujith@cisco.com, benve@cisco.com
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <brcm80211-dev-list@broadcom.com>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Michael Tokarev <mjt@tls.msk.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:54823 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754175AbaHZVdt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Aug 2014 17:33:49 -0400
-In-Reply-To: <1408749965.4672.29.camel@deadeye.wl.decadent.org.uk>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:7675 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755755AbaHZVhd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 17:37:33 -0400
+In-Reply-To: <53FCB2A3.1050605@msgid.tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 22 Aug 2014, Ben Hutchings wrote:
-> On Thu, 2014-08-14 at 14:59 +0530, Govindarajulu Varadarajan wrote:
->> @@ -257,6 +262,7 @@ struct ethtool_ops {
->>  				     struct ethtool_eeprom *, u8 *);
->>  	int	(*get_eee)(struct net_device *, struct ethtool_eee *);
->>  	int	(*set_eee)(struct net_device *, struct ethtool_eee *);
->> +	struct ethtool_tunable_ops tunable_ops[ETHTOOL_TUNABLE_MAX];
+On 08/26/14 18:15, Michael Tokarev wrote:
+> 26.08.2014 18:56, Arend van Spriel wrote:
+>> On 08/26/14 07:13, Michael Tokarev wrote:
+> []
+>>> So, I'm curious -- why this driver is found in regular section of kernel?
+>>> It looks like it should be in staging at least, or better yet, in a new section
+>>> titled "toy drivers" or something like this.  Does it work for any device at
+>>> all?
+>>
+>> Hi Michael,
+>>
+>> Thanks for your encouraging suggestions.
 >
-> This is OK but if we add a lot of tunables then it bloats up each driver
-> with a (probably quite sparse) array of function pointers.
+> You might be a good politician :)  These are blames, quite strong...
 >
+> Seriously. As you revisited this thread, I had quite some issues and
+> money loss after all this, -- after initially especially choosing a
+> model with a supported wifi card which turned out to be non-working,
+> which I tried to fix by buying a new wifi NIC (which didn't work
+> thanks to Lenovo), and which I finally broke due to usb wifi dongle
+> I used.
+>
+> But that's all "poetry", the main source of my blames is you reaction -
+> your first reply was really ecoraging, I hoped we can have some solution
+> together (I have strong programming background, just not as good with
+> kernel and drivers as you).  But after your single reply, you never
+> spoke again until now.  That's 8 months.  _That_ is where my frustration
+> comes from.
 
-Will fix with David's suggestion.
+Well, sorry about that. I did see the other messages fly by and noticed 
+you were using the wl driver so assumed you were fine with that. 
+Admittedly the brcmsmac got very little attention as all our resources 
+were put on brcmfmac.
 
->> +struct ethtool_tunable {
->> +	u32 cmd;
->> +	u32 tcmd;
->> +	u32 len;
->> +	union {
->> +		u32 rx_copybreak;
->> +		u32 data[48];
->> +	} data;
-> [...]
+> And the actual facts are true - by now I have had 2 entirely different
+> devices (my original laptop which is now thrown away and another, given
+> by me by a friend because I needed something) - I dunno if that's
+> exactly the same wifi card or not (lspci output looks similar, and
+> this one is also bt/wifi combo), but they both doesn't work in a
+> quite similar way.  So, the driver doesn't work with 2 out of 2 devices
+> which I've seen.  Not a good statistics generally, but that's 100%
+> "hit" ratio for me.  So I really am curious if this driver works at
+> all.
 >
-> This is not at all generic.  If tunables don't all have the same type,
-> then the type - not just the length - should be explicit.
+>>     I revisited the threads you referred to. In the boardflags it shows you
+>> have a bt+wifi card. It could be that is an issue. The brcmsmac supports other
+>> devices, ie. bcm43224/5 and the bcm4313 comes in a number of varieties.
+>>  From what you tell here it seems you have trouble in rx path so I will look
+>> into that area if there is any specifically done for your variant of the bcm4313.
 >
-> I also think that if the length of a value can vary then we should not
-> declare a data member at all.  So we would have something like:
->
-> struct ethtool_tunable {
-> 	__u32	cmd;
-> 	__u32	id;
-> 	__u32	type_id;
-> 	__u32	len;
-> 	__u8	data[0];
-> };
->
-> Then the value buffer would be passed to the driver functions separately
-> (as for other variable-length command structures).
->
+> I tested this "new" laptop with 3.16 kernel just briefly.  I may try more
+> complete analysis.  I can participate with the debugging/dumping (I already
+> mentioned my strong programming background - but I'm really not into drivers
+> and hardware internals).  So, basically, I'm all yours ;)  Not that I really
+> need this driver anymore (since I will avoid these cards like a plague, for
+> obvious reasons :), but I want to have some good outcome out of all this
+> story :)
 
-OK. id show be the tunable command type right? Like RX_COPYBREAK, TX_COPYBREAK
-etc. What is the type_id?
+Ok. Let's put frustration aside and make an effort. So could you make a 
+trace using trace-cmd utility. The log can get quite big. The brcmsmac 
+driver needs to be built with CONFIG_BRCM_TRACING enabled. Please 
+execute the following commands (assuming you use ubuntu with 
+network-manager):
 
-> By the way, you must use double-underscore prefixes on fixed-width
-> integer type names in UAPI headers.
->
+$ sudo stop network-manager
+$ sudo insmod brcmfmac.ko
+$ sudo trace-cmd record -e brcmsmac:*
 
-will fix it.
+In another terminal:
 
-Thanks
+$ sudo start network-manager
+
+The trace-cmd must be stopped using ctrl-c.
+
+Regards,
+Arend
