@@ -1,54 +1,58 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] net: stmmac: fix warning from Sparse for socfpga
-Date: Tue, 26 Aug 2014 09:24:46 +0200
-Message-ID: <53FC363E.6050604@st.com>
-References: <1409037076-14775-1-git-send-email-lftan@altera.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next] bnx2x: Fix static checker warning regarding `txdata_ptr'
+Date: Tue, 26 Aug 2014 10:24:41 +0300
+Message-ID: <1409037881-4192-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <lftan.linux@gmail.com>, Vince Bridgers <vbridger@altera.com>
-To: Ley Foon Tan <lftan@altera.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409037076-14775-1-git-send-email-lftan@altera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>,
+	<Ariel.Elior@qlogic.com>, <dan.carpenter@oracle.com>,
+	Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:5536 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755391AbaHZHZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 03:25:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8/26/2014 9:11 AM, Ley Foon Tan wrote:
-> Warning:
-> drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c:122:41:
-> sparse: cast removes address space of expression
-> drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c:122:38:
-> sparse: incorrect type in assignment (different address spaces)
->
-> Signed-off-by: Ley Foon Tan <lftan@altera.com>
-> ---
->   drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 3 ++-
->   1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-> index cd613d7..c1addce 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-> @@ -119,7 +119,8 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
->   			return -EINVAL;
->   		}
->
-> -		dwmac->splitter_base = (void *)devm_ioremap_resource(dev,
-> +		dwmac->splitter_base =
-> +			(void __iomem *)devm_ioremap_resource(dev,
+Incorrect checking of array instead of array contents in panic_dump
+flow - results of commit e261199872a2 ("bnx2x: Safe bnx2x_panic_dump()").
 
-I think, no casting should be done:
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+---
+Hi Dave,
 
-    dwmac->splitter_base = devm_ioremap_resource(dev, ....
+Please apply this to `net-next'.
 
+Thanks,
+Yuval Mintz
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-patch should be for net-next
-
-peppe
-
->   			&res_splitter);
->   		if (!dwmac->splitter_base) {
->   			dev_info(dev, "Failed to mapping emac splitter\n");
->
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 2f394b8..93132d8f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -985,7 +985,7 @@ void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
+ 		/* Tx */
+ 		for_each_cos_in_tx_queue(fp, cos)
+ 		{
+-			if (!fp->txdata_ptr)
++			if (!fp->txdata_ptr[cos])
+ 				break;
+ 
+ 			txdata = *fp->txdata_ptr[cos];
+@@ -1140,7 +1140,7 @@ void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
+ 		for_each_cos_in_tx_queue(fp, cos) {
+ 			struct bnx2x_fp_txdata *txdata = fp->txdata_ptr[cos];
+ 
+-			if (!fp->txdata_ptr)
++			if (!fp->txdata_ptr[cos])
+ 				break;
+ 
+ 			if (!txdata->tx_cons_sb)
+-- 
+1.8.3.1
