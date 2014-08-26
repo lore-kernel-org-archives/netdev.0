@@ -1,71 +1,91 @@
-From: Andy Gospodarek <gospo-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
- for datapath hardware offload
-Date: Tue, 26 Aug 2014 11:54:26 -0400
-Message-ID: <20140826155426.GA5275@gospo.rtplab.test>
-References: <53FB3FD5.2030905@mojatatu.com>
- <20140825141754.GA30140@casper.infradead.org>
- <53FB6122.2040901@mojatatu.com>
- <20140825225057.GD30140@casper.infradead.org>
- <53FC909D.8090000@cumulusnetworks.com>
- <20140826140630.GA1848@nanopsycho.lan>
- <53FCA0AE.9010304@mojatatu.com>
- <20140826152217.GA1843@nanopsycho.lan>
- <53FCA7C6.5070804@mojatatu.com>
- <20140826154459.GB1843@nanopsycho.lan>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH 2/2] ixgbe: support skb->xmit_more in netdev_ops->ndo_start_xmit()
+Date: Tue, 26 Aug 2014 17:58:26 +0200
+Message-ID: <53FCAEA2.4010805@redhat.com>
+References: <20140825.163505.1969688661687017343.davem@davemloft.net>  <53FCA0FA.20600@intel.com> <1409067657.22108.7.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
- Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
- f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Shrijeet Mukherjee <shm-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
- John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
- Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
- aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20140826154459.GB1843-6KJVSR23iU5sFDB2n11ItA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	therbert@google.com, jhs@mojatatu.com, edumazet@google.com,
+	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au,
+	brouer@redhat.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:31563 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750996AbaHZP6k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Aug 2014 11:58:40 -0400
+In-Reply-To: <1409067657.22108.7.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 26, 2014 at 05:44:59PM +0200, Jiri Pirko wrote:
-> Tue, Aug 26, 2014 at 05:29:10PM CEST, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org wrote:
-> >On 08/26/14 11:22, Jiri Pirko wrote:
-> >
-> >>I do not think that really matters. Phase one is flows. After that we
-> >>can focus on l2/l3. If we would be able to fit in in flows (some drivers
-> >>may), then ok. If not, we extend the api with couple of more l2/l3
-> >>related ndos. I see no problem there.
-> >
-> >Well, it matters because we are proceeding to implement L2/3.
-> >i.e the simple stuff first. We dont have anything to show yet - but
-> >we will hopefully have some useful bit by Plumbers.
-> >So maybe best path forward is we talk then and see how we can merge
-> >efforts since we cant seem to agree at this point.
-> 
-> I think we are in agreement. We have two worlds: flows and l2/3. We need
-> both for sure. And my patchset adds an initial part of the first one.
-> The second one can be added later. I do not see any issues in that.
+On 08/26/2014 05:40 PM, Hannes Frederic Sowa wrote:
+> On Di, 2014-08-26 at 08:00 -0700, Alexander Duyck wrote:
+>> On 08/25/2014 04:35 PM, David Miller wrote:
+>>>
+>>> From: Daniel Borkmann <dborkman@redhat.com>
+>>>
+>>> This implements the deferred tail pointer flush API for the ixgbe
+>>> driver. Similar version also proposed longer time ago by Alexander Duyck.
+>>>
+>>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>>> Signed-off-by: David S. Miller <davem@davemloft.net>
+>>> ---
+>>>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 7 ++++---
+>>>   1 file changed, 4 insertions(+), 3 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>>> index 87bd53f..ba9ceaa 100644
+>>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>>> @@ -6958,9 +6958,10 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+>>>
+>>>   	tx_ring->next_to_use = i;
+>>>
+>>> -	/* notify HW of packet */
+>>> -	ixgbe_write_tail(tx_ring, i);
+>>> -
+>>> +	if (!skb->xmit_more) {
+>>> +		/* notify HW of packet */
+>>> +		ixgbe_write_tail(tx_ring, i);
+>>> +	}
+>>>   	return;
+>>>   dma_error:
+>>>   	dev_err(tx_ring->dev, "TX DMA map failed\n");
+>>>
+>>
+>> It might help to add some handling for the case where xmit_more is set,
+>> but the ring has become full.  This current implementation introduces
+>> the risk of triggering a Tx hang.
+>
+> IMHO this should be done before the patch lands in the driver.
 
-It is easy to *say* it could be added later, but connecting to software
-forwarding in the kernel outside of OVS (which is important to some)
-would take significant effort since this set only connects switch
-hardware to OVS.
+I think that xmit_more=1 should be seen as an indication/hint to the
+driver so it can decide what to do with it, e.g. flush nevertheless
+when it runs under pressure.
 
-It may be that all software-based forwarding is done via OVS in the
-future, but it feels like we are long way from that future for those
-that do not want to use an external controller.
+>> My advice would be to pull the ixgbe_maybe_stop_tx code at the end of
+>> xmit_frame into the if check here, and perhaps look into adding an
+>> additional check to see if BQL has stopped the ring as well.
+>
+> I would like to have the BQL check not in the driver but in the generic
+> code steering xmit_more.
+>
+> Otherwise I'll like the API.
+
+I agree with you that the logic when to set/unset the hint should
+come from a generic core part. I think the xmit_more API seems so far
+lightweight but lets see how it evolves. :) So far we don't have a
+flush-only part (as before), where one could trigger that outside of
+a fast-path to flush remaining skbs, but perhaps not having it is not
+too bad either.
+
+> David, because of debugging and driver bugs, can we have an interface
+> flag for that, so we can e.g. switch xmit_more to 0 permanently? It
+> would also be nice to have for documentation purposes, so ethtool e.g.
+> can discover feature-set of a driver.
+>
+> Thanks,
+> Hannes
