@@ -1,49 +1,36 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v6 net-next 4/6] bpf: enable bpf syscall on x64 and i386
-Date: Mon, 25 Aug 2014 21:24:34 -0700
-Message-ID: <CAMEtUuxicvHsEQ59CeG2kmLW0b4TQ9ExfDkKo2kktH-t8x5tBg@mail.gmail.com>
-References: <1409014858-1410-1-git-send-email-ast@plumgrid.com>
-	<1409014858-1410-5-git-send-email-ast@plumgrid.com>
-	<20140825205201.10ac5ee3@uryu.home.lan>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net: Remove ndo_xmit_flush netdev operation, use
+ signalling instead.
+Date: Mon, 25 Aug 2014 21:50:11 -0700 (PDT)
+Message-ID: <20140825.215011.2154860869917151848.davem@davemloft.net>
+References: <20140825.163502.973913220915588977.davem@davemloft.net>
+	<CA+mtBx9kwbw=XNhQMRjHhnh8PRjy1A93MPPST6bwdMpXjz7YjA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	Namhyung Kim <namhyung@kernel.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140825205201.10ac5ee3@uryu.home.lan>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
+	hannes@stressinduktion.org, edumazet@google.com,
+	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au,
+	dborkman@redhat.com, brouer@redhat.com
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42083 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754375AbaHZEuP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 00:50:15 -0400
+In-Reply-To: <CA+mtBx9kwbw=XNhQMRjHhnh8PRjy1A93MPPST6bwdMpXjz7YjA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 25, 2014 at 8:52 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> Per discussion at Kernel Summit. Every new syscall requires
-> a manual page and test programs. We have had too many new syscalls
-> that are DOA.
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 25 Aug 2014 20:42:59 -0700
 
-There is verifier testsuite that is testing eBPF verifier from userspace
-via bpf syscall. Also there are multiple examples and libbpf.
-I think test coverage for bpf syscall is quite substantial already.
+> I would suggest the flush should be done if !skb->xmit_more or queue
+> is being stopped. So maybe pull this code into it's own function e.g.
+> igb_flush(tx_ring). Then do:
+> 
+> if (igb_maybe_stop_tx(tx_ring, DESC_NEEDED) || !skb->more)
+>    igb_flush(tx_ring);
 
-As far as manpage I already mentioned my plan in the other thread.
-I will do it when stuff lands, since writing docs in english is the most
-difficult part of these patches. I already rewrote Documentation/../filter.txt
-several times. Even once Kees noticed discrepancies there when
-interface changed from map_id to map_fd.
-To do a manpage I'll use a help from tech writer, since I want it to
-be better than docs I put in Documentation/...
+Agreed, and we will need to sort this out in all cases before we start
+actually doing real deferral by setting skb->xmit_more.
