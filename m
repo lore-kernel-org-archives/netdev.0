@@ -1,47 +1,48 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: using rhashtable in inethash
-Date: Mon, 25 Aug 2014 17:56:25 -0700
-Message-ID: <20140826005625.GI2663@linux.vnet.ibm.com>
-References: <20140825.161224.1108200625385309828.davem@davemloft.net>
- <1409009735.3173.6.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140825234231.GA9152@casper.infradead.org>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next 6/8] i40evf: Set skb->csum_level for encapsulated
+ checksum
+Date: Mon, 25 Aug 2014 17:56:31 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1408251737170.5246@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:38038 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932179AbaHZA4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 20:56:30 -0400
-Received: from /spool/local
-	by e32.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Mon, 25 Aug 2014 18:56:29 -0600
-Received: from b03cxnp08025.gho.boulder.ibm.com (b03cxnp08025.gho.boulder.ibm.com [9.17.130.17])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 033A019D8039
-	for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 18:56:15 -0600 (MDT)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by b03cxnp08025.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id s7Q0uRMq26738704
-	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 02:56:27 +0200
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s7Q10liX008510
-	for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 19:00:48 -0600
-Content-Disposition: inline
-In-Reply-To: <20140825234231.GA9152@casper.infradead.org>
+Received: from mail-qc0-f202.google.com ([209.85.216.202]:37330 "EHLO
+	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932179AbaHZA4c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 20:56:32 -0400
+Received: by mail-qc0-f202.google.com with SMTP id r5so1669056qcx.1
+        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 17:56:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 26, 2014 at 12:42:31AM +0100, Thomas Graf wrote:
-> On 08/25/14 at 04:35pm, Eric Dumazet wrote:
-> > Thomas agreed to work on all this. If not I can do this myself.
-> 
-> I already got started and will share the code as soon as I have
-> something semi functional.
+Set skb->csum_level instead of skb->encapsulation when indicating
+CHECKSUM_UNNECESSARY for an encapsulated checksum.
 
-Very much looking forward to seeing it!
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-							Thanx, Paul
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 79bf96c..7232f265 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -744,7 +744,6 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+ 	ipv6_tunnel = (rx_ptype > I40E_RX_PTYPE_GRENAT6_MAC_PAY3) &&
+ 		      (rx_ptype < I40E_RX_PTYPE_GRENAT6_MACVLAN_IPV6_ICMP_PAY4);
+ 
+-	skb->encapsulation = ipv4_tunnel || ipv6_tunnel;
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
+ 	/* Rx csum enabled and ip headers found? */
+@@ -818,6 +817,7 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+ 	}
+ 
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
++	skb->csum_level = ipv4_tunnel || ipv6_tunnel;
+ 
+ 	return;
+ 
+-- 
+2.1.0.rc2.206.gedb03e5
