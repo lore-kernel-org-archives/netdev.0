@@ -1,121 +1,291 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v4 07/13] net: dsa: allow switches to work without tagging
-Date: Mon, 25 Aug 2014 21:49:35 -0700
-Message-ID: <1409028581-17399-8-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v4 10/13] net: dsa: add Broadcom tag RX/TX handler
+Date: Mon, 25 Aug 2014 21:49:38 -0700
+Message-ID: <1409028581-17399-11-git-send-email-f.fainelli@gmail.com>
 References: <1409028581-17399-1-git-send-email-f.fainelli@gmail.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
 	linville@tuxdriver.com, jhs@mojatatu.com, alexander.duyck@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:34086 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932402AbaHZEuf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 00:50:35 -0400
-Received: by mail-pd0-f175.google.com with SMTP id r10so21310637pdi.6
-        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 21:50:35 -0700 (PDT)
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34496 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932402AbaHZEuj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 00:50:39 -0400
+Received: by mail-pa0-f53.google.com with SMTP id rd3so22074863pab.26
+        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 21:50:38 -0700 (PDT)
 In-Reply-To: <1409028581-17399-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case switch port tagging is disabled (voluntarily, or the switch just
-does not support it), allow us to continue using the defined set of
-dsa_device_ops in net/dsa/slave.c.
-
-We introduce dsa_protocol_is_tagged() to check whether we need to
-override skb->protocol and go through the DSA-specifif packet_type
-function, or if we just go on and receive the SKB through the normal
-path.
+Add support for the 4-bytes Broadcom tag that built-in switches such as
+the Starfighter 2 might insert when receiving packets, or that we need
+to insert while targetting specific switch ports. We use a fake
+EtherType field for this 4-bytes switch tag: ETH_P_BRCMTAG to make sure
+we can assign DSA-specific network operations.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
 Changes in v4:
-- reworked logic to use dsa_device_ops introduced in patch 1
-- added a helper to check for the switch protocol tag
+- reworked changes to match the new dsa_device_ops introduced in patch 1
 
 Changes in v3:
-- update logic with the helpers introduced in the firs patch set
-- renamed dummy to notag
+- add ETH_P_BRCMTAG as part of this changeset and not in a previous patch
+- fixed an early de-reference in the receive hook
 
- include/linux/netdevice.h |  6 +++---
- include/net/dsa.h         |  5 +++++
- net/dsa/slave.c           | 19 ++++++++++++++++++-
- 3 files changed, 26 insertions(+), 4 deletions(-)
+ include/uapi/linux/if_ether.h |   1 +
+ net/dsa/Kconfig               |   3 +
+ net/dsa/Makefile              |   1 +
+ net/dsa/dsa_priv.h            |   3 +
+ net/dsa/slave.c               |   5 ++
+ net/dsa/tag_brcm.c            | 173 ++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 186 insertions(+)
+ create mode 100644 net/dsa/tag_brcm.c
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 1875dc71422a..429801370d0c 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1784,10 +1784,10 @@ void dev_net_set(struct net_device *dev, struct net *net)
- static inline bool netdev_uses_dsa(struct net_device *dev)
- {
- #ifdef CONFIG_NET_DSA
--	return dev->dsa_ptr != NULL;
--#else
--	return false;
-+	if (dev->dsa_ptr != NULL)
-+		return dsa_uses_tagged_protocol(dev->dsa_ptr);
- #endif
-+	return false;
- }
+diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
+index 0f8210b8e0bc..2e9f13768abd 100644
+--- a/include/uapi/linux/if_ether.h
++++ b/include/uapi/linux/if_ether.h
+@@ -128,6 +128,7 @@
+ #define ETH_P_PHONET	0x00F5		/* Nokia Phonet frames          */
+ #define ETH_P_IEEE802154 0x00F6		/* IEEE802.15.4 frame		*/
+ #define ETH_P_CAIF	0x00F7		/* ST-Ericsson CAIF protocol	*/
++#define ETH_P_BRCMTAG	0x00F8		/* Broadcom tag (4 bytes *)	*/
  
- /**
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index dc357454ae3b..1035f6452d79 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -198,4 +198,9 @@ static inline void *ds_to_priv(struct dsa_switch *ds)
- 	return (void *)(ds + 1);
- }
+ /*
+  *	This is an Ethernet frame header.
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index f5eede1d6cb8..a585fd6352eb 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -12,6 +12,9 @@ config NET_DSA
+ if NET_DSA
  
-+static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
-+{
-+	return dst->tag_protocol != 0;
-+}
+ # tagging formats
++config NET_DSA_TAG_BRCM
++	bool
 +
+ config NET_DSA_TAG_DSA
+ 	bool
+ 
+diff --git a/net/dsa/Makefile b/net/dsa/Makefile
+index 7b9fcbbeda5d..da06ed1df620 100644
+--- a/net/dsa/Makefile
++++ b/net/dsa/Makefile
+@@ -3,6 +3,7 @@ obj-$(CONFIG_NET_DSA) += dsa_core.o
+ dsa_core-y += dsa.o slave.o
+ 
+ # tagging formats
++dsa_core-$(CONFIG_NET_DSA_TAG_BRCM) += tag_brcm.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index d20364ac1574..98afed4d92ba 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -57,5 +57,8 @@ extern const struct dsa_device_ops edsa_netdev_ops;
+ /* tag_trailer.c */
+ extern const struct dsa_device_ops trailer_netdev_ops;
+ 
++/* tag_brcm.c */
++extern const struct dsa_device_ops brcm_netdev_ops;
++
+ 
  #endif
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 03d2894a0f8a..241c2a1684cb 100644
+index 18ff53836fe3..7333a4aebb7d 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -181,6 +181,17 @@ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return dst->ops->xmit(skb, dev);
- }
- 
-+static netdev_tx_t dsa_slave_notag_xmit(struct sk_buff *skb,
-+					struct net_device *dev)
+@@ -451,6 +451,11 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 		ds->dst->ops = &trailer_netdev_ops;
+ 		break;
+ #endif
++#ifdef CONFIG_NET_DSA_TAG_BRCM
++	case htons(ETH_P_BRCMTAG):
++		ds->dst->ops = &brcm_netdev_ops;
++		break;
++#endif
+ 	default:
+ 		ds->dst->ops = &notag_netdev_ops;
+ 		break;
+diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
+new file mode 100644
+index 000000000000..e0b759ec209e
+--- /dev/null
++++ b/net/dsa/tag_brcm.c
+@@ -0,0 +1,173 @@
++/*
++ * Broadcom tag support
++ *
++ * Copyright (C) 2014 Broadcom Corporation
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/etherdevice.h>
++#include <linux/list.h>
++#include <linux/netdevice.h>
++#include <linux/slab.h>
++#include "dsa_priv.h"
++
++/* This tag length is 4 bytes, older ones were 6 bytes, we do not
++ * handle them
++ */
++#define BRCM_TAG_LEN	4
++
++/* Tag is constructed and desconstructed using byte by byte access
++ * because the tag is placed after the MAC Source Address, which does
++ * not make it 4-bytes aligned, so this might cause unaligned accesses
++ * on most systems where this is used.
++ */
++
++/* Ingress and egress opcodes */
++#define BRCM_OPCODE_SHIFT	5
++#define BRCM_OPCODE_MASK	0x7
++
++/* Ingress fields */
++/* 1st byte in the tag */
++#define BRCM_IG_TC_SHIFT	2
++#define BRCM_IG_TC_MASK		0x7
++/* 2nd byte in the tag */
++#define BRCM_IG_TE_MASK		0x3
++#define BRCM_IG_TS_SHIFT	7
++/* 3rd byte in the tag */
++#define BRCM_IG_DSTMAP2_MASK	1
++#define BRCM_IG_DSTMAP1_MASK	0xff
++
++/* Egress fields */
++
++/* 2nd byte in the tag */
++#define BRCM_EG_CID_MASK	0xff
++
++/* 3rd byte in the tag */
++#define BRCM_EG_RC_MASK		0xff
++#define  BRCM_EG_RC_RSVD	(3 << 6)
++#define  BRCM_EG_RC_EXCEPTION	(1 << 5)
++#define  BRCM_EG_RC_PROT_SNOOP	(1 << 4)
++#define  BRCM_EG_RC_PROT_TERM	(1 << 3)
++#define  BRCM_EG_RC_SWITCH	(1 << 2)
++#define  BRCM_EG_RC_MAC_LEARN	(1 << 1)
++#define  BRCM_EG_RC_MIRROR	(1 << 0)
++#define BRCM_EG_TC_SHIFT	5
++#define BRCM_EG_TC_MASK		0x7
++#define BRCM_EG_PID_MASK	0x1f
++
++static netdev_tx_t brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev)
 +{
 +	struct dsa_slave_priv *p = netdev_priv(dev);
++	u8 *brcm_tag;
 +
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += skb->len;
++
++	if (skb_cow_head(skb, BRCM_TAG_LEN) < 0)
++		goto out_free;
++
++	skb_push(skb, BRCM_TAG_LEN);
++
++	memmove(skb->data, skb->data + BRCM_TAG_LEN, 2 * ETH_ALEN);
++
++	/* Build the tag after the MAC Source Address */
++	brcm_tag = skb->data + 2 * ETH_ALEN;
++
++	/* Set the ingress opcode, traffic class, tag enforcment is
++	 * deprecated
++	 */
++	brcm_tag[0] = (1 << BRCM_OPCODE_SHIFT) |
++			((skb->priority << BRCM_IG_TC_SHIFT) & BRCM_IG_TC_MASK);
++	brcm_tag[1] = 0;
++	brcm_tag[2] = 0;
++	if (p->port == 8)
++		brcm_tag[2] = BRCM_IG_DSTMAP2_MASK;
++	brcm_tag[3] = (1 << p->port) & BRCM_IG_DSTMAP1_MASK;
++
++	/* Queue the SKB for transmission on the parent interface, but
++	 * do not modify its EtherType
++	 */
++	skb->protocol = htons(ETH_P_BRCMTAG);
 +	skb->dev = p->parent->dst->master_netdev;
 +	dev_queue_xmit(skb);
 +
 +	return NETDEV_TX_OK;
++
++out_free:
++	kfree_skb(skb);
++	return NETDEV_TX_OK;
 +}
 +
- 
- /* ethtool operations *******************************************************/
- static int
-@@ -314,6 +325,11 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 	.ndo_do_ioctl		= dsa_slave_ioctl,
- };
- 
-+static const struct dsa_device_ops notag_netdev_ops = {
-+	.xmit	= dsa_slave_notag_xmit,
-+	.rcv	= NULL,
-+};
++static int brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
++			struct packet_type *pt, struct net_device *orig_dev)
++{
++	struct dsa_switch_tree *dst = dev->dsa_ptr;
++	struct dsa_switch *ds;
++	int source_port;
++	u8 *brcm_tag;
 +
- static void dsa_slave_adjust_link(struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
-@@ -415,7 +431,8 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 		break;
- #endif
- 	default:
--		BUG();
-+		ds->dst->ops = &notag_netdev_ops;
-+		break;
- 	}
- 
- 	SET_NETDEV_DEV(slave_dev, parent);
++	if (unlikely(dst == NULL))
++		goto out_drop;
++
++	ds = dst->ds[0];
++
++	skb = skb_unshare(skb, GFP_ATOMIC);
++	if (skb == NULL)
++		goto out;
++
++	if (unlikely(!pskb_may_pull(skb, BRCM_TAG_LEN)))
++		goto out_drop;
++
++	/* skb->data points to the EtherType, the tag is right before it */
++	brcm_tag = skb->data - 2;
++
++	/* The opcode should never be different than 0b000 */
++	if (unlikely((brcm_tag[0] >> BRCM_OPCODE_SHIFT) & BRCM_OPCODE_MASK))
++		goto out_drop;
++
++	/* We should never see a reserved reason code without knowing how to
++	 * handle it
++	 */
++	WARN_ON(brcm_tag[2] & BRCM_EG_RC_RSVD);
++
++	/* Locate which port this is coming from */
++	source_port = brcm_tag[3] & BRCM_EG_PID_MASK;
++
++	/* Validate port against switch setup, either the port is totally */
++	if (source_port >= DSA_MAX_PORTS || ds->ports[source_port] == NULL)
++		goto out_drop;
++
++	/* Remove Broadcom tag and update checksum */
++	skb_pull_rcsum(skb, BRCM_TAG_LEN);
++
++	/* Move the Ethernet DA and SA */
++	memmove(skb->data - ETH_HLEN,
++		skb->data - ETH_HLEN - BRCM_TAG_LEN,
++		2 * ETH_ALEN);
++
++	skb_push(skb, ETH_HLEN);
++	skb->pkt_type = PACKET_HOST;
++	skb->dev = ds->ports[source_port];
++	skb->protocol = eth_type_trans(skb, skb->dev);
++
++	skb->dev->stats.rx_packets++;
++	skb->dev->stats.rx_bytes += skb->len;
++
++	netif_receive_skb(skb);
++
++	return 0;
++
++out_drop:
++	kfree_skb(skb);
++out:
++	return 0;
++}
++
++const struct dsa_device_ops brcm_netdev_ops = {
++	.xmit	= brcm_tag_xmit,
++	.rcv	= brcm_tag_rcv,
++};
 -- 
 1.9.1
