@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] net: fix checksum features handling in
- netif_skb_features()
-Date: Mon, 25 Aug 2014 17:23:53 -0700 (PDT)
-Message-ID: <20140825.172353.145857012627747535.davem@davemloft.net>
-References: <20140821.163320.476216950054835385.davem@davemloft.net>
-	<20140825131622.6233CA0BB0@unicorn.suse.cz>
+Subject: Re: [PATCH v6 1/4] net: moxa: clear DESC1 on ndo_start_xmit()
+Date: Mon, 25 Aug 2014 17:25:58 -0700 (PDT)
+Message-ID: <20140825.172558.1917292824044947963.davem@davemloft.net>
+References: <1408544322-32023-1-git-send-email-jonas.jensen@gmail.com>
+	<1408976531-15589-1-git-send-email-jonas.jensen@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mkubecek@suse.cz
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, f.fainelli@gmail.com,
+	eric.dumazet@gmail.com, mirqus@gmail.com
+To: jonas.jensen@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140825131622.6233CA0BB0@unicorn.suse.cz>
+In-Reply-To: <1408976531-15589-1-git-send-email-jonas.jensen@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Mon, 25 Aug 2014 15:16:22 +0200 (CEST)
+From: Jonas Jensen <jonas.jensen@gmail.com>
+Date: Mon, 25 Aug 2014 16:22:11 +0200
 
-> This is follow-up to
+> TX buffer length is not cleared on ndo_start_xmit().
+> Failing to do so can bug/hang the controller and
+> cause TX interrupts to stop altogether.
 > 
->   da08143b8520 ("vlan: more careful checksum features handling")
+> Remove the readl() and compute a new value for DESC1.
 > 
-> which introduced more careful feature intersection in vlan code,
-> taking into account that HW_CSUM should be considered superset
-> of IP_CSUM/IPV6_CSUM. The same is needed in netif_skb_features()
-> in order to avoid offloading mismatch warning when vlan is
-> created on top of a bond consisting of slaves supporting IP/IPv6
-> checksumming but not vlan Tx offloading.
+> Addresses https://bugzilla.kernel.org/show_bug.cgi?id=69031
 > 
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
 
-Applied and queued up for -stable, thanks.
+Applied.
