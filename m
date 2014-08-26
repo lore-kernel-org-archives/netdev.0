@@ -1,32 +1,59 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v4 1/3] ethernet: arc: remove use of 'struct platform_device'
-Date: Tue, 26 Aug 2014 15:30:19 +0200
-Message-ID: <3908582.WSyTHHYM5g@wuerfel>
-References: <1409058891-30790-1-git-send-email-romain.perier@gmail.com>
+From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+Subject: [PATCH] ipv6: sit: Replace rcu_assign_pointer() with
+ RCU_INIT_POINTER()
+Date: Tue, 26 Aug 2014 16:46:32 +0300
+Message-ID: <20140826134632.GA1473@ada>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, heiko@sntech.de, tklauser@distanz.ch,
-	b.galvani@gmail.com, eric.dumazet@gmail.com,
-	yongjun_wei@trendmicro.com.cn, f.fainelli@gmail.com,
-	netdev@vger.kernel.org
-To: Romain Perier <romain.perier@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.10]:58130 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753475AbaHZNag (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 09:30:36 -0400
-In-Reply-To: <1409058891-30790-1-git-send-email-romain.perier@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: paulmck@linux.vnet.ibm.com
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 26 August 2014 13:14:49 Romain Perier wrote:
-> This is a preparation of an api changes for the emac_main.c module.
-> The involved functions are arc_emac_probe and arc_emac_remove.
-> 
-> Signed-off-by: Romain Perier <romain.perier@gmail.com>
-> 
+According to RCU_INIT_POINTER()'s block comment 3.a, it can be used if
+"3.   The referenced data structure has already been exposed to readers either
+at compile time or via rcu_assign_pointer() -and-
+ a.   You have not made -any- reader-visible changes to this structure since
+then".
 
-All three patches:
+This case fulfills the conditions above because between the rtnl_dereference()
+call and the rcu_assign_pointer() call there is no update of that value.
+Therefore, this patch makes the replacement.
 
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+The following Coccinelle semantic patch was used:
+@@
+@@
+
+- rcu_assign_pointer
++ RCU_INIT_POINTER
+  (...,
+(
+ rtnl_dereference(...)
+|
+ rcu_dereference_protected(...)
+) )
+
+Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+---
+ net/ipv6/sit.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 4f40817..24c2dba 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -167,7 +167,7 @@ static void ipip6_tunnel_link(struct sit_net *sitn, struct ip_tunnel *t)
+ {
+ 	struct ip_tunnel __rcu **tp = ipip6_bucket(sitn, t);
+ 
+-	rcu_assign_pointer(t->next, rtnl_dereference(*tp));
++	RCU_INIT_POINTER(t->next, rtnl_dereference(*tp));
+ 	rcu_assign_pointer(*tp, t);
+ }
+ 
+-- 
+1.9.1
