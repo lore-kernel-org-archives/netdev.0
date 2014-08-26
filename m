@@ -1,41 +1,55 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Aw: Re: Routes with unreachable gateways are staying in the
- routing table and they are functional
-Date: Tue, 26 Aug 2014 14:34:57 +0200
-Message-ID: <1409056497.9923.9.camel@localhost>
-References: <trinity-f1954363-c4ef-47d2-9508-7174b7e2501e-1408720289787@3capp-gmx-bs15>
-	, <alpine.LFD.2.11.1408221856210.7852@ja.home.ssi.bg>
-	 <trinity-760989cf-0ea4-496a-9992-02ed85a5ffe5-1409039594977@3capp-gmx-bs38>
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: Re: [PATCH] net: stmmac: add dcrs parameter
+Date: Tue, 26 Aug 2014 07:35:53 -0500
+Message-ID: <CAOwfj2MMJCYyqD9++MpbRZohzBXyX16fJY-FaT+8H2gZyJd9MA@mail.gmail.com>
+References: <1408967442-2724-1-git-send-email-lftan@altera.com>
+	<CAGb2v65fi=D_TQBSospft4T5OrBCj5TwQfgtkX=11M8TWFftYg@mail.gmail.com>
+	<53FB313C.9010808@st.com>
+	<CAOwfj2Oyy8EGxPhgJcgeGPMm3tJ9-fGOh5h7jU8q4_BO=vWrTA@mail.gmail.com>
+	<53FC1D68.1000600@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
-To: Fedor Babkin <fedor.babkin@gmx.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:53387 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751006AbaHZMfA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 08:35:00 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by gateway2.nyi.internal (Postfix) with ESMTP id D4A38206FB
-	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 08:34:59 -0400 (EDT)
-In-Reply-To: <trinity-760989cf-0ea4-496a-9992-02ed85a5ffe5-1409039594977@3capp-gmx-bs38>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Chen-Yu Tsai <wens@csie.org>, Ley Foon Tan <lftan@altera.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	LeyFoon Tan <lftan.linux@gmail.com>,
+	Vince Bridgers <vbridger@altera.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53FC1D68.1000600@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Peppe,
 
-On Di, 2014-08-26 at 09:53 +0200, Fedor Babkin wrote:
-> Thanks for your feedback. For IPv4 the situation is clear, you have to configure more that one subnet to the interface in order to start experiencing this issue. However exactly the same issue exists in IPv6, where once you configure a single address, you have to count on effectively having 2 addresses on the interface, due to the presence of a link-local address fe80::xxxx. Moreover with IPv6 stateless address autoconfiguration (RFC 4862), there is more address configuration dynamics in IPv6 comparing to IPv4. I would say this issue has a higher visibility and side-effect potential. Is there anyone looking into this issue from IPv6 perspective?
+>>
+>> In the Synopsys EMAC case, carrier sense is used to stop transmitting
+>> if no carrier is sensed during a transmission. This is only useful if
+>> the media in use is true half duplex media (like obsolete 10Base2 or
+>> 10Base5). If no one in using true half duplex media, then is it
+>> possible to set this disable by default? If we're not sure, then
+>> having an option feels like the right thing to do.
+>
+>
+> Indeed this is what I had done in the patch.
+>
+> http://git.stlinux.com/?p=stm/linux-sh4-2.6.32.y.git;a=commit;h=b0b863bf65c36dc593f6b7b4b418394fd880dae2
+>
+> Also in case of carrier sense the frame will be dropped in any case
+> later.
+>
+> Let me know if you Acked this patch so I will rebase it on
+> net.git and I send it soon
+>
+> peppe
+>
 
-Actually, it is an error and an implementation problem that we currently
-add interface routes when adding ipv6 addresses to an interface. Those
-routes should only be allocated when the host receives on-link
-information (redirect, router advertisment). So in case of IPv6 routing
-information should always be handled separate from routing information.
+Yes, this looks good to me. I don't expect anyone is using 10Base2 or
+10Base5 anymore, so it's ok to disable DCRS by default.
 
-Also see:
-$ git log -G IFA_F_NOPREFIXROUTE net/ipv6/addrconf.c
+ack
 
-Greetings,
-Hannes
+All the best,
+
+Vince
