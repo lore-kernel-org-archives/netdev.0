@@ -1,77 +1,62 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6 Policy based routing not working.
-Date: Wed, 27 Aug 2014 00:01:22 +0200
-Message-ID: <1409090482.1152.8.camel@localhost>
-References: <CABQpAL7X9_=RTS2cd_m3jkCzWOM8hjcu22yQdnRD6S4fs5AF2Q@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v4 12/13] Documentation: devicetree: update dsa
+ binding with optional properties
+Date: Wed, 27 Aug 2014 02:40:34 +0400
+Message-ID: <53FD0CE2.4010101@cogentembedded.com>
+References: <1409028581-17399-1-git-send-email-f.fainelli@gmail.com> <1409028581-17399-13-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tushar Shinde <mtk.tushar@gmail.com>
+Cc: davem@davemloft.net, linville@tuxdriver.com, jhs@mojatatu.com,
+	alexander.duyck@gmail.com
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:52132 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755776AbaHZWBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 18:01:24 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 5668220960
-	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 18:01:24 -0400 (EDT)
-In-Reply-To: <CABQpAL7X9_=RTS2cd_m3jkCzWOM8hjcu22yQdnRD6S4fs5AF2Q@mail.gmail.com>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:55392 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756052AbaHZWki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 18:40:38 -0400
+Received: by mail-lb0-f170.google.com with SMTP id p9so2195247lbv.15
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 15:40:36 -0700 (PDT)
+In-Reply-To: <1409028581-17399-13-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hello.
 
-On Di, 2014-08-26 at 21:32 +0530, Tushar Shinde wrote:
-> Hello NetDev,
-> 
-> I am facing problem where if ipv6 route (outside to current subnet) is
-> reachable only if route is present in main table. Policy based routes
-> are not working.
-> 
-> Following is my setup,
-> 
-> eth0   inet6 2001:1::10/120 scope global
-> eth1   inet6 2001:1::11/120 scope global
-> 2001:1::1 is gateway
-> 2.6.32-431.11.2.el6.x86_64 kernel (I tried on 3.x also)
-> 
-> [root@ipv6node1 ~]# ip -6 route show tab 1
-> 2001:1::/120 dev eth0  metric 1024  mtu 1500 advmss 1440 hoplimit 4294967295
-> default via 2001:1::1 dev eth0  metric 1024  mtu 1500 advmss 1440
-> hoplimit 4294967295
-> [root@ipv6node1 ~]#
-> [root@ipv6node1 ~]# ip -6 route show tab 2
-> 2001:1::/120 dev eth1  metric 1024  mtu 1500 advmss 1440 hoplimit 4294967295
-> default via 2001:1::1 dev eth1  metric 1024  mtu 1500 advmss 1440
-> hoplimit 4294967295
-> [root@ipv6node1 ~]#
-> [root@ipv6node1 ~]# ip -6 rule show
-> 0:    from all lookup local
-> 16383:    from 2001:1::10 lookup 1
-> 16383:    from 2001:1::11 lookup 2
-> 32766:    from all lookup main
-> [root@ipv6node1 ~]#
-> 
-> If I add default vai eth0 only ip of eth0 is reachable from outside or
-> eth1 dont work. In above setup default route is not present.
-> 
-> But default entry in "table" is never getting used to resolve route
-> 
-> [root@ipv6node1 ~]# ping6 -I eth0 2001:2::20
-> connect: Network is unreachable
-> [root@ipv6node1 ~]#
-> [root@ipv6node1 ~]# ping6 -I eth1 2001:2::20
-> connect: Network is unreachable
-> [root@ipv6node1 ~]#
+On 08/26/2014 08:49 AM, Florian Fainelli wrote:
 
-ping6 selects the ipv6 address based on netlink route lookup given the
-specified interface but without setting the source address. That said,
-it is probable that the rule lookup happens with a completely different
-ipv6 address. Please verify this. ping6 -I also accepts a source ipv6
-address, can you try this?
+> Add documentation for a bunch of new optional properties described in
+> ethernet.txt and fixed-link.txt, this includes: 'phy-handle', 'phy-mode'
+> and the 'fixed-link' subnode.
 
-Otherwise please specify with which 3.x kernel you tested this.
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>   Documentation/devicetree/bindings/net/dsa/dsa.txt | 17 +++++++++++++++++
+>   1 file changed, 17 insertions(+)
 
-Thanks,
-Hannes
+> diff --git a/Documentation/devicetree/bindings/net/dsa/dsa.txt b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+> index 49f4f7ae3f51..6192f9a7aa89 100644
+> --- a/Documentation/devicetree/bindings/net/dsa/dsa.txt
+> +++ b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+> @@ -39,6 +39,22 @@ Optionnal property:
+>   			  This property is only used when switches are being
+>   			  chained/cascaded together.
+>
+> +- phy-handle		: Phandle to a PHY on an external MDIO bus, not the
+> +			  switch internal one. See
+> +			  Documentation/devicetree/bindings/net/ethernet.txt
+> +			  for details.
+> +
+> +- phy-mode		: String representing the connection to the designeted
+
+    Designated?
+
+> +			  PHY node specified by the 'phy-handle' property. See
+> +			  Documentation/devicetree/bindings/net/ethernet.txt
+> +			  for details.
+> +
+> +Optionnal subnodes:
+
+    One 'n' is enough (although DaveM may disagree ;-).
+
+WBR, Sergei
