@@ -1,83 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 2/2] ixgbe: support skb->xmit_more in
- netdev_ops->ndo_start_xmit()
-Date: Tue, 26 Aug 2014 17:40:57 +0200
-Message-ID: <1409067657.22108.7.camel@localhost>
-References: <20140825.163505.1969688661687017343.davem@davemloft.net>
-	 <53FCA0FA.20600@intel.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH v2 net-next] net: Functions to report space available in
+ device TX queues
+Date: Tue, 26 Aug 2014 08:44:10 -0700
+Message-ID: <CA+mtBx-KD6Yw=Bkeb39FPRxUiG4koxSFqGzP_1bViEUf+tj-sw@mail.gmail.com>
+References: <alpine.DEB.2.02.1408250823440.31745@tomh.mtv.corp.google.com>
+	<20140825.173325.723351409734098574.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	therbert@google.com, jhs@mojatatu.com, edumazet@google.com,
-	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au,
-	dborkman@redhat.com, brouer@redhat.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:35491 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750942AbaHZPlA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 11:41:00 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 077D22074E
-	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 11:41:00 -0400 (EDT)
-In-Reply-To: <53FCA0FA.20600@intel.com>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:46169 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750823AbaHZPoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 11:44:11 -0400
+Received: by mail-ig0-f172.google.com with SMTP id h15so4709962igd.5
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 08:44:10 -0700 (PDT)
+In-Reply-To: <20140825.173325.723351409734098574.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Di, 2014-08-26 at 08:00 -0700, Alexander Duyck wrote:
-> On 08/25/2014 04:35 PM, David Miller wrote:
-> > 
-> > From: Daniel Borkmann <dborkman@redhat.com>
-> > 
-> > This implements the deferred tail pointer flush API for the ixgbe
-> > driver. Similar version also proposed longer time ago by Alexander Duyck.
-> > 
-> > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> > Signed-off-by: David S. Miller <davem@davemloft.net>
-> > ---
-> >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 7 ++++---
-> >  1 file changed, 4 insertions(+), 3 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> > index 87bd53f..ba9ceaa 100644
-> > --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> > +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> > @@ -6958,9 +6958,10 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
-> >  
-> >  	tx_ring->next_to_use = i;
-> >  
-> > -	/* notify HW of packet */
-> > -	ixgbe_write_tail(tx_ring, i);
-> > -
-> > +	if (!skb->xmit_more) {
-> > +		/* notify HW of packet */
-> > +		ixgbe_write_tail(tx_ring, i);
-> > +	}
-> >  	return;
-> >  dma_error:
-> >  	dev_err(tx_ring->dev, "TX DMA map failed\n");
-> > 
-> 
-> It might help to add some handling for the case where xmit_more is set,
-> but the ring has become full.  This current implementation introduces
-> the risk of triggering a Tx hang.
+On Mon, Aug 25, 2014 at 5:33 PM, David Miller <davem@davemloft.net> wrote:
+> From: Tom Herbert <therbert@google.com>
+> Date: Mon, 25 Aug 2014 08:27:56 -0700 (PDT)
+>
+>> This patch adds netdev_tx_avail_queue and netdev_avail_queue which are
+>> used to report number of bytes available in transmit queues per BQL. The
+>> functions call dql_avail which returns BQL limit minus number of
+>> inflight bytes. These functions can be called without txlock, for
+>> instance to ascertain how much data should be dequeued from a qdisc in
+>> a batch. When called without the tx_lock, the result is technically a
+>> hint, subsequently when the tx_lock is done for a transmit it is
+>> possible the availability has changed (for example a transmit
+>> completion may have freed up more space in the queue or changed the
+>> limit).
+>>
+>> Signed-off-by: Tom Herbert <therbert@google.com>
+>
+> Ok this looks fine, but could you please resubmit this alongside
+> the first use case?
+>
+It should be called when determining the best size for a transmit
+batch, e.g. how many bytes to dequeue from qdisc on wakeup.
 
-IMHO this should be done before the patch lands in the driver.
-
-> My advice would be to pull the ixgbe_maybe_stop_tx code at the end of
-> xmit_frame into the if check here, and perhaps look into adding an
-> additional check to see if BQL has stopped the ring as well.
-
-I would like to have the BQL check not in the driver but in the generic
-code steering xmit_more.
-
-Otherwise I'll like the API.
-
-David, because of debugging and driver bugs, can we have an interface
-flag for that, so we can e.g. switch xmit_more to 0 permanently? It
-would also be nice to have for documentation purposes, so ethtool e.g.
-can discover feature-set of a driver.
-
-Thanks,
-Hannes
+> Thanks.
