@@ -1,42 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/8] net: Clarification of CHECKSUM_UNNECESSARY
-Date: Mon, 25 Aug 2014 18:13:41 -0700 (PDT)
-Message-ID: <20140825.181341.304248903530349010.davem@davemloft.net>
-References: <alpine.DEB.2.02.1408251738110.5541@tomh.mtv.corp.google.com>
+Subject: Re: linux/if_bridge.h no longer self contained (again)
+Date: Mon, 25 Aug 2014 18:18:04 -0700 (PDT)
+Message-ID: <20140825.181804.860202880963258005.davem@davemloft.net>
+References: <CAGVrzcamm6bgTc_-1OZGD0L4DqQd5RfoVYftZic3MDvD8YMjxA@mail.gmail.com>
+	<CAM_iQpV6EvvoYE17oi2XN0cbBkssQv0j=VXVR1-uCtMoJrSHwQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	gregory.0xf0@gmail.com, carlos@redhat.com, eblake@redhat.com,
+	galak@codeaurora.org
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40328 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40366 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933438AbaHZBNm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 21:13:42 -0400
-In-Reply-To: <alpine.DEB.2.02.1408251738110.5541@tomh.mtv.corp.google.com>
+	with ESMTP id S932159AbaHZBSG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 21:18:06 -0400
+In-Reply-To: <CAM_iQpV6EvvoYE17oi2XN0cbBkssQv0j=VXVR1-uCtMoJrSHwQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon, 25 Aug 2014 17:55:56 -0700 (PDT)
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Wed, 30 Jul 2014 16:20:07 -0700
 
-> @@ -569,16 +590,13 @@ struct sk_buff {
->  	__u8			wifi_acked:1;
->  	__u8			no_fcs:1;
->  	__u8			head_frag:1;
-> -	/* Encapsulation protocol and NIC drivers should use
-> -	 * this flag to indicate to each other if the skb contains
-> -	 * encapsulated packet or not and maybe use the inner packet
-> -	 * headers if needed
-> -	 */
-> +	/* Indicates the the inner headers are valid in the skbuff. */
->  	__u8			encapsulation:1;
->  	__u8			encap_hdr_csum:1;
->  	__u8			csum_valid:1;
->  	__u8			csum_complete_sw:1;
-> -	/* 2/4 bit hole (depending on ndisc_nodetype presence) */
-> +	__u8			csum_level:2;
-> +	/* 0/2 bit hole (depending on ndisc_nodetype presence) */
->  	kmemcheck_bitfield_end(flags2);
+> On Wed, Jul 30, 2014 at 3:05 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>>
+>> What would be the recommended ways to move forward?
+>>
+>> Should we keep a local change that includes netinet/in6.h and just
+>> hope it does not cause any re-definitions?
+>>
+> 
+> I think we should just #include <linux/in6.h> since the redefinition error
+> was already fixed.
 
-Crap, with xmit_more, this actually bleeds us over into a new __u8.
+Someone please submit a patch to do so, and please include all of the context
+such as the commits references in Florian's initial email of this thread.
+
+Thanks.
