@@ -1,40 +1,130 @@
-From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Subject: Re: [patch net-next RFC 02/12] net: rename
- netdev_phys_port_id to more generic name
-Date: Tue, 26 Aug 2014 10:14:33 -0700
-Message-ID: <20140826101433.24c8e299@urahara>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-3-git-send-email-jiri@resnulli.us>
- <53FC7C3C.3090901@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
- Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
- aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <53FC7C3C.3090901-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH v2 net-next] ixgbe: flush when in xmit_more mode and under descriptor pressure
+Date: Tue, 26 Aug 2014 19:34:18 +0200
+Message-ID: <1409074458-17989-1-git-send-email-dborkman@redhat.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: alexander.h.duyck@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36475 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751592AbaHZReW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Aug 2014 13:34:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Aug 2014 15:23:24 +0300
-Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
+When xmit_more mode is being used and the ring is about to
+become full or the stack has stopped the ring, enforce a tail
+pointer write to the hw. Otherwise, we could risk a TX hang.
 
-> just a nit, but if this approach/patch goes in, any reason not to change 
-> IFLA_PHYS_PORT_ID to IFLA_PHYS_ITEM_ID?
+Code suggested by Alexander Duyck.
 
-Userspace API
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ v1->v2:
+  - Worked in Alex' feedback; in accordance w/ Alex, sending out v2
+  - Rerun tests, looks good
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 63 +++++++++++++++------------
+ 1 file changed, 34 insertions(+), 29 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index ba9ceaa..53fbf06 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -6837,6 +6837,36 @@ static void ixgbe_tx_olinfo_status(union ixgbe_adv_tx_desc *tx_desc,
+ 	tx_desc->read.olinfo_status = cpu_to_le32(olinfo_status);
+ }
+ 
++static int __ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
++{
++	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
++
++	/* Herbert's original patch had:
++	 *  smp_mb__after_netif_stop_queue();
++	 * but since that doesn't exist yet, just open code it.
++	 */
++	smp_mb();
++
++	/* We need to check again in a case another CPU has just
++	 * made room available.
++	 */
++	if (likely(ixgbe_desc_unused(tx_ring) < size))
++		return -EBUSY;
++
++	/* A reprieve! - use start_queue because it doesn't call schedule */
++	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
++	++tx_ring->tx_stats.restart_queue;
++	return 0;
++}
++
++static inline int ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
++{
++	if (likely(ixgbe_desc_unused(tx_ring) >= size))
++		return 0;
++
++	return __ixgbe_maybe_stop_tx(tx_ring, size);
++}
++
+ #define IXGBE_TXD_CMD (IXGBE_TXD_CMD_EOP | \
+ 		       IXGBE_TXD_CMD_RS)
+ 
+@@ -6958,10 +6988,13 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+ 
+ 	tx_ring->next_to_use = i;
+ 
+-	if (!skb->xmit_more) {
++	ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
++
++	if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more) {
+ 		/* notify HW of packet */
+ 		ixgbe_write_tail(tx_ring, i);
+ 	}
++
+ 	return;
+ dma_error:
+ 	dev_err(tx_ring->dev, "TX DMA map failed\n");
+@@ -7068,32 +7101,6 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 					      input, common, ring->queue_index);
+ }
+ 
+-static int __ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
+-{
+-	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
+-	/* Herbert's original patch had:
+-	 *  smp_mb__after_netif_stop_queue();
+-	 * but since that doesn't exist yet, just open code it. */
+-	smp_mb();
+-
+-	/* We need to check again in a case another CPU has just
+-	 * made room available. */
+-	if (likely(ixgbe_desc_unused(tx_ring) < size))
+-		return -EBUSY;
+-
+-	/* A reprieve! - use start_queue because it doesn't call schedule */
+-	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
+-	++tx_ring->tx_stats.restart_queue;
+-	return 0;
+-}
+-
+-static inline int ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
+-{
+-	if (likely(ixgbe_desc_unused(tx_ring) >= size))
+-		return 0;
+-	return __ixgbe_maybe_stop_tx(tx_ring, size);
+-}
+-
+ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 			      void *accel_priv, select_queue_fallback_t fallback)
+ {
+@@ -7262,8 +7269,6 @@ xmit_fcoe:
+ #endif /* IXGBE_FCOE */
+ 	ixgbe_tx_map(tx_ring, first, hdr_len);
+ 
+-	ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
+-
+ 	return NETDEV_TX_OK;
+ 
+ out_drop:
+-- 
+1.7.11.7
