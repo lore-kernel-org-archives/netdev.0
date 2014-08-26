@@ -1,68 +1,64 @@
-From: David Miller <davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
 Subject: Re: linux-next: build failure after merge of the net tree
-Date: Mon, 25 Aug 2014 20:22:22 -0700 (PDT)
-Message-ID: <20140825.202222.2274651017865689445.davem@davemloft.net>
+Date: Tue, 26 Aug 2014 13:33:24 +1000
+Message-ID: <20140826133324.1f4d472f@canb.auug.org.au>
 References: <20140826120511.5b5dabef@canb.auug.org.au>
+	<20140825.202222.2274651017865689445.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/k4q=r_g31y1U8SgX.9M1e7="; protocol="application/pgp-signature"
 Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
 	linux-kernel@vger.kernel.org, vyasevich@gmail.com
-To: sfr@canb.auug.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41368 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754552AbaHZDWZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 23:22:25 -0400
-In-Reply-To: <20140826120511.5b5dabef@canb.auug.org.au>
+Received: from ozlabs.org ([103.22.144.67]:59618 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757122AbaHZDdd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Aug 2014 23:33:33 -0400
+In-Reply-To: <20140825.202222.2274651017865689445.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 26 Aug 2014 12:05:11 +1000
+--Sig_/k4q=r_g31y1U8SgX.9M1e7=
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-> Hi all,
-> 
-> After merging the net tree, today's linux-next build (arm
-> multi_v7_defconfig) failed like this:
-> 
-> drivers/net/ethernet/marvell/mvneta.c: In function 'mvneta_skb_tx_csum':
-> drivers/net/ethernet/marvell/mvneta.c:1374:3: error: implicit declaration of function 'vlan_get_protocol' [-Werror=implicit-function-declaration]
->    __be16 l3_proto = vlan_get_protocol(skb);
->    ^
-> 
-> Caused by commit 817dbfa5d1bc ("mvneta: Fix TSO and checksum for
-> non-acceleration vlan traffic").
-> 
-> I have reverted that commit for today.
+Hi Dave,
 
-Sorry about that, I just pushed the following to fix it:
+On Mon, 25 Aug 2014 20:22:22 -0700 (PDT) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> Sorry about that, I just pushed the following to fix it:
+>=20
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> [PATCH] mvneta: Add missing if_vlan.h include.
 
-====================
-[PATCH] mvneta: Add missing if_vlan.h include.
+Thanks.
 
-drivers/net/ethernet/marvell/mvneta.c: In function 'mvneta_skb_tx_csum':
-drivers/net/ethernet/marvell/mvneta.c:1374:3: error: implicit declaration of function 'vlan_get_protocol' [-Werror=implicit-function-declaration]
-   __be16 l3_proto = vlan_get_protocol(skb);
-   ^
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Reporeted-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/marvell/mvneta.c | 1 +
- 1 file changed, 1 insertion(+)
+--Sig_/k4q=r_g31y1U8SgX.9M1e7=
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 133f8c6..ade067d 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -20,6 +20,7 @@
- #include <linux/mbus.h>
- #include <linux/module.h>
- #include <linux/interrupt.h>
-+#include <linux/if_vlan.h>
- #include <net/ip.h>
- #include <net/ipv6.h>
- #include <linux/io.h>
--- 
-1.7.11.7
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJT/AAIAAoJEMDTa8Ir7ZwV4igP/iTQBIi5u8kL7myBMbohZcOI
+ZA0ND1iJ2bZPyV6sxTfte9F01SNoFc0+mL13YnaO5ZpjB44OtWba8D7CY4nrYpvf
+uGboAEfHBSr6y2wBSBXs+aK0gggt4sDiIjo05dIcO2Xbb+I3QeGNu9sYj8PV5zi5
+4LkmuQbn3x23BKUNWtucVYoNt10KHBzlxDMOfa9JYlAX9A/hjyQTE6e8e5XJcVj4
+SOpwLtuKPRjCbMRajofQZyljOIVamdcqNRec8YMYoD8v+fZy+8FxhBV1eWTEW6Jf
+ooGqmgQlrN1wTl3c/PyEmYtNRdYxML8e0hA2Uu4CYTLAaC3zBRH2gAmAiWh3YdDD
+yFHnqfMC1HFMuYlkB9HO6OfU+syK3lSk/Utz30cofXuKTam46/D+TDDEmRp8jth0
+cjqceO+cjd3HEX3no07ufV+OyildYJ0WRWJZvZG9pMfuovB9WlJ+LximjnobtNHa
+JnTIt0Grnefrs2WySIZMWVw8OdIE+vjQZ7o5P7myJnSPsO1/FdtE9o53uqOdqHuQ
+xaxc7NwkTLWzK9vxyL+T3oSCCk+OwpwSeMjyMs7r4x+rVApjr56xTQktnxIQL2dZ
+5cRKgdFjbDXgbQK8xX8999VZx8mgQ14G5LqOIitr1/So9q2dcPWQgm448zo+V6+o
+GZgZT7MXGR14zCYl80ef
+=CPJ5
+-----END PGP SIGNATURE-----
+
+--Sig_/k4q=r_g31y1U8SgX.9M1e7=--
