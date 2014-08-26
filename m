@@ -1,67 +1,53 @@
-From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Tue, 26 Aug 2014 16:56:01 +0200
-Message-ID: <53FCA001.6090404@broadcom.com>
-References: <52BDE9DC.5040206@msgid.tls.msk.ru> <52BE9CF9.7030305@broadcom.com> <52BEC2F6.7010505@msgid.tls.msk.ru> <52D4FC8B.6090301@msgid.tls.msk.ru> <52F925A9.1030707@msgid.tls.msk.ru> <53526124.6050407@msgid.tls.msk.ru> <53FC1789.6020407@msgid.tls.msk.ru>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next RFC 10/12] openvswitch: add support for datapath
+ hardware offload
+Date: Tue, 26 Aug 2014 10:58:54 -0400
+Message-ID: <53FCA0AE.9010304@mojatatu.com>
+References: <53F9459B.2070801@mojatatu.com> <20140824111218.GA32741@casper.infradead.org> <53FA01AC.10507@mojatatu.com> <A67C7591-19BF-4431-9119-F61361F5E618@cumulusnetworks.com> <53FAA2A2.7070801@gmail.com> <53FB3FD5.2030905@mojatatu.com> <20140825141754.GA30140@casper.infradead.org> <53FB6122.2040901@mojatatu.com> <20140825225057.GD30140@casper.infradead.org> <53FC909D.8090000@cumulusnetworks.com> <20140826140630.GA1848@nanopsycho.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Michael Tokarev <mjt-XAri/EZa3C4vJsYlp49lxw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <53FC1789.6020407-Gdu+ltImwkhes2APU0mLOQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Thomas Graf <tgraf@suug.ch>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, f.fainelli@gmail.com, linville@tuxdriver.com,
+	dev@openvswitch.org, jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, Shrijeet Mukherjee <
+To: Jiri Pirko <jiri@resnulli.us>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:48291 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934497AbaHZO65 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 10:58:57 -0400
+Received: by mail-pd0-f179.google.com with SMTP id v10so22545412pde.10
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 07:58:56 -0700 (PDT)
+In-Reply-To: <20140826140630.GA1848@nanopsycho.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/26/14 07:13, Michael Tokarev wrote:
-> [Adding netdev@ to the mix.
->   Original thread, started at Dec-2013, can be found at
->    http://marc.info/?t=138817851800006&r=1&w=2 or
->    http://www.spinics.net/lists/linux-wireless/msg116502.html
-> ]
->
-> 19.04.2014 15:42, Michael Tokarev wrote:
->> [big skip]
->>
->>
->> Tried kernel 3.14 with this device.  Still no go, the brcmsmac driver still
->> does not work correctly, it stalls as before.
->
-> Today I tried 3.16 kernel today too, just for fun (since this whole brcmsmac
-> thing looks not more like a non-working toy).  Now with another laptop and
-> the same broadcom wifi adaptor (BRCM4313 802.11bgn Wireless Network Adapter
-> rev 01) (because due to cracked usb port on my original notebook it does not
-> work anymore).
->
-> This combination (kernel&  wifi) does not work at all.  Or, it is more jokish
-> than before -- the NIC works for ARP packets but nothing else, not even ping
-> or DNS or NTP.  I see the access point sending replies (to pings or dns), but
-> these replies are not shown by tcpdump on the laptop.  Even not all ARP packets
-> sent by the AP reaches the laptop.
->
-> So, I'm curious -- why this driver is found in regular section of kernel?
-> It looks like it should be in staging at least, or better yet, in a new section
-> titled "toy drivers" or something like this.  Does it work for any device at
-> all?
+On 08/26/14 10:06, Jiri Pirko wrote:
 
-Hi Michael,
+> Yes. Flows are phase one. The api will be extended in for whatever is
+> needed for l2/l3 as you said. Also I see a possibility to implement the
+> l2/l3 use case with flows as well.
 
-Thanks for your encouraging suggestions. I revisited the threads you 
-referred to. In the boardflags it shows you have a bt+wifi card. It 
-could be that is an issue. The brcmsmac supports other devices, ie. 
-bcm43224/5 and the bcm4313 comes in a number of varieties. From what you 
-tell here it seems you have trouble in rx path so I will look into that 
-area if there is any specifically done for your variant of the bcm4313.
+And as a note: This is where i have the disagreement.
+It is good there is acknowledgement you are handling flows for now.
+Or whatever tuples you defined as "flow". I dont think L2 or 3 fit
+in that. If thats not what you are saying then we are in agreement.
 
-Regards,
-Arend
-
-> Thanks,
->
-> /mjt
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+cheers,
+jamal
