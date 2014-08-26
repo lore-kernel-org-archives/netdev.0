@@ -1,59 +1,61 @@
-From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
-Subject: [PATCH] ipv6: ip6_gre: Replace rcu_assign_pointer() with
- RCU_INIT_POINTER()
-Date: Tue, 26 Aug 2014 17:13:50 +0300
-Message-ID: <20140826141350.GA2036@ada>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next RFC 10/12] openvswitch: add support for datapath
+ hardware offload
+Date: Tue, 26 Aug 2014 15:20:27 +0100
+Message-ID: <20140826142027.GA1012@casper.infradead.org>
+References: <1408637945-10390-11-git-send-email-jiri@resnulli.us>
+ <53F79C54.5050701@gmail.com>
+ <464DB0A8-0073-4CE0-9483-0F36B73A53A1@cumulusnetworks.com>
+ <53F9459B.2070801@mojatatu.com>
+ <20140824111218.GA32741@casper.infradead.org>
+ <53FA01AC.10507@mojatatu.com>
+ <20140825145449.GB30140@casper.infradead.org>
+ <53FB68EB.9060308@mojatatu.com>
+ <20140825221148.GC30140@casper.infradead.org>
+ <53FC931A.3020903@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: paulmck@linux.vnet.ibm.com
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Scott Feldman <sfeldma@cumulusnetworks.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
+	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
+	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
+	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
+	john.r.fastabend@intel.com, edumazet@google.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:50703 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758354AbaHZOUe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 10:20:34 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <53FC931A.3020903@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-According to RCU_INIT_POINTER()'s block comment 3.a, it can be used if
-"3.   The referenced data structure has already been exposed to readers either
-at compile time or via rcu_assign_pointer() -and-
- a.   You have not made -any- reader-visible changes to this structure since
-then".
+On 08/26/14 at 10:00am, Jamal Hadi Salim wrote:
+> >I would argue that swflow is a superset of a Netlink route. It
+> >may infact be very useful to extend the API with something that
+> >understands the Netlink representation of a route and have the
+> >API translate that to a classifier that can be offloaded.
+> >
+> 
+> Sorry Thomas, I disagree.
+> A route has a lot more knobs than just a simple flow representation.
+> We are talking next hops (of which there could be multiple) etc.
+> There is no way you can boil that down to a simple flow representation.
 
-This case fulfills the conditions above because between the rtnl_dereference()
-call and the rcu_assign_pointer() call there is no update of that value.
-Therefore, this patch makes the replacement.
+I guess we could argue forever.
 
-The following Coccinelle semantic patch was used:
-@@
-@@
-
-- rcu_assign_pointer
-+ RCU_INIT_POINTER
-  (...,
-(
- rtnl_dereference(...)
-|
- rcu_dereference_protected(...)
-) )
-
-Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
----
- net/ipv6/ip6_gre.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 3873181..67dcaca 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -261,7 +261,7 @@ static void ip6gre_tunnel_link(struct ip6gre_net *ign, struct ip6_tnl *t)
- {
- 	struct ip6_tnl __rcu **tp = ip6gre_bucket(ign, t);
- 
--	rcu_assign_pointer(t->next, rtnl_dereference(*tp));
-+	RCU_INIT_POINTER(t->next, rtnl_dereference(*tp));
- 	rcu_assign_pointer(*tp, t);
- }
- 
--- 
-1.9.1
+To answer your specific statement. If per (wildcard) flow nexthop
+balancing behaviour is good enough, the current flow insert is likely
+sufficient. If the hardware should do the balancing, an additional
+API function is probably needed to cleanly represent that.
