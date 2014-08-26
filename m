@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: Functions to report space available
- in device TX queues
-Date: Mon, 25 Aug 2014 17:33:25 -0700 (PDT)
-Message-ID: <20140825.173325.723351409734098574.davem@davemloft.net>
-References: <alpine.DEB.2.02.1408250823440.31745@tomh.mtv.corp.google.com>
+Subject: Re: [PATCH net-next] bpf: x86: add missing 'shift by register'
+ instructions to x64 eBPF JIT
+Date: Mon, 25 Aug 2014 17:34:18 -0700 (PDT)
+Message-ID: <20140825.173418.1069939395052253481.davem@davemloft.net>
+References: <1408994822-14929-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: edumazet@google.com, dborkman@redhat.com, hpa@zytor.com,
+	brendan.d.gregg@gmail.com, netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39949 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39962 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756712AbaHZAd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 20:33:26 -0400
-In-Reply-To: <alpine.DEB.2.02.1408250823440.31745@tomh.mtv.corp.google.com>
+	with ESMTP id S1752606AbaHZAeT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 20:34:19 -0400
+In-Reply-To: <1408994822-14929-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon, 25 Aug 2014 08:27:56 -0700 (PDT)
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Mon, 25 Aug 2014 12:27:02 -0700
 
-> This patch adds netdev_tx_avail_queue and netdev_avail_queue which are
-> used to report number of bytes available in transmit queues per BQL. The
-> functions call dql_avail which returns BQL limit minus number of
-> inflight bytes. These functions can be called without txlock, for
-> instance to ascertain how much data should be dequeued from a qdisc in
-> a batch. When called without the tx_lock, the result is technically a
-> hint, subsequently when the tx_lock is done for a transmit it is
-> possible the availability has changed (for example a transmit
-> completion may have freed up more space in the queue or changed the
-> limit).
+> 'shift by register' operations are supported by eBPF interpreter, but were
+> accidently left out of x64 JIT compiler. Fix it and add a testcase.
 > 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+> Reported-by: Brendan Gregg <brendan.d.gregg@gmail.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Fixes: 622582786c9e ("net: filter: x86: internal BPF JIT")
+> ---
+> 
+> Probably not worth sending to stable, but wouldn't hurt either.
 
-Ok this looks fine, but could you please resubmit this alongside
-the first use case?
-
-Thanks.
+Applied to net-next, thanks.
