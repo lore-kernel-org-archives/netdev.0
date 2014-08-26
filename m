@@ -1,65 +1,144 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC 10/12] openvswitch: add support for datapath
- hardware offload
-Date: Tue, 26 Aug 2014 17:44:59 +0200
-Message-ID: <20140826154459.GB1843@nanopsycho.lan>
-References: <53FAA2A2.7070801@gmail.com>
- <53FB3FD5.2030905@mojatatu.com>
- <20140825141754.GA30140@casper.infradead.org>
- <53FB6122.2040901@mojatatu.com>
- <20140825225057.GD30140@casper.infradead.org>
- <53FC909D.8090000@cumulusnetworks.com>
- <20140826140630.GA1848@nanopsycho.lan>
- <53FCA0AE.9010304@mojatatu.com>
- <20140826152217.GA1843@nanopsycho.lan>
- <53FCA7C6.5070804@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, f.fainelli@gmail.com, linville@tuxdriver.com,
-	dev@openvswitch.org, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] ixgbe: flush when in xmit_more mode and under descriptor pressure
+Date: Tue, 26 Aug 2014 17:48:25 +0200
+Message-ID: <1409068105-16634-1-git-send-email-dborkman@redhat.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:50432 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750916AbaHZPpD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 11:45:03 -0400
-Received: by mail-wg0-f43.google.com with SMTP id l18so14536924wgh.26
-        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 08:45:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <53FCA7C6.5070804@mojatatu.com>
+Received: from mx1.redhat.com ([209.132.183.28]:20951 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751607AbaHZPs3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Aug 2014 11:48:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Aug 26, 2014 at 05:29:10PM CEST, jhs@mojatatu.com wrote:
->On 08/26/14 11:22, Jiri Pirko wrote:
->
->>I do not think that really matters. Phase one is flows. After that we
->>can focus on l2/l3. If we would be able to fit in in flows (some drivers
->>may), then ok. If not, we extend the api with couple of more l2/l3
->>related ndos. I see no problem there.
->
->Well, it matters because we are proceeding to implement L2/3.
->i.e the simple stuff first. We dont have anything to show yet - but
->we will hopefully have some useful bit by Plumbers.
->So maybe best path forward is we talk then and see how we can merge
->efforts since we cant seem to agree at this point.
+When xmit_more mode is being used and the ring is about to become
+full, enforce a tail pointer write to the hw. Otherwise, we could
+risk a Tx hang as pointed out by Alex.
 
-I think we are in agreement. We have two worlds: flows and l2/3. We need
-both for sure. And my patchset adds an initial part of the first one.
-The second one can be added later. I do not see any issues in that.
+Suggested-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ Hi Alex, something along that lines regarding your first comment?
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 67 +++++++++++++++------------
+ 1 file changed, 38 insertions(+), 29 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index ba9ceaa..f851e84 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -6837,6 +6837,36 @@ static void ixgbe_tx_olinfo_status(union ixgbe_adv_tx_desc *tx_desc,
+ 	tx_desc->read.olinfo_status = cpu_to_le32(olinfo_status);
+ }
+ 
++static int __ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
++{
++	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
++
++	/* Herbert's original patch had:
++	 *  smp_mb__after_netif_stop_queue();
++	 * but since that doesn't exist yet, just open code it.
++	 */
++	smp_mb();
++
++	/* We need to check again in a case another CPU has just
++	 * made room available.
++	 */
++	if (likely(ixgbe_desc_unused(tx_ring) < size))
++		return -EBUSY;
++
++	/* A reprieve! - use start_queue because it doesn't call schedule */
++	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
++	++tx_ring->tx_stats.restart_queue;
++	return 0;
++}
++
++static inline int ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
++{
++	if (likely(ixgbe_desc_unused(tx_ring) >= size))
++		return 0;
++
++	return __ixgbe_maybe_stop_tx(tx_ring, size);
++}
++
+ #define IXGBE_TXD_CMD (IXGBE_TXD_CMD_EOP | \
+ 		       IXGBE_TXD_CMD_RS)
+ 
+@@ -6853,6 +6883,7 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+ 	u32 tx_flags = first->tx_flags;
+ 	u32 cmd_type = ixgbe_tx_cmd_type(skb, tx_flags);
+ 	u16 i = tx_ring->next_to_use;
++	bool desc_pressure;
+ 
+ 	tx_desc = IXGBE_TX_DESC(tx_ring, i);
+ 
+@@ -6958,10 +6989,15 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+ 
+ 	tx_ring->next_to_use = i;
+ 
+-	if (!skb->xmit_more) {
++	desc_pressure = (ixgbe_desc_unused(tx_ring) < DESC_NEEDED);
++	if (!skb->xmit_more || unlikely(desc_pressure)) {
+ 		/* notify HW of packet */
+ 		ixgbe_write_tail(tx_ring, i);
++
++		if (unlikely(desc_pressure))
++			__ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
+ 	}
++
+ 	return;
+ dma_error:
+ 	dev_err(tx_ring->dev, "TX DMA map failed\n");
+@@ -6978,6 +7014,7 @@ dma_error:
+ 	}
+ 
+ 	tx_ring->next_to_use = i;
++	ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
+ }
+ 
+ static void ixgbe_atr(struct ixgbe_ring *ring,
+@@ -7068,32 +7105,6 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 					      input, common, ring->queue_index);
+ }
+ 
+-static int __ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
+-{
+-	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
+-	/* Herbert's original patch had:
+-	 *  smp_mb__after_netif_stop_queue();
+-	 * but since that doesn't exist yet, just open code it. */
+-	smp_mb();
+-
+-	/* We need to check again in a case another CPU has just
+-	 * made room available. */
+-	if (likely(ixgbe_desc_unused(tx_ring) < size))
+-		return -EBUSY;
+-
+-	/* A reprieve! - use start_queue because it doesn't call schedule */
+-	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
+-	++tx_ring->tx_stats.restart_queue;
+-	return 0;
+-}
+-
+-static inline int ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
+-{
+-	if (likely(ixgbe_desc_unused(tx_ring) >= size))
+-		return 0;
+-	return __ixgbe_maybe_stop_tx(tx_ring, size);
+-}
+-
+ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 			      void *accel_priv, select_queue_fallback_t fallback)
+ {
+@@ -7262,8 +7273,6 @@ xmit_fcoe:
+ #endif /* IXGBE_FCOE */
+ 	ixgbe_tx_map(tx_ring, first, hdr_len);
+ 
+-	ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
+-
+ 	return NETDEV_TX_OK;
+ 
+ out_drop:
+-- 
+1.7.11.7
