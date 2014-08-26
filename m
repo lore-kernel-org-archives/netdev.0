@@ -1,72 +1,54 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
- is runnable
-Date: Tue, 26 Aug 2014 15:16:54 +0800
-Message-ID: <53FC3466.8000304@redhat.com>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>	 <1408608310-13579-2-git-send-email-jasowang@redhat.com>	 <1408683665.5648.69.camel@marge.simpson.net>	 <20140822073653.GA7372@gmail.com> <53F70887.8030602@redhat.com> <1408716976.5604.18.camel@edumazet-glaptop2.roam.corp.google.com> <53FB3715.7070009@linux.intel.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] net: stmmac: fix warning from Sparse for socfpga
+Date: Tue, 26 Aug 2014 09:24:46 +0200
+Message-ID: <53FC363E.6050604@st.com>
+References: <1409037076-14775-1-git-send-email-lftan@altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, Peter Zijlstra <peterz@infradead.org>,
-	"Ingo Molnar jacob.e.keller@intel.com" <mingo@elte.hu>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Cc: <lftan.linux@gmail.com>, Vince Bridgers <vbridger@altera.com>
+To: Ley Foon Tan <lftan@altera.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53FB3715.7070009@linux.intel.com>
+In-Reply-To: <1409037076-14775-1-git-send-email-lftan@altera.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/25/2014 09:16 PM, Eliezer Tamir wrote:
-> On 22/08/2014 17:16, Eric Dumazet wrote:
->> > On Fri, 2014-08-22 at 17:08 +0800, Jason Wang wrote:
->> > 
->>> >> But this is just for current process. We want to determine whether or
->>> >> not it was worth to loop busily in current process by checking if
->>> >> there's any another runnable processes or callbacks. And what we need
->>> >> here is just a simple and lockless hint which can't be wrong but may be
->>> >> inaccurate to exit the busy loop. The net code does not depends on this
->>> >> hint to do scheduling or yielding.
->>> >>
->>> >> How about just introducing a boolean helper like current_can_busy_loop()
->>> >> and return true in one of the following conditions:
->>> >>
->>> >> - Current task is SCHED_FIFO
->>> >> - Current task is neither SCHED_FIFO nor SCHED_IDLE and no other
->>> >> runnable processes or pending RCU callbacks in current cpu
->>> >>
->>> >> And add warns to make sure it can only be called in process context.
->> > 
->> > 
->> > 1) Any reasons Eliezer Tamir is not included in the CC list ?
-> Thanks for remembering me, Eric ;)
+On 8/26/2014 9:11 AM, Ley Foon Tan wrote:
+> Warning:
+> drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c:122:41:
+> sparse: cast removes address space of expression
+> drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c:122:38:
+> sparse: incorrect type in assignment (different address spaces)
 >
-> Here are my 2 cents:
-> I think Ingo's suggestion of only yielding to tasks with same or higher
-> priority makes sense.
-
-I'm not sure I get your meaning. Do you mean calling yield_to() directly
-in sk_busy_loop?
-
-Schedule() which will be called later should handle all cases such as
-priority and rt process. And this patch just want the schedule() to do
-this decision earlier by exiting the busy loop earlier. This will
-improve the latency in both heavy load and light load.
-
-Checking number of nsecs this task is expected to run in the future
-sounds like the work that sk_busy_loop_end_time() should consider. It
-was not the issue that this patch want to address.
+> Signed-off-by: Ley Foon Tan <lftan@altera.com>
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 3 ++-
+>   1 file changed, 2 insertions(+), 1 deletion(-)
 >
-> IF you change the current behavior, please update the documentation.
-> You are going to make people scratch their head and ask "what changed?"
-> you owe them a clue.
-
-Thanks for the reminding. But for this patch itself, it does not change
-user noticeable behaviour.
-> I also would like to have some way to keep track of when/if/how much
-> this yield happens.
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+> index cd613d7..c1addce 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+> @@ -119,7 +119,8 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+>   			return -EINVAL;
+>   		}
 >
+> -		dwmac->splitter_base = (void *)devm_ioremap_resource(dev,
+> +		dwmac->splitter_base =
+> +			(void __iomem *)devm_ioremap_resource(dev,
 
-Ok, not very hard to add, maybe just another statistics counter.
+I think, no casting should be done:
+
+    dwmac->splitter_base = devm_ioremap_resource(dev, ....
+
+
+patch should be for net-next
+
+peppe
+
+>   			&res_splitter);
+>   		if (!dwmac->splitter_base) {
+>   			dev_info(dev, "Failed to mapping emac splitter\n");
+>
