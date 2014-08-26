@@ -1,96 +1,77 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Tue, 26 Aug 2014 23:37:30 +0200
-Message-ID: <53FCFE1A.3060508@broadcom.com>
-References: <52BDE9DC.5040206@msgid.tls.msk.ru> <52BE9CF9.7030305@broadcom.com> <52BEC2F6.7010505@msgid.tls.msk.ru> <52D4FC8B.6090301@msgid.tls.msk.ru> <52F925A9.1030707@msgid.tls.msk.ru> <53526124.6050407@msgid.tls.msk.ru> <53FC1789.6020407@msgid.tls.msk.ru> <53FCA001.6090404@broadcom.com> <53FCB2A3.1050605@msgid.tls.msk.ru>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IPv6 Policy based routing not working.
+Date: Wed, 27 Aug 2014 00:01:22 +0200
+Message-ID: <1409090482.1152.8.camel@localhost>
+References: <CABQpAL7X9_=RTS2cd_m3jkCzWOM8hjcu22yQdnRD6S4fs5AF2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <brcm80211-dev-list@broadcom.com>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Michael Tokarev <mjt@tls.msk.ru>
+Cc: netdev@vger.kernel.org
+To: Tushar Shinde <mtk.tushar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:7675 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755755AbaHZVhd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 17:37:33 -0400
-In-Reply-To: <53FCB2A3.1050605@msgid.tls.msk.ru>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:52132 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755776AbaHZWBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 18:01:24 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 5668220960
+	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 18:01:24 -0400 (EDT)
+In-Reply-To: <CABQpAL7X9_=RTS2cd_m3jkCzWOM8hjcu22yQdnRD6S4fs5AF2Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/26/14 18:15, Michael Tokarev wrote:
-> 26.08.2014 18:56, Arend van Spriel wrote:
->> On 08/26/14 07:13, Michael Tokarev wrote:
-> []
->>> So, I'm curious -- why this driver is found in regular section of kernel?
->>> It looks like it should be in staging at least, or better yet, in a new section
->>> titled "toy drivers" or something like this.  Does it work for any device at
->>> all?
->>
->> Hi Michael,
->>
->> Thanks for your encouraging suggestions.
->
-> You might be a good politician :)  These are blames, quite strong...
->
-> Seriously. As you revisited this thread, I had quite some issues and
-> money loss after all this, -- after initially especially choosing a
-> model with a supported wifi card which turned out to be non-working,
-> which I tried to fix by buying a new wifi NIC (which didn't work
-> thanks to Lenovo), and which I finally broke due to usb wifi dongle
-> I used.
->
-> But that's all "poetry", the main source of my blames is you reaction -
-> your first reply was really ecoraging, I hoped we can have some solution
-> together (I have strong programming background, just not as good with
-> kernel and drivers as you).  But after your single reply, you never
-> spoke again until now.  That's 8 months.  _That_ is where my frustration
-> comes from.
+Hi,
 
-Well, sorry about that. I did see the other messages fly by and noticed 
-you were using the wl driver so assumed you were fine with that. 
-Admittedly the brcmsmac got very little attention as all our resources 
-were put on brcmfmac.
+On Di, 2014-08-26 at 21:32 +0530, Tushar Shinde wrote:
+> Hello NetDev,
+> 
+> I am facing problem where if ipv6 route (outside to current subnet) is
+> reachable only if route is present in main table. Policy based routes
+> are not working.
+> 
+> Following is my setup,
+> 
+> eth0   inet6 2001:1::10/120 scope global
+> eth1   inet6 2001:1::11/120 scope global
+> 2001:1::1 is gateway
+> 2.6.32-431.11.2.el6.x86_64 kernel (I tried on 3.x also)
+> 
+> [root@ipv6node1 ~]# ip -6 route show tab 1
+> 2001:1::/120 dev eth0  metric 1024  mtu 1500 advmss 1440 hoplimit 4294967295
+> default via 2001:1::1 dev eth0  metric 1024  mtu 1500 advmss 1440
+> hoplimit 4294967295
+> [root@ipv6node1 ~]#
+> [root@ipv6node1 ~]# ip -6 route show tab 2
+> 2001:1::/120 dev eth1  metric 1024  mtu 1500 advmss 1440 hoplimit 4294967295
+> default via 2001:1::1 dev eth1  metric 1024  mtu 1500 advmss 1440
+> hoplimit 4294967295
+> [root@ipv6node1 ~]#
+> [root@ipv6node1 ~]# ip -6 rule show
+> 0:    from all lookup local
+> 16383:    from 2001:1::10 lookup 1
+> 16383:    from 2001:1::11 lookup 2
+> 32766:    from all lookup main
+> [root@ipv6node1 ~]#
+> 
+> If I add default vai eth0 only ip of eth0 is reachable from outside or
+> eth1 dont work. In above setup default route is not present.
+> 
+> But default entry in "table" is never getting used to resolve route
+> 
+> [root@ipv6node1 ~]# ping6 -I eth0 2001:2::20
+> connect: Network is unreachable
+> [root@ipv6node1 ~]#
+> [root@ipv6node1 ~]# ping6 -I eth1 2001:2::20
+> connect: Network is unreachable
+> [root@ipv6node1 ~]#
 
-> And the actual facts are true - by now I have had 2 entirely different
-> devices (my original laptop which is now thrown away and another, given
-> by me by a friend because I needed something) - I dunno if that's
-> exactly the same wifi card or not (lspci output looks similar, and
-> this one is also bt/wifi combo), but they both doesn't work in a
-> quite similar way.  So, the driver doesn't work with 2 out of 2 devices
-> which I've seen.  Not a good statistics generally, but that's 100%
-> "hit" ratio for me.  So I really am curious if this driver works at
-> all.
->
->>     I revisited the threads you referred to. In the boardflags it shows you
->> have a bt+wifi card. It could be that is an issue. The brcmsmac supports other
->> devices, ie. bcm43224/5 and the bcm4313 comes in a number of varieties.
->>  From what you tell here it seems you have trouble in rx path so I will look
->> into that area if there is any specifically done for your variant of the bcm4313.
->
-> I tested this "new" laptop with 3.16 kernel just briefly.  I may try more
-> complete analysis.  I can participate with the debugging/dumping (I already
-> mentioned my strong programming background - but I'm really not into drivers
-> and hardware internals).  So, basically, I'm all yours ;)  Not that I really
-> need this driver anymore (since I will avoid these cards like a plague, for
-> obvious reasons :), but I want to have some good outcome out of all this
-> story :)
+ping6 selects the ipv6 address based on netlink route lookup given the
+specified interface but without setting the source address. That said,
+it is probable that the rule lookup happens with a completely different
+ipv6 address. Please verify this. ping6 -I also accepts a source ipv6
+address, can you try this?
 
-Ok. Let's put frustration aside and make an effort. So could you make a 
-trace using trace-cmd utility. The log can get quite big. The brcmsmac 
-driver needs to be built with CONFIG_BRCM_TRACING enabled. Please 
-execute the following commands (assuming you use ubuntu with 
-network-manager):
+Otherwise please specify with which 3.x kernel you tested this.
 
-$ sudo stop network-manager
-$ sudo insmod brcmfmac.ko
-$ sudo trace-cmd record -e brcmsmac:*
-
-In another terminal:
-
-$ sudo start network-manager
-
-The trace-cmd must be stopped using ctrl-c.
-
-Regards,
-Arend
+Thanks,
+Hannes
