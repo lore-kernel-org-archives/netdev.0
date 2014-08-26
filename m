@@ -1,81 +1,83 @@
-From: Pankaj Gupta <pagupta@redhat.com>
-Subject: Re: [RFC 2/4] tuntap: Publish tuntap maximum number of queues as
- module_param
-Date: Tue, 26 Aug 2014 11:30:48 -0400 (EDT)
-Message-ID: <1505182754.28731957.1409067048371.JavaMail.zimbra@redhat.com>
-References: <1408369040-1216-1-git-send-email-pagupta@redhat.com> <1408369040-1216-3-git-send-email-pagupta@redhat.com> <20140820105817.GB1916@nanopsycho.orion> <20140820111724.GE17371@redhat.com> <53F575F8.7000208@redhat.com> <175719847.27217377.1408708342392.JavaMail.zimbra@redhat.com> <20140824111421.GC9561@redhat.com> <53FAA607.3060307@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 2/2] ixgbe: support skb->xmit_more in
+ netdev_ops->ndo_start_xmit()
+Date: Tue, 26 Aug 2014 17:40:57 +0200
+Message-ID: <1409067657.22108.7.camel@localhost>
+References: <20140825.163505.1969688661687017343.davem@davemloft.net>
+	 <53FCA0FA.20600@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Jiri Pirko <jiri@resnulli.us>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net, dgibson@redhat.com,
-	vfalico@gmail.com, edumazet@google.com, vyasevic@redhat.com,
-	hkchu@google.com, wuzhy@linux.vnet.ibm.com, xemul@parallels.com,
-	therbert@google.com, bhutchings@solarflare.com, xii@google.com,
-	stephen@networkplumber.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53FAA607.3060307@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	therbert@google.com, jhs@mojatatu.com, edumazet@google.com,
+	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au,
+	dborkman@redhat.com, brouer@redhat.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:35491 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750942AbaHZPlA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 11:41:00 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 077D22074E
+	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 11:41:00 -0400 (EDT)
+In-Reply-To: <53FCA0FA.20600@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-> On 08/24/2014 07:14 PM, Michael S. Tsirkin wrote:
-> > On Fri, Aug 22, 2014 at 07:52:22AM -0400, Pankaj Gupta wrote:
-> >>> On 08/20/2014 07:17 PM, Michael S. Tsirkin wrote:
-> >>>> On Wed, Aug 20, 2014 at 12:58:17PM +0200, Jiri Pirko wrote:
-> >>>>>> Mon, Aug 18, 2014 at 03:37:18PM CEST, pagupta@redhat.com wrote:
-> >>>>>>>> This patch publishes maximum number of tun/tap queues allocated as a
-> >>>>>>>> read_only module parameter which a user space application like
-> >>>>>>>> libvirt
-> >>>>>>>> can make use of to limit maximum number of queues. Value of
-> >>>>>>>> read_only
-> >>>>>>>> module parameter can be writable only at module load time. If no
-> >>>>>>>> value is set
-> >>>>>>>> at module load time a default value 256 is used which is equal to
-> >>>>>>>> maximum number
-> >>>>>>>> of vCPUS allowed by KVM.
-> >>>>>>>>
-> >>>>>>>> Administrator can specify maximum number of queues only at the
-> >>>>>>>> driver
-> >>>>>>>> module load time.
-> >>>>>>>>
-> >>>>>>>> Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
-> >>>>>>>> ---
-> >>>>>>>> drivers/net/tun.c |   13 +++++++++++--
-> >>>>>>>> 1 files changed, 11 insertions(+), 2 deletions(-)
-> >>>>>>>>
-> >>>>>>>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> >>>>>>>> index acaaf67..1f518e2 100644
-> >>>>>>>> --- a/drivers/net/tun.c
-> >>>>>>>> +++ b/drivers/net/tun.c
-> >>>>>>>> @@ -119,6 +119,9 @@ struct tap_filter {
-> >>>>>>>>
-> >>>>>>>> #define TUN_FLOW_EXPIRE (3 * HZ)
-> >>>>>>>>
-> >>>>>>>> +static int max_tap_queues = MAX_TAP_QUEUES;
-> >>>>>>>> +module_param(max_tap_queues, int, S_IRUGO);
-> >>>>>> Please do not introduce new module paramaters. Please other ways to
-> >>>>>> interchange values with userspace.
-> >>>> I suggested this initially, but thinking more about it, I agree.
-> >>>>
-> >>>> It's a global limit (necessary to limit memory utilization by
-> >>>> userspace), but it should be possible to change it
-> >>>> after module load.
-> >>> How about pass this limit through ifr during TUNSETIFF, then
-> >>> alloc_netdev_mq() can use this limit.
-> >> Any other ideas/comments from the experts. Or shall I re-repost other
-> >> patches
-> >> in the series except this patch until we agree on one.
-> >>
-> > It's kind of useless without a way for userspace to discover
-> > how many queues it can create, no?
-> >
+On Di, 2014-08-26 at 08:00 -0700, Alexander Duyck wrote:
+> On 08/25/2014 04:35 PM, David Miller wrote:
+> > 
+> > From: Daniel Borkmann <dborkman@redhat.com>
+> > 
+> > This implements the deferred tail pointer flush API for the ixgbe
+> > driver. Similar version also proposed longer time ago by Alexander Duyck.
+> > 
+> > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> > Signed-off-by: David S. Miller <davem@davemloft.net>
+> > ---
+> >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 7 ++++---
+> >  1 file changed, 4 insertions(+), 3 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> > index 87bd53f..ba9ceaa 100644
+> > --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> > +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> > @@ -6958,9 +6958,10 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+> >  
+> >  	tx_ring->next_to_use = i;
+> >  
+> > -	/* notify HW of packet */
+> > -	ixgbe_write_tail(tx_ring, i);
+> > -
+> > +	if (!skb->xmit_more) {
+> > +		/* notify HW of packet */
+> > +		ixgbe_write_tail(tx_ring, i);
+> > +	}
+> >  	return;
+> >  dma_error:
+> >  	dev_err(tx_ring->dev, "TX DMA map failed\n");
+> > 
 > 
-> We can implement ethtool_get_channels for tuntap. But I'm still not
-> clear why this is necessary.
+> It might help to add some handling for the case where xmit_more is set,
+> but the ring has become full.  This current implementation introduces
+> the risk of triggering a Tx hang.
 
-ethtool_get_channels for tuntap sounds good idea to retrieve number of queues
-configured.
-> 
+IMHO this should be done before the patch lands in the driver.
+
+> My advice would be to pull the ixgbe_maybe_stop_tx code at the end of
+> xmit_frame into the if check here, and perhaps look into adding an
+> additional check to see if BQL has stopped the ring as well.
+
+I would like to have the BQL check not in the driver but in the generic
+code steering xmit_more.
+
+Otherwise I'll like the API.
+
+David, because of debugging and driver bugs, can we have an interface
+flag for that, so we can e.g. switch xmit_more to 0 permanently? It
+would also be nice to have for documentation purposes, so ethtool e.g.
+can discover feature-set of a driver.
+
+Thanks,
+Hannes
