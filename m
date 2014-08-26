@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: bnx2x: fix build error with ptp
-Date: Mon, 25 Aug 2014 17:37:37 -0700 (PDT)
-Message-ID: <20140825.173737.2231823536257512393.davem@davemloft.net>
-References: <53FB9884.8000707@infradead.org>
-	<53FB9910.3020601@infradead.org>
+Subject: Re: [PATCH net-next] neigh: document gc_thresh2
+Date: Mon, 25 Aug 2014 17:37:47 -0700 (PDT)
+Message-ID: <20140825.173747.537880060104782021.davem@davemloft.net>
+References: <20140825150530.29573594@urahara>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, netdev@vger.kernel.org,
-	jim.epost@gmail.com, linux-kernel@vger.kernel.org,
-	ariel.elior@qlogic.com
-To: rdunlap@infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53FB9910.3020601@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: rdunlap@infradead.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40000 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756832AbaHZAhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Aug 2014 20:37:48 -0400
+In-Reply-To: <20140825150530.29573594@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Mon, 25 Aug 2014 13:14:08 -0700
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon, 25 Aug 2014 15:05:30 -0700
 
-> Note: This patch fixes a build error in linux-next (not in mainline).
+> Missing documentation for gc_thresh2 sysctl.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied to net-next, thanks Randy.
-
-You can put "[PATCH net-next]" into your subject line to make this
-explicit next time.
+Applied, thanks Stephen.
