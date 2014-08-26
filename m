@@ -1,54 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 net-next 1/6] net: filter: add "load 64-bit
- immediate" eBPF instruction
-Date: Mon, 25 Aug 2014 18:06:21 -0700 (PDT)
-Message-ID: <20140825.180621.1003932711320755950.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v6 net-next 4/6] bpf: enable bpf syscall on x64 and i386
+Date: Mon, 25 Aug 2014 18:07:18 -0700 (PDT)
+Message-ID: <20140825.180718.137768107010295086.davem@davemloft.net>
 References: <1409014858-1410-1-git-send-email-ast@plumgrid.com>
-	<1409014858-1410-2-git-send-email-ast@plumgrid.com>
+	<1409014858-1410-5-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mingo@kernel.org, torvalds@linux-foundation.org,
-	luto@amacapital.net, rostedt@goodmis.org, dborkman@redhat.com,
-	chema@google.com, edumazet@google.com, a.p.zijlstra@chello.nl,
-	brendan.d.gregg@gmail.com, namhyung@kernel.org, hpa@zytor.com,
-	akpm@linux-foundation.org, keescook@chromium.org,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ast@plumgrid.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409014858-1410-2-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org,
+	brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409014858-1410-5-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Mon, 25 Aug 2014 18:00:53 -0700
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Date: Mon, 25 Aug 2014 18:00:56 -0700
 
-> add BPF_LD_IMM64 instruction to load 64-bit immediate value into a register.
+> -
+> +asmlinkage long sys_bpf(int cmd, unsigned long arg2, unsigned long arg3,
+> +			unsigned long arg4, unsigned long arg5);
 
-I think you need to rethink this.
+Please do not add interfaces with opaque types as arguments.
 
-I understand that you want to be able to compile arbitrary C code into
-eBPF, but you have to restrict strongly what data the eBPF code can get
-to.
-
-Arbitrary pointer loads is asking for trouble.
-
-Instead I would rather you look into a model like what the quake
-engine uses for it's VM.
-
-Namely, the program can do loads and stores from/to a data section,
-but all of them are validated to be in the range of the VM program's
-image.
-
-eBPF programs should only be able to access things using either:
-
-1) Well defined entry/exit points for control transfer
-
-2) Load/Store within a private limited data segment range used
-   only by the eBPF program
-
-I don't want the eBPF program to be able to get "out of it's box"
-in any way shape or form.
-
-And besides, you're only making this thing as an optimization right?
+It is impossible for the compiler to type check the args at
+compile time when userspace tries to use this stuff.
