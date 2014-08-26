@@ -1,131 +1,97 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next RFC 10/12] openvswitch: add support for datapath
- hardware offload
-Date: Tue, 26 Aug 2014 10:26:17 -0400
-Message-ID: <53FC9909.7000007@mojatatu.com>
-References: <53F79C54.5050701@gmail.com> <464DB0A8-0073-4CE0-9483-0F36B73A53A1@cumulusnetworks.com> <53F9459B.2070801@mojatatu.com> <20140824111218.GA32741@casper.infradead.org> <53FA01AC.10507@mojatatu.com> <A67C7591-19BF-4431-9119-F61361F5E618@cumulusnetworks.com> <53FAA2A2.7070801@gmail.com> <53FB3FD5.2030905@mojatatu.com> <20140825141754.GA30140@casper.infradead.org> <53FB6122.2040901@mojatatu.com> <20140825225057.GD30140@casper.infradead.org>
+From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+Subject: [PATCH] net: core: neighbour: Replace rcu_assign_pointer() with
+ RCU_INIT_POINTER()
+Date: Tue, 26 Aug 2014 17:27:02 +0300
+Message-ID: <20140826142702.GA2346@ada>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	dev@openvswitch.org, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mella
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:35487 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755427AbaHZO0U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 10:26:20 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so22722467pdj.14
-        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 07:26:19 -0700 (PDT)
-In-Reply-To: <20140825225057.GD30140@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: paulmck@linux.vnet.ibm.com
+To: davem@davemloft.net, jiri@resnulli.us, hannes@stressinduktion.org,
+	duanj.fnst@cn.fujitsu.com, ebiederm@xmission.com,
+	aruna.hewapathirane@gmail.com, tim.gardner@canonical.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/25/14 18:50, Thomas Graf wrote:
-> On 08/25/14 at 12:15pm, Jamal Hadi Salim wrote:
->> On 08/25/14 10:17, Thomas Graf wrote:
+According to RCU_INIT_POINTER()'s block comment 3.a, it can be used if
+"3.   The referenced data structure has already been exposed to readers either
+at compile time or via rcu_assign_pointer() -and-
+ a.   You have not made -any- reader-visible changes to this structure since
+then".
 
->> I dont think we have a problem handling any of this today.
->
-> Yes we do. It's restricted to L2 and we can't extend it easily
+These cases fulfill the conditions above because between the
+rcu_dereference_protected() calls and the rcu_assign_pointer() calls there is
+no update of those values.
+Therefore, this patch makes the replacements.
 
-It is restricted to L2 because it is L2 processing;->
-i.e a fixed function that is widely deployed and well understood.
-Possible new extensions that are added are still L2
-(example I think if you were to add TRILL support, you would
-likely need to inherit and extend the bridge then add new TLVs).
+The following Coccinelle semantic patch was used:
+@@
+@@
 
-> because it is based on NDA_*. The use of Netlink makes in-kernel
-> usage a pain.
+- rcu_assign_pointer
++ RCU_INIT_POINTER
+  (...,
+(
+ rtnl_dereference(...)
+|
+ rcu_dereference_protected(...)
+) )
 
-Ok, I understand what you mean by "in kernel" now.
-I believe we have representations that are complete today at L3.
-The offloader just feeds on that.
-L2 needs some work because we have only been offloading the fdb.
+Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+---
+ net/core/neighbour.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
->To me this is the sole reason for not using fdb_add()
-> in the first place. It seems absolutely clear though that fdb_add()
-> should be removed after the more generic ndo is in place providing
-> a superset of what fdb_add() can do today.
->
-
-It is by no means complete as i pointed to in my other email.
-We need to worry about bridge ports, vlan filtering, igmp snooping
-possibly STP parametrization and other knobs of control (flood control,
-learning control etc).
-
-> OK, let me do the convertion for you:
->
-> NDA_DST		unused
-> NDA_LLADDR	sw_flow_key.eth.dst
-> NDA_CACHEINFO	unused
-> NDA_PROBES	unused
-> NDA_VLAN	sw_flow_key.eth.tci
-> NDA_PORT	unused
-> NDA_VNI		sw_flow_key.tun_key.tun_id
-> NDA_IFINDEX	sw_flow_key.phys.in_port
-> NDA_MASTER	unused
->
-
-You are waaaay oversimplifying;->.
-You need to worry about the rest of the other knobs that
-are relevant when one offloads the bridge (refer above to
-some of the things i said are missing from current fdb()
-interface).
-
-> Agreed but tc is only one out of many possible existing interfaces
-> we have. macvtap (given we want to extend beyond L2), routing,
-> OVS, bridge and eventually even things like a team device can and
-> should make use of offloads.
->
-
-Sure. I just want my cookies. I want it such that if i use tc filter
-and that filter is offloadable and there exist a device capable
-of offloading in my system - that it should work.
-
-
-> Can you share that preso? I was not present.
->
-
-I think it should be posted in the netconf site.
-Also refer to my earlier presentation in the online meeting
-which you were present at.
-
-> Let me remind you about the name of the structure behind all L3
-> forwarding decisions:
->
->          struct flowi4 {
-> 		[...]
-> 	}
->
-> Adding a route means adding a flow.
-
-Come on Thomas;->
-It is called "flowi" structure - but it represent a much complex thing
-than your definition of "flow".
-
->Can we please stop the flow bashing?
-
-Let me get out my club and bash it some more ;->
-I am going to start a newsgroup called alt.bash.bash.flow
-Any postings from stanford will be censored by the banana republic
-dictator.
-
-cheers,
-jamal
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 32d872e..a193932 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -147,7 +147,7 @@ static int neigh_forced_gc(struct neigh_table *tbl)
+ 			write_lock(&n->lock);
+ 			if (atomic_read(&n->refcnt) == 1 &&
+ 			    !(n->nud_state & NUD_PERMANENT)) {
+-				rcu_assign_pointer(*np,
++				RCU_INIT_POINTER(*np,
+ 					rcu_dereference_protected(n->next,
+ 						  lockdep_is_held(&tbl->lock)));
+ 				n->dead = 1;
+@@ -216,7 +216,7 @@ static void neigh_flush_dev(struct neigh_table *tbl, struct net_device *dev)
+ 				np = &n->next;
+ 				continue;
+ 			}
+-			rcu_assign_pointer(*np,
++			RCU_INIT_POINTER(*np,
+ 				   rcu_dereference_protected(n->next,
+ 						lockdep_is_held(&tbl->lock)));
+ 			write_lock(&n->lock);
+@@ -386,7 +386,7 @@ static struct neigh_hash_table *neigh_hash_grow(struct neigh_table *tbl,
+ 			next = rcu_dereference_protected(n->next,
+ 						lockdep_is_held(&tbl->lock));
+ 
+-			rcu_assign_pointer(n->next,
++			RCU_INIT_POINTER(n->next,
+ 					   rcu_dereference_protected(
+ 						new_nht->hash_buckets[hash],
+ 						lockdep_is_held(&tbl->lock)));
+@@ -531,7 +531,7 @@ struct neighbour *__neigh_create(struct neigh_table *tbl, const void *pkey,
+ 	n->dead = 0;
+ 	if (want_ref)
+ 		neigh_hold(n);
+-	rcu_assign_pointer(n->next,
++	RCU_INIT_POINTER(n->next,
+ 			   rcu_dereference_protected(nht->hash_buckets[hash_val],
+ 						     lockdep_is_held(&tbl->lock)));
+ 	rcu_assign_pointer(nht->hash_buckets[hash_val], n);
+@@ -2432,7 +2432,7 @@ void __neigh_for_each_release(struct neigh_table *tbl,
+ 			write_lock(&n->lock);
+ 			release = cb(n);
+ 			if (release) {
+-				rcu_assign_pointer(*np,
++				RCU_INIT_POINTER(*np,
+ 					rcu_dereference_protected(n->next,
+ 						lockdep_is_held(&tbl->lock)));
+ 				n->dead = 1;
+-- 
+1.9.1
