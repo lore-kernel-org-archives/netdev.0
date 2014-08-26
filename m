@@ -1,103 +1,65 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v4 09/13] net: dsa: allow updating fixed PHY link information
-Date: Mon, 25 Aug 2014 21:49:37 -0700
-Message-ID: <1409028581-17399-10-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v4 12/13] Documentation: devicetree: update dsa binding with optional properties
+Date: Mon, 25 Aug 2014 21:49:40 -0700
+Message-ID: <1409028581-17399-13-git-send-email-f.fainelli@gmail.com>
 References: <1409028581-17399-1-git-send-email-f.fainelli@gmail.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
 	linville@tuxdriver.com, jhs@mojatatu.com, alexander.duyck@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:60663 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932142AbaHZEuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 00:50:37 -0400
-Received: by mail-pd0-f170.google.com with SMTP id g10so21318296pdj.15
-        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 21:50:37 -0700 (PDT)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:39558 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933729AbaHZEul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 00:50:41 -0400
+Received: by mail-pa0-f43.google.com with SMTP id lf10so22594442pab.16
+        for <netdev@vger.kernel.org>; Mon, 25 Aug 2014 21:50:41 -0700 (PDT)
 In-Reply-To: <1409028581-17399-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow switch drivers to hook a PHY link update callback to perform
-port-specific link work.
+Add documentation for a bunch of new optional properties described in
+ethernet.txt and fixed-link.txt, this includes: 'phy-handle', 'phy-mode'
+and the 'fixed-link' subnode.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
-Changes in v4:
-- changed phy_is_fixed from 'unsigned int' to 'bool'
+ Documentation/devicetree/bindings/net/dsa/dsa.txt | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
- include/net/dsa.h |  3 +++
- net/dsa/slave.c   | 17 +++++++++++++++++
- 2 files changed, 20 insertions(+)
-
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 2d3835924dd2..2c9563f0b2f4 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -17,6 +17,7 @@
- #include <linux/workqueue.h>
- #include <linux/of.h>
- #include <linux/phy.h>
-+#include <linux/phy_fixed.h>
+diff --git a/Documentation/devicetree/bindings/net/dsa/dsa.txt b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+index 49f4f7ae3f51..6192f9a7aa89 100644
+--- a/Documentation/devicetree/bindings/net/dsa/dsa.txt
++++ b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+@@ -39,6 +39,22 @@ Optionnal property:
+ 			  This property is only used when switches are being
+ 			  chained/cascaded together.
  
- #define DSA_MAX_SWITCHES	4
- #define DSA_MAX_PORTS		12
-@@ -187,6 +188,8 @@ struct dsa_switch_driver {
- 	 */
- 	void	(*adjust_link)(struct dsa_switch *ds, int port,
- 				struct phy_device *phydev);
-+	void	(*fixed_link_update)(struct dsa_switch *ds, int port,
-+				struct fixed_phy_status *st);
- 
- 	/*
- 	 * ethtool hardware statistics.
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 398d0663d3dd..18ff53836fe3 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -358,6 +358,18 @@ static void dsa_slave_adjust_link(struct net_device *dev)
- 		phy_print_status(p->phy);
- }
- 
-+static int dsa_slave_fixed_link_update(struct net_device *dev,
-+				       struct fixed_phy_status *status)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
++- phy-handle		: Phandle to a PHY on an external MDIO bus, not the
++			  switch internal one. See
++			  Documentation/devicetree/bindings/net/ethernet.txt
++			  for details.
 +
-+	if (ds->drv->fixed_link_update)
-+		ds->drv->fixed_link_update(ds, p->port, status);
++- phy-mode		: String representing the connection to the designeted
++			  PHY node specified by the 'phy-handle' property. See
++			  Documentation/devicetree/bindings/net/ethernet.txt
++			  for details.
 +
-+	return 0;
-+}
++Optionnal subnodes:
++- fixed-link		: Fixed-link subnode describing a link to a non-MDIO
++			  managed entity. See
++			  Documentation/devicetree/bindings/net/fixed-link.txt
++			  for details.
 +
- /* slave device setup *******************************************************/
- static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 				struct net_device *slave_dev)
-@@ -365,6 +377,7 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 	struct dsa_switch *ds = p->parent;
- 	struct dsa_chip_data *cd = ds->pd;
- 	struct device_node *phy_dn, *port_dn;
-+	bool phy_is_fixed = false;
- 	int ret;
+ Example:
  
- 	port_dn = cd->port_dn[p->port];
-@@ -380,6 +393,7 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 			pr_err("failed to register fixed PHY\n");
- 			return;
- 		}
-+		phy_is_fixed = true;
- 		phy_dn = port_dn;
- 	}
+ 	dsa@0 {
+@@ -58,6 +74,7 @@ Example:
+ 			port@0 {
+ 				reg = <0>;
+ 				label = "lan1";
++				phy-handle = <&phy0>;
+ 			};
  
-@@ -388,6 +402,9 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 					dsa_slave_adjust_link, 0,
- 					p->phy_interface);
- 
-+	if (p->phy && phy_is_fixed)
-+		fixed_phy_set_link_update(p->phy, dsa_slave_fixed_link_update);
-+
- 	/* We could not connect to a designated PHY, so use the switch internal
- 	 * MDIO bus instead
- 	 */
+ 			port@1 {
 -- 
 1.9.1
