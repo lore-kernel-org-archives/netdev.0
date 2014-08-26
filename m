@@ -1,200 +1,464 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v6 net-next 1/6] net: filter: add "load 64-bit immediate" eBPF instruction
-Date: Mon, 25 Aug 2014 18:00:53 -0700
-Message-ID: <1409014858-1410-2-git-send-email-ast@plumgrid.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v6 net-next 6/6] bpf: add hashtable type of BPF maps
+Date: Mon, 25 Aug 2014 18:00:58 -0700
+Message-ID: <1409014858-1410-7-git-send-email-ast@plumgrid.com>
 References: <1409014858-1410-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	Namhyung Kim <namhyung@kernel.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409014858-1410-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409014858-1410-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-add BPF_LD_IMM64 instruction to load 64-bit immediate value into a register.
-All previous instructions were 8-byte. This is first 16-byte instruction.
-Two consecutive 'struct bpf_insn' blocks are interpreted as single instruction:
-insn[0].code = BPF_LD | BPF_DW | BPF_IMM
-insn[0].dst_reg = destination register
-insn[0].imm = lower 32-bit
-insn[1].code = 0
-insn[1].imm = upper 32-bit
-All unused fields must be zero.
+add new map type BPF_MAP_TYPE_HASH and its implementation
 
-Classic BPF has similar instruction: BPF_LD | BPF_W | BPF_IMM
-which loads 32-bit immediate value into a register.
+- key/value are opaque range of bytes
 
-x64 JITs it as single 'movabsq %rax, imm64'
-arm64 may JIT as sequence of four 'movk x0, #imm16, lsl #shift' insn
+- user space provides 3 configuration attributes via BPF syscall:
+  key_size, value_size, max_entries
 
-Note that old eBPF programs are binary compatible with new interpreter.
+- if value_size == 0, the map is used as a set
 
-In the following patches this instruction is used to store eBPF map pointers:
- BPF_LD_IMM64(R1, const_imm_map_ptr)
- BPF_CALL(BPF_FUNC_map_lookup_elem)
-and verifier is introduced to check validity of the programs.
+- map_update_elem() must fail to insert new element when max_entries
+  limit is reached
 
-Later LLVM compiler is using this insn as generic load of 64-bit immediate
-constant and as a load of map pointer with relocation.
+- map takes care of allocating/freeing key/value pairs
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+- update/lookup/delete methods may be called from eBPF program attached
+  to kprobes, so use spin_lock_irqsave() mechanism for concurrent updates
+
+- optimized for speed of lookup() which can be called multiple times from
+  eBPF program which itself is triggered by high volume of events
+
+- in the future JIT compiler may recognize lookup() call and optimize it
+  further, since key_size is constant for life of eBPF program
+
+Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 ---
- Documentation/networking/filter.txt |    8 +++++++-
- arch/x86/net/bpf_jit_comp.c         |   17 +++++++++++++++++
- include/linux/filter.h              |   18 ++++++++++++++++++
- kernel/bpf/core.c                   |    5 +++++
- lib/test_bpf.c                      |   21 +++++++++++++++++++++
- 5 files changed, 68 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
-index c48a9704bda8..81916ab5d96f 100644
---- a/Documentation/networking/filter.txt
-+++ b/Documentation/networking/filter.txt
-@@ -951,7 +951,7 @@ Size modifier is one of ...
+Note, lib/rhashtable.c couldn't be reused here, since it's not managing the
+objects, shrink/expand is not supported out of irq context, overhead of
+generic key/head_offsets and hashfn is too high.
+In the future if/when rhashtable gains shrink/expand as a separate thread,
+we may add another BPF_MAP_TYPE_ for it, but security implications of
+dynamically resizeable maps would need to be analyzed.
+
+ include/uapi/linux/bpf.h |    1 +
+ kernel/bpf/Makefile      |    2 +-
+ kernel/bpf/hashtab.c     |  373 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 375 insertions(+), 1 deletion(-)
+ create mode 100644 kernel/bpf/hashtab.c
+
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index f68edb2681f8..8069ab7b64cf 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -365,6 +365,7 @@ enum bpf_map_attributes {
  
- Mode modifier is one of:
- 
--  BPF_IMM  0x00  /* classic BPF only, reserved in eBPF */
-+  BPF_IMM  0x00  /* used for 32-bit mov in classic BPF and 64-bit in eBPF */
-   BPF_ABS  0x20
-   BPF_IND  0x40
-   BPF_MEM  0x60
-@@ -995,6 +995,12 @@ BPF_XADD | BPF_DW | BPF_STX: lock xadd *(u64 *)(dst_reg + off16) += src_reg
- Where size is one of: BPF_B or BPF_H or BPF_W or BPF_DW. Note that 1 and
- 2 byte atomic increments are not supported.
- 
-+eBPF has one 16-byte instruction: BPF_LD | BPF_DW | BPF_IMM which consists
-+of two consecutive 'struct bpf_insn' 8-byte blocks and interpreted as single
-+instruction that loads 64-bit immediate value into a dst_reg.
-+Classic BPF has similar instruction: BPF_LD | BPF_W | BPF_IMM which loads
-+32-bit immediate value into a register.
-+
- Testing
- -------
- 
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index b08a98c59530..98837147ee57 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -393,6 +393,23 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
- 			EMIT1_off32(add_1reg(0xB8, dst_reg), imm32);
- 			break;
- 
-+		case BPF_LD | BPF_IMM | BPF_DW:
-+			if (insn[1].code != 0 || insn[1].src_reg != 0 ||
-+			    insn[1].dst_reg != 0 || insn[1].off != 0) {
-+				/* verifier must catch invalid insns */
-+				pr_err("invalid BPF_LD_IMM64 insn\n");
-+				return -EINVAL;
-+			}
-+
-+			/* movabsq %rax, imm64 */
-+			EMIT2(add_1mod(0x48, dst_reg), add_1reg(0xB8, dst_reg));
-+			EMIT(insn[0].imm, 4);
-+			EMIT(insn[1].imm, 4);
-+
-+			insn++;
-+			i++;
-+			break;
-+
- 			/* dst %= src, dst /= src, dst %= imm32, dst /= imm32 */
- 		case BPF_ALU | BPF_MOD | BPF_X:
- 		case BPF_ALU | BPF_DIV | BPF_X:
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index a5227ab8ccb1..f3262b598262 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -161,6 +161,24 @@ enum {
- 		.off   = 0,					\
- 		.imm   = IMM })
- 
-+/* BPF_LD_IMM64 macro encodes single 'load 64-bit immediate' insn */
-+#define BPF_LD_IMM64(DST, IMM)					\
-+	BPF_LD_IMM64_RAW(DST, 0, IMM)
-+
-+#define BPF_LD_IMM64_RAW(DST, SRC, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_LD | BPF_DW | BPF_IMM,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = (__u32) (IMM) }),			\
-+	((struct bpf_insn) {					\
-+		.code  = 0, /* zero is reserved opcode */	\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = ((__u64) (IMM)) >> 32 })
-+
- /* Short form of mov based on type, BPF_X: dst_reg = src_reg, BPF_K: dst_reg = imm32 */
- 
- #define BPF_MOV64_RAW(TYPE, DST, SRC, IMM)			\
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 7f0dbcbb34af..0434c2170f2b 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -180,6 +180,7 @@ static unsigned int __bpf_prog_run(void *ctx, const struct bpf_insn *insn)
- 		[BPF_LD | BPF_IND | BPF_W] = &&LD_IND_W,
- 		[BPF_LD | BPF_IND | BPF_H] = &&LD_IND_H,
- 		[BPF_LD | BPF_IND | BPF_B] = &&LD_IND_B,
-+		[BPF_LD | BPF_IMM | BPF_DW] = &&LD_IMM_DW,
- 	};
- 	void *ptr;
- 	int off;
-@@ -239,6 +240,10 @@ select_insn:
- 	ALU64_MOV_K:
- 		DST = IMM;
- 		CONT;
-+	LD_IMM_DW:
-+		DST = (u64) (u32) insn[0].imm | ((u64) (u32) insn[1].imm) << 32;
-+		insn++;
-+		CONT;
- 	ALU64_ARSH_X:
- 		(*(s64 *) &DST) >>= SRC;
- 		CONT;
-diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index 8c66c6aace04..46ab1a7ef135 100644
---- a/lib/test_bpf.c
-+++ b/lib/test_bpf.c
-@@ -1735,6 +1735,27 @@ static struct bpf_test tests[] = {
- 		{ },
- 		{ { 1, 0 } },
- 	},
-+	{
-+		"load 64-bit immediate",
-+		.u.insns_int = {
-+			BPF_LD_IMM64(R1, 0x567800001234L),
-+			BPF_MOV64_REG(R2, R1),
-+			BPF_MOV64_REG(R3, R2),
-+			BPF_ALU64_IMM(BPF_RSH, R2, 32),
-+			BPF_ALU64_IMM(BPF_LSH, R3, 32),
-+			BPF_ALU64_IMM(BPF_RSH, R3, 32),
-+			BPF_ALU64_IMM(BPF_MOV, R0, 0),
-+			BPF_JMP_IMM(BPF_JEQ, R2, 0x5678, 1),
-+			BPF_EXIT_INSN(),
-+			BPF_JMP_IMM(BPF_JEQ, R3, 0x1234, 1),
-+			BPF_EXIT_INSN(),
-+			BPF_ALU64_IMM(BPF_MOV, R0, 1),
-+			BPF_EXIT_INSN(),
-+		},
-+		INTERNAL,
-+		{ },
-+		{ { 0, 1 } }
-+	},
+ enum bpf_map_type {
+ 	BPF_MAP_TYPE_UNSPEC,
++	BPF_MAP_TYPE_HASH,
  };
  
- static struct net_device dev;
+ #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
+index e9f7334ed07a..558e12712ebc 100644
+--- a/kernel/bpf/Makefile
++++ b/kernel/bpf/Makefile
+@@ -1 +1 @@
+-obj-y := core.o syscall.o
++obj-y := core.o syscall.o hashtab.o
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+new file mode 100644
+index 000000000000..3178a6746b92
+--- /dev/null
++++ b/kernel/bpf/hashtab.c
+@@ -0,0 +1,373 @@
++/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ */
++#include <linux/bpf.h>
++#include <net/netlink.h>
++#include <linux/jhash.h>
++
++struct bpf_htab {
++	struct bpf_map map;
++	struct hlist_head *buckets;
++	struct kmem_cache *elem_cache;
++	spinlock_t lock;
++	u32 count; /* number of elements in this hashtable */
++	u32 n_buckets; /* number of hash buckets */
++	u32 elem_size; /* size of each element in bytes */
++};
++
++/* each htab element is struct htab_elem + key + value */
++struct htab_elem {
++	struct hlist_node hash_node;
++	struct rcu_head rcu;
++	struct bpf_htab *htab;
++	u32 hash;
++	u32 pad;
++	char key[0];
++};
++
++#define BPF_MAP_MAX_KEY_SIZE 256
++static struct bpf_map *htab_map_alloc(struct nlattr *attr[BPF_MAP_ATTR_MAX + 1])
++{
++	struct bpf_htab *htab;
++	int err, i;
++
++	htab = kzalloc(sizeof(*htab), GFP_USER);
++	if (!htab)
++		return ERR_PTR(-ENOMEM);
++
++	/* look for mandatory map attributes */
++	err = -EINVAL;
++	if (!attr[BPF_MAP_KEY_SIZE])
++		goto free_htab;
++	htab->map.key_size = nla_get_u32(attr[BPF_MAP_KEY_SIZE]);
++
++	if (!attr[BPF_MAP_VALUE_SIZE])
++		goto free_htab;
++	htab->map.value_size = nla_get_u32(attr[BPF_MAP_VALUE_SIZE]);
++
++	if (!attr[BPF_MAP_MAX_ENTRIES])
++		goto free_htab;
++	htab->map.max_entries = nla_get_u32(attr[BPF_MAP_MAX_ENTRIES]);
++
++	/* check sanity of attributes.
++	 * value_size == 0 is allowed, in this case map is used as a set
++	 */
++	if (htab->map.max_entries == 0 || htab->map.key_size == 0)
++		goto free_htab;
++
++	/* hash table size must be power of 2 */
++	htab->n_buckets = roundup_pow_of_two(htab->map.max_entries);
++
++	err = -E2BIG;
++	if (htab->map.key_size > BPF_MAP_MAX_KEY_SIZE)
++		goto free_htab;
++
++	err = -ENOMEM;
++	htab->buckets = kmalloc_array(htab->n_buckets,
++				      sizeof(struct hlist_head), GFP_USER);
++
++	if (!htab->buckets)
++		goto free_htab;
++
++	for (i = 0; i < htab->n_buckets; i++)
++		INIT_HLIST_HEAD(&htab->buckets[i]);
++
++	spin_lock_init(&htab->lock);
++	htab->count = 0;
++
++	htab->elem_size = sizeof(struct htab_elem) +
++			  round_up(htab->map.key_size, 8) +
++			  htab->map.value_size;
++
++	htab->elem_cache = kmem_cache_create("bpf_htab", htab->elem_size, 0, 0,
++					     NULL);
++	if (!htab->elem_cache)
++		goto free_buckets;
++
++	return &htab->map;
++
++free_buckets:
++	kfree(htab->buckets);
++free_htab:
++	kfree(htab);
++	return ERR_PTR(err);
++}
++
++static inline u32 htab_map_hash(const void *key, u32 key_len)
++{
++	return jhash(key, key_len, 0);
++}
++
++static inline struct hlist_head *select_bucket(struct bpf_htab *htab, u32 hash)
++{
++	return &htab->buckets[hash & (htab->n_buckets - 1)];
++}
++
++static struct htab_elem *lookup_elem_raw(struct hlist_head *head, u32 hash,
++					 void *key, u32 key_size)
++{
++	struct htab_elem *l;
++
++	hlist_for_each_entry_rcu(l, head, hash_node) {
++		if (l->hash == hash && !memcmp(&l->key, key, key_size))
++			return l;
++	}
++	return NULL;
++}
++
++/* Must be called with rcu_read_lock. */
++static void *htab_map_lookup_elem(struct bpf_map *map, void *key)
++{
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++	struct hlist_head *head;
++	struct htab_elem *l;
++	u32 hash, key_size;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	key_size = map->key_size;
++
++	hash = htab_map_hash(key, key_size);
++
++	head = select_bucket(htab, hash);
++
++	l = lookup_elem_raw(head, hash, key, key_size);
++
++	if (l)
++		return l->key + round_up(map->key_size, 8);
++
++	return NULL;
++}
++
++/* Must be called with rcu_read_lock. */
++static int htab_map_get_next_key(struct bpf_map *map, void *key, void *next_key)
++{
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++	struct hlist_head *head;
++	struct htab_elem *l, *next_l;
++	u32 hash, key_size;
++	int i;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	key_size = map->key_size;
++
++	hash = htab_map_hash(key, key_size);
++
++	head = select_bucket(htab, hash);
++
++	/* lookup the key */
++	l = lookup_elem_raw(head, hash, key, key_size);
++
++	if (!l) {
++		i = 0;
++		goto find_first_elem;
++	}
++
++	/* key was found, get next key in the same bucket */
++	next_l = hlist_entry_safe(rcu_dereference_raw(hlist_next_rcu(&l->hash_node)),
++				  struct htab_elem, hash_node);
++
++	if (next_l) {
++		/* if next elem in this hash list is non-zero, just return it */
++		memcpy(next_key, next_l->key, key_size);
++		return 0;
++	}
++
++	/* no more elements in this hash list, go to the next bucket */
++	i = hash & (htab->n_buckets - 1);
++	i++;
++
++find_first_elem:
++	/* iterate over buckets */
++	for (; i < htab->n_buckets; i++) {
++		head = select_bucket(htab, i);
++
++		/* pick first element in the bucket */
++		next_l = hlist_entry_safe(rcu_dereference_raw(hlist_first_rcu(head)),
++					  struct htab_elem, hash_node);
++		if (next_l) {
++			/* if it's not empty, just return it */
++			memcpy(next_key, next_l->key, key_size);
++			return 0;
++		}
++	}
++
++	/* itereated over all buckets and all elements */
++	return -ENOENT;
++}
++
++static struct htab_elem *htab_alloc_elem(struct bpf_htab *htab)
++{
++	void *l;
++
++	l = kmem_cache_alloc(htab->elem_cache, GFP_ATOMIC);
++	if (!l)
++		return ERR_PTR(-ENOMEM);
++	return l;
++}
++
++static void free_htab_elem_rcu(struct rcu_head *rcu)
++{
++	struct htab_elem *l = container_of(rcu, struct htab_elem, rcu);
++
++	kmem_cache_free(l->htab->elem_cache, l);
++}
++
++static void release_htab_elem(struct bpf_htab *htab, struct htab_elem *l)
++{
++	l->htab = htab;
++	call_rcu(&l->rcu, free_htab_elem_rcu);
++}
++
++/* Must be called with rcu_read_lock. */
++static int htab_map_update_elem(struct bpf_map *map, void *key, void *value)
++{
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++	struct htab_elem *l_new, *l_old;
++	struct hlist_head *head;
++	unsigned long flags;
++	u32 key_size;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	l_new = htab_alloc_elem(htab);
++	if (IS_ERR(l_new))
++		return -ENOMEM;
++
++	key_size = map->key_size;
++
++	memcpy(l_new->key, key, key_size);
++	memcpy(l_new->key + round_up(key_size, 8), value, map->value_size);
++
++	l_new->hash = htab_map_hash(l_new->key, key_size);
++
++	/* bpf_map_update_elem() can be called in_irq() as well, so
++	 * spin_lock() or spin_lock_bh() cannot be used
++	 */
++	spin_lock_irqsave(&htab->lock, flags);
++
++	head = select_bucket(htab, l_new->hash);
++
++	l_old = lookup_elem_raw(head, l_new->hash, key, key_size);
++
++	if (!l_old && unlikely(htab->count >= map->max_entries)) {
++		/* if elem with this 'key' doesn't exist and we've reached
++		 * max_entries limit, fail insertion of new elem
++		 */
++		spin_unlock_irqrestore(&htab->lock, flags);
++		kmem_cache_free(htab->elem_cache, l_new);
++		return -EFBIG;
++	}
++
++	/* add new element to the head of the list, so that concurrent
++	 * search will find it before old elem
++	 */
++	hlist_add_head_rcu(&l_new->hash_node, head);
++	if (l_old) {
++		hlist_del_rcu(&l_old->hash_node);
++		release_htab_elem(htab, l_old);
++	} else {
++		htab->count++;
++	}
++	spin_unlock_irqrestore(&htab->lock, flags);
++
++	return 0;
++}
++
++/* Must be called with rcu_read_lock. */
++static int htab_map_delete_elem(struct bpf_map *map, void *key)
++{
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++	struct hlist_head *head;
++	struct htab_elem *l;
++	unsigned long flags;
++	u32 hash, key_size;
++	int ret = -ESRCH;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	key_size = map->key_size;
++
++	hash = htab_map_hash(key, key_size);
++
++	spin_lock_irqsave(&htab->lock, flags);
++
++	head = select_bucket(htab, hash);
++
++	l = lookup_elem_raw(head, hash, key, key_size);
++
++	if (l) {
++		hlist_del_rcu(&l->hash_node);
++		htab->count--;
++		release_htab_elem(htab, l);
++		ret = 0;
++	}
++
++	spin_unlock_irqrestore(&htab->lock, flags);
++	return ret;
++}
++
++static void delete_all_elements(struct bpf_htab *htab)
++{
++	int i;
++
++	for (i = 0; i < htab->n_buckets; i++) {
++		struct hlist_head *head = select_bucket(htab, i);
++		struct hlist_node *n;
++		struct htab_elem *l;
++
++		hlist_for_each_entry_safe(l, n, head, hash_node) {
++			hlist_del_rcu(&l->hash_node);
++			htab->count--;
++			kmem_cache_free(htab->elem_cache, l);
++		}
++	}
++}
++
++/* called when map->refcnt goes to zero */
++static void htab_map_free(struct bpf_map *map)
++{
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++
++	/* wait for all outstanding updates to complete */
++	synchronize_rcu();
++
++	/* kmem_cache_free all htab elements */
++	delete_all_elements(htab);
++
++	/* and destroy cache, which might sleep */
++	kmem_cache_destroy(htab->elem_cache);
++
++	kfree(htab->buckets);
++	kfree(htab);
++}
++
++static struct bpf_map_ops htab_ops = {
++	.map_alloc = htab_map_alloc,
++	.map_free = htab_map_free,
++	.map_get_next_key = htab_map_get_next_key,
++	.map_lookup_elem = htab_map_lookup_elem,
++	.map_update_elem = htab_map_update_elem,
++	.map_delete_elem = htab_map_delete_elem,
++};
++
++static struct bpf_map_type_list tl = {
++	.ops = &htab_ops,
++	.type = BPF_MAP_TYPE_HASH,
++};
++
++static int __init register_htab_map(void)
++{
++	bpf_register_map_type(&tl);
++	return 0;
++}
++late_initcall(register_htab_map);
 -- 
 1.7.9.5
