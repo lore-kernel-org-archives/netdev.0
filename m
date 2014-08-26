@@ -1,92 +1,143 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] net: stmmac: add dcrs parameter
-Date: Tue, 26 Aug 2014 07:38:48 +0200
-Message-ID: <53FC1D68.1000600@st.com>
-References: <1408967442-2724-1-git-send-email-lftan@altera.com>	<CAGb2v65fi=D_TQBSospft4T5OrBCj5TwQfgtkX=11M8TWFftYg@mail.gmail.com>	<53FB313C.9010808@st.com> <CAOwfj2Oyy8EGxPhgJcgeGPMm3tJ9-fGOh5h7jU8q4_BO=vWrTA@mail.gmail.com>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git)] stmmac: ptp: fix the reference clock
+Date: Tue, 26 Aug 2014 08:04:32 +0200
+Message-ID: <1409033072-10508-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Chen-Yu Tsai <wens@csie.org>, Ley Foon Tan <lftan@altera.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, <lftan.linux@gmail.com>,
-	Vince Bridgers <vbridger@altera.com>
-To: Vince Bridgers <vbridgers2013@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOwfj2Oyy8EGxPhgJcgeGPMm3tJ9-fGOh5h7jU8q4_BO=vWrTA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:42112 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750796AbaHZGEj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 02:04:39 -0400
+Received: from pps.filterd (m0046670.ppops.net [127.0.0.1])
+	by mx07-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id s7Q60DqX006039
+	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 08:04:37 +0200
+Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
+	by mx07-00178001.pphosted.com with ESMTP id 1p0hrgrqxt-1
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 08:04:37 +0200
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 40F3631
+	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 06:04:27 +0000 (GMT)
+Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 6AB5D15F7A
+	for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 06:04:35 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8/25/2014 5:10 PM, Vince Bridgers wrote:
-> Hi,
->
-> On Mon, Aug 25, 2014 at 7:51 AM, Giuseppe CAVALLARO
-> <peppe.cavallaro@st.com> wrote:
->> On 8/25/2014 2:34 PM, Chen-Yu Tsai wrote:
->>>
->>> Hi,
->>>
->>> On Mon, Aug 25, 2014 at 7:50 PM, Ley Foon Tan <lftan@altera.com> wrote:
->>>>
->>>> This patch add the option to enable DCRS bit in GMAC control register.
->>>> Default is disabled if snps,dcrs is not defined.
->>>>
->>>> For MII, Carrier Sense (CRS) must be asserted during transmission
->>>> whereas in RGMII, CRS is not. RGMII does not provide a way to signal
->>>> loss of carrier during a transmission.
->
-> While technically true, from a practical point of view, this is only
-> useful if using true half-duplex media (like the now obsolete 10Base2
-> and 10Base5 - think old school coax with vampire taps).
->
->>>>
->>>> When DCRS bit set high in control register, the MAC transmitter
->>>> ignore the (G)MII Carrier Sense signal during frame transmission
->>>> in the half-duplex mode. This request results in no errors generated
->>>> because of Loss of Carrier or No Carrier during such transmission.
->>>>
->>>> Signed-off-by: Ley Foon Tan <lftan@altera.com>
->>>> ---
->
-> <snip>
->
->>>
->>> Since you know this is only required under (G)MII, could you not re-use
->>> the "phy-mode" property, instead of adding another one?
->>>
->>> Better yet, use the "interface" field in the platform data. This way
->>> you'll
->>> fix non-DT devices as well. You could then avoid touching the platform
->>> driver,
->>> and just modify the driver core.
->>
->>
->> yes this is what I asked. Thx ChenYu for the this detail.
->> Ley Foon Tan, could you do that? Let me know
->>
->> peppe
->>
->>
->
-> In the Synopsys EMAC case, carrier sense is used to stop transmitting
-> if no carrier is sensed during a transmission. This is only useful if
-> the media in use is true half duplex media (like obsolete 10Base2 or
-> 10Base5). If no one in using true half duplex media, then is it
-> possible to set this disable by default? If we're not sure, then
-> having an option feels like the right thing to do.
+The PTP reference clock, used for setting the addend in the Timestamp Addend
+Register, was erroneously hard-coded (as reported in the databook just as
+example).
 
-Indeed this is what I had done in the patch.
+The patch removes the macro named: STMMAC_SYSCLOCK and allows to use a
+reference clock (clk_ptp_ref_i) that can be passed from the platform.
 
-http://git.stlinux.com/?p=stm/linux-sh4-2.6.32.y.git;a=commit;h=b0b863bf65c36dc593f6b7b4b418394fd880dae2
+If not passed, the main driver clock will be used as default; note that
+this can be fine on some platforms.
 
-Also in case of carrier sense the frame will be dropped in any case
-later.
+Note that, prior this patch, using the old STMMAC_SYSCLOCK on some platforms,
+as side effect, the ptp clock can move faster/slower than the system clock.
 
-Let me know if you Acked this patch so I will rebase it on
-net.git and I send it soon
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ Documentation/devicetree/bindings/net/stmmac.txt  |    4 ++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    2 ++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   19 +++++++++++++++----
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h  |    2 --
+ 4 files changed, 21 insertions(+), 6 deletions(-)
 
-peppe
-
->
-> Vince
->
+diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+index 9b03c57..eeed4e30 100644
+--- a/Documentation/devicetree/bindings/net/stmmac.txt
++++ b/Documentation/devicetree/bindings/net/stmmac.txt
+@@ -39,6 +39,10 @@ Optional properties:
+   further clocks may be specified in derived bindings.
+ - clock-names: One name for each entry in the clocks property, the
+   first one should be "stmmaceth".
++- clk_ptp_ref: this is the PTP reference clock; in case of the PTP is
++  available this clock is used for programming the Timestamp Addend Register.
++  If not passed then the system clock will be used and this is fine on some
++  platforms.
+ 
+ Examples:
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index ca01035..128a0b7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -105,6 +105,8 @@ struct stmmac_priv {
+ 	struct ptp_clock *ptp_clock;
+ 	struct ptp_clock_info ptp_clock_ops;
+ 	unsigned int default_addend;
++	struct clk *clk_ptp_ref;
++	unsigned int clk_ptp_rate;
+ 	u32 adv_ts;
+ 	int use_riwt;
+ 	int irq_wake;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 51a89d4..8dbd9c0 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -603,16 +603,16 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
+ 		/* calculate default added value:
+ 		 * formula is :
+ 		 * addend = (2^32)/freq_div_ratio;
+-		 * where, freq_div_ratio = STMMAC_SYSCLOCK/50MHz
+-		 * hence, addend = ((2^32) * 50MHz)/STMMAC_SYSCLOCK;
+-		 * NOTE: STMMAC_SYSCLOCK should be >= 50MHz to
++		 * where, freq_div_ratio = clk_ptp_ref_i/50MHz
++		 * hence, addend = ((2^32) * 50MHz)/clk_ptp_ref_i;
++		 * NOTE: clk_ptp_ref_i should be >= 50MHz to
+ 		 *       achive 20ns accuracy.
+ 		 *
+ 		 * 2^x * y == (y << x), hence
+ 		 * 2^32 * 50000000 ==> (50000000 << 32)
+ 		 */
+ 		temp = (u64) (50000000ULL << 32);
+-		priv->default_addend = div_u64(temp, STMMAC_SYSCLOCK);
++		priv->default_addend = div_u64(temp, priv->clk_ptp_rate);
+ 		priv->hw->ptp->config_addend(priv->ioaddr,
+ 					     priv->default_addend);
+ 
+@@ -638,6 +638,15 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
+ 	if (!(priv->dma_cap.time_stamp || priv->dma_cap.atime_stamp))
+ 		return -EOPNOTSUPP;
+ 
++	/* Fall-back to main clock in case of no PTP ref is passed */
++	priv->clk_ptp_ref = devm_clk_get(priv->device, "clk_ptp_ref");
++	if (IS_ERR(priv->clk_ptp_ref)) {
++		priv->clk_ptp_rate = clk_get_rate(priv->stmmac_clk);
++	} else {
++		clk_prepare_enable(priv->clk_ptp_ref);
++		priv->clk_ptp_rate = clk_get_rate(priv->clk_ptp_ref);
++	}
++
+ 	priv->adv_ts = 0;
+ 	if (priv->dma_cap.atime_stamp && priv->extend_desc)
+ 		priv->adv_ts = 1;
+@@ -657,6 +666,8 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
+ 
+ static void stmmac_release_ptp(struct stmmac_priv *priv)
+ {
++	if (priv->clk_ptp_ref)
++		clk_disable_unprepare(priv->clk_ptp_ref);
+ 	stmmac_ptp_unregister(priv);
+ }
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
+index 3dbc047..4535df3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
+@@ -25,8 +25,6 @@
+ #ifndef __STMMAC_PTP_H__
+ #define __STMMAC_PTP_H__
+ 
+-#define STMMAC_SYSCLOCK 62500000
+-
+ /* IEEE 1588 PTP register offsets */
+ #define PTP_TCR		0x0700	/* Timestamp Control Reg */
+ #define PTP_SSIR	0x0704	/* Sub-Second Increment Reg */
+-- 
+1.7.4.4
