@@ -1,97 +1,105 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/11] i40e: Add a FD flush counter to ethtool
-Date: Wed, 27 Aug 2014 02:26:39 -0700
-Message-ID: <1409131606-15011-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:64375 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932797AbaH0J0x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2014 05:26:53 -0400
-In-Reply-To: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sitsofe Wheeler <sitsofe@gmail.com>
+Subject: Re: [hyperv] BUG at drivers/hv/channel.c:462 while changing MTU
+Date: Wed, 27 Aug 2014 10:33:05 +0100
+Message-ID: <20140827093305.GB1827@sucs.org>
+References: <20140819123655.GC12160@sucs.org> <20140825093648.GB5046@mwanda>
+ <20140825214303.GA32390@sucs.org>
+ <d282e41ecdb54a2ab3012a3471f649f3@BY2PR0301MB0711.namprd03.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ Jason Wang <jasowang@redhat.com>, Haiyang Zhang <haiyangz@microsoft.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Daniel Borkmann <dborkman@redhat.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "David S. Miller" <davem@davemloft.net>,
+ Dan Carpenter <dan.carpenter@oracle.com>
+To: KY Srinivasan <kys@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <d282e41ecdb54a2ab3012a3471f649f3@BY2PR0301MB0711.namprd03.prod.outlook.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+On Mon, Aug 25, 2014 at 09:48:31PM +0000, KY Srinivasan wrote:
+> 
+> > There is also a case of the BUG_ON at line 460 being hit (from
+> > https://lkml.org/lkml/2014/8/19/708 ):
+> > 
+> > 457        ret = vmbus_post_msg(msg,
+> > 458                                       sizeof(struct vmbus_channel_gpadl_teardown));
+> > 459
+> > 460        BUG_ON(ret != 0);
+> 
+> I will take care of all BUG_ON() instances in channel.c
 
-This helps know how many times the interface had to flush and replay FD
-filter table, which gives an indication on how often we are getting FD
-table full situation.
+Running a kernel patched with "Drivers: hv: vmbus: Eliminate calls to
+BUG_ON()" boots but repeatedly changing the MTU with the following script now
+results in a GPF in netvsc_open:
 
-Also check on certain pf states before proceeding to add or delete
-filters since we can't add or delete filters if we are in those states.
+dev=eth1; while true; do ifconfig eth1 down; ifconfig eth1 mtu 1500; ifconfig eth1 up; ifconfig eth1 mtu 9000; done
 
-Change-ID: I97f5bbbea7146833ea61af0e08ea794fccba1780
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h         | 1 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 9 +++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 1 +
- 3 files changed, 11 insertions(+)
+[   58.031328] hv_netvsc vmbus_0_15: net device safe to remove
+[   58.083975] hv_netvsc: hv_netvsc channel opened successfully
+[   58.973625] hv_netvsc vmbus_0_15: Send section size: 6144, Section count:2560
+[   59.030456] hv_netvsc vmbus_0_15: Device MAC 00:15:5d:6f:02:a5 link state up
+[   59.142723] hv_netvsc vmbus_0_15: net device safe to remove
+[   59.184701] hv_netvsc: hv_netvsc channel opened successfully
+[   59.867690] hv_netvsc vmbus_0_15: Send section size: 6144, Section count:2560
+[   59.919317] hv_netvsc vmbus_0_15: Device MAC 00:15:5d:6f:02:a5 link state up
+[   59.988054] hv_netvsc vmbus_0_15 eth1: unable to teardown receive buffer's gpadl
+[   60.038752] hv_netvsc vmbus_0_15: net device safe to remove
+[   60.070163] hv_vmbus: Close failed: close post msg return is 4
+[   60.121381] hv_vmbus: Close failed: close post msg return is 4
+[   60.157974] hv_vmbus: Close failed: close post msg return is 4
+[   60.190205] hv_vmbus: Close failed: close post msg return is 4
+[   60.232070] hv_vmbus: Close failed: close post msg return is 4
+[   65.275820] hv_netvsc vmbus_0_15 eth1: unable to open channel: -110
+[   65.325009] general protection fault: 0000 [#1] SMP
+[   65.356804] CPU: 7 PID: 852 Comm: ifconfig Not tainted 3.17.0-rc1.x86_64-dirty #127
+[   65.356804] Hardware name: Microsoft Corporation Virtual Machine/Virtual Machine, BIOS 090006  05/23/2012
+[   65.356804] task: ffff8800f268b9f0 ti: ffff8800eed38000 task.ti: ffff8800eed38000
+[   65.356804] RIP: 0010:[<ffffffff814e9fff>]  [<ffffffff814e9fff>] rndis_filter_open+0x1f/0x60
+[   65.356804] RSP: 0018:ffff8800eed3bd28  EFLAGS: 00010246
+[   65.356804] RAX: 0000000000000000 RBX: 6b6b6b6b6b6b6b6b RCX: 0000000000000006
+[   65.356804] RDX: 0000000000000006 RSI: ffff8800f268c130 RDI: ffff8801fbb8d480
+[   65.356804] RBP: ffff8800eed3bd30 R08: 0000000000000000 R09: 0000000000000000
+[   65.356804] R10: 0000000000000001 R11: 0000000000000001 R12: ffff8801fbb8d480
+[   65.356804] R13: 0000000000000000 R14: 0000000000000000 R15: 0000000000000001
+[   65.356804] FS:  00007fdfdbf94740(0000) GS:ffff880207ce0000(0000) knlGS:0000000000000000
+[   65.356804] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   65.356804] CR2: 00007fdfdc1b51c4 CR3: 00000000ec53b000 CR4: 00000000000406e0
+[   65.356804] Stack:
+[   65.356804]  ffff8800f1021160 ffff8800eed3bd58 ffffffff814e6515 ffff8800f1021160
+[   65.356804]  ffffffff8188f980 0000000000000000 ffff8800eed3bd80 ffffffff815d0998
+[   65.356804]  ffff8800f1021160 ffff8800f1021160 0000000000001043 ffff8800eed3bdb8
+[   65.356804] Call Trace:
+[   65.356804]  [<ffffffff814e6515>] netvsc_open+0x25/0xb0
+[   65.356804]  [<ffffffff815d0998>] __dev_open+0x98/0x110
+[   65.356804]  [<ffffffff815d0c99>] __dev_change_flags+0xb9/0x160
+[   65.356804]  [<ffffffff815d0d69>] dev_change_flags+0x29/0x60
+[   65.356804]  [<ffffffff81641b6b>] devinet_ioctl+0x31b/0x6f0
+[   65.356804]  [<ffffffff81642c4d>] inet_ioctl+0x6d/0xa0
+[   65.356804]  [<ffffffff815b27c0>] sock_ioctl+0x1e0/0x210
+[   65.356804]  [<ffffffff811d4dc0>] do_vfs_ioctl+0x4d0/0x510
+[   65.356804]  [<ffffffff816a2d55>] ? sysret_check+0x22/0x5d
+[   65.356804]  [<ffffffff810b976d>] ? trace_hardirqs_on_caller+0x17d/0x210
+[   65.356804]  [<ffffffff811d4e53>] SyS_ioctl+0x53/0x90
+[   65.356804]  [<ffffffff816a2d29>] system_call_fastpath+0x16/0x1b
+[   65.356804] Code: 41 5e 41 5f 5d c3 66 0f 1f 44 00 00 66 66 66 66 90 48 8b 87 20 01 00 00 48 85 c0 74 2f 55 48 89 e5 53 48 8b 98 40 02 00 00 31 c0 <83> 7b 08 02 75 2b be 0d 00 00 00 48 89 df e8 9e f9 ff ff 85 c0
+[   65.356804] RIP  [<ffffffff814e9fff>] rndis_filter_open+0x1f/0x60
+[   65.356804]  RSP <ffff8800eed3bd28>
+[   66.789324] ---[ end trace 1b6075f9340eb5bc ]---
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 0c6a9b9..8526950 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -252,6 +252,7 @@ struct i40e_pf {
- 	u16 fd_sb_cnt_idx;
- 	u16 fd_atr_cnt_idx;
- 	unsigned long fd_flush_timestamp;
-+	u32 fd_flush_cnt;
- 	u32 fd_add_err;
- 	u32 fd_atr_cnt;
- 	u32 fd_tcp_rule;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 7204e29..571d527 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -145,6 +145,7 @@ static struct i40e_stats i40e_gstrings_stats[] = {
- 	I40E_PF_STAT("rx_jabber", stats.rx_jabber),
- 	I40E_PF_STAT("VF_admin_queue_requests", vf_aq_requests),
- 	I40E_PF_STAT("rx_hwtstamp_cleared", rx_hwtstamp_cleared),
-+	I40E_PF_STAT("fdir_flush_cnt", fd_flush_cnt),
- 	I40E_PF_STAT("fdir_atr_match", stats.fd_atr_match),
- 	I40E_PF_STAT("fdir_sb_match", stats.fd_sb_match),
- 
-@@ -1977,6 +1978,10 @@ static int i40e_del_fdir_entry(struct i40e_vsi *vsi,
- 	struct i40e_pf *pf = vsi->back;
- 	int ret = 0;
- 
-+	if (test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state) ||
-+	    test_bit(__I40E_RESET_INTR_RECEIVED, &pf->state))
-+		return -EBUSY;
-+
- 	if (test_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state))
- 		return -EBUSY;
- 
-@@ -2013,6 +2018,10 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
- 	if (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED)
- 		return -ENOSPC;
- 
-+	if (test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state) ||
-+	    test_bit(__I40E_RESET_INTR_RECEIVED, &pf->state))
-+		return -EBUSY;
-+
- 	if (test_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state))
- 		return -EBUSY;
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index cab9c9e..712a23b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5189,6 +5189,7 @@ static void i40e_fdir_flush_and_replay(struct i40e_pf *pf)
- 		wr32(&pf->hw, I40E_PFQF_CTL_1,
- 		     I40E_PFQF_CTL_1_CLEARFDTABLE_MASK);
- 		i40e_flush(&pf->hw);
-+		pf->fd_flush_cnt++;
- 		pf->fd_add_err = 0;
- 		do {
- 			/* Check FD flush status every 5-6msec */
 -- 
-1.9.3
+Sitsofe | http://sucs.org/~sits/
