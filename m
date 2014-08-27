@@ -1,46 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/2] Get rid of ndo_xmit_flush
-Date: Wed, 27 Aug 2014 07:09:35 -0700
-Message-ID: <1409148575.3173.47.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140825.163458.1117073971092495452.davem@davemloft.net>
-	 <1409142672.26515.24.camel@localhost>
-	 <1409145838.3173.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140827155651.04fe49d0@redhat.com>
+From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+Subject: [PATCH] bonding: bond_alb: Replace rcu_dereference() with
+ rcu_access_pointer()
+Date: Wed, 27 Aug 2014 17:18:27 +0300
+Message-ID: <20140827141827.GA11520@ada>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	therbert@google.com, jhs@mojatatu.com, edumazet@google.com,
-	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au,
-	dborkman@redhat.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: paulmck@linux.vnet.ibm.com
+To: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:53091 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934415AbaH0OJl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 10:09:41 -0400
-Received: by mail-pa0-f50.google.com with SMTP id et14so344553pad.37
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 07:09:38 -0700 (PDT)
-In-Reply-To: <20140827155651.04fe49d0@redhat.com>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:41191 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934828AbaH0OSj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 10:18:39 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-08-27 at 15:56 +0200, Jesper Dangaard Brouer wrote:
+The "curr_active_slave" local variable obtained through the rcu_dereference()
+call it is not dereferenced in the rest of the function.
+Therefore, it is recommended to use rcu_access_pointer() instead of
+rcu_dereference().
+This patch makes the replacement.
 
-> I do worry a bit, if writing skb->xmit_more in a more cache cold
-> scenarios could hurt us (as that cacheline seems to be read mostly),
-> but this is not a problem right now because it will always be cache
-> hot, as we always clear the entire SKB in alloc.
-> 
+The first step to detect this was made with the following Coccinelle semantic
+patch:
+@@
+identifier p;
+@@
 
+* p = rcu_dereference(...)
+... when any
+    when != p
+(
+* if( (<+...p...+>) ) { ... }
+|
+* while( (<+...p...+>) ) { ... }
+)
+... when != p
 
-Yes, but many of us use things like TCP stack and thousand of packets
-sitting in a possibly complex qdisc hierarchy before hitting the
-device ;)
+After the analysis of the output, the change was made manually.
 
-In these situations, skb is dirtied at TX completion time, but not in
-ndo_start_xmit() (where its only read)
+Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+---
+ drivers/net/bonding/bond_alb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-In the (qdisc->dequeue() -> ndo_start_xmit()) stage, only the first
-cache line of skb is typically dirtied.
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 1319c5b..6621ac2 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -659,7 +659,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 
+ 	_lock_rx_hashtbl(bond);
+ 
+-	curr_active_slave = rcu_dereference(bond->curr_active_slave);
++	curr_active_slave = rcu_access_pointer(bond->curr_active_slave);
+ 
+ 	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
+ 	client_info = &(bond_info->rx_hashtbl[hash_index]);
+-- 
+1.9.1
