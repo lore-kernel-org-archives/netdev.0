@@ -1,99 +1,33 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Wed, 27 Aug 2014 14:02:57 +0400
-Message-ID: <53FDACD1.8090805@msgid.tls.msk.ru>
-References: <52BDE9DC.5040206@msgid.tls.msk.ru> <52BE9CF9.7030305@broadcom.com> <52BEC2F6.7010505@msgid.tls.msk.ru> <52D4FC8B.6090301@msgid.tls.msk.ru> <52F925A9.1030707@msgid.tls.msk.ru> <53526124.6050407@msgid.tls.msk.ru> <53FC1789.6020407@msgid.tls.msk.ru> <53FCA001.6090404@broadcom.com> <53FCB2A3.1050605@msgid.tls.msk.ru> <53FCFE1A.3060508@broadcom.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH] mac80211: Replace rcu_dereference() with
+ rcu_access_pointer()
+Date: Wed, 27 Aug 2014 12:14:23 +0200
+Message-ID: <1409134463.2505.6.camel@jlt4.sipsolutions.net>
+References: <20140817131801.GA24286@ada>
+	 (sfid-20140817_151809_334504_0D1A926E)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: brcm80211-dev-list@broadcom.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([86.62.121.231]:60849 "EHLO isrv.corpit.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755288AbaH0KDA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2014 06:03:00 -0400
-In-Reply-To: <53FCFE1A.3060508@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+To: Andreea-Cristina Bernat <bernat.ada-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140817131801.GA24286@ada> (sfid-20140817_151809_334504_0D1A926E)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-27.08.2014 01:37, Arend van Spriel wrote:
-> On 08/26/14 18:15, Michael Tokarev wrote:
-[]
-> Well, sorry about that. I did see the other messages fly by and noticed you were using the wl driver so assumed you were fine with that.
+On Sun, 2014-08-17 at 16:18 +0300, Andreea-Cristina Bernat wrote:
+> The "rcu_dereference()" calls are used directly in conditions.
+> Since their return values are never dereferenced it is recommended to
+> use "rcu_access_pointer()" instead of "rcu_dereference()".
+> Therefore, this patch makes the replacements.
 
-That's past already.  I had several issues with wl driver,
-and current issue is that even the latest (Aug-2014) version
-of wl driver doesn't work with current kernel.  So I can't
-really even compare wl and brcmsmac, -- in kernels < 3.16
-brcmsmac does not work, but wl can't be compiled for 3.16,
-and using different kernels for comparison is a bit wrong
-because there may be differences in other areas.
+Applied, thanks.
 
->    Admittedly the brcmsmac got very little attention as all our resources were put on brcmfmac.
+johannes
 
-That happens. :)
-
-[]
-> Ok. Let's put frustration aside and make an effort. So could you make a trace using trace-cmd utility. The log can get quite big. The brcmsmac driver needs to be built with CONFIG_BRCM_TRACING enabled. Please execute the following commands (assuming you use ubuntu with network-manager):
-> 
-> $ sudo stop network-manager
-> $ sudo insmod brcmfmac.ko
-> $ sudo trace-cmd record -e brcmsmac:*
-> 
-> In another terminal:
-> 
-> $ sudo start network-manager
-> 
-> The trace-cmd must be stopped using ctrl-c.
-
-Okay.  This turned out to be not so simple.
-
-My initial attempt indicated that brcmsmac in 3.16 does
-not work at all.  This isn't actually true - subsequent
-attempts shows that it works.  I was ready to conclude
-the problem is fixed (after transferring several gigs
-of data over wifi, with tracing enabled or disabled,
-after fresh boot or after reboot from wl-enabled kernel,
-etc - it all worked.
-
-Until I hit the same stall as I described initially, the
-same which happened numerous times with kernel 3.12 ($subj).
-
-After several mins of transferring it stalled.  But this
-time (unlike with 3.12), it continued after about 30 secs.
-
-So, while my initial test of 3.16 indicated the prob is still
-here, at the same (or even worse) state, I can't really
-reproduce it, at least in a reliable way.  There's something
-wrong still, but at least current version is significantly
-more useful than before (in a hope it wont stall at the
-very wrong moment exactly ;).
-
-There's one more difference between brcmsmac and wl -- with
-wl, I see significantly better speed, -- it is about 5MB/sec,
-while with brcmsmac it jumps between 2.0..4.5MB/sec (with
-58..65Mbps connection rate in both cases).  Here's a typical
-iwconfig output for brcmsmac version:
-
-wlan0     IEEE 802.11bgn  ESSID:"mjt"
-          Mode:Managed  Frequency:2.412 GHz  Access Point: 64:70:02:29:D9:30
-          Bit Rate=65 Mb/s   Tx-Power=19 dBm
-          Retry short limit:7   RTS thr:off   Fragment thr:off
-          Power Management:off
-          Link Quality=58/70  Signal level=-61 dBm
-          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
-          Tx excessive retries:56355  Invalid misc:472   Missed beacon:0
-
-I'll keep trying/testing various cases, in attempt to
-understand what's going on.  For now, I can't provide the
-requested traces (it wont be very useful, I guess).
-
-BTW, are there other things not implemented in brcmsmac?
-I see the module reminds about power management, what
-does it mean?  Anything else missing?
-
-Thank you!
-
-/mjt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
