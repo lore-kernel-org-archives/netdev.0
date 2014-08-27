@@ -1,79 +1,124 @@
-From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
-Subject: Re: [PATCH v2] ethernet: arc: Add support for Rockchip SoC layer device tree bindings
-Date: Wed, 27 Aug 2014 22:19:22 +0200
-Message-ID: <33554745.SgNonHnYhV@diego>
-References: <1409122527-17673-1-git-send-email-romain.perier@gmail.com> <3619843.a6HHkMsuOu@wuerfel>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: Sending undersized ARP packets with VXLAN L3 interface
+Date: Wed, 27 Aug 2014 16:23:56 -0400
+Message-ID: <53FE3E5C.8020804@gmail.com>
+References: <CAMYYbY79hOVA5b22-gmLJTNQwprdfwa_QxKqveuwNhJMcXv9tA@mail.gmail.com>	<CAHA+R7Ok6K_9U6RCZkSLCuVXtFG4Zs60FQKFZMu-v2yK581hog@mail.gmail.com>	<53FE1AC3.5030409@gmail.com>	<20140827114209.3a9d3761@urahara>	<53FE2738.30702@gmail.com> <CAMYYbY4KHTkkv6peT14S8mCzcQJ8wROnHWj5tMy563H-w79KMg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Romain Perier <romain.perier@gmail.com>,
-	linux-rockchip@lists.infradead.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Cong Wang <cwang@twopensource.com>,
+	netdev <netdev@vger.kernel.org>
+To: Martin Rusko <martin.rusko@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gloria.sntech.de ([95.129.55.99]:59833 "EHLO gloria.sntech.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935713AbaH0URY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2014 16:17:24 -0400
-In-Reply-To: <3619843.a6HHkMsuOu@wuerfel>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:37885 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935598AbaH0UYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 16:24:05 -0400
+Received: by mail-qc0-f174.google.com with SMTP id l6so918751qcy.19
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 13:24:00 -0700 (PDT)
+In-Reply-To: <CAMYYbY4KHTkkv6peT14S8mCzcQJ8wROnHWj5tMy563H-w79KMg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Mittwoch, 27. August 2014, 22:11:29 schrieb Arnd Bergmann:
-> On Wednesday 27 August 2014 06:55:27 Romain Perier wrote:
-> > This patch defines a platform glue layer for Rockchip SoCs which
-> > support arc-emac driver. It ensures that regulator for the rmii is on
-> > before trying to connect to the ethernet controller. It applies right
-> > speed and mode changes to the grf when ethernet settings change.
-> > 
-> > Signed-off-by: Romain Perier <romain.perier@gmail.com>
-> > ---
-> > 
-> >  drivers/net/ethernet/arc/Kconfig         |  15 +++
-> >  drivers/net/ethernet/arc/Makefile        |   1 +
-> >  drivers/net/ethernet/arc/emac.h          |   2 +
-> >  drivers/net/ethernet/arc/emac_main.c     |   2 +
-> >  drivers/net/ethernet/arc/emac_rockchip.c | 224
-> >  +++++++++++++++++++++++++++++++ 5 files changed, 244 insertions(+)
-> >  create mode 100644 drivers/net/ethernet/arc/emac_rockchip.c
-> > 
-> > diff --git a/drivers/net/ethernet/arc/Kconfig
-> > b/drivers/net/ethernet/arc/Kconfig index 89e04fd..6d96a82 100644
-> > --- a/drivers/net/ethernet/arc/Kconfig
-> > +++ b/drivers/net/ethernet/arc/Kconfig
-> > @@ -32,4 +32,19 @@ config ARC_EMAC
-> > 
-> >  	  non-standard on-chip ethernet device ARC EMAC 10/100 is used.
-> >  	  Say Y here if you have such a board.  If unsure, say N.
-> > 
-> > +config EMAC_ROCKCHIP
-> > +       tristate "Rockchip EMAC support"
-> > +       select ARC_EMAC_CORE
-> > +       depends on OF_IRQ
-> > +       depends on OF_NET
-> > +       depends on ARCH_ROCKCHIP
-> > +       depends on REGULATOR_ACT8865
-> > +       depends on SMSC_PHY
-> > +       depends on MFD_SYSCON
+On 08/27/2014 04:01 PM, Martin Rusko wrote:
+> On Wed, Aug 27, 2014 at 8:45 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
+>> On 08/27/2014 02:42 PM, Stephen Hemminger wrote:
+>>> On Wed, 27 Aug 2014 13:52:03 -0400
+>>> Vlad Yasevich <vyasevich@gmail.com> wrote:
+>>>
+>>>> On 08/27/2014 01:28 PM, Cong Wang wrote:
+>>>>> On Wed, Aug 27, 2014 at 10:06 AM, Martin Rusko <martin.rusko@gmail.com> wrote:
+>>>>>>
+>>>>>> I'm wondering, where is the proper place to fix this. Should
+>>>>>> arp_create() function allocate skb big enough to produce ethernet
+>>>>>> frame with at least minimum size? Or is it somewhere in NIC drivers
+>>>>>> where small packets are padded with zeros?
+>>>>>
+>>>>> Drivers do that, for example e1000:
+>>>>>
+>>>>>         /* On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
+>>>>>          * packets may get corrupted during padding by HW.
+>>>>>          * To WA this issue, pad all small packets manually.
+>>>>>          */
+>>>>>         if (skb->len < ETH_ZLEN) {
+>>>>>                 if (skb_pad(skb, ETH_ZLEN - skb->len))
+>>>>>                         return NETDEV_TX_OK;
+>>>>>                 skb->len = ETH_ZLEN;
+>>>>>                 skb_set_tail_pointer(skb, ETH_ZLEN);
+>>>>>         }
+>>>>
+>>>>
+>>>> I think vxlan needs something like this:
+>>>>
+>>>> From: Vladislav Yasevich <vyasevich@gmail.com>
+>>>> Date: Wed, 27 Aug 2014 13:39:32 -0400
+>>>> Subject: [PATCH] vxlan: Pad short ethernet frames.
+>>>>
+>>>> If sending short ethernet frames from the vxlan device, pad
+>>>> them to minimum size so they can be forwarded after decapsulation.
+>>>>
+>>>> Reported-by: Martin Rusko <martin.rusko@gmail.com>
+>>>> Signed-off-by: Vladislav Yasevich <vyasevich@gmail.com>
+>>>> ---
+>>>>  drivers/net/vxlan.c | 8 ++++++++
+>>>>  1 file changed, 8 insertions(+)
+>>>>
+>>>> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+>>>> index 1fb7b37..48267d4 100644
+>>>> --- a/drivers/net/vxlan.c
+>>>> +++ b/drivers/net/vxlan.c
+>>>> @@ -1939,6 +1939,14 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct
+>>>> net_device *dev)
+>>>>  #endif
+>>>>      }
+>>>>
+>>>> +    /* Pad short frames so they can be forwarded after decapsulation */
+>>>> +    if (skb->len < ETH_ZLEN) {
+>>>> +            if (skb_pad(skb, ETH_ZLEN - skb->len))
+>>>> +                    return NETDEV_TX_OK;
+>>>> +            skb->len = ETH_ZLEN;
+>>>> +            skb_set_tail_pointer(skb, ETH_ZLEN);
+>>>> +    }
+>>>> +
+>>>>      f = vxlan_find_mac(vxlan, eth->h_dest);
+>>>>      did_rsc = false;
+>>>>
+>>>
+>>> No. The short frame is perfectly valid, over the VXLAN.
+>>> The system doing the decap and forwarding should be where any padding is added if necessary.
+>>>
 > 
-> You should generally not add 'depends on' for specific drivers out
-> of a subsystems. Just list the build-time dependencies, like
+> Well, RFC 7348 is not dealing with padding at all. Both deployment
+> scenarios listed in RFC, as well as most of the existing real life
+> deployments today (in my opinion) use VXLAN for bridged traffic. In
+> other words, frame encapsulated by VTEP is received first over some
+> ethernet interface (physical or virtual) which implies that the frame
+> is at least 64 bytes long already.
 > 
-> 	depends on OF_IRQ && OF_NET && PHYLIB && REGULATOR && MFD_SYSCON
-
-in this case even MFD_SYSCON can go away, as the syscon functions provide 
-stubs for !MFD_SYSCON .
-
-
-[...]
-
-> > +	rate = 50000000;
+> Perhaps we're going to see more VXLAN interfaces in L3 mode, yet it
+> might be safer not to count on receiving VTEP doing the right thing
+> (pad small packets with zeros).
 > 
-> Where does this number come from?
+>>
+>> If that's the case, then Martin is most likely seeing a HW bug on the switch.
+>> I wonder how common such a bug might be?
+>>
+>> -vlad
+>>
+> 
+> I see this on Vmware distributed virtual switch. Perhaps soon I will
+> be able to test it against HP 5930 switch. I'm going to try how Linux
+> bridge copes with it, now.
 
-The RMII interface needs always a rate of 50MHz ... my questions would be why 
-the 50000000 are not in the clk_set_rate directly and need an extra var :-)
+Linux bridge will do just fine as it will pass the frame off to the hw driver
+which should pad things appropriately.
 
+-vlad
 
-
-Heiko
+> 
+> Many thanks for the patch anyway!
+> 
+> Regards,
+> Martin
+> 
