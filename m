@@ -1,46 +1,124 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/11] i40e: Enable l2tsel bit for VLAN tag control
-Date: Wed, 27 Aug 2014 02:26:40 -0700
-Message-ID: <1409131606-15011-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/11] i40e: Update flow director error messages to reduce user confusion
+Date: Wed, 27 Aug 2014 02:26:36 -0700
+Message-ID: <1409131606-15011-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com,
-	Ashish Shah <ashish.n.shah@intel.com>,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:64397 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:64393 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932832AbaH0J0x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2014 05:26:53 -0400
+	id S932307AbaH0J0v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2014 05:26:51 -0400
 In-Reply-To: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-Enable the l2tsel bit on Rx queue contexts that are assigned to VFs so
-that the VF can get the stripped VLAN tag.
+This patch changes the wording of the flow director add/remove and
+asynchronous failure messages to include fd_id to try and add some
+way to track the operations on a given fd_id.  Its not perfect, but
+its better than what we had as PCTYPE can apply to several different
+filter requests.
 
-Change-ID: I7d9bc56238a9ea9baf5e8a97e69b9e27ebb9d169
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Ashish Shah <ashish.n.shah@intel.com>
+This patch also removes a redundant message when filter
+addition fails due to full condition.
+
+Change-ID: Icf58b0603d4f162d9fc542f11a74866a907049f2
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 33 ++++++++++++++---------------
+ 1 file changed, 16 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 3ac6a0d..0309bf8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -350,6 +350,7 @@ static int i40e_config_vsi_rx_queue(struct i40e_vf *vf, u16 vsi_idx,
- 	rx_ctx.lrxqthresh = 2;
- 	rx_ctx.crcstrip = 1;
- 	rx_ctx.prefena = 1;
-+	rx_ctx.l2tsel = 1;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index a51aa37..a6cc8d6 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -224,15 +224,14 @@ static int i40e_add_del_fdir_udpv4(struct i40e_vsi *vsi,
+ 	ret = i40e_program_fdir_filter(fd_data, raw_packet, pf, add);
+ 	if (ret) {
+ 		dev_info(&pf->pdev->dev,
+-			 "Filter command send failed for PCTYPE %d (ret = %d)\n",
+-			 fd_data->pctype, ret);
++			 "PCTYPE:%d, Filter command send failed for fd_id:%d (ret = %d)\n",
++			 fd_data->pctype, fd_data->fd_id, ret);
+ 		err = true;
+ 	} else {
+ 		dev_info(&pf->pdev->dev,
+-			 "Filter OK for PCTYPE %d (ret = %d)\n",
+-			 fd_data->pctype, ret);
++			 "PCTYPE:%d, Filter send OK for fd_id:%d\n",
++			 fd_data->pctype, fd_data->fd_id);
+ 	}
+-
+ 	return err ? -EOPNOTSUPP : 0;
+ }
  
- 	/* clear the context in the HMC */
- 	ret = i40e_clear_lan_rx_queue_context(hw, pf_queue_id);
+@@ -287,12 +286,13 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
+ 
+ 	if (ret) {
+ 		dev_info(&pf->pdev->dev,
+-			 "Filter command send failed for PCTYPE %d (ret = %d)\n",
+-			 fd_data->pctype, ret);
++			 "PCTYPE:%d, Filter command send failed for fd_id:%d (ret = %d)\n",
++			 fd_data->pctype, fd_data->fd_id, ret);
+ 		err = true;
+ 	} else {
+-		dev_info(&pf->pdev->dev, "Filter OK for PCTYPE %d (ret = %d)\n",
+-			 fd_data->pctype, ret);
++		dev_info(&pf->pdev->dev,
++			 "PCTYPE:%d, Filter send OK for fd_id:%d\n",
++			 fd_data->pctype, fd_data->fd_id);
+ 	}
+ 
+ 	return err ? -EOPNOTSUPP : 0;
+@@ -355,13 +355,13 @@ static int i40e_add_del_fdir_ipv4(struct i40e_vsi *vsi,
+ 
+ 		if (ret) {
+ 			dev_info(&pf->pdev->dev,
+-				 "Filter command send failed for PCTYPE %d (ret = %d)\n",
+-				 fd_data->pctype, ret);
++				 "PCTYPE:%d, Filter command send failed for fd_id:%d (ret = %d)\n",
++				 fd_data->pctype, fd_data->fd_id, ret);
+ 			err = true;
+ 		} else {
+ 			dev_info(&pf->pdev->dev,
+-				 "Filter OK for PCTYPE %d (ret = %d)\n",
+-				 fd_data->pctype, ret);
++				 "PCTYPE:%d, Filter send OK for fd_id:%d\n",
++				 fd_data->pctype, fd_data->fd_id);
+ 		}
+ 	}
+ 
+@@ -443,8 +443,6 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
+ 		I40E_RX_PROG_STATUS_DESC_QW1_ERROR_SHIFT;
+ 
+ 	if (error == (0x1 << I40E_RX_PROG_STATUS_DESC_FD_TBL_FULL_SHIFT)) {
+-		dev_warn(&pdev->dev, "ntuple filter loc = %d, could not be added\n",
+-			 rx_desc->wb.qword0.hi_dword.fd_id);
+ 
+ 		/* filter programming failed most likely due to table full */
+ 		fcnt_prog = i40e_get_cur_guaranteed_fd_count(pf);
+@@ -471,12 +469,13 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
+ 				pf->flags |= I40E_FLAG_FDIR_REQUIRES_REINIT;
+ 			}
+ 		} else {
+-			dev_info(&pdev->dev, "FD filter programming error\n");
++			dev_info(&pdev->dev,
++				 "FD filter programming failed due to incorrect filter parameters\n");
+ 		}
+ 	} else if (error ==
+ 			  (0x1 << I40E_RX_PROG_STATUS_DESC_NO_FD_ENTRY_SHIFT)) {
+ 		if (I40E_DEBUG_FD & pf->hw.debug_mask)
+-			dev_info(&pdev->dev, "ntuple filter loc = %d, could not be removed\n",
++			dev_info(&pdev->dev, "ntuple filter fd_id = %d, could not be removed\n",
+ 				 rx_desc->wb.qword0.hi_dword.fd_id);
+ 	}
+ }
 -- 
 1.9.3
