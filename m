@@ -1,102 +1,142 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 2/2] mlx4: Set user-space raw Ethernet QPs to properly handle VXLAN traffic
-Date: Wed, 27 Aug 2014 16:44:39 +0300
-Message-ID: <1409147079-18826-3-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net 1/2] net/mlx4: Move the tunnel steering helper function to mlx4_core
+Date: Wed, 27 Aug 2014 16:44:38 +0300
+Message-ID: <1409147079-18826-2-git-send-email-ogerlitz@mellanox.com>
 References: <1409147079-18826-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, amirv@mellanox.com,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:50034 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:49339 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933583AbaH0Nop (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S933404AbaH0Nop (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 27 Aug 2014 09:44:45 -0400
 In-Reply-To: <1409147079-18826-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Raw Ethernet QPs opened from user-space lack the proper setup to
-recieve/handle VXLAN traffic when VXLAN offloads are enabled.
-
-Fix that by adding a tunnel steering rule on top of the normal unicast
-steering rule and set the tunnel_type field in the QP context.
+Move the function which we use to set VXLAN DMFS (flow-steering) rules
+from mlx4_en to mlx4_core. This refactoring will allow the mlx4_ib driver
+to call the helper for the use case of user-space RAW Ethernet QPs, such
+that they can serve VXLAN traffic too.
 
 Issue: 360382
-Change-Id: I2198e871a581d2447156672630c026582489a5a9
+Change-Id: I9e92c874953df22f1fbcfe409400797517f517b4
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/infiniband/hw/mlx4/main.c |   30 ++++++++++++++++++++++++++++++
- drivers/infiniband/hw/mlx4/qp.c   |    8 +++++++-
- 2 files changed, 37 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   31 +------------------
+ drivers/net/ethernet/mellanox/mlx4/mcg.c       |   38 ++++++++++++++++++++++++
+ include/linux/mlx4/device.h                    |    3 ++
+ 3 files changed, 43 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
-index e1e558a..af82563 100644
---- a/drivers/infiniband/hw/mlx4/main.c
-+++ b/drivers/infiniband/hw/mlx4/main.c
-@@ -1089,6 +1089,30 @@ static int __mlx4_ib_destroy_flow(struct mlx4_dev *dev, u64 reg_id)
- 	return err;
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index bb536aa..abddcf8 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -474,39 +474,12 @@ static int mlx4_en_tunnel_steer_add(struct mlx4_en_priv *priv, unsigned char *ad
+ 				    int qpn, u64 *reg_id)
+ {
+ 	int err;
+-	struct mlx4_spec_list spec_eth_outer = { {NULL} };
+-	struct mlx4_spec_list spec_vxlan     = { {NULL} };
+-	struct mlx4_spec_list spec_eth_inner = { {NULL} };
+-
+-	struct mlx4_net_trans_rule rule = {
+-		.queue_mode = MLX4_NET_TRANS_Q_FIFO,
+-		.exclusive = 0,
+-		.allow_loopback = 1,
+-		.promisc_mode = MLX4_FS_REGULAR,
+-		.priority = MLX4_DOMAIN_NIC,
+-	};
+-
+-	__be64 mac_mask = cpu_to_be64(MLX4_MAC_MASK << 16);
  
-+static int mlx4_ib_tunnel_steer_add(struct ib_qp *qp, struct ib_flow_attr *flow_attr,
-+				    u64 *reg_id)
+ 	if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
+ 		return 0; /* do nothing */
+ 
+-	rule.port = priv->port;
+-	rule.qpn = qpn;
+-	INIT_LIST_HEAD(&rule.list);
+-
+-	spec_eth_outer.id = MLX4_NET_TRANS_RULE_ID_ETH;
+-	memcpy(spec_eth_outer.eth.dst_mac, addr, ETH_ALEN);
+-	memcpy(spec_eth_outer.eth.dst_mac_msk, &mac_mask, ETH_ALEN);
+-
+-	spec_vxlan.id = MLX4_NET_TRANS_RULE_ID_VXLAN;    /* any vxlan header */
+-	spec_eth_inner.id = MLX4_NET_TRANS_RULE_ID_ETH;	 /* any inner eth header */
+-
+-	list_add_tail(&spec_eth_outer.list, &rule.list);
+-	list_add_tail(&spec_vxlan.list,     &rule.list);
+-	list_add_tail(&spec_eth_inner.list, &rule.list);
+-
+-	err = mlx4_flow_attach(priv->mdev->dev, &rule, reg_id);
++	err = mlx4_tunnel_steer_add(priv->mdev->dev, addr, priv->port, qpn,
++				    MLX4_DOMAIN_NIC, reg_id);
+ 	if (err) {
+ 		en_err(priv, "failed to add vxlan steering rule, err %d\n", err);
+ 		return err;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index d80e7a6..ca0f98c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -1020,6 +1020,44 @@ int mlx4_flow_detach(struct mlx4_dev *dev, u64 reg_id)
+ }
+ EXPORT_SYMBOL_GPL(mlx4_flow_detach);
+ 
++int mlx4_tunnel_steer_add(struct mlx4_dev *dev, unsigned char *addr,
++			  int port, int qpn, u16 prio, u64 *reg_id)
 +{
-+	void *ib_flow;
-+	union ib_flow_spec *ib_spec;
-+	struct mlx4_dev	*dev = to_mdev(qp->device)->dev;
-+	int err = 0;
++	int err;
++	struct mlx4_spec_list spec_eth_outer = { {NULL} };
++	struct mlx4_spec_list spec_vxlan     = { {NULL} };
++	struct mlx4_spec_list spec_eth_inner = { {NULL} };
 +
-+	if (dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
-+		return 0; /* do nothing */
++	struct mlx4_net_trans_rule rule = {
++		.queue_mode = MLX4_NET_TRANS_Q_FIFO,
++		.exclusive = 0,
++		.allow_loopback = 1,
++		.promisc_mode = MLX4_FS_REGULAR,
++	};
 +
-+	ib_flow = flow_attr + 1;
-+	ib_spec = (union ib_flow_spec *)ib_flow;
++	__be64 mac_mask = cpu_to_be64(MLX4_MAC_MASK << 16);
 +
-+	if (ib_spec->type !=  IB_FLOW_SPEC_ETH || flow_attr->num_of_specs != 1)
-+		return 0; /* do nothing */
++	rule.port = port;
++	rule.qpn = qpn;
++	rule.priority = prio;
++	INIT_LIST_HEAD(&rule.list);
 +
-+	err = mlx4_tunnel_steer_add(to_mdev(qp->device)->dev, ib_spec->eth.val.dst_mac,
-+				    flow_attr->port, qp->qp_num,
-+				    MLX4_DOMAIN_UVERBS | (flow_attr->priority & 0xff),
-+				    reg_id);
++	spec_eth_outer.id = MLX4_NET_TRANS_RULE_ID_ETH;
++	memcpy(spec_eth_outer.eth.dst_mac, addr, ETH_ALEN);
++	memcpy(spec_eth_outer.eth.dst_mac_msk, &mac_mask, ETH_ALEN);
++
++	spec_vxlan.id = MLX4_NET_TRANS_RULE_ID_VXLAN;    /* any vxlan header */
++	spec_eth_inner.id = MLX4_NET_TRANS_RULE_ID_ETH;	 /* any inner eth header */
++
++	list_add_tail(&spec_eth_outer.list, &rule.list);
++	list_add_tail(&spec_vxlan.list,     &rule.list);
++	list_add_tail(&spec_eth_inner.list, &rule.list);
++
++	err = mlx4_flow_attach(dev, &rule, reg_id);
 +	return err;
 +}
++EXPORT_SYMBOL(mlx4_tunnel_steer_add);
 +
- static struct ib_flow *mlx4_ib_create_flow(struct ib_qp *qp,
- 				    struct ib_flow_attr *flow_attr,
- 				    int domain)
-@@ -1136,6 +1160,12 @@ static struct ib_flow *mlx4_ib_create_flow(struct ib_qp *qp,
- 		i++;
- 	}
+ int mlx4_FLOW_STEERING_IB_UC_QP_RANGE(struct mlx4_dev *dev, u32 min_range_qpn,
+ 				      u32 max_range_qpn)
+ {
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 071f6b2..511c6e0 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -1196,6 +1196,9 @@ int mlx4_map_sw_to_hw_steering_id(struct mlx4_dev *dev,
+ 				  enum mlx4_net_trans_rule_id id);
+ int mlx4_hw_rule_sz(struct mlx4_dev *dev, enum mlx4_net_trans_rule_id id);
  
-+	if (i < ARRAY_SIZE(type) && flow_attr->type == IB_FLOW_ATTR_NORMAL) {
-+		err = mlx4_ib_tunnel_steer_add(qp, flow_attr, &mflow->reg_id[i]);
-+		if (err)
-+			goto err_free;
-+	}
++int mlx4_tunnel_steer_add(struct mlx4_dev *dev, unsigned char *addr,
++			  int port, int qpn, u16 prio, u64 *reg_id);
 +
- 	return &mflow->ibflow;
+ void mlx4_sync_pkey_table(struct mlx4_dev *dev, int slave, int port,
+ 			  int i, int val);
  
- err_free:
-diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
-index 6778045..efb9eff 100644
---- a/drivers/infiniband/hw/mlx4/qp.c
-+++ b/drivers/infiniband/hw/mlx4/qp.c
-@@ -1677,9 +1677,15 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
- 		}
- 	}
- 
--	if (qp->ibqp.qp_type == IB_QPT_RAW_PACKET)
-+	if (qp->ibqp.qp_type == IB_QPT_RAW_PACKET) {
- 		context->pri_path.ackto = (context->pri_path.ackto & 0xf8) |
- 					MLX4_IB_LINK_TYPE_ETH;
-+		if (dev->dev->caps.tunnel_offload_mode ==  MLX4_TUNNEL_OFFLOAD_MODE_VXLAN) {
-+			/* set QP to receive both tunneled & non-tunneled packets */
-+			if (!(context->flags & (1 << MLX4_RSS_QPC_FLAG_OFFSET)))
-+				context->srqn = cpu_to_be32(7 << 28);
-+		}
-+	}
- 
- 	if (ibqp->qp_type == IB_QPT_UD && (new_state == IB_QPS_RTR)) {
- 		int is_eth = rdma_port_get_link_layer(
 -- 
 1.7.1
