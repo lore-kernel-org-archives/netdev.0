@@ -1,37 +1,31 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6 Policy based routing not working.
-Date: Wed, 27 Aug 2014 08:05:46 +0200
-Message-ID: <1409119546.11976.11.camel@localhost>
-References: <CABQpAL7X9_=RTS2cd_m3jkCzWOM8hjcu22yQdnRD6S4fs5AF2Q@mail.gmail.com>
-	 <1409090482.1152.8.camel@localhost>
-	 <CABQpAL4J7D704iw8Qj9SNDxW8E1P7Mw+KONUapZY6_LdoHkEYw@mail.gmail.com>
-	 <1409118957.11976.9.camel@localhost>
-	 <CABQpAL4zbeqX4X1Kuzw-+FOppmYx7VzTzJn9OMLyYVBdS0Bz9w@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH RFC v7 net-next 00/28] BPF syscall
+Date: Tue, 26 Aug 2014 23:11:55 -0700 (PDT)
+Message-ID: <20140826.231155.421325307812864648.davem@davemloft.net>
+References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tushar Shinde <mtk.tushar@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:45611 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754865AbaH0GFs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 02:05:48 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 40905207BE
-	for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 02:05:48 -0400 (EDT)
-In-Reply-To: <CABQpAL4zbeqX4X1Kuzw-+FOppmYx7VzTzJn9OMLyYVBdS0Bz9w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org,
+	brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409106582-10095-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mi, 2014-08-27 at 11:32 +0530, Tushar Shinde wrote:
-> So do we need to always use ipv6 address to bind unlike ipv4?
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Date: Tue, 26 Aug 2014 19:29:14 -0700
 
-No, I think SO_BINDTODEVICE should work. But ping6 does not use it, so
-one could add support for this to ping with a new option.
+> posting whole thing again as RFC to get feedback on syscall only.
+> If syscall bpf(int cmd, union bpf_attr *attr, unsigned int size) is ok,
 
-ping6 uses cmsg with undefined ipv6 source address but set ifindex and
-that's not at all like SO_BINDTODEVICE.
+I'm personally not reviewing such a large patch series, sorry.
 
-Bye,
-Hannes
+You need to submit smaller sets if you want to get reasonable
+review of your changes and ideas.
