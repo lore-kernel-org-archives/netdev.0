@@ -1,124 +1,90 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: Sending undersized ARP packets with VXLAN L3 interface
-Date: Wed, 27 Aug 2014 16:23:56 -0400
-Message-ID: <53FE3E5C.8020804@gmail.com>
-References: <CAMYYbY79hOVA5b22-gmLJTNQwprdfwa_QxKqveuwNhJMcXv9tA@mail.gmail.com>	<CAHA+R7Ok6K_9U6RCZkSLCuVXtFG4Zs60FQKFZMu-v2yK581hog@mail.gmail.com>	<53FE1AC3.5030409@gmail.com>	<20140827114209.3a9d3761@urahara>	<53FE2738.30702@gmail.com> <CAMYYbY4KHTkkv6peT14S8mCzcQJ8wROnHWj5tMy563H-w79KMg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Cong Wang <cwang@twopensource.com>,
-	netdev <netdev@vger.kernel.org>
-To: Martin Rusko <martin.rusko@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:37885 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935598AbaH0UYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 16:24:05 -0400
-Received: by mail-qc0-f174.google.com with SMTP id l6so918751qcy.19
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 13:24:00 -0700 (PDT)
-In-Reply-To: <CAMYYbY4KHTkkv6peT14S8mCzcQJ8wROnHWj5tMy563H-w79KMg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v8 net-next 0/2] load imm64 insn and uapi/linux/bpf.h
+Date: Wed, 27 Aug 2014 13:37:11 -0700
+Message-ID: <1409171833-6979-1-git-send-email-ast@plumgrid.com>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	Namhyung Kim <namhyung@kernel.org>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/27/2014 04:01 PM, Martin Rusko wrote:
-> On Wed, Aug 27, 2014 at 8:45 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
->> On 08/27/2014 02:42 PM, Stephen Hemminger wrote:
->>> On Wed, 27 Aug 2014 13:52:03 -0400
->>> Vlad Yasevich <vyasevich@gmail.com> wrote:
->>>
->>>> On 08/27/2014 01:28 PM, Cong Wang wrote:
->>>>> On Wed, Aug 27, 2014 at 10:06 AM, Martin Rusko <martin.rusko@gmail.com> wrote:
->>>>>>
->>>>>> I'm wondering, where is the proper place to fix this. Should
->>>>>> arp_create() function allocate skb big enough to produce ethernet
->>>>>> frame with at least minimum size? Or is it somewhere in NIC drivers
->>>>>> where small packets are padded with zeros?
->>>>>
->>>>> Drivers do that, for example e1000:
->>>>>
->>>>>         /* On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
->>>>>          * packets may get corrupted during padding by HW.
->>>>>          * To WA this issue, pad all small packets manually.
->>>>>          */
->>>>>         if (skb->len < ETH_ZLEN) {
->>>>>                 if (skb_pad(skb, ETH_ZLEN - skb->len))
->>>>>                         return NETDEV_TX_OK;
->>>>>                 skb->len = ETH_ZLEN;
->>>>>                 skb_set_tail_pointer(skb, ETH_ZLEN);
->>>>>         }
->>>>
->>>>
->>>> I think vxlan needs something like this:
->>>>
->>>> From: Vladislav Yasevich <vyasevich@gmail.com>
->>>> Date: Wed, 27 Aug 2014 13:39:32 -0400
->>>> Subject: [PATCH] vxlan: Pad short ethernet frames.
->>>>
->>>> If sending short ethernet frames from the vxlan device, pad
->>>> them to minimum size so they can be forwarded after decapsulation.
->>>>
->>>> Reported-by: Martin Rusko <martin.rusko@gmail.com>
->>>> Signed-off-by: Vladislav Yasevich <vyasevich@gmail.com>
->>>> ---
->>>>  drivers/net/vxlan.c | 8 ++++++++
->>>>  1 file changed, 8 insertions(+)
->>>>
->>>> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
->>>> index 1fb7b37..48267d4 100644
->>>> --- a/drivers/net/vxlan.c
->>>> +++ b/drivers/net/vxlan.c
->>>> @@ -1939,6 +1939,14 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct
->>>> net_device *dev)
->>>>  #endif
->>>>      }
->>>>
->>>> +    /* Pad short frames so they can be forwarded after decapsulation */
->>>> +    if (skb->len < ETH_ZLEN) {
->>>> +            if (skb_pad(skb, ETH_ZLEN - skb->len))
->>>> +                    return NETDEV_TX_OK;
->>>> +            skb->len = ETH_ZLEN;
->>>> +            skb_set_tail_pointer(skb, ETH_ZLEN);
->>>> +    }
->>>> +
->>>>      f = vxlan_find_mac(vxlan, eth->h_dest);
->>>>      did_rsc = false;
->>>>
->>>
->>> No. The short frame is perfectly valid, over the VXLAN.
->>> The system doing the decap and forwarding should be where any padding is added if necessary.
->>>
-> 
-> Well, RFC 7348 is not dealing with padding at all. Both deployment
-> scenarios listed in RFC, as well as most of the existing real life
-> deployments today (in my opinion) use VXLAN for bridged traffic. In
-> other words, frame encapsulated by VTEP is received first over some
-> ethernet interface (physical or virtual) which implies that the frame
-> is at least 64 bytes long already.
-> 
-> Perhaps we're going to see more VXLAN interfaces in L3 mode, yet it
-> might be safer not to count on receiving VTEP doing the right thing
-> (pad small packets with zeros).
-> 
->>
->> If that's the case, then Martin is most likely seeing a HW bug on the switch.
->> I wonder how common such a bug might be?
->>
->> -vlad
->>
-> 
-> I see this on Vmware distributed virtual switch. Perhaps soon I will
-> be able to test it against HP 5930 switch. I'm going to try how Linux
-> bridge copes with it, now.
+Hi David,
 
-Linux bridge will do just fine as it will pass the frame off to the hw driver
-which should pad things appropriately.
+I've been thinking on the minimum first patch set.
+Came up with the following two:
 
--vlad
+1st patch adds 'load 64-bit immediate' instruction which by itself
+is harmless and used to load constants only. In the future we may
+add pseudo variants of this insn, so user space can request
+internal kernel pointer. More detailed explanation in the commit log.
 
-> 
-> Many thanks for the patch anyway!
-> 
-> Regards,
-> Martin
-> 
+2nd patch exposed eBPF ISA to user space. It moves 55 lines from
+filter.h into uapi/linux/bpf.h
+Though there is no way currently to load eBPF programs from user
+space, this patch shows the intent that eventually it will be possible.
+The main goal here is to unblock LLVM upstreaming process.
+Once these two are in, I can start posting LLVM RFCs to llvmdev list
+and getting compiler bits in, so by the time bpf syscall and verifier
+are in, we may have LLVM backend upstreamed as well.
+LLVM wouldn't care what eBPF is used for, whether syscall is used
+or some other mechanism. It just compiles C into eBPF ISA.
+So these two patches are sufficient to start LLVM upstreaming.
+
+All,
+why do we need all of these?
+Same reason why we're still using classic BPF and keep trying to extend it.
+There are places in kernel where safe dynamic programs are mandatory.
+network traffic capture needs in-kernel filtering,
+seccomp needs safe mini programs to sandbox applications,
+tracing needs them to filter events and so on.
+
+Few LWN articles that explain things way better than my commit logs:
+http://lwn.net/Articles/599755/
+http://lwn.net/Articles/603983/
+http://lwn.net/Articles/606089/
+http://lwn.net/Articles/575531/
+
+The first target for eBPF is to have dtrace equivalent that can be
+used in _production_. Safety of programs is paramount.
+Just like performance. eBPF programs in tracing should not affect 
+performance of production severs, so huge effort on optimizing last bit.
+
+ebpf+tracing, ebpf+seccomp, ebpf+sockets are the most obvious use cases.
+ebpf+ovs is the one we use in large kvm hypervisors.
+40Gbps of traffic are going through these programs, so performance
+and safety are vital. Performance implications ruling out run-time checks
+in critical path, so verifier is large mainly because it needs to do
+all the checks during static analysis.
+
+I think next patch set will include syscall shell with minimal functionality,
+syscall doc and simple test.
+
+Alexei Starovoitov (2):
+  net: filter: add "load 64-bit immediate" eBPF instruction
+  net: filter: split filter.h and expose eBPF to user space
+
+ Documentation/networking/filter.txt |    8 +++-
+ arch/x86/net/bpf_jit_comp.c         |   17 ++++++++
+ include/linux/filter.h              |   74 +++++++++--------------------------
+ include/uapi/linux/Kbuild           |    1 +
+ include/uapi/linux/bpf.h            |   65 ++++++++++++++++++++++++++++++
+ kernel/bpf/core.c                   |    5 +++
+ lib/test_bpf.c                      |   21 ++++++++++
+ 7 files changed, 135 insertions(+), 56 deletions(-)
+ create mode 100644 include/uapi/linux/bpf.h
+
+-- 
+1.7.9.5
