@@ -1,178 +1,132 @@
-From: Brian Rak <brak@gameservers.com>
-Subject: Re: skb_warn_bad_offload warnings with FreeBSD guests
-Date: Wed, 27 Aug 2014 14:25:41 -0400
-Message-ID: <53FE22A5.2040201@gameservers.com>
-References: <53F76D7E.4030307@gameservers.com> <53FB4775.8020507@gmail.com> <53FE02CC.50501@gameservers.com> <53FE1445.9060206@gmail.com>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH RFC v7 net-next 00/28] BPF syscall
+Date: Wed, 27 Aug 2014 11:26:18 -0700
+Message-ID: <CALCETrXAfZJTsF2nPFw55rHkfbNXKQuF8Frnq3e1wHEoGxLM4w@mail.gmail.com>
+References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
+ <CALCETrX2MzNxQ1ogt+Qx8iPjUe+z0gN6ZLwu9nAcZzTN+D+iYw@mail.gmail.com>
+ <CAMEtUuwYqJVUuZxPBKy57NonWF+X_5vkNx4uSEx_d=-xBka1Kg@mail.gmail.com>
+ <CALCETrWs9GRufGKxAoV628bh1f3HObkxNQuW3tYRt2rFwNAbxA@mail.gmail.com> <CAMEtUuw1n1HzAeyKFj9=nGq7RKZq7TADS-6M_BkHbTsWJ_Gm-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.choopa.net ([216.155.136.52]:47177 "EHLO mail.choopa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934955AbaH0SZv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2014 14:25:51 -0400
-In-Reply-To: <53FE1445.9060206@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMEtUuw1n1HzAeyKFj9=nGq7RKZq7TADS-6M_BkHbTsWJ_Gm-Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-On 8/27/2014 1:24 PM, Vlad Yasevich wrote:
-> On 08/27/2014 12:09 PM, Brian Rak wrote:
->> On 8/25/2014 10:25 AM, Vlad Yasevich wrote:
->>> On 08/22/2014 12:19 PM, Brian Rak wrote:
->>>> We have a number of machines running qemu with bridged networking. We have noticed that
->>>> *sometimes* FreeBSD guests cause this warning to flood the host "WARNING: CPU: 5 PID: 3705
->>>> at net/core/dev.c:2238 skb_warn_bad_offload+0xc3/0xd0()".  I haven't been able to come up
->>>> with any sort of reproduction steps, it just seems to happen to some FreeBSD guests, but
->>>> not others.
+On Tue, Aug 26, 2014 at 9:57 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+> On Tue, Aug 26, 2014 at 9:49 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>> On Tue, Aug 26, 2014 at 9:35 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+>>> On Tue, Aug 26, 2014 at 8:56 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>>>> On Aug 26, 2014 7:29 PM, "Alexei Starovoitov" <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+>>>>>
+>>>>> Hi Ingo, David,
+>>>>>
+>>>>> posting whole thing again as RFC to get feedback on syscall only.
+>>>>> If syscall bpf(int cmd, union bpf_attr *attr, unsigned int size) is ok,
+>>>>> I'll split them into small chunks as requested and will repost without RFC.
 >>>>
->>>> A full stack trace looks like this:
->>>>
->>>> ------------[ cut here ]------------
->>>> WARNING: CPU: 1 PID: 7147 at net/core/dev.c:2233 skb_warn_bad_offload+0xc3/0xd0()
->>>> igb: caps=(0x0000000190114bb3, 0x0000000000000000) len=2962 data_len=0 gso_size=1448
->>>> gso_type=5 ip_summed=0
->>>> Modules linked in: dm_snapshot dm_bufio ipmi_devintf xt_physdev ebt_arp ebt_ip ebtable_nat
->>>> ebtables cls_fw sch_sfq sch_htb tun kvm_intel kvm 8021q garp nfnetlink_queue nfnetlink_log
->>>> nfnetlink bluetooth rfkill bridge stp llc xt_CHECKSUM iptable_mangle ipt_REJECT
->>>> iptable_filter ip
->>>> _tables ip6t_REJECT ip6table_filter ip6_tables ipv6 iTCO_wdt iTCO_vendor_support ipmi_si
->>>> ipmi_msghandler microcode pcspkr i2c_i801 joydev sg lpc_ich shpchp igb dca ptp pps_core
->>>> hwmon ext4 jbd2 mbcache sd_mod crc_t10dif crct10dif_common video ahci libahci xhci_hcd ast
->>>> ttm drm_kms
->>>> _helper sysimgblt sysfillrect syscopyarea dm_mirror dm_region_hash dm_log dm_mod
->>>> CPU: 1 PID: 7147 Comm: qemu-kvm Tainted: G        W 3.15.5-1.el6.elrepo.x86_64 #1
->>>> Hardware name: Supermicro X10SLE-F/HF/X10SLE, BIOS 1.1 07/19/2013
->>>>    00000000000008b9 ffff88081fc435d8 ffffffff8163ba90 00000000000008b9
->>>>    ffff88081fc43628 ffff88081fc43618 ffffffff8106c30c ffffc90007a06e30
->>>>    0000000000000000 ffff8807f2b64000 ffff8807f2b64000 0000000000000000
->>>> Call Trace:
->>>>    <IRQ>  [<ffffffff8163ba90>] dump_stack+0x49/0x61
->>>>    [<ffffffff8106c30c>] warn_slowpath_common+0x8c/0xc0
->>>>    [<ffffffff8106c3f6>] warn_slowpath_fmt+0x46/0x50
->>>>    [<ffffffff8156ce93>] skb_warn_bad_offload+0xc3/0xd0
->>>>    [<ffffffff81574a29>] ? dev_hard_start_xmit+0x339/0x640
->>>>    [<ffffffff81574699>] __skb_gso_segment+0x89/0xe0
->>>>    [<ffffffff81574876>] dev_hard_start_xmit+0x186/0x640
->>>>    [<ffffffff81594f5a>] sch_direct_xmit+0xfa/0x1d0
->>>>    [<ffffffff81574f2f>] __dev_queue_xmit+0x1ff/0x4f0
->>>>    [<ffffffff81575240>] dev_queue_xmit+0x10/0x20
->>>>    [<ffffffffa02e6612>] br_dev_queue_push_xmit+0x82/0xb0 [bridge]
->>>>    [<ffffffffa02ee680>] br_nf_dev_queue_xmit+0x20/0x90 [bridge]
->>>>    [<ffffffffa02ef4b8>] br_nf_post_routing+0x2d8/0x300 [bridge]
->>>>    [<ffffffffa02e6590>] ? deliver_clone+0x60/0x60 [bridge]
->>>>    [<ffffffff815a357e>] nf_iterate+0x8e/0xc0
->>>>    [<ffffffffa02e6590>] ? deliver_clone+0x60/0x60 [bridge]
->>>>    [<ffffffff815a37ad>] nf_hook_slow+0x7d/0x150
->>>>    [<ffffffffa02e6590>] ? deliver_clone+0x60/0x60 [bridge]
->>>>    [<ffffffffa02ee6f0>] ? br_nf_dev_queue_xmit+0x90/0x90 [bridge]
->>>>    [<ffffffffa02e6b43>] br_forward_finish+0x43/0x60 [bridge]
->>>>    [<ffffffffa02ee8a8>] br_nf_forward_finish+0x1b8/0x1d0 [bridge]
->>>>    [<ffffffffa02ef178>] br_nf_forward_ip+0x3a8/0x410 [bridge]
->>>>    [<ffffffffa02e6b00>] ? br_flood_deliver+0x20/0x20 [bridge]
->>>>    [<ffffffff815a357e>] nf_iterate+0x8e/0xc0
->>>>    [<ffffffffa02e6b00>] ? br_flood_deliver+0x20/0x20 [bridge]
->>>>    [<ffffffff815a37ad>] nf_hook_slow+0x7d/0x150
->>>>    [<ffffffffa02e6b00>] ? br_flood_deliver+0x20/0x20 [bridge]
->>>>    [<ffffffffa02e66e4>] __br_forward+0xa4/0x100 [bridge]
->>>>    [<ffffffffa02e7800>] ? NF_HOOK.clone.0+0x70/0x70 [bridge]
->>>>    [<ffffffffa02e67d6>] br_forward+0x96/0xb0 [bridge]
->>>>    [<ffffffffa02e7800>] ? NF_HOOK.clone.0+0x70/0x70 [bridge]
->>>>    [<ffffffffa02e7997>] br_handle_frame_finish+0x197/0x3f0 [bridge]
->>>>    [<ffffffffa02e7800>] ? NF_HOOK.clone.0+0x70/0x70 [bridge]
->>>>    [<ffffffffa02ef790>] br_nf_pre_routing_finish+0x2b0/0x370 [bridge]
->>>>    [<ffffffffa02ef4e0>] ? br_nf_post_routing+0x300/0x300 [bridge]
->>>>    [<ffffffffa02ed986>] NF_HOOK_THRESH+0x56/0x60 [bridge]
->>>>    [<ffffffffa02eed2b>] br_nf_pre_routing+0x2fb/0x3a0 [bridge]
->>>>    [<ffffffff815a357e>] nf_iterate+0x8e/0xc0
->>>>    [<ffffffffa02e7800>] ? NF_HOOK.clone.0+0x70/0x70 [bridge]
->>>>    [<ffffffff815a37ad>] nf_hook_slow+0x7d/0x150
->>>>    [<ffffffffa02e7800>] ? NF_HOOK.clone.0+0x70/0x70 [bridge]
->>>>    [<ffffffffa02e7d8c>] br_handle_frame+0x19c/0x240 [bridge]
->>>>    [<ffffffffa02e7bf0>] ? br_handle_frame_finish+0x3f0/0x3f0 [bridge]
->>>>    [<ffffffff81572fa5>] __netif_receive_skb_core+0x1e5/0x620
->>>>    [<ffffffff81573407>] __netif_receive_skb+0x27/0x70
->>>>    [<ffffffff81573553>] process_backlog+0x103/0x200
->>>>    [<ffffffff81573d62>] net_rx_action+0x112/0x2a0
->>>>    [<ffffffff8107111c>] __do_softirq+0xfc/0x2b0
->>>>    [<ffffffff810713cd>] ? irq_exit+0xad/0xd0
->>>>    [<ffffffff8164a81c>] do_softirq_own_stack+0x1c/0x30
->>>>    <EOI>  [<ffffffff81070e75>] do_softirq+0x55/0x60
->>>>    [<ffffffff81571e19>] netif_rx_ni+0x39/0x70
->>>>    [<ffffffffa03e84e0>] tun_get_user+0x310/0x6c0 [tun]
->>>>    [<ffffffffa03e8995>] tun_chr_aio_write+0x85/0xa0 [tun]
->>>>    [<ffffffff811beb9d>] do_sync_readv_writev+0x4d/0x80
->>>>    [<ffffffff811c0128>] do_readv_writev+0xc8/0x2c0
->>>>    [<ffffffff811bebd0>] ? do_sync_readv_writev+0x80/0x80
->>>>    [<ffffffff811d2c45>] ? poll_select_set_timeout+0x95/0xb0
->>>>    [<ffffffff811c0357>] vfs_writev+0x37/0x50
->>>>    [<ffffffff811c0496>] SyS_writev+0x56/0xf0
->>>>    [<ffffffff81648ee9>] system_call_fastpath+0x16/0x1b
->>>> ---[ end trace d26e70ba037ab631 ]---
->>>>
->>>>
->>>> gso_type=5 and ip_summed=0 are always the same (though len, data_len, and gso_size vary).
->>>>
->>>> What is causing this?
->>> The reason that the warning is triggered is ip_summed = 0 which means there is not
->>> checksum already in the packet and it needs to be calculated.  If the packet is GSO,
->>> then it needs to have partial checksum set (ip_summed == 3).
+>>>> IMO it's much easier to review a syscall if we just look at a
+>>>> specification of what it does.  The code is, in some sense, secondary.
 >>>
->>> You might try using systemtap or instrumenting tun and bridge to see what the
->>> ip_summed value is when this happens.
->> Who needs systemtap when you have strace ;)
+>>> 'specification of what it does'... hmm, you mean beyond what's
+>>> there in commit logs and in Documentation/networking/filter.txt ?
+>>> Aren't samples at the end give an idea on 'what it does'?
+>>> I'm happy to add 'specification', I just don't understand yet what
+>>> it suppose to talk about beyond what's already written.
+>>> I understand that the patches are missing explanation on 'why'
+>>> the syscall is being added, but I don't think it's what you're asking...
 >>
->> I managed to intercept the raw packet + headers being delivered to the tun device, though
->> I'm having some trouble making sense of it. I've got this call:
+>> I mean a hopefully short document that defines what the syscall does.
+>> It should be precise enough that one could, in principle, implement
+>> the syscall just by reading the document and that one could use the
+>> syscall just by reading the document.
 >>
->> writev(33, [{"\x00\x01\x42\x00\xa0\x05\x00\x00\x00\x00\x00\x00", 12}, .... ], 4) = 4258
->>
->> If I ignore the first 12 bytes that were written, I end up with a 4246 byte packet, which
->> matches the warning message:
->>
->> kernel: igb: caps=(0x0000000390114bb3, 0x0000000000000000) len=4246 data_len=4180
->> gso_size=1440 gso_type=5 ip_summed=0
->>
->> Looking at the code (
->> https://github.com/torvalds/linux/blob/68e370289c29e3beac99d59c6d840d470af9dfcf/drivers/net/tun.c#L1037
->> ) it seems that the tun device is expecting a virtio_net_hdr, but that structure is only
->> 10 bytes long ( http://lxr.free-electrons.com/source/include/uapi/linux/virtio_net.h#L73
->> ).  I'm assuming the last two bytes are padding, because then the rest of the structure
->> decodes okay:
->>
->> flags =  0
->> gso_type = VIRTIO_NET_HDR_GSO_TCPV4
->> hdr_len = 66
->> gso_size =  1440
->> csum_start = 0
->> csum_offset = 0
-> This isn't right.  Like Eric said, the flags should be set VIRTIO_NET_HDR_F_NEEDS_CSUM
-> (1), and the csum_start and csum_offset should be set.
->> This matches what the warning message says, so I'm fairly confident in it.  If I decode
->> the remainder of the write call (ignoring the 2 bytes after the header), I'm left with a
->> perfectly normal looking TCP packet (with a 4180 byte payload).
->>
->> Looking at the packet itself, I see a valid IP checksum, and a valid TCP checksum.  So, it
->> seems like FreeBSD is calculating the packet checksums correctly, but I'm unsure of why
->> Linux isn't noticing that.  I thought it might be related to VIRTIO_NET_HDR_F_DATA_VALID,
->> but I can't seem to find any uses of this that seem relevant (not that FreeBSD sets it
->> anyway).
-> Linux is looking at the flags to see what it needs to do.  With flags = 0, it means
-> Linux will have to compute the whole checksum all by itself.
+>> Given that there's a whole instruction set to go with it, it may end
+>> up being moderately complicated or saying things like "see this other
+>> thing for a description of the instruction set" and "there are some
+>> extensible sets of functions you can call with it".
 >
-> When the code hits the linux segmentation to break the 4K packet into MSS chunks,
-> it seem that there is no partial checksum computed and thus throws the warning you see.
+> I'm still lost.
 >
-> It is rather pointless for BSD to compute the TCP checksum for the whole 4K
-> packet, only to have linux host recompute it for every segment.
+> Here is the quote from Documentation/networking/filter.txt
+> "
+> 'maps' is a generic storage of different types for sharing data between kernel
+> and userspace.
 >
-> Looks like these are some bugs in the BSD virio-net implementation.
+> The maps are accessed from user space via BPF syscall,
+> which has commands:
+> - create a map with given type and attributes
+>   map_fd = bpf(BPF_MAP_CREATE, union bpf_attr *attr, u32 size)
+>   using attr->map_type, attr->key_size, attr->value_size, attr->max_entries
+>   returns process-local file descriptor or negative error
 >
->> Shouldn't the tun code be setting ip_summed after receiving a packet with a valid
->> checksum?  It's not clear to me where ip_summed should be getting set.
-> tun code with set the value of ip_summed based on the flags passed it.
+> - lookup key in a given map
+>   err = bpf(BPF_MAP_LOOKUP_ELEM, union bpf_attr *attr, u32 size)
+>   using attr->map_fd, attr->key, attr->value
+>   returns zero and stores found elem into value or negative error
 >
-> -vlad
-Thanks, that explination makes sense to me.  I'll contact the FreeBSD 
-developers and see if they can correct the issue.
+> - create or update key/value pair in a given map
+>   err = bpf(BPF_MAP_UPDATE_ELEM, union bpf_attr *attr, u32 size)
+>   using attr->map_fd, attr->key, attr->value
+>   returns zero or negative error
+>
+> - find and delete element by key in a given map
+>   err = bpf(BPF_MAP_DELETE_ELEM, union bpf_attr *attr, u32 size)
+>   using attr->map_fd, attr->key
+>
+> - to delete map: close(fd)
+>   Exiting process will delete maps automatically
+>
+> userspace programs uses this API to create/populate/read
+> maps that eBPF programs are concurrently updating.
+> "
+> and more in commit log:
+> "
+> - load eBPF program
+>   fd = bpf(BPF_PROG_LOAD, union bpf_attr *attr, u32 size)
+>
+>   where 'attr' is
+>   struct {
+>       enum bpf_prog_type prog_type;
+>       __u32 insn_cnt;
+>       struct bpf_insn __user *insns;
+>       const char __user *license;
+>   };
+>   insns - array of eBPF instructions
+>   license - must be GPL compatible to call helper functions marked gpl_only
+>
+> - unload eBPF program
+>   close(fd)
+> "
+>
+> Isn't it short and describes what it does?
+> Do you want me to describe what eBPF program can do?
+
+The problem is that everyone needs to dig around a very long patch
+series to find it.  Since you're asking for a review of a syscall, it
+would be nice to have everything needed to review whether the syscall
+is a good idea in its present form in one place and to keep the amount
+of email under control.
+
+--Andy
+
+-- 
+Andy Lutomirski
+AMA Capital Management, LLC
