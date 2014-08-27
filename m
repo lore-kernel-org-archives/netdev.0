@@ -1,38 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next v3 1/3] udp: Expand UDP tunnel common APIs
-Date: Tue, 26 Aug 2014 20:54:07 -0700
-Message-ID: <1409111647.3173.22.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1409110530-4383-1-git-send-email-azhou@nicira.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH RFC v7 net-next 00/28] BPF syscall
+Date: Tue, 26 Aug 2014 20:56:13 -0700
+Message-ID: <CALCETrX2MzNxQ1ogt+Qx8iPjUe+z0gN6ZLwu9nAcZzTN+D+iYw@mail.gmail.com>
+References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Andy Zhou <azhou@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:37736 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753373AbaH0DyJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 23:54:09 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so23907660pdj.28
-        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 20:54:08 -0700 (PDT)
-In-Reply-To: <1409110530-4383-1-git-send-email-azhou@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Chema Gonzalez <chema@google.com>,
+	Namhyung Kim <namhyung@kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Ingo Molnar <mingo@kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-08-26 at 20:35 -0700, Andy Zhou wrote:
-> Added create_udp_tunnel_socket(), packet receive and transmit,  and
-> other related common functions for UDP tunnels.
-> 
-> Per net open UDP tunnel ports are tracked in this common layer to
-> prevent sharing of a single port with more than one UDP tunnel.
-> 
-> Signed-off-by: Andy Zhou <azhou@nicira.com>
-> ---
+On Aug 26, 2014 7:29 PM, "Alexei Starovoitov" <ast@plumgrid.com> wrote:
+>
+> Hi Ingo, David,
+>
+> posting whole thing again as RFC to get feedback on syscall only.
+> If syscall bpf(int cmd, union bpf_attr *attr, unsigned int size) is ok,
+> I'll split them into small chunks as requested and will repost without RFC.
 
-I see some RCU code, but I do not see elementary rules of RCU being
-respected in this patch.
+IMO it's much easier to review a syscall if we just look at a
+specification of what it does.  The code is, in some sense, secondary.
 
-Changelogs are a bit terse, and there is not a single comment in this
-code.
-
-What is going on exactly ?
+--Andy
