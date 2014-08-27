@@ -1,57 +1,92 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC] net: ipv4: drop unicast encapsulated in L2 multicast
-Date: Wed, 27 Aug 2014 17:31:33 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1408271625500.2348@ja.home.ssi.bg>
-References: <1408641747-22199-1-git-send-email-johannes@sipsolutions.net>   <alpine.LFD.2.11.1408212119510.1896@ja.home.ssi.bg>   <20140822.105405.1982870131653082781.davem@davemloft.net>  <1409130792.2505.5.camel@jlt4.sipsolutions.net>
- <alpine.LFD.2.11.1408271255230.2348@ja.home.ssi.bg> <1409138967.2505.11.camel@jlt4.sipsolutions.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bonding: bond_alb: Replace rcu_dereference() with
+ rcu_access_pointer()
+Date: Wed, 27 Aug 2014 08:15:38 -0700
+Message-ID: <1409152538.3173.56.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140827141827.GA11520@ada>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:39635 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933802AbaH0Odb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2014 10:33:31 -0400
-In-Reply-To: <1409138967.2505.11.camel@jlt4.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	paulmck@linux.vnet.ibm.com
+To: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140827141827.GA11520@ada>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Wed, 27 Aug 2014, Johannes Berg wrote:
-
-> On Wed, 2014-08-27 at 13:23 +0300, Julian Anastasov wrote:
+On Wed, 2014-08-27 at 17:18 +0300, Andreea-Cristina Bernat wrote:
+> The "curr_active_slave" local variable obtained through the rcu_dereference()
+> call it is not dereferenced in the rest of the function.
+> Therefore, it is recommended to use rcu_access_pointer() instead of
+> rcu_dereference().
+> This patch makes the replacement.
 > 
-> > BTW, what kind of packets (protocol) we want to drop? UDP?
+> The first step to detect this was made with the following Coccinelle semantic
+> patch:
+> @@
+> identifier p;
+> @@
 > 
-> All IP protocols, this comes either from the IPv4 RFC (1122) or from the
-> wireless issue which affects all protocols.
+> * p = rcu_dereference(...)
+> ... when any
+>     when != p
+> (
+> * if( (<+...p...+>) ) { ... }
+> |
+> * while( (<+...p...+>) ) { ... }
+> )
+> ... when != p
+> 
+> After the analysis of the output, the change was made manually.
+> 
+> Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+> ---
+>  drivers/net/bonding/bond_alb.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+> index 1319c5b..6621ac2 100644
+> --- a/drivers/net/bonding/bond_alb.c
+> +++ b/drivers/net/bonding/bond_alb.c
+> @@ -659,7 +659,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+>  
+>  	_lock_rx_hashtbl(bond);
+>  
+> -	curr_active_slave = rcu_dereference(bond->curr_active_slave);
+> +	curr_active_slave = rcu_access_pointer(bond->curr_active_slave);
+>  
+>  	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
+>  	client_info = &(bond_info->rx_hashtbl[hash_index]);
 
-	I did a grep for inet_add_protocol, in case if
-we prefer to use per-protocol checks:
 
-Protocols that look ok to me: TCP, SCTP, DCCP
+This is very error prone, for little immediate gain.
 
-ICMP: missing check in icmp_rcv
-UDP, UDPLITE: need check in __udp4_lib_rcv
-IGMP: uses only multicast address?
-PIM: not sure if __pim_rcv() needs check, before skb_tunnel_rx()
-	changes pkt_type?
+What prevents future changes to deref the pointer without sparse or
+lockdep support, other than careful code review ?
 
-More protocols are also registered with inet_add_protocol(), I don't
-see pkt_type checks there, mostly tunnels:
-- IPPROTO_GRE
-- IPPROTO_L2TP
-- IPPROTO_IPIP
-- IPPROTO_IPV6 (tunnel64_rcv)
+I would use the __rcu attribute and eventually add _noderef suffix to
+the variable name.
 
-	If going to use a global check I hope there are
-no protocols that require exception to this rule.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 73c21e233131..4ddccc72db62 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -657,13 +657,14 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ {
+ 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+ 	struct arp_pkt *arp = arp_pkt(skb);
+-	struct slave *assigned_slave, *curr_active_slave;
++	struct slave *assigned_slave;
++	struct slave __rcu *curr_active_slave;
+ 	struct rlb_client_info *client_info;
+ 	u32 hash_index = 0;
+ 
+ 	_lock_rx_hashtbl(bond);
+ 
+-	curr_active_slave = rcu_dereference(bond->curr_active_slave);
++	curr_active_slave = bond->curr_active_slave;
+ 
+ 	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
+ 	client_info = &(bond_info->rx_hashtbl[hash_index]);
