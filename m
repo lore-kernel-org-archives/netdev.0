@@ -1,57 +1,102 @@
-From: Tushar Shinde <mtk.tushar@gmail.com>
-Subject: Re: IPv6 Policy based routing not working.
-Date: Wed, 27 Aug 2014 19:11:14 +0530
-Message-ID: <CABQpAL4tpfAXNbk7AgqV-FZKSSAMVYN_jvOkj58Sc719xKxB-g@mail.gmail.com>
-References: <CABQpAL7X9_=RTS2cd_m3jkCzWOM8hjcu22yQdnRD6S4fs5AF2Q@mail.gmail.com>
-	<1409090482.1152.8.camel@localhost>
-	<CABQpAL4J7D704iw8Qj9SNDxW8E1P7Mw+KONUapZY6_LdoHkEYw@mail.gmail.com>
-	<1409118957.11976.9.camel@localhost>
-	<CABQpAL4zbeqX4X1Kuzw-+FOppmYx7VzTzJn9OMLyYVBdS0Bz9w@mail.gmail.com>
-	<1409119546.11976.11.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 2/2] mlx4: Set user-space raw Ethernet QPs to properly handle VXLAN traffic
+Date: Wed, 27 Aug 2014 16:44:39 +0300
+Message-ID: <1409147079-18826-3-git-send-email-ogerlitz@mellanox.com>
+References: <1409147079-18826-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:57039 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933583AbaH0NlP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 09:41:15 -0400
-Received: by mail-wi0-f174.google.com with SMTP id d1so5871184wiv.1
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 06:41:14 -0700 (PDT)
-In-Reply-To: <1409119546.11976.11.camel@localhost>
+Received: from mailp.voltaire.com ([193.47.165.129]:50034 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933583AbaH0Nop (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2014 09:44:45 -0400
+In-Reply-To: <1409147079-18826-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ping6 command uses SO_BINDTODEVICE but it looks it is not working. The
-source address in fib6 rule match is 0:::0
+Raw Ethernet QPs opened from user-space lack the proper setup to
+recieve/handle VXLAN traffic when VXLAN offloads are enabled.
 
-strace ping6 -I eth0 2001:2::20 2> t
-socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP) = 4
-setsockopt(4, SOL_SOCKET, SO_BINDTODEVICE, "eth0\0", 5) = 0
-connect(4, {sa_family=AF_INET6, sin6_port=htons(1025),
-inet_pton(AF_INET6, "2001:2::20", &sin6_addr), sin6_flowinfo=0,
-sin6_scope_id=0}, 28) = -1 ENETUNREACH (Network is unreachable)
+Fix that by adding a tunnel steering rule on top of the normal unicast
+steering rule and set the tunnel_type field in the QP context.
 
-I think there is problem with so_binddevice. need to dig further.
+Issue: 360382
+Change-Id: I2198e871a581d2447156672630c026582489a5a9
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/infiniband/hw/mlx4/main.c |   30 ++++++++++++++++++++++++++++++
+ drivers/infiniband/hw/mlx4/qp.c   |    8 +++++++-
+ 2 files changed, 37 insertions(+), 1 deletions(-)
 
-Tushar
-
-
-
-
-On Wed, Aug 27, 2014 at 11:35 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On Mi, 2014-08-27 at 11:32 +0530, Tushar Shinde wrote:
->> So do we need to always use ipv6 address to bind unlike ipv4?
->
-> No, I think SO_BINDTODEVICE should work. But ping6 does not use it, so
-> one could add support for this to ping with a new option.
->
-> ping6 uses cmsg with undefined ipv6 source address but set ifindex and
-> that's not at all like SO_BINDTODEVICE.
->
-> Bye,
-> Hannes
->
->
+diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+index e1e558a..af82563 100644
+--- a/drivers/infiniband/hw/mlx4/main.c
++++ b/drivers/infiniband/hw/mlx4/main.c
+@@ -1089,6 +1089,30 @@ static int __mlx4_ib_destroy_flow(struct mlx4_dev *dev, u64 reg_id)
+ 	return err;
+ }
+ 
++static int mlx4_ib_tunnel_steer_add(struct ib_qp *qp, struct ib_flow_attr *flow_attr,
++				    u64 *reg_id)
++{
++	void *ib_flow;
++	union ib_flow_spec *ib_spec;
++	struct mlx4_dev	*dev = to_mdev(qp->device)->dev;
++	int err = 0;
++
++	if (dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
++		return 0; /* do nothing */
++
++	ib_flow = flow_attr + 1;
++	ib_spec = (union ib_flow_spec *)ib_flow;
++
++	if (ib_spec->type !=  IB_FLOW_SPEC_ETH || flow_attr->num_of_specs != 1)
++		return 0; /* do nothing */
++
++	err = mlx4_tunnel_steer_add(to_mdev(qp->device)->dev, ib_spec->eth.val.dst_mac,
++				    flow_attr->port, qp->qp_num,
++				    MLX4_DOMAIN_UVERBS | (flow_attr->priority & 0xff),
++				    reg_id);
++	return err;
++}
++
+ static struct ib_flow *mlx4_ib_create_flow(struct ib_qp *qp,
+ 				    struct ib_flow_attr *flow_attr,
+ 				    int domain)
+@@ -1136,6 +1160,12 @@ static struct ib_flow *mlx4_ib_create_flow(struct ib_qp *qp,
+ 		i++;
+ 	}
+ 
++	if (i < ARRAY_SIZE(type) && flow_attr->type == IB_FLOW_ATTR_NORMAL) {
++		err = mlx4_ib_tunnel_steer_add(qp, flow_attr, &mflow->reg_id[i]);
++		if (err)
++			goto err_free;
++	}
++
+ 	return &mflow->ibflow;
+ 
+ err_free:
+diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
+index 6778045..efb9eff 100644
+--- a/drivers/infiniband/hw/mlx4/qp.c
++++ b/drivers/infiniband/hw/mlx4/qp.c
+@@ -1677,9 +1677,15 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+ 		}
+ 	}
+ 
+-	if (qp->ibqp.qp_type == IB_QPT_RAW_PACKET)
++	if (qp->ibqp.qp_type == IB_QPT_RAW_PACKET) {
+ 		context->pri_path.ackto = (context->pri_path.ackto & 0xf8) |
+ 					MLX4_IB_LINK_TYPE_ETH;
++		if (dev->dev->caps.tunnel_offload_mode ==  MLX4_TUNNEL_OFFLOAD_MODE_VXLAN) {
++			/* set QP to receive both tunneled & non-tunneled packets */
++			if (!(context->flags & (1 << MLX4_RSS_QPC_FLAG_OFFSET)))
++				context->srqn = cpu_to_be32(7 << 28);
++		}
++	}
+ 
+ 	if (ibqp->qp_type == IB_QPT_UD && (new_state == IB_QPS_RTR)) {
+ 		int is_eth = rdma_port_get_link_layer(
+-- 
+1.7.1
