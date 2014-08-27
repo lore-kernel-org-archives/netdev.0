@@ -1,102 +1,64 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/11] i40e: set num_queue_pairs to num configured by VF
-Date: Wed, 27 Aug 2014 02:26:41 -0700
-Message-ID: <1409131606-15011-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/11] i40e/i40evf: Bump i40e & i40evf version
+Date: Wed, 27 Aug 2014 02:26:46 -0700
+Message-ID: <1409131606-15011-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Ashish Shah <ashish.n.shah@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:64375 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:64397 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932180AbaH0J0x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2014 05:26:53 -0400
+	id S932832AbaH0J0z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2014 05:26:55 -0400
 In-Reply-To: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ashish Shah <ashish.n.shah@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Change vsi->num_queue_pairs to equal the number that are configured
-by the VF. This, in turn, limits the number of queues that are
-enable/disabled. This fixes the mismatched case for when a VF configures
-fewer queues than is allocated to it by the PF.
+Bump versions for i40e to 1.0.4 and i40evf to 1.0.1.
 
-Change other sections to use alloc_queue_pairs as warranted.
-
-Change-ID: I0de1b55c9084e7be6acc818da8569f12128a82c2
-Signed-off-by: Ashish Shah <ashish.n.shah@intel.com>
+Change-ID: I960c04da2c91bdf1d02f8e5011e68c34a634122d
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-By: Jim Young <jamesx.m.young@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 6 +++---
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 0309bf8..da0f005 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -73,7 +73,7 @@ static inline bool i40e_vc_isvalid_queue_id(struct i40e_vf *vf, u8 vsi_id,
- {
- 	struct i40e_pf *pf = vf->pf;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 3216aa5..bd192b8 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -37,9 +37,9 @@ static const char i40e_driver_string[] =
  
--	return qid < pf->vsi[vsi_id]->num_queue_pairs;
-+	return qid < pf->vsi[vsi_id]->alloc_queue_pairs;
- }
+ #define DRV_KERN "-k"
  
- /**
-@@ -469,7 +469,7 @@ static void i40e_enable_vf_mappings(struct i40e_vf *vf)
- 	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), reg);
+-#define DRV_VERSION_MAJOR 0
+-#define DRV_VERSION_MINOR 4
+-#define DRV_VERSION_BUILD 21
++#define DRV_VERSION_MAJOR 1
++#define DRV_VERSION_MINOR 0
++#define DRV_VERSION_BUILD 4
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 38429fa..8c80925 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710/X710 Virtual Function Network Driver";
  
- 	/* map PF queues to VF queues */
--	for (j = 0; j < pf->vsi[vf->lan_vsi_index]->num_queue_pairs; j++) {
-+	for (j = 0; j < pf->vsi[vf->lan_vsi_index]->alloc_queue_pairs; j++) {
- 		u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index, j);
- 		reg = (qid & I40E_VPLAN_QTABLE_QINDEX_MASK);
- 		wr32(hw, I40E_VPLAN_QTABLE(total_queue_pairs, vf->vf_id), reg);
-@@ -478,7 +478,7 @@ static void i40e_enable_vf_mappings(struct i40e_vf *vf)
- 
- 	/* map PF queues to VSI */
- 	for (j = 0; j < 7; j++) {
--		if (j * 2 >= pf->vsi[vf->lan_vsi_index]->num_queue_pairs) {
-+		if (j * 2 >= pf->vsi[vf->lan_vsi_index]->alloc_queue_pairs) {
- 			reg = 0x07FF07FF;	/* unused */
- 		} else {
- 			u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
-@@ -585,7 +585,7 @@ static int i40e_alloc_vf_res(struct i40e_vf *vf)
- 	ret = i40e_alloc_vsi_res(vf, I40E_VSI_SRIOV);
- 	if (ret)
- 		goto error_alloc;
--	total_queue_pairs += pf->vsi[vf->lan_vsi_index]->num_queue_pairs;
-+	total_queue_pairs += pf->vsi[vf->lan_vsi_index]->alloc_queue_pairs;
- 	set_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps);
- 
- 	/* store the total qps number for the runtime
-@@ -1124,7 +1124,7 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf)
- 		vfres->vsi_res[i].vsi_id = vf->lan_vsi_index;
- 		vfres->vsi_res[i].vsi_type = I40E_VSI_SRIOV;
- 		vfres->vsi_res[i].num_queue_pairs =
--		    pf->vsi[vf->lan_vsi_index]->num_queue_pairs;
-+		    pf->vsi[vf->lan_vsi_index]->alloc_queue_pairs;
- 		memcpy(vfres->vsi_res[i].default_mac_addr,
- 		       vf->default_lan_addr.addr, ETH_ALEN);
- 		i++;
-@@ -1210,6 +1210,7 @@ static int i40e_vc_config_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	struct i40e_virtchnl_vsi_queue_config_info *qci =
- 	    (struct i40e_virtchnl_vsi_queue_config_info *)msg;
- 	struct i40e_virtchnl_queue_pair_info *qpi;
-+	struct i40e_pf *pf = vf->pf;
- 	u16 vsi_id, vsi_queue_id;
- 	i40e_status aq_ret = 0;
- 	int i;
-@@ -1243,6 +1244,8 @@ static int i40e_vc_config_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 			goto error_param;
- 		}
- 	}
-+	/* set vsi num_queue_pairs in use to num configured by vf */
-+	pf->vsi[vf->lan_vsi_index]->num_queue_pairs = qci->num_queue_pairs;
- 
- error_param:
- 	/* send the response to the vf */
+-#define DRV_VERSION "0.9.40"
++#define DRV_VERSION "1.0.1"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.9.3
