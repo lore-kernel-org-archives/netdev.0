@@ -1,31 +1,101 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH RFC v7 net-next 00/28] BPF syscall
-Date: Tue, 26 Aug 2014 23:11:55 -0700 (PDT)
-Message-ID: <20140826.231155.421325307812864648.davem@davemloft.net>
-References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org,
-	brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1409106582-10095-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH nf] ipvs: properly declare tunnel encapsulation
+Date: Wed, 27 Aug 2014 15:15:15 +0900
+Message-ID: <1409120115-32053-2-git-send-email-horms@verge.net.au>
+References: <1409120115-32053-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Alex Gartrell <agartrell@fb.com>,
+	Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:57540 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756569AbaH0GPY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 02:15:24 -0400
+In-Reply-To: <1409120115-32053-1-git-send-email-horms@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Date: Tue, 26 Aug 2014 19:29:14 -0700
+From: Julian Anastasov <ja@ssi.bg>
 
-> posting whole thing again as RFC to get feedback on syscall only.
-> If syscall bpf(int cmd, union bpf_attr *attr, unsigned int size) is ok,
+The tunneling method should properly use tunnel encapsulation.
+Fixes problem with CHECKSUM_PARTIAL packets when TCP/UDP csum
+offload is supported.
 
-I'm personally not reviewing such a large patch series, sorry.
+Thanks to Alex Gartrell for reporting the problem, providing
+solution and for all suggestions.
 
-You need to submit smaller sets if you want to get reasonable
-review of your changes and ideas.
+Reported-by: Alex Gartrell <agartrell@fb.com>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Alex Gartrell <agartrell@fb.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_xmit.c | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 6f70bdd..56896a4 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -38,6 +38,7 @@
+ #include <net/route.h>                  /* for ip_route_output */
+ #include <net/ipv6.h>
+ #include <net/ip6_route.h>
++#include <net/ip_tunnels.h>
+ #include <net/addrconf.h>
+ #include <linux/icmpv6.h>
+ #include <linux/netfilter.h>
+@@ -862,11 +863,15 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		old_iph = ip_hdr(skb);
+ 	}
+ 
+-	skb->transport_header = skb->network_header;
+-
+ 	/* fix old IP header checksum */
+ 	ip_send_check(old_iph);
+ 
++	skb = iptunnel_handle_offloads(skb, false, SKB_GSO_IPIP);
++	if (IS_ERR(skb))
++		goto tx_error;
++
++	skb->transport_header = skb->network_header;
++
+ 	skb_push(skb, sizeof(struct iphdr));
+ 	skb_reset_network_header(skb);
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+@@ -900,7 +905,8 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	return NF_STOLEN;
+ 
+   tx_error:
+-	kfree_skb(skb);
++	if (!IS_ERR(skb))
++		kfree_skb(skb);
+ 	rcu_read_unlock();
+ 	LeaveFunction(10);
+ 	return NF_STOLEN;
+@@ -953,6 +959,11 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		old_iph = ipv6_hdr(skb);
+ 	}
+ 
++	/* GSO: we need to provide proper SKB_GSO_ value for IPv6 */
++	skb = iptunnel_handle_offloads(skb, false, 0); /* SKB_GSO_SIT/IPV6 */
++	if (IS_ERR(skb))
++		goto tx_error;
++
+ 	skb->transport_header = skb->network_header;
+ 
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+@@ -988,7 +999,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	return NF_STOLEN;
+ 
+ tx_error:
+-	kfree_skb(skb);
++	if (!IS_ERR(skb))
++		kfree_skb(skb);
+ 	rcu_read_unlock();
+ 	LeaveFunction(10);
+ 	return NF_STOLEN;
+-- 
+2.0.1
