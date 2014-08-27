@@ -1,30 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] r8152: replace strncpy with strlcpy
-Date: Wed, 27 Aug 2014 16:18:26 -0700 (PDT)
-Message-ID: <20140827.161826.1147649707339837730.davem@davemloft.net>
-References: <1394712342-15778-16-Taiwan-albertk@realtek.com>
-	<1394712342-15778-22-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH net-next v4 01/13] net: dsa: reduce number of protocol
+ hooks
+Date: Wed, 27 Aug 2014 16:24:58 -0700 (PDT)
+Message-ID: <20140827.162458.878869941352643208.davem@davemloft.net>
+References: <1409028581-17399-1-git-send-email-f.fainelli@gmail.com>
+	<1409028581-17399-2-git-send-email-f.fainelli@gmail.com>
+	<53FDF879.1000504@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linville@tuxdriver.com, jhs@mojatatu.com, alexander.duyck@gmail.com
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41674 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41711 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933980AbaH0XS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 19:18:29 -0400
-In-Reply-To: <1394712342-15778-22-Taiwan-albertk@realtek.com>
+	with ESMTP id S965120AbaH0XZA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 19:25:00 -0400
+In-Reply-To: <53FDF879.1000504@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Tue, 26 Aug 2014 10:08:23 +0800
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Wed, 27 Aug 2014 08:25:45 -0700
 
-> Replace the strncpy with strlcpy, and use sizeof to determine the
-> length.
+> Just a thought, you might want to consider using a protocol value other
+> than ETH_P_DSA.  Maybe we should add a new value named ETH_P_XDSA for
+> this approach since what we are doing is a multiplexed DSA protocol now.
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> This would allow for much easier back-porting of this if needed and also
+> prevents us from possibly triggering any issues if there are any
+> user-space APIs that might be trying to capture packets based on the
+> protocol value.
 
-Applied, thanks.
+Agreed, Florian can you respin this patch set using a newly allocated
+ETH_P_* value for these new semantics?
+
+Thanks.
