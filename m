@@ -1,41 +1,355 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH RFC v7 net-next 00/28] BPF syscall
-Date: Tue, 26 Aug 2014 20:56:13 -0700
-Message-ID: <CALCETrX2MzNxQ1ogt+Qx8iPjUe+z0gN6ZLwu9nAcZzTN+D+iYw@mail.gmail.com>
-References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [net-next v3 1/3] udp: Expand UDP tunnel common APIs
+Date: Tue, 26 Aug 2014 21:12:24 -0700
+Message-ID: <CA+mtBx-XKH7wYq4hsGLTn63i06JefQjaR3TfnhH2PyB2DM0R=w@mail.gmail.com>
+References: <1409110530-4383-1-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Chema Gonzalez <chema@google.com>,
-	Namhyung Kim <namhyung@kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Ingo Molnar <mingo@kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Andy Zhou <azhou@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:62430 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750919AbaH0EMZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 00:12:25 -0400
+Received: by mail-ig0-f173.google.com with SMTP id h18so5642229igc.0
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 21:12:24 -0700 (PDT)
+In-Reply-To: <1409110530-4383-1-git-send-email-azhou@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Aug 26, 2014 7:29 PM, "Alexei Starovoitov" <ast@plumgrid.com> wrote:
+On Tue, Aug 26, 2014 at 8:35 PM, Andy Zhou <azhou@nicira.com> wrote:
+> Added create_udp_tunnel_socket(), packet receive and transmit,  and
+> other related common functions for UDP tunnels.
 >
-> Hi Ingo, David,
+> Per net open UDP tunnel ports are tracked in this common layer to
+> prevent sharing of a single port with more than one UDP tunnel.
 >
-> posting whole thing again as RFC to get feedback on syscall only.
-> If syscall bpf(int cmd, union bpf_attr *attr, unsigned int size) is ok,
-> I'll split them into small chunks as requested and will repost without RFC.
+This is not needed! If a UDP port is already bound (whether by another
+tunnel or not), then bind during tunnel initialization will fail. All
+this logic to store tunnel sockets in a separate list seems like
+unnecessary complexity. If a driver needs to track multiple ports it
+opens, it can do that on its own like VXLAN is already doing.
 
-IMO it's much easier to review a syscall if we just look at a
-specification of what it does.  The code is, in some sense, secondary.
-
---Andy
+> Signed-off-by: Andy Zhou <azhou@nicira.com>
+> ---
+>  include/net/udp_tunnel.h |   50 +++++++++++
+>  net/ipv4/udp_tunnel.c    |  216 +++++++++++++++++++++++++++++++++++++++++++++-
+>  2 files changed, 265 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+> index ffd69cb..5ff0746 100644
+> --- a/include/net/udp_tunnel.h
+> +++ b/include/net/udp_tunnel.h
+> @@ -1,6 +1,8 @@
+>  #ifndef __NET_UDP_TUNNEL_H
+>  #define __NET_UDP_TUNNEL_H
+>
+> +#include <net/ip_tunnels.h>
+> +
+>  struct udp_port_cfg {
+>         u8                      family;
+>
+> @@ -26,7 +28,55 @@ struct udp_port_cfg {
+>                                 use_udp6_rx_checksums:1;
+>  };
+>
+> +struct udp_tunnel_sock;
+> +
+> +typedef int (*udp_tunnel_encap_rcv_t)(struct sock *sk, struct sk_buff *skb);
+> +typedef void (*udp_tunnel_encap_destroy_t)(struct sock *sk);
+> +
+> +struct udp_tunnel_socket_cfg {
+> +       struct udp_port_cfg port;
+> +
+> +       /* Used for setting up udp_sock fields, see udp.h for details */
+> +       __u8  encap_type;
+> +       udp_tunnel_encap_rcv_t encap_rcv;
+> +       udp_tunnel_encap_destroy_t encap_destroy;
+> +};
+> +
+> +struct udp_tunnel_sock {
+> +       struct hlist_node hlist;
+> +       struct socket *sock;
+> +};
+> +
+>  int udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
+>                     struct socket **sockp);
+>
+> +struct udp_tunnel_sock *create_udp_tunnel_sock(struct net *net, size_t size,
+> +                                              struct socket *sock,
+> +                                              struct udp_tunnel_socket_cfg
+> +                                                       *socket_cfg);
+> +
+> +struct udp_tunnel_sock *udp_tunnel_find_sock(struct net *net, __be16 port);
+> +
+> +int udp_tunnel_xmit_skb(struct socket *sock, struct rtable *rt,
+> +                       struct sk_buff *skb, __be32 src, __be32 dst,
+> +                       __u8 tos, __u8 ttl, __be16 df, __be16 src_port,
+> +                       __be16 dst_port, bool xnet);
+> +
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +int udp_tunnel6_xmit_skb(struct socket *sock, struct dst_entry *dst,
+> +               struct sk_buff *skb, struct net_device *dev,
+> +               struct in6_addr *saddr, struct in6_addr *daddr,
+> +               __u8 prio, __u8 ttl, __be16 src_port, __be16 dst_port);
+> +
+> +#endif
+> +
+> +void udp_tunnel_sock_release(struct udp_tunnel_sock *uts);
+> +
+> +static inline struct sk_buff *udp_tunnel_handle_offloads(struct sk_buff *skb,
+> +                                                        bool udp_csum)
+> +{
+> +       int type = udp_csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
+> +
+> +       return iptunnel_handle_offloads(skb, udp_csum, type);
+> +}
+>  #endif
+> diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
+> index 61ec1a6..3ed66bc 100644
+> --- a/net/ipv4/udp_tunnel.c
+> +++ b/net/ipv4/udp_tunnel.c
+> @@ -7,6 +7,23 @@
+>  #include <net/udp.h>
+>  #include <net/udp_tunnel.h>
+>  #include <net/net_namespace.h>
+> +#include <net/netns/generic.h>
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +#include <net/ipv6.h>
+> +#include <net/addrconf.h>
+> +#include <net/ip6_tunnel.h>
+> +#include <net/ip6_checksum.h>
+> +#endif
+> +
+> +#define PORT_HASH_BITS 8
+> +#define PORT_HASH_SIZE (1 << PORT_HASH_BITS)
+> +
+> +static int udp_tunnel_net_id;
+> +
+> +struct udp_tunnel_net {
+> +       struct hlist_head sock_list[PORT_HASH_SIZE];
+> +       spinlock_t  sock_lock;   /* Protecting the sock_list */
+> +};
+>
+>  int udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
+>                     struct socket **sockp)
+> @@ -82,7 +99,6 @@ int udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
+>                 return -EPFNOSUPPORT;
+>         }
+>
+> -
+>         *sockp = sock;
+>
+>         return 0;
+> @@ -97,4 +113,202 @@ error:
+>  }
+>  EXPORT_SYMBOL(udp_sock_create);
+>
+> +
+> +/* Socket hash table head */
+> +static inline struct hlist_head *uts_head(struct net *net, const __be16 port)
+> +{
+> +       struct udp_tunnel_net *utn = net_generic(net, udp_tunnel_net_id);
+> +
+> +       return &utn->sock_list[hash_32(ntohs(port), PORT_HASH_BITS)];
+> +}
+> +
+> +struct udp_tunnel_sock *create_udp_tunnel_sock(struct net *net, size_t size,
+> +                                              struct socket *sock,
+> +                                              struct udp_tunnel_socket_cfg
+> +                                                     *cfg)
+> +{
+> +       struct udp_tunnel_net *utn = net_generic(net, udp_tunnel_net_id);
+> +       struct udp_tunnel_sock *uts;
+> +       struct sock *sk;
+> +       const __be16 port = cfg->port.local_udp_port;
+> +       const int ipv6 = (cfg->port.family == AF_INET6);
+> +       int err;
+> +
+> +       if (!sock)
+> +               err = udp_sock_create(net, &cfg->port, &sock);
+> +       else
+> +               err = (sock->sk->sk_protocol == IPPROTO_UDP) ?
+> +                       0 : -EPROTONOSUPPORT;
+> +
+> +       if (err)
+> +               return NULL;
+> +
+> +       uts = kzalloc(size, GFP_KERNEL);
+> +       if (!uts)
+> +               return ERR_PTR(-ENOMEM);
+> +
+> +       sk = sock->sk;
+> +
+> +       /* Disable multicast loopback */
+> +       inet_sk(sk)->mc_loop = 0;
+> +
+> +       rcu_assign_sk_user_data(sk, uts);
+> +
+> +       udp_sk(sk)->encap_type = cfg->encap_type;
+> +       udp_sk(sk)->encap_rcv = cfg->encap_rcv;
+> +       udp_sk(sk)->encap_destroy = cfg->encap_destroy;
+> +
+> +       uts->sock = sock;
+> +
+> +       spin_lock(&utn->sock_lock);
+> +       hlist_add_head_rcu(&uts->hlist, uts_head(net, port));
+> +       spin_unlock(&utn->sock_lock);
+> +
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +       if (ipv6)
+> +               ipv6_stub->udpv6_encap_enable();
+> +       else
+> +#endif
+> +               udp_encap_enable();
+> +
+> +       return uts;
+> +}
+> +EXPORT_SYMBOL_GPL(create_udp_tunnel_sock);
+> +
+> +int udp_tunnel_xmit_skb(struct socket *sock, struct rtable *rt,
+> +                       struct sk_buff *skb, __be32 src, __be32 dst,
+> +                       __u8 tos, __u8 ttl, __be16 df, __be16 src_port,
+> +                       __be16 dst_port, bool xnet)
+> +{
+> +       struct udphdr *uh;
+> +
+> +       __skb_push(skb, sizeof(*uh));
+> +       skb_reset_transport_header(skb);
+> +       uh = udp_hdr(skb);
+> +
+> +       uh->dest = dst_port;
+> +       uh->source = src_port;
+> +       uh->len = htons(skb->len);
+> +
+> +       udp_set_csum(sock->sk->sk_no_check_tx, skb, src, dst, skb->len);
+> +
+> +       return iptunnel_xmit(sock->sk, rt, skb, src, dst, IPPROTO_UDP,
+> +                            tos, ttl, df, xnet);
+> +}
+> +EXPORT_SYMBOL_GPL(udp_tunnel_xmit_skb);
+> +
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +int udp_tunnel6_xmit_skb(struct socket *sock, struct dst_entry *dst,
+> +                        struct sk_buff *skb, struct net_device *dev,
+> +                        struct in6_addr *saddr, struct in6_addr *daddr,
+> +                        __u8 prio, __u8 ttl, __be16 src_port, __be16 dst_port)
+> +{
+> +       struct udphdr *uh;
+> +       struct ipv6hdr *ip6h;
+> +
+> +       __skb_push(skb, sizeof(*uh));
+> +       skb_reset_transport_header(skb);
+> +       uh = udp_hdr(skb);
+> +
+> +       uh->dest = dst_port;
+> +       uh->source = src_port;
+> +
+> +       uh->len = htons(skb->len);
+> +       uh->check = 0;
+> +
+> +       memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+> +       IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED
+> +                           | IPSKB_REROUTED);
+> +       skb_dst_set(skb, dst);
+> +
+> +       if (!skb_is_gso(skb) && !(dst->dev->features & NETIF_F_IPV6_CSUM)) {
+> +               __wsum csum = skb_checksum(skb, 0, skb->len, 0);
+> +
+> +               skb->ip_summed = CHECKSUM_UNNECESSARY;
+> +               uh->check = csum_ipv6_magic(saddr, daddr, skb->len,
+> +                               IPPROTO_UDP, csum);
+> +               if (uh->check == 0)
+> +                       uh->check = CSUM_MANGLED_0;
+> +       } else {
+> +               skb->ip_summed = CHECKSUM_PARTIAL;
+> +               skb->csum_start = skb_transport_header(skb) - skb->head;
+> +               skb->csum_offset = offsetof(struct udphdr, check);
+> +               uh->check = ~csum_ipv6_magic(saddr, daddr,
+> +                               skb->len, IPPROTO_UDP, 0);
+> +       }
+> +
+> +       __skb_push(skb, sizeof(*ip6h));
+> +       skb_reset_network_header(skb);
+> +       ip6h              = ipv6_hdr(skb);
+> +       ip6h->version     = 6;
+> +       ip6h->priority    = prio;
+> +       ip6h->flow_lbl[0] = 0;
+> +       ip6h->flow_lbl[1] = 0;
+> +       ip6h->flow_lbl[2] = 0;
+> +       ip6h->payload_len = htons(skb->len);
+> +       ip6h->nexthdr     = IPPROTO_UDP;
+> +       ip6h->hop_limit   = ttl;
+> +       ip6h->daddr       = *daddr;
+> +       ip6h->saddr       = *saddr;
+> +
+> +       ip6tunnel_xmit(skb, dev);
+> +       return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(udp_tunnel6_xmit_skb);
+> +#endif
+> +
+> +struct udp_tunnel_sock *udp_tunnel_find_sock(struct net *net, __be16 port)
+> +{
+> +       struct udp_tunnel_sock *uts;
+> +
+> +       hlist_for_each_entry_rcu(uts, uts_head(net, port), hlist) {
+> +               if (inet_sk(uts->sock->sk)->inet_sport == port)
+> +                       return uts;
+> +       }
+> +
+> +       return NULL;
+> +}
+> +EXPORT_SYMBOL_GPL(udp_tunnel_find_sock);
+> +
+> +void udp_tunnel_sock_release(struct udp_tunnel_sock *uts)
+> +{
+> +       struct sock *sk = uts->sock->sk;
+> +       struct net *net = sock_net(sk);
+> +       struct udp_tunnel_net *utn = net_generic(net, udp_tunnel_net_id);
+> +
+> +       spin_lock(&utn->sock_lock);
+> +       hlist_del_rcu(&uts->hlist);
+> +       rcu_assign_sk_user_data(uts->sock->sk, NULL);
+> +       kernel_sock_shutdown(uts->sock, SHUT_RDWR);
+> +       sk_release_kernel(sk);
+> +       spin_unlock(&utn->sock_lock);
+> +}
+> +EXPORT_SYMBOL_GPL(udp_tunnel_sock_release);
+> +
+> +static int __net_init udp_tunnel_init_net(struct net *net)
+> +{
+> +       struct udp_tunnel_net *utn = net_generic(net, udp_tunnel_net_id);
+> +       unsigned int h;
+> +
+> +       spin_lock_init(&utn->sock_lock);
+> +
+> +       for (h = 0; h < PORT_HASH_SIZE; h++)
+> +               INIT_HLIST_HEAD(&utn->sock_list[h]);
+> +
+> +       return 0;
+> +}
+> +
+> +static struct pernet_operations udp_tunnel_net_ops = {
+> +       .init = udp_tunnel_init_net,
+> +       .exit = NULL,
+> +       .id = &udp_tunnel_net_id,
+> +       .size = sizeof(struct udp_tunnel_net),
+> +};
+> +
+> +static int __init udp_tunnel_init(void)
+> +{
+> +       return register_pernet_subsys(&udp_tunnel_net_ops);
+> +}
+> +late_initcall(udp_tunnel_init);
+> +
+>  MODULE_LICENSE("GPL");
+> --
+> 1.7.9.5
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
