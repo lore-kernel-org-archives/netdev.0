@@ -1,314 +1,97 @@
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git)] stmmac: fix dma api misuse
-Date: Wed, 27 Aug 2014 11:27:00 +0200
-Message-ID: <1409131620-16888-1-git-send-email-peppe.cavallaro@st.com>
-References: <53F6E8E8.1030900@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Andre Draszik <andre.draszik@st.com>,
-	Hans de Goede <hdegoede@redhat.com>
-To: <netdev@vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/11] i40e: Add a FD flush counter to ethtool
+Date: Wed, 27 Aug 2014 02:26:39 -0700
+Message-ID: <1409131606-15011-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:45852 "EHLO
-	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933135AbaH0J13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 05:27:29 -0400
-In-Reply-To: <53F6E8E8.1030900@st.com>
+Received: from mga01.intel.com ([192.55.52.88]:64375 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932797AbaH0J0x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2014 05:26:53 -0400
+In-Reply-To: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enabling DMA_API_DEBUG, warnings are reported at runtime
-because the device driver frees DMA memory with wrong functions
-and it does not call dma_mapping_error after mapping dma memory.
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-The first problem is fixed by of introducing a flag that helps us
-keeping track which mapping technique was used, so that we can use
-the right API for unmap.
-This approach was inspired by the e1000 driver, which uses a similar
-technique.
+This helps know how many times the interface had to flush and replay FD
+filter table, which gives an indication on how often we are getting FD
+table full situation.
 
-Signed-off-by: Andre Draszik <andre.draszik@st.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Reviewed-by: Denis Kirjanov <kda@linux-powerpc.org>
-Cc: Hans de Goede <hdegoede@redhat.com>
+Also check on certain pf states before proceeding to add or delete
+filters since we can't add or delete filters if we are in those states.
+
+Change-ID: I97f5bbbea7146833ea61af0e08ea794fccba1780
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/chain_mode.c  |   14 +++-
- drivers/net/ethernet/stmicro/stmmac/common.h      |    2 +-
- drivers/net/ethernet/stmicro/stmmac/ring_mode.c   |   15 +++-
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    7 ++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   68 +++++++++++++++-----
- 5 files changed, 79 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         | 1 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 9 +++++++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 1 +
+ 3 files changed, 11 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
-index c553f6b..cf28dab 100644
---- a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
-@@ -28,7 +28,7 @@
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 0c6a9b9..8526950 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -252,6 +252,7 @@ struct i40e_pf {
+ 	u16 fd_sb_cnt_idx;
+ 	u16 fd_atr_cnt_idx;
+ 	unsigned long fd_flush_timestamp;
++	u32 fd_flush_cnt;
+ 	u32 fd_add_err;
+ 	u32 fd_atr_cnt;
+ 	u32 fd_tcp_rule;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 7204e29..571d527 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -145,6 +145,7 @@ static struct i40e_stats i40e_gstrings_stats[] = {
+ 	I40E_PF_STAT("rx_jabber", stats.rx_jabber),
+ 	I40E_PF_STAT("VF_admin_queue_requests", vf_aq_requests),
+ 	I40E_PF_STAT("rx_hwtstamp_cleared", rx_hwtstamp_cleared),
++	I40E_PF_STAT("fdir_flush_cnt", fd_flush_cnt),
+ 	I40E_PF_STAT("fdir_atr_match", stats.fd_atr_match),
+ 	I40E_PF_STAT("fdir_sb_match", stats.fd_sb_match),
  
- #include "stmmac.h"
+@@ -1977,6 +1978,10 @@ static int i40e_del_fdir_entry(struct i40e_vsi *vsi,
+ 	struct i40e_pf *pf = vsi->back;
+ 	int ret = 0;
  
--static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
-+static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- {
- 	struct stmmac_priv *priv = (struct stmmac_priv *)p;
- 	unsigned int txsize = priv->dma_tx_size;
-@@ -47,7 +47,9 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 
- 	desc->des2 = dma_map_single(priv->device, skb->data,
- 				    bmax, DMA_TO_DEVICE);
--	priv->tx_skbuff_dma[entry] = desc->des2;
-+	if (dma_mapping_error(priv->device, desc->des2))
-+		return -1;
-+	priv->tx_skbuff_dma[entry].buf = desc->des2;
- 	priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum, STMMAC_CHAIN_MODE);
- 
- 	while (len != 0) {
-@@ -59,7 +61,9 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 			desc->des2 = dma_map_single(priv->device,
- 						    (skb->data + bmax * i),
- 						    bmax, DMA_TO_DEVICE);
--			priv->tx_skbuff_dma[entry] = desc->des2;
-+			if (dma_mapping_error(priv->device, desc->des2))
-+				return -1;
-+			priv->tx_skbuff_dma[entry].buf = desc->des2;
- 			priv->hw->desc->prepare_tx_desc(desc, 0, bmax, csum,
- 							STMMAC_CHAIN_MODE);
- 			priv->hw->desc->set_tx_owner(desc);
-@@ -69,7 +73,9 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 			desc->des2 = dma_map_single(priv->device,
- 						    (skb->data + bmax * i), len,
- 						    DMA_TO_DEVICE);
--			priv->tx_skbuff_dma[entry] = desc->des2;
-+			if (dma_mapping_error(priv->device, desc->des2))
-+				return -1;
-+			priv->tx_skbuff_dma[entry].buf = desc->des2;
- 			priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
- 							STMMAC_CHAIN_MODE);
- 			priv->hw->desc->set_tx_owner(desc);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index de507c3..bd54238 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -425,7 +425,7 @@ struct stmmac_mode_ops {
- 	void (*init) (void *des, dma_addr_t phy_addr, unsigned int size,
- 		      unsigned int extend_desc);
- 	unsigned int (*is_jumbo_frm) (int len, int ehn_desc);
--	unsigned int (*jumbo_frm) (void *priv, struct sk_buff *skb, int csum);
-+	int (*jumbo_frm)(void *priv, struct sk_buff *skb, int csum);
- 	int (*set_16kib_bfsize)(int mtu);
- 	void (*init_desc3)(struct dma_desc *p);
- 	void (*refill_desc3) (void *priv, struct dma_desc *p);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-index 650a4be..5dd50c6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
-@@ -28,7 +28,7 @@
- 
- #include "stmmac.h"
- 
--static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
-+static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- {
- 	struct stmmac_priv *priv = (struct stmmac_priv *)p;
- 	unsigned int txsize = priv->dma_tx_size;
-@@ -53,7 +53,10 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 
- 		desc->des2 = dma_map_single(priv->device, skb->data,
- 					    bmax, DMA_TO_DEVICE);
--		priv->tx_skbuff_dma[entry] = desc->des2;
-+		if (dma_mapping_error(priv->device, desc->des2))
-+			return -1;
++	if (test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state) ||
++	    test_bit(__I40E_RESET_INTR_RECEIVED, &pf->state))
++		return -EBUSY;
 +
-+		priv->tx_skbuff_dma[entry].buf = desc->des2;
- 		desc->des3 = desc->des2 + BUF_SIZE_4KiB;
- 		priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum,
- 						STMMAC_RING_MODE);
-@@ -68,7 +71,9 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 	if (test_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state))
+ 		return -EBUSY;
  
- 		desc->des2 = dma_map_single(priv->device, skb->data + bmax,
- 					    len, DMA_TO_DEVICE);
--		priv->tx_skbuff_dma[entry] = desc->des2;
-+		if (dma_mapping_error(priv->device, desc->des2))
-+			return -1;
-+		priv->tx_skbuff_dma[entry].buf = desc->des2;
- 		desc->des3 = desc->des2 + BUF_SIZE_4KiB;
- 		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
- 						STMMAC_RING_MODE);
-@@ -77,7 +82,9 @@ static unsigned int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
- 	} else {
- 		desc->des2 = dma_map_single(priv->device, skb->data,
- 					    nopaged_len, DMA_TO_DEVICE);
--		priv->tx_skbuff_dma[entry] = desc->des2;
-+		if (dma_mapping_error(priv->device, desc->des2))
-+			return -1;
-+		priv->tx_skbuff_dma[entry].buf = desc->des2;
- 		desc->des3 = desc->des2 + BUF_SIZE_4KiB;
- 		priv->hw->desc->prepare_tx_desc(desc, 1, nopaged_len, csum,
- 						STMMAC_RING_MODE);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index ca01035..b69c156 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -34,6 +34,11 @@
- #include <linux/ptp_clock_kernel.h>
- #include <linux/reset.h>
+@@ -2013,6 +2018,10 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 	if (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED)
+ 		return -ENOSPC;
  
-+struct stmmac_tx_info {
-+	dma_addr_t buf;
-+	bool map_as_page;
-+};
++	if (test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state) ||
++	    test_bit(__I40E_RESET_INTR_RECEIVED, &pf->state))
++		return -EBUSY;
 +
- struct stmmac_priv {
- 	/* Frequently used values are kept adjacent for cache effect */
- 	struct dma_extended_desc *dma_etx ____cacheline_aligned_in_smp;
-@@ -45,7 +50,7 @@ struct stmmac_priv {
- 	u32 tx_count_frames;
- 	u32 tx_coal_frames;
- 	u32 tx_coal_timer;
--	dma_addr_t *tx_skbuff_dma;
-+	struct stmmac_tx_info *tx_skbuff_dma;
- 	dma_addr_t dma_tx_phy;
- 	int tx_coalesce;
- 	int hwts_tx_en;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 51a89d4..56ad0dc 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1061,7 +1061,8 @@ static int init_dma_desc_rings(struct net_device *dev)
- 		else
- 			p = priv->dma_tx + i;
- 		p->des2 = 0;
--		priv->tx_skbuff_dma[i] = 0;
-+		priv->tx_skbuff_dma[i].buf = 0;
-+		priv->tx_skbuff_dma[i].map_as_page = false;
- 		priv->tx_skbuff[i] = NULL;
- 	}
+ 	if (test_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state))
+ 		return -EBUSY;
  
-@@ -1100,17 +1101,24 @@ static void dma_free_tx_skbufs(struct stmmac_priv *priv)
- 		else
- 			p = priv->dma_tx + i;
- 
--		if (priv->tx_skbuff_dma[i]) {
--			dma_unmap_single(priv->device,
--					 priv->tx_skbuff_dma[i],
--					 priv->hw->desc->get_tx_len(p),
--					 DMA_TO_DEVICE);
--			priv->tx_skbuff_dma[i] = 0;
-+		if (priv->tx_skbuff_dma[i].buf) {
-+			if (priv->tx_skbuff_dma[i].map_as_page)
-+				dma_unmap_page(priv->device,
-+					       priv->tx_skbuff_dma[i].buf,
-+					       priv->hw->desc->get_tx_len(p),
-+					       DMA_TO_DEVICE);
-+			else
-+				dma_unmap_single(priv->device,
-+						 priv->tx_skbuff_dma[i].buf,
-+						 priv->hw->desc->get_tx_len(p),
-+						 DMA_TO_DEVICE);
- 		}
- 
- 		if (priv->tx_skbuff[i] != NULL) {
- 			dev_kfree_skb_any(priv->tx_skbuff[i]);
- 			priv->tx_skbuff[i] = NULL;
-+			priv->tx_skbuff_dma[i].buf = 0;
-+			priv->tx_skbuff_dma[i].map_as_page = false;
- 		}
- 	}
- }
-@@ -1131,7 +1139,8 @@ static int alloc_dma_desc_resources(struct stmmac_priv *priv)
- 	if (!priv->rx_skbuff)
- 		goto err_rx_skbuff;
- 
--	priv->tx_skbuff_dma = kmalloc_array(txsize, sizeof(dma_addr_t),
-+	priv->tx_skbuff_dma = kmalloc_array(txsize,
-+					    sizeof(*priv->tx_skbuff_dma),
- 					    GFP_KERNEL);
- 	if (!priv->tx_skbuff_dma)
- 		goto err_tx_skbuff_dma;
-@@ -1293,12 +1302,19 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 			pr_debug("%s: curr %d, dirty %d\n", __func__,
- 				 priv->cur_tx, priv->dirty_tx);
- 
--		if (likely(priv->tx_skbuff_dma[entry])) {
--			dma_unmap_single(priv->device,
--					 priv->tx_skbuff_dma[entry],
--					 priv->hw->desc->get_tx_len(p),
--					 DMA_TO_DEVICE);
--			priv->tx_skbuff_dma[entry] = 0;
-+		if (likely(priv->tx_skbuff_dma[entry].buf)) {
-+			if (priv->tx_skbuff_dma[entry].map_as_page)
-+				dma_unmap_page(priv->device,
-+					       priv->tx_skbuff_dma[entry].buf,
-+					       priv->hw->desc->get_tx_len(p),
-+					       DMA_TO_DEVICE);
-+			else
-+				dma_unmap_single(priv->device,
-+						 priv->tx_skbuff_dma[entry].buf,
-+						 priv->hw->desc->get_tx_len(p),
-+						 DMA_TO_DEVICE);
-+			priv->tx_skbuff_dma[entry].buf = 0;
-+			priv->tx_skbuff_dma[entry].map_as_page = false;
- 		}
- 		priv->hw->mode->clean_desc3(priv, p);
- 
-@@ -1893,12 +1909,16 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (likely(!is_jumbo)) {
- 		desc->des2 = dma_map_single(priv->device, skb->data,
- 					    nopaged_len, DMA_TO_DEVICE);
--		priv->tx_skbuff_dma[entry] = desc->des2;
-+		if (dma_mapping_error(priv->device, desc->des2))
-+			goto dma_map_err;
-+		priv->tx_skbuff_dma[entry].buf = desc->des2;
- 		priv->hw->desc->prepare_tx_desc(desc, 1, nopaged_len,
- 						csum_insertion, priv->mode);
- 	} else {
- 		desc = first;
- 		entry = priv->hw->mode->jumbo_frm(priv, skb, csum_insertion);
-+		if (unlikely(entry < 0))
-+			goto dma_map_err;
- 	}
- 
- 	for (i = 0; i < nfrags; i++) {
-@@ -1914,7 +1934,11 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 		desc->des2 = skb_frag_dma_map(priv->device, frag, 0, len,
- 					      DMA_TO_DEVICE);
--		priv->tx_skbuff_dma[entry] = desc->des2;
-+		if (dma_mapping_error(priv->device, desc->des2))
-+			goto dma_map_err; /* should reuse desc w/o issues */
-+
-+		priv->tx_skbuff_dma[entry].buf = desc->des2;
-+		priv->tx_skbuff_dma[entry].map_as_page = true;
- 		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum_insertion,
- 						priv->mode);
- 		wmb();
-@@ -1981,7 +2005,12 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	priv->hw->dma->enable_dma_transmission(priv->ioaddr);
- 
- 	spin_unlock(&priv->tx_lock);
-+	return NETDEV_TX_OK;
- 
-+dma_map_err:
-+	dev_err(priv->device, "Tx dma map failed\n");
-+	dev_kfree_skb(skb);
-+	priv->dev->stats.tx_dropped++;
- 	return NETDEV_TX_OK;
- }
- 
-@@ -2034,7 +2063,12 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
- 			priv->rx_skbuff_dma[entry] =
- 			    dma_map_single(priv->device, skb->data, bfsize,
- 					   DMA_FROM_DEVICE);
--
-+			if (dma_mapping_error(priv->device,
-+					      priv->rx_skbuff_dma[entry])) {
-+				dev_err(priv->device, "Rx dma map failed\n");
-+				dev_kfree_skb(skb);
-+				break;
-+			}
- 			p->des2 = priv->rx_skbuff_dma[entry];
- 
- 			priv->hw->mode->refill_desc3(priv, p);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index cab9c9e..712a23b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5189,6 +5189,7 @@ static void i40e_fdir_flush_and_replay(struct i40e_pf *pf)
+ 		wr32(&pf->hw, I40E_PFQF_CTL_1,
+ 		     I40E_PFQF_CTL_1_CLEARFDTABLE_MASK);
+ 		i40e_flush(&pf->hw);
++		pf->fd_flush_cnt++;
+ 		pf->fd_add_err = 0;
+ 		do {
+ 			/* Check FD flush status every 5-6msec */
 -- 
-1.7.4.4
+1.9.3
