@@ -1,70 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: skb_warn_bad_offload warnings with FreeBSD guests
-Date: Wed, 27 Aug 2014 09:44:50 -0700
-Message-ID: <1409157890.3173.71.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <53F76D7E.4030307@gameservers.com> <53FB4775.8020507@gmail.com>
-	 <53FE02CC.50501@gameservers.com>
+From: Martin Rusko <martin.rusko@gmail.com>
+Subject: Sending undersized ARP packets with VXLAN L3 interface
+Date: Wed, 27 Aug 2014 19:06:04 +0200
+Message-ID: <CAMYYbY79hOVA5b22-gmLJTNQwprdfwa_QxKqveuwNhJMcXv9tA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
-To: Brian Rak <brak@gameservers.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:64103 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933914AbaH0Qoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 12:44:55 -0400
-Received: by mail-pd0-f180.google.com with SMTP id v10so566791pde.25
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 09:44:53 -0700 (PDT)
-In-Reply-To: <53FE02CC.50501@gameservers.com>
+Received: from mail-yh0-f54.google.com ([209.85.213.54]:34991 "EHLO
+	mail-yh0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935246AbaH0RGF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 13:06:05 -0400
+Received: by mail-yh0-f54.google.com with SMTP id v1so524551yhn.41
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 10:06:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-08-27 at 12:09 -0400, Brian Rak wrote:
+I tried to use VXLAN interface as an L3 interface. Something like this:
 
-> 
-> I managed to intercept the raw packet + headers being delivered to the 
-> tun device, though I'm having some trouble making sense of it. I've got 
-> this call:
-> 
-> writev(33, [{"\x00\x01\x42\x00\xa0\x05\x00\x00\x00\x00\x00\x00", 12}, 
-> .... ], 4) = 4258
-> 
-> If I ignore the first 12 bytes that were written, I end up with a 4246 
-> byte packet, which matches the warning message:
-> 
-> kernel: igb: caps=(0x0000000390114bb3, 0x0000000000000000) len=4246 
-> data_len=4180 gso_size=1440 gso_type=5 ip_summed=0
-> 
-> Looking at the code ( 
-> https://github.com/torvalds/linux/blob/68e370289c29e3beac99d59c6d840d470af9dfcf/drivers/net/tun.c#L1037 
-> ) it seems that the tun device is expecting a virtio_net_hdr, but that 
-> structure is only 10 bytes long ( 
-> http://lxr.free-electrons.com/source/include/uapi/linux/virtio_net.h#L73 
-> ).  I'm assuming the last two bytes are padding, because then the rest 
-> of the structure decodes okay:
-> 
-> flags =  0
-> gso_type = VIRTIO_NET_HDR_GSO_TCPV4
-> hdr_len = 66
-> gso_size =  1440
-> csum_start = 0
-> csum_offset = 0
-> 
-> This matches what the warning message says, so I'm fairly confident in 
-> it.  If I decode the remainder of the write call (ignoring the 2 bytes 
-> after the header), I'm left with a perfectly normal looking TCP packet 
-> (with a 4180 byte payload).
-> 
-> Looking at the packet itself, I see a valid IP checksum, and a valid TCP 
-> checksum.  So, it seems like FreeBSD is calculating the packet checksums 
-> correctly, but I'm unsure of why Linux isn't noticing that.  I thought 
-> it might be related to VIRTIO_NET_HDR_F_DATA_VALID, but I can't seem to 
-> find any uses of this that seem relevant (not that FreeBSD sets it anyway).
-> 
-> Shouldn't the tun code be setting ip_summed after receiving a packet 
-> with a valid checksum?  It's not clear to me where ip_summed should be 
-> getting set.
+  ip link add name vxln7 \
+  type vxlan id 7007 group 232.1.42.7 \
+  local 10.7.12.250 dev vlan482 \
+  dstport 0 ageing 300
 
-You need VIRTIO_NET_HDR_F_NEEDS_CSUM, and to provide proper csum_start &
-csum_offset
+  ip ad ad 192.168.3.200/24 brd + dev vxln7
+  ip li set vxln7 up
+
+Now this doesn't work very well for small packets like those carrying
+ARP protocol. Because resulting ethernet frames which are encapsulated
+in VXLAN are not padded to minimum 64bytes required for Ethernet. Once
+the inner frame traverse through any switch, it will get dropped as
+undersized (runt) packet.
+
+I'm wondering, where is the proper place to fix this. Should
+arp_create() function allocate skb big enough to produce ethernet
+frame with at least minimum size? Or is it somewhere in NIC drivers
+where small packets are padded with zeros?
+
+Regards,
+Martin
