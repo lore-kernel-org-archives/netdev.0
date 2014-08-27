@@ -1,45 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git)] stmmac: ptp: fix the reference clock
-Date: Wed, 27 Aug 2014 16:26:52 -0700 (PDT)
-Message-ID: <20140827.162652.544817209778584023.davem@davemloft.net>
-References: <1409033072-10508-1-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCH (net.git) 3/4] stmmac: never check EEE in case of a
+ switch is attached
+Date: Wed, 27 Aug 2014 16:28:08 -0700 (PDT)
+Message-ID: <20140827.162808.1981938022641305719.davem@davemloft.net>
+References: <1409037383-3213-1-git-send-email-peppe.cavallaro@st.com>
+	<1409037383-3213-4-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41730 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41745 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964948AbaH0X0x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 19:26:53 -0400
-In-Reply-To: <1409033072-10508-1-git-send-email-peppe.cavallaro@st.com>
+	with ESMTP id S964948AbaH0X2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 19:28:09 -0400
+In-Reply-To: <1409037383-3213-4-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Date: Tue, 26 Aug 2014 08:04:32 +0200
+Date: Tue, 26 Aug 2014 09:16:22 +0200
 
-> @@ -638,6 +638,15 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
->  	if (!(priv->dma_cap.time_stamp || priv->dma_cap.atime_stamp))
->  		return -EOPNOTSUPP;
->  
-> +	/* Fall-back to main clock in case of no PTP ref is passed */
-> +	priv->clk_ptp_ref = devm_clk_get(priv->device, "clk_ptp_ref");
-> +	if (IS_ERR(priv->clk_ptp_ref)) {
-> +		priv->clk_ptp_rate = clk_get_rate(priv->stmmac_clk);
-
-This code path will leave an IS_ERR() value in clk_ptp_ref.
- ...
->  static void stmmac_release_ptp(struct stmmac_priv *priv)
+> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> 
+> This patch is to skip the EEE initialisation when the stmmac
+> is using a switch (with a fixed phy support).
+> 
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 51a89d4..48a112f 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -276,6 +276,7 @@ static void stmmac_eee_ctrl_timer(unsigned long arg)
+>  bool stmmac_eee_init(struct stmmac_priv *priv)
 >  {
-> +	if (priv->clk_ptp_ref)
-> +		clk_disable_unprepare(priv->clk_ptp_ref);
->  	stmmac_ptp_unregister(priv);
->  }
+>  	bool ret = false;
+> +	char *phy_bus_name = priv->plat->phy_bus_name;
+>  
+>  	/* Using PCS we cannot dial with the phy registers at this stage
+>  	 * so we do not support extra feature like EEE.
 
-Which this code will erroneously pass into clk_disable_unprepare().
-
-Please NULL the pointer out properl when devm_clk_get() errors.
+Please order local variable declarations in reverse-christmas-tree order,
+this means longer lines come before shorter ones.
 
 Thanks.
