@@ -1,45 +1,53 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 0/2] Get rid of ndo_xmit_flush
-Date: Wed, 27 Aug 2014 14:31:12 +0200
-Message-ID: <1409142672.26515.24.camel@localhost>
-References: <20140825.163458.1117073971092495452.davem@davemloft.net>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 0/4] net: stmmac: Enable Intel Quark SoC X1000 Ethernet
+ support
+Date: Wed, 27 Aug 2014 14:52:52 +0200
+Message-ID: <53FDD4A4.5020603@st.com>
+References: <cover.1409123378.git.hock.leong.kweh@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, jhs@mojatatu.com,
-	edumazet@google.com, jeffrey.t.kirsher@intel.com,
-	rusty@rustcorp.com.au, dborkman@redhat.com, brouer@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:50835 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756061AbaH0MbP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 08:31:15 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 2253420A43
-	for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 08:31:15 -0400 (EDT)
-In-Reply-To: <20140825.163458.1117073971092495452.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	Ong Boon Leong <boon.leong.ong@intel.com>,
+	Rayagond K <rayagond@vayavyalabs.com>
+To: Kweh Hock Leong <hock.leong.kweh@intel.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1409123378.git.hock.leong.kweh@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mo, 2014-08-25 at 16:34 -0700, David Miller wrote:
-> Given Jesper's performance numbers, it's not the way to go.
-> 
-> Instead, go with a signalling scheme via new boolean skb->xmit_more.
-> 
-> This has several advantages:
-> 
-> 1) Nearly trivial driver support, just protect the tail pointer
->    update with the skb->xmit_more check.
+On 8/27/2014 12:32 PM, Kweh Hock Leong wrote:
+> From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+>
+> Hi,
+>
+> Intel Quark X1000 SoC has 2 Ethernet controllers integrated on chip and they are
+> PCI devices. We adopted the stmmac_pci driver and added on code to support Intel
+> Quark SoC X1000 by creating the patchset below. The patchset has been built and
+> tested on Galileo board and found to be working as expected.
+>
+> We believe that the changes are transparent to other non Intel Quark platform.
+> Please help to review the code change and feedback if there is any concern.
 
-One thing one should keep in mind is, that there must be a skb available
-to trigger the flush, maybe this will hurt us one day.
+hello and thx for these patches that at first glance look ok to me.
+Just some minor remark, in the stmmac I try to align the function 
+parameters with the open parenthesis (devm_kzalloc in your case in not 
+aligned).
+Added on copy also Rayagond he tested PCI. I cannot do any test because 
+I have no PCI cards.
 
-Thinking more about it should we go with a coccinelle script and
-replace/extend ndo_start_xmit with an additional argument?
+peppe
 
-We can also add a new function pointer and call that instead of
-ndo_start_xmit. I think only the callq *%rax hurts performance.
-
-Bye,
-Hannes
+>
+> Thank you very much.
+>
+> Kweh, Hock Leong (4):
+>    net: stmmac: enhance to support multiple device instances
+>    net: stmmac: better code manageability with platform data struct
+>    net: stmmac: add support for Intel Quark X1000
+>    net: stmmac: add MSI support for Intel Quark X1000
+>
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c |  195 +++++++++++++++++++---
+>   1 file changed, 172 insertions(+), 23 deletions(-)
+>
