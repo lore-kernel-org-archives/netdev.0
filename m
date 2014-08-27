@@ -1,9 +1,9 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
+From: Andy Lutomirski <luto@amacapital.net>
 Subject: Re: [PATCH RFC v7 net-next 00/28] BPF syscall
-Date: Tue, 26 Aug 2014 21:35:26 -0700
-Message-ID: <CAMEtUuwYqJVUuZxPBKy57NonWF+X_5vkNx4uSEx_d=-xBka1Kg@mail.gmail.com>
+Date: Tue, 26 Aug 2014 21:49:20 -0700
+Message-ID: <CALCETrWs9GRufGKxAoV628bh1f3HObkxNQuW3tYRt2rFwNAbxA@mail.gmail.com>
 References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
-	<CALCETrX2MzNxQ1ogt+Qx8iPjUe+z0gN6ZLwu9nAcZzTN+D+iYw@mail.gmail.com>
+ <CALCETrX2MzNxQ1ogt+Qx8iPjUe+z0gN6ZLwu9nAcZzTN+D+iYw@mail.gmail.com> <CAMEtUuwYqJVUuZxPBKy57NonWF+X_5vkNx4uSEx_d=-xBka1Kg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Daniel Borkmann <dborkman@redhat.com>,
@@ -22,28 +22,45 @@ Cc: Daniel Borkmann <dborkman@redhat.com>,
 	Kees Cook <keescook@chromium.org>,
 	Linux API <linux-api@vger.kernel.org>,
 	Ingo Molnar <mingo@kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALCETrX2MzNxQ1ogt+Qx8iPjUe+z0gN6ZLwu9nAcZzTN+D+iYw@mail.gmail.com>
+In-Reply-To: <CAMEtUuwYqJVUuZxPBKy57NonWF+X_5vkNx4uSEx_d=-xBka1Kg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 26, 2014 at 8:56 PM, Andy Lutomirski <luto@amacapital.net> wrote:
-> On Aug 26, 2014 7:29 PM, "Alexei Starovoitov" <ast@plumgrid.com> wrote:
+On Tue, Aug 26, 2014 at 9:35 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On Tue, Aug 26, 2014 at 8:56 PM, Andy Lutomirski <luto@amacapital.net> wrote:
+>> On Aug 26, 2014 7:29 PM, "Alexei Starovoitov" <ast@plumgrid.com> wrote:
+>>>
+>>> Hi Ingo, David,
+>>>
+>>> posting whole thing again as RFC to get feedback on syscall only.
+>>> If syscall bpf(int cmd, union bpf_attr *attr, unsigned int size) is ok,
+>>> I'll split them into small chunks as requested and will repost without RFC.
 >>
->> Hi Ingo, David,
->>
->> posting whole thing again as RFC to get feedback on syscall only.
->> If syscall bpf(int cmd, union bpf_attr *attr, unsigned int size) is ok,
->> I'll split them into small chunks as requested and will repost without RFC.
+>> IMO it's much easier to review a syscall if we just look at a
+>> specification of what it does.  The code is, in some sense, secondary.
 >
-> IMO it's much easier to review a syscall if we just look at a
-> specification of what it does.  The code is, in some sense, secondary.
+> 'specification of what it does'... hmm, you mean beyond what's
+> there in commit logs and in Documentation/networking/filter.txt ?
+> Aren't samples at the end give an idea on 'what it does'?
+> I'm happy to add 'specification', I just don't understand yet what
+> it suppose to talk about beyond what's already written.
+> I understand that the patches are missing explanation on 'why'
+> the syscall is being added, but I don't think it's what you're asking...
 
-'specification of what it does'... hmm, you mean beyond what's
-there in commit logs and in Documentation/networking/filter.txt ?
-Aren't samples at the end give an idea on 'what it does'?
-I'm happy to add 'specification', I just don't understand yet what
-it suppose to talk about beyond what's already written.
-I understand that the patches are missing explanation on 'why'
-the syscall is being added, but I don't think it's what you're asking...
+I mean a hopefully short document that defines what the syscall does.
+It should be precise enough that one could, in principle, implement
+the syscall just by reading the document and that one could use the
+syscall just by reading the document.
+
+Given that there's a whole instruction set to go with it, it may end
+up being moderately complicated or saying things like "see this other
+thing for a description of the instruction set" and "there are some
+extensible sets of functions you can call with it".
+
+--Andy
+
+-- 
+Andy Lutomirski
+AMA Capital Management, LLC
