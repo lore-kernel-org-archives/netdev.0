@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH RFC v7 net-next 05/28] bpf: add lookup/update/delete/iterate methods to BPF maps
-Date: Tue, 26 Aug 2014 19:29:19 -0700
-Message-ID: <1409106582-10095-6-git-send-email-ast@plumgrid.com>
+Subject: [PATCH RFC v7 net-next 12/28] bpf: verifier (add branch/goto checks)
+Date: Tue, 26 Aug 2014 19:29:26 -0700
+Message-ID: <1409106582-10095-13-git-send-email-ast@plumgrid.com>
 References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -23,377 +23,219 @@ In-Reply-To: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-'maps' is a generic storage of different types for sharing data between kernel
-and userspace.
+check that control flow graph of eBPF program is a directed acyclic graph
 
-The maps are accessed from user space via BPF syscall, which has commands:
-
-- create a map with given type and attributes
-  fd = bpf(BPF_MAP_CREATE, union bpf_attr *attr, u32 size)
-  returns fd or negative error
-
-- lookup key in a given map referenced by fd
-  err = bpf(BPF_MAP_LOOKUP_ELEM, union bpf_attr *attr, u32 size)
-  using attr->map_fd, attr->key, attr->value
-  returns zero and stores found elem into value or negative error
-
-- create or update key/value pair in a given map
-  err = bpf(BPF_MAP_UPDATE_ELEM, union bpf_attr *attr, u32 size)
-  using attr->map_fd, attr->key, attr->value
-  returns zero or negative error
-
-- find and delete element by key in a given map
-  err = bpf(BPF_MAP_DELETE_ELEM, union bpf_attr *attr, u32 size)
-  using attr->map_fd, attr->key
-
-- iterate map elements (based on input key return next_key)
-  err = bpf(BPF_MAP_GET_NEXT_KEY, union bpf_attr *attr, u32 size)
-  using attr->map_fd, attr->key, attr->next_key
-
-- close(fd) deletes the map
+check_cfg() does:
+- detect loops
+- detect unreachable instructions
+- check that program terminates with BPF_EXIT insn
+- check that all branches are within program boundary
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- include/linux/bpf.h      |    8 ++
- include/uapi/linux/bpf.h |   42 +++++++++
- kernel/bpf/syscall.c     |  219 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 269 insertions(+)
+ kernel/bpf/verifier.c |  183 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 183 insertions(+)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 48014a71f0fe..2887f3f9da59 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -9,6 +9,7 @@
- 
- #include <uapi/linux/bpf.h>
- #include <linux/workqueue.h>
-+#include <linux/file.h>
- 
- struct bpf_map;
- 
-@@ -17,6 +18,12 @@ struct bpf_map_ops {
- 	/* funcs callable from userspace (via syscall) */
- 	struct bpf_map *(*map_alloc)(union bpf_attr *attr);
- 	void (*map_free)(struct bpf_map *);
-+	int (*map_get_next_key)(struct bpf_map *map, void *key, void *next_key);
-+
-+	/* funcs callable from userspace and from eBPF programs */
-+	void *(*map_lookup_elem)(struct bpf_map *map, void *key);
-+	int (*map_update_elem)(struct bpf_map *map, void *key, void *value);
-+	int (*map_delete_elem)(struct bpf_map *map, void *key);
- };
- 
- struct bpf_map {
-@@ -37,5 +44,6 @@ struct bpf_map_type_list {
- 
- void bpf_register_map_type(struct bpf_map_type_list *tl);
- void bpf_map_put(struct bpf_map *map);
-+struct bpf_map *bpf_map_get(struct fd f);
- 
- #endif /* _LINUX_BPF_H */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 51dc51c898c6..1602de6423b5 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -326,6 +326,35 @@ enum bpf_cmd {
- 	 * map is deleted when fd is closed
- 	 */
- 	BPF_MAP_CREATE,
-+
-+	/* lookup key in a given map
-+	 * err = bpf(BPF_MAP_LOOKUP_ELEM, union bpf_attr *attr, u32 size)
-+	 * Using attr->map_fd, attr->key, attr->value
-+	 * returns zero and stores found elem into value
-+	 * or negative error
-+	 */
-+	BPF_MAP_LOOKUP_ELEM,
-+
-+	/* create or update key/value pair in a given map
-+	 * err = bpf(BPF_MAP_UPDATE_ELEM, union bpf_attr *attr, u32 size)
-+	 * Using attr->map_fd, attr->key, attr->value
-+	 * returns zero or negative error
-+	 */
-+	BPF_MAP_UPDATE_ELEM,
-+
-+	/* find and delete elem by key in a given map
-+	 * err = bpf(BPF_MAP_DELETE_ELEM, union bpf_attr *attr, u32 size)
-+	 * Using attr->map_fd, attr->key
-+	 * returns zero or negative error
-+	 */
-+	BPF_MAP_DELETE_ELEM,
-+
-+	/* lookup key in a given map and return next key
-+	 * err = bpf(BPF_MAP_GET_NEXT_KEY, union bpf_attr *attr, u32 size)
-+	 * Using attr->map_fd, attr->key, attr->next_key
-+	 * returns zero and stores next key or negative error
-+	 */
-+	BPF_MAP_GET_NEXT_KEY,
- };
- 
- enum bpf_map_type {
-@@ -340,6 +369,19 @@ union bpf_attr {
- 		__u32	max_entries;	/* max number of entries in a map */
- #define BPF_MAP_CREATE_LAST_FIELD max_entries
- 	};
-+
-+	struct { /* anonymous struct used by BPF_MAP_*_ELEM commands */
-+		int map_fd;
-+		void __user *key;
-+		union {
-+			void __user *value;
-+			void __user *next_key;
-+		};
-+#define BPF_MAP_LOOKUP_ELEM_LAST_FIELD value
-+#define BPF_MAP_UPDATE_ELEM_LAST_FIELD value
-+#define BPF_MAP_DELETE_ELEM_LAST_FIELD key
-+#define BPF_MAP_GET_NEXT_KEY_LAST_FIELD next_key
-+	};
- };
- 
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 989c17c35a62..b863976741d4 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -13,6 +13,7 @@
- #include <linux/syscalls.h>
- #include <linux/slab.h>
- #include <linux/anon_inodes.h>
-+#include <linux/file.h>
- 
- static LIST_HEAD(bpf_map_types);
- 
-@@ -109,6 +110,212 @@ free_map:
- 	return err;
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 73811d69e7be..7365a190cbd6 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -332,6 +332,185 @@ static struct bpf_map *ld_imm64_to_map_ptr(struct bpf_insn *insn)
+ 	return (struct bpf_map *) (unsigned long) imm64;
  }
  
-+/* if error is returned, fd is released.
-+ * On success caller should complete fd access with matching fdput()
++/* non-recursive DFS pseudo code
++ * 1  procedure DFS-iterative(G,v):
++ * 2      label v as discovered
++ * 3      let S be a stack
++ * 4      S.push(v)
++ * 5      while S is not empty
++ * 6            t <- S.pop()
++ * 7            if t is what we're looking for:
++ * 8                return t
++ * 9            for all edges e in G.adjacentEdges(t) do
++ * 10               if edge e is already labelled
++ * 11                   continue with the next edge
++ * 12               w <- G.adjacentVertex(t,e)
++ * 13               if vertex w is not discovered and not explored
++ * 14                   label e as tree-edge
++ * 15                   label w as discovered
++ * 16                   S.push(w)
++ * 17                   continue at 5
++ * 18               else if vertex w is discovered
++ * 19                   label e as back-edge
++ * 20               else
++ * 21                   // vertex w is explored
++ * 22                   label e as forward- or cross-edge
++ * 23           label t as explored
++ * 24           S.pop()
++ *
++ * convention:
++ * 0x10 - discovered
++ * 0x11 - discovered and fall-through edge labelled
++ * 0x12 - discovered and fall-through and branch edges labelled
++ * 0x20 - explored
 + */
-+struct bpf_map *bpf_map_get(struct fd f)
++
++enum {
++	DISCOVERED = 0x10,
++	EXPLORED = 0x20,
++	FALLTHROUGH = 1,
++	BRANCH = 2,
++};
++
++#define PUSH_INT(I) \
++	do { \
++		if (cur_stack >= insn_cnt) { \
++			ret = -E2BIG; \
++			goto free_st; \
++		} \
++		stack[cur_stack++] = I; \
++	} while (0)
++
++#define PEEK_INT() \
++	({ \
++		int _ret; \
++		if (cur_stack == 0) \
++			_ret = -1; \
++		else \
++			_ret = stack[cur_stack - 1]; \
++		_ret; \
++	 })
++
++#define POP_INT() \
++	({ \
++		int _ret; \
++		if (cur_stack == 0) \
++			_ret = -1; \
++		else \
++			_ret = stack[--cur_stack]; \
++		_ret; \
++	 })
++
++#define PUSH_INSN(T, W, E) \
++	do { \
++		int w = W; \
++		if (E == FALLTHROUGH && st[T] >= (DISCOVERED | FALLTHROUGH)) \
++			break; \
++		if (E == BRANCH && st[T] >= (DISCOVERED | BRANCH)) \
++			break; \
++		if (w < 0 || w >= insn_cnt) { \
++			verbose("jump out of range from insn %d to %d\n", T, w); \
++			ret = -EINVAL; \
++			goto free_st; \
++		} \
++		if (st[w] == 0) { \
++			/* tree-edge */ \
++			st[T] = DISCOVERED | E; \
++			st[w] = DISCOVERED; \
++			PUSH_INT(w); \
++			goto peek_stack; \
++		} else if ((st[w] & 0xF0) == DISCOVERED) { \
++			verbose("back-edge from insn %d to %d\n", T, w); \
++			ret = -EINVAL; \
++			goto free_st; \
++		} else if (st[w] == EXPLORED) { \
++			/* forward- or cross-edge */ \
++			st[T] = DISCOVERED | E; \
++		} else { \
++			verbose("insn state internal bug\n"); \
++			ret = -EFAULT; \
++			goto free_st; \
++		} \
++	} while (0)
++
++/* non-recursive depth-first-search to detect loops in BPF program
++ * loop == back-edge in directed graph
++ */
++static int check_cfg(struct verifier_env *env)
 +{
-+	struct bpf_map *map;
++	struct bpf_insn *insns = env->prog->insnsi;
++	int insn_cnt = env->prog->len;
++	int cur_stack = 0;
++	int *stack;
++	int ret = 0;
++	int *st;
++	int i, t;
 +
-+	if (!f.file)
-+		return ERR_PTR(-EBADF);
++	st = kzalloc(sizeof(int) * insn_cnt, GFP_KERNEL);
++	if (!st)
++		return -ENOMEM;
 +
-+	if (f.file->f_op != &bpf_map_fops) {
-+		fdput(f);
-+		return ERR_PTR(-EINVAL);
++	stack = kzalloc(sizeof(int) * insn_cnt, GFP_KERNEL);
++	if (!stack) {
++		kfree(st);
++		return -ENOMEM;
 +	}
 +
-+	map = f.file->private_data;
++	st[0] = DISCOVERED; /* mark 1st insn as discovered */
++	PUSH_INT(0);
 +
-+	return map;
++peek_stack:
++	while ((t = PEEK_INT()) != -1) {
++		if (BPF_CLASS(insns[t].code) == BPF_JMP) {
++			u8 opcode = BPF_OP(insns[t].code);
++
++			if (opcode == BPF_EXIT) {
++				goto mark_explored;
++			} else if (opcode == BPF_CALL) {
++				PUSH_INSN(t, t + 1, FALLTHROUGH);
++			} else if (opcode == BPF_JA) {
++				if (BPF_SRC(insns[t].code) != BPF_K) {
++					ret = -EINVAL;
++					goto free_st;
++				}
++				/* unconditional jump with single edge */
++				PUSH_INSN(t, t + insns[t].off + 1, FALLTHROUGH);
++			} else {
++				/* conditional jump with two edges */
++				PUSH_INSN(t, t + 1, FALLTHROUGH);
++				PUSH_INSN(t, t + insns[t].off + 1, BRANCH);
++			}
++		} else {
++			/* all other non-branch instructions with single
++			 * fall-through edge
++			 */
++			PUSH_INSN(t, t + 1, FALLTHROUGH);
++		}
++
++mark_explored:
++		st[t] = EXPLORED;
++		if (POP_INT() == -1) {
++			verbose("pop_int internal bug\n");
++			ret = -EFAULT;
++			goto free_st;
++		}
++	}
++
++
++	for (i = 0; i < insn_cnt; i++) {
++		if (st[i] != EXPLORED) {
++			verbose("unreachable insn %d\n", i);
++			ret = -EINVAL;
++			goto free_st;
++		}
++	}
++
++free_st:
++	kfree(st);
++	kfree(stack);
++	return ret;
 +}
 +
-+static int map_lookup_elem(union bpf_attr *attr)
-+{
-+	void __user *ukey = attr->key;
-+	void __user *uvalue = attr->value;
-+	int ufd = attr->map_fd;
-+	struct fd f = fdget(ufd);
-+	struct bpf_map *map;
-+	void *key, *value;
-+	int err;
+ /* look for pseudo eBPF instructions that access map FDs and
+  * replace them with actual map pointers
+  */
+@@ -481,6 +660,10 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+ 	if (ret < 0)
+ 		goto skip_full_check;
+ 
++	ret = check_cfg(env);
++	if (ret < 0)
++		goto skip_full_check;
 +
-+	if (CHECK_ATTR(BPF_MAP_LOOKUP_ELEM))
-+		return -EINVAL;
-+
-+	map = bpf_map_get(f);
-+	if (IS_ERR(map))
-+		return PTR_ERR(map);
-+
-+	err = -ENOMEM;
-+	key = kmalloc(map->key_size, GFP_USER);
-+	if (!key)
-+		goto err_put;
-+
-+	err = -EFAULT;
-+	if (copy_from_user(key, ukey, map->key_size) != 0)
-+		goto free_key;
-+
-+	err = -ESRCH;
-+	rcu_read_lock();
-+	value = map->ops->map_lookup_elem(map, key);
-+	if (!value)
-+		goto err_unlock;
-+
-+	err = -EFAULT;
-+	if (copy_to_user(uvalue, value, map->value_size) != 0)
-+		goto err_unlock;
-+
-+	err = 0;
-+
-+err_unlock:
-+	rcu_read_unlock();
-+free_key:
-+	kfree(key);
-+err_put:
-+	fdput(f);
-+	return err;
-+}
-+
-+static int map_update_elem(union bpf_attr *attr)
-+{
-+	void __user *ukey = attr->key;
-+	void __user *uvalue = attr->value;
-+	int ufd = attr->map_fd;
-+	struct fd f = fdget(ufd);
-+	struct bpf_map *map;
-+	void *key, *value;
-+	int err;
-+
-+	if (CHECK_ATTR(BPF_MAP_UPDATE_ELEM))
-+		return -EINVAL;
-+
-+	map = bpf_map_get(f);
-+	if (IS_ERR(map))
-+		return PTR_ERR(map);
-+
-+	err = -ENOMEM;
-+	key = kmalloc(map->key_size, GFP_USER);
-+	if (!key)
-+		goto err_put;
-+
-+	err = -EFAULT;
-+	if (copy_from_user(key, ukey, map->key_size) != 0)
-+		goto free_key;
-+
-+	err = -ENOMEM;
-+	value = kmalloc(map->value_size, GFP_USER);
-+	if (!value)
-+		goto free_key;
-+
-+	err = -EFAULT;
-+	if (copy_from_user(value, uvalue, map->value_size) != 0)
-+		goto free_value;
-+
-+	/* eBPF program that use maps are running under rcu_read_lock(),
-+	 * therefore all map accessors rely on this fact, so do the same here
-+	 */
-+	rcu_read_lock();
-+	err = map->ops->map_update_elem(map, key, value);
-+	rcu_read_unlock();
-+
-+free_value:
-+	kfree(value);
-+free_key:
-+	kfree(key);
-+err_put:
-+	fdput(f);
-+	return err;
-+}
-+
-+static int map_delete_elem(union bpf_attr *attr)
-+{
-+	void __user *ukey = attr->key;
-+	int ufd = attr->map_fd;
-+	struct fd f = fdget(ufd);
-+	struct bpf_map *map;
-+	void *key;
-+	int err;
-+
-+	if (CHECK_ATTR(BPF_MAP_DELETE_ELEM))
-+		return -EINVAL;
-+
-+	map = bpf_map_get(f);
-+	if (IS_ERR(map))
-+		return PTR_ERR(map);
-+
-+	err = -ENOMEM;
-+	key = kmalloc(map->key_size, GFP_USER);
-+	if (!key)
-+		goto err_put;
-+
-+	err = -EFAULT;
-+	if (copy_from_user(key, ukey, map->key_size) != 0)
-+		goto free_key;
-+
-+	rcu_read_lock();
-+	err = map->ops->map_delete_elem(map, key);
-+	rcu_read_unlock();
-+
-+free_key:
-+	kfree(key);
-+err_put:
-+	fdput(f);
-+	return err;
-+}
-+
-+static int map_get_next_key(union bpf_attr *attr)
-+{
-+	void __user *ukey = attr->key;
-+	void __user *unext_key = attr->next_key;
-+	int ufd = attr->map_fd;
-+	struct fd f = fdget(ufd);
-+	struct bpf_map *map;
-+	void *key, *next_key;
-+	int err;
-+
-+	if (CHECK_ATTR(BPF_MAP_GET_NEXT_KEY))
-+		return -EINVAL;
-+
-+	map = bpf_map_get(f);
-+	if (IS_ERR(map))
-+		return PTR_ERR(map);
-+
-+	err = -ENOMEM;
-+	key = kmalloc(map->key_size, GFP_USER);
-+	if (!key)
-+		goto err_put;
-+
-+	err = -EFAULT;
-+	if (copy_from_user(key, ukey, map->key_size) != 0)
-+		goto free_key;
-+
-+	err = -ENOMEM;
-+	next_key = kmalloc(map->key_size, GFP_USER);
-+	if (!next_key)
-+		goto free_key;
-+
-+	rcu_read_lock();
-+	err = map->ops->map_get_next_key(map, key, next_key);
-+	rcu_read_unlock();
-+	if (err)
-+		goto free_next_key;
-+
-+	err = -EFAULT;
-+	if (copy_to_user(unext_key, next_key, map->key_size) != 0)
-+		goto free_next_key;
-+
-+	err = 0;
-+
-+free_next_key:
-+	kfree(next_key);
-+free_key:
-+	kfree(key);
-+err_put:
-+	fdput(f);
-+	return err;
-+}
-+
- SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
- {
- 	union bpf_attr *attr;
-@@ -140,6 +347,18 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
- 	case BPF_MAP_CREATE:
- 		err = map_create(attr);
- 		break;
-+	case BPF_MAP_LOOKUP_ELEM:
-+		err = map_lookup_elem(attr);
-+		break;
-+	case BPF_MAP_UPDATE_ELEM:
-+		err = map_update_elem(attr);
-+		break;
-+	case BPF_MAP_DELETE_ELEM:
-+		err = map_delete_elem(attr);
-+		break;
-+	case BPF_MAP_GET_NEXT_KEY:
-+		err = map_get_next_key(attr);
-+		break;
- 	default:
- 		err = -EINVAL;
- 		break;
+ 	/* ret = do_check(env); */
+ 
+ skip_full_check:
 -- 
 1.7.9.5
