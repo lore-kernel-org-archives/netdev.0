@@ -1,7 +1,7 @@
 From: Zi Shen Lim <zlim.lnx@gmail.com>
-Subject: [PATCHv2 01/14] arm64: introduce aarch64_insn_gen_comp_branch_imm()
-Date: Tue, 26 Aug 2014 21:15:17 -0700
-Message-ID: <1409112930-25677-2-git-send-email-zlim.lnx@gmail.com>
+Subject: [PATCHv2 02/14] arm64: introduce aarch64_insn_gen_branch_reg()
+Date: Tue, 26 Aug 2014 21:15:18 -0700
+Message-ID: <1409112930-25677-3-git-send-email-zlim.lnx@gmail.com>
 References: <1409112930-25677-1-git-send-email-zlim.lnx@gmail.com>
 Cc: Zi Shen Lim <zlim.lnx@gmail.com>, Jiang Liu <liuj97@gmail.com>,
 	AKASHI Takahiro <takahiro.akashi@linaro.org>,
@@ -12,245 +12,122 @@ Cc: Zi Shen Lim <zlim.lnx@gmail.com>, Jiang Liu <liuj97@gmail.com>,
 	netdev@vger.kernel.org
 To: Catalin Marinas <catalin.marinas@arm.com>,
 	Will Deacon <will.deacon@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:38733 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751277AbaH0EPn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 00:15:43 -0400
 In-Reply-To: <1409112930-25677-1-git-send-email-zlim.lnx@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Introduce function to generate compare & branch (immediate)
+Introduce function to generate unconditional branch (register)
 instructions.
 
 Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
 Acked-by: Will Deacon <will.deacon@arm.com>
 ---
- arch/arm64/include/asm/insn.h | 57 ++++++++++++++++++++++++++++
- arch/arm64/kernel/insn.c      | 88 ++++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 140 insertions(+), 5 deletions(-)
+ arch/arm64/include/asm/insn.h |  7 +++++++
+ arch/arm64/kernel/insn.c      | 35 +++++++++++++++++++++++++++++++++--
+ 2 files changed, 40 insertions(+), 2 deletions(-)
 
 diff --git a/arch/arm64/include/asm/insn.h b/arch/arm64/include/asm/insn.h
-index dc1f73b..a98c495 100644
+index a98c495..5080962 100644
 --- a/arch/arm64/include/asm/insn.h
 +++ b/arch/arm64/include/asm/insn.h
-@@ -2,6 +2,8 @@
-  * Copyright (C) 2013 Huawei Ltd.
-  * Author: Jiang Liu <liuj97@gmail.com>
-  *
-+ * Copyright (C) 2014 Zi Shen Lim <zlim.lnx@gmail.com>
-+ *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-  * published by the Free Software Foundation.
-@@ -67,9 +69,58 @@ enum aarch64_insn_imm_type {
- 	AARCH64_INSN_IMM_MAX
+@@ -71,6 +71,7 @@ enum aarch64_insn_imm_type {
+ 
+ enum aarch64_insn_register_type {
+ 	AARCH64_INSN_REGTYPE_RT,
++	AARCH64_INSN_REGTYPE_RN,
  };
  
-+enum aarch64_insn_register_type {
-+	AARCH64_INSN_REGTYPE_RT,
-+};
-+
-+enum aarch64_insn_register {
-+	AARCH64_INSN_REG_0  = 0,
-+	AARCH64_INSN_REG_1  = 1,
-+	AARCH64_INSN_REG_2  = 2,
-+	AARCH64_INSN_REG_3  = 3,
-+	AARCH64_INSN_REG_4  = 4,
-+	AARCH64_INSN_REG_5  = 5,
-+	AARCH64_INSN_REG_6  = 6,
-+	AARCH64_INSN_REG_7  = 7,
-+	AARCH64_INSN_REG_8  = 8,
-+	AARCH64_INSN_REG_9  = 9,
-+	AARCH64_INSN_REG_10 = 10,
-+	AARCH64_INSN_REG_11 = 11,
-+	AARCH64_INSN_REG_12 = 12,
-+	AARCH64_INSN_REG_13 = 13,
-+	AARCH64_INSN_REG_14 = 14,
-+	AARCH64_INSN_REG_15 = 15,
-+	AARCH64_INSN_REG_16 = 16,
-+	AARCH64_INSN_REG_17 = 17,
-+	AARCH64_INSN_REG_18 = 18,
-+	AARCH64_INSN_REG_19 = 19,
-+	AARCH64_INSN_REG_20 = 20,
-+	AARCH64_INSN_REG_21 = 21,
-+	AARCH64_INSN_REG_22 = 22,
-+	AARCH64_INSN_REG_23 = 23,
-+	AARCH64_INSN_REG_24 = 24,
-+	AARCH64_INSN_REG_25 = 25,
-+	AARCH64_INSN_REG_26 = 26,
-+	AARCH64_INSN_REG_27 = 27,
-+	AARCH64_INSN_REG_28 = 28,
-+	AARCH64_INSN_REG_29 = 29,
-+	AARCH64_INSN_REG_FP = 29, /* Frame pointer */
-+	AARCH64_INSN_REG_30 = 30,
-+	AARCH64_INSN_REG_LR = 30, /* Link register */
-+	AARCH64_INSN_REG_ZR = 31, /* Zero: as source register */
-+	AARCH64_INSN_REG_SP = 31  /* Stack pointer: as load/store base reg */
-+};
-+
-+enum aarch64_insn_variant {
-+	AARCH64_INSN_VARIANT_32BIT,
-+	AARCH64_INSN_VARIANT_64BIT
-+};
-+
+ enum aarch64_insn_register {
+@@ -119,6 +120,7 @@ enum aarch64_insn_variant {
  enum aarch64_insn_branch_type {
  	AARCH64_INSN_BRANCH_NOLINK,
  	AARCH64_INSN_BRANCH_LINK,
-+	AARCH64_INSN_BRANCH_COMP_ZERO,
-+	AARCH64_INSN_BRANCH_COMP_NONZERO,
++	AARCH64_INSN_BRANCH_RETURN,
+ 	AARCH64_INSN_BRANCH_COMP_ZERO,
+ 	AARCH64_INSN_BRANCH_COMP_NONZERO,
  };
- 
- #define	__AARCH64_INSN_FUNCS(abbr, mask, val)	\
-@@ -80,6 +131,8 @@ static __always_inline u32 aarch64_insn_get_##abbr##_value(void) \
- 
- __AARCH64_INSN_FUNCS(b,		0xFC000000, 0x14000000)
- __AARCH64_INSN_FUNCS(bl,	0xFC000000, 0x94000000)
-+__AARCH64_INSN_FUNCS(cbz,	0xFE000000, 0x34000000)
-+__AARCH64_INSN_FUNCS(cbnz,	0xFE000000, 0x35000000)
- __AARCH64_INSN_FUNCS(svc,	0xFFE0001F, 0xD4000001)
- __AARCH64_INSN_FUNCS(hvc,	0xFFE0001F, 0xD4000002)
+@@ -138,6 +140,9 @@ __AARCH64_INSN_FUNCS(hvc,	0xFFE0001F, 0xD4000002)
  __AARCH64_INSN_FUNCS(smc,	0xFFE0001F, 0xD4000003)
-@@ -97,6 +150,10 @@ u32 aarch64_insn_encode_immediate(enum aarch64_insn_imm_type type,
- 				  u32 insn, u64 imm);
- u32 aarch64_insn_gen_branch_imm(unsigned long pc, unsigned long addr,
- 				enum aarch64_insn_branch_type type);
-+u32 aarch64_insn_gen_comp_branch_imm(unsigned long pc, unsigned long addr,
-+				     enum aarch64_insn_register reg,
-+				     enum aarch64_insn_variant variant,
-+				     enum aarch64_insn_branch_type type);
+ __AARCH64_INSN_FUNCS(brk,	0xFFE0001F, 0xD4200000)
+ __AARCH64_INSN_FUNCS(hint,	0xFFFFF01F, 0xD503201F)
++__AARCH64_INSN_FUNCS(br,	0xFFFFFC1F, 0xD61F0000)
++__AARCH64_INSN_FUNCS(blr,	0xFFFFFC1F, 0xD63F0000)
++__AARCH64_INSN_FUNCS(ret,	0xFFFFFC1F, 0xD65F0000)
+ 
+ #undef	__AARCH64_INSN_FUNCS
+ 
+@@ -156,6 +161,8 @@ u32 aarch64_insn_gen_comp_branch_imm(unsigned long pc, unsigned long addr,
+ 				     enum aarch64_insn_branch_type type);
  u32 aarch64_insn_gen_hint(enum aarch64_insn_hint_op op);
  u32 aarch64_insn_gen_nop(void);
++u32 aarch64_insn_gen_branch_reg(enum aarch64_insn_register reg,
++				enum aarch64_insn_branch_type type);
+ 
+ bool aarch64_insn_hotpatch_safe(u32 old_insn, u32 new_insn);
  
 diff --git a/arch/arm64/kernel/insn.c b/arch/arm64/kernel/insn.c
-index 92f3683..d9f7827 100644
+index d9f7827..6797936 100644
 --- a/arch/arm64/kernel/insn.c
 +++ b/arch/arm64/kernel/insn.c
-@@ -2,6 +2,8 @@
-  * Copyright (C) 2013 Huawei Ltd.
-  * Author: Jiang Liu <liuj97@gmail.com>
-  *
-+ * Copyright (C) 2014 Zi Shen Lim <zlim.lnx@gmail.com>
-+ *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-  * published by the Free Software Foundation.
-@@ -23,6 +25,8 @@
- #include <asm/cacheflush.h>
- #include <asm/insn.h>
- 
-+#define AARCH64_INSN_SF_BIT	BIT(31)
-+
- static int aarch64_insn_encoding_class[] = {
- 	AARCH64_INSN_CLS_UNKNOWN,
- 	AARCH64_INSN_CLS_UNKNOWN,
-@@ -264,10 +268,36 @@ u32 __kprobes aarch64_insn_encode_immediate(enum aarch64_insn_imm_type type,
- 	return insn;
- }
- 
--u32 __kprobes aarch64_insn_gen_branch_imm(unsigned long pc, unsigned long addr,
--					  enum aarch64_insn_branch_type type)
-+static u32 aarch64_insn_encode_register(enum aarch64_insn_register_type type,
-+					u32 insn,
-+					enum aarch64_insn_register reg)
-+{
-+	int shift;
-+
-+	if (reg < AARCH64_INSN_REG_0 || reg > AARCH64_INSN_REG_SP) {
-+		pr_err("%s: unknown register encoding %d\n", __func__, reg);
-+		return 0;
-+	}
-+
-+	switch (type) {
-+	case AARCH64_INSN_REGTYPE_RT:
-+		shift = 0;
+@@ -283,6 +283,9 @@ static u32 aarch64_insn_encode_register(enum aarch64_insn_register_type type,
+ 	case AARCH64_INSN_REGTYPE_RT:
+ 		shift = 0;
+ 		break;
++	case AARCH64_INSN_REGTYPE_RN:
++		shift = 5;
 +		break;
-+	default:
-+		pr_err("%s: unknown register type encoding %d\n", __func__,
-+		       type);
-+		return 0;
-+	}
-+
-+	insn &= ~(GENMASK(4, 0) << shift);
-+	insn |= reg << shift;
-+
-+	return insn;
-+}
-+
-+static inline long branch_imm_common(unsigned long pc, unsigned long addr,
-+				     long range)
- {
--	u32 insn;
- 	long offset;
- 
- 	/*
-@@ -276,13 +306,24 @@ u32 __kprobes aarch64_insn_gen_branch_imm(unsigned long pc, unsigned long addr,
+ 	default:
+ 		pr_err("%s: unknown register type encoding %d\n", __func__,
+ 		       type);
+@@ -325,10 +328,16 @@ u32 __kprobes aarch64_insn_gen_branch_imm(unsigned long pc, unsigned long addr,
  	 */
- 	BUG_ON((pc & 0x3) || (addr & 0x3));
+ 	offset = branch_imm_common(pc, addr, SZ_128M);
  
-+	offset = ((long)addr - (long)pc);
-+	BUG_ON(offset < -range || offset >= range);
-+
-+	return offset;
-+}
-+
-+u32 __kprobes aarch64_insn_gen_branch_imm(unsigned long pc, unsigned long addr,
-+					  enum aarch64_insn_branch_type type)
-+{
-+	u32 insn;
-+	long offset;
-+
- 	/*
- 	 * B/BL support [-128M, 128M) offset
- 	 * ARM64 virtual address arrangement guarantees all kernel and module
- 	 * texts are within +/-128M.
- 	 */
--	offset = ((long)addr - (long)pc);
--	BUG_ON(offset < -SZ_128M || offset >= SZ_128M);
-+	offset = branch_imm_common(pc, addr, SZ_128M);
- 
- 	if (type == AARCH64_INSN_BRANCH_LINK)
+-	if (type == AARCH64_INSN_BRANCH_LINK)
++	switch (type) {
++	case AARCH64_INSN_BRANCH_LINK:
  		insn = aarch64_insn_get_bl_value();
-@@ -293,6 +334,43 @@ u32 __kprobes aarch64_insn_gen_branch_imm(unsigned long pc, unsigned long addr,
- 					     offset >> 2);
- }
+-	else
++		break;
++	case AARCH64_INSN_BRANCH_NOLINK:
+ 		insn = aarch64_insn_get_b_value();
++		break;
++	default:
++		BUG_ON(1);
++	}
  
-+u32 aarch64_insn_gen_comp_branch_imm(unsigned long pc, unsigned long addr,
-+				     enum aarch64_insn_register reg,
-+				     enum aarch64_insn_variant variant,
-+				     enum aarch64_insn_branch_type type)
+ 	return aarch64_insn_encode_immediate(AARCH64_INSN_IMM_26, insn,
+ 					     offset >> 2);
+@@ -380,3 +389,25 @@ u32 __kprobes aarch64_insn_gen_nop(void)
+ {
+ 	return aarch64_insn_gen_hint(AARCH64_INSN_HINT_NOP);
+ }
++
++u32 aarch64_insn_gen_branch_reg(enum aarch64_insn_register reg,
++				enum aarch64_insn_branch_type type)
 +{
 +	u32 insn;
-+	long offset;
-+
-+	offset = branch_imm_common(pc, addr, SZ_1M);
 +
 +	switch (type) {
-+	case AARCH64_INSN_BRANCH_COMP_ZERO:
-+		insn = aarch64_insn_get_cbz_value();
++	case AARCH64_INSN_BRANCH_NOLINK:
++		insn = aarch64_insn_get_br_value();
 +		break;
-+	case AARCH64_INSN_BRANCH_COMP_NONZERO:
-+		insn = aarch64_insn_get_cbnz_value();
++	case AARCH64_INSN_BRANCH_LINK:
++		insn = aarch64_insn_get_blr_value();
 +		break;
-+	default:
-+		BUG_ON(1);
-+	}
-+
-+	switch (variant) {
-+	case AARCH64_INSN_VARIANT_32BIT:
-+		break;
-+	case AARCH64_INSN_VARIANT_64BIT:
-+		insn |= AARCH64_INSN_SF_BIT;
++	case AARCH64_INSN_BRANCH_RETURN:
++		insn = aarch64_insn_get_ret_value();
 +		break;
 +	default:
 +		BUG_ON(1);
 +	}
 +
-+	insn = aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RT, insn, reg);
-+
-+	return aarch64_insn_encode_immediate(AARCH64_INSN_IMM_19, insn,
-+					     offset >> 2);
++	return aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RN, insn, reg);
 +}
-+
- u32 __kprobes aarch64_insn_gen_hint(enum aarch64_insn_hint_op op)
- {
- 	return aarch64_insn_get_hint_value() | op;
 -- 
 1.9.1
