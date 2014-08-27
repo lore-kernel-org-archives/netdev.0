@@ -1,49 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/2] Get rid of ndo_xmit_flush
-Date: Wed, 27 Aug 2014 06:23:58 -0700
-Message-ID: <1409145838.3173.41.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140825.163458.1117073971092495452.davem@davemloft.net>
-	 <1409142672.26515.24.camel@localhost>
+From: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+Subject: [PATCH] carl9170: tx: Replace rcu_assign_pointer() with
+ RCU_INIT_POINTER()
+Date: Wed, 27 Aug 2014 16:27:30 +0300
+Message-ID: <20140827132730.GA31650@ada>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	therbert@google.com, jhs@mojatatu.com, edumazet@google.com,
-	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au,
-	dborkman@redhat.com, brouer@redhat.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: paulmck@linux.vnet.ibm.com
+To: chunkeey@googlemail.com, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:62055 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933592AbaH0NYE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 09:24:04 -0400
-Received: by mail-pa0-f41.google.com with SMTP id rd3so271848pab.28
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 06:24:00 -0700 (PDT)
-In-Reply-To: <1409142672.26515.24.camel@localhost>
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:48320 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932179AbaH0N1p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 09:27:45 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-08-27 at 14:31 +0200, Hannes Frederic Sowa wrote:
+According to RCU_INIT_POINTER()'s block comment 3.a, it can be used if
+"3.   The referenced data structure has already been exposed to readers=
+ either
+at compile time or via rcu_assign_pointer() -and-
+ a.   You have not made -any- reader-visible changes to this structure =
+since
+then".
 
-> One thing one should keep in mind is, that there must be a skb available
-> to trigger the flush, maybe this will hurt us one day.
-> 
-> Thinking more about it should we go with a coccinelle script and
-> replace/extend ndo_start_xmit with an additional argument?
+This case fulfills the conditions above because between the rcu_derefer=
+ence()
+call (cvif =3D rcu_dereference(ar->beacon_iter);) and the rcu_assign_po=
+inter()
+call there is no update of the "cvif" variable.
+Therefore, this patch makes the replacement.
 
-This will be a pain for backports and things like that.
+The following Coccinelle semantic patch was used:
+@@
+identifier v;
+@@
 
-skb->xmit_more is a bit annoying, because it consumes one bit in all
-skbs, while it could be one byte per cpu as ndo_start_xmit() is called
-while BH are disabled.
+v =3D rcu_dereference(...);
+=2E.. when !=3D rcu_dereference(...);
+    when !=3D v =3D ...;
+    when !=3D (<+...v...+>)++;
+    when !=3D \(memcpy\|memset\)(...);
+(
+- rcu_assign_pointer
++ RCU_INIT_POINTER
+  (..., v);
+|
+ if(...) {
+=2E.. when !=3D v =3D ...;
+- rcu_assign_pointer
++ RCU_INIT_POINTER
+  (..., v);
+=2E.. when any
+ }
+)
 
-It also forces a cache line dirtying, that will hurt qdisc like HTB
-where skbs can be cooked/enqueued by remote cpus.
+Because there are cases where between a =E2=80=9Crcu_dereference()=E2=80=
+=9D call and a
+=E2=80=9Crcu_assign_pointer()=E2=80=9D call might be updates of the val=
+ue that interests us,
+the Coccinelle semantic patch ignores them and replaces with
+"RCU_INIT_POINTER()" only when the update is not happening.
 
-Also, most drivers will never benefit from this new infra.
+Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+---
+ drivers/net/wireless/ath/carl9170/tx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Mellanox mlx4 uses the Blue Frame trick to avoid the iowrite() cost.
-
-I am afraid Jesper tests are not complete to truly have a picture of the
-extra costs, because he made sure no false sharing was possible (A
-single cpu does everything and keeps skb in its cache)
+diff --git a/drivers/net/wireless/ath/carl9170/tx.c b/drivers/net/wirel=
+ess/ath/carl9170/tx.c
+index 4cadfd4..ae86a600 100644
+--- a/drivers/net/wireless/ath/carl9170/tx.c
++++ b/drivers/net/wireless/ath/carl9170/tx.c
+@@ -1557,7 +1557,7 @@ static struct carl9170_vif_info *carl9170_pick_be=
+aconing_vif(struct ar9170 *ar)
+ 	}
+=20
+ out:
+-	rcu_assign_pointer(ar->beacon_iter, cvif);
++	RCU_INIT_POINTER(ar->beacon_iter, cvif);
+ 	return cvif;
+ }
+=20
+--=20
+1.9.1
