@@ -1,48 +1,93 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: phy: properly report internal PHYs through sysfs
-Date: Wed, 27 Aug 2014 11:44:33 -0700
-Message-ID: <1409165073-26983-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: Sending undersized ARP packets with VXLAN L3 interface
+Date: Wed, 27 Aug 2014 14:45:12 -0400
+Message-ID: <53FE2738.30702@gmail.com>
+References: <CAMYYbY79hOVA5b22-gmLJTNQwprdfwa_QxKqveuwNhJMcXv9tA@mail.gmail.com>	<CAHA+R7Ok6K_9U6RCZkSLCuVXtFG4Zs60FQKFZMu-v2yK581hog@mail.gmail.com>	<53FE1AC3.5030409@gmail.com> <20140827114209.3a9d3761@urahara>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <cwang@twopensource.com>,
+	Martin Rusko <martin.rusko@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:65405 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933812AbaH0SpI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 14:45:08 -0400
-Received: by mail-ob0-f172.google.com with SMTP id wn1so519523obc.17
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 11:45:07 -0700 (PDT)
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:51859 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935598AbaH0SpQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 14:45:16 -0400
+Received: by mail-qc0-f169.google.com with SMTP id c9so775300qcz.14
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 11:45:16 -0700 (PDT)
+In-Reply-To: <20140827114209.3a9d3761@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Internal PHYs may not have a valid PHY interface defined, which will
-show up in sysfs as "". Add an explicit check of internal PHYs to report
-their interface correctly.
+On 08/27/2014 02:42 PM, Stephen Hemminger wrote:
+> On Wed, 27 Aug 2014 13:52:03 -0400
+> Vlad Yasevich <vyasevich@gmail.com> wrote:
+> 
+>> On 08/27/2014 01:28 PM, Cong Wang wrote:
+>>> On Wed, Aug 27, 2014 at 10:06 AM, Martin Rusko <martin.rusko@gmail.com> wrote:
+>>>>
+>>>> I'm wondering, where is the proper place to fix this. Should
+>>>> arp_create() function allocate skb big enough to produce ethernet
+>>>> frame with at least minimum size? Or is it somewhere in NIC drivers
+>>>> where small packets are padded with zeros?
+>>>
+>>> Drivers do that, for example e1000:
+>>>
+>>>         /* On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
+>>>          * packets may get corrupted during padding by HW.
+>>>          * To WA this issue, pad all small packets manually.
+>>>          */
+>>>         if (skb->len < ETH_ZLEN) {
+>>>                 if (skb_pad(skb, ETH_ZLEN - skb->len))
+>>>                         return NETDEV_TX_OK;
+>>>                 skb->len = ETH_ZLEN;
+>>>                 skb_set_tail_pointer(skb, ETH_ZLEN);
+>>>         }
+>>
+>>
+>> I think vxlan needs something like this:
+>>
+>> From: Vladislav Yasevich <vyasevich@gmail.com>
+>> Date: Wed, 27 Aug 2014 13:39:32 -0400
+>> Subject: [PATCH] vxlan: Pad short ethernet frames.
+>>
+>> If sending short ethernet frames from the vxlan device, pad
+>> them to minimum size so they can be forwarded after decapsulation.
+>>
+>> Reported-by: Martin Rusko <martin.rusko@gmail.com>
+>> Signed-off-by: Vladislav Yasevich <vyasevich@gmail.com>
+>> ---
+>>  drivers/net/vxlan.c | 8 ++++++++
+>>  1 file changed, 8 insertions(+)
+>>
+>> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+>> index 1fb7b37..48267d4 100644
+>> --- a/drivers/net/vxlan.c
+>> +++ b/drivers/net/vxlan.c
+>> @@ -1939,6 +1939,14 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct
+>> net_device *dev)
+>>  #endif
+>>  	}
+>>
+>> +	/* Pad short frames so they can be forwarded after decapsulation */
+>> +	if (skb->len < ETH_ZLEN) {
+>> +		if (skb_pad(skb, ETH_ZLEN - skb->len))
+>> +			return NETDEV_TX_OK;
+>> +		skb->len = ETH_ZLEN;
+>> +		skb_set_tail_pointer(skb, ETH_ZLEN);
+>> +	}
+>> +
+>>  	f = vxlan_find_mac(vxlan, eth->h_dest);
+>>  	did_rsc = false;
+>>
+> 
+> No. The short frame is perfectly valid, over the VXLAN.
+> The system doing the decap and forwarding should be where any padding is added if necessary.
+> 
 
-Fixes: 3d055d8d1c24 ("net: phy: expose PHY device interface mode")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/mdio_bus.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+If that's the case, then Martin is most likely seeing a HW bug on the switch.
+I wonder how common such a bug might be?
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 4eaadcfcb0fe..50051f271b10 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -553,8 +553,14 @@ static ssize_t
- phy_interface_show(struct device *dev, struct device_attribute *attr, char *buf)
- {
- 	struct phy_device *phydev = to_phy_device(dev);
-+	const char *mode = NULL;
- 
--	return sprintf(buf, "%s\n", phy_modes(phydev->interface));
-+	if (phy_is_internal(phydev))
-+		mode = "internal";
-+	else
-+		mode = phy_modes(phydev->interface);
-+
-+	return sprintf(buf, "%s\n", mode);
- }
- static DEVICE_ATTR_RO(phy_interface);
- 
--- 
-1.9.1
+-vlad
