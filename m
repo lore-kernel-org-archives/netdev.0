@@ -1,53 +1,49 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 0/4] net: stmmac: Enable Intel Quark SoC X1000 Ethernet
- support
-Date: Wed, 27 Aug 2014 14:52:52 +0200
-Message-ID: <53FDD4A4.5020603@st.com>
-References: <cover.1409123378.git.hock.leong.kweh@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 0/2] Get rid of ndo_xmit_flush
+Date: Wed, 27 Aug 2014 06:23:58 -0700
+Message-ID: <1409145838.3173.41.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140825.163458.1117073971092495452.davem@davemloft.net>
+	 <1409142672.26515.24.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	Ong Boon Leong <boon.leong.ong@intel.com>,
-	Rayagond K <rayagond@vayavyalabs.com>
-To: Kweh Hock Leong <hock.leong.kweh@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1409123378.git.hock.leong.kweh@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	therbert@google.com, jhs@mojatatu.com, edumazet@google.com,
+	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au,
+	dborkman@redhat.com, brouer@redhat.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:62055 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933592AbaH0NYE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 09:24:04 -0400
+Received: by mail-pa0-f41.google.com with SMTP id rd3so271848pab.28
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 06:24:00 -0700 (PDT)
+In-Reply-To: <1409142672.26515.24.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8/27/2014 12:32 PM, Kweh Hock Leong wrote:
-> From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
->
-> Hi,
->
-> Intel Quark X1000 SoC has 2 Ethernet controllers integrated on chip and they are
-> PCI devices. We adopted the stmmac_pci driver and added on code to support Intel
-> Quark SoC X1000 by creating the patchset below. The patchset has been built and
-> tested on Galileo board and found to be working as expected.
->
-> We believe that the changes are transparent to other non Intel Quark platform.
-> Please help to review the code change and feedback if there is any concern.
+On Wed, 2014-08-27 at 14:31 +0200, Hannes Frederic Sowa wrote:
 
-hello and thx for these patches that at first glance look ok to me.
-Just some minor remark, in the stmmac I try to align the function 
-parameters with the open parenthesis (devm_kzalloc in your case in not 
-aligned).
-Added on copy also Rayagond he tested PCI. I cannot do any test because 
-I have no PCI cards.
+> One thing one should keep in mind is, that there must be a skb available
+> to trigger the flush, maybe this will hurt us one day.
+> 
+> Thinking more about it should we go with a coccinelle script and
+> replace/extend ndo_start_xmit with an additional argument?
 
-peppe
+This will be a pain for backports and things like that.
 
->
-> Thank you very much.
->
-> Kweh, Hock Leong (4):
->    net: stmmac: enhance to support multiple device instances
->    net: stmmac: better code manageability with platform data struct
->    net: stmmac: add support for Intel Quark X1000
->    net: stmmac: add MSI support for Intel Quark X1000
->
->   drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c |  195 +++++++++++++++++++---
->   1 file changed, 172 insertions(+), 23 deletions(-)
->
+skb->xmit_more is a bit annoying, because it consumes one bit in all
+skbs, while it could be one byte per cpu as ndo_start_xmit() is called
+while BH are disabled.
+
+It also forces a cache line dirtying, that will hurt qdisc like HTB
+where skbs can be cooked/enqueued by remote cpus.
+
+Also, most drivers will never benefit from this new infra.
+
+Mellanox mlx4 uses the Blue Frame trick to avoid the iowrite() cost.
+
+I am afraid Jesper tests are not complete to truly have a picture of the
+extra costs, because he made sure no false sharing was possible (A
+single cpu does everything and keeps skb in its cache)
