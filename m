@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH RFC v7 net-next 14/28] bpf: verifier (add state prunning optimization)
-Date: Tue, 26 Aug 2014 19:29:28 -0700
-Message-ID: <1409106582-10095-15-git-send-email-ast@plumgrid.com>
+Subject: [PATCH RFC v7 net-next 21/28] samples: bpf: add mini eBPF library to manipulate maps and programs
+Date: Tue, 26 Aug 2014 19:29:35 -0700
+Message-ID: <1409106582-10095-22-git-send-email-ast@plumgrid.com>
 References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -23,225 +23,153 @@ In-Reply-To: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-since verifier walks all possible paths it's important to recognize
-equivalent verifier states to speed up verification.
+the library includes a trivial set of BPF syscall wrappers:
 
-If one of the old states is more strict than the current state, it means
-the current state doesn't need to be explored further, since verifier already
-concluded that more strict state leads to valid bpf_exit.
+int bpf_create_map(int key_size, int value_size, int max_entries);
+
+int bpf_update_elem(int fd, void *key, void *value);
+
+int bpf_lookup_elem(int fd, void *key, void *value);
+
+int bpf_delete_elem(int fd, void *key);
+
+int bpf_get_next_key(int fd, void *key, void *next_key);
+
+int bpf_prog_load(enum bpf_prog_type prog_type,
+		  const struct sock_filter_int *insns, int insn_len,
+		  const char *license);
+
+bpf_prog_load() stores verifier log into global bpf_log_buf[] array
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- kernel/bpf/verifier.c |  134 +++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 134 insertions(+)
+ samples/bpf/libbpf.c |   89 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ samples/bpf/libbpf.h |   21 ++++++++++++
+ 2 files changed, 110 insertions(+)
+ create mode 100644 samples/bpf/libbpf.c
+ create mode 100644 samples/bpf/libbpf.h
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index eb19f753d4d7..4d183040ab64 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -220,6 +220,7 @@ struct verifier_env {
- 	struct verifier_stack_elem *head; /* stack of verifier states to be processed */
- 	int stack_size;			/* number of states to be processed */
- 	struct verifier_state cur_state; /* current verifier state */
-+	struct verifier_state_list **branch_landing; /* search prunning optimization */
- 	struct bpf_map *used_maps[MAX_USED_MAPS]; /* array of map's used by eBPF program */
- 	u32 used_map_cnt;		/* number of used maps */
- };
-@@ -1256,6 +1257,8 @@ enum {
- 	BRANCH = 2,
- };
- 
-+#define STATE_END ((struct verifier_state_list *) -1L)
+diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
+new file mode 100644
+index 000000000000..cae0c734274c
+--- /dev/null
++++ b/samples/bpf/libbpf.c
+@@ -0,0 +1,89 @@
++/* eBPF mini library */
++#include <stdlib.h>
++#include <stdio.h>
++#include <linux/unistd.h>
++#include <unistd.h>
++#include <string.h>
++#include <linux/netlink.h>
++#include <linux/bpf.h>
++#include <errno.h>
++#include "libbpf.h"
 +
- #define PUSH_INT(I) \
- 	do { \
- 		if (cur_stack >= insn_cnt) { \
-@@ -1297,6 +1300,9 @@ enum {
- 			ret = -EINVAL; \
- 			goto free_st; \
- 		} \
-+		if (E == BRANCH) \
-+			/* mark branch target for state pruning */ \
-+			env->branch_landing[w] = STATE_END; \
- 		if (st[w] == 0) { \
- 			/* tree-edge */ \
- 			st[T] = DISCOVERED | E; \
-@@ -1364,6 +1370,10 @@ peek_stack:
- 				PUSH_INSN(t, t + 1, FALLTHROUGH);
- 				PUSH_INSN(t, t + insns[t].off + 1, BRANCH);
- 			}
-+			/* tell verifier to check for equivalent verifier states
-+			 * after every call and jump
-+			 */
-+			env->branch_landing[t + 1] = STATE_END;
- 		} else {
- 			/* all other non-branch instructions with single
- 			 * fall-through edge
-@@ -1395,6 +1405,88 @@ free_st:
- 	return ret;
- }
- 
-+/* compare two verifier states
-+ *
-+ * all states stored in state_list are known to be valid, since
-+ * verifier reached 'bpf_exit' instruction through them
-+ *
-+ * this function is called when verifier exploring different branches of
-+ * execution popped from the state stack. If it sees an old state that has
-+ * more strict register state and more strict stack state then this execution
-+ * branch doesn't need to be explored further, since verifier already
-+ * concluded that more strict state leads to valid finish.
-+ *
-+ * Therefore two states are equivalent if register state is more conservative
-+ * and explored stack state is more conservative than the current one.
-+ * Example:
-+ *       explored                   current
-+ * (slot1=INV slot2=MISC) == (slot1=MISC slot2=MISC)
-+ * (slot1=MISC slot2=MISC) != (slot1=INV slot2=MISC)
-+ *
-+ * In other words if current stack state (one being explored) has more
-+ * valid slots than old one that already passed validation, it means
-+ * the verifier can stop exploring and conclude that current state is valid too
-+ *
-+ * Similarly with registers. If explored state has register type as invalid
-+ * whereas register type in current state is meaningful, it means that
-+ * the current state will reach 'bpf_exit' instruction safely
-+ */
-+static bool states_equal(struct verifier_state *old, struct verifier_state *cur)
++int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
++		   int max_entries)
 +{
-+	int i;
++	union bpf_attr attr = {
++		.map_type = map_type,
++		.key_size = key_size,
++		.value_size = value_size,
++		.max_entries = max_entries
++	};
 +
-+	for (i = 0; i < MAX_BPF_REG; i++) {
-+		if (memcmp(&old->regs[i], &cur->regs[i],
-+			   sizeof(old->regs[0])) != 0) {
-+			if (old->regs[i].type == NOT_INIT ||
-+			    old->regs[i].type == UNKNOWN_VALUE)
-+				continue;
-+			return false;
-+		}
-+	}
-+
-+	for (i = 0; i < MAX_BPF_STACK; i++) {
-+		if (memcmp(&old->stack[i], &cur->stack[i],
-+			   sizeof(old->stack[0])) != 0) {
-+			if (old->stack[i].stype == STACK_INVALID)
-+				continue;
-+			return false;
-+		}
-+	}
-+	return true;
++	return syscall(__NR_bpf, BPF_MAP_CREATE, &attr, sizeof(attr));
 +}
 +
-+static int is_state_visited(struct verifier_env *env, int insn_idx)
++int bpf_update_elem(int fd, void *key, void *value)
 +{
-+	struct verifier_state_list *new_sl;
-+	struct verifier_state_list *sl;
++	union bpf_attr attr = {
++		.map_fd = fd,
++		.key = key,
++		.value = value,
++	};
 +
-+	sl = env->branch_landing[insn_idx];
-+	if (!sl)
-+		/* no branch jump to this insn, ignore it */
-+		return 0;
-+
-+	while (sl != STATE_END) {
-+		if (states_equal(&sl->state, &env->cur_state))
-+			/* reached equivalent register/stack state,
-+			 * prune the search
-+			 */
-+			return 1;
-+		sl = sl->next;
-+	}
-+	new_sl = kmalloc(sizeof(struct verifier_state_list), GFP_KERNEL);
-+
-+	if (!new_sl)
-+		/* ignore ENOMEM, it doesn't affect correctness */
-+		return 0;
-+
-+	/* add new state to the head of linked list */
-+	memcpy(&new_sl->state, &env->cur_state, sizeof(env->cur_state));
-+	new_sl->next = env->branch_landing[insn_idx];
-+	env->branch_landing[insn_idx] = new_sl;
-+	return 0;
++	return syscall(__NR_bpf, BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr));
 +}
 +
- static int do_check(struct verifier_env *env)
- {
- 	struct verifier_state *state = &env->cur_state;
-@@ -1426,6 +1518,17 @@ static int do_check(struct verifier_env *env)
- 			return -E2BIG;
- 		}
- 
-+		if (is_state_visited(env, insn_idx)) {
-+			if (log_level) {
-+				if (do_print_state)
-+					verbose("\nfrom %d to %d: safe\n",
-+						prev_insn_idx, insn_idx);
-+				else
-+					verbose("%d: safe\n", insn_idx);
-+			}
-+			goto process_bpf_exit;
-+		}
-+
- 		if (log_level && do_print_state) {
- 			verbose("\nfrom %d to %d:", prev_insn_idx, insn_idx);
- 			print_verifier_state(env);
-@@ -1536,6 +1639,7 @@ static int do_check(struct verifier_env *env)
- 				 * something into it earlier
- 				 */
- 				_(check_reg_arg(regs, BPF_REG_0, SRC_OP));
-+process_bpf_exit:
- 				insn_idx = pop_stack(env, &prev_insn_idx);
- 				if (insn_idx < 0) {
- 					break;
-@@ -1670,6 +1774,28 @@ static void convert_pseudo_ld_imm64(struct verifier_env *env)
- 			insn->src_reg = 0;
- }
- 
-+static void free_states(struct verifier_env *env)
++int bpf_lookup_elem(int fd, void *key, void *value)
 +{
-+	struct verifier_state_list *sl, *sln;
-+	int i;
++	union bpf_attr attr = {
++		.map_fd = fd,
++		.key = key,
++		.value = value,
++	};
 +
-+	if (!env->branch_landing)
-+		return;
-+
-+	for (i = 0; i < env->prog->len; i++) {
-+		sl = env->branch_landing[i];
-+
-+		if (sl)
-+			while (sl != STATE_END) {
-+				sln = sl->next;
-+				kfree(sl);
-+				sl = sln;
-+			}
-+	}
-+
-+	kfree(env->branch_landing);
++	return syscall(__NR_bpf, BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr));
 +}
 +
- int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
- {
- 	void __user *log_ubuf = NULL;
-@@ -1718,6 +1844,13 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
- 	if (ret < 0)
- 		goto skip_full_check;
- 
-+	env->branch_landing = kcalloc(prog->len,
-+				      sizeof(struct verifier_state_list *),
-+				      GFP_KERNEL);
-+	ret = -ENOMEM;
-+	if (!env->branch_landing)
-+		goto skip_full_check;
++int bpf_delete_elem(int fd, void *key)
++{
++	union bpf_attr attr = {
++		.map_fd = fd,
++		.key = key,
++	};
 +
- 	ret = check_cfg(env);
- 	if (ret < 0)
- 		goto skip_full_check;
-@@ -1726,6 +1859,7 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
- 
- skip_full_check:
- 	while (pop_stack(env, NULL) >= 0);
-+	free_states(env);
- 
- 	if (log_level && log_len >= log_size - 1) {
- 		BUG_ON(log_len >= log_size);
++	return syscall(__NR_bpf, BPF_MAP_DELETE_ELEM, &attr, sizeof(attr));
++}
++
++int bpf_get_next_key(int fd, void *key, void *next_key)
++{
++	union bpf_attr attr = {
++		.map_fd = fd,
++		.key = key,
++		.next_key = next_key,
++	};
++
++	return syscall(__NR_bpf, BPF_MAP_GET_NEXT_KEY, &attr, sizeof(attr));
++}
++
++#define ROUND_UP(x, n) (((x) + (n) - 1u) & ~((n) - 1u))
++
++char bpf_log_buf[LOG_BUF_SIZE];
++
++int bpf_prog_load(enum bpf_prog_type prog_type,
++		  const struct bpf_insn *insns, int prog_len,
++		  const char *license)
++{
++	union bpf_attr attr = {
++		.prog_type = prog_type,
++		.insns = insns,
++		.insn_cnt = prog_len / sizeof(struct bpf_insn),
++		.license = license,
++		.log_buf = bpf_log_buf,
++		.log_size = LOG_BUF_SIZE,
++		.log_level = 1,
++	};
++
++	bpf_log_buf[0] = 0;
++
++	return syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
++}
+diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
+new file mode 100644
+index 000000000000..b19e39794291
+--- /dev/null
++++ b/samples/bpf/libbpf.h
+@@ -0,0 +1,21 @@
++/* eBPF mini library */
++#ifndef __LIBBPF_H
++#define __LIBBPF_H
++
++struct bpf_insn;
++
++int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
++		   int max_entries);
++int bpf_update_elem(int fd, void *key, void *value);
++int bpf_lookup_elem(int fd, void *key, void *value);
++int bpf_delete_elem(int fd, void *key);
++int bpf_get_next_key(int fd, void *key, void *next_key);
++
++int bpf_prog_load(enum bpf_prog_type prog_type,
++		  const struct bpf_insn *insns, int insn_len,
++		  const char *license);
++
++#define LOG_BUF_SIZE 8192
++extern char bpf_log_buf[LOG_BUF_SIZE];
++
++#endif
 -- 
 1.7.9.5
