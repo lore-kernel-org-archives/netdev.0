@@ -1,66 +1,96 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH RFC v7 net-next 00/28] BPF syscall
-Date: Tue, 26 Aug 2014 21:49:20 -0700
-Message-ID: <CALCETrWs9GRufGKxAoV628bh1f3HObkxNQuW3tYRt2rFwNAbxA@mail.gmail.com>
-References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
- <CALCETrX2MzNxQ1ogt+Qx8iPjUe+z0gN6ZLwu9nAcZzTN+D+iYw@mail.gmail.com> <CAMEtUuwYqJVUuZxPBKy57NonWF+X_5vkNx4uSEx_d=-xBka1Kg@mail.gmail.com>
+From: Tushar Shinde <mtk.tushar@gmail.com>
+Subject: Re: IPv6 Policy based routing not working.
+Date: Wed, 27 Aug 2014 10:24:21 +0530
+Message-ID: <CABQpAL4J7D704iw8Qj9SNDxW8E1P7Mw+KONUapZY6_LdoHkEYw@mail.gmail.com>
+References: <CABQpAL7X9_=RTS2cd_m3jkCzWOM8hjcu22yQdnRD6S4fs5AF2Q@mail.gmail.com>
+	<1409090482.1152.8.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Chema Gonzalez <chema@google.com>,
-	Namhyung Kim <namhyung@kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Ingo Molnar <mingo@kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUuwYqJVUuZxPBKy57NonWF+X_5vkNx4uSEx_d=-xBka1Kg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f180.google.com ([74.125.82.180]:63800 "EHLO
+	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932097AbaH0EyW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 00:54:22 -0400
+Received: by mail-we0-f180.google.com with SMTP id w61so15569161wes.39
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 21:54:21 -0700 (PDT)
+In-Reply-To: <1409090482.1152.8.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 26, 2014 at 9:35 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> On Tue, Aug 26, 2014 at 8:56 PM, Andy Lutomirski <luto@amacapital.net> wrote:
->> On Aug 26, 2014 7:29 PM, "Alexei Starovoitov" <ast@plumgrid.com> wrote:
->>>
->>> Hi Ingo, David,
->>>
->>> posting whole thing again as RFC to get feedback on syscall only.
->>> If syscall bpf(int cmd, union bpf_attr *attr, unsigned int size) is ok,
->>> I'll split them into small chunks as requested and will repost without RFC.
->>
->> IMO it's much easier to review a syscall if we just look at a
->> specification of what it does.  The code is, in some sense, secondary.
+Hi Hannes,
+
+Thank you for reply.
+
+I tested it will 2 kernels 2.6.32-431.11.2.el6.x86_64, and ubuntu
+14.04 kernel 3.13.
+
+ping6 -I <IPv6 src ip> <dest> is working. I also verified ssh with -b working.
+
+So my question is, is it necessary to give bind address to make source
+based routing work? why don't it select ip address of given bind
+interface? Because of this SO_BINDTODEVICE may not work as expected.
+
+Tushar
+
+
+On Wed, Aug 27, 2014 at 3:31 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hi,
 >
-> 'specification of what it does'... hmm, you mean beyond what's
-> there in commit logs and in Documentation/networking/filter.txt ?
-> Aren't samples at the end give an idea on 'what it does'?
-> I'm happy to add 'specification', I just don't understand yet what
-> it suppose to talk about beyond what's already written.
-> I understand that the patches are missing explanation on 'why'
-> the syscall is being added, but I don't think it's what you're asking...
-
-I mean a hopefully short document that defines what the syscall does.
-It should be precise enough that one could, in principle, implement
-the syscall just by reading the document and that one could use the
-syscall just by reading the document.
-
-Given that there's a whole instruction set to go with it, it may end
-up being moderately complicated or saying things like "see this other
-thing for a description of the instruction set" and "there are some
-extensible sets of functions you can call with it".
-
---Andy
-
--- 
-Andy Lutomirski
-AMA Capital Management, LLC
+> On Di, 2014-08-26 at 21:32 +0530, Tushar Shinde wrote:
+>> Hello NetDev,
+>>
+>> I am facing problem where if ipv6 route (outside to current subnet) is
+>> reachable only if route is present in main table. Policy based routes
+>> are not working.
+>>
+>> Following is my setup,
+>>
+>> eth0   inet6 2001:1::10/120 scope global
+>> eth1   inet6 2001:1::11/120 scope global
+>> 2001:1::1 is gateway
+>> 2.6.32-431.11.2.el6.x86_64 kernel (I tried on 3.x also)
+>>
+>> [root@ipv6node1 ~]# ip -6 route show tab 1
+>> 2001:1::/120 dev eth0  metric 1024  mtu 1500 advmss 1440 hoplimit 4294967295
+>> default via 2001:1::1 dev eth0  metric 1024  mtu 1500 advmss 1440
+>> hoplimit 4294967295
+>> [root@ipv6node1 ~]#
+>> [root@ipv6node1 ~]# ip -6 route show tab 2
+>> 2001:1::/120 dev eth1  metric 1024  mtu 1500 advmss 1440 hoplimit 4294967295
+>> default via 2001:1::1 dev eth1  metric 1024  mtu 1500 advmss 1440
+>> hoplimit 4294967295
+>> [root@ipv6node1 ~]#
+>> [root@ipv6node1 ~]# ip -6 rule show
+>> 0:    from all lookup local
+>> 16383:    from 2001:1::10 lookup 1
+>> 16383:    from 2001:1::11 lookup 2
+>> 32766:    from all lookup main
+>> [root@ipv6node1 ~]#
+>>
+>> If I add default vai eth0 only ip of eth0 is reachable from outside or
+>> eth1 dont work. In above setup default route is not present.
+>>
+>> But default entry in "table" is never getting used to resolve route
+>>
+>> [root@ipv6node1 ~]# ping6 -I eth0 2001:2::20
+>> connect: Network is unreachable
+>> [root@ipv6node1 ~]#
+>> [root@ipv6node1 ~]# ping6 -I eth1 2001:2::20
+>> connect: Network is unreachable
+>> [root@ipv6node1 ~]#
+>
+> ping6 selects the ipv6 address based on netlink route lookup given the
+> specified interface but without setting the source address. That said,
+> it is probable that the rule lookup happens with a completely different
+> ipv6 address. Please verify this. ping6 -I also accepts a source ipv6
+> address, can you try this?
+>
+> Otherwise please specify with which 3.x kernel you tested this.
+>
+> Thanks,
+> Hannes
+>
+>
