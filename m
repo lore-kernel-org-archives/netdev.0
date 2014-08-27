@@ -1,71 +1,310 @@
-From: Chen-Yu Tsai <wens@csie.org>
-Subject: Re: [PATCH] net: stmmac: add dcrs parameter
-Date: Wed, 27 Aug 2014 10:36:47 +0800
-Message-ID: <CAGb2v64ZQ37AhweoPvEPeYgYpA9yZdWXMkj4jsmCcNshngZTsg@mail.gmail.com>
-References: <1408967442-2724-1-git-send-email-lftan@altera.com>
- <CAGb2v65fi=D_TQBSospft4T5OrBCj5TwQfgtkX=11M8TWFftYg@mail.gmail.com>
- <53FB313C.9010808@st.com> <CAOwfj2Oyy8EGxPhgJcgeGPMm3tJ9-fGOh5h7jU8q4_BO=vWrTA@mail.gmail.com>
- <53FC1D68.1000600@st.com> <CAOwfj2MMJCYyqD9++MpbRZohzBXyX16fJY-FaT+8H2gZyJd9MA@mail.gmail.com>
- <53FC89A0.8040905@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vince Bridgers <vbridgers2013@gmail.com>,
-	Ley Foon Tan <lftan@altera.com>,
-	LeyFoon Tan <lftan.linux@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Vince Bridgers <vbridger@altera.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH RFC v7 net-next 10/28] bpf: verifier (add ability to receive verification log)
+Date: Tue, 26 Aug 2014 19:29:24 -0700
+Message-ID: <1409106582-10095-11-git-send-email-ast@plumgrid.com>
+References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	Namhyung Kim <namhyung@kernel.org>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53FC89A0.8040905@st.com>
+In-Reply-To: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 26, 2014 at 9:20 PM, Giuseppe CAVALLARO
-<peppe.cavallaro@st.com> wrote:
-> On 8/26/2014 2:35 PM, Vince Bridgers wrote:
->>
->> Hi Peppe,
->>
->>>>
->>>> In the Synopsys EMAC case, carrier sense is used to stop transmitting
->>>> if no carrier is sensed during a transmission. This is only useful if
->>>> the media in use is true half duplex media (like obsolete 10Base2 or
->>>> 10Base5). If no one in using true half duplex media, then is it
->>>> possible to set this disable by default? If we're not sure, then
->>>> having an option feels like the right thing to do.
->>>
->>>
->>>
->>> Indeed this is what I had done in the patch.
->>>
->>>
->>> http://git.stlinux.com/?p=stm/linux-sh4-2.6.32.y.git;a=commit;h=b0b863bf65c36dc593f6b7b4b418394fd880dae2
->>>
->>> Also in case of carrier sense the frame will be dropped in any case
->>> later.
->>>
->>> Let me know if you Acked this patch so I will rebase it on
->>> net.git and I send it soon
->>>
->>> peppe
->>>
->>
->> Yes, this looks good to me. I don't expect anyone is using 10Base2 or
->> 10Base5 anymore, so it's ok to disable DCRS by default.
->>
->> ack
->>
->> All the best,
->
->
-> thx so much, I will send this patch (with your Acked-by) and ported on
-> net.git soon.
->
-> Chen-Yu, Ley Foon, pls let me know if it is ok for you as well
+add optional attributes for BPF_PROG_LOAD syscall:
+struct {
+	...
+	__u32 log_level;	/* verbosity level of eBPF verifier */
+	__u32 log_size;		/* size of user buffer */
+	void __user *log_buf;	/* user supplied buffer */
+};
 
-Looks good. Thanks!
+In such case the verifier will return its verification log in the user
+supplied buffer which can be used by humans to analyze why verifier
+rejected given program
 
-Cheers
-ChenYu
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+ include/uapi/linux/bpf.h |    5 +-
+ kernel/bpf/verifier.c    |  235 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 239 insertions(+), 1 deletion(-)
+
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index ac272bd7a884..a6fa0416f2bd 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -400,7 +400,10 @@ union bpf_attr {
+ 		__u32 insn_cnt;
+ 		const struct bpf_insn __user *insns;
+ 		const char __user *license;
+-#define	BPF_PROG_LOAD_LAST_FIELD license
++		__u32 log_level;	/* verbosity level of eBPF verifier */
++		__u32 log_size;		/* size of user buffer */
++		void __user *log_buf;	/* user supplied buffer */
++#define	BPF_PROG_LOAD_LAST_FIELD log_buf
+ 	};
+ };
+ 
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 3d22b19c5fe0..81a64a50e48d 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -144,9 +144,244 @@
+  * load/store to bpf_context are checked against known fields
+  */
+ 
++/* single container for all structs
++ * one verifier_env per bpf_check() call
++ */
++struct verifier_env {
++};
++
++/* verbose verifier prints what it's seeing
++ * bpf_check() is called under lock, so no race to access these global vars
++ */
++static u32 log_level, log_size, log_len;
++static void *log_buf;
++
++static DEFINE_MUTEX(bpf_verifier_lock);
++
++/* log_level controls verbosity level of eBPF verifier.
++ * verbose() is used to dump the verification trace to the log, so the user
++ * can figure out what's wrong with the program
++ */
++static void verbose(const char *fmt, ...)
++{
++	va_list args;
++
++	if (log_level == 0 || log_len >= log_size - 1)
++		return;
++
++	va_start(args, fmt);
++	log_len += vscnprintf(log_buf + log_len, log_size - log_len, fmt, args);
++	va_end(args);
++}
++
++static const char *const bpf_class_string[] = {
++	[BPF_LD]    = "ld",
++	[BPF_LDX]   = "ldx",
++	[BPF_ST]    = "st",
++	[BPF_STX]   = "stx",
++	[BPF_ALU]   = "alu",
++	[BPF_JMP]   = "jmp",
++	[BPF_RET]   = "BUG",
++	[BPF_ALU64] = "alu64",
++};
++
++static const char *const bpf_alu_string[] = {
++	[BPF_ADD >> 4]  = "+=",
++	[BPF_SUB >> 4]  = "-=",
++	[BPF_MUL >> 4]  = "*=",
++	[BPF_DIV >> 4]  = "/=",
++	[BPF_OR  >> 4]  = "|=",
++	[BPF_AND >> 4]  = "&=",
++	[BPF_LSH >> 4]  = "<<=",
++	[BPF_RSH >> 4]  = ">>=",
++	[BPF_NEG >> 4]  = "neg",
++	[BPF_MOD >> 4]  = "%=",
++	[BPF_XOR >> 4]  = "^=",
++	[BPF_MOV >> 4]  = "=",
++	[BPF_ARSH >> 4] = "s>>=",
++	[BPF_END >> 4]  = "endian",
++};
++
++static const char *const bpf_ldst_string[] = {
++	[BPF_W >> 3]  = "u32",
++	[BPF_H >> 3]  = "u16",
++	[BPF_B >> 3]  = "u8",
++	[BPF_DW >> 3] = "u64",
++};
++
++static const char *const bpf_jmp_string[] = {
++	[BPF_JA >> 4]   = "jmp",
++	[BPF_JEQ >> 4]  = "==",
++	[BPF_JGT >> 4]  = ">",
++	[BPF_JGE >> 4]  = ">=",
++	[BPF_JSET >> 4] = "&",
++	[BPF_JNE >> 4]  = "!=",
++	[BPF_JSGT >> 4] = "s>",
++	[BPF_JSGE >> 4] = "s>=",
++	[BPF_CALL >> 4] = "call",
++	[BPF_EXIT >> 4] = "exit",
++};
++
++static void print_bpf_insn(struct bpf_insn *insn)
++{
++	u8 class = BPF_CLASS(insn->code);
++
++	if (class == BPF_ALU || class == BPF_ALU64) {
++		if (BPF_SRC(insn->code) == BPF_X)
++			verbose("(%02x) %sr%d %s %sr%d\n",
++				insn->code, class == BPF_ALU ? "(u32) " : "",
++				insn->dst_reg,
++				bpf_alu_string[BPF_OP(insn->code) >> 4],
++				class == BPF_ALU ? "(u32) " : "",
++				insn->src_reg);
++		else
++			verbose("(%02x) %sr%d %s %s%d\n",
++				insn->code, class == BPF_ALU ? "(u32) " : "",
++				insn->dst_reg,
++				bpf_alu_string[BPF_OP(insn->code) >> 4],
++				class == BPF_ALU ? "(u32) " : "",
++				insn->imm);
++	} else if (class == BPF_STX) {
++		if (BPF_MODE(insn->code) == BPF_MEM)
++			verbose("(%02x) *(%s *)(r%d %+d) = r%d\n",
++				insn->code,
++				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++				insn->dst_reg,
++				insn->off, insn->src_reg);
++		else if (BPF_MODE(insn->code) == BPF_XADD)
++			verbose("(%02x) lock *(%s *)(r%d %+d) += r%d\n",
++				insn->code,
++				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++				insn->dst_reg, insn->off,
++				insn->src_reg);
++		else
++			verbose("BUG_%02x\n", insn->code);
++	} else if (class == BPF_ST) {
++		if (BPF_MODE(insn->code) != BPF_MEM) {
++			verbose("BUG_st_%02x\n", insn->code);
++			return;
++		}
++		verbose("(%02x) *(%s *)(r%d %+d) = %d\n",
++			insn->code,
++			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++			insn->dst_reg,
++			insn->off, insn->imm);
++	} else if (class == BPF_LDX) {
++		if (BPF_MODE(insn->code) != BPF_MEM) {
++			verbose("BUG_ldx_%02x\n", insn->code);
++			return;
++		}
++		verbose("(%02x) r%d = *(%s *)(r%d %+d)\n",
++			insn->code, insn->dst_reg,
++			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++			insn->src_reg, insn->off);
++	} else if (class == BPF_LD) {
++		if (BPF_MODE(insn->code) == BPF_ABS) {
++			verbose("(%02x) r0 = *(%s *)skb[%d]\n",
++				insn->code,
++				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++				insn->imm);
++		} else if (BPF_MODE(insn->code) == BPF_IND) {
++			verbose("(%02x) r0 = *(%s *)skb[r%d + %d]\n",
++				insn->code,
++				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++				insn->src_reg, insn->imm);
++		} else if (BPF_MODE(insn->code) == BPF_IMM) {
++			verbose("(%02x) r%d = 0x%x\n",
++				insn->code, insn->dst_reg, insn->imm);
++		} else {
++			verbose("BUG_ld_%02x\n", insn->code);
++			return;
++		}
++	} else if (class == BPF_JMP) {
++		u8 opcode = BPF_OP(insn->code);
++
++		if (opcode == BPF_CALL) {
++			verbose("(%02x) call %d\n", insn->code, insn->imm);
++		} else if (insn->code == (BPF_JMP | BPF_JA)) {
++			verbose("(%02x) goto pc%+d\n",
++				insn->code, insn->off);
++		} else if (insn->code == (BPF_JMP | BPF_EXIT)) {
++			verbose("(%02x) exit\n", insn->code);
++		} else if (BPF_SRC(insn->code) == BPF_X) {
++			verbose("(%02x) if r%d %s r%d goto pc%+d\n",
++				insn->code, insn->dst_reg,
++				bpf_jmp_string[BPF_OP(insn->code) >> 4],
++				insn->src_reg, insn->off);
++		} else {
++			verbose("(%02x) if r%d %s 0x%x goto pc%+d\n",
++				insn->code, insn->dst_reg,
++				bpf_jmp_string[BPF_OP(insn->code) >> 4],
++				insn->imm, insn->off);
++		}
++	} else {
++		verbose("(%02x) %s\n", insn->code, bpf_class_string[class]);
++	}
++}
++
+ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+ {
++	void __user *log_ubuf = NULL;
++	struct verifier_env *env;
+ 	int ret = -EINVAL;
+ 
++	if (prog->len <= 0 || prog->len > BPF_MAXINSNS)
++		return -E2BIG;
++
++	/* 'struct verifier_env' can be global, but since it's not small,
++	 * allocate/free it every time bpf_check() is called
++	 */
++	env = kzalloc(sizeof(struct verifier_env), GFP_KERNEL);
++	if (!env)
++		return -ENOMEM;
++
++	/* grab the mutex to protect few globals used by verifier */
++	mutex_lock(&bpf_verifier_lock);
++
++	if (attr->log_level || attr->log_buf || attr->log_size) {
++		/* user requested verbose verifier output
++		 * and supplied buffer to store the verification trace
++		 */
++		log_level = attr->log_level;
++		log_ubuf = attr->log_buf;
++		log_size = attr->log_size;
++		log_len = 0;
++
++		ret = -EINVAL;
++		/* log_* values have to be sane */
++		if (log_size < 128 || log_size > UINT_MAX >> 8 ||
++		    log_level == 0 || log_ubuf == NULL)
++			goto free_env;
++
++		ret = -ENOMEM;
++		log_buf = vmalloc(log_size);
++		if (!log_buf)
++			goto free_env;
++	} else {
++		log_level = 0;
++	}
++
++	/* ret = do_check(env); */
++
++	if (log_level && log_len >= log_size - 1) {
++		BUG_ON(log_len >= log_size);
++		/* verifier log exceeded user supplied buffer */
++		ret = -ENOSPC;
++		/* fall through to return what was recorded */
++	}
++
++	/* copy verifier log back to user space including trailing zero */
++	if (log_level && copy_to_user(log_ubuf, log_buf, log_len + 1) != 0) {
++		ret = -EFAULT;
++		goto free_log_buf;
++	}
++
++
++free_log_buf:
++	if (log_level)
++		vfree(log_buf);
++free_env:
++	kfree(env);
++	mutex_unlock(&bpf_verifier_lock);
+ 	return ret;
+ }
+-- 
+1.7.9.5
