@@ -1,219 +1,143 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/11] i40e: quiet complaints when removing default MAC VLAN filter and make set_mac reversible
-Date: Wed, 27 Aug 2014 02:26:44 -0700
-Message-ID: <1409131606-15011-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/11] i40e/i40evf: Ignore a driver perceived Tx hang if the number of desc pending < 4
+Date: Wed, 27 Aug 2014 02:26:45 -0700
+Message-ID: <1409131606-15011-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:64375 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:64393 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932958AbaH0J0z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932981AbaH0J0z (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 27 Aug 2014 05:26:55 -0400
 In-Reply-To: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Older firmware has an incorrect MAC VLAN filter that needs to be replaced
-at startup, and now newer firmware doesn't have this problem.  With this
-change we no longer complain if the remove fails, and we only add the
-new filter if the remove succeeded.
+We are seeing situations where the driver sees a hang with less than 4
+desc pending, if the driver chooses to ignore it the queue progresses
+forward and the stack never experiences a real hang.
+With this patch we will log a stat when this situation happens
+"tx_sluggish" will increment and we can see some more details
+at a higher debug level. Other than that we will ignore this
+particular case of Tx hang.
 
-Setting a new LAA worked the first time, but didn't work well in successive
-operations, including returning to the HW default address.  This simplifies
-the code that was trying to be too smart.
-
-Lastly, this pulls the hardware default mac address out into separate
-handling code and keeps the broadcast filtering from getting munged.
-
-Change-ID: I1f54b002def04ffef2546febb9a4044385452f85
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
+Change-ID: I7d1d1666d990e2b12f4f6bed0d17d22e1b6410d5
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 99 ++++++++++++++++++++---------
- 1 file changed, 70 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c |  3 +++
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c    | 10 +++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h    |  1 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c  |  6 ++++--
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h  |  1 +
+ 6 files changed, 19 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 172f756..3216aa5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1239,8 +1239,11 @@ struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi, u8 *macaddr,
-  * i40e_rm_default_mac_filter - Remove the default MAC filter set by NVM
-  * @vsi: the PF Main VSI - inappropriate for any other VSI
-  * @macaddr: the MAC address
-+ *
-+ * Some older firmware configurations set up a default promiscuous VLAN
-+ * filter that needs to be removed.
-  **/
--static void i40e_rm_default_mac_filter(struct i40e_vsi *vsi, u8 *macaddr)
-+static int i40e_rm_default_mac_filter(struct i40e_vsi *vsi, u8 *macaddr)
- {
- 	struct i40e_aqc_remove_macvlan_element_data element;
- 	struct i40e_pf *pf = vsi->back;
-@@ -1248,15 +1251,18 @@ static void i40e_rm_default_mac_filter(struct i40e_vsi *vsi, u8 *macaddr)
- 
- 	/* Only appropriate for the PF main VSI */
- 	if (vsi->type != I40E_VSI_MAIN)
--		return;
-+		return -EINVAL;
- 
-+	memset(&element, 0, sizeof(element));
- 	ether_addr_copy(element.mac_addr, macaddr);
- 	element.vlan_tag = 0;
- 	element.flags = I40E_AQC_MACVLAN_DEL_PERFECT_MATCH |
- 			I40E_AQC_MACVLAN_DEL_IGNORE_VLAN;
- 	aq_ret = i40e_aq_remove_macvlan(&pf->hw, vsi->seid, &element, 1, NULL);
- 	if (aq_ret)
--		dev_err(&pf->pdev->dev, "Could not remove default MAC-VLAN\n");
-+		return -ENOENT;
-+
-+	return 0;
- }
- 
- /**
-@@ -1385,18 +1391,30 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
-+	struct i40e_pf *pf = vsi->back;
-+	struct i40e_hw *hw = &pf->hw;
- 	struct sockaddr *addr = p;
- 	struct i40e_mac_filter *f;
- 
- 	if (!is_valid_ether_addr(addr->sa_data))
- 		return -EADDRNOTAVAIL;
- 
--	netdev_info(netdev, "set mac address=%pM\n", addr->sa_data);
-+	if (ether_addr_equal(netdev->dev_addr, addr->sa_data)) {
-+		netdev_info(netdev, "already using mac address %pM\n",
-+			    addr->sa_data);
-+		return 0;
-+	}
- 
- 	if (test_bit(__I40E_DOWN, &vsi->back->state) ||
- 	    test_bit(__I40E_RESET_RECOVERY_PENDING, &vsi->back->state))
- 		return -EADDRNOTAVAIL;
- 
-+	if (ether_addr_equal(hw->mac.addr, addr->sa_data))
-+		netdev_info(netdev, "returning to hw mac address %pM\n",
-+			    hw->mac.addr);
-+	else
-+		netdev_info(netdev, "set new mac address %pM\n", addr->sa_data);
-+
- 	if (vsi->type == I40E_VSI_MAIN) {
- 		i40e_status ret;
- 		ret = i40e_aq_mac_address_write(&vsi->back->hw,
-@@ -1410,25 +1428,34 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
- 		}
- 	}
- 
--	f = i40e_find_mac(vsi, addr->sa_data, false, true);
--	if (!f) {
--		/* In order to be sure to not drop any packets, add the
--		 * new address first then delete the old one.
--		 */
--		f = i40e_add_filter(vsi, addr->sa_data, I40E_VLAN_ANY,
--				    false, false);
--		if (!f)
--			return -ENOMEM;
-+	if (ether_addr_equal(netdev->dev_addr, hw->mac.addr)) {
-+		struct i40e_aqc_remove_macvlan_element_data element;
- 
--		i40e_sync_vsi_filters(vsi);
-+		memset(&element, 0, sizeof(element));
-+		ether_addr_copy(element.mac_addr, netdev->dev_addr);
-+		element.flags = I40E_AQC_MACVLAN_DEL_PERFECT_MATCH;
-+		i40e_aq_remove_macvlan(&pf->hw, vsi->seid, &element, 1, NULL);
-+	} else {
- 		i40e_del_filter(vsi, netdev->dev_addr, I40E_VLAN_ANY,
- 				false, false);
--		i40e_sync_vsi_filters(vsi);
- 	}
- 
--	f->is_laa = true;
--	if (!ether_addr_equal(netdev->dev_addr, addr->sa_data))
--		ether_addr_copy(netdev->dev_addr, addr->sa_data);
-+	if (ether_addr_equal(addr->sa_data, hw->mac.addr)) {
-+		struct i40e_aqc_add_macvlan_element_data element;
-+
-+		memset(&element, 0, sizeof(element));
-+		ether_addr_copy(element.mac_addr, hw->mac.addr);
-+		element.flags = cpu_to_le16(I40E_AQC_MACVLAN_ADD_PERFECT_MATCH);
-+		i40e_aq_add_macvlan(&pf->hw, vsi->seid, &element, 1, NULL);
-+	} else {
-+		f = i40e_add_filter(vsi, addr->sa_data, I40E_VLAN_ANY,
-+				    false, false);
-+		if (f)
-+			f->is_laa = true;
-+	}
-+
-+	i40e_sync_vsi_filters(vsi);
-+	ether_addr_copy(netdev->dev_addr, addr->sa_data);
- 
- 	return 0;
- }
-@@ -1796,9 +1823,8 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 		kfree(add_list);
- 		add_list = NULL;
- 
--		if (add_happened && (!aq_ret)) {
--			/* do nothing */;
--		} else if (add_happened && (aq_ret)) {
-+		if (add_happened && aq_ret &&
-+		    pf->hw.aq.asq_last_status != I40E_AQ_RC_EINVAL) {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 8526950..4e97ba1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -316,6 +316,7 @@ struct i40e_pf {
+ 	u32 tx_timeout_count;
+ 	u32 tx_timeout_recovery_level;
+ 	unsigned long tx_timeout_last_recovery;
++	u32 tx_sluggish_count;
+ 	u32 hw_csum_rx_error;
+ 	u32 led_status;
+ 	u16 corer_count; /* Core reset count */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 5a0cabe..7067f4b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1356,6 +1356,9 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 				 "emp reset count: %d\n", pf->empr_count);
  			dev_info(&pf->pdev->dev,
- 				 "add filter failed, err %d, aq_err %d\n",
- 				 aq_ret, pf->hw.aq.asq_last_status);
-@@ -7512,14 +7538,14 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 	if (vsi->type == I40E_VSI_MAIN) {
- 		SET_NETDEV_DEV(netdev, &pf->pdev->dev);
- 		ether_addr_copy(mac_addr, hw->mac.perm_addr);
--		/* The following two steps are necessary to prevent reception
--		 * of tagged packets - by default the NVM loads a MAC-VLAN
--		 * filter that will accept any tagged packet.  This is to
--		 * prevent that during normal operations until a specific
--		 * VLAN tag filter has been set.
-+		/* The following steps are necessary to prevent reception
-+		 * of tagged packets - some older NVM configurations load a
-+		 * default a MAC-VLAN filter that accepts any tagged packet
-+		 * which must be replaced by a normal filter.
- 		 */
--		i40e_rm_default_mac_filter(vsi, mac_addr);
--		i40e_add_filter(vsi, mac_addr, I40E_VLAN_ANY, false, true);
-+		if (!i40e_rm_default_mac_filter(vsi, mac_addr))
-+			i40e_add_filter(vsi, mac_addr,
-+					I40E_VLAN_ANY, false, true);
- 	} else {
- 		/* relate the VSI_VMDQ name to the VSI_MAIN name */
- 		snprintf(netdev->name, IFNAMSIZ, "%sv%%d",
-@@ -7735,7 +7761,22 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
- 		f_count++;
+ 				 "pf reset count: %d\n", pf->pfr_count);
++			dev_info(&pf->pdev->dev,
++				 "pf tx sluggish count: %d\n",
++				 pf->tx_sluggish_count);
+ 		} else if (strncmp(&cmd_buf[5], "port", 4) == 0) {
+ 			struct i40e_aqc_query_port_ets_config_resp *bw_data;
+ 			struct i40e_dcbx_config *cfg =
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 366624a..4bf49d2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -607,6 +607,7 @@ static u32 i40e_get_tx_pending(struct i40e_ring *ring)
+ static bool i40e_check_tx_hang(struct i40e_ring *tx_ring)
+ {
+ 	u32 tx_pending = i40e_get_tx_pending(tx_ring);
++	struct i40e_pf *pf = tx_ring->vsi->back;
+ 	bool ret = false;
  
- 		if (f->is_laa && vsi->type == I40E_VSI_MAIN) {
--			i40e_aq_mac_address_write(&vsi->back->hw,
-+			struct i40e_aqc_remove_macvlan_element_data element;
-+
-+			memset(&element, 0, sizeof(element));
-+			ether_addr_copy(element.mac_addr, f->macaddr);
-+			element.flags = I40E_AQC_MACVLAN_DEL_PERFECT_MATCH;
-+			ret = i40e_aq_remove_macvlan(hw, vsi->seid,
-+						     &element, 1, NULL);
-+			if (ret) {
-+				/* some older FW has a different default */
-+				element.flags |=
-+					       I40E_AQC_MACVLAN_DEL_IGNORE_VLAN;
-+				i40e_aq_remove_macvlan(hw, vsi->seid,
-+						       &element, 1, NULL);
-+			}
-+
-+			i40e_aq_mac_address_write(hw,
- 						  I40E_AQC_WRITE_TYPE_LAA_WOL,
- 						  f->macaddr, NULL);
- 		}
+ 	clear_check_for_tx_hang(tx_ring);
+@@ -623,10 +624,17 @@ static bool i40e_check_tx_hang(struct i40e_ring *tx_ring)
+ 	 * pending but without time to complete it yet.
+ 	 */
+ 	if ((tx_ring->tx_stats.tx_done_old == tx_ring->stats.packets) &&
+-	    tx_pending) {
++	    (tx_pending >= I40E_MIN_DESC_PENDING)) {
+ 		/* make sure it is true for two checks in a row */
+ 		ret = test_and_set_bit(__I40E_HANG_CHECK_ARMED,
+ 				       &tx_ring->state);
++	} else if ((tx_ring->tx_stats.tx_done_old == tx_ring->stats.packets) &&
++		   (tx_pending < I40E_MIN_DESC_PENDING) &&
++		   (tx_pending > 0)) {
++		if (I40E_DEBUG_FLOW & pf->hw.debug_mask)
++			dev_info(tx_ring->dev, "HW needs some more descs to do a cacheline flush. tx_pending %d, queue %d",
++				 tx_pending, tx_ring->queue_index);
++		pf->tx_sluggish_count++;
+ 	} else {
+ 		/* update completed stats and disarm the hang check */
+ 		tx_ring->tx_stats.tx_done_old = tx_ring->stats.packets;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index 73f4fa4..d7a625a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -121,6 +121,7 @@ enum i40e_dyn_idx_t {
+ /* Tx Descriptors needed, worst case */
+ #define TXD_USE_COUNT(S) DIV_ROUND_UP((S), I40E_MAX_DATA_PER_TXD)
+ #define DESC_NEEDED (MAX_SKB_FRAGS + 4)
++#define I40E_MIN_DESC_PENDING	4
+ 
+ #define I40E_TX_FLAGS_CSUM		(u32)(1)
+ #define I40E_TX_FLAGS_HW_VLAN		(u32)(1 << 1)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 79bf96c..64b0891 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -163,11 +163,13 @@ static bool i40e_check_tx_hang(struct i40e_ring *tx_ring)
+ 	 * pending but without time to complete it yet.
+ 	 */
+ 	if ((tx_ring->tx_stats.tx_done_old == tx_ring->stats.packets) &&
+-	    tx_pending) {
++	    (tx_pending >= I40E_MIN_DESC_PENDING)) {
+ 		/* make sure it is true for two checks in a row */
+ 		ret = test_and_set_bit(__I40E_HANG_CHECK_ARMED,
+ 				       &tx_ring->state);
+-	} else {
++	} else if (!(tx_ring->tx_stats.tx_done_old == tx_ring->stats.packets) ||
++		   !(tx_pending < I40E_MIN_DESC_PENDING) ||
++		   !(tx_pending > 0)) {
+ 		/* update completed stats and disarm the hang check */
+ 		tx_ring->tx_stats.tx_done_old = tx_ring->stats.packets;
+ 		clear_bit(__I40E_HANG_CHECK_ARMED, &tx_ring->state);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index 8bc6858..f6dcf9d 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -121,6 +121,7 @@ enum i40e_dyn_idx_t {
+ /* Tx Descriptors needed, worst case */
+ #define TXD_USE_COUNT(S) DIV_ROUND_UP((S), I40E_MAX_DATA_PER_TXD)
+ #define DESC_NEEDED (MAX_SKB_FRAGS + 4)
++#define I40E_MIN_DESC_PENDING	4
+ 
+ #define I40E_TX_FLAGS_CSUM		(u32)(1)
+ #define I40E_TX_FLAGS_HW_VLAN		(u32)(1 << 1)
 -- 
 1.9.3
