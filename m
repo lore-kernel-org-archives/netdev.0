@@ -1,92 +1,289 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] bonding: bond_alb: Replace rcu_dereference() with
- rcu_access_pointer()
-Date: Wed, 27 Aug 2014 08:15:38 -0700
-Message-ID: <1409152538.3173.56.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140827141827.GA11520@ada>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: [PATCH V4 3/8] namespaces: expose ns instance serial numbers in
+	proc
+Date: Wed, 27 Aug 2014 11:17:01 -0400
+Message-ID: <20140827151701.GO20529@madcap2.tricolour.ca>
+References: <cd6cd0622ce677b639afae18a69ff79c72490bab.1408581429.git.rgb@redhat.com>
+	<CALCETrUnzG1V8w+H9ctAJP+Hvo8LQax=dhLG4bBpBKmVi+C1cQ@mail.gmail.com>
+	<20140822015803.GG20529@madcap2.tricolour.ca>
+	<CALCETrUkFD0iNi1SV_6ypN5Kf4GYybT5tzjRjRQuLzT9iBnQAg@mail.gmail.com>
+	<53FB3A86.2060203@6wind.com>
+	<CALCETrW1Lv0qeccMjNHSEzgtiaNN3NgJVR1dFjjR_dw5KVVnqA@mail.gmail.com>
+	<53FB59A3.5030804@6wind.com>
+	<CALCETrWHrWhm89B5s=pLt_9eTx3ZF8ifA6y6CwknWaWU7dp=sQ@mail.gmail.com>
+	<53FB673F.8070200@6wind.com>
+	<CALCETrVVQ2Ugesq8zWK_gmj46Zr6mFL2Riyf=Lrdqy8ze3YfPA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com
-To: Andreea-Cristina Bernat <bernat.ada@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140827141827.GA11520@ada>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Linux API <linux-api@vger.kernel.org>,
+        Linux Containers <containers@lists.linux-foundation.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        linux-audit@redhat.com, "Eric W. Biederman" <ebiederm@xmission.com>,
+        netdev <netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-audit-bounces@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <CALCETrVVQ2Ugesq8zWK_gmj46Zr6mFL2Riyf=Lrdqy8ze3YfPA@mail.gmail.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/options/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/linux-audit>
+List-Post: <mailto:linux-audit@redhat.com>
+List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=subscribe>
+Sender: linux-audit-bounces@redhat.com
+Errors-To: linux-audit-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-08-27 at 17:18 +0300, Andreea-Cristina Bernat wrote:
-> The "curr_active_slave" local variable obtained through the rcu_dereference()
-> call it is not dereferenced in the rest of the function.
-> Therefore, it is recommended to use rcu_access_pointer() instead of
-> rcu_dereference().
-> This patch makes the replacement.
-> 
-> The first step to detect this was made with the following Coccinelle semantic
-> patch:
-> @@
-> identifier p;
-> @@
-> 
-> * p = rcu_dereference(...)
-> ... when any
->     when != p
-> (
-> * if( (<+...p...+>) ) { ... }
-> |
-> * while( (<+...p...+>) ) { ... }
-> )
-> ... when != p
-> 
-> After the analysis of the output, the change was made manually.
-> 
-> Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
-> ---
->  drivers/net/bonding/bond_alb.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-> index 1319c5b..6621ac2 100644
-> --- a/drivers/net/bonding/bond_alb.c
-> +++ b/drivers/net/bonding/bond_alb.c
-> @@ -659,7 +659,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
->  
->  	_lock_rx_hashtbl(bond);
->  
-> -	curr_active_slave = rcu_dereference(bond->curr_active_slave);
-> +	curr_active_slave = rcu_access_pointer(bond->curr_active_slave);
->  
->  	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
->  	client_info = &(bond_info->rx_hashtbl[hash_index]);
+On 14/08/25, Andy Lutomirski wrote:
+> On Mon, Aug 25, 2014 at 9:41 AM, Nicolas Dichtel
+> <nicolas.dichtel@6wind.com> wrote:
+> > Le 25/08/2014 18:13, Andy Lutomirski a =E9crit :
+> >
+> >> On Mon, Aug 25, 2014 at 8:43 AM, Nicolas Dichtel
+> >> <nicolas.dichtel@6wind.com> wrote:
+> >>>
+> >>> Le 25/08/2014 16:04, Andy Lutomirski a =E9crit :
+> >>>
+> >>>> On Aug 25, 2014 6:30 AM, "Nicolas Dichtel" <nicolas.dichtel@6wind.co=
+m>
+> >>>> wrote:
+> >>>>>>
+> >>>>>>
+> >>>>>> CRIU wants to save the complete state of a namespace and then rest=
+ore
+> >>>>>> it.  For that to work, any information exposed to things in the
+> >>>>>> namespace *cannot* be globally unique or unique per boot, since CR=
+IU
+> >>>>>> needs to arrange for that information to match whatever it was when
+> >>>>>> CRIU saved it.
+> >>>>>
+> >>>>>
+> >>>>>
+> >>>>> How are ifindex of network devices managed? These ifindexes are uni=
+que
+> >>>>> per boot,
+> >>>>> thus can change depending on the order in which netdev are created.
+> >>>>> These ifindexes are unique per boot and exposed to userspace ...
+> >>>>>
+> >>>>
+> >>>> This does not appear to be true.
+> >>>>
+> >>>> $ sudo unshare --net
+> >>>> # ip link add veth0 type veth peer name veth1
+> >>>> # ip link
+> >>>> 1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN mode DEFAULT group
+> >>>> default
+> >>>>       link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+> >>>> 2: veth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
+> >>>> DEFAULT group default qlen 1000
+> >>>>       link/ether 06:0d:59:c7:a6:a8 brd ff:ff:ff:ff:ff:ff
+> >>>> 3: veth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
+> >>>> DEFAULT group default qlen 1000
+> >>>>       link/ether b2:5c:8b:f2:12:28 brd ff:ff:ff:ff:ff:ff
+> >>>> # logout
+> >>>> $ ip link
+> >>>> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+> >>>>       link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+> >>>> 3: em1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast
+> >>>> state DOWN qlen 1000
+> >>>>
+> >>> I've probably misunderstood what you're trying to say. ifindexes are
+> >>> unique
+> >>> per
+> >>> boot and per netns.
+> >>
+> >>
+> >> I think we both misunderstood each other.  The ifindexes are unique
+> >> *per netns*, which means that, if you're unprivileged in a netns,
+> >> global information doesn't leak to you.  I think this is good.
+> >
+> > Ok, I agree. I think audit daemons are always running under privileged
+> > users.
+> >
+> >
+> >>
+> >>>>
+> >>>> Let me try again, with emphasis in the right place.
+> >>>>
+> >>>> I think that *code running in a namespace* has no business even
+> >>>> knowing a unique identity of *that namespace* from the perspective of
+> >>>> the host.
+> >>>>
+> >>>> In your example, if there's a veth device between netns A and netns =
+B,
+> >>>> then code *in netns A* has no business knowing the identity of its
+> >>>> veth peer if its peer (B) is a sibling or ancestor.  It also IMO has
+> >>>> no business knowing the identity of its own netns (A) other than as
+> >>>> "my netns".
+> >>>
+> >>>
+> >>> I do not agree (see the example below).
+> >>>
+> >>>
+> >>>>
+> >>>> If A and B are siblings, then their parent needs to know where that
+> >>>> veth device goes, but I think this is already the case to a sufficie=
+nt
+> >>>> extent today.
+> >>>
+> >>>
+> >>> I'm not aware of a hierarchy between netns. A daemon should be able to
+> >>> got the full network configuration, even if it's started when this
+> >>> configuration
+> >>> is already applied, ie even if it doesn't know what happen before it
+> >>> starts.
+> >>>
+> >>
+> >> I don't know exactly which namespaces have an explicit hierarchy, but
+> >> there is certainly a hierarchy of *user* namespaces, and network
+> >> namespaces live in user namespaces, so they at least have somewhat of
+> >> a hierarchy.
+> >>
+> >>>
+> >>>>
+> >>>> I feel like this discussion is falling into a common trap of new API
+> >>>> discussions.  Can one of you who wants this API please articulate,
+> >>>> with a reasonably precise example, what it is that you want to do, w=
+hy
+> >>>> you can't easily do it already, and how this API helps?  I currently
+> >>>> understand how the API creates problems, but I don't understand how =
+it
+> >>>> solves any problems, and I will NAK it (and I suspect that Eric will,
+> >>>> too, which is pretty much fatal) unless that changes.
+> >>>
+> >>>
+> >>> What I'm trying to solve is to have full info in netlink messages sen=
+t by
+> >>> the
+> >>> kernel, thus beeing able to identify a peer netns (and this is close =
+from
+> >>> what
+> >>> audit guys are trying to have). Theorically, messages sent by the ker=
+nel
+> >>> can
+> >>> be
+> >>> reused as is to have the same configuration. This is not the case with
+> >>> x-netns
+> >>> devices. Here is an example, with ip tunnels:
+> >>>
+> >>> $ ip netns add 1
+> >>> $ ip link add ipip1 type ipip remote 10.16.0.121 local 10.16.0.249 dev
+> >>> eth0
+> >>> $ ip -d link ls ipip1
+> >>> 8: ipip1@eth0: <POINTOPOINT,NOARP> mtu 1480 qdisc noop state DOWN mode
+> >>> DEFAULT group default
+> >>>      link/ipip 10.16.0.249 peer 10.16.0.121 promiscuity 0
+> >>>      ipip remote 10.16.0.121 local 10.16.0.249 dev eth0 ttl inherit
+> >>> pmtudisc
+> >>> $ ip link set ipip1 netns 1
+> >>> $ ip netns exec 1 ip -d link ls ipip1
+> >>> 8: ipip1@tunl0: <POINTOPOINT,NOARP,M-DOWN> mtu 1480 qdisc noop state =
+DOWN
+> >>> mode DEFAULT group default
+> >>>      link/ipip 10.16.0.249 peer 10.16.0.121 promiscuity 0
+> >>>      ipip remote 10.16.0.121 local 10.16.0.249 dev tunl0 ttl inherit
+> >>> pmtudisc
+> >>>
+> >>> Now informations got with 'ip link' are wrong and incomplete:
+> >>>   - the link dev is now tunl0 instead of eth0, because we only got an
+> >>> ifindex
+> >>>     from the kernel without any netns informations.
+> >>>   - the encapsulation addresses are not part of this netns but the us=
+er
+> >>> doesn't
+> >>>     known that (still because netns info is missing). These IPv4
+> >>> addresses
+> >>> may
+> >>>     exist into this netns.
+> >>>   - it's not possible to create the same netdevice with these infos.
+> >>>
+> >>
+> >> Aha.  That's a genuine problem.
+> >>
+> >> Perhaps we need a concept of which netnses should be able to see each
+> >> other.
+> >
+> > Yes, I agree. This is not required for all netns, only a subset of netns
+> > should
+> >
+> > be able to see each other.
+> >
+> >>
+> >> I think I would be okay with a somewhat different outcome from your
+> >> example:
+> >>
+> >> $ ip netns exec 1 ip -d link ls ipip1
+> >> 8: ipip1@[unknown device in another namespace]:
+> >> <POINTOPOINT,NOARP,M-DOWN> mtu 1480 qdisc noop state DOWN
+> >>
+> >> I think this outcome is mandatory if netns 1 lives in a subsidiary
+> >> user namespace.
+> >
+> > Yes.
+> >
+> >
+> >>
+> >> Certainly, if you do the 'ip link' in the original namespace, I agree
+> >> that this should work.
+> >
+> > And yes :)
+> >
+> > I will update my previous proposal
+> > (http://thread.gmane.org/gmane.linux.network/315933/focus=3D321753)
+> > to allow to get an id for a peer netns only when the user namespace is =
+the
+> > same.
+> =
 
+> I think it should work if the peer userns is the same or a descendent.
+> I also wonder whether the peer's ifindex should be suppressed if peer
+> userns is not the same or a descendent.
+> =
 
-This is very error prone, for little immediate gain.
+> Now you just have to get Eric to be happy with the id allocation. :)
+> This may be nontrivial.
+> =
 
-What prevents future changes to deref the pointer without sparse or
-lockdep support, other than careful code review ?
+> >> For most namespace types, this all works transparently, since
+> >> everything has an real identity all the way up the hierarchy.  Network
+> >> namespaces are different.
+> >>
+> >> I don't think that exposing serial numbers in /proc is a good
+> >> solution, both for the reasons already described and because I don't
+> >> think that iproute2 should need to muck around with /proc to function
+> >
+> > A netlink API is probably enough. But it will help only for the network
+> > problem, not for audit. I was hoping to find a common solution.
+> =
 
-I would use the __rcu attribute and eventually add _noderef suffix to
-the variable name.
+> I still don't understand why audit needs anything beyond the audit
+> part of this patch set.  I have no problem with audit seeing that
+> migrated/restored namespaces are really brand-new namespaces, as long
+> as the code in those namespaces isn't exposed to it.
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 73c21e233131..4ddccc72db62 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -657,13 +657,14 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
- {
- 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
- 	struct arp_pkt *arp = arp_pkt(skb);
--	struct slave *assigned_slave, *curr_active_slave;
-+	struct slave *assigned_slave;
-+	struct slave __rcu *curr_active_slave;
- 	struct rlb_client_info *client_info;
- 	u32 hash_index = 0;
- 
- 	_lock_rx_hashtbl(bond);
- 
--	curr_active_slave = rcu_dereference(bond->curr_active_slave);
-+	curr_active_slave = bond->curr_active_slave;
- 
- 	hash_index = _simple_hash((u8 *)&arp->ip_dst, sizeof(arp->ip_dst));
- 	client_info = &(bond_info->rx_hashtbl[hash_index]);
+Ok, I'm starting to get this...  Perhaps /proc wasn't the best place to
+expose this.  Audit or an audit aggregator is the only one that needs to
+know any of this information.  This could be accomplished with
+CAP_AUDIT_CONTROL and a new netlink audit message type to fetch
+individual or all namespace IDs for a particular PID via auditctl, or by
+having a CAP_AUDIT_WRITE-capable application pull the trigger to simply
+dump that information to the log.
+
+> >> correctly.  Eric, any clever ideas here?  Do we need fancier netlink
+> >> messages for this?
+> >>
+> >> --Andy
+> =
+
+> Andy Lutomirski
+
+- RGB
+
+--
+Richard Guy Briggs <rbriggs@redhat.com>
+Senior Software Engineer, Kernel Security, AMER ENG Base Operating Systems,=
+ Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635, Alt: +1.613.693.0684x3545
