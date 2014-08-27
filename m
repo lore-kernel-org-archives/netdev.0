@@ -1,66 +1,113 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/11] i40e: Add checks and message for Qualified Module info
-Date: Wed, 27 Aug 2014 02:26:42 -0700
-Message-ID: <1409131606-15011-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/11] i40e: Some FD message fixes
+Date: Wed, 27 Aug 2014 02:26:37 -0700
+Message-ID: <1409131606-15011-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:64393 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:64375 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932307AbaH0J0y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2014 05:26:54 -0400
+	id S932579AbaH0J0w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2014 05:26:52 -0400
 In-Reply-To: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-This patch adds a check during handle_link_event for unqualified
-module when link is down and there is a module plugged.  If found,
-print a message.
+Change the message that gets printed when adding/deleting a filter to
+the SB, so that user can tell if a filter was added or deleted.
+Print filter add failures only in case of SB filters. For ATR the
+information is not useful to the user and hence suppress it unless in
+higher debug mode.
 
-Change-ID: Ibd8666d77d3044c2a3dd4d762d3ae9ac6e18e943
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Change-ID: I78d7a7a6ecfa82a38a582b0d7b4da038355e3735
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 38 +++++++++++++++++++++--------
+ 1 file changed, 28 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 712a23b..172f756 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4480,6 +4480,13 @@ static int i40e_up_complete(struct i40e_vsi *vsi)
- 		netif_carrier_on(vsi->netdev);
- 	} else if (vsi->netdev) {
- 		i40e_print_link_message(vsi, false);
-+		/* need to check for qualified module here*/
-+		if ((pf->hw.phy.link_info.link_info &
-+			I40E_AQ_MEDIA_AVAILABLE) &&
-+		    (!(pf->hw.phy.link_info.an_info &
-+			I40E_AQ_QUALIFIED_MODULE)))
-+			netdev_err(vsi->netdev,
-+				   "the driver failed to link because an unqualified module was detected.");
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index a6cc8d6..267c0e6 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -228,9 +228,14 @@ static int i40e_add_del_fdir_udpv4(struct i40e_vsi *vsi,
+ 			 fd_data->pctype, fd_data->fd_id, ret);
+ 		err = true;
+ 	} else {
+-		dev_info(&pf->pdev->dev,
+-			 "PCTYPE:%d, Filter send OK for fd_id:%d\n",
+-			 fd_data->pctype, fd_data->fd_id);
++		if (add)
++			dev_info(&pf->pdev->dev,
++				 "Filter OK for PCTYPE %d loc = %d\n",
++				 fd_data->pctype, fd_data->fd_id);
++		else
++			dev_info(&pf->pdev->dev,
++				 "Filter deleted for PCTYPE %d loc = %d\n",
++				 fd_data->pctype, fd_data->fd_id);
+ 	}
+ 	return err ? -EOPNOTSUPP : 0;
+ }
+@@ -290,9 +295,13 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
+ 			 fd_data->pctype, fd_data->fd_id, ret);
+ 		err = true;
+ 	} else {
+-		dev_info(&pf->pdev->dev,
+-			 "PCTYPE:%d, Filter send OK for fd_id:%d\n",
+-			 fd_data->pctype, fd_data->fd_id);
++		if (add)
++			dev_info(&pf->pdev->dev, "Filter OK for PCTYPE %d loc = %d)\n",
++				 fd_data->pctype, fd_data->fd_id);
++		else
++			dev_info(&pf->pdev->dev,
++				 "Filter deleted for PCTYPE %d loc = %d\n",
++				 fd_data->pctype, fd_data->fd_id);
  	}
  
- 	/* replay FDIR SB filters */
-@@ -5492,6 +5499,13 @@ static void i40e_handle_link_event(struct i40e_pf *pf,
- 	memcpy(&pf->hw.phy.link_info_old, hw_link_info,
- 	       sizeof(pf->hw.phy.link_info_old));
+ 	return err ? -EOPNOTSUPP : 0;
+@@ -359,9 +368,14 @@ static int i40e_add_del_fdir_ipv4(struct i40e_vsi *vsi,
+ 				 fd_data->pctype, fd_data->fd_id, ret);
+ 			err = true;
+ 		} else {
+-			dev_info(&pf->pdev->dev,
+-				 "PCTYPE:%d, Filter send OK for fd_id:%d\n",
+-				 fd_data->pctype, fd_data->fd_id);
++			if (add)
++				dev_info(&pf->pdev->dev,
++					 "Filter OK for PCTYPE %d loc = %d\n",
++					 fd_data->pctype, fd_data->fd_id);
++			else
++				dev_info(&pf->pdev->dev,
++					 "Filter deleted for PCTYPE %d loc = %d\n",
++					 fd_data->pctype, fd_data->fd_id);
+ 		}
+ 	}
  
-+	/* check for unqualified module, if link is down */
-+	if ((status->link_info & I40E_AQ_MEDIA_AVAILABLE) &&
-+	    (!(status->an_info & I40E_AQ_QUALIFIED_MODULE)) &&
-+	    (!(status->link_info & I40E_AQ_LINK_UP)))
-+		dev_err(&pf->pdev->dev,
-+			"The driver failed to link because an unqualified module was detected.\n");
-+
- 	/* update link status */
- 	hw_link_info->phy_type = (enum i40e_aq_phy_type)status->phy_type;
- 	hw_link_info->link_speed = (enum i40e_aq_link_speed)status->link_speed;
+@@ -443,6 +457,10 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
+ 		I40E_RX_PROG_STATUS_DESC_QW1_ERROR_SHIFT;
+ 
+ 	if (error == (0x1 << I40E_RX_PROG_STATUS_DESC_FD_TBL_FULL_SHIFT)) {
++		if ((rx_desc->wb.qword0.hi_dword.fd_id != 0) ||
++		    (I40E_DEBUG_FD & pf->hw.debug_mask))
++			dev_warn(&pdev->dev, "ntuple filter loc = %d, could not be added\n",
++				 rx_desc->wb.qword0.hi_dword.fd_id);
+ 
+ 		/* filter programming failed most likely due to table full */
+ 		fcnt_prog = i40e_get_cur_guaranteed_fd_count(pf);
+@@ -470,7 +488,7 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
+ 			}
+ 		} else {
+ 			dev_info(&pdev->dev,
+-				 "FD filter programming failed due to incorrect filter parameters\n");
++				"FD filter programming failed due to incorrect filter parameters\n");
+ 		}
+ 	} else if (error ==
+ 			  (0x1 << I40E_RX_PROG_STATUS_DESC_NO_FD_ENTRY_SHIFT)) {
 -- 
 1.9.3
