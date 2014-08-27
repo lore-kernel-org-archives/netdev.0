@@ -1,68 +1,116 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net-next v4 01/13] net: dsa: reduce number of protocol
- hooks
-Date: Wed, 27 Aug 2014 08:25:45 -0700
-Message-ID: <53FDF879.1000504@intel.com>
-References: <1409028581-17399-1-git-send-email-f.fainelli@gmail.com> <1409028581-17399-2-git-send-email-f.fainelli@gmail.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
+Date: Wed, 27 Aug 2014 17:27:39 +0200
+Message-ID: <53FDF8EB.4050905@broadcom.com>
+References: <52BDE9DC.5040206@msgid.tls.msk.ru> <52BE9CF9.7030305@broadcom.com> <52BEC2F6.7010505@msgid.tls.msk.ru> <52D4FC8B.6090301@msgid.tls.msk.ru> <52F925A9.1030707@msgid.tls.msk.ru> <53526124.6050407@msgid.tls.msk.ru> <53FC1789.6020407@msgid.tls.msk.ru> <53FCA001.6090404@broadcom.com> <53FCB2A3.1050605@msgid.tls.msk.ru> <53FCFE1A.3060508@broadcom.com> <53FDACD1.8090805@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linville@tuxdriver.com, jhs@mojatatu.com,
-	alexander.duyck@gmail.com
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Cc: <brcm80211-dev-list@broadcom.com>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Michael Tokarev <mjt@tls.msk.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:65403 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934716AbaH0PZr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2014 11:25:47 -0400
-In-Reply-To: <1409028581-17399-2-git-send-email-f.fainelli@gmail.com>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:8994 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935151AbaH0P1m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 11:27:42 -0400
+In-Reply-To: <53FDACD1.8090805@msgid.tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/25/2014 09:49 PM, Florian Fainelli wrote:
-> DSA is currently registering one packet_type function per EtherType it
-> needs to intercept in the receive path of a DSA-enabled Ethernet device.
-> Right now we have three of them: trailer, DSA and eDSA, and there might
-> be more in the future, this will not scale to the addition of new
-> protocols.
-> 
-> This patch proceeds with adding a new layer of abstraction and two new
-> functions:
-> 
-> dsa_switch_rcv() which will dispatch into the tag-protocol specific
-> receive function implemented by net/dsa/tag_*.c
-> 
-> dsa_slave_xmit() which will dispatch into the tag-protocol specific
-> transmit function implemented by net/dsa/tag_*.c
-> 
-> When we do create the per-port slave network devices, we iterate over
-> the switch protocol to assign the DSA-specific receive and transmit
-> operations.
-> 
-> This allows us to greatly simplify the check in eth_type_trans() and
-> always override the skb->protocol with ETH_P_DSA for Ethernet switches
-> tagged protocol, while also reducing the number repetitive slave
-> netdevice_ops assignments.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
-> Changes in v4:
-> - introduce a level of indirection and dsa_device_ops to limit the
->   number of packet_type functions to just one and do the dispatching
->   in the core dsa code.
-> 
-> New patch in v3
-> 
+On 08/27/14 12:02, Michael Tokarev wrote:
+> 27.08.2014 01:37, Arend van Spriel wrote:
+>> On 08/26/14 18:15, Michael Tokarev wrote:
+> []
+>> Well, sorry about that. I did see the other messages fly by and noticed you were using the wl driver so assumed you were fine with that.
+>
+> That's past already.  I had several issues with wl driver,
+> and current issue is that even the latest (Aug-2014) version
+> of wl driver doesn't work with current kernel.  So I can't
+> really even compare wl and brcmsmac, -- in kernels<  3.16
+> brcmsmac does not work, but wl can't be compiled for 3.16,
+> and using different kernels for comparison is a bit wrong
+> because there may be differences in other areas.
+>
+>>     Admittedly the brcmsmac got very little attention as all our resources were put on brcmfmac.
+>
+> That happens. :)
+>
+> []
+>> Ok. Let's put frustration aside and make an effort. So could you make a trace using trace-cmd utility. The log can get quite big. The brcmsmac driver needs to be built with CONFIG_BRCM_TRACING enabled. Please execute the following commands (assuming you use ubuntu with network-manager):
+>>
+>> $ sudo stop network-manager
+>> $ sudo insmod brcmfmac.ko
+>> $ sudo trace-cmd record -e brcmsmac:*
+>>
+>> In another terminal:
+>>
+>> $ sudo start network-manager
+>>
+>> The trace-cmd must be stopped using ctrl-c.
+>
+> Okay.  This turned out to be not so simple.
+>
+> My initial attempt indicated that brcmsmac in 3.16 does
+> not work at all.  This isn't actually true - subsequent
+> attempts shows that it works.  I was ready to conclude
+> the problem is fixed (after transferring several gigs
+> of data over wifi, with tracing enabled or disabled,
+> after fresh boot or after reboot from wl-enabled kernel,
+> etc - it all worked.
+>
+> Until I hit the same stall as I described initially, the
+> same which happened numerous times with kernel 3.12 ($subj).
+>
+> After several mins of transferring it stalled.  But this
+> time (unlike with 3.12), it continued after about 30 secs.
 
-Just a thought, you might want to consider using a protocol value other
-than ETH_P_DSA.  Maybe we should add a new value named ETH_P_XDSA for
-this approach since what we are doing is a multiplexed DSA protocol now.
+A kernel log (so no trace) of stalling interface might be useful so if 
+you can provide that and put a marker in there where you believe it 
+stalled that would be great.
 
-This would allow for much easier back-porting of this if needed and also
-prevents us from possibly triggering any issues if there are any
-user-space APIs that might be trying to capture packets based on the
-protocol value.
+> So, while my initial test of 3.16 indicated the prob is still
+> here, at the same (or even worse) state, I can't really
+> reproduce it, at least in a reliable way.  There's something
+> wrong still, but at least current version is significantly
+> more useful than before (in a hope it wont stall at the
+> very wrong moment exactly ;).
+>
+> There's one more difference between brcmsmac and wl -- with
+> wl, I see significantly better speed, -- it is about 5MB/sec,
+> while with brcmsmac it jumps between 2.0..4.5MB/sec (with
+> 58..65Mbps connection rate in both cases).  Here's a typical
+> iwconfig output for brcmsmac version:
+>
+> wlan0     IEEE 802.11bgn  ESSID:"mjt"
+>            Mode:Managed  Frequency:2.412 GHz  Access Point: 64:70:02:29:D9:30
+>            Bit Rate=65 Mb/s   Tx-Power=19 dBm
+>            Retry short limit:7   RTS thr:off   Fragment thr:off
+>            Power Management:off
+>            Link Quality=58/70  Signal level=-61 dBm
+>            Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+>            Tx excessive retries:56355  Invalid misc:472   Missed beacon:0
+>
+> I'll keep trying/testing various cases, in attempt to
+> understand what's going on.  For now, I can't provide the
+> requested traces (it wont be very useful, I guess).
+>
+> BTW, are there other things not implemented in brcmsmac?
+> I see the module reminds about power management, what
+> does it mean?  Anything else missing?
 
-Thanks,
+Well, the wireless twiki has that info [1]. Regarding features the 
+important ones that I know are still not there are 40MHz support, and 
+power-save. The bcm4313 does not support 40MHz. Community contributions 
+added ibss, and ap mode. For P2P and TDLS probably some changes would be 
+needed although most of the legwork is done in mac80211.
 
-Alex
+Regards,
+Arend
+
+[1] 
+http://wireless.kernel.org/en/users/Drivers/brcm80211#To_be_done_for_softmac_driver
+
+> Thank you!
+>
+> /mjt
