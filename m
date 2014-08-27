@@ -1,84 +1,97 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH RFC v7 net-next 20/28] tracing: allow eBPF programs to call ktime_get_ns() and get_current()
-Date: Tue, 26 Aug 2014 19:29:34 -0700
-Message-ID: <1409106582-10095-21-git-send-email-ast@plumgrid.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: [PATCH RFC v7 net-next 16/28] bpf: split eBPF out of NET
+Date: Tue, 26 Aug 2014 19:29:30 -0700
+Message-ID: <1409106582-10095-17-git-send-email-ast@plumgrid.com>
 References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	Namhyung Kim <namhyung@kernel.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409106582-10095-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
- include/uapi/linux/bpf.h |    2 ++
- kernel/trace/bpf_trace.c |   20 ++++++++++++++++++++
- 2 files changed, 22 insertions(+)
+let eBPF have its own CONFIG_BPF, so that tracing and other subsystems don't
+need to depend on all of NET
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 1ec3d293d14e..e14e147c8899 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -431,6 +431,8 @@ enum bpf_func_id {
- 	BPF_FUNC_memcmp,          /* int bpf_memcmp(void *unsafe_ptr, void *safe_ptr, int size) */
- 	BPF_FUNC_dump_stack,      /* void bpf_dump_stack(void) */
- 	BPF_FUNC_printk,          /* int bpf_printk(const char *fmt, int fmt_size, ...) */
-+	BPF_FUNC_ktime_get_ns,    /* u64 bpf_ktime_get_ns(void) */
-+	BPF_FUNC_get_current,     /* struct task_struct *bpf_get_current(void) */
- 	__BPF_FUNC_MAX_ID,
- };
+Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+---
+ arch/Kconfig      |    3 +++
+ kernel/Makefile   |    2 +-
+ kernel/bpf/core.c |   12 ++++++++++++
+ net/Kconfig       |    1 +
+ 4 files changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/arch/Kconfig b/arch/Kconfig
+index 0eae9df35b88..80a72f6f6b60 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -333,6 +333,9 @@ config SECCOMP_FILTER
  
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index ff98be5a24d6..a98e13e1131b 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -114,6 +114,16 @@ static u64 bpf_printk(u64 r1, u64 fmt_size, u64 r3, u64 r4, u64 r5)
- 			      mod_l[2] ? r5 : (u32) r5);
+ 	  See Documentation/prctl/seccomp_filter.txt for details.
+ 
++config BPF
++	boolean
++
+ config HAVE_CC_STACKPROTECTOR
+ 	bool
+ 	help
+diff --git a/kernel/Makefile b/kernel/Makefile
+index dc5c77544fd6..17ea6d4a9a24 100644
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -86,7 +86,7 @@ obj-$(CONFIG_RING_BUFFER) += trace/
+ obj-$(CONFIG_TRACEPOINTS) += trace/
+ obj-$(CONFIG_IRQ_WORK) += irq_work.o
+ obj-$(CONFIG_CPU_PM) += cpu_pm.o
+-obj-$(CONFIG_NET) += bpf/
++obj-$(CONFIG_BPF) += bpf/
+ 
+ obj-$(CONFIG_PERF_EVENTS) += events/
+ 
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 0434c2170f2b..c17ba0ef3dcf 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -537,3 +537,15 @@ void bpf_prog_free(struct bpf_prog *fp)
+ 	bpf_jit_free(fp);
  }
- 
-+static u64 bpf_ktime_get_ns(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-+{
-+	return ktime_get_ns();
-+}
+ EXPORT_SYMBOL_GPL(bpf_prog_free);
 +
-+static u64 bpf_get_current(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++/* To emulate LD_ABS/LD_IND instructions __sk_run_filter() may call
++ * skb_copy_bits(), so provide a weak definition for it in NET-less config.
++ * seccomp_check_filter() verifies that seccomp filters are not using
++ * LD_ABS/LD_IND instructions. Other BPF users (like tracing filters)
++ * must not use these instructions unless ctx==skb
++ */
++int __weak skb_copy_bits(const struct sk_buff *skb, int offset, void *to,
++			 int len)
 +{
-+	return (u64) (long) current;
++	return -EFAULT;
 +}
-+
- static struct bpf_func_proto tracing_filter_funcs[] = {
- #define FETCH(SIZE)				\
- 	[BPF_FUNC_fetch_##SIZE] = {		\
-@@ -169,6 +179,16 @@ static struct bpf_func_proto tracing_filter_funcs[] = {
- 		.arg1_type = ARG_CONST_MAP_PTR,
- 		.arg2_type = ARG_PTR_TO_MAP_KEY,
- 	},
-+	[BPF_FUNC_ktime_get_ns] = {
-+		.func = bpf_ktime_get_ns,
-+		.gpl_only = true,
-+		.ret_type = RET_INTEGER,
-+	},
-+	[BPF_FUNC_get_current] = {
-+		.func = bpf_get_current,
-+		.gpl_only = true,
-+		.ret_type = RET_INTEGER,
-+	},
- };
- 
- static const struct bpf_func_proto *tracing_filter_func_proto(enum bpf_func_id func_id)
+diff --git a/net/Kconfig b/net/Kconfig
+index 4051fdfa4367..9a99e16d6f28 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -6,6 +6,7 @@ menuconfig NET
+ 	bool "Networking support"
+ 	select NLATTR
+ 	select GENERIC_NET_UTILS
++	select BPF
+ 	---help---
+ 	  Unless you really know what you are doing, you should say Y here.
+ 	  The reason is that some programs need kernel networking support even
 -- 
 1.7.9.5
