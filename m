@@ -1,72 +1,338 @@
-From: Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [patch net-next RFC 03/12] net: introduce generic
-	switch devices support
-Date: Tue, 26 Aug 2014 19:45:44 -0700
-Message-ID: <CA+mtBx8qWTUbqJ1QFKzqkQEuXdvvrtkQDC8r=y-d_2zr=7uQ1Q@mail.gmail.com>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-4-git-send-email-jiri@resnulli.us>
- <1408639283.13073.3.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org,
- Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
- Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
- Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
- Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
- Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1408639283.13073.3.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Andy Zhou <azhou@nicira.com>
+Subject: [net-next v3 1/3] udp: Expand UDP tunnel common APIs
+Date: Tue, 26 Aug 2014 20:35:28 -0700
+Message-ID: <1409110530-4383-1-git-send-email-azhou@nicira.com>
+Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog135.obsmtp.com ([74.125.149.84]:37223 "HELO
+	na3sys009aog135.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932090AbaH0Dkq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Aug 2014 23:40:46 -0400
+Received: by mail-pd0-f175.google.com with SMTP id r10so23374875pdi.20
+        for <netdev@vger.kernel.org>; Tue, 26 Aug 2014 20:40:46 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 21, 2014 at 9:41 AM, Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org> wrote:
-> On Thu, 2014-08-21 at 18:18 +0200, Jiri Pirko wrote:
->> The goal of this is to provide a possibility to suport various switch
->> chips. Drivers should implement relevant ndos to do so. Now there is a
->> couple of ndos defines:
->> - for getting physical switch id is in place.
->> - for work with flows.
->>
->> Note that user can use random port netdevice to access the switch.
-> [...]
->
-> Why isn't the switch treated as a real device (not necessarily a net
-> device) that's included in the device model and that the port devices
-> refer to?
->
-+1. In the same way that software switch (e.g. OVS) is mostly
-implemented out of the core stack, I think hardware switch should have
-same model. Besides, if you define this as part of a network interface
-then you'll need to resolve unpleasant issues like accounting for
-bytes and packets switched (e.g. are these accounted in interface
-stats?)), what happens if netdevice is put in promiscuous mode (e.g.
-do we need a tap for all switched packets?), etc. Another thing to
-consider is that some vendors will undoubtably implement an open flow
-agent in the NIC to manage the switch, possibly even autonomously from
-the host-- a host might see the device but not be able to manage it
-other than adding interfaces as local ports.
+Added create_udp_tunnel_socket(), packet receive and transmit,  and
+other related common functions for UDP tunnels.
 
-> Ben.
->
-> --
-> Ben Hutchings
-> If at first you don't succeed, you're doing about average.
+Per net open UDP tunnel ports are tracked in this common layer to
+prevent sharing of a single port with more than one UDP tunnel.
+
+Signed-off-by: Andy Zhou <azhou@nicira.com>
+---
+ include/net/udp_tunnel.h |   50 +++++++++++
+ net/ipv4/udp_tunnel.c    |  216 +++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 265 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+index ffd69cb..5ff0746 100644
+--- a/include/net/udp_tunnel.h
++++ b/include/net/udp_tunnel.h
+@@ -1,6 +1,8 @@
+ #ifndef __NET_UDP_TUNNEL_H
+ #define __NET_UDP_TUNNEL_H
+ 
++#include <net/ip_tunnels.h>
++
+ struct udp_port_cfg {
+ 	u8			family;
+ 
+@@ -26,7 +28,55 @@ struct udp_port_cfg {
+ 				use_udp6_rx_checksums:1;
+ };
+ 
++struct udp_tunnel_sock;
++
++typedef int (*udp_tunnel_encap_rcv_t)(struct sock *sk, struct sk_buff *skb);
++typedef void (*udp_tunnel_encap_destroy_t)(struct sock *sk);
++
++struct udp_tunnel_socket_cfg {
++	struct udp_port_cfg port;
++
++	/* Used for setting up udp_sock fields, see udp.h for details */
++	__u8  encap_type;
++	udp_tunnel_encap_rcv_t encap_rcv;
++	udp_tunnel_encap_destroy_t encap_destroy;
++};
++
++struct udp_tunnel_sock {
++	struct hlist_node hlist;
++	struct socket *sock;
++};
++
+ int udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
+ 		    struct socket **sockp);
+ 
++struct udp_tunnel_sock *create_udp_tunnel_sock(struct net *net, size_t size,
++					       struct socket *sock,
++					       struct udp_tunnel_socket_cfg
++							*socket_cfg);
++
++struct udp_tunnel_sock *udp_tunnel_find_sock(struct net *net, __be16 port);
++
++int udp_tunnel_xmit_skb(struct socket *sock, struct rtable *rt,
++			struct sk_buff *skb, __be32 src, __be32 dst,
++			__u8 tos, __u8 ttl, __be16 df, __be16 src_port,
++			__be16 dst_port, bool xnet);
++
++#if IS_ENABLED(CONFIG_IPV6)
++int udp_tunnel6_xmit_skb(struct socket *sock, struct dst_entry *dst,
++		struct sk_buff *skb, struct net_device *dev,
++		struct in6_addr *saddr, struct in6_addr *daddr,
++		__u8 prio, __u8 ttl, __be16 src_port, __be16 dst_port);
++
++#endif
++
++void udp_tunnel_sock_release(struct udp_tunnel_sock *uts);
++
++static inline struct sk_buff *udp_tunnel_handle_offloads(struct sk_buff *skb,
++							 bool udp_csum)
++{
++	int type = udp_csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
++
++	return iptunnel_handle_offloads(skb, udp_csum, type);
++}
+ #endif
+diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
+index 61ec1a6..3ed66bc 100644
+--- a/net/ipv4/udp_tunnel.c
++++ b/net/ipv4/udp_tunnel.c
+@@ -7,6 +7,23 @@
+ #include <net/udp.h>
+ #include <net/udp_tunnel.h>
+ #include <net/net_namespace.h>
++#include <net/netns/generic.h>
++#if IS_ENABLED(CONFIG_IPV6)
++#include <net/ipv6.h>
++#include <net/addrconf.h>
++#include <net/ip6_tunnel.h>
++#include <net/ip6_checksum.h>
++#endif
++
++#define PORT_HASH_BITS 8
++#define PORT_HASH_SIZE (1 << PORT_HASH_BITS)
++
++static int udp_tunnel_net_id;
++
++struct udp_tunnel_net {
++	struct hlist_head sock_list[PORT_HASH_SIZE];
++	spinlock_t  sock_lock;   /* Protecting the sock_list */
++};
+ 
+ int udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
+ 		    struct socket **sockp)
+@@ -82,7 +99,6 @@ int udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
+ 		return -EPFNOSUPPORT;
+ 	}
+ 
+-
+ 	*sockp = sock;
+ 
+ 	return 0;
+@@ -97,4 +113,202 @@ error:
+ }
+ EXPORT_SYMBOL(udp_sock_create);
+ 
++
++/* Socket hash table head */
++static inline struct hlist_head *uts_head(struct net *net, const __be16 port)
++{
++	struct udp_tunnel_net *utn = net_generic(net, udp_tunnel_net_id);
++
++	return &utn->sock_list[hash_32(ntohs(port), PORT_HASH_BITS)];
++}
++
++struct udp_tunnel_sock *create_udp_tunnel_sock(struct net *net, size_t size,
++					       struct socket *sock,
++					       struct udp_tunnel_socket_cfg
++						      *cfg)
++{
++	struct udp_tunnel_net *utn = net_generic(net, udp_tunnel_net_id);
++	struct udp_tunnel_sock *uts;
++	struct sock *sk;
++	const __be16 port = cfg->port.local_udp_port;
++	const int ipv6 = (cfg->port.family == AF_INET6);
++	int err;
++
++	if (!sock)
++		err = udp_sock_create(net, &cfg->port, &sock);
++	else
++		err = (sock->sk->sk_protocol == IPPROTO_UDP) ?
++			0 : -EPROTONOSUPPORT;
++
++	if (err)
++		return NULL;
++
++	uts = kzalloc(size, GFP_KERNEL);
++	if (!uts)
++		return ERR_PTR(-ENOMEM);
++
++	sk = sock->sk;
++
++	/* Disable multicast loopback */
++	inet_sk(sk)->mc_loop = 0;
++
++	rcu_assign_sk_user_data(sk, uts);
++
++	udp_sk(sk)->encap_type = cfg->encap_type;
++	udp_sk(sk)->encap_rcv = cfg->encap_rcv;
++	udp_sk(sk)->encap_destroy = cfg->encap_destroy;
++
++	uts->sock = sock;
++
++	spin_lock(&utn->sock_lock);
++	hlist_add_head_rcu(&uts->hlist, uts_head(net, port));
++	spin_unlock(&utn->sock_lock);
++
++#if IS_ENABLED(CONFIG_IPV6)
++	if (ipv6)
++		ipv6_stub->udpv6_encap_enable();
++	else
++#endif
++		udp_encap_enable();
++
++	return uts;
++}
++EXPORT_SYMBOL_GPL(create_udp_tunnel_sock);
++
++int udp_tunnel_xmit_skb(struct socket *sock, struct rtable *rt,
++			struct sk_buff *skb, __be32 src, __be32 dst,
++			__u8 tos, __u8 ttl, __be16 df, __be16 src_port,
++			__be16 dst_port, bool xnet)
++{
++	struct udphdr *uh;
++
++	__skb_push(skb, sizeof(*uh));
++	skb_reset_transport_header(skb);
++	uh = udp_hdr(skb);
++
++	uh->dest = dst_port;
++	uh->source = src_port;
++	uh->len = htons(skb->len);
++
++	udp_set_csum(sock->sk->sk_no_check_tx, skb, src, dst, skb->len);
++
++	return iptunnel_xmit(sock->sk, rt, skb, src, dst, IPPROTO_UDP,
++			     tos, ttl, df, xnet);
++}
++EXPORT_SYMBOL_GPL(udp_tunnel_xmit_skb);
++
++#if IS_ENABLED(CONFIG_IPV6)
++int udp_tunnel6_xmit_skb(struct socket *sock, struct dst_entry *dst,
++			 struct sk_buff *skb, struct net_device *dev,
++			 struct in6_addr *saddr, struct in6_addr *daddr,
++			 __u8 prio, __u8 ttl, __be16 src_port, __be16 dst_port)
++{
++	struct udphdr *uh;
++	struct ipv6hdr *ip6h;
++
++	__skb_push(skb, sizeof(*uh));
++	skb_reset_transport_header(skb);
++	uh = udp_hdr(skb);
++
++	uh->dest = dst_port;
++	uh->source = src_port;
++
++	uh->len = htons(skb->len);
++	uh->check = 0;
++
++	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
++	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED
++			    | IPSKB_REROUTED);
++	skb_dst_set(skb, dst);
++
++	if (!skb_is_gso(skb) && !(dst->dev->features & NETIF_F_IPV6_CSUM)) {
++		__wsum csum = skb_checksum(skb, 0, skb->len, 0);
++
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
++		uh->check = csum_ipv6_magic(saddr, daddr, skb->len,
++				IPPROTO_UDP, csum);
++		if (uh->check == 0)
++			uh->check = CSUM_MANGLED_0;
++	} else {
++		skb->ip_summed = CHECKSUM_PARTIAL;
++		skb->csum_start = skb_transport_header(skb) - skb->head;
++		skb->csum_offset = offsetof(struct udphdr, check);
++		uh->check = ~csum_ipv6_magic(saddr, daddr,
++				skb->len, IPPROTO_UDP, 0);
++	}
++
++	__skb_push(skb, sizeof(*ip6h));
++	skb_reset_network_header(skb);
++	ip6h		  = ipv6_hdr(skb);
++	ip6h->version	  = 6;
++	ip6h->priority	  = prio;
++	ip6h->flow_lbl[0] = 0;
++	ip6h->flow_lbl[1] = 0;
++	ip6h->flow_lbl[2] = 0;
++	ip6h->payload_len = htons(skb->len);
++	ip6h->nexthdr     = IPPROTO_UDP;
++	ip6h->hop_limit   = ttl;
++	ip6h->daddr	  = *daddr;
++	ip6h->saddr	  = *saddr;
++
++	ip6tunnel_xmit(skb, dev);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(udp_tunnel6_xmit_skb);
++#endif
++
++struct udp_tunnel_sock *udp_tunnel_find_sock(struct net *net, __be16 port)
++{
++	struct udp_tunnel_sock *uts;
++
++	hlist_for_each_entry_rcu(uts, uts_head(net, port), hlist) {
++		if (inet_sk(uts->sock->sk)->inet_sport == port)
++			return uts;
++	}
++
++	return NULL;
++}
++EXPORT_SYMBOL_GPL(udp_tunnel_find_sock);
++
++void udp_tunnel_sock_release(struct udp_tunnel_sock *uts)
++{
++	struct sock *sk = uts->sock->sk;
++	struct net *net = sock_net(sk);
++	struct udp_tunnel_net *utn = net_generic(net, udp_tunnel_net_id);
++
++	spin_lock(&utn->sock_lock);
++	hlist_del_rcu(&uts->hlist);
++	rcu_assign_sk_user_data(uts->sock->sk, NULL);
++	kernel_sock_shutdown(uts->sock, SHUT_RDWR);
++	sk_release_kernel(sk);
++	spin_unlock(&utn->sock_lock);
++}
++EXPORT_SYMBOL_GPL(udp_tunnel_sock_release);
++
++static int __net_init udp_tunnel_init_net(struct net *net)
++{
++	struct udp_tunnel_net *utn = net_generic(net, udp_tunnel_net_id);
++	unsigned int h;
++
++	spin_lock_init(&utn->sock_lock);
++
++	for (h = 0; h < PORT_HASH_SIZE; h++)
++		INIT_HLIST_HEAD(&utn->sock_list[h]);
++
++	return 0;
++}
++
++static struct pernet_operations udp_tunnel_net_ops = {
++	.init = udp_tunnel_init_net,
++	.exit = NULL,
++	.id = &udp_tunnel_net_id,
++	.size = sizeof(struct udp_tunnel_net),
++};
++
++static int __init udp_tunnel_init(void)
++{
++	return register_pernet_subsys(&udp_tunnel_net_ops);
++}
++late_initcall(udp_tunnel_init);
++
+ MODULE_LICENSE("GPL");
+-- 
+1.7.9.5
