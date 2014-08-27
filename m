@@ -1,131 +1,49 @@
-From: Zi Shen Lim <zlim.lnx@gmail.com>
-Subject: [PATCHv2 08/14] arm64: introduce aarch64_insn_gen_movewide()
-Date: Tue, 26 Aug 2014 21:15:24 -0700
-Message-ID: <1409112930-25677-9-git-send-email-zlim.lnx@gmail.com>
-References: <1409112930-25677-1-git-send-email-zlim.lnx@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH RFC v7 net-next 00/28] BPF syscall
+Date: Tue, 26 Aug 2014 21:35:26 -0700
+Message-ID: <CAMEtUuwYqJVUuZxPBKy57NonWF+X_5vkNx4uSEx_d=-xBka1Kg@mail.gmail.com>
+References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
+	<CALCETrX2MzNxQ1ogt+Qx8iPjUe+z0gN6ZLwu9nAcZzTN+D+iYw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Zi Shen Lim <zlim.lnx@gmail.com>, linux-kernel@vger.kernel.org,
- AKASHI Takahiro <takahiro.akashi@linaro.org>,
- Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org,
- Jiang Liu <liuj97@gmail.com>, "David S. Miller" <davem@davemloft.net>,
- linux-arm-kernel@lists.infradead.org, Alexei Starovoitov <ast@plumgrid.com>
-To: Catalin Marinas <catalin.marinas@arm.com>,
- Will Deacon <will.deacon@arm.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1409112930-25677-1-git-send-email-zlim.lnx@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Chema Gonzalez <chema@google.com>,
+	Namhyung Kim <namhyung@kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Ingo Molnar <mingo@kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALCETrX2MzNxQ1ogt+Qx8iPjUe+z0gN6ZLwu9nAcZzTN+D+iYw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce function to generate move wide (immediate) instructions.
+On Tue, Aug 26, 2014 at 8:56 PM, Andy Lutomirski <luto@amacapital.net> wrote:
+> On Aug 26, 2014 7:29 PM, "Alexei Starovoitov" <ast@plumgrid.com> wrote:
+>>
+>> Hi Ingo, David,
+>>
+>> posting whole thing again as RFC to get feedback on syscall only.
+>> If syscall bpf(int cmd, union bpf_attr *attr, unsigned int size) is ok,
+>> I'll split them into small chunks as requested and will repost without RFC.
+>
+> IMO it's much easier to review a syscall if we just look at a
+> specification of what it does.  The code is, in some sense, secondary.
 
-Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
-Acked-by: Will Deacon <will.deacon@arm.com>
----
- arch/arm64/include/asm/insn.h | 13 +++++++++++++
- arch/arm64/kernel/insn.c      | 43 +++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 56 insertions(+)
-
-diff --git a/arch/arm64/include/asm/insn.h b/arch/arm64/include/asm/insn.h
-index 8fd31fc..49dec28 100644
---- a/arch/arm64/include/asm/insn.h
-+++ b/arch/arm64/include/asm/insn.h
-@@ -172,6 +172,12 @@ enum aarch64_insn_adsb_type {
- 	AARCH64_INSN_ADSB_SUB_SETFLAGS
- };
- 
-+enum aarch64_insn_movewide_type {
-+	AARCH64_INSN_MOVEWIDE_ZERO,
-+	AARCH64_INSN_MOVEWIDE_KEEP,
-+	AARCH64_INSN_MOVEWIDE_INVERSE
-+};
-+
- enum aarch64_insn_bitfield_type {
- 	AARCH64_INSN_BITFIELD_MOVE,
- 	AARCH64_INSN_BITFIELD_MOVE_UNSIGNED,
-@@ -194,9 +200,12 @@ __AARCH64_INSN_FUNCS(add_imm,	0x7F000000, 0x11000000)
- __AARCH64_INSN_FUNCS(adds_imm,	0x7F000000, 0x31000000)
- __AARCH64_INSN_FUNCS(sub_imm,	0x7F000000, 0x51000000)
- __AARCH64_INSN_FUNCS(subs_imm,	0x7F000000, 0x71000000)
-+__AARCH64_INSN_FUNCS(movn,	0x7F800000, 0x12800000)
- __AARCH64_INSN_FUNCS(sbfm,	0x7F800000, 0x13000000)
- __AARCH64_INSN_FUNCS(bfm,	0x7F800000, 0x33000000)
-+__AARCH64_INSN_FUNCS(movz,	0x7F800000, 0x52800000)
- __AARCH64_INSN_FUNCS(ubfm,	0x7F800000, 0x53000000)
-+__AARCH64_INSN_FUNCS(movk,	0x7F800000, 0x72800000)
- __AARCH64_INSN_FUNCS(b,		0xFC000000, 0x14000000)
- __AARCH64_INSN_FUNCS(bl,	0xFC000000, 0x94000000)
- __AARCH64_INSN_FUNCS(cbz,	0xFE000000, 0x34000000)
-@@ -252,6 +261,10 @@ u32 aarch64_insn_gen_bitfield(enum aarch64_insn_register dst,
- 			      int immr, int imms,
- 			      enum aarch64_insn_variant variant,
- 			      enum aarch64_insn_bitfield_type type);
-+u32 aarch64_insn_gen_movewide(enum aarch64_insn_register dst,
-+			      int imm, int shift,
-+			      enum aarch64_insn_variant variant,
-+			      enum aarch64_insn_movewide_type type);
- 
- bool aarch64_insn_hotpatch_safe(u32 old_insn, u32 new_insn);
- 
-diff --git a/arch/arm64/kernel/insn.c b/arch/arm64/kernel/insn.c
-index e07d026..7aa2784 100644
---- a/arch/arm64/kernel/insn.c
-+++ b/arch/arm64/kernel/insn.c
-@@ -655,3 +655,46 @@ u32 aarch64_insn_gen_bitfield(enum aarch64_insn_register dst,
- 
- 	return aarch64_insn_encode_immediate(AARCH64_INSN_IMM_S, insn, imms);
- }
-+
-+u32 aarch64_insn_gen_movewide(enum aarch64_insn_register dst,
-+			      int imm, int shift,
-+			      enum aarch64_insn_variant variant,
-+			      enum aarch64_insn_movewide_type type)
-+{
-+	u32 insn;
-+
-+	switch (type) {
-+	case AARCH64_INSN_MOVEWIDE_ZERO:
-+		insn = aarch64_insn_get_movz_value();
-+		break;
-+	case AARCH64_INSN_MOVEWIDE_KEEP:
-+		insn = aarch64_insn_get_movk_value();
-+		break;
-+	case AARCH64_INSN_MOVEWIDE_INVERSE:
-+		insn = aarch64_insn_get_movn_value();
-+		break;
-+	default:
-+		BUG_ON(1);
-+	}
-+
-+	BUG_ON(imm & ~(SZ_64K - 1));
-+
-+	switch (variant) {
-+	case AARCH64_INSN_VARIANT_32BIT:
-+		BUG_ON(shift != 0 && shift != 16);
-+		break;
-+	case AARCH64_INSN_VARIANT_64BIT:
-+		insn |= AARCH64_INSN_SF_BIT;
-+		BUG_ON(shift != 0 && shift != 16 && shift != 32 &&
-+		       shift != 48);
-+		break;
-+	default:
-+		BUG_ON(1);
-+	}
-+
-+	insn |= (shift >> 4) << 21;
-+
-+	insn = aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RD, insn, dst);
-+
-+	return aarch64_insn_encode_immediate(AARCH64_INSN_IMM_16, insn, imm);
-+}
--- 
-1.9.1
+'specification of what it does'... hmm, you mean beyond what's
+there in commit logs and in Documentation/networking/filter.txt ?
+Aren't samples at the end give an idea on 'what it does'?
+I'm happy to add 'specification', I just don't understand yet what
+it suppose to talk about beyond what's already written.
+I understand that the patches are missing explanation on 'why'
+the syscall is being added, but I don't think it's what you're asking...
