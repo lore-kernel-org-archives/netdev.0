@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 01/13] net: dsa: reduce number of protocol
- hooks
-Date: Wed, 27 Aug 2014 16:24:58 -0700 (PDT)
-Message-ID: <20140827.162458.878869941352643208.davem@davemloft.net>
-References: <1409028581-17399-1-git-send-email-f.fainelli@gmail.com>
-	<1409028581-17399-2-git-send-email-f.fainelli@gmail.com>
-	<53FDF879.1000504@intel.com>
+Subject: Re: [PATCH] Driver for IBM System i/p VNIC protocol
+Date: Wed, 27 Aug 2014 16:25:36 -0700 (PDT)
+Message-ID: <20140827.162536.279933414728705938.davem@davemloft.net>
+References: <53FB3FA8.3040304@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linville@tuxdriver.com, jhs@mojatatu.com, alexander.duyck@gmail.com
-To: alexander.h.duyck@intel.com
+Cc: netdev@vger.kernel.org
+To: santil@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41711 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41717 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965120AbaH0XZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 19:25:00 -0400
-In-Reply-To: <53FDF879.1000504@intel.com>
+	with ESMTP id S933980AbaH0XZg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 19:25:36 -0400
+In-Reply-To: <53FB3FA8.3040304@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Wed, 27 Aug 2014 08:25:45 -0700
+From: Santiago Leon <santil@linux.vnet.ibm.com>
+Date: Mon, 25 Aug 2014 08:52:40 -0500
 
-> Just a thought, you might want to consider using a protocol value other
-> than ETH_P_DSA.  Maybe we should add a new value named ETH_P_XDSA for
-> this approach since what we are doing is a multiplexed DSA protocol now.
+> This is a new device driver for a high performance SR-IOV assisted virtual
+> network for IBM System p and IBM System i systems.  The SR-IOV VF will be
+> attached to the VIOS partition and mapped to the Linux client via the
+> hypervisor's VNIC protocol that this driver implements. 
 > 
-> This would allow for much easier back-porting of this if needed and also
-> prevents us from possibly triggering any issues if there are any
-> user-space APIs that might be trying to capture packets based on the
-> protocol value.
+> This driver is able to perform basic tx and rx, new features and improvements
+> will be added as they are being developed and tested. 
+> 
+> 
+> Signed-off-by: Santiago Leon <santil@linux.vnet.ibm.com>
 
-Agreed, Florian can you respin this patch set using a newly allocated
-ETH_P_* value for these new semantics?
+Just a heads up, if nobody reviews this driver submission I am not
+applying it.
 
 Thanks.
