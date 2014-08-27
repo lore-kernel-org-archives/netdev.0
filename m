@@ -1,86 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/8] net: Clarification of CHECKSUM_UNNECESSARY
-Date: Wed, 27 Aug 2014 14:40:01 -0700 (PDT)
-Message-ID: <20140827.144001.80733091766338046.davem@davemloft.net>
-References: <20140825.181341.304248903530349010.davem@davemloft.net>
-	<CA+mtBx8iv8tWU0mmEQEWxDfp614Hh=cQOpXqxSdhHaGsH6sBDA@mail.gmail.com>
-	<CA+mtBx9GvHpLJ718hV5BjRGjfWvmXB55hKa3Rwo=6me3f0M3Dw@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [patch net-next RFC 03/12] net: introduce generic switch devices support
+Date: Wed, 27 Aug 2014 15:19:12 -0700
+Message-ID: <CAHA+R7NGtF5ybeOU5pJrqpyS3u8EeC7xomoAHyBa7Ze8pBeJyA@mail.gmail.com>
+References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
+	<1408637945-10390-4-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>, azhou@nicira.com,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	john.r.fastabend@intel.com, Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	ryazanov.s.a@gma
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40841 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964792AbaH0VkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 17:40:03 -0400
-In-Reply-To: <CA+mtBx9GvHpLJ718hV5BjRGjfWvmXB55hKa3Rwo=6me3f0M3Dw@mail.gmail.com>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:35723 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932246AbaH0WTO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 18:19:14 -0400
+Received: by mail-lb0-f181.google.com with SMTP id n15so85104lbi.26
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 15:19:12 -0700 (PDT)
+In-Reply-To: <1408637945-10390-4-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon, 25 Aug 2014 18:47:35 -0700
+On Thu, Aug 21, 2014 at 9:18 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> diff --git a/include/linux/switchdev.h b/include/linux/switchdev.h
+> new file mode 100644
+> index 0000000..ba77a68
+> --- /dev/null
+> +++ b/include/linux/switchdev.h
 
-> On Mon, Aug 25, 2014 at 6:40 PM, Tom Herbert <therbert@google.com> wrote:
->> On Mon, Aug 25, 2014 at 6:13 PM, David Miller <davem@davemloft.net> wrote:
->>> From: Tom Herbert <therbert@google.com>
->>> Date: Mon, 25 Aug 2014 17:55:56 -0700 (PDT)
->>>
->>>> @@ -569,16 +590,13 @@ struct sk_buff {
->>>>       __u8                    wifi_acked:1;
->>>>       __u8                    no_fcs:1;
->>>>       __u8                    head_frag:1;
->>>> -     /* Encapsulation protocol and NIC drivers should use
->>>> -      * this flag to indicate to each other if the skb contains
->>>> -      * encapsulated packet or not and maybe use the inner packet
->>>> -      * headers if needed
->>>> -      */
->>>> +     /* Indicates the the inner headers are valid in the skbuff. */
->>>>       __u8                    encapsulation:1;
->>>>       __u8                    encap_hdr_csum:1;
->>>>       __u8                    csum_valid:1;
->>>>       __u8                    csum_complete_sw:1;
->>>> -     /* 2/4 bit hole (depending on ndisc_nodetype presence) */
->>>> +     __u8                    csum_level:2;
->>>> +     /* 0/2 bit hole (depending on ndisc_nodetype presence) */
->>>>       kmemcheck_bitfield_end(flags2);
->>>
->>> Crap, with xmit_more, this actually bleeds us over into a new __u8.
->>
->> We'll undoubtably want to add more flags beyond that (they're quite
->> useful). I'll try to find some more space in the existing fields so we
->> don't increase skbuf size.
-> 
-> Actually, from inner_protocol through mac_header there are seven 16
-> bit fields, could put another 16 bit flags there.
-
-Ok, please resubmit this series with that change.
-
-Meanwhile I fixed up the comment so that it's accurate again, like so:
-
-====================
-Subject: [PATCH] net: Update sk_buff flag bit availability comment.
-
-We lost one when xmit_more was added.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/linux/skbuff.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 9b3802a..b69b7b5 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -580,7 +580,7 @@ struct sk_buff {
- 	__u8			encap_hdr_csum:1;
- 	__u8			csum_valid:1;
- 	__u8			csum_complete_sw:1;
--	/* 2/4 bit hole (depending on ndisc_nodetype presence) */
-+	/* 1/3 bit hole (depending on ndisc_nodetype presence) */
- 	kmemcheck_bitfield_end(flags2);
- 
- #if defined CONFIG_NET_DMA || defined CONFIG_NET_RX_BUSY_POLL
--- 
-1.7.11.7
+It should be in include/net/ instead, since it never
+goes out of networking.
