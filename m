@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: Fix static checker warning regarding
- `txdata_ptr'
-Date: Wed, 27 Aug 2014 16:29:11 -0700 (PDT)
-Message-ID: <20140827.162911.2304971595773773996.davem@davemloft.net>
-References: <1409037881-4192-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: Re: [PATCH (net.git)] phy: fix EEE checks inside the phy_init_eee.
+Date: Wed, 27 Aug 2014 16:30:13 -0700 (PDT)
+Message-ID: <20140827.163013.2147385753856195294.davem@davemloft.net>
+References: <1409038012-11574-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Ariel.Elior@qlogic.com, dan.carpenter@oracle.com
-To: Yuval.Mintz@qlogic.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1409037881-4192-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nandini.sharma@st.com
+To: peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41760 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936043AbaH0XaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 19:30:13 -0400
+In-Reply-To: <1409038012-11574-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Tue, 26 Aug 2014 10:24:41 +0300
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Date: Tue, 26 Aug 2014 09:26:52 +0200
 
-> Incorrect checking of array instead of array contents in panic_dump
-> flow - results of commit e261199872a2 ("bnx2x: Safe bnx2x_panic_dump()").
+> According to the Std 802.3az if the EEE Adv (Reg 7.60), Link partner ability
+> (Reg 7.61) and EEE capability (Register 3.20) bits return 0 this  means no EEE
+> is supported. So this patch fixes the checks inside the phy_init_eee function.
 > 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> Signed-off-by: Nandini Sharma <nandini.sharma@st.com>
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
 Applied, thanks.
