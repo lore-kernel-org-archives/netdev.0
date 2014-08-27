@@ -1,69 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Get rid of ndo_xmit_flush
-Date: Wed, 27 Aug 2014 13:53:55 -0700 (PDT)
-Message-ID: <20140827.135355.312468204295431099.davem@davemloft.net>
-References: <20140825.163458.1117073971092495452.davem@davemloft.net>
-	<CAHA+R7MJX3Du8ggOo2GqGA4rXvY30YOpCFqS4PBN2ZNE=kwKuA@mail.gmail.com>
-	<CA+mtBx-zqi0mzMynZrxfcfz7koLH+B4+kD6o9+DnS7N1ww16Sw@mail.gmail.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [RFC PATCH net-next] ipv6: stop sending PTB packets for MTU < 1280
+Date: Wed, 27 Aug 2014 22:57:37 +0200
+Message-ID: <CAPh34me9QwodcngH5oeH57PM1vyXuKks9wgsGcOB99RoEePVng@mail.gmail.com>
+References: <53F39E50.1020209@gont.com.ar>
+	<1409005545-24910-2-git-send-email-hagen@jauu.net>
+	<1409006842.6274.69.camel@localhost>
+	<53FE4086.8040708@si6networks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cwang@twopensource.com, netdev@vger.kernel.org, jhs@mojatatu.com,
-	hannes@stressinduktion.org, edumazet@google.com,
-	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au,
-	dborkman@redhat.com, brouer@redhat.com
-To: therbert@google.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev <netdev@vger.kernel.org>
+To: Fernando Gont <fgont@si6networks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40331 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932159AbaH0Ux4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 16:53:56 -0400
-In-Reply-To: <CA+mtBx-zqi0mzMynZrxfcfz7koLH+B4+kD6o9+DnS7N1ww16Sw@mail.gmail.com>
+Received: from mail-la0-f41.google.com ([209.85.215.41]:40647 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932159AbaH0U5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 16:57:39 -0400
+Received: by mail-la0-f41.google.com with SMTP id gi9so70518lab.0
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 13:57:38 -0700 (PDT)
+In-Reply-To: <53FE4086.8040708@si6networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Wed, 27 Aug 2014 12:31:15 -0700
+On 27 August 2014 22:33, Fernando Gont <fgont@si6networks.com> wrote:
 
-> On Wed, Aug 27, 2014 at 11:28 AM, Cong Wang <cwang@twopensource.com> wrote:
->> On Mon, Aug 25, 2014 at 4:34 PM, David Miller <davem@davemloft.net> wrote:
->>>
->>> Given Jesper's performance numbers, it's not the way to go.
->>>
->>> Instead, go with a signalling scheme via new boolean skb->xmit_more.
->>>
->>> This has several advantages:
->>>
->>> 1) Nearly trivial driver support, just protect the tail pointer
->>>    update with the skb->xmit_more check.
->>>
->>> 2) No extra indirect calls in the non-deferral cases.
->>>
->>
->> First of all, I missed your discussion at kernel summit.
->>
->> Second of all, I am not familiar with hardware NIC drivers.
->>
->> But for me, it looks like you are trying to pend some more packets
->> in a TX queue until the driver decides to flush them all in one shot.
->> So if that is true, doesn't this mean the latency of first packet pending
->> in this queue will increase and network traffic will be more bursty for
->> the receiver??
->>
-> I suspect this won't be an big issue. The dequeue is still work
-> conserving and BQL limit already ensures that HW queue doesn't drain
-> completely when packets are pending in the qdisc-- I doubt this will
-> increase BQL limits, but that should be verified. We might see some
-> latency increase for a batch sent on an idle link (possible with
-> GSO)-- if this is a concern we could arrange flush on sending packets
-> on idle links.
+> Hence the trivial way to mitigate this attack is to drop incoming ICMPv6
+> PTB1280 (or, at the very least, don't react to them by sending all
+> subsequent packets with a Fragment Header).
 
-That's also correct.
+Any news from the v6ops people - what is your suggestion Fernando?
+Should we wait for more v6ops input?
 
-The issue to handle specially is the initial send on a TX queue which
-is empty or close to being empty.
-
-Probably we want some kind of exponential backoff type scheme, so
-assuming we have an empty TX queue we'd trigger TX on the first
-packet, then the third, then the 7th.  Assuming we had that many to
-send at once.
+Hagen
