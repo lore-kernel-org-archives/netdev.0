@@ -1,54 +1,57 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] bonding: add slave_changelink support and use
- it for queue_id
-Date: Wed, 27 Aug 2014 16:29:57 +0200
-Message-ID: <20140827142957.GA1908@nanopsycho.lan>
-References: <1409148406-5576-1-git-send-email-nikolay@redhat.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC] net: ipv4: drop unicast encapsulated in L2 multicast
+Date: Wed, 27 Aug 2014 17:31:33 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1408271625500.2348@ja.home.ssi.bg>
+References: <1408641747-22199-1-git-send-email-johannes@sipsolutions.net>   <alpine.LFD.2.11.1408212119510.1896@ja.home.ssi.bg>   <20140822.105405.1982870131653082781.davem@davemloft.net>  <1409130792.2505.5.camel@jlt4.sipsolutions.net>
+ <alpine.LFD.2.11.1408271255230.2348@ja.home.ssi.bg> <1409138967.2505.11.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:56333 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934508AbaH0OaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 10:30:04 -0400
-Received: by mail-wg0-f44.google.com with SMTP id m15so291229wgh.15
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 07:30:00 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1409148406-5576-1-git-send-email-nikolay@redhat.com>
+Received: from ja.ssi.bg ([178.16.129.10]:39635 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933802AbaH0Odb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2014 10:33:31 -0400
+In-Reply-To: <1409138967.2505.11.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Aug 27, 2014 at 04:06:46PM CEST, nikolay@redhat.com wrote:
->This patch adds support for slave_changelink to the bonding and uses it
->to give the ability to change the queue_id of the enslaved devices via
->netlink. It sets slave_maxtype and uses bond_changelink as a prototype for
->bond_slave_changelink.
->Example/test command after the iproute2 patch:
-> ip link set eth0 type bond_slave queue_id 10
->
->CC: David S. Miller <davem@davemloft.net>
->CC: Jay Vosburgh <j.vosburgh@gmail.com>
->CC: Veaceslav Falico <vfalico@gmail.com>
->CC: Andy Gospodarek <andy@greyhouse.net>
->
->Suggested-by: Jiri Pirko <jiri@resnulli.us>
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->---
->note: I intend to add a new option flag to indicate it's a slave option
->      so a new netdev notifier can be called (NETDEV_CHANGESLAVEINFODATA).
 
-	No need fo that atm.
+	Hello,
 
->      I believe the bonding is the first user of slave_changelink so I hope
->      I haven't missed anything. Once this patch is accepted in some form
->      I'll post the iproute2 one.
+On Wed, 27 Aug 2014, Johannes Berg wrote:
 
+> On Wed, 2014-08-27 at 13:23 +0300, Julian Anastasov wrote:
+> 
+> > BTW, what kind of packets (protocol) we want to drop? UDP?
+> 
+> All IP protocols, this comes either from the IPv4 RFC (1122) or from the
+> wireless issue which affects all protocols.
 
-This patch is looking good to me.
+	I did a grep for inet_add_protocol, in case if
+we prefer to use per-protocol checks:
 
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+Protocols that look ok to me: TCP, SCTP, DCCP
+
+ICMP: missing check in icmp_rcv
+UDP, UDPLITE: need check in __udp4_lib_rcv
+IGMP: uses only multicast address?
+PIM: not sure if __pim_rcv() needs check, before skb_tunnel_rx()
+	changes pkt_type?
+
+More protocols are also registered with inet_add_protocol(), I don't
+see pkt_type checks there, mostly tunnels:
+- IPPROTO_GRE
+- IPPROTO_L2TP
+- IPPROTO_IPIP
+- IPPROTO_IPV6 (tunnel64_rcv)
+
+	If going to use a global check I hope there are
+no protocols that require exception to this rule.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
