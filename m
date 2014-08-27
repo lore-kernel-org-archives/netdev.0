@@ -1,37 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next v3 1/3] udp: Expand UDP tunnel common APIs
-Date: Wed, 27 Aug 2014 04:45:24 -0700
-Message-ID: <1409139924.3173.26.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1409110530-4383-1-git-send-email-azhou@nicira.com>
-	 <1409111647.3173.22.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CACzMAJ+naPV=UjnVBhTEnj8iJQHEpKk78g=AkDR9xnXhOo9xbQ@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH 0/2] Get rid of ndo_xmit_flush
+Date: Wed, 27 Aug 2014 14:19:18 +0200
+Message-ID: <20140827141918.198cba38@redhat.com>
+References: <20140825.163458.1117073971092495452.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andy Zhou <azhou@nicira.com>
+Cc: netdev@vger.kernel.org, therbert@google.com, jhs@mojatatu.com,
+	hannes@stressinduktion.org, edumazet@google.com,
+	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au,
+	dborkman@redhat.com, brouer@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:58341 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932079AbaH0Lp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 07:45:28 -0400
-Received: by mail-pd0-f170.google.com with SMTP id g10so119405pdj.1
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 04:45:26 -0700 (PDT)
-In-Reply-To: <CACzMAJ+naPV=UjnVBhTEnj8iJQHEpKk78g=AkDR9xnXhOo9xbQ@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:49094 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755814AbaH0MTd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2014 08:19:33 -0400
+In-Reply-To: <20140825.163458.1117073971092495452.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-08-26 at 22:01 -0700, Andy Zhou wrote:
+On Mon, 25 Aug 2014 16:34:58 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> Which RCU rule are you referring to?
+> Given Jesper's performance numbers, it's not the way to go.
+> 
+> Instead, go with a signalling scheme via new boolean skb->xmit_more.
+> 
+> This has several advantages:
+> 
+> 1) Nearly trivial driver support, just protect the tail pointer
+>    update with the skb->xmit_more check.
+> 
+> 2) No extra indirect calls in the non-deferral cases.
 
-The most elementary ones, like observing rcu grace period before
-freeing ?
+Even-though it is obvious that this new API skb->xmit_more will not
+hurt performance, especially given skb->xmit_more is always 0 in this
+kernel, I've still run my pktgen performance tests.
 
-udp_tunnel_sock_release() is obviously wrong, or needs an appropriate
-documentation.
+Compared to baseline[1]: (averaged 5609929 pps) (details below signature)
+ * (1/5609929*10^9)-(1/5603728*10^9) = -0.197ns
 
-Please carefully read Documentation/RCU/checklist.txt and tell us why
-you believe your code is correct, either in the changelog or using
-comments.
+As expected, this API does not hurt performance (as -0.197ns is below
+our accuracy levels).
+
+[1] http://thread.gmane.org/gmane.linux.network/327254/focus=327838
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+Results: on branch bulking02
+----------------------------
+
+Kernel with skb->xmit_more API.
+
+Kernel at:
+ * commit a3d1214688d ("neigh: document gc_thresh2")
+
+With no HT:
+ * ethtool -C eth5 rx-usecs 30
+ * tuned-adm profile latency-performance
+Results (pktgen):
+ * instant rx:1 tx:5604056 pps n:250 average: rx:1 tx:5604013 pps
+  (instant variation TX 0.001 ns (min:-0.114 max:0.104) RX 0.000 ns)
+ * instant rx:1 tx:5603388 pps n:87 average: rx:1 tx:5603872 pps
+  (instant variation TX -0.015 ns (min:-0.031 max:0.060) RX 0.000 ns)
+ * instant rx:1 tx:5604332 pps n:429 average: rx:1 tx:5603300 pps
+  (instant variation TX 0.033 ns (min:-0.094 max:0.881) RX 0.000 ns)
+ * Average: (5604013+5603872+5603300)/3 = 5603728
+
+Compared to baseline: (averaged 5609929 pps)
+ * (1/5609929*10^9)-(1/5603728*10^9) = -0.197ns
