@@ -1,212 +1,309 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/11] i40e/i40evf: add max buf len to aq debug print helper
-Date: Wed, 27 Aug 2014 02:26:43 -0700
-Message-ID: <1409131606-15011-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/11] i40e: ATR policy change to flush the table to clean stale ATR rules
+Date: Wed, 27 Aug 2014 02:26:38 -0700
+Message-ID: <1409131606-15011-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:64397 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:64393 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932955AbaH0J0y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2014 05:26:54 -0400
+	id S932728AbaH0J0x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2014 05:26:53 -0400
 In-Reply-To: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-There is at least one case in the Firmware API where the response to a
-command changes the buffer size field in the AQ descriptor to a larger
-number than what the request's buffer size started as.  This is in addition
-to setting an error flag and is in order to tell the requester how much
-larger a buffer is required for the answer.  We need to be sure not to
-use that number when dumping the contents of the data buffer because it
-can send us into the weeds and generate an invalid pointer exception.
+Instead of disabling ATR when we get a programming error, we now
+will wait it out to see if some room gets created by ATR rule deletion.
+If we still have too many errors and ATR filter count did not change
+much, its time to flush and replay. We no more auto-disable ATR when
+we have errors in programming.
+The disabling of ATR when we get programming error was buggy and
+was still adding new rules and causing continuous errors. With this
+policy change we flush instead when we see too many errors.
+ATR is still disabled if we add a SB rule for TCP/IPv4 flow type,
+more logic is added to re-enable it once all SB TCP/IPv4 rules are gone.
 
-This patch adds a max buffer size parameter to the print helper to be
-sure the code knows when to stop.
-
-Change-ID: Ib84f7ed72140fe9d600086d8f2002fc5d8753092
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: I77edcbeab9500c72a7e0bd7b5c5b113ced133a9c
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c      | 8 +++++---
- drivers/net/ethernet/intel/i40e/i40e_common.c      | 8 ++++++--
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   | 6 ++----
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c    | 9 ++++++---
- drivers/net/ethernet/intel/i40evf/i40e_common.c    | 8 ++++++--
- drivers/net/ethernet/intel/i40evf/i40e_prototype.h | 6 ++----
- 6 files changed, 27 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         |  6 ++
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  6 ++
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 96 +++++++++++++++++++++++---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c    | 23 +++---
+ 4 files changed, 111 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index b29c157..72f5d25 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -840,7 +840,8 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 801da39..0c6a9b9 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -144,6 +144,7 @@ enum i40e_state_t {
+ 	__I40E_PTP_TX_IN_PROGRESS,
+ 	__I40E_BAD_EEPROM,
+ 	__I40E_DOWN_REQUESTED,
++	__I40E_FD_FLUSH_REQUESTED,
+ };
  
- 	/* bump the tail */
- 	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQTX: desc and buffer:\n");
--	i40e_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc_on_ring, buff);
-+	i40e_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc_on_ring,
-+		      buff, buff_size);
- 	(hw->aq.asq.next_to_use)++;
- 	if (hw->aq.asq.next_to_use == hw->aq.asq.count)
- 		hw->aq.asq.next_to_use = 0;
-@@ -891,7 +892,7 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+ enum i40e_interrupt_policy {
+@@ -250,6 +251,10 @@ struct i40e_pf {
+ 	u16 fdir_pf_active_filters;
+ 	u16 fd_sb_cnt_idx;
+ 	u16 fd_atr_cnt_idx;
++	unsigned long fd_flush_timestamp;
++	u32 fd_add_err;
++	u32 fd_atr_cnt;
++	u32 fd_tcp_rule;
  
- 	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE,
- 		   "AQTX: desc and buffer writeback:\n");
--	i40e_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, buff);
-+	i40e_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, buff, buff_size);
+ #ifdef CONFIG_I40E_VXLAN
+ 	__be16  vxlan_ports[I40E_MAX_PF_UDP_OFFLOAD_PORTS];
+@@ -608,6 +613,7 @@ int i40e_add_del_fdir(struct i40e_vsi *vsi,
+ void i40e_fdir_check_and_reenable(struct i40e_pf *pf);
+ int i40e_get_current_fd_count(struct i40e_pf *pf);
+ int i40e_get_cur_guaranteed_fd_count(struct i40e_pf *pf);
++int i40e_get_current_atr_cnt(struct i40e_pf *pf);
+ bool i40e_set_ntuple(struct i40e_pf *pf, netdev_features_t features);
+ void i40e_set_ethtool_ops(struct net_device *netdev);
+ struct i40e_mac_filter *i40e_add_filter(struct i40e_vsi *vsi,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index e8ba747..7204e29 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1977,6 +1977,9 @@ static int i40e_del_fdir_entry(struct i40e_vsi *vsi,
+ 	struct i40e_pf *pf = vsi->back;
+ 	int ret = 0;
  
- 	/* update the error if time out occurred */
- 	if ((!cmd_completed) &&
-@@ -987,7 +988,8 @@ i40e_status i40e_clean_arq_element(struct i40e_hw *hw,
- 		       e->msg_size);
++	if (test_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state))
++		return -EBUSY;
++
+ 	ret = i40e_update_ethtool_fdir_entry(vsi, NULL, fsp->location, cmd);
  
- 	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQRX: desc and buffer:\n");
--	i40e_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, e->msg_buf);
-+	i40e_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, e->msg_buf,
-+		      hw->aq.arq_buf_size);
+ 	i40e_fdir_check_and_reenable(pf);
+@@ -2010,6 +2013,9 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 	if (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED)
+ 		return -ENOSPC;
  
- 	/* Restore the original datalen and buffer address in the desc,
- 	 * FW updates datalen to indicate the event message
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index df43e7c..01874c0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -75,13 +75,15 @@ static i40e_status i40e_set_mac_type(struct i40e_hw *hw)
-  * @mask: debug mask
-  * @desc: pointer to admin queue descriptor
-  * @buffer: pointer to command buffer
-+ * @buf_len: max length of buffer
-  *
-  * Dumps debug log about adminq command with descriptor contents.
-  **/
- void i40e_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
--		   void *buffer)
-+		   void *buffer, u16 buf_len)
++	if (test_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state))
++		return -EBUSY;
++
+ 	fsp = (struct ethtool_rx_flow_spec *)&cmd->fs;
+ 
+ 	if (fsp->location >= (pf->hw.func_caps.fd_filters_best_effort +
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index eddec6b..cab9c9e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4483,8 +4483,16 @@ static int i40e_up_complete(struct i40e_vsi *vsi)
+ 	}
+ 
+ 	/* replay FDIR SB filters */
+-	if (vsi->type == I40E_VSI_FDIR)
++	if (vsi->type == I40E_VSI_FDIR) {
++		/* reset fd counters */
++		pf->fd_add_err = pf->fd_atr_cnt = 0;
++		if (pf->fd_tcp_rule > 0) {
++			pf->flags &= ~I40E_FLAG_FD_ATR_ENABLED;
++			dev_info(&pf->pdev->dev, "Forcing ATR off, sideband rules for TCP/IPv4 exist\n");
++			pf->fd_tcp_rule = 0;
++		}
+ 		i40e_fdir_filter_restore(vsi);
++	}
+ 	i40e_service_event_schedule(pf);
+ 
+ 	return 0;
+@@ -5125,6 +5133,7 @@ int i40e_get_current_fd_count(struct i40e_pf *pf)
+ 		      I40E_PFQF_FDSTAT_BEST_CNT_SHIFT);
+ 	return fcnt_prog;
+ }
++
+ /**
+  * i40e_fdir_check_and_reenable - Function to reenabe FD ATR or SB if disabled
+  * @pf: board private structure
+@@ -5133,15 +5142,17 @@ void i40e_fdir_check_and_reenable(struct i40e_pf *pf)
  {
- 	struct i40e_aq_desc *aq_desc = (struct i40e_aq_desc *)desc;
-+	u16 len = le16_to_cpu(aq_desc->datalen);
- 	u8 *aq_buffer = (u8 *)buffer;
- 	u32 data[4];
- 	u32 i = 0;
-@@ -105,7 +107,9 @@ void i40e_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
- 	if ((buffer != NULL) && (aq_desc->datalen != 0)) {
- 		memset(data, 0, sizeof(data));
- 		i40e_debug(hw, mask, "AQ CMD Buffer:\n");
--		for (i = 0; i < le16_to_cpu(aq_desc->datalen); i++) {
-+		if (buf_len < len)
-+			len = buf_len;
-+		for (i = 0; i < len; i++) {
- 			data[((i % 16) / 4)] |=
- 				((u32)aq_buffer[i]) << (8 * (i % 4));
- 			if ((i % 16) == 15) {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 949a9a0..0988b5c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -52,10 +52,8 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 				struct i40e_asq_cmd_details *cmd_details);
+ 	u32 fcnt_prog, fcnt_avail;
  
- /* debug function for adminq */
--void i40e_debug_aq(struct i40e_hw *hw,
--		   enum i40e_debug_mask mask,
--		   void *desc,
--		   void *buffer);
-+void i40e_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask,
-+		   void *desc, void *buffer, u16 buf_len);
++	if (test_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state))
++		return;
++
+ 	/* Check if, FD SB or ATR was auto disabled and if there is enough room
+ 	 * to re-enable
+ 	 */
+-	if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
+-	    (pf->flags & I40E_FLAG_FD_SB_ENABLED))
+-		return;
+ 	fcnt_prog = i40e_get_cur_guaranteed_fd_count(pf);
+ 	fcnt_avail = pf->fdir_pf_filter_count;
+-	if (fcnt_prog < (fcnt_avail - I40E_FDIR_BUFFER_HEAD_ROOM)) {
++	if ((fcnt_prog < (fcnt_avail - I40E_FDIR_BUFFER_HEAD_ROOM)) ||
++	    (pf->fd_add_err == 0) ||
++	    (i40e_get_current_atr_cnt(pf) < pf->fd_atr_cnt)) {
+ 		if ((pf->flags & I40E_FLAG_FD_SB_ENABLED) &&
+ 		    (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED)) {
+ 			pf->auto_disable_flags &= ~I40E_FLAG_FD_SB_ENABLED;
+@@ -5158,23 +5169,83 @@ void i40e_fdir_check_and_reenable(struct i40e_pf *pf)
+ 	}
+ }
  
- void i40e_idle_aq(struct i40e_hw *hw);
- bool i40e_check_asq_alive(struct i40e_hw *hw);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-index 0030060..f206be9 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-@@ -788,7 +788,8 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
- 
- 	/* bump the tail */
- 	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQTX: desc and buffer:\n");
--	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc_on_ring, buff);
-+	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc_on_ring,
-+			buff, buff_size);
- 	(hw->aq.asq.next_to_use)++;
- 	if (hw->aq.asq.next_to_use == hw->aq.asq.count)
- 		hw->aq.asq.next_to_use = 0;
-@@ -842,7 +843,8 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
- 
- 	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE,
- 		   "AQTX: desc and buffer writeback:\n");
--	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, buff);
-+	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, buff,
-+			buff_size);
- 
- 	/* update the error if time out occurred */
- 	if ((!cmd_completed) &&
-@@ -938,7 +940,8 @@ i40e_status i40evf_clean_arq_element(struct i40e_hw *hw,
- 		hw->aq.nvm_busy = false;
- 
- 	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQRX: desc and buffer:\n");
--	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, e->msg_buf);
-+	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, e->msg_buf,
-+			hw->aq.arq_buf_size);
- 
- 	/* Restore the original datalen and buffer address in the desc,
- 	 * FW updates datalen to indicate the event message
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-index 4ea90bf..9525605 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-@@ -75,13 +75,15 @@ i40e_status i40e_set_mac_type(struct i40e_hw *hw)
-  * @mask: debug mask
-  * @desc: pointer to admin queue descriptor
-  * @buffer: pointer to command buffer
-+ * @buf_len: max length of buffer
-  *
-  * Dumps debug log about adminq command with descriptor contents.
++#define I40E_MIN_FD_FLUSH_INTERVAL 10
++/**
++ * i40e_fdir_flush_and_replay - Function to flush all FD filters and replay SB
++ * @pf: board private structure
++ **/
++static void i40e_fdir_flush_and_replay(struct i40e_pf *pf)
++{
++	int flush_wait_retry = 50;
++	int reg;
++
++	if (time_after(jiffies, pf->fd_flush_timestamp +
++				(I40E_MIN_FD_FLUSH_INTERVAL * HZ))) {
++		set_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state);
++		pf->fd_flush_timestamp = jiffies;
++		pf->auto_disable_flags |= I40E_FLAG_FD_SB_ENABLED;
++		pf->flags &= ~I40E_FLAG_FD_ATR_ENABLED;
++		/* flush all filters */
++		wr32(&pf->hw, I40E_PFQF_CTL_1,
++		     I40E_PFQF_CTL_1_CLEARFDTABLE_MASK);
++		i40e_flush(&pf->hw);
++		pf->fd_add_err = 0;
++		do {
++			/* Check FD flush status every 5-6msec */
++			usleep_range(5000, 6000);
++			reg = rd32(&pf->hw, I40E_PFQF_CTL_1);
++			if (!(reg & I40E_PFQF_CTL_1_CLEARFDTABLE_MASK))
++				break;
++		} while (flush_wait_retry--);
++		if (reg & I40E_PFQF_CTL_1_CLEARFDTABLE_MASK) {
++			dev_warn(&pf->pdev->dev, "FD table did not flush, needs more time\n");
++		} else {
++			/* replay sideband filters */
++			i40e_fdir_filter_restore(pf->vsi[pf->lan_vsi]);
++
++			pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
++			pf->auto_disable_flags &= ~I40E_FLAG_FD_ATR_ENABLED;
++			pf->auto_disable_flags &= ~I40E_FLAG_FD_SB_ENABLED;
++			clear_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state);
++			dev_info(&pf->pdev->dev, "FD Filter table flushed and FD-SB replayed.\n");
++		}
++	}
++}
++
++/**
++ * i40e_get_current_atr_count - Get the count of total FD ATR filters programmed
++ * @pf: board private structure
++ **/
++int i40e_get_current_atr_cnt(struct i40e_pf *pf)
++{
++	return i40e_get_current_fd_count(pf) - pf->fdir_pf_active_filters;
++}
++
++/* We can see up to 256 filter programming desc in transit if the filters are
++ * being applied really fast; before we see the first
++ * filter miss error on Rx queue 0. Accumulating enough error messages before
++ * reacting will make sure we don't cause flush too often.
++ */
++#define I40E_MAX_FD_PROGRAM_ERROR 256
++
+ /**
+  * i40e_fdir_reinit_subtask - Worker thread to reinit FDIR filter table
+  * @pf: board private structure
   **/
- void i40evf_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
--		   void *buffer)
-+		   void *buffer, u16 buf_len)
+ static void i40e_fdir_reinit_subtask(struct i40e_pf *pf)
  {
- 	struct i40e_aq_desc *aq_desc = (struct i40e_aq_desc *)desc;
-+	u16 len = le16_to_cpu(aq_desc->datalen);
- 	u8 *aq_buffer = (u8 *)buffer;
- 	u32 data[4];
- 	u32 i = 0;
-@@ -105,7 +107,9 @@ void i40evf_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
- 	if ((buffer != NULL) && (aq_desc->datalen != 0)) {
- 		memset(data, 0, sizeof(data));
- 		i40e_debug(hw, mask, "AQ CMD Buffer:\n");
--		for (i = 0; i < le16_to_cpu(aq_desc->datalen); i++) {
-+		if (buf_len < len)
-+			len = buf_len;
-+		for (i = 0; i < len; i++) {
- 			data[((i % 16) / 4)] |=
- 				((u32)aq_buffer[i]) << (8 * (i % 4));
- 			if ((i % 16) == 15) {
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
-index 849edcc..9173834 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
-@@ -53,10 +53,8 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
- bool i40evf_asq_done(struct i40e_hw *hw);
+-	if (!(pf->flags & I40E_FLAG_FDIR_REQUIRES_REINIT))
+-		return;
  
- /* debug function for adminq */
--void i40evf_debug_aq(struct i40e_hw *hw,
--		   enum i40e_debug_mask mask,
--		   void *desc,
--		   void *buffer);
-+void i40evf_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask,
-+		     void *desc, void *buffer, u16 buf_len);
+ 	/* if interface is down do nothing */
+ 	if (test_bit(__I40E_DOWN, &pf->state))
+ 		return;
++
++	if ((pf->fd_add_err >= I40E_MAX_FD_PROGRAM_ERROR) &&
++	    (i40e_get_current_atr_cnt(pf) >= pf->fd_atr_cnt) &&
++	    (i40e_get_current_atr_cnt(pf) > pf->fdir_pf_filter_count))
++		i40e_fdir_flush_and_replay(pf);
++
+ 	i40e_fdir_check_and_reenable(pf);
  
- void i40e_idle_aq(struct i40e_hw *hw);
- void i40evf_resume_aq(struct i40e_hw *hw);
+-	if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
+-	    (pf->flags & I40E_FLAG_FD_SB_ENABLED))
+-		pf->flags &= ~I40E_FLAG_FDIR_REQUIRES_REINIT;
+ }
+ 
+ /**
+@@ -7086,6 +7157,11 @@ bool i40e_set_ntuple(struct i40e_pf *pf, netdev_features_t features)
+ 		}
+ 		pf->flags &= ~I40E_FLAG_FD_SB_ENABLED;
+ 		pf->auto_disable_flags &= ~I40E_FLAG_FD_SB_ENABLED;
++		/* reset fd counters */
++		pf->fd_add_err = pf->fd_atr_cnt = pf->fd_tcp_rule = 0;
++		pf->fdir_pf_active_filters = 0;
++		pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
++		dev_info(&pf->pdev->dev, "ATR re-enabled.\n");
+ 		/* if ATR was auto disabled it can be re-enabled. */
+ 		if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
+ 		    (pf->auto_disable_flags & I40E_FLAG_FD_ATR_ENABLED))
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 267c0e6..366624a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -280,10 +280,18 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
+ 	tcp->source = fd_data->src_port;
+ 
+ 	if (add) {
++		pf->fd_tcp_rule++;
+ 		if (pf->flags & I40E_FLAG_FD_ATR_ENABLED) {
+ 			dev_info(&pf->pdev->dev, "Forcing ATR off, sideband rules for TCP/IPv4 flow being applied\n");
+ 			pf->flags &= ~I40E_FLAG_FD_ATR_ENABLED;
+ 		}
++	} else {
++		pf->fd_tcp_rule = (pf->fd_tcp_rule > 0) ?
++				  (pf->fd_tcp_rule - 1) : 0;
++		if (pf->fd_tcp_rule == 0) {
++			pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
++			dev_info(&pf->pdev->dev, "ATR re-enabled due to no sideband TCP/IPv4 rules\n");
++		}
+ 	}
+ 
+ 	fd_data->pctype = I40E_FILTER_PCTYPE_NONF_IPV4_TCP;
+@@ -462,6 +470,10 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
+ 			dev_warn(&pdev->dev, "ntuple filter loc = %d, could not be added\n",
+ 				 rx_desc->wb.qword0.hi_dword.fd_id);
+ 
++		pf->fd_add_err++;
++		/* store the current atr filter count */
++		pf->fd_atr_cnt = i40e_get_current_atr_cnt(pf);
++
+ 		/* filter programming failed most likely due to table full */
+ 		fcnt_prog = i40e_get_cur_guaranteed_fd_count(pf);
+ 		fcnt_avail = pf->fdir_pf_filter_count;
+@@ -470,21 +482,12 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
+ 		 * FD ATR/SB and then re-enable it when there is room.
+ 		 */
+ 		if (fcnt_prog >= (fcnt_avail - I40E_FDIR_BUFFER_FULL_MARGIN)) {
+-			/* Turn off ATR first */
+-			if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
++			if ((pf->flags & I40E_FLAG_FD_SB_ENABLED) &&
+ 			    !(pf->auto_disable_flags &
+-			      I40E_FLAG_FD_ATR_ENABLED)) {
+-				dev_warn(&pdev->dev, "FD filter space full, ATR for further flows will be turned off\n");
+-				pf->auto_disable_flags |=
+-						       I40E_FLAG_FD_ATR_ENABLED;
+-				pf->flags |= I40E_FLAG_FDIR_REQUIRES_REINIT;
+-			} else if ((pf->flags & I40E_FLAG_FD_SB_ENABLED) &&
+-				   !(pf->auto_disable_flags &
+ 				     I40E_FLAG_FD_SB_ENABLED)) {
+ 				dev_warn(&pdev->dev, "FD filter space full, new ntuple rules will not be added\n");
+ 				pf->auto_disable_flags |=
+ 							I40E_FLAG_FD_SB_ENABLED;
+-				pf->flags |= I40E_FLAG_FDIR_REQUIRES_REINIT;
+ 			}
+ 		} else {
+ 			dev_info(&pdev->dev,
 -- 
 1.9.3
