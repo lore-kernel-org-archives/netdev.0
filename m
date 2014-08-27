@@ -1,63 +1,65 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [GIT PULL nf] IPVS fixes for v3.17
-Date: Wed, 27 Aug 2014 15:15:14 +0900
-Message-ID: <1409120115-32053-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git)] stmmac: prevent false carrier sense detection
+Date: Wed, 27 Aug 2014 08:20:04 +0200
+Message-ID: <1409120404-20414-1-git-send-email-peppe.cavallaro@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:57539 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756572AbaH0GPY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 02:15:24 -0400
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:45703 "EHLO
+	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932740AbaH0GUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 02:20:11 -0400
+Received: from pps.filterd (m0046660.ppops.net [127.0.0.1])
+	by mx08-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id s7R6HuXm022997
+	for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 08:20:09 +0200
+Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
+	by mx08-00178001.pphosted.com with ESMTP id 1p152318nc-1
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 08:20:09 +0200
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 3369531
+	for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 06:19:57 +0000 (GMT)
+Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 527BD16B79
+	for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 06:20:07 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pablo,
+This patch is to w/a a problem that happens on some boxes when run at 10Mbps
+Half duplex mode.
 
-please consider this IPVS fix for v3.17.
+During the transmission the CSR signal is asserted for some time and the frames
+aborted because of carrier sense error.
+This is reported by MMC HW counter: txcarrier signal.
+This actually is a false carrier so the frames are good and there is no reason
+to ask for dropping them.
 
-It allows CHECKSUM_PARTIAL to work in conjunction with
-TCP/UDP csum offlad and the tunnel forwarding mechanism
-provided by IPVS.
+This patch so disables the Carrier Sense During Transmission
+and this means that the MAC transmitter ignore the CRS signal
+during frame transmission in Half-Duplex mode.
 
-I suspect that this problem has existed for as long
-has IPVS has been present in the kernel: some time before
-git epoch of the git history in Linus's tree.
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Acked-by: Vince Bridgers <vbridgers2013@gmail.com>
+Acked-by: Ley Foon Tan <lftan@altera.com>
+Acked-by: Chen-Yu Tsai <wens@csie.org>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-I would like this change considered for -stable.
-
-It appears to apply and build cleanly against v3.16.1 and v3.14.17.
-
-I can work on patches for older versions if you think it is appropriate.
-
-
-The following changes since commit d1c85c2ebe7ffe1f1b27846bd1ba0944c513d822:
-
-  netfilter: HAVE_JUMP_LABEL instead of CONFIG_JUMP_LABEL (2014-08-25 10:45:28 +0200)
-
-are available in the git repository at:
-
-  https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v3.17
-
-for you to fetch changes up to ea1d5d7755a3e556de78cc757d1895d5c7180548:
-
-  ipvs: properly declare tunnel encapsulation (2014-08-27 14:31:56 +0900)
-
-----------------------------------------------------------------
-Julian Anastasov (1):
-      ipvs: properly declare tunnel encapsulation
-
- net/netfilter/ipvs/ip_vs_xmit.c | 20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
-
-Julian Anastasov (1):
-  ipvs: properly declare tunnel encapsulation
-
- net/netfilter/ipvs/ip_vs_xmit.c | 20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+index 71b5419..64d8f56 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+@@ -153,7 +153,7 @@ enum inter_frame_gap {
+ #define GMAC_CONTROL_RE		0x00000004	/* Receiver Enable */
+ 
+ #define GMAC_CORE_INIT (GMAC_CONTROL_JD | GMAC_CONTROL_PS | GMAC_CONTROL_ACS | \
+-			GMAC_CONTROL_BE)
++			GMAC_CONTROL_BE | GMAC_CONTROL_DCRS)
+ 
+ /* GMAC Frame Filter defines */
+ #define GMAC_FRAME_FILTER_PR	0x00000001	/* Promiscuous Mode */
 -- 
-2.0.1
+1.7.4.4
