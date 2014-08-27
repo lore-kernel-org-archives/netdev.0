@@ -1,68 +1,34 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Sending undersized ARP packets with VXLAN L3 interface
-Date: Wed, 27 Aug 2014 11:16:02 -0700
-Message-ID: <53FE2062.8060907@hp.com>
-References: <CAMYYbY79hOVA5b22-gmLJTNQwprdfwa_QxKqveuwNhJMcXv9tA@mail.gmail.com> <CAHA+R7Ok6K_9U6RCZkSLCuVXtFG4Zs60FQKFZMu-v2yK581hog@mail.gmail.com> <53FE1AC3.5030409@gmail.com>
+From: Steven Stewart-Gallus <sstewartgallus00-QKvm5KDIoDa7M0a00MdBSQ@public.gmane.org>
+Subject: Re: [PATCH RFC v7 net-next 00/28] BPF syscall
+Date: Wed, 27 Aug 2014 18:24:42 +0000 (GMT)
+Message-ID: <fb54e7de5f38.53fe226a@langara.bc.ca>
+References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
+ <20140826.231155.421325307812864648.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Martin Rusko <martin.rusko@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t1383g.austin.hp.com ([15.217.136.92]:32582 "EHLO
-	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932413AbaH0SQP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 14:16:15 -0400
-Received: from g5t1627.atlanta.hp.com (g5t1627.atlanta.hp.com [15.192.137.10])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id 2B124ACB7
-	for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 18:16:15 +0000 (UTC)
-In-Reply-To: <53FE1AC3.5030409@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org,
+	brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-disposition: inline
+Content-language: en
+In-reply-to: <20140826.231155.421325307812864648.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/27/2014 10:52 AM, Vlad Yasevich wrote:
-> I think vxlan needs something like this:
->
-> From: Vladislav Yasevich <vyasevich@gmail.com>
-> Date: Wed, 27 Aug 2014 13:39:32 -0400
-> Subject: [PATCH] vxlan: Pad short ethernet frames.
->
-> If sending short ethernet frames from the vxlan device, pad
-> them to minimum size so they can be forwarded after decapsulation.
->
-> Reported-by: Martin Rusko <martin.rusko@gmail.com>
-> Signed-off-by: Vladislav Yasevich <vyasevich@gmail.com>
-> ---
->   drivers/net/vxlan.c | 8 ++++++++
->   1 file changed, 8 insertions(+)
->
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 1fb7b37..48267d4 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1939,6 +1939,14 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct
-> net_device *dev)
->   #endif
->   	}
->
-> +	/* Pad short frames so they can be forwarded after decapsulation */
-> +	if (skb->len < ETH_ZLEN) {
-> +		if (skb_pad(skb, ETH_ZLEN - skb->len))
-> +			return NETDEV_TX_OK;
-> +		skb->len = ETH_ZLEN;
-> +		skb_set_tail_pointer(skb, ETH_ZLEN);
-> +	}
-> +
->   	f = vxlan_find_mac(vxlan, eth->h_dest);
->   	did_rsc = false;
->
+> I'm personally not reviewing such a large patch series, sorry.
+> 
+> You need to submit smaller sets if you want to get reasonable
+> review of your changes and ideas.
 
-It is perhaps putting a stripe on the bikeshed, but should that be an 
-"unlikely" on the length check?  There seem to be examples both ways in 
-the handful of physical drivers I've checked.
+Hello. As well, this clogs up the mailing boxes of other people who
+have no interest in the patch set.
 
-rick jones
+Thank you,
+Steven Stewart-Gallus
