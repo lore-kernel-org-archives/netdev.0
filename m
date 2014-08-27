@@ -1,39 +1,33 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Sending undersized ARP packets with VXLAN L3 interface
-Date: Wed, 27 Aug 2014 10:28:56 -0700
-Message-ID: <CAHA+R7Ok6K_9U6RCZkSLCuVXtFG4Zs60FQKFZMu-v2yK581hog@mail.gmail.com>
-References: <CAMYYbY79hOVA5b22-gmLJTNQwprdfwa_QxKqveuwNhJMcXv9tA@mail.gmail.com>
+From: Christian Lamparter <chunkeey@googlemail.com>
+Subject: Re: [PATCH] carl9170: tx: Replace rcu_assign_pointer() with RCU_INIT_POINTER()
+Date: Wed, 27 Aug 2014 19:38:21 +0200
+Message-ID: <3330201.Gf1OWK6m5t@debian64>
+References: <20140827132730.GA31650@ada>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Martin Rusko <martin.rusko@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:34110 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933836AbaH0R25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 13:28:57 -0400
-Received: by mail-la0-f42.google.com with SMTP id pi18so301972lab.1
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 10:28:56 -0700 (PDT)
-In-Reply-To: <CAMYYbY79hOVA5b22-gmLJTNQwprdfwa_QxKqveuwNhJMcXv9tA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	paulmck@linux.vnet.ibm.com
+To: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140827132730.GA31650@ada>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 27, 2014 at 10:06 AM, Martin Rusko <martin.rusko@gmail.com> wrote:
->
-> I'm wondering, where is the proper place to fix this. Should
-> arp_create() function allocate skb big enough to produce ethernet
-> frame with at least minimum size? Or is it somewhere in NIC drivers
-> where small packets are padded with zeros?
+On Wednesday, August 27, 2014 04:27:30 PM Andreea-Cristina Bernat wrote:
+> According to RCU_INIT_POINTER()'s block comment 3.a, it can be used if
+> "3.   The referenced data structure has already been exposed to readers either
+> at compile time or via rcu_assign_pointer() -and-
+>  a.   You have not made -any- reader-visible changes to this structure since
+> then".
+> [...]
+> 
+> Signed-off-by: Andreea-Cristina Bernat <bernat.ada@gmail.com>
+Acked-by: Christian Lamparter <chunkeey@googlemail.com>
 
-Drivers do that, for example e1000:
+[OT: John, will "carl9170: Remove redundant protection check" make it 
+in the next round too?]
 
-        /* On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
-         * packets may get corrupted during padding by HW.
-         * To WA this issue, pad all small packets manually.
-         */
-        if (skb->len < ETH_ZLEN) {
-                if (skb_pad(skb, ETH_ZLEN - skb->len))
-                        return NETDEV_TX_OK;
-                skb->len = ETH_ZLEN;
-                skb_set_tail_pointer(skb, ETH_ZLEN);
-        }
+Regards
+Christian
