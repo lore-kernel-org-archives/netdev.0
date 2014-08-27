@@ -1,46 +1,119 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH RFC v7 net-next 00/28] BPF syscall
-Date: Wed, 27 Aug 2014 12:37:36 -0700
-Message-ID: <CAMEtUux5BRrBpqZzyxosTOxEvVVsURp83DTqxJwFDKRFUnvF7g@mail.gmail.com>
-References: <1409106582-10095-1-git-send-email-ast@plumgrid.com>
-	<CALCETrX2MzNxQ1ogt+Qx8iPjUe+z0gN6ZLwu9nAcZzTN+D+iYw@mail.gmail.com>
-	<CAMEtUuwYqJVUuZxPBKy57NonWF+X_5vkNx4uSEx_d=-xBka1Kg@mail.gmail.com>
-	<CALCETrWs9GRufGKxAoV628bh1f3HObkxNQuW3tYRt2rFwNAbxA@mail.gmail.com>
-	<CAMEtUuw1n1HzAeyKFj9=nGq7RKZq7TADS-6M_BkHbTsWJ_Gm-Q@mail.gmail.com>
-	<CALCETrXAfZJTsF2nPFw55rHkfbNXKQuF8Frnq3e1wHEoGxLM4w@mail.gmail.com>
-	<20140827121801.3bfd916e@urahara>
+From: Martin Rusko <martin.rusko@gmail.com>
+Subject: Re: Sending undersized ARP packets with VXLAN L3 interface
+Date: Wed, 27 Aug 2014 22:01:36 +0200
+Message-ID: <CAMYYbY4KHTkkv6peT14S8mCzcQJ8wROnHWj5tMy563H-w79KMg@mail.gmail.com>
+References: <CAMYYbY79hOVA5b22-gmLJTNQwprdfwa_QxKqveuwNhJMcXv9tA@mail.gmail.com>
+	<CAHA+R7Ok6K_9U6RCZkSLCuVXtFG4Zs60FQKFZMu-v2yK581hog@mail.gmail.com>
+	<53FE1AC3.5030409@gmail.com>
+	<20140827114209.3a9d3761@urahara>
+	<53FE2738.30702@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140827121801.3bfd916e@urahara>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Cong Wang <cwang@twopensource.com>,
+	netdev <netdev@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f181.google.com ([209.85.220.181]:65530 "EHLO
+	mail-vc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964967AbaH0UBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 16:01:37 -0400
+Received: by mail-vc0-f181.google.com with SMTP id lf12so182747vcb.26
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 13:01:36 -0700 (PDT)
+In-Reply-To: <53FE2738.30702@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 27, 2014 at 12:18 PM, Stephen Hemminger
-<stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org> wrote:
-> Something in man page format similar to FreeBSD man page:
->  http://www.freebsd.org/cgi/man.cgi?bpf(4)
+On Wed, Aug 27, 2014 at 8:45 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
+> On 08/27/2014 02:42 PM, Stephen Hemminger wrote:
+>> On Wed, 27 Aug 2014 13:52:03 -0400
+>> Vlad Yasevich <vyasevich@gmail.com> wrote:
+>>
+>>> On 08/27/2014 01:28 PM, Cong Wang wrote:
+>>>> On Wed, Aug 27, 2014 at 10:06 AM, Martin Rusko <martin.rusko@gmail.com> wrote:
+>>>>>
+>>>>> I'm wondering, where is the proper place to fix this. Should
+>>>>> arp_create() function allocate skb big enough to produce ethernet
+>>>>> frame with at least minimum size? Or is it somewhere in NIC drivers
+>>>>> where small packets are padded with zeros?
+>>>>
+>>>> Drivers do that, for example e1000:
+>>>>
+>>>>         /* On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
+>>>>          * packets may get corrupted during padding by HW.
+>>>>          * To WA this issue, pad all small packets manually.
+>>>>          */
+>>>>         if (skb->len < ETH_ZLEN) {
+>>>>                 if (skb_pad(skb, ETH_ZLEN - skb->len))
+>>>>                         return NETDEV_TX_OK;
+>>>>                 skb->len = ETH_ZLEN;
+>>>>                 skb_set_tail_pointer(skb, ETH_ZLEN);
+>>>>         }
+>>>
+>>>
+>>> I think vxlan needs something like this:
+>>>
+>>> From: Vladislav Yasevich <vyasevich@gmail.com>
+>>> Date: Wed, 27 Aug 2014 13:39:32 -0400
+>>> Subject: [PATCH] vxlan: Pad short ethernet frames.
+>>>
+>>> If sending short ethernet frames from the vxlan device, pad
+>>> them to minimum size so they can be forwarded after decapsulation.
+>>>
+>>> Reported-by: Martin Rusko <martin.rusko@gmail.com>
+>>> Signed-off-by: Vladislav Yasevich <vyasevich@gmail.com>
+>>> ---
+>>>  drivers/net/vxlan.c | 8 ++++++++
+>>>  1 file changed, 8 insertions(+)
+>>>
+>>> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+>>> index 1fb7b37..48267d4 100644
+>>> --- a/drivers/net/vxlan.c
+>>> +++ b/drivers/net/vxlan.c
+>>> @@ -1939,6 +1939,14 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct
+>>> net_device *dev)
+>>>  #endif
+>>>      }
+>>>
+>>> +    /* Pad short frames so they can be forwarded after decapsulation */
+>>> +    if (skb->len < ETH_ZLEN) {
+>>> +            if (skb_pad(skb, ETH_ZLEN - skb->len))
+>>> +                    return NETDEV_TX_OK;
+>>> +            skb->len = ETH_ZLEN;
+>>> +            skb_set_tail_pointer(skb, ETH_ZLEN);
+>>> +    }
+>>> +
+>>>      f = vxlan_find_mac(vxlan, eth->h_dest);
+>>>      did_rsc = false;
+>>>
+>>
+>> No. The short frame is perfectly valid, over the VXLAN.
+>> The system doing the decap and forwarding should be where any padding is added if necessary.
+>>
+
+Well, RFC 7348 is not dealing with padding at all. Both deployment
+scenarios listed in RFC, as well as most of the existing real life
+deployments today (in my opinion) use VXLAN for bridged traffic. In
+other words, frame encapsulated by VTEP is received first over some
+ethernet interface (physical or virtual) which implies that the frame
+is at least 64 bytes long already.
+
+Perhaps we're going to see more VXLAN interfaces in L3 mode, yet it
+might be safer not to count on receiving VTEP doing the right thing
+(pad small packets with zeros).
+
 >
-> would be more readable and reviewable.
+> If that's the case, then Martin is most likely seeing a HW bug on the switch.
+> I wonder how common such a bug might be?
+>
+> -vlad
+>
 
-Ok. will chop it into smallest diff possible and will add a doc
-for syscall only. I guess the problem is that we have too many
-docs now that talk about everything.
+I see this on Vmware distributed virtual switch. Perhaps soon I will
+be able to test it against HP 5930 switch. I'm going to try how Linux
+bridge copes with it, now.
+
+Many thanks for the patch anyway!
+
+Regards,
+Martin
