@@ -1,42 +1,102 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] net: ipv4: drop unicast encapsulated in L2 multicast
-Date: Wed, 27 Aug 2014 11:13:12 +0200
-Message-ID: <1409130792.2505.5.camel@jlt4.sipsolutions.net>
-References: <1408641747-22199-1-git-send-email-johannes@sipsolutions.net>
-	 <alpine.LFD.2.11.1408212119510.1896@ja.home.ssi.bg>
-	 <20140822.105405.1982870131653082781.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/11] i40e: set num_queue_pairs to num configured by VF
+Date: Wed, 27 Aug 2014 02:26:41 -0700
+Message-ID: <1409131606-15011-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Ashish Shah <ashish.n.shah@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:44595 "EHLO sipsolutions.net"
+Received: from mga01.intel.com ([192.55.52.88]:64375 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754967AbaH0JNU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Aug 2014 05:13:20 -0400
-In-Reply-To: <20140822.105405.1982870131653082781.davem@davemloft.net>
+	id S932180AbaH0J0x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Aug 2014 05:26:53 -0400
+In-Reply-To: <1409131606-15011-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-08-22 at 10:54 -0700, David Miller wrote:
+From: Ashish Shah <ashish.n.shah@intel.com>
 
-> > 	Is this place better, after checking for RTN_BROADCAST?
-> > 
-> > 	/* ARP link-layer broadcasts are acceptable here */
-> > 	if ((skb->pkt_type == PACKET_BROADCAST ||
-> > 	     skb->pkt_type == PACKET_MULTICAST) &&
-> > 	    skb->protocol == htons(ETH_P_IP))
-> > 		goto e_inval;
-> 
-> Indeed, this would make ARP happier, but that still leaves open the
-> issue of CLUSTERIP.
+Change vsi->num_queue_pairs to equal the number that are configured
+by the VF. This, in turn, limits the number of queues that are
+enable/disabled. This fixes the mismatched case for when a VF configures
+fewer queues than is allocated to it by the PF.
 
-Unfortunately, I have no idea how to determine that CLUSTERIP is active
-here? Do we need to tag frames, or would a sysctl work?
+Change other sections to use alloc_queue_pairs as warranted.
 
-Or should we go back to the drawing board and not make this change in
-the IP stack at all? But parsing all the IP layer in the wireless stack
-is really quite ugly as well.
+Change-ID: I0de1b55c9084e7be6acc818da8569f12128a82c2
+Signed-off-by: Ashish Shah <ashish.n.shah@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
-johannes
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 0309bf8..da0f005 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -73,7 +73,7 @@ static inline bool i40e_vc_isvalid_queue_id(struct i40e_vf *vf, u8 vsi_id,
+ {
+ 	struct i40e_pf *pf = vf->pf;
+ 
+-	return qid < pf->vsi[vsi_id]->num_queue_pairs;
++	return qid < pf->vsi[vsi_id]->alloc_queue_pairs;
+ }
+ 
+ /**
+@@ -469,7 +469,7 @@ static void i40e_enable_vf_mappings(struct i40e_vf *vf)
+ 	wr32(hw, I40E_VPLAN_MAPENA(vf->vf_id), reg);
+ 
+ 	/* map PF queues to VF queues */
+-	for (j = 0; j < pf->vsi[vf->lan_vsi_index]->num_queue_pairs; j++) {
++	for (j = 0; j < pf->vsi[vf->lan_vsi_index]->alloc_queue_pairs; j++) {
+ 		u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index, j);
+ 		reg = (qid & I40E_VPLAN_QTABLE_QINDEX_MASK);
+ 		wr32(hw, I40E_VPLAN_QTABLE(total_queue_pairs, vf->vf_id), reg);
+@@ -478,7 +478,7 @@ static void i40e_enable_vf_mappings(struct i40e_vf *vf)
+ 
+ 	/* map PF queues to VSI */
+ 	for (j = 0; j < 7; j++) {
+-		if (j * 2 >= pf->vsi[vf->lan_vsi_index]->num_queue_pairs) {
++		if (j * 2 >= pf->vsi[vf->lan_vsi_index]->alloc_queue_pairs) {
+ 			reg = 0x07FF07FF;	/* unused */
+ 		} else {
+ 			u16 qid = i40e_vc_get_pf_queue_id(vf, vf->lan_vsi_index,
+@@ -585,7 +585,7 @@ static int i40e_alloc_vf_res(struct i40e_vf *vf)
+ 	ret = i40e_alloc_vsi_res(vf, I40E_VSI_SRIOV);
+ 	if (ret)
+ 		goto error_alloc;
+-	total_queue_pairs += pf->vsi[vf->lan_vsi_index]->num_queue_pairs;
++	total_queue_pairs += pf->vsi[vf->lan_vsi_index]->alloc_queue_pairs;
+ 	set_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps);
+ 
+ 	/* store the total qps number for the runtime
+@@ -1124,7 +1124,7 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf)
+ 		vfres->vsi_res[i].vsi_id = vf->lan_vsi_index;
+ 		vfres->vsi_res[i].vsi_type = I40E_VSI_SRIOV;
+ 		vfres->vsi_res[i].num_queue_pairs =
+-		    pf->vsi[vf->lan_vsi_index]->num_queue_pairs;
++		    pf->vsi[vf->lan_vsi_index]->alloc_queue_pairs;
+ 		memcpy(vfres->vsi_res[i].default_mac_addr,
+ 		       vf->default_lan_addr.addr, ETH_ALEN);
+ 		i++;
+@@ -1210,6 +1210,7 @@ static int i40e_vc_config_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 	struct i40e_virtchnl_vsi_queue_config_info *qci =
+ 	    (struct i40e_virtchnl_vsi_queue_config_info *)msg;
+ 	struct i40e_virtchnl_queue_pair_info *qpi;
++	struct i40e_pf *pf = vf->pf;
+ 	u16 vsi_id, vsi_queue_id;
+ 	i40e_status aq_ret = 0;
+ 	int i;
+@@ -1243,6 +1244,8 @@ static int i40e_vc_config_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 			goto error_param;
+ 		}
+ 	}
++	/* set vsi num_queue_pairs in use to num configured by vf */
++	pf->vsi[vf->lan_vsi_index]->num_queue_pairs = qci->num_queue_pairs;
+ 
+ error_param:
+ 	/* send the response to the vf */
+-- 
+1.9.3
