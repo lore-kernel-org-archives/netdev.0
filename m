@@ -1,120 +1,111 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 0/2] Get rid of ndo_xmit_flush
-Date: Thu, 28 Aug 2014 03:42:54 +0200
-Message-ID: <1409190174.27664.10.camel@localhost>
-References: <20140825.163458.1117073971092495452.davem@davemloft.net>
-	 <1409142672.26515.24.camel@localhost>
-	 <20140827.134510.2172564669938048576.davem@davemloft.net>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next v2] lib/rhashtable: allow users to set the minimum shifts of shrinking
+Date: Thu, 28 Aug 2014 09:45:24 +0800
+Message-ID: <1409190324-27828-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, jhs@mojatatu.com,
-	edumazet@google.com, jeffrey.t.kirsher@intel.com,
-	rusty@rustcorp.com.au, dborkman@redhat.com, brouer@redhat.com,
-	John Fastabend <john.r.fastabend@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
+	<netdev@vger.kernel.org>
+To: <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:55043 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932384AbaH1Bm5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 21:42:57 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 349802084D
-	for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 21:42:57 -0400 (EDT)
-In-Reply-To: <20140827.134510.2172564669938048576.davem@davemloft.net>
+Received: from mail1.windriver.com ([147.11.146.13]:35914 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932384AbaH1Bp5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 21:45:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Now the resizeable hash table size is allowed to shrink a too smaller
+size - HASH_MIN_SIZE(4) although users initially specify a rather big
+size when table is created. Especially when the number of objects
+saved in the table keeps a small value in comparison with the initial
+setting of table size during a quite long time, lots of actions of
+expanding and shrinking are involved with objects being inserted or
+removed from table. However, as synchronize_rcu() has to be called
+during expanding and shrinking, these unnecessary actions would
+seriously hit users' performance.
 
-On Mi, 2014-08-27 at 13:45 -0700, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Wed, 27 Aug 2014 14:31:12 +0200
-> 
-> > On Mo, 2014-08-25 at 16:34 -0700, David Miller wrote:
-> >> Given Jesper's performance numbers, it's not the way to go.
-> >> 
-> >> Instead, go with a signalling scheme via new boolean skb->xmit_more.
-> >> 
-> >> This has several advantages:
-> >> 
-> >> 1) Nearly trivial driver support, just protect the tail pointer
-> >>    update with the skb->xmit_more check.
-> > 
-> > One thing one should keep in mind is, that there must be a skb available
-> > to trigger the flush, maybe this will hurt us one day.
-> > 
-> > Thinking more about it should we go with a coccinelle script and
-> > replace/extend ndo_start_xmit with an additional argument?
-> > 
-> > We can also add a new function pointer and call that instead of
-> > ndo_start_xmit. I think only the callq *%rax hurts performance.
-> 
-> I don't think we will have any problems here, the caller will always
-> be the entity which analyzes the upcoming set of SKBs to submit and
-> tag them properly.
-> 
-> I really do not want to add a new OP and I even more so do not want to
-> adjust the ndo_start_xmit() signature.  It's effect is far reaching,
-> and for absolutely no gain as far as I can see.
-> 
-> Thanks.
+Therefore, we should permit users to set the minimum table size
+through configuring the minimum of number of shifts when table is
+created according to users specific requirement.
 
-Just brainstorming a bit:
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+v2: Translate HASH_MIN_SIZE to .min_shift in rhashtable_init() by
+Thomas's suggestion.
 
-I wonder if we still might need a separate call for tx_flush, e.g. for
-af_packet if one wants to allow user space control of batching, MSG_MORE
-with tx hangcheck (also in case user space has control over it) or
-implement TCP_CORK alike option in af_packet. Even in the case we
-someday might allow concurrent dequeueing from a qdisc we might want to
-use xmit_more opportunistic (also user space might use xmit_more
-opportunistic if dequeueing from lockless data structures). I just want
-to ensure we thought about possible reuses of this driver api change. ;)
+ include/linux/rhashtable.h |    2 ++
+ lib/rhashtable.c           |   15 +++++++++++----
+ 2 files changed, 13 insertions(+), 4 deletions(-)
 
-To do so just some proposals:
-
-1) export tx_flush function nonetheless but normal/fast path just depends on
-skb->xmit_more (so driver just does a static call to the flushing
-function, no indirection here). We would keep the ndo_op for flushing
-around, but ndo_start_xmit must still honor xmit_more by itself.
-af_packet sockets could then flush the queues separately if wanted. Also if
-ndo_op != NULL we know that driver supports batching.
-
-2) add new op like ndo_start_xmit_flags op with an additional flags
-parameter and document that NULL skbs can happen. In this case tx-queue
-should only get flushed. By checking for the new method we also know
-that the driver supports batching.
-
-3) provide special skb (only head) with no data to ndo_start_xmit which
-only clears the queue but prepare drivers to not enqueue any new data.
-I am concerned that if user space can control batching to the NIC we can
-have side-effects if user space did not flush the queue of the nic
-before and we dequeue more packets from qdisc into the same nic's tx
-queue.
-
-
-Allowing user space control over batching might make the conversion of
-drivers more painful, as driver might have to check for "dirtiness"
-before it tries to enqueue the packet internally. (To track queueing
-state of nic we also must track the state globally per queue which might
-also become a performance problem cache trashing wise, I am unsure about
-that; at least seems not to be the case with bql. My idea was a tx-queue
-dirty bit somewhere, or check bql state before submitting skb. But maybe
-one has to extend bql to keep track of unflushed vs. flushed skbs to
-make this safe.)
-
-If queuing failed because of missing tx_flush we either have to requeue
-the skb to the qdisc or do a fast retry, but I don't think that NICs
-will catch up that fast, no? Or can we just blame user space
-applications that they are wrong if they use xmit_more irresponsible?
-
-I liked the separate ndo ops approach because it seemed so very well
-extendable to me. :/
-
-I know that these concerns a bit messy but wanted to share them
-nonetheless. Maybe they are all void in the end. ;)
-
-Also maybe these concerns can get solved by the addition of future
-AF_PACKETV4 ndo ops and we can just postpone this discussion.
-
-Bye,
-Hannes
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index 36826c0..fb298e9d 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -44,6 +44,7 @@ struct rhashtable;
+  * @head_offset: Offset of rhash_head in struct to be hashed
+  * @hash_rnd: Seed to use while hashing
+  * @max_shift: Maximum number of shifts while expanding
++ * @min_shift: Minimum number of shifts while shrinking
+  * @hashfn: Function to hash key
+  * @obj_hashfn: Function to hash object
+  * @grow_decision: If defined, may return true if table should expand
+@@ -57,6 +58,7 @@ struct rhashtable_params {
+ 	size_t			head_offset;
+ 	u32			hash_rnd;
+ 	size_t			max_shift;
++	size_t			min_shift;
+ 	rht_hashfn_t		hashfn;
+ 	rht_obj_hashfn_t	obj_hashfn;
+ 	bool			(*grow_decision)(const struct rhashtable *ht,
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index a2c7881..85a4ac2 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -298,7 +298,7 @@ int rhashtable_shrink(struct rhashtable *ht, gfp_t flags)
+ 
+ 	ASSERT_RHT_MUTEX(ht);
+ 
+-	if (tbl->size <= HASH_MIN_SIZE)
++	if (ht->shift <= ht->p.min_shift)
+ 		return 0;
+ 
+ 	ntbl = bucket_table_alloc(tbl->size / 2, flags);
+@@ -506,9 +506,10 @@ void *rhashtable_lookup_compare(const struct rhashtable *ht, u32 hash,
+ }
+ EXPORT_SYMBOL_GPL(rhashtable_lookup_compare);
+ 
+-static size_t rounded_hashtable_size(unsigned int nelem)
++static size_t rounded_hashtable_size(struct rhashtable_params *params)
+ {
+-	return max(roundup_pow_of_two(nelem * 4 / 3), HASH_MIN_SIZE);
++	return max(roundup_pow_of_two(params->nelem_hint * 4 / 3),
++		   1UL << params->min_shift);
+ }
+ 
+ /**
+@@ -557,6 +558,7 @@ static size_t rounded_hashtable_size(unsigned int nelem)
+  */
+ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+ {
++	size_t min_shift = ilog2(HASH_MIN_SIZE);
+ 	struct bucket_table *tbl;
+ 	size_t size;
+ 
+@@ -566,8 +568,13 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+ 	    (!params->key_len && !params->obj_hashfn))
+ 		return -EINVAL;
+ 
++	if (params->min_shift)
++		params->min_shift = max(params->min_shift, min_shift);
++	else
++		params->min_shift = min_shift;
++
+ 	if (params->nelem_hint)
+-		size = rounded_hashtable_size(params->nelem_hint);
++		size = rounded_hashtable_size(params);
+ 
+ 	tbl = bucket_table_alloc(size, GFP_KERNEL);
+ 	if (tbl == NULL)
+-- 
+1.7.9.5
