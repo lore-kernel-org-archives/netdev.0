@@ -1,39 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] ixgbe: flush when in xmit_more mode and
- under descriptor pressure
-Date: Wed, 27 Aug 2014 23:18:14 -0700 (PDT)
-Message-ID: <20140827.231814.2270210172570593864.davem@davemloft.net>
-References: <1409074458-17989-1-git-send-email-dborkman@redhat.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH v2 net-next 4/9] sctp: Change sctp to implement csum_levels
+Date: Wed, 27 Aug 2014 21:27:06 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1408272109250.32129@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
-To: dborkman@redhat.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45346 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751235AbaH1GSP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 02:18:15 -0400
-In-Reply-To: <1409074458-17989-1-git-send-email-dborkman@redhat.com>
+Received: from mail-vc0-f202.google.com ([209.85.220.202]:43960 "EHLO
+	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754872AbaH1Gfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 02:35:54 -0400
+Received: by mail-vc0-f202.google.com with SMTP id id10so84709vcb.3
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 23:35:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue, 26 Aug 2014 19:34:18 +0200
+CHECKSUM_UNNECESSARY may be applied to the SCTP CRC so we need to
+appropriate account for this by decrementing csum_level. This is
+done by calling __skb_dec_checksum_unnecessary.
 
-> When xmit_more mode is being used and the ring is about to
-> become full or the stack has stopped the ring, enforce a tail
-> pointer write to the hw. Otherwise, we could risk a TX hang.
-> 
-> Code suggested by Alexander Duyck.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  v1->v2:
->   - Worked in Alex' feedback; in accordance w/ Alex, sending out v2
->   - Rerun tests, looks good
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ net/sctp/input.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-Applied, thanks Daniel.
-
-I'll make similar mods to igb and vhost_net soon.
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index c1b9912..b6493b3 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -133,9 +133,13 @@ int sctp_rcv(struct sk_buff *skb)
+ 	__skb_pull(skb, skb_transport_offset(skb));
+ 	if (skb->len < sizeof(struct sctphdr))
+ 		goto discard_it;
+-	if (!sctp_checksum_disable && !skb_csum_unnecessary(skb) &&
+-		  sctp_rcv_checksum(net, skb) < 0)
++
++	skb->csum_valid = 0; /* Previous value not applicable */
++	if (skb_csum_unnecessary(skb))
++		__skb_decr_checksum_unnecessary(skb);
++	else if (!sctp_checksum_disable && sctp_rcv_checksum(net, skb) < 0)
+ 		goto discard_it;
++	skb->csum_valid = 1;
+ 
+ 	skb_pull(skb, sizeof(struct sctphdr));
+ 
+-- 
+2.1.0.rc2.206.gedb03e5
