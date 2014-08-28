@@ -1,46 +1,105 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v4 01/13] net: dsa: reduce number of protocol
- hooks
-Date: Wed, 27 Aug 2014 16:43:41 -0700
-Message-ID: <53FE6D2D.4060708@gmail.com>
-References: <1409028581-17399-1-git-send-email-f.fainelli@gmail.com>	<1409028581-17399-2-git-send-email-f.fainelli@gmail.com>	<53FDF879.1000504@intel.com> <20140827.162458.878869941352643208.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linville@tuxdriver.com, jhs@mojatatu.com,
-	alexander.duyck@gmail.com
-To: David Miller <davem@davemloft.net>, alexander.h.duyck@intel.com
+Subject: [PATCH net-next v5 00/13] dsa: Broadcom Starfighter 2 switch support
+Date: Wed, 27 Aug 2014 17:04:45 -0700
+Message-ID: <1409184298-1793-1-git-send-email-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
+	linville@tuxdriver.com, jhs@mojatatu.com, alexander.duyck@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:57671 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965555AbaH0XoN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 19:44:13 -0400
-Received: by mail-pa0-f44.google.com with SMTP id rd3so61102pab.3
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 16:44:13 -0700 (PDT)
-In-Reply-To: <20140827.162458.878869941352643208.davem@davemloft.net>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:48491 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964973AbaH1AFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 20:05:32 -0400
+Received: by mail-pa0-f54.google.com with SMTP id fb1so104768pad.27
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 17:05:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/27/2014 04:24 PM, David Miller wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> Date: Wed, 27 Aug 2014 08:25:45 -0700
-> 
->> Just a thought, you might want to consider using a protocol value other
->> than ETH_P_DSA.  Maybe we should add a new value named ETH_P_XDSA for
->> this approach since what we are doing is a multiplexed DSA protocol now.
->>
->> This would allow for much easier back-porting of this if needed and also
->> prevents us from possibly triggering any issues if there are any
->> user-space APIs that might be trying to capture packets based on the
->> protocol value.
-> 
-> Agreed, Florian can you respin this patch set using a newly allocated
-> ETH_P_* value for these new semantics?
+Hi all,
 
-Absolutely. While at it, I just realized that ETH_P_BRCMTAG should
-probably remain within include/net/dsa.h. We don't want that to be
-exported to user-space since it is used for internal DSA de-multiplexing.
+This patch series adds support for the Broadcom Starfighter 2 (Roboswitch
+successor) using the existing DSA infrastructure. This integrated switch
+is heavily used in Set Top Box, Cable gateways and DSL gateways products
+from Broadcom, and to a larger extent the new ARM-based Wi-Fi routers although
+slightly differently.
 
-Stay tuned!
---
-Florian
+Changes in v5 are the introduction of ETH_P_XDSA as suggested by Alexander to
+help capture applications see this is a multiplexed DSA approach now.
+
+Changes in v4 are the introducing of an indirection level for DSA switch tag
+protocols receive and transmit functions.
+
+I intentionnaly did not address one comment from Alexander who suggested to
+move port_names and port_dn in a separate structure since that involves
+touching arch/arm/ and arch/blackfin/ code which I am not yet comfortable
+doing.
+
+Notable changes in v3 is the preliminary patch that reworks the skb->protocol
+override helpers for non-Ethertype switch tags, based on feedback from
+Alexander Duyck.
+
+The biggest changes from v1 of this patch series are:
+
+- use the new fixed PHY helpers
+- improved the switch driver with more complete features (interrupts,
+  (RG)MII configuration, memory arrays power down/up, port disabling/enable
+  VLAN separation
+
+Future work will focus on bringing the upstream driver in feature parity with
+the current downstream driver, including:
+
+- adding Wake-on-LAN support to the switch
+- adding suspend/resume callbacks for S2/S3 Power Management modes
+- extending the switch register interface to cover BCM5310X SoCs
+
+Florian Fainelli (13):
+  net: dsa: reduce number of protocol hooks
+  net: phy: add generic UniMAC MDIO bus driver
+  net: phy: provide stub for fixed_phy_set_link_update
+  net: dsa: provide a switch device device tree node pointer
+  net: dsa: retain a per-port device_node pointer
+  net: dsa: allow for more complex PHY setups
+  net: dsa: allow switches to work without tagging
+  net: dsa: allow drivers to do link adjustment
+  net: dsa: allow updating fixed PHY link information
+  net: dsa: add Broadcom tag RX/TX handler
+  net: dsa: add Broadcom SF2 switch driver
+  Documentation: devicetree: update dsa binding with optional properties
+  Documentation: devicetree: add Broadcom Starfighter 2 binding
+
+ .../bindings/net/broadcom-mdio-unimac.txt          |  39 ++
+ .../devicetree/bindings/net/broadcom-sf2.txt       |  78 +++
+ Documentation/devicetree/bindings/net/dsa/dsa.txt  |  17 +
+ drivers/net/dsa/Kconfig                            |  11 +
+ drivers/net/dsa/Makefile                           |   1 +
+ drivers/net/dsa/bcm_sf2.c                          | 626 +++++++++++++++++++++
+ drivers/net/dsa/bcm_sf2.h                          | 140 +++++
+ drivers/net/dsa/bcm_sf2_regs.h                     | 227 ++++++++
+ drivers/net/phy/Kconfig                            |   8 +
+ drivers/net/phy/Makefile                           |   1 +
+ drivers/net/phy/mdio-bcm-unimac.c                  | 212 +++++++
+ include/linux/netdevice.h                          |  26 +-
+ include/linux/phy_fixed.h                          |  17 +-
+ include/net/dsa.h                                  |  43 +-
+ include/uapi/linux/if_ether.h                      |   1 +
+ net/dsa/Kconfig                                    |   3 +
+ net/dsa/Makefile                                   |   1 +
+ net/dsa/dsa.c                                      |  48 +-
+ net/dsa/dsa_priv.h                                 |  16 +-
+ net/dsa/slave.c                                    | 165 ++++--
+ net/dsa/tag_brcm.c                                 | 173 ++++++
+ net/dsa/tag_dsa.c                                  |   8 +-
+ net/dsa/tag_edsa.c                                 |   8 +-
+ net/dsa/tag_trailer.c                              |   8 +-
+ net/ethernet/eth.c                                 |   7 +-
+ 25 files changed, 1772 insertions(+), 112 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/broadcom-mdio-unimac.txt
+ create mode 100644 Documentation/devicetree/bindings/net/broadcom-sf2.txt
+ create mode 100644 drivers/net/dsa/bcm_sf2.c
+ create mode 100644 drivers/net/dsa/bcm_sf2.h
+ create mode 100644 drivers/net/dsa/bcm_sf2_regs.h
+ create mode 100644 drivers/net/phy/mdio-bcm-unimac.c
+ create mode 100644 net/dsa/tag_brcm.c
+
+-- 
+1.9.1
