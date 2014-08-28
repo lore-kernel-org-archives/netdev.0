@@ -1,60 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v5 00/13] dsa: Broadcom Starfighter 2 switch support
-Date: Wed, 27 Aug 2014 19:51:12 -0700
-Message-ID: <CAGVrzcb_LuOLTkuVwBsssJM_qan3omTBPdJ7DN_W=in8EPZQLg@mail.gmail.com>
-References: <1409184267-1696-1-git-send-email-f.fainelli@gmail.com>
- <20140827.181229.2168894985069137270.davem@davemloft.net> <20140827.183033.1723409609887880785.davem@davemloft.net>
+From: Ley Foon Tan <lftan@altera.com>
+Subject: Re: [PATCH] net: stmmac: fix warning from Sparse for socfpga
+Date: Thu, 28 Aug 2014 11:33:44 +0800
+Message-ID: <CAFiDJ5_AT5QoYiiWCMt5iWBbJkSzF8XAyMEX=H4boQSM4RDsbw@mail.gmail.com>
+References: <1409037076-14775-1-git-send-email-lftan@altera.com>
+	<20140827.163343.715764078341662382.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev <netdev@vger.kernel.org>,
-	John Linville <linville@tuxdriver.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Vince Bridgers <vbridger@altera.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:34995 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932114AbaH1Cvx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 22:51:53 -0400
-Received: by mail-ie0-f169.google.com with SMTP id tr6so218989ieb.0
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 19:51:52 -0700 (PDT)
-In-Reply-To: <20140827.183033.1723409609887880785.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140827.163343.715764078341662382.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2014-08-27 18:30 GMT-07:00 David Miller <davem@davemloft.net>:
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 27 Aug 2014 18:12:29 -0700 (PDT)
+On Thu, Aug 28, 2014 at 7:33 AM, David Miller <davem@davemloft.net> wrote:
+> From: Ley Foon Tan <lftan@altera.com>
+> Date: Tue, 26 Aug 2014 15:11:16 +0800
 >
->> From: Florian Fainelli <f.fainelli@gmail.com>
->> Date: Wed, 27 Aug 2014 17:04:14 -0700
+>> @@ -119,7 +119,8 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+>>                       return -EINVAL;
+>>               }
 >>
->>> This patch series adds support for the Broadcom Starfighter 2 (Roboswitch
->>> successor) using the existing DSA infrastructure. This integrated switch
->>> is heavily used in Set Top Box, Cable gateways and DSL gateways products
->>> from Broadcom, and to a larger extent the new ARM-based Wi-Fi routers although
->>> slightly differently.
->>
->> Series applied, thanks Florian.
+>> -             dwmac->splitter_base = (void *)devm_ioremap_resource(dev,
+>> +             dwmac->splitter_base =
+>> +                     (void __iomem *)devm_ioremap_resource(dev,
+>>                       &res_splitter);
 >
-> Florian, I had to make an adjustment to make your series work.
+> Please either put this entire call on one line (it'll only be slightly
+> over 80 columns, which is fine), or indent it properly.
 >
-> The Tulip dmfe driver internally has static functions named phy_read()
-> and phy_write().  I had to add a commit to rename them before your
-> series.
-
-Ah, I should have caught that.
-
+> And by properly I meant that the second and subsequent lines of a function
+> call must be indented precisely to the first column after the openning
+> parenthesis of the function call on the first line.  You must use the
+> appropriate number of TAB and SPACE characters necessary to do so.
 >
-> Please when adjusting globally visible interfaces, do an allmodconfig
-> build to catch these kinds of problems.
-
-Will do next time, thanks!
-
->
-> Thanks.
-
-
-
--- 
-Florian
+> If it is indented using only TAB characters, it is very likely that you
+> are doing it wrong.
+Okay, will send in new patch to fix this.
+Thanks.
