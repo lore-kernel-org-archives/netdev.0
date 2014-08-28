@@ -1,29 +1,73 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] ip netns: Show error message if mkdir failed to create
- /var/run/netns
-Date: Thu, 28 Aug 2014 15:54:18 +0200
-Message-ID: <53FF348A.60701@6wind.com>
-References: <1409230964-6182-1-git-send-email-vadim4j@gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+Subject: [PATCH net-next 1/2] bnx2x: prevent incorrect byte-swap in BE
+Date: Thu, 28 Aug 2014 16:54:23 +0300
+Message-ID: <1409234064-20619-1-git-send-email-Dmitry.Kravkov@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: vadimk <vadim4j@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <dan.carpenter@oracle.com>,
+	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f180.google.com ([74.125.82.180]:56000 "EHLO
-	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750764AbaH1NyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 09:54:23 -0400
-Received: by mail-we0-f180.google.com with SMTP id w61so805182wes.11
-        for <netdev@vger.kernel.org>; Thu, 28 Aug 2014 06:54:21 -0700 (PDT)
-In-Reply-To: <1409230964-6182-1-git-send-email-vadim4j@gmail.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:30897 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750764AbaH1Nyn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 09:54:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 28/08/2014 15:02, vadimk a =C3=A9crit :
-> Currently if mkdir failed with "Permission denied" error then "mount =
---make-shared ..."
-> error message will be showed because /var/run/netns does not exist.
-> ---
-Your 'Signed-off-by' is missing.
+Fixes incorrectly defined struct in FW HSI for BE platform.
+Affects tunneling, tx-switching and anti-spoofing.
+
+Introduced in e42780b66aab88d3a82b6087bcd6095b90eecde7
+    bnx2x: Utilize FW 7.10.51
+
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h | 20 --------------------
+ 1 file changed, 20 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+index 7ea0453..5579d4b 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+@@ -3983,29 +3983,10 @@ struct eth_mac_addresses {
+ 
+ /* tunneling related data */
+ struct eth_tunnel_data {
+-#if defined(__BIG_ENDIAN)
+-	__le16 dst_mid;
+-	__le16 dst_lo;
+-#elif defined(__LITTLE_ENDIAN)
+ 	__le16 dst_lo;
+ 	__le16 dst_mid;
+-#endif
+-#if defined(__BIG_ENDIAN)
+-	__le16 fw_ip_hdr_csum;
+-	__le16 dst_hi;
+-#elif defined(__LITTLE_ENDIAN)
+ 	__le16 dst_hi;
+ 	__le16 fw_ip_hdr_csum;
+-#endif
+-#if defined(__BIG_ENDIAN)
+-	u8 flags;
+-#define ETH_TUNNEL_DATA_IP_HDR_TYPE_OUTER (0x1<<0)
+-#define ETH_TUNNEL_DATA_IP_HDR_TYPE_OUTER_SHIFT 0
+-#define ETH_TUNNEL_DATA_RESERVED (0x7F<<1)
+-#define ETH_TUNNEL_DATA_RESERVED_SHIFT 1
+-	u8 ip_hdr_start_inner_w;
+-	__le16 pseudo_csum;
+-#elif defined(__LITTLE_ENDIAN)
+ 	__le16 pseudo_csum;
+ 	u8 ip_hdr_start_inner_w;
+ 	u8 flags;
+@@ -4013,7 +3994,6 @@ struct eth_tunnel_data {
+ #define ETH_TUNNEL_DATA_IP_HDR_TYPE_OUTER_SHIFT 0
+ #define ETH_TUNNEL_DATA_RESERVED (0x7F<<1)
+ #define ETH_TUNNEL_DATA_RESERVED_SHIFT 1
+-#endif
+ };
+ 
+ /* union for mac addresses and for tunneling data.
+-- 
+1.9.3
