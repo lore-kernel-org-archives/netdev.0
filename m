@@ -1,46 +1,41 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v2 net-next] ixgbe: flush when in xmit_more mode and under
- descriptor pressure
-Date: Thu, 28 Aug 2014 13:46:09 +0200
-Message-ID: <53FF1681.7030406@redhat.com>
-References: <1409074458-17989-1-git-send-email-dborkman@redhat.com> <20140827.231814.2270210172570593864.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: vadimk <vadim4j@gmail.com>
+Subject: [PATCH] ip netns: Show error message if mkdir failed to create /var/run/netns
+Date: Thu, 28 Aug 2014 15:38:28 +0300
+Message-ID: <1409229508-4652-1-git-send-email-vadim4j@gmail.com>
+Cc: vadimk <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6554 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751607AbaH1LqN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Aug 2014 07:46:13 -0400
-In-Reply-To: <20140827.231814.2270210172570593864.davem@davemloft.net>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:36434 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750896AbaH1MqT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 08:46:19 -0400
+Received: by mail-lb0-f170.google.com with SMTP id w7so831369lbi.29
+        for <netdev@vger.kernel.org>; Thu, 28 Aug 2014 05:46:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/28/2014 08:18 AM, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Tue, 26 Aug 2014 19:34:18 +0200
->
->> When xmit_more mode is being used and the ring is about to
->> become full or the stack has stopped the ring, enforce a tail
->> pointer write to the hw. Otherwise, we could risk a TX hang.
->>
->> Code suggested by Alexander Duyck.
->>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->> ---
->>   v1->v2:
->>    - Worked in Alex' feedback; in accordance w/ Alex, sending out v2
->>    - Rerun tests, looks good
->
-> Applied, thanks Daniel.
->
-> I'll make similar mods to igb and vhost_net soon.
+Currently if mkdir failed with "Permission denied" error then "mount --make-shared ..."
+error message will be showed because /var/run/netns does not exist.
+---
+ ip/ipnetns.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-Cool, at some point later, we might want to put ...
-
-   netif_xmit_stopped(<tx_ring>) || !skb->xmit_more
-
-... into an API perhaps, but that can likely wait right now.
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index 633b5b9..ee06eba 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -407,7 +407,11 @@ static int netns_add(int argc, char **argv)
+ 	snprintf(netns_path, sizeof(netns_path), "%s/%s", NETNS_RUN_DIR, name);
+ 
+ 	/* Create the base netns directory if it doesn't exist */
+-	mkdir(NETNS_RUN_DIR, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
++	if (mkdir(NETNS_RUN_DIR, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)) {
++		fprintf(stderr, "mkdir %s failed: %s\n",
++			NETNS_RUN_DIR, strerror(errno));
++		return -1;
++	}
+ 
+ 	/* Make it possible for network namespace mounts to propagate between
+ 	 * mount namespaces.  This makes it likely that a unmounting a network
+-- 
+2.0.4
