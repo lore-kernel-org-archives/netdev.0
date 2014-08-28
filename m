@@ -1,51 +1,30 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: systemport: tell RXCHK if we are using Broadcom tags
-Date: Thu, 28 Aug 2014 15:11:03 -0700
-Message-ID: <1409263863-5364-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/1] r8169: add missing MODULE_FIRMWARE.
+Date: Thu, 28 Aug 2014 15:22:51 -0700 (PDT)
+Message-ID: <20140828.152251.1672326184224913123.davem@davemloft.net>
+References: <20140826204038.GA15087@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hau@realtek.com
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:60382 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752202AbaH1WLi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 18:11:38 -0400
-Received: by mail-pa0-f43.google.com with SMTP id et14so4306171pad.16
-        for <netdev@vger.kernel.org>; Thu, 28 Aug 2014 15:11:38 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:60805 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752613AbaH1WWw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 18:22:52 -0400
+In-Reply-To: <20140826204038.GA15087@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When Broadcom tags are enabled, e.g: when interfaced to an Ethernet
-switch, make sure that we tell the RXCHK engine that it should be
-expecting a 4-bytes Broadcom tag after the Ethernet MAC Source Address.
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Tue, 26 Aug 2014 22:40:38 +0200
 
-Use netdev_uses_dsa() to check for that condition since that will tell
-us if a switch is attached to our network interface.
+> From: Francois Romieu <romieu@fr.zoreil.com>
+> 
+> Leftover from 6e1d0b8988188956dac091441c1492a79a342666 ("r8169:add
+> support for RTL8168H and RTL8107E").
+> 
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Fixes: 80105befdb4b ("net: systemport: add Broadcom SYSTEMPORT Ethernet MAC driver")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/bcmsysport.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index 6f4e18644bd4..8f91de169663 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -139,6 +139,15 @@ static int bcm_sysport_set_rx_csum(struct net_device *dev,
- 	else
- 		reg &= ~RXCHK_SKIP_FCS;
- 
-+	/* If Broadcom tags are enabled (e.g: using a switch), make
-+	 * sure we tell the RXCHK hardware to expect a 4-bytes Broadcom
-+	 * tag after the Ethernet MAC Source Address.
-+	 */
-+	if (netdev_uses_dsa(dev))
-+		reg |= RXCHK_BRCM_TAG_EN;
-+	else
-+		reg &= ~RXCHK_BRCM_TAG_EN;
-+
- 	rxchk_writel(priv, reg, RXCHK_CONTROL);
- 
- 	return 0;
--- 
-1.9.1
+Applied, thank you.
