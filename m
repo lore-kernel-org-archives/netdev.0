@@ -1,40 +1,82 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next 1/9] net: Allocate a new 16 bits for flags in
- skbuff
-Date: Wed, 27 Aug 2014 21:48:48 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1408272147220.550@tomh.mtv.corp.google.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next] bnx2x: Fix sparse warnings
+Date: Thu, 28 Aug 2014 08:07:32 +0300
+Message-ID: <1409202452-372-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f201.google.com ([209.85.160.201]:36497 "EHLO
-	mail-yk0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932473AbaH1FDY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 01:03:24 -0400
-Received: by mail-yk0-f201.google.com with SMTP id 142so148012ykq.2
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 22:03:24 -0700 (PDT)
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:33826 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755437AbaH1FHw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 01:07:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- include/linux/skbuff.h | 4 ++++
- 1 file changed, 4 insertions(+)
+This fixes a sprase warning introduced recently by commit
+eeed018cbfa30 ("bnx2x: Add timestamping and PTP hardware clock support"),
+as well as another unrelated sparse endian issue.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index b69b7b5..3c9574c 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -598,6 +598,10 @@ struct sk_buff {
- 		__u32		reserved_tailroom;
- 	};
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+---
+Hi Dave,
+
+Please consider applying this to `net-next'.
+
+Thanks,
+Yuval Mintz
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |  2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c  | 14 +++++++-------
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index a54ac45..06d6d3c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -1065,7 +1065,7 @@ reuse_rx:
+ 		skb_record_rx_queue(skb, fp->rx_queue);
  
-+	kmemcheck_bitfield_begin(flags3);
-+	/* 16 bit hole */
-+	kmemcheck_bitfield_end(flags3);
+ 		/* Check if this packet was timestamped */
+-		if (unlikely(le16_to_cpu(cqe->fast_path_cqe.type_error_flags) &
++		if (unlikely(cqe->fast_path_cqe.type_error_flags &
+ 			     (1 << ETH_FAST_PATH_RX_CQE_PTP_PKT_SHIFT)))
+ 			bnx2x_set_rx_ts(bp, skb);
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index 38acecd..19d0c11 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -4063,6 +4063,13 @@ static int bnx2x_setup_rss(struct bnx2x *bp,
+ 	if (test_bit(BNX2X_RSS_GRE_INNER_HDRS, &p->rss_flags))
+ 		caps |= ETH_RSS_UPDATE_RAMROD_DATA_GRE_INNER_HDRS_CAPABILITY;
+ 
++	/* RSS keys */
++	if (test_bit(BNX2X_RSS_SET_SRCH, &p->rss_flags)) {
++		memcpy(&data->rss_key[0], &p->rss_key[0],
++		       sizeof(data->rss_key));
++		caps |= ETH_RSS_UPDATE_RAMROD_DATA_UPDATE_RSS_KEY;
++	}
 +
- 	__be16			inner_protocol;
- 	__u16			inner_transport_header;
- 	__u16			inner_network_header;
+ 	data->capabilities = cpu_to_le16(caps);
+ 
+ 	/* Hashing mask */
+@@ -4084,13 +4091,6 @@ static int bnx2x_setup_rss(struct bnx2x *bp,
+ 	if (netif_msg_ifup(bp))
+ 		bnx2x_debug_print_ind_table(bp, p);
+ 
+-	/* RSS keys */
+-	if (test_bit(BNX2X_RSS_SET_SRCH, &p->rss_flags)) {
+-		memcpy(&data->rss_key[0], &p->rss_key[0],
+-		       sizeof(data->rss_key));
+-		data->capabilities |= ETH_RSS_UPDATE_RAMROD_DATA_UPDATE_RSS_KEY;
+-	}
+-
+ 	/* No need for an explicit memory barrier here as long as we
+ 	 * ensure the ordering of writing to the SPQ element
+ 	 * and updating of the SPQ producer which involves a memory
 -- 
-2.1.0.rc2.206.gedb03e5
+1.8.3.1
