@@ -1,21 +1,21 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 1/2] igb: flush when in xmit_more mode and under descriptor
- pressure
-Date: Thu, 28 Aug 2014 01:40:46 -0700 (PDT)
-Message-ID: <20140828.014046.1316907083724962840.davem@davemloft.net>
+Subject: [PATCH 2/2] virtio_net: flush when in xmit_more mode and under
+ descriptor pressure
+Date: Thu, 28 Aug 2014 01:41:00 -0700 (PDT)
+Message-ID: <20140828.014100.627859966122813076.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47978 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47981 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965045AbaH1Ikr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 04:40:47 -0400
+	with ESMTP id S965045AbaH1IlA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 04:41:00 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
 	(Authenticated sender: davem-davemloft)
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 1ED265898B2
-	for <netdev@vger.kernel.org>; Thu, 28 Aug 2014 01:40:47 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 91E3B5898BA
+	for <netdev@vger.kernel.org>; Thu, 28 Aug 2014 01:41:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -25,118 +25,21 @@ Mirror the changes made to ixgbe in commit 2367a17390138f68b3aa28f2f220b8d7ff8d9
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 78 +++++++++++++++----------------
- 1 file changed, 39 insertions(+), 39 deletions(-)
+ drivers/net/virtio_net.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 89c29b4..89de7fe 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -4813,6 +4813,41 @@ static void igb_tx_olinfo_status(struct igb_ring *tx_ring,
- 	tx_desc->read.olinfo_status = cpu_to_le32(olinfo_status);
- }
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index f0c2824..9359a13 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -953,7 +953,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		}
+ 	}
  
-+static int __igb_maybe_stop_tx(struct igb_ring *tx_ring, const u16 size)
-+{
-+	struct net_device *netdev = tx_ring->netdev;
-+
-+	netif_stop_subqueue(netdev, tx_ring->queue_index);
-+
-+	/* Herbert's original patch had:
-+	 *  smp_mb__after_netif_stop_queue();
-+	 * but since that doesn't exist yet, just open code it.
-+	 */
-+	smp_mb();
-+
-+	/* We need to check again in a case another CPU has just
-+	 * made room available.
-+	 */
-+	if (igb_desc_unused(tx_ring) < size)
-+		return -EBUSY;
-+
-+	/* A reprieve! */
-+	netif_wake_subqueue(netdev, tx_ring->queue_index);
-+
-+	u64_stats_update_begin(&tx_ring->tx_syncp2);
-+	tx_ring->tx_stats.restart_queue2++;
-+	u64_stats_update_end(&tx_ring->tx_syncp2);
-+
-+	return 0;
-+}
-+
-+static inline int igb_maybe_stop_tx(struct igb_ring *tx_ring, const u16 size)
-+{
-+	if (igb_desc_unused(tx_ring) >= size)
-+		return 0;
-+	return __igb_maybe_stop_tx(tx_ring, size);
-+}
-+
- static void igb_tx_map(struct igb_ring *tx_ring,
- 		       struct igb_tx_buffer *first,
- 		       const u8 hdr_len)
-@@ -4915,7 +4950,10 @@ static void igb_tx_map(struct igb_ring *tx_ring,
+-	if (!skb->xmit_more)
++	if (__netif_subqueue_stopped(dev, qnum) || !skb->xmit_more)
+ 		virtqueue_kick(sq->vq);
  
- 	tx_ring->next_to_use = i;
- 
--	if (!skb->xmit_more) {
-+	/* Make sure there is space in the ring for the next send. */
-+	igb_maybe_stop_tx(tx_ring, DESC_NEEDED);
-+
-+	if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more) {
- 		writel(i, tx_ring->tail);
- 
- 		/* we need this if more than one processor can write to our tail
-@@ -4942,41 +4980,6 @@ dma_error:
- 	tx_ring->next_to_use = i;
- }
- 
--static int __igb_maybe_stop_tx(struct igb_ring *tx_ring, const u16 size)
--{
--	struct net_device *netdev = tx_ring->netdev;
--
--	netif_stop_subqueue(netdev, tx_ring->queue_index);
--
--	/* Herbert's original patch had:
--	 *  smp_mb__after_netif_stop_queue();
--	 * but since that doesn't exist yet, just open code it.
--	 */
--	smp_mb();
--
--	/* We need to check again in a case another CPU has just
--	 * made room available.
--	 */
--	if (igb_desc_unused(tx_ring) < size)
--		return -EBUSY;
--
--	/* A reprieve! */
--	netif_wake_subqueue(netdev, tx_ring->queue_index);
--
--	u64_stats_update_begin(&tx_ring->tx_syncp2);
--	tx_ring->tx_stats.restart_queue2++;
--	u64_stats_update_end(&tx_ring->tx_syncp2);
--
--	return 0;
--}
--
--static inline int igb_maybe_stop_tx(struct igb_ring *tx_ring, const u16 size)
--{
--	if (igb_desc_unused(tx_ring) >= size)
--		return 0;
--	return __igb_maybe_stop_tx(tx_ring, size);
--}
--
- netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 				struct igb_ring *tx_ring)
- {
-@@ -5047,9 +5050,6 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 
- 	igb_tx_map(tx_ring, first, hdr_len);
- 
--	/* Make sure there is space in the ring for the next send. */
--	igb_maybe_stop_tx(tx_ring, DESC_NEEDED);
--
  	return NETDEV_TX_OK;
- 
- out_drop:
 -- 
 1.7.11.7
