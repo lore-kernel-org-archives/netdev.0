@@ -1,45 +1,34 @@
-From: vadimk <vadim4j@gmail.com>
-Subject: Added Sign-off [PATCH] ip netns: Show error message if mkdir failed to create /var/run/netns
-Date: Thu, 28 Aug 2014 16:56:03 +0300
-Message-ID: <1409234163-7567-1-git-send-email-vadim4j@gmail.com>
-Cc: vadimk <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH v2 net-next 0/8] net: Checksum offload changes - Part VI
+Date: Thu, 28 Aug 2014 07:26:55 -0700
+Message-ID: <CA+mtBx-7jTpa31zcSOShsqamuu1XgzgKJKmo6ip=AxC+-Ucy9w@mail.gmail.com>
+References: <alpine.DEB.2.02.1408272114490.505@tomh.mtv.corp.google.com>
+	<20140827.225626.704750789701421634.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:53912 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750754AbaH1OD5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 10:03:57 -0400
-Received: by mail-la0-f51.google.com with SMTP id gl10so966342lab.38
-        for <netdev@vger.kernel.org>; Thu, 28 Aug 2014 07:03:55 -0700 (PDT)
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:57209 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750748AbaH1O0z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 10:26:55 -0400
+Received: by mail-ie0-f171.google.com with SMTP id rp18so1039582iec.30
+        for <netdev@vger.kernel.org>; Thu, 28 Aug 2014 07:26:55 -0700 (PDT)
+In-Reply-To: <20140827.225626.704750789701421634.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently if mkdir failed with "Permission denied" error then "mount --make-shared ..."
-error message will be showed because /var/run/netns does not exist.
+On Wed, Aug 27, 2014 at 10:56 PM, David Miller <davem@davemloft.net> wrote:
+> From: Tom Herbert <therbert@google.com>
+> Date: Wed, 27 Aug 2014 21:26:27 -0700 (PDT)
+>
+>> I am working on overhauling RX checksum offload. Goals of this effort
+>> are:
+>
+> Hmmm, what's happening with this series?  Some patches I got 2 copies
+> of, some I didn't see at all.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- ip/ipnetns.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
-
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 633b5b9..7f82908 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -407,7 +407,13 @@ static int netns_add(int argc, char **argv)
- 	snprintf(netns_path, sizeof(netns_path), "%s/%s", NETNS_RUN_DIR, name);
- 
- 	/* Create the base netns directory if it doesn't exist */
--	mkdir(NETNS_RUN_DIR, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
-+	if (mkdir(NETNS_RUN_DIR, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)) {
-+		if (errno != EEXIST) {
-+			fprintf(stderr, "mkdir %s failed: %s\n",
-+				NETNS_RUN_DIR, strerror(errno));
-+			return -1;
-+		}
-+	}
- 
- 	/* Make it possible for network namespace mounts to propagate between
- 	 * mount namespaces.  This makes it likely that a unmounting a network
--- 
-2.0.4
+I believe they all finally made it. Configuration of SMTP server
+changed beneath me, and it looks they were able to figure how to
+forward all the mail after seven hours... :-(
