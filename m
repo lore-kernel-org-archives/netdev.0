@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/4] Broadcom BCM7xxx PHY updates for new
- entries
-Date: Wed, 27 Aug 2014 18:15:34 -0700 (PDT)
-Message-ID: <20140827.181534.618394811209815069.davem@davemloft.net>
-References: <1409084127-30387-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v5 00/13] dsa: Broadcom Starfighter 2 switch
+ support
+Date: Wed, 27 Aug 2014 18:30:33 -0700 (PDT)
+Message-ID: <20140827.183033.1723409609887880785.davem@davemloft.net>
+References: <1409184267-1696-1-git-send-email-f.fainelli@gmail.com>
+	<20140827.181229.2168894985069137270.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linville@tuxdriver.com, jhs@mojatatu.com,
+	alexander.duyck@gmail.com
 To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42668 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42794 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932210AbaH1BPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 21:15:35 -0400
-In-Reply-To: <1409084127-30387-1-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S1757014AbaH1Bae (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 21:30:34 -0400
+In-Reply-To: <20140827.181229.2168894985069137270.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 26 Aug 2014 13:15:23 -0700
+From: David Miller <davem@davemloft.net>
+Date: Wed, 27 Aug 2014 18:12:29 -0700 (PDT)
 
-> Another week, another set of updates for the Broadcom BCM7xxx PHY driver.  This
-> patch set cleanups the existing definitions, adds a macro to ease the addition
-> of future chips, and finally add two new SoCs to the list of supported chips.
+> From: Florian Fainelli <f.fainelli@gmail.com>
+> Date: Wed, 27 Aug 2014 17:04:14 -0700
 > 
-> Resending since the first patch did not make it to the list, sorry about that.
+>> This patch series adds support for the Broadcom Starfighter 2 (Roboswitch
+>> successor) using the existing DSA infrastructure. This integrated switch
+>> is heavily used in Set Top Box, Cable gateways and DSL gateways products
+>> from Broadcom, and to a larger extent the new ARM-based Wi-Fi routers although
+>> slightly differently.
 > 
-> Changes in v2:
-> - rephrased commit message for patch 1 to make it pass majordomo
->   capital triple X was rejected
+> Series applied, thanks Florian.
 
-Series applied, thanks Florian.
+Florian, I had to make an adjustment to make your series work.
+
+The Tulip dmfe driver internally has static functions named phy_read()
+and phy_write().  I had to add a commit to rename them before your
+series.
+
+Please when adjusting globally visible interfaces, do an allmodconfig
+build to catch these kinds of problems.
+
+Thanks.
