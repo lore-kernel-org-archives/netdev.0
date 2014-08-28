@@ -1,48 +1,128 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next 4/9] sctp: Change sctp to implement csum_levels
-Date: Wed, 27 Aug 2014 21:27:06 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1408272109250.32129@tomh.mtv.corp.google.com>
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH v4 net-next 1/2] tipc: refactor name table updates out of named packet receive routine
+Date: Thu, 28 Aug 2014 09:08:46 +0200
+Message-ID: <1409209727-15265-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <tipc-discussion@lists.sourceforge.net>,
+	Erik Hugne <erik.hugne@ericsson.com>
+To: <jon.maloy@ericsson.com>, <ying.xue@windriver.com>,
+	<richard.alpe@ericsson.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f202.google.com ([209.85.220.202]:43960 "EHLO
-	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754872AbaH1Gfy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 02:35:54 -0400
-Received: by mail-vc0-f202.google.com with SMTP id id10so84709vcb.3
-        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 23:35:53 -0700 (PDT)
+Received: from sessmg22.ericsson.net ([193.180.251.58]:62228 "EHLO
+	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932622AbaH1HEJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 03:04:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CHECKSUM_UNNECESSARY may be applied to the SCTP CRC so we need to
-appropriate account for this by decrementing csum_level. This is
-done by calling __skb_dec_checksum_unnecessary.
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-Signed-off-by: Tom Herbert <therbert@google.com>
+We need to perform the same actions when processing deferred name
+table updates, so this functionality is moved to a separate
+function.
+
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/sctp/input.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ net/tipc/name_distr.c | 74 ++++++++++++++++++++++++++-------------------------
+ 1 file changed, 38 insertions(+), 36 deletions(-)
 
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index c1b9912..b6493b3 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -133,9 +133,13 @@ int sctp_rcv(struct sk_buff *skb)
- 	__skb_pull(skb, skb_transport_offset(skb));
- 	if (skb->len < sizeof(struct sctphdr))
- 		goto discard_it;
--	if (!sctp_checksum_disable && !skb_csum_unnecessary(skb) &&
--		  sctp_rcv_checksum(net, skb) < 0)
+diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
+index dcc15bc..0591f33 100644
+--- a/net/tipc/name_distr.c
++++ b/net/tipc/name_distr.c
+@@ -263,52 +263,54 @@ static void named_purge_publ(struct publication *publ)
+ }
+ 
+ /**
++ * tipc_update_nametbl - try to process a nametable update and notify
++ *			 subscribers
++ *
++ * tipc_nametbl_lock must be held.
++ * Returns the publication item if successful, otherwise NULL.
++ */
++struct publication *tipc_update_nametbl(struct distr_item *i, u32 node,
++					u32 dtype)
++{
++	struct publication *publ = NULL;
 +
-+	skb->csum_valid = 0; /* Previous value not applicable */
-+	if (skb_csum_unnecessary(skb))
-+		__skb_decr_checksum_unnecessary(skb);
-+	else if (!sctp_checksum_disable && sctp_rcv_checksum(net, skb) < 0)
- 		goto discard_it;
-+	skb->csum_valid = 1;
++	if (dtype == PUBLICATION) {
++		publ = tipc_nametbl_insert_publ(ntohl(i->type), ntohl(i->lower),
++						ntohl(i->upper),
++						TIPC_CLUSTER_SCOPE, node,
++						ntohl(i->ref), ntohl(i->key));
++		if (publ) {
++			tipc_nodesub_subscribe(&publ->subscr, node, publ,
++					       (net_ev_handler)
++					       named_purge_publ);
++		}
++	} else if (dtype == WITHDRAWAL) {
++		publ = tipc_nametbl_remove_publ(ntohl(i->type), ntohl(i->lower),
++						node, ntohl(i->ref),
++						ntohl(i->key));
++		if (publ) {
++			tipc_nodesub_unsubscribe(&publ->subscr);
++			kfree(publ);
++		}
++	} else {
++		pr_warn("Unrecognized name table message received\n");
++	}
++	return publ;
++}
++
++/**
+  * tipc_named_rcv - process name table update message sent by another node
+  */
+ void tipc_named_rcv(struct sk_buff *buf)
+ {
+-	struct publication *publ;
+ 	struct tipc_msg *msg = buf_msg(buf);
+ 	struct distr_item *item = (struct distr_item *)msg_data(msg);
+ 	u32 count = msg_data_sz(msg) / ITEM_SIZE;
  
- 	skb_pull(skb, sizeof(struct sctphdr));
- 
+ 	write_lock_bh(&tipc_nametbl_lock);
+ 	while (count--) {
+-		if (msg_type(msg) == PUBLICATION) {
+-			publ = tipc_nametbl_insert_publ(ntohl(item->type),
+-							ntohl(item->lower),
+-							ntohl(item->upper),
+-							TIPC_CLUSTER_SCOPE,
+-							msg_orignode(msg),
+-							ntohl(item->ref),
+-							ntohl(item->key));
+-			if (publ) {
+-				tipc_nodesub_subscribe(&publ->subscr,
+-						       msg_orignode(msg),
+-						       publ,
+-						       (net_ev_handler)
+-						       named_purge_publ);
+-			}
+-		} else if (msg_type(msg) == WITHDRAWAL) {
+-			publ = tipc_nametbl_remove_publ(ntohl(item->type),
+-							ntohl(item->lower),
+-							msg_orignode(msg),
+-							ntohl(item->ref),
+-							ntohl(item->key));
+-
+-			if (publ) {
+-				tipc_nodesub_unsubscribe(&publ->subscr);
+-				kfree(publ);
+-			} else {
+-				pr_err("Unable to remove publication by node 0x%x\n"
+-				       " (type=%u, lower=%u, ref=%u, key=%u)\n",
+-				       msg_orignode(msg), ntohl(item->type),
+-				       ntohl(item->lower), ntohl(item->ref),
+-				       ntohl(item->key));
+-			}
+-		} else {
+-			pr_warn("Unrecognized name table message received\n");
+-		}
++		tipc_update_nametbl(item, msg_orignode(msg),
++				    msg_type(msg));
+ 		item++;
+ 	}
+ 	write_unlock_bh(&tipc_nametbl_lock);
 -- 
-2.1.0.rc2.206.gedb03e5
+1.8.3.2
