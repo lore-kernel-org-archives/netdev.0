@@ -1,22 +1,23 @@
 From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
-Subject: [PATCH net-next 1/2] bnx2x: prevent incorrect byte-swap in BE
-Date: Thu, 28 Aug 2014 16:54:23 +0300
-Message-ID: <1409234064-20619-1-git-send-email-Dmitry.Kravkov@qlogic.com>
+Subject: [PATCH net-next 2/2] bnx2x: fix tunneled GSO over IPv6
+Date: Thu, 28 Aug 2014 16:54:24 +0300
+Message-ID: <1409234064-20619-2-git-send-email-Dmitry.Kravkov@qlogic.com>
+References: <1409234064-20619-1-git-send-email-Dmitry.Kravkov@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <dan.carpenter@oracle.com>,
 	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
 To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:30897 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:20819 "EHLO
 	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750764AbaH1Nyn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 09:54:43 -0400
+	by vger.kernel.org with ESMTP id S1750764AbaH1Nyr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 09:54:47 -0400
+In-Reply-To: <1409234064-20619-1-git-send-email-Dmitry.Kravkov@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes incorrectly defined struct in FW HSI for BE platform.
-Affects tunneling, tx-switching and anti-spoofing.
+Set correct bit for packed description.
 
 Introduced in e42780b66aab88d3a82b6087bcd6095b90eecde7
     bnx2x: Utilize FW 7.10.51
@@ -24,50 +25,21 @@ Introduced in e42780b66aab88d3a82b6087bcd6095b90eecde7
 Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
 Signed-off-by: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h | 20 --------------------
- 1 file changed, 20 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-index 7ea0453..5579d4b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-@@ -3983,29 +3983,10 @@ struct eth_mac_addresses {
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index a54ac45..2a08613 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -3651,7 +3651,7 @@ static void bnx2x_update_pbds_gso_enc(struct sk_buff *skb,
+ 		pbd2->fw_ip_hdr_to_payload_w =
+ 			hlen_w - ((sizeof(struct ipv6hdr)) >> 1);
+ 		pbd_e2->data.tunnel_data.flags |=
+-			1 /*IPv6*/ << ETH_TUNNEL_DATA_IP_HDR_TYPE_OUTER;
++			ETH_TUNNEL_DATA_IP_HDR_TYPE_OUTER;
+ 	}
  
- /* tunneling related data */
- struct eth_tunnel_data {
--#if defined(__BIG_ENDIAN)
--	__le16 dst_mid;
--	__le16 dst_lo;
--#elif defined(__LITTLE_ENDIAN)
- 	__le16 dst_lo;
- 	__le16 dst_mid;
--#endif
--#if defined(__BIG_ENDIAN)
--	__le16 fw_ip_hdr_csum;
--	__le16 dst_hi;
--#elif defined(__LITTLE_ENDIAN)
- 	__le16 dst_hi;
- 	__le16 fw_ip_hdr_csum;
--#endif
--#if defined(__BIG_ENDIAN)
--	u8 flags;
--#define ETH_TUNNEL_DATA_IP_HDR_TYPE_OUTER (0x1<<0)
--#define ETH_TUNNEL_DATA_IP_HDR_TYPE_OUTER_SHIFT 0
--#define ETH_TUNNEL_DATA_RESERVED (0x7F<<1)
--#define ETH_TUNNEL_DATA_RESERVED_SHIFT 1
--	u8 ip_hdr_start_inner_w;
--	__le16 pseudo_csum;
--#elif defined(__LITTLE_ENDIAN)
- 	__le16 pseudo_csum;
- 	u8 ip_hdr_start_inner_w;
- 	u8 flags;
-@@ -4013,7 +3994,6 @@ struct eth_tunnel_data {
- #define ETH_TUNNEL_DATA_IP_HDR_TYPE_OUTER_SHIFT 0
- #define ETH_TUNNEL_DATA_RESERVED (0x7F<<1)
- #define ETH_TUNNEL_DATA_RESERVED_SHIFT 1
--#endif
- };
- 
- /* union for mac addresses and for tunneling data.
+ 	pbd2->tcp_send_seq = bswab32(inner_tcp_hdr(skb)->seq);
 -- 
 1.9.3
