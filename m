@@ -1,51 +1,39 @@
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git) 1/4] stmmac: fix the EEE LPI Macro definitions.
-Date: Thu, 28 Aug 2014 08:11:41 +0200
-Message-ID: <1409206304-23239-2-git-send-email-peppe.cavallaro@st.com>
-References: <1409206304-23239-1-git-send-email-peppe.cavallaro@st.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] ixgbe: flush when in xmit_more mode and
+ under descriptor pressure
+Date: Wed, 27 Aug 2014 23:18:14 -0700 (PDT)
+Message-ID: <20140827.231814.2270210172570593864.davem@davemloft.net>
+References: <1409074458-17989-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, nandini sharma <nandini.sharma@st.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:34988 "EHLO
-	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754872AbaH1GLy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 02:11:54 -0400
-In-Reply-To: <1409206304-23239-1-git-send-email-peppe.cavallaro@st.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45346 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751235AbaH1GSP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 02:18:15 -0400
+In-Reply-To: <1409074458-17989-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: nandini sharma <nandini.sharma@st.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Tue, 26 Aug 2014 19:34:18 +0200
 
-This patch is to fix the definition of macros for EEE otherwise the LPI TX/RX
-entry/exit cannot be properly managed.
+> When xmit_more mode is being used and the ring is about to
+> become full or the stack has stopped the ring, enforce a tail
+> pointer write to the hw. Otherwise, we could risk a TX hang.
+> 
+> Code suggested by Alexander Duyck.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  v1->v2:
+>   - Worked in Alex' feedback; in accordance w/ Alex, sending out v2
+>   - Rerun tests, looks good
 
-Signed-off-by: Nandini Sharma <nandini.sharma@st.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/common.h |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+Applied, thanks Daniel.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index de507c3..a464e8c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -220,10 +220,10 @@ enum dma_irq_status {
- 	handle_tx = 0x8,
- };
- 
--#define	CORE_IRQ_TX_PATH_IN_LPI_MODE	(1 << 1)
--#define	CORE_IRQ_TX_PATH_EXIT_LPI_MODE	(1 << 2)
--#define	CORE_IRQ_RX_PATH_IN_LPI_MODE	(1 << 3)
--#define	CORE_IRQ_RX_PATH_EXIT_LPI_MODE	(1 << 4)
-+#define	CORE_IRQ_TX_PATH_IN_LPI_MODE	(1 << 0)
-+#define	CORE_IRQ_TX_PATH_EXIT_LPI_MODE	(1 << 1)
-+#define	CORE_IRQ_RX_PATH_IN_LPI_MODE	(1 << 2)
-+#define	CORE_IRQ_RX_PATH_EXIT_LPI_MODE	(1 << 3)
- 
- #define	CORE_PCS_ANE_COMPLETE		(1 << 5)
- #define	CORE_PCS_LINK_STATUS		(1 << 6)
--- 
-1.7.4.4
+I'll make similar mods to igb and vhost_net soon.
