@@ -1,51 +1,42 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH nf] ipvs: fix ipv6 hook registration for local replies
-Date: Thu, 28 Aug 2014 11:04:28 +0900
-Message-ID: <1409191468-28013-2-git-send-email-horms@verge.net.au>
-References: <1409191468-28013-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1409191468-28013-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next] r8152: reduce the number of Tx
+Date: Thu, 28 Aug 2014 10:17:35 +0800
+Message-ID: <1394712342-15778-23-Taiwan-albertk@realtek.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:39946 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932352AbaH1CRt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 22:17:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+Because the Tx has the features of stopping queue and aggregation,
+We don't need many tx buffers. Change the tx number from 10 to 4
+to reduce the usage of the memory. This could save 16K * 10 bytes
+memory.
 
-commit fc604767613b6d2036cdc35b660bc39451040a47
-("ipvs: changes for local real server") from 2.6.37
-introduced DNAT support to local real server but the
-IPv6 LOCAL_OUT handler ip_vs_local_reply6() is
-registered incorrectly as IPv4 hook causing any outgoing
-IPv4 traffic to be dropped depending on the IP header values.
-
-Chris tracked down the problem to CONFIG_IP_VS_IPV6=y
-Bug report: https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1349768
-
-Reported-by: Chris J Arges <chris.j.arges@canonical.com>
-Tested-by: Chris J Arges <chris.j.arges@canonical.com>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- net/netfilter/ipvs/ip_vs_core.c | 2 +-
+ drivers/net/usb/r8152.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index e683675..5c34e8d 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1906,7 +1906,7 @@ static struct nf_hook_ops ip_vs_ops[] __read_mostly = {
- 	{
- 		.hook		= ip_vs_local_reply6,
- 		.owner		= THIS_MODULE,
--		.pf		= NFPROTO_IPV4,
-+		.pf		= NFPROTO_IPV6,
- 		.hooknum	= NF_INET_LOCAL_OUT,
- 		.priority	= NF_IP6_PRI_NAT_DST + 1,
- 	},
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 33dcc97..cc64dc0 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -424,7 +424,7 @@ enum rtl_register_content {
+ 	FULL_DUP	= 0x01,
+ };
+ 
+-#define RTL8152_MAX_TX		10
++#define RTL8152_MAX_TX		4
+ #define RTL8152_MAX_RX		10
+ #define INTBUFSIZE		2
+ #define CRC_SIZE		4
 -- 
-2.0.1
-
+1.9.3
