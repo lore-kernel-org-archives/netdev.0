@@ -1,42 +1,40 @@
-From: Ley Foon Tan <lftan@altera.com>
-Subject: [PATCH (net-next) v3] net: stmmac: fix warning from Sparse for socfpga
-Date: Thu, 28 Aug 2014 12:59:46 +0800
-Message-ID: <1409201986-3514-1-git-send-email-lftan@altera.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH v2 net-next 1/9] net: Allocate a new 16 bits for flags in
+ skbuff
+Date: Wed, 27 Aug 2014 21:48:48 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1408272147220.550@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ley Foon Tan <lftan@altera.com>, <lftan.linux@gmail.com>,
-	"Giuseppe Cavallaro" <peppe.cavallaro@st.com>,
-	Vince Bridgers <vbridger@altera.com>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f201.google.com ([209.85.160.201]:36497 "EHLO
+	mail-yk0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932473AbaH1FDY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 01:03:24 -0400
+Received: by mail-yk0-f201.google.com with SMTP id 142so148012ykq.2
+        for <netdev@vger.kernel.org>; Wed, 27 Aug 2014 22:03:24 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Warning:
-drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c:122:41:
-sparse: cast removes address space of expression
-drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c:122:38:
-sparse: incorrect type in assignment (different address spaces)
-
-Signed-off-by: Ley Foon Tan <lftan@altera.com>
+Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ include/linux/skbuff.h | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index cd613d7..ddc6115 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -119,8 +119,7 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
- 			return -EINVAL;
- 		}
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index b69b7b5..3c9574c 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -598,6 +598,10 @@ struct sk_buff {
+ 		__u32		reserved_tailroom;
+ 	};
  
--		dwmac->splitter_base = (void *)devm_ioremap_resource(dev,
--			&res_splitter);
-+		dwmac->splitter_base = devm_ioremap_resource(dev, &res_splitter);
- 		if (!dwmac->splitter_base) {
- 			dev_info(dev, "Failed to mapping emac splitter\n");
- 			return -EINVAL;
++	kmemcheck_bitfield_begin(flags3);
++	/* 16 bit hole */
++	kmemcheck_bitfield_end(flags3);
++
+ 	__be16			inner_protocol;
+ 	__u16			inner_transport_header;
+ 	__u16			inner_network_header;
 -- 
-1.8.2.1
+2.1.0.rc2.206.gedb03e5
