@@ -1,47 +1,100 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: question about drivers/net/ethernet/ti/cpsw.c
-Date: Thu, 28 Aug 2014 21:26:55 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1408282118560.2226@localhost6.localdomain6>
+From: Simon Kirby <sim@hostway.ca>
+Subject: Re: net_ns cleanup / RCU overhead
+Date: Thu, 28 Aug 2014 12:44:22 -0700
+Message-ID: <20140828194422.GB8867@hostway.ca>
+References: <20140820055855.GB5579@hostway.ca>
+ <20140828192431.GF5001@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Daniel Mack <zonque@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:29650
-	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751302AbaH1T06 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 15:26:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140828192431.GF5001@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I wonder if the following patch:
+On Thu, Aug 28, 2014 at 12:24:31PM -0700, Paul E. McKenney wrote:
 
-commit aa1a15e2d9199711cdcc9399fdb22544ab835a83
-Author: Daniel Mack <zonque@gmail.com>
-Date:   Sat Sep 21 00:50:38 2013 +0530
+> On Tue, Aug 19, 2014 at 10:58:55PM -0700, Simon Kirby wrote:
+> > Hello!
+> > 
+> > In trying to figure out what happened to a box running lots of vsftpd
+> > since we deployed a CONFIG_NET_NS=y kernel to it, we found that the
+> > (wall) time needed for cleanup_net() to complete, even on an idle box,
+> > can be quite long:
+> > 
+> > #!/bin/bash
+> > 
+> > ip netns delete test >&/dev/null
+> > while ip netns add test; do
+> >         echo hi
+> >         ip netns delete test
+> > done
+> > 
+> > On my desktop and typical hosts, this prints at only around 4 or 6 per
+> > second. While this is happening, "vmstat 1" reports 100% idle, and there
+> > there are D-state processes with stacks similar to:
+> > 
+> > 30566 [kworker/u16:1] D wait_rcu_gp+0x48, synchronize_sched+0x2f, cleanup_net+0xdb, process_one_work+0x175, worker_thread+0x119, kthread+0xbb, ret_from_fork+0x7c, 0xffffffffffffffff
+> > 
+> > 32220 ip              D copy_net_ns+0x68, create_new_namespaces+0xfc, unshare_nsproxy_namespaces+0x66, SyS_unshare+0x159, system_call_fastpath+0x16, 0xffffffffffffffff
+> > 
+> > copy_net_ns() is waiting on net_mutex which is held by cleanup_net().
+> > 
+> > vsftpd uses CLONE_NEWNET to set up privsep processes. There is a comment
+> > about it being really slow before 2.6.35 (it avoids CLONE_NEWNET in that
+> > case). I didn't find anything that makes 2.6.35 any faster, but on Debian
+> > 2.6.36-5-amd64, I notice it does seem to be a bit faster than 3.2, 3.10,
+> > 3.16, though still not anything I'd ever want to rely on per connection.
+> > 
+> > C implementation of the above: http://0x.ca/sim/ref/tools/netnsloop.c
+> > 
+> > Kernel stack "top": http://0x.ca/sim/ref/tools/pstack
+> > 
+> > What's going on here?
+> 
+> That is a bit slow for many configurations, but there are some exceptions.
+> 
+> So, what is your kernel's .config?
 
-introduced a race condition in drivers/net/ethernet/ti/cpsw.c.  I was 
-looking at an old version of the file (Linux 3.10), and it has
+I was unable to find a config (or stock kernel) that was any different,
+but here's the one we're using: http://0x.ca/sim/ref/3.10/config-3.10.53
 
- clean_irq_ret:
-         for (i = 0; i < priv->num_irqs; i++)
-                 free_irq(priv->irqs_table[i], priv);
+How fast does the above test run for you?
 
-at the beginning of the cleanup code of the probe function (cpsw_probe).  
-The above patch replaces request_irq by devm_request_irq and gets rid of 
-the above cleanup code.  But that moves the stopping of the interrupts 
-after the following code at the end of the function:
+We've been running with the attached, which has helped a little, but it's
+still quite slow in our particular use case (vsftpd), and with the above
+test. Should I enable RCU_TRACE or STALL_INFO with a low timeout or
+something?
 
-free_netdev(priv->ndev);
+Simon-
 
-The interrupt handler (cpsw_interrupt) does reference priv->ndev:
+-- >8 --
+Subject: [PATCH] netns: use synchronize_rcu_expedited instead of
+ synchronize_rcu
 
-	if (netif_running(priv->ndev)) {
-                napi_schedule(&priv->napi);
-                return IRQ_HANDLED;
-        }
+Similar to ef323088, with synchronize_rcu(), we are only able to create
+and destroy about 4 or 7 net namespaces per second, which really puts a
+dent in the performance of programs attempting to use CLONE_NEWNET for
+privilege separation (vsftpd, chromium).
+---
+ net/core/net_namespace.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-so perhaps this could be a problem.  The same happens in the remove 
-function.
-
-julia
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 85b6269..6dcb4b3 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -296,7 +296,7 @@ static void cleanup_net(struct work_struct *work)
+ 	 * This needs to be before calling the exit() notifiers, so
+ 	 * the rcu_barrier() below isn't sufficient alone.
+ 	 */
+-	synchronize_rcu();
++	synchronize_rcu_expedited();
+ 
+ 	/* Run all of the network namespace exit methods */
+ 	list_for_each_entry_reverse(ops, &pernet_list, list)
+-- 
+1.7.10.4
