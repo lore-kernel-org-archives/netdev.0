@@ -1,50 +1,43 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH 0/4] Remove various orphaned header files
-Date: Thu, 28 Aug 2014 09:03:58 -0400
-Message-ID: <53FF28BE.60502@windriver.com>
-References: <1409226274-3202-1-git-send-email-linux@rasmusvillemoes.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409226274-3202-1-git-send-email-linux@rasmusvillemoes.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: vadimk <vadim4j@gmail.com>
+Subject: [PATCH] ip netns: Show error message if mkdir failed to create /var/run/netns
+Date: Thu, 28 Aug 2014 16:02:44 +0300
+Message-ID: <1409230964-6182-1-git-send-email-vadim4j@gmail.com>
+Cc: vadimk <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:41740 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750941AbaH1NKh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 09:10:37 -0400
+Received: by mail-la0-f44.google.com with SMTP id hz20so914055lab.3
+        for <netdev@vger.kernel.org>; Thu, 28 Aug 2014 06:10:34 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 14-08-28 07:44 AM, Rasmus Villemoes wrote:
-> These four files are not included anywhere, and seem to be accidental
-> leftovers from past cleanups (see the individual commit messages).
-> 
-> Rasmus Villemoes (4):
->   include/linux/cycx_x25.h: Remove unused header
->   include/linux/i82593.h: Remove unused header
->   include/linux/phonedev.h: Remove unused header
->   include/rxrpc/types.h: Remove unused header
+Currently if mkdir failed with "Permission denied" error then "mount --make-shared ..."
+error message will be showed because /var/run/netns does not exist.
+---
+ ip/ipnetns.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-Strictly speaking the phonedev.h and types.h were not orphaned
-by net-next commits, but I suppose it is no harm if they go
-via net-next vs. say 3 in Greg's staging and 4 in akpm's tree.
-
-I double checked that they are not used anywhere with
-git grep, so...
-
-Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-
-Thanks,
-Paul.
---
-
-> 
->  include/linux/cycx_x25.h | 125 --------------------------
->  include/linux/i82593.h   | 229 -----------------------------------------------
->  include/linux/phonedev.h |  25 ------
->  include/rxrpc/types.h    |  41 ---------
->  4 files changed, 420 deletions(-)
->  delete mode 100644 include/linux/cycx_x25.h
->  delete mode 100644 include/linux/i82593.h
->  delete mode 100644 include/linux/phonedev.h
->  delete mode 100644 include/rxrpc/types.h
-> 
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index 633b5b9..7f82908 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -407,7 +407,13 @@ static int netns_add(int argc, char **argv)
+ 	snprintf(netns_path, sizeof(netns_path), "%s/%s", NETNS_RUN_DIR, name);
+ 
+ 	/* Create the base netns directory if it doesn't exist */
+-	mkdir(NETNS_RUN_DIR, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
++	if (mkdir(NETNS_RUN_DIR, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)) {
++		if (errno != EEXIST) {
++			fprintf(stderr, "mkdir %s failed: %s\n",
++				NETNS_RUN_DIR, strerror(errno));
++			return -1;
++		}
++	}
+ 
+ 	/* Make it possible for network namespace mounts to propagate between
+ 	 * mount namespaces.  This makes it likely that a unmounting a network
+-- 
+2.0.4
