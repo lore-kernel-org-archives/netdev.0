@@ -1,54 +1,47 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH (net.git)] stmmac: ptp: fix the reference clock
-Date: Thu, 28 Aug 2014 08:02:10 +0200
-Message-ID: <53FEC5E2.9020708@st.com>
-References: <1409033072-10508-1-git-send-email-peppe.cavallaro@st.com> <20140827.162652.544817209778584023.davem@davemloft.net>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git) 2/4] stmmac: fix LPI TW timer value to 20.5us.
+Date: Thu, 28 Aug 2014 08:11:42 +0200
+Message-ID: <1409206304-23239-3-git-send-email-peppe.cavallaro@st.com>
+References: <1409206304-23239-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, nandini sharma <nandini.sharma@st.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:34096 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751235AbaH1GCU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 02:02:20 -0400
-In-Reply-To: <20140827.162652.544817209778584023.davem@davemloft.net>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:34991 "EHLO
+	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934150AbaH1GL4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 02:11:56 -0400
+In-Reply-To: <1409206304-23239-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David
+From: nandini sharma <nandini.sharma@st.com>
 
-On 8/28/2014 1:26 AM, David Miller wrote:
-> From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Date: Tue, 26 Aug 2014 08:04:32 +0200
->
->> @@ -638,6 +638,15 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
->>   	if (!(priv->dma_cap.time_stamp || priv->dma_cap.atime_stamp))
->>   		return -EOPNOTSUPP;
->>
->> +	/* Fall-back to main clock in case of no PTP ref is passed */
->> +	priv->clk_ptp_ref = devm_clk_get(priv->device, "clk_ptp_ref");
->> +	if (IS_ERR(priv->clk_ptp_ref)) {
->> +		priv->clk_ptp_rate = clk_get_rate(priv->stmmac_clk);
->
-> This code path will leave an IS_ERR() value in clk_ptp_ref.
->   ...
->>   static void stmmac_release_ptp(struct stmmac_priv *priv)
->>   {
->> +	if (priv->clk_ptp_ref)
->> +		clk_disable_unprepare(priv->clk_ptp_ref);
->>   	stmmac_ptp_unregister(priv);
->>   }
->
-> Which this code will erroneously pass into clk_disable_unprepare().
->
-> Please NULL the pointer out properl when devm_clk_get() errors.
+The value for LPI TW timer has to be updated to 0x1E that is the hardcoded value
+of 20.5us and it will apply to all EEE enabled Remote PHYs.
+Disadvantage is for PHY's that support lesser wakeup time but we can accept it
+waiting to implement LLDP to negotiate the Wakeup time of Remote PHY.
 
-I had sent the v2, let me know if it's ok for you.
+Signed-off-by: nandini sharma <nandini.sharma@st.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/common.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-peppe
-
->
-> Thanks.
->
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index a464e8c..9f3e8b4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -287,7 +287,7 @@ struct dma_features {
+ 
+ /* Default LPI timers */
+ #define STMMAC_DEFAULT_LIT_LS	0x3E8
+-#define STMMAC_DEFAULT_TWT_LS	0x0
++#define STMMAC_DEFAULT_TWT_LS	0x1E
+ 
+ #define STMMAC_CHAIN_MODE	0x1
+ #define STMMAC_RING_MODE	0x2
+-- 
+1.7.4.4
