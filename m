@@ -1,88 +1,70 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH RFC] lib/rhashtable: allow users to set the minimum shifts
- of shrinking
-Date: Thu, 28 Aug 2014 09:04:17 +0800
-Message-ID: <53FE8011.4060100@windriver.com>
-References: <1409129851-11630-1-git-send-email-ying.xue@windriver.com> <20140827103412.GC13116@casper.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-	<netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:60070 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752592AbaH1BE6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Aug 2014 21:04:58 -0400
-In-Reply-To: <20140827103412.GC13116@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Benjamin Poirier <bpoirier@suse.de>
+Subject: [PATCH net v4 1/4] tg3: Limit minimum tx queue wakeup threshold
+Date: Wed, 27 Aug 2014 18:04:15 -0700
+Message-ID: <1409187858-7698-1-git-send-email-bpoirier@suse.de>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Prashant Sreedharan <prashant@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/27/2014 06:34 PM, Thomas Graf wrote:
-> On 08/27/14 at 04:57pm, Ying Xue wrote:
->> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
->> index a2c7881..1466e2d 100644
->> --- a/lib/rhashtable.c
->> +++ b/lib/rhashtable.c
->> @@ -293,12 +293,15 @@ EXPORT_SYMBOL_GPL(rhashtable_expand);
->>  int rhashtable_shrink(struct rhashtable *ht, gfp_t flags)
->>  {
->>  	struct bucket_table *ntbl, *tbl = rht_dereference(ht->tbl, ht);
->> +	size_t min_shift = ilog2(HASH_MIN_SIZE);
->>  	struct rhash_head __rcu **pprev;
->>  	unsigned int i;
->>  
->>  	ASSERT_RHT_MUTEX(ht);
->>  
->> -	if (tbl->size <= HASH_MIN_SIZE)
->> +	if (ht->p.min_shift)
->> +		min_shift = max(ht->p.min_shift, min_shift);
->> +	if (ht->shift <= min_shift)
->>  		return 0;
-> 
-> I like it. Can you translate HASH_MIN_SIZE to .minshift in
-> rhashtable_init()? That way we only have to deal with .min_shift in
-> rhashtable_shrink().
-> 
+tx_pending may be set by the user (via ethtool -G) to a low enough value that
+TG3_TX_WAKEUP_THRESH becomes smaller than MAX_SKB_FRAGS + 1. This may cause
+the tx queue to be waked when there are in fact not enough descriptors to
+handle an skb with max frags. This in turn causes tg3_start_xmit() to return
+NETDEV_TX_BUSY and print error messages. Fix the problem by putting a limit to
+how low TG3_TX_WAKEUP_THRESH can go.
 
-Good suggestion! I will change it in next version.
+Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+---
 
-> Note that shrinking can also be disabled by not providing a
-> .shrink_decision function in rhashtable_params if the shrinking is
-> too expensive for your case.
-> 
+I noticed the problem in a 3.0 kernel when setting `ethtool eth0 -G tx 50` and
+running a netperf TCP_STREAM test. The console fills up with
+[10597.596155] tg3 0000:06:00.0: eth0: BUG! Tx Ring full when queue awake!
+The problem in tg3 remains in current kernels though it does not reproduce as
+easily since "5640f76 net: use a per task frag allocator (v3.7-rc1)". I
+reproduced on current kernels by using the fail_page_alloc fault injection
+mechanism to force the creation of skbs with many order-0 frags. Note that the
+following script may also trigger another bug (NETDEV WATCHDOG), which is
+fixed in the next patch.
 
-Yes, I know the rule. But in some case we hope that rhashtable doesn't
-take such expensive actions like expanding and shrinking when its size
-is small; meanwhile, when its size is rather big, shrinking is able to
-de done as usual.
+$ cat /tmp/doit.sh
 
-In fact, we already published the max_shift to users, allowing them to
-limit the biggest size of rhashtable. So, exporting min_shift should be
-reasonable, having users have a chance to specify the smallest size of
-rhashtable.
+F="/sys/kernel/debug/fail_page_alloc"
 
->> -static size_t rounded_hashtable_size(unsigned int nelem)
->> +static size_t rounded_hashtable_size(struct rhashtable_params *params)
->>  {
->> -	return max(roundup_pow_of_two(nelem * 4 / 3), HASH_MIN_SIZE);
->> +	size_t size = HASH_MIN_SIZE;
->> +
->> +	if (params->min_shift)
->> +		size = max((1UL << params->min_shift), HASH_MIN_SIZE);
->> +
->> +	return max(roundup_pow_of_two(params->nelem_hint * 4 / 3), size);
->>  }
-> 
-> Same here. If you merge the provided .min_shift with HASH_MIN_SIZE
-> in rhashtable_init() before calculating the size, the above logic
-> can be simplified a lot.
-> 
+echo -1 > "$F/times"
+echo 0 > "$F/verbose"
+echo 0 > "$F/ignore-gfp-wait"
+echo 1 > "$F/task-filter"
+echo 100 > "$F/probability"
 
-Thanks for your suggestion.
+netperf -H 192.168.9.30 -l100 -t omni -- -d send &
 
-Regards,
-Ying
+n=$!
 
-> 
+sleep 0.3
+echo 1 > "/proc/$n/make-it-fail"
+sleep 10
+
+kill "$n"
+---
+ drivers/net/ethernet/broadcom/tg3.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 3ac5d23..b11c0fd 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -202,7 +202,8 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
+ #endif
+ 
+ /* minimum number of free TX descriptors required to wake up TX process */
+-#define TG3_TX_WAKEUP_THRESH(tnapi)		((tnapi)->tx_pending / 4)
++#define TG3_TX_WAKEUP_THRESH(tnapi)	max_t(u32, (tnapi)->tx_pending / 4, \
++					      MAX_SKB_FRAGS + 1)
+ #define TG3_TX_BD_DMA_MAX_2K		2048
+ #define TG3_TX_BD_DMA_MAX_4K		4096
+ 
+-- 
+1.8.4.5
