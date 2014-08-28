@@ -1,52 +1,157 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next 8/9] mlx4: Set skb->csum_level for encapsulated
- checksum
-Date: Wed, 27 Aug 2014 21:27:53 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1408272111400.32525@tomh.mtv.corp.google.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f201.google.com ([209.85.213.201]:39514 "EHLO
-	mail-ig0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750831AbaH1Lba (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 07:31:30 -0400
-Received: by mail-ig0-f201.google.com with SMTP id h3so281041igd.2
-        for <netdev@vger.kernel.org>; Thu, 28 Aug 2014 04:31:30 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: [PATCH 1/4] include/linux/cycx_x25.h: Remove unused header
+Date: Thu, 28 Aug 2014 13:44:31 +0200
+Message-ID: <1409226274-3202-2-git-send-email-linux@rasmusvillemoes.dk>
+References: <1409226274-3202-1-git-send-email-linux@rasmusvillemoes.dk>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>
+To: "David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1409226274-3202-1-git-send-email-linux@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Set skb->csum_level instead of skb->encapsulation when indicating
-CHECKSUM_UNNECESSARY for an encapsulated checksum.
+The header file include/linux/cycx_x25.h does not seem to be used
+anywhere. It was orphaned by 6fcdf4facb "wanrouter: delete now
+orphaned header content, files/drivers". Remove it.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
+Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ include/linux/cycx_x25.h | 125 -----------------------------------------------
+ 1 file changed, 125 deletions(-)
+ delete mode 100644 include/linux/cycx_x25.h
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 9c909d2..b7da466 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -769,7 +769,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 					gro_skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
- 					if (l2_tunnel)
--						gro_skb->encapsulation = 1;
-+						gro_skb->csum_level = 1;
- 					if ((cqe->vlan_my_qpn &
- 					    cpu_to_be32(MLX4_CQE_VLAN_PRESENT_MASK)) &&
- 					    (dev->features & NETIF_F_HW_VLAN_CTAG_RX)) {
-@@ -823,8 +823,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		skb->protocol = eth_type_trans(skb, dev);
- 		skb_record_rx_queue(skb, cq->ring);
- 
--		if (l2_tunnel)
--			skb->encapsulation = 1;
-+		if (l2_tunnel && ip_summed == CHECKSUM_UNNECESSARY)
-+			skb->csum_level = 1;
- 
- 		if (dev->features & NETIF_F_RXHASH)
- 			skb_set_hash(skb,
+diff --git a/include/linux/cycx_x25.h b/include/linux/cycx_x25.h
+deleted file mode 100644
+index 362bf19..0000000
+--- a/include/linux/cycx_x25.h
++++ /dev/null
+@@ -1,125 +0,0 @@
+-#ifndef	_CYCX_X25_H
+-#define	_CYCX_X25_H
+-/*
+-* cycx_x25.h	Cyclom X.25 firmware API definitions.
+-*
+-* Author:	Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+-*
+-* Copyright:	(c) 1998-2003 Arnaldo Carvalho de Melo
+-*
+-* Based on sdla_x25.h by Gene Kozin <74604.152@compuserve.com>
+-*
+-*		This program is free software; you can redistribute it and/or
+-*		modify it under the terms of the GNU General Public License
+-*		as published by the Free Software Foundation; either version
+-*		2 of the License, or (at your option) any later version.
+-* ============================================================================
+-* 2000/04/02	acme		dprintk and cycx_debug
+-* 1999/01/03	acme		judicious use of data types
+-* 1999/01/02	acme		#define X25_ACK_N3	0x4411
+-* 1998/12/28	acme		cleanup: lot'o'things removed
+-*					 commands listed,
+-*					 TX25Cmd & TX25Config structs
+-*					 typedef'ed
+-*/
+-#ifndef PACKED
+-#define PACKED __attribute__((packed))
+-#endif 
+-
+-/* X.25 shared memory layout. */
+-#define	X25_MBOX_OFFS	0x300	/* general mailbox block */
+-#define	X25_RXMBOX_OFFS	0x340	/* receive mailbox */
+-
+-/* Debug */
+-#define dprintk(level, format, a...) if (cycx_debug >= level) printk(format, ##a)
+-
+-extern unsigned int cycx_debug;
+-
+-/* Data Structures */
+-/* X.25 Command Block. */
+-struct cycx_x25_cmd {
+-	u16 command;
+-	u16 link;	/* values: 0 or 1 */
+-	u16 len;	/* values: 0 thru 0x205 (517) */
+-	u32 buf;
+-} PACKED;
+-
+-/* Defines for the 'command' field. */
+-#define X25_CONNECT_REQUEST             0x4401
+-#define X25_CONNECT_RESPONSE            0x4402
+-#define X25_DISCONNECT_REQUEST          0x4403
+-#define X25_DISCONNECT_RESPONSE         0x4404
+-#define X25_DATA_REQUEST                0x4405
+-#define X25_ACK_TO_VC			0x4406
+-#define X25_INTERRUPT_RESPONSE          0x4407
+-#define X25_CONFIG                      0x4408
+-#define X25_CONNECT_INDICATION          0x4409
+-#define X25_CONNECT_CONFIRM             0x440A
+-#define X25_DISCONNECT_INDICATION       0x440B
+-#define X25_DISCONNECT_CONFIRM          0x440C
+-#define X25_DATA_INDICATION             0x440E
+-#define X25_INTERRUPT_INDICATION        0x440F
+-#define X25_ACK_FROM_VC			0x4410
+-#define X25_ACK_N3			0x4411
+-#define X25_CONNECT_COLLISION           0x4413
+-#define X25_N3WIN                       0x4414
+-#define X25_LINE_ON                     0x4415
+-#define X25_LINE_OFF                    0x4416
+-#define X25_RESET_REQUEST               0x4417
+-#define X25_LOG                         0x4500
+-#define X25_STATISTIC                   0x4600
+-#define X25_TRACE                       0x4700
+-#define X25_N2TRACEXC                   0x4702
+-#define X25_N3TRACEXC                   0x4703
+-
+-/**
+- *	struct cycx_x25_config - cyclom2x x25 firmware configuration
+- *	@link - link number
+- *	@speed - line speed
+- *	@clock - internal/external
+- *	@n2 - # of level 2 retransm.(values: 1 thru FF)
+- *	@n2win - level 2 window (values: 1 thru 7)
+- *	@n3win - level 3 window (values: 1 thru 7)
+- *	@nvc - # of logical channels (values: 1 thru 64)
+- *	@pktlen - level 3 packet length - log base 2 of size
+- *	@locaddr - my address
+- *	@remaddr - remote address
+- *	@t1 - time, in seconds
+- *	@t2 - time, in seconds
+- *	@t21 - time, in seconds
+- *	@npvc - # of permanent virt. circuits (1 thru nvc)
+- *	@t23 - time, in seconds
+- *	@flags - see dosx25.doc, in portuguese, for details
+- */
+-struct cycx_x25_config {
+-	u8  link;
+-	u8  speed;
+-	u8  clock;
+-	u8  n2;
+-	u8  n2win;
+-	u8  n3win;
+-	u8  nvc;
+-	u8  pktlen;
+-	u8  locaddr;
+-	u8  remaddr;
+-	u16 t1;
+-	u16 t2;
+-	u8  t21;
+-	u8  npvc;
+-	u8  t23;
+-	u8  flags;
+-} PACKED;
+-
+-struct cycx_x25_stats {
+-	u16 rx_crc_errors;
+-	u16 rx_over_errors;
+-	u16 n2_tx_frames;
+-	u16 n2_rx_frames;
+-	u16 tx_timeouts;
+-	u16 rx_timeouts;
+-	u16 n3_tx_packets;
+-	u16 n3_rx_packets;
+-	u16 tx_aborts;
+-	u16 rx_aborts;
+-} PACKED;
+-#endif	/* _CYCX_X25_H */
 -- 
-2.1.0.rc2.206.gedb03e5
+2.0.4
