@@ -1,68 +1,44 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH 2/5] Documentation: bindings: net: add the Marvell Berlin
- Ethernet controller
-Date: Fri, 29 Aug 2014 15:51:00 +0200
-Message-ID: <1409320263-10295-3-git-send-email-antoine.tenart@free-electrons.com>
+Subject: [PATCH 3/5] Documentation: devicetree: net: mention Marvell Berlin
+Date: Fri, 29 Aug 2014 15:51:01 +0200
+Message-ID: <1409320263-10295-4-git-send-email-antoine.tenart@free-electrons.com>
 References: <1409320263-10295-1-git-send-email-antoine.tenart@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: zmxu@marvell.com, jszhang@marvell.com, devicetree@vger.kernel.org,
- netdev@vger.kernel.org, Antoine Tenart <antoine.tenart@free-electrons.com>,
- linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
- linux-arm-kernel@lists.infradead.org
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+	alexandre.belloni@free-electrons.com, zmxu@marvell.com,
+	jszhang@marvell.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: sebastian.hesselbarth@gmail.com,
 	thomas.petazzoni@free-electrons.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1409320263-10295-1-git-send-email-antoine.tenart@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This adds the binding documentation for the Marvell Berlin Ethernet
-controller.
+Marvell Berlin SoCs have a MDIO interface for their Ethernet
+controllers. Mention Berlin in the SoC list.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- .../devicetree/bindings/net/marvell-berlin.txt     | 23 ++++++++++++++++++++++
- 1 file changed, 23 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/marvell-berlin.txt
+ Documentation/devicetree/bindings/net/marvell-orion-mdio.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/marvell-berlin.txt b/Documentation/devicetree/bindings/net/marvell-berlin.txt
-new file mode 100644
-index 000000000000..0ae468aef13f
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/marvell-berlin.txt
-@@ -0,0 +1,23 @@
-+* Marvell Berlin Ethernet Controller
-+
-+Required properties:
-+- compatible: should be "marvell,berlin-eth".
-+- reg: address and length of the register set for the device.
-+- interrupts: interrupt for the device.
-+- phy-handle: pointer to the Ethernet PHY.
-+- clocks: pointer to the clock for the device.
-+
-+Optional properties:
-+- local-mac-address: see ethernet.txt file in the same directory.
-+
-+
-+Example:
-+
-+	eth0: ethernet@f7b90000 {
-+		compatible = "marvell,berlin-eth";
-+        	reg = <0xf7b90000 0x10000>;
-+		clocks = <&chip CLKID_GETH0>;
-+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
-+		phy-handle = <&ethphy0>;
-+		local-mac-address = [00 00 00 00 00 00];
-+	};
+diff --git a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+index 9417e54c26c0..4580c2256039 100644
+--- a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
++++ b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+@@ -1,9 +1,9 @@
+ * Marvell MDIO Ethernet Controller interface
+ 
+ The Ethernet controllers of the Marvel Kirkwood, Dove, Orion5x,
+-MV78xx0, Armada 370 and Armada XP have an identical unit that provides
+-an interface with the MDIO bus. This driver handles this MDIO
+-interface.
++MV78xx0, Armada 370, Armada XP and Berlin have an identical unit
++that provides an interface with the MDIO bus. This driver handles
++this MDIO interface.
+ 
+ Required properties:
+ - compatible: "marvell,orion-mdio"
 -- 
 1.9.1
