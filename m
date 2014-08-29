@@ -1,59 +1,70 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 05/15] i40e: Tell OS link is going down when calling
- set_phy_config
-Date: Fri, 29 Aug 2014 21:37:39 +0400
-Message-ID: <5400BA63.7030307@cogentembedded.com>
-References: <1409304620-23251-1-git-send-email-jeffrey.t.kirsher@intel.com> <1409304620-23251-6-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v8 net-next 2/2] net: filter: split filter.h and expose
+ eBPF to user space
+Date: Fri, 29 Aug 2014 19:39:03 +0200
+Message-ID: <5400BAB7.80001@redhat.com>
+References: <1409171833-6979-1-git-send-email-ast@plumgrid.com> <1409171833-6979-3-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:56792 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752806AbaH2Rho (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 13:37:44 -0400
-Received: by mail-lb0-f171.google.com with SMTP id n15so3022078lbi.16
-        for <netdev@vger.kernel.org>; Fri, 29 Aug 2014 10:37:42 -0700 (PDT)
-In-Reply-To: <1409304620-23251-6-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	Namhyung Kim <namhyung@kernel.org>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1409171833-6979-3-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/29/2014 01:30 PM, Jeff Kirsher wrote:
-
-> From: Catherine Sullivan <catherine.sullivan@intel.com>
-
-> Since we don't seem to be getting an LSE telling us link is going down
-> during set_phy_config (but we do get an LSE telling us we are coming
-> back up), fake one for the OS and tell them link is going down. Also
-> do an atomic restart no matter what because there are times the user
-> may want to end with link up even if they started with link down (like
-> if they accidentally set it to a speed that can't link and are trying to
-> fix it).
-
-> Change-ID: I0a642af9c1d0feb67bce741aba1a9c33bd349ed6
-> Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-> Tested-by: Jim Young <jamesx.m.young@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 21 ++++++++++++++++++---
->   1 file changed, 18 insertions(+), 3 deletions(-)
-
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> index de4ce0e..101be2f 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> @@ -559,9 +559,17 @@ static int i40e_set_settings(struct net_device *netdev,
->   		config.eeer = abilities.eeer_val;
->   		config.low_power_ctrl = abilities.d3_lpan;
+On 08/27/2014 10:37 PM, Alexei Starovoitov wrote:
+> allow user space to generate eBPF programs
 >
-> -		/* If link is up set link and an so changes take effect */
-> -		if (hw->phy.link_info.link_info & I40E_AQ_LINK_UP)
-> -			config.abilities |= I40E_AQ_PHY_ENABLE_ATOMIC_LINK;
-> +		/* set link and an so changes take effect */
+> uapi/linux/bpf.h: eBPF instruction set definition
+>
+> linux/filter.h: the rest
 
-    Can't parse this comment, probably a word is missing?
+Very sorry for being late, but just a thought since we're touching user
+space headers anyway ...
 
-WBR, Sergei
+Wouldn't it be more consistent to have it organized as follows ...
+
+  - uapi/linux/bpf.h    : classic BPF instruction set parts only
+  - uapi/linux/ebpf.h   : eBPF instruction set definition (which also
+                          includes uapi/linux/bpf.h though)
+... and have ...
+
+  - uapi/linux/filter.h : just include uapi/linux/bpf.h but rest is empty
+
+That way, it would be more consistent ...
+
+Old legacy application can stay with linux/filter.h; new applications
+based on their needs can choose between linux/{e,}bpf.h and in the kernel,
+we can just include linux/ebpf.h.
+
+Right now, it seems, an eBPF user space program would need to include
+2 header files in user space (linux/filter.h, linux/bpf.h) which I find
+a bit confusing.
+
+If you want, I could also take care of that later, but just thinking out
+loudly ...
+
+> This patch only moves macro definitions, but practically it freezes existing
+> eBPF instruction set, though new instructions can still be added in the future.
+>
+> These eBPF definitions cannot go into uapi/linux/filter.h, since the names
+> may conflict with existing applications.
+>
+> Full eBPF ISA description is in Documentation/networking/filter.txt
+>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
