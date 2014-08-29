@@ -1,41 +1,70 @@
-From: Christophe Gouault <christophe.gouault@6wind.com>
-Subject: Re: [PATCH ipsec-next v3 2/2] xfrm: configure policy hash table
- thresholds by netlink
-Date: Fri, 29 Aug 2014 12:02:00 +0200
-Message-ID: <CADdy8HrmoHRzjM15qg8E-0fMu2Ka7VFqweZKYO1WuXj8sNu2cg@mail.gmail.com>
-References: <20140821060944.GC6390@secunet.com>
-	<1409154495-1343-1-git-send-email-christophe.gouault@6wind.com>
-	<1409154495-1343-3-git-send-email-christophe.gouault@6wind.com>
-	<20140829095431.GF6390@secunet.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next v2] lib/rhashtable: allow users to set the minimum
+ shifts of shrinking
+Date: Fri, 29 Aug 2014 18:08:09 +0800
+Message-ID: <54005109.3070904@windriver.com>
+References: <1409190324-27828-1-git-send-email-ying.xue@windriver.com> <20140829093107.GA3563@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
+	<netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:59238 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751454AbaH2KCC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 06:02:02 -0400
-Received: by mail-ie0-f175.google.com with SMTP id y20so2397423ier.6
-        for <netdev@vger.kernel.org>; Fri, 29 Aug 2014 03:02:00 -0700 (PDT)
-In-Reply-To: <20140829095431.GF6390@secunet.com>
+Received: from mail.windriver.com ([147.11.1.11]:43651 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750800AbaH2KIq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 06:08:46 -0400
+In-Reply-To: <20140829093107.GA3563@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-08-29 11:54 GMT+02:00 Steffen Klassert <steffen.klassert@secunet.com>:
-> On Wed, Aug 27, 2014 at 05:48:15PM +0200, Christophe Gouault wrote:
+On 08/29/2014 05:31 PM, Thomas Graf wrote:
+> On 08/28/14 at 09:45am, Ying Xue wrote:
+>> Now the resizeable hash table size is allowed to shrink a too smaller
+>> size - HASH_MIN_SIZE(4) although users initially specify a rather big
+>> size when table is created. Especially when the number of objects
+>> saved in the table keeps a small value in comparison with the initial
+>> setting of table size during a quite long time, lots of actions of
+>> expanding and shrinking are involved with objects being inserted or
+> 
+> Can you work on this part of the commit message a bit? I know what
+> you want to say but it's not very clear from the text.
+> 
+
+OK. I will revise it.
+
+>> removed from table. However, as synchronize_rcu() has to be called
+>> during expanding and shrinking, these unnecessary actions would
+>> seriously hit users' performance.
 >>
->> +static int xfrm_set_spdinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
->> +                         struct nlattr **attrs)
->> +{
->> +     struct net *net = sock_net(skb->sk);
->> +     u32 *flags = nlmsg_data(nlh);
->> +     u32 sportid = NETLINK_CB(skb).portid;
->> +     u32 seq = nlh->nlmsg_seq;
->
-> flags, sportid and seq are unused now. Please remove them.
+>> Therefore, we should permit users to set the minimum table size
+>> through configuring the minimum of number of shifts when table is
+>> created according to users specific requirement.
+>>
+>> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+>> index a2c7881..85a4ac2 100644
+>> --- a/lib/rhashtable.c
+>> +++ b/lib/rhashtable.c
+>> @@ -566,8 +568,13 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+>>  	    (!params->key_len && !params->obj_hashfn))
+>>  		return -EINVAL;
+>>  
+>> +	if (params->min_shift)
+>> +		params->min_shift = max(params->min_shift, min_shift);
+>> +	else
+>> +		params->min_shift = min_shift;
+>> +
+> 
+> You can simplify all of the above to just:
+> 
+>   params->min_shift = max(params->min_shift, ilog2(HASH_MIN_SIZE));
+> 
+> 
 
-OK, I'll send an update.
+Oops! when I created the code, I wrongly deemed params->min_shift as a
+pointer so that the code became so complex. Thanks, I will change it
+with your good advice.
 
-Christophe.
+Regards,
+Ying
