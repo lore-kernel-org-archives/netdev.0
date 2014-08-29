@@ -1,101 +1,87 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH 1/1] drivers: net: cpsw: Add support for pause frames
-Date: Fri, 29 Aug 2014 14:26:21 +0530
-Message-ID: <1409302581-25290-1-git-send-email-mugunthanvnm@ti.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next v3] xfrm: remove useless hash_resize_mutex locks
+Date: Fri, 29 Aug 2014 17:09:07 +0800
+Message-ID: <1409303348-23262-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+Cc: <davem@davemloft.net>, <christophe.gouault@6wind.com>,
+	<netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:37124 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751316AbaH2I43 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2014 04:56:29 -0400
+Received: from mail.windriver.com ([147.11.1.11]:33490 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750800AbaH2JJZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 05:09:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CPSW supports both rx and tx pause frames for flow control.
+In xfrm_state.c, hash_resize_mutex is defined as a local variable
+and only used in xfrm_hash_resize() which is declared as a work
+handler of xfrm.state_hash_work. But when the xfrm.state_hash_work
+work is put in the global workqueue(system_wq) with schedule_work(),
+the work will be really inserted in the global workqueue if it was
+not already queued, otherwise, it is still left in the same position
+on the the global workqueue. This means the xfrm_hash_resize() work
+handler is only executed once at any time no matter how many times
+its work is scheduled, that is, xfrm_hash_resize() is not called
+concurrently at all, so hash_resize_mutex is redundant for us.
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+Cc: Christophe Gouault <christophe.gouault@6wind.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Acked-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/ethernet/ti/cpsw.c | 37 +++++++++++++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
+ net/xfrm/xfrm_state.c |   13 +++----------
+ 1 file changed, 3 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 999fb72..81325d4 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -397,6 +397,8 @@ struct cpsw_priv {
- 	struct cpdma_ctlr		*dma;
- 	struct cpdma_chan		*txch, *rxch;
- 	struct cpsw_ale			*ale;
-+	bool				rx_pause;
-+	bool				tx_pause;
- 	/* snapshot of IRQ numbers */
- 	u32 irqs_table[4];
- 	u32 num_irqs;
-@@ -832,6 +834,12 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
- 		else if (phy->speed == 10)
- 			mac_control |= BIT(18); /* In Band mode */
- 
-+		if (priv->rx_pause)
-+			mac_control |= BIT(3);
-+
-+		if (priv->tx_pause)
-+			mac_control |= BIT(4);
-+
- 		*link = true;
- 	} else {
- 		mac_control = 0;
-@@ -1223,6 +1231,9 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 		/* enable statistics collection only on all ports */
- 		__raw_writel(0x7, &priv->regs->stat_port_en);
- 
-+		/* Enable internal fifo flow control */
-+		writel(0x7, &priv->regs->flow_control);
-+
- 		if (WARN_ON(!priv->data.rx_descs))
- 			priv->data.rx_descs = 128;
- 
-@@ -1784,6 +1795,30 @@ static int cpsw_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
- 		return -EOPNOTSUPP;
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 0ab5413..de971b6 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -97,8 +97,6 @@ static unsigned long xfrm_hash_new_size(unsigned int state_hmask)
+ 	return ((state_hmask + 1) << 1) * sizeof(struct hlist_head);
  }
  
-+static void cpsw_get_pauseparam(struct net_device *ndev,
-+				struct ethtool_pauseparam *pause)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+
-+	pause->autoneg = AUTONEG_DISABLE;
-+	pause->rx_pause = (priv->rx_pause) ? true : false;
-+	pause->tx_pause = (priv->tx_pause) ? true : false;
-+}
-+
-+static int cpsw_set_pauseparam(struct net_device *ndev,
-+			       struct ethtool_pauseparam *pause)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+	bool link;
-+
-+	priv->rx_pause = (pause->rx_pause) ? true : false;
-+	priv->tx_pause = (pause->tx_pause) ? true : false;
-+
-+	for_each_slave(priv, _cpsw_adjust_link, priv, &link);
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops cpsw_ethtool_ops = {
- 	.get_drvinfo	= cpsw_get_drvinfo,
- 	.get_msglevel	= cpsw_get_msglevel,
-@@ -1797,6 +1832,8 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
- 	.get_sset_count		= cpsw_get_sset_count,
- 	.get_strings		= cpsw_get_strings,
- 	.get_ethtool_stats	= cpsw_get_ethtool_stats,
-+	.get_pauseparam		= cpsw_get_pauseparam,
-+	.set_pauseparam		= cpsw_set_pauseparam,
- 	.get_wol	= cpsw_get_wol,
- 	.set_wol	= cpsw_set_wol,
- 	.get_regs_len	= cpsw_get_regs_len,
+-static DEFINE_MUTEX(hash_resize_mutex);
+-
+ static void xfrm_hash_resize(struct work_struct *work)
+ {
+ 	struct net *net = container_of(work, struct net, xfrm.state_hash_work);
+@@ -107,22 +105,20 @@ static void xfrm_hash_resize(struct work_struct *work)
+ 	unsigned int nhashmask, ohashmask;
+ 	int i;
+ 
+-	mutex_lock(&hash_resize_mutex);
+-
+ 	nsize = xfrm_hash_new_size(net->xfrm.state_hmask);
+ 	ndst = xfrm_hash_alloc(nsize);
+ 	if (!ndst)
+-		goto out_unlock;
++		return;
+ 	nsrc = xfrm_hash_alloc(nsize);
+ 	if (!nsrc) {
+ 		xfrm_hash_free(ndst, nsize);
+-		goto out_unlock;
++		return;
+ 	}
+ 	nspi = xfrm_hash_alloc(nsize);
+ 	if (!nspi) {
+ 		xfrm_hash_free(ndst, nsize);
+ 		xfrm_hash_free(nsrc, nsize);
+-		goto out_unlock;
++		return;
+ 	}
+ 
+ 	spin_lock_bh(&net->xfrm.xfrm_state_lock);
+@@ -148,9 +144,6 @@ static void xfrm_hash_resize(struct work_struct *work)
+ 	xfrm_hash_free(odst, osize);
+ 	xfrm_hash_free(osrc, osize);
+ 	xfrm_hash_free(ospi, osize);
+-
+-out_unlock:
+-	mutex_unlock(&hash_resize_mutex);
+ }
+ 
+ static DEFINE_SPINLOCK(xfrm_state_afinfo_lock);
 -- 
-2.1.0
+1.7.9.5
