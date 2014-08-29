@@ -1,33 +1,49 @@
-From: "Edward  Lampl" <edward@admin.in.th>
-Subject: Business Proposal.
-Date: Fri, 29 Aug 2014 12:04:05 -0000
-Message-ID: <f61f68795a69fc26804610a71d2df05c.squirrel@192.237.168.48>
-Reply-To: edward@admin.in.th
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: [ipsec-next v4 0/2] xfrm: scalability enhancements for policy database
+Date: Fri, 29 Aug 2014 16:16:03 +0200
+Message-ID: <1409321765-2012-1-git-send-email-christophe.gouault@6wind.com>
+References: <20140829095431.GF6390@secunet.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [192.237.168.48] ([192.237.168.48]:39797 "EHLO mail.vps.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752655AbaH2N52 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2014 09:57:28 -0400
+Received: from mail-we0-f169.google.com ([74.125.82.169]:64504 "EHLO
+	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752642AbaH2OQY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 10:16:24 -0400
+Received: by mail-we0-f169.google.com with SMTP id k48so2277415wev.0
+        for <netdev@vger.kernel.org>; Fri, 29 Aug 2014 07:16:22 -0700 (PDT)
+In-Reply-To: <20140829095431.GF6390@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patchset enables to hash more policies than just non-prefixed
+ones: hash policies whose prefix lengths are greater or equal to
+configurable thresholds.
 
-Good Day,
+These thresholds are configured via netlink message
+XFRM_MSG_NEWSPDINFO, attributes XFRMA_SPD_IPV4_HTHRESH and
+XFRMA_SPD_IPV6_HTHRESH.
 
-My name is Edward  Lampl, i have gone through your profile and found out
-that you are capable of
-handling this project,  I work with an INTESTATE & HEIR ESTATE BENEFICIARY
-TRACING company in united states.
+The related iproute2 patch for configuring the thresholds is available
+on demand.
 
-I have an important business proposal that would be of mutual benefit to
-us, all I need is your TRUST and CONFIDENCE. It is risk free as long as
-you would follow every instruction.
-
-If interested, contact me on: edward@admin.in.th
-
-Regards,
-Ed Lampl
+Best Regards,
+Christophe
+----
+v2:
+- change configuration API from proc to netlink
+v3:
+- initialize xfrm_policy_hthresh lock
+- remove "rebuilding SPD hash table" log
+- replace deprecated hlist_add_after by hlist_add_behind
+- remove netlink reply to XFRM_MSG_NEWSPDINFO request
+v4:
+- remove unused variables in xfrm_set_spdinfo
+---
+ include/net/netns/xfrm.h  |  14 +++++++
+ include/net/xfrm.h        |   1 +
+ include/uapi/linux/xfrm.h |   7 ++++
+ net/xfrm/xfrm_hash.h      |  76 +++++++++++++++++++++++++++++++----- 
+ net/xfrm/xfrm_policy.c    | 140 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++---
+ net/xfrm/xfrm_user.c      |  80 ++++++++++++++++++++++++++++++++++++--
+ 6 files changed, 299 insertions(+), 19 deletions(-)
