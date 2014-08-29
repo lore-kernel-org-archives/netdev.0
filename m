@@ -1,79 +1,150 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v8 net-next 2/2] net: filter: split filter.h and expose
- eBPF to user space
-Date: Fri, 29 Aug 2014 16:01:30 -0700
-Message-ID: <CAMEtUuyRUujYhRsH9aUx0h7wvU1DrKRHNWZtoOYEgHVfKdCTxw@mail.gmail.com>
-References: <1409171833-6979-1-git-send-email-ast@plumgrid.com>
-	<1409171833-6979-3-git-send-email-ast@plumgrid.com>
-	<5400BAB7.80001@redhat.com>
-	<CAADnVQJbgiUK1vt_SDEG6Yee-Ht67e2M82PrHb3Kx533BOF-rg@mail.gmail.com>
-	<5400FDA0.7000704@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: net_ns cleanup / RCU overhead
+Date: Sat, 30 Aug 2014 01:52:06 +0200
+Message-ID: <20140829235206.GA15853@breakpoint.cc>
+References: <20140820055855.GB5579@hostway.ca>
+ <20140828192431.GF5001@linux.vnet.ibm.com>
+ <20140828194422.GB8867@hostway.ca>
+ <87oav4l5g9.fsf@x220.int.ebiederm.org>
+ <20140828204658.GL5001@linux.vnet.ibm.com>
+ <20140829004029.GA18300@hostway.ca>
+ <alpine.LFD.2.11.1408290635530.1520@ja.home.ssi.bg>
+ <87ppfjj6x6.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5400FDA0.7000704-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, Simon Kirby <sim@hostway.ca>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87ppfjj6x6.fsf@x220.int.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 29, 2014 at 3:24 PM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->>
->> Also I really dislike 'ebpf' name in all lower case. If we make such
->> header
->> file name, we would need to rename all macros and function names
->> to EBPF_... which I find very ugly looking. I think all good abbreviations
->> are
->> three letters :)
->
->
-> I don't think we would have to name defines that way, really, that would be
-> terrible. We can keep them simply *as is*. Not sure though why bpf.h +
-> ebpf.h
-> would be that bad. ;) I haven't tried it out yet, but if we would indeed run
-> into a name collision, above proposal would resolve that.
+Eric W. Biederman <ebiederm@xmission.com> wrote:
+> Julian Anastasov <ja@ssi.bg> writes:
+> 
+> > 	Hello,
+> >
+> > On Thu, 28 Aug 2014, Simon Kirby wrote:
+> >
+> >> I noticed that [kworker/u16:0]'s stack is often:
+> >> 
+> >> [<ffffffff810942a6>] wait_rcu_gp+0x46/0x50
+> >> [<ffffffff8109607e>] synchronize_sched+0x2e/0x50
+> >> [<ffffffffa00385ac>] nf_nat_net_exit+0x2c/0x50 [nf_nat]
+> >
+> > 	I guess the problem is in nf_nat_net_exit,
+> > may be other nf exit handlers too. pernet-exit handlers
+> > should avoid synchronize_rcu and rcu_barrier.
+> > A RCU callback and rcu_barrier in module-exit is the way
+> > to go. cleanup_net includes rcu_barrier, so pernet-exit
+> > does not need such calls.
+> 
+> In principle I agree, however in this particular case it looks a bit
+> tricky because a separate hash table to track nat state per network
+> namespace.
+> 
+> At the same time all of the packets should be drained before
+> we get to nf_nat_net_exit so it doesn't look the synchronize_rcu
+> in nf_nat_exit is actually protecting anything.
 
-imo it's a consistency issue. If main uapi header is ebpf.h then
-corresponding kernel internal header should be ebpf.h as well
-and kernel/ebpf/ directory and so on.
-That's why I insist on uapi/linux/bpf.h and no other name.
-Note I didn't move any of the BPF_ALU64_REG, BPF_ALU32_IMM
-macros from linux/filter.h. Without them my verifier testsuite
-won't compile, so more lines would be added to bpf.h in the future.
-At that time we can take 45 lines out of uapi/linux/filter.h and move
-them into bpf_common.h. My request is let's not fight about it
-right now. We didn't even cross the bridge yet and arguing
-about beauty of user apps that come in 30 patches from now...
+Hmm, the problem is with the conntrack entries living in the netns being
+destroyed.
 
-These two patches are about _intent_ of making eBPF usable
-from userspace, so I can move along with llvm.
-Also worth noting that llmv will not be including this uapi/linux/bpf.h
-It has its own infra to generate instructions. Look at:
-tools/bpf/llvm/lib/Target/BPF/BPFInstrInfo.td
-it's a special 'table definition' language for describing bits and fields
-of instructions.
-So these two patches are mainly establishing _intent_ and bpf.h file
-name. That's why I'm so paranoid about naming.
+I don't think they are guaranteed to be removed by the time
+the nat netns exit function runs.
 
-btw, I've spent last two days writing syscall manpage :(
-What is the best way to present it for review?
-If I just attach it raw, it's unreadable... I can include a link
-to html page, but man2html produces ugly pages comparing
-to what 'man' command shows. Any nice man converters
-that generate stuff seen on man7.org ?
+> Further calling a rcu delay function in net_exit methods largely
+> destroys the batched cleanup of network namespaces, so it is very
+> unpleasant.
+> 
+> Could someone who knows nf_nat_core.c better than I do look and
+> see if we can just remove the synchronize_rcu in nf_nat_exit?
+
+If I remember correctly its needed to ensure that
+all conntracks with nat extensions that might still be referenced
+on other cpu have finished (i.e., nf_conntrack_destroy() has been
+called, which calls nf_nat_cleanup_conntrack() which deletes
+the extension from the hash table).
+
+As we remove the ct from that table ourselves EXCEPT in the
+case where we cannot steal the timers' reference we should
+be able to avoid that call virtually every time.
+
+Perhaps this is worth a shot (not even compile tested):
+
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index 4e0b478..80cfe10 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -508,6 +508,7 @@ EXPORT_SYMBOL_GPL(nf_nat_packet);
+ struct nf_nat_proto_clean {
+ 	u8	l3proto;
+ 	u8	l4proto;
++	bool	need_sync_rcu;
+ };
+ 
+ /* kill conntracks with affected NAT section */
+@@ -528,23 +529,32 @@ static int nf_nat_proto_remove(struct nf_conn *i, void *data)
+ 
+ static int nf_nat_proto_clean(struct nf_conn *ct, void *data)
+ {
++	struct nf_nat_proto_clean *clean = data;
+ 	struct nf_conn_nat *nat = nfct_nat(ct);
+ 
+-	if (nf_nat_proto_remove(ct, data))
+-		return 1;
+-
+ 	if (!nat || !nat->ct)
+ 		return 0;
+ 
+-	/* This netns is being destroyed, and conntrack has nat null binding.
++	/* This netns is being destroyed, and conntrack has nat binding.
+ 	 * Remove it from bysource hash, as the table will be freed soon.
+ 	 *
+-	 * Else, when the conntrack is destoyed, nf_nat_cleanup_conntrack()
++	 * Else, when the conntrack is destroyed, nf_nat_cleanup_conntrack()
+ 	 * will delete entry from already-freed table.
+ 	 */
+-	if (!del_timer(&ct->timeout))
++	if (!del_timer(&ct->timeout)) {
++		/* We have nat binding, but destruction
++		 * might already be in progress.
++		 *
++		 * nat entry is removed only after last
++		 * nf_ct_put().
++		 */
++		clean->need_sync_rcu = true;
+ 		return 1;
++	}
+ 
++	/* We stole refcount owned by timer;
++	 * conntrack cannot go away.
++	 */
+ 	spin_lock_bh(&nf_nat_lock);
+ 	hlist_del_rcu(&nat->bysource);
+ 	ct->status &= ~IPS_NAT_DONE_MASK;
+@@ -553,6 +563,9 @@ static int nf_nat_proto_clean(struct nf_conn *ct, void *data)
+ 
+ 	add_timer(&ct->timeout);
+ 
++	if (nf_nat_proto_remove(ct, data))
++		return 1;
++
+ 	/* don't delete conntrack.  Although that would make things a lot
+ 	 * simpler, we'd end up flushing all conntracks on nat rmmod.
+ 	 */
+@@ -830,7 +843,8 @@ static void __net_exit nf_nat_net_exit(struct net *net)
+ 	struct nf_nat_proto_clean clean = {};
+ 
+ 	nf_ct_iterate_cleanup(net, nf_nat_proto_clean, &clean, 0, 0);
+-	synchronize_rcu();
++	if (clean.need_sync_rcu)
++		synchronize_rcu();
+ 	nf_ct_free_hashtable(net->ct.nat_bysource, net->ct.nat_htable_size);
+ }
+ 
