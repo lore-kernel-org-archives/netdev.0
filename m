@@ -1,85 +1,122 @@
-From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v8 net-next 2/2] net: filter: split filter.h and expose
- eBPF to user space
-Date: Fri, 29 Aug 2014 11:02:58 -0700
-Message-ID: <CAADnVQJbgiUK1vt_SDEG6Yee-Ht67e2M82PrHb3Kx533BOF-rg@mail.gmail.com>
-References: <1409171833-6979-1-git-send-email-ast@plumgrid.com>
-	<1409171833-6979-3-git-send-email-ast@plumgrid.com>
-	<5400BAB7.80001@redhat.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: RTNL: assertion failed at net/ipv6/addrconf.c (1699)
+Date: Fri, 29 Aug 2014 11:14:48 -0700
+Message-ID: <CAHA+R7MZCDGRhSf=UuVCGQvNo03wVziZQB_X30rwNf6hmHipQA@mail.gmail.com>
+References: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5400BAB7.80001-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/mixed; boundary=001a1134604aedfa110501c8a0d1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, trinity@vger.kernel.org,
+	Dave Jones <davej@redhat.com>
+To: Tommi Rantala <tt.rantala@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 29, 2014 at 10:39 AM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> On 08/27/2014 10:37 PM, Alexei Starovoitov wrote:
->>
->> allow user space to generate eBPF programs
->>
->> uapi/linux/bpf.h: eBPF instruction set definition
->>
->> linux/filter.h: the rest
->
->
-> Very sorry for being late, but just a thought since we're touching user
-> space headers anyway ...
->
-> Wouldn't it be more consistent to have it organized as follows ...
->
->  - uapi/linux/bpf.h    : classic BPF instruction set parts only
->  - uapi/linux/ebpf.h   : eBPF instruction set definition (which also
->                          includes uapi/linux/bpf.h though)
-> ... and have ...
->
->  - uapi/linux/filter.h : just include uapi/linux/bpf.h but rest is empty
->
-> That way, it would be more consistent ...
->
-> Old legacy application can stay with linux/filter.h; new applications
-> based on their needs can choose between linux/{e,}bpf.h and in the kernel,
-> we can just include linux/ebpf.h.
->
-> Right now, it seems, an eBPF user space program would need to include
-> 2 header files in user space (linux/filter.h, linux/bpf.h) which I find
-> a bit confusing.
+--001a1134604aedfa110501c8a0d1
+Content-Type: text/plain; charset=UTF-8
 
-It's been bugging me as well, but I suspect having it the way you
-described won't work. Mainly because we cannot do include <uapi/..>
-inside uapi/*.h, so we would need to do include <linux/bpf.h>
-inside uapi/linux/filter.h, but that will cause serious include path
-confusion. That was the reason I didn't simply do include <linux/filter.h>
-inside uapi/linux/bpf.h
+On Fri, Aug 29, 2014 at 8:26 AM, Tommi Rantala <tt.rantala@gmail.com> wrote:
+> [   77.297196] RTNL: assertion failed at net/ipv6/addrconf.c (1699)
+> [   77.298080] CPU: 0 PID: 4842 Comm: trinity-main Not tainted 3.17.0-rc2+ #30
+> [   77.299039] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+> [   77.299789]  ffff88003d76a618 ffff880026133c50 ffffffff8238ba79
+> ffff880037c84520
+> [   77.300829]  ffff880026133c90 ffffffff820bd52b 0000000000000000
+> ffffffff82d86c40
+> [   77.301869]  0000000000000000 00000000f76fd1e1 ffff8800382d8000
+> ffff8800382d8220
+> [   77.302906] Call Trace:
+> [   77.303246]  [<ffffffff8238ba79>] dump_stack+0x4d/0x66
+> [   77.303928]  [<ffffffff820bd52b>] addrconf_join_solict+0x4b/0xb0
+> [   77.304731]  [<ffffffff820b031b>] ipv6_dev_ac_inc+0x2bb/0x330
+> [   77.305498]  [<ffffffff820b0060>] ? ac6_seq_start+0x260/0x260
+> [   77.306257]  [<ffffffff820b05fe>] ipv6_sock_ac_join+0x26e/0x360
+> [   77.307046]  [<ffffffff820b0429>] ? ipv6_sock_ac_join+0x99/0x360
+> [   77.307798]  [<ffffffff820cdd60>] do_ipv6_setsockopt.isra.5+0xa70/0xf20
 
-Also I really dislike 'ebpf' name in all lower case. If we make such header
-file name, we would need to rename all macros and function names
-to EBPF_... which I find very ugly looking. I think all good abbreviations are
-three letters :)
-So I very much prefer bpf.h as a main file name.
-Later we can move some of old classic BPF defines into
-uapi/linux/bpf_common.h and then include it in both uapi/linux/bpf.h
-and in uapi/linux/filter.h, then the nuisance of two include files for
-user space will go away. Classic users will keep using linux/filter.h
-and new apps will include linux/bpf.h only.
-I think we should probably do such header optimization later and very carefully.
-I'm a bit afraid to touch uapi/linux/filter.h since it's used in so
-many user apps.
+
+I think we should just use rtnl_lock() instead of rcu_read_lock() there,
+it is not a hot path worth optimization.
+
+Please try the attached patch.
+
+--001a1134604aedfa110501c8a0d1
+Content-Type: text/plain; charset=US-ASCII; name="ipv6-anycast.diff"
+Content-Disposition: attachment; filename="ipv6-anycast.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hzfuaqyz0
+
+Y29tbWl0IDMxZDgzZGIwYjQxN2Y3MDVjYmIzMWIyMTU5NjAzYjhiNTNiODFhYjYKQXV0aG9yOiBD
+b25nIFdhbmcgPHhpeW91Lndhbmdjb25nQGdtYWlsLmNvbT4KRGF0ZTogICBGcmkgQXVnIDI5IDEx
+OjAyOjE1IDIwMTQgLTA3MDAKCiAgICBpcHY2OiBmaXggcnRubCBsb2NrIGFzc2VydGlvbiBpbiBp
+cHY2X3NvY2tfYWNfam9pbigpCiAgICAKICAgIFNpZ25lZC1vZmYtYnk6IENvbmcgV2FuZyA8eGl5
+b3Uud2FuZ2NvbmdAZ21haWwuY29tPgoKZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvbmV0ZGV2
+aWNlLmggYi9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oCmluZGV4IDQyOTgwMTMuLjFhZTBlNzQg
+MTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgKKysrIGIvaW5jbHVkZS9saW51
+eC9uZXRkZXZpY2UuaApAQCAtMjA3Nyw4ICsyMDc3LDggQEAgdm9pZCBfX2Rldl9yZW1vdmVfcGFj
+ayhzdHJ1Y3QgcGFja2V0X3R5cGUgKnB0KTsKIHZvaWQgZGV2X2FkZF9vZmZsb2FkKHN0cnVjdCBw
+YWNrZXRfb2ZmbG9hZCAqcG8pOwogdm9pZCBkZXZfcmVtb3ZlX29mZmxvYWQoc3RydWN0IHBhY2tl
+dF9vZmZsb2FkICpwbyk7CiAKLXN0cnVjdCBuZXRfZGV2aWNlICpkZXZfZ2V0X2J5X2ZsYWdzX3Jj
+dShzdHJ1Y3QgbmV0ICpuZXQsIHVuc2lnbmVkIHNob3J0IGZsYWdzLAotCQkJCQl1bnNpZ25lZCBz
+aG9ydCBtYXNrKTsKK3N0cnVjdCBuZXRfZGV2aWNlICpkZXZfZ2V0X2J5X2ZsYWdzKHN0cnVjdCBu
+ZXQgKm5ldCwgdW5zaWduZWQgc2hvcnQgZmxhZ3MsCisJCQkJICAgIHVuc2lnbmVkIHNob3J0IG1h
+c2spOwogc3RydWN0IG5ldF9kZXZpY2UgKmRldl9nZXRfYnlfbmFtZShzdHJ1Y3QgbmV0ICpuZXQs
+IGNvbnN0IGNoYXIgKm5hbWUpOwogc3RydWN0IG5ldF9kZXZpY2UgKmRldl9nZXRfYnlfbmFtZV9y
+Y3Uoc3RydWN0IG5ldCAqbmV0LCBjb25zdCBjaGFyICpuYW1lKTsKIHN0cnVjdCBuZXRfZGV2aWNl
+ICpfX2Rldl9nZXRfYnlfbmFtZShzdHJ1Y3QgbmV0ICpuZXQsIGNvbnN0IGNoYXIgKm5hbWUpOwpk
+aWZmIC0tZ2l0IGEvbmV0L2NvcmUvZGV2LmMgYi9uZXQvY29yZS9kZXYuYwppbmRleCAyNmQyOTZj
+Li43M2NkYjAzIDEwMDY0NAotLS0gYS9uZXQvY29yZS9kZXYuYworKysgYi9uZXQvY29yZS9kZXYu
+YwpAQCAtODk3LDIzICs4OTcsMjQgQEAgc3RydWN0IG5ldF9kZXZpY2UgKmRldl9nZXRmaXJzdGJ5
+aHd0eXBlKHN0cnVjdCBuZXQgKm5ldCwgdW5zaWduZWQgc2hvcnQgdHlwZSkKIEVYUE9SVF9TWU1C
+T0woZGV2X2dldGZpcnN0Ynlod3R5cGUpOwogCiAvKioKLSAqCWRldl9nZXRfYnlfZmxhZ3NfcmN1
+IC0gZmluZCBhbnkgZGV2aWNlIHdpdGggZ2l2ZW4gZmxhZ3MKKyAqCWRldl9nZXRfYnlfZmxhZ3Mg
+LSBmaW5kIGFueSBkZXZpY2Ugd2l0aCBnaXZlbiBmbGFncwogICoJQG5ldDogdGhlIGFwcGxpY2Fi
+bGUgbmV0IG5hbWVzcGFjZQogICoJQGlmX2ZsYWdzOiBJRkZfKiB2YWx1ZXMKICAqCUBtYXNrOiBi
+aXRtYXNrIG9mIGJpdHMgaW4gaWZfZmxhZ3MgdG8gY2hlY2sKICAqCiAgKglTZWFyY2ggZm9yIGFu
+eSBpbnRlcmZhY2Ugd2l0aCB0aGUgZ2l2ZW4gZmxhZ3MuIFJldHVybnMgTlVMTCBpZiBhIGRldmlj
+ZQogICoJaXMgbm90IGZvdW5kIG9yIGEgcG9pbnRlciB0byB0aGUgZGV2aWNlLiBNdXN0IGJlIGNh
+bGxlZCBpbnNpZGUKLSAqCXJjdV9yZWFkX2xvY2soKSwgYW5kIHJlc3VsdCByZWZjb3VudCBpcyB1
+bmNoYW5nZWQuCisgKglydG5sX2xvY2soKSwgYW5kIHJlc3VsdCByZWZjb3VudCBpcyB1bmNoYW5n
+ZWQuCiAgKi8KIAotc3RydWN0IG5ldF9kZXZpY2UgKmRldl9nZXRfYnlfZmxhZ3NfcmN1KHN0cnVj
+dCBuZXQgKm5ldCwgdW5zaWduZWQgc2hvcnQgaWZfZmxhZ3MsCitzdHJ1Y3QgbmV0X2RldmljZSAq
+ZGV2X2dldF9ieV9mbGFncyhzdHJ1Y3QgbmV0ICpuZXQsIHVuc2lnbmVkIHNob3J0IGlmX2ZsYWdz
+LAogCQkJCSAgICB1bnNpZ25lZCBzaG9ydCBtYXNrKQogewogCXN0cnVjdCBuZXRfZGV2aWNlICpk
+ZXYsICpyZXQ7CiAKKwlBU1NFUlRfUlROTCgpOwogCXJldCA9IE5VTEw7Ci0JZm9yX2VhY2hfbmV0
+ZGV2X3JjdShuZXQsIGRldikgeworCWZvcl9lYWNoX25ldGRldihuZXQsIGRldikgewogCQlpZiAo
+KChkZXYtPmZsYWdzIF4gaWZfZmxhZ3MpICYgbWFzaykgPT0gMCkgewogCQkJcmV0ID0gZGV2Owog
+CQkJYnJlYWs7CmRpZmYgLS1naXQgYS9uZXQvaXB2Ni9hbnljYXN0LmMgYi9uZXQvaXB2Ni9hbnlj
+YXN0LmMKaW5kZXggMjEwMTgzMi4uYzUyM2MxYSAxMDA2NDQKLS0tIGEvbmV0L2lwdjYvYW55Y2Fz
+dC5jCisrKyBiL25ldC9pcHY2L2FueWNhc3QuYwpAQCAtNzcsNyArNzcsNyBAQCBpbnQgaXB2Nl9z
+b2NrX2FjX2pvaW4oc3RydWN0IHNvY2sgKnNrLCBpbnQgaWZpbmRleCwgY29uc3Qgc3RydWN0IGlu
+Nl9hZGRyICphZGRyKQogCXBhYy0+YWNsX25leHQgPSBOVUxMOwogCXBhYy0+YWNsX2FkZHIgPSAq
+YWRkcjsKIAotCXJjdV9yZWFkX2xvY2soKTsKKwlydG5sX2xvY2soKTsKIAlpZiAoaWZpbmRleCA9
+PSAwKSB7CiAJCXN0cnVjdCBydDZfaW5mbyAqcnQ7CiAKQEAgLTkwLDExICs5MCwxMSBAQCBpbnQg
+aXB2Nl9zb2NrX2FjX2pvaW4oc3RydWN0IHNvY2sgKnNrLCBpbnQgaWZpbmRleCwgY29uc3Qgc3Ry
+dWN0IGluNl9hZGRyICphZGRyKQogCQkJZ290byBlcnJvcjsKIAkJfSBlbHNlIHsKIAkJCS8qIHJv
+dXRlciwgbm8gbWF0Y2hpbmcgaW50ZXJmYWNlOiBqdXN0IHBpY2sgb25lICovCi0JCQlkZXYgPSBk
+ZXZfZ2V0X2J5X2ZsYWdzX3JjdShuZXQsIElGRl9VUCwKKwkJCWRldiA9IGRldl9nZXRfYnlfZmxh
+Z3MobmV0LCBJRkZfVVAsCiAJCQkJCQkgICBJRkZfVVAgfCBJRkZfTE9PUEJBQ0spOwogCQl9CiAJ
+fSBlbHNlCi0JCWRldiA9IGRldl9nZXRfYnlfaW5kZXhfcmN1KG5ldCwgaWZpbmRleCk7CisJCWRl
+diA9IF9fZGV2X2dldF9ieV9pbmRleChuZXQsIGlmaW5kZXgpOwogCiAJaWYgKGRldiA9PSBOVUxM
+KSB7CiAJCWVyciA9IC1FTk9ERVY7CkBAIC0xMzYsNyArMTM2LDcgQEAgaW50IGlwdjZfc29ja19h
+Y19qb2luKHN0cnVjdCBzb2NrICpzaywgaW50IGlmaW5kZXgsIGNvbnN0IHN0cnVjdCBpbjZfYWRk
+ciAqYWRkcikKIAl9CiAKIGVycm9yOgotCXJjdV9yZWFkX3VubG9jaygpOworCXJ0bmxfdW5sb2Nr
+KCk7CiAJaWYgKHBhYykKIAkJc29ja19rZnJlZV9zKHNrLCBwYWMsIHNpemVvZigqcGFjKSk7CiAJ
+cmV0dXJuIGVycjsKQEAgLTE3MSwxMyArMTcxLDE1IEBAIGludCBpcHY2X3NvY2tfYWNfZHJvcChz
+dHJ1Y3Qgc29jayAqc2ssIGludCBpZmluZGV4LCBjb25zdCBzdHJ1Y3QgaW42X2FkZHIgKmFkZHIp
+CiAKIAlzcGluX3VubG9ja19iaCgmaXB2Nl9za19hY19sb2NrKTsKIAotCXJjdV9yZWFkX2xvY2so
+KTsKLQlkZXYgPSBkZXZfZ2V0X2J5X2luZGV4X3JjdShuZXQsIHBhYy0+YWNsX2lmaW5kZXgpOwor
+CXJ0bmxfbG9jaygpOworCWRldiA9IF9fZGV2X2dldF9ieV9pbmRleChuZXQsIHBhYy0+YWNsX2lm
+aW5kZXgpOwogCWlmIChkZXYpCiAJCWlwdjZfZGV2X2FjX2RlYyhkZXYsICZwYWMtPmFjbF9hZGRy
+KTsKLQlyY3VfcmVhZF91bmxvY2soKTsKKwlydG5sX3VubG9jaygpOwogCiAJc29ja19rZnJlZV9z
+KHNrLCBwYWMsIHNpemVvZigqcGFjKSk7CisJaWYgKCFkZXYpCisJCXJldHVybiAtRU5PREVWOwog
+CXJldHVybiAwOwogfQogCg==
+--001a1134604aedfa110501c8a0d1--
