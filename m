@@ -1,52 +1,51 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [patch net-next RFC 06/12] net: introduce dummy switch
-Date: Fri, 29 Aug 2014 09:00:38 +0200
-Message-ID: <20140829070038.GA1864@nanopsycho.lan>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 12/12] rocker: introduce rocker switch driver
+Date: Fri, 29 Aug 2014 09:06:37 +0200
+Message-ID: <20140829070637.GB1864@nanopsycho.lan>
 References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-7-git-send-email-jiri@resnulli.us>
- <20140826191420.GC5275@gospo.rtplab.test>
+ <1408637945-10390-13-git-send-email-jiri@resnulli.us>
+ <20140823140450.GA24116@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
- buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
- aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
- dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Andy Gospodarek <gospo-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@cumulusnetworks.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:35504 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752066AbaH2HGk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 03:06:40 -0400
+Received: by mail-wi0-f171.google.com with SMTP id hi2so8594725wib.4
+        for <netdev@vger.kernel.org>; Fri, 29 Aug 2014 00:06:39 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20140826191420.GC5275-Me9pkO/C/lgvPfuUPAiksl6hYfS7NtTn@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140823140450.GA24116@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tue, Aug 26, 2014 at 09:14:20PM CEST, gospo-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org wrote:
->On Thu, Aug 21, 2014 at 06:18:59PM +0200, Jiri Pirko wrote:
->> Dummy switch implementation using switchdev interface
->> 
->[...]
->> +	if (!data || !data[IFLA_DYMMYSWPORT_PHYS_SWITCH_ID])
->[...]
->> +	dsp->psid.id_len = nla_len(data[IFLA_DYMMYSWPORT_PHYS_SWITCH_ID]);
->> +	memcpy(dsp->psid.id, nla_data(data[IFLA_DYMMYSWPORT_PHYS_SWITCH_ID]),
->[...]
->> +	[IFLA_DYMMYSWPORT_PHYS_SWITCH_ID] = { .type = NLA_BINARY,
->[...]
->> +	IFLA_DYMMYSWPORT_PHYS_SWITCH_ID,
->I realize this does compile, but I suspect this was a typo?
-
-Fixed. Thanks.
-
+Sat, Aug 23, 2014 at 04:04:50PM CEST, tgraf@suug.ch wrote:
+>On 08/21/14 at 06:19pm, Jiri Pirko wrote:
+>> This patch introduces the first driver to benefit from the switchdev
+>> infrastructure and to implement newly introduced switch ndos. This is a
+>> driver for emulated switch chip implemented in qemu:
+>> https://github.com/sfeldma/qemu-rocker/
 >
->
+>The design looks very clean. I noticed that the TLV API is almost an
+>exact dupliate of the Netlink attributes API. Any specific reason for
+>not reusing lib/nlattr.c and add what is missing?
+
+Well the api is almost the same. But the implementation is different.
+See for example rocker_tlv_put. It works directly with desc info.
+But nla_put works with skb which is not convenient for rocker.
+
+Also, struct nlattr is 2xu16 but struct rocker_tlv is u32 u16
