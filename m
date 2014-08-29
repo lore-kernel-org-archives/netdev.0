@@ -1,67 +1,48 @@
-From: Franky Lin <frankyl@broadcom.com>
-Subject: Re: [PATCH] brcmfmac: BRCMFMAC should depend on HAS_DMA
-Date: Fri, 29 Aug 2014 11:18:16 -0700
-Message-ID: <5400C3E8.9040500@broadcom.com>
-References: <1409329464-768-1-git-send-email-geert@linux-m68k.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH] pktgen: add flag NO_TIMESTAMP to disable
+ timestamping
+Date: Fri, 29 Aug 2014 21:02:54 +0200
+Message-ID: <20140829210254.360f74bf@redhat.com>
+References: <20140828161447.6652.59388.stgit@dragon>
+	<1409329026.3173.93.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <linux-wireless@vger.kernel.org>,
-	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Brett Rudley <brudley@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409329464-768-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ben Greear <greearb@candelatech.com>,
+	Robert Olsson <robert@herjulf.se>, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36404 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753382AbaH2TDK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2014 15:03:10 -0400
+In-Reply-To: <1409329026.3173.93.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Geert,
+On Fri, 29 Aug 2014 09:17:06 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-On 8/29/2014 9:24 AM, Geert Uytterhoeven wrote:
-> If NO_DMA=y:
->
-> drivers/built-in.o: In function `brcmf_msgbuf_release_array':
-> msgbuf.c:(.text+0x34dbbe): undefined reference to `dma_unmap_single'
-> drivers/built-in.o: In function `brcmf_proto_msgbuf_detach':
-> (.text+0x34dca4): undefined reference to `dma_free_coherent'
-> drivers/built-in.o: In function `brcmf_msgbuf_get_pktid':
-> msgbuf.c:(.text+0x34dd2a): undefined reference to `dma_unmap_single'
-> drivers/built-in.o: In function `brcmf_msgbuf_alloc_pktid':
-> msgbuf.c:(.text+0x34de12): undefined reference to `dma_map_single'
-> msgbuf.c:(.text+0x34de20): undefined reference to `dma_mapping_error'
-> drivers/built-in.o: In function `brcmf_msgbuf_remove_flowring':
-> msgbuf.c:(.text+0x34e3d6): undefined reference to `dma_free_coherent'
-> drivers/built-in.o: In function `brcmf_msgbuf_flowring_create':
-> msgbuf.c:(.text+0x34e4f8): undefined reference to `dma_alloc_coherent'
-> drivers/built-in.o: In function `brcmf_proto_msgbuf_attach':
-> (.text+0x34f5fe): undefined reference to `dma_alloc_coherent'
-> drivers/built-in.o: In function `brcmf_proto_msgbuf_attach':
-> (.text+0x34f798): undefined reference to `dma_free_coherent'
->
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> ---
->   drivers/net/wireless/brcm80211/Kconfig | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/brcm80211/Kconfig b/drivers/net/wireless/brcm80211/Kconfig
-> index b8e2561ea645..2e0da8925834 100644
-> --- a/drivers/net/wireless/brcm80211/Kconfig
-> +++ b/drivers/net/wireless/brcm80211/Kconfig
-> @@ -19,7 +19,7 @@ config BRCMSMAC
->
->   config BRCMFMAC
->   	tristate "Broadcom IEEE802.11n embedded FullMAC WLAN driver"
-> -	depends on CFG80211
-> +	depends on CFG80211A && HAS_DMA
->   	select BRCMUTIL
->   	---help---
->   	  This module adds support for embedded wireless adapters based on
+> On Thu, 2014-08-28 at 18:14 +0200, Jesper Dangaard Brouer wrote:
+> > Then testing the TX limits of the stack, then it is useful to
+> > be-able to disable the do_gettimeofday() timetamping on every packet.
+> > 
+> > This implements a pktgen flag NO_TIMESTAMP which will disable this
+> > call to do_gettimeofday().
+> > 
+> > The performance change on (my system E5-2695) with skb_clone=0, goes
+> > from TX 2,423,751 pps to 2,567,165 pps with flag NO_TIMESTAMP. Thus,
+> > the cost of do_gettimeofday() or saving is approx 23 nanosec.
+> 
+> I guess using local_clock() would provide an accurate and less expensive
+> timestamp, if a timestamp is needed.
 
-Thanks for reporting this. All complaints are from msgbuf code. So the 
-dependency should belong to BRCMFMAC_PCIE not BRCMFMAC.
+Sure, but I don't need this timestamp, thus I added an option to disable it.
 
-Thanks,
-Franky
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
