@@ -1,91 +1,115 @@
-From: Prashant <prashant@broadcom.com>
-Subject: Re: [PATCH net] tg3: prevent ifup/ifdown during PCI error recovery
-Date: Thu, 28 Aug 2014 16:28:46 -0700
-Message-ID: <53FFBB2E.7010609@broadcom.com>
-References: <1409144492-22790-1-git-send-email-ivecera@redhat.com>
+From: Simon Kirby <sim@hostway.ca>
+Subject: Re: net_ns cleanup / RCU overhead
+Date: Thu, 28 Aug 2014 17:40:29 -0700
+Message-ID: <20140829004029.GA18300@hostway.ca>
+References: <20140820055855.GB5579@hostway.ca>
+ <20140828192431.GF5001@linux.vnet.ibm.com>
+ <20140828194422.GB8867@hostway.ca>
+ <87oav4l5g9.fsf@x220.int.ebiederm.org>
+ <20140828204658.GL5001@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>
-To: Ivan Vecera <ivecera@redhat.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:45981 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750892AbaH1X2r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Aug 2014 19:28:47 -0400
-In-Reply-To: <1409144492-22790-1-git-send-email-ivecera@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140828204658.GL5001@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ivan, thanks for the patch. Minor comments.
+On Thu, Aug 28, 2014 at 01:46:58PM -0700, Paul E. McKenney wrote:
 
->
-> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-> index 3ac5d23..8d9c774 100644
-> --- a/drivers/net/ethernet/broadcom/tg3.c
-> +++ b/drivers/net/ethernet/broadcom/tg3.c
-> @@ -11617,6 +11617,9 @@ static int tg3_open(struct net_device *dev)
->   	struct tg3 *tp = netdev_priv(dev);
->   	int err;
->
-> +	if (tp->pcierr_recovery)
-> +		return -EAGAIN;
-> +
+> On Thu, Aug 28, 2014 at 03:33:42PM -0500, Eric W. Biederman wrote:
+> 
+> > I just want to add a little bit more analysis to this.
+> > 
+> > What we desire to be fast is the copy_net_ns, cleanup_net is batched and
+> > asynchronous which nothing really cares how long it takes except that
+> > cleanup_net holds the net_mutex and thus blocks copy_net_ns.
+> > 
+> > The puzzle is why and which rcu delays Simon is seeing in the network
+> > namespace cleanup path, as it seems like the synchronize_rcu is not
+> > the only one, and in the case of vsftp with trivail network namespaces
+> > where nothing has been done we should not need to delay.
+> 
+> Indeed, given the version and .config, I can't see why any individual
+> RCU grace-period operation would be particularly slow.
+> 
+> I suggest using ftrace on synchronize_rcu() and friends.
 
-Can have a netdev_err message here indicating the pcie error recovery 
-that is taking place before returning.
+I made a parallel net namespace create/destroy benchmark that prints the
+progress and time to create and cleanup 32 unshare()d child processes:
 
->   	if (tp->fw_needed) {
->   		err = tg3_request_firmware(tp);
->   		if (tg3_asic_rev(tp) == ASIC_REV_57766) {
-> @@ -11674,6 +11677,9 @@ static int tg3_close(struct net_device *dev)
->   {
->   	struct tg3 *tp = netdev_priv(dev);
->
-> +	if (tp->pcierr_recovery)
-> +		return -EAGAIN;
-> +
+http://0x.ca/sim/ref/tools/netnsbench.c
 
-netdev_err message here too.
+I noticed that if I haven't run it for a while, the first batch often is
+fast, followed by slowness from then on:
 
->   	tg3_ptp_fini(tp);
->
->   	tg3_stop(tp);
-> @@ -17561,6 +17567,7 @@ static int tg3_init_one(struct pci_dev *pdev,
->   	tp->rx_mode = TG3_DEF_RX_MODE;
->   	tp->tx_mode = TG3_DEF_TX_MODE;
->   	tp->irq_sync = 1;
-> +	tp->pcierr_recovery = false;
->
->   	if (tg3_debug > 0)
->   		tp->msg_enable = tg3_debug;
-> @@ -18071,6 +18078,8 @@ static pci_ers_result_t tg3_io_error_detected(struct pci_dev *pdev,
->
->   	rtnl_lock();
->
-> +	tp->pcierr_recovery = true;
-> +
->   	/* We probably don't have netdev yet */
->   	if (!netdev || !netif_running(netdev))
->   		goto done;
-> @@ -18195,6 +18204,7 @@ static void tg3_io_resume(struct pci_dev *pdev)
->   	tg3_phy_start(tp);
->
->   done:
-> +	tp->pcierr_recovery = false;
->   	rtnl_unlock();
->   }
->
-> diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-> index 461acca..31c9f82 100644
-> --- a/drivers/net/ethernet/broadcom/tg3.h
-> +++ b/drivers/net/ethernet/broadcom/tg3.h
-> @@ -3407,6 +3407,7 @@ struct tg3 {
->
->   	struct device			*hwmon_dev;
->   	bool				link_up;
-> +	bool				pcierr_recovery;
->   };
->
->   /* Accessor macros for chip and asic attributes
->
+++++++++++++++++++++++++++++++++-------------------------------- 0.039478s
+++++++++++++++++++++-----+----------------+++++++++---------++-- 4.463837s
++++++++++++++++++++++++++------+--------------------++++++------ 3.011882s
++++++++++++++++---+-------------++++++++++++++++---------------- 2.283993s
+
+Fiddling around on a stock kernel, "echo 1 > /sys/kernel/rcu_expedited"
+makes behaviour change as it did with my patch:
+
+++-++-+++-+-----+-+-++-+-++--++-+--+-+-++--++-+-+-+-++-+--++---- 0.801406s
++-+-+-++-+-+-+-+-++--+-+-++-+--++-+-+-+-+-+-+-+-+-+-+-+--++-+--- 0.872011s
+++--+-++--+-++--+-++--+-+-+-+-++-+--++--+-++-+-+-+-+--++-+-+-+-- 0.946745s
+
+How would I use ftrace on synchronize_rcu() here?
+
+As Eric said, cleanup_net() is batched, but while it is cleaning up,
+net_mutex is held. Isn't the issue just that net_mutex is held while
+some other things are going on that are meant to be lazy / batched?
+
+What is net_mutex protecting in cleanup_net()?
+
+I noticed that [kworker/u16:0]'s stack is often:
+
+[<ffffffff810942a6>] wait_rcu_gp+0x46/0x50
+[<ffffffff8109607e>] synchronize_sched+0x2e/0x50
+[<ffffffffa00385ac>] nf_nat_net_exit+0x2c/0x50 [nf_nat]
+[<ffffffff81720339>] ops_exit_list.isra.4+0x39/0x60
+[<ffffffff817209e0>] cleanup_net+0xf0/0x1a0
+[<ffffffff81062997>] process_one_work+0x157/0x440
+[<ffffffff81063303>] worker_thread+0x63/0x520
+[<ffffffff81068b96>] kthread+0xd6/0xf0
+[<ffffffff818d412c>] ret_from_fork+0x7c/0xb0
+[<ffffffffffffffff>] 0xffffffffffffffff
+
+and
+
+[<ffffffff81095364>] _rcu_barrier+0x154/0x1f0
+[<ffffffff81095450>] rcu_barrier+0x10/0x20
+[<ffffffff81102c2c>] kmem_cache_destroy+0x6c/0xb0
+[<ffffffffa0089e97>] nf_conntrack_cleanup_net_list+0x167/0x1c0 [nf_conntrack]
+[<ffffffffa008aab5>] nf_conntrack_pernet_exit+0x65/0x70 [nf_conntrack]
+[<ffffffff81720353>] ops_exit_list.isra.4+0x53/0x60
+[<ffffffff817209e0>] cleanup_net+0xf0/0x1a0
+[<ffffffff81062997>] process_one_work+0x157/0x440
+[<ffffffff81063303>] worker_thread+0x63/0x520
+[<ffffffff81068b96>] kthread+0xd6/0xf0
+[<ffffffff818d412c>] ret_from_fork+0x7c/0xb0
+[<ffffffffffffffff>] 0xffffffffffffffff
+
+So I tried flushing iptables rules and rmmoding netfilter bits:
+
+++++++++++++++++++++-+--------------------+++++++++++----------- 0.179940s
+++++++++++++++--+-------------+++++++++++++++++----------------- 0.151988s
+++++++++++++++++++++++++++++---+--------------------------+++--- 0.159967s
+++++++++++++++++++++++----------------------++++++++++---------- 0.175964s
+
+Expedited:
+
+++-+--++-+-+-+-+-+-+--++-+-+-++-+-+-+--++-+-+-+-+-+-+-+-+-+-+--- 0.079988s
+++-+-+-+-+-+-+-+-+-+-+-+--++-+--++-+--+-++-+-+--++-+-+-+-+-+-+-- 0.089347s
+++++--+++--++--+-+++++++-+++++--------------++-+-+--++-+-+--++-- 0.081566s
++++++-+++-------++-+-+-+-+-+-+-+-+-+-+-++-+-+-+-+-+-+-+-+-+-+--- 0.089026s
+
+So, much faster. It seems that just loading nf_conntrack_ipv4 (like by
+running iptables -t nat -nvL) is enough to slow it way down. But it is
+still capable of being fast, as above.
+
+Simon-
