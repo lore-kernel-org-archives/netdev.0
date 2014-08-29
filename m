@@ -1,104 +1,126 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] i40e: make warning less verbose
-Date: Fri, 29 Aug 2014 02:30:11 -0700
-Message-ID: <1409304620-23251-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] i40e: Add dual speed module support
+Date: Fri, 29 Aug 2014 02:30:06 -0700
+Message-ID: <1409304620-23251-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1409304620-23251-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:53242 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:53234 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752595AbaH2Ja0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2014 05:30:26 -0400
+	id S1751678AbaH2JaY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2014 05:30:24 -0400
 In-Reply-To: <1409304620-23251-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-The driver is un-necessarily printing a warning that is only marginally
-useful to the user.  Make the warning only print if extended driver
-string printing is enabled, other messages related to a reset event
-will still continue to print.
+Now that fw has implemented dual speed module support, we can add ours.
+Also, add the phy type for 1G LR/SR and set its media type to fiber.
+Lastly, instead of a WARN_ON if the phy type is not recognized just print
+a warning.
 
-Change-ID: I5e8beca6516a2f176cd2e72b0ac2b3b909e6c953
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: I2e5227d4a8c2907b0ed423038e5dbce774e466b0
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 26 ++++++++++++--------------
- 1 file changed, 12 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c  |  2 ++
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 31 +++++++++-----------------
+ 2 files changed, 13 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2fccd06..55a31ab 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6148,9 +6148,9 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
- 				I40E_GL_MDET_TX_EVENT_SHIFT;
- 		u8 queue = (reg & I40E_GL_MDET_TX_QUEUE_MASK) >>
- 				I40E_GL_MDET_TX_QUEUE_SHIFT;
--		dev_info(&pf->pdev->dev,
--			 "Malicious Driver Detection event 0x%02x on TX queue %d pf number 0x%02x vf number 0x%02x\n",
--			 event, queue, pf_num, vf_num);
-+		if (netif_msg_tx_err(pf))
-+			dev_info(&pf->pdev->dev, "Malicious Driver Detection event 0x%02x on TX queue %d pf number 0x%02x vf number 0x%02x\n",
-+				 event, queue, pf_num, vf_num);
- 		wr32(hw, I40E_GL_MDET_TX, 0xffffffff);
- 		mdd_detected = true;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 01874c0..30056b2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -752,6 +752,8 @@ static enum i40e_media_type i40e_get_media_type(struct i40e_hw *hw)
+ 	switch (hw->phy.link_info.phy_type) {
+ 	case I40E_PHY_TYPE_10GBASE_SR:
+ 	case I40E_PHY_TYPE_10GBASE_LR:
++	case I40E_PHY_TYPE_1000BASE_SX:
++	case I40E_PHY_TYPE_1000BASE_LX:
+ 	case I40E_PHY_TYPE_40GBASE_SR4:
+ 	case I40E_PHY_TYPE_40GBASE_LR4:
+ 		media = I40E_MEDIA_TYPE_FIBER;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 571d527..e701f42 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -313,7 +313,10 @@ static int i40e_get_settings(struct net_device *netdev,
+ 		break;
+ 	case I40E_PHY_TYPE_10GBASE_SR:
+ 	case I40E_PHY_TYPE_10GBASE_LR:
++	case I40E_PHY_TYPE_1000BASE_SX:
++	case I40E_PHY_TYPE_1000BASE_LX:
+ 		ecmd->supported = SUPPORTED_10000baseT_Full;
++		ecmd->supported |= SUPPORTED_1000baseT_Full;
+ 		break;
+ 	case I40E_PHY_TYPE_10GBASE_CR1_CU:
+ 	case I40E_PHY_TYPE_10GBASE_CR1:
+@@ -352,7 +355,8 @@ static int i40e_get_settings(struct net_device *netdev,
+ 		break;
+ 	default:
+ 		/* if we got here and link is up something bad is afoot */
+-		WARN_ON(link_up);
++		netdev_info(netdev, "WARNING: Link is up but PHY type 0x%x is not recognized.\n",
++			    hw_link_info->phy_type);
  	}
-@@ -6162,9 +6162,9 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
- 				I40E_GL_MDET_RX_EVENT_SHIFT;
- 		u8 queue = (reg & I40E_GL_MDET_RX_QUEUE_MASK) >>
- 				I40E_GL_MDET_RX_QUEUE_SHIFT;
--		dev_info(&pf->pdev->dev,
--			 "Malicious Driver Detection event 0x%02x on RX queue %d of function 0x%02x\n",
--			 event, queue, func);
-+		if (netif_msg_rx_err(pf))
-+			dev_info(&pf->pdev->dev, "Malicious Driver Detection event 0x%02x on RX queue %d of function 0x%02x\n",
-+				 event, queue, func);
- 		wr32(hw, I40E_GL_MDET_RX, 0xffffffff);
- 		mdd_detected = true;
- 	}
-@@ -6173,17 +6173,13 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
- 		reg = rd32(hw, I40E_PF_MDET_TX);
- 		if (reg & I40E_PF_MDET_TX_VALID_MASK) {
- 			wr32(hw, I40E_PF_MDET_TX, 0xFFFF);
--			dev_info(&pf->pdev->dev,
--				 "MDD TX event is for this function 0x%08x, requesting PF reset.\n",
--				 reg);
-+			dev_info(&pf->pdev->dev, "TX driver issue detected, PF reset issued\n");
- 			pf_mdd_detected = true;
- 		}
- 		reg = rd32(hw, I40E_PF_MDET_RX);
- 		if (reg & I40E_PF_MDET_RX_VALID_MASK) {
- 			wr32(hw, I40E_PF_MDET_RX, 0xFFFF);
--			dev_info(&pf->pdev->dev,
--				 "MDD RX event is for this function 0x%08x, requesting PF reset.\n",
--				 reg);
-+			dev_info(&pf->pdev->dev, "RX driver issue detected, PF reset issued\n");
- 			pf_mdd_detected = true;
- 		}
- 		/* Queue belongs to the PF, initiate a reset */
-@@ -6200,14 +6196,16 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
- 		if (reg & I40E_VP_MDET_TX_VALID_MASK) {
- 			wr32(hw, I40E_VP_MDET_TX(i), 0xFFFF);
- 			vf->num_mdd_events++;
--			dev_info(&pf->pdev->dev, "MDD TX event on VF %d\n", i);
-+			dev_info(&pf->pdev->dev, "TX driver issue detected on VF %d\n",
-+				 i);
- 		}
  
- 		reg = rd32(hw, I40E_VP_MDET_RX(i));
- 		if (reg & I40E_VP_MDET_RX_VALID_MASK) {
- 			wr32(hw, I40E_VP_MDET_RX(i), 0xFFFF);
- 			vf->num_mdd_events++;
--			dev_info(&pf->pdev->dev, "MDD RX event on VF %d\n", i);
-+			dev_info(&pf->pdev->dev, "RX driver issue detected on VF %d\n",
-+				 i);
- 		}
+ no_valid_phy_type:
+@@ -493,11 +497,10 @@ static int i40e_set_settings(struct net_device *netdev,
+ 	if (status)
+ 		return -EAGAIN;
  
- 		if (vf->num_mdd_events > I40E_DEFAULT_NUM_MDD_EVENTS_ALLOWED) {
+-	/* Copy link_speed and abilities to config in case they are not
++	/* Copy abilities to config in case autoneg is not
+ 	 * set below
+ 	 */
+ 	memset(&config, 0, sizeof(struct i40e_aq_set_phy_config));
+-	config.link_speed = abilities.link_speed;
+ 	config.abilities = abilities.abilities;
+ 
+ 	/* Check autoneg */
+@@ -534,33 +537,21 @@ static int i40e_set_settings(struct net_device *netdev,
+ 		return -EINVAL;
+ 
+ 	if (advertise & ADVERTISED_100baseT_Full)
+-		if (!(abilities.link_speed & I40E_LINK_SPEED_100MB)) {
+-			config.link_speed |= I40E_LINK_SPEED_100MB;
+-			change = true;
+-		}
++		config.link_speed |= I40E_LINK_SPEED_100MB;
+ 	if (advertise & ADVERTISED_1000baseT_Full ||
+ 	    advertise & ADVERTISED_1000baseKX_Full)
+-		if (!(abilities.link_speed & I40E_LINK_SPEED_1GB)) {
+-			config.link_speed |= I40E_LINK_SPEED_1GB;
+-			change = true;
+-		}
++		config.link_speed |= I40E_LINK_SPEED_1GB;
+ 	if (advertise & ADVERTISED_10000baseT_Full ||
+ 	    advertise & ADVERTISED_10000baseKX4_Full ||
+ 	    advertise & ADVERTISED_10000baseKR_Full)
+-		if (!(abilities.link_speed & I40E_LINK_SPEED_10GB)) {
+-			config.link_speed |= I40E_LINK_SPEED_10GB;
+-			change = true;
+-		}
++		config.link_speed |= I40E_LINK_SPEED_10GB;
+ 	if (advertise & ADVERTISED_40000baseKR4_Full ||
+ 	    advertise & ADVERTISED_40000baseCR4_Full ||
+ 	    advertise & ADVERTISED_40000baseSR4_Full ||
+ 	    advertise & ADVERTISED_40000baseLR4_Full)
+-		if (!(abilities.link_speed & I40E_LINK_SPEED_40GB)) {
+-			config.link_speed |= I40E_LINK_SPEED_40GB;
+-			change = true;
+-		}
++		config.link_speed |= I40E_LINK_SPEED_40GB;
+ 
+-	if (change) {
++	if (change || (abilities.link_speed != config.link_speed)) {
+ 		/* copy over the rest of the abilities */
+ 		config.phy_type = abilities.phy_type;
+ 		config.eee_capability = abilities.eee_capability;
 -- 
 1.9.3
