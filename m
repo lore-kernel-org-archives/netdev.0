@@ -1,83 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/15] ixgbe: Cleanup FDB handling code
-Date: Fri, 29 Aug 2014 02:30:16 -0700
-Message-ID: <1409304620-23251-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] i40e/i40evf: Bump i40e/i40evf versions
+Date: Fri, 29 Aug 2014 02:30:14 -0700
+Message-ID: <1409304620-23251-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1409304620-23251-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:53254 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:53253 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752837AbaH2Ja3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2014 05:30:29 -0400
+	id S1752531AbaH2Ja2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2014 05:30:28 -0400
 In-Reply-To: <1409304620-23251-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-This change makes it so that the behavior for FDB handling is consistent
-between both the SR-IOV and non-SR-IOV cases.  The main change here is that we
-perform bounds checking on the number of SR-IOV addresses regardless of if
-SR-IOV is enabled or not as we can only support a certain number of addresses
-in the hardware.
+Bump i40e version to 1.0.11 and i40evf version to 1.0.5.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Change-ID: I63a60fa2efe82aae87a8a3095f43218db57d46ce
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 34 ++++-----------------------
- 1 file changed, 4 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 53fbf06..2210c6d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7741,39 +7741,13 @@ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 			     const unsigned char *addr,
- 			     u16 flags)
- {
--	struct ixgbe_adapter *adapter = netdev_priv(dev);
--	int err;
--
--	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
--		return ndo_dflt_fdb_add(ndm, tb, dev, addr, flags);
--
--	/* Hardware does not support aging addresses so if a
--	 * ndm_state is given only allow permanent addresses
--	 */
--	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
--		pr_info("%s: FDB only supports static addresses\n",
--			ixgbe_driver_name);
--		return -EINVAL;
--	}
--
-+	/* guarantee we can provide a unique filter for the unicast address */
- 	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr)) {
--		u32 rar_uc_entries = IXGBE_MAX_PF_MACVLANS;
--
--		if (netdev_uc_count(dev) < rar_uc_entries)
--			err = dev_uc_add_excl(dev, addr);
--		else
--			err = -ENOMEM;
--	} else if (is_multicast_ether_addr(addr)) {
--		err = dev_mc_add_excl(dev, addr);
--	} else {
--		err = -EINVAL;
-+		if (IXGBE_MAX_PF_MACVLANS <= netdev_uc_count(dev))
-+			return -ENOMEM;
- 	}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index d37dea1..0a4e16f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
  
--	/* Only return duplicate errors if NLM_F_EXCL is set */
--	if (err == -EEXIST && !(flags & NLM_F_EXCL))
--		err = 0;
--
--	return err;
-+	return ndo_dflt_fdb_add(ndm, tb, dev, addr, flags);
- }
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 0
+-#define DRV_VERSION_BUILD 4
++#define DRV_VERSION_BUILD 11
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 8c80925..c51bc7a 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710/X710 Virtual Function Network Driver";
  
- static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
+-#define DRV_VERSION "1.0.1"
++#define DRV_VERSION "1.0.5"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.9.3
