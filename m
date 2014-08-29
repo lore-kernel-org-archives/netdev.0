@@ -1,87 +1,69 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next v3] xfrm: remove useless hash_resize_mutex locks
-Date: Fri, 29 Aug 2014 17:09:07 +0800
-Message-ID: <1409303348-23262-1-git-send-email-ying.xue@windriver.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net PATCH 1/1] drivers: net: cpsw: dual_emac: fix reducing of rx descriptor during ifdown
+Date: Fri, 29 Aug 2014 14:52:25 +0530
+Message-ID: <1409304145-26179-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <davem@davemloft.net>, <christophe.gouault@6wind.com>,
-	<netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>
+Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:33490 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750800AbaH2JJZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 05:09:25 -0400
+Received: from comal.ext.ti.com ([198.47.26.152]:42220 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751026AbaH2JWc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2014 05:22:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In xfrm_state.c, hash_resize_mutex is defined as a local variable
-and only used in xfrm_hash_resize() which is declared as a work
-handler of xfrm.state_hash_work. But when the xfrm.state_hash_work
-work is put in the global workqueue(system_wq) with schedule_work(),
-the work will be really inserted in the global workqueue if it was
-not already queued, otherwise, it is still left in the same position
-on the the global workqueue. This means the xfrm_hash_resize() work
-handler is only executed once at any time no matter how many times
-its work is scheduled, that is, xfrm_hash_resize() is not called
-concurrently at all, so hash_resize_mutex is redundant for us.
+In Dual EMAC, when both interface are up and while doing ifdown with heavy
+traffic then skbs already processed by DMA from that slave emac has to be
+requeued as still the other interface is up and running.
 
-Cc: Christophe Gouault <christophe.gouault@6wind.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Acked-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- net/xfrm/xfrm_state.c |   13 +++----------
- 1 file changed, 3 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 24 ++++++++++++++++++++++--
+ 1 file changed, 22 insertions(+), 2 deletions(-)
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 0ab5413..de971b6 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -97,8 +97,6 @@ static unsigned long xfrm_hash_new_size(unsigned int state_hmask)
- 	return ((state_hmask + 1) << 1) * sizeof(struct hlist_head);
- }
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 999fb72..04369cf 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -699,8 +699,27 @@ static void cpsw_rx_handler(void *token, int len, int status)
+ 	cpsw_dual_emac_src_port_detect(status, priv, ndev, skb);
  
--static DEFINE_MUTEX(hash_resize_mutex);
--
- static void xfrm_hash_resize(struct work_struct *work)
- {
- 	struct net *net = container_of(work, struct net, xfrm.state_hash_work);
-@@ -107,22 +105,20 @@ static void xfrm_hash_resize(struct work_struct *work)
- 	unsigned int nhashmask, ohashmask;
- 	int i;
- 
--	mutex_lock(&hash_resize_mutex);
--
- 	nsize = xfrm_hash_new_size(net->xfrm.state_hmask);
- 	ndst = xfrm_hash_alloc(nsize);
- 	if (!ndst)
--		goto out_unlock;
-+		return;
- 	nsrc = xfrm_hash_alloc(nsize);
- 	if (!nsrc) {
- 		xfrm_hash_free(ndst, nsize);
--		goto out_unlock;
-+		return;
- 	}
- 	nspi = xfrm_hash_alloc(nsize);
- 	if (!nspi) {
- 		xfrm_hash_free(ndst, nsize);
- 		xfrm_hash_free(nsrc, nsize);
--		goto out_unlock;
-+		return;
+ 	if (unlikely(status < 0) || unlikely(!netif_running(ndev))) {
+-		/* the interface is going down, skbs are purged */
+-		dev_kfree_skb_any(skb);
++		bool ndev_status = false;
++		struct cpsw_slave *slave = priv->slaves;
++		int n;
++
++		if (priv->data.dual_emac) {
++			/* In dual emac mode check for all interfaces */
++			for (n = priv->data.slaves; n; n--, slave++)
++				if (netif_running(slave->ndev))
++					ndev_status = true;
++		}
++
++		if (ndev_status) {
++			/* Though this interface is down, other interface is up
++			 * and running so requeue skb back to cpdma.
++			 */
++			new_skb = skb;
++			goto requeue;
++		} else {
++			/* the interface is going down, skbs are purged */
++			dev_kfree_skb_any(skb);
++		}
+ 		return;
  	}
  
- 	spin_lock_bh(&net->xfrm.xfrm_state_lock);
-@@ -148,9 +144,6 @@ static void xfrm_hash_resize(struct work_struct *work)
- 	xfrm_hash_free(odst, osize);
- 	xfrm_hash_free(osrc, osize);
- 	xfrm_hash_free(ospi, osize);
--
--out_unlock:
--	mutex_unlock(&hash_resize_mutex);
- }
+@@ -717,6 +736,7 @@ static void cpsw_rx_handler(void *token, int len, int status)
+ 		new_skb = skb;
+ 	}
  
- static DEFINE_SPINLOCK(xfrm_state_afinfo_lock);
++requeue:
+ 	ret = cpdma_chan_submit(priv->rxch, new_skb, new_skb->data,
+ 			skb_tailroom(new_skb), 0);
+ 	if (WARN_ON(ret < 0))
 -- 
-1.7.9.5
+2.1.0
