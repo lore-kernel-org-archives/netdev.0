@@ -1,98 +1,56 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/15] i40e: Fix an issue when PF reset fails
-Date: Fri, 29 Aug 2014 02:30:12 -0700
-Message-ID: <1409304620-23251-8-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1409304620-23251-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next v2] lib/rhashtable: allow users to set the
+ minimum shifts of shrinking
+Date: Fri, 29 Aug 2014 10:31:07 +0100
+Message-ID: <20140829093107.GA3563@casper.infradead.org>
+References: <1409190324-27828-1-git-send-email-ying.xue@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:53242 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751454AbaH2Ja0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2014 05:30:26 -0400
-In-Reply-To: <1409304620-23251-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from casper.infradead.org ([85.118.1.10]:40315 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751454AbaH2JbK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 05:31:10 -0400
+Content-Disposition: inline
+In-Reply-To: <1409190324-27828-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+On 08/28/14 at 09:45am, Ying Xue wrote:
+> Now the resizeable hash table size is allowed to shrink a too smaller
+> size - HASH_MIN_SIZE(4) although users initially specify a rather big
+> size when table is created. Especially when the number of objects
+> saved in the table keeps a small value in comparison with the initial
+> setting of table size during a quite long time, lots of actions of
+> expanding and shrinking are involved with objects being inserted or
 
-We shouldn't restart Admin queue subtask if PF reset fails since we do
-not have the AQ setup at that point. This patch makes sure we disable AQ
-clean subtask when PF reset fails.
+Can you work on this part of the commit message a bit? I know what
+you want to say but it's not very clear from the text.
 
-This will resolve an occasional kernel panic when PF reset fails for
-some reason.
+> removed from table. However, as synchronize_rcu() has to be called
+> during expanding and shrinking, these unnecessary actions would
+> seriously hit users' performance.
+> 
+> Therefore, we should permit users to set the minimum table size
+> through configuring the minimum of number of shifts when table is
+> created according to users specific requirement.
+> 
+> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+> index a2c7881..85a4ac2 100644
+> --- a/lib/rhashtable.c
+> +++ b/lib/rhashtable.c
+> @@ -566,8 +568,13 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+>  	    (!params->key_len && !params->obj_hashfn))
+>  		return -EINVAL;
+>  
+> +	if (params->min_shift)
+> +		params->min_shift = max(params->min_shift, min_shift);
+> +	else
+> +		params->min_shift = min_shift;
+> +
 
-Change-ID: I11a747773362a8c5c0ad7a10cd34be0bda8eb9e8
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c | 13 ++++++++++---
- 2 files changed, 11 insertions(+), 3 deletions(-)
+You can simplify all of the above to just:
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 4e97ba1..f1e33f8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -145,6 +145,7 @@ enum i40e_state_t {
- 	__I40E_BAD_EEPROM,
- 	__I40E_DOWN_REQUESTED,
- 	__I40E_FD_FLUSH_REQUESTED,
-+	__I40E_RESET_FAILED,
- };
- 
- enum i40e_interrupt_policy {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 55a31ab..64b8683 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5568,6 +5568,10 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
- 	u32 oldval;
- 	u32 val;
- 
-+	/* Do not run clean AQ when PF reset fails */
-+	if (test_bit(__I40E_RESET_FAILED, &pf->state))
-+		return;
-+
- 	/* check for error indications */
- 	val = rd32(&pf->hw, pf->hw.aq.arq.len);
- 	oldval = val;
-@@ -5973,19 +5977,20 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
- 	ret = i40e_pf_reset(hw);
- 	if (ret) {
- 		dev_info(&pf->pdev->dev, "PF reset failed, %d\n", ret);
--		goto end_core_reset;
-+		set_bit(__I40E_RESET_FAILED, &pf->state);
-+		goto clear_recovery;
- 	}
- 	pf->pfr_count++;
- 
- 	if (test_bit(__I40E_DOWN, &pf->state))
--		goto end_core_reset;
-+		goto clear_recovery;
- 	dev_dbg(&pf->pdev->dev, "Rebuilding internal switch\n");
- 
- 	/* rebuild the basics for the AdminQ, HMC, and initial HW switch */
- 	ret = i40e_init_adminq(&pf->hw);
- 	if (ret) {
- 		dev_info(&pf->pdev->dev, "Rebuild AdminQ failed, %d\n", ret);
--		goto end_core_reset;
-+		goto clear_recovery;
- 	}
- 
- 	/* re-verify the eeprom if we just had an EMP reset */
-@@ -6103,6 +6108,8 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
- 	i40e_send_version(pf);
- 
- end_core_reset:
-+	clear_bit(__I40E_RESET_FAILED, &pf->state);
-+clear_recovery:
- 	clear_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state);
- }
- 
--- 
-1.9.3
+  params->min_shift = max(params->min_shift, ilog2(HASH_MIN_SIZE));
