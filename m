@@ -1,80 +1,76 @@
-From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v8 net-next 2/2] net: filter: split filter.h and expose
- eBPF to user space
-Date: Sat, 30 Aug 2014 00:24:32 +0200
-Message-ID: <5400FDA0.7000704@redhat.com>
-References: <1409171833-6979-1-git-send-email-ast@plumgrid.com> <1409171833-6979-3-git-send-email-ast@plumgrid.com> <5400BAB7.80001@redhat.com> <CAADnVQJbgiUK1vt_SDEG6Yee-Ht67e2M82PrHb3Kx533BOF-rg@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: RTNL: assertion failed at net/ipv6/addrconf.c (1699)
+Date: Fri, 29 Aug 2014 15:54:48 -0700
+Message-ID: <CAHA+R7PLR7QHZuPriCErpuYL2_T+EiMhKF=qEKXjdgubno_StA@mail.gmail.com>
+References: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
+	<CAHA+R7MZCDGRhSf=UuVCGQvNo03wVziZQB_X30rwNf6hmHipQA@mail.gmail.com>
+	<20140829195339.GA9780@kria>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAADnVQJbgiUK1vt_SDEG6Yee-Ht67e2M82PrHb3Kx533BOF-rg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Tommi Rantala <tt.rantala@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, trinity@vger.kernel.org,
+	Dave Jones <davej@redhat.com>
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:59699 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750949AbaH2Wyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 18:54:50 -0400
+Received: by mail-la0-f53.google.com with SMTP id s18so3537924lam.12
+        for <netdev@vger.kernel.org>; Fri, 29 Aug 2014 15:54:48 -0700 (PDT)
+In-Reply-To: <20140829195339.GA9780@kria>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/29/2014 08:02 PM, Alexei Starovoitov wrote:
-> On Fri, Aug 29, 2014 at 10:39 AM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->> On 08/27/2014 10:37 PM, Alexei Starovoitov wrote:
->>>
->>> allow user space to generate eBPF programs
->>>
->>> uapi/linux/bpf.h: eBPF instruction set definition
->>>
->>> linux/filter.h: the rest
+On Fri, Aug 29, 2014 at 12:53 PM, Sabrina Dubroca <sd@queasysnail.net> wrote:
+> 2014-08-29, 11:14:48 -0700, Cong Wang wrote:
+>> On Fri, Aug 29, 2014 at 8:26 AM, Tommi Rantala <tt.rantala@gmail.com> wrote:
+>> > [   77.297196] RTNL: assertion failed at net/ipv6/addrconf.c (1699)
+>> > [   77.298080] CPU: 0 PID: 4842 Comm: trinity-main Not tainted 3.17.0-rc2+ #30
+>> > [   77.299039] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+>> > [   77.299789]  ffff88003d76a618 ffff880026133c50 ffffffff8238ba79
+>> > ffff880037c84520
+>> > [   77.300829]  ffff880026133c90 ffffffff820bd52b 0000000000000000
+>> > ffffffff82d86c40
+>> > [   77.301869]  0000000000000000 00000000f76fd1e1 ffff8800382d8000
+>> > ffff8800382d8220
+>> > [   77.302906] Call Trace:
+>> > [   77.303246]  [<ffffffff8238ba79>] dump_stack+0x4d/0x66
+>> > [   77.303928]  [<ffffffff820bd52b>] addrconf_join_solict+0x4b/0xb0
+>> > [   77.304731]  [<ffffffff820b031b>] ipv6_dev_ac_inc+0x2bb/0x330
+>> > [   77.305498]  [<ffffffff820b0060>] ? ac6_seq_start+0x260/0x260
+>> > [   77.306257]  [<ffffffff820b05fe>] ipv6_sock_ac_join+0x26e/0x360
+>> > [   77.307046]  [<ffffffff820b0429>] ? ipv6_sock_ac_join+0x99/0x360
+>> > [   77.307798]  [<ffffffff820cdd60>] do_ipv6_setsockopt.isra.5+0xa70/0xf20
 >>
->> Very sorry for being late, but just a thought since we're touching user
->> space headers anyway ...
 >>
->> Wouldn't it be more consistent to have it organized as follows ...
+>> I think we should just use rtnl_lock() instead of rcu_read_lock() there,
+>> it is not a hot path worth optimization.
 >>
->>   - uapi/linux/bpf.h    : classic BPF instruction set parts only
->>   - uapi/linux/ebpf.h   : eBPF instruction set definition (which also
->>                           includes uapi/linux/bpf.h though)
->> ... and have ...
->>
->>   - uapi/linux/filter.h : just include uapi/linux/bpf.h but rest is empty
->>
->> That way, it would be more consistent ...
->>
->> Old legacy application can stay with linux/filter.h; new applications
->> based on their needs can choose between linux/{e,}bpf.h and in the kernel,
->> we can just include linux/ebpf.h.
->>
->> Right now, it seems, an eBPF user space program would need to include
->> 2 header files in user space (linux/filter.h, linux/bpf.h) which I find
->> a bit confusing.
+>> Please try the attached patch.
 >
-> It's been bugging me as well, but I suspect having it the way you
-> described won't work. Mainly because we cannot do include <uapi/..>
-> inside uapi/*.h, so we would need to do include <linux/bpf.h>
-> inside uapi/linux/filter.h, but that will cause serious include path
-> confusion. That was the reason I didn't simply do include <linux/filter.h>
-> inside uapi/linux/bpf.h
+> note: it doesn't build as it is now, it needs:
 >
-> Also I really dislike 'ebpf' name in all lower case. If we make such header
-> file name, we would need to rename all macros and function names
-> to EBPF_... which I find very ugly looking. I think all good abbreviations are
-> three letters :)
+> -EXPORT_SYMBOL(dev_get_by_flags_rcu);
+> +EXPORT_SYMBOL(dev_get_by_flags);
+>
+>
+> I just tried your patch with a basic test program (open
+> socket/join/leave/close and open socket/join/close).
+>
+> I think you need to modify ipv6_sock_ac_close as well, or you can still
+> trigger the assertion when closing the socket without leaving first.
 
-I don't think we would have to name defines that way, really, that would be
-terrible. We can keep them simply *as is*. Not sure though why bpf.h + ebpf.h
-would be that bad. ;) I haven't tried it out yet, but if we would indeed run
-into a name collision, above proposal would resolve that.
+You are absolutely right here.
+
+Can I have your Signed-off-by and Tested-by before sending the patch
+formally?
+
+Thanks!
