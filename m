@@ -1,122 +1,45 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: RTNL: assertion failed at net/ipv6/addrconf.c (1699)
-Date: Fri, 29 Aug 2014 11:14:48 -0700
-Message-ID: <CAHA+R7MZCDGRhSf=UuVCGQvNo03wVziZQB_X30rwNf6hmHipQA@mail.gmail.com>
-References: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net v1 0/4] amd-xgbe: AMD XGBE driver fixes 2014-08-29
+Date: Fri, 29 Aug 2014 13:16:44 -0500
+Message-ID: <20140829181643.3257.28011.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1134604aedfa110501c8a0d1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, trinity@vger.kernel.org,
-	Dave Jones <davej@redhat.com>
-To: Tommi Rantala <tt.rantala@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1blp0184.outbound.protection.outlook.com ([207.46.163.184]:9921
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752775AbaH2SQv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2014 14:16:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---001a1134604aedfa110501c8a0d1
-Content-Type: text/plain; charset=UTF-8
+The following series of patches includes fixes to the driver.
 
-On Fri, Aug 29, 2014 at 8:26 AM, Tommi Rantala <tt.rantala@gmail.com> wrote:
-> [   77.297196] RTNL: assertion failed at net/ipv6/addrconf.c (1699)
-> [   77.298080] CPU: 0 PID: 4842 Comm: trinity-main Not tainted 3.17.0-rc2+ #30
-> [   77.299039] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-> [   77.299789]  ffff88003d76a618 ffff880026133c50 ffffffff8238ba79
-> ffff880037c84520
-> [   77.300829]  ffff880026133c90 ffffffff820bd52b 0000000000000000
-> ffffffff82d86c40
-> [   77.301869]  0000000000000000 00000000f76fd1e1 ffff8800382d8000
-> ffff8800382d8220
-> [   77.302906] Call Trace:
-> [   77.303246]  [<ffffffff8238ba79>] dump_stack+0x4d/0x66
-> [   77.303928]  [<ffffffff820bd52b>] addrconf_join_solict+0x4b/0xb0
-> [   77.304731]  [<ffffffff820b031b>] ipv6_dev_ac_inc+0x2bb/0x330
-> [   77.305498]  [<ffffffff820b0060>] ? ac6_seq_start+0x260/0x260
-> [   77.306257]  [<ffffffff820b05fe>] ipv6_sock_ac_join+0x26e/0x360
-> [   77.307046]  [<ffffffff820b0429>] ? ipv6_sock_ac_join+0x99/0x360
-> [   77.307798]  [<ffffffff820cdd60>] do_ipv6_setsockopt.isra.5+0xa70/0xf20
+- Tx hardware queue flushing support dependent on hardware version
+- Incorrect reported fifo size
+- Proper mmd select in XPCS debugfs support
+- Proper queue count for configuring Tx flow control
+
+This patch series is based on net.
+
+---
+
+Tom Lendacky (4):
+      amd-xgbe: Check for Tx hardware queue flushing support
+      amd-xgbe: Reported fifo size from hardware is not correct
+      amd-xgbe: Fix the xpcs mmd debugfs support
+      amd-xgbe: Use the Tx queue count for Tx flow control support
 
 
-I think we should just use rtnl_lock() instead of rcu_read_lock() there,
-it is not a hot path worth optimization.
+ drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c |    8 ++++----
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |   15 +++++++++++----
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |    2 ++
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |    7 ++++---
+ drivers/net/ethernet/amd/xgbe/xgbe.h         |    4 ++++
+ 5 files changed, 25 insertions(+), 11 deletions(-)
 
-Please try the attached patch.
-
---001a1134604aedfa110501c8a0d1
-Content-Type: text/plain; charset=US-ASCII; name="ipv6-anycast.diff"
-Content-Disposition: attachment; filename="ipv6-anycast.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hzfuaqyz0
-
-Y29tbWl0IDMxZDgzZGIwYjQxN2Y3MDVjYmIzMWIyMTU5NjAzYjhiNTNiODFhYjYKQXV0aG9yOiBD
-b25nIFdhbmcgPHhpeW91Lndhbmdjb25nQGdtYWlsLmNvbT4KRGF0ZTogICBGcmkgQXVnIDI5IDEx
-OjAyOjE1IDIwMTQgLTA3MDAKCiAgICBpcHY2OiBmaXggcnRubCBsb2NrIGFzc2VydGlvbiBpbiBp
-cHY2X3NvY2tfYWNfam9pbigpCiAgICAKICAgIFNpZ25lZC1vZmYtYnk6IENvbmcgV2FuZyA8eGl5
-b3Uud2FuZ2NvbmdAZ21haWwuY29tPgoKZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvbmV0ZGV2
-aWNlLmggYi9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oCmluZGV4IDQyOTgwMTMuLjFhZTBlNzQg
-MTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgKKysrIGIvaW5jbHVkZS9saW51
-eC9uZXRkZXZpY2UuaApAQCAtMjA3Nyw4ICsyMDc3LDggQEAgdm9pZCBfX2Rldl9yZW1vdmVfcGFj
-ayhzdHJ1Y3QgcGFja2V0X3R5cGUgKnB0KTsKIHZvaWQgZGV2X2FkZF9vZmZsb2FkKHN0cnVjdCBw
-YWNrZXRfb2ZmbG9hZCAqcG8pOwogdm9pZCBkZXZfcmVtb3ZlX29mZmxvYWQoc3RydWN0IHBhY2tl
-dF9vZmZsb2FkICpwbyk7CiAKLXN0cnVjdCBuZXRfZGV2aWNlICpkZXZfZ2V0X2J5X2ZsYWdzX3Jj
-dShzdHJ1Y3QgbmV0ICpuZXQsIHVuc2lnbmVkIHNob3J0IGZsYWdzLAotCQkJCQl1bnNpZ25lZCBz
-aG9ydCBtYXNrKTsKK3N0cnVjdCBuZXRfZGV2aWNlICpkZXZfZ2V0X2J5X2ZsYWdzKHN0cnVjdCBu
-ZXQgKm5ldCwgdW5zaWduZWQgc2hvcnQgZmxhZ3MsCisJCQkJICAgIHVuc2lnbmVkIHNob3J0IG1h
-c2spOwogc3RydWN0IG5ldF9kZXZpY2UgKmRldl9nZXRfYnlfbmFtZShzdHJ1Y3QgbmV0ICpuZXQs
-IGNvbnN0IGNoYXIgKm5hbWUpOwogc3RydWN0IG5ldF9kZXZpY2UgKmRldl9nZXRfYnlfbmFtZV9y
-Y3Uoc3RydWN0IG5ldCAqbmV0LCBjb25zdCBjaGFyICpuYW1lKTsKIHN0cnVjdCBuZXRfZGV2aWNl
-ICpfX2Rldl9nZXRfYnlfbmFtZShzdHJ1Y3QgbmV0ICpuZXQsIGNvbnN0IGNoYXIgKm5hbWUpOwpk
-aWZmIC0tZ2l0IGEvbmV0L2NvcmUvZGV2LmMgYi9uZXQvY29yZS9kZXYuYwppbmRleCAyNmQyOTZj
-Li43M2NkYjAzIDEwMDY0NAotLS0gYS9uZXQvY29yZS9kZXYuYworKysgYi9uZXQvY29yZS9kZXYu
-YwpAQCAtODk3LDIzICs4OTcsMjQgQEAgc3RydWN0IG5ldF9kZXZpY2UgKmRldl9nZXRmaXJzdGJ5
-aHd0eXBlKHN0cnVjdCBuZXQgKm5ldCwgdW5zaWduZWQgc2hvcnQgdHlwZSkKIEVYUE9SVF9TWU1C
-T0woZGV2X2dldGZpcnN0Ynlod3R5cGUpOwogCiAvKioKLSAqCWRldl9nZXRfYnlfZmxhZ3NfcmN1
-IC0gZmluZCBhbnkgZGV2aWNlIHdpdGggZ2l2ZW4gZmxhZ3MKKyAqCWRldl9nZXRfYnlfZmxhZ3Mg
-LSBmaW5kIGFueSBkZXZpY2Ugd2l0aCBnaXZlbiBmbGFncwogICoJQG5ldDogdGhlIGFwcGxpY2Fi
-bGUgbmV0IG5hbWVzcGFjZQogICoJQGlmX2ZsYWdzOiBJRkZfKiB2YWx1ZXMKICAqCUBtYXNrOiBi
-aXRtYXNrIG9mIGJpdHMgaW4gaWZfZmxhZ3MgdG8gY2hlY2sKICAqCiAgKglTZWFyY2ggZm9yIGFu
-eSBpbnRlcmZhY2Ugd2l0aCB0aGUgZ2l2ZW4gZmxhZ3MuIFJldHVybnMgTlVMTCBpZiBhIGRldmlj
-ZQogICoJaXMgbm90IGZvdW5kIG9yIGEgcG9pbnRlciB0byB0aGUgZGV2aWNlLiBNdXN0IGJlIGNh
-bGxlZCBpbnNpZGUKLSAqCXJjdV9yZWFkX2xvY2soKSwgYW5kIHJlc3VsdCByZWZjb3VudCBpcyB1
-bmNoYW5nZWQuCisgKglydG5sX2xvY2soKSwgYW5kIHJlc3VsdCByZWZjb3VudCBpcyB1bmNoYW5n
-ZWQuCiAgKi8KIAotc3RydWN0IG5ldF9kZXZpY2UgKmRldl9nZXRfYnlfZmxhZ3NfcmN1KHN0cnVj
-dCBuZXQgKm5ldCwgdW5zaWduZWQgc2hvcnQgaWZfZmxhZ3MsCitzdHJ1Y3QgbmV0X2RldmljZSAq
-ZGV2X2dldF9ieV9mbGFncyhzdHJ1Y3QgbmV0ICpuZXQsIHVuc2lnbmVkIHNob3J0IGlmX2ZsYWdz
-LAogCQkJCSAgICB1bnNpZ25lZCBzaG9ydCBtYXNrKQogewogCXN0cnVjdCBuZXRfZGV2aWNlICpk
-ZXYsICpyZXQ7CiAKKwlBU1NFUlRfUlROTCgpOwogCXJldCA9IE5VTEw7Ci0JZm9yX2VhY2hfbmV0
-ZGV2X3JjdShuZXQsIGRldikgeworCWZvcl9lYWNoX25ldGRldihuZXQsIGRldikgewogCQlpZiAo
-KChkZXYtPmZsYWdzIF4gaWZfZmxhZ3MpICYgbWFzaykgPT0gMCkgewogCQkJcmV0ID0gZGV2Owog
-CQkJYnJlYWs7CmRpZmYgLS1naXQgYS9uZXQvaXB2Ni9hbnljYXN0LmMgYi9uZXQvaXB2Ni9hbnlj
-YXN0LmMKaW5kZXggMjEwMTgzMi4uYzUyM2MxYSAxMDA2NDQKLS0tIGEvbmV0L2lwdjYvYW55Y2Fz
-dC5jCisrKyBiL25ldC9pcHY2L2FueWNhc3QuYwpAQCAtNzcsNyArNzcsNyBAQCBpbnQgaXB2Nl9z
-b2NrX2FjX2pvaW4oc3RydWN0IHNvY2sgKnNrLCBpbnQgaWZpbmRleCwgY29uc3Qgc3RydWN0IGlu
-Nl9hZGRyICphZGRyKQogCXBhYy0+YWNsX25leHQgPSBOVUxMOwogCXBhYy0+YWNsX2FkZHIgPSAq
-YWRkcjsKIAotCXJjdV9yZWFkX2xvY2soKTsKKwlydG5sX2xvY2soKTsKIAlpZiAoaWZpbmRleCA9
-PSAwKSB7CiAJCXN0cnVjdCBydDZfaW5mbyAqcnQ7CiAKQEAgLTkwLDExICs5MCwxMSBAQCBpbnQg
-aXB2Nl9zb2NrX2FjX2pvaW4oc3RydWN0IHNvY2sgKnNrLCBpbnQgaWZpbmRleCwgY29uc3Qgc3Ry
-dWN0IGluNl9hZGRyICphZGRyKQogCQkJZ290byBlcnJvcjsKIAkJfSBlbHNlIHsKIAkJCS8qIHJv
-dXRlciwgbm8gbWF0Y2hpbmcgaW50ZXJmYWNlOiBqdXN0IHBpY2sgb25lICovCi0JCQlkZXYgPSBk
-ZXZfZ2V0X2J5X2ZsYWdzX3JjdShuZXQsIElGRl9VUCwKKwkJCWRldiA9IGRldl9nZXRfYnlfZmxh
-Z3MobmV0LCBJRkZfVVAsCiAJCQkJCQkgICBJRkZfVVAgfCBJRkZfTE9PUEJBQ0spOwogCQl9CiAJ
-fSBlbHNlCi0JCWRldiA9IGRldl9nZXRfYnlfaW5kZXhfcmN1KG5ldCwgaWZpbmRleCk7CisJCWRl
-diA9IF9fZGV2X2dldF9ieV9pbmRleChuZXQsIGlmaW5kZXgpOwogCiAJaWYgKGRldiA9PSBOVUxM
-KSB7CiAJCWVyciA9IC1FTk9ERVY7CkBAIC0xMzYsNyArMTM2LDcgQEAgaW50IGlwdjZfc29ja19h
-Y19qb2luKHN0cnVjdCBzb2NrICpzaywgaW50IGlmaW5kZXgsIGNvbnN0IHN0cnVjdCBpbjZfYWRk
-ciAqYWRkcikKIAl9CiAKIGVycm9yOgotCXJjdV9yZWFkX3VubG9jaygpOworCXJ0bmxfdW5sb2Nr
-KCk7CiAJaWYgKHBhYykKIAkJc29ja19rZnJlZV9zKHNrLCBwYWMsIHNpemVvZigqcGFjKSk7CiAJ
-cmV0dXJuIGVycjsKQEAgLTE3MSwxMyArMTcxLDE1IEBAIGludCBpcHY2X3NvY2tfYWNfZHJvcChz
-dHJ1Y3Qgc29jayAqc2ssIGludCBpZmluZGV4LCBjb25zdCBzdHJ1Y3QgaW42X2FkZHIgKmFkZHIp
-CiAKIAlzcGluX3VubG9ja19iaCgmaXB2Nl9za19hY19sb2NrKTsKIAotCXJjdV9yZWFkX2xvY2so
-KTsKLQlkZXYgPSBkZXZfZ2V0X2J5X2luZGV4X3JjdShuZXQsIHBhYy0+YWNsX2lmaW5kZXgpOwor
-CXJ0bmxfbG9jaygpOworCWRldiA9IF9fZGV2X2dldF9ieV9pbmRleChuZXQsIHBhYy0+YWNsX2lm
-aW5kZXgpOwogCWlmIChkZXYpCiAJCWlwdjZfZGV2X2FjX2RlYyhkZXYsICZwYWMtPmFjbF9hZGRy
-KTsKLQlyY3VfcmVhZF91bmxvY2soKTsKKwlydG5sX3VubG9jaygpOwogCiAJc29ja19rZnJlZV9z
-KHNrLCBwYWMsIHNpemVvZigqcGFjKSk7CisJaWYgKCFkZXYpCisJCXJldHVybiAtRU5PREVWOwog
-CXJldHVybiAwOwogfQogCg==
---001a1134604aedfa110501c8a0d1--
+-- 
+Tom Lendacky
