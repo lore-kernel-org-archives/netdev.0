@@ -1,48 +1,68 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH 5/5] ARM: dts: berlin: enable the Ethernet port on the BG2Q DMP
-Date: Fri, 29 Aug 2014 15:51:03 +0200
-Message-ID: <1409320263-10295-6-git-send-email-antoine.tenart@free-electrons.com>
+Subject: [PATCH 2/5] Documentation: bindings: net: add the Marvell Berlin
+ Ethernet controller
+Date: Fri, 29 Aug 2014 15:51:00 +0200
+Message-ID: <1409320263-10295-3-git-send-email-antoine.tenart@free-electrons.com>
 References: <1409320263-10295-1-git-send-email-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-	alexandre.belloni@free-electrons.com, zmxu@marvell.com,
-	jszhang@marvell.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: zmxu@marvell.com, jszhang@marvell.com, devicetree@vger.kernel.org,
+ netdev@vger.kernel.org, Antoine Tenart <antoine.tenart@free-electrons.com>,
+ linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
+ linux-arm-kernel@lists.infradead.org
 To: sebastian.hesselbarth@gmail.com,
 	thomas.petazzoni@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1409320263-10295-1-git-send-email-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-This patch enables the Ethernet port on the Marvell Berlin2Q DMP board.
-The Ethernet PHY node is also added.
+This adds the binding documentation for the Marvell Berlin Ethernet
+controller.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- arch/arm/boot/dts/berlin2q-marvell-dmp.dts | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ .../devicetree/bindings/net/marvell-berlin.txt     | 23 ++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/marvell-berlin.txt
 
-diff --git a/arch/arm/boot/dts/berlin2q-marvell-dmp.dts b/arch/arm/boot/dts/berlin2q-marvell-dmp.dts
-index a357ce02a64e..1826534ffce3 100644
---- a/arch/arm/boot/dts/berlin2q-marvell-dmp.dts
-+++ b/arch/arm/boot/dts/berlin2q-marvell-dmp.dts
-@@ -45,3 +45,16 @@
- &uart0 {
- 	status = "okay";
- };
+diff --git a/Documentation/devicetree/bindings/net/marvell-berlin.txt b/Documentation/devicetree/bindings/net/marvell-berlin.txt
+new file mode 100644
+index 000000000000..0ae468aef13f
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/marvell-berlin.txt
+@@ -0,0 +1,23 @@
++* Marvell Berlin Ethernet Controller
 +
-+&eth0 {
-+	phy-handle = <&ethphy0>;
-+	status = "okay";
-+};
++Required properties:
++- compatible: should be "marvell,berlin-eth".
++- reg: address and length of the register set for the device.
++- interrupts: interrupt for the device.
++- phy-handle: pointer to the Ethernet PHY.
++- clocks: pointer to the clock for the device.
 +
-+&mdio {
-+	status = "okay";
++Optional properties:
++- local-mac-address: see ethernet.txt file in the same directory.
 +
-+	ethphy0: ethernet-phy@0 {
-+		reg = <0>;
++
++Example:
++
++	eth0: ethernet@f7b90000 {
++		compatible = "marvell,berlin-eth";
++        	reg = <0xf7b90000 0x10000>;
++		clocks = <&chip CLKID_GETH0>;
++		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
++		phy-handle = <&ethphy0>;
++		local-mac-address = [00 00 00 00 00 00];
 +	};
-+};
 -- 
 1.9.1
