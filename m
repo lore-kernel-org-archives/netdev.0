@@ -1,55 +1,53 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 08/15] i40e: fix panic due to too-early Tx queue enable
-Date: Fri, 29 Aug 2014 21:08:33 +0400
-Message-ID: <5400B391.9020700@cogentembedded.com>
-References: <1409304620-23251-1-git-send-email-jeffrey.t.kirsher@intel.com> <1409304620-23251-9-git-send-email-jeffrey.t.kirsher@intel.com>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [hyperv] BUG: unable to handle kernel paging request at
+ ffff8801f5bc7cbb (netvsc_select_queue)
+Date: Fri, 29 Aug 2014 17:13:55 +0000
+Message-ID: <2028bb06104a4e2fafdb2e266a064aaf@BY2PR0301MB0711.namprd03.prod.outlook.com>
+References: <20140829093141.GC11445@sucs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	Mitch Williams <mitch.a.williams@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:40748 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753115AbaH2RIi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 13:08:38 -0400
-Received: by mail-la0-f46.google.com with SMTP id pv20so3079881lab.33
-        for <netdev@vger.kernel.org>; Fri, 29 Aug 2014 10:08:36 -0700 (PDT)
-In-Reply-To: <1409304620-23251-9-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ Haiyang Zhang <haiyangz@microsoft.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Daniel Borkmann <dborkman@redhat.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ David Miller <davem@davemloft.net>
+To: Sitsofe Wheeler <sitsofe@gmail.com>, Dexuan Cui <decui@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140829093141.GC11445@sucs.org>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
 
-On 08/29/2014 01:30 PM, Jeff Kirsher wrote:
 
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> -----Original Message-----
+> From: Sitsofe Wheeler [mailto:sitsofe@gmail.com]
+> Sent: Friday, August 29, 2014 2:32 AM
+> To: Dexuan Cui
+> Cc: KY Srinivasan; Greg Kroah-Hartman; Haiyang Zhang;
+> devel@linuxdriverproject.org; linux-kernel@vger.kernel.org;
+> netdev@vger.kernel.org; David Miller; Daniel Borkmann
+> Subject: [hyperv] BUG: unable to handle kernel paging request at
+> ffff8801f5bc7cbb (netvsc_select_queue)
+> 
+> While booting a 10 vcpu system with a post v3.17-rc2 kernel with the
+> "Drivers: hv: vmbus: Eliminate calls to BUG_ON()",  "Drivers: hv: vmbus:
+> Miscellaneous cleanup" patches and debugging/verification config options on
+> I'm seeing the following:
 
-> This fixes the panic under traffic load when resetting.  This issue
-> could also show up if/whenever there is a Tx-timeout.
+Were you changing the MTU when this occurred?
 
-> Change-ID: Ie393a1f17fd5d962e56fc3bfe784899ef25402f5
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-> Tested-by: Jim Young <jamesx.m.young@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
+Regards,
 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index 64b8683..d37dea1 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -5289,7 +5289,7 @@ static void i40e_fdir_reinit_subtask(struct i40e_pf *pf)
->    **/
->   static void i40e_vsi_link_event(struct i40e_vsi *vsi, bool link_up)
->   {
-> -	if (!vsi)
-> +	if (!vsi || (test_bit(__I40E_DOWN, &vsi->state)))
-
-    Enclosing function call into parens is totally pointless.
-
-WBR, Sergei
+K. Y
