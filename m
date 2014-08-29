@@ -1,143 +1,83 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/15] ixgbe: limit combined total of macvlan and SR-IOV VFs
-Date: Fri, 29 Aug 2014 02:30:20 -0700
-Message-ID: <1409304620-23251-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/15] ixgbe: Cleanup FDB handling code
+Date: Fri, 29 Aug 2014 02:30:16 -0700
+Message-ID: <1409304620-23251-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1409304620-23251-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com,
-	John Fastabend <john.r.fastabend@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:53254 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752837AbaH2Jac (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Aug 2014 05:30:32 -0400
+	id S1752837AbaH2Ja3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Aug 2014 05:30:29 -0400
 In-Reply-To: <1409304620-23251-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Hardware has a limited number of pools available (64). Previously, no
-checks were in place to limit the number of accelerated macvlan devices
-based on the number of pools. Normally this would be ok, because there
-was already a limit for these well below the number of available pools.
-However, SR-IOV uses the very same pools. Therefor, we need to ensure
-that the total number of pools (number of VFs plus the number of non-VF
-pools in use for accelerated macvlans) does not exceed the number of
-pools available in hardware.
+This change makes it so that the behavior for FDB handling is consistent
+between both the SR-IOV and non-SR-IOV cases.  The main change here is that we
+perform bounds checking on the number of SR-IOV addresses regardless of if
+SR-IOV is enabled or not as we can only support a certain number of addresses
+in the hardware.
 
-This patch resolves a kernel NULL pointer dereference caused by the following commands:
-
-$modprobe ixgbe max_vfs=63
-
-$ethtool -K eth2 l2-fwd-offload on
-
-$ip link add link eth2 macvlan0 type macvlan
-
-$ip link set dev macvlan0 up
-
-[  992.950080] BUG: unable to handle kernel NULL pointer dereference at 0000000000000056
-[  992.951109] IP: [<ffffffffa003b71e>] ixgbe_disable_fwd_ring+0x1e/0xf0 [ixgbe]
-[  992.951684] PGD 22a80e067 PUD 232e9b067 PMD 0
-[  992.952389] Oops: 0000 [#1] SMP
-[  992.953014] Modules linked in: nfsd lockd nfs_acl exportfs auth_rpcgss oid_registry sunrpc bridge stp llc vhost_net macvtap macvlan vhost tun kvm_intel kvm ioatdma ixgbe mdio igb dca
-[  992.956042] CPU: 2 PID: 11928 Comm: ifconfig Not tainted 3.16.0-rc6-net-next-07-29-2014-FCoE+ #1
-[  992.956915] Hardware name: Intel Corporation S2600CO/S2600CO, BIOS SE5C600.86B.02.03.0003.041920141333 04/19/2014
-[  992.957791] task: ffff8804341c0000 ti: ffff8801d7dc8000 task.ti: ffff8801d7dc8000
-[  992.958660] RIP: 0010:[<ffffffffa003b71e>]  [<ffffffffa003b71e>] ixgbe_disable_fwd_ring+0x1e/0xf0 [ixgbe]
-[  992.959613] RSP: 0018:ffff8801d7dcbbb8  EFLAGS: 00010286
-[  992.960093] RAX: 0000000000000001 RBX: 0000000000000000 RCX: 0000000000000001
-[  992.960575] RDX: ffff880232eb7000 RSI: 0000000000000000 RDI: ffff88022dc05800
-[  992.961059] RBP: ffff8801d7dcbbd8 R08: 0000000000000000 R09: 0000000000000000
-[  992.961541] R10: 0000000000000001 R11: 0000000000000000 R12: ffff88022ec20980
-[  992.962023] R13: ffff880232eb7000 R14: 0000000000000001 R15: 0000000000000001
-[  992.962508] FS:  00007fab264887a0(0000) GS:ffff880237640000(0000) knlGS:0000000000000000
-[  992.963378] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  992.963858] CR2: 0000000000000056 CR3: 000000022a939000 CR4: 00000000001427e0
-[  992.964340] Stack:
-[  992.964806]  ffff88022ec28840 ffff88022ec20980 ffff88022dc05800 ffff880232eb7000
-[  992.965976]  ffff8801d7dcbc28 ffffffffa003bae8 ffff8801d7dcbbe8 0000000000000400
-[  992.967147]  000000000000000d ffff88022ec20980 ffff88022ec20000 ffff88022dc05800
-[  992.968319] Call Trace:
-[  992.968795]  [<ffffffffa003bae8>] ixgbe_fwd_ring_up+0x88/0x280 [ixgbe]
-[  992.969284]  [<ffffffffa0041d83>] ixgbe_fwd_add+0x173/0x220 [ixgbe]
-[  992.969767]  [<ffffffffa015056c>] macvlan_open+0x1bc/0x230 [macvlan]
-[  992.970256]  [<ffffffff816b8de7>] __dev_open+0xd7/0x150
-[  992.970735]  [<ffffffff816b8bd7>] __dev_change_flags+0xa7/0x170
-[  992.971220]  [<ffffffff816b8ccb>] dev_change_flags+0x2b/0x70
-[  992.971703]  [<ffffffff817471b2>] devinet_ioctl+0x602/0x6d0
-[  992.972184]  [<ffffffff81748168>] inet_ioctl+0x78/0x90
-[  992.972666]  [<ffffffff816a143b>] sock_do_ioctl+0x2b/0x70
-[  992.973146]  [<ffffffff816a14ed>] sock_ioctl+0x6d/0x260
-[  992.973627]  [<ffffffff811ad3b4>] do_vfs_ioctl+0x84/0x540
-[  992.974109]  [<ffffffff811a4c81>] ? final_putname+0x21/0x50
-[  992.974593]  [<ffffffff818725d5>] ? sysret_check+0x22/0x5d
-[  992.975073]  [<ffffffff811ad901>] SyS_ioctl+0x91/0xa0
-[  992.975550]  [<ffffffff818725a9>] system_call_fastpath+0x16/0x1b
-[  992.976026] Code: ff 66 66 66 2e 0f 1f 84 00 00 00 00 00 55 48 89 e5 48 83 ec 20 48 89 5d e8 4c 89 65 f0 48 89 f3 4c 89 6d f8 4c 8b a7 08 02 00 00 <44> 0f b6 6e 56 44 03 af 14 02 00 00 4c 89 e7 e8 5e f2 ff ff be
-[  992.982261] RIP  [<ffffffffa003b71e>] ixgbe_disable_fwd_ring+0x1e/0xf0 [ixgbe]
-[  992.983212]  RSP <ffff8801d7dcbbb8>
-[  992.983681] CR2: 0000000000000056
-[  992.984248] ---[ end trace 9f54802b5cc3638b ]---
-
-Cc: John Fastabend <john.r.fastabend@intel.com>
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  8 ++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 14 ++++++++------
- 2 files changed, 16 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 34 ++++-----------------------
+ 1 file changed, 4 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index bc3eff7..5a3efd9 100644
+index 53fbf06..2210c6d 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7840,9 +7840,17 @@ static void *ixgbe_fwd_add(struct net_device *pdev, struct net_device *vdev)
+@@ -7741,39 +7741,13 @@ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 			     const unsigned char *addr,
+ 			     u16 flags)
  {
- 	struct ixgbe_fwd_adapter *fwd_adapter = NULL;
- 	struct ixgbe_adapter *adapter = netdev_priv(pdev);
-+	int used_pools = adapter->num_vfs + adapter->num_rx_pools;
- 	unsigned int limit;
- 	int pool, err;
+-	struct ixgbe_adapter *adapter = netdev_priv(dev);
+-	int err;
+-
+-	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
+-		return ndo_dflt_fdb_add(ndm, tb, dev, addr, flags);
+-
+-	/* Hardware does not support aging addresses so if a
+-	 * ndm_state is given only allow permanent addresses
+-	 */
+-	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
+-		pr_info("%s: FDB only supports static addresses\n",
+-			ixgbe_driver_name);
+-		return -EINVAL;
+-	}
+-
++	/* guarantee we can provide a unique filter for the unicast address */
+ 	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr)) {
+-		u32 rar_uc_entries = IXGBE_MAX_PF_MACVLANS;
+-
+-		if (netdev_uc_count(dev) < rar_uc_entries)
+-			err = dev_uc_add_excl(dev, addr);
+-		else
+-			err = -ENOMEM;
+-	} else if (is_multicast_ether_addr(addr)) {
+-		err = dev_mc_add_excl(dev, addr);
+-	} else {
+-		err = -EINVAL;
++		if (IXGBE_MAX_PF_MACVLANS <= netdev_uc_count(dev))
++			return -ENOMEM;
+ 	}
  
-+	/* Hardware has a limited number of available pools. Each VF, and the
-+	 * PF require a pool. Check to ensure we don't attempt to use more
-+	 * then the available number of pools.
-+	 */
-+	if (used_pools >= IXGBE_MAX_VF_FUNCTIONS)
-+		return ERR_PTR(-EINVAL);
-+
- #ifdef CONFIG_RPS
- 	if (vdev->num_rx_queues != vdev->num_tx_queues) {
- 		netdev_info(pdev, "%s: Only supports a single queue count for TX and RX\n",
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index c14d4d8..706fc69 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -250,13 +250,15 @@ static int ixgbe_pci_sriov_enable(struct pci_dev *dev, int num_vfs)
- 	if (err)
- 		return err;
+-	/* Only return duplicate errors if NLM_F_EXCL is set */
+-	if (err == -EEXIST && !(flags & NLM_F_EXCL))
+-		err = 0;
+-
+-	return err;
++	return ndo_dflt_fdb_add(ndm, tb, dev, addr, flags);
+ }
  
--	/* While the SR-IOV capability structure reports total VFs to be
--	 * 64 we limit the actual number that can be allocated to 63 so
--	 * that some transmit/receive resources can be reserved to the
--	 * PF.  The PCI bus driver already checks for other values out of
--	 * range.
-+	/* While the SR-IOV capability structure reports total VFs to be 64,
-+	 * we have to limit the actual number allocated based on two factors.
-+	 * First, we reserve some transmit/receive resources for the PF.
-+	 * Second, VMDQ also uses the same pools that SR-IOV does. We need to
-+	 * account for this, so that we don't accidentally allocate more VFs
-+	 * than we have available pools. The PCI bus driver already checks for
-+	 * other values out of range.
- 	 */
--	if (num_vfs > IXGBE_MAX_VFS_DRV_LIMIT)
-+	if ((num_vfs + adapter->num_rx_pools) > IXGBE_MAX_VF_FUNCTIONS)
- 		return -EPERM;
- 
- 	adapter->num_vfs = num_vfs;
+ static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
 -- 
 1.9.3
