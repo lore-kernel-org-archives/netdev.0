@@ -1,55 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/8] net: Checksum offload changes - Part VI
-Date: Fri, 29 Aug 2014 20:41:38 -0700 (PDT)
-Message-ID: <20140829.204138.372203125997855131.davem@davemloft.net>
-References: <alpine.DEB.2.02.1408272114490.505@tomh.mtv.corp.google.com>
+From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+Subject: RE: [PATCH 1/4] net: stmmac: enhance to support multiple device
+ instances
+Date: Sat, 30 Aug 2014 03:48:00 +0000
+Message-ID: <F54AEECA5E2B9541821D670476DAE19C2B6E74EE@PGSMSX102.gar.corp.intel.com>
+References: <cover.1409123378.git.hock.leong.kweh@intel.com>
+	<cover.1409123378.git.hock.leong.kweh@intel.com>
+	<cf29eb9e793cf67b99b455f3a4a55e7aca5d826c.1409123378.git.hock.leong.kweh@intel.com>
+ <20140829.200623.1931173830496862001.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52961 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750889AbaH3Dlj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 23:41:39 -0400
-In-Reply-To: <alpine.DEB.2.02.1408272114490.505@tomh.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Ong, Boon Leong" <boon.leong.ong@intel.com>,
+	Rayagond K <rayagond@vayavyalabs.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140829.200623.1931173830496862001.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Wed, 27 Aug 2014 21:26:27 -0700 (PDT)
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Saturday, August 30, 2014 11:06 AM
+> To: Kweh, Hock Leong
+> Cc: peppe.cavallaro@st.com; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; Ong, Boon Leong
+> Subject: Re: [PATCH 1/4] net: stmmac: enhance to support multiple device
+> instances
+> 
+> From: Kweh Hock Leong <hock.leong.kweh@intel.com>
+> Date: Wed, 27 Aug 2014 18:32:26 +0800
+> 
+> > +static int instance_id = 1;
+> 
+> Don't do this instance stuff.  Instead pull in some identifier that
+> can come from elsewhere.
 
-> I am working on overhauling RX checksum offload. Goals of this effort
-> are:
-> 
-> - Specify what exactly it means when driver returns CHECKSUM_UNNECESSARY
-> - Preserve CHECKSUM_COMPLETE through encapsulation layers
-> - Don't do skb_checksum more than once per packet
-> - Unify GRO and non-GRO csum verification as much as possible
-> - Unify the checksum functions (checksum_init)
-> - Simplify code
-> 
-> What is in this sixth patch set:
-> 
-> - Clarify the specific requirements of devices returning
->   CHECKSUM_UNNECESSARY (comments in skbuff.h).
-> - Add csum_level field to skbuff. This is used to express how
->   many checksums are covered by CHECKSUM_UNNECESSARY (stores n - 1).
-> - Change __skb_checksum_validate_needed to "consume" each checksum
->   as indicated by csum_level as layers of the the packet are parsed.
-> - Remove skb_pop_rcv_encapsulation, no longer needed in the new
->   csum_level model.
-> - Allow GRO path to "consume" checksums provided in CHECKSUM_UNNECESSARY
->   and to report new verfied checksums for use in normal path fallback.
-> - Add proper support to SCTP to accept CHECKSUM_UNNECESSARY to validate
->   header CRC.
-> - Modify drivers to set skb->csum_level instead of setting
->   skb->encapsulation to indicate validation of an encapsulated
->   checksum on receive.
-> 
-> v2:
-> 
-> Allocate a new 16 bits for flags in skbuff.
+Regarding this, I would like to open up a discussion here. This "instance_id" actually
+is used for registering the mdio bus as a bus id. The original code use "1" for the bus
+id. If the system plug in more than one stmmac pci cards, I believe there is conflict on
+the mdio bus registration. So introduce this static global variable is to increase the
+bus id starting from "1" base on how many stmmac pci cards being plugged in.
 
-Series applied, thanks Tom.
+So, to change the "instance_id" by using some identifier, the only thing come to my
+mind is pci_dev->devfn number. Is anyone have concern about using devfn number
+as an mdio bus id ?
+
+
+> > +	plat_dat->mdio_bus_data = devm_kzalloc(&pdev->dev,
+> > +				    sizeof(*plat_dat->mdio_bus_data),
+> > +				    GFP_KERNEL);
+> 
+> This is not indented properly.
+> 
+> On the second and subsequent lines of a multi-line function call,
+> the lines should start exactly at the first column after the openning
+> parenthesis of the first line.
+> 
+> You must use the correct number of TAB and SPACE characters necessary
+> to do so.  Generally speaking, if you are indenting using only TAB
+> characters, odds are you are doing it wrong.
+> 
+> Please audit for, and fix this, in your entire patch series.
+
+Noted. Will fix the indentation on version 2 patch. Thanks.
