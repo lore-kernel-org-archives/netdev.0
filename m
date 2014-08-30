@@ -1,49 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] net: stmmac: enhance to support multiple device
- instances
-Date: Fri, 29 Aug 2014 20:06:23 -0700 (PDT)
-Message-ID: <20140829.200623.1931173830496862001.davem@davemloft.net>
-References: <cover.1409123378.git.hock.leong.kweh@intel.com>
-	<cover.1409123378.git.hock.leong.kweh@intel.com>
-	<cf29eb9e793cf67b99b455f3a4a55e7aca5d826c.1409123378.git.hock.leong.kweh@intel.com>
+Subject: Re: [PATCH REPOST net 0/2] Setup mlx4 user space Ethernet QPs to
+ properly handle VXLAN
+Date: Fri, 29 Aug 2014 20:13:24 -0700 (PDT)
+Message-ID: <20140829.201324.957134863530726203.davem@davemloft.net>
+References: <1409147269-21472-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, boon.leong.ong@intel.com
-To: hock.leong.kweh@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cf29eb9e793cf67b99b455f3a4a55e7aca5d826c.1409123378.git.hock.leong.kweh@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, amirv@mellanox.com
+To: ogerlitz@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52684 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750888AbaH3DNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 23:13:25 -0400
+In-Reply-To: <1409147269-21472-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kweh Hock Leong <hock.leong.kweh@intel.com>
-Date: Wed, 27 Aug 2014 18:32:26 +0800
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Wed, 27 Aug 2014 16:47:47 +0300
 
-> @@ -26,27 +26,22 @@
->  #include <linux/pci.h>
->  #include "stmmac.h"
->  
-> -static struct plat_stmmacenet_data plat_dat;
-> -static struct stmmac_mdio_bus_data mdio_data;
-> -static struct stmmac_dma_cfg dma_cfg;
-> +static int instance_id = 1;
+> This short series fixes the mlx4 driver setting of user space Ethernet QPs
+> (e.g those opened by DPDK applications) such that they will properly handle
+> VXLAN traffic/offloads
 
-Don't do this instance stuff.  Instead pull in some identifier that
-can come from elsewhere.
-
-> +	plat_dat->mdio_bus_data = devm_kzalloc(&pdev->dev,
-> +				    sizeof(*plat_dat->mdio_bus_data),
-> +				    GFP_KERNEL);
-
-This is not indented properly.
-
-On the second and subsequent lines of a multi-line function call,
-the lines should start exactly at the first column after the openning
-parenthesis of the first line.
-
-You must use the correct number of TAB and SPACE characters necessary
-to do so.  Generally speaking, if you are indenting using only TAB
-characters, odds are you are doing it wrong.
-
-Please audit for, and fix this, in your entire patch series.
+Series applied, thanks.
