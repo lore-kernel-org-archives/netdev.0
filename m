@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: phy: properly report internal PHYs
- through sysfs
-Date: Fri, 29 Aug 2014 20:18:14 -0700 (PDT)
-Message-ID: <20140829.201814.895484489060154239.davem@davemloft.net>
-References: <1409165073-26983-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH 0/2] Get rid of ndo_xmit_flush
+Date: Fri, 29 Aug 2014 20:22:10 -0700 (PDT)
+Message-ID: <20140829.202210.1424256004723217664.davem@davemloft.net>
+References: <1409142672.26515.24.camel@localhost>
+	<20140827.134510.2172564669938048576.davem@davemloft.net>
+	<1409190174.27664.10.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, therbert@google.com, jhs@mojatatu.com,
+	edumazet@google.com, jeffrey.t.kirsher@intel.com,
+	rusty@rustcorp.com.au, dborkman@redhat.com, brouer@redhat.com,
+	john.r.fastabend@intel.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52719 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52734 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750801AbaH3DSP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 23:18:15 -0400
-In-Reply-To: <1409165073-26983-1-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S1750801AbaH3DWL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 23:22:11 -0400
+In-Reply-To: <1409190174.27664.10.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 27 Aug 2014 11:44:33 -0700
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Thu, 28 Aug 2014 03:42:54 +0200
 
-> Internal PHYs may not have a valid PHY interface defined, which will
-> show up in sysfs as "". Add an explicit check of internal PHYs to report
-> their interface correctly.
-> 
-> Fixes: 3d055d8d1c24 ("net: phy: expose PHY device interface mode")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> I wonder if we still might need a separate call for tx_flush, e.g. for
+> af_packet if one wants to allow user space control of batching, MSG_MORE
+> with tx hangcheck (also in case user space has control over it) or
+> implement TCP_CORK alike option in af_packet.
 
-Applied, thanks Florian.
+I disagree with allowing the user to hold a device TX queue hostage
+across system calls, therefore the user should provide the entire
+batch in such a case.
