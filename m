@@ -1,217 +1,134 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 1/7] e1000: move e1000_tbi_adjust_stats to where its used
-Date: Sat, 30 Aug 2014 20:28:21 +0200
-Message-ID: <1409423307-23470-2-git-send-email-fw@strlen.de>
+Subject: [PATCH 7/7] e1000: switch to napi_gro_frags api
+Date: Sat, 30 Aug 2014 20:28:27 +0200
+Message-ID: <1409423307-23470-8-git-send-email-fw@strlen.de>
 References: <1409423307-23470-1-git-send-email-fw@strlen.de>
 Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
 To: e1000-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43550 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43563 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751705AbaH3S2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Aug 2014 14:28:55 -0400
+	by vger.kernel.org with ESMTP id S1751800AbaH3S26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Aug 2014 14:28:58 -0400
 In-Reply-To: <1409423307-23470-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-... and make it static.
+napi_gro_frags allows skb re-use in case GRO can merge payload pages
+into an skb on the gro lists.
+
+netperf TCP_STREAM, kvm-e1000 emulation, mtu 9k:
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
+old: 87380  16384  16384    30.00  8985.78
+new: 87380  16384  16384    30.00  9907.05
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- drivers/net/ethernet/intel/e1000/e1000_hw.c   | 78 ---------------------------
- drivers/net/ethernet/intel/e1000/e1000_hw.h   |  2 -
- drivers/net/ethernet/intel/e1000/e1000_main.c | 77 ++++++++++++++++++++++++++
- 3 files changed, 77 insertions(+), 80 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 50 ++++++++++++++++++---------
+ 1 file changed, 33 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-index 1acf503..45c8c864 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_hw.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-@@ -4837,84 +4837,6 @@ void e1000_update_adaptive(struct e1000_hw *hw)
- }
- 
- /**
-- * e1000_tbi_adjust_stats
-- * @hw: Struct containing variables accessed by shared code
-- * @frame_len: The length of the frame in question
-- * @mac_addr: The Ethernet destination address of the frame in question
-- *
-- * Adjusts the statistic counters when a frame is accepted by TBI_ACCEPT
-- */
--void e1000_tbi_adjust_stats(struct e1000_hw *hw, struct e1000_hw_stats *stats,
--			    u32 frame_len, u8 *mac_addr)
--{
--	u64 carry_bit;
--
--	/* First adjust the frame length. */
--	frame_len--;
--	/* We need to adjust the statistics counters, since the hardware
--	 * counters overcount this packet as a CRC error and undercount
--	 * the packet as a good packet
--	 */
--	/* This packet should not be counted as a CRC error. */
--	stats->crcerrs--;
--	/* This packet does count as a Good Packet Received. */
--	stats->gprc++;
--
--	/* Adjust the Good Octets received counters */
--	carry_bit = 0x80000000 & stats->gorcl;
--	stats->gorcl += frame_len;
--	/* If the high bit of Gorcl (the low 32 bits of the Good Octets
--	 * Received Count) was one before the addition,
--	 * AND it is zero after, then we lost the carry out,
--	 * need to add one to Gorch (Good Octets Received Count High).
--	 * This could be simplified if all environments supported
--	 * 64-bit integers.
--	 */
--	if (carry_bit && ((stats->gorcl & 0x80000000) == 0))
--		stats->gorch++;
--	/* Is this a broadcast or multicast?  Check broadcast first,
--	 * since the test for a multicast frame will test positive on
--	 * a broadcast frame.
--	 */
--	if (is_broadcast_ether_addr(mac_addr))
--		/* Broadcast packet */
--		stats->bprc++;
--	else if (is_multicast_ether_addr(mac_addr))
--		/* Multicast packet */
--		stats->mprc++;
--
--	if (frame_len == hw->max_frame_size) {
--		/* In this case, the hardware has overcounted the number of
--		 * oversize frames.
--		 */
--		if (stats->roc > 0)
--			stats->roc--;
--	}
--
--	/* Adjust the bin counters when the extra byte put the frame in the
--	 * wrong bin. Remember that the frame_len was adjusted above.
--	 */
--	if (frame_len == 64) {
--		stats->prc64++;
--		stats->prc127--;
--	} else if (frame_len == 127) {
--		stats->prc127++;
--		stats->prc255--;
--	} else if (frame_len == 255) {
--		stats->prc255++;
--		stats->prc511--;
--	} else if (frame_len == 511) {
--		stats->prc511++;
--		stats->prc1023--;
--	} else if (frame_len == 1023) {
--		stats->prc1023++;
--		stats->prc1522--;
--	} else if (frame_len == 1522) {
--		stats->prc1522++;
--	}
--}
--
--/**
-  * e1000_get_bus_info
-  * @hw: Struct containing variables accessed by shared code
-  *
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.h b/drivers/net/ethernet/intel/e1000/e1000_hw.h
-index 11578c8..5cf7268 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_hw.h
-+++ b/drivers/net/ethernet/intel/e1000/e1000_hw.h
-@@ -393,8 +393,6 @@ s32 e1000_blink_led_start(struct e1000_hw *hw);
- /* Everything else */
- void e1000_reset_adaptive(struct e1000_hw *hw);
- void e1000_update_adaptive(struct e1000_hw *hw);
--void e1000_tbi_adjust_stats(struct e1000_hw *hw, struct e1000_hw_stats *stats,
--			    u32 frame_len, u8 * mac_addr);
- void e1000_get_bus_info(struct e1000_hw *hw);
- void e1000_pci_set_mwi(struct e1000_hw *hw);
- void e1000_pci_clear_mwi(struct e1000_hw *hw);
 diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index cbc330b..fe56fac 100644
+index 9ac9a77..784a67f 100644
 --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
 +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -3978,6 +3978,83 @@ static void e1000_receive_skb(struct e1000_adapter *adapter, u8 status,
- }
+@@ -2117,10 +2117,8 @@ static void e1000_clean_rx_ring(struct e1000_adapter *adapter,
+ 	}
  
- /**
-+ * e1000_tbi_adjust_stats
-+ * @hw: Struct containing variables accessed by shared code
-+ * @frame_len: The length of the frame in question
-+ * @mac_addr: The Ethernet destination address of the frame in question
-+ *
-+ * Adjusts the statistic counters when a frame is accepted by TBI_ACCEPT
-+ */
-+static void e1000_tbi_adjust_stats(struct e1000_hw *hw,
-+				   struct e1000_hw_stats *stats,
-+				   u32 frame_len, const u8 *mac_addr)
-+{
-+	u64 carry_bit;
+ 	/* there also may be some cached data from a chained receive */
+-	if (rx_ring->rx_skb_top) {
+-		dev_kfree_skb(rx_ring->rx_skb_top);
+-		rx_ring->rx_skb_top = NULL;
+-	}
++	napi_free_frags(&adapter->napi);
++	rx_ring->rx_skb_top = NULL;
+ 
+ 	size = sizeof(struct e1000_rx_buffer) * rx_ring->count;
+ 	memset(rx_ring->buffer_info, 0, size);
+@@ -4130,7 +4128,6 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
+ 	int cleaned_count = 0;
+ 	bool cleaned = false;
+ 	unsigned int total_rx_bytes=0, total_rx_packets=0;
+-	static const unsigned int bufsz = 256 - 16; /* for skb_reserve */
+ 
+ 	i = rx_ring->next_to_clean;
+ 	rx_desc = E1000_RX_DESC(*rx_ring, i);
+@@ -4189,7 +4186,7 @@ process_skb:
+ 			/* this descriptor is only the beginning (or middle) */
+ 			if (!rxtop) {
+ 				/* this is the beginning of a chain */
+-				rxtop = e1000_alloc_rx_skb(adapter, bufsz);
++				rxtop = napi_get_frags(&adapter->napi);
+ 				if (!rxtop)
+ 					break;
+ 
+@@ -4218,14 +4215,17 @@ process_skb:
+ 				/* no chain, got EOP, this buf is the packet
+ 				 * copybreak to save the put_page/alloc_page
+ 				 */
+-				skb = e1000_alloc_rx_skb(adapter, bufsz);
+-				if (!skb)
+-					break;
+ 				p = buffer_info->rxbuf.page;
+-				if (length <= copybreak &&
+-				    skb_tailroom(skb) >= length) {
++				if (length <= copybreak) {
+ 					u8 *vaddr;
+ 
++					if (likely(!(netdev->features & NETIF_F_RXFCS)))
++						length -= 4;
++					skb = e1000_alloc_rx_skb(adapter,
++								 length);
++					if (!skb)
++						break;
 +
-+	/* First adjust the frame length. */
-+	frame_len--;
-+	/* We need to adjust the statistics counters, since the hardware
-+	 * counters overcount this packet as a CRC error and undercount
-+	 * the packet as a good packet
-+	 */
-+	/* This packet should not be counted as a CRC error. */
-+	stats->crcerrs--;
-+	/* This packet does count as a Good Packet Received. */
-+	stats->gprc++;
+ 					vaddr = kmap_atomic(p);
+ 					memcpy(skb_tail_pointer(skb), vaddr,
+ 					       length);
+@@ -4234,7 +4234,23 @@ process_skb:
+ 					 * buffer_info->rxbuf.page
+ 					 */
+ 					skb_put(skb, length);
++					e1000_rx_checksum(adapter,
++							  (u32)(status) |
++							  ((u32)(rx_desc->errors) << 24),
++							  le16_to_cpu(rx_desc->csum), skb);
 +
-+	/* Adjust the Good Octets received counters */
-+	carry_bit = 0x80000000 & stats->gorcl;
-+	stats->gorcl += frame_len;
-+	/* If the high bit of Gorcl (the low 32 bits of the Good Octets
-+	 * Received Count) was one before the addition,
-+	 * AND it is zero after, then we lost the carry out,
-+	 * need to add one to Gorch (Good Octets Received Count High).
-+	 * This could be simplified if all environments supported
-+	 * 64-bit integers.
-+	 */
-+	if (carry_bit && ((stats->gorcl & 0x80000000) == 0))
-+		stats->gorch++;
-+	/* Is this a broadcast or multicast?  Check broadcast first,
-+	 * since the test for a multicast frame will test positive on
-+	 * a broadcast frame.
-+	 */
-+	if (is_broadcast_ether_addr(mac_addr))
-+		stats->bprc++;
-+	else if (is_multicast_ether_addr(mac_addr))
-+		stats->mprc++;
++					total_rx_bytes += skb->len;
++					total_rx_packets++;
 +
-+	if (frame_len == hw->max_frame_size) {
-+		/* In this case, the hardware has overcounted the number of
-+		 * oversize frames.
-+		 */
-+		if (stats->roc > 0)
-+			stats->roc--;
-+	}
++					e1000_receive_skb(adapter, status,
++							  rx_desc->special, skb);
++					goto next_desc;
+ 				} else {
++					skb = napi_get_frags(&adapter->napi);
++					if (!skb) {
++						adapter->alloc_rx_buff_failed++;
++						break;
++					}
+ 					skb_fill_page_desc(skb, 0, p, 0,
+ 							   length);
+ 					e1000_consume_page(buffer_info, skb,
+@@ -4254,14 +4270,14 @@ process_skb:
+ 			pskb_trim(skb, skb->len - 4);
+ 		total_rx_packets++;
+ 
+-		/* eth type trans needs skb->data to point to something */
+-		if (!pskb_may_pull(skb, ETH_HLEN)) {
+-			e_err(drv, "pskb_may_pull failed.\n");
+-			dev_kfree_skb(skb);
+-			goto next_desc;
++		if (status & E1000_RXD_STAT_VP) {
++			__le16 vlan = rx_desc->special;
++			u16 vid = le16_to_cpu(vlan) & E1000_RXD_SPC_VLAN_MASK;
 +
-+	/* Adjust the bin counters when the extra byte put the frame in the
-+	 * wrong bin. Remember that the frame_len was adjusted above.
-+	 */
-+	if (frame_len == 64) {
-+		stats->prc64++;
-+		stats->prc127--;
-+	} else if (frame_len == 127) {
-+		stats->prc127++;
-+		stats->prc255--;
-+	} else if (frame_len == 255) {
-+		stats->prc255++;
-+		stats->prc511--;
-+	} else if (frame_len == 511) {
-+		stats->prc511++;
-+		stats->prc1023--;
-+	} else if (frame_len == 1023) {
-+		stats->prc1023++;
-+		stats->prc1522--;
-+	} else if (frame_len == 1522) {
-+		stats->prc1522++;
-+	}
-+}
-+
-+/**
-  * e1000_clean_jumbo_rx_irq - Send received data up the network stack; legacy
-  * @adapter: board private structure
-  * @rx_ring: ring to clean
++			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vid);
+ 		}
+ 
+-		e1000_receive_skb(adapter, status, rx_desc->special, skb);
++		napi_gro_frags(&adapter->napi);
+ 
+ next_desc:
+ 		rx_desc->status = 0;
 -- 
 1.8.1.5
