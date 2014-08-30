@@ -1,60 +1,43 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] ip link: Remove unnecessary device checking
-Date: Sat, 30 Aug 2014 19:01:11 +0200
-Message-ID: <54020357.2030301@hartkopp.net>
-References: <1409400360-31612-1-git-send-email-vadim4j@gmail.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: RTNL: assertion failed at net/ipv6/addrconf.c (1699)
+Date: Sat, 30 Aug 2014 19:11:06 +0200
+Message-ID: <20140830171106.GA4698@kria>
+References: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
+ <CAHA+R7MZCDGRhSf=UuVCGQvNo03wVziZQB_X30rwNf6hmHipQA@mail.gmail.com>
+ <20140829195339.GA9780@kria>
+ <1409363489.2980.17.camel@localhost>
+ <20140830105821.GB18155@kria>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Mehdi Abaakouk <sileht@sileht.net>
-To: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Cong Wang <cwang@twopensource.com>,
+	Tommi Rantala <tt.rantala@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, trinity@vger.kernel.org,
+	Dave Jones <davej@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.218]:38126 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751427AbaH3RBO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Aug 2014 13:01:14 -0400
-In-Reply-To: <1409400360-31612-1-git-send-email-vadim4j@gmail.com>
+Received: from smtp3-g21.free.fr ([212.27.42.3]:30268 "EHLO smtp3-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751689AbaH3RLU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Aug 2014 13:11:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20140830105821.GB18155@kria>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30.08.2014 14:06, Vadim Kochan wrote:
-> The real checking is performed later in iplink_modify(..) func which
-> checks device existence if NLM_F_CREATE flag is set.
-> 
-> Also it fixes the case when impossible to add veth link which was
-> caused by 9a02651a87 (ip: check for missing dev arg when doing VF rate)
-> because these devices are not exist yet.
-> 
-> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+2014-08-30, 12:58:21 +0200, Sabrina Dubroca wrote:
+>    - pndisc_constructor, called from pneigh_lookup -- pneigh_lookup
+>      has ASSERT_RTNL(), but pneigh_lookup is called from ip6_forward and
+>      ndisc_recv_na
 
-Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Ah, these have creat = 0, so it's fine. I missed that earlier.
 
-This also fixes this issue from Mehdi Abaakouk here:
-http://marc.info/?l=linux-netdev&m=140912053421637
+Sorry for the noise.
 
-And the stuff I needed to change here:
-https://gitorious.org/linux-can/can-tests/commit/578d07b0a13e0c171801cde8c048ac657373491e
-
-Thanks for figuring out the detailed problem Vadim!
-
-Regards,
-Oliver
-
-> ---
->  ip/iplink.c | 2 --
->  1 file changed, 2 deletions(-)
-> 
-> diff --git a/ip/iplink.c b/ip/iplink.c
-> index 1a907d9..ea06871 100644
-> --- a/ip/iplink.c
-> +++ b/ip/iplink.c
-> @@ -593,8 +593,6 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
->  				duparg2("dev", *argv);
->  			*dev = *argv;
->  			dev_index = ll_name_to_index(*dev);
-> -			if (dev_index == 0)
-> -				invarg("Unknown device", *argv);
->  		}
->  		argc--; argv++;
->  	}
-> 
+-- 
+Sabrina
