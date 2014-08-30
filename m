@@ -1,38 +1,43 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL nf] Second round of IPVS fixes for v3.17
-Date: Sat, 30 Aug 2014 13:08:45 +0200
-Message-ID: <20140830110845.GB4601@salvia>
-References: <1409191468-28013-1-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1409191468-28013-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH] ip link: Remove unnecessary device checking
+Date: Sat, 30 Aug 2014 15:06:00 +0300
+Message-ID: <1409400360-31612-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f43.google.com ([209.85.215.43]:61413 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751506AbaH3MOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Aug 2014 08:14:23 -0400
+Received: by mail-la0-f43.google.com with SMTP id ty20so4003811lab.16
+        for <netdev@vger.kernel.org>; Sat, 30 Aug 2014 05:14:21 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 28, 2014 at 11:04:27AM +0900, Simon Horman wrote:
-> This fix resolves a problem with conflicting hooks whereby DNAT support for
-> the local server would drop outgoing IPv4 packets if the kernel was
-> compiled CONFIG_IP_VS_IPV6=y.
-> 
-> This problem dates back to v3.6.37 when the feature in question was added.
-> 
-> I would like this fix considered for -stable.
+The real checking is performed later in iplink_modify(..) func which
+checks device existence if NLM_F_CREATE flag is set.
 
-Enqueue for -stable.
+Also it fixes the case when impossible to add veth link which was
+caused by 9a02651a87 (ip: check for missing dev arg when doing VF rate)
+because these devices are not exist yet.
 
-> The following changes since commit ea1d5d7755a3e556de78cc757d1895d5c7180548:
-> 
->   ipvs: properly declare tunnel encapsulation (2014-08-27 14:31:56 +0900)
-> 
-> are available in the git repository at:
-> 
->   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes2-for-v3.17
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ ip/iplink.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-Pulled, thanks Simon.
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 1a907d9..ea06871 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -593,8 +593,6 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+ 				duparg2("dev", *argv);
+ 			*dev = *argv;
+ 			dev_index = ll_name_to_index(*dev);
+-			if (dev_index == 0)
+-				invarg("Unknown device", *argv);
+ 		}
+ 		argc--; argv++;
+ 	}
+-- 
+2.1.0
