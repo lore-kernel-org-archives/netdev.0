@@ -1,48 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] r8152: reduce the number of Tx
-Date: Fri, 29 Aug 2014 20:25:04 -0700 (PDT)
-Message-ID: <20140829.202504.655684636693672249.davem@davemloft.net>
-References: <1394712342-15778-23-Taiwan-albertk@realtek.com>
-	<1394712342-15778-24-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH] net: attempt a single high order allocation
+Date: Fri, 29 Aug 2014 20:29:23 -0700 (PDT)
+Message-ID: <20140829.202923.1151165186886866910.davem@davemloft.net>
+References: <1409154398.3173.69.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1409197774.3173.83.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-24-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: rientjes@google.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52815 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750801AbaH3D3Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 23:29:25 -0400
+In-Reply-To: <1409197774.3173.83.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Thu, 28 Aug 2014 10:24:18 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 27 Aug 2014 20:49:34 -0700
 
-> Because the Tx has the features of stopping queue and aggregation,
-> We don't need many tx buffers. Change the tx number from 10 to 4
-> to reduce the usage of the memory. This could save 16K * 6 bytes
-> memory.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> ---
->  drivers/net/usb/r8152.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> In commit ed98df3361f0 ("net: use __GFP_NORETRY for high order
+> allocations") we tried to address one issue caused by order-3
+> allocations.
 > 
-> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-> index 33dcc97..cc64dc0 100644
-> --- a/drivers/net/usb/r8152.c
-> +++ b/drivers/net/usb/r8152.c
-> @@ -424,7 +424,7 @@ enum rtl_register_content {
->  	FULL_DUP	= 0x01,
->  };
->  
-> -#define RTL8152_MAX_TX		10
-> +#define RTL8152_MAX_TX		4
->  #define RTL8152_MAX_RX		10
+> We still observe high latencies and system overhead in situations where
+> compaction is not successful.
+> 
+> Instead of trying order-3, order-2, and order-1, do a single order-3
+> best effort and immediately fallback to plain order-0.
+> 
+> This mimics slub strategy to fallback to slab min order if the high
+> order allocation used for performance failed.
+> 
+> Order-3 allocations give a performance boost only if they can be done
+> without recurring and expensive memory scan.
+> 
+> Quoting David :
+> 
+> The page allocator relies on synchronous (sync light) memory compaction
+> after direct reclaim for allocations that don't retry and deferred
+> compaction doesn't work with this strategy because the allocation order
+> is always decreasing from the previous failed attempt.
+> 
+> This means sync light compaction will always be encountered if memory
+> cannot be defragmented or reclaimed several times during the
+> skb_page_frag_refill() iteration.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Acked-by: David Rientjes <rientjes@google.com>
 
-This driver has a loop that iterates MAX_TX times to initialize both
-the RX and TX buffers.
+Applied, thanks Eric.
 
-So if they are not equal, it can't possibly work.
-
-Sorry, I'm not applying this.
+Do you want me to queue this up for -stable?
