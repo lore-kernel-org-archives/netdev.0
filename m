@@ -1,33 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] be2net: Use dev_consume_skb_any() in the
- non-drop path
-Date: Fri, 29 Aug 2014 20:37:15 -0700 (PDT)
-Message-ID: <20140829.203715.926250452196304335.davem@davemloft.net>
-References: <20140828155316.5AE982900409@tardy>
+Subject: Re: [PATCH v2 net-next 0/8] net: Checksum offload changes - Part VI
+Date: Fri, 29 Aug 2014 20:41:38 -0700 (PDT)
+Message-ID: <20140829.204138.372203125997855131.davem@davemloft.net>
+References: <alpine.DEB.2.02.1408272114490.505@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sathya.perla@emulex.com,
-	subbu.seetharaman@emulex.com, ajit.khaparde@emulex.com
-To: raj@tardy.usa.hp.com
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52924 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52961 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750878AbaH3DhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 23:37:16 -0400
-In-Reply-To: <20140828155316.5AE982900409@tardy>
+	with ESMTP id S1750889AbaH3Dlj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 23:41:39 -0400
+In-Reply-To: <alpine.DEB.2.02.1408272114490.505@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: raj@tardy.usa.hp.com (Rick Jones)
-Date: Thu, 28 Aug 2014 08:53:16 -0700 (PDT)
+From: Tom Herbert <therbert@google.com>
+Date: Wed, 27 Aug 2014 21:26:27 -0700 (PDT)
 
-> From: Rick Jones <rick.jones2@hp.com>
+> I am working on overhauling RX checksum offload. Goals of this effort
+> are:
 > 
-> The be2net driver was still using dev_kfree_skb_any() in a "normal"
-> skb freeing path.  This rather clutters perf top -G -e skb_kfree_skb
-> profiling.
+> - Specify what exactly it means when driver returns CHECKSUM_UNNECESSARY
+> - Preserve CHECKSUM_COMPLETE through encapsulation layers
+> - Don't do skb_checksum more than once per packet
+> - Unify GRO and non-GRO csum verification as much as possible
+> - Unify the checksum functions (checksum_init)
+> - Simplify code
 > 
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> What is in this sixth patch set:
+> 
+> - Clarify the specific requirements of devices returning
+>   CHECKSUM_UNNECESSARY (comments in skbuff.h).
+> - Add csum_level field to skbuff. This is used to express how
+>   many checksums are covered by CHECKSUM_UNNECESSARY (stores n - 1).
+> - Change __skb_checksum_validate_needed to "consume" each checksum
+>   as indicated by csum_level as layers of the the packet are parsed.
+> - Remove skb_pop_rcv_encapsulation, no longer needed in the new
+>   csum_level model.
+> - Allow GRO path to "consume" checksums provided in CHECKSUM_UNNECESSARY
+>   and to report new verfied checksums for use in normal path fallback.
+> - Add proper support to SCTP to accept CHECKSUM_UNNECESSARY to validate
+>   header CRC.
+> - Modify drivers to set skb->csum_level instead of setting
+>   skb->encapsulation to indicate validation of an encapsulated
+>   checksum on receive.
+> 
+> v2:
+> 
+> Allocate a new 16 bits for flags in skbuff.
 
-Applied, thanks Rick.
+Series applied, thanks Tom.
