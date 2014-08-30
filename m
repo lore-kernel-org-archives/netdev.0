@@ -1,128 +1,45 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: net_ns cleanup / RCU overhead
-Date: Fri, 29 Aug 2014 19:52:25 -0700
-Message-ID: <20140830025225.GC5001@linux.vnet.ibm.com>
-References: <20140820055855.GB5579@hostway.ca>
- <20140828192431.GF5001@linux.vnet.ibm.com>
- <20140828194422.GB8867@hostway.ca>
- <87oav4l5g9.fsf@x220.int.ebiederm.org>
- <20140828204658.GL5001@linux.vnet.ibm.com>
- <20140829004029.GA18300@hostway.ca>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH (net.git)] stmmac: prevent false carrier sense detection
+Date: Fri, 29 Aug 2014 19:55:39 -0700 (PDT)
+Message-ID: <20140829.195539.1489311917586365339.davem@davemloft.net>
+References: <1409120404-20414-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Simon Kirby <sim@hostway.ca>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140829004029.GA18300@hostway.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52481 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750898AbaH3Czm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 22:55:42 -0400
+In-Reply-To: <1409120404-20414-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 28, 2014 at 05:40:29PM -0700, Simon Kirby wrote:
-> On Thu, Aug 28, 2014 at 01:46:58PM -0700, Paul E. McKenney wrote:
-> 
-> > On Thu, Aug 28, 2014 at 03:33:42PM -0500, Eric W. Biederman wrote:
-> > 
-> > > I just want to add a little bit more analysis to this.
-> > > 
-> > > What we desire to be fast is the copy_net_ns, cleanup_net is batched and
-> > > asynchronous which nothing really cares how long it takes except that
-> > > cleanup_net holds the net_mutex and thus blocks copy_net_ns.
-> > > 
-> > > The puzzle is why and which rcu delays Simon is seeing in the network
-> > > namespace cleanup path, as it seems like the synchronize_rcu is not
-> > > the only one, and in the case of vsftp with trivail network namespaces
-> > > where nothing has been done we should not need to delay.
-> > 
-> > Indeed, given the version and .config, I can't see why any individual
-> > RCU grace-period operation would be particularly slow.
-> > 
-> > I suggest using ftrace on synchronize_rcu() and friends.
-> 
-> I made a parallel net namespace create/destroy benchmark that prints the
-> progress and time to create and cleanup 32 unshare()d child processes:
-> 
-> http://0x.ca/sim/ref/tools/netnsbench.c
-> 
-> I noticed that if I haven't run it for a while, the first batch often is
-> fast, followed by slowness from then on:
-> 
-> ++++++++++++++++++++++++++++++++-------------------------------- 0.039478s
-> ++++++++++++++++++++-----+----------------+++++++++---------++-- 4.463837s
-> +++++++++++++++++++++++++------+--------------------++++++------ 3.011882s
-> +++++++++++++++---+-------------++++++++++++++++---------------- 2.283993s
-> 
-> Fiddling around on a stock kernel, "echo 1 > /sys/kernel/rcu_expedited"
-> makes behaviour change as it did with my patch:
-> 
-> ++-++-+++-+-----+-+-++-+-++--++-+--+-+-++--++-+-+-+-++-+--++---- 0.801406s
-> +-+-+-++-+-+-+-+-++--+-+-++-+--++-+-+-+-+-+-+-+-+-+-+-+--++-+--- 0.872011s
-> ++--+-++--+-++--+-++--+-+-+-+-++-+--++--+-++-+-+-+-+--++-+-+-+-- 0.946745s
-> 
-> How would I use ftrace on synchronize_rcu() here?
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Date: Wed, 27 Aug 2014 08:20:04 +0200
 
-http://lwn.net/Articles/370423/ is your friend here.  If your kernel
-is built with the needed configuration, you give the command
-"echo synchronize_rcu > set_ftrace_filter"
+> This patch is to w/a a problem that happens on some boxes when run at 10Mbps
+> Half duplex mode.
+> 
+> During the transmission the CSR signal is asserted for some time and the frames
+> aborted because of carrier sense error.
+> This is reported by MMC HW counter: txcarrier signal.
+> This actually is a false carrier so the frames are good and there is no reason
+> to ask for dropping them.
+> 
+> This patch so disables the Carrier Sense During Transmission
+> and this means that the MAC transmitter ignore the CRS signal
+> during frame transmission in Half-Duplex mode.
+> 
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> Acked-by: Vince Bridgers <vbridgers2013@gmail.com>
+> Acked-by: Ley Foon Tan <lftan@altera.com>
+> Acked-by: Chen-Yu Tsai <wens@csie.org>
 
-http://lwn.net/Articles/365835/ and http://lwn.net/Articles/366796/
-have background info.
+Applied.
 
-> As Eric said, cleanup_net() is batched, but while it is cleaning up,
-> net_mutex is held. Isn't the issue just that net_mutex is held while
-> some other things are going on that are meant to be lazy / batched?
-> 
-> What is net_mutex protecting in cleanup_net()?
-> 
-> I noticed that [kworker/u16:0]'s stack is often:
-> 
-> [<ffffffff810942a6>] wait_rcu_gp+0x46/0x50
-> [<ffffffff8109607e>] synchronize_sched+0x2e/0x50
-> [<ffffffffa00385ac>] nf_nat_net_exit+0x2c/0x50 [nf_nat]
-> [<ffffffff81720339>] ops_exit_list.isra.4+0x39/0x60
-> [<ffffffff817209e0>] cleanup_net+0xf0/0x1a0
-> [<ffffffff81062997>] process_one_work+0x157/0x440
-> [<ffffffff81063303>] worker_thread+0x63/0x520
-> [<ffffffff81068b96>] kthread+0xd6/0xf0
-> [<ffffffff818d412c>] ret_from_fork+0x7c/0xb0
-> [<ffffffffffffffff>] 0xffffffffffffffff
-> 
-> and
-> 
-> [<ffffffff81095364>] _rcu_barrier+0x154/0x1f0
-> [<ffffffff81095450>] rcu_barrier+0x10/0x20
-> [<ffffffff81102c2c>] kmem_cache_destroy+0x6c/0xb0
-> [<ffffffffa0089e97>] nf_conntrack_cleanup_net_list+0x167/0x1c0 [nf_conntrack]
-> [<ffffffffa008aab5>] nf_conntrack_pernet_exit+0x65/0x70 [nf_conntrack]
-> [<ffffffff81720353>] ops_exit_list.isra.4+0x53/0x60
-> [<ffffffff817209e0>] cleanup_net+0xf0/0x1a0
-> [<ffffffff81062997>] process_one_work+0x157/0x440
-> [<ffffffff81063303>] worker_thread+0x63/0x520
-> [<ffffffff81068b96>] kthread+0xd6/0xf0
-> [<ffffffff818d412c>] ret_from_fork+0x7c/0xb0
-> [<ffffffffffffffff>] 0xffffffffffffffff
-> 
-> So I tried flushing iptables rules and rmmoding netfilter bits:
-> 
-> ++++++++++++++++++++-+--------------------+++++++++++----------- 0.179940s
-> ++++++++++++++--+-------------+++++++++++++++++----------------- 0.151988s
-> ++++++++++++++++++++++++++++---+--------------------------+++--- 0.159967s
-> ++++++++++++++++++++++----------------------++++++++++---------- 0.175964s
-> 
-> Expedited:
-> 
-> ++-+--++-+-+-+-+-+-+--++-+-+-++-+-+-+--++-+-+-+-+-+-+-+-+-+-+--- 0.079988s
-> ++-+-+-+-+-+-+-+-+-+-+-+--++-+--++-+--+-++-+-+--++-+-+-+-+-+-+-- 0.089347s
-> ++++--+++--++--+-+++++++-+++++--------------++-+-+--++-+-+--++-- 0.081566s
-> +++++-+++-------++-+-+-+-+-+-+-+-+-+-+-++-+-+-+-+-+-+-+-+-+-+--- 0.089026s
-> 
-> So, much faster. It seems that just loading nf_conntrack_ipv4 (like by
-> running iptables -t nat -nvL) is enough to slow it way down. But it is
-> still capable of being fast, as above.
-
-My first guess is that this code sequence is calling synchronize_rcu()
-quite often.  Would it be possible to consolidate these?
-
-							Thanx, Paul
+Although it would have made more sense to me if you only set the DCRS bit
+in the case where the troubles occur, half-duplex 10Mbps, so that in other
+modes real carrier loss during transmit would actually be detected.
