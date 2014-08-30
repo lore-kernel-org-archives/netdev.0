@@ -1,154 +1,128 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 1/2] ipv6: add sysctl_mld_qrv to configure query robustness variable
-Date: Sat, 30 Aug 2014 04:42:53 +0200
-Message-ID: <1880a888c65dff7b7c73aa53eabbb841a65a74ce.1409366462.git.hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:41109 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750888AbaH3CnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Aug 2014 22:43:01 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by gateway2.nyi.internal (Postfix) with ESMTP id B0EAE201C8
-	for <netdev@vger.kernel.org>; Fri, 29 Aug 2014 22:43:00 -0400 (EDT)
-Received: from k64.localdomain (unknown [213.55.184.236])
-	by mail.messagingengine.com (Postfix) with ESMTPA id 2E3D8680140
-	for <netdev@vger.kernel.org>; Fri, 29 Aug 2014 22:43:00 -0400 (EDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: net_ns cleanup / RCU overhead
+Date: Fri, 29 Aug 2014 19:52:25 -0700
+Message-ID: <20140830025225.GC5001@linux.vnet.ibm.com>
+References: <20140820055855.GB5579@hostway.ca>
+ <20140828192431.GF5001@linux.vnet.ibm.com>
+ <20140828194422.GB8867@hostway.ca>
+ <87oav4l5g9.fsf@x220.int.ebiederm.org>
+ <20140828204658.GL5001@linux.vnet.ibm.com>
+ <20140829004029.GA18300@hostway.ca>
+Reply-To: paulmck@linux.vnet.ibm.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Simon Kirby <sim@hostway.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140829004029.GA18300@hostway.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds a new sysctl_mld_qrv knob to configure the mldv1/v2 query
-robustness variable. It sepcifies how many retransmit of unsolicited mld
-retransmit should happen. Admins might want to tune this on lossy links.
+On Thu, Aug 28, 2014 at 05:40:29PM -0700, Simon Kirby wrote:
+> On Thu, Aug 28, 2014 at 01:46:58PM -0700, Paul E. McKenney wrote:
+> 
+> > On Thu, Aug 28, 2014 at 03:33:42PM -0500, Eric W. Biederman wrote:
+> > 
+> > > I just want to add a little bit more analysis to this.
+> > > 
+> > > What we desire to be fast is the copy_net_ns, cleanup_net is batched and
+> > > asynchronous which nothing really cares how long it takes except that
+> > > cleanup_net holds the net_mutex and thus blocks copy_net_ns.
+> > > 
+> > > The puzzle is why and which rcu delays Simon is seeing in the network
+> > > namespace cleanup path, as it seems like the synchronize_rcu is not
+> > > the only one, and in the case of vsftp with trivail network namespaces
+> > > where nothing has been done we should not need to delay.
+> > 
+> > Indeed, given the version and .config, I can't see why any individual
+> > RCU grace-period operation would be particularly slow.
+> > 
+> > I suggest using ftrace on synchronize_rcu() and friends.
+> 
+> I made a parallel net namespace create/destroy benchmark that prints the
+> progress and time to create and cleanup 32 unshare()d child processes:
+> 
+> http://0x.ca/sim/ref/tools/netnsbench.c
+> 
+> I noticed that if I haven't run it for a while, the first batch often is
+> fast, followed by slowness from then on:
+> 
+> ++++++++++++++++++++++++++++++++-------------------------------- 0.039478s
+> ++++++++++++++++++++-----+----------------+++++++++---------++-- 4.463837s
+> +++++++++++++++++++++++++------+--------------------++++++------ 3.011882s
+> +++++++++++++++---+-------------++++++++++++++++---------------- 2.283993s
+> 
+> Fiddling around on a stock kernel, "echo 1 > /sys/kernel/rcu_expedited"
+> makes behaviour change as it did with my patch:
+> 
+> ++-++-+++-+-----+-+-++-+-++--++-+--+-+-++--++-+-+-+-++-+--++---- 0.801406s
+> +-+-+-++-+-+-+-+-++--+-+-++-+--++-+-+-+-+-+-+-+-+-+-+-+--++-+--- 0.872011s
+> ++--+-++--+-++--+-++--+-+-+-+-++-+--++--+-++-+-+-+-+--++-+-+-+-- 0.946745s
+> 
+> How would I use ftrace on synchronize_rcu() here?
 
-Also reset mld state on interface down/up, so we pick up new sysctl
-settings during interface up event.
+http://lwn.net/Articles/370423/ is your friend here.  If your kernel
+is built with the needed configuration, you give the command
+"echo synchronize_rcu > set_ftrace_filter"
 
-IPv6 certification requests this knob to be available.
+http://lwn.net/Articles/365835/ and http://lwn.net/Articles/366796/
+have background info.
 
-I didn't make this knob netns specific, as it is mostly a setting in a
-physical environment and should be per host.
+> As Eric said, cleanup_net() is batched, but while it is cleaning up,
+> net_mutex is held. Isn't the issue just that net_mutex is held while
+> some other things are going on that are meant to be lazy / batched?
+> 
+> What is net_mutex protecting in cleanup_net()?
+> 
+> I noticed that [kworker/u16:0]'s stack is often:
+> 
+> [<ffffffff810942a6>] wait_rcu_gp+0x46/0x50
+> [<ffffffff8109607e>] synchronize_sched+0x2e/0x50
+> [<ffffffffa00385ac>] nf_nat_net_exit+0x2c/0x50 [nf_nat]
+> [<ffffffff81720339>] ops_exit_list.isra.4+0x39/0x60
+> [<ffffffff817209e0>] cleanup_net+0xf0/0x1a0
+> [<ffffffff81062997>] process_one_work+0x157/0x440
+> [<ffffffff81063303>] worker_thread+0x63/0x520
+> [<ffffffff81068b96>] kthread+0xd6/0xf0
+> [<ffffffff818d412c>] ret_from_fork+0x7c/0xb0
+> [<ffffffffffffffff>] 0xffffffffffffffff
+> 
+> and
+> 
+> [<ffffffff81095364>] _rcu_barrier+0x154/0x1f0
+> [<ffffffff81095450>] rcu_barrier+0x10/0x20
+> [<ffffffff81102c2c>] kmem_cache_destroy+0x6c/0xb0
+> [<ffffffffa0089e97>] nf_conntrack_cleanup_net_list+0x167/0x1c0 [nf_conntrack]
+> [<ffffffffa008aab5>] nf_conntrack_pernet_exit+0x65/0x70 [nf_conntrack]
+> [<ffffffff81720353>] ops_exit_list.isra.4+0x53/0x60
+> [<ffffffff817209e0>] cleanup_net+0xf0/0x1a0
+> [<ffffffff81062997>] process_one_work+0x157/0x440
+> [<ffffffff81063303>] worker_thread+0x63/0x520
+> [<ffffffff81068b96>] kthread+0xd6/0xf0
+> [<ffffffff818d412c>] ret_from_fork+0x7c/0xb0
+> [<ffffffffffffffff>] 0xffffffffffffffff
+> 
+> So I tried flushing iptables rules and rmmoding netfilter bits:
+> 
+> ++++++++++++++++++++-+--------------------+++++++++++----------- 0.179940s
+> ++++++++++++++--+-------------+++++++++++++++++----------------- 0.151988s
+> ++++++++++++++++++++++++++++---+--------------------------+++--- 0.159967s
+> ++++++++++++++++++++++----------------------++++++++++---------- 0.175964s
+> 
+> Expedited:
+> 
+> ++-+--++-+-+-+-+-+-+--++-+-+-++-+-+-+--++-+-+-+-+-+-+-+-+-+-+--- 0.079988s
+> ++-+-+-+-+-+-+-+-+-+-+-+--++-+--++-+--+-++-+-+--++-+-+-+-+-+-+-- 0.089347s
+> ++++--+++--++--+-+++++++-+++++--------------++-+-+--++-+-+--++-- 0.081566s
+> +++++-+++-------++-+-+-+-+-+-+-+-+-+-+-++-+-+-+-+-+-+-+-+-+-+--- 0.089026s
+> 
+> So, much faster. It seems that just loading nf_conntrack_ipv4 (like by
+> running iptables -t nat -nvL) is enough to slow it way down. But it is
+> still capable of being fast, as above.
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- Documentation/networking/ip-sysctl.txt |  3 +++
- include/net/ipv6.h                     |  1 +
- net/ipv6/mcast.c                       | 20 ++++++++++++--------
- net/ipv6/sysctl_net_ipv6.c             | 10 ++++++++++
- 4 files changed, 26 insertions(+), 8 deletions(-)
+My first guess is that this code sequence is calling synchronize_rcu()
+quite often.  Would it be possible to consolidate these?
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 3cce8ea..b7fe844 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1152,6 +1152,9 @@ anycast_src_echo_reply - BOOLEAN
- 	FALSE: disabled
- 	Default: FALSE
- 
-+mld_qrv - INTEGER
-+	Controls the MLD query robustness variable (see RFC3810 9.1).
-+
- IPv6 Fragmentation:
- 
- ip6frag_high_thresh - INTEGER
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index a2db816..7e247e9 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -121,6 +121,7 @@ struct frag_hdr {
- 
- /* sysctls */
- extern int sysctl_mld_max_msf;
-+extern int sysctl_mld_qrv;
- 
- #define _DEVINC(net, statname, modifier, idev, field)			\
- ({									\
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 7088179..6efb0e5 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -121,6 +121,7 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
- #define IPV6_MLD_MAX_MSF	64
- 
- int sysctl_mld_max_msf __read_mostly = IPV6_MLD_MAX_MSF;
-+int sysctl_mld_qrv __read_mostly = MLD_QRV_DEFAULT;
- 
- /*
-  *	socket join on multicast group
-@@ -1196,7 +1197,7 @@ static void mld_update_qrv(struct inet6_dev *idev,
- 	if (mlh2->mld2q_qrv > 0)
- 		idev->mc_qrv = mlh2->mld2q_qrv;
- 
--	if (unlikely(idev->mc_qrv < 2)) {
-+	if (unlikely(idev->mc_qrv < MLD_QRV_DEFAULT)) {
- 		net_warn_ratelimited("IPv6: MLD: clamping QRV from %u to %u!\n",
- 				     idev->mc_qrv, MLD_QRV_DEFAULT);
- 		idev->mc_qrv = MLD_QRV_DEFAULT;
-@@ -2478,6 +2479,14 @@ void ipv6_mc_down(struct inet6_dev *idev)
- 	mld_clear_delrec(idev);
- }
- 
-+static void ipv6_mc_reset(struct inet6_dev *idev)
-+{
-+	idev->mc_qrv = sysctl_mld_qrv;
-+	idev->mc_qi = MLD_QI_DEFAULT;
-+	idev->mc_qri = MLD_QRI_DEFAULT;
-+	idev->mc_v1_seen = 0;
-+	idev->mc_maxdelay = unsolicited_report_interval(idev);
-+}
- 
- /* Device going up */
- 
-@@ -2488,6 +2497,7 @@ void ipv6_mc_up(struct inet6_dev *idev)
- 	/* Install multicast list, except for all-nodes (already installed) */
- 
- 	read_lock_bh(&idev->lock);
-+	ipv6_mc_reset(idev);
- 	for (i = idev->mc_list; i; i = i->next)
- 		igmp6_group_added(i);
- 	read_unlock_bh(&idev->lock);
-@@ -2508,13 +2518,7 @@ void ipv6_mc_init_dev(struct inet6_dev *idev)
- 			(unsigned long)idev);
- 	setup_timer(&idev->mc_dad_timer, mld_dad_timer_expire,
- 		    (unsigned long)idev);
--
--	idev->mc_qrv = MLD_QRV_DEFAULT;
--	idev->mc_qi = MLD_QI_DEFAULT;
--	idev->mc_qri = MLD_QRI_DEFAULT;
--
--	idev->mc_maxdelay = unsolicited_report_interval(idev);
--	idev->mc_v1_seen = 0;
-+	ipv6_mc_reset(idev);
- 	write_unlock_bh(&idev->lock);
- }
- 
-diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
-index 0c56c93..c5c10fa 100644
---- a/net/ipv6/sysctl_net_ipv6.c
-+++ b/net/ipv6/sysctl_net_ipv6.c
-@@ -16,6 +16,8 @@
- #include <net/addrconf.h>
- #include <net/inet_frag.h>
- 
-+static int one = 1;
-+
- static struct ctl_table ipv6_table_template[] = {
- 	{
- 		.procname	= "bindv6only",
-@@ -63,6 +65,14 @@ static struct ctl_table ipv6_rotable[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "mld_qrv",
-+		.data		= &sysctl_mld_qrv,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &one
-+	},
- 	{ }
- };
- 
--- 
-1.9.3
+							Thanx, Paul
