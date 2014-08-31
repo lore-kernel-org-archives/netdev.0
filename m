@@ -1,79 +1,110 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH] ip netns: Create /var/run/netns dir when do 'ip netns monitor'
-Date: Sun, 31 Aug 2014 22:45:29 +0300
-Message-ID: <1409514329-11352-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next 0/6] net: Checksum offload changes - Part VI
+Date: Sun, 31 Aug 2014 15:12:40 -0700
+Message-ID: <1409523166-9215-1-git-send-email-therbert@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:50676 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751498AbaHaTxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Aug 2014 15:53:19 -0400
-Received: by mail-lb0-f180.google.com with SMTP id w7so4838312lbi.25
-        for <netdev@vger.kernel.org>; Sun, 31 Aug 2014 12:53:17 -0700 (PDT)
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:47414 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751707AbaHaWNE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Aug 2014 18:13:04 -0400
+Received: by mail-pa0-f49.google.com with SMTP id kq14so10539711pab.8
+        for <netdev@vger.kernel.org>; Sun, 31 Aug 2014 15:13:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netns monitor fails when there is no /var/run/netns dir
-which might be created later while monitoring.
+I am working on overhauling RX checksum offload. Goals of this effort
+are:
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- ip/ipnetns.c | 28 ++++++++++++++++++++--------
- 1 file changed, 20 insertions(+), 8 deletions(-)
+- Specify what exactly it means when driver returns CHECKSUM_UNNECESSARY
+- Preserve CHECKSUM_COMPLETE through encapsulation layers
+- Don't do skb_checksum more than once per packet
+- Unify GRO and non-GRO csum verification as much as possible
+- Unify the checksum functions (checksum_init)
+- Simplify code
 
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 7f82908..90a496f 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -383,6 +383,20 @@ static int netns_delete(int argc, char **argv)
- 	return 0;
- }
- 
-+static int create_netns_dir(void)
-+{
-+	/* Create the base netns directory if it doesn't exist */
-+	if (mkdir(NETNS_RUN_DIR, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)) {
-+		if (errno != EEXIST) {
-+			fprintf(stderr, "mkdir %s failed: %s\n",
-+				NETNS_RUN_DIR, strerror(errno));
-+			return -1;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- static int netns_add(int argc, char **argv)
- {
- 	/* This function creates a new network namespace and
-@@ -406,14 +420,8 @@ static int netns_add(int argc, char **argv)
- 
- 	snprintf(netns_path, sizeof(netns_path), "%s/%s", NETNS_RUN_DIR, name);
- 
--	/* Create the base netns directory if it doesn't exist */
--	if (mkdir(NETNS_RUN_DIR, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)) {
--		if (errno != EEXIST) {
--			fprintf(stderr, "mkdir %s failed: %s\n",
--				NETNS_RUN_DIR, strerror(errno));
--			return -1;
--		}
--	}
-+	if (create_netns_dir())
-+		return -1;
- 
- 	/* Make it possible for network namespace mounts to propagate between
- 	 * mount namespaces.  This makes it likely that a unmounting a network
-@@ -476,6 +484,10 @@ static int netns_monitor(int argc, char **argv)
- 			strerror(errno));
- 		return -1;
- 	}
-+
-+	if (create_netns_dir())
-+		return -1;
-+
- 	if (inotify_add_watch(fd, NETNS_RUN_DIR, IN_CREATE | IN_DELETE) < 0) {
- 		fprintf(stderr, "inotify_add_watch failed: %s\n",
- 			strerror(errno));
+What is in this seventh patch set:
+
+- Add skb->csum. This allows a device or GRO to indicate that an
+  invalid checksum was detected.
+- Checksum unncessary to checksum complete conversions.
+
+With these changes, I believe that the third goal of the overhaul is
+now mostly achieved. In the case of no encapsulation or one layer of
+encapsulation, there should only be at most one skb_checksum over
+each packet (between GRO and normal path). In the case of two layers
+of encapsulation, it is still possible with the right combination of
+non-zero and zero UDP checksums to have >1 skb_checksum. For instance:
+IP>GRE(with csum)>IP>UDP(zero csum)>VXLAN>IP>UDP(non-zero csum),
+would likely necessiate an skb_checksum in GRO and normal path.
+This doesn't seem like a common scenario at all so I'm inclined to
+not address this now, if multiple layers of encapsulation becomes
+popular we can reassess.
+
+Note that checksum conversion shows a nice improvement for RX VXLAN when
+outer UDP checksum is enabled (12.65% CPU compared to 20.94%). This
+is not only from the fact that we don't need checksum calculation on
+the host, but also allows GRO for VXLAN in this case. Checksum
+conversion does not help send side (which still needs to perform
+a checksum on host). For that we will implement remote checksum offload
+in a later patch
+(http://tools.ietf.org/html/draft-herbert-remotecsumoffload-00).
+
+Please review carefully and test if possible, mucking with basic
+checksum functions is always a little precarious :-)
+
+----
+
+Test results with this patch set are below. I did not see any
+obvious performace regression.
+
+Tests run:
+   TCP_STREAM: super_netperf with 200 streams
+
+Device bnx2x (10Gbps):
+   VXLAN UDP RSS port hashing enabled, UDP RX checksum offload supported.
+
+* VXLAN with checksum
+  With fix:
+    TCP_STREAM
+        12.65% CPU utilization
+        9093.81 Mbps
+  Without fix:
+    TCP_STREAM
+        20.94% CPU utilization
+        9094.21 Mbps
+
+* VXLAN without checksum
+  With fix:
+    TCP_STREAM
+        24.59% CPU utilization
+        9080.96 Mbps
+  Without fix:
+    TCP_STREAM
+        24.69% CPU utilization
+        9081.39 Mbps
+
+Tom Herbert (6):
+  net: Support for csum_bad in skbuff
+  net: Infrastructure for checksum unnecessary conversions
+  udp: Add support for doing checksum unnecessary conversion
+  gre: Add support for checksum unnecessary conversions
+  vxlan: Enable checksum unnecessary conversions for vxlan/UDP sockets
+  l2tp: Enable checksum unnecessary conversions for l2tp/UDP sockets
+
+ drivers/net/vxlan.c       |  2 ++
+ include/linux/netdevice.h | 24 +++++++++++++++++++++++-
+ include/linux/skbuff.h    | 41 ++++++++++++++++++++++++++++++++++++++++-
+ include/linux/udp.h       | 16 +++++++++++++++-
+ net/core/dev.c            |  2 +-
+ net/ipv4/gre_demux.c      |  4 ++++
+ net/ipv4/gre_offload.c    |  8 ++++++--
+ net/ipv4/udp.c            |  4 ++++
+ net/ipv4/udp_offload.c    | 25 +++++++++++++++++--------
+ net/ipv6/udp.c            |  4 ++++
+ net/ipv6/udp_offload.c    | 24 +++++++++++++++++-------
+ net/l2tp/l2tp_core.c      |  2 ++
+ 12 files changed, 135 insertions(+), 21 deletions(-)
+
 -- 
-2.1.0
+2.1.0.rc2.206.gedb03e5
