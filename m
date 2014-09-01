@@ -1,65 +1,52 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv2 net 2/6] cxgb4: Fixed the code to use correct length for part number
-Date: Mon,  1 Sep 2014 19:54:56 +0530
-Message-ID: <1409581500-11264-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv2 net 5/6] cxgb4: Avoid dumping Write-only registers in register dump
+Date: Mon,  1 Sep 2014 19:54:59 +0530
+Message-ID: <1409581500-11264-6-git-send-email-hariprasad@chelsio.com>
 References: <1409581500-11264-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	kumaras@chelsio.com, anish@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:51398
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:51407
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753977AbaIAOT2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 10:19:28 -0400
+	by vger.kernel.org with ESMTP id S1753923AbaIAOTg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 10:19:36 -0400
 In-Reply-To: <1409581500-11264-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Previously it was using the length value of serial number.
-Also added macro for VPD unique identifier (0x82).
+Avoid dumping MPS_RPLC_MAP_CTL for reg dumps; this is a Write-Only register.
+Reading this register may cause MPS TCAM corruption.
 
-Signed-off-by: Casey Leedom <leedom@chelsio.com>
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |   11 ++++++++++-
- 1 files changed, 10 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 6b92c4c..adf16a5 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -566,6 +566,7 @@ int t4_memory_rw(struct adapter *adap, int win, int mtype, u32 addr,
- #define VPD_BASE           0x400
- #define VPD_BASE_OLD       0
- #define VPD_LEN            1024
-+#define CHELSIO_VPD_UNIQUE_ID 0x82
- 
- /**
-  *	t4_seeprom_wp - enable/disable EEPROM write protection
-@@ -603,7 +604,14 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 	ret = pci_read_vpd(adapter->pdev, VPD_BASE, sizeof(u32), vpd);
- 	if (ret < 0)
- 		goto out;
--	addr = *vpd == 0x82 ? VPD_BASE : VPD_BASE_OLD;
-+
-+	/* The VPD shall have a unique identifier specified by the PCI SIG.
-+	 * For chelsio adapters, the identifier is 0x82. The first byte of a VPD
-+	 * shall be CHELSIO_VPD_UNIQUE_ID (0x82). The VPD programming software
-+	 * is expected to automatically put this entry at the
-+	 * beginning of the VPD.
-+	 */
-+	addr = *vpd == CHELSIO_VPD_UNIQUE_ID ? VPD_BASE : VPD_BASE_OLD;
- 
- 	ret = pci_read_vpd(adapter->pdev, addr, VPD_LEN, vpd);
- 	if (ret < 0)
-@@ -667,6 +675,7 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 	i = pci_vpd_info_field_size(vpd + sn - PCI_VPD_INFO_FLD_HDR_SIZE);
- 	memcpy(p->sn, vpd + sn, min(i, SERNUM_LEN));
- 	strim(p->sn);
-+	i = pci_vpd_info_field_size(vpd + pn - PCI_VPD_INFO_FLD_HDR_SIZE);
- 	memcpy(p->pn, vpd + pn, min(i, PN_LEN));
- 	strim(p->pn);
- 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index cf387ae..1b5020a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -1763,7 +1763,8 @@ static void get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 		0xd004, 0xd03c,
+ 		0xdfc0, 0xdfe0,
+ 		0xe000, 0xea7c,
+-		0xf000, 0x11190,
++		0xf000, 0x11110,
++		0x11118, 0x11190,
+ 		0x19040, 0x1906c,
+ 		0x19078, 0x19080,
+ 		0x1908c, 0x19124,
+@@ -1970,7 +1971,8 @@ static void get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 		0xd004, 0xd03c,
+ 		0xdfc0, 0xdfe0,
+ 		0xe000, 0x11088,
+-		0x1109c, 0x1117c,
++		0x1109c, 0x11110,
++		0x11118, 0x1117c,
+ 		0x11190, 0x11204,
+ 		0x19040, 0x1906c,
+ 		0x19078, 0x19080,
 -- 
 1.7.1
