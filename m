@@ -1,208 +1,41 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 3/4] rtnl/do_setlink(): last arg is now a set of flags
-Date: Mon,  1 Sep 2014 16:07:28 +0200
-Message-ID: <1409580449-4562-4-git-send-email-nicolas.dichtel@6wind.com>
-References: <1409580449-4562-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv2 net 1/6] cxgb4: Fix for handling 1Gb/s SFP+ Transceiver Modules
+Date: Mon,  1 Sep 2014 19:54:55 +0530
+Message-ID: <1409581500-11264-2-git-send-email-hariprasad@chelsio.com>
+References: <1409581500-11264-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	kumaras@chelsio.com, anish@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:36486 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754148AbaIAOQv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 10:16:51 -0400
-In-Reply-To: <1409580449-4562-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:51395
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753977AbaIAOTZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 10:19:25 -0400
+In-Reply-To: <1409581500-11264-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no functional changes with this commit, it only prepares the next one.
+We previously assumed that a Port's Capabilities and Advertised Capabilities
+would never change from Port Initialization time.  This is no longer true
+when we can have 10Gb/s and 1Gb/s SFP+ Transceiver Modules randomly swapped.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- net/core/rtnetlink.c | 43 ++++++++++++++++++++++---------------------
- 1 file changed, 22 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 2bd9fb15b987..7d84db3e0597 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1481,9 +1481,10 @@ static int do_set_master(struct net_device *dev, int ifindex)
- 	return 0;
- }
- 
-+#define DO_SETLINK_MODIFIED	0x01
- static int do_setlink(const struct sk_buff *skb,
- 		      struct net_device *dev, struct ifinfomsg *ifm,
--		      struct nlattr **tb, char *ifname, int modified)
-+		      struct nlattr **tb, char *ifname, int status)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
- 	int err;
-@@ -1502,7 +1503,7 @@ static int do_setlink(const struct sk_buff *skb,
- 		put_net(net);
- 		if (err)
- 			goto errout;
--		modified = 1;
-+		status |= DO_SETLINK_MODIFIED;
- 	}
- 
- 	if (tb[IFLA_MAP]) {
-@@ -1531,7 +1532,7 @@ static int do_setlink(const struct sk_buff *skb,
- 		if (err < 0)
- 			goto errout;
- 
--		modified = 1;
-+		status |= DO_SETLINK_MODIFIED;
- 	}
- 
- 	if (tb[IFLA_ADDRESS]) {
-@@ -1551,19 +1552,19 @@ static int do_setlink(const struct sk_buff *skb,
- 		kfree(sa);
- 		if (err)
- 			goto errout;
--		modified = 1;
-+		status |= DO_SETLINK_MODIFIED;
- 	}
- 
- 	if (tb[IFLA_MTU]) {
- 		err = dev_set_mtu(dev, nla_get_u32(tb[IFLA_MTU]));
- 		if (err < 0)
- 			goto errout;
--		modified = 1;
-+		status |= DO_SETLINK_MODIFIED;
- 	}
- 
- 	if (tb[IFLA_GROUP]) {
- 		dev_set_group(dev, nla_get_u32(tb[IFLA_GROUP]));
--		modified = 1;
-+		status |= DO_SETLINK_MODIFIED;
- 	}
- 
- 	/*
-@@ -1575,7 +1576,7 @@ static int do_setlink(const struct sk_buff *skb,
- 		err = dev_change_name(dev, ifname);
- 		if (err < 0)
- 			goto errout;
--		modified = 1;
-+		status |= DO_SETLINK_MODIFIED;
- 	}
- 
- 	if (tb[IFLA_IFALIAS]) {
-@@ -1583,7 +1584,7 @@ static int do_setlink(const struct sk_buff *skb,
- 				    nla_len(tb[IFLA_IFALIAS]));
- 		if (err < 0)
- 			goto errout;
--		modified = 1;
-+		status |= DO_SETLINK_MODIFIED;
- 	}
- 
- 	if (tb[IFLA_BROADCAST]) {
-@@ -1601,21 +1602,21 @@ static int do_setlink(const struct sk_buff *skb,
- 		err = do_set_master(dev, nla_get_u32(tb[IFLA_MASTER]));
- 		if (err)
- 			goto errout;
--		modified = 1;
-+		status |= DO_SETLINK_MODIFIED;
- 	}
- 
- 	if (tb[IFLA_CARRIER]) {
- 		err = dev_change_carrier(dev, nla_get_u8(tb[IFLA_CARRIER]));
- 		if (err)
- 			goto errout;
--		modified = 1;
-+		status |= DO_SETLINK_MODIFIED;
- 	}
- 
- 	if (tb[IFLA_TXQLEN]) {
- 		unsigned long value = nla_get_u32(tb[IFLA_TXQLEN]);
- 
- 		if (dev->tx_queue_len ^ value)
--			modified = 1;
-+			status |= DO_SETLINK_MODIFIED;
- 
- 		dev->tx_queue_len = value;
- 	}
-@@ -1628,7 +1629,7 @@ static int do_setlink(const struct sk_buff *skb,
- 
- 		write_lock_bh(&dev_base_lock);
- 		if (dev->link_mode ^ value)
--			modified = 1;
-+			status |= DO_SETLINK_MODIFIED;
- 		dev->link_mode = value;
- 		write_unlock_bh(&dev_base_lock);
- 	}
-@@ -1644,7 +1645,7 @@ static int do_setlink(const struct sk_buff *skb,
- 			err = do_setvfinfo(dev, attr);
- 			if (err < 0)
- 				goto errout;
--			modified = 1;
-+			status |= DO_SETLINK_MODIFIED;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index a853133..6b92c4c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -3742,6 +3742,7 @@ int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl)
+ 			lc->link_ok = link_ok;
+ 			lc->speed = speed;
+ 			lc->fc = fc;
++			lc->supported = be16_to_cpu(p->u.info.pcap);
+ 			t4_os_link_changed(adap, port, link_ok);
  		}
- 	}
- 	err = 0;
-@@ -1674,7 +1675,7 @@ static int do_setlink(const struct sk_buff *skb,
- 			err = ops->ndo_set_vf_port(dev, vf, port);
- 			if (err < 0)
- 				goto errout;
--			modified = 1;
-+			status |= DO_SETLINK_MODIFIED;
- 		}
- 	}
- 	err = 0;
-@@ -1692,7 +1693,7 @@ static int do_setlink(const struct sk_buff *skb,
- 			err = ops->ndo_set_vf_port(dev, PORT_SELF_VF, port);
- 		if (err < 0)
- 			goto errout;
--		modified = 1;
-+		status |= DO_SETLINK_MODIFIED;
- 	}
- 
- 	if (tb[IFLA_AF_SPEC]) {
-@@ -1709,13 +1710,13 @@ static int do_setlink(const struct sk_buff *skb,
- 			if (err < 0)
- 				goto errout;
- 
--			modified = 1;
-+			status |= DO_SETLINK_MODIFIED;
- 		}
- 	}
- 	err = 0;
- 
- errout:
--	if (err < 0 && modified)
-+	if (err < 0 && status & DO_SETLINK_MODIFIED)
- 		net_warn_ratelimited("A link change request failed with some changes committed already. Interface %s may have been left with an inconsistent configuration, please check.\n",
- 				     dev->name);
- 
-@@ -1999,7 +2000,7 @@ replay:
- 		}
- 
- 		if (dev) {
--			int modified = 0;
-+			int status = 0;
- 
- 			if (nlh->nlmsg_flags & NLM_F_EXCL)
- 				return -EEXIST;
-@@ -2014,7 +2015,7 @@ replay:
- 				err = ops->changelink(dev, tb, data);
- 				if (err < 0)
- 					return err;
--				modified = 1;
-+				status |= DO_SETLINK_MODIFIED;
- 			}
- 
- 			if (linkinfo[IFLA_INFO_SLAVE_DATA]) {
-@@ -2025,10 +2026,10 @@ replay:
- 							      tb, slave_data);
- 				if (err < 0)
- 					return err;
--				modified = 1;
-+				status |= DO_SETLINK_MODIFIED;
- 			}
- 
--			return do_setlink(skb, dev, ifm, tb, ifname, modified);
-+			return do_setlink(skb, dev, ifm, tb, ifname, status);
- 		}
- 
- 		if (!(nlh->nlmsg_flags & NLM_F_CREATE)) {
+ 		if (mod != pi->mod_type) {
 -- 
-1.9.0
+1.7.1
