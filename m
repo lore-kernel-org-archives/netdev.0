@@ -1,7 +1,7 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 10/12] be2net: get rid of TX budget
-Date: Mon, 1 Sep 2014 11:54:22 +0530
-Message-ID: <1409552664-15990-11-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 02/12] be2net: shorten AMAP_GET/SET_BITS() macro calls
+Date: Mon, 1 Sep 2014 11:54:14 +0530
+Message-ID: <1409552664-15990-3-git-send-email-sathya.perla@emulex.com>
 References: <1409552664-15990-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,110 +9,220 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:19158 "EHLO
 	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752201AbaIAGVz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 02:21:55 -0400
+	with ESMTP id S1752121AbaIAGVy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 02:21:54 -0400
 In-Reply-To: <1409552664-15990-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enforcing a budget on the TX completion processing in NAPI doesn't
-benefit performance in anyway. Just get rid of it.
+The AMAP_GET/SET_BITS() macro calls take structure name as a parameter
+and hence are long and span more than one line. Replace these calls
+with a wrapper macros for RX/Tx compls and TX wrb. This results in fewer
+lines and more readable code in be_main.c
 
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |    2 -
- drivers/net/ethernet/emulex/benet/be_main.c |   30 +++++++++-----------------
- 2 files changed, 11 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |   12 +++
+ drivers/net/ethernet/emulex/benet/be_main.c |  115 +++++++++++----------------
+ 2 files changed, 58 insertions(+), 69 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 5ccfce7..d952ca2 100644
+index 43e08d0..d9cd885 100644
 --- a/drivers/net/ethernet/emulex/benet/be.h
 +++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -114,7 +114,6 @@ static inline char *nic_name(struct pci_dev *pdev)
- #define MAX_ROCE_EQS		5
- #define MAX_MSIX_VECTORS	32
- #define MIN_MSIX_VECTORS	1
--#define BE_TX_BUDGET		256
- #define BE_NAPI_WEIGHT		64
- #define MAX_RX_POST		BE_NAPI_WEIGHT /* Frags posted at a time */
- #define RX_FRAGS_REFILL_WM	(RX_Q_LEN - MAX_RX_POST)
-@@ -200,7 +199,6 @@ struct be_eq_obj {
+@@ -661,6 +661,18 @@ static inline u32 amap_get(void *ptr, u32 dw_offset, u32 mask, u32 offset)
+ 			amap_mask(sizeof(((_struct *)0)->field)),	\
+ 			AMAP_BIT_OFFSET(_struct, field))
  
- 	u8 idx;			/* array index */
- 	u8 msix_idx;
--	u16 tx_budget;
- 	u16 spurious_intr;
- 	struct napi_struct napi;
- 	struct be_adapter *adapter;
++#define GET_RX_COMPL_V0_BITS(field, ptr)				\
++		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, field, ptr)
++
++#define GET_RX_COMPL_V1_BITS(field, ptr)				\
++		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, field, ptr)
++
++#define GET_TX_COMPL_BITS(field, ptr)					\
++		AMAP_GET_BITS(struct amap_eth_tx_compl, field, ptr)
++
++#define SET_TX_WRB_HDR_BITS(field, ptr, val)				\
++		AMAP_SET_BITS(struct amap_eth_hdr_wrb, field, ptr, val)
++
+ #define be_dws_cpu_to_le(wrb, len)	swap_dws(wrb, len)
+ #define be_dws_le_to_cpu(wrb, len)	swap_dws(wrb, len)
+ static inline void swap_dws(void *wrb, int len)
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 04a8092..53727ad 100644
+index 3d33049..810ce5c 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2143,7 +2143,6 @@ static int be_evt_queues_create(struct be_adapter *adapter)
- 		napi_hash_add(&eqo->napi);
- 		aic = &adapter->aic_obj[i];
- 		eqo->adapter = adapter;
--		eqo->tx_budget = BE_TX_BUDGET;
- 		eqo->idx = i;
- 		aic->max_eqd = BE_MAX_EQD;
- 		aic->enable = true;
-@@ -2459,20 +2458,19 @@ static inline void lancer_update_tx_err(struct be_tx_obj *txo, u32 status)
+@@ -738,38 +738,37 @@ static void wrb_fill_hdr(struct be_adapter *adapter, struct be_eth_hdr_wrb *hdr,
+ 
+ 	memset(hdr, 0, sizeof(*hdr));
+ 
+-	AMAP_SET_BITS(struct amap_eth_hdr_wrb, crc, hdr, 1);
++	SET_TX_WRB_HDR_BITS(crc, hdr, 1);
+ 
+ 	if (skb_is_gso(skb)) {
+-		AMAP_SET_BITS(struct amap_eth_hdr_wrb, lso, hdr, 1);
+-		AMAP_SET_BITS(struct amap_eth_hdr_wrb, lso_mss,
+-			hdr, skb_shinfo(skb)->gso_size);
++		SET_TX_WRB_HDR_BITS(lso, hdr, 1);
++		SET_TX_WRB_HDR_BITS(lso_mss, hdr, skb_shinfo(skb)->gso_size);
+ 		if (skb_is_gso_v6(skb) && !lancer_chip(adapter))
+-			AMAP_SET_BITS(struct amap_eth_hdr_wrb, lso6, hdr, 1);
++			SET_TX_WRB_HDR_BITS(lso6, hdr, 1);
+ 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		if (skb->encapsulation) {
+-			AMAP_SET_BITS(struct amap_eth_hdr_wrb, ipcs, hdr, 1);
++			SET_TX_WRB_HDR_BITS(ipcs, hdr, 1);
+ 			proto = skb_inner_ip_proto(skb);
+ 		} else {
+ 			proto = skb_ip_proto(skb);
+ 		}
+ 		if (proto == IPPROTO_TCP)
+-			AMAP_SET_BITS(struct amap_eth_hdr_wrb, tcpcs, hdr, 1);
++			SET_TX_WRB_HDR_BITS(tcpcs, hdr, 1);
+ 		else if (proto == IPPROTO_UDP)
+-			AMAP_SET_BITS(struct amap_eth_hdr_wrb, udpcs, hdr, 1);
++			SET_TX_WRB_HDR_BITS(udpcs, hdr, 1);
  	}
+ 
+ 	if (vlan_tx_tag_present(skb)) {
+-		AMAP_SET_BITS(struct amap_eth_hdr_wrb, vlan, hdr, 1);
++		SET_TX_WRB_HDR_BITS(vlan, hdr, 1);
+ 		vlan_tag = be_get_tx_vlan_tag(adapter, skb);
+-		AMAP_SET_BITS(struct amap_eth_hdr_wrb, vlan_tag, hdr, vlan_tag);
++		SET_TX_WRB_HDR_BITS(vlan_tag, hdr, vlan_tag);
+ 	}
+ 
+ 	/* To skip HW VLAN tagging: evt = 1, compl = 0 */
+-	AMAP_SET_BITS(struct amap_eth_hdr_wrb, complete, hdr, !skip_hw_vlan);
+-	AMAP_SET_BITS(struct amap_eth_hdr_wrb, event, hdr, 1);
+-	AMAP_SET_BITS(struct amap_eth_hdr_wrb, num_wrb, hdr, wrb_cnt);
+-	AMAP_SET_BITS(struct amap_eth_hdr_wrb, len, hdr, len);
++	SET_TX_WRB_HDR_BITS(complete, hdr, !skip_hw_vlan);
++	SET_TX_WRB_HDR_BITS(event, hdr, 1);
++	SET_TX_WRB_HDR_BITS(num_wrb, hdr, wrb_cnt);
++	SET_TX_WRB_HDR_BITS(len, hdr, len);
  }
  
--static bool be_process_tx(struct be_adapter *adapter, struct be_tx_obj *txo,
--			  int budget, int idx)
-+static void be_process_tx(struct be_adapter *adapter, struct be_tx_obj *txo,
-+			  int idx)
+ static void unmap_tx_frag(struct device *dev, struct be_eth_wrb *wrb,
+@@ -1753,65 +1752,46 @@ static void be_rx_compl_process_gro(struct be_rx_obj *rxo,
+ static void be_parse_rx_compl_v1(struct be_eth_rx_compl *compl,
+ 				 struct be_rx_compl_info *rxcp)
  {
- 	struct be_eth_tx_compl *txcp;
--	int num_wrbs = 0, work_done;
-+	int num_wrbs = 0, work_done = 0;
- 	u32 compl_status;
-+	u16 last_idx;
-+
-+	while ((txcp = be_tx_compl_get(&txo->cq))) {
-+		last_idx = GET_TX_COMPL_BITS(wrb_index, txcp);
-+		num_wrbs += be_tx_compl_process(adapter, txo, last_idx);
-+		work_done++;
- 
--	for (work_done = 0; work_done < budget; work_done++) {
--		txcp = be_tx_compl_get(&txo->cq);
--		if (!txcp)
--			break;
--		num_wrbs += be_tx_compl_process(adapter, txo,
--						GET_TX_COMPL_BITS(wrb_index,
--								  txcp));
- 		compl_status = GET_TX_COMPL_BITS(status, txcp);
- 		if (compl_status) {
- 			if (lancer_chip(adapter))
-@@ -2497,7 +2495,6 @@ static bool be_process_tx(struct be_adapter *adapter, struct be_tx_obj *txo,
- 		tx_stats(txo)->tx_compl += work_done;
- 		u64_stats_update_end(&tx_stats(txo)->sync_compl);
+-	rxcp->pkt_size =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, pktsize, compl);
+-	rxcp->vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vtp, compl);
+-	rxcp->err = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, err, compl);
+-	rxcp->tcpf = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, tcpf, compl);
+-	rxcp->udpf = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, udpf, compl);
+-	rxcp->ip_csum =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, ipcksm, compl);
+-	rxcp->l4_csum =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, l4_cksm, compl);
+-	rxcp->ipv6 =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, ip_version, compl);
+-	rxcp->num_rcvd =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, numfrags, compl);
+-	rxcp->pkt_type =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, cast_enc, compl);
+-	rxcp->rss_hash =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, rsshash, compl);
++	rxcp->pkt_size = GET_RX_COMPL_V1_BITS(pktsize, compl);
++	rxcp->vlanf = GET_RX_COMPL_V1_BITS(vtp, compl);
++	rxcp->err = GET_RX_COMPL_V1_BITS(err, compl);
++	rxcp->tcpf = GET_RX_COMPL_V1_BITS(tcpf, compl);
++	rxcp->udpf = GET_RX_COMPL_V1_BITS(udpf, compl);
++	rxcp->ip_csum = GET_RX_COMPL_V1_BITS(ipcksm, compl);
++	rxcp->l4_csum = GET_RX_COMPL_V1_BITS(l4_cksm, compl);
++	rxcp->ipv6 = GET_RX_COMPL_V1_BITS(ip_version, compl);
++	rxcp->num_rcvd = GET_RX_COMPL_V1_BITS(numfrags, compl);
++	rxcp->pkt_type = GET_RX_COMPL_V1_BITS(cast_enc, compl);
++	rxcp->rss_hash = GET_RX_COMPL_V1_BITS(rsshash, compl);
+ 	if (rxcp->vlanf) {
+-		rxcp->qnq = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, qnq,
+-					  compl);
+-		rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v1,
+-					       vlan_tag, compl);
++		rxcp->qnq = GET_RX_COMPL_V1_BITS(qnq, compl);
++		rxcp->vlan_tag = GET_RX_COMPL_V1_BITS(vlan_tag, compl);
  	}
--	return (work_done < budget); /* Done */
+-	rxcp->port = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, port, compl);
++	rxcp->port = GET_RX_COMPL_V1_BITS(port, compl);
+ 	rxcp->tunneled =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, tunneled, compl);
++		GET_RX_COMPL_V1_BITS(tunneled, compl);
  }
  
- int be_poll(struct napi_struct *napi, int budget)
-@@ -2506,17 +2503,12 @@ int be_poll(struct napi_struct *napi, int budget)
- 	struct be_adapter *adapter = eqo->adapter;
- 	int max_work = 0, work, i, num_evts;
- 	struct be_rx_obj *rxo;
--	bool tx_done;
+ static void be_parse_rx_compl_v0(struct be_eth_rx_compl *compl,
+ 				 struct be_rx_compl_info *rxcp)
+ {
+-	rxcp->pkt_size =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, pktsize, compl);
+-	rxcp->vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vtp, compl);
+-	rxcp->err = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, err, compl);
+-	rxcp->tcpf = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, tcpf, compl);
+-	rxcp->udpf = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, udpf, compl);
+-	rxcp->ip_csum =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, ipcksm, compl);
+-	rxcp->l4_csum =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, l4_cksm, compl);
+-	rxcp->ipv6 =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, ip_version, compl);
+-	rxcp->num_rcvd =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, numfrags, compl);
+-	rxcp->pkt_type =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, cast_enc, compl);
+-	rxcp->rss_hash =
+-		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, rsshash, compl);
++	rxcp->pkt_size = GET_RX_COMPL_V0_BITS(pktsize, compl);
++	rxcp->vlanf = GET_RX_COMPL_V0_BITS(vtp, compl);
++	rxcp->err = GET_RX_COMPL_V0_BITS(err, compl);
++	rxcp->tcpf = GET_RX_COMPL_V0_BITS(tcpf, compl);
++	rxcp->udpf = GET_RX_COMPL_V0_BITS(udpf, compl);
++	rxcp->ip_csum = GET_RX_COMPL_V0_BITS(ipcksm, compl);
++	rxcp->l4_csum = GET_RX_COMPL_V0_BITS(l4_cksm, compl);
++	rxcp->ipv6 = GET_RX_COMPL_V0_BITS(ip_version, compl);
++	rxcp->num_rcvd = GET_RX_COMPL_V0_BITS(numfrags, compl);
++	rxcp->pkt_type = GET_RX_COMPL_V0_BITS(cast_enc, compl);
++	rxcp->rss_hash = GET_RX_COMPL_V0_BITS(rsshash, compl);
+ 	if (rxcp->vlanf) {
+-		rxcp->qnq = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, qnq,
+-					  compl);
+-		rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v0,
+-					       vlan_tag, compl);
++		rxcp->qnq = GET_RX_COMPL_V0_BITS(qnq, compl);
++		rxcp->vlan_tag = GET_RX_COMPL_V0_BITS(vlan_tag, compl);
+ 	}
+-	rxcp->port = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, port, compl);
+-	rxcp->ip_frag = AMAP_GET_BITS(struct amap_eth_rx_compl_v0,
+-				      ip_frag, compl);
++	rxcp->port = GET_RX_COMPL_V0_BITS(port, compl);
++	rxcp->ip_frag = GET_RX_COMPL_V0_BITS(ip_frag, compl);
+ }
  
- 	num_evts = events_get(eqo);
+ static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
+@@ -2091,9 +2071,7 @@ static void be_tx_compl_clean(struct be_adapter *adapter)
+ 			num_wrbs = 0;
+ 			txq = &txo->q;
+ 			while ((txcp = be_tx_compl_get(&txo->cq))) {
+-				end_idx =
+-					AMAP_GET_BITS(struct amap_eth_tx_compl,
+-						      wrb_index, txcp);
++				end_idx = GET_TX_COMPL_BITS(wrb_index, txcp);
+ 				num_wrbs += be_tx_compl_process(adapter, txo,
+ 								end_idx);
+ 				cmpl++;
+@@ -2454,9 +2432,8 @@ static bool be_process_tx(struct be_adapter *adapter, struct be_tx_obj *txo,
+ 		if (!txcp)
+ 			break;
+ 		num_wrbs += be_tx_compl_process(adapter, txo,
+-						AMAP_GET_BITS(struct
+-							      amap_eth_tx_compl,
+-							      wrb_index, txcp));
++						GET_TX_COMPL_BITS(wrb_index,
++								  txcp));
+ 	}
  
- 	/* Process all TXQs serviced by this EQ */
--	for (i = eqo->idx; i < adapter->num_tx_qs; i += adapter->num_evt_qs) {
--		tx_done = be_process_tx(adapter, &adapter->tx_obj[i],
--					eqo->tx_budget, i);
--		if (!tx_done)
--			max_work = budget;
--	}
-+	for (i = eqo->idx; i < adapter->num_tx_qs; i += adapter->num_evt_qs)
-+		be_process_tx(adapter, &adapter->tx_obj[i], i);
- 
- 	if (be_lock_napi(eqo)) {
- 		/* This loop will iterate twice for EQ0 in which
+ 	if (work_done) {
 -- 
 1.7.1
