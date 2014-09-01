@@ -1,41 +1,118 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv2 net 1/6] cxgb4: Fix for handling 1Gb/s SFP+ Transceiver Modules
-Date: Mon,  1 Sep 2014 19:54:55 +0530
-Message-ID: <1409581500-11264-2-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv2 net 3/6] cxgb4: Fix T5 adapter accessing T4 adapter registers
+Date: Mon,  1 Sep 2014 19:54:57 +0530
+Message-ID: <1409581500-11264-4-git-send-email-hariprasad@chelsio.com>
 References: <1409581500-11264-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	kumaras@chelsio.com, anish@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:51395
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:51401
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753977AbaIAOTZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 10:19:25 -0400
+	by vger.kernel.org with ESMTP id S1753977AbaIAOTa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 10:19:30 -0400
 In-Reply-To: <1409581500-11264-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We previously assumed that a Port's Capabilities and Advertised Capabilities
-would never change from Port Initialization time.  This is no longer true
-when we can have 10Gb/s and 1Gb/s SFP+ Transceiver Modules randomly swapped.
+Fixes few register access for both T4 and T5.
+PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS & PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS
+is T4 only register don't let T5 access them. For T5 MA_PARITY_ERROR_STATUS2
+is additionally read. MPS_TRC_RSS_CONTROL is T4 only register, for T5 use
+MPS_T5_TRC_RSS_CONTROL.
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    4 ++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   29 +++++++++++++++--------
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    2 +
+ 3 files changed, 24 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 18fb9c6..cf387ae 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -1253,7 +1253,9 @@ freeout:	t4_free_sge_resources(adap);
+ 			goto freeout;
+ 	}
+ 
+-	t4_write_reg(adap, MPS_TRC_RSS_CONTROL,
++	t4_write_reg(adap, is_t4(adap->params.chip) ?
++				MPS_TRC_RSS_CONTROL :
++				MPS_T5_TRC_RSS_CONTROL,
+ 		     RSSCONTROL(netdev2pinfo(adap->port[0])->tx_chan) |
+ 		     QUEUENUMBER(s->ethrxq[0].rspq.abs_id));
+ 	return 0;
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index a853133..6b92c4c 100644
+index adf16a5..0250a9d 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -3742,6 +3742,7 @@ int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl)
- 			lc->link_ok = link_ok;
- 			lc->speed = speed;
- 			lc->fc = fc;
-+			lc->supported = be16_to_cpu(p->u.info.pcap);
- 			t4_os_link_changed(adap, port, link_ok);
- 		}
- 		if (mod != pi->mod_type) {
+@@ -1403,15 +1403,18 @@ static void pcie_intr_handler(struct adapter *adapter)
+ 
+ 	int fat;
+ 
+-	fat = t4_handle_intr_status(adapter,
+-				    PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS,
+-				    sysbus_intr_info) +
+-	      t4_handle_intr_status(adapter,
+-				    PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS,
+-				    pcie_port_intr_info) +
+-	      t4_handle_intr_status(adapter, PCIE_INT_CAUSE,
+-				    is_t4(adapter->params.chip) ?
+-				    pcie_intr_info : t5_pcie_intr_info);
++	if (is_t4(adapter->params.chip))
++		fat = t4_handle_intr_status(adapter,
++					    PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS,
++					    sysbus_intr_info) +
++			t4_handle_intr_status(adapter,
++					      PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS,
++					      pcie_port_intr_info) +
++			t4_handle_intr_status(adapter, PCIE_INT_CAUSE,
++					      pcie_intr_info);
++	else
++		fat = t4_handle_intr_status(adapter, PCIE_INT_CAUSE,
++					    t5_pcie_intr_info);
+ 
+ 	if (fat)
+ 		t4_fatal_err(adapter);
+@@ -1777,10 +1780,16 @@ static void ma_intr_handler(struct adapter *adap)
+ {
+ 	u32 v, status = t4_read_reg(adap, MA_INT_CAUSE);
+ 
+-	if (status & MEM_PERR_INT_CAUSE)
++	if (status & MEM_PERR_INT_CAUSE) {
+ 		dev_alert(adap->pdev_dev,
+ 			  "MA parity error, parity status %#x\n",
+ 			  t4_read_reg(adap, MA_PARITY_ERROR_STATUS));
++		if (is_t5(adap->params.chip))
++			dev_alert(adap->pdev_dev,
++				  "MA parity error, parity status %#x\n",
++				  t4_read_reg(adap,
++					      MA_PARITY_ERROR_STATUS2));
++	}
+ 	if (status & MEM_WRAP_INT_CAUSE) {
+ 		v = t4_read_reg(adap, MA_INT_WRAP_STATUS);
+ 		dev_alert(adap->pdev_dev, "MA address wrap-around error by "
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index e3146e8..39fb325 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -511,6 +511,7 @@
+ #define  MEM_WRAP_CLIENT_NUM_GET(x) (((x) & MEM_WRAP_CLIENT_NUM_MASK) >> MEM_WRAP_CLIENT_NUM_SHIFT)
+ #define MA_PCIE_FW 0x30b8
+ #define MA_PARITY_ERROR_STATUS 0x77f4
++#define MA_PARITY_ERROR_STATUS2 0x7804
+ 
+ #define MA_EXT_MEMORY1_BAR 0x7808
+ #define EDC_0_BASE_ADDR 0x7900
+@@ -959,6 +960,7 @@
+ #define  TRCMULTIFILTER     0x00000001U
+ 
+ #define MPS_TRC_RSS_CONTROL 0x9808
++#define MPS_T5_TRC_RSS_CONTROL 0xa00c
+ #define  RSSCONTROL_MASK    0x00ff0000U
+ #define  RSSCONTROL_SHIFT   16
+ #define  RSSCONTROL(x)      ((x) << RSSCONTROL_SHIFT)
 -- 
 1.7.1
