@@ -1,36 +1,50 @@
-From: Shakil A Khan <shakilk1729@gmail.com>
-Subject: [PATCH 2/2] nl80211.c: Fixed the wdev_id being used uninitialized.
-Date: Mon,  1 Sep 2014 07:54:27 -0400
-Message-ID: <1409572467-50908-1-git-send-email-shakilk1729@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, linville@tuxdriver.com,
-	johannes@sipsolutions.net, Shakil A Khan <shakilk1729@gmail.com>
-To: linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:47723 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751500AbaIALyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 07:54:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: stigge@antcom.de
+Subject: [PATCH] net: lpc_eth: Fix crash on ip link up
+Date: Mon,  1 Sep 2014 13:46:46 +0200
+Message-ID: <1409572006-26876-1-git-send-email-stigge@antcom.de>
+Cc: Roland Stigge <stigge@antcom.de>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Shakil A Khan <shakilk1729@gmail.com>
+From: Roland Stigge <stigge@antcom.de>
+
+When a link is already up, the following sequence makes the kernel
+block completely:
+
+  ip link set dev eth0 down
+  ip link set dev eth0 up
+
+This is because on suspended phy, the following lines
+
+  __lpc_eth_reset(pldat);
+  __lpc_eth_init(pldat);
+
+make the LPC ethernet core block (see LPC32x0 manual). The PHY needs to be
+(re-)activated low-level first.
+
+Signed-off-by: Roland Stigge <stigge@antcom.de>
 ---
- net/wireless/nl80211.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ Applies to v3.17-rc3
 
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index df7b133..6cd7df2 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -76,7 +76,7 @@ __cfg80211_wdev_from_attrs(struct net *netns, struct nlattr **attrs)
- 	struct wireless_dev *result = NULL;
- 	bool have_ifidx = attrs[NL80211_ATTR_IFINDEX];
- 	bool have_wdev_id = attrs[NL80211_ATTR_WDEV];
--	u64 wdev_id;
-+	u64 wdev_id = 0;
- 	int wiphy_idx = -1;
- 	int ifidx = -1;
+ drivers/net/ethernet/nxp/lpc_eth.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
+index 8706c0d..a44a03c 100644
+--- a/drivers/net/ethernet/nxp/lpc_eth.c
++++ b/drivers/net/ethernet/nxp/lpc_eth.c
+@@ -1220,6 +1220,9 @@ static int lpc_eth_open(struct net_device *ndev)
  
+ 	__lpc_eth_clock_enable(pldat, true);
+ 
++	/* Suspended PHY makes LPC ethernet core block, so resume now */
++	phy_resume(pldat->phy_dev);
++
+ 	/* Reset and initialize */
+ 	__lpc_eth_reset(pldat);
+ 	__lpc_eth_init(pldat);
 -- 
-1.7.1
+2.1.0
