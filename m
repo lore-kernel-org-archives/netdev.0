@@ -1,32 +1,57 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next v3] lib/rhashtable: allow user to set the
- minimum shifts of shrinking
-Date: Mon, 1 Sep 2014 10:41:26 +0100
-Message-ID: <20140901094126.GD27933@casper.infradead.org>
-References: <1409381306-7036-1-git-send-email-ying.xue@windriver.com>
- <20140901090302.GB27933@casper.infradead.org>
- <54043C45.7090005@windriver.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
+ runnable
+Date: Mon, 1 Sep 2014 12:52:19 +0300
+Message-ID: <20140901095219.GD21269@redhat.com>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
+ <1408608310-13579-2-git-send-email-jasowang@redhat.com>
+ <1408683665.5648.69.camel@marge.simpson.net>
+ <20140901093159.GB27892@worktop.ger.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Ying Xue <ying.xue@windriver.com>
+Cc: Mike Galbraith <umgwanakikbuti@gmail.com>,
+	Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ingo Molnar <mingo@elte.hu>
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:56082 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751629AbaIAJl2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 05:41:28 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:30214 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752991AbaIAJxA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Sep 2014 05:53:00 -0400
 Content-Disposition: inline
-In-Reply-To: <54043C45.7090005@windriver.com>
+In-Reply-To: <20140901093159.GB27892@worktop.ger.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/01/14 at 05:28pm, Ying Xue wrote:
-> Do you think it's worth replacing max() macro with max_t() regarding
-> above suggestion?
+On Mon, Sep 01, 2014 at 11:31:59AM +0200, Peter Zijlstra wrote:
+> On Fri, Aug 22, 2014 at 07:01:05AM +0200, Mike Galbraith wrote:
+> > > +++ b/include/net/busy_poll.h
+> > > @@ -109,7 +109,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
+> > >  		cpu_relax();
+> > >  
+> > >  	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
+> > > -		 !need_resched() && !busy_loop_timeout(end_time));
+> > > +		 !need_resched() && !busy_loop_timeout(end_time) &&
+> > > +		 nr_running_this_cpu() < 2);
+> > >  
+> 
+> So as has been said by now; this is horrible.
+> 
+> We should not export nr_running like this ever. Your usage of < 2
+> implies this can be hit with nr_running == 0, and therefore you can also
+> hit it with nr_running == 1 where the one is not network related and you
+> get random delays.
+> 
+> Worse still, you have BH (and thereby preemption) disabled, you should
+> not _ever_ have undefined and indefinite waits like that.
+> 
+> You also destroy any hope of dropping into lower power states; even when
+> there's never going to be a packet ever again, also bad.
 
-Yes. max_t() is what should be used in this case.
+Hmm this patch sometimes makes us exit from the busy loop *earlier*.
+How can this interfere with dropping into lower power states?
 
-> By the way, if the replacement should do, all max() macro in the
-> lib/rhashtable.c should be replaced as well.
-
-I think the other max() usage is fine as both arguments have a type (size_t).
+> All in all, a complete trainwreck.
+> 
+> NAK.
