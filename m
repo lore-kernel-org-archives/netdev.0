@@ -1,122 +1,47 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv2 net 4/6] cxgb4: Detect and display firmware reported errors
-Date: Mon,  1 Sep 2014 19:54:58 +0530
-Message-ID: <1409581500-11264-5-git-send-email-hariprasad@chelsio.com>
-References: <1409581500-11264-1-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv2 net 0/6] Trivial fixes for cxgb4
+Date: Mon,  1 Sep 2014 19:54:54 +0530
+Message-ID: <1409581500-11264-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	kumaras@chelsio.com, anish@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:51404
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:51393
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754163AbaIAOTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 10:19:33 -0400
-In-Reply-To: <1409581500-11264-1-git-send-email-hariprasad@chelsio.com>
+	by vger.kernel.org with ESMTP id S1753882AbaIAOTY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 10:19:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The adapter firmware can indicate error conditions to the host.
-If the firmware has indicated an error, print out the reason for
-the firmware error.
+Hi,
 
-Based on original work by Casey Leedom <leedom@chelsio.com>
+This patch series adds support to fix T5 adapter accessing T4 adapter registers,
+issue mbox command on correct mbox for physical function, avoid dumping write
+only registers, use correct length for adapter part number and support to detect
+and display firmware reported errors.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c    |   38 ++++++++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h |    4 ++
- 2 files changed, 41 insertions(+), 1 deletions(-)
+The patches series is created against 'net' tree.
+And includes patches on cxgb4 driver.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 0250a9d..41d0446 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -168,6 +168,34 @@ void t4_hw_pci_read_cfg4(struct adapter *adap, int reg, u32 *val)
- }
- 
- /*
-+ * t4_report_fw_error - report firmware error
-+ * @adap: the adapter
-+ *
-+ * The adapter firmware can indicate error conditions to the host.
-+ * If the firmware has indicated an error, print out the reason for
-+ * the firmware error.
-+ */
-+static void t4_report_fw_error(struct adapter *adap)
-+{
-+	static const char *const reason[] = {
-+		"Crash",                        /* PCIE_FW_EVAL_CRASH */
-+		"During Device Preparation",    /* PCIE_FW_EVAL_PREP */
-+		"During Device Configuration",  /* PCIE_FW_EVAL_CONF */
-+		"During Device Initialization", /* PCIE_FW_EVAL_INIT */
-+		"Unexpected Event",             /* PCIE_FW_EVAL_UNEXPECTEDEVENT */
-+		"Insufficient Airflow",         /* PCIE_FW_EVAL_OVERHEAT */
-+		"Device Shutdown",              /* PCIE_FW_EVAL_DEVICESHUTDOWN */
-+		"Reserved",                     /* reserved */
-+	};
-+	u32 pcie_fw;
-+
-+	pcie_fw = t4_read_reg(adap, MA_PCIE_FW);
-+	if (pcie_fw & FW_PCIE_FW_ERR)
-+		dev_err(adap->pdev_dev, "Firmware reports adapter error: %s\n",
-+			reason[FW_PCIE_FW_EVAL_GET(pcie_fw)]);
-+}
-+
-+/*
-  * Get the reply to a mailbox command and store it in @rpl in big-endian order.
-  */
- static void get_mbox_rpl(struct adapter *adap, __be64 *rpl, int nflit,
-@@ -300,6 +328,7 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
- 	dump_mbox(adap, mbox, data_reg);
- 	dev_err(adap->pdev_dev, "command %#x in mailbox %d timed out\n",
- 		*(const u8 *)cmd, mbox);
-+	t4_report_fw_error(adap);
- 	return -ETIMEDOUT;
- }
- 
-@@ -1533,6 +1562,9 @@ static void cim_intr_handler(struct adapter *adapter)
- 
- 	int fat;
- 
-+	if (t4_read_reg(adapter, MA_PCIE_FW) & FW_PCIE_FW_ERR)
-+		t4_report_fw_error(adapter);
-+
- 	fat = t4_handle_intr_status(adapter, CIM_HOST_INT_CAUSE,
- 				    cim_intr_info) +
- 	      t4_handle_intr_status(adapter, CIM_HOST_UPACC_INT_CAUSE,
-@@ -2751,12 +2783,16 @@ retry:
- 	/*
- 	 * Issue the HELLO command to the firmware.  If it's not successful
- 	 * but indicates that we got a "busy" or "timeout" condition, retry
--	 * the HELLO until we exhaust our retry limit.
-+	 * the HELLO until we exhaust our retry limit.  If we do exceed our
-+	 * retry limit, check to see if the firmware left us any error
-+	 * information and report that if so.
- 	 */
- 	ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
- 	if (ret < 0) {
- 		if ((ret == -EBUSY || ret == -ETIMEDOUT) && retries-- > 0)
- 			goto retry;
-+		if (t4_read_reg(adap, MA_PCIE_FW) & FW_PCIE_FW_ERR)
-+			t4_report_fw_error(adap);
- 		return ret;
- 	}
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index 5f2729e..3409756 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -2228,6 +2228,10 @@ struct fw_debug_cmd {
- #define FW_PCIE_FW_MASTER(x)     ((x) << FW_PCIE_FW_MASTER_SHIFT)
- #define FW_PCIE_FW_MASTER_GET(x) (((x) >> FW_PCIE_FW_MASTER_SHIFT) & \
- 				 FW_PCIE_FW_MASTER_MASK)
-+#define FW_PCIE_FW_EVAL_MASK   0x7
-+#define FW_PCIE_FW_EVAL_SHIFT  24
-+#define FW_PCIE_FW_EVAL_GET(x) (((x) >> FW_PCIE_FW_EVAL_SHIFT) & \
-+				 FW_PCIE_FW_EVAL_MASK)
- 
- struct fw_hdr {
- 	u8 ver;
--- 
-1.7.1
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
+
+Thanks
+
+V2:
+   Added description for each patch as per David Miller's comment
+
+Hariprasad Shenai (6):
+  cxgb4: Fix for handling 1Gb/s SFP+ Transceiver Modules
+  cxgb4: Fixed the code to use correct length for part number
+  cxgb4: Fix T5 adapter accessing T4 adapter registers
+  cxgb4: Detect and display firmware reported errors
+  cxgb4: Avoid dumping Write-only registers in register dump
+  cxgb4: Issue mbox commands on correct mbox
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   16 +++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   79 +++++++++++++++++++----
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    2 +
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |    4 +
+ 4 files changed, 84 insertions(+), 17 deletions(-)
