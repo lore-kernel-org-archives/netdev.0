@@ -1,44 +1,40 @@
-From: David Wood <devel@dtwood.uk>
-Subject: [PATCH] ethernet: nvidia: Remove extra parens
-Date: Mon, 1 Sep 2014 15:31:55 -0700
-Message-ID: <20140901223152.GA3066@dtw-laptop.attlocal.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2] net: sh_eth: fix driver dependencies
+Date: Tue, 2 Sep 2014 08:39:31 +0900
+Message-ID: <20140901233931.GC15867@verge.net.au>
+References: <1749721.1a6rN6K2Gg@amdc1032>
+ <CAMuHMdWGdD+-o9Z8gPYwJWJmjhBqfw0HA4ve=RH+adLFJEZa8Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexander Gordeev <agordeev@redhat.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Antonio Ospite <ao2@ao2.it>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Wilfried Klaebe <w-lkml@lebenslange-mailadresse.de>,
-	Ivan Vecera <ivecera@redhat.com>, linux-kernel@vger.kernel.org,
-	trivial@kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Kyungmin Park <kyungmin.park@samsung.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <CAMuHMdWGdD+-o9Z8gPYwJWJmjhBqfw0HA4ve=RH+adLFJEZa8Q@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove unnecessary double parenthesis around if statement.
+On Mon, Sep 01, 2014 at 06:36:19PM +0200, Geert Uytterhoeven wrote:
+> On Mon, Sep 1, 2014 at 4:25 PM, Bartlomiej Zolnierkiewicz
+> <b.zolnierkie@samsung.com> wrote:
+> > Renesas SuperH Ethernet support should be available only on
+> > Renesas ARM SoCs and SuperH architecture.
+> >
+> > Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+> > Acked-by: Kyungmin Park <kyungmin.park@samsung.com>
+> > Cc: Simon Horman <horms@verge.net.au>
+> > Cc: Magnus Damm <magnus.damm@gmail.com>
+> > ---
+> > v2:
+> > - s/ARCH_SH/SUPERH/ (thanks to Sergei Shtylyov)
+> 
+> Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
-Signed-off-by: David Wood <devel@dtwood.uk>
----
- drivers/net/ethernet/nvidia/forcedeth.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Acked-by: Simon Horman <horms+renesas@verge.net.au>
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 925b296..f39cae6 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -1481,7 +1481,7 @@ static int phy_init(struct net_device *dev)
- 	}
- 
- 	/* phy vendor specific configuration */
--	if ((np->phy_oui == PHY_OUI_CICADA)) {
-+	if (np->phy_oui == PHY_OUI_CICADA) {
- 		if (init_cicada(dev, np, phyinterface)) {
- 			netdev_info(dev, "%s: phy init failed\n",
- 				    pci_name(np->pci_dev));
--- 
-2.0.3
