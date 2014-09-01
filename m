@@ -1,64 +1,84 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] brcmfmac: BRCMFMAC should depend on HAS_DMA
-Date: Mon, 1 Sep 2014 18:51:19 +0200
-Message-ID: <CAMuHMdWEbyXmNyPW1Mubv+idYuqsqbVVKuGyML5=vJ+58iTZig@mail.gmail.com>
-References: <1409329464-768-1-git-send-email-geert@linux-m68k.org>
-	<54042CA1.6010904@broadcom.com>
-	<CAMuHMdV2hV_r_OASkv+U-AGVov18qFOrAVm-nDHHPHXZ6fcxxg@mail.gmail.com>
-	<54046CA1.4040108@broadcom.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] packet.7: fix include file
+Date: Mon, 01 Sep 2014 19:25:33 +0200
+Message-ID: <5404AC0D.9050103@gmail.com>
+References: <1409318406-5217-1-git-send-email-sdumitru@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Brett Rudley <brudley@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	brcm80211-dev-list@broadcom.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54046CA1.4040108@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sorin Dumitru <sorin-W1xJSxASJ7qhKNWrAYCRhA@public.gmane.org>, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409318406-5217-1-git-send-email-sdumitru-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Arend,
+On 08/29/2014 03:20 PM, Sorin Dumitru wrote:
+> It looks like most of the socket options from this man pages
+> are not defined in <netpacket/packet.h>. They are defined in
+> <linux/if_packet.h> so we should include that one.
 
-On Mon, Sep 1, 2014 at 2:54 PM, Arend van Spriel <arend@broadcom.com> wrote:
-> On 09/01/14 10:44, Geert Uytterhoeven wrote:
->> On Mon, Sep 1, 2014 at 10:21 AM, Arend van Spriel<arend@broadcom.com>
->> wrote:
->>>>
->>>>    config BRCMFMAC
->>>>          tristate "Broadcom IEEE802.11n embedded FullMAC WLAN driver"
->>>> -       depends on CFG80211
->>>> +       depends on CFG80211A&&   HAS_DMA
->>>
->>> Not sure what happened here, but CFG80211 kconfig option did was not
->>> renamed
->>> as far as I know. Anyway, I would like to propose a different solution.
->>> Will get back to you when I have it ready.
+Hello Sorin,
 
-> I added Kconfig options for the proto layer which are selected by the host
-> interface selection. So the HAS_DMA dependency is checked for BRCMFMAC_PCIE.
+It looks like <netpacket/packet.h> was based on some ancient
+version of <linux/if_packet.h> that has not been updated.
+Since linux/if_packet.h is under the "uapi" tree the
+proposed patch seems the best fix. Thanks for sending it.
+I've applied it.
 
-Thanks!
+Cheers,
 
-> I am wondering whether GENERIC_IO should also be checked.
+Michael
 
-Probably not. Let's see if anyone complains ;-)
 
-> Can you verify the patch below works with your configuration?
 
-Yes, it compiles and links fine now (after applying it manually due to
-whitespace mess-up).
 
-Gr{oetje,eeting}s,
 
-                        Geert
+> Signed-off-by: Sorin Dumitru <sdumitru-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org>
+> ---
+>  man7/packet.7 | 14 +-------------
+>  1 file changed, 1 insertion(+), 13 deletions(-)
+> 
+> diff --git a/man7/packet.7 b/man7/packet.7
+> index 57cd3ca..7b6f20d 100644
+> --- a/man7/packet.7
+> +++ b/man7/packet.7
+> @@ -16,7 +16,7 @@ packet \- packet interface on device level
+>  .nf
+>  .B #include <sys/socket.h>
+>  .br
+> -.B #include <netpacket/packet.h>
+> +.B #include <linux/if_packet.h>
+>  .br
+>  .B #include <net/ethernet.h>     /* the L2 protocols */
+>  .sp
+> @@ -535,18 +535,6 @@ is a new feature in Linux 2.2.
+>  Earlier Linux versions supported only
+>  .BR SOCK_PACKET .
+>  .PP
+> -The include file
+> -.I <netpacket/packet.h>
+> -is present since glibc 2.1.
+> -Older systems need:
+> -.sp
+> -.in +4n
+> -.nf
+> -#include <asm/types.h>
+> -#include <linux/if_packet.h>
+> -#include <linux/if_ether.h>  /* The L2 protocols */
+> -.fi
+> -.in
+>  .SH NOTES
+>  For portable programs it is suggested to use
+>  .B AF_PACKET
+> 
 
+
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
 --
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
