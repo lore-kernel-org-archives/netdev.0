@@ -1,41 +1,34 @@
-From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-Subject: [PATCH] net: calxedaxgmac: fix driver dependencies
-Date: Mon, 01 Sep 2014 17:39:04 +0200
-Message-ID: <7268934.nBXHizFkl4@amdc1032>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] net: sh_eth: fix driver dependencies
+Date: Mon, 01 Sep 2014 20:13:14 +0400
+Message-ID: <54049B1A.70905@cogentembedded.com>
+References: <1749721.1a6rN6K2Gg@amdc1032>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7Bit
-Cc: Rob Herring <robh@kernel.org>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
 	Kyungmin Park <kyungmin.park@samsung.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:24571 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753860AbaIAPjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 11:39:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1749721.1a6rN6K2Gg@amdc1032>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Calxeda 1G/10G XGMAC Ethernet support should be available only on
-Calxeda ECX-1000/2000 (Highbank/Midway) platforms.
+On 09/01/2014 06:25 PM, Bartlomiej Zolnierkiewicz wrote:
 
-Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-Acked-by: Kyungmin Park <kyungmin.park@samsung.com>
-Cc: Rob Herring <robh@kernel.org>
----
- drivers/net/ethernet/calxeda/Kconfig |    1 +
- 1 file changed, 1 insertion(+)
+> Renesas SuperH Ethernet support should be available only on
+> Renesas ARM SoCs and SuperH architecture.
 
-Index: b/drivers/net/ethernet/calxeda/Kconfig
-===================================================================
---- a/drivers/net/ethernet/calxeda/Kconfig	2014-07-30 14:31:12.159522474 +0200
-+++ b/drivers/net/ethernet/calxeda/Kconfig	2014-09-01 17:33:49.232810483 +0200
-@@ -1,6 +1,7 @@
- config NET_CALXEDA_XGMAC
- 	tristate "Calxeda 1G/10G XGMAC Ethernet driver"
- 	depends on HAS_IOMEM && HAS_DMA
-+	depends on ARCH_HIGHBANK || COMPILE_TEST
- 	select CRC32
- 	help
- 	  This is the driver for the XGMAC Ethernet IP block found on Calxeda
+> Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+> Acked-by: Kyungmin Park <kyungmin.park@samsung.com>
+> Cc: Simon Horman <horms@verge.net.au>
+> Cc: Magnus Damm <magnus.damm@gmail.com>
+
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+WBR, Sergei
+
