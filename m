@@ -1,80 +1,121 @@
-From: Martin Rusko <martin.rusko@gmail.com>
-Subject: Re: Sending undersized ARP packets with VXLAN L3 interface
-Date: Mon, 1 Sep 2014 16:26:56 +0200
-Message-ID: <CAMYYbY7pp4WDBnFmoeK6D9BdUnuZ-v5fw1hH2V6zxM9GRRK=Mg@mail.gmail.com>
-References: <CAMYYbY79hOVA5b22-gmLJTNQwprdfwa_QxKqveuwNhJMcXv9tA@mail.gmail.com>
-	<CAHA+R7Ok6K_9U6RCZkSLCuVXtFG4Zs60FQKFZMu-v2yK581hog@mail.gmail.com>
-	<53FE1AC3.5030409@gmail.com>
-	<20140827114209.3a9d3761@urahara>
-	<53FE2738.30702@gmail.com>
-	<CAMYYbY4KHTkkv6peT14S8mCzcQJ8wROnHWj5tMy563H-w79KMg@mail.gmail.com>
-	<53FE3E5C.8020804@gmail.com>
-	<CAMYYbY7vCqpW7pqy=a7O=9YnPM=R1Ta2gfXdZEqrmyK-P-Akdw@mail.gmail.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: [PATCH net] bnx2x: Configure device endianity on driver load and reset endianity on removal.
+Date: Mon, 1 Sep 2014 10:17:23 -0400
+Message-ID: <1409581043-25357-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
+	<Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f172.google.com ([209.85.220.172]:54987 "EHLO
-	mail-vc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754258AbaIAO05 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 10:26:57 -0400
-Received: by mail-vc0-f172.google.com with SMTP id ij19so5662845vcb.3
-        for <netdev@vger.kernel.org>; Mon, 01 Sep 2014 07:26:56 -0700 (PDT)
-In-Reply-To: <CAMYYbY7vCqpW7pqy=a7O=9YnPM=R1Ta2gfXdZEqrmyK-P-Akdw@mail.gmail.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:17515 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752008AbaIAOue (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 10:50:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>>
->>>>> No. The short frame is perfectly valid, over the VXLAN.
->>>>> The system doing the decap and forwarding should be where any padding is added if necessary.
->>>>>
->>>
->>> Well, RFC 7348 is not dealing with padding at all. Both deployment
->>> scenarios listed in RFC, as well as most of the existing real life
->>> deployments today (in my opinion) use VXLAN for bridged traffic. In
->>> other words, frame encapsulated by VTEP is received first over some
->>> ethernet interface (physical or virtual) which implies that the frame
->>> is at least 64 bytes long already.
->>>
->>> Perhaps we're going to see more VXLAN interfaces in L3 mode, yet it
->>> might be safer not to count on receiving VTEP doing the right thing
->>> (pad small packets with zeros).
->>>
->>>>
->>>> If that's the case, then Martin is most likely seeing a HW bug on the switch.
->>>> I wonder how common such a bug might be?
->>>>
->>>> -vlad
->>>>
->>>
->>> I see this on Vmware distributed virtual switch. Perhaps soon I will
->>> be able to test it against HP 5930 switch. I'm going to try how Linux
->>> bridge copes with it, now.
->>
->> Linux bridge will do just fine as it will pass the frame off to the hw driver
->> which should pad things appropriately.
->>
->> -vlad
->>
->
-> I can confirm that, now.
+Some hosts can be both little and big endian.
+In certain scenarios a big endian kernel can kexec a little endian kernel.
 
-I also tried a setup with Xen hypervisor and HVM guest connected to
-bridge with vxlan interface. In any combination I tried, it pretty
-much didn't care about the ethernet packet size.
+This patch fixes this case from both ends:
+1) Return endianity to original values on shutdown (in case little endian kernel boots after we shutdown).
+2) Do not rely on HW reset values when loading driver in little endian kernel
+   but configure them explicitly (in case previous kernel was big endian and did not reset the HW).
 
-Haven't had chance to test it with hardware switch yet, so it's only
-causing problems with Vmware so far, when inner ethernet frame is not
-padded.
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+---
 
->
-> Vlad, I'm going to recompile 3.16.1 kernel with your patch.
->
+Hi David,
 
-Vlad's patch works perfectly. I asked the authors of RFC 7348 to
-eventually clarify if any padding should be required for the inner
-frames. Shall the patch be included in the mainline kernel or not?
+Please consider applying this patch to `net'
 
-/Martin
+Thanks,
+Manish
+
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   54 +++++++++++++++-------
+ 1 files changed, 37 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 900cab4..418d798 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -6849,6 +6849,37 @@ static void bnx2x__common_init_phy(struct bnx2x *bp)
+ 	bnx2x_release_phy_lock(bp);
+ }
+ 
++static void bnx2x_config_endianity(struct bnx2x *bp, u32 val)
++{
++	REG_WR(bp, PXP2_REG_RQ_QM_ENDIAN_M, val);
++	REG_WR(bp, PXP2_REG_RQ_TM_ENDIAN_M, val);
++	REG_WR(bp, PXP2_REG_RQ_SRC_ENDIAN_M, val);
++	REG_WR(bp, PXP2_REG_RQ_CDU_ENDIAN_M, val);
++	REG_WR(bp, PXP2_REG_RQ_DBG_ENDIAN_M, val);
++
++	/* make sure this value is 0 */
++	REG_WR(bp, PXP2_REG_RQ_HC_ENDIAN_M, 0);
++
++	REG_WR(bp, PXP2_REG_RD_QM_SWAP_MODE, val);
++	REG_WR(bp, PXP2_REG_RD_TM_SWAP_MODE, val);
++	REG_WR(bp, PXP2_REG_RD_SRC_SWAP_MODE, val);
++	REG_WR(bp, PXP2_REG_RD_CDURD_SWAP_MODE, val);
++}
++
++static inline void bnx2x_set_endianity(struct bnx2x *bp)
++{
++#ifdef __BIG_ENDIAN
++	bnx2x_config_endianity(bp, 1);
++#else
++	bnx2x_config_endianity(bp, 0);
++#endif
++}
++
++static inline void bnx2x_reset_endianity(struct bnx2x *bp)
++{
++	bnx2x_config_endianity(bp, 0);
++}
++
+ /**
+  * bnx2x_init_hw_common - initialize the HW at the COMMON phase.
+  *
+@@ -6915,23 +6946,7 @@ static int bnx2x_init_hw_common(struct bnx2x *bp)
+ 
+ 	bnx2x_init_block(bp, BLOCK_PXP2, PHASE_COMMON);
+ 	bnx2x_init_pxp(bp);
+-
+-#ifdef __BIG_ENDIAN
+-	REG_WR(bp, PXP2_REG_RQ_QM_ENDIAN_M, 1);
+-	REG_WR(bp, PXP2_REG_RQ_TM_ENDIAN_M, 1);
+-	REG_WR(bp, PXP2_REG_RQ_SRC_ENDIAN_M, 1);
+-	REG_WR(bp, PXP2_REG_RQ_CDU_ENDIAN_M, 1);
+-	REG_WR(bp, PXP2_REG_RQ_DBG_ENDIAN_M, 1);
+-	/* make sure this value is 0 */
+-	REG_WR(bp, PXP2_REG_RQ_HC_ENDIAN_M, 0);
+-
+-/*	REG_WR(bp, PXP2_REG_RD_PBF_SWAP_MODE, 1); */
+-	REG_WR(bp, PXP2_REG_RD_QM_SWAP_MODE, 1);
+-	REG_WR(bp, PXP2_REG_RD_TM_SWAP_MODE, 1);
+-	REG_WR(bp, PXP2_REG_RD_SRC_SWAP_MODE, 1);
+-	REG_WR(bp, PXP2_REG_RD_CDURD_SWAP_MODE, 1);
+-#endif
+-
++	bnx2x_set_endianity(bp);
+ 	bnx2x_ilt_init_page_size(bp, INITOP_SET);
+ 
+ 	if (CHIP_REV_IS_FPGA(bp) && CHIP_IS_E1H(bp))
+@@ -13172,6 +13187,11 @@ static void __bnx2x_remove(struct pci_dev *pdev,
+ 	if (IS_PF(bp))
+ 		bnx2x_set_power_state(bp, PCI_D0);
+ 
++	/* Set endianity registers to reset values in case next driver
++	 * boots in different endianty environment.
++	 */
++	bnx2x_reset_endianity(bp);
++
+ 	/* Disable MSI/MSI-X */
+ 	bnx2x_disable_msi(bp);
+ 
+-- 
+1.7.1
