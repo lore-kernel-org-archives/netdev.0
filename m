@@ -1,40 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Basic deferred TX queue flushing infrastructure.
-Date: Mon, 01 Sep 2014 14:40:42 -0700 (PDT)
-Message-ID: <20140901.144042.1910318544683468774.davem@davemloft.net>
-References: <CAHA+R7O_RSyKVNqcHXePbahvU+ayf77w61jos=G38M93okVWKw@mail.gmail.com>
-	<20140825.153146.2165451041039058085.davem@davemloft.net>
-	<20140901094032.5f0afdbd@redhat.com>
+Subject: Re: [PATCH net] bnx2x: Configure device endianity on driver load
+ and reset endianity on removal.
+Date: Mon, 01 Sep 2014 14:53:14 -0700 (PDT)
+Message-ID: <20140901.145314.1237097170646182877.davem@davemloft.net>
+References: <1409581043-25357-1-git-send-email-manish.chopra@qlogic.com>
+	<31AFFC7280259C4184970ABA9AFE8B93E0800207@avmb3.qlogic.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cwang@twopensource.com, netdev@vger.kernel.org,
-	therbert@google.com, jhs@mojatatu.com, hannes@stressinduktion.org,
-	edumazet@google.com, jeffrey.t.kirsher@intel.com,
-	rusty@rustcorp.com.au
-To: brouer@redhat.com
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
+	Yuval.Mintz@qlogic.com
+To: manish.chopra@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44371 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44479 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751460AbaIAVkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 17:40:45 -0400
-In-Reply-To: <20140901094032.5f0afdbd@redhat.com>
+	with ESMTP id S1751460AbaIAVxP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 17:53:15 -0400
+In-Reply-To: <31AFFC7280259C4184970ABA9AFE8B93E0800207@avmb3.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Mon, 1 Sep 2014 09:40:32 +0200
+From: Manish Chopra <manish.chopra@qlogic.com>
+Date: Mon, 1 Sep 2014 15:33:20 +0000
 
-> 
-> On Mon, 25 Aug 2014 15:31:46 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
-> 
->> It occurs to me that perhaps the thing to do is to pass sk_buff ** to
->> dev_hard_start_xmit().
-> 
-> Is this to send an array of skb's to dev_hard_start_xmit()?
+>> -----Original Message-----
+>> This patch fixes this case from both ends:
+>> 1) Return endianity to original values on shutdown (in case little endian kernel
+>> boots after we shutdown).
+>> 2) Do not rely on HW reset values when loading driver in little endian kernel
+>>    but configure them explicitly (in case previous kernel was big endian and did
+>> not reset the HW).
+ ...
+> David, Please drop this patch as it might create issue for VFs.
+> I will send updated V2 patch with proper fix. 
 
-It's one possible mechanism.
+I think part #2 is the only reasonable part of this patch, and that's
+what you'll have to backport to -stable kernels to sort this out
+properly.
 
-I have a patch set that rearchitects the send path here which I'll
-post in a little bit, which takes a slightly different approach
-based upon suggestions by Eric Dumazet and Tom Herbert.
+Adding "unconfiguration" hacks into a driver to deal with driver bugs
+is really not kosher, sorry.
