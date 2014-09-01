@@ -1,239 +1,323 @@
-From: Igal.Liberman <igal.liberman@freescale.com>
-Subject: [PATCH] Freescale Frame Manager Device Tree binding document
-Date: Sun, 31 Aug 2014 14:49:20 +0300
-Message-ID: <1409485760-18844-1-git-send-email-igal.liberman@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: scottwood@freescale.com, Igal Liberman <Igal.Liberman@freescale.com>,
- Emilian.Medve@freescale.com
-To: <devicetree@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
- <netdev@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+From: Romain Perier <romain.perier@gmail.com>
+Subject: [PATCH v3] ethernet: arc: Add support for Rockchip SoC layer device tree bindings
+Date: Mon,  1 Sep 2014 08:33:27 +0000
+Message-ID: <1409560407-5447-1-git-send-email-romain.perier@gmail.com>
+Cc: linux-rockchip@lists.infradead.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	arnd@arndb.de
+To: heiko@sntech.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:65466 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752281AbaIAIbS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 04:31:18 -0400
+Received: by mail-wg0-f47.google.com with SMTP id z12so4927841wgg.6
+        for <netdev@vger.kernel.org>; Mon, 01 Sep 2014 01:31:16 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSWdhbCBMaWJlcm1hbiA8SWdhbC5MaWJlcm1hbkBmcmVlc2NhbGUuY29tPgoKVGhlIEZy
-YW1lIE1hbmFnZXIgKEZNYW4pIGNvbWJpbmVzIHRoZSBFdGhlcm5ldCBuZXR3b3JrIGludGVyZmFj
-ZXMgd2l0aCBwYWNrZXQKZGlzdHJpYnV0aW9uIGxvZ2ljIHRvIHByb3ZpZGUgaW50ZWxsaWdlbnQg
-ZGlzdHJpYnV0aW9uIGFuZCBxdWV1aW5nIGRlY2lzaW9ucwpmb3IgaW5jb21pbmcgdHJhZmZpYyBh
-dCBsaW5lIHJhdGUuCgpUaGlzIGJpbmRpbmcgZG9jdW1lbnQgZGVzY3JpYmVzIEZyZWVzY2FsZSdz
-IEZyYW1lIE1hbmFnZXIgaGFyZHdhcmUgYXR0cmlidXRlcwp0aGF0IGFyZSB1c2VkIGJ5IHRoZSBG
-cmFtZSBNYW5hZ2VyIGRyaXZlciBmb3IgaXRzIGJhc2ljIGluaXRpYWxpemF0aW9uIGFuZApjb25m
-aWd1cmF0aW9uLgoKU2lnbmVkLW9mZi1ieTogSWdhbCBMaWJlcm1hbiA8SWdhbC5MaWJlcm1hbkBm
-cmVlc2NhbGUuY29tPgotLS0KIC4uLi9kZXZpY2V0cmVlL2JpbmRpbmdzL3Bvd2VycGMvZnNsL2Zt
-YW4udHh0ICAgICAgIHwgIDQ2MiArKysrKysrKysrKysrKysrKysrKwogMSBmaWxlIGNoYW5nZWQs
-IDQ2MiBpbnNlcnRpb25zKCspCiBjcmVhdGUgbW9kZSAxMDA2NDQgRG9jdW1lbnRhdGlvbi9kZXZp
-Y2V0cmVlL2JpbmRpbmdzL3Bvd2VycGMvZnNsL2ZtYW4udHh0CgpkaWZmIC0tZ2l0IGEvRG9jdW1l
-bnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL3Bvd2VycGMvZnNsL2ZtYW4udHh0IGIvRG9jdW1l
-bnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL3Bvd2VycGMvZnNsL2ZtYW4udHh0Cm5ldyBmaWxl
-IG1vZGUgMTAwNjQ0CmluZGV4IDAwMDAwMDAuLmNlMDc5M2YKLS0tIC9kZXYvbnVsbAorKysgYi9E
-b2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvcG93ZXJwYy9mc2wvZm1hbi50eHQKQEAg
-LTAsMCArMSw0NjIgQEAKKz09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09CitGcmVlc2NhbGUgRnJhbWUgTWFu
-YWdlciBEZXZpY2UgQmluZGluZ3MKKworQ09OVEVOVFMKKyAgLSBGTWFuIE5vZGUKKyAgLSBGTWFu
-IFBvcnQgTm9kZQorICAtIEZNYW4gTVVSQU0gTm9kZQorICAtIEZNYW4gZFRTRUMvWEdFQy9tRU1B
-QyBOb2RlCisgIC0gRk1hbiBJRUVFIDE1ODggTm9kZQorICAtIEV4YW1wbGUKKworPT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT0KK0ZNYW4gTm9kZQorCitERVNDUklQVElPTgorCitEdWUgdG8gdGhlIGZhY3Qg
-dGhhdCB0aGUgRk1hbiBpcyBhbiBhZ2dyZWdhdGlvbiBvZiBzdWItZW5naW5lcyAocG9ydHMsIE1B
-Q3MsCitldGMuKSB0aGUgRk1hbiBub2RlIHdpbGwgaGF2ZSBjaGlsZCBub2RlcyBmb3IgZWFjaCBv
-ZiB0aGVtLgorCitQUk9QRVJUSUVTCisKKy0gY29tcGF0aWJsZQorCQlVc2FnZTogcmVxdWlyZWQK
-KwkJVmFsdWUgdHlwZTogPHN0cmluZ2xpc3Q+CisJCURlZmluaXRpb246IE11c3QgaW5jbHVkZSAi
-ZnNsLGZtYW4iCisJCUZNYW4gdmVyc2lvbiBjYW4gYmUgZGV0ZXJtaW5lZCB2aWEgRk1fSVBfUkVW
-XzEgcmVnaXN0ZXIgaW4gdGhlCisJCUZNYW4gYmxvY2suIFRoZSBvZmZzZXQgaXMgMHhjNCBmcm9t
-IHRoZSBiZWdpbm5pbmcgb2YgdGhlCisJCUZyYW1lIFByb2Nlc3NpbmcgTWFuYWdlciBtZW1vcnkg
-bWFwICgweGMzMDAwIGZyb20gdGhlCisJCWJlZ2lubmluZyBvZiB0aGUgRk1hbiBub2RlKS4KKwor
-LSBjZWxsLWluZGV4CisJCVVzYWdlOiByZXF1aXJlZAorCQlWYWx1ZSB0eXBlOiA8dTMyPgorCQlE
-ZWZpbml0aW9uOiBTcGVjaWZpZXMgdGhlIGluZGV4IG9mIHRoZSBGTWFuIHVuaXQuCisKKwkJVGhl
-IGNlbGwtaW5kZXggdmFsdWUgbWF5IGJlIHVzZWQsIGZvciBleGFtcGxlLCB0byBkaXNhYmxlIG9y
-CisJCWVuYWJsZSB0aGUgRk1hbiB2aWEgIkRldmljZSBkaXNhYmxlIHJlZ2lzdGVyIDIiCisJCShE
-Q0ZHX0RFVkRJU1IyLCBsb2NhdGVkIGF0IHRoZSBTb0MgcmVmZXJlbmNlIG1hbnVhbCB1bmRlcgor
-CQkiRGV2aWNlIENvbmZpZ3VyYXRpb24gYW5kIFBpbiBDb250cm9sIE1lbW9yeSBNYXAiKS4KKwor
-LSByZWcKKwkJVXNhZ2U6IHJlcXVpcmVkCisJCVZhbHVlIHR5cGU6IDxwcm9wLWVuY29kZWQtYXJy
-YXk+CisJCURlZmluaXRpb246IEEgc3RhbmRhcmQgcHJvcGVydHkuIFNwZWNpZmllcyB0aGUgb2Zm
-c2V0IG9mIHRoZQorCQlmb2xsb3dpbmcgY29uZmlndXJhdGlvbiByZWdpc3RlcnM6CisJCS0gQk1J
-IGNvbmZpZ3VyYXRpb24gcmVnaXN0ZXJzLgorCQktIFFNSSBjb25maWd1cmF0aW9uIHJlZ2lzdGVy
-cy4KKwkJLSBETUEgY29uZmlndXJhdGlvbiByZWdpc3RlcnMuCisJCS0gRlBNIGNvbmZpZ3VyYXRp
-b24gcmVnaXN0ZXJzLgorCQktIEZNYW4gY29udHJvbGxlciBjb25maWd1cmF0aW9uIHJlZ2lzdGVy
-cy4KKworLSByYW5nZXMKKwkJVXNhZ2U6IHJlcXVpcmVkCisJCVZhbHVlIHR5cGU6IDxwcm9wLWVu
-Y29kZWQtYXJyYXk+CisJCURlZmluaXRpb246IEEgc3RhbmRhcmQgcHJvcGVydHkuCisKKy0gY2xv
-Y2tzCisJCVVzYWdlOiByZXF1aXJlZAorCQlWYWx1ZSB0eXBlOiA8cHJvcC1lbmNvZGVkLWFycmF5
-PgorCQlEZWZpbml0aW9uOiBwaGFuZGxlIGZvciBmbWFuIGNsb2NrLgorCistIGNsb2NrLW5hbWVz
-CisJCXVzYWdlOiBvcHRpb25hbAorCQlWYWx1ZSB0eXBlOiA8c3RyaW5nbGlzdD4KKwkJRGVmaW5p
-dGlvbjogQSBzdGFuZGFyZCBwcm9wZXJ0eQorCistIGludGVycnVwdHMKKwkJVXNhZ2U6IHJlcXVp
-cmVkCisJCVZhbHVlIHR5cGU6IDxwcm9wLWVuY29kZWQtYXJyYXk+CisJCURlZmluaXRpb246IEEg
-cGFpciBvZiBJUlFzIGFyZSBzcGVjaWZpZWQgaW4gdGhpcyBwcm9wZXJ0eS4KKwkJVGhlIGZpcnN0
-IGVsZW1lbnQgaXMgYXNzb2NpYXRlZCB3aXRoIHRoZSBldmVudCBpbnRlcnJ1cHRzIGFuZAorCQl0
-aGUgc2Vjb25kIGVsZW1lbnQgaXMgYXNzb2NpYXRlZCB3aXRoIHRoZSBlcnJvciBpbnRlcnJ1cHRz
-LgorCistIGZzbCxxbWFuLWNoYW5uZWwtcmFuZ2UKKwkJVXNhZ2U6IHJlcXVpcmVkCisJCVZhbHVl
-IHR5cGU6IDxwcm9wLWVuY29kZWQtYXJyYXk+CisJCURlZmluaXRpb246IFNwZWNpZmllcyB0aGUg
-cmFuZ2VzIG9mIHRoZSBhdmFpbGFibGUgZGVkaWNhdGVkCisJCWNoYW5uZWxzIGluIHRoZSBGTWFu
-LiBUaGUgZmlyc3QgY2VsbCBzcGVjaWZpZXMgdGhlIGJlZ2lubmluZworCQlvZiB0aGUgcmFuZ2Ug
-YW5kIHRoZSBzZWNvbmQgY2VsbCBzcGVjaWZpZXMgdGhlIG51bWJlciBvZgorCQljaGFubmVscy4K
-KwkJRnVydGhlciBpbmZvcm1hdGlvbiBhdmFpbGFibGUgYXQ6CisJCSJXb3JrIFF1ZXVlIChXUSkg
-Q2hhbm5lbCBBc3NpZ25tZW50cyBpbiB0aGUgUU1hbiIgc2VjdGlvbgorCQlpbiBEUEFBIFJlZmVy
-ZW5jZSBNYW51YWwuCisKKz09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09CitGTWFuIE1VUkFNIE5vZGUKKwor
-REVTQ1JJUFRJT04KKworRk1hbiBJbnRlcm5hbCBtZW1vcnkgLSBzaGFyZWQgYmV0d2VlbiBhbGwg
-dGhlIEZNYW4gbW9kdWxlcy4KK0l0IGNvbnRhaW5zIGRhdGEgc3RydWN0dXJlcyB0aGF0IGFyZSBj
-b21tb24gYW5kIHdyaXR0ZW4gdG8gb3IgcmVhZCBieQordGhlIG1vZHVsZXMuCitGTWFuIGludGVy
-bmFsIG1lbW9yeSBpcyBzcGxpdCBpbnRvIHRoZSBmb2xsb3dpbmcgcGFydHM6CisJUGFja2V0IGJ1
-ZmZlcmluZyAoVHgvUnggRklGT3MpCisJRnJhbWVzIGludGVybmFsIGNvbnRleHQKKworUFJPUEVS
-VElFUworCistIGNvbXBhdGlibGUKKwkJVXNhZ2U6IHJlcXVpcmVkCisJCVZhbHVlIHR5cGU6IDxz
-dHJpbmdsaXN0PgorCQlEZWZpbml0aW9uOiBNdXN0IGluY2x1ZGUgImZzbCxmbWFuLW11cmFtIgor
-CistIHJhbmdlcworCQlVc2FnZTogcmVxdWlyZWQKKwkJVmFsdWUgdHlwZTogPHByb3AtZW5jb2Rl
-ZC1hcnJheT4KKwkJRGVmaW5pdGlvbjogQSBzdGFuZGFyZCBwcm9wZXJ0eS4gU3BlY2lmaWVzIHRo
-ZSBwaHlzaWNhbAorCQlhZGRyZXNzIGFuZCBsZW5ndGggb2YgdGhlIEZNYW4gbWVtb3J5IHNwYWNl
-CisKK0VYQU1QTEUKKworbXVyYW1AMCB7CisJY29tcGF0aWJsZSA9ICJmc2wsZm1hbi1tdXJhbSI7
-CisJcmFuZ2VzID0gPDAgMHgwMDAwMDAgMHgyODAwMD47Cit9OworCis9PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PQorRk1hbiBQb3J0IE5vZGUKKworREVTQ1JJUFRJT04KKworVGhlIEZyYW1lIE1hbmFnZXIg
-KEZNYW4pIHN1cHBvcnRzIHNldmVyYWwgdHlwZXMgb2YgaGFyZHdhcmUgcG9ydHM6CisJRXRoZXJu
-ZXQgcmVjZWl2ZXIgKFJYKQorCUV0aGVybmV0IHRyYW5zbWl0dGVyIChUWCkKKwlPZmZsaW5lL0hv
-c3QgY29tbWFuZCAoTy9IKQorCitQUk9QRVJUSUVTCisKKy0gY29tcGF0aWJsZQorCQlVc2FnZTog
-cmVxdWlyZWQKKwkJVmFsdWUgdHlwZTogPHN0cmluZ2xpc3Q+CisJCURlZmluaXRpb246IEEgc3Rh
-bmRhcmQgcHJvcGVydHkuCisJCU11c3QgaW5jbHVkZSBvbmUgb2YgdGhlIGZvbGxvd2luZzoKKwkJ
-CS0gImZzbCxmbWFuLXYyLXBvcnQtb2giIGZvciBGTWFuVjIgT0ggcG9ydHMKKwkJCS0gImZzbCxm
-bWFuLXYyLXBvcnQtcngiIGZvciBGTWFuVjIgUlggcG9ydHMKKwkJCS0gImZzbCxmbWFuLXYyLXBv
-cnQtdHgiIGZvciBGTWFuVjIgVFggcG9ydHMKKwkJCS0gImZzbCxmbWFuLXYzLXBvcnQtb2giIGZv
-ciBGTWFuVjMgT0ggcG9ydHMKKwkJCS0gImZzbCxmbWFuLXYzLXBvcnQtcngiIGZvciBGTWFuVjMg
-UlggcG9ydHMKKwkJCS0gImZzbCxmbWFuLXYzLXBvcnQtdHgiIGZvciBGTWFuVjMgVFggcG9ydHMK
-KworLSBjZWxsLWluZGV4CisJCVVzYWdlOiByZXF1aXJlZAorCQlWYWx1ZSB0eXBlOiA8dTMyPgor
-CQlEZWZpbml0aW9uOiBTcGVjaWZpZXMgdGhlIGhhcmR3YXJlIHBvcnQgaWQuCisJCUVhY2ggaGFy
-ZHdhcmUgcG9ydCBvbiB0aGUgRk1hbiBoYXMgaXRzIG93biBoYXJkd2FyZSBQb3J0SUQuCisJCVN1
-cGVyIHNldCBvZiBhbGwgaGFyZHdhcmUgUG9ydCBJRHMgYXZhaWxhYmxlIGF0IEZNYW4gUmVmZXJl
-bmNlCisJCU1hbnVhbCB1bmRlciAiRk1hbiBIYXJkd2FyZSBQb3J0cyBpbiBGcmVlc2NhbGUgRGV2
-aWNlcyIgdGFibGUuCisKKwkJRWFjaCBoYXJkd2FyZSBwb3J0IGlzIGFzc2lnbmVkIGEgNEtCLCBw
-b3J0LXNwZWNpZmljIHBhZ2UgaW4KKwkJdGhlIEZNYW4gaGFyZHdhcmUgcG9ydCBtZW1vcnkgcmVn
-aW9uICh3aGljaCBpcyBwYXJ0IG9mIHRoZQorCQlGTWFuIG1lbW9yeSBtYXApLiBUaGUgZmlyc3Qg
-NCBLQiBpbiB0aGUgRk1hbiBoYXJkd2FyZSBwb3J0cworCQltZW1vcnkgcmVnaW9uIGlzIHVzZWQg
-Zm9yIHdoYXQgYXJlIGNhbGxlZCBjb21tb24gcmVnaXN0ZXJzLgorCQlUaGUgc3Vic2VxdWVudCA2
-MyA0S0IgcGFnZXMgYXJlIGFsbG9jYXRlZCB0byB0aGUgaGFyZHdhcmUKKwkJcG9ydHMuCisJCVRo
-ZSBwYWdlIG9mIGEgc3BlY2lmaWMgcG9ydCBpcyBkZXRlcm1pbmVkIGJ5IHRoZSBjZWxsLWluZGV4
-LgorCistIHJlZworCQlVc2FnZTogcmVxdWlyZWQKKwkJVmFsdWUgdHlwZTogPHByb3AtZW5jb2Rl
-ZC1hcnJheT4KKwkJRGVmaW5pdGlvbjogVGhlcmUgaXMgb25lIHJlZyByZWdpb24gZGVzY3JpYmlu
-ZyB0aGUgcG9ydAorCQljb25maWd1cmF0aW9uIHJlZ2lzdGVycy4KKworRVhBTVBMRQorCitwb3J0
-QGE4MDAwIHsKKwljZWxsLWluZGV4ID0gPDB4Mjg+OworCWNvbXBhdGlibGUgPSAiZnNsLGZtYW4t
-djItcG9ydC10eCI7CisJcmVnID0gPDB4YTgwMDAgMHgxMDAwPjsKK307CisKK3BvcnRAODgwMDAg
-eworCWNlbGwtaW5kZXggPSA8MHg4PjsKKwljb21wYXRpYmxlID0gImZzbCxmbWFuLXYyLXBvcnQt
-cngiOworCXJlZyA9IDwweDg4MDAwIDB4MTAwMD47Cit9OworCitwb3J0QDgxMDAwIHsKKwljZWxs
-LWluZGV4ID0gPDB4MT47CisJY29tcGF0aWJsZSA9ICJmc2wsZm1hbi12Mi1wb3J0LW9oIjsKKwly
-ZWcgPSA8MHg4MTAwMCAweDEwMDA+OworfTsKKworPT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KK0ZNYW4g
-ZFRTRUMvWEdFQy9tRU1BQyBOb2RlCisKK0RFU0NSSVBUSU9OCisKK21FTUFDL2RUU0VDL1hHRUMg
-YXJlIHRoZSBFdGhlcm5ldCBuZXR3b3JrIGludGVyZmFjZXMKKworUFJPUEVSVElFUworCistIGNv
-bXBhdGlibGUKKwkJVXNhZ2U6IHJlcXVpcmVkCisJCVZhbHVlIHR5cGU6IDxzdHJpbmdsaXN0Pgor
-CQlEZWZpbml0aW9uOiBBIHN0YW5kYXJkIHByb3BlcnR5LgorCQlNdXN0IGluY2x1ZGUgb25lIG9m
-IHRoZSBmb2xsb3dpbmc6CisJCS0gImZzbCxmbWFuLWR0c2VjIiBmb3IgZFRTRUMgTUFDCisJCS0g
-ImZzbCxmbWFuLXhnZWMiIGZvciBYR0VDIE1BQworCQktICJmc2wsZm1hbi1tZW1hYyBmb3IgbUVN
-QUMgTUFDCisKKy0gY2VsbC1pbmRleAorCQlVc2FnZTogcmVxdWlyZWQKKwkJVmFsdWUgdHlwZTog
-PHUzMj4KKwkJRGVmaW5pdGlvbjogU3BlY2lmaWVzIHRoZSBNQUMgaWQuCisJCVRoaXMgdmFsdWUg
-aXMgdXNlZCB0byBpZGVudGlmeSB0aGUgTUFDIGlkIGluIHNvbWUgcmVnaXN0ZXJzCisJCWluIHRo
-ZSBGTWFuIG1lbW9yeSBtYXAsIGZvciBleGFtcGxlOgorCQlUaGUgRk1hbiBFcnJvciBQZW5kaW5n
-IEludGVycnVwdCBSZWdpc3RlciAoRk1fRVBJKSAtCisJCVRoaXMgcmVnaXN0ZXIgaG9sZHMgYSBi
-aXQgZm9yIGVhY2ggTUFDLgorCistIHJlZworCQlVc2FnZTogcmVxdWlyZWQKKwkJVmFsdWUgdHlw
-ZTogPHByb3AtZW5jb2RlZC1hcnJheT4KKwkJRGVmaW5pdGlvbjogQSBzdGFuZGFyZCBwcm9wZXJ0
-eS4KKworLSBmc2wsZm1hbi1wb3J0cworCQlVc2FnZTogcmVxdWlyZWQKKwkJVmFsdWUgdHlwZTog
-PHByb3AtZW5jb2RlZC1hcnJheT4KKwkJRGVmaW5pdGlvbjogQW4gYXJyYXkgb2YgdHdvIHBoYW5k
-bGVzIC0gdGhlIGZpcnN0IHJlZmVyZW5jZXMgaXMKKwkJdGhlIEZNYW4gUlggcG9ydCBhbmQgdGhl
-IHNlY29uZCBpcyB0aGUgVFggcG9ydCB1c2VkIGJ5IHRoaXMKKwkJTUFDLgorCistIHB0cC10aW1l
-cgorCQlVc2FnZSByZXF1aXJlZAorCQlWYWx1ZSB0eXBlOiA8cGhhbmRsZT4KKwkJRGVmaW5pdGlv
-bjogQSBwaGFuZGxlIGZvciAxRUVFMTU4OCB0aW1lci4KKworRVhBTVBMRQorCitmbWFuMV90eDI4
-OiBwb3J0QGE4MDAwIHsKKwljZWxsLWluZGV4ID0gPDB4Mjg+OworCWNvbXBhdGlibGUgPSAiZnNs
-LGZtYW4tdjItcG9ydC10eCI7CisJcmVnID0gPDB4YTgwMDAgMHgxMDAwPjsKK307CisKK2ZtYW4x
-X3J4ODogcG9ydEA4ODAwMCB7CisJY2VsbC1pbmRleCA9IDwweDg+OworCWNvbXBhdGlibGUgPSAi
-ZnNsLGZtYW4tdjItcG9ydC1yeCI7CisJcmVnID0gPDB4ODgwMDAgMHgxMDAwPjsKK307CisKK3B0
-cC10aW1lcjogcHRwX3RpbWVyQGZlMDAwIHsKKwljb21wYXRpYmxlID0gImZzbCxmbWFuLXB0cC10
-aW1lciI7CisJcmVnID0gPDB4ZmUwMDAgMHgxMDAwPjsKK307CisKK2V0aGVybmV0QGUwMDAwIHsK
-Kwljb21wYXRpYmxlID0gImZzbCxmbWFuLWR0c2VjIjsKKwljZWxsLWluZGV4ID0gPDA+OworCXJl
-ZyA9IDwweGUwMDAwIDB4MTAwMD47CisJZnNsLGZtYW4tcG9ydHMgPSA8JmZtYW4xX3J4OCAmZm1h
-bjFfdHgyOD47CisJcHRwLXRpbWVyID0gPCZwdHAtdGltZXI+OworfTsKKworPT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PQorRk1hbiBJRUVFIDE1ODggTm9kZQorCitERVNDUklQVElPTgorCitUaGUgRk1hbiBp
-bnRlcmZhY2UgdG8gc3VwcG9ydCBJRUVFIDE1ODgKKworCitQUk9QRVJUSUVTCisKKy0gY29tcGF0
-aWJsZQorCQlVc2FnZTogcmVxdWlyZWQKKwkJVmFsdWUgdHlwZTogPHN0cmluZ2xpc3Q+CisJCURl
-ZmluaXRpb246IEEgc3RhbmRhcmQgcHJvcGVydHkuCisJCU11c3QgaW5jbHVkZSAiZnNsLGZtYW4t
-cHRwLXRpbWVyIi4KKworLSByZWcKKwkJVXNhZ2U6IHJlcXVpcmVkCisJCVZhbHVlIHR5cGU6IDxw
-cm9wLWVuY29kZWQtYXJyYXk+CisJCURlZmluaXRpb246IEEgc3RhbmRhcmQgcHJvcGVydHkuCisK
-K0VYQU1QTEUKKworcHRwLXRpbWVyQGZlMDAwIHsKKwljb21wYXRpYmxlID0gImZzbCxmbWFuLXB0
-cC10aW1lciI7CisJcmVnID0gPDB4ZmUwMDAgMHgxMDAwPjsKK307CisKKz09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09CitFeGFtcGxlCisKK2ZtYW5ANDAwMDAwIHsKKwkjYWRkcmVzcy1jZWxscyA9IDwxPjsK
-Kwkjc2l6ZS1jZWxscyA9IDwxPjsKKwljZWxsLWluZGV4ID0gPDE+OworCWNvbXBhdGlibGUgPSAi
-ZnNsLGZtYW4iCisJcmFuZ2VzID0gPDAgMHg0MDAwMDAgMHgxMDAwMDA+OworCXJlZyA9IDwweDQ4
-MDAwMCAweDAwNDAwCisJICAgICAgIDB4NDgwNDAwIDB4MDA0MDAKKwkgICAgICAgMHg0YzIwMDAg
-MHgwMTAwMAorCSAgICAgICAweDRjMzAwMCAweDAxMDAwCisJICAgICAgIDB4NGM0MDAwIDB4MDEw
-MDAKKwkgICAgICAgMHg0YzcwMDAgMHgwMTAwMD47CisJY2xvY2tzID0gPCZmbWFuX2Nsaz47CisJ
-Y2xvY2stbmFtZXMgPSAiZm1hbmNsayI7CisJaW50ZXJydXB0cyA9IDwKKwkJOTYgMiAwIDAKKwkJ
-MTYgMiAxIDE+OworCWZzbCxxbWFuLWNoYW5uZWwtcmFuZ2UgPSA8MHg0MCAweGM+OworCisJbXVy
-YW1AMCB7CisJCWNvbXBhdGlibGUgPSAiZnNsLGZtYW4tbXVyYW0iOworCQlyZWcgPSA8MHgwIDB4
-MjgwMDA+OworCX07CisKKwlwb3J0QDgxMDAwIHsKKwkJY2VsbC1pbmRleCA9IDwxPjsKKwkJY29t
-cGF0aWJsZSA9ICJmc2wsZm1hbi12Mi1wb3J0LW9oIjsKKwkJcmVnID0gPDB4ODEwMDAgMHgxMDAw
-PjsKKwl9OworCisJcG9ydEA4MjAwMCB7CisJCWNlbGwtaW5kZXggPSA8Mj47CisJCWNvbXBhdGli
-bGUgPSAiZnNsLGZtYW4tdjItcG9ydC1vaCI7CisJCXJlZyA9IDwweDgyMDAwIDB4MTAwMD47CisJ
-fTsKKworCXBvcnRAODMwMDAgeworCQljZWxsLWluZGV4ID0gPDM+OworCQljb21wYXRpYmxlID0g
-ImZzbCxmbWFuLXYyLXBvcnQtb2giOworCQlyZWcgPSA8MHg4MzAwMCAweDEwMDA+OworCX07CisK
-Kwlwb3J0QDg0MDAwIHsKKwkJY2VsbC1pbmRleCA9IDw0PjsKKwkJY29tcGF0aWJsZSA9ICJmc2ws
-Zm1hbi12Mi1wb3J0LW9oIjsKKwkJcmVnID0gPDB4ODQwMDAgMHgxMDAwPjsKKwl9OworCisJcG9y
-dEA4NTAwMCB7CisJCWNlbGwtaW5kZXggPSA8NT47CisJCWNvbXBhdGlibGUgPSAiZnNsLGZtYW4t
-djItcG9ydC1vaCI7CisJCXJlZyA9IDwweDg1MDAwIDB4MTAwMD47CisJfTsKKworCXBvcnRAODYw
-MDAgeworCQljZWxsLWluZGV4ID0gPDY+OworCQljb21wYXRpYmxlID0gImZzbCxmbWFuLXYyLXBv
-cnQtb2giOworCQlyZWcgPSA8MHg4NjAwMCAweDEwMDA+OworCX07CisKKwlmbWFuMV9yeF8weDg6
-IHBvcnRAODgwMDAgeworCQljZWxsLWluZGV4ID0gPDB4OD47CisJCWNvbXBhdGlibGUgPSAiZnNs
-LGZtYW4tdjItcG9ydC1yeCI7CisJCXJlZyA9IDwweDg4MDAwIDB4MTAwMD47CisJfTsKKworCWZt
-YW4xX3J4XzB4OTogcG9ydEA4OTAwMCB7CisJCWNlbGwtaW5kZXggPSA8MHg5PjsKKwkJY29tcGF0
-aWJsZSA9ICJmc2wsZm1hbi12Mi1wb3J0LXJ4IjsKKwkJcmVnID0gPDB4ODkwMDAgMHgxMDAwPjsK
-Kwl9OworCisJZm1hbjFfcnhfMHhhOiBwb3J0QDhhMDAwIHsKKwkJY2VsbC1pbmRleCA9IDwweGE+
-OworCQljb21wYXRpYmxlID0gImZzbCxmbWFuLXYyLXBvcnQtcngiOworCQlyZWcgPSA8MHg4YTAw
-MCAweDEwMDA+OworCX07CisKKwlmbWFuMV9yeF8weGI6IHBvcnRAOGIwMDAgeworCQljZWxsLWlu
-ZGV4ID0gPDB4Yj47CisJCWNvbXBhdGlibGUgPSAiZnNsLGZtYW4tdjItcG9ydC1yeCI7CisJCXJl
-ZyA9IDwweDhiMDAwIDB4MTAwMD47CisJfTsKKworCWZtYW4xX3J4XzB4YzogcG9ydEA4YzAwMCB7
-CisJCWNlbGwtaW5kZXggPSA8MHhjPjsKKwkJY29tcGF0aWJsZSA9ICJmc2wsZm1hbi12Mi1wb3J0
-LXJ4IjsKKwkJcmVnID0gPDB4OGMwMDAgMHgxMDAwPjsKKwl9OworCisJZm1hbjFfcnhfMHgxMDog
-cG9ydEA5MDAwMCB7CisJCWNlbGwtaW5kZXggPSA8MHgxMD47CisJCWNvbXBhdGlibGUgPSAiZnNs
-LGZtYW4tdjItcG9ydC1yeCI7CisJCXJlZyA9IDwweDkwMDAwIDB4MTAwMD47CisJfTsKKworCWZt
-YW4xX3R4XzB4Mjg6IHBvcnRAYTgwMDAgeworCQljZWxsLWluZGV4ID0gPDB4Mjg+OworCQljb21w
-YXRpYmxlID0gImZzbCxmbWFuLXYyLXBvcnQtdHgiOworCQlyZWcgPSA8MHhhODAwMCAweDEwMDA+
-OworCX07CisKKwlmbWFuMV90eF8weDI5OiBwb3J0QGE5MDAwIHsKKwkJY2VsbC1pbmRleCA9IDww
-eDI5PjsKKwkJY29tcGF0aWJsZSA9ICJmc2wsZm1hbi12Mi1wb3J0LXR4IjsKKwkJcmVnID0gPDB4
-YTkwMDAgMHgxMDAwPjsKKwl9OworCisJZm1hbjFfdHhfMHgyYTogcG9ydEBhYTAwMCB7CisJCWNl
-bGwtaW5kZXggPSA8MHgyYT47CisJCWNvbXBhdGlibGUgPSAiZnNsLGZtYW4tdjItcG9ydC10eCI7
-CisJCXJlZyA9IDwweGFhMDAwIDB4MTAwMD47CisJfTsKKworCWZtYW4xX3R4XzB4MmI6IHBvcnRA
-YWIwMDAgeworCQljZWxsLWluZGV4ID0gPDB4MmI+OworCQljb21wYXRpYmxlID0gImZzbCxmbWFu
-LXYyLXBvcnQtdHgiOworCQlyZWcgPSA8MHhhYjAwMCAweDEwMDA+OworCX07CisKKwlmbWFuMV90
-eF8weDJjOiBwb3J0QGFjMDAwMCB7CisJCWNlbGwtaW5kZXggPSA8MHgyYz47CisJCWNvbXBhdGli
-bGUgPSAiZnNsLGZtYW4tdjItcG9ydC10eCI7CisJCXJlZyA9IDwweGFjMDAwIDB4MTAwMD47CisJ
-fTsKKworCWZtYW4xX3R4XzB4MzA6IHBvcnRAYjAwMDAgeworCQljZWxsLWluZGV4ID0gPDB4MzA+
-OworCQljb21wYXRpYmxlID0gImZzbCxmbWFuLXYyLXBvcnQtdHgiOworCQlyZWcgPSA8MHhiMDAw
-MCAweDEwMDA+OworCX07CisKKwlldGhlcm5ldEBlMDAwMCB7CisJCWNvbXBhdGlibGUgPSAiZnNs
-LGZtYW4tZHRzZWMiOworCQljZWxsLWluZGV4ID0gPDA+OworCQlyZWcgPSA8MHhlMDAwMCAweDEw
-MDA+OworCQlmc2wsZm1hbi1wb3J0cyA9IDwmZm1hbjFfcnhfMHg4ICZmbWFuMV90eF8weDI4PjsK
-Kwl9OworCisJZXRoZXJuZXRAZTIwMDAgeworCQljb21wYXRpYmxlID0gImZzbCxmbWFuLWR0c2Vj
-IjsKKwkJY2VsbC1pbmRleCA9IDwxPjsKKwkJcmVnID0gPDB4ZTIwMDAgMHgxMDAwPjsKKwkJZnNs
-LGZtYW4tcG9ydHMgPSA8JmZtYW4xX3J4XzB4OSAmZm1hbjFfdHhfMHgyOT47CisJfTsKKworCWV0
-aGVybmV0QGU0MDAwIHsKKwkJY29tcGF0aWJsZSA9ICJmc2wsZm1hbi1kdHNlYyI7CisJCWNlbGwt
-aW5kZXggPSA8Mj47CisJCXJlZyA9IDwweGU0MDAwIDB4MTAwMD47CisJCWZzbCxmbWFuLXBvcnRz
-ID0gPCZmbWFuMV9yeF8weGEgJmZtYW4xX3R4XzB4MmE+OworCX07CisKKwlldGhlcm5ldEBlNjAw
-MCB7CisJCWNvbXBhdGlibGUgPSAiZnNsLGZtYW4tZHRzZWMiOworCQljZWxsLWluZGV4ID0gPDM+
-OworCQlyZWcgPSA8MHhlNjAwMCAweDEwMDA+OworCQlmc2wsZm1hbi1wb3J0cyA9IDwmZm1hbjFf
-cnhfMHhiICZmbWFuMV90eF8weDJiPjsKKwl9OworCisJZXRoZXJuZXRAZTgwMDAgeworCQljb21w
-YXRpYmxlID0gImZzbCxmbWFuLWR0c2VjIjsKKwkJY2VsbC1pbmRleCA9IDw0PjsKKwkJcmVnID0g
-PDB4ZjAwMDAgMHgxMDAwPjsKKwkJZnNsLGZtYW4tcG9ydHMgPSA8JmZtYW4xX3J4XzB4YyAmZm1h
-bjFfdHhfMHgyYz47CisKKwlldGhlcm5ldEBmMDAwMCB7CisJCWNlbGwtaW5kZXggPSA8OD47CisJ
-CWNvbXBhdGlibGUgPSAiZnNsLGZtYW4teGdlYyI7CisJCXJlZyA9IDwweGYwMDAwIDB4MTAwMD47
-CisJCWZzbCxmbWFuLXBvcnRzID0gPCZmbWFuMV9yeF8weDEwICZmbWFuMV90eF8weDMwPjsKKwl9
-OworCisJcHRwLXRpbWVyQGZlMDAwIHsKKwkJY29tcGF0aWJsZSA9ICJmc2wsZm1hbi1wdHAtdGlt
-ZXIiOworCQlyZWcgPSA8MHhmZTAwMCAweDEwMDA+OworCX07Cit9OwotLSAKMS43LjkuNQoKX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2
-IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xpc3Rz
-Lm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+This patch defines a platform glue layer for Rockchip SoCs which
+support arc-emac driver. It ensures that regulator for the rmii is on
+before trying to connect to the ethernet controller. It applies right
+speed and mode changes to the grf when ethernet settings change.
+
+Signed-off-by: Romain Perier <romain.perier@gmail.com>
+---
+ drivers/net/ethernet/arc/Kconfig         |  10 ++
+ drivers/net/ethernet/arc/Makefile        |   1 +
+ drivers/net/ethernet/arc/emac.h          |   4 +-
+ drivers/net/ethernet/arc/emac_main.c     |   2 +
+ drivers/net/ethernet/arc/emac_rockchip.c | 224 +++++++++++++++++++++++++++++++
+ 5 files changed, 240 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/arc/emac_rockchip.c
+
+diff --git a/drivers/net/ethernet/arc/Kconfig b/drivers/net/ethernet/arc/Kconfig
+index 89e04fd..0c0063b 100644
+--- a/drivers/net/ethernet/arc/Kconfig
++++ b/drivers/net/ethernet/arc/Kconfig
+@@ -32,4 +32,14 @@ config ARC_EMAC
+ 	  non-standard on-chip ethernet device ARC EMAC 10/100 is used.
+ 	  Say Y here if you have such a board.  If unsure, say N.
+ 
++config EMAC_ROCKCHIP
++       tristate "Rockchip EMAC support"
++       select ARC_EMAC_CORE
++       depends on OF_IRQ && OF_NET && REGULATOR
++       ---help---
++         Support for Rockchip RK3066/RK3188 EMAC ethernet controllers.
++         This selects Rockchip SoC glue layer support for the
++         emac device driver. This driver is used for RK3066/RK3188
++         EMAC ethernet controller.
++
+ endif # NET_VENDOR_ARC
+diff --git a/drivers/net/ethernet/arc/Makefile b/drivers/net/ethernet/arc/Makefile
+index 241bb80..79108af 100644
+--- a/drivers/net/ethernet/arc/Makefile
++++ b/drivers/net/ethernet/arc/Makefile
+@@ -5,3 +5,4 @@
+ arc_emac-objs := emac_main.o emac_mdio.o
+ obj-$(CONFIG_ARC_EMAC_CORE) += arc_emac.o
+ obj-$(CONFIG_ARC_EMAC) += emac_arc.o
++obj-$(CONFIG_EMAC_ROCKCHIP) += emac_rockchip.o
+diff --git a/drivers/net/ethernet/arc/emac.h b/drivers/net/ethernet/arc/emac.h
+index eb2ba67..dae1ac3 100644
+--- a/drivers/net/ethernet/arc/emac.h
++++ b/drivers/net/ethernet/arc/emac.h
+@@ -123,9 +123,11 @@ struct buffer_state {
+  * @speed:	PHY's last set speed.
+  */
+ struct arc_emac_priv {
+-	/* Devices */
+ 	const char *drv_name;
+ 	const char *drv_version;
++	void (*set_mac_speed)(void *priv, unsigned int speed);
++
++	/* Devices */
+ 	struct device *dev;
+ 	struct phy_device *phy_dev;
+ 	struct mii_bus *bus;
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index b35c69e..a08f343 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -48,6 +48,8 @@ static void arc_emac_adjust_link(struct net_device *ndev)
+ 	if (priv->speed != phy_dev->speed) {
+ 		priv->speed = phy_dev->speed;
+ 		state_changed = 1;
++		if (priv->set_mac_speed)
++			priv->set_mac_speed(priv, priv->speed);
+ 	}
+ 
+ 	if (priv->duplex != phy_dev->duplex) {
+diff --git a/drivers/net/ethernet/arc/emac_rockchip.c b/drivers/net/ethernet/arc/emac_rockchip.c
+new file mode 100644
+index 0000000..d1d367a
+--- /dev/null
++++ b/drivers/net/ethernet/arc/emac_rockchip.c
+@@ -0,0 +1,224 @@
++/**
++ * emac-rockchip.c - Rockchip EMAC specific glue layer
++ *
++ * Copyright (C) 2014 Romain Perier
++ *
++ * Romain Perier  <romain.perier@gmail.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++
++#include <linux/etherdevice.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of_net.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <linux/regulator/consumer.h>
++
++#include "emac.h"
++
++#define DRV_NAME        "rockchip_emac"
++#define DRV_VERSION     "1.0"
++
++#define GRF_MODE_MII         (1UL << 0)
++#define GRF_MODE_RMII        (0UL << 0)
++#define GRF_SPEED_10M        (0UL << 1)
++#define GRF_SPEED_100M       (1UL << 1)
++#define GRF_SPEED_ENABLE_BIT (1UL << 17)
++#define GRF_MODE_ENABLE_BIT  (1UL << 16)
++
++struct emac_rockchip_soc_data {
++	int grf_offset;
++};
++
++struct rockchip_priv_data {
++	struct arc_emac_priv emac;
++	struct regmap *grf;
++	const struct emac_rockchip_soc_data *soc_data;
++	struct regulator *regulator;
++	struct clk *refclk;
++};
++
++static const struct emac_rockchip_soc_data emac_rockchip_dt_data[] = {
++	{ .grf_offset = 0x154 }, /* rk3066 */
++	{ .grf_offset = 0x0a4 }, /* rk3188 */
++};
++
++static const struct of_device_id emac_rockchip_dt_ids[] = {
++	{ .compatible = "rockchip,rk3066-emac", .data = &emac_rockchip_dt_data[0]},
++	{ .compatible = "rockchip,rk3188-emac", .data = &emac_rockchip_dt_data[1]},
++	{ /* Sentinel */ }
++};
++
++static void emac_rockchip_set_mac_speed(void *priv, unsigned int speed)
++{
++	struct rockchip_priv_data *emac = priv;
++	u32 data;
++	int err = 0;
++
++	/* write-enable bits */
++	data = GRF_SPEED_ENABLE_BIT;
++
++	switch(speed) {
++	case 10:
++		data |= GRF_SPEED_10M;
++		break;
++	case 100:
++		data |= GRF_SPEED_100M;
++		break;
++	default:
++		pr_err("speed %u not supported\n", speed);
++		return;
++	}
++
++	err = regmap_write(emac->grf, emac->soc_data->grf_offset, data);
++	if (err)
++		pr_err("unable to apply speed %u to grf (%d)\n", speed, err);
++}
++
++static int emac_rockchip_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct net_device *ndev;
++	struct rockchip_priv_data *priv;
++	const struct of_device_id *match;
++	u32 data;
++	int err, interface;
++
++	if (!pdev->dev.of_node)
++		return -ENODEV;
++
++	ndev = alloc_etherdev(sizeof(struct rockchip_priv_data));
++	if (!ndev)
++		return -ENOMEM;
++	platform_set_drvdata(pdev, ndev);
++	SET_NETDEV_DEV(ndev, dev);
++
++	priv = netdev_priv(ndev);
++	priv->emac.drv_name = DRV_NAME;
++	priv->emac.drv_version = DRV_VERSION;
++	priv->emac.set_mac_speed = emac_rockchip_set_mac_speed;
++
++	interface = of_get_phy_mode(dev->of_node);
++
++	/* RK3066 and RK3188 SoCs only support RMII */
++	if (interface != PHY_INTERFACE_MODE_RMII) {
++		dev_err(dev, "unsupported phy interface mode %d\n", interface);
++		err = -ENOTSUPP;
++		goto out_netdev;
++	}
++
++	priv->grf = syscon_regmap_lookup_by_phandle(dev->of_node, "rockchip,grf");
++	if (IS_ERR(priv->grf)) {
++		dev_err(dev, "failed to retrieve global register file from the device tree (%ld)\n", PTR_ERR(priv->grf));
++		err = PTR_ERR(priv->grf);
++		goto out_netdev;
++	}
++
++	match = of_match_node(emac_rockchip_dt_ids, dev->of_node);
++	priv->soc_data = match->data;
++
++	priv->emac.clk = devm_clk_get(dev, "hclk");
++	if (IS_ERR(priv->emac.clk)) {
++		dev_err(dev, "failed to retrieve host clock from device tree (%ld)\n", PTR_ERR(priv->emac.clk));
++		err = PTR_ERR(priv->emac.clk);
++		goto out_netdev;
++	}
++
++	priv->refclk = devm_clk_get(dev, "macref");
++	if (IS_ERR(priv->refclk)) {
++		dev_err(dev, "failed to retrieve reference clock from device tree (%ld)\n", PTR_ERR(priv->refclk));
++		err = PTR_ERR(priv->refclk);
++		goto out_netdev;
++	}
++
++	err = clk_prepare_enable(priv->refclk);
++	if (err) {
++		dev_err(dev, "failed to enable reference clock (%d)\n", err);
++		goto out_netdev;
++	}
++
++        /* Optional regulator for PHY */
++	priv->regulator = devm_regulator_get_optional(dev, "phy");
++	if (IS_ERR(priv->regulator)) {
++		if (PTR_ERR(priv->regulator) == -EPROBE_DEFER)
++			return -EPROBE_DEFER;
++		dev_err(dev, "no regulator found\n");
++		priv->regulator = NULL;
++	}
++
++	if (priv->regulator) {
++		err = regulator_enable(priv->regulator);
++		if (err) {
++			dev_err(dev, "failed to enable phy-supply (%d)\n", err);
++			goto out_netdev;
++		}
++	}
++
++	err = arc_emac_probe(ndev, interface);
++	if (err)
++		goto out_netdev;
++
++	/* write-enable bits */
++	data = GRF_MODE_ENABLE_BIT | GRF_SPEED_ENABLE_BIT;
++
++	data |= GRF_SPEED_100M;
++	data |= GRF_MODE_RMII;
++
++	err = regmap_write(priv->grf, priv->soc_data->grf_offset, data);
++	if (err) {
++		dev_err(dev, "unable to apply initial settings to grf (%d)\n", err);
++		goto out_netdev;
++	}
++
++	/* RMII interface needs always a rate of 50MHz */
++	err = clk_set_rate(priv->refclk, 50000000);
++	if (err)
++		dev_err(dev, "failed to change reference clock rate (%d)\n", err);
++
++out_netdev:
++	if (err)
++		free_netdev(ndev);
++	return err;
++}
++
++static int emac_rockchip_remove(struct platform_device *pdev)
++{
++	struct net_device *ndev = platform_get_drvdata(pdev);
++	struct rockchip_priv_data *priv = netdev_priv(ndev);
++	int err;
++
++	clk_disable_unprepare(priv->refclk);
++
++	if (priv->regulator)
++		regulator_disable(priv->regulator);
++	err = arc_emac_remove(ndev);
++	free_netdev(ndev);
++	return err;
++}
++
++MODULE_DEVICE_TABLE(of, emac_rockchip_dt_ids);
++
++static struct platform_driver emac_rockchip_driver = {
++	.probe = emac_rockchip_probe,
++	.remove = emac_rockchip_remove,
++	.driver = {
++		.name = DRV_NAME,
++		.of_match_table  = emac_rockchip_dt_ids,
++	},
++};
++
++module_platform_driver(emac_rockchip_driver);
++
++MODULE_AUTHOR("Romain Perier <romain.perier@gmail.com>");
++MODULE_DESCRIPTION("Rockchip EMAC platform driver");
++MODULE_LICENSE("GPL");
+-- 
+1.9.1
