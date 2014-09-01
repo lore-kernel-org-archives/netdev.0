@@ -1,47 +1,44 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv2 net 0/6] Trivial fixes for cxgb4
-Date: Mon,  1 Sep 2014 19:54:54 +0530
-Message-ID: <1409581500-11264-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	kumaras@chelsio.com, anish@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:51393
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753882AbaIAOTY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 10:19:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Subject: [PATCH v2] net: sh_eth: fix driver dependencies
+Date: Mon, 01 Sep 2014 16:25:35 +0200
+Message-ID: <1749721.1a6rN6K2Gg@amdc1032>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7Bit
+Cc: Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Kyungmin Park <kyungmin.park@samsung.com>,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Renesas SuperH Ethernet support should be available only on
+Renesas ARM SoCs and SuperH architecture.
 
-This patch series adds support to fix T5 adapter accessing T4 adapter registers,
-issue mbox command on correct mbox for physical function, avoid dumping write
-only registers, use correct length for adapter part number and support to detect
-and display firmware reported errors.
+Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Acked-by: Kyungmin Park <kyungmin.park@samsung.com>
+Cc: Simon Horman <horms@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>
+---
+v2:
+- s/ARCH_SH/SUPERH/ (thanks to Sergei Shtylyov)
 
-The patches series is created against 'net' tree.
-And includes patches on cxgb4 driver.
+ drivers/net/ethernet/renesas/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
 
-We have included all the maintainers of respective drivers. Kindly review the
-change and let us know in case of any review comments.
+Index: b/drivers/net/ethernet/renesas/Kconfig
+===================================================================
+--- a/drivers/net/ethernet/renesas/Kconfig	2014-07-30 14:31:20.479522692 +0200
++++ b/drivers/net/ethernet/renesas/Kconfig	2014-09-01 14:45:36.160544016 +0200
+@@ -5,6 +5,7 @@
+ config SH_ETH
+ 	tristate "Renesas SuperH Ethernet support"
+ 	depends on HAS_DMA
++	depends on ARCH_SHMOBILE || SUPERH || COMPILE_TEST
+ 	select CRC32
+ 	select MII
+ 	select MDIO_BITBANG
 
-Thanks
-
-V2:
-   Added description for each patch as per David Miller's comment
-
-Hariprasad Shenai (6):
-  cxgb4: Fix for handling 1Gb/s SFP+ Transceiver Modules
-  cxgb4: Fixed the code to use correct length for part number
-  cxgb4: Fix T5 adapter accessing T4 adapter registers
-  cxgb4: Detect and display firmware reported errors
-  cxgb4: Avoid dumping Write-only registers in register dump
-  cxgb4: Issue mbox commands on correct mbox
-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   16 +++--
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   79 +++++++++++++++++++----
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    2 +
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |    4 +
- 4 files changed, 84 insertions(+), 17 deletions(-)
