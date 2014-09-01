@@ -1,49 +1,50 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] brcmfmac: BRCMFMAC should depend on HAS_DMA
-Date: Mon, 1 Sep 2014 10:44:25 +0200
-Message-ID: <CAMuHMdV2hV_r_OASkv+U-AGVov18qFOrAVm-nDHHPHXZ6fcxxg@mail.gmail.com>
-References: <1409329464-768-1-git-send-email-geert@linux-m68k.org>
-	<54042CA1.6010904@broadcom.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next v3] lib/rhashtable: allow user to set the
+ minimum shifts of shrinking
+Date: Mon, 1 Sep 2014 10:03:02 +0100
+Message-ID: <20140901090302.GB27933@casper.infradead.org>
+References: <1409381306-7036-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Brett Rudley <brudley@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	brcm80211-dev-list@broadcom.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54042CA1.6010904@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Ying Xue <ying.xue@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:55939 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752785AbaIAJDG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 05:03:06 -0400
+Content-Disposition: inline
+In-Reply-To: <1409381306-7036-1-git-send-email-ying.xue@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Arend,
+On 08/30/14 at 02:48pm, Ying Xue wrote:
+> Although rhashtable library allows user to specify a quiet big size
+> for user's created hash table, the table may be shrunk to a
+> very small size - HASH_MIN_SIZE(4) after object is removed from
+> the table at the first time. Subsequently, even if the total amount
+> of objects saved in the table is quite lower than user's initial
+> setting in a long time, the hash table size is still dynamically
+> adjusted by rhashtable_shrink() or rhashtable_expand() each time
+> object is inserted or removed from the table. However, as
+> synchronize_rcu() has to be called when table is shrunk or
+> expanded by the two functions, we should permit user to set the
+> minimum table size through configuring the minimum number of shifts
+> according to user specific requirement, avoiding these expensive
+> actions of shrinking or expanding because of calling synchronize_rcu(=
+).
+>=20
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
 
-On Mon, Sep 1, 2014 at 10:21 AM, Arend van Spriel <arend@broadcom.com> wrote:
->>   config BRCMFMAC
->>         tristate "Broadcom IEEE802.11n embedded FullMAC WLAN driver"
->> -       depends on CFG80211
->> +       depends on CFG80211A&&  HAS_DMA
->
-> Not sure what happened here, but CFG80211 kconfig option did was not renamed
-> as far as I know. Anyway, I would like to propose a different solution. Will
+I see the following warning when compiling:
 
-Oops, that was me typing the vim append-command twice :-(
-Thanks for noticing!
-
-> get back to you when I have it ready.
-
-OK. Thanks again!
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+In file included from lib/rhashtable.c:17:0:
+lib/rhashtable.c: In function =E2=80=98rhashtable_init=E2=80=99:
+include/linux/kernel.h:715:17: warning: comparison of distinct pointer =
+types lacks a cast [enabled by default]
+  (void) (&_max1 =3D=3D &_max2);  \
+                 ^
+lib/rhashtable.c:570:22: note: in expansion of macro =E2=80=98max=E2=80=
+=99
+  params->min_shift =3D max(params->min_shift, ilog2(HASH_MIN_SIZE));
