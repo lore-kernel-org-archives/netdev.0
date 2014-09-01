@@ -1,39 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Get rid of ndo_xmit_flush
-Date: Mon, 01 Sep 2014 15:35:59 -0700 (PDT)
-Message-ID: <20140901.153559.1200380977792272217.davem@davemloft.net>
-References: <1409601942.21965.23.camel@localhost>
-	<20140901.145646.174847768842584425.davem@davemloft.net>
-	<1409610669.21965.55.camel@localhost>
+From: David Wood <devel@dtwood.uk>
+Subject: [PATCH] ethernet: nvidia: Remove extra parens
+Date: Mon, 1 Sep 2014 15:31:55 -0700
+Message-ID: <20140901223152.GA3066@dtw-laptop.attlocal.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, jhs@mojatatu.com,
-	edumazet@google.com, jeffrey.t.kirsher@intel.com,
-	rusty@rustcorp.com.au, dborkman@redhat.com, brouer@redhat.com,
-	john.r.fastabend@intel.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44814 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752031AbaIAWgB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 18:36:01 -0400
-In-Reply-To: <1409610669.21965.55.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexander Gordeev <agordeev@redhat.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Antonio Ospite <ao2@ao2.it>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Wilfried Klaebe <w-lkml@lebenslange-mailadresse.de>,
+	Ivan Vecera <ivecera@redhat.com>, linux-kernel@vger.kernel.org,
+	trivial@kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 02 Sep 2014 00:31:09 +0200
+Remove unnecessary double parenthesis around if statement.
 
-> I am afraid that TX-lock is per nic-queue and it won't work out that
-> easy because skbs for different queues can reside in a Qdisc.
+Signed-off-by: David Wood <devel@dtwood.uk>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Batching will help mostly when netif_queue_start() triggers, when we
-are in steady state stopping and re-starting the txq.
-
-What we really care about are the qdisc <--> txq one to one
-relationship which is by far the most common case.
-
-In the multiple txq to qdisc case, we still can benefit because
-packets for one txq will still tend to bunch op and give deferral
-opportunities.
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 925b296..f39cae6 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -1481,7 +1481,7 @@ static int phy_init(struct net_device *dev)
+ 	}
+ 
+ 	/* phy vendor specific configuration */
+-	if ((np->phy_oui == PHY_OUI_CICADA)) {
++	if (np->phy_oui == PHY_OUI_CICADA) {
+ 		if (init_cicada(dev, np, phyinterface)) {
+ 			netdev_info(dev, "%s: phy init failed\n",
+ 				    pci_name(np->pci_dev));
+-- 
+2.0.3
