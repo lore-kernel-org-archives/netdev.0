@@ -1,61 +1,65 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
- is runnable
-Date: Mon, 01 Sep 2014 09:55:42 +0300
-Message-ID: <5404186E.4090409@linux.intel.com>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>	 <1408608310-13579-2-git-send-email-jasowang@redhat.com>	 <1408683665.5648.69.camel@marge.simpson.net>	 <20140822073653.GA7372@gmail.com> <53F70887.8030602@redhat.com> <1408716976.5604.18.camel@edumazet-glaptop2.roam.corp.google.com> <53FB3715.7070009@linux.intel.com> <53FC3466.8000304@redhat.com>
+From: Harish@vger.kernel.org, Jenny@vger.kernel.org, K@vger.kernel.org,
+	N@vger.kernel.org
+Subject: [PATCH]     netlink: Safer deletion of sk_bind_node
+Date: Mon, 1 Sep 2014 12:38:29 +0530
+Message-ID: <1409555309-5893-1-git-send-email-harish_kandiga@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, Peter Zijlstra <peterz@infradead.org>,
-	"Ingo Molnar jacob.e.keller@intel.com" <mingo@elte.hu>
-To: Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <dborkman@redhat.com>, <tgraf@suug.ch>, <ebiederm@xmission.com>,
+	<darkjames-ws@darkjames.pl>, <rgb@redhat.com>,
+	<eric.dumazet@gmail.com>, <stephen@networkplumber.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:39177 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752012AbaIAGzt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Sep 2014 02:55:49 -0400
-In-Reply-To: <53FC3466.8000304@redhat.com>
+Received: from relay1.mentorg.com ([192.94.38.131]:58553 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751078AbaIAHIr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 03:08:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/08/2014 10:16, Jason Wang wrote:
-> On 08/25/2014 09:16 PM, Eliezer Tamir wrote:
->> Here are my 2 cents:
->> I think Ingo's suggestion of only yielding to tasks with same or higher
->> priority makes sense.
-> 
-> I'm not sure I get your meaning. Do you mean calling yield_to() directly
-> in sk_busy_loop?
+From: Harish Jenny K N <harish_kandiga@mentor.com>
 
-Think about the case where two processes are busy polling on the
-same CPU and the same device queue. Since busy polling processes
-incoming packets on the queue from any process, this scenario works
-well currently, and will not work at all when polling yields to other
-processes that are of the same priority that are running on the same
-CPU.
+    Unable to handle kernel NULL pointer dereference at virtual address 00000000
+        (netlink_release+0x0/0x2a0) from [<8034e78c>] (sock_release+0x28/0xa4)
+        (sock_release+0x0/0xa4) from [<8034e830>] (sock_close+0x28/0x34)
+        (sock_close+0x0/0x34) from [<800f3490>] (__fput+0xf0/0x1ec)
+        (__fput+0x0/0x1ec) from [<800f3634>] (____fput+0x10/0x14)
+        (____fput+0x0/0x14) from [<80040a64>] (task_work_run+0xb8/0xd8)
+        (task_work_run+0x0/0xd8) from [<800113a0>] (do_work_pending+0xb0/0xc4)
+        (do_work_pending+0x0/0xc4) from [<8000d960>] (work_pending+0xc/0x20)
+    Call flow of the inline and static functions
+        netlink_release
+        -----netlink_remove
+        ---------__sk_del_bind_node
+        --------------__hlist_del
 
-As a side note, there is a lot of room for improvement when two
-processes on the same CPU want to busy poll on different device
-queues.
-The RFC code I published for epoll support showed one possible
-way of solving this, but I'm sure that there are other possibilities.
+Signed-off-by: Harish Jenny K N <harish_kandiga@mentor.com>
+---
+ net/netlink/af_netlink.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Maybe the networking subsystem should maintain a list of device
-queues that need busypolling and have a thread that would poll
-all of them when there's nothing better to do.
-
-I'm aware of similar work on busy polling on NVMe devices, so
-maybe there should be a global busypoll thread for all devices
-that support it.
-
-BTW, I have someone inside Intel that wants to test future patches. Feel
-free to send me patches for testing, even if they are not ready for
-publishing yet.
-
-Cheers,
-Eliezer
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index c416725..21a6b32 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1103,7 +1103,7 @@ static void netlink_remove(struct sock *sk)
+ 
+ 	netlink_table_grab();
+ 	if (nlk_sk(sk)->subscriptions)
+-		__sk_del_bind_node(sk);
++		hlist_del_init(&sk->sk_bind_node);
+ 	netlink_table_ungrab();
+ }
+ 
+@@ -1382,7 +1382,7 @@ netlink_update_subscriptions(struct sock *sk, unsigned int subscriptions)
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+ 
+ 	if (nlk->subscriptions && !subscriptions)
+-		__sk_del_bind_node(sk);
++		hlist_del_init(&sk->sk_bind_node);
+ 	else if (!nlk->subscriptions && subscriptions)
+ 		sk_add_bind_node(sk, &nl_table[sk->sk_protocol].mc_list);
+ 	nlk->subscriptions = subscriptions;
+-- 
+1.7.9.5
