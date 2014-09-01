@@ -1,60 +1,41 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: RE: [PATCH net] bnx2x: Configure device endianity on driver load
- and reset endianity on removal.
-Date: Mon, 1 Sep 2014 15:33:20 +0000
-Message-ID: <31AFFC7280259C4184970ABA9AFE8B93E0800207@avmb3.qlogic.org>
-References: <1409581043-25357-1-git-send-email-manish.chopra@qlogic.com>
+From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Subject: [PATCH] net: calxedaxgmac: fix driver dependencies
+Date: Mon, 01 Sep 2014 17:39:04 +0200
+Message-ID: <7268934.nBXHizFkl4@amdc1032>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7Bit
+Cc: Rob Herring <robh@kernel.org>,
+	Kyungmin Park <kyungmin.park@samsung.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:1634 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753702AbaIAPdX convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Sep 2014 11:33:23 -0400
-In-Reply-To: <1409581043-25357-1-git-send-email-manish.chopra@qlogic.com>
-Content-Language: en-US
+Received: from mailout4.samsung.com ([203.254.224.34]:24571 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753860AbaIAPjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 11:39:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Manish Chopra
-> Sent: Monday, September 01, 2014 7:47 PM
-> To: David Miller
-> Cc: netdev; Ariel Elior; Yuval Mintz
-> Subject: [PATCH net] bnx2x: Configure device endianity on driver load and reset
-> endianity on removal.
-> 
-> Some hosts can be both little and big endian.
-> In certain scenarios a big endian kernel can kexec a little endian kernel.
-> 
-> This patch fixes this case from both ends:
-> 1) Return endianity to original values on shutdown (in case little endian kernel
-> boots after we shutdown).
-> 2) Do not rely on HW reset values when loading driver in little endian kernel
->    but configure them explicitly (in case previous kernel was big endian and did
-> not reset the HW).
-> 
-> Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
-> Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
-> ---
-> 
-> Hi David,
-> 
-> Please consider applying this patch to `net'
-> 
-> Thanks,
-> Manish
+Calxeda 1G/10G XGMAC Ethernet support should be available only on
+Calxeda ECX-1000/2000 (Highbank/Midway) platforms.
 
-David, Please drop this patch as it might create issue for VFs.
-I will send updated V2 patch with proper fix. 
+Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Acked-by: Kyungmin Park <kyungmin.park@samsung.com>
+Cc: Rob Herring <robh@kernel.org>
+---
+ drivers/net/ethernet/calxeda/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
 
-Thanks,
-Manish 
- 
+Index: b/drivers/net/ethernet/calxeda/Kconfig
+===================================================================
+--- a/drivers/net/ethernet/calxeda/Kconfig	2014-07-30 14:31:12.159522474 +0200
++++ b/drivers/net/ethernet/calxeda/Kconfig	2014-09-01 17:33:49.232810483 +0200
+@@ -1,6 +1,7 @@
+ config NET_CALXEDA_XGMAC
+ 	tristate "Calxeda 1G/10G XGMAC Ethernet driver"
+ 	depends on HAS_IOMEM && HAS_DMA
++	depends on ARCH_HIGHBANK || COMPILE_TEST
+ 	select CRC32
+ 	help
+ 	  This is the driver for the XGMAC Ethernet IP block found on Calxeda
