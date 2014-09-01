@@ -1,84 +1,175 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] packet.7: fix include file
-Date: Mon, 01 Sep 2014 19:25:33 +0200
-Message-ID: <5404AC0D.9050103@gmail.com>
-References: <1409318406-5217-1-git-send-email-sdumitru@ixiacom.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH net-next 1/2] ipv6: add sysctl_mld_qrv to configure query
+ robustness variable
+Date: Mon, 1 Sep 2014 15:08:41 -0300
+Message-ID: <20140901180806.GA2779@t520.home>
+References: <1880a888c65dff7b7c73aa53eabbb841a65a74ce.1409366462.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sorin Dumitru <sorin-W1xJSxASJ7qhKNWrAYCRhA@public.gmane.org>, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1409318406-5217-1-git-send-email-sdumitru-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:14688 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754180AbaIASIv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Sep 2014 14:08:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1880a888c65dff7b7c73aa53eabbb841a65a74ce.1409366462.git.hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/29/2014 03:20 PM, Sorin Dumitru wrote:
-> It looks like most of the socket options from this man pages
-> are not defined in <netpacket/packet.h>. They are defined in
-> <linux/if_packet.h> so we should include that one.
+On Sat, Aug 30, 2014 at 04:42:53AM +0200, Hannes Frederic Sowa wrote:
+> This patch adds a new sysctl_mld_qrv knob to configure the mldv1/v2 query
+> robustness variable. It sepcifies how many retransmit of unsolicited mld
+                          ^^^^^^^^^
+typo
 
-Hello Sorin,
-
-It looks like <netpacket/packet.h> was based on some ancient
-version of <linux/if_packet.h> that has not been updated.
-Since linux/if_packet.h is under the "uapi" tree the
-proposed patch seems the best fix. Thanks for sending it.
-I've applied it.
-
-Cheers,
-
-Michael
-
-
-
-
-
-> Signed-off-by: Sorin Dumitru <sdumitru-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org>
+> retransmit should happen. Admins might want to tune this on lossy links.
+> 
+> Also reset mld state on interface down/up, so we pick up new sysctl
+> settings during interface up event.
+> 
+> IPv6 certification requests this knob to be available.
+> 
+> I didn't make this knob netns specific, as it is mostly a setting in a
+> physical environment and should be per host.
+> 
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 > ---
->  man7/packet.7 | 14 +-------------
->  1 file changed, 1 insertion(+), 13 deletions(-)
+>  Documentation/networking/ip-sysctl.txt |  3 +++
+>  include/net/ipv6.h                     |  1 +
+>  net/ipv6/mcast.c                       | 20 ++++++++++++--------
+>  net/ipv6/sysctl_net_ipv6.c             | 10 ++++++++++
+>  4 files changed, 26 insertions(+), 8 deletions(-)
 > 
-> diff --git a/man7/packet.7 b/man7/packet.7
-> index 57cd3ca..7b6f20d 100644
-> --- a/man7/packet.7
-> +++ b/man7/packet.7
-> @@ -16,7 +16,7 @@ packet \- packet interface on device level
->  .nf
->  .B #include <sys/socket.h>
->  .br
-> -.B #include <netpacket/packet.h>
-> +.B #include <linux/if_packet.h>
->  .br
->  .B #include <net/ethernet.h>     /* the L2 protocols */
->  .sp
-> @@ -535,18 +535,6 @@ is a new feature in Linux 2.2.
->  Earlier Linux versions supported only
->  .BR SOCK_PACKET .
->  .PP
-> -The include file
-> -.I <netpacket/packet.h>
-> -is present since glibc 2.1.
-> -Older systems need:
-> -.sp
-> -.in +4n
-> -.nf
-> -#include <asm/types.h>
-> -#include <linux/if_packet.h>
-> -#include <linux/if_ether.h>  /* The L2 protocols */
-> -.fi
-> -.in
->  .SH NOTES
->  For portable programs it is suggested to use
->  .B AF_PACKET
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index 3cce8ea..b7fe844 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -1152,6 +1152,9 @@ anycast_src_echo_reply - BOOLEAN
+>  	FALSE: disabled
+>  	Default: FALSE
+>  
+> +mld_qrv - INTEGER
+> +	Controls the MLD query robustness variable (see RFC3810 9.1).
+> +
+>  IPv6 Fragmentation:
+>  
+>  ip6frag_high_thresh - INTEGER
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index a2db816..7e247e9 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -121,6 +121,7 @@ struct frag_hdr {
+>  
+>  /* sysctls */
+>  extern int sysctl_mld_max_msf;
+> +extern int sysctl_mld_qrv;
+>  
+>  #define _DEVINC(net, statname, modifier, idev, field)			\
+>  ({									\
+> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+> index 7088179..6efb0e5 100644
+> --- a/net/ipv6/mcast.c
+> +++ b/net/ipv6/mcast.c
+> @@ -121,6 +121,7 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
+>  #define IPV6_MLD_MAX_MSF	64
+>  
+>  int sysctl_mld_max_msf __read_mostly = IPV6_MLD_MAX_MSF;
+> +int sysctl_mld_qrv __read_mostly = MLD_QRV_DEFAULT;
+>  
+>  /*
+>   *	socket join on multicast group
+> @@ -1196,7 +1197,7 @@ static void mld_update_qrv(struct inet6_dev *idev,
+>  	if (mlh2->mld2q_qrv > 0)
+>  		idev->mc_qrv = mlh2->mld2q_qrv;
+>  
+> -	if (unlikely(idev->mc_qrv < 2)) {
+> +	if (unlikely(idev->mc_qrv < MLD_QRV_DEFAULT)) {
+>  		net_warn_ratelimited("IPv6: MLD: clamping QRV from %u to %u!\n",
+>  				     idev->mc_qrv, MLD_QRV_DEFAULT);
+>  		idev->mc_qrv = MLD_QRV_DEFAULT;
+> @@ -2478,6 +2479,14 @@ void ipv6_mc_down(struct inet6_dev *idev)
+>  	mld_clear_delrec(idev);
+>  }
+>  
+> +static void ipv6_mc_reset(struct inet6_dev *idev)
+> +{
+> +	idev->mc_qrv = sysctl_mld_qrv;
+> +	idev->mc_qi = MLD_QI_DEFAULT;
+> +	idev->mc_qri = MLD_QRI_DEFAULT;
+> +	idev->mc_v1_seen = 0;
+> +	idev->mc_maxdelay = unsolicited_report_interval(idev);
+> +}
+>  
+>  /* Device going up */
+>  
+> @@ -2488,6 +2497,7 @@ void ipv6_mc_up(struct inet6_dev *idev)
+>  	/* Install multicast list, except for all-nodes (already installed) */
+>  
+>  	read_lock_bh(&idev->lock);
+> +	ipv6_mc_reset(idev);
+>  	for (i = idev->mc_list; i; i = i->next)
+>  		igmp6_group_added(i);
+>  	read_unlock_bh(&idev->lock);
+> @@ -2508,13 +2518,7 @@ void ipv6_mc_init_dev(struct inet6_dev *idev)
+>  			(unsigned long)idev);
+>  	setup_timer(&idev->mc_dad_timer, mld_dad_timer_expire,
+>  		    (unsigned long)idev);
+> -
+> -	idev->mc_qrv = MLD_QRV_DEFAULT;
+> -	idev->mc_qi = MLD_QI_DEFAULT;
+> -	idev->mc_qri = MLD_QRI_DEFAULT;
+> -
+> -	idev->mc_maxdelay = unsolicited_report_interval(idev);
+> -	idev->mc_v1_seen = 0;
+> +	ipv6_mc_reset(idev);
+>  	write_unlock_bh(&idev->lock);
+>  }
+>  
+> diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+> index 0c56c93..c5c10fa 100644
+> --- a/net/ipv6/sysctl_net_ipv6.c
+> +++ b/net/ipv6/sysctl_net_ipv6.c
+> @@ -16,6 +16,8 @@
+>  #include <net/addrconf.h>
+>  #include <net/inet_frag.h>
+>  
+> +static int one = 1;
+> +
+
+Why not stick the minimum to '2' as defined in the RFC?
+
+It would be nice to use something more descriptive:
+static int min_mlq_qrv = 1;
+
+Perhaps also limit the maximum to avoid accidents?
+
+fbl
+
+>  static struct ctl_table ipv6_table_template[] = {
+>  	{
+>  		.procname	= "bindv6only",
+> @@ -63,6 +65,14 @@ static struct ctl_table ipv6_rotable[] = {
+>  		.mode		= 0644,
+>  		.proc_handler	= proc_dointvec
+>  	},
+> +	{
+> +		.procname	= "mld_qrv",
+> +		.data		= &sysctl_mld_qrv,
+> +		.maxlen		= sizeof(int),
+> +		.mode		= 0644,
+> +		.proc_handler	= proc_dointvec_minmax,
+> +		.extra1		= &one
+> +	},
+>  	{ }
+>  };
+>  
+> -- 
+> 1.9.3
 > 
-
-
--- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
