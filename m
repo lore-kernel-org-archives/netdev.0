@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: Configure device endianity on driver load
- and reset endianity on removal.
-Date: Mon, 01 Sep 2014 14:53:14 -0700 (PDT)
-Message-ID: <20140901.145314.1237097170646182877.davem@davemloft.net>
-References: <1409581043-25357-1-git-send-email-manish.chopra@qlogic.com>
-	<31AFFC7280259C4184970ABA9AFE8B93E0800207@avmb3.qlogic.org>
+Subject: Re: [PATCH 0/2] Get rid of ndo_xmit_flush
+Date: Mon, 01 Sep 2014 14:56:46 -0700 (PDT)
+Message-ID: <20140901.145646.174847768842584425.davem@davemloft.net>
+References: <1409190174.27664.10.camel@localhost>
+	<20140829.202210.1424256004723217664.davem@davemloft.net>
+	<1409601942.21965.23.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
-	Yuval.Mintz@qlogic.com
-To: manish.chopra@qlogic.com
+Cc: netdev@vger.kernel.org, therbert@google.com, jhs@mojatatu.com,
+	edumazet@google.com, jeffrey.t.kirsher@intel.com,
+	rusty@rustcorp.com.au, dborkman@redhat.com, brouer@redhat.com,
+	john.r.fastabend@intel.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44479 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44496 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751460AbaIAVxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 17:53:15 -0400
-In-Reply-To: <31AFFC7280259C4184970ABA9AFE8B93E0800207@avmb3.qlogic.org>
+	with ESMTP id S1751251AbaIAV4r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 17:56:47 -0400
+In-Reply-To: <1409601942.21965.23.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <manish.chopra@qlogic.com>
-Date: Mon, 1 Sep 2014 15:33:20 +0000
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 01 Sep 2014 22:05:42 +0200
 
->> -----Original Message-----
->> This patch fixes this case from both ends:
->> 1) Return endianity to original values on shutdown (in case little endian kernel
->> boots after we shutdown).
->> 2) Do not rely on HW reset values when loading driver in little endian kernel
->>    but configure them explicitly (in case previous kernel was big endian and did
->> not reset the HW).
- ...
-> David, Please drop this patch as it might create issue for VFs.
-> I will send updated V2 patch with proper fix. 
+> But as soon as we try to make Qdiscs absolutely lockless, we don't have
+> any guard that we don't concurrently dequeue skbs from it and suddenly
+> one Qdisc dequeue processing entity couldn't notify the driver that the
+> end of the batching was reached. I think this could become a problem
+> depending on how much of the locking is removed?
 
-I think part #2 is the only reasonable part of this patch, and that's
-what you'll have to backport to -stable kernels to sort this out
-properly.
-
-Adding "unconfiguration" hacks into a driver to deal with driver bugs
-is really not kosher, sorry.
+I am certain that batching will require taking the device transmit
+lock over the ->ndo_start_xmit() invocations, and therefore the
+deferral decisions must atomically be made inside of that context.
