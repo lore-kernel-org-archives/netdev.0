@@ -1,65 +1,54 @@
-From: Harish@vger.kernel.org, Jenny@vger.kernel.org, K@vger.kernel.org,
-	N@vger.kernel.org
-Subject: [PATCH]     netlink: Safer deletion of sk_bind_node
-Date: Mon, 1 Sep 2014 12:38:29 +0530
-Message-ID: <1409555309-5893-1-git-send-email-harish_kandiga@mentor.com>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git) 2/2] stmmac: only remove RXCSUM feature if no rx coe is available
+Date: Mon, 1 Sep 2014 09:17:53 +0200
+Message-ID: <1409555873-5478-2-git-send-email-peppe.cavallaro@st.com>
+References: <1409555873-5478-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <dborkman@redhat.com>, <tgraf@suug.ch>, <ebiederm@xmission.com>,
-	<darkjames-ws@darkjames.pl>, <rgb@redhat.com>,
-	<eric.dumazet@gmail.com>, <stephen@networkplumber.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: <davem@davemloft.net>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:58553 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078AbaIAHIr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 03:08:47 -0400
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:51095 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752726AbaIAHSD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 03:18:03 -0400
+Received: from pps.filterd (m0046668.ppops.net [127.0.0.1])
+	by mx07-00178001.pphosted.com (8.14.5/8.14.5) with SMTP id s817DYTU004675
+	for <netdev@vger.kernel.org>; Mon, 1 Sep 2014 09:18:00 +0200
+Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
+	by mx07-00178001.pphosted.com with ESMTP id 1p4dthhh54-1
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 01 Sep 2014 09:18:00 +0200
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id AAD1638
+	for <netdev@vger.kernel.org>; Mon,  1 Sep 2014 07:17:48 +0000 (GMT)
+Received: from Webmail-eu.st.com (Safex1hubcas21.st.com [10.75.90.44])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 07F4F2CA0C
+	for <netdev@vger.kernel.org>; Mon,  1 Sep 2014 07:17:59 +0000 (GMT)
+In-Reply-To: <1409555873-5478-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harish Jenny K N <harish_kandiga@mentor.com>
+In case of the HW is not able to do the receive checksum offloading
+the only feature to remove is NETIF_F_RXCSUM.
 
-    Unable to handle kernel NULL pointer dereference at virtual address 00000000
-        (netlink_release+0x0/0x2a0) from [<8034e78c>] (sock_release+0x28/0xa4)
-        (sock_release+0x0/0xa4) from [<8034e830>] (sock_close+0x28/0x34)
-        (sock_close+0x0/0x34) from [<800f3490>] (__fput+0xf0/0x1ec)
-        (__fput+0x0/0x1ec) from [<800f3634>] (____fput+0x10/0x14)
-        (____fput+0x0/0x14) from [<80040a64>] (task_work_run+0xb8/0xd8)
-        (task_work_run+0x0/0xd8) from [<800113a0>] (do_work_pending+0xb0/0xc4)
-        (do_work_pending+0x0/0xc4) from [<8000d960>] (work_pending+0xc/0x20)
-    Call flow of the inline and static functions
-        netlink_release
-        -----netlink_remove
-        ---------__sk_del_bind_node
-        --------------__hlist_del
-
-Signed-off-by: Harish Jenny K N <harish_kandiga@mentor.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- net/netlink/af_netlink.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index c416725..21a6b32 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1103,7 +1103,7 @@ static void netlink_remove(struct sock *sk)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 56e5c1b..8da95d56 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2329,8 +2329,6 @@ static netdev_features_t stmmac_fix_features(struct net_device *dev,
  
- 	netlink_table_grab();
- 	if (nlk_sk(sk)->subscriptions)
--		__sk_del_bind_node(sk);
-+		hlist_del_init(&sk->sk_bind_node);
- 	netlink_table_ungrab();
- }
+ 	if (priv->plat->rx_coe == STMMAC_RX_COE_NONE)
+ 		features &= ~NETIF_F_RXCSUM;
+-	else if (priv->plat->rx_coe == STMMAC_RX_COE_TYPE1)
+-		features &= ~NETIF_F_IPV6_CSUM;
  
-@@ -1382,7 +1382,7 @@ netlink_update_subscriptions(struct sock *sk, unsigned int subscriptions)
- 	struct netlink_sock *nlk = nlk_sk(sk);
- 
- 	if (nlk->subscriptions && !subscriptions)
--		__sk_del_bind_node(sk);
-+		hlist_del_init(&sk->sk_bind_node);
- 	else if (!nlk->subscriptions && subscriptions)
- 		sk_add_bind_node(sk, &nl_table[sk->sk_protocol].mc_list);
- 	nlk->subscriptions = subscriptions;
+ 	if (!priv->plat->tx_coe)
+ 		features &= ~NETIF_F_ALL_CSUM;
 -- 
-1.7.9.5
+1.7.4.4
