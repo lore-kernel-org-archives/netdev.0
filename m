@@ -1,50 +1,24 @@
-From: stigge@antcom.de
-Subject: [PATCH] net: lpc_eth: Fix crash on ip link up
-Date: Mon,  1 Sep 2014 13:46:46 +0200
-Message-ID: <1409572006-26876-1-git-send-email-stigge@antcom.de>
-Cc: Roland Stigge <stigge@antcom.de>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 2/2] nl80211.c: Fixed the wdev_id being used
+ uninitialized.
+Date: Mon, 01 Sep 2014 14:07:38 +0200
+Message-ID: <1409573258.2703.0.camel@jlt4.sipsolutions.net>
+References: <1409572467-50908-1-git-send-email-shakilk1729@gmail.com>
+	 (sfid-20140901_135440_786712_355C815A)
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net, linville@tuxdriver.com
+To: Shakil A Khan <shakilk1729@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1409572467-50908-1-git-send-email-shakilk1729@gmail.com> (sfid-20140901_135440_786712_355C815A)
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Stigge <stigge@antcom.de>
 
-When a link is already up, the following sequence makes the kernel
-block completely:
+> +	u64 wdev_id = 0;
 
-  ip link set dev eth0 down
-  ip link set dev eth0 up
+it's not used uninitialized, NACK.
 
-This is because on suspended phy, the following lines
-
-  __lpc_eth_reset(pldat);
-  __lpc_eth_init(pldat);
-
-make the LPC ethernet core block (see LPC32x0 manual). The PHY needs to be
-(re-)activated low-level first.
-
-Signed-off-by: Roland Stigge <stigge@antcom.de>
----
- Applies to v3.17-rc3
-
- drivers/net/ethernet/nxp/lpc_eth.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index 8706c0d..a44a03c 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -1220,6 +1220,9 @@ static int lpc_eth_open(struct net_device *ndev)
- 
- 	__lpc_eth_clock_enable(pldat, true);
- 
-+	/* Suspended PHY makes LPC ethernet core block, so resume now */
-+	phy_resume(pldat->phy_dev);
-+
- 	/* Reset and initialize */
- 	__lpc_eth_reset(pldat);
- 	__lpc_eth_init(pldat);
--- 
-2.1.0
+johannes
