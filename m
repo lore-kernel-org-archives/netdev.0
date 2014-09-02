@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v1 0/4] amd-xgbe: AMD XGBE driver fixes 2014-08-29
-Date: Mon, 01 Sep 2014 20:40:08 -0700 (PDT)
-Message-ID: <20140901.204008.676727285574353037.davem@davemloft.net>
-References: <20140829181643.3257.28011.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [PATCH net-next] net: dsa: make dsa_pack_type static
+Date: Mon, 01 Sep 2014 20:42:20 -0700 (PDT)
+Message-ID: <20140901.204220.875089324891708249.davem@davemloft.net>
+References: <1409341327-22527-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+Cc: netdev@vger.kernel.org, fengguang.wu@intel.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46900 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46913 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751925AbaIBDkK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 23:40:10 -0400
-In-Reply-To: <20140829181643.3257.28011.stgit@tlendack-t1.amdoffice.net>
+	with ESMTP id S1752453AbaIBDmV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 23:42:21 -0400
+In-Reply-To: <1409341327-22527-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Fri, 29 Aug 2014 13:16:44 -0500
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Fri, 29 Aug 2014 12:42:07 -0700
 
-> The following series of patches includes fixes to the driver.
+> net/dsa/dsa.c:624:20: sparse: symbol 'dsa_pack_type' was not declared.
+> Should it be static?
 > 
-> - Tx hardware queue flushing support dependent on hardware version
-> - Incorrect reported fifo size
-> - Proper mmd select in XPCS debugfs support
-> - Proper queue count for configuring Tx flow control
-> 
-> This patch series is based on net.
+> Fixes: 3e8a72d1dae374 ("net: dsa: reduce number of protocol hooks")
+> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Series applied, thanks.
+Applied.
