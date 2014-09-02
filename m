@@ -1,70 +1,72 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: [PATCH net-next] core: Simplify logic in dev_load().
-Date: Tue, 2 Sep 2014 13:51:17 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174856D6@AcuExch.aculab.com>
+From: Boaz Harrosh <openosd-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] Next branch: authgss: authgss.c: Fix warnings for uninitizlized
+ variable expire
+Date: Tue, 02 Sep 2014 16:59:45 +0300
+Message-ID: <5405CD51.9020601@gmail.com>
+References: <1409571154-50408-1-git-send-email-shakilk1729@gmail.com> <CAHQdGtQAwp_QuQE-xmjJNkcxbu7g4QtYQv8qrPT_qWpkym1GZg@mail.gmail.com> <5405A15F.2060002@gmail.com> <20140902132140.GA31793@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:59001 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752460AbaIBNxY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 09:53:24 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 11556-10 for <netdev@vger.kernel.org>;
- Tue,  2 Sep 2014 14:53:15 +0100 (BST)
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	Shakil A Khan <shakilk1729-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel mailing list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Paul McKenney <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	William Andros Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Jeffrey Layton <jlayton-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140902132140.GA31793-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The code in dev_load() is convoluted.
-Return early and remove the 'no_module' variable.
----
+On 09/02/2014 04:21 PM, Bruce Fields wrote:
+> 
+> You'd rather avoid sprinkling that all over, though.  If nothing else it
+> increases the chances you'll suppress a legimate warning some day.
+> 
 
-Note that this patch will only apply after the one that adds the
-check for name[0].
+But this is exactly why it was created.
 
- net/core/dev_ioctl.c | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+If you do the "= 0" then it is gone forever. If you have missed a legitimate
+needed assignment, it will be missed as well.
 
-diff --git a/net/core/dev_ioctl.c b/net/core/dev_ioctl.c
-index 84edf16..4b7ab54 100644
---- a/net/core/dev_ioctl.c
-+++ b/net/core/dev_ioctl.c
-@@ -356,7 +356,6 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
- void dev_load(struct net *net, const char *name)
- {
- 	struct net_device *dev;
--	int no_module;
- 
- 	if (!name[0])
- 		return;
-@@ -364,15 +363,15 @@ void dev_load(struct net *net, const char *name)
- 	rcu_read_lock();
- 	dev = dev_get_by_name_rcu(net, name);
- 	rcu_read_unlock();
-+	if (dev)
-+		return;
- 
--	no_module = !dev;
--	if (no_module && capable(CAP_NET_ADMIN))
--		no_module = request_module("netdev-%s", name);
--	if (no_module && capable(CAP_SYS_MODULE)) {
--		if (!request_module("%s", name))
--			pr_warn("Loading kernel module for a network device with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and alias netdev-%s instead.\n",
--				name);
--	}
-+	if (capable(CAP_NET_ADMIN) && !request_module("netdev-%s", name))
-+		return;
-+
-+	if (capable(CAP_SYS_MODULE) && !request_module("%s", name))
-+		pr_warn("Loading kernel module for a network device with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and alias netdev-%s instead.\n",
-+			name);
- }
- EXPORT_SYMBOL(dev_load);
- 
--- 
-1.8.1.2
+But if you do the uninitialized_var() dance then there is a make option that turns
+it off and every once in a while people do a make with it to see if it still
+holds.
+
+The diff between foo = 0; and uninitialized_var(foo) is that the programmer is
+communicating to his friends that:
+	"I have encountered a bogus compiler, this is falsely initialized"
+
+As opposed to =0 the compiler bug is covered up and forgotten
+
+> And unless I'm missing something this one really does look like an
+> unambiguous compiler bug.
+> 
+
+Right! so that is how you specify this in code at Linux: uninitialized_var(foo);
+
+Putting =0 is way way worse, because it will never be revised and specially
+not automatically with a make switch.
+
+And leaving the warning on is even worse because two three of these and people
+start to ignore warnings.
+
+> --b.
+> 
+
+uninitialized_var was made to be a friend not an enemy, in the face of real
+ugliness it is the best we can do. And that is what it should communicate to
+everyone. Why has it become everyone's favorite blasphemy I do not know.
+
+Cheers
+Boaz
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
