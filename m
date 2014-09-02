@@ -1,77 +1,291 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH 0/9] Make dev_hard_start_xmit() work fundamentall on
- lists
-Date: Tue, 2 Sep 2014 09:51:20 +0200
-Message-ID: <20140902095120.5651ce24@redhat.com>
-References: <20140901.152430.1711925724234542172.davem@davemloft.net>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net v2] ipv6: fix rtnl locking in setsockopt for anycast and
+ multicast
+Date: Tue, 2 Sep 2014 10:29:29 +0200
+Message-ID: <20140902082929.GA8483@kria>
+References: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
+ <CAHA+R7MZCDGRhSf=UuVCGQvNo03wVziZQB_X30rwNf6hmHipQA@mail.gmail.com>
+ <20140829195339.GA9780@kria>
+ <1409363489.2980.17.camel@localhost>
+ <20140830105821.GB18155@kria>
+ <1409599348.21965.6.camel@localhost>
+ <20140901210520.GB25543@kria>
+ <1409610378.21965.52.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9493 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751272AbaIBHvX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 03:51:23 -0400
-In-Reply-To: <20140901.152430.1711925724234542172.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Cong Wang <cwang@twopensource.com>,
+	Tommi Rantala <tt.rantala@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, trinity@vger.kernel.org,
+	Dave Jones <davej@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <trinity-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1409610378.21965.52.camel@localhost>
+Sender: trinity-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 01 Sep 2014 15:24:30 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Calling setsockopt with IPV6_JOIN_ANYCAST or IPV6_LEAVE_ANYCAST
+triggers the assertion in addrconf_join_solict()/addrconf_leave_solict()
 
-> After this patch set, dev_hard_start_xmit() will work fundemantally
-> on any and all SKB lists.
+ipv6_sock_ac_join(), ipv6_sock_ac_drop(), ipv6_sock_ac_close() need to
+take RTNL before calling ipv6_dev_ac_inc/dec. Same thing with
+ipv6_sock_mc_join(), ipv6_sock_mc_drop(), ipv6_sock_mc_close() before
+calling ipv6_dev_mc_inc/dec.
 
-This is really excellent work, thank you!
-dev_hard_start_xmit() looks so clean now :-)
+This patch moves ASSERT_RTNL() up a level in the call stack.
 
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Reported-by: Tommi Rantala <tt.rantala@gmail.com>
+---
+As was said earlier, this should go in stable.
+
+v2:
+ - based on net
+ - keep dev_get_by_flags_rcu and RCU in ipv6_sock_ac_*
+ - remove two ASSERT_RTNL() that are not necessary
+
+Thank you for your help, Hannes!
+
+ net/ipv6/addrconf.c | 15 +++++----------
+ net/ipv6/anycast.c  | 12 ++++++++++++
+ net/ipv6/mcast.c    | 14 ++++++++++++++
+ 3 files changed, 31 insertions(+), 10 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 0b239fc1816e..aa0e135b808c 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1690,14 +1690,12 @@ void addrconf_dad_failure(struct inet6_ifaddr *ifp)
+ 	addrconf_mod_dad_work(ifp, 0);
+ }
  
-> This opens the path for a clean implementation of pulling multiple
-> packets out during qdisc_restart(), and then passing that blob
-> in one shot to dev_hard_start_xmit().
-
-Sounds perfect.  I'll start to experiment with qdisc stuff.
-
-> And with those two issues out of the way, it should now be trivial to
-> build experiments on top of this patch set, all of the framework
-> should be there now.  You could do something as simple as:
-
-As xmit_list()/dev_hard_start_xmit() depend on all SKBs belonging to
-the same TXQ, below code should also take this into account.
-
-Thus, bulk dequeue will only see the benefit (of taking the qdisc lock
-less) when packets are for the same TXQ.  But I guess this is a good
-design choice, as this makes the rest of the code simpler to work with.
-
-> 	skb = q->dequeue(q);
-> 	if (skb)
-> 		skb = validate_xmit_skb(skb, qdisc_dev(q));
-> 	if (skb) {
-> 		struct sk_buff *new, *head = skb;
-> 		int limit = 5;
-> 
-> 		do {
-> 			new = q->dequeue(q);
-> 			if (new)
-> 				new = validate_xmit_skb(new, qdisc_dev(q));
-> 			if (new) {
-> 				skb->next = new;
-> 				skb = new;
-> 			}
-> 		} while (new && --limit);
-> 		skb = head;
-> 	}
-> 
-> inside of the else branch of dequeue_skb().
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-
-
+-/* Join to solicited addr multicast group. */
+-
++/* Join to solicited addr multicast group.
++ * caller must hold RTNL */
+ void addrconf_join_solict(struct net_device *dev, const struct in6_addr *addr)
+ {
+ 	struct in6_addr maddr;
+ 
+-	ASSERT_RTNL();
+-
+ 	if (dev->flags&(IFF_LOOPBACK|IFF_NOARP))
+ 		return;
+ 
+@@ -1705,12 +1703,11 @@ void addrconf_join_solict(struct net_device *dev, const struct in6_addr *addr)
+ 	ipv6_dev_mc_inc(dev, &maddr);
+ }
+ 
++/* caller must hold RTNL */
+ void addrconf_leave_solict(struct inet6_dev *idev, const struct in6_addr *addr)
+ {
+ 	struct in6_addr maddr;
+ 
+-	ASSERT_RTNL();
+-
+ 	if (idev->dev->flags&(IFF_LOOPBACK|IFF_NOARP))
+ 		return;
+ 
+@@ -1718,12 +1715,11 @@ void addrconf_leave_solict(struct inet6_dev *idev, const struct in6_addr *addr)
+ 	__ipv6_dev_mc_dec(idev, &maddr);
+ }
+ 
++/* caller must hold RTNL */
+ static void addrconf_join_anycast(struct inet6_ifaddr *ifp)
+ {
+ 	struct in6_addr addr;
+ 
+-	ASSERT_RTNL();
+-
+ 	if (ifp->prefix_len >= 127) /* RFC 6164 */
+ 		return;
+ 	ipv6_addr_prefix(&addr, &ifp->addr, ifp->prefix_len);
+@@ -1732,12 +1728,11 @@ static void addrconf_join_anycast(struct inet6_ifaddr *ifp)
+ 	ipv6_dev_ac_inc(ifp->idev->dev, &addr);
+ }
+ 
++/* caller must hold RTNL */
+ static void addrconf_leave_anycast(struct inet6_ifaddr *ifp)
+ {
+ 	struct in6_addr addr;
+ 
+-	ASSERT_RTNL();
+-
+ 	if (ifp->prefix_len >= 127) /* RFC 6164 */
+ 		return;
+ 	ipv6_addr_prefix(&addr, &ifp->addr, ifp->prefix_len);
+diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
+index 210183244689..45b9d81d91e8 100644
+--- a/net/ipv6/anycast.c
++++ b/net/ipv6/anycast.c
+@@ -77,6 +77,7 @@ int ipv6_sock_ac_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	pac->acl_next = NULL;
+ 	pac->acl_addr = *addr;
+ 
++	rtnl_lock();
+ 	rcu_read_lock();
+ 	if (ifindex == 0) {
+ 		struct rt6_info *rt;
+@@ -137,6 +138,7 @@ int ipv6_sock_ac_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 
+ error:
+ 	rcu_read_unlock();
++	rtnl_unlock();
+ 	if (pac)
+ 		sock_kfree_s(sk, pac, sizeof(*pac));
+ 	return err;
+@@ -171,13 +173,17 @@ int ipv6_sock_ac_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 
+ 	spin_unlock_bh(&ipv6_sk_ac_lock);
+ 
++	rtnl_lock();
+ 	rcu_read_lock();
+ 	dev = dev_get_by_index_rcu(net, pac->acl_ifindex);
+ 	if (dev)
+ 		ipv6_dev_ac_dec(dev, &pac->acl_addr);
+ 	rcu_read_unlock();
++	rtnl_unlock();
+ 
+ 	sock_kfree_s(sk, pac, sizeof(*pac));
++	if (!dev)
++		return -ENODEV;
+ 	return 0;
+ }
+ 
+@@ -198,6 +204,7 @@ void ipv6_sock_ac_close(struct sock *sk)
+ 	spin_unlock_bh(&ipv6_sk_ac_lock);
+ 
+ 	prev_index = 0;
++	rtnl_lock();
+ 	rcu_read_lock();
+ 	while (pac) {
+ 		struct ipv6_ac_socklist *next = pac->acl_next;
+@@ -212,6 +219,7 @@ void ipv6_sock_ac_close(struct sock *sk)
+ 		pac = next;
+ 	}
+ 	rcu_read_unlock();
++	rtnl_unlock();
+ }
+ 
+ static void aca_put(struct ifacaddr6 *ac)
+@@ -233,6 +241,8 @@ int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr)
+ 	struct rt6_info *rt;
+ 	int err;
+ 
++	ASSERT_RTNL();
++
+ 	idev = in6_dev_get(dev);
+ 
+ 	if (idev == NULL)
+@@ -302,6 +312,8 @@ int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr)
+ {
+ 	struct ifacaddr6 *aca, *prev_aca;
+ 
++	ASSERT_RTNL();
++
+ 	write_lock_bh(&idev->lock);
+ 	prev_aca = NULL;
+ 	for (aca = idev->ac_list; aca; aca = aca->aca_next) {
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 617f0958e164..a23b655a7627 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -172,6 +172,7 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	mc_lst->next = NULL;
+ 	mc_lst->addr = *addr;
+ 
++	rtnl_lock();
+ 	rcu_read_lock();
+ 	if (ifindex == 0) {
+ 		struct rt6_info *rt;
+@@ -185,6 +186,7 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 
+ 	if (dev == NULL) {
+ 		rcu_read_unlock();
++		rtnl_unlock();
+ 		sock_kfree_s(sk, mc_lst, sizeof(*mc_lst));
+ 		return -ENODEV;
+ 	}
+@@ -202,6 +204,7 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 
+ 	if (err) {
+ 		rcu_read_unlock();
++		rtnl_unlock();
+ 		sock_kfree_s(sk, mc_lst, sizeof(*mc_lst));
+ 		return err;
+ 	}
+@@ -212,6 +215,7 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	spin_unlock(&ipv6_sk_mc_lock);
+ 
+ 	rcu_read_unlock();
++	rtnl_unlock();
+ 
+ 	return 0;
+ }
+@@ -229,6 +233,7 @@ int ipv6_sock_mc_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	if (!ipv6_addr_is_multicast(addr))
+ 		return -EINVAL;
+ 
++	rtnl_lock();
+ 	spin_lock(&ipv6_sk_mc_lock);
+ 	for (lnk = &np->ipv6_mc_list;
+ 	     (mc_lst = rcu_dereference_protected(*lnk,
+@@ -252,12 +257,15 @@ int ipv6_sock_mc_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 			} else
+ 				(void) ip6_mc_leave_src(sk, mc_lst, NULL);
+ 			rcu_read_unlock();
++			rtnl_unlock();
++
+ 			atomic_sub(sizeof(*mc_lst), &sk->sk_omem_alloc);
+ 			kfree_rcu(mc_lst, rcu);
+ 			return 0;
+ 		}
+ 	}
+ 	spin_unlock(&ipv6_sk_mc_lock);
++	rtnl_unlock();
+ 
+ 	return -EADDRNOTAVAIL;
+ }
+@@ -302,6 +310,7 @@ void ipv6_sock_mc_close(struct sock *sk)
+ 	if (!rcu_access_pointer(np->ipv6_mc_list))
+ 		return;
+ 
++	rtnl_lock();
+ 	spin_lock(&ipv6_sk_mc_lock);
+ 	while ((mc_lst = rcu_dereference_protected(np->ipv6_mc_list,
+ 				lockdep_is_held(&ipv6_sk_mc_lock))) != NULL) {
+@@ -328,6 +337,7 @@ void ipv6_sock_mc_close(struct sock *sk)
+ 		spin_lock(&ipv6_sk_mc_lock);
+ 	}
+ 	spin_unlock(&ipv6_sk_mc_lock);
++	rtnl_unlock();
+ }
+ 
+ int ip6_mc_source(int add, int omode, struct sock *sk,
+@@ -845,6 +855,8 @@ int ipv6_dev_mc_inc(struct net_device *dev, const struct in6_addr *addr)
+ 	struct ifmcaddr6 *mc;
+ 	struct inet6_dev *idev;
+ 
++	ASSERT_RTNL();
++
+ 	/* we need to take a reference on idev */
+ 	idev = in6_dev_get(dev);
+ 
+@@ -916,6 +928,8 @@ int __ipv6_dev_mc_dec(struct inet6_dev *idev, const struct in6_addr *addr)
+ {
+ 	struct ifmcaddr6 *ma, **map;
+ 
++	ASSERT_RTNL();
++
+ 	write_lock_bh(&idev->lock);
+ 	for (map = &idev->mc_list; (ma=*map) != NULL; map = &ma->next) {
+ 		if (ipv6_addr_equal(&ma->mca_addr, addr)) {
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.1.0
