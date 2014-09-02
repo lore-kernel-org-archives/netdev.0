@@ -1,62 +1,58 @@
-From: Harish Jenny Kandiga Nagaraj <harish_kandiga@mentor.com>
-Subject: Re: [RFC PATCH] netlink: Safer deletion of sk_bind_node
-Date: Tue, 2 Sep 2014 14:14:38 +0530
-Message-ID: <54058376.9090700@mentor.com>
-References: <1409555309-5893-1-git-send-email-harish_kandiga@mentor.com> <20140901.220325.955861172520355423.davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 8/9] net: Don't keep around original SKB when we
+ software segment GSO frames.
+Date: Tue, 2 Sep 2014 08:49:09 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1748532C@AcuExch.aculab.com>
+References: <20140901.152515.1944476256109254437.davem@davemloft.net>
+ <CA+mtBx-1r-vJYDx0xJ+p=Tjr=_v559XdrSu1SZ4UXWE_4fLbZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <dborkman@redhat.com>, <tgraf@suug.ch>, <ebiederm@xmission.com>,
-	<darkjames-ws@darkjames.pl>, <rgb@redhat.com>,
-	<eric.dumazet@gmail.com>, <stephen@networkplumber.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140901.220325.955861172520355423.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: 'Tom Herbert' <therbert@google.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:51465 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753417AbaIBIvP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 04:51:15 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 02477-04 for <netdev@vger.kernel.org>;
+ Tue,  2 Sep 2014 09:51:06 +0100 (BST)
+In-Reply-To: <CA+mtBx-1r-vJYDx0xJ+p=Tjr=_v559XdrSu1SZ4UXWE_4fLbZg@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In one of our random test runs we observed the crash mentioned in the previous mail.
-
-After debugging we found out that the call flow of the inline and static functions were
-netlink_release
------netlink_remove
----------__sk_del_bind_node
---------------__hlist_del
-
-*pprev was NULL in __hlist_del function while deleting &sk->sk_bind_node hlist_node. Hence the patch was given.
-
-In netlink_remove function , first the sk_del_node_init function will be called. This internally calls __sk_del_node_init function. While deleting &sk->sk_node hlist_node using __sk_del_node function there is a NULL check with sk_hashed function.
-
-Why there is no NULL check for *pprev while deleting &sk->sk_bind_node ?
-
-On Tuesday 02 September 2014 10:33 AM, David Miller wrote:
-> From: Harish Jenny K N
-> Date: Mon, 1 Sep 2014 12:38:29 +0530
->
-> Firstly, you really need to fix your outgoing email so that your email
-> address appears in your From: header properly.
->
->> From: Harish Jenny K N <harish_kandiga@mentor.com>
->>
->>     Unable to handle kernel NULL pointer dereference at virtual address 00000000
->>         (netlink_release+0x0/0x2a0) from [<8034e78c>] (sock_release+0x28/0xa4)
->>         (sock_release+0x0/0xa4) from [<8034e830>] (sock_close+0x28/0x34)
->>         (sock_close+0x0/0x34) from [<800f3490>] (__fput+0xf0/0x1ec)
->>         (__fput+0x0/0x1ec) from [<800f3634>] (____fput+0x10/0x14)
->>         (____fput+0x0/0x14) from [<80040a64>] (task_work_run+0xb8/0xd8)
->>         (task_work_run+0x0/0xd8) from [<800113a0>] (do_work_pending+0xb0/0xc4)
->>         (do_work_pending+0x0/0xc4) from [<8000d960>] (work_pending+0xc/0x20)
->>     Call flow of the inline and static functions
->>         netlink_release
->>         -----netlink_remove
->>         ---------__sk_del_bind_node
->>         --------------__hlist_del
->>
->> Signed-off-by: Harish Jenny K N <harish_kandiga@mentor.com>
-> This doesn't tell us anything about how this situation can be
-> arrived at.
->
-> When subscriptions changes, we delete the node with the table lock
-> held if subscriptions goes to zero.  We only try to delete the node
-> when subscriptions was zero.
+RnJvbTogVG9tIEhlcmJlcnQNCj4gT24gTW9uLCBTZXAgMSwgMjAxNCBhdCAzOjI1IFBNLCBEYXZp
+ZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOg0KPiA+DQo+ID4gSnVzdCBtYWlu
+dGFpbiB0aGUgbGlzdCBwcm9wZXJseSBieSByZXR1cm5pbmcgdGhlIGhlYWQgb2YgdGhlIHJlbWFp
+bmluZw0KPiA+IFNLQiBsaXN0IGZyb20gZGV2X2hhcmRfc3RhcnRfeG1pdCgpLg0KPiA+DQo+ID4g
+U2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiA+
+IC0tLQ0KPiA+ICBpbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIHwgIDQgKy0tDQo+ID4gIG5ldC9j
+b3JlL2Rldi5jICAgICAgICAgICAgfCA3OSArKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLQ0KPiA+ICBuZXQvc2NoZWQvc2NoX2dlbmVyaWMuYyAgIHwgIDIgKy0N
+Cj4gPiAgMyBmaWxlcyBjaGFuZ2VkLCAxNyBpbnNlcnRpb25zKCspLCA2OCBkZWxldGlvbnMoLSkN
+Cj4gPg0KPiA+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIGIvaW5jbHVk
+ZS9saW51eC9uZXRkZXZpY2UuaA0KPiA+IGluZGV4IDQ3YzQ5YmEuLjIwMmMyNWEgMTAwNjQ0DQo+
+ID4gLS0tIGEvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaA0KPiA+ICsrKyBiL2luY2x1ZGUvbGlu
+dXgvbmV0ZGV2aWNlLmgNCj4gPiBAQCAtMjgyOCw4ICsyODI4LDggQEAgaW50IGRldl9jaGFuZ2Vf
+Y2FycmllcihzdHJ1Y3QgbmV0X2RldmljZSAqLCBib29sIG5ld19jYXJyaWVyKTsNCj4gPiAgaW50
+IGRldl9nZXRfcGh5c19wb3J0X2lkKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQo+ID4gICAgICAg
+ICAgICAgICAgICAgICAgICAgIHN0cnVjdCBuZXRkZXZfcGh5c19wb3J0X2lkICpwcGlkKTsNCj4g
+PiAgc3RydWN0IHNrX2J1ZmYgKnZhbGlkYXRlX3htaXRfc2tiKHN0cnVjdCBza19idWZmICpza2Is
+IHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpOw0KPiA+IC1pbnQgZGV2X2hhcmRfc3RhcnRfeG1pdChz
+dHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KPiA+IC0gICAgICAg
+ICAgICAgICAgICAgICAgIHN0cnVjdCBuZXRkZXZfcXVldWUgKnR4cSk7DQo+ID4gK3N0cnVjdCBz
+a19idWZmICpkZXZfaGFyZF9zdGFydF94bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBu
+ZXRfZGV2aWNlICpkZXYsDQo+ID4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+c3RydWN0IG5ldGRldl9xdWV1ZSAqdHhxLCBpbnQgKnJldCk7DQo+IA0KPiBNaWdodCBiZSBzbGln
+aHRseSBiZXR0ZXIgdG8gc3RpbGwgcmV0dXJuIGludCBidXQgcGFzcyBzdHJ1Y3Qgc2tfYnVmZg0K
+PiAqKnNrYi4gT25lIGxlc3MgYXJndW1lbnQgYW5kIGRvZXNuJ3QgY2hhbmdlIHJldHVybiB0eXBl
+Lg0KDQpJdCBtYWtlcyBhIGRpZmZlcmVuY2UgdG8gaG93IHRoZSBjb21waWxlciBjYW4gY29tcGls
+ZSB0aGUgY2FsbGluZyBjb2RlLg0KV2hpY2hldmVyIHZhcmlhYmxlIHlvdSBwYXNzIGJ5IHJlZmVy
+ZW5jZSBoYXMgdG8gYmUgYXNzdW1lZCB0byBiZSBjaGFuZ2VhYmxlDQpieSBldmVyeSBmb2xsb3dp
+bmcgZnVuY3Rpb24gY2FsbCAtIHNvIGNhbid0IGJlIHBsYWNlZCBpbiBhIGNhbGxlZSBzYXZlZCBy
+ZWdpc3Rlci4NCg0KSWRlYWxseSB5b3Ugd2FudCBib3RoIHZhbHVlcyByZXR1cm5lZCBpbiByZWdp
+c3RlcnMgLSBkaWZmaWN1bHQgdG8gZG8gcG9ydGFibHkuDQoNCglEYXZpZA0KDQo=
