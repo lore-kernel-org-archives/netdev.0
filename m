@@ -1,208 +1,171 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v3 2/2] ipv4: implement igmp_qrv sysctl to tune igmp robustness variable
-Date: Tue,  2 Sep 2014 15:49:26 +0200
-Message-ID: <b24ad902c532616c7683565df3a0fcc9d925da9c.1409665378.git.hannes@stressinduktion.org>
-References: <3f38fb1c0c5544de4cea8bb13e0adcbba17bebd3.1409665378.git.hannes@stressinduktion.org>
+Subject: [PATCH net-next v3 1/2] ipv6: add sysctl_mld_qrv to configure query robustness variable
+Date: Tue,  2 Sep 2014 15:49:25 +0200
+Message-ID: <3f38fb1c0c5544de4cea8bb13e0adcbba17bebd3.1409665378.git.hannes@stressinduktion.org>
 Cc: Flavio Leitner <fbl@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:46287 "EHLO
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:45058 "EHLO
 	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754003AbaIBNte (ORCPT
+	by vger.kernel.org with ESMTP id S1753876AbaIBNte (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 09:49:34 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 64FC620B12
-	for <netdev@vger.kernel.org>; Tue,  2 Sep 2014 09:49:34 -0400 (EDT)
-In-Reply-To: <3f38fb1c0c5544de4cea8bb13e0adcbba17bebd3.1409665378.git.hannes@stressinduktion.org>
-In-Reply-To: <3f38fb1c0c5544de4cea8bb13e0adcbba17bebd3.1409665378.git.hannes@stressinduktion.org>
-References: <3f38fb1c0c5544de4cea8bb13e0adcbba17bebd3.1409665378.git.hannes@stressinduktion.org>
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 6C7C620BF0
+	for <netdev@vger.kernel.org>; Tue,  2 Sep 2014 09:49:33 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As in IPv6 people might increase the igmp query robustness variable to
-make sure unsolicited state change reports aren't lost on the network. Add
-and document this new knob to igmp code.
+This patch adds a new sysctl_mld_qrv knob to configure the mldv1/v2 query
+robustness variable. It specifies how many retransmit of unsolicited mld
+retransmit should happen. Admins might want to tune this on lossy links.
 
-RFCs allow tuning this parameter back to first IGMP RFC, so we also use
-this setting for all counters, including source specific multicast.
+Also reset mld state on interface down/up, so we pick up new sysctl
+settings during interface up event.
 
-Also take over sysctl value when upping the interface and don't reuse
-the last one seen on the interface.
+IPv6 certification requests this knob to be available.
+
+I didn't make this knob netns specific, as it is mostly a setting in a
+physical environment and should be per host.
 
 Cc: Flavio Leitner <fbl@redhat.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
-v2) Guard sysctl_igmp_qrv with CONFIG_IP_MULTICAST so we don't use
-    IGMP_Query_Robustness_Variable without it being defined.
+v2) no changes to original version
 
-v3) document minimum and default values of igmp_qrv
+v3) - enhance Documentation/networking/ip-sysctl.txt with sysctl limits
+    - fix clamping of remotely received mld_qrv value
 
  Documentation/networking/ip-sysctl.txt |  5 +++++
- include/linux/igmp.h                   |  1 +
- net/ipv4/igmp.c                        | 31 +++++++++++++++----------------
- net/ipv4/sysctl_net_ipv4.c             | 10 ++++++++++
- 4 files changed, 31 insertions(+), 16 deletions(-)
+ include/net/ipv6.h                     |  1 +
+ net/ipv6/mcast.c                       | 25 +++++++++++++++----------
+ net/ipv6/sysctl_net_ipv6.c             | 10 ++++++++++
+ 4 files changed, 31 insertions(+), 10 deletions(-)
 
 diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index cfc71ac..db2383c 100644
+index 3cce8ea..cfc71ac 100644
 --- a/Documentation/networking/ip-sysctl.txt
 +++ b/Documentation/networking/ip-sysctl.txt
-@@ -844,6 +844,11 @@ igmp_max_memberships - INTEGER
+@@ -1152,6 +1152,11 @@ anycast_src_echo_reply - BOOLEAN
+ 	FALSE: disabled
+ 	Default: FALSE
  
- 	conf/all/*	  is special, changes the settings for all interfaces
- 
-+igmp_qrv - INTEGER
-+	 Controls the IGMP query robustness variable (see RFC2236 8.1).
-+	 Default: 2 (as specified by RFC2236 8.1)
-+	 Minimum: 1 (as specified by RFC6636 4.5)
++mld_qrv - INTEGER
++	Controls the MLD query robustness variable (see RFC3810 9.1).
++	Default: 2 (as specified by RFC3810 9.1)
++	Minimum: 1 (as specified by RFC6636 4.5)
 +
- log_martians - BOOLEAN
- 	Log packets with impossible addresses to kernel log.
- 	log_martians for the interface will be enabled if at least one of
-diff --git a/include/linux/igmp.h b/include/linux/igmp.h
-index f47550d..2c677af 100644
---- a/include/linux/igmp.h
-+++ b/include/linux/igmp.h
-@@ -39,6 +39,7 @@ static inline struct igmpv3_query *
+ IPv6 Fragmentation:
  
- extern int sysctl_igmp_max_memberships;
- extern int sysctl_igmp_max_msf;
-+extern int sysctl_igmp_qrv;
+ ip6frag_high_thresh - INTEGER
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index a2db816..7e247e9 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -121,6 +121,7 @@ struct frag_hdr {
  
- struct ip_sf_socklist {
- 	unsigned int		sl_max;
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 890c425..4146153 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -117,7 +117,7 @@
- #define IGMP_V2_Unsolicited_Report_Interval	(10*HZ)
- #define IGMP_V3_Unsolicited_Report_Interval	(1*HZ)
- #define IGMP_Query_Response_Interval		(10*HZ)
--#define IGMP_Unsolicited_Report_Count		2
-+#define IGMP_Query_Robustness_Variable		2
+ /* sysctls */
+ extern int sysctl_mld_max_msf;
++extern int sysctl_mld_qrv;
  
+ #define _DEVINC(net, statname, modifier, idev, field)			\
+ ({									\
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 7088179..6491942 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -121,6 +121,7 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
+ #define IPV6_MLD_MAX_MSF	64
  
- #define IGMP_Initial_Report_Delay		(1)
-@@ -756,8 +756,7 @@ static void igmp_ifc_event(struct in_device *in_dev)
- {
- 	if (IGMP_V1_SEEN(in_dev) || IGMP_V2_SEEN(in_dev))
- 		return;
--	in_dev->mr_ifc_count = in_dev->mr_qrv ? in_dev->mr_qrv :
--		IGMP_Unsolicited_Report_Count;
-+	in_dev->mr_ifc_count = in_dev->mr_qrv ?: sysctl_igmp_qrv;
- 	igmp_ifc_start_timer(in_dev, 1);
- }
+ int sysctl_mld_max_msf __read_mostly = IPV6_MLD_MAX_MSF;
++int sysctl_mld_qrv __read_mostly = MLD_QRV_DEFAULT;
  
-@@ -1086,8 +1085,7 @@ static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im)
- 	pmc->interface = im->interface;
- 	in_dev_hold(in_dev);
- 	pmc->multiaddr = im->multiaddr;
--	pmc->crcount = in_dev->mr_qrv ? in_dev->mr_qrv :
--		IGMP_Unsolicited_Report_Count;
-+	pmc->crcount = in_dev->mr_qrv ?: sysctl_igmp_qrv;
- 	pmc->sfmode = im->sfmode;
- 	if (pmc->sfmode == MCAST_INCLUDE) {
- 		struct ip_sf_list *psf;
-@@ -1226,8 +1224,7 @@ static void igmp_group_added(struct ip_mc_list *im)
+ /*
+  *	socket join on multicast group
+@@ -1191,15 +1192,16 @@ static void mld_update_qrv(struct inet6_dev *idev,
+ 	 * and SHOULD NOT be one. Catch this here if we ever run
+ 	 * into such a case in future.
+ 	 */
++	const int min_qrv = min(MLD_QRV_DEFAULT, sysctl_mld_qrv);
+ 	WARN_ON(idev->mc_qrv == 0);
+ 
+ 	if (mlh2->mld2q_qrv > 0)
+ 		idev->mc_qrv = mlh2->mld2q_qrv;
+ 
+-	if (unlikely(idev->mc_qrv < 2)) {
++	if (unlikely(idev->mc_qrv < min_qrv)) {
+ 		net_warn_ratelimited("IPv6: MLD: clamping QRV from %u to %u!\n",
+-				     idev->mc_qrv, MLD_QRV_DEFAULT);
+-		idev->mc_qrv = MLD_QRV_DEFAULT;
++				     idev->mc_qrv, min_qrv);
++		idev->mc_qrv = min_qrv;
  	}
- 	/* else, v3 */
- 
--	im->crcount = in_dev->mr_qrv ? in_dev->mr_qrv :
--		IGMP_Unsolicited_Report_Count;
-+	im->crcount = in_dev->mr_qrv ?: sysctl_igmp_qrv;
- 	igmp_ifc_event(in_dev);
- #endif
  }
-@@ -1322,7 +1319,7 @@ void ip_mc_inc_group(struct in_device *in_dev, __be32 addr)
- 	spin_lock_init(&im->lock);
- #ifdef CONFIG_IP_MULTICAST
- 	setup_timer(&im->timer, igmp_timer_expire, (unsigned long)im);
--	im->unsolicit_count = IGMP_Unsolicited_Report_Count;
-+	im->unsolicit_count = sysctl_igmp_qrv;
- #endif
  
- 	im->next_rcu = in_dev->mc_list;
-@@ -1460,7 +1457,7 @@ void ip_mc_init_dev(struct in_device *in_dev)
- 			(unsigned long)in_dev);
- 	setup_timer(&in_dev->mr_ifc_timer, igmp_ifc_timer_expire,
- 			(unsigned long)in_dev);
--	in_dev->mr_qrv = IGMP_Unsolicited_Report_Count;
-+	in_dev->mr_qrv = sysctl_igmp_qrv;
- #endif
+@@ -2478,6 +2480,14 @@ void ipv6_mc_down(struct inet6_dev *idev)
+ 	mld_clear_delrec(idev);
+ }
  
- 	spin_lock_init(&in_dev->mc_tomb_lock);
-@@ -1474,6 +1471,9 @@ void ip_mc_up(struct in_device *in_dev)
++static void ipv6_mc_reset(struct inet6_dev *idev)
++{
++	idev->mc_qrv = sysctl_mld_qrv;
++	idev->mc_qi = MLD_QI_DEFAULT;
++	idev->mc_qri = MLD_QRI_DEFAULT;
++	idev->mc_v1_seen = 0;
++	idev->mc_maxdelay = unsolicited_report_interval(idev);
++}
  
- 	ASSERT_RTNL();
+ /* Device going up */
  
-+#ifdef CONFIG_IP_MULTICAST
-+	in_dev->mr_qrv = sysctl_igmp_qrv;
-+#endif
- 	ip_mc_inc_group(in_dev, IGMP_ALL_HOSTS);
+@@ -2488,6 +2498,7 @@ void ipv6_mc_up(struct inet6_dev *idev)
+ 	/* Install multicast list, except for all-nodes (already installed) */
  
- 	for_each_pmc_rtnl(in_dev, pmc)
-@@ -1540,7 +1540,9 @@ static struct in_device *ip_mc_find_dev(struct net *net, struct ip_mreqn *imr)
-  */
- int sysctl_igmp_max_memberships __read_mostly = IP_MAX_MEMBERSHIPS;
- int sysctl_igmp_max_msf __read_mostly = IP_MAX_MSF;
+ 	read_lock_bh(&idev->lock);
++	ipv6_mc_reset(idev);
+ 	for (i = idev->mc_list; i; i = i->next)
+ 		igmp6_group_added(i);
+ 	read_unlock_bh(&idev->lock);
+@@ -2508,13 +2519,7 @@ void ipv6_mc_init_dev(struct inet6_dev *idev)
+ 			(unsigned long)idev);
+ 	setup_timer(&idev->mc_dad_timer, mld_dad_timer_expire,
+ 		    (unsigned long)idev);
 -
-+#ifdef CONFIG_IP_MULTICAST
-+int sysctl_igmp_qrv __read_mostly = IGMP_Query_Robustness_Variable;
-+#endif
+-	idev->mc_qrv = MLD_QRV_DEFAULT;
+-	idev->mc_qi = MLD_QI_DEFAULT;
+-	idev->mc_qri = MLD_QRI_DEFAULT;
+-
+-	idev->mc_maxdelay = unsolicited_report_interval(idev);
+-	idev->mc_v1_seen = 0;
++	ipv6_mc_reset(idev);
+ 	write_unlock_bh(&idev->lock);
+ }
  
- static int ip_mc_del1_src(struct ip_mc_list *pmc, int sfmode,
- 	__be32 *psfsrc)
-@@ -1575,8 +1577,7 @@ static int ip_mc_del1_src(struct ip_mc_list *pmc, int sfmode,
- #ifdef CONFIG_IP_MULTICAST
- 		if (psf->sf_oldin &&
- 		    !IGMP_V1_SEEN(in_dev) && !IGMP_V2_SEEN(in_dev)) {
--			psf->sf_crcount = in_dev->mr_qrv ? in_dev->mr_qrv :
--				IGMP_Unsolicited_Report_Count;
-+			psf->sf_crcount = in_dev->mr_qrv ?: sysctl_igmp_qrv;
- 			psf->sf_next = pmc->tomb;
- 			pmc->tomb = psf;
- 			rv = 1;
-@@ -1639,8 +1640,7 @@ static int ip_mc_del_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
- 		/* filter mode change */
- 		pmc->sfmode = MCAST_INCLUDE;
- #ifdef CONFIG_IP_MULTICAST
--		pmc->crcount = in_dev->mr_qrv ? in_dev->mr_qrv :
--			IGMP_Unsolicited_Report_Count;
-+		pmc->crcount = in_dev->mr_qrv ?: sysctl_igmp_qrv;
- 		in_dev->mr_ifc_count = pmc->crcount;
- 		for (psf = pmc->sources; psf; psf = psf->sf_next)
- 			psf->sf_crcount = 0;
-@@ -1818,8 +1818,7 @@ static int ip_mc_add_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
- #ifdef CONFIG_IP_MULTICAST
- 		/* else no filters; keep old mode for reports */
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index 0c56c93..c5c10fa 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -16,6 +16,8 @@
+ #include <net/addrconf.h>
+ #include <net/inet_frag.h>
  
--		pmc->crcount = in_dev->mr_qrv ? in_dev->mr_qrv :
--			IGMP_Unsolicited_Report_Count;
-+		pmc->crcount = in_dev->mr_qrv ?: sysctl_igmp_qrv;
- 		in_dev->mr_ifc_count = pmc->crcount;
- 		for (psf = pmc->sources; psf; psf = psf->sf_next)
- 			psf->sf_crcount = 0;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 79a007c..45d156d 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -450,6 +450,16 @@ static struct ctl_table ipv4_table[] = {
++static int one = 1;
++
+ static struct ctl_table ipv6_table_template[] = {
+ 	{
+ 		.procname	= "bindv6only",
+@@ -63,6 +65,14 @@ static struct ctl_table ipv6_rotable[] = {
  		.mode		= 0644,
  		.proc_handler	= proc_dointvec
  	},
-+#ifdef CONFIG_IP_MULTICAST
 +	{
-+		.procname	= "igmp_qrv",
-+		.data		= &sysctl_igmp_qrv,
++		.procname	= "mld_qrv",
++		.data		= &sysctl_mld_qrv,
 +		.maxlen		= sizeof(int),
 +		.mode		= 0644,
 +		.proc_handler	= proc_dointvec_minmax,
 +		.extra1		= &one
 +	},
-+#endif
- 	{
- 		.procname	= "inet_peer_threshold",
- 		.data		= &inet_peer_threshold,
+ 	{ }
+ };
+ 
 -- 
 1.9.3
