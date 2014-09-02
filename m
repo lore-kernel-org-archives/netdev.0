@@ -1,97 +1,84 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 5/7] ipvs: properly declare tunnel encapsulation
-Date: Tue,  2 Sep 2014 12:14:02 +0200
-Message-ID: <1409652844-10289-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/7] netfilter: HAVE_JUMP_LABEL instead of CONFIG_JUMP_LABEL
+Date: Tue,  2 Sep 2014 12:14:01 +0200
+Message-ID: <1409652844-10289-5-git-send-email-pablo@netfilter.org>
 References: <1409652844-10289-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48025 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753311AbaIBKNX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 06:13:23 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1409652844-10289-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Zhouyi Zhou <zhouzhouyi@gmail.com>
 
-The tunneling method should properly use tunnel encapsulation.
-Fixes problem with CHECKSUM_PARTIAL packets when TCP/UDP csum
-offload is supported.
+Use HAVE_JUMP_LABEL as elsewhere in the kernel to ensure
+that the toolchain has the required support in addition to
+CONFIG_JUMP_LABEL being set.
 
-Thanks to Alex Gartrell for reporting the problem, providing
-solution and for all suggestions.
-
-Reported-by: Alex Gartrell <agartrell@fb.com>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Alex Gartrell <agartrell@fb.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+Reviewed-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_xmit.c |   20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+ include/linux/netfilter.h |    5 +++--
+ net/netfilter/core.c      |    6 +++---
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 6f70bdd..56896a4 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -38,6 +38,7 @@
- #include <net/route.h>                  /* for ip_route_output */
- #include <net/ipv6.h>
- #include <net/ip6_route.h>
-+#include <net/ip_tunnels.h>
- #include <net/addrconf.h>
- #include <linux/icmpv6.h>
- #include <linux/netfilter.h>
-@@ -862,11 +863,15 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		old_iph = ip_hdr(skb);
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 2077489..2517ece 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -9,6 +9,7 @@
+ #include <linux/in6.h>
+ #include <linux/wait.h>
+ #include <linux/list.h>
++#include <linux/static_key.h>
+ #include <uapi/linux/netfilter.h>
+ #ifdef CONFIG_NETFILTER
+ static inline int NF_DROP_GETERR(int verdict)
+@@ -99,9 +100,9 @@ void nf_unregister_sockopt(struct nf_sockopt_ops *reg);
+ 
+ extern struct list_head nf_hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
+ 
+-#if defined(CONFIG_JUMP_LABEL)
+-#include <linux/static_key.h>
++#ifdef HAVE_JUMP_LABEL
+ extern struct static_key nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
++
+ static inline bool nf_hooks_active(u_int8_t pf, unsigned int hook)
+ {
+ 	if (__builtin_constant_p(pf) &&
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index a93c97f..024a2e2 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -54,7 +54,7 @@ EXPORT_SYMBOL_GPL(nf_unregister_afinfo);
+ struct list_head nf_hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS] __read_mostly;
+ EXPORT_SYMBOL(nf_hooks);
+ 
+-#if defined(CONFIG_JUMP_LABEL)
++#ifdef HAVE_JUMP_LABEL
+ struct static_key nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
+ EXPORT_SYMBOL(nf_hooks_needed);
+ #endif
+@@ -72,7 +72,7 @@ int nf_register_hook(struct nf_hook_ops *reg)
  	}
- 
--	skb->transport_header = skb->network_header;
--
- 	/* fix old IP header checksum */
- 	ip_send_check(old_iph);
- 
-+	skb = iptunnel_handle_offloads(skb, false, SKB_GSO_IPIP);
-+	if (IS_ERR(skb))
-+		goto tx_error;
-+
-+	skb->transport_header = skb->network_header;
-+
- 	skb_push(skb, sizeof(struct iphdr));
- 	skb_reset_network_header(skb);
- 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-@@ -900,7 +905,8 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	return NF_STOLEN;
- 
-   tx_error:
--	kfree_skb(skb);
-+	if (!IS_ERR(skb))
-+		kfree_skb(skb);
- 	rcu_read_unlock();
- 	LeaveFunction(10);
- 	return NF_STOLEN;
-@@ -953,6 +959,11 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		old_iph = ipv6_hdr(skb);
- 	}
- 
-+	/* GSO: we need to provide proper SKB_GSO_ value for IPv6 */
-+	skb = iptunnel_handle_offloads(skb, false, 0); /* SKB_GSO_SIT/IPV6 */
-+	if (IS_ERR(skb))
-+		goto tx_error;
-+
- 	skb->transport_header = skb->network_header;
- 
- 	skb_push(skb, sizeof(struct ipv6hdr));
-@@ -988,7 +999,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	return NF_STOLEN;
- 
- tx_error:
--	kfree_skb(skb);
-+	if (!IS_ERR(skb))
-+		kfree_skb(skb);
- 	rcu_read_unlock();
- 	LeaveFunction(10);
- 	return NF_STOLEN;
+ 	list_add_rcu(&reg->list, elem->list.prev);
+ 	mutex_unlock(&nf_hook_mutex);
+-#if defined(CONFIG_JUMP_LABEL)
++#ifdef HAVE_JUMP_LABEL
+ 	static_key_slow_inc(&nf_hooks_needed[reg->pf][reg->hooknum]);
+ #endif
+ 	return 0;
+@@ -84,7 +84,7 @@ void nf_unregister_hook(struct nf_hook_ops *reg)
+ 	mutex_lock(&nf_hook_mutex);
+ 	list_del_rcu(&reg->list);
+ 	mutex_unlock(&nf_hook_mutex);
+-#if defined(CONFIG_JUMP_LABEL)
++#ifdef HAVE_JUMP_LABEL
+ 	static_key_slow_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
+ #endif
+ 	synchronize_net();
 -- 
 1.7.10.4
+
