@@ -1,60 +1,71 @@
-From: roy.qing.li-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Subject: [PATCH] openvswitch: distinguish between the dropped and
-	consumed skb
-Date: Tue,  2 Sep 2014 20:52:49 +0800
-Message-ID: <1409662369-2528-1-git-send-email-roy.qing.li@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 2/2] r8152: use eth_hw_addr_random
+Date: Tue, 02 Sep 2014 16:53:20 +0400
+Message-ID: <5405BDC0.6060508@cogentembedded.com>
+References: <1394712342-15778-26-Taiwan-albertk@realtek.com> <1394712342-15778-28-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: nic_swsd@realtek.com, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-28-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Hello.
 
-distinguish between the dropped and consumed skb, not assume the skb
-is consumed always
+On 9/2/2014 1:55 PM, Hayes Wang wrote:
 
-Cc: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Li RongQing <roy.qing.li-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/openvswitch/datapath.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> If the hw doesn't have a valid MAC address, give a random one and
+> set it to the hw.
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 35d866f..dacf56f 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -266,7 +266,6 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
- 		upcall.userdata = NULL;
- 		upcall.portid = ovs_vport_find_upcall_portid(p, skb);
- 		ovs_dp_upcall(dp, skb, &upcall);
--		consume_skb(skb);
- 		stats_counter = &stats->n_missed;
- 		goto out;
- 	}
-@@ -304,9 +303,11 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
- 	if (err)
- 		goto err;
- 
-+	consume_skb(skb);
- 	return 0;
- 
- err:
-+	kfree_skb(skb);
- 	stats = this_cpu_ptr(dp->stats_percpu);
- 
- 	u64_stats_update_begin(&stats->syncp);
--- 
-1.7.10.4
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> ---
+>   drivers/net/usb/r8152.c | 39 ++++++++++++++++++++++++---------------
+>   1 file changed, 24 insertions(+), 15 deletions(-)
+
+> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+> index b5ff933..2bc1b8d 100644
+> --- a/drivers/net/usb/r8152.c
+> +++ b/drivers/net/usb/r8152.c
+> @@ -992,32 +992,41 @@ static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
+>   	return 0;
+>   }
+>
+> -static inline void set_ethernet_addr(struct r8152 *tp)
+> +static int set_ethernet_addr(struct r8152 *tp)
+>   {
+>   	struct net_device *dev = tp->netdev;
+> +	struct sockaddr sa;
+>   	int ret;
+> -	u8 node_id[8] = {0};
+>
+>   	if (tp->version == RTL_VER_01)
+> -		ret = pla_ocp_read(tp, PLA_IDR, sizeof(node_id), node_id);
+> +		ret = pla_ocp_read(tp, PLA_IDR, 8, sa.sa_data);
+>   	else
+> -		ret = pla_ocp_read(tp, PLA_BACKUP, sizeof(node_id), node_id);
+> +		ret = pla_ocp_read(tp, PLA_BACKUP, 8, sa.sa_data);
+>
+>   	if (ret < 0) {
+> -		netif_notice(tp, probe, dev, "inet addr fail\n");
+> +		netif_err(tp, probe, dev, "Get ether addr fail\n");
+> +	} else if (!is_valid_ether_addr(sa.sa_data)) {
+> +		netif_err(tp, probe, dev,
+> +			  "Invalid ether addr %02x:%02x:%02x:%02x:%02x:%02x\n",
+
+   There's now "%pM" format specifier for printing a MAC address.
+
+> +			  sa.sa_data[0], sa.sa_data[1], sa.sa_data[2],
+> +			  sa.sa_data[3], sa.sa_data[4], sa.sa_data[5]);
+> +		eth_hw_addr_random(dev);
+> +		ether_addr_copy(sa.sa_data, dev->dev_addr);
+> +		ret = rtl8152_set_mac_address(dev, &sa);
+> +		netif_info(tp, probe, dev,
+> +			   "Random ether addr %02x:%02x:%02x:%02x:%02x:%02x\n",
+
+    Likewise.
+
+WBR, Sergei
