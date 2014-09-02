@@ -1,30 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: spam anyone?
-Date: Tue, 02 Sep 2014 11:49:35 -0700 (PDT)
-Message-ID: <20140902.114935.726013569237561090.davem@davemloft.net>
-References: <E1XOhPe-0007IU-5m@www17.pipni.cz>
-	<54056E17.10606@sjtu.edu.cn>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH net-next v3 1/2] ipv6: add sysctl_mld_qrv to configure
+ query robustness variable
+Date: Tue, 2 Sep 2014 15:50:37 -0300
+Message-ID: <20140902185037.GH7909@t520.home>
+References: <3f38fb1c0c5544de4cea8bb13e0adcbba17bebd3.1409665378.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: xiaodi@sjtu.edu.cn
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57328 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753889AbaIBSti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 14:49:38 -0400
-In-Reply-To: <54056E17.10606@sjtu.edu.cn>
+Received: from mx1.redhat.com ([209.132.183.28]:1863 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754991AbaIBSul (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 14:50:41 -0400
+Content-Disposition: inline
+In-Reply-To: <3f38fb1c0c5544de4cea8bb13e0adcbba17bebd3.1409665378.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Larry Xiao <xiaodi@sjtu.edu.cn>
-Date: Tue, 02 Sep 2014 15:13:27 +0800
-
-> I didn't see anyone complain about spam before.
-> So I don't know if it's only me receiving many spams like this one.
+On Tue, Sep 02, 2014 at 03:49:25PM +0200, Hannes Frederic Sowa wrote:
+> This patch adds a new sysctl_mld_qrv knob to configure the mldv1/v2 query
+> robustness variable. It specifies how many retransmit of unsolicited mld
+> retransmit should happen. Admins might want to tune this on lossy links.
 > 
-> (I don't know if this email will go through .. )
+> Also reset mld state on interface down/up, so we pick up new sysctl
+> settings during interface up event.
+> 
+> IPv6 certification requests this knob to be available.
+> 
+> I didn't make this knob netns specific, as it is mostly a setting in a
+> physical environment and should be per host.
+> 
+> Cc: Flavio Leitner <fbl@redhat.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
 
-It happens, the best I can do is continue teaching bogofilter about
-it.
+Thanks very much Hannes!
+
+Acked-by: Flavio Leitner <fbl@redhat.com>
