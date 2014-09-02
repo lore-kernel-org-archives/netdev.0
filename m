@@ -1,40 +1,189 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2] net: sh_eth: fix driver dependencies
-Date: Tue, 2 Sep 2014 08:39:31 +0900
-Message-ID: <20140901233931.GC15867@verge.net.au>
-References: <1749721.1a6rN6K2Gg@amdc1032>
- <CAMuHMdWGdD+-o9Z8gPYwJWJmjhBqfw0HA4ve=RH+adLFJEZa8Q@mail.gmail.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH 1/2] ipv6: add sysctl_mld_qrv to configure query
+ robustness variable
+Date: Mon, 1 Sep 2014 21:05:54 -0300
+Message-ID: <20140902000554.GA7909@t520.home>
+References: <aa72acbd19015e6db6b2d425fb6ebf6a8fa9c3b5.1409601046.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Kyungmin Park <kyungmin.park@samsung.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:10280 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751965AbaIBAF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Sep 2014 20:05:59 -0400
 Content-Disposition: inline
-In-Reply-To: <CAMuHMdWGdD+-o9Z8gPYwJWJmjhBqfw0HA4ve=RH+adLFJEZa8Q@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <aa72acbd19015e6db6b2d425fb6ebf6a8fa9c3b5.1409601046.git.hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 01, 2014 at 06:36:19PM +0200, Geert Uytterhoeven wrote:
-> On Mon, Sep 1, 2014 at 4:25 PM, Bartlomiej Zolnierkiewicz
-> <b.zolnierkie@samsung.com> wrote:
-> > Renesas SuperH Ethernet support should be available only on
-> > Renesas ARM SoCs and SuperH architecture.
-> >
-> > Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-> > Acked-by: Kyungmin Park <kyungmin.park@samsung.com>
-> > Cc: Simon Horman <horms@verge.net.au>
-> > Cc: Magnus Damm <magnus.damm@gmail.com>
-> > ---
-> > v2:
-> > - s/ARCH_SH/SUPERH/ (thanks to Sergei Shtylyov)
+
+Hi Hannes,
+
+On Mon, Sep 01, 2014 at 09:55:34PM +0200, Hannes Frederic Sowa wrote:
+> This patch adds a new sysctl_mld_qrv knob to configure the mldv1/v2 query
+> robustness variable. It specifies how many retransmit of unsolicited mld
+> retransmit should happen. Admins might want to tune this on lossy links.
 > 
-> Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> Also reset mld state on interface down/up, so we pick up new sysctl
+> settings during interface up event.
+> 
+> IPv6 certification requests this knob to be available.
+> 
+> I didn't make this knob netns specific, as it is mostly a setting in a
+> physical environment and should be per host.
+> 
+> Cc: Flavio Leitner <fbl@redhat.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+> v2) no changes to original version
+> 
+>  Documentation/networking/ip-sysctl.txt |  3 +++
+>  include/net/ipv6.h                     |  1 +
+>  net/ipv6/mcast.c                       | 20 ++++++++++++--------
+>  net/ipv6/sysctl_net_ipv6.c             | 10 ++++++++++
+>  4 files changed, 26 insertions(+), 8 deletions(-)
+> 
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index 3cce8ea..b7fe844 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -1152,6 +1152,9 @@ anycast_src_echo_reply - BOOLEAN
+>  	FALSE: disabled
+>  	Default: FALSE
+>  
+> +mld_qrv - INTEGER
+> +	Controls the MLD query robustness variable (see RFC3810 9.1).
+> +
+>  IPv6 Fragmentation:
+>  
+>  ip6frag_high_thresh - INTEGER
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index a2db816..7e247e9 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -121,6 +121,7 @@ struct frag_hdr {
+>  
+>  /* sysctls */
+>  extern int sysctl_mld_max_msf;
+> +extern int sysctl_mld_qrv;
+>  
+>  #define _DEVINC(net, statname, modifier, idev, field)			\
+>  ({									\
+> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+> index 7088179..6efb0e5 100644
+> --- a/net/ipv6/mcast.c
+> +++ b/net/ipv6/mcast.c
+> @@ -121,6 +121,7 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
+>  #define IPV6_MLD_MAX_MSF	64
+>  
+>  int sysctl_mld_max_msf __read_mostly = IPV6_MLD_MAX_MSF;
+> +int sysctl_mld_qrv __read_mostly = MLD_QRV_DEFAULT;
+>  
+>  /*
+>   *	socket join on multicast group
+> @@ -1196,7 +1197,7 @@ static void mld_update_qrv(struct inet6_dev *idev,
+>  	if (mlh2->mld2q_qrv > 0)
+>  		idev->mc_qrv = mlh2->mld2q_qrv;
+>  
+> -	if (unlikely(idev->mc_qrv < 2)) {
+> +	if (unlikely(idev->mc_qrv < MLD_QRV_DEFAULT)) {
+>  		net_warn_ratelimited("IPv6: MLD: clamping QRV from %u to %u!\n",
+>  				     idev->mc_qrv, MLD_QRV_DEFAULT);
+>  		idev->mc_qrv = MLD_QRV_DEFAULT;
 
-Acked-by: Simon Horman <horms+renesas@verge.net.au>
+You allow the sysctl to be 1, but here it is limited to 2?
 
+
+> @@ -2478,6 +2479,14 @@ void ipv6_mc_down(struct inet6_dev *idev)
+>  	mld_clear_delrec(idev);
+>  }
+>  
+> +static void ipv6_mc_reset(struct inet6_dev *idev)
+> +{
+> +	idev->mc_qrv = sysctl_mld_qrv;
+> +	idev->mc_qi = MLD_QI_DEFAULT;
+> +	idev->mc_qri = MLD_QRI_DEFAULT;
+> +	idev->mc_v1_seen = 0;
+> +	idev->mc_maxdelay = unsolicited_report_interval(idev);
+> +}
+>  
+>  /* Device going up */
+>  
+> @@ -2488,6 +2497,7 @@ void ipv6_mc_up(struct inet6_dev *idev)
+>  	/* Install multicast list, except for all-nodes (already installed) */
+>  
+>  	read_lock_bh(&idev->lock);
+> +	ipv6_mc_reset(idev);
+
+ok, up and down the interface to get the sysctl value applied.
+
+>  	for (i = idev->mc_list; i; i = i->next)
+>  		igmp6_group_added(i);
+>  	read_unlock_bh(&idev->lock);
+> @@ -2508,13 +2518,7 @@ void ipv6_mc_init_dev(struct inet6_dev *idev)
+>  			(unsigned long)idev);
+>  	setup_timer(&idev->mc_dad_timer, mld_dad_timer_expire,
+>  		    (unsigned long)idev);
+> -
+> -	idev->mc_qrv = MLD_QRV_DEFAULT;
+> -	idev->mc_qi = MLD_QI_DEFAULT;
+> -	idev->mc_qri = MLD_QRI_DEFAULT;
+> -
+> -	idev->mc_maxdelay = unsolicited_report_interval(idev);
+> -	idev->mc_v1_seen = 0;
+> +	ipv6_mc_reset(idev);
+
+looks good to me.
+
+
+>  	write_unlock_bh(&idev->lock);
+>  }
+>  
+> diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+> index 0c56c93..c5c10fa 100644
+> --- a/net/ipv6/sysctl_net_ipv6.c
+> +++ b/net/ipv6/sysctl_net_ipv6.c
+> @@ -16,6 +16,8 @@
+>  #include <net/addrconf.h>
+>  #include <net/inet_frag.h>
+>  
+> +static int one = 1;
+> +
+
+Although that can be reused later for other purposes, it's nice to
+have a comment telling where that value came from. Since you have
+defined MLD_QRV_DEFAULT, it helps. Still I didn't know about 
+rfc6636#section-4.5, so I'd appreciate if you include that info
+either in ip-sysctl.txt or close to MLD_QRV_DEFAULT.
+E.g.:
+
+/* See RFC3810 9.1 and rfc6636 4.5 */
++int sysctl_mld_qrv __read_mostly = MLD_QRV_DEFAULT;
+
+Actually, maybe that int could be something not specific to ipv6
+because I believe there are more users of the same thing. That's ok,
+just a comment and it's not part of this patch.
+
+>  static struct ctl_table ipv6_table_template[] = {
+>  	{
+>  		.procname	= "bindv6only",
+> @@ -63,6 +65,14 @@ static struct ctl_table ipv6_rotable[] = {
+>  		.mode		= 0644,
+>  		.proc_handler	= proc_dointvec
+>  	},
+> +	{
+> +		.procname	= "mld_qrv",
+> +		.data		= &sysctl_mld_qrv,
+> +		.maxlen		= sizeof(int),
+> +		.mode		= 0644,
+> +		.proc_handler	= proc_dointvec_minmax,
+> +		.extra1		= &one
+> +	},
+>  	{ }
+>  };
+>  
+> -- 
+> 1.9.3
+> 
