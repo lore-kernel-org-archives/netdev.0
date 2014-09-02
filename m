@@ -1,52 +1,68 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: RTNL: assertion failed at net/ipv6/addrconf.c (1699)
-Date: Tue, 2 Sep 2014 11:15:36 -0700
-Message-ID: <CAHA+R7PY=Pu7VKA3wp1DxeJRckxPNWL-xfv2XXkpaY935kt61A@mail.gmail.com>
-References: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
-	<CAHA+R7MZCDGRhSf=UuVCGQvNo03wVziZQB_X30rwNf6hmHipQA@mail.gmail.com>
-	<20140829195339.GA9780@kria>
-	<1409363489.2980.17.camel@localhost>
-	<CAHA+R7ODa+LrdwSrS7HcBfwwq8_fpj-Ld0OCDtcOqkpCdZCvxg@mail.gmail.com>
-	<1409680684.972417.162793869.03CF8A61@webmail.messagingengine.com>
-	<CAHA+R7Mwy1SCpEUgGf9BdLEro6N-3t89KU=xL0iuzgOppXELrQ@mail.gmail.com>
-	<1409681487.26422.1.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Sabrina Dubroca <sd@queasysnail.net>,
-	Tommi Rantala <tt.rantala@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, trinity@vger.kernel.org,
-	Dave Jones <davej@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <trinity-owner@vger.kernel.org>
-In-Reply-To: <1409681487.26422.1.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: trinity-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: systemport: update UMAC_CMD only when link is detected
+Date: Tue,  2 Sep 2014 11:17:07 -0700
+Message-ID: <1409681827-5837-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:37463 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751739AbaIBSSG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 14:18:06 -0400
+Received: by mail-pd0-f182.google.com with SMTP id fp1so9129559pdb.13
+        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 11:18:04 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 2, 2014 at 11:11 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2014-09-02 at 11:04 -0700, Cong Wang wrote:
->> On Tue, Sep 2, 2014 at 10:58 AM, Hannes Frederic Sowa
->
->> > I definitely don't have a problem cleaning this up in net-next. I wanted
->> > a minimal patch for stable because I didn't check history where and when
->> > additional users of dev_get_by_flags_rcu were removed.
->>
->> `git grep` should show you we only have one caller. Apparently we don't
->> care about any out-of-tree module.
->
-> Point is : you did not check if some stable versions had more callers.
->
-> Its very nice you checked current version, but it is not enough for a
-> stable candidate.
+When we bring the interface down, phy_stop() will schedule the PHY
+state machine to call our link adjustment callback. By the time we do so,
+we may have clock gated off the SYSTEMPORT hardware block, and this will
+cause bus errors to happen in bcm_sysport_adj_link():
 
-That is what we do when backporting patches, I can do that if David asks
-me to backport it, but you know for netdev that is David's work.
+Make sure that we only touch the UMAC_CMD register when there is an
+actual link. This is safe to do for two reasons:
 
-(I am not saying I don't want to help him, I just want to point out the fact.
-I am very pleased to help David for stable backports as long as he asks)
+- updating the Ethernet MAC registers only make sense when a physical
+  link is present
+- the PHY library state machine first set phydev->link = 0 before
+  invoking phydev->adjust_link in the PHY_HALTED case
+
+This is a similar fix to the GENET one:
+c677ba8b3c47650358572091ed8a6af50bfca877 ("net: bcmgenet: update
+UMAC_CMD only when link is detected").
+
+Fixes: 80105befdb4b ("net: systemport: add Broadcom SYSTEMPORT Ethernet MAC driver")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bcmsysport.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index 8f91de169663..662cf2222873 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -1071,16 +1071,19 @@ static void bcm_sysport_adj_link(struct net_device *dev)
+ 	if (!phydev->pause)
+ 		cmd_bits |= CMD_RX_PAUSE_IGNORE | CMD_TX_PAUSE_IGNORE;
+ 
+-	if (changed) {
++	if (!changed)
++		return;
++
++	if (phydev->link) {
+ 		reg = umac_readl(priv, UMAC_CMD);
+ 		reg &= ~((CMD_SPEED_MASK << CMD_SPEED_SHIFT) |
+ 			CMD_HD_EN | CMD_RX_PAUSE_IGNORE |
+ 			CMD_TX_PAUSE_IGNORE);
+ 		reg |= cmd_bits;
+ 		umac_writel(priv, reg, UMAC_CMD);
+-
+-		phy_print_status(priv->phydev);
+ 	}
++
++	phy_print_status(priv->phydev);
+ }
+ 
+ static int bcm_sysport_init_tx_ring(struct bcm_sysport_priv *priv,
+-- 
+1.9.1
