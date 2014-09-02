@@ -1,101 +1,73 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [net-next PATCH 3/3] qdisc: sysctl to adjust bulk dequeue limit
-Date: Tue, 02 Sep 2014 17:33:25 +0200
-Message-ID: <5405E345.9010403@redhat.com>
-References: <20140902143254.1918.8419.stgit@dragon> <20140902143553.1918.73632.stgit@dragon>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: truesize for pages shared between SKBs
+Date: Tue, 02 Sep 2014 08:51:53 -0700
+Message-ID: <1409673113.3173.114.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1409660440.1808.17.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Florian Westphal <fw@strlen.de>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Ido Yariv <ido@wizery.com>,
+	Emmanuel Grumbach <egrumbach@gmail.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51178 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753703AbaIBPdi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 11:33:38 -0400
-In-Reply-To: <20140902143553.1918.73632.stgit@dragon>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:32876 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754125AbaIBPv4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 11:51:56 -0400
+In-Reply-To: <1409660440.1808.17.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/02/2014 04:36 PM, Jesper Dangaard Brouer wrote:
-> Allow userspace to adjust how many packet the qdisc is allowed to
-> bulk dequeue.
->
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
->
-> ---
-> Question should we allow this to be adjusted?
->
->   include/net/sch_generic.h  |    2 ++
->   net/core/sysctl_net_core.c |    9 +++++++++
->   net/sched/sch_generic.c    |    4 +++-
->   3 files changed, 14 insertions(+), 1 deletions(-)
->
-> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> index a3cfb8e..b0ac7b5 100644
-> --- a/include/net/sch_generic.h
-> +++ b/include/net/sch_generic.h
-> @@ -14,6 +14,8 @@ struct qdisc_walker;
->   struct tcf_walker;
->   struct module;
->
-> +extern int qdisc_bulk_dequeue_limit;
-> +
->   struct qdisc_rate_table {
->   	struct tc_ratespec rate;
->   	u32		data[256];
-> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-> index cf9cd13..5505841 100644
-> --- a/net/core/sysctl_net_core.c
-> +++ b/net/core/sysctl_net_core.c
-> @@ -361,6 +361,15 @@ static struct ctl_table net_core_table[] = {
->   		.mode		= 0644,
->   		.proc_handler	= proc_dointvec
->   	},
-> +	{
-> +		.procname	= "qdisc_bulk_dequeue_limit",
-> +		.data		= &qdisc_bulk_dequeue_limit,
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.extra1		= &zero,
+On Tue, 2014-09-02 at 14:20 +0200, Johannes Berg wrote:
+> Hi,
+> 
+> In our driver, we have 4k receive buffers, but usually ~1500 byte
+> packets.
 
-If zero, then this would bulk INT_MAX due to a wrap around in patch 2.
+Which driver exactly is that ?
 
-> +		.extra2		= &ushort_max,
-> +		.proc_handler	= proc_dointvec_minmax
-> +	},
->   	{ }
->   };
->
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index 30814ef..9cb08c0 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -34,6 +34,8 @@
->   const struct Qdisc_ops *default_qdisc_ops = &pfifo_fast_ops;
->   EXPORT_SYMBOL(default_qdisc_ops);
->
-> +int qdisc_bulk_dequeue_limit __read_mostly = 7;
-> +
+> 
+> How do other drivers handle this? We currently set up the truesize of
+> each SKB to be its size plus the 4k page size, but we see performance
+> improvements when we lie and pretend the truesize is just 4k/(# of
+> packets in the page), which is correct as long as the packets are all
+> pending in the stack since they share the page.
 
-Just nit, but this should be adjusted plus the exit condition in
-dequeue_skb() to work with 8 when you mention the max limit of 8
-as bulk dequeue.
+Can you elaborate on 'they share the page' ?
 
-It would be great, if we could go with 0 knobs first, though.
+If a 4K page is really split into 2 2KB subpages, then yes, truesize can
+be 2KB + skb->head + sizeof(struct sk_buff)
 
->   /* Main transmission queue. */
->
->   /* Modifications to data participating in scheduling must be protected with
-> @@ -81,7 +83,7 @@ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
->   			/* bulk dequeue */
->   			if (skb && !skb->next && (q->flags & TCQ_F_ONETXQUEUE)) {
->   				struct sk_buff *new, *head = skb;
-> -				int limit = 7;
-> +				int limit = qdisc_bulk_dequeue_limit;
->
->   				do {
->   					new = q->dequeue(q);
->
+Some drivers do that (Intel IGBVF for example)
+
+If a single 4KB page can be used by a single 1500 frame, then its not
+shared ;)
+
+> 
+> How do other drivers handle this? Should the truesize maybe be aware of
+> this kind of sharing? Should we just lie about it and risk that the
+> truesize is accounted erroneously if some but not all of the packets are
+> freed?
+
+Lies are not worth crashing hosts under memory pressure.
+
+skb->truesize is really how many bytes are consumed by an skb. This
+serves in TCP stack to trigger collapses when a socket reaches its
+limits.
+
+Your performance is better when you lie, because for the same
+sk->sk_rcvbuf value (typically tcp_rmem[2]), TCP window can be bigger,
+and allows TCP sender to send more packets (bigger cwnd)
+
+Workaround : make tcp_rmem[2] larger, so that we still have an
+appropriate memory limit per socket, acting for OOM prevention, and
+allowing better performance for large BDP flows.
+
+Current value is 6MB, which is already quite big IMO for well behaving
+drivers.
+
+Real fix would be to make your skb as slim as possible of course.
+It helps even if GRO or TCP coalescing can reduce the memory
+requirements for bulk flows.
