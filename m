@@ -1,47 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] sunvnet: Avoid sending superfluous LDC
- messages.
-Date: Mon, 01 Sep 2014 20:48:57 -0700 (PDT)
-Message-ID: <20140901.204857.987190951930176561.davem@davemloft.net>
-References: <20140829202105.GI14753@oracle.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
+ is runnable
+Date: Tue, 02 Sep 2014 12:03:42 +0800
+Message-ID: <5405419E.7020103@redhat.com>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com> <1408608310-13579-2-git-send-email-jasowang@redhat.com> <1408683665.5648.69.camel@marge.simpson.net> <20140901093159.GB27892@worktop.ger.corp.intel.com> <20140901095219.GD21269@redhat.com> <20140901100434.GD27892@worktop.ger.corp.intel.com> <20140901101939.GA31157@worktop.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
-To: sowmini.varadhan@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46996 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752076AbaIBDs6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 23:48:58 -0400
-In-Reply-To: <20140829202105.GI14753@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ingo Molnar <mingo@elte.hu>,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>
+To: Peter Zijlstra <peterz@infradead.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140901101939.GA31157@worktop.ger.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Fri, 29 Aug 2014 16:21:05 -0400
+On 09/01/2014 06:19 PM, Peter Zijlstra wrote:
+> On Mon, Sep 01, 2014 at 12:04:34PM +0200, Peter Zijlstra wrote:
+>> > On Mon, Sep 01, 2014 at 12:52:19PM +0300, Michael S. Tsirkin wrote:
+>>> > > On Mon, Sep 01, 2014 at 11:31:59AM +0200, Peter Zijlstra wrote:
+>>>> > > > On Fri, Aug 22, 2014 at 07:01:05AM +0200, Mike Galbraith wrote:
+>>>>>> > > > > > +++ b/include/net/busy_poll.h
+>>>>>> > > > > > @@ -109,7 +109,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
+>>>>>> > > > > >  		cpu_relax();
+>>>>>> > > > > >  
+>>>>>> > > > > >  	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
+>>>>>> > > > > > -		 !need_resched() && !busy_loop_timeout(end_time));
+>>>>>> > > > > > +		 !need_resched() && !busy_loop_timeout(end_time) &&
+>>>>>> > > > > > +		 nr_running_this_cpu() < 2);
+>>>>>> > > > > >  
+>>>> > > > 
+>>>> > > > So as has been said by now; this is horrible.
+>>>> > > > 
+>>>> > > > We should not export nr_running like this ever. Your usage of < 2
+>>>> > > > implies this can be hit with nr_running == 0, and therefore you can also
+>>>> > > > hit it with nr_running == 1 where the one is not network related and you
+>>>> > > > get random delays.
+>>>> > > > 
+>>>> > > > Worse still, you have BH (and thereby preemption) disabled, you should
+>>>> > > > not _ever_ have undefined and indefinite waits like that.
+>>>> > > > 
+>>>> > > > You also destroy any hope of dropping into lower power states; even when
+>>>> > > > there's never going to be a packet ever again, also bad.
+>>> > > 
+>>> > > Hmm this patch sometimes makes us exit from the busy loop *earlier*.
+>>> > > How can this interfere with dropping into lower power states?
+>> > 
+>> > Ah.. jetlag.. :/ I read it like it owuld indefinitely spin if there was
+>> > only the 'one' task, not avoid the spin unless there was the one task.
+>> > 
+>> > The nr_running thing is still horrible, but let me reread this patch
+>> > description to see if it explains why that is a good thing.
+> OK I suppose that more or less makes sense, the contextual behaviour is
+> of course tedious in that it makes behaviour less predictable. The
+> 'other' tasks might not want to generate data and you then destroy
+> throughput by not spinning.
 
-> @@ -380,11 +390,14 @@ static int vnet_walk_rx(struct vnet_port *port, struct vio_dring_state *dr,
->  	viodbg(DATA, "vnet_walk_rx start[%08x] end[%08x]\n", start, end);
->  
->  	while (start != end) {
-> -		int ack = 0, err = vnet_walk_rx_one(port, dr, start, &ack);
-> +		int retries;
-> +		int ack = 0, err;
-> +
-> +		retries = 0;
-> +again:
-> +		err = vnet_walk_rx_one(port, dr, start, &ack);
->  		if (err == -ECONNRESET)
->  			return err;
-> -		if (err != 0)
-> -			break;
->  		if (ack_start == -1)
->  			ack_start = start;
->  		ack_end = start;
+The patch try to make sure:
+- the the performance of busy read was not worse than it was disabled in
+any cases.
+- the performance improvement of a single socket was not achieved by
+sacrificing the total performance (all other processes) of the system
+ 
+If 'other' tasks are also CPU or I/O intensive jobs, we switch to do
+them so the total performance were kept or even increased, and the
+performance of current process were guaranteed not worse than when busy
+read was disabled (or even better since it may still do busy read
+sometimes when it was the only runnable process). If 'other' task are
+not intensive, they just do little work and sleep soon, then the busy
+read can still work in most of the time during the future reads, we may
+still get obvious improvements.
+> I'm not entirely sure I see how its all supposed to work though; the
+> various poll functions call sk_busy_poll() and do_select() also loops.
+>
+> The patch only kills the sk_busy_poll() loop, but then do_select() will
+> still loop and not sleep, so how is this helping?
 
-You're adding a function local label not even used by this patch.
-
-Please be more careful with your patch submissions, I can see here
-that you're bleeding patch #2 (which I disagree with) into this one
-and you're not testing your changes individually as you should.
+Yes, the patch only help for processes who did a blocking reads (busy
+read). For select(), maybe we can do the same thing but need more test
+and thoughts.
