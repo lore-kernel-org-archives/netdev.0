@@ -1,101 +1,36 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next v4] lib/rhashtable: allow user to set the minimum shifts of shrinking
-Date: Tue, 2 Sep 2014 09:28:59 +0800
-Message-ID: <1409621339-6192-1-git-send-email-ying.xue@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net PATCH 1/1] drivers: net: cpsw: dual_emac: fix reducing of
+ rx descriptor during ifdown
+Date: Mon, 01 Sep 2014 18:31:08 -0700 (PDT)
+Message-ID: <20140901.183108.784916699845611422.davem@davemloft.net>
+References: <1409304145-26179-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-	<netdev@vger.kernel.org>
-To: <tgraf@suug.ch>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:58854 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751786AbaIBB3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 21:29:30 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:46017 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751227AbaIBBbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 21:31:09 -0400
+In-Reply-To: <1409304145-26179-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Although rhashtable library allows user to specify a quiet big size
-for user's created hash table, the table may be shrunk to a
-very small size - HASH_MIN_SIZE(4) after object is removed from
-the table at the first time. Subsequently, even if the total amount
-of objects saved in the table is quite lower than user's initial
-setting in a long time, the hash table size is still dynamically
-adjusted by rhashtable_shrink() or rhashtable_expand() each time
-object is inserted or removed from the table. However, as
-synchronize_rcu() has to be called when table is shrunk or
-expanded by the two functions, we should permit user to set the
-minimum table size through configuring the minimum number of shifts
-according to user specific requirement, avoiding these expensive
-actions of shrinking or expanding because of calling synchronize_rcu().
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Fri, 29 Aug 2014 14:52:25 +0530
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
-In the version, no any compiling warning appears, and all rhashtable
-self test cases are passed.
+> In Dual EMAC, when both interface are up and while doing ifdown with heavy
+> traffic then skbs already processed by DMA from that slave emac has to be
+> requeued as still the other interface is up and running.
+> 
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 
- include/linux/rhashtable.h |    2 ++
- lib/rhashtable.c           |   12 ++++++++----
- 2 files changed, 10 insertions(+), 4 deletions(-)
+I don't see why this is important.
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 36826c0..fb298e9d 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -44,6 +44,7 @@ struct rhashtable;
-  * @head_offset: Offset of rhash_head in struct to be hashed
-  * @hash_rnd: Seed to use while hashing
-  * @max_shift: Maximum number of shifts while expanding
-+ * @min_shift: Minimum number of shifts while shrinking
-  * @hashfn: Function to hash key
-  * @obj_hashfn: Function to hash object
-  * @grow_decision: If defined, may return true if table should expand
-@@ -57,6 +58,7 @@ struct rhashtable_params {
- 	size_t			head_offset;
- 	u32			hash_rnd;
- 	size_t			max_shift;
-+	size_t			min_shift;
- 	rht_hashfn_t		hashfn;
- 	rht_obj_hashfn_t	obj_hashfn;
- 	bool			(*grow_decision)(const struct rhashtable *ht,
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index a2c7881..5b52100 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -298,7 +298,7 @@ int rhashtable_shrink(struct rhashtable *ht, gfp_t flags)
- 
- 	ASSERT_RHT_MUTEX(ht);
- 
--	if (tbl->size <= HASH_MIN_SIZE)
-+	if (ht->shift <= ht->p.min_shift)
- 		return 0;
- 
- 	ntbl = bucket_table_alloc(tbl->size / 2, flags);
-@@ -506,9 +506,10 @@ void *rhashtable_lookup_compare(const struct rhashtable *ht, u32 hash,
- }
- EXPORT_SYMBOL_GPL(rhashtable_lookup_compare);
- 
--static size_t rounded_hashtable_size(unsigned int nelem)
-+static size_t rounded_hashtable_size(struct rhashtable_params *params)
- {
--	return max(roundup_pow_of_two(nelem * 4 / 3), HASH_MIN_SIZE);
-+	return max(roundup_pow_of_two(params->nelem_hint * 4 / 3),
-+		   1UL << params->min_shift);
- }
- 
- /**
-@@ -566,8 +567,11 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
- 	    (!params->key_len && !params->obj_hashfn))
- 		return -EINVAL;
- 
-+	params->min_shift = max_t(size_t, params->min_shift,
-+				  (size_t)ilog2(HASH_MIN_SIZE));
-+
- 	if (params->nelem_hint)
--		size = rounded_hashtable_size(params->nelem_hint);
-+		size = rounded_hashtable_size(params);
- 
- 	tbl = bucket_table_alloc(size, GFP_KERNEL);
- 	if (tbl == NULL)
--- 
-1.7.9.5
+If the packet arrived via the down interface, let it be dropped and
+the sender will simply resend if necessary.
+
+Also you are putting this new multi-slave logic under the "status < 0"
+condition as well as the interface being down, that's not right either.
