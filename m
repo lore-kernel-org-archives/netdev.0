@@ -1,73 +1,66 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [net PATCH 1/1] drivers: net: cpsw: dual_emac: fix reducing of
- rx descriptor during ifdown
-Date: Tue, 2 Sep 2014 14:51:05 +0530
-Message-ID: <54058C01.3010402@ti.com>
-References: <1409304145-26179-1-git-send-email-mugunthanvnm@ti.com> <20140901.183108.784916699845611422.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
+ runnable
+Date: Tue, 2 Sep 2014 11:31:24 +0300
+Message-ID: <20140902083124.GB10356@redhat.com>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
+ <1408608310-13579-2-git-send-email-jasowang@redhat.com>
+ <1408683665.5648.69.camel@marge.simpson.net>
+ <53F6F14B.1030609@redhat.com>
+ <20140822074224.GB7372@gmail.com>
+ <53FFEEC0.4000304@redhat.com>
+ <540414AB.9000004@linux.intel.com>
+ <54053998.4040604@redhat.com>
+ <54056076.2030603@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, Ingo Molnar <mingo@kernel.org>,
+	Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:38711 "EHLO arroyo.ext.ti.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44692 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753242AbaIBJVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 05:21:09 -0400
-In-Reply-To: <20140901.183108.784916699845611422.davem@davemloft.net>
+	id S1753495AbaIBJaR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 05:30:17 -0400
+Content-Disposition: inline
+In-Reply-To: <54056076.2030603@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David
-
-On Tuesday 02 September 2014 07:01 AM, David Miller wrote:
-> From: Mugunthan V N <mugunthanvnm@ti.com>
-> Date: Fri, 29 Aug 2014 14:52:25 +0530
+On Tue, Sep 02, 2014 at 09:15:18AM +0300, Eliezer Tamir wrote:
+> On 02/09/2014 06:29, Jason Wang wrote:
+> > On 09/01/2014 02:39 PM, Eliezer Tamir wrote:
+> >> On 29/08/2014 06:08, Jason Wang wrote:
+> >>>> Yes, but rx busy polling only works in process context and does not
+> >>>> disable bh, so it may be not an issue.
+> >> sk_busy_loop() uses rcu_read_lock_bh(), so it does run with bh disabled.
+> > 
+> > True, so we need probably also exit the loop when there are pending bhs.
 > 
->> In Dual EMAC, when both interface are up and while doing ifdown with heavy
->> traffic then skbs already processed by DMA from that slave emac has to be
->> requeued as still the other interface is up and running.
->>
->> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> I'm not so sure, in the typical busy poll scenario, the incoming
+> traffic is the most time-critical thing in the system.
+> It's so important that you are willing to trade lots of CPU power
+> for better latency. The user has decided that he wants to dedicate
+> this CPU mostly for that. This is not something that plays nice with
+> other apps, but this is what the user wants.
+
+I think most applications wouldn't interpret this flag as "burn up CPU I don't
+care what is the result", what apps want is more of "maximise throughput
+and minimise latency even if throughput/CPU ratio goes down".
+Jason posted benchmarks that show throughput going up because other
+processes get more of a chance to run, so this seems consistent
+with that goal.
+
+
+> So, you definitely don't want to starve any bh, and you should
+> regularly re-enable bh's, but you also don't want to stop everything
+> at any time a bh is scheduled.
 > 
-> I don't see why this is important.
+> You also want network processing on the queues that are busy polled
+> to come through busy polling and not through NAPI, which is run in bh
+> context.
 > 
-> If the packet arrived via the down interface, let it be dropped and
-> the sender will simply resend if necessary.
-> 
-> Also you are putting this new multi-slave logic under the "status < 0"
-> condition as well as the interface being down, that's not right either.
-> 
-
-Multi slave logic is already there though out the driver, this is one
-corner case where it fails. Let me explain more
-
-DMA is common for both interfaces and serves both the slave ports. In
-heavy traffic when one interface is put down, there are chances that
-some packets are already processed in are in completed state.
-
-Since DMA is a common entity for both interface, DMA is disabled only
-when there all the slave interfaces are down. so when both interface is
-up and putting down one interface, DMA de-init doesn't  happen as the
-other interface is up.
-
-In this scenario, when cpsw_rx_handler is called for processing the
-packet which might have packets for interfaces which is down already.
-Previously the driver simply drops the skb and doesn't do re-queue of
-the descriptor which results in one descriptor less for rx DMA.
-
-When ifup and ifdown is run continuously, for each spilled packet (for
-interface which is down) from DMA, the total number of rx descriptor
-goes down and at one instance all the descriptor is lost and both the
-interface stops working.
-
-To recover from this we need to put down both the interface and open the
-interface which will re-init the DMA which intern queues fresh set of
-skbs for rx.
-
-So to overcome this issue, I did this fix by re-queuing the rx
-descriptor back to DMA when any one interface is so that the no of rx
-descriptor is kept constant always.
-
-Regards
-Mugunthan V N
+> -Eliezer
