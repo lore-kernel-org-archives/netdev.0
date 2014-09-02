@@ -1,106 +1,269 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/7] pull request: Netfilter/IPVS fixes for net
-Date: Tue,  2 Sep 2014 12:13:57 +0200
-Message-ID: <1409652844-10289-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [PATCH 1/7] netfilter: move NAT Kconfig switches out of the iptables scope
+Date: Tue,  2 Sep 2014 12:13:58 +0200
+Message-ID: <1409652844-10289-2-git-send-email-pablo@netfilter.org>
+References: <1409652844-10289-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1409652844-10289-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+Currently, the NAT configs depend on iptables and ip6tables. However,
+users should be capable of enabling NAT for nft without having to
+switch on iptables.
 
-The following patchset contains seven Netfilter fixes for your net
-tree, they are:
+Fix this by adding new specific IP_NF_NAT and IP6_NF_NAT config
+switches for iptables and ip6tables NAT support. I have also moved
+the original NF_NAT_IPV4 and NF_NAT_IPV6 configs out of the scope
+of iptables to make them independent of it.
 
-1) Make the NAT infrastructure independent of x_tables, some users are
-   already starting to test nf_tables with NAT without enabling x_table=
-s.
-   Without this patch for Kconfig, there's a superfluous dependency
-   between NAT and x_tables.
-2) Allow to use 0 in the cgroup match, the kernel rejects with -EINVAL
-   with no good reason. From Daniel Borkmann.
+This patch also adds NETFILTER_XT_NAT which selects the xt_nat
+combo that provides snat/dnat for iptables. We cannot use NF_NAT
+anymore since nf_tables can select this.
 
-3) Select CONFIG_NF_NAT from the nf_tables NAT expression, this also
-   resolves another NAT dependency with x_tables.
+Reported-by: Matteo Croce <technoboy85@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/ipv4/netfilter/Kconfig  |  102 +++++++++++++++++++++++--------------------
+ net/ipv4/netfilter/Makefile |    2 +-
+ net/ipv6/netfilter/Kconfig  |   26 ++++++++---
+ net/ipv6/netfilter/Makefile |    2 +-
+ net/netfilter/Makefile      |    2 +-
+ 5 files changed, 77 insertions(+), 57 deletions(-)
 
-4) Use HAVE_JUMP_LABEL instead of CONFIG_JUMP_LABEL in the Netfilter ho=
-ok
-   code as elsewhere in the kernel to resolve toolchain problems, from
-   Zhouyi Zhou.
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index fb17312..7cbcaf4 100644
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -82,6 +82,52 @@ config NF_TABLES_ARP
+ 	help
+ 	  This option enables the ARP support for nf_tables.
+ 
++config NF_NAT_IPV4
++	tristate "IPv4 NAT"
++	depends on NF_CONNTRACK_IPV4
++	default m if NETFILTER_ADVANCED=n
++	select NF_NAT
++	help
++	  The IPv4 NAT option allows masquerading, port forwarding and other
++	  forms of full Network Address Port Translation. This can be
++	  controlled by iptables or nft.
++
++if NF_NAT_IPV4
++
++config NF_NAT_SNMP_BASIC
++	tristate "Basic SNMP-ALG support"
++	depends on NF_CONNTRACK_SNMP
++	depends on NETFILTER_ADVANCED
++	default NF_NAT && NF_CONNTRACK_SNMP
++	---help---
++
++	  This module implements an Application Layer Gateway (ALG) for
++	  SNMP payloads.  In conjunction with NAT, it allows a network
++	  management system to access multiple private networks with
++	  conflicting addresses.  It works by modifying IP addresses
++	  inside SNMP payloads to match IP-layer NAT mapping.
++
++	  This is the "basic" form of SNMP-ALG, as described in RFC 2962
++
++	  To compile it as a module, choose M here.  If unsure, say N.
++
++config NF_NAT_PROTO_GRE
++	tristate
++	depends on NF_CT_PROTO_GRE
++
++config NF_NAT_PPTP
++	tristate
++	depends on NF_CONNTRACK
++	default NF_CONNTRACK_PPTP
++	select NF_NAT_PROTO_GRE
++
++config NF_NAT_H323
++	tristate
++	depends on NF_CONNTRACK
++	default NF_CONNTRACK_H323
++
++endif # NF_NAT_IPV4
++
+ config IP_NF_IPTABLES
+ 	tristate "IP tables support (required for filtering/masq/NAT)"
+ 	default m if NETFILTER_ADVANCED=n
+@@ -170,19 +216,21 @@ config IP_NF_TARGET_SYNPROXY
+ 	  To compile it as a module, choose M here. If unsure, say N.
+ 
+ # NAT + specific targets: nf_conntrack
+-config NF_NAT_IPV4
+-	tristate "IPv4 NAT"
++config IP_NF_NAT
++	tristate "iptables NAT support"
+ 	depends on NF_CONNTRACK_IPV4
+ 	default m if NETFILTER_ADVANCED=n
+ 	select NF_NAT
++	select NF_NAT_IPV4
++	select NETFILTER_XT_NAT
+ 	help
+-	  The IPv4 NAT option allows masquerading, port forwarding and other
+-	  forms of full Network Address Port Translation.  It is controlled by
+-	  the `nat' table in iptables: see the man page for iptables(8).
++	  This enables the `nat' table in iptables. This allows masquerading,
++	  port forwarding and other forms of full Network Address Port
++	  Translation.
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+-if NF_NAT_IPV4
++if IP_NF_NAT
+ 
+ config IP_NF_TARGET_MASQUERADE
+ 	tristate "MASQUERADE target support"
+@@ -214,47 +262,7 @@ config IP_NF_TARGET_REDIRECT
+ 	(e.g. when running oldconfig). It selects
+ 	CONFIG_NETFILTER_XT_TARGET_REDIRECT.
+ 
+-endif
+-
+-config NF_NAT_SNMP_BASIC
+-	tristate "Basic SNMP-ALG support"
+-	depends on NF_CONNTRACK_SNMP && NF_NAT_IPV4
+-	depends on NETFILTER_ADVANCED
+-	default NF_NAT && NF_CONNTRACK_SNMP
+-	---help---
+-
+-	  This module implements an Application Layer Gateway (ALG) for
+-	  SNMP payloads.  In conjunction with NAT, it allows a network
+-	  management system to access multiple private networks with
+-	  conflicting addresses.  It works by modifying IP addresses
+-	  inside SNMP payloads to match IP-layer NAT mapping.
+-
+-	  This is the "basic" form of SNMP-ALG, as described in RFC 2962
+-
+-	  To compile it as a module, choose M here.  If unsure, say N.
+-
+-# If they want FTP, set to $CONFIG_IP_NF_NAT (m or y),
+-# or $CONFIG_IP_NF_FTP (m or y), whichever is weaker.
+-# From kconfig-language.txt:
+-#
+-#           <expr> '&&' <expr>                   (6)
+-#
+-# (6) Returns the result of min(/expr/, /expr/).
+-
+-config NF_NAT_PROTO_GRE
+-	tristate
+-	depends on NF_NAT_IPV4 && NF_CT_PROTO_GRE
+-
+-config NF_NAT_PPTP
+-	tristate
+-	depends on NF_CONNTRACK && NF_NAT_IPV4
+-	default NF_NAT_IPV4 && NF_CONNTRACK_PPTP
+-	select NF_NAT_PROTO_GRE
+-
+-config NF_NAT_H323
+-	tristate
+-	depends on NF_CONNTRACK && NF_NAT_IPV4
+-	default NF_NAT_IPV4 && NF_CONNTRACK_H323
++endif # IP_NF_NAT
+ 
+ # mangle + specific targets
+ config IP_NF_MANGLE
+diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
+index 3300162..edf4af3 100644
+--- a/net/ipv4/netfilter/Makefile
++++ b/net/ipv4/netfilter/Makefile
+@@ -43,7 +43,7 @@ obj-$(CONFIG_IP_NF_IPTABLES) += ip_tables.o
+ # the three instances of ip_tables
+ obj-$(CONFIG_IP_NF_FILTER) += iptable_filter.o
+ obj-$(CONFIG_IP_NF_MANGLE) += iptable_mangle.o
+-obj-$(CONFIG_NF_NAT_IPV4) += iptable_nat.o
++obj-$(CONFIG_IP_NF_NAT) += iptable_nat.o
+ obj-$(CONFIG_IP_NF_RAW) += iptable_raw.o
+ obj-$(CONFIG_IP_NF_SECURITY) += iptable_security.o
+ 
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index ac93df1..cf0b88f 100644
+--- a/net/ipv6/netfilter/Kconfig
++++ b/net/ipv6/netfilter/Kconfig
+@@ -60,6 +60,16 @@ config NF_LOG_IPV6
+ 	depends on NETFILTER_ADVANCED
+ 	select NF_LOG_COMMON
+ 
++config NF_NAT_IPV6
++	tristate "IPv6 NAT"
++	depends on NF_CONNTRACK_IPV6
++	depends on NETFILTER_ADVANCED
++	select NF_NAT
++	help
++	  The IPv6 NAT option allows masquerading, port forwarding and other
++	  forms of full Network Address Port Translation. This can be
++	  controlled by iptables or nft.
++
+ config IP6_NF_IPTABLES
+ 	tristate "IP6 tables support (required for filtering)"
+ 	depends on INET && IPV6
+@@ -232,19 +242,21 @@ config IP6_NF_SECURITY
+ 
+          If unsure, say N.
+ 
+-config NF_NAT_IPV6
+-	tristate "IPv6 NAT"
++config IP6_NF_NAT
++	tristate "ip6tables NAT support"
+ 	depends on NF_CONNTRACK_IPV6
+ 	depends on NETFILTER_ADVANCED
+ 	select NF_NAT
++	select NF_NAT_IPV6
++	select NETFILTER_XT_NAT
+ 	help
+-	  The IPv6 NAT option allows masquerading, port forwarding and other
+-	  forms of full Network Address Port Translation. It is controlled by
+-	  the `nat' table in ip6tables, see the man page for ip6tables(8).
++	  This enables the `nat' table in ip6tables. This allows masquerading,
++	  port forwarding and other forms of full Network Address Port
++	  Translation.
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+-if NF_NAT_IPV6
++if IP6_NF_NAT
+ 
+ config IP6_NF_TARGET_MASQUERADE
+ 	tristate "MASQUERADE target support"
+@@ -265,7 +277,7 @@ config IP6_NF_TARGET_NPT
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+-endif # NF_NAT_IPV6
++endif # IP6_NF_NAT
+ 
+ endif # IP6_NF_IPTABLES
+ 
+diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
+index c0b2631..c3d3286 100644
+--- a/net/ipv6/netfilter/Makefile
++++ b/net/ipv6/netfilter/Makefile
+@@ -8,7 +8,7 @@ obj-$(CONFIG_IP6_NF_FILTER) += ip6table_filter.o
+ obj-$(CONFIG_IP6_NF_MANGLE) += ip6table_mangle.o
+ obj-$(CONFIG_IP6_NF_RAW) += ip6table_raw.o
+ obj-$(CONFIG_IP6_NF_SECURITY) += ip6table_security.o
+-obj-$(CONFIG_NF_NAT_IPV6) += ip6table_nat.o
++obj-$(CONFIG_IP6_NF_NAT) += ip6table_nat.o
+ 
+ # objects for l3 independent conntrack
+ nf_conntrack_ipv6-y  :=  nf_conntrack_l3proto_ipv6.o nf_conntrack_proto_icmpv6.o
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 8308624..fad5fdb 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -95,7 +95,7 @@ obj-$(CONFIG_NETFILTER_XTABLES) += x_tables.o xt_tcpudp.o
+ obj-$(CONFIG_NETFILTER_XT_MARK) += xt_mark.o
+ obj-$(CONFIG_NETFILTER_XT_CONNMARK) += xt_connmark.o
+ obj-$(CONFIG_NETFILTER_XT_SET) += xt_set.o
+-obj-$(CONFIG_NF_NAT) += xt_nat.o
++obj-$(CONFIG_NETFILTER_XT_NAT) += xt_nat.o
+ 
+ # targets
+ obj-$(CONFIG_NETFILTER_XT_TARGET_AUDIT) += xt_AUDIT.o
+-- 
+1.7.10.4
 
-5) Use iptunnel_handle_offloads() to set up tunnel encapsulation
-   depending on the offload capabilities, reported by Alex Gartrell
-   patch from Julian Anastasov.
-
-6) Fix wrong family when registering the ip_vs_local_reply6() hook,
-   also from Julian.
-
-7) Select the NF_LOG_* symbols from NETFILTER_XT_TARGET_LOG. Rafa=C5=82
-   Mi=C5=82ecki reported that when jumping from 3.16 to 3.17-rc, his lo=
-g
-   target is not selected anymore due to changes in the previous
-   development cycle to accomodate the full logging support for
-   nf_tables.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 21009686662fd21412ca35def7cb3cc8346e=
-1c3d:
-
-  net: phy: smsc: move smsc_phy_config_init reset part in a soft_reset =
-function (2014-08-16 20:15:54 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to d79a61d646db950b68dd79ecc627cb5f11e0d8ac=
-:
-
-  netfilter: NETFILTER_XT_TARGET_LOG selects NF_LOG_* (2014-09-01 13:46=
-:31 +0200)
-
-----------------------------------------------------------------
-Daniel Borkmann (1):
-      netfilter: x_tables: allow to use default cgroup match
-
-Julian Anastasov (2):
-      ipvs: properly declare tunnel encapsulation
-      ipvs: fix ipv6 hook registration for local replies
-
-Pablo Neira Ayuso (3):
-      netfilter: move NAT Kconfig switches out of the iptables scope
-      netfilter: nf_tables: nat expression must select CONFIG_NF_NAT
-      netfilter: NETFILTER_XT_TARGET_LOG selects NF_LOG_*
-
-Zhouyi Zhou (1):
-      netfilter: HAVE_JUMP_LABEL instead of CONFIG_JUMP_LABEL
-
- include/linux/netfilter.h       |    5 +-
- net/ipv4/netfilter/Kconfig      |  102 +++++++++++++++++++++----------=
---------
- net/ipv4/netfilter/Makefile     |    2 +-
- net/ipv6/netfilter/Kconfig      |   26 +++++++---
- net/ipv6/netfilter/Makefile     |    2 +-
- net/netfilter/Kconfig           |    6 ++-
- net/netfilter/Makefile          |    2 +-
- net/netfilter/core.c            |    6 +--
- net/netfilter/ipvs/ip_vs_core.c |    2 +-
- net/netfilter/ipvs/ip_vs_xmit.c |   20 ++++++--
- net/netfilter/xt_cgroup.c       |    2 +-
- 11 files changed, 105 insertions(+), 70 deletions(-)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
