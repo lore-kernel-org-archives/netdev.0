@@ -1,44 +1,31 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
- is runnable
-Date: Tue, 02 Sep 2014 09:15:18 +0300
-Message-ID: <54056076.2030603@linux.intel.com>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com> <1408608310-13579-2-git-send-email-jasowang@redhat.com> <1408683665.5648.69.camel@marge.simpson.net> <53F6F14B.1030609@redhat.com> <20140822074224.GB7372@gmail.com> <53FFEEC0.4000304@redhat.com> <540414AB.9000004@linux.intel.com> <54053998.4040604@redhat.com>
+From: <laurencesweio@bigpond.net.au>
+Subject: Please respond/-1/
+Date: Tue, 02 Sep 2014 08:17:54 +0200
+Message-ID: <E1XOhPe-0007IU-5m@www17.pipni.cz>
+Reply-To: palmerlaurence6@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: Jason Wang <jasowang@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54053998.4040604@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.pipni.cz ([217.16.176.5]:54577 "EHLO smtp2.pipni.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750778AbaIBGR4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 02:17:56 -0400
+Received: from www17.pipni.cz ([2a00:1ed0:1:500::a027])
+	id 1XOhPe-0002rX-ME
+	for netdev@vger.kernel.org; Tue, 02 Sep 2014 08:17:55 +0200
+Received: id 1XOhPe-0007IU-5m
+	for netdev@vger.kernel.org; Tue, 02 Sep 2014 08:17:54 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/09/2014 06:29, Jason Wang wrote:
-> On 09/01/2014 02:39 PM, Eliezer Tamir wrote:
->> On 29/08/2014 06:08, Jason Wang wrote:
->>>> Yes, but rx busy polling only works in process context and does not
->>>> disable bh, so it may be not an issue.
->> sk_busy_loop() uses rcu_read_lock_bh(), so it does run with bh disabled.
-> 
-> True, so we need probably also exit the loop when there are pending bhs.
+Attn ,
 
-I'm not so sure, in the typical busy poll scenario, the incoming
-traffic is the most time-critical thing in the system.
-It's so important that you are willing to trade lots of CPU power
-for better latency. The user has decided that he wants to dedicate
-this CPU mostly for that. This is not something that plays nice with
-other apps, but this is what the user wants.
+My name is Laurence Palmer, a banker at STB SA. I have a beneficial business propsal worth $15 Million for you. You are not going to spend any of your personal savings on this business transaction.
 
-So, you definitely don't want to starve any bh, and you should
-regularly re-enable bh's, but you also don't want to stop everything
-at any time a bh is scheduled.
+I shall cover all expenses which might be necessary for this transaction to go through. I just need a honest individual as a partner. I will give 40% of the proceeds to you.
 
-You also want network processing on the queues that are busy polled
-to come through busy polling and not through NAPI, which is run in bh
-context.
+Respond by email: palmerlaurence6@gmail.com
 
--Eliezer
+Mr. Laurence Palmer
