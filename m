@@ -1,90 +1,57 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 2/2] r8152: use eth_hw_addr_random
-Date: Tue, 2 Sep 2014 17:55:11 +0800
-Message-ID: <1394712342-15778-28-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-26-Taiwan-albertk@realtek.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net v2] ipv6: fix rtnl locking in setsockopt for anycast
+ and multicast
+Date: Tue, 02 Sep 2014 12:07:25 +0200
+Message-ID: <1409652445.22584.16.camel@localhost>
+References: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
+	 <CAHA+R7MZCDGRhSf=UuVCGQvNo03wVziZQB_X30rwNf6hmHipQA@mail.gmail.com>
+	 <20140829195339.GA9780@kria> <1409363489.2980.17.camel@localhost>
+	 <20140830105821.GB18155@kria> <1409599348.21965.6.camel@localhost>
+	 <20140901210520.GB25543@kria> <1409610378.21965.52.camel@localhost>
+	 <20140902082929.GA8483@kria>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:43400 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752365AbaIBJzZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 05:55:25 -0400
-In-Reply-To: <1394712342-15778-26-Taiwan-albertk@realtek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <cwang@twopensource.com>,
+	Tommi Rantala <tt.rantala@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, trinity@vger.kernel.org,
+	Dave Jones <davej@redhat.com>
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <trinity-owner@vger.kernel.org>
+In-Reply-To: <20140902082929.GA8483@kria>
+Sender: trinity-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If the hw doesn't have a valid MAC address, give a random one and
-set it to the hw.
+On Di, 2014-09-02 at 10:29 +0200, Sabrina Dubroca wrote:
+> Calling setsockopt with IPV6_JOIN_ANYCAST or IPV6_LEAVE_ANYCAST
+> triggers the assertion in addrconf_join_solict()/addrconf_leave_solict()
+> 
+> ipv6_sock_ac_join(), ipv6_sock_ac_drop(), ipv6_sock_ac_close() need to
+> take RTNL before calling ipv6_dev_ac_inc/dec. Same thing with
+> ipv6_sock_mc_join(), ipv6_sock_mc_drop(), ipv6_sock_mc_close() before
+> calling ipv6_dev_mc_inc/dec.
+> 
+> This patch moves ASSERT_RTNL() up a level in the call stack.
+> 
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> Reported-by: Tommi Rantala <tt.rantala@gmail.com>
+> ---
+> As was said earlier, this should go in stable.
+> 
+> v2:
+>  - based on net
+>  - keep dev_get_by_flags_rcu and RCU in ipv6_sock_ac_*
+>  - remove two ASSERT_RTNL() that are not necessary
+> 
+> Thank you for your help, Hannes!
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 39 ++++++++++++++++++++++++---------------
- 1 file changed, 24 insertions(+), 15 deletions(-)
+Thanks for fixing! ;)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index b5ff933..2bc1b8d 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -992,32 +992,41 @@ static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
- 	return 0;
- }
- 
--static inline void set_ethernet_addr(struct r8152 *tp)
-+static int set_ethernet_addr(struct r8152 *tp)
- {
- 	struct net_device *dev = tp->netdev;
-+	struct sockaddr sa;
- 	int ret;
--	u8 node_id[8] = {0};
- 
- 	if (tp->version == RTL_VER_01)
--		ret = pla_ocp_read(tp, PLA_IDR, sizeof(node_id), node_id);
-+		ret = pla_ocp_read(tp, PLA_IDR, 8, sa.sa_data);
- 	else
--		ret = pla_ocp_read(tp, PLA_BACKUP, sizeof(node_id), node_id);
-+		ret = pla_ocp_read(tp, PLA_BACKUP, 8, sa.sa_data);
- 
- 	if (ret < 0) {
--		netif_notice(tp, probe, dev, "inet addr fail\n");
-+		netif_err(tp, probe, dev, "Get ether addr fail\n");
-+	} else if (!is_valid_ether_addr(sa.sa_data)) {
-+		netif_err(tp, probe, dev,
-+			  "Invalid ether addr %02x:%02x:%02x:%02x:%02x:%02x\n",
-+			  sa.sa_data[0], sa.sa_data[1], sa.sa_data[2],
-+			  sa.sa_data[3], sa.sa_data[4], sa.sa_data[5]);
-+		eth_hw_addr_random(dev);
-+		ether_addr_copy(sa.sa_data, dev->dev_addr);
-+		ret = rtl8152_set_mac_address(dev, &sa);
-+		netif_info(tp, probe, dev,
-+			   "Random ether addr %02x:%02x:%02x:%02x:%02x:%02x\n",
-+			   sa.sa_data[0], sa.sa_data[1], sa.sa_data[2],
-+			   sa.sa_data[3], sa.sa_data[4], sa.sa_data[5]);
- 	} else {
--		if (tp->version != RTL_VER_01) {
--			ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR,
--				       CRWECR_CONFIG);
--			pla_ocp_write(tp, PLA_IDR, BYTE_EN_SIX_BYTES,
--				      sizeof(node_id), node_id);
--			ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR,
--				       CRWECR_NORAML);
--		}
-+		if (tp->version == RTL_VER_01)
-+			ether_addr_copy(dev->dev_addr, sa.sa_data);
-+		else
-+			ret = rtl8152_set_mac_address(dev, &sa);
- 
--		memcpy(dev->dev_addr, node_id, dev->addr_len);
--		memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
-+		ether_addr_copy(dev->perm_addr, dev->dev_addr);
- 	}
-+
-+	return ret;
- }
- 
- static void read_bulk_callback(struct urb *urb)
--- 
-1.9.3
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
