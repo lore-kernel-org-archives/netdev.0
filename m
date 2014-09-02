@@ -1,71 +1,28 @@
-From: Boaz Harrosh <openosd@gmail.com>
-Subject: Re: [PATCH] Next branch: authgss: authgss.c: Fix warnings for uninitizlized
- variable expire
-Date: Tue, 02 Sep 2014 13:52:15 +0300
-Message-ID: <5405A15F.2060002@gmail.com>
-References: <1409571154-50408-1-git-send-email-shakilk1729@gmail.com> <CAHQdGtQAwp_QuQE-xmjJNkcxbu7g4QtYQv8qrPT_qWpkym1GZg@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next v4] lib/rhashtable: allow user to set the
+ minimum shifts of shrinking
+Date: Tue, 2 Sep 2014 12:04:18 +0100
+Message-ID: <20140902110418.GC6778@casper.infradead.org>
+References: <1409621339-6192-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux NFS Mailing List <linux-nfs@vger.kernel.org>,
-	Linux Kernel mailing list <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>,
-	William Andros Adamson <andros@netapp.com>,
-	Jeffrey Layton <jlayton@primarydata.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Bruce Fields <bfields@fieldses.org>
-To: Trond Myklebust <trond.myklebust@primarydata.com>,
-	Shakil A Khan <shakilk1729@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHQdGtQAwp_QuQE-xmjJNkcxbu7g4QtYQv8qrPT_qWpkym1GZg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Ying Xue <ying.xue@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:33282 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753749AbaIBLEV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 07:04:21 -0400
+Content-Disposition: inline
+In-Reply-To: <1409621339-6192-1-git-send-email-ying.xue@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/01/2014 04:50 PM, Trond Myklebust wrote:
-> On Mon, Sep 1, 2014 at 7:32 AM, Shakil A Khan <shakilk1729@gmail.com> wrote:
->> Signed-off-by : Shakil A Khan <shakilk1729@gmail.com>
->> ---
->>  net/sunrpc/auth_gss/auth_gss.c |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
->> index afb292c..bea0951 100644
->> --- a/net/sunrpc/auth_gss/auth_gss.c
->> +++ b/net/sunrpc/auth_gss/auth_gss.c
->> @@ -1387,7 +1387,7 @@ gss_key_timeout(struct rpc_cred *rc)
->>         struct gss_cred *gss_cred = container_of(rc, struct gss_cred, gc_base);
->>         struct gss_cl_ctx *ctx;
->>         unsigned long now = jiffies;
->> -       unsigned long expire;
->> +       unsigned long expire = 0;
->>
->>         rcu_read_lock();
->>         ctx = rcu_dereference(gss_cred->gc_ctx);
->> --
->> 1.7.1
-> 
-> That would be a compiler bug, not a kernel bug. The kernel code is
-> perfectly correct as it stands, and will never access the
-> uninitialised variable.
-> 
+On 09/02/14 at 09:28am, Ying Xue wrote:
+> +	params->min_shift = max_t(size_t, params->min_shift,
+> +				  (size_t)ilog2(HASH_MIN_SIZE));
+> +
 
-Than you will need the infamous uninitialised_var()
-
-diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
-index afb292c..bea0951 100644
---- a/net/sunrpc/auth_gss/auth_gss.c
-+++ b/net/sunrpc/auth_gss/auth_gss.c
-@@ -1387,7 +1387,7 @@ gss_key_timeout(struct rpc_cred *rc)
- 	struct gss_cred *gss_cred = container_of(rc, struct gss_cred, gc_base);
- 	struct gss_cl_ctx *ctx;
- 	unsigned long now = jiffies;
--	unsigned long expire;
-+	unsigned long uninitialised_var(expire);
- 
- 	rcu_read_lock();
- 	ctx = rcu_dereference(gss_cred->gc_ctx);
-
-Cheers
-Boaz
+Sorry for being a pain here but the cast of ilog2() is not needed
+and should be avoided. The whole point of max_t() is not requiring
+these casts.
