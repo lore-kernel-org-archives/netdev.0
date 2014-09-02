@@ -1,181 +1,111 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH v2 net-next 04/12] be2net: Add TX completion error statistics in ethtool
-Date: Tue, 2 Sep 2014 09:56:49 +0530
-Message-ID: <1409632017-15655-5-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH v2 net-next 01/12] be2net: add a few log messages
+Date: Tue, 2 Sep 2014 09:56:46 +0530
+Message-ID: <1409632017-15655-2-git-send-email-sathya.perla@emulex.com>
 References: <1409632017-15655-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:30325 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750722AbaIBEYX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 00:24:23 -0400
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:26660 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753064AbaIBEYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 00:24:30 -0400
 In-Reply-To: <1409632017-15655-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kalesh AP <kalesh.purayil@emulex.com>
+This patch adds the following log messages to help debugging
+failure cases:
+1) log FW version number: this is useful when driver initialization
+fails and the FW version number cannot be queried via ethtool
+2) per function resource limits for BEx chips: these values are
+currently being printed only for Skyhawk and Lancer
+3) PCI BAR mapping failure
+4) function_mode/caps queried from FW: this helps catch any FW bugs
+that could advertise wrong capabilities to the driver
 
-HW reports TX completion errors in TX completion. This patch adds these
-counters to ethtool statistics.
-
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h         |    7 ++++
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   28 +++++++++++++++
- drivers/net/ethernet/emulex/benet/be_hw.h      |   12 ++++++
- drivers/net/ethernet/emulex/benet/be_main.c    |   45 ++++++++++++++++++++++++
- 4 files changed, 92 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |    4 ++++
+ drivers/net/ethernet/emulex/benet/be_main.c |   20 ++++++++++++--------
+ 2 files changed, 16 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index d9cd885..d491ac6 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -248,6 +248,13 @@ struct be_tx_stats {
- 	ulong tx_jiffies;
- 	u32 tx_stops;
- 	u32 tx_drv_drops;	/* pkts dropped by driver */
-+	/* the error counters are described in be_ethtool.c */
-+	u32 tx_hdr_parse_err;
-+	u32 tx_dma_err;
-+	u32 tx_tso_err;
-+	u32 tx_spoof_check_err;
-+	u32 tx_qinq_err;
-+	u32 tx_internal_parity_err;
- 	struct u64_stats_sync sync;
- 	struct u64_stats_sync sync_compl;
- };
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index d8d7a4a..3a7ade4 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -157,6 +157,34 @@ static const struct be_ethtool_stat et_rx_stats[] = {
-  */
- static const struct be_ethtool_stat et_tx_stats[] = {
- 	{DRVSTAT_TX_INFO(tx_compl)}, /* If moving this member see above note */
-+	/* This counter is incremented when the HW encounters an error while
-+	 * parsing the packet header of an outgoing TX request. This counter is
-+	 * applicable only for BE2, BE3 and Skyhawk based adapters.
-+	 */
-+	{DRVSTAT_TX_INFO(tx_hdr_parse_err)},
-+	/* This counter is incremented when an error occurs in the DMA
-+	 * operation associated with the TX request from the host to the device.
-+	 */
-+	{DRVSTAT_TX_INFO(tx_dma_err)},
-+	/* This counter is incremented when MAC or VLAN spoof checking is
-+	 * enabled on the interface and the TX request fails the spoof check
-+	 * in HW.
-+	 */
-+	{DRVSTAT_TX_INFO(tx_spoof_check_err)},
-+	/* This counter is incremented when the HW encounters an error while
-+	 * performing TSO offload. This counter is applicable only for Lancer
-+	 * adapters.
-+	 */
-+	{DRVSTAT_TX_INFO(tx_tso_err)},
-+	/* This counter is incremented when the HW detects Q-in-Q style VLAN
-+	 * tagging in a packet and such tagging is not expected on the outgoing
-+	 * interface. This counter is applicable only for Lancer adapters.
-+	 */
-+	{DRVSTAT_TX_INFO(tx_qinq_err)},
-+	/* This counter is incremented when the HW detects parity errors in the
-+	 * packet data. This counter is applicable only for Lancer adapters.
-+	 */
-+	{DRVSTAT_TX_INFO(tx_internal_parity_err)},
- 	{DRVSTAT_TX_INFO(tx_bytes)},
- 	{DRVSTAT_TX_INFO(tx_pkts)},
- 	/* Number of skbs queued for trasmission by the driver */
-diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
-index 8840c64..295ee08 100644
---- a/drivers/net/ethernet/emulex/benet/be_hw.h
-+++ b/drivers/net/ethernet/emulex/benet/be_hw.h
-@@ -315,6 +315,18 @@ struct be_eth_hdr_wrb {
- 	u32 dw[4];
- };
- 
-+/********* Tx Compl Status Encoding *********/
-+#define BE_TX_COMP_HDR_PARSE_ERR	0x2
-+#define BE_TX_COMP_NDMA_ERR		0x3
-+#define BE_TX_COMP_ACL_ERR		0x5
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 4370ec1..ca9ec18 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -1771,6 +1771,7 @@ int be_cmd_get_fw_ver(struct be_adapter *adapter)
+ 	status = be_mcc_notify_wait(adapter);
+ 	if (!status) {
+ 		struct be_cmd_resp_get_fw_version *resp = embedded_payload(wrb);
 +
-+#define LANCER_TX_COMP_LSO_ERR			0x1
-+#define LANCER_TX_COMP_HSW_DROP_MAC_ERR		0x3
-+#define LANCER_TX_COMP_HSW_DROP_VLAN_ERR	0x5
-+#define LANCER_TX_COMP_QINQ_ERR			0x7
-+#define LANCER_TX_COMP_PARITY_ERR		0xb
-+#define LANCER_TX_COMP_DMA_ERR			0xd
-+
- /* TX Compl Queue Descriptor */
- 
- /* Pseudo amap definition for eth_tx_compl in which each bit of the
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 810ce5c..e9658f7 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2421,11 +2421,49 @@ loop_continue:
- 	return work_done;
- }
- 
-+static inline void be_update_tx_err(struct be_tx_obj *txo, u32 status)
-+{
-+	switch (status) {
-+	case BE_TX_COMP_HDR_PARSE_ERR:
-+		tx_stats(txo)->tx_hdr_parse_err++;
-+		break;
-+	case BE_TX_COMP_NDMA_ERR:
-+		tx_stats(txo)->tx_dma_err++;
-+		break;
-+	case BE_TX_COMP_ACL_ERR:
-+		tx_stats(txo)->tx_spoof_check_err++;
-+		break;
-+	}
-+}
-+
-+static inline void lancer_update_tx_err(struct be_tx_obj *txo, u32 status)
-+{
-+	switch (status) {
-+	case LANCER_TX_COMP_LSO_ERR:
-+		tx_stats(txo)->tx_tso_err++;
-+		break;
-+	case LANCER_TX_COMP_HSW_DROP_MAC_ERR:
-+	case LANCER_TX_COMP_HSW_DROP_VLAN_ERR:
-+		tx_stats(txo)->tx_spoof_check_err++;
-+		break;
-+	case LANCER_TX_COMP_QINQ_ERR:
-+		tx_stats(txo)->tx_qinq_err++;
-+		break;
-+	case LANCER_TX_COMP_PARITY_ERR:
-+		tx_stats(txo)->tx_internal_parity_err++;
-+		break;
-+	case LANCER_TX_COMP_DMA_ERR:
-+		tx_stats(txo)->tx_dma_err++;
-+		break;
-+	}
-+}
-+
- static bool be_process_tx(struct be_adapter *adapter, struct be_tx_obj *txo,
- 			  int budget, int idx)
- {
- 	struct be_eth_tx_compl *txcp;
- 	int num_wrbs = 0, work_done;
-+	u32 compl_status;
- 
- 	for (work_done = 0; work_done < budget; work_done++) {
- 		txcp = be_tx_compl_get(&txo->cq);
-@@ -2434,6 +2472,13 @@ static bool be_process_tx(struct be_adapter *adapter, struct be_tx_obj *txo,
- 		num_wrbs += be_tx_compl_process(adapter, txo,
- 						GET_TX_COMPL_BITS(wrb_index,
- 								  txcp));
-+		compl_status = GET_TX_COMPL_BITS(status, txcp);
-+		if (compl_status) {
-+			if (lancer_chip(adapter))
-+				lancer_update_tx_err(txo, compl_status);
-+			else
-+				be_update_tx_err(txo, compl_status);
-+		}
+ 		strcpy(adapter->fw_ver, resp->firmware_version_string);
+ 		strcpy(adapter->fw_on_flash, resp->fw_on_flash_version_string);
+ 	}
+@@ -2018,6 +2019,9 @@ int be_cmd_query_fw_cfg(struct be_adapter *adapter)
+ 		adapter->function_mode = le32_to_cpu(resp->function_mode);
+ 		adapter->function_caps = le32_to_cpu(resp->function_caps);
+ 		adapter->asic_rev = le32_to_cpu(resp->asic_revision) & 0xFF;
++		dev_info(&adapter->pdev->dev,
++			 "FW config: function_mode=0x%x, function_caps=0x%x\n",
++			 adapter->function_mode, adapter->function_caps);
  	}
  
- 	if (work_done) {
+ 	mutex_unlock(&adapter->mbox_lock);
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 93ff8ef..3d33049 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -3413,16 +3413,16 @@ static int be_get_resources(struct be_adapter *adapter)
+ 		if (be_roce_supported(adapter))
+ 			res.max_evt_qs /= 2;
+ 		adapter->res = res;
+-
+-		dev_info(dev, "Max: txqs %d, rxqs %d, rss %d, eqs %d, vfs %d\n",
+-			 be_max_txqs(adapter), be_max_rxqs(adapter),
+-			 be_max_rss(adapter), be_max_eqs(adapter),
+-			 be_max_vfs(adapter));
+-		dev_info(dev, "Max: uc-macs %d, mc-macs %d, vlans %d\n",
+-			 be_max_uc(adapter), be_max_mc(adapter),
+-			 be_max_vlans(adapter));
+ 	}
+ 
++	dev_info(dev, "Max: txqs %d, rxqs %d, rss %d, eqs %d, vfs %d\n",
++		 be_max_txqs(adapter), be_max_rxqs(adapter),
++		 be_max_rss(adapter), be_max_eqs(adapter),
++		 be_max_vfs(adapter));
++	dev_info(dev, "Max: uc-macs %d, mc-macs %d, vlans %d\n",
++		 be_max_uc(adapter), be_max_mc(adapter),
++		 be_max_vlans(adapter));
++
+ 	return 0;
+ }
+ 
+@@ -3633,6 +3633,7 @@ static int be_setup(struct be_adapter *adapter)
+ 		goto err;
+ 
+ 	be_cmd_get_fw_ver(adapter);
++	dev_info(dev, "FW version is %s\n", adapter->fw_ver);
+ 
+ 	if (BE2_chip(adapter) && fw_major_num(adapter->fw_ver) < 4) {
+ 		dev_err(dev, "Firmware on card is old(%s), IRQs may not work.",
+@@ -4506,6 +4507,7 @@ static int be_map_pci_bars(struct be_adapter *adapter)
+ 	return 0;
+ 
+ pci_map_err:
++	dev_err(&adapter->pdev->dev, "Error in mapping PCI BARs\n");
+ 	be_unmap_pci_bars(adapter);
+ 	return -ENOMEM;
+ }
+@@ -4822,6 +4824,8 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
+ 	struct net_device *netdev;
+ 	char port_name;
+ 
++	dev_info(&pdev->dev, "%s version is %s\n", DRV_NAME, DRV_VER);
++
+ 	status = pci_enable_device(pdev);
+ 	if (status)
+ 		goto do_none;
 -- 
 1.7.1
