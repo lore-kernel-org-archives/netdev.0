@@ -1,48 +1,54 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: iproute2 util: Change signature of rtnl dump filters to use struct params
-Date: Wed, 3 Sep 2014 02:46:50 +0300
-Message-ID: <CAMw6YJJq1MP+r6=8KrhBi9bPUS8E1JJjb3qOjbjVf4Ano0AVsA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: gso_skb is now a list, needs a proper
+ destructor
+Date: Tue, 02 Sep 2014 16:51:43 -0700
+Message-ID: <1409701903.26422.26.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:33108 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751126AbaIBXqv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 19:46:51 -0400
-Received: by mail-qc0-f182.google.com with SMTP id m20so7960981qcx.27
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 16:46:50 -0700 (PDT)
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:49526 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750937AbaIBXvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 19:51:45 -0400
+Received: by mail-pd0-f172.google.com with SMTP id z10so9756336pdj.31
+        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 16:51:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Eric Dumazet <edumazet@google.com>
 
-I am thinking about to make some refactoring and change the signature
-of all rtnl dump filters to form:
+gso_skb can now be a list of skbs.
 
-diff --git a/include/libnetlink.h b/include/libnetlink.h
-index fe7d5d3..9514e67 100644
---- a/include/libnetlink.h
-+++ b/include/libnetlink.h
-@@ -39,8 +39,14 @@ extern int rtnl_dump_request(struct rtnl_handle
-*rth, int type, void *req,
-                             int len)
-        __attribute__((warn_unused_result));
+Qdisc destructors have to take care of it, or we can leak skbs.
 
--typedef int (*rtnl_filter_t)(const struct sockaddr_nl *,
--                            struct nlmsghdr *n, void *);
-+struct nl_param
-+{
-+       struct sockaddr_nl *who;
-+       struct nlmsghdr *n;
-+       void *arg;
-+};
-+
-+typedef int (*rtnl_filter_t)(struct nl_param *p);
+Fixes: ce93718fb7cd ("net: Don't keep around original SKB when we software segment GSO frames.")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sched/sch_generic.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
- struct rtnl_dump_filter_arg
- {
-
-What do you think?
-
-Regards,
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 5b261e91bdbd..19696ebe9ebc 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -621,7 +621,7 @@ void qdisc_reset(struct Qdisc *qdisc)
+ 		ops->reset(qdisc);
+ 
+ 	if (qdisc->gso_skb) {
+-		kfree_skb(qdisc->gso_skb);
++		kfree_skb_list(qdisc->gso_skb);
+ 		qdisc->gso_skb = NULL;
+ 		qdisc->q.qlen = 0;
+ 	}
+@@ -657,7 +657,7 @@ void qdisc_destroy(struct Qdisc *qdisc)
+ 	module_put(ops->owner);
+ 	dev_put(qdisc_dev(qdisc));
+ 
+-	kfree_skb(qdisc->gso_skb);
++	kfree_skb_list(qdisc->gso_skb);
+ 	/*
+ 	 * gen_estimator est_timer() might access qdisc->q.lock,
+ 	 * wait a RCU grace period before freeing qdisc.
