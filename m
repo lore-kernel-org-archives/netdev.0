@@ -1,8 +1,8 @@
 From: Jean Sacren <sakiwit@gmail.com>
-Subject: [PATCH net-next 2/6] ixgbevf: remove the boilerplate
-	of ixgbevf module for init/exit
-Date: Tue,  2 Sep 2014 03:36:52 -0600
-Message-ID: <1409650616-1035-3-git-send-email-sakiwit@gmail.com>
+Subject: [PATCH net-next 1/6] ixgb: remove the boilerplate of
+	ixgb module for init/exit
+Date: Tue,  2 Sep 2014 03:36:51 -0600
+Message-ID: <1409650616-1035-2-git-send-email-sakiwit@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -20,8 +20,8 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Use module_pci_driver() to simplify ixgbevf driver module init/exit
-routine.
+Use module_pci_driver() to simplify ixgb driver module init/exit
+routine. 
 
 After the change, the basic driver info doesn't print unless the
 pertinent hardware is present. Printing such info generally
@@ -31,71 +31,73 @@ also incurs unnecessary confusion.
 
 Signed-off-by: Jean Sacren <sakiwit@gmail.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 38 ++++-------------------
- 1 file changed, 6 insertions(+), 32 deletions(-)
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c | 39 ++++-------------------------
+ 1 file changed, 5 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index c22a00c3621a..e93b4d2a17f8 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -3467,6 +3467,10 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	static int cards_found;
- 	int err, pci_using_dac;
+diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+index 055961b0f24b..339e1535482e 100644
+--- a/drivers/net/ethernet/intel/ixgb/ixgb_main.c
++++ b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+@@ -70,8 +70,6 @@ static const struct pci_device_id ixgb_pci_tbl[] = {
+ MODULE_DEVICE_TABLE(pci, ixgb_pci_tbl);
+ 
+ /* Local Function Prototypes */
+-static int ixgb_init_module(void);
+-static void ixgb_exit_module(void);
+ static int ixgb_probe(struct pci_dev *pdev, const struct pci_device_id *ent);
+ static void ixgb_remove(struct pci_dev *pdev);
+ static int ixgb_sw_init(struct ixgb_adapter *adapter);
+@@ -141,38 +139,7 @@ static int debug = -1;
+ module_param(debug, int, 0);
+ MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
+ 
+-/**
+- * ixgb_init_module - Driver Registration Routine
+- *
+- * ixgb_init_module is the first routine called when the driver is
+- * loaded. All it does is register with the PCI subsystem.
+- **/
+-
+-static int __init
+-ixgb_init_module(void)
+-{
+-	pr_info("%s - version %s\n", ixgb_driver_string, ixgb_driver_version);
+-	pr_info("%s\n", ixgb_copyright);
+-
+-	return pci_register_driver(&ixgb_driver);
+-}
+-
+-module_init(ixgb_init_module);
+-
+-/**
+- * ixgb_exit_module - Driver Exit Cleanup Routine
+- *
+- * ixgb_exit_module is called just before the driver is removed
+- * from memory.
+- **/
+-
+-static void __exit
+-ixgb_exit_module(void)
+-{
+-	pci_unregister_driver(&ixgb_driver);
+-}
+-
+-module_exit(ixgb_exit_module);
++module_pci_driver(ixgb_driver);
+ 
+ /**
+  * ixgb_irq_disable - Mask off interrupt generation on the NIC
+@@ -403,6 +370,10 @@ ixgb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	int i;
+ 	int err;
  
 +	pr_info_once("%s - version %s\n",
-+		     ixgbevf_driver_string, ixgbevf_driver_version);
-+	pr_info_once("%s\n", ixgbevf_copyright);
++		     ixgb_driver_string, ixgb_driver_version);
++	pr_info_once("%s\n", ixgb_copyright);
 +
  	err = pci_enable_device(pdev);
  	if (err)
  		return err;
-@@ -3761,37 +3765,6 @@ static struct pci_driver ixgbevf_driver = {
- 	.err_handler = &ixgbevf_err_handler
- };
- 
--/**
-- * ixgbevf_init_module - Driver Registration Routine
-- *
-- * ixgbevf_init_module is the first routine called when the driver is
-- * loaded. All it does is register with the PCI subsystem.
-- **/
--static int __init ixgbevf_init_module(void)
--{
--	int ret;
--	pr_info("%s - version %s\n", ixgbevf_driver_string,
--		ixgbevf_driver_version);
--
--	pr_info("%s\n", ixgbevf_copyright);
--
--	ret = pci_register_driver(&ixgbevf_driver);
--	return ret;
--}
--
--module_init(ixgbevf_init_module);
--
--/**
-- * ixgbevf_exit_module - Driver Exit Cleanup Routine
-- *
-- * ixgbevf_exit_module is called just before the driver is removed
-- * from memory.
-- **/
--static void __exit ixgbevf_exit_module(void)
--{
--	pci_unregister_driver(&ixgbevf_driver);
--}
--
- #ifdef DEBUG
- /**
-  * ixgbevf_get_hw_dev_name - return device name string
-@@ -3804,6 +3777,7 @@ char *ixgbevf_get_hw_dev_name(struct ixgbe_hw *hw)
- }
- 
- #endif
--module_exit(ixgbevf_exit_module);
-+
-+module_pci_driver(ixgbevf_driver);
- 
- /* ixgbevf_main.c */
 
 ------------------------------------------------------------------------------
 Slashdot TV.  
