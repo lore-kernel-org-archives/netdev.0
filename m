@@ -1,28 +1,48 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Order of interfaces in output of ip link
-Date: Tue, 2 Sep 2014 12:30:02 -0700
-Message-ID: <CAHA+R7Ps+Fz7tww0-4XOtYT4-=iPYhA7OQxLTJcJYFptiRzsnA@mail.gmail.com>
-References: <19313218.dxlnVqzEMb@hp>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: [PATCH net-next v1 0/3] amd-xgbe: AMD XGBE driver updates 2014-08-29
+Date: Tue, 2 Sep 2014 14:55:49 -0500
+Message-ID: <540620C5.2070906@amd.com>
+References: <20140829152148.13783.23789.stgit@tlendack-t1.amdoffice.net>
+ <20140901.203152.216310411574954349.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>
-To: Ovidiu Mara <ovidiu.mara@epfl.ch>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:60437 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755085AbaIBTaE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 15:30:04 -0400
-Received: by mail-la0-f52.google.com with SMTP id ty20so8540398lab.11
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 12:30:02 -0700 (PDT)
-In-Reply-To: <19313218.dxlnVqzEMb@hp>
+Received: from mail-bn1lp0141.outbound.protection.outlook.com ([207.46.163.141]:37641
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750954AbaIBT4A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 15:56:00 -0400
+In-Reply-To: <20140901.203152.216310411574954349.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 2, 2014 at 7:27 AM, Ovidiu Mara <ovidiu.mara@epfl.ch> wrote:
-> eth0 and eth1 are two ports on the same network card, so I would expect them to be shown together, as they are numbered. According to the documentation I found here ( http://www.policyrouting.org/iproute2.doc.html#ss9.1.1 ): "The number followed by a colon is the interface index or ifindex. This number uniquely identifies the interface. If you look at the output from cat /proc/net/dev you will see that the network devices are listed in the same order as the numbering you see here."
+On 09/01/2014 10:31 PM, David Miller wrote:
+> From: Tom Lendacky <thomas.lendacky@amd.com>
+> Date: Fri, 29 Aug 2014 10:21:48 -0500
 >
+>> The amd-xgbe-phy phylib driver support is integral to the amd-xgbe
+>> driver and isn't meant to be used by other devices.  For this reason
+>> it is being removed from the driver/net/phy directory and integrated
+>> into the amd-xgbe driver.
+>
+> I see no real reason to do this.
+>
+> Keeping it in the phylib layer forces you to deal with the abstractions
+> and therefore keeps you from bypassing the phylib API and performing
+> layer violations.
+>
+> Please just keep the PHY driver where it is and add your new features
+> there.
 
-You can't rely on the output order to tell if they are the ports
-on the same card, you need to dig some other information
-for example sysfs.
+Ok, understood.  I'll drop this patch series.  Any future changes or
+enhancements will apply against the established file locations.
+
+Thanks,
+Tom
+
+>
+> Thanks.
+>
