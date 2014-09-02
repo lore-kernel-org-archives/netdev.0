@@ -1,171 +1,154 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH V2 5/7] e1000: rename struct e1000_buffer to e1000_tx_buffer
-Date: Tue,  2 Sep 2014 14:24:48 +0200
-Message-ID: <1409660690-10391-6-git-send-email-fw@strlen.de>
+Subject: [PATCH V2 7/7] e1000: switch to napi_gro_frags api
+Date: Tue,  2 Sep 2014 14:24:50 +0200
+Message-ID: <1409660690-10391-8-git-send-email-fw@strlen.de>
 References: <1409660690-10391-1-git-send-email-fw@strlen.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
 To: e1000-devel@lists.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:48636 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753544AbaIBMZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 08:25:00 -0400
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 In-Reply-To: <1409660690-10391-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-and remove *page, its only used for rx.
+napi_gro_frags allows skb re-use in case GRO can merge payload pages
+into an skb on the gro lists.
+
+netperf TCP_STREAM, kvm-e1000 emulation, mtu 9k:
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
+old: 87380  16384  16384    30.00  8985.78
+new: 87380  16384  16384    30.00  9907.05
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- no changes since v1.
- drivers/net/ethernet/intel/e1000/e1000.h         |  9 ++++-----
- drivers/net/ethernet/intel/e1000/e1000_ethtool.c |  2 +-
- drivers/net/ethernet/intel/e1000/e1000_main.c    | 23 ++++++++++++-----------
- 3 files changed, 17 insertions(+), 17 deletions(-)
+ Changes since v1:
+  - remove parens/casts in e1000_rx_checksum arguments
+    (pointed out by Sergei Shtylyov)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
-index 81efe33..4c2a102 100644
---- a/drivers/net/ethernet/intel/e1000/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000/e1000.h
-@@ -148,16 +148,15 @@ struct e1000_adapter;
- /* wrapper around a pointer to a socket buffer,
-  * so a DMA handle can be stored along with the buffer
-  */
--struct e1000_buffer {
-+struct e1000_tx_buffer {
- 	struct sk_buff *skb;
- 	dma_addr_t dma;
--	struct page *page;
- 	unsigned long time_stamp;
- 	u16 length;
- 	u16 next_to_watch;
--	unsigned int segs;
-+	bool mapped_as_page;
-+	unsigned short segs;
- 	unsigned int bytecount;
--	u16 mapped_as_page;
- };
- 
- struct e1000_rx_buffer {
-@@ -180,7 +179,7 @@ struct e1000_tx_ring {
- 	/* next descriptor to check for DD status bit */
- 	unsigned int next_to_clean;
- 	/* array of buffer information structs */
--	struct e1000_buffer *buffer_info;
-+	struct e1000_tx_buffer *buffer_info;
- 
- 	u16 tdh;
- 	u16 tdt;
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-index fbf7a4d..380a730 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-@@ -1010,7 +1010,7 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
- 	if (!txdr->count)
- 		txdr->count = E1000_DEFAULT_TXD;
- 
--	txdr->buffer_info = kcalloc(txdr->count, sizeof(struct e1000_buffer),
-+	txdr->buffer_info = kcalloc(txdr->count, sizeof(struct e1000_tx_buffer),
- 				    GFP_KERNEL);
- 	if (!txdr->buffer_info) {
- 		ret_val = 1;
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 49 +++++++++++++++++----------
+ 1 file changed, 32 insertions(+), 17 deletions(-)
+
 diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 5ff48af..73cd509 100644
+index 9ac9a77..084bc3f 100644
 --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
 +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -1497,7 +1497,7 @@ static int e1000_setup_tx_resources(struct e1000_adapter *adapter,
- 	struct pci_dev *pdev = adapter->pdev;
- 	int size;
- 
--	size = sizeof(struct e1000_buffer) * txdr->count;
-+	size = sizeof(struct e1000_tx_buffer) * txdr->count;
- 	txdr->buffer_info = vzalloc(size);
- 	if (!txdr->buffer_info)
- 		return -ENOMEM;
-@@ -1947,8 +1947,9 @@ void e1000_free_all_tx_resources(struct e1000_adapter *adapter)
- 		e1000_free_tx_resources(adapter, &adapter->tx_ring[i]);
- }
- 
--static void e1000_unmap_and_free_tx_resource(struct e1000_adapter *adapter,
--					     struct e1000_buffer *buffer_info)
-+static void
-+e1000_unmap_and_free_tx_resource(struct e1000_adapter *adapter,
-+				 struct e1000_tx_buffer *buffer_info)
- {
- 	if (buffer_info->dma) {
- 		if (buffer_info->mapped_as_page)
-@@ -1977,7 +1978,7 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter,
- 				struct e1000_tx_ring *tx_ring)
- {
- 	struct e1000_hw *hw = &adapter->hw;
--	struct e1000_buffer *buffer_info;
-+	struct e1000_tx_buffer *buffer_info;
- 	unsigned long size;
- 	unsigned int i;
- 
-@@ -1989,7 +1990,7 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter,
+@@ -2117,10 +2117,8 @@ static void e1000_clean_rx_ring(struct e1000_adapter *adapter,
  	}
  
- 	netdev_reset_queue(adapter->netdev);
--	size = sizeof(struct e1000_buffer) * tx_ring->count;
-+	size = sizeof(struct e1000_tx_buffer) * tx_ring->count;
- 	memset(tx_ring->buffer_info, 0, size);
+ 	/* there also may be some cached data from a chained receive */
+-	if (rx_ring->rx_skb_top) {
+-		dev_kfree_skb(rx_ring->rx_skb_top);
+-		rx_ring->rx_skb_top = NULL;
+-	}
++	napi_free_frags(&adapter->napi);
++	rx_ring->rx_skb_top = NULL;
  
- 	/* Zero out the descriptor ring */
-@@ -2677,7 +2678,7 @@ static int e1000_tso(struct e1000_adapter *adapter,
- 		     struct e1000_tx_ring *tx_ring, struct sk_buff *skb)
- {
- 	struct e1000_context_desc *context_desc;
--	struct e1000_buffer *buffer_info;
-+	struct e1000_tx_buffer *buffer_info;
- 	unsigned int i;
- 	u32 cmd_length = 0;
- 	u16 ipcse = 0, tucse, mss;
-@@ -2748,7 +2749,7 @@ static bool e1000_tx_csum(struct e1000_adapter *adapter,
- 			  struct e1000_tx_ring *tx_ring, struct sk_buff *skb)
- {
- 	struct e1000_context_desc *context_desc;
--	struct e1000_buffer *buffer_info;
-+	struct e1000_tx_buffer *buffer_info;
- 	unsigned int i;
- 	u8 css;
- 	u32 cmd_len = E1000_TXD_CMD_DEXT;
-@@ -2807,7 +2808,7 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct pci_dev *pdev = adapter->pdev;
--	struct e1000_buffer *buffer_info;
-+	struct e1000_tx_buffer *buffer_info;
- 	unsigned int len = skb_headlen(skb);
- 	unsigned int offset = 0, size, count = 0, i;
- 	unsigned int f, bytecount, segs;
-@@ -2953,7 +2954,7 @@ static void e1000_tx_queue(struct e1000_adapter *adapter,
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct e1000_tx_desc *tx_desc = NULL;
--	struct e1000_buffer *buffer_info;
-+	struct e1000_tx_buffer *buffer_info;
- 	u32 txd_upper = 0, txd_lower = E1000_TXD_CMD_IFCS;
- 	unsigned int i;
+ 	size = sizeof(struct e1000_rx_buffer) * rx_ring->count;
+ 	memset(rx_ring->buffer_info, 0, size);
+@@ -4130,7 +4128,6 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
+ 	int cleaned_count = 0;
+ 	bool cleaned = false;
+ 	unsigned int total_rx_bytes=0, total_rx_packets=0;
+-	static const unsigned int bufsz = 256 - 16; /* for skb_reserve */
  
-@@ -3370,7 +3371,7 @@ static void e1000_dump(struct e1000_adapter *adapter)
+ 	i = rx_ring->next_to_clean;
+ 	rx_desc = E1000_RX_DESC(*rx_ring, i);
+@@ -4189,7 +4186,7 @@ process_skb:
+ 			/* this descriptor is only the beginning (or middle) */
+ 			if (!rxtop) {
+ 				/* this is the beginning of a chain */
+-				rxtop = e1000_alloc_rx_skb(adapter, bufsz);
++				rxtop = napi_get_frags(&adapter->napi);
+ 				if (!rxtop)
+ 					break;
  
- 	for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
- 		struct e1000_tx_desc *tx_desc = E1000_TX_DESC(*tx_ring, i);
--		struct e1000_buffer *buffer_info = &tx_ring->buffer_info[i];
-+		struct e1000_tx_buffer *buffer_info = &tx_ring->buffer_info[i];
- 		struct my_u { __le64 a; __le64 b; };
- 		struct my_u *u = (struct my_u *)tx_desc;
- 		const char *type;
-@@ -3808,7 +3809,7 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct net_device *netdev = adapter->netdev;
- 	struct e1000_tx_desc *tx_desc, *eop_desc;
--	struct e1000_buffer *buffer_info;
-+	struct e1000_tx_buffer *buffer_info;
- 	unsigned int i, eop;
- 	unsigned int count = 0;
- 	unsigned int total_tx_bytes=0, total_tx_packets=0;
+@@ -4218,14 +4215,17 @@ process_skb:
+ 				/* no chain, got EOP, this buf is the packet
+ 				 * copybreak to save the put_page/alloc_page
+ 				 */
+-				skb = e1000_alloc_rx_skb(adapter, bufsz);
+-				if (!skb)
+-					break;
+ 				p = buffer_info->rxbuf.page;
+-				if (length <= copybreak &&
+-				    skb_tailroom(skb) >= length) {
++				if (length <= copybreak) {
+ 					u8 *vaddr;
+ 
++					if (likely(!(netdev->features & NETIF_F_RXFCS)))
++						length -= 4;
++					skb = e1000_alloc_rx_skb(adapter,
++								 length);
++					if (!skb)
++						break;
++
+ 					vaddr = kmap_atomic(p);
+ 					memcpy(skb_tail_pointer(skb), vaddr,
+ 					       length);
+@@ -4234,7 +4234,22 @@ process_skb:
+ 					 * buffer_info->rxbuf.page
+ 					 */
+ 					skb_put(skb, length);
++					e1000_rx_checksum(adapter,
++							  status | rx_desc->errors << 24,
++							  le16_to_cpu(rx_desc->csum), skb);
++
++					total_rx_bytes += skb->len;
++					total_rx_packets++;
++
++					e1000_receive_skb(adapter, status,
++							  rx_desc->special, skb);
++					goto next_desc;
+ 				} else {
++					skb = napi_get_frags(&adapter->napi);
++					if (!skb) {
++						adapter->alloc_rx_buff_failed++;
++						break;
++					}
+ 					skb_fill_page_desc(skb, 0, p, 0,
+ 							   length);
+ 					e1000_consume_page(buffer_info, skb,
+@@ -4254,14 +4269,14 @@ process_skb:
+ 			pskb_trim(skb, skb->len - 4);
+ 		total_rx_packets++;
+ 
+-		/* eth type trans needs skb->data to point to something */
+-		if (!pskb_may_pull(skb, ETH_HLEN)) {
+-			e_err(drv, "pskb_may_pull failed.\n");
+-			dev_kfree_skb(skb);
+-			goto next_desc;
++		if (status & E1000_RXD_STAT_VP) {
++			__le16 vlan = rx_desc->special;
++			u16 vid = le16_to_cpu(vlan) & E1000_RXD_SPC_VLAN_MASK;
++
++			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vid);
+ 		}
+ 
+-		e1000_receive_skb(adapter, status, rx_desc->special, skb);
++		napi_gro_frags(&adapter->napi);
+ 
+ next_desc:
+ 		rx_desc->status = 0;
 -- 
 1.8.1.5
+
+
+------------------------------------------------------------------------------
+Slashdot TV.  
+Video for Nerds.  Stuff that matters.
+http://tv.slashdot.org/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
