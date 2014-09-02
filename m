@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/3] qdisc: adjustments for API allowing skb
- list xmits
-Date: Tue, 02 Sep 2014 14:06:37 -0700 (PDT)
-Message-ID: <20140902.140637.1575167236785057277.davem@davemloft.net>
-References: <20140902143254.1918.8419.stgit@dragon>
-	<20140902143524.1918.70967.stgit@dragon>
+Subject: Re: [PATCH] 3c59x: avoid panic in boomerang_start_xmit when
+ finding page address:
+Date: Tue, 02 Sep 2014 14:08:46 -0700 (PDT)
+Message-ID: <20140902.140846.27292264952407548.davem@davemloft.net>
+References: <1409676715-2291-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, hannes@stressinduktion.org,
-	dborkman@redhat.com
-To: brouer@redhat.com
+Cc: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58667 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58692 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754164AbaIBVGi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 17:06:38 -0400
-In-Reply-To: <20140902143524.1918.70967.stgit@dragon>
+	with ESMTP id S1755245AbaIBVIr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 17:08:47 -0400
+In-Reply-To: <1409676715-2291-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Tue, 02 Sep 2014 16:35:33 +0200
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue,  2 Sep 2014 12:51:55 -0400
 
-> Minor adjustments for merge commit 53fda7f7f9e (Merge branch 'xmit_list')
-> that allows us to work with a list of SKBs.
-> 
-> Update code doc to function sch_direct_xmit().
-> 
-> In handle_dev_cpu_collision() use kfree_skb_list() in error handling.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> @@ -2177,10 +2177,10 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+>  
+>  			vp->tx_ring[entry].frag[i+1].addr =
+> -					cpu_to_le32(pci_map_single(
+> -						VORTEX_PCI(vp),
+> -						(void *)skb_frag_address(frag),
+> -						skb_frag_size(frag), PCI_DMA_TODEVICE));
+> +					cpu_to_le32(skb_frag_dma_map(
+> +						&VORTEX_PCI(vp)->dev,
+> +						frag,
+> +						frag->page_offset, frag->size, PCI_DMA_TODEVICE));
 
-Applied, thanks for catching the kfree_skb_list() issue.
+You need to adjust the final argument to be "DMA_TO_DEVICE".
