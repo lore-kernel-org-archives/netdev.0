@@ -1,54 +1,58 @@
-From: Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] Next branch: authgss: authgss.c: Fix warnings for
- uninitizlized variable expire
-Date: Tue, 2 Sep 2014 10:17:39 -0400
-Message-ID: <20140902141739.GB31793@fieldses.org>
-References: <1409571154-50408-1-git-send-email-shakilk1729@gmail.com>
- <CAHQdGtQAwp_QuQE-xmjJNkcxbu7g4QtYQv8qrPT_qWpkym1GZg@mail.gmail.com>
- <5405A15F.2060002@gmail.com>
- <20140902132140.GA31793@fieldses.org>
- <5405CD51.9020601@gmail.com>
+From: Ovidiu Mara <ovidiu.mara@epfl.ch>
+Subject: Order of interfaces in output of ip link
+Date: Tue, 02 Sep 2014 16:27:42 +0200
+Message-ID: <19313218.dxlnVqzEMb@hp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	Shakil A Khan <shakilk1729-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Kernel mailing list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Paul McKenney <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	William Andros Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Jeffrey Layton <jlayton-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Boaz Harrosh <openosd-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <5405CD51.9020601-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.epfl.ch ([128.178.224.219]:56288 "EHLO smtp4.epfl.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750963AbaIBOe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 10:34:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 02, 2014 at 04:59:45PM +0300, Boaz Harrosh wrote:
-> uninitialized_var was made to be a friend not an enemy, in the face of real
-> ugliness it is the best we can do. And that is what it should communicate to
-> everyone. Why has it become everyone's favorite blasphemy I do not know.
+Hi everyone,
 
-Not personally claiming it should never be used, just that this
-particular case is kind of extreme, since unless I'm missing a real
-compilication it's basically just:
+The ip command shows the interfaces on this machine in an unnatural order (eth0 followed by eth2 then eth1).
 
-	if (ctx)
-		assign to expire
-	...
-	if (ctx)
-		use expire
+For example:
 
-A compiler wouldn't have to be that smart to actually prove to itself
-that expire is initialized at the last step, and that it's not only
-failing to do that but actually flagging it as possibly unitialized is
-weird.
+ip -o link         
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default \    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether 2c:59:e5:9a:4c:a4 brd ff:ff:ff:ff:ff:ff
+3: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether ac:16:2d:98:9e:d8 brd ff:ff:ff:ff:ff:ff
+4: eth1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN mode DEFAULT group default qlen 1000\    link/ether 2c:59:e5:9a:4c:a5 brd ff:ff:ff:ff:ff:ff
+5: eth3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether ac:16:2d:98:9e:d9 brd ff:ff:ff:ff:ff:ff
+6: eth4: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether ac:16:2d:98:9e:da brd ff:ff:ff:ff:ff:ff
+7: eth5: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether ac:16:2d:98:9e:db brd ff:ff:ff:ff:ff:ff
+8: eth6: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000\    link/ether a0:36:9f:26:b3:10 brd ff:ff:ff:ff:ff:ff
+9: eth7: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether a0:36:9f:26:b3:12 brd ff:ff:ff:ff:ff:ff
 
---b.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+eth0 and eth1 are two ports on the same network card, so I would expect them to be shown together, as they are numbered. According to the documentation I found here ( http://www.policyrouting.org/iproute2.doc.html#ss9.1.1 ): "The number followed by a colon is the interface index or ifindex. This number uniquely identifies the interface. If you look at the output from cat /proc/net/dev you will see that the network devices are listed in the same order as the numbering you see here."
+
+However in /proc/net/dev they are shown in the natural order:
+
+cat /proc/net/dev
+Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+  eth0: 1000705102 6535806    0 8946    0     0          0   2861813  5252988   39289    0    0    0     0       0          0
+  eth1:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0
+  eth2: 104506836  257406    0    0    0     0          0         0      648       8    0    0    0     0       0          0
+  eth3: 104506430  257405    0    0    0     0          0         0      648       8    0    0    0     0       0          0
+  eth4: 104506430  257405    0    0    0     0          0         0      648       8    0    0    0     0       0          0
+  eth5: 104505618  257403    0    0    0     0          0         0      648       8    0    0    0     0       0          0
+  eth6:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0
+  eth7: 396628856508 364243051    0    0    0     0          0         0 398063721522 365214422    0    0    0     0       0          0
+    lo:     178       2    0    0    0     0          0         0      178       2    0    0    0     0       0          0
+
+I'm using iproute2-3.11.0.
+
+Could you please tell me if there is any workaround for this?
+
+Thanks,
+Ovidiu
+
+PS Please CC me in replies.
