@@ -1,47 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bonding: add slave_changelink support and use
- it for queue_id
-Date: Mon, 01 Sep 2014 18:32:51 -0700 (PDT)
-Message-ID: <20140901.183251.398827984655633411.davem@davemloft.net>
-References: <1409148406-5576-1-git-send-email-nikolay@redhat.com>
-	<5400638C.2030502@redhat.com>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH net-next 0/3] fec: Do not use NULL pointer to indicate
+ error
+Date: Tue, 2 Sep 2014 01:37:08 +0000
+Message-ID: <a4c62d08ec774f14b7d7662b1c593b9f@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1409620375-20284-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	andy@greyhouse.net
-To: nikolay@redhat.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>
+To: Fabio Estevam <festevam@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46034 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751405AbaIBBcx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 21:32:53 -0400
-In-Reply-To: <5400638C.2030502@redhat.com>
+Received: from mail-bn1blp0181.outbound.protection.outlook.com ([207.46.163.181]:8090
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751227AbaIBBhL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 21:37:11 -0400
+In-Reply-To: <1409620375-20284-1-git-send-email-festevam@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Fri, 29 Aug 2014 13:27:08 +0200
+From: Fabio Estevam <festevam@gmail.com> Sent: Tuesday, September 02, 2014 9:13 AM
+>To: davem@davemloft.net
+>Cc: linux@arm.linux.org.uk; Duan Fugang-B38611; netdev@vger.kernel.org;
+>Estevam Fabio-R49496
+>Subject: [PATCH net-next 0/3] fec: Do not use NULL pointer to indicate
+>error
+>
+>From: Fabio Estevam <fabio.estevam@freescale.com>
+>
+>Using IS_ERR() to indicate error can simplify the code a bit, so let's use
+>it when appropriate.
+>
+>Fabio Estevam (3):
+>  fec: Do not set fep->clk_ptp to NULL on error
+>  fec: Do not set fep->clk_enet_out to NULL on error
+>  fec: Do not set fep->reg_phy to NULL on error
+>
+> drivers/net/ethernet/freescale/fec_main.c | 28 +++++++++++---------------
+>--
+> 1 file changed, 11 insertions(+), 17 deletions(-)
+>
+>--
+>1.9.1
 
-> On 08/27/2014 04:06 PM, Nikolay Aleksandrov wrote:
->> This patch adds support for slave_changelink to the bonding and uses it
->> to give the ability to change the queue_id of the enslaved devices via
->> netlink. It sets slave_maxtype and uses bond_changelink as a prototype for
->> bond_slave_changelink.
->> Example/test command after the iproute2 patch:
->>  ip link set eth0 type bond_slave queue_id 10
->> 
->> CC: David S. Miller <davem@davemloft.net>
->> CC: Jay Vosburgh <j.vosburgh@gmail.com>
->> CC: Veaceslav Falico <vfalico@gmail.com>
->> CC: Andy Gospodarek <andy@greyhouse.net>
->> 
->> Suggested-by: Jiri Pirko <jiri@resnulli.us>
->> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->> ---
-> 
-> Hi Dave,
-> Would you mind telling me why did this patch get rejected so I can fix it up ?
-> I didn't see any complains and Jiri acked it.
+The patch serial are fine.
 
-Sorry, I misread the feedback, this patch is fine, and is now applied.
+Acked-by: Fugang Duan <B38611@freescale.com>
+
+Thanks,
+Andy
