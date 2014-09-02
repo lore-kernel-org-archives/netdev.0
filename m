@@ -1,40 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net 0/6] Trivial fixes for cxgb4
-Date: Mon, 01 Sep 2014 23:01:29 -0700 (PDT)
-Message-ID: <20140901.230129.985433194173937755.davem@davemloft.net>
-References: <1409581500-11264-1-git-send-email-hariprasad@chelsio.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
+ is runnable
+Date: Tue, 02 Sep 2014 09:03:11 +0300
+Message-ID: <54055D9F.7000108@linux.intel.com>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>	 <1408608310-13579-2-git-send-email-jasowang@redhat.com>	 <1408683665.5648.69.camel@marge.simpson.net>	 <20140822073653.GA7372@gmail.com> <53F70887.8030602@redhat.com> <1408716976.5604.18.camel@edumazet-glaptop2.roam.corp.google.com> <53FB3715.7070009@linux.intel.com> <53FC3466.8000304@redhat.com> <5404186E.4090409@linux.intel.com> <54053AF8.6070907@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com,
-	kumaras@chelsio.com, anish@chelsio.com
-To: hariprasad@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48880 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871AbaIBGBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 02:01:30 -0400
-In-Reply-To: <1409581500-11264-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com, Peter Zijlstra <peterz@infradead.org>,
+	"Ingo Molnar jacob.e.keller@intel.com" <mingo@elte.hu>
+To: Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54053AF8.6070907@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Mon,  1 Sep 2014 19:54:54 +0530
+On 02/09/2014 06:35, Jason Wang wrote:
+> On 09/01/2014 02:55 PM, Eliezer Tamir wrote:
+>> On 26/08/2014 10:16, Jason Wang wrote:
+>>> On 08/25/2014 09:16 PM, Eliezer Tamir wrote:
 
-> This patch series adds support to fix T5 adapter accessing T4 adapter registers,
-> issue mbox command on correct mbox for physical function, avoid dumping write
-> only registers, use correct length for adapter part number and support to detect
-> and display firmware reported errors.
+>> Think about the case where two processes are busy polling on the
+>> same CPU and the same device queue. Since busy polling processes
+>> incoming packets on the queue from any process, this scenario works
+>> well currently,
 > 
-> The patches series is created against 'net' tree.
-> And includes patches on cxgb4 driver.
-> 
-> We have included all the maintainers of respective drivers. Kindly review the
-> change and let us know in case of any review comments.
-> 
-> Thanks
-> 
-> V2:
->    Added description for each patch as per David Miller's comment
+> I see, but looks like we can simply do this by exiting the busy loop
+> when ndo_busy_poll() finds something but not for current socket?
 
-Series applied, thanks.
+I don't think there is a need for that.
+
+When ndo_busy_poll() finds something it feeds it to the stack, which
+will process the packet, just as if it came from NAPI polling.
+So, if this is data that someone is blocked waiting on, the stack will
+wake them up, and then you presumably can decide which app should get
+the cpu.
+
+Note, that there is no easy way to know, when looking at the
+incoming traffic, whether it is important, or even if you are seeing
+a full message. (Maybe you only have 9 packets out of 10?)
+The only place this knowledge might exist is in the layers of the
+stack closer to the user.
+
+>>  and will not work at all when polling yields to other
+>> processes that are of the same priority that are running on the same
+>> CPU.
+> 
+>>
+>> Maybe the networking subsystem should maintain a list of device
+>> queues that need busypolling and have a thread that would poll
+>> all of them when there's nothing better to do.
+> 
+> Not sure whether this method will scale considering thousands of sockets
+> and processes.
+
+There may be millions of sockets, but in most cases only a handful of
+device queues per CPU to busy poll on. I have tested the epoll rfc
+code with hundreds of thousands of sockets and one or two device
+queues and is scales pretty well.
+
+The part I don't like in that code is the cumbersome mechanism I used
+to track the socket -> queue relationship. I think that if I had more
+time to work on it, I would instead look into extending the epoll
+interface so that libevent can tell the kernel what it wants, instead
+of having the busypoll code try and learn it.
+
+Cheers,
+Eliezer
