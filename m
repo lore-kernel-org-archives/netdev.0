@@ -1,168 +1,183 @@
 From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 4/9] net: Pass a "more" indication down into
- netdev_start_xmit() code paths.
-Date: Mon, 1 Sep 2014 18:21:57 -0700
-Message-ID: <CA+mtBx-jOW1CrasHkivcoECCzAnBJ7h6Vui4j+2SrUaVCvAc-w@mail.gmail.com>
-References: <20140901.152454.408917069371597628.davem@davemloft.net>
+Subject: Re: [PATCH 8/9] net: Don't keep around original SKB when we software
+ segment GSO frames.
+Date: Mon, 1 Sep 2014 18:28:18 -0700
+Message-ID: <CA+mtBx-1r-vJYDx0xJ+p=Tjr=_v559XdrSu1SZ4UXWE_4fLbZg@mail.gmail.com>
+References: <20140901.152515.1944476256109254437.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:44799 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751003AbaIBBV6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 21:21:58 -0400
-Received: by mail-ie0-f178.google.com with SMTP id at1so6641381iec.23
-        for <netdev@vger.kernel.org>; Mon, 01 Sep 2014 18:21:57 -0700 (PDT)
-In-Reply-To: <20140901.152454.408917069371597628.davem@davemloft.net>
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:58187 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751405AbaIBB2T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 21:28:19 -0400
+Received: by mail-ie0-f173.google.com with SMTP id lx4so6878296iec.32
+        for <netdev@vger.kernel.org>; Mon, 01 Sep 2014 18:28:18 -0700 (PDT)
+In-Reply-To: <20140901.152515.1944476256109254437.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 1, 2014 at 3:24 PM, David Miller <davem@davemloft.net> wrote:
+On Mon, Sep 1, 2014 at 3:25 PM, David Miller <davem@davemloft.net> wrote:
 >
->
-> For now it will always be false.
+> Just maintain the list properly by returning the head of the remaining
+> SKB list from dev_hard_start_xmit().
 >
 > Signed-off-by: David S. Miller <davem@davemloft.net>
 > ---
->  drivers/net/wan/dlci.c    | 2 +-
->  include/linux/netdevice.h | 9 +++++----
->  net/atm/mpc.c             | 2 +-
->  net/core/dev.c            | 2 +-
->  net/core/netpoll.c        | 2 +-
->  net/core/pktgen.c         | 2 +-
->  net/packet/af_packet.c    | 2 +-
->  net/sched/sch_teql.c      | 3 ++-
->  8 files changed, 13 insertions(+), 11 deletions(-)
+>  include/linux/netdevice.h |  4 +--
+>  net/core/dev.c            | 79 +++++++++--------------------------------------
+>  net/sched/sch_generic.c   |  2 +-
+>  3 files changed, 17 insertions(+), 68 deletions(-)
 >
-> diff --git a/drivers/net/wan/dlci.c b/drivers/net/wan/dlci.c
-> index 6427e82..ae6ecf4 100644
-> --- a/drivers/net/wan/dlci.c
-> +++ b/drivers/net/wan/dlci.c
-> @@ -194,7 +194,7 @@ static netdev_tx_t dlci_transmit(struct sk_buff *skb, struct net_device *dev)
->
->         if (skb) {
->                 struct netdev_queue *txq = skb_get_tx_queue(dev, skb);
-> -               netdev_start_xmit(skb, dlp->slave, txq);
-> +               netdev_start_xmit(skb, dlp->slave, txq, false);
->         }
->         return NETDEV_TX_OK;
->  }
 > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 1617180..5050218 100644
+> index 47c49ba..202c25a 100644
 > --- a/include/linux/netdevice.h
 > +++ b/include/linux/netdevice.h
-> @@ -3431,19 +3431,20 @@ int __init dev_proc_init(void);
->  #endif
->
->  static inline netdev_tx_t __netdev_start_xmit(const struct net_device_ops *ops,
-> -                                             struct sk_buff *skb, struct net_device *dev)
-> +                                             struct sk_buff *skb, struct net_device *dev,
-> +                                             bool more)
->  {
-> -       skb->xmit_more = 0;
-> +       skb->xmit_more = more ? 1 : 0;
+> @@ -2828,8 +2828,8 @@ int dev_change_carrier(struct net_device *, bool new_carrier);
+>  int dev_get_phys_port_id(struct net_device *dev,
+>                          struct netdev_phys_port_id *ppid);
+>  struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev);
+> -int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+> -                       struct netdev_queue *txq);
+> +struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+> +                                   struct netdev_queue *txq, int *ret);
 
-Maybe just
+Might be slightly better to still return int but pass struct sk_buff
+**skb. One less argument and doesn't change return type.
 
-skb->xmit_more = more;
-
->
->         return ops->ndo_start_xmit(skb, dev);
->  }
->
->  static inline netdev_tx_t netdev_start_xmit(struct sk_buff *skb, struct net_device *dev,
-> -                                           struct netdev_queue *txq)
-> +                                           struct netdev_queue *txq, bool more)
->  {
->         const struct net_device_ops *ops = dev->netdev_ops;
->         int rc;
->
-> -       rc = __netdev_start_xmit(ops, skb, dev);
-> +       rc = __netdev_start_xmit(ops, skb, dev, more);
->         if (rc == NETDEV_TX_OK)
->                 txq_trans_update(txq);
->
-> diff --git a/net/atm/mpc.c b/net/atm/mpc.c
-> index d662da1..0e98222 100644
-> --- a/net/atm/mpc.c
-> +++ b/net/atm/mpc.c
-> @@ -599,7 +599,7 @@ static netdev_tx_t mpc_send_packet(struct sk_buff *skb,
->         }
->
->  non_ip:
-> -       return __netdev_start_xmit(mpc->old_ops, skb, dev);
-> +       return __netdev_start_xmit(mpc->old_ops, skb, dev, false);
->  }
->
->  static int atm_mpoa_vcc_attach(struct atm_vcc *vcc, void __user *arg)
+>  int __dev_forward_skb(struct net_device *dev, struct sk_buff *skb);
+>  int dev_forward_skb(struct net_device *dev, struct sk_buff *skb);
+>  bool is_skb_forwardable(struct net_device *dev, struct sk_buff *skb);
 > diff --git a/net/core/dev.c b/net/core/dev.c
-> index ab7bb80..f0ed5a6 100644
+> index 75bc5b0..c89da4f 100644
 > --- a/net/core/dev.c
 > +++ b/net/core/dev.c
-> @@ -2610,7 +2610,7 @@ static int xmit_one(struct sk_buff *skb, struct net_device *dev,
+> @@ -2485,52 +2485,6 @@ static int illegal_highdma(struct net_device *dev, struct sk_buff *skb)
+>         return 0;
+>  }
 >
->         len = skb->len;
->         trace_net_dev_start_xmit(skb, dev);
-> -       rc = netdev_start_xmit(skb, dev, txq);
-> +       rc = netdev_start_xmit(skb, dev, txq, false);
->         trace_net_dev_xmit(skb, rc, dev, len);
+> -struct dev_gso_cb {
+> -       void (*destructor)(struct sk_buff *skb);
+> -};
+> -
+> -#define DEV_GSO_CB(skb) ((struct dev_gso_cb *)(skb)->cb)
+> -
+> -static void dev_gso_skb_destructor(struct sk_buff *skb)
+> -{
+> -       struct dev_gso_cb *cb;
+> -
+> -       kfree_skb_list(skb->next);
+> -       skb->next = NULL;
+> -
+> -       cb = DEV_GSO_CB(skb);
+> -       if (cb->destructor)
+> -               cb->destructor(skb);
+> -}
+> -
+> -/**
+> - *     dev_gso_segment - Perform emulated hardware segmentation on skb.
+> - *     @skb: buffer to segment
+> - *     @features: device features as applicable to this skb
+> - *
+> - *     This function segments the given skb and stores the list of segments
+> - *     in skb->next.
+> - */
+> -static int dev_gso_segment(struct sk_buff *skb, netdev_features_t features)
+> -{
+> -       struct sk_buff *segs;
+> -
+> -       segs = skb_gso_segment(skb, features);
+> -
+> -       /* Verifying header integrity only. */
+> -       if (!segs)
+> -               return 0;
+> -
+> -       if (IS_ERR(segs))
+> -               return PTR_ERR(segs);
+> -
+> -       skb->next = segs;
+> -       DEV_GSO_CB(skb)->destructor = skb->destructor;
+> -       skb->destructor = dev_gso_skb_destructor;
+> -
+> -       return 0;
+> -}
+> -
+>  /* If MPLS offload request, verify we are testing hardware MPLS features
+>   * instead of standard features for the netdev.
+>   */
+> @@ -2682,8 +2636,13 @@ struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev)
+>                 features &= dev->hw_enc_features;
 >
->         return rc;
-> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> index 05bc57e..e6645b4 100644
-> --- a/net/core/netpoll.c
-> +++ b/net/core/netpoll.c
-> @@ -91,7 +91,7 @@ static int netpoll_start_xmit(struct sk_buff *skb, struct net_device *dev,
->                 skb->vlan_tci = 0;
+>         if (netif_needs_gso(skb, features)) {
+> -               if (unlikely(dev_gso_segment(skb, features)))
+> -                       goto out_kfree_skb;
+> +               struct sk_buff *segs;
+> +
+> +               segs = skb_gso_segment(skb, features);
+> +               kfree_skb(skb);
+> +               if (IS_ERR(segs))
+> +                       segs = NULL;
+> +               skb = segs;
+>         } else {
+>                 if (skb_needs_linearize(skb, features) &&
+>                     __skb_linearize(skb))
+> @@ -2714,26 +2673,16 @@ out_null:
+>         return NULL;
+>  }
+>
+> -int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+> -                       struct netdev_queue *txq)
+> +struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+> +                                   struct netdev_queue *txq, int *ret)
+>  {
+> -       int rc = NETDEV_TX_OK;
+> -
+> -       if (likely(!skb->next))
+> -               return xmit_one(skb, dev, txq, false);
+> -
+> -       skb->next = xmit_list(skb->next, dev, txq, &rc);
+> -       if (likely(skb->next == NULL)) {
+> -               skb->destructor = DEV_GSO_CB(skb)->destructor;
+> -               consume_skb(skb);
+> -               return rc;
+> +       if (likely(!skb->next)) {
+> +               *ret = xmit_one(skb, dev, txq, false);
+> +               return skb;
 >         }
 >
-> -       status = netdev_start_xmit(skb, dev, txq);
-> +       status = netdev_start_xmit(skb, dev, txq, false);
+> -       kfree_skb(skb);
+> -
+> -       return rc;
+> +       return xmit_list(skb, dev, txq, ret);
+>  }
+> -EXPORT_SYMBOL_GPL(dev_hard_start_xmit);
 >
->  out:
->         return status;
-> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-> index 34bd2ff..5b36a94 100644
-> --- a/net/core/pktgen.c
-> +++ b/net/core/pktgen.c
-> @@ -3335,7 +3335,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
->                 goto unlock;
->         }
->         atomic_inc(&(pkt_dev->skb->users));
-> -       ret = netdev_start_xmit(pkt_dev->skb, odev, txq);
-> +       ret = netdev_start_xmit(pkt_dev->skb, odev, txq, false);
+>  static void qdisc_pkt_len_init(struct sk_buff *skb)
+>  {
+> @@ -2945,7 +2894,7 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
 >
->         switch (ret) {
->         case NETDEV_TX_OK:
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index fe305a0..87d20f4 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -259,7 +259,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
+>                         if (!netif_xmit_stopped(txq)) {
+>                                 __this_cpu_inc(xmit_recursion);
+> -                               rc = dev_hard_start_xmit(skb, dev, txq);
+> +                               skb = dev_hard_start_xmit(skb, dev, txq, &rc);
+>                                 __this_cpu_dec(xmit_recursion);
+>                                 if (dev_xmit_complete(rc)) {
+>                                         HARD_TX_UNLOCK(dev, txq);
+> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+> index f178798..a8bf9f9 100644
+> --- a/net/sched/sch_generic.c
+> +++ b/net/sched/sch_generic.c
+> @@ -129,7 +129,7 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
 >
 >         HARD_TX_LOCK(dev, txq, smp_processor_id());
->         if (!netif_xmit_frozen_or_drv_stopped(txq))
-> -               ret = netdev_start_xmit(skb, dev, txq);
-> +               ret = netdev_start_xmit(skb, dev, txq, false);
+>         if (!netif_xmit_frozen_or_stopped(txq))
+> -               ret = dev_hard_start_xmit(skb, dev, txq);
+> +               skb = dev_hard_start_xmit(skb, dev, txq, &ret);
+>
 >         HARD_TX_UNLOCK(dev, txq);
 >
->         local_bh_enable();
-> diff --git a/net/sched/sch_teql.c b/net/sched/sch_teql.c
-> index 193dc2c..aaa8d03 100644
-> --- a/net/sched/sch_teql.c
-> +++ b/net/sched/sch_teql.c
-> @@ -316,7 +316,8 @@ restart:
->                                 unsigned int length = qdisc_pkt_len(skb);
->
->                                 if (!netif_xmit_frozen_or_stopped(slave_txq) &&
-> -                                   netdev_start_xmit(skb, slave, slave_txq) == NETDEV_TX_OK) {
-> +                                   netdev_start_xmit(skb, slave, slave_txq, false) ==
-> +                                   NETDEV_TX_OK) {
->                                         __netif_tx_unlock(slave_txq);
->                                         master->slaves = NEXT_SLAVE(q);
->                                         netif_wake_queue(dev);
 > --
 > 1.7.11.7
 >
