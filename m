@@ -1,94 +1,67 @@
 From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH 1/2] net: ethernet: cpsw: don't claim IRQs with devm_request_irq()
-Date: Tue,  2 Sep 2014 18:44:04 +0200
-Message-ID: <1409676245-13897-1-git-send-email-zonque@gmail.com>
+Subject: [PATCH 2/2] net: ethernet: cpsw: fix interrupt lookup logic in cpsw_probe()
+Date: Tue,  2 Sep 2014 18:44:05 +0200
+Message-ID: <1409676245-13897-2-git-send-email-zonque@gmail.com>
+References: <1409676245-13897-1-git-send-email-zonque@gmail.com>
 Cc: julia.lawall@lip6.fr, netdev@vger.kernel.org, mugunthanvnm@ti.com,
 	george.cherian@ti.com, Daniel Mack <zonque@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:46717 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754172AbaIBQoO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 12:44:14 -0400
-Received: by mail-wi0-f171.google.com with SMTP id hi2so14688741wib.4
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 09:44:13 -0700 (PDT)
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:42154 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754856AbaIBQoQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 12:44:16 -0400
+Received: by mail-wg0-f45.google.com with SMTP id k14so7067796wgh.28
+        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 09:44:15 -0700 (PDT)
+In-Reply-To: <1409676245-13897-1-git-send-email-zonque@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Julia Lawall spotted a problem with aa1a15e ("net: ethernet: cpsw:
-switch to devres allocations") which introduced a race condition in
-cpsw_probe() by removing explicit interrupt disable calls before
-calling free_netdev(). Hence, an interrupt can fire after free_netdev()
-was called. The same problem exists in cpsw_remove().
+The code in cpsw_probe() currently iterates over the available
+interrupt resources and requests each of them.  While doing so, it
+keeps track of their indices through priv->irqs_table.
 
-Fix this by reverting the IRQ part of the aforementioned patch and
-handle those resources explicitly.
+However, the code currently only remembers the last interrupt in
+a resource, and will leak the others if there is more than one.
+This can only happen for board-file driven platforms and not via DT,
+however.
 
-Reported-by: Julia Lawall <julia.lawall@lip6.fr>
+Also, there is currently no bounds check, while priv->irqs_table is a
+fixed-size array. If we are passed more than 4 resources, we're in
+trouble.
+
+This patch introduces a bounds check and changes the way interrupt
+indices are kept. Tested on a Beagle Bone Black board only.
+
 Signed-off-by: Daniel Mack <zonque@gmail.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 17 ++++++++++++-----
- 1 file changed, 12 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 999fb72..cdbbb58 100644
+index cdbbb58..e747e55 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2233,10 +2233,10 @@ static int cpsw_probe(struct platform_device *pdev)
+@@ -2233,13 +2233,18 @@ static int cpsw_probe(struct platform_device *pdev)
  
  	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
  		for (i = res->start; i <= res->end; i++) {
--			if (devm_request_irq(&pdev->dev, i, cpsw_interrupt, 0,
--					     dev_name(&pdev->dev), priv)) {
-+			if (request_irq(i, cpsw_interrupt, 0,
-+					dev_name(&pdev->dev), priv)) {
- 				dev_err(priv->dev, "error attaching irq\n");
--				goto clean_ale_ret;
++			if (priv->num_irqs >= ARRAY_SIZE(priv->irqs_table)) {
++				ret = -EINVAL;
 +				goto clean_irq_ret;
- 			}
- 			priv->irqs_table[k] = i;
- 			priv->num_irqs = k + 1;
-@@ -2256,7 +2256,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 	if (ret) {
- 		dev_err(priv->dev, "error registering net device\n");
- 		ret = -ENODEV;
--		goto clean_ale_ret;
-+		goto clean_irq_ret;
- 	}
- 
- 	cpsw_notice(priv, probe, "initialized device (regs %pa, irq %d)\n",
-@@ -2266,12 +2266,15 @@ static int cpsw_probe(struct platform_device *pdev)
- 		ret = cpsw_probe_dual_emac(pdev, priv);
- 		if (ret) {
- 			cpsw_err(priv, probe, "error probe slave 2 emac interface\n");
--			goto clean_ale_ret;
-+			goto clean_irq_ret;
- 		}
- 	}
- 
- 	return 0;
- 
-+clean_irq_ret:
-+	for (i = 0; i < priv->num_irqs; i++)
-+		free_irq(priv->irqs_table[i], priv);
- clean_ale_ret:
- 	cpsw_ale_destroy(priv->ale);
- clean_dma_ret:
-@@ -2289,11 +2292,15 @@ static int cpsw_remove(struct platform_device *pdev)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct cpsw_priv *priv = netdev_priv(ndev);
-+	int i;
- 
- 	if (priv->data.dual_emac)
- 		unregister_netdev(cpsw_get_slave_ndev(priv, 1));
- 	unregister_netdev(ndev);
- 
-+	for (i = 0; i < priv->num_irqs; i++)
-+		free_irq(priv->irqs_table[i], priv);
++			}
 +
- 	cpsw_ale_destroy(priv->ale);
- 	cpdma_chan_destroy(priv->txch);
- 	cpdma_chan_destroy(priv->rxch);
+ 			if (request_irq(i, cpsw_interrupt, 0,
+ 					dev_name(&pdev->dev), priv)) {
+ 				dev_err(priv->dev, "error attaching irq\n");
+ 				goto clean_irq_ret;
+ 			}
+-			priv->irqs_table[k] = i;
+-			priv->num_irqs = k + 1;
++			priv->irqs_table[priv->num_irqs] = i;
++			priv->num_irqs++;
+ 		}
+ 		k++;
+ 	}
 -- 
 2.1.0
