@@ -1,90 +1,40 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 3/3] qdisc: sysctl to adjust bulk dequeue limit
-Date: Tue, 02 Sep 2014 16:36:09 +0200
-Message-ID: <20140902143553.1918.73632.stgit@dragon>
-References: <20140902143254.1918.8419.stgit@dragon>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net] amd-xgbe: Fix initialization of the wrong spin lock
+Date: Tue, 2 Sep 2014 09:40:22 -0500
+Message-ID: <20140902144022.10877.58098.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1758 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754154AbaIBOgS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 10:36:18 -0400
-In-Reply-To: <20140902143254.1918.8419.stgit@dragon>
+Received: from mail-bn1blp0183.outbound.protection.outlook.com ([207.46.163.183]:30246
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751500AbaIBOk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 10:40:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow userspace to adjust how many packet the qdisc is allowed to
-bulk dequeue.
+During allocation and initialization of the network driver structures,
+the wrong pointer is used to initialize a spin lock. Fix the spin lock
+initialization by using the proper pointer.
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
-Question should we allow this to be adjusted?
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- include/net/sch_generic.h  |    2 ++
- net/core/sysctl_net_core.c |    9 +++++++++
- net/sched/sch_generic.c    |    4 +++-
- 3 files changed, 14 insertions(+), 1 deletions(-)
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index a3cfb8e..b0ac7b5 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -14,6 +14,8 @@ struct qdisc_walker;
- struct tcf_walker;
- struct module;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+index 8aa6a93..bdf9cfa 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+@@ -172,7 +172,7 @@ static struct xgbe_channel *xgbe_alloc_rings(struct xgbe_prv_data *pdata)
+ 		}
  
-+extern int qdisc_bulk_dequeue_limit;
-+
- struct qdisc_rate_table {
- 	struct tc_ratespec rate;
- 	u32		data[256];
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index cf9cd13..5505841 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -361,6 +361,15 @@ static struct ctl_table net_core_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "qdisc_bulk_dequeue_limit",
-+		.data		= &qdisc_bulk_dequeue_limit,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.extra1		= &zero,
-+		.extra2		= &ushort_max,
-+		.proc_handler	= proc_dointvec_minmax
-+	},
- 	{ }
- };
+ 		if (i < pdata->rx_ring_count) {
+-			spin_lock_init(&tx_ring->lock);
++			spin_lock_init(&rx_ring->lock);
+ 			channel->rx_ring = rx_ring++;
+ 		}
  
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 30814ef..9cb08c0 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -34,6 +34,8 @@
- const struct Qdisc_ops *default_qdisc_ops = &pfifo_fast_ops;
- EXPORT_SYMBOL(default_qdisc_ops);
- 
-+int qdisc_bulk_dequeue_limit __read_mostly = 7;
-+
- /* Main transmission queue. */
- 
- /* Modifications to data participating in scheduling must be protected with
-@@ -81,7 +83,7 @@ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
- 			/* bulk dequeue */
- 			if (skb && !skb->next && (q->flags & TCQ_F_ONETXQUEUE)) {
- 				struct sk_buff *new, *head = skb;
--				int limit = 7;
-+				int limit = qdisc_bulk_dequeue_limit;
- 
- 				do {
- 					new = q->dequeue(q);
