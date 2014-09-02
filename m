@@ -1,189 +1,100 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH 1/2] ipv6: add sysctl_mld_qrv to configure query
- robustness variable
-Date: Mon, 1 Sep 2014 21:05:54 -0300
-Message-ID: <20140902000554.GA7909@t520.home>
-References: <aa72acbd19015e6db6b2d425fb6ebf6a8fa9c3b5.1409601046.git.hannes@stressinduktion.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: e1000: convert to build_skb/napi_gro_frags api
+Date: Mon, 01 Sep 2014 17:30:59 -0700
+Message-ID: <1409617859.2384.6.camel@jtkirshe-mobl>
+References: <1409423307-23470-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10280 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751965AbaIBAF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Sep 2014 20:05:59 -0400
+Content-Type: multipart/mixed; boundary="===============5258686913584277027=="
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1409423307-23470-1-git-send-email-fw@strlen.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+
+--===============5258686913584277027==
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-avHCT87UPf5OGZj3Xh8b"
+
+
+--=-avHCT87UPf5OGZj3Xh8b
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Sat, 2014-08-30 at 20:28 +0200, Florian Westphal wrote:
+> e1000 driver preallocates skbs, then sends them up the stack.
+>=20
+> This series changes the rx routine to only preallocate data buffers,
+> then initialize skb right before passing it up the stack.
+>=20
+> This gives slight performance inprovements as the skb will be
+> fresh in the cache once its allocated/initialized.
+>=20
+> The default-mtu 1500 path is converted to build_skb()/netdev_alloc_frag.
+>=20
+> Jumbo path is converted to napi_gro_frags.
+>=20
+> Note that this has only been tested with kvms e1000 emulation.
+>=20
+
+Can you re-spin the series with Sergei's suggest change for patch 7,
+please?  I will await your v2 before picking up this series, thanks!
+
+--=-avHCT87UPf5OGZj3Xh8b
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJUBQ/DAAoJEOVv75VaS+3O/BgQAKYLN69hINItJJEmXyVDwhz0
+sTlVqa9u3cL4NtAg0sarzyw9I6SZpZTIaBnB4jMjbyNBhH2q75wDHaKhSWMd+BN1
+fe7AZbKux4lVzlFQgoNMOrWMaj3X5hYI1djA2ROo/x1EbTwk4fhUsi3PhoaKk+tZ
+1zZ4pHu7eFFl75G83PRryLAOHYk/u6QoWAca1TtIMoy2YMTiKjXq2pkQQoIeuAAJ
+YfpHrW8Bo1UetafTwIO8A24mfh2qd4jizzMb6xDqsC9wwS8woHA95McJ9RpbIcDa
+GOQkyAG+lgwIVCWoWfbjHdBm7A7JLG/QwL3QIHErCCKMf7BWBwh2tys6NnF1llc5
+KOU3a2hlgkjUnTxTBt6Xb47blwdH8iNqHTspsyqqzkT2mDxvKXo10iShBDr+XEs9
+g0F8scJVbS2DYFrvgvcZNnyCMGcJT57YDll3ZUUZpT6YdVnnm0DmgQwtartWfCPX
+AfVrjiW+mVARzo+SufO8/QTGCCM3xGRraIU9G4P/YoeyfQcAaUtL618cG8+C+ziL
+++WpVHwp7r782OAxQ/gSRGZAwEWW8u7KAScRS8SGHMdWipLKI/CeduA/UJKbbKvz
+4etLWN9ad+Vjqg6HzdhijYPj1e7TZ/UKYUAh1qQlCciGrq+qRcIqoJBsgggr0PAQ
+Tr9iwHNKvtieAW136nQx
+=dlgU
+-----END PGP SIGNATURE-----
+
+--=-avHCT87UPf5OGZj3Xh8b--
+
+
+
+--===============5258686913584277027==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
-In-Reply-To: <aa72acbd19015e6db6b2d425fb6ebf6a8fa9c3b5.1409601046.git.hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
+------------------------------------------------------------------------------
+Slashdot TV.  
+Video for Nerds.  Stuff that matters.
+http://tv.slashdot.org/
+--===============5258686913584277027==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Hi Hannes,
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
 
-On Mon, Sep 01, 2014 at 09:55:34PM +0200, Hannes Frederic Sowa wrote:
-> This patch adds a new sysctl_mld_qrv knob to configure the mldv1/v2 query
-> robustness variable. It specifies how many retransmit of unsolicited mld
-> retransmit should happen. Admins might want to tune this on lossy links.
-> 
-> Also reset mld state on interface down/up, so we pick up new sysctl
-> settings during interface up event.
-> 
-> IPv6 certification requests this knob to be available.
-> 
-> I didn't make this knob netns specific, as it is mostly a setting in a
-> physical environment and should be per host.
-> 
-> Cc: Flavio Leitner <fbl@redhat.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
-> v2) no changes to original version
-> 
->  Documentation/networking/ip-sysctl.txt |  3 +++
->  include/net/ipv6.h                     |  1 +
->  net/ipv6/mcast.c                       | 20 ++++++++++++--------
->  net/ipv6/sysctl_net_ipv6.c             | 10 ++++++++++
->  4 files changed, 26 insertions(+), 8 deletions(-)
-> 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index 3cce8ea..b7fe844 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -1152,6 +1152,9 @@ anycast_src_echo_reply - BOOLEAN
->  	FALSE: disabled
->  	Default: FALSE
->  
-> +mld_qrv - INTEGER
-> +	Controls the MLD query robustness variable (see RFC3810 9.1).
-> +
->  IPv6 Fragmentation:
->  
->  ip6frag_high_thresh - INTEGER
-> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> index a2db816..7e247e9 100644
-> --- a/include/net/ipv6.h
-> +++ b/include/net/ipv6.h
-> @@ -121,6 +121,7 @@ struct frag_hdr {
->  
->  /* sysctls */
->  extern int sysctl_mld_max_msf;
-> +extern int sysctl_mld_qrv;
->  
->  #define _DEVINC(net, statname, modifier, idev, field)			\
->  ({									\
-> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-> index 7088179..6efb0e5 100644
-> --- a/net/ipv6/mcast.c
-> +++ b/net/ipv6/mcast.c
-> @@ -121,6 +121,7 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
->  #define IPV6_MLD_MAX_MSF	64
->  
->  int sysctl_mld_max_msf __read_mostly = IPV6_MLD_MAX_MSF;
-> +int sysctl_mld_qrv __read_mostly = MLD_QRV_DEFAULT;
->  
->  /*
->   *	socket join on multicast group
-> @@ -1196,7 +1197,7 @@ static void mld_update_qrv(struct inet6_dev *idev,
->  	if (mlh2->mld2q_qrv > 0)
->  		idev->mc_qrv = mlh2->mld2q_qrv;
->  
-> -	if (unlikely(idev->mc_qrv < 2)) {
-> +	if (unlikely(idev->mc_qrv < MLD_QRV_DEFAULT)) {
->  		net_warn_ratelimited("IPv6: MLD: clamping QRV from %u to %u!\n",
->  				     idev->mc_qrv, MLD_QRV_DEFAULT);
->  		idev->mc_qrv = MLD_QRV_DEFAULT;
-
-You allow the sysctl to be 1, but here it is limited to 2?
-
-
-> @@ -2478,6 +2479,14 @@ void ipv6_mc_down(struct inet6_dev *idev)
->  	mld_clear_delrec(idev);
->  }
->  
-> +static void ipv6_mc_reset(struct inet6_dev *idev)
-> +{
-> +	idev->mc_qrv = sysctl_mld_qrv;
-> +	idev->mc_qi = MLD_QI_DEFAULT;
-> +	idev->mc_qri = MLD_QRI_DEFAULT;
-> +	idev->mc_v1_seen = 0;
-> +	idev->mc_maxdelay = unsolicited_report_interval(idev);
-> +}
->  
->  /* Device going up */
->  
-> @@ -2488,6 +2497,7 @@ void ipv6_mc_up(struct inet6_dev *idev)
->  	/* Install multicast list, except for all-nodes (already installed) */
->  
->  	read_lock_bh(&idev->lock);
-> +	ipv6_mc_reset(idev);
-
-ok, up and down the interface to get the sysctl value applied.
-
->  	for (i = idev->mc_list; i; i = i->next)
->  		igmp6_group_added(i);
->  	read_unlock_bh(&idev->lock);
-> @@ -2508,13 +2518,7 @@ void ipv6_mc_init_dev(struct inet6_dev *idev)
->  			(unsigned long)idev);
->  	setup_timer(&idev->mc_dad_timer, mld_dad_timer_expire,
->  		    (unsigned long)idev);
-> -
-> -	idev->mc_qrv = MLD_QRV_DEFAULT;
-> -	idev->mc_qi = MLD_QI_DEFAULT;
-> -	idev->mc_qri = MLD_QRI_DEFAULT;
-> -
-> -	idev->mc_maxdelay = unsolicited_report_interval(idev);
-> -	idev->mc_v1_seen = 0;
-> +	ipv6_mc_reset(idev);
-
-looks good to me.
-
-
->  	write_unlock_bh(&idev->lock);
->  }
->  
-> diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
-> index 0c56c93..c5c10fa 100644
-> --- a/net/ipv6/sysctl_net_ipv6.c
-> +++ b/net/ipv6/sysctl_net_ipv6.c
-> @@ -16,6 +16,8 @@
->  #include <net/addrconf.h>
->  #include <net/inet_frag.h>
->  
-> +static int one = 1;
-> +
-
-Although that can be reused later for other purposes, it's nice to
-have a comment telling where that value came from. Since you have
-defined MLD_QRV_DEFAULT, it helps. Still I didn't know about 
-rfc6636#section-4.5, so I'd appreciate if you include that info
-either in ip-sysctl.txt or close to MLD_QRV_DEFAULT.
-E.g.:
-
-/* See RFC3810 9.1 and rfc6636 4.5 */
-+int sysctl_mld_qrv __read_mostly = MLD_QRV_DEFAULT;
-
-Actually, maybe that int could be something not specific to ipv6
-because I believe there are more users of the same thing. That's ok,
-just a comment and it's not part of this patch.
-
->  static struct ctl_table ipv6_table_template[] = {
->  	{
->  		.procname	= "bindv6only",
-> @@ -63,6 +65,14 @@ static struct ctl_table ipv6_rotable[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec
->  	},
-> +	{
-> +		.procname	= "mld_qrv",
-> +		.data		= &sysctl_mld_qrv,
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec_minmax,
-> +		.extra1		= &one
-> +	},
->  	{ }
->  };
->  
-> -- 
-> 1.9.3
-> 
+--===============5258686913584277027==--
