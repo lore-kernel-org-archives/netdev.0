@@ -1,187 +1,101 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 8/9] net: Don't keep around original SKB when we software
- segment GSO frames.
-Date: Mon, 1 Sep 2014 18:28:18 -0700
-Message-ID: <CA+mtBx-1r-vJYDx0xJ+p=Tjr=_v559XdrSu1SZ4UXWE_4fLbZg@mail.gmail.com>
-References: <20140901.152515.1944476256109254437.davem@davemloft.net>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next v4] lib/rhashtable: allow user to set the minimum shifts of shrinking
+Date: Tue, 2 Sep 2014 09:28:59 +0800
+Message-ID: <1409621339-6192-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
+	<netdev@vger.kernel.org>
+To: <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:58187 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751405AbaIBB2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 21:28:19 -0400
-Received: by mail-ie0-f173.google.com with SMTP id lx4so6878296iec.32
-        for <netdev@vger.kernel.org>; Mon, 01 Sep 2014 18:28:18 -0700 (PDT)
-In-Reply-To: <20140901.152515.1944476256109254437.davem@davemloft.net>
+Received: from mail.windriver.com ([147.11.1.11]:58854 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751786AbaIBB3a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 21:29:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 1, 2014 at 3:25 PM, David Miller <davem@davemloft.net> wrote:
->
-> Just maintain the list properly by returning the head of the remaining
-> SKB list from dev_hard_start_xmit().
->
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  include/linux/netdevice.h |  4 +--
->  net/core/dev.c            | 79 +++++++++--------------------------------------
->  net/sched/sch_generic.c   |  2 +-
->  3 files changed, 17 insertions(+), 68 deletions(-)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 47c49ba..202c25a 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -2828,8 +2828,8 @@ int dev_change_carrier(struct net_device *, bool new_carrier);
->  int dev_get_phys_port_id(struct net_device *dev,
->                          struct netdev_phys_port_id *ppid);
->  struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev);
-> -int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
-> -                       struct netdev_queue *txq);
-> +struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
-> +                                   struct netdev_queue *txq, int *ret);
+Although rhashtable library allows user to specify a quiet big size
+for user's created hash table, the table may be shrunk to a
+very small size - HASH_MIN_SIZE(4) after object is removed from
+the table at the first time. Subsequently, even if the total amount
+of objects saved in the table is quite lower than user's initial
+setting in a long time, the hash table size is still dynamically
+adjusted by rhashtable_shrink() or rhashtable_expand() each time
+object is inserted or removed from the table. However, as
+synchronize_rcu() has to be called when table is shrunk or
+expanded by the two functions, we should permit user to set the
+minimum table size through configuring the minimum number of shifts
+according to user specific requirement, avoiding these expensive
+actions of shrinking or expanding because of calling synchronize_rcu().
 
-Might be slightly better to still return int but pass struct sk_buff
-**skb. One less argument and doesn't change return type.
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+In the version, no any compiling warning appears, and all rhashtable
+self test cases are passed.
 
->  int __dev_forward_skb(struct net_device *dev, struct sk_buff *skb);
->  int dev_forward_skb(struct net_device *dev, struct sk_buff *skb);
->  bool is_skb_forwardable(struct net_device *dev, struct sk_buff *skb);
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 75bc5b0..c89da4f 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2485,52 +2485,6 @@ static int illegal_highdma(struct net_device *dev, struct sk_buff *skb)
->         return 0;
->  }
->
-> -struct dev_gso_cb {
-> -       void (*destructor)(struct sk_buff *skb);
-> -};
-> -
-> -#define DEV_GSO_CB(skb) ((struct dev_gso_cb *)(skb)->cb)
-> -
-> -static void dev_gso_skb_destructor(struct sk_buff *skb)
-> -{
-> -       struct dev_gso_cb *cb;
-> -
-> -       kfree_skb_list(skb->next);
-> -       skb->next = NULL;
-> -
-> -       cb = DEV_GSO_CB(skb);
-> -       if (cb->destructor)
-> -               cb->destructor(skb);
-> -}
-> -
-> -/**
-> - *     dev_gso_segment - Perform emulated hardware segmentation on skb.
-> - *     @skb: buffer to segment
-> - *     @features: device features as applicable to this skb
-> - *
-> - *     This function segments the given skb and stores the list of segments
-> - *     in skb->next.
-> - */
-> -static int dev_gso_segment(struct sk_buff *skb, netdev_features_t features)
-> -{
-> -       struct sk_buff *segs;
-> -
-> -       segs = skb_gso_segment(skb, features);
-> -
-> -       /* Verifying header integrity only. */
-> -       if (!segs)
-> -               return 0;
-> -
-> -       if (IS_ERR(segs))
-> -               return PTR_ERR(segs);
-> -
-> -       skb->next = segs;
-> -       DEV_GSO_CB(skb)->destructor = skb->destructor;
-> -       skb->destructor = dev_gso_skb_destructor;
-> -
-> -       return 0;
-> -}
-> -
->  /* If MPLS offload request, verify we are testing hardware MPLS features
->   * instead of standard features for the netdev.
->   */
-> @@ -2682,8 +2636,13 @@ struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev)
->                 features &= dev->hw_enc_features;
->
->         if (netif_needs_gso(skb, features)) {
-> -               if (unlikely(dev_gso_segment(skb, features)))
-> -                       goto out_kfree_skb;
-> +               struct sk_buff *segs;
-> +
-> +               segs = skb_gso_segment(skb, features);
-> +               kfree_skb(skb);
-> +               if (IS_ERR(segs))
-> +                       segs = NULL;
-> +               skb = segs;
->         } else {
->                 if (skb_needs_linearize(skb, features) &&
->                     __skb_linearize(skb))
-> @@ -2714,26 +2673,16 @@ out_null:
->         return NULL;
->  }
->
-> -int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
-> -                       struct netdev_queue *txq)
-> +struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
-> +                                   struct netdev_queue *txq, int *ret)
->  {
-> -       int rc = NETDEV_TX_OK;
-> -
-> -       if (likely(!skb->next))
-> -               return xmit_one(skb, dev, txq, false);
-> -
-> -       skb->next = xmit_list(skb->next, dev, txq, &rc);
-> -       if (likely(skb->next == NULL)) {
-> -               skb->destructor = DEV_GSO_CB(skb)->destructor;
-> -               consume_skb(skb);
-> -               return rc;
-> +       if (likely(!skb->next)) {
-> +               *ret = xmit_one(skb, dev, txq, false);
-> +               return skb;
->         }
->
-> -       kfree_skb(skb);
-> -
-> -       return rc;
-> +       return xmit_list(skb, dev, txq, ret);
->  }
-> -EXPORT_SYMBOL_GPL(dev_hard_start_xmit);
->
->  static void qdisc_pkt_len_init(struct sk_buff *skb)
->  {
-> @@ -2945,7 +2894,7 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
->
->                         if (!netif_xmit_stopped(txq)) {
->                                 __this_cpu_inc(xmit_recursion);
-> -                               rc = dev_hard_start_xmit(skb, dev, txq);
-> +                               skb = dev_hard_start_xmit(skb, dev, txq, &rc);
->                                 __this_cpu_dec(xmit_recursion);
->                                 if (dev_xmit_complete(rc)) {
->                                         HARD_TX_UNLOCK(dev, txq);
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index f178798..a8bf9f9 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -129,7 +129,7 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
->
->         HARD_TX_LOCK(dev, txq, smp_processor_id());
->         if (!netif_xmit_frozen_or_stopped(txq))
-> -               ret = dev_hard_start_xmit(skb, dev, txq);
-> +               skb = dev_hard_start_xmit(skb, dev, txq, &ret);
->
->         HARD_TX_UNLOCK(dev, txq);
->
-> --
-> 1.7.11.7
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ include/linux/rhashtable.h |    2 ++
+ lib/rhashtable.c           |   12 ++++++++----
+ 2 files changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index 36826c0..fb298e9d 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -44,6 +44,7 @@ struct rhashtable;
+  * @head_offset: Offset of rhash_head in struct to be hashed
+  * @hash_rnd: Seed to use while hashing
+  * @max_shift: Maximum number of shifts while expanding
++ * @min_shift: Minimum number of shifts while shrinking
+  * @hashfn: Function to hash key
+  * @obj_hashfn: Function to hash object
+  * @grow_decision: If defined, may return true if table should expand
+@@ -57,6 +58,7 @@ struct rhashtable_params {
+ 	size_t			head_offset;
+ 	u32			hash_rnd;
+ 	size_t			max_shift;
++	size_t			min_shift;
+ 	rht_hashfn_t		hashfn;
+ 	rht_obj_hashfn_t	obj_hashfn;
+ 	bool			(*grow_decision)(const struct rhashtable *ht,
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index a2c7881..5b52100 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -298,7 +298,7 @@ int rhashtable_shrink(struct rhashtable *ht, gfp_t flags)
+ 
+ 	ASSERT_RHT_MUTEX(ht);
+ 
+-	if (tbl->size <= HASH_MIN_SIZE)
++	if (ht->shift <= ht->p.min_shift)
+ 		return 0;
+ 
+ 	ntbl = bucket_table_alloc(tbl->size / 2, flags);
+@@ -506,9 +506,10 @@ void *rhashtable_lookup_compare(const struct rhashtable *ht, u32 hash,
+ }
+ EXPORT_SYMBOL_GPL(rhashtable_lookup_compare);
+ 
+-static size_t rounded_hashtable_size(unsigned int nelem)
++static size_t rounded_hashtable_size(struct rhashtable_params *params)
+ {
+-	return max(roundup_pow_of_two(nelem * 4 / 3), HASH_MIN_SIZE);
++	return max(roundup_pow_of_two(params->nelem_hint * 4 / 3),
++		   1UL << params->min_shift);
+ }
+ 
+ /**
+@@ -566,8 +567,11 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+ 	    (!params->key_len && !params->obj_hashfn))
+ 		return -EINVAL;
+ 
++	params->min_shift = max_t(size_t, params->min_shift,
++				  (size_t)ilog2(HASH_MIN_SIZE));
++
+ 	if (params->nelem_hint)
+-		size = rounded_hashtable_size(params->nelem_hint);
++		size = rounded_hashtable_size(params);
+ 
+ 	tbl = bucket_table_alloc(size, GFP_KERNEL);
+ 	if (tbl == NULL)
+-- 
+1.7.9.5
