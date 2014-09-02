@@ -1,163 +1,450 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: [PATCH] net: export pkt_type_offset() helper
-Date: Wed,  3 Sep 2014 00:03:58 +0400
-Message-ID: <1409688238-3152-1-git-send-email-kda@linux-powerpc.org>
-Cc: Denis Kirjanov <kda@linux-powerpc.org>,
-	Markos Chandras <markos.chandras@imgtec.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Daniel Borkmann <dborkman@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next] net: bpf: make eBPF interpreter images read-only
+Date: Tue,  2 Sep 2014 22:42:21 +0200
+Message-ID: <aa5126f747594d768e0c518189a13e8674ad8ee5.1409690486.git.hannes@stressinduktion.org>
+Cc: linux-kernel@vger.kernel.org,
+	Brad Spengler <spender@grsecurity.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Kees Cook <keescook@chromium.org>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:40575 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754164AbaIBUaW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 16:30:22 -0400
-Received: by mail-la0-f42.google.com with SMTP id mc6so8592104lab.1
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 13:30:20 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently we have 2 pkt_type_offset functions doing
-the same thing and spread across the architecture files.
-Let's use the generic helper routine.
+From: Daniel Borkmann <dborkman@redhat.com>
 
-Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
-Cc: Markos Chandras <markos.chandras@imgtec.com>
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>
+With eBPF getting more extended and exposure to user space is on it's way,
+hardening the memory range the interpreter uses to steer its command flow
+seems appropriate.  This patch moves the to be interpreted bytecode to
+read-only pages.
+
+In case we execute a corrupted BPF interpreter image for some reason e.g.
+caused by an attacker which got past a verifier stage, it would not only
+provide arbitrary read/write memory access but arbitrary function calls
+as well. After setting up the BPF interpreter image, its contents do not
+change until destruction time, thus we can setup the image on immutable
+made pages in order to mitigate modifications to that code. The idea
+is derived from commit 314beb9bcabf ("x86: bpf_jit_comp: secure bpf jit
+against spraying attacks").
+
+Therefore, introduce a page allocator for eBPF and RO locking mechanisms
+in order to mitigate modifications to that code. The idea is derived
+from commit 314beb9bcabf ("x86: bpf_jit_comp: secure bpf jit against
+spraying attacks").
+
+This is possible because bpf_prog is not part of sk_filter anymore.
+After setup bpf_prog cannot be altered during its life-time. This prevents
+any modifications to the entire bpf_prog structure (incl. function/JIT
+image pointer).
+
+Every eBPF program (including classic BPF that are migrated) have to call
+bpf_prog_select_runtime() to select either interpreter or a JIT image
+as a last setup step, and they all are being freed via bpf_prog_free(),
+including non-JIT. Therefore, we can easily integrate this into the
+eBPF life-time, plus since we directly allocate a bpf_prog, we have no
+performance penalty.
+
+Tested with seccomp and test_bpf testsuite in JIT/non-JIT mode and manual
+inspection of kernel_page_tables.  Brad Spengler proposed the same idea
+via Twitter during development of this patch.
+
+Joint work with Hannes Frederic Sowa.
+
+Suggested-by: Brad Spengler <spender@grsecurity.net>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Kees Cook <keescook@chromium.org>
 ---
- arch/mips/net/bpf_jit.c      | 21 ---------------------
- arch/s390/net/bpf_jit_comp.c | 38 ++++----------------------------------
- include/linux/filter.h       |  7 +++++++
- net/core/filter.c            |  7 +------
- 4 files changed, 12 insertions(+), 61 deletions(-)
+ arch/arm/net/bpf_jit_32.c       |  3 +-
+ arch/mips/net/bpf_jit.c         |  3 +-
+ arch/powerpc/net/bpf_jit_comp.c |  3 +-
+ arch/s390/net/bpf_jit_comp.c    |  2 +-
+ arch/sparc/net/bpf_jit_comp.c   |  3 +-
+ arch/x86/net/bpf_jit_comp.c     | 18 ++++------
+ include/linux/filter.h          | 49 ++++++++++++++++++++++---
+ kernel/bpf/core.c               | 80 +++++++++++++++++++++++++++++++++++++++--
+ kernel/seccomp.c                |  7 ++--
+ lib/test_bpf.c                  |  2 +-
+ net/core/filter.c               |  6 ++--
+ 11 files changed, 144 insertions(+), 32 deletions(-)
 
+diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+index a37b989..a76623b 100644
+--- a/arch/arm/net/bpf_jit_32.c
++++ b/arch/arm/net/bpf_jit_32.c
+@@ -930,5 +930,6 @@ void bpf_jit_free(struct bpf_prog *fp)
+ {
+ 	if (fp->jited)
+ 		module_free(NULL, fp->bpf_func);
+-	kfree(fp);
++
++	bpf_prog_unlock_free(fp);
+ }
 diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
-index 05a5661..08ff823 100644
+index 05a5661..cfa83cf 100644
 --- a/arch/mips/net/bpf_jit.c
 +++ b/arch/mips/net/bpf_jit.c
-@@ -765,27 +765,6 @@ static u64 jit_get_skb_w(struct sk_buff *skb, unsigned offset)
- 	return (u64)err << 32 | ntohl(ret);
- }
- 
--#ifdef __BIG_ENDIAN_BITFIELD
--#define PKT_TYPE_MAX	(7 << 5)
--#else
--#define PKT_TYPE_MAX	7
--#endif
--static int pkt_type_offset(void)
--{
--	struct sk_buff skb_probe = {
--		.pkt_type = ~0,
--	};
--	u8 *ct = (u8 *)&skb_probe;
--	unsigned int off;
--
--	for (off = 0; off < sizeof(struct sk_buff); off++) {
--		if (ct[off] == PKT_TYPE_MAX)
--			return off;
--	}
--	pr_err_once("Please fix pkt_type_offset(), as pkt_type couldn't be found\n");
--	return -1;
--}
--
- static int build_body(struct jit_ctx *ctx)
+@@ -1427,5 +1427,6 @@ void bpf_jit_free(struct bpf_prog *fp)
  {
- 	void *load_func[] = {jit_get_skb_b, jit_get_skb_h, jit_get_skb_w};
+ 	if (fp->jited)
+ 		module_free(NULL, fp->bpf_func);
+-	kfree(fp);
++
++	bpf_prog_unlock_free(fp);
+ }
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index 3afa6f4..40c53ff 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -697,5 +697,6 @@ void bpf_jit_free(struct bpf_prog *fp)
+ {
+ 	if (fp->jited)
+ 		module_free(NULL, fp->bpf_func);
+-	kfree(fp);
++
++	bpf_prog_unlock_free(fp);
+ }
 diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
-index 61e45b7..34383d1 100644
+index 61e45b7..f2833c5 100644
 --- a/arch/s390/net/bpf_jit_comp.c
 +++ b/arch/s390/net/bpf_jit_comp.c
-@@ -223,37 +223,6 @@ static void bpf_jit_epilogue(struct bpf_jit *jit)
- 	EMIT2(0x07fe);
+@@ -887,5 +887,5 @@ void bpf_jit_free(struct bpf_prog *fp)
+ 	module_free(NULL, header);
+ 
+ free_filter:
+-	kfree(fp);
++	bpf_prog_unlock_free(fp);
+ }
+diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
+index 1f76c22..f7a736b 100644
+--- a/arch/sparc/net/bpf_jit_comp.c
++++ b/arch/sparc/net/bpf_jit_comp.c
+@@ -812,5 +812,6 @@ void bpf_jit_free(struct bpf_prog *fp)
+ {
+ 	if (fp->jited)
+ 		module_free(NULL, fp->bpf_func);
+-	kfree(fp);
++
++	bpf_prog_unlock_free(fp);
+ }
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index b08a98c..39ccfbb 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -972,23 +972,17 @@ out:
+ 	kfree(addrs);
  }
  
--/* Helper to find the offset of pkt_type in sk_buff
-- * Make sure its still a 3bit field starting at the MSBs within a byte.
-- */
--#define PKT_TYPE_MAX 0xe0
--static int pkt_type_offset;
--
--static int __init bpf_pkt_type_offset_init(void)
--{
--	struct sk_buff skb_probe = {
--		.pkt_type = ~0,
--	};
--	char *ct = (char *)&skb_probe;
--	int off;
--
--	pkt_type_offset = -1;
--	for (off = 0; off < sizeof(struct sk_buff); off++) {
--		if (!ct[off])
--			continue;
--		if (ct[off] == PKT_TYPE_MAX)
--			pkt_type_offset = off;
--		else {
--			/* Found non matching bit pattern, fix needed. */
--			WARN_ON_ONCE(1);
--			pkt_type_offset = -1;
--			return -1;
--		}
--	}
--	return 0;
+-static void bpf_jit_free_deferred(struct work_struct *work)
++void bpf_jit_free(struct bpf_prog *fp)
+ {
+-	struct bpf_prog *fp = container_of(work, struct bpf_prog, work);
+ 	unsigned long addr = (unsigned long)fp->bpf_func & PAGE_MASK;
+ 	struct bpf_binary_header *header = (void *)addr;
+ 
++	if (!fp->jited)
++		goto free_filter;
++
+ 	set_memory_rw(addr, header->pages);
+ 	module_free(NULL, header);
+-	kfree(fp);
 -}
--device_initcall(bpf_pkt_type_offset_init);
--
- /*
-  * make sure we dont leak kernel information to user
-  */
-@@ -753,12 +722,13 @@ call_fn:	/* lg %r1,<d(function)>(%r13) */
- 		}
- 		break;
- 	case BPF_ANC | SKF_AD_PKTTYPE:
--		if (pkt_type_offset < 0)
-+		offset = pkt_type_offset();
-+		if (offset < 0)
- 			goto out;
- 		/* lhi %r5,0 */
- 		EMIT4(0xa7580000);
--		/* ic %r5,<d(pkt_type_offset)>(%r2) */
--		EMIT4_DISP(0x43502000, pkt_type_offset);
-+		/* ic %r5,<d(offset)>(%r2) */
-+		EMIT4_DISP(0x43502000, offset);
- 		/* srl %r5,5 */
- 		EMIT4_DISP(0x88500000, 5);
- 		break;
+ 
+-void bpf_jit_free(struct bpf_prog *fp)
+-{
+-	if (fp->jited) {
+-		INIT_WORK(&fp->work, bpf_jit_free_deferred);
+-		schedule_work(&fp->work);
+-	} else {
+-		kfree(fp);
+-	}
++free_filter:
++	bpf_prog_unlock_free(fp);
+ }
 diff --git a/include/linux/filter.h b/include/linux/filter.h
-index a5227ab..97e0549 100644
+index a5227ab..c789945 100644
 --- a/include/linux/filter.h
 +++ b/include/linux/filter.h
-@@ -424,6 +424,13 @@ static inline void *bpf_load_pointer(const struct sk_buff *skb, int k,
- 	return bpf_internal_load_pointer_neg_helper(skb, k, size);
+@@ -9,6 +9,11 @@
+ #include <linux/skbuff.h>
+ #include <linux/workqueue.h>
+ #include <uapi/linux/filter.h>
++#include <asm/cacheflush.h>
++
++struct sk_buff;
++struct sock;
++struct seccomp_data;
+ 
+ /* Internally used and optimized filter representation with extended
+  * instruction set based on top of classic BPF.
+@@ -320,20 +325,23 @@ struct sock_fprog_kern {
+ 	struct sock_filter	*filter;
+ };
+ 
+-struct sk_buff;
+-struct sock;
+-struct seccomp_data;
++struct bpf_work_struct {
++	struct bpf_prog *prog;
++	struct work_struct work;
++};
+ 
+ struct bpf_prog {
++	u32			pages;		/* Number of allocated pages */
+ 	u32			jited:1,	/* Is our filter JIT'ed? */
+ 				len:31;		/* Number of filter blocks */
+ 	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
++	struct bpf_work_struct	*work;		/* Deferred free work struct */
+ 	unsigned int		(*bpf_func)(const struct sk_buff *skb,
+ 					    const struct bpf_insn *filter);
++	/* Instructions for interpreter */
+ 	union {
+ 		struct sock_filter	insns[0];
+ 		struct bpf_insn		insnsi[0];
+-		struct work_struct	work;
+ 	};
+ };
+ 
+@@ -353,6 +361,26 @@ static inline unsigned int bpf_prog_size(unsigned int proglen)
+ 
+ #define bpf_classic_proglen(fprog) (fprog->len * sizeof(fprog->filter[0]))
+ 
++#ifdef CONFIG_DEBUG_SET_MODULE_RONX
++static inline void bpf_prog_lock_ro(struct bpf_prog *fp)
++{
++	set_memory_ro((unsigned long)fp, fp->pages);
++}
++
++static inline void bpf_prog_unlock_ro(struct bpf_prog *fp)
++{
++	set_memory_rw((unsigned long)fp, fp->pages);
++}
++#else
++static inline void bpf_prog_lock_ro(struct bpf_prog *fp)
++{
++}
++
++static inline void bpf_prog_unlock_ro(struct bpf_prog *fp)
++{
++}
++#endif /* CONFIG_DEBUG_SET_MODULE_RONX */
++
+ int sk_filter(struct sock *sk, struct sk_buff *skb);
+ 
+ void bpf_prog_select_runtime(struct bpf_prog *fp);
+@@ -361,6 +389,17 @@ void bpf_prog_free(struct bpf_prog *fp);
+ int bpf_convert_filter(struct sock_filter *prog, int len,
+ 		       struct bpf_insn *new_prog, int *new_len);
+ 
++struct bpf_prog *bpf_prog_alloc(unsigned int size, gfp_t gfp_extra_flags);
++struct bpf_prog *bpf_prog_realloc(struct bpf_prog *fp_old, unsigned int size,
++				  gfp_t gfp_extra_flags);
++void __bpf_prog_free(struct bpf_prog *fp);
++
++static inline void bpf_prog_unlock_free(struct bpf_prog *fp)
++{
++	bpf_prog_unlock_ro(fp);
++	__bpf_prog_free(fp);
++}
++
+ int bpf_prog_create(struct bpf_prog **pfp, struct sock_fprog_kern *fprog);
+ void bpf_prog_destroy(struct bpf_prog *fp);
+ 
+@@ -450,7 +489,7 @@ static inline void bpf_jit_compile(struct bpf_prog *fp)
+ 
+ static inline void bpf_jit_free(struct bpf_prog *fp)
+ {
+-	kfree(fp);
++	bpf_prog_unlock_free(fp);
+ }
+ #endif /* CONFIG_BPF_JIT */
+ 
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 7f0dbcb..b54bb2c 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -22,6 +22,7 @@
+  */
+ #include <linux/filter.h>
+ #include <linux/skbuff.h>
++#include <linux/vmalloc.h>
+ #include <asm/unaligned.h>
+ 
+ /* Registers */
+@@ -63,6 +64,67 @@ void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, uns
+ 	return NULL;
  }
  
-+#ifdef __BIG_ENDIAN_BITFIELD
-+#define PKT_TYPE_MAX	(7 << 5)
-+#else
-+#define PKT_TYPE_MAX    7
-+#endif
-+unsigned int pkt_type_offset(void);
++struct bpf_prog *bpf_prog_alloc(unsigned int size, gfp_t gfp_extra_flags)
++{
++	gfp_t gfp_flags = GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO |
++			  gfp_extra_flags;
++	struct bpf_work_struct *ws;
++	struct bpf_prog *fp;
 +
- #ifdef CONFIG_BPF_JIT
- #include <stdarg.h>
- #include <linux/linkage.h>
++	size = round_up(size, PAGE_SIZE);
++	fp = __vmalloc(size, gfp_flags, PAGE_KERNEL);
++	if (fp == NULL)
++		return NULL;
++
++	ws = kmalloc(sizeof(*ws), GFP_KERNEL | gfp_extra_flags);
++	if (ws == NULL) {
++		vfree(fp);
++		return NULL;
++	}
++
++	fp->pages = size / PAGE_SIZE;
++	fp->work = ws;
++
++	return fp;
++}
++EXPORT_SYMBOL_GPL(bpf_prog_alloc);
++
++struct bpf_prog *bpf_prog_realloc(struct bpf_prog *fp_old, unsigned int size,
++				  gfp_t gfp_extra_flags)
++{
++	gfp_t gfp_flags = GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO |
++			  gfp_extra_flags;
++	struct bpf_prog *fp;
++
++	BUG_ON(fp_old == NULL);
++
++	size = round_up(size, PAGE_SIZE);
++	if (size <= fp_old->pages * PAGE_SIZE)
++		return fp_old;
++
++	fp = __vmalloc(size, gfp_flags, PAGE_KERNEL);
++	if (fp != NULL) {
++		memcpy(fp, fp_old, fp_old->pages * PAGE_SIZE);
++		fp->pages = size / PAGE_SIZE;
++
++		/* We keep fp->work from fp_old around in the new
++		 * reallocated structure.
++		 */
++		fp_old->work = NULL;
++		__bpf_prog_free(fp_old);
++	}
++
++	return fp;
++}
++EXPORT_SYMBOL_GPL(bpf_prog_realloc);
++
++void __bpf_prog_free(struct bpf_prog *fp)
++{
++	kfree(fp->work);
++	vfree(fp);
++}
++EXPORT_SYMBOL_GPL(__bpf_prog_free);
++
+ /* Base function for offset calculation. Needs to go into .text section,
+  * therefore keeping it non-static as well; will also be used by JITs
+  * anyway later on, so do not let the compiler omit it.
+@@ -523,12 +585,26 @@ void bpf_prog_select_runtime(struct bpf_prog *fp)
+ 
+ 	/* Probe if internal BPF can be JITed */
+ 	bpf_int_jit_compile(fp);
++	/* Lock whole bpf_prog as read-only */
++	bpf_prog_lock_ro(fp);
+ }
+ EXPORT_SYMBOL_GPL(bpf_prog_select_runtime);
+ 
+-/* free internal BPF program */
++static void bpf_prog_free_deferred(struct work_struct *work)
++{
++	struct bpf_work_struct *ws;
++
++	ws = container_of(work, struct bpf_work_struct, work);
++	bpf_jit_free(ws->prog);
++}
++
++/* Free internal BPF program */
+ void bpf_prog_free(struct bpf_prog *fp)
+ {
+-	bpf_jit_free(fp);
++	struct bpf_work_struct *ws = fp->work;
++
++	INIT_WORK(&ws->work, bpf_prog_free_deferred);
++	ws->prog = fp;
++	schedule_work(&ws->work);
+ }
+ EXPORT_SYMBOL_GPL(bpf_prog_free);
+diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+index 44eb005..84922be 100644
+--- a/kernel/seccomp.c
++++ b/kernel/seccomp.c
+@@ -395,16 +395,15 @@ static struct seccomp_filter *seccomp_prepare_filter(struct sock_fprog *fprog)
+ 	if (!filter)
+ 		goto free_prog;
+ 
+-	filter->prog = kzalloc(bpf_prog_size(new_len),
+-			       GFP_KERNEL|__GFP_NOWARN);
++	filter->prog = bpf_prog_alloc(bpf_prog_size(new_len), __GFP_NOWARN);
+ 	if (!filter->prog)
+ 		goto free_filter;
+ 
+ 	ret = bpf_convert_filter(fp, fprog->len, filter->prog->insnsi, &new_len);
+ 	if (ret)
+ 		goto free_filter_prog;
+-	kfree(fp);
+ 
++	kfree(fp);
+ 	atomic_set(&filter->usage, 1);
+ 	filter->prog->len = new_len;
+ 
+@@ -413,7 +412,7 @@ static struct seccomp_filter *seccomp_prepare_filter(struct sock_fprog *fprog)
+ 	return filter;
+ 
+ free_filter_prog:
+-	kfree(filter->prog);
++	__bpf_prog_free(filter->prog);
+ free_filter:
+ 	kfree(filter);
+ free_prog:
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index 8c66c6a..9a67456 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -1836,7 +1836,7 @@ static struct bpf_prog *generate_filter(int which, int *err)
+ 		break;
+ 
+ 	case INTERNAL:
+-		fp = kzalloc(bpf_prog_size(flen), GFP_KERNEL);
++		fp = bpf_prog_alloc(bpf_prog_size(flen), 0);
+ 		if (fp == NULL) {
+ 			pr_cont("UNEXPECTED_FAIL no memory left\n");
+ 			*err = -ENOMEM;
 diff --git a/net/core/filter.c b/net/core/filter.c
-index d814b8a..b4a2e00 100644
+index d814b8a..37f8eb0 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
-@@ -91,12 +91,7 @@ EXPORT_SYMBOL(sk_filter);
-  * to make sure its still a 3bit field starting at a byte boundary;
-  * taken from arch/x86/net/bpf_jit_comp.c.
-  */
--#ifdef __BIG_ENDIAN_BITFIELD
--#define PKT_TYPE_MAX	(7 << 5)
--#else
--#define PKT_TYPE_MAX	7
--#endif
--static unsigned int pkt_type_offset(void)
-+unsigned int pkt_type_offset(void)
- {
- 	struct sk_buff skb_probe = { .pkt_type = ~0, };
- 	u8 *ct = (u8 *) &skb_probe;
+@@ -933,7 +933,7 @@ static struct bpf_prog *bpf_migrate_filter(struct bpf_prog *fp)
+ 
+ 	/* Expand fp for appending the new filter representation. */
+ 	old_fp = fp;
+-	fp = krealloc(old_fp, bpf_prog_size(new_len), GFP_KERNEL);
++	fp = bpf_prog_realloc(old_fp, bpf_prog_size(new_len), 0);
+ 	if (!fp) {
+ 		/* The old_fp is still around in case we couldn't
+ 		 * allocate new memory, so uncharge on that one.
+@@ -1013,7 +1013,7 @@ int bpf_prog_create(struct bpf_prog **pfp, struct sock_fprog_kern *fprog)
+ 	if (fprog->filter == NULL)
+ 		return -EINVAL;
+ 
+-	fp = kmalloc(bpf_prog_size(fprog->len), GFP_KERNEL);
++	fp = bpf_prog_alloc(bpf_prog_size(fprog->len), 0);
+ 	if (!fp)
+ 		return -ENOMEM;
+ 
+@@ -1069,7 +1069,7 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ 	if (fprog->filter == NULL)
+ 		return -EINVAL;
+ 
+-	prog = kmalloc(bpf_fsize, GFP_KERNEL);
++	prog = bpf_prog_alloc(bpf_fsize, 0);
+ 	if (!prog)
+ 		return -ENOMEM;
+ 
 -- 
-2.0.0
+1.9.3
