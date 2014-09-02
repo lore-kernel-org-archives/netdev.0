@@ -1,37 +1,36 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: truesize for pages shared between SKBs
-Date: Tue, 02 Sep 2014 14:20:40 +0200
-Message-ID: <1409660440.1808.17.camel@jlt4.sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ido Yariv <ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>, Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH V2 0/7] e1000: convert to build_skb/napi_gro_frags api
+Date: Tue,  2 Sep 2014 14:24:43 +0200
+Message-ID: <1409660690-10391-1-git-send-email-fw@strlen.de>
+Cc: netdev@vger.kernel.org
+To: e1000-devel@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:48626 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753406AbaIBMY4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 08:24:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Changes since v1:
+ - in last patch, remove unneeded parens and casts,
+ pointed out by Sergei Shtylyov.
 
-In our driver, we have 4k receive buffers, but usually ~1500 byte
-packets.
+v1 cover letter:
 
-How do other drivers handle this? We currently set up the truesize of
-each SKB to be its size plus the 4k page size, but we see performance
-improvements when we lie and pretend the truesize is just 4k/(# of
-packets in the page), which is correct as long as the packets are all
-pending in the stack since they share the page.
+e1000 driver preallocates skbs, then sends them up the stack.
 
-How do other drivers handle this? Should the truesize maybe be aware of
-this kind of sharing? Should we just lie about it and risk that the
-truesize is accounted erroneously if some but not all of the packets are
-freed?
+This patch series changes the rx routine to only preallocate
+packet buffers, then allocate the skb right before sending the
+packet up the stack.
 
-Thanks,
-johannes
+This gives slight performance inprovements as the skb will be
+fresh in the cache once its allocated/initialized.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The default-mtu 1500 path is converted to
+build_skb()/netdev_alloc_frag.
+
+Jumbo path is converted to napi_gro_frags.
+
+Note that this has only been tested with
+kvms e1000 emulation.
