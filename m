@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] bnx2x: Configure device endianity on driver
- load and reset endianity on removal.
-Date: Tue, 02 Sep 2014 13:55:26 -0700 (PDT)
-Message-ID: <20140902.135526.520876149203677318.davem@davemloft.net>
-References: <1409646685-28320-1-git-send-email-manish.chopra@qlogic.com>
+Subject: Re: [PATCH 5/9] net: Have xmit_list() signal more==true when
+ appropriate.
+Date: Tue, 02 Sep 2014 13:55:15 -0700 (PDT)
+Message-ID: <20140902.135515.1879196973068806729.davem@davemloft.net>
+References: <20140901.152459.592105486574617399.davem@davemloft.net>
+	<20140902092538.7987db64@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
-	Yuval.Mintz@qlogic.com
-To: manish.chopra@qlogic.com
+Cc: netdev@vger.kernel.org
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58534 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58532 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754164AbaIBUz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 16:55:26 -0400
-In-Reply-To: <1409646685-28320-1-git-send-email-manish.chopra@qlogic.com>
+	with ESMTP id S1754583AbaIBUzQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 16:55:16 -0400
+In-Reply-To: <20140902092538.7987db64@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <manish.chopra@qlogic.com>
-Date: Tue, 2 Sep 2014 04:31:25 -0400
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Tue, 2 Sep 2014 09:25:38 +0200
 
-> Some hosts can be both little and big endian.
-> In certain scenarios a big endian kernel can kexec a little endian kernel.
+> On Mon, 01 Sep 2014 15:24:59 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 > 
-> This patch fixes this case from both ends:
-> 1) Return endianity to original values on shutdown (in case little endian kernel boots after we shutdown).
-> 2) Do not rely on HW reset values when loading driver in little endian kernel
->    but configure them explicitly (in case previous kernel was big endian and did not reset the HW).
+>>  		if (unlikely(!dev_xmit_complete(rc))) {
+>>  			skb->next = next;
+>>  			goto out;
 > 
-> Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
-> Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+> In the exit case (!dev_xmit_complete(rc)) is it,
+> 1. the responsibility of the driver to "flush" the tail, or
+> 2. do we depend on qdisc or softirq to be reactivated soonish?
 
-Applied.
+I think the driver will have to do it, much like it must do so when
+the queue is stopped.
