@@ -1,68 +1,69 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [net-next PATCH 0/3] qdisc bulk dequeuing and utilizing delayed
- tailptr updates
-Date: Tue, 2 Sep 2014 11:04:06 -0700
-Message-ID: <CA+mtBx8JVqb0TXEOLimAv0hh_g5pfTRg08uNp2idcy=nWhk0_A@mail.gmail.com>
-References: <20140902143254.1918.8419.stgit@dragon>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: RTNL: assertion failed at net/ipv6/addrconf.c (1699)
+Date: Tue, 2 Sep 2014 11:04:38 -0700
+Message-ID: <CAHA+R7Mwy1SCpEUgGf9BdLEro6N-3t89KU=xL0iuzgOppXELrQ@mail.gmail.com>
+References: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
+	<CAHA+R7MZCDGRhSf=UuVCGQvNo03wVziZQB_X30rwNf6hmHipQA@mail.gmail.com>
+	<20140829195339.GA9780@kria>
+	<1409363489.2980.17.camel@localhost>
+	<CAHA+R7ODa+LrdwSrS7HcBfwwq8_fpj-Ld0OCDtcOqkpCdZCvxg@mail.gmail.com>
+	<1409680684.972417.162793869.03CF8A61@webmail.messagingengine.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Florian Westphal <fw@strlen.de>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:40554 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752455AbaIBSEH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 14:04:07 -0400
-Received: by mail-ie0-f175.google.com with SMTP id y20so8221891ier.34
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 11:04:06 -0700 (PDT)
-In-Reply-To: <20140902143254.1918.8419.stgit@dragon>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sabrina Dubroca <sd@queasysnail.net>,
+	Tommi Rantala <tt.rantala@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, trinity@vger.kernel.org,
+	Dave Jones <davej@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <trinity-owner@vger.kernel.org>
+In-Reply-To: <1409680684.972417.162793869.03CF8A61@webmail.messagingengine.com>
+Sender: trinity-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 2, 2014 at 7:35 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> This patchset uses DaveM's recent API changes to dev_hard_start_xmit(),
-> from the qdisc layer, to implement dequeue bulking.
+On Tue, Sep 2, 2014 at 10:58 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hi Cong,
 >
-> Open questions:
+> On Tue, Sep 2, 2014, at 18:50, Cong Wang wrote:
+>> On Fri, Aug 29, 2014 at 6:51 PM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>> >
+>> > Also rtnl_lock and rcu_read_lock compose in that order, so we don't need
+>> > to change dev_get_by_flags, but as this is the only user it sure is
+>> > possible. RCU locked version is just easier composeable, so I wouldn't
+>> > touch that if needed in future, just also take rcu lock as before.
+>>
+>> There is no point to keep RCU read lock if we have rtnl lock,
+>> I don't know why you don't want to change dev_get_by_flags(),
+>> it is pretty easy to do since it only has one caller.
 >
-> - For now set bulk limit to 8 packets, don't want to stress the driver
->   avail ring_buffer space.
->
-Please get limit from BQL also, see:
-[PATCH net-next] net: Functions to report space available in device TX queues
+> I definitely don't have a problem cleaning this up in net-next. I wanted
+> a minimal patch for stable because I didn't check history where and when
+> additional users of dev_get_by_flags_rcu were removed.
 
-> - We are not doing proper accounting for weight_p/quota in __qdisc_run(). Do we care?
+`git grep` should show you we only have one caller. Apparently we don't
+care about any out-of-tree module.
+
 >
-> - Is the (!skb->next) check in dequeue necessary?
+>> Even if you really need RCU in future, you are always welcome
+>> to bring it back when you do, sorry we should never be blocked by
+>> code NOT merged yet.
+>>
+>> >
+>> > Also we should move ASSERT_RTNL checks from addrconf_join_solict to
+>> > ipv6_dev_mc_inc/dec.
+>> >
+>>
+>> Make it another patch.
 >
-> - Do we need some checks in dev_requeue_skb() as we could be requeuing a SKB list?
+> It is just one logical change, moving ASSERT_RTNLs to places where they
+> better catch invalid callstacks.
 >
->  - Should we rename dequeue_skb() to dequeue_skb_list() ?
->
->
-> Based on top of:
->  commit 364a9e93243d ("sock: deduplicate errqueue dequeue")
->
-> ---
->
-> Jesper Dangaard Brouer (3):
->       qdisc: sysctl to adjust bulk dequeue limit
->       qdisc: bulk dequeue support for qdiscs with TCQ_F_ONETXQUEUE
->       qdisc: adjustments for API allowing skb list xmits
->
->
->  include/net/sch_generic.h  |    2 ++
->  net/core/sysctl_net_core.c |    9 +++++++++
->  net/sched/sch_generic.c    |   33 ++++++++++++++++++++++++++++-----
->  3 files changed, 39 insertions(+), 5 deletions(-)
->
-> --
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Conflicts with what you claimed above. :)
