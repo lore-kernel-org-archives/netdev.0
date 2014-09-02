@@ -1,34 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [RFC] net: ipv4: drop unicast encapsulated in L2 multicast
-Date: Tue, 02 Sep 2014 15:03:26 -0700 (PDT)
-Message-ID: <20140902.150326.1420682815750767731.davem@davemloft.net>
-References: <1409133238.26515.13.camel@localhost>
-	<1409650573.1808.11.camel@jlt4.sipsolutions.net>
-	<540675F2.1030308@miraclelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: gso_skb is now a list, needs a proper
+ destructor
+Date: Tue, 02 Sep 2014 15:06:04 -0700 (PDT)
+Message-ID: <20140902.150604.267268114901700475.davem@davemloft.net>
+References: <1409701903.26422.26.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org
-To: hideaki.yoshifuji-GmhWrQMWH5w7YuNMryXyOw@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <540675F2.1030308-GmhWrQMWH5w7YuNMryXyOw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33962 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752518AbaICFGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 01:06:12 -0400
+In-Reply-To: <1409701903.26422.26.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji-GmhWrQMWH5w7YuNMryXyOw@public.gmane.org>
-Date: Wed, 03 Sep 2014 10:59:14 +0900
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 02 Sep 2014 16:51:43 -0700
 
-> Upper-layer needs to cope eith situation of seeing packets with
-> "incorrect" L2 header anyway (e.g., in promiscous mode).
-> I do not see much advantage to drop them here.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> gso_skb can now be a list of skbs.
+> 
+> Qdisc destructors have to take care of it, or we can leak skbs.
+> 
+> Fixes: ce93718fb7cd ("net: Don't keep around original SKB when we software segment GSO frames.")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-It's required to prevent wireless nodes from using the shared wireless
-group keys (used for multicast transmission) to inject unicast frames.
-
-The RFCs really do specify this at least on the ipv4 side.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Eric.
