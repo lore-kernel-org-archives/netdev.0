@@ -1,44 +1,84 @@
-From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Subject: Re: [RFC] net: ipv4: drop unicast encapsulated in L2 multicast
-Date: Tue, 2 Sep 2014 14:16:20 -0700
-Message-ID: <20140902141620.2da1f6aa@urahara>
-References: <1408641747-22199-1-git-send-email-johannes@sipsolutions.net>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: [PATCH net-next] sock: consistent errqueue errors and signals
+Date: Tue, 02 Sep 2014 23:18:11 +0200
+Message-ID: <1409692691.15984.16.camel@localhost>
+References: <1409534896-372-1-git-send-email-willemb@google.com>
+	 <1409606744.21965.37.camel@localhost>
+	 <CA+FuTScAYY1ZhQPwY=pqW9hXf3UYB70Dxq5+aPH4D4pB7QRPbg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1408641747-22199-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:14321 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754183AbaIBVSR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 17:18:17 -0400
+In-Reply-To: <CA+FuTScAYY1ZhQPwY=pqW9hXf3UYB70Dxq5+aPH4D4pB7QRPbg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 21 Aug 2014 19:22:27 +0200
-Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+Hello,
 
-> +	/* RFC 1122 3.3.6:
-> +	 *
-> +	 *   When a host sends a datagram to a link-layer broadcast address,
-> +	 *   the IP destination address MUST be a legal IP broadcast or IP
-> +	 *   multicast address.
-> +	 *
-> +	 *   A host SHOULD silently discard a datagram that is received via
-> +	 *   a link-layer broadcast (see Section 2.4) but does not specify
-> +	 *   an IP multicast or broadcast destination address.
-> +	 *
-> +	 * We also do this for link-layer multicast.
-> +	 */
-> +	if ((skb->pkt_type == PACKET_BROADCAST ||
-> +	     skb->pkt_type == PACKET_MULTICAST) &&
-> +	    res.type != RTN_BROADCAST)
-> +		goto e_inval;
-> +
+On Di, 2014-09-02 at 11:20 -0400, Willem de Bruijn wrote:
+> > From my experience in IPv6 code, we only do sk->sk_err updates directly
+> > in protocol error handling code. In case of UDP IPv6 errors for example
+> > we now notify sk_error_report two times with this patch (before the
+> > patch we did sk_data_ready (this is what you changed) and
+> > sk_error_report).
+> 
+> If the event is that an error is ready, is this not correct? The
+> wake up key should be POLLERR in both cases. In implementation
+> of sock_def_error_report and sock_def_readable, the difference
+> otherwise seems slim. I haven't checked all sk_data_ready and
+> sk_error_report implementations, though, so may have missed
+> differences for specific protocols. If this is not as obviously a strict
+> improvement as I thought, I'll just drop it.
 
-I think you need to all multicast packet but not broadcast.
-The RFC does not specify that you should drop link-layer multicast to a unicast
-address. There are several clustering products use that.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I am not sure if waking up the socket two times has unforeseen
+consequences, we do so e.g. in __udp6_lib_err if recverr is set.
+
+> > I really wonder if setting sk->sk_err in this function is the right
+> > thing to do.
+> 
+> I agree, in that it is hard to verify that this does not overwrite
+> an existing error. This patch only makes the behavior
+> consistent between enqueue and dequeue, but perhaps a
+> better way to achieve that is to change the dequeue side:
+> remove the assignment to sk->sk_err there. If so, then all
+> locations that currently check the state of sk->sk_err should
+> be changed to also check the qlen of the error queue and
+> if non-zero return the embedded error of the first skb. I'll
+> take a look whether that is feasible without adding locks
+> or atomics in the common path.
+
+That would be great.
+
+> 
+> > It also depends on socket state bits (e.g. np->recverr) if
+> > the update happens. So we still cannot get rid of the protocol dependent
+> > sk->sk_err updates.
+> >
+> > It looks like we have to check all error handling functions in the
+> > protocols. Maybe timestamp code needs to adapt?
+> 
+> Does the above sound okay, or did you mean something else?
+
+Best thing would be to not keep the error status two times per socket.
+Maybe it would make sense to always synchronize on the error queue and
+don't check for sk->sk_err at all? It seems to get very hairy without
+taking any locks though.
+
+I even don't know what the semantics for sk_err should be. Should we
+leave the oldest error in place until it got fetched? Then we could use
+cmpxchg in slow path with 0 as the old value. They could easily become
+unsynchronized if the user switches off recverr setsockopt. But I don't
+think we need to handle that.
+
+I think best effort should would be ok, too. Not having locked
+instructions in fast path is much more important.
+
+Thanks,
+Hannes
