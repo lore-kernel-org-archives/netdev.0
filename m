@@ -1,51 +1,51 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/7] ipvs: fix ipv6 hook registration for local replies
-Date: Tue,  2 Sep 2014 12:14:03 +0200
-Message-ID: <1409652844-10289-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 7/7] netfilter: NETFILTER_XT_TARGET_LOG selects NF_LOG_*
+Date: Tue,  2 Sep 2014 12:14:04 +0200
+Message-ID: <1409652844-10289-8-git-send-email-pablo@netfilter.org>
 References: <1409652844-10289-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48051 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:48088 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753327AbaIBKNY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 06:13:24 -0400
+	id S1753363AbaIBKN2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 06:13:28 -0400
 In-Reply-To: <1409652844-10289-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+CONFIG_NETFILTER_XT_TARGET_LOG is not selected anymore when jumping
+from 3.16 to 3.17-rc1 if you don't set on the new NF_LOG_IPV4 and
+NF_LOG_IPV6 switches.
 
-commit fc604767613b6d2036cdc35b660bc39451040a47
-("ipvs: changes for local real server") from 2.6.37
-introduced DNAT support to local real server but the
-IPv6 LOCAL_OUT handler ip_vs_local_reply6() is
-registered incorrectly as IPv4 hook causing any outgoing
-IPv4 traffic to be dropped depending on the IP header values.
+Change this to select the three new symbols NF_LOG_COMMON, NF_LOG_IPV4
+and NF_LOG_IPV6 instead, so NETFILTER_XT_TARGET_LOG remains enabled
+when moving from old to new kernels.
 
-Chris tracked down the problem to CONFIG_IP_VS_IPV6=y
-Bug report: https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1349768
-
-Reported-by: Chris J Arges <chris.j.arges@canonical.com>
-Tested-by: Chris J Arges <chris.j.arges@canonical.com>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Reported-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_core.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/Kconfig |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index e683675..5c34e8d 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1906,7 +1906,7 @@ static struct nf_hook_ops ip_vs_ops[] __read_mostly = {
- 	{
- 		.hook		= ip_vs_local_reply6,
- 		.owner		= THIS_MODULE,
--		.pf		= NFPROTO_IPV4,
-+		.pf		= NFPROTO_IPV6,
- 		.hooknum	= NF_INET_LOCAL_OUT,
- 		.priority	= NF_IP6_PRI_NAT_DST + 1,
- 	},
--- 
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 05eb177..4bef6eb 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -747,7 +747,9 @@ config NETFILTER_XT_TARGET_LED
+=20
+ config NETFILTER_XT_TARGET_LOG
+ 	tristate "LOG target support"
+-	depends on NF_LOG_IPV4 && NF_LOG_IPV6
++	select NF_LOG_COMMON
++	select NF_LOG_IPV4
++	select NF_LOG_IPV6 if IPV6
+ 	default m if NETFILTER_ADVANCED=3Dn
+ 	help
+ 	  This option adds a `LOG' target, which allows you to create rules i=
+n
+--=20
 1.7.10.4
