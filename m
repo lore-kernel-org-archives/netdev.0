@@ -1,58 +1,78 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH v2 net-next 12/12] be2net: query max_tx_qs for BE3 super-nic profile from FW
-Date: Tue, 2 Sep 2014 09:56:57 +0530
-Message-ID: <1409632017-15655-13-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH v2 net-next 05/12] be2net: Add a dma_mapping_error counter in ethtool
+Date: Tue, 2 Sep 2014 09:56:50 +0530
+Message-ID: <1409632017-15655-6-git-send-email-sathya.perla@emulex.com>
 References: <1409632017-15655-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:30327 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753120AbaIBEYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 00:24:32 -0400
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:26660 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753101AbaIBEYb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 00:24:31 -0400
 In-Reply-To: <1409632017-15655-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Suresh Reddy <Suresh.Reddy@emulex.com>
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-In the BE3 super-nic profile, the max_tx_qs value can vary for each function.
-So the driver needs to query this value from FW instead of using the
-pre-defined constant BE3_MAX_TX_QS.
+Add a dma_mapping_error counter to count the number of packets dropped
+due to DMA mapping errors.
 
-Signed-off-by: Suresh Reddy <Suresh.Reddy@emulex.com>
+Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |   14 ++++++++++++--
- 1 files changed, 12 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h         |    1 +
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |    2 ++
+ drivers/net/ethernet/emulex/benet/be_main.c    |    3 ++-
+ 3 files changed, 5 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index d491ac6..069bdda 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -323,6 +323,7 @@ struct be_rx_obj {
+ struct be_drv_stats {
+ 	u32 be_on_die_temperature;
+ 	u32 eth_red_drops;
++	u32 dma_map_errors;
+ 	u32 rx_drops_no_pbuf;
+ 	u32 rx_drops_no_txpb;
+ 	u32 rx_drops_no_erx_descr;
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index 3a7ade4..2fd3826 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -119,6 +119,8 @@ static const struct be_ethtool_stat et_stats[] = {
+ 	 * is more than 9018 bytes
+ 	 */
+ 	{DRVSTAT_INFO(rx_drops_mtu)},
++	/* Number of dma mapping errors */
++	{DRVSTAT_INFO(dma_map_errors)},
+ 	/* Number of packets dropped due to random early drop function */
+ 	{DRVSTAT_INFO(eth_red_drops)},
+ 	{DRVSTAT_INFO(be_on_die_temperature)},
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index f3235d1..9eaab4e 100644
+index e9658f7..c95998f 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3324,10 +3324,20 @@ static void BEx_get_resources(struct be_adapter *adapter,
- 	 */
- 	if (BE2_chip(adapter) || use_sriov ||  (adapter->port_num > 1) ||
- 	    !be_physfn(adapter) || (be_is_mc(adapter) &&
--	    !(adapter->function_caps & BE_FUNCTION_CAPS_RSS)))
-+	    !(adapter->function_caps & BE_FUNCTION_CAPS_RSS))) {
- 		res->max_tx_qs = 1;
--	else
-+	} else if (adapter->function_caps & BE_FUNCTION_CAPS_SUPER_NIC) {
-+		struct be_resources super_nic_res = {0};
-+
-+		/* On a SuperNIC profile, the driver needs to use the
-+		 * GET_PROFILE_CONFIG cmd to query the per-function TXQ limits
-+		 */
-+		be_cmd_get_profile_config(adapter, &super_nic_res, 0);
-+		/* Some old versions of BE3 FW don't report max_tx_qs value */
-+		res->max_tx_qs = super_nic_res.max_tx_qs ? : BE3_MAX_TX_QS;
-+	} else {
- 		res->max_tx_qs = BE3_MAX_TX_QS;
-+	}
- 
- 	if ((adapter->function_caps & BE_FUNCTION_CAPS_RSS) &&
- 	    !use_sriov && be_physfn(adapter))
+@@ -849,6 +849,7 @@ dma_err:
+ 		unmap_tx_frag(dev, wrb, map_single);
+ 		map_single = false;
+ 		copied -= wrb->frag_len;
++		adapter->drv_stats.dma_map_errors++;
+ 		queue_head_inc(txq);
+ 	}
+ 	return 0;
+@@ -1877,7 +1878,7 @@ static void be_post_rx_frags(struct be_rx_obj *rxo, gfp_t gfp)
+ 			if (dma_mapping_error(dev, page_dmaaddr)) {
+ 				put_page(pagep);
+ 				pagep = NULL;
+-				rx_stats(rxo)->rx_post_fail++;
++				adapter->drv_stats.dma_map_errors++;
+ 				break;
+ 			}
+ 			page_offset = 0;
 -- 
 1.7.1
