@@ -1,36 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 8/9] net: Don't keep around original SKB when we
- software segment GSO frames.
-Date: Mon, 01 Sep 2014 18:42:41 -0700 (PDT)
-Message-ID: <20140901.184241.1951715714321502017.davem@davemloft.net>
-References: <20140901.152515.1944476256109254437.davem@davemloft.net>
-	<CA+mtBx-1r-vJYDx0xJ+p=Tjr=_v559XdrSu1SZ4UXWE_4fLbZg@mail.gmail.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH] ethernet: arc: remove unused dev
+Date: Tue, 02 Sep 2014 10:48:11 +0900
+Message-ID: <001a01cfc64f$f4421040$dcc630c0$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: netdev@vger.kernel.org, 'Romain Perier' <romain.perier@gmail.com>,
+	'Jingoo Han' <jg1.han@samsung.com>
+To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46077 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751270AbaIBBmm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 21:42:42 -0400
-In-Reply-To: <CA+mtBx-1r-vJYDx0xJ+p=Tjr=_v559XdrSu1SZ4UXWE_4fLbZg@mail.gmail.com>
+Received: from mailout4.samsung.com ([203.254.224.34]:26347 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752003AbaIBBsO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 21:48:14 -0400
+Received: from epcpsbgr5.samsung.com
+ (u145.gpu120.samsung.co.kr [203.254.230.145])
+ by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0NB9001WO3OCX900@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Tue, 02 Sep 2014 10:48:12 +0900 (KST)
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon, 1 Sep 2014 18:28:18 -0700
+Remove unused 'dev' variable from arc_emac_remove(), since it's
+not being used any more.
 
-> On Mon, Sep 1, 2014 at 3:25 PM, David Miller <davem@davemloft.net> wrote:
->>  struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev);
->> -int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
->> -                       struct netdev_queue *txq);
->> +struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
->> +                                   struct netdev_queue *txq, int *ret);
-> 
-> Might be slightly better to still return int but pass struct sk_buff
-> **skb. One less argument and doesn't change return type.
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+---
+ drivers/net/ethernet/arc/emac_main.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Sure we could do that, I don't have any preference either way and
-besides there is only one call site.
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index b35c69e1b147..a7773923a7a0 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -829,7 +829,6 @@ EXPORT_SYMBOL_GPL(arc_emac_probe);
+ 
+ int arc_emac_remove(struct net_device *ndev)
+ {
+-	struct device *dev = ndev->dev.parent;
+ 	struct arc_emac_priv *priv = netdev_priv(ndev);
+ 
+ 	phy_disconnect(priv->phy_dev);
+-- 
+2.0.0
