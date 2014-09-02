@@ -1,64 +1,51 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] net: ipv4: drop unicast encapsulated in L2 multicast
-Date: Tue, 02 Sep 2014 11:36:13 +0200
-Message-ID: <1409650573.1808.11.camel@jlt4.sipsolutions.net>
-References: <1408641747-22199-1-git-send-email-johannes@sipsolutions.net>
-	 (sfid-20140821_192515_304437_37E734D5) <1408642331.4388.2.camel@jlt4.sipsolutions.net>
-	 <1409125114.11976.14.camel@localhost>
-	 <1409130313.2505.3.camel@jlt4.sipsolutions.net>
-	 <1409133238.26515.13.camel@localhost>
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: [PATCH net-next 0/6] Simplify Intel Wired LAN driver
+	init/exit routine
+Date: Tue,  2 Sep 2014 03:36:50 -0600
+Message-ID: <1409650616-1035-1-git-send-email-sakiwit@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:54494 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750722AbaIBJgQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 05:36:16 -0400
-In-Reply-To: <1409133238.26515.13.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux.nics@intel.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-08-27 at 11:53 +0200, Hannes Frederic Sowa wrote:
+This series uses module_pci_driver() to simplify the init/exit
+routine of some Intel Wired LAN drivers.
 
-> > I don't know if that's really useful? OTOH, there surely must have been
-> > a reason for this to be in the IPv4 RFC, so maybe for that same reason
-> > it should also be in the IPv6 RFC?
-> 
-> Either it is an oversight, but RFC6085 3) tries to at least clarify the
-> multicast destination with LL unicast address. So there must have been
-> people trying to enfore a relationship between LL address and IPv6 one.
+Jean Sacren (6):
+  ixgb: remove the boilerplate of ixgb module for init/exit
+  ixgbevf: remove the boilerplate of ixgbevf module for init/exit
+  e100: remove the boilerplate of e100 module for init/exit
+  igbvf: remove the boilerplate of igbvf module for init/exit
+  e1000e: remove the boilerplate of e1000e module for init/exit
+  i40evf: remove the boilerplate of i40evf module for init/exit
 
-That seems to allow a multicast IPv6 frame in a unicast LL address,
-which is a different situation but still ...
+ drivers/net/ethernet/intel/e100.c                 | 22 ++++---------
+ drivers/net/ethernet/intel/e1000e/netdev.c        | 35 +++-----------------
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c   | 37 +++------------------
+ drivers/net/ethernet/intel/igbvf/netdev.c         | 35 +++-----------------
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c       | 39 +++--------------------
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 38 ++++------------------
+ 6 files changed, 32 insertions(+), 174 deletions(-)
 
-> I think it would be OK to drop it by default in case we don't break any
-> other assumptions in the stack (e.g. CLUSTERIP).
 
-Fair enough.
-
-> > The question now is, in the absence of such a latter required check (and
-> > indeed, in the case of CLUSTERIP), how we implement such a check.
-> > Perhaps a sysctl is needed after all?
-> 
-> Yeah, unfortunate situation.
-> 
-> One could add those IP addresses as broadcast addresses (/32) to the
-> routing table, so the brd_input jump would be taken.
-> 
-> But this would still break users of CLUSTERIP until they install those
-> routes. :(
-
-I'm not even sure I understand this part :)
-
-Any suggestions?
-
-As long as IPv6 doesn't mandate it in the RFCs I'm not really sure we
-should just drop it, even if we think it won't cause any problems?
-
-CLUSTERIP seems like a special configuration, but I'm not sure it can be
-detected and automatically allowed?
-
-johannes
+------------------------------------------------------------------------------
+Slashdot TV.  
+Video for Nerds.  Stuff that matters.
+http://tv.slashdot.org/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
