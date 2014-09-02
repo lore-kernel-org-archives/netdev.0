@@ -1,7 +1,7 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH v2 net-next 11/12] be2net: define macro for_all_tx_queues_on_eq()
-Date: Tue, 2 Sep 2014 09:56:56 +0530
-Message-ID: <1409632017-15655-12-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH v2 net-next 07/12] be2net: remove unncessary gotos
+Date: Tue, 2 Sep 2014 09:56:52 +0530
+Message-ID: <1409632017-15655-8-git-send-email-sathya.perla@emulex.com>
 References: <1409632017-15655-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,56 +9,73 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:26660 "EHLO
 	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753130AbaIBEYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 00:24:32 -0400
+	with ESMTP id S1753119AbaIBEYb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 00:24:31 -0400
 In-Reply-To: <1409632017-15655-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace the for() loop that traverses all the TX queues on an EQ
-with the macro for_all_tx_queues_on_eq(). With this expalnatory
-name, the one line comment is not required anymore.
+From: Kalesh AP <kalesh.purayil@emulex.com>
 
+In cases where there is no extra code to handle an error, this patch replaces
+gotos with a direct return statement.
+
+Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |    4 ++++
- drivers/net/ethernet/emulex/benet/be_main.c |    6 +++---
- 2 files changed, 7 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |   16 ++++++----------
+ 1 files changed, 6 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index d952ca2..a9f239a 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -621,6 +621,10 @@ extern const struct ethtool_ops be_ethtool_ops;
- 	for (i = eqo->idx, rxo = &adapter->rx_obj[i]; i < adapter->num_rx_qs;\
- 		 i += adapter->num_evt_qs, rxo += adapter->num_evt_qs)
- 
-+#define for_all_tx_queues_on_eq(adapter, eqo, txo, i)			\
-+	for (i = eqo->idx, txo = &adapter->tx_obj[i]; i < adapter->num_tx_qs;\
-+		i += adapter->num_evt_qs, txo += adapter->num_evt_qs)
-+
- #define is_mcc_eqo(eqo)			(eqo->idx == 0)
- #define mcc_eqo(adapter)		(&adapter->eq_obj[0])
- 
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 53727ad..f3235d1 100644
+index 7e89e5b..cdad8bc 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2503,12 +2503,12 @@ int be_poll(struct napi_struct *napi, int budget)
- 	struct be_adapter *adapter = eqo->adapter;
- 	int max_work = 0, work, i, num_evts;
- 	struct be_rx_obj *rxo;
-+	struct be_tx_obj *txo;
+@@ -4090,18 +4090,15 @@ static int lancer_fw_download(struct be_adapter *adapter,
  
- 	num_evts = events_get(eqo);
+ 	if (!IS_ALIGNED(fw->size, sizeof(u32))) {
+ 		dev_err(dev, "FW image size should be multiple of 4\n");
+-		status = -EINVAL;
+-		goto lancer_fw_exit;
++		return -EINVAL;
+ 	}
  
--	/* Process all TXQs serviced by this EQ */
--	for (i = eqo->idx; i < adapter->num_tx_qs; i += adapter->num_evt_qs)
--		be_process_tx(adapter, &adapter->tx_obj[i], i);
-+	for_all_tx_queues_on_eq(adapter, eqo, txo, i)
-+		be_process_tx(adapter, txo, i);
+ 	flash_cmd.size = sizeof(struct lancer_cmd_req_write_object)
+ 				+ LANCER_FW_DOWNLOAD_CHUNK;
+ 	flash_cmd.va = dma_alloc_coherent(dev, flash_cmd.size,
+ 					  &flash_cmd.dma, GFP_KERNEL);
+-	if (!flash_cmd.va) {
+-		status = -ENOMEM;
+-		goto lancer_fw_exit;
+-	}
++	if (!flash_cmd.va)
++		return -ENOMEM;
  
- 	if (be_lock_napi(eqo)) {
- 		/* This loop will iterate twice for EQ0 in which
+ 	dest_image_ptr = flash_cmd.va +
+ 				sizeof(struct lancer_cmd_req_write_object);
+@@ -4139,7 +4136,7 @@ static int lancer_fw_download(struct be_adapter *adapter,
+ 	dma_free_coherent(dev, flash_cmd.size, flash_cmd.va, flash_cmd.dma);
+ 	if (status) {
+ 		dev_err(dev, "Firmware load error\n");
+-		goto lancer_fw_exit;
++		return be_cmd_status(status);
+ 	}
+ 
+ 	dev_info(dev, "Firmware flashed successfully\n");
+@@ -4151,13 +4148,12 @@ static int lancer_fw_download(struct be_adapter *adapter,
+ 		if (status) {
+ 			dev_err(dev, "Adapter busy, could not reset FW\n");
+ 			dev_err(dev, "Reboot server to activate new FW\n");
+-			goto lancer_fw_exit;
+ 		}
+ 	} else if (change_status != LANCER_NO_RESET_NEEDED) {
+ 		dev_info(dev, "Reboot server to activate new FW\n");
+ 	}
+-lancer_fw_exit:
+-	return status;
++
++	return 0;
+ }
+ 
+ #define UFI_TYPE2		2
 -- 
 1.7.1
