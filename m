@@ -1,32 +1,62 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] core: Simplify logic in dev_load().
-Date: Tue, 02 Sep 2014 21:49:48 +0400
-Message-ID: <5406033C.40507@cogentembedded.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D174856D6@AcuExch.aculab.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: RTNL: assertion failed at net/ipv6/addrconf.c (1699)
+Date: Tue, 02 Sep 2014 19:58:04 +0200
+Message-ID: <1409680684.972417.162793869.03CF8A61@webmail.messagingengine.com>
+References: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
+ <CAHA+R7MZCDGRhSf=UuVCGQvNo03wVziZQB_X30rwNf6hmHipQA@mail.gmail.com>
+ <20140829195339.GA9780@kria> <1409363489.2980.17.camel@localhost>
+ <CAHA+R7ODa+LrdwSrS7HcBfwwq8_fpj-Ld0OCDtcOqkpCdZCvxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: David Laight <David.Laight@ACULAB.COM>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:50538 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753710AbaIBRtw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 13:49:52 -0400
-Received: by mail-la0-f45.google.com with SMTP id pn19so8267931lab.4
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 10:49:50 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174856D6@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sabrina Dubroca <sd@queasysnail.net>,
+	Tommi Rantala <tt.rantala@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, trinity@vger.kernel.org,
+	Dave Jones <davej@redhat.com>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <trinity-owner@vger.kernel.org>
+In-Reply-To: <CAHA+R7ODa+LrdwSrS7HcBfwwq8_fpj-Ld0OCDtcOqkpCdZCvxg@mail.gmail.com>
+Sender: trinity-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi Cong,
 
-On 09/02/2014 05:51 PM, David Laight wrote:
+On Tue, Sep 2, 2014, at 18:50, Cong Wang wrote:
+> On Fri, Aug 29, 2014 at 6:51 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> >
+> > Also rtnl_lock and rcu_read_lock compose in that order, so we don't need
+> > to change dev_get_by_flags, but as this is the only user it sure is
+> > possible. RCU locked version is just easier composeable, so I wouldn't
+> > touch that if needed in future, just also take rcu lock as before.
+> 
+> There is no point to keep RCU read lock if we have rtnl lock,
+> I don't know why you don't want to change dev_get_by_flags(),
+> it is pretty easy to do since it only has one caller.
 
-> The code in dev_load() is convoluted.
-> Return early and remove the 'no_module' variable.
+I definitely don't have a problem cleaning this up in net-next. I wanted
+a minimal patch for stable because I didn't check history where and when
+additional users of dev_get_by_flags_rcu were removed.
 
-    You forgot to sign off on the patch, so it can't be applied.
+> Even if you really need RCU in future, you are always welcome
+> to bring it back when you do, sorry we should never be blocked by
+> code NOT merged yet.
+> 
+> >
+> > Also we should move ASSERT_RTNL checks from addrconf_join_solict to
+> > ipv6_dev_mc_inc/dec.
+> >
+> 
+> Make it another patch.
 
-WBR, Sergei
+It is just one logical change, moving ASSERT_RTNLs to places where they
+better catch invalid callstacks.
+
+Bye,
+Hannes
