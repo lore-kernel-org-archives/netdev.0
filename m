@@ -1,9 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/3] qdisc bulk dequeuing and utilizing
- delayed tailptr updates
-Date: Tue, 02 Sep 2014 14:05:20 -0700 (PDT)
-Message-ID: <20140902.140520.1169519726923476673.davem@davemloft.net>
+Subject: Re: [net-next PATCH 1/3] qdisc: adjustments for API allowing skb
+ list xmits
+Date: Tue, 02 Sep 2014 14:06:37 -0700 (PDT)
+Message-ID: <20140902.140637.1575167236785057277.davem@davemloft.net>
 References: <20140902143254.1918.8419.stgit@dragon>
+	<20140902143524.1918.70967.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,29 +12,24 @@ Cc: netdev@vger.kernel.org, fw@strlen.de, hannes@stressinduktion.org,
 	dborkman@redhat.com
 To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58653 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58667 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754982AbaIBVFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 17:05:21 -0400
-In-Reply-To: <20140902143254.1918.8419.stgit@dragon>
+	with ESMTP id S1754164AbaIBVGi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 17:06:38 -0400
+In-Reply-To: <20140902143524.1918.70967.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Tue, 02 Sep 2014 16:35:19 +0200
+Date: Tue, 02 Sep 2014 16:35:33 +0200
 
-> Open questions:
+> Minor adjustments for merge commit 53fda7f7f9e (Merge branch 'xmit_list')
+> that allows us to work with a list of SKBs.
 > 
-> - For now set bulk limit to 8 packets, don't want to stress the driver
->   avail ring_buffer space.
-
-Maybe we can start out with something even lower, like 5.
-
-> - Is the (!skb->next) check in dequeue necessary?
+> Update code doc to function sch_direct_xmit().
 > 
-> - Do we need some checks in dev_requeue_skb() as we could be requeuing a SKB list?
+> In handle_dev_cpu_collision() use kfree_skb_list() in error handling.
+> 
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-The skb->next stuff is to handle GSO software segmented frames.
-
-dev_requeue_skb() naturally handles any list of SKBs already,
-GSO software segmented or multi-dequeue, it shouldn't care.
+Applied, thanks for catching the kfree_skb_list() issue.
