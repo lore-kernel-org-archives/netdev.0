@@ -1,39 +1,51 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [net-next PATCH 3/3] qdisc: sysctl to adjust bulk dequeue limit
-Date: Tue, 2 Sep 2014 14:20:29 -0700
-Message-ID: <CAHA+R7MT-HjOwit2pvkeWT2_pYHOupg=0YbTSTVJ8LbC+yhrDg@mail.gmail.com>
-References: <20140902143254.1918.8419.stgit@dragon>
-	<20140902143553.1918.73632.stgit@dragon>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [Patch net] ipv6: fix rtnl lock assertion failure in
+ ipv6_sock_ac_join()
+Date: Tue, 02 Sep 2014 23:29:41 +0200
+Message-ID: <1409693381.15984.19.camel@localhost>
+References: <1409681239-4852-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:37614 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754848AbaIBVUa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 17:20:30 -0400
-Received: by mail-la0-f45.google.com with SMTP id pn19so8637301lab.18
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 14:20:29 -0700 (PDT)
-In-Reply-To: <20140902143553.1918.73632.stgit@dragon>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:41836 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750820AbaIBV3o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 17:29:44 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 8EAAA20D8F
+	for <netdev@vger.kernel.org>; Tue,  2 Sep 2014 17:29:43 -0400 (EDT)
+In-Reply-To: <1409681239-4852-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 2, 2014 at 7:36 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> Allow userspace to adjust how many packet the qdisc is allowed to
-> bulk dequeue.
->
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
->
-> ---
-> Question should we allow this to be adjusted?
->
+Hi Cong,
 
-A sysctl is ugly and seems not fit well with Qdisc which always uses netlink,
-so I think a netlink flag might be better if we can find a generic one.
+On Di, 2014-09-02 at 11:07 -0700, Cong Wang wrote:
+> @@ -198,7 +198,7 @@ void ipv6_sock_ac_close(struct sock *sk)
+>  	spin_unlock_bh(&ipv6_sk_ac_lock);
+>  
+>  	prev_index = 0;
+> -	rcu_read_lock();
+> +	rtnl_lock();
+>  	while (pac) {
+>  		struct ipv6_ac_socklist *next = pac->acl_next;
+>  
+> @@ -211,7 +211,7 @@ void ipv6_sock_ac_close(struct sock *sk)
+>  		sock_kfree_s(sk, pac, sizeof(*pac));
+>  		pac = next;
+>  	}
+> -	rcu_read_unlock();
+> +	rtnl_unlock();
+>  }
+>  
 
-Also, you forgot to document it.
+Nit:
+You forgot to convert a dev_get_by_index_rcu to __dev_get_by_index in
+ipv6_sock_ac_close.
+
+Bye,
+Hannes
