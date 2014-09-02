@@ -1,87 +1,199 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next v4 3/3] enic: Add tunable_ops support for rx_copybreak
-Date: Wed,  3 Sep 2014 03:17:21 +0530
-Message-ID: <1409694441-3843-4-git-send-email-_govind@gmx.com>
+Subject: [PATCH net-next v4 2/3] ethtool: Add generic options for tunables
+Date: Wed,  3 Sep 2014 03:17:20 +0530
+Message-ID: <1409694441-3843-3-git-send-email-_govind@gmx.com>
 References: <1409694441-3843-1-git-send-email-_govind@gmx.com>
 Cc: ssujith@cisco.com, ben@decadent.org.uk,
 	Govindarajulu Varadarajan <_govind@gmx.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:59238 "EHLO mout.gmx.com"
+Received: from mout.gmx.com ([74.208.4.201]:64185 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754183AbaIBVsb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 17:48:31 -0400
+	id S1754183AbaIBVse (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 17:48:34 -0400
 In-Reply-To: <1409694441-3843-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for setting/getting rx_copybreak using
-generic ethtool tunable.
+This patch adds new ethtool cmd, ETHTOOL_GTUNABLE & ETHTOOL_STUNABLE for getting
+tunable values from driver.
 
-Defines enic_get_tunable() & enic_set_tunable() to get/set rx_copybreak.
-As of now, these two function supports only rx_copybreak.
+Add get_tunable and set_tunable to ethtool_ops. Driver implements these
+functions for getting/setting tunable value.
 
 Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 ---
- drivers/net/ethernet/cisco/enic/enic_ethtool.c | 39 ++++++++++++++++++++++++++
- 1 file changed, 39 insertions(+)
+ include/linux/ethtool.h      |  4 +++
+ include/uapi/linux/ethtool.h | 28 +++++++++++++++
+ net/core/ethtool.c           | 81 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 113 insertions(+)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-index 523c9ce..85173d6 100644
---- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-@@ -379,6 +379,43 @@ static int enic_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
- 	return ret;
- }
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index e658229..c1a2d60 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -257,6 +257,10 @@ struct ethtool_ops {
+ 				     struct ethtool_eeprom *, u8 *);
+ 	int	(*get_eee)(struct net_device *, struct ethtool_eee *);
+ 	int	(*set_eee)(struct net_device *, struct ethtool_eee *);
++	int	(*get_tunable)(struct net_device *,
++			       const struct ethtool_tunable *, void *);
++	int	(*set_tunable)(struct net_device *,
++			       const struct ethtool_tunable *, const void *);
  
-+static int enic_get_tunable(struct net_device *dev,
-+			    const struct ethtool_tunable *tuna, void *data)
-+{
-+	struct enic *enic = netdev_priv(dev);
-+	int ret = 0;
-+
-+	switch (tuna->id) {
-+	case ETHTOOL_RX_COPYBREAK:
-+		*(u32 *)data = enic->rx_copybreak;
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
-+static int enic_set_tunable(struct net_device *dev,
-+			    const struct ethtool_tunable *tuna,
-+			    const void *data)
-+{
-+	struct enic *enic = netdev_priv(dev);
-+	int ret = 0;
-+
-+	switch (tuna->id) {
-+	case ETHTOOL_RX_COPYBREAK:
-+		enic->rx_copybreak = *(u32 *)data;
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
- static const struct ethtool_ops enic_ethtool_ops = {
- 	.get_settings = enic_get_settings,
- 	.get_drvinfo = enic_get_drvinfo,
-@@ -391,6 +428,8 @@ static const struct ethtool_ops enic_ethtool_ops = {
- 	.get_coalesce = enic_get_coalesce,
- 	.set_coalesce = enic_set_coalesce,
- 	.get_rxnfc = enic_get_rxnfc,
-+	.get_tunable = enic_get_tunable,
-+	.set_tunable = enic_set_tunable,
+ 
+ };
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index e3c7a71..7a364f2 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -209,6 +209,32 @@ struct ethtool_value {
+ 	__u32	data;
  };
  
- void enic_set_ethtool_ops(struct net_device *netdev)
++enum tunable_id {
++	ETHTOOL_ID_UNSPEC,
++	ETHTOOL_RX_COPYBREAK,
++};
++
++enum tunable_type_id {
++	ETHTOOL_TUNABLE_UNSPEC,
++	ETHTOOL_TUNABLE_U8,
++	ETHTOOL_TUNABLE_U16,
++	ETHTOOL_TUNABLE_U32,
++	ETHTOOL_TUNABLE_U64,
++	ETHTOOL_TUNABLE_STRING,
++	ETHTOOL_TUNABLE_S8,
++	ETHTOOL_TUNABLE_S16,
++	ETHTOOL_TUNABLE_S32,
++	ETHTOOL_TUNABLE_S64,
++};
++
++struct ethtool_tunable {
++	__u32	cmd;
++	__u32	id;
++	__u32	type_id;
++	__u32	len;
++	void	*data[0];
++};
++
+ /**
+  * struct ethtool_regs - hardware register dump
+  * @cmd: Command number = %ETHTOOL_GREGS
+@@ -1152,6 +1178,8 @@ enum ethtool_sfeatures_retval_bits {
+ 
+ #define ETHTOOL_GRSSH		0x00000046 /* Get RX flow hash configuration */
+ #define ETHTOOL_SRSSH		0x00000047 /* Set RX flow hash configuration */
++#define ETHTOOL_GTUNABLE	0x00000048 /* Get tunable configuration */
++#define ETHTOOL_STUNABLE	0x00000049 /* Set tunable configuration */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 17cb912..27e61b8 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1621,6 +1621,80 @@ static int ethtool_get_module_eeprom(struct net_device *dev,
+ 				      modinfo.eeprom_len);
+ }
+ 
++static int ethtool_tunable_valid(const struct ethtool_tunable *tuna)
++{
++	switch (tuna->id) {
++	case ETHTOOL_RX_COPYBREAK:
++		if (tuna->len != sizeof(u32) ||
++		    tuna->type_id != ETHTOOL_TUNABLE_U32)
++			return -EINVAL;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int ethtool_get_tunable(struct net_device *dev, void __user *useraddr)
++{
++	int ret;
++	struct ethtool_tunable tuna;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++	void *data;
++
++	if (!ops->get_tunable)
++		return -EOPNOTSUPP;
++	if (copy_from_user(&tuna, useraddr, sizeof(tuna)))
++		return -EFAULT;
++	ret = ethtool_tunable_valid(&tuna);
++	if (ret)
++		return ret;
++	data = kmalloc(tuna.len, GFP_USER);
++	if (!data)
++		return -ENOMEM;
++	ret = ops->get_tunable(dev, &tuna, data);
++	if (ret)
++		goto out;
++	useraddr += sizeof(tuna);
++	ret = -EFAULT;
++	if (copy_to_user(useraddr, data, tuna.len))
++		goto out;
++	ret = 0;
++
++out:
++	kfree(data);
++	return ret;
++}
++
++static int ethtool_set_tunable(struct net_device *dev, void __user *useraddr)
++{
++	int ret;
++	struct ethtool_tunable tuna;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++	void *data;
++
++	if (!ops->set_tunable)
++		return -EOPNOTSUPP;
++	if (copy_from_user(&tuna, useraddr, sizeof(tuna)))
++		return -EFAULT;
++	ret = ethtool_tunable_valid(&tuna);
++	if (ret)
++		return ret;
++	data = kmalloc(tuna.len, GFP_USER);
++	if (!data)
++		return -ENOMEM;
++	useraddr += sizeof(tuna);
++	ret = -EFAULT;
++	if (copy_from_user(data, useraddr, tuna.len))
++		goto out;
++	ret = ops->set_tunable(dev, &tuna, data);
++
++out:
++	kfree(data);
++	return ret;
++}
++
+ /* The main entry point in this file.  Called from net/core/dev_ioctl.c */
+ 
+ int dev_ethtool(struct net *net, struct ifreq *ifr)
+@@ -1670,6 +1744,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GCHANNELS:
+ 	case ETHTOOL_GET_TS_INFO:
+ 	case ETHTOOL_GEEE:
++	case ETHTOOL_GTUNABLE:
+ 		break;
+ 	default:
+ 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+@@ -1857,6 +1932,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GMODULEEEPROM:
+ 		rc = ethtool_get_module_eeprom(dev, useraddr);
+ 		break;
++	case ETHTOOL_GTUNABLE:
++		rc = ethtool_get_tunable(dev, useraddr);
++		break;
++	case ETHTOOL_STUNABLE:
++		rc = ethtool_set_tunable(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
 -- 
 2.1.0
