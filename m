@@ -1,84 +1,75 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
- is runnable
-Date: Tue, 02 Sep 2014 12:03:42 +0800
-Message-ID: <5405419E.7020103@redhat.com>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com> <1408608310-13579-2-git-send-email-jasowang@redhat.com> <1408683665.5648.69.camel@marge.simpson.net> <20140901093159.GB27892@worktop.ger.corp.intel.com> <20140901095219.GD21269@redhat.com> <20140901100434.GD27892@worktop.ger.corp.intel.com> <20140901101939.GA31157@worktop.ger.corp.intel.com>
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH net-next 12/12] be2net: query max_tx_qs for BE3
+ super-nic profile from FW
+Date: Tue, 2 Sep 2014 04:08:18 +0000
+Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C56D414CF@CMEXMB1.ad.emulex.com>
+References: <1409552664-15990-1-git-send-email-sathya.perla@emulex.com>
+ <1409552664-15990-13-git-send-email-sathya.perla@emulex.com>
+ <54047045.4080400@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>,
-	Eliezer Tamir <eliezer.tamir@linux.intel.com>
-To: Peter Zijlstra <peterz@infradead.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140901101939.GA31157@worktop.ger.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:30253 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750795AbaIBEIu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 00:08:50 -0400
+In-Reply-To: <54047045.4080400@cogentembedded.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/01/2014 06:19 PM, Peter Zijlstra wrote:
-> On Mon, Sep 01, 2014 at 12:04:34PM +0200, Peter Zijlstra wrote:
->> > On Mon, Sep 01, 2014 at 12:52:19PM +0300, Michael S. Tsirkin wrote:
->>> > > On Mon, Sep 01, 2014 at 11:31:59AM +0200, Peter Zijlstra wrote:
->>>> > > > On Fri, Aug 22, 2014 at 07:01:05AM +0200, Mike Galbraith wrote:
->>>>>> > > > > > +++ b/include/net/busy_poll.h
->>>>>> > > > > > @@ -109,7 +109,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
->>>>>> > > > > >  		cpu_relax();
->>>>>> > > > > >  
->>>>>> > > > > >  	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
->>>>>> > > > > > -		 !need_resched() && !busy_loop_timeout(end_time));
->>>>>> > > > > > +		 !need_resched() && !busy_loop_timeout(end_time) &&
->>>>>> > > > > > +		 nr_running_this_cpu() < 2);
->>>>>> > > > > >  
->>>> > > > 
->>>> > > > So as has been said by now; this is horrible.
->>>> > > > 
->>>> > > > We should not export nr_running like this ever. Your usage of < 2
->>>> > > > implies this can be hit with nr_running == 0, and therefore you can also
->>>> > > > hit it with nr_running == 1 where the one is not network related and you
->>>> > > > get random delays.
->>>> > > > 
->>>> > > > Worse still, you have BH (and thereby preemption) disabled, you should
->>>> > > > not _ever_ have undefined and indefinite waits like that.
->>>> > > > 
->>>> > > > You also destroy any hope of dropping into lower power states; even when
->>>> > > > there's never going to be a packet ever again, also bad.
->>> > > 
->>> > > Hmm this patch sometimes makes us exit from the busy loop *earlier*.
->>> > > How can this interfere with dropping into lower power states?
->> > 
->> > Ah.. jetlag.. :/ I read it like it owuld indefinitely spin if there was
->> > only the 'one' task, not avoid the spin unless there was the one task.
->> > 
->> > The nr_running thing is still horrible, but let me reread this patch
->> > description to see if it explains why that is a good thing.
-> OK I suppose that more or less makes sense, the contextual behaviour is
-> of course tedious in that it makes behaviour less predictable. The
-> 'other' tasks might not want to generate data and you then destroy
-> throughput by not spinning.
+> -----Original Message-----
+> From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
+> 
+> Hello.
+> 
+> > In the BE3 super-nic profile, the max_tx_qs value can vary for each
+> function.
+> > So the driver needs to query this value from FW instead of using the
+> > pre-defined constant BE3_MAX_TX_QS.
+> 
+> > Signed-off-by: Suresh Reddy <Suresh.Reddy@emulex.com>
+> > Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+> > ---
+> >   drivers/net/ethernet/emulex/benet/be_main.c |   13 +++++++++++--
+> >   1 files changed, 11 insertions(+), 2 deletions(-)
+> 
+> > diff --git a/drivers/net/ethernet/emulex/benet/be_main.c
+> b/drivers/net/ethernet/emulex/benet/be_main.c
+> > index f3235d1..a30156b 100644
+> > --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> > +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+> > @@ -3324,10 +3324,19 @@ static void BEx_get_resources(struct
+> be_adapter *adapter,
+> >   	 */
+> >   	if (BE2_chip(adapter) || use_sriov ||  (adapter->port_num > 1) ||
+> >   	    !be_physfn(adapter) || (be_is_mc(adapter) &&
+> > -	    !(adapter->function_caps & BE_FUNCTION_CAPS_RSS)))
+> > +	    !(adapter->function_caps & BE_FUNCTION_CAPS_RSS))) {
+> >   		res->max_tx_qs = 1;
+> > -	else
+> > +	} else if (adapter->function_caps &
+> BE_FUNCTION_CAPS_SUPER_NIC) {
+> > +		struct be_resources super_nic_res = {0};
+> 
+>     Empty line is needed after declaration.
+Ok, will  fix it. Thks.
 
-The patch try to make sure:
-- the the performance of busy read was not worse than it was disabled in
-any cases.
-- the performance improvement of a single socket was not achieved by
-sacrificing the total performance (all other processes) of the system
- 
-If 'other' tasks are also CPU or I/O intensive jobs, we switch to do
-them so the total performance were kept or even increased, and the
-performance of current process were guaranteed not worse than when busy
-read was disabled (or even better since it may still do busy read
-sometimes when it was the only runnable process). If 'other' task are
-not intensive, they just do little work and sleep soon, then the busy
-read can still work in most of the time during the future reads, we may
-still get obvious improvements.
-> I'm not entirely sure I see how its all supposed to work though; the
-> various poll functions call sk_busy_poll() and do_select() also loops.
->
-> The patch only kills the sk_busy_poll() loop, but then do_select() will
-> still loop and not sleep, so how is this helping?
-
-Yes, the patch only help for processes who did a blocking reads (busy
-read). For select(), maybe we can do the same thing but need more test
-and thoughts.
+> 
+> > +		/* On a SuperNIC profile, the driver needs to use the
+> > +		 * GET_PROFILE_CONFIG cmd to query the per-function TXQ
+> limits
+> > +		 */
+> > +		be_cmd_get_profile_config(adapter, &super_nic_res, 0);
+> > +		/* Some old versions of BE3 FW don't report max_tx_qs
+> value */
+> > +		res->max_tx_qs = super_nic_res.max_tx_qs ? :
+> BE3_MAX_TX_QS;
+> > +	} else {
+> >   		res->max_tx_qs = BE3_MAX_TX_QS;
+> > +	}
+> 
+> WBR, Sergei
