@@ -1,42 +1,64 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net v2] ipv6: fix rtnl locking in setsockopt for anycast
- and multicast
-Date: Tue, 2 Sep 2014 09:43:20 -0700
-Message-ID: <CAM_iQpWs804KO4pNM302uc__i90MgUBHODA2cofWQTvCCx74jw@mail.gmail.com>
-References: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
-	<CAHA+R7MZCDGRhSf=UuVCGQvNo03wVziZQB_X30rwNf6hmHipQA@mail.gmail.com>
-	<20140829195339.GA9780@kria>
-	<1409363489.2980.17.camel@localhost>
-	<20140830105821.GB18155@kria>
-	<1409599348.21965.6.camel@localhost>
-	<20140901210520.GB25543@kria>
-	<1409610378.21965.52.camel@localhost>
-	<20140902082929.GA8483@kria>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Cong Wang <cwang@twopensource.com>,
-	Tommi Rantala <tt.rantala@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, trinity@vger.kernel.org,
-	Dave Jones <davej@redhat.com>
-To: Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <trinity-owner@vger.kernel.org>
-In-Reply-To: <20140902082929.GA8483@kria>
-Sender: trinity-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
+Subject: Re: [PATCH net-next 2/2] sunvnet: Re-check for a VIO_DESC_READY data descriptor after short udelay()
+Date: Tue, 2 Sep 2014 09:43:46 -0700
+Message-ID: <665366D4-384B-45E1-B371-239EA87F5A15@oracle.com>
+References: <20140829201809.GH14753@oracle.com> <20140901.204715.2121922580015092507.davem@davemloft.net> <54059BAA.1080307@oracle.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:40818 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754256AbaIBQnt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 12:43:49 -0400
+In-Reply-To: <54059BAA.1080307@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 2, 2014 at 1:29 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
->
-> v2:
->  - based on net
->  - keep dev_get_by_flags_rcu and RCU in ipv6_sock_ac_*
->  - remove two ASSERT_RTNL() that are not necessary
 
-There is no point to keep RCU here. Hannes' reply doesn't make
-any sense.
+On Sep 2, 2014, at 3:27 AM, Sowmini Varadhan <sowmini.varadhan@oracle.com> wrote:
+
+> On 09/01/2014 11:47 PM, David Miller wrote:
+> 
+>> 
+>> If there were no more packets coming, this is wasted useless polling
+>> time in atomic context.
+> 
+> turns out that this gives a 20-30% perf improvement for tests like
+> iperf.
+> 
+> when there are no more packets coming, the extra 12 microsecond
+> delay is not that big of a deal anyway. The point was that the extra
+> 12 micro-second tax in the quiescent network state is less expensive
+> than exiting interrupt context, taking another interrupt and doing
+> another ldc_read, when there is actually a burst of packets.
+> 
+
+We could optimize this a bit by not wait for normal traffic, I mean, non-burst traffic
+and apply the retry  only  when we detect a stream of packets?
+We could detect a stream based on how many packets are picked
+up in this function, picking up 3 or more could be considered as a stream,
+of course tune based on testing.
+
+You probably tried it already, but checking to see if you tried with less number
+of iterations, we could reduce the iterations if the numbers are equally good
+with less iterations.
+
+-Raghuram
+
+> notice that there are many other such udelay() loops elsewhere in
+> the code.
+> 
+> I can remove the retries and submit patch 1/1 again later today.
+> 
+>> 
+>> Everything should be event based, and we should not be compensating
+>> and making sacrifices for a producer slower than we are as a consumer.
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> 
+> 
