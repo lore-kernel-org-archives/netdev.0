@@ -1,44 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] tg3: prevent ifup/ifdown during PCI error
- recovery
-Date: Tue, 02 Sep 2014 13:02:34 -0700 (PDT)
-Message-ID: <20140902.130234.1386697848957363743.davem@davemloft.net>
-References: <1409574117-19435-1-git-send-email-ivecera@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] VMXNET3: Check for map error in vmxnet3_set_mc
+Date: Wed, 03 Sep 2014 00:02:35 +0400
+Message-ID: <5406225B.305@cogentembedded.com>
+References: <1409675408-8440-1-git-send-email-acking@vmware.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, prashant@broadcom.com, mchan@broadcom.com
-To: ivecera@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58026 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750954AbaIBUCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 16:02:35 -0400
-In-Reply-To: <1409574117-19435-1-git-send-email-ivecera@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pv-drivers@vmware.com, penguin-kernel@I-love.SAKURA.ne.jp,
+	davem@davemloft.net
+To: Andy King <acking@vmware.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1409675408-8440-1-git-send-email-acking@vmware.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Ivan Vecera <ivecera@redhat.com>
-Date: Mon,  1 Sep 2014 14:21:57 +0200
+Hello.
 
-> The patch fixes race conditions between PCI error recovery callbacks and
-> potential ifup/ifdown.
-> 
-> First, if ifup (tg3_open) is called between tg3_io_error_detected() and
-> tg3_io_resume() then tp->timer is armed twice before expiry. Once during
-> tg3_open() and again during tg3_io_resume(). This results in BUG
-> at kernel/time/timer.c:945.
-> 
-> Second, if ifdown (tg3_close) is called between tg3_io_error_detected()
-> and tg3_io_resume() then tg3_napi_disable() is called twice without
-> a tg3_napi_enable between. Once during tg3_io_error_detected() and again
-> during tg3_close(). The tg3_io_resume() then hangs on rtnl_lock().
-> 
-> v2: Added logging messages per Prashant's request
-> 
-> Cc: Prashant Sreedharan <prashant@broadcom.com>
-> Cc: Michael Chan <mchan@broadcom.com>
-> 
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+On 09/02/2014 08:30 PM, Andy King wrote:
 
-Applied, thanks.
+> We should check if the map of the table actually succeeds, and also free
+> resources accordingly. This fixes the kernel panic reported by Tetsuo
+> Handa.
+
+    There's "Reported-by:" line for that.
+
+> Version bumped to 1.2.1.0
+
+> Acked-by: Shelley Gong <shelleygong@vmware.com>
+> Acked-by: Bhavesh Davda <bhavesh@vmware.com>
+> Signed-off-by: Andy King <acking@vmware.com>
+> ---
+>   drivers/net/vmxnet3/vmxnet3_drv.c |   14 ++++++++------
+>   drivers/net/vmxnet3/vmxnet3_int.h |    4 ++--
+>   2 files changed, 10 insertions(+), 8 deletions(-)
+
+> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+> index d6e90c7..f450010 100644
+> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
+> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+[...]
+> @@ -2091,11 +2093,11 @@ vmxnet3_set_mc(struct net_device *netdev)
+>   			       VMXNET3_CMD_UPDATE_MAC_FILTERS);
+>   	spin_unlock_irqrestore(&adapter->cmd_lock, flags);
+>
+> -	if (new_table) {
+> +	if (new_table_pa)
+>   		dma_unmap_single(&adapter->pdev->dev, new_table_pa,
+>   				 rxConf->mfTableLen, PCI_DMA_TODEVICE);
+> +	if (new_table)
+>   		kfree(new_table);
+
+    The above *if* is not needed -- kfree() already checks for NULL.
+
+[...]
+
+WBR, Sergei
