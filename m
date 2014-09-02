@@ -1,45 +1,68 @@
-From: Peter Hurley <peter@hurleysoftware.com>
-Subject: [PATCH 16/26] isdn: i4l: Remove ASYNC_CTS_FLOW
-Date: Tue,  2 Sep 2014 17:39:25 -0400
-Message-ID: <1409693975-1028-17-git-send-email-peter@hurleysoftware.com>
-References: <1409693975-1028-1-git-send-email-peter@hurleysoftware.com>
-Cc: Jiri Slaby <jslaby@suse.cz>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	linux-serial@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Peter Hurley <peter@hurleysoftware.com>,
-	Karsten Keil <isdn@linux-pingi.de>, <netdev@vger.kernel.org>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409693975-1028-1-git-send-email-peter@hurleysoftware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] net: export pkt_type_offset() helper
+Date: Tue, 2 Sep 2014 15:59:27 -0700
+Message-ID: <20140902225926.GA14635@its-macbook-pro.plumgrid.com>
+References: <1409688238-3152-1-git-send-email-kda@linux-powerpc.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Markos Chandras <markos.chandras@imgtec.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Denis Kirjanov <kda@linux-powerpc.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:58829 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752046AbaIBW70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 18:59:26 -0400
+Received: by mail-pd0-f176.google.com with SMTP id w10so273038pde.35
+        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 15:59:26 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1409688238-3152-1-git-send-email-kda@linux-powerpc.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ISDN4Linux always enables CTS flow control and does not use the
-tty_port_cts_enabled() helper function; remove ASYNC_CTS_FLOW
-state enable/disable.
+On Wed, Sep 03, 2014 at 12:03:58AM +0400, Denis Kirjanov wrote:
+> Currently we have 2 pkt_type_offset functions doing
+> the same thing and spread across the architecture files.
+> Let's use the generic helper routine.
 
-cc: Karsten Keil <isdn@linux-pingi.de>
-cc: <netdev@vger.kernel.org>
-Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
----
- drivers/isdn/i4l/isdn_tty.c | 5 -----
- 1 file changed, 5 deletions(-)
+that would be good cleanup.
+Please tag your subject as '[PATCH net-next]...'
 
-diff --git a/drivers/isdn/i4l/isdn_tty.c b/drivers/isdn/i4l/isdn_tty.c
-index 3c5f249..bc91261 100644
---- a/drivers/isdn/i4l/isdn_tty.c
-+++ b/drivers/isdn/i4l/isdn_tty.c
-@@ -1043,11 +1043,6 @@ isdn_tty_change_speed(modem_info *info)
- 	if (!(cflag & PARODD))
- 		cval |= UART_LCR_EPAR;
- 
--	/* CTS flow control flag and modem status interrupts */
--	if (cflag & CRTSCTS) {
--		port->flags |= ASYNC_CTS_FLOW;
--	} else
--		port->flags &= ~ASYNC_CTS_FLOW;
- 	if (cflag & CLOCAL)
- 		port->flags &= ~ASYNC_CHECK_CD;
- 	else {
--- 
-2.1.0
+> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+> Cc: Markos Chandras <markos.chandras@imgtec.com>
+> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  arch/mips/net/bpf_jit.c      | 21 ---------------------
+>  arch/s390/net/bpf_jit_comp.c | 38 ++++----------------------------------
+>  include/linux/filter.h       |  7 +++++++
+>  net/core/filter.c            |  7 +------
+>  4 files changed, 12 insertions(+), 61 deletions(-)
+> 
+> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+> -#define PKT_TYPE_MAX 0xe0
+> -static int pkt_type_offset;
+...
+> -}
+> -device_initcall(bpf_pkt_type_offset_init);
+
+may be make sense to optimize common case via initcall() as well
+instead of dropping it for s390?
+
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+> index a5227ab..97e0549 100644
+> --- a/include/linux/filter.h
+> +++ b/include/linux/filter.h
+> @@ -424,6 +424,13 @@ static inline void *bpf_load_pointer(const struct sk_buff *skb, int k,
+>  	return bpf_internal_load_pointer_neg_helper(skb, k, size);
+>  }
+>  
+> +#ifdef __BIG_ENDIAN_BITFIELD
+> +#define PKT_TYPE_MAX	(7 << 5)
+> +#else
+> +#define PKT_TYPE_MAX    7
+> +#endif
+
+these defines don't need to move. keep them in filter.c
