@@ -1,145 +1,87 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next v4 1/3] enic: implement rx_copybreak
-Date: Wed,  3 Sep 2014 03:17:19 +0530
-Message-ID: <1409694441-3843-2-git-send-email-_govind@gmx.com>
+Subject: [PATCH net-next v4 3/3] enic: Add tunable_ops support for rx_copybreak
+Date: Wed,  3 Sep 2014 03:17:21 +0530
+Message-ID: <1409694441-3843-4-git-send-email-_govind@gmx.com>
 References: <1409694441-3843-1-git-send-email-_govind@gmx.com>
 Cc: ssujith@cisco.com, ben@decadent.org.uk,
 	Govindarajulu Varadarajan <_govind@gmx.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:60693 "EHLO mout.gmx.com"
+Received: from mout.gmx.com ([74.208.4.200]:59238 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754183AbaIBVsX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 17:48:23 -0400
+	id S1754183AbaIBVsb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 17:48:31 -0400
 In-Reply-To: <1409694441-3843-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Calling dma_map_single()/dma_unmap_single() is quite expensive compared
-to copying a small packet. So let's copy short frames and keep the buffers
-mapped.
+This patch adds support for setting/getting rx_copybreak using
+generic ethtool tunable.
+
+Defines enic_get_tunable() & enic_set_tunable() to get/set rx_copybreak.
+As of now, these two function supports only rx_copybreak.
 
 Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 ---
- drivers/net/ethernet/cisco/enic/enic.h      |  1 +
- drivers/net/ethernet/cisco/enic/enic_main.c | 50 +++++++++++++++++++++++++++--
- 2 files changed, 48 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c | 39 ++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
-index 962510f..5ba5ad0 100644
---- a/drivers/net/ethernet/cisco/enic/enic.h
-+++ b/drivers/net/ethernet/cisco/enic/enic.h
-@@ -186,6 +186,7 @@ struct enic {
- 	____cacheline_aligned struct vnic_cq cq[ENIC_CQ_MAX];
- 	unsigned int cq_count;
- 	struct enic_rfs_flw_tbl rfs_h;
-+	u32 rx_copybreak;
- };
- 
- static inline struct device *enic_get_dev(struct enic *enic)
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index c8832bc..929bfe7 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -66,6 +66,8 @@
- #define PCI_DEVICE_ID_CISCO_VIC_ENET_DYN     0x0044  /* enet dynamic vnic */
- #define PCI_DEVICE_ID_CISCO_VIC_ENET_VF      0x0071  /* enet SRIOV VF */
- 
-+#define RX_COPYBREAK_DEFAULT		256
-+
- /* Supported devices */
- static const struct pci_device_id enic_id_table[] = {
- 	{ PCI_VDEVICE(CISCO, PCI_DEVICE_ID_CISCO_VIC_ENET) },
-@@ -924,6 +926,7 @@ static void enic_free_rq_buf(struct vnic_rq *rq, struct vnic_rq_buf *buf)
- 	pci_unmap_single(enic->pdev, buf->dma_addr,
- 		buf->len, PCI_DMA_FROMDEVICE);
- 	dev_kfree_skb_any(buf->os_buf);
-+	buf->os_buf = NULL;
+diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+index 523c9ce..85173d6 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
++++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+@@ -379,6 +379,43 @@ static int enic_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
+ 	return ret;
  }
  
- static int enic_rq_alloc_buf(struct vnic_rq *rq)
-@@ -934,7 +937,24 @@ static int enic_rq_alloc_buf(struct vnic_rq *rq)
- 	unsigned int len = netdev->mtu + VLAN_ETH_HLEN;
- 	unsigned int os_buf_index = 0;
- 	dma_addr_t dma_addr;
-+	struct vnic_rq_buf *buf = rq->to_use;
-+
-+	if (buf->os_buf) {
-+		buf = buf->next;
-+		rq->to_use = buf;
-+		rq->ring.desc_avail--;
-+		if ((buf->index & VNIC_RQ_RETURN_RATE) == 0) {
-+			/* Adding write memory barrier prevents compiler and/or
-+			 * CPU reordering, thus avoiding descriptor posting
-+			 * before descriptor is initialized. Otherwise, hardware
-+			 * can read stale descriptor fields.
-+			 */
-+			wmb();
-+			iowrite32(buf->index, &rq->ctrl->posted_index);
-+		}
- 
-+		return 0;
-+	}
- 	skb = netdev_alloc_skb_ip_align(netdev, len);
- 	if (!skb)
- 		return -ENOMEM;
-@@ -957,6 +977,25 @@ static void enic_intr_update_pkt_size(struct vnic_rx_bytes_counter *pkt_size,
- 		pkt_size->small_pkt_bytes_cnt += pkt_len;
- }
- 
-+static bool enic_rxcopybreak(struct net_device *netdev, struct sk_buff **skb,
-+			     struct vnic_rq_buf *buf, u16 len)
++static int enic_get_tunable(struct net_device *dev,
++			    const struct ethtool_tunable *tuna, void *data)
 +{
-+	struct enic *enic = netdev_priv(netdev);
-+	struct sk_buff *new_skb;
++	struct enic *enic = netdev_priv(dev);
++	int ret = 0;
 +
-+	if (len > enic->rx_copybreak)
-+		return false;
-+	new_skb = netdev_alloc_skb_ip_align(netdev, len);
-+	if (!new_skb)
-+		return false;
-+	pci_dma_sync_single_for_cpu(enic->pdev, buf->dma_addr, len,
-+				    DMA_FROM_DEVICE);
-+	memcpy(new_skb->data, (*skb)->data, len);
-+	*skb = new_skb;
++	switch (tuna->id) {
++	case ETHTOOL_RX_COPYBREAK:
++		*(u32 *)data = enic->rx_copybreak;
++		break;
++	default:
++		ret = -EINVAL;
++		break;
++	}
 +
-+	return true;
++	return ret;
 +}
 +
- static void enic_rq_indicate_buf(struct vnic_rq *rq,
- 	struct cq_desc *cq_desc, struct vnic_rq_buf *buf,
- 	int skipped, void *opaque)
-@@ -978,9 +1017,6 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
- 		return;
- 
- 	skb = buf->os_buf;
--	prefetch(skb->data - NET_IP_ALIGN);
--	pci_unmap_single(enic->pdev, buf->dma_addr,
--		buf->len, PCI_DMA_FROMDEVICE);
- 
- 	cq_enet_rq_desc_dec((struct cq_enet_rq_desc *)cq_desc,
- 		&type, &color, &q_number, &completed_index,
-@@ -1011,6 +1047,13 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
- 		/* Good receive
- 		 */
- 
-+		if (!enic_rxcopybreak(netdev, &skb, buf, bytes_written)) {
-+			buf->os_buf = NULL;
-+			pci_unmap_single(enic->pdev, buf->dma_addr, buf->len,
-+					 PCI_DMA_FROMDEVICE);
-+		}
-+		prefetch(skb->data - NET_IP_ALIGN);
++static int enic_set_tunable(struct net_device *dev,
++			    const struct ethtool_tunable *tuna,
++			    const void *data)
++{
++	struct enic *enic = netdev_priv(dev);
++	int ret = 0;
 +
- 		skb_put(skb, bytes_written);
- 		skb->protocol = eth_type_trans(skb, netdev);
- 		skb_record_rx_queue(skb, q_number);
-@@ -2531,6 +2574,7 @@ static int enic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		dev_err(dev, "Cannot register net device, aborting\n");
- 		goto err_out_dev_deinit;
- 	}
-+	enic->rx_copybreak = RX_COPYBREAK_DEFAULT;
++	switch (tuna->id) {
++	case ETHTOOL_RX_COPYBREAK:
++		enic->rx_copybreak = *(u32 *)data;
++		break;
++	default:
++		ret = -EINVAL;
++		break;
++	}
++
++	return ret;
++}
++
+ static const struct ethtool_ops enic_ethtool_ops = {
+ 	.get_settings = enic_get_settings,
+ 	.get_drvinfo = enic_get_drvinfo,
+@@ -391,6 +428,8 @@ static const struct ethtool_ops enic_ethtool_ops = {
+ 	.get_coalesce = enic_get_coalesce,
+ 	.set_coalesce = enic_set_coalesce,
+ 	.get_rxnfc = enic_get_rxnfc,
++	.get_tunable = enic_get_tunable,
++	.set_tunable = enic_set_tunable,
+ };
  
- 	return 0;
- 
+ void enic_set_ethtool_ops(struct net_device *netdev)
 -- 
 2.1.0
