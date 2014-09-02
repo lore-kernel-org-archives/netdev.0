@@ -1,68 +1,51 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] net: export pkt_type_offset() helper
-Date: Tue, 2 Sep 2014 15:59:27 -0700
-Message-ID: <20140902225926.GA14635@its-macbook-pro.plumgrid.com>
-References: <1409688238-3152-1-git-send-email-kda@linux-powerpc.org>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH] net: Validate frames going through the direct_xmit path
+Date: Tue, 02 Sep 2014 18:55:48 -0400
+Message-ID: <20140902225548.885.79277.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Markos Chandras <markos.chandras@imgtec.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Denis Kirjanov <kda@linux-powerpc.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:58829 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752046AbaIBW70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 18:59:26 -0400
-Received: by mail-pd0-f176.google.com with SMTP id w10so273038pde.35
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 15:59:26 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1409688238-3152-1-git-send-email-kda@linux-powerpc.org>
+Received: from mga11.intel.com ([192.55.52.93]:19316 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752046AbaIBXCw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 19:02:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 03, 2014 at 12:03:58AM +0400, Denis Kirjanov wrote:
-> Currently we have 2 pkt_type_offset functions doing
-> the same thing and spread across the architecture files.
-> Let's use the generic helper routine.
+In commit 50cbe9ab5f8d92d2d4a327b56e96559d8f63a1fa "net: Validate xmit SKBs
+right when we pull them out of the qdisc" the validation code was moved out
+of dev_hard_start_xmit and into dequeue_skb.  However this overlooked the
+fact that we do not always enqueue the skb onto a qdisc.
 
-that would be good cleanup.
-Please tag your subject as '[PATCH net-next]...'
+As a result I was seeing issues trying to connect to a vhost_net interface
+after this patch was applied.  To resolve the issue I have added a call to
+validate_xmit_skb in sched_direct_xmit and this seems to have resolved the
+issue by restoring the validation to this xmit path.
 
-> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
-> Cc: Markos Chandras <markos.chandras@imgtec.com>
-> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  arch/mips/net/bpf_jit.c      | 21 ---------------------
->  arch/s390/net/bpf_jit_comp.c | 38 ++++----------------------------------
->  include/linux/filter.h       |  7 +++++++
->  net/core/filter.c            |  7 +------
->  4 files changed, 12 insertions(+), 61 deletions(-)
-> 
-> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
-> -#define PKT_TYPE_MAX 0xe0
-> -static int pkt_type_offset;
-...
-> -}
-> -device_initcall(bpf_pkt_type_offset_init);
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ net/sched/sch_generic.c |    9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-may be make sense to optimize common case via initcall() as well
-instead of dropping it for s390?
-
-> diff --git a/include/linux/filter.h b/include/linux/filter.h
-> index a5227ab..97e0549 100644
-> --- a/include/linux/filter.h
-> +++ b/include/linux/filter.h
-> @@ -424,6 +424,13 @@ static inline void *bpf_load_pointer(const struct sk_buff *skb, int k,
->  	return bpf_internal_load_pointer_neg_helper(skb, k, size);
->  }
->  
-> +#ifdef __BIG_ENDIAN_BITFIELD
-> +#define PKT_TYPE_MAX	(7 << 5)
-> +#else
-> +#define PKT_TYPE_MAX    7
-> +#endif
-
-these defines don't need to move. keep them in filter.c
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index a8bf9f9..203ee65 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -128,8 +128,13 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
+ 	spin_unlock(root_lock);
+ 
+ 	HARD_TX_LOCK(dev, txq, smp_processor_id());
+-	if (!netif_xmit_frozen_or_stopped(txq))
+-		skb = dev_hard_start_xmit(skb, dev, txq, &ret);
++	if (!netif_xmit_frozen_or_stopped(txq)) {
++		skb = validate_xmit_skb(skb, dev);
++		if (!skb)
++			ret = NETDEV_TX_OK;
++		else
++			skb = dev_hard_start_xmit(skb, dev, txq, &ret);
++	}
+ 
+ 	HARD_TX_UNLOCK(dev, txq);
+ 
