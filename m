@@ -1,8 +1,8 @@
 From: Jean Sacren <sakiwit@gmail.com>
-Subject: [PATCH net-next 4/6] igbvf: remove the boilerplate of
-	igbvf module for init/exit
-Date: Tue,  2 Sep 2014 03:36:54 -0600
-Message-ID: <1409650616-1035-5-git-send-email-sakiwit@gmail.com>
+Subject: [PATCH net-next 5/6] e1000e: remove the boilerplate
+	of e1000e module for init/exit
+Date: Tue,  2 Sep 2014 03:36:55 -0600
+Message-ID: <1409650616-1035-6-git-send-email-sakiwit@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -20,7 +20,7 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Use module_pci_driver() to simplify igbvf driver module init/exit
+Use module_pci_driver() to simplify e1000e driver module init/exit
 routine.
 
 After the change, the basic driver info doesn't print unless the
@@ -31,62 +31,62 @@ also incurs unnecessary confusion.
 
 Signed-off-by: Jean Sacren <sakiwit@gmail.com>
 ---
- drivers/net/ethernet/intel/igbvf/netdev.c | 35 +++++--------------------------
+ drivers/net/ethernet/intel/e1000e/netdev.c | 35 +++++-------------------------
  1 file changed, 5 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index 63c807c9b21c..f3b4d7f676f1 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -2630,6 +2630,10 @@ static int igbvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	static int cards_found;
- 	int err, pci_using_dac;
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 65c3aef2bd36..1b5f99028ac6 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -6741,6 +6741,10 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	u16 eeprom_apme_mask = E1000_EEPROM_APME;
+ 	s32 rval = 0;
  
-+	pr_info_once("%s - version %s\n",
-+		     igbvf_driver_string, igbvf_driver_version);
-+	pr_info_once("%s\n", igbvf_copyright);
++	pr_info_once("Intel(R) PRO/1000 Network Driver - %s\n",
++		     e1000e_driver_version);
++	pr_info_once("Copyright(c) 1999 - 2014 Intel Corporation.\n");
 +
- 	err = pci_enable_device_mem(pdev);
- 	if (err)
- 		return err;
-@@ -2875,36 +2879,7 @@ static struct pci_driver igbvf_driver = {
- 	.err_handler = &igbvf_err_handler
+ 	if (ei->flags2 & FLAG2_DISABLE_ASPM_L0S)
+ 		aspm_disable_flag = PCIE_LINK_STATE_L0S;
+ 	if (ei->flags2 & FLAG2_DISABLE_ASPM_L1)
+@@ -7249,36 +7253,7 @@ static struct pci_driver e1000_driver = {
+ 	.err_handler = &e1000_err_handler
  };
  
 -/**
-- * igbvf_init_module - Driver Registration Routine
+- * e1000_init_module - Driver Registration Routine
 - *
-- * igbvf_init_module is the first routine called when the driver is
+- * e1000_init_module is the first routine called when the driver is
 - * loaded. All it does is register with the PCI subsystem.
 - **/
--static int __init igbvf_init_module(void)
+-static int __init e1000_init_module(void)
 -{
 -	int ret;
--	pr_info("%s - version %s\n", igbvf_driver_string, igbvf_driver_version);
--	pr_info("%s\n", igbvf_copyright);
 -
--	ret = pci_register_driver(&igbvf_driver);
+-	pr_info("Intel(R) PRO/1000 Network Driver - %s\n",
+-		e1000e_driver_version);
+-	pr_info("Copyright(c) 1999 - 2014 Intel Corporation.\n");
+-	ret = pci_register_driver(&e1000_driver);
 -
 -	return ret;
 -}
--module_init(igbvf_init_module);
+-module_init(e1000_init_module);
 -
 -/**
-- * igbvf_exit_module - Driver Exit Cleanup Routine
+- * e1000_exit_module - Driver Exit Cleanup Routine
 - *
-- * igbvf_exit_module is called just before the driver is removed
+- * e1000_exit_module is called just before the driver is removed
 - * from memory.
 - **/
--static void __exit igbvf_exit_module(void)
+-static void __exit e1000_exit_module(void)
 -{
--	pci_unregister_driver(&igbvf_driver);
+-	pci_unregister_driver(&e1000_driver);
 -}
--module_exit(igbvf_exit_module);
--
-+module_pci_driver(igbvf_driver);
+-module_exit(e1000_exit_module);
++module_pci_driver(e1000_driver);
  
- MODULE_AUTHOR("Intel Corporation, <e1000-devel@lists.sourceforge.net>");
- MODULE_DESCRIPTION("Intel(R) Gigabit Virtual Function Network Driver");
+ MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
+ MODULE_DESCRIPTION("Intel(R) PRO/1000 Network Driver");
 
 ------------------------------------------------------------------------------
 Slashdot TV.  
