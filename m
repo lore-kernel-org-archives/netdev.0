@@ -1,39 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH 1/1] drivers: net: cpsw: dual_emac: fix reducing of
- rx descriptor during ifdown
-Date: Tue, 02 Sep 2014 11:54:34 -0700 (PDT)
-Message-ID: <20140902.115434.1276391011837651390.davem@davemloft.net>
-References: <1409304145-26179-1-git-send-email-mugunthanvnm@ti.com>
-	<20140901.183108.784916699845611422.davem@davemloft.net>
-	<54058C01.3010402@ti.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: RTNL: assertion failed at net/ipv6/addrconf.c (1699)
+Date: Tue, 02 Sep 2014 21:02:50 +0200
+Message-ID: <1409684570.15984.6.camel@localhost>
+References: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
+	 <CAHA+R7MZCDGRhSf=UuVCGQvNo03wVziZQB_X30rwNf6hmHipQA@mail.gmail.com>
+	 <20140829195339.GA9780@kria> <1409363489.2980.17.camel@localhost>
+	 <CAHA+R7ODa+LrdwSrS7HcBfwwq8_fpj-Ld0OCDtcOqkpCdZCvxg@mail.gmail.com>
+	 <1409680684.972417.162793869.03CF8A61@webmail.messagingengine.com>
+	 <CAHA+R7Mwy1SCpEUgGf9BdLEro6N-3t89KU=xL0iuzgOppXELrQ@mail.gmail.com>
+	 <1409681914.978561.162800349.5A7FA784@webmail.messagingengine.com>
+	 <CAHA+R7MMe+O9-sNHQvgOO78tBzDy+hO+GtJFsuJPKx0eG6eMaw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mugunthanvnm@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57401 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751850AbaIBSyf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 14:54:35 -0400
-In-Reply-To: <54058C01.3010402@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sabrina Dubroca <sd@queasysnail.net>,
+	Tommi Rantala <tt.rantala@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, trinity@vger.kernel.org,
+	Dave Jones <davej@redhat.com>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <trinity-owner@vger.kernel.org>
+In-Reply-To: <CAHA+R7MMe+O9-sNHQvgOO78tBzDy+hO+GtJFsuJPKx0eG6eMaw@mail.gmail.com>
+Sender: trinity-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Tue, 2 Sep 2014 14:51:05 +0530
-
-> When ifup and ifdown is run continuously, for each spilled packet (for
-> interface which is down) from DMA, the total number of rx descriptor
-> goes down and at one instance all the descriptor is lost and both the
-> interface stops working.
+On Di, 2014-09-02 at 11:40 -0700, Cong Wang wrote:
+> On Tue, Sep 2, 2014 at 11:18 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > Those ASSERT_RTNLs were misplaced and only caught the callers mostly
+> > from addrconf.c. I don't mind getting reports from stable kernel users
+> > and fixing those, too (or help fixing those). ASSERT_RTNL is not
+> > dangerous.
+> >
+> > We had a long history in not correctly using rtnl lock in ipv6/multicast
+> > code and those wrongfully placed ASSERT_RTNLs were my bad when I fixed
+> > the duplicate address detection handling.
+> >
+> > If enough multicast addresses are subscribed to an interface we might
+> > again get those splats because enabling promisc mode on an interface
+> > will also check for rtnl lock.
+> >
 > 
-> To recover from this we need to put down both the interface and open the
-> interface which will re-init the DMA which intern queues fresh set of
-> skbs for rx.
+> Sure, I never doubt adding ASSERT_RTNL() is helpful, I just still think
+> this should be for net-next, or at least a separated patch. I don't want
+> my patch to be blamed in others' "Fixes:". :)
 
-But you still should not receive packets for a netdev which is down.
-As far as I can tell, you're feeding it into the stack still.
+Come on, that's why we have community review. Nobody blames anyone
+because of added regressions. It's more a fault of the community then,
+and it works out fairly good I think! Even others are keen on fixing
+your bugs sometimes. ;)
 
-Also this doesn't explain why the "status < 0" case applies to this
-new logic, you have not explained that at all.
+If fixes tag is well researched, it won't point to the addition of
+ASSERT_RTNL() but your patch would help to discover a bug somewhere else
+in the stack.
+
+I think for this patch a fixes-tag is hard to find because it is hard to
+find because it dates back to the beginning of the git history IMHO.
+
+Bye,
+Hannes
