@@ -1,48 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: Safer deletion of sk_bind_node
-Date: Mon, 01 Sep 2014 22:03:25 -0700 (PDT)
-Message-ID: <20140901.220325.955861172520355423.davem@davemloft.net>
-References: <1409555309-5893-1-git-send-email-harish_kandiga@mentor.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH net] bnx2x: Configure device endianity on driver load
+ and reset endianity on removal.
+Date: Tue, 2 Sep 2014 05:47:49 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63B30338@avmb3.qlogic.org>
+References: <1409581043-25357-1-git-send-email-manish.chopra@qlogic.com>
+	<31AFFC7280259C4184970ABA9AFE8B93E0800207@avmb3.qlogic.org>,<20140901.145314.1237097170646182877.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, tgraf@suug.ch, ebiederm@xmission.com,
-	darkjames-ws@darkjames.pl, rgb@redhat.com, eric.dumazet@gmail.com,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: HarishJennyKN <harish_kandiga@mentor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409555309-5893-1-git-send-email-harish_kandiga@mentor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: David Miller <davem@davemloft.net>,
+	Manish Chopra <manish.chopra@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:52563 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750706AbaIBFrx convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 01:47:53 -0400
+In-Reply-To: <20140901.145314.1237097170646182877.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Harish Jenny K N
-Date: Mon, 1 Sep 2014 12:38:29 +0530
+>> This patch fixes this case from both ends:
+>>> 1) Return endianity to original values on shutdown (in case little endian kernel
+>>> boots after we shutdown).
+>>> 2) Do not rely on HW reset values when loading driver in little endian kernel
+>>>    but configure them explicitly (in case previous kernel was big endian and did
+>>> not reset the HW).
+ ...
+>> David, Please drop this patch as it might create issue for VFs.
+>> I will send updated V2 patch with proper fix.
 
-Firstly, you really need to fix your outgoing email so that your email
-address appears in your From: header properly.
+>I think part #2 is the only reasonable part of this patch, and that's
+>what you'll have to backport to -stable kernels to sort this out
+>properly.
 
-> From: Harish Jenny K N <harish_kandiga@mentor.com>
-> 
->     Unable to handle kernel NULL pointer dereference at virtual address 00000000
->         (netlink_release+0x0/0x2a0) from [<8034e78c>] (sock_release+0x28/0xa4)
->         (sock_release+0x0/0xa4) from [<8034e830>] (sock_close+0x28/0x34)
->         (sock_close+0x0/0x34) from [<800f3490>] (__fput+0xf0/0x1ec)
->         (__fput+0x0/0x1ec) from [<800f3634>] (____fput+0x10/0x14)
->         (____fput+0x0/0x14) from [<80040a64>] (task_work_run+0xb8/0xd8)
->         (task_work_run+0x0/0xd8) from [<800113a0>] (do_work_pending+0xb0/0xc4)
->         (do_work_pending+0x0/0xc4) from [<8000d960>] (work_pending+0xc/0x20)
->     Call flow of the inline and static functions
->         netlink_release
->         -----netlink_remove
->         ---------__sk_del_bind_node
->         --------------__hlist_del
-> 
-> Signed-off-by: Harish Jenny K N <harish_kandiga@mentor.com>
+>Adding "unconfiguration" hacks into a driver to deal with driver bugs
+>is really not kosher, sorry.
 
-This doesn't tell us anything about how this situation can be
-arrived at.
+Why call this a hack? 
+It's true #2 can solve the issue on its own for new kernels, but given the various existing distros out there (that don't include the fix) the effort of supporting those by adding #1 seems to be very small.
 
-When subscriptions changes, we delete the node with the table lock
-held if subscriptions goes to zero.  We only try to delete the node
-when subscriptions was zero.
+I wouldn't say it's not kosher; more like milchig. 
+
+But then again, this is your domain and in truth constellations needing this fix are quite odd. If you insist we'll throw #1 away.
