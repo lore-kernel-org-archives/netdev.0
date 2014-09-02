@@ -1,36 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH 1/1] drivers: net: cpsw: dual_emac: fix reducing of
- rx descriptor during ifdown
-Date: Mon, 01 Sep 2014 18:31:08 -0700 (PDT)
-Message-ID: <20140901.183108.784916699845611422.davem@davemloft.net>
-References: <1409304145-26179-1-git-send-email-mugunthanvnm@ti.com>
+Subject: Re: [PATCH net-next] bonding: add slave_changelink support and use
+ it for queue_id
+Date: Mon, 01 Sep 2014 18:32:51 -0700 (PDT)
+Message-ID: <20140901.183251.398827984655633411.davem@davemloft.net>
+References: <1409148406-5576-1-git-send-email-nikolay@redhat.com>
+	<5400638C.2030502@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mugunthanvnm@ti.com
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+	andy@greyhouse.net
+To: nikolay@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46017 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46034 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751227AbaIBBbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 21:31:09 -0400
-In-Reply-To: <1409304145-26179-1-git-send-email-mugunthanvnm@ti.com>
+	with ESMTP id S1751405AbaIBBcx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Sep 2014 21:32:53 -0400
+In-Reply-To: <5400638C.2030502@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Fri, 29 Aug 2014 14:52:25 +0530
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Date: Fri, 29 Aug 2014 13:27:08 +0200
 
-> In Dual EMAC, when both interface are up and while doing ifdown with heavy
-> traffic then skbs already processed by DMA from that slave emac has to be
-> requeued as still the other interface is up and running.
+> On 08/27/2014 04:06 PM, Nikolay Aleksandrov wrote:
+>> This patch adds support for slave_changelink to the bonding and uses it
+>> to give the ability to change the queue_id of the enslaved devices via
+>> netlink. It sets slave_maxtype and uses bond_changelink as a prototype for
+>> bond_slave_changelink.
+>> Example/test command after the iproute2 patch:
+>>  ip link set eth0 type bond_slave queue_id 10
+>> 
+>> CC: David S. Miller <davem@davemloft.net>
+>> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+>> CC: Veaceslav Falico <vfalico@gmail.com>
+>> CC: Andy Gospodarek <andy@greyhouse.net>
+>> 
+>> Suggested-by: Jiri Pirko <jiri@resnulli.us>
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+>> ---
 > 
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Hi Dave,
+> Would you mind telling me why did this patch get rejected so I can fix it up ?
+> I didn't see any complains and Jiri acked it.
 
-I don't see why this is important.
-
-If the packet arrived via the down interface, let it be dropped and
-the sender will simply resend if necessary.
-
-Also you are putting this new multi-slave logic under the "status < 0"
-condition as well as the interface being down, that's not right either.
+Sorry, I misread the feedback, this patch is fine, and is now applied.
