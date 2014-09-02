@@ -1,42 +1,48 @@
-From: leroy christophe <christophe.leroy@c-s.fr>
-Subject: Re: 3.16/3.16.1: Kernel Oops in nft_do_chain
-Date: Tue, 02 Sep 2014 18:44:57 +0200
-Message-ID: <5405F409.70107@c-s.fr>
-References: <54059883.4060309@c-s.fr> <20140902104114.GA10805@salvia>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: RTNL: assertion failed at net/ipv6/addrconf.c (1699)
+Date: Tue, 2 Sep 2014 09:50:23 -0700
+Message-ID: <CAHA+R7ODa+LrdwSrS7HcBfwwq8_fpj-Ld0OCDtcOqkpCdZCvxg@mail.gmail.com>
+References: <CA+ydwtoDwQVg_BWrxxdpUyJ7Up60GtxTCLYe_5vFdV2td_kGhQ@mail.gmail.com>
+	<CAHA+R7MZCDGRhSf=UuVCGQvNo03wVziZQB_X30rwNf6hmHipQA@mail.gmail.com>
+	<20140829195339.GA9780@kria>
+	<1409363489.2980.17.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Sabrina Dubroca <sd@queasysnail.net>,
+	Tommi Rantala <tt.rantala@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, trinity@vger.kernel.org,
+	Dave Jones <davej@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140902104114.GA10805@salvia>
+In-Reply-To: <1409363489.2980.17.camel@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Aug 29, 2014 at 6:51 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+>
+> Also rtnl_lock and rcu_read_lock compose in that order, so we don't need
+> to change dev_get_by_flags, but as this is the only user it sure is
+> possible. RCU locked version is just easier composeable, so I wouldn't
+> touch that if needed in future, just also take rcu lock as before.
 
-Le 02/09/2014 12:41, Pablo Neira Ayuso a =E9crit :
-> On Tue, Sep 02, 2014 at 12:14:27PM +0200, leroy christophe wrote:
->> Calling 'iptables-compat -L', first time nothing is listed on the sc=
-reen.
->> Second try, it generates following Oops.
-> I'm going to pass this patch to -stable asap:
->
-> commit b88825de8545ad252c31543fef13cadf4de7a2bc
-> Author: Pablo Neira Ayuso <pablo@netfilter.org>
-> Date:   Tue Aug 5 17:25:59 2014 +0200
->
->      netfilter: nf_tables: don't update chain with unset counters
->     =20
->      Fix possible replacement of the per-cpu chain counters by null
->      pointer when updating an existing chain in the commit path.
->     =20
->      Reported-by: Matteo Croce <technoboy85@gmail.com>
->      Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
->
-> I think it's the root cause for this problem.
-Thanks, it does fix the Oops I had.
+There is no point to keep RCU read lock if we have rtnl lock,
+I don't know why you don't want to change dev_get_by_flags(),
+it is pretty easy to do since it only has one caller.
 
-Christophe
+Even if you really need RCU in future, you are always welcome
+to bring it back when you do, sorry we should never be blocked by
+code NOT merged yet.
+
+>
+> Also we should move ASSERT_RTNL checks from addrconf_join_solict to
+> ipv6_dev_mc_inc/dec.
+>
+
+Make it another patch.
