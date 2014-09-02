@@ -1,51 +1,80 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [Patch net] ipv6: fix rtnl lock assertion failure in
- ipv6_sock_ac_join()
-Date: Tue, 02 Sep 2014 23:29:41 +0200
-Message-ID: <1409693381.15984.19.camel@localhost>
-References: <1409681239-4852-1-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Sabrina Dubroca <sd@queasysnail.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] dev_ioctl: remove dev_load() CAP_SYS_MODULE message
+Date: Tue,  2 Sep 2014 23:30:05 +0200
+Message-ID: <1409693405-24671-1-git-send-email-dborkman@redhat.com>
+Cc: marcel@holtmann.org, stephen@networkplumber.org,
+	netdev@vger.kernel.org, Vasiliy Kulikov <segoon@openwall.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:41836 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750820AbaIBV3o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 17:29:44 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 8EAAA20D8F
-	for <netdev@vger.kernel.org>; Tue,  2 Sep 2014 17:29:43 -0400 (EDT)
-In-Reply-To: <1409681239-4852-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:26962 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750820AbaIBVaZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 17:30:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Cong,
+Marcel reported to see the following message when autoloading
+is being triggered when adding nlmon device:
 
-On Di, 2014-09-02 at 11:07 -0700, Cong Wang wrote:
-> @@ -198,7 +198,7 @@ void ipv6_sock_ac_close(struct sock *sk)
->  	spin_unlock_bh(&ipv6_sk_ac_lock);
->  
->  	prev_index = 0;
-> -	rcu_read_lock();
-> +	rtnl_lock();
->  	while (pac) {
->  		struct ipv6_ac_socklist *next = pac->acl_next;
->  
-> @@ -211,7 +211,7 @@ void ipv6_sock_ac_close(struct sock *sk)
->  		sock_kfree_s(sk, pac, sizeof(*pac));
->  		pac = next;
->  	}
-> -	rcu_read_unlock();
-> +	rtnl_unlock();
->  }
->  
+  Loading kernel module for a network device with
+  CAP_SYS_MODULE (deprecated). Use CAP_NET_ADMIN and alias
+  netdev-nlmon instead.
 
-Nit:
-You forgot to convert a dev_get_by_index_rcu to __dev_get_by_index in
-ipv6_sock_ac_close.
+This false-positive happens despite with having correct
+capabilities set, e.g. through issuing `ip link del dev nlmon`
+more than once on a valid device with name nlmon, but Marcel
+has also seen it on creation time when no nlmon module is
+previously compiled-in or loaded as module and the device
+name equals a link type name (e.g. nlmon, vxlan, team).
 
-Bye,
-Hannes
+Stephen says:
+
+  The netdev module alias is a hold over from the past. For
+  normal devices, people used to create a alias eth0 to and
+  point it to the type of network device used, that was back
+  in the bad old ISA days before real discovery.
+
+  Also, the tunnels create module alias for the control device
+  and ip used to use this to autoload the tunnel device.
+
+  The message is bogus and should just be removed, I also see
+  it in a couple of other cases where tap devices are renamed
+  for other usese.
+
+As mentioned in 8909c9ad8ff0 ("net: don't allow CAP_NET_ADMIN
+to load non-netdev kernel modules"), we nevertheless still
+might want to leave the old autoloading behaviour in place
+as it could break old scripts, so for now, lets just remove
+the log message as Stephen suggests.
+
+Reference: http://thread.gmane.org/gmane.linux.kernel/1105168
+Reported-by: Marcel Holtmann <marcel@holtmann.org>
+Suggested-by: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Vasiliy Kulikov <segoon@openwall.com>
+---
+ (Sending to net-next as I don't think it's very urgent.)
+
+ net/core/dev_ioctl.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/net/core/dev_ioctl.c b/net/core/dev_ioctl.c
+index cf999e0..72e899a 100644
+--- a/net/core/dev_ioctl.c
++++ b/net/core/dev_ioctl.c
+@@ -365,11 +365,8 @@ void dev_load(struct net *net, const char *name)
+ 	no_module = !dev;
+ 	if (no_module && capable(CAP_NET_ADMIN))
+ 		no_module = request_module("netdev-%s", name);
+-	if (no_module && capable(CAP_SYS_MODULE)) {
+-		if (!request_module("%s", name))
+-			pr_warn("Loading kernel module for a network device with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and alias netdev-%s instead.\n",
+-				name);
+-	}
++	if (no_module && capable(CAP_SYS_MODULE))
++		request_module("%s", name);
+ }
+ EXPORT_SYMBOL(dev_load);
+ 
+-- 
+1.7.11.7
