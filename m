@@ -1,67 +1,42 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: cpsw: fix interrupt lookup logic in cpsw_probe()
-Date: Tue,  2 Sep 2014 18:44:05 +0200
-Message-ID: <1409676245-13897-2-git-send-email-zonque@gmail.com>
-References: <1409676245-13897-1-git-send-email-zonque@gmail.com>
-Cc: julia.lawall@lip6.fr, netdev@vger.kernel.org, mugunthanvnm@ti.com,
-	george.cherian@ti.com, Daniel Mack <zonque@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:42154 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754856AbaIBQoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 12:44:16 -0400
-Received: by mail-wg0-f45.google.com with SMTP id k14so7067796wgh.28
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 09:44:15 -0700 (PDT)
-In-Reply-To: <1409676245-13897-1-git-send-email-zonque@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: leroy christophe <christophe.leroy@c-s.fr>
+Subject: Re: 3.16/3.16.1: Kernel Oops in nft_do_chain
+Date: Tue, 02 Sep 2014 18:44:57 +0200
+Message-ID: <5405F409.70107@c-s.fr>
+References: <54059883.4060309@c-s.fr> <20140902104114.GA10805@salvia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140902104114.GA10805@salvia>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The code in cpsw_probe() currently iterates over the available
-interrupt resources and requests each of them.  While doing so, it
-keeps track of their indices through priv->irqs_table.
 
-However, the code currently only remembers the last interrupt in
-a resource, and will leak the others if there is more than one.
-This can only happen for board-file driven platforms and not via DT,
-however.
+Le 02/09/2014 12:41, Pablo Neira Ayuso a =E9crit :
+> On Tue, Sep 02, 2014 at 12:14:27PM +0200, leroy christophe wrote:
+>> Calling 'iptables-compat -L', first time nothing is listed on the sc=
+reen.
+>> Second try, it generates following Oops.
+> I'm going to pass this patch to -stable asap:
+>
+> commit b88825de8545ad252c31543fef13cadf4de7a2bc
+> Author: Pablo Neira Ayuso <pablo@netfilter.org>
+> Date:   Tue Aug 5 17:25:59 2014 +0200
+>
+>      netfilter: nf_tables: don't update chain with unset counters
+>     =20
+>      Fix possible replacement of the per-cpu chain counters by null
+>      pointer when updating an existing chain in the commit path.
+>     =20
+>      Reported-by: Matteo Croce <technoboy85@gmail.com>
+>      Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+>
+> I think it's the root cause for this problem.
+Thanks, it does fix the Oops I had.
 
-Also, there is currently no bounds check, while priv->irqs_table is a
-fixed-size array. If we are passed more than 4 resources, we're in
-trouble.
-
-This patch introduces a bounds check and changes the way interrupt
-indices are kept. Tested on a Beagle Bone Black board only.
-
-Signed-off-by: Daniel Mack <zonque@gmail.com>
----
- drivers/net/ethernet/ti/cpsw.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index cdbbb58..e747e55 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2233,13 +2233,18 @@ static int cpsw_probe(struct platform_device *pdev)
- 
- 	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
- 		for (i = res->start; i <= res->end; i++) {
-+			if (priv->num_irqs >= ARRAY_SIZE(priv->irqs_table)) {
-+				ret = -EINVAL;
-+				goto clean_irq_ret;
-+			}
-+
- 			if (request_irq(i, cpsw_interrupt, 0,
- 					dev_name(&pdev->dev), priv)) {
- 				dev_err(priv->dev, "error attaching irq\n");
- 				goto clean_irq_ret;
- 			}
--			priv->irqs_table[k] = i;
--			priv->num_irqs = k + 1;
-+			priv->irqs_table[priv->num_irqs] = i;
-+			priv->num_irqs++;
- 		}
- 		k++;
- 	}
--- 
-2.1.0
+Christophe
