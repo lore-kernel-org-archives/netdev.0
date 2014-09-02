@@ -1,44 +1,47 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH] net: calxedaxgmac: fix driver dependencies
-Date: Mon, 1 Sep 2014 21:36:39 -0500
-Message-ID: <CAL_JsqJV0rJ_PCLBsZNYdYdbER7UR_MV40BGjpykh7uubLh__g@mail.gmail.com>
-References: <7268934.nBXHizFkl4@amdc1032>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/5] net: mvberlin_eth: add an Ethernet driver for
+ Marvell Berlin
+Date: Mon, 01 Sep 2014 20:26:32 -0700 (PDT)
+Message-ID: <20140901.202632.1784070145688270115.davem@davemloft.net>
+References: <1409320263-10295-1-git-send-email-antoine.tenart@free-electrons.com>
+	<1409320263-10295-2-git-send-email-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Kyungmin Park <kyungmin.park@samsung.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7268934.nBXHizFkl4@amdc1032>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, zmxu-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
+	jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409320263-10295-2-git-send-email-antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 1, 2014 at 10:39 AM, Bartlomiej Zolnierkiewicz
-<b.zolnierkie@samsung.com> wrote:
-> Calxeda 1G/10G XGMAC Ethernet support should be available only on
-> Calxeda ECX-1000/2000 (Highbank/Midway) platforms.
->
-> Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-> Acked-by: Kyungmin Park <kyungmin.park@samsung.com>
-> Cc: Rob Herring <robh@kernel.org>
-> ---
->  drivers/net/ethernet/calxeda/Kconfig |    1 +
->  1 file changed, 1 insertion(+)
->
-> Index: b/drivers/net/ethernet/calxeda/Kconfig
-> ===================================================================
-> --- a/drivers/net/ethernet/calxeda/Kconfig      2014-07-30 14:31:12.159522474 +0200
-> +++ b/drivers/net/ethernet/calxeda/Kconfig      2014-09-01 17:33:49.232810483 +0200
-> @@ -1,6 +1,7 @@
->  config NET_CALXEDA_XGMAC
->         tristate "Calxeda 1G/10G XGMAC Ethernet driver"
->         depends on HAS_IOMEM && HAS_DMA
-> +       depends on ARCH_HIGHBANK || COMPILE_TEST
+From: Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Date: Fri, 29 Aug 2014 15:50:59 +0200
 
-Opinions differ on whether drivers should be restricted in this way.
-There is no actual dependency requiring ARCH_HIGHBANK. So I leave it
-to David.
+> +struct rx_desc {
+> +	u16 buf_size;		/* Buffer size				*/
+> +	u16 byte_cnt;		/* Descriptor buffer byte count		*/
+ ...
+> +	u16 byte_cnt;		/* buffer byte count			*/
+> +	u16 l4i_chk;		/* CPU provided TCP checksum		*/
 
-Rob
+I'm really suspcious that you're ordering these two members differently
+than that used by the mv643xx_eth driver.
+
+Looking at a diff of the two drivers, most of the transmit and recieve paths
+are largely the same.
+
+WRT. register differences, adding indirection to handle that is a no-brainer
+because the cost of the register access itself will absolutely dwarf whatever
+it costs to do an indirect call or whatever to implement the register access.
+
+I really think you should look into sharing code more seriously.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
