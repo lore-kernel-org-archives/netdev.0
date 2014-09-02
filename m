@@ -1,54 +1,45 @@
-From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
-Subject: Re: [PATCH net-next 2/2] sunvnet: Re-check for a VIO_DESC_READY data descriptor after short udelay()
-Date: Tue, 2 Sep 2014 10:33:07 -0700
-Message-ID: <DABBE479-8735-42DA-9E97-36ED70F17448@oracle.com>
-References: <20140829201809.GH14753@oracle.com> <20140901.204715.2121922580015092507.davem@davemloft.net> <54059BAA.1080307@oracle.com> <665366D4-384B-45E1-B371-239EA87F5A15@oracle.com> <20140902165659.GH31516@oracle.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+From: Prashant Sreedharan <prashant@broadcom.com>
+Subject: Re: [PATCH net v2] tg3: prevent ifup/ifdown during PCI error
+ recovery
+Date: Tue, 2 Sep 2014 10:32:56 -0700
+Message-ID: <1409679176.16238.2.camel@prashant>
+References: <1409574117-19435-1-git-send-email-ivecera@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Michael Chan <mchan@broadcom.com>
+To: Ivan Vecera <ivecera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:24574 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754211AbaIBRdL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 13:33:11 -0400
-In-Reply-To: <20140902165659.GH31516@oracle.com>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:52087 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754986AbaIBRlq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 13:41:46 -0400
+In-Reply-To: <1409574117-19435-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2014-09-01 at 14:21 +0200, Ivan Vecera wrote:
+> The patch fixes race conditions between PCI error recovery callbacks and
+> potential ifup/ifdown.
+> 
+> First, if ifup (tg3_open) is called between tg3_io_error_detected() and
+> tg3_io_resume() then tp->timer is armed twice before expiry. Once during
+> tg3_open() and again during tg3_io_resume(). This results in BUG
+> at kernel/time/timer.c:945.
+> 
+> Second, if ifdown (tg3_close) is called between tg3_io_error_detected()
+> and tg3_io_resume() then tg3_napi_disable() is called twice without
+> a tg3_napi_enable between. Once during tg3_io_error_detected() and again
+> during tg3_close(). The tg3_io_resume() then hangs on rtnl_lock().
+> 
+> v2: Added logging messages per Prashant's request
+> 
+> Cc: Prashant Sreedharan <prashant@broadcom.com>
+> Cc: Michael Chan <mchan@broadcom.com>
+> 
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-On Sep 2, 2014, at 9:56 AM, Sowmini Varadhan <sowmini.varadhan@oracle.com> wrote:
+Acked-by: Prashant Sreedharan <prashant@broadcom.com>
 
-> On (09/02/14 09:43), Raghuram Kothakota wrote:
->> We could optimize this a bit by not wait for normal traffic, I mean,
->> non-burst traffic
->> and apply the retry  only  when we detect a stream of packets?
-> 
-> How could you tell the difference efficiently? You'd need to
-> track some kind of history/state for inter-packet arrival time.
-> All seems like over-kill (more useful to go and optimize other
-> parts of the system, such as do less work in interrupt context).
 
->From what I see, the vnet_walk_rx() picks up packets in a while loop,
-we could count the number of packets picked up in that loop and use
-that count as a method to determine if we need to apply this retry or not.
-That is, retry only if that counter is > x,  that may avoid waiting for cases
-where peer sent one packet only?   It may be worth trying it
-and see if it still keeps up the improvement that you saw.
-
--Raghuram
-> 
->> We could detect a stream based on how many packets are picked
->> up in this function, picking up 3 or more could be considered as a stream,
->> of course tune based on testing.
->> 
->> You probably tried it already, but checking to see if you tried with
->> less number
->> of iterations, we could reduce the iterations if the numbers are equally good
->> with less iterations.
-> 
-> yes, the 3 * 4 micro-seconds was arrived at heuristically.
-> 
-> --Sowmini
-> 
+--
