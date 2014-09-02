@@ -1,38 +1,39 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH net-next v3 2/2] ipv4: implement igmp_qrv sysctl to tune
- igmp robustness variable
-Date: Tue, 2 Sep 2014 15:51:29 -0300
-Message-ID: <20140902185128.GI7909@t520.home>
-References: <3f38fb1c0c5544de4cea8bb13e0adcbba17bebd3.1409665378.git.hannes@stressinduktion.org>
- <b24ad902c532616c7683565df3a0fcc9d925da9c.1409665378.git.hannes@stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] netlink: Safer deletion of sk_bind_node
+Date: Tue, 02 Sep 2014 11:52:15 -0700 (PDT)
+Message-ID: <20140902.115215.1488500321662046816.davem@davemloft.net>
+References: <1409555309-5893-1-git-send-email-harish_kandiga@mentor.com>
+	<20140901.220325.955861172520355423.davem@davemloft.net>
+	<54058376.9090700@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55131 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754751AbaIBSvf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 14:51:35 -0400
-Content-Disposition: inline
-In-Reply-To: <b24ad902c532616c7683565df3a0fcc9d925da9c.1409665378.git.hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dborkman@redhat.com, tgraf@suug.ch, ebiederm@xmission.com,
+	darkjames-ws@darkjames.pl, rgb@redhat.com, eric.dumazet@gmail.com,
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: harish_kandiga@mentor.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54058376.9090700@mentor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 02, 2014 at 03:49:26PM +0200, Hannes Frederic Sowa wrote:
-> As in IPv6 people might increase the igmp query robustness variable to
-> make sure unsolicited state change reports aren't lost on the network. Add
-> and document this new knob to igmp code.
-> 
-> RFCs allow tuning this parameter back to first IGMP RFC, so we also use
-> this setting for all counters, including source specific multicast.
-> 
-> Also take over sysctl value when upping the interface and don't reuse
-> the last one seen on the interface.
-> 
-> Cc: Flavio Leitner <fbl@redhat.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
+From: Harish Jenny Kandiga Nagaraj <harish_kandiga@mentor.com>
+Date: Tue, 2 Sep 2014 14:14:38 +0530
 
-Thanks again,
-Acked-by: Flavio Leitner <fbl@redhat.com>
+> In one of our random test runs we observed the crash mentioned in the previous mail.
+> 
+> After debugging we found out that the call flow of the inline and static functions were
+> netlink_release
+> -----netlink_remove
+> ---------__sk_del_bind_node
+> --------------__hlist_del
+> 
+> *pprev was NULL in __hlist_del function while deleting &sk->sk_bind_node hlist_node. Hence the patch was given.
+> 
+> In netlink_remove function , first the sk_del_node_init function will be called. This internally calls __sk_del_node_init function. While deleting &sk->sk_node hlist_node using __sk_del_node function there is a NULL check with sk_hashed function.
+> 
+> Why there is no NULL check for *pprev while deleting &sk->sk_bind_node ?
+
+Because if ->subscriptions is non-zero, it must be on a list, and therefore
+pprev must be non-NULL.
