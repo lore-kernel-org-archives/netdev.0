@@ -1,58 +1,55 @@
-From: Ovidiu Mara <ovidiu.mara@epfl.ch>
-Subject: Order of interfaces in output of ip link
-Date: Tue, 02 Sep 2014 16:27:42 +0200
-Message-ID: <19313218.dxlnVqzEMb@hp>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH 0/3] qdisc bulk dequeuing and utilizing delayed
+	tailptr updates
+Date: Tue, 02 Sep 2014 16:35:19 +0200
+Message-ID: <20140902143254.1918.8419.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.epfl.ch ([128.178.224.219]:56288 "EHLO smtp4.epfl.ch"
+Received: from mx1.redhat.com ([209.132.183.28]:53706 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750963AbaIBOe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 10:34:27 -0400
+	id S1754061AbaIBOfd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 10:35:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi everyone,
+This patchset uses DaveM's recent API changes to dev_hard_start_xmit(),
+from the qdisc layer, to implement dequeue bulking.
 
-The ip command shows the interfaces on this machine in an unnatural order (eth0 followed by eth2 then eth1).
+Open questions:
 
-For example:
+- For now set bulk limit to 8 packets, don't want to stress the driver
+  avail ring_buffer space.
 
-ip -o link         
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default \    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether 2c:59:e5:9a:4c:a4 brd ff:ff:ff:ff:ff:ff
-3: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether ac:16:2d:98:9e:d8 brd ff:ff:ff:ff:ff:ff
-4: eth1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN mode DEFAULT group default qlen 1000\    link/ether 2c:59:e5:9a:4c:a5 brd ff:ff:ff:ff:ff:ff
-5: eth3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether ac:16:2d:98:9e:d9 brd ff:ff:ff:ff:ff:ff
-6: eth4: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether ac:16:2d:98:9e:da brd ff:ff:ff:ff:ff:ff
-7: eth5: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether ac:16:2d:98:9e:db brd ff:ff:ff:ff:ff:ff
-8: eth6: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000\    link/ether a0:36:9f:26:b3:10 brd ff:ff:ff:ff:ff:ff
-9: eth7: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether a0:36:9f:26:b3:12 brd ff:ff:ff:ff:ff:ff
+- We are not doing proper accounting for weight_p/quota in __qdisc_run(). Do we care?
 
-eth0 and eth1 are two ports on the same network card, so I would expect them to be shown together, as they are numbered. According to the documentation I found here ( http://www.policyrouting.org/iproute2.doc.html#ss9.1.1 ): "The number followed by a colon is the interface index or ifindex. This number uniquely identifies the interface. If you look at the output from cat /proc/net/dev you will see that the network devices are listed in the same order as the numbering you see here."
+- Is the (!skb->next) check in dequeue necessary?
 
-However in /proc/net/dev they are shown in the natural order:
+- Do we need some checks in dev_requeue_skb() as we could be requeuing a SKB list?
 
-cat /proc/net/dev
-Inter-|   Receive                                                |  Transmit
- face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
-  eth0: 1000705102 6535806    0 8946    0     0          0   2861813  5252988   39289    0    0    0     0       0          0
-  eth1:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0
-  eth2: 104506836  257406    0    0    0     0          0         0      648       8    0    0    0     0       0          0
-  eth3: 104506430  257405    0    0    0     0          0         0      648       8    0    0    0     0       0          0
-  eth4: 104506430  257405    0    0    0     0          0         0      648       8    0    0    0     0       0          0
-  eth5: 104505618  257403    0    0    0     0          0         0      648       8    0    0    0     0       0          0
-  eth6:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0
-  eth7: 396628856508 364243051    0    0    0     0          0         0 398063721522 365214422    0    0    0     0       0          0
-    lo:     178       2    0    0    0     0          0         0      178       2    0    0    0     0       0          0
+ - Should we rename dequeue_skb() to dequeue_skb_list() ?
 
-I'm using iproute2-3.11.0.
 
-Could you please tell me if there is any workaround for this?
+Based on top of:
+ commit 364a9e93243d ("sock: deduplicate errqueue dequeue")
 
-Thanks,
-Ovidiu
+---
 
-PS Please CC me in replies.
+Jesper Dangaard Brouer (3):
+      qdisc: sysctl to adjust bulk dequeue limit
+      qdisc: bulk dequeue support for qdiscs with TCQ_F_ONETXQUEUE
+      qdisc: adjustments for API allowing skb list xmits
+
+
+ include/net/sch_generic.h  |    2 ++
+ net/core/sysctl_net_core.c |    9 +++++++++
+ net/sched/sch_generic.c    |   33 ++++++++++++++++++++++++++++-----
+ 3 files changed, 39 insertions(+), 5 deletions(-)
+
+-- 
