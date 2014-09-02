@@ -1,62 +1,77 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
- is runnable
-Date: Tue, 02 Sep 2014 15:37:23 +0800
-Message-ID: <540573B3.2010904@redhat.com>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com> <1408608310-13579-2-git-send-email-jasowang@redhat.com> <1408683665.5648.69.camel@marge.simpson.net> <53F6F14B.1030609@redhat.com> <20140822074224.GB7372@gmail.com> <53FFEEC0.4000304@redhat.com> <540414AB.9000004@linux.intel.com> <54053998.4040604@redhat.com> <54056076.2030603@linux.intel.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH 0/9] Make dev_hard_start_xmit() work fundamentall on
+ lists
+Date: Tue, 2 Sep 2014 09:51:20 +0200
+Message-ID: <20140902095120.5651ce24@redhat.com>
+References: <20140901.152430.1711925724234542172.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	Ingo Molnar <mingo@kernel.org>
+Cc: brouer@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42415 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9493 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751180AbaIBHiA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 03:38:00 -0400
-In-Reply-To: <54056076.2030603@linux.intel.com>
+	id S1751272AbaIBHvX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Sep 2014 03:51:23 -0400
+In-Reply-To: <20140901.152430.1711925724234542172.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/02/2014 02:15 PM, Eliezer Tamir wrote:
-> On 02/09/2014 06:29, Jason Wang wrote:
->> On 09/01/2014 02:39 PM, Eliezer Tamir wrote:
->>> On 29/08/2014 06:08, Jason Wang wrote:
->>>>> Yes, but rx busy polling only works in process context and does not
->>>>> disable bh, so it may be not an issue.
->>> sk_busy_loop() uses rcu_read_lock_bh(), so it does run with bh disabled.
->> True, so we need probably also exit the loop when there are pending bhs.
-> I'm not so sure, in the typical busy poll scenario, the incoming
-> traffic is the most time-critical thing in the system.
-> It's so important that you are willing to trade lots of CPU power
-> for better latency. The user has decided that he wants to dedicate
-> this CPU mostly for that. 
+On Mon, 01 Sep 2014 15:24:30 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-But user should increase the process priority or cgroup in this case.
-> This is not something that plays nice with
-> other apps, but this is what the user wants.
+> After this patch set, dev_hard_start_xmit() will work fundemantally
+> on any and all SKB lists.
 
-So the busy polling looks have a higher priority somehow than other
-processes.
-> So, you definitely don't want to starve any bh, and you should
-> regularly re-enable bh's, but you also don't want to stop everything
-> at any time a bh is scheduled.
+This is really excellent work, thank you!
+dev_hard_start_xmit() looks so clean now :-)
 
-If I get your meaning, you may want call to rcu_read_lock_bh() and get
-socket napi id inside the do{} loop? This seems can prevent bhs from
-being starved and can also handle the case that the packets were from
-different NAPIs.
->
-> You also want network processing on the queues that are busy polled
-> to come through busy polling and not through NAPI, which is run in bh
-> context.
->
-> -Eliezer
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 
+> This opens the path for a clean implementation of pulling multiple
+> packets out during qdisc_restart(), and then passing that blob
+> in one shot to dev_hard_start_xmit().
+
+Sounds perfect.  I'll start to experiment with qdisc stuff.
+
+> And with those two issues out of the way, it should now be trivial to
+> build experiments on top of this patch set, all of the framework
+> should be there now.  You could do something as simple as:
+
+As xmit_list()/dev_hard_start_xmit() depend on all SKBs belonging to
+the same TXQ, below code should also take this into account.
+
+Thus, bulk dequeue will only see the benefit (of taking the qdisc lock
+less) when packets are for the same TXQ.  But I guess this is a good
+design choice, as this makes the rest of the code simpler to work with.
+
+> 	skb = q->dequeue(q);
+> 	if (skb)
+> 		skb = validate_xmit_skb(skb, qdisc_dev(q));
+> 	if (skb) {
+> 		struct sk_buff *new, *head = skb;
+> 		int limit = 5;
+> 
+> 		do {
+> 			new = q->dequeue(q);
+> 			if (new)
+> 				new = validate_xmit_skb(new, qdisc_dev(q));
+> 			if (new) {
+> 				skb->next = new;
+> 				skb = new;
+> 			}
+> 		} while (new && --limit);
+> 		skb = head;
+> 	}
+> 
+> inside of the else branch of dequeue_skb().
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
