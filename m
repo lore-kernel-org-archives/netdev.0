@@ -1,55 +1,45 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next v2] net: bpf: make eBPF interpreter images read-only
-Date: Tue, 2 Sep 2014 15:08:51 -0700
-Message-ID: <CAMEtUuwPbX5yczeUCJ1rq+YLXcenWJggxZCei2HpSBQ-ps68VQ@mail.gmail.com>
-References: <aa5126f747594d768e0c518189a13e8674ad8ee5.1409690486.git.hannes@stressinduktion.org>
-	<2bf2e54282097642db88e2b596b06a9ac3742883.1409690849.git.hannes@stressinduktion.org>
-	<CAMEtUuyoWELJ0Yf+=5sDKxFEfgsiQ3kMCK+Wn_bdJgS8qaH2og@mail.gmail.com>
-	<1409694059.26422.18.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1409694182.1034977.162882841.29AA6A80@webmail.messagingengine.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Brad Spengler <spender@grsecurity.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Kees Cook <keescook@chromium.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: [PATCH 16/26] isdn: i4l: Remove ASYNC_CTS_FLOW
+Date: Tue,  2 Sep 2014 17:39:25 -0400
+Message-ID: <1409693975-1028-17-git-send-email-peter@hurleysoftware.com>
+References: <1409693975-1028-1-git-send-email-peter@hurleysoftware.com>
+Cc: Jiri Slaby <jslaby@suse.cz>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	linux-serial@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Hurley <peter@hurleysoftware.com>,
+	Karsten Keil <isdn@linux-pingi.de>, <netdev@vger.kernel.org>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409694182.1034977.162882841.29AA6A80@webmail.messagingengine.com>
+In-Reply-To: <1409693975-1028-1-git-send-email-peter@hurleysoftware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 2, 2014 at 2:43 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On Tue, Sep 2, 2014, at 23:40, Eric Dumazet wrote:
->> On Tue, 2014-09-02 at 14:31 -0700, Alexei Starovoitov wrote:
->>
->> > > +static inline void bpf_prog_unlock_ro(struct bpf_prog *fp)
->> > > +{
->> > > +       set_memory_rw((unsigned long)fp, fp->pages);
->> >
->> > why rw is needed?
->> > since fp is allocated with vmalloc, vfree doesn't need
->> > to touch the pages to free them, no?
->>
->> That assumes that vmalloc() do not have any debugging features, like
->> poisoning content before freeing, to catch some use after free.
->>
->> Lets be clean and safe, and give back same memory permission we had
->> after vmalloc()
->
-> Yes, I agree. I just went down the kmemleak codepaths and we certainly
-> don't want to cause issues in there if the implementation changes one
-> day.
+ISDN4Linux always enables CTS flow control and does not use the
+tty_port_cts_enabled() helper function; remove ASYNC_CTS_FLOW
+state enable/disable.
 
-agree.
-I asked, because skipping set_memory_rw() would have
-removed the need for 'struct bpf_work_struct' and complexity
-around it.
+cc: Karsten Keil <isdn@linux-pingi.de>
+cc: <netdev@vger.kernel.org>
+Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
+---
+ drivers/isdn/i4l/isdn_tty.c | 5 -----
+ 1 file changed, 5 deletions(-)
 
-Simple testing looks good, so:
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
-
-will rebase with all of my stuff and do some more tests.
+diff --git a/drivers/isdn/i4l/isdn_tty.c b/drivers/isdn/i4l/isdn_tty.c
+index 3c5f249..bc91261 100644
+--- a/drivers/isdn/i4l/isdn_tty.c
++++ b/drivers/isdn/i4l/isdn_tty.c
+@@ -1043,11 +1043,6 @@ isdn_tty_change_speed(modem_info *info)
+ 	if (!(cflag & PARODD))
+ 		cval |= UART_LCR_EPAR;
+ 
+-	/* CTS flow control flag and modem status interrupts */
+-	if (cflag & CRTSCTS) {
+-		port->flags |= ASYNC_CTS_FLOW;
+-	} else
+-		port->flags &= ~ASYNC_CTS_FLOW;
+ 	if (cflag & CLOCAL)
+ 		port->flags &= ~ASYNC_CHECK_CD;
+ 	else {
+-- 
+2.1.0
