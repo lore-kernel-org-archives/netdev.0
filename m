@@ -1,63 +1,44 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next] sock: consistent errqueue errors and signals
-Date: Tue, 2 Sep 2014 11:20:34 -0400
-Message-ID: <CA+FuTScAYY1ZhQPwY=pqW9hXf3UYB70Dxq5+aPH4D4pB7QRPbg@mail.gmail.com>
-References: <1409534896-372-1-git-send-email-willemb@google.com> <1409606744.21965.37.camel@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH 2/3] qdisc: bulk dequeue support for qdiscs
+ with TCQ_F_ONETXQUEUE
+Date: Tue, 02 Sep 2014 08:22:42 -0700
+Message-ID: <1409671362.3173.108.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140902143254.1918.8419.stgit@dragon>
+	 <20140902143538.1918.82870.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Hannes Frederic Sowa <hannes@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f50.google.com ([209.85.216.50]:36275 "EHLO
-	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751735AbaIBPVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 11:21:06 -0400
-Received: by mail-qa0-f50.google.com with SMTP id cm18so6274831qab.23
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 08:21:04 -0700 (PDT)
-In-Reply-To: <1409606744.21965.37.camel@localhost>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:61224 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753703AbaIBPWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 11:22:47 -0400
+Received: by mail-pa0-f45.google.com with SMTP id bj1so14965550pad.18
+        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 08:22:46 -0700 (PDT)
+In-Reply-To: <20140902143538.1918.82870.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From my experience in IPv6 code, we only do sk->sk_err updates directly
-> in protocol error handling code. In case of UDP IPv6 errors for example
-> we now notify sk_error_report two times with this patch (before the
-> patch we did sk_data_ready (this is what you changed) and
-> sk_error_report).
+On Tue, 2014-09-02 at 16:35 +0200, Jesper Dangaard Brouer wrote:
 
-If the event is that an error is ready, is this not correct? The
-wake up key should be POLLERR in both cases. In implementation
-of sock_def_error_report and sock_def_readable, the difference
-otherwise seems slim. I haven't checked all sk_data_ready and
-sk_error_report implementations, though, so may have missed
-differences for specific protocols. If this is not as obviously a strict
-improvement as I thought, I'll just drop it.
+> This is crazy fast. This measurement is actually "too-high" as
+> 10Gbit/s wirespeed is 14,880,952 (11049 pps too fast).
+> 
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> ---
 
-> I really wonder if setting sk->sk_err in this function is the right
-> thing to do.
+This looks buggy, you forgot about GSO.
 
-I agree, in that it is hard to verify that this does not overwrite
-an existing error. This patch only makes the behavior
-consistent between enqueue and dequeue, but perhaps a
-better way to achieve that is to change the dequeue side:
-remove the assignment to sk->sk_err there. If so, then all
-locations that currently check the state of sk->sk_err should
-be changed to also check the qlen of the error queue and
-if non-zero return the embedded error of the first skb. I'll
-take a look whether that is feasible without adding locks
-or atomics in the common path.
+(You did the test only for first dequeued packet, not the followings)
 
-> It also depends on socket state bits (e.g. np->recverr) if
-> the update happens. So we still cannot get rid of the protocol dependent
-> sk->sk_err updates.
->
-> It looks like we have to check all error handling functions in the
-> protocols. Maybe timestamp code needs to adapt?
+Make sure you test your patch with something else than pktgen.
 
-Does the above sound okay, or did you mean something else?
+Also, our idea was to use a byte count limit (aka BQL)
 
->
-> Thanks,
-> Hannes
->
->
+If we dequeue 8 64KB packets, this patch adds head of line blocking,
+which we fought hard.
