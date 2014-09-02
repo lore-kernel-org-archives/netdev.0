@@ -1,58 +1,127 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 8/9] net: Don't keep around original SKB when we
- software segment GSO frames.
-Date: Tue, 2 Sep 2014 08:49:09 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1748532C@AcuExch.aculab.com>
-References: <20140901.152515.1944476256109254437.davem@davemloft.net>
- <CA+mtBx-1r-vJYDx0xJ+p=Tjr=_v559XdrSu1SZ4UXWE_4fLbZg@mail.gmail.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: [PATCH v2 net] bnx2x: Configure device endianity on driver load and reset endianity on removal.
+Date: Tue, 2 Sep 2014 04:31:25 -0400
+Message-ID: <1409646685-28320-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: 'Tom Herbert' <therbert@google.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
+	<Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:51465 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753417AbaIBIvP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 04:51:15 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 02477-04 for <netdev@vger.kernel.org>;
- Tue,  2 Sep 2014 09:51:06 +0100 (BST)
-In-Reply-To: <CA+mtBx-1r-vJYDx0xJ+p=Tjr=_v559XdrSu1SZ4UXWE_4fLbZg@mail.gmail.com>
-Content-Language: en-US
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:32512 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750903AbaIBJEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 05:04:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVG9tIEhlcmJlcnQNCj4gT24gTW9uLCBTZXAgMSwgMjAxNCBhdCAzOjI1IFBNLCBEYXZp
-ZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOg0KPiA+DQo+ID4gSnVzdCBtYWlu
-dGFpbiB0aGUgbGlzdCBwcm9wZXJseSBieSByZXR1cm5pbmcgdGhlIGhlYWQgb2YgdGhlIHJlbWFp
-bmluZw0KPiA+IFNLQiBsaXN0IGZyb20gZGV2X2hhcmRfc3RhcnRfeG1pdCgpLg0KPiA+DQo+ID4g
-U2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiA+
-IC0tLQ0KPiA+ICBpbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIHwgIDQgKy0tDQo+ID4gIG5ldC9j
-b3JlL2Rldi5jICAgICAgICAgICAgfCA3OSArKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLQ0KPiA+ICBuZXQvc2NoZWQvc2NoX2dlbmVyaWMuYyAgIHwgIDIgKy0N
-Cj4gPiAgMyBmaWxlcyBjaGFuZ2VkLCAxNyBpbnNlcnRpb25zKCspLCA2OCBkZWxldGlvbnMoLSkN
-Cj4gPg0KPiA+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIGIvaW5jbHVk
-ZS9saW51eC9uZXRkZXZpY2UuaA0KPiA+IGluZGV4IDQ3YzQ5YmEuLjIwMmMyNWEgMTAwNjQ0DQo+
-ID4gLS0tIGEvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaA0KPiA+ICsrKyBiL2luY2x1ZGUvbGlu
-dXgvbmV0ZGV2aWNlLmgNCj4gPiBAQCAtMjgyOCw4ICsyODI4LDggQEAgaW50IGRldl9jaGFuZ2Vf
-Y2FycmllcihzdHJ1Y3QgbmV0X2RldmljZSAqLCBib29sIG5ld19jYXJyaWVyKTsNCj4gPiAgaW50
-IGRldl9nZXRfcGh5c19wb3J0X2lkKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQo+ID4gICAgICAg
-ICAgICAgICAgICAgICAgICAgIHN0cnVjdCBuZXRkZXZfcGh5c19wb3J0X2lkICpwcGlkKTsNCj4g
-PiAgc3RydWN0IHNrX2J1ZmYgKnZhbGlkYXRlX3htaXRfc2tiKHN0cnVjdCBza19idWZmICpza2Is
-IHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpOw0KPiA+IC1pbnQgZGV2X2hhcmRfc3RhcnRfeG1pdChz
-dHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KPiA+IC0gICAgICAg
-ICAgICAgICAgICAgICAgIHN0cnVjdCBuZXRkZXZfcXVldWUgKnR4cSk7DQo+ID4gK3N0cnVjdCBz
-a19idWZmICpkZXZfaGFyZF9zdGFydF94bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBu
-ZXRfZGV2aWNlICpkZXYsDQo+ID4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-c3RydWN0IG5ldGRldl9xdWV1ZSAqdHhxLCBpbnQgKnJldCk7DQo+IA0KPiBNaWdodCBiZSBzbGln
-aHRseSBiZXR0ZXIgdG8gc3RpbGwgcmV0dXJuIGludCBidXQgcGFzcyBzdHJ1Y3Qgc2tfYnVmZg0K
-PiAqKnNrYi4gT25lIGxlc3MgYXJndW1lbnQgYW5kIGRvZXNuJ3QgY2hhbmdlIHJldHVybiB0eXBl
-Lg0KDQpJdCBtYWtlcyBhIGRpZmZlcmVuY2UgdG8gaG93IHRoZSBjb21waWxlciBjYW4gY29tcGls
-ZSB0aGUgY2FsbGluZyBjb2RlLg0KV2hpY2hldmVyIHZhcmlhYmxlIHlvdSBwYXNzIGJ5IHJlZmVy
-ZW5jZSBoYXMgdG8gYmUgYXNzdW1lZCB0byBiZSBjaGFuZ2VhYmxlDQpieSBldmVyeSBmb2xsb3dp
-bmcgZnVuY3Rpb24gY2FsbCAtIHNvIGNhbid0IGJlIHBsYWNlZCBpbiBhIGNhbGxlZSBzYXZlZCBy
-ZWdpc3Rlci4NCg0KSWRlYWxseSB5b3Ugd2FudCBib3RoIHZhbHVlcyByZXR1cm5lZCBpbiByZWdp
-c3RlcnMgLSBkaWZmaWN1bHQgdG8gZG8gcG9ydGFibHkuDQoNCglEYXZpZA0KDQo=
+Some hosts can be both little and big endian.
+In certain scenarios a big endian kernel can kexec a little endian kernel.
+
+This patch fixes this case from both ends:
+1) Return endianity to original values on shutdown (in case little endian kernel boots after we shutdown).
+2) Do not rely on HW reset values when loading driver in little endian kernel
+   but configure them explicitly (in case previous kernel was big endian and did not reset the HW).
+
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+---
+
+Hi David,
+
+Please consider applying this patch to `net'
+v2: Reset endianity registers on driver removal under IS_PF(bp) check.
+
+Thanks,
+Manish
+
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   57 +++++++++++++++-------
+ 1 files changed, 39 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 900cab4..f6bd5ec 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -6849,6 +6849,37 @@ static void bnx2x__common_init_phy(struct bnx2x *bp)
+ 	bnx2x_release_phy_lock(bp);
+ }
+ 
++static void bnx2x_config_endianity(struct bnx2x *bp, u32 val)
++{
++	REG_WR(bp, PXP2_REG_RQ_QM_ENDIAN_M, val);
++	REG_WR(bp, PXP2_REG_RQ_TM_ENDIAN_M, val);
++	REG_WR(bp, PXP2_REG_RQ_SRC_ENDIAN_M, val);
++	REG_WR(bp, PXP2_REG_RQ_CDU_ENDIAN_M, val);
++	REG_WR(bp, PXP2_REG_RQ_DBG_ENDIAN_M, val);
++
++	/* make sure this value is 0 */
++	REG_WR(bp, PXP2_REG_RQ_HC_ENDIAN_M, 0);
++
++	REG_WR(bp, PXP2_REG_RD_QM_SWAP_MODE, val);
++	REG_WR(bp, PXP2_REG_RD_TM_SWAP_MODE, val);
++	REG_WR(bp, PXP2_REG_RD_SRC_SWAP_MODE, val);
++	REG_WR(bp, PXP2_REG_RD_CDURD_SWAP_MODE, val);
++}
++
++static void bnx2x_set_endianity(struct bnx2x *bp)
++{
++#ifdef __BIG_ENDIAN
++	bnx2x_config_endianity(bp, 1);
++#else
++	bnx2x_config_endianity(bp, 0);
++#endif
++}
++
++static void bnx2x_reset_endianity(struct bnx2x *bp)
++{
++	bnx2x_config_endianity(bp, 0);
++}
++
+ /**
+  * bnx2x_init_hw_common - initialize the HW at the COMMON phase.
+  *
+@@ -6915,23 +6946,7 @@ static int bnx2x_init_hw_common(struct bnx2x *bp)
+ 
+ 	bnx2x_init_block(bp, BLOCK_PXP2, PHASE_COMMON);
+ 	bnx2x_init_pxp(bp);
+-
+-#ifdef __BIG_ENDIAN
+-	REG_WR(bp, PXP2_REG_RQ_QM_ENDIAN_M, 1);
+-	REG_WR(bp, PXP2_REG_RQ_TM_ENDIAN_M, 1);
+-	REG_WR(bp, PXP2_REG_RQ_SRC_ENDIAN_M, 1);
+-	REG_WR(bp, PXP2_REG_RQ_CDU_ENDIAN_M, 1);
+-	REG_WR(bp, PXP2_REG_RQ_DBG_ENDIAN_M, 1);
+-	/* make sure this value is 0 */
+-	REG_WR(bp, PXP2_REG_RQ_HC_ENDIAN_M, 0);
+-
+-/*	REG_WR(bp, PXP2_REG_RD_PBF_SWAP_MODE, 1); */
+-	REG_WR(bp, PXP2_REG_RD_QM_SWAP_MODE, 1);
+-	REG_WR(bp, PXP2_REG_RD_TM_SWAP_MODE, 1);
+-	REG_WR(bp, PXP2_REG_RD_SRC_SWAP_MODE, 1);
+-	REG_WR(bp, PXP2_REG_RD_CDURD_SWAP_MODE, 1);
+-#endif
+-
++	bnx2x_set_endianity(bp);
+ 	bnx2x_ilt_init_page_size(bp, INITOP_SET);
+ 
+ 	if (CHIP_REV_IS_FPGA(bp) && CHIP_IS_E1H(bp))
+@@ -13169,9 +13184,15 @@ static void __bnx2x_remove(struct pci_dev *pdev,
+ 	bnx2x_iov_remove_one(bp);
+ 
+ 	/* Power on: we can't let PCI layer write to us while we are in D3 */
+-	if (IS_PF(bp))
++	if (IS_PF(bp)) {
+ 		bnx2x_set_power_state(bp, PCI_D0);
+ 
++		/* Set endianity registers to reset values in case next driver
++		 * boots in different endianty environment.
++		 */
++		bnx2x_reset_endianity(bp);
++	}
++
+ 	/* Disable MSI/MSI-X */
+ 	bnx2x_disable_msi(bp);
+ 
+-- 
+1.7.1
