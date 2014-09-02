@@ -1,84 +1,39 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: [PATCH net-next] sock: consistent errqueue errors and signals
-Date: Tue, 02 Sep 2014 23:18:11 +0200
-Message-ID: <1409692691.15984.16.camel@localhost>
-References: <1409534896-372-1-git-send-email-willemb@google.com>
-	 <1409606744.21965.37.camel@localhost>
-	 <CA+FuTScAYY1ZhQPwY=pqW9hXf3UYB70Dxq5+aPH4D4pB7QRPbg@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [net-next PATCH 3/3] qdisc: sysctl to adjust bulk dequeue limit
+Date: Tue, 2 Sep 2014 14:20:29 -0700
+Message-ID: <CAHA+R7MT-HjOwit2pvkeWT2_pYHOupg=0YbTSTVJ8LbC+yhrDg@mail.gmail.com>
+References: <20140902143254.1918.8419.stgit@dragon>
+	<20140902143553.1918.73632.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14321 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754183AbaIBVSR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Sep 2014 17:18:17 -0400
-In-Reply-To: <CA+FuTScAYY1ZhQPwY=pqW9hXf3UYB70Dxq5+aPH4D4pB7QRPbg@mail.gmail.com>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:37614 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754848AbaIBVUa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 17:20:30 -0400
+Received: by mail-la0-f45.google.com with SMTP id pn19so8637301lab.18
+        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 14:20:29 -0700 (PDT)
+In-Reply-To: <20140902143553.1918.73632.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Tue, Sep 2, 2014 at 7:36 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> Allow userspace to adjust how many packet the qdisc is allowed to
+> bulk dequeue.
+>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+>
+> ---
+> Question should we allow this to be adjusted?
+>
 
-On Di, 2014-09-02 at 11:20 -0400, Willem de Bruijn wrote:
-> > From my experience in IPv6 code, we only do sk->sk_err updates directly
-> > in protocol error handling code. In case of UDP IPv6 errors for example
-> > we now notify sk_error_report two times with this patch (before the
-> > patch we did sk_data_ready (this is what you changed) and
-> > sk_error_report).
-> 
-> If the event is that an error is ready, is this not correct? The
-> wake up key should be POLLERR in both cases. In implementation
-> of sock_def_error_report and sock_def_readable, the difference
-> otherwise seems slim. I haven't checked all sk_data_ready and
-> sk_error_report implementations, though, so may have missed
-> differences for specific protocols. If this is not as obviously a strict
-> improvement as I thought, I'll just drop it.
+A sysctl is ugly and seems not fit well with Qdisc which always uses netlink,
+so I think a netlink flag might be better if we can find a generic one.
 
-I am not sure if waking up the socket two times has unforeseen
-consequences, we do so e.g. in __udp6_lib_err if recverr is set.
-
-> > I really wonder if setting sk->sk_err in this function is the right
-> > thing to do.
-> 
-> I agree, in that it is hard to verify that this does not overwrite
-> an existing error. This patch only makes the behavior
-> consistent between enqueue and dequeue, but perhaps a
-> better way to achieve that is to change the dequeue side:
-> remove the assignment to sk->sk_err there. If so, then all
-> locations that currently check the state of sk->sk_err should
-> be changed to also check the qlen of the error queue and
-> if non-zero return the embedded error of the first skb. I'll
-> take a look whether that is feasible without adding locks
-> or atomics in the common path.
-
-That would be great.
-
-> 
-> > It also depends on socket state bits (e.g. np->recverr) if
-> > the update happens. So we still cannot get rid of the protocol dependent
-> > sk->sk_err updates.
-> >
-> > It looks like we have to check all error handling functions in the
-> > protocols. Maybe timestamp code needs to adapt?
-> 
-> Does the above sound okay, or did you mean something else?
-
-Best thing would be to not keep the error status two times per socket.
-Maybe it would make sense to always synchronize on the error queue and
-don't check for sk->sk_err at all? It seems to get very hairy without
-taking any locks though.
-
-I even don't know what the semantics for sk_err should be. Should we
-leave the oldest error in place until it got fetched? Then we could use
-cmpxchg in slow path with 0 as the old value. They could easily become
-unsynchronized if the user switches off recverr setsockopt. But I don't
-think we need to handle that.
-
-I think best effort should would be ok, too. Not having locked
-instructions in fast path is much more important.
-
-Thanks,
-Hannes
+Also, you forgot to document it.
