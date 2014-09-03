@@ -1,36 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] netlink: Safer deletion of sk_bind_node
-Date: Tue, 02 Sep 2014 22:28:19 -0700 (PDT)
-Message-ID: <20140902.222819.1246875721008896036.davem@davemloft.net>
-References: <54058376.9090700@mentor.com>
-	<20140902.115215.1488500321662046816.davem@davemloft.net>
-	<5406A4FF.1090209@mentor.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: Order of interfaces in output of ip link
+Date: Wed, 3 Sep 2014 07:43:35 +0200
+Message-ID: <20140903054335.GA32737@unicorn.suse.cz>
+References: <19313218.dxlnVqzEMb@hp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, tgraf@suug.ch, ebiederm@xmission.com,
-	darkjames-ws@darkjames.pl, rgb@redhat.com, eric.dumazet@gmail.com,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: harish_kandiga@mentor.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5406A4FF.1090209@mentor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ovidiu Mara <ovidiu.mara@epfl.ch>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:54361 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751209AbaICFni (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 01:43:38 -0400
+Content-Disposition: inline
+In-Reply-To: <19313218.dxlnVqzEMb@hp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Harish Jenny Kandiga Nagaraj <harish_kandiga@mentor.com>
-Date: Wed, 3 Sep 2014 10:49:59 +0530
+On Tue, Sep 02, 2014 at 04:27:42PM +0200, Ovidiu Mara wrote:
+> The ip command shows the interfaces on this machine in an unnatural order (eth0 followed by eth2 then eth1).
+> ...
+> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether 2c:59:e5:9a:4c:a4 brd ff:ff:ff:ff:ff:ff
+> 3: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether ac:16:2d:98:9e:d8 brd ff:ff:ff:ff:ff:ff
+> 4: eth1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN mode DEFAULT group default qlen 1000\    link/ether 2c:59:e5:9a:4c:a5 brd ff:ff:ff:ff:ff:ff
+> 5: eth3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether ac:16:2d:98:9e:d9 brd ff:ff:ff:ff:ff:ff
+> ...
+> eth0 and eth1 are two ports on the same network card, so I would
+> expect them to be shown together, as they are numbered.
 
-> If that is the case , then subscriptions of netlink_sock should have
-> been updated after netlink_remove or netlink_release.  I don't see
-> that happening.
+In general, you can't expect that. As drivers can initialize in
+parallel, it happens quite often that interfaces are interleaved like
+this. Actually, the names are probably misleading here: most likely the
+interface with index 3 was named "eth1" by kernel and interface with
+index 4 was named eth2 but udev changed the names.
 
-Please do not top-post.  First provide the quoted context, then provide
-your response afterwards, rather than the other way around.
+> Could you please tell me if there is any workaround for this?
 
-The point I was trying to make is that all code paths that operate
-on this list have to follow this rule, if there is a code path that
-is not then that is your bug and that is where the fix belongs.
+It depends on what exactly you want to achieve and why. But AFAIK ip
+documentation doesn't promise any particular order of the interfaces so
+it's wrong to assume any.
 
-We're unexpectedly having double deletes occur on this list, I would
-prefer if we don't paper over it by allowing it to silently succeed.
+                                                        Michal Kubecek
