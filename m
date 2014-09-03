@@ -1,43 +1,76 @@
 From: <y@shlinux1.ap.freescale.net>
-Subject: [Patch net-next 00/11] net: fec: imx6sx multiqueue support
-Date: Thu, 4 Sep 2014 04:34:35 +0800
-Message-ID: <42459.8171994605$1409778751@news.gmane.org>
+Subject: [Patch net-next 05/11] net:fec: Disable enet-avb MAC instead of reset MAC
+Date: Thu, 4 Sep 2014 04:34:40 +0800
+Message-ID: <4443.35892466388$1409778754@news.gmane.org>
+References: <1409776486-1403-1-git-send-email-y>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409776486-1403-1-git-send-email-y>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 
-These patches enable i.MX6SX multi queue support.
-i.MX6SX support 3 queue and AVB feature. 
+For i.MX6SX enet use AXI bus, reset MAC will make system bus dead
+if ENET-AXI bus has pending access (AHB bus should not have such issue).
+So, disable enet with AVB MAC instead of reset MAC itself.
 
-Frank Li (3):
-  net:fec: add enet-avb IP support
-  ARM: Documentation: Update fec dts binding doc
-  ARM: dts: imx6sx: add multi-queue support enet
+Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 26 ++++++++++++++++++++------
+ 1 file changed, 20 insertions(+), 6 deletions(-)
 
-Fugang Duan (8):
-  net:fec: add enet refrence clock for i.MX 6SX chip
-  net:fec: add enet AVB feature macro define for imx6sx
-  net:fec: use multiqueue interface to allocate Ethernet device
-  net:fec: add multiqueue support
-  net:fec: Disable enet-avb MAC instead of reset MAC
-  net:fec: Add fsl,imx6sx-fec  compatible strings
-  net:fec: change FEC alignment to 64 bytes for ARM platform
-  net:fec: remove unnessary memory copy for address alignment in .xmit()
-
- Documentation/devicetree/bindings/net/fsl-fec.txt |   6 +
- arch/arm/boot/dts/imx6sx.dtsi                     |   2 +
- drivers/net/ethernet/freescale/fec.h              | 151 +++-
- drivers/net/ethernet/freescale/fec_main.c         | 877 +++++++++++++++-------
- 4 files changed, 750 insertions(+), 286 deletions(-)
-
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index f973a92..5dab6a6 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -948,9 +948,16 @@ fec_restart(struct net_device *ndev)
+ 	u32 ecntl = 0x2; /* ETHEREN */
+ 	int i;
+ 
+-	/* Whack a reset.  We should wait for this. */
+-	writel(1, fep->hwp + FEC_ECNTRL);
+-	udelay(10);
++	/* Whack a reset.  We should wait for this.
++	 * For i.MX6SX SOC, enet use AXI bus, we use disable MAC
++	 * instead of reset MAC itself.
++	 */
++	if (id_entry && id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
++		writel(0, fep->hwp + FEC_ECNTRL);
++	} else {
++		writel(1, fep->hwp + FEC_ECNTRL);
++		udelay(10);
++	}
+ 
+ 	/*
+ 	 * enet-mac reset will reset mac address registers too,
+@@ -1122,9 +1129,16 @@ fec_stop(struct net_device *ndev)
+ 			netdev_err(ndev, "Graceful transmit stop did not complete!\n");
+ 	}
+ 
+-	/* Whack a reset.  We should wait for this. */
+-	writel(1, fep->hwp + FEC_ECNTRL);
+-	udelay(10);
++	/* Whack a reset.  We should wait for this.
++	 * For i.MX6SX SOC, enet use AXI bus, we use disable MAC
++	 * instead of reset MAC itself.
++	 */
++	if (id_entry && id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
++		writel(0, fep->hwp + FEC_ECNTRL);
++	} else {
++		writel(1, fep->hwp + FEC_ECNTRL);
++		udelay(10);
++	}
+ 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+ 	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+ 
 -- 
 1.9.1
 
