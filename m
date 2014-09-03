@@ -1,47 +1,51 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [ipsec-next v4 0/2] xfrm: scalability enhancements for policy
- database
-Date: Wed, 3 Sep 2014 13:59:13 +0200
-Message-ID: <20140903115913.GH6390@secunet.com>
-References: <20140829095431.GF6390@secunet.com>
- <1409321765-2012-1-git-send-email-christophe.gouault@6wind.com>
+From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [RFC] net: ipv4: drop unicast encapsulated in L2 multicast
+Date: Wed, 03 Sep 2014 14:01:22 +0200
+Message-ID: <1409745682.14224.10.camel@localhost>
+References: <1409133238.26515.13.camel@localhost>
+	 <1409650573.1808.11.camel@jlt4.sipsolutions.net>
+	 <540675F2.1030308@miraclelinux.com>
+	 <20140902.150326.1420682815750767731.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Christophe Gouault <christophe.gouault@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53984 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932066AbaICL7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 07:59:25 -0400
-Content-Disposition: inline
-In-Reply-To: <1409321765-2012-1-git-send-email-christophe.gouault@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji-GmhWrQMWH5w7YuNMryXyOw@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140902.150326.1420682815750767731.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 29, 2014 at 04:16:03PM +0200, Christophe Gouault wrote:
-> This patchset enables to hash more policies than just non-prefixed
-> ones: hash policies whose prefix lengths are greater or equal to
-> configurable thresholds.
+On Di, 2014-09-02 at 15:03 -0700, David Miller wrote:
+> From: YOSHIFUJI Hideaki <hideaki.yoshifuji-GmhWrQMWH5w7YuNMryXyOw@public.gmane.org>
+> Date: Wed, 03 Sep 2014 10:59:14 +0900
 > 
-> These thresholds are configured via netlink message
-> XFRM_MSG_NEWSPDINFO, attributes XFRMA_SPD_IPV4_HTHRESH and
-> XFRMA_SPD_IPV6_HTHRESH.
+> > Upper-layer needs to cope eith situation of seeing packets with
+> > "incorrect" L2 header anyway (e.g., in promiscous mode).
+> > I do not see much advantage to drop them here.
 > 
-> The related iproute2 patch for configuring the thresholds is available
-> on demand.
+> It's required to prevent wireless nodes from using the shared wireless
+> group keys (used for multicast transmission) to inject unicast frames.
 > 
-> Best Regards,
-> Christophe
-> ----
-> v2:
-> - change configuration API from proc to netlink
-> v3:
-> - initialize xfrm_policy_hthresh lock
-> - remove "rebuilding SPD hash table" log
-> - replace deprecated hlist_add_after by hlist_add_behind
-> - remove netlink reply to XFRM_MSG_NEWSPDINFO request
-> v4:
-> - remove unused variables in xfrm_set_spdinfo
+> The RFCs really do specify this at least on the ipv4 side.
 
-Looks good. All applied to ipsec-next, thanks a lot Christophe!
+I have to agree with YOSHIFUJI Hideaki here. I looked at a lot of RFCs
+and haven't found anything were it states to use L2 address type for
+checks in L3 ipv6 addresses. For IPv4 addresses the situation is clear
+though...
+
+There was an RFC update (6085) which specifically allows one to send
+ipv6 multicast frames with unicast L2 addresses. In the dicussion that
+lead to this RFC it was stated that checking L2 and L3 addresses seems
+to be a layering violation, but I can just use this as a hint.
+
+Bye,
+Hannes
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
