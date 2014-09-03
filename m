@@ -1,95 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
- runnable
-Date: Wed, 3 Sep 2014 11:09:18 +0300
-Message-ID: <20140903080918.GB6187@redhat.com>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
- <1408608310-13579-2-git-send-email-jasowang@redhat.com>
- <1408683665.5648.69.camel@marge.simpson.net>
- <20140822073653.GA7372@gmail.com>
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [PATCH 2/2] net: ethernet: cpsw: fix interrupt lookup logic in
+ cpsw_probe()
+Date: Wed, 03 Sep 2014 10:23:46 +0200
+Message-ID: <5406D012.6030601@zonque.org>
+References: <1409676245-13897-1-git-send-email-zonque@gmail.com> <1409676245-13897-2-git-send-email-zonque@gmail.com> <5406C336.3020005@ti.com> <5406C3A2.4060103@zonque.org> <5406CFD9.6060706@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mike Galbraith <umgwanakikbuti@gmail.com>,
-	Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Eliezer Tamir <eliezer.tamir@linux.intel.com>
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140822073653.GA7372@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: julia.lawall@lip6.fr, netdev@vger.kernel.org, george.cherian@ti.com
+To: Mugunthan V N <mugunthanvnm@ti.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from svenfoo.org ([82.94.215.22]:52275 "EHLO mail.zonque.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751319AbaICIXs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 04:23:48 -0400
+In-Reply-To: <5406CFD9.6060706@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 22, 2014 at 09:36:53AM +0200, Ingo Molnar wrote:
+On 09/03/2014 10:22 AM, Mugunthan V N wrote:
+> On Wednesday 03 September 2014 01:00 PM, Daniel Mack wrote:
+>> On 09/03/2014 09:28 AM, Mugunthan V N wrote:
+>>> On Tuesday 02 September 2014 10:14 PM, Daniel Mack wrote:
+>>>> The code in cpsw_probe() currently iterates over the available
+>>>> interrupt resources and requests each of them.  While doing so, it
+>>>> keeps track of their indices through priv->irqs_table.
+>>>>
+>>>> However, the code currently only remembers the last interrupt in
+>>>> a resource, and will leak the others if there is more than one.
+>>>> This can only happen for board-file driven platforms and not via DT,
+>>>> however.
+>>>>
+>>>> Also, there is currently no bounds check, while priv->irqs_table is a
+>>>> fixed-size array. If we are passed more than 4 resources, we're in
+>>>> trouble.
+>>>>
+>>>> This patch introduces a bounds check and changes the way interrupt
+>>>> indices are kept. Tested on a Beagle Bone Black board only.
+>>>>
+>>>> Signed-off-by: Daniel Mack <zonque@gmail.com>
+>>>
+>>> The drivers is not supported for non-DT platforms as all the platforms
+>>> which uses CPSW are DT only platforms.
+>>
+>> Ok, thanks for explaining.
+>>
+>> But then we can remove the iteration then and simplify the code, right?
+>> The bounds check should also be done.
+>>
 > 
-> > > diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
-> > > index 1d67fb6..8a33fb2 100644
-> > > --- a/include/net/busy_poll.h
-> > > +++ b/include/net/busy_poll.h
-> > > @@ -109,7 +109,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
-> > >  		cpu_relax();
-> > >  
-> > >  	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
-> > > -		 !need_resched() && !busy_loop_timeout(end_time));
-> > > +		 !need_resched() && !busy_loop_timeout(end_time) &&
-> > > +		 nr_running_this_cpu() < 2);
-> 
-> So it's generally a bad idea to couple to the scheduler through 
-> such a low level, implementation dependent value like 
-> 'nr_running', causing various problems:
-> 
->  - It misses important work that might be pending on this CPU,
->    like RCU callbacks.
-> 
->  - It will also over-credit task contexts that might be
->    runnable, but which are less important than the currently
->    running one: such as a SCHED_IDLE task
-> 
->  - It will also over-credit even regular SCHED_NORMAL tasks, if
->    this current task is more important than them: say
->    SCHED_FIFO. A SCHED_FIFO workload should run just as fast 
->    with SCHED_NORMAL tasks around, as a SCHED_NORMAL workload 
->    on an otherwise idle system.
-> 
-> So what you want is a more sophisticated query to the 
-> scheduler, a sched_expected_runtime() method that returns the 
-> number of nsecs this task is expected to run in the future, 
-> which returns 0 if you will be scheduled away on the next 
-> schedule(), and returns infinity for a high prio SCHED_FIFO 
-> task, or if this SCHED_NORMAL task is on an otherwise idle CPU.
-> 
-> It will return a regular time slice value in other cases, when 
-> there's some load on the CPU.
-> 
-> The polling logic can then do its decision based on that time 
-> value.
-> 
-> All this can be done reasonably fast and lockless in most 
-> cases, so that it can be called from busy-polling code.
-> 
-> An added advantage would be that this approach consolidates the 
-> somewhat random need_resched() checks into this method as well.
-> 
-> In any case I don't agree with the nr_running_this_cpu() 
-> method.
-> 
-> (Please Cc: me and lkml to future iterations of this patchset.)
-> 
-> Thanks,
-> 
-> 	Ingo
+> Right, we can simplify the code.
 
-This sounds very nice.
+Ok, I'll cook up a new patch.
 
-We could then have applications say "I want to poll
-only if no one else has urgent work" where
-urgent is defined as "has to run within next N nseconds".
 
-Really just a bit more flexibility added to busy polling.
-
-Peter, Ingo, does this sound good?
-
--- 
-MST
+Thanks!
+Daniel
