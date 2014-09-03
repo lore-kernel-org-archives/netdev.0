@@ -1,38 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net 1/2] ipv6: fix a refcnt leak with peer addr
-Date: Thu, 04 Sep 2014 01:43:28 +0200
-Message-ID: <1409787808.3038488.163376797.2CB8674A@webmail.messagingengine.com>
-References: <1409781562-4191-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH net-next v2 0/2] Combine standard and phy timestamping logic
+Date: Wed, 03 Sep 2014 19:38:29 -0400
+Message-ID: <20140903233447.7517.52329.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	yoshfuji@linux-ipv6.org, davem@davemloft.net
+Cc: richardcochran@gmail.com, davem@davemloft.net, willemb@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:49632 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935406AbaICXn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 19:43:29 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by gateway2.nyi.internal (Postfix) with ESMTP id E4FAD207A7
-	for <netdev@vger.kernel.org>; Wed,  3 Sep 2014 19:43:28 -0400 (EDT)
-In-Reply-To: <1409781562-4191-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mga14.intel.com ([192.55.52.115]:20437 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933336AbaICXqG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 19:46:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This change makes it so that the core path for the phy timestamping logic
+is shared between skb_tx_tstamp and skb_complete_tx_timestamp.  In addition
+it provides a means of using the same skb clone type path in non phy
+timestamping drivers.
+
+The main motivation for this is to enable non-phy drivers to be able to
+manipulate tx timestamp skbs for such things as putting them in lists or
+setting aside buffer in the context block.
+
+---
+
+v2: Incorporated suggested changes from Willem de Bruijn and Eric Dumazet
+     dropped uneeded comment
+     restored order of hwtstamp vs swtstamp
+     added destructor for skb
+    Dropped usage of skb_complete_tx_timestamp as a kfree_skb w/ destructor
+
+Alexander Duyck (2):
+      net-timestamp: Merge shared code between phy and regular timestamping
+      net-timestamp: Make the clone operation stand-alone from phy timestamping
 
 
-On Wed, Sep 3, 2014, at 23:59, Nicolas Dichtel wrote:
-> There is no reason to take a refcnt before deleting the peer address
-> route.
-> It's done some lines below for the local prefix route because
-> inet6_ifa_finish_destroy() will release it at the end.
-> For the peer address route, we want to free it right now.
-> 
-> This bug has been introduced by commit
-> caeaba79009c ("ipv6: add support of peer address").
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+ drivers/net/phy/dp83640.c |    6 ++--
+ include/linux/skbuff.h    |    2 +
+ net/core/skbuff.c         |   77 +++++++++++++++++++++++++++++++++------------
+ net/core/timestamping.c   |   43 ++-----------------------
+ 4 files changed, 64 insertions(+), 64 deletions(-)
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+-- 
