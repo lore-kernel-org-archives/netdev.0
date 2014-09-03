@@ -1,35 +1,82 @@
-From: Christophe Gouault <christophe.gouault@6wind.com>
-Subject: Re: [ipsec-next v4 0/2] xfrm: scalability enhancements for policy database
-Date: Wed, 3 Sep 2014 14:53:52 +0200
-Message-ID: <CADdy8HrfRyPxsx+RxBCogYMSY6Ah8_CyOM+UKWopKVhNY6twYQ@mail.gmail.com>
-References: <20140829095431.GF6390@secunet.com>
-	<1409321765-2012-1-git-send-email-christophe.gouault@6wind.com>
-	<20140903115913.GH6390@secunet.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v2 net-next] net: Functions to report space available in
+ device TX queues
+Date: Wed, 3 Sep 2014 15:20:46 +0200
+Message-ID: <20140903152046.3c07a052@redhat.com>
+References: <alpine.DEB.2.02.1408250823440.31745@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, davem@davemloft.net, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:35542 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932773AbaICMxx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 08:53:53 -0400
-Received: by mail-ie0-f169.google.com with SMTP id tr6so9565566ieb.14
-        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 05:53:52 -0700 (PDT)
-In-Reply-To: <20140903115913.GH6390@secunet.com>
+Received: from mx1.redhat.com ([209.132.183.28]:13102 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932227AbaICNUy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 09:20:54 -0400
+In-Reply-To: <alpine.DEB.2.02.1408250823440.31745@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-09-03 13:59 GMT+02:00 Steffen Klassert <steffen.klassert@secunet.com>:
-> On Fri, Aug 29, 2014 at 04:16:03PM +0200, Christophe Gouault wrote:
->> This patchset enables to hash more policies than just non-prefixed
->> ones: hash policies whose prefix lengths are greater or equal to
->> configurable thresholds.
+On Mon, 25 Aug 2014 08:27:56 -0700 (PDT)
+Tom Herbert <therbert@google.com> wrote:
 
-> Looks good. All applied to ipsec-next, thanks a lot Christophe!
+> This patch adds netdev_tx_avail_queue and netdev_avail_queue which are
+> used to report number of bytes available in transmit queues per BQL. The
+> functions call dql_avail which returns BQL limit minus number of
+> inflight bytes. These functions can be called without txlock, for
+> instance to ascertain how much data should be dequeued from a qdisc in
+> a batch. When called without the tx_lock, the result is technically a
+> hint, subsequently when the tx_lock is done for a transmit it is
+> possible the availability has changed (for example a transmit
+> completion may have freed up more space in the queue or changed the
+> limit).
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>  include/linux/netdevice.h | 28 ++++++++++++++++++++++++++--
+>  1 file changed, 26 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 0fac884..bdf6c85 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -2544,6 +2544,30 @@ static inline void netdev_completed_queue(struct net_device *dev,
+>  	netdev_tx_completed_queue(netdev_get_tx_queue(dev, 0), pkts, bytes);
+>  }
+>  
+> +static inline int netdev_tx_avail_queue(struct netdev_queue *dev_queue)
+> +{
+> +#ifdef CONFIG_BQL
+> +	return dql_avail(&dev_queue->dql);
+> +#else
+> +	return DQL_MAX_LIMIT;
+> +#endif
+> +}
+> +
+> +/**
+> + *	netdev_avail_queue - report how much space is availble for xmit
+> + *	@dev: network device
+> + *
+> + *	Report the amount of space available in the TX queue in terms of
+> + *	number of bytes. This returns the number of bytes avaiable per
+> + *	DQL. This function may be called without taking the txlock on
+> + *	the device, however in that case the result should be taken as
+> + *	a (strong) hint.
+> + */
+> +static inline int netdev_avail_queue(struct net_device *dev)
+> +{
+> +	return netdev_tx_avail_queue(netdev_get_tx_queue(dev, 0));
+> +}
+> +
 
-You're welcome.
-Thanks for reviewing.
+How can this work, when you are always passing 0 to: netdev_get_tx_queue(dev, 0)
+???
 
-Christophe
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
