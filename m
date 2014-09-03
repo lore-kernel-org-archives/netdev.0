@@ -1,143 +1,80 @@
 From: <y@shlinux1.ap.freescale.net>
-Subject: [Patch net-next 03/11] net:fec: use multiqueue interface to allocate Ethernet device
-Date: Thu, 4 Sep 2014 04:34:38 +0800
-Message-ID: <3206.66946140609$1409778776@news.gmane.org>
+Subject: [Patch net-next 05/11] net:fec: Disable enet-avb MAC instead of reset MAC
+Date: Thu, 4 Sep 2014 04:34:40 +0800
+Message-ID: <41576.9514548176$1409778777@news.gmane.org>
 References: <1409776486-1403-1-git-send-email-y>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
+	<devicetree@vger.kernel.org>, Fugang Duan <B38611@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>
+To: <b38611@freescale.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0063.outbound.protection.outlook.com ([207.46.100.63]:57336
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754957AbaICVMS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 17:12:18 -0400
 In-Reply-To: <1409776486-1403-1-git-send-email-y>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+From: Fugang Duan <B38611@freescale.com>
 
-Since i.MX6SX enet-AVB IP support multi queues, so use multi queues
-interface to allocate and set up an Ethernet device.
+For i.MX6SX enet use AXI bus, reset MAC will make system bus dead
+if ENET-AXI bus has pending access (AHB bus should not have such issue).
+So, disable enet with AVB MAC instead of reset MAC itself.
 
-Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- drivers/net/ethernet/freescale/fec.h      |  9 ++++++
- drivers/net/ethernet/freescale/fec_main.c | 49 ++++++++++++++++++++++++++++++-
- 2 files changed, 57 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/fec_main.c | 26 ++++++++++++++++++++------
+ 1 file changed, 20 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 635772b..f77ed6f 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -233,6 +233,13 @@ struct bufdesc_ex {
- /* This device has up to three irqs on some platforms */
- #define FEC_IRQ_NUM		3
- 
-+/* Maximum number of queues supported
-+ * ENET with AVB IP can support up to 3 independent tx queues and rx queues.
-+ * User can point the queue number that is less than or equal to 3.
-+ */
-+#define FEC_ENET_MAX_TX_QS	3
-+#define FEC_ENET_MAX_RX_QS	3
-+
- /* The number of Tx and Rx buffers.  These are allocated from the page
-  * pool.  The code may assume these are power of two, so it it best
-  * to keep them that size.
-@@ -278,6 +285,8 @@ struct fec_enet_private {
- 
- 	bool ptp_clk_on;
- 	struct mutex ptp_clk_mutex;
-+	int num_tx_queues;
-+	int num_rx_queues;
- 
- 	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
- 	unsigned char *tx_bounce[TX_RING_SIZE];
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index ee9f04f..00fcadd 100644
+index f973a92..5dab6a6 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2573,6 +2573,39 @@ static void fec_reset_phy(struct platform_device *pdev)
- #endif /* CONFIG_OF */
+@@ -948,9 +948,16 @@ fec_restart(struct net_device *ndev)
+ 	u32 ecntl = 0x2; /* ETHEREN */
+ 	int i;
  
- static int
-+fec_enet_get_queue_num(struct platform_device *pdev, int *num_tx, int *num_rx)
-+{
-+	struct device_node *np = pdev->dev.of_node;
-+	int err;
-+
-+	if (!np || !of_device_is_available(np))
-+		return -ENODEV;
-+
-+	/* parse the num of tx and rx queues */
-+	err = of_property_read_u32(np, "fsl,num_tx_queues", num_tx);
-+	err |= of_property_read_u32(np, "fsl,num_rx_queues", num_rx);
-+	if (err) {
-+		*num_tx = 1;
-+		*num_rx = 1;
-+		return 0;
+-	/* Whack a reset.  We should wait for this. */
+-	writel(1, fep->hwp + FEC_ECNTRL);
+-	udelay(10);
++	/* Whack a reset.  We should wait for this.
++	 * For i.MX6SX SOC, enet use AXI bus, we use disable MAC
++	 * instead of reset MAC itself.
++	 */
++	if (id_entry && id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
++		writel(0, fep->hwp + FEC_ECNTRL);
++	} else {
++		writel(1, fep->hwp + FEC_ECNTRL);
++		udelay(10);
 +	}
-+
-+	if (*num_tx < 1 || *num_tx > FEC_ENET_MAX_TX_QS) {
-+		dev_err(&pdev->dev, "num_tx(=%d) greater than MAX_TX_QS(=%d)\n",
-+			*num_tx, FEC_ENET_MAX_TX_QS);
-+		return -EINVAL;
+ 
+ 	/*
+ 	 * enet-mac reset will reset mac address registers too,
+@@ -1122,9 +1129,16 @@ fec_stop(struct net_device *ndev)
+ 			netdev_err(ndev, "Graceful transmit stop did not complete!\n");
+ 	}
+ 
+-	/* Whack a reset.  We should wait for this. */
+-	writel(1, fep->hwp + FEC_ECNTRL);
+-	udelay(10);
++	/* Whack a reset.  We should wait for this.
++	 * For i.MX6SX SOC, enet use AXI bus, we use disable MAC
++	 * instead of reset MAC itself.
++	 */
++	if (id_entry && id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
++		writel(0, fep->hwp + FEC_ECNTRL);
++	} else {
++		writel(1, fep->hwp + FEC_ECNTRL);
++		udelay(10);
 +	}
-+
-+	if (*num_rx < 1 || *num_rx > FEC_ENET_MAX_RX_QS) {
-+		dev_err(&pdev->dev, "num_rx(=%d) greater than MAX_RX_QS(=%d)\n",
-+			*num_rx, FEC_ENET_MAX_RX_QS);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int
- fec_probe(struct platform_device *pdev)
- {
- 	struct fec_enet_private *fep;
-@@ -2583,13 +2616,23 @@ fec_probe(struct platform_device *pdev)
- 	const struct of_device_id *of_id;
- 	static int dev_id;
- 	struct device_node *np = pdev->dev.of_node, *phy_node;
-+	int num_tx_qs = 1;
-+	int num_rx_qs = 1;
+ 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+ 	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
  
- 	of_id = of_match_device(fec_dt_ids, &pdev->dev);
- 	if (of_id)
- 		pdev->id_entry = of_id->data;
- 
-+	if (pdev->id_entry &&
-+	    (pdev->id_entry->driver_data & FEC_QUIRK_HAS_AVB)) {
-+		ret = fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
-+		if (ret)
-+			return ret;
-+	}
-+
- 	/* Init network device */
--	ndev = alloc_etherdev(sizeof(struct fec_enet_private));
-+	ndev = alloc_etherdev_mqs(sizeof(struct fec_enet_private),
-+				  num_tx_qs, num_rx_qs);
- 	if (!ndev)
- 		return -ENOMEM;
- 
-@@ -2598,6 +2641,10 @@ fec_probe(struct platform_device *pdev)
- 	/* setup board info structure */
- 	fep = netdev_priv(ndev);
- 
-+	fep->num_rx_queues = num_rx_qs;
-+	fep->num_tx_queues = num_tx_qs;
-+	netif_set_real_num_rx_queues(ndev, num_rx_qs);
-+
- #if !defined(CONFIG_M5272)
- 	/* default enable pause frame auto negotiation */
- 	if (pdev->id_entry &&
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
