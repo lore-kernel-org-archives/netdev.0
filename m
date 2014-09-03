@@ -1,83 +1,47 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v2 2/2] r8152: use eth_hw_addr_random
-Date: Wed, 3 Sep 2014 10:59:15 +0800
-Message-ID: <1394712342-15778-31-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-26-Taiwan-albertk@realtek.com>
- <1394712342-15778-29-Taiwan-albertk@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-29-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v9 net-next 0/4] load imm64 insn and uapi/linux/bpf.h
+Date: Tue,  2 Sep 2014 20:17:22 -0700
+Message-ID: <1409714246-31054-1-git-send-email-ast@plumgrid.com>
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-If the hw doesn't have a valid MAC address, give a random one and
-set it to the hw.
+Hi,
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 35 ++++++++++++++++++++---------------
- 1 file changed, 20 insertions(+), 15 deletions(-)
+V8->V9
+- rebase on top of Hannes's patch in the same area [1]
+- no changes to patches 1 and 2
+- added patches 3 and 4 as RFC to address Daniel's concern.
+  patch 3 moves eBPF instruction macros and
+  patch 4 split macros which are shared between classic and eBPF
+  into bpf_common.h
+  3 and 4 will be used by verifier testsuite and will be reposted later
+  during stage III
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index b5ff933..443eb9e 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -992,32 +992,37 @@ static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
- 	return 0;
- }
- 
--static inline void set_ethernet_addr(struct r8152 *tp)
-+static int set_ethernet_addr(struct r8152 *tp)
- {
- 	struct net_device *dev = tp->netdev;
-+	struct sockaddr sa;
- 	int ret;
--	u8 node_id[8] = {0};
- 
- 	if (tp->version == RTL_VER_01)
--		ret = pla_ocp_read(tp, PLA_IDR, sizeof(node_id), node_id);
-+		ret = pla_ocp_read(tp, PLA_IDR, 8, sa.sa_data);
- 	else
--		ret = pla_ocp_read(tp, PLA_BACKUP, sizeof(node_id), node_id);
-+		ret = pla_ocp_read(tp, PLA_BACKUP, 8, sa.sa_data);
- 
- 	if (ret < 0) {
--		netif_notice(tp, probe, dev, "inet addr fail\n");
-+		netif_err(tp, probe, dev, "Get ether addr fail\n");
-+	} else if (!is_valid_ether_addr(sa.sa_data)) {
-+		netif_err(tp, probe, dev, "Invalid ether addr %pM\n",
-+			  sa.sa_data);
-+		eth_hw_addr_random(dev);
-+		ether_addr_copy(sa.sa_data, dev->dev_addr);
-+		ret = rtl8152_set_mac_address(dev, &sa);
-+		netif_info(tp, probe, dev, "Random ether addr %pM\n",
-+			   sa.sa_data);
- 	} else {
--		if (tp->version != RTL_VER_01) {
--			ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR,
--				       CRWECR_CONFIG);
--			pla_ocp_write(tp, PLA_IDR, BYTE_EN_SIX_BYTES,
--				      sizeof(node_id), node_id);
--			ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR,
--				       CRWECR_NORAML);
--		}
-+		if (tp->version == RTL_VER_01)
-+			ether_addr_copy(dev->dev_addr, sa.sa_data);
-+		else
-+			ret = rtl8152_set_mac_address(dev, &sa);
- 
--		memcpy(dev->dev_addr, node_id, dev->addr_len);
--		memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
-+		ether_addr_copy(dev->perm_addr, dev->dev_addr);
- 	}
-+
-+	return ret;
- }
- 
- static void read_bulk_callback(struct urb *urb)
--- 
-1.9.3
+V8 thread with 'why' reasoning and end goal:
+https://lkml.org/lkml/2014/8/27/628
+
+Original set [2] of ~28 patches I'm planning to present in 4 stages:
+
+  I. this 2 patches to fork off llvm upstreaming
+ II. bpf syscall with manpage and map implementation
+III. bpf program load/unload with verifier testsuite (1st user of
+     instruction macros from bpf.h and 1st user of load imm64 insn)
+ IV. tracing, etc
+
+[1] http://patchwork.ozlabs.org/patch/385266/
+[2] https://lkml.org/lkml/2014/8/26/859
