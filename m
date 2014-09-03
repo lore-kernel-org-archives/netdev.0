@@ -1,47 +1,52 @@
 From: <y@shlinux1.ap.freescale.net>
-Subject: [Patch net-next 00/11] net: fec: imx6sx multiqueue support
-Date: Thu, 4 Sep 2014 04:34:35 +0800
-Message-ID: <17599.8555649587$1409778747@news.gmane.org>
+Subject: [Patch net-next 10/11] ARM: Documentation: Update fec dts binding doc
+Date: Thu, 4 Sep 2014 04:34:45 +0800
+Message-ID: <7884.18159722841$1409778749@news.gmane.org>
+References: <1409776486-1403-1-git-send-email-y>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, Frank Li <Frank.Li@freescale.com>
-To: <b38611@freescale.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0100.outbound.protection.outlook.com ([65.55.169.100]:35324
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755923AbaICVMK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 17:12:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409776486-1403-1-git-send-email-y>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Frank Li <Frank.Li@freescale.com>
+From: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 
-These patches enable i.MX6SX multi queue support.
-i.MX6SX support 3 queue and AVB feature. 
+    This patch update fec devicetree binding doc that add Optional
+    properties "fsl,num_tx_queues" and "fsl,num_rx_queues".
 
-Frank Li (3):
-  net:fec: add enet-avb IP support
-  ARM: Documentation: Update fec dts binding doc
-  ARM: dts: imx6sx: add multi-queue support enet
+Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+---
+ Documentation/devicetree/bindings/net/fsl-fec.txt | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Fugang Duan (8):
-  net:fec: add enet refrence clock for i.MX 6SX chip
-  net:fec: add enet AVB feature macro define for imx6sx
-  net:fec: use multiqueue interface to allocate Ethernet device
-  net:fec: add multiqueue support
-  net:fec: Disable enet-avb MAC instead of reset MAC
-  net:fec: Add fsl,imx6sx-fec  compatible strings
-  net:fec: change FEC alignment to 64 bytes for ARM platform
-  net:fec: remove unnessary memory copy for address alignment in .xmit()
-
- Documentation/devicetree/bindings/net/fsl-fec.txt |   6 +
- arch/arm/boot/dts/imx6sx.dtsi                     |   2 +
- drivers/net/ethernet/freescale/fec.h              | 151 +++-
- drivers/net/ethernet/freescale/fec_main.c         | 877 +++++++++++++++-------
- 4 files changed, 750 insertions(+), 286 deletions(-)
-
+diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
+index 8a2c7b5..4da148d 100644
+--- a/Documentation/devicetree/bindings/net/fsl-fec.txt
++++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
+@@ -16,6 +16,12 @@ Optional properties:
+ - phy-handle : phandle to the PHY device connected to this device.
+ - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
+   Use instead of phy-handle.
++- fsl,num_tx_queues : The property is valid for enet-avb IP, which supports
++  hw multi queues. Should specify the tx queue number, otherwise set tx queue
++  number to 1.
++- fsl,num_rx_queues : The property is valid for enet-avb IP, which supports
++  hw multi queues. Should specify the rx queue number, otherwise set rx queue
++  number to 1.
+ 
+ Optional subnodes:
+ - mdio : specifies the mdio bus in the FEC, used as a container for phy nodes
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
