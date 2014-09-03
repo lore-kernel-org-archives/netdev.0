@@ -1,8 +1,7 @@
 From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: [patch net-next 05/13] net-sysfs: expose physical switch
-	id for particular device
-Date: Wed,  3 Sep 2014 11:24:52 +0200
-Message-ID: <1409736300-12303-6-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 07/13] dsa: implement ndo_swdev_get_id
+Date: Wed,  3 Sep 2014 11:24:54 +0200
+Message-ID: <1409736300-12303-8-git-send-email-jiri@resnulli.us>
 References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -31,57 +30,99 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
 ---
- net/core/net-sysfs.c | 24 ++++++++++++++++++++++++
- 1 file changed, 24 insertions(+)
+ include/linux/netdevice.h |  3 ++-
+ include/net/dsa.h         |  1 +
+ net/dsa/Kconfig           |  2 +-
+ net/dsa/dsa.c             |  3 +++
+ net/dsa/slave.c           | 10 ++++++++++
+ 5 files changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 55dc4da..51cd5ab 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -12,6 +12,7 @@
- #include <linux/capability.h>
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
-+#include <net/switchdev.h>
- #include <linux/if_arp.h>
- #include <linux/slab.h>
- #include <linux/nsproxy.h>
-@@ -399,6 +400,28 @@ static ssize_t phys_port_id_show(struct device *dev,
- }
- static DEVICE_ATTR_RO(phys_port_id);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 6a009d1..7ee070f 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -41,7 +41,6 @@
  
-+static ssize_t phys_switch_id_show(struct device *dev,
-+				   struct device_attribute *attr, char *buf)
-+{
-+	struct net_device *netdev = to_net_dev(dev);
-+	ssize_t ret = -EINVAL;
+ #include <linux/ethtool.h>
+ #include <net/net_namespace.h>
+-#include <net/dsa.h>
+ #ifdef CONFIG_DCB
+ #include <net/dcbnl.h>
+ #endif
+@@ -1259,6 +1258,8 @@ enum netdev_priv_flags {
+ #define IFF_LIVE_ADDR_CHANGE		IFF_LIVE_ADDR_CHANGE
+ #define IFF_MACVLAN			IFF_MACVLAN
+ 
++#include <net/dsa.h>
 +
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
-+	if (dev_isalive(netdev)) {
-+		struct netdev_phys_item_id ppid;
-+
-+		ret = swdev_get_id(netdev, &ppid);
-+		if (!ret)
-+			ret = sprintf(buf, "%*phN\n", ppid.id_len, ppid.id);
-+	}
-+	rtnl_unlock();
-+
-+	return ret;
-+}
-+static DEVICE_ATTR_RO(phys_switch_id);
-+
- static struct attribute *net_class_attrs[] = {
- 	&dev_attr_netdev_group.attr,
- 	&dev_attr_type.attr,
-@@ -423,6 +446,7 @@ static struct attribute *net_class_attrs[] = {
- 	&dev_attr_flags.attr,
- 	&dev_attr_tx_queue_len.attr,
- 	&dev_attr_phys_port_id.attr,
-+	&dev_attr_phys_switch_id.attr,
- 	NULL,
+ /**
+  *	struct net_device - The DEVICE structure.
+  *		Actually, this whole structure is a big mistake.  It mixes I/O
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 9771292..d60cd42 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -140,6 +140,7 @@ struct dsa_switch {
+ 	u32			phys_mii_mask;
+ 	struct mii_bus		*slave_mii_bus;
+ 	struct net_device	*ports[DSA_MAX_PORTS];
++	struct netdev_phys_item_id psid;
  };
- ATTRIBUTE_GROUPS(net_class);
+ 
+ static inline bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index a585fd6..4e144a2 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -1,6 +1,6 @@
+ config HAVE_NET_DSA
+ 	def_bool y
+-	depends on NETDEVICES && !S390
++	depends on NETDEVICES && NET_SWITCHDEV && !S390
+ 
+ # Drivers must select NET_DSA and the appropriate tagging format
+ 
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 61f145c..374912d 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -202,6 +202,9 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 		ds->ports[i] = slave_dev;
+ 	}
+ 
++	ds->psid.id_len = MAX_PHYS_ITEM_ID_LEN;
++	get_random_bytes(ds->psid.id, ds->psid.id_len);
++
+ 	return ds;
+ 
+ out_free:
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 7333a4a..d79a6c7 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -192,6 +192,15 @@ static netdev_tx_t dsa_slave_notag_xmit(struct sk_buff *skb,
+ 	return NETDEV_TX_OK;
+ }
+ 
++static int dsa_slave_swdev_get_id(struct net_device *dev,
++				  struct netdev_phys_item_id *psid)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++
++	memcpy(psid, &ds->psid, sizeof(*psid));
++	return 0;
++}
+ 
+ /* ethtool operations *******************************************************/
+ static int
+@@ -323,6 +332,7 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+ 	.ndo_set_rx_mode	= dsa_slave_set_rx_mode,
+ 	.ndo_set_mac_address	= dsa_slave_set_mac_address,
+ 	.ndo_do_ioctl		= dsa_slave_ioctl,
++	.ndo_swdev_get_id	= dsa_slave_swdev_get_id,
+ };
+ 
+ static const struct dsa_device_ops notag_netdev_ops = {
 -- 
 1.9.3
