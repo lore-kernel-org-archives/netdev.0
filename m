@@ -1,57 +1,70 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH 2/2] net-timestamp: Make the clone operation stand-alone
- from phy timestamping
-Date: Wed, 03 Sep 2014 16:02:39 -0700
-Message-ID: <54079E0F.5010604@intel.com>
-References: <20140903155022.1896.59030.stgit@ahduyck-bv4.jf.intel.com>	 <20140903155357.1896.92538.stgit@ahduyck-bv4.jf.intel.com>	 <1409778438.26422.54.camel@edumazet-glaptop2.roam.corp.google.com> <1409781908.26422.55.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: filter: export pkt_type_offset() helper
+Date: Wed, 3 Sep 2014 16:14:31 -0700
+Message-ID: <CAADnVQKNHL7iY=VHp4bs5k2hSDf8jy7H-0H0SgYjb81S25XB9Q@mail.gmail.com>
+References: <1409778511-21273-1-git-send-email-kda@linux-powerpc.org>
+	<54078FBC.5050402@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
-	davem@davemloft.net, willemb@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Denis Kirjanov <kda@linux-powerpc.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Markos Chandras <markos.chandras@imgtec.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64858 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755820AbaICXCl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 19:02:41 -0400
-In-Reply-To: <1409781908.26422.55.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-qa0-f47.google.com ([209.85.216.47]:45160 "EHLO
+	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933504AbaICXOc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 19:14:32 -0400
+Received: by mail-qa0-f47.google.com with SMTP id x12so8716750qac.34
+        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 16:14:31 -0700 (PDT)
+In-Reply-To: <54078FBC.5050402@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/03/2014 03:05 PM, Eric Dumazet wrote:
-> On Wed, 2014-09-03 at 14:07 -0700, Eric Dumazet wrote:
-> 
+On Wed, Sep 3, 2014 at 3:01 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 09/03/2014 11:08 PM, Denis Kirjanov wrote:
 >>
->> Normally, if one skb holds a reference to a socket, it should have
->> skb->destructor set to a cleanup function.
+>
+>> +static int __init init_pkt_type_offset(void)
+>>   {
+>>         struct sk_buff skb_probe = { .pkt_type = ~0, };
+>>         u8 *ct = (u8 *) &skb_probe;
+>>         unsigned int off;
 >>
->> Otherwise, we rely on callers following a convention, to release sk
->> reference.
->>
->> If you believe its needed, it should be dully documented.
-> 
-> 
-> BTW, skb_orphan() would BUG() on this case (skb->destrutor == NULL and
-> skb->sk != NULL)
+>> +       pkt_type_offset = -1;
+>>         for (off = 0; off < sizeof(struct sk_buff); off++) {
+>> -               if (ct[off] == PKT_TYPE_MAX)
+>> +               if (ct[off] == PKT_TYPE_MAX) {
+>> +                       pkt_type_offset = off;
+>>                         return off;
+>> +               }
+>>         }
+>
+>
+> Why not BUG_ON() when pkt_type_offset could not be found?
+>
+> That way we would know that something is broken and you can
+> spare the checks for negative offsets everywhere ...
 
-That was why we were setting skb->sk to null before passing it to
-sock_queue_err_skb.  I think I found the reason why things were done the
-way they were.  It looks like skb_orphan is called in
-sock_queue_err_skb.  So any destructor added would be fired there before
-before being replaced.
+also such BUG_ON will be right in the face, since the kernel
+won't even boot :)
+I guess we can only hit it if compiler changes and starts
+doing crazing things with bitfields.
+Eric, you're the original author of this function, thoughts?
 
-The only part I am not sure about is if that would actually be any sort
-of issue.  Do we really need to hold the extra reference to the socket
-all the way through the sock_queue_err_skb call or can we just let it
-get dropped with the call to skb_orphan and let the fact that the
-message is being queued be good enough?
+>>         case SKF_AD_OFF + SKF_AD_PKTTYPE:
+>> +               if (pkt_type_offset < 0)
+>> +                       return false;
 
-I'm not sure due to the comment about "before exiting rcu section, make
-sure dst is refcounted".  It kind of implies I should be able to hand
-off the reference counts without worrying about the socket being freed
-out from under me.
+with BUG_ON we wouldn't need this check.
 
-Thanks,
+>>                 *insn = BPF_LDX_MEM(BPF_B, BPF_REG_A, BPF_REG_CTX,
+>> -                                   pkt_type_offset());
+>> +                                   pkt_type_offset);
+>>                 if (insn->off < 0)
+>>                         return false;
 
-Alex
+and this one too.
+and other checks in arch/*/jit
