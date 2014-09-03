@@ -1,512 +1,207 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH RFC v9 net-next 3/4] net: filter: move eBPF instruction macros
-Date: Tue,  2 Sep 2014 20:17:25 -0700
-Message-ID: <1409714246-31054-4-git-send-email-ast@plumgrid.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: [PATCH RFC v9 net-next 4/4] net: filter: move common defines into bpf_common.h
+Date: Tue,  2 Sep 2014 20:17:26 -0700
+Message-ID: <1409714246-31054-5-git-send-email-ast@plumgrid.com>
 References: <1409714246-31054-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409714246-31054-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409714246-31054-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-move instruction macros (like BPF_MOV64_REG or BPF_ALU32_IMM)
-from linux/filter.h into uapi/linux/bpf.h
-so that userspace programs can use them.
+userspace programs that wish to use eBPF instruction macros
+(like BPF_MOV64_REG or BPF_ALU32_IMM) need to include two files:
+uapi/linux/filter.h and uapi/linux/bpf.h
+Move common macro definitions that are shared between
+classic BPF and eBPF into uapi/linux/bpf_common.h
 
-verifier testsuite (in later patches) will be using them.
-
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 ---
- include/linux/filter.h   |  226 ----------------------------------------------
- include/uapi/linux/bpf.h |  226 ++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 226 insertions(+), 226 deletions(-)
+ include/uapi/linux/Kbuild       |    1 +
+ include/uapi/linux/bpf.h        |    1 +
+ include/uapi/linux/bpf_common.h |   55 ++++++++++++++++++++++++++++++++++++++
+ include/uapi/linux/filter.h     |   56 +--------------------------------------
+ 4 files changed, 58 insertions(+), 55 deletions(-)
+ create mode 100644 include/uapi/linux/bpf_common.h
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index ff77842af3e1..c220b27b10df 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -37,232 +37,6 @@ struct bpf_prog_info;
- /* BPF program can access up to 512 bytes of stack space. */
- #define MAX_BPF_STACK	512
- 
--/* Helper macros for filter block array initializers. */
--
--/* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
--
--#define BPF_ALU64_REG(OP, DST, SRC)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_X,	\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = 0 })
--
--#define BPF_ALU32_REG(OP, DST, SRC)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU | BPF_OP(OP) | BPF_X,		\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = 0 })
--
--/* ALU ops on immediates, bpf_add|sub|...: dst_reg += imm32 */
--
--#define BPF_ALU64_IMM(OP, DST, IMM)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_K,	\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--#define BPF_ALU32_IMM(OP, DST, IMM)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU | BPF_OP(OP) | BPF_K,		\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--/* Endianess conversion, cpu_to_{l,b}e(), {l,b}e_to_cpu() */
--
--#define BPF_ENDIAN(TYPE, DST, LEN)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU | BPF_END | BPF_SRC(TYPE),	\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = LEN })
--
--/* Short form of mov, dst_reg = src_reg */
--
--#define BPF_MOV64_REG(DST, SRC)					\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU64 | BPF_MOV | BPF_X,		\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = 0 })
--
--#define BPF_MOV32_REG(DST, SRC)					\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU | BPF_MOV | BPF_X,		\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = 0 })
--
--/* Short form of mov, dst_reg = imm32 */
--
--#define BPF_MOV64_IMM(DST, IMM)					\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU64 | BPF_MOV | BPF_K,		\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--#define BPF_MOV32_IMM(DST, IMM)					\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU | BPF_MOV | BPF_K,		\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--/* BPF_LD_IMM64 macro encodes single 'load 64-bit immediate' insn */
--#define BPF_LD_IMM64(DST, IMM)					\
--	BPF_LD_IMM64_RAW(DST, 0, IMM)
--
--#define BPF_LD_IMM64_RAW(DST, SRC, IMM)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_LD | BPF_DW | BPF_IMM,		\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = (__u32) (IMM) }),			\
--	((struct bpf_insn) {					\
--		.code  = 0, /* zero is reserved opcode */	\
--		.dst_reg = 0,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = ((__u64) (IMM)) >> 32 })
--
--#define BPF_PSEUDO_MAP_FD	1
--
--/* pseudo BPF_LD_IMM64 insn used to refer to process-local map_fd */
--#define BPF_LD_MAP_FD(DST, MAP_FD)				\
--	BPF_LD_IMM64_RAW(DST, BPF_PSEUDO_MAP_FD, MAP_FD)
--
--/* Short form of mov based on type, BPF_X: dst_reg = src_reg, BPF_K: dst_reg = imm32 */
--
--#define BPF_MOV64_RAW(TYPE, DST, SRC, IMM)			\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU64 | BPF_MOV | BPF_SRC(TYPE),	\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--#define BPF_MOV32_RAW(TYPE, DST, SRC, IMM)			\
--	((struct bpf_insn) {					\
--		.code  = BPF_ALU | BPF_MOV | BPF_SRC(TYPE),	\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--/* Direct packet access, R0 = *(uint *) (skb->data + imm32) */
--
--#define BPF_LD_ABS(SIZE, IMM)					\
--	((struct bpf_insn) {					\
--		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_ABS,	\
--		.dst_reg = 0,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--/* Indirect packet access, R0 = *(uint *) (skb->data + src_reg + imm32) */
--
--#define BPF_LD_IND(SIZE, SRC, IMM)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_IND,	\
--		.dst_reg = 0,					\
--		.src_reg = SRC,					\
--		.off   = 0,					\
--		.imm   = IMM })
--
--/* Memory load, dst_reg = *(uint *) (src_reg + off16) */
--
--#define BPF_LDX_MEM(SIZE, DST, SRC, OFF)			\
--	((struct bpf_insn) {					\
--		.code  = BPF_LDX | BPF_SIZE(SIZE) | BPF_MEM,	\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = OFF,					\
--		.imm   = 0 })
--
--/* Memory store, *(uint *) (dst_reg + off16) = src_reg */
--
--#define BPF_STX_MEM(SIZE, DST, SRC, OFF)			\
--	((struct bpf_insn) {					\
--		.code  = BPF_STX | BPF_SIZE(SIZE) | BPF_MEM,	\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = OFF,					\
--		.imm   = 0 })
--
--/* Memory store, *(uint *) (dst_reg + off16) = imm32 */
--
--#define BPF_ST_MEM(SIZE, DST, OFF, IMM)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_ST | BPF_SIZE(SIZE) | BPF_MEM,	\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = OFF,					\
--		.imm   = IMM })
--
--/* Conditional jumps against registers, if (dst_reg 'op' src_reg) goto pc + off16 */
--
--#define BPF_JMP_REG(OP, DST, SRC, OFF)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_JMP | BPF_OP(OP) | BPF_X,		\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = OFF,					\
--		.imm   = 0 })
--
--/* Conditional jumps against immediates, if (dst_reg 'op' imm32) goto pc + off16 */
--
--#define BPF_JMP_IMM(OP, DST, IMM, OFF)				\
--	((struct bpf_insn) {					\
--		.code  = BPF_JMP | BPF_OP(OP) | BPF_K,		\
--		.dst_reg = DST,					\
--		.src_reg = 0,					\
--		.off   = OFF,					\
--		.imm   = IMM })
--
--/* Function call */
--
--#define BPF_EMIT_CALL(FUNC)					\
--	((struct bpf_insn) {					\
--		.code  = BPF_JMP | BPF_CALL,			\
--		.dst_reg = 0,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = ((FUNC) - __bpf_call_base) })
--
--/* Raw code statement block */
--
--#define BPF_RAW_INSN(CODE, DST, SRC, OFF, IMM)			\
--	((struct bpf_insn) {					\
--		.code  = CODE,					\
--		.dst_reg = DST,					\
--		.src_reg = SRC,					\
--		.off   = OFF,					\
--		.imm   = IMM })
--
--/* Program exit */
--
--#define BPF_EXIT_INSN()						\
--	((struct bpf_insn) {					\
--		.code  = BPF_JMP | BPF_EXIT,			\
--		.dst_reg = 0,					\
--		.src_reg = 0,					\
--		.off   = 0,					\
--		.imm   = 0 })
--
- #define bytes_to_bpf_size(bytes)				\
- ({								\
- 	int bpf_size = -EINVAL;					\
+diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+index fb3f7b675229..abd0a85cedc7 100644
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@ -68,6 +68,7 @@ header-y += binfmts.h
+ header-y += blkpg.h
+ header-y += blktrace_api.h
+ header-y += bpf.h
++header-y += bpf_common.h
+ header-y += bpqether.h
+ header-y += bsg.h
+ header-y += btrfs.h
 diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 13bd4bf3b100..97edd23622fc 100644
+index 97edd23622fc..df9c9bdaa8a0 100644
 --- a/include/uapi/linux/bpf.h
 +++ b/include/uapi/linux/bpf.h
-@@ -54,6 +54,232 @@ enum {
- /* BPF has 10 general purpose 64-bit registers and stack frame. */
- #define MAX_BPF_REG	__MAX_BPF_REG
+@@ -8,6 +8,7 @@
+ #define _UAPI__LINUX_BPF_H__
  
-+/* Helper macros for filter block array initializers. */
+ #include <linux/types.h>
++#include <linux/bpf_common.h>
+ 
+ /* Extended instruction set based on top of classic BPF */
+ 
+diff --git a/include/uapi/linux/bpf_common.h b/include/uapi/linux/bpf_common.h
+new file mode 100644
+index 000000000000..e2d8b1ca3730
+--- /dev/null
++++ b/include/uapi/linux/bpf_common.h
+@@ -0,0 +1,55 @@
++#ifndef _UAPI__LINUX_BPF_COMMON_H__
++#define _UAPI__LINUX_BPF_COMMON_H__
 +
-+/* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
++/* Instruction classes */
++#define BPF_CLASS(code) ((code) & 0x07)
++#define         BPF_LD          0x00
++#define         BPF_LDX         0x01
++#define         BPF_ST          0x02
++#define         BPF_STX         0x03
++#define         BPF_ALU         0x04
++#define         BPF_JMP         0x05
++#define         BPF_RET         0x06
++#define         BPF_MISC        0x07
 +
-+#define BPF_ALU64_REG(OP, DST, SRC)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_X,	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
++/* ld/ldx fields */
++#define BPF_SIZE(code)  ((code) & 0x18)
++#define         BPF_W           0x00
++#define         BPF_H           0x08
++#define         BPF_B           0x10
++#define BPF_MODE(code)  ((code) & 0xe0)
++#define         BPF_IMM         0x00
++#define         BPF_ABS         0x20
++#define         BPF_IND         0x40
++#define         BPF_MEM         0x60
++#define         BPF_LEN         0x80
++#define         BPF_MSH         0xa0
 +
-+#define BPF_ALU32_REG(OP, DST, SRC)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_OP(OP) | BPF_X,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
++/* alu/jmp fields */
++#define BPF_OP(code)    ((code) & 0xf0)
++#define         BPF_ADD         0x00
++#define         BPF_SUB         0x10
++#define         BPF_MUL         0x20
++#define         BPF_DIV         0x30
++#define         BPF_OR          0x40
++#define         BPF_AND         0x50
++#define         BPF_LSH         0x60
++#define         BPF_RSH         0x70
++#define         BPF_NEG         0x80
++#define		BPF_MOD		0x90
++#define		BPF_XOR		0xa0
 +
-+/* ALU ops on immediates, bpf_add|sub|...: dst_reg += imm32 */
++#define         BPF_JA          0x00
++#define         BPF_JEQ         0x10
++#define         BPF_JGT         0x20
++#define         BPF_JGE         0x30
++#define         BPF_JSET        0x40
++#define BPF_SRC(code)   ((code) & 0x08)
++#define         BPF_K           0x00
++#define         BPF_X           0x08
 +
-+#define BPF_ALU64_IMM(OP, DST, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_K,	\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
++#ifndef BPF_MAXINSNS
++#define BPF_MAXINSNS 4096
++#endif
 +
-+#define BPF_ALU32_IMM(OP, DST, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_OP(OP) | BPF_K,		\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
-+
-+/* Endianess conversion, cpu_to_{l,b}e(), {l,b}e_to_cpu() */
-+
-+#define BPF_ENDIAN(TYPE, DST, LEN)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_END | BPF_SRC(TYPE),	\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = LEN })
-+
-+/* Short form of mov, dst_reg = src_reg */
-+
-+#define BPF_MOV64_REG(DST, SRC)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_MOV | BPF_X,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
-+
-+#define BPF_MOV32_REG(DST, SRC)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_MOV | BPF_X,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
-+
-+/* Short form of mov, dst_reg = imm32 */
-+
-+#define BPF_MOV64_IMM(DST, IMM)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_MOV | BPF_K,		\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
-+
-+#define BPF_MOV32_IMM(DST, IMM)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_MOV | BPF_K,		\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
-+
-+/* BPF_LD_IMM64 macro encodes single 'load 64-bit immediate' insn */
-+#define BPF_LD_IMM64(DST, IMM)					\
-+	BPF_LD_IMM64_RAW(DST, 0, IMM)
-+
-+#define BPF_LD_IMM64_RAW(DST, SRC, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_LD | BPF_DW | BPF_IMM,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = (__u32) (IMM) }),			\
-+	((struct bpf_insn) {					\
-+		.code  = 0, /* zero is reserved opcode */	\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = ((__u64) (IMM)) >> 32 })
-+
-+#define BPF_PSEUDO_MAP_FD	1
-+
-+/* pseudo BPF_LD_IMM64 insn used to refer to process-local map_fd */
-+#define BPF_LD_MAP_FD(DST, MAP_FD)				\
-+	BPF_LD_IMM64_RAW(DST, BPF_PSEUDO_MAP_FD, MAP_FD)
-+
-+/* Short form of mov based on type, BPF_X: dst_reg = src_reg, BPF_K: dst_reg = imm32 */
-+
-+#define BPF_MOV64_RAW(TYPE, DST, SRC, IMM)			\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_MOV | BPF_SRC(TYPE),	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
-+
-+#define BPF_MOV32_RAW(TYPE, DST, SRC, IMM)			\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_MOV | BPF_SRC(TYPE),	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
-+
-+/* Direct packet access, R0 = *(uint *) (skb->data + imm32) */
-+
-+#define BPF_LD_ABS(SIZE, IMM)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_ABS,	\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
-+
-+/* Indirect packet access, R0 = *(uint *) (skb->data + src_reg + imm32) */
-+
-+#define BPF_LD_IND(SIZE, SRC, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_IND,	\
-+		.dst_reg = 0,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
-+
-+/* Memory load, dst_reg = *(uint *) (src_reg + off16) */
-+
-+#define BPF_LDX_MEM(SIZE, DST, SRC, OFF)			\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_LDX | BPF_SIZE(SIZE) | BPF_MEM,	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = OFF,					\
-+		.imm   = 0 })
-+
-+/* Memory store, *(uint *) (dst_reg + off16) = src_reg */
-+
-+#define BPF_STX_MEM(SIZE, DST, SRC, OFF)			\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_STX | BPF_SIZE(SIZE) | BPF_MEM,	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = OFF,					\
-+		.imm   = 0 })
-+
-+/* Memory store, *(uint *) (dst_reg + off16) = imm32 */
-+
-+#define BPF_ST_MEM(SIZE, DST, OFF, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ST | BPF_SIZE(SIZE) | BPF_MEM,	\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = OFF,					\
-+		.imm   = IMM })
-+
-+/* Conditional jumps against registers, if (dst_reg 'op' src_reg) goto pc + off16 */
-+
-+#define BPF_JMP_REG(OP, DST, SRC, OFF)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_JMP | BPF_OP(OP) | BPF_X,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = OFF,					\
-+		.imm   = 0 })
-+
-+/* Conditional jumps against immediates, if (dst_reg 'op' imm32) goto pc + off16 */
-+
-+#define BPF_JMP_IMM(OP, DST, IMM, OFF)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_JMP | BPF_OP(OP) | BPF_K,		\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = OFF,					\
-+		.imm   = IMM })
-+
-+/* Function call */
-+
-+#define BPF_EMIT_CALL(FUNC)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_JMP | BPF_CALL,			\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = ((FUNC) - __bpf_call_base) })
-+
-+/* Raw code statement block */
-+
-+#define BPF_RAW_INSN(CODE, DST, SRC, OFF, IMM)			\
-+	((struct bpf_insn) {					\
-+		.code  = CODE,					\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = OFF,					\
-+		.imm   = IMM })
-+
-+/* Program exit */
-+
-+#define BPF_EXIT_INSN()						\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_JMP | BPF_EXIT,			\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
-+
- struct bpf_insn {
- 	__u8	code;		/* opcode */
- 	__u8	dst_reg:4;	/* dest register */
++#endif /* _UAPI__LINUX_BPF_COMMON_H__ */
+diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
+index 253b4d42cf2b..47785d5ecf17 100644
+--- a/include/uapi/linux/filter.h
++++ b/include/uapi/linux/filter.h
+@@ -7,7 +7,7 @@
+ 
+ #include <linux/compiler.h>
+ #include <linux/types.h>
+-
++#include <linux/bpf_common.h>
+ 
+ /*
+  * Current version of the filter code architecture.
+@@ -32,56 +32,6 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ 	struct sock_filter __user *filter;
+ };
+ 
+-/*
+- * Instruction classes
+- */
+-
+-#define BPF_CLASS(code) ((code) & 0x07)
+-#define         BPF_LD          0x00
+-#define         BPF_LDX         0x01
+-#define         BPF_ST          0x02
+-#define         BPF_STX         0x03
+-#define         BPF_ALU         0x04
+-#define         BPF_JMP         0x05
+-#define         BPF_RET         0x06
+-#define         BPF_MISC        0x07
+-
+-/* ld/ldx fields */
+-#define BPF_SIZE(code)  ((code) & 0x18)
+-#define         BPF_W           0x00
+-#define         BPF_H           0x08
+-#define         BPF_B           0x10
+-#define BPF_MODE(code)  ((code) & 0xe0)
+-#define         BPF_IMM         0x00
+-#define         BPF_ABS         0x20
+-#define         BPF_IND         0x40
+-#define         BPF_MEM         0x60
+-#define         BPF_LEN         0x80
+-#define         BPF_MSH         0xa0
+-
+-/* alu/jmp fields */
+-#define BPF_OP(code)    ((code) & 0xf0)
+-#define         BPF_ADD         0x00
+-#define         BPF_SUB         0x10
+-#define         BPF_MUL         0x20
+-#define         BPF_DIV         0x30
+-#define         BPF_OR          0x40
+-#define         BPF_AND         0x50
+-#define         BPF_LSH         0x60
+-#define         BPF_RSH         0x70
+-#define         BPF_NEG         0x80
+-#define		BPF_MOD		0x90
+-#define		BPF_XOR		0xa0
+-
+-#define         BPF_JA          0x00
+-#define         BPF_JEQ         0x10
+-#define         BPF_JGT         0x20
+-#define         BPF_JGE         0x30
+-#define         BPF_JSET        0x40
+-#define BPF_SRC(code)   ((code) & 0x08)
+-#define         BPF_K           0x00
+-#define         BPF_X           0x08
+-
+ /* ret - BPF_K and BPF_X also apply */
+ #define BPF_RVAL(code)  ((code) & 0x18)
+ #define         BPF_A           0x10
+@@ -91,10 +41,6 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ #define         BPF_TAX         0x00
+ #define         BPF_TXA         0x80
+ 
+-#ifndef BPF_MAXINSNS
+-#define BPF_MAXINSNS 4096
+-#endif
+-
+ /*
+  * Macros for filter block array initializers.
+  */
 -- 
 1.7.9.5
