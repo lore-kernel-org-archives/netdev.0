@@ -1,7 +1,7 @@
 From: <y@shlinux1.ap.freescale.net>
-Subject: [Patch net-next 05/11] net:fec: Disable enet-avb MAC instead of reset MAC
-Date: Thu, 4 Sep 2014 04:34:40 +0800
-Message-ID: <4443.35892466388$1409778754@news.gmane.org>
+Subject: [Patch net-next 01/11] net:fec: add enet refrence clock for i.MX 6SX chip
+Date: Thu, 4 Sep 2014 04:34:36 +0800
+Message-ID: <3174.69678489051$1409778757@news.gmane.org>
 References: <1409776486-1403-1-git-send-email-y>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,60 +17,85 @@ List-Id: netdev.vger.kernel.org
 
 From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 
-For i.MX6SX enet use AXI bus, reset MAC will make system bus dead
-if ENET-AXI bus has pending access (AHB bus should not have such issue).
-So, disable enet with AVB MAC instead of reset MAC itself.
+i.MX6sx enet has below clocks for user config:
+clk_ipg: ipg_clk_s, ipg_clk_mac0_s, 66Mhz
+clk_ahb: enet system clock, it is enet AXI clock for imx6sx.
+	 For imx6sx, it alos is the clock source of interrupt coalescing.
+	 The clock range: 200Mhz ~ 266Mhz.
+clk_ref: refrence clock for tx and rx. For imx6sx enet RGMII mode,
+	 the refrence clock is 125Mhz coming from internal PLL or external.
+	 In i.MX6sx-arm2 board, the clock is from internal PLL.
+	 clk_ref is optional, depends on board.
+clk_enet_out: The clock can be output from internal PLL. It can supply 50Mhz
+	 clock for phy. clk_enet_out is optional, depends on chip and board.
+clk_ptp: 1588 ts clock. It is optional, depends on chip.
+
+The patch add clk_ref to distiguish the different clocks.
 
 Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 26 ++++++++++++++++++++------
- 1 file changed, 20 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/freescale/fec.h      |  1 +
+ drivers/net/ethernet/freescale/fec_main.c | 17 +++++++++++++++++
+ 2 files changed, 18 insertions(+)
 
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index ee41d98..635772b 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -272,6 +272,7 @@ struct fec_enet_private {
+ 
+ 	struct clk *clk_ipg;
+ 	struct clk *clk_ahb;
++	struct clk *clk_ref;
+ 	struct clk *clk_enet_out;
+ 	struct clk *clk_ptp;
+ 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index f973a92..5dab6a6 100644
+index 89355a7..c21ecff1 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -948,9 +948,16 @@ fec_restart(struct net_device *ndev)
- 	u32 ecntl = 0x2; /* ETHEREN */
- 	int i;
- 
--	/* Whack a reset.  We should wait for this. */
--	writel(1, fep->hwp + FEC_ECNTRL);
--	udelay(10);
-+	/* Whack a reset.  We should wait for this.
-+	 * For i.MX6SX SOC, enet use AXI bus, we use disable MAC
-+	 * instead of reset MAC itself.
-+	 */
-+	if (id_entry && id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
-+		writel(0, fep->hwp + FEC_ECNTRL);
-+	} else {
-+		writel(1, fep->hwp + FEC_ECNTRL);
-+		udelay(10);
-+	}
- 
- 	/*
- 	 * enet-mac reset will reset mac address registers too,
-@@ -1122,9 +1129,16 @@ fec_stop(struct net_device *ndev)
- 			netdev_err(ndev, "Graceful transmit stop did not complete!\n");
+@@ -1621,6 +1621,11 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 			}
+ 			mutex_unlock(&fep->ptp_clk_mutex);
+ 		}
++		if (fep->clk_ref) {
++			ret = clk_prepare_enable(fep->clk_ref);
++			if (ret)
++				goto failed_clk_ref;
++		}
+ 	} else {
+ 		clk_disable_unprepare(fep->clk_ahb);
+ 		clk_disable_unprepare(fep->clk_ipg);
+@@ -1632,9 +1637,15 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 			fep->ptp_clk_on = false;
+ 			mutex_unlock(&fep->ptp_clk_mutex);
+ 		}
++		if (fep->clk_ref)
++			clk_disable_unprepare(fep->clk_ref);
  	}
  
--	/* Whack a reset.  We should wait for this. */
--	writel(1, fep->hwp + FEC_ECNTRL);
--	udelay(10);
-+	/* Whack a reset.  We should wait for this.
-+	 * For i.MX6SX SOC, enet use AXI bus, we use disable MAC
-+	 * instead of reset MAC itself.
-+	 */
-+	if (id_entry && id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
-+		writel(0, fep->hwp + FEC_ECNTRL);
-+	} else {
-+		writel(1, fep->hwp + FEC_ECNTRL);
-+		udelay(10);
-+	}
- 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
- 	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+ 	return 0;
++
++failed_clk_ref:
++	if (fep->clk_ref)
++		clk_disable_unprepare(fep->clk_ref);
+ failed_clk_ptp:
+ 	if (fep->clk_enet_out)
+ 		clk_disable_unprepare(fep->clk_enet_out);
+@@ -2637,6 +2648,12 @@ fec_probe(struct platform_device *pdev)
  
+ 	fep->ptp_clk_on = false;
+ 	mutex_init(&fep->ptp_clk_mutex);
++
++	/* clk_ref is optional, depends on board */
++	fep->clk_ref = devm_clk_get(&pdev->dev, "enet_clk_ref");
++	if (IS_ERR(fep->clk_ref))
++		fep->clk_ref = NULL;
++
+ 	fep->clk_ptp = devm_clk_get(&pdev->dev, "ptp");
+ 	fep->bufdesc_ex =
+ 		pdev->id_entry->driver_data & FEC_QUIRK_HAS_BUFDESC_EX;
 -- 
 1.9.1
 
