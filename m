@@ -1,50 +1,88 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
- is runnable
-Date: Wed, 03 Sep 2014 14:59:53 +0800
-Message-ID: <5406BC69.2090508@redhat.com>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>	 <1408608310-13579-2-git-send-email-jasowang@redhat.com>	 <1408683665.5648.69.camel@marge.simpson.net>	 <20140822073653.GA7372@gmail.com> <53F70887.8030602@redhat.com> <1408716976.5604.18.camel@edumazet-glaptop2.roam.corp.google.com> <53FB3715.7070009@linux.intel.com> <53FC3466.8000304@redhat.com> <5404186E.4090409@linux.intel.com> <54053AF8.6070907@redhat.com> <54055D9F.7000108@linux.intel.com> <54056459.4060100@redhat.com> <5406B365.5040604@linux.intel.com>
+From: Alex Gartrell <agartrell@fb.com>
+Subject: ipvs ipv6 tunnel forwarding sets expires on local route
+Date: Wed, 3 Sep 2014 00:03:23 -0700
+Message-ID: <5406BD3B.7050600@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, Peter Zijlstra <peterz@infradead.org>,
-	"Ingo Molnar jacob.e.keller@intel.com" <mingo@elte.hu>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11828 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753334AbaICHAc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 03:00:32 -0400
-In-Reply-To: <5406B365.5040604@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <lvs-devel@vger.kernel.org>, kernel-team <Kernel-team@fb.com>,
+	<ps@fb.com>, <traffic@fb.com>
+To: <netdev@vger.kernel.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/03/2014 02:21 PM, Eliezer Tamir wrote:
-> On 02/09/2014 09:31, Jason Wang wrote:
->> On 09/02/2014 02:03 PM, Eliezer Tamir wrote:
->>> On 02/09/2014 06:35, Jason Wang wrote:
->>>> Not sure whether this method will scale considering thousands of sockets
->>>> and processes.
->>> There may be millions of sockets, but in most cases only a handful of
->>> device queues per CPU to busy poll on. I have tested the epoll rfc
->>> code with hundreds of thousands of sockets and one or two device
->>> queues and is scales pretty well.
->>>
->>> The part I don't like in that code is the cumbersome mechanism I used
->>> to track the socket -> queue relationship. I think that if I had more
->>> time to work on it, I would instead look into extending the epoll
->>> interface so that libevent can tell the kernel what it wants, instead
->>> of having the busypoll code try and learn it.
->> I'd like to have a look at this rfc. Could you please give me a pointer?
->> I've done a quick search on kernel mailing list but didn't find it.
-> https://lkml.org/lkml/2013/8/21/192
->
-> Cheers,
-> Eliezer
-> --
+So we've been debugging a problem for a while in 3.10 stable (we're 
+currently upgrading from 3.2) and it appears that we're expiring and 
+ultimately garbage collecting the local route for an ip we're adding to 
+the loopback device, resulting in ICMPV6_NOROUTE errors for clients. 
+I'd like your advice on how to fix this.
 
-Thanks. I will have a look at this series.
+Repro:
+"""
+ipvsadm -R <<EOF
+-A -t [face::1]:15213 -s ch
+-a -t [face::1]:15213 -r 2401:db00:20:c001:face:0:45:0 -i
+EOF
+
+ip addr add dev lo face::1/128 || true
+"""
+
+This simply sets up a v6 service in ipvs and adds a real server ip which 
+is tunneling over ipip.  This is important because this bug only affects 
+tunneling mode.
+
+Within ipvs, in tunneling mode, we do the following when checking the 
+MTU in tunneling mode
+
+         /* MTU checking */
+         if (likely(!(rt_mode & IP_VS_RT_MODE_TUNNEL)))
+                 mtu = dst_mtu(&rt->dst);
+         else {
+                 struct sock *sk = skb->sk;
+
+                 mtu = dst_mtu(&rt->dst) - sizeof(struct ipv6hdr);
+                 if (mtu < IPV6_MIN_MTU) {
+                         IP_VS_DBG_RL("%s(): mtu less than %d\n", __func__,
+                                      IPV6_MIN_MTU);
+                         goto err_put;
+                 }
+                 ort = (struct rt6_info *) skb_dst(skb);
+                 old_flags = ort->rt6i_flags;
+                 if (!skb->dev && sk && sk->sk_state != TCP_TIME_WAIT)
+                         ort->dst.ops->update_pmtu(&ort->dst, sk, NULL, 
+mtu);
+         }
+
+So if there's a socket associated with the skb and it's not in 
+TCP_TIME_WAIT, we'll invoke the update_pmtu to ensure we generate 
+appropriately sized packets.
+
+commit 81aded2 "ipv6: Handle PMTU in ICMP error handlers" introduces the 
+following.
+
+@@ -1058,9 +1061,39 @@ static void ip6_rt_update_pmtu(struct dst_entry 
+*dst, u32 mtu)
+  			dst_metric_set(dst, RTAX_FEATURES, features);
+  		}
+  		dst_metric_set(dst, RTAX_MTU, mtu);
++		rt6_update_expires(rt6, net->ipv6.sysctl.ip6_rt_mtu_expires);
+  	}
+  }
+
+The net result is that we end up setting an expiry on the local route. 
+When we hit ip6_rt_mtu_expires, the route expires (and is later GC'ed). 
+  From that point forward we start ICMPV6_NOROUTE'ing packets in 
+ip6_rcv_finish until the address is removed and reinstalled.
+
+I've got a couple of (bad?) ideas on how to fix it.  We could simply 
+check rt6i_flags for (RTF_EXPIRES | RTF_CACHE) before setting expires. 
+We could also check for RTF_LOCAL.  Alternatively, cloning the rt and 
+updating that might be an appropriate thing to do (in case the 
+tunneled-to route increases its MTU).  I'm *completely* open to 
+suggestions :)
+
+Thank you for your help,
+
+-- 
+Alex Gartrell <agartrell@fb.com>
