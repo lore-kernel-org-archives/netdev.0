@@ -1,7 +1,7 @@
 From: <y@shlinux1.ap.freescale.net>
-Subject: [Patch net-next 03/11] net:fec: use multiqueue interface to allocate Ethernet device
-Date: Thu, 4 Sep 2014 04:34:38 +0800
-Message-ID: <3785.78330060027$1409778761@news.gmane.org>
+Subject: [Patch net-next 01/11] net:fec: add enet refrence clock for i.MX 6SX chip
+Date: Thu, 4 Sep 2014 04:34:36 +0800
+Message-ID: <6.35179826549148$1409778763@news.gmane.org>
 References: <1409776486-1403-1-git-send-email-y>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,133 +11,95 @@ Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
 To: <b38611@freescale.com>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0093.outbound.protection.outlook.com ([157.56.111.93]:31164
+Received: from mail-bn1on0098.outbound.protection.outlook.com ([157.56.110.98]:40567
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755923AbaICVMY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 17:12:24 -0400
+	id S1756011AbaICVMS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 17:12:18 -0400
 In-Reply-To: <1409776486-1403-1-git-send-email-y>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Fugang Duan <B38611@freescale.com>
 
-Since i.MX6SX enet-AVB IP support multi queues, so use multi queues
-interface to allocate and set up an Ethernet device.
+i.MX6sx enet has below clocks for user config:
+clk_ipg: ipg_clk_s, ipg_clk_mac0_s, 66Mhz
+clk_ahb: enet system clock, it is enet AXI clock for imx6sx.
+	 For imx6sx, it alos is the clock source of interrupt coalescing.
+	 The clock range: 200Mhz ~ 266Mhz.
+clk_ref: refrence clock for tx and rx. For imx6sx enet RGMII mode,
+	 the refrence clock is 125Mhz coming from internal PLL or external.
+	 In i.MX6sx-arm2 board, the clock is from internal PLL.
+	 clk_ref is optional, depends on board.
+clk_enet_out: The clock can be output from internal PLL. It can supply 50Mhz
+	 clock for phy. clk_enet_out is optional, depends on chip and board.
+clk_ptp: 1588 ts clock. It is optional, depends on chip.
+
+The patch add clk_ref to distiguish the different clocks.
 
 Signed-off-by: Fugang Duan <B38611@freescale.com>
 Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- drivers/net/ethernet/freescale/fec.h      |  9 ++++++
- drivers/net/ethernet/freescale/fec_main.c | 49 ++++++++++++++++++++++++++++++-
- 2 files changed, 57 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/fec.h      |  1 +
+ drivers/net/ethernet/freescale/fec_main.c | 17 +++++++++++++++++
+ 2 files changed, 18 insertions(+)
 
 diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 635772b..f77ed6f 100644
+index ee41d98..635772b 100644
 --- a/drivers/net/ethernet/freescale/fec.h
 +++ b/drivers/net/ethernet/freescale/fec.h
-@@ -233,6 +233,13 @@ struct bufdesc_ex {
- /* This device has up to three irqs on some platforms */
- #define FEC_IRQ_NUM		3
+@@ -272,6 +272,7 @@ struct fec_enet_private {
  
-+/* Maximum number of queues supported
-+ * ENET with AVB IP can support up to 3 independent tx queues and rx queues.
-+ * User can point the queue number that is less than or equal to 3.
-+ */
-+#define FEC_ENET_MAX_TX_QS	3
-+#define FEC_ENET_MAX_RX_QS	3
-+
- /* The number of Tx and Rx buffers.  These are allocated from the page
-  * pool.  The code may assume these are power of two, so it it best
-  * to keep them that size.
-@@ -278,6 +285,8 @@ struct fec_enet_private {
+ 	struct clk *clk_ipg;
+ 	struct clk *clk_ahb;
++	struct clk *clk_ref;
+ 	struct clk *clk_enet_out;
+ 	struct clk *clk_ptp;
  
- 	bool ptp_clk_on;
- 	struct mutex ptp_clk_mutex;
-+	int num_tx_queues;
-+	int num_rx_queues;
- 
- 	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
- 	unsigned char *tx_bounce[TX_RING_SIZE];
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index ee9f04f..00fcadd 100644
+index 89355a7..c21ecff1 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2573,6 +2573,39 @@ static void fec_reset_phy(struct platform_device *pdev)
- #endif /* CONFIG_OF */
+@@ -1621,6 +1621,11 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 			}
+ 			mutex_unlock(&fep->ptp_clk_mutex);
+ 		}
++		if (fep->clk_ref) {
++			ret = clk_prepare_enable(fep->clk_ref);
++			if (ret)
++				goto failed_clk_ref;
++		}
+ 	} else {
+ 		clk_disable_unprepare(fep->clk_ahb);
+ 		clk_disable_unprepare(fep->clk_ipg);
+@@ -1632,9 +1637,15 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 			fep->ptp_clk_on = false;
+ 			mutex_unlock(&fep->ptp_clk_mutex);
+ 		}
++		if (fep->clk_ref)
++			clk_disable_unprepare(fep->clk_ref);
+ 	}
  
- static int
-+fec_enet_get_queue_num(struct platform_device *pdev, int *num_tx, int *num_rx)
-+{
-+	struct device_node *np = pdev->dev.of_node;
-+	int err;
+ 	return 0;
 +
-+	if (!np || !of_device_is_available(np))
-+		return -ENODEV;
-+
-+	/* parse the num of tx and rx queues */
-+	err = of_property_read_u32(np, "fsl,num_tx_queues", num_tx);
-+	err |= of_property_read_u32(np, "fsl,num_rx_queues", num_rx);
-+	if (err) {
-+		*num_tx = 1;
-+		*num_rx = 1;
-+		return 0;
-+	}
-+
-+	if (*num_tx < 1 || *num_tx > FEC_ENET_MAX_TX_QS) {
-+		dev_err(&pdev->dev, "num_tx(=%d) greater than MAX_TX_QS(=%d)\n",
-+			*num_tx, FEC_ENET_MAX_TX_QS);
-+		return -EINVAL;
-+	}
-+
-+	if (*num_rx < 1 || *num_rx > FEC_ENET_MAX_RX_QS) {
-+		dev_err(&pdev->dev, "num_rx(=%d) greater than MAX_RX_QS(=%d)\n",
-+			*num_rx, FEC_ENET_MAX_RX_QS);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int
- fec_probe(struct platform_device *pdev)
- {
- 	struct fec_enet_private *fep;
-@@ -2583,13 +2616,23 @@ fec_probe(struct platform_device *pdev)
- 	const struct of_device_id *of_id;
- 	static int dev_id;
- 	struct device_node *np = pdev->dev.of_node, *phy_node;
-+	int num_tx_qs = 1;
-+	int num_rx_qs = 1;
++failed_clk_ref:
++	if (fep->clk_ref)
++		clk_disable_unprepare(fep->clk_ref);
+ failed_clk_ptp:
+ 	if (fep->clk_enet_out)
+ 		clk_disable_unprepare(fep->clk_enet_out);
+@@ -2637,6 +2648,12 @@ fec_probe(struct platform_device *pdev)
  
- 	of_id = of_match_device(fec_dt_ids, &pdev->dev);
- 	if (of_id)
- 		pdev->id_entry = of_id->data;
- 
-+	if (pdev->id_entry &&
-+	    (pdev->id_entry->driver_data & FEC_QUIRK_HAS_AVB)) {
-+		ret = fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
-+		if (ret)
-+			return ret;
-+	}
+ 	fep->ptp_clk_on = false;
+ 	mutex_init(&fep->ptp_clk_mutex);
 +
- 	/* Init network device */
--	ndev = alloc_etherdev(sizeof(struct fec_enet_private));
-+	ndev = alloc_etherdev_mqs(sizeof(struct fec_enet_private),
-+				  num_tx_qs, num_rx_qs);
- 	if (!ndev)
- 		return -ENOMEM;
- 
-@@ -2598,6 +2641,10 @@ fec_probe(struct platform_device *pdev)
- 	/* setup board info structure */
- 	fep = netdev_priv(ndev);
- 
-+	fep->num_rx_queues = num_rx_qs;
-+	fep->num_tx_queues = num_tx_qs;
-+	netif_set_real_num_rx_queues(ndev, num_rx_qs);
++	/* clk_ref is optional, depends on board */
++	fep->clk_ref = devm_clk_get(&pdev->dev, "enet_clk_ref");
++	if (IS_ERR(fep->clk_ref))
++		fep->clk_ref = NULL;
 +
- #if !defined(CONFIG_M5272)
- 	/* default enable pause frame auto negotiation */
- 	if (pdev->id_entry &&
+ 	fep->clk_ptp = devm_clk_get(&pdev->dev, "ptp");
+ 	fep->bufdesc_ex =
+ 		pdev->id_entry->driver_data & FEC_QUIRK_HAS_BUFDESC_EX;
 -- 
 1.9.1
