@@ -1,60 +1,60 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net v2] tg3: prevent ifup/ifdown during PCI error
- recovery
-Date: Wed, 3 Sep 2014 16:25:50 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63B3174D@avmb3.qlogic.org>
-References: <1409574117-19435-1-git-send-email-ivecera@redhat.com>
- <20140902.130234.1386697848957363743.davem@davemloft.net>
+From: PERIER Romain <romain.perier@gmail.com>
+Subject: Re: [PATCH 4/4] ARM: dts: Enable emac node on the rk3188-radxarock boards
+Date: Wed, 3 Sep 2014 18:37:16 +0200
+Message-ID: <CABgxDoJOJ9bM2CgXyXjPvsv2DN_QO+HPAzCwfjdyKFDpUAOtOw@mail.gmail.com>
+References: <1409740036-8117-1-git-send-email-romain.perier@gmail.com>
+	<1409740036-8117-4-git-send-email-romain.perier@gmail.com>
+	<CAFnsNoSmHwN3nJ5ZJL5fc_-kaECCoLBvpdBYQxkyLcUzLx5MTw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	"prashant@broadcom.com" <prashant@broadcom.com>,
-	"mchan@broadcom.com" <mchan@broadcom.com>
-To: David Miller <davem@davemloft.net>,
-	"ivecera@redhat.com" <ivecera@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko@sntech.de>,
+	linux-rockchip@lists.infradead.org,
+	devicetree <devicetree@vger.kernel.org>,
+	Arnd Bergmann <arnd@arndb.de>,
+	linux-arm-kernel@lists.infradead.org,
+	netdev <netdev@vger.kernel.org>
+To: Naoki FUKAUMI <naobsd@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:60842 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756264AbaICQZz convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 12:25:55 -0400
-In-Reply-To: <20140902.130234.1386697848957363743.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:51716 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751276AbaICQhX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 12:37:23 -0400
+In-Reply-To: <CAFnsNoSmHwN3nJ5ZJL5fc_-kaECCoLBvpdBYQxkyLcUzLx5MTw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > The patch fixes race conditions between PCI error recovery callbacks
-> > and potential ifup/ifdown.
-> >
-> > First, if ifup (tg3_open) is called between tg3_io_error_detected()
-> > and
-> > tg3_io_resume() then tp->timer is armed twice before expiry. Once
-> > during
-> > tg3_open() and again during tg3_io_resume(). This results in BUG at
-> > kernel/time/timer.c:945.
-> >
-> > Second, if ifdown (tg3_close) is called between
-> > tg3_io_error_detected() and tg3_io_resume() then tg3_napi_disable() is
-> > called twice without a tg3_napi_enable between. Once during
-> > tg3_io_error_detected() and again during tg3_close(). The tg3_io_resume()
-> then hangs on rtnl_lock().
+It is an optional property used by arc-emac (the core driver), if it
+is not present the core driver generates one for you.
+Problem being that with this property two radxa rock boards connected
+on the same local network might have the same mac address.
 
-Hi, sorry for the late response but just seen this patch.
-This sounds like a general problem, i.e., one that could affect multiple drivers
-[Not exactly the same issue, but a similar one].
+In this case it would be probably better to remove this property. What
+do you think ?
 
-PCI error recovery flows are bad enough without the netdevice transitioning
-its state in-between the PCI callbacks.
-Perhaps we should consider some general solution, e.g., preventing state
-transitions during such a flow [i.e., until the PCI error recovery fully completes]?
-
-> >
-> > v2: Added logging messages per Prashant's request
-> >
-> > Cc: Prashant Sreedharan <prashant@broadcom.com>
-> > Cc: Michael Chan <mchan@broadcom.com>
-> >
-> > Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-> 
-> Applied, thanks.
+2014-09-03 17:29 GMT+02:00 Naoki FUKAUMI <naobsd@gmail.com>:
+> On Wed, Sep 3, 2014 at 7:27 PM, Romain Perier <romain.perier@gmail.com> wrote:
+>> This enables EMAC Rockchip support on radxa rock boards.
+>>
+>> Signed-off-by: Romain Perier <romain.perier@gmail.com>
+>> ---
+>>  arch/arm/boot/dts/rk3188-radxarock.dts | 24 ++++++++++++++++++++++++
+>>  1 file changed, 24 insertions(+)
+>>
+>> diff --git a/arch/arm/boot/dts/rk3188-radxarock.dts b/arch/arm/boot/dts/rk3188-radxarock.dts
+>> index 5e4e3c23..e1358d3 100644
+>> --- a/arch/arm/boot/dts/rk3188-radxarock.dts
+>> +++ b/arch/arm/boot/dts/rk3188-radxarock.dts
+>> @@ -76,6 +76,24 @@
+>>         };
+>>  };
+>>
+>> +&emac {
+>> +       status = "okay";
+>> +       compatible = "rockchip,rk3188-emac";
+>> +
+>> +       pinctrl-names = "default";
+>> +       pinctrl-0 = <&emac_xfer>, <&emac_mdio>, <&phy_int>;
+>> +
+>> +       mac-address = [ c6 ef 91 8e 60 4b ];
+>
+> is "mac-address" required?
