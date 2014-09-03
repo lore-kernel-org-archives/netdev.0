@@ -1,60 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 0/6] Simplify Intel Wired LAN driver init/exit
- routine
-Date: Tue, 02 Sep 2014 22:17:40 -0700
-Message-ID: <1409721460.2384.27.camel@jtkirshe-mobl>
-References: <1409650616-1035-1-git-send-email-sakiwit@gmail.com>
+Subject: Re: [PATCH V2 0/7] e1000: convert to
+ build_skb/napi_gro_frags api
+Date: Tue, 02 Sep 2014 22:18:50 -0700
+Message-ID: <1409721530.2384.28.camel@jtkirshe-mobl>
+References: <1409660690-10391-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============4165903216942839789=="
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1409660690-10391-1-git-send-email-fw@strlen.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+
+--===============4165903216942839789==
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ivLUAzYUC4mGvxf9SsKz"
-Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Jean Sacren <sakiwit@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:28076 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750817AbaICFRm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 01:17:42 -0400
-In-Reply-To: <1409650616-1035-1-git-send-email-sakiwit@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	protocol="application/pgp-signature"; boundary="=-7yEkqUsewK4k8LBCOGRC"
 
 
---=-ivLUAzYUC4mGvxf9SsKz
+--=-7yEkqUsewK4k8LBCOGRC
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2014-09-02 at 03:36 -0600, Jean Sacren wrote:
-> This series uses module_pci_driver() to simplify the init/exit
-> routine of some Intel Wired LAN drivers.
+On Tue, 2014-09-02 at 14:24 +0200, Florian Westphal wrote:
+> Changes since v1:
+>  - in last patch, remove unneeded parens and casts,
+>  pointed out by Sergei Shtylyov.
 >=20
-> Jean Sacren (6):
->   ixgb: remove the boilerplate of ixgb module for init/exit
->   ixgbevf: remove the boilerplate of ixgbevf module for init/exit
->   e100: remove the boilerplate of e100 module for init/exit
->   igbvf: remove the boilerplate of igbvf module for init/exit
->   e1000e: remove the boilerplate of e1000e module for init/exit
->   i40evf: remove the boilerplate of i40evf module for init/exit
+> v1 cover letter:
 >=20
->  drivers/net/ethernet/intel/e100.c                 | 22 ++++---------
->  drivers/net/ethernet/intel/e1000e/netdev.c        | 35 +++--------------=
----
->  drivers/net/ethernet/intel/i40evf/i40evf_main.c   | 37 +++--------------=
-----
->  drivers/net/ethernet/intel/igbvf/netdev.c         | 35 +++--------------=
----
->  drivers/net/ethernet/intel/ixgb/ixgb_main.c       | 39 +++--------------=
-------
->  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 38 ++++-------------=
------
->  6 files changed, 32 insertions(+), 174 deletions(-)
+> e1000 driver preallocates skbs, then sends them up the stack.
 >=20
+> This patch series changes the rx routine to only preallocate
+> packet buffers, then allocate the skb right before sending the
+> packet up the stack.
+>=20
+> This gives slight performance inprovements as the skb will be
+> fresh in the cache once its allocated/initialized.
+>=20
+> The default-mtu 1500 path is converted to
+> build_skb()/netdev_alloc_frag.
+>=20
+> Jumbo path is converted to napi_gro_frags.
+>=20
+> Note that this has only been tested with
+> kvms e1000 emulation.
 
-I have gone ahead and added this series to my queue.  We have some
-concerns that these changes will make it more difficult to debug the
-drivers, so I will have these go through our validation as well.
+Thanks Florian, I have added this series to my queue.
 
---=-ivLUAzYUC4mGvxf9SsKz
+--=-7yEkqUsewK4k8LBCOGRC
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -62,19 +64,45 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJUBqR0AAoJEOVv75VaS+3OZQMP/1COvEl06rPRN48bSMydo1k2
-VYu0JCwlWxar1GqJ7okr8m9cvJhGlmWuGOna8KpwER3HrdGot7XiltTDyNCMZ0G7
-TMuFfvWiDSE3Zf7GIc6r5gEvg4e3UHoqP8sum/bRjbSJdu0moxjiV7YmYPQcHZFH
-jjMAFyoUR83dAEfpoDrWz0XoDLYOxdNvO5nR0i6eYCqRydKwqZOS6I5r6vo3J5gL
-yF61vmnpeyCeEYbXHh6AV1+/ouk+cCf+uVAdCtUgTJXFvSCGpZVos7sFL22D5oAs
-42qE5vr2GmLfIRZIxQicLaW9I33jf+Norvf/+OV4YZGNGla61DFNHCW888Vcmwci
-vozlsUqn7Uva1J1xmd1EQA9qoANmyTvNLJGnKyogZ/LjF6cI9wOkGUL8kMzQr0jN
-6RKzO6CkIpz/U2CeeVBGsEDInLzeeLgfP0RD3f3+yyknAZmm6edqCavAWcKUP+kt
-eD0sAQwq/mrYoFlBLV8Sw5BqnaslBeghwQbv6zPWWg5kG6yNlnA2pwc8VNv78Lae
-jbtfMwO1HSM7IYqxZm65QdXf1Io8XCZL7FhtJt4IItxOvmxiTixxMFuDTp/srji6
-++/GTjdpSn39OhT20KpdNLtrhcK94Zekt6U6nYZq+thliEQDcYkRJMeH7pnM0oGK
-j2dYnlmDROYdI9wCRFO3
-=ccjf
+iQIcBAABCgAGBQJUBqS6AAoJEOVv75VaS+3OwfYP/Rp1t1L7nLWDQMRdG+e1TChT
+J6yC+2abGg0FIH7AVXHPDtNx5iTHTYocSgkTjeLsBAoQpXQtmZp/lMIpyxY36Le2
+FSiZxbwQSRBLvZb4PgANsbqM1g8jnu7iuDOejNef23eL9hpWuZTy8yTgp4iKnm7N
+hZHHmc6ypAw3MklyZz8++o7ronv+AwjgdsSWEc/iO4ieWijulycXY/YdveLA8Uu7
+9sfuEjtY/EMPBioGFI6m2tviEJ/keujMMWqnKSc9xG0a3Ecm46Zs1it/UOcON98T
+pFJQWBcNkpT7mn3ksm+7/MG7xtnF13abYXmgYFDT1ueEOCe7JzE/EuX4q6iuMPDw
+3bJDienJkcvAKK45sDfO5qZXi6YkouhwerfBgZdVaeRULpV2vMTswPFBwQLxiXax
+NlGLXQESwA1T25s+UEGLF8NyCg9GWDIdtZk+wLnsabFZBQ2mdzOOICTfdAilrCnB
+aWcEGD7Qqse63zbDwA52TwlLnPtDGxF5MlnT606jI1Uq5WusoU7zfUqIWsK/GDvk
+CLU9jQKJs9XxwTOj3HL2I89Wx/TYL6OIGsdUN37YFVBde24Mc2e9GGo+dqw6KOV1
+2eJvouWRkR+johFXVmJbNlmC72YK42kJ7yeKjz+KyCMcxlseMrhqiCZ/iEaOJMbo
+ICyvVptYR1jeBlCqyYKe
+=IFEJ
 -----END PGP SIGNATURE-----
 
---=-ivLUAzYUC4mGvxf9SsKz--
+--=-7yEkqUsewK4k8LBCOGRC--
+
+
+
+--===============4165903216942839789==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Slashdot TV.  
+Video for Nerds.  Stuff that matters.
+http://tv.slashdot.org/
+--===============4165903216942839789==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============4165903216942839789==--
