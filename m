@@ -1,26 +1,21 @@
 From: <y@shlinux1.ap.freescale.net>
 Subject: [Patch net-next 08/11] net:fec: change FEC alignment to 64 bytes for ARM platform
 Date: Thu, 4 Sep 2014 04:34:43 +0800
-Message-ID: <47133.3366389901$1409778685@news.gmane.org>
+Message-ID: <25629.6417829164$1409778685@news.gmane.org>
 References: <1409776486-1403-1-git-send-email-y>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, Fugang Duan <B38611@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>
-To: <b38611@freescale.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0053.outbound.protection.outlook.com ([157.56.110.53]:3709
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756391AbaICVLB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 17:11:01 -0400
+Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <1409776486-1403-1-git-send-email-y>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Fugang Duan <B38611@freescale.com>
+From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 
 Since enet-avb has 64 bytes alignment limitation for rx DMA transfer.
 The previous enet IP for ARM platform has 16 bytes alignment for tx
@@ -28,8 +23,8 @@ DMA transfer. 64 is the an integral number of 16, so change alignment
 to 64 bytes for all ARM platform, which don't impact the performance
 of previous platform.
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
+Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 ---
  drivers/net/ethernet/freescale/fec_main.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
@@ -49,3 +44,8 @@ index a232245..b388e29f 100644
  #endif
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
