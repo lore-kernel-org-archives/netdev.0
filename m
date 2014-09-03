@@ -1,143 +1,68 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [Patch net-next 03/11] net:fec: use multiqueue interface to allocate Ethernet device
-Date: Thu, 4 Sep 2014 04:38:09 +0800
-Message-ID: <1409776697-1536-4-git-send-email-Frank.Li@freescale.com>
+From: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Subject: [Patch net-next 02/11] net:fec: add enet AVB feature macro define for imx6sx
+Date: Thu, 4 Sep 2014 04:38:08 +0800
+Message-ID: <1409776697-1536-3-git-send-email-Frank.Li@freescale.com>
 References: <1409776697-1536-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, Fugang Duan <B38611@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>
-To: <b38611@freescale.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0181.outbound.protection.outlook.com ([207.46.163.181]:27474
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750939AbaICU75 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 16:59:57 -0400
-In-Reply-To: <1409776697-1536-1-git-send-email-Frank.Li@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409776697-1536-1-git-send-email-Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Fugang Duan <B38611@freescale.com>
+From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 
-Since i.MX6SX enet-AVB IP support multi queues, so use multi queues
-interface to allocate and set up an Ethernet device.
+Add enet AVB feature macro define for imx6sx.
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
+Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 ---
- drivers/net/ethernet/freescale/fec.h      |  9 ++++++
- drivers/net/ethernet/freescale/fec_main.c | 49 ++++++++++++++++++++++++++++++-
- 2 files changed, 57 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/fec_main.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 635772b..f77ed6f 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -233,6 +233,13 @@ struct bufdesc_ex {
- /* This device has up to three irqs on some platforms */
- #define FEC_IRQ_NUM		3
- 
-+/* Maximum number of queues supported
-+ * ENET with AVB IP can support up to 3 independent tx queues and rx queues.
-+ * User can point the queue number that is less than or equal to 3.
-+ */
-+#define FEC_ENET_MAX_TX_QS	3
-+#define FEC_ENET_MAX_RX_QS	3
-+
- /* The number of Tx and Rx buffers.  These are allocated from the page
-  * pool.  The code may assume these are power of two, so it it best
-  * to keep them that size.
-@@ -278,6 +285,8 @@ struct fec_enet_private {
- 
- 	bool ptp_clk_on;
- 	struct mutex ptp_clk_mutex;
-+	int num_tx_queues;
-+	int num_rx_queues;
- 
- 	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
- 	unsigned char *tx_bounce[TX_RING_SIZE];
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index ee9f04f..00fcadd 100644
+index c21ecff1..ee9f04f 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2573,6 +2573,39 @@ static void fec_reset_phy(struct platform_device *pdev)
- #endif /* CONFIG_OF */
+@@ -104,6 +104,16 @@ static void set_multicast_list(struct net_device *ndev);
+  * ENET_TDAR[TDAR].
+  */
+ #define FEC_QUIRK_ERR006358            (1 << 7)
++/* ENET IP hw AVB
++ *
++ * i.MX6SX ENET IP add Audio Video Bridging (AVB) feature support.
++ * - Two class indicators on receive with configurable priority
++ * - Two class indicators and line speed timer on transmit allowing
++ *   implementation class credit based shapers externally
++ * - Additional DMA registers provisioned to allow managing up to 3
++ *   independent rings
++ */
++#define FEC_QUIRK_HAS_AVB		(1 << 8)
  
- static int
-+fec_enet_get_queue_num(struct platform_device *pdev, int *num_tx, int *num_rx)
-+{
-+	struct device_node *np = pdev->dev.of_node;
-+	int err;
-+
-+	if (!np || !of_device_is_available(np))
-+		return -ENODEV;
-+
-+	/* parse the num of tx and rx queues */
-+	err = of_property_read_u32(np, "fsl,num_tx_queues", num_tx);
-+	err |= of_property_read_u32(np, "fsl,num_rx_queues", num_rx);
-+	if (err) {
-+		*num_tx = 1;
-+		*num_rx = 1;
-+		return 0;
-+	}
-+
-+	if (*num_tx < 1 || *num_tx > FEC_ENET_MAX_TX_QS) {
-+		dev_err(&pdev->dev, "num_tx(=%d) greater than MAX_TX_QS(=%d)\n",
-+			*num_tx, FEC_ENET_MAX_TX_QS);
-+		return -EINVAL;
-+	}
-+
-+	if (*num_rx < 1 || *num_rx > FEC_ENET_MAX_RX_QS) {
-+		dev_err(&pdev->dev, "num_rx(=%d) greater than MAX_RX_QS(=%d)\n",
-+			*num_rx, FEC_ENET_MAX_RX_QS);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int
- fec_probe(struct platform_device *pdev)
- {
- 	struct fec_enet_private *fep;
-@@ -2583,13 +2616,23 @@ fec_probe(struct platform_device *pdev)
- 	const struct of_device_id *of_id;
- 	static int dev_id;
- 	struct device_node *np = pdev->dev.of_node, *phy_node;
-+	int num_tx_qs = 1;
-+	int num_rx_qs = 1;
- 
- 	of_id = of_match_device(fec_dt_ids, &pdev->dev);
- 	if (of_id)
- 		pdev->id_entry = of_id->data;
- 
-+	if (pdev->id_entry &&
-+	    (pdev->id_entry->driver_data & FEC_QUIRK_HAS_AVB)) {
-+		ret = fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
-+		if (ret)
-+			return ret;
-+	}
-+
- 	/* Init network device */
--	ndev = alloc_etherdev(sizeof(struct fec_enet_private));
-+	ndev = alloc_etherdev_mqs(sizeof(struct fec_enet_private),
-+				  num_tx_qs, num_rx_qs);
- 	if (!ndev)
- 		return -ENOMEM;
- 
-@@ -2598,6 +2641,10 @@ fec_probe(struct platform_device *pdev)
- 	/* setup board info structure */
- 	fep = netdev_priv(ndev);
- 
-+	fep->num_rx_queues = num_rx_qs;
-+	fep->num_tx_queues = num_tx_qs;
-+	netif_set_real_num_rx_queues(ndev, num_rx_qs);
-+
- #if !defined(CONFIG_M5272)
- 	/* default enable pause frame auto negotiation */
- 	if (pdev->id_entry &&
+ static struct platform_device_id fec_devtype[] = {
+ 	{
+@@ -128,6 +138,12 @@ static struct platform_device_id fec_devtype[] = {
+ 		.name = "mvf600-fec",
+ 		.driver_data = FEC_QUIRK_ENET_MAC,
+ 	}, {
++		.name = "imx6sx-fec",
++		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
++				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
++				FEC_QUIRK_HAS_VLAN | FEC_QUIRK_ERR006358 |
++				FEC_QUIRK_HAS_AVB,
++	}, {
+ 		/* sentinel */
+ 	}
+ };
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
