@@ -1,43 +1,74 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: Order of interfaces in output of ip link
-Date: Wed, 3 Sep 2014 07:43:35 +0200
-Message-ID: <20140903054335.GA32737@unicorn.suse.cz>
-References: <19313218.dxlnVqzEMb@hp>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] net: export pkt_type_offset() helper
+Date: Wed, 03 Sep 2014 08:19:50 +0200
+Message-ID: <5406B306.1050203@redhat.com>
+References: <1409688238-3152-1-git-send-email-kda@linux-powerpc.org> <20140902225926.GA14635@its-macbook-pro.plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ovidiu Mara <ovidiu.mara@epfl.ch>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Denis Kirjanov <kda@linux-powerpc.org>, netdev@vger.kernel.org,
+	Markos Chandras <markos.chandras@imgtec.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:54361 "EHLO mx2.suse.de"
+Received: from mx1.redhat.com ([209.132.183.28]:24005 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751209AbaICFni (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 01:43:38 -0400
-Content-Disposition: inline
-In-Reply-To: <19313218.dxlnVqzEMb@hp>
+	id S1754601AbaICGUH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 02:20:07 -0400
+In-Reply-To: <20140902225926.GA14635@its-macbook-pro.plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 02, 2014 at 04:27:42PM +0200, Ovidiu Mara wrote:
-> The ip command shows the interfaces on this machine in an unnatural order (eth0 followed by eth2 then eth1).
+On 09/03/2014 12:59 AM, Alexei Starovoitov wrote:
+> On Wed, Sep 03, 2014 at 12:03:58AM +0400, Denis Kirjanov wrote:
+>> Currently we have 2 pkt_type_offset functions doing
+>> the same thing and spread across the architecture files.
+>> Let's use the generic helper routine.
+>
+> that would be good cleanup.
+> Please tag your subject as '[PATCH net-next]...'
+>
+>> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+>> Cc: Markos Chandras <markos.chandras@imgtec.com>
+>> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+>> Cc: Daniel Borkmann <dborkman@redhat.com>
+>> ---
+>>   arch/mips/net/bpf_jit.c      | 21 ---------------------
+>>   arch/s390/net/bpf_jit_comp.c | 38 ++++----------------------------------
+>>   include/linux/filter.h       |  7 +++++++
+>>   net/core/filter.c            |  7 +------
+>>   4 files changed, 12 insertions(+), 61 deletions(-)
+>>
+>> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+>> -#define PKT_TYPE_MAX 0xe0
+>> -static int pkt_type_offset;
 > ...
-> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether 2c:59:e5:9a:4c:a4 brd ff:ff:ff:ff:ff:ff
-> 3: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether ac:16:2d:98:9e:d8 brd ff:ff:ff:ff:ff:ff
-> 4: eth1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN mode DEFAULT group default qlen 1000\    link/ether 2c:59:e5:9a:4c:a5 brd ff:ff:ff:ff:ff:ff
-> 5: eth3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether ac:16:2d:98:9e:d9 brd ff:ff:ff:ff:ff:ff
-> ...
-> eth0 and eth1 are two ports on the same network card, so I would
-> expect them to be shown together, as they are numbered.
+>> -}
+>> -device_initcall(bpf_pkt_type_offset_init);
+>
+> may be make sense to optimize common case via initcall() as well
+> instead of dropping it for s390?
 
-In general, you can't expect that. As drivers can initialize in
-parallel, it happens quite often that interfaces are interleaved like
-this. Actually, the names are probably misleading here: most likely the
-interface with index 3 was named "eth1" by kernel and interface with
-index 4 was named eth2 but udev changed the names.
+I think that probably might not be a bad idea. pkt_type_offset
+should be a __read_mostly candidate then. As we have things like
+PTP classifier that is being loaded in core_initcall(), we might
+need to initialize pkt_type_offset then via pure_initcall(),
+for example. I think that should be doable, as it doesn't have
+any dependencies elsewhere.
 
-> Could you please tell me if there is any workaround for this?
-
-It depends on what exactly you want to achieve and why. But AFAIK ip
-documentation doesn't promise any particular order of the interfaces so
-it's wrong to assume any.
-
-                                                        Michal Kubecek
+>> diff --git a/include/linux/filter.h b/include/linux/filter.h
+>> index a5227ab..97e0549 100644
+>> --- a/include/linux/filter.h
+>> +++ b/include/linux/filter.h
+>> @@ -424,6 +424,13 @@ static inline void *bpf_load_pointer(const struct sk_buff *skb, int k,
+>>   	return bpf_internal_load_pointer_neg_helper(skb, k, size);
+>>   }
+>>
+>> +#ifdef __BIG_ENDIAN_BITFIELD
+>> +#define PKT_TYPE_MAX	(7 << 5)
+>> +#else
+>> +#define PKT_TYPE_MAX    7
+>> +#endif
+>
+> these defines don't need to move. keep them in filter.c
+>
