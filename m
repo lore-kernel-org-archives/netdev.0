@@ -1,31 +1,26 @@
 From: <y@shlinux1.ap.freescale.net>
 Subject: [Patch net-next 02/11] net:fec: add enet AVB feature macro define for imx6sx
 Date: Thu, 4 Sep 2014 04:34:37 +0800
-Message-ID: <32577.4548030042$1409778715@news.gmane.org>
+Message-ID: <38225.211602594$1409778717@news.gmane.org>
 References: <1409776486-1403-1-git-send-email-y>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, Fugang Duan <B38611@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>
-To: <b38611@freescale.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0057.outbound.protection.outlook.com ([207.46.100.57]:43160
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756488AbaICVLe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 17:11:34 -0400
+Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <1409776486-1403-1-git-send-email-y>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Fugang Duan <B38611@freescale.com>
+From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 
 Add enet AVB feature macro define for imx6sx.
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
+Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 ---
  drivers/net/ethernet/freescale/fec_main.c | 16 ++++++++++++++++
  1 file changed, 16 insertions(+)
@@ -66,3 +61,8 @@ index c21ecff1..ee9f04f 100644
  };
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
