@@ -1,85 +1,80 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] net: Validate frames going through the direct_xmit path
-Date: Tue, 02 Sep 2014 19:46:34 -0700
-Message-ID: <5406810A.9070900@gmail.com>
-References: <20140902225548.885.79277.stgit@ahduyck-bv4.jf.intel.com> <1409700648.26422.21.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next v2 1/2] r8152: change the location of rtl8152_set_mac_address
+Date: Wed, 3 Sep 2014 10:59:14 +0800
+Message-ID: <1394712342-15778-30-Taiwan-albertk@realtek.com>
+References: <1394712342-15778-26-Taiwan-albertk@realtek.com>
+ <1394712342-15778-29-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:47738 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871AbaICCqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 22:46:34 -0400
-Received: by mail-pd0-f172.google.com with SMTP id z10so10110880pdj.3
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 19:46:34 -0700 (PDT)
-In-Reply-To: <1409700648.26422.21.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-29-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/02/2014 04:30 PM, Eric Dumazet wrote:
-> On Tue, 2014-09-02 at 18:55 -0400, Alexander Duyck wrote:
->> In commit 50cbe9ab5f8d92d2d4a327b56e96559d8f63a1fa "net: Validate xmit SKBs
->> right when we pull them out of the qdisc" the validation code was moved out
->> of dev_hard_start_xmit and into dequeue_skb.  However this overlooked the
->> fact that we do not always enqueue the skb onto a qdisc.
->>
->> As a result I was seeing issues trying to connect to a vhost_net interface
->> after this patch was applied.  To resolve the issue I have added a call to
->> validate_xmit_skb in sched_direct_xmit and this seems to have resolved the
->> issue by restoring the validation to this xmit path.
->>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> ---
->>  net/sched/sch_generic.c |    9 +++++++--
->>  1 file changed, 7 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
->> index a8bf9f9..203ee65 100644
->> --- a/net/sched/sch_generic.c
->> +++ b/net/sched/sch_generic.c
->> @@ -128,8 +128,13 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
->>  	spin_unlock(root_lock);
->>  
->>  	HARD_TX_LOCK(dev, txq, smp_processor_id());
->> -	if (!netif_xmit_frozen_or_stopped(txq))
->> -		skb = dev_hard_start_xmit(skb, dev, txq, &ret);
->> +	if (!netif_xmit_frozen_or_stopped(txq)) {
->> +		skb = validate_xmit_skb(skb, dev);
->> +		if (!skb)
->> +			ret = NETDEV_TX_OK;
->> +		else
->> +			skb = dev_hard_start_xmit(skb, dev, txq, &ret);
->> +	}
->>  
->>  	HARD_TX_UNLOCK(dev, txq);
->>  
-> 
-> This looks very weird.
+Exchange the location of rtl8152_set_mac_address() and
+set_ethernet_addr(). Then, the set_ethernet_addr() could
+set the MAC address by calling rtl8152_set_mac_address()
+later.
 
-It's ugly, I will admit it.  It was a quick hack to fix the issue I had
-been seeing as it was in my way.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
 
-> Calling validate_xmit_skb() twice per packet is not needed in the case
-> sch_direct_xmit() is called from qdisc_restart()
-
-My bad, I overlooked that sch_direct_xmit is called by qdisc_restart.
-
-> This will add bad branch prediction at very minimum.
-> 
-> This is a TCQ_F_CAN_BYPASS issue that should be fixed there.
-
-Actually it looks like there are several issues.  One is the bypass
-problem which is the major issue. Another side effect of the original
-patch is that a bad frame will cause us to exit __qdisc_run prematurely
-even if other frames are still in the qdisc.
-
-Alternative patches always welcome. :-)  My goal at this point is to
-just have my vhost_net interface work so I can get back to my other
-development work.  I will submit a v2 in the morning if I don't see
-anything.
-
-Alex
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 80b0179..b5ff933 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -975,6 +975,23 @@ void write_mii_word(struct net_device *netdev, int phy_id, int reg, int val)
+ static int
+ r8152_submit_rx(struct r8152 *tp, struct rx_agg *agg, gfp_t mem_flags);
+ 
++static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
++{
++	struct r8152 *tp = netdev_priv(netdev);
++	struct sockaddr *addr = p;
++
++	if (!is_valid_ether_addr(addr->sa_data))
++		return -EADDRNOTAVAIL;
++
++	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
++
++	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR, CRWECR_CONFIG);
++	pla_ocp_write(tp, PLA_IDR, BYTE_EN_SIX_BYTES, 8, addr->sa_data);
++	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR, CRWECR_NORAML);
++
++	return 0;
++}
++
+ static inline void set_ethernet_addr(struct r8152 *tp)
+ {
+ 	struct net_device *dev = tp->netdev;
+@@ -1003,23 +1020,6 @@ static inline void set_ethernet_addr(struct r8152 *tp)
+ 	}
+ }
+ 
+-static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
+-{
+-	struct r8152 *tp = netdev_priv(netdev);
+-	struct sockaddr *addr = p;
+-
+-	if (!is_valid_ether_addr(addr->sa_data))
+-		return -EADDRNOTAVAIL;
+-
+-	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+-
+-	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR, CRWECR_CONFIG);
+-	pla_ocp_write(tp, PLA_IDR, BYTE_EN_SIX_BYTES, 8, addr->sa_data);
+-	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR, CRWECR_NORAML);
+-
+-	return 0;
+-}
+-
+ static void read_bulk_callback(struct urb *urb)
+ {
+ 	struct net_device *netdev;
+-- 
+1.9.3
