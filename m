@@ -1,107 +1,77 @@
-From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
-Subject: Re: [PATCH 2/4] dt-bindings: Document EMAC Rockchip
-Date: Wed, 03 Sep 2014 16:26:48 +0200
-Message-ID: <10602790.aE60xYj4zP@diego>
-References: <1409740036-8117-1-git-send-email-romain.perier@gmail.com> <1409740036-8117-2-git-send-email-romain.perier@gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH] qdisc: validate frames going through the
+ direct_xmit path
+Date: Wed, 3 Sep 2014 16:26:28 +0200
+Message-ID: <20140903162628.3d05f113@redhat.com>
+References: <20140902225548.885.79277.stgit@ahduyck-bv4.jf.intel.com>
+	<20140903114841.19969.22671.stgit@dragon>
+	<1409751805.26422.32.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140903155213.62ff4eff@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-rockchip@lists.infradead.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, arnd@arndb.de
-To: Romain Perier <romain.perier@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gloria.sntech.de ([95.129.55.99]:32778 "EHLO gloria.sntech.de"
+Received: from mx1.redhat.com ([209.132.183.28]:59611 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932320AbaICOYm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 10:24:42 -0400
-In-Reply-To: <1409740036-8117-2-git-send-email-romain.perier@gmail.com>
+	id S932377AbaICO0f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 10:26:35 -0400
+In-Reply-To: <20140903155213.62ff4eff@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Mittwoch, 3. September 2014, 10:27:14 schrieb Romain Perier:
-> This adds the necessary binding documentation for the EMAC Rockchip platform
-> driver found in RK3066 and RK3188 SoCs.
+On Wed, 3 Sep 2014 15:52:13 +0200
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+
+> On Wed, 03 Sep 2014 06:43:25 -0700
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
 > 
-> Signed-off-by: Romain Perier <romain.perier@gmail.com>
-> ---
->  .../devicetree/bindings/net/emac_rockchip.txt      | 53
-> ++++++++++++++++++++++ 1 file changed, 53 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/emac_rockchip.txt
+> > 
+> > Jesper, you missed another spot, when there is no qdisc on the device.
+> > 
+> > __dev_queue_xmit() calls dev_hard_start_xmit() around line 2886
+> > 
+> > Could we try to not add a myriad of small patches ?
+> > 
+> > Some of us will need to backport all of them.
 > 
-> diff --git a/Documentation/devicetree/bindings/net/emac_rockchip.txt
-> b/Documentation/devicetree/bindings/net/emac_rockchip.txt new file mode
-> 100644
-> index 0000000..d3242e4
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/emac_rockchip.txt
-> @@ -0,0 +1,53 @@
-> +* ARC EMAC 10/100 Ethernet platform driver for Rockchip Rk3066/RK3188 SoCs
-> +
-> +Required properties:
-> +- compatible: Should be "rockchip,rk3066-emac" or "rockchip,rk3188-emac"
-> +  according to the target SoC.
-> +- reg: Address and length of the register set for the device
-> +- interrupts: Should contain the EMAC interrupts
-> +- pinctrl-names: pin control state name ("default").
-> +- pinctrl-0: pin control group list of phandle. It must contain
-> +  pin control groups for communication with the phy and for the mii bus.
+> I'm in the same backport situation ;-)
+> 
+> I'll send a V2 of this patch, with missed spot...
 
-pinctrl is normally not supposed to be part of the binding doc, as it is a 
-property of the board and not the controller IP itself
+(to avoid doing too many patches)
 
+In the code below (from __dev_queue_xmit()), I've added validate_xmit_skb().
+(dev_hard_start_xmit() can handle if it is a NULL ptr)
 
-> +- rockchip,grf: phandle to the syscon grf used to control speed and mode
-> +  for emac.
-> +- phy: see ethernet.txt file in the same directory.
-> +- phy-mode: see ethernet.txt file in the same directory.
-> +
-> +Optional properties:
-> +- phy-supply: phandle to a regulator if the PHY needs one
-> +
-> +Clock handling:
-> +- The host clock is needed to calculate and set polling period of EMAC.
-> +  It must be provided by the clock "hclk".
-> +- The reference clock is needed to get/set data from phy at the right
-> frequency,
-> +  according to its "phy-mode". It must be provided by the clock
-> "macref".
+	HARD_TX_LOCK(dev, txq, cpu);
+	if (!netif_xmit_stopped(txq)) {
+		skb = validate_xmit_skb(skb, dev);
+		__this_cpu_inc(xmit_recursion);
+		skb = dev_hard_start_xmit(skb, dev, txq, &rc);
+		__this_cpu_dec(xmit_recursion);
+		if (dev_xmit_complete(rc)) {
+			HARD_TX_UNLOCK(dev, txq);
+			goto out;
+		}
+	}
+	HARD_TX_UNLOCK(dev, txq);
+	net_crit_ratelimited("Virtual device %s asks to queue packet!\n",
+					     dev->name);
+BUT shouldn't we also handle if dev_hard_start_xmit() returns an skb pointer,
+which means that there were skb's left on the skb list.  Due to the rc
+value "returned" in this case, we should see the net_crit_ratelimited()
+msg, but we don't handle freeing these SKBs.
 
-I think a more often used scheme is something like
+Any recommentations?
 
-- clocks: Must contain an entry for each entry in clock-names.
-- clock-names: Shall be "hclk" for the host clock needed to calculate and
-			set polling period of EMAC and "macref" for the reference
-			clock needed to transfer data to and from the phy.
-
-
-> +
-> +Child nodes of the driver are the individual PHY devices connected to the
-> +MDIO bus. They must have a "reg" property given the PHY address on the MDIO
-> bus. +
-> +Examples:
-> +
-> +ethernet@10204000 {
-> +	compatible = "rockchip,rk3188-emac";
-> +	reg = <0xc0fc2000 0x3c>;
-> +	interrupts = <6>;
-> +	mac-address = [ 00 11 22 33 44 55 ];
-> +
-> +	clocks = <&cru HCLK_EMAC>, <&cru SCLK_MAC>;
-> +	clock-names = "hclk", "macref";
-> +
-> +	pinctrl-names = "default";
-> +	pinctrl-0 = <&emac_xfer>, <&emac_mdio>, <&phy_int>;
-> +
-> +	rockchip,grf = <&grf>;
-> +
-> +	phy = <&phy0>;
-> +	phy-mode = "rmii";
-> +	phy-supply = <&vcc_rmii>;
-> +
-> +	#address-cells = <1>;
-> +	#size-cells = <0>;
-> +	phy0: ethernet-phy@0 {
-> +	      reg = <1>;
-> +	};
-> +};
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
