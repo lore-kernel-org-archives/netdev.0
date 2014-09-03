@@ -1,76 +1,78 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next 01/13] openvswitch: split flow structures into
- ovs specific and generic ones
-Date: Wed, 03 Sep 2014 17:22:28 -0400
-Message-ID: <54078694.5040104@mojatatu.com>
-References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>	<1409736300-12303-2-git-send-email-jiri@resnulli.us> <CALnjE+pscRmfhaWgkWCunJfjvG04RiNUAj6nefSFHrknQTC+xw@mail.gmail.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH 2/2] net-timestamp: Make the clone operation stand-alone
+ from phy timestamping
+Date: Wed, 03 Sep 2014 14:24:00 -0700
+Message-ID: <540786F0.908@intel.com>
+References: <20140903155022.1896.59030.stgit@ahduyck-bv4.jf.intel.com> <20140903155357.1896.92538.stgit@ahduyck-bv4.jf.intel.com> <CA+FuTSdsrAAd0iti0oF3MDvXTtQWnBByuo_UMGCW2Dd+WnWeLg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
-	andy@greyhouse.net, Thomas Graf <tgraf@suug.ch>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jesse Gross <jesse@nicira.com>, Andy Zhou <azhou@nicira.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	john.r.fastabend@intel.com, Eric Dumazet <edumazet@google.com>,
-	sfeldma@cumulusnetworks.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, John Linville <linville@tuxdriver.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>, jasowang@redhat.com,
-	ebiederm@xmission.com, Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.co
-To: Pravin Shelar <pshelar@nicira.com>, Jiri Pirko <jiri@resnulli.us>
+Cc: Network Development <netdev@vger.kernel.org>,
+	Richard Cochran <richardcochran@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	"dumazet >> Eric Dumazet" <eric.dumazet@gmail.com>
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:64986 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756751AbaICVWc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 17:22:32 -0400
-Received: by mail-ie0-f169.google.com with SMTP id tr6so10524887ieb.14
-        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 14:22:32 -0700 (PDT)
-In-Reply-To: <CALnjE+pscRmfhaWgkWCunJfjvG04RiNUAj6nefSFHrknQTC+xw@mail.gmail.com>
+Received: from mga01.intel.com ([192.55.52.88]:52042 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932684AbaICVYC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 17:24:02 -0400
+In-Reply-To: <CA+FuTSdsrAAd0iti0oF3MDvXTtQWnBByuo_UMGCW2Dd+WnWeLg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/03/14 14:41, Pravin Shelar wrote:
-> On Wed, Sep 3, 2014 at 2:24 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+On 09/03/2014 11:54 AM, Willem de Bruijn wrote:
+> On Wed, Sep 3, 2014 at 11:53 AM, Alexander Duyck
+> <alexander.h.duyck@intel.com> wrote:
+>> The phy timestamping takes a different path than the regular timestamping
+>> does in that it will create a clone first so that the packets needing to be
+>> timestamped can be placed in a queue, or the context block could be used.
+>>
+>> In order to support these use cases I am pulling the core of the code out
+>> so it can be used in other drivers beyond just phy devices.
+> 
+> Do you already have additional such use cases?
 
-> HW offload API should be separate from OVS module.
+I have a driver that I am working on that I will probably push in a
+couple of weeks that will make use of this interface.  I basically need
+to maintain a list of SKBs as I can multiple timestamps out for
+completion at the same time.
 
-The above part i agree with. Infact it is very odd that it seems
-hard to get this point across ;->
+>> +struct sk_buff *__skb_clone_tx_timestamp(struct sk_buff *skb)
+>> +{
+>> +       struct sock *sk = skb->sk;
+>> +       struct sk_buff *clone;
+>> +
+>> +       if (!sk || !atomic_inc_not_zero(&sk->sk_refcnt))
+>> +               return NULL;
+>> +
+>> +       clone = skb_clone(skb, GFP_ATOMIC);
+>> +       if (!clone) {
+>> +               sock_put(sk);
+>> +               return NULL;
+>> +       }
+>> +
+>> +       clone->sk = sk;
+>> +
+>> +       return clone;
+>> +}
+>> +EXPORT_SYMBOL(__skb_clone_tx_timestamp);
+>> +
+> 
+> Code looks great. Again, this can be verified to be a functional noop.
+> One minor comment is that this really is not a timestamping function,
+> but an skb_clone variant. skb_clone_sk?
 
-> This has following
-> advantages.
-> 1. It can be managed by OVS userspace vswitchd process which has much
-> better context to setup hardware flow table. Once we add capabilities
-> for swdev, it is much more easier for vswitchd process to choose
-> correct (hw or sw) flow table for given flow.
+Let me think about this one.  Between the comment Eric had about
+skb->destructor and the fact that this is essentially just forking the
+skb so we can hold it for the reply I might be able to come up with a
+better solution.
 
-This i disagree with.
-The desire is to have existing user tools to work with offloads.
-When necessary, we then create new tools.
-Existing tools may need to be taught to do selectively do
-hardware vs software offload. We have a precedence with
-bridging code which selectively offloads to hardware using iproute2.
+I'm thinking it might be worthwhile to create a simple destructor as
+then I could probably tear out several spots in the phy timestamping
+code where it is having to use skb_complete_tx_timestamp to free the
+frames that are allocated using the approach in this function.
 
-> 2. Other application that wants to use HW offload does not have
-> dependency on OVS kernel module.
+Thanks,
 
-Or on OF for that matter.
-
-> 3. Hardware and software datapath remains separate, these two
-> components has no dependency on each other, both can be developed
-> independent of each other.
->
-
-The basic definition of "offload" implies dependency;-> So,
-I strongly disagree. You may need to go backwards and look at
-views expressed on this (other than emails - theres slideware).
-
-cheers,
-jamal
+Alex
