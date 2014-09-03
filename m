@@ -1,70 +1,95 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net-next 4/4] ipv6: coding style - cleanse bracing
-Date: Wed, 3 Sep 2014 07:52:52 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63B310A4@avmb3.qlogic.org>
-References: <1409685364-4327-1-git-send-email-ipm@chirality.org.uk>
- <1409685364-4327-5-git-send-email-ipm@chirality.org.uk>
- <54066F6D.4060406@miraclelinux.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
+ runnable
+Date: Wed, 3 Sep 2014 11:09:18 +0300
+Message-ID: <20140903080918.GB6187@redhat.com>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
+ <1408608310-13579-2-git-send-email-jasowang@redhat.com>
+ <1408683665.5648.69.camel@marge.simpson.net>
+ <20140822073653.GA7372@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kvGyRCNUhGIzFRTEAbKEI=?=
-	<hideaki.yoshifuji@miraclelinux.com>,
-	Ian Morris <ipm@chirality.org.uk>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:10369 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751114AbaICHx2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 03:53:28 -0400
-In-Reply-To: <54066F6D.4060406@miraclelinux.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mike Galbraith <umgwanakikbuti@gmail.com>,
+	Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140822073653.GA7372@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Hi,
->
-> Ian Morris wrote:
-> > Tidy up braces in a few places (mainly if statements):
-> > * remove unnecessary braces
-> > * add braces for single line statements where part of an "else" where
-> > the other branch has braces
->
-> Hmm, I am not for this change.
->
-> If "if" (or "else") statement occupies multiple lines, I want to see braces even if it
-> contains a single statement.
-> On the other hand, especiallly if the statement occupiles only one line (and the
-> logic do not require those braces), no braces.
->
-> e.g. 1
->     if (cond)
->             statement();
->     else {
->             statement2(argument,
->                        argument2);
->     }
+On Fri, Aug 22, 2014 at 09:36:53AM +0200, Ingo Molnar wrote:
+> 
+> > > diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+> > > index 1d67fb6..8a33fb2 100644
+> > > --- a/include/net/busy_poll.h
+> > > +++ b/include/net/busy_poll.h
+> > > @@ -109,7 +109,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
+> > >  		cpu_relax();
+> > >  
+> > >  	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
+> > > -		 !need_resched() && !busy_loop_timeout(end_time));
+> > > +		 !need_resched() && !busy_loop_timeout(end_time) &&
+> > > +		 nr_running_this_cpu() < 2);
+> 
+> So it's generally a bad idea to couple to the scheduler through 
+> such a low level, implementation dependent value like 
+> 'nr_running', causing various problems:
+> 
+>  - It misses important work that might be pending on this CPU,
+>    like RCU callbacks.
+> 
+>  - It will also over-credit task contexts that might be
+>    runnable, but which are less important than the currently
+>    running one: such as a SCHED_IDLE task
+> 
+>  - It will also over-credit even regular SCHED_NORMAL tasks, if
+>    this current task is more important than them: say
+>    SCHED_FIFO. A SCHED_FIFO workload should run just as fast 
+>    with SCHED_NORMAL tasks around, as a SCHED_NORMAL workload 
+>    on an otherwise idle system.
+> 
+> So what you want is a more sophisticated query to the 
+> scheduler, a sched_expected_runtime() method that returns the 
+> number of nsecs this task is expected to run in the future, 
+> which returns 0 if you will be scheduled away on the next 
+> schedule(), and returns infinity for a high prio SCHED_FIFO 
+> task, or if this SCHED_NORMAL task is on an otherwise idle CPU.
+> 
+> It will return a regular time slice value in other cases, when 
+> there's some load on the CPU.
+> 
+> The polling logic can then do its decision based on that time 
+> value.
+> 
+> All this can be done reasonably fast and lockless in most 
+> cases, so that it can be called from busy-polling code.
+> 
+> An added advantage would be that this approach consolidates the 
+> somewhat random need_resched() checks into this method as well.
+> 
+> In any case I don't agree with the nr_running_this_cpu() 
+> method.
+> 
+> (Please Cc: me and lkml to future iterations of this patchset.)
+> 
+> Thanks,
+> 
+> 	Ingo
 
-I was under the impression the coding style require matching curly braces on all
-if and else clauses, e.g., in the previous example I would have expected the `if' to
-have curly braces since its else block has them, regardless of whether its
-statement-block has more than a single line.
+This sounds very nice.
 
-> e.g. 2
->     if (cond) {
->             if (cond2)
->                     statement();
->     } else
->             statement2(argument, argument2);
->
-> e.g. 3
->     if (cond) {
->             /* comment */
->             statement();
->     }
+We could then have applications say "I want to poll
+only if no one else has urgent work" where
+urgent is defined as "has to run within next N nseconds".
 
-________________________________
+Really just a bit more flexibility added to busy polling.
 
-This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
+Peter, Ingo, does this sound good?
+
+-- 
+MST
