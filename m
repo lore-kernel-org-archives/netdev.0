@@ -1,126 +1,69 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH v2] 3c59x: avoid panic in boomerang_start_xmit when finding page address:
-Date: Wed,  3 Sep 2014 06:17:25 -0400
-Message-ID: <1409739445-28021-1-git-send-email-nhorman@tuxdriver.com>
-References: <1409676715-2291-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	klassert@mathematik.tu-chemnitz.de,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Romain Perier <romain.perier@gmail.com>
+Subject: [PATCH 4/4] ARM: dts: Enable emac node on the rk3188-radxarock boards
+Date: Wed,  3 Sep 2014 10:27:16 +0000
+Message-ID: <1409740036-8117-4-git-send-email-romain.perier@gmail.com>
+References: <1409740036-8117-1-git-send-email-romain.perier@gmail.com>
+Cc: linux-rockchip@lists.infradead.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, arnd@arndb.de
+To: heiko@sntech.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50273 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756413AbaICKSD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 06:18:03 -0400
-In-Reply-To: <1409676715-2291-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mail-we0-f173.google.com ([74.125.82.173]:44017 "EHLO
+	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756582AbaICKZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 06:25:10 -0400
+In-Reply-To: <1409740036-8117-1-git-send-email-romain.perier@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This bug was reported on a very old kernel (RHEL6, 2.6.32-491.el6):
+This enables EMAC Rockchip support on radxa rock boards.
 
-BUG: unable to handle kernel paging request at 00800000
-IP: [<c04107b5>] nommu_map_page+0x15/0x110
-*pdpt = 000000003454f001 *pde = 000000003f03d067
-Oops: 0000 [#1] SMP
-last sysfs file: /sys/devices/system/cpu/online
-Modules linked in: nfsd lockd nfs_acl auth_rpcgss sunrpc exportfs p4_clockmod
-ipv6 ppdev parport_pc parport microcode iTCO_wdt iTCO_vendor_support 3c59x mii
-dcdbas serio_raw snd_intel8x0 snd_ac97_codec ac97_bus snd_seq snd_seq_device
-snd_pcm snd_timer snd soundcore snd_page_alloc i2c_i801 sg lpc_ich mfd_core ext4
-jbd2 mbcache sr_mod cdrom sd_mod crc_t10dif pata_acpi ata_generic ata_piix
-radeon ttm drm_kms_helper drm i2c_algo_bit i2c_core dm_mirror dm_region_hash
-dm_log dm_mod [last unloaded: mperf]
-
-Pid: 4219, comm: nfsd Not tainted 2.6.32-491.el6.i686 #1 Dell Computer
-Corporation OptiPlex GX240               /OptiPlex GX240
-EIP: 0060:[<c04107b5>] EFLAGS: 00010246 CPU: 0
-EIP is at nommu_map_page+0x15/0x110
-EAX: 00000000 EBX: c0a83480 ECX: 00000000 EDX: 00800000
-ESI: 00000000 EDI: f70e7860 EBP: e2d09b54 ESP: e2d09b24
- DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
-Process nfsd (pid: 4219, ti=e2d08000 task=e2ceaaa0 task.ti=e2d08000)
-Stack:
- 00000056 00000000 0000000e c65efd38 00000020 00000296 00000206 00000206
-<0> c050c850 c0a83480 e2cef154 00000001 e2d09ba8 f8fcd585 00000510 00000001
-<0> 00000000 00000000 f5172200 f8fdac00 0039ef8c f5277020 f70e7860 00000510
-Call Trace:
- [<c050c850>] ? page_address+0xd0/0xe0
- [<f8fcd585>] ? boomerang_start_xmit+0x3b5/0x520 [3c59x]
- [<c07b2975>] ? dev_hard_start_xmit+0xe5/0x400
- [<f9182b00>] ? ip6_output_finish+0x0/0xf0 [ipv6]
- [<c07ca053>] ? sch_direct_xmit+0x113/0x180
- [<c07d5588>] ? nf_hook_slow+0x68/0x120
- [<c07b2ea5>] ? dev_queue_xmit+0x1b5/0x290
- [<f9182b6d>] ? ip6_output_finish+0x6d/0xf0 [ipv6]
- [<f9184cb8>] ? ip6_xmit+0x3e8/0x490 [ipv6]
- [<f91ab9f9>] ? inet6_csk_xmit+0x289/0x2f0 [ipv6]
- [<c07f6451>] ? tcp_transmit_skb+0x431/0x7f0
- [<c07a403f>] ? __alloc_skb+0x4f/0x140
- [<c07f85a2>] ? tcp_write_xmit+0x1c2/0xa50
- [<c07f90b1>] ? __tcp_push_pending_frames+0x31/0xe0
- [<c07ea47a>] ? tcp_sendpage+0x44a/0x4b0
- [<c07ea030>] ? tcp_sendpage+0x0/0x4b0
- [<c079be1e>] ? kernel_sendpage+0x4e/0x90
- [<f8457bb9>] ? svc_send_common+0xc9/0x120 [sunrpc]
- [<f8457c85>] ? svc_sendto+0x75/0x1f0 [sunrpc]
- [<c060d0d9>] ? _atomic_dec_and_lock+0x59/0x90
- [<f87d55d0>] ? nfs3svc_encode_readres+0x0/0xc0 [nfsd]
- [<f845876d>] ? svc_authorise+0x2d/0x40 [sunrpc]
- [<f87d4410>] ? nfs3svc_release_fhandle+0x0/0x10 [nfsd]
- [<f8455721>] ? svc_process_common+0xf1/0x5a0 [sunrpc]
- [<f8457e86>] ? svc_tcp_sendto+0x36/0xa0 [sunrpc]
- [<f8461778>] ? svc_send+0x98/0xd0 [sunrpc]
- [<f87c698c>] ? nfsd+0xac/0x140 [nfsd]
- [<c04470e0>] ? complete+0x40/0x60
- [<f87c68e0>] ? nfsd+0x0/0x140 [nfsd]
- [<c04802ac>] ? kthread+0x7c/0xa0
- [<c0480230>] ? kthread+0x0/0xa0
- [<c0409f9f>] ? kernel_thread_helper+0x7/0x10
-Code: 8d b6 00 00 00 00 eb f8 8d b4 26 00 00 00 00 8d bc 27 00 00 00 00 55 89 e5
-83 ec 30 89 75 f8 31 f6 89 7d fc 89 c7 89 c8 89 5d f4 <8b> 1a 8b 4d 08 c1 eb 19
-c1 e3 04 8b 9b c0 29 c7 c0 83 e3 fc 29
-
-But the problem seems to still exist upstream.  It seems on 32 bit kernels
-page_address() can reutrn a NULL value in some circumstances, and the
-pci_map_single api isn't prepared to handle that (on this system it results in a
-bogus pointer deference in nommu_map_page.
-
-The fix is pretty easy, if we convert the 3c59x driver to use the more
-convieient skb_frag_dma_map api we don't need to find the virtual address of the
-page at all, and page gets mapped to the hardware properly.  Verified to fix the
-problem as described by the reporter.
-
-Applies to the net tree
-
-Change Notes:
-
-v2) Converted PCI_DMA_TODEVICE to DMA_TO_DEVICE.  Thanks Dave!
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: klassert@mathematik.tu-chemnitz.de
-CC: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Romain Perier <romain.perier@gmail.com>
 ---
- drivers/net/ethernet/3com/3c59x.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ arch/arm/boot/dts/rk3188-radxarock.dts | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
-diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
-index 059c741..e55f39c 100644
---- a/drivers/net/ethernet/3com/3c59x.c
-+++ b/drivers/net/ethernet/3com/3c59x.c
-@@ -2177,10 +2177,10 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+diff --git a/arch/arm/boot/dts/rk3188-radxarock.dts b/arch/arm/boot/dts/rk3188-radxarock.dts
+index 5e4e3c23..e1358d3 100644
+--- a/arch/arm/boot/dts/rk3188-radxarock.dts
++++ b/arch/arm/boot/dts/rk3188-radxarock.dts
+@@ -76,6 +76,24 @@
+ 	};
+ };
  
- 			vp->tx_ring[entry].frag[i+1].addr =
--					cpu_to_le32(pci_map_single(
--						VORTEX_PCI(vp),
--						(void *)skb_frag_address(frag),
--						skb_frag_size(frag), PCI_DMA_TODEVICE));
-+					cpu_to_le32(skb_frag_dma_map(
-+						&VORTEX_PCI(vp)->dev,
-+						frag,
-+						frag->page_offset, frag->size, PCI_DMA_TODEVICE));
++&emac {
++	status = "okay";
++	compatible = "rockchip,rk3188-emac";
++
++	pinctrl-names = "default";
++	pinctrl-0 = <&emac_xfer>, <&emac_mdio>, <&phy_int>;
++
++	mac-address = [ c6 ef 91 8e 60 4b ];
++	phy = <&phy0>;
++	phy-supply = <&vcc_rmii>;
++
++	phy0: ethernet-phy@0 {
++		reg = <0>;
++		interrupt-parent = <&gpio3>;
++		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
++	};
++};
++
+ &i2c1 {
+ 	status = "okay";
+ 	clock-frequency = <400000>;
+@@ -201,6 +219,12 @@
+ 		};
+ 	};
  
- 			if (i == skb_shinfo(skb)->nr_frags-1)
- 					vp->tx_ring[entry].frag[i+1].length = cpu_to_le32(skb_frag_size(frag)|LAST_FRAG);
++	lan8720a  {
++		phy_int: phy-int {
++			rockchip,pins = <RK_GPIO3 26 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++	};
++
+ 	ir-receiver {
+ 		ir_recv_pin: ir-recv-pin {
+ 			rockchip,pins = <RK_GPIO0 10 RK_FUNC_GPIO &pcfg_pull_none>;
 -- 
-1.9.3
+1.9.1
