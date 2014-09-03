@@ -1,68 +1,53 @@
-From: <y@shlinux1.ap.freescale.net>
-Subject: [Patch net-next 02/11] net:fec: add enet AVB feature macro define for imx6sx
-Date: Thu, 4 Sep 2014 04:34:37 +0800
-Message-ID: <38225.211602594$1409778717@news.gmane.org>
-References: <1409776486-1403-1-git-send-email-y>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next 01/13] openvswitch: split flow structures into
+ ovs specific and generic ones
+Date: Wed, 03 Sep 2014 17:11:56 -0400
+Message-ID: <5407841C.3040301@mojatatu.com>
+References: <1409736300-12303-1-git-send-email-jiri@resnulli.us> <1409736300-12303-2-git-send-email-jiri@resnulli.us> <540731B9.4010603@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1409776486-1403-1-git-send-email-y>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, sfeldma@cumulusnetworks.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com
+To: John Fastabend <john.fastabend@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:63857 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756340AbaICVMA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 17:12:00 -0400
+Received: by mail-ig0-f174.google.com with SMTP id a13so1606345igq.7
+        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 14:12:00 -0700 (PDT)
+In-Reply-To: <540731B9.4010603@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+On 09/03/14 11:20, John Fastabend wrote:
 
-Add enet AVB feature macro define for imx6sx.
+> Also I have some filters that can match on offset/length/mask
+> tuples. As far as I can tell this is going to have to be yet
+> another interface? Or would it be worth the effort to define
+> the flow key more generically. My initial guess is I'll just
+> write a separate interface. I think this is what Jamal referred
+> to as another "classifier".
+>
 
-Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
----
- drivers/net/ethernet/freescale/fec_main.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+Exactly. I have more complex classifiers as stated earlier.
+I am afraid these patches again are not satisfying that need.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index c21ecff1..ee9f04f 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -104,6 +104,16 @@ static void set_multicast_list(struct net_device *ndev);
-  * ENET_TDAR[TDAR].
-  */
- #define FEC_QUIRK_ERR006358            (1 << 7)
-+/* ENET IP hw AVB
-+ *
-+ * i.MX6SX ENET IP add Audio Video Bridging (AVB) feature support.
-+ * - Two class indicators on receive with configurable priority
-+ * - Two class indicators and line speed timer on transmit allowing
-+ *   implementation class credit based shapers externally
-+ * - Additional DMA registers provisioned to allow managing up to 3
-+ *   independent rings
-+ */
-+#define FEC_QUIRK_HAS_AVB		(1 << 8)
- 
- static struct platform_device_id fec_devtype[] = {
- 	{
-@@ -128,6 +138,12 @@ static struct platform_device_id fec_devtype[] = {
- 		.name = "mvf600-fec",
- 		.driver_data = FEC_QUIRK_ENET_MAC,
- 	}, {
-+		.name = "imx6sx-fec",
-+		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
-+				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
-+				FEC_QUIRK_HAS_VLAN | FEC_QUIRK_ERR006358 |
-+				FEC_QUIRK_HAS_AVB,
-+	}, {
- 		/* sentinel */
- 	}
- };
--- 
-1.9.1
+In any case - we are taking a different tact than these patches
+do and hopefully at some point we can merge thoughts.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+cheers,
+jamal
