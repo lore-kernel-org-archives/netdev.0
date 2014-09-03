@@ -1,477 +1,100 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH net-next 2/2] bonding: Simplify the xmit function for modes that use xmit_hash
-Date: Wed,  3 Sep 2014 14:47:31 -0700
-Message-ID: <1409780851-32081-1-git-send-email-maheshb@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f74.google.com ([209.85.220.74]:47938 "EHLO
-	mail-pa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754925AbaICVrh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 17:47:37 -0400
-Received: by mail-pa0-f74.google.com with SMTP id lj1so2903036pab.3
-        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 14:47:34 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [patch net-next 01/13] openvswitch: split flow
+ structures into ovs specific and generic ones
+Date: Wed, 3 Sep 2014 14:59:17 -0700
+Message-ID: <CALnjE+qUqSK7kHSi5BZuA0hzFjMcZ8TCTd9JRG1PPmMfDmAQOA@mail.gmail.com>
+References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
+ <1409736300-12303-2-git-send-email-jiri@resnulli.us>
+ <CALnjE+pscRmfhaWgkWCunJfjvG04RiNUAj6nefSFHrknQTC+xw@mail.gmail.com>
+ <54078694.5040104@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "ryazanov.s.a" <ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, jasowang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ "john.r.fastabend" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ "neil.jerram" <Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+ andy <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ nbd <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, "f.fainelli" <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ Rony Efraim <ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+ "jeffrey.t.kirsher" <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+ buytenh <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
+ roopa <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, aviadr <aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+ Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>, vyasevic <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ nhorman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+ Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, ebiederm <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
+To: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <54078694.5040104-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Earlier change to use usable slave array for TLB mode had an additional
-performance advantage. So extending the same logic to all other modes
-that use xmit-hash for slave selection (viz 802.3AD, and XOR modes).
-Also consolidating this with the earlier TLB change.
+On Wed, Sep 3, 2014 at 2:22 PM, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org> wrote:
+> On 09/03/14 14:41, Pravin Shelar wrote:
+>>
+>> On Wed, Sep 3, 2014 at 2:24 AM, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org> wrote:
+>
+>
+>> HW offload API should be separate from OVS module.
+>
+>
+> The above part i agree with. Infact it is very odd that it seems
+> hard to get this point across ;->
+>
+>
+>> This has following
+>> advantages.
+>> 1. It can be managed by OVS userspace vswitchd process which has much
+>> better context to setup hardware flow table. Once we add capabilities
+>> for swdev, it is much more easier for vswitchd process to choose
+>> correct (hw or sw) flow table for given flow.
+>
+>
+> This i disagree with.
+> The desire is to have existing user tools to work with offloads.
+> When necessary, we then create new tools.
+> Existing tools may need to be taught to do selectively do
+> hardware vs software offload. We have a precedence with
+> bridging code which selectively offloads to hardware using iproute2.
+>
+Both of us are saying same thing.
+What I meant was for OVS use-case, where OVS wants to use offload for
+switching flows, vswitchd userspace process can program HW offload
+using kernel HW offload APIs directly from userspace, rather than
+going through OVS kernel module. If user wants to use some other tool,
+then the tool can use same kernel HW offload APIs.
 
-The main idea is to build the usable slaves array in the control path
-and use that array for slave selection during xmit operation.
+>
+>> 2. Other application that wants to use HW offload does not have
+>> dependency on OVS kernel module.
+>
+>
+> Or on OF for that matter.
+>
+>
+>> 3. Hardware and software datapath remains separate, these two
+>> components has no dependency on each other, both can be developed
+>> independent of each other.
+>>
+>
+> The basic definition of "offload" implies dependency;-> So,
+> I strongly disagree. You may need to go backwards and look at
+> views expressed on this (other than emails - theres slideware).
+>
 
-Measured performance in a setup with a bond of 4x1G NICs with 200
-instances of netperf for the modes involved (3ad, xor, tlb)
-cmd: netperf -t TCP_RR -H <TargetHost> -l 60 -s 5
+I was referring to code dependency in kernel. For example ovs flow-key
+structure used. This complicates OVS internal structure which needs to
+be shared plus OVS might need to extend interface for configuring HW
+match or action that does not exist in OVS software datapath.
 
-Mode        TPS-Before   TPS-After
-
-802.3ad   : 468,694      493,101
-TLB (lb=0): 392,583      392,965
-XOR       : 475,696      484,517
-
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- drivers/net/bonding/bond_3ad.c  |  77 ++++---------------------------
- drivers/net/bonding/bond_alb.c  |  43 ++---------------
- drivers/net/bonding/bond_alb.h  |   8 ----
- drivers/net/bonding/bond_main.c | 100 ++++++++++++++++++++++++++++++++++++----
- drivers/net/bonding/bonding.h   |   8 ++++
- 5 files changed, 113 insertions(+), 123 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index ee2c73a9de39..d42fd65fdfa9 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -1717,6 +1717,8 @@ static void ad_enable_collecting_distributing(struct port *port)
- 			 port->actor_port_number,
- 			 port->aggregator->aggregator_identifier);
- 		__enable_port(port);
-+		if (bond_update_slave_arr(port->slave->bond, NULL))
-+			pr_debug("Failed to build slave-array for 3ad mode.\n");
- 	}
- }
- 
-@@ -1733,6 +1735,8 @@ static void ad_disable_collecting_distributing(struct port *port)
- 			 port->actor_port_number,
- 			 port->aggregator->aggregator_identifier);
- 		__disable_port(port);
-+		if (bond_update_slave_arr(port->slave->bond, NULL))
-+			pr_debug("Failed to build slave-array for 3ad mode.\n");
- 	}
- }
- 
-@@ -1917,6 +1921,9 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 	__update_lacpdu_from_port(port);
- 	ad_lacpdu_send(port);
- 
-+	if (bond_update_slave_arr(bond, slave))
-+		pr_debug("Failed to build slave-array for 3AD mode.\n");
-+
- 	/* check if this aggregator is occupied */
- 	if (aggregator->lag_ports) {
- 		/* check if there are other ports related to this aggregator
-@@ -2311,6 +2318,9 @@ void bond_3ad_handle_link_change(struct slave *slave, char link)
- 	 */
- 	port->sm_vars |= AD_PORT_BEGIN;
- 
-+	if (bond_update_slave_arr(slave->bond, NULL))
-+		pr_debug("Failed to build slave-array for 3ad mode.\n");
-+
- 	__release_state_machine_lock(port);
- }
- 
-@@ -2407,73 +2417,6 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
- 	return ret;
- }
- 
--int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
--{
--	struct bonding *bond = netdev_priv(dev);
--	struct slave *slave, *first_ok_slave;
--	struct aggregator *agg;
--	struct ad_info ad_info;
--	struct list_head *iter;
--	int slaves_in_agg;
--	int slave_agg_no;
--	int agg_id;
--
--	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
--		netdev_dbg(dev, "__bond_3ad_get_active_agg_info failed\n");
--		goto err_free;
--	}
--
--	slaves_in_agg = ad_info.ports;
--	agg_id = ad_info.aggregator_id;
--
--	if (slaves_in_agg == 0) {
--		netdev_dbg(dev, "active aggregator is empty\n");
--		goto err_free;
--	}
--
--	slave_agg_no = bond_xmit_hash(bond, skb) % slaves_in_agg;
--	first_ok_slave = NULL;
--
--	bond_for_each_slave_rcu(bond, slave, iter) {
--		agg = SLAVE_AD_INFO(slave)->port.aggregator;
--		if (!agg || agg->aggregator_identifier != agg_id)
--			continue;
--
--		if (slave_agg_no >= 0) {
--			if (!first_ok_slave && bond_slave_can_tx(slave))
--				first_ok_slave = slave;
--			slave_agg_no--;
--			continue;
--		}
--
--		if (bond_slave_can_tx(slave)) {
--			bond_dev_queue_xmit(bond, skb, slave->dev);
--			goto out;
--		}
--	}
--
--	if (slave_agg_no >= 0) {
--		netdev_err(dev, "Couldn't find a slave to tx on for aggregator ID %d\n",
--			   agg_id);
--		goto err_free;
--	}
--
--	/* we couldn't find any suitable slave after the agg_no, so use the
--	 * first suitable found, if found.
--	 */
--	if (first_ok_slave)
--		bond_dev_queue_xmit(bond, skb, first_ok_slave->dev);
--	else
--		goto err_free;
--
--out:
--	return NETDEV_TX_OK;
--err_free:
--	/* no suitable interface, frame not sent */
--	dev_kfree_skb_any(skb);
--	goto out;
--}
--
- int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
- 			 struct slave *slave)
- {
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 73c21e233131..b2be7b3216d6 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -200,7 +200,6 @@ static int tlb_initialize(struct bonding *bond)
- static void tlb_deinitialize(struct bonding *bond)
- {
- 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
--	struct tlb_up_slave *arr;
- 
- 	_lock_tx_hashtbl_bh(bond);
- 
-@@ -208,10 +207,6 @@ static void tlb_deinitialize(struct bonding *bond)
- 	bond_info->tx_hashtbl = NULL;
- 
- 	_unlock_tx_hashtbl_bh(bond);
--
--	arr = rtnl_dereference(bond_info->slave_arr);
--	if (arr)
--		kfree_rcu(arr, rcu);
- }
- 
- static long long compute_gap(struct slave *slave)
-@@ -1409,39 +1404,9 @@ out:
- 	return NETDEV_TX_OK;
- }
- 
--static int bond_tlb_update_slave_arr(struct bonding *bond,
--				     struct slave *skipslave)
--{
--	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
--	struct slave *tx_slave;
--	struct list_head *iter;
--	struct tlb_up_slave *new_arr, *old_arr;
--
--	new_arr = kzalloc(offsetof(struct tlb_up_slave, arr[bond->slave_cnt]),
--			  GFP_ATOMIC);
--	if (!new_arr)
--		return -ENOMEM;
--
--	bond_for_each_slave(bond, tx_slave, iter) {
--		if (!bond_slave_can_tx(tx_slave))
--			continue;
--		if (skipslave == tx_slave)
--			continue;
--		new_arr->arr[new_arr->count++] = tx_slave;
--	}
--
--	old_arr = rtnl_dereference(bond_info->slave_arr);
--	rcu_assign_pointer(bond_info->slave_arr, new_arr);
--	if (old_arr)
--		kfree_rcu(old_arr, rcu);
--
--	return 0;
--}
--
- int bond_tlb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
--	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
- 	struct ethhdr *eth_data;
- 	struct slave *tx_slave = NULL;
- 	u32 hash_index;
-@@ -1462,9 +1427,9 @@ int bond_tlb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 							      hash_index & 0xFF,
- 							      skb->len);
- 			} else {
--				struct tlb_up_slave *slaves;
-+				struct bond_up_slave *slaves;
- 
--				slaves = rcu_dereference(bond_info->slave_arr);
-+				slaves = rcu_dereference(bond->slave_arr);
- 				if (slaves && slaves->count)
- 					tx_slave = slaves->arr[hash_index %
- 							       slaves->count];
-@@ -1734,7 +1699,7 @@ void bond_alb_deinit_slave(struct bonding *bond, struct slave *slave)
- 	}
- 
- 	if (bond_is_nondyn_tlb(bond))
--		if (bond_tlb_update_slave_arr(bond, slave))
-+		if (bond_update_slave_arr(bond, slave))
- 			pr_err("Failed to build slave-array for TLB mode.\n");
- 
- }
-@@ -1762,7 +1727,7 @@ void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char
- 	}
- 
- 	if (bond_is_nondyn_tlb(bond)) {
--		if (bond_tlb_update_slave_arr(bond, NULL))
-+		if (bond_update_slave_arr(bond, NULL))
- 			pr_err("Failed to build slave-array for TLB mode.\n");
- 	}
- }
-diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
-index aaeac61d03cf..5fc76c01636c 100644
---- a/drivers/net/bonding/bond_alb.h
-+++ b/drivers/net/bonding/bond_alb.h
-@@ -139,20 +139,12 @@ struct tlb_slave_info {
- 			 */
- };
- 
--struct tlb_up_slave {
--	unsigned int	count;
--	struct rcu_head rcu;
--	struct slave	*arr[0];
--};
--
- struct alb_bond_info {
- 	struct tlb_client_info	*tx_hashtbl; /* Dynamically allocated */
- 	spinlock_t		tx_hashtbl_lock;
- 	u32			unbalanced_load;
- 	int			tx_rebalance_counter;
- 	int			lp_counter;
--	/* -------- non-dynamic tlb mode only ---------*/
--	struct tlb_up_slave __rcu *slave_arr;	  /* Up slaves */
- 	/* -------- rlb parameters -------- */
- 	int rlb_enabled;
- 	struct rlb_client_info	*rx_hashtbl;	/* Receive hash table */
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index f0f5eab0fab1..b0e8e7cfa10f 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1693,6 +1693,9 @@ static int __bond_release_one(struct net_device *bond_dev,
- 	if (BOND_MODE(bond) == BOND_MODE_8023AD)
- 		bond_3ad_unbind_slave(slave);
- 
-+	else if (BOND_MODE(bond) == BOND_MODE_XOR)
-+		bond_update_slave_arr(bond, slave);
-+
- 	write_unlock_bh(&bond->lock);
- 
- 	netdev_info(bond_dev, "Releasing %s interface %s\n",
-@@ -2009,6 +2012,9 @@ static void bond_miimon_commit(struct bonding *bond)
- 				bond_alb_handle_link_change(bond, slave,
- 							    BOND_LINK_UP);
- 
-+			if (BOND_MODE(bond) == BOND_MODE_XOR)
-+				bond_update_slave_arr(bond, NULL);
-+
- 			if (!bond->curr_active_slave ||
- 			    (slave == bond->primary_slave))
- 				goto do_failover;
-@@ -2037,6 +2043,9 @@ static void bond_miimon_commit(struct bonding *bond)
- 				bond_alb_handle_link_change(bond, slave,
- 							    BOND_LINK_DOWN);
- 
-+			if (BOND_MODE(bond) == BOND_MODE_XOR)
-+				bond_update_slave_arr(bond, slave);
-+
- 			if (slave == rcu_access_pointer(bond->curr_active_slave))
- 				goto do_failover;
- 
-@@ -3149,6 +3158,7 @@ static int bond_open(struct net_device *bond_dev)
- static int bond_close(struct net_device *bond_dev)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
-+	struct bond_up_slave *arr;
- 
- 	bond_work_cancel_all(bond);
- 	bond->send_peer_notif = 0;
-@@ -3156,6 +3166,10 @@ static int bond_close(struct net_device *bond_dev)
- 		bond_alb_deinitialize(bond);
- 	bond->recv_probe = NULL;
- 
-+	arr = rtnl_dereference(bond->slave_arr);
-+	if (arr)
-+	    kfree_rcu(arr, rcu);
-+
- 	return 0;
- }
- 
-@@ -3684,15 +3698,84 @@ static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *bond_d
- 	return NETDEV_TX_OK;
- }
- 
--/* In bond_xmit_xor() , we determine the output device by using a pre-
-- * determined xmit_hash_policy(), If the selected device is not enabled,
-- * find the next active slave.
-+/* Build the usable slaves array in control path for modes that use xmit-hash
-+ * to determine the slave interface -
-+ * (a) BOND_MODE_8023AD
-+ * (b) BOND_MODE_XOR
-+ * (c) BOND_MODE_TLB && tlb_dynamic_lb == 0
-  */
--static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev)
-+int bond_update_slave_arr(struct bonding *bond, struct slave *skipslave)
- {
--	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave;
-+	struct list_head *iter;
-+	struct bond_up_slave *new_arr, *old_arr;
-+	int slaves_in_agg;
-+	int agg_id = 0;
-+	int ret = 0;
-+
-+	new_arr = kzalloc(offsetof(struct bond_up_slave, arr[bond->slave_cnt]),
-+			  GFP_ATOMIC);
-+	if (!new_arr) {
-+		ret = -ENOMEM;
-+		goto out;
-+	}
-+	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
-+		struct ad_info ad_info;
-+
-+		if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
-+			pr_debug("__bond_3ad_get_active_agg_info failed\n");
-+			kfree_rcu(new_arr, rcu);
-+			ret = -EINVAL;
-+			goto out;
-+		}
-+		slaves_in_agg = ad_info.ports;
-+		agg_id = ad_info.aggregator_id;
-+	}
-+	bond_for_each_slave(bond, slave, iter) {
-+		if (BOND_MODE(bond) == BOND_MODE_8023AD) {
-+			struct aggregator *agg;
-+
-+			agg = SLAVE_AD_INFO(slave)->port.aggregator;
-+			if (!agg || agg->aggregator_identifier != agg_id)
-+				continue;
-+		}
-+		if (!bond_slave_can_tx(slave))
-+			continue;
-+		if (skipslave == slave)
-+			continue;
-+		new_arr->arr[new_arr->count++] = slave;
-+	}
- 
--	bond_xmit_slave_id(bond, skb, bond_xmit_hash(bond, skb) % bond->slave_cnt);
-+	old_arr = rcu_dereference_protected(bond->slave_arr,
-+					    lockdep_rtnl_is_held() ||
-+					    lockdep_is_held(&bond->lock) ||
-+					    lockdep_is_held(&bond->curr_slave_lock));
-+	rcu_assign_pointer(bond->slave_arr, new_arr);
-+	if (old_arr)
-+		kfree_rcu(old_arr, rcu);
-+
-+out:
-+	return ret;
-+}
-+
-+/* Use this Xmit function for 3AD as well as XOR modes. The current
-+ * usable slave array is formed in the control path. The xmit function
-+ * just calculates hash and sends the packet out.
-+ */
-+int bond_3ad_xor_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct bonding *bond = netdev_priv(dev);
-+	struct slave *slave;
-+	struct bond_up_slave *slaves;
-+
-+	slaves = rcu_dereference(bond->slave_arr);
-+	if (slaves && slaves->count) {
-+		slave = slaves->arr[bond_xmit_hash(bond, skb) % slaves->count];
-+		bond_dev_queue_xmit(bond, skb, slave->dev);
-+	} else {
-+		dev_kfree_skb_any(skb);
-+		atomic_long_inc(&dev->tx_dropped);
-+	}
- 
- 	return NETDEV_TX_OK;
- }
-@@ -3794,12 +3877,11 @@ static netdev_tx_t __bond_start_xmit(struct sk_buff *skb, struct net_device *dev
- 		return bond_xmit_roundrobin(skb, dev);
- 	case BOND_MODE_ACTIVEBACKUP:
- 		return bond_xmit_activebackup(skb, dev);
-+	case BOND_MODE_8023AD:
- 	case BOND_MODE_XOR:
--		return bond_xmit_xor(skb, dev);
-+		return bond_3ad_xor_xmit(skb, dev);
- 	case BOND_MODE_BROADCAST:
- 		return bond_xmit_broadcast(skb, dev);
--	case BOND_MODE_8023AD:
--		return bond_3ad_xmit_xor(skb, dev);
- 	case BOND_MODE_ALB:
- 		return bond_alb_xmit(skb, dev);
- 	case BOND_MODE_TLB:
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index aace510d08d1..4a6195c0de60 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -177,6 +177,12 @@ struct slave {
- 	struct kobject kobj;
- };
- 
-+struct bond_up_slave {
-+	unsigned int	count;
-+	struct rcu_head rcu;
-+	struct slave	*arr[0];
-+};
-+
- /*
-  * Link pseudo-state only used internally by monitors
-  */
-@@ -196,6 +202,7 @@ struct bonding {
- 	struct   slave __rcu *curr_active_slave;
- 	struct   slave __rcu *current_arp_slave;
- 	struct   slave *primary_slave;
-+	struct   bond_up_slave __rcu *slave_arr; /* Array of usable slaves */
- 	bool     force_primary;
- 	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
- 	int     (*recv_probe)(const struct sk_buff *, struct bonding *,
-@@ -527,6 +534,7 @@ const char *bond_slave_link_status(s8 link);
- struct bond_vlan_tag *bond_verify_device_path(struct net_device *start_dev,
- 					      struct net_device *end_dev,
- 					      int level);
-+int bond_update_slave_arr(struct bonding *bond, struct slave *skipslave);
- 
- #ifdef CONFIG_PROC_FS
- void bond_create_proc_entry(struct bonding *bond);
--- 
-2.1.0.rc2.206.gedb03e5
+I agree these two components are related and that dependency can be
+handled from userspace.
