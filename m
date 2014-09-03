@@ -1,80 +1,31 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v2 1/2] r8152: change the location of rtl8152_set_mac_address
-Date: Wed, 3 Sep 2014 10:59:14 +0800
-Message-ID: <1394712342-15778-30-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next v2 0/2] r8152: random MAC address
+Date: Wed, 3 Sep 2014 10:59:13 +0800
+Message-ID: <1394712342-15778-29-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-26-Taiwan-albertk@realtek.com>
- <1394712342-15778-29-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
 	<linux-usb@vger.kernel.org>
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-29-Taiwan-albertk@realtek.com>
+In-Reply-To: <1394712342-15778-26-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Exchange the location of rtl8152_set_mac_address() and
-set_ethernet_addr(). Then, the set_ethernet_addr() could
-set the MAC address by calling rtl8152_set_mac_address()
-later.
+If the interface has invalid MAC address, it couldn't
+be used. In order to let it work normally, give a
+random one.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 34 +++++++++++++++++-----------------
- 1 file changed, 17 insertions(+), 17 deletions(-)
+v2:
+  Use "%pM" format specifier for printing a MAC address.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 80b0179..b5ff933 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -975,6 +975,23 @@ void write_mii_word(struct net_device *netdev, int phy_id, int reg, int val)
- static int
- r8152_submit_rx(struct r8152 *tp, struct rx_agg *agg, gfp_t mem_flags);
- 
-+static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
-+{
-+	struct r8152 *tp = netdev_priv(netdev);
-+	struct sockaddr *addr = p;
-+
-+	if (!is_valid_ether_addr(addr->sa_data))
-+		return -EADDRNOTAVAIL;
-+
-+	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
-+
-+	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR, CRWECR_CONFIG);
-+	pla_ocp_write(tp, PLA_IDR, BYTE_EN_SIX_BYTES, 8, addr->sa_data);
-+	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR, CRWECR_NORAML);
-+
-+	return 0;
-+}
-+
- static inline void set_ethernet_addr(struct r8152 *tp)
- {
- 	struct net_device *dev = tp->netdev;
-@@ -1003,23 +1020,6 @@ static inline void set_ethernet_addr(struct r8152 *tp)
- 	}
- }
- 
--static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
--{
--	struct r8152 *tp = netdev_priv(netdev);
--	struct sockaddr *addr = p;
--
--	if (!is_valid_ether_addr(addr->sa_data))
--		return -EADDRNOTAVAIL;
--
--	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
--
--	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR, CRWECR_CONFIG);
--	pla_ocp_write(tp, PLA_IDR, BYTE_EN_SIX_BYTES, 8, addr->sa_data);
--	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR, CRWECR_NORAML);
--
--	return 0;
--}
--
- static void read_bulk_callback(struct urb *urb)
- {
- 	struct net_device *netdev;
+Hayes Wang (2):
+  r8152: change the location of rtl8152_set_mac_address
+  r8152: use eth_hw_addr_random
+
+ drivers/net/usb/r8152.c | 65 ++++++++++++++++++++++++++++---------------------
+ 1 file changed, 37 insertions(+), 28 deletions(-)
+
 -- 
 1.9.3
