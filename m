@@ -1,108 +1,40 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH V2 0/7] e1000: convert to
- build_skb/napi_gro_frags api
-Date: Tue, 02 Sep 2014 22:18:50 -0700
-Message-ID: <1409721530.2384.28.camel@jtkirshe-mobl>
-References: <1409660690-10391-1-git-send-email-fw@strlen.de>
+From: Harish Jenny Kandiga Nagaraj <harish_kandiga@mentor.com>
+Subject: Re: [RFC PATCH] netlink: Safer deletion of sk_bind_node
+Date: Wed, 3 Sep 2014 10:49:59 +0530
+Message-ID: <5406A4FF.1090209@mentor.com>
+References: <1409555309-5893-1-git-send-email-harish_kandiga@mentor.com>	<20140901.220325.955861172520355423.davem@davemloft.net>	<54058376.9090700@mentor.com> <20140902.115215.1488500321662046816.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4165903216942839789=="
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1409660690-10391-1-git-send-email-fw@strlen.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <dborkman@redhat.com>, <tgraf@suug.ch>, <ebiederm@xmission.com>,
+	<darkjames-ws@darkjames.pl>, <rgb@redhat.com>,
+	<eric.dumazet@gmail.com>, <stephen@networkplumber.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140902.115215.1488500321662046816.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+If that is the case , then subscriptions of netlink_sock should have been updated after netlink_remove or netlink_release.
+I don't see that happening.
 
---===============4165903216942839789==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-7yEkqUsewK4k8LBCOGRC"
-
-
---=-7yEkqUsewK4k8LBCOGRC
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2014-09-02 at 14:24 +0200, Florian Westphal wrote:
-> Changes since v1:
->  - in last patch, remove unneeded parens and casts,
->  pointed out by Sergei Shtylyov.
->=20
-> v1 cover letter:
->=20
-> e1000 driver preallocates skbs, then sends them up the stack.
->=20
-> This patch series changes the rx routine to only preallocate
-> packet buffers, then allocate the skb right before sending the
-> packet up the stack.
->=20
-> This gives slight performance inprovements as the skb will be
-> fresh in the cache once its allocated/initialized.
->=20
-> The default-mtu 1500 path is converted to
-> build_skb()/netdev_alloc_frag.
->=20
-> Jumbo path is converted to napi_gro_frags.
->=20
-> Note that this has only been tested with
-> kvms e1000 emulation.
-
-Thanks Florian, I have added this series to my queue.
-
---=-7yEkqUsewK4k8LBCOGRC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJUBqS6AAoJEOVv75VaS+3OwfYP/Rp1t1L7nLWDQMRdG+e1TChT
-J6yC+2abGg0FIH7AVXHPDtNx5iTHTYocSgkTjeLsBAoQpXQtmZp/lMIpyxY36Le2
-FSiZxbwQSRBLvZb4PgANsbqM1g8jnu7iuDOejNef23eL9hpWuZTy8yTgp4iKnm7N
-hZHHmc6ypAw3MklyZz8++o7ronv+AwjgdsSWEc/iO4ieWijulycXY/YdveLA8Uu7
-9sfuEjtY/EMPBioGFI6m2tviEJ/keujMMWqnKSc9xG0a3Ecm46Zs1it/UOcON98T
-pFJQWBcNkpT7mn3ksm+7/MG7xtnF13abYXmgYFDT1ueEOCe7JzE/EuX4q6iuMPDw
-3bJDienJkcvAKK45sDfO5qZXi6YkouhwerfBgZdVaeRULpV2vMTswPFBwQLxiXax
-NlGLXQESwA1T25s+UEGLF8NyCg9GWDIdtZk+wLnsabFZBQ2mdzOOICTfdAilrCnB
-aWcEGD7Qqse63zbDwA52TwlLnPtDGxF5MlnT606jI1Uq5WusoU7zfUqIWsK/GDvk
-CLU9jQKJs9XxwTOj3HL2I89Wx/TYL6OIGsdUN37YFVBde24Mc2e9GGo+dqw6KOV1
-2eJvouWRkR+johFXVmJbNlmC72YK42kJ7yeKjz+KyCMcxlseMrhqiCZ/iEaOJMbo
-ICyvVptYR1jeBlCqyYKe
-=IFEJ
------END PGP SIGNATURE-----
-
---=-7yEkqUsewK4k8LBCOGRC--
-
-
-
---===============4165903216942839789==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Slashdot TV.  
-Video for Nerds.  Stuff that matters.
-http://tv.slashdot.org/
---===============4165903216942839789==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============4165903216942839789==--
+On Wednesday 03 September 2014 12:22 AM, David Miller wrote:
+> From: Harish Jenny Kandiga Nagaraj <harish_kandiga@mentor.com>
+> Date: Tue, 2 Sep 2014 14:14:38 +0530
+>
+>> In one of our random test runs we observed the crash mentioned in the previous mail.
+>>
+>> After debugging we found out that the call flow of the inline and static functions were
+>> netlink_release
+>> -----netlink_remove
+>> ---------__sk_del_bind_node
+>> --------------__hlist_del
+>>
+>> *pprev was NULL in __hlist_del function while deleting &sk->sk_bind_node hlist_node. Hence the patch was given.
+>>
+>> In netlink_remove function , first the sk_del_node_init function will be called. This internally calls __sk_del_node_init function. While deleting &sk->sk_node hlist_node using __sk_del_node function there is a NULL check with sk_hashed function.
+>>
+>> Why there is no NULL check for *pprev while deleting &sk->sk_bind_node ?
+> Because if ->subscriptions is non-zero, it must be on a list, and therefore
+> pprev must be non-NULL.
