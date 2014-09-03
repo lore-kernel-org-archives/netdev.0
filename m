@@ -1,85 +1,60 @@
-From: Denis Kirjanov <kirjanov@gmail.com>
-Subject: Re: [PATCH] net: export pkt_type_offset() helper
-Date: Wed, 3 Sep 2014 12:53:48 +0400
-Message-ID: <CAHj3AVmY1cL6r78LjEs-fwYzz+dvy5BJCCcAedcMd4KsYt0nCQ@mail.gmail.com>
-References: <1409688238-3152-1-git-send-email-kda@linux-powerpc.org>
-	<20140902225926.GA14635@its-macbook-pro.plumgrid.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: [PATCH V2 net] core: Don't attempt to load the "" driver.
+Date: Wed, 3 Sep 2014 08:55:21 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174862E0@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D174856B9@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Denis Kirjanov <kda@linux-powerpc.org>, netdev@vger.kernel.org,
-	Markos Chandras <markos.chandras@imgtec.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: 'Linux Netdev List' <netdev@vger.kernel.org>,
+	'David Miller' <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:34803 "EHLO
-	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753230AbaICIxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 04:53:49 -0400
-Received: by mail-oi0-f50.google.com with SMTP id u20so5256536oif.37
-        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 01:53:49 -0700 (PDT)
-In-Reply-To: <20140902225926.GA14635@its-macbook-pro.plumgrid.com>
+Received: from mx0.aculab.com ([213.249.233.131]:43343 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754439AbaICI4b convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 04:56:31 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 10888-10 for <netdev@vger.kernel.org>;
+ Wed,  3 Sep 2014 09:56:20 +0100 (BST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174856B9@AcuExch.aculab.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/3/14, Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
-> On Wed, Sep 03, 2014 at 12:03:58AM +0400, Denis Kirjanov wrote:
->> Currently we have 2 pkt_type_offset functions doing
->> the same thing and spread across the architecture files.
->> Let's use the generic helper routine.
->
-> that would be good cleanup.
-> Please tag your subject as '[PATCH net-next]...'
->
->> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
->> Cc: Markos Chandras <markos.chandras@imgtec.com>
->> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
->> Cc: Daniel Borkmann <dborkman@redhat.com>
->> ---
->>  arch/mips/net/bpf_jit.c      | 21 ---------------------
->>  arch/s390/net/bpf_jit_comp.c | 38 ++++----------------------------------
->>  include/linux/filter.h       |  7 +++++++
->>  net/core/filter.c            |  7 +------
->>  4 files changed, 12 insertions(+), 61 deletions(-)
->>
->> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
->> -#define PKT_TYPE_MAX 0xe0
->> -static int pkt_type_offset;
-> ...
->> -}
->> -device_initcall(bpf_pkt_type_offset_init);
->
-> may be make sense to optimize common case via initcall() as well
-> instead of dropping it for s390?
+Requests like 'ifconfig ""' cause dev_load(net, "") be called, since
+request_module("") return 0 (success) this generates the error message:
+"Loading kernel module for a network device with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and alias netdev- instead."
 
-Yeah, it's a better option.
->
->> diff --git a/include/linux/filter.h b/include/linux/filter.h
->> index a5227ab..97e0549 100644
->> --- a/include/linux/filter.h
->> +++ b/include/linux/filter.h
->> @@ -424,6 +424,13 @@ static inline void *bpf_load_pointer(const struct
->> sk_buff *skb, int k,
->>  	return bpf_internal_load_pointer_neg_helper(skb, k, size);
->>  }
->>
->> +#ifdef __BIG_ENDIAN_BITFIELD
->> +#define PKT_TYPE_MAX	(7 << 5)
->> +#else
->> +#define PKT_TYPE_MAX    7
->> +#endif
->
-> these defines don't need to move. keep them in filter.c
+Since dev_load() doesn't have to work, just ignore such names.
 
-I'll respin. Thanks!
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Signed-off-by: David Laight <david.laight@aculab.com>
+---
 
+V2: Added sign off.
 
+If you search for the above error message, you'll find a lot of complaints.
+While the applications shouldn't be calling an SIOCxxx ioctl with ifr_name[0] == 0
+the kernel shouldn't be tracing the error either.
+
+Due to the complaints from users, this might be a backport candidate.
+
+net/core/dev_ioctl.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/core/dev_ioctl.c b/net/core/dev_ioctl.c
+index cf999e0..84edf16 100644
+--- a/net/core/dev_ioctl.c
++++ b/net/core/dev_ioctl.c
+@@ -358,6 +358,9 @@ void dev_load(struct net *net, const char *name)
+ 	struct net_device *dev;
+ 	int no_module;
+ 
++	if (!name[0])
++		return;
++
+ 	rcu_read_lock();
+ 	dev = dev_get_by_name_rcu(net, name);
+ 	rcu_read_unlock();
 -- 
-Regards,
-Denis
+1.8.1.2
