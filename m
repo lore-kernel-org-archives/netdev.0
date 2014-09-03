@@ -1,56 +1,65 @@
-From: Husam Al Sayed <oscar55@post.sk>
-Subject: FROM: Husam Al Sayed.
-Date: Wed, 3 Sep 2014 20:57:21 +0200 (CEST)
-Message-ID: <1457604116.347310.1409770641577.JavaMail.root@mbox05>
-Reply-To: "alsayedhusa@hotmail.com" <alsayedhusa@hotmail.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next] sock: consistent errqueue errors and signals
+Date: Wed, 3 Sep 2014 15:40:59 -0400
+Message-ID: <CA+FuTSfsCiE8HvBHVd1HXG_WXZgZ1D7YjJetmSgsSO46nVtMaA@mail.gmail.com>
+References: <1409534896-372-1-git-send-email-willemb@google.com> <1409746453.14224.14.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: bp@alien8.de, linux-edac@vger.kernel.org, m.chehab@samsung.com,
-	boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
-	stefano.stabellini@eu.citrix.com, ian.campbell@citrix.com,
-	wei.liu2@citrix.com, netdev@vger.kernel.org,
-	konrad.wilk@oracle.com, xen-devel@lists.xenproject.org,
-	david@fromorbit.com, bpm@sgi.com, xfs@oss.sgi.com,
-	anirudh@xilinx.com, John.Linn@xilinx.com, jacmet@sunsite.dk,
-	linux-serial@vger.kernel.org, jpr@f6fbb.org,
-	Henk.Vergonet@gmail.com, usbb2k-api-dev@nongnu.org,
-	jreuter@yaina.de, linux-hams@vger.kernel.org, dsd@gentoo.org,
-	kune@deine-taler.de, linux-wireless@vger.kernel.org,
-	zd1211-devs@lists.sourceforge.net,
-	mjpeg-users@lists.sourceforge.net, linux-media@vger.kernel.org,
-	macro@linux-mips.org
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.post.sk ([195.146.144.202]:47679 "EHLO smtp02.post.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753661AbaICTFK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 15:05:10 -0400
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:45729 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754834AbaICTlf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 15:41:35 -0400
+Received: by mail-qg0-f50.google.com with SMTP id q108so8698165qgd.37
+        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 12:41:30 -0700 (PDT)
+In-Reply-To: <1409746453.14224.14.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-FROM: Husam Al Sayed.
+> I just noticed another problem with this approach why I think we cannot
+> use it.
+>
+> In case we generate an error back to the socket locally because
+> something (e.g. the packet was too big) in output path, we must not
+> update sk->sk_err because we return it immediately to the sender but
+> nonetheless must update the error queue.
+>
+> It seems to me that this patch would report the same error two times to
+> the program then.
 
-EMAIL:alsayedhusa@hotmail.com
- 
-Hello,
- 
-I decided to write you this proposal in good faith, believing that you will
-not betray me. I am Mr. Husam Al Sayed, a Bank officer here in U.A.E.
- 
-One Mr. Peter Adams, a citizen of your country and Crude Oil dealer made a fixed deposit with my bank in 2005 for 108 calendar months, valued at US$30,000,000.00 (Thirty Million United State Dollars) the due date for this deposit contract was last 22nd of January 2014. Sadly Peter was among the death victims in the May 27 2006 Earthquake disaster in Java, Indonesia that killed over 5,000 people. He was in Indonesia on a business trip and that was how he met his untimely end. My bank management is yet to know about his death, I knew about it because he was my friend and I am his Account Officer. Peter did not mention any Next of Kin/ Heir when the account was opened, he was not married and no children. Last week my Bank Management requested that Peter should give instructions on what to do 
- about his funds, if to renew the contract.
- 
-I know this will happen and that is why I have been looking for a means to handle the situation, because if my Bank Directors happens to know that Peter is dead and do not have any Heir, they will take the funds for their personal use, so I don't want such to happen. That is why I am seeking your co-operation to present you as the Next of Kin/ Heir to the account, since you are a foreigner and my bank head quarters will release the account to you. There is no risk involved; the transaction will be executed under a legitimate arrangement that will protect us from any breach of law. It is better that we claim the money, than allowing the Bank Directors to take it, they are rich already. I am not a greedy person, so I am suggesting we share the funds in this ratio, 50/50%, equal sharing. Let 
- me know your mind on this and please do treat this information highly confidential. We shall go over the details once I receive your urgent response. Please Urgently get back to me through this email address as soon as possible:
- 
- 
- 
-Have a nice day and God bless. Anticipating your communication.
- 
-Regards,
-FROM: Husam Al Sayed.
-EMAIL: alsayedhusa@hotmail.com
-_____________________________________________________________________
+For instance in __ip_append_data reaching
 
-Vsetko podstatne z vedy, pocitacov,  mobilov aj hier - http://www.TECHsme.sk
+  ip_local_error(sk, EMSGSIZE, ..);
+  return -EMSGSIZE;
+
+With this patch, where sk->sk_err is set, the error will continuously
+be returned on send/recv until the caller reads from the error queue.
+A recvmsg MSG_ERRQUEUE will cause the error to be reset immediately.
+If socket option IP_RECVERR is set, the process should immediately
+read the error queue when a send call fails with EMSGSIZE or any other
+relevant error. In that case, the error is not reported more than
+once.
+
+The alternative patch does not overwrite sk->sk_err, but results in
+this same modified user-visible behavior.
+
+Without the patch, after a send call fails in the above code, the
+process can continue calling send/recv normally while ignoring the
+error, since all "if (sk->sk_err)" checks fall through. If we have to
+treat this as legacy behavior, then neither patch should be applied.
+Then, the semantics are that queued errors are non-blocking. In that
+case, the only patch needed for consistent semantics is to remove the
+sk->sk_err assigment in skb_dequeue_err_skb.
+
+On a related note, when returning an error, returning the errno from
+the item on the queue is a confusing signal. Some error codes are the
+result of protocol processing and have nothing queued (e.g., EINVAL),
+others are due to an queued error (ENOMSG) and some are simply
+ambiguous (EMSGSIZE). It is not reasonable to expect processes to
+figure out the three sets. One solution would be to dedicate a special
+error code to denote "there is a message queued onto sk_error_queue,
+read the actual errno from there". This choice only relevant if we
+decide to return an error, at all, of course.
