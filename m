@@ -1,64 +1,35 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 3/6] drivers: net: ethernet: cpsw: add multicast address
- to ALE table
-Date: Wed, 3 Sep 2014 13:58:24 +0530
-Message-ID: <5406D128.3080304@ti.com>
-References: <1409682156.3334.16.camel@fromme.threespeedlogic.local>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH net-next v2 2/2] r8152: use eth_hw_addr_random
+Date: Wed, 03 Sep 2014 10:33:12 +0200
+Message-ID: <87egvtyugn.fsf@nemi.mork.no>
+References: <1394712342-15778-26-Taiwan-albertk@realtek.com>
+	<1394712342-15778-29-Taiwan-albertk@realtek.com>
+	<1394712342-15778-31-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Graeme Smecher <gsmecher@threespeedlogic.com>,
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:45733 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755622AbaICI21 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 04:28:27 -0400
-In-Reply-To: <1409682156.3334.16.camel@fromme.threespeedlogic.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394712342-15778-31-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org> (Hayes Wang's
+	message of "Wed, 3 Sep 2014 10:59:15 +0800")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Graeme
+Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org> writes:
 
-There is already a support for add multicast in v2.6.37 cpsw driver, if
-there is a bug and you found a fix, can go a head and fix that. The
-patch you have mentioned is an upstream patch with was done on top of
-am335x platform, so there might be bugs fixed and added into the patch
-which are not in v2.6.37 cpsw driver.
+> +		ether_addr_copy(dev->perm_addr, dev->dev_addr);
 
-Regards
-Mugunthan V N
+This isn't strictly necessary.  register_netdev() will do it for you as
+long as you leave the default addr_assign_type (NET_ADDR_PERM).  And yo=
+u
+do.
 
-On Tuesday 02 September 2014 11:52 PM, Graeme Smecher wrote:
-> Hi Mugunthan,
-> 
->> On Wed, Oct 17, 2012 at 04:15:15AM +0530, Mugunthan V N wrote:
->>> Adding multicast address to ALE table via netdev ops to subscribe, transmit
->>> or receive multicast frames to and from the network
->>
->> Is this somehow related to the time stamping function? If so, how?
->>
->> Thanks,
->> Richard
-> 
-> Can you give me a brief description of this (relatively ancient) patch? Your
-> original e-mail is visible here:
-> 
-> 	http://marc.info/?l=linux-netdev&m=135042754927177&w=2
-> 
-> I'm wondering if this patch needs to be backported to older CPSW driver
-> snapshots (specifically, TI's 2.6.37 branch for dm81xx.) It appears to
-> fix a multicast bug I'm tracking down, but it's difficult to know for
-> sure without a good description of what problem the patch addresses. (I
-> don't want to commit code that fixes my hardware by accident.)
-> 
-> For a little more information, you can refer to my e2e.ti.com post:
-> 
-> 	http://e2e.ti.com/support/dsp/davinci_digital_media_processors/f/716/t/365586.aspx
-> 
-> I'm slowly learning about ALE filtering, but a quick reply from a
-> domain expert would be very helpful.
-> 
-> best,
-> Graeme
-> 
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
