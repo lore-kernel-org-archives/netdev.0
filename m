@@ -1,80 +1,51 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [Patch net-next 05/11] net:fec: Disable enet-avb MAC instead of reset MAC
-Date: Thu, 4 Sep 2014 04:38:11 +0800
-Message-ID: <1409776697-1536-6-git-send-email-Frank.Li@freescale.com>
+From: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Subject: [Patch net-next 09/11] net:fec: remove unnessary memory copy for address alignment in .xmit()
+Date: Thu, 4 Sep 2014 04:38:15 +0800
+Message-ID: <1409776697-1536-10-git-send-email-Frank.Li@freescale.com>
 References: <1409776697-1536-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, Fugang Duan <B38611@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>
-To: <b38611@freescale.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1lp0142.outbound.protection.outlook.com ([207.46.163.142]:45115
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755858AbaICVAA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 17:00:00 -0400
-In-Reply-To: <1409776697-1536-1-git-send-email-Frank.Li@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409776697-1536-1-git-send-email-Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Fugang Duan <B38611@freescale.com>
+From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 
-For i.MX6SX enet use AXI bus, reset MAC will make system bus dead
-if ENET-AXI bus has pending access (AHB bus should not have such issue).
-So, disable enet with AVB MAC instead of reset MAC itself.
+i.MX6SX enet-avb IP support buffer address byte alignment for tx DMA
+transfer, so remove the unnessary memory copy for the enet avb IP.
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
+Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 26 ++++++++++++++++++++------
- 1 file changed, 20 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index f973a92..5dab6a6 100644
+index b388e29f..d09fe16 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -948,9 +948,16 @@ fec_restart(struct net_device *ndev)
- 	u32 ecntl = 0x2; /* ETHEREN */
- 	int i;
+@@ -518,8 +518,9 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
  
--	/* Whack a reset.  We should wait for this. */
--	writel(1, fep->hwp + FEC_ECNTRL);
--	udelay(10);
-+	/* Whack a reset.  We should wait for this.
-+	 * For i.MX6SX SOC, enet use AXI bus, we use disable MAC
-+	 * instead of reset MAC itself.
-+	 */
-+	if (id_entry && id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
-+		writel(0, fep->hwp + FEC_ECNTRL);
-+	} else {
-+		writel(1, fep->hwp + FEC_ECNTRL);
-+		udelay(10);
-+	}
- 
- 	/*
- 	 * enet-mac reset will reset mac address registers too,
-@@ -1122,9 +1129,16 @@ fec_stop(struct net_device *ndev)
- 			netdev_err(ndev, "Graceful transmit stop did not complete!\n");
- 	}
- 
--	/* Whack a reset.  We should wait for this. */
--	writel(1, fep->hwp + FEC_ECNTRL);
--	udelay(10);
-+	/* Whack a reset.  We should wait for this.
-+	 * For i.MX6SX SOC, enet use AXI bus, we use disable MAC
-+	 * instead of reset MAC itself.
-+	 */
-+	if (id_entry && id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
-+		writel(0, fep->hwp + FEC_ECNTRL);
-+	} else {
-+		writel(1, fep->hwp + FEC_ECNTRL);
-+		udelay(10);
-+	}
- 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
- 	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+ 	queue = skb_get_queue_mapping(skb);
+ 	index = fec_enet_get_bd_index(txq->tx_bd_base, bdp, fep);
+-	if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
+-		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
++	if (!(id_entry->driver_data & FEC_QUIRK_HAS_AVB) &&
++	    ((((unsigned long)bufaddr) & FEC_ALIGNMENT ||
++		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME))) {
+ 		memcpy(txq->tx_bounce[index], skb->data, buflen);
+ 		bufaddr = txq->tx_bounce[index];
  
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
