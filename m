@@ -1,76 +1,60 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V2] qdisc: validate frames going through the
-	direct_xmit path
-Date: Wed, 03 Sep 2014 17:24:12 +0200
-Message-ID: <20140903152303.16672.24789.stgit@dragon>
-References: <20140903114841.19969.22671.stgit@dragon>
+From: Chen Gang <gang.chen.5i5j@gmail.com>
+Subject: [PATCH] drivers/net/fddi/skfp/h/skfbi.h: Remove useless PCI_BASE_2ND
+ macros
+Date: Wed, 03 Sep 2014 23:26:26 +0800
+Message-ID: <54073322.6030508@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	netdev@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	michal.simek@xilinx.com, Michal Simek <monstr@monstr.eu>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56609 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753297AbaICPYF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 11:24:05 -0400
-In-Reply-To: <20140903114841.19969.22671.stgit@dragon>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:46043 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180AbaICP01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 11:26:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 50cbe9ab5f8d ("net: Validate xmit SKBs right when we
-pull them out of the qdisc") the validation code was moved out of
-dev_hard_start_xmit and into dequeue_skb.
+They are use less, and may generate compiling warnings, so remove them
+(microblaze, arc, arm64, and unicore32 have already defined PCI_IOBASE).
 
-However this overlooked the fact that we do not always enqueue
-the skb onto a qdisc. First situation is if qdisc have flag
-TCQ_F_CAN_BYPASS and qdisc is empty.  Second situation is if
-there is no qdisc on the device, which is a common case for
-software devices.
+The related warnings (with allmodconfig under microblaze):
 
-Originally spotted and inital patch by Alexander Duyck.
-As a result Alex was seeing issues trying to connect to a
-vhost_net interface after commit 50cbe9ab5f8d was applied.
+  CC [M]  drivers/net/fddi/skfp/skfddi.o
+  In file included from drivers/net/fddi/skfp/skfddi.c:95:0:
+  drivers/net/fddi/skfp/h/skfbi.h:151:0: warning: "PCI_IOBASE" redefined
+   #define PCI_IOBASE 0xffffff00L  /* Bit 31..8:  I/O Base address */
+   ^
+  In file included from include/linux/io.h:22:0,
+                   from include/linux/pci.h:31,
+                   from drivers/net/fddi/skfp/skfddi.c:82:
+  ./arch/microblaze/include/asm/io.h:33:0: note: this is the location of the previous definition
+   #define PCI_IOBASE ((void __iomem *)_IO_BASE)
+   ^
 
-Added a call to validate_xmit_skb() in __dev_xmit_skb(), in the
-code path for qdiscs with TCQ_F_CAN_BYPASS flag, and in
-__dev_queue_xmit() when no qdisc.
-
-Fixes:  50cbe9ab5f8d ("net: Validate xmit SKBs right when we pull them out of the qdisc")
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
 ---
+ drivers/net/fddi/skfp/h/skfbi.h | 5 -----
+ 1 file changed, 5 deletions(-)
 
-V2:
- - Also handle no qdisc on the device situation
-
-Posting a V2 quickly, if DaveM wants this fixed quickly.
-
- net/core/dev.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3774afc..8d5af9c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2739,7 +2739,8 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+diff --git a/drivers/net/fddi/skfp/h/skfbi.h b/drivers/net/fddi/skfp/h/skfbi.h
+index c1ba26c..3de2f0d 100644
+--- a/drivers/net/fddi/skfp/h/skfbi.h
++++ b/drivers/net/fddi/skfp/h/skfbi.h
+@@ -147,11 +147,6 @@
+ #define	PCI_MEM64BIT	(2<<1)	     /* Base addr anywhere in 64 Bit range */
+ #define	PCI_MEMSPACE	0x00000001L  /* Bit 0:	Memory Space Indic. */
  
- 		qdisc_bstats_update(q, skb);
+-/*	PCI_BASE_2ND	32 bit	2nd Base address */
+-#define	PCI_IOBASE	0xffffff00L  /* Bit 31..8:  I/O Base address */
+-#define	PCI_IOSIZE	0x000000fcL  /* Bit 7..2:   I/O Size Requirements */
+-#define	PCI_IOSPACE	0x00000001L  /* Bit 0:	    I/O Space Indicator */
+-
+ /*	PCI_SUB_VID	16 bit	Subsystem Vendor ID */
+ /*	PCI_SUB_ID	16 bit	Subsystem ID */
  
--		if (sch_direct_xmit(skb, q, dev, txq, root_lock)) {
-+		skb = validate_xmit_skb(skb, dev);
-+		if (skb && sch_direct_xmit(skb, q, dev, txq, root_lock)) {
- 			if (unlikely(contended)) {
- 				spin_unlock(&q->busylock);
- 				contended = false;
-@@ -2882,6 +2883,7 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
- 			HARD_TX_LOCK(dev, txq, cpu);
- 
- 			if (!netif_xmit_stopped(txq)) {
-+				skb = validate_xmit_skb(skb, dev);
- 				__this_cpu_inc(xmit_recursion);
- 				skb = dev_hard_start_xmit(skb, dev, txq, &rc);
- 				__this_cpu_dec(xmit_recursion);
+-- 
+1.9.3
