@@ -1,101 +1,107 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] l2tp: fix race while getting PMTU on PPP pseudo-wire
-Date: Wed, 03 Sep 2014 06:55:26 -0700
-Message-ID: <1409752526.26422.36.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <3a4673ddb2556634d0cbeae9b31ebc386e720335.1409746289.git.g.nault@alphalink.fr>
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
+Subject: Re: [PATCH 2/4] dt-bindings: Document EMAC Rockchip
+Date: Wed, 03 Sep 2014 16:26:48 +0200
+Message-ID: <10602790.aE60xYj4zP@diego>
+References: <1409740036-8117-1-git-send-email-romain.perier@gmail.com> <1409740036-8117-2-git-send-email-romain.perier@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, James Chapman <jchapman@katalix.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Guillaume Nault <g.nault@alphalink.fr>,
-	Dmitry Petukhov <dmgenp@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-rockchip@lists.infradead.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, arnd@arndb.de
+To: Romain Perier <romain.perier@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:55238 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932320AbaICNz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 09:55:28 -0400
-Received: by mail-pd0-f180.google.com with SMTP id p10so11222258pdj.39
-        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 06:55:28 -0700 (PDT)
-In-Reply-To: <3a4673ddb2556634d0cbeae9b31ebc386e720335.1409746289.git.g.nault@alphalink.fr>
+Received: from gloria.sntech.de ([95.129.55.99]:32778 "EHLO gloria.sntech.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932320AbaICOYm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 10:24:42 -0400
+In-Reply-To: <1409740036-8117-2-git-send-email-romain.perier@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-09-03 at 14:12 +0200, Guillaume Nault wrote:
-> Use dst_entry held by sk_dst_get() to retrieve tunnel's PMTU.
+Am Mittwoch, 3. September 2014, 10:27:14 schrieb Romain Perier:
+> This adds the necessary binding documentation for the EMAC Rockchip platform
+> driver found in RK3066 and RK3188 SoCs.
 > 
-> The dst_mtu(__sk_dst_get(tunnel->sock)) call was racy. __sk_dst_get()
-> could return NULL if tunnel->sock->sk_dst_cache was reset just before the
-> call, thus making dst_mtu() dereference a NULL pointer:
-> 
-> [ 1937.661598] BUG: unable to handle kernel NULL pointer dereference at 0000000000000020
-> [ 1937.664005] IP: [<ffffffffa049db88>] pppol2tp_connect+0x33d/0x41e [l2tp_ppp]
-> [ 1937.664005] PGD daf0c067 PUD d9f93067 PMD 0
-> [ 1937.664005] Oops: 0000 [#1] SMP
-> [ 1937.664005] Modules linked in: l2tp_ppp l2tp_netlink l2tp_core ip6table_filter ip6_tables iptable_filter ip_tables ebtable_nat ebtables x_tables udp_tunnel pppoe pppox ppp_generic slhc deflate ctr twofish_generic twofish_x86_64_3way xts lrw gf128mul glue_helper twofish_x86_64 twofish_common blowfish_generic blowfish_x86_64 blowfish_common des_generic cbc xcbc rmd160 sha512_generic hmac crypto_null af_key xfrm_algo 8021q garp bridge stp llc tun atmtcp clip atm ext3 mbcache jbd iTCO_wdt coretemp kvm_intel iTCO_vendor_support kvm pcspkr evdev ehci_pci lpc_ich mfd_core i5400_edac edac_core i5k_amb shpchp button processor thermal_sys xfs crc32c_generic libcrc32c dm_mod usbhid sg hid sr_mod sd_mod cdrom crc_t10dif crct10dif_common ata_generic ahci ata_piix tg3 libahci libata uhci_hcd ptp eh
- ci_hcd pps_core usbcore scsi_mod libphy usb_common [last unloaded: l2tp_core]
-> [ 1937.664005] CPU: 0 PID: 10022 Comm: l2tpstress Tainted: G           O   3.17.0-rc1 #1
-> [ 1937.664005] Hardware name: HP ProLiant DL160 G5, BIOS O12 08/22/2008
-> [ 1937.664005] task: ffff8800d8fda790 ti: ffff8800c43c4000 task.ti: ffff8800c43c4000
-> [ 1937.664005] RIP: 0010:[<ffffffffa049db88>]  [<ffffffffa049db88>] pppol2tp_connect+0x33d/0x41e [l2tp_ppp]
-> [ 1937.664005] RSP: 0018:ffff8800c43c7de8  EFLAGS: 00010282
-> [ 1937.664005] RAX: ffff8800da8a7240 RBX: ffff8800d8c64600 RCX: 000001c325a137b5
-> [ 1937.664005] RDX: 8c6318c6318c6320 RSI: 000000000000010c RDI: 0000000000000000
-> [ 1937.664005] RBP: ffff8800c43c7ea8 R08: 0000000000000000 R09: 0000000000000000
-> [ 1937.664005] R10: ffffffffa048e2c0 R11: ffff8800d8c64600 R12: ffff8800ca7a5000
-> [ 1937.664005] R13: ffff8800c439bf40 R14: 000000000000000c R15: 0000000000000009
-> [ 1937.664005] FS:  00007fd7f610f700(0000) GS:ffff88011a600000(0000) knlGS:0000000000000000
-> [ 1937.664005] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> [ 1937.664005] CR2: 0000000000000020 CR3: 00000000d9d75000 CR4: 00000000000027e0
-> [ 1937.664005] Stack:
-> [ 1937.664005]  ffffffffa049da80 ffff8800d8fda790 000000000000005b ffff880000000009
-> [ 1937.664005]  ffff8800daf3f200 0000000000000003 ffff8800c43c7e48 ffffffff81109b57
-> [ 1937.664005]  ffffffff81109b0e ffffffff8114c566 0000000000000000 0000000000000000
-> [ 1937.664005] Call Trace:
-> [ 1937.664005]  [<ffffffffa049da80>] ? pppol2tp_connect+0x235/0x41e [l2tp_ppp]
-> [ 1937.664005]  [<ffffffff81109b57>] ? might_fault+0x9e/0xa5
-> [ 1937.664005]  [<ffffffff81109b0e>] ? might_fault+0x55/0xa5
-> [ 1937.664005]  [<ffffffff8114c566>] ? rcu_read_unlock+0x1c/0x26
-> [ 1937.664005]  [<ffffffff81309196>] SYSC_connect+0x87/0xb1
-> [ 1937.664005]  [<ffffffff813e56f7>] ? sysret_check+0x1b/0x56
-> [ 1937.664005]  [<ffffffff8107590d>] ? trace_hardirqs_on_caller+0x145/0x1a1
-> [ 1937.664005]  [<ffffffff81213dee>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-> [ 1937.664005]  [<ffffffff8114c262>] ? spin_lock+0x9/0xb
-> [ 1937.664005]  [<ffffffff813092b4>] SyS_connect+0x9/0xb
-> [ 1937.664005]  [<ffffffff813e56d2>] system_call_fastpath+0x16/0x1b
-> [ 1937.664005] Code: 10 2a 84 81 e8 65 76 bd e0 65 ff 0c 25 10 bb 00 00 4d 85 ed 74 37 48 8b 85 60 ff ff ff 48 8b 80 88 01 00 00 48 8b b8 10 02 00 00 <48> 8b 47 20 ff 50 20 85 c0 74 0f 83 e8 28 89 83 10 01 00 00 89
-> [ 1937.664005] RIP  [<ffffffffa049db88>] pppol2tp_connect+0x33d/0x41e [l2tp_ppp]
-> [ 1937.664005]  RSP <ffff8800c43c7de8>
-> [ 1937.664005] CR2: 0000000000000020
-> [ 1939.559375] ---[ end trace 82d44500f28f8708 ]---
-> 
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+> Signed-off-by: Romain Perier <romain.perier@gmail.com>
 > ---
->  net/l2tp/l2tp_ppp.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
+>  .../devicetree/bindings/net/emac_rockchip.txt      | 53
+> ++++++++++++++++++++++ 1 file changed, 53 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/emac_rockchip.txt
 > 
-> diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-> index 13752d9..b704a93 100644
-> --- a/net/l2tp/l2tp_ppp.c
-> +++ b/net/l2tp/l2tp_ppp.c
-> @@ -755,7 +755,8 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
->  	/* If PMTU discovery was enabled, use the MTU that was discovered */
->  	dst = sk_dst_get(tunnel->sock);
->  	if (dst != NULL) {
-> -		u32 pmtu = dst_mtu(__sk_dst_get(tunnel->sock));
-> +		u32 pmtu = dst_mtu(dst);
+> diff --git a/Documentation/devicetree/bindings/net/emac_rockchip.txt
+> b/Documentation/devicetree/bindings/net/emac_rockchip.txt new file mode
+> 100644
+> index 0000000..d3242e4
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/emac_rockchip.txt
+> @@ -0,0 +1,53 @@
+> +* ARC EMAC 10/100 Ethernet platform driver for Rockchip Rk3066/RK3188 SoCs
 > +
->  		if (pmtu != 0)
->  			session->mtu = session->mru = pmtu -
->  				PPPOL2TP_HEADER_OVERHEAD;
+> +Required properties:
+> +- compatible: Should be "rockchip,rk3066-emac" or "rockchip,rk3188-emac"
+> +  according to the target SoC.
+> +- reg: Address and length of the register set for the device
+> +- interrupts: Should contain the EMAC interrupts
+> +- pinctrl-names: pin control state name ("default").
+> +- pinctrl-0: pin control group list of phandle. It must contain
+> +  pin control groups for communication with the phy and for the mii bus.
+
+pinctrl is normally not supposed to be part of the binding doc, as it is a 
+property of the board and not the controller IP itself
 
 
-Probably introduced in commit f34c4a35d879 ("l2tp: take PMTU from tunnel
-UDP socket")
+> +- rockchip,grf: phandle to the syscon grf used to control speed and mode
+> +  for emac.
+> +- phy: see ethernet.txt file in the same directory.
+> +- phy-mode: see ethernet.txt file in the same directory.
+> +
+> +Optional properties:
+> +- phy-supply: phandle to a regulator if the PHY needs one
+> +
+> +Clock handling:
+> +- The host clock is needed to calculate and set polling period of EMAC.
+> +  It must be provided by the clock "hclk".
+> +- The reference clock is needed to get/set data from phy at the right
+> frequency,
+> +  according to its "phy-mode". It must be provided by the clock
+> "macref".
 
-CC Dmitry
+I think a more often used scheme is something like
 
-Before this patch, the bug could not happen.
+- clocks: Must contain an entry for each entry in clock-names.
+- clock-names: Shall be "hclk" for the host clock needed to calculate and
+			set polling period of EMAC and "macref" for the reference
+			clock needed to transfer data to and from the phy.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
-Fixes: f34c4a35d879 ("l2tp: take PMTU from tunnel UDP socket")
+
+> +
+> +Child nodes of the driver are the individual PHY devices connected to the
+> +MDIO bus. They must have a "reg" property given the PHY address on the MDIO
+> bus. +
+> +Examples:
+> +
+> +ethernet@10204000 {
+> +	compatible = "rockchip,rk3188-emac";
+> +	reg = <0xc0fc2000 0x3c>;
+> +	interrupts = <6>;
+> +	mac-address = [ 00 11 22 33 44 55 ];
+> +
+> +	clocks = <&cru HCLK_EMAC>, <&cru SCLK_MAC>;
+> +	clock-names = "hclk", "macref";
+> +
+> +	pinctrl-names = "default";
+> +	pinctrl-0 = <&emac_xfer>, <&emac_mdio>, <&phy_int>;
+> +
+> +	rockchip,grf = <&grf>;
+> +
+> +	phy = <&phy0>;
+> +	phy-mode = "rmii";
+> +	phy-supply = <&vcc_rmii>;
+> +
+> +	#address-cells = <1>;
+> +	#size-cells = <0>;
+> +	phy0: ethernet-phy@0 {
+> +	      reg = <1>;
+> +	};
+> +};
