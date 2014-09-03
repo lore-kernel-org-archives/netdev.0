@@ -1,50 +1,85 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH 1/3] virtio_net: pass well-formed sgs to
- virtqueue_add_*()
-Date: Wed, 3 Sep 2014 12:23:50 +0200
-Message-ID: <20140903122350.1c365bee@redhat.com>
-References: <1409718556-3041-1-git-send-email-rusty@rustcorp.com.au>
-	<1409718556-3041-2-git-send-email-rusty@rustcorp.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, "netdev" <netdev@vger.kernel.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+From: Romain Perier <romain.perier@gmail.com>
+Subject: [PATCH 3/4] ARM: dts: Add emac nodes to the rk3188 device tree
+Date: Wed,  3 Sep 2014 10:27:15 +0000
+Message-ID: <1409740036-8117-3-git-send-email-romain.perier@gmail.com>
+References: <1409740036-8117-1-git-send-email-romain.perier@gmail.com>
+Cc: linux-rockchip@lists.infradead.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, arnd@arndb.de
+To: heiko@sntech.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60548 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754336AbaICKX6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 06:23:58 -0400
-In-Reply-To: <1409718556-3041-2-git-send-email-rusty@rustcorp.com.au>
+Received: from mail-we0-f173.google.com ([74.125.82.173]:47206 "EHLO
+	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756224AbaICKZI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 06:25:08 -0400
+In-Reply-To: <1409740036-8117-1-git-send-email-romain.perier@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  3 Sep 2014 13:59:14 +0930
-Rusty Russell <rusty@rustcorp.com.au> wrote:
+This adds support for EMAC Rockchip driver on RK3188 SoCs.
 
-> pktgen results:
-> 	modprobe pktgen
-> 	echo 'add_device eth0' > /proc/net/pktgen/kpktgend_0
-> 	echo nowait 1 > /proc/net/pktgen/eth0
+Signed-off-by: Romain Perier <romain.perier@gmail.com>
+---
+ arch/arm/boot/dts/rk3188.dtsi | 18 ++++++++++++++++++
+ arch/arm/boot/dts/rk3xxx.dtsi | 17 +++++++++++++++++
+ 2 files changed, 35 insertions(+)
 
-Maybe your pktgen "nowait" (patch) should be a flag instead?
-
- echo "flag EXIT_NO_WAIT" > /proc/net/pktgen/eth0
-
-> 	echo count 1000000 > /proc/net/pktgen/eth0
-> 	echo clone_skb 100000 > /proc/net/pktgen/eth0
-> 	echo dst_mac 4e:14:25:a9:30:ac > /proc/net/pktgen/eth0
-> 	echo dst 192.168.1.2 > /proc/net/pktgen/eth0
-> 	for i in `seq 20`; do echo start > /proc/net/pktgen/pgctrl; tail -n1 /proc/net/pktgen/eth0; done
-> 
-
-
+diff --git a/arch/arm/boot/dts/rk3188.dtsi b/arch/arm/boot/dts/rk3188.dtsi
+index ee801a9..a182713 100644
+--- a/arch/arm/boot/dts/rk3188.dtsi
++++ b/arch/arm/boot/dts/rk3188.dtsi
+@@ -147,6 +147,24 @@
+ 			bias-disable;
+ 		};
+ 
++		emac {
++			emac_xfer: emac-xfer {
++				rockchip,pins = <RK_GPIO3 16 RK_FUNC_2 &pcfg_pull_none>, //tx_en
++						<RK_GPIO3 17 RK_FUNC_2 &pcfg_pull_none>, //txd1
++						<RK_GPIO3 18 RK_FUNC_2 &pcfg_pull_none>, //txd0
++						<RK_GPIO3 19 RK_FUNC_2 &pcfg_pull_none>, //rxd0
++						<RK_GPIO3 20 RK_FUNC_2 &pcfg_pull_none>, //rxd1
++						<RK_GPIO3 21 RK_FUNC_2 &pcfg_pull_none>, //mac_clk
++						<RK_GPIO3 22 RK_FUNC_2 &pcfg_pull_none>, //rx_err
++						<RK_GPIO3 23 RK_FUNC_2 &pcfg_pull_none>; //crs_dvalid
++			};
++
++			emac_mdio: emac-mdio {
++				rockchip,pins = <RK_GPIO3 24 RK_FUNC_2 &pcfg_pull_none>,
++						<RK_GPIO3 25 RK_FUNC_2 &pcfg_pull_none>;
++			};
++		};
++
+ 		i2c0 {
+ 			i2c0_xfer: i2c0-xfer {
+ 				rockchip,pins = <RK_GPIO1 24 RK_FUNC_1 &pcfg_pull_none>,
+diff --git a/arch/arm/boot/dts/rk3xxx.dtsi b/arch/arm/boot/dts/rk3xxx.dtsi
+index 8caf85d..208b1df 100644
+--- a/arch/arm/boot/dts/rk3xxx.dtsi
++++ b/arch/arm/boot/dts/rk3xxx.dtsi
+@@ -91,6 +91,23 @@
+ 		status = "disabled";
+ 	};
+ 
++	emac: ethernet@10204000 {
++		compatible = "snps,arc-emac";
++		reg = <0x10204000 0x3c>;
++		interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		rockchip,grf = <&grf>;
++
++		clocks = <&cru HCLK_EMAC>, <&cru SCLK_MAC>;
++		clock-names = "hclk", "macref";
++		max-speed = <100>;
++		phy-mode = "rmii";
++
++		status = "disabled";
++	};
++
+ 	mmc0: dwmmc@10214000 {
+ 		compatible = "rockchip,rk2928-dw-mshc";
+ 		reg = <0x10214000 0x1000>;
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+1.9.1
