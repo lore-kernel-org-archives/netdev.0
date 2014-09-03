@@ -1,7 +1,7 @@
 From: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Subject: [Patch net-next 09/11] net:fec: remove unnessary memory copy for address alignment in .xmit()
-Date: Thu, 4 Sep 2014 04:38:15 +0800
-Message-ID: <1409776697-1536-10-git-send-email-Frank.Li@freescale.com>
+Subject: [Patch net-next 01/11] net:fec: add enet refrence clock for i.MX 6SX chip
+Date: Thu, 4 Sep 2014 04:38:07 +0800
+Message-ID: <1409776697-1536-2-git-send-email-Frank.Li@freescale.com>
 References: <1409776697-1536-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,31 +17,85 @@ List-Id: netdev.vger.kernel.org
 
 From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 
-i.MX6SX enet-avb IP support buffer address byte alignment for tx DMA
-transfer, so remove the unnessary memory copy for the enet avb IP.
+i.MX6sx enet has below clocks for user config:
+clk_ipg: ipg_clk_s, ipg_clk_mac0_s, 66Mhz
+clk_ahb: enet system clock, it is enet AXI clock for imx6sx.
+	 For imx6sx, it alos is the clock source of interrupt coalescing.
+	 The clock range: 200Mhz ~ 266Mhz.
+clk_ref: refrence clock for tx and rx. For imx6sx enet RGMII mode,
+	 the refrence clock is 125Mhz coming from internal PLL or external.
+	 In i.MX6sx-arm2 board, the clock is from internal PLL.
+	 clk_ref is optional, depends on board.
+clk_enet_out: The clock can be output from internal PLL. It can supply 50Mhz
+	 clock for phy. clk_enet_out is optional, depends on chip and board.
+clk_ptp: 1588 ts clock. It is optional, depends on chip.
+
+The patch add clk_ref to distiguish the different clocks.
 
 Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/fec.h      |  1 +
+ drivers/net/ethernet/freescale/fec_main.c | 17 +++++++++++++++++
+ 2 files changed, 18 insertions(+)
 
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index ee41d98..635772b 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -272,6 +272,7 @@ struct fec_enet_private {
+ 
+ 	struct clk *clk_ipg;
+ 	struct clk *clk_ahb;
++	struct clk *clk_ref;
+ 	struct clk *clk_enet_out;
+ 	struct clk *clk_ptp;
+ 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index b388e29f..d09fe16 100644
+index 89355a7..c21ecff1 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -518,8 +518,9 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
+@@ -1621,6 +1621,11 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 			}
+ 			mutex_unlock(&fep->ptp_clk_mutex);
+ 		}
++		if (fep->clk_ref) {
++			ret = clk_prepare_enable(fep->clk_ref);
++			if (ret)
++				goto failed_clk_ref;
++		}
+ 	} else {
+ 		clk_disable_unprepare(fep->clk_ahb);
+ 		clk_disable_unprepare(fep->clk_ipg);
+@@ -1632,9 +1637,15 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 			fep->ptp_clk_on = false;
+ 			mutex_unlock(&fep->ptp_clk_mutex);
+ 		}
++		if (fep->clk_ref)
++			clk_disable_unprepare(fep->clk_ref);
+ 	}
  
- 	queue = skb_get_queue_mapping(skb);
- 	index = fec_enet_get_bd_index(txq->tx_bd_base, bdp, fep);
--	if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
--		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
-+	if (!(id_entry->driver_data & FEC_QUIRK_HAS_AVB) &&
-+	    ((((unsigned long)bufaddr) & FEC_ALIGNMENT ||
-+		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME))) {
- 		memcpy(txq->tx_bounce[index], skb->data, buflen);
- 		bufaddr = txq->tx_bounce[index];
+ 	return 0;
++
++failed_clk_ref:
++	if (fep->clk_ref)
++		clk_disable_unprepare(fep->clk_ref);
+ failed_clk_ptp:
+ 	if (fep->clk_enet_out)
+ 		clk_disable_unprepare(fep->clk_enet_out);
+@@ -2637,6 +2648,12 @@ fec_probe(struct platform_device *pdev)
  
+ 	fep->ptp_clk_on = false;
+ 	mutex_init(&fep->ptp_clk_mutex);
++
++	/* clk_ref is optional, depends on board */
++	fep->clk_ref = devm_clk_get(&pdev->dev, "enet_clk_ref");
++	if (IS_ERR(fep->clk_ref))
++		fep->clk_ref = NULL;
++
+ 	fep->clk_ptp = devm_clk_get(&pdev->dev, "ptp");
+ 	fep->bufdesc_ex =
+ 		pdev->id_entry->driver_data & FEC_QUIRK_HAS_BUFDESC_EX;
 -- 
 1.9.1
 
