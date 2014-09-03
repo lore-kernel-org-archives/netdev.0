@@ -1,49 +1,97 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [net-next PATCH 3/3] qdisc: sysctl to adjust bulk dequeue limit
-Date: Tue, 2 Sep 2014 17:12:03 -0700
-Message-ID: <CA+mtBx_GSvXNY3wgbu25Kb5ZZsqMUb9thdiqg4AL-Q6EMGPV5w@mail.gmail.com>
-References: <20140902143254.1918.8419.stgit@dragon>
-	<20140902143553.1918.73632.stgit@dragon>
-	<CAHA+R7MT-HjOwit2pvkeWT2_pYHOupg=0YbTSTVJ8LbC+yhrDg@mail.gmail.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next v5] lib/rhashtable: allow user to set the minimum shifts of shrinking
+Date: Wed, 3 Sep 2014 09:22:36 +0800
+Message-ID: <1409707356-3795-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:47274 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753749AbaICAME (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 20:12:04 -0400
-Received: by mail-ig0-f177.google.com with SMTP id r10so8205372igi.4
-        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 17:12:03 -0700 (PDT)
-In-Reply-To: <CAHA+R7MT-HjOwit2pvkeWT2_pYHOupg=0YbTSTVJ8LbC+yhrDg@mail.gmail.com>
+Received: from mail.windriver.com ([147.11.1.11]:49982 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755341AbaICBXR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Sep 2014 21:23:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 2, 2014 at 2:20 PM, Cong Wang <cwang@twopensource.com> wrote:
->
-> On Tue, Sep 2, 2014 at 7:36 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
-> > Allow userspace to adjust how many packet the qdisc is allowed to
-> > bulk dequeue.
-> >
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> >
-> > ---
-> > Question should we allow this to be adjusted?
-> >
->
-> A sysctl is ugly and seems not fit well with Qdisc which always uses netlink,
-> so I think a netlink flag might be better if we can find a generic one.
->
-You could also make this a device specific attribute easily enough.
+Although rhashtable library allows user to specify a quiet big size
+for user's created hash table, the table may be shrunk to a
+very small size - HASH_MIN_SIZE(4) after object is removed from
+the table at the first time. Subsequently, even if the total amount
+of objects saved in the table is quite lower than user's initial
+setting in a long time, the hash table size is still dynamically
+adjusted by rhashtable_shrink() or rhashtable_expand() each time
+object is inserted or removed from the table. However, as
+synchronize_rcu() has to be called when table is shrunk or
+expanded by the two functions, we should permit user to set the
+minimum table size through configuring the minimum number of shifts
+according to user specific requirement, avoiding these expensive
+actions of shrinking or expanding because of calling synchronize_rcu().
 
-> Also, you forgot to document it.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+ include/linux/rhashtable.h |    2 ++
+ lib/rhashtable.c           |   12 ++++++++----
+ 2 files changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index 36826c0..fb298e9d 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -44,6 +44,7 @@ struct rhashtable;
+  * @head_offset: Offset of rhash_head in struct to be hashed
+  * @hash_rnd: Seed to use while hashing
+  * @max_shift: Maximum number of shifts while expanding
++ * @min_shift: Minimum number of shifts while shrinking
+  * @hashfn: Function to hash key
+  * @obj_hashfn: Function to hash object
+  * @grow_decision: If defined, may return true if table should expand
+@@ -57,6 +58,7 @@ struct rhashtable_params {
+ 	size_t			head_offset;
+ 	u32			hash_rnd;
+ 	size_t			max_shift;
++	size_t			min_shift;
+ 	rht_hashfn_t		hashfn;
+ 	rht_obj_hashfn_t	obj_hashfn;
+ 	bool			(*grow_decision)(const struct rhashtable *ht,
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index a2c7881..8dfec3f 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -298,7 +298,7 @@ int rhashtable_shrink(struct rhashtable *ht, gfp_t flags)
+ 
+ 	ASSERT_RHT_MUTEX(ht);
+ 
+-	if (tbl->size <= HASH_MIN_SIZE)
++	if (ht->shift <= ht->p.min_shift)
+ 		return 0;
+ 
+ 	ntbl = bucket_table_alloc(tbl->size / 2, flags);
+@@ -506,9 +506,10 @@ void *rhashtable_lookup_compare(const struct rhashtable *ht, u32 hash,
+ }
+ EXPORT_SYMBOL_GPL(rhashtable_lookup_compare);
+ 
+-static size_t rounded_hashtable_size(unsigned int nelem)
++static size_t rounded_hashtable_size(struct rhashtable_params *params)
+ {
+-	return max(roundup_pow_of_two(nelem * 4 / 3), HASH_MIN_SIZE);
++	return max(roundup_pow_of_two(params->nelem_hint * 4 / 3),
++		   1UL << params->min_shift);
+ }
+ 
+ /**
+@@ -566,8 +567,11 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+ 	    (!params->key_len && !params->obj_hashfn))
+ 		return -EINVAL;
+ 
++	params->min_shift = max_t(size_t, params->min_shift,
++				  ilog2(HASH_MIN_SIZE));
++
+ 	if (params->nelem_hint)
+-		size = rounded_hashtable_size(params->nelem_hint);
++		size = rounded_hashtable_size(params);
+ 
+ 	tbl = bucket_table_alloc(size, GFP_KERNEL);
+ 	if (tbl == NULL)
+-- 
+1.7.9.5
