@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 01/13] openvswitch: split flow structures into ovs specific and generic ones
-Date: Wed,  3 Sep 2014 11:24:48 +0200
-Message-ID: <1409736300-12303-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 13/13] switchdev: introduce Netlink API
+Date: Wed,  3 Sep 2014 11:25:00 +0200
+Message-ID: <1409736300-12303-14-git-send-email-jiri@resnulli.us>
 References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
@@ -18,46 +18,51 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	Neil.Jerram@metaswitch.com, ronye@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:52162 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755613AbaICJZN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 05:25:13 -0400
-Received: by mail-wg0-f47.google.com with SMTP id z12so8038727wgg.18
-        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 02:25:09 -0700 (PDT)
+Received: from mail-we0-f176.google.com ([74.125.82.176]:42855 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755748AbaICJZj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 05:25:39 -0400
+Received: by mail-we0-f176.google.com with SMTP id q59so8237899wes.35
+        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 02:25:37 -0700 (PDT)
 In-Reply-To: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After this, flow related structures can be used in other code.
+This patch exposes switchdev API using generic Netlink.
+Example userspace utility is here:
+https://github.com/jpirko/switchdev
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/net/sw_flow.h          |  99 ++++++++++++++++++++++++++++++++++
- net/openvswitch/actions.c      |   3 +-
- net/openvswitch/datapath.c     |  74 +++++++++++++-------------
- net/openvswitch/datapath.h     |   4 +-
- net/openvswitch/flow.c         |   6 +--
- net/openvswitch/flow.h         | 102 +++++++----------------------------
- net/openvswitch/flow_netlink.c |  53 +++++++++---------
- net/openvswitch/flow_netlink.h |  10 ++--
- net/openvswitch/flow_table.c   | 118 ++++++++++++++++++++++-------------------
- net/openvswitch/flow_table.h   |  30 +++++------
- net/openvswitch/vport-gre.c    |   4 +-
- net/openvswitch/vport-vxlan.c  |   2 +-
- net/openvswitch/vport.c        |   2 +-
- net/openvswitch/vport.h        |   2 +-
- 14 files changed, 276 insertions(+), 233 deletions(-)
- create mode 100644 include/net/sw_flow.h
+ MAINTAINERS                       |   1 +
+ include/uapi/linux/switchdev.h    | 119 +++++++++
+ net/switchdev/Kconfig             |  11 +
+ net/switchdev/Makefile            |   1 +
+ net/switchdev/switchdev_netlink.c | 493 ++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 625 insertions(+)
+ create mode 100644 include/uapi/linux/switchdev.h
+ create mode 100644 net/switchdev/switchdev_netlink.c
 
-diff --git a/include/net/sw_flow.h b/include/net/sw_flow.h
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 9797bda..83c4f43 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -8820,6 +8820,7 @@ L:	netdev@vger.kernel.org
+ S:	Supported
+ F:	net/switchdev/
+ F:	include/net/switchdev.h
++F:	include/uapi/linux/switchdev.h
+ 
+ SYNOPSYS ARC ARCHITECTURE
+ M:	Vineet Gupta <vgupta@synopsys.com>
+diff --git a/include/uapi/linux/switchdev.h b/include/uapi/linux/switchdev.h
 new file mode 100644
-index 0000000..21724f1
+index 0000000..83692e2
 --- /dev/null
-+++ b/include/net/sw_flow.h
-@@ -0,0 +1,99 @@
++++ b/include/uapi/linux/switchdev.h
+@@ -0,0 +1,119 @@
 +/*
-+ * include/net/sw_flow.h - Generic switch flow structures
-+ * Copyright (c) 2007-2012 Nicira, Inc.
++ * include/uapi/linux/switchdev.h - Netlink interface to Switch device
 + * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
 + *
 + * This program is free software; you can redistribute it and/or modify
@@ -66,1226 +71,641 @@ index 0000000..21724f1
 + * (at your option) any later version.
 + */
 +
-+#ifndef _NET_SW_FLOW_H_
-+#define _NET_SW_FLOW_H_
++#ifndef _UAPI_LINUX_SWITCHDEV_H_
++#define _UAPI_LINUX_SWITCHDEV_H_
 +
-+struct sw_flow_key_ipv4_tunnel {
-+	__be64 tun_id;
-+	__be32 ipv4_src;
-+	__be32 ipv4_dst;
-+	__be16 tun_flags;
-+	u8   ipv4_tos;
-+	u8   ipv4_ttl;
++enum {
++	SWDEV_CMD_NOOP,
++	SWDEV_CMD_FLOW_INSERT,
++	SWDEV_CMD_FLOW_REMOVE,
 +};
 +
-+struct sw_flow_key {
-+	struct sw_flow_key_ipv4_tunnel tun_key;  /* Encapsulating tunnel key. */
-+	struct {
-+		u32	priority;	/* Packet QoS priority. */
-+		u32	skb_mark;	/* SKB mark. */
-+		u16	in_port;	/* Input switch port (or DP_MAX_PORTS). */
-+	} __packed phy; /* Safe when right after 'tun_key'. */
-+	struct {
-+		u8     src[ETH_ALEN];	/* Ethernet source address. */
-+		u8     dst[ETH_ALEN];	/* Ethernet destination address. */
-+		__be16 tci;		/* 0 if no VLAN, VLAN_TAG_PRESENT set otherwise. */
-+		__be16 type;		/* Ethernet frame type. */
-+	} eth;
-+	struct {
-+		u8     proto;		/* IP protocol or lower 8 bits of ARP opcode. */
-+		u8     tos;		/* IP ToS. */
-+		u8     ttl;		/* IP TTL/hop limit. */
-+		u8     frag;		/* One of OVS_FRAG_TYPE_*. */
-+	} ip;
-+	struct {
-+		__be16 src;		/* TCP/UDP/SCTP source port. */
-+		__be16 dst;		/* TCP/UDP/SCTP destination port. */
-+		__be16 flags;		/* TCP flags. */
-+	} tp;
-+	union {
-+		struct {
-+			struct {
-+				__be32 src;	/* IP source address. */
-+				__be32 dst;	/* IP destination address. */
-+			} addr;
-+			struct {
-+				u8 sha[ETH_ALEN];	/* ARP source hardware address. */
-+				u8 tha[ETH_ALEN];	/* ARP target hardware address. */
-+			} arp;
-+		} ipv4;
-+		struct {
-+			struct {
-+				struct in6_addr src;	/* IPv6 source address. */
-+				struct in6_addr dst;	/* IPv6 destination address. */
-+			} addr;
-+			__be32 label;			/* IPv6 flow label. */
-+			struct {
-+				struct in6_addr target;	/* ND target address. */
-+				u8 sll[ETH_ALEN];	/* ND source link layer address. */
-+				u8 tll[ETH_ALEN];	/* ND target link layer address. */
-+			} nd;
-+		} ipv6;
-+	};
-+} __aligned(BITS_PER_LONG/8); /* Ensure that we can do comparisons as longs. */
++enum {
++	SWDEV_ATTR_UNSPEC,
++	SWDEV_ATTR_IFINDEX,			/* u32 */
++	SWDEV_ATTR_FLOW,			/* nest */
 +
-+struct sw_flow_key_range {
-+	unsigned short int start;
-+	unsigned short int end;
++	__SWDEV_ATTR_MAX,
++	SWDEV_ATTR_MAX = (__SWDEV_ATTR_MAX - 1),
 +};
 +
-+struct sw_flow_mask {
-+	struct sw_flow_key_range range;
-+	struct sw_flow_key key;
++enum {
++	SWDEV_ATTR_FLOW_KEY_UNSPEC,
++	SWDEV_ATTR_FLOW_KEY_TUN_ID,		/* be64 */
++	SWDEV_ATTR_FLOW_KEY_TUN_IPV4_SRC,	/* be32 */
++	SWDEV_ATTR_FLOW_KEY_TUN_IPV4_DST,	/* be32 */
++	SWDEV_ATTR_FLOW_KEY_TUN_FLAGS,		/* be16 */
++	SWDEV_ATTR_FLOW_KEY_TUN_IPV4_TOS,	/* u8 */
++	SWDEV_ATTR_FLOW_KEY_TUN_IPV4_TTL,	/* u8 */
++	SWDEV_ATTR_FLOW_KEY_PHY_PRIORITY,	/* u32 */
++	SWDEV_ATTR_FLOW_KEY_PHY_IN_PORT,	/* u32 (ifindex) */
++	SWDEV_ATTR_FLOW_KEY_ETH_SRC,		/* ETH_ALEN */
++	SWDEV_ATTR_FLOW_KEY_ETH_DST,		/* ETH_ALEN */
++	SWDEV_ATTR_FLOW_KEY_ETH_TCI,		/* be16 */
++	SWDEV_ATTR_FLOW_KEY_ETH_TYPE,		/* be16 */
++	SWDEV_ATTR_FLOW_KEY_IP_PROTO,		/* u8 */
++	SWDEV_ATTR_FLOW_KEY_IP_TOS,		/* u8 */
++	SWDEV_ATTR_FLOW_KEY_IP_TTL,		/* u8 */
++	SWDEV_ATTR_FLOW_KEY_IP_FRAG,		/* u8 */
++	SWDEV_ATTR_FLOW_KEY_TP_SRC,		/* be16 */
++	SWDEV_ATTR_FLOW_KEY_TP_DST,		/* be16 */
++	SWDEV_ATTR_FLOW_KEY_TP_FLAGS,		/* be16 */
++	SWDEV_ATTR_FLOW_KEY_IPV4_ADDR_SRC,	/* be32 */
++	SWDEV_ATTR_FLOW_KEY_IPV4_ADDR_DST,	/* be32 */
++	SWDEV_ATTR_FLOW_KEY_IPV4_ARP_SHA,	/* ETH_ALEN */
++	SWDEV_ATTR_FLOW_KEY_IPV4_ARP_THA,	/* ETH_ALEN */
++	SWDEV_ATTR_FLOW_KEY_IPV6_ADDR_SRC,	/* struct in6_addr */
++	SWDEV_ATTR_FLOW_KEY_IPV6_ADDR_DST,	/* struct in6_addr */
++	SWDEV_ATTR_FLOW_KEY_IPV6_LABEL,		/* be32 */
++	SWDEV_ATTR_FLOW_KEY_IPV6_ND_TARGET,	/* struct in6_addr */
++	SWDEV_ATTR_FLOW_KEY_IPV6_ND_SLL,	/* ETH_ALEN */
++	SWDEV_ATTR_FLOW_KEY_IPV6_ND_TLL,	/* ETH_ALEN */
++
++	__SWDEV_ATTR_FLOW_KEY_MAX,
++	SWDEV_ATTR_FLOW_KEY_MAX = (__SWDEV_ATTR_FLOW_KEY_MAX - 1),
 +};
 +
-+struct sw_flow_action {
++enum {
++	SWDEV_FLOW_ACTION_TYPE_OUTPUT,
++	SWDEV_FLOW_ACTION_TYPE_VLAN_PUSH,
++	SWDEV_FLOW_ACTION_TYPE_VLAN_POP,
 +};
 +
-+struct sw_flow_actions {
-+	unsigned count;
-+	struct sw_flow_action actions[0];
++enum {
++	SWDEV_ATTR_FLOW_ACTION_UNSPEC,
++	SWDEV_ATTR_FLOW_ACTION_TYPE,		/* u32 */
++	SWDEV_ATTR_FLOW_ACTION_OUT_PORT,	/* u32 (ifindex) */
++	SWDEV_ATTR_FLOW_ACTION_VLAN_PROTO,	/* be16 */
++	SWDEV_ATTR_FLOW_ACTION_VLAN_TCI,	/* u16 */
++
++	__SWDEV_ATTR_FLOW_ACTION_MAX,
++	SWDEV_ATTR_FLOW_ACTION_MAX = (__SWDEV_ATTR_FLOW_ACTION_MAX - 1),
 +};
 +
-+struct sw_flow {
-+	struct sw_flow_key key;
-+	struct sw_flow_key unmasked_key;
-+	struct sw_flow_mask *mask;
-+	struct sw_flow_actions *actions;
++enum {
++	SWDEV_ATTR_FLOW_ITEM_UNSPEC,
++	SWDEV_ATTR_FLOW_ITEM_ACTION,		/* nest */
++
++	__SWDEV_ATTR_FLOW_ITEM_MAX,
++	SWDEV_ATTR_FLOW_ITEM_MAX = (__SWDEV_ATTR_FLOW_ITEM_MAX - 1),
 +};
 +
-+#endif /* _NET_SW_FLOW_H_ */
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 5231652..a044491 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -610,8 +610,9 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- /* Execute a list of actions against 'skb'. */
- int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb)
- {
--	struct sw_flow_actions *acts = rcu_dereference(OVS_CB(skb)->flow->sf_acts);
-+	struct ovs_flow_actions *acts;
++enum {
++	SWDEV_ATTR_FLOW_UNSPEC,
++	SWDEV_ATTR_FLOW_KEY,			/* nest */
++	SWDEV_ATTR_FLOW_MASK,			/* nest */
++	SWDEV_ATTR_FLOW_LIST_ACTION,		/* nest */
++
++	__SWDEV_ATTR_FLOW_MAX,
++	SWDEV_ATTR_FLOW_MAX = (__SWDEV_ATTR_FLOW_MAX - 1),
++};
++
++/* Nested layout of flow add/remove command message:
++ *
++ *	[SWDEV_ATTR_IFINDEX]
++ *	[SWDEV_ATTR_FLOW]
++ *		[SWDEV_ATTR_FLOW_KEY]
++ *			[SWDEV_ATTR_FLOW_KEY_*], ...
++ *		[SWDEV_ATTR_FLOW_MASK]
++ *			[SWDEV_ATTR_FLOW_KEY_*], ...
++ *		[SWDEV_ATTR_FLOW_LIST_ACTION]
++ *			[SWDEV_ATTR_FLOW_ITEM_ACTION]
++ *				[SWDEV_ATTR_FLOW_ACTION_*], ...
++ *			[SWDEV_ATTR_FLOW_ITEM_ACTION]
++ *				[SWDEV_ATTR_FLOW_ACTION_*], ...
++ *			...
++ */
++
++#define SWITCHDEV_GENL_NAME "switchdev"
++#define SWITCHDEV_GENL_VERSION 0x1
++
++#endif /* _UAPI_LINUX_SWITCHDEV_H_ */
+diff --git a/net/switchdev/Kconfig b/net/switchdev/Kconfig
+index 20e8ed2..4470d6e 100644
+--- a/net/switchdev/Kconfig
++++ b/net/switchdev/Kconfig
+@@ -7,3 +7,14 @@ config NET_SWITCHDEV
+ 	depends on INET
+ 	---help---
+ 	  This module provides support for hardware switch chips.
++
++config NET_SWITCHDEV_NETLINK
++	tristate "Netlink interface to Switch device"
++	depends on NET_SWITCHDEV
++	default m
++	---help---
++	  This module provides Generic Netlink intercace to hardware switch
++	  chips.
++
++	  To compile this code as a module, choose M here: the
++	  module will be called switchdev_netlink.
+diff --git a/net/switchdev/Makefile b/net/switchdev/Makefile
+index 5ed63ed..0695b53 100644
+--- a/net/switchdev/Makefile
++++ b/net/switchdev/Makefile
+@@ -3,3 +3,4 @@
+ #
  
-+	acts = rcu_dereference(OVS_CB(skb)->flow->sf_acts);
- 	OVS_CB(skb)->tun_key = NULL;
- 	return do_execute_actions(dp, skb, acts->actions, acts->actions_len);
- }
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 7228ec3..683d6cd 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -240,7 +240,7 @@ void ovs_dp_detach_port(struct vport *p)
- void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
- {
- 	struct datapath *dp = p->dp;
--	struct sw_flow *flow;
-+	struct ovs_flow *flow;
- 	struct dp_stats_percpu *stats;
- 	struct sw_flow_key key;
- 	u64 *stats_counter;
-@@ -505,9 +505,9 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct ovs_header *ovs_header = info->userhdr;
- 	struct nlattr **a = info->attrs;
--	struct sw_flow_actions *acts;
-+	struct ovs_flow_actions *acts;
- 	struct sk_buff *packet;
--	struct sw_flow *flow;
-+	struct ovs_flow *flow;
- 	struct datapath *dp;
- 	struct ethhdr *eth;
- 	int len;
-@@ -544,11 +544,11 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 	if (IS_ERR(flow))
- 		goto err_kfree_skb;
- 
--	err = ovs_flow_extract(packet, -1, &flow->key);
-+	err = ovs_flow_extract(packet, -1, &flow->flow.key);
- 	if (err)
- 		goto err_flow_free;
- 
--	err = ovs_nla_get_flow_metadata(flow, a[OVS_PACKET_ATTR_KEY]);
-+	err = ovs_nla_get_flow_metadata(&flow->flow, a[OVS_PACKET_ATTR_KEY]);
- 	if (err)
- 		goto err_flow_free;
- 	acts = ovs_nla_alloc_flow_actions(nla_len(a[OVS_PACKET_ATTR_ACTIONS]));
-@@ -557,15 +557,15 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 		goto err_flow_free;
- 
- 	err = ovs_nla_copy_actions(a[OVS_PACKET_ATTR_ACTIONS],
--				   &flow->key, 0, &acts);
-+				   &flow->flow.key, 0, &acts);
- 	rcu_assign_pointer(flow->sf_acts, acts);
- 	if (err)
- 		goto err_flow_free;
- 
- 	OVS_CB(packet)->flow = flow;
--	OVS_CB(packet)->pkt_key = &flow->key;
--	packet->priority = flow->key.phy.priority;
--	packet->mark = flow->key.phy.skb_mark;
-+	OVS_CB(packet)->pkt_key = &flow->flow.key;
-+	packet->priority = flow->flow.key.phy.priority;
-+	packet->mark = flow->flow.key.phy.skb_mark;
- 
- 	rcu_read_lock();
- 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
-@@ -648,7 +648,7 @@ static void get_dp_stats(struct datapath *dp, struct ovs_dp_stats *stats,
- 	}
- }
- 
--static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts)
-+static size_t ovs_flow_cmd_msg_size(const struct ovs_flow_actions *acts)
- {
- 	return NLMSG_ALIGN(sizeof(struct ovs_header))
- 		+ nla_total_size(key_attr_size()) /* OVS_FLOW_ATTR_KEY */
-@@ -660,7 +660,7 @@ static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts)
- }
- 
- /* Called with ovs_mutex or RCU read lock. */
--static int ovs_flow_cmd_fill_info(const struct sw_flow *flow, int dp_ifindex,
-+static int ovs_flow_cmd_fill_info(const struct ovs_flow *flow, int dp_ifindex,
- 				  struct sk_buff *skb, u32 portid,
- 				  u32 seq, u32 flags, u8 cmd)
- {
-@@ -684,7 +684,8 @@ static int ovs_flow_cmd_fill_info(const struct sw_flow *flow, int dp_ifindex,
- 	if (!nla)
- 		goto nla_put_failure;
- 
--	err = ovs_nla_put_flow(&flow->unmasked_key, &flow->unmasked_key, skb);
-+	err = ovs_nla_put_flow(&flow->flow.unmasked_key,
-+			       &flow->flow.unmasked_key, skb);
- 	if (err)
- 		goto error;
- 	nla_nest_end(skb, nla);
-@@ -693,7 +694,7 @@ static int ovs_flow_cmd_fill_info(const struct sw_flow *flow, int dp_ifindex,
- 	if (!nla)
- 		goto nla_put_failure;
- 
--	err = ovs_nla_put_flow(&flow->key, &flow->mask->key, skb);
-+	err = ovs_nla_put_flow(&flow->flow.key, &flow->flow.mask->key, skb);
- 	if (err)
- 		goto error;
- 
-@@ -725,7 +726,7 @@ static int ovs_flow_cmd_fill_info(const struct sw_flow *flow, int dp_ifindex,
- 	 */
- 	start = nla_nest_start(skb, OVS_FLOW_ATTR_ACTIONS);
- 	if (start) {
--		const struct sw_flow_actions *sf_acts;
-+		const struct ovs_flow_actions *sf_acts;
- 
- 		sf_acts = rcu_dereference_ovsl(flow->sf_acts);
- 		err = ovs_nla_put_actions(sf_acts->actions,
-@@ -752,9 +753,9 @@ error:
- }
- 
- /* May not be called with RCU read lock. */
--static struct sk_buff *ovs_flow_cmd_alloc_info(const struct sw_flow_actions *acts,
--					       struct genl_info *info,
--					       bool always)
-+static struct sk_buff *
-+ovs_flow_cmd_alloc_info(const struct ovs_flow_actions *acts,
-+			struct genl_info *info, bool always)
- {
- 	struct sk_buff *skb;
- 
-@@ -769,7 +770,7 @@ static struct sk_buff *ovs_flow_cmd_alloc_info(const struct sw_flow_actions *act
- }
- 
- /* Called with ovs_mutex. */
--static struct sk_buff *ovs_flow_cmd_build_info(const struct sw_flow *flow,
-+static struct sk_buff *ovs_flow_cmd_build_info(const struct ovs_flow *flow,
- 					       int dp_ifindex,
- 					       struct genl_info *info, u8 cmd,
- 					       bool always)
-@@ -793,12 +794,12 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct nlattr **a = info->attrs;
- 	struct ovs_header *ovs_header = info->userhdr;
--	struct sw_flow *flow, *new_flow;
-+	struct ovs_flow *flow, *new_flow;
- 	struct sw_flow_mask mask;
- 	struct sk_buff *reply;
- 	struct datapath *dp;
--	struct sw_flow_actions *acts;
--	struct sw_flow_match match;
-+	struct ovs_flow_actions *acts;
-+	struct ovs_flow_match match;
- 	int error;
- 
- 	/* Must have key and actions. */
-@@ -818,13 +819,14 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 	}
- 
- 	/* Extract key. */
--	ovs_match_init(&match, &new_flow->unmasked_key, &mask);
-+	ovs_match_init(&match, &new_flow->flow.unmasked_key, &mask);
- 	error = ovs_nla_get_match(&match,
- 				  a[OVS_FLOW_ATTR_KEY], a[OVS_FLOW_ATTR_MASK]);
- 	if (error)
- 		goto err_kfree_flow;
- 
--	ovs_flow_mask_key(&new_flow->key, &new_flow->unmasked_key, &mask);
-+	ovs_flow_mask_key(&new_flow->flow.key,
-+			  &new_flow->flow.unmasked_key, &mask);
- 
- 	/* Validate actions. */
- 	acts = ovs_nla_alloc_flow_actions(nla_len(a[OVS_FLOW_ATTR_ACTIONS]));
-@@ -832,8 +834,8 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 	if (IS_ERR(acts))
- 		goto err_kfree_flow;
- 
--	error = ovs_nla_copy_actions(a[OVS_FLOW_ATTR_ACTIONS], &new_flow->key,
--				     0, &acts);
-+	error = ovs_nla_copy_actions(a[OVS_FLOW_ATTR_ACTIONS],
-+				     &new_flow->flow.key, 0, &acts);
- 	if (error) {
- 		OVS_NLERR("Flow actions may not be safe on all matching packets.\n");
- 		goto err_kfree_acts;
-@@ -852,7 +854,7 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 		goto err_unlock_ovs;
- 	}
- 	/* Check if this is a duplicate flow */
--	flow = ovs_flow_tbl_lookup(&dp->table, &new_flow->unmasked_key);
-+	flow = ovs_flow_tbl_lookup(&dp->table, &new_flow->flow.unmasked_key);
- 	if (likely(!flow)) {
- 		rcu_assign_pointer(new_flow->sf_acts, acts);
- 
-@@ -873,7 +875,7 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 		}
- 		ovs_unlock();
- 	} else {
--		struct sw_flow_actions *old_acts;
-+		struct ovs_flow_actions *old_acts;
- 
- 		/* Bail out if we're not allowed to modify an existing flow.
- 		 * We accept NLM_F_CREATE in place of the intended NLM_F_EXCL
-@@ -932,12 +934,12 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
- 	struct nlattr **a = info->attrs;
- 	struct ovs_header *ovs_header = info->userhdr;
- 	struct sw_flow_key key, masked_key;
--	struct sw_flow *flow;
-+	struct ovs_flow *flow;
- 	struct sw_flow_mask mask;
- 	struct sk_buff *reply = NULL;
- 	struct datapath *dp;
--	struct sw_flow_actions *old_acts = NULL, *acts = NULL;
--	struct sw_flow_match match;
-+	struct ovs_flow_actions *old_acts = NULL, *acts = NULL;
-+	struct ovs_flow_match match;
- 	int error;
- 
- 	/* Extract key. */
-@@ -1039,9 +1041,9 @@ static int ovs_flow_cmd_get(struct sk_buff *skb, struct genl_info *info)
- 	struct ovs_header *ovs_header = info->userhdr;
- 	struct sw_flow_key key;
- 	struct sk_buff *reply;
--	struct sw_flow *flow;
-+	struct ovs_flow *flow;
- 	struct datapath *dp;
--	struct sw_flow_match match;
-+	struct ovs_flow_match match;
- 	int err;
- 
- 	if (!a[OVS_FLOW_ATTR_KEY]) {
-@@ -1087,9 +1089,9 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	struct ovs_header *ovs_header = info->userhdr;
- 	struct sw_flow_key key;
- 	struct sk_buff *reply;
--	struct sw_flow *flow;
-+	struct ovs_flow *flow;
- 	struct datapath *dp;
--	struct sw_flow_match match;
-+	struct ovs_flow_match match;
- 	int err;
- 
- 	if (likely(a[OVS_FLOW_ATTR_KEY])) {
-@@ -1120,7 +1122,7 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	ovs_flow_tbl_remove(&dp->table, flow);
- 	ovs_unlock();
- 
--	reply = ovs_flow_cmd_alloc_info((const struct sw_flow_actions __force *) flow->sf_acts,
-+	reply = ovs_flow_cmd_alloc_info((const struct ovs_flow_actions __force *) flow->sf_acts,
- 					info, false);
- 	if (likely(reply)) {
- 		if (likely(!IS_ERR(reply))) {
-@@ -1160,7 +1162,7 @@ static int ovs_flow_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 
- 	ti = rcu_dereference(dp->table.ti);
- 	for (;;) {
--		struct sw_flow *flow;
-+		struct ovs_flow *flow;
- 		u32 bucket, obj;
- 
- 		bucket = cb->args[0];
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index 701b573..291f5a0 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -100,9 +100,9 @@ struct datapath {
-  * packet is not being tunneled.
-  */
- struct ovs_skb_cb {
--	struct sw_flow		*flow;
-+	struct ovs_flow		*flow;
- 	struct sw_flow_key	*pkt_key;
--	struct ovs_key_ipv4_tunnel  *tun_key;
-+	struct sw_flow_key_ipv4_tunnel  *tun_key;
- };
- #define OVS_CB(skb) ((struct ovs_skb_cb *)(skb)->cb)
- 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 7064da9..4e2d4c8 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -61,7 +61,7 @@ u64 ovs_flow_used_time(unsigned long flow_jiffies)
- 
- #define TCP_FLAGS_BE16(tp) (*(__be16 *)&tcp_flag_word(tp) & htons(0x0FFF))
- 
--void ovs_flow_stats_update(struct sw_flow *flow, __be16 tcp_flags,
-+void ovs_flow_stats_update(struct ovs_flow *flow, __be16 tcp_flags,
- 			   struct sk_buff *skb)
- {
- 	struct flow_stats *stats;
-@@ -123,7 +123,7 @@ unlock:
- }
- 
- /* Must be called with rcu_read_lock or ovs_mutex. */
--void ovs_flow_stats_get(const struct sw_flow *flow,
-+void ovs_flow_stats_get(const struct ovs_flow *flow,
- 			struct ovs_flow_stats *ovs_stats,
- 			unsigned long *used, __be16 *tcp_flags)
- {
-@@ -152,7 +152,7 @@ void ovs_flow_stats_get(const struct sw_flow *flow,
- }
- 
- /* Called with ovs_mutex. */
--void ovs_flow_stats_clear(struct sw_flow *flow)
-+void ovs_flow_stats_clear(struct ovs_flow *flow)
- {
- 	int node;
- 
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index 5e5aaed..712314e 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -32,26 +32,18 @@
- #include <linux/time.h>
- #include <linux/flex_array.h>
- #include <net/inet_ecn.h>
+ obj-$(CONFIG_NET_SWITCHDEV) += switchdev.o
++obj-$(CONFIG_NET_SWITCHDEV_NETLINK) += switchdev_netlink.o
+diff --git a/net/switchdev/switchdev_netlink.c b/net/switchdev/switchdev_netlink.c
+new file mode 100644
+index 0000000..14a3dd1
+--- /dev/null
++++ b/net/switchdev/switchdev_netlink.c
+@@ -0,0 +1,493 @@
++/*
++ * net/switchdev/switchdev_netlink.c - Netlink interface to Switch device
++ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
 +#include <net/sw_flow.h>
- 
- struct sk_buff;
- 
--/* Used to memset ovs_key_ipv4_tunnel padding. */
-+/* Used to memset sw_flow_key_ipv4_tunnel padding. */
- #define OVS_TUNNEL_KEY_SIZE					\
--	(offsetof(struct ovs_key_ipv4_tunnel, ipv4_ttl) +	\
--	FIELD_SIZEOF(struct ovs_key_ipv4_tunnel, ipv4_ttl))
--
--struct ovs_key_ipv4_tunnel {
--	__be64 tun_id;
--	__be32 ipv4_src;
--	__be32 ipv4_dst;
--	__be16 tun_flags;
--	u8   ipv4_tos;
--	u8   ipv4_ttl;
--} __packed __aligned(4); /* Minimize padding. */
--
--static inline void ovs_flow_tun_key_init(struct ovs_key_ipv4_tunnel *tun_key,
--					 const struct iphdr *iph, __be64 tun_id,
--					 __be16 tun_flags)
-+	(offsetof(struct sw_flow_key_ipv4_tunnel, ipv4_ttl) +	\
-+	FIELD_SIZEOF(struct sw_flow_key_ipv4_tunnel, ipv4_ttl))
++#include <net/switchdev.h>
++#include <net/netlink.h>
++#include <net/genetlink.h>
++#include <net/netlink.h>
++#include <uapi/linux/switchdev.h>
 +
-+static inline void
-+ovs_flow_tun_key_init(struct sw_flow_key_ipv4_tunnel *tun_key,
-+		      const struct iphdr *iph, __be64 tun_id, __be16 tun_flags)
- {
- 	tun_key->tun_id = tun_id;
- 	tun_key->ipv4_src = iph->saddr;
-@@ -65,76 +57,20 @@ static inline void ovs_flow_tun_key_init(struct ovs_key_ipv4_tunnel *tun_key,
- 	       sizeof(*tun_key) - OVS_TUNNEL_KEY_SIZE);
- }
- 
--struct sw_flow_key {
--	struct ovs_key_ipv4_tunnel tun_key;  /* Encapsulating tunnel key. */
--	struct {
--		u32	priority;	/* Packet QoS priority. */
--		u32	skb_mark;	/* SKB mark. */
--		u16	in_port;	/* Input switch port (or DP_MAX_PORTS). */
--	} __packed phy; /* Safe when right after 'tun_key'. */
--	struct {
--		u8     src[ETH_ALEN];	/* Ethernet source address. */
--		u8     dst[ETH_ALEN];	/* Ethernet destination address. */
--		__be16 tci;		/* 0 if no VLAN, VLAN_TAG_PRESENT set otherwise. */
--		__be16 type;		/* Ethernet frame type. */
--	} eth;
--	struct {
--		u8     proto;		/* IP protocol or lower 8 bits of ARP opcode. */
--		u8     tos;		/* IP ToS. */
--		u8     ttl;		/* IP TTL/hop limit. */
--		u8     frag;		/* One of OVS_FRAG_TYPE_*. */
--	} ip;
--	struct {
--		__be16 src;		/* TCP/UDP/SCTP source port. */
--		__be16 dst;		/* TCP/UDP/SCTP destination port. */
--		__be16 flags;		/* TCP flags. */
--	} tp;
--	union {
--		struct {
--			struct {
--				__be32 src;	/* IP source address. */
--				__be32 dst;	/* IP destination address. */
--			} addr;
--			struct {
--				u8 sha[ETH_ALEN];	/* ARP source hardware address. */
--				u8 tha[ETH_ALEN];	/* ARP target hardware address. */
--			} arp;
--		} ipv4;
--		struct {
--			struct {
--				struct in6_addr src;	/* IPv6 source address. */
--				struct in6_addr dst;	/* IPv6 destination address. */
--			} addr;
--			__be32 label;			/* IPv6 flow label. */
--			struct {
--				struct in6_addr target;	/* ND target address. */
--				u8 sll[ETH_ALEN];	/* ND source link layer address. */
--				u8 tll[ETH_ALEN];	/* ND target link layer address. */
--			} nd;
--		} ipv6;
--	};
--} __aligned(BITS_PER_LONG/8); /* Ensure that we can do comparisons as longs. */
--
--struct sw_flow_key_range {
--	unsigned short int start;
--	unsigned short int end;
--};
--
--struct sw_flow_mask {
-+struct ovs_flow_mask {
- 	int ref_count;
- 	struct rcu_head rcu;
- 	struct list_head list;
--	struct sw_flow_key_range range;
--	struct sw_flow_key key;
-+	struct sw_flow_mask mask;
- };
- 
--struct sw_flow_match {
-+struct ovs_flow_match {
- 	struct sw_flow_key *key;
- 	struct sw_flow_key_range range;
- 	struct sw_flow_mask *mask;
- };
- 
--struct sw_flow_actions {
-+struct ovs_flow_actions {
- 	struct rcu_head rcu;
- 	u32 actions_len;
- 	struct nlattr actions[];
-@@ -148,17 +84,15 @@ struct flow_stats {
- 	__be16 tcp_flags;		/* Union of seen TCP flags. */
- };
- 
--struct sw_flow {
-+struct ovs_flow {
- 	struct rcu_head rcu;
- 	struct hlist_node hash_node[2];
- 	u32 hash;
- 	int stats_last_writer;		/* NUMA-node id of the last writer on
- 					 * 'stats[0]'.
- 					 */
--	struct sw_flow_key key;
--	struct sw_flow_key unmasked_key;
--	struct sw_flow_mask *mask;
--	struct sw_flow_actions __rcu *sf_acts;
-+	struct sw_flow flow;
-+	struct ovs_flow_actions __rcu *sf_acts;
- 	struct flow_stats __rcu *stats[]; /* One for each NUMA node.  First one
- 					   * is allocated at flow creation time,
- 					   * the rest are allocated on demand
-@@ -180,11 +114,11 @@ struct arp_eth_header {
- 	unsigned char       ar_tip[4];		/* target IP address        */
- } __packed;
- 
--void ovs_flow_stats_update(struct sw_flow *, __be16 tcp_flags,
-+void ovs_flow_stats_update(struct ovs_flow *, __be16 tcp_flags,
- 			   struct sk_buff *);
--void ovs_flow_stats_get(const struct sw_flow *, struct ovs_flow_stats *,
-+void ovs_flow_stats_get(const struct ovs_flow *, struct ovs_flow_stats *,
- 			unsigned long *used, __be16 *tcp_flags);
--void ovs_flow_stats_clear(struct sw_flow *);
-+void ovs_flow_stats_clear(struct ovs_flow *);
- u64 ovs_flow_used_time(unsigned long flow_jiffies);
- 
- int ovs_flow_extract(struct sk_buff *, u16 in_port, struct sw_flow_key *);
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index d757848..1eb5054 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -48,7 +48,7 @@
- 
- #include "flow_netlink.h"
- 
--static void update_range__(struct sw_flow_match *match,
-+static void update_range__(struct ovs_flow_match *match,
- 			   size_t offset, size_t size, bool is_mask)
- {
- 	struct sw_flow_key_range *range = NULL;
-@@ -105,7 +105,7 @@ static u16 range_n_bytes(const struct sw_flow_key_range *range)
- 	return range->end - range->start;
- }
- 
--static bool match_validate(const struct sw_flow_match *match,
-+static bool match_validate(const struct ovs_flow_match *match,
- 			   u64 key_attrs, u64 mask_attrs)
- {
- 	u64 key_expected = 1 << OVS_KEY_ATTR_ETHERNET;
-@@ -327,7 +327,7 @@ static int parse_flow_nlattrs(const struct nlattr *attr,
- }
- 
- static int ipv4_tun_from_nlattr(const struct nlattr *attr,
--				struct sw_flow_match *match, bool is_mask)
-+				struct ovs_flow_match *match, bool is_mask)
- {
- 	struct nlattr *a;
- 	int rem;
-@@ -416,8 +416,8 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- }
- 
- static int ipv4_tun_to_nlattr(struct sk_buff *skb,
--			      const struct ovs_key_ipv4_tunnel *tun_key,
--			      const struct ovs_key_ipv4_tunnel *output)
-+			      const struct sw_flow_key_ipv4_tunnel *tun_key,
-+			      const struct sw_flow_key_ipv4_tunnel *output)
- {
- 	struct nlattr *nla;
- 
-@@ -451,7 +451,7 @@ static int ipv4_tun_to_nlattr(struct sk_buff *skb,
- }
- 
- 
--static int metadata_from_nlattrs(struct sw_flow_match *match,  u64 *attrs,
-+static int metadata_from_nlattrs(struct ovs_flow_match *match,  u64 *attrs,
- 				 const struct nlattr **a, bool is_mask)
- {
- 	if (*attrs & (1 << OVS_KEY_ATTR_PRIORITY)) {
-@@ -489,7 +489,7 @@ static int metadata_from_nlattrs(struct sw_flow_match *match,  u64 *attrs,
- 	return 0;
- }
- 
--static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
-+static int ovs_key_from_nlattrs(struct ovs_flow_match *match, u64 attrs,
- 				const struct nlattr **a, bool is_mask)
- {
- 	int err;
-@@ -730,7 +730,7 @@ static void sw_flow_mask_set(struct sw_flow_mask *mask,
-  * @mask: Optional. Netlink attribute holding nested %OVS_KEY_ATTR_* Netlink
-  * attribute specifies the mask field of the wildcarded flow.
-  */
--int ovs_nla_get_match(struct sw_flow_match *match,
-+int ovs_nla_get_match(struct ovs_flow_match *match,
- 		      const struct nlattr *key,
- 		      const struct nlattr *mask)
- {
-@@ -849,11 +849,11 @@ int ovs_nla_get_match(struct sw_flow_match *match,
- int ovs_nla_get_flow_metadata(struct sw_flow *flow,
- 			      const struct nlattr *attr)
- {
--	struct ovs_key_ipv4_tunnel *tun_key = &flow->key.tun_key;
-+	struct sw_flow_key_ipv4_tunnel *tun_key = &flow->key.tun_key;
- 	const struct nlattr *a[OVS_KEY_ATTR_MAX + 1];
- 	u64 attrs = 0;
- 	int err;
--	struct sw_flow_match match;
-+	struct ovs_flow_match match;
- 
- 	flow->key.phy.in_port = DP_MAX_PORTS;
- 	flow->key.phy.priority = 0;
-@@ -1070,9 +1070,9 @@ nla_put_failure:
- 
- #define MAX_ACTIONS_BUFSIZE	(32 * 1024)
- 
--struct sw_flow_actions *ovs_nla_alloc_flow_actions(int size)
-+struct ovs_flow_actions *ovs_nla_alloc_flow_actions(int size)
- {
--	struct sw_flow_actions *sfa;
-+	struct ovs_flow_actions *sfa;
- 
- 	if (size > MAX_ACTIONS_BUFSIZE)
- 		return ERR_PTR(-EINVAL);
-@@ -1087,19 +1087,19 @@ struct sw_flow_actions *ovs_nla_alloc_flow_actions(int size)
- 
- /* Schedules 'sf_acts' to be freed after the next RCU grace period.
-  * The caller must hold rcu_read_lock for this to be sensible. */
--void ovs_nla_free_flow_actions(struct sw_flow_actions *sf_acts)
-+void ovs_nla_free_flow_actions(struct ovs_flow_actions *sf_acts)
- {
- 	kfree_rcu(sf_acts, rcu);
- }
- 
--static struct nlattr *reserve_sfa_size(struct sw_flow_actions **sfa,
-+static struct nlattr *reserve_sfa_size(struct ovs_flow_actions **sfa,
- 				       int attr_len)
- {
- 
--	struct sw_flow_actions *acts;
-+	struct ovs_flow_actions *acts;
- 	int new_acts_size;
- 	int req_size = NLA_ALIGN(attr_len);
--	int next_offset = offsetof(struct sw_flow_actions, actions) +
-+	int next_offset = offsetof(struct ovs_flow_actions, actions) +
- 					(*sfa)->actions_len;
- 
- 	if (req_size <= (ksize(*sfa) - next_offset))
-@@ -1127,7 +1127,8 @@ out:
- 	return  (struct nlattr *) ((unsigned char *)(*sfa) + next_offset);
- }
- 
--static int add_action(struct sw_flow_actions **sfa, int attrtype, void *data, int len)
-+static int add_action(struct ovs_flow_actions **sfa, int attrtype,
-+		      void *data, int len)
- {
- 	struct nlattr *a;
- 
-@@ -1145,7 +1146,7 @@ static int add_action(struct sw_flow_actions **sfa, int attrtype, void *data, in
- 	return 0;
- }
- 
--static inline int add_nested_action_start(struct sw_flow_actions **sfa,
-+static inline int add_nested_action_start(struct ovs_flow_actions **sfa,
- 					  int attrtype)
- {
- 	int used = (*sfa)->actions_len;
-@@ -1158,7 +1159,7 @@ static inline int add_nested_action_start(struct sw_flow_actions **sfa,
- 	return used;
- }
- 
--static inline void add_nested_action_end(struct sw_flow_actions *sfa,
-+static inline void add_nested_action_end(struct ovs_flow_actions *sfa,
- 					 int st_offset)
- {
- 	struct nlattr *a = (struct nlattr *) ((unsigned char *)sfa->actions +
-@@ -1169,7 +1170,7 @@ static inline void add_nested_action_end(struct sw_flow_actions *sfa,
- 
- static int validate_and_copy_sample(const struct nlattr *attr,
- 				    const struct sw_flow_key *key, int depth,
--				    struct sw_flow_actions **sfa)
-+				    struct ovs_flow_actions **sfa)
- {
- 	const struct nlattr *attrs[OVS_SAMPLE_ATTR_MAX + 1];
- 	const struct nlattr *probability, *actions;
-@@ -1226,7 +1227,7 @@ static int validate_tp_port(const struct sw_flow_key *flow_key)
- 	return -EINVAL;
- }
- 
--void ovs_match_init(struct sw_flow_match *match,
-+void ovs_match_init(struct ovs_flow_match *match,
- 		    struct sw_flow_key *key,
- 		    struct sw_flow_mask *mask)
- {
-@@ -1243,9 +1244,9 @@ void ovs_match_init(struct sw_flow_match *match,
- }
- 
- static int validate_and_copy_set_tun(const struct nlattr *attr,
--				     struct sw_flow_actions **sfa)
-+				     struct ovs_flow_actions **sfa)
- {
--	struct sw_flow_match match;
-+	struct ovs_flow_match match;
- 	struct sw_flow_key key;
- 	int err, start;
- 
-@@ -1267,7 +1268,7 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
- 
- static int validate_set(const struct nlattr *a,
- 			const struct sw_flow_key *flow_key,
--			struct sw_flow_actions **sfa,
-+			struct ovs_flow_actions **sfa,
- 			bool *set_tun)
- {
- 	const struct nlattr *ovs_key = nla_data(a);
-@@ -1381,7 +1382,7 @@ static int validate_userspace(const struct nlattr *attr)
- }
- 
- static int copy_action(const struct nlattr *from,
--		       struct sw_flow_actions **sfa)
-+		       struct ovs_flow_actions **sfa)
- {
- 	int totlen = NLA_ALIGN(from->nla_len);
- 	struct nlattr *to;
-@@ -1397,7 +1398,7 @@ static int copy_action(const struct nlattr *from,
- int ovs_nla_copy_actions(const struct nlattr *attr,
- 			 const struct sw_flow_key *key,
- 			 int depth,
--			 struct sw_flow_actions **sfa)
-+			 struct ovs_flow_actions **sfa)
- {
- 	const struct nlattr *a;
- 	int rem, err;
-diff --git a/net/openvswitch/flow_netlink.h b/net/openvswitch/flow_netlink.h
-index 4401510..296b126 100644
---- a/net/openvswitch/flow_netlink.h
-+++ b/net/openvswitch/flow_netlink.h
-@@ -37,24 +37,24 @@
- 
- #include "flow.h"
- 
--void ovs_match_init(struct sw_flow_match *match,
-+void ovs_match_init(struct ovs_flow_match *match,
- 		    struct sw_flow_key *key, struct sw_flow_mask *mask);
- 
- int ovs_nla_put_flow(const struct sw_flow_key *,
- 		     const struct sw_flow_key *, struct sk_buff *);
- int ovs_nla_get_flow_metadata(struct sw_flow *flow,
- 			      const struct nlattr *attr);
--int ovs_nla_get_match(struct sw_flow_match *match,
-+int ovs_nla_get_match(struct ovs_flow_match *match,
- 		      const struct nlattr *,
- 		      const struct nlattr *);
- 
- int ovs_nla_copy_actions(const struct nlattr *attr,
- 			 const struct sw_flow_key *key, int depth,
--			 struct sw_flow_actions **sfa);
-+			 struct ovs_flow_actions **sfa);
- int ovs_nla_put_actions(const struct nlattr *attr,
- 			int len, struct sk_buff *skb);
- 
--struct sw_flow_actions *ovs_nla_alloc_flow_actions(int actions_len);
--void ovs_nla_free_flow_actions(struct sw_flow_actions *);
-+struct ovs_flow_actions *ovs_nla_alloc_flow_actions(int actions_len);
-+void ovs_nla_free_flow_actions(struct ovs_flow_actions *);
- 
- #endif /* flow_netlink.h */
-diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
-index cf2d853..e7d9a41 100644
---- a/net/openvswitch/flow_table.c
-+++ b/net/openvswitch/flow_table.c
-@@ -73,9 +73,9 @@ void ovs_flow_mask_key(struct sw_flow_key *dst, const struct sw_flow_key *src,
- 		*d++ = *s++ & *m++;
- }
- 
--struct sw_flow *ovs_flow_alloc(void)
-+struct ovs_flow *ovs_flow_alloc(void)
- {
--	struct sw_flow *flow;
-+	struct ovs_flow *flow;
- 	struct flow_stats *stats;
- 	int node;
- 
-@@ -84,7 +84,7 @@ struct sw_flow *ovs_flow_alloc(void)
- 		return ERR_PTR(-ENOMEM);
- 
- 	flow->sf_acts = NULL;
--	flow->mask = NULL;
-+	flow->flow.mask = NULL;
- 	flow->stats_last_writer = NUMA_NO_NODE;
- 
- 	/* Initialize the default stat node. */
-@@ -135,11 +135,11 @@ static struct flex_array *alloc_buckets(unsigned int n_buckets)
- 	return buckets;
- }
- 
--static void flow_free(struct sw_flow *flow)
-+static void flow_free(struct ovs_flow *flow)
- {
- 	int node;
- 
--	kfree((struct sw_flow_actions __force *)flow->sf_acts);
-+	kfree((struct ovs_flow_actions __force *)flow->sf_acts);
- 	for_each_node(node)
- 		if (flow->stats[node])
- 			kmem_cache_free(flow_stats_cache,
-@@ -149,12 +149,12 @@ static void flow_free(struct sw_flow *flow)
- 
- static void rcu_free_flow_callback(struct rcu_head *rcu)
- {
--	struct sw_flow *flow = container_of(rcu, struct sw_flow, rcu);
-+	struct ovs_flow *flow = container_of(rcu, struct ovs_flow, rcu);
- 
- 	flow_free(flow);
- }
- 
--void ovs_flow_free(struct sw_flow *flow, bool deferred)
-+void ovs_flow_free(struct ovs_flow *flow, bool deferred)
- {
- 	if (!flow)
- 		return;
-@@ -232,7 +232,7 @@ static void table_instance_destroy(struct table_instance *ti, bool deferred)
- 		goto skip_flows;
- 
- 	for (i = 0; i < ti->n_buckets; i++) {
--		struct sw_flow *flow;
-+		struct ovs_flow *flow;
- 		struct hlist_head *head = flex_array_get(ti->buckets, i);
- 		struct hlist_node *n;
- 		int ver = ti->node_ver;
-@@ -257,10 +257,10 @@ void ovs_flow_tbl_destroy(struct flow_table *table, bool deferred)
- 	table_instance_destroy(ti, deferred);
- }
- 
--struct sw_flow *ovs_flow_tbl_dump_next(struct table_instance *ti,
--				       u32 *bucket, u32 *last)
-+struct ovs_flow *ovs_flow_tbl_dump_next(struct table_instance *ti,
-+					u32 *bucket, u32 *last)
- {
--	struct sw_flow *flow;
-+	struct ovs_flow *flow;
- 	struct hlist_head *head;
- 	int ver;
- 	int i;
-@@ -291,7 +291,8 @@ static struct hlist_head *find_bucket(struct table_instance *ti, u32 hash)
- 				(hash & (ti->n_buckets - 1)));
- }
- 
--static void table_instance_insert(struct table_instance *ti, struct sw_flow *flow)
-+static void table_instance_insert(struct table_instance *ti,
-+				  struct ovs_flow *flow)
- {
- 	struct hlist_head *head;
- 
-@@ -310,7 +311,7 @@ static void flow_table_copy_flows(struct table_instance *old,
- 
- 	/* Insert in new table. */
- 	for (i = 0; i < old->n_buckets; i++) {
--		struct sw_flow *flow;
-+		struct ovs_flow *flow;
- 		struct hlist_head *head;
- 
- 		head = flex_array_get(old->buckets, i);
-@@ -397,21 +398,21 @@ static bool flow_cmp_masked_key(const struct sw_flow *flow,
- 	return cmp_key(&flow->key, key, key_start, key_end);
- }
- 
--bool ovs_flow_cmp_unmasked_key(const struct sw_flow *flow,
--			       struct sw_flow_match *match)
-+bool ovs_flow_cmp_unmasked_key(const struct ovs_flow *flow,
-+			       struct ovs_flow_match *match)
- {
- 	struct sw_flow_key *key = match->key;
- 	int key_start = flow_key_start(key);
- 	int key_end = match->range.end;
- 
--	return cmp_key(&flow->unmasked_key, key, key_start, key_end);
-+	return cmp_key(&flow->flow.unmasked_key, key, key_start, key_end);
- }
- 
--static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
--					  const struct sw_flow_key *unmasked,
--					  struct sw_flow_mask *mask)
-+static struct ovs_flow *masked_flow_lookup(struct table_instance *ti,
-+					   const struct sw_flow_key *unmasked,
-+					   struct sw_flow_mask *mask)
- {
--	struct sw_flow *flow;
-+	struct ovs_flow *flow;
- 	struct hlist_head *head;
- 	int key_start = mask->range.start;
- 	int key_end = mask->range.end;
-@@ -422,50 +423,50 @@ static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
- 	hash = flow_hash(&masked_key, key_start, key_end);
- 	head = find_bucket(ti, hash);
- 	hlist_for_each_entry_rcu(flow, head, hash_node[ti->node_ver]) {
--		if (flow->mask == mask && flow->hash == hash &&
--		    flow_cmp_masked_key(flow, &masked_key,
--					  key_start, key_end))
-+		if (flow->flow.mask == mask && flow->hash == hash &&
-+		    flow_cmp_masked_key(&flow->flow, &masked_key,
-+					key_start, key_end))
- 			return flow;
- 	}
- 	return NULL;
- }
- 
--struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *tbl,
--				    const struct sw_flow_key *key,
--				    u32 *n_mask_hit)
-+struct ovs_flow *ovs_flow_tbl_lookup_stats(struct flow_table *tbl,
-+					   const struct sw_flow_key *key,
-+					   u32 *n_mask_hit)
- {
- 	struct table_instance *ti = rcu_dereference_ovsl(tbl->ti);
--	struct sw_flow_mask *mask;
--	struct sw_flow *flow;
-+	struct ovs_flow_mask *mask;
-+	struct ovs_flow *flow;
- 
- 	*n_mask_hit = 0;
- 	list_for_each_entry_rcu(mask, &tbl->mask_list, list) {
- 		(*n_mask_hit)++;
--		flow = masked_flow_lookup(ti, key, mask);
-+		flow = masked_flow_lookup(ti, key, &mask->mask);
- 		if (flow)  /* Found */
- 			return flow;
- 	}
- 	return NULL;
- }
- 
--struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *tbl,
--				    const struct sw_flow_key *key)
-+struct ovs_flow *ovs_flow_tbl_lookup(struct flow_table *tbl,
-+				     const struct sw_flow_key *key)
- {
- 	u32 __always_unused n_mask_hit;
- 
- 	return ovs_flow_tbl_lookup_stats(tbl, key, &n_mask_hit);
- }
- 
--struct sw_flow *ovs_flow_tbl_lookup_exact(struct flow_table *tbl,
--					  struct sw_flow_match *match)
-+struct ovs_flow *ovs_flow_tbl_lookup_exact(struct flow_table *tbl,
-+					   struct ovs_flow_match *match)
- {
- 	struct table_instance *ti = rcu_dereference_ovsl(tbl->ti);
--	struct sw_flow_mask *mask;
--	struct sw_flow *flow;
-+	struct ovs_flow_mask *mask;
-+	struct ovs_flow *flow;
- 
- 	/* Always called under ovs-mutex. */
- 	list_for_each_entry(mask, &tbl->mask_list, list) {
--		flow = masked_flow_lookup(ti, match->key, mask);
-+		flow = masked_flow_lookup(ti, match->key, &mask->mask);
- 		if (flow && ovs_flow_cmp_unmasked_key(flow, match))  /* Found */
- 			return flow;
- 	}
-@@ -474,7 +475,7 @@ struct sw_flow *ovs_flow_tbl_lookup_exact(struct flow_table *tbl,
- 
- int ovs_flow_tbl_num_masks(const struct flow_table *table)
- {
--	struct sw_flow_mask *mask;
-+	struct ovs_flow_mask *mask;
- 	int num = 0;
- 
- 	list_for_each_entry(mask, &table->mask_list, list)
-@@ -489,7 +490,7 @@ static struct table_instance *table_instance_expand(struct table_instance *ti)
- }
- 
- /* Remove 'mask' from the mask list, if it is not needed any more. */
--static void flow_mask_remove(struct flow_table *tbl, struct sw_flow_mask *mask)
-+static void flow_mask_remove(struct flow_table *tbl, struct ovs_flow_mask *mask)
- {
- 	if (mask) {
- 		/* ovs-lock is required to protect mask-refcount and
-@@ -507,9 +508,12 @@ static void flow_mask_remove(struct flow_table *tbl, struct sw_flow_mask *mask)
- }
- 
- /* Must be called with OVS mutex held. */
--void ovs_flow_tbl_remove(struct flow_table *table, struct sw_flow *flow)
-+void ovs_flow_tbl_remove(struct flow_table *table, struct ovs_flow *flow)
- {
- 	struct table_instance *ti = ovsl_dereference(table->ti);
-+	struct ovs_flow_mask *mask = container_of(flow->flow.mask,
-+						  struct ovs_flow_mask,
-+						  mask);
- 
- 	BUG_ON(table->count == 0);
- 	hlist_del_rcu(&flow->hash_node[ti->node_ver]);
-@@ -518,12 +522,12 @@ void ovs_flow_tbl_remove(struct flow_table *table, struct sw_flow *flow)
- 	/* RCU delete the mask. 'flow->mask' is not NULLed, as it should be
- 	 * accessible as long as the RCU read lock is held.
- 	 */
--	flow_mask_remove(table, flow->mask);
-+	flow_mask_remove(table, mask);
- }
- 
--static struct sw_flow_mask *mask_alloc(void)
-+static struct ovs_flow_mask *mask_alloc(void)
- {
--	struct sw_flow_mask *mask;
-+	struct ovs_flow_mask *mask;
- 
- 	mask = kmalloc(sizeof(*mask), GFP_KERNEL);
- 	if (mask)
-@@ -543,15 +547,16 @@ static bool mask_equal(const struct sw_flow_mask *a,
- 		&& (memcmp(a_, b_, range_n_bytes(&a->range)) == 0);
- }
- 
--static struct sw_flow_mask *flow_mask_find(const struct flow_table *tbl,
--					   const struct sw_flow_mask *mask)
-+static struct ovs_flow_mask *flow_mask_find(const struct flow_table *tbl,
-+					    const struct sw_flow_mask *mask)
- {
- 	struct list_head *ml;
- 
- 	list_for_each(ml, &tbl->mask_list) {
--		struct sw_flow_mask *m;
--		m = container_of(ml, struct sw_flow_mask, list);
--		if (mask_equal(mask, m))
-+		struct ovs_flow_mask *m;
++static struct genl_family swdev_nl_family = {
++	.id		= GENL_ID_GENERATE,
++	.name		= SWITCHDEV_GENL_NAME,
++	.version	= SWITCHDEV_GENL_VERSION,
++	.maxattr	= SWDEV_ATTR_MAX,
++	.netnsok	= true,
++};
 +
-+		m = container_of(ml, struct ovs_flow_mask, list);
-+		if (mask_equal(mask, &m->mask))
- 			return m;
- 	}
- 
-@@ -559,30 +564,31 @@ static struct sw_flow_mask *flow_mask_find(const struct flow_table *tbl,
- }
- 
- /* Add 'mask' into the mask list, if it is not already there. */
--static int flow_mask_insert(struct flow_table *tbl, struct sw_flow *flow,
-+static int flow_mask_insert(struct flow_table *tbl, struct ovs_flow *flow,
- 			    struct sw_flow_mask *new)
- {
--	struct sw_flow_mask *mask;
-+	struct ovs_flow_mask *mask;
++static const struct nla_policy swdev_nl_flow_policy[SWDEV_ATTR_FLOW_MAX + 1] = {
++	[SWDEV_ATTR_FLOW_UNSPEC]		= { .type = NLA_UNSPEC, },
++	[SWDEV_ATTR_FLOW_KEY]			= { .type = NLA_NESTED },
++	[SWDEV_ATTR_FLOW_MASK]			= { .type = NLA_NESTED },
++	[SWDEV_ATTR_FLOW_LIST_ACTION]		= { .type = NLA_NESTED },
++};
 +
- 	mask = flow_mask_find(tbl, new);
- 	if (!mask) {
- 		/* Allocate a new mask if none exsits. */
- 		mask = mask_alloc();
- 		if (!mask)
- 			return -ENOMEM;
--		mask->key = new->key;
--		mask->range = new->range;
-+		mask->mask.key = new->key;
-+		mask->mask.range = new->range;
- 		list_add_rcu(&mask->list, &tbl->mask_list);
- 	} else {
- 		BUG_ON(!mask->ref_count);
- 		mask->ref_count++;
- 	}
- 
--	flow->mask = mask;
-+	flow->flow.mask = &mask->mask;
- 	return 0;
- }
- 
- /* Must be called with OVS mutex held. */
--int ovs_flow_tbl_insert(struct flow_table *table, struct sw_flow *flow,
-+int ovs_flow_tbl_insert(struct flow_table *table, struct ovs_flow *flow,
- 			struct sw_flow_mask *mask)
- {
- 	struct table_instance *new_ti = NULL;
-@@ -593,8 +599,8 @@ int ovs_flow_tbl_insert(struct flow_table *table, struct sw_flow *flow,
- 	if (err)
- 		return err;
- 
--	flow->hash = flow_hash(&flow->key, flow->mask->range.start,
--			flow->mask->range.end);
-+	flow->hash = flow_hash(&flow->flow.key, flow->flow.mask->range.start,
-+			       flow->flow.mask->range.end);
- 	ti = ovsl_dereference(table->ti);
- 	table_instance_insert(ti, flow);
- 	table->count++;
-@@ -620,7 +626,7 @@ int ovs_flow_init(void)
- 	BUILD_BUG_ON(__alignof__(struct sw_flow_key) % __alignof__(long));
- 	BUILD_BUG_ON(sizeof(struct sw_flow_key) % sizeof(long));
- 
--	flow_cache = kmem_cache_create("sw_flow", sizeof(struct sw_flow)
-+	flow_cache = kmem_cache_create("ovs_flow", sizeof(struct ovs_flow)
- 				       + (num_possible_nodes()
- 					  * sizeof(struct flow_stats *)),
- 				       0, 0, NULL);
-diff --git a/net/openvswitch/flow_table.h b/net/openvswitch/flow_table.h
-index 5918bff..d57d6b5 100644
---- a/net/openvswitch/flow_table.h
-+++ b/net/openvswitch/flow_table.h
-@@ -57,29 +57,29 @@ extern struct kmem_cache *flow_stats_cache;
- int ovs_flow_init(void);
- void ovs_flow_exit(void);
- 
--struct sw_flow *ovs_flow_alloc(void);
--void ovs_flow_free(struct sw_flow *, bool deferred);
-+struct ovs_flow *ovs_flow_alloc(void);
-+void ovs_flow_free(struct ovs_flow *, bool deferred);
- 
- int ovs_flow_tbl_init(struct flow_table *);
- int ovs_flow_tbl_count(struct flow_table *table);
- void ovs_flow_tbl_destroy(struct flow_table *table, bool deferred);
- int ovs_flow_tbl_flush(struct flow_table *flow_table);
- 
--int ovs_flow_tbl_insert(struct flow_table *table, struct sw_flow *flow,
-+int ovs_flow_tbl_insert(struct flow_table *table, struct ovs_flow *flow,
- 			struct sw_flow_mask *mask);
--void ovs_flow_tbl_remove(struct flow_table *table, struct sw_flow *flow);
-+void ovs_flow_tbl_remove(struct flow_table *table, struct ovs_flow *flow);
- int  ovs_flow_tbl_num_masks(const struct flow_table *table);
--struct sw_flow *ovs_flow_tbl_dump_next(struct table_instance *table,
--				       u32 *bucket, u32 *idx);
--struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *,
--				    const struct sw_flow_key *,
--				    u32 *n_mask_hit);
--struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *,
--				    const struct sw_flow_key *);
--struct sw_flow *ovs_flow_tbl_lookup_exact(struct flow_table *tbl,
--					  struct sw_flow_match *match);
--bool ovs_flow_cmp_unmasked_key(const struct sw_flow *flow,
--			       struct sw_flow_match *match);
-+struct ovs_flow *ovs_flow_tbl_dump_next(struct table_instance *table,
-+					u32 *bucket, u32 *idx);
-+struct ovs_flow *ovs_flow_tbl_lookup_stats(struct flow_table *,
-+					   const struct sw_flow_key *,
-+					   u32 *n_mask_hit);
-+struct ovs_flow *ovs_flow_tbl_lookup(struct flow_table *,
-+				     const struct sw_flow_key *);
-+struct ovs_flow *ovs_flow_tbl_lookup_exact(struct flow_table *tbl,
-+					   struct ovs_flow_match *match);
-+bool ovs_flow_cmp_unmasked_key(const struct ovs_flow *flow,
-+			       struct ovs_flow_match *match);
- 
- void ovs_flow_mask_key(struct sw_flow_key *dst, const struct sw_flow_key *src,
- 		       const struct sw_flow_mask *mask);
-diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-index f49148a..fda79eb 100644
---- a/net/openvswitch/vport-gre.c
-+++ b/net/openvswitch/vport-gre.c
-@@ -63,7 +63,7 @@ static __be16 filter_tnl_flags(__be16 flags)
- static struct sk_buff *__build_header(struct sk_buff *skb,
- 				      int tunnel_hlen)
- {
--	const struct ovs_key_ipv4_tunnel *tun_key = OVS_CB(skb)->tun_key;
-+	const struct sw_flow_key_ipv4_tunnel *tun_key = OVS_CB(skb)->tun_key;
- 	struct tnl_ptk_info tpi;
- 
- 	skb = gre_handle_offloads(skb, !!(tun_key->tun_flags & TUNNEL_CSUM));
-@@ -92,7 +92,7 @@ static __be64 key_to_tunnel_id(__be32 key, __be32 seq)
- static int gre_rcv(struct sk_buff *skb,
- 		   const struct tnl_ptk_info *tpi)
- {
--	struct ovs_key_ipv4_tunnel tun_key;
-+	struct sw_flow_key_ipv4_tunnel tun_key;
- 	struct ovs_net *ovs_net;
- 	struct vport *vport;
- 	__be64 key;
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-index d8b7e24..b7edf47 100644
---- a/net/openvswitch/vport-vxlan.c
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -58,7 +58,7 @@ static inline struct vxlan_port *vxlan_vport(const struct vport *vport)
- /* Called with rcu_read_lock and BH disabled. */
- static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb, __be32 vx_vni)
- {
--	struct ovs_key_ipv4_tunnel tun_key;
-+	struct sw_flow_key_ipv4_tunnel tun_key;
- 	struct vport *vport = vs->data;
- 	struct iphdr *iph;
- 	__be64 key;
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 6d8f2ec..7df5234 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -438,7 +438,7 @@ u32 ovs_vport_find_upcall_portid(const struct vport *p, struct sk_buff *skb)
-  * skb->data should point to the Ethernet header.
-  */
- void ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
--		       struct ovs_key_ipv4_tunnel *tun_key)
-+		       struct sw_flow_key_ipv4_tunnel *tun_key)
- {
- 	struct pcpu_sw_netstats *stats;
- 
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index 35f89d8..8409e06 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -210,7 +210,7 @@ static inline struct vport *vport_from_priv(void *priv)
- }
- 
- void ovs_vport_receive(struct vport *, struct sk_buff *,
--		       struct ovs_key_ipv4_tunnel *);
-+		       struct sw_flow_key_ipv4_tunnel *);
- 
- /* List of statically compiled vport implementations.  Don't forget to also
-  * add yours to the list at the top of vport.c. */
++#define __IN6_ALEN sizeof(struct in6_addr)
++
++static const struct nla_policy
++swdev_nl_flow_key_policy[SWDEV_ATTR_FLOW_KEY_MAX + 1] = {
++	[SWDEV_ATTR_FLOW_KEY_UNSPEC]		= { .type = NLA_UNSPEC, },
++	[SWDEV_ATTR_FLOW_KEY_TUN_ID]		= { .type = NLA_U64, },
++	[SWDEV_ATTR_FLOW_KEY_TUN_IPV4_SRC]	= { .type = NLA_U32, },
++	[SWDEV_ATTR_FLOW_KEY_TUN_IPV4_DST]	= { .type = NLA_U32, },
++	[SWDEV_ATTR_FLOW_KEY_TUN_FLAGS]		= { .type = NLA_U16, },
++	[SWDEV_ATTR_FLOW_KEY_TUN_IPV4_TOS]	= { .type = NLA_U8, },
++	[SWDEV_ATTR_FLOW_KEY_TUN_IPV4_TTL]	= { .type = NLA_U8, },
++	[SWDEV_ATTR_FLOW_KEY_PHY_PRIORITY]	= { .type = NLA_U32, },
++	[SWDEV_ATTR_FLOW_KEY_PHY_IN_PORT]	= { .type = NLA_U32, },
++	[SWDEV_ATTR_FLOW_KEY_ETH_SRC]		= { .len  = ETH_ALEN, },
++	[SWDEV_ATTR_FLOW_KEY_ETH_DST]		= { .len  = ETH_ALEN, },
++	[SWDEV_ATTR_FLOW_KEY_ETH_TCI]		= { .type = NLA_U16, },
++	[SWDEV_ATTR_FLOW_KEY_ETH_TYPE]		= { .type = NLA_U16, },
++	[SWDEV_ATTR_FLOW_KEY_IP_PROTO]		= { .type = NLA_U8, },
++	[SWDEV_ATTR_FLOW_KEY_IP_TOS]		= { .type = NLA_U8, },
++	[SWDEV_ATTR_FLOW_KEY_IP_TTL]		= { .type = NLA_U8, },
++	[SWDEV_ATTR_FLOW_KEY_IP_FRAG]		= { .type = NLA_U8, },
++	[SWDEV_ATTR_FLOW_KEY_TP_SRC]		= { .type = NLA_U16, },
++	[SWDEV_ATTR_FLOW_KEY_TP_DST]		= { .type = NLA_U16, },
++	[SWDEV_ATTR_FLOW_KEY_TP_FLAGS]		= { .type = NLA_U16, },
++	[SWDEV_ATTR_FLOW_KEY_IPV4_ADDR_SRC]	= { .type = NLA_U32, },
++	[SWDEV_ATTR_FLOW_KEY_IPV4_ADDR_DST]	= { .type = NLA_U32, },
++	[SWDEV_ATTR_FLOW_KEY_IPV4_ARP_SHA]	= { .len  = ETH_ALEN, },
++	[SWDEV_ATTR_FLOW_KEY_IPV4_ARP_THA]	= { .len  = ETH_ALEN, },
++	[SWDEV_ATTR_FLOW_KEY_IPV6_ADDR_SRC]	= { .len  = __IN6_ALEN, },
++	[SWDEV_ATTR_FLOW_KEY_IPV6_ADDR_DST]	= { .len  = __IN6_ALEN, },
++	[SWDEV_ATTR_FLOW_KEY_IPV6_LABEL]	= { .type = NLA_U32, },
++	[SWDEV_ATTR_FLOW_KEY_IPV6_ND_TARGET]	= { .len  = __IN6_ALEN, },
++	[SWDEV_ATTR_FLOW_KEY_IPV6_ND_SLL]	= { .len  = ETH_ALEN },
++	[SWDEV_ATTR_FLOW_KEY_IPV6_ND_TLL]	= { .len  = ETH_ALEN },
++};
++
++static const struct nla_policy
++swdev_nl_flow_action_policy[SWDEV_ATTR_FLOW_ACTION_MAX + 1] = {
++	[SWDEV_ATTR_FLOW_ACTION_UNSPEC]		= { .type = NLA_UNSPEC, },
++	[SWDEV_ATTR_FLOW_ACTION_TYPE]		= { .type = NLA_U32, },
++	[SWDEV_ATTR_FLOW_ACTION_VLAN_PROTO]	= { .type = NLA_U16, },
++	[SWDEV_ATTR_FLOW_ACTION_VLAN_TCI]	= { .type = NLA_U16, },
++};
++
++static int swdev_nl_cmd_noop(struct sk_buff *skb, struct genl_info *info)
++{
++	struct sk_buff *msg;
++	void *hdr;
++	int err;
++
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
++	if (!msg)
++		return -ENOMEM;
++
++	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
++			  &swdev_nl_family, 0, SWDEV_CMD_NOOP);
++	if (!hdr) {
++		err = -EMSGSIZE;
++		goto err_msg_put;
++	}
++
++	genlmsg_end(msg, hdr);
++
++	return genlmsg_unicast(genl_info_net(info), msg, info->snd_portid);
++
++err_msg_put:
++	nlmsg_free(msg);
++
++	return err;
++}
++
++static int swdev_nl_parse_flow_key(struct nlattr *key_attr,
++				   struct sw_flow_key *flow_key)
++{
++	struct nlattr *attrs[SWDEV_ATTR_FLOW_KEY_MAX + 1];
++	int err;
++
++	err = nla_parse_nested(attrs, SWDEV_ATTR_FLOW_KEY_MAX,
++			       key_attr, swdev_nl_flow_key_policy);
++	if (err)
++		return err;
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_TUN_ID])
++		flow_key->tun_key.tun_id =
++			nla_get_be64(attrs[SWDEV_ATTR_FLOW_KEY_TUN_ID]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_TUN_IPV4_SRC])
++		flow_key->tun_key.ipv4_src =
++			nla_get_be32(attrs[SWDEV_ATTR_FLOW_KEY_TUN_IPV4_SRC]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_TUN_IPV4_DST])
++		flow_key->tun_key.ipv4_dst =
++			nla_get_be32(attrs[SWDEV_ATTR_FLOW_KEY_TUN_IPV4_DST]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_TUN_FLAGS])
++		flow_key->tun_key.tun_flags =
++			nla_get_be16(attrs[SWDEV_ATTR_FLOW_KEY_TUN_FLAGS]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_TUN_IPV4_TOS])
++		flow_key->tun_key.ipv4_tos =
++			nla_get_u8(attrs[SWDEV_ATTR_FLOW_KEY_TUN_IPV4_TOS]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_TUN_IPV4_TTL])
++		flow_key->tun_key.ipv4_ttl =
++			nla_get_u8(attrs[SWDEV_ATTR_FLOW_KEY_TUN_IPV4_TTL]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_PHY_PRIORITY])
++		flow_key->phy.priority =
++			nla_get_u32(attrs[SWDEV_ATTR_FLOW_KEY_PHY_PRIORITY]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_PHY_IN_PORT])
++		flow_key->misc.in_port_ifindex =
++			nla_get_u32(attrs[SWDEV_ATTR_FLOW_KEY_PHY_IN_PORT]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_ETH_SRC])
++		ether_addr_copy(flow_key->eth.src,
++				nla_data(attrs[SWDEV_ATTR_FLOW_KEY_ETH_SRC]));
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_ETH_DST])
++		ether_addr_copy(flow_key->eth.dst,
++				nla_data(attrs[SWDEV_ATTR_FLOW_KEY_ETH_DST]));
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_ETH_TCI])
++		flow_key->eth.tci =
++			nla_get_be16(attrs[SWDEV_ATTR_FLOW_KEY_ETH_TCI]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_ETH_TYPE])
++		flow_key->eth.type =
++			nla_get_be16(attrs[SWDEV_ATTR_FLOW_KEY_ETH_TYPE]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IP_PROTO])
++		flow_key->ip.proto =
++			nla_get_u8(attrs[SWDEV_ATTR_FLOW_KEY_IP_PROTO]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IP_TOS])
++		flow_key->ip.tos =
++			nla_get_u8(attrs[SWDEV_ATTR_FLOW_KEY_IP_TOS]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IP_TTL])
++		flow_key->ip.ttl =
++			nla_get_u8(attrs[SWDEV_ATTR_FLOW_KEY_IP_TTL]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IP_FRAG])
++		flow_key->ip.frag =
++			nla_get_u8(attrs[SWDEV_ATTR_FLOW_KEY_IP_FRAG]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_TP_SRC])
++		flow_key->tp.src =
++			nla_get_be16(attrs[SWDEV_ATTR_FLOW_KEY_TP_SRC]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_TP_DST])
++		flow_key->tp.dst =
++			nla_get_be16(attrs[SWDEV_ATTR_FLOW_KEY_TP_DST]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_TP_FLAGS])
++		flow_key->tp.flags =
++			nla_get_be16(attrs[SWDEV_ATTR_FLOW_KEY_TP_FLAGS]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IPV4_ADDR_SRC])
++		flow_key->ipv4.addr.src =
++			nla_get_be32(attrs[SWDEV_ATTR_FLOW_KEY_IPV4_ADDR_SRC]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IPV4_ADDR_DST])
++		flow_key->ipv4.addr.dst =
++			nla_get_be32(attrs[SWDEV_ATTR_FLOW_KEY_IPV4_ADDR_DST]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IPV4_ARP_SHA])
++		ether_addr_copy(flow_key->ipv4.arp.sha,
++				nla_data(attrs[SWDEV_ATTR_FLOW_KEY_IPV4_ARP_SHA]));
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IPV4_ARP_THA])
++		ether_addr_copy(flow_key->ipv4.arp.tha,
++				nla_data(attrs[SWDEV_ATTR_FLOW_KEY_IPV4_ARP_THA]));
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IPV6_ADDR_SRC])
++		memcpy(&flow_key->ipv6.addr.src,
++		       nla_data(attrs[SWDEV_ATTR_FLOW_KEY_IPV6_ADDR_SRC]),
++		       sizeof(flow_key->ipv6.addr.src));
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IPV6_ADDR_DST])
++		memcpy(&flow_key->ipv6.addr.dst,
++		       nla_data(attrs[SWDEV_ATTR_FLOW_KEY_IPV6_ADDR_DST]),
++		       sizeof(flow_key->ipv6.addr.dst));
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IPV6_LABEL])
++		flow_key->ipv6.label =
++			nla_get_be32(attrs[SWDEV_ATTR_FLOW_KEY_IPV6_LABEL]);
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IPV6_ND_TARGET])
++		memcpy(&flow_key->ipv6.nd.target,
++		       nla_data(attrs[SWDEV_ATTR_FLOW_KEY_IPV6_ND_TARGET]),
++		       sizeof(flow_key->ipv6.nd.target));
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IPV6_ND_SLL])
++		ether_addr_copy(flow_key->ipv6.nd.sll,
++				nla_data(attrs[SWDEV_ATTR_FLOW_KEY_IPV6_ND_SLL]));
++
++	if (attrs[SWDEV_ATTR_FLOW_KEY_IPV6_ND_TLL])
++		ether_addr_copy(flow_key->ipv6.nd.tll,
++				nla_data(attrs[SWDEV_ATTR_FLOW_KEY_IPV6_ND_TLL]));
++
++	return 0;
++}
++
++static int swdev_nl_parse_flow_mask(struct nlattr *mask_attr,
++				    struct sw_flow_mask **p_flow_mask)
++{
++	struct sw_flow_mask *flow_mask;
++	int err;
++
++	flow_mask = kzalloc(sizeof(*flow_mask), GFP_KERNEL);
++	if (!flow_mask)
++		return -ENOMEM;
++
++	err = swdev_nl_parse_flow_key(mask_attr, &flow_mask->key);
++	if (err)
++		goto out;
++	flow_mask->range.start = 0;
++	flow_mask->range.end = sizeof(flow_mask->key);
++
++	*p_flow_mask = flow_mask;
++	return 0;
++out:
++	kfree(flow_mask);
++	return err;
++}
++
++static int swdev_nl_parse_flow_action(struct nlattr *action_attr,
++				      struct sw_flow_action *flow_action)
++{
++	struct nlattr *attrs[SWDEV_ATTR_FLOW_ACTION_MAX + 1];
++	int err;
++
++	err = nla_parse_nested(attrs, SWDEV_ATTR_FLOW_ACTION_MAX,
++			       action_attr, swdev_nl_flow_action_policy);
++	if (err)
++		return err;
++
++	if (!attrs[SWDEV_ATTR_FLOW_ACTION_TYPE])
++		return -EINVAL;
++
++	switch (nla_get_u32(attrs[SWDEV_ATTR_FLOW_ACTION_TYPE])) {
++	case SWDEV_FLOW_ACTION_TYPE_OUTPUT:
++		if (!attrs[SWDEV_ATTR_FLOW_ACTION_OUT_PORT])
++			return -EINVAL;
++		flow_action->out_port_ifindex =
++			nla_get_u32(attrs[SWDEV_ATTR_FLOW_ACTION_OUT_PORT]);
++		flow_action->type = SW_FLOW_ACTION_TYPE_OUTPUT;
++		break;
++	case SWDEV_FLOW_ACTION_TYPE_VLAN_PUSH:
++		if (!attrs[SWDEV_ATTR_FLOW_ACTION_VLAN_PROTO] ||
++		    !attrs[SWDEV_ATTR_FLOW_ACTION_VLAN_TCI])
++			return -EINVAL;
++		flow_action->vlan.vlan_proto =
++			nla_get_be16(attrs[SWDEV_ATTR_FLOW_ACTION_VLAN_PROTO]);
++		flow_action->vlan.vlan_tci =
++			nla_get_u16(attrs[SWDEV_ATTR_FLOW_ACTION_VLAN_TCI]);
++		flow_action->type = SW_FLOW_ACTION_TYPE_VLAN_PUSH;
++		break;
++	case SWDEV_FLOW_ACTION_TYPE_VLAN_POP:
++		flow_action->type = SW_FLOW_ACTION_TYPE_VLAN_POP;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int swdev_nl_parse_flow_actions(struct nlattr *actions_attr,
++				       struct sw_flow_actions **p_flow_actions)
++{
++	struct sw_flow_actions *flow_actions;
++	struct sw_flow_action *cur;
++	struct nlattr *action_attr;
++	int rem;
++	int count = 0;
++	int err;
++
++	nla_for_each_nested(action_attr, actions_attr, rem) {
++		if (nla_type(action_attr) != SWDEV_ATTR_FLOW_ITEM_ACTION)
++			return -EINVAL;
++		count++;
++	}
++
++	flow_actions = kzalloc(sizeof(struct sw_flow_actions) +
++			       sizeof(struct sw_flow_action) * count,
++			       GFP_KERNEL);
++	if (!flow_actions)
++		return -ENOMEM;
++
++	cur = flow_actions->actions;
++	nla_for_each_nested(action_attr, actions_attr, rem) {
++		err = swdev_nl_parse_flow_action(action_attr, cur);
++		if (err)
++			goto out;
++		cur++;
++	}
++
++	flow_actions->count = count;
++	*p_flow_actions = flow_actions;
++	return 0;
++out:
++	kfree(flow_actions);
++	return err;
++}
++
++static void swdev_nl_free_flow(struct sw_flow *flow)
++{
++	kfree(flow->actions);
++	kfree(flow->mask);
++	kfree(flow);
++}
++
++static int swdev_nl_parse_flow(struct nlattr *flow_attr, struct sw_flow **p_flow)
++{
++	struct sw_flow *flow;
++	struct nlattr *attrs[SWDEV_ATTR_FLOW_MAX + 1];
++	int err;
++
++	err = nla_parse_nested(attrs, SWDEV_ATTR_FLOW_MAX,
++			       flow_attr, swdev_nl_flow_policy);
++	if (err)
++		return err;
++
++	if (!attrs[SWDEV_ATTR_FLOW_KEY] || !attrs[SWDEV_ATTR_FLOW_MASK] ||
++	    !attrs[SWDEV_ATTR_FLOW_LIST_ACTION])
++		return -EINVAL;
++
++	flow = kzalloc(sizeof(*flow), GFP_KERNEL);
++	if (!flow)
++		return -ENOMEM;
++
++	err = swdev_nl_parse_flow_key(attrs[SWDEV_ATTR_FLOW_KEY], &flow->key);
++	if (err)
++		goto out;
++
++	err = swdev_nl_parse_flow_mask(attrs[SWDEV_ATTR_FLOW_MASK], &flow->mask);
++	if (err)
++		goto out;
++
++	err = swdev_nl_parse_flow_actions(attrs[SWDEV_ATTR_FLOW_LIST_ACTION],
++					  &flow->actions);
++	if (err)
++		goto out;
++
++	*p_flow = flow;
++	return 0;
++
++out:
++	kfree(flow);
++	return err;
++}
++
++static struct net_device *swdev_nl_dev_get(struct genl_info *info)
++{
++	struct net *net = genl_info_net(info);
++	int ifindex;
++
++	if (!info->attrs[SWDEV_ATTR_IFINDEX])
++		return NULL;
++
++	ifindex = nla_get_u32(info->attrs[SWDEV_ATTR_IFINDEX]);
++	return dev_get_by_index(net, ifindex);
++}
++
++static void swdev_nl_dev_put(struct net_device *dev)
++{
++	dev_put(dev);
++}
++
++static int swdev_nl_cmd_flow_insert(struct sk_buff *skb, struct genl_info *info)
++{
++	struct net_device *dev;
++	struct sw_flow *flow;
++	int err;
++
++	if (!info->attrs[SWDEV_ATTR_FLOW])
++		return -EINVAL;
++
++	dev = swdev_nl_dev_get(info);
++	if (!dev)
++		return -EINVAL;
++
++	err = swdev_nl_parse_flow(info->attrs[SWDEV_ATTR_FLOW], &flow);
++	if (err)
++		goto dev_put;
++
++	err = swdev_flow_insert(dev, flow);
++	swdev_nl_free_flow(flow);
++dev_put:
++	swdev_nl_dev_put(dev);
++	return err;
++}
++
++static int swdev_nl_cmd_flow_remove(struct sk_buff *skb, struct genl_info *info)
++{
++	struct net_device *dev;
++	struct sw_flow *flow;
++	int err;
++
++	if (!info->attrs[SWDEV_ATTR_FLOW])
++		return -EINVAL;
++
++	dev = swdev_nl_dev_get(info);
++	if (!dev)
++		return -EINVAL;
++
++	err = swdev_nl_parse_flow(info->attrs[SWDEV_ATTR_FLOW], &flow);
++	if (err)
++		goto dev_put;
++
++	err = swdev_flow_remove(dev, flow);
++	swdev_nl_free_flow(flow);
++dev_put:
++	swdev_nl_dev_put(dev);
++	return err;
++}
++
++static const struct genl_ops swdev_nl_ops[] = {
++	{
++		.cmd = SWDEV_CMD_NOOP,
++		.doit = swdev_nl_cmd_noop,
++	},
++	{
++		.cmd = SWDEV_CMD_FLOW_INSERT,
++		.doit = swdev_nl_cmd_flow_insert,
++		.policy = swdev_nl_flow_policy,
++		.flags = GENL_ADMIN_PERM,
++	},
++	{
++		.cmd = SWDEV_CMD_FLOW_REMOVE,
++		.doit = swdev_nl_cmd_flow_remove,
++		.policy = swdev_nl_flow_policy,
++		.flags = GENL_ADMIN_PERM,
++	},
++};
++
++static int __init swdev_nl_module_init(void)
++{
++	return genl_register_family_with_ops(&swdev_nl_family, swdev_nl_ops);
++}
++
++static void swdev_nl_module_fini(void)
++{
++	genl_unregister_family(&swdev_nl_family);
++}
++
++module_init(swdev_nl_module_init);
++module_exit(swdev_nl_module_fini);
++
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Jiri Pirko <jiri@resnulli.us>");
++MODULE_DESCRIPTION("Netlink interface to Switch device");
++MODULE_ALIAS_GENL_FAMILY(SWITCHDEV_GENL_NAME);
 -- 
 1.9.3
