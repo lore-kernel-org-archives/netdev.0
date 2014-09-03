@@ -1,150 +1,68 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] core: Don't attempt to load the "" driver.
-Date: Wed, 3 Sep 2014 10:02:26 -0700
-Message-ID: <CAHA+R7OoBp=ZAJeg_hXRjNhT6_n2siVQidJK6hx8EtHW7iRwqA@mail.gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D174856B9@AcuExch.aculab.com>
-	<CAHA+R7P8=pkYfSoqhkiAkLc03V38_WCbqJdLxQKF_Y6YXNnbeg@mail.gmail.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1748630E@AcuExch.aculab.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [net PATCH 1/1] drivers: net: cpsw: dual_emac: fix reducing of
+ rx descriptor during ifdown
+Date: Wed, 3 Sep 2014 22:37:14 +0530
+Message-ID: <54074AC2.9080001@ti.com>
+References: <1409304145-26179-1-git-send-email-mugunthanvnm@ti.com>	<20140901.183108.784916699845611422.davem@davemloft.net>	<54058C01.3010402@ti.com> <20140902.115434.1276391011837651390.davem@davemloft.net> <5406C067.5080103@ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1134604a59923505022c3374
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: David Laight <David.Laight@aculab.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:57201 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754876AbaICRC2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 13:02:28 -0400
-Received: by mail-la0-f52.google.com with SMTP id ty20so10143155lab.39
-        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 10:02:26 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1748630E@AcuExch.aculab.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:42079 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932670AbaICRHT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 13:07:19 -0400
+In-Reply-To: <5406C067.5080103@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001a1134604a59923505022c3374
-Content-Type: text/plain; charset=UTF-8
-
-On Wed, Sep 3, 2014 at 2:02 AM, David Laight <David.Laight@aculab.com> wrote:
->> On Tue, Sep 2, 2014 at 6:48 AM, David Laight <David.Laight@aculab.com> wrote:
->> > While the applications shouldn't be calling an SIOCxxx ioctl with ifr_name[0] == 0
->> > the kernel shouldn't be tracing the error either.
->> >
+On Wednesday 03 September 2014 12:46 PM, Mugunthan V N wrote:
+> David
+> 
+> On Wednesday 03 September 2014 12:24 AM, David Miller wrote:
+>> From: Mugunthan V N <mugunthanvnm@ti.com>
+>> Date: Tue, 2 Sep 2014 14:51:05 +0530
 >>
->> Why don't we reject this empty string? It doesn't look like a valid one.
->> I assume this is for compatibility?
->
-> The ioctl code will error it later on - the module load is 'speculative'.
-> Analysing whether all the ioctls need dev_load() to succeed is another issue.
->
-> Indeed I'm not sure anything stops the module being unloaded before the
-> ioctl action tries to take a real reference on the interface.
->
-> Whether request_module("") should be an error is a different question,
-> probably much harder to analyse.
->
+>>> When ifup and ifdown is run continuously, for each spilled packet (for
+>>> interface which is down) from DMA, the total number of rx descriptor
+>>> goes down and at one instance all the descriptor is lost and both the
+>>> interface stops working.
+>>>
+>>> To recover from this we need to put down both the interface and open the
+>>> interface which will re-init the DMA which intern queues fresh set of
+>>> skbs for rx.
+>>
+>> But you still should not receive packets for a netdev which is down.
+>> As far as I can tell, you're feeding it into the stack still.
+> 
+> If there is separate DMA for each netdev, then it is true that there
+> won't be a packet for a closed netdev. But in CPSW dual EMAC case, one
+> DMA engine is shared between two slave ports, so when one slave netdev
+> is put down, the DMA is not teared down as the other slave netdev is
+> still active. In heavy traffic network when putting down netdev, there
+> are chances that packets are already processed by DMA, and waiting for
+> NAPI to be submitted to network stack might belong to the netdev which
+> is already down.
+> 
+> So instead of just freeing the skb received on netdev which is already
+> down (which will reduce the total rx descriptors in rx dma channel),
+> requeue it back to DMA and make sure that rx dma descriptor count is
+> never reduced.
+> 
+>>
+>> Also this doesn't explain why the "status < 0" case applies to this
+>> new logic, you have not explained that at all.
+>>
+> 
+> This scenario is not generated when "status < 0", "status < 0" happens
+> when DMA is in tear-down mode, the above scenario happens when
+> netif_running(ndev) is false which denotes that netdev is down already.
+> 
 
-If an empty string is an invalid name, we definitely should reject it from
-the very beginning, so that you would not need to worry about the above
-issues.
+I found an issue with the patch while testing suspend/resume, will fix
+that and submit v2 shortly.
 
-Something like the attached patch.
-
---001a1134604a59923505022c3374
-Content-Type: text/plain; charset=US-ASCII; name="dev_load.diff"
-Content-Disposition: attachment; filename="dev_load.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hzmwwp1n0
-
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmggYi9pbmNsdWRlL2xpbnV4L25l
-dGRldmljZS5oCmluZGV4IDViZTIwYTcuLjZhMjZkMmMgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGlu
-dXgvbmV0ZGV2aWNlLmgKKysrIGIvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaApAQCAtMzMzOCw3
-ICszMzM4LDcgQEAgdm9pZCBuZXRkZXZfc3RhdGVfY2hhbmdlKHN0cnVjdCBuZXRfZGV2aWNlICpk
-ZXYpOwogdm9pZCBuZXRkZXZfbm90aWZ5X3BlZXJzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpOwog
-dm9pZCBuZXRkZXZfZmVhdHVyZXNfY2hhbmdlKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpOwogLyog
-TG9hZCBhIGRldmljZSB2aWEgdGhlIGttb2QgKi8KLXZvaWQgZGV2X2xvYWQoc3RydWN0IG5ldCAq
-bmV0LCBjb25zdCBjaGFyICpuYW1lKTsKK2ludCBkZXZfbG9hZChzdHJ1Y3QgbmV0ICpuZXQsIGNv
-bnN0IGNoYXIgKm5hbWUpOwogc3RydWN0IHJ0bmxfbGlua19zdGF0czY0ICpkZXZfZ2V0X3N0YXRz
-KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsCiAJCQkJCXN0cnVjdCBydG5sX2xpbmtfc3RhdHM2NCAq
-c3RvcmFnZSk7CiB2b2lkIG5ldGRldl9zdGF0c190b19zdGF0czY0KHN0cnVjdCBydG5sX2xpbmtf
-c3RhdHM2NCAqc3RhdHM2NCwKZGlmZiAtLWdpdCBhL25ldC9jb3JlL2Rldl9pb2N0bC5jIGIvbmV0
-L2NvcmUvZGV2X2lvY3RsLmMKaW5kZXggY2Y5OTllMC4uMDBhNjBmOCAxMDA2NDQKLS0tIGEvbmV0
-L2NvcmUvZGV2X2lvY3RsLmMKKysrIGIvbmV0L2NvcmUvZGV2X2lvY3RsLmMKQEAgLTM1MywxMSAr
-MzUzLDE0IEBAIHN0YXRpYyBpbnQgZGV2X2lmc2lvYyhzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBp
-ZnJlcSAqaWZyLCB1bnNpZ25lZCBpbnQgY21kKQogICoJYXZhaWxhYmxlIGluIHRoaXMga2VybmVs
-IHRoZW4gaXQgYmVjb21lcyBhIG5vcC4KICAqLwogCi12b2lkIGRldl9sb2FkKHN0cnVjdCBuZXQg
-Km5ldCwgY29uc3QgY2hhciAqbmFtZSkKK2ludCBkZXZfbG9hZChzdHJ1Y3QgbmV0ICpuZXQsIGNv
-bnN0IGNoYXIgKm5hbWUpCiB7CiAJc3RydWN0IG5ldF9kZXZpY2UgKmRldjsKIAlpbnQgbm9fbW9k
-dWxlOwogCisJaWYgKCFkZXZfdmFsaWRfbmFtZShuYW1lKSkKKwkJcmV0dXJuIC1FSU5WQUw7CisK
-IAlyY3VfcmVhZF9sb2NrKCk7CiAJZGV2ID0gZGV2X2dldF9ieV9uYW1lX3JjdShuZXQsIG5hbWUp
-OwogCXJjdV9yZWFkX3VubG9jaygpOwpAQCAtMzY2LDEwICszNjksMTQgQEAgdm9pZCBkZXZfbG9h
-ZChzdHJ1Y3QgbmV0ICpuZXQsIGNvbnN0IGNoYXIgKm5hbWUpCiAJaWYgKG5vX21vZHVsZSAmJiBj
-YXBhYmxlKENBUF9ORVRfQURNSU4pKQogCQlub19tb2R1bGUgPSByZXF1ZXN0X21vZHVsZSgibmV0
-ZGV2LSVzIiwgbmFtZSk7CiAJaWYgKG5vX21vZHVsZSAmJiBjYXBhYmxlKENBUF9TWVNfTU9EVUxF
-KSkgewotCQlpZiAoIXJlcXVlc3RfbW9kdWxlKCIlcyIsIG5hbWUpKQorCQlpbnQgZXJyID0gcmVx
-dWVzdF9tb2R1bGUoIiVzIiwgbmFtZSk7CisJCWlmICghZXJyKQogCQkJcHJfd2FybigiTG9hZGlu
-ZyBrZXJuZWwgbW9kdWxlIGZvciBhIG5ldHdvcmsgZGV2aWNlIHdpdGggQ0FQX1NZU19NT0RVTEUg
-KGRlcHJlY2F0ZWQpLiAgVXNlIENBUF9ORVRfQURNSU4gYW5kIGFsaWFzIG5ldGRldi0lcyBpbnN0
-ZWFkLlxuIiwKIAkJCQluYW1lKTsKKwkJcmV0dXJuIGVycjsKIAl9CisKKwlyZXR1cm4gbm9fbW9k
-dWxlOwogfQogRVhQT1JUX1NZTUJPTChkZXZfbG9hZCk7CiAKQEAgLTQzOCw3ICs0NDUsOSBAQCBp
-bnQgZGV2X2lvY3RsKHN0cnVjdCBuZXQgKm5ldCwgdW5zaWduZWQgaW50IGNtZCwgdm9pZCBfX3Vz
-ZXIgKmFyZykKIAljYXNlIFNJT0NHSUZNQVA6CiAJY2FzZSBTSU9DR0lGSU5ERVg6CiAJY2FzZSBT
-SU9DR0lGVFhRTEVOOgotCQlkZXZfbG9hZChuZXQsIGlmci5pZnJfbmFtZSk7CisJCXJldCA9IGRl
-dl9sb2FkKG5ldCwgaWZyLmlmcl9uYW1lKTsKKwkJaWYgKHJldCkKKwkJCXJldHVybiByZXQ7CiAJ
-CXJjdV9yZWFkX2xvY2soKTsKIAkJcmV0ID0gZGV2X2lmc2lvY19sb2NrZWQobmV0LCAmaWZyLCBj
-bWQpOwogCQlyY3VfcmVhZF91bmxvY2soKTsKQEAgLTQ1Miw3ICs0NjEsOSBAQCBpbnQgZGV2X2lv
-Y3RsKHN0cnVjdCBuZXQgKm5ldCwgdW5zaWduZWQgaW50IGNtZCwgdm9pZCBfX3VzZXIgKmFyZykK
-IAkJcmV0dXJuIHJldDsKIAogCWNhc2UgU0lPQ0VUSFRPT0w6Ci0JCWRldl9sb2FkKG5ldCwgaWZy
-Lmlmcl9uYW1lKTsKKwkJcmV0ID0gZGV2X2xvYWQobmV0LCBpZnIuaWZyX25hbWUpOworCQlpZiAo
-cmV0KQorCQkJcmV0dXJuIHJldDsKIAkJcnRubF9sb2NrKCk7CiAJCXJldCA9IGRldl9ldGh0b29s
-KG5ldCwgJmlmcik7CiAJCXJ0bmxfdW5sb2NrKCk7CkBAIC00NzYsNyArNDg3LDkgQEAgaW50IGRl
-dl9pb2N0bChzdHJ1Y3QgbmV0ICpuZXQsIHVuc2lnbmVkIGludCBjbWQsIHZvaWQgX191c2VyICph
-cmcpCiAJY2FzZSBTSU9DU0lGTkFNRToKIAkJaWYgKCFuc19jYXBhYmxlKG5ldC0+dXNlcl9ucywg
-Q0FQX05FVF9BRE1JTikpCiAJCQlyZXR1cm4gLUVQRVJNOwotCQlkZXZfbG9hZChuZXQsIGlmci5p
-ZnJfbmFtZSk7CisJCXJldCA9IGRldl9sb2FkKG5ldCwgaWZyLmlmcl9uYW1lKTsKKwkJaWYgKHJl
-dCkKKwkJCXJldHVybiByZXQ7CiAJCXJ0bmxfbG9jaygpOwogCQlyZXQgPSBkZXZfaWZzaW9jKG5l
-dCwgJmlmciwgY21kKTsKIAkJcnRubF91bmxvY2soKTsKQEAgLTUyNyw3ICs1NDAsOSBAQCBpbnQg
-ZGV2X2lvY3RsKHN0cnVjdCBuZXQgKm5ldCwgdW5zaWduZWQgaW50IGNtZCwgdm9pZCBfX3VzZXIg
-KmFyZykKIAkJLyogZmFsbCB0aHJvdWdoICovCiAJY2FzZSBTSU9DQk9ORFNMQVZFSU5GT1FVRVJZ
-OgogCWNhc2UgU0lPQ0JPTkRJTkZPUVVFUlk6Ci0JCWRldl9sb2FkKG5ldCwgaWZyLmlmcl9uYW1l
-KTsKKwkJcmV0ID0gZGV2X2xvYWQobmV0LCBpZnIuaWZyX25hbWUpOworCQlpZiAocmV0KQorCQkJ
-cmV0dXJuIHJldDsKIAkJcnRubF9sb2NrKCk7CiAJCXJldCA9IGRldl9pZnNpb2MobmV0LCAmaWZy
-LCBjbWQpOwogCQlydG5sX3VubG9jaygpOwpAQCAtNTUwLDcgKzU2NSw5IEBAIGludCBkZXZfaW9j
-dGwoc3RydWN0IG5ldCAqbmV0LCB1bnNpZ25lZCBpbnQgY21kLCB2b2lkIF9fdXNlciAqYXJnKQog
-CQkgICAgY21kID09IFNJT0NHSFdUU1RBTVAgfHwKIAkJICAgIChjbWQgPj0gU0lPQ0RFVlBSSVZB
-VEUgJiYKIAkJICAgICBjbWQgPD0gU0lPQ0RFVlBSSVZBVEUgKyAxNSkpIHsKLQkJCWRldl9sb2Fk
-KG5ldCwgaWZyLmlmcl9uYW1lKTsKKwkJCXJldCA9IGRldl9sb2FkKG5ldCwgaWZyLmlmcl9uYW1l
-KTsKKwkJCWlmIChyZXQpCisJCQkJcmV0dXJuIHJldDsKIAkJCXJ0bmxfbG9jaygpOwogCQkJcmV0
-ID0gZGV2X2lmc2lvYyhuZXQsICZpZnIsIGNtZCk7CiAJCQlydG5sX3VubG9jaygpOwpkaWZmIC0t
-Z2l0IGEvbmV0L2RlY25ldC9kbl9kZXYuYyBiL25ldC9kZWNuZXQvZG5fZGV2LmMKaW5kZXggNDQw
-MGRhNy4uNDg0YTVkZSAxMDA2NDQKLS0tIGEvbmV0L2RlY25ldC9kbl9kZXYuYworKysgYi9uZXQv
-ZGVjbmV0L2RuX2Rldi5jCkBAIC00MjQsNyArNDI0LDkgQEAgaW50IGRuX2Rldl9pb2N0bCh1bnNp
-Z25lZCBpbnQgY21kLCB2b2lkIF9fdXNlciAqYXJnKQogCQlyZXR1cm4gLUVGQVVMVDsKIAlpZnIt
-Pmlmcl9uYW1lW0lGTkFNU0laLTFdID0gMDsKIAotCWRldl9sb2FkKCZpbml0X25ldCwgaWZyLT5p
-ZnJfbmFtZSk7CisJcmV0ID0gZGV2X2xvYWQoJmluaXRfbmV0LCBpZnItPmlmcl9uYW1lKTsKKwlp
-ZiAocmV0KQorCQlyZXR1cm4gcmV0OwogCiAJc3dpdGNoIChjbWQpIHsKIAljYXNlIFNJT0NHSUZB
-RERSOgpkaWZmIC0tZ2l0IGEvbmV0L2llZWU4MDIxNTQvYWZfaWVlZTgwMjE1NC5jIGIvbmV0L2ll
-ZWU4MDIxNTQvYWZfaWVlZTgwMjE1NC5jCmluZGV4IDI5ZTBkZTYuLjZjNTI1YTggMTAwNjQ0Ci0t
-LSBhL25ldC9pZWVlODAyMTU0L2FmX2llZWU4MDIxNTQuYworKysgYi9uZXQvaWVlZTgwMjE1NC9h
-Zl9pZWVlODAyMTU0LmMKQEAgLTE0OCw3ICsxNDgsOSBAQCBzdGF0aWMgaW50IGllZWU4MDIxNTRf
-ZGV2X2lvY3RsKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IGlmcmVxIF9fdXNlciAqYXJnLAogCiAJ
-aWZyLmlmcl9uYW1lW0lGTkFNU0laLTFdID0gMDsKIAotCWRldl9sb2FkKHNvY2tfbmV0KHNrKSwg
-aWZyLmlmcl9uYW1lKTsKKwlyZXQgPSBkZXZfbG9hZChzb2NrX25ldChzayksIGlmci5pZnJfbmFt
-ZSk7CisJaWYgKHJldCkKKwkJcmV0dXJuIHJldDsKIAlkZXYgPSBkZXZfZ2V0X2J5X25hbWUoc29j
-a19uZXQoc2spLCBpZnIuaWZyX25hbWUpOwogCiAJaWYgKCFkZXYpCmRpZmYgLS1naXQgYS9uZXQv
-aXB2NC9kZXZpbmV0LmMgYi9uZXQvaXB2NC9kZXZpbmV0LmMKaW5kZXggMjE0ODgyZS4uZWM0OGYx
-ZSAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvZGV2aW5ldC5jCisrKyBiL25ldC9pcHY0L2RldmluZXQu
-YwpAQCAtOTA5LDcgKzkwOSw5IEBAIGludCBkZXZpbmV0X2lvY3RsKHN0cnVjdCBuZXQgKm5ldCwg
-dW5zaWduZWQgaW50IGNtZCwgdm9pZCBfX3VzZXIgKmFyZykKIAlpZiAoY29sb24pCiAJCSpjb2xv
-biA9IDA7CiAKLQlkZXZfbG9hZChuZXQsIGlmci5pZnJfbmFtZSk7CisJcmV0ID0gZGV2X2xvYWQo
-bmV0LCBpZnIuaWZyX25hbWUpOworCWlmIChyZXQpCisJCXJldHVybiByZXQ7CiAKIAlzd2l0Y2gg
-KGNtZCkgewogCWNhc2UgU0lPQ0dJRkFERFI6CS8qIEdldCBpbnRlcmZhY2UgYWRkcmVzcyAqLwpk
-aWZmIC0tZ2l0IGEvbmV0L3dpcmVsZXNzL3dleHQtY29yZS5jIGIvbmV0L3dpcmVsZXNzL3dleHQt
-Y29yZS5jCmluZGV4IGM4NzE3YzEuLjhmZWE1ZmUgMTAwNjQ0Ci0tLSBhL25ldC93aXJlbGVzcy93
-ZXh0LWNvcmUuYworKysgYi9uZXQvd2lyZWxlc3Mvd2V4dC1jb3JlLmMKQEAgLTk1NCw3ICs5NTQs
-OSBAQCBzdGF0aWMgaW50IHdleHRfaW9jdGxfZGlzcGF0Y2goc3RydWN0IG5ldCAqbmV0LCBzdHJ1
-Y3QgaWZyZXEgKmlmciwKIAlpZiAocmV0KQogCQlyZXR1cm4gcmV0OwogCi0JZGV2X2xvYWQobmV0
-LCBpZnItPmlmcl9uYW1lKTsKKwlyZXQgPSBkZXZfbG9hZChuZXQsIGlmci0+aWZyX25hbWUpOwor
-CWlmIChyZXQpCisJCXJldHVybiByZXQ7CiAJcnRubF9sb2NrKCk7CiAJcmV0ID0gd2lyZWxlc3Nf
-cHJvY2Vzc19pb2N0bChuZXQsIGlmciwgY21kLCBpbmZvLCBzdGFuZGFyZCwgcHJpdmF0ZSk7CiAJ
-cnRubF91bmxvY2soKTsK
---001a1134604a59923505022c3374--
+Regards
+Mugunthan V N
