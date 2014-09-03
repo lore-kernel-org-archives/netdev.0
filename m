@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH 1/2] net-timestamp: Merge shared code between phy and
- regular timestamping
-Date: Wed, 03 Sep 2014 11:53:51 -0400
-Message-ID: <20140903155351.1896.54047.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [PATCH 2/2] net-timestamp: Make the clone operation stand-alone
+ from phy timestamping
+Date: Wed, 03 Sep 2014 11:53:57 -0400
+Message-ID: <20140903155357.1896.92538.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140903155022.1896.59030.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,158 +10,104 @@ Content-Transfer-Encoding: 7bit
 Cc: richardcochran@gmail.com, davem@davemloft.net, willemb@google.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:13405 "EHLO mga02.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:55237 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756275AbaICQBr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 12:01:47 -0400
+	id S1756330AbaICQCT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 12:02:19 -0400
 In-Reply-To: <20140903155022.1896.59030.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change merges the shared bits that exist between skb_tx_tstamp and
-skb_complete_tx_timestamp.  By doing this we can avoid the two diverging as
-there were already changes pushed into skb_tx_tstamp that hadn't made it
-into the other function.
+The phy timestamping takes a different path than the regular timestamping
+does in that it will create a clone first so that the packets needing to be
+timestamped can be placed in a queue, or the context block could be used.
 
-In addition this resolves issues with the fact that
-skb_complete_tx_timestamp was included in linux/skbuff.h even though it was
-only compiled in if phy timestamping was enabled.
+In order to support these use cases I am pulling the core of the code out
+so it can be used in other drivers beyond just phy devices.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- net/core/skbuff.c       |   70 ++++++++++++++++++++++++++++++++---------------
- net/core/timestamping.c |   29 -------------------
- 2 files changed, 47 insertions(+), 52 deletions(-)
+ include/linux/skbuff.h  |    2 ++
+ net/core/skbuff.c       |   20 ++++++++++++++++++++
+ net/core/timestamping.c |   14 +++-----------
+ 3 files changed, 25 insertions(+), 11 deletions(-)
 
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 02529fc..19eb787 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2690,6 +2690,8 @@ static inline ktime_t net_invalid_timestamp(void)
+ 	return ktime_set(0, 0);
+ }
+ 
++struct sk_buff *__skb_clone_tx_timestamp(struct sk_buff *skb);
++
+ #ifdef CONFIG_NETWORK_PHY_TIMESTAMPING
+ 
+ void skb_clone_tx_timestamp(struct sk_buff *skb);
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 53ce536..488d902 100644
+index 488d902..3f5cf29 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -3511,33 +3511,13 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
+@@ -3511,6 +3511,26 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
  }
  EXPORT_SYMBOL(sock_dequeue_err_skb);
  
--void __skb_tstamp_tx(struct sk_buff *orig_skb,
--		     struct skb_shared_hwtstamps *hwtstamps,
--		     struct sock *sk, int tstype)
-+static void __skb_complete_tx_timestamp(struct sk_buff *skb,
-+					struct sock *sk,
-+					int tstype)
- {
- 	struct sock_exterr_skb *serr;
--	struct sk_buff *skb;
- 	int err;
- 
--	if (!sk)
--		return;
--
--	if (hwtstamps) {
--		*skb_hwtstamps(orig_skb) =
--			*hwtstamps;
--	} else {
--		/*
--		 * no hardware time stamps available,
--		 * so keep the shared tx_flags and only
--		 * store software time stamp
--		 */
--		orig_skb->tstamp = ktime_get_real();
--	}
--
--	skb = skb_clone(orig_skb, GFP_ATOMIC);
--	if (!skb)
--		return;
--
- 	serr = SKB_EXT_ERR(skb);
- 	memset(serr, 0, sizeof(*serr));
- 	serr->ee.ee_errno = ENOMSG;
-@@ -3554,6 +3534,50 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
- 	if (err)
- 		kfree_skb(skb);
- }
-+
-+void skb_complete_tx_timestamp(struct sk_buff *skb,
-+			       struct skb_shared_hwtstamps *hwtstamps)
++struct sk_buff *__skb_clone_tx_timestamp(struct sk_buff *skb)
 +{
 +	struct sock *sk = skb->sk;
++	struct sk_buff *clone;
 +
-+	skb->sk = NULL;
++	if (!sk || !atomic_inc_not_zero(&sk->sk_refcnt))
++		return NULL;
 +
-+	if (hwtstamps) {
-+		*skb_hwtstamps(skb) = *hwtstamps;
-+		__skb_complete_tx_timestamp(skb, sk, SCM_TSTAMP_SND);
-+	} else {
-+		kfree_skb(skb);
++	clone = skb_clone(skb, GFP_ATOMIC);
++	if (!clone) {
++		sock_put(sk);
++		return NULL;
 +	}
 +
-+	sock_put(sk);
++	clone->sk = sk;
++
++	return clone;
 +}
-+EXPORT_SYMBOL_GPL(skb_complete_tx_timestamp);
++EXPORT_SYMBOL(__skb_clone_tx_timestamp);
 +
-+void __skb_tstamp_tx(struct sk_buff *orig_skb,
-+		     struct skb_shared_hwtstamps *hwtstamps,
-+		     struct sock *sk, int tstype)
-+{
-+	struct sk_buff *skb;
-+
-+	if (!sk)
-+		return;
-+
-+	/*
-+	 * no hardware time stamps available,
-+	 * so keep the shared tx_flags and only
-+	 * store software time stamp
-+	 */
-+	if (!hwtstamps)
-+		orig_skb->tstamp = ktime_get_real();
-+	else
-+		*skb_hwtstamps(orig_skb) = *hwtstamps;
-+
-+	skb = skb_clone(orig_skb, GFP_ATOMIC);
-+	if (!skb)
-+		return;
-+
-+	__skb_complete_tx_timestamp(skb, sk, tstype);
-+}
- EXPORT_SYMBOL_GPL(__skb_tstamp_tx);
- 
- void skb_tstamp_tx(struct sk_buff *orig_skb,
+ static void __skb_complete_tx_timestamp(struct sk_buff *skb,
+ 					struct sock *sk,
+ 					int tstype)
 diff --git a/net/core/timestamping.c b/net/core/timestamping.c
-index a877039..f48a59f 100644
+index f48a59f..458f5cb 100644
 --- a/net/core/timestamping.c
 +++ b/net/core/timestamping.c
-@@ -63,35 +63,6 @@ void skb_clone_tx_timestamp(struct sk_buff *skb)
- }
- EXPORT_SYMBOL_GPL(skb_clone_tx_timestamp);
- 
--void skb_complete_tx_timestamp(struct sk_buff *skb,
--			       struct skb_shared_hwtstamps *hwtstamps)
--{
--	struct sock *sk = skb->sk;
--	struct sock_exterr_skb *serr;
--	int err;
--
--	if (!hwtstamps) {
--		sock_put(sk);
--		kfree_skb(skb);
--		return;
--	}
--
--	*skb_hwtstamps(skb) = *hwtstamps;
--
--	serr = SKB_EXT_ERR(skb);
--	memset(serr, 0, sizeof(*serr));
--	serr->ee.ee_errno = ENOMSG;
--	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
--	skb->sk = NULL;
--
--	err = sock_queue_err_skb(sk, skb);
--
--	sock_put(sk);
--	if (err)
--		kfree_skb(skb);
--}
--EXPORT_SYMBOL_GPL(skb_complete_tx_timestamp);
--
- bool skb_defer_rx_timestamp(struct sk_buff *skb)
+@@ -36,10 +36,9 @@ void skb_clone_tx_timestamp(struct sk_buff *skb)
  {
  	struct phy_device *phydev;
+ 	struct sk_buff *clone;
+-	struct sock *sk = skb->sk;
+ 	unsigned int type;
+ 
+-	if (!sk)
++	if (!skb->sk)
+ 		return;
+ 
+ 	type = classify(skb);
+@@ -48,16 +47,9 @@ void skb_clone_tx_timestamp(struct sk_buff *skb)
+ 
+ 	phydev = skb->dev->phydev;
+ 	if (likely(phydev->drv->txtstamp)) {
+-		if (!atomic_inc_not_zero(&sk->sk_refcnt))
++		clone = __skb_clone_tx_timestamp(skb);
++		if (!clone)
+ 			return;
+-
+-		clone = skb_clone(skb, GFP_ATOMIC);
+-		if (!clone) {
+-			sock_put(sk);
+-			return;
+-		}
+-
+-		clone->sk = sk;
+ 		phydev->drv->txtstamp(phydev, clone, type);
+ 	}
+ }
