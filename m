@@ -1,49 +1,51 @@
-From: Beniamino Galvani <b.galvani@gmail.com>
-Subject: Re: [PATCH v5 1/4] ethernet: arc: Add support for Rockchip SoC layer
- device tree bindings
-Date: Wed, 3 Sep 2014 23:12:20 +0200
-Message-ID: <20140903211220.GA16962@gmail.com>
-References: <1409763165-16461-1-git-send-email-romain.perier@gmail.com>
+From: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Subject: [Patch net-next 08/11] net:fec: change FEC alignment to 64 bytes for ARM platform
+Date: Thu, 4 Sep 2014 04:38:14 +0800
+Message-ID: <1409776697-1536-9-git-send-email-Frank.Li@freescale.com>
+References: <1409776697-1536-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: heiko@sntech.de, linux-rockchip@lists.infradead.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, arnd@arndb.de
-To: Romain Perier <romain.perier@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f176.google.com ([74.125.82.176]:54636 "EHLO
-	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752823AbaICVNK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 17:13:10 -0400
-Content-Disposition: inline
-In-Reply-To: <1409763165-16461-1-git-send-email-romain.perier@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409776697-1536-1-git-send-email-Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 03, 2014 at 04:52:42PM +0000, Romain Perier wrote:
-> This patch defines a platform glue layer for Rockchip SoCs which
-> support arc-emac driver. It ensures that regulator for the rmii is on
-> before trying to connect to the ethernet controller. It applies right
-> speed and mode changes to the grf when ethernet settings change.
+From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 
-Hi Romain,
+Since enet-avb has 64 bytes alignment limitation for rx DMA transfer.
+The previous enet IP for ARM platform has 16 bytes alignment for tx
+DMA transfer. 64 is the an integral number of 16, so change alignment
+to 64 bytes for all ARM platform, which don't impact the performance
+of previous platform.
 
-on a Radxa Rock when I try to remove the emac_rockchip module the
-board locks up when calling clk_disable_unprepare(priv->refclk). The
-tree is a net-next + your series, I don't know if I need some other
-patches.
+Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-There is also the following build warning due to the emac dependency
-on REGULATOR which in principle seems correct, but looking at other
-drivers I wonder why they use the regulator APIs but don't have the
-same dependency.
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index a232245..b388e29f 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -65,7 +65,7 @@
+ static void set_multicast_list(struct net_device *ndev);
+ 
+ #if defined(CONFIG_ARM)
+-#define FEC_ALIGNMENT	0xf
++#define FEC_ALIGNMENT	0x3f
+ #else
+ #define FEC_ALIGNMENT	0x3
+ #endif
+-- 
+1.9.1
 
-drivers/regulator/Kconfig:1:error: recursive dependency detected!
-drivers/regulator/Kconfig:1:       symbol REGULATOR is selected by MDIO_SUN4I
-drivers/net/phy/Kconfig:159:       symbol MDIO_SUN4I depends on PHYLIB
-drivers/net/phy/Kconfig:5:         symbol PHYLIB is selected by ARC_EMAC_CORE
-drivers/net/ethernet/arc/Kconfig:20:      symbol ARC_EMAC_CORE is selected by EMAC_ROCKCHIP
-drivers/net/ethernet/arc/Kconfig:35:      symbol EMAC_ROCKCHIP depends on REGULATOR
-
-Regards,
-Beniamino
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
