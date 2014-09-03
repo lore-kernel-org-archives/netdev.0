@@ -1,81 +1,70 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
- runnable
-Date: Wed, 3 Sep 2014 10:51:04 +0300
-Message-ID: <20140903075104.GA6187@redhat.com>
-References: <1408608310-13579-2-git-send-email-jasowang@redhat.com>
- <1408683665.5648.69.camel@marge.simpson.net>
- <53F6F14B.1030609@redhat.com>
- <20140822074224.GB7372@gmail.com>
- <53FFEEC0.4000304@redhat.com>
- <540414AB.9000004@linux.intel.com>
- <54053998.4040604@redhat.com>
- <54056076.2030603@linux.intel.com>
- <20140902083124.GB10356@redhat.com>
- <5406B9E6.6050103@linux.intel.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH net-next 4/4] ipv6: coding style - cleanse bracing
+Date: Wed, 3 Sep 2014 07:52:52 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63B310A4@avmb3.qlogic.org>
+References: <1409685364-4327-1-git-send-email-ipm@chirality.org.uk>
+ <1409685364-4327-5-git-send-email-ipm@chirality.org.uk>
+ <54066F6D.4060406@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, Ingo Molnar <mingo@kernel.org>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5406B9E6.6050103@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 8BIT
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: =?iso-2022-jp?B?WU9TSElGVUpJIEhpZGVha2kvGyRCNUhGIzFRTEAbKEI=?=
+	<hideaki.yoshifuji@miraclelinux.com>,
+	Ian Morris <ipm@chirality.org.uk>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:10369 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751114AbaICHx2 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 03:53:28 -0400
+In-Reply-To: <54066F6D.4060406@miraclelinux.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 03, 2014 at 09:49:10AM +0300, Eliezer Tamir wrote:
-> On 02/09/2014 11:31, Michael S. Tsirkin wrote:
-> > On Tue, Sep 02, 2014 at 09:15:18AM +0300, Eliezer Tamir wrote:
-> >> On 02/09/2014 06:29, Jason Wang wrote:
-> >>> On 09/01/2014 02:39 PM, Eliezer Tamir wrote:
-> >>>> On 29/08/2014 06:08, Jason Wang wrote:
-> >>>>>> Yes, but rx busy polling only works in process context and does not
-> >>>>>> disable bh, so it may be not an issue.
-> >>>> sk_busy_loop() uses rcu_read_lock_bh(), so it does run with bh disabled.
-> >>>
-> >>> True, so we need probably also exit the loop when there are pending bhs.
-> >>
-> >> I'm not so sure, in the typical busy poll scenario, the incoming
-> >> traffic is the most time-critical thing in the system.
-> >> It's so important that you are willing to trade lots of CPU power
-> >> for better latency. The user has decided that he wants to dedicate
-> >> this CPU mostly for that. This is not something that plays nice with
-> >> other apps, but this is what the user wants.
-> > 
-> > I think most applications wouldn't interpret this flag as "burn up CPU I don't
-> > care what is the result", what apps want is more of "maximise throughput
-> > and minimise latency even if throughput/CPU ratio goes down".
-> > Jason posted benchmarks that show throughput going up because other
-> > processes get more of a chance to run, so this seems consistent
-> > with that goal.
-> 
-> Busy polling is not a general purpose feature, it's not something you
-> can casually turn on and will "just work". Most applications should not
-> be using busy polling. Currently it is used by multiserver applications
-> that you spend days tuning to specific platforms.
-> 
-> What the user wants is to lower both avg and maximum latencies, at the
-> expense of everything else including power efficiency and sometimes
-> even throughput. The only exception is making the system crash ;)
-> 
-> While letting other things take precedence over busy polling might not
-> hurt the avg latency much, it will kill your maximum latency.
-> 
-> -Eliezer
+> Hi,
+>
+> Ian Morris wrote:
+> > Tidy up braces in a few places (mainly if statements):
+> > * remove unnecessary braces
+> > * add braces for single line statements where part of an "else" where
+> > the other branch has braces
+>
+> Hmm, I am not for this change.
+>
+> If "if" (or "else") statement occupies multiple lines, I want to see braces even if it
+> contains a single statement.
+> On the other hand, especiallly if the statement occupiles only one line (and the
+> logic do not require those braces), no braces.
+>
+> e.g. 1
+>     if (cond)
+>             statement();
+>     else {
+>             statement2(argument,
+>                        argument2);
+>     }
 
-If scheduler happens to run both server and client on the
-same CPU, polling will hurt maximum latency even more.
-So I guess different users want different things.
+I was under the impression the coding style require matching curly braces on all
+if and else clauses, e.g., in the previous example I would have expected the `if' to
+have curly braces since its else block has them, regardless of whether its
+statement-block has more than a single line.
 
-How about applications giving us a hint what they prefer?
-For example, a new flag that says "I don't have anything useful to do so
-let's do busy polling but my server is on the local system, so please
-only poll if CPU is otherwise idle".
+> e.g. 2
+>     if (cond) {
+>             if (cond2)
+>                     statement();
+>     } else
+>             statement2(argument, argument2);
+>
+> e.g. 3
+>     if (cond) {
+>             /* comment */
+>             statement();
+>     }
 
+________________________________
 
--- 
-MST
+This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
