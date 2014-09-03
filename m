@@ -1,100 +1,114 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V3] qdisc: validate frames going through the
-	direct_xmit path
-Date: Wed, 03 Sep 2014 17:56:09 +0200
-Message-ID: <20140903155508.23813.75407.stgit@dragon>
-References: <20140903114841.19969.22671.stgit@dragon>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	netdev@vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next iproute2 v2] iproute2: allow to change slave options via type_slave
+Date: Wed,  3 Sep 2014 17:57:30 +0200
+Message-ID: <1409759850-15812-1-git-send-email-nikolay@redhat.com>
+References: <20140903150215.GA1843@nanopsycho.lan>
+Cc: jiri@resnulli.us, stephen@networkplumber.org, davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50288 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59044 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754099AbaICPz7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 11:55:59 -0400
-In-Reply-To: <20140903114841.19969.22671.stgit@dragon>
+	id S1756100AbaICP6g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 11:58:36 -0400
+In-Reply-To: <20140903150215.GA1843@nanopsycho.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 50cbe9ab5f8d ("net: Validate xmit SKBs right when we
-pull them out of the qdisc") the validation code was moved out of
-dev_hard_start_xmit and into dequeue_skb.
+This patch adds the necessary changes to allow altering a slave device's
+options via ip link set <device> type <master type>_slave specific-option.
+It also adds support to set the bonding slaves' queue_id.
 
-However this overlooked the fact that we do not always enqueue
-the skb onto a qdisc. First situation is if qdisc have flag
-TCQ_F_CAN_BYPASS and qdisc is empty.  Second situation is if
-there is no qdisc on the device, which is a common case for
-software devices.
+Example:
+ ip link set eth0 type bond_slave queue_id 10
 
-Originally spotted and inital patch by Alexander Duyck.
-As a result Alex was seeing issues trying to connect to a
-vhost_net interface after commit 50cbe9ab5f8d was applied.
-
-Added a call to validate_xmit_skb() in __dev_xmit_skb(), in the
-code path for qdiscs with TCQ_F_CAN_BYPASS flag, and in
-__dev_queue_xmit() when no qdisc.
-
-Also handle the error situation where dev_hard_start_xmit() could
-return a skb list, and does not return dev_xmit_complete(rc) and
-falls through to the kfree_skb(), in that situation it should
-call kfree_skb_list().
-
-Fixes:  50cbe9ab5f8d ("net: Validate xmit SKBs right when we pull them out of the qdisc")
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
-V2:
- - Also handle no qdisc on the device situation
+v2: change the usage from <master type>_slave to bond_slave as Jiri suggested
 
-V3:
- - In __dev_queue_xmit() move validate_xmit_skb() up before
-   HARD_TX_LOCK and record tx_dropped if the validation failed.
- - Use kfree_skb_list() instead of kfree_skb() in fallthrough err case.
+ ip/iplink.c            | 22 +++++++++++++++++++---
+ ip/iplink_bond_slave.c | 19 +++++++++++++++++++
+ 2 files changed, 38 insertions(+), 3 deletions(-)
 
- net/core/dev.c |   10 ++++++++--
- 1 files changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3774afc..2f3dbd6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2739,7 +2739,8 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
- 
- 		qdisc_bstats_update(q, skb);
- 
--		if (sch_direct_xmit(skb, q, dev, txq, root_lock)) {
-+		skb = validate_xmit_skb(skb, dev);
-+		if (skb && sch_direct_xmit(skb, q, dev, txq, root_lock)) {
- 			if (unlikely(contended)) {
- 				spin_unlock(&q->busylock);
- 				contended = false;
-@@ -2879,6 +2880,10 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
- 			if (__this_cpu_read(xmit_recursion) > RECURSION_LIMIT)
- 				goto recursion_alert;
- 
-+			skb = validate_xmit_skb(skb, dev);
-+			if (!skb)
-+				goto drop;
-+
- 			HARD_TX_LOCK(dev, txq, cpu);
- 
- 			if (!netif_xmit_stopped(txq)) {
-@@ -2904,10 +2909,11 @@ recursion_alert:
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 1a907d998a87..0992923c83bc 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -88,7 +88,8 @@ void iplink_usage(void)
+ 		fprintf(stderr, "\n");
+ 		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |\n");
+ 		fprintf(stderr, "          bridge | bond | ipoib | ip6tnl | ipip | sit | vxlan |\n");
+-		fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti | nlmon }\n");
++		fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti | nlmon |\n");
++		fprintf(stderr, "          bond_slave }\n");
  	}
+ 	exit(-1);
+ }
+@@ -697,14 +698,29 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
  
- 	rc = -ENETDOWN;
-+drop:
- 	rcu_read_unlock_bh();
+ 	if (type) {
+ 		struct rtattr *linkinfo = NLMSG_TAIL(&req.n);
++		char slavebuf[128], *ulinep = strchr(type, '_');
++		int iflatype;
++
+ 		addattr_l(&req.n, sizeof(req), IFLA_LINKINFO, NULL, 0);
+ 		addattr_l(&req.n, sizeof(req), IFLA_INFO_KIND, type,
+ 			 strlen(type));
  
- 	atomic_long_inc(&dev->tx_dropped);
--	kfree_skb(skb);
-+	kfree_skb_list(skb);
- 	return rc;
- out:
- 	rcu_read_unlock_bh();
+-		lu = get_link_kind(type);
++		if (ulinep && !strcmp(ulinep, "_slave")) {
++			strncpy(slavebuf, type, sizeof(slavebuf));
++			slavebuf[sizeof(slavebuf) - 1] = '\0';
++			ulinep = strchr(slavebuf, '_');
++			/* check in case it was after sizeof(slavebuf) - 1*/
++			if (ulinep)
++				*ulinep = '\0';
++			lu = get_link_slave_kind(slavebuf);
++			iflatype = IFLA_INFO_SLAVE_DATA;
++		} else {
++			lu = get_link_kind(type);
++			iflatype = IFLA_INFO_DATA;
++		}
+ 		if (lu && argc) {
+ 			struct rtattr * data = NLMSG_TAIL(&req.n);
+-			addattr_l(&req.n, sizeof(req), IFLA_INFO_DATA, NULL, 0);
++			addattr_l(&req.n, sizeof(req), iflatype, NULL, 0);
+ 
+ 			if (lu->parse_opt &&
+ 			    lu->parse_opt(lu, argc, argv, &req.n))
+diff --git a/ip/iplink_bond_slave.c b/ip/iplink_bond_slave.c
+index 8f3fc6cec6fa..aacba14aef9c 100644
+--- a/ip/iplink_bond_slave.c
++++ b/ip/iplink_bond_slave.c
+@@ -80,10 +80,29 @@ static void bond_slave_print_opt(struct link_util *lu, FILE *f, struct rtattr *t
+ 			rta_getattr_u16(tb[IFLA_BOND_SLAVE_AD_AGGREGATOR_ID]));
+ }
+ 
++static int bond_slave_parse_opt(struct link_util *lu, int argc, char **argv,
++				struct nlmsghdr *n)
++{
++	__u16 queue_id;
++
++	while (argc > 0) {
++		if (matches(*argv, "queue_id") == 0) {
++			NEXT_ARG();
++			if (get_u16(&queue_id, *argv, 0))
++				invarg("queue_id is invalid", *argv);
++			addattr16(n, 1024, IFLA_BOND_SLAVE_QUEUE_ID, queue_id);
++		}
++		argc--, argv++;
++	}
++
++	return 0;
++}
++
+ struct link_util bond_slave_link_util = {
+ 	.id		= "bond",
+ 	.maxattr	= IFLA_BOND_SLAVE_MAX,
+ 	.print_opt	= bond_slave_print_opt,
++	.parse_opt	= bond_slave_parse_opt,
+ 	.slave		= true,
+ };
+ 
+-- 
+1.9.3
