@@ -1,68 +1,56 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [net PATCH 1/1] drivers: net: cpsw: dual_emac: fix reducing of
- rx descriptor during ifdown
-Date: Wed, 3 Sep 2014 22:37:14 +0530
-Message-ID: <54074AC2.9080001@ti.com>
-References: <1409304145-26179-1-git-send-email-mugunthanvnm@ti.com>	<20140901.183108.784916699845611422.davem@davemloft.net>	<54058C01.3010402@ti.com> <20140902.115434.1276391011837651390.davem@davemloft.net> <5406C067.5080103@ti.com>
+From: Kostantinos Katsaros <dinos.katsaros@gmail.com>
+Subject: SCTP research inquiry
+Date: Wed, 3 Sep 2014 18:07:30 +0100
+Message-ID: <CAHJk9CcBb5VUs9vibXW1QBxPONcmitFSzA9KPZj46dW+6WLKdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:42079 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932670AbaICRHT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 13:07:19 -0400
-In-Reply-To: <5406C067.5080103@ti.com>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:46205 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932670AbaICRHb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 13:07:31 -0400
+Received: by mail-la0-f49.google.com with SMTP id b17so10165469lan.22
+        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 10:07:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 03 September 2014 12:46 PM, Mugunthan V N wrote:
-> David
-> 
-> On Wednesday 03 September 2014 12:24 AM, David Miller wrote:
->> From: Mugunthan V N <mugunthanvnm@ti.com>
->> Date: Tue, 2 Sep 2014 14:51:05 +0530
->>
->>> When ifup and ifdown is run continuously, for each spilled packet (for
->>> interface which is down) from DMA, the total number of rx descriptor
->>> goes down and at one instance all the descriptor is lost and both the
->>> interface stops working.
->>>
->>> To recover from this we need to put down both the interface and open the
->>> interface which will re-init the DMA which intern queues fresh set of
->>> skbs for rx.
->>
->> But you still should not receive packets for a netdev which is down.
->> As far as I can tell, you're feeding it into the stack still.
-> 
-> If there is separate DMA for each netdev, then it is true that there
-> won't be a packet for a closed netdev. But in CPSW dual EMAC case, one
-> DMA engine is shared between two slave ports, so when one slave netdev
-> is put down, the DMA is not teared down as the other slave netdev is
-> still active. In heavy traffic network when putting down netdev, there
-> are chances that packets are already processed by DMA, and waiting for
-> NAPI to be submitted to network stack might belong to the netdev which
-> is already down.
-> 
-> So instead of just freeing the skb received on netdev which is already
-> down (which will reduce the total rx descriptors in rx dma channel),
-> requeue it back to DMA and make sure that rx dma descriptor count is
-> never reduced.
-> 
->>
->> Also this doesn't explain why the "status < 0" case applies to this
->> new logic, you have not explained that at all.
->>
-> 
-> This scenario is not generated when "status < 0", "status < 0" happens
-> when DMA is in tear-down mode, the above scenario happens when
-> netif_running(ndev) is false which denotes that netdev is down already.
-> 
+Dear NetDev list,
 
-I found an issue with the patch while testing suspend/resume, will fix
-that and submit v2 shortly.
+I am a researcher from Univ. of Surrey. I know that this list is
+mainly for developers of linux-kernel but I want to ask for some help
+to understand the SCTP implementation and pointers to some aspects.
 
-Regards
-Mugunthan V N
+What I would actually like to do, is to modify the default SCTP
+operation with respect to primary/secondary interface selection and
+analyse it in simulations with NS-3. However, I haven't found an API
+or some other help and I was advised to contact this list. I know that
+NS-3 is capable of using linux-kernel implementations through the use
+of DCE, but my issue here is in the SCTP implementation.
+
+
+There a few questions I have in a basic scenario with two nodes
+connected via 2 interfaces.
+
+- How can I dynamically select which of the two interfaces is primary?
+Which method is responsible or should be called to switch?
+
+- I guess that SCTP has some variable holding the estimated RTT on
+each path (also used for calculating RTO). Is this accessible and how?
+I would like to use this as a triggering mechanism to the switch
+method above. In principle select the path with the minimum RTT.
+
+- In a similar way of TCP Westwood (Plus), I would like to estimate
+the available bandwidth and use this as trigger.
+
+- Finally, I want to monitor the ratio (packets or bytes sent) on each
+of the available paths. How can I implement such mechanism? Do I have
+to implement a 'sniffer'?
+
+
+I would appreciate any help, pointers, code snippets.
+
+
+Regards,
+
+Kostas
