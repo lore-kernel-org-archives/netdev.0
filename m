@@ -1,40 +1,64 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 4/4] ARM: dts: Enable emac node on the rk3188-radxarock boards
-Date: Wed, 03 Sep 2014 19:45:50 +0200
-Message-ID: <2909336.qILuPbXDGe@wuerfel>
-References: <1409740036-8117-1-git-send-email-romain.perier@gmail.com> <CAFnsNoSmHwN3nJ5ZJL5fc_-kaECCoLBvpdBYQxkyLcUzLx5MTw@mail.gmail.com> <CABgxDoJOJ9bM2CgXyXjPvsv2DN_QO+HPAzCwfjdyKFDpUAOtOw@mail.gmail.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next v1 4/4] amd-xgbe-phy: Checkpatch driver fixes
+Date: Wed, 3 Sep 2014 12:14:39 -0500
+Message-ID: <20140903171439.9710.47961.stgit@tlendack-t1.amdoffice.net>
+References: <20140903171410.9710.37086.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: PERIER Romain <romain.perier@gmail.com>,
-	Naoki FUKAUMI <naobsd@gmail.com>,
-	devicetree <devicetree@vger.kernel.org>,
-	Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>,
-	netdev <netdev@vger.kernel.org>,
-	linux-rockchip@lists.infradead.org
-To: linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:50259 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750992AbaICRp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 13:45:59 -0400
-In-Reply-To: <CABgxDoJOJ9bM2CgXyXjPvsv2DN_QO+HPAzCwfjdyKFDpUAOtOw@mail.gmail.com>
+Received: from mail-bl2on0144.outbound.protection.outlook.com ([65.55.169.144]:10539
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753359AbaICRs6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 13:48:58 -0400
+In-Reply-To: <20140903171410.9710.37086.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 03 September 2014 18:37:16 PERIER Romain wrote:
-> It is an optional property used by arc-emac (the core driver), if it
-> is not present the core driver generates one for you.
-> Problem being that with this property two radxa rock boards connected
-> on the same local network might have the same mac address.
-> 
-> In this case it would be probably better to remove this property. What
-> do you think ?
-> 
+This patch contains fixes identified by checkpatch when run with the
+strict option.
 
-It would typically be filled in by the boot loader, and be all-zeroes
-in the kernel-supplied dts file. I don't see a point in hardcoding
-a particular MAC address in the dts file, since that won't work
-unless it's the only device of that type in the network segment.
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+---
+ drivers/net/phy/amd-xgbe-phy.c |    4 ----
+ 1 file changed, 4 deletions(-)
 
-	Arnd
+diff --git a/drivers/net/phy/amd-xgbe-phy.c b/drivers/net/phy/amd-xgbe-phy.c
+index da351d3..4e1f7f7 100644
+--- a/drivers/net/phy/amd-xgbe-phy.c
++++ b/drivers/net/phy/amd-xgbe-phy.c
+@@ -75,7 +75,6 @@
+ #include <linux/of_device.h>
+ #include <linux/uaccess.h>
+ 
+-
+ MODULE_AUTHOR("Tom Lendacky <thomas.lendacky@amd.com>");
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_VERSION("1.0.0-a");
+@@ -172,7 +171,6 @@ MODULE_DESCRIPTION("AMD 10GbE (amd-xgbe) PHY driver");
+ #define SPEED_1000_TXAMP		0xf
+ #define SPEED_1000_WORD			0x1
+ 
+-
+ /* SerDes RxTx register offsets */
+ #define RXTX_REG20			0x0050
+ #define RXTX_REG114			0x01c8
+@@ -266,7 +264,6 @@ do {									\
+ 	XSIR1_IOWRITE((_priv), _reg, reg_val);				\
+ } while (0)
+ 
+-
+ /* Macros for reading or writing SerDes RxTx registers
+  *  The ioread macros will get bit fields or full values using the
+  *  register definitions formed using the input names
+@@ -294,7 +291,6 @@ do {									\
+ 	XRXTX_IOWRITE((_priv), _reg, reg_val);				\
+ } while (0)
+ 
+-
+ enum amd_xgbe_phy_an {
+ 	AMD_XGBE_AN_READY = 0,
+ 	AMD_XGBE_AN_START,
