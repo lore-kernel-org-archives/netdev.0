@@ -1,47 +1,56 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v4 1/4] ethernet: arc: Add support for Rockchip SoC layer device tree bindings
-Date: Wed, 03 Sep 2014 13:14:54 +0200
-Message-ID: <3774938.44qiV4hEoE@wuerfel>
-References: <1409740036-8117-1-git-send-email-romain.perier@gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH] qdisc: validate frames going through the direct_xmit
+	path
+Date: Wed, 03 Sep 2014 13:48:41 +0200
+Message-ID: <20140903114841.19969.22671.stgit@dragon>
+References: <20140902225548.885.79277.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Romain Perier <romain.perier@gmail.com>, heiko@sntech.de,
-	linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
 	netdev@vger.kernel.org
-To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.24]:56121 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755593AbaICLPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 07:15:04 -0400
-In-Reply-To: <1409740036-8117-1-git-send-email-romain.perier@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:7809 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755286AbaICLsf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 07:48:35 -0400
+In-Reply-To: <20140902225548.885.79277.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 03 September 2014 10:27:13 Romain Perier wrote:
-> +static const struct emac_rockchip_soc_data emac_rockchip_dt_data[] = {
-> +       { .grf_offset = 0x154 }, /* rk3066 */
-> +       { .grf_offset = 0x0a4 }, /* rk3188 */
-> +};
-> +
-> +static const struct of_device_id emac_rockchip_dt_ids[] = {
-> +       { .compatible = "rockchip,rk3066-emac", .data = &emac_rockchip_dt_data[0] },
-> +       { .compatible = "rockchip,rk3188-emac", .data = &emac_rockchip_dt_data[1] },
-> +       { /* Sentinel */ }
-> +};
-> +
-> 
+In commit 50cbe9ab5f8d ("net: Validate xmit SKBs right when we pull them
+out of the qdisc") the validation code was moved out of dev_hard_start_xmit
+and into dequeue_skb. However this overlooked the fact that we do not
+always enqueue the skb onto a qdisc, if qdisc have flag TCQ_F_CAN_BYPASS.
 
-One last question: is this the location given as .grf_offset the
-only thing in grf that is potentially of concern to this driver?
+As a result Alex was seeing issues trying to connect to a vhost_net interface
+after this patch was applied.
 
-If it is, you can change the binding to include the register number
-in the syscon reference, like
+Added a call to validate_xmit_skb in __dev_xmit_skb(), in the code path
+for qdiscs with TCQ_F_CAN_BYPASS flag.
 
-	rockchip,grf = <&grf 0x154>;
+Fixes:  50cbe9ab5f8d ("net: Validate xmit SKBs right when we pull them out of the qdisc")
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
 
-and then read it from there, to simplify the code needed to get the
-number from the device id.
+ net/core/dev.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-	Arnd
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 3774afc..5bbac90 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2739,7 +2739,8 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+ 
+ 		qdisc_bstats_update(q, skb);
+ 
+-		if (sch_direct_xmit(skb, q, dev, txq, root_lock)) {
++		skb = validate_xmit_skb(skb, dev);
++		if (skb && sch_direct_xmit(skb, q, dev, txq, root_lock)) {
+ 			if (unlikely(contended)) {
+ 				spin_unlock(&q->busylock);
+ 				contended = false;
