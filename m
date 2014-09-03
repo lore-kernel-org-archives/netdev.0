@@ -1,88 +1,63 @@
-From: Alex Gartrell <agartrell@fb.com>
-Subject: ipvs ipv6 tunnel forwarding sets expires on local route
-Date: Wed, 3 Sep 2014 00:03:23 -0700
-Message-ID: <5406BD3B.7050600@fb.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [net PATCH 1/1] drivers: net: cpsw: dual_emac: fix reducing of
+ rx descriptor during ifdown
+Date: Wed, 3 Sep 2014 12:46:55 +0530
+Message-ID: <5406C067.5080103@ti.com>
+References: <1409304145-26179-1-git-send-email-mugunthanvnm@ti.com>	<20140901.183108.784916699845611422.davem@davemloft.net>	<54058C01.3010402@ti.com> <20140902.115434.1276391011837651390.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <lvs-devel@vger.kernel.org>, kernel-team <Kernel-team@fb.com>,
-	<ps@fb.com>, <traffic@fb.com>
-To: <netdev@vger.kernel.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:41466 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753569AbaICHQ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 03:16:58 -0400
+In-Reply-To: <20140902.115434.1276391011837651390.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-So we've been debugging a problem for a while in 3.10 stable (we're 
-currently upgrading from 3.2) and it appears that we're expiring and 
-ultimately garbage collecting the local route for an ip we're adding to 
-the loopback device, resulting in ICMPV6_NOROUTE errors for clients. 
-I'd like your advice on how to fix this.
+David
 
-Repro:
-"""
-ipvsadm -R <<EOF
--A -t [face::1]:15213 -s ch
--a -t [face::1]:15213 -r 2401:db00:20:c001:face:0:45:0 -i
-EOF
+On Wednesday 03 September 2014 12:24 AM, David Miller wrote:
+> From: Mugunthan V N <mugunthanvnm@ti.com>
+> Date: Tue, 2 Sep 2014 14:51:05 +0530
+> 
+>> When ifup and ifdown is run continuously, for each spilled packet (for
+>> interface which is down) from DMA, the total number of rx descriptor
+>> goes down and at one instance all the descriptor is lost and both the
+>> interface stops working.
+>>
+>> To recover from this we need to put down both the interface and open the
+>> interface which will re-init the DMA which intern queues fresh set of
+>> skbs for rx.
+> 
+> But you still should not receive packets for a netdev which is down.
+> As far as I can tell, you're feeding it into the stack still.
 
-ip addr add dev lo face::1/128 || true
-"""
+If there is separate DMA for each netdev, then it is true that there
+won't be a packet for a closed netdev. But in CPSW dual EMAC case, one
+DMA engine is shared between two slave ports, so when one slave netdev
+is put down, the DMA is not teared down as the other slave netdev is
+still active. In heavy traffic network when putting down netdev, there
+are chances that packets are already processed by DMA, and waiting for
+NAPI to be submitted to network stack might belong to the netdev which
+is already down.
 
-This simply sets up a v6 service in ipvs and adds a real server ip which 
-is tunneling over ipip.  This is important because this bug only affects 
-tunneling mode.
+So instead of just freeing the skb received on netdev which is already
+down (which will reduce the total rx descriptors in rx dma channel),
+requeue it back to DMA and make sure that rx dma descriptor count is
+never reduced.
 
-Within ipvs, in tunneling mode, we do the following when checking the 
-MTU in tunneling mode
+> 
+> Also this doesn't explain why the "status < 0" case applies to this
+> new logic, you have not explained that at all.
+> 
 
-         /* MTU checking */
-         if (likely(!(rt_mode & IP_VS_RT_MODE_TUNNEL)))
-                 mtu = dst_mtu(&rt->dst);
-         else {
-                 struct sock *sk = skb->sk;
+This scenario is not generated when "status < 0", "status < 0" happens
+when DMA is in tear-down mode, the above scenario happens when
+netif_running(ndev) is false which denotes that netdev is down already.
 
-                 mtu = dst_mtu(&rt->dst) - sizeof(struct ipv6hdr);
-                 if (mtu < IPV6_MIN_MTU) {
-                         IP_VS_DBG_RL("%s(): mtu less than %d\n", __func__,
-                                      IPV6_MIN_MTU);
-                         goto err_put;
-                 }
-                 ort = (struct rt6_info *) skb_dst(skb);
-                 old_flags = ort->rt6i_flags;
-                 if (!skb->dev && sk && sk->sk_state != TCP_TIME_WAIT)
-                         ort->dst.ops->update_pmtu(&ort->dst, sk, NULL, 
-mtu);
-         }
-
-So if there's a socket associated with the skb and it's not in 
-TCP_TIME_WAIT, we'll invoke the update_pmtu to ensure we generate 
-appropriately sized packets.
-
-commit 81aded2 "ipv6: Handle PMTU in ICMP error handlers" introduces the 
-following.
-
-@@ -1058,9 +1061,39 @@ static void ip6_rt_update_pmtu(struct dst_entry 
-*dst, u32 mtu)
-  			dst_metric_set(dst, RTAX_FEATURES, features);
-  		}
-  		dst_metric_set(dst, RTAX_MTU, mtu);
-+		rt6_update_expires(rt6, net->ipv6.sysctl.ip6_rt_mtu_expires);
-  	}
-  }
-
-The net result is that we end up setting an expiry on the local route. 
-When we hit ip6_rt_mtu_expires, the route expires (and is later GC'ed). 
-  From that point forward we start ICMPV6_NOROUTE'ing packets in 
-ip6_rcv_finish until the address is removed and reinstalled.
-
-I've got a couple of (bad?) ideas on how to fix it.  We could simply 
-check rt6i_flags for (RTF_EXPIRES | RTF_CACHE) before setting expires. 
-We could also check for RTF_LOCAL.  Alternatively, cloning the rt and 
-updating that might be an appropriate thing to do (in case the 
-tunneled-to route increases its MTU).  I'm *completely* open to 
-suggestions :)
-
-Thank you for your help,
-
--- 
-Alex Gartrell <agartrell@fb.com>
+Regards
+Mugunthan V N
