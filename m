@@ -1,77 +1,110 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH] qdisc: validate frames going through the
- direct_xmit path
-Date: Wed, 3 Sep 2014 16:26:28 +0200
-Message-ID: <20140903162628.3d05f113@redhat.com>
-References: <20140902225548.885.79277.stgit@ahduyck-bv4.jf.intel.com>
-	<20140903114841.19969.22671.stgit@dragon>
-	<1409751805.26422.32.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140903155213.62ff4eff@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next iproute2] iproute2: allow to change slave options via type_slave
+Date: Wed,  3 Sep 2014 16:43:28 +0200
+Message-ID: <1409755408-13929-1-git-send-email-nikolay@redhat.com>
+Cc: jiri@resnulli.us, stephen@networkplumber.org, davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59611 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:30095 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932377AbaICO0f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 10:26:35 -0400
-In-Reply-To: <20140903155213.62ff4eff@redhat.com>
+	id S932402AbaICOnv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 10:43:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 3 Sep 2014 15:52:13 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+This patch adds the necessary changes to allow altering a slave device's
+options via ip link set <device> type <master type>_slave specific-option.
+It also adds support to set the bonding slaves' queue_id.
 
-> On Wed, 03 Sep 2014 06:43:25 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> > 
-> > Jesper, you missed another spot, when there is no qdisc on the device.
-> > 
-> > __dev_queue_xmit() calls dev_hard_start_xmit() around line 2886
-> > 
-> > Could we try to not add a myriad of small patches ?
-> > 
-> > Some of us will need to backport all of them.
-> 
-> I'm in the same backport situation ;-)
-> 
-> I'll send a V2 of this patch, with missed spot...
+Example:
+ ip link set eth0 type bond_slave queue_id 10
 
-(to avoid doing too many patches)
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+ ip/iplink.c            | 22 +++++++++++++++++++---
+ ip/iplink_bond_slave.c | 19 +++++++++++++++++++
+ 2 files changed, 38 insertions(+), 3 deletions(-)
 
-In the code below (from __dev_queue_xmit()), I've added validate_xmit_skb().
-(dev_hard_start_xmit() can handle if it is a NULL ptr)
-
-	HARD_TX_LOCK(dev, txq, cpu);
-	if (!netif_xmit_stopped(txq)) {
-		skb = validate_xmit_skb(skb, dev);
-		__this_cpu_inc(xmit_recursion);
-		skb = dev_hard_start_xmit(skb, dev, txq, &rc);
-		__this_cpu_dec(xmit_recursion);
-		if (dev_xmit_complete(rc)) {
-			HARD_TX_UNLOCK(dev, txq);
-			goto out;
-		}
-	}
-	HARD_TX_UNLOCK(dev, txq);
-	net_crit_ratelimited("Virtual device %s asks to queue packet!\n",
-					     dev->name);
-BUT shouldn't we also handle if dev_hard_start_xmit() returns an skb pointer,
-which means that there were skb's left on the skb list.  Due to the rc
-value "returned" in this case, we should see the net_crit_ratelimited()
-msg, but we don't handle freeing these SKBs.
-
-Any recommentations?
-
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 1a907d998a87..5f2db92c981e 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -88,7 +88,8 @@ void iplink_usage(void)
+ 		fprintf(stderr, "\n");
+ 		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |\n");
+ 		fprintf(stderr, "          bridge | bond | ipoib | ip6tnl | ipip | sit | vxlan |\n");
+-		fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti | nlmon }\n");
++		fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti | nlmon |\n");
++		fprintf(stderr, "          <master type>_slave }\n");
+ 	}
+ 	exit(-1);
+ }
+@@ -697,14 +698,29 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 
+ 	if (type) {
+ 		struct rtattr *linkinfo = NLMSG_TAIL(&req.n);
++		char slavebuf[128], *ulinep = strchr(type, '_');
++		int iflatype;
++
+ 		addattr_l(&req.n, sizeof(req), IFLA_LINKINFO, NULL, 0);
+ 		addattr_l(&req.n, sizeof(req), IFLA_INFO_KIND, type,
+ 			 strlen(type));
+ 
+-		lu = get_link_kind(type);
++		if (ulinep && !strcmp(ulinep, "_slave")) {
++			strncpy(slavebuf, type, sizeof(slavebuf));
++			slavebuf[sizeof(slavebuf) - 1] = '\0';
++			ulinep = strchr(slavebuf, '_');
++			/* check in case it was after sizeof(slavebuf) - 1*/
++			if (ulinep)
++				*ulinep = '\0';
++			lu = get_link_slave_kind(slavebuf);
++			iflatype = IFLA_INFO_SLAVE_DATA;
++		} else {
++			lu = get_link_kind(type);
++			iflatype = IFLA_INFO_DATA;
++		}
+ 		if (lu && argc) {
+ 			struct rtattr * data = NLMSG_TAIL(&req.n);
+-			addattr_l(&req.n, sizeof(req), IFLA_INFO_DATA, NULL, 0);
++			addattr_l(&req.n, sizeof(req), iflatype, NULL, 0);
+ 
+ 			if (lu->parse_opt &&
+ 			    lu->parse_opt(lu, argc, argv, &req.n))
+diff --git a/ip/iplink_bond_slave.c b/ip/iplink_bond_slave.c
+index 8f3fc6cec6fa..aacba14aef9c 100644
+--- a/ip/iplink_bond_slave.c
++++ b/ip/iplink_bond_slave.c
+@@ -80,10 +80,29 @@ static void bond_slave_print_opt(struct link_util *lu, FILE *f, struct rtattr *t
+ 			rta_getattr_u16(tb[IFLA_BOND_SLAVE_AD_AGGREGATOR_ID]));
+ }
+ 
++static int bond_slave_parse_opt(struct link_util *lu, int argc, char **argv,
++				struct nlmsghdr *n)
++{
++	__u16 queue_id;
++
++	while (argc > 0) {
++		if (matches(*argv, "queue_id") == 0) {
++			NEXT_ARG();
++			if (get_u16(&queue_id, *argv, 0))
++				invarg("queue_id is invalid", *argv);
++			addattr16(n, 1024, IFLA_BOND_SLAVE_QUEUE_ID, queue_id);
++		}
++		argc--, argv++;
++	}
++
++	return 0;
++}
++
+ struct link_util bond_slave_link_util = {
+ 	.id		= "bond",
+ 	.maxattr	= IFLA_BOND_SLAVE_MAX,
+ 	.print_opt	= bond_slave_print_opt,
++	.parse_opt	= bond_slave_parse_opt,
+ 	.slave		= true,
+ };
+ 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+1.9.3
