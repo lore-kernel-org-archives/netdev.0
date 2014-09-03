@@ -1,60 +1,47 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Subject: [PATCH] drivers/net/fddi/skfp/h/skfbi.h: Remove useless PCI_BASE_2ND
- macros
-Date: Wed, 03 Sep 2014 23:26:26 +0800
-Message-ID: <54073322.6030508@gmail.com>
+From: Naoki FUKAUMI <naobsd@gmail.com>
+Subject: Re: [PATCH 4/4] ARM: dts: Enable emac node on the rk3188-radxarock boards
+Date: Thu, 4 Sep 2014 00:29:28 +0900
+Message-ID: <CAFnsNoSmHwN3nJ5ZJL5fc_-kaECCoLBvpdBYQxkyLcUzLx5MTw@mail.gmail.com>
+References: <1409740036-8117-1-git-send-email-romain.perier@gmail.com>
+	<1409740036-8117-4-git-send-email-romain.perier@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	michal.simek@xilinx.com, Michal Simek <monstr@monstr.eu>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: heiko@sntech.de, linux-rockchip@lists.infradead.org,
+	devicetree@vger.kernel.org, arnd@arndb.de,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Romain Perier <romain.perier@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:46043 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751180AbaICP01 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 11:26:27 -0400
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:35055 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751193AbaICP33 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 11:29:29 -0400
+In-Reply-To: <1409740036-8117-4-git-send-email-romain.perier@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-They are use less, and may generate compiling warnings, so remove them
-(microblaze, arc, arm64, and unicore32 have already defined PCI_IOBASE).
+On Wed, Sep 3, 2014 at 7:27 PM, Romain Perier <romain.perier@gmail.com> wrote:
+> This enables EMAC Rockchip support on radxa rock boards.
+>
+> Signed-off-by: Romain Perier <romain.perier@gmail.com>
+> ---
+>  arch/arm/boot/dts/rk3188-radxarock.dts | 24 ++++++++++++++++++++++++
+>  1 file changed, 24 insertions(+)
+>
+> diff --git a/arch/arm/boot/dts/rk3188-radxarock.dts b/arch/arm/boot/dts/rk3188-radxarock.dts
+> index 5e4e3c23..e1358d3 100644
+> --- a/arch/arm/boot/dts/rk3188-radxarock.dts
+> +++ b/arch/arm/boot/dts/rk3188-radxarock.dts
+> @@ -76,6 +76,24 @@
+>         };
+>  };
+>
+> +&emac {
+> +       status = "okay";
+> +       compatible = "rockchip,rk3188-emac";
+> +
+> +       pinctrl-names = "default";
+> +       pinctrl-0 = <&emac_xfer>, <&emac_mdio>, <&phy_int>;
+> +
+> +       mac-address = [ c6 ef 91 8e 60 4b ];
 
-The related warnings (with allmodconfig under microblaze):
-
-  CC [M]  drivers/net/fddi/skfp/skfddi.o
-  In file included from drivers/net/fddi/skfp/skfddi.c:95:0:
-  drivers/net/fddi/skfp/h/skfbi.h:151:0: warning: "PCI_IOBASE" redefined
-   #define PCI_IOBASE 0xffffff00L  /* Bit 31..8:  I/O Base address */
-   ^
-  In file included from include/linux/io.h:22:0,
-                   from include/linux/pci.h:31,
-                   from drivers/net/fddi/skfp/skfddi.c:82:
-  ./arch/microblaze/include/asm/io.h:33:0: note: this is the location of the previous definition
-   #define PCI_IOBASE ((void __iomem *)_IO_BASE)
-   ^
-
-Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
----
- drivers/net/fddi/skfp/h/skfbi.h | 5 -----
- 1 file changed, 5 deletions(-)
-
-diff --git a/drivers/net/fddi/skfp/h/skfbi.h b/drivers/net/fddi/skfp/h/skfbi.h
-index c1ba26c..3de2f0d 100644
---- a/drivers/net/fddi/skfp/h/skfbi.h
-+++ b/drivers/net/fddi/skfp/h/skfbi.h
-@@ -147,11 +147,6 @@
- #define	PCI_MEM64BIT	(2<<1)	     /* Base addr anywhere in 64 Bit range */
- #define	PCI_MEMSPACE	0x00000001L  /* Bit 0:	Memory Space Indic. */
- 
--/*	PCI_BASE_2ND	32 bit	2nd Base address */
--#define	PCI_IOBASE	0xffffff00L  /* Bit 31..8:  I/O Base address */
--#define	PCI_IOSIZE	0x000000fcL  /* Bit 7..2:   I/O Size Requirements */
--#define	PCI_IOSPACE	0x00000001L  /* Bit 0:	    I/O Space Indicator */
--
- /*	PCI_SUB_VID	16 bit	Subsystem Vendor ID */
- /*	PCI_SUB_ID	16 bit	Subsystem ID */
- 
--- 
-1.9.3
+is "mac-address" required?
