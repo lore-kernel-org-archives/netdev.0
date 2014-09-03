@@ -1,44 +1,71 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
- is runnable
-Date: Wed, 03 Sep 2014 09:21:25 +0300
-Message-ID: <5406B365.5040604@linux.intel.com>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>	 <1408608310-13579-2-git-send-email-jasowang@redhat.com>	 <1408683665.5648.69.camel@marge.simpson.net>	 <20140822073653.GA7372@gmail.com> <53F70887.8030602@redhat.com> <1408716976.5604.18.camel@edumazet-glaptop2.roam.corp.google.com> <53FB3715.7070009@linux.intel.com> <53FC3466.8000304@redhat.com> <5404186E.4090409@linux.intel.com> <54053AF8.6070907@redhat.com> <54055D9F.7000108@linux.intel.com> <54056459.4060100@redhat.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v2 02/15] net: rcu-ify tcf_proto
+Date: Tue, 02 Sep 2014 23:23:23 -0700
+Message-ID: <5406B3DB.8010505@gmail.com>
+References: <20140825004830.2180.70308.stgit@nitbit.x32> <20140824.223133.170922940598584254.davem@davemloft.net> <54051FC1.6030106@gmail.com> <20140902.135218.623659943093020151.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, Peter Zijlstra <peterz@infradead.org>,
-	"Ingo Molnar jacob.e.keller@intel.com" <mingo@elte.hu>
-To: Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54056459.4060100@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	brouer@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:50351 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752873AbaICGXj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 02:23:39 -0400
+Received: by mail-ob0-f170.google.com with SMTP id m8so5729651obr.15
+        for <netdev@vger.kernel.org>; Tue, 02 Sep 2014 23:23:39 -0700 (PDT)
+In-Reply-To: <20140902.135218.623659943093020151.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/09/2014 09:31, Jason Wang wrote:
-> On 09/02/2014 02:03 PM, Eliezer Tamir wrote:
->> On 02/09/2014 06:35, Jason Wang wrote:
->>> Not sure whether this method will scale considering thousands of sockets
->>> and processes.
->> There may be millions of sockets, but in most cases only a handful of
->> device queues per CPU to busy poll on. I have tested the epoll rfc
->> code with hundreds of thousands of sockets and one or two device
->> queues and is scales pretty well.
+On 09/02/2014 01:52 PM, David Miller wrote:
+> From: John Fastabend <john.fastabend@gmail.com>
+> Date: Mon, 01 Sep 2014 18:39:13 -0700
+>
+>> On 08/24/2014 10:31 PM, David Miller wrote:
+>>> From: John Fastabend <john.fastabend@gmail.com>
+>>> Date: Sun, 24 Aug 2014 17:48:31 -0700
+>>>
+>>>> @@ -722,8 +724,9 @@ static void sfq_free(void *addr)
+>>>>    static void sfq_destroy(struct Qdisc *sch)
+>>>>    {
+>>>>    	struct sfq_sched_data *q = qdisc_priv(sch);
+>>>> +	struct tcf_proto *fl = rtnl_dereference(q->filter_list);
+>>>>
+>>>> -	tcf_destroy_chain(&q->filter_list);
+>>>> +	tcf_destroy_chain(&fl);
 >>
->> The part I don't like in that code is the cumbersome mechanism I used
->> to track the socket -> queue relationship. I think that if I had more
->> time to work on it, I would instead look into extending the epoll
->> interface so that libevent can tell the kernel what it wants, instead
->> of having the busypoll code try and learn it.
-> 
-> I'd like to have a look at this rfc. Could you please give me a pointer?
-> I've done a quick search on kernel mailing list but didn't find it.
+>> Sorry for the delayed reply...
+>>
+>>>
+>>> This will cause tcf_destroy_chain() to set the local variable
+>>> 'fl' to NULL rather than q->filter_list.
+>>>
+>>> I don't see how this can be correct at all.
+>>
+>> Right now (without these patches) nothing sets q->filter_list
+>> to NULL and we only call this when the qdisc is being destroyed.
+>
+> Yes, it does set it to NULL, by virtue of how the loop iterates.
+>
 
-https://lkml.org/lkml/2013/8/21/192
+yes of course its obvious now that you spell it out for me.
 
-Cheers,
-Eliezer
+> It iterates by setting the "*fl" to tp->next until that evaluates to
+> NULL.  Thereby setting *fl to NULL.
+>
+> So the old code would set ->filter_list to NULL, your code will not.
+>
+
+right I will fix this in the morning along with the sparse
+warnings related to the tcf_find signatures.
+
+Thanks
+John
+
+
+-- 
+John Fastabend         Intel Corporation
