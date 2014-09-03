@@ -1,69 +1,82 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: SCTP research inquiry
-Date: Wed, 03 Sep 2014 19:22:46 +0200
-Message-ID: <54074E66.7000200@redhat.com>
-References: <CAHJk9CcBb5VUs9vibXW1QBxPONcmitFSzA9KPZj46dW+6WLKdQ@mail.gmail.com>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: [net-next 05/15] i40e: Tell OS link is going down when calling
+ set_phy_config
+Date: Wed, 3 Sep 2014 10:27:59 -0700
+Message-ID: <20140903102759.00000db7@intel.com>
+References: <1409304620-23251-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1409304620-23251-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	<5400BA63.7030307@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Kostantinos Katsaros <dinos.katsaros@gmail.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, <davem@davemloft.net>,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
+	<netdev@vger.kernel.org>, <nhorman@redhat.com>,
+	<sassmann@redhat.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33272 "EHLO mx1.redhat.com"
+Received: from mga02.intel.com ([134.134.136.20]:31338 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756292AbaICRWu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 13:22:50 -0400
-In-Reply-To: <CAHJk9CcBb5VUs9vibXW1QBxPONcmitFSzA9KPZj46dW+6WLKdQ@mail.gmail.com>
+	id S1753813AbaICR2F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 13:28:05 -0400
+In-Reply-To: <5400BA63.7030307@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/03/2014 07:07 PM, Kostantinos Katsaros wrote:
-> Dear NetDev list,
->
-> I am a researcher from Univ. of Surrey. I know that this list is
-> mainly for developers of linux-kernel but I want to ask for some help
-> to understand the SCTP implementation and pointers to some aspects.
->
-> What I would actually like to do, is to modify the default SCTP
-> operation with respect to primary/secondary interface selection and
-> analyse it in simulations with NS-3. However, I haven't found an API
-> or some other help and I was advised to contact this list. I know that
-> NS-3 is capable of using linux-kernel implementations through the use
-> of DCE, but my issue here is in the SCTP implementation.
->
-> There a few questions I have in a basic scenario with two nodes
-> connected via 2 interfaces.
->
-> - How can I dynamically select which of the two interfaces is primary?
-> Which method is responsible or should be called to switch?
+On Fri, 29 Aug 2014 21:37:39 +0400
+Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
 
-Have a look at the implementation of sctp_select_active_and_retran_path()
-and sctp_assoc_choose_alter_transport() with sctp_assoc_update_retran_path().
-Make sure you use a latest 3.17 rcX as it contains the latest changes to
-it (which you will find with some more explanation in the git log under
-net/sctp/).
+> On 08/29/2014 01:30 PM, Jeff Kirsher wrote:
+> 
+> > From: Catherine Sullivan <catherine.sullivan@intel.com>
+> 
+> > Since we don't seem to be getting an LSE telling us link is going
+> > down during set_phy_config (but we do get an LSE telling us we are
+> > coming back up), fake one for the OS and tell them link is going
+> > down. Also do an atomic restart no matter what because there are
+> > times the user may want to end with link up even if they started
+> > with link down (like if they accidentally set it to a speed that
+> > can't link and are trying to fix it).
+> 
+> > Change-ID: I0a642af9c1d0feb67bce741aba1a9c33bd349ed6
+> > Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+> > Tested-by: Jim Young <jamesx.m.young@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
+> >   drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 21
+> > ++++++++++++++++++--- 1 file changed, 18 insertions(+), 3
+> > deletions(-)
+> 
+> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+> > b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c index
+> > de4ce0e..101be2f 100644 ---
+> > a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c +++
+> > b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c @@ -559,9 +559,17
+> > @@ static int i40e_set_settings(struct net_device *netdev,
+> > config.eeer = abilities.eeer_val; config.low_power_ctrl =
+> > abilities.d3_lpan;
+> >
+> > -		/* If link is up set link and an so changes take
+> > effect */
+> > -		if (hw->phy.link_info.link_info & I40E_AQ_LINK_UP)
+> > -			config.abilities |=
+> > I40E_AQ_PHY_ENABLE_ATOMIC_LINK;
+> > +		/* set link and an so changes take effect */
+> 
+>     Can't parse this comment, probably a word is missing?
+> 
+> WBR, Sergei
 
-> - I guess that SCTP has some variable holding the estimated RTT on
-> each path (also used for calculating RTO). Is this accessible and how?
-> I would like to use this as a triggering mechanism to the switch
-> method above. In principle select the path with the minimum RTT.
->
-> - In a similar way of TCP Westwood (Plus), I would like to estimate
-> the available bandwidth and use this as trigger.
->
-> - Finally, I want to monitor the ratio (packets or bytes sent) on each
-> of the available paths. How can I implement such mechanism? Do I have
-> to implement a 'sniffer'?
->
->
-> I would appreciate any help, pointers, code snippets.
->
->
-> Regards,
->
-> Kostas
+"and an" should be "and AN" I think - AN standing in for
+auto negotiation.
+
+Agreed the comment needs fixing up.  Should probably just say
+"auto negotiation"
+
+- Greg
+
+> 
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
