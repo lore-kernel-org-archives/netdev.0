@@ -1,88 +1,56 @@
-From: Romain Perier <romain.perier@gmail.com>
-Subject: [PATCH 2/4] dt-bindings: Document EMAC Rockchip
-Date: Wed,  3 Sep 2014 10:27:14 +0000
-Message-ID: <1409740036-8117-2-git-send-email-romain.perier@gmail.com>
-References: <1409740036-8117-1-git-send-email-romain.perier@gmail.com>
-Cc: linux-rockchip@lists.infradead.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, arnd@arndb.de
-To: heiko@sntech.de
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [net-next PATCH 2/3] qdisc: bulk dequeue support for qdiscs with
+ TCQ_F_ONETXQUEUE
+Date: Wed, 3 Sep 2014 12:23:10 +0200
+Message-ID: <20140903102310.GA27002@breakpoint.cc>
+References: <20140902143254.1918.8419.stgit@dragon>
+ <20140902143538.1918.82870.stgit@dragon>
+ <1409671362.3173.108.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140903113119.245b4746@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:62477 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755985AbaICKZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 06:25:07 -0400
-In-Reply-To: <1409740036-8117-1-git-send-email-romain.perier@gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:51450 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754336AbaICKXP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 06:23:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20140903113119.245b4746@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds the necessary binding documentation for the EMAC Rockchip platform
-driver found in RK3066 and RK3188 SoCs.
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> On Tue, 02 Sep 2014 08:22:42 -0700
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> > On Tue, 2014-09-02 at 16:35 +0200, Jesper Dangaard Brouer wrote:
+> > 
+> > > This is crazy fast. This measurement is actually "too-high" as
+> > > 10Gbit/s wirespeed is 14,880,952 (11049 pps too fast).
+> > > 
+> > > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> > > ---
+> > 
+> > This looks buggy, you forgot about GSO.
+> 
+> The GSO check is (!skb->next), right(?)
 
-Signed-off-by: Romain Perier <romain.perier@gmail.com>
----
- .../devicetree/bindings/net/emac_rockchip.txt      | 53 ++++++++++++++++++++++
- 1 file changed, 53 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/emac_rockchip.txt
+No, you'd want to use skb_is_gso() helper.
 
-diff --git a/Documentation/devicetree/bindings/net/emac_rockchip.txt b/Documentation/devicetree/bindings/net/emac_rockchip.txt
-new file mode 100644
-index 0000000..d3242e4
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/emac_rockchip.txt
-@@ -0,0 +1,53 @@
-+* ARC EMAC 10/100 Ethernet platform driver for Rockchip Rk3066/RK3188 SoCs
-+
-+Required properties:
-+- compatible: Should be "rockchip,rk3066-emac" or "rockchip,rk3188-emac"
-+  according to the target SoC.
-+- reg: Address and length of the register set for the device
-+- interrupts: Should contain the EMAC interrupts
-+- pinctrl-names: pin control state name ("default").
-+- pinctrl-0: pin control group list of phandle. It must contain
-+  pin control groups for communication with the phy and for the mii bus.
-+- rockchip,grf: phandle to the syscon grf used to control speed and mode
-+  for emac.
-+- phy: see ethernet.txt file in the same directory.
-+- phy-mode: see ethernet.txt file in the same directory.
-+
-+Optional properties:
-+- phy-supply: phandle to a regulator if the PHY needs one
-+
-+Clock handling:
-+- The host clock is needed to calculate and set polling period of EMAC.
-+  It must be provided by the clock "hclk".
-+- The reference clock is needed to get/set data from phy at the right frequency,
-+  according to its "phy-mode". It must be provided by the clock "macref".
-+
-+Child nodes of the driver are the individual PHY devices connected to the
-+MDIO bus. They must have a "reg" property given the PHY address on the MDIO bus.
-+
-+Examples:
-+
-+ethernet@10204000 {
-+	compatible = "rockchip,rk3188-emac";
-+	reg = <0xc0fc2000 0x3c>;
-+	interrupts = <6>;
-+	mac-address = [ 00 11 22 33 44 55 ];
-+
-+	clocks = <&cru HCLK_EMAC>, <&cru SCLK_MAC>;
-+	clock-names = "hclk", "macref";
-+
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&emac_xfer>, <&emac_mdio>, <&phy_int>;
-+
-+	rockchip,grf = <&grf>;
-+
-+	phy = <&phy0>;
-+	phy-mode = "rmii";
-+	phy-supply = <&vcc_rmii>;
-+
-+	#address-cells = <1>;
-+	#size-cells = <0>;
-+	phy0: ethernet-phy@0 {
-+	      reg = <1>;
-+	};
-+};
--- 
-1.9.1
+> > Also, our idea was to use a byte count limit (aka BQL)
+> 
+> It makes sense. I will look into using the BQL limits.
+
+Thanks Jesper.
+
+> > If we dequeue 8 64KB packets, this patch adds head of line blocking,
+> > which we fought hard.
+
+Just to make sure: Using bql limits would resolve your HOL blocking
+concerns, right?
