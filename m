@@ -1,51 +1,60 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 0/3] qdisc bulk dequeuing and utilizing delayed
- tailptr updates
-Date: Wed, 3 Sep 2014 14:47:09 +0200
-Message-ID: <20140903144709.7a658763@redhat.com>
-References: <20140902143254.1918.8419.stgit@dragon>
-	<CA+mtBx8JVqb0TXEOLimAv0hh_g5pfTRg08uNp2idcy=nWhk0_A@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v4 1/4] ethernet: arc: Add support for Rockchip SoC layer device tree bindings
+Date: Wed, 03 Sep 2014 14:50:22 +0200
+Message-ID: <3545574.7Z5WmaTlg0@wuerfel>
+References: <1409740036-8117-1-git-send-email-romain.perier@gmail.com> <3774938.44qiV4hEoE@wuerfel> <12261801.xhz3LcucGs@diego>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Florian Westphal <fw@strlen.de>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <dborkman@redhat.com>, brouer@redhat.com
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arm-kernel@lists.infradead.org,
+	Romain Perier <romain.perier@gmail.com>,
+	linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49621 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932342AbaICMr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 08:47:28 -0400
-In-Reply-To: <CA+mtBx8JVqb0TXEOLimAv0hh_g5pfTRg08uNp2idcy=nWhk0_A@mail.gmail.com>
+Received: from mout.kundenserver.de ([212.227.126.130]:53159 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932573AbaICMvE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 08:51:04 -0400
+In-Reply-To: <12261801.xhz3LcucGs@diego>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2 Sep 2014 11:04:06 -0700
-Tom Herbert <therbert@google.com> wrote:
+On Wednesday 03 September 2014 14:20:50 Heiko St=FCbner wrote:
+> >=20
+> > One last question: is this the location given as .grf_offset the
+> > only thing in grf that is potentially of concern to this driver?
+> >=20
+> > If it is, you can change the binding to include the register number
+> > in the syscon reference, like
+> >=20
+> >       rockchip,grf =3D <&grf 0x154>;
+> >=20
+> > and then read it from there, to simplify the code needed to get the
+> > number from the device id.
+>=20
+> I would disagree here=20
+>=20
+> Specific to the emac, there also exists a second register in the grf =
+(0xa8 for=20
+> the rk3188) that contains a field=20
+>=20
+> ----
+> emac_newrcv_en - the selection of RMII receive selection
+> 0: don't support the data package without header
+> 1: support the data package without header
+> ----
+>=20
+> which we don't handle currently but somebody might want to in the fut=
+ure.
+> [There also is no documentation of this at all]
 
-> On Tue, Sep 2, 2014 at 7:35 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
-> > This patchset uses DaveM's recent API changes to dev_hard_start_xmit(),
-> > from the qdisc layer, to implement dequeue bulking.
-> >
-> > Open questions:
-> >
-> > - For now set bulk limit to 8 packets, don't want to stress the driver
-> >   avail ring_buffer space.
-> >
-> Please get limit from BQL also, see:
-> [PATCH net-next] net: Functions to report space available in device TX queues
+Ok, fair enough. If there is a chance that there would be more of these
+fields that we may want to support in the future, the table approach
+seems reasonable.
 
-Thank you Tom. I will include that patch in my stack (keeping you as
-author), and use the functions you are proposing.
+The main advantage of putting the register number into the syscon
+reference is to support future models without driver changes, but
+it's not clear if that's worth it.
 
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+	Arnd
