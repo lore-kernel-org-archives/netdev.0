@@ -1,45 +1,54 @@
 From: Frank Li <Frank.Li@freescale.com>
-Subject: [Patch net-next 00/11] net: fec: imx6sx multiqueue support
-Date: Thu, 4 Sep 2014 04:38:06 +0800
-Message-ID: <1409776697-1536-1-git-send-email-Frank.Li@freescale.com>
+Subject: [Patch net-next 07/11] net:fec: Add fsl,imx6sx-fec  compatible strings
+Date: Thu, 4 Sep 2014 04:38:13 +0800
+Message-ID: <1409776697-1536-8-git-send-email-Frank.Li@freescale.com>
+References: <1409776697-1536-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, Frank Li <Frank.Li@freescale.com>
+	<devicetree@vger.kernel.org>, Fugang Duan <B38611@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>
 To: <b38611@freescale.com>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0207.outbound.protection.outlook.com ([207.46.163.207]:56049
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1lp0141.outbound.protection.outlook.com ([207.46.163.141]:24285
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756050AbaICVAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 17:00:09 -0400
+	id S1755985AbaICVAE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Sep 2014 17:00:04 -0400
+In-Reply-To: <1409776697-1536-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches enable i.MX6SX multi queue support.
-i.MX6SX support 3 queue and AVB feature. 
+From: Fugang Duan <B38611@freescale.com>
 
-Frank Li (3):
-  net:fec: add enet-avb IP support
-  ARM: Documentation: Update fec dts binding doc
-  ARM: dts: imx6sx: add multi-queue support enet
+Add compatible string "fsl,imx6sx-fec" for i.MX6SX.
 
-Fugang Duan (8):
-  net:fec: add enet refrence clock for i.MX 6SX chip
-  net:fec: add enet AVB feature macro define for imx6sx
-  net:fec: use multiqueue interface to allocate Ethernet device
-  net:fec: add multiqueue support
-  net:fec: Disable enet-avb MAC instead of reset MAC
-  net:fec: Add fsl,imx6sx-fec  compatible strings
-  net:fec: change FEC alignment to 64 bytes for ARM platform
-  net:fec: remove unnessary memory copy for address alignment in .xmit()
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
- Documentation/devicetree/bindings/net/fsl-fec.txt |   6 +
- arch/arm/boot/dts/imx6sx.dtsi                     |   2 +
- drivers/net/ethernet/freescale/fec.h              | 151 +++-
- drivers/net/ethernet/freescale/fec_main.c         | 877 +++++++++++++++-------
- 4 files changed, 750 insertions(+), 286 deletions(-)
-
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 6aab64b..a232245 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -157,6 +157,7 @@ enum imx_fec_type {
+ 	IMX28_FEC,
+ 	IMX6Q_FEC,
+ 	MVF600_FEC,
++	IMX6SX_FEC,
+ };
+ 
+ static const struct of_device_id fec_dt_ids[] = {
+@@ -165,6 +166,7 @@ static const struct of_device_id fec_dt_ids[] = {
+ 	{ .compatible = "fsl,imx28-fec", .data = &fec_devtype[IMX28_FEC], },
+ 	{ .compatible = "fsl,imx6q-fec", .data = &fec_devtype[IMX6Q_FEC], },
+ 	{ .compatible = "fsl,mvf600-fec", .data = &fec_devtype[MVF600_FEC], },
++	{ .compatible = "fsl,imx6sx-fec", .data = &fec_devtype[IMX6SX_FEC], },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, fec_dt_ids);
 -- 
 1.9.1
