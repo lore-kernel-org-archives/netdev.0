@@ -1,74 +1,44 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] net: export pkt_type_offset() helper
-Date: Wed, 03 Sep 2014 08:19:50 +0200
-Message-ID: <5406B306.1050203@redhat.com>
-References: <1409688238-3152-1-git-send-email-kda@linux-powerpc.org> <20140902225926.GA14635@its-macbook-pro.plumgrid.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
+ is runnable
+Date: Wed, 03 Sep 2014 09:21:25 +0300
+Message-ID: <5406B365.5040604@linux.intel.com>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>	 <1408608310-13579-2-git-send-email-jasowang@redhat.com>	 <1408683665.5648.69.camel@marge.simpson.net>	 <20140822073653.GA7372@gmail.com> <53F70887.8030602@redhat.com> <1408716976.5604.18.camel@edumazet-glaptop2.roam.corp.google.com> <53FB3715.7070009@linux.intel.com> <53FC3466.8000304@redhat.com> <5404186E.4090409@linux.intel.com> <54053AF8.6070907@redhat.com> <54055D9F.7000108@linux.intel.com> <54056459.4060100@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Denis Kirjanov <kda@linux-powerpc.org>, netdev@vger.kernel.org,
-	Markos Chandras <markos.chandras@imgtec.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24005 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754601AbaICGUH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 02:20:07 -0400
-In-Reply-To: <20140902225926.GA14635@its-macbook-pro.plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com, Peter Zijlstra <peterz@infradead.org>,
+	"Ingo Molnar jacob.e.keller@intel.com" <mingo@elte.hu>
+To: Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54056459.4060100@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/03/2014 12:59 AM, Alexei Starovoitov wrote:
-> On Wed, Sep 03, 2014 at 12:03:58AM +0400, Denis Kirjanov wrote:
->> Currently we have 2 pkt_type_offset functions doing
->> the same thing and spread across the architecture files.
->> Let's use the generic helper routine.
->
-> that would be good cleanup.
-> Please tag your subject as '[PATCH net-next]...'
->
->> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
->> Cc: Markos Chandras <markos.chandras@imgtec.com>
->> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
->> Cc: Daniel Borkmann <dborkman@redhat.com>
->> ---
->>   arch/mips/net/bpf_jit.c      | 21 ---------------------
->>   arch/s390/net/bpf_jit_comp.c | 38 ++++----------------------------------
->>   include/linux/filter.h       |  7 +++++++
->>   net/core/filter.c            |  7 +------
->>   4 files changed, 12 insertions(+), 61 deletions(-)
+On 02/09/2014 09:31, Jason Wang wrote:
+> On 09/02/2014 02:03 PM, Eliezer Tamir wrote:
+>> On 02/09/2014 06:35, Jason Wang wrote:
+>>> Not sure whether this method will scale considering thousands of sockets
+>>> and processes.
+>> There may be millions of sockets, but in most cases only a handful of
+>> device queues per CPU to busy poll on. I have tested the epoll rfc
+>> code with hundreds of thousands of sockets and one or two device
+>> queues and is scales pretty well.
 >>
->> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
->> -#define PKT_TYPE_MAX 0xe0
->> -static int pkt_type_offset;
-> ...
->> -}
->> -device_initcall(bpf_pkt_type_offset_init);
->
-> may be make sense to optimize common case via initcall() as well
-> instead of dropping it for s390?
+>> The part I don't like in that code is the cumbersome mechanism I used
+>> to track the socket -> queue relationship. I think that if I had more
+>> time to work on it, I would instead look into extending the epoll
+>> interface so that libevent can tell the kernel what it wants, instead
+>> of having the busypoll code try and learn it.
+> 
+> I'd like to have a look at this rfc. Could you please give me a pointer?
+> I've done a quick search on kernel mailing list but didn't find it.
 
-I think that probably might not be a bad idea. pkt_type_offset
-should be a __read_mostly candidate then. As we have things like
-PTP classifier that is being loaded in core_initcall(), we might
-need to initialize pkt_type_offset then via pure_initcall(),
-for example. I think that should be doable, as it doesn't have
-any dependencies elsewhere.
+https://lkml.org/lkml/2013/8/21/192
 
->> diff --git a/include/linux/filter.h b/include/linux/filter.h
->> index a5227ab..97e0549 100644
->> --- a/include/linux/filter.h
->> +++ b/include/linux/filter.h
->> @@ -424,6 +424,13 @@ static inline void *bpf_load_pointer(const struct sk_buff *skb, int k,
->>   	return bpf_internal_load_pointer_neg_helper(skb, k, size);
->>   }
->>
->> +#ifdef __BIG_ENDIAN_BITFIELD
->> +#define PKT_TYPE_MAX	(7 << 5)
->> +#else
->> +#define PKT_TYPE_MAX    7
->> +#endif
->
-> these defines don't need to move. keep them in filter.c
->
+Cheers,
+Eliezer
