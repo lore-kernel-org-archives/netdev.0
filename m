@@ -1,105 +1,49 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [PATCH net] l2tp: fix race while getting PMTU on PPP pseudo-wire
-Date: Wed, 3 Sep 2014 17:47:03 +0200
-Message-ID: <20140903154703.GE3688@alphalink.fr>
-References: <3a4673ddb2556634d0cbeae9b31ebc386e720335.1409746289.git.g.nault@alphalink.fr>
- <1409752526.26422.36.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v9 net-next 2/4] net: filter: split filter.h and expose
+ eBPF to user space
+Date: Wed, 03 Sep 2014 17:46:39 +0200
+Message-ID: <540737DF.1010801@redhat.com>
+References: <1409714246-31054-1-git-send-email-ast@plumgrid.com> <1409714246-31054-3-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Petukhov <dmgenp@gmail.com>, netdev@vger.kernel.org,
-	James Chapman <jchapman@katalix.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:41635 "EHLO
-	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750953AbaICPrK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 11:47:10 -0400
-Content-Disposition: inline
-In-Reply-To: <1409752526.26422.36.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409714246-31054-3-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 03, 2014 at 06:55:26AM -0700, Eric Dumazet wrote:
-> On Wed, 2014-09-03 at 14:12 +0200, Guillaume Nault wrote:
-> > Use dst_entry held by sk_dst_get() to retrieve tunnel's PMTU.
-> > 
-> > The dst_mtu(__sk_dst_get(tunnel->sock)) call was racy. __sk_dst_get()
-> > could return NULL if tunnel->sock->sk_dst_cache was reset just before the
-> > call, thus making dst_mtu() dereference a NULL pointer:
-> > 
-> > [ 1937.661598] BUG: unable to handle kernel NULL pointer dereference at 0000000000000020
-> > [ 1937.664005] IP: [<ffffffffa049db88>] pppol2tp_connect+0x33d/0x41e [l2tp_ppp]
-> > [ 1937.664005] PGD daf0c067 PUD d9f93067 PMD 0
-> > [ 1937.664005] Oops: 0000 [#1] SMP
-> > [ 1937.664005] Modules linked in: l2tp_ppp l2tp_netlink l2tp_core ip6table_filter ip6_tables iptable_filter ip_tables ebtable_nat ebtables x_tables udp_tunnel pppoe pppox ppp_generic slhc deflate ctr twofish_generic twofish_x86_64_3way xts lrw gf128mul glue_helper twofish_x86_64 twofish_common blowfish_generic blowfish_x86_64 blowfish_common des_generic cbc xcbc rmd160 sha512_generic hmac crypto_null af_key xfrm_algo 8021q garp bridge stp llc tun atmtcp clip atm ext3 mbcache jbd iTCO_wdt coretemp kvm_intel iTCO_vendor_support kvm pcspkr evdev ehci_pci lpc_ich mfd_core i5400_edac edac_core i5k_amb shpchp button processor thermal_sys xfs crc32c_generic libcrc32c dm_mod usbhid sg hid sr_mod sd_mod cdrom crc_t10dif crct10dif_common ata_generic ahci ata_piix tg3 libahci libata uhci_hcd ptp 
- ehci_hcd pps_core usbcore scsi_mod libphy usb_common [last unloaded: l2tp_core]
-> > [ 1937.664005] CPU: 0 PID: 10022 Comm: l2tpstress Tainted: G           O   3.17.0-rc1 #1
-> > [ 1937.664005] Hardware name: HP ProLiant DL160 G5, BIOS O12 08/22/2008
-> > [ 1937.664005] task: ffff8800d8fda790 ti: ffff8800c43c4000 task.ti: ffff8800c43c4000
-> > [ 1937.664005] RIP: 0010:[<ffffffffa049db88>]  [<ffffffffa049db88>] pppol2tp_connect+0x33d/0x41e [l2tp_ppp]
-> > [ 1937.664005] RSP: 0018:ffff8800c43c7de8  EFLAGS: 00010282
-> > [ 1937.664005] RAX: ffff8800da8a7240 RBX: ffff8800d8c64600 RCX: 000001c325a137b5
-> > [ 1937.664005] RDX: 8c6318c6318c6320 RSI: 000000000000010c RDI: 0000000000000000
-> > [ 1937.664005] RBP: ffff8800c43c7ea8 R08: 0000000000000000 R09: 0000000000000000
-> > [ 1937.664005] R10: ffffffffa048e2c0 R11: ffff8800d8c64600 R12: ffff8800ca7a5000
-> > [ 1937.664005] R13: ffff8800c439bf40 R14: 000000000000000c R15: 0000000000000009
-> > [ 1937.664005] FS:  00007fd7f610f700(0000) GS:ffff88011a600000(0000) knlGS:0000000000000000
-> > [ 1937.664005] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> > [ 1937.664005] CR2: 0000000000000020 CR3: 00000000d9d75000 CR4: 00000000000027e0
-> > [ 1937.664005] Stack:
-> > [ 1937.664005]  ffffffffa049da80 ffff8800d8fda790 000000000000005b ffff880000000009
-> > [ 1937.664005]  ffff8800daf3f200 0000000000000003 ffff8800c43c7e48 ffffffff81109b57
-> > [ 1937.664005]  ffffffff81109b0e ffffffff8114c566 0000000000000000 0000000000000000
-> > [ 1937.664005] Call Trace:
-> > [ 1937.664005]  [<ffffffffa049da80>] ? pppol2tp_connect+0x235/0x41e [l2tp_ppp]
-> > [ 1937.664005]  [<ffffffff81109b57>] ? might_fault+0x9e/0xa5
-> > [ 1937.664005]  [<ffffffff81109b0e>] ? might_fault+0x55/0xa5
-> > [ 1937.664005]  [<ffffffff8114c566>] ? rcu_read_unlock+0x1c/0x26
-> > [ 1937.664005]  [<ffffffff81309196>] SYSC_connect+0x87/0xb1
-> > [ 1937.664005]  [<ffffffff813e56f7>] ? sysret_check+0x1b/0x56
-> > [ 1937.664005]  [<ffffffff8107590d>] ? trace_hardirqs_on_caller+0x145/0x1a1
-> > [ 1937.664005]  [<ffffffff81213dee>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-> > [ 1937.664005]  [<ffffffff8114c262>] ? spin_lock+0x9/0xb
-> > [ 1937.664005]  [<ffffffff813092b4>] SyS_connect+0x9/0xb
-> > [ 1937.664005]  [<ffffffff813e56d2>] system_call_fastpath+0x16/0x1b
-> > [ 1937.664005] Code: 10 2a 84 81 e8 65 76 bd e0 65 ff 0c 25 10 bb 00 00 4d 85 ed 74 37 48 8b 85 60 ff ff ff 48 8b 80 88 01 00 00 48 8b b8 10 02 00 00 <48> 8b 47 20 ff 50 20 85 c0 74 0f 83 e8 28 89 83 10 01 00 00 89
-> > [ 1937.664005] RIP  [<ffffffffa049db88>] pppol2tp_connect+0x33d/0x41e [l2tp_ppp]
-> > [ 1937.664005]  RSP <ffff8800c43c7de8>
-> > [ 1937.664005] CR2: 0000000000000020
-> > [ 1939.559375] ---[ end trace 82d44500f28f8708 ]---
-> > 
-> > Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
-> > ---
-> >  net/l2tp/l2tp_ppp.c | 3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-> > index 13752d9..b704a93 100644
-> > --- a/net/l2tp/l2tp_ppp.c
-> > +++ b/net/l2tp/l2tp_ppp.c
-> > @@ -755,7 +755,8 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
-> >  	/* If PMTU discovery was enabled, use the MTU that was discovered */
-> >  	dst = sk_dst_get(tunnel->sock);
-> >  	if (dst != NULL) {
-> > -		u32 pmtu = dst_mtu(__sk_dst_get(tunnel->sock));
-> > +		u32 pmtu = dst_mtu(dst);
-> > +
-> >  		if (pmtu != 0)
-> >  			session->mtu = session->mru = pmtu -
-> >  				PPPOL2TP_HEADER_OVERHEAD;
-> 
-> 
-> Probably introduced in commit f34c4a35d879 ("l2tp: take PMTU from tunnel
-> UDP socket")
-> 
-Indeed, I forgot to mention it. Thanks for clarification.
+On 09/03/2014 05:17 AM, Alexei Starovoitov wrote:
+> allow user space to generate eBPF programs
+>
+> uapi/linux/bpf.h: eBPF instruction set definition
+>
+> linux/filter.h: the rest
+>
+> This patch only moves macro definitions, but practically it freezes existing
+> eBPF instruction set, though new instructions can still be added in the future.
+>
+> These eBPF definitions cannot go into uapi/linux/filter.h, since the names
+> may conflict with existing applications.
+>
+> Full eBPF ISA description is in Documentation/networking/filter.txt
+>
+> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 
-> CC Dmitry
-> 
-> Before this patch, the bug could not happen.
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> Fixes: f34c4a35d879 ("l2tp: take PMTU from tunnel UDP socket")
-> 
-> 
+Ok, given you post the remaining two RFCs later on this window as
+you indicate, I have no objections:
+
+Acked-by: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
