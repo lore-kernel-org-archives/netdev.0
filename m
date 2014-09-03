@@ -1,31 +1,83 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v2 0/2] r8152: random MAC address
-Date: Wed, 3 Sep 2014 10:59:13 +0800
-Message-ID: <1394712342-15778-29-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next v2 2/2] r8152: use eth_hw_addr_random
+Date: Wed, 3 Sep 2014 10:59:15 +0800
+Message-ID: <1394712342-15778-31-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-26-Taiwan-albertk@realtek.com>
+ <1394712342-15778-29-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
 	<linux-usb@vger.kernel.org>
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-26-Taiwan-albertk@realtek.com>
+In-Reply-To: <1394712342-15778-29-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If the interface has invalid MAC address, it couldn't
-be used. In order to let it work normally, give a
-random one.
+If the hw doesn't have a valid MAC address, give a random one and
+set it to the hw.
 
-v2:
-  Use "%pM" format specifier for printing a MAC address.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 35 ++++++++++++++++++++---------------
+ 1 file changed, 20 insertions(+), 15 deletions(-)
 
-Hayes Wang (2):
-  r8152: change the location of rtl8152_set_mac_address
-  r8152: use eth_hw_addr_random
-
- drivers/net/usb/r8152.c | 65 ++++++++++++++++++++++++++++---------------------
- 1 file changed, 37 insertions(+), 28 deletions(-)
-
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index b5ff933..443eb9e 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -992,32 +992,37 @@ static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
+ 	return 0;
+ }
+ 
+-static inline void set_ethernet_addr(struct r8152 *tp)
++static int set_ethernet_addr(struct r8152 *tp)
+ {
+ 	struct net_device *dev = tp->netdev;
++	struct sockaddr sa;
+ 	int ret;
+-	u8 node_id[8] = {0};
+ 
+ 	if (tp->version == RTL_VER_01)
+-		ret = pla_ocp_read(tp, PLA_IDR, sizeof(node_id), node_id);
++		ret = pla_ocp_read(tp, PLA_IDR, 8, sa.sa_data);
+ 	else
+-		ret = pla_ocp_read(tp, PLA_BACKUP, sizeof(node_id), node_id);
++		ret = pla_ocp_read(tp, PLA_BACKUP, 8, sa.sa_data);
+ 
+ 	if (ret < 0) {
+-		netif_notice(tp, probe, dev, "inet addr fail\n");
++		netif_err(tp, probe, dev, "Get ether addr fail\n");
++	} else if (!is_valid_ether_addr(sa.sa_data)) {
++		netif_err(tp, probe, dev, "Invalid ether addr %pM\n",
++			  sa.sa_data);
++		eth_hw_addr_random(dev);
++		ether_addr_copy(sa.sa_data, dev->dev_addr);
++		ret = rtl8152_set_mac_address(dev, &sa);
++		netif_info(tp, probe, dev, "Random ether addr %pM\n",
++			   sa.sa_data);
+ 	} else {
+-		if (tp->version != RTL_VER_01) {
+-			ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR,
+-				       CRWECR_CONFIG);
+-			pla_ocp_write(tp, PLA_IDR, BYTE_EN_SIX_BYTES,
+-				      sizeof(node_id), node_id);
+-			ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR,
+-				       CRWECR_NORAML);
+-		}
++		if (tp->version == RTL_VER_01)
++			ether_addr_copy(dev->dev_addr, sa.sa_data);
++		else
++			ret = rtl8152_set_mac_address(dev, &sa);
+ 
+-		memcpy(dev->dev_addr, node_id, dev->addr_len);
+-		memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
++		ether_addr_copy(dev->perm_addr, dev->dev_addr);
+ 	}
++
++	return ret;
+ }
+ 
+ static void read_bulk_callback(struct urb *urb)
 -- 
 1.9.3
