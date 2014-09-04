@@ -1,167 +1,107 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH net-next v2 1/2] net-timestamp: Merge shared code between
- phy and regular timestamping
-Date: Wed, 03 Sep 2014 19:39:06 -0400
-Message-ID: <20140903233835.7517.3576.stgit@ahduyck-bv4.jf.intel.com>
-References: <20140903233447.7517.52329.stgit@ahduyck-bv4.jf.intel.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] sock: consistent errqueue errors and signals
+Date: Thu, 04 Sep 2014 02:17:16 +0200
+Message-ID: <1409789836.3347097.163379629.7D1B7A44@webmail.messagingengine.com>
+References: <1409534896-372-1-git-send-email-willemb@google.com>
+ <1409746453.14224.14.camel@localhost>
+ <CA+FuTSfsCiE8HvBHVd1HXG_WXZgZ1D7YjJetmSgsSO46nVtMaA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, davem@davemloft.net, willemb@google.com
-To: netdev@vger.kernel.org
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:53049 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933091AbaICX5i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Sep 2014 19:57:38 -0400
-In-Reply-To: <20140903233447.7517.52329.stgit@ahduyck-bv4.jf.intel.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:53922 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751167AbaIDARR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 20:17:17 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by gateway2.nyi.internal (Postfix) with ESMTP id ACE65207C8
+	for <netdev@vger.kernel.org>; Wed,  3 Sep 2014 20:17:16 -0400 (EDT)
+In-Reply-To: <CA+FuTSfsCiE8HvBHVd1HXG_WXZgZ1D7YjJetmSgsSO46nVtMaA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change merges the shared bits that exist between skb_tx_tstamp and
-skb_complete_tx_timestamp.  By doing this we can avoid the two diverging as
-there were already changes pushed into skb_tx_tstamp that hadn't made it
-into the other function.
+Hi,
 
-In addition this resolves issues with the fact that
-skb_complete_tx_timestamp was included in linux/skbuff.h even though it was
-only compiled in if phy timestamping was enabled.
+On Wed, Sep 3, 2014, at 21:40, Willem de Bruijn wrote:
+> > I just noticed another problem with this approach why I think we cannot
+> > use it.
+> >
+> > In case we generate an error back to the socket locally because
+> > something (e.g. the packet was too big) in output path, we must not
+> > update sk->sk_err because we return it immediately to the sender but
+> > nonetheless must update the error queue.
+> >
+> > It seems to me that this patch would report the same error two times to
+> > the program then.
+> 
+> For instance in __ip_append_data reaching
+> 
+>   ip_local_error(sk, EMSGSIZE, ..);
+>   return -EMSGSIZE;
+> 
+> With this patch, where sk->sk_err is set, the error will continuously
+> be returned on send/recv until the caller reads from the error queue.
+> A recvmsg MSG_ERRQUEUE will cause the error to be reset immediately.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+sk->sk_err will be reset by sock_error(), called from
+__skb_recv_datagram or sock_alloc_send_pskb. So a normal receive or send
+(even without MSG_ERRQUEUE) should clean the error code and report it.
+No further looks into the error queue should happen currently (I am
+currently talking about the patch in this thread).
 
----
+I was concerned that we report the error twice. Once in the sendmsg path
+and again on recvmsg or sendmsg, which finally clears sk_err.
 
-v2: Dropped comment and restored original order based on comments
-    from Willem de Bruijn.
+> If socket option IP_RECVERR is set, the process should immediately
+> read the error queue when a send call fails with EMSGSIZE or any other
+> relevant error. In that case, the error is not reported more than
+> once.
 
- net/core/skbuff.c       |   65 ++++++++++++++++++++++++++++++-----------------
- net/core/timestamping.c |   29 ---------------------
- 2 files changed, 42 insertions(+), 52 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 53ce536..697e696 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3511,33 +3511,13 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
- }
- EXPORT_SYMBOL(sock_dequeue_err_skb);
+I agree but am afraid of applications start to break.
  
--void __skb_tstamp_tx(struct sk_buff *orig_skb,
--		     struct skb_shared_hwtstamps *hwtstamps,
--		     struct sock *sk, int tstype)
-+static void __skb_complete_tx_timestamp(struct sk_buff *skb,
-+					struct sock *sk,
-+					int tstype)
- {
- 	struct sock_exterr_skb *serr;
--	struct sk_buff *skb;
- 	int err;
- 
--	if (!sk)
--		return;
--
--	if (hwtstamps) {
--		*skb_hwtstamps(orig_skb) =
--			*hwtstamps;
--	} else {
--		/*
--		 * no hardware time stamps available,
--		 * so keep the shared tx_flags and only
--		 * store software time stamp
--		 */
--		orig_skb->tstamp = ktime_get_real();
--	}
--
--	skb = skb_clone(orig_skb, GFP_ATOMIC);
--	if (!skb)
--		return;
--
- 	serr = SKB_EXT_ERR(skb);
- 	memset(serr, 0, sizeof(*serr));
- 	serr->ee.ee_errno = ENOMSG;
-@@ -3554,6 +3534,45 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
- 	if (err)
- 		kfree_skb(skb);
- }
-+
-+void skb_complete_tx_timestamp(struct sk_buff *skb,
-+			       struct skb_shared_hwtstamps *hwtstamps)
-+{
-+	struct sock *sk = skb->sk;
-+
-+	skb->sk = NULL;
-+
-+	if (hwtstamps) {
-+		*skb_hwtstamps(skb) = *hwtstamps;
-+		__skb_complete_tx_timestamp(skb, sk, SCM_TSTAMP_SND);
-+	} else {
-+		kfree_skb(skb);
-+	}
-+
-+	sock_put(sk);
-+}
-+EXPORT_SYMBOL_GPL(skb_complete_tx_timestamp);
-+
-+void __skb_tstamp_tx(struct sk_buff *orig_skb,
-+		     struct skb_shared_hwtstamps *hwtstamps,
-+		     struct sock *sk, int tstype)
-+{
-+	struct sk_buff *skb;
-+
-+	if (!sk)
-+		return;
-+
-+	if (hwtstamps)
-+		*skb_hwtstamps(orig_skb) = *hwtstamps;
-+	else
-+		orig_skb->tstamp = ktime_get_real();
-+
-+	skb = skb_clone(orig_skb, GFP_ATOMIC);
-+	if (!skb)
-+		return;
-+
-+	__skb_complete_tx_timestamp(skb, sk, tstype);
-+}
- EXPORT_SYMBOL_GPL(__skb_tstamp_tx);
- 
- void skb_tstamp_tx(struct sk_buff *orig_skb,
-diff --git a/net/core/timestamping.c b/net/core/timestamping.c
-index a877039..f48a59f 100644
---- a/net/core/timestamping.c
-+++ b/net/core/timestamping.c
-@@ -63,35 +63,6 @@ void skb_clone_tx_timestamp(struct sk_buff *skb)
- }
- EXPORT_SYMBOL_GPL(skb_clone_tx_timestamp);
- 
--void skb_complete_tx_timestamp(struct sk_buff *skb,
--			       struct skb_shared_hwtstamps *hwtstamps)
--{
--	struct sock *sk = skb->sk;
--	struct sock_exterr_skb *serr;
--	int err;
--
--	if (!hwtstamps) {
--		sock_put(sk);
--		kfree_skb(skb);
--		return;
--	}
--
--	*skb_hwtstamps(skb) = *hwtstamps;
--
--	serr = SKB_EXT_ERR(skb);
--	memset(serr, 0, sizeof(*serr));
--	serr->ee.ee_errno = ENOMSG;
--	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
--	skb->sk = NULL;
--
--	err = sock_queue_err_skb(sk, skb);
--
--	sock_put(sk);
--	if (err)
--		kfree_skb(skb);
--}
--EXPORT_SYMBOL_GPL(skb_complete_tx_timestamp);
--
- bool skb_defer_rx_timestamp(struct sk_buff *skb)
- {
- 	struct phy_device *phydev;
+> The alternative patch does not overwrite sk->sk_err, but results in
+> this same modified user-visible behavior.
+> 
+> Without the patch, after a send call fails in the above code, the
+> process can continue calling send/recv normally while ignoring the
+> error, since all "if (sk->sk_err)" checks fall through. If we have to
+> treat this as legacy behavior, then neither patch should be applied.
+> Then, the semantics are that queued errors are non-blocking. In that
+> case, the only patch needed for consistent semantics is to remove the
+> sk->sk_err assigment in skb_dequeue_err_skb.
+
+I am afraid that we need to go down this route. :/
+
+I would even let the sk->sk_error_report call be handled by the protocol
+error reporting function, as it would need to deal with sk->sk_err, too.
+
+Most applications susceptible to breakage here are ping and
+tracepath/traceroute. I don't think they all check MSG_ERRQUEUE always
+on every error. But it shouldn't matter that much because they are only
+short running apps and error queue will be freed if application exits
+before socket accounting will shut down the socket. If we start to
+report one instance of an error event multiple times, I think they might
+become confused.
+
+> On a related note, when returning an error, returning the errno from
+> the item on the queue is a confusing signal. Some error codes are the
+> result of protocol processing and have nothing queued (e.g., EINVAL),
+> others are due to an queued error (ENOMSG) and some are simply
+> ambiguous (EMSGSIZE). It is not reasonable to expect processes to
+> figure out the three sets. One solution would be to dedicate a special
+> error code to denote "there is a message queued onto sk_error_queue,
+> read the actual errno from there". This choice only relevant if we
+> decide to return an error, at all, of course.
+
+errno messages are higly sensitive regarding backwards compatibility. I
+am totally with you that a special errno marker to indicate that a
+packet was enqueued on the error queue would be much better. Currently
+applications always have to query error queue on error indication,
+otherwise socket accounting might shut down the socket at some point.
+Sadly I don't see this change to happen.
+
+Bye,
+Hannes
