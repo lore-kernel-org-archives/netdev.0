@@ -1,15 +1,15 @@
-From: Florian Westphal <fw@strlen.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [RFC net-next PATCH V2 2/3] qdisc: bulk dequeue support for
  qdiscs with TCQ_F_ONETXQUEUE
-Date: Thu, 4 Sep 2014 15:17:02 +0200
-Message-ID: <20140904131702.GA934@breakpoint.cc>
+Date: Thu, 04 Sep 2014 06:29:43 -0700
+Message-ID: <1409837383.26422.113.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <20140904125247.4108.8132.stgit@dragon>
- <20140904125438.4108.38160.stgit@dragon>
+	 <20140904125438.4108.38160.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	Tom Herbert <therbert@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Florian Westphal <fw@strlen.de>,
 	Daniel Borkmann <dborkman@redhat.com>,
@@ -18,16 +18,38 @@ Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	John Fastabend <john.r.fastabend@intel.com>
 To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:55582 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751172AbaIDNRI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 09:17:08 -0400
-Content-Disposition: inline
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:58195 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751140AbaIDN3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 09:29:48 -0400
+Received: by mail-pa0-f41.google.com with SMTP id lj1so19985431pab.14
+        for <netdev@vger.kernel.org>; Thu, 04 Sep 2014 06:29:46 -0700 (PDT)
 In-Reply-To: <20140904125438.4108.38160.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+On Thu, 2014-09-04 at 14:55 +0200, Jesper Dangaard Brouer wrote:
+> Based on DaveM's recent API work on dev_hard_start_xmit(), that allows
+> sending/processing an entire skb list.
+> 
+> This patch implements qdisc bulk dequeue, by allowing multiple packets
+> to be dequeued in dequeue_skb().
+> 
+> The optimization principle for this is two fold, (1) to amortize
+> locking cost and (2) avoid expensive tailptr update for notifying HW.
+>  (1) Several packets are dequeued while holding the qdisc root_lock,
+> amortizing locking cost over several packet.  The dequeued SKB list is
+> processed under the TXQ lock in dev_hard_start_xmit(), thus also
+> amortizing the cost of the TXQ lock.
+>  (2) Further more, dev_hard_start_xmit() will utilize the skb->xmit_more
+> API to delay HW tailptr update, which also reduces the cost per
+> packet.
+> 
+> One restriction of the new API is that every SKB must belong to the
+> same TXQ.  This patch takes the easy way out, by restricting bulk
+> dequeue to qdisc's with the TCQ_F_ONETXQUEUE flag, that specifies the
+> qdisc only have attached a single TXQ.
+> 
 > Some detail about the flow; dev_hard_start_xmit() will process the skb
 > list, and transmit packets individually towards the driver (see
 > xmit_one()).  In case the driver stops midway in the list, the
@@ -39,6 +61,47 @@ Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 > when seeing a GSO packet (both real GSO and segmented GSO skb lists).
 > 
 > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> 
+> ---
+> V2:
+>  - Restruct functions, split out functionality
+>  - Use BQL bytelimit to avoid overshooting driver limits, causing
+>    too large skb lists to be sitting on the requeue gso_skb.
+> 
+>  net/sched/sch_generic.c |   67 +++++++++++++++++++++++++++++++++++++++++++++--
+>  1 files changed, 64 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+> index 19696eb..a0c8070 100644
+> --- a/net/sched/sch_generic.c
+> +++ b/net/sched/sch_generic.c
+> @@ -56,6 +56,67 @@ static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
+>  	return 0;
+>  }
+>  
+> +static inline bool qdisc_may_bulk(const struct Qdisc *qdisc,
+> +				  const struct sk_buff *skb)
+
+Why skb is passed here ?
+
+> +{
+> +	return (qdisc->flags & TCQ_F_ONETXQUEUE);
+	
+	return qdisc->flags & TCQ_F_ONETXQUEUE;
+
+> +}
+> +
+> +static inline struct sk_buff *qdisc_dequeue_validate(struct Qdisc *qdisc)
+> +{
+> +	struct sk_buff *skb = qdisc->dequeue(qdisc);
+> +
+> +	if (skb != NULL)
+> +		skb = validate_xmit_skb(skb, qdisc_dev(qdisc));
+
+> +
+> +	return skb;
+> +}
+> +
 > +static inline struct sk_buff *qdisc_bulk_dequeue_skb(struct Qdisc *q,
 > +						     struct sk_buff *head)
 > +{
@@ -49,10 +112,44 @@ Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 > +
 > +	if (bytelimit <= 0)
 > +		return head;
+> +
+> +	do {
+> +		if (skb->next || skb_is_gso(skb)) {
 
-bytelimit < psched_mtu(qdisc_dev(q)) ?
-It would avoid overshooting bql on next dequeue operation.
+A GSO packet should not 'stop the processing' if the device is TSO
+capable : It should look as a normal packet.
 
+> +			/* Stop processing if the skb is already a skb
+> +			 * list (e.g a segmented GSO packet) or a real
+> +			 * GSO packet */
+> +			break;
+> +		}
+> +		new = qdisc_dequeue_validate(q);
+
+Thats broken.
+
+After validate_xmit_skb()  @new might be the head of a list. (GSO split)
+
+
+
+> +		if (new) {
+> +			skb->next = new;
+
+
+> +			skb = new;
+
+and new is only the first element on the list.
+
+> +			bytelimit -= skb->len;
+
+skb->len is the length of first segment.
+
+> +			cnt++;
+> +			/* One problem here is it is difficult to
+> +			 * requeue the "new" dequeued skb, e.g. in
+> +			 * case of GSO, thus a "normal" packet can
+> +			 * have a GSO packet on its ->next ptr.
+> +			 *
 > +			 * Requeue is difficult because if requeuing
 > +			 * on q->gso_skb, then a second requeue can
 > +			 * happen from sch_direct_xmit e.g. if driver
@@ -60,13 +157,31 @@ It would avoid overshooting bql on next dequeue operation.
 > +			 * overwrite this requeue.
 > +			 */
 
-Perhaps we should just free the entire list in such a case;
-it would also permit extending this to qdisc with
-multiple tx queues later (since you could requeue skb
-if the txq mapping changes)?
+It should not overwrite, but insert back. Thats what need to be done.
 
-It would also allow use of qdisc_peek helpers to only dequeue
-skb when it is suitable for bulking.
+> +		}
+> +	} while (new && --limit && (bytelimit > 0));
+> +	skb = head;
+> +
+> +	return skb;
+> +}
+> +
 
-Unrelated to your patch: q->gso_skb should be renamed.
-It has nothing to do with gso anymore...
+
+Idea is really the following :
+
+Once qdisc dequeue bulk is done, and skb validated, we have a list of
+skb to send to the device.
+
+We iterate the list and try to send the individual skb.
+
+As soon as device returns NETDEV_TX_BUSY (or even better, when the queue
+is stopped), we requeue the remaining list.
+
+BQL never tried to find the exact split point :
+
+If available budget is 25000 bytes, and next TSO packet is 45000 bytes,
+we send it.
+
+So the bql validation should be done before the eventual
+validate_xmit_skb() : This way you dont care of GSO or TSO.
