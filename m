@@ -1,168 +1,82 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH net-next v3 1/2] net-timestamp: Merge shared code between
- phy and regular timestamping
-Date: Thu, 04 Sep 2014 12:20:34 -0400
-Message-ID: <20140904162009.6883.37505.stgit@ahduyck-bv4.jf.intel.com>
-References: <20140904161314.6883.22217.stgit@ahduyck-bv4.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, davem@davemloft.net, willemb@google.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:32369 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753991AbaIDQ3d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2014 12:29:33 -0400
-In-Reply-To: <20140904161314.6883.22217.stgit@ahduyck-bv4.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Scott Feldman <sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
+	for datapath hardware offload
+Date: Thu, 4 Sep 2014 09:30:45 -0700
+Message-ID: <F4498A89-C1D6-4C5A-A6F0-942015D36B77@cumulusnetworks.com>
+References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
+ <1408637945-10390-11-git-send-email-jiri@resnulli.us>
+ <20140904090447.GB3176@vergenet.net>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+ dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
+ buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
+ roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20140904090447.GB3176-IxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-This change merges the shared bits that exist between skb_tx_tstamp and
-skb_complete_tx_timestamp.  By doing this we can avoid the two diverging as
-there were already changes pushed into skb_tx_tstamp that hadn't made it
-into the other function.
 
-In addition this resolves issues with the fact that
-skb_complete_tx_timestamp was included in linux/skbuff.h even though it was
-only compiled in if phy timestamping was enabled.
+On Sep 4, 2014, at 2:04 AM, Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org> wrote:
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> =
 
----
+> =
 
-v2: Dropped comment and restored original order based on comments
-    from Willem de Bruijn.
-v3: No changes.
+> [snip]
+> =
 
- net/core/skbuff.c       |   65 ++++++++++++++++++++++++++++++-----------------
- net/core/timestamping.c |   29 ---------------------
- 2 files changed, 42 insertions(+), 52 deletions(-)
+> In relation to ports and datapaths it seems to me that the API that
+> has been developed accommodates a model where a port may belong to a
+> switch device; that this topology is fixed before any API calls are made
+> and that all all ports belonging to the same switch belong to the same
+> datapath.
+> =
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 53ce536..697e696 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3511,33 +3511,13 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
- }
- EXPORT_SYMBOL(sock_dequeue_err_skb);
- 
--void __skb_tstamp_tx(struct sk_buff *orig_skb,
--		     struct skb_shared_hwtstamps *hwtstamps,
--		     struct sock *sk, int tstype)
-+static void __skb_complete_tx_timestamp(struct sk_buff *skb,
-+					struct sock *sk,
-+					int tstype)
- {
- 	struct sock_exterr_skb *serr;
--	struct sk_buff *skb;
- 	int err;
- 
--	if (!sk)
--		return;
--
--	if (hwtstamps) {
--		*skb_hwtstamps(orig_skb) =
--			*hwtstamps;
--	} else {
--		/*
--		 * no hardware time stamps available,
--		 * so keep the shared tx_flags and only
--		 * store software time stamp
--		 */
--		orig_skb->tstamp = ktime_get_real();
--	}
--
--	skb = skb_clone(orig_skb, GFP_ATOMIC);
--	if (!skb)
--		return;
--
- 	serr = SKB_EXT_ERR(skb);
- 	memset(serr, 0, sizeof(*serr));
- 	serr->ee.ee_errno = ENOMSG;
-@@ -3554,6 +3534,45 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
- 	if (err)
- 		kfree_skb(skb);
- }
-+
-+void skb_complete_tx_timestamp(struct sk_buff *skb,
-+			       struct skb_shared_hwtstamps *hwtstamps)
-+{
-+	struct sock *sk = skb->sk;
-+
-+	skb->sk = NULL;
-+
-+	if (hwtstamps) {
-+		*skb_hwtstamps(skb) = *hwtstamps;
-+		__skb_complete_tx_timestamp(skb, sk, SCM_TSTAMP_SND);
-+	} else {
-+		kfree_skb(skb);
-+	}
-+
-+	sock_put(sk);
-+}
-+EXPORT_SYMBOL_GPL(skb_complete_tx_timestamp);
-+
-+void __skb_tstamp_tx(struct sk_buff *orig_skb,
-+		     struct skb_shared_hwtstamps *hwtstamps,
-+		     struct sock *sk, int tstype)
-+{
-+	struct sk_buff *skb;
-+
-+	if (!sk)
-+		return;
-+
-+	if (hwtstamps)
-+		*skb_hwtstamps(orig_skb) = *hwtstamps;
-+	else
-+		orig_skb->tstamp = ktime_get_real();
-+
-+	skb = skb_clone(orig_skb, GFP_ATOMIC);
-+	if (!skb)
-+		return;
-+
-+	__skb_complete_tx_timestamp(skb, sk, tstype);
-+}
- EXPORT_SYMBOL_GPL(__skb_tstamp_tx);
- 
- void skb_tstamp_tx(struct sk_buff *orig_skb,
-diff --git a/net/core/timestamping.c b/net/core/timestamping.c
-index a877039..f48a59f 100644
---- a/net/core/timestamping.c
-+++ b/net/core/timestamping.c
-@@ -63,35 +63,6 @@ void skb_clone_tx_timestamp(struct sk_buff *skb)
- }
- EXPORT_SYMBOL_GPL(skb_clone_tx_timestamp);
- 
--void skb_complete_tx_timestamp(struct sk_buff *skb,
--			       struct skb_shared_hwtstamps *hwtstamps)
--{
--	struct sock *sk = skb->sk;
--	struct sock_exterr_skb *serr;
--	int err;
--
--	if (!hwtstamps) {
--		sock_put(sk);
--		kfree_skb(skb);
--		return;
--	}
--
--	*skb_hwtstamps(skb) = *hwtstamps;
--
--	serr = SKB_EXT_ERR(skb);
--	memset(serr, 0, sizeof(*serr));
--	serr->ee.ee_errno = ENOMSG;
--	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
--	skb->sk = NULL;
--
--	err = sock_queue_err_skb(sk, skb);
--
--	sock_put(sk);
--	if (err)
--		kfree_skb(skb);
--}
--EXPORT_SYMBOL_GPL(skb_complete_tx_timestamp);
--
- bool skb_defer_rx_timestamp(struct sk_buff *skb)
- {
- 	struct phy_device *phydev;
+> This makes sense in the case of hardware that looks a lot like a switch.
+> But I think that other scenarios are possible. For example hardware that
+> is able to handle the same abstractions handled by the datapath: datapaths
+> may be created or destroyed; vports may be added and removed from datapat=
+hs.
+> =
+
+> So one might have a piece of hardware that is configured with more than o=
+ne
+> datapath configured and its different ports belong to it might be
+> associated with different data paths.
+
+I=92ve tested multiple datapaths on one switch hardware with the current pa=
+tch set and it works fine, without the need to push down any datapath id in=
+ the API.  It works because a switch port can=92t belong to more than one d=
+atapath.  Datapaths can be created/destroyed and ports added/removed from d=
+atapaths dynamically and the right sw_flows are added/removed to program HW.
+
+> =
+
+> Or we might have hardware that is able to offload a tunnel vport.
+> =
+
+> In short I am thinking in terms of API callbacks to manipulate datapaths
+> and vports. Although I have not thought about it in detail I believe
+> that the current model you have implemented using such a scheme because
+> the scheme I am suggesting maps to that of the datapath and you have
+> implemented your model there.
+
+
+-scott
