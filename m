@@ -1,98 +1,108 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 net-next] net: filter: export pkt_type_offset() helper
-Date: Fri, 05 Sep 2014 00:45:59 +0200
-Message-ID: <1409870759.2310959.163817265.10353D86@webmail.messagingengine.com>
-References: <1409778511-21273-1-git-send-email-kda@linux-powerpc.org>
- <54078FBC.5050402@redhat.com>
- <CAADnVQKNHL7iY=VHp4bs5k2hSDf8jy7H-0H0SgYjb81S25XB9Q@mail.gmail.com>
- <1409792893.26422.60.camel@edumazet-glaptop2.roam.corp.google.com>
- <1409793959.3362714.163402573.6A26EDE1@webmail.messagingengine.com>
- <1409796348.26422.76.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAADnVQLh6qOD2epUq0S5P8RkUgZA38JNxeP40uBMScLHC2SsJg@mail.gmail.com>
- <CAHj3AVn8q-JS0Eq0QrfpBo-WfJ+-wXumhNoeDAdkPZC7LSeB5g@mail.gmail.com>
- <1409831412.23465.3.camel@localhost>
- <1409836154.26422.101.camel@edumazet-glaptop2.roam.corp.google.com>
- <1409838010.23465.16.camel@localhost>
- <1409839892.26422.115.camel@edumazet-glaptop2.roam.corp.google.com>
- <063D6719AE5E284EB5DD2968C1650D6D174876B4@AcuExch.aculab.com>
- <1409841129.26422.117.camel@edumazet-glaptop2.roam.corp.google.com>
- <1409841233.23465.22.camel@localhost>
- <1409841347.26422.118.camel@edumazet-glaptop2.roam.corp.google.com>
- <1409841709.23465.25.camel@localhost>
- <CAADnVQL6s_DRE2aMEw=oBdcu6Bn0Q5CfZ_CKJ4xdGdcp5cRV7w@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Regression: TCP connections fail over wireless: bad cksum?
+Date: Thu, 04 Sep 2014 15:50:07 -0700
+Message-ID: <1409871007.26422.125.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5408C788.4050401@tedp.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Laight <David.Laight@aculab.com>,
-	Denis Kirjanov <kirjanov@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Denis Kirjanov <kda@linux-powerpc.org>, netdev@vger.kernel.org,
-	Markos Chandras <markos.chandras@imgtec.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Ted Percival <ted@tedp.id.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:43183 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755358AbaIDWp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 18:45:59 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 4ED8420B76
-	for <netdev@vger.kernel.org>; Thu,  4 Sep 2014 18:45:59 -0400 (EDT)
-In-Reply-To: <CAADnVQL6s_DRE2aMEw=oBdcu6Bn0Q5CfZ_CKJ4xdGdcp5cRV7w@mail.gmail.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34528 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756085AbaIDWuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 18:50:11 -0400
+Received: by mail-pa0-f53.google.com with SMTP id fa1so21025341pad.40
+        for <netdev@vger.kernel.org>; Thu, 04 Sep 2014 15:50:08 -0700 (PDT)
+In-Reply-To: <5408C788.4050401@tedp.id.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Thu, Sep 4, 2014, at 22:51, Alexei Starovoitov wrote:
-> On Thu, Sep 4, 2014 at 7:41 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > On Do, 2014-09-04 at 07:35 -0700, Eric Dumazet wrote:
-> >> On Thu, 2014-09-04 at 16:33 +0200, Hannes Frederic Sowa wrote:
-> >>
-> >> > Which btw. also uses int, which might change alignment of structures.
-> >>
-> >> You missed the point .
-> >>
-> >> kmemcheck wants to make sure the whole word is set, or else you could
-> >> get false positives.
-> >>
-> >> kmemcheck needs are quite different.
-> >
-> > Now that you said it, I understand. :)
-> >
-> > You were right with the int vs. u8 thing all along. gcc aligns the
-> > datatype on the next struct field and not on the whole field, as I
-> > expected. So excuse my error above.
-> >
-> > I think the latest proposals looks good?
+On Thu, 2014-09-04 at 14:11 -0600, Ted Percival wrote:
+> Yesterday's linux-next build introduced a problem with wireless
+> networking on my machine. ie. next-20140901 worked fine but
+> next-20140902 does not seem able to sustain a TCP connection over
+> wireless. Wired networking works fine. I am using the brcmsmac driver
+> and the hardware is "Broadcom Corporation BCM4313 802.11b/g/n Wireless
+> LAN Controller (rev 01)".
 > 
-> to me: yes
-> and I think your latest half-patch with:
-> +       __u8                    __pkt_type_offset[0];
-> also looks good.
+> Pings, even large pings (ping -s 16000) work fine but TCP connections hang.
 > 
-> Are you going to take it over from Denis here?
+> I looked through the changes between the bad & good commits from the net
+> & net-next trees and I wonder if some of the changes to checksumming
+> have surfaced a problem with this driver. When I look at a tcpdump, it
+> indicates that all the checksums are wrong (although I don't know if
+> that is just due to hardware offload).
+> 
+> Here is a short trace of the hung connection attempt of
+>   curl http://lwn.net/
+> 
+> $ sudo tcpdump -vvn -i wlan0 port 80
+> tcpdump: listening on wlan0, link-type EN10MB (Ethernet), capture size
+> 65535 bytes
+> 13:20:15.120770 IP (tos 0x0, ttl 64, id 22734, offset 0, flags [DF],
+> proto TCP (6), length 60)
+>     10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
+> (incorrect -> 0x4fac), seq 2861986597, win 29200, options [mss
+> 1460,sackOK,TS val 142315 ecr 0,nop,wscale 7], length 0
+> 13:20:16.121755 IP (tos 0x0, ttl 64, id 22735, offset 0, flags [DF],
+> proto TCP (6), length 60)
+>     10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
+> (incorrect -> 0x4bc3), seq 2861986597, win 29200, options [mss
+> 1460,sackOK,TS val 143316 ecr 0,nop,wscale 7], length 0
+> 13:20:18.125748 IP (tos 0x0, ttl 64, id 22736, offset 0, flags [DF],
+> proto TCP (6), length 60)
+>     10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
+> (incorrect -> 0x43ef), seq 2861986597, win 29200, options [mss
+> 1460,sackOK,TS val 145320 ecr 0,nop,wscale 7], length 0
+> 13:20:22.133743 IP (tos 0x0, ttl 64, id 22737, offset 0, flags [DF],
+> proto TCP (6), length 60)
+>     10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
+> (incorrect -> 0x3447), seq 2861986597, win 29200, options [mss
+> 1460,sackOK,TS val 149328 ecr 0,nop,wscale 7], length 0
+> 13:20:30.149754 IP (tos 0x0, ttl 64, id 22738, offset 0, flags [DF],
+> proto TCP (6), length 60)
+>     10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
+> (incorrect -> 0x14f7), seq 2861986597, win 29200, options [mss
+> 1460,sackOK,TS val 157344 ecr 0,nop,wscale 7], length 0
+> 
+> 
+> I don't see anything that looks related in dmesg. The only brcmsmac
+> messages I see are:
+> 
+> [  567.122218] brcmsmac bcma0:0: brcmsmac: brcms_ops_bss_info_changed:
+> associated
+> [  567.122226] brcmsmac bcma0:0: brcms_ops_bss_info_changed: arp
+> filtering: 1 addresses (implement)
+> [  567.122231] brcmsmac bcma0:0: brcms_ops_bss_info_changed: qos
+> enabled: true (implement)
+> [  567.192283] brcmsmac bcma0:0: brcms_ops_bss_info_changed: qos
+> enabled: true (implement)
+> 
+> I am writing to linux-netdev rather than linux-wireless because
+> according to Next/SHA1s the wireless & wireless-next trees were not
+> updated between next-20140901 and next-20140902, but the net & net-next
+> trees were updated, so maybe the regression came from there. (I haven't
+> tested next-20140903 because it won't boot for unrelated reasons.)
+> 
+> Let me know if I should just file this in Bugzilla or what information I
+> can provide to help track this down, if it hasn't already been identified.
+> 
+> The here are the good (-) and bad (+) trees from Next/SHA1s at the
+> next-* tags mentioned earlier that I built from.
+> 
+> -net            38ab1fa981d543e1b00f4ffbce4ddb480cd2effe
+> +net            cc25f0cbe4409d6a573b1f3bf7020d5b04076ee9
+> 
+> -net-next       dace1b54726bffe1c009f7661e3cee6b762f30c8
+> +net-next       364a9e93243d1785f310c0964af0e24bf1adac03
+> 
 
-I don't know. Denis, do you want to incorperate my changes or should I
-take over here?
+Could you post
 
-> while at it would you fix sparc jit as well that has comment:
-> #if 0
->                                 /* GCC won't let us take the address of
->                                  * a bit field even though we very much
->                                  * know what we are doing here.
->                                  */
->                         case BPF_ANC | SKF_AD_PKTTYPE:
->                                 __emit_skb_load8(pkt_type, r_A);
->                                 emit_alu_K(SRL, 5);
->                                 break;
-> #endif
-> should be able to replace 'pkt_type' above with __pkt_type_offset...
+ethtool -k wlan0
 
-I'll have a look then but cannot test sparc easily.
+And try 
 
-Bye,
-Hannes
+ethtool -K wlan tx off
