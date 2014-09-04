@@ -1,60 +1,78 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
- is runnable
-Date: Thu, 04 Sep 2014 09:51:33 +0300
-Message-ID: <54080BF5.1070504@linux.intel.com>
-References: <1408608310-13579-2-git-send-email-jasowang@redhat.com> <1408683665.5648.69.camel@marge.simpson.net> <53F6F14B.1030609@redhat.com> <20140822074224.GB7372@gmail.com> <53FFEEC0.4000304@redhat.com> <540414AB.9000004@linux.intel.com> <54053998.4040604@redhat.com> <54056076.2030603@linux.intel.com> <20140902083124.GB10356@redhat.com> <5406B9E6.6050103@linux.intel.com> <20140903075104.GA6187@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>, Ingo Molnar <mingo@kernel.org>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+From: Daniel Mack <daniel@zonque.org>
+Subject: [PATCH] net: ethernet: cpsw: improve interrupt lookup logic in cpsw_probe()
+Date: Thu,  4 Sep 2014 09:00:23 +0200
+Message-ID: <1409814023-10189-1-git-send-email-daniel@zonque.org>
+Cc: julia.lawall@lip6.fr, netdev@vger.kernel.org, mugunthanvnm@ti.com,
+	george.cherian@ti.com, Daniel Mack <zonque@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:26547 "EHLO mga11.intel.com"
+Received: from svenfoo.org ([82.94.215.22]:59776 "EHLO mail.zonque.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751098AbaIDGvl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2014 02:51:41 -0400
-In-Reply-To: <20140903075104.GA6187@redhat.com>
+	id S1751098AbaIDHAb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2014 03:00:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/09/2014 10:51, Michael S. Tsirkin wrote:
-> On Wed, Sep 03, 2014 at 09:49:10AM +0300, Eliezer Tamir wrote:
->> On 02/09/2014 11:31, Michael S. Tsirkin wrote:
->>> On Tue, Sep 02, 2014 at 09:15:18AM +0300, Eliezer Tamir wrote:
+From: Daniel Mack <zonque@gmail.com>
 
->> Busy polling is not a general purpose feature, it's not something you
->> can casually turn on and will "just work". Most applications should not
->> be using busy polling. Currently it is used by multiserver applications
->> that you spend days tuning to specific platforms.
->>
->> What the user wants is to lower both avg and maximum latencies, at the
->> expense of everything else including power efficiency and sometimes
->> even throughput. The only exception is making the system crash ;)
->>
->> While letting other things take precedence over busy polling might not
->> hurt the avg latency much, it will kill your maximum latency.
-> 
-> If scheduler happens to run both server and client on the
-> same CPU, polling will hurt maximum latency even more.
-> So I guess different users want different things.
-> 
-> How about applications giving us a hint what they prefer?
-> For example, a new flag that says "I don't have anything useful to do so
-> let's do busy polling but my server is on the local system, so please
-> only poll if CPU is otherwise idle".
+Simplify the interrupt resource lookup code in cpsw_probe() by the
+following:
 
-I'm sorry for being ambiguous, when I said multi-server application, I
-meant an app that runs on more than one server machine.
+ * Only look at the first member of the resource. As the driver only
+   works for DT-enabled platforms anyway, a resource of type
+   IORESOURCE_IRQ will only contain one single entry
+   (res->start == res->end), so there is no need for the iteration.
 
-The loopback test is as far as I know not interesting.
+ * Add a bounds check to avoid overflows if we are passed more than
+   ARRAY_SIZE(priv->irqs_table) resources.
 
-Of course if busypoll becomes interesting for virtualization over
-loopback, I have no problem with that, provided that there is a way to
-get the old behavior and that it is well documented.
+ * Assign 'ret' with the return value of devm_request_irq() so that
+   cpsw_probe() returns the appropriate error code.
 
--Eliezer
+ * If devm_request_irq() fails, report the error code in the log
+   message.
+
+Signed-off-by: Daniel Mack <zonque@gmail.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 22 ++++++++++++++--------
+ 1 file changed, 14 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 999fb72..03b4099 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -2232,18 +2232,24 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
+-		for (i = res->start; i <= res->end; i++) {
+-			if (devm_request_irq(&pdev->dev, i, cpsw_interrupt, 0,
+-					     dev_name(&pdev->dev), priv)) {
+-				dev_err(priv->dev, "error attaching irq\n");
+-				goto clean_ale_ret;
+-			}
+-			priv->irqs_table[k] = i;
+-			priv->num_irqs = k + 1;
++		if (k >= ARRAY_SIZE(priv->irqs_table)) {
++			ret = -EINVAL;
++			goto clean_ale_ret;
+ 		}
++
++		ret = devm_request_irq(&pdev->dev, res->start, cpsw_interrupt,
++				       0, dev_name(&pdev->dev), priv);
++		if (ret < 0) {
++			dev_err(priv->dev, "error attaching irq (%d)\n", ret);
++			goto clean_ale_ret;
++		}
++
++		priv->irqs_table[k] = res->start;
+ 		k++;
+ 	}
+ 
++	priv->num_irqs = k;
++
+ 	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+ 
+ 	ndev->netdev_ops = &cpsw_netdev_ops;
+-- 
+2.1.0
