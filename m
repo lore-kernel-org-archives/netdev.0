@@ -1,187 +1,131 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC net-next PATCH V2 2/3] qdisc: bulk dequeue support for
- qdiscs with TCQ_F_ONETXQUEUE
-Date: Thu, 04 Sep 2014 06:29:43 -0700
-Message-ID: <1409837383.26422.113.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140904125247.4108.8132.stgit@dragon>
-	 <20140904125438.4108.38160.stgit@dragon>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 net-next] net: filter: export pkt_type_offset() helper
+Date: Thu, 04 Sep 2014 15:40:10 +0200
+Message-ID: <1409838010.23465.16.camel@localhost>
+References: <1409778511-21273-1-git-send-email-kda@linux-powerpc.org>
+	 <54078FBC.5050402@redhat.com>
+	 <CAADnVQKNHL7iY=VHp4bs5k2hSDf8jy7H-0H0SgYjb81S25XB9Q@mail.gmail.com>
+	 <1409792893.26422.60.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1409793959.3362714.163402573.6A26EDE1@webmail.messagingengine.com>
+	 <1409796348.26422.76.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAADnVQLh6qOD2epUq0S5P8RkUgZA38JNxeP40uBMScLHC2SsJg@mail.gmail.com>
+	 <CAHj3AVn8q-JS0Eq0QrfpBo-WfJ+-wXumhNoeDAdkPZC7LSeB5g@mail.gmail.com>
+	 <1409831412.23465.3.camel@localhost>
+	 <1409836154.26422.101.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
+Cc: Denis Kirjanov <kirjanov@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
 	Daniel Borkmann <dborkman@redhat.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+	Eric Dumazet <edumazet@google.com>,
+	Denis Kirjanov <kda@linux-powerpc.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Markos Chandras <markos.chandras@imgtec.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:58195 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751140AbaIDN3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 09:29:48 -0400
-Received: by mail-pa0-f41.google.com with SMTP id lj1so19985431pab.14
-        for <netdev@vger.kernel.org>; Thu, 04 Sep 2014 06:29:46 -0700 (PDT)
-In-Reply-To: <20140904125438.4108.38160.stgit@dragon>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:52210 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752451AbaIDNkO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 09:40:14 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 42514207A8
+	for <netdev@vger.kernel.org>; Thu,  4 Sep 2014 09:40:13 -0400 (EDT)
+In-Reply-To: <1409836154.26422.101.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-09-04 at 14:55 +0200, Jesper Dangaard Brouer wrote:
-> Based on DaveM's recent API work on dev_hard_start_xmit(), that allows
-> sending/processing an entire skb list.
+On Do, 2014-09-04 at 06:09 -0700, Eric Dumazet wrote:
+> On Thu, 2014-09-04 at 13:50 +0200, Hannes Frederic Sowa wrote:
 > 
-> This patch implements qdisc bulk dequeue, by allowing multiple packets
-> to be dequeued in dequeue_skb().
+> > 
+> > Denis, I thought about something like this, you can incorperate this in
+> > your patch if you can give it a test and check for other architectures,
+> > thanks!
+> > 
 > 
-> The optimization principle for this is two fold, (1) to amortize
-> locking cost and (2) avoid expensive tailptr update for notifying HW.
->  (1) Several packets are dequeued while holding the qdisc root_lock,
-> amortizing locking cost over several packet.  The dequeued SKB list is
-> processed under the TXQ lock in dev_hard_start_xmit(), thus also
-> amortizing the cost of the TXQ lock.
->  (2) Further more, dev_hard_start_xmit() will utilize the skb->xmit_more
-> API to delay HW tailptr update, which also reduces the cost per
-> packet.
 > 
-> One restriction of the new API is that every SKB must belong to the
-> same TXQ.  This patch takes the easy way out, by restricting bulk
-> dequeue to qdisc's with the TCQ_F_ONETXQUEUE flag, that specifies the
-> qdisc only have attached a single TXQ.
+> > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> > index 02529fc..87b86aa 100644
+> > --- a/include/linux/skbuff.h
+> > +++ b/include/linux/skbuff.h
+> > @@ -548,6 +548,10 @@ struct sk_buff {
+> >  				ip_summed:2,
+> >  				nohdr:1,
+> >  				nfctinfo:3;
+> > +	/* __pkt_type_offset marks the offset of the bitfield pkt_type
+> > +	 * contains, so bpf can relatively address it
+> > +	 */
+> > +	int			__pkt_type_offset[0];
 > 
-> Some detail about the flow; dev_hard_start_xmit() will process the skb
-> list, and transmit packets individually towards the driver (see
-> xmit_one()).  In case the driver stops midway in the list, the
-> remaining skb list is returned by dev_hard_start_xmit().  In
-> sch_direct_xmit() this returned list is requeued by dev_requeue_skb().
+> Why is it 'int', while the following uses __u8 ?
+
+The type does not matter at all. Actually I wanted to use an empty
+struct but was afraid it might not work on older compilers and didn't
+want to check that with each version.
+
+> This means pkt_type has to stay at this bit offset, and nothing will
+> detect at compile time or execution time if someone did a reorg or added
+> a new field (it seems to be the trend lately)
 > 
-> The patch also tries to limit the amount of bytes dequeued, based on
-> the drivers BQL limits.  It also tries to avoid and stop dequeuing
-> when seeing a GSO packet (both real GSO and segmented GSO skb lists).
+> __u8                          bar:4,
+>                               pkt_type:3,
+> ...
+
+That would be fine, one just has to adapt the PKT_TYPE_MAX macros in
+case on reorders, __pkt_type_offset only needs to stay just in front of
+the bitfield pkt_type is located in. I think we should move them up into
+struct sk_buff, so they belong together and people see that they need to
+change those in case they reorder fields.
+
+I still think about using anonymous unions, they might let us compute
+the pkt_type mask at compiletime, I think.
+
+Also, maybe we can compute offset at compiletime if we switch to
+anonymous union.
+
+static inline unsigned int skb_pkt_type_offset(void)
+{
+ unsigned int mask;
+ struct sk_buff skb = {.pkt_type = ~0U};
+ mask = skb.__flags2;
+ BUILD_BUG_ON(!__builtin_constant_p(mask));
+ return mask;
+}
+
+something like that, haven't checked if that works.
+
 > 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 > 
-> ---
-> V2:
->  - Restruct functions, split out functionality
->  - Use BQL bytelimit to avoid overshooting driver limits, causing
->    too large skb lists to be sitting on the requeue gso_skb.
 > 
->  net/sched/sch_generic.c |   67 +++++++++++++++++++++++++++++++++++++++++++++--
->  1 files changed, 64 insertions(+), 3 deletions(-)
+> >  	__u8			pkt_type:3,
+> >  				fclone:2,
+> >  				ipvs_property:1,
+> > @@ -647,6 +651,17 @@ struct sk_buff {
+> >  #define SKB_ALLOC_FCLONE	0x01
+> >  #define SKB_ALLOC_RX		0x02
+> >  
 > 
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index 19696eb..a0c8070 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -56,6 +56,67 @@ static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
->  	return 0;
->  }
->  
-> +static inline bool qdisc_may_bulk(const struct Qdisc *qdisc,
-> +				  const struct sk_buff *skb)
+> > +#ifdef __BIG_ENDIAN_BITFIELD
+> > +#define PKT_TYPE_MAX   (7 << 5)
+> > +#else
+> > +#define PKT_TYPE_MAX   7
+> > +#endif
+> 
+> It had a sense right before static int pkt_type_offset(void), but here,
+> a casual reader might be lost.
 
-Why skb is passed here ?
+Do you think we should just move PKT_TYPE_MAX macros right to the
+definition of __pkt_type_offset?
 
-> +{
-> +	return (qdisc->flags & TCQ_F_ONETXQUEUE);
-	
-	return qdisc->flags & TCQ_F_ONETXQUEUE;
+> I am saying this because a reorder of the bit fields is probably needed
+> to speedup __copy_skb_header() : Grouping together bit fields could
+> allow optimized word copies instead of bit field manipulations.
 
-> +}
-> +
-> +static inline struct sk_buff *qdisc_dequeue_validate(struct Qdisc *qdisc)
-> +{
-> +	struct sk_buff *skb = qdisc->dequeue(qdisc);
-> +
-> +	if (skb != NULL)
-> +		skb = validate_xmit_skb(skb, qdisc_dev(qdisc));
+Yes, I agree with you. It should be obvious to adapt the macros in case
+someones reorders sk_buff. Either BUILD_BUG_ON or very obvious comments
++ declarations.
 
-> +
-> +	return skb;
-> +}
-> +
-> +static inline struct sk_buff *qdisc_bulk_dequeue_skb(struct Qdisc *q,
-> +						     struct sk_buff *head)
-> +{
-> +	struct sk_buff *new, *skb = head;
-> +	struct netdev_queue *txq = q->dev_queue;
-> +	int bytelimit = netdev_tx_avail_queue(txq);
-> +	int limit = 5;
-> +
-> +	if (bytelimit <= 0)
-> +		return head;
-> +
-> +	do {
-> +		if (skb->next || skb_is_gso(skb)) {
-
-A GSO packet should not 'stop the processing' if the device is TSO
-capable : It should look as a normal packet.
-
-> +			/* Stop processing if the skb is already a skb
-> +			 * list (e.g a segmented GSO packet) or a real
-> +			 * GSO packet */
-> +			break;
-> +		}
-> +		new = qdisc_dequeue_validate(q);
-
-Thats broken.
-
-After validate_xmit_skb()  @new might be the head of a list. (GSO split)
-
-
-
-> +		if (new) {
-> +			skb->next = new;
-
-
-> +			skb = new;
-
-and new is only the first element on the list.
-
-> +			bytelimit -= skb->len;
-
-skb->len is the length of first segment.
-
-> +			cnt++;
-> +			/* One problem here is it is difficult to
-> +			 * requeue the "new" dequeued skb, e.g. in
-> +			 * case of GSO, thus a "normal" packet can
-> +			 * have a GSO packet on its ->next ptr.
-> +			 *
-> +			 * Requeue is difficult because if requeuing
-> +			 * on q->gso_skb, then a second requeue can
-> +			 * happen from sch_direct_xmit e.g. if driver
-> +			 * returns NETDEV_TX_BUSY, which would
-> +			 * overwrite this requeue.
-> +			 */
-
-It should not overwrite, but insert back. Thats what need to be done.
-
-> +		}
-> +	} while (new && --limit && (bytelimit > 0));
-> +	skb = head;
-> +
-> +	return skb;
-> +}
-> +
-
-
-Idea is really the following :
-
-Once qdisc dequeue bulk is done, and skb validated, we have a list of
-skb to send to the device.
-
-We iterate the list and try to send the individual skb.
-
-As soon as device returns NETDEV_TX_BUSY (or even better, when the queue
-is stopped), we requeue the remaining list.
-
-BQL never tried to find the exact split point :
-
-If available budget is 25000 bytes, and next TSO packet is 45000 bytes,
-we send it.
-
-So the bql validation should be done before the eventual
-validate_xmit_skb() : This way you dont care of GSO or TSO.
+Thanks,
+Hannes
