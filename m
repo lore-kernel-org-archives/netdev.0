@@ -1,85 +1,65 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: filter: export pkt_type_offset() helper
-Date: Thu, 4 Sep 2014 13:51:18 -0700
-Message-ID: <CAADnVQL6s_DRE2aMEw=oBdcu6Bn0Q5CfZ_CKJ4xdGdcp5cRV7w@mail.gmail.com>
-References: <1409778511-21273-1-git-send-email-kda@linux-powerpc.org>
-	<54078FBC.5050402@redhat.com>
-	<CAADnVQKNHL7iY=VHp4bs5k2hSDf8jy7H-0H0SgYjb81S25XB9Q@mail.gmail.com>
-	<1409792893.26422.60.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1409793959.3362714.163402573.6A26EDE1@webmail.messagingengine.com>
-	<1409796348.26422.76.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAADnVQLh6qOD2epUq0S5P8RkUgZA38JNxeP40uBMScLHC2SsJg@mail.gmail.com>
-	<CAHj3AVn8q-JS0Eq0QrfpBo-WfJ+-wXumhNoeDAdkPZC7LSeB5g@mail.gmail.com>
-	<1409831412.23465.3.camel@localhost>
-	<1409836154.26422.101.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1409838010.23465.16.camel@localhost>
-	<1409839892.26422.115.camel@edumazet-glaptop2.roam.corp.google.com>
-	<063D6719AE5E284EB5DD2968C1650D6D174876B4@AcuExch.aculab.com>
-	<1409841129.26422.117.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1409841233.23465.22.camel@localhost>
-	<1409841347.26422.118.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1409841709.23465.25.camel@localhost>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net] core: Untag packets after rx_handler has run.
+Date: Thu, 04 Sep 2014 17:01:12 -0400
+Message-ID: <5408D318.4020009@redhat.com>
+References: <1409856043-21840-1-git-send-email-vyasevic@redhat.com> <20140904190524.GA1938@nanopsycho.lan> <5408BD7C.7030805@gmail.com> <20140904204314.GA16612@its-macbook-pro.plumgrid.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Laight <David.Laight@aculab.com>,
-	Denis Kirjanov <kirjanov@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Denis Kirjanov <kda@linux-powerpc.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Markos Chandras <markos.chandras@imgtec.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	Florian Zumbiehl <florz@florz.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Matthew Rosato <mjrosato@linux.vnet.ibm.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:43979 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755256AbaIDUvT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 16:51:19 -0400
-Received: by mail-qa0-f46.google.com with SMTP id w8so9930738qac.5
-        for <netdev@vger.kernel.org>; Thu, 04 Sep 2014 13:51:18 -0700 (PDT)
-In-Reply-To: <1409841709.23465.25.camel@localhost>
+Received: from mx1.redhat.com ([209.132.183.28]:33112 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753140AbaIDVBc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2014 17:01:32 -0400
+In-Reply-To: <20140904204314.GA16612@its-macbook-pro.plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 4, 2014 at 7:41 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On Do, 2014-09-04 at 07:35 -0700, Eric Dumazet wrote:
->> On Thu, 2014-09-04 at 16:33 +0200, Hannes Frederic Sowa wrote:
+On 09/04/2014 04:43 PM, Alexei Starovoitov wrote:
+> On Thu, Sep 04, 2014 at 03:29:00PM -0400, Vlad Yasevich wrote:
+>>> nack. This will definitelly break several stacked setups.
 >>
->> > Which btw. also uses int, which might change alignment of structures.
+>> Which ones?  The only thing I can see that would behave differently
+>> is something like:
 >>
->> You missed the point .
+>>     vlan0      bridge0
+>>      |           |
+>>      +-------- eth0
 >>
->> kmemcheck wants to make sure the whole word is set, or else you could
->> get false positives.
+>> In this case, the old code would give an untagged packet to the bridge
+>> and the new code would give a tagged packet.
 >>
->> kmemcheck needs are quite different.
->
-> Now that you said it, I understand. :)
->
-> You were right with the int vs. u8 thing all along. gcc aligns the
-> datatype on the next struct field and not on the whole field, as I
-> expected. So excuse my error above.
->
-> I think the latest proposals looks good?
+>> This set-up is a bit ambiguous.  Remove the vlan, and bridge gets a tagged
+>> traffic even though the vlan has no relationship to the bridge.
+>>
+>> I've tested a couple of different stacked setups and they all seem to work.
+> 
+> 2nd nack.
+> It will break user space, including our setup that has:
+>  vlanX     OVS
+>    |        |
+>    +------ eth0
+> 
+> vlan device has IP assigned and all tagged traffic goes through the stack
+> and into control plane process. ovs datapath keeps managing eth0 with
+> all other vlans.
+> 
 
-to me: yes
-and I think your latest half-patch with:
-+       __u8                    __pkt_type_offset[0];
-also looks good.
+Did you specially configure OVS to pass the traffic up the stack?  I see
+OVS will only pass LOOPBACK packets.  All others it seems to consume.
 
-Are you going to take it over from Denis here?
+Can the same be accomplished with a tagged internal port?
 
-while at it would you fix sparc jit as well that has comment:
-#if 0
-                                /* GCC won't let us take the address of
-                                 * a bit field even though we very much
-                                 * know what we are doing here.
-                                 */
-                        case BPF_ANC | SKF_AD_PKTTYPE:
-                                __emit_skb_load8(pkt_type, r_A);
-                                emit_alu_K(SRL, 5);
-                                break;
-#endif
-should be able to replace 'pkt_type' above with __pkt_type_offset...
+The reason I am asking, is I am trying to figure out if this is
+a valid config.  It seems very hard to get right and seems to work almost
+by accident at times.  For example, in the bridge scenario I described.
+vlan and bridge have to share a mac address for that work.
+
+-vlad
