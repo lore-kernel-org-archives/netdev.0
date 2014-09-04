@@ -1,7 +1,7 @@
-From: David Laight <David.Laight@ACULAB.COM>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: RE: [PATCH v2 net-next] net: filter: export pkt_type_offset() helper
-Date: Thu, 4 Sep 2014 14:23:53 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174876B4@AcuExch.aculab.com>
+Date: Thu, 04 Sep 2014 07:32:09 -0700
+Message-ID: <1409841129.26422.117.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1409778511-21273-1-git-send-email-kda@linux-powerpc.org>
 	 <54078FBC.5050402@redhat.com>
 	 <CAADnVQKNHL7iY=VHp4bs5k2hSDf8jy7H-0H0SgYjb81S25XB9Q@mail.gmail.com>
@@ -13,42 +13,63 @@ References: <1409778511-21273-1-git-send-email-kda@linux-powerpc.org>
 	 <1409831412.23465.3.camel@localhost>
 	 <1409836154.26422.101.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <1409838010.23465.16.camel@localhost>
- <1409839892.26422.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1409839892.26422.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D174876B4@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Denis Kirjanov <kirjanov@gmail.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Denis Kirjanov <kirjanov@gmail.com>,
 	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
 	Daniel Borkmann <dborkman@redhat.com>,
-	"Eric Dumazet" <edumazet@google.com>,
+	Eric Dumazet <edumazet@google.com>,
 	Denis Kirjanov <kda@linux-powerpc.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Markos Chandras <markos.chandras@imgtec.com>,
 	Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:55236 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751005AbaIDOZH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2014 10:25:07 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 17889-09 for <netdev@vger.kernel.org>;
- Thu,  4 Sep 2014 15:25:05 +0100 (BST)
-In-Reply-To: <1409839892.26422.115.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:46404 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751649AbaIDOcP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 10:32:15 -0400
+Received: by mail-pa0-f50.google.com with SMTP id kq14so20056660pab.23
+        for <netdev@vger.kernel.org>; Thu, 04 Sep 2014 07:32:12 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174876B4@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0DQo+IE9uIFRodSwgMjAxNC0wOS0wNCBhdCAxNTo0MCArMDIwMCwg
-SGFubmVzIEZyZWRlcmljIFNvd2Egd3JvdGU6DQo+IA0KPiA+IFRoZSB0eXBlIGRvZXMgbm90IG1h
-dHRlciBhdCBhbGwuIEFjdHVhbGx5IEkgd2FudGVkIHRvIHVzZSBhbiBlbXB0eQ0KPiA+IHN0cnVj
-dCBidXQgd2FzIGFmcmFpZCBpdCBtaWdodCBub3Qgd29yayBvbiBvbGRlciBjb21waWxlcnMgYW5k
-IGRpZG4ndA0KPiA+IHdhbnQgdG8gY2hlY2sgdGhhdCB3aXRoIGVhY2ggdmVyc2lvbi4NCj4gDQo+
-IA0KPiBJdCBtYXR0ZXJzLiBSZWFsbHkuDQo+IA0KPiAkIGNhdCB0cnkuYw0KPiAjaW5jbHVkZSA8
-c3RkaW8uaD4NCj4gDQo+IHN0cnVjdCBTX2ludCB7DQo+IAljaGFyIGE7DQo+IAlpbnQgb2Zmc2V0
-WzBdOw0KPiAJY2hhciBiOjE7DQo+IH07DQo+IA0KPiBzdHJ1Y3QgU19jaGFyIHsNCj4gCWNoYXIg
-YTsNCj4gCWNoYXIgb2Zmc2V0WzBdOw0KPiAJY2hhciBiOjE7DQo+IH07DQoNClRob3NlIGFyZSBh
-bHNvIGJvdGggaWxsZWdhbCBDLCB6ZXJvIHNpemVkIGFycmF5cyBhcmVuJ3QgYWxsb3dlZC4NCg0K
-CURhdmlkDQoNCg==
+On Thu, 2014-09-04 at 14:23 +0000, David Laight wrote:
+> From: Eric Dumazet
+> > On Thu, 2014-09-04 at 15:40 +0200, Hannes Frederic Sowa wrote:
+> > 
+> > > The type does not matter at all. Actually I wanted to use an empty
+> > > struct but was afraid it might not work on older compilers and didn't
+> > > want to check that with each version.
+> > 
+> > 
+> > It matters. Really.
+> > 
+> > $ cat try.c
+> > #include <stdio.h>
+> > 
+> > struct S_int {
+> > 	char a;
+> > 	int offset[0];
+> > 	char b:1;
+> > };
+> > 
+> > struct S_char {
+> > 	char a;
+> > 	char offset[0];
+> > 	char b:1;
+> > };
+> 
+> Those are also both illegal C, zero sized arrays aren't allowed.
+> 
+> 	David
+
+
+This does not matter, we already use such constructs in the kernel.
+
+Take a look at kmemcheck_bitfield_begin() for example.
