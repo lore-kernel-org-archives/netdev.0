@@ -1,60 +1,29 @@
-From: Beniamino Galvani <b.galvani@gmail.com>
-Subject: Re: [PATCH v5 1/4] ethernet: arc: Add support for Rockchip SoC layer
- device tree bindings
-Date: Thu, 4 Sep 2014 23:38:21 +0200
-Message-ID: <20140904213821.GA13511@gmail.com>
-References: <1409763165-16461-1-git-send-email-romain.perier@gmail.com>
- <20140903211220.GA16962@gmail.com>
- <3809311.80Auz8fbHu@wuerfel>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v9 net-next 2/4] net: filter: split filter.h and expose
+ eBPF to user space
+Date: Thu, 04 Sep 2014 14:49:15 -0700 (PDT)
+Message-ID: <20140904.144915.2011704191141142761.davem@davemloft.net>
+References: <CAMEtUuz6zraph_8xXW43bNbh5uPRki0yOufMfV5pKMRLhDrQQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Romain Perier <romain.perier@gmail.com>, heiko@sntech.de,
-	linux-rockchip@lists.infradead.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:40509 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755990AbaIDVjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 17:39:09 -0400
-Content-Disposition: inline
-In-Reply-To: <3809311.80Auz8fbHu@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
+	hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMEtUuz6zraph_8xXW43bNbh5uPRki0yOufMfV5pKMRLhDrQQA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 04, 2014 at 11:33:38AM +0200, Arnd Bergmann wrote:
-> This is a recurring problem: 
-> 
-> driver a depends on x and selects y
-> driver b depends on y and selects x
-> 
-> Maybe we should teach Kconfig to not worry about it when x and y are
-> both user-selectable as well.
-> 
-> However, a nicer solution would be if we could agree for each symbol
-> on who is supposed to 'select' or 'depends on' it. In particular,
-> we are inconsistent about CONFIG_REGULATOR:
-> 
-> MDIO_SUN4I probably should not 'select' it but instead 'depends on'
-> this symbol if anything. It would be nice if someone could submit
-> a patch to that effect. EMAC_ROCKCHIP could also drop the dependency
-> on REGULATOR: you can still build the driver without that subsystem
-> being enabled, but then all the regulators have to be set up by
-> the boot loader.
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Date: Wed, 3 Sep 2014 22:41:48 -0700
 
-Thanks, things are clearer now. 
+> Do you want me to resubmit just first two?
 
-If I understand correctly the dependency of MDIO_SUN4I on REGULATOR
-can be dropped as well for the same reason; I will send a patch for
-that.
-
-Beniamino
-
-> 
-> There isn't much we can do about the PHYLIB dependency, unless we
-> turn it into a silent symbol that gets selected by all phy drivers,
-> or we change all network drivers that currently 'select' it to
-> 'depends on'. I don't really want to get involved in that discussion ;-)
-> 
-> 	Arnd
+Yes, you can't submit hodge-podge path series, either it's all to
+be applied or it's all RFC material.
