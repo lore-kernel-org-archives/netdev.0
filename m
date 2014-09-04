@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [RFC net-next PATCH V2 3/3] qdisc: debug statements while testing
-	prev-patch
-Date: Thu, 04 Sep 2014 14:56:00 +0200
-Message-ID: <20140904125554.4108.97003.stgit@dragon>
+Subject: [RFC net-next PATCH V2 2/3] qdisc: bulk dequeue support for qdiscs
+	with TCQ_F_ONETXQUEUE
+Date: Thu, 04 Sep 2014 14:55:49 +0200
+Message-ID: <20140904125438.4108.38160.stgit@dragon>
 References: <20140904125247.4108.8132.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -18,79 +18,138 @@ To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
 	Florian Westphal <fw@strlen.de>,
 	Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8823 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:48107 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754442AbaIDM4L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2014 08:56:11 -0400
+	id S1754395AbaIDM4C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2014 08:56:02 -0400
 In-Reply-To: <20140904125247.4108.8132.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not-signed-off
----
+Based on DaveM's recent API work on dev_hard_start_xmit(), that allows
+sending/processing an entire skb list.
 
- net/sched/sch_generic.c |   28 ++++++++++++++++++++++++++++
- 1 files changed, 28 insertions(+), 0 deletions(-)
+This patch implements qdisc bulk dequeue, by allowing multiple packets
+to be dequeued in dequeue_skb().
+
+The optimization principle for this is two fold, (1) to amortize
+locking cost and (2) avoid expensive tailptr update for notifying HW.
+ (1) Several packets are dequeued while holding the qdisc root_lock,
+amortizing locking cost over several packet.  The dequeued SKB list is
+processed under the TXQ lock in dev_hard_start_xmit(), thus also
+amortizing the cost of the TXQ lock.
+ (2) Further more, dev_hard_start_xmit() will utilize the skb->xmit_more
+API to delay HW tailptr update, which also reduces the cost per
+packet.
+
+One restriction of the new API is that every SKB must belong to the
+same TXQ.  This patch takes the easy way out, by restricting bulk
+dequeue to qdisc's with the TCQ_F_ONETXQUEUE flag, that specifies the
+qdisc only have attached a single TXQ.
+
+Some detail about the flow; dev_hard_start_xmit() will process the skb
+list, and transmit packets individually towards the driver (see
+xmit_one()).  In case the driver stops midway in the list, the
+remaining skb list is returned by dev_hard_start_xmit().  In
+sch_direct_xmit() this returned list is requeued by dev_requeue_skb().
+
+The patch also tries to limit the amount of bytes dequeued, based on
+the drivers BQL limits.  It also tries to avoid and stop dequeuing
+when seeing a GSO packet (both real GSO and segmented GSO skb lists).
+
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+
+---
+V2:
+ - Restruct functions, split out functionality
+ - Use BQL bytelimit to avoid overshooting driver limits, causing
+   too large skb lists to be sitting on the requeue gso_skb.
+
+ net/sched/sch_generic.c |   67 +++++++++++++++++++++++++++++++++++++++++++++--
+ 1 files changed, 64 insertions(+), 3 deletions(-)
 
 diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index a0c8070..8c8ac40 100644
+index 19696eb..a0c8070 100644
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -47,8 +47,20 @@ EXPORT_SYMBOL(default_qdisc_ops);
- 
- static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
- {
-+	int bytelimit = netdev_tx_avail_queue(q->dev_queue); //DEBUG
-+
- 	skb_dst_force(skb);
- 	q->gso_skb = skb;
-+
-+	if (skb->next) // DEBUG
-+		net_warn_ratelimited(
-+			"%s() dev:%s REQUEUEd SKB list len:%d bql:%d\n",
-+			__func__, q->dev_queue->dev->name, bytelimit, skb->len);
-+	else if (skb_is_gso(skb)) // DEBUG
-+		net_warn_ratelimited(
-+			"%s() dev:%s REQUEUEd GSO      len:%d bql:%d\n",
-+			__func__, q->dev_queue->dev->name, bytelimit, skb->len);
-+
- 	q->qstats.requeues++;
- 	q->q.qlen++;	/* it's still part of the queue */
- 	__netif_schedule(q);
-@@ -76,9 +88,11 @@ static inline struct sk_buff *qdisc_bulk_dequeue_skb(struct Qdisc *q,
- 						     struct sk_buff *head)
- {
- 	struct sk_buff *new, *skb = head;
-+//??	struct netdev_queue *txq = skb_get_tx_queue(dev, skb); //which to choose?
- 	struct netdev_queue *txq = q->dev_queue;
- 	int bytelimit = netdev_tx_avail_queue(txq);
- 	int limit = 5;
-+	int cnt = 0; //DEBUG
- 
- 	if (bytelimit <= 0)
- 		return head;
-@@ -107,10 +121,24 @@ static inline struct sk_buff *qdisc_bulk_dequeue_skb(struct Qdisc *q,
- 			 * returns NETDEV_TX_BUSY, which would
- 			 * overwrite this requeue.
- 			 */
-+			if (skb->next) //DEBUG
-+				net_warn_ratelimited(
-+				"%s() dev:%s pkt-append SKB-list bql:%d cnd:%d\n",
-+				__func__, q->dev_queue->dev->name,
-+				bytelimit, cnt);
-+			else if (skb_is_gso(skb))
-+				net_warn_ratelimited(
-+				"%s() dev:%s pkt-append real-GSO bql:%d cnd:%d\n",
-+				__func__, q->dev_queue->dev->name,
-+				bytelimit, cnt);
- 		}
- 	} while (new && --limit && (bytelimit > 0));
- 	skb = head;
- 
-+	if (cnt > 0) //DEBUG
-+		net_warn_ratelimited("%s() dev:%s BULK-active deq:%d bql:%d\n",
-+				     __func__, q->dev_queue->dev->name,
-+				     cnt, bytelimit);
- 	return skb;
+@@ -56,6 +56,67 @@ static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
+ 	return 0;
  }
+ 
++static inline bool qdisc_may_bulk(const struct Qdisc *qdisc,
++				  const struct sk_buff *skb)
++{
++	return (qdisc->flags & TCQ_F_ONETXQUEUE);
++}
++
++static inline struct sk_buff *qdisc_dequeue_validate(struct Qdisc *qdisc)
++{
++	struct sk_buff *skb = qdisc->dequeue(qdisc);
++
++	if (skb != NULL)
++		skb = validate_xmit_skb(skb, qdisc_dev(qdisc));
++
++	return skb;
++}
++
++static inline struct sk_buff *qdisc_bulk_dequeue_skb(struct Qdisc *q,
++						     struct sk_buff *head)
++{
++	struct sk_buff *new, *skb = head;
++	struct netdev_queue *txq = q->dev_queue;
++	int bytelimit = netdev_tx_avail_queue(txq);
++	int limit = 5;
++
++	if (bytelimit <= 0)
++		return head;
++
++	do {
++		if (skb->next || skb_is_gso(skb)) {
++			/* Stop processing if the skb is already a skb
++			 * list (e.g a segmented GSO packet) or a real
++			 * GSO packet */
++			break;
++		}
++		new = qdisc_dequeue_validate(q);
++		if (new) {
++			skb->next = new;
++			skb = new;
++			bytelimit -= skb->len;
++			cnt++;
++			/* One problem here is it is difficult to
++			 * requeue the "new" dequeued skb, e.g. in
++			 * case of GSO, thus a "normal" packet can
++			 * have a GSO packet on its ->next ptr.
++			 *
++			 * Requeue is difficult because if requeuing
++			 * on q->gso_skb, then a second requeue can
++			 * happen from sch_direct_xmit e.g. if driver
++			 * returns NETDEV_TX_BUSY, which would
++			 * overwrite this requeue.
++			 */
++		}
++	} while (new && --limit && (bytelimit > 0));
++	skb = head;
++
++	return skb;
++}
++
++/* Note that dequeue_skb can possibly return a SKB list (via skb->next).
++ * A requeued skb (via q->gso_skb) can also be a SKB list.
++ */
+ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
+ {
+ 	struct sk_buff *skb = q->gso_skb;
+@@ -71,9 +132,9 @@ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
+ 			skb = NULL;
+ 	} else {
+ 		if (!(q->flags & TCQ_F_ONETXQUEUE) || !netif_xmit_frozen_or_stopped(txq)) {
+-			skb = q->dequeue(q);
+-			if (skb)
+-				skb = validate_xmit_skb(skb, qdisc_dev(q));
++			skb = qdisc_dequeue_validate(q);
++			if (skb && qdisc_may_bulk(q, skb))
++				skb = qdisc_bulk_dequeue_skb(q, skb);
+ 		}
+ 	}
  
