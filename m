@@ -1,66 +1,46 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v9 net-next 2/4] net: filter: split filter.h and expose
- eBPF to user space
-Date: Wed, 3 Sep 2014 22:41:48 -0700
-Message-ID: <CAMEtUuz6zraph_8xXW43bNbh5uPRki0yOufMfV5pKMRLhDrQQA@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -next] hyperv: NULL dereference on error
+Date: Thu, 4 Sep 2014 14:11:23 +0300
+Message-ID: <20140904111123.GD21504@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@linuxdriverproject.org, kernel-janitors@vger.kernel.org,
+ netdev@vger.kernel.org
+To: "K. Y. Srinivasan" <kys@microsoft.com>,
+ Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 3, 2014 at 8:46 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 09/03/2014 05:17 AM, Alexei Starovoitov wrote:
->>
->> allow user space to generate eBPF programs
->>
->> uapi/linux/bpf.h: eBPF instruction set definition
->>
->> linux/filter.h: the rest
->>
->> This patch only moves macro definitions, but practically it freezes
->> existing
->> eBPF instruction set, though new instructions can still be added in the
->> future.
->>
->> These eBPF definitions cannot go into uapi/linux/filter.h, since the names
->> may conflict with existing applications.
->>
->> Full eBPF ISA description is in Documentation/networking/filter.txt
->>
->> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->
->
-> Ok, given you post the remaining two RFCs later on this window as
-> you indicate, I have no objections:
->
-> Acked-by: Daniel Borkmann <dborkman@redhat.com>
+We try to call free_netvsc_device(net_device) when "net_device" is NULL.
+It leads to an Oops.
 
-David,
+Fixes: f90251c8a6d0 ('hyperv: Increase the buffer length for netvsc_channel_cb()')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-I see that all 4 patches are marked as rfc, whereas I tagged
-only 3 and 4 as 'rfc' and mentioned in cover letter that they
-will be coming for real in stage III. Here they support patch 2
-and show the future changes to bpf.h file.
-Patches 1 and 2 are good to go.
-Note that they're on top of Hannes's patch:
-http://patchwork.ozlabs.org/patch/385266/
-Do you want me to resubmit just first two?
-
-Thanks
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 5b5644a..977984b 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -1054,10 +1054,8 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ 	struct net_device *ndev;
+ 
+ 	net_device = alloc_net_device(device);
+-	if (!net_device) {
+-		ret = -ENOMEM;
+-		goto cleanup;
+-	}
++	if (!net_device)
++		return -ENOMEM;
+ 
+ 	net_device->ring_size = ring_size;
