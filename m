@@ -1,104 +1,98 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH] ip monitor: Dont print timestamp or banner-label for
- cloned routes
-Date: Thu, 4 Sep 2014 23:01:09 +0300
-Message-ID: <CAMw6YJ+G1V4VdcENWs9QhHJgLzYv5j2gb4udJcw5EGPPw89Jhg@mail.gmail.com>
-References: <1409856738-1938-1-git-send-email-vadim4j@gmail.com>
-	<5408BD9F.9060107@cogentembedded.com>
-	<CAMw6YJL_-6_zXo9tmEz3M8V-CxeoaAN_y0wscDt+JsM8xKkqAw@mail.gmail.com>
-	<5408C37C.6050104@gmail.com>
-	<CAMw6YJJRfBLh0Jft=zCN8tj8wm6qhjoB=NibJwtcn8AqajXmXw@mail.gmail.com>
+From: Ted Percival <ted@tedp.id.au>
+Subject: Regression: TCP connections fail over wireless: bad cksum?
+Date: Thu, 4 Sep 2014 14:11:52 -0600
+Message-ID: <5408C788.4050401@tedp.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f52.google.com ([209.85.216.52]:42111 "EHLO
-	mail-qa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755274AbaIDUBK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 16:01:10 -0400
-Received: by mail-qa0-f52.google.com with SMTP id f12so9802626qad.39
-        for <netdev@vger.kernel.org>; Thu, 04 Sep 2014 13:01:09 -0700 (PDT)
-In-Reply-To: <CAMw6YJJRfBLh0Jft=zCN8tj8wm6qhjoB=NibJwtcn8AqajXmXw@mail.gmail.com>
+Received: from amersmtp2.software.dell.com ([12.106.87.227]:47863 "EHLO
+	amersmtp2.software.dell.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752920AbaIDU0K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 16:26:10 -0400
+Received: from amersmtp2.prod.quest.corp (127.0.0.1) id h135e20171s1 for <netdev@vger.kernel.org>; Thu, 4 Sep 2014 13:10:59 -0700 (envelope-from <ted@tedp.id.au>)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-But here http://patchwork.ozlabs.org/project/netdev/list/ I see the v2.
+Yesterday's linux-next build introduced a problem with wireless
+networking on my machine. ie. next-20140901 worked fine but
+next-20140902 does not seem able to sustain a TCP connection over
+wireless. Wired networking works fine. I am using the brcmsmac driver
+and the hardware is "Broadcom Corporation BCM4313 802.11b/g/n Wireless
+LAN Controller (rev 01)".
 
-On Thu, Sep 4, 2014 at 10:59 PM, Vadim Kochan <vadim4j@gmail.com> wrote:
-> Hm thats strange I changed subject of the fixed patch to the [PATCH
-> v2] form but it appeared in this thread w/o v2.
->
-> On Thu, Sep 4, 2014 at 10:54 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
->> On 09/04/2014 03:35 PM, Vadim Kochan wrote:
->>> Thanks!
->>>
->>> Should I re-send the fixed patch with some special subject after
->>> comments/review ?
->>
->> Typically a [PATCH v2] and so on if there are comments on v2.
->>
->> -vlad
->>
->>>
->>> On Thu, Sep 4, 2014 at 10:29 PM, Sergei Shtylyov
->>> <sergei.shtylyov@cogentembedded.com> wrote:
->>>> Hello.
->>>>
->>>>
->>>> On 09/04/2014 10:52 PM, Vadim Kochan wrote:
->>>>
->>>>> This is ugly fix but solves the case when timestamp
->>>>> or banner-label is printed before the cloned route will be skipped
->>>>> by iproute filter which filters out all cached routes by default.
->>>>> In such case timestamp will be printed twice:
->>>>
->>>>
->>>>>      Timestamp: Thu Sep  4 19:46:59 2014 457933 usec
->>>>>      Timestamp: Thu Sep  4 19:47:07 2014 977970 usec
->>>>>      10.3.5.1 dev wlp3s0 lladdr XX:XX:XX:XX:XX:XX STALE
->>>>
->>>>
->>>>> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
->>>>> ---
->>>>>   ip/ipmonitor.c | 13 ++++++++++---
->>>>>   1 file changed, 10 insertions(+), 3 deletions(-)
->>>>
->>>>
->>>>> diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
->>>>> index 70f2a7a..2bd3fed 100644
->>>>> --- a/ip/ipmonitor.c
->>>>> +++ b/ip/ipmonitor.c
->>>>
->>>> [...]
->>>>
->>>>> @@ -53,6 +50,12 @@ static int accept_msg(const struct sockaddr_nl *who,
->>>>>                         return -1;
->>>>>                 }
->>>>>
->>>>> +               if (r->rtm_flags&RTM_F_CLONED)
->>>>
->>>>
->>>>    Judging on the patched code, spaces are needed around &.
->>>>
->>>>
->>>>> +                       return 0;
->>>>> +
->>>>> +               if (timestamp)
->>>>> +                       print_timestamp(fp);
->>>>> +
->>>>>                 if (r->rtm_family == RTNL_FAMILY_IPMR ||
->>>>>                     r->rtm_family == RTNL_FAMILY_IP6MR) {
->>>>>                         if (prefix_banner)
->>>>
->>>> [...]
->>>>
->>>> WBR, Sergei
->>>>
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>
->>
+Pings, even large pings (ping -s 16000) work fine but TCP connections hang.
+
+I looked through the changes between the bad & good commits from the net
+& net-next trees and I wonder if some of the changes to checksumming
+have surfaced a problem with this driver. When I look at a tcpdump, it
+indicates that all the checksums are wrong (although I don't know if
+that is just due to hardware offload).
+
+Here is a short trace of the hung connection attempt of
+  curl http://lwn.net/
+
+$ sudo tcpdump -vvn -i wlan0 port 80
+tcpdump: listening on wlan0, link-type EN10MB (Ethernet), capture size
+65535 bytes
+13:20:15.120770 IP (tos 0x0, ttl 64, id 22734, offset 0, flags [DF],
+proto TCP (6), length 60)
+    10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
+(incorrect -> 0x4fac), seq 2861986597, win 29200, options [mss
+1460,sackOK,TS val 142315 ecr 0,nop,wscale 7], length 0
+13:20:16.121755 IP (tos 0x0, ttl 64, id 22735, offset 0, flags [DF],
+proto TCP (6), length 60)
+    10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
+(incorrect -> 0x4bc3), seq 2861986597, win 29200, options [mss
+1460,sackOK,TS val 143316 ecr 0,nop,wscale 7], length 0
+13:20:18.125748 IP (tos 0x0, ttl 64, id 22736, offset 0, flags [DF],
+proto TCP (6), length 60)
+    10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
+(incorrect -> 0x43ef), seq 2861986597, win 29200, options [mss
+1460,sackOK,TS val 145320 ecr 0,nop,wscale 7], length 0
+13:20:22.133743 IP (tos 0x0, ttl 64, id 22737, offset 0, flags [DF],
+proto TCP (6), length 60)
+    10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
+(incorrect -> 0x3447), seq 2861986597, win 29200, options [mss
+1460,sackOK,TS val 149328 ecr 0,nop,wscale 7], length 0
+13:20:30.149754 IP (tos 0x0, ttl 64, id 22738, offset 0, flags [DF],
+proto TCP (6), length 60)
+    10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
+(incorrect -> 0x14f7), seq 2861986597, win 29200, options [mss
+1460,sackOK,TS val 157344 ecr 0,nop,wscale 7], length 0
+
+
+I don't see anything that looks related in dmesg. The only brcmsmac
+messages I see are:
+
+[  567.122218] brcmsmac bcma0:0: brcmsmac: brcms_ops_bss_info_changed:
+associated
+[  567.122226] brcmsmac bcma0:0: brcms_ops_bss_info_changed: arp
+filtering: 1 addresses (implement)
+[  567.122231] brcmsmac bcma0:0: brcms_ops_bss_info_changed: qos
+enabled: true (implement)
+[  567.192283] brcmsmac bcma0:0: brcms_ops_bss_info_changed: qos
+enabled: true (implement)
+
+I am writing to linux-netdev rather than linux-wireless because
+according to Next/SHA1s the wireless & wireless-next trees were not
+updated between next-20140901 and next-20140902, but the net & net-next
+trees were updated, so maybe the regression came from there. (I haven't
+tested next-20140903 because it won't boot for unrelated reasons.)
+
+Let me know if I should just file this in Bugzilla or what information I
+can provide to help track this down, if it hasn't already been identified.
+
+The here are the good (-) and bad (+) trees from Next/SHA1s at the
+next-* tags mentioned earlier that I built from.
+
+-net            38ab1fa981d543e1b00f4ffbce4ddb480cd2effe
++net            cc25f0cbe4409d6a573b1f3bf7020d5b04076ee9
+
+-net-next       dace1b54726bffe1c009f7661e3cee6b762f30c8
++net-next       364a9e93243d1785f310c0964af0e24bf1adac03
+
+-- 
+Cheers,
+-Ted
