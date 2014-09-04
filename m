@@ -1,337 +1,172 @@
-From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
-Subject: Re: [PATCH v5 1/4] ethernet: arc: Add support for Rockchip SoC layer
- device tree bindings
-Date: Thu, 04 Sep 2014 14:05:33 +0200
-Message-ID: <13303426.CnNG9VQfuK@diego>
-References: <1409763165-16461-1-git-send-email-romain.perier@gmail.com>
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Subject: Re: [patch net-next 01/13] openvswitch: split flow
+ structures into ovs specific and generic ones
+Date: Thu, 4 Sep 2014 14:09:07 +0200
+Message-ID: <20140904120907.GD1867@nanopsycho.lan>
+References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
+ <1409736300-12303-2-git-send-email-jiri@resnulli.us>
+ <540731B9.4010603@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
- arnd@arndb.de, linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Romain Perier <romain.perier@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1409763165-16461-1-git-send-email-romain.perier@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+ dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
+ buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+ aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
+ dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <540731B9.4010603-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Am Mittwoch, 3. September 2014, 16:52:42 schrieb Romain Perier:
-> This patch defines a platform glue layer for Rockchip SoCs which
-> support arc-emac driver. It ensures that regulator for the rmii is on
-> before trying to connect to the ethernet controller. It applies right
-> speed and mode changes to the grf when ethernet settings change.
-> 
-> Signed-off-by: Romain Perier <romain.perier@gmail.com>
+Wed, Sep 03, 2014 at 05:20:25PM CEST, john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
+>On 09/03/2014 02:24 AM, Jiri Pirko wrote:
+>>After this, flow related structures can be used in other code.
+>>
+>>Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+>>---
+>
+>Hi Jiri,
+>
+>As I indicated before I'm looking into integrating this with some
+>hardware here. Progress is a bit slow but starting to look at it.The
+>i40e/ixgbe driver being one open source example with very limited
+>support for tables, flow matches, etc. And then a closed source driver
+>with much more flexibility. What I don't have is a middle of the road
+>switch to work with something better then a host nic but not as
+>flexible as a TOR.
+>
+>Couple questions my assumption here is I can extend the flow_key
+>as needed to support additional match criteria my hardware has.
+>I scanned the ./net/openvswitch source and I didn't catch any
+>place that would break but might need to take a closer look.
+>Similarly the actions set will need to be extended. For example
+>if I want to use this with i40e a OVS_ACTION_ATTR_QUEUE could
+>be used to steer packets to the queue. With this in mind we
+>will want a follow up patch to rename OVS_ACTION_ATTR_* to
+>FLOW_ACTION_ATTR_*
+>
+>Also I have some filters that can match on offset/length/mask
+>tuples. As far as I can tell this is going to have to be yet
+>another interface? Or would it be worth the effort to define
+>the flow key more generically. My initial guess is I'll just
+>write a separate interface. I think this is what Jamal referred
+>to as another "classifier".
 
-Reviewed-by: Heiko Stuebner <heiko@sntech.de>
+I'm thinking about using some more generic match key. It would
+incorporate ovs key and possible other classifiers (as your
+off/len/mask) as well. Drivers will have free will to implement whatever
+the hw supports.
 
-> ---
->  drivers/net/ethernet/arc/Kconfig         |  10 ++
->  drivers/net/ethernet/arc/Makefile        |   1 +
->  drivers/net/ethernet/arc/emac.h          |   4 +-
->  drivers/net/ethernet/arc/emac_main.c     |   2 +
->  drivers/net/ethernet/arc/emac_rockchip.c | 228
-> +++++++++++++++++++++++++++++++ 5 files changed, 244 insertions(+), 1
-> deletion(-)
->  create mode 100644 drivers/net/ethernet/arc/emac_rockchip.c
-> 
-> diff --git a/drivers/net/ethernet/arc/Kconfig
-> b/drivers/net/ethernet/arc/Kconfig index 89e04fd..8e262e2 100644
-> --- a/drivers/net/ethernet/arc/Kconfig
-> +++ b/drivers/net/ethernet/arc/Kconfig
-> @@ -32,4 +32,14 @@ config ARC_EMAC
->  	  non-standard on-chip ethernet device ARC EMAC 10/100 is used.
->  	  Say Y here if you have such a board.  If unsure, say N.
-> 
-> +config EMAC_ROCKCHIP
-> +	tristate "Rockchip EMAC support"
-> +	select ARC_EMAC_CORE
-> +	depends on OF_IRQ && OF_NET && REGULATOR
-> +	---help---
-> +	  Support for Rockchip RK3066/RK3188 EMAC ethernet controllers.
-> +	  This selects Rockchip SoC glue layer support for the
-> +	  emac device driver. This driver is used for RK3066/RK3188
-> +	  EMAC ethernet controller.
-> +
->  endif # NET_VENDOR_ARC
-> diff --git a/drivers/net/ethernet/arc/Makefile
-> b/drivers/net/ethernet/arc/Makefile index 241bb80..79108af 100644
-> --- a/drivers/net/ethernet/arc/Makefile
-> +++ b/drivers/net/ethernet/arc/Makefile
-> @@ -5,3 +5,4 @@
->  arc_emac-objs := emac_main.o emac_mdio.o
->  obj-$(CONFIG_ARC_EMAC_CORE) += arc_emac.o
->  obj-$(CONFIG_ARC_EMAC) += emac_arc.o
-> +obj-$(CONFIG_EMAC_ROCKCHIP) += emac_rockchip.o
-> diff --git a/drivers/net/ethernet/arc/emac.h
-> b/drivers/net/ethernet/arc/emac.h index eb2ba67..dae1ac3 100644
-> --- a/drivers/net/ethernet/arc/emac.h
-> +++ b/drivers/net/ethernet/arc/emac.h
-> @@ -123,9 +123,11 @@ struct buffer_state {
->   * @speed:	PHY's last set speed.
->   */
->  struct arc_emac_priv {
-> -	/* Devices */
->  	const char *drv_name;
->  	const char *drv_version;
-> +	void (*set_mac_speed)(void *priv, unsigned int speed);
-> +
-> +	/* Devices */
->  	struct device *dev;
->  	struct phy_device *phy_dev;
->  	struct mii_bus *bus;
-> diff --git a/drivers/net/ethernet/arc/emac_main.c
-> b/drivers/net/ethernet/arc/emac_main.c index b35c69e..a08f343 100644
-> --- a/drivers/net/ethernet/arc/emac_main.c
-> +++ b/drivers/net/ethernet/arc/emac_main.c
-> @@ -48,6 +48,8 @@ static void arc_emac_adjust_link(struct net_device *ndev)
->  	if (priv->speed != phy_dev->speed) {
->  		priv->speed = phy_dev->speed;
->  		state_changed = 1;
-> +		if (priv->set_mac_speed)
-> +			priv->set_mac_speed(priv, priv->speed);
->  	}
-> 
->  	if (priv->duplex != phy_dev->duplex) {
-> diff --git a/drivers/net/ethernet/arc/emac_rockchip.c
-> b/drivers/net/ethernet/arc/emac_rockchip.c new file mode 100644
-> index 0000000..51d0585
-> --- /dev/null
-> +++ b/drivers/net/ethernet/arc/emac_rockchip.c
-> @@ -0,0 +1,228 @@
-> +/**
-> + * emac-rockchip.c - Rockchip EMAC specific glue layer
-> + *
-> + * Copyright (C) 2014 Romain Perier <romain.perier@gmail.com>
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License as published by
-> + * the Free Software Foundation; either version 2 of the License, or
-> + * (at your option) any later version.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + */
-> +
-> +#include <linux/etherdevice.h>
-> +#include <linux/mfd/syscon.h>
-> +#include <linux/module.h>
-> +#include <linux/of_net.h>
-> +#include <linux/platform_device.h>
-> +#include <linux/regmap.h>
-> +#include <linux/regulator/consumer.h>
-> +
-> +#include "emac.h"
-> +
-> +#define DRV_NAME        "rockchip_emac"
-> +#define DRV_VERSION     "1.0"
-> +
-> +#define GRF_MODE_MII		(1UL << 0)
-> +#define GRF_MODE_RMII		(0UL << 0)
-> +#define GRF_SPEED_10M		(0UL << 1)
-> +#define GRF_SPEED_100M		(1UL << 1)
-> +#define GRF_SPEED_ENABLE_BIT	(1UL << 17)
-> +#define GRF_MODE_ENABLE_BIT	(1UL << 16)
-> +
-> +struct emac_rockchip_soc_data {
-> +	int grf_offset;
-> +};
-> +
-> +struct rockchip_priv_data {
-> +	struct arc_emac_priv emac;
-> +	struct regmap *grf;
-> +	const struct emac_rockchip_soc_data *soc_data;
-> +	struct regulator *regulator;
-> +	struct clk *refclk;
-> +};
-> +
-> +static void emac_rockchip_set_mac_speed(void *priv, unsigned int speed)
-> +{
-> +	struct rockchip_priv_data *emac = priv;
-> +	u32 data;
-> +	int err = 0;
-> +
-> +	/* write-enable bits */
-> +	data = GRF_SPEED_ENABLE_BIT;
-> +
-> +	switch(speed) {
-> +	case 10:
-> +		data |= GRF_SPEED_10M;
-> +		break;
-> +	case 100:
-> +		data |= GRF_SPEED_100M;
-> +		break;
-> +	default:
-> +		pr_err("speed %u not supported\n", speed);
-> +		return;
-> +	}
-> +
-> +	err = regmap_write(emac->grf, emac->soc_data->grf_offset, data);
-> +	if (err)
-> +		pr_err("unable to apply speed %u to grf (%d)\n", speed, err);
-> +}
-> +
-> +static const struct emac_rockchip_soc_data emac_rockchip_dt_data[] = {
-> +	{ .grf_offset = 0x154 }, /* rk3066 */
-> +	{ .grf_offset = 0x0a4 }, /* rk3188 */
-> +};
-> +
-> +static const struct of_device_id emac_rockchip_dt_ids[] = {
-> +	{ .compatible = "rockchip,rk3066-emac", .data = &emac_rockchip_dt_data[0]
-> }, +	{ .compatible = "rockchip,rk3188-emac", .data =
-> &emac_rockchip_dt_data[1] }, +	{ /* Sentinel */ }
-> +};
-> +
-> +MODULE_DEVICE_TABLE(of, emac_rockchip_dt_ids);
-> +
-> +static int emac_rockchip_probe(struct platform_device *pdev)
-> +{
-> +	struct device *dev = &pdev->dev;
-> +	struct net_device *ndev;
-> +	struct rockchip_priv_data *priv;
-> +	const struct of_device_id *match;
-> +	u32 data;
-> +	int err, interface;
-> +
-> +	if (!pdev->dev.of_node)
-> +		return -ENODEV;
-> +
-> +	ndev = alloc_etherdev(sizeof(struct rockchip_priv_data));
-> +	if (!ndev)
-> +		return -ENOMEM;
-> +	platform_set_drvdata(pdev, ndev);
-> +	SET_NETDEV_DEV(ndev, dev);
-> +
-> +	priv = netdev_priv(ndev);
-> +	priv->emac.drv_name = DRV_NAME;
-> +	priv->emac.drv_version = DRV_VERSION;
-> +	priv->emac.set_mac_speed = emac_rockchip_set_mac_speed;
-> +
-> +	interface = of_get_phy_mode(dev->of_node);
-> +
-> +	/* RK3066 and RK3188 SoCs only support RMII */
-> +	if (interface != PHY_INTERFACE_MODE_RMII) {
-> +		dev_err(dev, "unsupported phy interface mode %d\n", interface);
-> +		err = -ENOTSUPP;
-> +		goto out_netdev;
-> +	}
-> +
-> +	priv->grf = syscon_regmap_lookup_by_phandle(dev->of_node, "rockchip,grf");
-> +	if (IS_ERR(priv->grf)) {
-> +		dev_err(dev, "failed to retrieve global register file (%ld)\n",
-> PTR_ERR(priv->grf)); +		err = PTR_ERR(priv->grf);
-> +		goto out_netdev;
-> +	}
-> +
-> +	match = of_match_node(emac_rockchip_dt_ids, dev->of_node);
-> +	priv->soc_data = match->data;
-> +
-> +	priv->emac.clk = devm_clk_get(dev, "hclk");
-> +	if (IS_ERR(priv->emac.clk)) {
-> +		dev_err(dev, "failed to retrieve host clock (%ld)\n",
-> PTR_ERR(priv->emac.clk)); +		err = PTR_ERR(priv->emac.clk);
-> +		goto out_netdev;
-> +	}
-> +
-> +	priv->refclk = devm_clk_get(dev, "macref");
-> +	if (IS_ERR(priv->refclk)) {
-> +		dev_err(dev, "failed to retrieve reference clock (%ld)\n",
-> PTR_ERR(priv->refclk)); +		err = PTR_ERR(priv->refclk);
-> +		goto out_netdev;
-> +	}
-> +
-> +	err = clk_prepare_enable(priv->refclk);
-> +	if (err) {
-> +		dev_err(dev, "failed to enable reference clock (%d)\n", err);
-> +		goto out_netdev;
-> +	}
-> +
-> +	/* Optional regulator for PHY */
-> +	priv->regulator = devm_regulator_get_optional(dev, "phy");
-> +	if (IS_ERR(priv->regulator)) {
-> +		if (PTR_ERR(priv->regulator) == -EPROBE_DEFER)
-> +			return -EPROBE_DEFER;
-> +		dev_err(dev, "no regulator found\n");
-> +		priv->regulator = NULL;
-> +	}
-> +
-> +	if (priv->regulator) {
-> +		err = regulator_enable(priv->regulator);
-> +		if (err) {
-> +			dev_err(dev, "failed to enable phy-supply (%d)\n", err);
-> +			goto out_clk_disable;
-> +		}
-> +	}
-> +
-> +	err = arc_emac_probe(ndev, interface);
-> +	if (err)
-> +		goto out_regulator_disable;
-> +
-> +	/* write-enable bits */
-> +	data = GRF_MODE_ENABLE_BIT | GRF_SPEED_ENABLE_BIT;
-> +
-> +	data |= GRF_SPEED_100M;
-> +	data |= GRF_MODE_RMII;
-> +
-> +	err = regmap_write(priv->grf, priv->soc_data->grf_offset, data);
-> +	if (err) {
-> +		dev_err(dev, "unable to apply initial settings to grf (%d)\n", err);
-> +		goto out_regulator_disable;
-> +	}
-> +
-> +	/* RMII interface needs always a rate of 50MHz */
-> +	err = clk_set_rate(priv->refclk, 50000000);
-> +	if (err)
-> +		dev_err(dev, "failed to change reference clock rate (%d)\n", err);
-> +	return 0;
-> +
-> +out_regulator_disable:
-> +	if (priv->regulator)
-> +		regulator_disable(priv->regulator);
-> +out_clk_disable:
-> +	clk_disable_unprepare(priv->refclk);
-> +out_netdev:
-> +	free_netdev(ndev);
-> +	return err;
-> +}
-> +
-> +static int emac_rockchip_remove(struct platform_device *pdev)
-> +{
-> +	struct net_device *ndev = platform_get_drvdata(pdev);
-> +	struct rockchip_priv_data *priv = netdev_priv(ndev);
-> +	int err;
-> +
-> +	clk_disable_unprepare(priv->refclk);
-> +
-> +	if (priv->regulator)
-> +		regulator_disable(priv->regulator);
-> +
-> +	err = arc_emac_remove(ndev);
-> +	free_netdev(ndev);
-> +	return err;
-> +}
-> +
-> +static struct platform_driver emac_rockchip_driver = {
-> +	.probe = emac_rockchip_probe,
-> +	.remove = emac_rockchip_remove,
-> +	.driver = {
-> +		.name = DRV_NAME,
-> +		.of_match_table  = emac_rockchip_dt_ids,
-> +	},
-> +};
-> +
-> +module_platform_driver(emac_rockchip_driver);
-> +
-> +MODULE_AUTHOR("Romain Perier <romain.perier@gmail.com>");
-> +MODULE_DESCRIPTION("Rockchip EMAC platform driver");
-> +MODULE_LICENSE("GPL");
+Will do it for the next version of the patchset (most probably after I
+return from holliday, Sep 15).
+
+
+>
+>Thanks,
+>John
+>
+>[...]
+>
+>>+
+>>+struct sw_flow_key_ipv4_tunnel {
+>>+	__be64 tun_id;
+>>+	__be32 ipv4_src;
+>>+	__be32 ipv4_dst;
+>>+	__be16 tun_flags;
+>>+	u8   ipv4_tos;
+>>+	u8   ipv4_ttl;
+>>+};
+>>+
+>>+struct sw_flow_key {
+>>+	struct sw_flow_key_ipv4_tunnel tun_key;  /* Encapsulating tunnel key. */
+>>+	struct {
+>>+		u32	priority;	/* Packet QoS priority. */
+>>+		u32	skb_mark;	/* SKB mark. */
+>>+		u16	in_port;	/* Input switch port (or DP_MAX_PORTS). */
+>>+	} __packed phy; /* Safe when right after 'tun_key'. */
+>>+	struct {
+>>+		u8     src[ETH_ALEN];	/* Ethernet source address. */
+>>+		u8     dst[ETH_ALEN];	/* Ethernet destination address. */
+>>+		__be16 tci;		/* 0 if no VLAN, VLAN_TAG_PRESENT set otherwise. */
+>>+		__be16 type;		/* Ethernet frame type. */
+>>+	} eth;
+>>+	struct {
+>>+		u8     proto;		/* IP protocol or lower 8 bits of ARP opcode. */
+>>+		u8     tos;		/* IP ToS. */
+>>+		u8     ttl;		/* IP TTL/hop limit. */
+>>+		u8     frag;		/* One of OVS_FRAG_TYPE_*. */
+>>+	} ip;
+>>+	struct {
+>>+		__be16 src;		/* TCP/UDP/SCTP source port. */
+>>+		__be16 dst;		/* TCP/UDP/SCTP destination port. */
+>>+		__be16 flags;		/* TCP flags. */
+>>+	} tp;
+>>+	union {
+>>+		struct {
+>>+			struct {
+>>+				__be32 src;	/* IP source address. */
+>>+				__be32 dst;	/* IP destination address. */
+>>+			} addr;
+>>+			struct {
+>>+				u8 sha[ETH_ALEN];	/* ARP source hardware address. */
+>>+				u8 tha[ETH_ALEN];	/* ARP target hardware address. */
+>>+			} arp;
+>>+		} ipv4;
+>>+		struct {
+>>+			struct {
+>>+				struct in6_addr src;	/* IPv6 source address. */
+>>+				struct in6_addr dst;	/* IPv6 destination address. */
+>>+			} addr;
+>>+			__be32 label;			/* IPv6 flow label. */
+>>+			struct {
+>>+				struct in6_addr target;	/* ND target address. */
+>>+				u8 sll[ETH_ALEN];	/* ND source link layer address. */
+>>+				u8 tll[ETH_ALEN];	/* ND target link layer address. */
+>>+			} nd;
+>>+		} ipv6;
+>>+	};
+>>+} __aligned(BITS_PER_LONG/8); /* Ensure that we can do comparisons as longs. */
+>>+
+>>+struct sw_flow_key_range {
+>>+	unsigned short int start;
+>>+	unsigned short int end;
+>>+};
+>>+
+>>+struct sw_flow_mask {
+>>+	struct sw_flow_key_range range;
+>>+	struct sw_flow_key key;
+>>+};
+>>+
+>>+struct sw_flow_action {
+>>+};
+>>+
+>>+struct sw_flow_actions {
+>>+	unsigned count;
+>>+	struct sw_flow_action actions[0];
+>>+};
+>>+
+>>+struct sw_flow {
+>>+	struct sw_flow_key key;
+>>+	struct sw_flow_key unmasked_key;
+>>+	struct sw_flow_mask *mask;
+>>+	struct sw_flow_actions *actions;
+>>+};
+>>+
+>
+>
+>-- 
+>John Fastabend         Intel Corporation
