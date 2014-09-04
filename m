@@ -1,65 +1,48 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net] core: Untag packets after rx_handler has run.
-Date: Thu, 04 Sep 2014 17:01:12 -0400
-Message-ID: <5408D318.4020009@redhat.com>
-References: <1409856043-21840-1-git-send-email-vyasevic@redhat.com> <20140904190524.GA1938@nanopsycho.lan> <5408BD7C.7030805@gmail.com> <20140904204314.GA16612@its-macbook-pro.plumgrid.com>
-Reply-To: vyasevic@redhat.com
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ip monitor: Dont print timestamp or banner-label for
+ cloned routes
+Date: Fri, 05 Sep 2014 01:19:07 +0400
+Message-ID: <5408D74B.8070204@cogentembedded.com>
+References: <1409856738-1938-1-git-send-email-vadim4j@gmail.com>	<5408BD9F.9060107@cogentembedded.com>	<CAMw6YJL_-6_zXo9tmEz3M8V-CxeoaAN_y0wscDt+JsM8xKkqAw@mail.gmail.com>	<5408C37C.6050104@gmail.com>	<CAMw6YJJRfBLh0Jft=zCN8tj8wm6qhjoB=NibJwtcn8AqajXmXw@mail.gmail.com> <CAMw6YJ+G1V4VdcENWs9QhHJgLzYv5j2gb4udJcw5EGPPw89Jhg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	Florian Zumbiehl <florz@florz.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Matthew Rosato <mjrosato@linux.vnet.ibm.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>,
 	Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33112 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753140AbaIDVBc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2014 17:01:32 -0400
-In-Reply-To: <20140904204314.GA16612@its-macbook-pro.plumgrid.com>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:40132 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754396AbaIDVTK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 17:19:10 -0400
+Received: by mail-la0-f46.google.com with SMTP id pv20so12654251lab.19
+        for <netdev@vger.kernel.org>; Thu, 04 Sep 2014 14:19:09 -0700 (PDT)
+In-Reply-To: <CAMw6YJ+G1V4VdcENWs9QhHJgLzYv5j2gb4udJcw5EGPPw89Jhg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/04/2014 04:43 PM, Alexei Starovoitov wrote:
-> On Thu, Sep 04, 2014 at 03:29:00PM -0400, Vlad Yasevich wrote:
->>> nack. This will definitelly break several stacked setups.
->>
->> Which ones?  The only thing I can see that would behave differently
->> is something like:
->>
->>     vlan0      bridge0
->>      |           |
->>      +-------- eth0
->>
->> In this case, the old code would give an untagged packet to the bridge
->> and the new code would give a tagged packet.
->>
->> This set-up is a bit ambiguous.  Remove the vlan, and bridge gets a tagged
->> traffic even though the vlan has no relationship to the bridge.
->>
->> I've tested a couple of different stacked setups and they all seem to work.
-> 
-> 2nd nack.
-> It will break user space, including our setup that has:
->  vlanX     OVS
->    |        |
->    +------ eth0
-> 
-> vlan device has IP assigned and all tagged traffic goes through the stack
-> and into control plane process. ovs datapath keeps managing eth0 with
-> all other vlans.
-> 
+On 09/05/2014 12:01 AM, Vadim Kochan wrote:
 
-Did you specially configure OVS to pass the traffic up the stack?  I see
-OVS will only pass LOOPBACK packets.  All others it seems to consume.
+> But here http://patchwork.ozlabs.org/project/netdev/list/ I see the v2.
 
-Can the same be accomplished with a tagged internal port?
+    I'm seeing v2 on your posting as well.
 
-The reason I am asking, is I am trying to figure out if this is
-a valid config.  It seems very hard to get right and seems to work almost
-by accident at times.  For example, in the bridge scenario I described.
-vlan and bridge have to share a mac address for that work.
+> On Thu, Sep 4, 2014 at 10:59 PM, Vadim Kochan <vadim4j@gmail.com> wrote:
 
--vlad
+>> Hm thats strange I changed subject of the fixed patch to the [PATCH
+>> v2] form but it appeared in this thread w/o v2.
+
+    The v2 is on its own thread (how it should be).
+
+>> On Thu, Sep 4, 2014 at 10:54 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
+>>> On 09/04/2014 03:35 PM, Vadim Kochan wrote:
+>>>> Thanks!
+
+>>>> Should I re-send the fixed patch with some special subject after
+>>>> comments/review ?
+
+>>> Typically a [PATCH v2] and so on if there are comments on v2.
+
+>>> -vlad
+
+WBR, Sergei
