@@ -1,52 +1,30 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [RFC net-next PATCH V2 0/3] qdisc bulk dequeuing and utilizing
- delayed tailptr updates
-Date: Thu, 04 Sep 2014 09:44:05 -0400
-Message-ID: <54086CA5.6040209@mojatatu.com>
-References: <20140904125247.4108.8132.stgit@dragon>
+From: Zhi Li <lznuaa@gmail.com>
+Subject: Re: [Patch net-next 10/11] ARM: Documentation: Update fec dts binding doc
+Date: Thu, 4 Sep 2014 08:47:45 -0500
+Message-ID: <CAHrpEqS9w_7CRuUVB4N374FFdX+iPnSGDTrtJLEfwhhzAyq9Gg@mail.gmail.com>
+References: <54078488.68c1420a.3020.7c0dSMTPIN_ADDED_BROKEN@mx.google.com>
+	<54086337.2050602@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Frank.Li@freescale.com >> Frank Li" <Frank.Li@freescale.com>,
+	Duan Fugang-B38611 <b38611@freescale.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, devicetree@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:46187 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750776AbaIDNoN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 09:44:13 -0400
-Received: by mail-ie0-f175.google.com with SMTP id y20so11718208ier.20
-        for <netdev@vger.kernel.org>; Thu, 04 Sep 2014 06:44:12 -0700 (PDT)
-In-Reply-To: <20140904125247.4108.8132.stgit@dragon>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:49077 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750723AbaIDNrr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 09:47:47 -0400
+In-Reply-To: <54086337.2050602@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/04/14 08:54, Jesper Dangaard Brouer wrote:
-> Wanted people to review this work early... so this is the current
-> state, even added my debug patch, if people want to "see" it work.
->
+On Thu, Sep 4, 2014 at 8:03 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hyphens
 
-It would be useful to collect some stats when you are
-experimenting with this stuff on the average batch size the driver
-sees. Maybe a histogram which shows >1, > 3, > 10 etc that a
-driver was able to chew on at a time. I realize this may skew
-your results a little because you have to chew cycles updating
-such a histogram.
-
-I believe that any dumb traffic generator will show lots of packets
-being batched. But that is not very interesting.
-It would be hard to show more than 1 in the general case for
-other types of traffic - but learning what else needs to be tweaked
-to achive more batch sizes would be helpful.
-
-i.e this would help quantify whether the batching is valuable in the
-general sense...
-
-cheers,
-jamal
+Okay, I will change it in next version.
