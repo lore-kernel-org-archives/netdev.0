@@ -1,74 +1,38 @@
-From: Zhi Li <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Patch net-next 04/11] net:fec: add multiqueue support
-Date: Wed, 3 Sep 2014 22:41:37 -0500
-Message-ID: <CAHrpEqRSGg9=B8nk-PFkayP1kN8eQ5UnBvjikR5svub-wD-d6w@mail.gmail.com>
-References: <1409776697-1536-1-git-send-email-Frank.Li@freescale.com>
-	<1409776697-1536-5-git-send-email-Frank.Li@freescale.com>
-	<540787B9.8090504@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH] qdisc: exit case fixes for skb list handling
+ in qdisc layer
+Date: Wed, 03 Sep 2014 20:42:56 -0700 (PDT)
+Message-ID: <20140903.204256.1398300065789241714.davem@davemloft.net>
+References: <1409671557.3173.110.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140903101250.7668.91659.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Duan Fugang-B38611 <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <540787B9.8090504-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fw@strlen.de, hannes@stressinduktion.org,
+	dborkman@redhat.com
+To: brouer@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51888 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932163AbaIDDlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 23:41:55 -0400
+In-Reply-To: <20140903101250.7668.91659.stgit@dragon>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 3, 2014 at 4:27 PM, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On 09/03/2014 01:38 PM, Frank Li wrote:
->> From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
->>
->> Add multiqueue support, which is compatible with previous single queue
->> driver for FEC/ENET IPs.
->>
->> By default, the tx/rx queue number is 1, user can config the queue number
->> at DTS file like this:
->>       fsl,num_tx_queues=<3>;
->>       fsl,num_rx_queues=<3>;
->>
->> Ethernet multiqueue mechanism can improve performance in SMP system.
->> For single hw queue, multiqueue can balance cpu loading.
->> For multi hw queues, multiple cores can process network packets in parallel,
->> and refer the article for the detail advantage for multiqueue:
->> http://vger.kernel.org/~davem/davem_nyc09.pdf
->
-> You should probably split that patch in a minimum of two, or more
-> different parts.
->
-> Two parts:
->
-> - add TX multiqueue support
-> - add RX multiqueue support
->
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Wed, 03 Sep 2014 12:12:50 +0200
 
-I understood your concern.
-We also need consider logical integration.
+> More minor fixes to merge commit 53fda7f7f9e (Merge branch 'xmit_list')
+> that allows us to work with a list of SKBs.
+> 
+> Fixing exit cases in qdisc_reset() and qdisc_destroy(), where a
+> leftover requeued SKB (qdisc->gso_skb) can have the potential of
+> being a skb list, thus use kfree_skb_list().
+> 
+> This is a followup to commit 10770bc2d1 ("qdisc: adjustments for
+> API allowing skb list xmits").
+> 
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-Separate this patch just reduce changed lines in a patch.
-Most of this patch change is from fep-> to txq-> or rxq->
-
-best regards
-Frank Li
-
-> More parts:
->
-> - prepare for TX multiqueue (introduce queue structure, definitions)
-> - transition TX path to use queue 0
-> - add support for the two other TX queues
-> - prepare for RX multiqueue (introduce queue structure, definitions)
-> - prepare for multiqueue, hardcode RX path to use queue 0
-> - add support for the two other RX queues
->
-> The number of changes are extremely hard to review...
-> --
-> Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
