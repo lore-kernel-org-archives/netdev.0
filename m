@@ -1,59 +1,83 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH 3/3] virtio_ring: unify direct/indirect code paths.
-Date: Wed, 3 Sep 2014 18:59:33 -0700
-Message-ID: <CALCETrVCR+Zm9RtF7gGmO-XcMAb4fLsxKMG-aEABqhbywF9+Jw@mail.gmail.com>
-References: <1409718556-3041-1-git-send-email-rusty@rustcorp.com.au>
-	<1409718556-3041-4-git-send-email-rusty@rustcorp.com.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] net-timestamp: Make the clone operation stand-alone
+ from phy timestamping
+Date: Wed, 03 Sep 2014 19:03:22 -0700
+Message-ID: <1409796202.26422.74.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140903155022.1896.59030.stgit@ahduyck-bv4.jf.intel.com>
+		 <20140903155357.1896.92538.stgit@ahduyck-bv4.jf.intel.com>
+		 <1409778438.26422.54.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1409781908.26422.55.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54079E0F.5010604@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Linux Virtualization <virtualization@lists.linux-foundation.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1409718556-3041-4-git-send-email-rusty@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
+	davem@davemloft.net, willemb@google.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:62716 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755981AbaIDCD1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 22:03:27 -0400
+Received: by mail-pd0-f170.google.com with SMTP id r10so12481713pdi.29
+        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 19:03:24 -0700 (PDT)
+In-Reply-To: <54079E0F.5010604@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 2, 2014 at 9:29 PM, Rusty Russell <rusty@rustcorp.com.au> wrote:
-> virtqueue_add() populates the virtqueue descriptor table from the sgs
-> given.  If it uses an indirect descriptor table, then it puts a single
-> descriptor in the descriptor table pointing to the kmalloc'ed indirect
-> table where the sg is populated.
->
-> Previously vring_add_indirect() did the allocation and the simple
-> linear layout.  We replace that with alloc_indirect() which allocates
-> the indirect table then chains it like the normal descriptor table so
-> we can reuse the core logic.
->
+On Wed, 2014-09-03 at 16:02 -0700, Alexander Duyck wrote:
+> On 09/03/2014 03:05 PM, Eric Dumazet wrote:
+> > On Wed, 2014-09-03 at 14:07 -0700, Eric Dumazet wrote:
+> > 
+> >>
+> >> Normally, if one skb holds a reference to a socket, it should have
+> >> skb->destructor set to a cleanup function.
+> >>
+> >> Otherwise, we rely on callers following a convention, to release sk
+> >> reference.
+> >>
+> >> If you believe its needed, it should be dully documented.
+> > 
+> > 
+> > BTW, skb_orphan() would BUG() on this case (skb->destrutor == NULL and
+> > skb->sk != NULL)
+> 
+> That was why we were setting skb->sk to null before passing it to
+> sock_queue_err_skb.
 
-> +       if (vq->indirect && total_sg > 1 && vq->vq.num_free)
-> +               desc = alloc_indirect(total_sg, gfp);
-> +       else
-> +               desc = NULL;
-> +
-> +       if (desc) {
-> +               /* Use a single buffer which doesn't continue */
-> +               vq->vring.desc[head].flags = VRING_DESC_F_INDIRECT;
-> +               vq->vring.desc[head].addr = virt_to_phys(desc);
-> +               /* avoid kmemleak false positive (hidden by virt_to_phys) */
-> +               kmemleak_ignore(desc);
-> +               vq->vring.desc[head].len = total_sg * sizeof(struct vring_desc);
-> +
-> +               /* Set up rest to use this indirect table. */
-> +               i = 0;
-> +               total_sg = 1;
+Hmpff... This is scary. skb_clone_tx_timestamp() seems the source of
+confusion.
 
-This is a little too magical for me.  Would it make sense to add a new
-variable for this (total_root_descs or something)?
+>   I think I found the reason why things were done the
+> way they were.  It looks like skb_orphan is called in
+> sock_queue_err_skb.
 
---Andy
+Thats standard practice before setting skb->destructor
+
+>   So any destructor added would be fired there before
+> before being replaced.
+
+You can use a pair of sock_hold()/sock_put() to guard against early
+dismantle. Look at commit da92b194cc36b5dc1fbd 
+
+>  
+> 
+> The only part I am not sure about is if that would actually be any sort
+> of issue.  Do we really need to hold the extra reference to the socket
+> all the way through the sock_queue_err_skb call or can we just let it
+> get dropped with the call to skb_orphan and let the fact that the
+> message is being queued be good enough?
+
+
+> I'm not sure due to the comment about "before exiting rcu section, make
+> sure dst is refcounted".  It kind of implies I should be able to hand
+> off the reference counts without worrying about the socket being freed
+> out from under me.
+
+Thats a different concern : dst in input path are rcu protected.
+
+If we queue one skb with an attached dst, we must take a refcount on the
+dst, or risk the dst being freed under us, by the time we dequeue
+packet.
+
+That will not prevent sk from being destroyed.
