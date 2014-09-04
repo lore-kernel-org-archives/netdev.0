@@ -1,172 +1,154 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [patch net-next 01/13] openvswitch: split flow
- structures into ovs specific and generic ones
-Date: Thu, 4 Sep 2014 14:09:07 +0200
-Message-ID: <20140904120907.GD1867@nanopsycho.lan>
-References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
- <1409736300-12303-2-git-send-email-jiri@resnulli.us>
- <540731B9.4010603@gmail.com>
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
+Subject: Re: [PATCH 3/4] ARM: dts: Add emac nodes to the rk3188 device tree
+Date: Thu, 04 Sep 2014 14:11:51 +0200
+Message-ID: <2772929.YUnUK3Vc00@diego>
+References: <1409763165-16461-1-git-send-email-romain.perier@gmail.com> <1409763165-16461-3-git-send-email-romain.perier@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
- buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
- aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
- dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <540731B9.4010603-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7Bit
+Cc: linux-rockchip@lists.infradead.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, arnd@arndb.de
+To: Romain Perier <romain.perier@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gloria.sntech.de ([95.129.55.99]:39688 "EHLO gloria.sntech.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753774AbaIDMJr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2014 08:09:47 -0400
+In-Reply-To: <1409763165-16461-3-git-send-email-romain.perier@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wed, Sep 03, 2014 at 05:20:25PM CEST, john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
->On 09/03/2014 02:24 AM, Jiri Pirko wrote:
->>After this, flow related structures can be used in other code.
->>
->>Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
->>---
->
->Hi Jiri,
->
->As I indicated before I'm looking into integrating this with some
->hardware here. Progress is a bit slow but starting to look at it.The
->i40e/ixgbe driver being one open source example with very limited
->support for tables, flow matches, etc. And then a closed source driver
->with much more flexibility. What I don't have is a middle of the road
->switch to work with something better then a host nic but not as
->flexible as a TOR.
->
->Couple questions my assumption here is I can extend the flow_key
->as needed to support additional match criteria my hardware has.
->I scanned the ./net/openvswitch source and I didn't catch any
->place that would break but might need to take a closer look.
->Similarly the actions set will need to be extended. For example
->if I want to use this with i40e a OVS_ACTION_ATTR_QUEUE could
->be used to steer packets to the queue. With this in mind we
->will want a follow up patch to rename OVS_ACTION_ATTR_* to
->FLOW_ACTION_ATTR_*
->
->Also I have some filters that can match on offset/length/mask
->tuples. As far as I can tell this is going to have to be yet
->another interface? Or would it be worth the effort to define
->the flow key more generically. My initial guess is I'll just
->write a separate interface. I think this is what Jamal referred
->to as another "classifier".
+Am Mittwoch, 3. September 2014, 16:52:44 schrieb Romain Perier:
+> This adds support for EMAC Rockchip driver on RK3188 SoCs.
+> 
+> Signed-off-by: Romain Perier <romain.perier@gmail.com>
 
-I'm thinking about using some more generic match key. It would
-incorporate ovs key and possible other classifiers (as your
-off/len/mask) as well. Drivers will have free will to implement whatever
-the hw supports.
+could you think about changing patches 3 and 4 with the diff below?
 
-Will do it for the next version of the patchset (most probably after I
-return from holliday, Sep 15).
+For one the comment style is not really following the coding style.
+I guess either remove the comments completely or switch to a /* ... */
+form.
+
+More importantly, I think the compatible is a property of the SoC and does
+not need to be replicated into every board, so it should live in a small
+&emac node in the rk3188.dtsi to adapt the property.
 
 
->
->Thanks,
->John
->
->[...]
->
->>+
->>+struct sw_flow_key_ipv4_tunnel {
->>+	__be64 tun_id;
->>+	__be32 ipv4_src;
->>+	__be32 ipv4_dst;
->>+	__be16 tun_flags;
->>+	u8   ipv4_tos;
->>+	u8   ipv4_ttl;
->>+};
->>+
->>+struct sw_flow_key {
->>+	struct sw_flow_key_ipv4_tunnel tun_key;  /* Encapsulating tunnel key. */
->>+	struct {
->>+		u32	priority;	/* Packet QoS priority. */
->>+		u32	skb_mark;	/* SKB mark. */
->>+		u16	in_port;	/* Input switch port (or DP_MAX_PORTS). */
->>+	} __packed phy; /* Safe when right after 'tun_key'. */
->>+	struct {
->>+		u8     src[ETH_ALEN];	/* Ethernet source address. */
->>+		u8     dst[ETH_ALEN];	/* Ethernet destination address. */
->>+		__be16 tci;		/* 0 if no VLAN, VLAN_TAG_PRESENT set otherwise. */
->>+		__be16 type;		/* Ethernet frame type. */
->>+	} eth;
->>+	struct {
->>+		u8     proto;		/* IP protocol or lower 8 bits of ARP opcode. */
->>+		u8     tos;		/* IP ToS. */
->>+		u8     ttl;		/* IP TTL/hop limit. */
->>+		u8     frag;		/* One of OVS_FRAG_TYPE_*. */
->>+	} ip;
->>+	struct {
->>+		__be16 src;		/* TCP/UDP/SCTP source port. */
->>+		__be16 dst;		/* TCP/UDP/SCTP destination port. */
->>+		__be16 flags;		/* TCP flags. */
->>+	} tp;
->>+	union {
->>+		struct {
->>+			struct {
->>+				__be32 src;	/* IP source address. */
->>+				__be32 dst;	/* IP destination address. */
->>+			} addr;
->>+			struct {
->>+				u8 sha[ETH_ALEN];	/* ARP source hardware address. */
->>+				u8 tha[ETH_ALEN];	/* ARP target hardware address. */
->>+			} arp;
->>+		} ipv4;
->>+		struct {
->>+			struct {
->>+				struct in6_addr src;	/* IPv6 source address. */
->>+				struct in6_addr dst;	/* IPv6 destination address. */
->>+			} addr;
->>+			__be32 label;			/* IPv6 flow label. */
->>+			struct {
->>+				struct in6_addr target;	/* ND target address. */
->>+				u8 sll[ETH_ALEN];	/* ND source link layer address. */
->>+				u8 tll[ETH_ALEN];	/* ND target link layer address. */
->>+			} nd;
->>+		} ipv6;
->>+	};
->>+} __aligned(BITS_PER_LONG/8); /* Ensure that we can do comparisons as longs. */
->>+
->>+struct sw_flow_key_range {
->>+	unsigned short int start;
->>+	unsigned short int end;
->>+};
->>+
->>+struct sw_flow_mask {
->>+	struct sw_flow_key_range range;
->>+	struct sw_flow_key key;
->>+};
->>+
->>+struct sw_flow_action {
->>+};
->>+
->>+struct sw_flow_actions {
->>+	unsigned count;
->>+	struct sw_flow_action actions[0];
->>+};
->>+
->>+struct sw_flow {
->>+	struct sw_flow_key key;
->>+	struct sw_flow_key unmasked_key;
->>+	struct sw_flow_mask *mask;
->>+	struct sw_flow_actions *actions;
->>+};
->>+
->
->
->-- 
->John Fastabend         Intel Corporation
+Heiko
+
+
+diff --git a/arch/arm/boot/dts/rk3188-radxarock.dts b/arch/arm/boot/dts/rk3188-radxarock.dts
+index 9f37c6f..a5c90e1 100644
+--- a/arch/arm/boot/dts/rk3188-radxarock.dts
++++ b/arch/arm/boot/dts/rk3188-radxarock.dts
+@@ -100,7 +100,6 @@
+ 
+ &emac {
+ 	status = "okay";
+-	compatible = "rockchip,rk3188-emac";
+ 
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&emac_xfer>, <&emac_mdio>, <&phy_int>;
+diff --git a/arch/arm/boot/dts/rk3188.dtsi b/arch/arm/boot/dts/rk3188.dtsi
+index 1261358..fd7511e 100644
+--- a/arch/arm/boot/dts/rk3188.dtsi
++++ b/arch/arm/boot/dts/rk3188.dtsi
+@@ -193,14 +193,14 @@
+ 
+ 		emac {
+ 			emac_xfer: emac-xfer {
+-				rockchip,pins = <RK_GPIO3 16 RK_FUNC_2 &pcfg_pull_none>, //tx_en
+-						<RK_GPIO3 17 RK_FUNC_2 &pcfg_pull_none>, //txd1
+-						<RK_GPIO3 18 RK_FUNC_2 &pcfg_pull_none>, //txd0
+-						<RK_GPIO3 19 RK_FUNC_2 &pcfg_pull_none>, //rxd0
+-						<RK_GPIO3 20 RK_FUNC_2 &pcfg_pull_none>, //rxd1
+-						<RK_GPIO3 21 RK_FUNC_2 &pcfg_pull_none>, //mac_clk
+-						<RK_GPIO3 22 RK_FUNC_2 &pcfg_pull_none>, //rx_err
+-						<RK_GPIO3 23 RK_FUNC_2 &pcfg_pull_none>; //crs_dvalid
++				rockchip,pins = <RK_GPIO3 16 RK_FUNC_2 &pcfg_pull_none>, /* tx_en */
++						<RK_GPIO3 17 RK_FUNC_2 &pcfg_pull_none>, /* txd1 */
++						<RK_GPIO3 18 RK_FUNC_2 &pcfg_pull_none>, /* txd0 */
++						<RK_GPIO3 19 RK_FUNC_2 &pcfg_pull_none>, /* rxd0 */
++						<RK_GPIO3 20 RK_FUNC_2 &pcfg_pull_none>, /* rxd1 */
++						<RK_GPIO3 21 RK_FUNC_2 &pcfg_pull_none>, /* mac_clk */
++						<RK_GPIO3 22 RK_FUNC_2 &pcfg_pull_none>, /* rx_err */
++						<RK_GPIO3 23 RK_FUNC_2 &pcfg_pull_none>; /* crs_dvalid */
+ 			};
+ 
+ 			emac_mdio: emac-mdio {
+@@ -385,6 +385,10 @@
+ 	};
+ };
+ 
++&emac {
++	compatible = "rockchip,rk3188-emac";
++};
++
+ &global_timer {
+ 	interrupts = <GIC_PPI 11 0xf04>;
+ };
+
+
+> ---
+>  arch/arm/boot/dts/rk3188.dtsi | 18 ++++++++++++++++++
+>  arch/arm/boot/dts/rk3xxx.dtsi | 17 +++++++++++++++++
+>  2 files changed, 35 insertions(+)
+> 
+> diff --git a/arch/arm/boot/dts/rk3188.dtsi b/arch/arm/boot/dts/rk3188.dtsi
+> index ee801a9..a182713 100644
+> --- a/arch/arm/boot/dts/rk3188.dtsi
+> +++ b/arch/arm/boot/dts/rk3188.dtsi
+> @@ -147,6 +147,24 @@
+>  			bias-disable;
+>  		};
+> 
+> +		emac {
+> +			emac_xfer: emac-xfer {
+> +				rockchip,pins = <RK_GPIO3 16 RK_FUNC_2 &pcfg_pull_none>, //tx_en
+> +						<RK_GPIO3 17 RK_FUNC_2 &pcfg_pull_none>, //txd1
+> +						<RK_GPIO3 18 RK_FUNC_2 &pcfg_pull_none>, //txd0
+> +						<RK_GPIO3 19 RK_FUNC_2 &pcfg_pull_none>, //rxd0
+> +						<RK_GPIO3 20 RK_FUNC_2 &pcfg_pull_none>, //rxd1
+> +						<RK_GPIO3 21 RK_FUNC_2 &pcfg_pull_none>, //mac_clk
+> +						<RK_GPIO3 22 RK_FUNC_2 &pcfg_pull_none>, //rx_err
+> +						<RK_GPIO3 23 RK_FUNC_2 &pcfg_pull_none>; //crs_dvalid
+> +			};
+> +
+> +			emac_mdio: emac-mdio {
+> +				rockchip,pins = <RK_GPIO3 24 RK_FUNC_2 &pcfg_pull_none>,
+> +						<RK_GPIO3 25 RK_FUNC_2 &pcfg_pull_none>;
+> +			};
+> +		};
+> +
+>  		i2c0 {
+>  			i2c0_xfer: i2c0-xfer {
+>  				rockchip,pins = <RK_GPIO1 24 RK_FUNC_1 &pcfg_pull_none>,
+> diff --git a/arch/arm/boot/dts/rk3xxx.dtsi b/arch/arm/boot/dts/rk3xxx.dtsi
+> index 8caf85d..208b1df 100644
+> --- a/arch/arm/boot/dts/rk3xxx.dtsi
+> +++ b/arch/arm/boot/dts/rk3xxx.dtsi
+> @@ -91,6 +91,23 @@
+>  		status = "disabled";
+>  	};
+> 
+> +	emac: ethernet@10204000 {
+> +		compatible = "snps,arc-emac";
+> +		reg = <0x10204000 0x3c>;
+> +		interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +
+> +		rockchip,grf = <&grf>;
+> +
+> +		clocks = <&cru HCLK_EMAC>, <&cru SCLK_MAC>;
+> +		clock-names = "hclk", "macref";
+> +		max-speed = <100>;
+> +		phy-mode = "rmii";
+> +
+> +		status = "disabled";
+> +	};
+> +
+>  	mmc0: dwmmc@10214000 {
+>  		compatible = "rockchip,rk2928-dw-mshc";
+>  		reg = <0x10214000 0x1000>;
