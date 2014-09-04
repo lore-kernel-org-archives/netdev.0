@@ -1,7 +1,7 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: [PATCH v2 net-next] net: filter: export pkt_type_offset() helper
-Date: Thu, 04 Sep 2014 07:35:47 -0700
-Message-ID: <1409841347.26422.118.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Thu, 04 Sep 2014 16:41:49 +0200
+Message-ID: <1409841709.23465.25.camel@localhost>
 References: <1409778511-21273-1-git-send-email-kda@linux-powerpc.org>
 	 <54078FBC.5050402@redhat.com>
 	 <CAADnVQKNHL7iY=VHp4bs5k2hSDf8jy7H-0H0SgYjb81S25XB9Q@mail.gmail.com>
@@ -17,6 +17,7 @@ References: <1409778511-21273-1-git-send-email-kda@linux-powerpc.org>
 	 <063D6719AE5E284EB5DD2968C1650D6D174876B4@AcuExch.aculab.com>
 	 <1409841129.26422.117.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <1409841233.23465.22.camel@localhost>
+	 <1409841347.26422.118.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -29,25 +30,35 @@ Cc: David Laight <David.Laight@ACULAB.COM>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Markos Chandras <markos.chandras@imgtec.com>,
 	Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34969 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803AbaIDOfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 10:35:52 -0400
-Received: by mail-pa0-f51.google.com with SMTP id rd3so20148677pab.38
-        for <netdev@vger.kernel.org>; Thu, 04 Sep 2014 07:35:49 -0700 (PDT)
-In-Reply-To: <1409841233.23465.22.camel@localhost>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:44233 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753677AbaIDOlx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 10:41:53 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by gateway2.nyi.internal (Postfix) with ESMTP id BA10120959
+	for <netdev@vger.kernel.org>; Thu,  4 Sep 2014 10:41:52 -0400 (EDT)
+In-Reply-To: <1409841347.26422.118.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-09-04 at 16:33 +0200, Hannes Frederic Sowa wrote:
+On Do, 2014-09-04 at 07:35 -0700, Eric Dumazet wrote:
+> On Thu, 2014-09-04 at 16:33 +0200, Hannes Frederic Sowa wrote:
+> 
+> > Which btw. also uses int, which might change alignment of structures.
+> 
+> You missed the point .
+> 
+> kmemcheck wants to make sure the whole word is set, or else you could
+> get false positives.
+> 
+> kmemcheck needs are quite different.
 
-> Which btw. also uses int, which might change alignment of structures.
+Now that you said it, I understand. :)
 
-You missed the point .
+You were right with the int vs. u8 thing all along. gcc aligns the
+datatype on the next struct field and not on the whole field, as I
+expected. So excuse my error above.
 
-kmemcheck wants to make sure the whole word is set, or else you could
-get false positives.
-
-kmemcheck needs are quite different.
+I think the latest proposals looks good?
