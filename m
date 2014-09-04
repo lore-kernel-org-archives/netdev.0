@@ -1,123 +1,97 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [patch net-next 10/13] openvswitch: add support for
- datapath hardware offload
-Date: Thu, 4 Sep 2014 14:48:37 +0200
-Message-ID: <20140904124837.GI1867@nanopsycho.lan>
-References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
- <1409736300-12303-11-git-send-email-jiri@resnulli.us>
- <540743B4.9080500@gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [RFC net-next PATCH V2 1/3] net: Functions to report space available
+	in device TX queues
+Date: Thu, 04 Sep 2014 14:54:33 +0200
+Message-ID: <20140904125425.4108.72776.stgit@dragon>
+References: <20140904125247.4108.8132.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
- buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
- aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
- dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <540743B4.9080500-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37230 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751945AbaIDMyw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2014 08:54:52 -0400
+In-Reply-To: <20140904125247.4108.8132.stgit@dragon>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wed, Sep 03, 2014 at 06:37:08PM CEST, john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
->On 09/03/2014 02:24 AM, Jiri Pirko wrote:
->>Benefit from the possibility to work with flows in switch devices and
->>use the swdev api to offload flow datapath.
->>
->>Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
->>---
->>  net/openvswitch/Makefile       |   3 +-
->>  net/openvswitch/datapath.c     |  33 ++++++
->>  net/openvswitch/datapath.h     |   3 +
->>  net/openvswitch/flow_table.c   |   1 +
->>  net/openvswitch/hw_offload.c   | 245 +++++++++++++++++++++++++++++++++++++++++
->>  net/openvswitch/hw_offload.h   |  22 ++++
->>  net/openvswitch/vport-netdev.c |   3 +
->>  net/openvswitch/vport.h        |   2 +
->>  8 files changed, 311 insertions(+), 1 deletion(-)
->>  create mode 100644 net/openvswitch/hw_offload.c
->>  create mode 100644 net/openvswitch/hw_offload.h
->>
->>diff --git a/net/openvswitch/Makefile b/net/openvswitch/Makefile
->>index 3591cb5..5152437 100644
->>--- a/net/openvswitch/Makefile
->>+++ b/net/openvswitch/Makefile
->>@@ -13,7 +13,8 @@ openvswitch-y := \
->>  	flow_table.o \
->>  	vport.o \
->>  	vport-internal_dev.o \
->>-	vport-netdev.o
->>+	vport-netdev.o \
->>+	hw_offload.o
->>
->>  ifneq ($(CONFIG_OPENVSWITCH_VXLAN),)
->>  openvswitch-y += vport-vxlan.o
->>diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
->>index 75bb07f..3e43e1d 100644
->>--- a/net/openvswitch/datapath.c
->>+++ b/net/openvswitch/datapath.c
->>@@ -57,6 +57,7 @@
->>  #include "flow_netlink.h"
->>  #include "vport-internal_dev.h"
->>  #include "vport-netdev.h"
->>+#include "hw_offload.h"
->>
->>  int ovs_net_id __read_mostly;
->>
->>@@ -864,6 +865,9 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
->>  			acts = NULL;
->>  			goto err_unlock_ovs;
->>  		}
->>+		error = ovs_hw_flow_insert(dp, new_flow);
->>+		if (error)
->>+			pr_warn("failed to insert flow into hw\n");
->
->This is really close to silently failing. I think we need to
->hard fail here somehow and push it back to userspace as part of
->the reply and ovs_notify.
+From: Tom Herbert <therbert@google.com>
 
-Yes, I agree. My plan was to handle this in ovs hw/sw/both netlink attr
-implementation.
+This patch adds netdev_tx_avail_queue and netdev_avail_queue which are
+used to report number of bytes available in transmit queues per BQL. The
+functions call dql_avail which returns BQL limit minus number of
+inflight bytes. These functions can be called without txlock, for
+instance to ascertain how much data should be dequeued from a qdisc in
+a batch. When called without the tx_lock, the result is technically a
+hint, subsequently when the tx_lock is done for a transmit it is
+possible the availability has changed (for example a transmit
+completion may have freed up more space in the queue or changed the
+limit).
 
+Signed-off-by: Tom Herbert <therbert@google.com>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
->
->Otherwise I don't know how to manage the hardware correctly. Consider
->the hardware table is full. In this case user space will continue to
->add rules and they will be silently discarded. Similarly if user space
->adds a flow/action that can not be supported by the hardware it will
->be silently ignored.
->
->Even if we do careful accounting on resources in user space we could
->still get an ENOMEM error from sw_flow_action_create.
->
->Same comment for the other hw commands flush/remove.
->
->>  		if (unlikely(reply)) {
->>  			error = ovs_flow_cmd_fill_info(new_flow,
->>@@ -896,10 +900,18 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
->>  				goto err_unlock_ovs;
->>  			}
->>  		}
->
->
->[...]
->
->
->Thanks,
->John
->
->-- 
->John Fastabend         Intel Corporation
+---
+ - Fixed spelling in comments
+
+ include/linux/netdevice.h |   28 ++++++++++++++++++++++++++--
+ 1 files changed, 26 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 5be20a7..5a4384a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2567,6 +2567,30 @@ static inline void netdev_completed_queue(struct net_device *dev,
+ 	netdev_tx_completed_queue(netdev_get_tx_queue(dev, 0), pkts, bytes);
+ }
+ 
++static inline int netdev_tx_avail_queue(struct netdev_queue *dev_queue)
++{
++#ifdef CONFIG_BQL
++	return dql_avail(&dev_queue->dql);
++#else
++	return DQL_MAX_LIMIT;
++#endif
++}
++
++/**
++ *	netdev_avail_queue - report how much space is available for xmit
++ *	@dev: network device
++ *
++ *	Report the amount of space available in the TX queue in terms of
++ *	number of bytes. This returns the number of bytes available per
++ *	DQL. This function may be called without taking the txlock on
++ *	the device, however in that case the result should be taken as
++ *	a (strong) hint.
++ */
++static inline int netdev_avail_queue(struct net_device *dev)
++{
++	return netdev_tx_avail_queue(netdev_get_tx_queue(dev, 0));
++}
++
+ static inline void netdev_tx_reset_queue(struct netdev_queue *q)
+ {
+ #ifdef CONFIG_BQL
+@@ -2582,9 +2606,9 @@ static inline void netdev_tx_reset_queue(struct netdev_queue *q)
+  * 	Reset the bytes and packet count of a network device and clear the
+  * 	software flow control OFF bit for this network device
+  */
+-static inline void netdev_reset_queue(struct net_device *dev_queue)
++static inline void netdev_reset_queue(struct net_device *dev)
+ {
+-	netdev_tx_reset_queue(netdev_get_tx_queue(dev_queue, 0));
++	netdev_tx_reset_queue(netdev_get_tx_queue(dev, 0));
+ }
+ 
+ /**
