@@ -1,57 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [Patch net-next 10/11] ARM: Documentation: Update fec dts binding
- doc
-Date: Thu, 04 Sep 2014 16:55:05 +0400
-Message-ID: <54086129.9050508@cogentembedded.com>
-References: <1409776486-1403-1-git-send-email-y> <54078488.68c1420a.3020.7c0dSMTPIN_ADDED_BROKEN@mx.google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] net-timestamp: expand documentation
+Date: Thu, 04 Sep 2014 14:56:04 +0200
+Message-ID: <54086164.6030603@redhat.com>
+References: <1409534867-32710-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shawn.guo@linaro.org, linux-arm-kernel@lists.infradead.org,
-	devicetree@vger.kernel.org, Frank Li <Frank.Li@freescale.com>
-To: y@shlinux1.ap.freescale.net, b38611@freescale.com,
-	davem@davemloft.net, netdev@vger.kernel.org, lznuaa@gmail.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:49007 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753889AbaIDMzH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 08:55:07 -0400
-Received: by mail-lb0-f182.google.com with SMTP id u10so11575830lbd.27
-        for <netdev@vger.kernel.org>; Thu, 04 Sep 2014 05:55:06 -0700 (PDT)
-In-Reply-To: <54078488.68c1420a.3020.7c0dSMTPIN_ADDED_BROKEN@mx.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:2261 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753771AbaIDM4I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2014 08:56:08 -0400
+In-Reply-To: <1409534867-32710-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi Willem,
 
-On 9/4/2014 12:34 AM, y@shlinux1.ap.freescale.net wrote:
+On 09/01/2014 03:27 AM, Willem de Bruijn wrote:
+> Expand Documentation/networking/timestamping.txt with new
+> interfaces and bytestream timestamping. Also minor
+> cleanup of the other text.
+>
+> Import txtimestamp.c test of the new features.
+>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+...
+> +static int recv_errmsg(int fd)
+> +{
+> +	static char ctrl[1024 /* overprovision*/];
+> +	static struct msghdr msg;
+> +	struct iovec entry;
+> +	static char *data;
+> +	int ret = 0;
+> +
+> +	data = malloc(cfg_payload_len);
+> +	if (!data)
+> +		error(1, 0, "malloc");
+> +
+> +	memset(&msg, 0, sizeof(msg));
+> +	memset(&entry, 0, sizeof(entry));
+> +	memset(ctrl, 0, sizeof(ctrl));
+> +	memset(data, 0, sizeof(data));
 
-> From: Frank Li <Frank.Li@freescale.com>
+I think this memset is wrong and should rather be
+something like :
 
->      This patch update fec devicetree binding doc that add Optional
->      properties "fsl,num_tx_queues" and "fsl,num_rx_queues".
+	memset(data, 0, cfg_payload_len);
 
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
-> Signed-off-by: Frank Li <Frank.Li@freescale.com>
-> ---
->   Documentation/devicetree/bindings/net/fsl-fec.txt | 6 ++++++
->   1 file changed, 6 insertions(+)
-
-> diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
-> index 8a2c7b5..4da148d 100644
-> --- a/Documentation/devicetree/bindings/net/fsl-fec.txt
-> +++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-> @@ -16,6 +16,12 @@ Optional properties:
->   - phy-handle : phandle to the PHY device connected to this device.
->   - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
->     Use instead of phy-handle.
-> +- fsl,num_tx_queues : The property is valid for enet-avb IP, which supports
-> +  hw multi queues. Should specify the tx queue number, otherwise set tx queue
-> +  number to 1.
-> +- fsl,num_rx_queues : The property is valid for enet-avb IP, which supports
-> +  hw multi queues. Should specify the rx queue number, otherwise set rx queue
-> +  number to 1.
-
-    Hyphens are preferred to underscores in the prop names.
-
-WBR, Sergei
+> +	entry.iov_base = data;
+> +	entry.iov_len = cfg_payload_len;
+> +	msg.msg_iov = &entry;
+> +	msg.msg_iovlen = 1;
+> +	msg.msg_name = NULL;
+> +	msg.msg_namelen = 0;
+> +	msg.msg_control = ctrl;
+> +	msg.msg_controllen = sizeof(ctrl);
