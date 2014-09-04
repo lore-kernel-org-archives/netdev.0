@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH net-next v4 1/3] net-timestamp: Merge shared code between
- phy and regular timestamping
-Date: Thu, 04 Sep 2014 13:31:10 -0400
-Message-ID: <20140904173040.7702.40237.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [PATCH net-next v4 3/3] net: merge cases where sock_efree and
+ sock_edemux are the same function
+Date: Thu, 04 Sep 2014 13:32:11 -0400
+Message-ID: <20140904173141.7702.95608.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140904172906.7702.87598.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,160 +10,81 @@ Content-Transfer-Encoding: 7bit
 Cc: richardcochran@gmail.com, davem@davemloft.net, willemb@google.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:12641 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:34048 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754143AbaIDRjy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Sep 2014 13:39:54 -0400
+	id S1751523AbaIDRks (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2014 13:40:48 -0400
 In-Reply-To: <20140904172906.7702.87598.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change merges the shared bits that exist between skb_tx_tstamp and
-skb_complete_tx_timestamp.  By doing this we can avoid the two diverging as
-there were already changes pushed into skb_tx_tstamp that hadn't made it
-into the other function.
-
-In addition this resolves issues with the fact that
-skb_complete_tx_timestamp was included in linux/skbuff.h even though it was
-only compiled in if phy timestamping was enabled.
+Since sock_efree and sock_demux are essentially the same code for non-TCP
+sockets and the case where CONFIG_INET is not defined we can combine the
+code or replace the call to sock_edemux in several spots.  As a result we
+can avoid a bit of unnecessary code or code duplication.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
 ---
 
-v2: Dropped comment and restored original order based on comments
-    from Willem de Bruijn.
-v3: No changes.
-v4: No changes.
+v4: Added this change as a separate patch.
 
- net/core/skbuff.c       |   65 ++++++++++++++++++++++++++++++-----------------
- net/core/timestamping.c |   29 ---------------------
- 2 files changed, 42 insertions(+), 52 deletions(-)
+ include/net/sock.h |    4 ++++
+ net/core/sock.c    |    4 ++--
+ net/ipv4/udp.c     |    2 +-
+ 3 files changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 53ce536..697e696 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3511,33 +3511,13 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
- }
- EXPORT_SYMBOL(sock_dequeue_err_skb);
+diff --git a/include/net/sock.h b/include/net/sock.h
+index e02be37..ad23e80 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1575,7 +1575,11 @@ void sock_wfree(struct sk_buff *skb);
+ void skb_orphan_partial(struct sk_buff *skb);
+ void sock_rfree(struct sk_buff *skb);
+ void sock_efree(struct sk_buff *skb);
++#ifdef CONFIG_INET
+ void sock_edemux(struct sk_buff *skb);
++#else
++#define sock_edemux(skb) sock_efree(skb)
++#endif
  
--void __skb_tstamp_tx(struct sk_buff *orig_skb,
--		     struct skb_shared_hwtstamps *hwtstamps,
--		     struct sock *sk, int tstype)
-+static void __skb_complete_tx_timestamp(struct sk_buff *skb,
-+					struct sock *sk,
-+					int tstype)
+ int sock_setsockopt(struct socket *sock, int level, int op,
+ 		    char __user *optval, unsigned int optlen);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index d04005c..69592cb 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1643,18 +1643,18 @@ void sock_efree(struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(sock_efree);
+ 
++#ifdef CONFIG_INET
+ void sock_edemux(struct sk_buff *skb)
  {
- 	struct sock_exterr_skb *serr;
--	struct sk_buff *skb;
- 	int err;
+ 	struct sock *sk = skb->sk;
  
--	if (!sk)
--		return;
--
--	if (hwtstamps) {
--		*skb_hwtstamps(orig_skb) =
--			*hwtstamps;
--	} else {
--		/*
--		 * no hardware time stamps available,
--		 * so keep the shared tx_flags and only
--		 * store software time stamp
--		 */
--		orig_skb->tstamp = ktime_get_real();
--	}
--
--	skb = skb_clone(orig_skb, GFP_ATOMIC);
--	if (!skb)
--		return;
--
- 	serr = SKB_EXT_ERR(skb);
- 	memset(serr, 0, sizeof(*serr));
- 	serr->ee.ee_errno = ENOMSG;
-@@ -3554,6 +3534,45 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
- 	if (err)
- 		kfree_skb(skb);
+-#ifdef CONFIG_INET
+ 	if (sk->sk_state == TCP_TIME_WAIT)
+ 		inet_twsk_put(inet_twsk(sk));
+ 	else
+-#endif
+ 		sock_put(sk);
  }
-+
-+void skb_complete_tx_timestamp(struct sk_buff *skb,
-+			       struct skb_shared_hwtstamps *hwtstamps)
-+{
-+	struct sock *sk = skb->sk;
-+
-+	skb->sk = NULL;
-+
-+	if (hwtstamps) {
-+		*skb_hwtstamps(skb) = *hwtstamps;
-+		__skb_complete_tx_timestamp(skb, sk, SCM_TSTAMP_SND);
-+	} else {
-+		kfree_skb(skb);
-+	}
-+
-+	sock_put(sk);
-+}
-+EXPORT_SYMBOL_GPL(skb_complete_tx_timestamp);
-+
-+void __skb_tstamp_tx(struct sk_buff *orig_skb,
-+		     struct skb_shared_hwtstamps *hwtstamps,
-+		     struct sock *sk, int tstype)
-+{
-+	struct sk_buff *skb;
-+
-+	if (!sk)
-+		return;
-+
-+	if (hwtstamps)
-+		*skb_hwtstamps(orig_skb) = *hwtstamps;
-+	else
-+		orig_skb->tstamp = ktime_get_real();
-+
-+	skb = skb_clone(orig_skb, GFP_ATOMIC);
-+	if (!skb)
-+		return;
-+
-+	__skb_complete_tx_timestamp(skb, sk, tstype);
-+}
- EXPORT_SYMBOL_GPL(__skb_tstamp_tx);
+ EXPORT_SYMBOL(sock_edemux);
++#endif
  
- void skb_tstamp_tx(struct sk_buff *orig_skb,
-diff --git a/net/core/timestamping.c b/net/core/timestamping.c
-index a877039..f48a59f 100644
---- a/net/core/timestamping.c
-+++ b/net/core/timestamping.c
-@@ -63,35 +63,6 @@ void skb_clone_tx_timestamp(struct sk_buff *skb)
- }
- EXPORT_SYMBOL_GPL(skb_clone_tx_timestamp);
- 
--void skb_complete_tx_timestamp(struct sk_buff *skb,
--			       struct skb_shared_hwtstamps *hwtstamps)
--{
--	struct sock *sk = skb->sk;
--	struct sock_exterr_skb *serr;
--	int err;
--
--	if (!hwtstamps) {
--		sock_put(sk);
--		kfree_skb(skb);
--		return;
--	}
--
--	*skb_hwtstamps(skb) = *hwtstamps;
--
--	serr = SKB_EXT_ERR(skb);
--	memset(serr, 0, sizeof(*serr));
--	serr->ee.ee_errno = ENOMSG;
--	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
--	skb->sk = NULL;
--
--	err = sock_queue_err_skb(sk, skb);
--
--	sock_put(sk);
--	if (err)
--		kfree_skb(skb);
--}
--EXPORT_SYMBOL_GPL(skb_complete_tx_timestamp);
--
- bool skb_defer_rx_timestamp(struct sk_buff *skb)
+ kuid_t sock_i_uid(struct sock *sk)
  {
- 	struct phy_device *phydev;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 0da3849..cd0db54 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1972,7 +1972,7 @@ void udp_v4_early_demux(struct sk_buff *skb)
+ 		return;
+ 
+ 	skb->sk = sk;
+-	skb->destructor = sock_edemux;
++	skb->destructor = sock_efree;
+ 	dst = sk->sk_rx_dst;
+ 
+ 	if (dst)
