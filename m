@@ -1,46 +1,60 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] hyperv: NULL dereference on error
-Date: Thu, 4 Sep 2014 14:11:23 +0300
-Message-ID: <20140904111123.GD21504@mwanda>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process
+ is runnable
+Date: Thu, 04 Sep 2014 09:51:33 +0300
+Message-ID: <54080BF5.1070504@linux.intel.com>
+References: <1408608310-13579-2-git-send-email-jasowang@redhat.com> <1408683665.5648.69.camel@marge.simpson.net> <53F6F14B.1030609@redhat.com> <20140822074224.GB7372@gmail.com> <53FFEEC0.4000304@redhat.com> <540414AB.9000004@linux.intel.com> <54053998.4040604@redhat.com> <54056076.2030603@linux.intel.com> <20140902083124.GB10356@redhat.com> <5406B9E6.6050103@linux.intel.com> <20140903075104.GA6187@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, kernel-janitors@vger.kernel.org,
- netdev@vger.kernel.org
-To: "K. Y. Srinivasan" <kys@microsoft.com>,
- Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: Jason Wang <jasowang@redhat.com>, Ingo Molnar <mingo@kernel.org>,
+	Mike Galbraith <umgwanakikbuti@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:26547 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751098AbaIDGvl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Sep 2014 02:51:41 -0400
+In-Reply-To: <20140903075104.GA6187@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We try to call free_netvsc_device(net_device) when "net_device" is NULL.
-It leads to an Oops.
+On 03/09/2014 10:51, Michael S. Tsirkin wrote:
+> On Wed, Sep 03, 2014 at 09:49:10AM +0300, Eliezer Tamir wrote:
+>> On 02/09/2014 11:31, Michael S. Tsirkin wrote:
+>>> On Tue, Sep 02, 2014 at 09:15:18AM +0300, Eliezer Tamir wrote:
 
-Fixes: f90251c8a6d0 ('hyperv: Increase the buffer length for netvsc_channel_cb()')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>> Busy polling is not a general purpose feature, it's not something you
+>> can casually turn on and will "just work". Most applications should not
+>> be using busy polling. Currently it is used by multiserver applications
+>> that you spend days tuning to specific platforms.
+>>
+>> What the user wants is to lower both avg and maximum latencies, at the
+>> expense of everything else including power efficiency and sometimes
+>> even throughput. The only exception is making the system crash ;)
+>>
+>> While letting other things take precedence over busy polling might not
+>> hurt the avg latency much, it will kill your maximum latency.
+> 
+> If scheduler happens to run both server and client on the
+> same CPU, polling will hurt maximum latency even more.
+> So I guess different users want different things.
+> 
+> How about applications giving us a hint what they prefer?
+> For example, a new flag that says "I don't have anything useful to do so
+> let's do busy polling but my server is on the local system, so please
+> only poll if CPU is otherwise idle".
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 5b5644a..977984b 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -1054,10 +1054,8 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
- 	struct net_device *ndev;
- 
- 	net_device = alloc_net_device(device);
--	if (!net_device) {
--		ret = -ENOMEM;
--		goto cleanup;
--	}
-+	if (!net_device)
-+		return -ENOMEM;
- 
- 	net_device->ring_size = ring_size;
+I'm sorry for being ambiguous, when I said multi-server application, I
+meant an app that runs on more than one server machine.
+
+The loopback test is as far as I know not interesting.
+
+Of course if busypoll becomes interesting for virtualization over
+loopback, I have no problem with that, provided that there is a way to
+get the old behavior and that it is well documented.
+
+-Eliezer
