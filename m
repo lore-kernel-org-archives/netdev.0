@@ -1,272 +1,337 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 net-next] net: filter: export pkt_type_offset() helper
-Date: Thu, 04 Sep 2014 13:50:12 +0200
-Message-ID: <1409831412.23465.3.camel@localhost>
-References: <1409778511-21273-1-git-send-email-kda@linux-powerpc.org>
-	 <54078FBC.5050402@redhat.com>
-	 <CAADnVQKNHL7iY=VHp4bs5k2hSDf8jy7H-0H0SgYjb81S25XB9Q@mail.gmail.com>
-	 <1409792893.26422.60.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1409793959.3362714.163402573.6A26EDE1@webmail.messagingengine.com>
-	 <1409796348.26422.76.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAADnVQLh6qOD2epUq0S5P8RkUgZA38JNxeP40uBMScLHC2SsJg@mail.gmail.com>
-	 <CAHj3AVn8q-JS0Eq0QrfpBo-WfJ+-wXumhNoeDAdkPZC7LSeB5g@mail.gmail.com>
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
+Subject: Re: [PATCH v5 1/4] ethernet: arc: Add support for Rockchip SoC layer
+ device tree bindings
+Date: Thu, 04 Sep 2014 14:05:33 +0200
+Message-ID: <13303426.CnNG9VQfuK@diego>
+References: <1409763165-16461-1-git-send-email-romain.perier@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Denis Kirjanov <kda@linux-powerpc.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Markos Chandras <markos.chandras@imgtec.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: Denis Kirjanov <kirjanov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:40965 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753779AbaIDLuQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 07:50:16 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 390B620AF1
-	for <netdev@vger.kernel.org>; Thu,  4 Sep 2014 07:50:15 -0400 (EDT)
-In-Reply-To: <CAHj3AVn8q-JS0Eq0QrfpBo-WfJ+-wXumhNoeDAdkPZC7LSeB5g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
+ arnd@arndb.de, linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Romain Perier <romain.perier@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1409763165-16461-1-git-send-email-romain.perier@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Do, 2014-09-04 at 10:09 +0400, Denis Kirjanov wrote:
-> On Thursday, September 4, 2014, Alexei Starovoitov <
-> alexei.starovoitov@gmail.com> wrote:
+Am Mittwoch, 3. September 2014, 16:52:42 schrieb Romain Perier:
+> This patch defines a platform glue layer for Rockchip SoCs which
+> support arc-emac driver. It ensures that regulator for the rmii is on
+> before trying to connect to the ethernet controller. It applies right
+> speed and mode changes to the grf when ethernet settings change.
 > 
-> > On Wed, Sep 3, 2014 at 7:05 PM, Eric Dumazet <eric.dumazet@gmail.com
-> > <javascript:;>> wrote:
-> > > On Thu, 2014-09-04 at 03:25 +0200, Hannes Frederic Sowa wrote:
-> > >
-> > >> Can't we add an address marker to struct sk_buff?
-> > >>
-> > >> Several possibilities are available:
-> > >>
-> > >> ptrdiff_t pkt_type_offset[0]  before the pkt_type flags field
-> > >>
-> > >> If one wants to make it more expressive:
-> > >> typedef struct {} mark_struct_offset;
-> > >> and add
-> > >> mark_struct_offset pkt_type_offset;
-> > >> at appropriate places
-> > >>
-> > >> Or maybe an anonymous union?
-> > >>
-> > >> pkt_type_offset would become a simple offsetof(struct sk_buff,
-> > >> pkt_type_offset) then and there is no need for BUG_ON then.
-> > >
-> > >
-> > > You can try, and make sure this works on all gcc compilers, even the one
-> > > Andrew Morton uses.
-> > >
-> > > And of course, you need to not introduce holes doing so.
+> Signed-off-by: Romain Perier <romain.perier@gmail.com>
 
-Sure, it will work as expected. kmemleak uses the field[0] technique and
-is already used in struct sk_buff.
+Reviewed-by: Heiko Stuebner <heiko@sntech.de>
 
-I checked below patch with pahole and it doesn't change anything in size
-or fieldoffsets.
-
-> >
-> > good points.
-> > I think Hannes's idea is the best.
+> ---
+>  drivers/net/ethernet/arc/Kconfig         |  10 ++
+>  drivers/net/ethernet/arc/Makefile        |   1 +
+>  drivers/net/ethernet/arc/emac.h          |   4 +-
+>  drivers/net/ethernet/arc/emac_main.c     |   2 +
+>  drivers/net/ethernet/arc/emac_rockchip.c | 228
+> +++++++++++++++++++++++++++++++ 5 files changed, 244 insertions(+), 1
+> deletion(-)
+>  create mode 100644 drivers/net/ethernet/arc/emac_rockchip.c
 > 
-> Agreed.
+> diff --git a/drivers/net/ethernet/arc/Kconfig
+> b/drivers/net/ethernet/arc/Kconfig index 89e04fd..8e262e2 100644
+> --- a/drivers/net/ethernet/arc/Kconfig
+> +++ b/drivers/net/ethernet/arc/Kconfig
+> @@ -32,4 +32,14 @@ config ARC_EMAC
+>  	  non-standard on-chip ethernet device ARC EMAC 10/100 is used.
+>  	  Say Y here if you have such a board.  If unsure, say N.
 > 
-> > It will help to get rid of helper altogether.
-> > For my bpf syscall proposal I've used anonymous unions and tested
-> > them with gcc 4.2 - 4.9 on x64/i386/arm32/sparc64 and clang.
-> > All compilers were doing just fine. So it should work.
+> +config EMAC_ROCKCHIP
+> +	tristate "Rockchip EMAC support"
+> +	select ARC_EMAC_CORE
+> +	depends on OF_IRQ && OF_NET && REGULATOR
+> +	---help---
+> +	  Support for Rockchip RK3066/RK3188 EMAC ethernet controllers.
+> +	  This selects Rockchip SoC glue layer support for the
+> +	  emac device driver. This driver is used for RK3066/RK3188
+> +	  EMAC ethernet controller.
+> +
+>  endif # NET_VENDOR_ARC
+> diff --git a/drivers/net/ethernet/arc/Makefile
+> b/drivers/net/ethernet/arc/Makefile index 241bb80..79108af 100644
+> --- a/drivers/net/ethernet/arc/Makefile
+> +++ b/drivers/net/ethernet/arc/Makefile
+> @@ -5,3 +5,4 @@
+>  arc_emac-objs := emac_main.o emac_mdio.o
+>  obj-$(CONFIG_ARC_EMAC_CORE) += arc_emac.o
+>  obj-$(CONFIG_ARC_EMAC) += emac_arc.o
+> +obj-$(CONFIG_EMAC_ROCKCHIP) += emac_rockchip.o
+> diff --git a/drivers/net/ethernet/arc/emac.h
+> b/drivers/net/ethernet/arc/emac.h index eb2ba67..dae1ac3 100644
+> --- a/drivers/net/ethernet/arc/emac.h
+> +++ b/drivers/net/ethernet/arc/emac.h
+> @@ -123,9 +123,11 @@ struct buffer_state {
+>   * @speed:	PHY's last set speed.
+>   */
+>  struct arc_emac_priv {
+> -	/* Devices */
+>  	const char *drv_name;
+>  	const char *drv_version;
+> +	void (*set_mac_speed)(void *priv, unsigned int speed);
+> +
+> +	/* Devices */
+>  	struct device *dev;
+>  	struct phy_device *phy_dev;
+>  	struct mii_bus *bus;
+> diff --git a/drivers/net/ethernet/arc/emac_main.c
+> b/drivers/net/ethernet/arc/emac_main.c index b35c69e..a08f343 100644
+> --- a/drivers/net/ethernet/arc/emac_main.c
+> +++ b/drivers/net/ethernet/arc/emac_main.c
+> @@ -48,6 +48,8 @@ static void arc_emac_adjust_link(struct net_device *ndev)
+>  	if (priv->speed != phy_dev->speed) {
+>  		priv->speed = phy_dev->speed;
+>  		state_changed = 1;
+> +		if (priv->set_mac_speed)
+> +			priv->set_mac_speed(priv, priv->speed);
+>  	}
 > 
-> Nice. Alexei, care to send a patch then?
-
-Denis, I thought about something like this, you can incorperate this in
-your patch if you can give it a test and check for other architectures,
-thanks!
-
-diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
-index 05a5661..0fd3f95 100644
---- a/arch/mips/net/bpf_jit.c
-+++ b/arch/mips/net/bpf_jit.c
-@@ -765,27 +765,6 @@ static u64 jit_get_skb_w(struct sk_buff *skb,
-unsigned offset)
- 	return (u64)err << 32 | ntohl(ret);
- }
- 
--#ifdef __BIG_ENDIAN_BITFIELD
--#define PKT_TYPE_MAX	(7 << 5)
--#else
--#define PKT_TYPE_MAX	7
--#endif
--static int pkt_type_offset(void)
--{
--	struct sk_buff skb_probe = {
--		.pkt_type = ~0,
--	};
--	u8 *ct = (u8 *)&skb_probe;
--	unsigned int off;
--
--	for (off = 0; off < sizeof(struct sk_buff); off++) {
--		if (ct[off] == PKT_TYPE_MAX)
--			return off;
--	}
--	pr_err_once("Please fix pkt_type_offset(), as pkt_type couldn't be
-found\n");
--	return -1;
--}
--
- static int build_body(struct jit_ctx *ctx)
- {
- 	void *load_func[] = {jit_get_skb_b, jit_get_skb_h, jit_get_skb_w};
-@@ -1332,11 +1311,7 @@ jmp_cmp:
- 		case BPF_ANC | SKF_AD_PKTTYPE:
- 			ctx->flags |= SEEN_SKB;
- 
--			off = pkt_type_offset();
--
--			if (off < 0)
--				return -1;
--			emit_load_byte(r_tmp, r_skb, off, ctx);
-+			emit_load_byte(r_tmp, r_skb, skb_pkt_type_offset(), ctx);
- 			/* Keep only the last 3 bits */
- 			emit_andi(r_A, r_tmp, PKT_TYPE_MAX, ctx);
- #ifdef __BIG_ENDIAN_BITFIELD
-diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
-index 61e45b7..8039bb8 100644
---- a/arch/s390/net/bpf_jit_comp.c
-+++ b/arch/s390/net/bpf_jit_comp.c
-@@ -223,37 +223,6 @@ static void bpf_jit_epilogue(struct bpf_jit *jit)
- 	EMIT2(0x07fe);
- }
- 
--/* Helper to find the offset of pkt_type in sk_buff
-- * Make sure its still a 3bit field starting at the MSBs within a byte.
-- */
--#define PKT_TYPE_MAX 0xe0
--static int pkt_type_offset;
--
--static int __init bpf_pkt_type_offset_init(void)
--{
--	struct sk_buff skb_probe = {
--		.pkt_type = ~0,
--	};
--	char *ct = (char *)&skb_probe;
--	int off;
--
--	pkt_type_offset = -1;
--	for (off = 0; off < sizeof(struct sk_buff); off++) {
--		if (!ct[off])
--			continue;
--		if (ct[off] == PKT_TYPE_MAX)
--			pkt_type_offset = off;
--		else {
--			/* Found non matching bit pattern, fix needed. */
--			WARN_ON_ONCE(1);
--			pkt_type_offset = -1;
--			return -1;
--		}
--	}
--	return 0;
--}
--device_initcall(bpf_pkt_type_offset_init);
--
- /*
-  * make sure we dont leak kernel information to user
-  */
-@@ -753,12 +722,10 @@ call_fn:	/* lg %r1,<d(function)>(%r13) */
- 		}
- 		break;
- 	case BPF_ANC | SKF_AD_PKTTYPE:
--		if (pkt_type_offset < 0)
--			goto out;
- 		/* lhi %r5,0 */
- 		EMIT4(0xa7580000);
- 		/* ic %r5,<d(pkt_type_offset)>(%r2) */
--		EMIT4_DISP(0x43502000, pkt_type_offset);
-+		EMIT4_DISP(0x43502000, skb_pkt_type_offset());
- 		/* srl %r5,5 */
- 		EMIT4_DISP(0x88500000, 5);
- 		break;
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 02529fc..87b86aa 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -548,6 +548,10 @@ struct sk_buff {
- 				ip_summed:2,
- 				nohdr:1,
- 				nfctinfo:3;
-+	/* __pkt_type_offset marks the offset of the bitfield pkt_type
-+	 * contains, so bpf can relatively address it
-+	 */
-+	int			__pkt_type_offset[0];
- 	__u8			pkt_type:3,
- 				fclone:2,
- 				ipvs_property:1,
-@@ -647,6 +651,17 @@ struct sk_buff {
- #define SKB_ALLOC_FCLONE	0x01
- #define SKB_ALLOC_RX		0x02
- 
-+#ifdef __BIG_ENDIAN_BITFIELD
-+#define PKT_TYPE_MAX   (7 << 5)
-+#else
-+#define PKT_TYPE_MAX   7
-+#endif
-+
-+static inline size_t skb_pkt_type_offset(void)
-+{
-+	return offsetof(struct sk_buff, __pkt_type_offset);
-+}
-+
- /* Returns true if the skb was allocated from PFMEMALLOC reserves */
- static inline bool skb_pfmemalloc(const struct sk_buff *skb)
- {
-diff --git a/net/core/filter.c b/net/core/filter.c
-index d814b8a..ca64d7a 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -87,30 +87,6 @@ int sk_filter(struct sock *sk, struct sk_buff *skb)
- }
- EXPORT_SYMBOL(sk_filter);
- 
--/* Helper to find the offset of pkt_type in sk_buff structure. We want
-- * to make sure its still a 3bit field starting at a byte boundary;
-- * taken from arch/x86/net/bpf_jit_comp.c.
-- */
--#ifdef __BIG_ENDIAN_BITFIELD
--#define PKT_TYPE_MAX	(7 << 5)
--#else
--#define PKT_TYPE_MAX	7
--#endif
--static unsigned int pkt_type_offset(void)
--{
--	struct sk_buff skb_probe = { .pkt_type = ~0, };
--	u8 *ct = (u8 *) &skb_probe;
--	unsigned int off;
--
--	for (off = 0; off < sizeof(struct sk_buff); off++) {
--		if (ct[off] == PKT_TYPE_MAX)
--			return off;
--	}
--
--	pr_err_once("Please fix %s, as pkt_type couldn't be found!\n",
-__func__);
--	return -1;
--}
--
- static u64 __skb_get_pay_offset(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
- {
- 	return __skb_get_poff((struct sk_buff *)(unsigned long) ctx);
-@@ -191,7 +167,7 @@ static bool convert_bpf_extensions(struct
-sock_filter *fp,
- 
- 	case SKF_AD_OFF + SKF_AD_PKTTYPE:
- 		*insn = BPF_LDX_MEM(BPF_B, BPF_REG_A, BPF_REG_CTX,
--				    pkt_type_offset());
-+				    skb_pkt_type_offset());
- 		if (insn->off < 0)
- 			return false;
- 		insn++;
+>  	if (priv->duplex != phy_dev->duplex) {
+> diff --git a/drivers/net/ethernet/arc/emac_rockchip.c
+> b/drivers/net/ethernet/arc/emac_rockchip.c new file mode 100644
+> index 0000000..51d0585
+> --- /dev/null
+> +++ b/drivers/net/ethernet/arc/emac_rockchip.c
+> @@ -0,0 +1,228 @@
+> +/**
+> + * emac-rockchip.c - Rockchip EMAC specific glue layer
+> + *
+> + * Copyright (C) 2014 Romain Perier <romain.perier@gmail.com>
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + */
+> +
+> +#include <linux/etherdevice.h>
+> +#include <linux/mfd/syscon.h>
+> +#include <linux/module.h>
+> +#include <linux/of_net.h>
+> +#include <linux/platform_device.h>
+> +#include <linux/regmap.h>
+> +#include <linux/regulator/consumer.h>
+> +
+> +#include "emac.h"
+> +
+> +#define DRV_NAME        "rockchip_emac"
+> +#define DRV_VERSION     "1.0"
+> +
+> +#define GRF_MODE_MII		(1UL << 0)
+> +#define GRF_MODE_RMII		(0UL << 0)
+> +#define GRF_SPEED_10M		(0UL << 1)
+> +#define GRF_SPEED_100M		(1UL << 1)
+> +#define GRF_SPEED_ENABLE_BIT	(1UL << 17)
+> +#define GRF_MODE_ENABLE_BIT	(1UL << 16)
+> +
+> +struct emac_rockchip_soc_data {
+> +	int grf_offset;
+> +};
+> +
+> +struct rockchip_priv_data {
+> +	struct arc_emac_priv emac;
+> +	struct regmap *grf;
+> +	const struct emac_rockchip_soc_data *soc_data;
+> +	struct regulator *regulator;
+> +	struct clk *refclk;
+> +};
+> +
+> +static void emac_rockchip_set_mac_speed(void *priv, unsigned int speed)
+> +{
+> +	struct rockchip_priv_data *emac = priv;
+> +	u32 data;
+> +	int err = 0;
+> +
+> +	/* write-enable bits */
+> +	data = GRF_SPEED_ENABLE_BIT;
+> +
+> +	switch(speed) {
+> +	case 10:
+> +		data |= GRF_SPEED_10M;
+> +		break;
+> +	case 100:
+> +		data |= GRF_SPEED_100M;
+> +		break;
+> +	default:
+> +		pr_err("speed %u not supported\n", speed);
+> +		return;
+> +	}
+> +
+> +	err = regmap_write(emac->grf, emac->soc_data->grf_offset, data);
+> +	if (err)
+> +		pr_err("unable to apply speed %u to grf (%d)\n", speed, err);
+> +}
+> +
+> +static const struct emac_rockchip_soc_data emac_rockchip_dt_data[] = {
+> +	{ .grf_offset = 0x154 }, /* rk3066 */
+> +	{ .grf_offset = 0x0a4 }, /* rk3188 */
+> +};
+> +
+> +static const struct of_device_id emac_rockchip_dt_ids[] = {
+> +	{ .compatible = "rockchip,rk3066-emac", .data = &emac_rockchip_dt_data[0]
+> }, +	{ .compatible = "rockchip,rk3188-emac", .data =
+> &emac_rockchip_dt_data[1] }, +	{ /* Sentinel */ }
+> +};
+> +
+> +MODULE_DEVICE_TABLE(of, emac_rockchip_dt_ids);
+> +
+> +static int emac_rockchip_probe(struct platform_device *pdev)
+> +{
+> +	struct device *dev = &pdev->dev;
+> +	struct net_device *ndev;
+> +	struct rockchip_priv_data *priv;
+> +	const struct of_device_id *match;
+> +	u32 data;
+> +	int err, interface;
+> +
+> +	if (!pdev->dev.of_node)
+> +		return -ENODEV;
+> +
+> +	ndev = alloc_etherdev(sizeof(struct rockchip_priv_data));
+> +	if (!ndev)
+> +		return -ENOMEM;
+> +	platform_set_drvdata(pdev, ndev);
+> +	SET_NETDEV_DEV(ndev, dev);
+> +
+> +	priv = netdev_priv(ndev);
+> +	priv->emac.drv_name = DRV_NAME;
+> +	priv->emac.drv_version = DRV_VERSION;
+> +	priv->emac.set_mac_speed = emac_rockchip_set_mac_speed;
+> +
+> +	interface = of_get_phy_mode(dev->of_node);
+> +
+> +	/* RK3066 and RK3188 SoCs only support RMII */
+> +	if (interface != PHY_INTERFACE_MODE_RMII) {
+> +		dev_err(dev, "unsupported phy interface mode %d\n", interface);
+> +		err = -ENOTSUPP;
+> +		goto out_netdev;
+> +	}
+> +
+> +	priv->grf = syscon_regmap_lookup_by_phandle(dev->of_node, "rockchip,grf");
+> +	if (IS_ERR(priv->grf)) {
+> +		dev_err(dev, "failed to retrieve global register file (%ld)\n",
+> PTR_ERR(priv->grf)); +		err = PTR_ERR(priv->grf);
+> +		goto out_netdev;
+> +	}
+> +
+> +	match = of_match_node(emac_rockchip_dt_ids, dev->of_node);
+> +	priv->soc_data = match->data;
+> +
+> +	priv->emac.clk = devm_clk_get(dev, "hclk");
+> +	if (IS_ERR(priv->emac.clk)) {
+> +		dev_err(dev, "failed to retrieve host clock (%ld)\n",
+> PTR_ERR(priv->emac.clk)); +		err = PTR_ERR(priv->emac.clk);
+> +		goto out_netdev;
+> +	}
+> +
+> +	priv->refclk = devm_clk_get(dev, "macref");
+> +	if (IS_ERR(priv->refclk)) {
+> +		dev_err(dev, "failed to retrieve reference clock (%ld)\n",
+> PTR_ERR(priv->refclk)); +		err = PTR_ERR(priv->refclk);
+> +		goto out_netdev;
+> +	}
+> +
+> +	err = clk_prepare_enable(priv->refclk);
+> +	if (err) {
+> +		dev_err(dev, "failed to enable reference clock (%d)\n", err);
+> +		goto out_netdev;
+> +	}
+> +
+> +	/* Optional regulator for PHY */
+> +	priv->regulator = devm_regulator_get_optional(dev, "phy");
+> +	if (IS_ERR(priv->regulator)) {
+> +		if (PTR_ERR(priv->regulator) == -EPROBE_DEFER)
+> +			return -EPROBE_DEFER;
+> +		dev_err(dev, "no regulator found\n");
+> +		priv->regulator = NULL;
+> +	}
+> +
+> +	if (priv->regulator) {
+> +		err = regulator_enable(priv->regulator);
+> +		if (err) {
+> +			dev_err(dev, "failed to enable phy-supply (%d)\n", err);
+> +			goto out_clk_disable;
+> +		}
+> +	}
+> +
+> +	err = arc_emac_probe(ndev, interface);
+> +	if (err)
+> +		goto out_regulator_disable;
+> +
+> +	/* write-enable bits */
+> +	data = GRF_MODE_ENABLE_BIT | GRF_SPEED_ENABLE_BIT;
+> +
+> +	data |= GRF_SPEED_100M;
+> +	data |= GRF_MODE_RMII;
+> +
+> +	err = regmap_write(priv->grf, priv->soc_data->grf_offset, data);
+> +	if (err) {
+> +		dev_err(dev, "unable to apply initial settings to grf (%d)\n", err);
+> +		goto out_regulator_disable;
+> +	}
+> +
+> +	/* RMII interface needs always a rate of 50MHz */
+> +	err = clk_set_rate(priv->refclk, 50000000);
+> +	if (err)
+> +		dev_err(dev, "failed to change reference clock rate (%d)\n", err);
+> +	return 0;
+> +
+> +out_regulator_disable:
+> +	if (priv->regulator)
+> +		regulator_disable(priv->regulator);
+> +out_clk_disable:
+> +	clk_disable_unprepare(priv->refclk);
+> +out_netdev:
+> +	free_netdev(ndev);
+> +	return err;
+> +}
+> +
+> +static int emac_rockchip_remove(struct platform_device *pdev)
+> +{
+> +	struct net_device *ndev = platform_get_drvdata(pdev);
+> +	struct rockchip_priv_data *priv = netdev_priv(ndev);
+> +	int err;
+> +
+> +	clk_disable_unprepare(priv->refclk);
+> +
+> +	if (priv->regulator)
+> +		regulator_disable(priv->regulator);
+> +
+> +	err = arc_emac_remove(ndev);
+> +	free_netdev(ndev);
+> +	return err;
+> +}
+> +
+> +static struct platform_driver emac_rockchip_driver = {
+> +	.probe = emac_rockchip_probe,
+> +	.remove = emac_rockchip_remove,
+> +	.driver = {
+> +		.name = DRV_NAME,
+> +		.of_match_table  = emac_rockchip_dt_ids,
+> +	},
+> +};
+> +
+> +module_platform_driver(emac_rockchip_driver);
+> +
+> +MODULE_AUTHOR("Romain Perier <romain.perier@gmail.com>");
+> +MODULE_DESCRIPTION("Rockchip EMAC platform driver");
+> +MODULE_LICENSE("GPL");
