@@ -1,54 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: filter: export pkt_type_offset() helper
-Date: Wed, 03 Sep 2014 19:05:48 -0700
-Message-ID: <1409796348.26422.76.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1409778511-21273-1-git-send-email-kda@linux-powerpc.org>
-	 <54078FBC.5050402@redhat.com>
-	 <CAADnVQKNHL7iY=VHp4bs5k2hSDf8jy7H-0H0SgYjb81S25XB9Q@mail.gmail.com>
-	 <1409792893.26422.60.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1409793959.3362714.163402573.6A26EDE1@webmail.messagingengine.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next v2 2/2] net-timestamp: Make the clone operation
+ stand-alone from phy timestamping
+Date: Wed, 03 Sep 2014 19:22:02 -0700
+Message-ID: <5407CCCA.1060401@gmail.com>
+References: <20140903233447.7517.52329.stgit@ahduyck-bv4.jf.intel.com> <20140903233911.7517.59378.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Denis Kirjanov <kda@linux-powerpc.org>, netdev@vger.kernel.org,
-	Markos Chandras <markos.chandras@imgtec.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: richardcochran@gmail.com, davem@davemloft.net, willemb@google.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:64296 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756161AbaIDCFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 22:05:50 -0400
-Received: by mail-pa0-f49.google.com with SMTP id kq14so18516474pab.8
-        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 19:05:49 -0700 (PDT)
-In-Reply-To: <1409793959.3362714.163402573.6A26EDE1@webmail.messagingengine.com>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:40623 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751098AbaIDCWG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Sep 2014 22:22:06 -0400
+Received: by mail-pd0-f173.google.com with SMTP id p10so12329763pdj.4
+        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 19:22:01 -0700 (PDT)
+In-Reply-To: <20140903233911.7517.59378.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-09-04 at 03:25 +0200, Hannes Frederic Sowa wrote:
+On 09/03/2014 04:42 PM, Alexander Duyck wrote:
+> The phy timestamping takes a different path than the regular timestamping
+> does in that it will create a clone first so that the packets needing to be
+> timestamped can be placed in a queue, or the context block could be used.
+>
+> In order to support these use cases I am pulling the core of the code out
+> so it can be used in other drivers beyond just phy devices.
+>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-> Can't we add an address marker to struct sk_buff?
-> 
-> Several possibilities are available:
-> 
-> ptrdiff_t pkt_type_offset[0]  before the pkt_type flags field
-> 
-> If one wants to make it more expressive:
-> typedef struct {} mark_struct_offset;
-> and add
-> mark_struct_offset pkt_type_offset;
-> at appropriate places
-> 
-> Or maybe an anonymous union?
-> 
-> pkt_type_offset would become a simple offsetof(struct sk_buff,
-> pkt_type_offset) then and there is no need for BUG_ON then.
+This patch can be ignored.  I need to submit a v3 with some fixes for
+socket accounting.
 
+Thanks,
 
-You can try, and make sure this works on all gcc compilers, even the one
-Andrew Morton uses.
-
-And of course, you need to not introduce holes doing so.
+Alex
