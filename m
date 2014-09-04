@@ -1,180 +1,85 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [patch net-next 01/13] openvswitch: split flow
- structures into ovs specific and generic ones
-Date: Thu, 4 Sep 2014 13:46:28 -0700
-Message-ID: <CALnjE+qwbQ=5wsLddvZX95xE2_U=osuDg8S10zKWarMD9mp4Aw@mail.gmail.com>
-References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
- <1409736300-12303-2-git-send-email-jiri@resnulli.us>
- <CALnjE+pscRmfhaWgkWCunJfjvG04RiNUAj6nefSFHrknQTC+xw@mail.gmail.com>
- <20140904123323.GF1867@nanopsycho.lan>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: filter: export pkt_type_offset() helper
+Date: Thu, 4 Sep 2014 13:51:18 -0700
+Message-ID: <CAADnVQL6s_DRE2aMEw=oBdcu6Bn0Q5CfZ_CKJ4xdGdcp5cRV7w@mail.gmail.com>
+References: <1409778511-21273-1-git-send-email-kda@linux-powerpc.org>
+	<54078FBC.5050402@redhat.com>
+	<CAADnVQKNHL7iY=VHp4bs5k2hSDf8jy7H-0H0SgYjb81S25XB9Q@mail.gmail.com>
+	<1409792893.26422.60.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1409793959.3362714.163402573.6A26EDE1@webmail.messagingengine.com>
+	<1409796348.26422.76.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAADnVQLh6qOD2epUq0S5P8RkUgZA38JNxeP40uBMScLHC2SsJg@mail.gmail.com>
+	<CAHj3AVn8q-JS0Eq0QrfpBo-WfJ+-wXumhNoeDAdkPZC7LSeB5g@mail.gmail.com>
+	<1409831412.23465.3.camel@localhost>
+	<1409836154.26422.101.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1409838010.23465.16.camel@localhost>
+	<1409839892.26422.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	<063D6719AE5E284EB5DD2968C1650D6D174876B4@AcuExch.aculab.com>
+	<1409841129.26422.117.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1409841233.23465.22.camel@localhost>
+	<1409841347.26422.118.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1409841709.23465.25.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "ryazanov.s.a" <ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, jasowang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- "john.r.fastabend" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- Neil Jerram <Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
- "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, nbd <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
- Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Rony Efraim <ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- "jeffrey.t.kirsher" <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
- buytenh <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>, roopa <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
- Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, aviadr <aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>, vyasevic <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- nhorman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
- Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, ebiederm <eb
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20140904123323.GF1867-6KJVSR23iU5sFDB2n11ItA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Laight <David.Laight@aculab.com>,
+	Denis Kirjanov <kirjanov@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Denis Kirjanov <kda@linux-powerpc.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Markos Chandras <markos.chandras@imgtec.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:43979 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755256AbaIDUvT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 16:51:19 -0400
+Received: by mail-qa0-f46.google.com with SMTP id w8so9930738qac.5
+        for <netdev@vger.kernel.org>; Thu, 04 Sep 2014 13:51:18 -0700 (PDT)
+In-Reply-To: <1409841709.23465.25.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 4, 2014 at 5:33 AM, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org> wrote:
-> Wed, Sep 03, 2014 at 08:41:39PM CEST, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org wrote:
->>On Wed, Sep 3, 2014 at 2:24 AM, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org> wrote:
->>> After this, flow related structures can be used in other code.
->>>
->>> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
->>> ---
->>>  include/net/sw_flow.h          |  99 ++++++++++++++++++++++++++++++++++
->>>  net/openvswitch/actions.c      |   3 +-
->>>  net/openvswitch/datapath.c     |  74 +++++++++++++-------------
->>>  net/openvswitch/datapath.h     |   4 +-
->>>  net/openvswitch/flow.c         |   6 +--
->>>  net/openvswitch/flow.h         | 102 +++++++----------------------------
->>>  net/openvswitch/flow_netlink.c |  53 +++++++++---------
->>>  net/openvswitch/flow_netlink.h |  10 ++--
->>>  net/openvswitch/flow_table.c   | 118 ++++++++++++++++++++++-------------------
->>>  net/openvswitch/flow_table.h   |  30 +++++------
->>>  net/openvswitch/vport-gre.c    |   4 +-
->>>  net/openvswitch/vport-vxlan.c  |   2 +-
->>>  net/openvswitch/vport.c        |   2 +-
->>>  net/openvswitch/vport.h        |   2 +-
->>>  14 files changed, 276 insertions(+), 233 deletions(-)
->>>  create mode 100644 include/net/sw_flow.h
->>>
->>> diff --git a/include/net/sw_flow.h b/include/net/sw_flow.h
->>> new file mode 100644
->>> index 0000000..21724f1
->>> --- /dev/null
->>> +++ b/include/net/sw_flow.h
->>> @@ -0,0 +1,99 @@
->>> +/*
->>> + * include/net/sw_flow.h - Generic switch flow structures
->>> + * Copyright (c) 2007-2012 Nicira, Inc.
->>> + * Copyright (c) 2014 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
->>> + *
->>> + * This program is free software; you can redistribute it and/or modify
->>> + * it under the terms of the GNU General Public License as published by
->>> + * the Free Software Foundation; either version 2 of the License, or
->>> + * (at your option) any later version.
->>> + */
->>> +
->>> +#ifndef _NET_SW_FLOW_H_
->>> +#define _NET_SW_FLOW_H_
->>> +
->>> +struct sw_flow_key_ipv4_tunnel {
->>> +       __be64 tun_id;
->>> +       __be32 ipv4_src;
->>> +       __be32 ipv4_dst;
->>> +       __be16 tun_flags;
->>> +       u8   ipv4_tos;
->>> +       u8   ipv4_ttl;
->>> +};
->>> +
->>> +struct sw_flow_key {
->>> +       struct sw_flow_key_ipv4_tunnel tun_key;  /* Encapsulating tunnel key. */
->>> +       struct {
->>> +               u32     priority;       /* Packet QoS priority. */
->>> +               u32     skb_mark;       /* SKB mark. */
->>> +               u16     in_port;        /* Input switch port (or DP_MAX_PORTS). */
->>> +       } __packed phy; /* Safe when right after 'tun_key'. */
->>> +       struct {
->>> +               u8     src[ETH_ALEN];   /* Ethernet source address. */
->>> +               u8     dst[ETH_ALEN];   /* Ethernet destination address. */
->>> +               __be16 tci;             /* 0 if no VLAN, VLAN_TAG_PRESENT set otherwise. */
->>> +               __be16 type;            /* Ethernet frame type. */
->>> +       } eth;
->>> +       struct {
->>> +               u8     proto;           /* IP protocol or lower 8 bits of ARP opcode. */
->>> +               u8     tos;             /* IP ToS. */
->>> +               u8     ttl;             /* IP TTL/hop limit. */
->>> +               u8     frag;            /* One of OVS_FRAG_TYPE_*. */
->>> +       } ip;
->>> +       struct {
->>> +               __be16 src;             /* TCP/UDP/SCTP source port. */
->>> +               __be16 dst;             /* TCP/UDP/SCTP destination port. */
->>> +               __be16 flags;           /* TCP flags. */
->>> +       } tp;
->>> +       union {
->>> +               struct {
->>> +                       struct {
->>> +                               __be32 src;     /* IP source address. */
->>> +                               __be32 dst;     /* IP destination address. */
->>> +                       } addr;
->>> +                       struct {
->>> +                               u8 sha[ETH_ALEN];       /* ARP source hardware address. */
->>> +                               u8 tha[ETH_ALEN];       /* ARP target hardware address. */
->>> +                       } arp;
->>> +               } ipv4;
->>> +               struct {
->>> +                       struct {
->>> +                               struct in6_addr src;    /* IPv6 source address. */
->>> +                               struct in6_addr dst;    /* IPv6 destination address. */
->>> +                       } addr;
->>> +                       __be32 label;                   /* IPv6 flow label. */
->>> +                       struct {
->>> +                               struct in6_addr target; /* ND target address. */
->>> +                               u8 sll[ETH_ALEN];       /* ND source link layer address. */
->>> +                               u8 tll[ETH_ALEN];       /* ND target link layer address. */
->>> +                       } nd;
->>> +               } ipv6;
->>> +       };
->>> +} __aligned(BITS_PER_LONG/8); /* Ensure that we can do comparisons as longs. */
->>> +
+On Thu, Sep 4, 2014 at 7:41 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Do, 2014-09-04 at 07:35 -0700, Eric Dumazet wrote:
+>> On Thu, 2014-09-04 at 16:33 +0200, Hannes Frederic Sowa wrote:
 >>
->>HW offload API should be separate from OVS module. This has following
->>advantages.
->>1. It can be managed by OVS userspace vswitchd process which has much
->>better context to setup hardware flow table. Once we add capabilities
->>for swdev, it is much more easier for vswitchd process to choose
->>correct (hw or sw) flow table for given flow.
+>> > Which btw. also uses int, which might change alignment of structures.
+>>
+>> You missed the point .
+>>
+>> kmemcheck wants to make sure the whole word is set, or else you could
+>> get false positives.
+>>
+>> kmemcheck needs are quite different.
 >
-> The idea is to add a nl attr in ovs genl iface so the vswitchd can
-> speficify the flow the to be in sw only, in hw only, in both.
-> I believe that is is more convenient to let switchd to communicate flows
-> via single iface.
+> Now that you said it, I understand. :)
 >
-How is it convenient? this patch complicates OVS kernel module. It add
-OVS interfaces for HW offload. And you need similar interfaces for
-switchdev device. So it duplicate code.
-On the other hand if vswitchd uses common interface (switchdev) there
-is no need to extend ovs kernel interface. For example specifying
-extra metadata, like (sw only, hw olny, both).
+> You were right with the int vs. u8 thing all along. gcc aligns the
+> datatype on the next struct field and not on the whole field, as I
+> expected. So excuse my error above.
+>
+> I think the latest proposals looks good?
 
->>2. Other application that wants to use HW offload does not have
->>dependency on OVS kernel module.
->
-> That is not the case for this patchset. Userspace can insert/remove
-> flows using the switchdev generic netlink api - see:
-> [patch net-next 13/13] switchdev: introduce Netlink API
->
->>3. Hardware and software datapath remains separate, these two
->>components has no dependency on each other, both can be developed
->>independent of each other.
->
->
-> The general idea is to have the offloads handled in-kernel. Therefore I
-> hooked on to ovs kernel dp code.
->
->
->
+to me: yes
+and I think your latest half-patch with:
++       __u8                    __pkt_type_offset[0];
+also looks good.
+
+Are you going to take it over from Denis here?
+
+while at it would you fix sparc jit as well that has comment:
+#if 0
+                                /* GCC won't let us take the address of
+                                 * a bit field even though we very much
+                                 * know what we are doing here.
+                                 */
+                        case BPF_ANC | SKF_AD_PKTTYPE:
+                                __emit_skb_load8(pkt_type, r_A);
+                                emit_alu_K(SRL, 5);
+                                break;
+#endif
+should be able to replace 'pkt_type' above with __pkt_type_offset...
