@@ -1,39 +1,47 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next] net-timestamp: expand documentation
-Date: Thu, 4 Sep 2014 10:03:14 -0400
-Message-ID: <CA+FuTSd1hj7oik1uoA+pEMhAFFrqvvPk-OLS_7wDBg08ppW+uw@mail.gmail.com>
-References: <1409534867-32710-1-git-send-email-willemb@google.com> <54086164.6030603@redhat.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH] net: ethernet: cpsw: improve interrupt lookup logic in
+ cpsw_probe()
+Date: Thu, 4 Sep 2014 19:36:18 +0530
+Message-ID: <540871DA.7090608@ti.com>
+References: <1409814023-10189-1-git-send-email-daniel@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <julia.lawall@lip6.fr>, <netdev@vger.kernel.org>,
+	<george.cherian@ti.com>, Daniel Mack <zonque@gmail.com>
+To: Daniel Mack <daniel@zonque.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f172.google.com ([209.85.216.172]:35673 "EHLO
-	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751611AbaIDODq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 10:03:46 -0400
-Received: by mail-qc0-f172.google.com with SMTP id o8so10483508qcw.31
-        for <netdev@vger.kernel.org>; Thu, 04 Sep 2014 07:03:44 -0700 (PDT)
-In-Reply-To: <54086164.6030603@redhat.com>
+Received: from devils.ext.ti.com ([198.47.26.153]:35009 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752656AbaIDOG3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 10:06:29 -0400
+In-Reply-To: <1409814023-10189-1-git-send-email-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> +
->> +       data = malloc(cfg_payload_len);
->> +       if (!data)
->> +               error(1, 0, "malloc");
->> +
->> +       memset(&msg, 0, sizeof(msg));
->> +       memset(&entry, 0, sizeof(entry));
->> +       memset(ctrl, 0, sizeof(ctrl));
->> +       memset(data, 0, sizeof(data));
->
->
-> I think this memset is wrong and should rather be
-> something like :
->
->         memset(data, 0, cfg_payload_len);
->
+On Thursday 04 September 2014 12:30 PM, Daniel Mack wrote:
+> From: Daniel Mack <zonque@gmail.com>
+> 
+> Simplify the interrupt resource lookup code in cpsw_probe() by the
+> following:
+> 
+>  * Only look at the first member of the resource. As the driver only
+>    works for DT-enabled platforms anyway, a resource of type
+>    IORESOURCE_IRQ will only contain one single entry
+>    (res->start == res->end), so there is no need for the iteration.
+> 
+>  * Add a bounds check to avoid overflows if we are passed more than
+>    ARRAY_SIZE(priv->irqs_table) resources.
+> 
+>  * Assign 'ret' with the return value of devm_request_irq() so that
+>    cpsw_probe() returns the appropriate error code.
+> 
+>  * If devm_request_irq() fails, report the error code in the log
+>    message.
+> 
+> Signed-off-by: Daniel Mack <zonque@gmail.com>
 
-Thanks, Daniel. I'll send a fix.
+Acked-by: Mugunthan V N <mugunthanvnm@gmail.com>
+
+Regards
+Mugunthan V N
