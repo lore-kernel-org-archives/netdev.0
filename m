@@ -1,44 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH] qdisc: exit case fixes for skb list handling
- in qdisc layer
-Date: Wed, 03 Sep 2014 22:24:19 -0700
-Message-ID: <1409808259.26422.84.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1409671557.3173.110.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140903101250.7668.91659.stgit@dragon>
-	 <20140903.204256.1398300065789241714.davem@davemloft.net>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH] iproute2: Refactor: using new nl_msg struct for the all
+ Netlink handlers
+Date: Thu, 4 Sep 2014 08:39:15 +0300
+Message-ID: <CAMw6YJJ1z6TC76q-nWc8rmmRjOcLT1g7uBoag3kO4wsfZ3X3_Q@mail.gmail.com>
+References: <1409777224-7813-1-git-send-email-vadim4j@gmail.com>
+	<20140903183349.0209942d@urahara>
+	<CAMw6YJJHRet+Z_855OEpDaAYfiVUgORo8T0p_XF2p-WN6fiYdg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, netdev@vger.kernel.org, fw@strlen.de,
-	hannes@stressinduktion.org, dborkman@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:43892 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756414AbaIDFYW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 01:24:22 -0400
-Received: by mail-pd0-f176.google.com with SMTP id w10so3398574pde.35
-        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 22:24:22 -0700 (PDT)
-In-Reply-To: <20140903.204256.1398300065789241714.davem@davemloft.net>
+Received: from mail-qa0-f50.google.com ([209.85.216.50]:48176 "EHLO
+	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751068AbaIDFjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 01:39:15 -0400
+Received: by mail-qa0-f50.google.com with SMTP id cm18so8745262qab.23
+        for <netdev@vger.kernel.org>; Wed, 03 Sep 2014 22:39:15 -0700 (PDT)
+In-Reply-To: <CAMw6YJJHRet+Z_855OEpDaAYfiVUgORo8T0p_XF2p-WN6fiYdg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-09-03 at 20:42 -0700, David Miller wrote:
-> From: Jesper Dangaard Brouer <brouer@redhat.com>
-> Date: Wed, 03 Sep 2014 12:12:50 +0200
-> 
-> > More minor fixes to merge commit 53fda7f7f9e (Merge branch 'xmit_list')
-> > that allows us to work with a list of SKBs.
-> > 
-> > Fixing exit cases in qdisc_reset() and qdisc_destroy(), where a
-> > leftover requeued SKB (qdisc->gso_skb) can have the potential of
-> > being a skb list, thus use kfree_skb_list().
-> > 
-> > This is a followup to commit 10770bc2d1 ("qdisc: adjustments for
-> > API allowing skb list xmits").
-> > 
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> 
-> Applied.
++netdev@vger.kernel.org
 
-Strange, I sent same patch a little earlier ;)
+On Thu, Sep 4, 2014 at 8:33 AM, Vadim Kochan <vadim4j@gmail.com> wrote:
+> I think that even if convert iproute2 to some other lib it would be
+> good to have some custome struct which
+> would be used by handlers.
+>
+> On Thu, Sep 4, 2014 at 4:33 AM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+>> On Wed,  3 Sep 2014 23:47:04 +0300
+>> Vadim Kochan <vadim4j@gmail.com> wrote:
+>>
+>>> It will easy to extend with new parameters in future.
+>>>
+>>> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+>>
+>> Rather than go to all this effort, lets just convert iproute2 to use
+>> a sane netlink library like libmnl.
+>>
