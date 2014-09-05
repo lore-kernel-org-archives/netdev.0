@@ -1,61 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: bpf: make eBPF interpreter images
- read-only
-Date: Fri, 05 Sep 2014 12:03:09 -0700 (PDT)
-Message-ID: <20140905.120309.442605076285121829.davem@davemloft.net>
-References: <aa5126f747594d768e0c518189a13e8674ad8ee5.1409690486.git.hannes@stressinduktion.org>
-	<2bf2e54282097642db88e2b596b06a9ac3742883.1409690849.git.hannes@stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net v2] ipv6: fix rtnl locking in setsockopt for anycast
+ and multicast
+Date: Fri, 05 Sep 2014 21:12:56 +0200
+Message-ID: <1409944376.5306.9.camel@localhost>
+References: <20140901210520.GB25543@kria>
+	 <1409610378.21965.52.camel@localhost> <20140902082929.GA8483@kria>
+	 <20140905.115305.809714259412705649.davem@davemloft.net>
+	 <CAHA+R7M1qd5g1ta=YFqefgXDf1EfF2_VsJGUvH6Dd+ttnHc_VQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	spender@grsecurity.net, dborkman@redhat.com, ast@plumgrid.com,
-	keescook@chromium.org
-To: hannes@stressinduktion.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2bf2e54282097642db88e2b596b06a9ac3742883.1409690849.git.hannes@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Sabrina Dubroca <sd@queasysnail.net>,
+	Tommi Rantala <tt.rantala@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	trinity@vger.kernel.org, Dave Jones <davej@redhat.com>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <trinity-owner@vger.kernel.org>
+In-Reply-To: <CAHA+R7M1qd5g1ta=YFqefgXDf1EfF2_VsJGUvH6Dd+ttnHc_VQ@mail.gmail.com>
+Sender: trinity-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue,  2 Sep 2014 22:53:44 +0200
+On Fr, 2014-09-05 at 11:58 -0700, Cong Wang wrote:
+> On Fri, Sep 5, 2014 at 11:53 AM, David Miller <davem@davemloft.net> wrote:
+> > From: Sabrina Dubroca <sd@queasysnail.net>
+> > Date: Tue, 2 Sep 2014 10:29:29 +0200
+> >
+> >> Calling setsockopt with IPV6_JOIN_ANYCAST or IPV6_LEAVE_ANYCAST
+> >> triggers the assertion in addrconf_join_solict()/addrconf_leave_solict()
+> >>
+> >> ipv6_sock_ac_join(), ipv6_sock_ac_drop(), ipv6_sock_ac_close() need to
+> >> take RTNL before calling ipv6_dev_ac_inc/dec. Same thing with
+> >> ipv6_sock_mc_join(), ipv6_sock_mc_drop(), ipv6_sock_mc_close() before
+> >> calling ipv6_dev_mc_inc/dec.
+> >>
+> >> This patch moves ASSERT_RTNL() up a level in the call stack.
+> >>
+> >> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> >> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> >> Reported-by: Tommi Rantala <tt.rantala@gmail.com>
+> >
+> > Applied and queued up for -stable, thanks.
+> 
+> I believe you applied a wrong version, at least the following
+> is not correct:
+> 
+> +       if (!dev)
+> +               return -ENODEV;
+> 
+> Sabrina took that from my draft patch, but they all don't
+> realize this is wrong.
+> 
+> (I did provide a correct version which is just ignored by you.)
 
-> From: Daniel Borkmann <dborkman@redhat.com>
-> 
-> With eBPF getting more extended and exposure to user space is on it's way,
-> hardening the memory range the interpreter uses to steer its command flow
-> seems appropriate.  This patch moves the to be interpreted bytecode to
-> read-only pages.
-> 
-> In case we execute a corrupted BPF interpreter image for some reason e.g.
-> caused by an attacker which got past a verifier stage, it would not only
-> provide arbitrary read/write memory access but arbitrary function calls
-> as well. After setting up the BPF interpreter image, its contents do not
-> change until destruction time, thus we can setup the image on immutable
-> made pages in order to mitigate modifications to that code. The idea
-> is derived from commit 314beb9bcabf ("x86: bpf_jit_comp: secure bpf jit
-> against spraying attacks").
-> 
-> This is possible because bpf_prog is not part of sk_filter anymore.
-> After setup bpf_prog cannot be altered during its life-time. This prevents
-> any modifications to the entire bpf_prog structure (incl. function/JIT
-> image pointer).
-> 
-> Every eBPF program (including classic BPF that are migrated) have to call
-> bpf_prog_select_runtime() to select either interpreter or a JIT image
-> as a last setup step, and they all are being freed via bpf_prog_free(),
-> including non-JIT. Therefore, we can easily integrate this into the
-> eBPF life-time, plus since we directly allocate a bpf_prog, we have no
-> performance penalty.
-> 
-> Tested with seccomp and test_bpf testsuite in JIT/non-JIT mode and manual
-> inspection of kernel_page_tables.  Brad Spengler proposed the same idea
-> via Twitter during development of this patch.
-> 
-> Joint work with Hannes Frederic Sowa.
-> 
-> Suggested-by: Brad Spengler <spender@grsecurity.net>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+What games are you playing? You know how patches are processed by David
+and I even let him the choice by pointing out a problem in your patch so
+that you could an update and send v2.
 
-Applied, thanks.
+I really feel miffed about your behavior!
+
+Anyway, I saw the hunk adding the return -ENODEV and didn't see any
+problems with it. Sure it might be better if it would gone into a
+separate patch. Can you elaborate what problems you see?
+
+Thanks,
+Hannes
