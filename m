@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Compilation error on freshly pulled net-next?
-Date: Fri, 05 Sep 2014 15:09:01 -0700 (PDT)
-Message-ID: <20140905.150901.79089716373802484.davem@davemloft.net>
-References: <540A2F7F.8060809@hp.com>
+Subject: Re: [PATCH v5 1/4] ethernet: arc: Add support for Rockchip SoC
+ layer device tree bindings
+Date: Fri, 05 Sep 2014 15:10:32 -0700 (PDT)
+Message-ID: <20140905.151032.2294854942425937456.davem@davemloft.net>
+References: <1409763165-16461-1-git-send-email-romain.perier@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rick.jones2@hp.com
+Cc: heiko@sntech.de, linux-rockchip@lists.infradead.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, arnd@arndb.de
+To: romain.perier@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56652 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56661 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751187AbaIEWJC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 18:09:02 -0400
-In-Reply-To: <540A2F7F.8060809@hp.com>
+	with ESMTP id S1750869AbaIEWKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 18:10:33 -0400
+In-Reply-To: <1409763165-16461-1-git-send-email-romain.perier@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Fri, 05 Sep 2014 14:47:43 -0700
+From: Romain Perier <romain.perier@gmail.com>
+Date: Wed,  3 Sep 2014 16:52:42 +0000
 
-> Looks like someone slipped a J in there and confused things:
+> This patch defines a platform glue layer for Rockchip SoCs which
+> support arc-emac driver. It ensures that regulator for the rmii is on
+> before trying to connect to the ethernet controller. It applies right
+> speed and mode changes to the grf when ethernet settings change.
 > 
->                + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS +
->                IFLA_PORT_SELF */J + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
->                + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
-> 
-> (hopefully my mail client won't have mangled things too badly)
-> 
-> What is odd though is a git diff after I've replaced that 'J' with a
-> return isn't giving me any output.
+> Signed-off-by: Romain Perier <romain.perier@gmail.com>
 
-That doesn't exist in my tree.
+You'll need to resubmit this series with the Kconfig warnings fixed.
