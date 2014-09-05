@@ -1,62 +1,82 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Fri, 05 Sep 2014 16:05:30 -0700
-Message-ID: <540A41BA.4010105@linux.intel.com>
-References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com> <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com> <20140905141241.GC10455@mtj.dyndns.org> <20140905164405.GA28964@core.coreip.homeip.net> <20140905174925.GA12991@mtj.dyndns.org> <20140905181003.GA29003@core.coreip.homeip.net> <20140905222956.GA15723@mtj.dyndns.org> <540A3CF4.5070508@linux.intel.com> <20140905225248.GC35667@core.coreip.homeip.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [Patch net] ipv6: restore the behavior of ipv6_sock_ac_drop()
+Date: Sat, 06 Sep 2014 01:07:18 +0200
+Message-ID: <1409958438.1201419.164224805.20ACC638@webmail.messagingengine.com>
+References: <1409952780-24471-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1409955985.1192797.164218289.4192DDA7@webmail.messagingengine.com>
+ <CAHA+R7N+WGNV5yTQ_hVbn-ez4Ar9395HzOGUU4tG9uLHqFPndA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj@kernel.org>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhiji
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140905225248.GC35667@core.coreip.homeip.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Sabrina Dubroca <sd@queasysnail.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:50799 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752041AbaIEXHT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 19:07:19 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by gateway2.nyi.internal (Postfix) with ESMTP id BC047209C9
+	for <netdev@vger.kernel.org>; Fri,  5 Sep 2014 19:07:18 -0400 (EDT)
+In-Reply-To: <CAHA+R7N+WGNV5yTQ_hVbn-ez4Ar9395HzOGUU4tG9uLHqFPndA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 9/5/2014 3:52 PM, Dmitry Torokhov wrote:
-> On Fri, Sep 05, 2014 at 03:45:08PM -0700, Arjan van de Ven wrote:
->> On 9/5/2014 3:29 PM, Tejun Heo wrote:
->>> Hello, Dmitry.
->>>
->>> On Fri, Sep 05, 2014 at 11:10:03AM -0700, Dmitry Torokhov wrote:
->>>> I do not agree that it is actually user-visible change: generally speaking you
->>>> do not really know if device is there or not. They come and go. Like I said,
->>>> consider all permutations, with hot-pluggable buses, deferred probing, etc,
->>>
->>> It is for storage devices which always have guaranteed synchronous
->>> probing on module load and well-defined probing order.  Sure, modern
->>> setups are a lot more dynamic but I'm quite certain that there are
->>> setups in the wild which depend on storage driver loading being
->>> synchronous.  We can't simply declare one day that such behavior is
->>> broken and break, most likely, their boots.
->>
->> we even depend on this in the mount-by-label cases
->>
->> many setups assume that the internal storage prevails over the USB stick in the case of conflicts.
->> it's a security issue; you don't want the built in secure bootloader that has a kernel root argument
->> by label/uuid.
->> the security there tends to assume that built-in wins over USB
->
-> Ahem... and they sure it works reliably with large storage arrays? With
-> SCSI doing probing asynchronously already?
+On Sat, Sep 6, 2014, at 00:41, Cong Wang wrote:
+> On Fri, Sep 5, 2014 at 3:26 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > Hi Cong,
+> >
+> > Just doing normal review, really no bad intentions, just technical
+> > follow-up. ;)
+> 
+> I believe you are not supposed to do it since definitely you
+> said you don't want to work with me. You said it, not me,
+> I respect any of your choice. :)
 
-you tend to trust your large storage array
-you tend to not trust the walk up USB stick.
+Oh no, you misunderstood me (maybe my bad). My only critique was that
+you could have stated that you also saw a problem with the ENODEV return
+before the patch was looked at by David.
+Sure, let's forget that and work together.
+
+> > On Fri, Sep 5, 2014, at 23:33, Cong Wang wrote:
+> >> It is possible that the interface is already gone after joining
+> >> the list of anycast on this interface as we don't hold a refcount
+> >> for the device, in this case we are safe to ignore the error.
+> >
+> > anycast code actually inserts routes into the routing table and holds a
+> > reference on the interface while that route is active.
+> 
+> But route could be deleted.
+
+The routes are managed by the inet6_dev and it will drop the routes on
+interface shutdown, correct. There is no strong reference from socket to
+the routing entry. Only deleting a route should not work as it will
+still be referenced by the anycast list in inet6_dev (though it won't
+get used anymore).
+
+> >> What's more important, for API compatibility we should not
+> >> change this behavior for applications even if it were correct.
+> >
+> > IMHO adding new error codes never breaks existing applications because
+> > there is no way they can explore all possible errno variables. Also we
+> > already report ENODEV from multicast setsockopts. So I think it would be
+> > ok to leave it as is, but I have no strong opinion on that and it would
+> > be ok by me if the patch got accepted (maybe update the changelog).
+> >
+> 
+> Again, too late to change, the code has been there since the beginning
+> of git history. You should have a strong argument if you want to change
+> it,
+> otherwise restore old behavior, that is all. Obviously you don't even
+> mention
+> this when you accept that patch.
+
+Let's settle this:
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Bye,
+Hannes
