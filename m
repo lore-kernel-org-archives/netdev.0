@@ -1,64 +1,161 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Sat, 6 Sep 2014 08:32:03 +0900
-Message-ID: <20140905233203.GG15723@mtj.dyndns.org>
-References: <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
- <20140905141241.GC10455@mtj.dyndns.org>
- <20140905164405.GA28964@core.coreip.homeip.net>
- <20140905174925.GA12991@mtj.dyndns.org>
- <20140905181003.GA29003@core.coreip.homeip.net>
- <20140905222956.GA15723@mtj.dyndns.org>
- <20140905223139.GB15723@mtj.dyndns.org>
- <20140905224917.GB35667@core.coreip.homeip.net>
- <20140905225533.GE15723@mtj.dyndns.org>
- <20140905232242.GE35667@core.coreip.homeip.net>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH net-next v2 3/3] ixgbe: use new eth_get_headlen interface
+Date: Fri, 05 Sep 2014 19:22:18 -0400
+Message-ID: <20140905232053.2035.65715.stgit@ahduyck-bv4.jf.intel.com>
+References: <20140905231807.2035.33588.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140905232242.GE35667@core.coreip.homeip.net>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	jeffrey.t.kirsher@intel.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:50468 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750804AbaIEXat (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Sep 2014 19:30:49 -0400
+In-Reply-To: <20140905231807.2035.33588.stgit@ahduyck-bv4.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hey,
+Update ixgbe to drop the ixgbe_get_headlen function in favor of eth_get_headlen.
 
-On Fri, Sep 05, 2014 at 04:22:42PM -0700, Dmitry Torokhov wrote:
-> > I don't get it.  This is a behavior userland already depends on for
-> > boots.  What's there to agree or disagree?  This is just a fact that
-> > we can't do this w/o disturbing some userlands in a major way.
-> 
-> I am just expressing my disbelief that somebody relies on module loading
-> being synchronous with probing. Out of curiosity, do you have any
-> pointers?
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  116 -------------------------
+ 1 file changed, 1 insertion(+), 115 deletions(-)
 
-I've seen initrd scripts which depended on the behavior to wait for
-storage devices over the years.  AFAIK, none of the modern distros
-does it but this has been such a basic feature all along and it seems
-highly unlikely to me that there's no userland remaining out there
-depending on such behavior.  We do have a lot of different userlands,
-many of them quite ad-hoc.
-
-Thanks.
-
--- 
-tejun
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 53fbf06..09c3746 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1521,120 +1521,6 @@ void ixgbe_alloc_rx_buffers(struct ixgbe_ring *rx_ring, u16 cleaned_count)
+ 		ixgbe_release_rx_desc(rx_ring, i);
+ }
+ 
+-/**
+- * ixgbe_get_headlen - determine size of header for RSC/LRO/GRO/FCOE
+- * @data: pointer to the start of the headers
+- * @max_len: total length of section to find headers in
+- *
+- * This function is meant to determine the length of headers that will
+- * be recognized by hardware for LRO, GRO, and RSC offloads.  The main
+- * motivation of doing this is to only perform one pull for IPv4 TCP
+- * packets so that we can do basic things like calculating the gso_size
+- * based on the average data per packet.
+- **/
+-static unsigned int ixgbe_get_headlen(unsigned char *data,
+-				      unsigned int max_len)
+-{
+-	union {
+-		unsigned char *network;
+-		/* l2 headers */
+-		struct ethhdr *eth;
+-		struct vlan_hdr *vlan;
+-		/* l3 headers */
+-		struct iphdr *ipv4;
+-		struct ipv6hdr *ipv6;
+-	} hdr;
+-	__be16 protocol;
+-	u8 nexthdr = 0;	/* default to not TCP */
+-	u8 hlen;
+-
+-	/* this should never happen, but better safe than sorry */
+-	if (max_len < ETH_HLEN)
+-		return max_len;
+-
+-	/* initialize network frame pointer */
+-	hdr.network = data;
+-
+-	/* set first protocol and move network header forward */
+-	protocol = hdr.eth->h_proto;
+-	hdr.network += ETH_HLEN;
+-
+-	/* handle any vlan tag if present */
+-	if (protocol == htons(ETH_P_8021Q)) {
+-		if ((hdr.network - data) > (max_len - VLAN_HLEN))
+-			return max_len;
+-
+-		protocol = hdr.vlan->h_vlan_encapsulated_proto;
+-		hdr.network += VLAN_HLEN;
+-	}
+-
+-	/* handle L3 protocols */
+-	if (protocol == htons(ETH_P_IP)) {
+-		if ((hdr.network - data) > (max_len - sizeof(struct iphdr)))
+-			return max_len;
+-
+-		/* access ihl as a u8 to avoid unaligned access on ia64 */
+-		hlen = (hdr.network[0] & 0x0F) << 2;
+-
+-		/* verify hlen meets minimum size requirements */
+-		if (hlen < sizeof(struct iphdr))
+-			return hdr.network - data;
+-
+-		/* record next protocol if header is present */
+-		if (!(hdr.ipv4->frag_off & htons(IP_OFFSET)))
+-			nexthdr = hdr.ipv4->protocol;
+-	} else if (protocol == htons(ETH_P_IPV6)) {
+-		if ((hdr.network - data) > (max_len - sizeof(struct ipv6hdr)))
+-			return max_len;
+-
+-		/* record next protocol */
+-		nexthdr = hdr.ipv6->nexthdr;
+-		hlen = sizeof(struct ipv6hdr);
+-#ifdef IXGBE_FCOE
+-	} else if (protocol == htons(ETH_P_FCOE)) {
+-		if ((hdr.network - data) > (max_len - FCOE_HEADER_LEN))
+-			return max_len;
+-		hlen = FCOE_HEADER_LEN;
+-#endif
+-	} else {
+-		return hdr.network - data;
+-	}
+-
+-	/* relocate pointer to start of L4 header */
+-	hdr.network += hlen;
+-
+-	/* finally sort out TCP/UDP */
+-	if (nexthdr == IPPROTO_TCP) {
+-		if ((hdr.network - data) > (max_len - sizeof(struct tcphdr)))
+-			return max_len;
+-
+-		/* access doff as a u8 to avoid unaligned access on ia64 */
+-		hlen = (hdr.network[12] & 0xF0) >> 2;
+-
+-		/* verify hlen meets minimum size requirements */
+-		if (hlen < sizeof(struct tcphdr))
+-			return hdr.network - data;
+-
+-		hdr.network += hlen;
+-	} else if (nexthdr == IPPROTO_UDP) {
+-		if ((hdr.network - data) > (max_len - sizeof(struct udphdr)))
+-			return max_len;
+-
+-		hdr.network += sizeof(struct udphdr);
+-	}
+-
+-	/*
+-	 * If everything has gone correctly hdr.network should be the
+-	 * data section of the packet and will be the end of the header.
+-	 * If not then it probably represents the end of the last recognized
+-	 * header.
+-	 */
+-	if ((hdr.network - data) < max_len)
+-		return hdr.network - data;
+-	else
+-		return max_len;
+-}
+-
+ static void ixgbe_set_rsc_gso_size(struct ixgbe_ring *ring,
+ 				   struct sk_buff *skb)
+ {
+@@ -1793,7 +1679,7 @@ static void ixgbe_pull_tail(struct ixgbe_ring *rx_ring,
+ 	 * we need the header to contain the greater of either ETH_HLEN or
+ 	 * 60 bytes if the skb->len is less than 60 for skb_pad.
+ 	 */
+-	pull_len = ixgbe_get_headlen(va, IXGBE_RX_HDR_SIZE);
++	pull_len = eth_get_headlen(va, IXGBE_RX_HDR_SIZE);
+ 
+ 	/* align pull length to size of long to optimize memcpy performance */
+ 	skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
