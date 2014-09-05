@@ -1,47 +1,100 @@
-From: "Frank.Li@freescale.com" <Frank.Li@freescale.com>
-Subject: RE: [PATCH RFC 1/1] net: fec: change data structure to support
- multiqueue
-Date: Fri, 5 Sep 2014 20:40:57 +0000
-Message-ID: <2a925db95ede48c9924f9416e471cea1@BLUPR03MB486.namprd03.prod.outlook.com>
-References: <1409945994-15593-1-git-send-email-Frank.Li@freescale.com>
- <CAOMZO5B08M6n0rXfgZkVNb-0awVQdJ56aMokimCunVsjg03AZg@mail.gmail.com>
+From: Ani Sinha <ani@arista.com>
+Subject: Re: [PATCH] net: socket: do not validate msg_namelen unless msg_name
+ is non-NULL
+Date: Fri, 5 Sep 2014 14:21:12 -0700
+Message-ID: <CAOxq_8NSGeeJYZP-5Pau+ehhnzrywYJ0Qr4fqrVD3cwQT-2eZQ@mail.gmail.com>
+References: <CAOxq_8O=8epuyj2+V8RFep2tHVwk06q5gEK1ho0RUSV4GQV0Kw@mail.gmail.com>
+ <1409951660.1177372.164202273.1FB2783A@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	"fugang.duan@freescale.com" <fugang.duan@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Fabio Estevam <festevam@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"matthew.leach" <matthew.leach@arm.com>, netdev@vger.kernel.org,
+	fenner <fenner@arista.com>, fruggeri <fruggeri@arista.com>,
+	travisb <travisb@arista.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0143.outbound.protection.outlook.com ([157.56.110.143]:3728
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751144AbaIEVO3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Sep 2014 17:14:29 -0400
-In-Reply-To: <CAOMZO5B08M6n0rXfgZkVNb-0awVQdJ56aMokimCunVsjg03AZg@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:47476 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750869AbaIEVVi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 17:21:38 -0400
+Received: by mail-ig0-f170.google.com with SMTP id h3so204805igd.1
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 14:21:37 -0700 (PDT)
+In-Reply-To: <1409951660.1177372.164202273.1FB2783A@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRmFiaW8gRXN0ZXZhbSBb
-bWFpbHRvOmZlc3RldmFtQGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBTZXB0ZW1iZXIgMDUs
-IDIwMTQgMzozMyBQTQ0KPiBUbzogTGkgRnJhbmstQjIwNTk2DQo+IENjOiBGbG9yaWFuIEZhaW5l
-bGxpOyBEdWFuIEZ1Z2FuZy1CMzg2MTE7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVj
-dDogUmU6IFtQQVRDSCBSRkMgMS8xXSBuZXQ6IGZlYzogY2hhbmdlIGRhdGEgc3RydWN0dXJlIHRv
-IHN1cHBvcnQNCj4gbXVsdGlxdWV1ZQ0KPiANCj4gT24gRnJpLCBTZXAgNSwgMjAxNCBhdCA0OjM5
-IFBNLCBGcmFuayBMaSA8RnJhbmsuTGlAZnJlZXNjYWxlLmNvbT4gd3JvdGU6DQo+IA0KPiA+ICsg
-ICAgICAgdHhxID0ga3phbGxvYyhzaXplb2YoKnR4cSksIEdGUF9LRVJORUwpOw0KPiA+ICsgICAg
-ICAgaWYgKCF0eHEpDQo+ID4gKyAgICAgICAgICAgICAgIHJldHVybiAtRU5PTUVNOw0KPiA+ICsg
-ICAgICAgZmVwLT50eF9xdWV1ZVswXSA9IHR4cTsNCj4gPiArDQo+ID4gKyAgICAgICByeHEgPSBr
-emFsbG9jKHNpemVvZigqcnhxKSwgR0ZQX0tFUk5FTCk7DQo+ID4gKyAgICAgICBpZiAoIXJ4cSkg
-ew0KPiA+ICsgICAgICAgICAgICAgICBrZnJlZSh0eHEpOw0KPiA+ICsgICAgICAgICAgICAgICBy
-ZXR1cm4gLUVOT01FTTsNCj4gPiArICAgICAgIH0NCj4gDQo+IC4uLi4NCj4gDQo+ID4gICAgICAg
-ICAvKiBBbGxvY2F0ZSBtZW1vcnkgZm9yIGJ1ZmZlciBkZXNjcmlwdG9ycy4gKi8NCj4gPiAtICAg
-ICAgIGNiZF9iYXNlID0gZG1hX2FsbG9jX2NvaGVyZW50KE5VTEwsIGJkX3NpemUsICZmZXAtPmJk
-X2RtYSwNCj4gPiArICAgICAgIGNiZF9iYXNlID0gZG1hX2FsbG9jX2NvaGVyZW50KE5VTEwsIGJk
-X3NpemUsICZiZF9kbWEsDQo+ID4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICBHRlBfS0VSTkVMKTsNCj4gPiAgICAgICAgIGlmICghY2JkX2Jhc2UpDQo+ID4gICAgICAgICAg
-ICAgICAgIHJldHVybiAtRU5PTUVNOw0KPiANCj4gWW91IHNob3VsZCBrZnJlZSB0eHEgYW5kIHJ4
-cSBiZWZvcmUgcmV0dXJuaW5nIGhlcmUuDQoNClllcywgDQpBY3R1YWxseSB0aGlzIHBhcnQgY29k
-ZSB3aWxsIGJlIHJld3JpdGUgdG90YWxseSBpbiBuZXh0IHBhdGNoLiANCllvdSBjYW4gcmVmZXIg
-b3JpZ2luYWwgcGF0Y2ggc2VyaWFsLiANCg0KQmVzdCByZWdhcmRzDQpGcmFuayBMaQ0K
+On Fri, Sep 5, 2014 at 2:14 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hi,
+>
+> On Fri, Sep 5, 2014, at 23:00, Ani Sinha wrote:
+>> Hi guys :
+>>
+>> I am looking at the thread :
+>>
+>>  [PATCH] net: socket: error on a negative msg_namelen
+>>
+>> and the patch that was submitted in that thread :
+>>
+>> commit dbb490b96584d4e958533fb637f08b557f505657
+>> Author: Matthew Leach <matthew.leach@arm.com>
+>> Date:   Tue Mar 11 11:58:27 2014 +0000
+>>
+>>     net: socket: error on a negative msg_namelen
+>>
+>>
+>> According to the linux recvmsg manpage, the caller of recvmsg() may
+>> set msg_name to NULL if he does not care about source address but the
+>> manpage does not say that one has to set msg_namelen to 0 in this
+>> case. Essentially msg_namelen is a don't care if msg_name is NULL. I
+>> think in the kernel, we should validate msg_namelen only if the caller
+>> has also set msg_name and return EINVAL only when msg_name is non-null
+>> and msg_namelen is negative.
+>>
+>> The following patch will do the intended :
+>>
+>>
+>> From ef8e8bd78635ac677f2d4b76fec9990ed1db763c Mon Sep 17 00:00:00 2001
+>> From: Ani Sinha <ani@aristanetworks.com>
+>> Date: Fri, 5 Sep 2014 13:25:22 -0700
+>> Subject:[PATCH] net: socket: do not validate msg_namelen unless
+>> msg_name is non-NULL
+>>
+>> The value of msg_namelen in msghdr structure is irrelevant
+>>  when msg_name is NULL. We should not validate the value
+>>  passed in msg_namelen unless msg_name is non-NULL.
+>>
+>> Signed-off-by: Ani Sinha <ani@aristanetworks.com>
+>> ---
+>>  net/socket.c |    2 +-
+>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/net/socket.c b/net/socket.c
+>> index 95ee7d8..a5dfe01 100644
+>> --- a/net/socket.c
+>> +++ b/net/socket.c
+>> @@ -1997,7 +1997,7 @@ static int copy_msghdr_from_user(struct msghdr
+>> *kmsg,
+>>   if (copy_from_user(kmsg, umsg, sizeof(struct msghdr)))
+>>   return -EFAULT;
+>>
+>> - if (kmsg->msg_namelen < 0)
+>> + if (kmsg->msg_name && kmsg->msg_namelen < 0)
+>>   return -EINVAL;
+>>
+>>   if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
+>
+> The reason for the above mentioned commit was the signed/unsigned
+> conversion by this check. To not trigger any static checker tools, I
+> would suggest to just set kmsg->msg_namelen to zero in case msg_name is
+> NULL.
+
+I suspect any code that was previously written without taking into
+account this new restriction will now begin to fail. For some of them,
+we may not have the freedom to change the code as per this new
+restrictions. Since the manpage did not enforce this, the developers
+can not be blamed for not setting namelen when passing name with NULL
+value.
+
+Cheers,
+ani
