@@ -1,27 +1,28 @@
 From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: Re: [patch net-next 10/13] openvswitch: add support for
- datapath hardware offload
-Date: Fri, 5 Sep 2014 12:59:38 +0900
-Message-ID: <20140905035937.GA32481@vergenet.net>
-References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
- <1409736300-12303-11-git-send-email-jiri@resnulli.us>
- <540743B4.9080500@gmail.com> <20140904124837.GI1867@nanopsycho.lan>
+Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
+ for datapath hardware offload
+Date: Fri, 5 Sep 2014 13:08:11 +0900
+Message-ID: <20140905040810.GB32481@vergenet.net>
+References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
+ <1408637945-10390-11-git-send-email-jiri@resnulli.us>
+ <20140904090447.GB3176@vergenet.net>
+ <F4498A89-C1D6-4C5A-A6F0-942015D36B77@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org,
- edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
- f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+ dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
+ buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
  roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
  nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
  netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
  ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+To: Scott Feldman <sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20140904124837.GI1867-6KJVSR23iU5sFDB2n11ItA@public.gmane.org>
+In-Reply-To: <F4498A89-C1D6-4C5A-A6F0-942015D36B77-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
  <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -33,102 +34,41 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 04, 2014 at 02:48:37PM +0200, Jiri Pirko wrote:
-> Wed, Sep 03, 2014 at 06:37:08PM CEST, john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
-> >On 09/03/2014 02:24 AM, Jiri Pirko wrote:
-> >>Benefit from the possibility to work with flows in switch devices and
-> >>use the swdev api to offload flow datapath.
-> >>
-> >>Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-> >>---
-> >>  net/openvswitch/Makefile       |   3 +-
-> >>  net/openvswitch/datapath.c     |  33 ++++++
-> >>  net/openvswitch/datapath.h     |   3 +
-> >>  net/openvswitch/flow_table.c   |   1 +
-> >>  net/openvswitch/hw_offload.c   | 245 +++++++++++++++++++++++++++++++++++++++++
-> >>  net/openvswitch/hw_offload.h   |  22 ++++
-> >>  net/openvswitch/vport-netdev.c |   3 +
-> >>  net/openvswitch/vport.h        |   2 +
-> >>  8 files changed, 311 insertions(+), 1 deletion(-)
-> >>  create mode 100644 net/openvswitch/hw_offload.c
-> >>  create mode 100644 net/openvswitch/hw_offload.h
-> >>
-> >>diff --git a/net/openvswitch/Makefile b/net/openvswitch/Makefile
-> >>index 3591cb5..5152437 100644
-> >>--- a/net/openvswitch/Makefile
-> >>+++ b/net/openvswitch/Makefile
-> >>@@ -13,7 +13,8 @@ openvswitch-y := \
-> >>  	flow_table.o \
-> >>  	vport.o \
-> >>  	vport-internal_dev.o \
-> >>-	vport-netdev.o
-> >>+	vport-netdev.o \
-> >>+	hw_offload.o
-> >>
-> >>  ifneq ($(CONFIG_OPENVSWITCH_VXLAN),)
-> >>  openvswitch-y += vport-vxlan.o
-> >>diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> >>index 75bb07f..3e43e1d 100644
-> >>--- a/net/openvswitch/datapath.c
-> >>+++ b/net/openvswitch/datapath.c
-> >>@@ -57,6 +57,7 @@
-> >>  #include "flow_netlink.h"
-> >>  #include "vport-internal_dev.h"
-> >>  #include "vport-netdev.h"
-> >>+#include "hw_offload.h"
-> >>
-> >>  int ovs_net_id __read_mostly;
-> >>
-> >>@@ -864,6 +865,9 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
-> >>  			acts = NULL;
-> >>  			goto err_unlock_ovs;
-> >>  		}
-> >>+		error = ovs_hw_flow_insert(dp, new_flow);
-> >>+		if (error)
-> >>+			pr_warn("failed to insert flow into hw\n");
-> >
-> >This is really close to silently failing. I think we need to
-> >hard fail here somehow and push it back to userspace as part of
-> >the reply and ovs_notify.
-> 
-> Yes, I agree. My plan was to handle this in ovs hw/sw/both netlink attr
-> implementation.
-
-FWIW I agree that handling it in that way makes sense.
-In particular I think that "both", where the datapath is allowed
-to fall back to software is a useful mode to have (its the current
-implementation, right?). But that it is also good to allow user-space
-more control.
-
-> >Otherwise I don't know how to manage the hardware correctly. Consider
-> >the hardware table is full. In this case user space will continue to
-> >add rules and they will be silently discarded. Similarly if user space
-> >adds a flow/action that can not be supported by the hardware it will
-> >be silently ignored.
-> >
-> >Even if we do careful accounting on resources in user space we could
-> >still get an ENOMEM error from sw_flow_action_create.
-> >
-> >Same comment for the other hw commands flush/remove.
-> >
-> >>  		if (unlikely(reply)) {
-> >>  			error = ovs_flow_cmd_fill_info(new_flow,
-> >>@@ -896,10 +900,18 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
-> >>  				goto err_unlock_ovs;
-> >>  			}
-> >>  		}
-> >
-> >
-> >[...]
-> >
-> >
-> >Thanks,
-> >John
-> >
-> >-- 
-> >John Fastabend         Intel Corporation
-> _______________________________________________
-> dev mailing list
-> dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-> http://openvswitch.org/mailman/listinfo/dev
-> 
+T24gVGh1LCBTZXAgMDQsIDIwMTQgYXQgMDk6MzA6NDVBTSAtMDcwMCwgU2NvdHQgRmVsZG1hbiB3
+cm90ZToKPiAKPiBPbiBTZXAgNCwgMjAxNCwgYXQgMjowNCBBTSwgU2ltb24gSG9ybWFuIDxzaW1v
+bi5ob3JtYW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gCj4gPiAKPiA+IAo+ID4gW3NuaXBdCj4g
+PiAKPiA+IEluIHJlbGF0aW9uIHRvIHBvcnRzIGFuZCBkYXRhcGF0aHMgaXQgc2VlbXMgdG8gbWUg
+dGhhdCB0aGUgQVBJIHRoYXQKPiA+IGhhcyBiZWVuIGRldmVsb3BlZCBhY2NvbW1vZGF0ZXMgYSBt
+b2RlbCB3aGVyZSBhIHBvcnQgbWF5IGJlbG9uZyB0byBhCj4gPiBzd2l0Y2ggZGV2aWNlOyB0aGF0
+IHRoaXMgdG9wb2xvZ3kgaXMgZml4ZWQgYmVmb3JlIGFueSBBUEkgY2FsbHMgYXJlIG1hZGUKPiA+
+IGFuZCB0aGF0IGFsbCBhbGwgcG9ydHMgYmVsb25naW5nIHRvIHRoZSBzYW1lIHN3aXRjaCBiZWxv
+bmcgdG8gdGhlIHNhbWUKPiA+IGRhdGFwYXRoLgo+ID4gCj4gPiBUaGlzIG1ha2VzIHNlbnNlIGlu
+IHRoZSBjYXNlIG9mIGhhcmR3YXJlIHRoYXQgbG9va3MgYSBsb3QgbGlrZSBhIHN3aXRjaC4KPiA+
+IEJ1dCBJIHRoaW5rIHRoYXQgb3RoZXIgc2NlbmFyaW9zIGFyZSBwb3NzaWJsZS4gRm9yIGV4YW1w
+bGUgaGFyZHdhcmUgdGhhdAo+ID4gaXMgYWJsZSB0byBoYW5kbGUgdGhlIHNhbWUgYWJzdHJhY3Rp
+b25zIGhhbmRsZWQgYnkgdGhlIGRhdGFwYXRoOiBkYXRhcGF0aHMKPiA+IG1heSBiZSBjcmVhdGVk
+IG9yIGRlc3Ryb3llZDsgdnBvcnRzIG1heSBiZSBhZGRlZCBhbmQgcmVtb3ZlZCBmcm9tIGRhdGFw
+YXRocy4KPiA+IAo+ID4gU28gb25lIG1pZ2h0IGhhdmUgYSBwaWVjZSBvZiBoYXJkd2FyZSB0aGF0
+IGlzIGNvbmZpZ3VyZWQgd2l0aCBtb3JlIHRoYW4gb25lCj4gPiBkYXRhcGF0aCBjb25maWd1cmVk
+IGFuZCBpdHMgZGlmZmVyZW50IHBvcnRzIGJlbG9uZyB0byBpdCBtaWdodCBiZQo+ID4gYXNzb2Np
+YXRlZCB3aXRoIGRpZmZlcmVudCBkYXRhIHBhdGhzLgo+IAo+IEnigJl2ZSB0ZXN0ZWQgbXVsdGlw
+bGUgZGF0YXBhdGhzIG9uIG9uZSBzd2l0Y2ggaGFyZHdhcmUgd2l0aCB0aGUgY3VycmVudCBwYXRj
+aCBzZXQgYW5kIGl0IHdvcmtzIGZpbmUsIHdpdGhvdXQgdGhlIG5lZWQgdG8gcHVzaCBkb3duIGFu
+eSBkYXRhcGF0aCBpZCBpbiB0aGUgQVBJLiAgSXQgd29ya3MgYmVjYXVzZSBhIHN3aXRjaCBwb3J0
+IGNhbuKAmXQgYmVsb25nIHRvIG1vcmUgdGhhbiBvbmUgZGF0YXBhdGguICBEYXRhcGF0aHMgY2Fu
+IGJlIGNyZWF0ZWQvZGVzdHJveWVkIGFuZCBwb3J0cyBhZGRlZC9yZW1vdmVkIGZyb20gZGF0YXBh
+dGhzIGR5bmFtaWNhbGx5IGFuZCB0aGUgcmlnaHQgc3dfZmxvd3MgYXJlIGFkZGVkL3JlbW92ZWQg
+dG8gcHJvZ3JhbSBIVy4KCkFuZCB0aGUgZmxvd3MgYWRkZWQgdG8gYSBzd2l0Y2ggYWx3YXlzIG1h
+dGNoIHRoZSBpbiBwb3J0PyBUaHVzCnNvIGEgZ2l2ZW4gZmxvdyBpcyBvbmx5IGV2ZXIgZm9yIG9u
+ZSBpbi1wb3J0IGFuZCB0aHVzIG9uZSBkYXRhcGF0aD8KCj4gPiBPciB3ZSBtaWdodCBoYXZlIGhh
+cmR3YXJlIHRoYXQgaXMgYWJsZSB0byBvZmZsb2FkIGEgdHVubmVsIHZwb3J0LgoKSSB0aGluayB0
+dW5uZWwgdnBvcnRzIGlzIHN0aWxsIGFuIHVuc29sdmVkIHBhcnQgb2YgdGhlIGxhcmdlciBwdXp6
+bGUuCgo+ID4gSW4gc2hvcnQgSSBhbSB0aGlua2luZyBpbiB0ZXJtcyBvZiBBUEkgY2FsbGJhY2tz
+IHRvIG1hbmlwdWxhdGUgZGF0YXBhdGhzCj4gPiBhbmQgdnBvcnRzLiBBbHRob3VnaCBJIGhhdmUg
+bm90IHRob3VnaHQgYWJvdXQgaXQgaW4gZGV0YWlsIEkgYmVsaWV2ZQo+ID4gdGhhdCB0aGUgY3Vy
+cmVudCBtb2RlbCB5b3UgaGF2ZSBpbXBsZW1lbnRlZCB1c2luZyBzdWNoIGEgc2NoZW1lIGJlY2F1
+c2UKPiA+IHRoZSBzY2hlbWUgSSBhbSBzdWdnZXN0aW5nIG1hcHMgdG8gdGhhdCBvZiB0aGUgZGF0
+YXBhdGggYW5kIHlvdSBoYXZlCj4gPiBpbXBsZW1lbnRlZCB5b3VyIG1vZGVsIHRoZXJlLgpfX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBs
+aXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xp
+c3RpbmZvL2Rldgo=
