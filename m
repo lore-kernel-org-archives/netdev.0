@@ -1,47 +1,45 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [Patch net] ipv6: restore the behavior of ipv6_sock_ac_drop()
-Date: Sat, 06 Sep 2014 00:26:25 +0200
-Message-ID: <1409955985.1192797.164218289.4192DDA7@webmail.messagingengine.com>
-References: <1409952780-24471-1-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Sabrina Dubroca <sd@queasysnail.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:50161 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751211AbaIEW00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 18:26:26 -0400
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 8E6D820DA7
-	for <netdev@vger.kernel.org>; Fri,  5 Sep 2014 18:26:25 -0400 (EDT)
-In-Reply-To: <1409952780-24471-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Beniamino Galvani <b.galvani@gmail.com>
+Subject: [PATCH] net: phy: mdio-sun4i: don't select REGULATOR
+Date: Sat,  6 Sep 2014 00:28:23 +0200
+Message-ID: <1409956103-23473-1-git-send-email-b.galvani@gmail.com>
+Cc: Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Beniamino Galvani <b.galvani@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Cong,
+The mdio-sun4i driver automatically selects REGULATOR and
+REGULATOR_FIXED_VOLTAGE because it uses the regulator API. But a
+driver selecting a subsystem increases the chance of generating
+circular Kconfig dependencies, especially when other drivers depend on
+the selected symbol.
 
-Just doing normal review, really no bad intentions, just technical
-follow-up. ;)
+Since the regulator API functions are replaced with no-ops when
+REGULATOR is disabled, the driver can be built successfully even
+without regulator support and so those 'select' dependencies can be
+safely dropped.
 
-On Fri, Sep 5, 2014, at 23:33, Cong Wang wrote:
-> It is possible that the interface is already gone after joining
-> the list of anycast on this interface as we don't hold a refcount
-> for the device, in this case we are safe to ignore the error.
+Suggested-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Beniamino Galvani <b.galvani@gmail.com>
+---
+ drivers/net/phy/Kconfig | 2 --
+ 1 file changed, 2 deletions(-)
 
-anycast code actually inserts routes into the routing table and holds a
-reference on the interface while that route is active.
-
-> What's more important, for API compatibility we should not
-> change this behavior for applications even if it were correct.
-
-IMHO adding new error codes never breaks existing applications because
-there is no way they can explore all possible errno variables. Also we
-already report ENODEV from multicast setsockopts. So I think it would be
-ok to leave it as is, but I have no strong opinion on that and it would
-be ok by me if the patch got accepted (maybe update the changelog).
-
-Thanks,
-Hannes
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 28437ab..14afa4f 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -159,8 +159,6 @@ config MDIO_OCTEON
+ config MDIO_SUN4I
+ 	tristate "Allwinner sun4i MDIO interface support"
+ 	depends on ARCH_SUNXI
+-	select REGULATOR
+-	select REGULATOR_FIXED_VOLTAGE
+ 	help
+ 	  This driver supports the MDIO interface found in the network
+ 	  interface units of the Allwinner SoC that have an EMAC (A10,
+-- 
+1.9.1
