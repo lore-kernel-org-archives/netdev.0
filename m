@@ -1,69 +1,95 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [RFC net-next 2/5] bonding: alb: clean bond->lock
-Date: Fri,  5 Sep 2014 20:16:48 +0200
-Message-ID: <1409941011-5494-3-git-send-email-nikolay@redhat.com>
+Subject: [RFC net-next 4/5] bonding: options: remove bond->lock usage
+Date: Fri,  5 Sep 2014 20:16:50 +0200
+Message-ID: <1409941011-5494-5-git-send-email-nikolay@redhat.com>
 References: <1409941011-5494-1-git-send-email-nikolay@redhat.com>
 Cc: vfalico@gmail.com, j.vosburgh@gmail.com, andy@greyhouse.net,
 	davem@davemloft.net, Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61338 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:28361 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750906AbaIESRF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Sep 2014 14:17:05 -0400
+	id S1751536AbaIESRJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Sep 2014 14:17:09 -0400
 In-Reply-To: <1409941011-5494-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We can remove the lock/unlock as it's no longer necessary since
-RTNL should be held while calling bond_alb_set_mac_address().
+We're safe to remove the bond->lock use from the arp targets because
+arp_rcv_probe no longer acquires bond->lock, only rcu_read_lock.
+Also setting the primary slave is safe because noone uses the bond->lock
+as a syncing mechanism for that anymore.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_alb.c | 11 ++---------
- 1 file changed, 2 insertions(+), 9 deletions(-)
+ drivers/net/bonding/bond_options.c | 19 +------------------
+ 1 file changed, 1 insertion(+), 18 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 73c21e233131..028496205f39 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1775,8 +1775,7 @@ void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char
-  * Set the bond->curr_active_slave to @new_slave and handle
-  * mac address swapping and promiscuity changes as needed.
-  *
-- * If new_slave is NULL, caller must hold curr_slave_lock or
-- * bond->lock for write.
-+ * If new_slave is NULL, caller must hold curr_slave_lock for write
-  *
-  * If new_slave is not NULL, caller must hold RTNL, curr_slave_lock
-  * for write.  Processing here may sleep, so no other locks may be held.
-@@ -1857,12 +1856,8 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
- 	write_lock_bh(&bond->curr_slave_lock);
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index d8dc17faa6b4..67a1c9bcdc43 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -955,14 +955,7 @@ static int _bond_option_arp_ip_target_add(struct bonding *bond, __be32 target)
+ 
+ static int bond_option_arp_ip_target_add(struct bonding *bond, __be32 target)
+ {
+-	int ret;
+-
+-	/* not to race with bond_arp_rcv */
+-	write_lock_bh(&bond->lock);
+-	ret = _bond_option_arp_ip_target_add(bond, target);
+-	write_unlock_bh(&bond->lock);
+-
+-	return ret;
++	return _bond_option_arp_ip_target_add(bond, target);
  }
  
--/*
-- * Called with RTNL
-- */
-+/* Called with RTNL */
- int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
--	__acquires(&bond->lock)
--	__releases(&bond->lock)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	struct sockaddr *sa = addr;
-@@ -1895,14 +1890,12 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
- 	} else {
- 		alb_set_slave_mac_addr(curr_active, bond_dev->dev_addr);
+ static int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target)
+@@ -991,9 +984,6 @@ static int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target)
  
--		read_lock(&bond->lock);
- 		alb_send_learning_packets(curr_active,
- 					  bond_dev->dev_addr, false);
- 		if (bond->alb_info.rlb_enabled) {
- 			/* inform clients mac address has changed */
- 			rlb_req_update_slave_clients(bond, curr_active);
- 		}
--		read_unlock(&bond->lock);
- 	}
+ 	netdev_info(bond->dev, "Removing ARP target %pI4\n", &target);
+ 
+-	/* not to race with bond_arp_rcv */
+-	write_lock_bh(&bond->lock);
+-
+ 	bond_for_each_slave(bond, slave, iter) {
+ 		targets_rx = slave->target_last_arp_rx;
+ 		for (i = ind; (i < BOND_MAX_ARP_TARGETS-1) && targets[i+1]; i++)
+@@ -1004,8 +994,6 @@ static int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target)
+ 		targets[i] = targets[i+1];
+ 	targets[i] = 0;
+ 
+-	write_unlock_bh(&bond->lock);
+-
+ 	return 0;
+ }
+ 
+@@ -1013,11 +1001,8 @@ void bond_option_arp_ip_targets_clear(struct bonding *bond)
+ {
+ 	int i;
+ 
+-	/* not to race with bond_arp_rcv */
+-	write_lock_bh(&bond->lock);
+ 	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
+ 		_bond_options_arp_ip_target_set(bond, i, 0, 0);
+-	write_unlock_bh(&bond->lock);
+ }
+ 
+ static int bond_option_arp_ip_targets_set(struct bonding *bond,
+@@ -1081,7 +1066,6 @@ static int bond_option_primary_set(struct bonding *bond,
+ 	struct slave *slave;
+ 
+ 	block_netpoll_tx();
+-	read_lock(&bond->lock);
+ 	write_lock_bh(&bond->curr_slave_lock);
+ 
+ 	p = strchr(primary, '\n');
+@@ -1120,7 +1104,6 @@ static int bond_option_primary_set(struct bonding *bond,
+ 
+ out:
+ 	write_unlock_bh(&bond->curr_slave_lock);
+-	read_unlock(&bond->lock);
+ 	unblock_netpoll_tx();
  
  	return 0;
 -- 
