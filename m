@@ -1,48 +1,32 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] ipv6: restore the behavior of ipv6_sock_ac_drop()
-Date: Fri,  5 Sep 2014 14:33:00 -0700
-Message-ID: <1409952780-24471-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Sabrina Dubroca <sd@queasysnail.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] l2tp: fix race while getting PMTU on PPP
+ pseudo-wire
+Date: Fri, 05 Sep 2014 14:41:25 -0700 (PDT)
+Message-ID: <20140905.144125.1368697780523222565.davem@davemloft.net>
+References: <3a4673ddb2556634d0cbeae9b31ebc386e720335.1409746289.git.g.nault@alphalink.fr>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jchapman@katalix.com
+To: g.nault@alphalink.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:62783 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750940AbaIEVdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 17:33:19 -0400
-Received: by mail-pa0-f49.google.com with SMTP id kq14so22708103pab.22
-        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 14:33:19 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:56385 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752588AbaIEVl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 17:41:27 -0400
+In-Reply-To: <3a4673ddb2556634d0cbeae9b31ebc386e720335.1409746289.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is possible that the interface is already gone after joining
-the list of anycast on this interface as we don't hold a refcount
-for the device, in this case we are safe to ignore the error.
+From: Guillaume Nault <g.nault@alphalink.fr>
+Date: Wed, 3 Sep 2014 14:12:55 +0200
 
-What's more important, for API compatibility we should not
-change this behavior for applications even if it were correct.
+> Use dst_entry held by sk_dst_get() to retrieve tunnel's PMTU.
+> 
+> The dst_mtu(__sk_dst_get(tunnel->sock)) call was racy. __sk_dst_get()
+> could return NULL if tunnel->sock->sk_dst_cache was reset just before the
+> call, thus making dst_mtu() dereference a NULL pointer:
+ ...
+> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 
-Fixes: commit a9ed4a2986e13011 ("ipv6: fix rtnl locking in setsockopt for anycast and multicast")
-Cc: Sabrina Dubroca <sd@queasysnail.net>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/ipv6/anycast.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
-index 45b9d81..ff2de7d 100644
---- a/net/ipv6/anycast.c
-+++ b/net/ipv6/anycast.c
-@@ -182,8 +182,6 @@ int ipv6_sock_ac_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 	rtnl_unlock();
- 
- 	sock_kfree_s(sk, pac, sizeof(*pac));
--	if (!dev)
--		return -ENODEV;
- 	return 0;
- }
- 
--- 
-1.8.3.1
+Applied and queued up for -stable, thanks!
