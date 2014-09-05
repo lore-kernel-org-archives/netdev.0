@@ -1,88 +1,88 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Fri, 5 Sep 2014 11:29:28 -0700
-Message-ID: <20140905182928.GB29003@core.coreip.homeip.net>
-References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
- <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
- <20140905141241.GC10455@mtj.dyndns.org>
- <20140905164405.GA28964@core.coreip.homeip.net>
- <20140905174925.GA12991@mtj.dyndns.org>
- <CAB=NE6VPTV39pNujOgO422wbUvU44HZ7s=aaxPVraNECqA6e4Q@mail.gmail.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Does NetworkManager kill IPv6 connections?
+Date: Fri, 05 Sep 2014 13:42:25 -0500
+Message-ID: <1409942545.15943.10.camel@dcbw.local>
+References: <063D6719AE5E284EB5DD2968C1650D6D174876CB@AcuExch.aculab.com>
+	 <1409854625.23720.7.camel@dcbw.local>
+	 <063D6719AE5E284EB5DD2968C1650D6D1748838C@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj@kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mah
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAB=NE6VPTV39pNujOgO422wbUvU44HZ7s=aaxPVraNECqA6e4Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:62943 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751481AbaIESm3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Sep 2014 14:42:29 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1748838C@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 05, 2014 at 11:12:17AM -0700, Luis R. Rodriguez wrote:
-> On Fri, Sep 5, 2014 at 10:49 AM, Tejun Heo <tj@kernel.org> wrote:
-> > Hello,
-> >
-> > On Fri, Sep 05, 2014 at 09:44:05AM -0700, Dmitry Torokhov wrote:
-> >> Which problem are we talking about here though? It does solve the slow device
-> >> stalling the rest if the kernel booting (non-module case) for me.
-> >
-> > The other one.  The one with timeout.  Neither cxgb4 or pata_marvell
-> > has slow probing stalling boot problem.
-> >
-> >> I also reject the notion that anyone should be relying on drivers to be fully
-> >> bound on module loading. It is not nineties anymore. We have hot pluggable
-> >> buses, deferred probing, and even for not hot-pluggable ones the module
-> >> providing the device itself might not be yet loaded. Any scripts that expect to
-> >> find device 100% ready after module loading are simply broken.
-> >
-> > We've been treating loading + probing as a single operation when
-> > loading drivers and the assumption has always been that the existing
-> > devices at the time of loading finished probing by the time insmod
-> > finishes.  We now need to split loading and probing and wait for each
-> > of them differently.  The *only* thing we can do is somehow making the
-> > issuer specify that it's gonna wait for probing separately.  I'm not
-> > sure this can even be up for discussion.  We're talking about a major
-> > userland visible behavior change.  We simply can't change it
-> > underneath the existing users.
+On Fri, 2014-09-05 at 14:18 +0000, David Laight wrote:
+> From: Dan Williams 
+> > On Thu, 2014-09-04 at 14:47 +0000, David Laight wrote:
+> > > I was running a overnight test that failed because an (almost idle) IPv6 connection
+> > > unexpectedly disconnected.
+> > > 30 seconds before the disconnect syslog contains (retyped):
+> > >   NetworkManager[pid]: <info> policy set 'Wired connection 2' (eth0) as default for IPv6 routing and DNS.
+> > > The same message appeared exactly 70 minutes earlier - with no ill effect.
+> > > A second connection between the same pair if addresses (carrying a lot of traffic)
+> > > was unaffected.
+> > >
+> > > Any idea what/why NetworkManager is doing?
+> > > (Yes I know it is userspace, but it seems to be breaking the kernel....)
+> > >
+> > > The system is an ubuntu 13.04 desktop (3.8.0-19 kernel), that recent, but
+> > > newer than the ones a lot of our customers use.
+> > 
+> > Is the version of the Ubuntu "network-manager" package on your systems
+> > 0.9.8.0-0ubuntu6.1?
 > 
-> Meanwhile we are allowing a major design consideration such as a 30
-> second timeout for both init + probe all of a sudden become a hard
-> requirement for device drivers. I see your point but can't also be
-> introducing major design changes willy nilly either. We *need* a
-> solution for the affected drivers.
+> It is actually the slightly older 0.9.8.0-0ubuntu6.0
 > 
-> Also what stops drivers from going ahead and just implementing their
-> own async probe? 
+> > If so, I know we've fixed a ton of issues with IPv6 since 0.9.8.0 (which
+> > was released about 18 months ago), and the ones that may be affecting
+> > you are related to router advertisement timing and expiry.  The latest
+> > stable NM version upstream is 0.9.10 and should contain all of those
+> > fixes.
+> 
+> I've flagged it with our management, they'll decide what to say
+> about IPv6 support in various Linux distros.
 
-They already do and the problem is that they do that poorly. One of the issues
-is that the device is considered bound and so may attempt to suspend/resume
-them, or unbind them, and the driver is not ready for such operations to take
-place.
+Ok, keep me (and the NM upstream) in the loop depending on what gets
+decided.  Like I said, subsequent stable versions of NetworkManager in
+recent distros have much improved IPv6 support, and if you have a chance
+to try it out and let me know how it goes, that would be awesome.
 
-And even though driver is bound "synchronously" it does not help the user in
-the slightest and the object that is the result of driver initialization is
-still created asynchronously and is not ready (well, it might if drivers use
-async_schedule as we are doing asych_sycnhronize_full() in module load.unload).
+Dan
 
-Thanks.
-
--- 
-Dmitry
+> 	David
+> 
+> > Since I'm pretty sure this isn't a kernel problem, would you mind
+> > discussing this over on the NM lists here:
+> > 
+> > https://mail.gnome.org/mailman/listinfo/networkmanager-list
+> > 
+> > If you don't want to subscribe that's fine, I'll moderate your message
+> > through and we can just use "reply all".
+> > 
+> > Thanks,
+> > Dan
+> > 
+> > > I can rerun the test, but don't know what to look for.
+> > > 'eth0' is the only ethernet interface in the system that is actually
+> > > connected to a network.
+> > >
+> > > Some indications of where to look would be appreciated.
+> > >
+> > > 	David
+> > >
+> > >
+> > >
+> > > --
+> > > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > > the body of a message to majordomo@vger.kernel.org
+> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
+> 
