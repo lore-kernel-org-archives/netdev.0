@@ -1,60 +1,104 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] bluetooth: LLVMLinux: Remove VLAIS from bluetooth/amp.c
-Date: Fri, 5 Sep 2014 16:22:16 -0700
-Message-ID: <DBC61EBD-5FDE-48FE-8FD1-CA4F606C22F6@holtmann.org>
-References: <1409958214-5651-1-git-send-email-behanw@converseincode.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	BlueZ development <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Mark Charlebois <charlebm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	=?iso-8859-1?Q?Jan-Simon_M=F6ller?= <dl9pf-Mmb7MZpHnFY@public.gmane.org>
-To: behanw-k/hB3zQhLwledRVtV/plodBPR1lH4CV8@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1409958214-5651-1-git-send-email-behanw-k/hB3zQhLwledRVtV/plodBPR1lH4CV8@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
+Date: Fri, 5 Sep 2014 16:22:42 -0700
+Message-ID: <20140905232242.GE35667@core.coreip.homeip.net>
+References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
+ <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
+ <20140905141241.GC10455@mtj.dyndns.org>
+ <20140905164405.GA28964@core.coreip.homeip.net>
+ <20140905174925.GA12991@mtj.dyndns.org>
+ <20140905181003.GA29003@core.coreip.homeip.net>
+ <20140905222956.GA15723@mtj.dyndns.org>
+ <20140905223139.GB15723@mtj.dyndns.org>
+ <20140905224917.GB35667@core.coreip.homeip.net>
+ <20140905225533.GE15723@mtj.dyndns.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140905225533.GE15723@mtj.dyndns.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Behan,
+Hi Tejun,
 
-> Replaced the use of a Variable Length Array In Struct (VLAIS) with a =
-C99
-> compliant equivalent. This patch allocates the appropriate amount of =
-memory
-> using an char array.
->=20
-> The new code can be compiled with both gcc and clang.
->=20
-> struct shash_desc contains a flexible array member member ctx declare=
-d with
-> CRYPTO_MINALIGN_ATTR, so sizeof(struct shash_desc) aligns the beginni=
-ng
-> of the array declared after struct shash_desc with long long.
->=20
-> No trailing padding is required because it is not a struct type that =
-can
-> be used in an array.
->=20
-> The CRYPTO_MINALIGN_ATTR is required so that desc is aligned with lon=
-g long
-> as would be the case for a struct containing a member with
-> CRYPTO_MINALIGN_ATTR.
->=20
-> Signed-off-by: Behan Webster <behanw-k/hB3zQhLwledRVtV/plodBPR1lH4CV8@public.gmane.org>
-> Signed-off-by: Mark Charlebois <charlebm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Jan-Simon M=F6ller <dl9pf-Mmb7MZpHnFY@public.gmane.org>
-> ---
-> net/bluetooth/amp.c | 13 ++++++-------
-> 1 file changed, 6 insertions(+), 7 deletions(-)
+On Sat, Sep 06, 2014 at 07:55:33AM +0900, Tejun Heo wrote:
+> Hello, Dmitry.
+> 
+> On Fri, Sep 05, 2014 at 03:49:17PM -0700, Dmitry Torokhov wrote:
+> > On Sat, Sep 06, 2014 at 07:31:39AM +0900, Tejun Heo wrote:
+> > > On Sat, Sep 06, 2014 at 07:29:56AM +0900, Tejun Heo wrote:
+> > > > It is for storage devices which always have guaranteed synchronous
+> > > > probing on module load and well-defined probing order.
+> > 
+> > Agree about probing order (IIRC that is why we had to revert the
+> > wholesale asynchronous probing a few years back) but totally disagree
+> > about synchronous module loading.
+> 
+> I don't get it.  This is a behavior userland already depends on for
+> boots.  What's there to agree or disagree?  This is just a fact that
+> we can't do this w/o disturbing some userlands in a major way.
 
-patch has been applied to bluetooth-next tree.
+I am just expressing my disbelief that somebody relies on module loading
+being synchronous with probing. Out of curiosity, do you have any
+pointers?
 
-Regards
+> 
+> > Anyway, I just posted a patch that I think preserves module loading
+> > behavior and solves my issue with built-in modules. It does not help
+> > Luis' issue though (but then I think the main problem is with systemd
+> > being stupid there).
+> 
+> This sure can be worked around from userland side too by not imposing
+> any timeout on module loading but that said for the same reasons that
+> you've been arguing until now, I actually do think that it's kinda
+> silly to make device probing synchronous to module loading at this
+> time and age.  What we disagree on is not that we want to separate
+> those waits.  It is about how to achieve it.
 
-Marcel
+Well, there are separate things we want to solve. My main issue is not
+with modules, but rather compiled-in drivers that stall kernel boot,
+and these particular drivers are just fine if they are probed out of
+bound.
+
+> 
+> > > To add a bit, if the argument here is that dependency on such behavior
+> > > shouldn't exist and module loading and device probing should always be
+> > > asynchronous, the right approach is implementing "synchronous_probing"
+> > > flag not the other way around.  I actually wouldn't hate to see that
+> > > change happening but whoever submits and routes such a change should
+> > > be ready for a major shitstorm, I'm afraid.
+> > 
+> > I think we already had this storm and that is why here we have opt-in
+> > behavior for the drivers.
+> 
+> It's a different shitstorm where we actively break bootings on some
+> userlands.  Trust me.  That's gonna be a lot worse.
+
+That did break bootings and that's why we reverted the wholesale async
+probing.
+
+Thanks.
+
+-- 
+Dmitry
