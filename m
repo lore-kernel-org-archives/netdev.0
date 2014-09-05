@@ -1,148 +1,75 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [RFC net-next 1/5] bonding: 3ad: use curr_slave_lock instead of bond->lock
-Date: Fri, 05 Sep 2014 13:37:48 -0700
-Message-ID: <23382.1409949468@localhost.localdomain>
-References: <1409941011-5494-1-git-send-email-nikolay@redhat.com> <1409941011-5494-2-git-send-email-nikolay@redhat.com>
-Cc: netdev@vger.kernel.org, vfalico@gmail.com, andy@greyhouse.net,
-	davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+From: Ani Sinha <ani@arista.com>
+Subject: [PATCH] net: socket: do not validate msg_namelen unless msg_name is non-NULL
+Date: Fri, 5 Sep 2014 14:00:39 -0700
+Message-ID: <CAOxq_8O=8epuyj2+V8RFep2tHVwk06q5gEK1ho0RUSV4GQV0Kw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, fenner <fenner@arista.com>,
+	fruggeri <fruggeri@arista.com>, travisb <travisb@arista.com>
+To: David Miller <davem@davemloft.net>, matthew.leach@arm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:45269 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750869AbaIEUh5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 16:37:57 -0400
-In-reply-to: <1409941011-5494-2-git-send-email-nikolay@redhat.com>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:56481 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752146AbaIEVBA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 17:01:00 -0400
+Received: by mail-ie0-f170.google.com with SMTP id tp5so1271397ieb.1
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 14:00:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+Hi guys :
 
->In 3ad mode the only syncing needed by bond->lock is for the wq
->and the recv handler, so change them to use curr_slave_lock.
->There're no locking dependencies here as 3ad doesn't use
->curr_slave_lock at all.
+I am looking at the thread :
 
-	One subtle aspect of the 3ad locking is that it's not really
-using the "read" property of the read lock with regard to the state
-machine; it's largely using it as a spin lock, because there is at most
-one reader and at most one writer in the full state machine code
-(although there are multiple reader possibilities elsewhere).  The code
-would break if there actually were multiple read-lock holders in the
-full state machine or aggregator selection logic simultaneously.
+ [PATCH] net: socket: error on a negative msg_namelen
 
-	Because the state machine and incoming LACPDU cases both acquire
-the read lock for read, there is a separate per-port "state machine"
-spin lock to protect only the per-port fields that LACPDU and periodic
-state machine both touch.  The incoming LACPDU case doesn't call into
-the full state machine, only the RX processing which can't go into agg
-selection, so this works.
+and the patch that was submitted in that thread :
 
-	The agg selection can be entered via the unbind path or the
-periodic state machine (and only these two paths), and relies on the
-"one reader max" usage of the read lock to mutex the code paths that may
-enter agg selection.
+commit dbb490b96584d4e958533fb637f08b557f505657
+Author: Matthew Leach <matthew.leach@arm.com>
+Date:   Tue Mar 11 11:58:27 2014 +0000
 
-	I suspect that what 3ad may need is a spin lock, not a read
-lock, because the multiple reader property isn't really being utilized;
-the incoming LACPDU and periodic state machine both acquire the read
-lock for read, but then acquire a second per-port spin lock.  If the
-"big" (bond->lock currently) lock is a spin lock, then the per-port
-state machine lock is unnecessary, as the only purpose of the per-port
-lock is to mutex the one case that does have multiple readers.
-
-	In actual practice I doubt there are multiple simultaneous
-readers very often; the periodic machine runs every 100 ms, but LACPDUs
-arrive for each port either every second or every 30 seconds (depending
-on admin configuration).
-
-	Since contention on these locks is generally low, we're probably
-better off in the long run with something simpler to understand.
-
-	So, what I'm kind of saying here is that this patch isn't a bad
-first step, but at least for the 3ad case, removal of the bond->lock
-itself doesn't really simplify the locking as much as could be done.
-
-	Thoughts?
-
-	-J
+    net: socket: error on a negative msg_namelen
 
 
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->---
-> drivers/net/bonding/bond_3ad.c  |  9 ++++-----
-> drivers/net/bonding/bond_main.c | 12 +++++++-----
-> 2 files changed, 11 insertions(+), 10 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->index ee2c73a9de39..5d27a6207384 100644
->--- a/drivers/net/bonding/bond_3ad.c
->+++ b/drivers/net/bonding/bond_3ad.c
->@@ -2057,7 +2057,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
-> 	struct port *port;
-> 	bool should_notify_rtnl = BOND_SLAVE_NOTIFY_LATER;
-> 
->-	read_lock(&bond->lock);
->+	read_lock(&bond->curr_slave_lock);
-> 	rcu_read_lock();
-> 
-> 	/* check if there are any slaves */
->@@ -2120,7 +2120,7 @@ re_arm:
-> 		}
-> 	}
-> 	rcu_read_unlock();
->-	read_unlock(&bond->lock);
->+	read_unlock(&bond->curr_slave_lock);
-> 
-> 	if (should_notify_rtnl && rtnl_trylock()) {
-> 		bond_slave_state_notify(bond);
->@@ -2395,7 +2395,6 @@ int __bond_3ad_get_active_agg_info(struct bonding *bond,
-> 	return 0;
-> }
-> 
->-/* Wrapper used to hold bond->lock so no slave manipulation can occur */
-> int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
-> {
-> 	int ret;
->@@ -2487,9 +2486,9 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
-> 	if (!lacpdu)
-> 		return ret;
-> 
->-	read_lock(&bond->lock);
->+	read_lock(&bond->curr_slave_lock);
-> 	ret = bond_3ad_rx_indication(lacpdu, slave, skb->len);
->-	read_unlock(&bond->lock);
->+	read_unlock(&bond->curr_slave_lock);
-> 	return ret;
-> }
-> 
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index f0f5eab0fab1..dcd331bd0c17 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -1687,13 +1687,15 @@ static int __bond_release_one(struct net_device *bond_dev,
-> 	 * for this slave anymore.
-> 	 */
-> 	netdev_rx_handler_unregister(slave_dev);
->-	write_lock_bh(&bond->lock);
-> 
->-	/* Inform AD package of unbinding of slave. */
->-	if (BOND_MODE(bond) == BOND_MODE_8023AD)
->+	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
->+		/* Sync against bond_3ad_rx_indication and
->+		 * bond_3ad_state_machine_handler
->+		 */
->+		write_lock_bh(&bond->curr_slave_lock);
-> 		bond_3ad_unbind_slave(slave);
->-
->-	write_unlock_bh(&bond->lock);
->+		write_unlock_bh(&bond->curr_slave_lock);
->+	}
-> 
-> 	netdev_info(bond_dev, "Releasing %s interface %s\n",
-> 		    bond_is_active_slave(slave) ? "active" : "backup",
->-- 
->1.9.3
->
+According to the linux recvmsg manpage, the caller of recvmsg() may
+set msg_name to NULL if he does not care about source address but the
+manpage does not say that one has to set msg_namelen to 0 in this
+case. Essentially msg_namelen is a don't care if msg_name is NULL. I
+think in the kernel, we should validate msg_namelen only if the caller
+has also set msg_name and return EINVAL only when msg_name is non-null
+and msg_namelen is negative.
 
+The following patch will do the intended :
+
+
+>From ef8e8bd78635ac677f2d4b76fec9990ed1db763c Mon Sep 17 00:00:00 2001
+From: Ani Sinha <ani@aristanetworks.com>
+Date: Fri, 5 Sep 2014 13:25:22 -0700
+Subject:[PATCH] net: socket: do not validate msg_namelen unless
+msg_name is non-NULL
+
+The value of msg_namelen in msghdr structure is irrelevant
+ when msg_name is NULL. We should not validate the value
+ passed in msg_namelen unless msg_name is non-NULL.
+
+Signed-off-by: Ani Sinha <ani@aristanetworks.com>
 ---
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+ net/socket.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/socket.c b/net/socket.c
+index 95ee7d8..a5dfe01 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1997,7 +1997,7 @@ static int copy_msghdr_from_user(struct msghdr *kmsg,
+  if (copy_from_user(kmsg, umsg, sizeof(struct msghdr)))
+  return -EFAULT;
+
+- if (kmsg->msg_namelen < 0)
++ if (kmsg->msg_name && kmsg->msg_namelen < 0)
+  return -EINVAL;
+
+  if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
+-- 
+1.7.4.4
