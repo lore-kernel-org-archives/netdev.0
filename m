@@ -1,91 +1,60 @@
-From: Mike Galbraith <umgwanakikbuti@gmail.com>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Fri, 05 Sep 2014 11:14:08 +0200
-Message-ID: <1409908448.5158.7.camel@marge.simpson.net>
-References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
-	 <1409899047-13045-4-git-send-email-mcgrof@do-not-panic.com>
-	 <20140905071925.GC9323@mtj.dyndns.org>
-	 <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj@kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] bonding: add slave netlink policy and put slave-related ops together
+Date: Fri,  5 Sep 2014 11:36:34 +0200
+Message-ID: <1409909794-7664-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, j.vosburgh@gmail.com, nikolay@redhat.com,
+	vfalico@gmail.com, andy@greyhouse.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:42579 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755939AbaIEJgi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 05:36:38 -0400
+Received: by mail-wi0-f169.google.com with SMTP id n3so476132wiv.2
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 02:36:37 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-09-05 at 00:47 -0700, Luis R. Rodriguez wrote: 
-> On Fri, Sep 5, 2014 at 12:19 AM, Tejun Heo <tj@kernel.org> wrote:
-> > On Thu, Sep 04, 2014 at 11:37:24PM -0700, Luis R. Rodriguez wrote:
-> > ...
-> >> +             /*
-> >> +              * I got SIGKILL, but wait for 60 more seconds for completion
-> >> +              * unless chosen by the OOM killer. This delay is there as a
-> >> +              * workaround for boot failure caused by SIGKILL upon device
-> >> +              * driver initialization timeout.
-> >> +              *
-> >> +              * N.B. this will actually let the thread complete regularly,
-> >> +              * wait_for_completion() will be used eventually, the 60 second
-> >> +              * try here is just to check for the OOM over that time.
-> >> +              */
-> >> +             WARN_ONCE(!test_thread_flag(TIF_MEMDIE),
-> >> +                       "Got SIGKILL but not from OOM, if this issue is on probe use .driver.async_probe\n");
-> >> +             for (i = 0; i < 60 && !test_thread_flag(TIF_MEMDIE); i++)
-> >> +                     if (wait_for_completion_timeout(&done, HZ))
-> >> +                             goto wait_done;
-> >> +
-> >
-> > Ugh... Jesus, this is way too hacky, so now we fail on 90s timeout
-> > instead of 30?
-> 
-> Nope! I fell into the same trap and only with tons of patience by part
-> of Tetsuo with me was I able to grok that the 60 seconds here are not
-> for increasing the timeout, this is just time spent checking to ensure
-> that the OOM wasn't the one who triggered the SIGKILL. Even if the
-> drivers took eons it should be fine now, I tried it :D
-> 
-> >  Why do we even need this with the proposed async
-> > probing changes?
-> 
-> Ah -- well without it the way we "find" drivers that need this new
-> "async feature" is by a bug report and folks saying their system can't
-> boot, or they say their device doesn't come up. That's all. Tracing
-> this to systemd and a timeout was one of the most ugliest things ever.
-> There two insane bug reports you can go check:
-> 
-> mptsas was the first:
-> 
-> http://article.gmane.org/gmane.linux.kernel/1669550
-> https://bugs.launchpad.net/ubuntu/+source/systemd/+bug/1297248
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/net/bonding/bond_netlink.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-<quote>
-(2) Currently systemd-udevd unconditionally sends SIGKILL upon hardcoded
-    30 seconds timeout. As a result, finit_module() of mptsas kernel
-    module receives SIGKILL when waiting for error handler thread to be
-    started.
-</quote>
-
-Hm.  Why is this not a systemd-udevd bug for running around killing
-stuff when it has no idea whether progress is being made or not?
-
--Mike
+diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+index 1570dea..e1489d9 100644
+--- a/drivers/net/bonding/bond_netlink.c
++++ b/drivers/net/bonding/bond_netlink.c
+@@ -96,6 +96,10 @@ static const struct nla_policy bond_policy[IFLA_BOND_MAX + 1] = {
+ 	[IFLA_BOND_AD_INFO]		= { .type = NLA_NESTED },
+ };
+ 
++static const struct nla_policy bond_slave_policy[IFLA_BOND_SLAVE_MAX + 1] = {
++	[IFLA_BOND_SLAVE_QUEUE_ID]	= { .type = NLA_U16 },
++};
++
+ static int bond_validate(struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	if (tb[IFLA_ADDRESS]) {
+@@ -580,17 +584,18 @@ struct rtnl_link_ops bond_link_ops __read_mostly = {
+ 	.priv_size		= sizeof(struct bonding),
+ 	.setup			= bond_setup,
+ 	.maxtype		= IFLA_BOND_MAX,
+-	.slave_maxtype		= IFLA_BOND_SLAVE_MAX,
+ 	.policy			= bond_policy,
+ 	.validate		= bond_validate,
+ 	.newlink		= bond_newlink,
+ 	.changelink		= bond_changelink,
+-	.slave_changelink	= bond_slave_changelink,
+ 	.get_size		= bond_get_size,
+ 	.fill_info		= bond_fill_info,
+ 	.get_num_tx_queues	= bond_get_num_tx_queues,
+ 	.get_num_rx_queues	= bond_get_num_tx_queues, /* Use the same number
+ 							     as for TX queues */
++	.slave_maxtype		= IFLA_BOND_SLAVE_MAX,
++	.slave_policy		= bond_slave_policy,
++	.slave_changelink	= bond_slave_changelink,
+ 	.get_slave_size		= bond_get_slave_size,
+ 	.fill_slave_info	= bond_fill_slave_info,
+ };
+-- 
+1.9.3
