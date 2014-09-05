@@ -1,88 +1,74 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 1/5] bridge: switch order of rx_handler reg and upper dev link
-Date: Fri,  5 Sep 2014 15:51:28 +0200
-Message-ID: <1409925092-17808-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/5] bridge: implement rtnl_link_ops->get_slave_size and rtnl_link_ops->fill_slave_info
+Date: Fri,  5 Sep 2014 15:51:29 +0200
+Message-ID: <1409925092-17808-3-git-send-email-jiri@resnulli.us>
 References: <1409925092-17808-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, stephen@networkplumber.org,
 	sfeldma@cumulusnetworks.com, arvid.brodin@alten.se,
 	sucheta.chakraborty@qlogic.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:61283 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757003AbaIENvr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 09:51:47 -0400
-Received: by mail-wi0-f179.google.com with SMTP id q5so3014591wiv.0
-        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 06:51:41 -0700 (PDT)
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:58356 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756701AbaIENvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 09:51:45 -0400
+Received: by mail-wi0-f176.google.com with SMTP id bs8so870683wib.15
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 06:51:44 -0700 (PDT)
 In-Reply-To: <1409925092-17808-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The thing is that netdev_master_upper_dev_link calls
-call_netdevice_notifiers(NETDEV_CHANGEUPPER, dev). That generates rtnl
-link message and during that, rtnl_link_ops->fill_slave_info is called.
-But with current ordering, rx_handler and IFF_BRIDGE_PORT are not set
-yet so there would have to be check for that in fill_slave_info callback.
-
-Resolve this by reordering to similar what bonding and team does to
-avoid the check.
-
-Also add removal of IFF_BRIDGE_PORT flag into error path.
+Allow rtnetlink users to get port info in IFLA_INFO_SLAVE_DATA attr
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/bridge/br_if.c | 15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
+ net/bridge/br_netlink.c | 27 +++++++++++++++++++++------
+ 1 file changed, 21 insertions(+), 6 deletions(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 078d336..a9f54a9 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -252,12 +252,12 @@ static void del_nbp(struct net_bridge_port *p)
- 	br_fdb_delete_by_port(br, p, 1);
- 	nbp_update_port_count(br);
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index cb5fcf6..80d2347 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -461,6 +461,19 @@ static int br_dev_newlink(struct net *src_net, struct net_device *dev,
+ 	return register_netdevice(dev);
+ }
  
-+	netdev_upper_dev_unlink(dev, br->dev);
++static int br_port_fill_slave_info(struct sk_buff *skb,
++				   const struct net_device *brdev,
++				   const struct net_device *dev)
++{
++	return br_port_fill_attrs(skb, br_port_get_rtnl(dev));
++}
 +
- 	dev->priv_flags &= ~IFF_BRIDGE_PORT;
- 
- 	netdev_rx_handler_unregister(dev);
- 
--	netdev_upper_dev_unlink(dev, br->dev);
--
- 	br_multicast_del_port(p);
- 
- 	kobject_uevent(&p->kobj, KOBJ_REMOVE);
-@@ -476,16 +476,16 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 	if (err)
- 		goto err3;
- 
--	err = netdev_master_upper_dev_link(dev, br->dev);
-+	err = netdev_rx_handler_register(dev, br_handle_frame, p);
- 	if (err)
- 		goto err4;
- 
--	err = netdev_rx_handler_register(dev, br_handle_frame, p);
-+	dev->priv_flags |= IFF_BRIDGE_PORT;
++static size_t br_port_get_slave_size(const struct net_device *brdev,
++				     const struct net_device *dev)
++{
++	return br_port_info_size();
++}
 +
-+	err = netdev_master_upper_dev_link(dev, br->dev);
- 	if (err)
- 		goto err5;
+ static size_t br_get_link_af_size(const struct net_device *dev)
+ {
+ 	struct net_port_vlans *pv;
+@@ -485,12 +498,14 @@ static struct rtnl_af_ops br_af_ops = {
+ };
  
--	dev->priv_flags |= IFF_BRIDGE_PORT;
--
- 	dev_disable_lro(dev);
+ struct rtnl_link_ops br_link_ops __read_mostly = {
+-	.kind		= "bridge",
+-	.priv_size	= sizeof(struct net_bridge),
+-	.setup		= br_dev_setup,
+-	.validate	= br_validate,
+-	.newlink	= br_dev_newlink,
+-	.dellink	= br_dev_delete,
++	.kind			= "bridge",
++	.priv_size		= sizeof(struct net_bridge),
++	.setup			= br_dev_setup,
++	.validate		= br_validate,
++	.newlink		= br_dev_newlink,
++	.dellink		= br_dev_delete,
++	.get_slave_size		= br_port_get_slave_size,
++	.fill_slave_info	= br_port_fill_slave_info,
+ };
  
- 	list_add_rcu(&p->list, &br->port_list);
-@@ -520,7 +520,8 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 	return 0;
- 
- err5:
--	netdev_upper_dev_unlink(dev, br->dev);
-+	dev->priv_flags &= ~IFF_BRIDGE_PORT;
-+	netdev_rx_handler_unregister(dev);
- err4:
- 	br_netpoll_disable(p);
- err3:
+ int __init br_netlink_init(void)
 -- 
 1.9.3
