@@ -1,175 +1,134 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Regression: TCP connections fail over wireless: bad cksum?
-Date: Thu, 4 Sep 2014 20:41:14 -0700
-Message-ID: <CA+mtBx-5j0o6ZWhzXidLPG28ZnHBvSeCJ+hda5_hsu4Lq-_a=A@mail.gmail.com>
-References: <5408C788.4050401@tedp.id.au>
-	<1409871007.26422.125.camel@edumazet-glaptop2.roam.corp.google.com>
-	<5408F3FB.2010107@tedp.id.au>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: Re: [patch net-next 10/13] openvswitch: add support for
+ datapath hardware offload
+Date: Fri, 5 Sep 2014 12:59:38 +0900
+Message-ID: <20140905035937.GA32481@vergenet.net>
+References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
+ <1409736300-12303-11-git-send-email-jiri@resnulli.us>
+ <540743B4.9080500@gmail.com> <20140904124837.GI1867@nanopsycho.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Ted Percival <ted@tedp.id.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:42352 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752076AbaIEDlP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Sep 2014 23:41:15 -0400
-Received: by mail-ie0-f182.google.com with SMTP id rd18so13133924iec.13
-        for <netdev@vger.kernel.org>; Thu, 04 Sep 2014 20:41:15 -0700 (PDT)
-In-Reply-To: <5408F3FB.2010107@tedp.id.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org,
+ edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
+ f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
+ roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140904124837.GI1867-6KJVSR23iU5sFDB2n11ItA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 4, 2014 at 4:21 PM, Ted Percival <ted@tedp.id.au> wrote:
-> On 09/04/2014 04:50 PM, Eric Dumazet wrote:
->> On Thu, 2014-09-04 at 14:11 -0600, Ted Percival wrote:
->>> Yesterday's linux-next build introduced a problem with wireless
->>> networking on my machine. ie. next-20140901 worked fine but
->>> next-20140902 does not seem able to sustain a TCP connection over
->>> wireless. Wired networking works fine. I am using the brcmsmac driver
->>> and the hardware is "Broadcom Corporation BCM4313 802.11b/g/n Wireless
->>> LAN Controller (rev 01)".
->>>
->>> Pings, even large pings (ping -s 16000) work fine but TCP connections hang.
->>>
->>> I looked through the changes between the bad & good commits from the net
->>> & net-next trees and I wonder if some of the changes to checksumming
->>> have surfaced a problem with this driver. When I look at a tcpdump, it
->>> indicates that all the checksums are wrong (although I don't know if
->>> that is just due to hardware offload).
->>>
->>> Here is a short trace of the hung connection attempt of
->>>   curl http://lwn.net/
->>>
->>> $ sudo tcpdump -vvn -i wlan0 port 80
->>> tcpdump: listening on wlan0, link-type EN10MB (Ethernet), capture size
->>> 65535 bytes
->>> 13:20:15.120770 IP (tos 0x0, ttl 64, id 22734, offset 0, flags [DF],
->>> proto TCP (6), length 60)
->>>     10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
->>> (incorrect -> 0x4fac), seq 2861986597, win 29200, options [mss
->>> 1460,sackOK,TS val 142315 ecr 0,nop,wscale 7], length 0
->>> 13:20:16.121755 IP (tos 0x0, ttl 64, id 22735, offset 0, flags [DF],
->>> proto TCP (6), length 60)
->>>     10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
->>> (incorrect -> 0x4bc3), seq 2861986597, win 29200, options [mss
->>> 1460,sackOK,TS val 143316 ecr 0,nop,wscale 7], length 0
->>> 13:20:18.125748 IP (tos 0x0, ttl 64, id 22736, offset 0, flags [DF],
->>> proto TCP (6), length 60)
->>>     10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
->>> (incorrect -> 0x43ef), seq 2861986597, win 29200, options [mss
->>> 1460,sackOK,TS val 145320 ecr 0,nop,wscale 7], length 0
->>> 13:20:22.133743 IP (tos 0x0, ttl 64, id 22737, offset 0, flags [DF],
->>> proto TCP (6), length 60)
->>>     10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
->>> (incorrect -> 0x3447), seq 2861986597, win 29200, options [mss
->>> 1460,sackOK,TS val 149328 ecr 0,nop,wscale 7], length 0
->>> 13:20:30.149754 IP (tos 0x0, ttl 64, id 22738, offset 0, flags [DF],
->>> proto TCP (6), length 60)
->>>     10.5.51.93.38035 > 72.51.34.34.80: Flags [S], cksum 0xa7e5
->>> (incorrect -> 0x14f7), seq 2861986597, win 29200, options [mss
->>> 1460,sackOK,TS val 157344 ecr 0,nop,wscale 7], length 0
->>>
->>>
->>> I don't see anything that looks related in dmesg. The only brcmsmac
->>> messages I see are:
->>>
->>> [  567.122218] brcmsmac bcma0:0: brcmsmac: brcms_ops_bss_info_changed:
->>> associated
->>> [  567.122226] brcmsmac bcma0:0: brcms_ops_bss_info_changed: arp
->>> filtering: 1 addresses (implement)
->>> [  567.122231] brcmsmac bcma0:0: brcms_ops_bss_info_changed: qos
->>> enabled: true (implement)
->>> [  567.192283] brcmsmac bcma0:0: brcms_ops_bss_info_changed: qos
->>> enabled: true (implement)
->>>
->>> I am writing to linux-netdev rather than linux-wireless because
->>> according to Next/SHA1s the wireless & wireless-next trees were not
->>> updated between next-20140901 and next-20140902, but the net & net-next
->>> trees were updated, so maybe the regression came from there. (I haven't
->>> tested next-20140903 because it won't boot for unrelated reasons.)
->>>
->>> Let me know if I should just file this in Bugzilla or what information I
->>> can provide to help track this down, if it hasn't already been identified.
->>>
->>> The here are the good (-) and bad (+) trees from Next/SHA1s at the
->>> next-* tags mentioned earlier that I built from.
->>>
->>> -net            38ab1fa981d543e1b00f4ffbce4ddb480cd2effe
->>> +net            cc25f0cbe4409d6a573b1f3bf7020d5b04076ee9
->>>
->>> -net-next       dace1b54726bffe1c009f7661e3cee6b762f30c8
->>> +net-next       364a9e93243d1785f310c0964af0e24bf1adac03
->>>
->>
->> Could you post
->>
->> ethtool -k wlan0
->>
->> And try
->>
->> ethtool -K wlan tx off
->
-> # ethtool -k wlan0
-> Features for wlan0:
-> rx-checksumming: off [fixed]
-> tx-checksumming: off
->         tx-checksum-ipv4: off [fixed]
->         tx-checksum-ip-generic: off [fixed]
->         tx-checksum-ipv6: off [fixed]
->         tx-checksum-fcoe-crc: off [fixed]
->         tx-checksum-sctp: off [fixed]
-> scatter-gather: off
->         tx-scatter-gather: off [fixed]
->         tx-scatter-gather-fraglist: off [fixed]
-> tcp-segmentation-offload: off
->         tx-tcp-segmentation: off [fixed]
->         tx-tcp-ecn-segmentation: off [fixed]
->         tx-tcp6-segmentation: off [fixed]
-> udp-fragmentation-offload: off [fixed]
-> generic-segmentation-offload: off [requested on]
-> generic-receive-offload: on
-> large-receive-offload: off [fixed]
-> rx-vlan-offload: off [fixed]
-> tx-vlan-offload: off [fixed]
-> ntuple-filters: off [fixed]
-> receive-hashing: off [fixed]
-> highdma: off [fixed]
-> rx-vlan-filter: off [fixed]
-> vlan-challenged: off [fixed]
-> tx-lockless: off [fixed]
-> netns-local: on [fixed]
-> tx-gso-robust: off [fixed]
-> tx-fcoe-segmentation: off [fixed]
-> tx-gre-segmentation: off [fixed]
-> tx-ipip-segmentation: off [fixed]
-> tx-sit-segmentation: off [fixed]
-> tx-udp_tnl-segmentation: off [fixed]
-> tx-mpls-segmentation: off [fixed]
-> fcoe-mtu: off [fixed]
-> tx-nocache-copy: off
-> loopback: off [fixed]
-> rx-fcs: off [fixed]
-> rx-all: off [fixed]
-> tx-vlan-stag-hw-insert: off [fixed]
-> rx-vlan-stag-hw-parse: off [fixed]
-> rx-vlan-stag-filter: off [fixed]
-> l2-fwd-offload: off [fixed]
-> busy-poll: off [fixed]
->
-> # ethtool -K wlan0 tx off
-> Cannot change tx-checksumming
->
-> I will try to isolate the commit that caused the regression.
+On Thu, Sep 04, 2014 at 02:48:37PM +0200, Jiri Pirko wrote:
+> Wed, Sep 03, 2014 at 06:37:08PM CEST, john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
+> >On 09/03/2014 02:24 AM, Jiri Pirko wrote:
+> >>Benefit from the possibility to work with flows in switch devices and
+> >>use the swdev api to offload flow datapath.
+> >>
+> >>Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+> >>---
+> >>  net/openvswitch/Makefile       |   3 +-
+> >>  net/openvswitch/datapath.c     |  33 ++++++
+> >>  net/openvswitch/datapath.h     |   3 +
+> >>  net/openvswitch/flow_table.c   |   1 +
+> >>  net/openvswitch/hw_offload.c   | 245 +++++++++++++++++++++++++++++++++++++++++
+> >>  net/openvswitch/hw_offload.h   |  22 ++++
+> >>  net/openvswitch/vport-netdev.c |   3 +
+> >>  net/openvswitch/vport.h        |   2 +
+> >>  8 files changed, 311 insertions(+), 1 deletion(-)
+> >>  create mode 100644 net/openvswitch/hw_offload.c
+> >>  create mode 100644 net/openvswitch/hw_offload.h
+> >>
+> >>diff --git a/net/openvswitch/Makefile b/net/openvswitch/Makefile
+> >>index 3591cb5..5152437 100644
+> >>--- a/net/openvswitch/Makefile
+> >>+++ b/net/openvswitch/Makefile
+> >>@@ -13,7 +13,8 @@ openvswitch-y := \
+> >>  	flow_table.o \
+> >>  	vport.o \
+> >>  	vport-internal_dev.o \
+> >>-	vport-netdev.o
+> >>+	vport-netdev.o \
+> >>+	hw_offload.o
+> >>
+> >>  ifneq ($(CONFIG_OPENVSWITCH_VXLAN),)
+> >>  openvswitch-y += vport-vxlan.o
+> >>diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> >>index 75bb07f..3e43e1d 100644
+> >>--- a/net/openvswitch/datapath.c
+> >>+++ b/net/openvswitch/datapath.c
+> >>@@ -57,6 +57,7 @@
+> >>  #include "flow_netlink.h"
+> >>  #include "vport-internal_dev.h"
+> >>  #include "vport-netdev.h"
+> >>+#include "hw_offload.h"
+> >>
+> >>  int ovs_net_id __read_mostly;
+> >>
+> >>@@ -864,6 +865,9 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
+> >>  			acts = NULL;
+> >>  			goto err_unlock_ovs;
+> >>  		}
+> >>+		error = ovs_hw_flow_insert(dp, new_flow);
+> >>+		if (error)
+> >>+			pr_warn("failed to insert flow into hw\n");
+> >
+> >This is really close to silently failing. I think we need to
+> >hard fail here somehow and push it back to userspace as part of
+> >the reply and ovs_notify.
+> 
+> Yes, I agree. My plan was to handle this in ovs hw/sw/both netlink attr
+> implementation.
 
-Please provide 'netstat -s' to see if bad checksums are being
-reported. Also, try disabling GRO to see the effect.
+FWIW I agree that handling it in that way makes sense.
+In particular I think that "both", where the datapath is allowed
+to fall back to software is a useful mode to have (its the current
+implementation, right?). But that it is also good to allow user-space
+more control.
 
-Thanks,
-Tom
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >Otherwise I don't know how to manage the hardware correctly. Consider
+> >the hardware table is full. In this case user space will continue to
+> >add rules and they will be silently discarded. Similarly if user space
+> >adds a flow/action that can not be supported by the hardware it will
+> >be silently ignored.
+> >
+> >Even if we do careful accounting on resources in user space we could
+> >still get an ENOMEM error from sw_flow_action_create.
+> >
+> >Same comment for the other hw commands flush/remove.
+> >
+> >>  		if (unlikely(reply)) {
+> >>  			error = ovs_flow_cmd_fill_info(new_flow,
+> >>@@ -896,10 +900,18 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
+> >>  				goto err_unlock_ovs;
+> >>  			}
+> >>  		}
+> >
+> >
+> >[...]
+> >
+> >
+> >Thanks,
+> >John
+> >
+> >-- 
+> >John Fastabend         Intel Corporation
+> _______________________________________________
+> dev mailing list
+> dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+> http://openvswitch.org/mailman/listinfo/dev
+> 
