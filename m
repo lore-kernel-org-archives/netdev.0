@@ -1,85 +1,68 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2] Revert "ip: check for missing dev arg when doing
- VF rate"
-Date: Fri, 5 Sep 2014 13:11:05 +0300
-Message-ID: <CAMw6YJKoEzMQOjmJ66ojfYGn6Xp4ec_m5edZWQBymjZtVyB13w@mail.gmail.com>
-References: <1409909845-7126-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [patch net-next] bonding: add slave netlink policy and put slave-related
+ ops together
+Date: Fri, 05 Sep 2014 12:21:06 +0200
+Message-ID: <54098E92.6020207@redhat.com>
+References: <1409909794-7664-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, j.vosburgh@gmail.com, vfalico@gmail.com,
+	andy@greyhouse.net
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f170.google.com ([209.85.216.170]:44726 "EHLO
-	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755909AbaIEKLG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 06:11:06 -0400
-Received: by mail-qc0-f170.google.com with SMTP id r5so12234834qcx.1
-        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 03:11:05 -0700 (PDT)
-In-Reply-To: <1409909845-7126-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mx1.redhat.com ([209.132.183.28]:10612 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756573AbaIEKVT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Sep 2014 06:21:19 -0400
+In-Reply-To: <1409909794-7664-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Was it not fixed by f1b66ff83a0 in master branch ?
-
-On Fri, Sep 5, 2014 at 12:37 PM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
-> This reverts commit 9a02651a87d0fd56e2e7eedd63921a050a42b3ec.
->
-> This commit breaks backward compatibility. Before the commit, this kind of
-> command was allowed:
-> ip link add myiface type ...
-> Now, it returns an error, we should add the arg 'name':
-> ip link add name myiface type ...
->
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+On 05/09/14 11:36, Jiri Pirko wrote:
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 > ---
->  ip/iplink.c | 8 +-------
->  1 file changed, 1 insertion(+), 7 deletions(-)
+>   drivers/net/bonding/bond_netlink.c | 9 +++++++--
+>   1 file changed, 7 insertions(+), 2 deletions(-)
 >
-> diff --git a/ip/iplink.c b/ip/iplink.c
-> index 1a907d998a87..bbcdc83d4c91 100644
-> --- a/ip/iplink.c
-> +++ b/ip/iplink.c
-> @@ -349,7 +349,6 @@ static int iplink_parse_vf(int vf, int *argcp, char ***argvp,
+> diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+> index 1570dea..e1489d9 100644
+> --- a/drivers/net/bonding/bond_netlink.c
+> +++ b/drivers/net/bonding/bond_netlink.c
+> @@ -96,6 +96,10 @@ static const struct nla_policy bond_policy[IFLA_BOND_MAX + 1] = {
+>   	[IFLA_BOND_AD_INFO]		= { .type = NLA_NESTED },
+>   };
 >
->         if (new_rate_api) {
->                 int tmin, tmax;
-> -
->                 if (tivt.min_tx_rate == -1 || tivt.max_tx_rate == -1) {
->                         ipaddr_get_vf_rate(tivt.vf, &tmin, &tmax, dev_index);
->                         if (tivt.min_tx_rate == -1)
-> @@ -382,7 +381,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
->         int vf = -1;
->         int numtxqueues = -1;
->         int numrxqueues = -1;
-> -       int dev_index = 0;
-> +       int dev_index;
+> +static const struct nla_policy bond_slave_policy[IFLA_BOND_SLAVE_MAX + 1] = {
+> +	[IFLA_BOND_SLAVE_QUEUE_ID]	= { .type = NLA_U16 },
+> +};
+> +
+>   static int bond_validate(struct nlattr *tb[], struct nlattr *data[])
+>   {
+>   	if (tb[IFLA_ADDRESS]) {
+> @@ -580,17 +584,18 @@ struct rtnl_link_ops bond_link_ops __read_mostly = {
+>   	.priv_size		= sizeof(struct bonding),
+>   	.setup			= bond_setup,
+>   	.maxtype		= IFLA_BOND_MAX,
+> -	.slave_maxtype		= IFLA_BOND_SLAVE_MAX,
+>   	.policy			= bond_policy,
+>   	.validate		= bond_validate,
+>   	.newlink		= bond_newlink,
+>   	.changelink		= bond_changelink,
+> -	.slave_changelink	= bond_slave_changelink,
+>   	.get_size		= bond_get_size,
+>   	.fill_info		= bond_fill_info,
+>   	.get_num_tx_queues	= bond_get_num_tx_queues,
+>   	.get_num_rx_queues	= bond_get_num_tx_queues, /* Use the same number
+>   							     as for TX queues */
+> +	.slave_maxtype		= IFLA_BOND_SLAVE_MAX,
+> +	.slave_policy		= bond_slave_policy,
+> +	.slave_changelink	= bond_slave_changelink,
+>   	.get_slave_size		= bond_get_slave_size,
+>   	.fill_slave_info	= bond_fill_slave_info,
+>   };
 >
->         *group = -1;
->         ret = argc;
-> @@ -495,9 +494,6 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
->                         }
->                         vflist = addattr_nest(&req->n, sizeof(*req),
->                                               IFLA_VFINFO_LIST);
-> -                       if (dev_index == 0)
-> -                               missarg("dev");
-> -
->                         len = iplink_parse_vf(vf, &argc, &argv, req, dev_index);
->                         if (len < 0)
->                                 return -1;
-> @@ -593,8 +589,6 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
->                                 duparg2("dev", *argv);
->                         *dev = *argv;
->                         dev_index = ll_name_to_index(*dev);
-> -                       if (dev_index == 0)
-> -                               invarg("Unknown device", *argv);
->                 }
->                 argc--; argv++;
->         }
-> --
-> 1.9.0
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Right, the validation policy, I knew I forgot something :-)
+
+Acked-by: Nikolay Aleksandrov <nikolay@redhat.com>
