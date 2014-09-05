@@ -1,75 +1,65 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Fri, 5 Sep 2014 23:12:41 +0900
-Message-ID: <20140905141241.GC10455@mtj.dyndns.org>
-References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
- <1409899047-13045-4-git-send-email-mcgrof@do-not-panic.com>
- <20140905071925.GC9323@mtj.dyndns.org>
- <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Does NetworkManager kill IPv6 connections?
+Date: Fri, 5 Sep 2014 14:18:04 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1748838C@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D174876CB@AcuExch.aculab.com>
+ <1409854625.23720.7.camel@dcbw.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Ma
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Dan Williams' <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:46650 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932201AbaIEOMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 10:12:54 -0400
-Content-Disposition: inline
-In-Reply-To: <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:47875 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S932305AbaIEOTV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Sep 2014 10:19:21 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 21416-05 for <netdev@vger.kernel.org>;
+ Fri,  5 Sep 2014 15:19:12 +0100 (BST)
+In-Reply-To: <1409854625.23720.7.camel@dcbw.local>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 05, 2014 at 12:47:16AM -0700, Luis R. Rodriguez wrote:
-> Ah -- well without it the way we "find" drivers that need this new
-> "async feature" is by a bug report and folks saying their system can't
-> boot, or they say their device doesn't come up. That's all. Tracing
-> this to systemd and a timeout was one of the most ugliest things ever.
-> There two insane bug reports you can go check:
-> 
-> mptsas was the first:
-> 
-> http://article.gmane.org/gmane.linux.kernel/1669550
-> https://bugs.launchpad.net/ubuntu/+source/systemd/+bug/1297248
-> 
-> Then cxgb4:
-> 
-> https://bugzilla.novell.com/show_bug.cgi?id=877622
-> 
-> I only had Cc'd you on the newest gem pata_marvell :
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=59581
-> 
-> We can't seriously expect to be doing all this work for every driver.
-> a WARN_ONCE() would enable us to find the drivers that need this new
-> async probe "feature".
-
-This whole approach of trying to mark specific drivers as needing
-"async probing" is completely broken for the problem at hand.  It
-can't address the problem adequately while breaking backward
-compatibility.  I don't think this makes much sense.
-
-Nacked-by: Tejun Heo <tj@kernel.org>
-
-Thanks.
-
--- 
-tejun
+RnJvbTogRGFuIFdpbGxpYW1zIA0KPiBPbiBUaHUsIDIwMTQtMDktMDQgYXQgMTQ6NDcgKzAwMDAs
+IERhdmlkIExhaWdodCB3cm90ZToNCj4gPiBJIHdhcyBydW5uaW5nIGEgb3Zlcm5pZ2h0IHRlc3Qg
+dGhhdCBmYWlsZWQgYmVjYXVzZSBhbiAoYWxtb3N0IGlkbGUpIElQdjYgY29ubmVjdGlvbg0KPiA+
+IHVuZXhwZWN0ZWRseSBkaXNjb25uZWN0ZWQuDQo+ID4gMzAgc2Vjb25kcyBiZWZvcmUgdGhlIGRp
+c2Nvbm5lY3Qgc3lzbG9nIGNvbnRhaW5zIChyZXR5cGVkKToNCj4gPiAgIE5ldHdvcmtNYW5hZ2Vy
+W3BpZF06IDxpbmZvPiBwb2xpY3kgc2V0ICdXaXJlZCBjb25uZWN0aW9uIDInIChldGgwKSBhcyBk
+ZWZhdWx0IGZvciBJUHY2IHJvdXRpbmcgYW5kIEROUy4NCj4gPiBUaGUgc2FtZSBtZXNzYWdlIGFw
+cGVhcmVkIGV4YWN0bHkgNzAgbWludXRlcyBlYXJsaWVyIC0gd2l0aCBubyBpbGwgZWZmZWN0Lg0K
+PiA+IEEgc2Vjb25kIGNvbm5lY3Rpb24gYmV0d2VlbiB0aGUgc2FtZSBwYWlyIGlmIGFkZHJlc3Nl
+cyAoY2FycnlpbmcgYSBsb3Qgb2YgdHJhZmZpYykNCj4gPiB3YXMgdW5hZmZlY3RlZC4NCj4gPg0K
+PiA+IEFueSBpZGVhIHdoYXQvd2h5IE5ldHdvcmtNYW5hZ2VyIGlzIGRvaW5nPw0KPiA+IChZZXMg
+SSBrbm93IGl0IGlzIHVzZXJzcGFjZSwgYnV0IGl0IHNlZW1zIHRvIGJlIGJyZWFraW5nIHRoZSBr
+ZXJuZWwuLi4uKQ0KPiA+DQo+ID4gVGhlIHN5c3RlbSBpcyBhbiB1YnVudHUgMTMuMDQgZGVza3Rv
+cCAoMy44LjAtMTkga2VybmVsKSwgdGhhdCByZWNlbnQsIGJ1dA0KPiA+IG5ld2VyIHRoYW4gdGhl
+IG9uZXMgYSBsb3Qgb2Ygb3VyIGN1c3RvbWVycyB1c2UuDQo+IA0KPiBJcyB0aGUgdmVyc2lvbiBv
+ZiB0aGUgVWJ1bnR1ICJuZXR3b3JrLW1hbmFnZXIiIHBhY2thZ2Ugb24geW91ciBzeXN0ZW1zDQo+
+IDAuOS44LjAtMHVidW50dTYuMT8NCg0KSXQgaXMgYWN0dWFsbHkgdGhlIHNsaWdodGx5IG9sZGVy
+IDAuOS44LjAtMHVidW50dTYuMA0KDQo+IElmIHNvLCBJIGtub3cgd2UndmUgZml4ZWQgYSB0b24g
+b2YgaXNzdWVzIHdpdGggSVB2NiBzaW5jZSAwLjkuOC4wICh3aGljaA0KPiB3YXMgcmVsZWFzZWQg
+YWJvdXQgMTggbW9udGhzIGFnbyksIGFuZCB0aGUgb25lcyB0aGF0IG1heSBiZSBhZmZlY3RpbmcN
+Cj4geW91IGFyZSByZWxhdGVkIHRvIHJvdXRlciBhZHZlcnRpc2VtZW50IHRpbWluZyBhbmQgZXhw
+aXJ5LiAgVGhlIGxhdGVzdA0KPiBzdGFibGUgTk0gdmVyc2lvbiB1cHN0cmVhbSBpcyAwLjkuMTAg
+YW5kIHNob3VsZCBjb250YWluIGFsbCBvZiB0aG9zZQ0KPiBmaXhlcy4NCg0KSSd2ZSBmbGFnZ2Vk
+IGl0IHdpdGggb3VyIG1hbmFnZW1lbnQsIHRoZXknbGwgZGVjaWRlIHdoYXQgdG8gc2F5DQphYm91
+dCBJUHY2IHN1cHBvcnQgaW4gdmFyaW91cyBMaW51eCBkaXN0cm9zLg0KDQoJRGF2aWQNCg0KPiBT
+aW5jZSBJJ20gcHJldHR5IHN1cmUgdGhpcyBpc24ndCBhIGtlcm5lbCBwcm9ibGVtLCB3b3VsZCB5
+b3UgbWluZA0KPiBkaXNjdXNzaW5nIHRoaXMgb3ZlciBvbiB0aGUgTk0gbGlzdHMgaGVyZToNCj4g
+DQo+IGh0dHBzOi8vbWFpbC5nbm9tZS5vcmcvbWFpbG1hbi9saXN0aW5mby9uZXR3b3JrbWFuYWdl
+ci1saXN0DQo+IA0KPiBJZiB5b3UgZG9uJ3Qgd2FudCB0byBzdWJzY3JpYmUgdGhhdCdzIGZpbmUs
+IEknbGwgbW9kZXJhdGUgeW91ciBtZXNzYWdlDQo+IHRocm91Z2ggYW5kIHdlIGNhbiBqdXN0IHVz
+ZSAicmVwbHkgYWxsIi4NCj4gDQo+IFRoYW5rcywNCj4gRGFuDQo+IA0KPiA+IEkgY2FuIHJlcnVu
+IHRoZSB0ZXN0LCBidXQgZG9uJ3Qga25vdyB3aGF0IHRvIGxvb2sgZm9yLg0KPiA+ICdldGgwJyBp
+cyB0aGUgb25seSBldGhlcm5ldCBpbnRlcmZhY2UgaW4gdGhlIHN5c3RlbSB0aGF0IGlzIGFjdHVh
+bGx5DQo+ID4gY29ubmVjdGVkIHRvIGEgbmV0d29yay4NCj4gPg0KPiA+IFNvbWUgaW5kaWNhdGlv
+bnMgb2Ygd2hlcmUgdG8gbG9vayB3b3VsZCBiZSBhcHByZWNpYXRlZC4NCj4gPg0KPiA+IAlEYXZp
+ZA0KPiA+DQo+ID4NCj4gPg0KPiA+IC0tDQo+ID4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxp
+c3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4NCj4gPiB0aGUgYm9keSBv
+ZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiA+IE1vcmUgbWFqb3Jk
+b21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
+PiANCg0K
