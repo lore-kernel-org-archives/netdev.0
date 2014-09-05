@@ -1,40 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH 1/1] drivers: net: cpsw: dual_emac: fix reducing of
- rx descriptor during ifdown
-Date: Fri, 05 Sep 2014 14:29:17 -0700 (PDT)
-Message-ID: <20140905.142917.1749731214890237469.davem@davemloft.net>
-References: <54058C01.3010402@ti.com>
-	<20140902.115434.1276391011837651390.davem@davemloft.net>
-	<5406C067.5080103@ti.com>
+Subject: Re: [PATCH V2 net] core: Don't attempt to load the "" driver.
+Date: Fri, 05 Sep 2014 14:32:41 -0700 (PDT)
+Message-ID: <20140905.143241.114624370748725493.davem@davemloft.net>
+References: <063D6719AE5E284EB5DD2968C1650D6D174856B9@AcuExch.aculab.com>
+	<063D6719AE5E284EB5DD2968C1650D6D174862E0@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: mugunthanvnm@ti.com
+To: David.Laight@ACULAB.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56279 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56287 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752278AbaIEV3R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 17:29:17 -0400
-In-Reply-To: <5406C067.5080103@ti.com>
+	with ESMTP id S1751950AbaIEVcm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 17:32:42 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174862E0@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Wed, 3 Sep 2014 12:46:55 +0530
+From: David Laight <David.Laight@ACULAB.COM>
+Date: Wed, 3 Sep 2014 08:55:21 +0000
 
-> On Wednesday 03 September 2014 12:24 AM, David Miller wrote:
->> Also this doesn't explain why the "status < 0" case applies to this
->> new logic, you have not explained that at all.
->> 
+> Requests like 'ifconfig ""' cause dev_load(net, "") be called, since
+> request_module("") return 0 (success) this generates the error message:
+> "Loading kernel module for a network device with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and alias netdev- instead."
 > 
-> This scenario is not generated when "status < 0", "status < 0" happens
-> when DMA is in tear-down mode, the above scenario happens when
-> netif_running(ndev) is false which denotes that netdev is down already.
+> Since dev_load() doesn't have to work, just ignore such names.
+> 
+> Signed-off-by: David Laight <david.laight@aculab.com>
+> ---
+> 
+> V2: Added sign off.
+> 
+> If you search for the above error message, you'll find a lot of complaints.
+> While the applications shouldn't be calling an SIOCxxx ioctl with ifr_name[0] == 0
+> the kernel shouldn't be tracing the error either.
+> 
+> Due to the complaints from users, this might be a backport candidate.
 
-Your condition was:
+I have to say that I don't like this.
 
-	if (status < 0 || !netif_running(ndev))
+Why is request_module("") signalled with success unconditionally?
+A module didn't get loaded, so semantically this behavior makes
+no sense at all.
 
-so this "scenerio" is being handled when status < 0, which is what
-I am objecting to.
+I would rather than simply request_module() signal an error in this
+case, and then _NOBODY_ has to have all of this duplicated logic to
+check for name[0]=='\0' throughout all of the call chains leading to
+request_module().
