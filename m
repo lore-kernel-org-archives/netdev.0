@@ -1,41 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] VMXNET3: Check for map error in vmxnet3_set_mc
-Date: Fri, 05 Sep 2014 11:50:53 -0700 (PDT)
-Message-ID: <20140905.115053.660994166240082520.davem@davemloft.net>
-References: <1409688824-32619-1-git-send-email-acking@vmware.com>
-	<1409688824-32619-2-git-send-email-acking@vmware.com>
+Subject: Re: [PATCH net v2] ipv6: fix rtnl locking in setsockopt for
+ anycast and multicast
+Date: Fri, 05 Sep 2014 11:53:05 -0700 (PDT)
+Message-ID: <20140905.115305.809714259412705649.davem@davemloft.net>
+References: <20140901210520.GB25543@kria>
+	<1409610378.21965.52.camel@localhost>
+	<20140902082929.GA8483@kria>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, pv-drivers@vmware.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	penguin-kernel@I-love.SAKURA.ne.jp
-To: acking@vmware.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1409688824-32619-2-git-send-email-acking@vmware.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: hannes@stressinduktion.org, cwang@twopensource.com,
+	tt.rantala@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, trinity@vger.kernel.org,
+	davej@redhat.com
+To: sd@queasysnail.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140902082929.GA8483@kria>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andy King <acking@vmware.com>
-Date: Tue,  2 Sep 2014 13:13:44 -0700
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Tue, 2 Sep 2014 10:29:29 +0200
 
-> We should check if the map of the table actually succeeds, and also free
-> resources accordingly.
+> Calling setsockopt with IPV6_JOIN_ANYCAST or IPV6_LEAVE_ANYCAST
+> triggers the assertion in addrconf_join_solict()/addrconf_leave_solict()
 > 
-> Version bumped to 1.2.1.0
+> ipv6_sock_ac_join(), ipv6_sock_ac_drop(), ipv6_sock_ac_close() need to
+> take RTNL before calling ipv6_dev_ac_inc/dec. Same thing with
+> ipv6_sock_mc_join(), ipv6_sock_mc_drop(), ipv6_sock_mc_close() before
+> calling ipv6_dev_mc_inc/dec.
 > 
-> Acked-by: Shelley Gong <shelleygong@vmware.com>
-> Acked-by: Bhavesh Davda <bhavesh@vmware.com>
-> Signed-off-by: Andy King <acking@vmware.com>
-> Reported-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> This patch moves ASSERT_RTNL() up a level in the call stack.
+> 
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> Reported-by: Tommi Rantala <tt.rantala@gmail.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
