@@ -1,57 +1,67 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net v2] ipv6: fix rtnl locking in setsockopt for anycast
- and multicast
-Date: Fri, 5 Sep 2014 11:58:31 -0700
-Message-ID: <CAHA+R7M1qd5g1ta=YFqefgXDf1EfF2_VsJGUvH6Dd+ttnHc_VQ@mail.gmail.com>
-References: <20140901210520.GB25543@kria>
-	<1409610378.21965.52.camel@localhost>
-	<20140902082929.GA8483@kria>
-	<20140905.115305.809714259412705649.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] dev_ioctl: remove dev_load() CAP_SYS_MODULE
+ message
+Date: Fri, 05 Sep 2014 12:05:00 -0700 (PDT)
+Message-ID: <20140905.120500.1765085127279000120.davem@davemloft.net>
+References: <1409693405-24671-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sabrina Dubroca <sd@queasysnail.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Tommi Rantala <tt.rantala@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	trinity@vger.kernel.org, Dave Jones <davej@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <trinity-owner@vger.kernel.org>
-In-Reply-To: <20140905.115305.809714259412705649.davem@davemloft.net>
-Sender: trinity-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: marcel@holtmann.org, stephen@networkplumber.org,
+	netdev@vger.kernel.org, segoon@openwall.com
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54840 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754360AbaIETFB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 15:05:01 -0400
+In-Reply-To: <1409693405-24671-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 5, 2014 at 11:53 AM, David Miller <davem@davemloft.net> wrote:
-> From: Sabrina Dubroca <sd@queasysnail.net>
-> Date: Tue, 2 Sep 2014 10:29:29 +0200
->
->> Calling setsockopt with IPV6_JOIN_ANYCAST or IPV6_LEAVE_ANYCAST
->> triggers the assertion in addrconf_join_solict()/addrconf_leave_solict()
->>
->> ipv6_sock_ac_join(), ipv6_sock_ac_drop(), ipv6_sock_ac_close() need to
->> take RTNL before calling ipv6_dev_ac_inc/dec. Same thing with
->> ipv6_sock_mc_join(), ipv6_sock_mc_drop(), ipv6_sock_mc_close() before
->> calling ipv6_dev_mc_inc/dec.
->>
->> This patch moves ASSERT_RTNL() up a level in the call stack.
->>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
->> Reported-by: Tommi Rantala <tt.rantala@gmail.com>
->
-> Applied and queued up for -stable, thanks.
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Tue,  2 Sep 2014 23:30:05 +0200
 
-I believe you applied a wrong version, at least the following
-is not correct:
+> Marcel reported to see the following message when autoloading
+> is being triggered when adding nlmon device:
+> 
+>   Loading kernel module for a network device with
+>   CAP_SYS_MODULE (deprecated). Use CAP_NET_ADMIN and alias
+>   netdev-nlmon instead.
+> 
+> This false-positive happens despite with having correct
+> capabilities set, e.g. through issuing `ip link del dev nlmon`
+> more than once on a valid device with name nlmon, but Marcel
+> has also seen it on creation time when no nlmon module is
+> previously compiled-in or loaded as module and the device
+> name equals a link type name (e.g. nlmon, vxlan, team).
+> 
+> Stephen says:
+> 
+>   The netdev module alias is a hold over from the past. For
+>   normal devices, people used to create a alias eth0 to and
+>   point it to the type of network device used, that was back
+>   in the bad old ISA days before real discovery.
+> 
+>   Also, the tunnels create module alias for the control device
+>   and ip used to use this to autoload the tunnel device.
+> 
+>   The message is bogus and should just be removed, I also see
+>   it in a couple of other cases where tap devices are renamed
+>   for other usese.
+> 
+> As mentioned in 8909c9ad8ff0 ("net: don't allow CAP_NET_ADMIN
+> to load non-netdev kernel modules"), we nevertheless still
+> might want to leave the old autoloading behaviour in place
+> as it could break old scripts, so for now, lets just remove
+> the log message as Stephen suggests.
+> 
+> Reference: http://thread.gmane.org/gmane.linux.kernel/1105168
+> Reported-by: Marcel Holtmann <marcel@holtmann.org>
+> Suggested-by: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Vasiliy Kulikov <segoon@openwall.com>
+> ---
+>  (Sending to net-next as I don't think it's very urgent.)
 
-+       if (!dev)
-+               return -ENODEV;
-
-Sabrina took that from my draft patch, but they all don't
-realize this is wrong.
-
-(I did provide a correct version which is just ignored by you.)
+Applied, thanks Daniel.
