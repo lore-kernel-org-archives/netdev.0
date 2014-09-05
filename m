@@ -1,77 +1,60 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Fri, 5 Sep 2014 16:18:22 -0700
-Message-ID: <20140905231821.GD35667@core.coreip.homeip.net>
-References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
- <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
- <20140905141241.GC10455@mtj.dyndns.org>
- <20140905164405.GA28964@core.coreip.homeip.net>
- <20140905174925.GA12991@mtj.dyndns.org>
- <20140905181003.GA29003@core.coreip.homeip.net>
- <20140905222956.GA15723@mtj.dyndns.org>
- <540A3CF4.5070508@linux.intel.com>
- <20140905225248.GC35667@core.coreip.homeip.net>
- <540A41BA.4010105@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj@kernel.org>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhiji
-To: Arjan van de Ven <arjan@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <540A41BA.4010105@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] bluetooth: LLVMLinux: Remove VLAIS from bluetooth/amp.c
+Date: Fri, 5 Sep 2014 16:22:16 -0700
+Message-ID: <DBC61EBD-5FDE-48FE-8FD1-CA4F606C22F6@holtmann.org>
+References: <1409958214-5651-1-git-send-email-behanw@converseincode.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	BlueZ development <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Mark Charlebois <charlebm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	=?iso-8859-1?Q?Jan-Simon_M=F6ller?= <dl9pf-Mmb7MZpHnFY@public.gmane.org>
+To: behanw-k/hB3zQhLwledRVtV/plodBPR1lH4CV8@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409958214-5651-1-git-send-email-behanw-k/hB3zQhLwledRVtV/plodBPR1lH4CV8@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 05, 2014 at 04:05:30PM -0700, Arjan van de Ven wrote:
-> On 9/5/2014 3:52 PM, Dmitry Torokhov wrote:
-> >On Fri, Sep 05, 2014 at 03:45:08PM -0700, Arjan van de Ven wrote:
-> >>On 9/5/2014 3:29 PM, Tejun Heo wrote:
-> >>>Hello, Dmitry.
-> >>>
-> >>>On Fri, Sep 05, 2014 at 11:10:03AM -0700, Dmitry Torokhov wrote:
-> >>>>I do not agree that it is actually user-visible change: generally speaking you
-> >>>>do not really know if device is there or not. They come and go. Like I said,
-> >>>>consider all permutations, with hot-pluggable buses, deferred probing, etc,
-> >>>
-> >>>It is for storage devices which always have guaranteed synchronous
-> >>>probing on module load and well-defined probing order.  Sure, modern
-> >>>setups are a lot more dynamic but I'm quite certain that there are
-> >>>setups in the wild which depend on storage driver loading being
-> >>>synchronous.  We can't simply declare one day that such behavior is
-> >>>broken and break, most likely, their boots.
-> >>
-> >>we even depend on this in the mount-by-label cases
-> >>
-> >>many setups assume that the internal storage prevails over the USB stick in the case of conflicts.
-> >>it's a security issue; you don't want the built in secure bootloader that has a kernel root argument
-> >>by label/uuid.
-> >>the security there tends to assume that built-in wins over USB
-> >
-> >Ahem... and they sure it works reliably with large storage arrays? With
-> >SCSI doing probing asynchronously already?
-> 
-> you tend to trust your large storage array
-> you tend to not trust the walk up USB stick.
+Hi Behan,
 
-If you allow physical access it does not matter really.
+> Replaced the use of a Variable Length Array In Struct (VLAIS) with a =
+C99
+> compliant equivalent. This patch allocates the appropriate amount of =
+memory
+> using an char array.
+>=20
+> The new code can be compiled with both gcc and clang.
+>=20
+> struct shash_desc contains a flexible array member member ctx declare=
+d with
+> CRYPTO_MINALIGN_ATTR, so sizeof(struct shash_desc) aligns the beginni=
+ng
+> of the array declared after struct shash_desc with long long.
+>=20
+> No trailing padding is required because it is not a struct type that =
+can
+> be used in an array.
+>=20
+> The CRYPTO_MINALIGN_ATTR is required so that desc is aligned with lon=
+g long
+> as would be the case for a struct containing a member with
+> CRYPTO_MINALIGN_ATTR.
+>=20
+> Signed-off-by: Behan Webster <behanw-k/hB3zQhLwledRVtV/plodBPR1lH4CV8@public.gmane.org>
+> Signed-off-by: Mark Charlebois <charlebm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Jan-Simon M=F6ller <dl9pf-Mmb7MZpHnFY@public.gmane.org>
+> ---
+> net/bluetooth/amp.c | 13 ++++++-------
+> 1 file changed, 6 insertions(+), 7 deletions(-)
 
--- 
-Dmitry
+patch has been applied to bluetooth-next tree.
+
+Regards
+
+Marcel
