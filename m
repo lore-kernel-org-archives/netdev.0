@@ -1,52 +1,44 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [RFC net-next 0/5] bonding: get rid of bond->lock
-Date: Fri,  5 Sep 2014 20:16:46 +0200
-Message-ID: <1409941011-5494-1-git-send-email-nikolay@redhat.com>
-Cc: vfalico@gmail.com, j.vosburgh@gmail.com, andy@greyhouse.net,
-	davem@davemloft.net, Nikolay Aleksandrov <nikolay@redhat.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH net-next 0/3] Drop get_headlen functions in favor of generic
+ funciton
+Date: Fri, 05 Sep 2014 14:09:45 -0400
+Message-ID: <20140905180642.730.22292.stgit@ahduyck-bv4.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	jeffrey.t.kirsher@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39572 "EHLO mx1.redhat.com"
+Received: from mga02.intel.com ([134.134.136.20]:44923 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751447AbaIESRD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Sep 2014 14:17:03 -0400
+	id S1751346AbaIESSS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Sep 2014 14:18:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
-This is only a raw version of the idea, I've only compile-tested this
-patch-set but I think it's possible to remove bond->lock completely as
-its current users are only few and can be either removed or converted.
-I'm sending it early as RFC to see if you have any suggestions, comments
-or objections, and I'll do stress-testing and lockdep next week and
-resubmit it with any changes/fixes that come up in the process.
+This series replaces the igb_get_headlen and ixgbe_get_headlen functions
+with a generic function named eth_get_headlen.
 
-If this gets accepted in some form, a re-work of curr_slave_lock will be
-following as it can be dropped in a lot of places and only kept to sync the
-few users that actually need it (e.g. 3ad wq handler and slave release, alb
-wq handler and active change etc).
-The goal of these patchsets is to simplify bond locking as it's getting
-more convoluted and unnecessarily complex, in most of the cases we should
-be able to rely on RTNL or rcu alone, and if the case is more complex we
-should explain/document well why we need another lock.
+I have done some performance testing on ixgbe with 258 byte frames since
+the calls are only used on frames larger than 256 bytes and have seen no
+significant difference in CPU utilization.
 
-Best regards,
- Nikolay Aleksandrov
+---
 
-Nikolay Aleksandrov (5):
-  bonding: 3ad: use curr_slave_lock instead of bond->lock
-  bonding: alb: clean bond->lock
-  bonding: procfs: clean bond->lock usage and use RTNL
-  bonding: options: remove bond->lock usage
-  bonding: remove last users of bond->lock and bond->lock itself
+Alexander Duyck (3):
+      net: Add function for parsing the header length out of linear ethernet frames
+      igb: use new eth_get_headlen interface
+      ixgbe: use new eth_get_headlen interface
 
- drivers/net/bonding/bond_3ad.c     |  9 +++----
- drivers/net/bonding/bond_alb.c     | 11 ++------
- drivers/net/bonding/bond_main.c    | 51 ++++++--------------------------------
- drivers/net/bonding/bond_options.c | 19 +-------------
- drivers/net/bonding/bond_procfs.c  |  8 ++----
- drivers/net/bonding/bonding.h      |  8 ++----
- 6 files changed, 18 insertions(+), 88 deletions(-)
+
+ drivers/net/ethernet/intel/igb/igb_main.c     |  109 -----------------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  116 -------------------------
+ include/linux/etherdevice.h                   |    1 
+ include/linux/skbuff.h                        |    2 
+ include/net/flow_keys.h                       |    2 
+ net/core/flow_dissector.c                     |   46 +++++++---
+ net/ethernet/eth.c                            |   27 ++++++
+ 7 files changed, 66 insertions(+), 237 deletions(-)
 
 -- 
-1.9.3
