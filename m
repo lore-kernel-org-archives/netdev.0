@@ -1,146 +1,73 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next 2/2] bonding: Simplify the xmit function for
- modes that use xmit_hash
-Date: Fri, 05 Sep 2014 13:49:21 +0200
-Message-ID: <5409A341.2010806@redhat.com>
-References: <1409780851-32081-1-git-send-email-maheshb@google.com> <54086645.3010102@redhat.com> <CAF2d9ji2Dsi9dr6B0HKy4oQ841CN-00zWcOxCa+oTyPp79hOHA@mail.gmail.com> <54099DD3.20109@redhat.com>
+From: Sergey Ryazanov <ryazanov.s.a@gmail.com>
+Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
+Date: Fri, 5 Sep 2014 16:02:10 +0400
+Message-ID: <CAHNKnsQ1gt=DRBTd9Q9yos1idqmXMepEPvhm8a7unP-whzNAgg@mail.gmail.com>
+References: <1391971686-9517-1-git-send-email-richard@nod.at>
+ <1391971686-9517-10-git-send-email-richard@nod.at> <52F7D480.1050106@hauke-m.de>
+ <52F7DF21.70207@nod.at> <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
+ <52F8C373.9060108@rempel-privat.de> <CAHNKnsQF5Hdf3JT91moPraRQzn4kMpdD2NSiJ7b30wQhS1W4MA@mail.gmail.com>
+ <CAGVrzcYnECx5Q=i+m6qZn29y4JALDpw5SWoUNP-S6HgPR3_ygQ@mail.gmail.com>
+ <CAHNKnsRACSo=DfOyiHxqV3acv_wfZmz4tMnYAW0wo4OCibwdfA@mail.gmail.com>
+ <CAHNKnsRQp7WLSJNAXEYPTd=qs1DquOfNgKtHES-Utvcy1=FEgQ@mail.gmail.com>
+ <20140213201421.GJ22203@tuxdriver.com> <1397581703.8212.5.camel@x220>
+ <CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
+ <1403087119.1984.93.camel@x220> <CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
+ <1403091974.1984.102.camel@x220> <1409911856.7832.9.camel@x220>
+ <CAHNKnsRipRHicKOUW4dCutD1-sUG6qPnP2QuOveH_t1MFX9XgQ@mail.gmail.com> <1409916824.7832.20.camel@x220>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Oleksij Rempel <linux@rempel-privat.de>,
+	Richard Weinberger <richard@nod.at>,
+	Jonathan Bither <jonbither@gmail.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	ath5k-devel@venema.h4ckr.net, open@hauke-m.de,
+	"list@hauke-m.de:NETWORKING DRIVERS" <list@hauke-m.de>,
+	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>,
+	OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Paul Bolle <pebolle@tiscali.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62037 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932134AbaIELtc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Sep 2014 07:49:32 -0400
-In-Reply-To: <54099DD3.20109@redhat.com>
+Received: from mail-yk0-f175.google.com ([209.85.160.175]:54521 "EHLO
+	mail-yk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751232AbaIEMCb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 08:02:31 -0400
+In-Reply-To: <1409916824.7832.20.camel@x220>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/09/14 13:26, Nikolay Aleksandrov wrote:
-> On 05/09/14 02:10, Mahesh Bandewar wrote:
->> On Thu, Sep 4, 2014 at 6:16 AM, Nikolay Aleksandrov <nikolay@redhat.com> wrote:
->>> On 03/09/14 23:47, Mahesh Bandewar wrote:
->>>>
->>>> Earlier change to use usable slave array for TLB mode had an additional
->>>> performance advantage. So extending the same logic to all other modes
->>>> that use xmit-hash for slave selection (viz 802.3AD, and XOR modes).
->>>> Also consolidating this with the earlier TLB change.
->>>>
->>>> The main idea is to build the usable slaves array in the control path
->>>> and use that array for slave selection during xmit operation.
->>>>
->>>> Measured performance in a setup with a bond of 4x1G NICs with 200
->>>> instances of netperf for the modes involved (3ad, xor, tlb)
->>>> cmd: netperf -t TCP_RR -H <TargetHost> -l 60 -s 5
->>>>
->>>> Mode        TPS-Before   TPS-After
->>>>
->>>> 802.3ad   : 468,694      493,101
->>>> TLB (lb=0): 392,583      392,965
->>>> XOR       : 475,696      484,517
->>>>
->>>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->>>> ---
->>>
-> <<<<<snip>>>>>>
->>>> -       bond_xmit_slave_id(bond, skb, bond_xmit_hash(bond, skb) %
->>>> bond->slave_cnt);
->>>> +       old_arr = rcu_dereference_protected(bond->slave_arr,
->>>> +                                           lockdep_rtnl_is_held() ||
->>>> +                                           lockdep_is_held(&bond->lock)
->>>> ||
->>>> +
->>>> lockdep_is_held(&bond->curr_slave_lock));
->>>
->>> ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
->>> This line is the most troublesome for me, which lock is it ? Does this mean
->>> that whichever I hold from the three I can update the slave array ?
->>> I don't think this is worked out well, you should explicitly specify how and
->>> why it is safe to update this under each of the locks and maybe you'll be
->>> able to reduce the lock list :-)
->>>
->> This is primarily because of different code paths it's taking to reach
->> here. In all these cases, one of those locks is held. Unfortunately
->> there are three such locks  that I have identified (for all three
->> modes involved) and hence the above line.
+2014-09-05 15:33 GMT+04:00 Paul Bolle <pebolle@tiscali.nl>:
+> Hi Sergey,
+>
+> On Fri, 2014-09-05 at 15:12 +0400, Sergey Ryazanov wrote:
+>> 2014-09-05 14:10 GMT+04:00, Paul Bolle <pebolle@tiscali.nl>:
+>> > On Wed, 2014-06-18 at 13:46 +0200, Paul Bolle wrote:
+>> >> Having this conversation every rc1 is getting a bit silly. Could Jiri
+>> >> e.a. perhaps set some specific deadline for ATHEROS_AR231X to be
+>> >> submitted?
+>> >
+>> > I waited until rc3. Have you seen any activity on this front? If not,
+>> > should I resend the patch that removes the code in mainline that depends
+>> > on ATHEROS_AR231X (ie, AHB bus support)?
+>> >
+>> Recent activity always could be found in [1]. Now I finish another one
+>> round of cleanups and have a plan to fix several things (you can
+>> always find something that you really want to improve). But if you
+>> insist I could immediately switch to "send upstream" mode. And seems
+>> that this would be better approach.
 >>
+>> 1. https://dev.openwrt.org/log/trunk/target/linux/atheros
 >
-> True, but I did a little grepping and here's my analysis of the call sites which
-> I can't guarantee is full or complete, but it shows at least 1 problem.
-> bond_update_slave_arr() callers:
+> And where can the related PULL requests or patch submissions be found?
 >
-> 1. 3ad mode
-> 1.1. bond_3ad_state_machine_handler -> ad_mux_machine ->
-> ad_(en|dis)able_collecting_distributing
->    - read_lock(bond->lock), rcu_read_lock, state_machine_lock
-> 1.2. __bond_release_one -> bond_3ad_unbind_slave
->    - rtnl, write_lock(bond->lock)
-> 1.3. bond_change_active_slave -> bond_3ad_handle_link_change
->    -  from 4. rtnl, new_active != NULL -> write_lock(curr_slave_lock)
-> 1.4. bond_miimon_commit -> bond_3ad_handle_link_change
->    - rtnl
-^^^^^^
-missed the state_machine_lock here
+I have not sent patches yet, since I thought that it would be easier
+to cleanup them in openwrt tree and then send them upstream.
 
->
-> 2. TLB
-> 2.1. __bond_release_one -> bond_alb_deinit_slave
->    - rtnl
-> 2.2. bond_change_active_slave -> bond_alb_handle_link_change
->    - from 4. rtnl, new_active != NULL -> write_lock(curr_slave_lock)
-> 2.3. bond_miimon_commit -> bond_alb_handle_link_change
->    - rtnl
->
-> 3. XOR
-> 3.1. __bond_release_one
->    - rtnl
-> 3.2. bond_miimon_commit
->    - rtnl
->
-> 4. bond_change_active_slave:
-> 1. bond_select_active_slave -> bond_change_active_slave
-> 1.1. bond_enslave -> bond_select_active_slave
->    - rtnl, write_lock(curr_slave_lock)
-> 1.2. __bond_release_one -> bond_select_active_slave
->    - rtnl, write_lock(curr_slave_lock)
-> 1.3. bond_miimon_commit -> bond_select_active_slave
->    - rtnl, write_lock(curr_slave_lock)
-> 1.4. bond_loadbalance_arp_mon -> bond_select_active_slave
->    - rtnl, write_lock(curr_slave_lock)
-> 1.5. bond_ab_arp_commit -> bond_select_active_slave
->    - rtnl, write_lock(curr_slave_lock)
-> 1.6. bond_slave_netdev_event -> bond_select_active_slave
->    - rtnl, write_lock(curr_slave_lock)
-> 1.7. bond_options.c (all callers)
->    - rtnl, write_lock(curr_slave_lock)
->
->
-> Almost all callers of slave_update_arr() currently have rtnl acquired, but
-> there's 1 troubling caller: bond_3ad_state_machine_handler() which is called
-> from a workqueue. Now if we're able to execute anything with that workqueue, we
-> have a race condition, good candidates are all options which don't acquire
-> write_lock(bond->lock), I think the only one that can call
-> bond_slave_update_arr() of those is primary_reselect right now.
-^^^^^^^^^^^^^^^^
-Though even that might not be a problem since the state_machine_lock would save 
-you, so it looks like it's not a problem but the convoluted locking requirements 
-are a problem waiting to happen by themselves.
-
-Anyway that is a longstanding problem so I don't mind if you keep the code like 
-this, too. Just wanted to make sure that it doesn't create any new subtle race 
-conditions.
-
-> So if you come up with some way to deal with that, you probably can use only
-> rtnl for syncing the array and simplify this.
-> Again I might be wrong since this is done only via grepping :-)
->
-> Cheers,
->    Nik
+-- 
+BR,
+Sergey
