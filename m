@@ -1,65 +1,46 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Does NetworkManager kill IPv6 connections?
-Date: Fri, 5 Sep 2014 14:18:04 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1748838C@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D174876CB@AcuExch.aculab.com>
- <1409854625.23720.7.camel@dcbw.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Dan Williams' <dcbw@redhat.com>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH] irda: vlsi_ir: use %*ph specifier
+Date: Fri,  5 Sep 2014 17:37:20 +0300
+Message-ID: <1409927840-28791-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:47875 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S932305AbaIEOTV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Sep 2014 10:19:21 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 21416-05 for <netdev@vger.kernel.org>;
- Fri,  5 Sep 2014 15:19:12 +0100 (BST)
-In-Reply-To: <1409854625.23720.7.camel@dcbw.local>
-Content-Language: en-US
+Received: from mga02.intel.com ([134.134.136.20]:19993 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757040AbaIEOhY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Sep 2014 10:37:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGFuIFdpbGxpYW1zIA0KPiBPbiBUaHUsIDIwMTQtMDktMDQgYXQgMTQ6NDcgKzAwMDAs
-IERhdmlkIExhaWdodCB3cm90ZToNCj4gPiBJIHdhcyBydW5uaW5nIGEgb3Zlcm5pZ2h0IHRlc3Qg
-dGhhdCBmYWlsZWQgYmVjYXVzZSBhbiAoYWxtb3N0IGlkbGUpIElQdjYgY29ubmVjdGlvbg0KPiA+
-IHVuZXhwZWN0ZWRseSBkaXNjb25uZWN0ZWQuDQo+ID4gMzAgc2Vjb25kcyBiZWZvcmUgdGhlIGRp
-c2Nvbm5lY3Qgc3lzbG9nIGNvbnRhaW5zIChyZXR5cGVkKToNCj4gPiAgIE5ldHdvcmtNYW5hZ2Vy
-W3BpZF06IDxpbmZvPiBwb2xpY3kgc2V0ICdXaXJlZCBjb25uZWN0aW9uIDInIChldGgwKSBhcyBk
-ZWZhdWx0IGZvciBJUHY2IHJvdXRpbmcgYW5kIEROUy4NCj4gPiBUaGUgc2FtZSBtZXNzYWdlIGFw
-cGVhcmVkIGV4YWN0bHkgNzAgbWludXRlcyBlYXJsaWVyIC0gd2l0aCBubyBpbGwgZWZmZWN0Lg0K
-PiA+IEEgc2Vjb25kIGNvbm5lY3Rpb24gYmV0d2VlbiB0aGUgc2FtZSBwYWlyIGlmIGFkZHJlc3Nl
-cyAoY2FycnlpbmcgYSBsb3Qgb2YgdHJhZmZpYykNCj4gPiB3YXMgdW5hZmZlY3RlZC4NCj4gPg0K
-PiA+IEFueSBpZGVhIHdoYXQvd2h5IE5ldHdvcmtNYW5hZ2VyIGlzIGRvaW5nPw0KPiA+IChZZXMg
-SSBrbm93IGl0IGlzIHVzZXJzcGFjZSwgYnV0IGl0IHNlZW1zIHRvIGJlIGJyZWFraW5nIHRoZSBr
-ZXJuZWwuLi4uKQ0KPiA+DQo+ID4gVGhlIHN5c3RlbSBpcyBhbiB1YnVudHUgMTMuMDQgZGVza3Rv
-cCAoMy44LjAtMTkga2VybmVsKSwgdGhhdCByZWNlbnQsIGJ1dA0KPiA+IG5ld2VyIHRoYW4gdGhl
-IG9uZXMgYSBsb3Qgb2Ygb3VyIGN1c3RvbWVycyB1c2UuDQo+IA0KPiBJcyB0aGUgdmVyc2lvbiBv
-ZiB0aGUgVWJ1bnR1ICJuZXR3b3JrLW1hbmFnZXIiIHBhY2thZ2Ugb24geW91ciBzeXN0ZW1zDQo+
-IDAuOS44LjAtMHVidW50dTYuMT8NCg0KSXQgaXMgYWN0dWFsbHkgdGhlIHNsaWdodGx5IG9sZGVy
-IDAuOS44LjAtMHVidW50dTYuMA0KDQo+IElmIHNvLCBJIGtub3cgd2UndmUgZml4ZWQgYSB0b24g
-b2YgaXNzdWVzIHdpdGggSVB2NiBzaW5jZSAwLjkuOC4wICh3aGljaA0KPiB3YXMgcmVsZWFzZWQg
-YWJvdXQgMTggbW9udGhzIGFnbyksIGFuZCB0aGUgb25lcyB0aGF0IG1heSBiZSBhZmZlY3RpbmcN
-Cj4geW91IGFyZSByZWxhdGVkIHRvIHJvdXRlciBhZHZlcnRpc2VtZW50IHRpbWluZyBhbmQgZXhw
-aXJ5LiAgVGhlIGxhdGVzdA0KPiBzdGFibGUgTk0gdmVyc2lvbiB1cHN0cmVhbSBpcyAwLjkuMTAg
-YW5kIHNob3VsZCBjb250YWluIGFsbCBvZiB0aG9zZQ0KPiBmaXhlcy4NCg0KSSd2ZSBmbGFnZ2Vk
-IGl0IHdpdGggb3VyIG1hbmFnZW1lbnQsIHRoZXknbGwgZGVjaWRlIHdoYXQgdG8gc2F5DQphYm91
-dCBJUHY2IHN1cHBvcnQgaW4gdmFyaW91cyBMaW51eCBkaXN0cm9zLg0KDQoJRGF2aWQNCg0KPiBT
-aW5jZSBJJ20gcHJldHR5IHN1cmUgdGhpcyBpc24ndCBhIGtlcm5lbCBwcm9ibGVtLCB3b3VsZCB5
-b3UgbWluZA0KPiBkaXNjdXNzaW5nIHRoaXMgb3ZlciBvbiB0aGUgTk0gbGlzdHMgaGVyZToNCj4g
-DQo+IGh0dHBzOi8vbWFpbC5nbm9tZS5vcmcvbWFpbG1hbi9saXN0aW5mby9uZXR3b3JrbWFuYWdl
-ci1saXN0DQo+IA0KPiBJZiB5b3UgZG9uJ3Qgd2FudCB0byBzdWJzY3JpYmUgdGhhdCdzIGZpbmUs
-IEknbGwgbW9kZXJhdGUgeW91ciBtZXNzYWdlDQo+IHRocm91Z2ggYW5kIHdlIGNhbiBqdXN0IHVz
-ZSAicmVwbHkgYWxsIi4NCj4gDQo+IFRoYW5rcywNCj4gRGFuDQo+IA0KPiA+IEkgY2FuIHJlcnVu
-IHRoZSB0ZXN0LCBidXQgZG9uJ3Qga25vdyB3aGF0IHRvIGxvb2sgZm9yLg0KPiA+ICdldGgwJyBp
-cyB0aGUgb25seSBldGhlcm5ldCBpbnRlcmZhY2UgaW4gdGhlIHN5c3RlbSB0aGF0IGlzIGFjdHVh
-bGx5DQo+ID4gY29ubmVjdGVkIHRvIGEgbmV0d29yay4NCj4gPg0KPiA+IFNvbWUgaW5kaWNhdGlv
-bnMgb2Ygd2hlcmUgdG8gbG9vayB3b3VsZCBiZSBhcHByZWNpYXRlZC4NCj4gPg0KPiA+IAlEYXZp
-ZA0KPiA+DQo+ID4NCj4gPg0KPiA+IC0tDQo+ID4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxp
-c3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4NCj4gPiB0aGUgYm9keSBv
-ZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiA+IE1vcmUgbWFqb3Jk
-b21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
-PiANCg0K
+Instead of looping in the code let's use kernel extension to dump small
+buffers.
+
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ drivers/net/irda/vlsi_ir.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/irda/vlsi_ir.c b/drivers/net/irda/vlsi_ir.c
+index a04af9d..0319eba 100644
+--- a/drivers/net/irda/vlsi_ir.c
++++ b/drivers/net/irda/vlsi_ir.c
+@@ -323,14 +323,9 @@ static void vlsi_proc_ring(struct seq_file *seq, struct vlsi_ring *r)
+ 		j = (unsigned) rd_get_count(rd);
+ 		seq_printf(seq, "current: rd = %d / status = %02x / len = %u\n",
+ 				h, (unsigned)rd_get_status(rd), j);
+-		if (j > 0) {
+-			seq_printf(seq, "   data:");
+-			if (j > 20)
+-				j = 20;
+-			for (i = 0; i < j; i++)
+-				seq_printf(seq, " %02x", (unsigned)((unsigned char *)rd->buf)[i]);
+-			seq_printf(seq, "\n");
+-		}
++		if (j > 0)
++			seq_printf(seq, "   data: %*ph\n", j > 20 ? 20 : j,
++				   rd->buf);
+ 	}
+ 	for (i = 0; i < r->size; i++) {
+ 		rd = &r->rd[i];
+-- 
+2.1.0
