@@ -1,57 +1,85 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
-Date: Fri, 05 Sep 2014 12:10:56 +0200
-Message-ID: <1409911856.7832.9.camel@x220>
-References: <1391971686-9517-1-git-send-email-richard@nod.at>
-	 <1391971686-9517-10-git-send-email-richard@nod.at>
-	 <52F7D480.1050106@hauke-m.de> <52F7DF21.70207@nod.at>
-	 <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
-	 <52F8C373.9060108@rempel-privat.de>
-	 <CAHNKnsQF5Hdf3JT91moPraRQzn4kMpdD2NSiJ7b30wQhS1W4MA@mail.gmail.com>
-	 <CAGVrzcYnECx5Q=i+m6qZn29y4JALDpw5SWoUNP-S6HgPR3_ygQ@mail.gmail.com>
-	 <CAHNKnsRACSo=DfOyiHxqV3acv_wfZmz4tMnYAW0wo4OCibwdfA@mail.gmail.com>
-	 <CAHNKnsRQp7WLSJNAXEYPTd=qs1DquOfNgKtHES-Utvcy1=FEgQ@mail.gmail.com>
-	 <20140213201421.GJ22203@tuxdriver.com> <1397581703.8212.5.camel@x220>
-	 <CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
-	 <1403087119.1984.93.camel@x220>
-	 <CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
-	 <1403091974.1984.102.camel@x220>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] Revert "ip: check for missing dev arg when doing
+ VF rate"
+Date: Fri, 5 Sep 2014 13:11:05 +0300
+Message-ID: <CAMw6YJKoEzMQOjmJ66ojfYGn6Xp4ec_m5edZWQBymjZtVyB13w@mail.gmail.com>
+References: <1409909845-7126-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sergey Ryazanov <ryazanov.s.a@gmail.com>,
-	Oleksij Rempel <linux@rempel-privat.de>,
-	Richard Weinberger <richard@nod.at>,
-	Jonathan Bither <jonbither@gmail.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	ath5k-devel@venema.h4ckr.net, open@hauke-m.de, list@hauke-m.de,
-	antonynpavlov@gmail.com, openwrt-devel@lists.openwrt.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403091974.1984.102.camel@x220>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f170.google.com ([209.85.216.170]:44726 "EHLO
+	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755909AbaIEKLG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 06:11:06 -0400
+Received: by mail-qc0-f170.google.com with SMTP id r5so12234834qcx.1
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 03:11:05 -0700 (PDT)
+In-Reply-To: <1409909845-7126-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jiri, Nick, Luis, John,
+Was it not fixed by f1b66ff83a0 in master branch ?
 
-On Wed, 2014-06-18 at 13:46 +0200, Paul Bolle wrote:
-> Having this conversation every rc1 is getting a bit silly. Could Jiri
-> e.a. perhaps set some specific deadline for ATHEROS_AR231X to be
-> submitted?
-
-I waited until rc3. Have you seen any activity on this front? If not,
-should I resend the patch that removes the code in mainline that depends
-on ATHEROS_AR231X (ie, AHB bus support)?
-
-And to repeat the obvious: the removed code can always be re-added once
-ATHEROS_AR231X gets actually added to the tree.
-
-Thanks,
-
-
-Paul Bolle
+On Fri, Sep 5, 2014 at 12:37 PM, Nicolas Dichtel
+<nicolas.dichtel@6wind.com> wrote:
+> This reverts commit 9a02651a87d0fd56e2e7eedd63921a050a42b3ec.
+>
+> This commit breaks backward compatibility. Before the commit, this kind of
+> command was allowed:
+> ip link add myiface type ...
+> Now, it returns an error, we should add the arg 'name':
+> ip link add name myiface type ...
+>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>  ip/iplink.c | 8 +-------
+>  1 file changed, 1 insertion(+), 7 deletions(-)
+>
+> diff --git a/ip/iplink.c b/ip/iplink.c
+> index 1a907d998a87..bbcdc83d4c91 100644
+> --- a/ip/iplink.c
+> +++ b/ip/iplink.c
+> @@ -349,7 +349,6 @@ static int iplink_parse_vf(int vf, int *argcp, char ***argvp,
+>
+>         if (new_rate_api) {
+>                 int tmin, tmax;
+> -
+>                 if (tivt.min_tx_rate == -1 || tivt.max_tx_rate == -1) {
+>                         ipaddr_get_vf_rate(tivt.vf, &tmin, &tmax, dev_index);
+>                         if (tivt.min_tx_rate == -1)
+> @@ -382,7 +381,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+>         int vf = -1;
+>         int numtxqueues = -1;
+>         int numrxqueues = -1;
+> -       int dev_index = 0;
+> +       int dev_index;
+>
+>         *group = -1;
+>         ret = argc;
+> @@ -495,9 +494,6 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+>                         }
+>                         vflist = addattr_nest(&req->n, sizeof(*req),
+>                                               IFLA_VFINFO_LIST);
+> -                       if (dev_index == 0)
+> -                               missarg("dev");
+> -
+>                         len = iplink_parse_vf(vf, &argc, &argv, req, dev_index);
+>                         if (len < 0)
+>                                 return -1;
+> @@ -593,8 +589,6 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+>                                 duparg2("dev", *argv);
+>                         *dev = *argv;
+>                         dev_index = ll_name_to_index(*dev);
+> -                       if (dev_index == 0)
+> -                               invarg("Unknown device", *argv);
+>                 }
+>                 argc--; argv++;
+>         }
+> --
+> 1.9.0
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
