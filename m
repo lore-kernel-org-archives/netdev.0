@@ -1,65 +1,68 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Fri, 5 Sep 2014 12:59:49 +0200
-Message-ID: <20140905105949.GA22778@redhat.com>
-References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com> <1409899047-13045-4-git-send-email-mcgrof@do-not-panic.com>
+From: Sergey Ryazanov <ryazanov.s.a@gmail.com>
+Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
+Date: Fri, 5 Sep 2014 15:12:55 +0400
+Message-ID: <CAHNKnsRipRHicKOUW4dCutD1-sUG6qPnP2QuOveH_t1MFX9XgQ@mail.gmail.com>
+References: <1391971686-9517-1-git-send-email-richard@nod.at>
+ <1391971686-9517-10-git-send-email-richard@nod.at>
+ <52F7D480.1050106@hauke-m.de> <52F7DF21.70207@nod.at>
+ <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
+ <52F8C373.9060108@rempel-privat.de>
+ <CAHNKnsQF5Hdf3JT91moPraRQzn4kMpdD2NSiJ7b30wQhS1W4MA@mail.gmail.com>
+ <CAGVrzcYnECx5Q=i+m6qZn29y4JALDpw5SWoUNP-S6HgPR3_ygQ@mail.gmail.com>
+ <CAHNKnsRACSo=DfOyiHxqV3acv_wfZmz4tMnYAW0wo4OCibwdfA@mail.gmail.com>
+ <CAHNKnsRQp7WLSJNAXEYPTd=qs1DquOfNgKtHES-Utvcy1=FEgQ@mail.gmail.com>
+ <20140213201421.GJ22203@tuxdriver.com>
+ <1397581703.8212.5.camel@x220>
+ <CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
+ <1403087119.1984.93.camel@x220>
+ <CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
+ <1403091974.1984.102.camel@x220> <1409911856.7832.9.camel@x220>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gregkh@linuxfoundation.org, dmitry.torokhov@gmail.com,
-	falcon@meizu.com, tiwai@suse.de, tj@kernel.org,
-	arjan@linux.intel.com, linux-kernel@vger.kernel.org, hare@suse.com,
-	akpm@linux-foundation.org, penguin-kernel@i-love.sakura.ne.jp,
-	joseph.salisbury@canonical.com, bpoirier@suse.de,
-	santosh@chelsio.com, "Luis R. Rodriguez" <mcgrof@suse.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
-	netdev@vger.
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17518 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756472AbaIELDO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Sep 2014 07:03:14 -0400
-Content-Disposition: inline
-In-Reply-To: <1409899047-13045-4-git-send-email-mcgrof@do-not-panic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: openwrt-devel@lists.openwrt.org, Jiri Slaby <jirislaby@gmail.com>,
+ open@hauke-m.de, Richard Weinberger <richard@nod.at>,
+ ath5k-devel@venema.h4ckr.net, linux-wireless@vger.kernel.org,
+ "John W. Linville" <linville@tuxdriver.com>,
+ Oleksij Rempel <linux@rempel-privat.de>, netdev@vger.kernel.org,
+ Nick Kossifidis <mickflemm@gmail.com>, Hauke Mehrtens <hauke@hauke-m.de>,
+ list@hauke-m.de, linux-kernel@vger.kernel.org, antonynpavlov@gmail.com
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <openwrt-devel-bounces@lists.openwrt.org>
+In-Reply-To: <1409911856.7832.9.camel@x220>
+List-Unsubscribe: <https://lists.openwrt.org/cgi-bin/mailman/options/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=unsubscribe>
+List-Archive: <http://lists.openwrt.org/pipermail/openwrt-devel/>
+List-Post: <mailto:openwrt-devel@lists.openwrt.org>
+List-Help: <mailto:openwrt-devel-request@lists.openwrt.org?subject=help>
+List-Subscribe: <https://lists.openwrt.org/cgi-bin/mailman/listinfo/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=subscribe>
+Errors-To: openwrt-devel-bounces@lists.openwrt.org
+Sender: "openwrt-devel" <openwrt-devel-bounces@lists.openwrt.org>
+List-Id: netdev.vger.kernel.org
 
-On 09/04, Luis R. Rodriguez wrote:
+Hello Paul,
+
+2014-09-05 14:10 GMT+04:00, Paul Bolle <pebolle@tiscali.nl>:
+> Jiri, Nick, Luis, John,
 >
-> From: "Luis R. Rodriguez" <mcgrof@suse.com>
+> On Wed, 2014-06-18 at 13:46 +0200, Paul Bolle wrote:
+>> Having this conversation every rc1 is getting a bit silly. Could Jiri
+>> e.a. perhaps set some specific deadline for ATHEROS_AR231X to be
+>> submitted?
 >
-> The new umh kill option has allowed kthreads to receive
-> kill signals but they are generally accepting all sources
-> of kill signals
+> I waited until rc3. Have you seen any activity on this front? If not,
+> should I resend the patch that removes the code in mainline that depends
+> on ATHEROS_AR231X (ie, AHB bus support)?
+>
+Recent activity always could be found in [1]. Now I finish another one
+round of cleanups and have a plan to fix several things (you can
+always find something that you really want to improve). But if you
+insist I could immediately switch to "send upstream" mode. And seems
+that this would be better approach.
 
-And I think this is right,
+1. https://dev.openwrt.org/log/trunk/target/linux/atheros
 
-> while the original motivation was to enable
-> through the OOM from sending the kill.
-
-even if the main concern was OOM.
-
-> Users can provide a log output and it should be clear on
-> the trace what probe / driver got the kill signal.
-
-Well, if you need a WARN output, perhaps you could just add
-WARN_ON(fatal_signal_pending()) at the end of load_module() ?
-
-Not only kthread_create() can fail if systemd sends SIGKILL.
-
-> Although Oleg had rejected a
-> similar change a while ago
-
-And honestly, I still dislike this change.
-
-Oleg.
+-- 
+BR,
+Sergey
