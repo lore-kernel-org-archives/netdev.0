@@ -1,40 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/fddi/skfp/h/skfbi.h: Remove useless
- PCI_BASE_2ND macros
-Date: Fri, 05 Sep 2014 14:52:10 -0700 (PDT)
-Message-ID: <20140905.145210.1213133106797408601.davem@davemloft.net>
-References: <54073322.6030508@gmail.com>
+Subject: Re: [PATCH net] net-timestamp: only report sw timestamp if
+ reporting bit is set
+Date: Fri, 05 Sep 2014 15:03:15 -0700 (PDT)
+Message-ID: <20140905.150315.472751844317741858.davem@davemloft.net>
+References: <1409760078-25930-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	michal.simek@xilinx.com, monstr@monstr.eu
-To: gang.chen.5i5j@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54073322.6030508@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: willemb@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56585 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751133AbaIEWDQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 18:03:16 -0400
+In-Reply-To: <1409760078-25930-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Date: Wed, 03 Sep 2014 23:26:26 +0800
+From: Willem de Bruijn <willemb@google.com>
+Date: Wed,  3 Sep 2014 12:01:18 -0400
 
-> They are use less, and may generate compiling warnings, so remove them
-> (microblaze, arc, arm64, and unicore32 have already defined PCI_IOBASE).
+> The timestamping API has separate bits for generating and reporting
+> timestamps. A software timestamp should only be reported for a packet
+> when the packet has the relevant generation flag (SKBTX_..) set
+> and the socket has reporting bit SOF_TIMESTAMPING_SOFTWARE set.
 > 
-> The related warnings (with allmodconfig under microblaze):
+> The second check was accidentally removed. Reinstitute the original
+> behavior.
 > 
->   CC [M]  drivers/net/fddi/skfp/skfddi.o
->   In file included from drivers/net/fddi/skfp/skfddi.c:95:0:
->   drivers/net/fddi/skfp/h/skfbi.h:151:0: warning: "PCI_IOBASE" redefined
->    #define PCI_IOBASE 0xffffff00L  /* Bit 31..8:  I/O Base address */
->    ^
->   In file included from include/linux/io.h:22:0,
->                    from include/linux/pci.h:31,
->                    from drivers/net/fddi/skfp/skfddi.c:82:
->   ./arch/microblaze/include/asm/io.h:33:0: note: this is the location of the previous definition
->    #define PCI_IOBASE ((void __iomem *)_IO_BASE)
->    ^
+> Tested:
+>   Without this patch, Documentation/networking/txtimestamp reports
+>   timestamps regardless of whether SOF_TIMESTAMPING_SOFTWARE is set.
+>   After the patch, it only reports them when the flag is set.
 > 
-> Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
+> Fixes: f24b9be5957b ("net-timestamp: extend SCM_TIMESTAMPING ancillary data struct")
+> 
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks Willem.
