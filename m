@@ -1,79 +1,71 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Fri, 5 Sep 2014 09:44:05 -0700
-Message-ID: <20140905164405.GA28964@core.coreip.homeip.net>
-References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
- <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
- <20140905141241.GC10455@mtj.dyndns.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140905141241.GC10455@mtj.dyndns.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH] iproute2 tests: Fix problem with test running
+Date: Fri,  5 Sep 2014 19:46:31 +0300
+Message-ID: <1409935591-30145-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:59024 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751756AbaIEQyb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 12:54:31 -0400
+Received: by mail-lb0-f170.google.com with SMTP id w7so14056656lbi.29
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 09:54:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, September 05, 2014 11:12:41 PM Tejun Heo wrote:
-> On Fri, Sep 05, 2014 at 12:47:16AM -0700, Luis R. Rodriguez wrote:
-> > Ah -- well without it the way we "find" drivers that need this new
-> > "async feature" is by a bug report and folks saying their system can't
-> > boot, or they say their device doesn't come up. That's all. Tracing
-> > this to systemd and a timeout was one of the most ugliest things ever.
-> > There two insane bug reports you can go check:
-> > 
-> > mptsas was the first:
-> > 
-> > http://article.gmane.org/gmane.linux.kernel/1669550
-> > https://bugs.launchpad.net/ubuntu/+source/systemd/+bug/1297248
-> > 
-> > Then cxgb4:
-> > 
-> > https://bugzilla.novell.com/show_bug.cgi?id=877622
-> > 
-> > I only had Cc'd you on the newest gem pata_marvell :
-> > 
-> > https://bugzilla.kernel.org/show_bug.cgi?id=59581
-> > 
-> > We can't seriously expect to be doing all this work for every driver.
-> > a WARN_ONCE() would enable us to find the drivers that need this new
-> > async probe "feature".
-> 
-> This whole approach of trying to mark specific drivers as needing
-> "async probing" is completely broken for the problem at hand.  It
-> can't address the problem adequately while breaking backward
-> compatibility.  I don't think this makes much sense.
-> 
+Tests were not allowed to be ran, the following
+issues were fixed:
+    - creating the results folder before test running
+    - sudo $PREFIX moved before variables definition which
+        allow to pass them through the sudo to test script.
 
-Which problem are we talking about here though? It does solve the slow device
-stalling the rest if the kernel booting (non-module case) for me.
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ testsuite/Makefile | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-I also reject the notion that anyone should be relying on drivers to be fully
-bound on module loading. It is not nineties anymore. We have hot pluggable
-buses, deferred probing, and even for not hot-pluggable ones the module
-providing the device itself might not be yet loaded. Any scripts that expect to
-find device 100% ready after module loading are simply broken.
-
-Thanks.
-
+diff --git a/testsuite/Makefile b/testsuite/Makefile
+index 2a4e0ba..6f2ea85 100644
+--- a/testsuite/Makefile
++++ b/testsuite/Makefile
+@@ -1,6 +1,7 @@
+ ## -- Config --
+ DEV := lo
+ PREFIX := sudo
++RESULTS_DIR := "results"
+ ## -- End Config --
+ 
+ TESTS := $(patsubst tests/%,%,$(wildcard tests/*.t))
+@@ -23,23 +24,24 @@ listtests:
+ alltests: $(TESTS)
+ 
+ clean:
+-	@rm -rf results/*
++	@rm -rf $(RESULTS_DIR)
+ 
+ distclean: clean
+ 	echo "Entering iproute2" && cd iproute2 && $(MAKE) distclean && cd ..;
+ 
+ $(TESTS):
++	@mkdir -p $(RESULTS_DIR)
+ 	@for i in $(IPVERS); do \
+ 		o=`echo $$i | sed -e 's/iproute2\///'`; \
+ 		echo -n "Running $@ [$$o/`uname -r`]: "; \
+-		TC="$$i/tc/tc" IP="$$i/ip/ip" DEV="$(DEV)" IPVER="$@" SNAME="$$i" \
+-		ERRF="results/$@.$$o.err" $(KENV) $(PREFIX) tests/$@ > results/$@.$$o.out; \
++		$(PREFIX) TC="$$i/tc/tc" IP="$$i/ip/ip" DEV="$(DEV)" IPVER="$@" SNAME="$$i" \
++		ERRF="$(RESULTS_DIR)/$@.$$o.err" $(KENV) tests/$@ > $(RESULTS_DIR)/$@.$$o.out; \
+ 		if [ "$$?" = "127" ]; then \
+ 			echo "SKIPPED"; \
+-		elif [ -e "results/$@.$$o.err" ]; then \
++		elif [ -e "$(RESULTS_DIR)/$@.$$o.err" ]; then \
+ 			echo "FAILED"; \
+ 		else \
+ 			echo "PASS"; \
+ 		fi; \
+-		dmesg > results/$@.$$o.dmesg; \
++		dmesg > $(RESULTS_DIR)/$@.$$o.dmesg; \
+ 	done
 -- 
-Dmitry
+2.1.0
