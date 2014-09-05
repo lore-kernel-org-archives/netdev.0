@@ -1,78 +1,62 @@
-From: behanw@converseincode.com
-Subject: [PATCH] bluetooth: LLVMLinux: Remove VLAIS from bluetooth/amp.c
-Date: Fri,  5 Sep 2014 16:03:34 -0700
-Message-ID: <1409958214-5651-1-git-send-email-behanw@converseincode.com>
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
+Date: Fri, 05 Sep 2014 16:05:30 -0700
+Message-ID: <540A41BA.4010105@linux.intel.com>
+References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com> <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com> <20140905141241.GC10455@mtj.dyndns.org> <20140905164405.GA28964@core.coreip.homeip.net> <20140905174925.GA12991@mtj.dyndns.org> <20140905181003.GA29003@core.coreip.homeip.net> <20140905222956.GA15723@mtj.dyndns.org> <540A3CF4.5070508@linux.intel.com> <20140905225248.GC35667@core.coreip.homeip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, torvalds@linux-foundation.org,
-	Behan Webster <behanw@converseincode.com>,
-	Mark Charlebois <charlebm@gmail.com>,
-	=?UTF-8?q?Jan-Simon=20M=C3=B6ller?= <dl9pf@gmx.de>
-To: davem@davemloft.net, gustavo@padovan.org, johan.hedberg@gmail.com,
-	marcel@holtmann.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tejun Heo <tj@kernel.org>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhiji
+To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140905225248.GC35667@core.coreip.homeip.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Behan Webster <behanw@converseincode.com>
+On 9/5/2014 3:52 PM, Dmitry Torokhov wrote:
+> On Fri, Sep 05, 2014 at 03:45:08PM -0700, Arjan van de Ven wrote:
+>> On 9/5/2014 3:29 PM, Tejun Heo wrote:
+>>> Hello, Dmitry.
+>>>
+>>> On Fri, Sep 05, 2014 at 11:10:03AM -0700, Dmitry Torokhov wrote:
+>>>> I do not agree that it is actually user-visible change: generally speaking you
+>>>> do not really know if device is there or not. They come and go. Like I said,
+>>>> consider all permutations, with hot-pluggable buses, deferred probing, etc,
+>>>
+>>> It is for storage devices which always have guaranteed synchronous
+>>> probing on module load and well-defined probing order.  Sure, modern
+>>> setups are a lot more dynamic but I'm quite certain that there are
+>>> setups in the wild which depend on storage driver loading being
+>>> synchronous.  We can't simply declare one day that such behavior is
+>>> broken and break, most likely, their boots.
+>>
+>> we even depend on this in the mount-by-label cases
+>>
+>> many setups assume that the internal storage prevails over the USB stick in the case of conflicts.
+>> it's a security issue; you don't want the built in secure bootloader that has a kernel root argument
+>> by label/uuid.
+>> the security there tends to assume that built-in wins over USB
+>
+> Ahem... and they sure it works reliably with large storage arrays? With
+> SCSI doing probing asynchronously already?
 
-Replaced the use of a Variable Length Array In Struct (VLAIS) with a C9=
-9
-compliant equivalent. This patch allocates the appropriate amount of me=
-mory
-using an char array.
-
-The new code can be compiled with both gcc and clang.
-
-struct shash_desc contains a flexible array member member ctx declared =
-with
-CRYPTO_MINALIGN_ATTR, so sizeof(struct shash_desc) aligns the beginning
-of the array declared after struct shash_desc with long long.
-
-No trailing padding is required because it is not a struct type that ca=
-n
-be used in an array.
-
-The CRYPTO_MINALIGN_ATTR is required so that desc is aligned with long =
-long
-as would be the case for a struct containing a member with
-CRYPTO_MINALIGN_ATTR.
-
-Signed-off-by: Behan Webster <behanw@converseincode.com>
-Signed-off-by: Mark Charlebois <charlebm@gmail.com>
-Signed-off-by: Jan-Simon M=C3=B6ller <dl9pf@gmx.de>
----
- net/bluetooth/amp.c | 13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
-
-diff --git a/net/bluetooth/amp.c b/net/bluetooth/amp.c
-index 016cdb6..2640d78 100644
---- a/net/bluetooth/amp.c
-+++ b/net/bluetooth/amp.c
-@@ -149,15 +149,14 @@ static int hmac_sha256(u8 *key, u8 ksize, char *p=
-laintext, u8 psize, u8 *output)
- 	if (ret) {
- 		BT_DBG("crypto_ahash_setkey failed: err %d", ret);
- 	} else {
--		struct {
--			struct shash_desc shash;
--			char ctx[crypto_shash_descsize(tfm)];
--		} desc;
-+		char desc[sizeof(struct shash_desc) +
-+			crypto_shash_descsize(tfm)] CRYPTO_MINALIGN_ATTR;
-+		struct shash_desc *shash =3D (struct shash_desc *)desc;
-=20
--		desc.shash.tfm =3D tfm;
--		desc.shash.flags =3D CRYPTO_TFM_REQ_MAY_SLEEP;
-+		shash->tfm =3D tfm;
-+		shash->flags =3D CRYPTO_TFM_REQ_MAY_SLEEP;
-=20
--		ret =3D crypto_shash_digest(&desc.shash, plaintext, psize,
-+		ret =3D crypto_shash_digest(shash, plaintext, psize,
- 					  output);
- 	}
-=20
---=20
-1.9.1
+you tend to trust your large storage array
+you tend to not trust the walk up USB stick.
