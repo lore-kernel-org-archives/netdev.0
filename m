@@ -1,104 +1,154 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Fri, 5 Sep 2014 16:22:42 -0700
-Message-ID: <20140905232242.GE35667@core.coreip.homeip.net>
-References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
- <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
- <20140905141241.GC10455@mtj.dyndns.org>
- <20140905164405.GA28964@core.coreip.homeip.net>
- <20140905174925.GA12991@mtj.dyndns.org>
- <20140905181003.GA29003@core.coreip.homeip.net>
- <20140905222956.GA15723@mtj.dyndns.org>
- <20140905223139.GB15723@mtj.dyndns.org>
- <20140905224917.GB35667@core.coreip.homeip.net>
- <20140905225533.GE15723@mtj.dyndns.org>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH net-next v2 2/3] igb: use new eth_get_headlen interface
+Date: Fri, 05 Sep 2014 19:20:43 -0400
+Message-ID: <20140905232031.2035.70831.stgit@ahduyck-bv4.jf.intel.com>
+References: <20140905231807.2035.33588.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140905225533.GE15723@mtj.dyndns.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	jeffrey.t.kirsher@intel.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:5168 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750910AbaIEX3T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Sep 2014 19:29:19 -0400
+In-Reply-To: <20140905231807.2035.33588.stgit@ahduyck-bv4.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Tejun,
+Update igb to drop the igb_get_headlen function in favor of eth_get_headlen.
 
-On Sat, Sep 06, 2014 at 07:55:33AM +0900, Tejun Heo wrote:
-> Hello, Dmitry.
-> 
-> On Fri, Sep 05, 2014 at 03:49:17PM -0700, Dmitry Torokhov wrote:
-> > On Sat, Sep 06, 2014 at 07:31:39AM +0900, Tejun Heo wrote:
-> > > On Sat, Sep 06, 2014 at 07:29:56AM +0900, Tejun Heo wrote:
-> > > > It is for storage devices which always have guaranteed synchronous
-> > > > probing on module load and well-defined probing order.
-> > 
-> > Agree about probing order (IIRC that is why we had to revert the
-> > wholesale asynchronous probing a few years back) but totally disagree
-> > about synchronous module loading.
-> 
-> I don't get it.  This is a behavior userland already depends on for
-> boots.  What's there to agree or disagree?  This is just a fact that
-> we can't do this w/o disturbing some userlands in a major way.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c |  109 -----------------------------
+ 1 file changed, 1 insertion(+), 108 deletions(-)
 
-I am just expressing my disbelief that somebody relies on module loading
-being synchronous with probing. Out of curiosity, do you have any
-pointers?
-
-> 
-> > Anyway, I just posted a patch that I think preserves module loading
-> > behavior and solves my issue with built-in modules. It does not help
-> > Luis' issue though (but then I think the main problem is with systemd
-> > being stupid there).
-> 
-> This sure can be worked around from userland side too by not imposing
-> any timeout on module loading but that said for the same reasons that
-> you've been arguing until now, I actually do think that it's kinda
-> silly to make device probing synchronous to module loading at this
-> time and age.  What we disagree on is not that we want to separate
-> those waits.  It is about how to achieve it.
-
-Well, there are separate things we want to solve. My main issue is not
-with modules, but rather compiled-in drivers that stall kernel boot,
-and these particular drivers are just fine if they are probed out of
-bound.
-
-> 
-> > > To add a bit, if the argument here is that dependency on such behavior
-> > > shouldn't exist and module loading and device probing should always be
-> > > asynchronous, the right approach is implementing "synchronous_probing"
-> > > flag not the other way around.  I actually wouldn't hate to see that
-> > > change happening but whoever submits and routes such a change should
-> > > be ready for a major shitstorm, I'm afraid.
-> > 
-> > I think we already had this storm and that is why here we have opt-in
-> > behavior for the drivers.
-> 
-> It's a different shitstorm where we actively break bootings on some
-> userlands.  Trust me.  That's gonna be a lot worse.
-
-That did break bootings and that's why we reverted the wholesale async
-probing.
-
-Thanks.
-
--- 
-Dmitry
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 89de7fe..4c023f0 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -6769,113 +6769,6 @@ static bool igb_is_non_eop(struct igb_ring *rx_ring,
+ }
+ 
+ /**
+- *  igb_get_headlen - determine size of header for LRO/GRO
+- *  @data: pointer to the start of the headers
+- *  @max_len: total length of section to find headers in
+- *
+- *  This function is meant to determine the length of headers that will
+- *  be recognized by hardware for LRO, and GRO offloads.  The main
+- *  motivation of doing this is to only perform one pull for IPv4 TCP
+- *  packets so that we can do basic things like calculating the gso_size
+- *  based on the average data per packet.
+- **/
+-static unsigned int igb_get_headlen(unsigned char *data,
+-				    unsigned int max_len)
+-{
+-	union {
+-		unsigned char *network;
+-		/* l2 headers */
+-		struct ethhdr *eth;
+-		struct vlan_hdr *vlan;
+-		/* l3 headers */
+-		struct iphdr *ipv4;
+-		struct ipv6hdr *ipv6;
+-	} hdr;
+-	__be16 protocol;
+-	u8 nexthdr = 0;	/* default to not TCP */
+-	u8 hlen;
+-
+-	/* this should never happen, but better safe than sorry */
+-	if (max_len < ETH_HLEN)
+-		return max_len;
+-
+-	/* initialize network frame pointer */
+-	hdr.network = data;
+-
+-	/* set first protocol and move network header forward */
+-	protocol = hdr.eth->h_proto;
+-	hdr.network += ETH_HLEN;
+-
+-	/* handle any vlan tag if present */
+-	if (protocol == htons(ETH_P_8021Q)) {
+-		if ((hdr.network - data) > (max_len - VLAN_HLEN))
+-			return max_len;
+-
+-		protocol = hdr.vlan->h_vlan_encapsulated_proto;
+-		hdr.network += VLAN_HLEN;
+-	}
+-
+-	/* handle L3 protocols */
+-	if (protocol == htons(ETH_P_IP)) {
+-		if ((hdr.network - data) > (max_len - sizeof(struct iphdr)))
+-			return max_len;
+-
+-		/* access ihl as a u8 to avoid unaligned access on ia64 */
+-		hlen = (hdr.network[0] & 0x0F) << 2;
+-
+-		/* verify hlen meets minimum size requirements */
+-		if (hlen < sizeof(struct iphdr))
+-			return hdr.network - data;
+-
+-		/* record next protocol if header is present */
+-		if (!(hdr.ipv4->frag_off & htons(IP_OFFSET)))
+-			nexthdr = hdr.ipv4->protocol;
+-	} else if (protocol == htons(ETH_P_IPV6)) {
+-		if ((hdr.network - data) > (max_len - sizeof(struct ipv6hdr)))
+-			return max_len;
+-
+-		/* record next protocol */
+-		nexthdr = hdr.ipv6->nexthdr;
+-		hlen = sizeof(struct ipv6hdr);
+-	} else {
+-		return hdr.network - data;
+-	}
+-
+-	/* relocate pointer to start of L4 header */
+-	hdr.network += hlen;
+-
+-	/* finally sort out TCP */
+-	if (nexthdr == IPPROTO_TCP) {
+-		if ((hdr.network - data) > (max_len - sizeof(struct tcphdr)))
+-			return max_len;
+-
+-		/* access doff as a u8 to avoid unaligned access on ia64 */
+-		hlen = (hdr.network[12] & 0xF0) >> 2;
+-
+-		/* verify hlen meets minimum size requirements */
+-		if (hlen < sizeof(struct tcphdr))
+-			return hdr.network - data;
+-
+-		hdr.network += hlen;
+-	} else if (nexthdr == IPPROTO_UDP) {
+-		if ((hdr.network - data) > (max_len - sizeof(struct udphdr)))
+-			return max_len;
+-
+-		hdr.network += sizeof(struct udphdr);
+-	}
+-
+-	/* If everything has gone correctly hdr.network should be the
+-	 * data section of the packet and will be the end of the header.
+-	 * If not then it probably represents the end of the last recognized
+-	 * header.
+-	 */
+-	if ((hdr.network - data) < max_len)
+-		return hdr.network - data;
+-	else
+-		return max_len;
+-}
+-
+-/**
+  *  igb_pull_tail - igb specific version of skb_pull_tail
+  *  @rx_ring: rx descriptor ring packet is being transacted on
+  *  @rx_desc: pointer to the EOP Rx descriptor
+@@ -6919,7 +6812,7 @@ static void igb_pull_tail(struct igb_ring *rx_ring,
+ 	/* we need the header to contain the greater of either ETH_HLEN or
+ 	 * 60 bytes if the skb->len is less than 60 for skb_pad.
+ 	 */
+-	pull_len = igb_get_headlen(va, IGB_RX_HDR_LEN);
++	pull_len = eth_get_headlen(va, IGB_RX_HDR_LEN);
+ 
+ 	/* align pull length to size of long to optimize memcpy performance */
+ 	skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
