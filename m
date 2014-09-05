@@ -1,40 +1,45 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net: Add function for parsing the header
- length out of linear ethernet frames
-Date: Fri, 5 Sep 2014 13:02:19 -0700
-Message-ID: <CAADnVQKNoOdSuuQ-voKVNpke-4BjvC_pU=g65=m70Y4TsTpTag@mail.gmail.com>
-References: <20140905180642.730.22292.stgit@ahduyck-bv4.jf.intel.com>
-	<20140905180951.730.86041.stgit@ahduyck-bv4.jf.intel.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH RFC 1/1] net: fec: change data structure to support multiqueue
+Date: Fri, 5 Sep 2014 17:32:40 -0300
+Message-ID: <CAOMZO5B08M6n0rXfgZkVNb-0awVQdJ56aMokimCunVsjg03AZg@mail.gmail.com>
+References: <1409945994-15593-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	jeffrey.t.kirsher@intel.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Duan Fugang-B38611 <b38611@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Frank Li <Frank.Li@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f177.google.com ([209.85.216.177]:42605 "EHLO
-	mail-qc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750891AbaIEUCU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 16:02:20 -0400
-Received: by mail-qc0-f177.google.com with SMTP id i8so12505399qcq.8
-        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 13:02:19 -0700 (PDT)
-In-Reply-To: <20140905180951.730.86041.stgit@ahduyck-bv4.jf.intel.com>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:37352 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750940AbaIEUcm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 16:32:42 -0400
+Received: by mail-lb0-f175.google.com with SMTP id u10so14015427lbd.6
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 13:32:40 -0700 (PDT)
+In-Reply-To: <1409945994-15593-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 5, 2014 at 11:10 AM, Alexander Duyck
-<alexander.h.duyck@intel.com> wrote:
-> This patch updates some of the flow_dissector api so that it can be used to
-> parse the length of ethernet buffers stored in fragments.  Most of the
-> changes needed were to __skb_get_poff as it needed to be updated to support
-> sending a linear buffer instead of a skb.
->
->
->  u32 __skb_get_poff(const struct sk_buff *skb);
-> +u32 ___skb_get_poff(const struct sk_buff *skb, void *data,
-> +                   const struct flow_keys *keys, int hlen);
+On Fri, Sep 5, 2014 at 4:39 PM, Frank Li <Frank.Li@freescale.com> wrote:
 
-three underscores and not a static function?
-May be we need to come with a proper name for it.
-Two easy to confuse with two underscore version...
+> +       txq = kzalloc(sizeof(*txq), GFP_KERNEL);
+> +       if (!txq)
+> +               return -ENOMEM;
+> +       fep->tx_queue[0] = txq;
+> +
+> +       rxq = kzalloc(sizeof(*rxq), GFP_KERNEL);
+> +       if (!rxq) {
+> +               kfree(txq);
+> +               return -ENOMEM;
+> +       }
+
+....
+
+>         /* Allocate memory for buffer descriptors. */
+> -       cbd_base = dma_alloc_coherent(NULL, bd_size, &fep->bd_dma,
+> +       cbd_base = dma_alloc_coherent(NULL, bd_size, &bd_dma,
+>                                       GFP_KERNEL);
+>         if (!cbd_base)
+>                 return -ENOMEM;
+
+You should kfree txq and rxq before returning here.
