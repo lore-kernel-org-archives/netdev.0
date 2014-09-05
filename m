@@ -1,89 +1,61 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 5/5] bridge: implement rtnl_link_ops->changelink
-Date: Fri,  5 Sep 2014 15:51:32 +0200
-Message-ID: <1409925092-17808-6-git-send-email-jiri@resnulli.us>
-References: <1409925092-17808-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	sfeldma@cumulusnetworks.com, arvid.brodin@alten.se,
-	sucheta.chakraborty@qlogic.com
-To: netdev@vger.kernel.org
+Subject: Re: [patch iproute2] add help command to bonding master
+Date: Fri, 5 Sep 2014 15:53:55 +0200
+Message-ID: <20140905135355.GC1923@nanopsycho.lan>
+References: <1409923456-14596-1-git-send-email-jiri@resnulli.us>
+ <CAMw6YJKkiQtvN88rKLj=SEC3eFJyDA8WDX82tZtJh2zRW6-71w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	nikolay@redhat.com
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:45706 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932273AbaIENv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 09:51:58 -0400
-Received: by mail-wi0-f181.google.com with SMTP id e4so3011393wiv.14
-        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 06:51:52 -0700 (PDT)
-In-Reply-To: <1409925092-17808-1-git-send-email-jiri@resnulli.us>
+Received: from mail-we0-f170.google.com ([74.125.82.170]:55810 "EHLO
+	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932323AbaIENyC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 09:54:02 -0400
+Received: by mail-we0-f170.google.com with SMTP id p10so11901769wes.15
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 06:54:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAMw6YJKkiQtvN88rKLj=SEC3eFJyDA8WDX82tZtJh2zRW6-71w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow rtnetlink users to set bridge master info via IFLA_INFO_DATA attr
-This initial part implements forward_delay, hello_time, max_age options.
+Fri, Sep 05, 2014 at 03:41:14PM CEST, vadim4j@gmail.com wrote:
+>Sorry, may be this is not related to this particular patch:
+>
+>    would not it better to use usage() name instead of explain() as it
+>is used everywhere ?
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/bridge/br_netlink.c | 39 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 39 insertions(+)
+Well, yes, that is certainly doable. Feel free to send patch.
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index bcac09f..7c97a26 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -484,6 +484,42 @@ static size_t br_port_get_slave_size(const struct net_device *brdev,
- 	return br_port_info_size();
- }
- 
-+static const struct nla_policy br_policy[IFLA_BR_MAX + 1] = {
-+	[IFLA_BR_FORWARD_DELAY]	= { .type = NLA_U32 },
-+	[IFLA_BR_HELLO_TIME]	= { .type = NLA_U32 },
-+	[IFLA_BR_MAX_AGE]	= { .type = NLA_U32 },
-+};
-+
-+static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
-+			 struct nlattr *data[])
-+{
-+	struct net_bridge *br = netdev_priv(brdev);
-+	int err;
-+
-+	if (!data)
-+		return 0;
-+
-+	if (data[IFLA_BR_FORWARD_DELAY]) {
-+		err = br_set_forward_delay(br, nla_get_u32(data[IFLA_BR_FORWARD_DELAY]));
-+		if (err)
-+			return err;
-+	}
-+
-+	if (data[IFLA_BR_HELLO_TIME]) {
-+		err = br_set_hello_time(br, nla_get_u32(data[IFLA_BR_HELLO_TIME]));
-+		if (err)
-+			return err;
-+	}
-+
-+	if (data[IFLA_BR_MAX_AGE]) {
-+		err = br_set_max_age(br, nla_get_u32(data[IFLA_BR_MAX_AGE]));
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
- static size_t br_get_size(const struct net_device *brdev)
- {
- 	return nla_total_size(sizeof(u32)) +	/* IFLA_BR_FORWARD_DELAY  */
-@@ -534,8 +570,11 @@ struct rtnl_link_ops br_link_ops __read_mostly = {
- 	.kind			= "bridge",
- 	.priv_size		= sizeof(struct net_bridge),
- 	.setup			= br_dev_setup,
-+	.maxtype		= IFLA_BRPORT_MAX,
-+	.policy			= br_policy,
- 	.validate		= br_validate,
- 	.newlink		= br_dev_newlink,
-+	.changelink		= br_changelink,
- 	.dellink		= br_dev_delete,
- 	.get_size		= br_get_size,
- 	.fill_info		= br_fill_info,
--- 
-1.9.3
+
+>
+>On Fri, Sep 5, 2014 at 4:24 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  ip/iplink_bond.c | 3 +++
+>>  1 file changed, 3 insertions(+)
+>>
+>> diff --git a/ip/iplink_bond.c b/ip/iplink_bond.c
+>> index b5c511e..0a1ed03 100644
+>> --- a/ip/iplink_bond.c
+>> +++ b/ip/iplink_bond.c
+>> @@ -339,6 +339,9 @@ static int bond_parse_opt(struct link_util *lu, int argc, char **argv,
+>>                         }
+>>                         ad_select = get_index(ad_select_tbl, *argv);
+>>                         addattr8(n, 1024, IFLA_BOND_AD_SELECT, ad_select);
+>> +               } else if (matches(*argv, "help") == 0) {
+>> +                       explain();
+>> +                       return -1;
+>>                 } else {
+>>                         fprintf(stderr, "bond: unknown command \"%s\"?\n", *argv);
+>>                         explain();
+>> --
+>> 1.9.3
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
