@@ -1,32 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/2] r8152: random MAC address
-Date: Fri, 05 Sep 2014 12:18:05 -0700 (PDT)
-Message-ID: <20140905.121805.2149838652698517913.davem@davemloft.net>
-References: <1394712342-15778-26-Taiwan-albertk@realtek.com>
-	<1394712342-15778-32-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH net v2] ipv6: fix rtnl locking in setsockopt for
+ anycast and multicast
+Date: Fri, 05 Sep 2014 12:21:57 -0700 (PDT)
+Message-ID: <20140905.122157.2149128504245355664.davem@davemloft.net>
+References: <20140902082929.GA8483@kria>
+	<20140905.115305.809714259412705649.davem@davemloft.net>
+	<CAHA+R7M1qd5g1ta=YFqefgXDf1EfF2_VsJGUvH6Dd+ttnHc_VQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-32-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: sd@queasysnail.net, hannes@stressinduktion.org,
+	tt.rantala@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, trinity@vger.kernel.org,
+	davej@redhat.com
+To: cwang@twopensource.com
+Return-path: <trinity-owner@vger.kernel.org>
+In-Reply-To: <CAHA+R7M1qd5g1ta=YFqefgXDf1EfF2_VsJGUvH6Dd+ttnHc_VQ@mail.gmail.com>
+Sender: trinity-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Thu, 4 Sep 2014 16:15:40 +0800
+From: Cong Wang <cwang@twopensource.com>
+Date: Fri, 5 Sep 2014 11:58:31 -0700
 
-> If the interface has invalid MAC address, it couldn't
-> be used. In order to let it work normally, give a
-> random one.
+> On Fri, Sep 5, 2014 at 11:53 AM, David Miller <davem@davemloft.net> wrote:
+>> From: Sabrina Dubroca <sd@queasysnail.net>
+>> Date: Tue, 2 Sep 2014 10:29:29 +0200
+>>
+>>> Calling setsockopt with IPV6_JOIN_ANYCAST or IPV6_LEAVE_ANYCAST
+>>> triggers the assertion in addrconf_join_solict()/addrconf_leave_solict()
+>>>
+>>> ipv6_sock_ac_join(), ipv6_sock_ac_drop(), ipv6_sock_ac_close() need to
+>>> take RTNL before calling ipv6_dev_ac_inc/dec. Same thing with
+>>> ipv6_sock_mc_join(), ipv6_sock_mc_drop(), ipv6_sock_mc_close() before
+>>> calling ipv6_dev_mc_inc/dec.
+>>>
+>>> This patch moves ASSERT_RTNL() up a level in the call stack.
+>>>
+>>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>>> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+>>> Reported-by: Tommi Rantala <tt.rantala@gmail.com>
+>>
+>> Applied and queued up for -stable, thanks.
 > 
-> v3:
->   Remove
-> 	ether_addr_copy(dev->perm_addr, dev->dev_addr);
+> I believe you applied a wrong version, at least the following
+> is not correct:
 > 
-> v2:
->   Use "%pM" format specifier for printing a MAC address.
+> +       if (!dev)
+> +               return -ENODEV;
+> 
+> Sabrina took that from my draft patch, but they all don't
+> realize this is wrong.
+> 
+> (I did provide a correct version which is just ignored by you.)
 
-Series applied, thanks.
+Not ignored, but rather it was hard to interpret the situation due to
+poor communication in the feedback emails.
+
+The onus is on you guys to communicate things precisely so that I
+understand what patch is in what state.
