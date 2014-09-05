@@ -1,70 +1,31 @@
-From: Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>
-Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
-Date: Fri, 05 Sep 2014 13:33:44 +0200
-Message-ID: <1409916824.7832.20.camel@x220>
-References: <1391971686-9517-1-git-send-email-richard@nod.at>
-	 <1391971686-9517-10-git-send-email-richard@nod.at>
-	 <52F7D480.1050106@hauke-m.de> <52F7DF21.70207@nod.at>
-	 <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
-	 <52F8C373.9060108@rempel-privat.de>
-	 <CAHNKnsQF5Hdf3JT91moPraRQzn4kMpdD2NSiJ7b30wQhS1W4MA@mail.gmail.com>
-	 <CAGVrzcYnECx5Q=i+m6qZn29y4JALDpw5SWoUNP-S6HgPR3_ygQ@mail.gmail.com>
-	 <CAHNKnsRACSo=DfOyiHxqV3acv_wfZmz4tMnYAW0wo4OCibwdfA@mail.gmail.com>
-	 <CAHNKnsRQp7WLSJNAXEYPTd=qs1DquOfNgKtHES-Utvcy1=FEgQ@mail.gmail.com>
-	 <20140213201421.GJ22203@tuxdriver.com> <1397581703.8212.5.camel@x220>
-	 <CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
-	 <1403087119.1984.93.camel@x220>
-	 <CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
-	 <1403091974.1984.102.camel@x220> <1409911856.7832.9.camel@x220>
-	 <CAHNKnsRipRHicKOUW4dCutD1-sUG6qPnP2QuOveH_t1MFX9XgQ@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH iproute2] Revert "ip: check for missing dev arg when doing
+ VF rate"
+Date: Fri, 05 Sep 2014 13:45:57 +0200
+Message-ID: <5409A275.8040901@6wind.com>
+References: <1409909845-7126-1-git-send-email-nicolas.dichtel@6wind.com> <CAMw6YJKoEzMQOjmJ66ojfYGn6Xp4ec_m5edZWQBymjZtVyB13w@mail.gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Oleksij Rempel <linux-YEK0n+YFykbzxQdaRaTXBw@public.gmane.org>,
-	Richard Weinberger <richard-/L3Ra7n9ekc@public.gmane.org>,
-	Jonathan Bither <jonbither-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>,
-	ath5k-devel-juf53994utBLZpfksSYvnA@public.gmane.org, open-5/S+JYg5SzeELgA04lAiVw@public.gmane.org, list-5/S+JYg5SzeELgA04lAiVw@public.gmane.org,
-	antonynpavlov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, openwrt-devel-ZwoEplunGu0+xA9t4nZiwti2O/JbrIOy@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sergey Ryazanov <ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAHNKnsRipRHicKOUW4dCutD1-sUG6qPnP2QuOveH_t1MFX9XgQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:62497 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932068AbaIELqA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 07:46:00 -0400
+Received: by mail-wg0-f43.google.com with SMTP id a1so11452525wgh.26
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 04:45:59 -0700 (PDT)
+In-Reply-To: <CAMw6YJKoEzMQOjmJ66ojfYGn6Xp4ec_m5edZWQBymjZtVyB13w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergey,
-
-On Fri, 2014-09-05 at 15:12 +0400, Sergey Ryazanov wrote:
-> 2014-09-05 14:10 GMT+04:00, Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>:
-> > On Wed, 2014-06-18 at 13:46 +0200, Paul Bolle wrote:
-> >> Having this conversation every rc1 is getting a bit silly. Could Jiri
-> >> e.a. perhaps set some specific deadline for ATHEROS_AR231X to be
-> >> submitted?
-> >
-> > I waited until rc3. Have you seen any activity on this front? If not,
-> > should I resend the patch that removes the code in mainline that depends
-> > on ATHEROS_AR231X (ie, AHB bus support)?
-> >
-> Recent activity always could be found in [1]. Now I finish another one
-> round of cleanups and have a plan to fix several things (you can
-> always find something that you really want to improve). But if you
-> insist I could immediately switch to "send upstream" mode. And seems
-> that this would be better approach.
-> 
-> 1. https://dev.openwrt.org/log/trunk/target/linux/atheros
-
-And where can the related PULL requests or patch submissions be found?
+Le 05/09/2014 12:11, Vadim Kochan a =C3=A9crit :
+> Was it not fixed by f1b66ff83a0 in master branch ?
+You're right. I've missed it, sorry for the noise.
 
 
-Paul Bolle
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Nicolas
