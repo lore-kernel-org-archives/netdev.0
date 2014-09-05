@@ -1,54 +1,53 @@
-From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
- for datapath hardware offload
-Date: Fri, 05 Sep 2014 06:46:02 -0400
-Message-ID: <5409946A.9080708@mojatatu.com>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-11-git-send-email-jiri@resnulli.us>
- <20140904090447.GB3176@vergenet.net>
- <F4498A89-C1D6-4C5A-A6F0-942015D36B77@cumulusnetworks.com>
- <20140905040810.GB32481@vergenet.net>
- <E3C7797F-081E-484F-918E-937C705B43D6@cumulusnetworks.com>
+From: Paolo Bonzini <pbonzini@redhat.com>
+Subject: Re: [PATCH 3/3] virtio_ring: unify direct/indirect code paths.
+Date: Fri, 05 Sep 2014 12:55:37 +0200
+Message-ID: <540996A9.4060100@redhat.com>
+References: <1409718556-3041-1-git-send-email-rusty@rustcorp.com.au>
+	<1409718556-3041-4-git-send-email-rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; Format="flowed"
-Content-Transfer-Encoding: quoted-printable
-Cc: Sergey Ryazanov <ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org,
- Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
- Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
- Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
- Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, Aviad Raveh <aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, Vlad Yasevich <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Scott Feldman <sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
- Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <E3C7797F-081E-484F-918E-937C705B43D6-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: virtualization@lists.linux-foundation.org,
+	Andy Lutomirski <luto@amacapital.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Rusty Russell <rusty@rustcorp.com.au>,
+ netdev <netdev@vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1409718556-3041-4-git-send-email-rusty@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 09/05/14 03:02, Scott Feldman wrote:
+Il 03/09/2014 06:29, Rusty Russell ha scritto:
+> + 	desc = kmalloc(total_sg * sizeof(struct vring_desc), gfp);
+> + 	if (!desc)
+> +		return NULL;
+>  
+> -	return head;
+> +	for (i = 0; i < total_sg; i++)
+> +		desc[i].next = i+1;
+> +	return desc;
+>  }
 
->> On Thu, Sep 04, 2014 at 09:30:45AM -0700, Scott Feldman wrote:
->>>
+Would it make sense to keep a cache of a few (say) 8- or 16-element
+indirect descriptors?  You'd only have to do this ugly (and slowish) for
+loop on the first allocation.
 
-> Correct, for the particular switch implementation we=92re working with.
+Also, since this is mostly an aesthetic patch,
 
-Do you have L2/3 working with this interface on said switch?
-I am interested.
+> +	if (indirect)
+> +		vq->free_head = vq->vring.desc[head].next;
+> +	else
+> +		vq->free_head = i;
 
-cheers,
-jamal
+I'd move the indirect case above, where the vring.desc[head] is actually
+allocated.
+
+Paolo
