@@ -1,13 +1,14 @@
 From: Tejun Heo <tj@kernel.org>
 Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Sat, 6 Sep 2014 07:29:56 +0900
-Message-ID: <20140905222956.GA15723@mtj.dyndns.org>
+Date: Sat, 6 Sep 2014 07:31:39 +0900
+Message-ID: <20140905223139.GB15723@mtj.dyndns.org>
 References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
  <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
  <20140905141241.GC10455@mtj.dyndns.org>
  <20140905164405.GA28964@core.coreip.homeip.net>
  <20140905174925.GA12991@mtj.dyndns.org>
  <20140905181003.GA29003@core.coreip.homeip.net>
+ <20140905222956.GA15723@mtj.dyndns.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
@@ -32,23 +33,24 @@ Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
 To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20140905181003.GA29003@core.coreip.homeip.net>
+In-Reply-To: <20140905222956.GA15723@mtj.dyndns.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Dmitry.
+On Sat, Sep 06, 2014 at 07:29:56AM +0900, Tejun Heo wrote:
+> It is for storage devices which always have guaranteed synchronous
+> probing on module load and well-defined probing order.  Sure, modern
+> setups are a lot more dynamic but I'm quite certain that there are
+> setups in the wild which depend on storage driver loading being
+> synchronous.  We can't simply declare one day that such behavior is
+> broken and break, most likely, their boots.
 
-On Fri, Sep 05, 2014 at 11:10:03AM -0700, Dmitry Torokhov wrote:
-> I do not agree that it is actually user-visible change: generally speaking you
-> do not really know if device is there or not. They come and go. Like I said,
-> consider all permutations, with hot-pluggable buses, deferred probing, etc,
-
-It is for storage devices which always have guaranteed synchronous
-probing on module load and well-defined probing order.  Sure, modern
-setups are a lot more dynamic but I'm quite certain that there are
-setups in the wild which depend on storage driver loading being
-synchronous.  We can't simply declare one day that such behavior is
-broken and break, most likely, their boots.
+To add a bit, if the argument here is that dependency on such behavior
+shouldn't exist and module loading and device probing should always be
+asynchronous, the right approach is implementing "synchronous_probing"
+flag not the other way around.  I actually wouldn't hate to see that
+change happening but whoever submits and routes such a change should
+be ready for a major shitstorm, I'm afraid.
 
 Thanks.
 
