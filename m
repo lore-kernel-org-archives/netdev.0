@@ -1,8 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH net-next 1/3] net: Add function for parsing the header
- length out of linear ethernet frames
-Date: Fri, 05 Sep 2014 14:10:52 -0400
-Message-ID: <20140905180951.730.86041.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [PATCH net-next 3/3] ixgbe: use new eth_get_headlen interface
+Date: Fri, 05 Sep 2014 14:11:23 -0400
+Message-ID: <20140905181116.730.36478.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140905180642.730.22292.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,190 +10,152 @@ Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	jeffrey.t.kirsher@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:17998 "EHLO mga02.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:3664 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751173AbaIEST4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Sep 2014 14:19:56 -0400
+	id S1751597AbaIESUC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Sep 2014 14:20:02 -0400
 In-Reply-To: <20140905180642.730.22292.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch updates some of the flow_dissector api so that it can be used to
-parse the length of ethernet buffers stored in fragments.  Most of the
-changes needed were to __skb_get_poff as it needed to be updated to support
-sending a linear buffer instead of a skb.
+Update ixgbe to drop the ixgbe_get_headlen function in favor of eth_get_headlen.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- include/linux/etherdevice.h |    1 +
- include/linux/skbuff.h      |    2 ++
- include/net/flow_keys.h     |    2 ++
- net/core/flow_dissector.c   |   46 ++++++++++++++++++++++++++++++-------------
- net/ethernet/eth.c          |   27 +++++++++++++++++++++++++
- 5 files changed, 64 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  116 -------------------------
+ 1 file changed, 1 insertion(+), 115 deletions(-)
 
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index 9c5529d..733980f 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -29,6 +29,7 @@
- #include <asm/bitsperlong.h>
- 
- #ifdef __KERNEL__
-+u32 eth_get_headlen(void *data, unsigned int max_len);
- __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev);
- extern const struct header_ops eth_header_ops;
- 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 02529fc..77d4d6f 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -3217,6 +3217,8 @@ bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off);
- int skb_checksum_setup(struct sk_buff *skb, bool recalculate);
- 
- u32 __skb_get_poff(const struct sk_buff *skb);
-+u32 ___skb_get_poff(const struct sk_buff *skb, void *data,
-+	 	    const struct flow_keys *keys, int hlen);
- 
- /**
-  * skb_head_is_locked - Determine if the skb->head is locked down
-diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-index 9a03f73..7ee2df0 100644
---- a/include/net/flow_keys.h
-+++ b/include/net/flow_keys.h
-@@ -40,4 +40,6 @@ static inline __be32 skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8
- 	return __skb_flow_get_ports(skb, thoff, ip_proto, NULL, 0);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 53fbf06..09c3746 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1521,120 +1521,6 @@ void ixgbe_alloc_rx_buffers(struct ixgbe_ring *rx_ring, u16 cleaned_count)
+ 		ixgbe_release_rx_desc(rx_ring, i);
  }
- u32 flow_hash_from_keys(struct flow_keys *keys);
-+unsigned int flow_get_hlen(const unsigned char *data, unsigned int max_len,
-+			   __be16 protocol);
- #endif
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 12f48ca..179b2aa 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -13,6 +13,7 @@
- #include <linux/if_pppox.h>
- #include <linux/ppp_defs.h>
- #include <net/flow_keys.h>
-+#include <scsi/fc/fc_fcoe.h>
  
- /* copy saddr & daddr, possibly using 64bit load/store
-  * Equivalent to :	flow->src = iph->saddr;
-@@ -117,6 +118,13 @@ ipv6:
- 		flow->dst = (__force __be32)ipv6_addr_hash(&iph->daddr);
- 		nhoff += sizeof(struct ipv6hdr);
- 
-+		/* skip the flow label processing if skb is NULL.  The
-+		 * assumption here is that if there is no skb we are not
-+		 * looking for flow info as much as we are length.
-+		 */
-+		if (!skb)
-+			break;
-+
- 		flow_label = ip6_flowlabel(iph);
- 		if (flow_label) {
- 			/* Awesome, IPv6 packet has a flow label so we can
-@@ -165,6 +173,9 @@ ipv6:
- 			return false;
- 		}
- 	}
-+	case htons(ETH_P_FCOE):
-+		flow->thoff = (u16)(nhoff + FCOE_HEADER_LEN);
-+		/* fall through */
- 	default:
- 		return false;
- 	}
-@@ -316,26 +327,18 @@ u16 __skb_tx_hash(const struct net_device *dev, struct sk_buff *skb,
- }
- EXPORT_SYMBOL(__skb_tx_hash);
- 
--/* __skb_get_poff() returns the offset to the payload as far as it could
-- * be dissected. The main user is currently BPF, so that we can dynamically
-- * truncate packets without needing to push actual payload to the user
-- * space and can analyze headers only, instead.
-- */
--u32 __skb_get_poff(const struct sk_buff *skb)
-+u32 ___skb_get_poff(const struct sk_buff *skb, void *data,
-+	 	    const struct flow_keys *keys, int hlen)
- {
--	struct flow_keys keys;
--	u32 poff = 0;
+-/**
+- * ixgbe_get_headlen - determine size of header for RSC/LRO/GRO/FCOE
+- * @data: pointer to the start of the headers
+- * @max_len: total length of section to find headers in
+- *
+- * This function is meant to determine the length of headers that will
+- * be recognized by hardware for LRO, GRO, and RSC offloads.  The main
+- * motivation of doing this is to only perform one pull for IPv4 TCP
+- * packets so that we can do basic things like calculating the gso_size
+- * based on the average data per packet.
+- **/
+-static unsigned int ixgbe_get_headlen(unsigned char *data,
+-				      unsigned int max_len)
+-{
+-	union {
+-		unsigned char *network;
+-		/* l2 headers */
+-		struct ethhdr *eth;
+-		struct vlan_hdr *vlan;
+-		/* l3 headers */
+-		struct iphdr *ipv4;
+-		struct ipv6hdr *ipv6;
+-	} hdr;
+-	__be16 protocol;
+-	u8 nexthdr = 0;	/* default to not TCP */
+-	u8 hlen;
 -
--	if (!skb_flow_dissect(skb, &keys))
--		return 0;
-+	u32 poff = keys->thoff;
- 
--	poff += keys.thoff;
--	switch (keys.ip_proto) {
-+	switch (keys->ip_proto) {
- 	case IPPROTO_TCP: {
- 		const struct tcphdr *tcph;
- 		struct tcphdr _tcph;
- 
--		tcph = skb_header_pointer(skb, poff, sizeof(_tcph), &_tcph);
-+		tcph = __skb_header_pointer(skb, poff, sizeof(_tcph),
-+					    data, hlen, &_tcph);
- 		if (!tcph)
- 			return poff;
- 
-@@ -369,6 +372,21 @@ u32 __skb_get_poff(const struct sk_buff *skb)
- 	return poff;
- }
- 
-+/* __skb_get_poff() returns the offset to the payload as far as it could
-+ * be dissected. The main user is currently BPF, so that we can dynamically
-+ * truncate packets without needing to push actual payload to the user
-+ * space and can analyze headers only, instead.
-+ */
-+u32 __skb_get_poff(const struct sk_buff *skb)
-+{
-+	struct flow_keys keys;
-+
-+	if (!skb_flow_dissect(skb, &keys))
-+		return 0;
-+
-+	return ___skb_get_poff(skb, skb->data, &keys, skb_headlen(skb));
-+}
-+
- static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
+-	/* this should never happen, but better safe than sorry */
+-	if (max_len < ETH_HLEN)
+-		return max_len;
+-
+-	/* initialize network frame pointer */
+-	hdr.network = data;
+-
+-	/* set first protocol and move network header forward */
+-	protocol = hdr.eth->h_proto;
+-	hdr.network += ETH_HLEN;
+-
+-	/* handle any vlan tag if present */
+-	if (protocol == htons(ETH_P_8021Q)) {
+-		if ((hdr.network - data) > (max_len - VLAN_HLEN))
+-			return max_len;
+-
+-		protocol = hdr.vlan->h_vlan_encapsulated_proto;
+-		hdr.network += VLAN_HLEN;
+-	}
+-
+-	/* handle L3 protocols */
+-	if (protocol == htons(ETH_P_IP)) {
+-		if ((hdr.network - data) > (max_len - sizeof(struct iphdr)))
+-			return max_len;
+-
+-		/* access ihl as a u8 to avoid unaligned access on ia64 */
+-		hlen = (hdr.network[0] & 0x0F) << 2;
+-
+-		/* verify hlen meets minimum size requirements */
+-		if (hlen < sizeof(struct iphdr))
+-			return hdr.network - data;
+-
+-		/* record next protocol if header is present */
+-		if (!(hdr.ipv4->frag_off & htons(IP_OFFSET)))
+-			nexthdr = hdr.ipv4->protocol;
+-	} else if (protocol == htons(ETH_P_IPV6)) {
+-		if ((hdr.network - data) > (max_len - sizeof(struct ipv6hdr)))
+-			return max_len;
+-
+-		/* record next protocol */
+-		nexthdr = hdr.ipv6->nexthdr;
+-		hlen = sizeof(struct ipv6hdr);
+-#ifdef IXGBE_FCOE
+-	} else if (protocol == htons(ETH_P_FCOE)) {
+-		if ((hdr.network - data) > (max_len - FCOE_HEADER_LEN))
+-			return max_len;
+-		hlen = FCOE_HEADER_LEN;
+-#endif
+-	} else {
+-		return hdr.network - data;
+-	}
+-
+-	/* relocate pointer to start of L4 header */
+-	hdr.network += hlen;
+-
+-	/* finally sort out TCP/UDP */
+-	if (nexthdr == IPPROTO_TCP) {
+-		if ((hdr.network - data) > (max_len - sizeof(struct tcphdr)))
+-			return max_len;
+-
+-		/* access doff as a u8 to avoid unaligned access on ia64 */
+-		hlen = (hdr.network[12] & 0xF0) >> 2;
+-
+-		/* verify hlen meets minimum size requirements */
+-		if (hlen < sizeof(struct tcphdr))
+-			return hdr.network - data;
+-
+-		hdr.network += hlen;
+-	} else if (nexthdr == IPPROTO_UDP) {
+-		if ((hdr.network - data) > (max_len - sizeof(struct udphdr)))
+-			return max_len;
+-
+-		hdr.network += sizeof(struct udphdr);
+-	}
+-
+-	/*
+-	 * If everything has gone correctly hdr.network should be the
+-	 * data section of the packet and will be the end of the header.
+-	 * If not then it probably represents the end of the last recognized
+-	 * header.
+-	 */
+-	if ((hdr.network - data) < max_len)
+-		return hdr.network - data;
+-	else
+-		return max_len;
+-}
+-
+ static void ixgbe_set_rsc_gso_size(struct ixgbe_ring *ring,
+ 				   struct sk_buff *skb)
  {
- #ifdef CONFIG_XPS
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 5cebca1..f0299ac 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -146,6 +146,33 @@ int eth_rebuild_header(struct sk_buff *skb)
- EXPORT_SYMBOL(eth_rebuild_header);
+@@ -1793,7 +1679,7 @@ static void ixgbe_pull_tail(struct ixgbe_ring *rx_ring,
+ 	 * we need the header to contain the greater of either ETH_HLEN or
+ 	 * 60 bytes if the skb->len is less than 60 for skb_pad.
+ 	 */
+-	pull_len = ixgbe_get_headlen(va, IXGBE_RX_HDR_SIZE);
++	pull_len = eth_get_headlen(va, IXGBE_RX_HDR_SIZE);
  
- /**
-+ * eth_get_headlen - determine the the length of header for an ethernet frame
-+ * @data: pointer to start of frame
-+ * @len: total length of frame
-+ *
-+ * Make a best effort attempt to pull the length for all of the headers for
-+ * a given frame in a linear buffer.
-+ */
-+u32 eth_get_headlen(void *data, unsigned int len)
-+{
-+	const struct ethhdr *eth = (const struct ethhdr *)data;
-+	struct flow_keys keys;
-+
-+	/* this should never happen, but better safe than sorry */
-+	if (len < sizeof(*eth))
-+		return len;
-+
-+	/* parse any remaining L2/L3 headers, check for L4 */
-+	if (!__skb_flow_dissect(NULL, &keys, data,
-+				eth->h_proto, sizeof(*eth), len))
-+		return max_t(u32, keys.thoff, sizeof(*eth));
-+
-+	/* parse for any L4 headers */
-+	return min_t(u32, ___skb_get_poff(NULL, data, &keys, len), len);
-+}
-+EXPORT_SYMBOL(eth_get_headlen);
-+
-+/**
-  * eth_type_trans - determine the packet's protocol ID.
-  * @skb: received socket data
-  * @dev: receiving network device
+ 	/* align pull length to size of long to optimize memcpy performance */
+ 	skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
