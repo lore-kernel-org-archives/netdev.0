@@ -1,74 +1,45 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] bluetooth: btusb: Fix issue with suspend
-Date: Fri,  5 Sep 2014 10:16:34 -0500
-Message-ID: <1409930194-6318-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Champion Chen <champion_chen-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] rose: use %*ph specifier
+Date: Fri, 05 Sep 2014 08:17:06 -0700
+Message-ID: <1409930226.26422.135.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1409929311-3225-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-hams@vger.kernel.org, netdev@vger.kernel.org
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <1409929311-3225-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Champion Chen <champion_chen-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+On Fri, 2014-09-05 at 18:01 +0300, Andy Shevchenko wrote:
+> Instead of dereference each byte let's use %*ph specifier in the printk()
+> calls.
+> 
+> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> ---
+>  net/rose/rose_link.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/rose/rose_link.c b/net/rose/rose_link.c
+> index bc55142..ce60771 100644
+> --- a/net/rose/rose_link.c
+> +++ b/net/rose/rose_link.c
+> @@ -160,7 +160,7 @@ void rose_link_rx_restart(struct sk_buff *skb, struct rose_neigh *neigh, unsigne
+>  		break;
+>  
+>  	case ROSE_DIAGNOSTIC:
+> -		printk(KERN_WARNING "ROSE: received diagnostic #%d - %02X %02X %02X\n", skb->data[3], skb->data[4], skb->data[5], skb->data[6]);
+> +		pr_warn("ROSE: received diagnostic #%d - %4ph\n", skb->data + 3);
+>  		break;
+>  
+>  	default:
 
-Suspend could fail for some platforms because
-btusb_suspend==> btusb_stop_traffic ==> usb_kill_anchored_urbs,
+That can not be correct.
 
-When btusb_bulk_complete returns before system suspend and resubmits an urb,
-the system cannot enter suspend state.
+Have you even compiled this ?
 
-Signed-off-by: Champion Chen <champion_chen-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Cc: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
----
-Johan,
 
-To help Champion with the process, I have formatted the patch in
-the correct manner. I hope I understand the issue correctly and
-stated it in a coherent manner in the commit message.
 
-Larry
----
- drivers/bluetooth/btusb.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
-index 292c38e..45a7211 100644
---- a/drivers/bluetooth/btusb.c
-+++ b/drivers/bluetooth/btusb.c
-@@ -330,6 +330,9 @@ static void btusb_intr_complete(struct urb *urb)
- 			BT_ERR("%s corrupted event packet", hdev->name);
- 			hdev->stat.err_rx++;
- 		}
-+	} else if (urb->status == -ENOENT) {
-+		/* Avoid suspend failed when usb_kill_urb */
-+		return;
- 	}
- 
- 	if (!test_bit(BTUSB_INTR_RUNNING, &data->flags))
-@@ -417,6 +420,9 @@ static void btusb_bulk_complete(struct urb *urb)
- 						urb->actual_length) < 0) {
- 			BT_ERR("%s corrupted ACL packet", hdev->name);
- 			hdev->stat.err_rx++;
-+		} else if (urb->status == -ENOENT) {
-+			/* Avoid suspend failed when usb_kill_urb */
-+			return;
- 		}
- 	}
- 
-@@ -512,6 +518,9 @@ static void btusb_isoc_complete(struct urb *urb)
- 				hdev->stat.err_rx++;
- 			}
- 		}
-+	} else if (urb->status == -ENOENT) {
-+		/* Avoid suspend failed when usb_kill_urb */
-+		return;
- 	}
- 
- 	if (!test_bit(BTUSB_ISOC_RUNNING, &data->flags))
--- 
-1.8.4.5
