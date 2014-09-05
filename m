@@ -1,7 +1,7 @@
 From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [RFC v2 2/6] driver-core: add driver async_probe support
-Date: Thu,  4 Sep 2014 23:37:23 -0700
-Message-ID: <1409899047-13045-3-git-send-email-mcgrof@do-not-panic.com>
+Subject: [RFC v2 3/6] kthread: warn on kill signal if not OOM
+Date: Thu,  4 Sep 2014 23:37:24 -0700
+Message-ID: <1409899047-13045-4-git-send-email-mcgrof@do-not-panic.com>
 References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
 Cc: linux-kernel@vger.kernel.org, oleg@redhat.com, hare@suse.com,
 	akpm@linux-foundation.org, penguin-kernel@i-love.sakura.ne.jp,
@@ -30,114 +30,106 @@ List-Id: netdev.vger.kernel.org
 
 From: "Luis R. Rodriguez" <mcgrof@suse.com>
 
-We now have two documented use cases for probing asynchronously:
+The new umh kill option has allowed kthreads to receive
+kill signals but they are generally accepting all sources
+of kill signals while the original motivation was to enable
+through the OOM from sending the kill. One particular user
+which has been found to send kill signals on kthreads is
+systemd, it does this upon a 30 second default timeout on
+loading modules. That timeout was in place under the
+assumption that some driver's init sequences were taking
+long. Since the kernel batches both init and probe together
+though its actually been the probe routines which take
+long. These should not be penalized, the kill would only
+happen if and only if the driver's probe routine ends up
+using kthreads somehow. To help with this we now have the
+async_probe flag for drivers but before we can amend
+drivers with this functionality we need to find them. This
+patch addresses that by avoiding the kill from any other
+source than the OOM killer -- for now.
 
-0) since we bundle together driver init() and probe() systemd's
-   new 30 second timeout has put a limit on the amount of time
-   a driver probe routine can take, we need to enable drivers
-   to complete probe gracefully
+Users can provide a log output and it should be clear on
+the trace what probe / driver got the kill signal.
 
-1) when a built-in driver takes a few seconds to initialize its
-   delays can stall the overall boot process
+This patch is based on Tetsuo's patch [0] to try to address
+the timeout issue, which in itself is based on Tetsuo's
+original patch to also address this months ago [1]. These
+patches just lacked addressing all other callers which
+would load modules for us. Although Oleg had rejected a
+similar change a while ago [2] its now clear what the
+source of the problem. A few solutions have been proposed,
+one of them was to allow the default systemd timeout to be
+modified, that change by Hannes Reinecke is now merged
+upstream on systemd, we still however need a non fatal
+way to deal with modules that take long and an easy way
+for us to find these modules. At least one proposal has
+been made for systemd but discussions on that approach
+hasn't gotten much traction [3] so we need to address
+this on the kernel, this will also be important for users
+of new kernels on old versions of systemd.
 
-The built-in driver issues is pretty straight forward, and for
-that we just need to let the probing happen behind the scenes.
+[0] https://launchpadlibrarian.net/169657493/kthread-defer-leaving.patch
+[1] https://lkml.org/lkml/2014/7/29/284
+[2] http://article.gmane.org/gmane.linux.kernel/1669604
+[3] http://lists.freedesktop.org/archives/systemd-devel/2014-August/021852.html
 
-The systemd issue is a bit more complex given the history of
-how it was identified and work arounds proposed and evaluated.
-The systemd issue was first identified first by Joseph when he
-bisected and found that Tetsuo Handa's commit 786235ee
-"kthread: make kthread_create() killable" modified kthread_create()
-to bail as soon as SIGKILL is received [0] [1]. This was found
-to cause some issues with some drivers and at times boot. There
-are other patches which could also enable the SIGKILL trigger on
-driver loading though:
+An example log output captured by purposely breaking the iwlwifi
+driver by using ssleep(33) on probe:
 
-70834d30 "usermodehelper: use UMH_WAIT_PROC consistently"
-b3449922 "usermodehelper: introduce umh_complete(sub_info)"
-d0bd587a "usermodehelper: implement UMH_KILLABLE"
-9d944ef3 "usermodehelper: kill umh_wait, renumber UMH_* constants"
-5b9bd473 "usermodehelper: ____call_usermodehelper() doesn't need do_exit()"
-3e63a93b "kmod: introduce call_modprobe() helper"
-1cc684ab "kmod: make __request_module() killable"
-
-All of these went in on 3.4 upstream, and were part of the fixes
-for CVE-2012-4398 [2] and documented more properly on Red Hat's
-bugzilla [3]. Any of these patches may contribute to having a
-module be properly killed now, but 786235ee is the latest in the
-series. For instance on SLE12 cxgb4 has been fond to get the
-SIGKILL even though SLE12 does not yet have 786235ee merged [4].
-
-Joseph found that the systemd-udevd process sends SIGKILL to
-systemd's usage of kmod for module loading if probe on a driver
-takes over 30 seconds [5] [6]. When this happens probe will fail
-on any driver, but *iff* its probe path ends up using kthreads.
-Its why booting on some systems will fail if the driver happens
-to be a storage related driver.  When helping debug the issue
-Tetsuo suggested fixing this issue by kmodifying kthread_create()
-to not leave upon SIGKILL immediately *unless* the source of the
-SIGKILL was the OOM, and actually wait for 10 seconds more before
-completing the kill [7] *unless* the source of the killer was OOM.
-This is not the only source of a kill, as noted above, this same
-issue is present on kernels without commit 786235ee. Additionally
-upon review of this patch Oleg rejected this change [8] and the
-discussion was punted out to systemd-devel to see if the default
-timeout could be increased from 30 seconds to 120 [9]. The opinion
-of the systemd maintainers was that the driver's behavior should
-be fixed [10].  Linus seems to agree [11], however more recently
-even networking drivers have been reported to fail on probe
-since just writing the firmware to a device and kicking it can
-take easy over 60 seconds [4]. Benjamim was able to trace the
-issues reported on cxgb4 down to the same systemd-udevd 30
-second timeout [6].  Even if asynch firmware loading was used
-on the cxgb4 driver the driver would *still* hit other delays
-due to the way the driver is currently designed, fixing that
-will require a bit of time and until then some users are left
-with a completely dysfunctional device.
-
-Folks were a bit confused here though -- its not only module
-initialization which is being penalized, because the driver core
-will immediately trigger the driver's own bus probe routine if
-autoprobe is enabled each driver's probe routine must also
-complete within the same 30 second timeout.  This means not only
-should driver's init complete within the set default systemd
-timeout of 30 seconds but so should the probe routine, and
-probe would obviously also have less time given that the
-timeout is for both the module's init() and its own bus' probe().
-A few drivers fail to complete the bus' probe within 30 seconds,
-its not the init routine that takes long. The timeout seems
-to currently hit *iff* kthreads are used somehow on the driver's
-probe path. For example purposely breaking the e1000e driver
-by adding a 30 second timeout on the probe path does not let
-systemd kill it, however doing the same for iwlwifi triggers
-the kill, this is because this driver uses request_threaded_irq()
-and behind the scenes the kernel uses ktread_create() on
-__setup_irq() to handle the thread *iff* its not nested, these
-are drivers that set irq_set_nested_thread(irq, 1).
-
-Hannes Reinecke has implemented now a timeout modifier for
-systemd, however *systemd* still needs a way to gracefully
-annotate drivers with long probes instead of failing these
-drivers and at worst boot. On the kernel side of things we
-can circumvent the timeout by probing asynchronously on only
-drivers that need it. If a driver is changed to use this new
-asynch probing, folks should be aware that any userspace
-that assumed that completing driver loading would enable
-device functionality will need to changed until the device
-appears.
-
-[0]  http://thread.gmane.org/gmane.linux.ubuntu.devel.kernel.general/39123
-[1]  https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1276705
-[2]  http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2012-4398
-[3]  https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2012-4398
-[4]  https://bugzilla.novell.com/show_bug.cgi?id=877622
-[5]  http://article.gmane.org/gmane.linux.kernel/1669550
-[6]  https://bugs.launchpad.net/ubuntu/+source/systemd/+bug/1297248
-[7]  https://launchpadlibrarian.net/169657493/kthread-defer-leaving.patch
-[8]  http://article.gmane.org/gmane.linux.kernel/1669604
-[9]  http://lists.freedesktop.org/archives/systemd-devel/2014-March/018006.html
-[10] http://article.gmane.org/gmane.comp.sysutils.systemd.devel/17860
-[11] http://article.gmane.org/gmane.linux.kernel/1671333
+[   43.853997] iwlwifi going to sleep for 33 seconds
+[   76.862975] iwlwifi done sleeping for 33 seconds
+[   76.863880] iwlwifi 0000:03:00.0: irq 34 for MSI/MSI-X
+[   76.863961] ------------[ cut here ]------------
+[   76.864648] WARNING: CPU: 0 PID: 479 at kernel/kthread.c:308 kthread_create_on_node+0x1ea/0x200()
+[   76.865309] Got SIGKILL but not from OOM, if this issue is on probe use .driver.async_probe
+[   76.865974] Modules linked in: xfs libcrc32c x86_pkg_temp_thermal intel_powerclamp coretemp kvm_intel kvm crct10dif_pclmul crc32_pclmul ghash_clmulni_intel aesni_intel snd_hda_codec_realtek snd_hda_codec_hdmi snd_hda_codec_generic snd_hda_intel snd_hda_controller snd_hda_codec snd_hwdep aes_x86_64 uvcvideo glue_helper videobuf2_vmalloc lrw gf128mul snd_pcm ablk_helper iTCO_wdt rtsx_pci_ms videobuf2_memops videobuf2_core rtsx_pci_sdmmc v4l2_common mmc_core videodev snd_timer thinkpad_acpi memstick iTCO_vendor_support snd mei_me rtsx_pci cryptd iwlwifi(+) mei shpchp tpm_tis soundcore pcspkr joydev lpc_ich mfd_core serio_raw tpm btusb wmi i2c_i801 thermal intel_smartconnect ac battery processor dm_mod btrfs xor raid6_pq i915 i2c_algo_bit e1000e drm_kms_helper sr_mod crc32c_intel cdrom xhci
+ _hcd drm video
+[   76.869197]  button sg
+[   76.870035] CPU: 0 PID: 479 Comm: systemd-udevd Not tainted 3.17.0-rc3-25.g1474ea5-desktop+ #12
+[   76.870915] Hardware name: LENOVO 20AW000LUS/20AW000LUS, BIOS GLET43WW (1.18 ) 12/04/2013
+[   76.871801]  0000000000000009 ffff8802133a3908 ffffffff8173960f ffff8802133a3950
+[   76.872771]  ffff8802133a3940 ffffffff81072eed ffff8800c9004480 ffffffff810c8fd0
+[   76.873693]  ffffffff81a77845 00000000ffffffff ffff8800c9d2abc0 ffff8802133a39a0
+[   76.874620] Call Trace:
+[   76.875522]  [<ffffffff8173960f>] dump_stack+0x4d/0x6f
+[   76.876379]  [<ffffffff81072eed>] warn_slowpath_common+0x7d/0xa0
+[   76.877286]  [<ffffffff810c8fd0>] ? irq_thread_check_affinity+0xb0/0xb0
+[   76.878177]  [<ffffffff81072f5c>] warn_slowpath_fmt+0x4c/0x50
+[   76.879048]  [<ffffffff810c8fd0>] ? irq_thread_check_affinity+0xb0/0xb0
+[   76.879898]  [<ffffffff8108fdea>] kthread_create_on_node+0x1ea/0x200
+[   76.880765]  [<ffffffff811bf50e>] ? enable_cpucache+0x4e/0xe0
+[   76.881617]  [<ffffffff810c9c55>] __setup_irq+0x165/0x580
+[   76.882459]  [<ffffffff8101bca6>] ? dma_generic_alloc_coherent+0x146/0x160
+[   76.883314]  [<ffffffffa03cf780>] ? iwl_pcie_disable_ict+0x40/0x40 [iwlwifi]
+[   76.884159]  [<ffffffff810ca1cf>] request_threaded_irq+0xcf/0x180
+[   76.885010]  [<ffffffffa03d6efa>] iwl_trans_pcie_alloc+0x35a/0x4b1 [iwlwifi]
+[   76.885861]  [<ffffffffa03cd3c0>] iwl_pci_probe+0x50/0x260 [iwlwifi]
+[   76.886646]  [<ffffffff8146a59d>] ? __pm_runtime_resume+0x4d/0x60
+[   76.887404]  [<ffffffff81383595>] local_pci_probe+0x45/0xa0
+[   76.888155]  [<ffffffff81384795>] ? pci_match_device+0xe5/0x110
+[   76.888899]  [<ffffffff813848d9>] pci_device_probe+0xd9/0x130
+[   76.889646]  [<ffffffff8146090d>] driver_probe_device+0x12d/0x3e0
+[   76.890391]  [<ffffffff81460c93>] __driver_attach+0x93/0xa0
+[   76.891132]  [<ffffffff81460c00>] ? __device_attach+0x40/0x40
+[   76.891870]  [<ffffffff8145e713>] bus_for_each_dev+0x63/0xa0
+[   76.892763]  [<ffffffff814602de>] driver_attach+0x1e/0x20
+[   76.893528]  [<ffffffff8145fe4e>] bus_add_driver+0xfe/0x270
+[   76.894292]  [<ffffffffa036d000>] ? 0xffffffffa036d000
+[   76.895118]  [<ffffffff814614e4>] driver_register+0x64/0xf0
+[   76.895847]  [<ffffffff81382f1c>] __pci_register_driver+0x4c/0x50
+[   76.896615]  [<ffffffffa03cd5f4>] iwl_pci_register_driver+0x24/0x40 [iwlwifi]
+[   76.896619]  [<ffffffffa036d085>] iwl_drv_init+0x85/0x1000 [iwlwifi]
+[   76.896621]  [<ffffffff81002144>] do_one_initcall+0xd4/0x210
+[   76.896624]  [<ffffffff811a49e4>] ? __vunmap+0x94/0x100
+[   76.896626]  [<ffffffff810f34d5>] load_module+0x1f25/0x2670
+[   76.896627]  [<ffffffff810ef170>] ? store_uevent+0x40/0x40
+[   76.896630]  [<ffffffff810f3d96>] SyS_finit_module+0x86/0xb0
+[   76.896632]  [<ffffffff817413ed>] system_call_fastpath+0x1a/0x1f
+[   76.896632] ---[ end trace 9a32581b585745d8 ]---
+[   76.982019] iwlwifi 0000:03:00.0: loaded firmware version 23.214.9.0 op_mode iwlmvm
+[   77.174150] iwlwifi 0000:03:00.0: Detected Intel(R) Dual Band Wireless AC 7260, REV=0x144
+[   77.174952] iwlwifi 0000:03:00.0: L1 Enabled; Disabling L0S
+[   77.175955] iwlwifi 0000:03:00.0: L1 Enabled; Disabling L0S
 
 Cc: Tejun Heo <tj@kernel.org>
 Cc: Arjan van de Ven <arjan@linux.intel.com>
@@ -164,159 +156,86 @@ Cc: linux-kernel@vger.kernel.org
 Cc: netdev@vger.kernel.org
 Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
 ---
- drivers/base/base.h    |  6 +++++
- drivers/base/bus.c     | 59 +++++++++++++++++++++++++++++++++++++++++++++++---
- drivers/base/dd.c      |  4 ++++
- include/linux/device.h |  5 +++++
- 4 files changed, 71 insertions(+), 3 deletions(-)
+ kernel/kmod.c    | 21 +++++++++++++++++++--
+ kernel/kthread.c | 19 +++++++++++++++++++
+ 2 files changed, 38 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/base/base.h b/drivers/base/base.h
-index 251c5d3..24836f1 100644
---- a/drivers/base/base.h
-+++ b/drivers/base/base.h
-@@ -43,11 +43,17 @@ struct subsys_private {
- };
- #define to_subsys_private(obj) container_of(obj, struct subsys_private, subsys.kobj)
+diff --git a/kernel/kmod.c b/kernel/kmod.c
+index 8637e04..b22228c 100644
+--- a/kernel/kmod.c
++++ b/kernel/kmod.c
+@@ -596,16 +596,33 @@ int call_usermodehelper_exec(struct subprocess_info *sub_info, int wait)
+ 		goto unlock;
  
-+struct driver_attach_work {
-+	struct work_struct work;
-+	struct device_driver *driver;
-+};
+ 	if (wait & UMH_KILLABLE) {
++		unsigned int i;
 +
- struct driver_private {
- 	struct kobject kobj;
- 	struct klist klist_devices;
- 	struct klist_node knode_bus;
- 	struct module_kobject *mkobj;
-+	struct driver_attach_work *attach_work;
- 	struct device_driver *driver;
- };
- #define to_driver(obj) container_of(obj, struct driver_private, kobj)
-diff --git a/drivers/base/bus.c b/drivers/base/bus.c
-index a5f41e4..70d51b2 100644
---- a/drivers/base/bus.c
-+++ b/drivers/base/bus.c
-@@ -85,6 +85,7 @@ static void driver_release(struct kobject *kobj)
- 	struct driver_private *drv_priv = to_driver(kobj);
+ 		retval = wait_for_completion_killable(&done);
+-		if (!retval)
++		if (likely(!retval))
+ 			goto wait_done;
  
- 	pr_debug("driver: '%s': %s\n", kobject_name(kobj), __func__);
-+	kfree(drv_priv->attach_work);
- 	kfree(drv_priv);
- }
- 
-@@ -662,10 +663,56 @@ static void remove_driver_private(struct device_driver *drv)
- 	struct driver_private *priv = drv->p;
- 
- 	kobject_put(&priv->kobj);
-+	kfree(priv->attach_work);
- 	kfree(priv);
- 	drv->p = NULL;
- }
- 
-+static void driver_attach_workfn(struct work_struct *work)
-+{
-+	int ret;
-+	struct driver_attach_work *attach_work =
-+		container_of(work, struct driver_attach_work, work);
-+	struct device_driver *drv = attach_work->driver;
-+	ktime_t calltime, delta, rettime;
-+	unsigned long long duration;
++		/*
++		 * I got SIGKILL, but wait for 60 more seconds for completion
++		 * unless chosen by the OOM killer. This delay is there as a
++		 * workaround for boot failure caused by SIGKILL upon device
++		 * driver initialization timeout.
++		 *
++		 * N.B. this will actually let the thread complete regularly,
++		 * wait_for_completion() will be used eventually, the 60 second
++		 * try here is just to check for the OOM over that time.
++		 */
++		WARN_ONCE(!test_thread_flag(TIF_MEMDIE),
++			  "Got SIGKILL but not from OOM, if this issue is on probe use .driver.async_probe\n");
++		for (i = 0; i < 60 && !test_thread_flag(TIF_MEMDIE); i++)
++			if (wait_for_completion_timeout(&done, HZ))
++				goto wait_done;
 +
-+	calltime = ktime_get();
-+
-+	ret = driver_attach(drv);
-+	if (ret != 0) {
-+		remove_driver_private(drv);
-+		bus_put(drv->bus);
-+	}
-+
-+	rettime = ktime_get();
-+	delta = ktime_sub(rettime, calltime);
-+	duration = (unsigned long long) ktime_to_ns(delta) >> 10;
-+
-+	pr_debug("bus: '%s': add driver %s attach completed after %lld usecs\n",
-+		 drv->bus->name, drv->name, duration);
-+}
-+
-+int bus_driver_async_probe(struct device_driver *drv)
-+{
-+	struct driver_private *priv = drv->p;
-+
-+	priv->attach_work = kzalloc(sizeof(struct driver_attach_work),
-+				    GFP_KERNEL);
-+	if (!priv->attach_work)
-+		return -ENOMEM;
-+
-+	priv->attach_work->driver = drv;
-+	INIT_WORK(&priv->attach_work->work, driver_attach_workfn);
-+
-+	pr_debug("bus: '%s': probe for driver %s is run asynchronously\n",
-+		 drv->bus->name, drv->name);
-+
-+	queue_work(system_unbound_wq, &priv->attach_work->work);
-+
-+	return 0;
-+}
-+
- /**
-  * bus_add_driver - Add a driver to the bus.
-  * @drv: driver.
-@@ -698,9 +745,15 @@ int bus_add_driver(struct device_driver *drv)
- 
- 	klist_add_tail(&priv->knode_bus, &bus->p->klist_drivers);
- 	if (drv->bus->p->drivers_autoprobe) {
--		error = driver_attach(drv);
--		if (error)
--			goto out_unregister;
-+		if (drv->owner && drv->async_probe) {
-+			error = bus_driver_async_probe(drv);
-+			if (error)
-+				goto out_unregister;
-+		} else {
-+			error = driver_attach(drv);
-+			if (error)
-+				goto out_unregister;
-+		}
+ 		/* umh_complete() will see NULL and free sub_info */
+ 		if (xchg(&sub_info->complete, NULL))
+ 			goto unlock;
+ 		/* fallthrough, umh_complete() was already called */
  	}
- 	module_add_driver(drv->owner, drv);
- 
-diff --git a/drivers/base/dd.c b/drivers/base/dd.c
-index e4ffbcf..f1565f3 100644
---- a/drivers/base/dd.c
-+++ b/drivers/base/dd.c
-@@ -507,6 +507,10 @@ static void __device_release_driver(struct device *dev)
- 
- 	drv = dev->driver;
- 	if (drv) {
-+		if (drv->owner && drv->async_probe) {
-+			struct driver_private *priv = drv->p;
-+			flush_work(&priv->attach_work->work);
-+		}
- 		pm_runtime_get_sync(dev);
- 
- 		driver_sysfs_remove(dev);
-diff --git a/include/linux/device.h b/include/linux/device.h
-index 43d183a..7de1386b 100644
---- a/include/linux/device.h
-+++ b/include/linux/device.h
-@@ -200,6 +200,10 @@ extern struct klist *bus_get_device_klist(struct bus_type *bus);
-  * @owner:	The module owner.
-  * @mod_name:	Used for built-in modules.
-  * @suppress_bind_attrs: Disables bind/unbind via sysfs.
-+ * @async_probe: requests probe to be run asynchronously. Drivers that
-+ * 	have this enabled must take care that userspace will return
-+ * 	immediately upon driver loading as probing will happen behind the
-+ * 	schenes asynchronously.
-  * @of_match_table: The open firmware table.
-  * @acpi_match_table: The ACPI match table.
-  * @probe:	Called to query the existence of a specific device,
-@@ -233,6 +237,7 @@ struct device_driver {
- 	const char		*mod_name;	/* used for built-in modules */
- 
- 	bool suppress_bind_attrs;	/* disables bind/unbind via sysfs */
-+	bool async_probe;
- 
- 	const struct of_device_id	*of_match_table;
- 	const struct acpi_device_id	*acpi_match_table;
+-
+ 	wait_for_completion(&done);
+ wait_done:
+ 	retval = sub_info->retval;
+diff --git a/kernel/kthread.c b/kernel/kthread.c
+index ef48322..bfb6dbe 100644
+--- a/kernel/kthread.c
++++ b/kernel/kthread.c
+@@ -292,6 +292,24 @@ struct task_struct *kthread_create_on_node(int (*threadfn)(void *data),
+ 	 * new kernel thread.
+ 	 */
+ 	if (unlikely(wait_for_completion_killable(&done))) {
++		unsigned int i;
++
++		/*
++		 * I got SIGKILL, but wait for 10 more seconds for completion
++		 * unless chosen by the OOM killer. This delay is there as a
++		 * workaround for boot failure caused by SIGKILL upon device
++		 * driver initialization timeout.
++		 *
++		 * N.B. this will actually let the thread complete regularly,
++		 * wait_for_completion() will be used eventually, the 10 second
++		 * try here is just to check for the OOM over that time.
++		 */
++		WARN_ONCE(!test_thread_flag(TIF_MEMDIE),
++			  "Got SIGKILL but not from OOM, if this issue is on probe use .driver.async_probe\n");
++		for (i = 0; i < 10 && !test_thread_flag(TIF_MEMDIE); i++)
++			if (wait_for_completion_timeout(&done, HZ))
++				goto ready;
++
+ 		/*
+ 		 * If I was SIGKILLed before kthreadd (or new kernel thread)
+ 		 * calls complete(), leave the cleanup of this structure to
+@@ -305,6 +323,7 @@ struct task_struct *kthread_create_on_node(int (*threadfn)(void *data),
+ 		 */
+ 		wait_for_completion(&done);
+ 	}
++ready:
+ 	task = create->result;
+ 	if (!IS_ERR(task)) {
+ 		static const struct sched_param param = { .sched_priority = 0 };
 -- 
 2.0.3
