@@ -1,97 +1,70 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [RFC net-next 1/5] bonding: 3ad: use curr_slave_lock instead of bond->lock
-Date: Fri,  5 Sep 2014 20:16:47 +0200
-Message-ID: <1409941011-5494-2-git-send-email-nikolay@redhat.com>
+Subject: [RFC net-next 2/5] bonding: alb: clean bond->lock
+Date: Fri,  5 Sep 2014 20:16:48 +0200
+Message-ID: <1409941011-5494-3-git-send-email-nikolay@redhat.com>
 References: <1409941011-5494-1-git-send-email-nikolay@redhat.com>
 Cc: vfalico@gmail.com, j.vosburgh@gmail.com, andy@greyhouse.net,
 	davem@davemloft.net, Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:65165 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:61338 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750906AbaIESRD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Sep 2014 14:17:03 -0400
+	id S1750906AbaIESRF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Sep 2014 14:17:05 -0400
 In-Reply-To: <1409941011-5494-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In 3ad mode the only syncing needed by bond->lock is for the wq
-and the recv handler, so change them to use curr_slave_lock.
-There're no locking dependencies here as 3ad doesn't use
-curr_slave_lock at all.
+We can remove the lock/unlock as it's no longer necessary since
+RTNL should be held while calling bond_alb_set_mac_address().
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_3ad.c  |  9 ++++-----
- drivers/net/bonding/bond_main.c | 12 +++++++-----
- 2 files changed, 11 insertions(+), 10 deletions(-)
+ drivers/net/bonding/bond_alb.c | 11 ++---------
+ 1 file changed, 2 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index ee2c73a9de39..5d27a6207384 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2057,7 +2057,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
- 	struct port *port;
- 	bool should_notify_rtnl = BOND_SLAVE_NOTIFY_LATER;
- 
--	read_lock(&bond->lock);
-+	read_lock(&bond->curr_slave_lock);
- 	rcu_read_lock();
- 
- 	/* check if there are any slaves */
-@@ -2120,7 +2120,7 @@ re_arm:
- 		}
- 	}
- 	rcu_read_unlock();
--	read_unlock(&bond->lock);
-+	read_unlock(&bond->curr_slave_lock);
- 
- 	if (should_notify_rtnl && rtnl_trylock()) {
- 		bond_slave_state_notify(bond);
-@@ -2395,7 +2395,6 @@ int __bond_3ad_get_active_agg_info(struct bonding *bond,
- 	return 0;
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 73c21e233131..028496205f39 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1775,8 +1775,7 @@ void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char
+  * Set the bond->curr_active_slave to @new_slave and handle
+  * mac address swapping and promiscuity changes as needed.
+  *
+- * If new_slave is NULL, caller must hold curr_slave_lock or
+- * bond->lock for write.
++ * If new_slave is NULL, caller must hold curr_slave_lock for write
+  *
+  * If new_slave is not NULL, caller must hold RTNL, curr_slave_lock
+  * for write.  Processing here may sleep, so no other locks may be held.
+@@ -1857,12 +1856,8 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+ 	write_lock_bh(&bond->curr_slave_lock);
  }
  
--/* Wrapper used to hold bond->lock so no slave manipulation can occur */
- int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
+-/*
+- * Called with RTNL
+- */
++/* Called with RTNL */
+ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+-	__acquires(&bond->lock)
+-	__releases(&bond->lock)
  {
- 	int ret;
-@@ -2487,9 +2486,9 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
- 	if (!lacpdu)
- 		return ret;
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	struct sockaddr *sa = addr;
+@@ -1895,14 +1890,12 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+ 	} else {
+ 		alb_set_slave_mac_addr(curr_active, bond_dev->dev_addr);
  
--	read_lock(&bond->lock);
-+	read_lock(&bond->curr_slave_lock);
- 	ret = bond_3ad_rx_indication(lacpdu, slave, skb->len);
--	read_unlock(&bond->lock);
-+	read_unlock(&bond->curr_slave_lock);
- 	return ret;
- }
+-		read_lock(&bond->lock);
+ 		alb_send_learning_packets(curr_active,
+ 					  bond_dev->dev_addr, false);
+ 		if (bond->alb_info.rlb_enabled) {
+ 			/* inform clients mac address has changed */
+ 			rlb_req_update_slave_clients(bond, curr_active);
+ 		}
+-		read_unlock(&bond->lock);
+ 	}
  
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index f0f5eab0fab1..dcd331bd0c17 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1687,13 +1687,15 @@ static int __bond_release_one(struct net_device *bond_dev,
- 	 * for this slave anymore.
- 	 */
- 	netdev_rx_handler_unregister(slave_dev);
--	write_lock_bh(&bond->lock);
- 
--	/* Inform AD package of unbinding of slave. */
--	if (BOND_MODE(bond) == BOND_MODE_8023AD)
-+	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
-+		/* Sync against bond_3ad_rx_indication and
-+		 * bond_3ad_state_machine_handler
-+		 */
-+		write_lock_bh(&bond->curr_slave_lock);
- 		bond_3ad_unbind_slave(slave);
--
--	write_unlock_bh(&bond->lock);
-+		write_unlock_bh(&bond->curr_slave_lock);
-+	}
- 
- 	netdev_info(bond_dev, "Releasing %s interface %s\n",
- 		    bond_is_active_slave(slave) ? "active" : "backup",
+ 	return 0;
 -- 
 1.9.3
