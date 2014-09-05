@@ -1,61 +1,55 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [Patch net] ipv6: restore the behavior of ipv6_sock_ac_drop()
-Date: Fri, 5 Sep 2014 15:41:28 -0700
-Message-ID: <CAHA+R7N+WGNV5yTQ_hVbn-ez4Ar9395HzOGUU4tG9uLHqFPndA@mail.gmail.com>
-References: <1409952780-24471-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1409955985.1192797.164218289.4192DDA7@webmail.messagingengine.com>
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
+Date: Fri, 05 Sep 2014 15:45:08 -0700
+Message-ID: <540A3CF4.5070508@linux.intel.com>
+References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com> <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com> <20140905141241.GC10455@mtj.dyndns.org> <20140905164405.GA28964@core.coreip.homeip.net> <20140905174925.GA12991@mtj.dyndns.org> <20140905181003.GA29003@core.coreip.homeip.net> <20140905222956.GA15723@mtj.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Sabrina Dubroca <sd@queasysnail.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:48935 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753246AbaIEWla (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 18:41:30 -0400
-Received: by mail-la0-f54.google.com with SMTP id b17so14411739lan.41
-        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 15:41:28 -0700 (PDT)
-In-Reply-To: <1409955985.1192797.164218289.4192DDA7@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	C
+To: Tejun Heo <tj@kernel.org>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140905222956.GA15723@mtj.dyndns.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 5, 2014 at 3:26 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Hi Cong,
+On 9/5/2014 3:29 PM, Tejun Heo wrote:
+> Hello, Dmitry.
 >
-> Just doing normal review, really no bad intentions, just technical
-> follow-up. ;)
+> On Fri, Sep 05, 2014 at 11:10:03AM -0700, Dmitry Torokhov wrote:
+>> I do not agree that it is actually user-visible change: generally speaking you
+>> do not really know if device is there or not. They come and go. Like I said,
+>> consider all permutations, with hot-pluggable buses, deferred probing, etc,
+>
+> It is for storage devices which always have guaranteed synchronous
+> probing on module load and well-defined probing order.  Sure, modern
+> setups are a lot more dynamic but I'm quite certain that there are
+> setups in the wild which depend on storage driver loading being
+> synchronous.  We can't simply declare one day that such behavior is
+> broken and break, most likely, their boots.
 
-I believe you are not supposed to do it since definitely you
-said you don't want to work with me. You said it, not me,
-I respect any of your choice. :)
+we even depend on this in the mount-by-label cases
 
->
-> On Fri, Sep 5, 2014, at 23:33, Cong Wang wrote:
->> It is possible that the interface is already gone after joining
->> the list of anycast on this interface as we don't hold a refcount
->> for the device, in this case we are safe to ignore the error.
->
-> anycast code actually inserts routes into the routing table and holds a
-> reference on the interface while that route is active.
-
-But route could be deleted.
-
->
->> What's more important, for API compatibility we should not
->> change this behavior for applications even if it were correct.
->
-> IMHO adding new error codes never breaks existing applications because
-> there is no way they can explore all possible errno variables. Also we
-> already report ENODEV from multicast setsockopts. So I think it would be
-> ok to leave it as is, but I have no strong opinion on that and it would
-> be ok by me if the patch got accepted (maybe update the changelog).
->
-
-Again, too late to change, the code has been there since the beginning
-of git history. You should have a strong argument if you want to change it,
-otherwise restore old behavior, that is all. Obviously you don't even mention
-this when you accept that patch.
+many setups assume that the internal storage prevails over the USB stick in the case of conflicts.
+it's a security issue; you don't want the built in secure bootloader that has a kernel root argument
+by label/uuid.
+the security there tends to assume that built-in wins over USB
