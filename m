@@ -1,92 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2] ip: support of usec rtt in tcp_metrics
-Date: Fri, 05 Sep 2014 16:54:04 -0700
-Message-ID: <1409961244.26422.142.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next v2 1/3] net: Add function for parsing the header
+ length out of linear ethernet frames
+Date: Fri, 5 Sep 2014 16:39:12 -0700
+Message-ID: <20140905233910.GA19153@its-macbook-pro.plumgrid.com>
+References: <20140905231807.2035.33588.stgit@ahduyck-bv4.jf.intel.com>
+ <20140905232017.2035.58501.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, jeffrey.t.kirsher@intel.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:61164 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751047AbaIEXyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 19:54:06 -0400
-Received: by mail-pa0-f44.google.com with SMTP id rd3so23326449pab.31
-        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 16:54:05 -0700 (PDT)
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:32945 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750804AbaIEXjL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 19:39:11 -0400
+Received: by mail-pd0-f176.google.com with SMTP id w10so7244702pde.7
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 16:39:11 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140905232017.2035.58501.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, Sep 05, 2014 at 07:20:26PM -0400, Alexander Duyck wrote:
+> This patch updates some of the flow_dissector api so that it can be used to
+> parse the length of ethernet buffers stored in fragments.  Most of the
+> changes needed were to __skb_get_poff as it needed to be updated to support
+> sending a linear buffer instead of a skb.
+> 
+> I have split __skb_get_poff into two functions, the first is skb_get_poff
+> and it retains the functionality of the original __skb_get_poff.  The other
+> function is __skb_get_poff which now works much like __skb_flow_dissect in
+> relation to skb_flow_dissect in that it provides the same functionality but
+> works with just a data buffer and hlen instead of needing an skb.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
+>  include/linux/etherdevice.h |    1 +
+>  include/linux/skbuff.h      |    4 +++-
+>  include/net/flow_keys.h     |    2 ++
+>  net/core/filter.c           |    2 +-
+>  net/core/flow_dissector.c   |   46 ++++++++++++++++++++++++++++++-------------
+>  net/ethernet/eth.c          |   27 +++++++++++++++++++++++++
+>  6 files changed, 66 insertions(+), 16 deletions(-)
 
-Starting from linux-3.15, kernel supports new tcp metric attributes :
-TCP_METRIC_RTT_US & TCP_METRIC_RTTVAR_US
-
-Update ip command to detect their use.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- ip/tcp_metrics.c |   31 ++++++++++++++++++++++++-------
- 1 file changed, 24 insertions(+), 7 deletions(-)
-
-diff --git a/ip/tcp_metrics.c b/ip/tcp_metrics.c
-index e0f0344..bbbb4cc 100644
---- a/ip/tcp_metrics.c
-+++ b/ip/tcp_metrics.c
-@@ -216,6 +216,7 @@ static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 	a = attrs[TCP_METRICS_ATTR_VALS];
- 	if (a) {
- 		struct rtattr *m[TCP_METRIC_MAX + 1 + 1];
-+		unsigned long rtt = 0, rttvar = 0;
- 
- 		parse_rtattr_nested(m, TCP_METRIC_MAX + 1, a);
- 
-@@ -225,18 +226,30 @@ static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 			a = m[i + 1];
- 			if (!a)
- 				continue;
--			if (metric_name[i])
--				fprintf(fp, " %s ", metric_name[i]);
--			else
--				fprintf(fp, " metric_%d ", i);
--
-+			if (i != TCP_METRIC_RTT &&
-+			    i != TCP_METRIC_RTT_US &&
-+			    i != TCP_METRIC_RTTVAR &&
-+			    i != TCP_METRIC_RTTVAR_US) {
-+				if (metric_name[i])
-+					fprintf(fp, " %s ", metric_name[i]);
-+				else
-+					fprintf(fp, " metric_%d ", i);
-+			}
- 			val = rta_getattr_u32(a);
- 			switch (i) {
- 			case TCP_METRIC_RTT:
--				fprintf(fp, "%luus", (val * 1000UL) >> 3);
-+				if (!rtt)
-+					rtt = (val * 1000UL) >> 3;
- 				break;
- 			case TCP_METRIC_RTTVAR:
--				fprintf(fp, "%luus", (val * 1000UL) >> 2);
-+				if (!rttvar)
-+					rttvar = (val * 1000UL) >> 2;
-+				break;
-+			case TCP_METRIC_RTT_US:
-+				rtt = val >> 3;
-+				break;
-+			case TCP_METRIC_RTTVAR_US:
-+				rttvar = val >> 2;
- 				break;
- 			case TCP_METRIC_SSTHRESH:
- 			case TCP_METRIC_CWND:
-@@ -246,6 +259,10 @@ static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 				break;
- 			}
- 		}
-+		if (rtt)
-+			fprintf(fp, " rtt %luus", rtt);
-+		if (rttvar)
-+			fprintf(fp, " rttvar %luus", rttvar);
- 	}
- 
- 	a = attrs[TCP_METRICS_ATTR_FOPEN_MSS];
+names and bpf related bits look good to me
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
