@@ -1,133 +1,84 @@
-From: Mircea Gherzan <mgherzan@gmail.com>
-Subject: Re: [PATCH net-next 2/3] net: bpf: arm: address randomize and write
- protect JIT code
-Date: Sat, 6 Sep 2014 19:36:14 +0200
-Message-ID: <CAN9tCgTPdK1jya5br4k1GhJ1KDVqarV4gLAbZL=NyMN5xHnuYg@mail.gmail.com>
-References: <1409996567-2170-1-git-send-email-dborkman@redhat.com>
-	<1409996567-2170-3-git-send-email-dborkman@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Performance regression on kernels 3.10 and newer
+Date: Sat, 06 Sep 2014 11:21:52 -0700
+Message-ID: <1410027712.11872.40.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <53ED4354.9090904@intel.com>
+	 <20140814.162024.2218312002979492106.davem@davemloft.net>
+	 <CA+mtBx-c0HCAES9PCyGn7cChZsX0KaLgdziFL_e1iRmkdG0dsQ@mail.gmail.com>
+	 <20140821.162406.2076033247433267586.davem@davemloft.net>
+	 <1410014704.11872.16.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1410017237.11872.31.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1410018384.11872.33.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1410021507.11872.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: davem@davemloft.net, ast@plumgrid.com, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: therbert@google.com, alexander.h.duyck@intel.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f181.google.com ([209.85.216.181]:45460 "EHLO
-	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751371AbaIFRgO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 13:36:14 -0400
-Received: by mail-qc0-f181.google.com with SMTP id i17so13712221qcy.26
-        for <netdev@vger.kernel.org>; Sat, 06 Sep 2014 10:36:14 -0700 (PDT)
-In-Reply-To: <1409996567-2170-3-git-send-email-dborkman@redhat.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:61876 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751784AbaIFSVz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 14:21:55 -0400
+Received: by mail-pa0-f43.google.com with SMTP id bj1so1291539pad.2
+        for <netdev@vger.kernel.org>; Sat, 06 Sep 2014 11:21:54 -0700 (PDT)
+In-Reply-To: <1410021507.11872.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-09-06 11:42 GMT+02:00 Daniel Borkmann <dborkman@redhat.com>:
-> This is the ARM variant for 314beb9bcab ("x86: bpf_jit_comp: secure bpf
-> jit against spraying attacks").
->
-> It is now possible to implement it due to commits 75374ad47c64 ("ARM: mm:
-> Define set_memory_* functions for ARM") and dca9aa92fc7c ("ARM: add
-> DEBUG_SET_MODULE_RONX option to Kconfig") which added infrastructure for
-> this facility.
->
-> Thus, this patch makes sure the BPF generated JIT code is marked RO, as
-> other kernel text sections, and also lets the generated JIT code start
-> at a pseudo random offset instead on a page boundary. The holes are filled
-> with illegal instructions.
->
-> JIT tested on armv7hl with BPF test suite.
->
-> Reference: http://mainisusuallyafunction.blogspot.com/2012/11/attacking-hardened-linux-systems-with.html
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> Cc: Mircea Gherzan <mgherzan@gmail.com>
-> ---
->  arch/arm/net/bpf_jit_32.c | 32 ++++++++++++++++++++++++++------
->  1 file changed, 26 insertions(+), 6 deletions(-)
->
-> diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-> index a76623b..2d1a5b9 100644
-> --- a/arch/arm/net/bpf_jit_32.c
-> +++ b/arch/arm/net/bpf_jit_32.c
-> @@ -12,7 +12,6 @@
->  #include <linux/compiler.h>
->  #include <linux/errno.h>
->  #include <linux/filter.h>
-> -#include <linux/moduleloader.h>
->  #include <linux/netdevice.h>
->  #include <linux/string.h>
->  #include <linux/slab.h>
-> @@ -174,6 +173,15 @@ static inline bool is_load_to_a(u16 inst)
->         }
->  }
->
-> +static void jit_fill_hole(void *area, unsigned int size)
-> +{
-> +       /* Insert illegal UND instructions. */
-> +       u32 *ptr, fill_ins = 0xe7ffffff;
-> +       /* We are guaranteed to have aligned memory. */
-> +       for (ptr = area; size >= sizeof(u32); size -= sizeof(u32))
-> +               *ptr++ = fill_ins;
-> +}
-> +
->  static void build_prologue(struct jit_ctx *ctx)
->  {
->         u16 reg_set = saved_regs(ctx);
-> @@ -859,9 +867,11 @@ b_epilogue:
->
->  void bpf_jit_compile(struct bpf_prog *fp)
->  {
-> +       struct bpf_binary_header *header;
->         struct jit_ctx ctx;
->         unsigned tmp_idx;
->         unsigned alloc_size;
-> +       u8 *target_ptr;
->
->         if (!bpf_jit_enable)
->                 return;
-> @@ -897,13 +907,15 @@ void bpf_jit_compile(struct bpf_prog *fp)
->         /* there's nothing after the epilogue on ARMv7 */
->         build_epilogue(&ctx);
->  #endif
-> -
->         alloc_size = 4 * ctx.idx;
-> -       ctx.target = module_alloc(alloc_size);
-> -       if (unlikely(ctx.target == NULL))
-> +       header = bpf_jit_binary_alloc(alloc_size, &target_ptr,
-> +                                     4, jit_fill_hole);
-> +       if (header == NULL)
->                 goto out;
->
-> +       ctx.target = (u32 *) target_ptr;
->         ctx.idx = 0;
-> +
->         build_prologue(&ctx);
->         build_body(&ctx);
->         build_epilogue(&ctx);
-> @@ -919,6 +931,7 @@ void bpf_jit_compile(struct bpf_prog *fp)
->                 /* there are 2 passes here */
->                 bpf_jit_dump(fp->len, alloc_size, 2, ctx.target);
->
-> +       set_memory_ro((unsigned long)header, header->pages);
->         fp->bpf_func = (void *)ctx.target;
->         fp->jited = 1;
->  out:
-> @@ -928,8 +941,15 @@ out:
->
->  void bpf_jit_free(struct bpf_prog *fp)
->  {
-> -       if (fp->jited)
-> -               module_free(NULL, fp->bpf_func);
-> +       unsigned long addr = (unsigned long)fp->bpf_func & PAGE_MASK;
-> +       struct bpf_binary_header *header = (void *)addr;
-> +
-> +       if (!fp->jited)
-> +               goto free_filter;
-> +
-> +       set_memory_rw(addr, header->pages);
-> +       bpf_jit_binary_free(header);
->
-> +free_filter:
->         bpf_prog_unlock_free(fp);
->  }
+On Sat, 2014-09-06 at 09:38 -0700, Eric Dumazet wrote:
+> On Sat, 2014-09-06 at 08:46 -0700, Eric Dumazet wrote:
+> 
+> > Works fine on IPv4, not on IPv6, I will submit a v2 (with a proper title
+> > btw)
+> 
+> Oh well, we first need to fix IPv6 early demux.
+> 
+> Current net-next kernel profile
+> 
+> +  20.95%      netserver  [kernel.kallsyms]    [k] dst_release     
+> +  19.33%      netserver  [kernel.kallsyms]    [k] ip6_pol_route.isra.46
+> +  11.75%      netserver  [kernel.kallsyms]    [k] inet6_sk_rx_dst_set
+> +   3.72%      netserver  [kernel.kallsyms]    [k] ip6_input_finish
+> 
+> So we repeat over and over calls to inet6_sk_rx_dst_set(),
+> something is surely wrong.
+> 
 
-Acked-by: Mircea Gherzan <mgherzan@gmail.com>
+Nicolas, it seems that after your commit
+(6f3118b571b8a4c06c7985dc3172c3526cb86253 "ipv6: use net->rt_genid to
+check dst validity")  IP early demux is broken.
+
+
+Basically, we now hit the following condition in ip6_dst_check()
+
+if (rt->rt6i_genid != rt_genid_ipv6(dev_net(rt->dst.dev))) 
+
+In my traces, rt->rt6i_genid stays at 2, and the rt_genid_ipv6()
+increments every time a route is added/deleted.
+
+So we keep calling dst_release(), and inet6_sk_rx_dst_set(),
+but the route we keep installing is already wrong, as its genid is too
+old.
+
+Does following fix make any sense ?
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index f74b0417bd60..a139a16298e3 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -947,9 +947,10 @@ restart:
+ 		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
+ 	else if (!(rt->dst.flags & DST_HOST))
+ 		nrt = rt6_alloc_clone(rt, &fl6->daddr);
+-	else
++	else {
++		rt->rt6i_genid = rt_genid_ipv6(net);
+ 		goto out2;
+-
++	}
+ 	ip6_rt_put(rt);
+ 	rt = nrt ? : net->ipv6.ip6_null_entry;
+ 
