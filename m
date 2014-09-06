@@ -1,156 +1,80 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [RFC net-next 1/5] bonding: 3ad: use curr_slave_lock instead
- of bond->lock
-Date: Sat, 06 Sep 2014 12:19:01 +0200
-Message-ID: <540ADF95.3070606@redhat.com>
-References: <1409941011-5494-1-git-send-email-nikolay@redhat.com> <1409941011-5494-2-git-send-email-nikolay@redhat.com> <23382.1409949468@localhost.localdomain> <540A247A.60202@redhat.com> <27301.1409965688@localhost.localdomain>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH v2] iproute2 tests: Fix problem with test running
+Date: Sat, 6 Sep 2014 13:31:09 +0300
+Message-ID: <CAMw6YJ+5qR2o6NNwD7RNPLoqLwMDT57kWXRQWehYJwbiQA4nYg@mail.gmail.com>
+References: <1409937036-30712-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vfalico@gmail.com, andy@greyhouse.net,
-	davem@davemloft.net
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33207 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750838AbaIFKTc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Sep 2014 06:19:32 -0400
-In-Reply-To: <27301.1409965688@localhost.localdomain>
+Received: from mail-qa0-f50.google.com ([209.85.216.50]:38741 "EHLO
+	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750838AbaIFKbK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 06:31:10 -0400
+Received: by mail-qa0-f50.google.com with SMTP id cm18so11903903qab.37
+        for <netdev@vger.kernel.org>; Sat, 06 Sep 2014 03:31:09 -0700 (PDT)
+In-Reply-To: <1409937036-30712-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/06/2014 03:08 AM, Jay Vosburgh wrote:
-> Nikolay Aleksandrov <nikolay@redhat.com> wrote:
-> 
->> On 09/05/2014 10:37 PM, Jay Vosburgh wrote:
->>> Nikolay Aleksandrov <nikolay@redhat.com> wrote:
->>>
->>>> In 3ad mode the only syncing needed by bond->lock is for the wq
->>>> and the recv handler, so change them to use curr_slave_lock.
->>>> There're no locking dependencies here as 3ad doesn't use
->>>> curr_slave_lock at all.
->>>
->>> 	One subtle aspect of the 3ad locking is that it's not really
->>> using the "read" property of the read lock with regard to the state
->>> machine; it's largely using it as a spin lock, because there is at most
->>> one reader and at most one writer in the full state machine code
->>> (although there are multiple reader possibilities elsewhere).  The code
->>> would break if there actually were multiple read-lock holders in the
->>> full state machine or aggregator selection logic simultaneously.
->>>
->>> 	Because the state machine and incoming LACPDU cases both acquire
->>> the read lock for read, there is a separate per-port "state machine"
->>> spin lock to protect only the per-port fields that LACPDU and periodic
->>> state machine both touch.  The incoming LACPDU case doesn't call into
->>> the full state machine, only the RX processing which can't go into agg
->>> selection, so this works.
->>>
->>> 	The agg selection can be entered via the unbind path or the
->>> periodic state machine (and only these two paths), and relies on the
->>> "one reader max" usage of the read lock to mutex the code paths that may
->>> enter agg selection.
->>>
->>> 	I suspect that what 3ad may need is a spin lock, not a read
->>> lock, because the multiple reader property isn't really being utilized;
->>> the incoming LACPDU and periodic state machine both acquire the read
->>> lock for read, but then acquire a second per-port spin lock.  If the
->>> "big" (bond->lock currently) lock is a spin lock, then the per-port
->>> state machine lock is unnecessary, as the only purpose of the per-port
->>> lock is to mutex the one case that does have multiple readers.
->>>
->>> 	In actual practice I doubt there are multiple simultaneous
->>> readers very often; the periodic machine runs every 100 ms, but LACPDUs
->>> arrive for each port either every second or every 30 seconds (depending
->>> on admin configuration).
->>>
->>> 	Since contention on these locks is generally low, we're probably
->>> better off in the long run with something simpler to understand.
->>>
->>> 	So, what I'm kind of saying here is that this patch isn't a bad
->>> first step, but at least for the 3ad case, removal of the bond->lock
->>> itself doesn't really simplify the locking as much as could be done.
->>>
->>> 	Thoughts?
->>>
->>> 	-J
->>>
->>>
->>
->> Hi Jay,
->> That is a very good point, my main idea was to protect __bond_release_one
->> and the machine handler otherwise I'd have removed it altogether. I know
->> that this doesn't improve on the 3ad situation, I did it mostly to get rid
->> of bond->lock first. Going with a spinlock certainly makes sense there as
->> we don't spend much time inside and the contention is not high as you said
->> and would simplify the 3ad code so I like it :-)
->> I will include it in my bond-locking todo list and will post a follow-up
->> once I've cleared the details up as I'm speaking from the top of my head
->> right now, but first I'd like to clean the current lock use especially with
->> regard to curr_slave_lock and bring it to the necessary minimum. In the
->> long run I think that we either might be able to remove curr_slave_lock
->> completely or at least reduce it to ~ 3 places and with the spinlock that
->> you suggested here, we'll be definitely able to remove it from the 3ad code.
-> 
-> 	I looked into curr_slave_lock some time ago, and as I recall
-> there's not much it really protects that's not also covered by RTNL,
-> since changes to the active slave are all happening under RTNL these
-> days.  And that was before the RCU conversion; with the current code,
-> I'm not sure the curr_slave_lock is providing much mutexing beyond what
-> we get from RTNL.
-> 
-Right, that was one of the main things that drove me to start this, after
-reviewing Mahesh's patches I realized most of the callers already had RTNL
-and curr_slave_lock looked mostly redundant, and bond->lock completely
-redundant.
+I will re-send patch v2 with using "sudo -E".
 
-> 	There are a couple of special cases, like the TLB rebalance in
-> bond_alb_monitor, but that happens once every 10 seconds, and could just
-> grab RTNL for this bit:
-> 
-> 			if (slave == rcu_access_pointer(bond->curr_active_slave)) {
-> 				SLAVE_TLB_INFO(slave).load =
-> 					bond_info->unbalanced_load /
-> 						BOND_TLB_REBALANCE_INTERVAL;
-> 				bond_info->unbalanced_load = 0;
-> 
-> 	the "unbalanced_load," now that I'm looking at it, might already
-> have some race problems since it's now updated outside of bonding locks
-> in bond_do_alb_xmit.  It'll probably race with multiple bond_do_alb_xmit
-> functions running simultaneously as well as the tx rebalance in
-> bond_alb_monitor.  I think the worst that will happen is that the tx
-> traffic load is distributed suboptimally for 10 seconds.
-> 
-Yes, I don't think this needs fixing, but we might revisit it once the rest
-of the pieces are in place.
-
-> 	The rlb_clear_slave case that acquires curr_slave_lock already
-> also has RTNL, so I'm not sure that removing the curr_slave_lock will
-> have any impact there, either.  Many of the other curr_slave_lock
-> holders bounce the curr_slave_lock to call into net/core functions (set
-> promisc, change MAC, etc), so there's already reliance on RTNL.
-> 
-Yes, rlb_clear_slave is not the problem, the problem if we remove
-curr_slave_lock was that both rlb_clear_slave and bond_alb_monitor can be
-transmitting packets at the same time or a mac swap might happen triggering
-packet transmission while bond_alb_monitor() is also transmitting i.e.
-pretty much everything that now gets curr_slave_lock for writing on the ALB
-side and transmits could transmit with bond_alb_monitor(), that's what I
-was trying to avoid.
-
-> 	Separately, it also might be possible to combine the various
-> per-mode special locks internally into a generic "mode lock" so the alb
-> and rlb hashtbl lock and the 802.3ad state machine lock could be a
-> single "bond->mode_lock" that mutexes whatever special sauce the active
-> mode needs protected.  Not sure if that's worth the trouble or not, but
-> it seems plausible at first glance.
-> 
-Yes, I had something similar in mind /actually called it sync_lock :)/, but
-I only went as far as to use it for a few places that needed syncing beyond
-RTNL after curr_slave_lock was removed, you've went one step further and
-this certainly looks doable. I'll keep it in mind.
-
-> 	-J
-> 
+On Fri, Sep 5, 2014 at 8:10 PM, Vadim Kochan <vadim4j@gmail.com> wrote:
+> Tests were not allowed to be ran, the following
+> issues were fixed:
+>     - creating the results folder before test running
+>     - sudo $PREFIX moved before variables definition which
+>         allow to pass them through the sudo to test script.
+>
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 > ---
-> 	-Jay Vosburgh, jay.vosburgh@canonical.com
-> 
+>  testsuite/Makefile | 12 +++++++-----
+>  1 file changed, 7 insertions(+), 5 deletions(-)
+>
+> diff --git a/testsuite/Makefile b/testsuite/Makefile
+> index 2a4e0ba..648c793 100644
+> --- a/testsuite/Makefile
+> +++ b/testsuite/Makefile
+> @@ -1,6 +1,7 @@
+>  ## -- Config --
+>  DEV := lo
+>  PREFIX := sudo
+> +RESULTS_DIR := results
+>  ## -- End Config --
+>
+>  TESTS := $(patsubst tests/%,%,$(wildcard tests/*.t))
+> @@ -23,23 +24,24 @@ listtests:
+>  alltests: $(TESTS)
+>
+>  clean:
+> -       @rm -rf results/*
+> +       @rm -rf $(RESULTS_DIR)
+>
+>  distclean: clean
+>         echo "Entering iproute2" && cd iproute2 && $(MAKE) distclean && cd ..;
+>
+>  $(TESTS):
+> +       @mkdir -p $(RESULTS_DIR)
+>         @for i in $(IPVERS); do \
+>                 o=`echo $$i | sed -e 's/iproute2\///'`; \
+>                 echo -n "Running $@ [$$o/`uname -r`]: "; \
+> -               TC="$$i/tc/tc" IP="$$i/ip/ip" DEV="$(DEV)" IPVER="$@" SNAME="$$i" \
+> -               ERRF="results/$@.$$o.err" $(KENV) $(PREFIX) tests/$@ > results/$@.$$o.out; \
+> +               $(PREFIX) TC="$$i/tc/tc" IP="$$i/ip/ip" DEV="$(DEV)" IPVER="$@" SNAME="$$i" \
+> +               ERRF="$(RESULTS_DIR)/$@.$$o.err" $(KENV) tests/$@ > $(RESULTS_DIR)/$@.$$o.out; \
+>                 if [ "$$?" = "127" ]; then \
+>                         echo "SKIPPED"; \
+> -               elif [ -e "results/$@.$$o.err" ]; then \
+> +               elif [ -e "$(RESULTS_DIR)/$@.$$o.err" ]; then \
+>                         echo "FAILED"; \
+>                 else \
+>                         echo "PASS"; \
+>                 fi; \
+> -               dmesg > results/$@.$$o.dmesg; \
+> +               dmesg > $(RESULTS_DIR)/$@.$$o.dmesg; \
+>         done
+> --
+> 2.1.0
+>
