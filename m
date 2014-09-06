@@ -1,46 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC net-next PATCH V2 2/3] qdisc: bulk dequeue support for
- qdiscs with TCQ_F_ONETXQUEUE
-Date: Sat, 06 Sep 2014 05:55:49 -0700
-Message-ID: <1410008149.11872.9.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140904125247.4108.8132.stgit@dragon>
-	 <20140904125438.4108.38160.stgit@dragon>
-	 <1409837383.26422.113.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140905102815.157fda5a@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next 0/6] bonding: get rid of bond->lock
+Date: Sat,  6 Sep 2014 15:59:25 +0200
+Message-ID: <1410011971-24922-1-git-send-email-nikolay@redhat.com>
+Cc: vfalico@gmail.com, j.vosburgh@gmail.com, andy@greyhouse.net,
+	davem@davemloft.net, Nikolay Aleksandrov <nikolay@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:51498 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751922AbaIFMzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 08:55:52 -0400
-Received: by mail-pa0-f45.google.com with SMTP id bj1so23938893pad.18
-        for <netdev@vger.kernel.org>; Sat, 06 Sep 2014 05:55:52 -0700 (PDT)
-In-Reply-To: <20140905102815.157fda5a@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59383 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750936AbaIFOA5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Sep 2014 10:00:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-09-05 at 10:28 +0200, Jesper Dangaard Brouer wrote:
+Hi all,
+This patch-set removes the last users of bond->lock and converts the places
+that needed it for sync to use curr_slave_lock or RCU as appropriate.
+I've run this with lockdep and have stress-tested it via loading/unloading
+and enslaving/releasing in parallel while outputting bond's proc, I didn't
+see any issues. Please pay special attention to the procfs change, I've
+done about an hour of stress-testing on it and have checked that the event
+that causes the bonding to delete its proc entry (NETDEV_UNREGISTER) is
+called before ndo_uninit() and the freeing of the dev so any readers will
+sync with that. Also ran sparse checks and there were no splats.
 
-> 
-> So, I cannot see if it is a TSO packet via the skb_is_gso(skb) check?
-> Will skb->len be the length of the full TSO packet size?
+Changes from the RFC:
+ use RCU in procfs instead of RTNL since RTNL might lead to a deadlock with
+ unloading and also is much slower. The bond destruction syncs with proc
+ via the proc locks. There's one new patch that converts primary_slave to
+ use RCU as it was necessary to fix a longstanding bugs in sysfs and
+ procfs and to make it easy to migrate bond's procfs to RCU. And of course
+ rebased on top of net-next current.
+
+This is the first patch-set in a series that should simplify the bond's
+locking requirements and will make it easier to define the locking
+conditions necessary for the various paths. The goal is to rely on RTNL
+and rcu alone, an extra lock would be needed in a few special cases that
+would be documented very well.
+
+Best regards,
+ Nikolay Aleksandrov
 
 
-There is no difference between a TSO and GSO packet. They are what we
-call a GSO packet.
+Nikolay Aleksandrov (6):
+  bonding: 3ad: use curr_slave_lock instead of bond->lock
+  bonding: alb: clean bond->lock
+  bonding: convert primary_slave to use RCU
+  bonding: procfs: clean bond->lock usage and use RCU
+  bonding: options: remove bond->lock usage
+  bonding: remove last users of bond->lock and bond->lock itself
 
-The difference lies on the device ability to perform TSO.
+ drivers/net/bonding/bond_3ad.c     |  9 ++--
+ drivers/net/bonding/bond_alb.c     | 11 +----
+ drivers/net/bonding/bond_main.c    | 93 ++++++++++++--------------------------
+ drivers/net/bonding/bond_netlink.c |  7 +--
+ drivers/net/bonding/bond_options.c | 27 ++---------
+ drivers/net/bonding/bond_procfs.c  | 24 +++-------
+ drivers/net/bonding/bond_sysfs.c   | 10 ++--
+ drivers/net/bonding/bonding.h      | 10 ++--
+ 8 files changed, 62 insertions(+), 129 deletions(-)
 
-If device is not able to send a TSO packet, packet is segmented by the
-core networking stack.
+-- 
+1.9.3
