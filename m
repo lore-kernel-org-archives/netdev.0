@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH/v2] net: treewide: Fix typo found in
- DocBook/networking.xml
-Date: Fri, 05 Sep 2014 17:35:41 -0700 (PDT)
-Message-ID: <20140905.173541.45708371676840982.davem@davemloft.net>
-References: <20140903.203814.642492840095995090.davem@davemloft.net>
-	<1409841876-26567-1-git-send-email-standby24x7@gmail.com>
+Subject: Re: [PATCH net-next] ipv4: harden fnhe_hashfun()
+Date: Fri, 05 Sep 2014 17:40:51 -0700 (PDT)
+Message-ID: <20140905.174051.1401281945163111851.davem@davemloft.net>
+References: <1409844091.26422.123.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, rdunlap@infradead.org,
-	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-	trivial@kernel.org
-To: standby24x7@gmail.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1409841876-26567-1-git-send-email-standby24x7@gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ncardwell@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58016 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750725AbaIFAkw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 20:40:52 -0400
+In-Reply-To: <1409844091.26422.123.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masanari Iida <standby24x7@gmail.com>
-Date: Thu,  4 Sep 2014 23:44:36 +0900
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 04 Sep 2014 08:21:31 -0700
 
-> This patch fix spelling typo found in DocBook/networking.xml.
-> It is because the neworking.xml is generated from comments
-> in the source, I have to fix typo in comments within the source.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
-> Acked-by: Randy Dunlap <rdunlap@infradead.org>
+> Lets make this hash function a bit secure, as ICMP attacks are still
+> in the wild.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks.
+Applied, thanks Eric.
