@@ -1,25 +1,36 @@
-From: "Harley Wang" <hawg113@gmail.com>
-Subject: contact me
-Date: Fri, 5 Sep 2014 23:49:38 -0400
-Message-ID: <CAGRONOMIAl4s7q4xpy0000782b@cagronomia.agr.ucv.ve>
-Reply-To: <hctthg-h2@yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 0/3] BPF updates
+Date: Sat,  6 Sep 2014 11:42:44 +0200
+Message-ID: <1409996567-2170-1-git-send-email-dborkman@redhat.com>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dagonet.rect.ucv.ve ([190.169.255.187]:53477 "EHLO
-	dagonet.rect.ucv.ve" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750804AbaIFHCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 03:02:06 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:14210 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750871AbaIFJmx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Sep 2014 05:42:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I wait for confirmation to transfer US$21.4M to you 
+[ Set applies on top of current net-next but also on top of
+  Alexei's latest patches. Please see individual patches for
+  more details. ]
 
+Daniel Borkmann (3):
+  net: bpf: consolidate JIT binary allocator
+  net: bpf: arm: address randomize and write protect JIT code
+  net: bpf: be friendly to kmemcheck
 
-__________ Information from ESET Mail Security, version of virus signature database 10226 (20140808) __________
+ arch/arm/net/bpf_jit_32.c       | 34 +++++++++++++++++++++------
+ arch/mips/net/bpf_jit.c         |  2 +-
+ arch/powerpc/net/bpf_jit_comp.c |  2 +-
+ arch/s390/net/bpf_jit_comp.c    | 47 ++++++++-----------------------------
+ arch/sparc/net/bpf_jit_comp.c   |  2 +-
+ arch/x86/net/bpf_jit_comp.c     | 52 ++++++++++-------------------------------
+ include/linux/filter.h          | 19 ++++++++++++---
+ kernel/bpf/core.c               | 39 +++++++++++++++++++++++++++++++
+ net/core/filter.c               |  2 +-
+ 9 files changed, 108 insertions(+), 91 deletions(-)
 
-The message was checked by ESET Mail Security.
-http://www.eset.com
+-- 
+1.7.11.7
