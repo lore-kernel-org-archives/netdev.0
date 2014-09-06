@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mlx4: only pull headers into skb head
-Date: Fri, 05 Sep 2014 22:35:47 -0700 (PDT)
-Message-ID: <20140905.223547.1067550845666436634.davem@davemloft.net>
-References: <1409966985.11872.6.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net v1 0/2] amd-xgbe: AMD XGBE driver fixes 2014-09-05
+Date: Fri, 05 Sep 2014 22:38:02 -0700 (PDT)
+Message-ID: <20140905.223802.2304248161916606656.davem@davemloft.net>
+References: <20140905230224.27896.64932.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60106 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60141 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750768AbaIFFfs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 01:35:48 -0400
-In-Reply-To: <1409966985.11872.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1750768AbaIFFiD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 01:38:03 -0400
+In-Reply-To: <20140905230224.27896.64932.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 05 Sep 2014 18:29:45 -0700
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Fri, 5 Sep 2014 18:02:24 -0500
 
-> From: Eric Dumazet <edumazet@google.com>
+> The following series of patches includes fixes to the driver.
 > 
-> Use the new fancy eth_get_headlen() to pull exactly the headers
-> into skb->head.
+> - Proper access to 64 bit management counter registers
+> - Enable all management counter registers to generate an interrupt when
+>   the counter threshold is reached
 > 
-> This speeds up GRE traffic (or more generally tunneled traffuc),
-> as GRO can aggregate up to 17 MSS per GRO packet instead of 8.
-> 
-> (Pulling too much data was forcing GRO to keep 2 frags per MSS)
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> This patch series is based on net.
 
-Looks great, applied, thanks Eric.
+Series applied, thanks Tom.
