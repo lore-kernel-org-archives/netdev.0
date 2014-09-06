@@ -1,42 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] be2net: Learn and program mac to avoid packet
- replication in nPAR mode.
-Date: Fri, 05 Sep 2014 17:34:56 -0700 (PDT)
-Message-ID: <20140905.173456.2115240943907507122.davem@davemloft.net>
-References: <206ffa9c-915e-4a1e-affe-68616cbef2f8@CMEXHTCAS1.ad.emulex.com>
+Subject: Re: [PATCH/v2] net: treewide: Fix typo found in
+ DocBook/networking.xml
+Date: Fri, 05 Sep 2014 17:35:41 -0700 (PDT)
+Message-ID: <20140905.173541.45708371676840982.davem@davemloft.net>
+References: <20140903.203814.642492840095995090.davem@davemloft.net>
+	<1409841876-26567-1-git-send-email-standby24x7@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: VenkatKumar.Duvvuru@Emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57990 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750725AbaIFAe5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 20:34:57 -0400
-In-Reply-To: <206ffa9c-915e-4a1e-affe-68616cbef2f8@CMEXHTCAS1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, rdunlap@infradead.org,
+	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+	trivial@kernel.org
+To: standby24x7@gmail.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1409841876-26567-1-git-send-email-standby24x7@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
-Date: Thu, 4 Sep 2014 20:00:59 +0530
+From: Masanari Iida <standby24x7@gmail.com>
+Date: Thu,  4 Sep 2014 23:44:36 +0900
 
-> In a multi-channel setup, when an interface (channel/partition) is used
-> by a bridge or ovs, it is placed in promiscuous mode and the MAC addresses
-> of the VMs attached to the bridge are not configured on the base interface.
-> As a result of that, when a packet arrives to the port with
-> virtual machine's mac address, the card cannot determine which ring to
-> send the packet to, so replicates the packet on all the PFs of that port,
-> hence resulting in wastage of PCI bandwidth and CPU cycles. Packet replication
-> is also considered security risk as it can cause packets to reach an undesired VM.
+> This patch fix spelling typo found in DocBook/networking.xml.
+> It is because the neworking.xml is generated from comments
+> in the source, I have to fix typo in comments within the source.
 > 
-> This patch will help solve the problem by learning the mac address and
-> programming it in the adapter. This patch also unlearns the MAC, if the MAC is
-> moved out of the machine or if the MAC is inactive for more than 5 minutes.
-> 
-> Signed-off-by: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+> Acked-by: Randy Dunlap <rdunlap@infradead.org>
 
-This is non-trivial overhead to add to the fast paths of your primary
-packet input and output paths.
-
-I think you need to find a different solution to this problem.
+Applied, thanks.
