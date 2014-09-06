@@ -1,64 +1,70 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 0/6] bonding: get rid of bond->lock
-Date: Sat,  6 Sep 2014 15:59:25 +0200
-Message-ID: <1410011971-24922-1-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next 2/6] bonding: alb: clean bond->lock
+Date: Sat,  6 Sep 2014 15:59:27 +0200
+Message-ID: <1410011971-24922-3-git-send-email-nikolay@redhat.com>
+References: <1410011971-24922-1-git-send-email-nikolay@redhat.com>
 Cc: vfalico@gmail.com, j.vosburgh@gmail.com, andy@greyhouse.net,
 	davem@davemloft.net, Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59383 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:55209 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750936AbaIFOA5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Sep 2014 10:00:57 -0400
+	id S1751381AbaIFOA7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Sep 2014 10:00:59 -0400
+In-Reply-To: <1410011971-24922-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
-This patch-set removes the last users of bond->lock and converts the places
-that needed it for sync to use curr_slave_lock or RCU as appropriate.
-I've run this with lockdep and have stress-tested it via loading/unloading
-and enslaving/releasing in parallel while outputting bond's proc, I didn't
-see any issues. Please pay special attention to the procfs change, I've
-done about an hour of stress-testing on it and have checked that the event
-that causes the bonding to delete its proc entry (NETDEV_UNREGISTER) is
-called before ndo_uninit() and the freeing of the dev so any readers will
-sync with that. Also ran sparse checks and there were no splats.
+We can remove the lock/unlock as it's no longer necessary since
+RTNL should be held while calling bond_alb_set_mac_address().
 
-Changes from the RFC:
- use RCU in procfs instead of RTNL since RTNL might lead to a deadlock with
- unloading and also is much slower. The bond destruction syncs with proc
- via the proc locks. There's one new patch that converts primary_slave to
- use RCU as it was necessary to fix a longstanding bugs in sysfs and
- procfs and to make it easy to migrate bond's procfs to RCU. And of course
- rebased on top of net-next current.
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+ drivers/net/bonding/bond_alb.c | 11 ++---------
+ 1 file changed, 2 insertions(+), 9 deletions(-)
 
-This is the first patch-set in a series that should simplify the bond's
-locking requirements and will make it easier to define the locking
-conditions necessary for the various paths. The goal is to rely on RTNL
-and rcu alone, an extra lock would be needed in a few special cases that
-would be documented very well.
-
-Best regards,
- Nikolay Aleksandrov
-
-
-Nikolay Aleksandrov (6):
-  bonding: 3ad: use curr_slave_lock instead of bond->lock
-  bonding: alb: clean bond->lock
-  bonding: convert primary_slave to use RCU
-  bonding: procfs: clean bond->lock usage and use RCU
-  bonding: options: remove bond->lock usage
-  bonding: remove last users of bond->lock and bond->lock itself
-
- drivers/net/bonding/bond_3ad.c     |  9 ++--
- drivers/net/bonding/bond_alb.c     | 11 +----
- drivers/net/bonding/bond_main.c    | 93 ++++++++++++--------------------------
- drivers/net/bonding/bond_netlink.c |  7 +--
- drivers/net/bonding/bond_options.c | 27 ++---------
- drivers/net/bonding/bond_procfs.c  | 24 +++-------
- drivers/net/bonding/bond_sysfs.c   | 10 ++--
- drivers/net/bonding/bonding.h      | 10 ++--
- 8 files changed, 62 insertions(+), 129 deletions(-)
-
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 73c21e233131..028496205f39 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1775,8 +1775,7 @@ void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char
+  * Set the bond->curr_active_slave to @new_slave and handle
+  * mac address swapping and promiscuity changes as needed.
+  *
+- * If new_slave is NULL, caller must hold curr_slave_lock or
+- * bond->lock for write.
++ * If new_slave is NULL, caller must hold curr_slave_lock for write
+  *
+  * If new_slave is not NULL, caller must hold RTNL, curr_slave_lock
+  * for write.  Processing here may sleep, so no other locks may be held.
+@@ -1857,12 +1856,8 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+ 	write_lock_bh(&bond->curr_slave_lock);
+ }
+ 
+-/*
+- * Called with RTNL
+- */
++/* Called with RTNL */
+ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+-	__acquires(&bond->lock)
+-	__releases(&bond->lock)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	struct sockaddr *sa = addr;
+@@ -1895,14 +1890,12 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+ 	} else {
+ 		alb_set_slave_mac_addr(curr_active, bond_dev->dev_addr);
+ 
+-		read_lock(&bond->lock);
+ 		alb_send_learning_packets(curr_active,
+ 					  bond_dev->dev_addr, false);
+ 		if (bond->alb_info.rlb_enabled) {
+ 			/* inform clients mac address has changed */
+ 			rlb_req_update_slave_clients(bond, curr_active);
+ 		}
+-		read_unlock(&bond->lock);
+ 	}
+ 
+ 	return 0;
 -- 
 1.9.3
