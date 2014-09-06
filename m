@@ -1,41 +1,42 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ip: support of usec rtt in tcp_metrics
-Date: Fri, 5 Sep 2014 17:02:22 -0700
-Message-ID: <20140905170222.1599ad33@urahara>
-References: <1409961244.26422.142.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v6 4/4] tg3: Fix tx_pending checks for tg3_tso_bug
+Date: Fri, 05 Sep 2014 17:03:30 -0700
+Message-ID: <1409961810.26422.149.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1409880647-14887-1-git-send-email-bpoirier@suse.de>
+	 <1409880647-14887-5-git-send-email-bpoirier@suse.de>
+	 <1409960135.18724.33.camel@prashant>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:42633 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751110AbaIFAC0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 20:02:26 -0400
-Received: by mail-pd0-f170.google.com with SMTP id r10so16756948pdi.29
-        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 17:02:26 -0700 (PDT)
-In-Reply-To: <1409961244.26422.142.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Benjamin Poirier <bpoirier@suse.de>,
+	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Prashant Sreedharan <prashant@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1409960135.18724.33.camel@prashant>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 05 Sep 2014 16:54:04 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Fri, 2014-09-05 at 16:35 -0700, Prashant Sreedharan wrote:
 
-> +			if (i != TCP_METRIC_RTT &&
-> +			    i != TCP_METRIC_RTT_US &&
-> +			    i != TCP_METRIC_RTTVAR &&
-> +			    i != TCP_METRIC_RTTVAR_US) {
-> +				if (metric_name[i])
-> +					fprintf(fp, " %s ", metric_name[i]);
-> +				else
-> +					fprintf(fp, " metric_%d ", i);
+> fyi.. Initially the driver was doing a skb_copy()
+> (tigon3_dma_hwbug_workaround()) for LSO skb that met HW bug conditions
+> but users started reporting page allocation failures due to copying of
+> large LSO skbs. To avoid this Commit 4caab52eb102f1 (tg3: Prevent page
+> allocation failure during TSO workaround) changed the driver logic to do
+> skb_gso_segment() for LSO skbs that met the HW bug conditions. With
+> skb_linearize() we might end up again with memory allocation failures
+> for large LSO skbs though at a much less frequent level (ie when TX
+> queue is almost full). 
 
-Why not put new metrics in metric_name array? and make the check something like:
+Note that TCP stack has one skb collapse feature, currently limited in
+allocation of linear skbs fitting a whole page.
 
-			if (i < ARRAY_SIZE(metric_name) && metric_name[i])
-				fprintf(fp, " %s ", metric_name[i]);
-			else
-				fprintf(fp, " metric_%d ", i)
+Instead of this private helper (and pretty limited one btw), we could
+add a core function, that would build skbs with order-0 fragments.
 
-This makes it future proof, and gets rid of the silly test.
+Instead of skb_linearize(), I guess many call sites could instead use
+this new helper.
+
+Because as you said, skb_linearize() of one 64KB GSO packet can ask
+order-5 allocations, and this generally does not work reliably.
