@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3] Drop get_headlen functions in favor of
- generic function
-Date: Fri, 05 Sep 2014 17:47:29 -0700 (PDT)
-Message-ID: <20140905.174729.2145013721791180379.davem@davemloft.net>
-References: <20140905231807.2035.33588.stgit@ahduyck-bv4.jf.intel.com>
+Subject: Re: [PATCH net-next 0/2] tcp: deduplicate TCP_SKB_CB(skb)->when
+Date: Fri, 05 Sep 2014 17:49:57 -0700 (PDT)
+Message-ID: <20140905.174957.2301014826043548460.davem@davemloft.net>
+References: <1409956413-29472-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	jeffrey.t.kirsher@intel.com
-To: alexander.h.duyck@intel.com
+Cc: netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58074 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58103 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750762AbaIFArb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 20:47:31 -0400
-In-Reply-To: <20140905231807.2035.33588.stgit@ahduyck-bv4.jf.intel.com>
+	with ESMTP id S1750762AbaIFAt6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 20:49:58 -0400
+In-Reply-To: <1409956413-29472-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Fri, 05 Sep 2014 19:20:12 -0400
+From: Eric Dumazet <edumazet@google.com>
+Date: Fri,  5 Sep 2014 15:33:31 -0700
 
-> This series replaces the igb_get_headlen and ixgbe_get_headlen functions
-> with a generic function named eth_get_headlen.
+> TCP_SKB_CB(skb)->when has different meaning in output and input paths.
 > 
-> I have done some performance testing on ixgbe with 258 byte frames since
-> the calls are only used on frames larger than 256 bytes and have seen no
-> significant difference in CPU utilization.
+> In output path, it contains a timestamp.
+> In input path, it contains an ISN, chosen by tcp_timewait_state_process()
 > 
-> v2: renamed __skb_get_poff to skb_get_poff
->     renamed ___skb_get_poff to __skb_get_poff
+> Its usage in output path is obsolete after usec timestamping.
+> Lets simplify and clean this.
 
-Nice work, series applied, thanks Alex.
+Nice cleanup, applied, thanks Eric.
