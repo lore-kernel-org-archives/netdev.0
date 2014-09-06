@@ -1,31 +1,578 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v1 0/2] amd-xgbe: AMD XGBE driver fixes 2014-09-05
-Date: Fri, 05 Sep 2014 22:38:02 -0700 (PDT)
-Message-ID: <20140905.223802.2304248161916606656.davem@davemloft.net>
-References: <20140905230224.27896.64932.stgit@tlendack-t1.amdoffice.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH net-next v1 2/2] bonding: Simplify the xmit function for modes that use xmit_hash
+Date: Fri,  5 Sep 2014 23:35:56 -0700
+Message-ID: <1409985356-2384-1-git-send-email-maheshb@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60141 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750768AbaIFFiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 01:38:03 -0400
-In-Reply-To: <20140905230224.27896.64932.stgit@tlendack-t1.amdoffice.net>
+Received: from mail-oa0-f73.google.com ([209.85.219.73]:57408 "EHLO
+	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750783AbaIFGgD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 02:36:03 -0400
+Received: by mail-oa0-f73.google.com with SMTP id g18so2203186oah.2
+        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 23:36:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Fri, 5 Sep 2014 18:02:24 -0500
+Earlier change to use usable slave array for TLB mode had an additional
+performance advantage. So extending the same logic to all other modes
+that use xmit-hash for slave selection (viz 802.3AD, and XOR modes).
+Also consolidating this with the earlier TLB change.
 
-> The following series of patches includes fixes to the driver.
-> 
-> - Proper access to 64 bit management counter registers
-> - Enable all management counter registers to generate an interrupt when
->   the counter threshold is reached
-> 
-> This patch series is based on net.
+The main idea is to build the usable slaves array in the control path
+and use that array for slave selection during xmit operation.
 
-Series applied, thanks Tom.
+Measured performance in a setup with a bond of 4x1G NICs with 200
+instances of netperf for the modes involved (3ad, xor, tlb)
+cmd: netperf -t TCP_RR -H <TargetHost> -l 60 -s 5
+
+Mode        TPS-Before   TPS-After
+
+802.3ad   : 468,694      493,101
+TLB (lb=0): 392,583      392,965
+XOR       : 475,696      484,517
+
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+v1:
+  (a) If bond_update_slave_arr() fails to allocate memory, it will overwrite
+      the slave that need to be removed.
+  (b) Freeing of array will assign NULL (to handle bond->down to bond->up
+      transition gracefully.
+  (c) Change from pr_debug() to pr_err() if bond_update_slave_arr() returns
+      failure.
+  (d) XOR: bond_update_slave_arr() will consider mii-mon, arp-mon cases and
+      will populate the array even if these parameters are not used.
+  (e) 3AD: Should handle the ad_agg_selection_logic correctly.
+
+ drivers/net/bonding/bond_3ad.c  |  79 ++++-----------------
+ drivers/net/bonding/bond_alb.c  |  45 +-----------
+ drivers/net/bonding/bond_alb.h  |   8 ---
+ drivers/net/bonding/bond_main.c | 150 ++++++++++++++++++++++++++++++++++++----
+ drivers/net/bonding/bonding.h   |   8 +++
+ 5 files changed, 161 insertions(+), 129 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index ee2c73a9de39..ba05c83d5d83 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -1579,6 +1579,8 @@ static void ad_agg_selection_logic(struct aggregator *agg)
+ 				__disable_port(port);
+ 			}
+ 		}
++		if (bond_update_slave_arr(bond, NULL))
++			pr_err("Failed to build slave-array for 3ad mode.\n");
+ 	}
+ 
+ 	/* if the selected aggregator is of join individuals
+@@ -1717,6 +1719,8 @@ static void ad_enable_collecting_distributing(struct port *port)
+ 			 port->actor_port_number,
+ 			 port->aggregator->aggregator_identifier);
+ 		__enable_port(port);
++		if (bond_update_slave_arr(port->slave->bond, NULL))
++			pr_err("Failed to build slave-array for 3ad mode.\n");
+ 	}
+ }
+ 
+@@ -1733,6 +1737,8 @@ static void ad_disable_collecting_distributing(struct port *port)
+ 			 port->actor_port_number,
+ 			 port->aggregator->aggregator_identifier);
+ 		__disable_port(port);
++		if (bond_update_slave_arr(port->slave->bond, NULL))
++			pr_err("Failed to build slave-array for 3ad mode.\n");
+ 	}
+ }
+ 
+@@ -1917,6 +1923,9 @@ void bond_3ad_unbind_slave(struct slave *slave)
+ 	__update_lacpdu_from_port(port);
+ 	ad_lacpdu_send(port);
+ 
++	if (bond_update_slave_arr(bond, slave))
++		pr_err("Failed to build slave-array for 3AD mode.\n");
++
+ 	/* check if this aggregator is occupied */
+ 	if (aggregator->lag_ports) {
+ 		/* check if there are other ports related to this aggregator
+@@ -2311,6 +2320,9 @@ void bond_3ad_handle_link_change(struct slave *slave, char link)
+ 	 */
+ 	port->sm_vars |= AD_PORT_BEGIN;
+ 
++	if (bond_update_slave_arr(slave->bond, NULL))
++		pr_err("Failed to build slave-array for 3ad mode.\n");
++
+ 	__release_state_machine_lock(port);
+ }
+ 
+@@ -2407,73 +2419,6 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
+ 	return ret;
+ }
+ 
+-int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+-{
+-	struct bonding *bond = netdev_priv(dev);
+-	struct slave *slave, *first_ok_slave;
+-	struct aggregator *agg;
+-	struct ad_info ad_info;
+-	struct list_head *iter;
+-	int slaves_in_agg;
+-	int slave_agg_no;
+-	int agg_id;
+-
+-	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+-		netdev_dbg(dev, "__bond_3ad_get_active_agg_info failed\n");
+-		goto err_free;
+-	}
+-
+-	slaves_in_agg = ad_info.ports;
+-	agg_id = ad_info.aggregator_id;
+-
+-	if (slaves_in_agg == 0) {
+-		netdev_dbg(dev, "active aggregator is empty\n");
+-		goto err_free;
+-	}
+-
+-	slave_agg_no = bond_xmit_hash(bond, skb) % slaves_in_agg;
+-	first_ok_slave = NULL;
+-
+-	bond_for_each_slave_rcu(bond, slave, iter) {
+-		agg = SLAVE_AD_INFO(slave)->port.aggregator;
+-		if (!agg || agg->aggregator_identifier != agg_id)
+-			continue;
+-
+-		if (slave_agg_no >= 0) {
+-			if (!first_ok_slave && bond_slave_can_tx(slave))
+-				first_ok_slave = slave;
+-			slave_agg_no--;
+-			continue;
+-		}
+-
+-		if (bond_slave_can_tx(slave)) {
+-			bond_dev_queue_xmit(bond, skb, slave->dev);
+-			goto out;
+-		}
+-	}
+-
+-	if (slave_agg_no >= 0) {
+-		netdev_err(dev, "Couldn't find a slave to tx on for aggregator ID %d\n",
+-			   agg_id);
+-		goto err_free;
+-	}
+-
+-	/* we couldn't find any suitable slave after the agg_no, so use the
+-	 * first suitable found, if found.
+-	 */
+-	if (first_ok_slave)
+-		bond_dev_queue_xmit(bond, skb, first_ok_slave->dev);
+-	else
+-		goto err_free;
+-
+-out:
+-	return NETDEV_TX_OK;
+-err_free:
+-	/* no suitable interface, frame not sent */
+-	dev_kfree_skb_any(skb);
+-	goto out;
+-}
+-
+ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
+ 			 struct slave *slave)
+ {
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 73c21e233131..334d92127baf 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -200,7 +200,6 @@ static int tlb_initialize(struct bonding *bond)
+ static void tlb_deinitialize(struct bonding *bond)
+ {
+ 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+-	struct tlb_up_slave *arr;
+ 
+ 	_lock_tx_hashtbl_bh(bond);
+ 
+@@ -208,10 +207,6 @@ static void tlb_deinitialize(struct bonding *bond)
+ 	bond_info->tx_hashtbl = NULL;
+ 
+ 	_unlock_tx_hashtbl_bh(bond);
+-
+-	arr = rtnl_dereference(bond_info->slave_arr);
+-	if (arr)
+-		kfree_rcu(arr, rcu);
+ }
+ 
+ static long long compute_gap(struct slave *slave)
+@@ -1409,39 +1404,9 @@ out:
+ 	return NETDEV_TX_OK;
+ }
+ 
+-static int bond_tlb_update_slave_arr(struct bonding *bond,
+-				     struct slave *skipslave)
+-{
+-	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+-	struct slave *tx_slave;
+-	struct list_head *iter;
+-	struct tlb_up_slave *new_arr, *old_arr;
+-
+-	new_arr = kzalloc(offsetof(struct tlb_up_slave, arr[bond->slave_cnt]),
+-			  GFP_ATOMIC);
+-	if (!new_arr)
+-		return -ENOMEM;
+-
+-	bond_for_each_slave(bond, tx_slave, iter) {
+-		if (!bond_slave_can_tx(tx_slave))
+-			continue;
+-		if (skipslave == tx_slave)
+-			continue;
+-		new_arr->arr[new_arr->count++] = tx_slave;
+-	}
+-
+-	old_arr = rtnl_dereference(bond_info->slave_arr);
+-	rcu_assign_pointer(bond_info->slave_arr, new_arr);
+-	if (old_arr)
+-		kfree_rcu(old_arr, rcu);
+-
+-	return 0;
+-}
+-
+ int bond_tlb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+-	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+ 	struct ethhdr *eth_data;
+ 	struct slave *tx_slave = NULL;
+ 	u32 hash_index;
+@@ -1462,9 +1427,9 @@ int bond_tlb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 							      hash_index & 0xFF,
+ 							      skb->len);
+ 			} else {
+-				struct tlb_up_slave *slaves;
++				struct bond_up_slave *slaves;
+ 
+-				slaves = rcu_dereference(bond_info->slave_arr);
++				slaves = rcu_dereference(bond->slave_arr);
+ 				if (slaves && slaves->count)
+ 					tx_slave = slaves->arr[hash_index %
+ 							       slaves->count];
+@@ -1733,10 +1698,6 @@ void bond_alb_deinit_slave(struct bonding *bond, struct slave *slave)
+ 		rlb_clear_slave(bond, slave);
+ 	}
+ 
+-	if (bond_is_nondyn_tlb(bond))
+-		if (bond_tlb_update_slave_arr(bond, slave))
+-			pr_err("Failed to build slave-array for TLB mode.\n");
+-
+ }
+ 
+ /* Caller must hold bond lock for read */
+@@ -1762,7 +1723,7 @@ void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char
+ 	}
+ 
+ 	if (bond_is_nondyn_tlb(bond)) {
+-		if (bond_tlb_update_slave_arr(bond, NULL))
++		if (bond_update_slave_arr(bond, NULL))
+ 			pr_err("Failed to build slave-array for TLB mode.\n");
+ 	}
+ }
+diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+index aaeac61d03cf..5fc76c01636c 100644
+--- a/drivers/net/bonding/bond_alb.h
++++ b/drivers/net/bonding/bond_alb.h
+@@ -139,20 +139,12 @@ struct tlb_slave_info {
+ 			 */
+ };
+ 
+-struct tlb_up_slave {
+-	unsigned int	count;
+-	struct rcu_head rcu;
+-	struct slave	*arr[0];
+-};
+-
+ struct alb_bond_info {
+ 	struct tlb_client_info	*tx_hashtbl; /* Dynamically allocated */
+ 	spinlock_t		tx_hashtbl_lock;
+ 	u32			unbalanced_load;
+ 	int			tx_rebalance_counter;
+ 	int			lp_counter;
+-	/* -------- non-dynamic tlb mode only ---------*/
+-	struct tlb_up_slave __rcu *slave_arr;	  /* Up slaves */
+ 	/* -------- rlb parameters -------- */
+ 	int rlb_enabled;
+ 	struct rlb_client_info	*rx_hashtbl;	/* Receive hash table */
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index f0f5eab0fab1..43f066539dab 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1413,6 +1413,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		dev_mc_add(slave_dev, lacpdu_multicast);
+ 	}
+ 
++	if (BOND_MODE(bond) == BOND_MODE_XOR &&
++	    bond_update_slave_arr(bond, NULL))
++		pr_err("Failed to build slave-array for XOR mode.\n");
++
+ 	res = vlan_vids_add_by_dev(slave_dev, bond_dev);
+ 	if (res) {
+ 		netdev_err(bond_dev, "Couldn't add bond vlan ids to %s\n",
+@@ -1692,6 +1696,11 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	/* Inform AD package of unbinding of slave. */
+ 	if (BOND_MODE(bond) == BOND_MODE_8023AD)
+ 		bond_3ad_unbind_slave(slave);
++	else if (BOND_MODE(bond) == BOND_MODE_XOR ||
++		 bond_is_nondyn_tlb(bond)) {
++		if (bond_update_slave_arr(bond, slave))
++			pr_err("Failed to build slave-array.\n");
++	}
+ 
+ 	write_unlock_bh(&bond->lock);
+ 
+@@ -2009,6 +2018,10 @@ static void bond_miimon_commit(struct bonding *bond)
+ 				bond_alb_handle_link_change(bond, slave,
+ 							    BOND_LINK_UP);
+ 
++			if (BOND_MODE(bond) == BOND_MODE_XOR &&
++			    bond_update_slave_arr(bond, NULL))
++				pr_err("Failed to build slave-array for XOR mode.\n");
++
+ 			if (!bond->curr_active_slave ||
+ 			    (slave == bond->primary_slave))
+ 				goto do_failover;
+@@ -2037,6 +2050,10 @@ static void bond_miimon_commit(struct bonding *bond)
+ 				bond_alb_handle_link_change(bond, slave,
+ 							    BOND_LINK_DOWN);
+ 
++			if (BOND_MODE(bond) == BOND_MODE_XOR &&
++			    bond_update_slave_arr(bond, NULL))
++				pr_err("Failed to build slave-array for XOR mode.\n");
++
+ 			if (slave == rcu_access_pointer(bond->curr_active_slave))
+ 				goto do_failover;
+ 
+@@ -2500,6 +2517,9 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
+ 
+ 		if (slave_state_changed) {
+ 			bond_slave_state_change(bond);
++			if (BOND_MODE(bond) == BOND_MODE_XOR &&
++			    bond_update_slave_arr(bond, NULL))
++				pr_err("Failed to build slave-array for XOR mode.\n");
+ 		} else if (do_failover) {
+ 			/* the bond_select_active_slave must hold RTNL
+ 			 * and curr_slave_lock for write.
+@@ -2893,11 +2913,14 @@ static int bond_slave_netdev_event(unsigned long event,
+ 			if (old_duplex != slave->duplex)
+ 				bond_3ad_adapter_duplex_changed(slave);
+ 		}
++		if (BOND_MODE(bond) == BOND_MODE_XOR &&
++		    bond_update_slave_arr(bond, NULL))
++			pr_err("Failed to build slave-array for XOR mode.\n");
+ 		break;
+ 	case NETDEV_DOWN:
+-		/*
+-		 * ... Or is it this?
+-		 */
++		if (BOND_MODE(bond) == BOND_MODE_XOR &&
++		    bond_update_slave_arr(bond, NULL))
++			pr_err("Failed to build slave-array for XOR mode.\n");
+ 		break;
+ 	case NETDEV_CHANGEMTU:
+ 		/*
+@@ -3143,12 +3166,17 @@ static int bond_open(struct net_device *bond_dev)
+ 		bond_3ad_initiate_agg_selection(bond, 1);
+ 	}
+ 
++	if (BOND_MODE(bond) == BOND_MODE_XOR &&
++	    bond_update_slave_arr(bond, NULL))
++		pr_err("Failed to build slave-array for XOR mode.\n");
++
+ 	return 0;
+ }
+ 
+ static int bond_close(struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
++	struct bond_up_slave *arr;
+ 
+ 	bond_work_cancel_all(bond);
+ 	bond->send_peer_notif = 0;
+@@ -3156,6 +3184,12 @@ static int bond_close(struct net_device *bond_dev)
+ 		bond_alb_deinitialize(bond);
+ 	bond->recv_probe = NULL;
+ 
++	arr = rtnl_dereference(bond->slave_arr);
++	if (arr) {
++		kfree_rcu(arr, rcu);
++		RCU_INIT_POINTER(bond->slave_arr, NULL);
++	}
++
+ 	return 0;
+ }
+ 
+@@ -3684,15 +3718,108 @@ static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *bond_d
+ 	return NETDEV_TX_OK;
+ }
+ 
+-/* In bond_xmit_xor() , we determine the output device by using a pre-
+- * determined xmit_hash_policy(), If the selected device is not enabled,
+- * find the next active slave.
++/* Build the usable slaves array in control path for modes that use xmit-hash
++ * to determine the slave interface -
++ * (a) BOND_MODE_8023AD
++ * (b) BOND_MODE_XOR
++ * (c) BOND_MODE_TLB && tlb_dynamic_lb == 0
+  */
+-static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev)
++int bond_update_slave_arr(struct bonding *bond, struct slave *skipslave)
+ {
+-	struct bonding *bond = netdev_priv(bond_dev);
++	struct slave *slave;
++	struct list_head *iter;
++	struct bond_up_slave *new_arr, *old_arr;
++	int slaves_in_agg;
++	int agg_id = 0;
++	int ret = 0;
++
++	new_arr = kzalloc(offsetof(struct bond_up_slave, arr[bond->slave_cnt]),
++			  GFP_ATOMIC);
++	if (!new_arr) {
++		ret = -ENOMEM;
++		goto out;
++	}
++	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
++		struct ad_info ad_info;
+ 
+-	bond_xmit_slave_id(bond, skb, bond_xmit_hash(bond, skb) % bond->slave_cnt);
++		if (bond_3ad_get_active_agg_info(bond, &ad_info)) {
++			pr_debug("bond_3ad_get_active_agg_info failed\n");
++			kfree_rcu(new_arr, rcu);
++			ret = -EINVAL;
++			goto out;
++		}
++		slaves_in_agg = ad_info.ports;
++		agg_id = ad_info.aggregator_id;
++	}
++	bond_for_each_slave(bond, slave, iter) {
++		if (BOND_MODE(bond) == BOND_MODE_8023AD) {
++			struct aggregator *agg;
++
++			agg = SLAVE_AD_INFO(slave)->port.aggregator;
++			if (!agg || agg->aggregator_identifier != agg_id)
++				continue;
++		}
++		if (!bond_slave_can_tx(slave))
++			continue;
++		if (skipslave == slave)
++			continue;
++		new_arr->arr[new_arr->count++] = slave;
++	}
++
++	old_arr = rcu_dereference_protected(bond->slave_arr,
++					    lockdep_rtnl_is_held() ||
++					    lockdep_is_held(&bond->lock) ||
++					    lockdep_is_held(&bond->curr_slave_lock));
++	rcu_assign_pointer(bond->slave_arr, new_arr);
++	if (old_arr)
++		kfree_rcu(old_arr, rcu);
++
++out:
++	if (ret != 0 && skipslave) {
++		int idx;
++
++		/* Rare situation where caller has asked to skip a specific
++		 * slave but allocation failed (most likely!). In this sitation
++		 * overwrite the skipslave entry in the array with the last
++		 * entry from the array to avoid a situation where the xmit
++		 * path may choose this to-be-skipped slave to send a packet
++		 * out.
++		 */
++		rcu_read_lock();
++		old_arr = rcu_dereference_protected(bond->slave_arr,
++					    lockdep_is_held(&bond->lock));
++		for (idx = 0; idx < old_arr->count; idx++) {
++			if (skipslave == old_arr->arr[idx]) {
++				if (idx != old_arr->count - 1)
++					old_arr->arr[idx] =
++					    old_arr->arr[old_arr->count-1];
++				old_arr->count--;
++				break;
++			}
++		}
++		rcu_read_unlock();
++	}
++	return ret;
++}
++
++/* Use this Xmit function for 3AD as well as XOR modes. The current
++ * usable slave array is formed in the control path. The xmit function
++ * just calculates hash and sends the packet out.
++ */
++int bond_3ad_xor_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct bonding *bond = netdev_priv(dev);
++	struct slave *slave;
++	struct bond_up_slave *slaves;
++
++	slaves = rcu_dereference(bond->slave_arr);
++	if (slaves && slaves->count) {
++		slave = slaves->arr[bond_xmit_hash(bond, skb) % slaves->count];
++		bond_dev_queue_xmit(bond, skb, slave->dev);
++	} else {
++		dev_kfree_skb_any(skb);
++		atomic_long_inc(&dev->tx_dropped);
++	}
+ 
+ 	return NETDEV_TX_OK;
+ }
+@@ -3794,12 +3921,11 @@ static netdev_tx_t __bond_start_xmit(struct sk_buff *skb, struct net_device *dev
+ 		return bond_xmit_roundrobin(skb, dev);
+ 	case BOND_MODE_ACTIVEBACKUP:
+ 		return bond_xmit_activebackup(skb, dev);
++	case BOND_MODE_8023AD:
+ 	case BOND_MODE_XOR:
+-		return bond_xmit_xor(skb, dev);
++		return bond_3ad_xor_xmit(skb, dev);
+ 	case BOND_MODE_BROADCAST:
+ 		return bond_xmit_broadcast(skb, dev);
+-	case BOND_MODE_8023AD:
+-		return bond_3ad_xmit_xor(skb, dev);
+ 	case BOND_MODE_ALB:
+ 		return bond_alb_xmit(skb, dev);
+ 	case BOND_MODE_TLB:
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index aace510d08d1..4a6195c0de60 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -177,6 +177,12 @@ struct slave {
+ 	struct kobject kobj;
+ };
+ 
++struct bond_up_slave {
++	unsigned int	count;
++	struct rcu_head rcu;
++	struct slave	*arr[0];
++};
++
+ /*
+  * Link pseudo-state only used internally by monitors
+  */
+@@ -196,6 +202,7 @@ struct bonding {
+ 	struct   slave __rcu *curr_active_slave;
+ 	struct   slave __rcu *current_arp_slave;
+ 	struct   slave *primary_slave;
++	struct   bond_up_slave __rcu *slave_arr; /* Array of usable slaves */
+ 	bool     force_primary;
+ 	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
+ 	int     (*recv_probe)(const struct sk_buff *, struct bonding *,
+@@ -527,6 +534,7 @@ const char *bond_slave_link_status(s8 link);
+ struct bond_vlan_tag *bond_verify_device_path(struct net_device *start_dev,
+ 					      struct net_device *end_dev,
+ 					      int level);
++int bond_update_slave_arr(struct bonding *bond, struct slave *skipslave);
+ 
+ #ifdef CONFIG_PROC_FS
+ void bond_create_proc_entry(struct bonding *bond);
+-- 
+2.1.0.rc2.206.gedb03e5
