@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 00/15][pull request] Intel Wired LAN Driver
- Updates 2014-09-04
-Date: Fri, 05 Sep 2014 17:23:11 -0700 (PDT)
-Message-ID: <20140905.172311.1305166115395522501.davem@davemloft.net>
-References: <1409820404-18053-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] netfilter: add explicit Kconfig for NETFILTER_XT_NAT
+Date: Fri, 05 Sep 2014 17:23:45 -0700 (PDT)
+Message-ID: <20140905.172345.529961051265036163.davem@davemloft.net>
+References: <1409816841-6446-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57880 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751102AbaIFAXN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 20:23:13 -0400
-In-Reply-To: <1409820404-18053-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	pebolle@tiscali.nl
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1409816841-6446-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu,  4 Sep 2014 01:46:29 -0700
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Thu,  4 Sep 2014 09:47:21 +0200
 
-> This series contains updates to i40e, i40evf, ixgbe and ixgbevf.
+> Paul Bolle reports that 'select NETFILTER_XT_NAT' from the IPV4 and IPV6
+> NAT tables becomes noop since there is no Kconfig switch for it. Add the
+> Kconfig switch to resolve this problem.
+> 
+> Fixes: 8993cf8 netfilter: move NAT Kconfig switches out of the iptables scope
+> Reported-by: Paul Bolle <pebolle@tiscali.nl>
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Pulled, thanks Jeff.
+Applied, thanks Pablo.
