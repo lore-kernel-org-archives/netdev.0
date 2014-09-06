@@ -1,49 +1,69 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: [PATCH v10 net-next 2/2] net: filter: split filter.h and expose
- eBPF to user space
-Date: Sat, 6 Sep 2014 16:10:51 +0200
-Message-ID: <20140906141051.GA4245@salvia>
-References: <1409894238-9055-1-git-send-email-ast@plumgrid.com>
- <1409894238-9055-3-git-send-email-ast@plumgrid.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH 3/9] net: Move main gso loop out of
+ dev_hard_start_xmit() into helper.
+Date: Sat, 6 Sep 2014 17:38:08 +0300
+Message-ID: <20140906173808.049f18ed@halley>
+References: <20140901.152450.815155429225102019.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1409894238-9055-3-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:48613 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352AbaIFOiW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 10:38:22 -0400
+Received: by mail-wg0-f46.google.com with SMTP id n12so1926134wgh.29
+        for <netdev@vger.kernel.org>; Sat, 06 Sep 2014 07:38:20 -0700 (PDT)
+In-Reply-To: <20140901.152450.815155429225102019.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 04, 2014 at 10:17:18PM -0700, Alexei Starovoitov wrote:
-> allow user space to generate eBPF programs
-> 
-> uapi/linux/bpf.h: eBPF instruction set definition
-> 
-> linux/filter.h: the rest
-> 
-> This patch only moves macro definitions, but practically it freezes existing
-> eBPF instruction set, though new instructions can still be added in the future.
-> 
-> These eBPF definitions cannot go into uapi/linux/filter.h, since the names
-> may conflict with existing applications.
-> 
-> Full eBPF ISA description is in Documentation/networking/filter.txt
+Hi,
 
-I think you need to have at least one single interface using this
-before you can expose it to userspace. So this should come in the
-small batch that introduces the first interface of your ebpf code in
-userspace. AFAIK, this has been the policy so far.
+On Mon, 01 Sep 2014 15:24:50 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
+> @@ -2681,25 +2709,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+>  	}
+>  
+>  gso:
+> -	do {
+> -		struct sk_buff *nskb = skb->next;
+> -
+> -		skb->next = nskb->next;
+> -		nskb->next = NULL;
+> -
+> -		rc = xmit_one(nskb, dev, txq);
+> -		if (unlikely(rc != NETDEV_TX_OK)) {
+> -			if (rc & ~NETDEV_TX_MASK)
+> -				goto out_kfree_gso_skb;
+> -			nskb->next = skb->next;
+> -			skb->next = nskb;
+> -			return rc;
+> -		}
+> -		if (unlikely(netif_xmit_stopped(txq) && skb->next))
+> -			return NETDEV_TX_BUSY;
+> -	} while (skb->next);
+> -
+> -out_kfree_gso_skb:
+> +	skb->next = xmit_list(skb->next, dev, txq, &rc);
+>  	if (likely(skb->next == NULL)) {
+>  		skb->destructor = DEV_GSO_CB(skb)->destructor;
+>  		consume_skb(skb);
+> 	}
+> out_kfree_skb:
+> 	kfree_skb(skb);
+
+Formely, if 'netif_xmit_stopped(txq) && skb->next', NETDEV_TX_BUSY was
+returned, but the head 'skb' wasn't freed;
+Currently, if 'xmit_list' returns non-NULL due to same reason, head skb
+gets freed in out_kfree_skb.
+
+I'm not certain, but it looks like an oversight that got fixed later in
+the patchset:
+In net-next ce93718fb "net: Don't keep around original SKB when we
+software segment GSO frames." the 'kfree_skb(skb)' in
+'dev_hard_start_xmit' got relocated into validate_xmit_skb's gso
+segmentation part, making the issue disappear.
+
+Am I right? Didn't we miss anything else here?
