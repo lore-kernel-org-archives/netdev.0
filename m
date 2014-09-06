@@ -1,43 +1,46 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/2][pull request] Intel Wired LAN Driver Updates 2014-09-06
-Date: Sat,  6 Sep 2014 05:34:00 -0700
-Message-ID: <1410006842-26517-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC net-next PATCH V2 2/3] qdisc: bulk dequeue support for
+ qdiscs with TCQ_F_ONETXQUEUE
+Date: Sat, 06 Sep 2014 05:55:49 -0700
+Message-ID: <1410008149.11872.9.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140904125247.4108.8132.stgit@dragon>
+	 <20140904125438.4108.38160.stgit@dragon>
+	 <1409837383.26422.113.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140905102815.157fda5a@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:35742 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750863AbaIFMeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Sep 2014 08:34:05 -0400
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:51498 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751922AbaIFMzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 08:55:52 -0400
+Received: by mail-pa0-f45.google.com with SMTP id bj1so23938893pad.18
+        for <netdev@vger.kernel.org>; Sat, 06 Sep 2014 05:55:52 -0700 (PDT)
+In-Reply-To: <20140905102815.157fda5a@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to e1000 and igb.
+On Fri, 2014-09-05 at 10:28 +0200, Jesper Dangaard Brouer wrote:
 
-Krzysztof provides a patch to cleanup the coding style in e1000 to quiet
-checkpatch.pl warnings.
+> 
+> So, I cannot see if it is a TSO packet via the skb_is_gso(skb) check?
+> Will skb->len be the length of the full TSO packet size?
 
-Todd adds two boolean flags to igb to allow for changes in the
-advertised EEE speeds from ethtool.
 
-The following are changes since commit cfecec56ae7c7c40f23fbdac04acee027ca3bd66:
-  mlx4: only pull headers into skb head
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+There is no difference between a TSO and GSO packet. They are what we
+call a GSO packet.
 
-Krzysztof Majzerowicz-Jaszcz (1):
-  e1000: e1000_ethertool.c coding style fixes
+The difference lies on the device ability to perform TSO.
 
-Todd Fujinaka (1):
-  igb: add flags to set eee advertisement mode
-
- drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 155 ++++++++++++-----------
- drivers/net/ethernet/intel/igb/e1000_82575.c     |  31 ++++-
- drivers/net/ethernet/intel/igb/e1000_82575.h     |   4 +-
- drivers/net/ethernet/intel/igb/igb_ethtool.c     |  24 +++-
- drivers/net/ethernet/intel/igb/igb_main.c        |   8 +-
- 5 files changed, 128 insertions(+), 94 deletions(-)
-
--- 
-1.9.3
+If device is not able to send a TSO packet, packet is segmented by the
+core networking stack.
