@@ -1,253 +1,632 @@
-From: Jorge Daniel Sequeira Matias <jdsm@tecnico.ulisboa.pt>
-Subject: Re: [NS] page allocation failure. order:2, mode:0x204020 while enabling Jumbo frame
-Date: Sat, 6 Sep 2014 11:29:46 +0100
-Message-ID: <C94032F6-3519-4394-89CB-3BE1417AA410@tecnico.ulisboa.pt>
-References: <20140905184400.GA27606@calhariz.com>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "ns-list@dsi.ist.utl.pt" <ns-list@dsi.ist.utl.pt>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next v1 2/2] bonding: Simplify the xmit function for
+ modes that use xmit_hash
+Date: Sat, 06 Sep 2014 13:02:36 +0200
+Message-ID: <540AE9CC.10206@redhat.com>
+References: <1409985356-2384-1-git-send-email-maheshb@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Mahesh Bandewar <maheshb@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.ist.utl.pt ([193.136.128.22]:40204 "EHLO smtp2.ist.utl.pt"
+Received: from mx1.redhat.com ([209.132.183.28]:20042 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751118AbaIFKhC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 06:37:02 -0400
-In-Reply-To: <20140905184400.GA27606@calhariz.com>
+	id S1751000AbaIFLDM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Sep 2014 07:03:12 -0400
+In-Reply-To: <1409985356-2384-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bom dia,
+On 09/06/2014 08:35 AM, Mahesh Bandewar wrote:
+> Earlier change to use usable slave array for TLB mode had an additional
+> performance advantage. So extending the same logic to all other modes
+> that use xmit-hash for slave selection (viz 802.3AD, and XOR modes).
+> Also consolidating this with the earlier TLB change.
+> 
+> The main idea is to build the usable slaves array in the control path
+> and use that array for slave selection during xmit operation.
+> 
+> Measured performance in a setup with a bond of 4x1G NICs with 200
+> instances of netperf for the modes involved (3ad, xor, tlb)
+> cmd: netperf -t TCP_RR -H <TargetHost> -l 60 -s 5
+> 
+> Mode        TPS-Before   TPS-After
+> 
+> 802.3ad   : 468,694      493,101
+> TLB (lb=0): 392,583      392,965
+> XOR       : 475,696      484,517
+> 
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+> v1:
+>   (a) If bond_update_slave_arr() fails to allocate memory, it will overwrite
+>       the slave that need to be removed.
+>   (b) Freeing of array will assign NULL (to handle bond->down to bond->up
+>       transition gracefully.
+>   (c) Change from pr_debug() to pr_err() if bond_update_slave_arr() returns
+>       failure.
+>   (d) XOR: bond_update_slave_arr() will consider mii-mon, arp-mon cases and
+>       will populate the array even if these parameters are not used.
+>   (e) 3AD: Should handle the ad_agg_selection_logic correctly.
+> 
+>  drivers/net/bonding/bond_3ad.c  |  79 ++++-----------------
+>  drivers/net/bonding/bond_alb.c  |  45 +-----------
+>  drivers/net/bonding/bond_alb.h  |   8 ---
+>  drivers/net/bonding/bond_main.c | 150 ++++++++++++++++++++++++++++++++++++----
+>  drivers/net/bonding/bonding.h   |   8 +++
+>  5 files changed, 161 insertions(+), 129 deletions(-)
+> 
+Hi Mahesh,
+>From my last posts I revisited the bond_3ad_state_machine_handler() case
+and I think I was wrong that the machine state lock would protect you since
+it's different for every port so if the machine handler runs for port X and
+something else executes for port Y without bond->lock for writing - race.
+As I said in my last post primary_reselect is an ideal case for that even
+though it's not used in 3ad, it can be altered and to cause a reselect of
+the active slave thus rebuilding the slave_arr. Of course this is
+theoretical, but I'd prefer not to have such bugs in the first place.
+More notes below.
 
-=C3=89 pena que o t=C3=ADtulo n=C3=A3o tivesse come=C3=A7ado por "bnx2x=
-: ".
-N=C3=A3o acredito que este problema seja transversal a todas =C3=A0 as =
-placas de rede.
-Brevemente teremos oportunidade de testar uma placa diferente, que vai =
-sair de uma das brites.
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> index ee2c73a9de39..ba05c83d5d83 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -1579,6 +1579,8 @@ static void ad_agg_selection_logic(struct aggregator *agg)
+>  				__disable_port(port);
+>  			}
+>  		}
+> +		if (bond_update_slave_arr(bond, NULL))
+> +			pr_err("Failed to build slave-array for 3ad mode.\n");
+>  	}
+>  
+>  	/* if the selected aggregator is of join individuals
+> @@ -1717,6 +1719,8 @@ static void ad_enable_collecting_distributing(struct port *port)
+>  			 port->actor_port_number,
+>  			 port->aggregator->aggregator_identifier);
+>  		__enable_port(port);
+> +		if (bond_update_slave_arr(port->slave->bond, NULL))
+> +			pr_err("Failed to build slave-array for 3ad mode.\n");
+>  	}
+>  }
+>  
+> @@ -1733,6 +1737,8 @@ static void ad_disable_collecting_distributing(struct port *port)
+>  			 port->actor_port_number,
+>  			 port->aggregator->aggregator_identifier);
+>  		__disable_port(port);
+> +		if (bond_update_slave_arr(port->slave->bond, NULL))
+> +			pr_err("Failed to build slave-array for 3ad mode.\n");
+>  	}
+>  }
+>  
+> @@ -1917,6 +1923,9 @@ void bond_3ad_unbind_slave(struct slave *slave)
+>  	__update_lacpdu_from_port(port);
+>  	ad_lacpdu_send(port);
+>  
+> +	if (bond_update_slave_arr(bond, slave))
+> +		pr_err("Failed to build slave-array for 3AD mode.\n");
+> +
+>  	/* check if this aggregator is occupied */
+>  	if (aggregator->lag_ports) {
+>  		/* check if there are other ports related to this aggregator
+> @@ -2311,6 +2320,9 @@ void bond_3ad_handle_link_change(struct slave *slave, char link)
+>  	 */
+>  	port->sm_vars |= AD_PORT_BEGIN;
+>  
+> +	if (bond_update_slave_arr(slave->bond, NULL))
+> +		pr_err("Failed to build slave-array for 3ad mode.\n");
+> +
+>  	__release_state_machine_lock(port);
+>  }
+>  
+> @@ -2407,73 +2419,6 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
+>  	return ret;
+>  }
+>  
+> -int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+> -{
+> -	struct bonding *bond = netdev_priv(dev);
+> -	struct slave *slave, *first_ok_slave;
+> -	struct aggregator *agg;
+> -	struct ad_info ad_info;
+> -	struct list_head *iter;
+> -	int slaves_in_agg;
+> -	int slave_agg_no;
+> -	int agg_id;
+> -
+> -	if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+> -		netdev_dbg(dev, "__bond_3ad_get_active_agg_info failed\n");
+> -		goto err_free;
+> -	}
+> -
+> -	slaves_in_agg = ad_info.ports;
+> -	agg_id = ad_info.aggregator_id;
+> -
+> -	if (slaves_in_agg == 0) {
+> -		netdev_dbg(dev, "active aggregator is empty\n");
+> -		goto err_free;
+> -	}
+> -
+> -	slave_agg_no = bond_xmit_hash(bond, skb) % slaves_in_agg;
+> -	first_ok_slave = NULL;
+> -
+> -	bond_for_each_slave_rcu(bond, slave, iter) {
+> -		agg = SLAVE_AD_INFO(slave)->port.aggregator;
+> -		if (!agg || agg->aggregator_identifier != agg_id)
+> -			continue;
+> -
+> -		if (slave_agg_no >= 0) {
+> -			if (!first_ok_slave && bond_slave_can_tx(slave))
+> -				first_ok_slave = slave;
+> -			slave_agg_no--;
+> -			continue;
+> -		}
+> -
+> -		if (bond_slave_can_tx(slave)) {
+> -			bond_dev_queue_xmit(bond, skb, slave->dev);
+> -			goto out;
+> -		}
+> -	}
+> -
+> -	if (slave_agg_no >= 0) {
+> -		netdev_err(dev, "Couldn't find a slave to tx on for aggregator ID %d\n",
+> -			   agg_id);
+> -		goto err_free;
+> -	}
+> -
+> -	/* we couldn't find any suitable slave after the agg_no, so use the
+> -	 * first suitable found, if found.
+> -	 */
+> -	if (first_ok_slave)
+> -		bond_dev_queue_xmit(bond, skb, first_ok_slave->dev);
+> -	else
+> -		goto err_free;
+> -
+> -out:
+> -	return NETDEV_TX_OK;
+> -err_free:
+> -	/* no suitable interface, frame not sent */
+> -	dev_kfree_skb_any(skb);
+> -	goto out;
+> -}
+> -
+>  int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
+>  			 struct slave *slave)
+>  {
+> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+> index 73c21e233131..334d92127baf 100644
+> --- a/drivers/net/bonding/bond_alb.c
+> +++ b/drivers/net/bonding/bond_alb.c
+> @@ -200,7 +200,6 @@ static int tlb_initialize(struct bonding *bond)
+>  static void tlb_deinitialize(struct bonding *bond)
+>  {
+>  	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+> -	struct tlb_up_slave *arr;
+>  
+>  	_lock_tx_hashtbl_bh(bond);
+>  
+> @@ -208,10 +207,6 @@ static void tlb_deinitialize(struct bonding *bond)
+>  	bond_info->tx_hashtbl = NULL;
+>  
+>  	_unlock_tx_hashtbl_bh(bond);
+> -
+> -	arr = rtnl_dereference(bond_info->slave_arr);
+> -	if (arr)
+> -		kfree_rcu(arr, rcu);
+>  }
+>  
+>  static long long compute_gap(struct slave *slave)
+> @@ -1409,39 +1404,9 @@ out:
+>  	return NETDEV_TX_OK;
+>  }
+>  
+> -static int bond_tlb_update_slave_arr(struct bonding *bond,
+> -				     struct slave *skipslave)
+> -{
+> -	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+> -	struct slave *tx_slave;
+> -	struct list_head *iter;
+> -	struct tlb_up_slave *new_arr, *old_arr;
+> -
+> -	new_arr = kzalloc(offsetof(struct tlb_up_slave, arr[bond->slave_cnt]),
+> -			  GFP_ATOMIC);
+> -	if (!new_arr)
+> -		return -ENOMEM;
+> -
+> -	bond_for_each_slave(bond, tx_slave, iter) {
+> -		if (!bond_slave_can_tx(tx_slave))
+> -			continue;
+> -		if (skipslave == tx_slave)
+> -			continue;
+> -		new_arr->arr[new_arr->count++] = tx_slave;
+> -	}
+> -
+> -	old_arr = rtnl_dereference(bond_info->slave_arr);
+> -	rcu_assign_pointer(bond_info->slave_arr, new_arr);
+> -	if (old_arr)
+> -		kfree_rcu(old_arr, rcu);
+> -
+> -	return 0;
+> -}
+> -
+>  int bond_tlb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+>  {
+>  	struct bonding *bond = netdev_priv(bond_dev);
+> -	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+>  	struct ethhdr *eth_data;
+>  	struct slave *tx_slave = NULL;
+>  	u32 hash_index;
+> @@ -1462,9 +1427,9 @@ int bond_tlb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+>  							      hash_index & 0xFF,
+>  							      skb->len);
+>  			} else {
+> -				struct tlb_up_slave *slaves;
+> +				struct bond_up_slave *slaves;
+>  
+> -				slaves = rcu_dereference(bond_info->slave_arr);
+> +				slaves = rcu_dereference(bond->slave_arr);
+>  				if (slaves && slaves->count)
+>  					tx_slave = slaves->arr[hash_index %
+>  							       slaves->count];
+> @@ -1733,10 +1698,6 @@ void bond_alb_deinit_slave(struct bonding *bond, struct slave *slave)
+>  		rlb_clear_slave(bond, slave);
+>  	}
+>  
+> -	if (bond_is_nondyn_tlb(bond))
+> -		if (bond_tlb_update_slave_arr(bond, slave))
+> -			pr_err("Failed to build slave-array for TLB mode.\n");
+> -
+>  }
+>  
+>  /* Caller must hold bond lock for read */
+> @@ -1762,7 +1723,7 @@ void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char
+>  	}
+>  
+>  	if (bond_is_nondyn_tlb(bond)) {
+> -		if (bond_tlb_update_slave_arr(bond, NULL))
+> +		if (bond_update_slave_arr(bond, NULL))
+>  			pr_err("Failed to build slave-array for TLB mode.\n");
+>  	}
+>  }
+> diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+> index aaeac61d03cf..5fc76c01636c 100644
+> --- a/drivers/net/bonding/bond_alb.h
+> +++ b/drivers/net/bonding/bond_alb.h
+> @@ -139,20 +139,12 @@ struct tlb_slave_info {
+>  			 */
+>  };
+>  
+> -struct tlb_up_slave {
+> -	unsigned int	count;
+> -	struct rcu_head rcu;
+> -	struct slave	*arr[0];
+> -};
+> -
+>  struct alb_bond_info {
+>  	struct tlb_client_info	*tx_hashtbl; /* Dynamically allocated */
+>  	spinlock_t		tx_hashtbl_lock;
+>  	u32			unbalanced_load;
+>  	int			tx_rebalance_counter;
+>  	int			lp_counter;
+> -	/* -------- non-dynamic tlb mode only ---------*/
+> -	struct tlb_up_slave __rcu *slave_arr;	  /* Up slaves */
+>  	/* -------- rlb parameters -------- */
+>  	int rlb_enabled;
+>  	struct rlb_client_info	*rx_hashtbl;	/* Receive hash table */
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index f0f5eab0fab1..43f066539dab 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1413,6 +1413,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>  		dev_mc_add(slave_dev, lacpdu_multicast);
+>  	}
+>  
+> +	if (BOND_MODE(bond) == BOND_MODE_XOR &&
+> +	    bond_update_slave_arr(bond, NULL))
+> +		pr_err("Failed to build slave-array for XOR mode.\n");
+> +
+^^^^^^^^^^^^^^
+2 issues here:
+1.  a little bit after this you can find the following switch:
+        switch (BOND_MODE(bond)) {
 
-Jorge
+that is meant for specific mode handling, I don't think you need to add
+additional "if" here.
 
-Sent from my iPhone
+2. Why do you rebuild here, bond_master_upper_dev_link() hasn't been called
+yet so the new slave isn't visible yet.
 
-> On 05/09/2014, at 19:44, Jose M Calhariz <jose.calhariz@netvisao.pt> =
-wrote:
->=20
->=20
-> Hi
->=20
-> I have a Debian 7.0 server currently running kernel 3.16 from
-> kernel.org.  This server is a client of nfsv3, iSCSI and use dmcrypt.
-> When and only when enabling Jumbo Frames I get "page allocation
-> failure: order:2, mode:0x204020", in the end of the email is a stack
-> trace from this error.
->=20
-> Sometimes the rate of "page allocation failure" is very big or the
-> network stack stops, making the machine "network unreachable" to a
-> nagios server.
->=20
->=20
-> Sep  5 10:51:14 XXXXXX kernel: warn_alloc_failed: 5 callbacks suppres=
-sed
-> Sep  5 10:51:14 XXXXXX kernel: kworker/0:1: page allocation failure: =
-order:2, mode:0x204020
-> Sep  5 10:51:14 XXXXXX kernel: CPU: 0 PID: 6178 Comm: kworker/0:1 Tai=
-nted: G          I   3.16.0-dsi #9
-> Sep  5 10:51:14 XXXXXX kernel: Hardware name: Dell Inc. PowerEdge R41=
-0/01V648, BIOS 1.12.0 07/30/2013
-> Sep  5 10:51:14 XXXXXX kernel: Workqueue: kcryptd kcryptd_crypt [dm_c=
-rypt]
-> Sep  5 10:51:14 XXXXXX kernel: 0000000000000000 0000000000000000 ffff=
-ffff814fd161 0000000000204020
-> Sep  5 10:51:14 XXXXXX kernel: ffffffff811395d2 ffff88032fffac00 ffff=
-ffff818b04b0 0000000000000003
-> Sep  5 10:51:14 XXXXXX kernel: 0000000000000018 000000012fffac18 ffff=
-8801affff0a8 0000000000000096
-> Sep  5 10:51:14 XXXXXX kernel: Call Trace:
-> Sep  5 10:51:14 XXXXXX kernel: <IRQ>  [<ffffffff814fd161>] ? dump_sta=
-ck+0x41/0x51
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff811395d2>] ? warn_alloc_fail=
-ed+0xf2/0x150
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff8113d930>] ? __alloc_pages_n=
-odemask+0x8e0/0xb40
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff8118355a>] ? kmem_getpages+0=
-x5a/0x110
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff8118522f>] ? fallback_alloc+=
-0x1cf/0x220
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffffa019ef1d>] ? bnx2x_alloc_rx_=
-data.isra.75+0x5d/0x1e0 [bnx2x]
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff811854bc>] ? __kmalloc+0x19c=
-/0x1f0
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffffa019ef1d>] ? bnx2x_alloc_rx_=
-data.isra.75+0x5d/0x1e0 [bnx2x]
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffffa019f894>] ? bnx2x_rx_int+0x=
-7f4/0x1790 [bnx2x]
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff814005e8>] ? skb_release_hea=
-d_state+0x48/0xf0
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff814006f9>] ? __kfree_skb+0x9=
-/0xa0
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff81461f6d>] ? tcp_schedule_lo=
-ss_probe+0x12d/0x1a0
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffffa01a25a8>] ? bnx2x_poll+0xe8=
-/0x3b0 [bnx2x]
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff8140fc18>] ? net_rx_action+0=
-x138/0x240
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff8106af4f>] ? __do_softirq+0x=
-df/0x270
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff8106b315>] ? irq_exit+0x95/0=
-xa0
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff81015701>] ? do_IRQ+0x61/0x1=
-10
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff81503aed>] ? common_interrup=
-t+0x6d/0x6d
-> Sep  5 10:51:14 XXXXXX kernel: <EOI>  [<ffffffffa0378c10>] ? _aesni_e=
-nc1+0x5c/0xac [aesni_intel]
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffffa0379170>] ? aesni_cbc_enc+0=
-x20/0x40 [aesni_intel]
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffffa037ab24>] ? cbc_encrypt+0x7=
-4/0xd0 [aesni_intel]
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffffa02270fe>] ? __ablk_encrypt+=
-0x3e/0x50 [ablk_helper]
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffffa069641b>] ? crypt_convert+0=
-x20b/0x460 [dm_crypt]
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffffa069682b>] ? kcryptd_crypt+0=
-x1bb/0x400 [dm_crypt]
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff81080adb>] ? process_one_wor=
-k+0x16b/0x400
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff81081184>] ? worker_thread+0=
-x114/0x510
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff814ff3f8>] ? __schedule+0x2c=
-8/0x760
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff81081070>] ? rescuer_thread+=
-0x2c0/0x2c0
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff810876cc>] ? kthread+0xbc/0x=
-e0
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff81087610>] ? flush_kthread_w=
-orker+0x80/0x80
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff81502f3c>] ? ret_from_fork+0=
-x7c/0xb0
-> Sep  5 10:51:14 XXXXXX kernel: [<ffffffff81087610>] ? flush_kthread_w=
-orker+0x80/0x80
-> Sep  5 10:51:14 XXXXXX kernel: Mem-Info:
-> Sep  5 10:51:14 XXXXXX kernel: Node 0 Normal per-cpu:
-> Sep  5 10:51:14 XXXXXX kernel: CPU    0: hi:  186, btch:  31 usd: 141
-> Sep  5 10:51:14 XXXXXX kernel: CPU    1: hi:  186, btch:  31 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    2: hi:  186, btch:  31 usd: 178
-> Sep  5 10:51:14 XXXXXX kernel: CPU    3: hi:  186, btch:  31 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    4: hi:  186, btch:  31 usd: 169
-> Sep  5 10:51:14 XXXXXX kernel: CPU    5: hi:  186, btch:  31 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    6: hi:  186, btch:  31 usd: 181
-> Sep  5 10:51:14 XXXXXX kernel: CPU    7: hi:  186, btch:  31 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: Node 1 DMA per-cpu:
-> Sep  5 10:51:14 XXXXXX kernel: CPU    0: hi:    0, btch:   1 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    1: hi:    0, btch:   1 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    2: hi:    0, btch:   1 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    3: hi:    0, btch:   1 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    4: hi:    0, btch:   1 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    5: hi:    0, btch:   1 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    6: hi:    0, btch:   1 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    7: hi:    0, btch:   1 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: Node 1 DMA32 per-cpu:
-> Sep  5 10:51:14 XXXXXX kernel: CPU    0: hi:  186, btch:  31 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    1: hi:  186, btch:  31 usd:  51
-> Sep  5 10:51:14 XXXXXX kernel: CPU    2: hi:  186, btch:  31 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    3: hi:  186, btch:  31 usd:  36
-> Sep  5 10:51:14 XXXXXX kernel: CPU    4: hi:  186, btch:  31 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    5: hi:  186, btch:  31 usd:  51
-> Sep  5 10:51:14 XXXXXX kernel: CPU    6: hi:  186, btch:  31 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    7: hi:  186, btch:  31 usd:  59
-> Sep  5 10:51:14 XXXXXX kernel: Node 1 Normal per-cpu:
-> Sep  5 10:51:14 XXXXXX kernel: CPU    0: hi:  186, btch:  31 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    1: hi:  186, btch:  31 usd:  95
-> Sep  5 10:51:14 XXXXXX kernel: CPU    2: hi:  186, btch:  31 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    3: hi:  186, btch:  31 usd: 100
-> Sep  5 10:51:14 XXXXXX kernel: CPU    4: hi:  186, btch:  31 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    5: hi:  186, btch:  31 usd:  95
-> Sep  5 10:51:14 XXXXXX kernel: CPU    6: hi:  186, btch:  31 usd:   0
-> Sep  5 10:51:14 XXXXXX kernel: CPU    7: hi:  186, btch:  31 usd:  79
-> Sep  5 10:51:14 XXXXXX kernel: active_anon:391978 inactive_anon:21723=
-4 isolated_anon:0
-> Sep  5 10:51:14 XXXXXX kernel: active_file:405690 inactive_file:25149=
-7 isolated_file:0
-> Sep  5 10:51:14 XXXXXX kernel: unevictable:2192 dirty:0 writeback:0 u=
-nstable:0
-> Sep  5 10:51:14 XXXXXX kernel: free:482104 slab_reclaimable:827503 sl=
-ab_unreclaimable:171240
-> Sep  5 10:51:14 XXXXXX kernel: mapped:3469 shmem:99 pagetables:2164 b=
-ounce:0
-> Sep  5 10:51:14 XXXXXX kernel: free_cma:0
-> Sep  5 10:51:14 XXXXXX kernel: Node 0 Normal free:801464kB min:528080=
-kB low:660100kB high:792120kB active_anon:1161624kB inactive_anon:38758=
-0kB active_file:534424kB inactive_file:291488kB unevictable:4940kB isol=
-ated(anon):0kB isolated(file):0kB present:6291456kB managed:6203092kB m=
-locked:4944kB dirty:0kB
-> +writeback:0kB mapped:5116kB shmem:124kB slab_reclaimable:1923736kB s=
-lab_unreclaimable:386892kB kernel_stack:4368kB pagetables:5768kB unstab=
-le:0kB bounce:0kB free_cma:0kB writeback_tmp:0kB pages_scanned:47 all_u=
-nreclaimable? no
-> Sep  5 10:51:14 XXXXXX kernel: lowmem_reserve[]: 0 0 0 0
-> Sep  5 10:51:14 XXXXXX kernel: Node 1 DMA free:15896kB min:1352kB low=
-:1688kB high:2028kB active_anon:0kB inactive_anon:0kB active_file:0kB i=
-nactive_file:0kB unevictable:0kB isolated(anon):0kB isolated(file):0kB =
-present:15980kB managed:15896kB mlocked:0kB dirty:0kB writeback:0kB map=
-ped:0kB shmem:0kB
-> +slab_reclaimable:0kB slab_unreclaimable:0kB kernel_stack:0kB pagetab=
-les:0kB unstable:0kB bounce:0kB free_cma:0kB writeback_tmp:0kB pages_sc=
-anned:0 all_unreclaimable? yes
-> Sep  5 10:51:14 XXXXXX kernel: lowmem_reserve[]: 0 3224 5952 5952
-> Sep  5 10:51:14 XXXXXX kernel: Node 1 DMA32 free:804396kB min:281328k=
-B low:351660kB high:421992kB active_anon:240284kB inactive_anon:288392k=
-B active_file:558572kB inactive_file:412684kB unevictable:1972kB isolat=
-ed(anon):0kB isolated(file):0kB present:3378660kB managed:3304628kB mlo=
-cked:1972kB dirty:0kB writeback:0kB
-> +mapped:4144kB shmem:204kB slab_reclaimable:618324kB slab_unreclaimab=
-le:133696kB kernel_stack:1168kB pagetables:1512kB unstable:0kB bounce:0=
-kB free_cma:0kB writeback_tmp:0kB pages_scanned:0 all_unreclaimable? no
-> Sep  5 10:51:14 XXXXXX kernel: lowmem_reserve[]: 0 0 2727 2727
-> Sep  5 10:51:14 XXXXXX kernel: Node 1 Normal free:306660kB min:237808=
-kB low:297260kB high:356712kB active_anon:166004kB inactive_anon:192964=
-kB active_file:529764kB inactive_file:301816kB unevictable:1856kB isola=
-ted(anon):0kB isolated(file):0kB present:2883584kB managed:2793404kB ml=
-ocked:1856kB dirty:0kB writeback:0kB
-> +mapped:4616kB shmem:68kB slab_reclaimable:767952kB slab_unreclaimabl=
-e:164372kB kernel_stack:1312kB pagetables:1376kB unstable:0kB bounce:0k=
-B free_cma:0kB writeback_tmp:0kB pages_scanned:0 all_unreclaimable? no
-> Sep  5 10:51:14 XXXXXX kernel: lowmem_reserve[]: 0 0 0 0
-> Sep  5 10:51:14 XXXXXX kernel: Node 0 Normal: 186511*4kB (UEM) 5585*8=
-kB (UEM) 421*16kB (UM) 1*32kB (M) 0*64kB 0*128kB 0*256kB 0*512kB 0*1024=
-kB 0*2048kB 1*4096kB (R) =3D 801588kB
-> Sep  5 10:51:14 XXXXXX kernel: Node 1 DMA: 0*4kB 1*8kB (U) 1*16kB (U)=
- 0*32kB 2*64kB (U) 1*128kB (U) 1*256kB (U) 0*512kB 1*1024kB (U) 1*2048k=
-B (R) 3*4096kB (M) =3D 15896kB
-> Sep  5 10:51:14 XXXXXX kernel: Node 1 DMA32: 97773*4kB (EM) 49708*8kB=
- (EM) 721*16kB (M) 0*32kB 0*64kB 0*128kB 0*256kB 0*512kB 0*1024kB 0*204=
-8kB 1*4096kB (R) =3D 804388kB
-> Sep  5 10:51:14 XXXXXX kernel: Node 1 Normal: 48558*4kB (EM) 13544*8k=
-B (M) 0*16kB 0*32kB 0*64kB 0*128kB 0*256kB 0*512kB 0*1024kB 0*2048kB 1*=
-4096kB (R) =3D 306680kB
-> Sep  5 10:51:14 XXXXXX kernel: Node 0 hugepages_total=3D0 hugepages_f=
-ree=3D0 hugepages_surp=3D0 hugepages_size=3D2048kB
-> Sep  5 10:51:14 XXXXXX kernel: Node 1 hugepages_total=3D0 hugepages_f=
-ree=3D0 hugepages_surp=3D0 hugepages_size=3D2048kB
-> Sep  5 10:51:14 XXXXXX kernel: 658273 total pagecache pages
-> Sep  5 10:51:14 XXXXXX kernel: 37 pages in swap cache
-> Sep  5 10:51:14 XXXXXX kernel: Swap cache stats: add 499, delete 462,=
- find 7/10
-> Sep  5 10:51:14 XXXXXX kernel: Free swap  =3D 37456928kB
-> Sep  5 10:51:14 XXXXXX kernel: Total swap =3D 37458864kB
-> Sep  5 10:51:14 XXXXXX kernel: 3142420 pages RAM
-> Sep  5 10:51:14 XXXXXX kernel: 0 pages HighMem/MovableOnly
-> Sep  5 10:51:14 XXXXXX kernel: 22545 pages reserved
-> Sep  5 10:51:14 XXXXXX kernel: 0 pages hwpoisoned
->=20
->=20
->=20
-> --=20
-> --
->    Cita=C3=A7=C3=A3o: ato de repetir de modo errado as palavras alhei=
-as.
->        --  Ambrose Bierce; jornalista e cientista americano.
-> _______________________________________________
-> ns-list mailing list
-> ns-list@dsi.ist.utl.pt
-> https://mlists.ist.utl.pt/mailman/listinfo/groups.ciist.ns-list
+>  	res = vlan_vids_add_by_dev(slave_dev, bond_dev);
+>  	if (res) {
+>  		netdev_err(bond_dev, "Couldn't add bond vlan ids to %s\n",
+> @@ -1692,6 +1696,11 @@ static int __bond_release_one(struct net_device *bond_dev,
+>  	/* Inform AD package of unbinding of slave. */
+>  	if (BOND_MODE(bond) == BOND_MODE_8023AD)
+>  		bond_3ad_unbind_slave(slave);
+> +	else if (BOND_MODE(bond) == BOND_MODE_XOR ||
+> +		 bond_is_nondyn_tlb(bond)) {
+> +		if (bond_update_slave_arr(bond, slave))
+> +			pr_err("Failed to build slave-array.\n");
+> +	}
+Documentation/CodingStyle:
+both branches must use braces.
+
+>  
+>  	write_unlock_bh(&bond->lock);
+>  
+> @@ -2009,6 +2018,10 @@ static void bond_miimon_commit(struct bonding *bond)
+>  				bond_alb_handle_link_change(bond, slave,
+>  							    BOND_LINK_UP);
+>  
+> +			if (BOND_MODE(bond) == BOND_MODE_XOR &&
+> +			    bond_update_slave_arr(bond, NULL))
+> +				pr_err("Failed to build slave-array for XOR mode.\n");
+> +
+>  			if (!bond->curr_active_slave ||
+>  			    (slave == bond->primary_slave))
+>  				goto do_failover;
+> @@ -2037,6 +2050,10 @@ static void bond_miimon_commit(struct bonding *bond)
+>  				bond_alb_handle_link_change(bond, slave,
+>  							    BOND_LINK_DOWN);
+>  
+> +			if (BOND_MODE(bond) == BOND_MODE_XOR &&
+> +			    bond_update_slave_arr(bond, NULL))
+> +				pr_err("Failed to build slave-array for XOR mode.\n");
+> +
+>  			if (slave == rcu_access_pointer(bond->curr_active_slave))
+>  				goto do_failover;
+>  
+> @@ -2500,6 +2517,9 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
+>  
+>  		if (slave_state_changed) {
+>  			bond_slave_state_change(bond);
+> +			if (BOND_MODE(bond) == BOND_MODE_XOR &&
+> +			    bond_update_slave_arr(bond, NULL))
+> +				pr_err("Failed to build slave-array for XOR mode.\n");
+>  		} else if (do_failover) {
+>  			/* the bond_select_active_slave must hold RTNL
+>  			 * and curr_slave_lock for write.
+> @@ -2893,11 +2913,14 @@ static int bond_slave_netdev_event(unsigned long event,
+>  			if (old_duplex != slave->duplex)
+>  				bond_3ad_adapter_duplex_changed(slave);
+>  		}
+> +		if (BOND_MODE(bond) == BOND_MODE_XOR &&
+> +		    bond_update_slave_arr(bond, NULL))
+> +			pr_err("Failed to build slave-array for XOR mode.\n");
+>  		break;
+>  	case NETDEV_DOWN:
+> -		/*
+> -		 * ... Or is it this?
+> -		 */
+> +		if (BOND_MODE(bond) == BOND_MODE_XOR &&
+> +		    bond_update_slave_arr(bond, NULL))
+> +			pr_err("Failed to build slave-array for XOR mode.\n");
+^^^^^^^^^^^^^^^^
+In the case of a netdev event (up/down) does this only affect XOR mode ?
+You could be right, just wanted to make sure we're not missing something :-)
+
+>  		break;
+>  	case NETDEV_CHANGEMTU:
+>  		/*
+> @@ -3143,12 +3166,17 @@ static int bond_open(struct net_device *bond_dev)
+>  		bond_3ad_initiate_agg_selection(bond, 1);
+>  	}
+>  
+> +	if (BOND_MODE(bond) == BOND_MODE_XOR &&
+> +	    bond_update_slave_arr(bond, NULL))
+> +		pr_err("Failed to build slave-array for XOR mode.\n");
+> +
+>  	return 0;
+>  }
+>  
+>  static int bond_close(struct net_device *bond_dev)
+>  {
+>  	struct bonding *bond = netdev_priv(bond_dev);
+> +	struct bond_up_slave *arr;
+>  
+>  	bond_work_cancel_all(bond);
+>  	bond->send_peer_notif = 0;
+> @@ -3156,6 +3184,12 @@ static int bond_close(struct net_device *bond_dev)
+>  		bond_alb_deinitialize(bond);
+>  	bond->recv_probe = NULL;
+>  
+> +	arr = rtnl_dereference(bond->slave_arr);
+> +	if (arr) {
+> +		kfree_rcu(arr, rcu);
+> +		RCU_INIT_POINTER(bond->slave_arr, NULL);
+> +	}
+> +
+^^^^^^^^
+Why do this in the first place ? I mean I could easily release a slave
+while the bond is down and rebuild the slave_arr.
+One more issue that I just saw is that you might be leaking memory as
+ndo_uninit() is called for a device after dev_close_many() so you'll free
+the array here, but bond_uninit() calls __bond_release_slave and will
+rebuild it.
+
+>  	return 0;
+>  }
+>  
+> @@ -3684,15 +3718,108 @@ static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *bond_d
+>  	return NETDEV_TX_OK;
+>  }
+>  
+> -/* In bond_xmit_xor() , we determine the output device by using a pre-
+> - * determined xmit_hash_policy(), If the selected device is not enabled,
+> - * find the next active slave.
+> +/* Build the usable slaves array in control path for modes that use xmit-hash
+> + * to determine the slave interface -
+> + * (a) BOND_MODE_8023AD
+> + * (b) BOND_MODE_XOR
+> + * (c) BOND_MODE_TLB && tlb_dynamic_lb == 0
+>   */
+> -static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev)
+> +int bond_update_slave_arr(struct bonding *bond, struct slave *skipslave)
+>  {
+> -	struct bonding *bond = netdev_priv(bond_dev);
+> +	struct slave *slave;
+> +	struct list_head *iter;
+> +	struct bond_up_slave *new_arr, *old_arr;
+> +	int slaves_in_agg;
+> +	int agg_id = 0;
+> +	int ret = 0;
+> +
+> +	new_arr = kzalloc(offsetof(struct bond_up_slave, arr[bond->slave_cnt]),
+> +			  GFP_ATOMIC);
+> +	if (!new_arr) {
+> +		ret = -ENOMEM;
+> +		goto out;
+> +	}
+> +	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+> +		struct ad_info ad_info;
+>  
+> -	bond_xmit_slave_id(bond, skb, bond_xmit_hash(bond, skb) % bond->slave_cnt);
+> +		if (bond_3ad_get_active_agg_info(bond, &ad_info)) {
+> +			pr_debug("bond_3ad_get_active_agg_info failed\n");
+> +			kfree_rcu(new_arr, rcu);
+> +			ret = -EINVAL;
+> +			goto out;
+> +		}
+> +		slaves_in_agg = ad_info.ports;
+> +		agg_id = ad_info.aggregator_id;
+> +	}
+> +	bond_for_each_slave(bond, slave, iter) {
+> +		if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+> +			struct aggregator *agg;
+> +
+> +			agg = SLAVE_AD_INFO(slave)->port.aggregator;
+> +			if (!agg || agg->aggregator_identifier != agg_id)
+> +				continue;
+> +		}
+> +		if (!bond_slave_can_tx(slave))
+> +			continue;
+> +		if (skipslave == slave)
+> +			continue;
+> +		new_arr->arr[new_arr->count++] = slave;
+> +	}
+> +
+> +	old_arr = rcu_dereference_protected(bond->slave_arr,
+> +					    lockdep_rtnl_is_held() ||
+> +					    lockdep_is_held(&bond->lock) ||
+> +					    lockdep_is_held(&bond->curr_slave_lock));
+> +	rcu_assign_pointer(bond->slave_arr, new_arr);
+> +	if (old_arr)
+> +		kfree_rcu(old_arr, rcu);
+> +
+> +out:
+> +	if (ret != 0 && skipslave) {
+> +		int idx;
+> +
+> +		/* Rare situation where caller has asked to skip a specific
+> +		 * slave but allocation failed (most likely!). In this sitation
+> +		 * overwrite the skipslave entry in the array with the last
+> +		 * entry from the array to avoid a situation where the xmit
+> +		 * path may choose this to-be-skipped slave to send a packet
+> +		 * out.
+> +		 */
+> +		rcu_read_lock();
+^^^^^^^^^^^^^^
+RCU ?
+
+> +		old_arr = rcu_dereference_protected(bond->slave_arr,
+> +					    lockdep_is_held(&bond->lock));
+						^^^^^^^^
+Only bond->lock ? This doesn't make any sense.
+
+> +		for (idx = 0; idx < old_arr->count; idx++) {
+> +			if (skipslave == old_arr->arr[idx]) {
+> +				if (idx != old_arr->count - 1)
+You can drop the "if" and remove one level of indentation, if idx == count
+- 1, then it'll overwrite itself (i.e. nothing) but count will still go down.
+But I think there's a potential bigger problem here as in the case of
+failure count might drop down to 0 but some transmitter might be pass the
+check and at the modulus part and if count is re-fetched we might end up
+with a div by zero.
+
+> +					old_arr->arr[idx] =
+> +					    old_arr->arr[old_arr->count-1];
+> +				old_arr->count--;
+> +				break;
+> +			}
+> +		}
+> +		rcu_read_unlock();
+> +	}
+> +	return ret;
+> +}
+> +
+> +/* Use this Xmit function for 3AD as well as XOR modes. The current
+> + * usable slave array is formed in the control path. The xmit function
+> + * just calculates hash and sends the packet out.
+> + */
+> +int bond_3ad_xor_xmit(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	struct bonding *bond = netdev_priv(dev);
+> +	struct slave *slave;
+> +	struct bond_up_slave *slaves;
+> +
+> +	slaves = rcu_dereference(bond->slave_arr);
+> +	if (slaves && slaves->count) {
+> +		slave = slaves->arr[bond_xmit_hash(bond, skb) % slaves->count];
+> +		bond_dev_queue_xmit(bond, skb, slave->dev);
+> +	} else {
+> +		dev_kfree_skb_any(skb);
+> +		atomic_long_inc(&dev->tx_dropped);
+> +	}
+>  
+>  	return NETDEV_TX_OK;
+>  }
+> @@ -3794,12 +3921,11 @@ static netdev_tx_t __bond_start_xmit(struct sk_buff *skb, struct net_device *dev
+>  		return bond_xmit_roundrobin(skb, dev);
+>  	case BOND_MODE_ACTIVEBACKUP:
+>  		return bond_xmit_activebackup(skb, dev);
+> +	case BOND_MODE_8023AD:
+>  	case BOND_MODE_XOR:
+> -		return bond_xmit_xor(skb, dev);
+> +		return bond_3ad_xor_xmit(skb, dev);
+>  	case BOND_MODE_BROADCAST:
+>  		return bond_xmit_broadcast(skb, dev);
+> -	case BOND_MODE_8023AD:
+> -		return bond_3ad_xmit_xor(skb, dev);
+>  	case BOND_MODE_ALB:
+>  		return bond_alb_xmit(skb, dev);
+>  	case BOND_MODE_TLB:
+> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+> index aace510d08d1..4a6195c0de60 100644
+> --- a/drivers/net/bonding/bonding.h
+> +++ b/drivers/net/bonding/bonding.h
+> @@ -177,6 +177,12 @@ struct slave {
+>  	struct kobject kobj;
+>  };
+>  
+> +struct bond_up_slave {
+> +	unsigned int	count;
+> +	struct rcu_head rcu;
+> +	struct slave	*arr[0];
+> +};
+> +
+>  /*
+>   * Link pseudo-state only used internally by monitors
+>   */
+> @@ -196,6 +202,7 @@ struct bonding {
+>  	struct   slave __rcu *curr_active_slave;
+>  	struct   slave __rcu *current_arp_slave;
+>  	struct   slave *primary_slave;
+> +	struct   bond_up_slave __rcu *slave_arr; /* Array of usable slaves */
+>  	bool     force_primary;
+>  	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
+>  	int     (*recv_probe)(const struct sk_buff *, struct bonding *,
+> @@ -527,6 +534,7 @@ const char *bond_slave_link_status(s8 link);
+>  struct bond_vlan_tag *bond_verify_device_path(struct net_device *start_dev,
+>  					      struct net_device *end_dev,
+>  					      int level);
+> +int bond_update_slave_arr(struct bonding *bond, struct slave *skipslave);
+>  
+>  #ifdef CONFIG_PROC_FS
+>  void bond_create_proc_entry(struct bonding *bond);
+> 
