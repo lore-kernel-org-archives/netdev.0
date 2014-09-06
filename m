@@ -1,96 +1,49 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 5/6] bonding: options: remove bond->lock usage
-Date: Sat,  6 Sep 2014 15:59:30 +0200
-Message-ID: <1410011971-24922-6-git-send-email-nikolay@redhat.com>
-References: <1410011971-24922-1-git-send-email-nikolay@redhat.com>
-Cc: vfalico@gmail.com, j.vosburgh@gmail.com, andy@greyhouse.net,
-	davem@davemloft.net, Nikolay Aleksandrov <nikolay@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37021 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750936AbaIFOBF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Sep 2014 10:01:05 -0400
-In-Reply-To: <1410011971-24922-1-git-send-email-nikolay@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Subject: Re: [PATCH v10 net-next 2/2] net: filter: split filter.h and expose
+ eBPF to user space
+Date: Sat, 6 Sep 2014 16:10:51 +0200
+Message-ID: <20140906141051.GA4245@salvia>
+References: <1409894238-9055-1-git-send-email-ast@plumgrid.com>
+ <1409894238-9055-3-git-send-email-ast@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1409894238-9055-3-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-We're safe to remove the bond->lock use from the arp targets because
-arp_rcv_probe no longer acquires bond->lock, only rcu_read_lock.
-Also setting the primary slave is safe because noone uses the bond->lock
-as a syncing mechanism for that anymore.
+On Thu, Sep 04, 2014 at 10:17:18PM -0700, Alexei Starovoitov wrote:
+> allow user space to generate eBPF programs
+> 
+> uapi/linux/bpf.h: eBPF instruction set definition
+> 
+> linux/filter.h: the rest
+> 
+> This patch only moves macro definitions, but practically it freezes existing
+> eBPF instruction set, though new instructions can still be added in the future.
+> 
+> These eBPF definitions cannot go into uapi/linux/filter.h, since the names
+> may conflict with existing applications.
+> 
+> Full eBPF ISA description is in Documentation/networking/filter.txt
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
- drivers/net/bonding/bond_options.c | 19 +------------------
- 1 file changed, 1 insertion(+), 18 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 7c9e176baecc..534c0600484e 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -955,14 +955,7 @@ static int _bond_option_arp_ip_target_add(struct bonding *bond, __be32 target)
- 
- static int bond_option_arp_ip_target_add(struct bonding *bond, __be32 target)
- {
--	int ret;
--
--	/* not to race with bond_arp_rcv */
--	write_lock_bh(&bond->lock);
--	ret = _bond_option_arp_ip_target_add(bond, target);
--	write_unlock_bh(&bond->lock);
--
--	return ret;
-+	return _bond_option_arp_ip_target_add(bond, target);
- }
- 
- static int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target)
-@@ -991,9 +984,6 @@ static int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target)
- 
- 	netdev_info(bond->dev, "Removing ARP target %pI4\n", &target);
- 
--	/* not to race with bond_arp_rcv */
--	write_lock_bh(&bond->lock);
--
- 	bond_for_each_slave(bond, slave, iter) {
- 		targets_rx = slave->target_last_arp_rx;
- 		for (i = ind; (i < BOND_MAX_ARP_TARGETS-1) && targets[i+1]; i++)
-@@ -1004,8 +994,6 @@ static int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target)
- 		targets[i] = targets[i+1];
- 	targets[i] = 0;
- 
--	write_unlock_bh(&bond->lock);
--
- 	return 0;
- }
- 
-@@ -1013,11 +1001,8 @@ void bond_option_arp_ip_targets_clear(struct bonding *bond)
- {
- 	int i;
- 
--	/* not to race with bond_arp_rcv */
--	write_lock_bh(&bond->lock);
- 	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
- 		_bond_options_arp_ip_target_set(bond, i, 0, 0);
--	write_unlock_bh(&bond->lock);
- }
- 
- static int bond_option_arp_ip_targets_set(struct bonding *bond,
-@@ -1081,7 +1066,6 @@ static int bond_option_primary_set(struct bonding *bond,
- 	struct slave *slave;
- 
- 	block_netpoll_tx();
--	read_lock(&bond->lock);
- 	write_lock_bh(&bond->curr_slave_lock);
- 
- 	p = strchr(primary, '\n');
-@@ -1120,7 +1104,6 @@ static int bond_option_primary_set(struct bonding *bond,
- 
- out:
- 	write_unlock_bh(&bond->curr_slave_lock);
--	read_unlock(&bond->lock);
- 	unblock_netpoll_tx();
- 
- 	return 0;
--- 
-1.9.3
+I think you need to have at least one single interface using this
+before you can expose it to userspace. So this should come in the
+small batch that introduces the first interface of your ebpf code in
+userspace. AFAIK, this has been the policy so far.
