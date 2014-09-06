@@ -1,71 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] mlx4: only pull headers into skb head
-Date: Fri, 05 Sep 2014 18:29:45 -0700
-Message-ID: <1409966985.11872.6.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next v2 2/2] enic: Add ethtool support to show
+ classifier filters added by the driver
+Date: Sat, 06 Sep 2014 04:01:22 +0100
+Message-ID: <1409972482.7389.22.camel@decadent.org.uk>
+References: <1405943538-3086-1-git-send-email-_govind@gmx.com>
+	 <1405943538-3086-3-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-L63JtQljA6b8Z7ztgRBF"
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com
+To: Govindarajulu Varadarajan <_govind@gmx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:47334 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871AbaIFB3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 21:29:48 -0400
-Received: by mail-pa0-f42.google.com with SMTP id lf10so23406928pab.15
-        for <netdev@vger.kernel.org>; Fri, 05 Sep 2014 18:29:47 -0700 (PDT)
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36006 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750902AbaIFDBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 23:01:39 -0400
+In-Reply-To: <1405943538-3086-3-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-Use the new fancy eth_get_headlen() to pull exactly the headers
-into skb->head.
+--=-L63JtQljA6b8Z7ztgRBF
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-This speeds up GRE traffic (or more generally tunneled traffuc),
-as GRO can aggregate up to 17 MSS per GRO packet instead of 8.
+On Mon, 2014-07-21 at 17:22 +0530, Govindarajulu Varadarajan wrote:
+> This patch impliments ethtool_ops->get_rxnfc() to display the classifier
+> filter added by the driver.
+[...]
 
-(Pulling too much data was forcing GRO to keep 2 frags per MSS)
+ARFS and ethtool RXNFC are two different interfaces for setting filters
+and they shouldn't be confused with each other.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |   13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+In the sfc driver, I made the filters inserted through each interface
+invisible from the other.  The mlx4_en driver also appears to keep the
+two sets of filters separate.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index b7da466a20d8..14686b6f4bc5 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -588,6 +588,8 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
- 		skb_copy_to_linear_data(skb, va, length);
- 		skb->tail += length;
- 	} else {
-+		unsigned int pull_len;
-+
- 		/* Move relevant fragments to skb */
- 		used_frags = mlx4_en_complete_rx_desc(priv, rx_desc, frags,
- 							skb, length);
-@@ -597,16 +599,17 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
- 		}
- 		skb_shinfo(skb)->nr_frags = used_frags;
- 
-+		pull_len = eth_get_headlen(va, SMALL_PACKET_SIZE);
- 		/* Copy headers into the skb linear buffer */
--		memcpy(skb->data, va, HEADER_COPY_SIZE);
--		skb->tail += HEADER_COPY_SIZE;
-+		memcpy(skb->data, va, pull_len);
-+		skb->tail += pull_len;
- 
- 		/* Skip headers in first fragment */
--		skb_shinfo(skb)->frags[0].page_offset += HEADER_COPY_SIZE;
-+		skb_shinfo(skb)->frags[0].page_offset += pull_len;
- 
- 		/* Adjust size of first fragment */
--		skb_frag_size_sub(&skb_shinfo(skb)->frags[0], HEADER_COPY_SIZE);
--		skb->data_len = length - HEADER_COPY_SIZE;
-+		skb_frag_size_sub(&skb_shinfo(skb)->frags[0], pull_len);
-+		skb->data_len = length - pull_len;
- 	}
- 	return skb;
- }
+I can see that it is useful to be able to find out which filters have
+been inserted through ARFS, but it should be possible to distinguish
+them from those inserted through RXNFC.  Please don't include those
+filters when ETHTOOL_GRXCLSRLCNT or ETHTOOL_GRXCLSRLALL are used.
+
+Either add new command numbers for getting ARFS filters (the same
+structures will do), or define some kind of extension flag for this
+purpose.
+
+Ben.
+
+--=20
+Ben Hutchings
+Experience is directly proportional to the value of equipment destroyed.
+                                                         - Carolyn Scheppne=
+r
+
+--=-L63JtQljA6b8Z7ztgRBF
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVAp5B+e/yOyVhhEJAQovKRAAw7tR2+lx77qDExeXhiyxzVP9AL+4OD8o
+Or0t5faI2Vf2ckntK5FAfyovFys7HkFFIFtWYIxQttJvEdyHr/W79H+sU6kJ7d4G
+kPvanJq24a+GzdjrZlG66euZscbONEnHqPZBK0pqY0OXhY43XLVD+xCbwItyvBjR
+q8iA+RmiGwjbxZ4R3rr9HjDIqZM9TYBgn9VyOenQ+3QSi1rOgSjXKNNO0rDdmBcZ
+0MgbYWY4QQnOuwAMOI2MFRNxnoE1p7OkP8unLHpvf8iAVl3DrucSp+/7afEt3dG0
+1VUwreH8WBoWl1GNA81YdmK2pbETHKOfj9uBJu1+J4pNmw/oka9wgwmn+ae0IJr/
+F4g2XYa0ymiyKTZRs6Gg25HVG800iNexe+zHQCrni4gpghQuT0CK+ZN/nJ94ENrI
+9AQHDVyS/ls7iqUwqZ3lDkXetLiOepS8PecF1Hmq5584KUNh93RigRl8QtkSDn6j
+rYf5dfQmITNH4GwUFsfGYSk1J/AkpM83+OYxZ5d39AjPy8N9dqNYCDUmeTeYqJUa
+vDzQ53x4BZYi04DF2DS1aj8HpvcfTAhEDePEzyaNbr4dxyFyI9iI7dcQDCd/GvgO
++YutagrrrA140d+0j2kkFBGQonfUsY2/UHmHYw3AKD0C5H5Cx86iIRRYNyOFFvjQ
+R+Glm+uqu2w=
+=MbcE
+-----END PGP SIGNATURE-----
+
+--=-L63JtQljA6b8Z7ztgRBF--
