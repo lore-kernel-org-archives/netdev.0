@@ -1,52 +1,44 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 3/3] net: bpf: be friendly to kmemcheck
-Date: Sat, 6 Sep 2014 09:09:51 -0700
-Message-ID: <CAMEtUuz5ec8=-x9QO+jjSENz+rKVdv0Avhupi4snSgUboSaKUA@mail.gmail.com>
-References: <1409996567-2170-1-git-send-email-dborkman@redhat.com>
-	<1409996567-2170-4-git-send-email-dborkman@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Performance regression on kernels 3.10 and newer
+Date: Sat, 06 Sep 2014 09:38:27 -0700
+Message-ID: <1410021507.11872.35.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <53ED4354.9090904@intel.com>
+	 <20140814.162024.2218312002979492106.davem@davemloft.net>
+	 <CA+mtBx-c0HCAES9PCyGn7cChZsX0KaLgdziFL_e1iRmkdG0dsQ@mail.gmail.com>
+	 <20140821.162406.2076033247433267586.davem@davemloft.net>
+	 <1410014704.11872.16.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1410017237.11872.31.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1410018384.11872.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Mikulas Patocka <mpatocka@redhat.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: therbert@google.com, alexander.h.duyck@intel.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:58072 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751284AbaIFQJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 12:09:53 -0400
-Received: by mail-we0-f173.google.com with SMTP id t60so13025233wes.4
-        for <netdev@vger.kernel.org>; Sat, 06 Sep 2014 09:09:52 -0700 (PDT)
-In-Reply-To: <1409996567-2170-4-git-send-email-dborkman@redhat.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:42270 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751301AbaIFQi3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 12:38:29 -0400
+Received: by mail-pa0-f49.google.com with SMTP id kq14so23894097pab.8
+        for <netdev@vger.kernel.org>; Sat, 06 Sep 2014 09:38:29 -0700 (PDT)
+In-Reply-To: <1410018384.11872.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 6, 2014 at 2:42 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> Reported by Mikulas Patocka, kmemcheck currently barks out a
-> false positive since we don't have special kmemcheck annotation
-> for bitfields used in bpf_prog structure.
->
-> We currently have jited:1, len:31 and thus when accessing len
-> while CONFIG_KMEMCHECK enabled, kmemcheck throws a warning that
-> we're reading uninitialized memory.
->
-> As we don't need the whole bit universe for pages member, we
-> can just split it to u16 and use a bool flag for jited instead
-> of a bitfield.
->
-> Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-> ---
->  arch/arm/net/bpf_jit_32.c       | 2 +-
->  arch/mips/net/bpf_jit.c         | 2 +-
->  arch/powerpc/net/bpf_jit_comp.c | 2 +-
->  arch/s390/net/bpf_jit_comp.c    | 2 +-
->  arch/sparc/net/bpf_jit_comp.c   | 2 +-
->  arch/x86/net/bpf_jit_comp.c     | 2 +-
->  include/linux/filter.h          | 6 +++---
->  net/core/filter.c               | 2 +-
->  8 files changed, 10 insertions(+), 10 deletions(-)
+On Sat, 2014-09-06 at 08:46 -0700, Eric Dumazet wrote:
 
-This one also looks good. Thanks!
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+> Works fine on IPv4, not on IPv6, I will submit a v2 (with a proper title
+> btw)
+
+Oh well, we first need to fix IPv6 early demux.
+
+Current net-next kernel profile
+
++  20.95%      netserver  [kernel.kallsyms]    [k] dst_release     
++  19.33%      netserver  [kernel.kallsyms]    [k] ip6_pol_route.isra.46
++  11.75%      netserver  [kernel.kallsyms]    [k] inet6_sk_rx_dst_set
++   3.72%      netserver  [kernel.kallsyms]    [k] ip6_input_finish
+
+So we repeat over and over calls to inet6_sk_rx_dst_set(),
+something is surely wrong.
