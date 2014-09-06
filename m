@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v6 4/4] tg3: Fix tx_pending checks for tg3_tso_bug
-Date: Fri, 05 Sep 2014 17:13:06 -0700 (PDT)
-Message-ID: <20140905.171306.1460013939580748402.davem@davemloft.net>
-References: <1409880647-14887-5-git-send-email-bpoirier@suse.de>
-	<1409960135.18724.33.camel@prashant>
-	<1409961810.26422.149.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net 1/2] ipv6: fix a refcnt leak with peer addr
+Date: Fri, 05 Sep 2014 17:13:47 -0700 (PDT)
+Message-ID: <20140905.171347.1273847652821486122.davem@davemloft.net>
+References: <1409781562-4191-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: prashant@broadcom.com, bpoirier@suse.de, mchan@broadcom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409961810.26422.149.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57764 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750968AbaIFANs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Sep 2014 20:13:48 -0400
+In-Reply-To: <1409781562-4191-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 05 Sep 2014 17:03:30 -0700
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Wed,  3 Sep 2014 23:59:21 +0200
 
-> Instead of this private helper (and pretty limited one btw), we could
-> add a core function, that would build skbs with order-0 fragments.
+> There is no reason to take a refcnt before deleting the peer address route.
+> It's done some lines below for the local prefix route because
+> inet6_ifa_finish_destroy() will release it at the end.
+> For the peer address route, we want to free it right now.
 > 
-> Instead of skb_linearize(), I guess many call sites could instead use
-> this new helper.
+> This bug has been introduced by commit
+> caeaba79009c ("ipv6: add support of peer address").
 > 
-> Because as you said, skb_linearize() of one 64KB GSO packet can ask
-> order-5 allocations, and this generally does not work reliably.
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-xen-netback could make use of this helper too.
+Applied.
