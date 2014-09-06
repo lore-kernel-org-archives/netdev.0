@@ -1,33 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: remove obsolete comment about
- TCP_SKB_CB(skb)->when in tcp_fragment()
-Date: Sat, 06 Sep 2014 12:29:31 -0700 (PDT)
-Message-ID: <20140906.122931.153026708934046806.davem@davemloft.net>
-References: <1410016700-9145-1-git-send-email-ncardwell@google.com>
+Subject: Re: [net-next 0/2][pull request] Intel Wired LAN Driver Updates
+ 2014-09-06
+Date: Sat, 06 Sep 2014 12:30:45 -0700 (PDT)
+Message-ID: <20140906.123045.2083806174391105472.davem@davemloft.net>
+References: <1410006842-26517-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, ycheng@google.com, netdev@vger.kernel.org
-To: ncardwell@google.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40501 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40505 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751354AbaIFT3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 15:29:50 -0400
-In-Reply-To: <1410016700-9145-1-git-send-email-ncardwell@google.com>
+	with ESMTP id S1751505AbaIFTaq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 15:30:46 -0400
+In-Reply-To: <1410006842-26517-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Sat,  6 Sep 2014 11:18:20 -0400
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sat,  6 Sep 2014 05:34:00 -0700
 
-> The TCP_SKB_CB(skb)->when field no longer exists as of recent change
-> 7faee5c0d514 ("tcp: remove TCP_SKB_CB(skb)->when"). And in any case,
-> tcp_fragment() is called on already-transmitted packets from the
-> __tcp_retransmit_skb() call site, so copying timestamps of any kind
-> in this spot is quite sensible.
+> This series contains updates to e1000 and igb.
 > 
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> Reported-by: Yuchung Cheng <ycheng@google.com>
+> Krzysztof provides a patch to cleanup the coding style in e1000 to quiet
+> checkpatch.pl warnings.
+> 
+> Todd adds two boolean flags to igb to allow for changes in the
+> advertised EEE speeds from ethtool.
+> 
+> The following are changes since commit cfecec56ae7c7c40f23fbdac04acee027ca3bd66:
+>   mlx4: only pull headers into skb head
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Applied, thanks Neal.
+Pulled, thanks Jeff.
