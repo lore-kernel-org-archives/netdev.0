@@ -1,18 +1,19 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next] amd-xgbe-phy: Fix build break for missing declaration
-Date: Sun, 7 Sep 2014 09:54:41 -0500
-Message-ID: <20140907145441.7257.26465.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v2] amd-xgbe-phy: Fix build break for missing
+ declaration
+Date: Sun, 7 Sep 2014 10:33:15 -0500
+Message-ID: <20140907153315.24106.86368.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0138.outbound.protection.outlook.com ([157.56.111.138]:22930
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mail-bl2on0107.outbound.protection.outlook.com ([65.55.169.107]:51771
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752183AbaIGOys (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Sep 2014 10:54:48 -0400
+	id S1752375AbaIGPdV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Sep 2014 11:33:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,8 +22,12 @@ amd_xgbe_an_tx_training function causing the build to fail.
 
 Add the declaration for 'priv' back to the function.
 
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
+Changes in v2:
+- Add "Reported-by" tag to the changelog
+
  drivers/net/phy/amd-xgbe-phy.c |    1 +
  1 file changed, 1 insertion(+)
 
