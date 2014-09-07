@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] irda: vlsi_ir: use %*ph specifier
-Date: Sun, 07 Sep 2014 16:09:40 -0700 (PDT)
-Message-ID: <20140907.160940.1917757437177026148.davem@davemloft.net>
-References: <1409927840-28791-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	<5409F104.5040705@cogentembedded.com>
+Subject: Re: [Patch net] ipv6: restore the behavior of ipv6_sock_ac_drop()
+Date: Sun, 07 Sep 2014 16:10:32 -0700 (PDT)
+Message-ID: <20140907.161032.428676807612508937.davem@davemloft.net>
+References: <1409952780-24471-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andriy.shevchenko@linux.intel.com, samuel@sortiz.org,
-	netdev@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
+Cc: netdev@vger.kernel.org, sd@queasysnail.net
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56475 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56485 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752096AbaIGXJl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2014 19:09:41 -0400
-In-Reply-To: <5409F104.5040705@cogentembedded.com>
+	with ESMTP id S1752672AbaIGXKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2014 19:10:33 -0400
+In-Reply-To: <1409952780-24471-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 05 Sep 2014 21:21:08 +0400
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri,  5 Sep 2014 14:33:00 -0700
 
-> On 09/05/2014 06:37 PM, Andy Shevchenko wrote:
+> It is possible that the interface is already gone after joining
+> the list of anycast on this interface as we don't hold a refcount
+> for the device, in this case we are safe to ignore the error.
 > 
->> + seq_printf(seq, " data: %*ph\n", j > 20 ? 20 : j,
+> What's more important, for API compatibility we should not
+> change this behavior for applications even if it were correct.
 > 
->    Why not min(j, 20)?
+> Fixes: commit a9ed4a2986e13011 ("ipv6: fix rtnl locking in setsockopt for anycast and multicast")
+> Cc: Sabrina Dubroca <sd@queasysnail.net>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Agreed.
+Applied, thanks.
