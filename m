@@ -1,51 +1,57 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next v4 2/3] net-timestamp: Make the clone operation
- stand-alone from phy timestamping
-Date: Sun, 7 Sep 2014 23:54:17 +0200
-Message-ID: <20140907215417.GB3900@localhost.localdomain>
-References: <20140904172906.7702.87598.stgit@ahduyck-bv4.jf.intel.com>
- <20140904173116.7702.30877.stgit@ahduyck-bv4.jf.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: refresh rt6i_genid in ip6_pol_route()
+Date: Sun, 07 Sep 2014 15:54:46 -0700 (PDT)
+Message-ID: <20140907.155446.2293591154334558042.davem@davemloft.net>
+References: <1410021507.11872.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1410027712.11872.40.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1410116703.11872.55.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, willemb@google.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nicolas.dichtel@6wind.com, therbert@google.com,
+	alexander.h.duyck@intel.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:41746 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752329AbaIGVyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2014 17:54:23 -0400
-Received: by mail-we0-f177.google.com with SMTP id u57so1034608wes.36
-        for <netdev@vger.kernel.org>; Sun, 07 Sep 2014 14:54:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140904173116.7702.30877.stgit@ahduyck-bv4.jf.intel.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56341 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751947AbaIGWyt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2014 18:54:49 -0400
+In-Reply-To: <1410116703.11872.55.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 04, 2014 at 01:31:35PM -0400, Alexander Duyck wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 07 Sep 2014 12:05:03 -0700
 
-> +struct sk_buff *skb_clone_sk(struct sk_buff *skb)
-> +{
-> +	struct sock *sk = skb->sk;
-> +	struct sk_buff *clone;
-> +
-> +	if (!sk || !atomic_inc_not_zero(&sk->sk_refcnt))
-> +		return NULL;
-> +
-> +	clone = skb_clone(skb, GFP_ATOMIC);
-> +	if (!clone) {
-> +		sock_put(sk);
-> +		return NULL;
-> +	}
-> +
-> +	clone->sk = sk;
-> +	clone->destructor = sock_efree;
-> +
-> +	return clone;
-> +}
-> +EXPORT_SYMBOL(skb_clone_sk);
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> While tracking IPv6 poor performance, I found that IPv6 early demux
+> was broken in recent kernels. perf profiles show inet6_sk_rx_dst_set()
+> being called for every incoming TCP segment :
+> 
+>   20.95%      netserver  [kernel.kallsyms]    [k] dst_release     
+>   19.33%      netserver  [kernel.kallsyms]    [k] ip6_pol_route
+>   11.75%      netserver  [kernel.kallsyms]    [k] inet6_sk_rx_dst_set
+>    3.72%      netserver  [kernel.kallsyms]    [k] ip6_input_finish
+> 
+> Regression came in linux-3.6 with commit 6f3118b571b8 ("ipv6: use
+> net->rt_genid to check dst validity")
+> 
+> When a route found in ip6_pol_route() is cloned (either using
+> rt6_alloc_cow() or rt6_alloc_clone()), copy gets an updated rt6i_genid.
+> 
+> But when original route is selected, we need to refresh its rt6i_genid
+> that could be obsolete. If we do not refresh rt6i_genid, ip6_dst_check()
+> will fail.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: 6f3118b571b8 ("ipv6: use net->rt_genid to check dst validity")
 
-This function could use a little kerneldoc explaining its purpose and
-when to use it.
+This might be broken.
 
-Thanks,
-Richard
+We are dealing here with persistent entries in the ipv6 routine trie.
+
+If you just bump the genid on the next person to look it up, other
+sockets and cached entities might not have validated the route yet,
+and now will falsely see the route as valid.  We have to ensure that
+they too drop this route and perform a relookup.
