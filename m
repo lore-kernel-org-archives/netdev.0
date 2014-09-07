@@ -1,45 +1,69 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2] amd-xgbe-phy: Fix build break for missing
- declaration
-Date: Sun, 7 Sep 2014 10:33:15 -0500
-Message-ID: <20140907153315.24106.86368.stgit@tlendack-t1.amdoffice.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next] netfilter: create audit records for ebtables
+ replaces
+Date: Sun, 7 Sep 2014 18:07:28 +0200
+Message-ID: <20140907160728.GA4589@salvia>
+References: <1409907015-6145-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0107.outbound.protection.outlook.com ([65.55.169.107]:51771
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752375AbaIGPdV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Sep 2014 11:33:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, kadlec@blackhole.kfki.hu,
+	stephen@networkplumber.org, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-audit@redhat.com
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1409907015-6145-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A previous patch inadvertently deleted a declaration in the
-amd_xgbe_an_tx_training function causing the build to fail.
+On Fri, Sep 05, 2014 at 10:50:15AM +0200, Nicolas Dichtel wrote:
+> This is already done for x_tables (family AF_INET and AF_INET6), let's do it
+> for AF_BRIDGE also.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>  net/bridge/netfilter/ebtables.c | 15 +++++++++++++++
+>  1 file changed, 15 insertions(+)
+> 
+> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+> index 6d69631b9f4d..4ba0c5c78778 100644
+> --- a/net/bridge/netfilter/ebtables.c
+> +++ b/net/bridge/netfilter/ebtables.c
+> @@ -26,6 +26,7 @@
+>  #include <asm/uaccess.h>
+>  #include <linux/smp.h>
+>  #include <linux/cpumask.h>
+> +#include <linux/audit.h>
+>  #include <net/sock.h>
+>  /* needed for logical [in,out]-dev filtering */
+>  #include "../br_private.h"
+> @@ -1126,6 +1127,20 @@ static int do_replace(struct net *net, const void __user *user,
+>  	}
+>  
+>  	ret = do_replace_finish(net, &tmp, newinfo);
+> +#ifdef CONFIG_AUDIT
+> +	if (audit_enabled) {
+> +		struct audit_buffer *ab;
+> +
+> +		ab = audit_log_start(current->audit_context, GFP_KERNEL,
+> +				     AUDIT_NETFILTER_CFG);
+> +		if (ab) {
+> +			audit_log_format(ab, "table=%s family=%u entries=%u",
+> +					 tmp.name, AF_BRIDGE,
+> +					 tmp.nentries);
+> +			audit_log_end(ab);
+> +		}
+> +	}
+> +#endif
 
-Add the declaration for 'priv' back to the function.
+This chunks belongs to do_replace_finish(). We still need the audit
+code for compat_do_replace() and iff there are no errors when
+replacing the table.
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
-Changes in v2:
-- Add "Reported-by" tag to the changelog
-
- drivers/net/phy/amd-xgbe-phy.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/phy/amd-xgbe-phy.c b/drivers/net/phy/amd-xgbe-phy.c
-index 4e1f7f7..c456559 100644
---- a/drivers/net/phy/amd-xgbe-phy.c
-+++ b/drivers/net/phy/amd-xgbe-phy.c
-@@ -638,6 +638,7 @@ static int amd_xgbe_phy_set_mode(struct phy_device *phydev,
- static enum amd_xgbe_phy_an amd_xgbe_an_tx_training(struct phy_device *phydev,
- 						    enum amd_xgbe_phy_rx *state)
- {
-+	struct amd_xgbe_phy_priv *priv = phydev->priv;
- 	int ad_reg, lp_reg, ret;
- 
- 	*state = AMD_XGBE_RX_COMPLETE;
+>  	if (ret == 0)
+>  		return ret;
+>  free_entries:
+> -- 
+> 1.9.0
+> 
