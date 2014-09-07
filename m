@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: mdio-sun4i: don't select REGULATOR
-Date: Sun, 07 Sep 2014 16:12:30 -0700 (PDT)
-Message-ID: <20140907.161230.1498704332590876012.davem@davemloft.net>
-References: <1409956103-23473-1-git-send-email-b.galvani@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net: bpf: consolidate JIT binary allocator
+Date: Sun, 07 Sep 2014 16:15:43 -0700 (PDT)
+Message-ID: <20140907.161543.2206530539028176158.davem@davemloft.net>
+References: <1409996567-2170-1-git-send-email-dborkman@redhat.com>
+	<1409996567-2170-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, maxime.ripard@free-electrons.com,
-	arnd@arndb.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: b.galvani@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409956103-23473-1-git-send-email-b.galvani@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ast@plumgrid.com, netdev@vger.kernel.org, edumazet@google.com,
+	heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56558 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752721AbaIGXPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2014 19:15:44 -0400
+In-Reply-To: <1409996567-2170-2-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Beniamino Galvani <b.galvani@gmail.com>
-Date: Sat,  6 Sep 2014 00:28:23 +0200
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Sat,  6 Sep 2014 11:42:45 +0200
 
-> The mdio-sun4i driver automatically selects REGULATOR and
-> REGULATOR_FIXED_VOLTAGE because it uses the regulator API. But a
-> driver selecting a subsystem increases the chance of generating
-> circular Kconfig dependencies, especially when other drivers depend on
-> the selected symbol.
-> 
-> Since the regulator API functions are replaced with no-ops when
-> REGULATOR is disabled, the driver can be built successfully even
-> without regulator support and so those 'select' dependencies can be
-> safely dropped.
-> 
-> Suggested-by: Arnd Bergmann <arnd@arndb.de>
-> Signed-off-by: Beniamino Galvani <b.galvani@gmail.com>
+> While reviewing the code, I think on s390, the alignment masking
+> seems not to be correct in it's current form, that is, we make sure
+> the first instruction starts at an even address as stated by commit
+> aa2d2c73c21f but masks the start with '& -2' while 2 byte-alignment
+> should rather be '& ~1'.
 
-Applied to net-next, thanks.
+Both -2 and ~1 are the same value.
