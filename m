@@ -1,87 +1,114 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ipv6: refresh rt6i_genid in ip6_pol_route()
-Date: Sun, 07 Sep 2014 12:05:03 -0700
-Message-ID: <1410116703.11872.55.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <53ED4354.9090904@intel.com>
-	 <20140814.162024.2218312002979492106.davem@davemloft.net>
-	 <CA+mtBx-c0HCAES9PCyGn7cChZsX0KaLgdziFL_e1iRmkdG0dsQ@mail.gmail.com>
-	 <20140821.162406.2076033247433267586.davem@davemloft.net>
-	 <1410014704.11872.16.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1410017237.11872.31.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1410018384.11872.33.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1410021507.11872.35.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1410027712.11872.40.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>, therbert@google.com,
-	alexander.h.duyck@intel.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
+Subject: Re: [PATCH net-next v2 2/2] Re-check for a VIO_DESC_READY data descriptor after short udelay()
+Date: Sun, 7 Sep 2014 12:36:11 -0700
+Message-ID: <6B408DE5-566C-4B46-8257-DABB23BCC915@oracle.com>
+References: <20140902162029.GC31516@oracle.com> <5405EFE7.4090302@oracle.com> <20140904.223648.559995846094457545.davem@davemloft.net> <20140905134758.GB1256@oracle.com> <20140906210253.GA5710@oracle.com> <20140907181510.GA23753@oracle.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>, david.stevens@oracle.com,
+	netdev@vger.kernel.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:42663 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751789AbaIGTFG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2014 15:05:06 -0400
-Received: by mail-pa0-f46.google.com with SMTP id eu11so25812447pac.19
-        for <netdev@vger.kernel.org>; Sun, 07 Sep 2014 12:05:05 -0700 (PDT)
-In-Reply-To: <1410027712.11872.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:17751 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752010AbaIGTg2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2014 15:36:28 -0400
+In-Reply-To: <20140907181510.GA23753@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Sorry for joining this thread late, please see my response below:
 
-While tracking IPv6 poor performance, I found that IPv6 early demux
-was broken in recent kernels. perf profiles show inet6_sk_rx_dst_set()
-being called for every incoming TCP segment :
+On Sep 7, 2014, at 11:15 AM, Sowmini Varadhan <sowmini.varadhan@oracle.com> wrote:
 
-  20.95%      netserver  [kernel.kallsyms]    [k] dst_release     
-  19.33%      netserver  [kernel.kallsyms]    [k] ip6_pol_route
-  11.75%      netserver  [kernel.kallsyms]    [k] inet6_sk_rx_dst_set
-   3.72%      netserver  [kernel.kallsyms]    [k] ip6_input_finish
+> 
+> 
+> On (09/06/14 17:02), Sowmini Varadhan wrote:
+>> Date: Sat, 6 Sep 2014 17:02:53 -0400
+>> From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+>> To: David Miller <davem@davemloft.net>
+>> Cc: david.stevens@oracle.com, netdev@vger.kernel.org
+>> Subject: Re: [PATCH net-next v2 2/2] Re-check for a VIO_DESC_READY data
+>> descriptor after short udelay()
+>> User-Agent: Mutt/1.5.21 (2010-09-15)
+>> 
+>> On (09/05/14 09:47), Sowmini Varadhan wrote:
+>>>> The memory barrier exists in order to make sure the cookies et al. are
+>>>> globally visible before the VIO_DESC_READY.  We don't want stores to
+>>>> be reordered such that the VIO_DESC_READY is seen too early.
+>>> 
+>>> Ok, though David (dls) was just pointing out that a rmb() might
+>>> be missing in vnet_walk_rx_one() before checking for READY descriptor
+>> 
+>> Stared at this a bit over the last two days, checked
+>> the documentation, discussed with dls offline - looks like 
+>> (a) the rmb() thing was mostly a red-herring/fud 
+>> (b) we do need the wmb()
+>> 
+>> The wmb() part is working correctly as designed:
+>> 
+>> The producer will do
+>>  /* code to set up cookies */
+>>  wmb(); /* makes sure above changes are committed */
+>>  d->hdr.state = VIO_DESC_READY;
+>> 
 
-Regression came in linux-3.6 with commit 6f3118b571b8 ("ipv6: use
-net->rt_genid to check dst validity")
+Yeah, we need the producer memory barrier before setting
+the descriptor state to ready. This ensures both data in the buffers
+and other fields in the descriptor are flushed before the state
+is visible to the consumer.  I do not believe the HV trap caused
+by the trigger performs any sync of the store buffers.
 
-When a route found in ip6_pol_route() is cloned (either using
-rt6_alloc_cow() or rt6_alloc_clone()), copy gets an updated rt6i_genid.
+>> the consumer will do
+>> 
+>>        if (desc->hdr.state != VIO_DESC_READY)
+>>                return 1;
+>>        err = vnet_rx_one(port, desc->size, desc->cookies, desc->ncookies);
+>>                :
+>>        desc->hdr.state = VIO_DESC_DONE;
+>> 
+>> So the vnet_rx_one() will only use valid cookie information at
+>> all times.
+>> 
+>> This allows the code to correctly able to read multiple READY descriptors 
+>> for a single LDC trigger, which it already does today.
+>> (and it would be needlessly inefficient to clamp this down to
+>> only one descriptor read per LDC-start in the vnet_rx())
 
-But when original route is selected, we need to refresh its rt6i_genid
-that could be obsolete. If we do not refresh rt6i_genid, ip6_dst_check()
-will fail.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: 6f3118b571b8 ("ipv6: use net->rt_genid to check dst validity")
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/route.c |   15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+Note, LDC message infrastructure is not a high performance infrastructure,
+relying on an ldc message for each packet can greatly impact performance.
+We need to reduce as many ldc messages as possible and rely on the
+ring  more to pick up as many packets as possible without ldc messages.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index f23fbd28a501..1e76c3c5b87b 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -944,13 +944,20 @@ restart:
- 	dst_hold(&rt->dst);
- 	read_unlock_bh(&table->tb6_lock);
- 
--	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)))
-+	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY))) {
- 		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
--	else if (!(rt->dst.flags & DST_HOST))
-+	} else if (!(rt->dst.flags & DST_HOST)) {
- 		nrt = rt6_alloc_clone(rt, &fl6->daddr);
--	else
--		goto out2;
-+	} else {
-+		u32 genid = rt_genid_ipv6(net);
- 
-+		/* We must refresh rt6i_genid, but only if needed
-+		 * to avoid false sharing.
-+		 */
-+		if (rt->rt6i_genid != genid)
-+			rt->rt6i_genid = genid;
-+		goto out2;
-+	}
- 	ip6_rt_put(rt);
- 	rt = nrt ? : net->ipv6.ip6_null_entry;
- 
+The current implementation of vnet_start_xmit() performs all operations
+such as grabbing a descriptor, copying the data into the data buffers
+and updating the descriptor with in the same lock. This limits the parallelism
+on the transmit path especially because the data copy operation is a bigger
+operation and blocks other transmitters more than it is needed.  It is 
+possible to split these operations where multiple transmitters can grab
+descriptors in sequence but perform the copy operation in parallel.  When
+this accomplished, there will be more possibility of racing with descriptors
+getting ready quickly in a burst traffic situations. I believe the  udelay()
+introduced in this patch will help even more when the transmitters are highly parallel.
+
+
+-Raghuram
+>> So what (if any) is the outstanding question about wmb() at this 
+>> point?
+>> 
+>> --Sowmini
+>> 
+>> 
+>> 
+>> 
+>> 
+>> 
+>> 
+>> 
+>> 
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
