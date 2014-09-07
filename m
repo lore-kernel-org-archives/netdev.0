@@ -1,141 +1,18 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH][net-next] openvswitch: change the data type of error
- status to atomic_long_t
-Date: Sat, 6 Sep 2014 20:44:04 -0700
-Message-ID: <CALnjE+o121kh+hEtEsSLJqBw68dy=epEsXGVDN5wv+4g1xph+g@mail.gmail.com>
-References: <1410001571-13338-1-git-send-email-roy.qing.li@gmail.com>
+From: Kathleen Aubin <Kathleen.Aubin@LA.GOV>
+Subject: WINNING NOTIFICATION
+Date: Sat, 6 Sep 2014 22:13:52 -0500
+Message-ID: <2411206289641A4B8E96BCCBE0CBEEB50B62803EE8__22485.0479433828$1410061840$gmane$org@MAILMBX09.MAIL.LA.GOV>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: roy.qing.li@gmail.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:42096 "HELO
-	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751903AbaIGDoF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 23:44:05 -0400
-Received: by mail-ig0-f172.google.com with SMTP id h15so1217102igd.17
-        for <netdev@vger.kernel.org>; Sat, 06 Sep 2014 20:44:04 -0700 (PDT)
-In-Reply-To: <1410001571-13338-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mailppa2.swe.la.gov ([204.196.242.116]:47502 "EHLO
+	mailppa2.swe.la.gov" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750877AbaIGDuS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Sep 2014 23:50:18 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 6, 2014 at 4:06 AM,  <roy.qing.li@gmail.com> wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
->
-> Change the date type of error status from u64 to atomic_long_t, and use atomic
-> operation, then remove the lock which is used to protect the error status.
->
-> The operation of atomic maybe faster than spin lock.
-
-What is reason for this change?
-
->
-> Cc: Pravin Shelar <pshelar@nicira.com>
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  net/openvswitch/vport.c |   25 ++++++++-----------------
->  net/openvswitch/vport.h |   10 ++++------
->  2 files changed, 12 insertions(+), 23 deletions(-)
->
-> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-> index 6d8f2ec..f7e63f9 100644
-> --- a/net/openvswitch/vport.c
-> +++ b/net/openvswitch/vport.c
-> @@ -148,8 +148,6 @@ struct vport *ovs_vport_alloc(int priv_size, const struct vport_ops *ops,
->                 return ERR_PTR(-ENOMEM);
->         }
->
-> -       spin_lock_init(&vport->stats_lock);
-> -
->         return vport;
->  }
->
-> @@ -268,14 +266,10 @@ void ovs_vport_get_stats(struct vport *vport, struct ovs_vport_stats *stats)
->          * netdev-stats can be directly read over netlink-ioctl.
->          */
->
-> -       spin_lock_bh(&vport->stats_lock);
-> -
-> -       stats->rx_errors        = vport->err_stats.rx_errors;
-> -       stats->tx_errors        = vport->err_stats.tx_errors;
-> -       stats->tx_dropped       = vport->err_stats.tx_dropped;
-> -       stats->rx_dropped       = vport->err_stats.rx_dropped;
-> -
-> -       spin_unlock_bh(&vport->stats_lock);
-> +       stats->rx_errors  = atomic_long_read(&vport->err_stats.rx_errors);
-> +       stats->tx_errors  = atomic_long_read(&vport->err_stats.tx_errors);
-> +       stats->tx_dropped = atomic_long_read(&vport->err_stats.tx_dropped);
-> +       stats->rx_dropped = atomic_long_read(&vport->err_stats.rx_dropped);
->
->         for_each_possible_cpu(i) {
->                 const struct pcpu_sw_netstats *percpu_stats;
-> @@ -495,27 +489,24 @@ int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
->  static void ovs_vport_record_error(struct vport *vport,
->                                    enum vport_err_type err_type)
->  {
-> -       spin_lock(&vport->stats_lock);
-> -
->         switch (err_type) {
->         case VPORT_E_RX_DROPPED:
-> -               vport->err_stats.rx_dropped++;
-> +               atomic_long_inc(&vport->err_stats.rx_dropped);
->                 break;
->
->         case VPORT_E_RX_ERROR:
-> -               vport->err_stats.rx_errors++;
-> +               atomic_long_inc(&vport->err_stats.rx_errors);
->                 break;
->
->         case VPORT_E_TX_DROPPED:
-> -               vport->err_stats.tx_dropped++;
-> +               atomic_long_inc(&vport->err_stats.tx_dropped);
->                 break;
->
->         case VPORT_E_TX_ERROR:
-> -               vport->err_stats.tx_errors++;
-> +               atomic_long_inc(&vport->err_stats.tx_errors);
->                 break;
->         }
->
-> -       spin_unlock(&vport->stats_lock);
->  }
->
->  static void free_vport_rcu(struct rcu_head *rcu)
-> diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-> index 35f89d8..0d95b9f 100644
-> --- a/net/openvswitch/vport.h
-> +++ b/net/openvswitch/vport.h
-> @@ -62,10 +62,10 @@ int ovs_vport_send(struct vport *, struct sk_buff *);
->  /* The following definitions are for implementers of vport devices: */
->
->  struct vport_err_stats {
-> -       u64 rx_dropped;
-> -       u64 rx_errors;
-> -       u64 tx_dropped;
-> -       u64 tx_errors;
-> +       atomic_long_t rx_dropped;
-> +       atomic_long_t rx_errors;
-> +       atomic_long_t tx_dropped;
-> +       atomic_long_t tx_errors;
->  };
->  /**
->   * struct vport_portids - array of netlink portids of a vport.
-> @@ -93,7 +93,6 @@ struct vport_portids {
->   * @dp_hash_node: Element in @datapath->ports hash table in datapath.c.
->   * @ops: Class structure.
->   * @percpu_stats: Points to per-CPU statistics used and maintained by vport
-> - * @stats_lock: Protects @err_stats;
->   * @err_stats: Points to error statistics used and maintained by vport
->   */
->  struct vport {
-> @@ -108,7 +107,6 @@ struct vport {
->
->         struct pcpu_sw_netstats __percpu *percpu_stats;
->
-> -       spinlock_t stats_lock;
->         struct vport_err_stats err_stats;
->  };
->
-> --
-> 1.7.10.4
->
+You have been awarded a 750,000.00USD by BMW Automobile Company in Malaysia. Contact Mr. Abdul Karan, with your Fullname: Country: Address: Telephone no: via Email: abdulkaran_bmwclaims1@shqiptar.eu
