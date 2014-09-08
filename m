@@ -1,65 +1,106 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next] netfilter: create audit records for ebtables replaces
-Date: Mon,  8 Sep 2014 14:11:45 +0200
-Message-ID: <1410178305-28800-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <20140907160728.GA4589@salvia>
-Cc: nicolas.dichtel@6wind.com
-To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	stephen@networkplumber.org, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-audit@redhat.com
+Subject: Re: [PATCH net] ipv6: refresh rt6i_genid in ip6_pol_route()
+Date: Mon, 08 Sep 2014 14:16:58 +0200
+Message-ID: <540D9E3A.4010208@6wind.com>
+References: <1410149905.11872.73.camel@edumazet-glaptop2.roam.corp.google.com>		 <20140907.212742.893555292268057160.davem@davemloft.net>		 <1410151434.11872.82.camel@edumazet-glaptop2.roam.corp.google.com>		 <20140907.215943.213418445039957641.davem@davemloft.net>	 <1410152829.11872.84.camel@edumazet-glaptop2.roam.corp.google.com>	 <540D64C2.9050000@6wind.com> <1410172092.11872.85.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
+	alexander.h.duyck@intel.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:51744 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753278AbaIHMLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 08:11:50 -0400
-In-Reply-To: <20140907160728.GA4589@salvia>
+Received: from mail-we0-f169.google.com ([74.125.82.169]:58306 "EHLO
+	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753289AbaIHMRF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 08:17:05 -0400
+Received: by mail-we0-f169.google.com with SMTP id w61so596592wes.0
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 05:17:03 -0700 (PDT)
+In-Reply-To: <1410172092.11872.85.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is already done for x_tables (family AF_INET and AF_INET6), let's do it
-for AF_BRIDGE also.
+Le 08/09/2014 12:28, Eric Dumazet a =C3=A9crit :
+> On Mon, 2014-09-08 at 10:11 +0200, Nicolas Dichtel wrote:
+>> Le 08/09/2014 07:07, Eric Dumazet a =C3=A9crit :
+>>> On Sun, 2014-09-07 at 21:59 -0700, David Miller wrote:
+>>>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>>>> Date: Sun, 07 Sep 2014 21:43:54 -0700
+>>>>
+>>>>> On Sun, 2014-09-07 at 21:27 -0700, David Miller wrote:
+>>>>>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>>>>>> Date: Sun, 07 Sep 2014 21:18:25 -0700
+>>>>>>
+>>>>>>> On Sun, 2014-09-07 at 15:54 -0700, David Miller wrote:
+>>>>>>>
+>>>>>>>> This might be broken.
+>>>>>>>>
+>>>>>>>> We are dealing here with persistent entries in the ipv6 routin=
+e trie.
+>>>>>>>>
+>>>>>>>> If you just bump the genid on the next person to look it up, o=
+ther
+>>>>>>>> sockets and cached entities might not have validated the route=
+ yet,
+>>>>>>>> and now will falsely see the route as valid.  We have to ensur=
+e that
+>>>>>>>> they too drop this route and perform a relookup.
+>>>>>>>
+>>>>>>> I am confused, I thought it was the role of the cookie.
+>>>>>>>
+>>>>>>> (Ie socket has to store its own cookie to be able to validate a=
+ route)
+>>>>>>>
+>>>>>>> Before 6f3118b571b8 patch, how was this done anyway ?
+>>>>>>>
+>>>>>>> If persistent routes cannot refresh the genid, then they are us=
+eless ?
+>>>>>>
+>>>>>> I just speak about the genid aspect.
+>>>>>>
+>>>>>> I understand that cookie (via node->fn_sernum) invalidates the p=
+ath
+>>>>>> in the fib_trie, but the genid protects against other circumstan=
+ces
+>>>>>> (matching IPSEC rule, f.e.)
+>>>>>>
+>>>>>> You have to make sure all other sockets did a full route lookup
+>>>>>> (including IPSEC) before you can safely adjust the genid.
+>>>>>>
+>>>>>> I could be wrong, recheck my analysis please :-)
+>>>>>
+>>>>> So this whole genid protection can not work, unless we make sure =
+a
+>>>>> socket cannot share a route with another socket.
+>>>>>
+>>>>> This means we have to clone all routes.
+>>>>
+>>>> I'm willing to revert the change in question if you think that's t=
+he
+>>>> sanest way forward.
+>>>>
+>>>> The bug fix for more obscure use cases (IPSEC) if pointless if it
+>>>> breaks more common things (TCP input route caching).
+>>>
+>>> Lets wait for Nicolas and/or Hannes input, they might have some ide=
+as...
+>>
+>> The initial problem was in SCTP. Here is the thread after the v1 pat=
+ch:
+>> http://patchwork.ozlabs.org/patch/182235/
+>>
+>> Before the patch, SCTP stored the IPv6 route in its cache and if an =
+IPsec
+>> rules was inserted after that operation, SCTP never invalidated the =
+cached
+>> route to use a new xfrm route.
+>
+> This thread mentions output route.
+Yes, it was the target.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
-
-v2: move audit chunks to do_replace_finish()
-
- net/bridge/netfilter/ebtables.c | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
-
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 6d69631b9f4d..d9a8c05d995d 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -26,6 +26,7 @@
- #include <asm/uaccess.h>
- #include <linux/smp.h>
- #include <linux/cpumask.h>
-+#include <linux/audit.h>
- #include <net/sock.h>
- /* needed for logical [in,out]-dev filtering */
- #include "../br_private.h"
-@@ -1058,6 +1059,20 @@ static int do_replace_finish(struct net *net, struct ebt_replace *repl,
- 	vfree(table);
- 
- 	vfree(counterstmp);
-+
-+#ifdef CONFIG_AUDIT
-+	if (audit_enabled) {
-+		struct audit_buffer *ab;
-+
-+		ab = audit_log_start(current->audit_context, GFP_KERNEL,
-+				     AUDIT_NETFILTER_CFG);
-+		if (ab) {
-+			audit_log_format(ab, "table=%s family=%u entries=%u",
-+					 repl->name, AF_BRIDGE, repl->nentries);
-+			audit_log_end(ab);
-+		}
-+	}
-+#endif
- 	return ret;
- 
- free_unlock:
--- 
-1.9.0
+>
+> The problem I currently have with IPv6 early demux is for input route=
+s.
+It's clearly a regression.
