@@ -1,55 +1,52 @@
-From: raj@tardy.usa.hp.com (Rick Jones)
-Subject: [PATCH net-next] hp100: Convert the normal skb free path to dev_consume_skb_any()
-Date: Mon,  8 Sep 2014 08:31:32 -0700 (PDT)
-Message-ID: <20140908153133.103882900309@tardy>
-Cc: <davem@davemloft.net>, <perex@perex.cz>
-To: <netdev@vger.kernel.org>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH net-next] dp83640: Make use of skb_queue_purge instead of
+ reimplementing the code
+Date: Mon, 08 Sep 2014 11:25:34 -0400
+Message-ID: <20140908152226.4202.72383.stgit@ahduyck-bv4.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: richardcochran@gmail.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t1383g.austin.hp.com ([15.217.136.92]:9817 "EHLO
-	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752925AbaIHPbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 11:31:47 -0400
-Received: from g6t1526.atlanta.hp.com (g6t1526.atlanta.hp.com [15.193.200.69])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id D21864097
-	for <netdev@vger.kernel.org>; Mon,  8 Sep 2014 15:31:46 +0000 (UTC)
+Received: from mga11.intel.com ([192.55.52.93]:10882 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753206AbaIHPeH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Sep 2014 11:34:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This change makes it so that dp83640_remove can use skb_queue_purge
+instead of looping through itself to flush any entries out of the queue.
 
-From: Rick Jones <rick.jones2@hp.com>
-
-A bit of floor sweeping in a dusty old corner.  Convert the "normal"
-skb free calls to dev_consume_skb_any() so packet drop tracing will
-be more sane.
-
-Signed-off-by: Rick Jones <rick.jones2@hp.com>
-
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
+ drivers/net/phy/dp83640.c |    8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-Compile tested only.  I wonder how many of these cards are still in
-operation?-)
-
-diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
-index ed7916f..76a6e0c 100644
---- a/drivers/net/ethernet/hp/hp100.c
-+++ b/drivers/net/ethernet/hp/hp100.c
-@@ -1627,7 +1627,7 @@ static void hp100_clean_txring(struct net_device *dev)
- #endif
- 		/* Conversion to new PCI API : NOP */
- 		pci_unmap_single(lp->pci_dev, (dma_addr_t) lp->txrhead->pdl[1], lp->txrhead->pdl[2], PCI_DMA_TODEVICE);
--		dev_kfree_skb_any(lp->txrhead->skb);
-+		dev_consume_skb_any(lp->txrhead->skb);
- 		lp->txrhead->skb = NULL;
- 		lp->txrhead = lp->txrhead->next;
- 		lp->txrcommit--;
-@@ -1745,7 +1745,7 @@ static netdev_tx_t hp100_start_xmit(struct sk_buff *skb,
- 	hp100_ints_on();
- 	spin_unlock_irqrestore(&lp->lock, flags);
+diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+index 87648b3..99b5d20 100644
+--- a/drivers/net/phy/dp83640.c
++++ b/drivers/net/phy/dp83640.c
+@@ -1136,7 +1136,6 @@ static void dp83640_remove(struct phy_device *phydev)
+ 	struct dp83640_clock *clock;
+ 	struct list_head *this, *next;
+ 	struct dp83640_private *tmp, *dp83640 = phydev->priv;
+-	struct sk_buff *skb;
  
--	dev_kfree_skb_any(skb);
-+	dev_consume_skb_any(skb);
+ 	if (phydev->addr == BROADCAST_ADDR)
+ 		return;
+@@ -1144,11 +1143,8 @@ static void dp83640_remove(struct phy_device *phydev)
+ 	enable_status_frames(phydev, false);
+ 	cancel_work_sync(&dp83640->ts_work);
  
- #ifdef HP100_DEBUG_TX
- 	printk("hp100: %s: start_xmit: end\n", dev->name);
+-	while ((skb = skb_dequeue(&dp83640->rx_queue)) != NULL)
+-		kfree_skb(skb);
+-
+-	while ((skb = skb_dequeue(&dp83640->tx_queue)) != NULL)
+-		kfree_skb(skb);
++	skb_queue_purge(&dp83640->rx_queue);
++	skb_queue_purge(&dp83640->tx_queue);
+ 
+ 	clock = dp83640_clock_get(dp83640->clock);
+ 
