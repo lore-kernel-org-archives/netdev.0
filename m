@@ -1,72 +1,51 @@
 From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH 00/13] net: can: Add can support for TI platforms
-Date: Mon, 8 Sep 2014 17:10:29 +0300
-Message-ID: <1410185442-907-1-git-send-email-rogerq@ti.com>
+Subject: [PATCH 04/13] ARM: dts: dra7: Add syscon regmap for CORE CONTROL area
+Date: Mon, 8 Sep 2014 17:10:33 +0300
+Message-ID: <1410185442-907-5-git-send-email-rogerq@ti.com>
+References: <1410185442-907-1-git-send-email-rogerq@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <tglx@linutronix.de>, <linux-omap@vger.kernel.org>,
 	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
 	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
-	<nsekhar@ti.com>, <nm@ti.com>, Roger Quadros <rogerq@ti.com>
+	<nsekhar@ti.com>, <nm@ti.com>, Roger Quadros <rogerq@ti.com>,
+	Tomi Valkeinen <tomi.valkeinen@ti.com>
 To: <wg@grandegger.com>, <mkl@pengutronix.de>, <tony@atomide.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:50112 "EHLO bear.ext.ti.com"
+Received: from arroyo.ext.ti.com ([192.94.94.40]:58820 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752665AbaIHOLO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Sep 2014 10:11:14 -0400
+	id S1754186AbaIHOLR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Sep 2014 10:11:17 -0400
+In-Reply-To: <1410185442-907-1-git-send-email-rogerq@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Display and DCAN drivers use syscon regmap to access some registers
+in the CORE control area. Add the syscon regmap node for this
+area.
 
-Some hardware (TI am43xx) has a buggy RAMINIT DONE mechanism and it might
-not always set the DONE bit. This will result in a lockup in c_can_hw_raminit_wait_ti(),
-so patch 1 adds a timeout mechanism there.
-
-There is a non compliancy within TI platforms with respect to the
-layout of the RAMINIT register. The patches 2 and 3 address this issue
-and make a flexible but standard way of defining the RAMINIT hardware register
-layout in the device tree. The RAMINIT register is accessed using the syscon
-regmap framework.
-
-The patches 4 to 13 add adaptation details for am43xx and dra7x Socs and
-EVMs.
-
-cheers,
--roger
-
+Cc: Tomi Valkeinen <tomi.valkeinen@ti.com>
+Cc: Nishanth Menon <nm@ti.com>
+Signed-off-by: Roger Quadros <rogerq@ti.com>
 ---
+ arch/arm/boot/dts/dra7.dtsi | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Afzal Mohammed (1):
-  arm: dts: am4372: Add dcan nodes
-
-Dave Gerlach (1):
-  ARM: dts: am437x-gp-evm: Add pinctrl sleep states for dcan pins
-
-Mugunthan V N (1):
-  arm: dts: am437x-gp: Add dcan support
-
-Roger Quadros (10):
-  can: c_can_platform: Fix c_can_hw_raminit_ti() and add timeout
-  net: can: c_can: Add syscon/regmap RAMINIT mechanism
-  net: can: c_can: Add support for START pulse in RAMINIT sequence
-  ARM: dts: dra7: Add syscon regmap for CORE CONTROL area
-  ARM: dts: DRA7: Add DCAN nodes
-  ARM: dts: dra7-evm: Add CAN support
-  ARM: dts: dra72-evm: Add CAN support
-  ARM: dts: AM43xx: Add aliases to d_can nodes
-  ARM: dts: am4372: Add control module syscon node
-  ARM: dts: am4372: Add dcan raminit bits
-
- .../devicetree/bindings/net/can/c_can.txt          |  10 ++
- arch/arm/boot/dts/am4372.dtsi                      |  35 ++++++
- arch/arm/boot/dts/am437x-gp-evm.dts                |  42 ++++++++
- arch/arm/boot/dts/dra7-evm.dts                     |  21 ++++
- arch/arm/boot/dts/dra7.dtsi                        |  35 ++++++
- arch/arm/boot/dts/dra72-evm.dts                    |  23 ++++
- drivers/net/can/c_can/c_can.h                      |  12 ++-
- drivers/net/can/c_can/c_can_platform.c             | 120 ++++++++++++++++-----
- 8 files changed, 270 insertions(+), 28 deletions(-)
-
+diff --git a/arch/arm/boot/dts/dra7.dtsi b/arch/arm/boot/dts/dra7.dtsi
+index d678152..370009e 100644
+--- a/arch/arm/boot/dts/dra7.dtsi
++++ b/arch/arm/boot/dts/dra7.dtsi
+@@ -200,6 +200,11 @@
+ 			ti,hwmods = "counter_32k";
+ 		};
+ 
++		dra7_ctrl_core: ctrl_core@4a002000 {
++			compatible = "syscon";
++			reg = <0x4a002000 0x6d0>;
++		};
++
+ 		dra7_ctrl_general: tisyscon@4a002e00 {
+ 			compatible = "syscon";
+ 			reg = <0x4a002e00 0x7c>;
 -- 
 1.8.3.2
