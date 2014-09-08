@@ -1,79 +1,51 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH V2 net] core: Don't attempt to load the "" driver.
-Date: Mon, 8 Sep 2014 13:23:33 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1748BC57@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D174856B9@AcuExch.aculab.com>
-	<063D6719AE5E284EB5DD2968C1650D6D174862E0@AcuExch.aculab.com>
- <20140905.143241.114624370748725493.davem@davemloft.net>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCH net-next v2 2/2] Re-check for a VIO_DESC_READY data descriptor
+ after short udelay()
+Date: Mon, 08 Sep 2014 09:45:56 -0400
+Message-ID: <540DB314.3090809@oracle.com>
+References: <20140902162029.GC31516@oracle.com> <5405EFE7.4090302@oracle.com> <20140904.223648.559995846094457545.davem@davemloft.net> <20140905134758.GB1256@oracle.com> <20140906210253.GA5710@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'David Miller' <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33929 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753047AbaIHNZC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 09:25:02 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 12051-05 for <netdev@vger.kernel.org>;
- Mon,  8 Sep 2014 14:24:52 +0100 (BST)
-In-Reply-To: <20140905.143241.114624370748725493.davem@davemloft.net>
-Content-Language: en-US
+Received: from aserp1040.oracle.com ([141.146.126.69]:24578 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751781AbaIHNqC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 09:46:02 -0400
+In-Reply-To: <20140906210253.GA5710@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller
-> From: David Laight <David.Laight@ACULAB.COM>
-> Date: Wed, 3 Sep 2014 08:55:21 +0000
+Sowmini,
+
+On 09/06/2014 05:02 PM, Sowmini Varadhan wrote:
+
+> Stared at this a bit over the last two days, checked
+> the documentation, discussed with dls offline - looks like 
+> (a) the rmb() thing was mostly a red-herring/fud 
+> (b) we do need the wmb()
+
+	I don't think this has anything to do with your patch, but my (new) concern with the
+wmb() and no matching rmb() is this text from Documentation/memory-barrier.txt:
+
+> SMP BARRIER PAIRING
+> -------------------
 > 
-> > Requests like 'ifconfig ""' cause dev_load(net, "") be called, since
-> > request_module("") return 0 (success) this generates the error message:
-> > "Loading kernel module for a network device with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and
-> alias netdev- instead."
-> >
-> > Since dev_load() doesn't have to work, just ignore such names.
-> >
-> > Signed-off-by: David Laight <david.laight@aculab.com>
-> > ---
-> >
-> > V2: Added sign off.
-> >
-> > If you search for the above error message, you'll find a lot of complaints.
-> > While the applications shouldn't be calling an SIOCxxx ioctl with ifr_name[0] == 0
-> > the kernel shouldn't be tracing the error either.
-> >
-> > Due to the complaints from users, this might be a backport candidate.
-> 
-> I have to say that I don't like this.
-> 
-> Why is request_module("") signalled with success unconditionally?
-> A module didn't get loaded, so semantically this behavior makes
-> no sense at all.
-> 
-> I would rather than simply request_module() signal an error in this
-> case, and then _NOBODY_ has to have all of this duplicated logic to
-> check for name[0]=='\0' throughout all of the call chains leading to
-> request_module().
+> When dealing with CPU-CPU interactions, certain types of memory barrier should
+> always be paired.  A lack of appropriate pairing is almost certainly an error.
 
-Maybe, but the SIOCxxx ioctl code is only doing a speculative module load.
-Possibly it should error out the ioctl request earlier if ifr_name is "",
-but maybe it is sometimes valid?
+I'm no mb expert, and I know of no symptoms, but it appears to be saying that
+load reordering could result in a race where the READY flag could be set with
+old data in other descriptor fields due to loading them in a different order --
+something it says wmb() on another CPU explicitly does not prevent.
 
-In this case you also want to stop the attempt to load "netdev-".
-Hmmm... that really sucks...
-This whole 'try to load the module' path should be predicated on
-'interface not found'.
-I presume that the locking rules prohibit the module load attempt
-at that time.
-Maybe the ioctl code should do a retry if it gets the 'interface not found'
-error - instead of assuming that the module needs loading.
+The particular case would be adding to the ring at the same time the other side
+is removing from the ring, so no locks or LDC traffic would affect it.
 
-At the moment I think that if you run 'ifconfig eth0' it will try to
-load "netdev-eth0" and "eth0" (maybe without the unit suffix) before
-attempting to do anything else.
+So, it appears to me we have a missing rmb() that is needed and I don't know what
+leads you to believe it isn't.
 
-I didn't do any 'software archaeology' on the SIOCxxx ioctl code.
-
-	David
+							+-DLS
