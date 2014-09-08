@@ -1,93 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] skb: Add documentation for skb_clone_sk
-Date: Mon, 08 Sep 2014 13:14:04 -0700
-Message-ID: <1410207244.11872.127.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140908161748.13099.29093.stgit@ahduyck-bv4.jf.intel.com>
-	 <1410196297.11872.119.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <540DF91E.7040005@intel.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: [PATCH net] sunvnet - add missing rmb() for sunvnet driver
+Date: Mon, 08 Sep 2014 16:23:01 -0400
+Message-ID: <1410207781.24238.5.camel@phoenix>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
-	davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34546 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753446AbaIHUOG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 16:14:06 -0400
-Received: by mail-pa0-f47.google.com with SMTP id ey11so5512878pad.20
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 13:14:05 -0700 (PDT)
-In-Reply-To: <540DF91E.7040005@intel.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:44062 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754512AbaIHUXG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 16:23:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-09-08 at 11:44 -0700, Alexander Duyck wrote:
-> On 09/08/2014 10:11 AM, Eric Dumazet wrote:
-> > On Mon, 2014-09-08 at 12:18 -0400, Alexander Duyck wrote:
-> >> This change adds some documentation to the call skb_clone_sk.  This is
-> >> meant to help clarify the purpose of the function for other developers.
-> >>
-> >> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> >> ---
-> >>  net/core/skbuff.c |   11 +++++++++++
-> >>  1 file changed, 11 insertions(+)
-> >>
-> >> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> >> index a18dfb0..3f83a8a 100644
-> >> --- a/net/core/skbuff.c
-> >> +++ b/net/core/skbuff.c
-> >> @@ -3511,6 +3511,17 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
-> >>  }
-> >>  EXPORT_SYMBOL(sock_dequeue_err_skb);
-> >>  
-> >> +/**
-> >> + * skb_clone_sk - create clone of skb, and take reference to socket
-> >> + * @skb: the skb to clone
-> >> + *
-> >> + * For functions such as timestamping it is necessary to clone an skb and
-> >> + * hold a reference to the socket for it until the hardware delivers the
-> >> + * actual timestamp or the timestamp is timed out.  As as such this
-> >> + * function is useful for creating a clone to later be handed off to
-> >> + * skb_complete_tx_timestamp or kfree_skb to take care of cleaning up
-> >> + * the reference handling for the socket.
-> >> + */
-> >>  struct sk_buff *skb_clone_sk(struct sk_buff *skb)
-> >>  {
-> >>  	struct sock *sk = skb->sk;
-> > 
-> > Note that I have serious doubts about the atomic_inc_not_zero() here.
-> > 
-> > At this point, we need to have consistent refcounting on the socket.
-> > 
-> > If we decide the reference is against sk_refcnt, then current sk_refcnt
-> > cannot be 0 at this point.
-> 
-> Isn't that what is guaranteed by using the atomic_inc_not_zero?  If it
-> is zero we abort and just return NULL.
-> 
 
-Point is : the skb we clone here must have a reference on the socket.
+The sunvnet driver does not have an rmb() in the ring consumer corresponding
+to the wmb() in the producer. According to Documentation/memory-barriers.txt:
 
-How sk_refcnt could be 0 here ?
+"When dealing with CPU-CPU interactions, certain types of memory barrier should
+always be paired.  A lack of appropriate pairing is almost certainly an error."
 
-If it was 0, then something was broken before skb_clone_sk() call.
+In cases where an rmb() is not a no-op and a consumer is removing data from
+the ring while a producer is adding new entries, a load reorder would allow
 
+CPU1						CPU2
+----						----
+						LOAD desc.size [e.g]
+STORE desc.size
+<wmb>
+set desc.hdr.state = VIO_DESC_READY
+						LOAD desc.hdr.state
+						[because VIO_DESC_READY, use
+						 old desc.size, already loaded
+						 out of order]
 
+[CPU2 has reordered apparently unrelated LOADs]
 
-> > This might hide a very serious bug.
-> > 
-> > In TCP tx path for example, we do not take reference on sk_refcnt for
-> > each packet, but a reference on sk_wmem_alloc
-> > 
-> > If skb destructor is sock_wfree() or tcp_wfree(), then we should take an
-> > extra reference on sk_wmem_alloc instead of sk_refcnt.
-> 
-> My concern then would be what I should do about skb_tx_complete as I am
-> currently using sock_hold/sock_put to prevent the socket from being
-> freed due to the skb_orphan call in sock_queue_err_skb.
-> 
-> Would I need to change the logic there as well in order to prevent us
-> from using the wrong reference to keep the socket valid?
+To ensure other desc fields are not loaded before checking VIO_DESC_READY, we
+need an rmb() between the check and desc data accesses.
 
-We certainly have to think again and clean this.
+I've also moved the viodbg() call to after the rmb() so that it, too, has
+current descriptor data even with reordering, which has the side effect that
+it won't print anything for descriptors that are not VIO_DESC_READY as before.
+That's a) probably a good thing, since the fields are not necessarily set and,
+b) better than adding another rmb() just for viodbg().
+
+This would not be possible if strict-ordering is enforced, but then the
+memory barriers should be no-ops in that case.
+
+Signed-off-by: David L Stevens <david.stevens@oracle.com>
+---
+ drivers/net/ethernet/sun/sunvnet.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 23c89ab..f675396 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -350,14 +350,17 @@ static int vnet_walk_rx_one(struct vnet_port *port,
+ 	if (IS_ERR(desc))
+ 		return PTR_ERR(desc);
+ 
++	if (desc->hdr.state != VIO_DESC_READY)
++		return 1;
++
++	rmb();
++
+ 	viodbg(DATA, "vio_walk_rx_one desc[%02x:%02x:%08x:%08x:%llx:%llx]\n",
+ 	       desc->hdr.state, desc->hdr.ack,
+ 	       desc->size, desc->ncookies,
+ 	       desc->cookies[0].cookie_addr,
+ 	       desc->cookies[0].cookie_size);
+ 
+-	if (desc->hdr.state != VIO_DESC_READY)
+-		return 1;
+ 	err = vnet_rx_one(port, desc->size, desc->cookies, desc->ncookies);
+ 	if (err == -ECONNRESET)
+ 		return err;
+-- 
+1.7.1
