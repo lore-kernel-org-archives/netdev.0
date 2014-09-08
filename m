@@ -1,78 +1,106 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net-next] ip6: Do not expire uncached routes for mtu
- invalidation
-Date: Mon, 08 Sep 2014 10:20:26 -0700
-Message-ID: <1410196826.11872.123.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1410165283-29337-1-git-send-email-agartrell@fb.com>
-	 <1410172253.11872.87.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <540DE380.1000302@fb.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH v2 1/1] drivers: net: cpsw: Add support for pause frames
+Date: Mon, 8 Sep 2014 22:54:02 +0530
+Message-ID: <1410197042-8168-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org,
-	kernel-team@fb.com, ps@fb.com
-To: Alex Gartrell <agartrell@fb.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:56497 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754449AbaIHRUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 13:20:33 -0400
-Received: by mail-pd0-f179.google.com with SMTP id g10so8236078pdj.24
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 10:20:32 -0700 (PDT)
-In-Reply-To: <540DE380.1000302@fb.com>
+Received: from devils.ext.ti.com ([198.47.26.153]:35684 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754740AbaIHRYI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 13:24:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-09-08 at 10:12 -0700, Alex Gartrell wrote:
-> Thank you for taking a look, Eric.
-> 
-> I'll admit that I have a distinct lack of confidence that I've got the 
-> right solution to the problem here, but I've made it about as far as I 
-> can without getting your collective comments, so it's much appreciated.
-..
-> >>
-> >>   static inline void rt6_set_from(struct rt6_info *rt, struct rt6_info *from)
-> >> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> >> index f74b041..a509a06 100644
-> >> --- a/net/ipv6/route.c
-> >> +++ b/net/ipv6/route.c
-> >> @@ -947,8 +947,19 @@ restart:
-> >>   		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
-> >>   	else if (!(rt->dst.flags & DST_HOST))
-> >>   		nrt = rt6_alloc_clone(rt, &fl6->daddr);
-> >> -	else
-> >> +	else {
-> >> +		if (!(rt->rt6i_flags & RTF_EXPIRES) && rt->dst.expires &&
-> >> +		    time_after(jiffies, rt->dst.expires)) {
-> >> +			/* Uncached routes may have expires set if we
-> >> +			 * intend to expire the MTU but not the dest
-> >> +			 * itself.  In that case, we should reset the mtu
-> >> +			 * before handing it back */
-> >> +			dst_metric_set(&rt->dst, RTAX_MTU, 0);
-> >> +			rt6_clean_expires(rt);
-> >> +			rt->rt6i_flags &= ~RTF_MODIFIED;
-> >
-> > Many cpus can perform this at the same time on same route, this looks
-> > racy.
-> 
-> Initially I was just going to agree with you here, but taking another 
-> look at ip_vs_xmit at least, there doesn't appear to be any special 
-> locking before invoking ->update_pmtu, which is playing with rt6i_flags 
-> and dst.expires as well.  Is that racy as well or is there something 
-> else I'm missing here?
-> 
-> There are other ways to skin this particular cat though, and I've got no 
-> specific attachment to any of them.  The most logical thing to do IMO is 
-> clone the route when it may be necessary to do so, but given the fact 
-> that that was very deliberately undone in 7343ff3 "ipv6: Don't create 
-> clones of host routes," I'm not sure that it's the right thing to do or 
-> that it won't require major surgery.
+CPSW supports both rx and tx pause frames for flow control.
 
-Have you followed thread started yesterday ?
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
 
-https://patchwork.ozlabs.org/patch/386739/
+Changes from intial version:
+* removed parens for bool variable conditional checks
 
-Reverting 7343ff3 "ipv6: Don't create clones of host routes" was
-considered as a matter of fact, when I replied :
+---
+ drivers/net/ethernet/ti/cpsw.c | 37 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
 
-"This means we have to clone all routes."
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 03b4099..76e7368 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -397,6 +397,8 @@ struct cpsw_priv {
+ 	struct cpdma_ctlr		*dma;
+ 	struct cpdma_chan		*txch, *rxch;
+ 	struct cpsw_ale			*ale;
++	bool				rx_pause;
++	bool				tx_pause;
+ 	/* snapshot of IRQ numbers */
+ 	u32 irqs_table[4];
+ 	u32 num_irqs;
+@@ -832,6 +834,12 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
+ 		else if (phy->speed == 10)
+ 			mac_control |= BIT(18); /* In Band mode */
+ 
++		if (priv->rx_pause)
++			mac_control |= BIT(3);
++
++		if (priv->tx_pause)
++			mac_control |= BIT(4);
++
+ 		*link = true;
+ 	} else {
+ 		mac_control = 0;
+@@ -1223,6 +1231,9 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 		/* enable statistics collection only on all ports */
+ 		__raw_writel(0x7, &priv->regs->stat_port_en);
+ 
++		/* Enable internal fifo flow control */
++		writel(0x7, &priv->regs->flow_control);
++
+ 		if (WARN_ON(!priv->data.rx_descs))
+ 			priv->data.rx_descs = 128;
+ 
+@@ -1784,6 +1795,30 @@ static int cpsw_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
+ 		return -EOPNOTSUPP;
+ }
+ 
++static void cpsw_get_pauseparam(struct net_device *ndev,
++				struct ethtool_pauseparam *pause)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++
++	pause->autoneg = AUTONEG_DISABLE;
++	pause->rx_pause = priv->rx_pause ? true : false;
++	pause->tx_pause = priv->tx_pause ? true : false;
++}
++
++static int cpsw_set_pauseparam(struct net_device *ndev,
++			       struct ethtool_pauseparam *pause)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++	bool link;
++
++	priv->rx_pause = pause->rx_pause ? true : false;
++	priv->tx_pause = pause->tx_pause ? true : false;
++
++	for_each_slave(priv, _cpsw_adjust_link, priv, &link);
++
++	return 0;
++}
++
+ static const struct ethtool_ops cpsw_ethtool_ops = {
+ 	.get_drvinfo	= cpsw_get_drvinfo,
+ 	.get_msglevel	= cpsw_get_msglevel,
+@@ -1797,6 +1832,8 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
+ 	.get_sset_count		= cpsw_get_sset_count,
+ 	.get_strings		= cpsw_get_strings,
+ 	.get_ethtool_stats	= cpsw_get_ethtool_stats,
++	.get_pauseparam		= cpsw_get_pauseparam,
++	.set_pauseparam		= cpsw_set_pauseparam,
+ 	.get_wol	= cpsw_get_wol,
+ 	.set_wol	= cpsw_set_wol,
+ 	.get_regs_len	= cpsw_get_regs_len,
+-- 
+2.1.0
