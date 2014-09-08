@@ -1,73 +1,73 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: Re: [PATCH net-next 1/3] net: bpf: consolidate JIT binary allocator
-Date: Mon, 8 Sep 2014 08:17:44 +0200
-Message-ID: <20140908061744.GA4193@osiris>
-References: <1409996567-2170-1-git-send-email-dborkman@redhat.com>
- <1409996567-2170-2-git-send-email-dborkman@redhat.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v10 net-next 2/2] net: filter: split filter.h and expose
+ eBPF to user space
+Date: Sun, 7 Sep 2014 23:34:23 -0700
+Message-ID: <CAMEtUuzfhnKKbyMW8qDk4YxM3X_NWHU6Gkt1DDTSHXhcScXccQ@mail.gmail.com>
+References: <20140907180737.GA5057@salvia>
+	<CAMEtUuxJLDu8AAsZQdtG781vwC8y60Ygdt4ji5tbeyTE8YbWbQ@mail.gmail.com>
+	<20140908052329.GA30461@gmail.com>
+	<20140907.222841.1933004265241590374.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, ast@plumgrid.com, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:43351 "EHLO
-	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751483AbaIHGRt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 02:17:49 -0400
-Received: from /spool/local
-	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <heiko.carstens@de.ibm.com>;
-	Mon, 8 Sep 2014 07:17:48 +0100
-Received: from b06cxnps4076.portsmouth.uk.ibm.com (d06relay13.portsmouth.uk.ibm.com [9.149.109.198])
-	by d06dlp01.portsmouth.uk.ibm.com (Postfix) with ESMTP id BA28F17D8024
-	for <netdev@vger.kernel.org>; Mon,  8 Sep 2014 07:19:45 +0100 (BST)
-Received: from d06av10.portsmouth.uk.ibm.com (d06av10.portsmouth.uk.ibm.com [9.149.37.251])
-	by b06cxnps4076.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id s886Hjkj44564646
-	for <netdev@vger.kernel.org>; Mon, 8 Sep 2014 06:17:45 GMT
-Received: from d06av10.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av10.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s886Hig2024561
-	for <netdev@vger.kernel.org>; Mon, 8 Sep 2014 00:17:45 -0600
-Content-Disposition: inline
-In-Reply-To: <1409996567-2170-2-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+	Linus Torvalds <torvalds-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140907.222841.1933004265241590374.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 06, 2014 at 11:42:45AM +0200, Daniel Borkmann wrote:
-> Introduced in commit 314beb9bcabf ("x86: bpf_jit_comp: secure bpf jit
-> against spraying attacks") and later on replicated in aa2d2c73c21f
-> ("s390/bpf,jit: address randomize and write protect jit code") for
-> s390 architecture, write protection for BPF JIT images got added and
-> a random start address of the JIT code, so that it's not on a page
-> boundary anymore.
-> 
-> Since both use a very similar allocator for the BPF binary header,
-> we can consolidate this code into the BPF core as it's mostly JIT
-> independant anyway.
-> 
-> This will also allow for future archs that support DEBUG_SET_MODULE_RONX
-> to just reuse instead of reimplementing it.
-> 
-> While reviewing the code, I think on s390, the alignment masking
-> seems not to be correct in it's current form, that is, we make sure
-> the first instruction starts at an even address as stated by commit
-> aa2d2c73c21f but masks the start with '& -2' while 2 byte-alignment
-> should rather be '& ~1'.
-> 
-> JIT tested on x86_64 and s390x with BPF test suite.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-> ---
->  arch/s390/net/bpf_jit_comp.c | 45 ++++++++-------------------------------
->  arch/x86/net/bpf_jit_comp.c  | 50 ++++++++++----------------------------------
->  include/linux/filter.h       | 13 ++++++++++++
->  kernel/bpf/core.c            | 39 ++++++++++++++++++++++++++++++++++
->  4 files changed, 72 insertions(+), 75 deletions(-)
+On Sun, Sep 7, 2014 at 10:28 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Date: Mon, 8 Sep 2014 07:23:29 +0200
+>
+>>
+>> * Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+>>
+>>> > I don't think the speed up of the llvm submission is a good
+>>> > argument, this sounds to me similar to the "please apply this
+>>> > patch that reserves this new netlink family in
+>>> > include/linux/netlink.h, I promise this new subsystem will be
+>>> > submitted soon though. Meanwhile this will speed up
+>>> > submission of my userspace software to distributions for
+>>> > packaging" argument.
+>>>
+>>> You're not correct here. I'm not saying 'I promise it will be
+>>> submitted'. There _were_ already submitted. [...]
+>>
+>> And this split-up smaller submissions was requested by David
+>> Miller, the networking maintainer, so if Pablo wants another
+>> submission format, he needs to take it up with David - we can't
+>> do both at once obviously.
+>
+> I think that just because I asked the submission size to be smaller,
+> it does not mean that you can submit things before you provide the
+> initial user as well.
+>
+> And how to work that out and keep the submission size reasonable is
+> the submitter's problem, not mine.
 
-Looks good to me (except for the comment about s390 ;).
-
-Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+imo llvm is more than enough for the first user, no?
+I think I've explained that it's practically impossible to have
+first in-tree user in the first patch. What do you suggest?
+I'm listening, but currently I see no way out.
+The patch was large. I broke it down. The first patch is as tiny
+as it can get, but Pablo is stalling it, like he did for the last year.
+Honestly it doesn't feel fair.
+When there were technical arguments (like global vs fd) or
+(union attr vs long for syscall) I've listened and rewrote things.
+Now it doesn't sound technical.
