@@ -1,70 +1,64 @@
 From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH 05/13] ARM: dts: DRA7: Add DCAN nodes
-Date: Mon, 8 Sep 2014 17:10:34 +0300
-Message-ID: <1410185442-907-6-git-send-email-rogerq@ti.com>
+Subject: [PATCH 08/13] arm: dts: am4372: Add dcan nodes
+Date: Mon, 8 Sep 2014 17:10:37 +0300
+Message-ID: <1410185442-907-9-git-send-email-rogerq@ti.com>
 References: <1410185442-907-1-git-send-email-rogerq@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <tglx@linutronix.de>, <linux-omap@vger.kernel.org>,
 	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
 	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
-	<nsekhar@ti.com>, <nm@ti.com>, Roger Quadros <rogerq@ti.com>
+	<nsekhar@ti.com>, <nm@ti.com>, Afzal Mohammed <afzal@ti.com>
 To: <wg@grandegger.com>, <mkl@pengutronix.de>, <tony@atomide.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:52494 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754506AbaIHOLe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Sep 2014 10:11:34 -0400
 In-Reply-To: <1410185442-907-1-git-send-email-rogerq@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The SoC supports 2 DCAN nodes. Add them.
+From: Afzal Mohammed <afzal@ti.com>
 
-Signed-off-by: Roger Quadros <rogerq@ti.com>
+Add dcan nodes.
+
+Signed-off-by: Afzal Mohammed <afzal@ti.com>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+Signed-off-by: George Cherian <george.cherian@ti.com>
+Signed-off-by: Sekhar Nori <nsekhar@ti.com>
 ---
- arch/arm/boot/dts/dra7.dtsi | 30 ++++++++++++++++++++++++++++++
- 1 file changed, 30 insertions(+)
+ arch/arm/boot/dts/am4372.dtsi | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
 
-diff --git a/arch/arm/boot/dts/dra7.dtsi b/arch/arm/boot/dts/dra7.dtsi
-index 370009e..4ce1a4f 100644
---- a/arch/arm/boot/dts/dra7.dtsi
-+++ b/arch/arm/boot/dts/dra7.dtsi
-@@ -34,6 +34,8 @@
- 		serial3 = &uart4;
- 		serial4 = &uart5;
- 		serial5 = &uart6;
-+		d_can0 = &dcan1;
-+		d_can1 = &dcan2;
- 	};
- 
- 	timer {
-@@ -1267,6 +1269,34 @@
- 			ti,irqs-skip = <10 133 139 140>;
- 			ti,irqs-safe-map = <0>;
+diff --git a/arch/arm/boot/dts/am4372.dtsi b/arch/arm/boot/dts/am4372.dtsi
+index 8689949..3514d0a 100644
+--- a/arch/arm/boot/dts/am4372.dtsi
++++ b/arch/arm/boot/dts/am4372.dtsi
+@@ -885,6 +885,28 @@
+ 				clock-names = "fck";
+ 			};
  		};
 +
-+		dcan1: d_can@481cc000 {
++		dcan0: can@481cc000 {
 +			compatible = "bosch,d_can";
-+			ti,hwmods = "dcan1";
-+			reg = <0x4ae3c000 0x2000>,
-+			      <0x558 0x4>; /* index to RAMINIT reg within syscon */
-+			raminit-syscon = <&dra7_ctrl_core>;
-+			raminit-start-bit = <3>;
-+			raminit-done-bit = <1>;
-+			raminit-pulse;
-+			interrupts = <GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>;
-+			clocks = <&dcan1_sys_clk_mux>;
++			ti,hwmods = "d_can0";
++			clocks = <&dcan0_fck>;
++			clock-names = "fck";
++			reg = <0x481cc000 0x2000
++				0x44e10644 0x4>;
++			interrupts = <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
 +			status = "disabled";
 +		};
 +
-+		dcan2: d_can@481d0000 {
++		dcan1: can@481d0000 {
 +			compatible = "bosch,d_can";
-+			ti,hwmods = "dcan2";
-+			reg = <0x48480000 0x2000>,
-+			      <0x558 0x4>; /* index to RAMINIT reg within syscon */
-+			raminit-syscon = <&dra7_ctrl_core>;
-+			raminit-start-bit = <5>;
-+			raminit-done-bit = <2>;
-+			raminit-pulse;
-+			interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
-+			clocks = <&sys_clkin1>;
++			ti,hwmods = "d_can1";
++			clocks = <&dcan1_fck>;
++			clock-names = "fck";
++			reg = <0x481d0000 0x2000
++				0x44e10644 0x4>;
++			interrupts = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>;
 +			status = "disabled";
 +		};
  	};
@@ -72,4 +66,3 @@ index 370009e..4ce1a4f 100644
  
 -- 
 1.8.3.2
-
