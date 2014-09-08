@@ -1,7 +1,7 @@
 From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH 09/13] ARM: dts: AM43xx: Add aliases to d_can nodes
-Date: Mon, 8 Sep 2014 17:10:38 +0300
-Message-ID: <1410185442-907-10-git-send-email-rogerq@ti.com>
+Subject: [PATCH 06/13] ARM: dts: dra7-evm: Add CAN support
+Date: Mon, 8 Sep 2014 17:10:35 +0300
+Message-ID: <1410185442-907-7-git-send-email-rogerq@ti.com>
 References: <1410185442-907-1-git-send-email-rogerq@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,42 +10,59 @@ Cc: <tglx@linutronix.de>, <linux-omap@vger.kernel.org>,
 	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
 	<nsekhar@ti.com>, <nm@ti.com>, Roger Quadros <rogerq@ti.com>
 To: <wg@grandegger.com>, <mkl@pengutronix.de>, <tony@atomide.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:48444 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754518AbaIHOLg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 10:11:36 -0400
+Return-path: <linux-omap-owner@vger.kernel.org>
 In-Reply-To: <1410185442-907-1-git-send-email-rogerq@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The d_can driver expects appropriately named aliases for
-the d_can nodes for the RAMINIT control register access.
+The board has 2 CAN ports but only the first one can be used.
+Enable the first CAN port.
 
-Provide those, otherwise RAMINIT register won't be configured.
-Get's rid of the following messages during boot.
-
-[   16.419354] c_can_platform 481cc000.can: control memory is not used for raminit
-[   16.449142] c_can_platform 481d0000.can: control memory is not used for raminit
+The second one cannot be used without hardware modification
+so we don't enable the second port.
 
 Signed-off-by: Roger Quadros <rogerq@ti.com>
 Reviewed-by: Felipe Balbi <balbi@ti.com>
 ---
- arch/arm/boot/dts/am4372.dtsi | 2 ++
- 1 file changed, 2 insertions(+)
+ arch/arm/boot/dts/dra7-evm.dts | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
 
-diff --git a/arch/arm/boot/dts/am4372.dtsi b/arch/arm/boot/dts/am4372.dtsi
-index 3514d0a..a705e50 100644
---- a/arch/arm/boot/dts/am4372.dtsi
-+++ b/arch/arm/boot/dts/am4372.dtsi
-@@ -25,6 +25,8 @@
- 		serial0 = &uart0;
- 		ethernet0 = &cpsw_emac0;
- 		ethernet1 = &cpsw_emac1;
-+		d_can0 = &dcan0;
-+		d_can1 = &dcan1;
+diff --git a/arch/arm/boot/dts/dra7-evm.dts b/arch/arm/boot/dts/dra7-evm.dts
+index e03fbf3..d6b9b27 100644
+--- a/arch/arm/boot/dts/dra7-evm.dts
++++ b/arch/arm/boot/dts/dra7-evm.dts
+@@ -171,6 +171,20 @@
+ 			0xd0	(PIN_OUTPUT | MUX_MODE0)	/* gpmc_be0n_cle */
+ 		>;
  	};
++
++	dcan1_pins_default: dcan1_pins_default {
++		pinctrl-single,pins = <
++			0x3d4	(PIN_INPUT | MUX_MODE0)		/* dcan1_tx */
++			0x3d8	(PIN_INPUT | MUX_MODE0)		/* dcan1_rx */
++		>;
++	};
++
++	dcan1_pins_sleep: dcan1_pins_sleep {
++		pinctrl-single,pins = <
++			0x3d4	(PIN_INPUT | MUX_MODE15)	/* dcan1_tx */
++			0x3d8	(PIN_INPUT | MUX_MODE15)	/* dcan1_rx */
++		>;
++	};
+ };
  
- 	cpus {
+ &i2c1 {
+@@ -529,3 +543,10 @@
+ 	ti,no-reset-on-init;
+ 	ti,no-idle-on-init;
+ };
++
++&dcan1 {
++	status = "ok";
++	pinctrl-names = "default", "sleep";
++	pinctrl-0 = <&dcan1_pins_default>;
++	pinctrl-1 = <&dcan1_pins_sleep>;
++};
 -- 
 1.8.3.2
+
