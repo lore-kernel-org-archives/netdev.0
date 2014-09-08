@@ -1,32 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hp100: Convert the normal skb free path to
- dev_consume_skb_any()
-Date: Mon, 08 Sep 2014 15:40:42 -0700 (PDT)
-Message-ID: <20140908.154042.699816127384230272.davem@davemloft.net>
-References: <20140908153133.103882900309@tardy>
+Subject: Re: [PATCH v2 net-next] tcp: remove dst refcount false sharing for
+ prequeue mode
+Date: Mon, 08 Sep 2014 15:41:08 -0700 (PDT)
+Message-ID: <20140908.154108.1495360301996041738.davem@davemloft.net>
+References: <1410188767.11872.110.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140908.142143.807176983873922125.davem@davemloft.net>
+	<1410211842.11872.133.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, perex@perex.cz
-To: raj@tardy.usa.hp.com
+Cc: therbert@google.com, alexander.h.duyck@intel.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45050 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45054 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754898AbaIHWkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 18:40:43 -0400
-In-Reply-To: <20140908153133.103882900309@tardy>
+	with ESMTP id S1755293AbaIHWlJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 18:41:09 -0400
+In-Reply-To: <1410211842.11872.133.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: raj@tardy.usa.hp.com (Rick Jones)
-Date: Mon,  8 Sep 2014 08:31:32 -0700 (PDT)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 08 Sep 2014 14:30:42 -0700
 
-> From: Rick Jones <rick.jones2@hp.com>
+> In the worst case, here is what is happening :
 > 
-> A bit of floor sweeping in a dusty old corner.  Convert the "normal"
-> skb free calls to dev_consume_skb_any() so packet drop tracing will
-> be more sane.
+> sk_rx_dst is checked and invalidated in tcp_v4_do_rcv()
 > 
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> Next packets coming from prequeue might then have a NULL dst, and
+> we'll do nothing special (sk_rx_dst will stay NULL), because we do
+> handle NULL dst properly in inet_sk_rx_dst_set() and
+> inet6_sk_rx_dst_set() 
+> 
+> But next packet to be processed (either in non prequeue mode or
+> prequeue) will carry skb->dst and we will set sk->sk_rx_dst
+> 
+> I decided to not copy/paste the tests we do in the family dependent
+> parts, because it was not worth the pain.
 
-Applied, thanks Rick.
+I must have mis-read some of these code paths, let me look over it
+again, thanks!
