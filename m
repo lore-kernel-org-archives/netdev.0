@@ -1,68 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] skb: Add documentation for skb_clone_sk
-Date: Mon, 08 Sep 2014 10:11:37 -0700
-Message-ID: <1410196297.11872.119.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140908161748.13099.29093.stgit@ahduyck-bv4.jf.intel.com>
+From: Alex Gartrell <agartrell@fb.com>
+Subject: Re: [RFC PATCH net-next] ip6: Do not expire uncached routes for mtu
+ invalidation
+Date: Mon, 8 Sep 2014 10:12:32 -0700
+Message-ID: <540DE380.1000302@fb.com>
+References: <1410165283-29337-1-git-send-email-agartrell@fb.com> <1410172253.11872.87.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
-	davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: <davem@davemloft.net>, <edumazet@google.com>,
+	<netdev@vger.kernel.org>, <kernel-team@fb.com>, <ps@fb.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33822 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754177AbaIHRLn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 13:11:43 -0400
-Received: by mail-pa0-f51.google.com with SMTP id kx10so3504893pab.10
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 10:11:43 -0700 (PDT)
-In-Reply-To: <20140908161748.13099.29093.stgit@ahduyck-bv4.jf.intel.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:64082 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754224AbaIHRMa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 13:12:30 -0400
+In-Reply-To: <1410172253.11872.87.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-09-08 at 12:18 -0400, Alexander Duyck wrote:
-> This change adds some documentation to the call skb_clone_sk.  This is
-> meant to help clarify the purpose of the function for other developers.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
->  net/core/skbuff.c |   11 +++++++++++
->  1 file changed, 11 insertions(+)
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index a18dfb0..3f83a8a 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3511,6 +3511,17 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
->  }
->  EXPORT_SYMBOL(sock_dequeue_err_skb);
->  
-> +/**
-> + * skb_clone_sk - create clone of skb, and take reference to socket
-> + * @skb: the skb to clone
-> + *
-> + * For functions such as timestamping it is necessary to clone an skb and
-> + * hold a reference to the socket for it until the hardware delivers the
-> + * actual timestamp or the timestamp is timed out.  As as such this
-> + * function is useful for creating a clone to later be handed off to
-> + * skb_complete_tx_timestamp or kfree_skb to take care of cleaning up
-> + * the reference handling for the socket.
-> + */
->  struct sk_buff *skb_clone_sk(struct sk_buff *skb)
->  {
->  	struct sock *sk = skb->sk;
+Thank you for taking a look, Eric.
 
-Note that I have serious doubts about the atomic_inc_not_zero() here.
+I'll admit that I have a distinct lack of confidence that I've got the 
+right solution to the problem here, but I've made it about as far as I 
+can without getting your collective comments, so it's much appreciated.
 
-At this point, we need to have consistent refcounting on the socket.
+On 9/8/14 3:30 AM, Eric Dumazet wrote:
+> On Mon, 2014-09-08 at 01:34 -0700, Alex Gartrell wrote:
+>> diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+>> index 9bcb220..2f0d4d0 100644
+>> --- a/include/net/ip6_fib.h
+>> +++ b/include/net/ip6_fib.h
+>> @@ -184,7 +184,8 @@ static inline void rt6_update_expires(struct rt6_info *rt0, int timeout)
+>>   		rt0->dst.expires = rt->dst.expires;
+>>
+>>   	dst_set_expires(&rt0->dst, timeout);
+>> -	rt0->rt6i_flags |= RTF_EXPIRES;
+>> +	if (rt0->rt6i_flags & (RTF_CACHE | RTF_EXPIRES))
+>> +		rt0->rt6i_flags |= RTF_EXPIRES;
+>
+> This looks wrong. What could be the point of settinf RTF_EXPIRES if its
+> already set ?
+>
 
-If we decide the reference is against sk_refcnt, then current sk_refcnt
-cannot be 0 at this point.
+This is a good point.  It was clearer to me at the time to include it 
+(more similar to the old implementation which set the bit 
+unconditionally), but I don't really care.
 
-This might hide a very serious bug.
+>>   }
+>>
+>>   static inline void rt6_set_from(struct rt6_info *rt, struct rt6_info *from)
+>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>> index f74b041..a509a06 100644
+>> --- a/net/ipv6/route.c
+>> +++ b/net/ipv6/route.c
+>> @@ -947,8 +947,19 @@ restart:
+>>   		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
+>>   	else if (!(rt->dst.flags & DST_HOST))
+>>   		nrt = rt6_alloc_clone(rt, &fl6->daddr);
+>> -	else
+>> +	else {
+>> +		if (!(rt->rt6i_flags & RTF_EXPIRES) && rt->dst.expires &&
+>> +		    time_after(jiffies, rt->dst.expires)) {
+>> +			/* Uncached routes may have expires set if we
+>> +			 * intend to expire the MTU but not the dest
+>> +			 * itself.  In that case, we should reset the mtu
+>> +			 * before handing it back */
+>> +			dst_metric_set(&rt->dst, RTAX_MTU, 0);
+>> +			rt6_clean_expires(rt);
+>> +			rt->rt6i_flags &= ~RTF_MODIFIED;
+>
+> Many cpus can perform this at the same time on same route, this looks
+> racy.
 
-In TCP tx path for example, we do not take reference on sk_refcnt for
-each packet, but a reference on sk_wmem_alloc
+Initially I was just going to agree with you here, but taking another 
+look at ip_vs_xmit at least, there doesn't appear to be any special 
+locking before invoking ->update_pmtu, which is playing with rt6i_flags 
+and dst.expires as well.  Is that racy as well or is there something 
+else I'm missing here?
 
-If skb destructor is sock_wfree() or tcp_wfree(), then we should take an
-extra reference on sk_wmem_alloc instead of sk_refcnt.
+There are other ways to skin this particular cat though, and I've got no 
+specific attachment to any of them.  The most logical thing to do IMO is 
+clone the route when it may be necessary to do so, but given the fact 
+that that was very deliberately undone in 7343ff3 "ipv6: Don't create 
+clones of host routes," I'm not sure that it's the right thing to do or 
+that it won't require major surgery.
+
+Thanks again,
+
+-- 
+Alex Gartrell <agartrell@fb.com>
