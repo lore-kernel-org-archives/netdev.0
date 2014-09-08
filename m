@@ -1,42 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Fix GRE RX to use skb_transport_header for GRE
- header offset
-Date: Mon, 08 Sep 2014 08:50:44 -0700
-Message-ID: <1410191444.11872.113.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1410190152-7396-1-git-send-email-therbert@google.com>
+From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Subject: RE: [PATCH net-next] be2net: Learn and program mac to avoid packet
+ replication in nPAR mode.
+Date: Mon, 8 Sep 2014 16:17:50 +0000
+Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C94055E@CMEXMB1.ad.emulex.com>
+References: <206ffa9c-915e-4a1e-affe-68616cbef2f8@CMEXHTCAS1.ad.emulex.com>
+ <20140905.173456.2115240943907507122.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David Miller (davem@davemloft.net)" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:54760 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752986AbaIHPur (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 11:50:47 -0400
-Received: by mail-pd0-f171.google.com with SMTP id p10so4052197pdj.16
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 08:50:46 -0700 (PDT)
-In-Reply-To: <1410190152-7396-1-git-send-email-therbert@google.com>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:30903 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754079AbaIHQSR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 12:18:17 -0400
+In-Reply-To: <20140905.173456.2115240943907507122.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-09-08 at 08:29 -0700, Tom Herbert wrote:
-> GRE assumes that the GRE header is at skb_network_header +
-> ip_hrdlen(skb). It is more general to use skb_transport_header
-> and this allows the possbility of inserting additional header
-> between IP and GRE (which is what we will done in Generic UDP
-> Encapsulation for GRE).
+
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Saturday, September 06, 2014 6:05 AM
+> To: Venkat Duvvuru
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [PATCH net-next] be2net: Learn and program mac to avoid
+> packet replication in nPAR mode.
 > 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  net/ipv4/gre_demux.c | 5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
+> From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+> Date: Thu, 4 Sep 2014 20:00:59 +0530
+> 
+> > In a multi-channel setup, when an interface (channel/partition) is used
+> > by a bridge or ovs, it is placed in promiscuous mode and the MAC addresses
+> > of the VMs attached to the bridge are not configured on the base
+> interface.
+> > As a result of that, when a packet arrives to the port with
+> > virtual machine's mac address, the card cannot determine which ring to
+> > send the packet to, so replicates the packet on all the PFs of that port,
+> > hence resulting in wastage of PCI bandwidth and CPU cycles. Packet
+> replication
+> > is also considered security risk as it can cause packets to reach an undesired
+> VM.
+> >
+> > This patch will help solve the problem by learning the mac address and
+> > programming it in the adapter. This patch also unlearns the MAC, if the
+> MAC is
+> > moved out of the machine or if the MAC is inactive for more than 5
+> minutes.
+> >
+> > Signed-off-by: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+> 
+> This is non-trivial overhead to add to the fast paths of your primary
+> packet input and output paths.
+> 
+> I think you need to find a different solution to this problem.
 
-I am always confused why you do not include prior Acked-by when you
-repost same patch.
+A few points why I don't think this is non-trivial overhead
+1. Mac learning happens only when there is a MAC miss and this is really a "once in a while" scenario.
+2. There is no contention in the data path unless there is a MAC miss. 
+3. Our experiments show that 
+	a. There is almost no impact on the CPU because of mac learning.
+	b. Throughput is not affected when there is no packet replication and this patch significantly improves the performance compared to throughput in a packet replication scenario.
 
-This forces me to add it again.
-
-Note this should be a net-next patch, right ?
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+Please let me know your thoughts.
