@@ -1,81 +1,93 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net-next] skb: Add documentation for skb_clone_sk
-Date: Mon, 08 Sep 2014 11:44:46 -0700
-Message-ID: <540DF91E.7040005@intel.com>
-References: <20140908161748.13099.29093.stgit@ahduyck-bv4.jf.intel.com> <1410196297.11872.119.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net] ipv6: refresh rt6i_genid in ip6_pol_route()
+Date: Mon, 08 Sep 2014 14:48:00 -0400
+Message-ID: <540DF9E0.5030701@redhat.com>
+References: <1410149905.11872.73.camel@edumazet-glaptop2.roam.corp.google.com>	 <20140907.212742.893555292268057160.davem@davemloft.net>	 <1410151434.11872.82.camel@edumazet-glaptop2.roam.corp.google.com>	 <20140907.215943.213418445039957641.davem@davemloft.net> <1410152829.11872.84.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
-	davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: nicolas.dichtel@6wind.com, therbert@google.com,
+	alexander.h.duyck@intel.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:56552 "EHLO mga11.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:30632 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752776AbaIHSor (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Sep 2014 14:44:47 -0400
-In-Reply-To: <1410196297.11872.119.camel@edumazet-glaptop2.roam.corp.google.com>
+	id S1753516AbaIHSsO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Sep 2014 14:48:14 -0400
+In-Reply-To: <1410152829.11872.84.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/08/2014 10:11 AM, Eric Dumazet wrote:
-> On Mon, 2014-09-08 at 12:18 -0400, Alexander Duyck wrote:
->> This change adds some documentation to the call skb_clone_sk.  This is
->> meant to help clarify the purpose of the function for other developers.
+On 09/08/2014 01:07 AM, Eric Dumazet wrote:
+> On Sun, 2014-09-07 at 21:59 -0700, David Miller wrote:
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Sun, 07 Sep 2014 21:43:54 -0700
 >>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> ---
->>  net/core/skbuff.c |   11 +++++++++++
->>  1 file changed, 11 insertions(+)
+>>> On Sun, 2014-09-07 at 21:27 -0700, David Miller wrote:
+>>>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>>>> Date: Sun, 07 Sep 2014 21:18:25 -0700
+>>>>
+>>>>> On Sun, 2014-09-07 at 15:54 -0700, David Miller wrote:
+>>>>>
+>>>>>> This might be broken.
+>>>>>>
+>>>>>> We are dealing here with persistent entries in the ipv6 routine trie.
+>>>>>>
+>>>>>> If you just bump the genid on the next person to look it up, other
+>>>>>> sockets and cached entities might not have validated the route yet,
+>>>>>> and now will falsely see the route as valid.  We have to ensure that
+>>>>>> they too drop this route and perform a relookup.
+>>>>>
+>>>>> I am confused, I thought it was the role of the cookie.
+>>>>>
+>>>>> (Ie socket has to store its own cookie to be able to validate a route)
+>>>>>
+>>>>> Before 6f3118b571b8 patch, how was this done anyway ?
+>>>>>
+>>>>> If persistent routes cannot refresh the genid, then they are useless ?
+>>>>
+>>>> I just speak about the genid aspect.
+>>>>
+>>>> I understand that cookie (via node->fn_sernum) invalidates the path
+>>>> in the fib_trie, but the genid protects against other circumstances
+>>>> (matching IPSEC rule, f.e.)
+>>>>
+>>>> You have to make sure all other sockets did a full route lookup
+>>>> (including IPSEC) before you can safely adjust the genid.
+>>>>
+>>>> I could be wrong, recheck my analysis please :-)
+>>>
+>>> So this whole genid protection can not work, unless we make sure a
+>>> socket cannot share a route with another socket.
+>>>
+>>> This means we have to clone all routes.
 >>
->> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> index a18dfb0..3f83a8a 100644
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -3511,6 +3511,17 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
->>  }
->>  EXPORT_SYMBOL(sock_dequeue_err_skb);
->>  
->> +/**
->> + * skb_clone_sk - create clone of skb, and take reference to socket
->> + * @skb: the skb to clone
->> + *
->> + * For functions such as timestamping it is necessary to clone an skb and
->> + * hold a reference to the socket for it until the hardware delivers the
->> + * actual timestamp or the timestamp is timed out.  As as such this
->> + * function is useful for creating a clone to later be handed off to
->> + * skb_complete_tx_timestamp or kfree_skb to take care of cleaning up
->> + * the reference handling for the socket.
->> + */
->>  struct sk_buff *skb_clone_sk(struct sk_buff *skb)
->>  {
->>  	struct sock *sk = skb->sk;
+>> I'm willing to revert the change in question if you think that's the
+>> sanest way forward.
+>>
+>> The bug fix for more obscure use cases (IPSEC) if pointless if it
+>> breaks more common things (TCP input route caching).
 > 
-> Note that I have serious doubts about the atomic_inc_not_zero() here.
+> Lets wait for Nicolas and/or Hannes input, they might have some ideas...
 > 
-> At this point, we need to have consistent refcounting on the socket.
 > 
-> If we decide the reference is against sk_refcnt, then current sk_refcnt
-> cannot be 0 at this point.
 
-Isn't that what is guaranteed by using the atomic_inc_not_zero?  If it
-is zero we abort and just return NULL.
+So, looking at the differences between ipv4 and ipv6, it looks like ipv4
+genid is only bumped by xfrm, while ipv6 one is bumped every time
+__ipv6_ifa_notify() is called which happens in a lot of palaces...
 
-> This might hide a very serious bug.
+So, my guess is that ipv4 genid doesn't really grow on non-xfrm configured
+systems, while ipv6 one can grow very fast.  Probably why we don't see
+it with ipv4 and do with ipv6.
+
+-vlad
+
+
 > 
-> In TCP tx path for example, we do not take reference on sk_refcnt for
-> each packet, but a reference on sk_wmem_alloc
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
-> If skb destructor is sock_wfree() or tcp_wfree(), then we should take an
-> extra reference on sk_wmem_alloc instead of sk_refcnt.
-
-My concern then would be what I should do about skb_tx_complete as I am
-currently using sock_hold/sock_put to prevent the socket from being
-freed due to the skb_orphan call in sock_queue_err_skb.
-
-Would I need to change the logic there as well in order to prevent us
-from using the wrong reference to keep the socket valid?
-
-Thanks,
-
-Alex
