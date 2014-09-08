@@ -1,72 +1,44 @@
 From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH 10/13] arm: dts: am437x-gp: Add dcan support
-Date: Mon, 8 Sep 2014 17:10:39 +0300
-Message-ID: <1410185442-907-11-git-send-email-rogerq@ti.com>
+Subject: [PATCH 12/13] ARM: dts: am4372: Add control module syscon node
+Date: Mon, 8 Sep 2014 17:10:41 +0300
+Message-ID: <1410185442-907-13-git-send-email-rogerq@ti.com>
 References: <1410185442-907-1-git-send-email-rogerq@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <tglx@linutronix.de>, <linux-omap@vger.kernel.org>,
 	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
 	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
-	<nsekhar@ti.com>, <nm@ti.com>
+	<nsekhar@ti.com>, <nm@ti.com>, Roger Quadros <rogerq@ti.com>
 To: <wg@grandegger.com>, <mkl@pengutronix.de>, <tony@atomide.com>
 Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1410185442-907-1-git-send-email-rogerq@ti.com>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
+Use syscon regmap to expose the Control module register space.
+This register space is shared between many users e.g. DCAN, USB, display, etc.
 
-Add DCAN support for AM437x GP EVM with both DCAN instances.
-
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-Signed-off-by: George Cherian <george.cherian@ti.com>
-Signed-off-by: Sekhar Nori <nsekhar@ti.com>
+Signed-off-by: Roger Quadros <rogerq@ti.com>
 ---
- arch/arm/boot/dts/am437x-gp-evm.dts | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
+ arch/arm/boot/dts/am4372.dtsi | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/arch/arm/boot/dts/am437x-gp-evm.dts b/arch/arm/boot/dts/am437x-gp-evm.dts
-index e7ac47f..6d03baa 100644
---- a/arch/arm/boot/dts/am437x-gp-evm.dts
-+++ b/arch/arm/boot/dts/am437x-gp-evm.dts
-@@ -254,6 +254,20 @@
- 			0x238 (PIN_OUTPUT_PULLUP | MUX_MODE7)
- 		>;
+diff --git a/arch/arm/boot/dts/am4372.dtsi b/arch/arm/boot/dts/am4372.dtsi
+index a705e50..d38a0ed 100644
+--- a/arch/arm/boot/dts/am4372.dtsi
++++ b/arch/arm/boot/dts/am4372.dtsi
+@@ -59,6 +59,11 @@
+ 		cache-level = <2>;
  	};
-+
-+	dcan0_default: dcan0_default_pins {
-+		pinctrl-single,pins = <
-+			0x178 (PIN_OUTPUT_PULLDOWN | MUX_MODE2) /* uart1_ctsn.d_can0_tx */
-+			0x17c (PIN_INPUT_PULLUP | MUX_MODE2) /* uart1_rtsn.d_can0_rx */
-+		>;
-+	};
-+
-+	dcan1_default: dcan1_default_pins {
-+		pinctrl-single,pins = <
-+			0x180 (PIN_OUTPUT_PULLDOWN | MUX_MODE2) /* uart1_rxd.d_can1_tx */
-+			0x184 (PIN_INPUT_PULLUP | MUX_MODE2) /* uart1_txd.d_can1_rx */
-+		>;
-+	};
- };
  
- &i2c0 {
-@@ -511,3 +525,15 @@
- 		};
- 	};
- };
++	am43xx_control_module: control_module@4a002000 {
++		compatible = "syscon";
++		reg = <0x44e10000 0x7f4>;
++	};
 +
-+&dcan0 {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&dcan0_default>;
-+	status = "okay";
-+};
-+
-+&dcan1 {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&dcan1_default>;
-+	status = "okay";
-+};
+ 	am43xx_pinmux: pinmux@44e10800 {
+ 		compatible = "pinctrl-single";
+ 		reg = <0x44e10800 0x31c>;
 -- 
 1.8.3.2
 
