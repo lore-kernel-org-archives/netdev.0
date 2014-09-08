@@ -1,75 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] ipv6: refresh rt6i_genid in ip6_pol_route()
-Date: Sun, 07 Sep 2014 22:07:09 -0700
-Message-ID: <1410152829.11872.84.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1410149905.11872.73.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140907.212742.893555292268057160.davem@davemloft.net>
-	 <1410151434.11872.82.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140907.215943.213418445039957641.davem@davemloft.net>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH v10 net-next 2/2] net: filter: split filter.h and expose
+ eBPF to user space
+Date: Mon, 8 Sep 2014 07:23:29 +0200
+Message-ID: <20140908052329.GA30461@gmail.com>
+References: <1409894238-9055-1-git-send-email-ast@plumgrid.com>
+ <1409894238-9055-3-git-send-email-ast@plumgrid.com>
+ <20140906141051.GA4245@salvia>
+ <CAMEtUuxPynQ4wdWDgCU+9_3_GRYn8oA4f-emcF+mqiQdLsqEWg@mail.gmail.com>
+ <20140907180737.GA5057@salvia>
+ <CAMEtUuxJLDu8AAsZQdtG781vwC8y60Ygdt4ji5tbeyTE8YbWbQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, therbert@google.com,
-	alexander.h.duyck@intel.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linuxfoundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linuxfoundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:52858 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751398AbaIHFHM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 01:07:12 -0400
-Received: by mail-pa0-f42.google.com with SMTP id lj1so1030019pab.15
-        for <netdev@vger.kernel.org>; Sun, 07 Sep 2014 22:07:11 -0700 (PDT)
-In-Reply-To: <20140907.215943.213418445039957641.davem@davemloft.net>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:65405 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751654AbaIHFXe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 01:23:34 -0400
+Content-Disposition: inline
+In-Reply-To: <CAMEtUuxJLDu8AAsZQdtG781vwC8y60Ygdt4ji5tbeyTE8YbWbQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-09-07 at 21:59 -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Sun, 07 Sep 2014 21:43:54 -0700
-> 
-> > On Sun, 2014-09-07 at 21:27 -0700, David Miller wrote:
-> >> From: Eric Dumazet <eric.dumazet@gmail.com>
-> >> Date: Sun, 07 Sep 2014 21:18:25 -0700
-> >> 
-> >> > On Sun, 2014-09-07 at 15:54 -0700, David Miller wrote:
-> >> > 
-> >> >> This might be broken.
-> >> >> 
-> >> >> We are dealing here with persistent entries in the ipv6 routine trie.
-> >> >> 
-> >> >> If you just bump the genid on the next person to look it up, other
-> >> >> sockets and cached entities might not have validated the route yet,
-> >> >> and now will falsely see the route as valid.  We have to ensure that
-> >> >> they too drop this route and perform a relookup.
-> >> > 
-> >> > I am confused, I thought it was the role of the cookie.
-> >> > 
-> >> > (Ie socket has to store its own cookie to be able to validate a route)
-> >> > 
-> >> > Before 6f3118b571b8 patch, how was this done anyway ?
-> >> > 
-> >> > If persistent routes cannot refresh the genid, then they are useless ?
-> >> 
-> >> I just speak about the genid aspect.
-> >> 
-> >> I understand that cookie (via node->fn_sernum) invalidates the path
-> >> in the fib_trie, but the genid protects against other circumstances
-> >> (matching IPSEC rule, f.e.)
-> >> 
-> >> You have to make sure all other sockets did a full route lookup
-> >> (including IPSEC) before you can safely adjust the genid.
-> >> 
-> >> I could be wrong, recheck my analysis please :-)
-> > 
-> > So this whole genid protection can not work, unless we make sure a
-> > socket cannot share a route with another socket.
-> > 
-> > This means we have to clone all routes.
-> 
-> I'm willing to revert the change in question if you think that's the
-> sanest way forward.
-> 
-> The bug fix for more obscure use cases (IPSEC) if pointless if it
-> breaks more common things (TCP input route caching).
 
-Lets wait for Nicolas and/or Hannes input, they might have some ideas...
+* Alexei Starovoitov <ast@plumgrid.com> wrote:
+
+> > I don't think the speed up of the llvm submission is a good 
+> > argument, this sounds to me similar to the "please apply this 
+> > patch that reserves this new netlink family in 
+> > include/linux/netlink.h, I promise this new subsystem will be 
+> > submitted soon though. Meanwhile this will speed up 
+> > submission of my userspace software to distributions for 
+> > packaging" argument.
+> 
+> You're not correct here. I'm not saying 'I promise it will be 
+> submitted'. There _were_ already submitted. [...]
+
+And this split-up smaller submissions was requested by David 
+Miller, the networking maintainer, so if Pablo wants another 
+submission format, he needs to take it up with David - we can't 
+do both at once obviously.
+
+Thanks,
+
+	Ingo
