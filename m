@@ -1,83 +1,76 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: Re: [PATCH net-next] netfilter: create audit records for ebtables
- replaces
-Date: Mon, 8 Sep 2014 10:02:29 -0400
-Message-ID: <20140908140229.GC26201@madcap2.tricolour.ca>
-References: <1409907015-6145-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Roger Quadros <rogerq@ti.com>
+Subject: [PATCH 01/13] can: c_can_platform: Fix c_can_hw_raminit_ti() and add timeout
+Date: Mon, 8 Sep 2014 17:10:30 +0300
+Message-ID: <1410185442-907-2-git-send-email-rogerq@ti.com>
+References: <1410185442-907-1-git-send-email-rogerq@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	stephen@networkplumber.org, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-audit@redhat.com
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain
+Cc: <tglx@linutronix.de>, <linux-omap@vger.kernel.org>,
+	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
+	<nsekhar@ti.com>, <nm@ti.com>, Roger Quadros <rogerq@ti.com>
+To: <wg@grandegger.com>, <mkl@pengutronix.de>, <tony@atomide.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44530 "EHLO mx1.redhat.com"
+Received: from arroyo.ext.ti.com ([192.94.94.40]:58818 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754465AbaIHOIA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Sep 2014 10:08:00 -0400
-Content-Disposition: inline
-In-Reply-To: <1409907015-6145-1-git-send-email-nicolas.dichtel@6wind.com>
+	id S1753500AbaIHOLP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Sep 2014 10:11:15 -0400
+In-Reply-To: <1410185442-907-1-git-send-email-rogerq@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/09/05, Nicolas Dichtel wrote:
-> This is already done for x_tables (family AF_INET and AF_INET6), let's do it
-> for AF_BRIDGE also.
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Pass the correct 'mask' and 'value' bits to c_can_hw_raminit_wait_ti().
+They seem to have been swapped in the usage instances.
 
-ACK.
+TI's RAMINIT DONE mechanism is buggy and may not always be
+set after the START bit is set. So add a timeout mechanism to
+c_can_hw_raminit_wait_ti().
 
-> ---
->  net/bridge/netfilter/ebtables.c | 15 +++++++++++++++
->  1 file changed, 15 insertions(+)
-> 
-> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-> index 6d69631b9f4d..4ba0c5c78778 100644
-> --- a/net/bridge/netfilter/ebtables.c
-> +++ b/net/bridge/netfilter/ebtables.c
-> @@ -26,6 +26,7 @@
->  #include <asm/uaccess.h>
->  #include <linux/smp.h>
->  #include <linux/cpumask.h>
-> +#include <linux/audit.h>
->  #include <net/sock.h>
->  /* needed for logical [in,out]-dev filtering */
->  #include "../br_private.h"
-> @@ -1126,6 +1127,20 @@ static int do_replace(struct net *net, const void __user *user,
->  	}
->  
->  	ret = do_replace_finish(net, &tmp, newinfo);
-> +#ifdef CONFIG_AUDIT
-> +	if (audit_enabled) {
-> +		struct audit_buffer *ab;
-> +
-> +		ab = audit_log_start(current->audit_context, GFP_KERNEL,
-> +				     AUDIT_NETFILTER_CFG);
-> +		if (ab) {
-> +			audit_log_format(ab, "table=%s family=%u entries=%u",
-> +					 tmp.name, AF_BRIDGE,
-> +					 tmp.nentries);
-> +			audit_log_end(ab);
-> +		}
-> +	}
-> +#endif
->  	if (ret == 0)
->  		return ret;
->  free_entries:
-> -- 
-> 1.9.0
-> 
-> --
-> Linux-audit mailing list
-> Linux-audit@redhat.com
-> https://www.redhat.com/mailman/listinfo/linux-audit
+Signed-off-by: Roger Quadros <rogerq@ti.com>
+---
+ drivers/net/can/c_can/c_can_platform.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
 
-- RGB
-
---
-Richard Guy Briggs <rbriggs@redhat.com>
-Senior Software Engineer, Kernel Security, AMER ENG Base Operating Systems, Red Hat
-Remote, Ottawa, Canada
-Voice: +1.647.777.2635, Internal: (81) 32635, Alt: +1.613.693.0684x3545
+diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
+index 109cb44..b144e71 100644
+--- a/drivers/net/can/c_can/c_can_platform.c
++++ b/drivers/net/can/c_can/c_can_platform.c
+@@ -75,10 +75,18 @@ static void c_can_plat_write_reg_aligned_to_32bit(const struct c_can_priv *priv,
+ static void c_can_hw_raminit_wait_ti(const struct c_can_priv *priv, u32 mask,
+ 				  u32 val)
+ {
++	int timeout = 0;
+ 	/* We look only at the bits of our instance. */
+ 	val &= mask;
+-	while ((readl(priv->raminit_ctrlreg) & mask) != val)
++	while ((readl(priv->raminit_ctrlreg) & mask) != val) {
+ 		udelay(1);
++		timeout++;
++
++		if (timeout == 1000) {
++			dev_err(&priv->dev->dev, "%s: time out\n", __func__);
++			break;
++		}
++	}
+ }
+ 
+ static void c_can_hw_raminit_ti(const struct c_can_priv *priv, bool enable)
+@@ -97,14 +105,14 @@ static void c_can_hw_raminit_ti(const struct c_can_priv *priv, bool enable)
+ 	ctrl |= CAN_RAMINIT_DONE_MASK(priv->instance);
+ 	writel(ctrl, priv->raminit_ctrlreg);
+ 	ctrl &= ~CAN_RAMINIT_DONE_MASK(priv->instance);
+-	c_can_hw_raminit_wait_ti(priv, ctrl, mask);
++	c_can_hw_raminit_wait_ti(priv, mask, ctrl);
+ 
+ 	if (enable) {
+ 		/* Set start bit and wait for the done bit. */
+ 		ctrl |= CAN_RAMINIT_START_MASK(priv->instance);
+ 		writel(ctrl, priv->raminit_ctrlreg);
+ 		ctrl |= CAN_RAMINIT_DONE_MASK(priv->instance);
+-		c_can_hw_raminit_wait_ti(priv, ctrl, mask);
++		c_can_hw_raminit_wait_ti(priv, mask, ctrl);
+ 	}
+ 	spin_unlock(&raminit_lock);
+ }
+-- 
+1.8.3.2
