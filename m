@@ -1,106 +1,47 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net] ipv6: refresh rt6i_genid in ip6_pol_route()
-Date: Mon, 08 Sep 2014 14:16:58 +0200
-Message-ID: <540D9E3A.4010208@6wind.com>
-References: <1410149905.11872.73.camel@edumazet-glaptop2.roam.corp.google.com>		 <20140907.212742.893555292268057160.davem@davemloft.net>		 <1410151434.11872.82.camel@edumazet-glaptop2.roam.corp.google.com>		 <20140907.215943.213418445039957641.davem@davemloft.net>	 <1410152829.11872.84.camel@edumazet-glaptop2.roam.corp.google.com>	 <540D64C2.9050000@6wind.com> <1410172092.11872.85.camel@edumazet-glaptop2.roam.corp.google.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, therbert@google.com,
-	alexander.h.duyck@intel.com, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH] btrfs: remove the wrong comments
+Date: Mon,  8 Sep 2014 20:31:06 +0800
+Message-ID: <1410179466-25409-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:58306 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753289AbaIHMRF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 08:17:05 -0400
-Received: by mail-we0-f169.google.com with SMTP id w61so596592wes.0
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 05:17:03 -0700 (PDT)
-In-Reply-To: <1410172092.11872.85.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:58375 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752911AbaIHMbI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 08:31:08 -0400
+Received: by mail-pd0-f170.google.com with SMTP id r10so20832584pdi.1
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 05:31:07 -0700 (PDT)
+Received: from localhost ([1.202.252.122])
+        by mx.google.com with ESMTPSA id ds14sm380916pdb.20.2014.09.08.05.31.06
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Mon, 08 Sep 2014 05:31:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 08/09/2014 12:28, Eric Dumazet a =C3=A9crit :
-> On Mon, 2014-09-08 at 10:11 +0200, Nicolas Dichtel wrote:
->> Le 08/09/2014 07:07, Eric Dumazet a =C3=A9crit :
->>> On Sun, 2014-09-07 at 21:59 -0700, David Miller wrote:
->>>> From: Eric Dumazet <eric.dumazet@gmail.com>
->>>> Date: Sun, 07 Sep 2014 21:43:54 -0700
->>>>
->>>>> On Sun, 2014-09-07 at 21:27 -0700, David Miller wrote:
->>>>>> From: Eric Dumazet <eric.dumazet@gmail.com>
->>>>>> Date: Sun, 07 Sep 2014 21:18:25 -0700
->>>>>>
->>>>>>> On Sun, 2014-09-07 at 15:54 -0700, David Miller wrote:
->>>>>>>
->>>>>>>> This might be broken.
->>>>>>>>
->>>>>>>> We are dealing here with persistent entries in the ipv6 routin=
-e trie.
->>>>>>>>
->>>>>>>> If you just bump the genid on the next person to look it up, o=
-ther
->>>>>>>> sockets and cached entities might not have validated the route=
- yet,
->>>>>>>> and now will falsely see the route as valid.  We have to ensur=
-e that
->>>>>>>> they too drop this route and perform a relookup.
->>>>>>>
->>>>>>> I am confused, I thought it was the role of the cookie.
->>>>>>>
->>>>>>> (Ie socket has to store its own cookie to be able to validate a=
- route)
->>>>>>>
->>>>>>> Before 6f3118b571b8 patch, how was this done anyway ?
->>>>>>>
->>>>>>> If persistent routes cannot refresh the genid, then they are us=
-eless ?
->>>>>>
->>>>>> I just speak about the genid aspect.
->>>>>>
->>>>>> I understand that cookie (via node->fn_sernum) invalidates the p=
-ath
->>>>>> in the fib_trie, but the genid protects against other circumstan=
-ces
->>>>>> (matching IPSEC rule, f.e.)
->>>>>>
->>>>>> You have to make sure all other sockets did a full route lookup
->>>>>> (including IPSEC) before you can safely adjust the genid.
->>>>>>
->>>>>> I could be wrong, recheck my analysis please :-)
->>>>>
->>>>> So this whole genid protection can not work, unless we make sure =
-a
->>>>> socket cannot share a route with another socket.
->>>>>
->>>>> This means we have to clone all routes.
->>>>
->>>> I'm willing to revert the change in question if you think that's t=
-he
->>>> sanest way forward.
->>>>
->>>> The bug fix for more obscure use cases (IPSEC) if pointless if it
->>>> breaks more common things (TCP input route caching).
->>>
->>> Lets wait for Nicolas and/or Hannes input, they might have some ide=
-as...
->>
->> The initial problem was in SCTP. Here is the thread after the v1 pat=
-ch:
->> http://patchwork.ozlabs.org/patch/182235/
->>
->> Before the patch, SCTP stored the IPv6 route in its cache and if an =
-IPsec
->> rules was inserted after that operation, SCTP never invalidated the =
-cached
->> route to use a new xfrm route.
->
-> This thread mentions output route.
-Yes, it was the target.
+From: Li RongQing <roy.qing.li@gmail.com> 
 
->
-> The problem I currently have with IPv6 early demux is for input route=
-s.
-It's clearly a regression.
+This comments became wrong after c3c532[bdi: add helper function for
+doing init and register of a bdi for a file system], so remove them.
+
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ fs/btrfs/disk-io.c |    4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/fs/btrfs/disk-io.c b/fs/btrfs/disk-io.c
+index d0ed9e6..ce8b8b6 100644
+--- a/fs/btrfs/disk-io.c
++++ b/fs/btrfs/disk-io.c
+@@ -1703,10 +1703,6 @@ static int btrfs_congested_fn(void *congested_data, int bdi_bits)
+ 	return ret;
+ }
+ 
+-/*
+- * If this fails, caller must call bdi_destroy() to get rid of the
+- * bdi again.
+- */
+ static int setup_bdi(struct btrfs_fs_info *info, struct backing_dev_info *bdi)
+ {
+ 	int err;
+-- 
+1.7.10.4
