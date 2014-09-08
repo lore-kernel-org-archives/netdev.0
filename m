@@ -1,92 +1,81 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 2/2] net: bcmgenet: check harder for out of memory conditions
-Date: Mon,  8 Sep 2014 11:37:52 -0700
-Message-ID: <1410201472-3764-3-git-send-email-f.fainelli@gmail.com>
-References: <1410201472-3764-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net-next] skb: Add documentation for skb_clone_sk
+Date: Mon, 08 Sep 2014 11:44:46 -0700
+Message-ID: <540DF91E.7040005@intel.com>
+References: <20140908161748.13099.29093.stgit@ahduyck-bv4.jf.intel.com> <1410196297.11872.119.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
+	davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34114 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753416AbaIHSiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 14:38:03 -0400
-Received: by mail-pa0-f50.google.com with SMTP id bj1so1745792pad.9
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 11:38:03 -0700 (PDT)
-In-Reply-To: <1410201472-3764-1-git-send-email-f.fainelli@gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:56552 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752776AbaIHSor (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Sep 2014 14:44:47 -0400
+In-Reply-To: <1410196297.11872.119.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a potential case where we might be failing to refill a
-control block, leaving it with both a NULL skb pointer *and* a NULL
-dma_unmap_addr.
+On 09/08/2014 10:11 AM, Eric Dumazet wrote:
+> On Mon, 2014-09-08 at 12:18 -0400, Alexander Duyck wrote:
+>> This change adds some documentation to the call skb_clone_sk.  This is
+>> meant to help clarify the purpose of the function for other developers.
+>>
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>> ---
+>>  net/core/skbuff.c |   11 +++++++++++
+>>  1 file changed, 11 insertions(+)
+>>
+>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> index a18dfb0..3f83a8a 100644
+>> --- a/net/core/skbuff.c
+>> +++ b/net/core/skbuff.c
+>> @@ -3511,6 +3511,17 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
+>>  }
+>>  EXPORT_SYMBOL(sock_dequeue_err_skb);
+>>  
+>> +/**
+>> + * skb_clone_sk - create clone of skb, and take reference to socket
+>> + * @skb: the skb to clone
+>> + *
+>> + * For functions such as timestamping it is necessary to clone an skb and
+>> + * hold a reference to the socket for it until the hardware delivers the
+>> + * actual timestamp or the timestamp is timed out.  As as such this
+>> + * function is useful for creating a clone to later be handed off to
+>> + * skb_complete_tx_timestamp or kfree_skb to take care of cleaning up
+>> + * the reference handling for the socket.
+>> + */
+>>  struct sk_buff *skb_clone_sk(struct sk_buff *skb)
+>>  {
+>>  	struct sock *sk = skb->sk;
+> 
+> Note that I have serious doubts about the atomic_inc_not_zero() here.
+> 
+> At this point, we need to have consistent refcounting on the socket.
+> 
+> If we decide the reference is against sk_refcnt, then current sk_refcnt
+> cannot be 0 at this point.
 
-The way we process incoming packets, by first calling
-dma_unmap_single(), and then only checking for a potential NULL skb can
-lead to situations where do pass a NULL dma_unmap_addr() to
-dma_unmap_single(), resulting in an oops.
+Isn't that what is guaranteed by using the atomic_inc_not_zero?  If it
+is zero we abort and just return NULL.
 
-Fix this my moving the NULL skb check earlier, since no backing skb
-also means no corresponding DMA mapping for this packet.
+> This might hide a very serious bug.
+> 
+> In TCP tx path for example, we do not take reference on sk_refcnt for
+> each packet, but a reference on sk_wmem_alloc
+> 
+> If skb destructor is sock_wfree() or tcp_wfree(), then we should take an
+> extra reference on sk_wmem_alloc instead of sk_refcnt.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 33 +++++++++++++++-----------
- 1 file changed, 19 insertions(+), 14 deletions(-)
+My concern then would be what I should do about skb_tx_complete as I am
+currently using sock_hold/sock_put to prevent the socket from being
+freed due to the skb_orphan call in sock_queue_err_skb.
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 3f9d4de8173c..cdef86a03862 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1274,12 +1274,29 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
- 
- 	while ((rxpktprocessed < rxpkttoprocess) &&
- 	       (rxpktprocessed < budget)) {
-+		cb = &priv->rx_cbs[priv->rx_read_ptr];
-+		skb = cb->skb;
-+
-+		rxpktprocessed++;
-+
-+		priv->rx_read_ptr++;
-+		priv->rx_read_ptr &= (priv->num_rx_bds - 1);
-+
-+		/* We do not have a backing SKB, so we do not have a
-+		 * corresponding DMA mapping for this incoming packet since
-+		 * bcmgenet_rx_refill always either has both skb and mapping or
-+		 * none.
-+		 */
-+		if (unlikely(!skb)) {
-+			dev->stats.rx_dropped++;
-+			dev->stats.rx_errors++;
-+			goto refill;
-+		}
-+
- 		/* Unmap the packet contents such that we can use the
- 		 * RSV from the 64 bytes descriptor when enabled and save
- 		 * a 32-bits register read
- 		 */
--		cb = &priv->rx_cbs[priv->rx_read_ptr];
--		skb = cb->skb;
- 		dma_unmap_single(&dev->dev, dma_unmap_addr(cb, dma_addr),
- 				 priv->rx_buf_len, DMA_FROM_DEVICE);
- 
-@@ -1307,18 +1324,6 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
- 			  __func__, p_index, priv->rx_c_index,
- 			  priv->rx_read_ptr, dma_length_status);
- 
--		rxpktprocessed++;
--
--		priv->rx_read_ptr++;
--		priv->rx_read_ptr &= (priv->num_rx_bds - 1);
--
--		/* out of memory, just drop packets at the hardware level */
--		if (unlikely(!skb)) {
--			dev->stats.rx_dropped++;
--			dev->stats.rx_errors++;
--			goto refill;
--		}
--
- 		if (unlikely(!(dma_flag & DMA_EOP) || !(dma_flag & DMA_SOP))) {
- 			netif_err(priv, rx_status, dev,
- 				  "dropping fragmented packet!\n");
--- 
-1.9.1
+Would I need to change the logic there as well in order to prevent us
+from using the wrong reference to keep the socket valid?
+
+Thanks,
+
+Alex
