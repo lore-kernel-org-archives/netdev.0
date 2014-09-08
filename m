@@ -1,32 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix GRE RX to use skb_transport_header for GRE
- header offset
-Date: Mon, 08 Sep 2014 15:23:17 -0700 (PDT)
-Message-ID: <20140908.152317.2003775788913404988.davem@davemloft.net>
-References: <1410190152-7396-1-git-send-email-therbert@google.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH][net-next] openvswitch: change the data type of error
+ status to atomic_long_t
+Date: Mon, 8 Sep 2014 15:26:13 -0700
+Message-ID: <CALnjE+pTVVr3dQTnUZqB4vQ=MjhyJ1C859Rkjmf7JOGzVVsb5w@mail.gmail.com>
+References: <1410001571-13338-1-git-send-email-roy.qing.li@gmail.com>
+	<CALnjE+o121kh+hEtEsSLJqBw68dy=epEsXGVDN5wv+4g1xph+g@mail.gmail.com>
+	<CAJFZqHwK=5iXxBP+SgcLtub=HSkTt9Pd6LU2_Tjn9qTxbQd3SA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Li RongQing <roy.qing.li@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44915 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754999AbaIHWXV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 18:23:21 -0400
-In-Reply-To: <1410190152-7396-1-git-send-email-therbert@google.com>
+Received: from na3sys009aog121.obsmtp.com ([74.125.149.145]:36110 "HELO
+	na3sys009aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754843AbaIHW0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 18:26:14 -0400
+Received: by mail-ig0-f170.google.com with SMTP id h3so3519845igd.5
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 15:26:13 -0700 (PDT)
+In-Reply-To: <CAJFZqHwK=5iXxBP+SgcLtub=HSkTt9Pd6LU2_Tjn9qTxbQd3SA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon,  8 Sep 2014 08:29:12 -0700
+On Sun, Sep 7, 2014 at 2:24 AM, Li RongQing <roy.qing.li@gmail.com> wrote:
+> On Sun, Sep 7, 2014 at 11:44 AM, Pravin Shelar <pshelar@nicira.com> wrote:
+>>> The operation of atomic maybe faster than spin lock.
+>>
+>> What is reason for this change?
+>
+> 1.  The operation of atomic maybe faster than spin lock
+> 2.  I did not find that tx_dropped/tx_error/.. is protected by spin
+> lock under net dir,
+> sometime tx_dropped is atomic_long_t; sometime it is percpu variable;
+> sometime it is
+> u64,but does not need to protect.
+>
 
-> GRE assumes that the GRE header is at skb_network_header +
-> ip_hrdlen(skb). It is more general to use skb_transport_header
-> and this allows the possbility of inserting additional header
-> between IP and GRE (which is what we will done in Generic UDP
-> Encapsulation for GRE).
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-
-Applied, thanks Tom.
+These are error counter and the access is not performance sensitive
+code. So I do not see obvious need to optimize it. Do you have any
+performance number for this patch?
