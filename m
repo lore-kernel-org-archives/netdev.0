@@ -1,68 +1,93 @@
-From: Jaroslav Kysela <perex@perex.cz>
-Subject: Re: [PATCH net-next] hp100: Convert the normal skb free path to dev_consume_skb_any()
-Date: Mon, 08 Sep 2014 21:38:57 +0200
-Message-ID: <540E05D1.4000802@perex.cz>
-References: <20140908153133.103882900309@tardy>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] skb: Add documentation for skb_clone_sk
+Date: Mon, 08 Sep 2014 13:14:04 -0700
+Message-ID: <1410207244.11872.127.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140908161748.13099.29093.stgit@ahduyck-bv4.jf.intel.com>
+	 <1410196297.11872.119.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <540DF91E.7040005@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Rick Jones <raj@tardy.usa.hp.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
+	davem@davemloft.net
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.perex.cz ([77.48.224.245]:41562 "EHLO mail1.perex.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752755AbaIHT7g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Sep 2014 15:59:36 -0400
-In-Reply-To: <20140908153133.103882900309@tardy>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34546 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753446AbaIHUOG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 16:14:06 -0400
+Received: by mail-pa0-f47.google.com with SMTP id ey11so5512878pad.20
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 13:14:05 -0700 (PDT)
+In-Reply-To: <540DF91E.7040005@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Date 8.9.2014 17:31, Rick Jones wrote:
-> From: Rick Jones <rick.jones2@hp.com>
+On Mon, 2014-09-08 at 11:44 -0700, Alexander Duyck wrote:
+> On 09/08/2014 10:11 AM, Eric Dumazet wrote:
+> > On Mon, 2014-09-08 at 12:18 -0400, Alexander Duyck wrote:
+> >> This change adds some documentation to the call skb_clone_sk.  This is
+> >> meant to help clarify the purpose of the function for other developers.
+> >>
+> >> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> >> ---
+> >>  net/core/skbuff.c |   11 +++++++++++
+> >>  1 file changed, 11 insertions(+)
+> >>
+> >> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> >> index a18dfb0..3f83a8a 100644
+> >> --- a/net/core/skbuff.c
+> >> +++ b/net/core/skbuff.c
+> >> @@ -3511,6 +3511,17 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
+> >>  }
+> >>  EXPORT_SYMBOL(sock_dequeue_err_skb);
+> >>  
+> >> +/**
+> >> + * skb_clone_sk - create clone of skb, and take reference to socket
+> >> + * @skb: the skb to clone
+> >> + *
+> >> + * For functions such as timestamping it is necessary to clone an skb and
+> >> + * hold a reference to the socket for it until the hardware delivers the
+> >> + * actual timestamp or the timestamp is timed out.  As as such this
+> >> + * function is useful for creating a clone to later be handed off to
+> >> + * skb_complete_tx_timestamp or kfree_skb to take care of cleaning up
+> >> + * the reference handling for the socket.
+> >> + */
+> >>  struct sk_buff *skb_clone_sk(struct sk_buff *skb)
+> >>  {
+> >>  	struct sock *sk = skb->sk;
+> > 
+> > Note that I have serious doubts about the atomic_inc_not_zero() here.
+> > 
+> > At this point, we need to have consistent refcounting on the socket.
+> > 
+> > If we decide the reference is against sk_refcnt, then current sk_refcnt
+> > cannot be 0 at this point.
 > 
-> A bit of floor sweeping in a dusty old corner.  Convert the "normal"
-> skb free calls to dev_consume_skb_any() so packet drop tracing will
-> be more sane.
-> 
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
-
-Acked-by: Jaroslav Kysela <perex@perex.cz>
-
-> 
-> ---
-> 
-> Compile tested only.  I wonder how many of these cards are still in
-> operation?-)
-
-It's really old hw..
-
-> 
-> diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
-> index ed7916f..76a6e0c 100644
-> --- a/drivers/net/ethernet/hp/hp100.c
-> +++ b/drivers/net/ethernet/hp/hp100.c
-> @@ -1627,7 +1627,7 @@ static void hp100_clean_txring(struct net_device *dev)
->  #endif
->  		/* Conversion to new PCI API : NOP */
->  		pci_unmap_single(lp->pci_dev, (dma_addr_t) lp->txrhead->pdl[1], lp->txrhead->pdl[2], PCI_DMA_TODEVICE);
-> -		dev_kfree_skb_any(lp->txrhead->skb);
-> +		dev_consume_skb_any(lp->txrhead->skb);
->  		lp->txrhead->skb = NULL;
->  		lp->txrhead = lp->txrhead->next;
->  		lp->txrcommit--;
-> @@ -1745,7 +1745,7 @@ static netdev_tx_t hp100_start_xmit(struct sk_buff *skb,
->  	hp100_ints_on();
->  	spin_unlock_irqrestore(&lp->lock, flags);
->  
-> -	dev_kfree_skb_any(skb);
-> +	dev_consume_skb_any(skb);
->  
->  #ifdef HP100_DEBUG_TX
->  	printk("hp100: %s: start_xmit: end\n", dev->name);
+> Isn't that what is guaranteed by using the atomic_inc_not_zero?  If it
+> is zero we abort and just return NULL.
 > 
 
+Point is : the skb we clone here must have a reference on the socket.
 
--- 
-Jaroslav Kysela <perex@perex.cz>
-Linux Kernel Sound Maintainer
-ALSA Project; Red Hat, Inc.
+How sk_refcnt could be 0 here ?
+
+If it was 0, then something was broken before skb_clone_sk() call.
+
+
+
+> > This might hide a very serious bug.
+> > 
+> > In TCP tx path for example, we do not take reference on sk_refcnt for
+> > each packet, but a reference on sk_wmem_alloc
+> > 
+> > If skb destructor is sock_wfree() or tcp_wfree(), then we should take an
+> > extra reference on sk_wmem_alloc instead of sk_refcnt.
+> 
+> My concern then would be what I should do about skb_tx_complete as I am
+> currently using sock_hold/sock_put to prevent the socket from being
+> freed due to the skb_orphan call in sock_queue_err_skb.
+> 
+> Would I need to change the logic there as well in order to prevent us
+> from using the wrong reference to keep the socket valid?
+
+We certainly have to think again and clean this.
