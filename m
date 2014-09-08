@@ -1,55 +1,72 @@
 From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH 13/13] ARM: dts: am4372: Add dcan raminit bits
-Date: Mon, 8 Sep 2014 17:10:42 +0300
-Message-ID: <1410185442-907-14-git-send-email-rogerq@ti.com>
+Subject: [PATCH 10/13] arm: dts: am437x-gp: Add dcan support
+Date: Mon, 8 Sep 2014 17:10:39 +0300
+Message-ID: <1410185442-907-11-git-send-email-rogerq@ti.com>
 References: <1410185442-907-1-git-send-email-rogerq@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <tglx@linutronix.de>, <linux-omap@vger.kernel.org>,
 	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
 	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
-	<nsekhar@ti.com>, <nm@ti.com>, Roger Quadros <rogerq@ti.com>
+	<nsekhar@ti.com>, <nm@ti.com>
 To: <wg@grandegger.com>, <mkl@pengutronix.de>, <tony@atomide.com>
 Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1410185442-907-1-git-send-email-rogerq@ti.com>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add RAMINIT specific bits into the DCAN nodes.
+From: Mugunthan V N <mugunthanvnm@ti.com>
 
-Signed-off-by: Roger Quadros <rogerq@ti.com>
+Add DCAN support for AM437x GP EVM with both DCAN instances.
+
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+Signed-off-by: George Cherian <george.cherian@ti.com>
+Signed-off-by: Sekhar Nori <nsekhar@ti.com>
 ---
- arch/arm/boot/dts/am4372.dtsi | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ arch/arm/boot/dts/am437x-gp-evm.dts | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
 
-diff --git a/arch/arm/boot/dts/am4372.dtsi b/arch/arm/boot/dts/am4372.dtsi
-index d38a0ed..33d27cd 100644
---- a/arch/arm/boot/dts/am4372.dtsi
-+++ b/arch/arm/boot/dts/am4372.dtsi
-@@ -899,7 +899,10 @@
- 			clocks = <&dcan0_fck>;
- 			clock-names = "fck";
- 			reg = <0x481cc000 0x2000
--				0x44e10644 0x4>;
-+				0x644 0x4>; /* index to RAMINIT reg within syscon */
-+			raminit-syscon = <&am43xx_control_module>;
-+			raminit-start-bit = <0>;
-+			raminit-done-bit = <8>;
- 			interrupts = <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
- 			status = "disabled";
+diff --git a/arch/arm/boot/dts/am437x-gp-evm.dts b/arch/arm/boot/dts/am437x-gp-evm.dts
+index e7ac47f..6d03baa 100644
+--- a/arch/arm/boot/dts/am437x-gp-evm.dts
++++ b/arch/arm/boot/dts/am437x-gp-evm.dts
+@@ -254,6 +254,20 @@
+ 			0x238 (PIN_OUTPUT_PULLUP | MUX_MODE7)
+ 		>;
+ 	};
++
++	dcan0_default: dcan0_default_pins {
++		pinctrl-single,pins = <
++			0x178 (PIN_OUTPUT_PULLDOWN | MUX_MODE2) /* uart1_ctsn.d_can0_tx */
++			0x17c (PIN_INPUT_PULLUP | MUX_MODE2) /* uart1_rtsn.d_can0_rx */
++		>;
++	};
++
++	dcan1_default: dcan1_default_pins {
++		pinctrl-single,pins = <
++			0x180 (PIN_OUTPUT_PULLDOWN | MUX_MODE2) /* uart1_rxd.d_can1_tx */
++			0x184 (PIN_INPUT_PULLUP | MUX_MODE2) /* uart1_txd.d_can1_rx */
++		>;
++	};
+ };
+ 
+ &i2c0 {
+@@ -511,3 +525,15 @@
  		};
-@@ -910,7 +913,10 @@
- 			clocks = <&dcan1_fck>;
- 			clock-names = "fck";
- 			reg = <0x481d0000 0x2000
--				0x44e10644 0x4>;
-+				0x644 0x4>; /* index to RAMINIT reg within syscon */
-+			raminit-syscon = <&am43xx_control_module>;
-+			raminit-start-bit = <1>;
-+			raminit-done-bit = <9>;
- 			interrupts = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>;
- 			status = "disabled";
- 		};
+ 	};
+ };
++
++&dcan0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&dcan0_default>;
++	status = "okay";
++};
++
++&dcan1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&dcan1_default>;
++	status = "okay";
++};
 -- 
 1.8.3.2
 
