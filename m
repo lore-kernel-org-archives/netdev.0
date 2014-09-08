@@ -1,91 +1,56 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: Re: [patch net-next RFC 10/12] openvswitch: add support
- for datapath hardware offload
-Date: Mon, 8 Sep 2014 09:02:30 +0900
-Message-ID: <20140908000228.GA19405@vergenet.net>
-References: <1408637945-10390-1-git-send-email-jiri@resnulli.us>
- <1408637945-10390-11-git-send-email-jiri@resnulli.us>
- <20140904090447.GB3176@vergenet.net>
- <F4498A89-C1D6-4C5A-A6F0-942015D36B77@cumulusnetworks.com>
- <20140905040810.GB32481@vergenet.net>
- <E3C7797F-081E-484F-918E-937C705B43D6@cumulusnetworks.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 1/3] net: bpf: consolidate JIT binary allocator
+Date: Sun, 7 Sep 2014 17:17:04 -0700
+Message-ID: <CAMEtUuzO5HyWhnx7Ns+z25WE8uFi9Wz5PH4o8R6RN1F3UezAfA@mail.gmail.com>
+References: <1409996567-2170-1-git-send-email-dborkman@redhat.com>
+	<1409996567-2170-2-git-send-email-dborkman@redhat.com>
+	<20140907.161543.2206530539028176158.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Sergey Ryazanov <ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org,
- Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
- Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
- Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
- Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
- Aviad Raveh <aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
- Vlad Yasevich <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, David Miller <dav
-To: Scott Feldman <sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <E3C7797F-081E-484F-918E-937C705B43D6-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:36419 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752178AbaIHARG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Sep 2014 20:17:06 -0400
+Received: by mail-wg0-f45.google.com with SMTP id z12so369192wgg.28
+        for <netdev@vger.kernel.org>; Sun, 07 Sep 2014 17:17:04 -0700 (PDT)
+In-Reply-To: <20140907.161543.2206530539028176158.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBTZXAgMDUsIDIwMTQgYXQgMTI6MDI6MDNBTSAtMDcwMCwgU2NvdHQgRmVsZG1hbiB3
-cm90ZToKPiAKPiBPbiBTZXAgNCwgMjAxNCwgYXQgOTowOCBQTSwgU2ltb24gSG9ybWFuIDxzaW1v
-bi5ob3JtYW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gCj4gPiBPbiBUaHUsIFNlcCAwNCwgMjAx
-NCBhdCAwOTozMDo0NUFNIC0wNzAwLCBTY290dCBGZWxkbWFuIHdyb3RlOgo+ID4+IAo+ID4+IE9u
-IFNlcCA0LCAyMDE0LCBhdCAyOjA0IEFNLCBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRy
-b25vbWUuY29tPiB3cm90ZToKPiA+PiAKPiA+Pj4gCj4gPj4+IAo+ID4+PiBbc25pcF0KPiA+Pj4g
-Cj4gPj4+IEluIHJlbGF0aW9uIHRvIHBvcnRzIGFuZCBkYXRhcGF0aHMgaXQgc2VlbXMgdG8gbWUg
-dGhhdCB0aGUgQVBJIHRoYXQKPiA+Pj4gaGFzIGJlZW4gZGV2ZWxvcGVkIGFjY29tbW9kYXRlcyBh
-IG1vZGVsIHdoZXJlIGEgcG9ydCBtYXkgYmVsb25nIHRvIGEKPiA+Pj4gc3dpdGNoIGRldmljZTsg
-dGhhdCB0aGlzIHRvcG9sb2d5IGlzIGZpeGVkIGJlZm9yZSBhbnkgQVBJIGNhbGxzIGFyZSBtYWRl
-Cj4gPj4+IGFuZCB0aGF0IGFsbCBhbGwgcG9ydHMgYmVsb25naW5nIHRvIHRoZSBzYW1lIHN3aXRj
-aCBiZWxvbmcgdG8gdGhlIHNhbWUKPiA+Pj4gZGF0YXBhdGguCj4gPj4+IAo+ID4+PiBUaGlzIG1h
-a2VzIHNlbnNlIGluIHRoZSBjYXNlIG9mIGhhcmR3YXJlIHRoYXQgbG9va3MgYSBsb3QgbGlrZSBh
-IHN3aXRjaC4KPiA+Pj4gQnV0IEkgdGhpbmsgdGhhdCBvdGhlciBzY2VuYXJpb3MgYXJlIHBvc3Np
-YmxlLiBGb3IgZXhhbXBsZSBoYXJkd2FyZSB0aGF0Cj4gPj4+IGlzIGFibGUgdG8gaGFuZGxlIHRo
-ZSBzYW1lIGFic3RyYWN0aW9ucyBoYW5kbGVkIGJ5IHRoZSBkYXRhcGF0aDogZGF0YXBhdGhzCj4g
-Pj4+IG1heSBiZSBjcmVhdGVkIG9yIGRlc3Ryb3llZDsgdnBvcnRzIG1heSBiZSBhZGRlZCBhbmQg
-cmVtb3ZlZCBmcm9tIGRhdGFwYXRocy4KPiA+Pj4gCj4gPj4+IFNvIG9uZSBtaWdodCBoYXZlIGEg
-cGllY2Ugb2YgaGFyZHdhcmUgdGhhdCBpcyBjb25maWd1cmVkIHdpdGggbW9yZSB0aGFuIG9uZQo+
-ID4+PiBkYXRhcGF0aCBjb25maWd1cmVkIGFuZCBpdHMgZGlmZmVyZW50IHBvcnRzIGJlbG9uZyB0
-byBpdCBtaWdodCBiZQo+ID4+PiBhc3NvY2lhdGVkIHdpdGggZGlmZmVyZW50IGRhdGEgcGF0aHMu
-Cj4gPj4gCj4gPj4gSeKAmXZlIHRlc3RlZCBtdWx0aXBsZSBkYXRhcGF0aHMgb24gb25lIHN3aXRj
-aCBoYXJkd2FyZSB3aXRoIHRoZSBjdXJyZW50IHBhdGNoIHNldCBhbmQgaXQgd29ya3MgZmluZSwg
-d2l0aG91dCB0aGUgbmVlZCB0byBwdXNoIGRvd24gYW55IGRhdGFwYXRoIGlkIGluIHRoZSBBUEku
-ICBJdCB3b3JrcyBiZWNhdXNlIGEgc3dpdGNoIHBvcnQgY2Fu4oCZdCBiZWxvbmcgdG8gbW9yZSB0
-aGFuIG9uZSBkYXRhcGF0aC4gIERhdGFwYXRocyBjYW4gYmUgY3JlYXRlZC9kZXN0cm95ZWQgYW5k
-IHBvcnRzIGFkZGVkL3JlbW92ZWQgZnJvbSBkYXRhcGF0aHMgZHluYW1pY2FsbHkgYW5kIHRoZSBy
-aWdodCBzd19mbG93cyBhcmUgYWRkZWQvcmVtb3ZlZCB0byBwcm9ncmFtIEhXLgo+ID4gCj4gPiBB
-bmQgdGhlIGZsb3dzIGFkZGVkIHRvIGEgc3dpdGNoIGFsd2F5cyBtYXRjaCB0aGUgaW4gcG9ydD8g
-VGh1cwo+ID4gc28gYSBnaXZlbiBmbG93IGlzIG9ubHkgZXZlciBmb3Igb25lIGluLXBvcnQgYW5k
-IHRodXMgb25lIGRhdGFwYXRoPwo+IAo+IENvcnJlY3QsIGZvciB0aGUgcGFydGljdWxhciBzd2l0
-Y2ggaW1wbGVtZW50YXRpb24gd2XigJlyZSB3b3JraW5nIHdpdGguICBJZgo+IGFub3RoZXIgaW1w
-bGVtZW50YXRpb24gY2Fu4oCZdCBtYXRjaCBvbiBpbl9wb3J0IHRoZW4gaXQgc2VlbXMgZGF0YXBh
-dGhfaWQKPiBtYXkgYmUgbmVlZGVkIHRvIHBhcnRpdGlvbiBmbG93cy4KClRoYW5rcywgSSB1bmRl
-cnN0YW5kIGFuZCBhZ3JlZS4KCj4gPj4+IE9yIHdlIG1pZ2h0IGhhdmUgaGFyZHdhcmUgdGhhdCBp
-cyBhYmxlIHRvIG9mZmxvYWQgYSB0dW5uZWwgdnBvcnQuCj4gPiAKPiA+IEkgdGhpbmsgdHVubmVs
-IHZwb3J0cyBpcyBzdGlsbCBhbiB1bnNvbHZlZCBwYXJ0IG9mIHRoZSBsYXJnZXIgcHV6emxlLgo+
-IAo+IEFncmVlZCwgVEJEIHdvcmsgdG8gb2ZmbG9hZCB0dW5uZWwgdnBvcnRzLiAgQ3VycmVudCBp
-bXBsZW1lbnRhdGlvbiBvbmx5IGxvb2tpbmcgYXQgVkxBTiB2cG9ydHMgc28gZmFyLgo+IAo+ID4g
-Cj4gPj4+IEluIHNob3J0IEkgYW0gdGhpbmtpbmcgaW4gdGVybXMgb2YgQVBJIGNhbGxiYWNrcyB0
-byBtYW5pcHVsYXRlIGRhdGFwYXRocwo+ID4+PiBhbmQgdnBvcnRzLiBBbHRob3VnaCBJIGhhdmUg
-bm90IHRob3VnaHQgYWJvdXQgaXQgaW4gZGV0YWlsIEkgYmVsaWV2ZQo+ID4+PiB0aGF0IHRoZSBj
-dXJyZW50IG1vZGVsIHlvdSBoYXZlIGltcGxlbWVudGVkIHVzaW5nIHN1Y2ggYSBzY2hlbWUgYmVj
-YXVzZQo+ID4+PiB0aGUgc2NoZW1lIEkgYW0gc3VnZ2VzdGluZyBtYXBzIHRvIHRoYXQgb2YgdGhl
-IGRhdGFwYXRoIGFuZCB5b3UgaGF2ZQo+ID4+PiBpbXBsZW1lbnRlZCB5b3VyIG1vZGVsIHRoZXJl
-Lgo+IAo+IAo+IC1zY290dAo+IAo+IAo+IApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0
-cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On Sun, Sep 7, 2014 at 4:15 PM, David Miller <davem@davemloft.net> wrote:
+> From: Daniel Borkmann <dborkman@redhat.com>
+> Date: Sat,  6 Sep 2014 11:42:45 +0200
+>
+>> While reviewing the code, I think on s390, the alignment masking
+>> seems not to be correct in it's current form, that is, we make sure
+>> the first instruction starts at an even address as stated by commit
+>> aa2d2c73c21f but masks the start with '& -2' while 2 byte-alignment
+>> should rather be '& ~1'.
+>
+> Both -2 and ~1 are the same value.
+
+oops. you're right. commit log is incorrect.
+
+The new code makes the logic more clear:
+in s390:
+- *image_ptr = &header->image[(prandom_u32() % hole) & -2];
++ header = bpf_jit_binary_alloc(size, &jit.start, 2, bpf_jit_fill_hole);
+
+and in bpf/core.c:
++struct bpf_binary_header *
++bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
++                    unsigned int alignment,
++                    bpf_jit_fill_hole_t bpf_fill_ill_insns)
++{
+...
++       start = (prandom_u32() % hole) & ~(alignment - 1);
+
+we'll fix the commit log and resubmit.
+Thx
