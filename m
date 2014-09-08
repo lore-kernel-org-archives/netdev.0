@@ -1,51 +1,59 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: Re: [PATCH net-next v2 2/2] Re-check for a VIO_DESC_READY data descriptor
- after short udelay()
-Date: Mon, 08 Sep 2014 09:45:56 -0400
-Message-ID: <540DB314.3090809@oracle.com>
-References: <20140902162029.GC31516@oracle.com> <5405EFE7.4090302@oracle.com> <20140904.223648.559995846094457545.davem@davemloft.net> <20140905134758.GB1256@oracle.com> <20140906210253.GA5710@oracle.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next 00/13] introduce rocker switch driver with
+ openvswitch hardware accelerated datapath
+Date: Mon, 8 Sep 2014 14:54:13 +0100
+Message-ID: <20140908135413.GA5995@casper.infradead.org>
+References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@cumulusnetworks.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:24578 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751781AbaIHNqC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 09:46:02 -0400
-In-Reply-To: <20140906210253.GA5710@oracle.com>
+Received: from casper.infradead.org ([85.118.1.10]:39392 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752911AbaIHNyV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 09:54:21 -0400
+Content-Disposition: inline
+In-Reply-To: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sowmini,
+On 09/03/14 at 11:24am, Jiri Pirko wrote:
+> This patchset can be divided into 3 main sections:
+> - introduce switchdev api for implementing switch drivers
+> - add hardware acceleration bits into openvswitch datapath, This uses
+>   previously mentioned switchdev api
+> - introduce rocker switch driver which implements switchdev api
 
-On 09/06/2014 05:02 PM, Sowmini Varadhan wrote:
+Jiri, Scott,
 
-> Stared at this a bit over the last two days, checked
-> the documentation, discussed with dls offline - looks like 
-> (a) the rmb() thing was mostly a red-herring/fud 
-> (b) we do need the wmb()
+Enclosed is the GOOG doc which outlines some details on my particular
+interests [0]. It includes several diagrams which might help to
+understand the overall arch. It is highly related to John's work as
+well. Please let me know if something does not align with the model
+you have in mind.
 
-	I don't think this has anything to do with your patch, but my (new) concern with the
-wmb() and no matching rmb() is this text from Documentation/memory-barrier.txt:
+Summary:
+The full virtual tunnel endpoint flow offload attempts to offload full
+flows to the hardware and utilize the embedded switch on the host NIC
+to empower the eSwitch with the required flexibility of the software
+driven network. In this model, the guest (VM or LXC) attaches through a
+SR-IOV VF which serves as the primary path. A slow path / software path
+is provided via the CPU which can route packets back into the VF by
+tagging packets with forwarding metadata and sending the frame back to
+the NIC.
 
-> SMP BARRIER PAIRING
-> -------------------
-> 
-> When dealing with CPU-CPU interactions, certain types of memory barrier should
-> always be paired.  A lack of appropriate pairing is almost certainly an error.
-
-I'm no mb expert, and I know of no symptoms, but it appears to be saying that
-load reordering could result in a race where the READY flag could be set with
-old data in other descriptor fields due to loading them in a different order --
-something it says wmb() on another CPU explicitly does not prevent.
-
-The particular case would be adding to the ring at the same time the other side
-is removing from the ring, so no locks or LDC traffic would affect it.
-
-So, it appears to me we have a missing rmb() that is needed and I don't know what
-leads you to believe it isn't.
-
-							+-DLS
+[0] https://docs.google.com/document/d/195waUliu7G5YYVuXHmLmHgJ38DFSte321WPq0oaFhyU/edit?usp=sharing
+(Publicly accessible and open for comments)
