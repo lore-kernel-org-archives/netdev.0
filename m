@@ -1,47 +1,60 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH net-next] skb: Add documentation for skb_clone_sk
-Date: Mon, 08 Sep 2014 12:18:22 -0400
-Message-ID: <20140908161748.13099.29093.stgit@ahduyck-bv4.jf.intel.com>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: Re: [PATCH] drivers: net: ethernet: octeon_mgmt: fix a compiler warning
+Date: Mon, 08 Sep 2014 09:36:28 -0700
+Message-ID: <540DDB0C.3070901@gmail.com>
+References: <1410188513-2541-1-git-send-email-aaro.koskinen@nsn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+Cc: David Daney <david.daney@cavium.com>
+To: Aaro Koskinen <aaro.koskinen@nsn.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:51714 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753550AbaIHQ11 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Sep 2014 12:27:27 -0400
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:57982 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752925AbaIHQgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 12:36:31 -0400
+Received: by mail-ie0-f173.google.com with SMTP id lx4so18140340iec.18
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 09:36:30 -0700 (PDT)
+In-Reply-To: <1410188513-2541-1-git-send-email-aaro.koskinen@nsn.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change adds some documentation to the call skb_clone_sk.  This is
-meant to help clarify the purpose of the function for other developers.
+On 09/08/2014 08:01 AM, Aaro Koskinen wrote:
+> Fix the following compiler warning:
+>
+> drivers/net/ethernet/octeon/octeon_mgmt.c: In function 'octeon_mgmt_clean_tx_buffers':
+> drivers/net/ethernet/octeon/octeon_mgmt.c:295:4: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+>      u64 ns = cvmx_read_csr(CVMX_MIXX_TSTAMP(p->port));
+>      ^
+>
+> Signed-off-by: Aaro Koskinen <aaro.koskinen@nsn.com>
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
- net/core/skbuff.c |   11 +++++++++++
- 1 file changed, 11 insertions(+)
+For some reason we missed this when the initial patch was created. 
+Thanks for fixing it...
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index a18dfb0..3f83a8a 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3511,6 +3511,17 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
- }
- EXPORT_SYMBOL(sock_dequeue_err_skb);
- 
-+/**
-+ * skb_clone_sk - create clone of skb, and take reference to socket
-+ * @skb: the skb to clone
-+ *
-+ * For functions such as timestamping it is necessary to clone an skb and
-+ * hold a reference to the socket for it until the hardware delivers the
-+ * actual timestamp or the timestamp is timed out.  As as such this
-+ * function is useful for creating a clone to later be handed off to
-+ * skb_complete_tx_timestamp or kfree_skb to take care of cleaning up
-+ * the reference handling for the socket.
-+ */
- struct sk_buff *skb_clone_sk(struct sk_buff *skb)
- {
- 	struct sock *sk = skb->sk;
+Acked-by: David Daney <david.daney@cavium.com>
+
+
+> ---
+>   drivers/net/ethernet/octeon/octeon_mgmt.c | 4 +++-
+>   1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
+> index 979c698..a422930 100644
+> --- a/drivers/net/ethernet/octeon/octeon_mgmt.c
+> +++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
+> @@ -290,9 +290,11 @@ static void octeon_mgmt_clean_tx_buffers(struct octeon_mgmt *p)
+>   		/* Read the hardware TX timestamp if one was recorded */
+>   		if (unlikely(re.s.tstamp)) {
+>   			struct skb_shared_hwtstamps ts;
+> +			u64 ns;
+> +
+>   			memset(&ts, 0, sizeof(ts));
+>   			/* Read the timestamp */
+> -			u64 ns = cvmx_read_csr(CVMX_MIXX_TSTAMP(p->port));
+> +			ns = cvmx_read_csr(CVMX_MIXX_TSTAMP(p->port));
+>   			/* Remove the timestamp from the FIFO */
+>   			cvmx_write_csr(CVMX_MIXX_TSCTL(p->port), 0);
+>   			/* Tell the kernel about the timestamp */
+>
