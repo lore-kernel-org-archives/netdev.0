@@ -1,51 +1,52 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next 5/5] net: Export inet_offloads and inet6_offloads
-Date: Sun,  7 Sep 2014 22:26:29 -0700
-Message-ID: <1410153989-23837-6-git-send-email-therbert@google.com>
-References: <1410153989-23837-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:40349 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751781AbaIHF1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 01:27:23 -0400
-Received: by mail-pa0-f48.google.com with SMTP id hz1so4895170pad.7
-        for <netdev@vger.kernel.org>; Sun, 07 Sep 2014 22:27:23 -0700 (PDT)
-In-Reply-To: <1410153989-23837-1-git-send-email-therbert@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v10 net-next 2/2] net: filter: split filter.h and
+ expose eBPF to user space
+Date: Sun, 07 Sep 2014 22:28:41 -0700 (PDT)
+Message-ID: <20140907.222841.1933004265241590374.davem@davemloft.net>
+References: <20140907180737.GA5057@salvia>
+	<CAMEtUuxJLDu8AAsZQdtG781vwC8y60Ygdt4ji5tbeyTE8YbWbQ@mail.gmail.com>
+	<20140908052329.GA30461@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
+	torvalds-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org,
+	rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org, akpm-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140908052329.GA30461-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Want to be able to call this in foo-over-udp offloads, etc.
+From: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Date: Mon, 8 Sep 2014 07:23:29 +0200
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/ipv4/protocol.c | 1 +
- net/ipv6/protocol.c | 1 +
- 2 files changed, 2 insertions(+)
+> 
+> * Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+> 
+>> > I don't think the speed up of the llvm submission is a good 
+>> > argument, this sounds to me similar to the "please apply this 
+>> > patch that reserves this new netlink family in 
+>> > include/linux/netlink.h, I promise this new subsystem will be 
+>> > submitted soon though. Meanwhile this will speed up 
+>> > submission of my userspace software to distributions for 
+>> > packaging" argument.
+>> 
+>> You're not correct here. I'm not saying 'I promise it will be 
+>> submitted'. There _were_ already submitted. [...]
+> 
+> And this split-up smaller submissions was requested by David 
+> Miller, the networking maintainer, so if Pablo wants another 
+> submission format, he needs to take it up with David - we can't 
+> do both at once obviously.
 
-diff --git a/net/ipv4/protocol.c b/net/ipv4/protocol.c
-index 46d6a1c..4b7c0ec 100644
---- a/net/ipv4/protocol.c
-+++ b/net/ipv4/protocol.c
-@@ -30,6 +30,7 @@
- 
- const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS] __read_mostly;
- const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS] __read_mostly;
-+EXPORT_SYMBOL(inet_offloads);
- 
- int inet_add_protocol(const struct net_protocol *prot, unsigned char protocol)
- {
-diff --git a/net/ipv6/protocol.c b/net/ipv6/protocol.c
-index e048cf1..e3770ab 100644
---- a/net/ipv6/protocol.c
-+++ b/net/ipv6/protocol.c
-@@ -51,6 +51,7 @@ EXPORT_SYMBOL(inet6_del_protocol);
- #endif
- 
- const struct net_offload __rcu *inet6_offloads[MAX_INET_PROTOS] __read_mostly;
-+EXPORT_SYMBOL(inet6_offloads);
- 
- int inet6_add_offload(const struct net_offload *prot, unsigned char protocol)
- {
--- 
-2.1.0.rc2.206.gedb03e5
+I think that just because I asked the submission size to be smaller,
+it does not mean that you can submit things before you provide the
+initial user as well.
+
+And how to work that out and keep the submission size reasonable is
+the submitter's problem, not mine.
