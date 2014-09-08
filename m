@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/mlx4_en: do not ignore autoneg in
- mlx4_en_set_pauseparam()
-Date: Mon, 08 Sep 2014 15:57:19 -0700 (PDT)
-Message-ID: <20140908.155719.1988736925774667859.davem@davemloft.net>
-References: <1410194813-994-1-git-send-email-ivecera@redhat.com>
+Subject: Re: [net-next PATCH v2 1/1] drivers: net: cpsw: Add support for
+ pause frames
+Date: Mon, 08 Sep 2014 16:01:01 -0700 (PDT)
+Message-ID: <20140908.160101.1892765793623241541.davem@davemloft.net>
+References: <1410197042-8168-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com
-To: ivecera@redhat.com
+Cc: netdev@vger.kernel.org
+To: mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45227 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45279 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755102AbaIHW5U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 18:57:20 -0400
-In-Reply-To: <1410194813-994-1-git-send-email-ivecera@redhat.com>
+	with ESMTP id S1755110AbaIHXBC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 19:01:02 -0400
+In-Reply-To: <1410197042-8168-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Vecera <ivecera@redhat.com>
-Date: Mon,  8 Sep 2014 18:46:53 +0200
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Mon, 8 Sep 2014 22:54:02 +0530
 
-> The driver does not support pause autonegotiation so it should return
-> -EINVAL when the function is called with non-zero autoneg.
+> CPSW supports both rx and tx pause frames for flow control.
 > 
-> Cc: Amir Vadai <amirv@mellanox.com>
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-Applied, thanks Ivan.
+Applied, thanks.
