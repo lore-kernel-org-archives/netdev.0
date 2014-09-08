@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: ethernet: octeon_mgmt: fix a compiler
- warning
-Date: Mon, 08 Sep 2014 14:24:01 -0700 (PDT)
-Message-ID: <20140908.142401.1360869498562836138.davem@davemloft.net>
-References: <1410188513-2541-1-git-send-email-aaro.koskinen@nsn.com>
+Subject: Re: [PATCH net-next] dp83640: Make use of skb_queue_purge instead
+ of reimplementing the code
+Date: Mon, 08 Sep 2014 14:24:50 -0700 (PDT)
+Message-ID: <20140908.142450.1267506394337564210.davem@davemloft.net>
+References: <20140908152226.4202.72383.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, david.daney@cavium.com
-To: aaro.koskinen@nsn.com
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44447 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44450 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754096AbaIHVYC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 17:24:02 -0400
-In-Reply-To: <1410188513-2541-1-git-send-email-aaro.koskinen@nsn.com>
+	with ESMTP id S1753724AbaIHVYu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 17:24:50 -0400
+In-Reply-To: <20140908152226.4202.72383.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Aaro Koskinen <aaro.koskinen@nsn.com>
-Date: Mon,  8 Sep 2014 18:01:53 +0300
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Mon, 08 Sep 2014 11:25:34 -0400
 
-> Fix the following compiler warning:
+> This change makes it so that dp83640_remove can use skb_queue_purge
+> instead of looping through itself to flush any entries out of the queue.
 > 
-> drivers/net/ethernet/octeon/octeon_mgmt.c: In function 'octeon_mgmt_clean_tx_buffers':
-> drivers/net/ethernet/octeon/octeon_mgmt.c:295:4: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
->     u64 ns = cvmx_read_csr(CVMX_MIXX_TSTAMP(p->port));
->     ^
-> 
-> Signed-off-by: Aaro Koskinen <aaro.koskinen@nsn.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Applied, thank you.
+Applied, thanks Alex.
