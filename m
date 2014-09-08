@@ -1,98 +1,104 @@
-From: Alex Gartrell <agartrell@fb.com>
-Subject: [RFC PATCH net-next] ip6: Do not expire uncached routes for mtu invalidation
-Date: Mon, 8 Sep 2014 01:34:43 -0700
-Message-ID: <1410165283-29337-1-git-send-email-agartrell@fb.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ipv6: refresh rt6i_genid in ip6_pol_route()
+Date: Mon, 08 Sep 2014 03:28:12 -0700
+Message-ID: <1410172092.11872.85.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1410149905.11872.73.camel@edumazet-glaptop2.roam.corp.google.com>
+		 <20140907.212742.893555292268057160.davem@davemloft.net>
+		 <1410151434.11872.82.camel@edumazet-glaptop2.roam.corp.google.com>
+		 <20140907.215943.213418445039957641.davem@davemloft.net>
+	 <1410152829.11872.84.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <540D64C2.9050000@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <edumazet@google.com>, <netdev@vger.kernel.org>,
-	<kernel-team@fb.com>, <ps@fb.com>, Alex Gartrell <agartrell@fb.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
+	alexander.h.duyck@intel.com, netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:44332 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753060AbaIHIgk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 04:36:40 -0400
-Received: from pps.filterd (m0004077 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id s888SVum003364
-	for <netdev@vger.kernel.org>; Mon, 8 Sep 2014 01:36:39 -0700
-Received: from mail.thefacebook.com (mailwest.thefacebook.com [173.252.71.148])
-	by mx0b-00082601.pphosted.com with ESMTP id 1p7h9xe1f2-5
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 01:36:38 -0700
-Received: from facebook.com (2401:db00:20:7017:face:0:13:0)	by
- mx-out.facebook.com (10.223.100.97) with ESMTP	id
- 001263f8373311e4b94f24be0593f280-3e3e93f0 for <netdev@vger.kernel.org>;	Mon,
- 08 Sep 2014 01:34:51 -0700
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:65319 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752784AbaIHK2Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 06:28:16 -0400
+Received: by mail-pa0-f53.google.com with SMTP id rd3so2144182pab.40
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 03:28:15 -0700 (PDT)
+In-Reply-To: <540D64C2.9050000@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch does two things: first it won't introduced RTF_EXPIRES to
-rt6i_flags unless it already exists or RTF_CACHE is set; second, in
-ip_pol_route, we'll check for expiration without the RTF_EXPIRES bit, and,
-if it's set, zero out the pmtu so that we'll fall back to the device mtu.
+On Mon, 2014-09-08 at 10:11 +0200, Nicolas Dichtel wrote:
+> Le 08/09/2014 07:07, Eric Dumazet a =C3=A9crit :
+> > On Sun, 2014-09-07 at 21:59 -0700, David Miller wrote:
+> >> From: Eric Dumazet <eric.dumazet@gmail.com>
+> >> Date: Sun, 07 Sep 2014 21:43:54 -0700
+> >>
+> >>> On Sun, 2014-09-07 at 21:27 -0700, David Miller wrote:
+> >>>> From: Eric Dumazet <eric.dumazet@gmail.com>
+> >>>> Date: Sun, 07 Sep 2014 21:18:25 -0700
+> >>>>
+> >>>>> On Sun, 2014-09-07 at 15:54 -0700, David Miller wrote:
+> >>>>>
+> >>>>>> This might be broken.
+> >>>>>>
+> >>>>>> We are dealing here with persistent entries in the ipv6 routin=
+e trie.
+> >>>>>>
+> >>>>>> If you just bump the genid on the next person to look it up, o=
+ther
+> >>>>>> sockets and cached entities might not have validated the route=
+ yet,
+> >>>>>> and now will falsely see the route as valid.  We have to ensur=
+e that
+> >>>>>> they too drop this route and perform a relookup.
+> >>>>>
+> >>>>> I am confused, I thought it was the role of the cookie.
+> >>>>>
+> >>>>> (Ie socket has to store its own cookie to be able to validate a=
+ route)
+> >>>>>
+> >>>>> Before 6f3118b571b8 patch, how was this done anyway ?
+> >>>>>
+> >>>>> If persistent routes cannot refresh the genid, then they are us=
+eless ?
+> >>>>
+> >>>> I just speak about the genid aspect.
+> >>>>
+> >>>> I understand that cookie (via node->fn_sernum) invalidates the p=
+ath
+> >>>> in the fib_trie, but the genid protects against other circumstan=
+ces
+> >>>> (matching IPSEC rule, f.e.)
+> >>>>
+> >>>> You have to make sure all other sockets did a full route lookup
+> >>>> (including IPSEC) before you can safely adjust the genid.
+> >>>>
+> >>>> I could be wrong, recheck my analysis please :-)
+> >>>
+> >>> So this whole genid protection can not work, unless we make sure =
+a
+> >>> socket cannot share a route with another socket.
+> >>>
+> >>> This means we have to clone all routes.
+> >>
+> >> I'm willing to revert the change in question if you think that's t=
+he
+> >> sanest way forward.
+> >>
+> >> The bug fix for more obscure use cases (IPSEC) if pointless if it
+> >> breaks more common things (TCP input route caching).
+> >
+> > Lets wait for Nicolas and/or Hannes input, they might have some ide=
+as...
+>=20
+> The initial problem was in SCTP. Here is the thread after the v1 patc=
+h:
+> http://patchwork.ozlabs.org/patch/182235/
+>=20
+> Before the patch, SCTP stored the IPv6 route in its cache and if an I=
+Psec
+> rules was inserted after that operation, SCTP never invalidated the c=
+ached
+> route to use a new xfrm route.
 
-This fixes an issue where we were deleting local, uncached dst routes.
-This would result in packets being rejected after mtu expiration.
+This thread mentions output route.
 
-Here's a repro of the problem.
-
-  ip addr add dev lo face::1/128
-  grep ^face0000000000000000000000000001 /proc/net/ipv6_route
-  # The flags do not have RTF_MODIFIED | RTF_EXPIRED
-
-  ipvsadm -A -t 8.8.8.8:15213 # service not supported on first try
-  ipvsadm -A -t [face::1]:15213 -s rr > /dev/null
-  ipvsadm -a -t [face::1]:15213 -r 2401:db00:20:7017:face:0:13:0 --ipip > /dev/null
-
-  timeout 3 nc face::1 15213
-
-  grep ^face0000000000000000000000000001 /proc/net/ipv6_route
-  # The flags will not include RTF_MODIFIED | RTF_EXPIRED
-
-Signed-off-by: Alex Gartrell <agartrell@fb.com>
----
- include/net/ip6_fib.h |  3 ++-
- net/ipv6/route.c      | 13 ++++++++++++-
- 2 files changed, 14 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index 9bcb220..2f0d4d0 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -184,7 +184,8 @@ static inline void rt6_update_expires(struct rt6_info *rt0, int timeout)
- 		rt0->dst.expires = rt->dst.expires;
- 
- 	dst_set_expires(&rt0->dst, timeout);
--	rt0->rt6i_flags |= RTF_EXPIRES;
-+	if (rt0->rt6i_flags & (RTF_CACHE | RTF_EXPIRES))
-+		rt0->rt6i_flags |= RTF_EXPIRES;
- }
- 
- static inline void rt6_set_from(struct rt6_info *rt, struct rt6_info *from)
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index f74b041..a509a06 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -947,8 +947,19 @@ restart:
- 		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
- 	else if (!(rt->dst.flags & DST_HOST))
- 		nrt = rt6_alloc_clone(rt, &fl6->daddr);
--	else
-+	else {
-+		if (!(rt->rt6i_flags & RTF_EXPIRES) && rt->dst.expires &&
-+		    time_after(jiffies, rt->dst.expires)) {
-+			/* Uncached routes may have expires set if we
-+			 * intend to expire the MTU but not the dest
-+			 * itself.  In that case, we should reset the mtu
-+			 * before handing it back */
-+			dst_metric_set(&rt->dst, RTAX_MTU, 0);
-+			rt6_clean_expires(rt);
-+			rt->rt6i_flags &= ~RTF_MODIFIED;
-+		}
- 		goto out2;
-+	}
- 
- 	ip6_rt_put(rt);
- 	rt = nrt ? : net->ipv6.ip6_null_entry;
--- 
-1.8.1
+The problem I currently have with IPv6 early demux is for input routes.
