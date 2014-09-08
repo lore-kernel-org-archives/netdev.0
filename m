@@ -1,39 +1,91 @@
-From: Deborah Mayher <Deborahm@wrschool.net>
-Subject: RE:
-Date: Mon, 8 Sep 2014 11:36:40 -0600
-Message-ID: <6A286AB51AD8EC4180C4B2E9EF1D0A027AAD7F025F@exmb01.wrschool.net>
-References: <6A286AB51AD8EC4180C4B2E9EF1D0A027AAD7EFF1E@exmb01.wrschool.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Deborah Mayher <Deborahm@wrschool.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net 1/2] net: systemport: check harder for out of memory conditions
+Date: Mon,  8 Sep 2014 11:37:51 -0700
+Message-ID: <1410201472-3764-2-git-send-email-f.fainelli@gmail.com>
+References: <1410201472-3764-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [192.199.228.4] ([192.199.228.4]:15029 "EHLO
-	sserver.wrschool.net" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752973AbaIHSFp convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Sep 2014 14:05:45 -0400
-In-Reply-To: <6A286AB51AD8EC4180C4B2E9EF1D0A027AAD7EFF1E@exmb01.wrschool.net>
-Content-Language: en-US
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:38617 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753211AbaIHSiD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 14:38:03 -0400
+Received: by mail-pd0-f170.google.com with SMTP id r10so21517276pdi.15
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 11:38:02 -0700 (PDT)
+In-Reply-To: <1410201472-3764-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+There is a potential case where we might be failing to refill a
+control block, leaving it with both a NULL skb pointer *and* a NULL
+dma_unmap_addr.
 
+The way we process incoming packets, by first calling
+dma_unmap_single(), and then only checking for a potential NULL skb can
+lead to situations where do pass a NULL dma_unmap_addr() to
+dma_unmap_single(), resulting in an oops.
 
+Fix this my moving the NULL skb check earlier, since no backing skb
+also means no corresponding DMA mapping for this packet.
 
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bcmsysport.c | 31 ++++++++++++++++++------------
+ 1 file changed, 19 insertions(+), 12 deletions(-)
 
-________________________________
-From: Deborah Mayher
-Sent: Monday, September 08, 2014 10:13 AM
-To: Deborah Mayher
-Subject:
-
-
-
-IT_Helpdesk is currently migrating from old outlook to the new Outlook Web access 2014 to strengthen our security.  You need to update your account immediately for activation. Click the website below for activation:
-
-Click Here<http://motorgumishop.hu/tmp/393934>
-
-You will not be able to send or receive mail if activation is not complete.
-
-IT Message Center.
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index 6f4e18644bd4..d9b9170ed2fc 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -534,6 +534,25 @@ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+ 	while ((processed < to_process) && (processed < budget)) {
+ 		cb = &priv->rx_cbs[priv->rx_read_ptr];
+ 		skb = cb->skb;
++
++		processed++;
++		priv->rx_read_ptr++;
++
++		if (priv->rx_read_ptr == priv->num_rx_bds)
++			priv->rx_read_ptr = 0;
++
++		/* We do not have a backing SKB, so we do not a corresponding
++		 * DMA mapping for this incoming packet since
++		 * bcm_sysport_rx_refill always either has both skb and mapping
++		 * or none.
++		 */
++		if (unlikely(!skb)) {
++			netif_err(priv, rx_err, ndev, "out of memory!\n");
++			ndev->stats.rx_dropped++;
++			ndev->stats.rx_errors++;
++			goto refill;
++		}
++
+ 		dma_unmap_single(kdev, dma_unmap_addr(cb, dma_addr),
+ 				 RX_BUF_LENGTH, DMA_FROM_DEVICE);
+ 
+@@ -543,23 +562,11 @@ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+ 		status = (rsb->rx_status_len >> DESC_STATUS_SHIFT) &
+ 			  DESC_STATUS_MASK;
+ 
+-		processed++;
+-		priv->rx_read_ptr++;
+-		if (priv->rx_read_ptr == priv->num_rx_bds)
+-			priv->rx_read_ptr = 0;
+-
+ 		netif_dbg(priv, rx_status, ndev,
+ 			  "p=%d, c=%d, rd_ptr=%d, len=%d, flag=0x%04x\n",
+ 			  p_index, priv->rx_c_index, priv->rx_read_ptr,
+ 			  len, status);
+ 
+-		if (unlikely(!skb)) {
+-			netif_err(priv, rx_err, ndev, "out of memory!\n");
+-			ndev->stats.rx_dropped++;
+-			ndev->stats.rx_errors++;
+-			goto refill;
+-		}
+-
+ 		if (unlikely(!(status & DESC_EOP) || !(status & DESC_SOP))) {
+ 			netif_err(priv, rx_status, ndev, "fragmented packet!\n");
+ 			ndev->stats.rx_dropped++;
+-- 
+1.9.1
