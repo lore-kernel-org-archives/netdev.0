@@ -1,54 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: refresh rt6i_genid in ip6_pol_route()
-Date: Sun, 07 Sep 2014 21:27:42 -0700 (PDT)
-Message-ID: <20140907.212742.893555292268057160.davem@davemloft.net>
-References: <1410116703.11872.55.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140907.155446.2293591154334558042.davem@davemloft.net>
-	<1410149905.11872.73.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v1 2/2] bonding: Simplify the xmit function for
+ modes that use xmit_hash
+Date: Sun, 07 Sep 2014 21:41:30 -0700
+Message-ID: <1410151290.11872.80.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1409985356-2384-1-git-send-email-maheshb@google.com>
+	 <540AE9CC.10206@redhat.com>
+	 <CAF2d9jhXEMZF-W+wYns4NCiJ1W2LjDoNEmO2X-3791DmbYaDkg@mail.gmail.com>
+	 <540C351F.9070800@redhat.com>
+	 <CAF2d9jhF-utP0pyZNObmr9j4V8Hyp4qsf-NdseDF9Ka=24x+eA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, therbert@google.com,
-	alexander.h.duyck@intel.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59938 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751401AbaIHE1p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 00:27:45 -0400
-In-Reply-To: <1410149905.11872.73.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:56204 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750845AbaIHEld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 00:41:33 -0400
+Received: by mail-pd0-f172.google.com with SMTP id v10so6975446pde.31
+        for <netdev@vger.kernel.org>; Sun, 07 Sep 2014 21:41:32 -0700 (PDT)
+In-Reply-To: <CAF2d9jhF-utP0pyZNObmr9j4V8Hyp4qsf-NdseDF9Ka=24x+eA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 07 Sep 2014 21:18:25 -0700
+On Sun, 2014-09-07 at 19:23 -0700, Mahesh Bandewar wrote:
+> >
+> I'm not expecting any writer protection here since all the paths are
+> covered with some or the other lock at this moment. Just though that
+> performing array manipulation in RCU context would be useful.
 
-> On Sun, 2014-09-07 at 15:54 -0700, David Miller wrote:
-> 
->> This might be broken.
->> 
->> We are dealing here with persistent entries in the ipv6 routine trie.
->> 
->> If you just bump the genid on the next person to look it up, other
->> sockets and cached entities might not have validated the route yet,
->> and now will falsely see the route as valid.  We have to ensure that
->> they too drop this route and perform a relookup.
-> 
-> I am confused, I thought it was the role of the cookie.
-> 
-> (Ie socket has to store its own cookie to be able to validate a route)
-> 
-> Before 6f3118b571b8 patch, how was this done anyway ?
-> 
-> If persistent routes cannot refresh the genid, then they are useless ?
 
-I just speak about the genid aspect.
+It is not useful. It is confusing only.
 
-I understand that cookie (via node->fn_sernum) invalidates the path
-in the fib_trie, but the genid protects against other circumstances
-(matching IPSEC rule, f.e.)
+If you think of RCU as a replacement for reader/writer lock, its obvious
+that once you get the writer lock, there is no need to get the reader
+lock.
 
-You have to make sure all other sockets did a full route lookup
-(including IPSEC) before you can safely adjust the genid.
+Extract from Documentation/RCU/whatisRCU.txt :
 
-I could be wrong, recheck my analysis please :-)
+Use rcu_read_lock() and rcu_read_unlock() to guard RCU
+read-side critical sections.
+
+Use some solid scheme (such as locks or semaphores) to
+keep concurrent updates from interfering with each other.
