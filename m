@@ -1,84 +1,157 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: [PATCH net] sunvnet - add missing rmb() for sunvnet driver
-Date: Mon, 08 Sep 2014 16:23:01 -0400
-Message-ID: <1410207781.24238.5.camel@phoenix>
+From: Kenny Mathis <kmathis@chokepoint.net>
+Subject: [PATCH ipvs] Added simple weighted failover scheduler to ipvs
+Date: Mon, 8 Sep 2014 17:08:04 -0400
+Message-ID: <20140908210804.GA9236@kmathis.internal.monetra.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	raghuram.kothakota@oracle.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:44062 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754512AbaIHUXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 16:23:06 -0400
+Received: from mail-yk0-f196.google.com ([209.85.160.196]:44529 "EHLO
+	mail-yk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754569AbaIHVIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 17:08:07 -0400
+Received: by mail-yk0-f196.google.com with SMTP id 79so417295ykr.3
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 14:08:06 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Please consider this patch for addition in 3.17
 
-The sunvnet driver does not have an rmb() in the ring consumer corresponding
-to the wmb() in the producer. According to Documentation/memory-barriers.txt:
+Creates net/netfilter/ipvs/ip_vs_fo.c
 
-"When dealing with CPU-CPU interactions, certain types of memory barrier should
-always be paired.  A lack of appropriate pairing is almost certainly an error."
+Added simple weighted IPVS failover support to the Linux kernel.  All
+other scheduling modules implement some form of load balancing, while 
+this offers a simple failover solution.  Connections are directed to the
+appropriate server based solely on highest weight value and server
+availability.  Tested functionality with keepalived.
 
-In cases where an rmb() is not a no-op and a consumer is removing data from
-the ring while a producer is adding new entries, a load reorder would allow
-
-CPU1						CPU2
-----						----
-						LOAD desc.size [e.g]
-STORE desc.size
-<wmb>
-set desc.hdr.state = VIO_DESC_READY
-						LOAD desc.hdr.state
-						[because VIO_DESC_READY, use
-						 old desc.size, already loaded
-						 out of order]
-
-[CPU2 has reordered apparently unrelated LOADs]
-
-To ensure other desc fields are not loaded before checking VIO_DESC_READY, we
-need an rmb() between the check and desc data accesses.
-
-I've also moved the viodbg() call to after the rmb() so that it, too, has
-current descriptor data even with reordering, which has the side effect that
-it won't print anything for descriptors that are not VIO_DESC_READY as before.
-That's a) probably a good thing, since the fields are not necessarily set and,
-b) better than adding another rmb() just for viodbg().
-
-This would not be possible if strict-ordering is enforced, but then the
-memory barriers should be no-ops in that case.
-
-Signed-off-by: David L Stevens <david.stevens@oracle.com>
 ---
- drivers/net/ethernet/sun/sunvnet.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+ net/netfilter/ipvs/Kconfig    |   10 ++++++
+ net/netfilter/ipvs/Makefile   |    1 +
+ net/netfilter/ipvs/ip_vs_fo.c |   79 +++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 90 insertions(+)
+ create mode 100644 net/netfilter/ipvs/ip_vs_fo.c
 
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 23c89ab..f675396 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -350,14 +350,17 @@ static int vnet_walk_rx_one(struct vnet_port *port,
- 	if (IS_ERR(desc))
- 		return PTR_ERR(desc);
+diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+index 0c3b167..3b6929d 100644
+--- a/net/netfilter/ipvs/Kconfig
++++ b/net/netfilter/ipvs/Kconfig
+@@ -152,6 +152,16 @@ config	IP_VS_WLC
+ 	  If you want to compile it in kernel, say Y. To compile it as a
+ 	  module, choose M here. If unsure, say N.
  
-+	if (desc->hdr.state != VIO_DESC_READY)
-+		return 1;
++config  IP_VS_FO
++		tristate "weighted failover scheduling"
++	---help---
++	  The weighted failover scheduling algorithm directs network
++	  connections to the server with the highest weight that is
++	  currently available.
 +
-+	rmb();
++	  If you want to compile it in kernel, say Y. To compile it as a
++	  module, choose M here. If unsure, say N.
 +
- 	viodbg(DATA, "vio_walk_rx_one desc[%02x:%02x:%08x:%08x:%llx:%llx]\n",
- 	       desc->hdr.state, desc->hdr.ack,
- 	       desc->size, desc->ncookies,
- 	       desc->cookies[0].cookie_addr,
- 	       desc->cookies[0].cookie_size);
- 
--	if (desc->hdr.state != VIO_DESC_READY)
--		return 1;
- 	err = vnet_rx_one(port, desc->size, desc->cookies, desc->ncookies);
- 	if (err == -ECONNRESET)
- 		return err;
+ config	IP_VS_LBLC
+ 	tristate "locality-based least-connection scheduling"
+ 	---help---
+diff --git a/net/netfilter/ipvs/Makefile b/net/netfilter/ipvs/Makefile
+index 34ee602..38b2723 100644
+--- a/net/netfilter/ipvs/Makefile
++++ b/net/netfilter/ipvs/Makefile
+@@ -26,6 +26,7 @@ obj-$(CONFIG_IP_VS_RR) += ip_vs_rr.o
+ obj-$(CONFIG_IP_VS_WRR) += ip_vs_wrr.o
+ obj-$(CONFIG_IP_VS_LC) += ip_vs_lc.o
+ obj-$(CONFIG_IP_VS_WLC) += ip_vs_wlc.o
++obj-$(CONFIG_IP_VS_FO) += ip_vs_fo.o
+ obj-$(CONFIG_IP_VS_LBLC) += ip_vs_lblc.o
+ obj-$(CONFIG_IP_VS_LBLCR) += ip_vs_lblcr.o
+ obj-$(CONFIG_IP_VS_DH) += ip_vs_dh.o
+diff --git a/net/netfilter/ipvs/ip_vs_fo.c b/net/netfilter/ipvs/ip_vs_fo.c
+new file mode 100644
+index 0000000..e72c702
+--- /dev/null
++++ b/net/netfilter/ipvs/ip_vs_fo.c
+@@ -0,0 +1,79 @@
++/*
++ * IPVS:        Weighted Fail Over module
++ *
++ * Authors:     Kenny Mathis <kmathis@chokepoint.net>
++ *
++ *              This program is free software; you can redistribute it and/or
++ *              modify it under the terms of the GNU General Public License
++ *              as published by the Free Software Foundation; either version
++ *              2 of the License, or (at your option) any later version.
++ *
++ * Changes:
++ *     Kenny Mathis            :     added initial functionality based on weight
++ *
++ */
++
++#define KMSG_COMPONENT "IPVS"
++#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++
++#include <net/ip_vs.h>
++
++/* Weighted Fail Over Module */
++static struct ip_vs_dest *
++ip_vs_fo_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
++		  struct ip_vs_iphdr *iph)
++{
++	struct ip_vs_dest *dest = NULL, *hweight = NULL;
++	int hw = 0; /* Track highest weight */
++
++	IP_VS_DBG(6, "ip_vs_fo_schedule(): Scheduling...\n");
++
++	/* Basic failover functionality
++	 * Find virtual server with highest weight and send it traffic
++	 */
++	list_for_each_entry_rcu(dest, &svc->destinations, n_list) {
++		if (!(dest->flags & IP_VS_DEST_F_OVERLOAD) &&
++		    atomic_read(&dest->weight) > hw) {
++			hweight = dest;
++			hw = atomic_read(&dest->weight);
++		}
++	}
++
++	if (hweight) {
++		IP_VS_DBG_BUF(6, "FO: server %s:%u activeconns %d weight %d\n",
++			      IP_VS_DBG_ADDR(svc->af, &hweight->addr),
++			      ntohs(hweight->port),
++			      atomic_read(&hweight->activeconns),
++			      atomic_read(&hweight->weight));
++		return hweight;
++	}
++
++	ip_vs_scheduler_err(svc, "no destination available");
++	return NULL;
++}
++
++static struct ip_vs_scheduler ip_vs_fo_scheduler = {
++	.name =			"fo",
++	.refcnt =		ATOMIC_INIT(0),
++	.module =		THIS_MODULE,
++	.n_list =		LIST_HEAD_INIT(ip_vs_fo_scheduler.n_list),
++	.schedule =		ip_vs_fo_schedule,
++};
++
++static int __init ip_vs_fo_init(void)
++{
++	return register_ip_vs_scheduler(&ip_vs_fo_scheduler);
++}
++
++static void __exit ip_vs_fo_cleanup(void)
++{
++	unregister_ip_vs_scheduler(&ip_vs_fo_scheduler);
++	synchronize_rcu();
++}
++
++module_init(ip_vs_fo_init);
++module_exit(ip_vs_fo_cleanup);
++MODULE_LICENSE("GPL");
 -- 
-1.7.1
+1.7.9.5
