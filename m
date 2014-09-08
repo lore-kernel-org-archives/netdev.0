@@ -1,40 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] inet: remove dead inetpeer sequence code
-Date: Mon, 08 Sep 2014 16:17:27 -0700
-Message-ID: <1410218247.11872.135.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1410217714-26421-1-git-send-email-willemb@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Willem de Bruijn <willemb@google.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net-next] net-timestamp: optimize sock_tx_timestamp default path
+Date: Mon,  8 Sep 2014 19:27:04 -0400
+Message-ID: <1410218824-18296-1-git-send-email-willemb@google.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	richardcochran@gmail.com, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:46922 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755164AbaIHXR2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 19:17:28 -0400
-Received: by mail-pa0-f47.google.com with SMTP id ey11so5777113pad.20
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 16:17:28 -0700 (PDT)
-In-Reply-To: <1410217714-26421-1-git-send-email-willemb@google.com>
+Received: from mail-ob0-f202.google.com ([209.85.214.202]:64378 "EHLO
+	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755009AbaIHX1K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 19:27:10 -0400
+Received: by mail-ob0-f202.google.com with SMTP id wp18so2700130obc.5
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 16:27:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-09-08 at 19:08 -0400, Willem de Bruijn wrote:
-> inetpeer sequence numbers are no longer incremented, so no need to
-> check and flush the tree. The function that increments the sequence
-> number was already dead code and removed in in "ipv4: remove unused
-> function" (068a6e18). Remove the code that checks for a change, too.
-> 
-> Verifying that v4_seq and v6_seq are never incremented and thus that
-> flush_check compares bp->flush_seq to 0 is trivial.
-> 
-> The second part of the change removes flush_check completely even
-> though bp->flush_seq is exactly !0 once, at initialization. This
-> change is correct because the time this branch is true is when
-> bp->root == peer_avl_empty_rcu, in which the branch and
-> inetpeer_invalidate_tree are a NOOP.
-> 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-> ---
+Few packets have timestamping enabled. Exit sock_tx_timestamp quickly
+in this common case.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Packets are only possibly timestamped if one of
+SOF_TIMESTAMPING_(SOFTWARE|RAW_HARDWARE) is enabled.
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+
+----
+
+I have one more short timestamping patch after this, to remove
+SOCK_TIMESTAMPING_RX_SOFTWARE and simplify the receive timestamp
+path a bit. I have not forgotten about the timestamp cookies: once
+these smaller changes are in, I'll take another look at that. It
+is a more complex change, and I didn't want to block these in the
+meantime.
+---
+ include/net/sock.h | 8 +++++++-
+ net/socket.c       | 4 ++--
+ 2 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 049ab1b..245136e 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -2199,6 +2199,8 @@ static inline void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
+ 		sk->sk_stamp = skb->tstamp;
+ }
+ 
++void __sock_tx_timestamp(const struct sock *sk, __u8 *tx_flags);
++
+ /**
+  * sock_tx_timestamp - checks whether the outgoing packet is to be time stamped
+  * @sk:		socket sending this packet
+@@ -2206,7 +2208,11 @@ static inline void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
+  *
+  * Note : callers should take care of initial *tx_flags value (usually 0)
+  */
+-void sock_tx_timestamp(const struct sock *sk, __u8 *tx_flags);
++static inline void sock_tx_timestamp(const struct sock *sk, __u8 *tx_flags)
++{
++	if (unlikely(sk->sk_tsflags & SOF_TIMESTAMPING_MASK))
++		__sock_tx_timestamp(sk, tx_flags);
++}
+ 
+ /**
+  * sk_eat_skb - Release a skb if it is no longer needed
+diff --git a/net/socket.c b/net/socket.c
+index 2e2586e..2d1c2c8 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -610,7 +610,7 @@ void sock_release(struct socket *sock)
+ }
+ EXPORT_SYMBOL(sock_release);
+ 
+-void sock_tx_timestamp(const struct sock *sk, __u8 *tx_flags)
++void __sock_tx_timestamp(const struct sock *sk, __u8 *tx_flags)
+ {
+ 	u8 flags = *tx_flags;
+ 
+@@ -631,7 +631,7 @@ void sock_tx_timestamp(const struct sock *sk, __u8 *tx_flags)
+ 
+ 	*tx_flags = flags;
+ }
+-EXPORT_SYMBOL(sock_tx_timestamp);
++EXPORT_SYMBOL(__sock_tx_timestamp);
+ 
+ static inline int __sock_sendmsg_nosec(struct kiocb *iocb, struct socket *sock,
+ 				       struct msghdr *msg, size_t size)
+-- 
+2.1.0.rc2.206.gedb03e5
