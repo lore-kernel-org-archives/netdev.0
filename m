@@ -1,8 +1,7 @@
 From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH 06/13] ARM: dts: dra7-evm: Add CAN support
-Date: Mon, 8 Sep 2014 17:10:35 +0300
-Message-ID: <1410185442-907-7-git-send-email-rogerq@ti.com>
-References: <1410185442-907-1-git-send-email-rogerq@ti.com>
+Subject: [PATCH 00/13] net: can: Add can support for TI platforms
+Date: Mon, 8 Sep 2014 17:10:29 +0300
+Message-ID: <1410185442-907-1-git-send-email-rogerq@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <tglx@linutronix.de>, <linux-omap@vger.kernel.org>,
@@ -10,59 +9,64 @@ Cc: <tglx@linutronix.de>, <linux-omap@vger.kernel.org>,
 	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
 	<nsekhar@ti.com>, <nm@ti.com>, Roger Quadros <rogerq@ti.com>
 To: <wg@grandegger.com>, <mkl@pengutronix.de>, <tony@atomide.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1410185442-907-1-git-send-email-rogerq@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:50112 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752665AbaIHOLO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Sep 2014 10:11:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The board has 2 CAN ports but only the first one can be used.
-Enable the first CAN port.
+Hi,
 
-The second one cannot be used without hardware modification
-so we don't enable the second port.
+Some hardware (TI am43xx) has a buggy RAMINIT DONE mechanism and it might
+not always set the DONE bit. This will result in a lockup in c_can_hw_raminit_wait_ti(),
+so patch 1 adds a timeout mechanism there.
 
-Signed-off-by: Roger Quadros <rogerq@ti.com>
-Reviewed-by: Felipe Balbi <balbi@ti.com>
+There is a non compliancy within TI platforms with respect to the
+layout of the RAMINIT register. The patches 2 and 3 address this issue
+and make a flexible but standard way of defining the RAMINIT hardware register
+layout in the device tree. The RAMINIT register is accessed using the syscon
+regmap framework.
+
+The patches 4 to 13 add adaptation details for am43xx and dra7x Socs and
+EVMs.
+
+cheers,
+-roger
+
 ---
- arch/arm/boot/dts/dra7-evm.dts | 21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
 
-diff --git a/arch/arm/boot/dts/dra7-evm.dts b/arch/arm/boot/dts/dra7-evm.dts
-index e03fbf3..d6b9b27 100644
---- a/arch/arm/boot/dts/dra7-evm.dts
-+++ b/arch/arm/boot/dts/dra7-evm.dts
-@@ -171,6 +171,20 @@
- 			0xd0	(PIN_OUTPUT | MUX_MODE0)	/* gpmc_be0n_cle */
- 		>;
- 	};
-+
-+	dcan1_pins_default: dcan1_pins_default {
-+		pinctrl-single,pins = <
-+			0x3d4	(PIN_INPUT | MUX_MODE0)		/* dcan1_tx */
-+			0x3d8	(PIN_INPUT | MUX_MODE0)		/* dcan1_rx */
-+		>;
-+	};
-+
-+	dcan1_pins_sleep: dcan1_pins_sleep {
-+		pinctrl-single,pins = <
-+			0x3d4	(PIN_INPUT | MUX_MODE15)	/* dcan1_tx */
-+			0x3d8	(PIN_INPUT | MUX_MODE15)	/* dcan1_rx */
-+		>;
-+	};
- };
- 
- &i2c1 {
-@@ -529,3 +543,10 @@
- 	ti,no-reset-on-init;
- 	ti,no-idle-on-init;
- };
-+
-+&dcan1 {
-+	status = "ok";
-+	pinctrl-names = "default", "sleep";
-+	pinctrl-0 = <&dcan1_pins_default>;
-+	pinctrl-1 = <&dcan1_pins_sleep>;
-+};
+Afzal Mohammed (1):
+  arm: dts: am4372: Add dcan nodes
+
+Dave Gerlach (1):
+  ARM: dts: am437x-gp-evm: Add pinctrl sleep states for dcan pins
+
+Mugunthan V N (1):
+  arm: dts: am437x-gp: Add dcan support
+
+Roger Quadros (10):
+  can: c_can_platform: Fix c_can_hw_raminit_ti() and add timeout
+  net: can: c_can: Add syscon/regmap RAMINIT mechanism
+  net: can: c_can: Add support for START pulse in RAMINIT sequence
+  ARM: dts: dra7: Add syscon regmap for CORE CONTROL area
+  ARM: dts: DRA7: Add DCAN nodes
+  ARM: dts: dra7-evm: Add CAN support
+  ARM: dts: dra72-evm: Add CAN support
+  ARM: dts: AM43xx: Add aliases to d_can nodes
+  ARM: dts: am4372: Add control module syscon node
+  ARM: dts: am4372: Add dcan raminit bits
+
+ .../devicetree/bindings/net/can/c_can.txt          |  10 ++
+ arch/arm/boot/dts/am4372.dtsi                      |  35 ++++++
+ arch/arm/boot/dts/am437x-gp-evm.dts                |  42 ++++++++
+ arch/arm/boot/dts/dra7-evm.dts                     |  21 ++++
+ arch/arm/boot/dts/dra7.dtsi                        |  35 ++++++
+ arch/arm/boot/dts/dra72-evm.dts                    |  23 ++++
+ drivers/net/can/c_can/c_can.h                      |  12 ++-
+ drivers/net/can/c_can/c_can_platform.c             | 120 ++++++++++++++++-----
+ 8 files changed, 270 insertions(+), 28 deletions(-)
+
 -- 
 1.8.3.2
-
