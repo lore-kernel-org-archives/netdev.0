@@ -1,60 +1,89 @@
-From: Andy Zhou <azhou@nicira.com>
-Subject: Re: [net-next v4 0/3] Refactor vxlan and l2tp to use common UDP
- tunnel APIs
-Date: Tue, 9 Sep 2014 00:49:11 -0700
-Message-ID: <CACzMAJL76dm1uwttMG2Z8rB3oUA_j05Jd2iKUWdFGqsFE4OJQw@mail.gmail.com>
-References: <1409817462-7957-1-git-send-email-azhou@nicira.com>
-	<20140905.171942.713956165843587914.davem@davemloft.net>
+From: Roger Quadros <rogerq@ti.com>
+Subject: Re: [PATCH 05/13] ARM: dts: DRA7: Add DCAN nodes
+Date: Tue, 9 Sep 2014 11:30:50 +0300
+Message-ID: <540EBABA.9090009@ti.com>
+References: <1410185442-907-1-git-send-email-rogerq@ti.com> <1410185442-907-6-git-send-email-rogerq@ti.com> <540DDBE0.5090004@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog121.obsmtp.com ([74.125.149.145]:41278 "HELO
-	na3sys009aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932092AbaIIHtM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 03:49:12 -0400
-Received: by mail-oi0-f49.google.com with SMTP id g201so10736269oib.36
-        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 00:49:11 -0700 (PDT)
-In-Reply-To: <20140905.171942.713956165843587914.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <tglx@linutronix.de>, <linux-omap@vger.kernel.org>,
+	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <balbi@ti.com>,
+	<nsekhar@ti.com>, <nm@ti.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	<wg@grandegger.com>, <mkl@pengutronix.de>, <tony@atomide.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <540DDBE0.5090004@cogentembedded.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, David, thanks for the review. I have fixed the indentations for
-functions as you pointed out.
+Hi,
 
-I also plan to improve ifdefs in udp_tunnel.c in the next patch per
-your suggestion.
+On 09/08/2014 07:40 PM, Sergei Shtylyov wrote:
+> Hello.
+>=20
+> On 9/8/2014 6:10 PM, Roger Quadros wrote:
+>=20
+>> The SoC supports 2 DCAN nodes. Add them.
+>=20
+>> Signed-off-by: Roger Quadros <rogerq@ti.com>
+>> ---
+>>   arch/arm/boot/dts/dra7.dtsi | 30 ++++++++++++++++++++++++++++++
+>>   1 file changed, 30 insertions(+)
+>=20
+>> diff --git a/arch/arm/boot/dts/dra7.dtsi b/arch/arm/boot/dts/dra7.dt=
+si
+>> index 370009e..4ce1a4f 100644
+>> --- a/arch/arm/boot/dts/dra7.dtsi
+>> +++ b/arch/arm/boot/dts/dra7.dtsi
+> [...]
+>> @@ -1267,6 +1269,34 @@
+>>               ti,irqs-skip =3D <10 133 139 140>;
+>>               ti,irqs-safe-map =3D <0>;
+>>           };
+>> +
+>> +        dcan1: d_can@481cc000 {
+>=20
+>    The ePAPR standard has something to say here:
+>=20
+>>>
+> The name of a node should be somewhat generic, reflecting the functio=
+n of the device and not its precise programming model. If appropriate, =
+the name should be one of the following choices:
+>=20
+>     =95 can
 
-However, vxlan.c and l2tp_core.c have many pre-exsisting ifdefs
-(basically for CONFIG_IPV6). I am not sure if it make sense to remove
--- The readability may only improve marginally, if at all.  My patch
-does not add new ones, but may move existing ones around as part of
-re-factoring, I don't plan to make more changes to ,u current patch
-series.
+Right. I'll fix it up.
 
-In case you still feel strongly we should clean up existing ifdefs
-from vxlan.c and l2tp_core.c, I'd suggest that we work on separate
-patches to deal with them. Does this make sense?
+>>>
+>=20
+>> +            compatible =3D "bosch,d_can";
+>> +            ti,hwmods =3D "dcan1";
+>> +            reg =3D <0x4ae3c000 0x2000>,
+>> +                  <0x558 0x4>; /* index to RAMINIT reg within sysco=
+n */
+>> +            raminit-syscon =3D <&dra7_ctrl_core>;
+>> +            raminit-start-bit =3D <3>;
+>> +            raminit-done-bit =3D <1>;
+>> +            raminit-pulse;
+>=20
+>    Hm, aren't the above 4 properties vendor specific? If so, they sho=
+uld start with a vendor prefix and comma.
 
-Andy
+At least for now I don't know about any other platform other than TI us=
+ing a RAMINIT register outside the
+CAN register space. However the mechanism is generic enough and not lim=
+ited to TI platforms.
 
-On Fri, Sep 5, 2014 at 5:19 PM, David Miller <davem@davemloft.net> wrote:
-> From: Andy Zhou <azhou@nicira.com>
-> Date: Thu,  4 Sep 2014 00:57:39 -0700
->
->> Andy Zhou (3):
->>   udp-tunnel: Expand UDP tunnel APIs
->>   vxlan: Refactor vxlan driver to make use of the common UDP tunnel
->>     functions.
->>   l2tp: Refactor l2tp core driver to make use of the common UDP tunnel
->>        functions
->
-> Way too many ifdefs in *.c code, and your indentation is not correct.
-> For function calls that span multiple lines, you must start the second
-> and subsequent lines exactly at the first column after the openning
-> parenthesis of the first line.  You must use the appropriate number of
-> TAB and SPACE characters necessary to do so.  If you are indenting these
-> lines only using TAB characters, you are very likely doing it wrong.
->
-> Thanks.
+I don't mind vendor prefix or not, but would like to hear the opinion o=
+f the CAN maintainers as to what they would prefer.
+
+>=20
+>> +            interrupts =3D <GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>;
+>> +            clocks =3D <&dcan1_sys_clk_mux>;
+>> +            status =3D "disabled";
+>> +        };
+>=20
+
+cheers,
+-roger
