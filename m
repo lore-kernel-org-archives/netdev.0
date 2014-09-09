@@ -1,7 +1,7 @@
 From: Tejun Heo <tj@kernel.org>
 Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Tue, 9 Sep 2014 10:13:02 +0900
-Message-ID: <20140909011302.GC11706@mtj.dyndns.org>
+Date: Tue, 9 Sep 2014 10:22:27 +0900
+Message-ID: <20140909012227.GE11706@mtj.dyndns.org>
 References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
  <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
  <20140905141241.GC10455@mtj.dyndns.org>
@@ -33,20 +33,27 @@ Cc: Lennart Poettering <lennart@poettering.net>,
 	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
 	Sreekanth Redd
 To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:44237 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753034AbaIIBWh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 21:22:37 -0400
 Content-Disposition: inline
 In-Reply-To: <20140909011059.GB11706@mtj.dyndns.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On Tue, Sep 09, 2014 at 10:10:59AM +0900, Tejun Heo wrote:
-> * Identify cases which can't be asynchronous and make them
->   synchronous.  e.g. keep who's doing request_module() and avoid
->   asynchronous probing if current is probing one of those.
+> I'm not too convinced this is such a difficult problem to figure out.
+> We already have most of logic in place and the only thing missing is
+> how to switch it.  Wouldn't something like the following work?
+> 
+> * Add a sysctl knob to enable asynchronous device probing on module
+>   load and enable asynchronous probing globally if the knob is set.
 
-That wouldn't work as we don't know what's gonna happen in userland
-but we can start with just disallowing async probing for char devices
-for now.
+Alternatively, add a module-generic param "async_probe" or whatever
+and use that to switch the behavior should work too.  I don't know
+which way is better but either should work fine.
 
 Thanks.
 
