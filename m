@@ -1,54 +1,79 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [Patch v2 net-next 08/12] net:fec: Add fsl,imx6sx-fec  compatible strings
-Date: Wed, 10 Sep 2014 04:15:39 +0800
-Message-ID: <1410293743-27874-9-git-send-email-Frank.Li@freescale.com>
+From: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Subject: [Patch v2 net-next 10/12] net: fec: init complete variable in early to avoid kernel dump
+Date: Wed, 10 Sep 2014 04:15:41 +0800
+Message-ID: <1410293743-27874-11-git-send-email-Frank.Li@freescale.com>
 References: <1410293743-27874-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, Fugang Duan <B38611@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>
-To: <b38611@freescale.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0133.outbound.protection.outlook.com ([207.46.100.133]:40992
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752701AbaIIUj2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2014 16:39:28 -0400
-In-Reply-To: <1410293743-27874-1-git-send-email-Frank.Li@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1410293743-27874-1-git-send-email-Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Fugang Duan <B38611@freescale.com>
+From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 
-Add compatible string "fsl,imx6sx-fec" for i.MX6SX.
+Software clear the MDIO interrupt before MDIO bus access, but
+MAC still generate MDIO interrupt. The issue only happen on
+imx6slx chip.
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
+CPU: 0 PID: 1 Comm: swapper/0 Not tainted 3.17.0-rc1-00399-g0bcad17 #315
+Backtrace:
+[<800121fc>] (dump_backtrace) from [<800124e0>] (show_stack+0x18/0x1c)
+ r6:8096e534 r5:8096e534 r4:00000000 r3:00000000
+[<800124c8>] (show_stack) from [<806a4c60>] (dump_stack+0x8c/0xa4)
+[<806a4bd4>] (dump_stack) from [<80060ab8>] (__lock_acquire+0x1814/0x1c40)
+ r6:be078000 r5:be074000 r4:be03f6e4 r3:be078000
+[<8005f2a4>] (__lock_acquire) from [<800616e0>] (lock_acquire+0x70/0x84)
+ r10:809ada33 r9:be010600 r8:00000096 r7:00000001 r6:be074000 r5:00000000
+ r4:60000193
+[<80061670>] (lock_acquire) from [<806abb20>] (_raw_spin_lock_irqsave+0x40/0x54)
+ r7:00000000 r6:8005a3f8 r5:00000193 r4:be03f6d4
+[<806abae0>] (_raw_spin_lock_irqsave) from [<8005a3f8>] (complete+0x1c/0x4c)
+ r6:80950904 r5:be03f6d0 r4:be03f6d4
+[<8005a3dc>] (complete) from [<8041b4c0>] (fec_enet_interrupt+0x128/0x164)
+ r6:80950904 r5:00800000 r4:be03f000 r3:00000000
+[<8041b398>] (fec_enet_interrupt) from [<8006aeac>] (handle_irq_event_percpu+0x38/0x13c)
+ r6:00000000 r5:be01065c r4:be399e00 r3:8041b398
+[<8006ae74>] (handle_irq_event_percpu) from [<8006aff4>] (handle_irq_event+0x44/0x64)
+ r10:be03f000 r9:80989fe0 r8:00000000 r7:00000096 r6:be399e00 r5:be01065c
+ r4:be010600
+[<8006afb0>] (handle_irq_event) from [<8006e3e8>] (handle_fasteoi_irq+0xc8/0x1bc)
+ r6:8096e764 r5:be01065c r4:be010600 r3:00000000
+[<8006e320>] (handle_fasteoi_irq) from [<8006a63c>] (generic_handle_irq+0x30/0x44)
+ r6:be074010 r5:80945e4c r4:00000096 r3:8006e320
+[<8006a60c>] (generic_handle_irq) from [<8000f218>] (handle_IRQ+0x54/0xbc)
+ r4:80950d74 r3:00000180
+[<8000f1c4>] (handle_IRQ) from [<800086cc>] (gic_handle_irq+0x30/0x68)
+ r8:be3ab478 r7:c080e100 r6:be075bd8 r5:80950eec r4:c080e10c r3:000000a0
+[<8000869c>] (gic_handle_irq) from [<80013064>] (__irq_svc+0x44/0x5c)
+
+Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/freescale/fec_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 658b0b3..0cc7313 100644
+index 34ad932..5110181 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -157,6 +157,7 @@ enum imx_fec_type {
- 	IMX28_FEC,
- 	IMX6Q_FEC,
- 	MVF600_FEC,
-+	IMX6SX_FEC,
- };
+@@ -3061,6 +3061,7 @@ fec_probe(struct platform_device *pdev)
+ 			goto failed_irq;
+ 	}
  
- static const struct of_device_id fec_dt_ids[] = {
-@@ -165,6 +166,7 @@ static const struct of_device_id fec_dt_ids[] = {
- 	{ .compatible = "fsl,imx28-fec", .data = &fec_devtype[IMX28_FEC], },
- 	{ .compatible = "fsl,imx6q-fec", .data = &fec_devtype[IMX6Q_FEC], },
- 	{ .compatible = "fsl,mvf600-fec", .data = &fec_devtype[MVF600_FEC], },
-+	{ .compatible = "fsl,imx6sx-fec", .data = &fec_devtype[IMX6SX_FEC], },
- 	{ /* sentinel */ }
- };
- MODULE_DEVICE_TABLE(of, fec_dt_ids);
++	init_completion(&fep->mdio_done);
+ 	ret = fec_enet_mii_init(pdev);
+ 	if (ret)
+ 		goto failed_mii_init;
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
