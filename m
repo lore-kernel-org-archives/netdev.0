@@ -1,7 +1,7 @@
 From: Frank Li <Frank.Li@freescale.com>
-Subject: [Patch v2 net-next 06/12] net:fec: Disable enet-avb MAC instead of reset MAC
-Date: Wed, 10 Sep 2014 04:15:37 +0800
-Message-ID: <1410293743-27874-7-git-send-email-Frank.Li@freescale.com>
+Subject: [Patch v2 net-next 08/12] net:fec: Add fsl,imx6sx-fec  compatible strings
+Date: Wed, 10 Sep 2014 04:15:39 +0800
+Message-ID: <1410293743-27874-9-git-send-email-Frank.Li@freescale.com>
 References: <1410293743-27874-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,10 +11,10 @@ Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
 To: <b38611@freescale.com>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bbn0104.outbound.protection.outlook.com ([157.56.111.104]:11021
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mail-by2on0133.outbound.protection.outlook.com ([207.46.100.133]:40992
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752693AbaIIUj2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752701AbaIIUj2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 9 Sep 2014 16:39:28 -0400
 In-Reply-To: <1410293743-27874-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
@@ -22,59 +22,33 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Fugang Duan <B38611@freescale.com>
 
-For i.MX6SX enet use AXI bus, reset MAC will make system bus dead
-if ENET-AXI bus has pending access (AHB bus should not have such issue).
-So, disable enet with AVB MAC instead of reset MAC itself.
+Add compatible string "fsl,imx6sx-fec" for i.MX6SX.
 
 Signed-off-by: Fugang Duan <B38611@freescale.com>
 Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 26 ++++++++++++++++++++------
- 1 file changed, 20 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 03972f7..5f8e997 100644
+index 658b0b3..0cc7313 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -945,9 +945,16 @@ fec_restart(struct net_device *ndev)
- 	u32 rcntl = OPT_FRAME_SIZE | 0x04;
- 	u32 ecntl = 0x2; /* ETHEREN */
+@@ -157,6 +157,7 @@ enum imx_fec_type {
+ 	IMX28_FEC,
+ 	IMX6Q_FEC,
+ 	MVF600_FEC,
++	IMX6SX_FEC,
+ };
  
--	/* Whack a reset.  We should wait for this. */
--	writel(1, fep->hwp + FEC_ECNTRL);
--	udelay(10);
-+	/* Whack a reset.  We should wait for this.
-+	 * For i.MX6SX SOC, enet use AXI bus, we use disable MAC
-+	 * instead of reset MAC itself.
-+	 */
-+	if (id_entry && id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
-+		writel(0, fep->hwp + FEC_ECNTRL);
-+	} else {
-+		writel(1, fep->hwp + FEC_ECNTRL);
-+		udelay(10);
-+	}
- 
- 	/*
- 	 * enet-mac reset will reset mac address registers too,
-@@ -1118,9 +1125,16 @@ fec_stop(struct net_device *ndev)
- 			netdev_err(ndev, "Graceful transmit stop did not complete!\n");
- 	}
- 
--	/* Whack a reset.  We should wait for this. */
--	writel(1, fep->hwp + FEC_ECNTRL);
--	udelay(10);
-+	/* Whack a reset.  We should wait for this.
-+	 * For i.MX6SX SOC, enet use AXI bus, we use disable MAC
-+	 * instead of reset MAC itself.
-+	 */
-+	if (id_entry && id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
-+		writel(0, fep->hwp + FEC_ECNTRL);
-+	} else {
-+		writel(1, fep->hwp + FEC_ECNTRL);
-+		udelay(10);
-+	}
- 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
- 	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
- 
+ static const struct of_device_id fec_dt_ids[] = {
+@@ -165,6 +166,7 @@ static const struct of_device_id fec_dt_ids[] = {
+ 	{ .compatible = "fsl,imx28-fec", .data = &fec_devtype[IMX28_FEC], },
+ 	{ .compatible = "fsl,imx6q-fec", .data = &fec_devtype[IMX6Q_FEC], },
+ 	{ .compatible = "fsl,mvf600-fec", .data = &fec_devtype[MVF600_FEC], },
++	{ .compatible = "fsl,imx6sx-fec", .data = &fec_devtype[IMX6SX_FEC], },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, fec_dt_ids);
 -- 
 1.9.1
