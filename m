@@ -1,7 +1,7 @@
 From: Alex Gartrell <agartrell@fb.com>
-Subject: [PATCH net-next 13/20] ipvs: use correct address family in LC logs
-Date: Tue, 9 Sep 2014 16:40:32 -0700
-Message-ID: <1410306039-2977-14-git-send-email-agartrell@fb.com>
+Subject: [PATCH net-next 04/20] ipvs: Supply destination address family to ip_vs_conn_new
+Date: Tue, 9 Sep 2014 16:40:23 -0700
+Message-ID: <1410306039-2977-5-git-send-email-agartrell@fb.com>
 References: <1410306039-2977-1-git-send-email-agartrell@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,47 +9,171 @@ Cc: <horms@verge.net.au>, <ja@ssi.bg>, <lvs-devel@vger.kernel.org>,
 	<kernel-team@fb.com>, <ps@fb.com>, Alex Gartrell <agartrell@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:23298 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753238AbaIIXk7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 19:40:59 -0400
-Received: from pps.filterd (m0004077 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id s89NcJ8K004964
-	for <netdev@vger.kernel.org>; Tue, 9 Sep 2014 16:40:59 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:50146 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753194AbaIIXkz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 19:40:55 -0400
+Received: from pps.filterd (m0004003 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id s89NctHl018129
+	for <netdev@vger.kernel.org>; Tue, 9 Sep 2014 16:40:55 -0700
 Received: from mail.thefacebook.com (mailwest.thefacebook.com [173.252.71.148])
-	by mx0b-00082601.pphosted.com with ESMTP id 1pab9xg12t-8
+	by mx0b-00082601.pphosted.com with ESMTP id 1pab3a828a-3
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 16:40:58 -0700
+	for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 16:40:54 -0700
 Received: from facebook.com (2401:db00:20:7017:face:0:13:0)	by
  mx-out.facebook.com (10.103.99.99) with ESMTP	id
- bc110a1c387a11e487b70002c9dfb610-da6ea3f0 for <netdev@vger.kernel.org>;	Tue,
- 09 Sep 2014 16:40:52 -0700
+ bbac8a56387a11e487b70002c9dfb610-da6ea3f0 for <netdev@vger.kernel.org>;	Tue,
+ 09 Sep 2014 16:40:51 -0700
 In-Reply-To: <1410306039-2977-1-git-send-email-agartrell@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+The assumption that dest af is equal to service af is now unreliable, so we
+must specify it manually so as not to copy just the first 4 bytes of a v6
+address or doing an illegal read of 16 butes on a v6 address.
 
-Needed to support svc->af != dest->af.
+We "lie" in two places: for synchronization (which we will explicitly
+disallow from happening when we have heterogeneous pools) and for black
+hole addresses where there's no real dest.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Alex Gartrell <agartrell@fb.com>
 ---
- net/netfilter/ipvs/ip_vs_lc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/net/ip_vs.h             | 3 ++-
+ net/netfilter/ipvs/ip_vs_conn.c | 5 +++--
+ net/netfilter/ipvs/ip_vs_core.c | 9 +++++----
+ net/netfilter/ipvs/ip_vs_ftp.c  | 6 ++++--
+ net/netfilter/ipvs/ip_vs_sync.c | 3 ++-
+ 5 files changed, 16 insertions(+), 10 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_lc.c b/net/netfilter/ipvs/ip_vs_lc.c
-index 2bdcb1c..19a0769 100644
---- a/net/netfilter/ipvs/ip_vs_lc.c
-+++ b/net/netfilter/ipvs/ip_vs_lc.c
-@@ -59,7 +59,7 @@ ip_vs_lc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
- 	else
- 		IP_VS_DBG_BUF(6, "LC: server %s:%u activeconns %d "
- 			      "inactconns %d\n",
--			      IP_VS_DBG_ADDR(svc->af, &least->addr),
-+			      IP_VS_DBG_ADDR(least->af, &least->addr),
- 			      ntohs(least->port),
- 			      atomic_read(&least->activeconns),
- 			      atomic_read(&least->inactconns));
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 2fa1155..7600dbe 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -535,6 +535,7 @@ struct ip_vs_conn {
+ 	union nf_inet_addr      daddr;          /* destination address */
+ 	volatile __u32          flags;          /* status flags */
+ 	__u16                   protocol;       /* Which protocol (TCP/UDP) */
++	__u16			daf;		/* Address family of the dest */
+ #ifdef CONFIG_NET_NS
+ 	struct net              *net;           /* Name space */
+ #endif
+@@ -1213,7 +1214,7 @@ static inline void __ip_vs_conn_put(struct ip_vs_conn *cp)
+ void ip_vs_conn_put(struct ip_vs_conn *cp);
+ void ip_vs_conn_fill_cport(struct ip_vs_conn *cp, __be16 cport);
+ 
+-struct ip_vs_conn *ip_vs_conn_new(const struct ip_vs_conn_param *p,
++struct ip_vs_conn *ip_vs_conn_new(const struct ip_vs_conn_param *p, int dest_af,
+ 				  const union nf_inet_addr *daddr,
+ 				  __be16 dport, unsigned int flags,
+ 				  struct ip_vs_dest *dest, __u32 fwmark);
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 8f4c602..fdb4880 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -854,7 +854,7 @@ void ip_vs_conn_expire_now(struct ip_vs_conn *cp)
+  *	Create a new connection entry and hash it into the ip_vs_conn_tab
+  */
+ struct ip_vs_conn *
+-ip_vs_conn_new(const struct ip_vs_conn_param *p,
++ip_vs_conn_new(const struct ip_vs_conn_param *p, int dest_af,
+ 	       const union nf_inet_addr *daddr, __be16 dport, unsigned int flags,
+ 	       struct ip_vs_dest *dest, __u32 fwmark)
+ {
+@@ -873,6 +873,7 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
+ 	setup_timer(&cp->timer, ip_vs_conn_expire, (unsigned long)cp);
+ 	ip_vs_conn_net_set(cp, p->net);
+ 	cp->af		   = p->af;
++	cp->daf		   = dest_af;
+ 	cp->protocol	   = p->protocol;
+ 	ip_vs_addr_set(p->af, &cp->caddr, p->caddr);
+ 	cp->cport	   = p->cport;
+@@ -880,7 +881,7 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
+ 	ip_vs_addr_set(p->protocol == IPPROTO_IP ? AF_UNSPEC : p->af,
+ 		       &cp->vaddr, p->vaddr);
+ 	cp->vport	   = p->vport;
+-	ip_vs_addr_set(p->af, &cp->daddr, daddr);
++	ip_vs_addr_set(cp->daf, &cp->daddr, daddr);
+ 	cp->dport          = dport;
+ 	cp->flags	   = flags;
+ 	cp->fwmark         = fwmark;
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 5c34e8d..1f6ecb7 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -328,7 +328,7 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 		 * This adds param.pe_data to the template,
+ 		 * and thus param.pe_data will be destroyed
+ 		 * when the template expires */
+-		ct = ip_vs_conn_new(&param, &dest->addr, dport,
++		ct = ip_vs_conn_new(&param, dest->af, &dest->addr, dport,
+ 				    IP_VS_CONN_F_TEMPLATE, dest, skb->mark);
+ 		if (ct == NULL) {
+ 			kfree(param.pe_data);
+@@ -357,7 +357,8 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 	ip_vs_conn_fill_param(svc->net, svc->af, iph->protocol, &iph->saddr,
+ 			      src_port, &iph->daddr, dst_port, &param);
+ 
+-	cp = ip_vs_conn_new(&param, &dest->addr, dport, flags, dest, skb->mark);
++	cp = ip_vs_conn_new(&param, dest->af, &dest->addr, dport, flags, dest,
++			    skb->mark);
+ 	if (cp == NULL) {
+ 		ip_vs_conn_put(ct);
+ 		*ignored = -1;
+@@ -479,7 +480,7 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ 		ip_vs_conn_fill_param(svc->net, svc->af, iph->protocol,
+ 				      &iph->saddr, pptr[0], &iph->daddr,
+ 				      pptr[1], &p);
+-		cp = ip_vs_conn_new(&p, &dest->addr,
++		cp = ip_vs_conn_new(&p, dest->af, &dest->addr,
+ 				    dest->port ? dest->port : pptr[1],
+ 				    flags, dest, skb->mark);
+ 		if (!cp) {
+@@ -550,7 +551,7 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
+ 			ip_vs_conn_fill_param(svc->net, svc->af, iph->protocol,
+ 					      &iph->saddr, pptr[0],
+ 					      &iph->daddr, pptr[1], &p);
+-			cp = ip_vs_conn_new(&p, &daddr, 0,
++			cp = ip_vs_conn_new(&p, svc->af, &daddr, 0,
+ 					    IP_VS_CONN_F_BYPASS | flags,
+ 					    NULL, skb->mark);
+ 			if (!cp)
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index 77c1732..a64fa15 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -233,7 +233,8 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 			ip_vs_conn_fill_param(ip_vs_conn_net(cp),
+ 					      AF_INET, IPPROTO_TCP, &cp->caddr,
+ 					      0, &cp->vaddr, port, &p);
+-			n_cp = ip_vs_conn_new(&p, &from, port,
++			/* As above, this is ipv4 only */
++			n_cp = ip_vs_conn_new(&p, AF_INET, &from, port,
+ 					      IP_VS_CONN_F_NO_CPORT |
+ 					      IP_VS_CONN_F_NFCT,
+ 					      cp->dest, skb->mark);
+@@ -396,7 +397,8 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 				      htons(ntohs(cp->vport)-1), &p);
+ 		n_cp = ip_vs_conn_in_get(&p);
+ 		if (!n_cp) {
+-			n_cp = ip_vs_conn_new(&p, &cp->daddr,
++			/* This is ipv4 only */
++			n_cp = ip_vs_conn_new(&p, AF_INET, &cp->daddr,
+ 					      htons(ntohs(cp->dport)-1),
+ 					      IP_VS_CONN_F_NFCT, cp->dest,
+ 					      skb->mark);
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index edd2664..7162c86 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -889,7 +889,8 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
+ 				       param->vaddr, param->vport, protocol,
+ 				       fwmark, flags);
+ 
+-		cp = ip_vs_conn_new(param, daddr, dport, flags, dest, fwmark);
++		cp = ip_vs_conn_new(param, type, daddr, dport, flags, dest,
++				    fwmark);
+ 		rcu_read_unlock();
+ 		if (!cp) {
+ 			kfree(param->pe_data);
 -- 
 1.8.1
