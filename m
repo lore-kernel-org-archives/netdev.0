@@ -1,34 +1,45 @@
-From: Peter Foley <pefoley2@pefoley.com>
-Subject: Re: [PATCH 1/3] kbuild: remove unnecessary "obj- := dummy.o" trick
-Date: Tue, 9 Sep 2014 12:21:56 -0400
-Message-ID: <CAOFdcFMs7j3CAnu4XSFCSaYwKub5KcTqyz97C=0U9KbcRZEGOg@mail.gmail.com>
-References: <1410258381-7088-1-git-send-email-yamada.m@jp.panasonic.com> <1410258381-7088-2-git-send-email-yamada.m@jp.panasonic.com>
+From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: RE: 3.17-rc1 oops during network interface configuration
+Date: Tue, 9 Sep 2014 11:24:08 -0500
+Message-ID: <007401cfcc4a$7b32b280$71981780$@opengridcomputing.com>
+References: <53F1EF18.7010909@acm.org> <BA3DEE00-C035-41B9-8ECD-614F04483395@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kbuild@vger.kernel.org, Ben Dooks <ben-linux@fluff.org>,
-	Kukjin Kim <kgene.kim@samsung.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Mike Turquette <mturquette@linaro.org>,
-	Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>,
-	Simon Horman <horms+renesas@verge.net.au>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Wolfram Sang <wsa@sang-engineering.com>,
-	Takashi Yoshii <takasi-y@ops.dti.ne.jp>,
-	Ulrich Hecht <ulrich.hecht@gmail.com>,
-	linux-arm-kernel@lists.infradead.org,
-	linux-samsung-soc@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Masahiro Yamada <yamada.m@jp.panasonic.com>
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-In-Reply-To: <1410258381-7088-2-git-send-email-yamada.m@jp.panasonic.com>
-Sender: linux-samsung-soc-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"'linux-rdma'" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "'Chuck Lever'" <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	"'Bart Van Assche'" <bvanassche-HInyCGIudOg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <BA3DEE00-C035-41B9-8ECD-614F04483395-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Content-Language: en-us
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 9, 2014 at 6:26 AM, Masahiro Yamada
-<yamada.m@jp.panasonic.com> wrote:
-> In these Makefiles, at least one of "obj-y" and "obj-" is non-empty,
-> hence built-in.o is always created without such a trick.
->
-> Signed-off-by: Masahiro Yamada <yamada.m@jp.panasonic.com>
 
-Acked-by: Peter Foley <pefoley2@pefoley.com>
+
+> -----Original Message-----
+> From: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org] On Behalf Of Chuck Lever
+> Sent: Tuesday, August 19, 2014 9:56 AM
+> To: Bart Van Assche
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma
+> Subject: Re: 3.17-rc1 oops during network interface configuration
+> 
+> 
+> On Aug 18, 2014, at 8:18 AM, Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org> wrote:
+> 
+> > Hello,
+> >
+> > Has anyone else already tried to boot kernel 3.17-rc1 on an IB system ?
+> 
+> After updating to 3.17-rc1 this morning, I hit the same issue.
+>
+
+I still see this with 3.17-rc4.  Perhaps somebody should fix it. :)
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
