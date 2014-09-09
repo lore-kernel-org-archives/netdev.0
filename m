@@ -1,56 +1,39 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH next] net: use kfree_skb_list() helper in more places
-Date: Wed, 10 Sep 2014 01:08:46 +0200
-Message-ID: <1410304126-1838-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:39948 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752326AbaIIXJA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 19:09:00 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Anish Bhatt <anish@chelsio.com>
+Subject: RE: randconfig build error with next-20140909, in
+ drivers/net/ethernet/broadcom/cnic.c
+Date: Tue, 9 Sep 2014 23:16:43 +0000
+Message-ID: <525DB349B3FB5444AE057A887CB2A8D88E3E42@nice.asicdesigners.com>
+References: <CA+r1ZhhZynUKSeZnya67z9sph4+tpjO4E7jLZKc0EG4azxFdYA@mail.gmail.com>
+	 <525DB349B3FB5444AE057A887CB2A8D88E0BFB@nice.asicdesigners.com>,<1410295676.7520.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+ <525DB349B3FB5444AE057A887CB2A8D88E3CEC@nice.asicdesigners.com>,<540F8582.50703@infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Jim Davis <jim.epost@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>
+To: Randy Dunlap <rdunlap@infradead.org>,
+	Michael Chan <mchan@broadcom.com>,
+	"eddie.wai@broadcom.com" <eddie.wai@broadcom.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <540F8582.50703@infradead.org>
+Content-Language: en-US
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/ipv6/ip6_output.c  | 6 +-----
- net/xfrm/xfrm_output.c | 6 +-----
- 2 files changed, 2 insertions(+), 10 deletions(-)
+> It would be really good if SCSI_NETLINK depended on NET instead of selected NET.
+> We shouldn't have kconfig symbols that use 'select' on entire subsystems.
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index b7a3e7b..2e6a0db 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -701,11 +701,7 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 			return 0;
- 		}
- 
--		while (frag) {
--			skb = frag->next;
--			kfree_skb(frag);
--			frag = skb;
--		}
-+		kfree_skb_list(frag);
- 
- 		IP6_INC_STATS(net, ip6_dst_idev(&rt->dst),
- 			      IPSTATS_MIB_FRAGFAILS);
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index c51e8f7b..499d6c1 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -166,11 +166,7 @@ static int xfrm_output_gso(struct sk_buff *skb)
- 		err = xfrm_output2(segs);
- 
- 		if (unlikely(err)) {
--			while ((segs = nskb)) {
--				nskb = segs->next;
--				segs->next = NULL;
--				kfree_skb(segs);
--			}
-+			kfree_skb_list(nskb);
- 			return err;
- 		}
- 
--- 
-1.8.1.5
+As a test, I was able to fix this by this approach : change SCSI_NETLINK to depend  
+on NET instead of selecting NET, and replacing 'select NETDEVICES ETHERNET 
+NET_VENDOR_BROADCOM CNIC' to 'depends on CNIC' in bnx2i & bnx2fc. (as CNIC 
+already has a dependency on those). This removes the need to check for IPV6 in 
+bnx2i/fc Kconfigs as well.
+
+The side effect is that you won't see BNX2 drivers unless CNIC is selected, similar
+for SCSI_NETLINK as well, not sure if there are any other implications.
+-Anish
