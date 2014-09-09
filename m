@@ -1,133 +1,163 @@
-From: Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>
-Subject: Re: [PATCH v2 5/8] net: pxa168_eth: get and set the mac address on
- the Ethernet controller
-Date: Tue, 9 Sep 2014 12:29:58 -0400
-Message-ID: <20140909162958.GS30828@titan.lakedaemon.net>
-References: <1410273848-24663-1-git-send-email-antoine.tenart@free-electrons.com>
- <1410273848-24663-6-git-send-email-antoine.tenart@free-electrons.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v3 09/15] net: sched: make cls_u32 lockless
+Date: Tue, 09 Sep 2014 09:35:23 -0700
+Message-ID: <540F2C4B.6060404@gmail.com>
+References: <20140909055221.2071.99671.stgit@nitbit.x32>  <20140909055815.2071.39668.stgit@nitbit.x32> <1410268807.11872.177.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, zmxu-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1410273848-24663-6-git-send-email-antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:41458 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753751AbaIIQfi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 12:35:38 -0400
+Received: by mail-ob0-f177.google.com with SMTP id va2so1094130obc.36
+        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 09:35:38 -0700 (PDT)
+In-Reply-To: <1410268807.11872.177.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 09, 2014 at 04:44:05PM +0200, Antoine Tenart wrote:
-> When changing the MAC address, in addition to updating the dev_addr in
-> the net_device structure, this patch also update the MAC address
-> registers (high and low) of the Ethernet controller with the new MAC.
-> The address stored in these registers is used for IEEE 802.3x Ethernet
-> flow control, which is already enabled.
-> 
-> This patch also tries reading the MAC address stored in these registers
-> when probing the driver, to use the MAC address set by the bootloader
-> and avoid using a random one.
+On 09/09/2014 06:20 AM, Eric Dumazet wrote:
+> On Mon, 2014-09-08 at 22:58 -0700, John Fastabend wrote:
+>> Make cls_u32 classifier safe to run without holding lock. This patch
+>> converts statistics that are kept in read section u32_classify into
+>> per cpu counters.
+>>
+>> This patch was tested with a tight u32 filter add/delete loop while
+>> generating traffic with pktgen. By running pktgen on vlan devices
+>> created on top of a physical device we can hit the qdisc layer
+>> correctly. For ingress qdisc's a loopback cable was used.
+>>
+>> for i in {1..100}; do
+>>          q=`echo $i%8|bc`;
+>>          echo -n "u32 tos: iteration $i on queue $q";
+>>          tc filter add dev p3p2 parent $p prio $i u32 match ip tos 0x10 0xff \
+>>                    action skbedit queue_mapping $q;
+>>          sleep 1;
+>>          tc filter del dev p3p2 prio $i;
+>>
+>>          echo -n "u32 tos hash table: iteration $i on queue $q";
+>>          tc filter add dev p3p2 parent $p protocol ip prio $i handle 628: u32 divisor 1
+>>          tc filter add dev p3p2 parent $p protocol ip prio $i u32 \
+>>                  match ip protocol 17 0xff link 628: offset at 0 mask 0xf00 shift 6 plus 0
+>>          tc filter add dev p3p2 parent $p protocol ip prio $i u32 \
+>>                  ht 628:0 match ip tos 0x10 0xff action skbedit queue_mapping $q
+>>          sleep 2;
+>>          tc filter del dev p3p2 prio $i
+>>          sleep 1;
+>> done
+>>
+>
+>
+> Note it might be easier to split this patch in 2 parts.
+>
+> (The percpu stuff could be done in a first step, then rcu conversion)
 
-Hmm, the wording here seems odd.  I think the preference should be:
+Sure, I'll split it up.
 
- 1) bootloader-supplied addr via DT
- 2) addr read from device
- 3) randomly generated one.
+>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
 
-> 
-> Signed-off-by: Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-> ---
->  drivers/net/ethernet/marvell/pxa168_eth.c | 36 +++++++++++++++++++++++++++++--
->  1 file changed, 34 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
-> index 10422f2df6cc..0ecbb3903b71 100644
-> --- a/drivers/net/ethernet/marvell/pxa168_eth.c
-> +++ b/drivers/net/ethernet/marvell/pxa168_eth.c
-> @@ -60,6 +60,8 @@
->  #define PORT_COMMAND		0x0410
->  #define PORT_STATUS		0x0418
->  #define HTPR			0x0428
-> +#define MAC_ADDR_LOW		0x0430
-> +#define MAC_ADDR_HIGH		0x0438
->  #define SDMA_CONFIG		0x0440
->  #define SDMA_CMD		0x0448
->  #define INT_CAUSE		0x0450
-> @@ -604,16 +606,42 @@ static void pxa168_eth_set_rx_mode(struct net_device *dev)
->  		update_hash_table_mac_address(pep, NULL, ha->addr);
->  }
->  
-> +static void pxa168_eth_get_mac_address(struct net_device *dev,
-> +				       unsigned char *addr)
-> +{
-> +	struct pxa168_eth_private *pep = netdev_priv(dev);
-> +	unsigned int mac_h = rdl(pep, MAC_ADDR_HIGH);
-> +	unsigned int mac_l = rdl(pep, MAC_ADDR_LOW);
-> +
-> +	addr[0] = (mac_h >> 24) & 0xff;
-> +	addr[1] = (mac_h >> 16) & 0xff;
-> +	addr[2] = (mac_h >> 8) & 0xff;
-> +	addr[3] = mac_h & 0xff;
-> +	addr[4] = (mac_l >> 8) & 0xff;
-> +	addr[5] = mac_l & 0xff;
-> +}
-> +
->  static int pxa168_eth_set_mac_address(struct net_device *dev, void *addr)
->  {
->  	struct sockaddr *sa = addr;
->  	struct pxa168_eth_private *pep = netdev_priv(dev);
->  	unsigned char oldMac[ETH_ALEN];
-> +	u32 mac_h, mac_l;
->  
->  	if (!is_valid_ether_addr(sa->sa_data))
->  		return -EADDRNOTAVAIL;
->  	memcpy(oldMac, dev->dev_addr, ETH_ALEN);
->  	memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
-> +
-> +	mac_h = sa->sa_data[0] << 24;
-> +	mac_h |= sa->sa_data[1] << 16;
-> +	mac_h |= sa->sa_data[2] << 8;
-> +	mac_h |= sa->sa_data[3];
-> +	mac_l = sa->sa_data[4] << 8;
-> +	mac_l |= sa->sa_data[5];
-> +	wrl(pep, MAC_ADDR_HIGH, mac_h);
-> +	wrl(pep, MAC_ADDR_LOW, mac_l);
-> +
->  	netif_addr_lock_bh(dev);
->  	update_hash_table_mac_address(pep, oldMac, dev->dev_addr);
->  	netif_addr_unlock_bh(dev);
-> @@ -1494,8 +1522,12 @@ static int pxa168_eth_probe(struct platform_device *pdev)
->  
->  	INIT_WORK(&pep->tx_timeout_task, pxa168_eth_tx_timeout_task);
->  
-> -	dev_info(&pdev->dev, "Using random mac address\n");
-> -	eth_hw_addr_random(dev);
-> +	/* try reading the mac address, if set by the bootloader */
-> +	pxa168_eth_get_mac_address(dev, dev->dev_addr);
-> +	if (!is_valid_ether_addr(dev->dev_addr)) {
-> +		dev_info(&pdev->dev, "Using random mac address\n");
-> +		eth_hw_addr_random(dev);
-> +	}
+[...]
 
-I would do the above iff there was no valid addr supplied by the DT.
+>>
+>>   static inline unsigned int u32_hash_fold(__be32 key,
+>> @@ -96,7 +103,7 @@ static int u32_classify(struct sk_buff *skb, const struct tcf_proto *tp, struct
+>>   		unsigned int	  off;
+>>   	} stack[TC_U32_MAXDEPTH];
+>>
+>> -	struct tc_u_hnode *ht = tp->root;
+>> +	struct tc_u_hnode *ht = rcu_dereference_bh(tp->root);
+>>   	unsigned int off = skb_network_offset(skb);
+>>   	struct tc_u_knode *n;
+>>   	int sdepth = 0;
+>> @@ -108,23 +115,23 @@ static int u32_classify(struct sk_buff *skb, const struct tcf_proto *tp, struct
+>>   	int i, r;
+>>
+>>   next_ht:
+>> -	n = ht->ht[sel];
+>> +	n = rcu_dereference_bh(ht->ht[sel]);
+>>
+>>   next_knode:
+>>   	if (n) {
+>>   		struct tc_u32_key *key = n->sel.keys;
+>>
+>>   #ifdef CONFIG_CLS_U32_PERF
+>> -		n->pf->rcnt += 1;
+>> +		this_cpu_inc(n->pf->rcnt);
+>
+> As we run in BH, we are not preemptable, we can use instead :
+> __this_cpu_inc()  (on all occurrences)
+>
+> Using a macro would also reduce the #ifdef mess of this file
+>
 
-thx,
+I'll go ahead and do the macro conversion.
 
-Jason.
->  
->  	pep->rx_ring_size = NUM_RX_DESCS;
->  	pep->tx_ring_size = NUM_TX_DESCS;
-> -- 
-> 1.9.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe devicetree" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>   		j = 0;
+>>   #endif
+>>
+>>   #ifdef CONFIG_CLS_U32_MARK
+>> -		if ((skb->mark & n->mark.mask) != n->mark.val) {
+>> -			n = n->next;
+>> +		if ((skb->mark & n->mask) != n->val) {
+>> +			n = rcu_dereference_bh(n->next);
+>>   			goto next_knode;
+>>   		} else {
+>> -			n->mark.success++;
+>> +			this_cpu_inc(*n->pcpu_success);
+>>   		}
+>>   #endif
+>>
+
+[...]
+
+
+>> @@ -326,11 +342,11 @@ static int u32_init(struct tcf_proto *tp)
+>>   	}
+>>
+>>   	tp_c->refcnt++;
+>> -	root_ht->next = tp_c->hlist;
+>> -	tp_c->hlist = root_ht;
+>> +	rcu_assign_pointer(root_ht->next, tp_c->hlist);
+>
+> 	RCU_INIT_POINTER() or root_ht->next = tp_c->hlist;
+>
+
+I'll fix all these as well.
+
+>> +	rcu_assign_pointer(tp_c->hlist, root_ht);
+>>   	root_ht->tp_c = tp_c;
+>>
+>> -	tp->root = root_ht;
+>> +	rcu_assign_pointer(tp->root, root_ht);
+>>   	tp->data = tp_c;
+>>   	return 0;
+>>   }
+>> @@ -342,25 +358,33 @@ static int u32_destroy_key(struct tcf_proto *tp, struct tc_u_knode *n)
+>>   	if (n->ht_down)
+>>   		n->ht_down->refcnt--;
+>>   #ifdef CONFIG_CLS_U32_PERF
+>> -	kfree(n->pf);
+>> +	free_percpu(n->pf);
+>>   #endif
+>>   	kfree(n);
+>>   	return 0;
+>>   }
+>>
+>> +void __u32_delete_key(struct rcu_head *rcu)
+>
+> Can we consistently use _rcu, as in u32_delete_key_rcu() ?
+
+Yes, I'll rename these calls.
+
+Thanks,
+John
+
+-- 
+John Fastabend         Intel Corporation
