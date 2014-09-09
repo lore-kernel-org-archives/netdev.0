@@ -1,163 +1,64 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v3 09/15] net: sched: make cls_u32 lockless
-Date: Tue, 09 Sep 2014 09:35:23 -0700
-Message-ID: <540F2C4B.6060404@gmail.com>
-References: <20140909055221.2071.99671.stgit@nitbit.x32>  <20140909055815.2071.39668.stgit@nitbit.x32> <1410268807.11872.177.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: Re: [PATCH v2 5/8] net: pxa168_eth: get and set the mac address on
+ the Ethernet controller
+Date: Tue, 9 Sep 2014 18:36:22 +0200
+Message-ID: <20140909163622.GA28752@kwain>
+References: <1410273848-24663-1-git-send-email-antoine.tenart@free-electrons.com>
+ <1410273848-24663-6-git-send-email-antoine.tenart@free-electrons.com>
+ <20140909162958.GS30828@titan.lakedaemon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
-	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:41458 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753751AbaIIQfi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 12:35:38 -0400
-Received: by mail-ob0-f177.google.com with SMTP id va2so1094130obc.36
-        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 09:35:38 -0700 (PDT)
-In-Reply-To: <1410268807.11872.177.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
+ devicetree@vger.kernel.org, netdev@vger.kernel.org,
+ Antoine Tenart <antoine.tenart@free-electrons.com>,
+ linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
+ jszhang@marvell.com, linux-arm-kernel@lists.infradead.org,
+ sebastian.hesselbarth@gmail.com
+To: Jason Cooper <jason@lakedaemon.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20140909162958.GS30828@titan.lakedaemon.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 09/09/2014 06:20 AM, Eric Dumazet wrote:
-> On Mon, 2014-09-08 at 22:58 -0700, John Fastabend wrote:
->> Make cls_u32 classifier safe to run without holding lock. This patch
->> converts statistics that are kept in read section u32_classify into
->> per cpu counters.
->>
->> This patch was tested with a tight u32 filter add/delete loop while
->> generating traffic with pktgen. By running pktgen on vlan devices
->> created on top of a physical device we can hit the qdisc layer
->> correctly. For ingress qdisc's a loopback cable was used.
->>
->> for i in {1..100}; do
->>          q=`echo $i%8|bc`;
->>          echo -n "u32 tos: iteration $i on queue $q";
->>          tc filter add dev p3p2 parent $p prio $i u32 match ip tos 0x10 0xff \
->>                    action skbedit queue_mapping $q;
->>          sleep 1;
->>          tc filter del dev p3p2 prio $i;
->>
->>          echo -n "u32 tos hash table: iteration $i on queue $q";
->>          tc filter add dev p3p2 parent $p protocol ip prio $i handle 628: u32 divisor 1
->>          tc filter add dev p3p2 parent $p protocol ip prio $i u32 \
->>                  match ip protocol 17 0xff link 628: offset at 0 mask 0xf00 shift 6 plus 0
->>          tc filter add dev p3p2 parent $p protocol ip prio $i u32 \
->>                  ht 628:0 match ip tos 0x10 0xff action skbedit queue_mapping $q
->>          sleep 2;
->>          tc filter del dev p3p2 prio $i
->>          sleep 1;
->> done
->>
->
->
-> Note it might be easier to split this patch in 2 parts.
->
-> (The percpu stuff could be done in a first step, then rcu conversion)
+Jason,
 
-Sure, I'll split it up.
+On Tue, Sep 09, 2014 at 12:29:58PM -0400, Jason Cooper wrote:
+> On Tue, Sep 09, 2014 at 04:44:05PM +0200, Antoine Tenart wrote:
+> > When changing the MAC address, in addition to updating the dev_addr in
+> > the net_device structure, this patch also update the MAC address
+> > registers (high and low) of the Ethernet controller with the new MAC.
+> > The address stored in these registers is used for IEEE 802.3x Ethernet
+> > flow control, which is already enabled.
+> > =
 
->
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
+> > This patch also tries reading the MAC address stored in these registers
+> > when probing the driver, to use the MAC address set by the bootloader
+> > and avoid using a random one.
+> =
 
-[...]
+> Hmm, the wording here seems odd.  I think the preference should be:
+> =
 
->>
->>   static inline unsigned int u32_hash_fold(__be32 key,
->> @@ -96,7 +103,7 @@ static int u32_classify(struct sk_buff *skb, const struct tcf_proto *tp, struct
->>   		unsigned int	  off;
->>   	} stack[TC_U32_MAXDEPTH];
->>
->> -	struct tc_u_hnode *ht = tp->root;
->> +	struct tc_u_hnode *ht = rcu_dereference_bh(tp->root);
->>   	unsigned int off = skb_network_offset(skb);
->>   	struct tc_u_knode *n;
->>   	int sdepth = 0;
->> @@ -108,23 +115,23 @@ static int u32_classify(struct sk_buff *skb, const struct tcf_proto *tp, struct
->>   	int i, r;
->>
->>   next_ht:
->> -	n = ht->ht[sel];
->> +	n = rcu_dereference_bh(ht->ht[sel]);
->>
->>   next_knode:
->>   	if (n) {
->>   		struct tc_u32_key *key = n->sel.keys;
->>
->>   #ifdef CONFIG_CLS_U32_PERF
->> -		n->pf->rcnt += 1;
->> +		this_cpu_inc(n->pf->rcnt);
->
-> As we run in BH, we are not preemptable, we can use instead :
-> __this_cpu_inc()  (on all occurrences)
->
-> Using a macro would also reduce the #ifdef mess of this file
->
+>  1) bootloader-supplied addr via DT
+>  2) addr read from device
+>  3) randomly generated one.
 
-I'll go ahead and do the macro conversion.
+I agree. I'll update that.
 
->>   		j = 0;
->>   #endif
->>
->>   #ifdef CONFIG_CLS_U32_MARK
->> -		if ((skb->mark & n->mark.mask) != n->mark.val) {
->> -			n = n->next;
->> +		if ((skb->mark & n->mask) != n->val) {
->> +			n = rcu_dereference_bh(n->next);
->>   			goto next_knode;
->>   		} else {
->> -			n->mark.success++;
->> +			this_cpu_inc(*n->pcpu_success);
->>   		}
->>   #endif
->>
+Antoine
 
-[...]
+-- =
 
-
->> @@ -326,11 +342,11 @@ static int u32_init(struct tcf_proto *tp)
->>   	}
->>
->>   	tp_c->refcnt++;
->> -	root_ht->next = tp_c->hlist;
->> -	tp_c->hlist = root_ht;
->> +	rcu_assign_pointer(root_ht->next, tp_c->hlist);
->
-> 	RCU_INIT_POINTER() or root_ht->next = tp_c->hlist;
->
-
-I'll fix all these as well.
-
->> +	rcu_assign_pointer(tp_c->hlist, root_ht);
->>   	root_ht->tp_c = tp_c;
->>
->> -	tp->root = root_ht;
->> +	rcu_assign_pointer(tp->root, root_ht);
->>   	tp->data = tp_c;
->>   	return 0;
->>   }
->> @@ -342,25 +358,33 @@ static int u32_destroy_key(struct tcf_proto *tp, struct tc_u_knode *n)
->>   	if (n->ht_down)
->>   		n->ht_down->refcnt--;
->>   #ifdef CONFIG_CLS_U32_PERF
->> -	kfree(n->pf);
->> +	free_percpu(n->pf);
->>   #endif
->>   	kfree(n);
->>   	return 0;
->>   }
->>
->> +void __u32_delete_key(struct rcu_head *rcu)
->
-> Can we consistently use _rcu, as in u32_delete_key_rcu() ?
-
-Yes, I'll rename these calls.
-
-Thanks,
-John
-
--- 
-John Fastabend         Intel Corporation
+Antoine T=E9nart, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
