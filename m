@@ -1,29 +1,34 @@
-From: "John W. Linville" <linville@tuxdriver.com>
+From: Emmanuel Grumbach <egrumbach@gmail.com>
 Subject: Re: iwlwifi no authentication with AP - Re: pull request:
  wireless-next 2014-09-08
-Date: Tue, 9 Sep 2014 15:52:32 -0400
-Message-ID: <20140909195232.GO29412@tuxdriver.com>
+Date: Tue, 9 Sep 2014 23:02:11 +0300
+Message-ID: <CANUX_P3n0v1SzfbYuaAsE4TY7Hz_wo2Fb9SmHVNyFOC9hDhwdg@mail.gmail.com>
 References: <20140908191630.GB29412@tuxdriver.com>
- <540F5927.7000306@hartkopp.net>
+	<540F5927.7000306@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:52325 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752007AbaIIUAJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 16:00:09 -0400
-Content-Disposition: inline
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:42873 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751520AbaIIUCM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 16:02:12 -0400
 In-Reply-To: <540F5927.7000306@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 09, 2014 at 09:46:47PM +0200, Oliver Hartkopp wrote:
+On Tue, Sep 9, 2014 at 10:46 PM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
 > Hello John, all,
-> 
+>
 > on my i7 Laptop with iwlwifi the latest net-next does not connect to my access point:
-> 
+
+Are you sure this wasn't the case before?
+Can you bisect?
+
+>
 > [   10.305284] iwlwifi 0000:02:00.0: L1 Enabled; Disabling L0S
 > [   10.312179] iwlwifi 0000:02:00.0: Radio type=0x1-0x3-0x1
 > [   10.524936] iwlwifi 0000:02:00.0: L1 Enabled; Disabling L0S
@@ -67,13 +72,13 @@ On Tue, Sep 09, 2014 at 09:46:47PM +0200, Oliver Hartkopp wrote:
 > [   21.964308] iwlwifi 0000:02:00.0: Q 19 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
 > [   22.116816] wlan0: authenticate with xx:xx:xx:xx:xx:xx
 > [   22.155887] wlan0: send auth to xx:xx:xx:xx:xx:xx (try 1/3)
-> 
+>
 > (..)
-> 
+>
 > and again and again ...
-> 
+>
 > Mainly this is the changing stuff in the following dmesg output:
-> 
+>
 > [   21.962348] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 3
 > [   26.951325] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 6
 > [   34.979316] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 9
@@ -86,18 +91,15 @@ On Tue, Sep 09, 2014 at 09:46:47PM +0200, Oliver Hartkopp wrote:
 > [   98.770854] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 30
 > [  111.287320] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 33
 > [  121.045034] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 36
-> 
+>
 > 02:00.0 Network controller: Intel Corporation Centrino Advanced-N 6200 (rev 35)
-> 
+>
 > Any idea?
-> 
+>
 > Regards,
 > Oliver
-
-Hopefully the Intel guys are listening.  As a hunch, what sort of
-encryption are you using?
-
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
