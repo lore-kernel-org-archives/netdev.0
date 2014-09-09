@@ -1,61 +1,43 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] rtlwifi: btcoexist: Fix "always true" warning from commit ed364abffd6e
-Date: Tue,  9 Sep 2014 15:57:46 -0500
-Message-ID: <1410296266-14327-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kbuild test robot <kbuild-all-JC7UmRfGjtg@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Anish Bhatt <anish@chelsio.com>
+Subject: RE: randconfig build error with next-20140909, in
+ drivers/net/ethernet/broadcom/cnic.c
+Date: Tue, 9 Sep 2014 21:08:13 +0000
+Message-ID: <525DB349B3FB5444AE057A887CB2A8D88E3CEC@nice.asicdesigners.com>
+References: <CA+r1ZhhZynUKSeZnya67z9sph4+tpjO4E7jLZKc0EG4azxFdYA@mail.gmail.com>
+	 <525DB349B3FB5444AE057A887CB2A8D88E0BFB@nice.asicdesigners.com>,<1410295676.7520.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Jim Davis <jim.epost@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>,
+	"eddie.wai@broadcom.com" <eddie.wai@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-228.uvs.sntcca.sbcglobal.net ([99.65.72.228]:26114
+	"EHLO stargate.chelsio.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752006AbaIIVIU convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2014 17:08:20 -0400
+In-Reply-To: <1410295676.7520.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The 0-DAY kernel build testing backend reports the following warning:
-drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c:516 halbtc_bitmask_write_1byte()
-warn: always true condition '(bit_mask != 4294967295) => (0-255 != u32max)'
 
-This problem was introduced in commit ed364abffd6e19bec67b7ccda8237213b8b37640,
-and arises because the caller of halbtc_bitmask_write_1byte() is using a
-u8 rather than a u32 for the data.
+> Adding depends on IPV6 || IPV6=n doesn't work for SCSI_BNX2X_FCOE, but
+> works for SCSI_BNX2_ISCSI?
 
-Reported-by: Kbuild test robot <kbuild-all-JC7UmRfGjtg@public.gmane.org>
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Cc: Kbuild test robot <kbuild-all-JC7UmRfGjtg@public.gmane.org>
----
- drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c | 2 +-
- drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+It fixes the config issue for both, but with FCOE; make scripts will complain about recursive dependencies with the following :
 
-diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
-index 3119e8b..0620b22 100644
---- a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
-+++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
-@@ -497,7 +497,7 @@ static u32 halbtc_read_4byte(void *bt_context, u32 reg_addr)
- 	return	rtl_read_dword(rtlpriv, reg_addr);
- }
- 
--static void halbtc_write_1byte(void *bt_context, u32 reg_addr, u8 data)
-+static void halbtc_write_1byte(void *bt_context, u32 reg_addr, u32 data)
- {
- 	struct btc_coexist *btcoexist = (struct btc_coexist *)bt_context;
- 	struct rtl_priv *rtlpriv = btcoexist->adapter;
-diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
-index eae1937..0d185e6 100644
---- a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
-+++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
-@@ -359,7 +359,7 @@ typedef u16 (*bfp_btc_r2)(void *btc_context, u32 reg_addr);
- 
- typedef u32 (*bfp_btc_r4)(void *btc_context, u32 reg_addr);
- 
--typedef void (*bfp_btc_w1)(void *btc_context, u32 reg_addr, u8 data);
-+typedef void (*bfp_btc_w1)(void *btc_context, u32 reg_addr, u32 data);
- 
- typedef void (*bfp_btc_w1_bit_mak)(void *btc_context, u32 reg_addr,
- 				   u8 bit_mask, u8 data1b);
--- 
-1.8.4.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+scripts/kconfig/conf --silentoldconfig Kconfig
+net/Kconfig:5:error: recursive dependency detected!
+net/Kconfig:5:  symbol NET is selected by SCSI_NETLINK
+drivers/scsi/Kconfig:43:        symbol SCSI_NETLINK is selected by SCSI_FC_ATTRS
+drivers/scsi/Kconfig:258:       symbol SCSI_FC_ATTRS is selected by LIBFC
+drivers/scsi/Kconfig:586:       symbol LIBFC is selected by SCSI_BNX2X_FCOE
+drivers/scsi/bnx2fc/Kconfig:1:  symbol SCSI_BNX2X_FCOE depends on IPV6
+net/ipv6/Kconfig:6:     symbol IPV6 depends on NET
