@@ -1,47 +1,58 @@
-From: raj@tardy.usa.hp.com (Rick Jones)
-Subject: [PATCH net-next] sfc: Convert the normal transmit complete path to dev_consume_skb_any()
-Date: Tue,  9 Sep 2014 14:43:27 -0700 (PDT)
-Message-ID: <20140909214327.D474F290042C@tardy>
-Cc: <davem@davemloft.net>, <sshah@solarflare.com>,
-	<linux-net-drivers@solarflare.com>
-To: <netdev@vger.kernel.org>
+From: Martin Kelly <martin@martingkelly.com>
+Subject: Question about synchronize_net() in AF_PACKET close()
+Date: Tue, 9 Sep 2014 14:44:56 -0700
+Message-ID: <CAN8CM3zo3bMxZV_UvywCPNjJrMwMA2-+POfY8cR429iodHRc+A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t1613g.houston.hp.com ([15.240.0.71]:44257 "EHLO
-	g9t1613g.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752577AbaIIVnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 17:43:41 -0400
-Received: from g2t2353.austin.hp.com (g2t2353.austin.hp.com [15.217.128.52])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by g9t1613g.houston.hp.com (Postfix) with ESMTPS id 5D2C661AA2
-	for <netdev@vger.kernel.org>; Tue,  9 Sep 2014 21:43:40 +0000 (UTC)
+Received: from mail-qc0-f182.google.com ([209.85.216.182]:65296 "EHLO
+	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751387AbaIIVo5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 17:44:57 -0400
+Received: by mail-qc0-f182.google.com with SMTP id x13so5123184qcv.13
+        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 14:44:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-From: Rick Jones <rick.jones2@hp.com>
+I have been reading the code in net/packet/af_packet.c in order to
+optimize the runtime for raw socket close(). In certain cases, close()
+can take a long time to return because of the synchronize_net()
+overhead. In pursuit of speeding up close(), I have been testing a patch
+that defers the socket buffer memory release via call_rcu() in order to
+make close() return faster. However, I hit a tricky RCU question for
+which I don't have the answer and wanted to know if any RCU/networking
+experts could provide some guidance.
 
-Convert the normal transmit completion path from dev_kfree_skb_any()
-to dev_consume_skb_any() to help keep dropped packet profiling
-meaningful.
+In net/packet/af_packet.c, I noticed the following few lines within
+packet_release:
 
-Signed-off-by: Rick Jones <rick.jones2@hp.com>
+         synchronize_net();
+         /*
+          *      Now the socket is dead. No more input will appear.
+          */
+         sock_orphan(sk);
+         sock->sk = NULL;
 
----
+>From testing and code analysis, I have found that it appears to be safe
+to move sock_orphan and sock->sk = NULL before the synchronize_net()
+call like so:
 
-Compile tested only.  Also a fixup to make scripts/checkpatch.pl
-happy.
+         /*
+          *      Now the socket is dead. No more input will appear.
+          */
+         sock_orphan(sk);
+         sock->sk = NULL;
+         synchronize_net();
 
-diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index 65c220f..3206098 100644
---- a/drivers/net/ethernet/sfc/tx.c
-+++ b/drivers/net/ethernet/sfc/tx.c
-@@ -78,7 +78,7 @@ static void efx_dequeue_buffer(struct efx_tx_queue *tx_queue,
- 	if (buffer->flags & EFX_TX_BUF_SKB) {
- 		(*pkts_compl)++;
- 		(*bytes_compl) += buffer->skb->len;
--		dev_kfree_skb_any((struct sk_buff *) buffer->skb);
-+		dev_consume_skb_any((struct sk_buff *)buffer->skb);
- 		netif_vdbg(tx_queue->efx, tx_done, tx_queue->efx->net_dev,
- 			   "TX queue %d transmission id %x complete\n",
- 			   tx_queue->queue, tx_queue->read_count);
+Could some RCU and/or networking experts chime in about whether this a
+safe operation? For all I know, there is some deep, fundamental reason
+why those lines are in the order they are. On the other hand, perhaps
+there is not.
+
+Thanks,
+Martin
