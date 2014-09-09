@@ -1,21 +1,19 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
+From: Tejun Heo <tj@kernel.org>
 Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Tue, 09 Sep 2014 15:46:23 -0700
-Message-ID: <1410302783.13298.50.camel@jarvis.lan>
-References: <20140905174925.GA12991@mtj.dyndns.org>
-	 <CAB=NE6VPTV39pNujOgO422wbUvU44HZ7s=aaxPVraNECqA6e4Q@mail.gmail.com>
-	 <20140905224047.GC15723@mtj.dyndns.org>
-	 <CAB=NE6Uz1VD5qpMFSBfQRV8ih9FQcCUhNtWMvD38t5hdDvix4Q@mail.gmail.com>
-	 <20140909011059.GB11706@mtj.dyndns.org>
-	 <1410241109.2028.22.camel@jarvis.lan>
-	 <CAB=NE6WGAMvffGDTkN5x5Cd+YOtD-Cmo3v7_8FmJ5cvCRbFEpw@mail.gmail.com>
-	 <1410291346.13298.16.camel@jarvis.lan>
-	 <20140909214240.GA3154@mtj.dyndns.org>
-	 <1410301562.13298.35.camel@jarvis.lan>
-	 <20140909224143.GB3154@mtj.dyndns.org>
+Date: Wed, 10 Sep 2014 07:52:45 +0900
+Message-ID: <20140909225245.GC3154@mtj.dyndns.org>
+References: <20140905224047.GC15723@mtj.dyndns.org>
+ <CAB=NE6Uz1VD5qpMFSBfQRV8ih9FQcCUhNtWMvD38t5hdDvix4Q@mail.gmail.com>
+ <20140909011059.GB11706@mtj.dyndns.org>
+ <1410241109.2028.22.camel@jarvis.lan>
+ <CAB=NE6WGAMvffGDTkN5x5Cd+YOtD-Cmo3v7_8FmJ5cvCRbFEpw@mail.gmail.com>
+ <1410291346.13298.16.camel@jarvis.lan>
+ <20140909214240.GA3154@mtj.dyndns.org>
+ <1410301562.13298.35.camel@jarvis.lan>
+ <20140909224143.GB3154@mtj.dyndns.org>
+ <1410302783.13298.50.camel@jarvis.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
 	Lennart Poettering <lennart@poettering.net>,
 	Kay Sievers <kay@vrfy.org>,
@@ -35,81 +33,44 @@ Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
 	Pierre Fersing <pierre-fersing@pierref.org>,
 	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
 	Praveen Krishnamoorthy <pravee
-To: Tejun Heo <tj@kernel.org>
+To: James Bottomley <James.Bottomley@HansenPartnership.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140909224143.GB3154@mtj.dyndns.org>
+Content-Disposition: inline
+In-Reply-To: <1410302783.13298.50.camel@jarvis.lan>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-09-10 at 07:41 +0900, Tejun Heo wrote:
-> Hello,
+Hello, James.
+
+On Tue, Sep 09, 2014 at 03:46:23PM -0700, James Bottomley wrote:
+> If you want the return of an individual device probe a log scraper gives
+> it to you ... and nothing else does currently.  The advantage of the
+> prink in dd.c is that it's standard for everything and can be scanned
+> for ... if you take that out, you'll get complaints about the lack of
+> standard messages (you'd be surprised at the number of enterprise
+> monitoring systems that actually do log scraping).
+
+Why would a log scaper care about which task is printing the messages?
+The printk can stay there.  There's nothing wrong with it.  Log
+scapers tend to be asynchronous in nature but if a log scraper wants
+to operate synchronously for whatever reason, it can simply not turn
+on async probing.
+
+> OK, so we just fire and forget in userland ... why bother inventing an
+> elaborate new infrastructure in the kernel to do exactly what
 > 
-> On Tue, Sep 09, 2014 at 03:26:02PM -0700, James Bottomley wrote:
-> > > We no longer report back error on probe failure on module load.
-> > 
-> > Yes, we do; for every probe failure of a device on a driver we'll print
-> > a warning (see drivers/base/dd.c).  Now if someone is proposing we
-> > should report this in a better fashion, that's probably a good idea, but
-> > I must have missed that patch.
+> modprobe <mod> &
 > 
-> We can do printks all the same from anywhere.  There's nothing special
-> about printing from the module loading thread.  The only way to
-> actually take advantage of the synchronisity would be propagating
-> error return to the waiting issuer, which we used to do but no longer
-> can.
+> would do?
 
-If you want the return of an individual device probe a log scraper gives
-it to you ... and nothing else does currently.  The advantage of the
-prink in dd.c is that it's standard for everything and can be scanned
-for ... if you take that out, you'll get complaints about the lack of
-standard messages (you'd be surprised at the number of enterprise
-monitoring systems that actually do log scraping).
+I think the argument there is that the issuer wants to know whether
+such operations succeeded or not and wants to report and record the
+result and possibly take other actions in response.  We're currently
+mixing wait and error reporting for one type of operation with wait
+for another.  I'm not saying it's a fatal flaw or anything but it can
+get in the way.
 
-> > >   It
-> > > used to make sense to indicate error for module load on probe failure
-> > > when the hardware was a lot simpler and drivers did their own device
-> > > enumeration.  With the current bus / device setup, it doesn't make any
-> > > sense and driver core silently suppresses all probe failures.  There's
-> > > nothing the probing thread can monitor anymore.
-> > 
-> > Except the length of time taken to probe.  That seems to be what systemd
-> > is interested in, hence this whole thread, right?
-> 
-> No, systemd in this case isn't interested in the time taken to probe
-> at all.  It is expecting module load to just do that - load the
-> module.  Modern userlands, systemd or not, no longer depend on or make
-> use of the wait.
+Thanks.
 
-So what's the problem?  it can just fire and forget; that's what fork()
-is for.
-
-> > But that's nothing to do with sync or async.  Nowadays we register a
-> > driver, the driver may bind to multiple devices.  If one of those
-> > devices encounters an error during probe, we just report the fact in
-> > dmesg and move on.  The module_init thread currently returns when all
-> > the probe routines for all enumerated devices have been called, so
-> > module_init has no indication of any failures (because they might be
-> > mixed with successes); successes are indicated as the device appears but
-> > we have nothing other than the kernel log to indicate the failures.  How
-> > does moving to async probing alter this?  It doesn't as far as I can
-> > see, except that module_init returns earlier but now we no longer have
-> > an indication of when the probe completes, so we have to add yet another
-> > mechanism to tell us if we're interested in that.  I really don't see
-> > what this buys us.
-> 
-> The thing is that we have to have dynamic mechanism to listen for
-> device attachments no matter what and such mechanism has been in place
-> for a long time at this point.  The synchronous wait simply doesn't
-> serve any purpose anymore and kinda gets in the way in that it makes
-> it a possibly extremely slow process to tell whether loading of a
-> module succeeded or not because the wait for the initial round of
-> probe is piggybacked.
-
-OK, so we just fire and forget in userland ... why bother inventing an
-elaborate new infrastructure in the kernel to do exactly what
-
-modprobe <mod> &
-
-would do?
-
-James
+-- 
+tejun
