@@ -1,44 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv4: udp4_gro_complete() is static
-Date: Tue, 09 Sep 2014 08:29:12 -0700
-Message-ID: <1410276552.7106.17.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 3/8] Documentation: bindings: net: add the Marvell PXA168 Ethernet controller
+Date: Tue, 09 Sep 2014 17:58:12 +0200
+Message-ID: <3827594.chb831jyvc@wuerfel>
+References: <1410273848-24663-1-git-send-email-antoine.tenart@free-electrons.com> <1410273848-24663-4-git-send-email-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: sebastian.hesselbarth@gmail.com,
+	alexandre.belloni@free-electrons.com,
+	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
+	jszhang@marvell.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:46062 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753362AbaIIP3O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 11:29:14 -0400
-Received: by mail-pa0-f42.google.com with SMTP id lj1so4361041pab.29
-        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 08:29:14 -0700 (PDT)
+Received: from mout.kundenserver.de ([212.227.17.13]:54641 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753844AbaIIP6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 11:58:49 -0400
+In-Reply-To: <1410273848-24663-4-git-send-email-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Tuesday 09 September 2014 16:44:03 Antoine Tenart wrote:
+> +- clocks: pointer to the clock for the device.
+> +- clock-names: should be "MFUCLK".
 
-net/ipv4/udp_offload.c:339:5: warning: symbol 'udp4_gro_complete' was
-not declared. Should it be static?
+Clock names are normally not capitalized. Are you able to change
+that name when providing a binding or make it an anoymous clock?
+What does MFU stand for anyway?
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Tom Herbert <therbert@google.com>
-Fixes: 57c67ff4bd92 ("udp: additional GRO support")
----
- net/ipv4/udp_offload.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 84e0e05c9c0e..52d5f46abf86 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -336,7 +336,7 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
- 	return err;
- }
- 
--int udp4_gro_complete(struct sk_buff *skb, int nhoff)
-+static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
- {
- 	const struct iphdr *iph = ip_hdr(skb);
- 	struct udphdr *uh = (struct udphdr *)(skb->data + nhoff);
+	Arnd
