@@ -1,123 +1,89 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next 5/5] ipv6: drop some rcu_read_lock in mcast
-Date: Tue,  9 Sep 2014 16:52:18 -0700
-Message-ID: <1410306738-18036-6-git-send-email-xiyou.wangcong@gmail.com>
-References: <1410306738-18036-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org
+From: Andres Freund <andres@anarazel.de>
+Subject: Re: Macvlan WARNiNGS about duplicate sysfs filenames (Was [GIT]
+ Networking)
+Date: Wed, 10 Sep 2014 01:55:34 +0200
+Message-ID: <20140909235534.GH24649@awork2.anarazel.de>
+References: <20140907.164109.1944849896872238507.davem@davemloft.net>
+ <20140908212514.GA2348@awork2.anarazel.de>
+ <CAHA+R7NCwhMaWX0Mhr7AqHH4x5RZ6TEEiJB7906yVzQouXD3Lg@mail.gmail.com>
+ <20140909234806.GG24649@awork2.anarazel.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Alexander Y. Fomichev" <git.user@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:58207 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752734AbaIIXwl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 19:52:41 -0400
-Received: by mail-pd0-f173.google.com with SMTP id ft15so7987888pdb.32
-        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 16:52:41 -0700 (PDT)
-In-Reply-To: <1410306738-18036-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail.anarazel.de ([217.115.131.40]:42638 "EHLO mail.anarazel.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751648AbaIIXzk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2014 19:55:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20140909234806.GG24649@awork2.anarazel.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similarly the code is already protected by rtnl lock.
+On 2014-09-10 01:48:06 +0200, Andres Freund wrote:
+> On 2014-09-09 15:43:55 -0700, Cong Wang wrote:
+> > On Mon, Sep 8, 2014 at 2:25 PM, Andres Freund <andres@anarazel.de> wrote:
+> > > Hi,
+> > >
+> > > (don't have netdev archived, thus answering here, sorry)
+> > >
+> > > On 2014-09-07 16:41:09 -0700, David Miller wrote:
+> > >> Alexander Y. Fomichev (1):
+> > >>       net: prevent of emerging cross-namespace symlinks
+> > >
+> > 
+> > Since you are quoting this change, are you saying it causes
+> > the following kernel warning?
+> 
+> I thought it might be a likely candidate; but I'm not sure at all. I'll
+> verify it as soon as I can reboot the machine a couple of times (end of
+> week-ish).
+> 
+> > > I'm seeing WARNINGs like:
+> > > [ 1005.269134] ------------[ cut here ]------------
+> > > [ 1005.269148] WARNING: CPU: 6 PID: 4213 at fs/sysfs/dir.c:31 sysfs_warn_dup+0x64/0x80()
+> > > [ 1005.269150] sysfs: cannot create duplicate filename '/devices/pci0000:00/0000:00:1c.4/0000:03:00.0/net/eth0/upper_mv-eth0'
+> > 
+> > 
+> > Is there a network device named upper_mv-eth0 existed in your system
+> > before you created macvlan?
+> 
+> No, there wasn't any. Afaics, the sequence is:
+> 1) macvlan mv-eth0 is created in global namespace
+> 2) mv-eth0 is moved (by systemd-nsspawn) into a new network
+>    namespace. Leaving a dangling symlink in the host namespace
+> /devices/pci0000:00/0000:00:1c.4/0000:03:00.0/net/eth0/upper_mv-eth0 pointing toward
+> ../mv-eth0
+> which doesn't exist in the external namespace. The new namespace seems
+> to have broken 'lower_bond0' symlink as well
+> 
+> This seems to be the case (and probably the actual root cause) in
+> slightly earlier kernels as well.
+> What changed seems to be that:
+> 3) macvlan mv-eth0 is destroyed in the namespace (potentially while
+>    tearing it down)
+> 4) Now there's a broken symlink that doesn't make sense in any namespace
+> 5) mv-eth0 can't be created anew
+> 
+> It seems that 3-5 didn't happen that way on older kernels. The most
+> recent where it's not persistently broken is 3.16.0-rc7-00007 -
+> 31dab719f. The oldest where I know it's reproducible is
+> 3.17.0-rc4-andres-00135-g35af256.
 
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/ipv6/mcast.c | 17 ++++-------------
- 1 file changed, 4 insertions(+), 13 deletions(-)
+I've reproduced the problem on another machine where it's perfectly
+reproducible (except being about mv-bond0). After reverting only the
+aforementioned 4c75431ac352063 it works again.
+As I said above, I'm not sure whether 4c75431ac352063 is the actual
+culprit, but it certainly made the problem visible. How are these
+upper_$if/lower_$if supposed to behave when the macvlan and the
+underlying device are in differing namespaces?
 
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index d2b7dd8..255409c 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -171,7 +171,6 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 	mc_lst->addr = *addr;
- 
- 	rtnl_lock();
--	rcu_read_lock();
- 	if (ifindex == 0) {
- 		struct rt6_info *rt;
- 		rt = rt6_lookup(net, addr, NULL, 0, 0);
-@@ -180,10 +179,9 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 			ip6_rt_put(rt);
- 		}
- 	} else
--		dev = dev_get_by_index_rcu(net, ifindex);
-+		dev = __dev_get_by_index(net, ifindex);
- 
- 	if (dev == NULL) {
--		rcu_read_unlock();
- 		rtnl_unlock();
- 		sock_kfree_s(sk, mc_lst, sizeof(*mc_lst));
- 		return -ENODEV;
-@@ -201,7 +199,6 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 	err = ipv6_dev_mc_inc(dev, addr);
- 
- 	if (err) {
--		rcu_read_unlock();
- 		rtnl_unlock();
- 		sock_kfree_s(sk, mc_lst, sizeof(*mc_lst));
- 		return err;
-@@ -210,7 +207,6 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 	mc_lst->next = np->ipv6_mc_list;
- 	rcu_assign_pointer(np->ipv6_mc_list, mc_lst);
- 
--	rcu_read_unlock();
- 	rtnl_unlock();
- 
- 	return 0;
-@@ -239,8 +235,7 @@ int ipv6_sock_mc_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 
- 			*lnk = mc_lst->next;
- 
--			rcu_read_lock();
--			dev = dev_get_by_index_rcu(net, mc_lst->ifindex);
-+			dev = __dev_get_by_index(net, mc_lst->ifindex);
- 			if (dev != NULL) {
- 				struct inet6_dev *idev = __in6_dev_get(dev);
- 
-@@ -249,7 +244,6 @@ int ipv6_sock_mc_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 					__ipv6_dev_mc_dec(idev, &mc_lst->addr);
- 			} else
- 				(void) ip6_mc_leave_src(sk, mc_lst, NULL);
--			rcu_read_unlock();
- 			rtnl_unlock();
- 
- 			atomic_sub(sizeof(*mc_lst), &sk->sk_omem_alloc);
-@@ -308,8 +302,7 @@ void ipv6_sock_mc_close(struct sock *sk)
- 
- 		np->ipv6_mc_list = mc_lst->next;
- 
--		rcu_read_lock();
--		dev = dev_get_by_index_rcu(net, mc_lst->ifindex);
-+		dev = __dev_get_by_index(net, mc_lst->ifindex);
- 		if (dev) {
- 			struct inet6_dev *idev = __in6_dev_get(dev);
- 
-@@ -318,7 +311,6 @@ void ipv6_sock_mc_close(struct sock *sk)
- 				__ipv6_dev_mc_dec(idev, &mc_lst->addr);
- 		} else
- 			(void) ip6_mc_leave_src(sk, mc_lst, NULL);
--		rcu_read_unlock();
- 
- 		atomic_sub(sizeof(*mc_lst), &sk->sk_omem_alloc);
- 		kfree_rcu(mc_lst, rcu);
-@@ -943,7 +935,7 @@ int ipv6_dev_mc_dec(struct net_device *dev, const struct in6_addr *addr)
- 	struct inet6_dev *idev;
- 	int err;
- 
--	rcu_read_lock();
-+	ASSERT_RTNL();
- 
- 	idev = __in6_dev_get(dev);
- 	if (!idev)
-@@ -951,7 +943,6 @@ int ipv6_dev_mc_dec(struct net_device *dev, const struct in6_addr *addr)
- 	else
- 		err = __ipv6_dev_mc_dec(idev, addr);
- 
--	rcu_read_unlock();
- 	return err;
- }
- 
--- 
-1.8.3.1
+Greetings,
+
+Andres Freund
