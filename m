@@ -1,82 +1,82 @@
 From: Alex Gartrell <agartrell@fb.com>
-Subject: [PATCH net-next 05/20] ipvs: prevent mixing heterogeneous pools and synchronization
-Date: Tue, 9 Sep 2014 16:40:24 -0700
-Message-ID: <1410306039-2977-6-git-send-email-agartrell@fb.com>
+Subject: [PATCH net-next 20/20] ipvs: Allow heterogeneous pools now that we support them
+Date: Tue, 9 Sep 2014 16:40:39 -0700
+Message-ID: <1410306039-2977-21-git-send-email-agartrell@fb.com>
 References: <1410306039-2977-1-git-send-email-agartrell@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <horms@verge.net.au>, <ja@ssi.bg>, <lvs-devel@vger.kernel.org>,
 	<kernel-team@fb.com>, <ps@fb.com>, Alex Gartrell <agartrell@fb.com>
 To: <netdev@vger.kernel.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:30002 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753197AbaIIXk4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 19:40:56 -0400
+Received: from pps.filterd (m0004348 [127.0.0.1])
+	by m0004348.ppops.net (8.14.5/8.14.5) with SMTP id s89NYBjB014158
+	for <netdev@vger.kernel.org>; Tue, 9 Sep 2014 16:40:55 -0700
+Received: from mail.thefacebook.com (mailwest.thefacebook.com [173.252.71.148])
+	by m0004348.ppops.net with ESMTP id 1p90t1c1tw-7
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 16:40:55 -0700
+Received: from facebook.com (2401:db00:20:7017:face:0:13:0)	by
+ mx-out.facebook.com (10.223.101.97) with ESMTP	id
+ bcbceb84387a11e4a9f824be0595f910-2e0e13f0 for <netdev@vger.kernel.org>;	Tue,
+ 09 Sep 2014 16:40:53 -0700
 In-Reply-To: <1410306039-2977-1-git-send-email-agartrell@fb.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The synchronization protocol is not compatible with heterogeneous pools, so
-we need to verify that we're not turning both on at the same time.
+Remove the temporary consistency check and add a case statement to only
+allow ipip mixed dests.
 
 Signed-off-by: Alex Gartrell <agartrell@fb.com>
 ---
- include/net/ip_vs.h            |  4 ++++
- net/netfilter/ipvs/ip_vs_ctl.c | 15 +++++++++++++++
- 2 files changed, 19 insertions(+)
+ net/netfilter/ipvs/ip_vs_ctl.c | 24 ++++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 7600dbe..576d7f0 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -990,6 +990,10 @@ struct netns_ipvs {
- 	char			backup_mcast_ifn[IP_VS_IFNAME_MAXLEN];
- 	/* net name space ptr */
- 	struct net		*net;            /* Needed by timer routines */
-+	/* Number of heterogeneous destinations, needed because
-+	 * heterogeneous are not supported when synchronization is
-+	 * enabled */
-+	unsigned int		mixed_address_family_dests;
- };
- 
- #define DEFAULT_SYNC_THRESHOLD	3
 diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 33d04ee..175945f 100644
+index 175945f..325afe2 100644
 --- a/net/netfilter/ipvs/ip_vs_ctl.c
 +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -779,6 +779,12 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
- 	struct ip_vs_scheduler *sched;
- 	int conn_flags;
+@@ -854,10 +854,6 @@ ip_vs_new_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest,
  
-+	/* We cannot modify an address and change the address family */
-+	BUG_ON(!add && udest->af != dest->af);
-+
-+	if (add && udest->af != svc->af)
-+		ipvs->mixed_address_family_dests++;
-+
- 	/* set the weight and the flags */
- 	atomic_set(&dest->weight, udest->weight);
- 	conn_flags = udest->conn_flags & IP_VS_CONN_F_DEST_MASK;
-@@ -1061,6 +1067,9 @@ static void __ip_vs_unlink_dest(struct ip_vs_service *svc,
- 	list_del_rcu(&dest->n_list);
- 	svc->num_dests--;
+ 	EnterFunction(2);
  
-+	if (dest->af != svc->af)
-+		net_ipvs(svc->net)->mixed_address_family_dests--;
+-	/* Temporary for consistency */
+-	if (udest->af != svc->af)
+-		return -EINVAL;
+-
+ #ifdef CONFIG_IP_VS_IPV6
+ 	if (udest->af == AF_INET6) {
+ 		atype = ipv6_addr_type(&udest->addr.in6);
+@@ -3392,6 +3388,26 @@ static int ip_vs_genl_set_cmd(struct sk_buff *skb, struct genl_info *info)
+ 		 */
+ 		if (udest.af == 0)
+ 			udest.af = svc->af;
 +
- 	if (svcupd) {
- 		struct ip_vs_scheduler *sched;
- 
-@@ -3245,6 +3254,12 @@ static int ip_vs_genl_new_daemon(struct net *net, struct nlattr **attrs)
- 	      attrs[IPVS_DAEMON_ATTR_SYNC_ID]))
- 		return -EINVAL;
- 
-+	/* The synchronization protocol is incompatible with mixed family
-+	 * services
-+	 */
-+	if (net_ipvs(net)->mixed_address_family_dests > 0)
-+		return -EINVAL;
++		if (udest.af != svc->af) {
++			/* The synchronization protocol is incompatible
++			 * with mixed family services
++			 */
++			if (net_ipvs(net)->sync_state) {
++				ret = -EINVAL;
++				goto out;
++			}
 +
- 	return start_sync_thread(net,
- 				 nla_get_u32(attrs[IPVS_DAEMON_ATTR_STATE]),
- 				 nla_data(attrs[IPVS_DAEMON_ATTR_MCAST_IFN]),
++			/* Which connection types do we support? */
++			switch (udest.conn_flags) {
++			case IP_VS_CONN_F_TUNNEL:
++				/* We are able to forward this */
++				break;
++			default:
++				ret = -EINVAL;
++				goto out;
++			}
++		}
+ 	}
+ 
+ 	switch (cmd) {
 -- 
 1.8.1
-
