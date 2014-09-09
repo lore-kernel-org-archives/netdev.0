@@ -1,62 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Question about synchronize_net() in AF_PACKET close()
-Date: Tue, 09 Sep 2014 15:00:00 -0700 (PDT)
-Message-ID: <20140909.150000.1647602729214485795.davem@davemloft.net>
-References: <CAN8CM3zo3bMxZV_UvywCPNjJrMwMA2-+POfY8cR429iodHRc+A@mail.gmail.com>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
+Date: Wed, 10 Sep 2014 00:00:31 +0200 (CEST)
+Message-ID: <alpine.LRH.2.00.1409092355130.14816@twin.jikos.cz>
+References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com> <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com> <20140905141241.GC10455@mtj.dyndns.org> <20140905164405.GA28964@core.coreip.homeip.net> <20140905174925.GA12991@mtj.dyndns.org>
+ <CAB=NE6VPTV39pNujOgO422wbUvU44HZ7s=aaxPVraNECqA6e4Q@mail.gmail.com> <20140905224047.GC15723@mtj.dyndns.org> <CAB=NE6Uz1VD5qpMFSBfQRV8ih9FQcCUhNtWMvD38t5hdDvix4Q@mail.gmail.com> <20140909011059.GB11706@mtj.dyndns.org> <1410241109.2028.22.camel@jarvis.lan>
+ <CAB=NE6WGAMvffGDTkN5x5Cd+YOtD-Cmo3v7_8FmJ5cvCRbFEpw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	stephen@networkplumber.org
-To: martin@martingkelly.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: James Bottomley <James.Bottomley@hansenpartnership.com>,
+	Tejun Heo <tj@kernel.org>,
+	Lennart Poettering <lennart@poettering.net>,
+	Kay Sievers <kay@vrfy.org>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33006 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751508AbaIIWAB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 18:00:01 -0400
-In-Reply-To: <CAN8CM3zo3bMxZV_UvywCPNjJrMwMA2-+POfY8cR429iodHRc+A@mail.gmail.com>
+Received: from cantor2.suse.de ([195.135.220.15]:57333 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751950AbaIIWAm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2014 18:00:42 -0400
+In-Reply-To: <CAB=NE6WGAMvffGDTkN5x5Cd+YOtD-Cmo3v7_8FmJ5cvCRbFEpw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin Kelly <martin@martingkelly.com>
-Date: Tue, 9 Sep 2014 14:44:56 -0700
+On Tue, 9 Sep 2014, Luis R. Rodriguez wrote:
 
-> In net/packet/af_packet.c, I noticed the following few lines within
-> packet_release:
-> 
->          synchronize_net();
->          /*
->           *      Now the socket is dead. No more input will appear.
->           */
->          sock_orphan(sk);
->          sock->sk = NULL;
-> 
-> From testing and code analysis, I have found that it appears to be safe
-> to move sock_orphan and sock->sk = NULL before the synchronize_net()
-> call like so:
-> 
->          /*
->           *      Now the socket is dead. No more input will appear.
->           */
->          sock_orphan(sk);
->          sock->sk = NULL;
->          synchronize_net();
-> 
-> Could some RCU and/or networking experts chime in about whether this a
-> safe operation? For all I know, there is some deep, fundamental reason
-> why those lines are in the order they are. On the other hand, perhaps
-> there is not.
+> By design it seems systemd should not allow worker processes to block
+> indefinitely and in fact it currently uses the same timeout for all
+> types of worker processes. 
 
-The synchronize_net() is also there to protect against the prot hook
-which can run asynchronously from the core packet input path on any
-cpu.
+And I whole-heartedly believe this is something that fundamentally needs 
+to be addressed in systemd, not in the kernel.
 
-You probably want to reference commit:
+This aproach is actually introducing a user-visible regressions. Look, for 
+example, exec() never times out. Therefore if your system is on its knees, 
+heavily overloaded (or completely broken), you are likely to be able to 
+`reboot' it, because exec("/sbin/reboot") ultimately succeeds.
 
-commit 808f5114a9206fee855117d416440e1071ab375c
-Author: stephen hemminger <shemminger@vyatta.com>
-Date:   Mon Feb 22 07:57:18 2010 +0000
+But with all the timeouts, dbus, "Failed to issue method call: Did 
+not receive a reply" messages, this is getting close to impossible.
 
-    packet: convert socket list to RCU (v3)
-
-which put the synchronize_net() there in the first place.
+-- 
+Jiri Kosina
+SUSE Labs
