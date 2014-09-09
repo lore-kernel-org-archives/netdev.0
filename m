@@ -1,52 +1,31 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next 1/3] ipv6: Clear flush_id to make GRO work
-Date: Tue,  9 Sep 2014 11:23:14 -0700
-Message-ID: <1410286996-302-2-git-send-email-therbert@google.com>
-References: <1410286996-302-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/ipv4: bind ip_nonlocal_bind to current netns
+Date: Tue, 09 Sep 2014 11:27:24 -0700 (PDT)
+Message-ID: <20140909.112724.1513813263306169050.davem@davemloft.net>
+References: <1409922543-708-1-git-send-email-vincent@bernat.im>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, vyasevich@gmail.com, nhorman@tuxdriver.com,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: vincent@bernat.im
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:44897 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751245AbaIISXo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 14:23:44 -0400
-Received: by mail-pd0-f179.google.com with SMTP id g10so10569764pdj.24
-        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 11:23:43 -0700 (PDT)
-In-Reply-To: <1410286996-302-1-git-send-email-therbert@google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59333 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751308AbaIIS1Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 14:27:25 -0400
+In-Reply-To: <1409922543-708-1-git-send-email-vincent@bernat.im>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In TCP gro we check flush_id which is derived from the IP identifier.
-In IPv4 gro path the flush_id is set with the expectation that every
-matched packet increments IP identifier. In IPv6, the flush_id is
-never set and thus is uinitialized. What's worse is that in IPv6
-over IPv4 encapsulation, the IP identifier is taken from the outer
-header which is currently not incremented on every packet for Linux
-stack, so GRO in this case never matches packets (identifier is
-not increasing).
+From: Vincent Bernat <vincent@bernat.im>
+Date: Fri,  5 Sep 2014 15:09:03 +0200
 
-This patch clears flush_id for every time for a matched packet in
-IPv6 gro_receive. We need to do this each time to overwrite the
-setting that would be done in IPv4 gro_receive per the outer
-header in IPv6 over Ipv4 encapsulation.
+> net.ipv4.ip_nonlocal_bind sysctl was global to all network
+> namespaces. This patch allows to set a different value for each
+> network namespace.
+> 
+> Signed-off-by: Vincent Bernat <vincent@bernat.im>
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/ipv6/ip6_offload.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 5bcda33..929bbbcd 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -261,6 +261,9 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 		/* flush if Traffic Class fields are different */
- 		NAPI_GRO_CB(p)->flush |= !!(first_word & htonl(0x0FF00000));
- 		NAPI_GRO_CB(p)->flush |= flush;
-+
-+		/* Clear flush_id, there's really no concept of ID in IPv6. */
-+		NAPI_GRO_CB(p)->flush_id = 0;
- 	}
- 
- 	NAPI_GRO_CB(skb)->flush |= flush;
--- 
-2.1.0.rc2.206.gedb03e5
+Applied to net-next, thanks.
