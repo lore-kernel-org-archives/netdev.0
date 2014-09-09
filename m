@@ -1,94 +1,173 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: iwlwifi no authentication with AP - Re: pull request: wireless-next
- 2014-09-08
-Date: Tue, 09 Sep 2014 21:46:47 +0200
-Message-ID: <540F5927.7000306@hartkopp.net>
-References: <20140908191630.GB29412@tuxdriver.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH ipvs v2] ipvs: Add simple weighted failover scheduler
+Date: Tue, 9 Sep 2014 22:55:42 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1409092247220.4943@ja.home.ssi.bg>
+References: <20140909132015.GA21984@kmathis.internal.monetra.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>
+To: Kenny Mathis <kmathis@chokepoint.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.220]:31363 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750998AbaIITxL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 15:53:11 -0400
-In-Reply-To: <20140908191630.GB29412@tuxdriver.com>
+Received: from ja.ssi.bg ([178.16.129.10]:41403 "EHLO localhost.localdomain"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750998AbaIIT4M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2014 15:56:12 -0400
+In-Reply-To: <20140909132015.GA21984@kmathis.internal.monetra.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello John, all,
 
-on my i7 Laptop with iwlwifi the latest net-next does not connect to my access point:
+	Hello,
 
-[   10.305284] iwlwifi 0000:02:00.0: L1 Enabled; Disabling L0S
-[   10.312179] iwlwifi 0000:02:00.0: Radio type=0x1-0x3-0x1
-[   10.524936] iwlwifi 0000:02:00.0: L1 Enabled; Disabling L0S
-[   10.531762] iwlwifi 0000:02:00.0: Radio type=0x1-0x3-0x1
-[   10.614189] IPv6: ADDRCONF(NETDEV_UP): wlan0: link is not ready
-[   17.097238] wlan0: authenticate with 84:c9:b2:d5:87:80
-[   17.130120] wlan0: send auth to 84:c9:b2:d5:87:80 (try 1/3)
-[   17.922281] wlan0: send auth to 84:c9:b2:d5:87:80 (try 2/3)
-[   18.935272] wlan0: send auth to 84:c9:b2:d5:87:80 (try 3/3)
-[   19.936236] wlan0: authentication with 84:c9:b2:d5:87:80 timed out
-[   21.962337] iwlwifi 0000:02:00.0: fail to flush all tx fifo queues Q 0
-[   21.962348] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 3
-[   21.962413] iwl data: 00000000: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-[   21.962455] iwlwifi 0000:02:00.0: FH TRBs(0) = 0x00000000
-[   21.962491] iwlwifi 0000:02:00.0: FH TRBs(1) = 0x00000000
-[   21.962528] iwlwifi 0000:02:00.0: FH TRBs(2) = 0x00000000
-[   21.962564] iwlwifi 0000:02:00.0: FH TRBs(3) = 0x00000000
-[   21.962600] iwlwifi 0000:02:00.0: FH TRBs(4) = 0x00000000
-[   21.962636] iwlwifi 0000:02:00.0: FH TRBs(5) = 0x00000000
-[   21.962673] iwlwifi 0000:02:00.0: FH TRBs(6) = 0x00000000
-[   21.962709] iwlwifi 0000:02:00.0: FH TRBs(7) = 0x0070402f
-[   21.962790] iwlwifi 0000:02:00.0: Q 0 is active and mapped to fifo 3 ra_tid 0x0000 [0,3]
-[   21.962869] iwlwifi 0000:02:00.0: Q 1 is active and mapped to fifo 2 ra_tid 0x0000 [0,0]
-[   21.962949] iwlwifi 0000:02:00.0: Q 2 is active and mapped to fifo 1 ra_tid 0x0000 [0,0]
-[   21.963030] iwlwifi 0000:02:00.0: Q 3 is active and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.963109] iwlwifi 0000:02:00.0: Q 4 is active and mapped to fifo 7 ra_tid 0x0000 [48,48]
-[   21.963189] iwlwifi 0000:02:00.0: Q 5 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.963270] iwlwifi 0000:02:00.0: Q 6 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.963350] iwlwifi 0000:02:00.0: Q 7 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.963428] iwlwifi 0000:02:00.0: Q 8 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.963508] iwlwifi 0000:02:00.0: Q 9 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.963588] iwlwifi 0000:02:00.0: Q 10 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.963669] iwlwifi 0000:02:00.0: Q 11 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.963750] iwlwifi 0000:02:00.0: Q 12 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.963829] iwlwifi 0000:02:00.0: Q 13 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.963909] iwlwifi 0000:02:00.0: Q 14 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.963988] iwlwifi 0000:02:00.0: Q 15 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.964069] iwlwifi 0000:02:00.0: Q 16 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.964149] iwlwifi 0000:02:00.0: Q 17 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.964228] iwlwifi 0000:02:00.0: Q 18 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   21.964308] iwlwifi 0000:02:00.0: Q 19 is inactive and mapped to fifo 0 ra_tid 0x0000 [0,0]
-[   22.116816] wlan0: authenticate with xx:xx:xx:xx:xx:xx
-[   22.155887] wlan0: send auth to xx:xx:xx:xx:xx:xx (try 1/3)
+On Tue, 9 Sep 2014, Kenny Mathis wrote:
 
-(..)
+> Please consider this patch for addition in 3.17
+> 
+> Add simple weighted IPVS failover support to the Linux kernel. All
+> other scheduling modules implement some form of load balancing, while
+> this offers a simple failover solution. Connections are directed to
+> the appropriate server based solely on highest weight value and server
+> availability. Tested functionality with keepalived.
+> 
+> Signed-off-by: Kenny Mathis <kmathis@chokepoint.net>
 
-and again and again ...
+	Looks good to me, thanks!
 
-Mainly this is the changing stuff in the following dmesg output:
+Acked-by: Julian Anastasov <ja@ssi.bg>
 
-[   21.962348] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 3
-[   26.951325] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 6
-[   34.979316] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 9
-[   39.964287] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 12
-[   47.984243] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 15
-[   55.984240] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 18
-[   60.981221] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 21
-[   73.878064] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 24
-[   86.342476] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 27
-[   98.770854] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 30
-[  111.287320] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 33
-[  121.045034] iwlwifi 0000:02:00.0: Current SW read_ptr 0 write_ptr 36
+	Simon, you can apply it to ipvs-next if there are
+no any objections.
 
-02:00.0 Network controller: Intel Corporation Centrino Advanced-N 6200 (rev 35)
+> ---
+>  net/netfilter/ipvs/Kconfig    |   10 ++++++
+>  net/netfilter/ipvs/Makefile   |    1 +
+>  net/netfilter/ipvs/ip_vs_fo.c |   79 +++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 90 insertions(+)
+>  create mode 100644 net/netfilter/ipvs/ip_vs_fo.c
+> 
+> diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+> index 0c3b167..3b6929d 100644
+> --- a/net/netfilter/ipvs/Kconfig
+> +++ b/net/netfilter/ipvs/Kconfig
+> @@ -152,6 +152,16 @@ config	IP_VS_WLC
+>  	  If you want to compile it in kernel, say Y. To compile it as a
+>  	  module, choose M here. If unsure, say N.
+>  
+> +config  IP_VS_FO
+> +		tristate "weighted failover scheduling"
+> +	---help---
+> +	  The weighted failover scheduling algorithm directs network
+> +	  connections to the server with the highest weight that is
+> +	  currently available.
+> +
+> +	  If you want to compile it in kernel, say Y. To compile it as a
+> +	  module, choose M here. If unsure, say N.
+> +
+>  config	IP_VS_LBLC
+>  	tristate "locality-based least-connection scheduling"
+>  	---help---
+> diff --git a/net/netfilter/ipvs/Makefile b/net/netfilter/ipvs/Makefile
+> index 34ee602..38b2723 100644
+> --- a/net/netfilter/ipvs/Makefile
+> +++ b/net/netfilter/ipvs/Makefile
+> @@ -26,6 +26,7 @@ obj-$(CONFIG_IP_VS_RR) += ip_vs_rr.o
+>  obj-$(CONFIG_IP_VS_WRR) += ip_vs_wrr.o
+>  obj-$(CONFIG_IP_VS_LC) += ip_vs_lc.o
+>  obj-$(CONFIG_IP_VS_WLC) += ip_vs_wlc.o
+> +obj-$(CONFIG_IP_VS_FO) += ip_vs_fo.o
+>  obj-$(CONFIG_IP_VS_LBLC) += ip_vs_lblc.o
+>  obj-$(CONFIG_IP_VS_LBLCR) += ip_vs_lblcr.o
+>  obj-$(CONFIG_IP_VS_DH) += ip_vs_dh.o
+> diff --git a/net/netfilter/ipvs/ip_vs_fo.c b/net/netfilter/ipvs/ip_vs_fo.c
+> new file mode 100644
+> index 0000000..6a2647d
+> --- /dev/null
+> +++ b/net/netfilter/ipvs/ip_vs_fo.c
+> @@ -0,0 +1,79 @@
+> +/*
+> + * IPVS:        Weighted Fail Over module
+> + *
+> + * Authors:     Kenny Mathis <kmathis@chokepoint.net>
+> + *
+> + *              This program is free software; you can redistribute it and/or
+> + *              modify it under the terms of the GNU General Public License
+> + *              as published by the Free Software Foundation; either version
+> + *              2 of the License, or (at your option) any later version.
+> + *
+> + * Changes:
+> + *     Kenny Mathis            :     added initial functionality based on weight
+> + *
+> + */
+> +
+> +#define KMSG_COMPONENT "IPVS"
+> +#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+> +
+> +#include <linux/module.h>
+> +#include <linux/kernel.h>
+> +
+> +#include <net/ip_vs.h>
+> +
+> +/* Weighted Fail Over Module */
+> +static struct ip_vs_dest *
+> +ip_vs_fo_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
+> +		  struct ip_vs_iphdr *iph)
+> +{
+> +	struct ip_vs_dest *dest, *hweight = NULL;
+> +	int hw = 0; /* Track highest weight */
+> +
+> +	IP_VS_DBG(6, "ip_vs_fo_schedule(): Scheduling...\n");
+> +
+> +	/* Basic failover functionality
+> +	 * Find virtual server with highest weight and send it traffic
+> +	 */
+> +	list_for_each_entry_rcu(dest, &svc->destinations, n_list) {
+> +		if (!(dest->flags & IP_VS_DEST_F_OVERLOAD) &&
+> +		    atomic_read(&dest->weight) > hw) {
+> +			hweight = dest;
+> +			hw = atomic_read(&dest->weight);
+> +		}
+> +	}
+> +
+> +	if (hweight) {
+> +		IP_VS_DBG_BUF(6, "FO: server %s:%u activeconns %d weight %d\n",
+> +			      IP_VS_DBG_ADDR(svc->af, &hweight->addr),
+> +			      ntohs(hweight->port),
+> +			      atomic_read(&hweight->activeconns),
+> +			      atomic_read(&hweight->weight));
+> +		return hweight;
+> +	}
+> +
+> +	ip_vs_scheduler_err(svc, "no destination available");
+> +	return NULL;
+> +}
+> +
+> +static struct ip_vs_scheduler ip_vs_fo_scheduler = {
+> +	.name =			"fo",
+> +	.refcnt =		ATOMIC_INIT(0),
+> +	.module =		THIS_MODULE,
+> +	.n_list =		LIST_HEAD_INIT(ip_vs_fo_scheduler.n_list),
+> +	.schedule =		ip_vs_fo_schedule,
+> +};
+> +
+> +static int __init ip_vs_fo_init(void)
+> +{
+> +	return register_ip_vs_scheduler(&ip_vs_fo_scheduler);
+> +}
+> +
+> +static void __exit ip_vs_fo_cleanup(void)
+> +{
+> +	unregister_ip_vs_scheduler(&ip_vs_fo_scheduler);
+> +	synchronize_rcu();
+> +}
+> +
+> +module_init(ip_vs_fo_init);
+> +module_exit(ip_vs_fo_cleanup);
+> +MODULE_LICENSE("GPL");
+> -- 
+> 1.7.9.5
 
-Any idea?
+Regards
 
-Regards,
-Oliver
+--
+Julian Anastasov <ja@ssi.bg>
