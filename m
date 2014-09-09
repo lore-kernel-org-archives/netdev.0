@@ -1,57 +1,96 @@
-From: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: 3.17-rc1 oops during network interface configuration
-Date: Tue, 9 Sep 2014 12:41:06 -0400
-Message-ID: <1714F0C6-06A0-4915-883E-9FEBC4880DFB@oracle.com>
-References: <53F1EF18.7010909@acm.org> <BA3DEE00-C035-41B9-8ECD-614F04483395@oracle.com> <007401cfcc4a$7b32b280$71981780$@opengridcomputing.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <007401cfcc4a$7b32b280$71981780$@opengridcomputing.com>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v3 10/15] net: sched: rcu'ify cls_rsvp
+Date: Tue, 09 Sep 2014 09:46:20 -0700
+Message-ID: <540F2EDC.2050804@gmail.com>
+References: <20140909055221.2071.99671.stgit@nitbit.x32>  <20140909055844.2071.50705.stgit@nitbit.x32> <1410269221.11872.179.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f44.google.com ([209.85.219.44]:64812 "EHLO
+	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754151AbaIIQqh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 12:46:37 -0400
+Received: by mail-oa0-f44.google.com with SMTP id o6so12052543oag.3
+        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 09:46:36 -0700 (PDT)
+In-Reply-To: <1410269221.11872.179.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On 09/09/2014 06:27 AM, Eric Dumazet wrote:
+> On Mon, 2014-09-08 at 22:58 -0700, John Fastabend wrote:
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+>>   net/sched/cls_rsvp.h |  155 +++++++++++++++++++++++++++++---------------------
+>>   1 file changed, 89 insertions(+), 66 deletions(-)
+>>
+>> diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
+>> index 1020e23..8a35bdc 100644
+
+[...]
+
+>> @@ -521,12 +535,17 @@ insert:
+>>
+>>   			tcf_exts_change(tp, &f->exts, &e);
+>>
+>> -			for (fp = &s->ht[h2]; *fp; fp = &(*fp)->next)
+>> -				if (((*fp)->spi.mask & f->spi.mask) != f->spi.mask)
+>> +			fp = &s->ht[h2];
+>> +			for (nfp = rtnl_dereference(*fp); nfp;
+>> +			     fp = &nfp->next, nfp = rtnl_dereference(*fp)) {
+>> +				__u32 mask = nfp->spi.mask & f->spi.mask;
+>> +
+>> +				if (mask != f->spi.mask)
+>>   					break;
+>> -			f->next = *fp;
+>> +			}
+>> +			rcu_assign_pointer(f->next, nfp);
+>
+> RCU_INIT_POINTER()
+>
+>>   			wmb();
+>
+> Are you sure we need to keep this wmb() ? I dont think so.
+
+Agreed, I'll remove it.
+
+>
+>> -			*fp = f;
+>> +			rcu_assign_pointer(*fp, f);
+>>
+>>   			*arg = (unsigned long)f;
+>>   			return 0;
+>> @@ -546,13 +565,15 @@ insert:
+>>   		s->protocol = pinfo->protocol;
+>>   		s->tunnelid = pinfo->tunnelid;
+>>   	}
+>> -	for (sp = &data->ht[h1]; *sp; sp = &(*sp)->next) {
+>> -		if (((*sp)->dpi.mask&s->dpi.mask) != s->dpi.mask)
+>> +	sp = &data->ht[h1];
+>> +	for (nsp = rtnl_dereference(*sp); nsp;
+>> +	     sp = &nsp->next, nsp = rtnl_dereference(*sp)) {
+>> +		if ((nsp->dpi.mask & s->dpi.mask) != s->dpi.mask)
+>>   			break;
+>>   	}
+>> -	s->next = *sp;
+>> +	rcu_assign_pointer(s->next, nsp);
+>
+> 	RCU_INIT_POINTER()
+>
+>>   	wmb();
+>
+> This wmb() can be removed.
+>
+
+yep, same here I'll remove it.
 
 
-On Sep 9, 2014, at 12:24 PM, Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org> w=
-rote:
+Thanks,
+John
 
->=20
->=20
->> -----Original Message-----
->> From: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:linux-rdma-owner@vger=
-=2Ekernel.org] On Behalf Of Chuck Lever
->> Sent: Tuesday, August 19, 2014 9:56 AM
->> To: Bart Van Assche
->> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma
->> Subject: Re: 3.17-rc1 oops during network interface configuration
->>=20
->>=20
->> On Aug 18, 2014, at 8:18 AM, Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org> wr=
-ote:
->>=20
->>> Hello,
->>>=20
->>> Has anyone else already tried to boot kernel 3.17-rc1 on an IB syst=
-em ?
->>=20
->> After updating to 3.17-rc1 this morning, I hit the same issue.
->>=20
->=20
-> I still see this with 3.17-rc4.  Perhaps somebody should fix it. :)
-
-I=92m working on it right now.
-
---
-Chuck Lever
-chuck[dot]lever[at]oracle[dot]com
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+John Fastabend         Intel Corporation
