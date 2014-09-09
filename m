@@ -1,80 +1,119 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: [PATCH net] ipv6: refresh rt6i_genid in ip6_pol_route()
-Date: Tue, 09 Sep 2014 14:58:39 +0200
-Message-ID: <1410267519.27979.31.camel@localhost>
-References: <1410149905.11872.73.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140907.212742.893555292268057160.davem@davemloft.net>
-	 <1410151434.11872.82.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140907.215943.213418445039957641.davem@davemloft.net>
-	 <1410152829.11872.84.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH v3 07/15] net: sched: RCU cls_route
+Date: Tue, 09 Sep 2014 05:59:13 -0700
+Message-ID: <1410267553.11872.167.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140909055221.2071.99671.stgit@nitbit.x32>
+	 <20140909055703.2071.75757.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, nicolas.dichtel@6wind.com,
-	therbert@google.com, alexander.h.duyck@intel.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11743 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751192AbaIIM6u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2014 08:58:50 -0400
-In-Reply-To: <1410152829.11872.84.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:49712 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756310AbaIIM7P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 08:59:15 -0400
+Received: by mail-pd0-f180.google.com with SMTP id ft15so6923590pdb.11
+        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 05:59:15 -0700 (PDT)
+In-Reply-To: <20140909055703.2071.75757.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On So, 2014-09-07 at 22:07 -0700, Eric Dumazet wrote:
-> On Sun, 2014-09-07 at 21:59 -0700, David Miller wrote:
-> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> > Date: Sun, 07 Sep 2014 21:43:54 -0700
-> > 
-> > > On Sun, 2014-09-07 at 21:27 -0700, David Miller wrote:
-> > >> From: Eric Dumazet <eric.dumazet@gmail.com>
-> > >> Date: Sun, 07 Sep 2014 21:18:25 -0700
-> > >> 
-> > >> > On Sun, 2014-09-07 at 15:54 -0700, David Miller wrote:
-> > >> > 
-> > >> >> This might be broken.
-> > >> >> 
-> > >> >> We are dealing here with persistent entries in the ipv6 routine trie.
-> > >> >> 
-> > >> >> If you just bump the genid on the next person to look it up, other
-> > >> >> sockets and cached entities might not have validated the route yet,
-> > >> >> and now will falsely see the route as valid.  We have to ensure that
-> > >> >> they too drop this route and perform a relookup.
-> > >> > 
-> > >> > I am confused, I thought it was the role of the cookie.
-> > >> > 
-> > >> > (Ie socket has to store its own cookie to be able to validate a route)
-> > >> > 
-> > >> > Before 6f3118b571b8 patch, how was this done anyway ?
-> > >> > 
-> > >> > If persistent routes cannot refresh the genid, then they are useless ?
-> > >> 
-> > >> I just speak about the genid aspect.
-> > >> 
-> > >> I understand that cookie (via node->fn_sernum) invalidates the path
-> > >> in the fib_trie, but the genid protects against other circumstances
-> > >> (matching IPSEC rule, f.e.)
-> > >> 
-> > >> You have to make sure all other sockets did a full route lookup
-> > >> (including IPSEC) before you can safely adjust the genid.
-> > >> 
-> > >> I could be wrong, recheck my analysis please :-)
-> > > 
-> > > So this whole genid protection can not work, unless we make sure a
-> > > socket cannot share a route with another socket.
-> > > 
-> > > This means we have to clone all routes.
-> > 
-> > I'm willing to revert the change in question if you think that's the
-> > sanest way forward.
-> > 
-> > The bug fix for more obscure use cases (IPSEC) if pointless if it
-> > breaks more common things (TCP input route caching).
+On Mon, 2014-09-08 at 22:57 -0700, John Fastabend wrote:
+> RCUify the route classifier. For now however spinlock's are used to
+> protect fastmap cache.
 > 
-> Lets wait for Nicolas and/or Hannes input, they might have some ideas...
+> The issue here is the fastmap may be read by one CPU while the
+> cache is being updated by another. An array of pointers could be
+> one possible solution.
 
-My first idea was to remove rt_genid check in ip6_dst_check completely
-and rt_genid_bump_ipv6() should walk the trie to increase fib6_sernum in
-rt6i_nodes. I'll try this.
+Yep, this doesnt seem like an urgent issue anyway.
+
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+
+...
+
+>  
+>  static void route4_destroy(struct tcf_proto *tp)
+>  {
+> -	struct route4_head *head = tp->root;
+> +	struct route4_head *head = rtnl_dereference(tp->root);
+>  	int h1, h2;
+>  
+>  	if (head == NULL)
+> @@ -266,28 +287,35 @@ static void route4_destroy(struct tcf_proto *tp)
+>  	for (h1 = 0; h1 <= 256; h1++) {
+>  		struct route4_bucket *b;
+>  
+> -		b = head->table[h1];
+> +		b = rtnl_dereference(head->table[h1]);
+>  		if (b) {
+>  			for (h2 = 0; h2 <= 32; h2++) {
+>  				struct route4_filter *f;
+>  
+> -				while ((f = b->ht[h2]) != NULL) {
+> -					b->ht[h2] = f->next;
+> -					route4_delete_filter(tp, f);
+> +				while ((f = rtnl_dereference(b->ht[h2])) != NULL) {
+> +					struct route4_filter *next;
+> +
+> +					next = rtnl_dereference(f->next);
+> +					rcu_assign_pointer(b->ht[h2], next);
+
+	RCU_INIT_POINTER(), or simply : b->ht[h2] = f->next;
+
+> +					call_rcu(&f->rcu, route4_delete_filter);
+>  				}
+>  			}
+> -			kfree(b);
+> +			RCU_INIT_POINTER(head->table[h1], NULL);
+> +			kfree_rcu(b, rcu);
+>  		}
+>  	}
+> -	kfree(head);
+> +	RCU_INIT_POINTER(tp->root, NULL);
+> +	kfree_rcu(head, rcu);
+>  }
+>  
+>  static int route4_delete(struct tcf_proto *tp, unsigned long arg)
+>  {
+> -	struct route4_head *head = tp->root;
+> -	struct route4_filter **fp, *f = (struct route4_filter *)arg;
+> -	unsigned int h = 0;
+> +	struct route4_head *head = rtnl_dereference(tp->root);
+> +	struct route4_filter *f = (struct route4_filter *)arg;
+> +	struct route4_filter __rcu **fp;
+> +	struct route4_filter *nf;
+>  	struct route4_bucket *b;
+> +	unsigned int h = 0;
+>  	int i;
+>  
+>  	if (!head || !f)
+> @@ -296,27 +324,35 @@ static int route4_delete(struct tcf_proto *tp, unsigned long arg)
+>  	h = f->handle;
+>  	b = f->bkt;
+>  
+> -	for (fp = &b->ht[from_hash(h >> 16)]; *fp; fp = &(*fp)->next) {
+> -		if (*fp == f) {
+> -			tcf_tree_lock(tp);
+> +	fp = &b->ht[from_hash(h >> 16)];
+> +	for (nf = rtnl_dereference(*fp); nf;
+> +	     fp = &nf->next, nf = rtnl_dereference(*fp)) {
+> +		if (nf == f) {
+> +			/* unlink it */
+>  			*fp = f->next;
+
+Strange you left this without annotations, while rest of your patches
+always use rcu_assign_pointer(*fp, rtnl_dereference(f->next)
+
+Note that it is absolutely fine to use *fp = f->next;
+
+;)
+
+> -			tcf_tree_unlock(tp);
+>  
