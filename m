@@ -1,51 +1,131 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: RE: randconfig build error with next-20140909, in
- drivers/net/ethernet/broadcom/cnic.c
-Date: Tue, 9 Sep 2014 20:24:21 +0000
-Message-ID: <525DB349B3FB5444AE057A887CB2A8D88E0BFB@nice.asicdesigners.com>
-References: <CA+r1ZhhZynUKSeZnya67z9sph4+tpjO4E7jLZKc0EG4azxFdYA@mail.gmail.com>
+From: Frank Li <Frank.Li@freescale.com>
+Subject: [Patch v2 net-next 04/12] net: fec: parser max queue number from dt file
+Date: Wed, 10 Sep 2014 04:15:35 +0800
+Message-ID: <1410293743-27874-5-git-send-email-Frank.Li@freescale.com>
+References: <1410293743-27874-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Jim Davis <jim.epost@gmail.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"mchan@broadcom.com" <mchan@broadcom.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CA+r1ZhhZynUKSeZnya67z9sph4+tpjO4E7jLZKc0EG4azxFdYA@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
+	<devicetree@vger.kernel.org>, Fugang Duan <B38611@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>
+To: <b38611@freescale.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0148.outbound.protection.outlook.com ([65.55.169.148]:55513
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752017AbaIIUjZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2014 16:39:25 -0400
+In-Reply-To: <1410293743-27874-1-git-send-email-Frank.Li@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is caused by c99d667e8527  ("cnic : Cleanup CONFIG_IPV6 & VLAN check")
+From: Fugang Duan <B38611@freescale.com>
 
-So I'm not really sure what the fix for this is. CNIC will properly only support 
-[m] or [n] when IPV6 is compiled as a module, but if you set SCSI_BNX2X_FCOE or 
-SCSI_BNX2_ISCSI to be in built, there is a 'select CNIC' that forces CNIC to be 
-inbuilt, even though this is not supported by Kconfig. I was under the 
-assumption that select will not forcibly change m to inbuilt (or perhaps I'm 
-missing some syntax suboption ?)
+By default, the tx/rx queue number is 1, user can config the queue number
+at DTS file like this:
+	fsl,num-tx-queues=<3>;
+	fsl,num-rx-queues=<3>
 
-This is still fixable in SCSI_BNX2_ISCSI using the same logic used in the above 
-mentioned commit, but not so in SCSI_BNX2X_FCOE where it causes a recursive 
-dependency error (thought it is fixing the issue nevertheless), and none of the 
- other solutions I tried seemed to work either.
+Since i.MX6SX enet-AVB IP support multi queues, so use multi queues
+interface to allocate and set up an Ethernet device.
 
-Looking at previous code, the earlier approach used to just disable ipv6 code 
-in such a situation.
--Anish
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec.h      |  2 ++
+ drivers/net/ethernet/freescale/fec_main.c | 46 ++++++++++++++++++++++++++++++-
+ 2 files changed, 47 insertions(+), 1 deletion(-)
 
-________________________________________
-From: Jim Davis [jim.epost@gmail.com]
-Sent: Tuesday, September 09, 2014 7:38 AM
-To: Stephen Rothwell; linux-next; linux-kernel; Anish Bhatt; mchan@broadcom.com; David S. Miller; netdev
-Subject: randconfig build error with next-20140909, in drivers/net/ethernet/broadcom/cnic.c
-
-Building with the attached random configuration file,
-
-drivers/built-in.o: In function `cnic_get_v6_route':
-cnic.c:(.text+0x3a4168): undefined reference to `ip6_route_output'
-make: *** [vmlinux] Error 1
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index b2b91f8..72fb90f 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -356,6 +356,8 @@ struct fec_enet_private {
+ 
+ 	bool ptp_clk_on;
+ 	struct mutex ptp_clk_mutex;
++	unsigned int num_tx_queues;
++	unsigned int num_rx_queues;
+ 
+ 	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
+ 	struct fec_enet_priv_tx_q *tx_queue[FEC_ENET_MAX_TX_QS];
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 4c0d2ee..2240df0 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -2709,6 +2709,42 @@ static void fec_reset_phy(struct platform_device *pdev)
+ }
+ #endif /* CONFIG_OF */
+ 
++static void
++fec_enet_get_queue_num(struct platform_device *pdev, int *num_tx, int *num_rx)
++{
++	struct device_node *np = pdev->dev.of_node;
++	int err;
++
++	*num_tx = *num_rx = 1;
++
++	if (!np || !of_device_is_available(np))
++		return;
++
++	/* parse the num of tx and rx queues */
++	err = of_property_read_u32(np, "fsl,num-tx-queues", num_tx);
++	err |= of_property_read_u32(np, "fsl,num-rx-queues", num_rx);
++	if (err) {
++		*num_tx = 1;
++		*num_rx = 1;
++		return;
++	}
++
++	if (*num_tx < 1 || *num_tx > FEC_ENET_MAX_TX_QS) {
++		dev_err(&pdev->dev, "Invalidate num_tx(=%d), fail back to 1\n",
++			*num_tx);
++		*num_tx = 1;
++		return;
++	}
++
++	if (*num_rx < 1 || *num_rx > FEC_ENET_MAX_RX_QS) {
++		dev_err(&pdev->dev, "Invalidate num_rx(=%d), fail back to 1\n",
++			*num_rx);
++		*num_rx = 1;
++		return;
++	}
++
++}
++
+ static int
+ fec_probe(struct platform_device *pdev)
+ {
+@@ -2720,13 +2756,18 @@ fec_probe(struct platform_device *pdev)
+ 	const struct of_device_id *of_id;
+ 	static int dev_id;
+ 	struct device_node *np = pdev->dev.of_node, *phy_node;
++	int num_tx_qs = 1;
++	int num_rx_qs = 1;
+ 
+ 	of_id = of_match_device(fec_dt_ids, &pdev->dev);
+ 	if (of_id)
+ 		pdev->id_entry = of_id->data;
+ 
++	fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
++
+ 	/* Init network device */
+-	ndev = alloc_etherdev(sizeof(struct fec_enet_private));
++	ndev = alloc_etherdev_mqs(sizeof(struct fec_enet_private),
++				  num_tx_qs, num_rx_qs);
+ 	if (!ndev)
+ 		return -ENOMEM;
+ 
+@@ -2735,6 +2776,9 @@ fec_probe(struct platform_device *pdev)
+ 	/* setup board info structure */
+ 	fep = netdev_priv(ndev);
+ 
++	fep->num_rx_queues = num_rx_qs;
++	fep->num_tx_queues = num_tx_qs;
++
+ #if !defined(CONFIG_M5272)
+ 	/* default enable pause frame auto negotiation */
+ 	if (pdev->id_entry &&
+-- 
+1.9.1
