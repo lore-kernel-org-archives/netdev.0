@@ -1,51 +1,59 @@
-From: Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v2 3/8] Documentation: bindings: net: add the Marvell
- PXA168 Ethernet controller
-Date: Tue, 9 Sep 2014 18:01:36 +0200
-Message-ID: <20140909160136.GA26051@kwain>
-References: <1410273848-24663-1-git-send-email-antoine.tenart@free-electrons.com>
- <1410273848-24663-4-git-send-email-antoine.tenart@free-electrons.com>
- <3827594.chb831jyvc@wuerfel>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v3 05/15] net: sched: cls_flow use RCU
+Date: Tue, 09 Sep 2014 09:09:36 -0700
+Message-ID: <540F2640.2080904@gmail.com>
+References: <20140909055221.2071.99671.stgit@nitbit.x32>  <20140909055601.2071.43459.stgit@nitbit.x32> <1410266481.11872.158.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, zmxu-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <3827594.chb831jyvc@wuerfel>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:40451 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753402AbaIIQJ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 12:09:56 -0400
+Received: by mail-oa0-f46.google.com with SMTP id eb12so2988119oac.33
+        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 09:09:55 -0700 (PDT)
+In-Reply-To: <1410266481.11872.158.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd,
+On 09/09/2014 05:41 AM, Eric Dumazet wrote:
+> On Mon, 2014-09-08 at 22:56 -0700, John Fastabend wrote:
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+>>   net/sched/cls_flow.c |  145 +++++++++++++++++++++++++++++---------------------
+>>   1 file changed, 84 insertions(+), 61 deletions(-)
+>>
+>> diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+>> index 35be16f..e33560b 100644
+>> --- a/net/sched/cls_flow.c
+>> +++ b/net/sched/cls_flow.c
+>> @@ -34,12 +34,15 @@
+>>
+>>   struct flow_head {
+>>   	struct list_head	filters;
+>> +	struct rcu_head		rcu;
+>>   };
+>>
+>>   struct flow_filter {
+>>   	struct list_head	list;
+>> +	struct rcu_head		rcu;
+>
+> Please move these 2 new fields at the end of structure, they are only
+> used at dismantle phase.
+>
+> Patch looks fine otherwise, thanks !
+>
+>
 
-On Tue, Sep 09, 2014 at 05:58:12PM +0200, Arnd Bergmann wrote:
-> On Tuesday 09 September 2014 16:44:03 Antoine Tenart wrote:
-> > +- clocks: pointer to the clock for the device.
-> > +- clock-names: should be "MFUCLK".
->=20
-> Clock names are normally not capitalized. Are you able to change
-> that name when providing a binding or make it an anoymous clock?
-> What does MFU stand for anyway?
+2 new fields? The first rcu struct is already at end of
+structure. I assume you just mean the rcu struct in flow_filter.
 
-Sure. I could have make it an anonymous clock but the name "MFUCLK" was
-already used by the pxa168 Ethernet driver so I didn't wanted to change
-that.
+.John
 
-Antoine
-
---=20
-Antoine T=E9nart, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+John Fastabend         Intel Corporation
