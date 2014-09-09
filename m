@@ -1,60 +1,38 @@
-From: Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH v2 0/8] ARM: Berlin: Ethernet support
-Date: Tue,  9 Sep 2014 16:44:00 +0200
-Message-ID: <1410273848-24663-1-git-send-email-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, zmxu-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH v2 8/8] ARM: dts: berlin: enable the Ethernet port on the BG2Q DMP
+Date: Tue,  9 Sep 2014 16:44:08 +0200
+Message-ID: <1410273848-24663-9-git-send-email-antoine.tenart@free-electrons.com>
+References: <1410273848-24663-1-git-send-email-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+	alexandre.belloni@free-electrons.com,
+	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
+	jszhang@marvell.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: sebastian.hesselbarth@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1410273848-24663-1-git-send-email-antoine.tenart@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+This patch enables the Ethernet port on the Marvell Berlin2Q DMP board.
 
-This series introduce support for the Ethernet controller on Berlin SoCs,
-using the existing pxa168 Ethernet driver. In order to do this, DT
-support is added to the driver alongside some other modifications and
-fixes.
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+---
+ arch/arm/boot/dts/berlin2q-marvell-dmp.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Version 1 of this series was introducing a new Ethernet driver but thanks
-to Sebastian's review it seems we can actually use the existing pxa168
-Ethernet driver. This second version uses it.
-
-This has been tested on a Berlin BG2Q DMP board.
-
-Changes since v1:
-	- removed custom Berlin Ethernet driver
-	- used the pxa168 Ethernet driver instead
-	- made modifications to the pxa168 driver (DT support, fixes)
-
-Antoine Tenart (8):
-  net: pxa168_eth: clean up
-  net: pxa168_eth: add device tree support
-  Documentation: bindings: net: add the Marvell PXA168 Ethernet
-    controller
-  net: pxa168_eth: fix Ethernet flow control status
-  net: pxa168_eth: get and set the mac address on the Ethernet
-    controller
-  net: pxa168_eth: allow Berlin SoCs to use the pxa168_eth driver
-  ARM: dts: berlin: add the Ethernet node
-  ARM: dts: berlin: enable the Ethernet port on the BG2Q DMP
-
- .../devicetree/bindings/net/marvell-pxa168.txt     |  22 +++
- arch/arm/boot/dts/berlin2q-marvell-dmp.dts         |   4 +
- arch/arm/boot/dts/berlin2q.dtsi                    |   9 +
- drivers/net/ethernet/marvell/Kconfig               |   2 +-
- drivers/net/ethernet/marvell/pxa168_eth.c          | 207 +++++++++++++--------
- 5 files changed, 165 insertions(+), 79 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/marvell-pxa168.txt
-
+diff --git a/arch/arm/boot/dts/berlin2q-marvell-dmp.dts b/arch/arm/boot/dts/berlin2q-marvell-dmp.dts
+index a357ce02a64e..ea1f99b8eed6 100644
+--- a/arch/arm/boot/dts/berlin2q-marvell-dmp.dts
++++ b/arch/arm/boot/dts/berlin2q-marvell-dmp.dts
+@@ -45,3 +45,7 @@
+ &uart0 {
+ 	status = "okay";
+ };
++
++&eth0 {
++	status = "okay";
++};
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
