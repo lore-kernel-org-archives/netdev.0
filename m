@@ -1,89 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 84051] New: Panic while transferring bigger amount of data
- with device driver "forcedeth"
-Date: Mon, 8 Sep 2014 17:28:04 -0700
-Message-ID: <20140908172804.6d5f19ed@uryu.home.lan>
+From: Li RongQing <roy.qing.li@gmail.com>
+Subject: Re: [PATCH][net-next] openvswitch: change the data type of error
+ status to atomic_long_t
+Date: Tue, 9 Sep 2014 08:29:56 +0800
+Message-ID: <CAJFZqHzWa=gB8b653KgmGZTpNv83KhAZ3VBYvd+VjchmCkiCbQ@mail.gmail.com>
+References: <1410001571-13338-1-git-send-email-roy.qing.li@gmail.com>
+	<CALnjE+o121kh+hEtEsSLJqBw68dy=epEsXGVDN5wv+4g1xph+g@mail.gmail.com>
+	<CAJFZqHwK=5iXxBP+SgcLtub=HSkTt9Pd6LU2_Tjn9qTxbQd3SA@mail.gmail.com>
+	<CALnjE+pTVVr3dQTnUZqB4vQ=MjhyJ1C859Rkjmf7JOGzVVsb5w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:65025 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753533AbaIIA2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 20:28:19 -0400
-Received: by mail-pa0-f47.google.com with SMTP id ey11so5828253pad.6
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 17:28:19 -0700 (PDT)
-Received: from uryu.home.lan ([67.204.147.58])
-        by mx.google.com with ESMTPSA id bv5sm9882556pbc.20.2014.09.08.17.28.18
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Mon, 08 Sep 2014 17:28:18 -0700 (PDT)
+Received: from mail-qc0-f179.google.com ([209.85.216.179]:58965 "EHLO
+	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754940AbaIIA35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Sep 2014 20:29:57 -0400
+Received: by mail-qc0-f179.google.com with SMTP id o8so436043qcw.10
+        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 17:29:56 -0700 (PDT)
+In-Reply-To: <CALnjE+pTVVr3dQTnUZqB4vQ=MjhyJ1C859Rkjmf7JOGzVVsb5w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Sep 9, 2014 at 6:26 AM, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Sun, Sep 7, 2014 at 2:24 AM, Li RongQing <roy.qing.li@gmail.com> wrote:
+>> On Sun, Sep 7, 2014 at 11:44 AM, Pravin Shelar <pshelar@nicira.com> wrote:
+>>>> The operation of atomic maybe faster than spin lock.
+>>>
+>>> What is reason for this change?
+>>
+>> 1.  The operation of atomic maybe faster than spin lock
+>> 2.  I did not find that tx_dropped/tx_error/.. is protected by spin
+>> lock under net dir,
+>> sometime tx_dropped is atomic_long_t; sometime it is percpu variable;
+>> sometime it is
+>> u64,but does not need to protect.
+>>
+>
+> These are error counter and the access is not performance sensitive
+> code. So I do not see obvious need to optimize it. Do you have any
+> performance number for this patch?
 
 
-Begin forwarded message:
+I have no performance number, and did not know how to get the performance
+number, since I did not know how to trigger the error packet continually.
 
-Date: Sun, 7 Sep 2014 23:43:26 -0700
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 84051] New: Panic while transferring bigger amount of data with device driver "forcedeth"
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=84051
-
-            Bug ID: 84051
-           Summary: Panic while transferring bigger amount of data with
-                    device driver "forcedeth"
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.14.4
-          Hardware: Intel
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: high
-          Priority: P1
-         Component: Other
-          Assignee: shemminger@linux-foundation.org
-          Reporter: mapo2364@gmail.com
-        Regression: No
-
-Created attachment 149391
-  --> https://bugzilla.kernel.org/attachment.cgi?id=149391&action=edit
-/var/log/messages with kernel panic
-
-Overview: 
-
-While transferring about 20GB (~40MB/s) over SSH the kernel is going to panic.
-After about a minute.
+But I think  atomic is suitable for this condition, it maybe
+over-skill to use a spin
+lock to protect a single variable, and using atomic can save a spin lock space.
 
 
-Steps to Reproduce: 
-
-1) git clone of a big repo
-
-2) wait
-
-
-Actual Results: 
-
-Kernel Panic: see attached log
-
-
-Build Date & Hardware:
-
-Linux client-01 3.14.4-aufs-x86_64-mynet-latest-unstable #1 SMP Sat Jul 5
-13:06:29 CEST 2014 x86_64 AMD Phenom(tm) II X4 955 Processor AuthenticAMD
-GNU/Linux
-aufs-sources from gentoo portage
-
-
-PS: This is my first bug report. Please feel free to ask for further
-information, if needed.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+-Roy
