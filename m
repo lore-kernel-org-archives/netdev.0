@@ -1,41 +1,60 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [PATCH v2 1/3] can: c_can_platform: Fix c_can_hw_raminit_ti()
- and add timeout
-Date: Tue, 9 Sep 2014 17:39:52 +0300
-Message-ID: <540F1138.3090502@ti.com>
-References: <1410273070-22485-1-git-send-email-rogerq@ti.com> <1410273070-22485-2-git-send-email-rogerq@ti.com> <540F0FDD.60201@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <tony@atomide.com>, <tglx@linutronix.de>, <mugunthanvnm@ti.com>,
-	<george.cherian@ti.com>, <balbi@ti.com>, <nsekhar@ti.com>,
-	<nm@ti.com>, <sergei.shtylyov@cogentembedded.com>,
-	<linux-omap@vger.kernel.org>, <linux-can@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>, <wg@grandegger.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <540F0FDD.60201@pengutronix.de>
-Sender: linux-omap-owner@vger.kernel.org
+From: Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH v2 0/8] ARM: Berlin: Ethernet support
+Date: Tue,  9 Sep 2014 16:44:00 +0200
+Message-ID: <1410273848-24663-1-git-send-email-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, zmxu-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
+	jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 09/09/2014 05:34 PM, Marc Kleine-Budde wrote:
-> On 09/09/2014 04:31 PM, Roger Quadros wrote:
->> Pass the correct 'mask' and 'value' bits to c_can_hw_raminit_wait_ti().
->> They seem to have been swapped in the usage instances.
-> 
-> Can you split this fix into a seperate patch, please.
+Hi all,
 
-OK.
+This series introduce support for the Ethernet controller on Berlin SoCs,
+using the existing pxa168 Ethernet driver. In order to do this, DT
+support is added to the driver alongside some other modifications and
+fixes.
 
-> 
->> TI's RAMINIT DONE mechanism is buggy and may not always be
->> set after the START bit is set. So add a timeout mechanism to
->> c_can_hw_raminit_wait_ti().
-> 
-> What should happen if the timeout occurs?
+Version 1 of this series was introducing a new Ethernet driver but thanks
+to Sebastian's review it seems we can actually use the existing pxa168
+Ethernet driver. This second version uses it.
 
-I'm not sure yet. I will verify if the hardware still works or not in that case.
-If it doesn't work then we should fail.
+This has been tested on a Berlin BG2Q DMP board.
 
-cheers,
--roger
+Changes since v1:
+	- removed custom Berlin Ethernet driver
+	- used the pxa168 Ethernet driver instead
+	- made modifications to the pxa168 driver (DT support, fixes)
+
+Antoine Tenart (8):
+  net: pxa168_eth: clean up
+  net: pxa168_eth: add device tree support
+  Documentation: bindings: net: add the Marvell PXA168 Ethernet
+    controller
+  net: pxa168_eth: fix Ethernet flow control status
+  net: pxa168_eth: get and set the mac address on the Ethernet
+    controller
+  net: pxa168_eth: allow Berlin SoCs to use the pxa168_eth driver
+  ARM: dts: berlin: add the Ethernet node
+  ARM: dts: berlin: enable the Ethernet port on the BG2Q DMP
+
+ .../devicetree/bindings/net/marvell-pxa168.txt     |  22 +++
+ arch/arm/boot/dts/berlin2q-marvell-dmp.dts         |   4 +
+ arch/arm/boot/dts/berlin2q.dtsi                    |   9 +
+ drivers/net/ethernet/marvell/Kconfig               |   2 +-
+ drivers/net/ethernet/marvell/pxa168_eth.c          | 207 +++++++++++++--------
+ 5 files changed, 165 insertions(+), 79 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/marvell-pxa168.txt
+
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
