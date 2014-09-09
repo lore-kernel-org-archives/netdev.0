@@ -1,51 +1,67 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH v2 7/8] ARM: dts: berlin: add the Ethernet node
-Date: Tue,  9 Sep 2014 16:44:07 +0200
-Message-ID: <1410273848-24663-8-git-send-email-antoine.tenart@free-electrons.com>
+Subject: [PATCH v2 3/8] Documentation: bindings: net: add the Marvell PXA168
+ Ethernet controller
+Date: Tue,  9 Sep 2014 16:44:03 +0200
+Message-ID: <1410273848-24663-4-git-send-email-antoine.tenart@free-electrons.com>
 References: <1410273848-24663-1-git-send-email-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-	alexandre.belloni@free-electrons.com,
-	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
-	jszhang@marvell.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
+ devicetree@vger.kernel.org, netdev@vger.kernel.org,
+ Antoine Tenart <antoine.tenart@free-electrons.com>,
+ linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
+ jszhang@marvell.com, linux-arm-kernel@lists.infradead.org
 To: sebastian.hesselbarth@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:58137 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752836AbaIIOoR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 10:44:17 -0400
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1410273848-24663-1-git-send-email-antoine.tenart@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds the Ethernet node, enabling the network unit on Berlin
-BG2Q SoCs.
+This adds the binding documentation for the Marvell PXA168 Ethernet
+controller, following its DT support.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- arch/arm/boot/dts/berlin2q.dtsi | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ .../devicetree/bindings/net/marvell-pxa168.txt     | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/marvell-pxa168.txt
 
-diff --git a/arch/arm/boot/dts/berlin2q.dtsi b/arch/arm/boot/dts/berlin2q.dtsi
-index 400c40fceccc..a216cb621ebc 100644
---- a/arch/arm/boot/dts/berlin2q.dtsi
-+++ b/arch/arm/boot/dts/berlin2q.dtsi
-@@ -114,6 +114,15 @@
- 			#interrupt-cells = <3>;
- 		};
- 
-+		eth0: ethernet@b90000 {
-+			compatible = "marvell,pxa168-eth";
-+			reg = <0xb90000 0x10000>;
-+			clocks = <&chip CLKID_GETH0>;
-+			clock-names = "MFUCLK";
-+			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
-+			status = "disabled";
-+		};
+diff --git a/Documentation/devicetree/bindings/net/marvell-pxa168.txt b/Documentation/devicetree/bindings/net/marvell-pxa168.txt
+new file mode 100644
+index 000000000000..3a5320ad09a3
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/marvell-pxa168.txt
+@@ -0,0 +1,22 @@
++* Marvell PXA168 Ethernet Controller
 +
- 		cpu-ctrl@dd0000 {
- 			compatible = "marvell,berlin-cpu-ctrl";
- 			reg = <0xdd0000 0x10000>;
++Required properties:
++- compatible: should be "marvell,pxa168-eth".
++- reg: address and length of the register set for the device.
++- interrupts: interrupt for the device.
++- clocks: pointer to the clock for the device.
++- clock-names: should be "MFUCLK".
++
++Optional properties:
++- port-id: should be '0','1' or '2'.
++- phy-addr: MDIO address of the PHY.
++
++Example:
++
++	eth0: ethernet@f7b90000 {
++		compatible = "marvell,pxa168-eth";
++		reg = <0xf7b90000 0x10000>;
++		clocks = <&chip CLKID_GETH0>;
++		clock-names = "MFUCLK";
++		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
++	};
 -- 
 1.9.1
