@@ -1,79 +1,40 @@
-From: Andres Freund <andres@anarazel.de>
-Subject: Re: Macvlan WARNiNGS about duplicate sysfs filenames (Was [GIT]
- Networking)
-Date: Wed, 10 Sep 2014 01:48:06 +0200
-Message-ID: <20140909234806.GG24649@awork2.anarazel.de>
-References: <20140907.164109.1944849896872238507.davem@davemloft.net>
- <20140908212514.GA2348@awork2.anarazel.de>
- <CAHA+R7NCwhMaWX0Mhr7AqHH4x5RZ6TEEiJB7906yVzQouXD3Lg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Alexander Y. Fomichev" <git.user@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7NCwhMaWX0Mhr7AqHH4x5RZ6TEEiJB7906yVzQouXD3Lg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next 0/5] ipv6: clean up locking in anycast and mcast
+Date: Tue,  9 Sep 2014 16:52:13 -0700
+Message-ID: <1410306738-18036-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:54968 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751345AbaIIXwf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 19:52:35 -0400
+Received: by mail-pa0-f48.google.com with SMTP id hz1so9046748pad.35
+        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 16:52:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2014-09-09 15:43:55 -0700, Cong Wang wrote:
-> On Mon, Sep 8, 2014 at 2:25 PM, Andres Freund <andres@anarazel.de> wrote:
-> > Hi,
-> >
-> > (don't have netdev archived, thus answering here, sorry)
-> >
-> > On 2014-09-07 16:41:09 -0700, David Miller wrote:
-> >> Alexander Y. Fomichev (1):
-> >>       net: prevent of emerging cross-namespace symlinks
-> >
-> 
-> Since you are quoting this change, are you saying it causes
-> the following kernel warning?
+This patchset cleans up the locking in anycast.c and mcast.c.
 
-I thought it might be a likely candidate; but I'm not sure at all. I'll
-verify it as soon as I can reboot the machine a couple of times (end of
-week-ish).
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-> > I'm seeing WARNINGs like:
-> > [ 1005.269134] ------------[ cut here ]------------
-> > [ 1005.269148] WARNING: CPU: 6 PID: 4213 at fs/sysfs/dir.c:31 sysfs_warn_dup+0x64/0x80()
-> > [ 1005.269150] sysfs: cannot create duplicate filename '/devices/pci0000:00/0000:00:1c.4/0000:03:00.0/net/eth0/upper_mv-eth0'
-> 
-> 
-> Is there a network device named upper_mv-eth0 existed in your system
-> before you created macvlan?
+Cong Wang (5):
+  ipv6: drop useless rcu_read_lock() in anycast
+  ipv6: remove ipv6_sk_ac_lock
+  ipv6: clean up ipv6_dev_ac_inc()
+  ipv6: drop ipv6_sk_mc_lock in mcast
+  ipv6: drop some rcu_read_lock in mcast
 
-No, there wasn't any. Afaics, the sequence is:
-1) macvlan mv-eth0 is created in global namespace
-2) mv-eth0 is moved (by systemd-nsspawn) into a new network
-   namespace. Leaving a dangling symlink in the host namespace
-/devices/pci0000:00/0000:00:1c.4/0000:03:00.0/net/eth0/upper_mv-eth0 pointing toward
-../mv-eth0
-which doesn't exist in the external namespace. The new namespace seems
-to have broken 'lower_bond0' symlink as well
-
-This seems to be the case (and probably the actual root cause) in
-slightly earlier kernels as well.
-What changed seems to be that:
-3) macvlan mv-eth0 is destroyed in the namespace (potentially while
-   tearing it down)
-4) Now there's a broken symlink that doesn't make sense in any namespace
-5) mv-eth0 can't be created anew
-
-It seems that 3-5 didn't happen that way on older kernels. The most
-recent where it's not persistently broken is 3.16.0-rc7-00007 -
-31dab719f. The oldest where I know it's reproducible is
-3.17.0-rc4-andres-00135-g35af256.
-
-Greetings,
-
-Andres Freund
+ include/linux/netdevice.h |  4 ++--
+ include/net/addrconf.h    |  2 +-
+ net/core/dev.c            | 14 +++++++------
+ net/ipv6/addrconf.c       |  2 +-
+ net/ipv6/anycast.c        | 52 +++++++++++++----------------------------------
+ net/ipv6/mcast.c          | 35 ++++++-------------------------
+ 6 files changed, 32 insertions(+), 77 deletions(-)
 
 -- 
- Andres Freund	                   http://www.2ndQuadrant.com/
- PostgreSQL Development, 24x7 Support, Training & Services
+1.8.3.1
