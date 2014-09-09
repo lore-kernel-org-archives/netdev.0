@@ -1,76 +1,43 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Wed, 10 Sep 2014 07:52:45 +0900
-Message-ID: <20140909225245.GC3154@mtj.dyndns.org>
-References: <20140905224047.GC15723@mtj.dyndns.org>
- <CAB=NE6Uz1VD5qpMFSBfQRV8ih9FQcCUhNtWMvD38t5hdDvix4Q@mail.gmail.com>
- <20140909011059.GB11706@mtj.dyndns.org>
- <1410241109.2028.22.camel@jarvis.lan>
- <CAB=NE6WGAMvffGDTkN5x5Cd+YOtD-Cmo3v7_8FmJ5cvCRbFEpw@mail.gmail.com>
- <1410291346.13298.16.camel@jarvis.lan>
- <20140909214240.GA3154@mtj.dyndns.org>
- <1410301562.13298.35.camel@jarvis.lan>
- <20140909224143.GB3154@mtj.dyndns.org>
- <1410302783.13298.50.camel@jarvis.lan>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: randconfig build error with next-20140909, in drivers/net/ethernet/broadcom/cnic.c
+Date: Tue, 09 Sep 2014 15:56:02 -0700
+Message-ID: <540F8582.50703@infradead.org>
+References: <CA+r1ZhhZynUKSeZnya67z9sph4+tpjO4E7jLZKc0EG4azxFdYA@mail.gmail.com>	 <525DB349B3FB5444AE057A887CB2A8D88E0BFB@nice.asicdesigners.com>,<1410295676.7520.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com> <525DB349B3FB5444AE057A887CB2A8D88E3CEC@nice.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Lennart Poettering <lennart@poettering.net>,
-	Kay Sievers <kay@vrfy.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <pravee
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1410302783.13298.50.camel@jarvis.lan>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Jim Davis <jim.epost@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>
+To: Anish Bhatt <anish@chelsio.com>, Michael Chan <mchan@broadcom.com>,
+	"eddie.wai@broadcom.com" <eddie.wai@broadcom.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <525DB349B3FB5444AE057A887CB2A8D88E3CEC@nice.asicdesigners.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, James.
-
-On Tue, Sep 09, 2014 at 03:46:23PM -0700, James Bottomley wrote:
-> If you want the return of an individual device probe a log scraper gives
-> it to you ... and nothing else does currently.  The advantage of the
-> prink in dd.c is that it's standard for everything and can be scanned
-> for ... if you take that out, you'll get complaints about the lack of
-> standard messages (you'd be surprised at the number of enterprise
-> monitoring systems that actually do log scraping).
-
-Why would a log scaper care about which task is printing the messages?
-The printk can stay there.  There's nothing wrong with it.  Log
-scapers tend to be asynchronous in nature but if a log scraper wants
-to operate synchronously for whatever reason, it can simply not turn
-on async probing.
-
-> OK, so we just fire and forget in userland ... why bother inventing an
-> elaborate new infrastructure in the kernel to do exactly what
+On 09/09/14 14:08, Anish Bhatt wrote:
 > 
-> modprobe <mod> &
+>> Adding depends on IPV6 || IPV6=n doesn't work for SCSI_BNX2X_FCOE, but
+>> works for SCSI_BNX2_ISCSI?
 > 
-> would do?
+> It fixes the config issue for both, but with FCOE; make scripts will complain about recursive dependencies with the following :
+> 
+> scripts/kconfig/conf --silentoldconfig Kconfig
+> net/Kconfig:5:error: recursive dependency detected!
+> net/Kconfig:5:  symbol NET is selected by SCSI_NETLINK
+> drivers/scsi/Kconfig:43:        symbol SCSI_NETLINK is selected by SCSI_FC_ATTRS
+> drivers/scsi/Kconfig:258:       symbol SCSI_FC_ATTRS is selected by LIBFC
+> drivers/scsi/Kconfig:586:       symbol LIBFC is selected by SCSI_BNX2X_FCOE
+> drivers/scsi/bnx2fc/Kconfig:1:  symbol SCSI_BNX2X_FCOE depends on IPV6
+> net/ipv6/Kconfig:6:     symbol IPV6 depends on NET
 
-I think the argument there is that the issuer wants to know whether
-such operations succeeded or not and wants to report and record the
-result and possibly take other actions in response.  We're currently
-mixing wait and error reporting for one type of operation with wait
-for another.  I'm not saying it's a fatal flaw or anything but it can
-get in the way.
-
-Thanks.
+It would be really good if SCSI_NETLINK depended on NET instead of selected NET.
+We shouldn't have kconfig symbols that use 'select' on entire subsystems.
 
 -- 
-tejun
+~Randy
