@@ -1,89 +1,42 @@
-From: Andres Freund <andres@anarazel.de>
-Subject: Re: Macvlan WARNiNGS about duplicate sysfs filenames (Was [GIT]
- Networking)
-Date: Wed, 10 Sep 2014 01:55:34 +0200
-Message-ID: <20140909235534.GH24649@awork2.anarazel.de>
-References: <20140907.164109.1944849896872238507.davem@davemloft.net>
- <20140908212514.GA2348@awork2.anarazel.de>
- <CAHA+R7NCwhMaWX0Mhr7AqHH4x5RZ6TEEiJB7906yVzQouXD3Lg@mail.gmail.com>
- <20140909234806.GG24649@awork2.anarazel.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] tcp: remove dst refcount false sharing for
+ prequeue mode
+Date: Tue, 09 Sep 2014 16:56:58 -0700 (PDT)
+Message-ID: <20140909.165658.240781549171510851.davem@davemloft.net>
+References: <1410188767.11872.110.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140908.142143.807176983873922125.davem@davemloft.net>
+	<1410211842.11872.133.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Alexander Y. Fomichev" <git.user@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: therbert@google.com, alexander.h.duyck@intel.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.anarazel.de ([217.115.131.40]:42638 "EHLO mail.anarazel.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751648AbaIIXzk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2014 19:55:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20140909234806.GG24649@awork2.anarazel.de>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34068 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751413AbaIIX5A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 19:57:00 -0400
+In-Reply-To: <1410211842.11872.133.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014-09-10 01:48:06 +0200, Andres Freund wrote:
-> On 2014-09-09 15:43:55 -0700, Cong Wang wrote:
-> > On Mon, Sep 8, 2014 at 2:25 PM, Andres Freund <andres@anarazel.de> wrote:
-> > > Hi,
-> > >
-> > > (don't have netdev archived, thus answering here, sorry)
-> > >
-> > > On 2014-09-07 16:41:09 -0700, David Miller wrote:
-> > >> Alexander Y. Fomichev (1):
-> > >>       net: prevent of emerging cross-namespace symlinks
-> > >
-> > 
-> > Since you are quoting this change, are you saying it causes
-> > the following kernel warning?
-> 
-> I thought it might be a likely candidate; but I'm not sure at all. I'll
-> verify it as soon as I can reboot the machine a couple of times (end of
-> week-ish).
-> 
-> > > I'm seeing WARNINGs like:
-> > > [ 1005.269134] ------------[ cut here ]------------
-> > > [ 1005.269148] WARNING: CPU: 6 PID: 4213 at fs/sysfs/dir.c:31 sysfs_warn_dup+0x64/0x80()
-> > > [ 1005.269150] sysfs: cannot create duplicate filename '/devices/pci0000:00/0000:00:1c.4/0000:03:00.0/net/eth0/upper_mv-eth0'
-> > 
-> > 
-> > Is there a network device named upper_mv-eth0 existed in your system
-> > before you created macvlan?
-> 
-> No, there wasn't any. Afaics, the sequence is:
-> 1) macvlan mv-eth0 is created in global namespace
-> 2) mv-eth0 is moved (by systemd-nsspawn) into a new network
->    namespace. Leaving a dangling symlink in the host namespace
-> /devices/pci0000:00/0000:00:1c.4/0000:03:00.0/net/eth0/upper_mv-eth0 pointing toward
-> ../mv-eth0
-> which doesn't exist in the external namespace. The new namespace seems
-> to have broken 'lower_bond0' symlink as well
-> 
-> This seems to be the case (and probably the actual root cause) in
-> slightly earlier kernels as well.
-> What changed seems to be that:
-> 3) macvlan mv-eth0 is destroyed in the namespace (potentially while
->    tearing it down)
-> 4) Now there's a broken symlink that doesn't make sense in any namespace
-> 5) mv-eth0 can't be created anew
-> 
-> It seems that 3-5 didn't happen that way on older kernels. The most
-> recent where it's not persistently broken is 3.16.0-rc7-00007 -
-> 31dab719f. The oldest where I know it's reproducible is
-> 3.17.0-rc4-andres-00135-g35af256.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 08 Sep 2014 14:30:42 -0700
 
-I've reproduced the problem on another machine where it's perfectly
-reproducible (except being about mv-bond0). After reverting only the
-aforementioned 4c75431ac352063 it works again.
-As I said above, I'm not sure whether 4c75431ac352063 is the actual
-culprit, but it certainly made the problem visible. How are these
-upper_$if/lower_$if supposed to behave when the macvlan and the
-underlying device are in differing namespaces?
+> In the worst case, here is what is happening :
+> 
+> sk_rx_dst is checked and invalidated in tcp_v4_do_rcv()
+> 
+> Next packets coming from prequeue might then have a NULL dst, and
+> we'll do nothing special (sk_rx_dst will stay NULL), because we do
+> handle NULL dst properly in inet_sk_rx_dst_set() and
+> inet6_sk_rx_dst_set() 
+> 
+> But next packet to be processed (either in non prequeue mode or
+> prequeue) will carry skb->dst and we will set sk->sk_rx_dst
+> 
+> I decided to not copy/paste the tests we do in the family dependent
+> parts, because it was not worth the pain.
 
-Greetings,
-
-Andres Freund
+And, now applied.
