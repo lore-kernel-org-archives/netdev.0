@@ -1,40 +1,52 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 2/3] ipip: Add gro callbacks to ipip offload
-Date: Tue,  9 Sep 2014 11:23:15 -0700
-Message-ID: <1410286996-302-3-git-send-email-therbert@google.com>
+Subject: [PATCH net-next 1/3] ipv6: Clear flush_id to make GRO work
+Date: Tue,  9 Sep 2014 11:23:14 -0700
+Message-ID: <1410286996-302-2-git-send-email-therbert@google.com>
 References: <1410286996-302-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:35423 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751666AbaIISXu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 14:23:50 -0400
-Received: by mail-pd0-f182.google.com with SMTP id w10so4548319pde.27
-        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 11:23:50 -0700 (PDT)
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:44897 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245AbaIISXo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 14:23:44 -0400
+Received: by mail-pd0-f179.google.com with SMTP id g10so10569764pdj.24
+        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 11:23:43 -0700 (PDT)
 In-Reply-To: <1410286996-302-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add inet_gro_receive and inet_gro_complete to ipip_offload to
-support GRO.
+In TCP gro we check flush_id which is derived from the IP identifier.
+In IPv4 gro path the flush_id is set with the expectation that every
+matched packet increments IP identifier. In IPv6, the flush_id is
+never set and thus is uinitialized. What's worse is that in IPv6
+over IPv4 encapsulation, the IP identifier is taken from the outer
+header which is currently not incremented on every packet for Linux
+stack, so GRO in this case never matches packets (identifier is
+not increasing).
+
+This patch clears flush_id for every time for a matched packet in
+IPv6 gro_receive. We need to do this each time to overwrite the
+setting that would be done in IPv4 gro_receive per the outer
+header in IPv6 over Ipv4 encapsulation.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/ipv4/af_inet.c | 2 ++
- 1 file changed, 2 insertions(+)
+ net/ipv6/ip6_offload.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index d156b3c..6d6348d 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1670,6 +1670,8 @@ static const struct net_offload ipip_offload = {
- 	.callbacks = {
- 		.gso_send_check = inet_gso_send_check,
- 		.gso_segment	= inet_gso_segment,
-+		.gro_receive	= inet_gro_receive,
-+		.gro_complete	= inet_gro_complete,
- 	},
- };
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index 5bcda33..929bbbcd 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -261,6 +261,9 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+ 		/* flush if Traffic Class fields are different */
+ 		NAPI_GRO_CB(p)->flush |= !!(first_word & htonl(0x0FF00000));
+ 		NAPI_GRO_CB(p)->flush |= flush;
++
++		/* Clear flush_id, there's really no concept of ID in IPv6. */
++		NAPI_GRO_CB(p)->flush_id = 0;
+ 	}
  
+ 	NAPI_GRO_CB(skb)->flush |= flush;
 -- 
 2.1.0.rc2.206.gedb03e5
