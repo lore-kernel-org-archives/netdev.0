@@ -1,15 +1,22 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+From: Tejun Heo <tj@kernel.org>
 Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Tue, 09 Sep 2014 16:01:32 -0700
-Message-ID: <5762134.BLS0EbmNJd@dtor-glaptop>
-References: <20140905174925.GA12991@mtj.dyndns.org> <20140909224143.GB3154@mtj.dyndns.org> <1410302783.13298.50.camel@jarvis.lan>
+Date: Wed, 10 Sep 2014 08:03:33 +0900
+Message-ID: <20140909230333.GD3154@mtj.dyndns.org>
+References: <CAB=NE6Vn3hA_VKJyi4kgMi6iMtTtA104-_UfFm6vgX14RoDOTw@mail.gmail.com>
+ <20140909012933.GF11706@mtj.dyndns.org>
+ <CAB=NE6V+of_RLQtjFpkLN49nKgfONx0T4cbu8kkNU69tUyNozw@mail.gmail.com>
+ <20140909014754.GG11706@mtj.dyndns.org>
+ <CAB=NE6VAe_96dezJmdXkOjy8mSz8EABX6i8C46GzUJRC-HLAZQ@mail.gmail.com>
+ <20140909023943.GH11706@mtj.dyndns.org>
+ <CAB=NE6XH64QLfwoE3r7uf3SYKNJMzP-tjUkrxDwVca7G2zOxBQ@mail.gmail.com>
+ <20140909030353.GI11706@mtj.dyndns.org>
+ <CAB=NE6UGNC7VHnkuv8huaVHLX3Kuh2kOTK92SCw07ehJ3LdXFg@mail.gmail.com>
+ <20140909032529.GJ11706@mtj.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Tejun Heo <tj@kernel.org>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Lennart Poettering <lennart@poettering.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Lennart Poettering <lennart@poettering.net>,
 	Kay Sievers <kay@vrfy.org>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
 	Arjan van de Ven <arjan@linux.intel.com>,
@@ -24,35 +31,40 @@ Cc: Tejun Heo <tj@kernel.org>,
 	Tim Gardner <tim.gardner@canonical.com>,
 	Pierre Fersing <pierre-fersing@pierref.org>,
 	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@a
-To: James Bottomley <James.Bottomley@hansenpartnership.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1410302783.13298.50.camel@jarvis.lan>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Redd
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:44453 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752732AbaIIXDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 19:03:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20140909032529.GJ11706@mtj.dyndns.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, September 09, 2014 03:46:23 PM James Bottomley wrote:
-> On Wed, 2014-09-10 at 07:41 +0900, Tejun Heo wrote:
-> > 
-> > The thing is that we have to have dynamic mechanism to listen for
-> > device attachments no matter what and such mechanism has been in place
-> > for a long time at this point.  The synchronous wait simply doesn't
-> > serve any purpose anymore and kinda gets in the way in that it makes
-> > it a possibly extremely slow process to tell whether loading of a
-> > module succeeded or not because the wait for the initial round of
-> > probe is piggybacked.
+On Tue, Sep 09, 2014 at 12:25:29PM +0900, Tejun Heo wrote:
+> Hello,
 > 
-> OK, so we just fire and forget in userland ... why bother inventing an
-> elaborate new infrastructure in the kernel to do exactly what
+> On Mon, Sep 08, 2014 at 08:19:12PM -0700, Luis R. Rodriguez wrote:
+> > On the systemd side of things it should enable this sysctl and for
+> > older kernels what should it do?
 > 
-> modprobe <mod> &
-> 
-> would do?
+> Supposing the change is backported via -stable, it can try to set the
+> sysctl on all kernels.  If the knob doesn't exist, the fix is not
+> there and nothing can be done about it.
 
-Just so we do not forget: we also want the no-modules case to also be able
-to probe asynchronously so that a slow device does not stall kernel booting.
+The more I think about it, the more I think this should be a
+per-insmod instance thing rather than a system-wide switch.  Currently
+the kernel param code doesn't allow a generic param outside the ones
+specified by the module itself but adding support for something like
+driver.async_load=1 shouldn't be too difficult, applying that to
+existing systems shouldn't be much more difficult than a system-wide
+switch, and it'd be siginificantly cleaner than fiddling with driver
+blacklist.
 
 Thanks.
 
 -- 
-Dmitry
+tejun
