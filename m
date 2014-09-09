@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ipv4: bind ip_nonlocal_bind to current netns
-Date: Tue, 09 Sep 2014 11:27:24 -0700 (PDT)
-Message-ID: <20140909.112724.1513813263306169050.davem@davemloft.net>
-References: <1409922543-708-1-git-send-email-vincent@bernat.im>
+Subject: Re: [patch net-next 0/5] bridge: implement rtnl_link options for
+ getting and setting bridge options
+Date: Tue, 09 Sep 2014 11:30:25 -0700 (PDT)
+Message-ID: <20140909.113025.692019435898858870.davem@davemloft.net>
+References: <1409925092-17808-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, vyasevich@gmail.com, nhorman@tuxdriver.com,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: vincent@bernat.im
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	sfeldma@cumulusnetworks.com, arvid.brodin@alten.se,
+	sucheta.chakraborty@qlogic.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59333 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59374 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751308AbaIIS1Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 14:27:25 -0400
-In-Reply-To: <1409922543-708-1-git-send-email-vincent@bernat.im>
+	with ESMTP id S1751282AbaIISa0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 14:30:26 -0400
+In-Reply-To: <1409925092-17808-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vincent Bernat <vincent@bernat.im>
-Date: Fri,  5 Sep 2014 15:09:03 +0200
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri,  5 Sep 2014 15:51:27 +0200
 
-> net.ipv4.ip_nonlocal_bind sysctl was global to all network
-> namespaces. This patch allows to set a different value for each
-> network namespace.
-> 
-> Signed-off-by: Vincent Bernat <vincent@bernat.im>
+> So far, only sysfs is complete interface for getting and setting bridge
+> options. This patchset follows-up on the similar bonding code and
+> allows userspace to get/set bridge master/port options using Netlink
+> IFLA_INFO_DATA/IFLA_INFO_SLAVE_DATA attr.
 
-Applied to net-next, thanks.
+Series applied, thanks Jiri.
