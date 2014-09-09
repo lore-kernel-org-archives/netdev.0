@@ -1,68 +1,66 @@
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Subject: Re: [PATCH v2 0/3] net: Add Keystone NetCP ethernet driver support
-Date: Tue, 9 Sep 2014 11:19:54 -0400
-Message-ID: <540F1A9A.1020309@ti.com>
-References: <1408115562-22487-1-git-send-email-santosh.shilimkar@ti.com> <20140821.163612.282672926741753926.davem@davemloft.net> <53F79DC5.8030003@ti.com> <540DC00F.1080103@ti.com> <540EE809.9020901@mojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH v3 02/15] net: rcu-ify tcf_proto
+Date: Tue, 09 Sep 2014 08:20:22 -0700
+Message-ID: <1410276022.7106.11.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140909055221.2071.99671.stgit@nitbit.x32>
+	  <20140909055437.2071.86430.stgit@nitbit.x32>
+	 <1410265257.11872.154.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <540F1975.2080303@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <robh+dt@kernel.org>,
-	<grant.likely@linaro.org>, <devicetree@vger.kernel.org>,
-	<sandeep_n@ti.com>, Benjamin LaHaise <bcrl@kvack.org>,
-	shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <540EE809.9020901@mojatatu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:40463 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753620AbaIIPUY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 11:20:24 -0400
+Received: by mail-pa0-f53.google.com with SMTP id rd3so4887174pab.26
+        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 08:20:24 -0700 (PDT)
+In-Reply-To: <540F1975.2080303@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 09 September 2014 07:44 AM, Jamal Hadi Salim wrote:
-> On 09/08/14 10:41, Santosh Shilimkar wrote:
-> 
->>> The NetCP plugin module infrastructure use all the standard kernel
->>> infrastructure and its very tiny.
-> 
-> So i found this manual here:
-> http://www.silica.com/fileadmin/02_Products/Productdetails/Texas_Instruments/SILICA_TI_66AK2E05-ds.pdf
-> 
-> Glad there is an open document!
-> There are a couple of ethernet switch chips I can spot there.
-> 
-All the documentation is open including packet accelerator offload
-in ti.com.
+On Tue, 2014-09-09 at 08:15 -0700, John Fastabend wrote:
 
-> Can i control those with "bridge" or say "brctl" utilities?
 > 
-> I can see the bridge ports are exposed and i should be able to
-> control them via ifconfig or ip link. Thats what "standard
-> kernel infrastructure" means. Magic hidden in a driver is
-> not.
-> 
-There is nothing magic hidden in the driver. The bridge ports
-are exposed as standard network interfaces. Currently the
-drivers don't support bridge offload functionality and
-the bridging is disabled in the switch by default. 
+> You mean RCU_INIT_POINTER() correct?
 
-> Take a look at recent netconf discussion (as well as earlier
-> referenced discussions):
-> http://vger.kernel.org/netconf-nf-offload.pdf
-> 
-> Maybe we can help providing you some direction?
-> The problem is it doesnt seem that the offload specs for
-> those other pieces are open? e.g how do i add an entry
-> to the L2 switch?
-> 
-We got such requests from customers but couldn't
-support it for Linux. We are also looking for such
-support and any direction are welcome. Your slide
-deck seems to capture the key topics like L2/IPSEC
-offload which we are also interested to hear.
+Right, I got this correct for other reviews ;)
 
-Just to be clear, your point was about L2 switch offload
-which the driver don't support at the moment. It might confuse
-others. The driver doesn't implements anything non-standard.
+> 
+> And to be clear which special case in rcupdate.h:999 applies here,
+> 	
+>   * 1.   This use of RCU_INIT_POINTER() is NULLing out the pointer -or-
+>   * 2.   The caller has taken whatever steps are required to prevent
+>   *      RCU readers from concurrently accessing this pointer -or-
+>   * 3.   The referenced data structure has already been exposed to
+>   *      readers either at compile time or via rcu_assign_pointer() -and-
+>   *      a.      You have not made -any- reader-visible changes to
+>   *              this structure since then -or-
+>   *      b.      It is OK for readers accessing this structure from its
+>   *              new location to see the old state of the structure. (For
+>   *              example, the changes were to statistical counters or to
+>   *             other state where exact synchronization is not required.)
+> 
 
-Regards,
-Santosh
+In fact, everytime we remove an item from rcu protected list, its fine
+to use RCU_INIT_POINTER
+
+RCU_INIT_POINTER(*pprev, item->next);
+
+Because we do not touch chain starting from item->next
+
+> 
+> Its only NULLing out the pointer in special cases (case 1), with the
+> qdisc lock dropped like in the last patch for ingress qdisc we may have
+> concurrent readers (case 2) doing classification which will be walking
+> the filter list, and with the tcf_ops change() its not clear to me that
+> we can guarantee the structure has not been updated as stated in (case
+> 3a).
+> 
+> So the case here is 3b we are just updating the list structure to skip
+> an entry and any old state is correct.
