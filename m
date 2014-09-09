@@ -1,50 +1,150 @@
 From: Frank Li <Frank.Li@freescale.com>
-Subject: [Patch v2 net-next 11/12] ARM: Documentation: Update fec dts binding doc
-Date: Wed, 10 Sep 2014 04:15:42 +0800
-Message-ID: <1410293743-27874-12-git-send-email-Frank.Li@freescale.com>
+Subject: [Patch v2 net-next 09/12] net: fec: change FEC alignment according to i.mx6 sx requirement
+Date: Wed, 10 Sep 2014 04:15:40 +0800
+Message-ID: <1410293743-27874-10-git-send-email-Frank.Li@freescale.com>
 References: <1410293743-27874-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, Frank Li <Frank.Li@freescale.com>,
-	Fugang Duan <B38611@freescale.com>
+	<devicetree@vger.kernel.org>, Fugang Duan <B38611@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>
 To: <b38611@freescale.com>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0117.outbound.protection.outlook.com ([157.56.110.117]:42976
+Received: from mail-bn1on0144.outbound.protection.outlook.com ([157.56.110.144]:24289
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752698AbaIIUj2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2014 16:39:28 -0400
+	id S1752711AbaIIUjc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2014 16:39:32 -0400
 In-Reply-To: <1410293743-27874-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-    This patch update fec devicetree binding doc that add Optional
-    properties "fsl,num-tx-queues" and "fsl,num-rx-queues".
+From: Fugang Duan <B38611@freescale.com>
+
+i.MX6 SX change FEC alignment requirement.
+i.MX6 SX change internal bus from AHB to AXI.
+It require RX buffer must be 64 bytes alignment.
+And remove TX buffer alignment requirement.
 
 Signed-off-by: Fugang Duan <B38611@freescale.com>
 Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- Documentation/devicetree/bindings/net/fsl-fec.txt | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/freescale/fec.h      |  3 +++
+ drivers/net/ethernet/freescale/fec_main.c | 30 +++++++++++++++++++-----------
+ 2 files changed, 22 insertions(+), 11 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
-index 8a2c7b5..0c8775c 100644
---- a/Documentation/devicetree/bindings/net/fsl-fec.txt
-+++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-@@ -16,6 +16,12 @@ Optional properties:
- - phy-handle : phandle to the PHY device connected to this device.
- - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
-   Use instead of phy-handle.
-+- fsl,num-tx-queues : The property is valid for enet-avb IP, which supports
-+  hw multi queues. Should specify the tx queue number, otherwise set tx queue
-+  number to 1.
-+- fsl,num-rx-queues : The property is valid for enet-avb IP, which supports
-+  hw multi queues. Should specify the rx queue number, otherwise set rx queue
-+  number to 1.
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 5ec3828..7cc8382 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -443,6 +443,9 @@ struct fec_enet_private {
+ 	int hwts_tx_en;
+ 	struct delayed_work time_keep;
+ 	struct regulator *reg_phy;
++
++	unsigned tx_align;
++	unsigned rx_align;
+ };
  
- Optional subnodes:
- - mdio : specifies the mdio bus in the FEC, used as a container for phy nodes
+ void fec_ptp_init(struct platform_device *pdev);
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 0cc7313..34ad932 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -64,12 +64,6 @@
+ 
+ static void set_multicast_list(struct net_device *ndev);
+ 
+-#if defined(CONFIG_ARM)
+-#define FEC_ALIGNMENT	0xf
+-#else
+-#define FEC_ALIGNMENT	0x3
+-#endif
+-
+ #define DRIVER_NAME	"fec"
+ 
+ #define FEC_ENET_GET_QUQUE(_x) ((_x == 0) ? 1 : ((_x == 1) ? 2 : 0))
+@@ -434,7 +428,7 @@ fec_enet_txq_submit_frag_skb(struct fec_enet_priv_tx_q *txq,
+ 		bufaddr = page_address(this_frag->page.p) + this_frag->page_offset;
+ 
+ 		index = fec_enet_get_bd_index(txq->tx_bd_base, bdp, fep);
+-		if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
++		if (((unsigned long) bufaddr) & fep->tx_align ||
+ 			id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 			memcpy(txq->tx_bounce[index], bufaddr, frag_len);
+ 			bufaddr = txq->tx_bounce[index];
+@@ -514,7 +508,7 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
+ 
+ 	queue = skb_get_queue_mapping(skb);
+ 	index = fec_enet_get_bd_index(txq->tx_bd_base, bdp, fep);
+-	if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
++	if (((unsigned long) bufaddr) & fep->tx_align ||
+ 		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 		memcpy(txq->tx_bounce[index], skb->data, buflen);
+ 		bufaddr = txq->tx_bounce[index];
+@@ -607,7 +601,7 @@ fec_enet_txq_put_data_tso(struct fec_enet_priv_tx_q *txq, struct sk_buff *skb,
+ 
+ 	status |= (BD_ENET_TX_TC | BD_ENET_TX_READY);
+ 
+-	if (((unsigned long) data) & FEC_ALIGNMENT ||
++	if (((unsigned long) data) & fep->tx_align ||
+ 		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 		memcpy(txq->tx_bounce[index], data, size);
+ 		data = txq->tx_bounce[index];
+@@ -669,7 +663,7 @@ fec_enet_txq_put_hdr_tso(struct fec_enet_priv_tx_q *txq,
+ 
+ 	bufaddr = txq->tso_hdrs + index * TSO_HEADER_SIZE;
+ 	dmabuf = txq->tso_hdrs_dma + index * TSO_HEADER_SIZE;
+-	if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
++	if (((unsigned long)bufaddr) & fep->tx_align ||
+ 		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 		memcpy(txq->tx_bounce[index], skb->data, hdr_len);
+ 		bufaddr = txq->tx_bounce[index];
+@@ -2399,6 +2393,7 @@ fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
+ 	struct sk_buff *skb;
+ 	struct bufdesc	*bdp;
+ 	struct fec_enet_priv_rx_q *rxq;
++	unsigned off;
+ 
+ 	rxq = fep->rx_queue[queue];
+ 	bdp = rxq->rx_bd_base;
+@@ -2409,8 +2404,13 @@ fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
+ 		if (!skb)
+ 			goto err_alloc;
+ 
++		off = ((unsigned long)skb->data) & fep->rx_align;
++		if (off)
++			skb_reserve(skb, fep->rx_align + 1 - off);
++
+ 		addr = dma_map_single(&fep->pdev->dev, skb->data,
+-				FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
++				FEC_ENET_RX_FRSIZE - fep->rx_align, DMA_FROM_DEVICE);
++
+ 		if (dma_mapping_error(&fep->pdev->dev, addr)) {
+ 			dev_kfree_skb(skb);
+ 			if (net_ratelimit())
+@@ -2743,6 +2743,9 @@ static int fec_enet_init(struct net_device *ndev)
+ 	int bd_size;
+ 	unsigned int i;
+ 
++	fep->rx_align = 0x3;
++	fep->tx_align = 0x3;
++
+ 	fec_enet_alloc_queue(ndev);
+ 
+ 	if (fep->bufdesc_ex)
+@@ -2819,6 +2822,11 @@ static int fec_enet_init(struct net_device *ndev)
+ 		fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
+ 	}
+ 
++	if (id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
++		fep->tx_align = 0;
++		fep->rx_align = 0x3f;
++	}
++
+ 	ndev->hw_features = ndev->features;
+ 
+ 	fec_restart(ndev);
 -- 
 1.9.1
