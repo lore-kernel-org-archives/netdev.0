@@ -1,39 +1,61 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: RE: randconfig build error with next-20140909, in
- drivers/net/ethernet/broadcom/cnic.c
-Date: Tue, 9 Sep 2014 13:47:56 -0700
-Message-ID: <1410295676.7520.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <CA+r1ZhhZynUKSeZnya67z9sph4+tpjO4E7jLZKc0EG4azxFdYA@mail.gmail.com>
-	 <525DB349B3FB5444AE057A887CB2A8D88E0BFB@nice.asicdesigners.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="cp1252"
-Content-Transfer-Encoding: 7bit
-Cc: Jim Davis <jim.epost@gmail.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Anish Bhatt <anish@chelsio.com>, <eddie.wai@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <525DB349B3FB5444AE057A887CB2A8D88E0BFB@nice.asicdesigners.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] rtlwifi: btcoexist: Fix "always true" warning from commit ed364abffd6e
+Date: Tue,  9 Sep 2014 15:57:46 -0500
+Message-ID: <1410296266-14327-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kbuild test robot <kbuild-all-JC7UmRfGjtg@public.gmane.org>
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-09-09 at 20:24 +0000, Anish Bhatt wrote: 
-> This is caused by c99d667e8527  ("cnic : Cleanup CONFIG_IPV6 & VLAN check")
-> 
-> So I'm not really sure what the fix for this is. CNIC will properly only support 
-> [m] or [n] when IPV6 is compiled as a module, but if you set SCSI_BNX2X_FCOE or 
-> SCSI_BNX2_ISCSI to be in built, there is a 'select CNIC' that forces CNIC to be 
-> inbuilt, even though this is not supported by Kconfig. I was under the 
-> assumption that select will not forcibly change m to inbuilt (or perhaps I'm 
-> missing some syntax suboption ?)
-> 
-> This is still fixable in SCSI_BNX2_ISCSI using the same logic used in the above 
-> mentioned commit, but not so in SCSI_BNX2X_FCOE where it causes a recursive 
-> dependency error (thought it is fixing the issue nevertheless), and none of the 
->  other solutions I tried seemed to work either. 
+The 0-DAY kernel build testing backend reports the following warning:
+drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c:516 halbtc_bitmask_write_1byte()
+warn: always true condition '(bit_mask != 4294967295) => (0-255 != u32max)'
 
-Adding depends on IPV6 || IPV6=n doesn't work for SCSI_BNX2X_FCOE, but
-works for SCSI_BNX2_ISCSI?
+This problem was introduced in commit ed364abffd6e19bec67b7ccda8237213b8b37640,
+and arises because the caller of halbtc_bitmask_write_1byte() is using a
+u8 rather than a u32 for the data.
+
+Reported-by: Kbuild test robot <kbuild-all-JC7UmRfGjtg@public.gmane.org>
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: Kbuild test robot <kbuild-all-JC7UmRfGjtg@public.gmane.org>
+---
+ drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c | 2 +-
+ drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
+index 3119e8b..0620b22 100644
+--- a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
++++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
+@@ -497,7 +497,7 @@ static u32 halbtc_read_4byte(void *bt_context, u32 reg_addr)
+ 	return	rtl_read_dword(rtlpriv, reg_addr);
+ }
+ 
+-static void halbtc_write_1byte(void *bt_context, u32 reg_addr, u8 data)
++static void halbtc_write_1byte(void *bt_context, u32 reg_addr, u32 data)
+ {
+ 	struct btc_coexist *btcoexist = (struct btc_coexist *)bt_context;
+ 	struct rtl_priv *rtlpriv = btcoexist->adapter;
+diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
+index eae1937..0d185e6 100644
+--- a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
++++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
+@@ -359,7 +359,7 @@ typedef u16 (*bfp_btc_r2)(void *btc_context, u32 reg_addr);
+ 
+ typedef u32 (*bfp_btc_r4)(void *btc_context, u32 reg_addr);
+ 
+-typedef void (*bfp_btc_w1)(void *btc_context, u32 reg_addr, u8 data);
++typedef void (*bfp_btc_w1)(void *btc_context, u32 reg_addr, u32 data);
+ 
+ typedef void (*bfp_btc_w1_bit_mak)(void *btc_context, u32 reg_addr,
+ 				   u8 bit_mask, u8 data1b);
+-- 
+1.8.4.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
