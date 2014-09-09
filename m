@@ -1,182 +1,98 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v2 7/7] bonding: remove last users of bond->lock and bond->lock itself
-Date: Tue,  9 Sep 2014 23:17:03 +0200
-Message-ID: <1410297423-26624-8-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next v2 2/7] bonding: 3ad: use curr_slave_lock instead of bond->lock
+Date: Tue,  9 Sep 2014 23:16:58 +0200
+Message-ID: <1410297423-26624-3-git-send-email-nikolay@redhat.com>
 References: <1410297423-26624-1-git-send-email-nikolay@redhat.com>
 Cc: hariprasad@chelsio.com, vfalico@gmail.com, j.vosburgh@gmail.com,
 	andy@greyhouse.net, davem@davemloft.net,
 	Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9873 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46636 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752034AbaIIVR2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2014 17:17:28 -0400
+	id S1751387AbaIIVRU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2014 17:17:20 -0400
 In-Reply-To: <1410297423-26624-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The usage of bond->lock in bond_main.c was completely unnecessary as it
-didn't help to sync with anything, most of the spots already had RTNL.
-Since there're no more users of bond->lock, remove it.
+In 3ad mode the only syncing needed by bond->lock is for the wq
+and the recv handler, so change them to use curr_slave_lock.
+There're no locking dependencies here as 3ad doesn't use
+curr_slave_lock at all.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_main.c | 39 ---------------------------------------
- drivers/net/bonding/bonding.h   |  8 ++------
- 2 files changed, 2 insertions(+), 45 deletions(-)
+ drivers/net/bonding/bond_3ad.c  |  9 ++++-----
+ drivers/net/bonding/bond_main.c | 12 +++++++-----
+ 2 files changed, 11 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 629037f79213..b43b2df9e5d1 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3105,7 +3105,6 @@ static int bond_open(struct net_device *bond_dev)
- 	struct slave *slave;
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index ee2c73a9de39..5d27a6207384 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2057,7 +2057,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 	struct port *port;
+ 	bool should_notify_rtnl = BOND_SLAVE_NOTIFY_LATER;
  
- 	/* reset slave->backup and slave->inactive */
 -	read_lock(&bond->lock);
- 	if (bond_has_slaves(bond)) {
- 		read_lock(&bond->curr_slave_lock);
- 		bond_for_each_slave(bond, slave, iter) {
-@@ -3120,7 +3119,6 @@ static int bond_open(struct net_device *bond_dev)
++	read_lock(&bond->curr_slave_lock);
+ 	rcu_read_lock();
+ 
+ 	/* check if there are any slaves */
+@@ -2120,7 +2120,7 @@ re_arm:
  		}
- 		read_unlock(&bond->curr_slave_lock);
  	}
+ 	rcu_read_unlock();
 -	read_unlock(&bond->lock);
++	read_unlock(&bond->curr_slave_lock);
  
- 	bond_work_init_all(bond);
- 
-@@ -3175,7 +3173,6 @@ static struct rtnl_link_stats64 *bond_get_stats(struct net_device *bond_dev,
- 
- 	memset(stats, 0, sizeof(*stats));
- 
--	read_lock_bh(&bond->lock);
- 	bond_for_each_slave(bond, slave, iter) {
- 		const struct rtnl_link_stats64 *sstats =
- 			dev_get_stats(slave->dev, &temp);
-@@ -3206,7 +3203,6 @@ static struct rtnl_link_stats64 *bond_get_stats(struct net_device *bond_dev,
- 		stats->tx_heartbeat_errors += sstats->tx_heartbeat_errors;
- 		stats->tx_window_errors += sstats->tx_window_errors;
- 	}
--	read_unlock_bh(&bond->lock);
- 
- 	return stats;
- }
-@@ -3246,13 +3242,11 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
- 
- 		if (mii->reg_num == 1) {
- 			mii->val_out = 0;
--			read_lock(&bond->lock);
- 			read_lock(&bond->curr_slave_lock);
- 			if (netif_carrier_ok(bond->dev))
- 				mii->val_out = BMSR_LSTATUS;
- 
- 			read_unlock(&bond->curr_slave_lock);
--			read_unlock(&bond->lock);
- 		}
- 
- 		return 0;
-@@ -3428,21 +3422,6 @@ static int bond_change_mtu(struct net_device *bond_dev, int new_mtu)
- 
- 	netdev_dbg(bond_dev, "bond=%p, new_mtu=%d\n", bond, new_mtu);
- 
--	/* Can't hold bond->lock with bh disabled here since
--	 * some base drivers panic. On the other hand we can't
--	 * hold bond->lock without bh disabled because we'll
--	 * deadlock. The only solution is to rely on the fact
--	 * that we're under rtnl_lock here, and the slaves
--	 * list won't change. This doesn't solve the problem
--	 * of setting the slave's MTU while it is
--	 * transmitting, but the assumption is that the base
--	 * driver can handle that.
--	 *
--	 * TODO: figure out a way to safely iterate the slaves
--	 * list, but without holding a lock around the actual
--	 * call to the base driver.
--	 */
--
- 	bond_for_each_slave(bond, slave, iter) {
- 		netdev_dbg(bond_dev, "s %p c_m %p\n",
- 			   slave, slave->dev->netdev_ops->ndo_change_mtu);
-@@ -3517,21 +3496,6 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
- 	if (!is_valid_ether_addr(sa->sa_data))
- 		return -EADDRNOTAVAIL;
- 
--	/* Can't hold bond->lock with bh disabled here since
--	 * some base drivers panic. On the other hand we can't
--	 * hold bond->lock without bh disabled because we'll
--	 * deadlock. The only solution is to rely on the fact
--	 * that we're under rtnl_lock here, and the slaves
--	 * list won't change. This doesn't solve the problem
--	 * of setting the slave's hw address while it is
--	 * transmitting, but the assumption is that the base
--	 * driver can handle that.
--	 *
--	 * TODO: figure out a way to safely iterate the slaves
--	 * list, but without holding a lock around the actual
--	 * call to the base driver.
--	 */
--
- 	bond_for_each_slave(bond, slave, iter) {
- 		netdev_dbg(bond_dev, "slave %p %s\n", slave, slave->dev->name);
- 		res = dev_set_mac_address(slave->dev, addr);
-@@ -3857,7 +3821,6 @@ static int bond_ethtool_get_settings(struct net_device *bond_dev,
- 	 * the true receive or transmit bandwidth (not all modes are symmetric)
- 	 * this is an accurate maximum.
- 	 */
--	read_lock(&bond->lock);
- 	bond_for_each_slave(bond, slave, iter) {
- 		if (bond_slave_can_tx(slave)) {
- 			if (slave->speed != SPEED_UNKNOWN)
-@@ -3868,7 +3831,6 @@ static int bond_ethtool_get_settings(struct net_device *bond_dev,
- 		}
- 	}
- 	ethtool_cmd_speed_set(ecmd, speed ? : SPEED_UNKNOWN);
--	read_unlock(&bond->lock);
- 
+ 	if (should_notify_rtnl && rtnl_trylock()) {
+ 		bond_slave_state_notify(bond);
+@@ -2395,7 +2395,6 @@ int __bond_3ad_get_active_agg_info(struct bonding *bond,
  	return 0;
  }
-@@ -3931,7 +3893,6 @@ void bond_setup(struct net_device *bond_dev)
- 	struct bonding *bond = netdev_priv(bond_dev);
  
- 	/* initialize rwlocks */
--	rwlock_init(&bond->lock);
- 	rwlock_init(&bond->curr_slave_lock);
- 	bond->params = bonding_defaults;
+-/* Wrapper used to hold bond->lock so no slave manipulation can occur */
+ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
+ {
+ 	int ret;
+@@ -2487,9 +2486,9 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
+ 	if (!lacpdu)
+ 		return ret;
  
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index c798561a6f01..78c461abaa09 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -83,7 +83,7 @@
-  * @pos:	current slave
-  * @iter:	list_head * iterator
-  *
-- * Caller must hold bond->lock
-+ * Caller must hold RTNL
-  */
- #define bond_for_each_slave(bond, pos, iter) \
- 	netdev_for_each_lower_private((bond)->dev, pos, iter)
-@@ -185,11 +185,8 @@ struct slave {
- /*
-  * Here are the locking policies for the two bonding locks:
-  *
-- * 1) Get bond->lock when reading/writing slave list.
-+ * 1) Get rcu_read_lock when reading or RTNL when writing slave list.
-  * 2) Get bond->curr_slave_lock when reading/writing bond->curr_active_slave.
-- *    (It is unnecessary when the write-lock is put with bond->lock.)
-- * 3) When we lock with bond->curr_slave_lock, we must lock with bond->lock
-- *    beforehand.
-  */
- struct bonding {
- 	struct   net_device *dev; /* first - useful for panic debug */
-@@ -200,7 +197,6 @@ struct bonding {
- 	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
- 	int     (*recv_probe)(const struct sk_buff *, struct bonding *,
- 			      struct slave *);
--	rwlock_t lock;
- 	rwlock_t curr_slave_lock;
- 	u8	 send_peer_notif;
- 	u8       igmp_retrans;
+-	read_lock(&bond->lock);
++	read_lock(&bond->curr_slave_lock);
+ 	ret = bond_3ad_rx_indication(lacpdu, slave, skb->len);
+-	read_unlock(&bond->lock);
++	read_unlock(&bond->curr_slave_lock);
+ 	return ret;
+ }
+ 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index f0f5eab0fab1..dcd331bd0c17 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1687,13 +1687,15 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	 * for this slave anymore.
+ 	 */
+ 	netdev_rx_handler_unregister(slave_dev);
+-	write_lock_bh(&bond->lock);
+ 
+-	/* Inform AD package of unbinding of slave. */
+-	if (BOND_MODE(bond) == BOND_MODE_8023AD)
++	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
++		/* Sync against bond_3ad_rx_indication and
++		 * bond_3ad_state_machine_handler
++		 */
++		write_lock_bh(&bond->curr_slave_lock);
+ 		bond_3ad_unbind_slave(slave);
+-
+-	write_unlock_bh(&bond->lock);
++		write_unlock_bh(&bond->curr_slave_lock);
++	}
+ 
+ 	netdev_info(bond_dev, "Releasing %s interface %s\n",
+ 		    bond_is_active_slave(slave) ? "active" : "backup",
 -- 
 1.9.3
