@@ -1,45 +1,35 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH v3] irda: vlsi_ir: use %*ph specifier
-Date: Tue,  9 Sep 2014 11:48:29 +0300
-Message-ID: <1410252509-26242-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: netdev@vger.kernel.org,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:56583 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932223AbaIIIsd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Sep 2014 04:48:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Masanari Iida <standby24x7@gmail.com>
+Subject: [PATCH] net:bonding: Add missing space in bonding driver parameter description
+Date: Tue,  9 Sep 2014 18:07:55 +0900
+Message-ID: <1410253675-12652-1-git-send-email-standby24x7@gmail.com>
+Cc: Masanari Iida <standby24x7@gmail.com>
+To: linux-kernel@vger.kernel.org, j.vosburgh@gmail.com,
+	vfalico@gmail.com, andy@greyhouse.net, netdev@vger.kernel.org,
+	davem@davemloft.net, rdunlap@infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Instead of looping in the code let's use kernel extension to dump small
-buffers.
+This patch adds missing space between "interface" and "by"
+in bonding module parameter description.
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Signed-off-by: Masanari Iida <standby24x7@gmail.com>
 ---
- drivers/net/irda/vlsi_ir.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/bonding/bond_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/irda/vlsi_ir.c b/drivers/net/irda/vlsi_ir.c
-index a04af9d..a2e5561 100644
---- a/drivers/net/irda/vlsi_ir.c
-+++ b/drivers/net/irda/vlsi_ir.c
-@@ -324,12 +324,8 @@ static void vlsi_proc_ring(struct seq_file *seq, struct vlsi_ring *r)
- 		seq_printf(seq, "current: rd = %d / status = %02x / len = %u\n",
- 				h, (unsigned)rd_get_status(rd), j);
- 		if (j > 0) {
--			seq_printf(seq, "   data:");
--			if (j > 20)
--				j = 20;
--			for (i = 0; i < j; i++)
--				seq_printf(seq, " %02x", (unsigned)((unsigned char *)rd->buf)[i]);
--			seq_printf(seq, "\n");
-+			seq_printf(seq, "   data: %*ph\n",
-+				   min_t(unsigned, j, 20), rd->buf);
- 		}
- 	}
- 	for (i = 0; i < r->size; i++) {
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index f0f5eab..57912ee 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -175,7 +175,7 @@ MODULE_PARM_DESC(fail_over_mac, "For active-backup, do not set all slaves to "
+ 				"the same MAC; 0 for none (default), "
+ 				"1 for active, 2 for follow");
+ module_param(all_slaves_active, int, 0);
+-MODULE_PARM_DESC(all_slaves_active, "Keep all frames received on an interface"
++MODULE_PARM_DESC(all_slaves_active, "Keep all frames received on an interface "
+ 				     "by setting active flag for all slaves; "
+ 				     "0 for never (default), 1 for always.");
+ module_param(resend_igmp, int, 0);
 -- 
-2.1.0
+2.1.0.60.g85f0837
