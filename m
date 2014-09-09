@@ -1,96 +1,58 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v3 10/15] net: sched: rcu'ify cls_rsvp
-Date: Tue, 09 Sep 2014 09:46:20 -0700
-Message-ID: <540F2EDC.2050804@gmail.com>
-References: <20140909055221.2071.99671.stgit@nitbit.x32>  <20140909055844.2071.50705.stgit@nitbit.x32> <1410269221.11872.179.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v10 net-next 0/2] load imm64 insn and uapi/linux/bpf.h
+Date: Tue, 09 Sep 2014 10:30:59 -0700 (PDT)
+Message-ID: <20140909.103059.1330265085939107782.davem@davemloft.net>
+References: <1409894238-9055-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
-	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:64812 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754151AbaIIQqh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 12:46:37 -0400
-Received: by mail-oa0-f44.google.com with SMTP id o6so12052543oag.3
-        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 09:46:36 -0700 (PDT)
-In-Reply-To: <1410269221.11872.179.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, torvalds-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org, akpm-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1409894238-9055-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 09/09/2014 06:27 AM, Eric Dumazet wrote:
-> On Mon, 2014-09-08 at 22:58 -0700, John Fastabend wrote:
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->>   net/sched/cls_rsvp.h |  155 +++++++++++++++++++++++++++++---------------------
->>   1 file changed, 89 insertions(+), 66 deletions(-)
->>
->> diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
->> index 1020e23..8a35bdc 100644
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Date: Thu,  4 Sep 2014 22:17:16 -0700
 
-[...]
+> V9->V10
+> - no changes, added Daniel's ack
+> 
+> Note they're on top of Hannes's patch in the same area [1]
+> 
+> V8 thread with 'why' reasoning and end goal [2]
+> 
+> Original set [3] of ~28 patches I'm planning to present in 4 stages:
+> 
+>   I. this 2 patches to fork off llvm upstreaming
+>  II. bpf syscall with manpage and map implementation
+> III. bpf program load/unload with verifier testsuite (1st user of
+>      instruction macros from bpf.h and 1st user of load imm64 insn)
+>  IV. tracing, etc
+> 
+> [1] http://patchwork.ozlabs.org/patch/385266/
+> [2] https://lkml.org/lkml/2014/8/27/628
+> [3] https://lkml.org/lkml/2014/8/26/859
 
->> @@ -521,12 +535,17 @@ insert:
->>
->>   			tcf_exts_change(tp, &f->exts, &e);
->>
->> -			for (fp = &s->ht[h2]; *fp; fp = &(*fp)->next)
->> -				if (((*fp)->spi.mask & f->spi.mask) != f->spi.mask)
->> +			fp = &s->ht[h2];
->> +			for (nfp = rtnl_dereference(*fp); nfp;
->> +			     fp = &nfp->next, nfp = rtnl_dereference(*fp)) {
->> +				__u32 mask = nfp->spi.mask & f->spi.mask;
->> +
->> +				if (mask != f->spi.mask)
->>   					break;
->> -			f->next = *fp;
->> +			}
->> +			rcu_assign_pointer(f->next, nfp);
->
-> RCU_INIT_POINTER()
->
->>   			wmb();
->
-> Are you sure we need to keep this wmb() ? I dont think so.
+Begrudgingly, I've applied this series.
 
-Agreed, I'll remove it.
+Although I really wish you had included the mechanism for userland to
+use the eBPF instructions alongside exporting them to userspace.
 
->
->> -			*fp = f;
->> +			rcu_assign_pointer(*fp, f);
->>
->>   			*arg = (unsigned long)f;
->>   			return 0;
->> @@ -546,13 +565,15 @@ insert:
->>   		s->protocol = pinfo->protocol;
->>   		s->tunnelid = pinfo->tunnelid;
->>   	}
->> -	for (sp = &data->ht[h1]; *sp; sp = &(*sp)->next) {
->> -		if (((*sp)->dpi.mask&s->dpi.mask) != s->dpi.mask)
->> +	sp = &data->ht[h1];
->> +	for (nsp = rtnl_dereference(*sp); nsp;
->> +	     sp = &nsp->next, nsp = rtnl_dereference(*sp)) {
->> +		if ((nsp->dpi.mask & s->dpi.mask) != s->dpi.mask)
->>   			break;
->>   	}
->> -	s->next = *sp;
->> +	rcu_assign_pointer(s->next, nsp);
->
-> 	RCU_INIT_POINTER()
->
->>   	wmb();
->
-> This wmb() can be removed.
->
+You kept saying "LLVM is the user" but that's a bullshit argument
+because you aren't including the patches necessary to actually
+propagate native eBPF programs into the kernel.
 
-yep, same here I'll remove it.
+That's what, 1 or 2 patches, right?  Which is not an unreasonable
+request.
 
-
-Thanks,
-John
-
--- 
-John Fastabend         Intel Corporation
+Anyways, I'm just extremely frustrated with how you operate and work,
+you push things way too hard.  I hate to say this, but you are the
+kind of submitter who gets his way by being persistent rather than
+making well formed pleasant submissions that are easy to integrate.
