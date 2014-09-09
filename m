@@ -1,47 +1,51 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: iwlwifi no authentication with AP - Re: pull request: wireless-next
- 2014-09-08
-Date: Tue, 09 Sep 2014 22:23:44 +0200
-Message-ID: <540F61D0.9000704@hartkopp.net>
-References: <20140908191630.GB29412@tuxdriver.com>	<540F5927.7000306@hartkopp.net> <CANUX_P3n0v1SzfbYuaAsE4TY7Hz_wo2Fb9SmHVNyFOC9hDhwdg@mail.gmail.com>
+From: Anish Bhatt <anish@chelsio.com>
+Subject: RE: randconfig build error with next-20140909, in
+ drivers/net/ethernet/broadcom/cnic.c
+Date: Tue, 9 Sep 2014 20:24:21 +0000
+Message-ID: <525DB349B3FB5444AE057A887CB2A8D88E0BFB@nice.asicdesigners.com>
+References: <CA+r1ZhhZynUKSeZnya67z9sph4+tpjO4E7jLZKc0EG4azxFdYA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CANUX_P3n0v1SzfbYuaAsE4TY7Hz_wo2Fb9SmHVNyFOC9hDhwdg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Jim Davis <jim.epost@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"mchan@broadcom.com" <mchan@broadcom.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <CA+r1ZhhZynUKSeZnya67z9sph4+tpjO4E7jLZKc0EG4azxFdYA@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09.09.2014 22:02, Emmanuel Grumbach wrote:
-> On Tue, Sep 9, 2014 at 10:46 PM, Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org> wrote:
->> Hello John, all,
->>
->> on my i7 Laptop with iwlwifi the latest net-next does not connect to my access point:
-> 
-> Are you sure this wasn't the case before?
+This is caused by c99d667e8527  ("cnic : Cleanup CONFIG_IPV6 & VLAN check")
 
-Indeed I moved to net-next right today - as I also had the LED lockdep splat
-on 3.17-rcX with X < 4.
+So I'm not really sure what the fix for this is. CNIC will properly only support 
+[m] or [n] when IPV6 is compiled as a module, but if you set SCSI_BNX2X_FCOE or 
+SCSI_BNX2_ISCSI to be in built, there is a 'select CNIC' that forces CNIC to be 
+inbuilt, even though this is not supported by Kconfig. I was under the 
+assumption that select will not forcibly change m to inbuilt (or perhaps I'm 
+missing some syntax suboption ?)
 
-So it can be that this issue was already introduced at the beginning of this
-net-next cycle. Don't know, sorry. The latest 3.17-rc4 from Linus' tree works
-fine. I'm running a Debian unstable here (in both cases).
+This is still fixable in SCSI_BNX2_ISCSI using the same logic used in the above 
+mentioned commit, but not so in SCSI_BNX2X_FCOE where it causes a recursive 
+dependency error (thought it is fixing the issue nevertheless), and none of the 
+ other solutions I tried seemed to work either.
 
-> Can you bisect?
+Looking at previous code, the earlier approach used to just disable ipv6 code 
+in such a situation.
+-Anish
 
-Not really. I'm running the kernel on my bare machine - and I just wanted to
-go to bed right now ...
+________________________________________
+From: Jim Davis [jim.epost@gmail.com]
+Sent: Tuesday, September 09, 2014 7:38 AM
+To: Stephen Rothwell; linux-next; linux-kernel; Anish Bhatt; mchan@broadcom.com; David S. Miller; netdev
+Subject: randconfig build error with next-20140909, in drivers/net/ethernet/broadcom/cnic.c
 
-So I will be able to test patches tomorrow morning again.
+Building with the attached random configuration file,
 
-Tnx for your fast feedback,
-Oliver
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+drivers/built-in.o: In function `cnic_get_v6_route':
+cnic.c:(.text+0x3a4168): undefined reference to `ip6_route_output'
+make: *** [vmlinux] Error 1
