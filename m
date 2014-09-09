@@ -1,705 +1,156 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH v3 09/15] net: sched: make cls_u32 lockless
-Date: Tue, 09 Sep 2014 06:20:07 -0700
-Message-ID: <1410268807.11872.177.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140909055221.2071.99671.stgit@nitbit.x32>
-	 <20140909055815.2071.39668.stgit@nitbit.x32>
+From: Kenny Mathis <kmathis@chokepoint.net>
+Subject: [PATCH ipvs v2] ipvs: Add simple weighted failover scheduler
+Date: Tue, 9 Sep 2014 09:20:15 -0400
+Message-ID: <20140909132015.GA21984@kmathis.internal.monetra.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
-	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:51243 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753628AbaIINUI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 09:20:08 -0400
-Received: by mail-pd0-f180.google.com with SMTP id ft15so7036348pdb.39
-        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 06:20:08 -0700 (PDT)
-In-Reply-To: <20140909055815.2071.39668.stgit@nitbit.x32>
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:57932 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756653AbaIINUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 09:20:18 -0400
+Received: by mail-yk0-f169.google.com with SMTP id 20so874246yks.0
+        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 06:20:17 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-09-08 at 22:58 -0700, John Fastabend wrote:
-> Make cls_u32 classifier safe to run without holding lock. This patch
-> converts statistics that are kept in read section u32_classify into
-> per cpu counters.
-> 
-> This patch was tested with a tight u32 filter add/delete loop while
-> generating traffic with pktgen. By running pktgen on vlan devices
-> created on top of a physical device we can hit the qdisc layer
-> correctly. For ingress qdisc's a loopback cable was used.
-> 
-> for i in {1..100}; do
->         q=`echo $i%8|bc`;
->         echo -n "u32 tos: iteration $i on queue $q";
->         tc filter add dev p3p2 parent $p prio $i u32 match ip tos 0x10 0xff \
->                   action skbedit queue_mapping $q;
->         sleep 1;
->         tc filter del dev p3p2 prio $i;
-> 
->         echo -n "u32 tos hash table: iteration $i on queue $q";
->         tc filter add dev p3p2 parent $p protocol ip prio $i handle 628: u32 divisor 1
->         tc filter add dev p3p2 parent $p protocol ip prio $i u32 \
->                 match ip protocol 17 0xff link 628: offset at 0 mask 0xf00 shift 6 plus 0
->         tc filter add dev p3p2 parent $p protocol ip prio $i u32 \
->                 ht 628:0 match ip tos 0x10 0xff action skbedit queue_mapping $q
->         sleep 2;
->         tc filter del dev p3p2 prio $i
->         sleep 1;
-> done
-> 
+Please consider this patch for addition in 3.17
 
+Add simple weighted IPVS failover support to the Linux kernel. All
+other scheduling modules implement some form of load balancing, while
+this offers a simple failover solution. Connections are directed to
+the appropriate server based solely on highest weight value and server
+availability. Tested functionality with keepalived.
 
-Note it might be easier to split this patch in 2 parts.
+Signed-off-by: Kenny Mathis <kmathis@chokepoint.net>
+---
+ net/netfilter/ipvs/Kconfig    |   10 ++++++
+ net/netfilter/ipvs/Makefile   |    1 +
+ net/netfilter/ipvs/ip_vs_fo.c |   79 +++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 90 insertions(+)
+ create mode 100644 net/netfilter/ipvs/ip_vs_fo.c
 
-(The percpu stuff could be done in a first step, then rcu conversion)
-
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  net/sched/cls_u32.c |  258 +++++++++++++++++++++++++++++++++------------------
->  1 file changed, 169 insertions(+), 89 deletions(-)
-> 
-> diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-> index 70c0be8..edbbd53 100644
-> --- a/net/sched/cls_u32.c
-> +++ b/net/sched/cls_u32.c
-> @@ -36,6 +36,7 @@
->  #include <linux/kernel.h>
->  #include <linux/string.h>
->  #include <linux/errno.h>
-> +#include <linux/percpu.h>
->  #include <linux/rtnetlink.h>
->  #include <linux/skbuff.h>
->  #include <linux/bitmap.h>
-> @@ -44,40 +45,46 @@
->  #include <net/pkt_cls.h>
->  
->  struct tc_u_knode {
-> -	struct tc_u_knode	*next;
-> +	struct tc_u_knode __rcu	*next;
->  	u32			handle;
-> -	struct tc_u_hnode	*ht_up;
-> +	struct tc_u_hnode __rcu	*ht_up;
->  	struct tcf_exts		exts;
->  #ifdef CONFIG_NET_CLS_IND
->  	int			ifindex;
->  #endif
->  	u8			fshift;
->  	struct tcf_result	res;
-> -	struct tc_u_hnode	*ht_down;
-> +	struct tc_u_hnode __rcu	*ht_down;
->  #ifdef CONFIG_CLS_U32_PERF
-> -	struct tc_u32_pcnt	*pf;
-> +	struct tc_u32_pcnt __percpu *pf;
->  #endif
->  #ifdef CONFIG_CLS_U32_MARK
-> -	struct tc_u32_mark	mark;
-> +	u32			val;
-> +	u32			mask;
-> +	u32 __percpu		*pcpu_success;
->  #endif
-> +	struct tcf_proto	*tp;
->  	struct tc_u32_sel	sel;
-> +	struct rcu_head		rcu;
->  };
->  
->  struct tc_u_hnode {
-> -	struct tc_u_hnode	*next;
-> +	struct tc_u_hnode __rcu	*next;
->  	u32			handle;
->  	u32			prio;
->  	struct tc_u_common	*tp_c;
->  	int			refcnt;
->  	unsigned int		divisor;
-> -	struct tc_u_knode	*ht[1];
-> +	struct tc_u_knode __rcu	*ht[1];
-> +	struct rcu_head		rcu;
->  };
->  
->  struct tc_u_common {
-> -	struct tc_u_hnode	*hlist;
-> +	struct tc_u_hnode __rcu	*hlist;
->  	struct Qdisc		*q;
->  	int			refcnt;
->  	u32			hgenerator;
-> +	struct rcu_head		rcu;
->  };
->  
->  static inline unsigned int u32_hash_fold(__be32 key,
-> @@ -96,7 +103,7 @@ static int u32_classify(struct sk_buff *skb, const struct tcf_proto *tp, struct
->  		unsigned int	  off;
->  	} stack[TC_U32_MAXDEPTH];
->  
-> -	struct tc_u_hnode *ht = tp->root;
-> +	struct tc_u_hnode *ht = rcu_dereference_bh(tp->root);
->  	unsigned int off = skb_network_offset(skb);
->  	struct tc_u_knode *n;
->  	int sdepth = 0;
-> @@ -108,23 +115,23 @@ static int u32_classify(struct sk_buff *skb, const struct tcf_proto *tp, struct
->  	int i, r;
->  
->  next_ht:
-> -	n = ht->ht[sel];
-> +	n = rcu_dereference_bh(ht->ht[sel]);
->  
->  next_knode:
->  	if (n) {
->  		struct tc_u32_key *key = n->sel.keys;
->  
->  #ifdef CONFIG_CLS_U32_PERF
-> -		n->pf->rcnt += 1;
-> +		this_cpu_inc(n->pf->rcnt);
-
-As we run in BH, we are not preemptable, we can use instead :
-__this_cpu_inc()  (on all occurrences)
-
-Using a macro would also reduce the #ifdef mess of this file
-
->  		j = 0;
->  #endif
->  
->  #ifdef CONFIG_CLS_U32_MARK
-> -		if ((skb->mark & n->mark.mask) != n->mark.val) {
-> -			n = n->next;
-> +		if ((skb->mark & n->mask) != n->val) {
-> +			n = rcu_dereference_bh(n->next);
->  			goto next_knode;
->  		} else {
-> -			n->mark.success++;
-> +			this_cpu_inc(*n->pcpu_success);
->  		}
->  #endif
->  
-> @@ -139,37 +146,39 @@ next_knode:
->  			if (!data)
->  				goto out;
->  			if ((*data ^ key->val) & key->mask) {
-> -				n = n->next;
-> +				n = rcu_dereference_bh(n->next);
->  				goto next_knode;
->  			}
->  #ifdef CONFIG_CLS_U32_PERF
-> -			n->pf->kcnts[j] += 1;
-> +			this_cpu_inc(n->pf->kcnts[j]);
->  			j++;
->  #endif
->  		}
-> -		if (n->ht_down == NULL) {
-> +
-> +		ht = rcu_dereference_bh(n->ht_down);
-> +		if (!ht) {
->  check_terminal:
->  			if (n->sel.flags & TC_U32_TERMINAL) {
->  
->  				*res = n->res;
->  #ifdef CONFIG_NET_CLS_IND
->  				if (!tcf_match_indev(skb, n->ifindex)) {
-> -					n = n->next;
-> +					n = rcu_dereference_bh(n->next);
->  					goto next_knode;
->  				}
->  #endif
->  #ifdef CONFIG_CLS_U32_PERF
-> -				n->pf->rhit += 1;
-> +				this_cpu_inc(n->pf->rhit);
->  #endif
->  				r = tcf_exts_exec(skb, &n->exts, res);
->  				if (r < 0) {
-> -					n = n->next;
-> +					n = rcu_dereference_bh(n->next);
->  					goto next_knode;
->  				}
->  
->  				return r;
->  			}
-> -			n = n->next;
-> +			n = rcu_dereference_bh(n->next);
->  			goto next_knode;
->  		}
->  
-> @@ -180,7 +189,7 @@ check_terminal:
->  		stack[sdepth].off = off;
->  		sdepth++;
->  
-> -		ht = n->ht_down;
-> +		ht = rcu_dereference_bh(n->ht_down);
->  		sel = 0;
->  		if (ht->divisor) {
->  			__be32 *data, hdata;
-> @@ -222,7 +231,7 @@ check_terminal:
->  	/* POP */
->  	if (sdepth--) {
->  		n = stack[sdepth].knode;
-> -		ht = n->ht_up;
-> +		ht = rcu_dereference_bh(n->ht_up);
->  		off = stack[sdepth].off;
->  		goto check_terminal;
->  	}
-> @@ -239,7 +248,9 @@ u32_lookup_ht(struct tc_u_common *tp_c, u32 handle)
->  {
->  	struct tc_u_hnode *ht;
->  
-> -	for (ht = tp_c->hlist; ht; ht = ht->next)
-> +	for (ht = rtnl_dereference(tp_c->hlist);
-> +	     ht;
-> +	     ht = rtnl_dereference(ht->next))
->  		if (ht->handle == handle)
->  			break;
->  
-> @@ -256,7 +267,9 @@ u32_lookup_key(struct tc_u_hnode *ht, u32 handle)
->  	if (sel > ht->divisor)
->  		goto out;
->  
-> -	for (n = ht->ht[sel]; n; n = n->next)
-> +	for (n = rtnl_dereference(ht->ht[sel]);
-> +	     n;
-> +	     n = rtnl_dereference(n->next))
->  		if (n->handle == handle)
->  			break;
->  out:
-> @@ -270,7 +283,7 @@ static unsigned long u32_get(struct tcf_proto *tp, u32 handle)
->  	struct tc_u_common *tp_c = tp->data;
->  
->  	if (TC_U32_HTID(handle) == TC_U32_ROOT)
-> -		ht = tp->root;
-> +		ht = rtnl_dereference(tp->root);
->  	else
->  		ht = u32_lookup_ht(tp_c, TC_U32_HTID(handle));
->  
-> @@ -291,6 +304,9 @@ static u32 gen_new_htid(struct tc_u_common *tp_c)
->  {
->  	int i = 0x800;
->  
-> +	/* hgenerator only used inside rtnl lock it is safe to increment
-> +	 * without read _copy_ update semantics
-> +	 */
->  	do {
->  		if (++tp_c->hgenerator == 0x7FF)
->  			tp_c->hgenerator = 1;
-> @@ -326,11 +342,11 @@ static int u32_init(struct tcf_proto *tp)
->  	}
->  
->  	tp_c->refcnt++;
-> -	root_ht->next = tp_c->hlist;
-> -	tp_c->hlist = root_ht;
-> +	rcu_assign_pointer(root_ht->next, tp_c->hlist);
-
-	RCU_INIT_POINTER() or root_ht->next = tp_c->hlist;
-
-> +	rcu_assign_pointer(tp_c->hlist, root_ht);
->  	root_ht->tp_c = tp_c;
->  
-> -	tp->root = root_ht;
-> +	rcu_assign_pointer(tp->root, root_ht);
->  	tp->data = tp_c;
->  	return 0;
->  }
-> @@ -342,25 +358,33 @@ static int u32_destroy_key(struct tcf_proto *tp, struct tc_u_knode *n)
->  	if (n->ht_down)
->  		n->ht_down->refcnt--;
->  #ifdef CONFIG_CLS_U32_PERF
-> -	kfree(n->pf);
-> +	free_percpu(n->pf);
->  #endif
->  	kfree(n);
->  	return 0;
->  }
->  
-> +void __u32_delete_key(struct rcu_head *rcu)
-
-Can we consistently use _rcu, as in u32_delete_key_rcu() ?
-
-> +{
-> +	struct tc_u_knode *key = container_of(rcu, struct tc_u_knode, rcu);
-> +
-> +	u32_destroy_key(key->tp, key);
-> +}
-> +
->  static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
->  {
-> -	struct tc_u_knode **kp;
-> +	struct tc_u_knode __rcu **kp;
-> +	struct tc_u_knode *pkp;
->  	struct tc_u_hnode *ht = key->ht_up;
->  
->  	if (ht) {
-> -		for (kp = &ht->ht[TC_U32_HASH(key->handle)]; *kp; kp = &(*kp)->next) {
-> -			if (*kp == key) {
-> -				tcf_tree_lock(tp);
-> -				*kp = key->next;
-> -				tcf_tree_unlock(tp);
-> +		kp = &ht->ht[TC_U32_HASH(key->handle)];
-> +		for (pkp = rtnl_dereference(*kp); pkp;
-> +		     kp = &pkp->next, pkp = rtnl_dereference(*kp)) {
-> +			if (pkp == key) {
-> +				rcu_assign_pointer(*kp, key->next);
-
-				RCU_INIT_POINTER() or *kp = key->next;
->  
-> -				u32_destroy_key(tp, key);
-> +				call_rcu(&key->rcu, __u32_delete_key);
->  				return 0;
->  			}
->  		}
-> @@ -369,16 +393,16 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
->  	return 0;
->  }
->  
-> -static void u32_clear_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
-> +static void u32_clear_hnode(struct tc_u_hnode *ht)
->  {
->  	struct tc_u_knode *n;
->  	unsigned int h;
->  
->  	for (h = 0; h <= ht->divisor; h++) {
-> -		while ((n = ht->ht[h]) != NULL) {
-> -			ht->ht[h] = n->next;
-> -
-> -			u32_destroy_key(tp, n);
-> +		while ((n = rtnl_dereference(ht->ht[h])) != NULL) {
-> +			rcu_assign_pointer(ht->ht[h],
-> +					   rtnl_dereference(n->next));
-
-			RCU_INIT_POINTER() or ht->ht[h] = n->next;
-
-> +			call_rcu(&n->rcu, __u32_delete_key);
->  		}
->  	}
->  }
-> @@ -386,28 +410,31 @@ static void u32_clear_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
->  static int u32_destroy_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
->  {
->  	struct tc_u_common *tp_c = tp->data;
-> -	struct tc_u_hnode **hn;
-> +	struct tc_u_hnode __rcu **hn;
-> +	struct tc_u_hnode *phn;
->  
->  	WARN_ON(ht->refcnt);
->  
-> -	u32_clear_hnode(tp, ht);
-> +	u32_clear_hnode(ht);
->  
-> -	for (hn = &tp_c->hlist; *hn; hn = &(*hn)->next) {
-> -		if (*hn == ht) {
-> -			*hn = ht->next;
-> -			kfree(ht);
-> +	hn = &tp_c->hlist;
-> +	for (phn = rtnl_dereference(*hn);
-> +	     phn;
-> +	     hn = &phn->next, phn = rtnl_dereference(*hn)) {
-> +		if (phn == ht) {
-> +			rcu_assign_pointer(*hn, ht->next);
-
-RCU_INIT_POINTER() or ...
-
-> +			kfree_rcu(ht, rcu);
->  			return 0;
->  		}
->  	}
->  
-> -	WARN_ON(1);
->  	return -ENOENT;
->  }
->  
->  static void u32_destroy(struct tcf_proto *tp)
->  {
->  	struct tc_u_common *tp_c = tp->data;
-> -	struct tc_u_hnode *root_ht = tp->root;
-> +	struct tc_u_hnode *root_ht = rtnl_dereference(tp->root);
->  
->  	WARN_ON(root_ht == NULL);
->  
-> @@ -419,17 +446,16 @@ static void u32_destroy(struct tcf_proto *tp)
->  
->  		tp->q->u32_node = NULL;
->  
-> -		for (ht = tp_c->hlist; ht; ht = ht->next) {
-> +		for (ht = rtnl_dereference(tp_c->hlist);
-> +		     ht;
-> +		     ht = rtnl_dereference(ht->next)) {
->  			ht->refcnt--;
-> -			u32_clear_hnode(tp, ht);
-> +			u32_clear_hnode(ht);
->  		}
->  
-> -		while ((ht = tp_c->hlist) != NULL) {
-> -			tp_c->hlist = ht->next;
-> -
-> -			WARN_ON(ht->refcnt != 0);
-> -
-> -			kfree(ht);
-> +		while ((ht = rtnl_dereference(tp_c->hlist)) != NULL) {
-> +			rcu_assign_pointer(tp_c->hlist, ht->next);
-
-idem
-
-> +			kfree_rcu(ht, rcu);
->  		}
->  
->  		kfree(tp_c);
-> @@ -441,6 +467,7 @@ static void u32_destroy(struct tcf_proto *tp)
->  static int u32_delete(struct tcf_proto *tp, unsigned long arg)
->  {
->  	struct tc_u_hnode *ht = (struct tc_u_hnode *)arg;
-> +	struct tc_u_hnode *root_ht = rtnl_dereference(tp->root);
->  
->  	if (ht == NULL)
->  		return 0;
-> @@ -448,7 +475,7 @@ static int u32_delete(struct tcf_proto *tp, unsigned long arg)
->  	if (TC_U32_KEY(ht->handle))
->  		return u32_delete_key(tp, (struct tc_u_knode *)ht);
->  
-> -	if (tp->root == ht)
-> +	if (root_ht == ht)
->  		return -EINVAL;
->  
->  	if (ht->refcnt == 1) {
-> @@ -471,7 +498,9 @@ static u32 gen_new_kid(struct tc_u_hnode *ht, u32 handle)
->  	if (!bitmap)
->  		return handle | 0xFFF;
->  
-> -	for (n = ht->ht[TC_U32_HASH(handle)]; n; n = n->next)
-> +	for (n = rtnl_dereference(ht->ht[TC_U32_HASH(handle)]);
-> +	     n;
-> +	     n = rtnl_dereference(n->next))
->  		set_bit(TC_U32_NODE(n->handle), bitmap);
->  
->  	i = find_next_zero_bit(bitmap, NR_U32_NODE, 0x800);
-> @@ -521,10 +550,8 @@ static int u32_set_parms(struct net *net, struct tcf_proto *tp,
->  			ht_down->refcnt++;
->  		}
->  
-> -		tcf_tree_lock(tp);
-> -		ht_old = n->ht_down;
-> -		n->ht_down = ht_down;
-> -		tcf_tree_unlock(tp);
-> +		ht_old = rtnl_dereference(n->ht_down);
-> +		rcu_assign_pointer(n->ht_down, ht_down);
->  
->  		if (ht_old)
->  			ht_old->refcnt--;
-> @@ -564,6 +591,9 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
->  	struct nlattr *tb[TCA_U32_MAX + 1];
->  	u32 htid;
->  	int err;
-> +#ifdef CONFIG_CLS_U32_PERF
-> +	size_t size;
-> +#endif
->  
->  	if (opt == NULL)
->  		return handle ? -EINVAL : 0;
-> @@ -601,8 +631,8 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
->  		ht->divisor = divisor;
->  		ht->handle = handle;
->  		ht->prio = tp->prio;
-> -		ht->next = tp_c->hlist;
-> -		tp_c->hlist = ht;
-> +		rcu_assign_pointer(ht->next, tp_c->hlist);
-
-	RCU_INIT_POINTER()
-
-> +		rcu_assign_pointer(tp_c->hlist, ht);
->  		*arg = (unsigned long)ht;
->  		return 0;
->  	}
-> @@ -610,7 +640,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
->  	if (tb[TCA_U32_HASH]) {
->  		htid = nla_get_u32(tb[TCA_U32_HASH]);
->  		if (TC_U32_HTID(htid) == TC_U32_ROOT) {
-> -			ht = tp->root;
-> +			ht = rtnl_dereference(tp->root);
->  			htid = ht->handle;
->  		} else {
->  			ht = u32_lookup_ht(tp->data, TC_U32_HTID(htid));
-> @@ -618,7 +648,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
->  				return -EINVAL;
->  		}
->  	} else {
-> -		ht = tp->root;
-> +		ht = rtnl_dereference(tp->root);
->  		htid = ht->handle;
->  	}
->  
-> @@ -642,8 +672,9 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
->  		return -ENOBUFS;
->  
->  #ifdef CONFIG_CLS_U32_PERF
-> -	n->pf = kzalloc(sizeof(struct tc_u32_pcnt) + s->nkeys*sizeof(u64), GFP_KERNEL);
-> -	if (n->pf == NULL) {
-> +	size = sizeof(struct tc_u32_pcnt) + s->nkeys * sizeof(u64);
-> +	n->pf = __alloc_percpu(size, __alignof__(struct tc_u32_pcnt));
-> +	if (!n->pf) {
->  		kfree(n);
->  		return -ENOBUFS;
->  	}
-> @@ -654,34 +685,39 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
->  	n->handle = handle;
->  	n->fshift = s->hmask ? ffs(ntohl(s->hmask)) - 1 : 0;
->  	tcf_exts_init(&n->exts, TCA_U32_ACT, TCA_U32_POLICE);
-> +	n->tp = tp;
->  
->  #ifdef CONFIG_CLS_U32_MARK
-> +	n->pcpu_success = alloc_percpu(u32);
-> +
->  	if (tb[TCA_U32_MARK]) {
->  		struct tc_u32_mark *mark;
->  
->  		mark = nla_data(tb[TCA_U32_MARK]);
-> -		memcpy(&n->mark, mark, sizeof(struct tc_u32_mark));
-> -		n->mark.success = 0;
-> +		n->val = mark->val;
-> +		n->mask = mark->mask;
->  	}
->  #endif
->  
->  	err = u32_set_parms(net, tp, base, ht, n, tb, tca[TCA_RATE], ovr);
->  	if (err == 0) {
-> -		struct tc_u_knode **ins;
-> -		for (ins = &ht->ht[TC_U32_HASH(handle)]; *ins; ins = &(*ins)->next)
-> -			if (TC_U32_NODE(handle) < TC_U32_NODE((*ins)->handle))
-> +		struct tc_u_knode __rcu **ins;
-> +		struct tc_u_knode *pins;
-> +
-> +		ins = &ht->ht[TC_U32_HASH(handle)];
-> +		for (pins = rtnl_dereference(*ins); pins;
-> +		     ins = &pins->next, pins = rtnl_dereference(*ins))
-> +			if (TC_U32_NODE(handle) < TC_U32_NODE(pins->handle))
->  				break;
->  
-> -		n->next = *ins;
-> -		tcf_tree_lock(tp);
-> -		*ins = n;
-> -		tcf_tree_unlock(tp);
-> +		rcu_assign_pointer(n->next, pins);
-
-RCU_INIT_POINTER()
-
-> +		rcu_assign_pointer(*ins, n);
->  
->  		*arg = (unsigned long)n;
->  		return 0;
->  	}
->  #ifdef CONFIG_CLS_U32_PERF
-> -	kfree(n->pf);
-> +	free_percpu(n->pf);
->  #endif
->  	kfree(n);
->  	return err;
-> @@ -697,7 +733,9 @@ static void u32_walk(struct tcf_proto *tp, struct tcf_walker *arg)
->  	if (arg->stop)
->  		return;
->  
-> -	for (ht = tp_c->hlist; ht; ht = ht->next) {
-> +	for (ht = rtnl_dereference(tp_c->hlist);
-> +	     ht;
-> +	     ht = rtnl_dereference(ht->next)) {
->  		if (ht->prio != tp->prio)
->  			continue;
->  		if (arg->count >= arg->skip) {
-> @@ -708,7 +746,9 @@ static void u32_walk(struct tcf_proto *tp, struct tcf_walker *arg)
->  		}
->  		arg->count++;
->  		for (h = 0; h <= ht->divisor; h++) {
-> -			for (n = ht->ht[h]; n; n = n->next) {
-> +			for (n = rtnl_dereference(ht->ht[h]);
-> +			     n;
-> +			     n = rtnl_dereference(n->next)) {
->  				if (arg->count < arg->skip) {
->  					arg->count++;
->  					continue;
-> @@ -727,6 +767,7 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
->  		     struct sk_buff *skb, struct tcmsg *t)
->  {
->  	struct tc_u_knode *n = (struct tc_u_knode *)fh;
-> +	struct tc_u_hnode *ht_up, *ht_down;
->  	struct nlattr *nest;
->  
->  	if (n == NULL)
-> @@ -745,11 +786,18 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
->  		if (nla_put_u32(skb, TCA_U32_DIVISOR, divisor))
->  			goto nla_put_failure;
->  	} else {
-> +#ifdef CONFIG_CLS_U32_PERF
-> +		struct tc_u32_pcnt *gpf;
-> +#endif
-> +		int cpu;
-> +
->  		if (nla_put(skb, TCA_U32_SEL,
->  			    sizeof(n->sel) + n->sel.nkeys*sizeof(struct tc_u32_key),
->  			    &n->sel))
->  			goto nla_put_failure;
-> -		if (n->ht_up) {
-> +
-> +		ht_up = rtnl_dereference(n->ht_up);
-> +		if (ht_up) {
->  			u32 htid = n->handle & 0xFFFFF000;
->  			if (nla_put_u32(skb, TCA_U32_HASH, htid))
->  				goto nla_put_failure;
-> @@ -757,14 +805,27 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
->  		if (n->res.classid &&
->  		    nla_put_u32(skb, TCA_U32_CLASSID, n->res.classid))
->  			goto nla_put_failure;
-> -		if (n->ht_down &&
-> -		    nla_put_u32(skb, TCA_U32_LINK, n->ht_down->handle))
-> +
-> +		ht_down = rtnl_dereference(n->ht_down);
-> +		if (ht_down &&
-> +		    nla_put_u32(skb, TCA_U32_LINK, ht_down->handle))
->  			goto nla_put_failure;
->  
->  #ifdef CONFIG_CLS_U32_MARK
-> -		if ((n->mark.val || n->mark.mask) &&
-> -		    nla_put(skb, TCA_U32_MARK, sizeof(n->mark), &n->mark))
-> -			goto nla_put_failure;
-> +		if ((n->val || n->mask)) {
-> +			struct tc_u32_mark mark = {.val = n->val,
-> +						   .mask = n->mask,
-> +						   .success = 0};
-> +
-> +			for_each_possible_cpu(cpu) {
-> +				__u32 cnt = *per_cpu_ptr(n->pcpu_success, cpu);
-> +
-> +				mark.success += cnt;
-> +			}
-> +
-> +			if (nla_put(skb, TCA_U32_MARK, sizeof(mark), &mark))
-> +				goto nla_put_failure;
-> +		}
->  #endif
->  
->  		if (tcf_exts_dump(skb, &n->exts) < 0)
-> @@ -779,10 +840,29 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
->  		}
->  #endif
->  #ifdef CONFIG_CLS_U32_PERF
-> +		gpf = kzalloc(sizeof(struct tc_u32_pcnt) +
-> +					n->sel.nkeys * sizeof(u64),
-> +			      GFP_KERNEL);
-> +		if (!gpf)
-> +			goto nla_put_failure;
-> +
-> +		for_each_possible_cpu(cpu) {
-> +			int i;
-> +			struct tc_u32_pcnt *pf = per_cpu_ptr(n->pf, cpu);
-> +
-> +			gpf->rcnt += pf->rcnt;
-> +			gpf->rhit += pf->rhit;
-> +			for (i = 0; i < n->sel.nkeys; i++)
-> +				gpf->kcnts[i] += pf->kcnts[i];
-> +		}
-> +
->  		if (nla_put(skb, TCA_U32_PCNT,
->  			    sizeof(struct tc_u32_pcnt) + n->sel.nkeys*sizeof(u64),
-> -			    n->pf))
-> +			    gpf)) {
-> +			kfree(gpf);
->  			goto nla_put_failure;
-> +		}
-> +		kfree(gpf);
->  #endif
->  	}
->  
-> 
+diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+index 0c3b167..3b6929d 100644
+--- a/net/netfilter/ipvs/Kconfig
++++ b/net/netfilter/ipvs/Kconfig
+@@ -152,6 +152,16 @@ config	IP_VS_WLC
+ 	  If you want to compile it in kernel, say Y. To compile it as a
+ 	  module, choose M here. If unsure, say N.
+ 
++config  IP_VS_FO
++		tristate "weighted failover scheduling"
++	---help---
++	  The weighted failover scheduling algorithm directs network
++	  connections to the server with the highest weight that is
++	  currently available.
++
++	  If you want to compile it in kernel, say Y. To compile it as a
++	  module, choose M here. If unsure, say N.
++
+ config	IP_VS_LBLC
+ 	tristate "locality-based least-connection scheduling"
+ 	---help---
+diff --git a/net/netfilter/ipvs/Makefile b/net/netfilter/ipvs/Makefile
+index 34ee602..38b2723 100644
+--- a/net/netfilter/ipvs/Makefile
++++ b/net/netfilter/ipvs/Makefile
+@@ -26,6 +26,7 @@ obj-$(CONFIG_IP_VS_RR) += ip_vs_rr.o
+ obj-$(CONFIG_IP_VS_WRR) += ip_vs_wrr.o
+ obj-$(CONFIG_IP_VS_LC) += ip_vs_lc.o
+ obj-$(CONFIG_IP_VS_WLC) += ip_vs_wlc.o
++obj-$(CONFIG_IP_VS_FO) += ip_vs_fo.o
+ obj-$(CONFIG_IP_VS_LBLC) += ip_vs_lblc.o
+ obj-$(CONFIG_IP_VS_LBLCR) += ip_vs_lblcr.o
+ obj-$(CONFIG_IP_VS_DH) += ip_vs_dh.o
+diff --git a/net/netfilter/ipvs/ip_vs_fo.c b/net/netfilter/ipvs/ip_vs_fo.c
+new file mode 100644
+index 0000000..6a2647d
+--- /dev/null
++++ b/net/netfilter/ipvs/ip_vs_fo.c
+@@ -0,0 +1,79 @@
++/*
++ * IPVS:        Weighted Fail Over module
++ *
++ * Authors:     Kenny Mathis <kmathis@chokepoint.net>
++ *
++ *              This program is free software; you can redistribute it and/or
++ *              modify it under the terms of the GNU General Public License
++ *              as published by the Free Software Foundation; either version
++ *              2 of the License, or (at your option) any later version.
++ *
++ * Changes:
++ *     Kenny Mathis            :     added initial functionality based on weight
++ *
++ */
++
++#define KMSG_COMPONENT "IPVS"
++#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++
++#include <net/ip_vs.h>
++
++/* Weighted Fail Over Module */
++static struct ip_vs_dest *
++ip_vs_fo_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
++		  struct ip_vs_iphdr *iph)
++{
++	struct ip_vs_dest *dest, *hweight = NULL;
++	int hw = 0; /* Track highest weight */
++
++	IP_VS_DBG(6, "ip_vs_fo_schedule(): Scheduling...\n");
++
++	/* Basic failover functionality
++	 * Find virtual server with highest weight and send it traffic
++	 */
++	list_for_each_entry_rcu(dest, &svc->destinations, n_list) {
++		if (!(dest->flags & IP_VS_DEST_F_OVERLOAD) &&
++		    atomic_read(&dest->weight) > hw) {
++			hweight = dest;
++			hw = atomic_read(&dest->weight);
++		}
++	}
++
++	if (hweight) {
++		IP_VS_DBG_BUF(6, "FO: server %s:%u activeconns %d weight %d\n",
++			      IP_VS_DBG_ADDR(svc->af, &hweight->addr),
++			      ntohs(hweight->port),
++			      atomic_read(&hweight->activeconns),
++			      atomic_read(&hweight->weight));
++		return hweight;
++	}
++
++	ip_vs_scheduler_err(svc, "no destination available");
++	return NULL;
++}
++
++static struct ip_vs_scheduler ip_vs_fo_scheduler = {
++	.name =			"fo",
++	.refcnt =		ATOMIC_INIT(0),
++	.module =		THIS_MODULE,
++	.n_list =		LIST_HEAD_INIT(ip_vs_fo_scheduler.n_list),
++	.schedule =		ip_vs_fo_schedule,
++};
++
++static int __init ip_vs_fo_init(void)
++{
++	return register_ip_vs_scheduler(&ip_vs_fo_scheduler);
++}
++
++static void __exit ip_vs_fo_cleanup(void)
++{
++	unregister_ip_vs_scheduler(&ip_vs_fo_scheduler);
++	synchronize_rcu();
++}
++
++module_init(ip_vs_fo_init);
++module_exit(ip_vs_fo_cleanup);
++MODULE_LICENSE("GPL");
+-- 
+1.7.9.5
