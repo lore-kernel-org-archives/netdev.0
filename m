@@ -1,278 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH v3 06/15] net: sched: fw use RCU
-Date: Tue, 09 Sep 2014 05:48:38 -0700
-Message-ID: <1410266918.11872.162.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140909055221.2071.99671.stgit@nitbit.x32>
-	 <20140909055636.2071.88596.stgit@nitbit.x32>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: [PATCH net] ipv6: refresh rt6i_genid in ip6_pol_route()
+Date: Tue, 09 Sep 2014 14:58:39 +0200
+Message-ID: <1410267519.27979.31.camel@localhost>
+References: <1410149905.11872.73.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140907.212742.893555292268057160.davem@davemloft.net>
+	 <1410151434.11872.82.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140907.215943.213418445039957641.davem@davemloft.net>
+	 <1410152829.11872.84.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
-	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: David Miller <davem@davemloft.net>, nicolas.dichtel@6wind.com,
+	therbert@google.com, alexander.h.duyck@intel.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34434 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752908AbaIIMsk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 08:48:40 -0400
-Received: by mail-pa0-f42.google.com with SMTP id lj1so4147470pab.1
-        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 05:48:39 -0700 (PDT)
-In-Reply-To: <20140909055636.2071.88596.stgit@nitbit.x32>
+Received: from mx1.redhat.com ([209.132.183.28]:11743 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751192AbaIIM6u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2014 08:58:50 -0400
+In-Reply-To: <1410152829.11872.84.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-09-08 at 22:56 -0700, John Fastabend wrote:
-> RCU'ify fw classifier.
+On So, 2014-09-07 at 22:07 -0700, Eric Dumazet wrote:
+> On Sun, 2014-09-07 at 21:59 -0700, David Miller wrote:
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Sun, 07 Sep 2014 21:43:54 -0700
+> > 
+> > > On Sun, 2014-09-07 at 21:27 -0700, David Miller wrote:
+> > >> From: Eric Dumazet <eric.dumazet@gmail.com>
+> > >> Date: Sun, 07 Sep 2014 21:18:25 -0700
+> > >> 
+> > >> > On Sun, 2014-09-07 at 15:54 -0700, David Miller wrote:
+> > >> > 
+> > >> >> This might be broken.
+> > >> >> 
+> > >> >> We are dealing here with persistent entries in the ipv6 routine trie.
+> > >> >> 
+> > >> >> If you just bump the genid on the next person to look it up, other
+> > >> >> sockets and cached entities might not have validated the route yet,
+> > >> >> and now will falsely see the route as valid.  We have to ensure that
+> > >> >> they too drop this route and perform a relookup.
+> > >> > 
+> > >> > I am confused, I thought it was the role of the cookie.
+> > >> > 
+> > >> > (Ie socket has to store its own cookie to be able to validate a route)
+> > >> > 
+> > >> > Before 6f3118b571b8 patch, how was this done anyway ?
+> > >> > 
+> > >> > If persistent routes cannot refresh the genid, then they are useless ?
+> > >> 
+> > >> I just speak about the genid aspect.
+> > >> 
+> > >> I understand that cookie (via node->fn_sernum) invalidates the path
+> > >> in the fib_trie, but the genid protects against other circumstances
+> > >> (matching IPSEC rule, f.e.)
+> > >> 
+> > >> You have to make sure all other sockets did a full route lookup
+> > >> (including IPSEC) before you can safely adjust the genid.
+> > >> 
+> > >> I could be wrong, recheck my analysis please :-)
+> > > 
+> > > So this whole genid protection can not work, unless we make sure a
+> > > socket cannot share a route with another socket.
+> > > 
+> > > This means we have to clone all routes.
+> > 
+> > I'm willing to revert the change in question if you think that's the
+> > sanest way forward.
+> > 
+> > The bug fix for more obscure use cases (IPSEC) if pointless if it
+> > breaks more common things (TCP input route caching).
 > 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  net/sched/cls_fw.c |  111 ++++++++++++++++++++++++++++++++++++----------------
->  1 file changed, 77 insertions(+), 34 deletions(-)
-> 
-> diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-> index 861b03c..4809500 100644
-> --- a/net/sched/cls_fw.c
-> +++ b/net/sched/cls_fw.c
-> @@ -33,17 +33,20 @@
->  
->  struct fw_head {
->  	u32			mask;
-> -	struct fw_filter	*ht[HTSIZE];
-> +	struct fw_filter __rcu	*ht[HTSIZE];
-> +	struct rcu_head		rcu;
->  };
->  
->  struct fw_filter {
-> -	struct fw_filter	*next;
-> +	struct fw_filter __rcu	*next;
->  	u32			id;
->  	struct tcf_result	res;
->  #ifdef CONFIG_NET_CLS_IND
->  	int			ifindex;
->  #endif /* CONFIG_NET_CLS_IND */
->  	struct tcf_exts		exts;
-> +	struct tcf_proto	*tp;
-> +	struct rcu_head		rcu;
->  };
->  
->  static u32 fw_hash(u32 handle)
-> @@ -56,14 +59,16 @@ static u32 fw_hash(u32 handle)
->  static int fw_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->  			  struct tcf_result *res)
->  {
-> -	struct fw_head *head = tp->root;
-> +	struct fw_head *head = rcu_dereference_bh(tp->root);
->  	struct fw_filter *f;
->  	int r;
->  	u32 id = skb->mark;
->  
->  	if (head != NULL) {
->  		id &= head->mask;
-> -		for (f = head->ht[fw_hash(id)]; f; f = f->next) {
-> +
-> +		for (f = rcu_dereference_bh(head->ht[fw_hash(id)]); f;
-> +		     f = rcu_dereference_bh(f->next)) {
->  			if (f->id == id) {
->  				*res = f->res;
->  #ifdef CONFIG_NET_CLS_IND
-> @@ -92,13 +97,14 @@ static int fw_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->  
->  static unsigned long fw_get(struct tcf_proto *tp, u32 handle)
->  {
-> -	struct fw_head *head = tp->root;
-> +	struct fw_head *head = rtnl_dereference(tp->root);
->  	struct fw_filter *f;
->  
->  	if (head == NULL)
->  		return 0;
->  
-> -	for (f = head->ht[fw_hash(handle)]; f; f = f->next) {
-> +	f = rtnl_dereference(head->ht[fw_hash(handle)]);
-> +	for (; f; f = rtnl_dereference(f->next)) {
->  		if (f->id == handle)
->  			return (unsigned long)f;
->  	}
-> @@ -114,8 +120,11 @@ static int fw_init(struct tcf_proto *tp)
->  	return 0;
->  }
->  
-> -static void fw_delete_filter(struct tcf_proto *tp, struct fw_filter *f)
-> +static void fw_delete_filter(struct rcu_head *head)
->  {
-> +	struct fw_filter *f = container_of(head, struct fw_filter, rcu);
-> +	struct tcf_proto *tp = f->tp;
-> +
->  	tcf_unbind_filter(tp, &f->res);
->  	tcf_exts_destroy(tp, &f->exts);
->  	kfree(f);
-> @@ -123,7 +132,7 @@ static void fw_delete_filter(struct tcf_proto *tp, struct fw_filter *f)
->  
->  static void fw_destroy(struct tcf_proto *tp)
->  {
-> -	struct fw_head *head = tp->root;
-> +	struct fw_head *head = rtnl_dereference(tp->root);
->  	struct fw_filter *f;
->  	int h;
->  
-> @@ -131,29 +140,33 @@ static void fw_destroy(struct tcf_proto *tp)
->  		return;
->  
->  	for (h = 0; h < HTSIZE; h++) {
-> -		while ((f = head->ht[h]) != NULL) {
-> -			head->ht[h] = f->next;
-> -			fw_delete_filter(tp, f);
-> +		while ((f = rtnl_dereference(head->ht[h])) != NULL) {
-> +			rcu_assign_pointer(head->ht[h],
-> +					   rtnl_dereference(f->next));
+> Lets wait for Nicolas and/or Hannes input, they might have some ideas...
 
-RCU_INIT_POINTER()
-
-> +			call_rcu(&f->rcu, fw_delete_filter);
->  		}
->  	}
-> -	kfree(head);
-> +	RCU_INIT_POINTER(tp->root, NULL);
-> +	kfree_rcu(head, rcu);
->  }
->  
->  static int fw_delete(struct tcf_proto *tp, unsigned long arg)
->  {
-> -	struct fw_head *head = tp->root;
-> +	struct fw_head *head = rtnl_dereference(tp->root);
->  	struct fw_filter *f = (struct fw_filter *)arg;
-> -	struct fw_filter **fp;
-> +	struct fw_filter __rcu **fp;
-> +	struct fw_filter *pfp;
->  
->  	if (head == NULL || f == NULL)
->  		goto out;
->  
-> -	for (fp = &head->ht[fw_hash(f->id)]; *fp; fp = &(*fp)->next) {
-> -		if (*fp == f) {
-> -			tcf_tree_lock(tp);
-> -			*fp = f->next;
-> -			tcf_tree_unlock(tp);
-> -			fw_delete_filter(tp, f);
-> +	fp = &head->ht[fw_hash(f->id)];
-> +
-> +	for (pfp = rtnl_dereference(*fp); pfp;
-> +	     fp = &pfp->next, pfp = rtnl_dereference(*fp)) {
-> +		if (pfp == f) {
-> +			rcu_assign_pointer(*fp, rtnl_dereference(f->next));
-
-RCU_INIT_POINTER()
-
-> +			call_rcu(&f->rcu, fw_delete_filter);
->  			return 0;
->  		}
->  	}
-> @@ -171,7 +184,7 @@ static int
->  fw_change_attrs(struct net *net, struct tcf_proto *tp, struct fw_filter *f,
->  	struct nlattr **tb, struct nlattr **tca, unsigned long base, bool ovr)
->  {
-> -	struct fw_head *head = tp->root;
-> +	struct fw_head *head = rtnl_dereference(tp->root);
->  	struct tcf_exts e;
->  	u32 mask;
->  	int err;
-> @@ -220,7 +233,7 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
->  		     struct nlattr **tca,
->  		     unsigned long *arg, bool ovr)
->  {
-> -	struct fw_head *head = tp->root;
-> +	struct fw_head *head = rtnl_dereference(tp->root);
->  	struct fw_filter *f = (struct fw_filter *) *arg;
->  	struct nlattr *opt = tca[TCA_OPTIONS];
->  	struct nlattr *tb[TCA_FW_MAX + 1];
-> @@ -233,10 +246,42 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
->  	if (err < 0)
->  		return err;
->  
-> -	if (f != NULL) {
-> +	if (f) {
-> +		struct fw_filter *pfp, *fnew;
-> +		struct fw_filter __rcu **fp;
-> +
->  		if (f->id != handle && handle)
->  			return -EINVAL;
-> -		return fw_change_attrs(net, tp, f, tb, tca, base, ovr);
-> +
-> +		fnew = kzalloc(sizeof(struct fw_filter), GFP_KERNEL);
-> +		if (!fnew)
-> +			return -ENOBUFS;
-> +
-> +		fnew->id = f->id;
-> +		fnew->res = f->res;
-> +#ifdef CONFIG_NET_CLS_IND
-> +		fnew->ifindex = f->ifindex;
-> +#endif /* CONFIG_NET_CLS_IND */
-> +		fnew->tp = f->tp;
-> +
-> +		err = fw_change_attrs(net, tp, fnew, tb, tca, base, ovr);
-> +		if (err < 0) {
-> +			kfree(fnew);
-> +			return err;
-> +		}
-> +
-> +		fp = &head->ht[fw_hash(fnew->id)];
-> +		for (pfp = rtnl_dereference(*fp); pfp;
-> +		     fp = &pfp->next, pfp = rtnl_dereference(*fp))
-> +			if (pfp == f)
-> +				break;
-> +
-> +		rcu_assign_pointer(fnew->next, rtnl_dereference(pfp->next));
-
-	RCU_INIT_POINTER()
-
-> +		rcu_assign_pointer(*fp, fnew);
-
-	This one is fine
-
-> +		call_rcu(&f->rcu, fw_delete_filter);
-> +
-> +		*arg = (unsigned long)fnew;
-> +		return err;
->  	}
->  
->  	if (!handle)
-> @@ -252,9 +297,7 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
->  			return -ENOBUFS;
->  		head->mask = mask;
->  
-> -		tcf_tree_lock(tp);
-> -		tp->root = head;
-> -		tcf_tree_unlock(tp);
-> +		rcu_assign_pointer(tp->root, head);
->  	}
->  
->  	f = kzalloc(sizeof(struct fw_filter), GFP_KERNEL);
-> @@ -263,15 +306,14 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
->  
->  	tcf_exts_init(&f->exts, TCA_FW_ACT, TCA_FW_POLICE);
->  	f->id = handle;
-> +	f->tp = tp;
->  
->  	err = fw_change_attrs(net, tp, f, tb, tca, base, ovr);
->  	if (err < 0)
->  		goto errout;
->  
-> -	f->next = head->ht[fw_hash(handle)];
-> -	tcf_tree_lock(tp);
-> -	head->ht[fw_hash(handle)] = f;
-> -	tcf_tree_unlock(tp);
-> +	rcu_assign_pointer(f->next, head->ht[fw_hash(handle)]);
-
-	RCU_INIT_POINTER()
-
-> +	rcu_assign_pointer(head->ht[fw_hash(handle)], f);
-
-	This one is fine.
-
->  
->  	*arg = (unsigned long)f;
->  	return 0;
-> @@ -283,7 +325,7 @@ errout:
-
-
-Thanks
+My first idea was to remove rt_genid check in ip6_dst_check completely
+and rt_genid_bump_ipv6() should walk the trie to increase fib6_sernum in
+rt6i_nodes. I'll try this.
