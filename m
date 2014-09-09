@@ -1,72 +1,39 @@
-From: Masahiro Yamada <yamada.m@jp.panasonic.com>
-Subject: [PATCH 0/3] kbuild: Clean up makefiles and then drop obj-n an obj-n
-Date: Tue,  9 Sep 2014 19:26:18 +0900
-Message-ID: <1410258381-7088-1-git-send-email-yamada.m@jp.panasonic.com>
+From: Beniamino Galvani <b.galvani@gmail.com>
+Subject: Re: [PATCH v7] ethernet: arc: Add support for Rockchip SoC layer
+ device tree bindings
+Date: Tue, 9 Sep 2014 13:05:53 +0200
+Message-ID: <20140909110553.GA23188@gmail.com>
+References: <1410257727-22497-1-git-send-email-romain.perier@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Dooks <ben-linux@fluff.org>, Tony Lindgren <tony@atomide.com>,
- Linus Walleij <linus.walleij@linaro.org>,
- Nicolas Ferre <nicolas.ferre@atmel.com>,
- Takashi Yoshii <takasi-y@ops.dti.ne.jp>,
- Wolfram Sang <wsa@sang-engineering.com>, Greg Ungerer <gerg@uclinux.org>,
- Kukjin Kim <kgene.kim@samsung.com>, Sam Ravnborg <sam@ravnborg.org>,
- Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>,
- Mike Turquette <mturquette@linaro.org>,
- Geert Uytterhoeven <geert@linux-m68k.org>,
- Russell King <linux@arm.linux.org.uk>,
- Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
- linux-samsung-soc@vger.kernel.org, Ulrich Hecht <ulrich.hecht@gmail.com>,
- Simon Horman <horms+renesas@verge.net.au>, linux-omap@vger.kernel.org,
- Andrew Victor <linux@maxim.org.za>, linux-arm-kernel@lists.infradead.org,
- Michal Marek <mmarek@suse.cz>, Ryan Mallon <rmallon@gmail.com>,
- netdev@vger.kernel.org
-To: linux-kbuild@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: heiko@sntech.de, linux-rockchip@lists.infradead.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, arnd@arndb.de
+To: Romain Perier <romain.perier@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f171.google.com ([74.125.82.171]:47371 "EHLO
+	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932359AbaIILGq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 07:06:46 -0400
+Content-Disposition: inline
+In-Reply-To: <1410257727-22497-1-git-send-email-romain.perier@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Sep 09, 2014 at 10:15:27AM +0000, Romain Perier wrote:
+> This patch defines a platform glue layer for Rockchip SoCs which
+> support arc-emac driver. It ensures that regulator for the rmii is on
+> before trying to connect to the ethernet controller. It applies right
+> speed and mode changes to the grf when ethernet settings change.
+> 
+> Signed-off-by: Romain Perier <romain.perier@gmail.com>
+> ---
+>  drivers/net/ethernet/arc/Kconfig         |  10 ++
+>  drivers/net/ethernet/arc/Makefile        |   1 +
+>  drivers/net/ethernet/arc/emac.h          |   4 +-
+>  drivers/net/ethernet/arc/emac_main.c     |   2 +
+>  drivers/net/ethernet/arc/emac_rockchip.c | 229 +++++++++++++++++++++++++++++++
+>  5 files changed, 245 insertions(+), 1 deletion(-)
+>  create mode 100644 drivers/net/ethernet/arc/emac_rockchip.c
 
-
-
-Masahiro Yamada (3):
-  kbuild: remove unnecessary "obj- := dummy.o" trick
-  kbuild: remove unnecessary variable initializaions
-  kbuild: remove obj-n and lib-n handling
-
- arch/arm/mach-at91/Makefile       | 3 ---
- arch/arm/mach-ebsa110/Makefile    | 3 ---
- arch/arm/mach-ep93xx/Makefile     | 3 ---
- arch/arm/mach-exynos/Makefile     | 5 -----
- arch/arm/mach-footbridge/Makefile | 3 ---
- arch/arm/mach-iop13xx/Makefile    | 5 -----
- arch/arm/mach-iop32x/Makefile     | 3 ---
- arch/arm/mach-iop33x/Makefile     | 3 ---
- arch/arm/mach-ks8695/Makefile     | 3 ---
- arch/arm/mach-rpc/Makefile        | 4 ----
- arch/arm/mach-s3c24xx/Makefile    | 5 -----
- arch/arm/mach-s3c64xx/Makefile    | 5 -----
- arch/arm/mach-s5pv210/Makefile    | 5 -----
- arch/arm/mach-sa1100/Makefile     | 3 ---
- arch/arm/mach-u300/Makefile       | 3 ---
- arch/arm/plat-iop/Makefile        | 6 ------
- arch/arm/plat-omap/Makefile       | 3 ---
- arch/arm/plat-samsung/Makefile    | 5 -----
- drivers/clk/shmobile/Makefile     | 2 --
- drivers/net/wimax/Makefile        | 4 ----
- firmware/Makefile                 | 2 +-
- scripts/Makefile.build            | 4 ++--
- scripts/Makefile.clean            | 4 +---
- scripts/Makefile.fwinst           | 2 +-
- 24 files changed, 5 insertions(+), 83 deletions(-)
-
--- 
-1.9.1
+Tested-by: Beniamino Galvani <b.galvani@gmail.com>
