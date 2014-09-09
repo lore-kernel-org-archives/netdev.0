@@ -1,58 +1,84 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v10 net-next 0/2] load imm64 insn and uapi/linux/bpf.h
-Date: Tue, 09 Sep 2014 10:30:59 -0700 (PDT)
-Message-ID: <20140909.103059.1330265085939107782.davem@davemloft.net>
-References: <1409894238-9055-1-git-send-email-ast@plumgrid.com>
+From: Mike Turquette <mturquette@linaro.org>
+Subject: Re: [PATCH 1/3] kbuild: remove unnecessary "obj- := dummy.o" trick
+Date: Tue, 09 Sep 2014 10:43:37 -0700
+Message-ID: <20140909174337.19023.97772@quantum>
+References: <1410258381-7088-1-git-send-email-yamada.m@jp.panasonic.com>
+ <1410258381-7088-2-git-send-email-yamada.m@jp.panasonic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, torvalds-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org, akpm-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1409894238-9055-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "Masahiro Yamada" <yamada.m@jp.panasonic.com>,
+	"Ben Dooks" <ben-linux@fluff.org>,
+	"Kukjin Kim" <kgene.kim@samsung.com>,
+	"Russell King" <linux@arm.linux.org.uk>,
+	"Laurent Pinchart" <laurent.pinchart+renesas@ideasonboard.com>,
+	"Simon Horman" <horms+renesas@verge.net.au>,
+	"Geert Uytterhoeven" <geert@linux-m68k.org>,
+	"Wolfram Sang" <wsa@sang-engineering.com>,
+	"Takashi Yoshii" <takasi-y@ops.dti.ne.jp>,
+	"Ulrich Hecht" <ulrich.hecht@gmail.com>,
+	linux-arm-kernel@lists.infradead.org,
+	linux-samsung-soc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Masahiro Yamada <yamada.m@jp.panasonic.com>,
+	linux-kbuild@vger.kernel.org
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <1410258381-7088-2-git-send-email-yamada.m@jp.panasonic.com>
+Sender: linux-kbuild-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Date: Thu,  4 Sep 2014 22:17:16 -0700
-
-> V9->V10
-> - no changes, added Daniel's ack
+Quoting Masahiro Yamada (2014-09-09 03:26:19)
+> In these Makefiles, at least one of "obj-y" and "obj-" is non-empty,
+> hence built-in.o is always created without such a trick.
 > 
-> Note they're on top of Hannes's patch in the same area [1]
+> Signed-off-by: Masahiro Yamada <yamada.m@jp.panasonic.com>
+
+Acked-by: Mike Turquette <mturquette@linaro.org>
+
+> ---
 > 
-> V8 thread with 'why' reasoning and end goal [2]
+>  arch/arm/plat-samsung/Makefile | 1 -
+>  drivers/clk/shmobile/Makefile  | 2 --
+>  drivers/net/wimax/Makefile     | 4 ----
+>  3 files changed, 7 deletions(-)
 > 
-> Original set [3] of ~28 patches I'm planning to present in 4 stages:
+> diff --git a/arch/arm/plat-samsung/Makefile b/arch/arm/plat-samsung/Makefile
+> index 5fe1750..a402262 100644
+> --- a/arch/arm/plat-samsung/Makefile
+> +++ b/arch/arm/plat-samsung/Makefile
+> @@ -8,7 +8,6 @@ ccflags-$(CONFIG_ARCH_MULTI_V7) += -I$(srctree)/$(src)/include
+>  
+>  obj-y                          :=
+>  obj-m                          :=
+> -obj-n                          := dummy.o
+>  obj-                           :=
+>  
+>  # Objects we always build independent of SoC choice
+> diff --git a/drivers/clk/shmobile/Makefile b/drivers/clk/shmobile/Makefile
+> index e002923..9aab51c8 100644
+> --- a/drivers/clk/shmobile/Makefile
+> +++ b/drivers/clk/shmobile/Makefile
+> @@ -6,5 +6,3 @@ obj-$(CONFIG_ARCH_R8A7790)              += clk-rcar-gen2.o
+>  obj-$(CONFIG_ARCH_R8A7791)             += clk-rcar-gen2.o
+>  obj-$(CONFIG_ARCH_SHMOBILE_MULTI)      += clk-div6.o
+>  obj-$(CONFIG_ARCH_SHMOBILE_MULTI)      += clk-mstp.o
+> -# for emply built-in.o
+> -obj-n  := dummy
+> diff --git a/drivers/net/wimax/Makefile b/drivers/net/wimax/Makefile
+> index 992bc02..692184d 100644
+> --- a/drivers/net/wimax/Makefile
+> +++ b/drivers/net/wimax/Makefile
+> @@ -1,5 +1 @@
+> -
+>  obj-$(CONFIG_WIMAX_I2400M)     += i2400m/
+> -
+> -# (from Sam Ravnborg) force kbuild to create built-in.o
+> -obj- := dummy.o
+> -- 
+> 1.9.1
 > 
->   I. this 2 patches to fork off llvm upstreaming
->  II. bpf syscall with manpage and map implementation
-> III. bpf program load/unload with verifier testsuite (1st user of
->      instruction macros from bpf.h and 1st user of load imm64 insn)
->  IV. tracing, etc
-> 
-> [1] http://patchwork.ozlabs.org/patch/385266/
-> [2] https://lkml.org/lkml/2014/8/27/628
-> [3] https://lkml.org/lkml/2014/8/26/859
-
-Begrudgingly, I've applied this series.
-
-Although I really wish you had included the mechanism for userland to
-use the eBPF instructions alongside exporting them to userspace.
-
-You kept saying "LLVM is the user" but that's a bullshit argument
-because you aren't including the patches necessary to actually
-propagate native eBPF programs into the kernel.
-
-That's what, 1 or 2 patches, right?  Which is not an unreasonable
-request.
-
-Anyways, I'm just extremely frustrated with how you operate and work,
-you push things way too hard.  I hate to say this, but you are the
-kind of submitter who gets his way by being persistent rather than
-making well formed pleasant submissions that are easy to integrate.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
