@@ -1,64 +1,57 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: Re: [PATCH v2 5/8] net: pxa168_eth: get and set the mac address on
- the Ethernet controller
-Date: Tue, 9 Sep 2014 18:36:22 +0200
-Message-ID: <20140909163622.GA28752@kwain>
-References: <1410273848-24663-1-git-send-email-antoine.tenart@free-electrons.com>
- <1410273848-24663-6-git-send-email-antoine.tenart@free-electrons.com>
- <20140909162958.GS30828@titan.lakedaemon.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
- devicetree@vger.kernel.org, netdev@vger.kernel.org,
- Antoine Tenart <antoine.tenart@free-electrons.com>,
- linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
- jszhang@marvell.com, linux-arm-kernel@lists.infradead.org,
- sebastian.hesselbarth@gmail.com
-To: Jason Cooper <jason@lakedaemon.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20140909162958.GS30828@titan.lakedaemon.net>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: 3.17-rc1 oops during network interface configuration
+Date: Tue, 9 Sep 2014 12:41:06 -0400
+Message-ID: <1714F0C6-06A0-4915-883E-9FEBC4880DFB@oracle.com>
+References: <53F1EF18.7010909@acm.org> <BA3DEE00-C035-41B9-8ECD-614F04483395@oracle.com> <007401cfcc4a$7b32b280$71981780$@opengridcomputing.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <007401cfcc4a$7b32b280$71981780$@opengridcomputing.com>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Jason,
 
-On Tue, Sep 09, 2014 at 12:29:58PM -0400, Jason Cooper wrote:
-> On Tue, Sep 09, 2014 at 04:44:05PM +0200, Antoine Tenart wrote:
-> > When changing the MAC address, in addition to updating the dev_addr in
-> > the net_device structure, this patch also update the MAC address
-> > registers (high and low) of the Ethernet controller with the new MAC.
-> > The address stored in these registers is used for IEEE 802.3x Ethernet
-> > flow control, which is already enabled.
-> > =
+On Sep 9, 2014, at 12:24 PM, Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org> w=
+rote:
 
-> > This patch also tries reading the MAC address stored in these registers
-> > when probing the driver, to use the MAC address set by the bootloader
-> > and avoid using a random one.
-> =
+>=20
+>=20
+>> -----Original Message-----
+>> From: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:linux-rdma-owner@vger=
+=2Ekernel.org] On Behalf Of Chuck Lever
+>> Sent: Tuesday, August 19, 2014 9:56 AM
+>> To: Bart Van Assche
+>> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma
+>> Subject: Re: 3.17-rc1 oops during network interface configuration
+>>=20
+>>=20
+>> On Aug 18, 2014, at 8:18 AM, Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org> wr=
+ote:
+>>=20
+>>> Hello,
+>>>=20
+>>> Has anyone else already tried to boot kernel 3.17-rc1 on an IB syst=
+em ?
+>>=20
+>> After updating to 3.17-rc1 this morning, I hit the same issue.
+>>=20
+>=20
+> I still see this with 3.17-rc4.  Perhaps somebody should fix it. :)
 
-> Hmm, the wording here seems odd.  I think the preference should be:
-> =
+I=92m working on it right now.
 
->  1) bootloader-supplied addr via DT
->  2) addr read from device
->  3) randomly generated one.
+--
+Chuck Lever
+chuck[dot]lever[at]oracle[dot]com
 
-I agree. I'll update that.
 
-Antoine
 
--- =
-
-Antoine T=E9nart, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
