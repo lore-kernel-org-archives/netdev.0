@@ -1,528 +1,64 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v3 08/15] net: sched: RCU cls_tcindex
-Date: Mon, 08 Sep 2014 22:57:36 -0700
-Message-ID: <20140909055734.2071.14128.stgit@nitbit.x32>
-References: <20140909055221.2071.99671.stgit@nitbit.x32>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH ipvs] Added simple weighted failover scheduler to ipvs
+Date: Tue, 9 Sep 2014 08:57:46 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1409090834190.2676@ja.home.ssi.bg>
+References: <20140908210804.GA9236@kmathis.internal.monetra.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	brouer@redhat.com
-To: xiyou.wangcong@gmail.com, davem@davemloft.net,
-	eric.dumazet@gmail.com, jhs@mojatatu.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>
+To: Kenny Mathis <kmathis@chokepoint.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:55859 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750827AbaIIF6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 01:58:10 -0400
-Received: by mail-oa0-f44.google.com with SMTP id o6so11510171oag.31
-        for <netdev@vger.kernel.org>; Mon, 08 Sep 2014 22:58:08 -0700 (PDT)
-In-Reply-To: <20140909055221.2071.99671.stgit@nitbit.x32>
+Received: from ja.ssi.bg ([178.16.129.10]:55971 "EHLO localhost.localdomain"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755661AbaIIF6N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Sep 2014 01:58:13 -0400
+In-Reply-To: <20140908210804.GA9236@kmathis.internal.monetra.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make cls_tcindex RCU safe.
 
-This patch addds a new RCU routine rcu_dereference_bh_rtnl() to check
-caller either holds the rcu read lock or RTNL. This is needed to
-handle the case where tcindex_lookup() is being called in both cases.
+	Hello,
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- include/linux/rtnetlink.h |   10 ++
- net/sched/cls_tcindex.c   |  248 ++++++++++++++++++++++++++++-----------------
- 2 files changed, 164 insertions(+), 94 deletions(-)
+On Mon, 8 Sep 2014, Kenny Mathis wrote:
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 167bae7..6cacbce 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -47,6 +47,16 @@ static inline int lockdep_rtnl_is_held(void)
- 	rcu_dereference_check(p, lockdep_rtnl_is_held())
- 
- /**
-+ * rcu_dereference_bh_rtnl - rcu_dereference_bh with debug checking
-+ * @p: The pointer to read, prior to dereference
-+ *
-+ * Do an rcu_dereference_bh(p), but check caller either holds rcu_read_lock_bh()
-+ * or RTNL. Note : Please prefer rtnl_dereference() or rcu_dereference_bh()
-+ */
-+#define rcu_dereference_bh_rtnl(p)				\
-+	rcu_dereference_bh_check(p, lockdep_rtnl_is_held())
-+
-+/**
-  * rtnl_dereference - fetch RCU pointer when updates are prevented by RTNL
-  * @p: The pointer to read, prior to dereferencing
-  *
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index 3e9f764..a9f4279 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -32,19 +32,21 @@ struct tcindex_filter_result {
- struct tcindex_filter {
- 	u16 key;
- 	struct tcindex_filter_result result;
--	struct tcindex_filter *next;
-+	struct tcindex_filter __rcu *next;
-+	struct rcu_head rcu;
- };
- 
- 
- struct tcindex_data {
- 	struct tcindex_filter_result *perfect; /* perfect hash; NULL if none */
--	struct tcindex_filter **h; /* imperfect hash; only used if !perfect;
--				      NULL if unused */
-+	struct tcindex_filter __rcu **h; /* imperfect hash; */
-+	struct tcf_proto *tp;
- 	u16 mask;		/* AND key with mask */
--	int shift;		/* shift ANDed key to the right */
--	int hash;		/* hash table size; 0 if undefined */
--	int alloc_hash;		/* allocated size */
--	int fall_through;	/* 0: only classify if explicit match */
-+	u32 shift;		/* shift ANDed key to the right */
-+	u32 hash;		/* hash table size; 0 if undefined */
-+	u32 alloc_hash;		/* allocated size */
-+	u32 fall_through;	/* 0: only classify if explicit match */
-+	struct rcu_head rcu;
- };
- 
- static inline int
-@@ -56,13 +58,18 @@ tcindex_filter_is_set(struct tcindex_filter_result *r)
- static struct tcindex_filter_result *
- tcindex_lookup(struct tcindex_data *p, u16 key)
- {
--	struct tcindex_filter *f;
-+	if (p->perfect) {
-+		struct tcindex_filter_result *f = p->perfect + key;
-+
-+		return tcindex_filter_is_set(f) ? f : NULL;
-+	} else if (p->h) {
-+		struct tcindex_filter __rcu **fp;
-+		struct tcindex_filter *f;
- 
--	if (p->perfect)
--		return tcindex_filter_is_set(p->perfect + key) ?
--			p->perfect + key : NULL;
--	else if (p->h) {
--		for (f = p->h[key % p->hash]; f; f = f->next)
-+		fp = &p->h[key % p->hash];
-+		for (f = rcu_dereference_bh_rtnl(*fp);
-+		     f;
-+		     fp = &f->next, f = rcu_dereference_bh_rtnl(*fp))
- 			if (f->key == key)
- 				return &f->result;
- 	}
-@@ -74,7 +81,7 @@ tcindex_lookup(struct tcindex_data *p, u16 key)
- static int tcindex_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 			    struct tcf_result *res)
- {
--	struct tcindex_data *p = tp->root;
-+	struct tcindex_data *p = rcu_dereference(tp->root);
- 	struct tcindex_filter_result *f;
- 	int key = (skb->tc_index & p->mask) >> p->shift;
- 
-@@ -99,7 +106,7 @@ static int tcindex_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 
- static unsigned long tcindex_get(struct tcf_proto *tp, u32 handle)
- {
--	struct tcindex_data *p = tp->root;
-+	struct tcindex_data *p = rtnl_dereference(tp->root);
- 	struct tcindex_filter_result *r;
- 
- 	pr_debug("tcindex_get(tp %p,handle 0x%08x)\n", tp, handle);
-@@ -129,49 +136,59 @@ static int tcindex_init(struct tcf_proto *tp)
- 	p->hash = DEFAULT_HASH_SIZE;
- 	p->fall_through = 1;
- 
--	tp->root = p;
-+	rcu_assign_pointer(tp->root, p);
- 	return 0;
- }
- 
--
- static int
--__tcindex_delete(struct tcf_proto *tp, unsigned long arg, int lock)
-+tcindex_delete(struct tcf_proto *tp, unsigned long arg)
- {
--	struct tcindex_data *p = tp->root;
-+	struct tcindex_data *p = rtnl_dereference(tp->root);
- 	struct tcindex_filter_result *r = (struct tcindex_filter_result *) arg;
-+	struct tcindex_filter __rcu **walk;
- 	struct tcindex_filter *f = NULL;
- 
--	pr_debug("tcindex_delete(tp %p,arg 0x%lx),p %p,f %p\n", tp, arg, p, f);
-+	pr_debug("tcindex_delete(tp %p,arg 0x%lx),p %p\n", tp, arg, p);
- 	if (p->perfect) {
- 		if (!r->res.class)
- 			return -ENOENT;
- 	} else {
- 		int i;
--		struct tcindex_filter **walk = NULL;
- 
--		for (i = 0; i < p->hash; i++)
--			for (walk = p->h+i; *walk; walk = &(*walk)->next)
--				if (&(*walk)->result == r)
-+		for (i = 0; i < p->hash; i++) {
-+			walk = p->h + i;
-+			for (f = rtnl_dereference(*walk); f;
-+			     walk = &f->next, f = rtnl_dereference(*walk)) {
-+				if (&f->result == r)
- 					goto found;
-+			}
-+		}
- 		return -ENOENT;
- 
- found:
--		f = *walk;
--		if (lock)
--			tcf_tree_lock(tp);
--		*walk = f->next;
--		if (lock)
--			tcf_tree_unlock(tp);
-+		rcu_assign_pointer(*walk, rtnl_dereference(f->next));
- 	}
- 	tcf_unbind_filter(tp, &r->res);
- 	tcf_exts_destroy(tp, &r->exts);
--	kfree(f);
-+	if (f)
-+		kfree_rcu(f, rcu);
- 	return 0;
- }
- 
--static int tcindex_delete(struct tcf_proto *tp, unsigned long arg)
-+static int tcindex_destroy_element(struct tcf_proto *tp,
-+				   unsigned long arg,
-+				   struct tcf_walker *walker)
- {
--	return __tcindex_delete(tp, arg, 1);
-+	return tcindex_delete(tp, arg);
-+}
-+
-+static void __tcindex_destroy(struct rcu_head *head)
-+{
-+	struct tcindex_data *p = container_of(head, struct tcindex_data, rcu);
-+
-+	kfree(p->perfect);
-+	kfree(p->h);
-+	kfree(p);
- }
- 
- static inline int
-@@ -194,6 +211,14 @@ static void tcindex_filter_result_init(struct tcindex_filter_result *r)
- 	tcf_exts_init(&r->exts, TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
- }
- 
-+static void __tcindex_partial_destroy(struct rcu_head *head)
-+{
-+	struct tcindex_data *p = container_of(head, struct tcindex_data, rcu);
-+
-+	kfree(p->perfect);
-+	kfree(p);
-+}
-+
- static int
- tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
- 		  u32 handle, struct tcindex_data *p,
-@@ -203,7 +228,7 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
- 	int err, balloc = 0;
- 	struct tcindex_filter_result new_filter_result, *old_r = r;
- 	struct tcindex_filter_result cr;
--	struct tcindex_data cp;
-+	struct tcindex_data *cp, *oldp;
- 	struct tcindex_filter *f = NULL; /* make gcc behave */
- 	struct tcf_exts e;
- 
-@@ -212,84 +237,118 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
- 	if (err < 0)
- 		return err;
- 
--	memcpy(&cp, p, sizeof(cp));
--	tcindex_filter_result_init(&new_filter_result);
-+	/* tcindex_data attributes must look atomic to classifier/lookup so
-+	 * allocate new tcindex data and RCU assign it onto root. Keeping
-+	 * perfect hash and hash pointers from old data.
-+	 */
-+	cp = kzalloc(sizeof(cp), GFP_KERNEL);
-+	if (!cp)
-+		return -ENOMEM;
-+
-+	cp->mask = p->mask;
-+	cp->shift = p->shift;
-+	cp->hash = p->hash;
-+	cp->alloc_hash = p->alloc_hash;
-+	cp->fall_through = p->fall_through;
-+	cp->tp = tp;
-+
-+	if (p->perfect) {
-+		cp->perfect = kmemdup(p->perfect,
-+				      sizeof(*r) * cp->hash, GFP_KERNEL);
-+		if (!cp->perfect)
-+			goto errout;
-+	}
-+	cp->h = p->h;
-+
-+	memset(&new_filter_result, 0, sizeof(new_filter_result));
-+	tcf_exts_init(&new_filter_result.exts,
-+		      TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
- 
- 	tcindex_filter_result_init(&cr);
- 	if (old_r)
- 		cr.res = r->res;
- 
- 	if (tb[TCA_TCINDEX_HASH])
--		cp.hash = nla_get_u32(tb[TCA_TCINDEX_HASH]);
-+		cp->hash = nla_get_u32(tb[TCA_TCINDEX_HASH]);
- 
- 	if (tb[TCA_TCINDEX_MASK])
--		cp.mask = nla_get_u16(tb[TCA_TCINDEX_MASK]);
-+		cp->mask = nla_get_u16(tb[TCA_TCINDEX_MASK]);
- 
- 	if (tb[TCA_TCINDEX_SHIFT])
--		cp.shift = nla_get_u32(tb[TCA_TCINDEX_SHIFT]);
-+		cp->shift = nla_get_u32(tb[TCA_TCINDEX_SHIFT]);
- 
- 	err = -EBUSY;
-+
- 	/* Hash already allocated, make sure that we still meet the
- 	 * requirements for the allocated hash.
- 	 */
--	if (cp.perfect) {
--		if (!valid_perfect_hash(&cp) ||
--		    cp.hash > cp.alloc_hash)
-+	if (cp->perfect) {
-+		if (!valid_perfect_hash(cp) ||
-+		    cp->hash > cp->alloc_hash)
- 			goto errout;
--	} else if (cp.h && cp.hash != cp.alloc_hash)
-+	} else if (cp->h && cp->hash != cp->alloc_hash) {
- 		goto errout;
-+	}
- 
- 	err = -EINVAL;
- 	if (tb[TCA_TCINDEX_FALL_THROUGH])
--		cp.fall_through = nla_get_u32(tb[TCA_TCINDEX_FALL_THROUGH]);
-+		cp->fall_through = nla_get_u32(tb[TCA_TCINDEX_FALL_THROUGH]);
- 
--	if (!cp.hash) {
-+	if (!cp->hash) {
- 		/* Hash not specified, use perfect hash if the upper limit
- 		 * of the hashing index is below the threshold.
- 		 */
--		if ((cp.mask >> cp.shift) < PERFECT_HASH_THRESHOLD)
--			cp.hash = (cp.mask >> cp.shift) + 1;
-+		if ((cp->mask >> cp->shift) < PERFECT_HASH_THRESHOLD)
-+			cp->hash = (cp->mask >> cp->shift) + 1;
- 		else
--			cp.hash = DEFAULT_HASH_SIZE;
-+			cp->hash = DEFAULT_HASH_SIZE;
- 	}
- 
--	if (!cp.perfect && !cp.h)
--		cp.alloc_hash = cp.hash;
-+	if (!cp->perfect && cp->h)
-+		cp->alloc_hash = cp->hash;
- 
- 	/* Note: this could be as restrictive as if (handle & ~(mask >> shift))
- 	 * but then, we'd fail handles that may become valid after some future
- 	 * mask change. While this is extremely unlikely to ever matter,
- 	 * the check below is safer (and also more backwards-compatible).
- 	 */
--	if (cp.perfect || valid_perfect_hash(&cp))
--		if (handle >= cp.alloc_hash)
-+	if (cp->perfect || valid_perfect_hash(cp))
-+		if (handle >= cp->alloc_hash)
- 			goto errout;
- 
- 
- 	err = -ENOMEM;
--	if (!cp.perfect && !cp.h) {
--		if (valid_perfect_hash(&cp)) {
-+	if (!cp->perfect && !cp->h) {
-+		if (valid_perfect_hash(cp)) {
- 			int i;
- 
--			cp.perfect = kcalloc(cp.hash, sizeof(*r), GFP_KERNEL);
--			if (!cp.perfect)
-+			cp->perfect = kcalloc(cp->hash, sizeof(*r), GFP_KERNEL);
-+			if (!cp->perfect)
- 				goto errout;
--			for (i = 0; i < cp.hash; i++)
--				tcf_exts_init(&cp.perfect[i].exts, TCA_TCINDEX_ACT,
-+			for (i = 0; i < cp->hash; i++)
-+				tcf_exts_init(&cp->perfect[i].exts,
-+					      TCA_TCINDEX_ACT,
- 					      TCA_TCINDEX_POLICE);
- 			balloc = 1;
- 		} else {
--			cp.h = kcalloc(cp.hash, sizeof(f), GFP_KERNEL);
--			if (!cp.h)
-+			struct tcindex_filter __rcu **hash;
-+
-+			hash = kcalloc(cp->hash,
-+				       sizeof(struct tcindex_filter *),
-+				       GFP_KERNEL);
-+
-+			if (!hash)
- 				goto errout;
-+
-+			cp->h = hash;
- 			balloc = 2;
- 		}
- 	}
- 
--	if (cp.perfect)
--		r = cp.perfect + handle;
-+	if (cp->perfect)
-+		r = cp->perfect + handle;
- 	else
--		r = tcindex_lookup(&cp, handle) ? : &new_filter_result;
-+		r = tcindex_lookup(cp, handle) ? : &new_filter_result;
- 
- 	if (r == &new_filter_result) {
- 		f = kzalloc(sizeof(*f), GFP_KERNEL);
-@@ -307,33 +366,41 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
- 	else
- 		tcf_exts_change(tp, &cr.exts, &e);
- 
--	tcf_tree_lock(tp);
- 	if (old_r && old_r != r)
- 		tcindex_filter_result_init(old_r);
- 
--	memcpy(p, &cp, sizeof(cp));
-+	oldp = p;
- 	r->res = cr.res;
-+	rcu_assign_pointer(tp->root, cp);
- 
- 	if (r == &new_filter_result) {
--		struct tcindex_filter **fp;
-+		struct tcindex_filter *nfp;
-+		struct tcindex_filter __rcu **fp;
- 
- 		f->key = handle;
- 		f->result = new_filter_result;
- 		f->next = NULL;
--		for (fp = p->h+(handle % p->hash); *fp; fp = &(*fp)->next)
--			/* nothing */;
--		*fp = f;
-+
-+		fp = p->h + (handle % p->hash);
-+		for (nfp = rtnl_dereference(*fp);
-+		     nfp;
-+		     fp = &nfp->next, nfp = rtnl_dereference(*fp))
-+				; /* nothing */
-+
-+		rcu_assign_pointer(*fp, f);
- 	}
--	tcf_tree_unlock(tp);
- 
-+	if (oldp)
-+		call_rcu(&oldp->rcu, __tcindex_partial_destroy);
- 	return 0;
- 
- errout_alloc:
- 	if (balloc == 1)
--		kfree(cp.perfect);
-+		kfree(cp->perfect);
- 	else if (balloc == 2)
--		kfree(cp.h);
-+		kfree(cp->h);
- errout:
-+	kfree(cp);
- 	tcf_exts_destroy(tp, &e);
- 	return err;
- }
-@@ -345,7 +412,7 @@ tcindex_change(struct net *net, struct sk_buff *in_skb,
- {
- 	struct nlattr *opt = tca[TCA_OPTIONS];
- 	struct nlattr *tb[TCA_TCINDEX_MAX + 1];
--	struct tcindex_data *p = tp->root;
-+	struct tcindex_data *p = rtnl_dereference(tp->root);
- 	struct tcindex_filter_result *r = (struct tcindex_filter_result *) *arg;
- 	int err;
- 
-@@ -364,10 +431,9 @@ tcindex_change(struct net *net, struct sk_buff *in_skb,
- 				 tca[TCA_RATE], ovr);
- }
- 
--
- static void tcindex_walk(struct tcf_proto *tp, struct tcf_walker *walker)
- {
--	struct tcindex_data *p = tp->root;
-+	struct tcindex_data *p = rtnl_dereference(tp->root);
- 	struct tcindex_filter *f, *next;
- 	int i;
- 
-@@ -390,8 +456,8 @@ static void tcindex_walk(struct tcf_proto *tp, struct tcf_walker *walker)
- 	if (!p->h)
- 		return;
- 	for (i = 0; i < p->hash; i++) {
--		for (f = p->h[i]; f; f = next) {
--			next = f->next;
-+		for (f = rtnl_dereference(p->h[i]); f; f = next) {
-+			next = rtnl_dereference(f->next);
- 			if (walker->count >= walker->skip) {
- 				if (walker->fn(tp, (unsigned long) &f->result,
- 				    walker) < 0) {
-@@ -404,17 +470,9 @@ static void tcindex_walk(struct tcf_proto *tp, struct tcf_walker *walker)
- 	}
- }
- 
--
--static int tcindex_destroy_element(struct tcf_proto *tp,
--    unsigned long arg, struct tcf_walker *walker)
--{
--	return __tcindex_delete(tp, arg, 0);
--}
--
--
- static void tcindex_destroy(struct tcf_proto *tp)
- {
--	struct tcindex_data *p = tp->root;
-+	struct tcindex_data *p = rtnl_dereference(tp->root);
- 	struct tcf_walker walker;
- 
- 	pr_debug("tcindex_destroy(tp %p),p %p\n", tp, p);
-@@ -422,17 +480,16 @@ static void tcindex_destroy(struct tcf_proto *tp)
- 	walker.skip = 0;
- 	walker.fn = tcindex_destroy_element;
- 	tcindex_walk(tp, &walker);
--	kfree(p->perfect);
--	kfree(p->h);
--	kfree(p);
--	tp->root = NULL;
-+
-+	RCU_INIT_POINTER(tp->root, NULL);
-+	call_rcu(&p->rcu, __tcindex_destroy);
- }
- 
- 
- static int tcindex_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
-     struct sk_buff *skb, struct tcmsg *t)
- {
--	struct tcindex_data *p = tp->root;
-+	struct tcindex_data *p = rtnl_dereference(tp->root);
- 	struct tcindex_filter_result *r = (struct tcindex_filter_result *) fh;
- 	unsigned char *b = skb_tail_pointer(skb);
- 	struct nlattr *nest;
-@@ -455,15 +512,18 @@ static int tcindex_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 		nla_nest_end(skb, nest);
- 	} else {
- 		if (p->perfect) {
--			t->tcm_handle = r-p->perfect;
-+			t->tcm_handle = r - p->perfect;
- 		} else {
- 			struct tcindex_filter *f;
-+			struct tcindex_filter __rcu **fp;
- 			int i;
- 
- 			t->tcm_handle = 0;
- 			for (i = 0; !t->tcm_handle && i < p->hash; i++) {
--				for (f = p->h[i]; !t->tcm_handle && f;
--				     f = f->next) {
-+				fp = &p->h[i];
-+				for (f = rtnl_dereference(*fp);
-+				     !t->tcm_handle && f;
-+				     fp = &f->next, f = rtnl_dereference(*fp)) {
- 					if (&f->result == r)
- 						t->tcm_handle = f->key;
- 				}
+> Please consider this patch for addition in 3.17
+> 
+> Creates net/netfilter/ipvs/ip_vs_fo.c
+
+	Lines like the two above usually go after
+the '---' line. New features go first to the
+{ipvs,nf,net}-next trees.
+
+> Added simple weighted IPVS failover support to the Linux kernel.  All
+> other scheduling modules implement some form of load balancing, while 
+> this offers a simple failover solution.  Connections are directed to the
+> appropriate server based solely on highest weight value and server
+> availability.  Tested functionality with keepalived.
+
+	What about changing 'Added' with 'Add', using
+'ipvs: Add simple ...' in Subject line and reducing the
+many spaces in above comments to one? The main thing,
+there must be a Signed-off-by: line:
+
+# scripts/checkpatch.pl --strict /tmp/fo.diff 
+ERROR: Missing Signed-off-by: line(s)
+
+total: 1 errors, 0 warnings, 0 checks, 102 lines checked
+
+/tmp/fo.diff has style problems, please review.
+
+> +static struct ip_vs_dest *
+> +ip_vs_fo_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
+> +		  struct ip_vs_iphdr *iph)
+> +{
+> +	struct ip_vs_dest *dest = NULL, *hweight = NULL;
+
+	' = NULL' after dest is not needed. Otherwise,
+the module looks correctly implemented. You can post
+PATCHv2 after making all needed changes.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
