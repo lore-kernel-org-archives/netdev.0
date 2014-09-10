@@ -1,11 +1,10 @@
 From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v11 net-next 12/12] bpf: mini eBPF library, test stubs and
- verifier testsuite
-Date: Wed, 10 Sep 2014 11:08:40 -0700
-Message-ID: <CAMEtUuzEQu30WiYprRcDBogJxxrDeNhvn=kF+z8cVvhR-vjTQg@mail.gmail.com>
+Subject: Re: [PATCH v11 net-next 11/12] net: filter: move eBPF instruction macros
+Date: Wed, 10 Sep 2014 11:16:57 -0700
+Message-ID: <CAMEtUuwQXj=oWzyBkogTSfOAhjhx0oyB5gC4+HoccTGWg8Obfg@mail.gmail.com>
 References: <1410325808-3657-1-git-send-email-ast@plumgrid.com>
-	<1410325808-3657-13-git-send-email-ast@plumgrid.com>
-	<54103776.3080706@redhat.com>
+	<1410325808-3657-12-git-send-email-ast@plumgrid.com>
+	<54103506.1030501@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
@@ -26,33 +25,36 @@ Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54103776.3080706-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <54103506.1030501-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 10, 2014 at 4:35 AM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+On Wed, Sep 10, 2014 at 4:24 AM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On 09/10/2014 07:10 AM, Alexei Starovoitov wrote:
+>>
+>> move instruction macros (like BPF_MOV64_REG or BPF_ALU32_IMM)
+>> from linux/filter.h into uapi/linux/bpf.h
+>> so that userspace programs can use them.
+>>
+>> verifier testsuite (in later patches) will be using them.
+>>
+>> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 >
-> Since we already have an extensive BPF test suite, that is, lib/test_bpf.c,
-> which currently also does sanity checks for the classic BPF verifier, is
-> there a reason these verifier test cases cannot be extended/integrated there
-> as well but have to go to kernel/bpf/test_stub.c resp.
-> samples/bpf/test_verifier.c ?
-> I don't like that we put testing code into kernel/bpf/ whereas we already
-> have a BPF test infrastructure in the kernel elsewhere.
+>
+> I don't think we need this commit at all. These macros are not really
+> part of the ABI and we should expose __as less as possible__, otherwise
+> we won't be able to alter them anymore. Plus, based on your previous
+> argumentation regarding the header file expose, we also won't be able
+> to add any new macros anymore since you could run into name collisions.
+>
+> Anyway, I don't see a reason why a e.g. central user space eBPF library
+> cannot live with, for example, a private copy of these helper macros or
+> whatever it wants to define by itself.
+>
+> I know in classic BPF there's BPF_STMT() and BPF_JUMP() but it's much
+> less complicated than eBPF and less likely to changes.
 
-yes. there is a reason. Verifier needs to be tested from user space,
-since it works on fds. Process local map_fd are part of the eBPF
-programs. Therefore one is testing things from kernel and
-another from userspace. We definitely need both.
-Currently there is no use case to call verifier from inside
-the kernel. I'm not sure there will be one. Verifier's main
-purpose is to check user supplied programs and provide
-humans an understandable error messages of what
-is 'unsafe' in particular program.
-Eventually we will integrate this verifier messages with
-program compilation. Like, the user would write a program
-in C then invoke a wrapper of compiler and verifier, which
-will point to lines in C code which are doing something
-wrong like loops or out of bounds access. Currently verifier
-complains about particular 'unsafe' instruction, but
-humans have hard time correlating asm to C.
+Interesting idea. Are you saying just copy paste these
+226 lines into user libbpf.h for now to use them in testsuite
+and examples ? Hmm.
+Indeed the less lines we add to uapi the better. I'll do that.
