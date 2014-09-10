@@ -1,35 +1,36 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next 4/5] ipv6: drop ipv6_sk_mc_lock in mcast
-Date: Wed, 10 Sep 2014 15:36:10 -0700
-Message-ID: <CAM_iQpVY832KKK46Gm44n3X9LXomcH+zbxp3obXPKANMB+kZzg@mail.gmail.com>
-References: <1410306738-18036-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1410306738-18036-5-git-send-email-xiyou.wangcong@gmail.com>
-	<20140910171623.GA12299@kria>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net-next v2 0/2] sunvnet: Reduce LDC message overhead.
+Date: Wed, 10 Sep 2014 18:37:22 -0400
+Message-ID: <20140910223722.GH14466@oracle.com>
+References: <20140904.223724.206826043871814498.davem@davemloft.net>
+ <20140908143802.GF31377@oracle.com>
+ <20140910140434.GA14466@oracle.com>
+ <20140910.152528.391406680350942661.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Sabrina Dubroca <sd@queasysnail.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f51.google.com ([209.85.219.51]:62654 "EHLO
-	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751754AbaIJWgK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 18:36:10 -0400
-Received: by mail-oa0-f51.google.com with SMTP id n16so13674539oag.24
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 15:36:10 -0700 (PDT)
-In-Reply-To: <20140910171623.GA12299@kria>
+Received: from userp1040.oracle.com ([156.151.31.81]:43477 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751754AbaIJWh1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 18:37:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20140910.152528.391406680350942661.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 10, 2014 at 10:16 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
->
-> Just a small thing: there are a few comments in the file that still
-> refer to this lock (as ipv6_sk_mc_lock or ip6_sk_mc_lock):
->
+On (09/10/14 15:25), David Miller wrote:
+> 
+> After the memory barrier stuff has been sorted out, the patches
+> should be submitted again for review.
+> 
+> But I was under the impression that for now we weren't going to
+> be doing the new udelay() things, which defers patch #2 for now.
 
-Yeah, I missed it. But it is already out of date since RCU conversion.
-I will fix the comment in a separated patch in the next update.
+ah, ok, I didn't realize the ball was in my court- good that I checked.
 
-Thanks.
+I'll re-submit a unified diff without the extra-udelay-stuff
+as a v3 patch for review tomorrow.
+
+--Sowmini
