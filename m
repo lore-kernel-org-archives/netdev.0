@@ -1,7 +1,7 @@
 From: Frank Li <Frank.Li@freescale.com>
-Subject: [Patch v3 net-next 01/12] net:fec: add enet refrence clock for i.MX 6SX chip
-Date: Thu, 11 Sep 2014 02:30:34 +0800
-Message-ID: <1410373845-5801-2-git-send-email-Frank.Li@freescale.com>
+Subject: [Patch v3 net-next 09/12] net: fec: change FEC alignment according to i.mx6 sx requirement
+Date: Thu, 11 Sep 2014 02:30:42 +0800
+Message-ID: <1410373845-5801-10-git-send-email-Frank.Li@freescale.com>
 References: <1410373845-5801-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,10 +12,10 @@ Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
 To: <b38611@freescale.com>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0112.outbound.protection.outlook.com ([157.56.111.112]:11237
+Received: from mail-bn1bon0144.outbound.protection.outlook.com ([157.56.111.144]:28496
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753259AbaIJSyq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753255AbaIJSyq (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 10 Sep 2014 14:54:46 -0400
 In-Reply-To: <1410373845-5801-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
@@ -23,84 +23,134 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Fugang Duan <B38611@freescale.com>
 
-i.MX6sx enet has below clocks for user config:
-clk_ipg: ipg_clk_s, ipg_clk_mac0_s, 66Mhz
-clk_ahb: enet system clock, it is enet AXI clock for imx6sx.
-	 For imx6sx, it alos is the clock source of interrupt coalescing.
-	 The clock range: 200Mhz ~ 266Mhz.
-clk_ref: refrence clock for tx and rx. For imx6sx enet RGMII mode,
-	 the refrence clock is 125Mhz coming from internal PLL or external.
-	 In i.MX6sx-arm2 board, the clock is from internal PLL.
-	 clk_ref is optional, depends on board.
-clk_enet_out: The clock can be output from internal PLL. It can supply 50Mhz
-	 clock for phy. clk_enet_out is optional, depends on chip and board.
-clk_ptp: 1588 ts clock. It is optional, depends on chip.
-
-The patch add clk_ref to distiguish the different clocks.
+i.MX6 SX change FEC alignment requirement.
+i.MX6 SX change internal bus from AHB to AXI.
+It require RX buffer must be 64 bytes alignment.
+And remove TX buffer alignment requirement.
 
 Signed-off-by: Fugang Duan <B38611@freescale.com>
 Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- drivers/net/ethernet/freescale/fec.h      |  1 +
- drivers/net/ethernet/freescale/fec_main.c | 17 +++++++++++++++++
- 2 files changed, 18 insertions(+)
+ drivers/net/ethernet/freescale/fec.h      |  3 +++
+ drivers/net/ethernet/freescale/fec_main.c | 35 +++++++++++++++++++++----------
+ 2 files changed, 27 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index ee41d98..635772b 100644
+index 5ec3828..7cc8382 100644
 --- a/drivers/net/ethernet/freescale/fec.h
 +++ b/drivers/net/ethernet/freescale/fec.h
-@@ -272,6 +272,7 @@ struct fec_enet_private {
+@@ -443,6 +443,9 @@ struct fec_enet_private {
+ 	int hwts_tx_en;
+ 	struct delayed_work time_keep;
+ 	struct regulator *reg_phy;
++
++	unsigned tx_align;
++	unsigned rx_align;
+ };
  
- 	struct clk *clk_ipg;
- 	struct clk *clk_ahb;
-+	struct clk *clk_ref;
- 	struct clk *clk_enet_out;
- 	struct clk *clk_ptp;
- 
+ void fec_ptp_init(struct platform_device *pdev);
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 89355a7..c21ecff1 100644
+index 0cc7313..8043cd7 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1621,6 +1621,11 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
- 			}
- 			mutex_unlock(&fep->ptp_clk_mutex);
- 		}
-+		if (fep->clk_ref) {
-+			ret = clk_prepare_enable(fep->clk_ref);
-+			if (ret)
-+				goto failed_clk_ref;
-+		}
- 	} else {
- 		clk_disable_unprepare(fep->clk_ahb);
- 		clk_disable_unprepare(fep->clk_ipg);
-@@ -1632,9 +1637,15 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
- 			fep->ptp_clk_on = false;
- 			mutex_unlock(&fep->ptp_clk_mutex);
- 		}
-+		if (fep->clk_ref)
-+			clk_disable_unprepare(fep->clk_ref);
+@@ -64,12 +64,6 @@
+ 
+ static void set_multicast_list(struct net_device *ndev);
+ 
+-#if defined(CONFIG_ARM)
+-#define FEC_ALIGNMENT	0xf
+-#else
+-#define FEC_ALIGNMENT	0x3
+-#endif
+-
+ #define DRIVER_NAME	"fec"
+ 
+ #define FEC_ENET_GET_QUQUE(_x) ((_x == 0) ? 1 : ((_x == 1) ? 2 : 0))
+@@ -434,7 +428,7 @@ fec_enet_txq_submit_frag_skb(struct fec_enet_priv_tx_q *txq,
+ 		bufaddr = page_address(this_frag->page.p) + this_frag->page_offset;
+ 
+ 		index = fec_enet_get_bd_index(txq->tx_bd_base, bdp, fep);
+-		if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
++		if (((unsigned long) bufaddr) & fep->tx_align ||
+ 			id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 			memcpy(txq->tx_bounce[index], bufaddr, frag_len);
+ 			bufaddr = txq->tx_bounce[index];
+@@ -514,7 +508,7 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
+ 
+ 	queue = skb_get_queue_mapping(skb);
+ 	index = fec_enet_get_bd_index(txq->tx_bd_base, bdp, fep);
+-	if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
++	if (((unsigned long) bufaddr) & fep->tx_align ||
+ 		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 		memcpy(txq->tx_bounce[index], skb->data, buflen);
+ 		bufaddr = txq->tx_bounce[index];
+@@ -607,7 +601,7 @@ fec_enet_txq_put_data_tso(struct fec_enet_priv_tx_q *txq, struct sk_buff *skb,
+ 
+ 	status |= (BD_ENET_TX_TC | BD_ENET_TX_READY);
+ 
+-	if (((unsigned long) data) & FEC_ALIGNMENT ||
++	if (((unsigned long) data) & fep->tx_align ||
+ 		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 		memcpy(txq->tx_bounce[index], data, size);
+ 		data = txq->tx_bounce[index];
+@@ -669,7 +663,7 @@ fec_enet_txq_put_hdr_tso(struct fec_enet_priv_tx_q *txq,
+ 
+ 	bufaddr = txq->tso_hdrs + index * TSO_HEADER_SIZE;
+ 	dmabuf = txq->tso_hdrs_dma + index * TSO_HEADER_SIZE;
+-	if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
++	if (((unsigned long)bufaddr) & fep->tx_align ||
+ 		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 		memcpy(txq->tx_bounce[index], skb->data, hdr_len);
+ 		bufaddr = txq->tx_bounce[index];
+@@ -2399,6 +2393,7 @@ fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
+ 	struct sk_buff *skb;
+ 	struct bufdesc	*bdp;
+ 	struct fec_enet_priv_rx_q *rxq;
++	unsigned off;
+ 
+ 	rxq = fep->rx_queue[queue];
+ 	bdp = rxq->rx_bd_base;
+@@ -2409,8 +2404,13 @@ fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
+ 		if (!skb)
+ 			goto err_alloc;
+ 
++		off = ((unsigned long)skb->data) & fep->rx_align;
++		if (off)
++			skb_reserve(skb, fep->rx_align + 1 - off);
++
+ 		addr = dma_map_single(&fep->pdev->dev, skb->data,
+-				FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
++				FEC_ENET_RX_FRSIZE - fep->rx_align, DMA_FROM_DEVICE);
++
+ 		if (dma_mapping_error(&fep->pdev->dev, addr)) {
+ 			dev_kfree_skb(skb);
+ 			if (net_ratelimit())
+@@ -2743,6 +2743,14 @@ static int fec_enet_init(struct net_device *ndev)
+ 	int bd_size;
+ 	unsigned int i;
+ 
++#if defined(CONFIG_ARM)
++	fep->rx_align = 0xf;
++	fep->tx_align = 0xf;
++#else
++	fep->rx_align = 0x3;
++	fep->tx_align = 0x3;
++#endif
++
+ 	fec_enet_alloc_queue(ndev);
+ 
+ 	if (fep->bufdesc_ex)
+@@ -2819,6 +2827,11 @@ static int fec_enet_init(struct net_device *ndev)
+ 		fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
  	}
  
- 	return 0;
++	if (id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
++		fep->tx_align = 0;
++		fep->rx_align = 0x3f;
++	}
 +
-+failed_clk_ref:
-+	if (fep->clk_ref)
-+		clk_disable_unprepare(fep->clk_ref);
- failed_clk_ptp:
- 	if (fep->clk_enet_out)
- 		clk_disable_unprepare(fep->clk_enet_out);
-@@ -2637,6 +2648,12 @@ fec_probe(struct platform_device *pdev)
+ 	ndev->hw_features = ndev->features;
  
- 	fep->ptp_clk_on = false;
- 	mutex_init(&fep->ptp_clk_mutex);
-+
-+	/* clk_ref is optional, depends on board */
-+	fep->clk_ref = devm_clk_get(&pdev->dev, "enet_clk_ref");
-+	if (IS_ERR(fep->clk_ref))
-+		fep->clk_ref = NULL;
-+
- 	fep->clk_ptp = devm_clk_get(&pdev->dev, "ptp");
- 	fep->bufdesc_ex =
- 		pdev->id_entry->driver_data & FEC_QUIRK_HAS_BUFDESC_EX;
+ 	fec_restart(ndev);
 -- 
 1.9.1
