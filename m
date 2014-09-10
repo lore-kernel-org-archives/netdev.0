@@ -1,50 +1,69 @@
-From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v11 net-next 11/12] net: filter: move eBPF instruction
- macros
-Date: Wed, 10 Sep 2014 13:24:54 +0200
-Message-ID: <54103506.1030501@redhat.com>
-References: <1410325808-3657-1-git-send-email-ast@plumgrid.com> <1410325808-3657-12-git-send-email-ast@plumgrid.com>
+From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v2 0/3] net: Add Keystone NetCP ethernet driver support
+Date: Wed, 10 Sep 2014 07:33:04 -0400
+Message-ID: <541036F0.2030001@mojatatu.com>
+References: <1408115562-22487-1-git-send-email-santosh.shilimkar@ti.com> <20140821.163612.282672926741753926.davem@davemloft.net> <53F79DC5.8030003@ti.com> <540DC00F.1080103@ti.com> <540EE809.9020901@mojatatu.com> <540F1A9A.1020309@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1410325808-3657-12-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	sandeep_n-l0cyMroinI0@public.gmane.org, Benjamin LaHaise <bcrl-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
+	shrijeet Mukherjee <shm-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+To: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <540F1A9A.1020309-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 09/10/2014 07:10 AM, Alexei Starovoitov wrote:
-> move instruction macros (like BPF_MOV64_REG or BPF_ALU32_IMM)
-> from linux/filter.h into uapi/linux/bpf.h
-> so that userspace programs can use them.
+On 09/09/14 11:19, Santosh Shilimkar wrote:
+
+> All the documentation is open including packet accelerator offload
+> in ti.com.
+
+Very nice.
+Would you do me a kindness and point to the switch interface
+documentation (and other ones on that soc)?
+
+> We got such requests from customers but couldn't
+> support it for Linux.
+
+It has been difficult because every chip vendor is trying
+to do their own thing. Some have huge (fugly) SDKs in user space
+which make it worse. Thats the struggle we are trying to
+deal with. Of course none of those vendors want to open
+up their specs. You present a nice opportunity to not follow
+that path.
+
+> We are also looking for such
+> support and any direction are welcome. Your slide
+> deck seems to capture the key topics like L2/IPSEC
+> offload which we are also interested to hear.
 >
-> verifier testsuite (in later patches) will be using them.
+
+The slides list the most popular offloads. But not necessarily
+all known offloads.
+
+> Just to be clear, your point was about L2 switch offload
+> which the driver don't support at the moment. It might confuse
+> others. The driver doesn't implements anything non-standard.
 >
-> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 
-I don't think we need this commit at all. These macros are not really
-part of the ABI and we should expose __as less as possible__, otherwise
-we won't be able to alter them anymore. Plus, based on your previous
-argumentation regarding the header file expose, we also won't be able
-to add any new macros anymore since you could run into name collisions.
+If i understood you correctly:
+Your initial patches dont intend to expose any offloads - you are just
+abstracting this as a NIC. I think that is a legit reason.
+However, the problem is you are also exposing the packet processors
+and switch offloading in a proprietary way.
+For a sample of how L2 basic functions like FDB tables are controlled
+within a NIC - take a look at the Intel NICs.
+Either that or you hide all the offload interfaces and over time add
+them (starting with L2 - NICs with L2 are common).
 
-Anyway, I don't see a reason why a e.g. central user space eBPF library
-cannot live with, for example, a private copy of these helper macros or
-whatever it wants to define by itself.
-
-I know in classic BPF there's BPF_STMT() and BPF_JUMP() but it's much
-less complicated than eBPF and less likely to changes.
+cheers,
+jamal
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
