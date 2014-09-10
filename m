@@ -1,66 +1,77 @@
-From: =?UTF-8?q?S=C3=A9bastien=20Barr=C3=A9?=
-	<sebastien.barre@uclouvain.be>
-Subject: [PATCH net-next] Revert "ipv4: Clarify in docs that accept_local requires rp_filter."
-Date: Wed, 10 Sep 2014 18:20:23 +0200
-Message-ID: <1410366023-9129-1-git-send-email-sebastien.barre@uclouvain.be>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: iwlwifi no authentication with AP - Re: pull request: wireless-next
+ 2014-09-08
+Date: Wed, 10 Sep 2014 18:31:18 +0200
+Message-ID: <54107CD6.5040109@hartkopp.net>
+References: <20140908191630.GB29412@tuxdriver.com>	<540F5927.7000306@hartkopp.net>	<CANUX_P3n0v1SzfbYuaAsE4TY7Hz_wo2Fb9SmHVNyFOC9hDhwdg@mail.gmail.com>	<540F61D0.9000704@hartkopp.net>	<CAMw6YJLeO1JZeY6hNe-TXOS56b-otk+htt5VPPor+9iYCQz53Q@mail.gmail.com>	<540FDB3C.6060301@hartkopp.net>	<CANUX_P3kOetqEneHgqoCDN4c85SQYD-G=mQj_o1c_TvKmE5psA@mail.gmail.com> <CAMw6YJKgVVnDrn1X7atemC1r9kwvsr3PQDs4qx5KDeeNy-P3VA@mail.gmail.com> <54101888.8080601@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?S=C3=A9bastien=20Barr=C3=A9?=
-	<sebastien.barre@uclouvain.be>, Julian Anastasov <ja@ssi.bg>,
-	<netdev@vger.kernel.org>,
-	Gregory Detal <gregory.detal@uclouvain.be>,
-	Christoph Paasch <christoph.paasch@uclouvain.be>,
-	Hannes Frederic Sowa <hannes@redhat.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Vadim Kochan <vadim4j@gmail.com>,
+	Emmanuel Grumbach <egrumbach@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:53214 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752673AbaIJQ0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 12:26:32 -0400
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.220]:10349 "EHLO
+	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751141AbaIJQbb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 12:31:31 -0400
+In-Reply-To: <54101888.8080601@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit c801e3cc1925 ("ipv4: Clarify in docs that accept_lo=
-cal requires rp_filter.").
-It is not needed anymore since commit 1dced6a85482 ("ipv4: Restore acce=
-pt_local behaviour in fib_validate_source()").
+On 10.09.2014 11:23, Oliver Hartkopp wrote:
+> Hi all,
+> 
+> yes for me too.
+> 
+> Although I only could test it here with my mobile hotspot which only supports
+> WEP ... but before that hotspot was not working too.
+> 
+> I'll check with my WPA2 setup again when I'm back home (if it's still needed).
+> 
 
-Suggested-by: Julian Anastasov <ja@ssi.bg>
-Cc: Gregory Detal <gregory.detal@uclouvain.be>
-Cc: Christoph Paasch <christoph.paasch@uclouvain.be>
-Cc: Hannes Frederic Sowa <hannes@redhat.com>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Signed-off-by: S=C3=A9bastien Barr=C3=A9 <sebastien.barre@uclouvain.be>
+Just fyi - it also works @home with WPA2.
+Tnx, Oliver
 
----
- Documentation/networking/ip-sysctl.txt | 11 +++--------
- 1 file changed, 3 insertions(+), 8 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/net=
-working/ip-sysctl.txt
-index db2383c..1b5581a 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -952,14 +952,9 @@ accept_source_route - BOOLEAN
- 		FALSE (host)
-=20
- accept_local - BOOLEAN
--	Accept packets with local source addresses. In combination
--	with suitable routing, this can be used to direct packets
--	between two local interfaces over the wire and have them
--	accepted properly.
--
--	rp_filter must be set to a non-zero value in order for
--	accept_local to have an effect.
--
-+	Accept packets with local source addresses. In combination with
-+	suitable routing, this can be used to direct packets between two
-+	local interfaces over the wire and have them accepted properly.
- 	default FALSE
-=20
- route_localnet - BOOLEAN
---=20
-tg: (6618ec6..) net-next/accept_local-update-doc (depends on: net-next/=
-master)
+> So far feel free to add my
+> 
+> Reported-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> Tested-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> 
+> Many thanks for your quick reaction!
+> 
+> Best regards,
+> Oliver
+> 
+> On 10.09.2014 11:16, Vadim Kochan wrote:
+>> Hi,
+>>
+>> Your patch works for me.
+>>
+>> On Wed, Sep 10, 2014 at 11:24 AM, Emmanuel Grumbach <egrumbach@gmail.com> wrote:
+>>> On Wed, Sep 10, 2014 at 8:01 AM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
+>>>> On 10.09.2014 00:07, Vadim Kochan wrote:
+>>>>> I have the same issue with iwlwifi.
+>>>>
+>>>> I tried an old zd1211 wireless USB stick to check if this problem is 80211
+>>>> related. But the USB stick works fine (I'm using it right now).
+>>>> So its definitely looks like an iwlwifi issue.
+>>>>
+>>>>> iwlwifi 0000:02:00.0: fail to flush all tx fifo queues Q 0
+>>>>
+>>>> Wasn't there any change in the iwlwifi tx path recently??
+>>>
+>>> Can you please try the patch attached? It works for me.
+>>>
+>>>>
+>>>> Regards,
+>>>> Oliver
+>>>>
+>>>>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
