@@ -1,8 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v4 13/16] net: sched: make tc_action safe to walk
- under RCU
-Date: Wed, 10 Sep 2014 08:52:06 -0700
-Message-ID: <20140910155204.2036.33129.stgit@nitbit.x32>
+Subject: [net-next PATCH v4 12/16] net: sched: rcu'ify cls_bpf
+Date: Wed, 10 Sep 2014 08:51:42 -0700
+Message-ID: <20140910155141.2036.66048.stgit@nitbit.x32>
 References: <20140910154517.2036.53084.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,193 +11,249 @@ Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
 To: xiyou.wangcong@gmail.com, davem@davemloft.net,
 	eric.dumazet@gmail.com, jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f42.google.com ([209.85.219.42]:35973 "EHLO
-	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751673AbaIJPwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 11:52:23 -0400
-Received: by mail-oa0-f42.google.com with SMTP id m1so13213664oag.15
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 08:52:23 -0700 (PDT)
+Received: from mail-oa0-f54.google.com ([209.85.219.54]:64857 "EHLO
+	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751919AbaIJPv7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 11:51:59 -0400
+Received: by mail-oa0-f54.google.com with SMTP id jd19so827554oac.13
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 08:51:58 -0700 (PDT)
 In-Reply-To: <20140910154517.2036.53084.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes tc_actions safe to walk from classifiers under RCU.
-Notice that each action act() callback defined in each act_*.c
-already does its own locking. This is needed even in the current
-infrastructure for the case where users add/remove actions via
-'tc actions' and reference them via index from the classifiers.
-
-There are a couple interesting pieces here (i.e. need careful review)
-In tcf_exts_exec() the call to tcf_action_exec follows a list_empty
-check. However although this is occurring under RCU there is no
-guarantee that the list is not empty when tcf_action_exec is called.
-This patch fixes up return values from tcf_action_exec() so that
-packets wont be dropped on the floor when this occurs. Hopefully
-its rare and by using RCU we sort of make this assumption.
-
-Second there is a suspect usage of list_splice_init_rcu() in the
-tcf_exts_change() routine. Notice how it is used twice in succession
-and the second init works on the src tcf_exts. There is probably a
-better way to accomplish that.
+This patch makes the cls_bpf classifier RCU safe. The tcf_lock
+was being used to protect a list of cls_bpf_prog now this list
+is RCU safe and updates occur with rcu_replace.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- include/net/act_api.h |    1 +
- include/net/pkt_cls.h |   10 +++++++++-
- net/sched/act_api.c   |   14 +++++++-------
- net/sched/cls_api.c   |   17 ++++++++++-------
- 4 files changed, 27 insertions(+), 15 deletions(-)
+ net/sched/cls_bpf.c |   93 ++++++++++++++++++++++++++-------------------------
+ 1 file changed, 47 insertions(+), 46 deletions(-)
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 3ee4c92..ddd0c5a 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -79,6 +79,7 @@ struct tc_action {
- 	__u32			type; /* for backward compat(TCA_OLD_COMPAT) */
- 	__u32			order;
- 	struct list_head	list;
-+	struct rcu_head		rcu;
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index 0e30d58..f2ba58a 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -27,6 +27,7 @@ MODULE_DESCRIPTION("TC BPF based classifier");
+ struct cls_bpf_head {
+ 	struct list_head plist;
+ 	u32 hgen;
++	struct rcu_head rcu;
  };
  
- struct tc_action_ops {
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 6da46dc..58c99fc 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -76,7 +76,7 @@ static inline void tcf_exts_init(struct tcf_exts *exts, int action, int police)
- {
- #ifdef CONFIG_NET_CLS_ACT
- 	exts->type = 0;
--	INIT_LIST_HEAD(&exts->actions);
-+	INIT_LIST_HEAD_RCU(&exts->actions);
- #endif
- 	exts->action = action;
- 	exts->police = police;
-@@ -88,6 +88,8 @@ static inline void tcf_exts_init(struct tcf_exts *exts, int action, int police)
-  *
-  * Returns 1 if a predicative extension is present, i.e. an extension which
-  * might cause further actions and thus overrule the regular tcf_result.
-+ *
-+ * This check is only valid if done under RTNL.
-  */
- static inline int
- tcf_exts_is_predicative(struct tcf_exts *exts)
-@@ -128,6 +130,12 @@ tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
- 	       struct tcf_result *res)
- {
- #ifdef CONFIG_NET_CLS_ACT
-+	/* This check is racy but this is OK, if the list is emptied
-+	 * before walking the chain of actions the return value has
-+	 * been updated to return zero. This way packets will not be
-+	 * dropped when action list deletion occurs after the empty
-+	 * check but before execution
-+	 */
- 	if (!list_empty(&exts->actions))
- 		return tcf_action_exec(skb, &exts->actions, res);
- #endif
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 648778a..ae32b5b 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -381,14 +381,14 @@ int tcf_action_exec(struct sk_buff *skb, const struct list_head *actions,
- 		    struct tcf_result *res)
- {
- 	const struct tc_action *a;
--	int ret = -1;
-+	int ret = 0;
+ struct cls_bpf_prog {
+@@ -37,6 +38,8 @@ struct cls_bpf_prog {
+ 	struct list_head link;
+ 	u32 handle;
+ 	u16 bpf_len;
++	struct tcf_proto *tp;
++	struct rcu_head rcu;
+ };
  
- 	if (skb->tc_verd & TC_NCLS) {
- 		skb->tc_verd = CLR_TC_NCLS(skb->tc_verd);
- 		ret = TC_ACT_OK;
- 		goto exec_done;
- 	}
--	list_for_each_entry(a, actions, list) {
-+	list_for_each_entry_rcu(a, actions, list) {
- repeat:
- 		ret = a->ops->act(skb, a, res);
- 		if (TC_MUNGED & skb->tc_verd) {
-@@ -417,8 +417,8 @@ int tcf_action_destroy(struct list_head *actions, int bind)
- 			module_put(a->ops->owner);
- 		else if (ret < 0)
- 			return ret;
--		list_del(&a->list);
--		kfree(a);
-+		list_del_rcu(&a->list);
-+		kfree_rcu(a, rcu);
- 	}
- 	return ret;
- }
-@@ -584,7 +584,7 @@ int tcf_action_init(struct net *net, struct nlattr *nla,
- 			goto err;
- 		}
- 		act->order = i;
--		list_add_tail(&act->list, actions);
-+		list_add_tail_rcu(&act->list, actions);
- 	}
+ static const struct nla_policy bpf_policy[TCA_BPF_MAX + 1] = {
+@@ -49,11 +52,11 @@ static const struct nla_policy bpf_policy[TCA_BPF_MAX + 1] = {
+ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 			    struct tcf_result *res)
+ {
+-	struct cls_bpf_head *head = tp->root;
++	struct cls_bpf_head *head = rcu_dereference(tp->root);
+ 	struct cls_bpf_prog *prog;
+ 	int ret;
+ 
+-	list_for_each_entry(prog, &head->plist, link) {
++	list_for_each_entry_rcu(prog, &head->plist, link) {
+ 		int filter_res = BPF_PROG_RUN(prog->filter, skb);
+ 
+ 		if (filter_res == 0)
+@@ -81,8 +84,8 @@ static int cls_bpf_init(struct tcf_proto *tp)
+ 	if (head == NULL)
+ 		return -ENOBUFS;
+ 
+-	INIT_LIST_HEAD(&head->plist);
+-	tp->root = head;
++	INIT_LIST_HEAD_RCU(&head->plist);
++	rcu_assign_pointer(tp->root, head);
+ 
  	return 0;
+ }
+@@ -98,18 +101,22 @@ static void cls_bpf_delete_prog(struct tcf_proto *tp, struct cls_bpf_prog *prog)
+ 	kfree(prog);
+ }
  
-@@ -746,8 +746,8 @@ static void cleanup_a(struct list_head *actions)
- 	struct tc_action *a, *tmp;
++static void __cls_bpf_delete_prog(struct rcu_head *rcu)
++{
++	struct cls_bpf_prog *prog = container_of(rcu, struct cls_bpf_prog, rcu);
++
++	cls_bpf_delete_prog(prog->tp, prog);
++}
++
+ static int cls_bpf_delete(struct tcf_proto *tp, unsigned long arg)
+ {
+-	struct cls_bpf_head *head = tp->root;
++	struct cls_bpf_head *head = rtnl_dereference(tp->root);
+ 	struct cls_bpf_prog *prog, *todel = (struct cls_bpf_prog *) arg;
  
- 	list_for_each_entry_safe(a, tmp, actions, list) {
--		list_del(&a->list);
--		kfree(a);
-+		list_del_rcu(&a->list);
-+		kfree_rcu(a, rcu);
+ 	list_for_each_entry(prog, &head->plist, link) {
+ 		if (prog == todel) {
+-			tcf_tree_lock(tp);
+-			list_del(&prog->link);
+-			tcf_tree_unlock(tp);
+-
+-			cls_bpf_delete_prog(tp, prog);
++			list_del_rcu(&prog->link);
++			call_rcu(&prog->rcu, __cls_bpf_delete_prog);
+ 			return 0;
+ 		}
  	}
- }
+@@ -119,27 +126,28 @@ static int cls_bpf_delete(struct tcf_proto *tp, unsigned long arg)
  
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index e547efd..dfce69b 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -500,7 +500,7 @@ void tcf_exts_destroy(struct tcf_proto *tp, struct tcf_exts *exts)
+ static void cls_bpf_destroy(struct tcf_proto *tp)
  {
- #ifdef CONFIG_NET_CLS_ACT
- 	tcf_action_destroy(&exts->actions, TCA_ACT_UNBIND);
--	INIT_LIST_HEAD(&exts->actions);
-+	INIT_LIST_HEAD_RCU(&exts->actions);
- #endif
+-	struct cls_bpf_head *head = tp->root;
++	struct cls_bpf_head *head = rtnl_dereference(tp->root);
+ 	struct cls_bpf_prog *prog, *tmp;
+ 
+ 	list_for_each_entry_safe(prog, tmp, &head->plist, link) {
+-		list_del(&prog->link);
+-		cls_bpf_delete_prog(tp, prog);
++		list_del_rcu(&prog->link);
++		call_rcu(&prog->rcu, __cls_bpf_delete_prog);
+ 	}
+ 
+-	kfree(head);
++	RCU_INIT_POINTER(tp->root, NULL);
++	kfree_rcu(head, rcu);
  }
- EXPORT_SYMBOL(tcf_exts_destroy);
-@@ -512,7 +512,7 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
- 	{
- 		struct tc_action *act;
  
--		INIT_LIST_HEAD(&exts->actions);
-+		INIT_LIST_HEAD_RCU(&exts->actions);
- 		if (exts->police && tb[exts->police]) {
- 			act = tcf_action_init_1(net, tb[exts->police], rate_tlv,
- 						"police", ovr,
-@@ -521,7 +521,7 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
- 				return PTR_ERR(act);
- 
- 			act->type = exts->type = TCA_OLD_COMPAT;
--			list_add(&act->list, &exts->actions);
-+			list_add_rcu(&act->list, &exts->actions);
- 		} else if (exts->action && tb[exts->action]) {
- 			int err;
- 			err = tcf_action_init(net, tb[exts->action], rate_tlv,
-@@ -541,15 +541,18 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
- }
- EXPORT_SYMBOL(tcf_exts_validate);
- 
-+/* It is not safe to use src->actions after this due to _init_rcu usage
-+ * INIT_LIST_HEAD_RCU() is called on src->actions
-+ */
- void tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
- 		     struct tcf_exts *src)
+ static unsigned long cls_bpf_get(struct tcf_proto *tp, u32 handle)
  {
- #ifdef CONFIG_NET_CLS_ACT
- 	LIST_HEAD(tmp);
+-	struct cls_bpf_head *head = tp->root;
++	struct cls_bpf_head *head = rtnl_dereference(tp->root);
+ 	struct cls_bpf_prog *prog;
+ 	unsigned long ret = 0UL;
+ 
+ 	if (head == NULL)
+ 		return 0UL;
+ 
+-	list_for_each_entry(prog, &head->plist, link) {
++	list_for_each_entry_rcu(prog, &head->plist, link) {
+ 		if (prog->handle == handle) {
+ 			ret = (unsigned long) prog;
+ 			break;
+@@ -158,10 +166,10 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
+ 				   unsigned long base, struct nlattr **tb,
+ 				   struct nlattr *est, bool ovr)
+ {
+-	struct sock_filter *bpf_ops, *bpf_old;
++	struct sock_filter *bpf_ops;
+ 	struct tcf_exts exts;
+ 	struct sock_fprog_kern tmp;
+-	struct bpf_prog *fp, *fp_old;
++	struct bpf_prog *fp;
+ 	u16 bpf_size, bpf_len;
+ 	u32 classid;
+ 	int ret;
+@@ -197,26 +205,15 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
+ 	if (ret)
+ 		goto errout_free;
+ 
 -	tcf_tree_lock(tp);
--	list_splice_init(&dst->actions, &tmp);
--	list_splice(&src->actions, &dst->actions);
+-	fp_old = prog->filter;
+-	bpf_old = prog->bpf_ops;
+-
+ 	prog->bpf_len = bpf_len;
+ 	prog->bpf_ops = bpf_ops;
+ 	prog->filter = fp;
+ 	prog->res.classid = classid;
 -	tcf_tree_unlock(tp);
-+	list_splice_init_rcu(&dst->actions, &tmp, synchronize_rcu);
-+	list_splice_init_rcu(&src->actions,
-+			     &dst->actions,
-+			     synchronize_rcu);
- 	tcf_action_destroy(&tmp, TCA_ACT_UNBIND);
- #endif
- }
+ 
+ 	tcf_bind_filter(tp, &prog->res, base);
+ 	tcf_exts_change(tp, &prog->exts, &exts);
+ 
+-	if (fp_old)
+-		bpf_prog_destroy(fp_old);
+-	if (bpf_old)
+-		kfree(bpf_old);
+-
+ 	return 0;
+-
+ errout_free:
+ 	kfree(bpf_ops);
+ errout:
+@@ -244,9 +241,10 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+ 			  u32 handle, struct nlattr **tca,
+ 			  unsigned long *arg, bool ovr)
+ {
+-	struct cls_bpf_head *head = tp->root;
+-	struct cls_bpf_prog *prog = (struct cls_bpf_prog *) *arg;
++	struct cls_bpf_head *head = rtnl_dereference(tp->root);
++	struct cls_bpf_prog *oldprog = (struct cls_bpf_prog *) *arg;
+ 	struct nlattr *tb[TCA_BPF_MAX + 1];
++	struct cls_bpf_prog *prog;
+ 	int ret;
+ 
+ 	if (tca[TCA_OPTIONS] == NULL)
+@@ -256,18 +254,19 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	if (prog != NULL) {
+-		if (handle && prog->handle != handle)
+-			return -EINVAL;
+-		return cls_bpf_modify_existing(net, tp, prog, base, tb,
+-					       tca[TCA_RATE], ovr);
+-	}
+-
+ 	prog = kzalloc(sizeof(*prog), GFP_KERNEL);
+-	if (prog == NULL)
++	if (!prog)
+ 		return -ENOBUFS;
+ 
+ 	tcf_exts_init(&prog->exts, TCA_BPF_ACT, TCA_BPF_POLICE);
++
++	if (oldprog) {
++		if (handle && oldprog->handle != handle) {
++			ret = -EINVAL;
++			goto errout;
++		}
++	}
++
+ 	if (handle == 0)
+ 		prog->handle = cls_bpf_grab_new_handle(tp, head);
+ 	else
+@@ -281,15 +280,17 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+ 	if (ret < 0)
+ 		goto errout;
+ 
+-	tcf_tree_lock(tp);
+-	list_add(&prog->link, &head->plist);
+-	tcf_tree_unlock(tp);
++	if (oldprog) {
++		list_replace_rcu(&prog->link, &oldprog->link);
++		call_rcu(&oldprog->rcu, __cls_bpf_delete_prog);
++	} else {
++		list_add_rcu(&prog->link, &head->plist);
++	}
+ 
+ 	*arg = (unsigned long) prog;
+-
+ 	return 0;
+ errout:
+-	if (*arg == 0UL && prog)
++	if (prog)
+ 		kfree(prog);
+ 
+ 	return ret;
+@@ -339,10 +340,10 @@ nla_put_failure:
+ 
+ static void cls_bpf_walk(struct tcf_proto *tp, struct tcf_walker *arg)
+ {
+-	struct cls_bpf_head *head = tp->root;
++	struct cls_bpf_head *head = rtnl_dereference(tp->root);
+ 	struct cls_bpf_prog *prog;
+ 
+-	list_for_each_entry(prog, &head->plist, link) {
++	list_for_each_entry_rcu(prog, &head->plist, link) {
+ 		if (arg->count < arg->skip)
+ 			goto skip;
+ 		if (arg->fn(tp, (unsigned long) prog, arg) < 0) {
