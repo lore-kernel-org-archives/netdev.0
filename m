@@ -1,517 +1,156 @@
-From: <yes@shlinux1.ap.freescale.net>
-Subject: [Patch v3 net-next 05/12] net: fec: init multi queue date structure
-Date: Thu, 11 Sep 2014 02:30:06 +0800
-Message-ID: <12634.779761038$1410375397@news.gmane.org>
+From: <yes-KgLukfWpBlCctlrPMvKcciBecyulp+rMXqFh9Ls21Oc@public.gmane.org>
+Subject: [Patch v3 net-next 09/12] net: fec: change FEC alignment according to i.mx6 sx requirement
+Date: Thu, 11 Sep 2014 02:30:10 +0800
+Message-ID: <4418.60013311288$1410375398@news.gmane.org>
 References: <1410373813-5731-1-git-send-email-yes>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, <linux@arm.linux.org.uk>,
-	Frank Li <Frank.Li@freescale.com>,
-	Duan Fugang <B38611@freescale.com>
-To: <b38611@freescale.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0086.outbound.protection.outlook.com ([207.46.100.86]:8358
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752906AbaIJSyL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 14:54:11 -0400
+Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <1410373813-5731-1-git-send-email-yes>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Frank Li <Frank.Li@freescale.com>
+From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 
-initilized all queues according to queue number get from DT file.
+i.MX6 SX change FEC alignment requirement.
+i.MX6 SX change internal bus from AHB to AXI.
+It require RX buffer must be 64 bytes alignment.
+And remove TX buffer alignment requirement.
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
-Signed-off-by: Duan Fugang <B38611@freescale.com>
+Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 365 +++++++++++++++++++++---------
- 1 file changed, 252 insertions(+), 113 deletions(-)
+ drivers/net/ethernet/freescale/fec.h      |  3 +++
+ drivers/net/ethernet/freescale/fec_main.c | 35 +++++++++++++++++++++----------
+ 2 files changed, 27 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 5ec3828..7cc8382 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -443,6 +443,9 @@ struct fec_enet_private {
+ 	int hwts_tx_en;
+ 	struct delayed_work time_keep;
+ 	struct regulator *reg_phy;
++
++	unsigned tx_align;
++	unsigned rx_align;
+ };
+ 
+ void fec_ptp_init(struct platform_device *pdev);
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 2240df0..03972f7 100644
+index 0cc7313..8043cd7 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -834,47 +834,98 @@ static void fec_enet_bd_init(struct net_device *dev)
- 	struct fec_enet_priv_rx_q *rxq;
- 	struct bufdesc *bdp;
- 	unsigned int i;
-+	unsigned int q;
+@@ -64,12 +64,6 @@
  
--	/* Initialize the receive buffer descriptors. */
--	rxq = fep->rx_queue[0];
--	bdp = rxq->rx_bd_base;
-+	for (q = 0; q < fep->num_rx_queues; q++) {
-+		/* Initialize the receive buffer descriptors. */
-+		rxq = fep->rx_queue[q];
-+		bdp = rxq->rx_bd_base;
+ static void set_multicast_list(struct net_device *ndev);
  
--	for (i = 0; i < rxq->rx_ring_size; i++) {
-+		for (i = 0; i < rxq->rx_ring_size; i++) {
- 
--		/* Initialize the BD for every fragment in the page. */
--		if (bdp->cbd_bufaddr)
--			bdp->cbd_sc = BD_ENET_RX_EMPTY;
--		else
-+			/* Initialize the BD for every fragment in the page. */
-+			if (bdp->cbd_bufaddr)
-+				bdp->cbd_sc = BD_ENET_RX_EMPTY;
-+			else
-+				bdp->cbd_sc = 0;
-+			bdp = fec_enet_get_nextdesc(bdp, fep, q);
-+		}
-+
-+		/* Set the last buffer to wrap */
-+		bdp = fec_enet_get_prevdesc(bdp, fep, q);
-+		bdp->cbd_sc |= BD_SC_WRAP;
-+
-+		rxq->cur_rx = rxq->rx_bd_base;
-+	}
-+
-+	for (q = 0; q < fep->num_tx_queues; q++) {
-+		/* ...and the same for transmit */
-+		txq = fep->tx_queue[q];
-+		bdp = txq->tx_bd_base;
-+		txq->cur_tx = bdp;
-+
-+		for (i = 0; i < txq->tx_ring_size; i++) {
-+			/* Initialize the BD for every fragment in the page. */
- 			bdp->cbd_sc = 0;
--		bdp = fec_enet_get_nextdesc(bdp, fep, 0);
-+			if (txq->tx_skbuff[i]) {
-+				dev_kfree_skb_any(txq->tx_skbuff[i]);
-+				txq->tx_skbuff[i] = NULL;
-+			}
-+			bdp->cbd_bufaddr = 0;
-+			bdp = fec_enet_get_nextdesc(bdp, fep, q);
-+		}
-+
-+		/* Set the last buffer to wrap */
-+		bdp = fec_enet_get_prevdesc(bdp, fep, q);
-+		bdp->cbd_sc |= BD_SC_WRAP;
-+		txq->dirty_tx = bdp;
- 	}
-+}
- 
--	/* Set the last buffer to wrap */
--	bdp = fec_enet_get_prevdesc(bdp, fep, 0);
--	bdp->cbd_sc |= BD_SC_WRAP;
-+static void fec_enet_enable_ring(struct net_device *ndev)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	struct fec_enet_priv_tx_q *txq;
-+	struct fec_enet_priv_rx_q *rxq;
-+	int i;
- 
--	rxq->cur_rx = rxq->rx_bd_base;
-+	for (i = 0; i < fep->num_rx_queues; i++) {
-+		rxq = fep->rx_queue[i];
-+		writel(rxq->bd_dma, fep->hwp + FEC_R_DES_START(i));
- 
--	/* ...and the same for transmit */
--	txq = fep->tx_queue[0];
--	bdp = txq->tx_bd_base;
--	txq->cur_tx = bdp;
-+		/* enable DMA1/2 */
-+		if (i)
-+			writel(RCMR_MATCHEN | RCMR_CMP(i),
-+			       fep->hwp + FEC_RCMR(i));
-+	}
- 
--	for (i = 0; i < txq->tx_ring_size; i++) {
--		/* Initialize the BD for every fragment in the page. */
--		bdp->cbd_sc = 0;
--		if (txq->tx_skbuff[i]) {
--			dev_kfree_skb_any(txq->tx_skbuff[i]);
--			txq->tx_skbuff[i] = NULL;
--		}
--		bdp->cbd_bufaddr = 0;
--		bdp = fec_enet_get_nextdesc(bdp, fep, 0);
-+	for (i = 0; i < fep->num_tx_queues; i++) {
-+		txq = fep->tx_queue[i];
-+		writel(txq->bd_dma, fep->hwp + FEC_X_DES_START(i));
-+
-+		/* enable DMA1/2 */
-+		if (i)
-+			writel(DMA_CLASS_EN | IDLE_SLOPE(i),
-+			       fep->hwp + FEC_DMA_CFG(i));
- 	}
-+}
- 
--	/* Set the last buffer to wrap */
--	bdp = fec_enet_get_prevdesc(bdp, fep, 0);
--	bdp->cbd_sc |= BD_SC_WRAP;
--	txq->dirty_tx = bdp;
-+static void fec_enet_reset_skb(struct net_device *ndev)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	struct fec_enet_priv_tx_q *txq;
-+	int i, j;
-+
-+	for (i = 0; i < fep->num_tx_queues; i++) {
-+		txq = fep->tx_queue[i];
-+
-+		for (j = 0; j < txq->tx_ring_size; j++) {
-+			if (txq->tx_skbuff[j]) {
-+				dev_kfree_skb_any(txq->tx_skbuff[j]);
-+				txq->tx_skbuff[j] = NULL;
-+			}
-+		}
-+	}
- }
- 
- /*
-@@ -893,8 +944,6 @@ fec_restart(struct net_device *ndev)
- 	u32 temp_mac[2];
- 	u32 rcntl = OPT_FRAME_SIZE | 0x04;
- 	u32 ecntl = 0x2; /* ETHEREN */
--	struct fec_enet_priv_tx_q *txq;
--	struct fec_enet_priv_rx_q *rxq;
- 
- 	/* Whack a reset.  We should wait for this. */
- 	writel(1, fep->hwp + FEC_ECNTRL);
-@@ -918,24 +967,10 @@ fec_restart(struct net_device *ndev)
- 
- 	fec_enet_bd_init(ndev);
- 
--	/* Set receive and transmit descriptor base. */
--	rxq = fep->rx_queue[0];
--	writel(rxq->bd_dma, fep->hwp + FEC_R_DES_START(0));
--	if (fep->bufdesc_ex)
--		writel((unsigned long)rxq->bd_dma + sizeof(struct bufdesc_ex)
--			* rxq->rx_ring_size, fep->hwp + FEC_X_DES_START(0));
--	else
--		writel((unsigned long)rxq->bd_dma + sizeof(struct bufdesc)
--			* rxq->rx_ring_size,    fep->hwp + FEC_X_DES_START(0));
-+	fec_enet_enable_ring(ndev);
- 
+-#if defined(CONFIG_ARM)
+-#define FEC_ALIGNMENT	0xf
+-#else
+-#define FEC_ALIGNMENT	0x3
+-#endif
 -
--	txq = fep->tx_queue[0];
--	for (i = 0; i <= TX_RING_MOD_MASK; i++) {
--		if (txq->tx_skbuff[i]) {
--			dev_kfree_skb_any(txq->tx_skbuff[i]);
--			txq->tx_skbuff[i] = NULL;
--		}
--	}
-+	/* Reset tx SKB buffers. */
-+	fec_enet_reset_skb(ndev);
+ #define DRIVER_NAME	"fec"
  
- 	/* Enable MII mode */
- 	if (fep->full_duplex == DUPLEX_FULL) {
-@@ -1057,7 +1092,8 @@ fec_restart(struct net_device *ndev)
+ #define FEC_ENET_GET_QUQUE(_x) ((_x == 0) ? 1 : ((_x == 1) ? 2 : 0))
+@@ -434,7 +428,7 @@ fec_enet_txq_submit_frag_skb(struct fec_enet_priv_tx_q *txq,
+ 		bufaddr = page_address(this_frag->page.p) + this_frag->page_offset;
  
- 	/* And last, enable the transmit and receive processing */
- 	writel(ecntl, fep->hwp + FEC_ECNTRL);
--	writel(0, fep->hwp + FEC_R_DES_ACTIVE(0));
-+	for (i = 0; i < fep->num_rx_queues; i++)
-+		writel(0, fep->hwp + FEC_R_DES_ACTIVE(i));
+ 		index = fec_enet_get_bd_index(txq->tx_bd_base, bdp, fep);
+-		if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
++		if (((unsigned long) bufaddr) & fep->tx_align ||
+ 			id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 			memcpy(txq->tx_bounce[index], bufaddr, frag_len);
+ 			bufaddr = txq->tx_bounce[index];
+@@ -514,7 +508,7 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
  
- 	if (fep->bufdesc_ex)
- 		fec_ptp_start_cyclecounter(ndev);
-@@ -2233,41 +2269,122 @@ static void fec_enet_free_buffers(struct net_device *ndev)
- 	struct bufdesc	*bdp;
- 	struct fec_enet_priv_tx_q *txq;
- 	struct fec_enet_priv_rx_q *rxq;
-+	unsigned int q;
-+
-+	for (q = 0; q < fep->num_rx_queues; q++) {
-+		rxq = fep->rx_queue[q];
-+		bdp = rxq->rx_bd_base;
-+		for (i = 0; i < rxq->rx_ring_size; i++) {
-+			skb = rxq->rx_skbuff[i];
-+			rxq->rx_skbuff[i] = NULL;
-+			if (skb) {
-+				dma_unmap_single(&fep->pdev->dev,
-+						 bdp->cbd_bufaddr,
-+						 FEC_ENET_RX_FRSIZE,
-+						 DMA_FROM_DEVICE);
-+				dev_kfree_skb(skb);
-+			}
-+			bdp = fec_enet_get_nextdesc(bdp, fep, q);
-+		}
-+	}
+ 	queue = skb_get_queue_mapping(skb);
+ 	index = fec_enet_get_bd_index(txq->tx_bd_base, bdp, fep);
+-	if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
++	if (((unsigned long) bufaddr) & fep->tx_align ||
+ 		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 		memcpy(txq->tx_bounce[index], skb->data, buflen);
+ 		bufaddr = txq->tx_bounce[index];
+@@ -607,7 +601,7 @@ fec_enet_txq_put_data_tso(struct fec_enet_priv_tx_q *txq, struct sk_buff *skb,
  
--	rxq = fep->rx_queue[0];
--	bdp = rxq->rx_bd_base;
--	for (i = 0; i < rxq->rx_ring_size; i++) {
--		skb = rxq->rx_skbuff[i];
--		rxq->rx_skbuff[i] = NULL;
--		if (skb) {
--			dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
--					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
-+	for (q = 0; q < fep->num_tx_queues; q++) {
-+		txq = fep->tx_queue[q];
-+		bdp = txq->tx_bd_base;
-+		for (i = 0; i < txq->tx_ring_size; i++) {
-+			kfree(txq->tx_bounce[i]);
-+			txq->tx_bounce[i] = NULL;
-+			skb = txq->tx_skbuff[i];
-+			txq->tx_skbuff[i] = NULL;
- 			dev_kfree_skb(skb);
- 		}
--		bdp = fec_enet_get_nextdesc(bdp, fep, 0);
- 	}
-+}
+ 	status |= (BD_ENET_TX_TC | BD_ENET_TX_READY);
  
--	txq = fep->tx_queue[0];
--	bdp = txq->tx_bd_base;
--	for (i = 0; i < txq->tx_ring_size; i++) {
--		kfree(txq->tx_bounce[i]);
--		txq->tx_bounce[i] = NULL;
--		skb = txq->tx_skbuff[i];
--		txq->tx_skbuff[i] = NULL;
--		dev_kfree_skb(skb);
-+static void fec_enet_free_queue(struct net_device *ndev)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	int i;
-+	struct fec_enet_priv_tx_q *txq;
-+
-+	for (i = 0; i < fep->num_tx_queues; i++)
-+		if (fep->tx_queue[i] && fep->tx_queue[i]->tso_hdrs) {
-+			txq = fep->tx_queue[i];
-+			dma_free_coherent(NULL,
-+					  txq->tx_ring_size * TSO_HEADER_SIZE,
-+					  txq->tso_hdrs,
-+					  txq->tso_hdrs_dma);
-+		}
-+
-+	for (i = 0; i < fep->num_rx_queues; i++)
-+		if (fep->rx_queue[i])
-+			kfree(fep->rx_queue[i]);
-+
-+	for (i = 0; i < fep->num_tx_queues; i++)
-+		if (fep->tx_queue[i])
-+			kfree(fep->tx_queue[i]);
-+}
-+
-+static int fec_enet_alloc_queue(struct net_device *ndev)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	int i;
-+	int ret = 0;
-+	struct fec_enet_priv_tx_q *txq;
-+
-+	for (i = 0; i < fep->num_tx_queues; i++) {
-+		txq = kzalloc(sizeof(*txq), GFP_KERNEL);
-+		if (!txq) {
-+			ret = -ENOMEM;
-+			goto alloc_failed;
-+		}
-+
-+		fep->tx_queue[i] = txq;
-+		txq->tx_ring_size = TX_RING_SIZE;
-+		fep->total_tx_ring_size += fep->tx_queue[i]->tx_ring_size;
-+
-+		txq->tx_stop_threshold = FEC_MAX_SKB_DESCS;
-+		txq->tx_wake_threshold =
-+				(txq->tx_ring_size - txq->tx_stop_threshold) / 2;
-+
-+		txq->tso_hdrs = dma_alloc_coherent(NULL,
-+					txq->tx_ring_size * TSO_HEADER_SIZE,
-+					&txq->tso_hdrs_dma,
-+					GFP_KERNEL);
-+		if (!txq->tso_hdrs) {
-+			ret = -ENOMEM;
-+			goto alloc_failed;
-+		}
- 	}
-+
-+	for (i = 0; i < fep->num_rx_queues; i++) {
-+		fep->rx_queue[i] = kzalloc(sizeof(*fep->rx_queue[i]),
-+					   GFP_KERNEL);
-+		if (!fep->rx_queue[i]) {
-+			ret = -ENOMEM;
-+			goto alloc_failed;
-+		}
-+
-+		fep->rx_queue[i]->rx_ring_size = RX_RING_SIZE;
-+		fep->total_rx_ring_size += fep->rx_queue[i]->rx_ring_size;
-+	}
-+	return ret;
-+
-+alloc_failed:
-+	fec_enet_free_queue(ndev);
-+	return ret;
- }
+-	if (((unsigned long) data) & FEC_ALIGNMENT ||
++	if (((unsigned long) data) & fep->tx_align ||
+ 		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 		memcpy(txq->tx_bounce[index], data, size);
+ 		data = txq->tx_bounce[index];
+@@ -669,7 +663,7 @@ fec_enet_txq_put_hdr_tso(struct fec_enet_priv_tx_q *txq,
  
--static int fec_enet_alloc_buffers(struct net_device *ndev)
-+static int
-+fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
- {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	unsigned int i;
+ 	bufaddr = txq->tso_hdrs + index * TSO_HEADER_SIZE;
+ 	dmabuf = txq->tso_hdrs_dma + index * TSO_HEADER_SIZE;
+-	if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
++	if (((unsigned long)bufaddr) & fep->tx_align ||
+ 		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 		memcpy(txq->tx_bounce[index], skb->data, hdr_len);
+ 		bufaddr = txq->tx_bounce[index];
+@@ -2399,6 +2393,7 @@ fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
  	struct sk_buff *skb;
  	struct bufdesc	*bdp;
--	struct fec_enet_priv_tx_q *txq;
  	struct fec_enet_priv_rx_q *rxq;
++	unsigned off;
  
--	rxq = fep->rx_queue[0];
-+	rxq = fep->rx_queue[queue];
+ 	rxq = fep->rx_queue[queue];
  	bdp = rxq->rx_bd_base;
- 	for (i = 0; i < rxq->rx_ring_size; i++) {
- 		dma_addr_t addr;
-@@ -2294,14 +2411,28 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
- 			ebdp->cbd_esc = BD_ENET_RX_INT;
- 		}
+@@ -2409,8 +2404,13 @@ fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
+ 		if (!skb)
+ 			goto err_alloc;
  
--		bdp = fec_enet_get_nextdesc(bdp, fep, 0);
-+		bdp = fec_enet_get_nextdesc(bdp, fep, queue);
- 	}
- 
- 	/* Set the last buffer to wrap. */
--	bdp = fec_enet_get_prevdesc(bdp, fep, 0);
-+	bdp = fec_enet_get_prevdesc(bdp, fep, queue);
- 	bdp->cbd_sc |= BD_SC_WRAP;
-+	return 0;
- 
--	txq = fep->tx_queue[0];
-+ err_alloc:
-+	fec_enet_free_buffers(ndev);
-+	return -ENOMEM;
-+}
++		off = ((unsigned long)skb->data) & fep->rx_align;
++		if (off)
++			skb_reserve(skb, fep->rx_align + 1 - off);
 +
-+static int
-+fec_enet_alloc_txq_buffers(struct net_device *ndev, unsigned int queue)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	unsigned int i;
-+	struct bufdesc  *bdp;
-+	struct fec_enet_priv_tx_q *txq;
+ 		addr = dma_map_single(&fep->pdev->dev, skb->data,
+-				FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
++				FEC_ENET_RX_FRSIZE - fep->rx_align, DMA_FROM_DEVICE);
 +
-+	txq = fep->tx_queue[queue];
- 	bdp = txq->tx_bd_base;
- 	for (i = 0; i < txq->tx_ring_size; i++) {
- 		txq->tx_bounce[i] = kmalloc(FEC_ENET_TX_FRSIZE, GFP_KERNEL);
-@@ -2316,11 +2447,11 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
- 			ebdp->cbd_esc = BD_ENET_TX_INT;
- 		}
- 
--		bdp = fec_enet_get_nextdesc(bdp, fep, 0);
-+		bdp = fec_enet_get_nextdesc(bdp, fep, queue);
- 	}
- 
- 	/* Set the last buffer to wrap. */
--	bdp = fec_enet_get_prevdesc(bdp, fep, 0);
-+	bdp = fec_enet_get_prevdesc(bdp, fep, queue);
- 	bdp->cbd_sc |= BD_SC_WRAP;
- 
- 	return 0;
-@@ -2330,6 +2461,21 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
- 	return -ENOMEM;
- }
- 
-+static int fec_enet_alloc_buffers(struct net_device *ndev)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	unsigned int i;
-+
-+	for (i = 0; i < fep->num_rx_queues; i++)
-+		if (fec_enet_alloc_rxq_buffers(ndev, i))
-+			return -ENOMEM;
-+
-+	for (i = 0; i < fep->num_tx_queues; i++)
-+		if (fec_enet_alloc_txq_buffers(ndev, i))
-+			return -ENOMEM;
-+	return 0;
-+}
-+
- static int
- fec_enet_open(struct net_device *ndev)
- {
-@@ -2579,28 +2725,9 @@ static int fec_enet_init(struct net_device *ndev)
- 	struct bufdesc *cbd_base;
- 	dma_addr_t bd_dma;
+ 		if (dma_mapping_error(&fep->pdev->dev, addr)) {
+ 			dev_kfree_skb(skb);
+ 			if (net_ratelimit())
+@@ -2743,6 +2743,14 @@ static int fec_enet_init(struct net_device *ndev)
  	int bd_size;
-+	unsigned int i;
+ 	unsigned int i;
  
--	txq = kzalloc(sizeof(*txq), GFP_KERNEL);
--	if (!txq)
--		return -ENOMEM;
--	fep->tx_queue[0] = txq;
--
--	rxq = kzalloc(sizeof(*rxq), GFP_KERNEL);
--	if (!rxq) {
--		kfree(txq);
--		return -ENOMEM;
--	}
--
--	fep->rx_queue[0] = rxq;
--
--
--	txq->tx_ring_size = TX_RING_SIZE;
--	rxq->rx_ring_size = RX_RING_SIZE;
--	fep->total_tx_ring_size = txq->tx_ring_size;
--	fep->total_rx_ring_size = rxq->rx_ring_size;
--
--	txq->tx_stop_threshold = FEC_MAX_SKB_DESCS;
--	txq->tx_wake_threshold = (txq->tx_ring_size - txq->tx_stop_threshold) / 2;
-+	fec_enet_alloc_queue(ndev);
++#if defined(CONFIG_ARM)
++	fep->rx_align = 0xf;
++	fep->tx_align = 0xf;
++#else
++	fep->rx_align = 0x3;
++	fep->tx_align = 0x3;
++#endif
++
+ 	fec_enet_alloc_queue(ndev);
  
  	if (fep->bufdesc_ex)
- 		fep->bufdesc_size = sizeof(struct bufdesc_ex);
-@@ -2613,17 +2740,6 @@ static int fec_enet_init(struct net_device *ndev)
- 	cbd_base = dma_alloc_coherent(NULL, bd_size, &bd_dma,
- 				      GFP_KERNEL);
- 	if (!cbd_base) {
--		kfree(rxq);
--		kfree(txq);
--		return -ENOMEM;
--	}
--
--	txq->tso_hdrs = dma_alloc_coherent(NULL, txq->tx_ring_size * TSO_HEADER_SIZE,
--						&txq->tso_hdrs_dma, GFP_KERNEL);
--	if (!txq->tso_hdrs) {
--		kfree(rxq);
--		kfree(txq);
--		dma_free_coherent(NULL, bd_size, cbd_base, bd_dma);
- 		return -ENOMEM;
+@@ -2819,6 +2827,11 @@ static int fec_enet_init(struct net_device *ndev)
+ 		fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
  	}
  
-@@ -2635,12 +2751,35 @@ static int fec_enet_init(struct net_device *ndev)
- 	fec_set_mac_address(ndev, NULL);
- 
- 	/* Set receive and transmit descriptor base. */
--	rxq->rx_bd_base = cbd_base;
--	if (fep->bufdesc_ex)
--		txq->tx_bd_base = (struct bufdesc *)
--			(((struct bufdesc_ex *)cbd_base) + rxq->rx_ring_size);
--	else
--		txq->tx_bd_base = cbd_base + rxq->rx_ring_size;
-+	for (i = 0; i < fep->num_rx_queues; i++) {
-+		rxq = fep->rx_queue[i];
-+		rxq->index = i;
-+		rxq->rx_bd_base = (struct bufdesc *)cbd_base;
-+		rxq->bd_dma = bd_dma;
-+		if (fep->bufdesc_ex) {
-+			bd_dma += sizeof(struct bufdesc_ex) * rxq->rx_ring_size;
-+			cbd_base = (struct bufdesc *)
-+				(((struct bufdesc_ex *)cbd_base) + rxq->rx_ring_size);
-+		} else {
-+			bd_dma += sizeof(struct bufdesc) * rxq->rx_ring_size;
-+			cbd_base += rxq->rx_ring_size;
-+		}
++	if (id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
++		fep->tx_align = 0;
++		fep->rx_align = 0x3f;
 +	}
 +
-+	for (i = 0; i < fep->num_tx_queues; i++) {
-+		txq = fep->tx_queue[i];
-+		txq->index = i;
-+		txq->tx_bd_base = (struct bufdesc *)cbd_base;
-+		txq->bd_dma = bd_dma;
-+		if (fep->bufdesc_ex) {
-+			bd_dma += sizeof(struct bufdesc_ex) * txq->tx_ring_size;
-+			cbd_base = (struct bufdesc *)
-+			 (((struct bufdesc_ex *)cbd_base) + txq->tx_ring_size);
-+		} else {
-+			bd_dma += sizeof(struct bufdesc) * txq->tx_ring_size;
-+			cbd_base += txq->tx_ring_size;
-+		}
-+	}
+ 	ndev->hw_features = ndev->features;
  
- 
- 	/* The FEC Ethernet specific entries in the device structure */
+ 	fec_restart(ndev);
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
