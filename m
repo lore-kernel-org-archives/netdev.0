@@ -1,92 +1,36 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
-Subject: Re: Multicast packets being lost (3.10 stable)
-Date: Wed, 10 Sep 2014 15:33:41 +0200
-Message-ID: <20140910133341.GI7058@odroid>
-References: <20140324094107.2cfbf103@nehalam.linuxnetplumber.net>
- <20140325125231.GW6008@Linus-Debian>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: openwrt-devel@lists.openwrt.org,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- bridge@lists.linux-foundation.org, David Miller <davem@davemloft.net>,
- Stephen Hemminger <shemming@brocade.com>
-To: netdev@vger.kernel.org
-Return-path: <openwrt-devel-bounces@lists.openwrt.org>
-Content-Disposition: inline
-In-Reply-To: <20140325125231.GW6008@Linus-Debian>
-List-Unsubscribe: <https://lists.openwrt.org/cgi-bin/mailman/options/openwrt-devel>,
- <mailto:openwrt-devel-request@lists.openwrt.org?subject=unsubscribe>
-List-Archive: <http://lists.openwrt.org/pipermail/openwrt-devel/>
-List-Post: <mailto:openwrt-devel@lists.openwrt.org>
-List-Help: <mailto:openwrt-devel-request@lists.openwrt.org?subject=help>
-List-Subscribe: <https://lists.openwrt.org/cgi-bin/mailman/listinfo/openwrt-devel>,
- <mailto:openwrt-devel-request@lists.openwrt.org?subject=subscribe>
-Errors-To: openwrt-devel-bounces@lists.openwrt.org
-Sender: "openwrt-devel" <openwrt-devel-bounces@lists.openwrt.org>
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 0/4] mlx4 SRIOV fixes
+Date: Wed, 10 Sep 2014 16:41:52 +0300
+Message-ID: <1410356516-23594-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:45886 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750925AbaIJNmG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2014 09:42:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SSBqdXN0IGdvdCBhIGNvbXBsYWludCBhYm91dCBicmlkZ2VzLCBtdWx0aWNhc3QgYW5kIGEKMy4x
-MCBrZXJuZWwgYWdhaW4uIFNlZW1zIGxpa2Ugbm9ib2R5IGhhZCBhbnkgb2JqZWN0aW9ucyBhYm91
-dApxdWV1ZWluZyB0aGVzZSB0d28gcGF0Y2hlcyBmb3Igc3RhYmxlICggMikrMykgKT8KCkFsc28g
-SSdtIHN0aWxsIG1pc3Npbmcgc29tZSBtb3JlIGZpeGVzIGluIHRoZSBzdGFibGUgYnJhbmNoZXMu
-CkVzcGVjaWFsbHkgNSksIDYpIGFuZCA3KSBhcmUgb2YgaGlnaCBwcmlvcml0eSAobmV4dCB0byAy
-KSBhbmQgMykgKQppbiBteSBvcGluaW9uIGFzIG90aGVyd2lzZSBJUHY2IGluIGdlbmVyYWwgY291
-bGQgYmUgYnJva2VuIGZvciBwZW9wbGUKdXNpbmcgMy4xMiBvciAzLjEzIChhcyAzLjEyIGNvbnRh
-aW5zIGEgcGF0Y2ggd2hpY2ggYWN0aXZhdGVzCm11bHRpY2FzdCBzbm9vcGluZyBmb3IgbGluay1s
-b2NhbCBhZGRyZXNzZXMsIHRvbzogM2MzNzY5ZTYzKS4KCkhlcmUgaXMgYSBtb3JlIG9yZGVyZWQg
-bGlzdCBvZiBwYXRjaGVzIEknZCBzdWdnZXN0IHRvIGJlIHF1ZXVlZCBmb3IKc3RhYmxlOgoKMSkg
-YnJpZGdlOiBmaXggc3dpdGNoZWQgaW50ZXJ2YWwgZm9yIE1MRCBRdWVyeSB0eXBlcwogICAtPuKA
-rzMyZGU4NjhjYiAocHJlc2VudCBzaW5jZSAzLjEwKQoyKSBicmlkZ2U6IGRpc2FibGUgc25vb3Bp
-bmcgaWYgdGhlcmUgaXMgbm8gcXVlcmllcgogICAtPuKAr2IwMDU4OWFmMyAocHJlc2VudCBzaW5j
-ZSAzLjExKQozKSBicmlkZ2U6IGRvbid0IHRyeSB0byB1cGRhdGUgdGltZXJzIGluIGNhc2Ugb2Yg
-YnJva2VuIE1MRCBxdWVyaWVzCiAgIC0+IDI0OGJhOGVjMCAocHJlc2VudCBzaW5jZSAzLjExKQo0
-KSBSZXZlcnQgImJyaWRnZTogb25seSBleHBpcmUgdGhlIG1kYiBlbnRyeSB3aGVuIHF1ZXJ5IGlz
-IHJlY2VpdmVkIgogICAtPuKArzQ1NDU5NGYzYiAocHJlc2VudCBzaW5jZSAzLjEyKQo1KSBicmlk
-Z2U6IG11bHRpY2FzdDogYWRkIHNhbml0eSBjaGVjayBmb3IgcXVlcnkgc291cmNlIGFkZHJlc3Nl
-cwogICAtPuKArzY1NjViOWVlZSAocHJlc2VudCBzaW5jZSAzLjE0KQo2KSBicmlkZ2U6IG11bHRp
-Y2FzdDogYWRkIHNhbml0eSBjaGVjayBmb3IgZ2VuZXJhbCBxdWVyeSBkZXN0aW5hdGlvbgogICAt
-PuKArzllZDk3M2NjNCAocHJlc2VudCBzaW5jZSAzLjE0KQo3KSBicmlkZ2U6IG11bHRpY2FzdDog
-ZW5hYmxlIHNub29waW5nIG9uIGdlbmVyYWwgcXVlcmllcyBvbmx5CiAgIC0+4oCvMjBhNTk5YmVj
-IChwcmVzZW50IHNpbmNlIDMuMTQpCgpMZXQgbWUga25vdyB3aGF0IHlvdSdkIHRoaW5rIGFib3V0
-IHRoYXQgb3IgaWYgdGhlcmUncyBhbnkgdHJvdWJsZQphcHBseWluZyB0aGVtIHRvIG9sZGVyIGtl
-cm5lbHMuCgpDaGVlcnMsIExpbnVzCgoKT24gVHVlLCBNYXIgMjUsIDIwMTQgYXQgMDI6MDY6MDdQ
-TSArMDEwMCwgTGludXMgTMO8c3Npbmcgd3JvdGU6Cj4gVGhhdCBjb21taXQgaXMgc3VwcG9zZWQg
-dG8gYmUgYSBmaXggYW5kIHNlZW1zIHRvIGJlIGEgZWFzaWx5Cj4gY2hlcnJ5LXBpY2thYmxlIG9u
-IHRvcCBvZiAzLjEwLiBTbyBJIHRoaW5rIGl0J3Mgc3VpdGFibGUgZm9yCj4gc3RhYmxlCj4gCj4g
-VGhlcmUgYXJlIHR3byBmb2xsb3ctdXAgY29tbWl0IGZvciB0aGlzIHBhcnRpY3VsYXIgcGF0Y2gg
-dGhhdCBJJ20gYXdhcmUKPiBvZjogImJyaWRnZTogc2VwYXJhdGUgcXVlcmllciBhbmQgcXVlcnkg
-dGltZXIgaW50byBJR01QL0lQdjQKPiBhbmQgTUxEL0lQdjYgb25lcyIgKGNjMGZkZDgwKS4gVGhh
-dCdzIGp1c3QgYW4gb3B0aW1pemF0aW9uCj4gYW5kIGNhbiBiZSBpZ25vcmVkIGZvciBzdGFibGUu
-Cj4gCj4gVGhlIHNlY29uZCBvbmUgaXMgImJyaWRnZTogZG9uJ3QgdHJ5IHRvIHVwZGF0ZSB0aW1l
-cnMgaW4gY2FzZSBvZgo+IGJyb2tlbiBNTEQgcXVlcmllcyIgKDI0OGJhOGVjMCkuIFdoaWNoIGlz
-IGEgZGlyZWN0IGZpeCBmb3IKPiBiMDA1ODlhZjMgYW5kIHNob3VsZCB0aGVyZWZvcmUgZ28gaW50
-byBzdGFibGUsIHRvbywgaWYgYjAwNTg5YWYzCj4gZ29lcyBpbnRvIHN0YWJsZS4KPiAKPiBDaGVl
-cnMsIExpbnVzCj4gCj4gCj4gT24gTW9uLCBNYXIgMjQsIDIwMTQgYXQgMDk6NDE6MDdBTSAtMDcw
-MCwgU3RlcGhlbiBIZW1taW5nZXIgd3JvdGU6Cj4gPiBXZSBhcmUgc2VlaW5nIG11bHRpY2FzdCBz
-bm9vcGluZyByZWxhdGVkIGlzc3Vlcy4KPiA+IElzIHRoZXJlIHNvbWUgcmVhc29uIHRoaXMgY29t
-bWl0IG5ldmVyIHdlbnQgaW50byBzdGFibGUgKDMuMTApCj4gPiAKPiA+IGNvbW1pdCBiMDA1ODlh
-ZjNiMDQ3MzYzNzZmMjQ2MjVhYjBiMzk0NjQyZTg5ZTI5Cj4gPiBBdXRob3I6IExpbnVzIEzDvHNz
-aW5nIDxsaW51cy5sdWVzc2luZ0B3ZWIuZGU+Cj4gPiBEYXRlOiAgIFRodSBBdWcgMSAwMTowNjoy
-MCAyMDEzICswMjAwCj4gPiAKPiA+ICAgICBicmlkZ2U6IGRpc2FibGUgc25vb3BpbmcgaWYgdGhl
-cmUgaXMgbm8gcXVlcmllcgo+ID4gICAgIAo+ID4gICAgIElmIHRoZXJlIGlzIG5vIHF1ZXJpZXIg
-b24gYSBsaW5rIHRoZW4gd2Ugd29uJ3QgZ2V0IHBlcmlvZGljIHJlcG9ydHMgYW5kCj4gPiAgICAg
-dGhlcmVmb3JlIHdvbid0IGJlIGFibGUgdG8gbGVhcm4gYWJvdXQgbXVsdGljYXN0IGxpc3RlbmVy
-cyBiZWhpbmQgcG9ydHMsCj4gPiAgICAgcG90ZW50aWFsbHkgbGVhZGluZyB0byBsb3N0IG11bHRp
-Y2FzdCBwYWNrZXRzLCBlc3BlY2lhbGx5IGZvciBtdWx0aWNhc3QKPiA+ICAgICBsaXN0ZW5lcnMg
-dGhhdCBqb2luZWQgYmVmb3JlIHRoZSBjcmVhdGlvbiBvZiB0aGUgYnJpZGdlLgo+ID4gICAgIAo+
-ID4gICAgIFRoZXNlIGxvc3QgbXVsdGljYXN0IHBhY2tldHMgY2FuIGFwcGVhciBzaW5jZSBjNWMy
-MzI2MDU5NAo+ID4gICAgICgiYnJpZGdlOiBBZGQgbXVsdGljYXN0X3F1ZXJpZXIgdG9nZ2xlIGFu
-ZCBkaXNhYmxlIHF1ZXJpZXMgYnkgZGVmYXVsdCIpCj4gPiAgICAgaW4gcGFydGljdWxhci4KPiA+
-ICAgICAKPiA+ICAgICBXaXRoIHRoaXMgcGF0Y2ggd2UgYXJlIGZsb29kaW5nIG11bHRpY2FzdCBw
-YWNrZXRzIGlmIG91ciBxdWVyaWVyIGlzCj4gPiAgICAgZGlzYWJsZWQgYW5kIGlmIHdlIGRpZG4n
-dCBkZXRlY3QgYW55IG90aGVyIHF1ZXJpZXIuCj4gPiAgICAgCj4gPiAgICAgQSBncmFjZSBwZXJp
-b2Qgb2YgdGhlIE1heGltdW0gUmVzcG9uc2UgRGVsYXkgb2YgdGhlIHF1ZXJpZXIgaXMgYWRkZWQg
-dG8KPiA+ICAgICBnaXZlIG11bHRpY2FzdCByZXNwb25zZXMgZW5vdWdoIHRpbWUgdG8gYXJyaXZl
-IGFuZCB0byBiZSBsZWFybmVkIGZyb20KPiA+ICAgICBiZWZvcmUgZGlzYWJsaW5nIHRoZSBmbG9v
-ZGluZyBiZWhhdmlvdXIgYWdhaW4uCj4gPiAgICAgCj4gPiAgICAgU2lnbmVkLW9mZi1ieTogTGlu
-dXMgTMO8c3NpbmcgPGxpbnVzLmx1ZXNzaW5nQHdlYi5kZT4KPiA+ICAgICBTaWduZWQtb2ZmLWJ5
-OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+Cl9fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCm9wZW53cnQtZGV2ZWwgbWFpbGluZyBsaXN0
-Cm9wZW53cnQtZGV2ZWxAbGlzdHMub3BlbndydC5vcmcKaHR0cHM6Ly9saXN0cy5vcGVud3J0Lm9y
-Zy9jZ2ktYmluL21haWxtYW4vbGlzdGluZm8vb3BlbndydC1kZXZlbAo=
+Hi Dave,
+
+This series contains few SRIOV related fixes from Matan, please apply to net.
+
+Or.
+
+Matan Barak (4):
+  net/mlx4: Correctly configure single ported VFs from the host
+  net/mlx4: Use the correct VSD mask in UPDATE_QP
+  net/mlx4: Avoid dealing with MAC index in UPDATE_QP wrapper if not needed
+  net/mlx4: Set vlan stripping policy by the right command
+
+ drivers/infiniband/hw/mlx4/main.c                  |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |   21 +++++++++++
+ drivers/net/ethernet/mellanox/mlx4/qp.c            |   12 +++++-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   38 ++++++++++++++-----
+ include/linux/mlx4/device.h                        |    1 +
+ include/linux/mlx4/qp.h                            |   12 +++++-
+ 6 files changed, 71 insertions(+), 15 deletions(-)
