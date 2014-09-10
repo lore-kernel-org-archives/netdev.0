@@ -1,11 +1,14 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 2/5] ceph: Convert pr_warning to pr_warn
-Date: Tue,  9 Sep 2014 21:17:29 -0700
-Message-ID: <714b7551f5a6ea5e721fed705568a39eeae4623b.1410322181.git.joe@perches.com>
+Subject: [PATCH net-next 5/5] netfilter: Convert pr_warning to pr_warn
+Date: Tue,  9 Sep 2014 21:17:32 -0700
+Message-ID: <4708b4ef0485c1bc9efe3c0e59924a0f1c3c3bb4.1410322181.git.joe@perches.com>
 References: <cover.1410322181.git.joe@perches.com>
-Cc: Sage Weil <sage@inktank.com>,
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
 	"David S. Miller" <davem@davemloft.net>,
-	ceph-devel@vger.kernel.org, linux-kernel@vger.kernel.org
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1410322181.git.joe@perches.com>
@@ -21,196 +24,231 @@ o Realign arguments
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/ceph/ceph_common.c | 15 +++++++++------
- net/ceph/messenger.c   | 19 ++++++++++---------
- net/ceph/osd_client.c  | 15 +++++++--------
- net/ceph/osdmap.c      | 20 ++++++++++----------
- 4 files changed, 36 insertions(+), 33 deletions(-)
+ net/netfilter/ipset/ip_set_core.c     | 23 +++++++++++-----------
+ net/netfilter/ipset/ip_set_hash_gen.h | 12 ++++++------
+ net/netfilter/xt_connbytes.c          |  2 +-
+ net/netfilter/xt_hashlimit.c          |  2 +-
+ net/netfilter/xt_set.c                | 36 ++++++++++++++++-------------------
+ 5 files changed, 35 insertions(+), 40 deletions(-)
 
-diff --git a/net/ceph/ceph_common.c b/net/ceph/ceph_common.c
-index 1675021..58fbfe1 100644
---- a/net/ceph/ceph_common.c
-+++ b/net/ceph/ceph_common.c
-@@ -293,17 +293,20 @@ static int get_secret(struct ceph_crypto_key *dst, const char *name) {
- 		key_err = PTR_ERR(ukey);
- 		switch (key_err) {
- 		case -ENOKEY:
--			pr_warning("ceph: Mount failed due to key not found: %s\n", name);
-+			pr_warn("ceph: Mount failed due to key not found: %s\n",
-+				name);
- 			break;
- 		case -EKEYEXPIRED:
--			pr_warning("ceph: Mount failed due to expired key: %s\n", name);
-+			pr_warn("ceph: Mount failed due to expired key: %s\n",
-+				name);
- 			break;
- 		case -EKEYREVOKED:
--			pr_warning("ceph: Mount failed due to revoked key: %s\n", name);
-+			pr_warn("ceph: Mount failed due to revoked key: %s\n",
-+				name);
- 			break;
- 		default:
--			pr_warning("ceph: Mount failed due to unknown key error"
--			       " %d: %s\n", key_err, name);
-+			pr_warn("ceph: Mount failed due to unknown key error %d: %s\n",
-+				key_err, name);
- 		}
- 		err = -EPERM;
- 		goto out;
-@@ -433,7 +436,7 @@ ceph_parse_options(char *options, const char *dev_name,
- 
- 			/* misc */
- 		case Opt_osdtimeout:
--			pr_warning("ignoring deprecated osdtimeout option\n");
-+			pr_warn("ignoring deprecated osdtimeout option\n");
- 			break;
- 		case Opt_osdkeepalivetimeout:
- 			opt->osd_keepalive_timeout = intval;
-diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
-index b2f571d..a7203be 100644
---- a/net/ceph/messenger.c
-+++ b/net/ceph/messenger.c
-@@ -1937,11 +1937,11 @@ static int process_banner(struct ceph_connection *con)
- 		   sizeof(con->peer_addr)) != 0 &&
- 	    !(addr_is_blank(&con->actual_peer_addr.in_addr) &&
- 	      con->actual_peer_addr.nonce == con->peer_addr.nonce)) {
--		pr_warning("wrong peer, want %s/%d, got %s/%d\n",
--			   ceph_pr_addr(&con->peer_addr.in_addr),
--			   (int)le32_to_cpu(con->peer_addr.nonce),
--			   ceph_pr_addr(&con->actual_peer_addr.in_addr),
--			   (int)le32_to_cpu(con->actual_peer_addr.nonce));
-+		pr_warn("wrong peer, want %s/%d, got %s/%d\n",
-+			ceph_pr_addr(&con->peer_addr.in_addr),
-+			(int)le32_to_cpu(con->peer_addr.nonce),
-+			ceph_pr_addr(&con->actual_peer_addr.in_addr),
-+			(int)le32_to_cpu(con->actual_peer_addr.nonce));
- 		con->error_msg = "wrong peer at address";
- 		return -1;
+diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+index 5edbbe8..ac31bf8 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -101,7 +101,7 @@ load_settype(const char *name)
+ 	nfnl_unlock(NFNL_SUBSYS_IPSET);
+ 	pr_debug("try to load ip_set_%s\n", name);
+ 	if (request_module("ip_set_%s", name) < 0) {
+-		pr_warning("Can't find ip_set type %s\n", name);
++		pr_warn("Can't find ip_set type %s\n", name);
+ 		nfnl_lock(NFNL_SUBSYS_IPSET);
+ 		return false;
  	}
-@@ -2302,7 +2302,7 @@ static int read_partial_message(struct ceph_connection *con)
+@@ -195,20 +195,19 @@ ip_set_type_register(struct ip_set_type *type)
+ 	int ret = 0;
  
- 		BUG_ON(!con->in_msg ^ skip);
- 		if (con->in_msg && data_len > con->in_msg->data_length) {
--			pr_warning("%s skipping long message (%u > %zd)\n",
-+			pr_warn("%s skipping long message (%u > %zd)\n",
- 				__func__, data_len, con->in_msg->data_length);
- 			ceph_msg_put(con->in_msg);
- 			con->in_msg = NULL;
-@@ -2712,7 +2712,7 @@ static bool con_sock_closed(struct ceph_connection *con)
- 	CASE(OPEN);
- 	CASE(STANDBY);
- 	default:
--		pr_warning("%s con %p unrecognized state %lu\n",
-+		pr_warn("%s con %p unrecognized state %lu\n",
- 			__func__, con, con->state);
- 		con->error_msg = "unrecognized con state";
- 		BUG();
-@@ -2828,8 +2828,9 @@ static void con_work(struct work_struct *work)
-  */
- static void con_fault(struct ceph_connection *con)
+ 	if (type->protocol != IPSET_PROTOCOL) {
+-		pr_warning("ip_set type %s, family %s, revision %u:%u uses "
+-			   "wrong protocol version %u (want %u)\n",
+-			   type->name, family_name(type->family),
+-			   type->revision_min, type->revision_max,
+-			   type->protocol, IPSET_PROTOCOL);
++		pr_warn("ip_set type %s, family %s, revision %u:%u uses wrong protocol version %u (want %u)\n",
++			type->name, family_name(type->family),
++			type->revision_min, type->revision_max,
++			type->protocol, IPSET_PROTOCOL);
+ 		return -EINVAL;
+ 	}
+ 
+ 	ip_set_type_lock();
+ 	if (find_set_type(type->name, type->family, type->revision_min)) {
+ 		/* Duplicate! */
+-		pr_warning("ip_set type %s, family %s with revision min %u "
+-			   "already registered!\n", type->name,
+-			   family_name(type->family), type->revision_min);
++		pr_warn("ip_set type %s, family %s with revision min %u already registered!\n",
++			type->name, family_name(type->family),
++			type->revision_min);
+ 		ret = -EINVAL;
+ 		goto unlock;
+ 	}
+@@ -228,9 +227,9 @@ ip_set_type_unregister(struct ip_set_type *type)
  {
--	pr_warning("%s%lld %s %s\n", ENTITY_NAME(con->peer_name),
--	       ceph_pr_addr(&con->peer_addr.in_addr), con->error_msg);
-+	pr_warn("%s%lld %s %s\n",
-+		ENTITY_NAME(con->peer_name),
-+		ceph_pr_addr(&con->peer_addr.in_addr), con->error_msg);
- 	dout("fault %p state %lu to peer %s\n",
- 	     con, con->state, ceph_pr_addr(&con->peer_addr.in_addr));
- 
-diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
-index 30f6faf..8ebb748 100644
---- a/net/ceph/osd_client.c
-+++ b/net/ceph/osd_client.c
-@@ -1774,8 +1774,8 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
+ 	ip_set_type_lock();
+ 	if (!find_set_type(type->name, type->family, type->revision_min)) {
+-		pr_warning("ip_set type %s, family %s with revision min %u "
+-			   "not registered\n", type->name,
+-			   family_name(type->family), type->revision_min);
++		pr_warn("ip_set type %s, family %s with revision min %u not registered\n",
++			type->name, family_name(type->family),
++			type->revision_min);
+ 		goto unlock;
  	}
- 	bytes = le32_to_cpu(msg->hdr.data_len);
- 	if (payload_len != bytes) {
--		pr_warning("sum of op payload lens %d != data_len %d",
--			   payload_len, bytes);
-+		pr_warn("sum of op payload lens %d != data_len %d\n",
-+			payload_len, bytes);
- 		goto bad_put;
+ 	list_del_rcu(&type->list);
+diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
+index 61c7fb0..80f49df 100644
+--- a/net/netfilter/ipset/ip_set_hash_gen.h
++++ b/net/netfilter/ipset/ip_set_hash_gen.h
+@@ -565,8 +565,8 @@ retry:
+ 		 set->name, orig->htable_bits, htable_bits, orig);
+ 	if (!htable_bits) {
+ 		/* In case we have plenty of memory :-) */
+-		pr_warning("Cannot increase the hashsize of set %s further\n",
+-			   set->name);
++		pr_warn("Cannot increase the hashsize of set %s further\n",
++			set->name);
+ 		return -IPSET_ERR_HASH_FULL;
+ 	}
+ 	t = ip_set_alloc(sizeof(*t)
+@@ -651,8 +651,8 @@ mtype_add(struct ip_set *set, void *value, const struct ip_set_ext *ext,
+ 
+ 	if (h->elements >= h->maxelem) {
+ 		if (net_ratelimit())
+-			pr_warning("Set %s is full, maxelem %u reached\n",
+-				   set->name, h->maxelem);
++			pr_warn("Set %s is full, maxelem %u reached\n",
++				set->name, h->maxelem);
+ 		return -IPSET_ERR_HASH_FULL;
  	}
  
-@@ -2797,10 +2797,10 @@ static struct ceph_msg *get_reply(struct ceph_connection *con,
- 	ceph_msg_revoke_incoming(req->r_reply);
- 
- 	if (front_len > req->r_reply->front_alloc_len) {
--		pr_warning("get_reply front %d > preallocated %d (%u#%llu)\n",
--			   front_len, req->r_reply->front_alloc_len,
--			   (unsigned int)con->peer_name.type,
--			   le64_to_cpu(con->peer_name.num));
-+		pr_warn("get_reply front %d > preallocated %d (%u#%llu)\n",
-+			front_len, req->r_reply->front_alloc_len,
-+			(unsigned int)con->peer_name.type,
-+			le64_to_cpu(con->peer_name.num));
- 		m = ceph_msg_new(CEPH_MSG_OSD_OPREPLY, front_len, GFP_NOFS,
- 				 false);
- 		if (!m)
-@@ -2823,8 +2823,7 @@ static struct ceph_msg *get_reply(struct ceph_connection *con,
- 			if (osd_data->pages &&
- 				unlikely(osd_data->length < data_len)) {
- 
--				pr_warning("tid %lld reply has %d bytes "
--					"we had only %llu bytes ready\n",
-+				pr_warn("tid %lld reply has %d bytes we had only %llu bytes ready\n",
- 					tid, data_len, osd_data->length);
- 				*skip = 1;
- 				ceph_msg_put(m);
-diff --git a/net/ceph/osdmap.c b/net/ceph/osdmap.c
-index c547e46..ae5a507 100644
---- a/net/ceph/osdmap.c
-+++ b/net/ceph/osdmap.c
-@@ -521,11 +521,11 @@ static int decode_pool(void **p, void *end, struct ceph_pg_pool_info *pi)
- 	ev = ceph_decode_8(p);  /* encoding version */
- 	cv = ceph_decode_8(p); /* compat version */
- 	if (ev < 5) {
--		pr_warning("got v %d < 5 cv %d of ceph_pg_pool\n", ev, cv);
-+		pr_warn("got v %d < 5 cv %d of ceph_pg_pool\n", ev, cv);
- 		return -EINVAL;
+@@ -998,8 +998,8 @@ mtype_list(const struct ip_set *set,
+ nla_put_failure:
+ 	nlmsg_trim(skb, incomplete);
+ 	if (unlikely(first == cb->args[IPSET_CB_ARG0])) {
+-		pr_warning("Can't list set %s: one bucket does not fit into "
+-			   "a message. Please report it!\n", set->name);
++		pr_warn("Can't list set %s: one bucket does not fit into a message. Please report it!\n",
++			set->name);
+ 		cb->args[IPSET_CB_ARG0] = 0;
+ 		return -EMSGSIZE;
  	}
- 	if (cv > 9) {
--		pr_warning("got v %d cv %d > 9 of ceph_pg_pool\n", ev, cv);
-+		pr_warn("got v %d cv %d > 9 of ceph_pg_pool\n", ev, cv);
- 		return -EINVAL;
+diff --git a/net/netfilter/xt_connbytes.c b/net/netfilter/xt_connbytes.c
+index 1e63461..d4bec26 100644
+--- a/net/netfilter/xt_connbytes.c
++++ b/net/netfilter/xt_connbytes.c
+@@ -120,7 +120,7 @@ static int connbytes_mt_check(const struct xt_mtchk_param *par)
+ 	 * accounting is enabled, so complain in the hope that someone notices.
+ 	 */
+ 	if (!nf_ct_acct_enabled(par->net)) {
+-		pr_warning("Forcing CT accounting to be enabled\n");
++		pr_warn("Forcing CT accounting to be enabled\n");
+ 		nf_ct_set_acct(par->net, true);
  	}
- 	len = ceph_decode_32(p);
-@@ -729,9 +729,9 @@ static int get_osdmap_client_data_v(void **p, void *end,
  
- 		ceph_decode_8_safe(p, end, struct_compat, e_inval);
- 		if (struct_compat > OSDMAP_WRAPPER_COMPAT_VER) {
--			pr_warning("got v %d cv %d > %d of %s ceph_osdmap\n",
--				   struct_v, struct_compat,
--				   OSDMAP_WRAPPER_COMPAT_VER, prefix);
-+			pr_warn("got v %d cv %d > %d of %s ceph_osdmap\n",
-+				struct_v, struct_compat,
-+				OSDMAP_WRAPPER_COMPAT_VER, prefix);
- 			return -EINVAL;
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 52eb3e03..05fbc2a 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -943,7 +943,7 @@ static int __init hashlimit_mt_init(void)
+ 					    sizeof(struct dsthash_ent), 0, 0,
+ 					    NULL);
+ 	if (!hashlimit_cachep) {
+-		pr_warning("unable to create slab cache\n");
++		pr_warn("unable to create slab cache\n");
+ 		goto err2;
+ 	}
+ 	return 0;
+diff --git a/net/netfilter/xt_set.c b/net/netfilter/xt_set.c
+index 80c2e2d..cb70f6e 100644
+--- a/net/netfilter/xt_set.c
++++ b/net/netfilter/xt_set.c
+@@ -84,13 +84,12 @@ set_match_v0_checkentry(const struct xt_mtchk_param *par)
+ 	index = ip_set_nfnl_get_byindex(par->net, info->match_set.index);
+ 
+ 	if (index == IPSET_INVALID_ID) {
+-		pr_warning("Cannot find set identified by id %u to match\n",
+-			   info->match_set.index);
++		pr_warn("Cannot find set identified by id %u to match\n",
++			info->match_set.index);
+ 		return -ENOENT;
+ 	}
+ 	if (info->match_set.u.flags[IPSET_DIM_MAX-1] != 0) {
+-		pr_warning("Protocol error: set match dimension "
+-			   "is over the limit!\n");
++		pr_warn("Protocol error: set match dimension is over the limit!\n");
+ 		ip_set_nfnl_put(par->net, info->match_set.index);
+ 		return -ERANGE;
+ 	}
+@@ -134,13 +133,12 @@ set_match_v1_checkentry(const struct xt_mtchk_param *par)
+ 	index = ip_set_nfnl_get_byindex(par->net, info->match_set.index);
+ 
+ 	if (index == IPSET_INVALID_ID) {
+-		pr_warning("Cannot find set identified by id %u to match\n",
+-			   info->match_set.index);
++		pr_warn("Cannot find set identified by id %u to match\n",
++			info->match_set.index);
+ 		return -ENOENT;
+ 	}
+ 	if (info->match_set.dim > IPSET_DIM_MAX) {
+-		pr_warning("Protocol error: set match dimension "
+-			   "is over the limit!\n");
++		pr_warn("Protocol error: set match dimension is over the limit!\n");
+ 		ip_set_nfnl_put(par->net, info->match_set.index);
+ 		return -ERANGE;
+ 	}
+@@ -230,8 +228,8 @@ set_target_v0_checkentry(const struct xt_tgchk_param *par)
+ 	if (info->add_set.index != IPSET_INVALID_ID) {
+ 		index = ip_set_nfnl_get_byindex(par->net, info->add_set.index);
+ 		if (index == IPSET_INVALID_ID) {
+-			pr_warning("Cannot find add_set index %u as target\n",
+-				   info->add_set.index);
++			pr_warn("Cannot find add_set index %u as target\n",
++				info->add_set.index);
+ 			return -ENOENT;
  		}
- 		*p += 4; /* ignore wrapper struct_len */
-@@ -739,9 +739,9 @@ static int get_osdmap_client_data_v(void **p, void *end,
- 		ceph_decode_8_safe(p, end, struct_v, e_inval);
- 		ceph_decode_8_safe(p, end, struct_compat, e_inval);
- 		if (struct_compat > OSDMAP_CLIENT_DATA_COMPAT_VER) {
--			pr_warning("got v %d cv %d > %d of %s ceph_osdmap client data\n",
--				   struct_v, struct_compat,
--				   OSDMAP_CLIENT_DATA_COMPAT_VER, prefix);
-+			pr_warn("got v %d cv %d > %d of %s ceph_osdmap client data\n",
-+				struct_v, struct_compat,
-+				OSDMAP_CLIENT_DATA_COMPAT_VER, prefix);
- 			return -EINVAL;
+ 	}
+@@ -239,8 +237,8 @@ set_target_v0_checkentry(const struct xt_tgchk_param *par)
+ 	if (info->del_set.index != IPSET_INVALID_ID) {
+ 		index = ip_set_nfnl_get_byindex(par->net, info->del_set.index);
+ 		if (index == IPSET_INVALID_ID) {
+-			pr_warning("Cannot find del_set index %u as target\n",
+-				   info->del_set.index);
++			pr_warn("Cannot find del_set index %u as target\n",
++				info->del_set.index);
+ 			if (info->add_set.index != IPSET_INVALID_ID)
+ 				ip_set_nfnl_put(par->net, info->add_set.index);
+ 			return -ENOENT;
+@@ -248,8 +246,7 @@ set_target_v0_checkentry(const struct xt_tgchk_param *par)
+ 	}
+ 	if (info->add_set.u.flags[IPSET_DIM_MAX-1] != 0 ||
+ 	    info->del_set.u.flags[IPSET_DIM_MAX-1] != 0) {
+-		pr_warning("Protocol error: SET target dimension "
+-			   "is over the limit!\n");
++		pr_warn("Protocol error: SET target dimension is over the limit!\n");
+ 		if (info->add_set.index != IPSET_INVALID_ID)
+ 			ip_set_nfnl_put(par->net, info->add_set.index);
+ 		if (info->del_set.index != IPSET_INVALID_ID)
+@@ -303,8 +300,8 @@ set_target_v1_checkentry(const struct xt_tgchk_param *par)
+ 	if (info->add_set.index != IPSET_INVALID_ID) {
+ 		index = ip_set_nfnl_get_byindex(par->net, info->add_set.index);
+ 		if (index == IPSET_INVALID_ID) {
+-			pr_warning("Cannot find add_set index %u as target\n",
+-				   info->add_set.index);
++			pr_warn("Cannot find add_set index %u as target\n",
++				info->add_set.index);
+ 			return -ENOENT;
  		}
- 		*p += 4; /* ignore client data struct_len */
-@@ -751,8 +751,8 @@ static int get_osdmap_client_data_v(void **p, void *end,
- 		*p -= 1;
- 		ceph_decode_16_safe(p, end, version, e_inval);
- 		if (version < 6) {
--			pr_warning("got v %d < 6 of %s ceph_osdmap\n", version,
--				   prefix);
-+			pr_warn("got v %d < 6 of %s ceph_osdmap\n",
-+				version, prefix);
- 			return -EINVAL;
- 		}
- 
+ 	}
+@@ -312,8 +309,8 @@ set_target_v1_checkentry(const struct xt_tgchk_param *par)
+ 	if (info->del_set.index != IPSET_INVALID_ID) {
+ 		index = ip_set_nfnl_get_byindex(par->net, info->del_set.index);
+ 		if (index == IPSET_INVALID_ID) {
+-			pr_warning("Cannot find del_set index %u as target\n",
+-				   info->del_set.index);
++			pr_warn("Cannot find del_set index %u as target\n",
++				info->del_set.index);
+ 			if (info->add_set.index != IPSET_INVALID_ID)
+ 				ip_set_nfnl_put(par->net, info->add_set.index);
+ 			return -ENOENT;
+@@ -321,8 +318,7 @@ set_target_v1_checkentry(const struct xt_tgchk_param *par)
+ 	}
+ 	if (info->add_set.dim > IPSET_DIM_MAX ||
+ 	    info->del_set.dim > IPSET_DIM_MAX) {
+-		pr_warning("Protocol error: SET target dimension "
+-			   "is over the limit!\n");
++		pr_warn("Protocol error: SET target dimension is over the limit!\n");
+ 		if (info->add_set.index != IPSET_INVALID_ID)
+ 			ip_set_nfnl_put(par->net, info->add_set.index);
+ 		if (info->del_set.index != IPSET_INVALID_ID)
 -- 
 1.8.1.2.459.gbcd45b4.dirty
