@@ -1,46 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: rtt vs. rcv_rtt ?
-Date: Wed, 10 Sep 2014 11:06:46 -0700
-Message-ID: <1410372406.7106.31.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+q+rD1=ohtL5EkoXkSVS5A5ygop4ev3CoN=HOLNSrTPp7BtiA@mail.gmail.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v11 net-next 12/12] bpf: mini eBPF library, test stubs and
+ verifier testsuite
+Date: Wed, 10 Sep 2014 11:08:40 -0700
+Message-ID: <CAMEtUuzEQu30WiYprRcDBogJxxrDeNhvn=kF+z8cVvhR-vjTQg@mail.gmail.com>
+References: <1410325808-3657-1-git-send-email-ast@plumgrid.com>
+	<1410325808-3657-13-git-send-email-ast@plumgrid.com>
+	<54103776.3080706@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Robert Engels <rengels@optionscity.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:38343 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751873AbaIJSGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 14:06:48 -0400
-Received: by mail-pa0-f49.google.com with SMTP id lf10so6170721pab.8
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 11:06:48 -0700 (PDT)
-In-Reply-To: <CA+q+rD1=ohtL5EkoXkSVS5A5ygop4ev3CoN=HOLNSrTPp7BtiA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <54103776.3080706-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-09-10 at 12:15 -0500, Robert Engels wrote:
-> When using 'ss', both rtt, and rcv_rtt are reported.
-> 
-> My understanding is that rcv_rtt is an estimate of the receivers rtt ?? Is
-> this true? My assumption is that differences in rtt vs. rcv_rtt would be
-> due to asymmetric networking connections ???
-> 
-> Here is a sample 'ss' output:
-> 
->  cubic wscale:2,9 rto:437 rtt:101.625/84 ato:40 cwnd:10 ssthresh:15 send
-> 991.9Kbps rcv_rtt:18291 rcv_space:151142
-> 
-> Can someone explain why the rcv_rtt would be so much higher than the rtt?
-> Is it that the client is not reading the data fast enough? Other reasons?
-> 
-> Thanks so much for your help.
+On Wed, Sep 10, 2014 at 4:35 AM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+>
+> Since we already have an extensive BPF test suite, that is, lib/test_bpf.c,
+> which currently also does sanity checks for the classic BPF verifier, is
+> there a reason these verifier test cases cannot be extended/integrated there
+> as well but have to go to kernel/bpf/test_stub.c resp.
+> samples/bpf/test_verifier.c ?
+> I don't like that we put testing code into kernel/bpf/ whereas we already
+> have a BPF test infrastructure in the kernel elsewhere.
 
-rcv_rtt is not the rtt as you think it is ;)
-
-rtt is the smooth rtt of delays between sent packets and received ACK.
-
-But rcv_rtt is the time to receive one full window.
-
-Its used by DRS (Dynamic Right-Sizing) 
-Check tcp_rcv_rtt_measure() & tcp_rcv_rtt_update() for details.
+yes. there is a reason. Verifier needs to be tested from user space,
+since it works on fds. Process local map_fd are part of the eBPF
+programs. Therefore one is testing things from kernel and
+another from userspace. We definitely need both.
+Currently there is no use case to call verifier from inside
+the kernel. I'm not sure there will be one. Verifier's main
+purpose is to check user supplied programs and provide
+humans an understandable error messages of what
+is 'unsafe' in particular program.
+Eventually we will integrate this verifier messages with
+program compilation. Like, the user would write a program
+in C then invoke a wrapper of compiler and verifier, which
+will point to lines in C code which are doing something
+wrong like loops or out of bounds access. Currently verifier
+complains about particular 'unsafe' instruction, but
+humans have hard time correlating asm to C.
