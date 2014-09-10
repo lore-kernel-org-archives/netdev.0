@@ -1,45 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] net: enable GRO for IPIP and SIT
-Date: Tue, 09 Sep 2014 21:32:05 -0700 (PDT)
-Message-ID: <20140909.213205.2150566517395290798.davem@davemloft.net>
-References: <1410286996-302-1-git-send-email-therbert@google.com>
-	<20140909.202738.854167452821989542.davem@davemloft.net>
-	<CA+mtBx_1VWkzU3EcyR=o45CWGevhGdiJiKH-z5Kc7qzqyNkC9Q@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the arm-soc tree
+Date: Wed, 10 Sep 2014 14:48:37 +1000
+Message-ID: <20140910144837.5e3089e1@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36003 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734AbaIJEcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 00:32:08 -0400
-In-Reply-To: <CA+mtBx_1VWkzU3EcyR=o45CWGevhGdiJiKH-z5Kc7qzqyNkC9Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/lTJg7MWLjv6szNbPy0aQ3N9"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Romain Perier <romain.perier@gmail.com>,
+	Heiko =?UTF-8?B?U3TDvGJuZXI=?= <heiko@sntech.de>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
+	<linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Tue, 9 Sep 2014 21:04:27 -0700
+--Sig_/lTJg7MWLjv6szNbPy0aQ3N9
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-> On Tue, Sep 9, 2014 at 8:27 PM, David Miller <davem@davemloft.net> wrote:
->> From: Tom Herbert <therbert@google.com>
->> Date: Tue,  9 Sep 2014 11:23:13 -0700
->>
->>> This patch sets populates the IPIP and SIT offload structures with
->>> gro_receive and gro_complete functions. This enables use of GRO
->>> for these. Also, fixed a problem in IPv6 where we were not properly
->>> initializing flush_id.
->>
->> We're going to need to sort this out, because these functions are
->> now static after Eric's patches to fix sparse warnings.
->>
->> You're going to have to respin this with that patch you intended
->> to add from the previous series that exported these routines.
-> 
-> I might be missing something, but I believe the functions referred in
-> this patch series were already static.
+Hi all,
 
-Oops my bad, let me rereview this...
+Today's linux-next merge of the net-next tree got a conflict in
+arch/arm/boot/dts/rk3188-radxarock.dts between commit 4721ab855d1a
+("ARM: dts: rockchip: add hym8563 rtc to Radxa Rock board") from the
+arm-soc tree and commit c6ec956b73db ("ARM: dts: Enable emac node on
+the rk3188-radxarock boards") from the net-next tree.
 
-Yep it's fine, applied, thanks!
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc arch/arm/boot/dts/rk3188-radxarock.dts
+index 2c2313ff67c6,d63d685ea6cc..000000000000
+--- a/arch/arm/boot/dts/rk3188-radxarock.dts
++++ b/arch/arm/boot/dts/rk3188-radxarock.dts
+@@@ -209,12 -217,12 +225,18 @@@
+  		};
+  	};
+ =20
+ +	hym8563 {
+ +		rtc_int: rtc-int {
+ +			rockchip,pins =3D <RK_GPIO0 0 RK_FUNC_GPIO &pcfg_pull_up>;
+ +		};
+ +	};
+ +
++ 	lan8720a  {
++ 		phy_int: phy-int {
++ 			rockchip,pins =3D <RK_GPIO3 26 RK_FUNC_GPIO &pcfg_pull_up>;
++ 		};
++ 	};
++=20
+  	ir-receiver {
+  		ir_recv_pin: ir-recv-pin {
+  			rockchip,pins =3D <RK_GPIO0 10 RK_FUNC_GPIO &pcfg_pull_none>;
+
+--Sig_/lTJg7MWLjv6szNbPy0aQ3N9
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJUD9grAAoJEMDTa8Ir7ZwVmv0P/3IPwA7Cgk3g9+wvGQrNr0kT
+5H7eLfWgopi++a+yorbOjqD0V3O4I71o04AwTqUmc5WOTHvQOSMLQMApxko4fTy9
+cW8+iXCj+VUBH3WQtq4d3vfgN1n1Grs+ca8hOnqYoh5WfK0VC0OQXiulvEzkCywb
+L8y1oCfQybnxjmFLgPH1Ad4frrN0He3H5XdyfTkHsz5A87HJJKprpxlG2QlRIGiu
+xXv7riC+QHhyRXjJu4Gylp0C4sPO6bm2xeZww6+DYOE+vwi63n0BdvF0RZTHAV1S
+zZWPvxAnSnPTKL0NSciLafvfsIE7NrQUAc4GoAN0BRAd+SVz84rhGmA6x09qJqDJ
+Qflo8D4ghd2TFDuAVGM9sW505qsnGJEcHMs8sfTdfK8JDezVHfWbgDgxYJBTJLyr
+RZ+sRwuN1uXDgv2TacAYgJ0BG+3mOEE78aEUneuIeGpKtMSLRcM/Wpyy1O1Vxd9+
+VQ1cRWsVRiRVxlyJuh0naUMk99TZAYUqhyBjGrSEQYA9VrBth9/AbT1c9lSpXt+t
+vvVhU+hROHiX43qOGWZltXU3hE3mvzxxhxuzbefsHl7XD6nhoCzPnrCSYLz7zHje
+d5N/9TPTVx/v92Oekv2FPTVZgtblURiXj6DWPVmLdUR8KRd1Qr0UTB+WRBDkuu2X
+uiD0s4TVPe+lrw+ufMeq
+=ujzH
+-----END PGP SIGNATURE-----
+
+--Sig_/lTJg7MWLjv6szNbPy0aQ3N9--
