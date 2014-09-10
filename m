@@ -1,108 +1,78 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net] ipv6: clean up anycast when an interface is destroyed
-Date: Wed, 10 Sep 2014 12:27:14 +0200
-Message-ID: <20140910102714.GB21267@kria>
+From: Sergey Ryazanov <ryazanov.s.a@gmail.com>
+Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
+Date: Wed, 10 Sep 2014 14:33:54 +0400
+Message-ID: <CAHNKnsQ8G3ZFHshq7wOqex1J6DbVD5uHVAyvs+aDC2Znk5zWww@mail.gmail.com>
+References: <20140213201421.GJ22203@tuxdriver.com>
+	<1397581703.8212.5.camel@x220>
+	<CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
+	<1403087119.1984.93.camel@x220>
+	<CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
+	<1403091974.1984.102.camel@x220>
+	<1409911856.7832.9.camel@x220>
+	<CAHNKnsRipRHicKOUW4dCutD1-sUG6qPnP2QuOveH_t1MFX9XgQ@mail.gmail.com>
+	<1409916824.7832.20.camel@x220>
+	<CAHNKnsQ1gt=DRBTd9Q9yos1idqmXMepEPvhm8a7unP-whzNAgg@mail.gmail.com>
+	<20140909182734.GJ29412@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:25923 "EHLO smtp1-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750879AbaIJK1T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 06:27:19 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Paul Bolle <pebolle@tiscali.nl>, Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Oleksij Rempel <linux@rempel-privat.de>,
+	Richard Weinberger <richard@nod.at>,
+	Jonathan Bither <jonbither@gmail.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	ath5k-devel@venema.h4ckr.net, open@hauke-m.de,
+	"list@hauke-m.de:NETWORKING DRIVERS" <list@hauke-m.de>,
+	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>,
+	OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140909182734.GJ29412@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If we try to rmmod the driver for an interface while sockets with
-setsockopt(JOIN_ANYCAST) are alive, some refcounts aren't cleaned up
-and we get stuck on:
+2014-09-09 22:27 GMT+04:00, John W. Linville <linville@tuxdriver.com>:
+> On Fri, Sep 05, 2014 at 04:02:10PM +0400, Sergey Ryazanov wrote:
+>> 2014-09-05 15:33 GMT+04:00 Paul Bolle <pebolle@tiscali.nl>:
+>> > Hi Sergey,
+>> >
+>> > On Fri, 2014-09-05 at 15:12 +0400, Sergey Ryazanov wrote:
+>> >> 2014-09-05 14:10 GMT+04:00, Paul Bolle <pebolle@tiscali.nl>:
+>> >> > On Wed, 2014-06-18 at 13:46 +0200, Paul Bolle wrote:
+>> >> >> Having this conversation every rc1 is getting a bit silly. Could
+>> >> >> Jiri
+>> >> >> e.a. perhaps set some specific deadline for ATHEROS_AR231X to be
+>> >> >> submitted?
+>> >> >
+>> >> > I waited until rc3. Have you seen any activity on this front? If
+>> >> > not,
+>> >> > should I resend the patch that removes the code in mainline that
+>> >> > depends
+>> >> > on ATHEROS_AR231X (ie, AHB bus support)?
+>> >> >
+>> >> Recent activity always could be found in [1]. Now I finish another one
+>> >> round of cleanups and have a plan to fix several things (you can
+>> >> always find something that you really want to improve). But if you
+>> >> insist I could immediately switch to "send upstream" mode. And seems
+>> >> that this would be better approach.
+>> >>
+>> >> 1. https://dev.openwrt.org/log/trunk/target/linux/atheros
+>> >
+>> > And where can the related PULL requests or patch submissions be found?
+>> >
+>> I have not sent patches yet, since I thought that it would be easier
+>> to cleanup them in openwrt tree and then send them upstream.
+>
+> That excuse has worn a bit thin.  Perhaps Paul should repost his
+> removal and you can add a revert to the start of your patch series?
+>
+As for me, I do not like such flapping, but you have a final say in
+this discussion as a maintainer.
 
-  unregister_netdevice: waiting for ens3 to become free. Usage count = 1
-
-If we LEAVE_ANYCAST/close everything before rmmod'ing, there is no
-problem.
-
-We need to perform a cleanup similar to the one for multicast in
-addrconf_ifdown(how == 1).
-
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
-The problem is also present on a 3.2 and 3.16 kernel, and most likely
-everything in between.
-
- include/net/addrconf.h |  1 +
- net/ipv6/addrconf.c    |  8 +++++---
- net/ipv6/anycast.c     | 22 ++++++++++++++++++++++
- 3 files changed, 28 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index f679877bb601..ec51e673b4b6 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -204,6 +204,7 @@ void ipv6_sock_ac_close(struct sock *sk);
- 
- int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr);
- int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr);
-+void ipv6_ac_destroy_dev(struct inet6_dev *idev);
- bool ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
- 			 const struct in6_addr *addr);
- bool ipv6_chk_acast_addr_src(struct net *net, struct net_device *dev,
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index fc1fac2a0528..3342ee64f2e3 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3094,11 +3094,13 @@ static int addrconf_ifdown(struct net_device *dev, int how)
- 
- 	write_unlock_bh(&idev->lock);
- 
--	/* Step 5: Discard multicast list */
--	if (how)
-+	/* Step 5: Discard anycast and multicast list */
-+	if (how) {
-+		ipv6_ac_destroy_dev(idev);
- 		ipv6_mc_destroy_dev(idev);
--	else
-+	} else {
- 		ipv6_mc_down(idev);
-+	}
- 
- 	idev->tstamp = jiffies;
- 
-diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
-index ff2de7d9d8e6..a1bf80574bfe 100644
---- a/net/ipv6/anycast.c
-+++ b/net/ipv6/anycast.c
-@@ -351,6 +351,28 @@ static int ipv6_dev_ac_dec(struct net_device *dev, const struct in6_addr *addr)
- 	return __ipv6_dev_ac_dec(idev, addr);
- }
- 
-+/* Device is being destroyed: clean up */
-+void ipv6_ac_destroy_dev(struct inet6_dev *idev)
-+{
-+	struct ifacaddr6 *aca;
-+
-+	write_lock_bh(&idev->lock);
-+	while ((aca = idev->ac_list) != NULL) {
-+		idev->ac_list = aca->aca_next;
-+		write_unlock_bh(&idev->lock);
-+
-+		addrconf_leave_solict(idev, &aca->aca_addr);
-+
-+		dst_hold(&aca->aca_rt->dst);
-+		ip6_del_rt(aca->aca_rt);
-+
-+		aca_put(aca);
-+
-+		write_lock_bh(&idev->lock);
-+	}
-+	write_unlock_bh(&idev->lock);
-+}
-+
- /*
-  *	check if the interface has this anycast address
-  *	called with rcu_read_lock()
 -- 
-2.1.0
+BR,
+Sergey
