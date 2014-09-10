@@ -1,208 +1,215 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 17/25] ipvs: reduce stack usage for sockopt data
-Date: Wed, 10 Sep 2014 17:10:34 +0200
-Message-ID: <1410361842-4656-18-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/25] netfilter: nft_chain_nat_ipv4: use generic IPv4 NAT code from core
+Date: Wed, 10 Sep 2014 17:10:27 +0200
+Message-ID: <1410361842-4656-11-git-send-email-pablo@netfilter.org>
 References: <1410361842-4656-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:55854 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752160AbaIJPKO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2014 11:10:14 -0400
 In-Reply-To: <1410361842-4656-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+Use the exported IPv4 NAT functions that are provided by the core. This
+removes duplicated code so iptables and nft use the same NAT codebase.
 
-Use union to reserve the required stack space for sockopt data
-which is less than the currently hardcoded value of 128.
-Now the tables for commands should be more readable.
-The checks added for readability are optimized by compiler,
-others warn at compile time if command uses too much
-stack or exceeds the storage of set_arglen and get_arglen.
-
-As Dan Carpenter points out, we can run for unprivileged user,
-so we can silent some error messages.
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-CC: Dan Carpenter <dan.carpenter@oracle.com>
-CC: Andrey Utkin <andrey.krieger.utkin@gmail.com>
-CC: David Binderman <dcb314@hotmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c |  111 ++++++++++++++++++++++------------------
- 1 file changed, 61 insertions(+), 50 deletions(-)
+ net/ipv4/netfilter/nft_chain_nat_ipv4.c |  157 ++++++++-----------------------
+ 1 file changed, 37 insertions(+), 120 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index fd3f444..bd2b208 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2179,29 +2179,41 @@ static int ip_vs_set_timeout(struct net *net, struct ip_vs_timeout_user *u)
- 	return 0;
+diff --git a/net/ipv4/netfilter/nft_chain_nat_ipv4.c b/net/ipv4/netfilter/nft_chain_nat_ipv4.c
+index 3964157..df547bf 100644
+--- a/net/ipv4/netfilter/nft_chain_nat_ipv4.c
++++ b/net/ipv4/netfilter/nft_chain_nat_ipv4.c
+@@ -26,136 +26,53 @@
+ #include <net/netfilter/nf_nat_l3proto.h>
+ #include <net/ip.h>
+ 
+-/*
+- * NAT chains
+- */
+-
+-static unsigned int nf_nat_fn(const struct nf_hook_ops *ops,
+-			      struct sk_buff *skb,
+-			      const struct net_device *in,
+-			      const struct net_device *out,
+-			      int (*okfn)(struct sk_buff *))
++static unsigned int nft_nat_do_chain(const struct nf_hook_ops *ops,
++				      struct sk_buff *skb,
++				      const struct net_device *in,
++				      const struct net_device *out,
++				      struct nf_conn *ct)
+ {
+-	enum ip_conntrack_info ctinfo;
+-	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+-	struct nf_conn_nat *nat;
+-	enum nf_nat_manip_type maniptype = HOOK2MANIP(ops->hooknum);
+ 	struct nft_pktinfo pkt;
+-	unsigned int ret;
+-
+-	if (ct == NULL || nf_ct_is_untracked(ct))
+-		return NF_ACCEPT;
+-
+-	NF_CT_ASSERT(!(ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)));
+-
+-	nat = nf_ct_nat_ext_add(ct);
+-	if (nat == NULL)
+-		return NF_ACCEPT;
+-
+-	switch (ctinfo) {
+-	case IP_CT_RELATED:
+-	case IP_CT_RELATED + IP_CT_IS_REPLY:
+-		if (ip_hdr(skb)->protocol == IPPROTO_ICMP) {
+-			if (!nf_nat_icmp_reply_translation(skb, ct, ctinfo,
+-							   ops->hooknum))
+-				return NF_DROP;
+-			else
+-				return NF_ACCEPT;
+-		}
+-		/* Fall through */
+-	case IP_CT_NEW:
+-		if (nf_nat_initialized(ct, maniptype))
+-			break;
+ 
+-		nft_set_pktinfo_ipv4(&pkt, ops, skb, in, out);
++	nft_set_pktinfo_ipv4(&pkt, ops, skb, in, out);
+ 
+-		ret = nft_do_chain(&pkt, ops);
+-		if (ret != NF_ACCEPT)
+-			return ret;
+-		if (!nf_nat_initialized(ct, maniptype)) {
+-			ret = nf_nat_alloc_null_binding(ct, ops->hooknum);
+-			if (ret != NF_ACCEPT)
+-				return ret;
+-		}
+-	default:
+-		break;
+-	}
+-
+-	return nf_nat_packet(ct, ctinfo, ops->hooknum, skb);
++	return nft_do_chain(&pkt, ops);
  }
  
-+#define CMDID(cmd)		(cmd - IP_VS_BASE_CTL)
- 
--#define SET_CMDID(cmd)		(cmd - IP_VS_BASE_CTL)
--#define SERVICE_ARG_LEN		(sizeof(struct ip_vs_service_user))
--#define SVCDEST_ARG_LEN		(sizeof(struct ip_vs_service_user) +	\
--				 sizeof(struct ip_vs_dest_user))
--#define TIMEOUT_ARG_LEN		(sizeof(struct ip_vs_timeout_user))
--#define DAEMON_ARG_LEN		(sizeof(struct ip_vs_daemon_user))
--#define MAX_ARG_LEN		SVCDEST_ARG_LEN
+-static unsigned int nf_nat_prerouting(const struct nf_hook_ops *ops,
+-				      struct sk_buff *skb,
+-				      const struct net_device *in,
+-				      const struct net_device *out,
+-				      int (*okfn)(struct sk_buff *))
++static unsigned int nft_nat_ipv4_fn(const struct nf_hook_ops *ops,
++				    struct sk_buff *skb,
++				    const struct net_device *in,
++				    const struct net_device *out,
++				    int (*okfn)(struct sk_buff *))
+ {
+-	__be32 daddr = ip_hdr(skb)->daddr;
+-	unsigned int ret;
 -
--static const unsigned char set_arglen[SET_CMDID(IP_VS_SO_SET_MAX)+1] = {
--	[SET_CMDID(IP_VS_SO_SET_ADD)]		= SERVICE_ARG_LEN,
--	[SET_CMDID(IP_VS_SO_SET_EDIT)]		= SERVICE_ARG_LEN,
--	[SET_CMDID(IP_VS_SO_SET_DEL)]		= SERVICE_ARG_LEN,
--	[SET_CMDID(IP_VS_SO_SET_FLUSH)]		= 0,
--	[SET_CMDID(IP_VS_SO_SET_ADDDEST)]	= SVCDEST_ARG_LEN,
--	[SET_CMDID(IP_VS_SO_SET_DELDEST)]	= SVCDEST_ARG_LEN,
--	[SET_CMDID(IP_VS_SO_SET_EDITDEST)]	= SVCDEST_ARG_LEN,
--	[SET_CMDID(IP_VS_SO_SET_TIMEOUT)]	= TIMEOUT_ARG_LEN,
--	[SET_CMDID(IP_VS_SO_SET_STARTDAEMON)]	= DAEMON_ARG_LEN,
--	[SET_CMDID(IP_VS_SO_SET_STOPDAEMON)]	= DAEMON_ARG_LEN,
--	[SET_CMDID(IP_VS_SO_SET_ZERO)]		= SERVICE_ARG_LEN,
-+struct ip_vs_svcdest_user {
-+	struct ip_vs_service_user	s;
-+	struct ip_vs_dest_user		d;
- };
- 
-+static const unsigned char set_arglen[CMDID(IP_VS_SO_SET_MAX) + 1] = {
-+	[CMDID(IP_VS_SO_SET_ADD)]         = sizeof(struct ip_vs_service_user),
-+	[CMDID(IP_VS_SO_SET_EDIT)]        = sizeof(struct ip_vs_service_user),
-+	[CMDID(IP_VS_SO_SET_DEL)]         = sizeof(struct ip_vs_service_user),
-+	[CMDID(IP_VS_SO_SET_ADDDEST)]     = sizeof(struct ip_vs_svcdest_user),
-+	[CMDID(IP_VS_SO_SET_DELDEST)]     = sizeof(struct ip_vs_svcdest_user),
-+	[CMDID(IP_VS_SO_SET_EDITDEST)]    = sizeof(struct ip_vs_svcdest_user),
-+	[CMDID(IP_VS_SO_SET_TIMEOUT)]     = sizeof(struct ip_vs_timeout_user),
-+	[CMDID(IP_VS_SO_SET_STARTDAEMON)] = sizeof(struct ip_vs_daemon_user),
-+	[CMDID(IP_VS_SO_SET_STOPDAEMON)]  = sizeof(struct ip_vs_daemon_user),
-+	[CMDID(IP_VS_SO_SET_ZERO)]        = sizeof(struct ip_vs_service_user),
-+};
-+
-+union ip_vs_set_arglen {
-+	struct ip_vs_service_user	field_IP_VS_SO_SET_ADD;
-+	struct ip_vs_service_user	field_IP_VS_SO_SET_EDIT;
-+	struct ip_vs_service_user	field_IP_VS_SO_SET_DEL;
-+	struct ip_vs_svcdest_user	field_IP_VS_SO_SET_ADDDEST;
-+	struct ip_vs_svcdest_user	field_IP_VS_SO_SET_DELDEST;
-+	struct ip_vs_svcdest_user	field_IP_VS_SO_SET_EDITDEST;
-+	struct ip_vs_timeout_user	field_IP_VS_SO_SET_TIMEOUT;
-+	struct ip_vs_daemon_user	field_IP_VS_SO_SET_STARTDAEMON;
-+	struct ip_vs_daemon_user	field_IP_VS_SO_SET_STOPDAEMON;
-+	struct ip_vs_service_user	field_IP_VS_SO_SET_ZERO;
-+};
-+
-+#define MAX_SET_ARGLEN	sizeof(union ip_vs_set_arglen)
-+
- static void ip_vs_copy_usvc_compat(struct ip_vs_service_user_kern *usvc,
- 				  struct ip_vs_service_user *usvc_compat)
- {
-@@ -2239,7 +2251,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
- {
- 	struct net *net = sock_net(sk);
- 	int ret;
--	unsigned char arg[MAX_ARG_LEN];
-+	unsigned char arg[MAX_SET_ARGLEN];
- 	struct ip_vs_service_user *usvc_compat;
- 	struct ip_vs_service_user_kern usvc;
- 	struct ip_vs_service *svc;
-@@ -2247,16 +2259,15 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
- 	struct ip_vs_dest_user_kern udest;
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
-+	BUILD_BUG_ON(sizeof(arg) > 255);
- 	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
- 		return -EPERM;
- 
- 	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_SET_MAX)
- 		return -EINVAL;
--	if (len < 0 || len >  MAX_ARG_LEN)
--		return -EINVAL;
--	if (len != set_arglen[SET_CMDID(cmd)]) {
--		pr_err("set_ctl: len %u != %u\n",
--		       len, set_arglen[SET_CMDID(cmd)]);
-+	if (len != set_arglen[CMDID(cmd)]) {
-+		IP_VS_DBG(1, "set_ctl: len %u != %u\n",
-+			  len, set_arglen[CMDID(cmd)]);
- 		return -EINVAL;
- 	}
- 
-@@ -2512,51 +2523,51 @@ __ip_vs_get_timeouts(struct net *net, struct ip_vs_timeout_user *u)
- #endif
+-	ret = nf_nat_fn(ops, skb, in, out, okfn);
+-	if (ret != NF_DROP && ret != NF_STOLEN &&
+-	    ip_hdr(skb)->daddr != daddr) {
+-		skb_dst_drop(skb);
+-	}
+-	return ret;
++	return nf_nat_ipv4_fn(ops, skb, in, out, nft_nat_do_chain);
  }
  
-+static const unsigned char get_arglen[CMDID(IP_VS_SO_GET_MAX) + 1] = {
-+	[CMDID(IP_VS_SO_GET_VERSION)]  = 64,
-+	[CMDID(IP_VS_SO_GET_INFO)]     = sizeof(struct ip_vs_getinfo),
-+	[CMDID(IP_VS_SO_GET_SERVICES)] = sizeof(struct ip_vs_get_services),
-+	[CMDID(IP_VS_SO_GET_SERVICE)]  = sizeof(struct ip_vs_service_entry),
-+	[CMDID(IP_VS_SO_GET_DESTS)]    = sizeof(struct ip_vs_get_dests),
-+	[CMDID(IP_VS_SO_GET_TIMEOUT)]  = sizeof(struct ip_vs_timeout_user),
-+	[CMDID(IP_VS_SO_GET_DAEMON)]   = 2 * sizeof(struct ip_vs_daemon_user),
-+};
- 
--#define GET_CMDID(cmd)		(cmd - IP_VS_BASE_CTL)
--#define GET_INFO_ARG_LEN	(sizeof(struct ip_vs_getinfo))
--#define GET_SERVICES_ARG_LEN	(sizeof(struct ip_vs_get_services))
--#define GET_SERVICE_ARG_LEN	(sizeof(struct ip_vs_service_entry))
--#define GET_DESTS_ARG_LEN	(sizeof(struct ip_vs_get_dests))
--#define GET_TIMEOUT_ARG_LEN	(sizeof(struct ip_vs_timeout_user))
--#define GET_DAEMON_ARG_LEN	(sizeof(struct ip_vs_daemon_user) * 2)
+-static unsigned int nf_nat_postrouting(const struct nf_hook_ops *ops,
+-				       struct sk_buff *skb,
+-				       const struct net_device *in,
+-				       const struct net_device *out,
+-				       int (*okfn)(struct sk_buff *))
++static unsigned int nft_nat_ipv4_in(const struct nf_hook_ops *ops,
++				    struct sk_buff *skb,
++				    const struct net_device *in,
++				    const struct net_device *out,
++				    int (*okfn)(struct sk_buff *))
+ {
+-	enum ip_conntrack_info ctinfo __maybe_unused;
+-	const struct nf_conn *ct __maybe_unused;
+-	unsigned int ret;
 -
--static const unsigned char get_arglen[GET_CMDID(IP_VS_SO_GET_MAX)+1] = {
--	[GET_CMDID(IP_VS_SO_GET_VERSION)]	= 64,
--	[GET_CMDID(IP_VS_SO_GET_INFO)]		= GET_INFO_ARG_LEN,
--	[GET_CMDID(IP_VS_SO_GET_SERVICES)]	= GET_SERVICES_ARG_LEN,
--	[GET_CMDID(IP_VS_SO_GET_SERVICE)]	= GET_SERVICE_ARG_LEN,
--	[GET_CMDID(IP_VS_SO_GET_DESTS)]		= GET_DESTS_ARG_LEN,
--	[GET_CMDID(IP_VS_SO_GET_TIMEOUT)]	= GET_TIMEOUT_ARG_LEN,
--	[GET_CMDID(IP_VS_SO_GET_DAEMON)]	= GET_DAEMON_ARG_LEN,
-+union ip_vs_get_arglen {
-+	char				field_IP_VS_SO_GET_VERSION[64];
-+	struct ip_vs_getinfo		field_IP_VS_SO_GET_INFO;
-+	struct ip_vs_get_services	field_IP_VS_SO_GET_SERVICES;
-+	struct ip_vs_service_entry	field_IP_VS_SO_GET_SERVICE;
-+	struct ip_vs_get_dests		field_IP_VS_SO_GET_DESTS;
-+	struct ip_vs_timeout_user	field_IP_VS_SO_GET_TIMEOUT;
-+	struct ip_vs_daemon_user	field_IP_VS_SO_GET_DAEMON[2];
+-	ret = nf_nat_fn(ops, skb, in, out, okfn);
+-#ifdef CONFIG_XFRM
+-	if (ret != NF_DROP && ret != NF_STOLEN &&
+-	    (ct = nf_ct_get(skb, &ctinfo)) != NULL) {
+-		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
+-
+-		if (ct->tuplehash[dir].tuple.src.u3.ip !=
+-		    ct->tuplehash[!dir].tuple.dst.u3.ip ||
+-		    ct->tuplehash[dir].tuple.src.u.all !=
+-		    ct->tuplehash[!dir].tuple.dst.u.all)
+-			return nf_xfrm_me_harder(skb, AF_INET) == 0 ?
+-								ret : NF_DROP;
+-	}
+-#endif
+-	return ret;
++	return nf_nat_ipv4_in(ops, skb, in, out, nft_nat_do_chain);
+ }
+ 
+-static unsigned int nf_nat_output(const struct nf_hook_ops *ops,
+-				  struct sk_buff *skb,
+-				  const struct net_device *in,
+-				  const struct net_device *out,
+-				  int (*okfn)(struct sk_buff *))
++static unsigned int nft_nat_ipv4_out(const struct nf_hook_ops *ops,
++				     struct sk_buff *skb,
++				     const struct net_device *in,
++				     const struct net_device *out,
++				     int (*okfn)(struct sk_buff *))
+ {
+-	enum ip_conntrack_info ctinfo;
+-	const struct nf_conn *ct;
+-	unsigned int ret;
+-
+-	ret = nf_nat_fn(ops, skb, in, out, okfn);
+-	if (ret != NF_DROP && ret != NF_STOLEN &&
+-	    (ct = nf_ct_get(skb, &ctinfo)) != NULL) {
+-		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
++	return nf_nat_ipv4_out(ops, skb, in, out, nft_nat_do_chain);
++}
+ 
+-		if (ct->tuplehash[dir].tuple.dst.u3.ip !=
+-		    ct->tuplehash[!dir].tuple.src.u3.ip) {
+-			if (ip_route_me_harder(skb, RTN_UNSPEC))
+-				ret = NF_DROP;
+-		}
+-#ifdef CONFIG_XFRM
+-		else if (ct->tuplehash[dir].tuple.dst.u.all !=
+-			 ct->tuplehash[!dir].tuple.src.u.all)
+-			if (nf_xfrm_me_harder(skb, AF_INET))
+-				ret = NF_DROP;
+-#endif
+-	}
+-	return ret;
++static unsigned int nft_nat_ipv4_local_fn(const struct nf_hook_ops *ops,
++					  struct sk_buff *skb,
++					  const struct net_device *in,
++					  const struct net_device *out,
++					  int (*okfn)(struct sk_buff *))
++{
++	return nf_nat_ipv4_local_fn(ops, skb, in, out, nft_nat_do_chain);
+ }
+ 
+ static const struct nf_chain_type nft_chain_nat_ipv4 = {
+@@ -168,10 +85,10 @@ static const struct nf_chain_type nft_chain_nat_ipv4 = {
+ 			  (1 << NF_INET_LOCAL_OUT) |
+ 			  (1 << NF_INET_LOCAL_IN),
+ 	.hooks		= {
+-		[NF_INET_PRE_ROUTING]	= nf_nat_prerouting,
+-		[NF_INET_POST_ROUTING]	= nf_nat_postrouting,
+-		[NF_INET_LOCAL_OUT]	= nf_nat_output,
+-		[NF_INET_LOCAL_IN]	= nf_nat_fn,
++		[NF_INET_PRE_ROUTING]	= nft_nat_ipv4_in,
++		[NF_INET_POST_ROUTING]	= nft_nat_ipv4_out,
++		[NF_INET_LOCAL_OUT]	= nft_nat_ipv4_local_fn,
++		[NF_INET_LOCAL_IN]	= nft_nat_ipv4_fn,
+ 	},
  };
  
-+#define MAX_GET_ARGLEN	sizeof(union ip_vs_get_arglen)
-+
- static int
- do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
- {
--	unsigned char arg[128];
-+	unsigned char arg[MAX_GET_ARGLEN];
- 	int ret = 0;
- 	unsigned int copylen;
- 	struct net *net = sock_net(sk);
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- 	BUG_ON(!net);
-+	BUILD_BUG_ON(sizeof(arg) > 255);
- 	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
- 		return -EPERM;
- 
- 	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_GET_MAX)
- 		return -EINVAL;
- 
--	if (*len < get_arglen[GET_CMDID(cmd)]) {
--		pr_err("get_ctl: len %u < %u\n",
--		       *len, get_arglen[GET_CMDID(cmd)]);
-+	copylen = get_arglen[CMDID(cmd)];
-+	if (*len < (int) copylen) {
-+		IP_VS_DBG(1, "get_ctl: len %d < %u\n", *len, copylen);
- 		return -EINVAL;
- 	}
- 
--	copylen = get_arglen[GET_CMDID(cmd)];
--	if (copylen > 128)
--		return -EINVAL;
--
- 	if (copy_from_user(arg, user, copylen) != 0)
- 		return -EFAULT;
- 	/*
 -- 
 1.7.10.4
-
