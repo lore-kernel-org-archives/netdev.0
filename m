@@ -1,67 +1,36 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: iwlwifi no authentication with AP - Re: pull request: wireless-next
- 2014-09-08
-Date: Wed, 10 Sep 2014 11:23:20 +0200
-Message-ID: <54101888.8080601@hartkopp.net>
-References: <20140908191630.GB29412@tuxdriver.com>	<540F5927.7000306@hartkopp.net>	<CANUX_P3n0v1SzfbYuaAsE4TY7Hz_wo2Fb9SmHVNyFOC9hDhwdg@mail.gmail.com>	<540F61D0.9000704@hartkopp.net>	<CAMw6YJLeO1JZeY6hNe-TXOS56b-otk+htt5VPPor+9iYCQz53Q@mail.gmail.com>	<540FDB3C.6060301@hartkopp.net>	<CANUX_P3kOetqEneHgqoCDN4c85SQYD-G=mQj_o1c_TvKmE5psA@mail.gmail.com> <CAMw6YJKgVVnDrn1X7atemC1r9kwvsr3PQDs4qx5KDeeNy-P3VA@mail.gmail.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next v2] r8169:add support for RTL8168H and RTL8107E
+Date: Wed, 10 Sep 2014 09:25:57 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB252152B@RTITMBSV03.realtek.com.tw>
+References: <1408470844-30038-1-git-send-email-hau@realtek.com>
+ <540DA87D.9000302@redhat.com>
+ <0835B3720019904CB8F7AA43166CEEB25211E3@RTITMBSV03.realtek.com.tw>
+ <540EF02E.7090209@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Vadim Kochan <vadim4j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMw6YJKgVVnDrn1X7atemC1r9kwvsr3PQDs4qx5KDeeNy-P3VA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>
+To: Ivan Vecera <ivecera@redhat.com>, Hau <hau@realtek.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:48586 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803AbaIJJ0Z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 05:26:25 -0400
+In-Reply-To: <540EF02E.7090209@redhat.com>
+Content-Language: zh-TW
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+ From: Ivan Vecera [mailto:ivecera@redhat.com] 
+> Sent: Tuesday, September 09, 2014 8:19 PM
+[...]
+> Thanks Hayes,
+> have you got any idea when do you update them?
 
-yes for me too.
-
-Although I only could test it here with my mobile hotspot which only supports
-WEP ... but before that hotspot was not working too.
-
-I'll check with my WPA2 setup again when I'm back home (if it's still needed).
-
-So far feel free to add my
-
-Reported-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Tested-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-
-Many thanks for your quick reaction!
-
-Best regards,
-Oliver
-
-On 10.09.2014 11:16, Vadim Kochan wrote:
-> Hi,
-> 
-> Your patch works for me.
-> 
-> On Wed, Sep 10, 2014 at 11:24 AM, Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> On Wed, Sep 10, 2014 at 8:01 AM, Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org> wrote:
->>> On 10.09.2014 00:07, Vadim Kochan wrote:
->>>> I have the same issue with iwlwifi.
->>>
->>> I tried an old zd1211 wireless USB stick to check if this problem is 80211
->>> related. But the USB stick works fine (I'm using it right now).
->>> So its definitely looks like an iwlwifi issue.
->>>
->>>> iwlwifi 0000:02:00.0: fail to flush all tx fifo queues Q 0
->>>
->>> Wasn't there any change in the iwlwifi tx path recently??
->>
->> Can you please try the patch attached? It works for me.
->>
->>>
->>> Regards,
->>> Oliver
->>>
->>>>
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If all are fine, I would release them this week.
+ 
+Best Regards,
+Hayes
