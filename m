@@ -1,80 +1,129 @@
-From: Mikael Pettersson <mikpelinux@gmail.com>
-Subject: Re: gcc 4.8.3 miscompiles drivers/net/ethernet/freescale/fec_main.c ?!
-Date: Wed, 10 Sep 2014 14:32:20 +0200
-Message-ID: <21520.17620.519242.597681@gargle.gargle.HOWL>
-References: <20140910110943.3673dbb4@archvile>
+From: Ilya Dryomov <ilya.dryomov@inktank.com>
+Subject: Re: [PATCH net-next 2/5] ceph: Convert pr_warning to pr_warn
+Date: Wed, 10 Sep 2014 16:38:07 +0400
+Message-ID: <CALFYKtCiGXhMZ-f0B=TGSNGZCng8NVYWCV-wwOHq3xPdKO+-Kw@mail.gmail.com>
+References: <cover.1410322181.git.joe@perches.com>
+	<714b7551f5a6ea5e721fed705568a39eeae4623b.1410322181.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Russell King <rmk+kernel@arm.linux.org.uk>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: David Jander <david@protonic.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:43509 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750899AbaIJMc0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 08:32:26 -0400
-Received: by mail-la0-f50.google.com with SMTP id ty20so6328380lab.9
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 05:32:25 -0700 (PDT)
-In-Reply-To: <20140910110943.3673dbb4@archvile>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Sage Weil <sage@inktank.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ceph Development <ceph-devel@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <ceph-devel-owner@vger.kernel.org>
+In-Reply-To: <714b7551f5a6ea5e721fed705568a39eeae4623b.1410322181.git.joe@perches.com>
+Sender: ceph-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Jander writes:
- > 
- > Hi,
- > 
- > I am seeing a strange problem when building a recent kernel with gcc-4.8.3 for
- > armv7-a that contains the following patch:
- > 
- > https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit?id=bfd4ecdd87d350e19457fe0d02fa1e046774c44e
- > 
- > Unfortunately I am not good enough at reading ARM assembly output from GCC to
- > understand whats going wrong, so I am asking for help.
- > 
- > I started noticing ethernet packet loss on a i.MX6 board after upgrading the
- > kernel from 3.16-rc-something to latest mainline. The problem is very easy to
- > reproduce so I started git-bisecting. Git bisect gave me the above patch as
- > the culprit, and indeed: Without the patch a flood-ping goes fine (just one
- > dot on screen, no lost packets). I apply the patch and the dots start filling
- > the screen instantly.
- > 
- > I am compiling the kernel using Pengutronix's OSELAS toolchain version
- > 2013.12.1, which is based on linaro gcc-4.8.3 without any relevant patches
- > AFAIK.
+On Wed, Sep 10, 2014 at 8:17 AM, Joe Perches <joe@perches.com> wrote:
+> Use the more common pr_warn.
+>
+> Other miscellanea:
+>
+> o Coalesce formats
+> o Realign arguments
+>
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  net/ceph/ceph_common.c | 15 +++++++++------
+>  net/ceph/messenger.c   | 19 ++++++++++---------
+>  net/ceph/osd_client.c  | 15 +++++++--------
+>  net/ceph/osdmap.c      | 20 ++++++++++----------
+>  4 files changed, 36 insertions(+), 33 deletions(-)
+>
+> diff --git a/net/ceph/ceph_common.c b/net/ceph/ceph_common.c
+> index 1675021..58fbfe1 100644
+> --- a/net/ceph/ceph_common.c
+> +++ b/net/ceph/ceph_common.c
+> @@ -293,17 +293,20 @@ static int get_secret(struct ceph_crypto_key *dst, const char *name) {
+>                 key_err = PTR_ERR(ukey);
+>                 switch (key_err) {
+>                 case -ENOKEY:
+> -                       pr_warning("ceph: Mount failed due to key not found: %s\n", name);
+> +                       pr_warn("ceph: Mount failed due to key not found: %s\n",
+> +                               name);
+>                         break;
+>                 case -EKEYEXPIRED:
+> -                       pr_warning("ceph: Mount failed due to expired key: %s\n", name);
+> +                       pr_warn("ceph: Mount failed due to expired key: %s\n",
+> +                               name);
+>                         break;
+>                 case -EKEYREVOKED:
+> -                       pr_warning("ceph: Mount failed due to revoked key: %s\n", name);
+> +                       pr_warn("ceph: Mount failed due to revoked key: %s\n",
+> +                               name);
+>                         break;
+>                 default:
+> -                       pr_warning("ceph: Mount failed due to unknown key error"
+> -                              " %d: %s\n", key_err, name);
+> +                       pr_warn("ceph: Mount failed due to unknown key error %d: %s\n",
+> +                               key_err, name);
+>                 }
+>                 err = -EPERM;
+>                 goto out;
+> @@ -433,7 +436,7 @@ ceph_parse_options(char *options, const char *dev_name,
+>
+>                         /* misc */
+>                 case Opt_osdtimeout:
+> -                       pr_warning("ignoring deprecated osdtimeout option\n");
+> +                       pr_warn("ignoring deprecated osdtimeout option\n");
+>                         break;
+>                 case Opt_osdkeepalivetimeout:
+>                         opt->osd_keepalive_timeout = intval;
+> diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
+> index b2f571d..a7203be 100644
+> --- a/net/ceph/messenger.c
+> +++ b/net/ceph/messenger.c
+> @@ -1937,11 +1937,11 @@ static int process_banner(struct ceph_connection *con)
+>                    sizeof(con->peer_addr)) != 0 &&
+>             !(addr_is_blank(&con->actual_peer_addr.in_addr) &&
+>               con->actual_peer_addr.nonce == con->peer_addr.nonce)) {
+> -               pr_warning("wrong peer, want %s/%d, got %s/%d\n",
+> -                          ceph_pr_addr(&con->peer_addr.in_addr),
+> -                          (int)le32_to_cpu(con->peer_addr.nonce),
+> -                          ceph_pr_addr(&con->actual_peer_addr.in_addr),
+> -                          (int)le32_to_cpu(con->actual_peer_addr.nonce));
+> +               pr_warn("wrong peer, want %s/%d, got %s/%d\n",
+> +                       ceph_pr_addr(&con->peer_addr.in_addr),
+> +                       (int)le32_to_cpu(con->peer_addr.nonce),
+> +                       ceph_pr_addr(&con->actual_peer_addr.in_addr),
+> +                       (int)le32_to_cpu(con->actual_peer_addr.nonce));
+>                 con->error_msg = "wrong peer at address";
+>                 return -1;
+>         }
+> @@ -2302,7 +2302,7 @@ static int read_partial_message(struct ceph_connection *con)
+>
+>                 BUG_ON(!con->in_msg ^ skip);
+>                 if (con->in_msg && data_len > con->in_msg->data_length) {
+> -                       pr_warning("%s skipping long message (%u > %zd)\n",
+> +                       pr_warn("%s skipping long message (%u > %zd)\n",
+>                                 __func__, data_len, con->in_msg->data_length);
+>                         ceph_msg_put(con->in_msg);
+>                         con->in_msg = NULL;
+> @@ -2712,7 +2712,7 @@ static bool con_sock_closed(struct ceph_connection *con)
+>         CASE(OPEN);
+>         CASE(STANDBY);
+>         default:
+> -               pr_warning("%s con %p unrecognized state %lu\n",
+> +               pr_warn("%s con %p unrecognized state %lu\n",
+>                         __func__, con, con->state);
+>                 con->error_msg = "unrecognized con state";
+>                 BUG();
+> @@ -2828,8 +2828,9 @@ static void con_work(struct work_struct *work)
+>   */
+>  static void con_fault(struct ceph_connection *con)
+>  {
+> -       pr_warning("%s%lld %s %s\n", ENTITY_NAME(con->peer_name),
+> -              ceph_pr_addr(&con->peer_addr.in_addr), con->error_msg);
+> +       pr_warn("%s%lld %s %s\n",
+> +               ENTITY_NAME(con->peer_name),
+> +               ceph_pr_addr(&con->peer_addr.in_addr), con->error_msg);
 
-Linaro's toolchain is itself heavily modified compared to FSF gcc-4.8.3,
-so first please try a pure vanilla FSF gcc-4.8.3, and then a likewise
-vanilla gcc-4.9.1.  If those also cause the malfunction, then you have
-proof for a bug in upstream gcc (or possibly undefined code in the kernel),
-otherwise the bug is likely Linaro's.
+Just wondering, why did you move ENITITY_NAME argument to the next
+line?  I see you are doing this pretty consistently.  Is this a style
+guideline or something?
 
- > Compiling with -O2 breaks the code, while -Os seems to produce a correctly
- > working kernel.
- > 
- > I decided to make changes to the code and see if I could find other ways to
- > "fix" the problem, and I got the following result:
- > 
- > The above mentioned patch introduces the static function fec_enet_hwtstamp()
- > near line 1068 of fec_main.c. If I make an exact copy of this function, where
- > I only change the name (e.g. fec_enet_hwtstamp2), and change one of the two
- > places this function is called to instead use the other name, GCC inlines both
- > copies and the problem disappears!
- > 
- > Since I am not very good at GCC internals nor do I know this piece of code in
- > fec_main.c very well, I am asking here for help in hunting down the real bug,
- > which I suspect is in GCC... but I want to know for sure.
- > 
- > Best regards,
- > 
- > -- 
- > David Jander
- > Protonic Holland.
- > 
- > _______________________________________________
- > linux-arm-kernel mailing list
- > linux-arm-kernel@lists.infradead.org
- > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+Thanks,
 
--- 
+                Ilya
