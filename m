@@ -1,60 +1,74 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 4/5] cxgb4: Add warning msg when attaching to adapters which have FLASHes smaller than 2Mb
-Date: Wed, 10 Sep 2014 17:44:30 +0530
-Message-ID: <1410351271-26428-5-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 5/5] cxgb4/cxgb4vf: Add device ID for new adapter and remove for dbg adapter
+Date: Wed, 10 Sep 2014 17:44:31 +0530
+Message-ID: <1410351271-26428-6-git-send-email-hariprasad@chelsio.com>
 References: <1410351271-26428-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	kumaras@chelsio.com, anish@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:42779
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:42782
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751344AbaIJMJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 08:09:08 -0400
+	by vger.kernel.org with ESMTP id S1751344AbaIJMJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 08:09:11 -0400
 In-Reply-To: <1410351271-26428-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Based on original work by Casey Leedom <leedom@chelsio.com>
-
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |    4 ++++
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.h |    6 ++++++
- 2 files changed, 10 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |    2 ++
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    3 +--
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 586a5f1..22d7581 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -3897,6 +3897,10 @@ static int get_flash_params(struct adapter *adap)
- 	adap->params.sf_size = 1 << info;
- 	adap->params.sf_fw_start =
- 		t4_read_reg(adap, CIM_BOOT_CFG) & BOOTADDR_MASK;
-+
-+	if (adap->params.sf_size < FLASH_MIN_SIZE)
-+		dev_warn(adap->pdev_dev, "WARNING!!! FLASH size %#x < %#x!!!\n",
-+			 adap->params.sf_size, FLASH_MIN_SIZE);
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index d6a9a0b..f56b95a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -283,6 +283,7 @@ static const struct pci_device_id cxgb4_pci_tbl[] = {
+ 	CH_DEVICE(0x5083, 4),
+ 	CH_DEVICE(0x5084, 4),
+ 	CH_DEVICE(0x5085, 4),
++	CH_DEVICE(0x5086, 4),
+ 	CH_DEVICE(0x5401, 4),
+ 	CH_DEVICE(0x5402, 4),
+ 	CH_DEVICE(0x5403, 4),
+@@ -310,6 +311,7 @@ static const struct pci_device_id cxgb4_pci_tbl[] = {
+ 	CH_DEVICE(0x5483, 4),
+ 	CH_DEVICE(0x5484, 4),
+ 	CH_DEVICE(0x5485, 4),
++	CH_DEVICE(0x5486, 4),
+ 	{ 0, }
+ };
  
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-index 06fa583..6833a7b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-@@ -206,6 +206,12 @@ enum {
- 	FLASH_CFG_START = FLASH_START(FLASH_CFG_START_SEC),
- 	FLASH_CFG_MAX_SIZE = FLASH_MAX_SIZE(FLASH_CFG_NSECS),
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 2102a4c..8253403 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -2912,7 +2912,6 @@ static void cxgb4vf_pci_shutdown(struct pci_dev *pdev)
  
-+	/* We don't support FLASH devices which can't support the full
-+	 * standard set of sections which we need for normal
-+	 * operations.
-+	 */
-+	FLASH_MIN_SIZE = FLASH_CFG_START + FLASH_CFG_MAX_SIZE,
-+
- 	FLASH_FPGA_CFG_START_SEC = 15,
- 	FLASH_FPGA_CFG_START = FLASH_START(FLASH_FPGA_CFG_START_SEC),
+ static const struct pci_device_id cxgb4vf_pci_tbl[] = {
+ 	CH_DEVICE(0xb000, 0),	/* PE10K FPGA */
+-	CH_DEVICE(0x4800, 0),	/* T440-dbg */
+ 	CH_DEVICE(0x4801, 0),	/* T420-cr */
+ 	CH_DEVICE(0x4802, 0),	/* T422-cr */
+ 	CH_DEVICE(0x4803, 0),	/* T440-cr */
+@@ -2934,7 +2933,6 @@ static const struct pci_device_id cxgb4vf_pci_tbl[] = {
+ 	CH_DEVICE(0x4880, 6),
+ 	CH_DEVICE(0x4880, 7),
+ 	CH_DEVICE(0x4880, 8),
+-	CH_DEVICE(0x5800, 0),	/* T580-dbg */
+ 	CH_DEVICE(0x5801, 0),	/* T520-cr */
+ 	CH_DEVICE(0x5802, 0),	/* T522-cr */
+ 	CH_DEVICE(0x5803, 0),	/* T540-cr */
+@@ -2962,6 +2960,7 @@ static const struct pci_device_id cxgb4vf_pci_tbl[] = {
+ 	CH_DEVICE(0x5883, 0),
+ 	CH_DEVICE(0x5884, 0),
+ 	CH_DEVICE(0x5885, 0),
++	CH_DEVICE(0x5886, 0),
+ 	{ 0, }
+ };
  
 -- 
 1.7.1
