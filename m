@@ -1,221 +1,59 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 12/25] netfilter: nft_chain_nat_ipv6: use generic IPv6 NAT code from core
-Date: Wed, 10 Sep 2014 17:10:29 +0200
-Message-ID: <1410361842-4656-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 07/25] netfilter: ipset: Fix warn: integer overflows 'sizeof(*map) + size * set->dsize'
+Date: Wed, 10 Sep 2014 17:10:24 +0200
+Message-ID: <1410361842-4656-8-git-send-email-pablo@netfilter.org>
 References: <1410361842-4656-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55860 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:55815 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751684AbaIJPKP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 11:10:15 -0400
+	id S1751190AbaIJPKH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2014 11:10:07 -0400
 In-Reply-To: <1410361842-4656-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the exported IPv6 NAT functions that are provided by the core. This
-removes duplicated code so iptables and nft use the same NAT codebase.
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Dan Carpenter reported that the static checker emits the warning
+
+        net/netfilter/ipset/ip_set_list_set.c:600 init_list_set()
+        warn: integer overflows 'sizeof(*map) + size * set->dsize'
+
+Limit the maximal number of elements in list type of sets.
+
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 ---
- net/ipv6/netfilter/nft_chain_nat_ipv6.c |  163 +++++++------------------------
- 1 file changed, 36 insertions(+), 127 deletions(-)
+ include/linux/netfilter/ipset/ip_set_list.h |    1 +
+ net/netfilter/ipset/ip_set_list_set.c       |    4 +++-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv6/netfilter/nft_chain_nat_ipv6.c b/net/ipv6/netfilter/nft_chain_nat_ipv6.c
-index c1c7449..1c4b75d 100644
---- a/net/ipv6/netfilter/nft_chain_nat_ipv6.c
-+++ b/net/ipv6/netfilter/nft_chain_nat_ipv6.c
-@@ -24,144 +24,53 @@
- #include <net/netfilter/nf_nat_l3proto.h>
- #include <net/ipv6.h>
+diff --git a/include/linux/netfilter/ipset/ip_set_list.h b/include/linux/netfilter/ipset/ip_set_list.h
+index 68c2aea..fe2622a 100644
+--- a/include/linux/netfilter/ipset/ip_set_list.h
++++ b/include/linux/netfilter/ipset/ip_set_list.h
+@@ -6,5 +6,6 @@
  
--/*
-- * IPv6 NAT chains
-- */
--
--static unsigned int nft_nat_ipv6_fn(const struct nf_hook_ops *ops,
--			      struct sk_buff *skb,
--			      const struct net_device *in,
--			      const struct net_device *out,
--			      int (*okfn)(struct sk_buff *))
-+static unsigned int nft_nat_do_chain(const struct nf_hook_ops *ops,
-+				     struct sk_buff *skb,
-+				     const struct net_device *in,
-+				     const struct net_device *out,
-+				     struct nf_conn *ct)
- {
--	enum ip_conntrack_info ctinfo;
--	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
--	struct nf_conn_nat *nat;
--	enum nf_nat_manip_type maniptype = HOOK2MANIP(ops->hooknum);
--	__be16 frag_off;
--	int hdrlen;
--	u8 nexthdr;
- 	struct nft_pktinfo pkt;
--	unsigned int ret;
--
--	if (ct == NULL || nf_ct_is_untracked(ct))
--		return NF_ACCEPT;
--
--	nat = nf_ct_nat_ext_add(ct);
--	if (nat == NULL)
--		return NF_ACCEPT;
--
--	switch (ctinfo) {
--	case IP_CT_RELATED:
--	case IP_CT_RELATED + IP_CT_IS_REPLY:
--		nexthdr = ipv6_hdr(skb)->nexthdr;
--		hdrlen = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr),
--					  &nexthdr, &frag_off);
--
--		if (hdrlen >= 0 && nexthdr == IPPROTO_ICMPV6) {
--			if (!nf_nat_icmpv6_reply_translation(skb, ct, ctinfo,
--							   ops->hooknum,
--							   hdrlen))
--				return NF_DROP;
--			else
--				return NF_ACCEPT;
--		}
--		/* Fall through */
--	case IP_CT_NEW:
--		if (nf_nat_initialized(ct, maniptype))
--			break;
--
--		nft_set_pktinfo_ipv6(&pkt, ops, skb, in, out);
+ #define IP_SET_LIST_DEFAULT_SIZE	8
+ #define IP_SET_LIST_MIN_SIZE		4
++#define IP_SET_LIST_MAX_SIZE		65536
  
--		ret = nft_do_chain(&pkt, ops);
--		if (ret != NF_ACCEPT)
--			return ret;
--		if (!nf_nat_initialized(ct, maniptype)) {
--			ret = nf_nat_alloc_null_binding(ct, ops->hooknum);
--			if (ret != NF_ACCEPT)
--				return ret;
--		}
--	default:
--		break;
--	}
-+	nft_set_pktinfo_ipv6(&pkt, ops, skb, in, out);
+ #endif /* __IP_SET_LIST_H */
+diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
+index 3e2317f..f87adba 100644
+--- a/net/netfilter/ipset/ip_set_list_set.c
++++ b/net/netfilter/ipset/ip_set_list_set.c
+@@ -597,7 +597,9 @@ init_list_set(struct net *net, struct ip_set *set, u32 size)
+ 	struct set_elem *e;
+ 	u32 i;
  
--	return nf_nat_packet(ct, ctinfo, ops->hooknum, skb);
-+	return nft_do_chain(&pkt, ops);
- }
+-	map = kzalloc(sizeof(*map) + size * set->dsize, GFP_KERNEL);
++	map = kzalloc(sizeof(*map) +
++		      min_t(u32, size, IP_SET_LIST_MAX_SIZE) * set->dsize,
++		      GFP_KERNEL);
+ 	if (!map)
+ 		return false;
  
--static unsigned int nf_nat_ipv6_prerouting(const struct nf_hook_ops *ops,
--				      struct sk_buff *skb,
--				      const struct net_device *in,
--				      const struct net_device *out,
--				      int (*okfn)(struct sk_buff *))
-+static unsigned int nft_nat_ipv6_fn(const struct nf_hook_ops *ops,
-+				    struct sk_buff *skb,
-+				    const struct net_device *in,
-+				    const struct net_device *out,
-+				    int (*okfn)(struct sk_buff *))
- {
--	struct in6_addr daddr = ipv6_hdr(skb)->daddr;
--	unsigned int ret;
--
--	ret = nft_nat_ipv6_fn(ops, skb, in, out, okfn);
--	if (ret != NF_DROP && ret != NF_STOLEN &&
--	    ipv6_addr_cmp(&daddr, &ipv6_hdr(skb)->daddr))
--		skb_dst_drop(skb);
--
--	return ret;
-+	return nf_nat_ipv6_fn(ops, skb, in, out, nft_nat_do_chain);
- }
- 
--static unsigned int nf_nat_ipv6_postrouting(const struct nf_hook_ops *ops,
--				       struct sk_buff *skb,
--				       const struct net_device *in,
--				       const struct net_device *out,
--				       int (*okfn)(struct sk_buff *))
-+static unsigned int nft_nat_ipv6_in(const struct nf_hook_ops *ops,
-+				    struct sk_buff *skb,
-+				    const struct net_device *in,
-+				    const struct net_device *out,
-+				    int (*okfn)(struct sk_buff *))
- {
--	enum ip_conntrack_info ctinfo __maybe_unused;
--	const struct nf_conn *ct __maybe_unused;
--	unsigned int ret;
--
--	ret = nft_nat_ipv6_fn(ops, skb, in, out, okfn);
--#ifdef CONFIG_XFRM
--	if (ret != NF_DROP && ret != NF_STOLEN &&
--	    !(IP6CB(skb)->flags & IP6SKB_XFRM_TRANSFORMED) &&
--	    (ct = nf_ct_get(skb, &ctinfo)) != NULL) {
--		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
--
--		if (!nf_inet_addr_cmp(&ct->tuplehash[dir].tuple.src.u3,
--				      &ct->tuplehash[!dir].tuple.dst.u3) ||
--		    (ct->tuplehash[dir].tuple.src.u.all !=
--		     ct->tuplehash[!dir].tuple.dst.u.all))
--			if (nf_xfrm_me_harder(skb, AF_INET6) < 0)
--				ret = NF_DROP;
--	}
--#endif
--	return ret;
-+	return nf_nat_ipv6_in(ops, skb, in, out, nft_nat_do_chain);
- }
- 
--static unsigned int nf_nat_ipv6_output(const struct nf_hook_ops *ops,
--				  struct sk_buff *skb,
--				  const struct net_device *in,
--				  const struct net_device *out,
--				  int (*okfn)(struct sk_buff *))
-+static unsigned int nft_nat_ipv6_out(const struct nf_hook_ops *ops,
-+				     struct sk_buff *skb,
-+				     const struct net_device *in,
-+				     const struct net_device *out,
-+				     int (*okfn)(struct sk_buff *))
- {
--	enum ip_conntrack_info ctinfo;
--	const struct nf_conn *ct;
--	unsigned int ret;
--
--	ret = nft_nat_ipv6_fn(ops, skb, in, out, okfn);
--	if (ret != NF_DROP && ret != NF_STOLEN &&
--	    (ct = nf_ct_get(skb, &ctinfo)) != NULL) {
--		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-+	return nf_nat_ipv6_out(ops, skb, in, out, nft_nat_do_chain);
-+}
- 
--		if (!nf_inet_addr_cmp(&ct->tuplehash[dir].tuple.dst.u3,
--				      &ct->tuplehash[!dir].tuple.src.u3)) {
--			if (ip6_route_me_harder(skb))
--				ret = NF_DROP;
--		}
--#ifdef CONFIG_XFRM
--		else if (!(IP6CB(skb)->flags & IP6SKB_XFRM_TRANSFORMED) &&
--			 ct->tuplehash[dir].tuple.dst.u.all !=
--			 ct->tuplehash[!dir].tuple.src.u.all)
--			if (nf_xfrm_me_harder(skb, AF_INET6))
--				ret = NF_DROP;
--#endif
--	}
--	return ret;
-+static unsigned int nft_nat_ipv6_local_fn(const struct nf_hook_ops *ops,
-+					  struct sk_buff *skb,
-+					  const struct net_device *in,
-+					  const struct net_device *out,
-+					  int (*okfn)(struct sk_buff *))
-+{
-+	return nf_nat_ipv6_local_fn(ops, skb, in, out, nft_nat_do_chain);
- }
- 
- static const struct nf_chain_type nft_chain_nat_ipv6 = {
-@@ -174,9 +83,9 @@ static const struct nf_chain_type nft_chain_nat_ipv6 = {
- 			  (1 << NF_INET_LOCAL_OUT) |
- 			  (1 << NF_INET_LOCAL_IN),
- 	.hooks		= {
--		[NF_INET_PRE_ROUTING]	= nf_nat_ipv6_prerouting,
--		[NF_INET_POST_ROUTING]	= nf_nat_ipv6_postrouting,
--		[NF_INET_LOCAL_OUT]	= nf_nat_ipv6_output,
-+		[NF_INET_PRE_ROUTING]	= nft_nat_ipv6_in,
-+		[NF_INET_POST_ROUTING]	= nft_nat_ipv6_out,
-+		[NF_INET_LOCAL_OUT]	= nft_nat_ipv6_local_fn,
- 		[NF_INET_LOCAL_IN]	= nft_nat_ipv6_fn,
- 	},
- };
 -- 
 1.7.10.4
