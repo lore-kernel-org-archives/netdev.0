@@ -1,64 +1,52 @@
-From: David Jander <david@protonic.nl>
-Subject: gcc 4.8.3 miscompiles drivers/net/ethernet/freescale/fec_main.c ?!
-Date: Wed, 10 Sep 2014 11:09:43 +0200
-Message-ID: <20140910110943.3673dbb4@archvile>
+From: Vadim Kochan <vadim4j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: iwlwifi no authentication with AP - Re: pull request:
+ wireless-next 2014-09-08
+Date: Wed, 10 Sep 2014 12:16:32 +0300
+Message-ID: <CAMw6YJKgVVnDrn1X7atemC1r9kwvsr3PQDs4qx5KDeeNy-P3VA@mail.gmail.com>
+References: <20140908191630.GB29412@tuxdriver.com>
+	<540F5927.7000306@hartkopp.net>
+	<CANUX_P3n0v1SzfbYuaAsE4TY7Hz_wo2Fb9SmHVNyFOC9hDhwdg@mail.gmail.com>
+	<540F61D0.9000704@hartkopp.net>
+	<CAMw6YJLeO1JZeY6hNe-TXOS56b-otk+htt5VPPor+9iYCQz53Q@mail.gmail.com>
+	<540FDB3C.6060301@hartkopp.net>
+	<CANUX_P3kOetqEneHgqoCDN4c85SQYD-G=mQj_o1c_TvKmE5psA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Russell King <rmk+kernel@arm.linux.org.uk>,
- "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CANUX_P3kOetqEneHgqoCDN4c85SQYD-G=mQj_o1c_TvKmE5psA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
-
 
 Hi,
 
-I am seeing a strange problem when building a recent kernel with gcc-4.8.3 for
-armv7-a that contains the following patch:
+Your patch works for me.
 
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit?id=bfd4ecdd87d350e19457fe0d02fa1e046774c44e
-
-Unfortunately I am not good enough at reading ARM assembly output from GCC to
-understand whats going wrong, so I am asking for help.
-
-I started noticing ethernet packet loss on a i.MX6 board after upgrading the
-kernel from 3.16-rc-something to latest mainline. The problem is very easy to
-reproduce so I started git-bisecting. Git bisect gave me the above patch as
-the culprit, and indeed: Without the patch a flood-ping goes fine (just one
-dot on screen, no lost packets). I apply the patch and the dots start filling
-the screen instantly.
-
-I am compiling the kernel using Pengutronix's OSELAS toolchain version
-2013.12.1, which is based on linaro gcc-4.8.3 without any relevant patches
-AFAIK.
-Compiling with -O2 breaks the code, while -Os seems to produce a correctly
-working kernel.
-
-I decided to make changes to the code and see if I could find other ways to
-"fix" the problem, and I got the following result:
-
-The above mentioned patch introduces the static function fec_enet_hwtstamp()
-near line 1068 of fec_main.c. If I make an exact copy of this function, where
-I only change the name (e.g. fec_enet_hwtstamp2), and change one of the two
-places this function is called to instead use the other name, GCC inlines both
-copies and the problem disappears!
-
-Since I am not very good at GCC internals nor do I know this piece of code in
-fec_main.c very well, I am asking here for help in hunting down the real bug,
-which I suspect is in GCC... but I want to know for sure.
-
-Best regards,
-
--- 
-David Jander
-Protonic Holland.
+On Wed, Sep 10, 2014 at 11:24 AM, Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Wed, Sep 10, 2014 at 8:01 AM, Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org> wrote:
+>> On 10.09.2014 00:07, Vadim Kochan wrote:
+>>> I have the same issue with iwlwifi.
+>>
+>> I tried an old zd1211 wireless USB stick to check if this problem is 80211
+>> related. But the USB stick works fine (I'm using it right now).
+>> So its definitely looks like an iwlwifi issue.
+>>
+>>> iwlwifi 0000:02:00.0: fail to flush all tx fifo queues Q 0
+>>
+>> Wasn't there any change in the iwlwifi tx path recently??
+>
+> Can you please try the patch attached? It works for me.
+>
+>>
+>> Regards,
+>> Oliver
+>>
+>>>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
