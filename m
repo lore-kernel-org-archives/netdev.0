@@ -1,36 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] Allow FW size upto 1MB, support for
- S25FL032P flash and misc. fixes
-Date: Wed, 10 Sep 2014 14:02:58 -0700 (PDT)
-Message-ID: <20140910.140258.1771266084894026474.davem@davemloft.net>
-References: <1410351271-26428-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH net-next v2] net: bpf: only build
+ bpf_jit_binary_{alloc,free}() when jit selected
+Date: Wed, 10 Sep 2014 14:05:43 -0700 (PDT)
+Message-ID: <20140910.140543.1884964178670505351.davem@davemloft.net>
+References: <1410354062-25337-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com,
-	kumaras@chelsio.com, anish@chelsio.com
-To: hariprasad@chelsio.com
+Cc: fengguang.wu@intel.com, ast@plumgrid.com, netdev@vger.kernel.org
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43351 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43395 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752225AbaIJVC7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 17:02:59 -0400
-In-Reply-To: <1410351271-26428-1-git-send-email-hariprasad@chelsio.com>
+	with ESMTP id S1752065AbaIJVFo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 17:05:44 -0400
+In-Reply-To: <1410354062-25337-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Wed, 10 Sep 2014 17:44:26 +0530
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Wed, 10 Sep 2014 15:01:02 +0200
 
-> This patch series adds support to allow FW size upto 1MB, support for S25FL032P
-> flash. Fix t4_flash_erase_sectors to throw an error, when erase sector aren't in
-> the flash and also warning message when adapters have flashes less than 2Mb.
-> Adds device id of new adapter and removes device id of debug adapter.
+> Since BPF JIT depends on the availability of module_alloc() and
+> module_free() helpers (HAVE_BPF_JIT and MODULES), we better build
+> that code only in case we have BPF_JIT in our config enabled, just
+> like with other JIT code. Fixes builds for arm/marzen_defconfig
+> and sh/rsk7269_defconfig.
 > 
-> The patches series is created against 'net-next' tree.
-> And includes patches on cxgb4 driver and cxgb4vf driver.
-> 
-> We have included all the maintainers of respective drivers. Kindly review the
-> change and let us know in case of any review comments.
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Fixes: 738cbe72adc5 ("net: bpf: consolidate JIT binary allocator")
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  v1->v2:
+>   - Sorry, we can reduce it further and remove the else part of
+>     the code as bpf_jit_binary_{alloc,free} helpers are only used
+>     from within JIT code anyway, of course.
 
-Series applied, thanks.
+Applied, thanks.
