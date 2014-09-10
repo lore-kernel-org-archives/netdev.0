@@ -1,110 +1,71 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH v2 net] ipv6: clean up anycast when an interface is destroyed
-Date: Wed, 10 Sep 2014 23:23:02 +0200
-Message-ID: <20140910212302.GA26184@kria>
-References: <20140910102714.GB21267@kria>
- <CAHA+R7ODewXP69ULsR0RD+c3BEfMa90zATRjHF3dC9Dkv7jgZw@mail.gmail.com>
- <20140910.135840.133555874665251669.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next 3/5] ipv6: clean up ipv6_dev_ac_inc()
+Date: Wed, 10 Sep 2014 14:32:30 -0700
+Message-ID: <CAM_iQpWXL6MgYa2zV=7Kmv9NJBYGiTcQdZe7JRzFGougzGByqw@mail.gmail.com>
+References: <1410306738-18036-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1410306738-18036-4-git-send-email-xiyou.wangcong@gmail.com>
+	<1410351815.3135.14.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: cwang@twopensource.com, netdev@vger.kernel.org,
-	hannes@stressinduktion.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:28499 "EHLO smtp2-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753269AbaIJVXJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 17:23:09 -0400
-Content-Disposition: inline
-In-Reply-To: <20140910.135840.133555874665251669.davem@davemloft.net>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:43383 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752865AbaIJVcb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 17:32:31 -0400
+Received: by mail-ob0-f171.google.com with SMTP id wn1so13814483obc.2
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 14:32:30 -0700 (PDT)
+In-Reply-To: <1410351815.3135.14.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If we try to rmmod the driver for an interface while sockets with
-setsockopt(JOIN_ANYCAST) are alive, some refcounts aren't cleaned up
-and we get stuck on:
+On Wed, Sep 10, 2014 at 5:23 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Di, 2014-09-09 at 16:52 -0700, Cong Wang wrote:
+>> +     in6_dev_hold(idev);
+>
+> Please move this in6_dev_hold down to where it gets attached to the
+> ifacaddr6 and remove the in6_dev_put from below the out: label.
 
-  unregister_netdevice: waiting for ens3 to become free. Usage count = 1
 
-If we LEAVE_ANYCAST/close everything before rmmod'ing, there is no
-problem.
+I thought it is for idev->lock in case of idev becomes a wild pointer
+as well, but it seems its callers or at least RTNL should guarantee
+idev is still valid. So yeah, then we can probably move it down.
 
-We need to perform a cleanup similar to the one for multicast in
-addrconf_ifdown(how == 1).
+>
+>>       write_lock_bh(&idev->lock);
+>>       if (idev->dead) {
+>>               err = -ENODEV;
+>> @@ -267,7 +262,7 @@ int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr)
+>>       aca->aca_users = 1;
+>>       /* aca_tstamp should be updated upon changes */
+>>       aca->aca_cstamp = aca->aca_tstamp = jiffies;
+>> -     atomic_set(&aca->aca_refcnt, 2);
+>> +     atomic_set(&aca->aca_refcnt, 1);
+>>       spin_lock_init(&aca->aca_lock);
+>>
+>>       aca->aca_next = idev->ac_list;
+>> @@ -276,9 +271,7 @@ int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr)
+>>
+>>       ip6_ins_rt(rt);
+>>
+>> -     addrconf_join_solict(dev, &aca->aca_addr);
+>> -
+>> -     aca_put(aca);
+>
+> I am not sure why you changed the aca_refcnt code. idev->ac_list is only
+> protected by idev->lock and you publish one reference and unlock, thus
+> you need a second reference during addrconf_join_solict. All accesses
+> should also be protected by rtnl, so it shouldn't be a problem, but if
+> people review the code they might have problems to figure that out.
+> Maybe you can also remove the idev->lock?
+>
 
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
-v2: remove comment
+I was misled by the code, it is not easy to understand this since there
+is no comment. I will refactor the code to make it more readable and
+of course in a separated patch.
 
- include/net/addrconf.h |  1 +
- net/ipv6/addrconf.c    |  8 +++++---
- net/ipv6/anycast.c     | 21 +++++++++++++++++++++
- 3 files changed, 27 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index f679877bb601..ec51e673b4b6 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -204,6 +204,7 @@ void ipv6_sock_ac_close(struct sock *sk);
- 
- int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr);
- int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr);
-+void ipv6_ac_destroy_dev(struct inet6_dev *idev);
- bool ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
- 			 const struct in6_addr *addr);
- bool ipv6_chk_acast_addr_src(struct net *net, struct net_device *dev,
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index fc1fac2a0528..3342ee64f2e3 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3094,11 +3094,13 @@ static int addrconf_ifdown(struct net_device *dev, int how)
- 
- 	write_unlock_bh(&idev->lock);
- 
--	/* Step 5: Discard multicast list */
--	if (how)
-+	/* Step 5: Discard anycast and multicast list */
-+	if (how) {
-+		ipv6_ac_destroy_dev(idev);
- 		ipv6_mc_destroy_dev(idev);
--	else
-+	} else {
- 		ipv6_mc_down(idev);
-+	}
- 
- 	idev->tstamp = jiffies;
- 
-diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
-index ff2de7d9d8e6..9a386842fd62 100644
---- a/net/ipv6/anycast.c
-+++ b/net/ipv6/anycast.c
-@@ -351,6 +351,27 @@ static int ipv6_dev_ac_dec(struct net_device *dev, const struct in6_addr *addr)
- 	return __ipv6_dev_ac_dec(idev, addr);
- }
- 
-+void ipv6_ac_destroy_dev(struct inet6_dev *idev)
-+{
-+	struct ifacaddr6 *aca;
-+
-+	write_lock_bh(&idev->lock);
-+	while ((aca = idev->ac_list) != NULL) {
-+		idev->ac_list = aca->aca_next;
-+		write_unlock_bh(&idev->lock);
-+
-+		addrconf_leave_solict(idev, &aca->aca_addr);
-+
-+		dst_hold(&aca->aca_rt->dst);
-+		ip6_del_rt(aca->aca_rt);
-+
-+		aca_put(aca);
-+
-+		write_lock_bh(&idev->lock);
-+	}
-+	write_unlock_bh(&idev->lock);
-+}
-+
- /*
-  *	check if the interface has this anycast address
-  *	called with rcu_read_lock()
--- 
-2.1.0
+Thanks.
