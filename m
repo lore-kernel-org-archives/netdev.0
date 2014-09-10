@@ -1,37 +1,35 @@
-From: Robert Engels <rengels@optionscity.com>
-Subject: rtt vs. rcv_rtt
-Date: Wed, 10 Sep 2014 12:56:04 -0500
-Message-ID: <CA+q+rD3Z9JEW=4hyAutTxa9yk3mtR-yakUUU4o3sKrfMQkfh6w@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: linux-next: build failure after merge of the wireless-next tree
+Date: Wed, 10 Sep 2014 13:46:36 -0400
+Message-ID: <20140910174636.GB19950@tuxdriver.com>
+References: <20140908184253.74ff5470@canb.auug.org.au>
+ <20140910092819.7b0b0ae7@canb.auug.org.au>
+ <20140909.163733.1827908634029213952.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:54725 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734AbaIJR4G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 13:56:06 -0400
-Received: by mail-wi0-f181.google.com with SMTP id bs8so873144wib.8
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 10:56:05 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	herself@thefumon.com, linux@roeck-us.net, geert@linux-m68k.org,
+	broonie@kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140909.163733.1827908634029213952.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When using 'ss', both rtt, and rcv_rtt are reported.
+On Tue, Sep 09, 2014 at 04:37:33PM -0700, David Miller wrote:
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Wed, 10 Sep 2014 09:28:19 +1000
+> 
+> > Hi Dave,
+>  ...
+> > This fix patch is now needed in the net-next tree ...
+> 
+> Applied thanks Stephen.
 
-My understanding is that rcv_rtt is an estimate of the receivers rtt
-?? Is this true?
+Doh!  Sorry I missed that one...
 
-My assumption is that differences in rtt vs. rcv_rtt would be due to
-asymmetric networking connections ???
-
-Here is a sample 'ss' output:
-
-cubic wscale:2,9 rto:437 rtt:101.625/84 ato:40 cwnd:10 ssthresh:15
-send 991.9Kbps rcv_rtt:18291 rcv_space:151142
-
-Can someone explain why the rcv_rtt would be so much higher than the rtt?
-
-Is it that the client is not reading the data fast enough? Other reasons?
-
-Thanks so much for your help.
-
-Robert Engels
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
