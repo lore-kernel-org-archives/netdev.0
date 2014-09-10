@@ -1,54 +1,41 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH net-next] mac80211: Check correct skb for shared states
- before freeing original
-Date: Wed, 10 Sep 2014 22:33:07 +0200
-Message-ID: <1410381187.2761.10.camel@jlt4.sipsolutions.net>
-References: <20140910200442.15961.84466.stgit@ahduyck-bv4.jf.intel.com>
-	 (sfid-20140910_221517_589456_8B140F20)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	davem@davemloft.net, linville@tuxdriver.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:53309 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752717AbaIJUdT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 16:33:19 -0400
-In-Reply-To: <20140910200442.15961.84466.stgit@ahduyck-bv4.jf.intel.com> (sfid-20140910_221517_589456_8B140F20)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Beniamino Galvani <b.galvani@gmail.com>
+Subject: [PATCH v2 0/2] net: arc_emac: fix tx issues
+Date: Wed, 10 Sep 2014 22:50:01 +0200
+Message-ID: <1410382203-10395-1-git-send-email-b.galvani@gmail.com>
+Cc: Romain Perier <romain.perier@gmail.com>,
+	=?UTF-8?q?Heiko=20St=C3=BCbner?= <heiko@sntech.de>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Tobias Klauser <tklauser@distanz.ch>,
+	Jingoo Han <jg1.han@samsung.com>,
+	Max Schwarz <max.schwarz@online.de>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Beniamino Galvani <b.galvani@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-09-10 at 16:06 -0400, Alexander Duyck wrote:
-> The code for cloning the skb for an acknowledgement was checking to see if
-> the cloned skb was shared and if it was it was then freeing the original
-> skb.  Since a clone should never really be shared I suspect that the
-> intention was to avoid freeing the clone if the original was shared.  As
-> such I am updating the code so that if the original is shared we free the
-> original and use the clone.  This avoids unnecessary work in the next
-> section where we would be cloning the skb if the original is shared.
+Hi,
 
-Thanks, yeah, I admit that this is clearly fishy.
+the patches below solve some issues found in the tx ring reclaim
+strategy currently implemented in the arc_emac driver.
 
-> @@ -2087,7 +2087,7 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
->  			if (id >= 0) {
->  				info_id = id;
->  				info_flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
+Without these patches a simple outgoing UDP flow blocks almost
+immediately with the socket send buffer full, until some new rx
+packets trigger a clean of the tx ring.
 
-Luckily, we practically always go into this path.
+Everything seems to work fine on a Radxa Rock with this fix applied.
 
-> -			} else if (skb_shared(skb)) {
-> +			} else if (skb_shared(orig_skb)) {
->  				kfree_skb(orig_skb);
->  			} else {
->  				kfree_skb(skb);
+Changes since v1:
+ - reworded commit messages
 
-We have a clone already so we could just remove the whole "else if" I
-think, but I'm guessing my intent was to keep it accounted to the socket
-where possible rather than freeing the original in all cases.
+Beniamino Galvani (2):
+  net: arc_emac: enable tx interrupts
+  net: arc_emac: prevent reuse of unreclaimed tx descriptors
 
-So yeah, I think this makes sense. Maybe we should add a comment to the
-if though to explain this?
+ drivers/net/ethernet/arc/emac_main.c | 53 +++++++++++++++++++++++++-----------
+ 1 file changed, 37 insertions(+), 16 deletions(-)
 
-johannes
+-- 
+1.9.1
