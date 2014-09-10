@@ -1,34 +1,73 @@
-From: Robert Engels <rengels@optionscity.com>
-Subject: rtt vs. rcv_rtt ?
-Date: Wed, 10 Sep 2014 12:15:44 -0500
-Message-ID: <CA+q+rD1=ohtL5EkoXkSVS5A5ygop4ev3CoN=HOLNSrTPp7BtiA@mail.gmail.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [Patch net-next 4/5] ipv6: drop ipv6_sk_mc_lock in mcast
+Date: Wed, 10 Sep 2014 19:16:23 +0200
+Message-ID: <20140910171623.GA12299@kria>
+References: <1410306738-18036-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1410306738-18036-5-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:59528 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751109AbaIJRPp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 13:15:45 -0400
-Received: by mail-wi0-f169.google.com with SMTP id cc10so1349165wib.2
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 10:15:44 -0700 (PDT)
+Received: from smtp3-g21.free.fr ([212.27.42.3]:17725 "EHLO smtp3-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751715AbaIJRQa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2014 13:16:30 -0400
+Content-Disposition: inline
+In-Reply-To: <1410306738-18036-5-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using 'ss', both rtt, and rcv_rtt are reported.
+Hello,
 
-My understanding is that rcv_rtt is an estimate of the receivers rtt ?? Is
-this true? My assumption is that differences in rtt vs. rcv_rtt would be
-due to asymmetric networking connections ???
+2014-09-09, 16:52:17 -0700, Cong Wang wrote:
+> Similarly the code is already protected by rtnl lock.
+> 
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  net/ipv6/mcast.c | 18 ++----------------
+>  1 file changed, 2 insertions(+), 16 deletions(-)
+> 
+> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+> index 6833dd0..d2b7dd8 100644
+> --- a/net/ipv6/mcast.c
+> +++ b/net/ipv6/mcast.c
+> @@ -82,9 +82,6 @@ static void *__mld2_query_bugs[] __attribute__((__unused__)) = {
+>  
+>  static struct in6_addr mld2_all_mcr = MLD2_ALL_MCR_INIT;
+>  
+> -/* Big mc list lock for all the sockets */
+> -static DEFINE_SPINLOCK(ipv6_sk_mc_lock);
+> -
 
-Here is a sample 'ss' output:
+Just a small thing: there are a few comments in the file that still
+refer to this lock (as ipv6_sk_mc_lock or ip6_sk_mc_lock):
 
- cubic wscale:2,9 rto:437 rtt:101.625/84 ato:40 cwnd:10 ssthresh:15 send
-991.9Kbps rcv_rtt:18291 rcv_space:151142
+--
+	/*
+	 * changes to the ipv6_mc_list require the socket lock and
+	 * a read lock on ip6_sk_mc_lock. We have the socket lock,
+	 * so reading the list is safe.
+	 */
+--
+	/* changes to psl require the socket lock, a read lock on
+	 * on ipv6_sk_mc_lock and a write lock on pmc->sflock. We
+	 * have the socket lock, so reading here is safe.
+	 */
+--
+	/* callers have the socket lock and a write lock on ipv6_sk_mc_lock,
+	 * so no other readers or writers of iml or its sflist
+	 */
+--
 
-Can someone explain why the rcv_rtt would be so much higher than the rtt?
-Is it that the client is not reading the data fast enough? Other reasons?
+If you submit a v2 of this patchset, you could update them. Otherwise,
+I'll do it later.
 
-Thanks so much for your help.
 
-Robert Engels
+Thanks,
+
+-- 
+Sabrina
