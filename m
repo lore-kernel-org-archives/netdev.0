@@ -1,80 +1,30 @@
-From: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Subject: [Patch v3 net-next 10/12] net: fec: init complete variable in early to avoid kernel dump
-Date: Thu, 11 Sep 2014 02:30:43 +0800
-Message-ID: <1410373845-5801-11-git-send-email-Frank.Li@freescale.com>
-References: <1410373845-5801-1-git-send-email-Frank.Li@freescale.com>
+From: Zhi Li <lznuaa@gmail.com>
+Subject: Re: [Patch v3 net-next 00/12] net: fec: imx6sx multiqueue support
+Date: Wed, 10 Sep 2014 13:55:51 -0500
+Message-ID: <CAHrpEqTOcLFcJMs54BEixf2sU3NJJO-m5fDnt+4N0ae-uLcZoA@mail.gmail.com>
+References: <54109e51.65d4440a.594b.6b4bSMTPIN_ADDED_BROKEN@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1410373845-5801-1-git-send-email-Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Duan Fugang-B38611 <b38611@freescale.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Frank Li <Frank.Li@freescale.com>
+To: yes@shlinux1.ap.freescale.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:42788 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753250AbaIJSzx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 14:55:53 -0400
+In-Reply-To: <54109e51.65d4440a.594b.6b4bSMTPIN_ADDED_BROKEN@mx.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-
-Software clear the MDIO interrupt before MDIO bus access, but
-MAC still generate MDIO interrupt. The issue only happen on
-imx6slx chip.
-
-CPU: 0 PID: 1 Comm: swapper/0 Not tainted 3.17.0-rc1-00399-g0bcad17 #315
-Backtrace:
-[<800121fc>] (dump_backtrace) from [<800124e0>] (show_stack+0x18/0x1c)
- r6:8096e534 r5:8096e534 r4:00000000 r3:00000000
-[<800124c8>] (show_stack) from [<806a4c60>] (dump_stack+0x8c/0xa4)
-[<806a4bd4>] (dump_stack) from [<80060ab8>] (__lock_acquire+0x1814/0x1c40)
- r6:be078000 r5:be074000 r4:be03f6e4 r3:be078000
-[<8005f2a4>] (__lock_acquire) from [<800616e0>] (lock_acquire+0x70/0x84)
- r10:809ada33 r9:be010600 r8:00000096 r7:00000001 r6:be074000 r5:00000000
- r4:60000193
-[<80061670>] (lock_acquire) from [<806abb20>] (_raw_spin_lock_irqsave+0x40/0x54)
- r7:00000000 r6:8005a3f8 r5:00000193 r4:be03f6d4
-[<806abae0>] (_raw_spin_lock_irqsave) from [<8005a3f8>] (complete+0x1c/0x4c)
- r6:80950904 r5:be03f6d0 r4:be03f6d4
-[<8005a3dc>] (complete) from [<8041b4c0>] (fec_enet_interrupt+0x128/0x164)
- r6:80950904 r5:00800000 r4:be03f000 r3:00000000
-[<8041b398>] (fec_enet_interrupt) from [<8006aeac>] (handle_irq_event_percpu+0x38/0x13c)
- r6:00000000 r5:be01065c r4:be399e00 r3:8041b398
-[<8006ae74>] (handle_irq_event_percpu) from [<8006aff4>] (handle_irq_event+0x44/0x64)
- r10:be03f000 r9:80989fe0 r8:00000000 r7:00000096 r6:be399e00 r5:be01065c
- r4:be010600
-[<8006afb0>] (handle_irq_event) from [<8006e3e8>] (handle_fasteoi_irq+0xc8/0x1bc)
- r6:8096e764 r5:be01065c r4:be010600 r3:00000000
-[<8006e320>] (handle_fasteoi_irq) from [<8006a63c>] (generic_handle_irq+0x30/0x44)
- r6:be074010 r5:80945e4c r4:00000096 r3:8006e320
-[<8006a60c>] (generic_handle_irq) from [<8000f218>] (handle_IRQ+0x54/0xbc)
- r4:80950d74 r3:00000180
-[<8000f1c4>] (handle_IRQ) from [<800086cc>] (gic_handle_irq+0x30/0x68)
- r8:be3ab478 r7:c080e100 r6:be075bd8 r5:80950eec r4:c080e10c r3:000000a0
-[<8000869c>] (gic_handle_irq) from [<80013064>] (__irq_svc+0x44/0x5c)
-
-Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
----
- drivers/net/ethernet/freescale/fec_main.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 8043cd7..31ae795 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -3066,6 +3066,7 @@ fec_probe(struct platform_device *pdev)
- 			goto failed_irq;
- 	}
- 
-+	init_completion(&fep->mdio_done);
- 	ret = fec_enet_mii_init(pdev);
- 	if (ret)
- 		goto failed_mii_init;
--- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Wed, Sep 10, 2014 at 1:30 PM,  <yes@shlinux1.ap.freescale.net> wrote:
+>
+>
+Sorry again, use wrong sender email address.
