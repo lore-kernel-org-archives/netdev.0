@@ -1,87 +1,67 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v11 net-next 00/12] eBPF syscall, verifier, testsuite
-Date: Wed, 10 Sep 2014 11:21:01 +0200
-Message-ID: <541017FD.1030308@redhat.com>
-References: <1410325808-3657-1-git-send-email-ast@plumgrid.com>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: iwlwifi no authentication with AP - Re: pull request: wireless-next
+ 2014-09-08
+Date: Wed, 10 Sep 2014 11:23:20 +0200
+Message-ID: <54101888.8080601@hartkopp.net>
+References: <20140908191630.GB29412@tuxdriver.com>	<540F5927.7000306@hartkopp.net>	<CANUX_P3n0v1SzfbYuaAsE4TY7Hz_wo2Fb9SmHVNyFOC9hDhwdg@mail.gmail.com>	<540F61D0.9000704@hartkopp.net>	<CAMw6YJLeO1JZeY6hNe-TXOS56b-otk+htt5VPPor+9iYCQz53Q@mail.gmail.com>	<540FDB3C.6060301@hartkopp.net>	<CANUX_P3kOetqEneHgqoCDN4c85SQYD-G=mQj_o1c_TvKmE5psA@mail.gmail.com> <CAMw6YJKgVVnDrn1X7atemC1r9kwvsr3PQDs4qx5KDeeNy-P3VA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linuxfoundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linuxfoundation.org>,
-	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4784 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751220AbaIJJVi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 05:21:38 -0400
-In-Reply-To: <1410325808-3657-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Vadim Kochan <vadim4j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMw6YJKgVVnDrn1X7atemC1r9kwvsr3PQDs4qx5KDeeNy-P3VA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 09/10/2014 07:09 AM, Alexei Starovoitov wrote:
-....
-> BPF(2)                     Linux Programmer's Manual                    BPF(2)
-...
->         union bpf_attr {
->             struct { /* anonymous struct used by BPF_MAP_CREATE command */
->                 enum bpf_map_type map_type;
->                 __u32             key_size;    /* size of key in bytes */
->                 __u32             value_size;  /* size of value in bytes */
->                 __u32             max_entries; /* max number of entries in a map */
->             };
->
->             struct { /* anonymous struct used by BPF_MAP_*_ELEM commands */
->                 int map_fd;
->                 void *key;
->                 union {
->                     void *value;
->                     void *next_key;
->                 };
+Hi all,
 
-When you pass in these structs with pointers in it to other user space
-buffers, how do you handle this with mixed 32/64 bit user/kernel space?
+yes for me too.
 
-As an example, for the current way to load BPF although we export ...
+Although I only could test it here with my mobile hotspot which only supports
+WEP ... but before that hotspot was not working too.
 
-struct sock_fprog {
-	unsigned short len;
-	struct sock_filter __user *filter;
-};
+I'll check with my WPA2 setup again when I'm back home (if it's still needed).
 
-... through uapi, we still need to handle this via compat_sock_fprog
-to take care of different pointer sizes via compat_uptr_t :
+So far feel free to add my
 
-#ifdef CONFIG_COMPAT
-struct compat_sock_fprog {
-	u16 len;
-	compat_uptr_t filter;
-};
-#endif
+Reported-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Tested-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
 
-Perhaps I'm missing something, but I think, that would currently break in
-your syscall handler, no?
+Many thanks for your quick reaction!
 
->             };
->
->             struct { /* anonymous struct used by BPF_PROG_LOAD command */
->                 enum bpf_prog_type    prog_type;
->                 __u32                 insn_cnt;
->                 const struct bpf_insn *insns;
->                 const char            *license;
->                 __u32                 log_level; /* verbosity level of eBPF verifier */
->                 __u32                 log_size;  /* size of user buffer */
->                 void                  *log_buf;  /* user supplied buffer */
->             };
->         };
+Best regards,
+Oliver
+
+On 10.09.2014 11:16, Vadim Kochan wrote:
+> Hi,
+> 
+> Your patch works for me.
+> 
+> On Wed, Sep 10, 2014 at 11:24 AM, Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> On Wed, Sep 10, 2014 at 8:01 AM, Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org> wrote:
+>>> On 10.09.2014 00:07, Vadim Kochan wrote:
+>>>> I have the same issue with iwlwifi.
+>>>
+>>> I tried an old zd1211 wireless USB stick to check if this problem is 80211
+>>> related. But the USB stick works fine (I'm using it right now).
+>>> So its definitely looks like an iwlwifi issue.
+>>>
+>>>> iwlwifi 0000:02:00.0: fail to flush all tx fifo queues Q 0
+>>>
+>>> Wasn't there any change in the iwlwifi tx path recently??
+>>
+>> Can you please try the patch attached? It works for me.
+>>
+>>>
+>>> Regards,
+>>> Oliver
+>>>
+>>>>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
