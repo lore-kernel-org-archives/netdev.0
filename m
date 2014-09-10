@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Documentation: filter: Add MIPS to architectures with
- BPF JIT
-Date: Wed, 10 Sep 2014 15:24:43 -0700 (PDT)
-Message-ID: <20140910.152443.984430479125792540.davem@davemloft.net>
-References: <1409322218-3689-1-git-send-email-markos.chandras@imgtec.com>
-	<1410357104-30490-1-git-send-email-markos.chandras@imgtec.com>
+Subject: Re: [PATCH net-next v2 0/2] sunvnet: Reduce LDC message overhead.
+Date: Wed, 10 Sep 2014 15:25:28 -0700 (PDT)
+Message-ID: <20140910.152528.391406680350942661.davem@davemloft.net>
+References: <20140904.223724.206826043871814498.davem@davemloft.net>
+	<20140908143802.GF31377@oracle.com>
+	<20140910140434.GA14466@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdunlap@infradead.org, dborkman@redhat.com,
-	ast@plumgrid.com, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: markos.chandras@imgtec.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1410357104-30490-1-git-send-email-markos.chandras@imgtec.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43904 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751754AbaIJWZ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 18:25:28 -0400
+In-Reply-To: <20140910140434.GA14466@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markos Chandras <markos.chandras@imgtec.com>
-Date: Wed, 10 Sep 2014 14:51:44 +0100
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Wed, 10 Sep 2014 10:04:34 -0400
 
-> MIPS supports BPF JIT since v3.16-rc1
-> 
-> Cc: Randy Dunlap <rdunlap@infradead.org>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-> Cc: linux-doc@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Acked-by: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
+> Excuse me if I am missing something obvious, but what was the 
+> verdict on this? Is there any additional clarification/information 
+> I can provide, if this is being mulled over? 
 
-Applied, thank you.
+After the memory barrier stuff has been sorted out, the patches
+should be submitted again for review.
+
+But I was under the impression that for now we weren't going to
+be doing the new udelay() things, which defers patch #2 for now.
