@@ -1,27 +1,22 @@
-From: <yes@shlinux1.ap.freescale.net>
+From: <yes-KgLukfWpBlCctlrPMvKcciBecyulp+rMXqFh9Ls21Oc@public.gmane.org>
 Subject: [Patch v3 net-next 04/12] net: fec: parser max queue number from dt file
 Date: Thu, 11 Sep 2014 02:30:05 +0800
-Message-ID: <2797.21666961468$1410375282@news.gmane.org>
+Message-ID: <44121.1959733211$1410375284@news.gmane.org>
 References: <1410373813-5731-1-git-send-email-yes>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, <linux@arm.linux.org.uk>,
-	Fugang Duan <B38611@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>
-To: <b38611@freescale.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bn0100.outbound.protection.outlook.com ([157.56.110.100]:20633
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753043AbaIJSyX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 14:54:23 -0400
+Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <1410373813-5731-1-git-send-email-yes>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Fugang Duan <B38611@freescale.com>
+From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 
 By default, the tx/rx queue number is 1, user can config the queue number
 at DTS file like this:
@@ -31,8 +26,8 @@ at DTS file like this:
 Since i.MX6SX enet-AVB IP support multi queues, so use multi queues
 interface to allocate and set up an Ethernet device.
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
+Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 ---
  drivers/net/ethernet/freescale/fec.h      |  2 ++
  drivers/net/ethernet/freescale/fec_main.c | 46 ++++++++++++++++++++++++++++++-
@@ -130,3 +125,8 @@ index 4c0d2ee..2240df0 100644
  	if (pdev->id_entry &&
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
