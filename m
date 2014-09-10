@@ -1,46 +1,40 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 0/5] Allow FW size upto 1MB, support for S25FL032P flash and misc. fixes
-Date: Wed, 10 Sep 2014 17:44:26 +0530
-Message-ID: <1410351271-26428-1-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 1/5] cxgb4: Allow T4/T5 firmware sizes up to 1MB
+Date: Wed, 10 Sep 2014 17:44:27 +0530
+Message-ID: <1410351271-26428-2-git-send-email-hariprasad@chelsio.com>
+References: <1410351271-26428-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	kumaras@chelsio.com, anish@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:42766
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:42769
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751013AbaIJMIz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 08:08:55 -0400
+	by vger.kernel.org with ESMTP id S1750882AbaIJMI6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 08:08:58 -0400
+In-Reply-To: <1410351271-26428-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Based on original work by Casey Leedom <leedom@chelsio.com>
 
-This patch series adds support to allow FW size upto 1MB, support for S25FL032P
-flash. Fix t4_flash_erase_sectors to throw an error, when erase sector aren't in
-the flash and also warning message when adapters have flashes less than 2Mb.
-Adds device id of new adapter and removes device id of debug adapter.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-The patches series is created against 'net-next' tree.
-And includes patches on cxgb4 driver and cxgb4vf driver.
-
-We have included all the maintainers of respective drivers. Kindly review the
-change and let us know in case of any review comments.
-
-Thanks
-
-Hariprasad Shenai (5):
-  cxgb4: Allow T4/T5 firmware sizes up to 1MB
-  cxgb4: Add support to S25FL032P flash
-  cxgb4: Fix t4_flash_erase_sectors() to throw an error when requested
-    to erase sectors which aren't in the FLASH
-  cxgb4: Add warning msg when attaching to adapters which have FLASHes
-    smaller than 2Mb
-  cxgb4/cxgb4vf: Add device ID for new adapter and remove for dbg
-    adapter
-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |    2 +
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |   27 ++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.h         |    8 +++++-
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    3 +-
- 4 files changed, 37 insertions(+), 3 deletions(-)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
+index 35e3d8e..06fa583 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
+@@ -175,7 +175,7 @@ enum {
+ 	 * Location of firmware image in FLASH.
+ 	 */
+ 	FLASH_FW_START_SEC = 8,
+-	FLASH_FW_NSECS = 8,
++	FLASH_FW_NSECS = 16,
+ 	FLASH_FW_START = FLASH_START(FLASH_FW_START_SEC),
+ 	FLASH_FW_MAX_SIZE = FLASH_MAX_SIZE(FLASH_FW_NSECS),
+ 
+-- 
+1.7.1
