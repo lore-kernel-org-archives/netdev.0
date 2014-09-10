@@ -1,133 +1,227 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [Patch net-next 3/5] ipv6: clean up ipv6_dev_ac_inc()
-Date: Wed, 10 Sep 2014 14:23:35 +0200
-Message-ID: <1410351815.3135.14.camel@localhost>
-References: <1410306738-18036-1-git-send-email-xiyou.wangcong@gmail.com>
-	 <1410306738-18036-4-git-send-email-xiyou.wangcong@gmail.com>
+From: Ilya Dryomov <ilya.dryomov@inktank.com>
+Subject: Re: [PATCH net-next 2/5] ceph: Convert pr_warning to pr_warn
+Date: Wed, 10 Sep 2014 16:30:48 +0400
+Message-ID: <CALFYKtBsETt-PPmENUtKZuypqMH0rF2+ZOm0Dv0jWn1_yutFhA@mail.gmail.com>
+References: <cover.1410322181.git.joe@perches.com>
+	<714b7551f5a6ea5e721fed705568a39eeae4623b.1410322181.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:49692 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750850AbaIJMXj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 08:23:39 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by gateway2.nyi.internal (Postfix) with ESMTP id E9859207B8
-	for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 08:23:37 -0400 (EDT)
-In-Reply-To: <1410306738-18036-4-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Sage Weil <sage@inktank.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ceph Development <ceph-devel@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <714b7551f5a6ea5e721fed705568a39eeae4623b.1410322181.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Di, 2014-09-09 at 16:52 -0700, Cong Wang wrote:
-> Make it accept inet6_dev, and rename it to __ipv6_dev_ac_inc()
-> to reflect this change.
-> 
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+On Wed, Sep 10, 2014 at 8:17 AM, Joe Perches <joe@perches.com> wrote:
+> Use the more common pr_warn.
+>
+> Other miscellanea:
+>
+> o Coalesce formats
+> o Realign arguments
+>
+> Signed-off-by: Joe Perches <joe@perches.com>
 > ---
->  include/net/addrconf.h |  2 +-
->  net/ipv6/addrconf.c    |  2 +-
->  net/ipv6/anycast.c     | 17 +++++------------
->  3 files changed, 7 insertions(+), 14 deletions(-)
-> 
-> diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-> index f679877..9b1d42e 100644
-> --- a/include/net/addrconf.h
-> +++ b/include/net/addrconf.h
-> @@ -202,7 +202,7 @@ int ipv6_sock_ac_drop(struct sock *sk, int ifindex,
->  		      const struct in6_addr *addr);
->  void ipv6_sock_ac_close(struct sock *sk);
->  
-> -int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr);
-> +int __ipv6_dev_ac_inc(struct inet6_dev *idev, const struct in6_addr *addr);
->  int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr);
->  bool ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
->  			 const struct in6_addr *addr);
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index ad4598f..6b6a373 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -1725,7 +1725,7 @@ static void addrconf_join_anycast(struct inet6_ifaddr *ifp)
->  	ipv6_addr_prefix(&addr, &ifp->addr, ifp->prefix_len);
->  	if (ipv6_addr_any(&addr))
->  		return;
-> -	ipv6_dev_ac_inc(ifp->idev->dev, &addr);
-> +	__ipv6_dev_ac_inc(ifp->idev, &addr);
->  }
->  
->  /* caller must hold RTNL */
-> diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
-> index d10f2e2..bec8d14 100644
-> --- a/net/ipv6/anycast.c
-> +++ b/net/ipv6/anycast.c
-> @@ -122,7 +122,7 @@ int ipv6_sock_ac_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
->  			goto error;
->  	}
->  
-> -	err = ipv6_dev_ac_inc(dev, addr);
-> +	err = __ipv6_dev_ac_inc(idev, addr);
->  	if (!err) {
->  		pac->acl_next = np->ipv6_ac_list;
->  		np->ipv6_ac_list = pac;
-> @@ -215,20 +215,15 @@ static void aca_put(struct ifacaddr6 *ac)
->  /*
->   *	device anycast group inc (add if not found)
+>  net/ceph/ceph_common.c | 15 +++++++++------
+>  net/ceph/messenger.c   | 19 ++++++++++---------
+>  net/ceph/osd_client.c  | 15 +++++++--------
+>  net/ceph/osdmap.c      | 20 ++++++++++----------
+>  4 files changed, 36 insertions(+), 33 deletions(-)
+>
+> diff --git a/net/ceph/ceph_common.c b/net/ceph/ceph_common.c
+> index 1675021..58fbfe1 100644
+> --- a/net/ceph/ceph_common.c
+> +++ b/net/ceph/ceph_common.c
+> @@ -293,17 +293,20 @@ static int get_secret(struct ceph_crypto_key *dst, const char *name) {
+>                 key_err = PTR_ERR(ukey);
+>                 switch (key_err) {
+>                 case -ENOKEY:
+> -                       pr_warning("ceph: Mount failed due to key not found: %s\n", name);
+> +                       pr_warn("ceph: Mount failed due to key not found: %s\n",
+> +                               name);
+>                         break;
+>                 case -EKEYEXPIRED:
+> -                       pr_warning("ceph: Mount failed due to expired key: %s\n", name);
+> +                       pr_warn("ceph: Mount failed due to expired key: %s\n",
+> +                               name);
+>                         break;
+>                 case -EKEYREVOKED:
+> -                       pr_warning("ceph: Mount failed due to revoked key: %s\n", name);
+> +                       pr_warn("ceph: Mount failed due to revoked key: %s\n",
+> +                               name);
+>                         break;
+>                 default:
+> -                       pr_warning("ceph: Mount failed due to unknown key error"
+> -                              " %d: %s\n", key_err, name);
+> +                       pr_warn("ceph: Mount failed due to unknown key error %d: %s\n",
+> +                               key_err, name);
+>                 }
+>                 err = -EPERM;
+>                 goto out;
+> @@ -433,7 +436,7 @@ ceph_parse_options(char *options, const char *dev_name,
+>
+>                         /* misc */
+>                 case Opt_osdtimeout:
+> -                       pr_warning("ignoring deprecated osdtimeout option\n");
+> +                       pr_warn("ignoring deprecated osdtimeout option\n");
+>                         break;
+>                 case Opt_osdkeepalivetimeout:
+>                         opt->osd_keepalive_timeout = intval;
+> diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
+> index b2f571d..a7203be 100644
+> --- a/net/ceph/messenger.c
+> +++ b/net/ceph/messenger.c
+> @@ -1937,11 +1937,11 @@ static int process_banner(struct ceph_connection *con)
+>                    sizeof(con->peer_addr)) != 0 &&
+>             !(addr_is_blank(&con->actual_peer_addr.in_addr) &&
+>               con->actual_peer_addr.nonce == con->peer_addr.nonce)) {
+> -               pr_warning("wrong peer, want %s/%d, got %s/%d\n",
+> -                          ceph_pr_addr(&con->peer_addr.in_addr),
+> -                          (int)le32_to_cpu(con->peer_addr.nonce),
+> -                          ceph_pr_addr(&con->actual_peer_addr.in_addr),
+> -                          (int)le32_to_cpu(con->actual_peer_addr.nonce));
+> +               pr_warn("wrong peer, want %s/%d, got %s/%d\n",
+> +                       ceph_pr_addr(&con->peer_addr.in_addr),
+> +                       (int)le32_to_cpu(con->peer_addr.nonce),
+> +                       ceph_pr_addr(&con->actual_peer_addr.in_addr),
+> +                       (int)le32_to_cpu(con->actual_peer_addr.nonce));
+>                 con->error_msg = "wrong peer at address";
+>                 return -1;
+>         }
+> @@ -2302,7 +2302,7 @@ static int read_partial_message(struct ceph_connection *con)
+>
+>                 BUG_ON(!con->in_msg ^ skip);
+>                 if (con->in_msg && data_len > con->in_msg->data_length) {
+> -                       pr_warning("%s skipping long message (%u > %zd)\n",
+> +                       pr_warn("%s skipping long message (%u > %zd)\n",
+>                                 __func__, data_len, con->in_msg->data_length);
+>                         ceph_msg_put(con->in_msg);
+>                         con->in_msg = NULL;
+> @@ -2712,7 +2712,7 @@ static bool con_sock_closed(struct ceph_connection *con)
+>         CASE(OPEN);
+>         CASE(STANDBY);
+>         default:
+> -               pr_warning("%s con %p unrecognized state %lu\n",
+> +               pr_warn("%s con %p unrecognized state %lu\n",
+>                         __func__, con, con->state);
+>                 con->error_msg = "unrecognized con state";
+>                 BUG();
+> @@ -2828,8 +2828,9 @@ static void con_work(struct work_struct *work)
 >   */
-> -int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr)
-> +int __ipv6_dev_ac_inc(struct inet6_dev *idev, const struct in6_addr *addr)
+>  static void con_fault(struct ceph_connection *con)
 >  {
->  	struct ifacaddr6 *aca;
-> -	struct inet6_dev *idev;
->  	struct rt6_info *rt;
->  	int err;
->  
->  	ASSERT_RTNL();
->  
-> -	idev = in6_dev_get(dev);
-> -
-> -	if (idev == NULL)
-> -		return -EINVAL;
-> -
-> +	in6_dev_hold(idev);
+> -       pr_warning("%s%lld %s %s\n", ENTITY_NAME(con->peer_name),
+> -              ceph_pr_addr(&con->peer_addr.in_addr), con->error_msg);
+> +       pr_warn("%s%lld %s %s\n",
+> +               ENTITY_NAME(con->peer_name),
+> +               ceph_pr_addr(&con->peer_addr.in_addr), con->error_msg);
+>         dout("fault %p state %lu to peer %s\n",
+>              con, con->state, ceph_pr_addr(&con->peer_addr.in_addr));
+>
+> diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
+> index 30f6faf..8ebb748 100644
+> --- a/net/ceph/osd_client.c
+> +++ b/net/ceph/osd_client.c
+> @@ -1774,8 +1774,8 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
+>         }
+>         bytes = le32_to_cpu(msg->hdr.data_len);
+>         if (payload_len != bytes) {
+> -               pr_warning("sum of op payload lens %d != data_len %d",
+> -                          payload_len, bytes);
+> +               pr_warn("sum of op payload lens %d != data_len %d\n",
+> +                       payload_len, bytes);
+>                 goto bad_put;
+>         }
+>
+> @@ -2797,10 +2797,10 @@ static struct ceph_msg *get_reply(struct ceph_connection *con,
+>         ceph_msg_revoke_incoming(req->r_reply);
+>
+>         if (front_len > req->r_reply->front_alloc_len) {
+> -               pr_warning("get_reply front %d > preallocated %d (%u#%llu)\n",
+> -                          front_len, req->r_reply->front_alloc_len,
+> -                          (unsigned int)con->peer_name.type,
+> -                          le64_to_cpu(con->peer_name.num));
+> +               pr_warn("get_reply front %d > preallocated %d (%u#%llu)\n",
+> +                       front_len, req->r_reply->front_alloc_len,
+> +                       (unsigned int)con->peer_name.type,
+> +                       le64_to_cpu(con->peer_name.num));
+>                 m = ceph_msg_new(CEPH_MSG_OSD_OPREPLY, front_len, GFP_NOFS,
+>                                  false);
+>                 if (!m)
+> @@ -2823,8 +2823,7 @@ static struct ceph_msg *get_reply(struct ceph_connection *con,
+>                         if (osd_data->pages &&
+>                                 unlikely(osd_data->length < data_len)) {
+>
+> -                               pr_warning("tid %lld reply has %d bytes "
+> -                                       "we had only %llu bytes ready\n",
+> +                               pr_warn("tid %lld reply has %d bytes we had only %llu bytes ready\n",
+>                                         tid, data_len, osd_data->length);
+>                                 *skip = 1;
+>                                 ceph_msg_put(m);
+> diff --git a/net/ceph/osdmap.c b/net/ceph/osdmap.c
+> index c547e46..ae5a507 100644
+> --- a/net/ceph/osdmap.c
+> +++ b/net/ceph/osdmap.c
+> @@ -521,11 +521,11 @@ static int decode_pool(void **p, void *end, struct ceph_pg_pool_info *pi)
+>         ev = ceph_decode_8(p);  /* encoding version */
+>         cv = ceph_decode_8(p); /* compat version */
+>         if (ev < 5) {
+> -               pr_warning("got v %d < 5 cv %d of ceph_pg_pool\n", ev, cv);
+> +               pr_warn("got v %d < 5 cv %d of ceph_pg_pool\n", ev, cv);
+>                 return -EINVAL;
+>         }
+>         if (cv > 9) {
+> -               pr_warning("got v %d cv %d > 9 of ceph_pg_pool\n", ev, cv);
+> +               pr_warn("got v %d cv %d > 9 of ceph_pg_pool\n", ev, cv);
+>                 return -EINVAL;
+>         }
+>         len = ceph_decode_32(p);
+> @@ -729,9 +729,9 @@ static int get_osdmap_client_data_v(void **p, void *end,
+>
+>                 ceph_decode_8_safe(p, end, struct_compat, e_inval);
+>                 if (struct_compat > OSDMAP_WRAPPER_COMPAT_VER) {
+> -                       pr_warning("got v %d cv %d > %d of %s ceph_osdmap\n",
+> -                                  struct_v, struct_compat,
+> -                                  OSDMAP_WRAPPER_COMPAT_VER, prefix);
+> +                       pr_warn("got v %d cv %d > %d of %s ceph_osdmap\n",
+> +                               struct_v, struct_compat,
+> +                               OSDMAP_WRAPPER_COMPAT_VER, prefix);
+>                         return -EINVAL;
+>                 }
+>                 *p += 4; /* ignore wrapper struct_len */
+> @@ -739,9 +739,9 @@ static int get_osdmap_client_data_v(void **p, void *end,
+>                 ceph_decode_8_safe(p, end, struct_v, e_inval);
+>                 ceph_decode_8_safe(p, end, struct_compat, e_inval);
+>                 if (struct_compat > OSDMAP_CLIENT_DATA_COMPAT_VER) {
+> -                       pr_warning("got v %d cv %d > %d of %s ceph_osdmap client data\n",
+> -                                  struct_v, struct_compat,
+> -                                  OSDMAP_CLIENT_DATA_COMPAT_VER, prefix);
+> +                       pr_warn("got v %d cv %d > %d of %s ceph_osdmap client data\n",
+> +                               struct_v, struct_compat,
+> +                               OSDMAP_CLIENT_DATA_COMPAT_VER, prefix);
+>                         return -EINVAL;
+>                 }
+>                 *p += 4; /* ignore client data struct_len */
+> @@ -751,8 +751,8 @@ static int get_osdmap_client_data_v(void **p, void *end,
+>                 *p -= 1;
+>                 ceph_decode_16_safe(p, end, version, e_inval);
+>                 if (version < 6) {
+> -                       pr_warning("got v %d < 6 of %s ceph_osdmap\n", version,
+> -                                  prefix);
+> +                       pr_warn("got v %d < 6 of %s ceph_osdmap\n",
+> +                               version, prefix);
+>                         return -EINVAL;
+>                 }
+>
+> --
+> 1.8.1.2.459.gbcd45b4.dirty
 
-Please move this in6_dev_hold down to where it gets attached to the
-ifacaddr6 and remove the in6_dev_put from below the out: label.
-
->  	write_lock_bh(&idev->lock);
->  	if (idev->dead) {
->  		err = -ENODEV;
-> @@ -267,7 +262,7 @@ int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr)
->  	aca->aca_users = 1;
->  	/* aca_tstamp should be updated upon changes */
->  	aca->aca_cstamp = aca->aca_tstamp = jiffies;
-> -	atomic_set(&aca->aca_refcnt, 2);
-> +	atomic_set(&aca->aca_refcnt, 1);
->  	spin_lock_init(&aca->aca_lock);
->  
->  	aca->aca_next = idev->ac_list;
-> @@ -276,9 +271,7 @@ int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr)
->  
->  	ip6_ins_rt(rt);
->  
-> -	addrconf_join_solict(dev, &aca->aca_addr);
-> -
-> -	aca_put(aca);
-
-I am not sure why you changed the aca_refcnt code. idev->ac_list is only
-protected by idev->lock and you publish one reference and unlock, thus
-you need a second reference during addrconf_join_solict. All accesses
-should also be protected by rtnl, so it shouldn't be a problem, but if
-people review the code they might have problems to figure that out.
-Maybe you can also remove the idev->lock?
-
-> +	addrconf_join_solict(idev->dev, &aca->aca_addr);
->  	return 0;
->  out:
->  	write_unlock_bh(&idev->lock);
+Looks good.  I'll take it though ceph tree to avoid possible conflicts?
 
 Thanks,
-Hannes
+
+                Ilya
