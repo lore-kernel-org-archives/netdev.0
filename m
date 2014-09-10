@@ -1,181 +1,132 @@
 From: <yes@shlinux1.ap.freescale.net>
-Subject: [Patch v3 net-next 07/12] net: fec: add enet-avb IP support
-Date: Thu, 11 Sep 2014 02:30:08 +0800
-Message-ID: <39312.7950876535$1410375282@news.gmane.org>
+Subject: [Patch v3 net-next 04/12] net: fec: parser max queue number from dt file
+Date: Thu, 11 Sep 2014 02:30:05 +0800
+Message-ID: <2797.21666961468$1410375282@news.gmane.org>
 References: <1410373813-5731-1-git-send-email-yes>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
 	<devicetree@vger.kernel.org>, <linux@arm.linux.org.uk>,
-	Frank Li <Frank.Li@freescale.com>,
-	Fugang Duan <B38611@freescale.com>
+	Fugang Duan <B38611@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>
 To: <b38611@freescale.com>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0063.outbound.protection.outlook.com ([157.56.111.63]:61792
+Received: from mail-bn1bn0100.outbound.protection.outlook.com ([157.56.110.100]:20633
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753067AbaIJSyO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 14:54:14 -0400
+	id S1753043AbaIJSyX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2014 14:54:23 -0400
 In-Reply-To: <1410373813-5731-1-git-send-email-yes>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <Frank.Li@freescale.com>
+From: Fugang Duan <B38611@freescale.com>
 
-i.MX6SX Enet-AVB support 3 tx queues, 3 rx queues.
-For tx queues: ring 0 -> best effort
-	       ring 1 -> Class A
-	       ring 2 -> Class B
-For rx queues:
-	       ring 0 -> best effort
-	       ring 1 -> receive VLAN packet with classification match
-	       ring 2 -> receive VLAN packet with classification match
+By default, the tx/rx queue number is 1, user can config the queue number
+at DTS file like this:
+	fsl,num-tx-queues=<3>;
+	fsl,num-rx-queues=<3>
 
-Add enet-avb IP multiqueue support for the driver.
+Since i.MX6SX enet-AVB IP support multi queues, so use multi queues
+interface to allocate and set up an Ethernet device.
 
 Signed-off-by: Fugang Duan <B38611@freescale.com>
 Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- drivers/net/ethernet/freescale/fec.h      | 33 ++++++++++++++++++++++++++++
- drivers/net/ethernet/freescale/fec_main.c | 36 +++++++++++++++----------------
- 2 files changed, 51 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/freescale/fec.h      |  2 ++
+ drivers/net/ethernet/freescale/fec_main.c | 46 ++++++++++++++++++++++++++++++-
+ 2 files changed, 47 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 72fb90f..5ec3828 100644
+index b2b91f8..72fb90f 100644
 --- a/drivers/net/ethernet/freescale/fec.h
 +++ b/drivers/net/ethernet/freescale/fec.h
-@@ -38,6 +38,12 @@
- #define FEC_ADDR_LOW		0x0e4 /* Low 32bits MAC address */
- #define FEC_ADDR_HIGH		0x0e8 /* High 16bits MAC address */
- #define FEC_OPD			0x0ec /* Opcode + Pause duration */
-+#define FEC_TXIC0		0xF0  /* Tx Interrupt Coalescing for ring 0 */
-+#define FEC_TXIC1		0xF4  /* Tx Interrupt Coalescing for ring 1 */
-+#define FEC_TXIC2		0xF8  /* Tx Interrupt Coalescing for ring 2 */
-+#define FEC_RXIC0		0x100 /* Rx Interrupt Coalescing for ring 0 */
-+#define FEC_RXIC1		0x104 /* Rx Interrupt Coalescing for ring 1 */
-+#define FEC_RXIC2		0x108 /* Rx Interrupt Coalescing for ring 2 */
- #define FEC_HASH_TABLE_HIGH	0x118 /* High 32bits hash table */
- #define FEC_HASH_TABLE_LOW	0x11c /* Low 32bits hash table */
- #define FEC_GRP_HASH_TABLE_HIGH	0x120 /* High 32bits hash table */
-@@ -65,6 +71,7 @@
- #define FEC_X_DES_ACTIVE_1	0x1e4 /* Tx descriptor active for ring 1 */
- #define FEC_R_DES_ACTIVE_2	0x1e8 /* Rx descriptor active for ring 2 */
- #define FEC_X_DES_ACTIVE_2	0x1ec /* Tx descriptor active for ring 2 */
-+#define FEC_QOS_SCHEME		0x1f0 /* Set multi queues Qos scheme */
- #define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
- #define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
+@@ -356,6 +356,8 @@ struct fec_enet_private {
  
-@@ -305,6 +312,32 @@ struct bufdesc_ex {
- #define FLAG_RX_CSUM_ENABLED	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
- #define FLAG_RX_CSUM_ERROR	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
+ 	bool ptp_clk_on;
+ 	struct mutex ptp_clk_mutex;
++	unsigned int num_tx_queues;
++	unsigned int num_rx_queues;
  
-+/* Interrupt events/masks. */
-+#define FEC_ENET_HBERR  ((uint)0x80000000)      /* Heartbeat error */
-+#define FEC_ENET_BABR   ((uint)0x40000000)      /* Babbling receiver */
-+#define FEC_ENET_BABT   ((uint)0x20000000)      /* Babbling transmitter */
-+#define FEC_ENET_GRA    ((uint)0x10000000)      /* Graceful stop complete */
-+#define FEC_ENET_TXF_0	((uint)0x08000000)	/* Full frame transmitted */
-+#define FEC_ENET_TXF_1	((uint)0x00000008)	/* Full frame transmitted */
-+#define FEC_ENET_TXF_2	((uint)0x00000080)	/* Full frame transmitted */
-+#define FEC_ENET_TXB    ((uint)0x04000000)      /* A buffer was transmitted */
-+#define FEC_ENET_RXF_0	((uint)0x02000000)	/* Full frame received */
-+#define FEC_ENET_RXF_1	((uint)0x00000002)	/* Full frame received */
-+#define FEC_ENET_RXF_2	((uint)0x00000020)	/* Full frame received */
-+#define FEC_ENET_RXB    ((uint)0x01000000)      /* A buffer was received */
-+#define FEC_ENET_MII    ((uint)0x00800000)      /* MII interrupt */
-+#define FEC_ENET_EBERR  ((uint)0x00400000)      /* SDMA bus error */
-+#define FEC_ENET_TXF	(FEC_ENET_TXF_0 | FEC_ENET_TXF_1 | FEC_ENET_TXF_2)
-+#define FEC_ENET_RXF	(FEC_ENET_RXF_0 | FEC_ENET_RXF_1 | FEC_ENET_RXF_2)
-+#define FEC_ENET_TS_AVAIL       ((uint)0x00010000)
-+#define FEC_ENET_TS_TIMER       ((uint)0x00008000)
-+
-+#define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII | FEC_ENET_TS_TIMER)
-+#define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
-+
-+#define FEC_VLAN_TAG_LEN       0x04
-+#define FEC_ETHTYPE_LEN                0x02
-+
- struct fec_enet_priv_tx_q {
- 	int index;
- 	unsigned char *tx_bounce[TX_RING_SIZE];
+ 	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
+ 	struct fec_enet_priv_tx_q *tx_queue[FEC_ENET_MAX_TX_QS];
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 5f8e997..658b0b3 100644
+index 4c0d2ee..2240df0 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -193,21 +193,6 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
- #endif
- #endif /* CONFIG_M5272 */
- 
--/* Interrupt events/masks. */
--#define FEC_ENET_HBERR	((uint)0x80000000)	/* Heartbeat error */
--#define FEC_ENET_BABR	((uint)0x40000000)	/* Babbling receiver */
--#define FEC_ENET_BABT	((uint)0x20000000)	/* Babbling transmitter */
--#define FEC_ENET_GRA	((uint)0x10000000)	/* Graceful stop complete */
--#define FEC_ENET_TXF	((uint)0x08000000)	/* Full frame transmitted */
--#define FEC_ENET_TXB	((uint)0x04000000)	/* A buffer was transmitted */
--#define FEC_ENET_RXF	((uint)0x02000000)	/* Full frame received */
--#define FEC_ENET_RXB	((uint)0x01000000)	/* A buffer was received */
--#define FEC_ENET_MII	((uint)0x00800000)	/* MII interrupt */
--#define FEC_ENET_EBERR	((uint)0x00400000)	/* SDMA bus error */
--
--#define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII)
--#define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
--
- /* The FEC stores dest/src/type/vlan, data, and checksum for receive packets.
-  */
- #define PKT_MAXBUF_SIZE		1522
-@@ -882,6 +867,15 @@ static void fec_enet_bd_init(struct net_device *dev)
- 	}
+@@ -2709,6 +2709,42 @@ static void fec_reset_phy(struct platform_device *pdev)
  }
+ #endif /* CONFIG_OF */
  
-+static void fec_enet_active_rxring(struct net_device *ndev)
++static void
++fec_enet_get_queue_num(struct platform_device *pdev, int *num_tx, int *num_rx)
 +{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	int i;
++	struct device_node *np = pdev->dev.of_node;
++	int err;
 +
-+	for (i = 0; i < fep->num_rx_queues; i++)
-+		writel(0, fep->hwp + FEC_R_DES_ACTIVE(i));
++	*num_tx = *num_rx = 1;
++
++	if (!np || !of_device_is_available(np))
++		return;
++
++	/* parse the num of tx and rx queues */
++	err = of_property_read_u32(np, "fsl,num-tx-queues", num_tx);
++	err |= of_property_read_u32(np, "fsl,num-rx-queues", num_rx);
++	if (err) {
++		*num_tx = 1;
++		*num_rx = 1;
++		return;
++	}
++
++	if (*num_tx < 1 || *num_tx > FEC_ENET_MAX_TX_QS) {
++		dev_err(&pdev->dev, "Invalidate num_tx(=%d), fail back to 1\n",
++			*num_tx);
++		*num_tx = 1;
++		return;
++	}
++
++	if (*num_rx < 1 || *num_rx > FEC_ENET_MAX_RX_QS) {
++		dev_err(&pdev->dev, "Invalidate num_rx(=%d), fail back to 1\n",
++			*num_rx);
++		*num_rx = 1;
++		return;
++	}
++
 +}
 +
- static void fec_enet_enable_ring(struct net_device *ndev)
+ static int
+ fec_probe(struct platform_device *pdev)
  {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
-@@ -939,7 +933,6 @@ fec_restart(struct net_device *ndev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	const struct platform_device_id *id_entry =
- 				platform_get_device_id(fep->pdev);
--	int i;
- 	u32 val;
- 	u32 temp_mac[2];
- 	u32 rcntl = OPT_FRAME_SIZE | 0x04;
-@@ -1099,8 +1092,7 @@ fec_restart(struct net_device *ndev)
+@@ -2720,13 +2756,18 @@ fec_probe(struct platform_device *pdev)
+ 	const struct of_device_id *of_id;
+ 	static int dev_id;
+ 	struct device_node *np = pdev->dev.of_node, *phy_node;
++	int num_tx_qs = 1;
++	int num_rx_qs = 1;
  
- 	/* And last, enable the transmit and receive processing */
- 	writel(ecntl, fep->hwp + FEC_ECNTRL);
--	for (i = 0; i < fep->num_rx_queues; i++)
--		writel(0, fep->hwp + FEC_R_DES_ACTIVE(i));
-+	fec_enet_active_rxring(ndev);
+ 	of_id = of_match_device(fec_dt_ids, &pdev->dev);
+ 	if (of_id)
+ 		pdev->id_entry = of_id->data;
  
- 	if (fep->bufdesc_ex)
- 		fec_ptp_start_cyclecounter(ndev);
-@@ -1511,9 +1503,17 @@ fec_enet_collect_events(struct fec_enet_private *fep, uint int_events)
++	fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
++
+ 	/* Init network device */
+-	ndev = alloc_etherdev(sizeof(struct fec_enet_private));
++	ndev = alloc_etherdev_mqs(sizeof(struct fec_enet_private),
++				  num_tx_qs, num_rx_qs);
+ 	if (!ndev)
+ 		return -ENOMEM;
  
- 	if (int_events & FEC_ENET_RXF)
- 		fep->work_rx |= (1 << 2);
-+	if (int_events & FEC_ENET_RXF_1)
-+		fep->work_rx |= (1 << 0);
-+	if (int_events & FEC_ENET_RXF_2)
-+		fep->work_rx |= (1 << 1);
+@@ -2735,6 +2776,9 @@ fec_probe(struct platform_device *pdev)
+ 	/* setup board info structure */
+ 	fep = netdev_priv(ndev);
  
- 	if (int_events & FEC_ENET_TXF)
- 		fep->work_tx |= (1 << 2);
-+	if (int_events & FEC_ENET_TXF_1)
-+		fep->work_tx |= (1 << 0);
-+	if (int_events & FEC_ENET_TXF_2)
-+		fep->work_tx |= (1 << 1);
- 
- 	return true;
- }
++	fep->num_rx_queues = num_rx_qs;
++	fep->num_tx_queues = num_tx_qs;
++
+ #if !defined(CONFIG_M5272)
+ 	/* default enable pause frame auto negotiation */
+ 	if (pdev->id_entry &&
 -- 
 1.9.1
