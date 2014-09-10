@@ -1,46 +1,139 @@
-From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v11 net-next 00/12] eBPF syscall, verifier, testsuite
-Date: Wed, 10 Sep 2014 10:19:01 +0200
-Message-ID: <54100975.6030809@redhat.com>
-References: <1410325808-3657-1-git-send-email-ast@plumgrid.com>
+From: Emmanuel Grumbach <egrumbach@gmail.com>
+Subject: Re: iwlwifi no authentication with AP - Re: pull request:
+ wireless-next 2014-09-08
+Date: Wed, 10 Sep 2014 11:24:01 +0300
+Message-ID: <CANUX_P3kOetqEneHgqoCDN4c85SQYD-G=mQj_o1c_TvKmE5psA@mail.gmail.com>
+References: <20140908191630.GB29412@tuxdriver.com>
+	<540F5927.7000306@hartkopp.net>
+	<CANUX_P3n0v1SzfbYuaAsE4TY7Hz_wo2Fb9SmHVNyFOC9hDhwdg@mail.gmail.com>
+	<540F61D0.9000704@hartkopp.net>
+	<CAMw6YJLeO1JZeY6hNe-TXOS56b-otk+htt5VPPor+9iYCQz53Q@mail.gmail.com>
+	<540FDB3C.6060301@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1410325808-3657-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=001a11c2b81638b10c0502b1c6d3
+Cc: Vadim Kochan <vadim4j@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:39833 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751268AbaIJIYE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 04:24:04 -0400
+In-Reply-To: <540FDB3C.6060301@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/10/2014 07:09 AM, Alexei Starovoitov wrote:
-...
-> As requested by Andy and others, here is the man page:
+--001a11c2b81638b10c0502b1c6d3
+Content-Type: text/plain; charset=UTF-8
+
+On Wed, Sep 10, 2014 at 8:01 AM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
+> On 10.09.2014 00:07, Vadim Kochan wrote:
+>> I have the same issue with iwlwifi.
 >
-> BPF(2)                     Linux Programmer's Manual                    BPF(2)
-...
->         In the future maps can have different types: hash, array, bloom filter,
->         radix-tree, but currently only hash type is supported:
->         enum bpf_map_type {
->            BPF_MAP_TYPE_UNSPEC,
->            BPF_MAP_TYPE_HASH,
->         };
+> I tried an old zd1211 wireless USB stick to check if this problem is 80211
+> related. But the USB stick works fine (I'm using it right now).
+> So its definitely looks like an iwlwifi issue.
+>
+>> iwlwifi 0000:02:00.0: fail to flush all tx fifo queues Q 0
+>
+> Wasn't there any change in the iwlwifi tx path recently??
 
-If we mention them here in the man page, users are going to request
-them, naturally. ;) So I'd just mention what we have, not what we do
-not yet have. But I'm wondering how much library boiler plate only
-for BPF we want to add in future, hopefully not most of what's in
-Corman ... ? ;)
+Can you please try the patch attached? It works for me.
+
+>
+> Regards,
+> Oliver
+>
+>>
+
+--001a11c2b81638b10c0502b1c6d3
+Content-Type: text/x-patch; charset=US-ASCII;
+	name="0001-iwlwifi-trans-don-t-configure-the-set_active-in-SCD-.patch"
+Content-Disposition: attachment;
+	filename="0001-iwlwifi-trans-don-t-configure-the-set_active-in-SCD-.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hzwebk6x0
+
+RnJvbSA0MmJmY2Y5M2UxOGNiODUwZDBiNWY1ZTBhNGI5OWEyMzllMGU1N2FiIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBFbW1hbnVlbCBHcnVtYmFjaCA8ZW1tYW51ZWwuZ3J1bWJhY2hA
+aW50ZWwuY29tPgpEYXRlOiBXZWQsIDEwIFNlcCAyMDE0IDExOjE2OjQxICswMzAwClN1YmplY3Q6
+IFtQQVRDSF0gaXdsd2lmaTogdHJhbnM6IGRvbid0IGNvbmZpZ3VyZSB0aGUgc2V0X2FjdGl2ZSBp
+biBTQ0QgZm9yIGR2bQoKVGhpcyBjb25maWd1cmF0aW9uIGlzIG5vdCBuZWVkZWQgZm9yIGR2bSwg
+YW5kIGl0IGFjdHVhbGx5CmJyb2tlIGl0LgoKU2lnbmVkLW9mZi1ieTogRW1tYW51ZWwgR3J1bWJh
+Y2ggPGVtbWFudWVsLmdydW1iYWNoQGludGVsLmNvbT4KLS0tCiBkcml2ZXJzL25ldC93aXJlbGVz
+cy9pd2x3aWZpL2l3bC10cmFucy5oICAgICB8IDIgKysKIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2l3
+bHdpZmkvbXZtL29wcy5jICAgICAgIHwgMSArCiBkcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZp
+L3BjaWUvaW50ZXJuYWwuaCB8IDIgKysKIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2l3bHdpZmkvcGNp
+ZS90cmFucy5jICAgIHwgMSArCiBkcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL3BjaWUvdHgu
+YyAgICAgICB8IDYgKysrKy0tCiA1IGZpbGVzIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDIg
+ZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9p
+d2wtdHJhbnMuaCBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2l3bHdpZmkvaXdsLXRyYW5zLmgKaW5k
+ZXggMzYyNzViNC4uYzg3YjQ1MiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvaXds
+d2lmaS9pd2wtdHJhbnMuaAorKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL2l3bC10
+cmFucy5oCkBAIC0zODIsNiArMzgyLDcgQEAgZW51bSBpd2xfdHJhbnNfc3RhdHVzIHsKICAqCWlm
+IHVuc2V0IDRrIHdpbGwgYmUgdGhlIFJYIGJ1ZmZlciBzaXplCiAgKiBAYmNfdGFibGVfZHdvcmQ6
+IHNldCB0byB0cnVlIGlmIHRoZSBCQyB0YWJsZSBleHBlY3RzIHRoZSBieXRlIGNvdW50IHRvIGJl
+CiAgKglpbiBEV09SRCAoYXMgb3Bwb3NlZCB0byBieXRlcykKKyAqIEBzY2Rfc2V0X2FjdGl2ZTog
+c2hvdWxkIHRoZSB0cmFuc3BvcnQgY29uZmlndXJlIHRoZSBTQ0QgZm9yIEhDTUQgcXVldWUKICAq
+IEBxdWV1ZV93YXRjaGRvZ190aW1lb3V0OiB0aW1lIChpbiBtcykgYWZ0ZXIgd2hpY2ggcXVldWVz
+CiAgKglhcmUgY29uc2lkZXJlZCBzdHVjayBhbmQgd2lsbCB0cmlnZ2VyIGRldmljZSByZXN0YXJ0
+CiAgKiBAY29tbWFuZF9uYW1lczogYXJyYXkgb2YgY29tbWFuZCBuYW1lcywgbXVzdCBiZSAyNTYg
+ZW50cmllcwpAQCAtMzk3LDYgKzM5OCw3IEBAIHN0cnVjdCBpd2xfdHJhbnNfY29uZmlnIHsKIAog
+CWJvb2wgcnhfYnVmX3NpemVfOGs7CiAJYm9vbCBiY190YWJsZV9kd29yZDsKKwlib29sIHNjZF9z
+ZXRfYWN0aXZlOwogCXVuc2lnbmVkIGludCBxdWV1ZV93YXRjaGRvZ190aW1lb3V0OwogCWNvbnN0
+IGNoYXIgKmNvbnN0ICpjb21tYW5kX25hbWVzOwogfTsKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
+L3dpcmVsZXNzL2l3bHdpZmkvbXZtL29wcy5jIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lm
+aS9tdm0vb3BzLmMKaW5kZXggNzdiMGI0OC4uZWQ4MjU0NyAxMDA2NDQKLS0tIGEvZHJpdmVycy9u
+ZXQvd2lyZWxlc3MvaXdsd2lmaS9tdm0vb3BzLmMKKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3Mv
+aXdsd2lmaS9tdm0vb3BzLmMKQEAgLTUwNCw2ICs1MDQsNyBAQCBpd2xfb3BfbW9kZV9tdm1fc3Rh
+cnQoc3RydWN0IGl3bF90cmFucyAqdHJhbnMsIGNvbnN0IHN0cnVjdCBpd2xfY2ZnICpjZmcsCiAK
+IAl0cmFuc19jZmcuY21kX3F1ZXVlID0gSVdMX01WTV9DTURfUVVFVUU7CiAJdHJhbnNfY2ZnLmNt
+ZF9maWZvID0gSVdMX01WTV9UWF9GSUZPX0NNRDsKKwl0cmFuc19jZmcuc2NkX3NldF9hY3RpdmUg
+PSB0cnVlOwogCiAJc25wcmludGYobXZtLT5ody0+d2lwaHktPmZ3X3ZlcnNpb24sCiAJCSBzaXpl
+b2YobXZtLT5ody0+d2lwaHktPmZ3X3ZlcnNpb24pLApkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
+d2lyZWxlc3MvaXdsd2lmaS9wY2llL2ludGVybmFsLmggYi9kcml2ZXJzL25ldC93aXJlbGVzcy9p
+d2x3aWZpL3BjaWUvaW50ZXJuYWwuaAppbmRleCA1YmNhOWE2Li5lNjEyOWFmIDEwMDY0NAotLS0g
+YS9kcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL3BjaWUvaW50ZXJuYWwuaAorKysgYi9kcml2
+ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL3BjaWUvaW50ZXJuYWwuaApAQCAtMjU3LDYgKzI1Nyw3
+IEBAIGl3bF9wY2llX2dldF9zY3JhdGNoYnVmX2RtYShzdHJ1Y3QgaXdsX3R4cSAqdHhxLCBpbnQg
+aWR4KQogICogQGNtZF9xdWV1ZSAtIGNvbW1hbmQgcXVldWUgbnVtYmVyCiAgKiBAcnhfYnVmX3Np
+emVfOGs6IDgga0IgUlggYnVmZmVyIHNpemUKICAqIEBiY190YWJsZV9kd29yZDogdHJ1ZSBpZiB0
+aGUgQkMgdGFibGUgZXhwZWN0cyBEV09SRCAoYXMgb3Bwb3NlZCB0byBieXRlcykKKyAqIEBzY2Rf
+c2V0X2FjdGl2ZTogc2hvdWxkIHRoZSB0cmFuc3BvcnQgY29uZmlndXJlIHRoZSBTQ0QgZm9yIEhD
+TUQgcXVldWUKICAqIEByeF9wYWdlX29yZGVyOiBwYWdlIG9yZGVyIGZvciByZWNlaXZlIGJ1ZmZl
+ciBzaXplCiAgKiBAd2RfdGltZW91dDogcXVldWUgd2F0Y2hkb2cgdGltZW91dCAoamlmZmllcykK
+ICAqIEByZWdfbG9jazogcHJvdGVjdCBodyByZWdpc3RlciBhY2Nlc3MKQEAgLTMwNiw2ICszMDcs
+NyBAQCBzdHJ1Y3QgaXdsX3RyYW5zX3BjaWUgewogCiAJYm9vbCByeF9idWZfc2l6ZV84azsKIAli
+b29sIGJjX3RhYmxlX2R3b3JkOworCWJvb2wgc2NkX3NldF9hY3RpdmU7CiAJdTMyIHJ4X3BhZ2Vf
+b3JkZXI7CiAKIAljb25zdCBjaGFyICpjb25zdCAqY29tbWFuZF9uYW1lczsKZGlmZiAtLWdpdCBh
+L2RyaXZlcnMvbmV0L3dpcmVsZXNzL2l3bHdpZmkvcGNpZS90cmFucy5jIGIvZHJpdmVycy9uZXQv
+d2lyZWxlc3MvaXdsd2lmaS9wY2llL3RyYW5zLmMKaW5kZXggMGY0YTRjMS4uYTIxNTYyNCAxMDA2
+NDQKLS0tIGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9wY2llL3RyYW5zLmMKKysrIGIv
+ZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9wY2llL3RyYW5zLmMKQEAgLTExNzcsNiArMTE3
+Nyw3IEBAIHN0YXRpYyB2b2lkIGl3bF90cmFuc19wY2llX2NvbmZpZ3VyZShzdHJ1Y3QgaXdsX3Ry
+YW5zICp0cmFucywKIAogCXRyYW5zX3BjaWUtPmNvbW1hbmRfbmFtZXMgPSB0cmFuc19jZmctPmNv
+bW1hbmRfbmFtZXM7CiAJdHJhbnNfcGNpZS0+YmNfdGFibGVfZHdvcmQgPSB0cmFuc19jZmctPmJj
+X3RhYmxlX2R3b3JkOworCXRyYW5zX3BjaWUtPnNjZF9zZXRfYWN0aXZlID0gdHJhbnNfY2ZnLT5z
+Y2Rfc2V0X2FjdGl2ZTsKIAogCS8qIEluaXRpYWxpemUgTkFQSSBoZXJlIC0gaXQgc2hvdWxkIGJl
+IGJlZm9yZSByZWdpc3RlcmluZyB0byBtYWM4MDIxMQogCSAqIGluIHRoZSBvcG1vZGUgYnV0IGFm
+dGVyIHRoZSBIVyBzdHJ1Y3QgaXMgYWxsb2NhdGVkLgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
+d2lyZWxlc3MvaXdsd2lmaS9wY2llL3R4LmMgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZp
+L3BjaWUvdHguYwppbmRleCBmNGRmOTUxLi5kNjlmMmU5IDEwMDY0NAotLS0gYS9kcml2ZXJzL25l
+dC93aXJlbGVzcy9pd2x3aWZpL3BjaWUvdHguYworKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9p
+d2x3aWZpL3BjaWUvdHguYwpAQCAtMTA4NSw3ICsxMDg1LDggQEAgdm9pZCBpd2xfdHJhbnNfcGNp
+ZV90eHFfZW5hYmxlKHN0cnVjdCBpd2xfdHJhbnMgKnRyYW5zLCBpbnQgdHhxX2lkLCB1MTYgc3Nu
+LAogCQlmaWZvID0gY2ZnLT5maWZvOwogCiAJCS8qIERpc2FibGUgdGhlIHNjaGVkdWxlciBwcmlv
+ciBjb25maWd1cmluZyB0aGUgY21kIHF1ZXVlICovCi0JCWlmICh0eHFfaWQgPT0gdHJhbnNfcGNp
+ZS0+Y21kX3F1ZXVlKQorCQlpZiAodHhxX2lkID09IHRyYW5zX3BjaWUtPmNtZF9xdWV1ZSAmJgor
+CQkgICAgdHJhbnNfcGNpZS0+c2NkX3NldF9hY3RpdmUpCiAJCQlpd2xfc2NkX2VuYWJsZV9zZXRf
+YWN0aXZlKHRyYW5zLCAwKTsKIAogCQkvKiBTdG9wIHRoaXMgVHggcXVldWUgYmVmb3JlIGNvbmZp
+Z3VyaW5nIGl0ICovCkBAIC0xMTQ3LDcgKzExNDgsOCBAQCB2b2lkIGl3bF90cmFuc19wY2llX3R4
+cV9lbmFibGUoc3RydWN0IGl3bF90cmFucyAqdHJhbnMsIGludCB0eHFfaWQsIHUxNiBzc24sCiAJ
+CQkgICAgICAgU0NEX1FVRVVFX1NUVFNfUkVHX01TSyk7CiAKIAkJLyogZW5hYmxlIHRoZSBzY2hl
+ZHVsZXIgZm9yIHRoaXMgcXVldWUgKG9ubHkpICovCi0JCWlmICh0eHFfaWQgPT0gdHJhbnNfcGNp
+ZS0+Y21kX3F1ZXVlKQorCQlpZiAodHhxX2lkID09IHRyYW5zX3BjaWUtPmNtZF9xdWV1ZSAmJgor
+CQkgICAgdHJhbnNfcGNpZS0+c2NkX3NldF9hY3RpdmUpCiAJCQlpd2xfc2NkX2VuYWJsZV9zZXRf
+YWN0aXZlKHRyYW5zLCBCSVQodHhxX2lkKSk7CiAJfQogCi0tIAoxLjkuMQoK
+--001a11c2b81638b10c0502b1c6d3--
