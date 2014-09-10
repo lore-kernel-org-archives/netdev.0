@@ -1,44 +1,59 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 0/5] net: Convert pr_warning to pr_warn
-Date: Tue,  9 Sep 2014 21:17:27 -0700
-Message-ID: <cover.1410322181.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Sage Weil <sage@inktank.com>,
-	Ursula Braun <ursula.braun@de.ibm.com>, linux390@de.ibm.com,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	linux-kernel@vger.kernel.org, ceph-devel@vger.kernel.org,
-	linux-s390@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org
+Subject: [PATCH net-next 4/5] iucv: Convert pr_warning to pr_warn
+Date: Tue,  9 Sep 2014 21:17:31 -0700
+Message-ID: <d976373ac5f17cb7716048d938a3ee1a5a10e6e2.1410322181.git.joe@perches.com>
+References: <cover.1410322181.git.joe@perches.com>
+Cc: Ursula Braun <ursula.braun@de.ibm.com>, linux390@de.ibm.com,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-s390@vger.kernel.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1410322181.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove remaining uses of pr_warning in net/
+Use the more common pr_warn.
+Coalesce formats.
+Realign arguments.
 
-Joe Perches (5):
-  atm: Convert pr_warning to pr_warn
-  ceph: Convert pr_warning to pr_warn
-  pktgen: Convert pr_warning to pr_warn
-  iucv: Convert pr_warning to pr_warn
-  netfilter: Convert pr_warning to pr_warn
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ net/iucv/iucv.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
- net/atm/clip.c                        |  4 ++--
- net/atm/common.c                      |  2 +-
- net/ceph/ceph_common.c                | 15 +++++++++------
- net/ceph/messenger.c                  | 19 +++++++++---------
- net/ceph/osd_client.c                 | 15 +++++++--------
- net/ceph/osdmap.c                     | 20 +++++++++----------
- net/core/pktgen.c                     | 24 +++++++++++------------
- net/iucv/iucv.c                       |  9 ++++-----
- net/netfilter/ipset/ip_set_core.c     | 23 +++++++++++-----------
- net/netfilter/ipset/ip_set_hash_gen.h | 12 ++++++------
- net/netfilter/xt_connbytes.c          |  2 +-
- net/netfilter/xt_hashlimit.c          |  2 +-
- net/netfilter/xt_set.c                | 36 ++++++++++++++++-------------------
- 13 files changed, 90 insertions(+), 93 deletions(-)
-
+diff --git a/net/iucv/iucv.c b/net/iucv/iucv.c
+index da78793..2a6a1fd 100644
+--- a/net/iucv/iucv.c
++++ b/net/iucv/iucv.c
+@@ -493,8 +493,8 @@ static void iucv_declare_cpu(void *data)
+ 			err = "Paging or storage error";
+ 			break;
+ 		}
+-		pr_warning("Defining an interrupt buffer on CPU %i"
+-			   " failed with 0x%02x (%s)\n", cpu, rc, err);
++		pr_warn("Defining an interrupt buffer on CPU %i failed with 0x%02x (%s)\n",
++			cpu, rc, err);
+ 		return;
+ 	}
+ 
+@@ -1831,7 +1831,7 @@ static void iucv_external_interrupt(struct ext_code ext_code,
+ 	BUG_ON(p->iptype  < 0x01 || p->iptype > 0x09);
+ 	work = kmalloc(sizeof(struct iucv_irq_list), GFP_ATOMIC);
+ 	if (!work) {
+-		pr_warning("iucv_external_interrupt: out of memory\n");
++		pr_warn("iucv_external_interrupt: out of memory\n");
+ 		return;
+ 	}
+ 	memcpy(&work->data, p, sizeof(work->data));
+@@ -1974,8 +1974,7 @@ static int iucv_pm_restore(struct device *dev)
+ 	printk(KERN_WARNING "iucv_pm_restore %p\n", iucv_path_table);
+ #endif
+ 	if ((iucv_pm_state != IUCV_PM_RESTORING) && iucv_path_table)
+-		pr_warning("Suspending Linux did not completely close all IUCV "
+-			"connections\n");
++		pr_warn("Suspending Linux did not completely close all IUCV connections\n");
+ 	iucv_pm_state = IUCV_PM_RESTORING;
+ 	if (cpumask_empty(&iucv_irq_cpumask)) {
+ 		rc = iucv_query_maxconn();
 -- 
 1.8.1.2.459.gbcd45b4.dirty
