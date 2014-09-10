@@ -1,74 +1,95 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 5/5] cxgb4/cxgb4vf: Add device ID for new adapter and remove for dbg adapter
-Date: Wed, 10 Sep 2014 17:44:31 +0530
-Message-ID: <1410351271-26428-6-git-send-email-hariprasad@chelsio.com>
-References: <1410351271-26428-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	kumaras@chelsio.com, anish@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:42782
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751344AbaIJMJL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 08:09:11 -0400
-In-Reply-To: <1410351271-26428-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergey Ryazanov <ryazanov.s.a@gmail.com>
+Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
+Date: Wed, 10 Sep 2014 16:19:21 +0400
+Message-ID: <CAHNKnsTtqz10c=vV-f10awLanYZzom3kJ1cO5xgTGs-t3O9NYg@mail.gmail.com>
+References: <20140213201421.GJ22203@tuxdriver.com>
+	<1397581703.8212.5.camel@x220>
+	<CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
+	<1403087119.1984.93.camel@x220>
+	<CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
+	<1403091974.1984.102.camel@x220>
+	<1409911856.7832.9.camel@x220>
+	<CAHNKnsRipRHicKOUW4dCutD1-sUG6qPnP2QuOveH_t1MFX9XgQ@mail.gmail.com>
+	<1409916824.7832.20.camel@x220>
+	<CAHNKnsQ1gt=DRBTd9Q9yos1idqmXMepEPvhm8a7unP-whzNAgg@mail.gmail.com>
+	<20140909182734.GJ29412@tuxdriver.com>
+	<CAHNKnsQ8G3ZFHshq7wOqex1J6DbVD5uHVAyvs+aDC2Znk5zWww@mail.gmail.com>
+	<541037D2.7060007@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Paul Bolle <pebolle@tiscali.nl>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Oleksij Rempel <linux@rempel-privat.de>,
+	Richard Weinberger <richard@nod.at>,
+	Jonathan Bither <jonbither@gmail.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	ath5k-devel@venema.h4ckr.net, open@hauke-m.de,
+	"list@hauke-m.de:NETWORKING DRIVERS" <list@hauke-m.de>,
+	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>,
+	OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Jiri Slaby <jirislaby@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <541037D2.7060007@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |    2 ++
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    3 +--
- 2 files changed, 3 insertions(+), 2 deletions(-)
+2014-09-10 15:36 GMT+04:00, Jiri Slaby <jirislaby@gmail.com>:
+> On 09/10/2014, 12:33 PM, Sergey Ryazanov wrote:
+>> 2014-09-09 22:27 GMT+04:00, John W. Linville <linville@tuxdriver.com>:
+>>> On Fri, Sep 05, 2014 at 04:02:10PM +0400, Sergey Ryazanov wrote:
+>>>> 2014-09-05 15:33 GMT+04:00 Paul Bolle <pebolle@tiscali.nl>:
+>>>>> Hi Sergey,
+>>>>>
+>>>>> On Fri, 2014-09-05 at 15:12 +0400, Sergey Ryazanov wrote:
+>>>>>> 2014-09-05 14:10 GMT+04:00, Paul Bolle <pebolle@tiscali.nl>:
+>>>>>>> On Wed, 2014-06-18 at 13:46 +0200, Paul Bolle wrote:
+>>>>>>>> Having this conversation every rc1 is getting a bit silly. Could
+>>>>>>>> Jiri
+>>>>>>>> e.a. perhaps set some specific deadline for ATHEROS_AR231X to be
+>>>>>>>> submitted?
+>>>>>>>
+>>>>>>> I waited until rc3. Have you seen any activity on this front? If
+>>>>>>> not,
+>>>>>>> should I resend the patch that removes the code in mainline that
+>>>>>>> depends
+>>>>>>> on ATHEROS_AR231X (ie, AHB bus support)?
+>>>>>>>
+>>>>>> Recent activity always could be found in [1]. Now I finish another
+>>>>>> one
+>>>>>> round of cleanups and have a plan to fix several things (you can
+>>>>>> always find something that you really want to improve). But if you
+>>>>>> insist I could immediately switch to "send upstream" mode. And seems
+>>>>>> that this would be better approach.
+>>>>>>
+>>>>>> 1. https://dev.openwrt.org/log/trunk/target/linux/atheros
+>>>>>
+>>>>> And where can the related PULL requests or patch submissions be found?
+>>>>>
+>>>> I have not sent patches yet, since I thought that it would be easier
+>>>> to cleanup them in openwrt tree and then send them upstream.
+>>>
+>>> That excuse has worn a bit thin.  Perhaps Paul should repost his
+>>> removal and you can add a revert to the start of your patch series?
+>>>
+>> As for me, I do not like such flapping
+>
+> Agreed in case what you have is in a good enough shape. You (and also
+> others) can still clean up the code in upstream too. So, if it is
+> mergeable, send it for upstream inclusion now, otherwise I am all for
+> John to apply the Paul's patch.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index d6a9a0b..f56b95a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -283,6 +283,7 @@ static const struct pci_device_id cxgb4_pci_tbl[] = {
- 	CH_DEVICE(0x5083, 4),
- 	CH_DEVICE(0x5084, 4),
- 	CH_DEVICE(0x5085, 4),
-+	CH_DEVICE(0x5086, 4),
- 	CH_DEVICE(0x5401, 4),
- 	CH_DEVICE(0x5402, 4),
- 	CH_DEVICE(0x5403, 4),
-@@ -310,6 +311,7 @@ static const struct pci_device_id cxgb4_pci_tbl[] = {
- 	CH_DEVICE(0x5483, 4),
- 	CH_DEVICE(0x5484, 4),
- 	CH_DEVICE(0x5485, 4),
-+	CH_DEVICE(0x5486, 4),
- 	{ 0, }
- };
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 2102a4c..8253403 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -2912,7 +2912,6 @@ static void cxgb4vf_pci_shutdown(struct pci_dev *pdev)
- 
- static const struct pci_device_id cxgb4vf_pci_tbl[] = {
- 	CH_DEVICE(0xb000, 0),	/* PE10K FPGA */
--	CH_DEVICE(0x4800, 0),	/* T440-dbg */
- 	CH_DEVICE(0x4801, 0),	/* T420-cr */
- 	CH_DEVICE(0x4802, 0),	/* T422-cr */
- 	CH_DEVICE(0x4803, 0),	/* T440-cr */
-@@ -2934,7 +2933,6 @@ static const struct pci_device_id cxgb4vf_pci_tbl[] = {
- 	CH_DEVICE(0x4880, 6),
- 	CH_DEVICE(0x4880, 7),
- 	CH_DEVICE(0x4880, 8),
--	CH_DEVICE(0x5800, 0),	/* T580-dbg */
- 	CH_DEVICE(0x5801, 0),	/* T520-cr */
- 	CH_DEVICE(0x5802, 0),	/* T522-cr */
- 	CH_DEVICE(0x5803, 0),	/* T540-cr */
-@@ -2962,6 +2960,7 @@ static const struct pci_device_id cxgb4vf_pci_tbl[] = {
- 	CH_DEVICE(0x5883, 0),
- 	CH_DEVICE(0x5884, 0),
- 	CH_DEVICE(0x5885, 0),
-+	CH_DEVICE(0x5886, 0),
- 	{ 0, }
- };
- 
+Two days is the last deadline :)
+
+> The unused code has been a way too long
+> in the tree now.
+
+Code actively used in owrt firmware and its forks.
+
 -- 
-1.7.1
+BR,
+Sergey
