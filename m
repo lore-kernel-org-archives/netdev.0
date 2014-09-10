@@ -1,51 +1,35 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] pktgen: nowait parameter.
-Date: Thu, 11 Sep 2014 09:07:29 +0930
-Message-ID: <871trjjbd2.fsf@rustcorp.com.au>
-References: <87oauxibda.fsf@rustcorp.com.au> <20140905.142618.2240630803375505977.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next 0/5] ipv6: clean up locking in anycast and mcast
+Date: Wed, 10 Sep 2014 16:54:07 -0700
+Message-ID: <CAM_iQpWX0vkjGJWwhtfGr8KCJ15AVREWttSxvcFQrfzRzAWfYA@mail.gmail.com>
+References: <1410306738-18036-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140910.130150.1203685634918422464.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, brouer@redhat.com, minipli@googlemail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:43651 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751405AbaIJXqK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 19:46:10 -0400
-In-Reply-To: <20140905.142618.2240630803375505977.davem@davemloft.net>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:33144 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752032AbaIJXyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 19:54:08 -0400
+Received: by mail-oa0-f46.google.com with SMTP id eb12so4602035oac.19
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 16:54:07 -0700 (PDT)
+In-Reply-To: <20140910.130150.1203685634918422464.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> Date: Wed, 03 Sep 2014 13:50:01 +0930
+On Wed, Sep 10, 2014 at 1:01 PM, David Miller <davem@davemloft.net> wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Tue,  9 Sep 2014 16:52:13 -0700
 >
->> While trying to measure speed of virtio_net, I was getting hangs.
->> This is because we skb_orphan() but delay the tx interrupt
->> indefinitely (by number of slots).
->> 
->> With nowait, pktgen won't wait for the skb to be released.  This
->> introduces an error, but it's ok if count >> ringsize.
->> 
->> I updated the documentation, but it needs far more work (it
->> refers to pgset and an examples directory, none of which exist
->> in the kernel tree).
->> 
->> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+>> This patchset cleans up the locking in anycast.c and mcast.c.
+>>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 >
-> Please just make this a flag, like UDPCSUM, NO_TIMESTAMP, et al.
-> Which also means that it should be capitalized.
+> Please update this based upon the feedback you've received.
+>
 
-Agreed, though I prefer Jason's IFF_TX_SKB_FREE_DELAY, which doesn't
-require intimate knowledge of the driver to get the option correct.
-
-> BTW, wrt. holding onto TX frames for unbounded amounts of time, I
-> think this is a bad idea even with skb_orphan().  There are resources
-> from the SKB you are hanging onto which can stall the removal of
-> modules indefinitely, such as netfilter references.
-
-We could certainly have a once-a-second timer which did this, but should
-skb_orphan() do that work instead?
-
-Cheers,
-Rusty.
+Sure thing, done.
