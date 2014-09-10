@@ -1,95 +1,92 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Subject: Re: [systemd-devel] [RFC v2 3/6] kthread: warn on kill signal if
- not OOM
-Date: Wed, 10 Sep 2014 06:31:41 -0700
-Message-ID: <1410355901.2038.8.camel@jarvis.lan>
-References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
-	 <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
-	 <20140905141241.GC10455@mtj.dyndns.org>
-	 <20140905164405.GA28964@core.coreip.homeip.net>
-	 <20140905174925.GA12991@mtj.dyndns.org>
-	 <CAB=NE6VPTV39pNujOgO422wbUvU44HZ7s=aaxPVraNECqA6e4Q@mail.gmail.com>
-	 <20140905224047.GC15723@mtj.dyndns.org>
-	 <CAB=NE6Uz1VD5qpMFSBfQRV8ih9FQcCUhNtWMvD38t5hdDvix4Q@mail.gmail.com>
-	 <20140909011059.GB11706@mtj.dyndns.org>
-	 <1410241109.2028.22.camel@jarvis.lan>
-	 <CAB=NE6WGAMvffGDTkN5x5Cd+YOtD-Cmo3v7_8FmJ5cvCRbFEpw@mail.gmail.com>
-	 <1410291346.13298.16.camel@jarvis.lan>
-	 <CAB=NE6U6v-GhAaZv3yXn9uVFvBvE4Uq8z7MQU8N+CyW19WpnNQ@mail.gmail.com>
-	 <CAG-2HqUiUksdT4UyeDsdc1Q74=2BiX2TuzzGh_hoLiO5_DOvXQ@mail.gmail.com>
-	 <541022F4.4020501@crashplan.pro>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
+Subject: Re: Multicast packets being lost (3.10 stable)
+Date: Wed, 10 Sep 2014 15:33:41 +0200
+Message-ID: <20140910133341.GI7058@odroid>
+References: <20140324094107.2cfbf103@nehalam.linuxnetplumber.net>
+ <20140325125231.GW6008@Linus-Debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Gundersen <teg@jklm.no>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Takashi Iwai <tiwai@suse.de>, Kay Sievers <kay@vrfy.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	hare <hare@suse.com>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Wu Zhangjin <falcon@meizu.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	"mpt-fusionlinux.pdl" <MPT-FusionLinux.pdl@avagotech.com>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.c
-To: Ceriel Jacobs <linux-scsi@crashplan.pro>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <541022F4.4020501@crashplan.pro>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: openwrt-devel@lists.openwrt.org,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ bridge@lists.linux-foundation.org, David Miller <davem@davemloft.net>,
+ Stephen Hemminger <shemming@brocade.com>
+To: netdev@vger.kernel.org
+Return-path: <openwrt-devel-bounces@lists.openwrt.org>
+Content-Disposition: inline
+In-Reply-To: <20140325125231.GW6008@Linus-Debian>
+List-Unsubscribe: <https://lists.openwrt.org/cgi-bin/mailman/options/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=unsubscribe>
+List-Archive: <http://lists.openwrt.org/pipermail/openwrt-devel/>
+List-Post: <mailto:openwrt-devel@lists.openwrt.org>
+List-Help: <mailto:openwrt-devel-request@lists.openwrt.org?subject=help>
+List-Subscribe: <https://lists.openwrt.org/cgi-bin/mailman/listinfo/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=subscribe>
+Errors-To: openwrt-devel-bounces@lists.openwrt.org
+Sender: "openwrt-devel" <openwrt-devel-bounces@lists.openwrt.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-09-10 at 12:07 +0200, Ceriel Jacobs wrote:
-> Tom Gundersen schreef op 10-09-14 om 08:46:
-> >> >Indeed. What I proposed with a multiplier for the timeout for the
-> >> >different types of built in commands was deemed complex but saw no
-> >> >alternatives proposed despite my interest to work on one and
-> >> >clarifications noted that this was a design regression. Not quite sure
-> >> >what else I could have done here. I'm interested in learning what the
-> >> >better approach is for the future as if we want to marry init + kernel
-> >> >we need a smooth way for us to discuss design without getting worked
-> >> >up about it, or taking it personal. I really want this to work as I
-> >> >personally like systemd so far.
-> > How about this: keep the timeout global, but also introduce a
-> > (relatively short, say 10 or 15 seconds) timeout after which a warning
-> > is printed. Even if nothing is actually killed, having workers (be it
-> > insmod or something else) take longer than a couple of seconds is
-> > likely a sign that something is seriously off somewhere.
-
-> I don't agree with the statement that something is seriously off when it 
-> takes more then 10 to 15 seconds.
-> 
-> When probing only one hard disk drive, then I do agree that something is 
-> seriously off after 10 to 15 seconds.
-
-Really?  We keep explaining that arbitrary times are wrong.  A while ago
-the Adaptec driver used to use 15s as its bus settle time after the
-initial reset (it's now a Kconfig variable set at 5s) and a Parallel bus
-takes a minimum of 4s to scan and has to be done sequentially.  If any
-probed device is having difficulty, that can escalate way beyond this
-into the tens to hundreds of seconds.   If your root disk is on it,
-you're waiting or not booting.
-
-> When probing a SAS bus with one hundred hard disk drives in standby 
-> mode, then I do expect that to take longer then 10 to 15 seconds.
-
-Good luck with that even on SAS if you have a lot of expanders.
-
-For an installed system, you know what you need (usually root and
-possibly one other disc like /home), so you spawn all the insertions
-asynchronously and then wait for just the devices you need them but,
-since the alternative is panic when init isn't found, this wait better
-be quite long (if not forever, given the consequence is guaranteed
-failure).   Everything else can be async, but, as I've pointed out
-before, it can be async in user space (fire and forget) instead of the
-kernel.
-
-James
+SSBqdXN0IGdvdCBhIGNvbXBsYWludCBhYm91dCBicmlkZ2VzLCBtdWx0aWNhc3QgYW5kIGEKMy4x
+MCBrZXJuZWwgYWdhaW4uIFNlZW1zIGxpa2Ugbm9ib2R5IGhhZCBhbnkgb2JqZWN0aW9ucyBhYm91
+dApxdWV1ZWluZyB0aGVzZSB0d28gcGF0Y2hlcyBmb3Igc3RhYmxlICggMikrMykgKT8KCkFsc28g
+SSdtIHN0aWxsIG1pc3Npbmcgc29tZSBtb3JlIGZpeGVzIGluIHRoZSBzdGFibGUgYnJhbmNoZXMu
+CkVzcGVjaWFsbHkgNSksIDYpIGFuZCA3KSBhcmUgb2YgaGlnaCBwcmlvcml0eSAobmV4dCB0byAy
+KSBhbmQgMykgKQppbiBteSBvcGluaW9uIGFzIG90aGVyd2lzZSBJUHY2IGluIGdlbmVyYWwgY291
+bGQgYmUgYnJva2VuIGZvciBwZW9wbGUKdXNpbmcgMy4xMiBvciAzLjEzIChhcyAzLjEyIGNvbnRh
+aW5zIGEgcGF0Y2ggd2hpY2ggYWN0aXZhdGVzCm11bHRpY2FzdCBzbm9vcGluZyBmb3IgbGluay1s
+b2NhbCBhZGRyZXNzZXMsIHRvbzogM2MzNzY5ZTYzKS4KCkhlcmUgaXMgYSBtb3JlIG9yZGVyZWQg
+bGlzdCBvZiBwYXRjaGVzIEknZCBzdWdnZXN0IHRvIGJlIHF1ZXVlZCBmb3IKc3RhYmxlOgoKMSkg
+YnJpZGdlOiBmaXggc3dpdGNoZWQgaW50ZXJ2YWwgZm9yIE1MRCBRdWVyeSB0eXBlcwogICAtPuKA
+rzMyZGU4NjhjYiAocHJlc2VudCBzaW5jZSAzLjEwKQoyKSBicmlkZ2U6IGRpc2FibGUgc25vb3Bp
+bmcgaWYgdGhlcmUgaXMgbm8gcXVlcmllcgogICAtPuKAr2IwMDU4OWFmMyAocHJlc2VudCBzaW5j
+ZSAzLjExKQozKSBicmlkZ2U6IGRvbid0IHRyeSB0byB1cGRhdGUgdGltZXJzIGluIGNhc2Ugb2Yg
+YnJva2VuIE1MRCBxdWVyaWVzCiAgIC0+IDI0OGJhOGVjMCAocHJlc2VudCBzaW5jZSAzLjExKQo0
+KSBSZXZlcnQgImJyaWRnZTogb25seSBleHBpcmUgdGhlIG1kYiBlbnRyeSB3aGVuIHF1ZXJ5IGlz
+IHJlY2VpdmVkIgogICAtPuKArzQ1NDU5NGYzYiAocHJlc2VudCBzaW5jZSAzLjEyKQo1KSBicmlk
+Z2U6IG11bHRpY2FzdDogYWRkIHNhbml0eSBjaGVjayBmb3IgcXVlcnkgc291cmNlIGFkZHJlc3Nl
+cwogICAtPuKArzY1NjViOWVlZSAocHJlc2VudCBzaW5jZSAzLjE0KQo2KSBicmlkZ2U6IG11bHRp
+Y2FzdDogYWRkIHNhbml0eSBjaGVjayBmb3IgZ2VuZXJhbCBxdWVyeSBkZXN0aW5hdGlvbgogICAt
+PuKArzllZDk3M2NjNCAocHJlc2VudCBzaW5jZSAzLjE0KQo3KSBicmlkZ2U6IG11bHRpY2FzdDog
+ZW5hYmxlIHNub29waW5nIG9uIGdlbmVyYWwgcXVlcmllcyBvbmx5CiAgIC0+4oCvMjBhNTk5YmVj
+IChwcmVzZW50IHNpbmNlIDMuMTQpCgpMZXQgbWUga25vdyB3aGF0IHlvdSdkIHRoaW5rIGFib3V0
+IHRoYXQgb3IgaWYgdGhlcmUncyBhbnkgdHJvdWJsZQphcHBseWluZyB0aGVtIHRvIG9sZGVyIGtl
+cm5lbHMuCgpDaGVlcnMsIExpbnVzCgoKT24gVHVlLCBNYXIgMjUsIDIwMTQgYXQgMDI6MDY6MDdQ
+TSArMDEwMCwgTGludXMgTMO8c3Npbmcgd3JvdGU6Cj4gVGhhdCBjb21taXQgaXMgc3VwcG9zZWQg
+dG8gYmUgYSBmaXggYW5kIHNlZW1zIHRvIGJlIGEgZWFzaWx5Cj4gY2hlcnJ5LXBpY2thYmxlIG9u
+IHRvcCBvZiAzLjEwLiBTbyBJIHRoaW5rIGl0J3Mgc3VpdGFibGUgZm9yCj4gc3RhYmxlCj4gCj4g
+VGhlcmUgYXJlIHR3byBmb2xsb3ctdXAgY29tbWl0IGZvciB0aGlzIHBhcnRpY3VsYXIgcGF0Y2gg
+dGhhdCBJJ20gYXdhcmUKPiBvZjogImJyaWRnZTogc2VwYXJhdGUgcXVlcmllciBhbmQgcXVlcnkg
+dGltZXIgaW50byBJR01QL0lQdjQKPiBhbmQgTUxEL0lQdjYgb25lcyIgKGNjMGZkZDgwKS4gVGhh
+dCdzIGp1c3QgYW4gb3B0aW1pemF0aW9uCj4gYW5kIGNhbiBiZSBpZ25vcmVkIGZvciBzdGFibGUu
+Cj4gCj4gVGhlIHNlY29uZCBvbmUgaXMgImJyaWRnZTogZG9uJ3QgdHJ5IHRvIHVwZGF0ZSB0aW1l
+cnMgaW4gY2FzZSBvZgo+IGJyb2tlbiBNTEQgcXVlcmllcyIgKDI0OGJhOGVjMCkuIFdoaWNoIGlz
+IGEgZGlyZWN0IGZpeCBmb3IKPiBiMDA1ODlhZjMgYW5kIHNob3VsZCB0aGVyZWZvcmUgZ28gaW50
+byBzdGFibGUsIHRvbywgaWYgYjAwNTg5YWYzCj4gZ29lcyBpbnRvIHN0YWJsZS4KPiAKPiBDaGVl
+cnMsIExpbnVzCj4gCj4gCj4gT24gTW9uLCBNYXIgMjQsIDIwMTQgYXQgMDk6NDE6MDdBTSAtMDcw
+MCwgU3RlcGhlbiBIZW1taW5nZXIgd3JvdGU6Cj4gPiBXZSBhcmUgc2VlaW5nIG11bHRpY2FzdCBz
+bm9vcGluZyByZWxhdGVkIGlzc3Vlcy4KPiA+IElzIHRoZXJlIHNvbWUgcmVhc29uIHRoaXMgY29t
+bWl0IG5ldmVyIHdlbnQgaW50byBzdGFibGUgKDMuMTApCj4gPiAKPiA+IGNvbW1pdCBiMDA1ODlh
+ZjNiMDQ3MzYzNzZmMjQ2MjVhYjBiMzk0NjQyZTg5ZTI5Cj4gPiBBdXRob3I6IExpbnVzIEzDvHNz
+aW5nIDxsaW51cy5sdWVzc2luZ0B3ZWIuZGU+Cj4gPiBEYXRlOiAgIFRodSBBdWcgMSAwMTowNjoy
+MCAyMDEzICswMjAwCj4gPiAKPiA+ICAgICBicmlkZ2U6IGRpc2FibGUgc25vb3BpbmcgaWYgdGhl
+cmUgaXMgbm8gcXVlcmllcgo+ID4gICAgIAo+ID4gICAgIElmIHRoZXJlIGlzIG5vIHF1ZXJpZXIg
+b24gYSBsaW5rIHRoZW4gd2Ugd29uJ3QgZ2V0IHBlcmlvZGljIHJlcG9ydHMgYW5kCj4gPiAgICAg
+dGhlcmVmb3JlIHdvbid0IGJlIGFibGUgdG8gbGVhcm4gYWJvdXQgbXVsdGljYXN0IGxpc3RlbmVy
+cyBiZWhpbmQgcG9ydHMsCj4gPiAgICAgcG90ZW50aWFsbHkgbGVhZGluZyB0byBsb3N0IG11bHRp
+Y2FzdCBwYWNrZXRzLCBlc3BlY2lhbGx5IGZvciBtdWx0aWNhc3QKPiA+ICAgICBsaXN0ZW5lcnMg
+dGhhdCBqb2luZWQgYmVmb3JlIHRoZSBjcmVhdGlvbiBvZiB0aGUgYnJpZGdlLgo+ID4gICAgIAo+
+ID4gICAgIFRoZXNlIGxvc3QgbXVsdGljYXN0IHBhY2tldHMgY2FuIGFwcGVhciBzaW5jZSBjNWMy
+MzI2MDU5NAo+ID4gICAgICgiYnJpZGdlOiBBZGQgbXVsdGljYXN0X3F1ZXJpZXIgdG9nZ2xlIGFu
+ZCBkaXNhYmxlIHF1ZXJpZXMgYnkgZGVmYXVsdCIpCj4gPiAgICAgaW4gcGFydGljdWxhci4KPiA+
+ICAgICAKPiA+ICAgICBXaXRoIHRoaXMgcGF0Y2ggd2UgYXJlIGZsb29kaW5nIG11bHRpY2FzdCBw
+YWNrZXRzIGlmIG91ciBxdWVyaWVyIGlzCj4gPiAgICAgZGlzYWJsZWQgYW5kIGlmIHdlIGRpZG4n
+dCBkZXRlY3QgYW55IG90aGVyIHF1ZXJpZXIuCj4gPiAgICAgCj4gPiAgICAgQSBncmFjZSBwZXJp
+b2Qgb2YgdGhlIE1heGltdW0gUmVzcG9uc2UgRGVsYXkgb2YgdGhlIHF1ZXJpZXIgaXMgYWRkZWQg
+dG8KPiA+ICAgICBnaXZlIG11bHRpY2FzdCByZXNwb25zZXMgZW5vdWdoIHRpbWUgdG8gYXJyaXZl
+IGFuZCB0byBiZSBsZWFybmVkIGZyb20KPiA+ICAgICBiZWZvcmUgZGlzYWJsaW5nIHRoZSBmbG9v
+ZGluZyBiZWhhdmlvdXIgYWdhaW4uCj4gPiAgICAgCj4gPiAgICAgU2lnbmVkLW9mZi1ieTogTGlu
+dXMgTMO8c3NpbmcgPGxpbnVzLmx1ZXNzaW5nQHdlYi5kZT4KPiA+ICAgICBTaWduZWQtb2ZmLWJ5
+OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+Cl9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCm9wZW53cnQtZGV2ZWwgbWFpbGluZyBsaXN0
+Cm9wZW53cnQtZGV2ZWxAbGlzdHMub3BlbndydC5vcmcKaHR0cHM6Ly9saXN0cy5vcGVud3J0Lm9y
+Zy9jZ2ktYmluL21haWxtYW4vbGlzdGluZm8vb3BlbndydC1kZXZlbAo=
