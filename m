@@ -1,59 +1,34 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] ipv6: clean up anycast when an interface is destroyed
-Date: Wed, 10 Sep 2014 10:15:01 -0700
-Message-ID: <CAHA+R7ODewXP69ULsR0RD+c3BEfMa90zATRjHF3dC9Dkv7jgZw@mail.gmail.com>
-References: <20140910102714.GB21267@kria>
+From: Robert Engels <rengels@optionscity.com>
+Subject: rtt vs. rcv_rtt ?
+Date: Wed, 10 Sep 2014 12:15:44 -0500
+Message-ID: <CA+q+rD1=ohtL5EkoXkSVS5A5ygop4ev3CoN=HOLNSrTPp7BtiA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>
-To: Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:63519 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751344AbaIJRPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 13:15:03 -0400
-Received: by mail-lb0-f174.google.com with SMTP id n15so11316759lbi.19
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 10:15:01 -0700 (PDT)
-In-Reply-To: <20140910102714.GB21267@kria>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:59528 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751109AbaIJRPp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 13:15:45 -0400
+Received: by mail-wi0-f169.google.com with SMTP id cc10so1349165wib.2
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 10:15:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 10, 2014 at 3:27 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
-> diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
-> index ff2de7d9d8e6..a1bf80574bfe 100644
-> --- a/net/ipv6/anycast.c
-> +++ b/net/ipv6/anycast.c
-> @@ -351,6 +351,28 @@ static int ipv6_dev_ac_dec(struct net_device *dev, const struct in6_addr *addr)
->         return __ipv6_dev_ac_dec(idev, addr);
->  }
->
-> +/* Device is being destroyed: clean up */
+When using 'ss', both rtt, and rcv_rtt are reported.
 
-This comment is useless.
+My understanding is that rcv_rtt is an estimate of the receivers rtt ?? Is
+this true? My assumption is that differences in rtt vs. rcv_rtt would be
+due to asymmetric networking connections ???
 
-> +void ipv6_ac_destroy_dev(struct inet6_dev *idev)
-> +{
-> +       struct ifacaddr6 *aca;
-> +
-> +       write_lock_bh(&idev->lock);
-> +       while ((aca = idev->ac_list) != NULL) {
-> +               idev->ac_list = aca->aca_next;
-> +               write_unlock_bh(&idev->lock);
-> +
-> +               addrconf_leave_solict(idev, &aca->aca_addr);
-> +
-> +               dst_hold(&aca->aca_rt->dst);
-> +               ip6_del_rt(aca->aca_rt);
-> +
-> +               aca_put(aca);
-> +
-> +               write_lock_bh(&idev->lock);
-> +       }
-> +       write_unlock_bh(&idev->lock);
-> +}
-> +
+Here is a sample 'ss' output:
 
-I think you can probably refactor the code out of __ipv6_dev_ac_dec()
-so that you don't have to kinda duplicate the code?
+ cubic wscale:2,9 rto:437 rtt:101.625/84 ato:40 cwnd:10 ssthresh:15 send
+991.9Kbps rcv_rtt:18291 rcv_space:151142
+
+Can someone explain why the rcv_rtt would be so much higher than the rtt?
+Is it that the client is not reading the data fast enough? Other reasons?
+
+Thanks so much for your help.
+
+Robert Engels
