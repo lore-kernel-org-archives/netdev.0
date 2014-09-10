@@ -1,40 +1,47 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/25] netfilter: ipset: Removed invalid IPSET_ATTR_MARKMASK validation
-Date: Wed, 10 Sep 2014 17:10:21 +0200
-Message-ID: <1410361842-4656-5-git-send-email-pablo@netfilter.org>
-References: <1410361842-4656-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1410361842-4656-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Subject: Re: [PATCH net-next 00/20] Support v6 real servers in v4 pools and
+ vice versa
+Date: Wed, 10 Sep 2014 17:16:17 +0200
+Message-ID: <20140910151617.GA4830@salvia>
+References: <1410306039-2977-1-git-send-email-agartrell@fb.com>
+ <alpine.LFD.2.11.1409100853260.6338@ja.home.ssi.bg>
+ <20140910062201.GA11468@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, Alex Gartrell <agartrell@fb.com>,
+	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	kernel-team@fb.com, ps@fb.com, David Miller <davem@davemloft.net>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140910062201.GA11468@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vytas Dauksa <vytas.dauksa@smoothwall.net>
+On Wed, Sep 10, 2014 at 03:22:01PM +0900, Simon Horman wrote:
+> [ CC Pablo, Dave M ]
+> 
+> On Wed, Sep 10, 2014 at 09:01:34AM +0300, Julian Anastasov wrote:
+> > 
+> > 	Hello,
+> > 
+> > On Tue, 9 Sep 2014, Alex Gartrell wrote:
+> > 
+> > > The following patch set has been iterated upon in the lvs-devel mailing
+> > > list.  I am submitting it here per Julian's advice for inclusion in the
+> > > net-next tree.
+> > 
+> > Acked-by: Julian Anastasov <ja@ssi.bg>
+> > 
+> > 	Simon, please apply the patchset to ipvs-next.
+> > I guess ipvs-next and nf-next need to be updated
+> > before that due to dependency on net-next commit ea1d5d7755a3e556
+> > ("ipvs: properly declare tunnel encapsulation").
+> 
+> Thanks Julian, yes that does seem to be the case.
+> 
+> Pablo, could you merge nf into nf-next and push the result
+> so that I can apply this series on top?
 
-Markmask is an u32, hence it can't be greater then 4294967295 ( i.e.
-0xffffffff ). This was causing smatch warning:
- net/netfilter/ipset/ip_set_hash_gen.h:1084 hash_ipmark_create() warn:
- impossible condition '(markmask > 4294967295) => (0-u32max > u32max)'
-
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
----
- net/netfilter/ipset/ip_set_hash_gen.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
-index 61c7fb0..0398a92 100644
---- a/net/netfilter/ipset/ip_set_hash_gen.h
-+++ b/net/netfilter/ipset/ip_set_hash_gen.h
-@@ -1093,7 +1093,7 @@ IPSET_TOKEN(HTYPE, _create)(struct net *net, struct ip_set *set,
- 	if (tb[IPSET_ATTR_MARKMASK]) {
- 		markmask = ntohl(nla_get_u32(tb[IPSET_ATTR_MARKMASK]));
- 
--		if ((markmask > 4294967295u) || markmask == 0)
-+		if (markmask == 0)
- 			return -IPSET_ERR_INVALID_MARKMASK;
- 	}
- #endif
--- 
-1.7.10.4
-
+Let me flush out my nf-next queue first, many updates in it, I'll ping
+to let you know once you can prepare your series. Thanks.
