@@ -1,52 +1,51 @@
-From: Markos Chandras <markos.chandras@imgtec.com>
-Subject: [PATCH] Documentation: filter: Add MIPS to architectures with BPF JIT
-Date: Wed, 10 Sep 2014 14:51:44 +0100
-Message-ID: <1410357104-30490-1-git-send-email-markos.chandras@imgtec.com>
-References: <1409322218-3689-1-git-send-email-markos.chandras@imgtec.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net-next v2 0/2] sunvnet: Reduce LDC message overhead.
+Date: Wed, 10 Sep 2014 10:04:34 -0400
+Message-ID: <20140910140434.GA14466@oracle.com>
+References: <20140902161936.GA31516@oracle.com>
+ <20140904.223724.206826043871814498.davem@davemloft.net>
+ <20140908143802.GF31377@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Markos Chandras <markos.chandras@imgtec.com>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Daniel Borkmann" <dborkman@redhat.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	<linux-doc@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1409322218-3689-1-git-send-email-markos.chandras@imgtec.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:42327 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751037AbaIJOEm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 10:04:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20140908143802.GF31377@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-MIPS supports BPF JIT since v3.16-rc1
 
-Cc: Randy Dunlap <rdunlap@infradead.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Daniel Borkmann <dborkman@redhat.com>
-Cc: Alexei Starovoitov <ast@plumgrid.com>
-Cc: linux-doc@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
----
- Documentation/networking/filter.txt | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Excuse me if I am missing something obvious, but what was the 
+verdict on this? Is there any additional clarification/information 
+I can provide, if this is being mulled over? 
 
-diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
-index c48a9704bda8..d16f424c5e8d 100644
---- a/Documentation/networking/filter.txt
-+++ b/Documentation/networking/filter.txt
-@@ -462,9 +462,9 @@ JIT compiler
- ------------
- 
- The Linux kernel has a built-in BPF JIT compiler for x86_64, SPARC, PowerPC,
--ARM and s390 and can be enabled through CONFIG_BPF_JIT. The JIT compiler is
--transparently invoked for each attached filter from user space or for internal
--kernel users if it has been previously enabled by root:
-+ARM, MIPS and s390 and can be enabled through CONFIG_BPF_JIT. The JIT compiler
-+is transparently invoked for each attached filter from user space or for
-+internal kernel users if it has been previously enabled by root:
- 
-   echo 1 > /proc/sys/net/core/bpf_jit_enable
- 
--- 
-2.1.0
+--Sowmini
+
+On (09/08/14 10:38), Sowmini Varadhan wrote:
+> 
+> On (09/04/14 22:37), David Miller wrote:
+> > 
+> > From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> > 
+> > > This patchset has an updated version of the v1 changes to reduce the
+> > > overhead from LDC messages. 
+> > 
+> > Let's hold on these changes until the memory barrier issues brought up
+> > by David is resolved.
+> 
+> On (09/07/14 16:19), David Miller wrote (in the patch 2/2 thread for this set):
+> > 
+> > > So what (if any) is the outstanding question about wmb() at this 
+> > > point?
+> > 
+> > I don't think there is any, thanks.
+> 
+> I'm not sure where we stand with this- do I need to resubmit any/all of 
+> those two patches?
+> 
+> --Sowmini
