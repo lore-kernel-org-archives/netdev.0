@@ -1,43 +1,56 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH net-next 0/2] Address reference counting issues with
- sock_queue_err_skb
-Date: Wed, 10 Sep 2014 18:04:42 -0400
-Message-ID: <20140910215837.23225.39149.stgit@ahduyck-bv4.jf.intel.com>
+From: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next v2 1/2] skb: Add documentation for skb_clone_sk
+Date: Wed, 10 Sep 2014 18:05:26 -0400
+Message-ID: <20140910220448.23225.39224.stgit@ahduyck-bv4.jf.intel.com>
+References: <20140910215837.23225.39149.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, davem@davemloft.net,
-	eric.dumazet@gmail.com, linville@tuxdriver.com
-To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:14767 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752535AbaIJWNV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 18:13:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140910215837.23225.39149.stgit-+uVpp3jiz/QKn9AQLGuxw7vm/XP+8Wra@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-After looking over the code for skb_clone_sk after some comments made by
-Eric Dumazet I have come to the conclusion that skb_clone_sk is taking the
-correct approach in how to handle the sk_refcnt when creating a buffer that
-is eventually meant to be returned to the socket via the sock_queue_err_skb
-function.
+This change adds some documentation to the call skb_clone_sk.  This is
+meant to help clarify the purpose of the function for other developers.
 
-However upon review of other callers I found what I believe to be a
-possible reference count issue in the path for handling "wifi ack" packets.
-To address this I have applied the same logic that is currently in place so
-that the sk_refcnt will be forced to stay at least 1, or we will not
-provide an skb to return in the sk_error_queue.
-
+Signed-off-by: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
 
-Alexander Duyck (2):
-      skb: Add documentation for skb_clone_sk
-      mac80211: Resolve sk_refcnt/sk_wmem_alloc issue in wifi ack path
+v2: Updated comments to specifically call out need for sock_hold/sock_put
 
+ net/core/skbuff.c |   13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
- net/core/skbuff.c |   18 ++++++++++++++++++
- net/mac80211/tx.c |   15 ++++-----------
- 2 files changed, 22 insertions(+), 11 deletions(-)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index a18dfb0..c9da77a 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3511,6 +3511,19 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
+ }
+ EXPORT_SYMBOL(sock_dequeue_err_skb);
+ 
++/**
++ * skb_clone_sk - create clone of skb, and take reference to socket
++ * @skb: the skb to clone
++ *
++ * This function creates a clone of a buffer that holds a reference on
++ * sk_refcnt.  Buffers created via this function are meant to be
++ * returned using sock_queue_err_skb, or free via kfree_skb.
++ *
++ * When passing buffers allocated with this function to sock_queue_err_skb
++ * it is necessary to wrap the call with sock_hold/sock_put in order to
++ * prevent the socket from being released prior to being enqueued on
++ * the sk_error_queue.
++ */
+ struct sk_buff *skb_clone_sk(struct sk_buff *skb)
+ {
+ 	struct sock *sk = skb->sk;
 
--- 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
