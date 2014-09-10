@@ -1,35 +1,51 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next 0/5] ipv6: clean up locking in anycast and mcast
-Date: Wed, 10 Sep 2014 16:54:07 -0700
-Message-ID: <CAM_iQpWX0vkjGJWwhtfGr8KCJ15AVREWttSxvcFQrfzRzAWfYA@mail.gmail.com>
-References: <1410306738-18036-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20140910.130150.1203685634918422464.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net-next 00/20] Support v6 real servers in v4 pools and
+ vice versa
+Date: Thu, 11 Sep 2014 08:55:04 +0900
+Message-ID: <20140910235504.GB29858@verge.net.au>
+References: <1410306039-2977-1-git-send-email-agartrell@fb.com>
+ <alpine.LFD.2.11.1409100853260.6338@ja.home.ssi.bg>
+ <20140910062201.GA11468@verge.net.au>
+ <20140910151617.GA4830@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:33144 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752032AbaIJXyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 19:54:08 -0400
-Received: by mail-oa0-f46.google.com with SMTP id eb12so4602035oac.19
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 16:54:07 -0700 (PDT)
-In-Reply-To: <20140910.130150.1203685634918422464.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, Alex Gartrell <agartrell@fb.com>,
+	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	kernel-team@fb.com, ps@fb.com, David Miller <davem@davemloft.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140910151617.GA4830@salvia>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 10, 2014 at 1:01 PM, David Miller <davem@davemloft.net> wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Tue,  9 Sep 2014 16:52:13 -0700
->
->> This patchset cleans up the locking in anycast.c and mcast.c.
->>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->
-> Please update this based upon the feedback you've received.
->
+On Wed, Sep 10, 2014 at 05:16:17PM +0200, Pablo Neira Ayuso wrote:
+> On Wed, Sep 10, 2014 at 03:22:01PM +0900, Simon Horman wrote:
+> > [ CC Pablo, Dave M ]
+> > 
+> > On Wed, Sep 10, 2014 at 09:01:34AM +0300, Julian Anastasov wrote:
+> > > 
+> > > 	Hello,
+> > > 
+> > > On Tue, 9 Sep 2014, Alex Gartrell wrote:
+> > > 
+> > > > The following patch set has been iterated upon in the lvs-devel mailing
+> > > > list.  I am submitting it here per Julian's advice for inclusion in the
+> > > > net-next tree.
+> > > 
+> > > Acked-by: Julian Anastasov <ja@ssi.bg>
+> > > 
+> > > 	Simon, please apply the patchset to ipvs-next.
+> > > I guess ipvs-next and nf-next need to be updated
+> > > before that due to dependency on net-next commit ea1d5d7755a3e556
+> > > ("ipvs: properly declare tunnel encapsulation").
+> > 
+> > Thanks Julian, yes that does seem to be the case.
+> > 
+> > Pablo, could you merge nf into nf-next and push the result
+> > so that I can apply this series on top?
+> 
+> Let me flush out my nf-next queue first, many updates in it, I'll ping
+> to let you know once you can prepare your series. Thanks.
 
-Sure thing, done.
+Thanks, much appreciated.
