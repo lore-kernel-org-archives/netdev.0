@@ -1,35 +1,36 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: linux-next: build failure after merge of the wireless-next tree
-Date: Wed, 10 Sep 2014 13:46:36 -0400
-Message-ID: <20140910174636.GB19950@tuxdriver.com>
-References: <20140908184253.74ff5470@canb.auug.org.au>
- <20140910092819.7b0b0ae7@canb.auug.org.au>
- <20140909.163733.1827908634029213952.davem@davemloft.net>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Generic way to change net namespace for wireless device
+Date: Wed, 10 Sep 2014 21:01:32 +0300
+Message-ID: <CAMw6YJJuPK5Ngh8vTL9_c1XUyk6tkcVpFtWyoeODhLUpJxkqLg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	herself@thefumon.com, linux@roeck-us.net, geert@linux-m68k.org,
-	broonie@kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140909.163733.1827908634029213952.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f54.google.com ([209.85.192.54]:44181 "EHLO
+	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734AbaIJSBd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 14:01:33 -0400
+Received: by mail-qg0-f54.google.com with SMTP id z60so4206596qgd.27
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 11:01:32 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 09, 2014 at 04:37:33PM -0700, David Miller wrote:
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Wed, 10 Sep 2014 09:28:19 +1000
-> 
-> > Hi Dave,
->  ...
-> > This fix patch is now needed in the net-next tree ...
-> 
-> Applied thanks Stephen.
+Hi All,
 
-Doh!  Sorry I missed that one...
+I see that setting of network namespace differs for wireless and for
+other devices. To change netns for wireless device it is needed to use
+nl80211 API. Seems wireless device must have some special way to
+change netns, but what if to:
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+     - add new netdev_ops->ndo_set_netns callback
+     - implement it in net/mac80211/iface.c
+     - delegate callback from net/mac80211 to net/wireless/core.c ->
+          cfg80211_switch_netns func.
+     - in net/core/rtnetlink.c ->do_setlink  func check & call
+          dev->netdev_ops->ndo_set_netns or call
+          dev_change_net_namespace
+
+Then it will be possible to change netns for wireless device via
+RTM_SETLINK.
+
+Regards,
