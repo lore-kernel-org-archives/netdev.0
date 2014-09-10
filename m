@@ -1,181 +1,156 @@
-From: <yes-KgLukfWpBlCctlrPMvKcciBecyulp+rMXqFh9Ls21Oc@public.gmane.org>
-Subject: [Patch v3 net-next 07/12] net: fec: add enet-avb IP support
-Date: Thu, 11 Sep 2014 02:30:08 +0800
-Message-ID: <38946.3072912351$1410375290@news.gmane.org>
+From: <yes@shlinux1.ap.freescale.net>
+Subject: [Patch v3 net-next 09/12] net: fec: change FEC alignment according to i.mx6 sx requirement
+Date: Thu, 11 Sep 2014 02:30:10 +0800
+Message-ID: <25381.4591480934$1410375292@news.gmane.org>
 References: <1410373813-5731-1-git-send-email-yes>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
+	<devicetree@vger.kernel.org>, <linux@arm.linux.org.uk>,
+	Fugang Duan <B38611@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>
+To: <b38611@freescale.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0092.outbound.protection.outlook.com ([207.46.100.92]:7872
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752967AbaIJSyM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2014 14:54:12 -0400
 In-Reply-To: <1410373813-5731-1-git-send-email-yes>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+From: Fugang Duan <B38611@freescale.com>
 
-i.MX6SX Enet-AVB support 3 tx queues, 3 rx queues.
-For tx queues: ring 0 -> best effort
-	       ring 1 -> Class A
-	       ring 2 -> Class B
-For rx queues:
-	       ring 0 -> best effort
-	       ring 1 -> receive VLAN packet with classification match
-	       ring 2 -> receive VLAN packet with classification match
+i.MX6 SX change FEC alignment requirement.
+i.MX6 SX change internal bus from AHB to AXI.
+It require RX buffer must be 64 bytes alignment.
+And remove TX buffer alignment requirement.
 
-Add enet-avb IP multiqueue support for the driver.
-
-Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- drivers/net/ethernet/freescale/fec.h      | 33 ++++++++++++++++++++++++++++
- drivers/net/ethernet/freescale/fec_main.c | 36 +++++++++++++++----------------
- 2 files changed, 51 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/freescale/fec.h      |  3 +++
+ drivers/net/ethernet/freescale/fec_main.c | 35 +++++++++++++++++++++----------
+ 2 files changed, 27 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 72fb90f..5ec3828 100644
+index 5ec3828..7cc8382 100644
 --- a/drivers/net/ethernet/freescale/fec.h
 +++ b/drivers/net/ethernet/freescale/fec.h
-@@ -38,6 +38,12 @@
- #define FEC_ADDR_LOW		0x0e4 /* Low 32bits MAC address */
- #define FEC_ADDR_HIGH		0x0e8 /* High 16bits MAC address */
- #define FEC_OPD			0x0ec /* Opcode + Pause duration */
-+#define FEC_TXIC0		0xF0  /* Tx Interrupt Coalescing for ring 0 */
-+#define FEC_TXIC1		0xF4  /* Tx Interrupt Coalescing for ring 1 */
-+#define FEC_TXIC2		0xF8  /* Tx Interrupt Coalescing for ring 2 */
-+#define FEC_RXIC0		0x100 /* Rx Interrupt Coalescing for ring 0 */
-+#define FEC_RXIC1		0x104 /* Rx Interrupt Coalescing for ring 1 */
-+#define FEC_RXIC2		0x108 /* Rx Interrupt Coalescing for ring 2 */
- #define FEC_HASH_TABLE_HIGH	0x118 /* High 32bits hash table */
- #define FEC_HASH_TABLE_LOW	0x11c /* Low 32bits hash table */
- #define FEC_GRP_HASH_TABLE_HIGH	0x120 /* High 32bits hash table */
-@@ -65,6 +71,7 @@
- #define FEC_X_DES_ACTIVE_1	0x1e4 /* Tx descriptor active for ring 1 */
- #define FEC_R_DES_ACTIVE_2	0x1e8 /* Rx descriptor active for ring 2 */
- #define FEC_X_DES_ACTIVE_2	0x1ec /* Tx descriptor active for ring 2 */
-+#define FEC_QOS_SCHEME		0x1f0 /* Set multi queues Qos scheme */
- #define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
- #define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
+@@ -443,6 +443,9 @@ struct fec_enet_private {
+ 	int hwts_tx_en;
+ 	struct delayed_work time_keep;
+ 	struct regulator *reg_phy;
++
++	unsigned tx_align;
++	unsigned rx_align;
+ };
  
-@@ -305,6 +312,32 @@ struct bufdesc_ex {
- #define FLAG_RX_CSUM_ENABLED	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
- #define FLAG_RX_CSUM_ERROR	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
- 
-+/* Interrupt events/masks. */
-+#define FEC_ENET_HBERR  ((uint)0x80000000)      /* Heartbeat error */
-+#define FEC_ENET_BABR   ((uint)0x40000000)      /* Babbling receiver */
-+#define FEC_ENET_BABT   ((uint)0x20000000)      /* Babbling transmitter */
-+#define FEC_ENET_GRA    ((uint)0x10000000)      /* Graceful stop complete */
-+#define FEC_ENET_TXF_0	((uint)0x08000000)	/* Full frame transmitted */
-+#define FEC_ENET_TXF_1	((uint)0x00000008)	/* Full frame transmitted */
-+#define FEC_ENET_TXF_2	((uint)0x00000080)	/* Full frame transmitted */
-+#define FEC_ENET_TXB    ((uint)0x04000000)      /* A buffer was transmitted */
-+#define FEC_ENET_RXF_0	((uint)0x02000000)	/* Full frame received */
-+#define FEC_ENET_RXF_1	((uint)0x00000002)	/* Full frame received */
-+#define FEC_ENET_RXF_2	((uint)0x00000020)	/* Full frame received */
-+#define FEC_ENET_RXB    ((uint)0x01000000)      /* A buffer was received */
-+#define FEC_ENET_MII    ((uint)0x00800000)      /* MII interrupt */
-+#define FEC_ENET_EBERR  ((uint)0x00400000)      /* SDMA bus error */
-+#define FEC_ENET_TXF	(FEC_ENET_TXF_0 | FEC_ENET_TXF_1 | FEC_ENET_TXF_2)
-+#define FEC_ENET_RXF	(FEC_ENET_RXF_0 | FEC_ENET_RXF_1 | FEC_ENET_RXF_2)
-+#define FEC_ENET_TS_AVAIL       ((uint)0x00010000)
-+#define FEC_ENET_TS_TIMER       ((uint)0x00008000)
-+
-+#define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII | FEC_ENET_TS_TIMER)
-+#define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
-+
-+#define FEC_VLAN_TAG_LEN       0x04
-+#define FEC_ETHTYPE_LEN                0x02
-+
- struct fec_enet_priv_tx_q {
- 	int index;
- 	unsigned char *tx_bounce[TX_RING_SIZE];
+ void fec_ptp_init(struct platform_device *pdev);
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 5f8e997..658b0b3 100644
+index 0cc7313..8043cd7 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -193,21 +193,6 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
- #endif
- #endif /* CONFIG_M5272 */
+@@ -64,12 +64,6 @@
  
--/* Interrupt events/masks. */
--#define FEC_ENET_HBERR	((uint)0x80000000)	/* Heartbeat error */
--#define FEC_ENET_BABR	((uint)0x40000000)	/* Babbling receiver */
--#define FEC_ENET_BABT	((uint)0x20000000)	/* Babbling transmitter */
--#define FEC_ENET_GRA	((uint)0x10000000)	/* Graceful stop complete */
--#define FEC_ENET_TXF	((uint)0x08000000)	/* Full frame transmitted */
--#define FEC_ENET_TXB	((uint)0x04000000)	/* A buffer was transmitted */
--#define FEC_ENET_RXF	((uint)0x02000000)	/* Full frame received */
--#define FEC_ENET_RXB	((uint)0x01000000)	/* A buffer was received */
--#define FEC_ENET_MII	((uint)0x00800000)	/* MII interrupt */
--#define FEC_ENET_EBERR	((uint)0x00400000)	/* SDMA bus error */
+ static void set_multicast_list(struct net_device *ndev);
+ 
+-#if defined(CONFIG_ARM)
+-#define FEC_ALIGNMENT	0xf
+-#else
+-#define FEC_ALIGNMENT	0x3
+-#endif
 -
--#define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII)
--#define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
--
- /* The FEC stores dest/src/type/vlan, data, and checksum for receive packets.
-  */
- #define PKT_MAXBUF_SIZE		1522
-@@ -882,6 +867,15 @@ static void fec_enet_bd_init(struct net_device *dev)
- 	}
- }
+ #define DRIVER_NAME	"fec"
  
-+static void fec_enet_active_rxring(struct net_device *ndev)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	int i;
-+
-+	for (i = 0; i < fep->num_rx_queues; i++)
-+		writel(0, fep->hwp + FEC_R_DES_ACTIVE(i));
-+}
-+
- static void fec_enet_enable_ring(struct net_device *ndev)
- {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
-@@ -939,7 +933,6 @@ fec_restart(struct net_device *ndev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	const struct platform_device_id *id_entry =
- 				platform_get_device_id(fep->pdev);
--	int i;
- 	u32 val;
- 	u32 temp_mac[2];
- 	u32 rcntl = OPT_FRAME_SIZE | 0x04;
-@@ -1099,8 +1092,7 @@ fec_restart(struct net_device *ndev)
+ #define FEC_ENET_GET_QUQUE(_x) ((_x == 0) ? 1 : ((_x == 1) ? 2 : 0))
+@@ -434,7 +428,7 @@ fec_enet_txq_submit_frag_skb(struct fec_enet_priv_tx_q *txq,
+ 		bufaddr = page_address(this_frag->page.p) + this_frag->page_offset;
  
- 	/* And last, enable the transmit and receive processing */
- 	writel(ecntl, fep->hwp + FEC_ECNTRL);
--	for (i = 0; i < fep->num_rx_queues; i++)
--		writel(0, fep->hwp + FEC_R_DES_ACTIVE(i));
-+	fec_enet_active_rxring(ndev);
+ 		index = fec_enet_get_bd_index(txq->tx_bd_base, bdp, fep);
+-		if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
++		if (((unsigned long) bufaddr) & fep->tx_align ||
+ 			id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 			memcpy(txq->tx_bounce[index], bufaddr, frag_len);
+ 			bufaddr = txq->tx_bounce[index];
+@@ -514,7 +508,7 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
+ 
+ 	queue = skb_get_queue_mapping(skb);
+ 	index = fec_enet_get_bd_index(txq->tx_bd_base, bdp, fep);
+-	if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
++	if (((unsigned long) bufaddr) & fep->tx_align ||
+ 		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 		memcpy(txq->tx_bounce[index], skb->data, buflen);
+ 		bufaddr = txq->tx_bounce[index];
+@@ -607,7 +601,7 @@ fec_enet_txq_put_data_tso(struct fec_enet_priv_tx_q *txq, struct sk_buff *skb,
+ 
+ 	status |= (BD_ENET_TX_TC | BD_ENET_TX_READY);
+ 
+-	if (((unsigned long) data) & FEC_ALIGNMENT ||
++	if (((unsigned long) data) & fep->tx_align ||
+ 		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 		memcpy(txq->tx_bounce[index], data, size);
+ 		data = txq->tx_bounce[index];
+@@ -669,7 +663,7 @@ fec_enet_txq_put_hdr_tso(struct fec_enet_priv_tx_q *txq,
+ 
+ 	bufaddr = txq->tso_hdrs + index * TSO_HEADER_SIZE;
+ 	dmabuf = txq->tso_hdrs_dma + index * TSO_HEADER_SIZE;
+-	if (((unsigned long) bufaddr) & FEC_ALIGNMENT ||
++	if (((unsigned long)bufaddr) & fep->tx_align ||
+ 		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+ 		memcpy(txq->tx_bounce[index], skb->data, hdr_len);
+ 		bufaddr = txq->tx_bounce[index];
+@@ -2399,6 +2393,7 @@ fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
+ 	struct sk_buff *skb;
+ 	struct bufdesc	*bdp;
+ 	struct fec_enet_priv_rx_q *rxq;
++	unsigned off;
+ 
+ 	rxq = fep->rx_queue[queue];
+ 	bdp = rxq->rx_bd_base;
+@@ -2409,8 +2404,13 @@ fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
+ 		if (!skb)
+ 			goto err_alloc;
+ 
++		off = ((unsigned long)skb->data) & fep->rx_align;
++		if (off)
++			skb_reserve(skb, fep->rx_align + 1 - off);
++
+ 		addr = dma_map_single(&fep->pdev->dev, skb->data,
+-				FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
++				FEC_ENET_RX_FRSIZE - fep->rx_align, DMA_FROM_DEVICE);
++
+ 		if (dma_mapping_error(&fep->pdev->dev, addr)) {
+ 			dev_kfree_skb(skb);
+ 			if (net_ratelimit())
+@@ -2743,6 +2743,14 @@ static int fec_enet_init(struct net_device *ndev)
+ 	int bd_size;
+ 	unsigned int i;
+ 
++#if defined(CONFIG_ARM)
++	fep->rx_align = 0xf;
++	fep->tx_align = 0xf;
++#else
++	fep->rx_align = 0x3;
++	fep->tx_align = 0x3;
++#endif
++
+ 	fec_enet_alloc_queue(ndev);
  
  	if (fep->bufdesc_ex)
- 		fec_ptp_start_cyclecounter(ndev);
-@@ -1511,9 +1503,17 @@ fec_enet_collect_events(struct fec_enet_private *fep, uint int_events)
+@@ -2819,6 +2827,11 @@ static int fec_enet_init(struct net_device *ndev)
+ 		fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
+ 	}
  
- 	if (int_events & FEC_ENET_RXF)
- 		fep->work_rx |= (1 << 2);
-+	if (int_events & FEC_ENET_RXF_1)
-+		fep->work_rx |= (1 << 0);
-+	if (int_events & FEC_ENET_RXF_2)
-+		fep->work_rx |= (1 << 1);
++	if (id_entry->driver_data & FEC_QUIRK_HAS_AVB) {
++		fep->tx_align = 0;
++		fep->rx_align = 0x3f;
++	}
++
+ 	ndev->hw_features = ndev->features;
  
- 	if (int_events & FEC_ENET_TXF)
- 		fep->work_tx |= (1 << 2);
-+	if (int_events & FEC_ENET_TXF_1)
-+		fep->work_tx |= (1 << 0);
-+	if (int_events & FEC_ENET_TXF_2)
-+		fep->work_tx |= (1 << 1);
- 
- 	return true;
- }
+ 	fec_restart(ndev);
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
