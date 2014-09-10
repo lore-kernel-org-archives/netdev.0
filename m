@@ -1,37 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: implement rt_genid_bump_ipv6 with
- fn_sernum and remove rt6i_genid
-Date: Wed, 10 Sep 2014 13:09:29 -0700 (PDT)
-Message-ID: <20140910.130929.247064282043941043.davem@davemloft.net>
-References: <1410267519.27979.31.camel@localhost>
-	<130f98f49b1b90a30908bfda8f01109c91edfe1c.1410341451.git.hannes@stressinduktion.org>
+From: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next] mac80211: Check correct skb for shared states
+ before freeing original
+Date: Wed, 10 Sep 2014 16:06:23 -0400
+Message-ID: <20140910200442.15961.84466.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	nicolas.dichtel@6wind.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43059 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752787AbaIJUJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 16:09:30 -0400
-In-Reply-To: <130f98f49b1b90a30908bfda8f01109c91edfe1c.1410341451.git.hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Wed, 10 Sep 2014 11:31:28 +0200
+The code for cloning the skb for an acknowledgement was checking to see if
+the cloned skb was shared and if it was it was then freeing the original
+skb.  Since a clone should never really be shared I suspect that the
+intention was to avoid freeing the clone if the original was shared.  As
+such I am updating the code so that if the original is shared we free the
+original and use the clone.  This avoids unnecessary work in the next
+section where we would be cloning the skb if the original is shared.
 
-> In case we need to force the sockets to relookup the routes we now
-> increase the fn_sernum on all fibnodes in the routing tree. This is a
-> costly operation but should only happen if we have major routing/policy
-> changes in the kernel (e.g. manual route adding/removal, xfrm policy
-> changes).
+Signed-off-by: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+---
+ net/mac80211/tx.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Core routers can update thousands of route updates per second, and they
-do this via what you refer to as "manual route adding/removal".
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index 925c39f..e527cd3 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -2087,7 +2087,7 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 			if (id >= 0) {
+ 				info_id = id;
+ 				info_flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
+-			} else if (skb_shared(skb)) {
++			} else if (skb_shared(orig_skb)) {
+ 				kfree_skb(orig_skb);
+ 			} else {
+ 				kfree_skb(skb);
 
-I don't think we want to put such a scalability problem into the tree.
-
-There has to be a lightweight way to address this.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
