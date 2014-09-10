@@ -1,215 +1,79 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 10/25] netfilter: nft_chain_nat_ipv4: use generic IPv4 NAT code from core
-Date: Wed, 10 Sep 2014 17:10:27 +0200
-Message-ID: <1410361842-4656-11-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 16/25] netfilter: nf_tables: add devgroup support in meta expresion
+Date: Wed, 10 Sep 2014 17:10:33 +0200
+Message-ID: <1410361842-4656-17-git-send-email-pablo@netfilter.org>
 References: <1410361842-4656-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55854 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752160AbaIJPKO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 11:10:14 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1410361842-4656-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use the exported IPv4 NAT functions that are provided by the core. This
-removes duplicated code so iptables and nft use the same NAT codebase.
+From: Ana Rey <anarey@gmail.com>
 
+Add devgroup support to let us match device group of a packets incoming
+or outgoing interface.
+
+Signed-off-by: Ana Rey <anarey@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/nft_chain_nat_ipv4.c |  157 ++++++++-----------------------
- 1 file changed, 37 insertions(+), 120 deletions(-)
+ include/uapi/linux/netfilter/nf_tables.h |    4 ++++
+ net/netfilter/nft_meta.c                 |   12 ++++++++++++
+ 2 files changed, 16 insertions(+)
 
-diff --git a/net/ipv4/netfilter/nft_chain_nat_ipv4.c b/net/ipv4/netfilter/nft_chain_nat_ipv4.c
-index 3964157..df547bf 100644
---- a/net/ipv4/netfilter/nft_chain_nat_ipv4.c
-+++ b/net/ipv4/netfilter/nft_chain_nat_ipv4.c
-@@ -26,136 +26,53 @@
- #include <net/netfilter/nf_nat_l3proto.h>
- #include <net/ip.h>
- 
--/*
-- * NAT chains
-- */
--
--static unsigned int nf_nat_fn(const struct nf_hook_ops *ops,
--			      struct sk_buff *skb,
--			      const struct net_device *in,
--			      const struct net_device *out,
--			      int (*okfn)(struct sk_buff *))
-+static unsigned int nft_nat_do_chain(const struct nf_hook_ops *ops,
-+				      struct sk_buff *skb,
-+				      const struct net_device *in,
-+				      const struct net_device *out,
-+				      struct nf_conn *ct)
- {
--	enum ip_conntrack_info ctinfo;
--	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
--	struct nf_conn_nat *nat;
--	enum nf_nat_manip_type maniptype = HOOK2MANIP(ops->hooknum);
- 	struct nft_pktinfo pkt;
--	unsigned int ret;
--
--	if (ct == NULL || nf_ct_is_untracked(ct))
--		return NF_ACCEPT;
--
--	NF_CT_ASSERT(!(ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)));
--
--	nat = nf_ct_nat_ext_add(ct);
--	if (nat == NULL)
--		return NF_ACCEPT;
--
--	switch (ctinfo) {
--	case IP_CT_RELATED:
--	case IP_CT_RELATED + IP_CT_IS_REPLY:
--		if (ip_hdr(skb)->protocol == IPPROTO_ICMP) {
--			if (!nf_nat_icmp_reply_translation(skb, ct, ctinfo,
--							   ops->hooknum))
--				return NF_DROP;
--			else
--				return NF_ACCEPT;
--		}
--		/* Fall through */
--	case IP_CT_NEW:
--		if (nf_nat_initialized(ct, maniptype))
--			break;
- 
--		nft_set_pktinfo_ipv4(&pkt, ops, skb, in, out);
-+	nft_set_pktinfo_ipv4(&pkt, ops, skb, in, out);
- 
--		ret = nft_do_chain(&pkt, ops);
--		if (ret != NF_ACCEPT)
--			return ret;
--		if (!nf_nat_initialized(ct, maniptype)) {
--			ret = nf_nat_alloc_null_binding(ct, ops->hooknum);
--			if (ret != NF_ACCEPT)
--				return ret;
--		}
--	default:
--		break;
--	}
--
--	return nf_nat_packet(ct, ctinfo, ops->hooknum, skb);
-+	return nft_do_chain(&pkt, ops);
- }
- 
--static unsigned int nf_nat_prerouting(const struct nf_hook_ops *ops,
--				      struct sk_buff *skb,
--				      const struct net_device *in,
--				      const struct net_device *out,
--				      int (*okfn)(struct sk_buff *))
-+static unsigned int nft_nat_ipv4_fn(const struct nf_hook_ops *ops,
-+				    struct sk_buff *skb,
-+				    const struct net_device *in,
-+				    const struct net_device *out,
-+				    int (*okfn)(struct sk_buff *))
- {
--	__be32 daddr = ip_hdr(skb)->daddr;
--	unsigned int ret;
--
--	ret = nf_nat_fn(ops, skb, in, out, okfn);
--	if (ret != NF_DROP && ret != NF_STOLEN &&
--	    ip_hdr(skb)->daddr != daddr) {
--		skb_dst_drop(skb);
--	}
--	return ret;
-+	return nf_nat_ipv4_fn(ops, skb, in, out, nft_nat_do_chain);
- }
- 
--static unsigned int nf_nat_postrouting(const struct nf_hook_ops *ops,
--				       struct sk_buff *skb,
--				       const struct net_device *in,
--				       const struct net_device *out,
--				       int (*okfn)(struct sk_buff *))
-+static unsigned int nft_nat_ipv4_in(const struct nf_hook_ops *ops,
-+				    struct sk_buff *skb,
-+				    const struct net_device *in,
-+				    const struct net_device *out,
-+				    int (*okfn)(struct sk_buff *))
- {
--	enum ip_conntrack_info ctinfo __maybe_unused;
--	const struct nf_conn *ct __maybe_unused;
--	unsigned int ret;
--
--	ret = nf_nat_fn(ops, skb, in, out, okfn);
--#ifdef CONFIG_XFRM
--	if (ret != NF_DROP && ret != NF_STOLEN &&
--	    (ct = nf_ct_get(skb, &ctinfo)) != NULL) {
--		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
--
--		if (ct->tuplehash[dir].tuple.src.u3.ip !=
--		    ct->tuplehash[!dir].tuple.dst.u3.ip ||
--		    ct->tuplehash[dir].tuple.src.u.all !=
--		    ct->tuplehash[!dir].tuple.dst.u.all)
--			return nf_xfrm_me_harder(skb, AF_INET) == 0 ?
--								ret : NF_DROP;
--	}
--#endif
--	return ret;
-+	return nf_nat_ipv4_in(ops, skb, in, out, nft_nat_do_chain);
- }
- 
--static unsigned int nf_nat_output(const struct nf_hook_ops *ops,
--				  struct sk_buff *skb,
--				  const struct net_device *in,
--				  const struct net_device *out,
--				  int (*okfn)(struct sk_buff *))
-+static unsigned int nft_nat_ipv4_out(const struct nf_hook_ops *ops,
-+				     struct sk_buff *skb,
-+				     const struct net_device *in,
-+				     const struct net_device *out,
-+				     int (*okfn)(struct sk_buff *))
- {
--	enum ip_conntrack_info ctinfo;
--	const struct nf_conn *ct;
--	unsigned int ret;
--
--	ret = nf_nat_fn(ops, skb, in, out, okfn);
--	if (ret != NF_DROP && ret != NF_STOLEN &&
--	    (ct = nf_ct_get(skb, &ctinfo)) != NULL) {
--		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-+	return nf_nat_ipv4_out(ops, skb, in, out, nft_nat_do_chain);
-+}
- 
--		if (ct->tuplehash[dir].tuple.dst.u3.ip !=
--		    ct->tuplehash[!dir].tuple.src.u3.ip) {
--			if (ip_route_me_harder(skb, RTN_UNSPEC))
--				ret = NF_DROP;
--		}
--#ifdef CONFIG_XFRM
--		else if (ct->tuplehash[dir].tuple.dst.u.all !=
--			 ct->tuplehash[!dir].tuple.src.u.all)
--			if (nf_xfrm_me_harder(skb, AF_INET))
--				ret = NF_DROP;
--#endif
--	}
--	return ret;
-+static unsigned int nft_nat_ipv4_local_fn(const struct nf_hook_ops *ops,
-+					  struct sk_buff *skb,
-+					  const struct net_device *in,
-+					  const struct net_device *out,
-+					  int (*okfn)(struct sk_buff *))
-+{
-+	return nf_nat_ipv4_local_fn(ops, skb, in, out, nft_nat_do_chain);
- }
- 
- static const struct nf_chain_type nft_chain_nat_ipv4 = {
-@@ -168,10 +85,10 @@ static const struct nf_chain_type nft_chain_nat_ipv4 = {
- 			  (1 << NF_INET_LOCAL_OUT) |
- 			  (1 << NF_INET_LOCAL_IN),
- 	.hooks		= {
--		[NF_INET_PRE_ROUTING]	= nf_nat_prerouting,
--		[NF_INET_POST_ROUTING]	= nf_nat_postrouting,
--		[NF_INET_LOCAL_OUT]	= nf_nat_output,
--		[NF_INET_LOCAL_IN]	= nf_nat_fn,
-+		[NF_INET_PRE_ROUTING]	= nft_nat_ipv4_in,
-+		[NF_INET_POST_ROUTING]	= nft_nat_ipv4_out,
-+		[NF_INET_LOCAL_OUT]	= nft_nat_ipv4_local_fn,
-+		[NF_INET_LOCAL_IN]	= nft_nat_ipv4_fn,
- 	},
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index c9b6f00..c000947 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -573,6 +573,8 @@ enum nft_exthdr_attributes {
+  * @NFT_META_BRI_OIFNAME: packet output bridge interface name
+  * @NFT_META_PKTTYPE: packet type (skb->pkt_type), special handling for loopback
+  * @NFT_META_CPU: cpu id through smp_processor_id()
++ * @NFT_META_IIFGROUP: packet input interface group
++ * @NFT_META_OIFGROUP: packet output interface group
+  */
+ enum nft_meta_keys {
+ 	NFT_META_LEN,
+@@ -596,6 +598,8 @@ enum nft_meta_keys {
+ 	NFT_META_BRI_OIFNAME,
+ 	NFT_META_PKTTYPE,
+ 	NFT_META_CPU,
++	NFT_META_IIFGROUP,
++	NFT_META_OIFGROUP,
  };
  
+ /**
+diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
+index 843e099..1e7c076 100644
+--- a/net/netfilter/nft_meta.c
++++ b/net/netfilter/nft_meta.c
+@@ -155,6 +155,16 @@ void nft_meta_get_eval(const struct nft_expr *expr,
+ 	case NFT_META_CPU:
+ 		dest->data[0] = smp_processor_id();
+ 		break;
++	case NFT_META_IIFGROUP:
++		if (in == NULL)
++			goto err;
++		dest->data[0] = in->group;
++		break;
++	case NFT_META_OIFGROUP:
++		if (out == NULL)
++			goto err;
++		dest->data[0] = out->group;
++		break;
+ 	default:
+ 		WARN_ON(1);
+ 		goto err;
+@@ -228,6 +238,8 @@ int nft_meta_get_init(const struct nft_ctx *ctx,
+ #endif
+ 	case NFT_META_PKTTYPE:
+ 	case NFT_META_CPU:
++	case NFT_META_IIFGROUP:
++	case NFT_META_OIFGROUP:
+ 		break;
+ 	default:
+ 		return -EOPNOTSUPP;
 -- 
 1.7.10.4
+
