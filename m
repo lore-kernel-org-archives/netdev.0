@@ -1,227 +1,72 @@
-From: Ilya Dryomov <ilya.dryomov@inktank.com>
-Subject: Re: [PATCH net-next 2/5] ceph: Convert pr_warning to pr_warn
-Date: Wed, 10 Sep 2014 16:30:48 +0400
-Message-ID: <CALFYKtBsETt-PPmENUtKZuypqMH0rF2+ZOm0Dv0jWn1_yutFhA@mail.gmail.com>
-References: <cover.1410322181.git.joe@perches.com>
-	<714b7551f5a6ea5e721fed705568a39eeae4623b.1410322181.git.joe@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Sage Weil <sage@inktank.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ceph Development <ceph-devel@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <714b7551f5a6ea5e721fed705568a39eeae4623b.1410322181.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Markus Stenberg <markus.stenberg@iki.fi>
+Subject: Wildcard destination address in SAs in SAD?
+Date: Wed, 10 Sep 2014 15:26:02 +0300
+Message-ID: <4154E3A3-ED5F-4F12-A096-170C40E23ABA@iki.fi>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Markus Stenberg <markus.stenberg@iki.fi>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mta-out1.inet.fi ([62.71.2.197]:48434 "EHLO jenni1.inet.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750899AbaIJMbo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 08:31:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 10, 2014 at 8:17 AM, Joe Perches <joe@perches.com> wrote:
-> Use the more common pr_warn.
->
-> Other miscellanea:
->
-> o Coalesce formats
-> o Realign arguments
->
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  net/ceph/ceph_common.c | 15 +++++++++------
->  net/ceph/messenger.c   | 19 ++++++++++---------
->  net/ceph/osd_client.c  | 15 +++++++--------
->  net/ceph/osdmap.c      | 20 ++++++++++----------
->  4 files changed, 36 insertions(+), 33 deletions(-)
->
-> diff --git a/net/ceph/ceph_common.c b/net/ceph/ceph_common.c
-> index 1675021..58fbfe1 100644
-> --- a/net/ceph/ceph_common.c
-> +++ b/net/ceph/ceph_common.c
-> @@ -293,17 +293,20 @@ static int get_secret(struct ceph_crypto_key *dst, const char *name) {
->                 key_err = PTR_ERR(ukey);
->                 switch (key_err) {
->                 case -ENOKEY:
-> -                       pr_warning("ceph: Mount failed due to key not found: %s\n", name);
-> +                       pr_warn("ceph: Mount failed due to key not found: %s\n",
-> +                               name);
->                         break;
->                 case -EKEYEXPIRED:
-> -                       pr_warning("ceph: Mount failed due to expired key: %s\n", name);
-> +                       pr_warn("ceph: Mount failed due to expired key: %s\n",
-> +                               name);
->                         break;
->                 case -EKEYREVOKED:
-> -                       pr_warning("ceph: Mount failed due to revoked key: %s\n", name);
-> +                       pr_warn("ceph: Mount failed due to revoked key: %s\n",
-> +                               name);
->                         break;
->                 default:
-> -                       pr_warning("ceph: Mount failed due to unknown key error"
-> -                              " %d: %s\n", key_err, name);
-> +                       pr_warn("ceph: Mount failed due to unknown key error %d: %s\n",
-> +                               key_err, name);
->                 }
->                 err = -EPERM;
->                 goto out;
-> @@ -433,7 +436,7 @@ ceph_parse_options(char *options, const char *dev_name,
->
->                         /* misc */
->                 case Opt_osdtimeout:
-> -                       pr_warning("ignoring deprecated osdtimeout option\n");
-> +                       pr_warn("ignoring deprecated osdtimeout option\n");
->                         break;
->                 case Opt_osdkeepalivetimeout:
->                         opt->osd_keepalive_timeout = intval;
-> diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
-> index b2f571d..a7203be 100644
-> --- a/net/ceph/messenger.c
-> +++ b/net/ceph/messenger.c
-> @@ -1937,11 +1937,11 @@ static int process_banner(struct ceph_connection *con)
->                    sizeof(con->peer_addr)) != 0 &&
->             !(addr_is_blank(&con->actual_peer_addr.in_addr) &&
->               con->actual_peer_addr.nonce == con->peer_addr.nonce)) {
-> -               pr_warning("wrong peer, want %s/%d, got %s/%d\n",
-> -                          ceph_pr_addr(&con->peer_addr.in_addr),
-> -                          (int)le32_to_cpu(con->peer_addr.nonce),
-> -                          ceph_pr_addr(&con->actual_peer_addr.in_addr),
-> -                          (int)le32_to_cpu(con->actual_peer_addr.nonce));
-> +               pr_warn("wrong peer, want %s/%d, got %s/%d\n",
-> +                       ceph_pr_addr(&con->peer_addr.in_addr),
-> +                       (int)le32_to_cpu(con->peer_addr.nonce),
-> +                       ceph_pr_addr(&con->actual_peer_addr.in_addr),
-> +                       (int)le32_to_cpu(con->actual_peer_addr.nonce));
->                 con->error_msg = "wrong peer at address";
->                 return -1;
->         }
-> @@ -2302,7 +2302,7 @@ static int read_partial_message(struct ceph_connection *con)
->
->                 BUG_ON(!con->in_msg ^ skip);
->                 if (con->in_msg && data_len > con->in_msg->data_length) {
-> -                       pr_warning("%s skipping long message (%u > %zd)\n",
-> +                       pr_warn("%s skipping long message (%u > %zd)\n",
->                                 __func__, data_len, con->in_msg->data_length);
->                         ceph_msg_put(con->in_msg);
->                         con->in_msg = NULL;
-> @@ -2712,7 +2712,7 @@ static bool con_sock_closed(struct ceph_connection *con)
->         CASE(OPEN);
->         CASE(STANDBY);
->         default:
-> -               pr_warning("%s con %p unrecognized state %lu\n",
-> +               pr_warn("%s con %p unrecognized state %lu\n",
->                         __func__, con, con->state);
->                 con->error_msg = "unrecognized con state";
->                 BUG();
-> @@ -2828,8 +2828,9 @@ static void con_work(struct work_struct *work)
->   */
->  static void con_fault(struct ceph_connection *con)
->  {
-> -       pr_warning("%s%lld %s %s\n", ENTITY_NAME(con->peer_name),
-> -              ceph_pr_addr(&con->peer_addr.in_addr), con->error_msg);
-> +       pr_warn("%s%lld %s %s\n",
-> +               ENTITY_NAME(con->peer_name),
-> +               ceph_pr_addr(&con->peer_addr.in_addr), con->error_msg);
->         dout("fault %p state %lu to peer %s\n",
->              con, con->state, ceph_pr_addr(&con->peer_addr.in_addr));
->
-> diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
-> index 30f6faf..8ebb748 100644
-> --- a/net/ceph/osd_client.c
-> +++ b/net/ceph/osd_client.c
-> @@ -1774,8 +1774,8 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
->         }
->         bytes = le32_to_cpu(msg->hdr.data_len);
->         if (payload_len != bytes) {
-> -               pr_warning("sum of op payload lens %d != data_len %d",
-> -                          payload_len, bytes);
-> +               pr_warn("sum of op payload lens %d != data_len %d\n",
-> +                       payload_len, bytes);
->                 goto bad_put;
->         }
->
-> @@ -2797,10 +2797,10 @@ static struct ceph_msg *get_reply(struct ceph_connection *con,
->         ceph_msg_revoke_incoming(req->r_reply);
->
->         if (front_len > req->r_reply->front_alloc_len) {
-> -               pr_warning("get_reply front %d > preallocated %d (%u#%llu)\n",
-> -                          front_len, req->r_reply->front_alloc_len,
-> -                          (unsigned int)con->peer_name.type,
-> -                          le64_to_cpu(con->peer_name.num));
-> +               pr_warn("get_reply front %d > preallocated %d (%u#%llu)\n",
-> +                       front_len, req->r_reply->front_alloc_len,
-> +                       (unsigned int)con->peer_name.type,
-> +                       le64_to_cpu(con->peer_name.num));
->                 m = ceph_msg_new(CEPH_MSG_OSD_OPREPLY, front_len, GFP_NOFS,
->                                  false);
->                 if (!m)
-> @@ -2823,8 +2823,7 @@ static struct ceph_msg *get_reply(struct ceph_connection *con,
->                         if (osd_data->pages &&
->                                 unlikely(osd_data->length < data_len)) {
->
-> -                               pr_warning("tid %lld reply has %d bytes "
-> -                                       "we had only %llu bytes ready\n",
-> +                               pr_warn("tid %lld reply has %d bytes we had only %llu bytes ready\n",
->                                         tid, data_len, osd_data->length);
->                                 *skip = 1;
->                                 ceph_msg_put(m);
-> diff --git a/net/ceph/osdmap.c b/net/ceph/osdmap.c
-> index c547e46..ae5a507 100644
-> --- a/net/ceph/osdmap.c
-> +++ b/net/ceph/osdmap.c
-> @@ -521,11 +521,11 @@ static int decode_pool(void **p, void *end, struct ceph_pg_pool_info *pi)
->         ev = ceph_decode_8(p);  /* encoding version */
->         cv = ceph_decode_8(p); /* compat version */
->         if (ev < 5) {
-> -               pr_warning("got v %d < 5 cv %d of ceph_pg_pool\n", ev, cv);
-> +               pr_warn("got v %d < 5 cv %d of ceph_pg_pool\n", ev, cv);
->                 return -EINVAL;
->         }
->         if (cv > 9) {
-> -               pr_warning("got v %d cv %d > 9 of ceph_pg_pool\n", ev, cv);
-> +               pr_warn("got v %d cv %d > 9 of ceph_pg_pool\n", ev, cv);
->                 return -EINVAL;
->         }
->         len = ceph_decode_32(p);
-> @@ -729,9 +729,9 @@ static int get_osdmap_client_data_v(void **p, void *end,
->
->                 ceph_decode_8_safe(p, end, struct_compat, e_inval);
->                 if (struct_compat > OSDMAP_WRAPPER_COMPAT_VER) {
-> -                       pr_warning("got v %d cv %d > %d of %s ceph_osdmap\n",
-> -                                  struct_v, struct_compat,
-> -                                  OSDMAP_WRAPPER_COMPAT_VER, prefix);
-> +                       pr_warn("got v %d cv %d > %d of %s ceph_osdmap\n",
-> +                               struct_v, struct_compat,
-> +                               OSDMAP_WRAPPER_COMPAT_VER, prefix);
->                         return -EINVAL;
->                 }
->                 *p += 4; /* ignore wrapper struct_len */
-> @@ -739,9 +739,9 @@ static int get_osdmap_client_data_v(void **p, void *end,
->                 ceph_decode_8_safe(p, end, struct_v, e_inval);
->                 ceph_decode_8_safe(p, end, struct_compat, e_inval);
->                 if (struct_compat > OSDMAP_CLIENT_DATA_COMPAT_VER) {
-> -                       pr_warning("got v %d cv %d > %d of %s ceph_osdmap client data\n",
-> -                                  struct_v, struct_compat,
-> -                                  OSDMAP_CLIENT_DATA_COMPAT_VER, prefix);
-> +                       pr_warn("got v %d cv %d > %d of %s ceph_osdmap client data\n",
-> +                               struct_v, struct_compat,
-> +                               OSDMAP_CLIENT_DATA_COMPAT_VER, prefix);
->                         return -EINVAL;
->                 }
->                 *p += 4; /* ignore client data struct_len */
-> @@ -751,8 +751,8 @@ static int get_osdmap_client_data_v(void **p, void *end,
->                 *p -= 1;
->                 ceph_decode_16_safe(p, end, version, e_inval);
->                 if (version < 6) {
-> -                       pr_warning("got v %d < 6 of %s ceph_osdmap\n", version,
-> -                                  prefix);
-> +                       pr_warn("got v %d < 6 of %s ceph_osdmap\n",
-> +                               version, prefix);
->                         return -EINVAL;
->                 }
->
-> --
-> 1.8.1.2.459.gbcd45b4.dirty
+Let us assume I=92m trying to implement RFC4552 (authentication/confide=
+ntiality for OSPFv3). What it specifies is basically per-port SA with A=
+H and manual keying, of chosen granularity. As I am quite lazy, I would=
+ rather specify just one SA for whole set of routers I happen to manage=
+, with fixed SPI and key material.
 
-Looks good.  I'll take it though ceph tree to avoid possible conflicts?
+Currently, it simply is not possible to configure in sane way without u=
+sing external daemon that would create SA for every destination a route=
+r wants to interact with. That is very suboptimal.
 
-Thanks,
+The xfrm code has already concept of =91wildcard source=92. I am propos=
+ing to extend the logic also to destinations, with which (for example) =
+securing of all Babel traffic looks like this:
 
-                Ilya
+root@ir1:/# ip xfrm state
+src :: dst ::
+        proto esp spi 0x00000042 reqid 42 mode transport
+        replay-window 0=20
+        auth-trunc hmac(md5) 0x666f6f00000000000000000000000000 96
+        enc cbc(aes) 0x666f6f00000000000000000000000000
+        sel src ::/0 dst ::/0=20
+root@ir1:/# ip xfrm policy
+src ::/0 dst ff02::/16 proto udp dport 6696=20
+        dir out priority 0=20
+        tmpl src :: dst ::
+                proto esp reqid 42 mode transport
+src ::/0 dst fe80::/64 proto udp dport 6696=20
+        dir out priority 0=20
+        tmpl src :: dst ::
+                proto esp reqid 42 mode transport
+src ::/0 dst fe80::/64 proto esp=20
+        dir in priority 0=20
+        tmpl src :: dst ::
+                proto 0 reqid 42 mode transport
+src ::/0 dst ff02::/16 proto esp=20
+        dir in priority 0
+        tmpl src :: dst ::
+                proto 0 reqid 42 mode transport
+root@ir1:/#
+
+I wrote (fairly small) patch for this ( http://www.employees.org/~msten=
+ber/x/0001-xfrm-Support-for-any-dst.patch ). But is this a good idea? T=
+he changes are just:
+
+- change xfrm_state_addr_check to allow wildcard (any)=20
+- xfrm_state_lookup checks for both exact dst match, as well as wildcar=
+d dst match
+- xfrm_state_find checks for exact, dst + src any, and dst/src any
+- XFRM_STATE_WILDRECV caused SA to be ignored in some lookups, I don=92=
+t know why (it is helpful at times). so I removed the checks against it=
+=2E
+
+Cheers,
+
+-Markus
