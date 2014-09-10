@@ -1,24 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] r8152: use usleep_range
-Date: Tue, 09 Sep 2014 20:11:29 -0700 (PDT)
-Message-ID: <20140909.201129.274222387243042834.davem@davemloft.net>
-References: <1394712342-15778-35-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH v3] irda: vlsi_ir: use %*ph specifier
+Date: Tue, 09 Sep 2014 20:11:38 -0700 (PDT)
+Message-ID: <20140909.201138.1319870861702360791.davem@davemloft.net>
+References: <1410252509-26242-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-35-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com
+To: andriy.shevchenko@linux.intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35415 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752273AbaIJDLj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 23:11:39 -0400
+In-Reply-To: <1410252509-26242-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Tue, 9 Sep 2014 11:40:28 +0800
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Date: Tue,  9 Sep 2014 11:48:29 +0300
 
-> Replace mdelay with usleep_range to avoid busy loop.
+> Instead of looping in the code let's use kernel extension to dump small
+> buffers.
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 
 Applied.
