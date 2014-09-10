@@ -1,94 +1,208 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 14/25] netfilter: nf_tables: add helper to unregister chain hooks
-Date: Wed, 10 Sep 2014 17:10:31 +0200
-Message-ID: <1410361842-4656-15-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 17/25] ipvs: reduce stack usage for sockopt data
+Date: Wed, 10 Sep 2014 17:10:34 +0200
+Message-ID: <1410361842-4656-18-git-send-email-pablo@netfilter.org>
 References: <1410361842-4656-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55907 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752160AbaIJPKY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 11:10:24 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1410361842-4656-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arturo Borrero <arturo.borrero.glez@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
 
-This patch adds a helper function to unregister chain hooks in the chain
-deletion path. Basically, a code factorization.
+Use union to reserve the required stack space for sockopt data
+which is less than the currently hardcoded value of 128.
+Now the tables for commands should be more readable.
+The checks added for readability are optimized by compiler,
+others warn at compile time if command uses too much
+stack or exceeds the storage of set_arglen and get_arglen.
 
-The new function is useful in follow-up patches.
+As Dan Carpenter points out, we can run for unprivileged user,
+so we can silent some error messages.
 
-Signed-off-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+CC: Dan Carpenter <dan.carpenter@oracle.com>
+CC: Andrey Utkin <andrey.krieger.utkin@gmail.com>
+CC: David Binderman <dcb314@hotmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c |   31 ++++++++++++++++---------------
- 1 file changed, 16 insertions(+), 15 deletions(-)
+ net/netfilter/ipvs/ip_vs_ctl.c |  111 ++++++++++++++++++++++------------------
+ 1 file changed, 61 insertions(+), 50 deletions(-)
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 3664bab..90e3496 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -127,6 +127,15 @@ static void nft_trans_destroy(struct nft_trans *trans)
- 	kfree(trans);
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index fd3f444..bd2b208 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -2179,29 +2179,41 @@ static int ip_vs_set_timeout(struct net *net, struct ip_vs_timeout_user *u)
+ 	return 0;
  }
  
-+static void nf_tables_unregister_hooks(const struct nft_table *table,
-+				       const struct nft_chain *chain,
-+				       unsigned int hook_nops)
-+{
-+	if (!(table->flags & NFT_TABLE_F_DORMANT) &&
-+	    chain->flags & NFT_BASE_CHAIN)
-+		nf_unregister_hooks(nft_base_chain(chain)->ops, hook_nops);
-+}
++#define CMDID(cmd)		(cmd - IP_VS_BASE_CTL)
+ 
+-#define SET_CMDID(cmd)		(cmd - IP_VS_BASE_CTL)
+-#define SERVICE_ARG_LEN		(sizeof(struct ip_vs_service_user))
+-#define SVCDEST_ARG_LEN		(sizeof(struct ip_vs_service_user) +	\
+-				 sizeof(struct ip_vs_dest_user))
+-#define TIMEOUT_ARG_LEN		(sizeof(struct ip_vs_timeout_user))
+-#define DAEMON_ARG_LEN		(sizeof(struct ip_vs_daemon_user))
+-#define MAX_ARG_LEN		SVCDEST_ARG_LEN
+-
+-static const unsigned char set_arglen[SET_CMDID(IP_VS_SO_SET_MAX)+1] = {
+-	[SET_CMDID(IP_VS_SO_SET_ADD)]		= SERVICE_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_EDIT)]		= SERVICE_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_DEL)]		= SERVICE_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_FLUSH)]		= 0,
+-	[SET_CMDID(IP_VS_SO_SET_ADDDEST)]	= SVCDEST_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_DELDEST)]	= SVCDEST_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_EDITDEST)]	= SVCDEST_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_TIMEOUT)]	= TIMEOUT_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_STARTDAEMON)]	= DAEMON_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_STOPDAEMON)]	= DAEMON_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_ZERO)]		= SERVICE_ARG_LEN,
++struct ip_vs_svcdest_user {
++	struct ip_vs_service_user	s;
++	struct ip_vs_dest_user		d;
+ };
+ 
++static const unsigned char set_arglen[CMDID(IP_VS_SO_SET_MAX) + 1] = {
++	[CMDID(IP_VS_SO_SET_ADD)]         = sizeof(struct ip_vs_service_user),
++	[CMDID(IP_VS_SO_SET_EDIT)]        = sizeof(struct ip_vs_service_user),
++	[CMDID(IP_VS_SO_SET_DEL)]         = sizeof(struct ip_vs_service_user),
++	[CMDID(IP_VS_SO_SET_ADDDEST)]     = sizeof(struct ip_vs_svcdest_user),
++	[CMDID(IP_VS_SO_SET_DELDEST)]     = sizeof(struct ip_vs_svcdest_user),
++	[CMDID(IP_VS_SO_SET_EDITDEST)]    = sizeof(struct ip_vs_svcdest_user),
++	[CMDID(IP_VS_SO_SET_TIMEOUT)]     = sizeof(struct ip_vs_timeout_user),
++	[CMDID(IP_VS_SO_SET_STARTDAEMON)] = sizeof(struct ip_vs_daemon_user),
++	[CMDID(IP_VS_SO_SET_STOPDAEMON)]  = sizeof(struct ip_vs_daemon_user),
++	[CMDID(IP_VS_SO_SET_ZERO)]        = sizeof(struct ip_vs_service_user),
++};
 +
- /*
-  * Tables
-  */
-@@ -1157,11 +1166,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 	list_add_tail_rcu(&chain->list, &table->chains);
- 	return 0;
- err2:
--	if (!(table->flags & NFT_TABLE_F_DORMANT) &&
--	    chain->flags & NFT_BASE_CHAIN) {
--		nf_unregister_hooks(nft_base_chain(chain)->ops,
--				    afi->nops);
--	}
-+	nf_tables_unregister_hooks(table, chain, afi->nops);
- err1:
- 	nf_tables_chain_destroy(chain);
- 	return err;
-@@ -3368,11 +3373,9 @@ static int nf_tables_commit(struct sk_buff *skb)
- 			break;
- 		case NFT_MSG_DELCHAIN:
- 			nf_tables_chain_notify(&trans->ctx, NFT_MSG_DELCHAIN);
--			if (!(trans->ctx.table->flags & NFT_TABLE_F_DORMANT) &&
--			    trans->ctx.chain->flags & NFT_BASE_CHAIN) {
--				nf_unregister_hooks(nft_base_chain(trans->ctx.chain)->ops,
--						    trans->ctx.afi->nops);
--			}
-+			nf_tables_unregister_hooks(trans->ctx.table,
-+						   trans->ctx.chain,
-+						   trans->ctx.afi->nops);
- 			break;
- 		case NFT_MSG_NEWRULE:
- 			nft_rule_clear(trans->ctx.net, nft_trans_rule(trans));
-@@ -3495,11 +3498,9 @@ static int nf_tables_abort(struct sk_buff *skb)
- 			} else {
- 				trans->ctx.table->use--;
- 				list_del_rcu(&trans->ctx.chain->list);
--				if (!(trans->ctx.table->flags & NFT_TABLE_F_DORMANT) &&
--				    trans->ctx.chain->flags & NFT_BASE_CHAIN) {
--					nf_unregister_hooks(nft_base_chain(trans->ctx.chain)->ops,
--							    trans->ctx.afi->nops);
--				}
-+				nf_tables_unregister_hooks(trans->ctx.table,
-+							   trans->ctx.chain,
-+							   trans->ctx.afi->nops);
- 			}
- 			break;
- 		case NFT_MSG_DELCHAIN:
++union ip_vs_set_arglen {
++	struct ip_vs_service_user	field_IP_VS_SO_SET_ADD;
++	struct ip_vs_service_user	field_IP_VS_SO_SET_EDIT;
++	struct ip_vs_service_user	field_IP_VS_SO_SET_DEL;
++	struct ip_vs_svcdest_user	field_IP_VS_SO_SET_ADDDEST;
++	struct ip_vs_svcdest_user	field_IP_VS_SO_SET_DELDEST;
++	struct ip_vs_svcdest_user	field_IP_VS_SO_SET_EDITDEST;
++	struct ip_vs_timeout_user	field_IP_VS_SO_SET_TIMEOUT;
++	struct ip_vs_daemon_user	field_IP_VS_SO_SET_STARTDAEMON;
++	struct ip_vs_daemon_user	field_IP_VS_SO_SET_STOPDAEMON;
++	struct ip_vs_service_user	field_IP_VS_SO_SET_ZERO;
++};
++
++#define MAX_SET_ARGLEN	sizeof(union ip_vs_set_arglen)
++
+ static void ip_vs_copy_usvc_compat(struct ip_vs_service_user_kern *usvc,
+ 				  struct ip_vs_service_user *usvc_compat)
+ {
+@@ -2239,7 +2251,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
+ {
+ 	struct net *net = sock_net(sk);
+ 	int ret;
+-	unsigned char arg[MAX_ARG_LEN];
++	unsigned char arg[MAX_SET_ARGLEN];
+ 	struct ip_vs_service_user *usvc_compat;
+ 	struct ip_vs_service_user_kern usvc;
+ 	struct ip_vs_service *svc;
+@@ -2247,16 +2259,15 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
+ 	struct ip_vs_dest_user_kern udest;
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
++	BUILD_BUG_ON(sizeof(arg) > 255);
+ 	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_SET_MAX)
+ 		return -EINVAL;
+-	if (len < 0 || len >  MAX_ARG_LEN)
+-		return -EINVAL;
+-	if (len != set_arglen[SET_CMDID(cmd)]) {
+-		pr_err("set_ctl: len %u != %u\n",
+-		       len, set_arglen[SET_CMDID(cmd)]);
++	if (len != set_arglen[CMDID(cmd)]) {
++		IP_VS_DBG(1, "set_ctl: len %u != %u\n",
++			  len, set_arglen[CMDID(cmd)]);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -2512,51 +2523,51 @@ __ip_vs_get_timeouts(struct net *net, struct ip_vs_timeout_user *u)
+ #endif
+ }
+ 
++static const unsigned char get_arglen[CMDID(IP_VS_SO_GET_MAX) + 1] = {
++	[CMDID(IP_VS_SO_GET_VERSION)]  = 64,
++	[CMDID(IP_VS_SO_GET_INFO)]     = sizeof(struct ip_vs_getinfo),
++	[CMDID(IP_VS_SO_GET_SERVICES)] = sizeof(struct ip_vs_get_services),
++	[CMDID(IP_VS_SO_GET_SERVICE)]  = sizeof(struct ip_vs_service_entry),
++	[CMDID(IP_VS_SO_GET_DESTS)]    = sizeof(struct ip_vs_get_dests),
++	[CMDID(IP_VS_SO_GET_TIMEOUT)]  = sizeof(struct ip_vs_timeout_user),
++	[CMDID(IP_VS_SO_GET_DAEMON)]   = 2 * sizeof(struct ip_vs_daemon_user),
++};
+ 
+-#define GET_CMDID(cmd)		(cmd - IP_VS_BASE_CTL)
+-#define GET_INFO_ARG_LEN	(sizeof(struct ip_vs_getinfo))
+-#define GET_SERVICES_ARG_LEN	(sizeof(struct ip_vs_get_services))
+-#define GET_SERVICE_ARG_LEN	(sizeof(struct ip_vs_service_entry))
+-#define GET_DESTS_ARG_LEN	(sizeof(struct ip_vs_get_dests))
+-#define GET_TIMEOUT_ARG_LEN	(sizeof(struct ip_vs_timeout_user))
+-#define GET_DAEMON_ARG_LEN	(sizeof(struct ip_vs_daemon_user) * 2)
+-
+-static const unsigned char get_arglen[GET_CMDID(IP_VS_SO_GET_MAX)+1] = {
+-	[GET_CMDID(IP_VS_SO_GET_VERSION)]	= 64,
+-	[GET_CMDID(IP_VS_SO_GET_INFO)]		= GET_INFO_ARG_LEN,
+-	[GET_CMDID(IP_VS_SO_GET_SERVICES)]	= GET_SERVICES_ARG_LEN,
+-	[GET_CMDID(IP_VS_SO_GET_SERVICE)]	= GET_SERVICE_ARG_LEN,
+-	[GET_CMDID(IP_VS_SO_GET_DESTS)]		= GET_DESTS_ARG_LEN,
+-	[GET_CMDID(IP_VS_SO_GET_TIMEOUT)]	= GET_TIMEOUT_ARG_LEN,
+-	[GET_CMDID(IP_VS_SO_GET_DAEMON)]	= GET_DAEMON_ARG_LEN,
++union ip_vs_get_arglen {
++	char				field_IP_VS_SO_GET_VERSION[64];
++	struct ip_vs_getinfo		field_IP_VS_SO_GET_INFO;
++	struct ip_vs_get_services	field_IP_VS_SO_GET_SERVICES;
++	struct ip_vs_service_entry	field_IP_VS_SO_GET_SERVICE;
++	struct ip_vs_get_dests		field_IP_VS_SO_GET_DESTS;
++	struct ip_vs_timeout_user	field_IP_VS_SO_GET_TIMEOUT;
++	struct ip_vs_daemon_user	field_IP_VS_SO_GET_DAEMON[2];
+ };
+ 
++#define MAX_GET_ARGLEN	sizeof(union ip_vs_get_arglen)
++
+ static int
+ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ {
+-	unsigned char arg[128];
++	unsigned char arg[MAX_GET_ARGLEN];
+ 	int ret = 0;
+ 	unsigned int copylen;
+ 	struct net *net = sock_net(sk);
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+ 	BUG_ON(!net);
++	BUILD_BUG_ON(sizeof(arg) > 255);
+ 	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_GET_MAX)
+ 		return -EINVAL;
+ 
+-	if (*len < get_arglen[GET_CMDID(cmd)]) {
+-		pr_err("get_ctl: len %u < %u\n",
+-		       *len, get_arglen[GET_CMDID(cmd)]);
++	copylen = get_arglen[CMDID(cmd)];
++	if (*len < (int) copylen) {
++		IP_VS_DBG(1, "get_ctl: len %d < %u\n", *len, copylen);
+ 		return -EINVAL;
+ 	}
+ 
+-	copylen = get_arglen[GET_CMDID(cmd)];
+-	if (copylen > 128)
+-		return -EINVAL;
+-
+ 	if (copy_from_user(arg, user, copylen) != 0)
+ 		return -EFAULT;
+ 	/*
 -- 
 1.7.10.4
+
