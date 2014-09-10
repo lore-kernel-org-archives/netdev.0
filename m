@@ -1,62 +1,203 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v2 4/8] net: pxa168_eth: fix Ethernet flow control status
-Date: Wed, 10 Sep 2014 17:39:02 +0200
-Message-ID: <20140910153902.GE13342@lunn.ch>
-References: <1410273848-24663-1-git-send-email-antoine.tenart@free-electrons.com>
- <1410273848-24663-5-git-send-email-antoine.tenart@free-electrons.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH v4 00/16] net/sched use rcu filters
+Date: Wed, 10 Sep 2014 08:46:31 -0700
+Message-ID: <20140910154517.2036.53084.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, zmxu-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1410273848-24663-5-git-send-email-antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	brouer@redhat.com
+To: xiyou.wangcong@gmail.com, davem@davemloft.net,
+	eric.dumazet@gmail.com, jhs@mojatatu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f48.google.com ([209.85.219.48]:37081 "EHLO
+	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751225AbaIJPqx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 11:46:53 -0400
+Received: by mail-oa0-f48.google.com with SMTP id m1so13031435oag.35
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 08:46:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 09, 2014 at 04:44:04PM +0200, Antoine Tenart wrote:
-> IEEE 802.3x Ethernet flow control is disabled when bit (1 << 2) is set
-> in the port status register. Fix the flow control detection in the link
-> event handling function which was relying on the opposite assumption.
-> 
-> Signed-off-by: Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-> ---
->  drivers/net/ethernet/marvell/pxa168_eth.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
-> index 953112f87c5f..10422f2df6cc 100644
-> --- a/drivers/net/ethernet/marvell/pxa168_eth.c
-> +++ b/drivers/net/ethernet/marvell/pxa168_eth.c
-> @@ -163,7 +163,7 @@
->  /* Bit definitions for Port status */
->  #define PORT_SPEED_100		(1 << 0)
->  #define FULL_DUPLEX		(1 << 1)
-> -#define FLOW_CONTROL_ENABLED	(1 << 2)
-> +#define FLOW_CONTROL_DISABLED	(1 << 2)
->  #define LINK_UP			(1 << 3)
->  
->  /* Bit definitions for work to be done */
-> @@ -885,7 +885,7 @@ static void handle_link_event(struct pxa168_eth_private *pep)
->  		speed = 10;
->  
->  	duplex = (port_status & FULL_DUPLEX) ? 1 : 0;
-> -	fc = (port_status & FLOW_CONTROL_ENABLED) ? 1 : 0;
-> +	fc = (port_status & FLOW_CONTROL_DISABLED) ? 0 : 1;
->  	netdev_info(dev, "link up, %d Mb/s, %s duplex, flow control %sabled\n",
->  		    speed, duplex ? "full" : "half", fc ? "en" : "dis");
->  	if (!netif_carrier_ok(dev))
+A rather long description...
 
-Could this be a hardware bug which has been fixed in a newer version
-of the IP? It would be good to have this tested on an old platform
-using this driver.
+This series drops the qdisc lock that is currently protecting the
+ingress qdisc. This can be done after the tcf filters are made
+lockless and the statistic accounting is safe to run without locks.
 
-   Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To do this the classifiers are converted to use RCU. This requires
+updating each classifier individually to handle the new copy/update
+requirement and also to update the core list traversals. This is
+done in patches 2-11. This also makes the assumption that updates
+to the tables are infrequent in comparison to the packet per second
+being classified. On a 10Gbps running near line rate we can easily
+produce 12+ million packets per second so IMO this is a reasonable
+assumption. The updates are serialized by RTNL.
+
+In order to have working statistics patch 13 and 14 convert the
+bstats and qstats, which do accounting for bytes and packets, into
+percpu variables and the u64_stats_update_{begin|end} infrastructure
+is used to maintain consistent 64bit statistics. Because these
+statistics are also used by the estimators those function calls had
+to be udpated as well. So that I didn't have to modify all qdiscs at
+this time many of which don't have an easy path to make lockless the
+percpu statistics are only used when the TCQ_F_LLQDISC flag is set.
+Its worth noting that in the mq and mqprio case sub-qdisc's are
+already mapped 1:1 with TX queues which tend to be equal to the number
+of CPUs in the system so its not clear that removing locking in
+these cases would provide large benefits. Most likely a new qdisc
+written from scratch would be needed to implement a mq-htb or
+mq-tbf qdisc. It seems to me that one reasonably approach to do
+this would be to use eventually consistent counters and accept
+some imperfect rate limiting scheme.
+
+As for some history I wrote what was basically these patches some
+time ago and then got stalled working on other things. Cong Wang
+made a proposal to remove the locking around the ingress qdisc
+which then kicked me to get these patches working again. Some
+time passed and am now submitting the patches.
+
+I have done some basic testing on this series and do not see any
+immediate splats or issues. The patch series has been running
+on my dev systems for a month or so now and I've not seen any
+issues. Although my configurations are not overly complicated.
+
+My test cases at this point cover all the filters with a
+tight loop to add/remove filters. Some basic estimator tests
+where I add an estimator to the qdisc and verify the statistics
+accurate using pktgen. And finally I have a small script to
+exercise the 'tc actions' interface. Feel free to send me more
+tests off list and I can run them.
+
+Comments:
+  - Checkpatch is still giving errors on some >80 char lines I know
+    about this. IMO the way to fix this is to restructure the sched
+    code to avoid being so heavily indented. But doing this here
+    bloats the patchset and anyways there are already lots of >80
+    chars in these files. I would prefer to keep the patches as is
+    but let me know if others think I should fix these and I will.
+    A follow up patch set could restructure the code and fix this
+    throughout the code blocks.
+
+Future work:
+  - provide metadata such as current cpu for the classifier
+    to match on. this would allow for a multiqueue ingress
+    qdisc strategy.
+  - provide filter hook on egress before queue is selected
+    to allow a classifier/action to pick the tx queue. This
+    generalizes mqprio and should remove the need for many
+    drivers to implement select_queue() callbacks. I have
+    a patch for this now but its not entirely clear to me
+    its all that useful considering mqprio already allows
+    queueing by skb->priority. I also have a patch to do
+    hardware based queue rate limiting with this patch the
+    egress filter is more interesting.
+  - create a variant of tbf that does not require the qdisc
+    lock using eventually consistent counters.
+  - a lockless fifo ring may provide some wins for some use
+    cases.
+
+Changes:
+ - v2: Fixed alloc without null check and used kmemdup
+       use rcu_access_pointer
+
+ - v3: I inadvertently changed the logic in tcf_destroy_chain
+       such that the tcf_proto list was not being NULL'd as
+       pointed out by Dave Miller. My test cases were still
+       passing because this is only being done after the
+       qdisc is detached from the xmit path and right before
+       the qdisc itself is destroyed so at least in the
+       existing code paths there were no further attempts to
+       access tcf_proto list. Anyways it was wrong and should
+       now be resolved by using correct rcu semantics.
+
+       Also I fixed the sparse warnings from the tcf_chain
+       calls and the percpu stats usage by doing correct
+       rcu annotations.
+
+ - v4: Eric Dumazet corrected my usage of RCU_INIT_POINTER
+       so I moved many rcu_assign_pointer over to init_pointer.
+       Also some other comments resolved.
+
+       Split cls_u32 patch into two patches one for percpu
+       logic and the other for rcu transformation.
+       
+       Cong Wang spotted a missing 'static' in cls_u32.
+
+---
+
+John Fastabend (16):
+      net: qdisc: use rcu prefix and silence sparse warnings
+      net: rcu-ify tcf_proto
+      net: sched: cls_basic use RCU
+      net: sched: cls_cgroup use RCU
+      net: sched: cls_flow use RCU
+      net: sched: fw use RCU
+      net: sched: RCU cls_route
+      net: sched: RCU cls_tcindex
+      net: sched: make cls_u32 per cpu
+      net: sched: make cls_u32 lockless
+      net: sched: rcu'ify cls_rsvp
+      net: sched: rcu'ify cls_bpf
+      net: sched: make tc_action safe to walk under RCU
+      net: sched: make bstats per cpu and estimator RCU safe
+      net: sched: make qstats per cpu
+      net: sched: drop ingress qdisc lock
+
+
+ include/linux/netdevice.h  |   29 +----
+ include/linux/rtnetlink.h  |   10 ++
+ include/net/act_api.h      |    1 
+ include/net/codel.h        |    4 -
+ include/net/gen_stats.h    |   18 +++
+ include/net/pkt_cls.h      |   10 ++
+ include/net/sch_generic.h  |   93 ++++++++++++----
+ net/core/dev.c             |   53 ++++++++-
+ net/core/gen_estimator.c   |   60 ++++++++--
+ net/core/gen_stats.c       |   77 +++++++++++++
+ net/netfilter/xt_RATEEST.c |    4 -
+ net/sched/act_api.c        |   23 ++--
+ net/sched/act_police.c     |    4 -
+ net/sched/cls_api.c        |   47 ++++----
+ net/sched/cls_basic.c      |   80 ++++++++------
+ net/sched/cls_bpf.c        |   93 ++++++++--------
+ net/sched/cls_cgroup.c     |   63 +++++++----
+ net/sched/cls_flow.c       |  145 ++++++++++++++-----------
+ net/sched/cls_fw.c         |  111 +++++++++++++------
+ net/sched/cls_route.c      |  226 +++++++++++++++++++++++----------------
+ net/sched/cls_rsvp.h       |  157 +++++++++++++++------------
+ net/sched/cls_tcindex.c    |  248 ++++++++++++++++++++++++++----------------
+ net/sched/cls_u32.c        |  258 +++++++++++++++++++++++++++++---------------
+ net/sched/sch_api.c        |   86 ++++++++++++---
+ net/sched/sch_atm.c        |   22 ++--
+ net/sched/sch_cbq.c        |   30 +++--
+ net/sched/sch_choke.c      |   32 +++--
+ net/sched/sch_codel.c      |    2 
+ net/sched/sch_drr.c        |   26 +++-
+ net/sched/sch_dsmark.c     |   11 +-
+ net/sched/sch_fifo.c       |    6 +
+ net/sched/sch_fq.c         |    4 -
+ net/sched/sch_fq_codel.c   |   19 ++-
+ net/sched/sch_generic.c    |   21 +++-
+ net/sched/sch_gred.c       |   10 +-
+ net/sched/sch_hfsc.c       |   38 ++++--
+ net/sched/sch_hhf.c        |    8 +
+ net/sched/sch_htb.c        |   35 +++---
+ net/sched/sch_ingress.c    |   20 +++
+ net/sched/sch_mq.c         |   31 +++--
+ net/sched/sch_mqprio.c     |   54 ++++++---
+ net/sched/sch_multiq.c     |   18 ++-
+ net/sched/sch_netem.c      |   17 ++-
+ net/sched/sch_pie.c        |    8 +
+ net/sched/sch_plug.c       |    2 
+ net/sched/sch_prio.c       |   21 ++--
+ net/sched/sch_qfq.c        |   29 +++--
+ net/sched/sch_red.c        |   13 +-
+ net/sched/sch_sfb.c        |   28 +++--
+ net/sched/sch_sfq.c        |   30 +++--
+ net/sched/sch_tbf.c        |   11 +-
+ net/sched/sch_teql.c       |   13 +-
+ 52 files changed, 1562 insertions(+), 897 deletions(-)
+
+-- 
+Signature
