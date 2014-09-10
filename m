@@ -1,55 +1,46 @@
-From: <yes-KgLukfWpBlCctlrPMvKcciBecyulp+rMXqFh9Ls21Oc@public.gmane.org>
-Subject: [Patch v3 net-next 08/12] net:fec: Add fsl,imx6sx-fec  compatible strings
-Date: Thu, 11 Sep 2014 02:30:09 +0800
-Message-ID: <13089.2262365252$1410375427@news.gmane.org>
-References: <1410373813-5731-1-git-send-email-yes>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-To: <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1410373813-5731-1-git-send-email-yes>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: [PATCH v2 03/14] isdn: i4l: Remove ASYNC_CTS_FLOW
+Date: Wed, 10 Sep 2014 15:06:25 -0400
+Message-ID: <1410375996-4693-4-git-send-email-peter@hurleysoftware.com>
+References: <1409693975-1028-1-git-send-email-peter@hurleysoftware.com>
+ <1410375996-4693-1-git-send-email-peter@hurleysoftware.com>
+Cc: Jiri Slaby <jslaby@suse.cz>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	linux-kernel@vger.kernel.org, linux-serial@vger.kernel.org,
+	Peter Hurley <peter@hurleysoftware.com>,
+	Karsten Keil <isdn@linux-pingi.de>, <netdev@vger.kernel.org>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1410375996-4693-1-git-send-email-peter@hurleysoftware.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+ISDN4Linux always enables CTS flow control and does not use the
+tty_port_cts_enabled() helper function; remove ASYNC_CTS_FLOW
+state enable/disable.
 
-Add compatible string "fsl,imx6sx-fec" for i.MX6SX.
-
-Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+cc: Karsten Keil <isdn@linux-pingi.de>
+cc: <netdev@vger.kernel.org>
+Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/isdn/i4l/isdn_tty.c | 5 -----
+ 1 file changed, 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 658b0b3..0cc7313 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -157,6 +157,7 @@ enum imx_fec_type {
- 	IMX28_FEC,
- 	IMX6Q_FEC,
- 	MVF600_FEC,
-+	IMX6SX_FEC,
- };
+diff --git a/drivers/isdn/i4l/isdn_tty.c b/drivers/isdn/i4l/isdn_tty.c
+index 3c5f249..bc91261 100644
+--- a/drivers/isdn/i4l/isdn_tty.c
++++ b/drivers/isdn/i4l/isdn_tty.c
+@@ -1043,11 +1043,6 @@ isdn_tty_change_speed(modem_info *info)
+ 	if (!(cflag & PARODD))
+ 		cval |= UART_LCR_EPAR;
  
- static const struct of_device_id fec_dt_ids[] = {
-@@ -165,6 +166,7 @@ static const struct of_device_id fec_dt_ids[] = {
- 	{ .compatible = "fsl,imx28-fec", .data = &fec_devtype[IMX28_FEC], },
- 	{ .compatible = "fsl,imx6q-fec", .data = &fec_devtype[IMX6Q_FEC], },
- 	{ .compatible = "fsl,mvf600-fec", .data = &fec_devtype[MVF600_FEC], },
-+	{ .compatible = "fsl,imx6sx-fec", .data = &fec_devtype[IMX6SX_FEC], },
- 	{ /* sentinel */ }
- };
- MODULE_DEVICE_TABLE(of, fec_dt_ids);
+-	/* CTS flow control flag and modem status interrupts */
+-	if (cflag & CRTSCTS) {
+-		port->flags |= ASYNC_CTS_FLOW;
+-	} else
+-		port->flags &= ~ASYNC_CTS_FLOW;
+ 	if (cflag & CLOCAL)
+ 		port->flags &= ~ASYNC_CHECK_CD;
+ 	else {
 -- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.1.0
