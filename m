@@ -1,78 +1,75 @@
-From: Sergey Ryazanov <ryazanov.s.a@gmail.com>
-Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
-Date: Wed, 10 Sep 2014 14:33:54 +0400
-Message-ID: <CAHNKnsQ8G3ZFHshq7wOqex1J6DbVD5uHVAyvs+aDC2Znk5zWww@mail.gmail.com>
-References: <20140213201421.GJ22203@tuxdriver.com>
-	<1397581703.8212.5.camel@x220>
-	<CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
-	<1403087119.1984.93.camel@x220>
-	<CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
-	<1403091974.1984.102.camel@x220>
-	<1409911856.7832.9.camel@x220>
-	<CAHNKnsRipRHicKOUW4dCutD1-sUG6qPnP2QuOveH_t1MFX9XgQ@mail.gmail.com>
-	<1409916824.7832.20.camel@x220>
-	<CAHNKnsQ1gt=DRBTd9Q9yos1idqmXMepEPvhm8a7unP-whzNAgg@mail.gmail.com>
-	<20140909182734.GJ29412@tuxdriver.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net PATCH v2 1/1] drivers: net: cpsw: dual_emac: fix reducing of rx descriptor during ifdown
+Date: Wed, 10 Sep 2014 16:38:09 +0530
+Message-ID: <1410347289-3555-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Paul Bolle <pebolle@tiscali.nl>, Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Oleksij Rempel <linux@rempel-privat.de>,
-	Richard Weinberger <richard@nod.at>,
-	Jonathan Bither <jonbither@gmail.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	ath5k-devel@venema.h4ckr.net, open@hauke-m.de,
-	"list@hauke-m.de:NETWORKING DRIVERS" <list@hauke-m.de>,
-	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>,
-	OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140909182734.GJ29412@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:44447 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751198AbaIJLIO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2014 07:08:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-09-09 22:27 GMT+04:00, John W. Linville <linville@tuxdriver.com>:
-> On Fri, Sep 05, 2014 at 04:02:10PM +0400, Sergey Ryazanov wrote:
->> 2014-09-05 15:33 GMT+04:00 Paul Bolle <pebolle@tiscali.nl>:
->> > Hi Sergey,
->> >
->> > On Fri, 2014-09-05 at 15:12 +0400, Sergey Ryazanov wrote:
->> >> 2014-09-05 14:10 GMT+04:00, Paul Bolle <pebolle@tiscali.nl>:
->> >> > On Wed, 2014-06-18 at 13:46 +0200, Paul Bolle wrote:
->> >> >> Having this conversation every rc1 is getting a bit silly. Could
->> >> >> Jiri
->> >> >> e.a. perhaps set some specific deadline for ATHEROS_AR231X to be
->> >> >> submitted?
->> >> >
->> >> > I waited until rc3. Have you seen any activity on this front? If
->> >> > not,
->> >> > should I resend the patch that removes the code in mainline that
->> >> > depends
->> >> > on ATHEROS_AR231X (ie, AHB bus support)?
->> >> >
->> >> Recent activity always could be found in [1]. Now I finish another one
->> >> round of cleanups and have a plan to fix several things (you can
->> >> always find something that you really want to improve). But if you
->> >> insist I could immediately switch to "send upstream" mode. And seems
->> >> that this would be better approach.
->> >>
->> >> 1. https://dev.openwrt.org/log/trunk/target/linux/atheros
->> >
->> > And where can the related PULL requests or patch submissions be found?
->> >
->> I have not sent patches yet, since I thought that it would be easier
->> to cleanup them in openwrt tree and then send them upstream.
->
-> That excuse has worn a bit thin.  Perhaps Paul should repost his
-> removal and you can add a revert to the start of your patch series?
->
-As for me, I do not like such flapping, but you have a final say in
-this discussion as a maintainer.
+In Dual EMAC, when both interface are up and while doing ifdown with heavy
+traffic then skbs already processed by DMA from that slave emac has to be
+requeued as still the other interface is up and running.
 
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+
+Changes from initial version:
+* fixed warn issue during suspend/resume by adding aditional check on
+  status before requeueing the skb.
+* Added more comments in requeue if statement.
+
+---
+ drivers/net/ethernet/ti/cpsw.c | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 999fb72..411232f 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -699,6 +699,28 @@ static void cpsw_rx_handler(void *token, int len, int status)
+ 	cpsw_dual_emac_src_port_detect(status, priv, ndev, skb);
+ 
+ 	if (unlikely(status < 0) || unlikely(!netif_running(ndev))) {
++		bool ndev_status = false;
++		struct cpsw_slave *slave = priv->slaves;
++		int n;
++
++		if (priv->data.dual_emac) {
++			/* In dual emac mode check for all interfaces */
++			for (n = priv->data.slaves; n; n--, slave++)
++				if (netif_running(slave->ndev))
++					ndev_status = true;
++		}
++
++		if (ndev_status && (status >= 0)) {
++			/* The packet received is for the interface which
++			 * is already down and the other interface is up
++			 * and running, intead of freeing which results
++			 * in reducing of the number of rx descriptor in
++			 * DMA engine, requeue skb back to cpdma.
++			 */
++			new_skb = skb;
++			goto requeue;
++		}
++
+ 		/* the interface is going down, skbs are purged */
+ 		dev_kfree_skb_any(skb);
+ 		return;
+@@ -717,6 +739,7 @@ static void cpsw_rx_handler(void *token, int len, int status)
+ 		new_skb = skb;
+ 	}
+ 
++requeue:
+ 	ret = cpdma_chan_submit(priv->rxch, new_skb, new_skb->data,
+ 			skb_tailroom(new_skb), 0);
+ 	if (WARN_ON(ret < 0))
 -- 
-BR,
-Sergey
+2.1.0
