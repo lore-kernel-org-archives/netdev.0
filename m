@@ -1,129 +1,184 @@
-From: Ilya Dryomov <ilya.dryomov@inktank.com>
-Subject: Re: [PATCH net-next 2/5] ceph: Convert pr_warning to pr_warn
-Date: Wed, 10 Sep 2014 16:38:07 +0400
-Message-ID: <CALFYKtCiGXhMZ-f0B=TGSNGZCng8NVYWCV-wwOHq3xPdKO+-Kw@mail.gmail.com>
-References: <cover.1410322181.git.joe@perches.com>
-	<714b7551f5a6ea5e721fed705568a39eeae4623b.1410322181.git.joe@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Sage Weil <sage@inktank.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ceph Development <ceph-devel@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <ceph-devel-owner@vger.kernel.org>
-In-Reply-To: <714b7551f5a6ea5e721fed705568a39eeae4623b.1410322181.git.joe@perches.com>
-Sender: ceph-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: bpf: only build bpf_jit_binary_{alloc,free}() when jit selected
+Date: Wed, 10 Sep 2014 14:45:06 +0200
+Message-ID: <1410353106-14671-1-git-send-email-dborkman@redhat.com>
+Cc: fengguang.wu@intel.com, ast@plumgrid.com, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44474 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750734AbaIJMpN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2014 08:45:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 10, 2014 at 8:17 AM, Joe Perches <joe@perches.com> wrote:
-> Use the more common pr_warn.
->
-> Other miscellanea:
->
-> o Coalesce formats
-> o Realign arguments
->
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  net/ceph/ceph_common.c | 15 +++++++++------
->  net/ceph/messenger.c   | 19 ++++++++++---------
->  net/ceph/osd_client.c  | 15 +++++++--------
->  net/ceph/osdmap.c      | 20 ++++++++++----------
->  4 files changed, 36 insertions(+), 33 deletions(-)
->
-> diff --git a/net/ceph/ceph_common.c b/net/ceph/ceph_common.c
-> index 1675021..58fbfe1 100644
-> --- a/net/ceph/ceph_common.c
-> +++ b/net/ceph/ceph_common.c
-> @@ -293,17 +293,20 @@ static int get_secret(struct ceph_crypto_key *dst, const char *name) {
->                 key_err = PTR_ERR(ukey);
->                 switch (key_err) {
->                 case -ENOKEY:
-> -                       pr_warning("ceph: Mount failed due to key not found: %s\n", name);
-> +                       pr_warn("ceph: Mount failed due to key not found: %s\n",
-> +                               name);
->                         break;
->                 case -EKEYEXPIRED:
-> -                       pr_warning("ceph: Mount failed due to expired key: %s\n", name);
-> +                       pr_warn("ceph: Mount failed due to expired key: %s\n",
-> +                               name);
->                         break;
->                 case -EKEYREVOKED:
-> -                       pr_warning("ceph: Mount failed due to revoked key: %s\n", name);
-> +                       pr_warn("ceph: Mount failed due to revoked key: %s\n",
-> +                               name);
->                         break;
->                 default:
-> -                       pr_warning("ceph: Mount failed due to unknown key error"
-> -                              " %d: %s\n", key_err, name);
-> +                       pr_warn("ceph: Mount failed due to unknown key error %d: %s\n",
-> +                               key_err, name);
->                 }
->                 err = -EPERM;
->                 goto out;
-> @@ -433,7 +436,7 @@ ceph_parse_options(char *options, const char *dev_name,
->
->                         /* misc */
->                 case Opt_osdtimeout:
-> -                       pr_warning("ignoring deprecated osdtimeout option\n");
-> +                       pr_warn("ignoring deprecated osdtimeout option\n");
->                         break;
->                 case Opt_osdkeepalivetimeout:
->                         opt->osd_keepalive_timeout = intval;
-> diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
-> index b2f571d..a7203be 100644
-> --- a/net/ceph/messenger.c
-> +++ b/net/ceph/messenger.c
-> @@ -1937,11 +1937,11 @@ static int process_banner(struct ceph_connection *con)
->                    sizeof(con->peer_addr)) != 0 &&
->             !(addr_is_blank(&con->actual_peer_addr.in_addr) &&
->               con->actual_peer_addr.nonce == con->peer_addr.nonce)) {
-> -               pr_warning("wrong peer, want %s/%d, got %s/%d\n",
-> -                          ceph_pr_addr(&con->peer_addr.in_addr),
-> -                          (int)le32_to_cpu(con->peer_addr.nonce),
-> -                          ceph_pr_addr(&con->actual_peer_addr.in_addr),
-> -                          (int)le32_to_cpu(con->actual_peer_addr.nonce));
-> +               pr_warn("wrong peer, want %s/%d, got %s/%d\n",
-> +                       ceph_pr_addr(&con->peer_addr.in_addr),
-> +                       (int)le32_to_cpu(con->peer_addr.nonce),
-> +                       ceph_pr_addr(&con->actual_peer_addr.in_addr),
-> +                       (int)le32_to_cpu(con->actual_peer_addr.nonce));
->                 con->error_msg = "wrong peer at address";
->                 return -1;
->         }
-> @@ -2302,7 +2302,7 @@ static int read_partial_message(struct ceph_connection *con)
->
->                 BUG_ON(!con->in_msg ^ skip);
->                 if (con->in_msg && data_len > con->in_msg->data_length) {
-> -                       pr_warning("%s skipping long message (%u > %zd)\n",
-> +                       pr_warn("%s skipping long message (%u > %zd)\n",
->                                 __func__, data_len, con->in_msg->data_length);
->                         ceph_msg_put(con->in_msg);
->                         con->in_msg = NULL;
-> @@ -2712,7 +2712,7 @@ static bool con_sock_closed(struct ceph_connection *con)
->         CASE(OPEN);
->         CASE(STANDBY);
->         default:
-> -               pr_warning("%s con %p unrecognized state %lu\n",
-> +               pr_warn("%s con %p unrecognized state %lu\n",
->                         __func__, con, con->state);
->                 con->error_msg = "unrecognized con state";
->                 BUG();
-> @@ -2828,8 +2828,9 @@ static void con_work(struct work_struct *work)
->   */
->  static void con_fault(struct ceph_connection *con)
->  {
-> -       pr_warning("%s%lld %s %s\n", ENTITY_NAME(con->peer_name),
-> -              ceph_pr_addr(&con->peer_addr.in_addr), con->error_msg);
-> +       pr_warn("%s%lld %s %s\n",
-> +               ENTITY_NAME(con->peer_name),
-> +               ceph_pr_addr(&con->peer_addr.in_addr), con->error_msg);
+Since BPF JIT depends on the availability of module_alloc() and
+module_free() helpers (HAVE_BPF_JIT and MODULES), we better build
+that code only in case we have BPF_JIT in our config enabled, just
+like with other JIT code. Fixes builds for arm/marzen_defconfig
+and sh/rsk7269_defconfig.
 
-Just wondering, why did you move ENITITY_NAME argument to the next
-line?  I see you are doing this pretty consistently.  Is this a style
-guideline or something?
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Fixes: 738cbe72adc5 ("net: bpf: consolidate JIT binary allocator")
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ include/linux/filter.h | 90 ++++++++++++++++++++++++++++----------------------
+ kernel/bpf/core.c      |  2 ++
+ 2 files changed, 53 insertions(+), 39 deletions(-)
 
-Thanks,
-
-                Ilya
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 4b59ede..71d74f8 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -4,12 +4,18 @@
+ #ifndef __LINUX_FILTER_H__
+ #define __LINUX_FILTER_H__
+ 
++#include <stdarg.h>
++
+ #include <linux/atomic.h>
+ #include <linux/compat.h>
+ #include <linux/skbuff.h>
++#include <linux/linkage.h>
++#include <linux/printk.h>
+ #include <linux/workqueue.h>
+-#include <uapi/linux/filter.h>
++
+ #include <asm/cacheflush.h>
++
++#include <uapi/linux/filter.h>
+ #include <uapi/linux/bpf.h>
+ 
+ struct sk_buff;
+@@ -320,6 +326,8 @@ struct sk_filter {
+ 	struct bpf_prog	*prog;
+ };
+ 
++typedef void (*bpf_jit_fill_hole_t)(void *area, unsigned int size);
++
+ #define BPF_PROG_RUN(filter, ctx)  (*filter->bpf_func)(ctx, filter->insnsi)
+ 
+ static inline unsigned int bpf_prog_size(unsigned int proglen)
+@@ -363,14 +371,6 @@ struct bpf_prog *bpf_prog_realloc(struct bpf_prog *fp_old, unsigned int size,
+ 				  gfp_t gfp_extra_flags);
+ void __bpf_prog_free(struct bpf_prog *fp);
+ 
+-typedef void (*bpf_jit_fill_hole_t)(void *area, unsigned int size);
+-
+-struct bpf_binary_header *
+-bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
+-		     unsigned int alignment,
+-		     bpf_jit_fill_hole_t bpf_fill_ill_insns);
+-void bpf_jit_binary_free(struct bpf_binary_header *hdr);
+-
+ static inline void bpf_prog_unlock_free(struct bpf_prog *fp)
+ {
+ 	bpf_prog_unlock_ro(fp);
+@@ -393,6 +393,48 @@ void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp);
+ u64 __bpf_call_base(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
+ void bpf_int_jit_compile(struct bpf_prog *fp);
+ 
++#ifdef CONFIG_BPF_JIT
++struct bpf_binary_header *
++bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
++		     unsigned int alignment,
++		     bpf_jit_fill_hole_t bpf_fill_ill_insns);
++void bpf_jit_binary_free(struct bpf_binary_header *hdr);
++
++void bpf_jit_compile(struct bpf_prog *fp);
++void bpf_jit_free(struct bpf_prog *fp);
++
++static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
++				u32 pass, void *image)
++{
++	pr_err("flen=%u proglen=%u pass=%u image=%pK\n",
++	       flen, proglen, pass, image);
++	if (image)
++		print_hex_dump(KERN_ERR, "JIT code: ", DUMP_PREFIX_OFFSET,
++			       16, 1, image, proglen, false);
++}
++#else
++static inline struct bpf_binary_header *
++bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
++		     unsigned int alignment,
++		     bpf_jit_fill_hole_t bpf_fill_ill_insns)
++{
++	return NULL;
++}
++
++static inline void bpf_jit_binary_free(struct bpf_binary_header *hdr)
++{
++}
++
++static inline void bpf_jit_compile(struct bpf_prog *fp)
++{
++}
++
++static inline void bpf_jit_free(struct bpf_prog *fp)
++{
++	bpf_prog_unlock_free(fp);
++}
++#endif /* CONFIG_BPF_JIT */
++
+ #define BPF_ANC		BIT(15)
+ 
+ static inline u16 bpf_anc_helper(const struct sock_filter *ftest)
+@@ -440,36 +482,6 @@ static inline void *bpf_load_pointer(const struct sk_buff *skb, int k,
+ 	return bpf_internal_load_pointer_neg_helper(skb, k, size);
+ }
+ 
+-#ifdef CONFIG_BPF_JIT
+-#include <stdarg.h>
+-#include <linux/linkage.h>
+-#include <linux/printk.h>
+-
+-void bpf_jit_compile(struct bpf_prog *fp);
+-void bpf_jit_free(struct bpf_prog *fp);
+-
+-static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
+-				u32 pass, void *image)
+-{
+-	pr_err("flen=%u proglen=%u pass=%u image=%pK\n",
+-	       flen, proglen, pass, image);
+-	if (image)
+-		print_hex_dump(KERN_ERR, "JIT code: ", DUMP_PREFIX_OFFSET,
+-			       16, 1, image, proglen, false);
+-}
+-#else
+-#include <linux/slab.h>
+-
+-static inline void bpf_jit_compile(struct bpf_prog *fp)
+-{
+-}
+-
+-static inline void bpf_jit_free(struct bpf_prog *fp)
+-{
+-	bpf_prog_unlock_free(fp);
+-}
+-#endif /* CONFIG_BPF_JIT */
+-
+ static inline int bpf_tell_extensions(void)
+ {
+ 	return SKF_AD_MAX;
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 8ee520f..8b70024 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -128,6 +128,7 @@ void __bpf_prog_free(struct bpf_prog *fp)
+ }
+ EXPORT_SYMBOL_GPL(__bpf_prog_free);
+ 
++#ifdef CONFIG_BPF_JIT
+ struct bpf_binary_header *
+ bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
+ 		     unsigned int alignment,
+@@ -163,6 +164,7 @@ void bpf_jit_binary_free(struct bpf_binary_header *hdr)
+ {
+ 	module_free(NULL, hdr);
+ }
++#endif /* CONFIG_BPF_JIT */
+ 
+ /* Base function for offset calculation. Needs to go into .text section,
+  * therefore keeping it non-static as well; will also be used by JITs
+-- 
+1.7.11.7
