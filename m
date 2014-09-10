@@ -1,96 +1,64 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v11 net-next 05/12] bpf: handle pseudo BPF_CALL insn
-Date: Tue,  9 Sep 2014 22:10:01 -0700
-Message-ID: <1410325808-3657-6-git-send-email-ast@plumgrid.com>
-References: <1410325808-3657-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linuxfoundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linuxfoundation.org>,
-	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
+Date: Wed, 10 Sep 2014 07:13:41 +0200
+Message-ID: <CAG-2HqUhvFJeuqUmtqSDq9hnRnt3L9tOvr777xkmFaQWaiMk6g@mail.gmail.com>
+References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
+ <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
+ <20140905141241.GC10455@mtj.dyndns.org> <20140905164405.GA28964@core.coreip.homeip.net>
+ <20140905174925.GA12991@mtj.dyndns.org> <CAB=NE6VPTV39pNujOgO422wbUvU44HZ7s=aaxPVraNECqA6e4Q@mail.gmail.com>
+ <20140905224047.GC15723@mtj.dyndns.org> <CAB=NE6Uz1VD5qpMFSBfQRV8ih9FQcCUhNtWMvD38t5hdDvix4Q@mail.gmail.com>
+ <20140909011059.GB11706@mtj.dyndns.org> <20140909012227.GE11706@mtj.dyndns.org>
+ <CAB=NE6Vn3hA_VKJyi4kgMi6iMtTtA104-_UfFm6vgX14RoDOTw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Tejun Heo <tj@kernel.org>,
+	Lennart Poettering <lennart@poettering.net>,
+	Kay Sievers <kay@vrfy.org>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@ava
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1410325808-3657-1-git-send-email-ast@plumgrid.com>
+In-Reply-To: <CAB=NE6Vn3hA_VKJyi4kgMi6iMtTtA104-_UfFm6vgX14RoDOTw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-in native eBPF programs userspace is using pseudo BPF_CALL instructions
-which encode one of 'enum bpf_func_id' inside insn->imm field.
-Verifier checks that program using correct function arguments to given func_id.
-If all checks passed, kernel needs to fixup BPF_CALL->imm fields by
-replacing func_id with in-kernel function pointer.
-eBPF interpreter just calls the function.
+On Tue, Sep 9, 2014 at 3:26 AM, Luis R. Rodriguez
+<mcgrof@do-not-panic.com> wrote:
+> On Mon, Sep 8, 2014 at 6:22 PM, Tejun Heo <tj@kernel.org> wrote:
+>> On Tue, Sep 09, 2014 at 10:10:59AM +0900, Tejun Heo wrote:
+>>> I'm not too convinced this is such a difficult problem to figure out.
+>>> We already have most of logic in place and the only thing missing is
+>>> how to switch it.  Wouldn't something like the following work?
+>>>
+>>> * Add a sysctl knob to enable asynchronous device probing on module
+>>>   load and enable asynchronous probing globally if the knob is set.
+>>
+>> Alternatively, add a module-generic param "async_probe" or whatever
+>> and use that to switch the behavior should work too.  I don't know
+>> which way is better but either should work fine.
+>
+> I take it by this you meant a generic system-wide sysctl or kernel cmd
+> line option to enable this for al drivers?
 
-In-kernel eBPF users continue to use generic BPF_CALL.
+If the expectation is that this feature should be enabled
+unconditionally for all systemd systems, wouldn't it make more sense
+to make it a Kconfig option (possibly overridable from the kernel
+commandline in case that makes testing simpler)?
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
- kernel/bpf/syscall.c |   37 +++++++++++++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
+Cheers,
 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 4ad6782ac514..b04873f6cc60 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -339,6 +339,40 @@ void bpf_register_prog_type(struct bpf_prog_type_list *tl)
- 	list_add(&tl->list_node, &bpf_prog_types);
- }
- 
-+/* fixup insn->imm field of bpf_call instructions:
-+ * if (insn->imm == BPF_FUNC_map_lookup_elem)
-+ *      insn->imm = bpf_map_lookup_elem - __bpf_call_base;
-+ * else if (insn->imm == BPF_FUNC_map_update_elem)
-+ *      insn->imm = bpf_map_update_elem - __bpf_call_base;
-+ * else ...
-+ *
-+ * this function is called after eBPF program passed verification
-+ */
-+static void fixup_bpf_calls(struct bpf_prog *prog)
-+{
-+	const struct bpf_func_proto *fn;
-+	int i;
-+
-+	for (i = 0; i < prog->len; i++) {
-+		struct bpf_insn *insn = &prog->insnsi[i];
-+
-+		if (insn->code == (BPF_JMP | BPF_CALL)) {
-+			/* we reach here when program has bpf_call instructions
-+			 * and it passed bpf_check(), means that
-+			 * ops->get_func_proto must have been supplied, check it
-+			 */
-+			BUG_ON(!prog->info->ops->get_func_proto);
-+
-+			fn = prog->info->ops->get_func_proto(insn->imm);
-+			/* all functions that have prototype and verifier allowed
-+			 * programs to call them, must be real in-kernel functions
-+			 */
-+			BUG_ON(!fn->func);
-+			insn->imm = fn->func - __bpf_call_base;
-+		}
-+	}
-+}
-+
- /* drop refcnt on maps used by eBPF program and free auxilary data */
- static void free_bpf_prog_info(struct bpf_prog_info *info)
- {
-@@ -466,6 +500,9 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	if (err < 0)
- 		goto free_prog_info;
- 
-+	/* fixup BPF_CALL->imm field */
-+	fixup_bpf_calls(prog);
-+
- 	/* eBPF program is ready to be JITed */
- 	bpf_prog_select_runtime(prog);
- 
--- 
-1.7.9.5
+Tom
