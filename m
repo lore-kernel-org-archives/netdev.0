@@ -1,509 +1,323 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 19/25] netfilter: nf_tables: add helpers to schedule objects deletion
-Date: Wed, 10 Sep 2014 17:10:36 +0200
-Message-ID: <1410361842-4656-20-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 24/25] netfilter: nf_nat: generalize IPv6 masquerading support for nf_tables
+Date: Wed, 10 Sep 2014 17:10:41 +0200
+Message-ID: <1410361842-4656-25-git-send-email-pablo@netfilter.org>
 References: <1410361842-4656-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55960 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752296AbaIJPKk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 11:10:40 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1410361842-4656-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Arturo Borrero <arturo.borrero.glez@gmail.com>
 
-This patch refactor the code to schedule objects deletion.
-They are useful in follow-up patches.
+Let's refactor the code so we can reach the masquerade functionality
+from outside the xt context (ie. nftables).
 
-In order to be able to use these new helper functions in all the code,
-they are placed in the top of the file, with all the dependant functions
-and symbols.
+The patch includes the addition of an atomic counter to the masquerade
+notifier: the stuff to be done by the notifier is the same for xt and
+nftables. Therefore, only one notification handler is needed.
 
-nft_rule_disactivate_next has been renamed to nft_rule_deactivate.
+This factorization only involves IPv6; a similar patch exists to
+handle IPv4.
 
 Signed-off-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c |  363 ++++++++++++++++++++++-------------------
- 1 file changed, 194 insertions(+), 169 deletions(-)
+ include/net/netfilter/ipv6/nf_nat_masquerade.h |   10 ++
+ net/ipv6/netfilter/Kconfig                     |    7 ++
+ net/ipv6/netfilter/Makefile                    |    1 +
+ net/ipv6/netfilter/ip6t_MASQUERADE.c           |   76 +--------------
+ net/ipv6/netfilter/nf_nat_masquerade_ipv6.c    |  120 ++++++++++++++++++++++++
+ 5 files changed, 143 insertions(+), 71 deletions(-)
+ create mode 100644 include/net/netfilter/ipv6/nf_nat_masquerade.h
+ create mode 100644 net/ipv6/netfilter/nf_nat_masquerade_ipv6.c
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index eac4fab..3ce5cfa 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -136,6 +136,195 @@ static void nf_tables_unregister_hooks(const struct nft_table *table,
- 		nf_unregister_hooks(nft_base_chain(chain)->ops, hook_nops);
- }
+diff --git a/include/net/netfilter/ipv6/nf_nat_masquerade.h b/include/net/netfilter/ipv6/nf_nat_masquerade.h
+new file mode 100644
+index 0000000..0a13396
+--- /dev/null
++++ b/include/net/netfilter/ipv6/nf_nat_masquerade.h
+@@ -0,0 +1,10 @@
++#ifndef _NF_NAT_MASQUERADE_IPV6_H_
++#define _NF_NAT_MASQUERADE_IPV6_H_
++
++unsigned int
++nf_nat_masquerade_ipv6(struct sk_buff *skb, const struct nf_nat_range *range,
++		       const struct net_device *out);
++void nf_nat_masquerade_ipv6_register_notifier(void);
++void nf_nat_masquerade_ipv6_unregister_notifier(void);
++
++#endif /* _NF_NAT_MASQUERADE_IPV6_H_ */
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index ac93df1..6c8cfec 100644
+--- a/net/ipv6/netfilter/Kconfig
++++ b/net/ipv6/netfilter/Kconfig
+@@ -246,8 +246,15 @@ config NF_NAT_IPV6
  
-+/* Internal table flags */
-+#define NFT_TABLE_INACTIVE	(1 << 15)
-+
-+static int nft_trans_table_add(struct nft_ctx *ctx, int msg_type)
-+{
-+	struct nft_trans *trans;
-+
-+	trans = nft_trans_alloc(ctx, msg_type, sizeof(struct nft_trans_table));
-+	if (trans == NULL)
-+		return -ENOMEM;
-+
-+	if (msg_type == NFT_MSG_NEWTABLE)
-+		ctx->table->flags |= NFT_TABLE_INACTIVE;
-+
-+	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
-+	return 0;
-+}
-+
-+static int nft_deltable(struct nft_ctx *ctx)
-+{
-+	int err;
-+
-+	err = nft_trans_table_add(ctx, NFT_MSG_DELTABLE);
-+	if (err < 0)
-+		return err;
-+
-+	list_del_rcu(&ctx->table->list);
-+	return err;
-+}
-+
-+static int nft_trans_chain_add(struct nft_ctx *ctx, int msg_type)
-+{
-+	struct nft_trans *trans;
-+
-+	trans = nft_trans_alloc(ctx, msg_type, sizeof(struct nft_trans_chain));
-+	if (trans == NULL)
-+		return -ENOMEM;
-+
-+	if (msg_type == NFT_MSG_NEWCHAIN)
-+		ctx->chain->flags |= NFT_CHAIN_INACTIVE;
-+
-+	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
-+	return 0;
-+}
-+
-+static int nft_delchain(struct nft_ctx *ctx)
-+{
-+	int err;
-+
-+	err = nft_trans_chain_add(ctx, NFT_MSG_DELCHAIN);
-+	if (err < 0)
-+		return err;
-+
-+	ctx->table->use--;
-+	list_del_rcu(&ctx->chain->list);
-+
-+	return err;
-+}
-+
-+static inline bool
-+nft_rule_is_active(struct net *net, const struct nft_rule *rule)
-+{
-+	return (rule->genmask & (1 << net->nft.gencursor)) == 0;
-+}
-+
-+static inline int gencursor_next(struct net *net)
-+{
-+	return net->nft.gencursor+1 == 1 ? 1 : 0;
-+}
-+
-+static inline int
-+nft_rule_is_active_next(struct net *net, const struct nft_rule *rule)
-+{
-+	return (rule->genmask & (1 << gencursor_next(net))) == 0;
-+}
-+
-+static inline void
-+nft_rule_activate_next(struct net *net, struct nft_rule *rule)
-+{
-+	/* Now inactive, will be active in the future */
-+	rule->genmask = (1 << net->nft.gencursor);
-+}
-+
-+static inline void
-+nft_rule_deactivate_next(struct net *net, struct nft_rule *rule)
-+{
-+	rule->genmask = (1 << gencursor_next(net));
-+}
-+
-+static inline void nft_rule_clear(struct net *net, struct nft_rule *rule)
-+{
-+	rule->genmask = 0;
-+}
-+
-+static int
-+nf_tables_delrule_deactivate(struct nft_ctx *ctx, struct nft_rule *rule)
-+{
-+	/* You cannot delete the same rule twice */
-+	if (nft_rule_is_active_next(ctx->net, rule)) {
-+		nft_rule_deactivate_next(ctx->net, rule);
-+		ctx->chain->use--;
-+		return 0;
-+	}
-+	return -ENOENT;
-+}
-+
-+static struct nft_trans *nft_trans_rule_add(struct nft_ctx *ctx, int msg_type,
-+					    struct nft_rule *rule)
-+{
-+	struct nft_trans *trans;
-+
-+	trans = nft_trans_alloc(ctx, msg_type, sizeof(struct nft_trans_rule));
-+	if (trans == NULL)
-+		return NULL;
-+
-+	nft_trans_rule(trans) = rule;
-+	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
-+
-+	return trans;
-+}
-+
-+static int nft_delrule(struct nft_ctx *ctx, struct nft_rule *rule)
-+{
-+	struct nft_trans *trans;
-+	int err;
-+
-+	trans = nft_trans_rule_add(ctx, NFT_MSG_DELRULE, rule);
-+	if (trans == NULL)
-+		return -ENOMEM;
-+
-+	err = nf_tables_delrule_deactivate(ctx, rule);
-+	if (err < 0) {
-+		nft_trans_destroy(trans);
-+		return err;
-+	}
-+
-+	return 0;
-+}
-+
-+static int nft_delrule_by_chain(struct nft_ctx *ctx)
-+{
-+	struct nft_rule *rule;
-+	int err;
-+
-+	list_for_each_entry(rule, &ctx->chain->rules, list) {
-+		err = nft_delrule(ctx, rule);
-+		if (err < 0)
-+			return err;
-+	}
-+	return 0;
-+}
-+
-+/* Internal set flag */
-+#define NFT_SET_INACTIVE	(1 << 15)
-+
-+static int nft_trans_set_add(struct nft_ctx *ctx, int msg_type,
-+			     struct nft_set *set)
-+{
-+	struct nft_trans *trans;
-+
-+	trans = nft_trans_alloc(ctx, msg_type, sizeof(struct nft_trans_set));
-+	if (trans == NULL)
-+		return -ENOMEM;
-+
-+	if (msg_type == NFT_MSG_NEWSET && ctx->nla[NFTA_SET_ID] != NULL) {
-+		nft_trans_set_id(trans) =
-+			ntohl(nla_get_be32(ctx->nla[NFTA_SET_ID]));
-+		set->flags |= NFT_SET_INACTIVE;
-+	}
-+	nft_trans_set(trans) = set;
-+	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
-+
-+	return 0;
-+}
-+
-+static int nft_delset(struct nft_ctx *ctx, struct nft_set *set)
-+{
-+	int err;
-+
-+	err = nft_trans_set_add(ctx, NFT_MSG_DELSET, set);
-+	if (err < 0)
-+		return err;
-+
-+	list_del_rcu(&set->list);
-+	ctx->table->use--;
-+
-+	return err;
-+}
-+
- /*
-  * Tables
-  */
-@@ -318,9 +507,6 @@ done:
- 	return skb->len;
- }
+ if NF_NAT_IPV6
  
--/* Internal table flags */
--#define NFT_TABLE_INACTIVE	(1 << 15)
--
- static int nf_tables_gettable(struct sock *nlsk, struct sk_buff *skb,
- 			      const struct nlmsghdr *nlh,
- 			      const struct nlattr * const nla[])
-@@ -452,21 +638,6 @@ err:
- 	return ret;
- }
++config NF_NAT_MASQUERADE_IPV6
++	tristate "IPv6 masquerade support"
++	help
++	 This is the kernel functionality to provide NAT in the masquerade
++	 flavour (automatic source address selection) for IPv6.
++
+ config IP6_NF_TARGET_MASQUERADE
+ 	tristate "MASQUERADE target support"
++	select NF_NAT_MASQUERADE_IPV6
+ 	help
+ 	  Masquerading is a special case of NAT: all outgoing connections are
+ 	  changed to seem to come from a particular interface's address, and
+diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
+index c0b2631..89a0bd7 100644
+--- a/net/ipv6/netfilter/Makefile
++++ b/net/ipv6/netfilter/Makefile
+@@ -18,6 +18,7 @@ obj-$(CONFIG_NF_CONNTRACK_IPV6) += nf_conntrack_ipv6.o
  
--static int nft_trans_table_add(struct nft_ctx *ctx, int msg_type)
--{
--	struct nft_trans *trans;
--
--	trans = nft_trans_alloc(ctx, msg_type, sizeof(struct nft_trans_table));
--	if (trans == NULL)
--		return -ENOMEM;
--
--	if (msg_type == NFT_MSG_NEWTABLE)
--		ctx->table->flags |= NFT_TABLE_INACTIVE;
--
--	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
--	return 0;
--}
--
- static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
- 			      const struct nlmsghdr *nlh,
- 			      const struct nlattr * const nla[])
-@@ -544,7 +715,7 @@ static int nf_tables_deltable(struct sock *nlsk, struct sk_buff *skb,
- 	struct nft_af_info *afi;
- 	struct nft_table *table;
- 	struct net *net = sock_net(skb->sk);
--	int family = nfmsg->nfgen_family, err;
-+	int family = nfmsg->nfgen_family;
- 	struct nft_ctx ctx;
+ nf_nat_ipv6-y		:= nf_nat_l3proto_ipv6.o nf_nat_proto_icmpv6.o
+ obj-$(CONFIG_NF_NAT_IPV6) += nf_nat_ipv6.o
++obj-$(CONFIG_NF_NAT_MASQUERADE_IPV6) += nf_nat_masquerade_ipv6.o
  
- 	afi = nf_tables_afinfo_lookup(net, family, false);
-@@ -560,12 +731,8 @@ static int nf_tables_deltable(struct sock *nlsk, struct sk_buff *skb,
- 		return -EBUSY;
+ # defrag
+ nf_defrag_ipv6-y := nf_defrag_ipv6_hooks.o nf_conntrack_reasm.o
+diff --git a/net/ipv6/netfilter/ip6t_MASQUERADE.c b/net/ipv6/netfilter/ip6t_MASQUERADE.c
+index 3e4e92d..7f9f45d 100644
+--- a/net/ipv6/netfilter/ip6t_MASQUERADE.c
++++ b/net/ipv6/netfilter/ip6t_MASQUERADE.c
+@@ -19,33 +19,12 @@
+ #include <net/netfilter/nf_nat.h>
+ #include <net/addrconf.h>
+ #include <net/ipv6.h>
++#include <net/netfilter/ipv6/nf_nat_masquerade.h>
  
- 	nft_ctx_init(&ctx, skb, nlh, afi, table, NULL, nla);
--	err = nft_trans_table_add(&ctx, NFT_MSG_DELTABLE);
--	if (err < 0)
--		return err;
- 
--	list_del_rcu(&table->list);
--	return 0;
-+	return nft_deltable(&ctx);
- }
- 
- static void nf_tables_table_destroy(struct nft_ctx *ctx)
-@@ -922,21 +1089,6 @@ static void nft_chain_stats_replace(struct nft_base_chain *chain,
- 		rcu_assign_pointer(chain->stats, newstats);
- }
- 
--static int nft_trans_chain_add(struct nft_ctx *ctx, int msg_type)
--{
--	struct nft_trans *trans;
--
--	trans = nft_trans_alloc(ctx, msg_type, sizeof(struct nft_trans_chain));
--	if (trans == NULL)
--		return -ENOMEM;
--
--	if (msg_type == NFT_MSG_NEWCHAIN)
--		ctx->chain->flags |= NFT_CHAIN_INACTIVE;
--
--	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
--	return 0;
--}
--
- static void nf_tables_chain_destroy(struct nft_chain *chain)
+ static unsigned int
+ masquerade_tg6(struct sk_buff *skb, const struct xt_action_param *par)
  {
- 	BUG_ON(chain->use > 0);
-@@ -1183,7 +1335,6 @@ static int nf_tables_delchain(struct sock *nlsk, struct sk_buff *skb,
- 	struct net *net = sock_net(skb->sk);
- 	int family = nfmsg->nfgen_family;
- 	struct nft_ctx ctx;
--	int err;
- 
- 	afi = nf_tables_afinfo_lookup(net, family, false);
- 	if (IS_ERR(afi))
-@@ -1204,13 +1355,8 @@ static int nf_tables_delchain(struct sock *nlsk, struct sk_buff *skb,
- 		return -EBUSY;
- 
- 	nft_ctx_init(&ctx, skb, nlh, afi, table, chain, nla);
--	err = nft_trans_chain_add(&ctx, NFT_MSG_DELCHAIN);
--	if (err < 0)
--		return err;
- 
--	table->use--;
--	list_del_rcu(&chain->list);
--	return 0;
-+	return nft_delchain(&ctx);
+-	const struct nf_nat_range *range = par->targinfo;
+-	enum ip_conntrack_info ctinfo;
+-	struct in6_addr src;
+-	struct nf_conn *ct;
+-	struct nf_nat_range newrange;
+-
+-	ct = nf_ct_get(skb, &ctinfo);
+-	NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED ||
+-			    ctinfo == IP_CT_RELATED_REPLY));
+-
+-	if (ipv6_dev_get_saddr(dev_net(par->out), par->out,
+-			       &ipv6_hdr(skb)->daddr, 0, &src) < 0)
+-		return NF_DROP;
+-
+-	nfct_nat(ct)->masq_index = par->out->ifindex;
+-
+-	newrange.flags		= range->flags | NF_NAT_RANGE_MAP_IPS;
+-	newrange.min_addr.in6	= src;
+-	newrange.max_addr.in6	= src;
+-	newrange.min_proto	= range->min_proto;
+-	newrange.max_proto	= range->max_proto;
+-
+-	return nf_nat_setup_info(ct, &newrange, NF_NAT_MANIP_SRC);
++	return nf_nat_masquerade_ipv6(skb, par->targinfo, par->out);
  }
  
- /*
-@@ -1532,41 +1678,6 @@ err:
- 	return err;
+ static int masquerade_tg6_checkentry(const struct xt_tgchk_param *par)
+@@ -57,48 +36,6 @@ static int masquerade_tg6_checkentry(const struct xt_tgchk_param *par)
+ 	return 0;
  }
  
--static inline bool
--nft_rule_is_active(struct net *net, const struct nft_rule *rule)
+-static int device_cmp(struct nf_conn *ct, void *ifindex)
 -{
--	return (rule->genmask & (1 << net->nft.gencursor)) == 0;
--}
+-	const struct nf_conn_nat *nat = nfct_nat(ct);
 -
--static inline int gencursor_next(struct net *net)
--{
--	return net->nft.gencursor+1 == 1 ? 1 : 0;
--}
--
--static inline int
--nft_rule_is_active_next(struct net *net, const struct nft_rule *rule)
--{
--	return (rule->genmask & (1 << gencursor_next(net))) == 0;
--}
--
--static inline void
--nft_rule_activate_next(struct net *net, struct nft_rule *rule)
--{
--	/* Now inactive, will be active in the future */
--	rule->genmask = (1 << net->nft.gencursor);
--}
--
--static inline void
--nft_rule_disactivate_next(struct net *net, struct nft_rule *rule)
--{
--	rule->genmask = (1 << gencursor_next(net));
--}
--
--static inline void nft_rule_clear(struct net *net, struct nft_rule *rule)
--{
--	rule->genmask = 0;
--}
--
- static int nf_tables_dump_rules(struct sk_buff *skb,
- 				struct netlink_callback *cb)
- {
-@@ -1692,21 +1803,6 @@ static void nf_tables_rule_destroy(const struct nft_ctx *ctx,
- 	kfree(rule);
- }
- 
--static struct nft_trans *nft_trans_rule_add(struct nft_ctx *ctx, int msg_type,
--					    struct nft_rule *rule)
--{
--	struct nft_trans *trans;
--
--	trans = nft_trans_alloc(ctx, msg_type, sizeof(struct nft_trans_rule));
--	if (trans == NULL)
--		return NULL;
--
--	nft_trans_rule(trans) = rule;
--	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
--
--	return trans;
--}
--
- #define NFT_RULE_MAXEXPRS	128
- 
- static struct nft_expr_info *info;
-@@ -1828,7 +1924,7 @@ static int nf_tables_newrule(struct sock *nlsk, struct sk_buff *skb,
- 				err = -ENOMEM;
- 				goto err2;
- 			}
--			nft_rule_disactivate_next(net, old_rule);
-+			nft_rule_deactivate_next(net, old_rule);
- 			chain->use--;
- 			list_add_tail_rcu(&rule->list, &old_rule->list);
- 		} else {
-@@ -1872,49 +1968,6 @@ err1:
- 	return err;
- }
- 
--static int
--nf_tables_delrule_deactivate(struct nft_ctx *ctx, struct nft_rule *rule)
--{
--	/* You cannot delete the same rule twice */
--	if (nft_rule_is_active_next(ctx->net, rule)) {
--		nft_rule_disactivate_next(ctx->net, rule);
--		ctx->chain->use--;
+-	if (!nat)
 -		return 0;
--	}
--	return -ENOENT;
+-	if (nf_ct_l3num(ct) != NFPROTO_IPV6)
+-		return 0;
+-	return nat->masq_index == (int)(long)ifindex;
 -}
 -
--static int nft_delrule(struct nft_ctx *ctx, struct nft_rule *rule)
+-static int masq_device_event(struct notifier_block *this,
+-			     unsigned long event, void *ptr)
 -{
--	struct nft_trans *trans;
--	int err;
+-	const struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+-	struct net *net = dev_net(dev);
 -
--	trans = nft_trans_rule_add(ctx, NFT_MSG_DELRULE, rule);
--	if (trans == NULL)
--		return -ENOMEM;
+-	if (event == NETDEV_DOWN)
+-		nf_ct_iterate_cleanup(net, device_cmp,
+-				      (void *)(long)dev->ifindex, 0, 0);
 -
--	err = nf_tables_delrule_deactivate(ctx, rule);
--	if (err < 0) {
--		nft_trans_destroy(trans);
--		return err;
--	}
--
--	return 0;
+-	return NOTIFY_DONE;
 -}
 -
--static int nft_delrule_by_chain(struct nft_ctx *ctx)
+-static struct notifier_block masq_dev_notifier = {
+-	.notifier_call	= masq_device_event,
+-};
+-
+-static int masq_inet_event(struct notifier_block *this,
+-			   unsigned long event, void *ptr)
 -{
--	struct nft_rule *rule;
--	int err;
+-	struct inet6_ifaddr *ifa = ptr;
+-	struct netdev_notifier_info info;
 -
--	list_for_each_entry(rule, &ctx->chain->rules, list) {
--		err = nft_delrule(ctx, rule);
--		if (err < 0)
--			return err;
--	}
--	return 0;
+-	netdev_notifier_info_init(&info, ifa->idev->dev);
+-	return masq_device_event(this, event, &info);
 -}
 -
- static int nf_tables_delrule(struct sock *nlsk, struct sk_buff *skb,
- 			     const struct nlmsghdr *nlh,
- 			     const struct nlattr * const nla[])
-@@ -2343,8 +2396,6 @@ static int nf_tables_dump_sets_done(struct netlink_callback *cb)
- 	return 0;
+-static struct notifier_block masq_inet_notifier = {
+-	.notifier_call	= masq_inet_event,
+-};
+-
+ static struct xt_target masquerade_tg6_reg __read_mostly = {
+ 	.name		= "MASQUERADE",
+ 	.family		= NFPROTO_IPV6,
+@@ -115,17 +52,14 @@ static int __init masquerade_tg6_init(void)
+ 	int err;
+ 
+ 	err = xt_register_target(&masquerade_tg6_reg);
+-	if (err == 0) {
+-		register_netdevice_notifier(&masq_dev_notifier);
+-		register_inet6addr_notifier(&masq_inet_notifier);
+-	}
++	if (err == 0)
++		nf_nat_masquerade_ipv6_register_notifier();
+ 
+ 	return err;
+ }
+ static void __exit masquerade_tg6_exit(void)
+ {
+-	unregister_inet6addr_notifier(&masq_inet_notifier);
+-	unregister_netdevice_notifier(&masq_dev_notifier);
++	nf_nat_masquerade_ipv6_unregister_notifier();
+ 	xt_unregister_target(&masquerade_tg6_reg);
  }
  
--#define NFT_SET_INACTIVE	(1 << 15)	/* Internal set flag */
--
- static int nf_tables_getset(struct sock *nlsk, struct sk_buff *skb,
- 			    const struct nlmsghdr *nlh,
- 			    const struct nlattr * const nla[])
-@@ -2419,26 +2470,6 @@ static int nf_tables_set_desc_parse(const struct nft_ctx *ctx,
- 	return 0;
- }
- 
--static int nft_trans_set_add(struct nft_ctx *ctx, int msg_type,
--			     struct nft_set *set)
--{
--	struct nft_trans *trans;
--
--	trans = nft_trans_alloc(ctx, msg_type, sizeof(struct nft_trans_set));
--	if (trans == NULL)
--		return -ENOMEM;
--
--	if (msg_type == NFT_MSG_NEWSET && ctx->nla[NFTA_SET_ID] != NULL) {
--		nft_trans_set_id(trans) =
--			ntohl(nla_get_be32(ctx->nla[NFTA_SET_ID]));
--		set->flags |= NFT_SET_INACTIVE;
--	}
--	nft_trans_set(trans) = set;
--	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
--
--	return 0;
--}
--
- static int nf_tables_newset(struct sock *nlsk, struct sk_buff *skb,
- 			    const struct nlmsghdr *nlh,
- 			    const struct nlattr * const nla[])
-@@ -2632,13 +2663,7 @@ static int nf_tables_delset(struct sock *nlsk, struct sk_buff *skb,
- 	if (!list_empty(&set->bindings))
- 		return -EBUSY;
- 
--	err = nft_trans_set_add(&ctx, NFT_MSG_DELSET, set);
--	if (err < 0)
--		return err;
--
--	list_del_rcu(&set->list);
--	ctx.table->use--;
--	return 0;
-+	return nft_delset(&ctx, set);
- }
- 
- static int nf_tables_bind_check_setelem(const struct nft_ctx *ctx,
+diff --git a/net/ipv6/netfilter/nf_nat_masquerade_ipv6.c b/net/ipv6/netfilter/nf_nat_masquerade_ipv6.c
+new file mode 100644
+index 0000000..7745609
+--- /dev/null
++++ b/net/ipv6/netfilter/nf_nat_masquerade_ipv6.c
+@@ -0,0 +1,120 @@
++/*
++ * Copyright (c) 2011 Patrick McHardy <kaber@trash.net>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ * Based on Rusty Russell's IPv6 MASQUERADE target. Development of IPv6
++ * NAT funded by Astaro.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/atomic.h>
++#include <linux/netdevice.h>
++#include <linux/ipv6.h>
++#include <linux/netfilter.h>
++#include <linux/netfilter_ipv6.h>
++#include <net/netfilter/nf_nat.h>
++#include <net/addrconf.h>
++#include <net/ipv6.h>
++#include <net/netfilter/ipv6/nf_nat_masquerade.h>
++
++unsigned int
++nf_nat_masquerade_ipv6(struct sk_buff *skb, const struct nf_nat_range *range,
++		       const struct net_device *out)
++{
++	enum ip_conntrack_info ctinfo;
++	struct in6_addr src;
++	struct nf_conn *ct;
++	struct nf_nat_range newrange;
++
++	ct = nf_ct_get(skb, &ctinfo);
++	NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED ||
++			    ctinfo == IP_CT_RELATED_REPLY));
++
++	if (ipv6_dev_get_saddr(dev_net(out), out,
++			       &ipv6_hdr(skb)->daddr, 0, &src) < 0)
++		return NF_DROP;
++
++	nfct_nat(ct)->masq_index = out->ifindex;
++
++	newrange.flags		= range->flags | NF_NAT_RANGE_MAP_IPS;
++	newrange.min_addr.in6	= src;
++	newrange.max_addr.in6	= src;
++	newrange.min_proto	= range->min_proto;
++	newrange.max_proto	= range->max_proto;
++
++	return nf_nat_setup_info(ct, &newrange, NF_NAT_MANIP_SRC);
++}
++EXPORT_SYMBOL_GPL(nf_nat_masquerade_ipv6);
++
++static int device_cmp(struct nf_conn *ct, void *ifindex)
++{
++	const struct nf_conn_nat *nat = nfct_nat(ct);
++
++	if (!nat)
++		return 0;
++	if (nf_ct_l3num(ct) != NFPROTO_IPV6)
++		return 0;
++	return nat->masq_index == (int)(long)ifindex;
++}
++
++static int masq_device_event(struct notifier_block *this,
++			     unsigned long event, void *ptr)
++{
++	const struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct net *net = dev_net(dev);
++
++	if (event == NETDEV_DOWN)
++		nf_ct_iterate_cleanup(net, device_cmp,
++				      (void *)(long)dev->ifindex, 0, 0);
++
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block masq_dev_notifier = {
++	.notifier_call	= masq_device_event,
++};
++
++static int masq_inet_event(struct notifier_block *this,
++			   unsigned long event, void *ptr)
++{
++	struct inet6_ifaddr *ifa = ptr;
++	struct netdev_notifier_info info;
++
++	netdev_notifier_info_init(&info, ifa->idev->dev);
++	return masq_device_event(this, event, &info);
++}
++
++static struct notifier_block masq_inet_notifier = {
++	.notifier_call	= masq_inet_event,
++};
++
++static atomic_t masquerade_notifier_refcount = ATOMIC_INIT(0);
++
++void nf_nat_masquerade_ipv6_register_notifier(void)
++{
++	/* check if the notifier is already set */
++	if (atomic_inc_return(&masquerade_notifier_refcount) > 1)
++		return;
++
++	register_netdevice_notifier(&masq_dev_notifier);
++	register_inet6addr_notifier(&masq_inet_notifier);
++}
++EXPORT_SYMBOL_GPL(nf_nat_masquerade_ipv6_register_notifier);
++
++void nf_nat_masquerade_ipv6_unregister_notifier(void)
++{
++	/* check if the notifier still has clients */
++	if (atomic_dec_return(&masquerade_notifier_refcount) > 0)
++		return;
++
++	unregister_inet6addr_notifier(&masq_inet_notifier);
++	unregister_netdevice_notifier(&masq_dev_notifier);
++}
++EXPORT_SYMBOL_GPL(nf_nat_masquerade_ipv6_unregister_notifier);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
 -- 
 1.7.10.4
+
