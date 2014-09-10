@@ -1,95 +1,133 @@
-From: Sergey Ryazanov <ryazanov.s.a@gmail.com>
-Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
-Date: Wed, 10 Sep 2014 16:19:21 +0400
-Message-ID: <CAHNKnsTtqz10c=vV-f10awLanYZzom3kJ1cO5xgTGs-t3O9NYg@mail.gmail.com>
-References: <20140213201421.GJ22203@tuxdriver.com>
-	<1397581703.8212.5.camel@x220>
-	<CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
-	<1403087119.1984.93.camel@x220>
-	<CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
-	<1403091974.1984.102.camel@x220>
-	<1409911856.7832.9.camel@x220>
-	<CAHNKnsRipRHicKOUW4dCutD1-sUG6qPnP2QuOveH_t1MFX9XgQ@mail.gmail.com>
-	<1409916824.7832.20.camel@x220>
-	<CAHNKnsQ1gt=DRBTd9Q9yos1idqmXMepEPvhm8a7unP-whzNAgg@mail.gmail.com>
-	<20140909182734.GJ29412@tuxdriver.com>
-	<CAHNKnsQ8G3ZFHshq7wOqex1J6DbVD5uHVAyvs+aDC2Znk5zWww@mail.gmail.com>
-	<541037D2.7060007@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [Patch net-next 3/5] ipv6: clean up ipv6_dev_ac_inc()
+Date: Wed, 10 Sep 2014 14:23:35 +0200
+Message-ID: <1410351815.3135.14.camel@localhost>
+References: <1410306738-18036-1-git-send-email-xiyou.wangcong@gmail.com>
+	 <1410306738-18036-4-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Paul Bolle <pebolle@tiscali.nl>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Oleksij Rempel <linux@rempel-privat.de>,
-	Richard Weinberger <richard@nod.at>,
-	Jonathan Bither <jonbither@gmail.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	ath5k-devel@venema.h4ckr.net, open@hauke-m.de,
-	"list@hauke-m.de:NETWORKING DRIVERS" <list@hauke-m.de>,
-	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>,
-	OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: Jiri Slaby <jirislaby@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <541037D2.7060007@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:49692 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750850AbaIJMXj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 08:23:39 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by gateway2.nyi.internal (Postfix) with ESMTP id E9859207B8
+	for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 08:23:37 -0400 (EDT)
+In-Reply-To: <1410306738-18036-4-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-09-10 15:36 GMT+04:00, Jiri Slaby <jirislaby@gmail.com>:
-> On 09/10/2014, 12:33 PM, Sergey Ryazanov wrote:
->> 2014-09-09 22:27 GMT+04:00, John W. Linville <linville@tuxdriver.com>:
->>> On Fri, Sep 05, 2014 at 04:02:10PM +0400, Sergey Ryazanov wrote:
->>>> 2014-09-05 15:33 GMT+04:00 Paul Bolle <pebolle@tiscali.nl>:
->>>>> Hi Sergey,
->>>>>
->>>>> On Fri, 2014-09-05 at 15:12 +0400, Sergey Ryazanov wrote:
->>>>>> 2014-09-05 14:10 GMT+04:00, Paul Bolle <pebolle@tiscali.nl>:
->>>>>>> On Wed, 2014-06-18 at 13:46 +0200, Paul Bolle wrote:
->>>>>>>> Having this conversation every rc1 is getting a bit silly. Could
->>>>>>>> Jiri
->>>>>>>> e.a. perhaps set some specific deadline for ATHEROS_AR231X to be
->>>>>>>> submitted?
->>>>>>>
->>>>>>> I waited until rc3. Have you seen any activity on this front? If
->>>>>>> not,
->>>>>>> should I resend the patch that removes the code in mainline that
->>>>>>> depends
->>>>>>> on ATHEROS_AR231X (ie, AHB bus support)?
->>>>>>>
->>>>>> Recent activity always could be found in [1]. Now I finish another
->>>>>> one
->>>>>> round of cleanups and have a plan to fix several things (you can
->>>>>> always find something that you really want to improve). But if you
->>>>>> insist I could immediately switch to "send upstream" mode. And seems
->>>>>> that this would be better approach.
->>>>>>
->>>>>> 1. https://dev.openwrt.org/log/trunk/target/linux/atheros
->>>>>
->>>>> And where can the related PULL requests or patch submissions be found?
->>>>>
->>>> I have not sent patches yet, since I thought that it would be easier
->>>> to cleanup them in openwrt tree and then send them upstream.
->>>
->>> That excuse has worn a bit thin.  Perhaps Paul should repost his
->>> removal and you can add a revert to the start of your patch series?
->>>
->> As for me, I do not like such flapping
->
-> Agreed in case what you have is in a good enough shape. You (and also
-> others) can still clean up the code in upstream too. So, if it is
-> mergeable, send it for upstream inclusion now, otherwise I am all for
-> John to apply the Paul's patch.
+On Di, 2014-09-09 at 16:52 -0700, Cong Wang wrote:
+> Make it accept inet6_dev, and rename it to __ipv6_dev_ac_inc()
+> to reflect this change.
+> 
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  include/net/addrconf.h |  2 +-
+>  net/ipv6/addrconf.c    |  2 +-
+>  net/ipv6/anycast.c     | 17 +++++------------
+>  3 files changed, 7 insertions(+), 14 deletions(-)
+> 
+> diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+> index f679877..9b1d42e 100644
+> --- a/include/net/addrconf.h
+> +++ b/include/net/addrconf.h
+> @@ -202,7 +202,7 @@ int ipv6_sock_ac_drop(struct sock *sk, int ifindex,
+>  		      const struct in6_addr *addr);
+>  void ipv6_sock_ac_close(struct sock *sk);
+>  
+> -int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr);
+> +int __ipv6_dev_ac_inc(struct inet6_dev *idev, const struct in6_addr *addr);
+>  int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr);
+>  bool ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
+>  			 const struct in6_addr *addr);
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index ad4598f..6b6a373 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -1725,7 +1725,7 @@ static void addrconf_join_anycast(struct inet6_ifaddr *ifp)
+>  	ipv6_addr_prefix(&addr, &ifp->addr, ifp->prefix_len);
+>  	if (ipv6_addr_any(&addr))
+>  		return;
+> -	ipv6_dev_ac_inc(ifp->idev->dev, &addr);
+> +	__ipv6_dev_ac_inc(ifp->idev, &addr);
+>  }
+>  
+>  /* caller must hold RTNL */
+> diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
+> index d10f2e2..bec8d14 100644
+> --- a/net/ipv6/anycast.c
+> +++ b/net/ipv6/anycast.c
+> @@ -122,7 +122,7 @@ int ipv6_sock_ac_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+>  			goto error;
+>  	}
+>  
+> -	err = ipv6_dev_ac_inc(dev, addr);
+> +	err = __ipv6_dev_ac_inc(idev, addr);
+>  	if (!err) {
+>  		pac->acl_next = np->ipv6_ac_list;
+>  		np->ipv6_ac_list = pac;
+> @@ -215,20 +215,15 @@ static void aca_put(struct ifacaddr6 *ac)
+>  /*
+>   *	device anycast group inc (add if not found)
+>   */
+> -int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr)
+> +int __ipv6_dev_ac_inc(struct inet6_dev *idev, const struct in6_addr *addr)
+>  {
+>  	struct ifacaddr6 *aca;
+> -	struct inet6_dev *idev;
+>  	struct rt6_info *rt;
+>  	int err;
+>  
+>  	ASSERT_RTNL();
+>  
+> -	idev = in6_dev_get(dev);
+> -
+> -	if (idev == NULL)
+> -		return -EINVAL;
+> -
+> +	in6_dev_hold(idev);
 
-Two days is the last deadline :)
+Please move this in6_dev_hold down to where it gets attached to the
+ifacaddr6 and remove the in6_dev_put from below the out: label.
 
-> The unused code has been a way too long
-> in the tree now.
+>  	write_lock_bh(&idev->lock);
+>  	if (idev->dead) {
+>  		err = -ENODEV;
+> @@ -267,7 +262,7 @@ int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr)
+>  	aca->aca_users = 1;
+>  	/* aca_tstamp should be updated upon changes */
+>  	aca->aca_cstamp = aca->aca_tstamp = jiffies;
+> -	atomic_set(&aca->aca_refcnt, 2);
+> +	atomic_set(&aca->aca_refcnt, 1);
+>  	spin_lock_init(&aca->aca_lock);
+>  
+>  	aca->aca_next = idev->ac_list;
+> @@ -276,9 +271,7 @@ int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr)
+>  
+>  	ip6_ins_rt(rt);
+>  
+> -	addrconf_join_solict(dev, &aca->aca_addr);
+> -
+> -	aca_put(aca);
 
-Code actively used in owrt firmware and its forks.
+I am not sure why you changed the aca_refcnt code. idev->ac_list is only
+protected by idev->lock and you publish one reference and unlock, thus
+you need a second reference during addrconf_join_solict. All accesses
+should also be protected by rtnl, so it shouldn't be a problem, but if
+people review the code they might have problems to figure that out.
+Maybe you can also remove the idev->lock?
 
--- 
-BR,
-Sergey
+> +	addrconf_join_solict(idev->dev, &aca->aca_addr);
+>  	return 0;
+>  out:
+>  	write_unlock_bh(&idev->lock);
+
+Thanks,
+Hannes
