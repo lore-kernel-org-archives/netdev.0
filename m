@@ -1,38 +1,33 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next v2] net: bpf: only build bpf_jit_binary_{alloc,free}()
- when jit selected
-Date: Wed, 10 Sep 2014 10:22:02 -0700
-Message-ID: <CAMEtUuzOO3zt45FZj7sR5+iWa+L7hCD32TBkyjW7ZsOg633T4g@mail.gmail.com>
-References: <1410354062-25337-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH] Documentation: filter: Add MIPS to architectures with BPF JIT
+Date: Wed, 10 Sep 2014 10:23:03 -0700
+Message-ID: <CAMEtUuyRTOeQzpK0PE6sj2O3TS0RMw9dP_aB5QjxhZQZOytSKQ@mail.gmail.com>
+References: <1409322218-3689-1-git-send-email-markos.chandras@imgtec.com>
+	<1410357104-30490-1-git-send-email-markos.chandras@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	kbuild test robot <fengguang.wu@intel.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:36138 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752001AbaIJRWD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 13:22:03 -0400
-Received: by mail-wi0-f177.google.com with SMTP id em10so2573190wid.4
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 10:22:02 -0700 (PDT)
-In-Reply-To: <1410354062-25337-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Network Development <netdev@vger.kernel.org>,
+	Randy Dunlap <rdunlap@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Markos Chandras <markos.chandras@imgtec.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1410357104-30490-1-git-send-email-markos.chandras@imgtec.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 10, 2014 at 6:01 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> Since BPF JIT depends on the availability of module_alloc() and
-> module_free() helpers (HAVE_BPF_JIT and MODULES), we better build
-> that code only in case we have BPF_JIT in our config enabled, just
-> like with other JIT code. Fixes builds for arm/marzen_defconfig
-> and sh/rsk7269_defconfig.
+On Wed, Sep 10, 2014 at 6:51 AM, Markos Chandras
+<markos.chandras@imgtec.com> wrote:
+> MIPS supports BPF JIT since v3.16-rc1
 >
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Fixes: 738cbe72adc5 ("net: bpf: consolidate JIT binary allocator")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Randy Dunlap <rdunlap@infradead.org>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: linux-doc@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Acked-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
 
-haven't tested it, but looks good to me, so
 Acked-by: Alexei Starovoitov <ast@plumgrid.com>
-
-thank you for taking care of it so quickly.
