@@ -1,131 +1,201 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if
-	not OOM
-Date: Wed, 10 Sep 2014 08:46:34 +0200
-Message-ID: <CAG-2HqUiUksdT4UyeDsdc1Q74=2BiX2TuzzGh_hoLiO5_DOvXQ@mail.gmail.com>
-References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
- <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
- <20140905141241.GC10455@mtj.dyndns.org>
- <20140905164405.GA28964@core.coreip.homeip.net>
- <20140905174925.GA12991@mtj.dyndns.org>
- <CAB=NE6VPTV39pNujOgO422wbUvU44HZ7s=aaxPVraNECqA6e4Q@mail.gmail.com>
- <20140905224047.GC15723@mtj.dyndns.org>
- <CAB=NE6Uz1VD5qpMFSBfQRV8ih9FQcCUhNtWMvD38t5hdDvix4Q@mail.gmail.com>
- <20140909011059.GB11706@mtj.dyndns.org> <1410241109.2028.22.camel@jarvis.lan>
- <CAB=NE6WGAMvffGDTkN5x5Cd+YOtD-Cmo3v7_8FmJ5cvCRbFEpw@mail.gmail.com>
- <1410291346.13298.16.camel@jarvis.lan>
- <CAB=NE6U6v-GhAaZv3yXn9uVFvBvE4Uq8z7MQU8N+CyW19WpnNQ@mail.gmail.com>
+From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: 3.17-rc1 oops during network interface configuration
+Date: Wed, 10 Sep 2014 10:42:41 +0300
+Message-ID: <541000F1.5000805@mellanox.com>
+References: <53F1EF18.7010909@acm.org> <53F47917.8080003@mellanox.com> <F580F466-28A5-4BDD-A338-D5C065A760C1@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
- Takashi Iwai <tiwai@suse.de>, Kay Sievers <kay@vrfy.org>,
- Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
- James Bottomley <James.Bottomley@hansenpartnership.com>,
- Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
- hare <hare@suse.com>,
- Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
- Wu Zhangjin <falcon@meizu.com>,
- Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
- "mpt-fusionlinux.pdl" <MPT-FusionLinux.pdl@avagotech.com>,
- Tim Gardner <tim.gardner@canonical.com>, Benjamin Poirier <bpoirier@suse.de>,
- Santosh Rastapur <santosh@chelsio.com>, Casey Leedom <leedom@chelsio.com>,
- Hariprasad S <hariprasad@chelsio.com>,
- Pierre Fersing <pierre-fersing@pierref.org>,
- Arjan van de Ven <arjan@linux.intel.com>,
- Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
- systemd Mailing List <systemd-devel@lists.freedesk
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <systemd-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <CAB=NE6U6v-GhAaZv3yXn9uVFvBvE4Uq8z7MQU8N+CyW19WpnNQ@mail.gmail.com>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/systemd-devel>
-List-Post: <mailto:systemd-devel@lists.freedesktop.org>
-List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: systemd-devel-bounces@lists.freedesktop.org
-Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <F580F466-28A5-4BDD-A338-D5C065A760C1-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 9, 2014 at 10:45 PM, Luis R. Rodriguez
-<mcgrof@do-not-panic.com> wrote:
-> On Tue, Sep 9, 2014 at 12:35 PM, James Bottomley
-> <James.Bottomley@hansenpartnership.com> wrote:
->> On Tue, 2014-09-09 at 12:16 -0700, Luis R. Rodriguez wrote:
->>> On Mon, Sep 8, 2014 at 10:38 PM, James Bottomley
->>> <James.Bottomley@hansenpartnership.com> wrote:
->>> > If we want to sort out some sync/async mechanism for probing devices, as
->>> > an agreement between the init systems and the kernel, that's fine, but
->>> > its a to-be negotiated enhancement.
+
+On 9/9/2014 10:30 PM, Chuck Lever wrote:
+> This crash happens when booting v3.17-rcN on any of my IB-enabled
+> systems. I have both ConnectX-2 and mthca systems, all are affected.
+>
+> I bisected this to:
+>
+> commit e0f31d8498676fda36289603a054d0d490aa2679
+> Author:     Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>
+> AuthorDate: Mon Jun 23 16:07:58 2014 +0530
+> Commit:     David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> CommitDate: Mon Jun 23 14:32:19 2014 -0700
+>
+>      flow_keys: Record IP layer protocol in skb_flow_dissect()
+>
+>      skb_flow_dissect() dissects only transport header type in ip_pro=
+to. It dose not
+>      give any information about IPv4 or IPv6.
+>      This patch adds new member, n_proto, to struct flow_keys. Which =
+records the
+>      IP layer type. i.e IPv4 or IPv6.
+>      This can be used in netdev->ndo_rx_flow_steer driver function to=
+ dissect flow.
+>      Adding new member to flow_keys increases the struct size by arou=
+nd 4 bytes.
+>      This causes BUILD_BUG_ON(sizeof(qcb->data) < sz); to fail in
+>      qdisc_cb_private_validate()
+>      So increase data size by 4
+>
+>      Signed-off-by: Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>
+>      Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>
+>
+> This commit includes a hunk that increases the size of struct qdisc_s=
+kb_cb
+> by at least 4 bytes:
+>
+>> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+>> index 624f985..a3cfb8e 100644
+>> --- a/include/net/sch_generic.h
+>> +++ b/include/net/sch_generic.h
+>> @@ -231,7 +231,7 @@ struct qdisc_skb_cb {
+>>          unsigned int            pkt_len;
+>>          u16                     slave_dev_queue_mapping;
+>>          u16                     _pad;
+>> -       unsigned char           data[20];
+>> +       unsigned char           data[24];
+>>   };
+>>  =20
+>>   static inline void qdisc_cb_private_validate(const struct sk_buff =
+*skb, int sz)
+>
+>
+> IPoIB defines the following structure in drivers/infiniband/ulp/ipoib=
+/ipoib.h:
+>
+>> struct ipoib_cb {
+>>          struct qdisc_skb_cb     qdisc_cb;
+>>          u8                      hwaddr[INFINIBAND_ALEN];
+>> };
+> IPoIB keeps this in the sk_buff:cb field, which is exactly 48 bytes.
+> After commit e0f31d84, the size of struct ipoib_cb on x86_64 becomes
+> 52 bytes.
+>
+> Thus IPoIB overruns sk_buff:cb, and trashes the sk_buff::_skb_refdst
+> field, which contains a pointer. By the time we get into
+> __dev_queue_xmit() and try to use the result of skb_dst(), that point=
+er
+> is garbage, and we oops.
+>
+> Obviously, cb[] could be increased to 56 bytes to accommodate struct
+> ipoib_cb. I tried this, and it is effective in preventing the oops on
+> one of my systems.
+>
+> But I suspect there is an historical reason I=92m not aware of that i=
+t
+> has remained 48 bytes for years.
+
+Hi Chuck, thanks for bisecting this out. Indeed, as of this kernel 3.2=20
+commit 936d7de "IPoIB: Stop lying about hard_header_len and use skb->cb=
+=20
+to stash LL addresses" we are using the skb->cb field to enable proper=20
+work under GRO and avoid another historical quirk we had there... so I=20
+think we can definetly consider commit e0f31d849 to introduce a severe=20
+regression... Govindarajulu, Dave - what's your thinking here? any quic=
+k=20
+idea on how to fix?
+
+Also, I was thinking we have the mechanics in the kernel, e.g commit=20
+a0417fa3a18a ("net: Make qdisc_skb_cb upper size bound explicit.") to=20
+catch such over-flows?
+
+Or.
+
+>>> BUG: unable to handle kernel paging request at ffff88090000007e
+>>> IP: __dev_queue_xmit+0x519
+>>> Call Trace:
+>>> ? __dev_queue_xmit+0x49
+>>> dev_queue_xmit+0x10
+>>> neigh_connected_output
+>>> ? ip_finish_output
+>>> ip_finish_output
+>>> ? ip_finish_output
+>>> ? netif_rx_ni
+>>> ip_mc_output
+>>> ip_local_out_sk
+>>> ip_send_skb
+>>> udp_send_skb
+>>> udp_sendmsg
+>>> ? ip_reply_glue_bits
+>>> ? __lock_is_held
+>>> inet_sendmsg
+>>> ? inet_sendmsg
+>>> sock_sendmsg
+>>> ? might_fault
+>>> ? might_fault
+>>> ? move_addr_to_kernel.part.38
+>>> SYSC_sendto
+>>> ? sysret_check
+>>> ? trace_hardirqs_on_caller
+>>> ? trace_hardirqs_on_thunk
+>>> SyS_sendto
+>>> system_call_fastpath
 >>>
->>> Unfortunately as Tejun notes the train has left which already made
->>> assumptions on this.
->>
->> Well, that's why it's a bug.  It's a material regression impacting
->> users.
->
-> Indeed. I believe the issue with this regression however was that the
-> original commit e64fae55 (January 2012) was only accepted by *kernel
-> folks* to be a real regression until recently.
+>>> Kernel panic - not syncing: Fatal exception in interrupt
+>>> Kernel Offset: 0x0 from 0xffffffff81000000 (relocation range: 0xfff=
+fffff80000000-0xffffffff9fffffff)
+>>> drm_kms_helper: panic occurred, switching back to text console
+>>>
+>>> A screenshot of this kernel oops can be found here:
+>>> https://drive.google.com/file/d/0B1YQOreL3_FxVDB5UTNwekF6LVU/
+>>>
+>>> gdb translates the crash address into the following (not sure this =
+makes sense
+>>> since offset 0x519 is past the end of __dev_queue_xmit()):
+>>>
+>>> (gdb) list *(__dev_queue_xmit+0x519)
+>>> 0xffffffff8136bc89 is in netdev_adjacent_rename_links (net/core/dev=
+=2Ec:5167).
+>>> 5162    void netdev_adjacent_rename_links(struct net_device *dev, c=
+har *oldname)
+>>> 5163    {
+>>> 5164            struct netdev_adjacent *iter;
+>>> 5165
+>>> 5166            list_for_each_entry(iter, &dev->adj_list.upper, lis=
+t) {
+>>> 5167                    netdev_adjacent_sysfs_del(iter->dev, oldnam=
+e,
+>>> 5168                                              &iter->dev->adj_l=
+ist.lower);
+>>> 5169                    netdev_adjacent_sysfs_add(iter->dev, dev,
+>>> 5170                                              &iter->dev->adj_l=
+ist.lower);
+>>> 5171            }
+>>>
+>>> And the address __dev_queue_xmit+0x49 is translated by gdb into:
+>>>
+>>> (gdb) list *(__dev_queue_xmit+0x49)
+>>> 0xffffffff8136b7b9 is in __dev_queue_xmit (./arch/x86/include/asm/p=
+reempt.h:75).
+>>> 70       * The various preempt_count add/sub methods
+>>> 71       */
+>>> 72
+>>> 73      static __always_inline void __preempt_count_add(int val)
+>>> 74      {
+>>> 75              raw_cpu_add_4(__preempt_count, val);
+>>> 76      }
+>>> 77
+>>> 78      static __always_inline void __preempt_count_sub(int val)
+>>> 79      {
 
-Just for the record, this only caused user-visible problems after
-kernel commit 786235ee (November 2013), right?
-
-> More than two years
-> have gone by on growing design and assumptions on top of that original
-> commit. I'm not sure if *systemd folks* yet believe its was a design
-> regression?
-
-I don't think so. udev should not allow its workers to run for an
-unbounded length of time. Whether the upper bound should be 30, 60,
-180 seconds or something else is up for debate (currently it is 60,
-but if that is too short for some drivers we could certainly revisit
-that). Moreover, it seems from this discussion that the aim is (still)
-that insmod should be near-instantaneous (i.e., not wait for probe),
-so it seems to me that the basic design is correct and all we need is
-some temporary work-around and a way to better detect misbehaving
-drivers?
-
->>>  I'm afraid distributions that want to avoid this
->>> sigkill at least on the kernel front will have to work around this
->>> issue either on systemd by increasing the default timeout which is now
->>> possible thanks to Hannes' changes or by some other means such as the
->>> combination of a modified non-chatty version of this patch + a check
->>> at the end of load_module() as mentioned earlier on these threads.
->>
->> Increasing the default timeout in systemd seems like the obvious bug fix
->> to me.  If the patch exists already, having distros that want it use it
->> looks to be correct ... not every bug is a kernel bug, after all.
->
-> Its merged upstream on systemd now, along with a few fixes on top of
-> it. I also see Kay merged a change to the default timeout to 60 second
-> on August 30. Its unclear if these discussions had any impact on that
-> decision or if that was just because udev firmware loading got now
-> ripped out. I'll note that the new 60 second timeout wouldn't suffice
-> for cxgb4 even if it didn't do firmware loading, its probe takes over
-> one full minute.
->
->> Negotiating a probe vs init split for drivers is fine too, but it's a
->> longer term thing rather than a bug fix.
->
-> Indeed. What I proposed with a multiplier for the timeout for the
-> different types of built in commands was deemed complex but saw no
-> alternatives proposed despite my interest to work on one and
-> clarifications noted that this was a design regression. Not quite sure
-> what else I could have done here. I'm interested in learning what the
-> better approach is for the future as if we want to marry init + kernel
-> we need a smooth way for us to discuss design without getting worked
-> up about it, or taking it personal. I really want this to work as I
-> personally like systemd so far.
-
-How about this: keep the timeout global, but also introduce a
-(relatively short, say 10 or 15 seconds) timeout after which a warning
-is printed. Even if nothing is actually killed, having workers (be it
-insmod or something else) take longer than a couple of seconds is
-likely a sign that something is seriously off somewhere.
-
-Cheers,
-
-Tom
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
