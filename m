@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] mlx4: Fix wrong endianess access with QP context
- flags
-Date: Wed, 10 Sep 2014 15:23:54 -0700 (PDT)
-Message-ID: <20140910.152354.1516891361950612654.davem@davemloft.net>
-References: <1410358511-13461-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH] Documentation: filter: Add MIPS to architectures with
+ BPF JIT
+Date: Wed, 10 Sep 2014 15:24:43 -0700 (PDT)
+Message-ID: <20140910.152443.984430479125792540.davem@davemloft.net>
+References: <1409322218-3689-1-git-send-email-markos.chandras@imgtec.com>
+	<1410357104-30490-1-git-send-email-markos.chandras@imgtec.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, matanb@mellanox.com, amirv@mellanox.com
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43892 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752241AbaIJWXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 18:23:55 -0400
-In-Reply-To: <1410358511-13461-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rdunlap@infradead.org, dborkman@redhat.com,
+	ast@plumgrid.com, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: markos.chandras@imgtec.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1410357104-30490-1-git-send-email-markos.chandras@imgtec.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Wed, 10 Sep 2014 17:15:11 +0300
+From: Markos Chandras <markos.chandras@imgtec.com>
+Date: Wed, 10 Sep 2014 14:51:44 +0100
 
-> We wrongly tested QP context bits without BE conversion
-> as was spotted by sparse...
+> MIPS supports BPF JIT since v3.16-rc1
 > 
-> drivers/infiniband/hw/mlx4/qp.c:1685:38: sparse: restricted __be32 degrades to integer
-> 
-> Fix that!
-> 
-> Fixes: d2fce8a ('mlx4: Set user-space raw Ethernet QPs to properly handle VXLAN traffic')
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Cc: Randy Dunlap <rdunlap@infradead.org>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: linux-doc@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Acked-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
 
-Series applied, thanks.
+Applied, thank you.
