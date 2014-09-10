@@ -1,71 +1,58 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH net-next v2 1/2] bonding: display xmit_hash_policy for non-dynamic-tlb mode
-Date: Tue,  9 Sep 2014 17:46:27 -0700
-Message-ID: <1410309987-10542-1-git-send-email-maheshb@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Mahesh Bandewar <maheshb@google.com>,
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v10 net-next 0/2] load imm64 insn and uapi/linux/bpf.h
+Date: Tue, 9 Sep 2014 18:42:41 -0700
+Message-ID: <CAMEtUuzObhWe7xvD5CMQCzAZ4weOdi4HZH+51WE4Fhdj4q6d=w@mail.gmail.com>
+References: <1409894238-9055-1-git-send-email-ast@plumgrid.com>
+	<20140909.103059.1330265085939107782.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linuxfoundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Chema Gonzalez <chema@google.com>,
 	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linuxfoundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f73.google.com ([209.85.192.73]:41922 "EHLO
-	mail-qg0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751083AbaIJAyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 20:54:08 -0400
-Received: by mail-qg0-f73.google.com with SMTP id i50so114258qgf.2
-        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 17:54:08 -0700 (PDT)
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:52204 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751317AbaIJBmn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Sep 2014 21:42:43 -0400
+Received: by mail-wi0-f181.google.com with SMTP id e4so5423996wiv.2
+        for <netdev@vger.kernel.org>; Tue, 09 Sep 2014 18:42:42 -0700 (PDT)
+In-Reply-To: <20140909.103059.1330265085939107782.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's trivial fix to display xmit_hash_policy for this new TLB mode
-since it uses transmit-hash-poilicy as part of bonding-master info
-(/proc/net/bonding/<bonding-interface).
+On Tue, Sep 9, 2014 at 10:30 AM, David Miller <davem@davemloft.net> wrote:
+>
+> You kept saying "LLVM is the user" but that's a bullshit argument
+> because you aren't including the patches necessary to actually
+> propagate native eBPF programs into the kernel.
+>
+> That's what, 1 or 2 patches, right?  Which is not an unreasonable
+> request.
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
-v1
- Rebase
-v2
- Added bond_mode_uses_xmit_hash() inline function
+I just don't see how I could do that in 2 patches.
+In V8 series the first user was appearing in patch 22 out of 28.
+Last two days I spent solely hacking the series to move it sooner.
+Today the first user is still in patch 15.
+Will try to shorten them even more.
+So blame it on my skills and not my attitude.
 
- drivers/net/bonding/bond_procfs.c | 3 +--
- drivers/net/bonding/bonding.h     | 7 +++++++
- 2 files changed, 8 insertions(+), 2 deletions(-)
+> Anyways, I'm just extremely frustrated with how you operate and work,
+> you push things way too hard.  I hate to say this, but you are the
+> kind of submitter who gets his way by being persistent rather than
+> making well formed pleasant submissions that are easy to integrate.
 
-diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
-index de62c0385dfb..ba0b2c242f22 100644
---- a/drivers/net/bonding/bond_procfs.c
-+++ b/drivers/net/bonding/bond_procfs.c
-@@ -83,8 +83,7 @@ static void bond_info_show_master(struct seq_file *seq)
- 
- 	seq_printf(seq, "\n");
- 
--	if (BOND_MODE(bond) == BOND_MODE_XOR ||
--		BOND_MODE(bond) == BOND_MODE_8023AD) {
-+	if (bond_mode_uses_xmit_hash(bond)) {
- 		optval = bond_opt_get_val(BOND_OPT_XMIT_HASH,
- 					  bond->params.xmit_policy);
- 		seq_printf(seq, "Transmit Hash Policy: %s (%d)\n",
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index aace510d08d1..64b36ba65b89 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -274,6 +274,13 @@ static inline bool bond_is_nondyn_tlb(const struct bonding *bond)
- 	       (bond->params.tlb_dynamic_lb == 0);
- }
- 
-+static inline bool bond_mode_uses_xmit_hash(const struct bonding *bond)
-+{
-+	return (BOND_MODE(bond) == BOND_MODE_8023AD ||
-+		BOND_MODE(bond) == BOND_MODE_XOR ||
-+		bond_is_nondyn_tlb(bond));
-+}
-+
- static inline bool bond_mode_uses_arp(int mode)
- {
- 	return mode != BOND_MODE_8023AD && mode != BOND_MODE_TLB &&
--- 
-2.1.0.rc2.206.gedb03e5
+Understood. Will try to make patches shorter and hopefully
+more pleasant. I think 'being persistent' is mandatory here :)
