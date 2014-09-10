@@ -1,36 +1,51 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next v2 0/2] sunvnet: Reduce LDC message overhead.
-Date: Wed, 10 Sep 2014 18:37:22 -0400
-Message-ID: <20140910223722.GH14466@oracle.com>
-References: <20140904.223724.206826043871814498.davem@davemloft.net>
- <20140908143802.GF31377@oracle.com>
- <20140910140434.GA14466@oracle.com>
- <20140910.152528.391406680350942661.davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] pktgen: nowait parameter.
+Date: Thu, 11 Sep 2014 09:07:29 +0930
+Message-ID: <871trjjbd2.fsf@rustcorp.com.au>
+References: <87oauxibda.fsf@rustcorp.com.au> <20140905.142618.2240630803375505977.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, brouer@redhat.com, minipli@googlemail.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:43477 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751754AbaIJWh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 18:37:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20140910.152528.391406680350942661.davem@davemloft.net>
+Received: from ozlabs.org ([103.22.144.67]:43651 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751405AbaIJXqK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2014 19:46:10 -0400
+In-Reply-To: <20140905.142618.2240630803375505977.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (09/10/14 15:25), David Miller wrote:
-> 
-> After the memory barrier stuff has been sorted out, the patches
-> should be submitted again for review.
-> 
-> But I was under the impression that for now we weren't going to
-> be doing the new udelay() things, which defers patch #2 for now.
+David Miller <davem@davemloft.net> writes:
+> From: Rusty Russell <rusty@rustcorp.com.au>
+> Date: Wed, 03 Sep 2014 13:50:01 +0930
+>
+>> While trying to measure speed of virtio_net, I was getting hangs.
+>> This is because we skb_orphan() but delay the tx interrupt
+>> indefinitely (by number of slots).
+>> 
+>> With nowait, pktgen won't wait for the skb to be released.  This
+>> introduces an error, but it's ok if count >> ringsize.
+>> 
+>> I updated the documentation, but it needs far more work (it
+>> refers to pgset and an examples directory, none of which exist
+>> in the kernel tree).
+>> 
+>> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+>
+> Please just make this a flag, like UDPCSUM, NO_TIMESTAMP, et al.
+> Which also means that it should be capitalized.
 
-ah, ok, I didn't realize the ball was in my court- good that I checked.
+Agreed, though I prefer Jason's IFF_TX_SKB_FREE_DELAY, which doesn't
+require intimate knowledge of the driver to get the option correct.
 
-I'll re-submit a unified diff without the extra-udelay-stuff
-as a v3 patch for review tomorrow.
+> BTW, wrt. holding onto TX frames for unbounded amounts of time, I
+> think this is a bad idea even with skb_orphan().  There are resources
+> from the SKB you are hanging onto which can stall the removal of
+> modules indefinitely, such as netfilter references.
 
---Sowmini
+We could certainly have a once-a-second timer which did this, but should
+skb_orphan() do that work instead?
+
+Cheers,
+Rusty.
