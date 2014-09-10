@@ -1,44 +1,62 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] mlx4: Fix wrong endianess access with QP context flags
-Date: Wed, 10 Sep 2014 17:15:11 +0300
-Message-ID: <1410358511-13461-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:48897 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752766AbaIJOPR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 10:15:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 2/5] ceph: Convert pr_warning to pr_warn
+Date: Wed, 10 Sep 2014 07:20:07 -0700
+Message-ID: <1410358807.24028.44.camel@joe-AO725>
+References: <cover.1410322181.git.joe@perches.com>
+	 <714b7551f5a6ea5e721fed705568a39eeae4623b.1410322181.git.joe@perches.com>
+	 <CALFYKtCiGXhMZ-f0B=TGSNGZCng8NVYWCV-wwOHq3xPdKO+-Kw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Sage Weil <sage@inktank.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ceph Development <ceph-devel@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Ilya Dryomov <ilya.dryomov@inktank.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALFYKtCiGXhMZ-f0B=TGSNGZCng8NVYWCV-wwOHq3xPdKO+-Kw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We wrongly tested QP context bits without BE conversion
-as was spotted by sparse...
+On Wed, 2014-09-10 at 16:38 +0400, Ilya Dryomov wrote:
+> On Wed, Sep 10, 2014 at 8:17 AM, Joe Perches <joe@perches.com> wrote:
+> > Use the more common pr_warn.
+> >
+> > Other miscellanea:
+> >
+> > o Coalesce formats
+> > o Realign arguments
+[]
+> > diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
+[]
+> > @@ -2828,8 +2828,9 @@ static void con_work(struct work_struct *work)
+> >   */
+> >  static void con_fault(struct ceph_connection *con)
+> >  {
+> > -       pr_warning("%s%lld %s %s\n", ENTITY_NAME(con->peer_name),
+> > -              ceph_pr_addr(&con->peer_addr.in_addr), con->error_msg);
+> > +       pr_warn("%s%lld %s %s\n",
+> > +               ENTITY_NAME(con->peer_name),
+> > +               ceph_pr_addr(&con->peer_addr.in_addr), con->error_msg);
+> 
+> Just wondering, why did you move ENITITY_NAME argument to the next
+> line?  I see you are doing this pretty consistently.  Is this a style
+> guideline or something?
 
-drivers/infiniband/hw/mlx4/qp.c:1685:38: sparse: restricted __be32 degrades to integer
+Hello Ilya.
 
-Fix that!
+It's just a personal preference to have the
+formats on one line and its arguments on
+another when the format and its arguments
+don't fit 80 columns.
 
-Fixes: d2fce8a ('mlx4: Set user-space raw Ethernet QPs to properly handle VXLAN traffic')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/infiniband/hw/mlx4/qp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Maximal 80 column fill isn't always easy for me
+to read.
 
-diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
-index efb9eff..8365039 100644
---- a/drivers/infiniband/hw/mlx4/qp.c
-+++ b/drivers/infiniband/hw/mlx4/qp.c
-@@ -1682,7 +1682,7 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
- 					MLX4_IB_LINK_TYPE_ETH;
- 		if (dev->dev->caps.tunnel_offload_mode ==  MLX4_TUNNEL_OFFLOAD_MODE_VXLAN) {
- 			/* set QP to receive both tunneled & non-tunneled packets */
--			if (!(context->flags & (1 << MLX4_RSS_QPC_FLAG_OFFSET)))
-+			if (!(context->flags & cpu_to_be32(1 << MLX4_RSS_QPC_FLAG_OFFSET)))
- 				context->srqn = cpu_to_be32(7 << 28);
- 		}
- 	}
--- 
-1.7.1
+I find it easier to match formats and arguments
+when scanning because my eye doesn't have to
+scan to the end of the format line.
+
+If you don't like it, it's your code.  Change it.
+
+cheers, Joe
