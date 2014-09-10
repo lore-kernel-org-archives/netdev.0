@@ -1,27 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net:bonding: Add missing space in bonding driver
- parameter description
-Date: Tue, 09 Sep 2014 20:38:24 -0700 (PDT)
-Message-ID: <20140909.203824.207726148984134369.davem@davemloft.net>
-References: <1410253675-12652-1-git-send-email-standby24x7@gmail.com>
+Subject: Re: [PATCH] RxRPC: Fix missing __user annotation
+Date: Tue, 09 Sep 2014 20:40:10 -0700 (PDT)
+Message-ID: <20140909.204010.1603269511237977404.davem@davemloft.net>
+References: <20140909141944.18112.74852.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, j.vosburgh@gmail.com,
-	vfalico@gmail.com, andy@greyhouse.net, netdev@vger.kernel.org,
-	rdunlap@infradead.org
-To: standby24x7@gmail.com
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1410253675-12652-1-git-send-email-standby24x7@gmail.com>
+In-Reply-To: <20140909141944.18112.74852.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Masanari Iida <standby24x7@gmail.com>
-Date: Tue,  9 Sep 2014 18:07:55 +0900
+From: David Howells <dhowells@redhat.com>
+Date: Tue, 09 Sep 2014 15:19:44 +0100
 
-> This patch adds missing space between "interface" and "by"
-> in bonding module parameter description.
+> Fix a missing __user annotation in a cast of a user space pointer (found by
+> checker).
 > 
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-Applied, thank you.
+Applied.
