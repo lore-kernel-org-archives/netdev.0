@@ -1,30 +1,55 @@
-From: Zhi Li <lznuaa@gmail.com>
-Subject: Re: [Patch v3 net-next 00/12] net: fec: imx6sx multiqueue support
-Date: Wed, 10 Sep 2014 13:55:51 -0500
-Message-ID: <CAHrpEqTOcLFcJMs54BEixf2sU3NJJO-m5fDnt+4N0ae-uLcZoA@mail.gmail.com>
-References: <54109e51.65d4440a.594b.6b4bSMTPIN_ADDED_BROKEN@mx.google.com>
+From: Frank Li <Frank.Li@freescale.com>
+Subject: [Patch v3 net-next 08/12] net:fec: Add fsl,imx6sx-fec  compatible strings
+Date: Thu, 11 Sep 2014 02:30:41 +0800
+Message-ID: <1410373845-5801-9-git-send-email-Frank.Li@freescale.com>
+References: <1410373845-5801-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Duan Fugang-B38611 <b38611@freescale.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+Content-Type: text/plain
+Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
+	<devicetree@vger.kernel.org>, <linux@arm.linux.org.uk>,
+	Fugang Duan <B38611@freescale.com>,
 	Frank Li <Frank.Li@freescale.com>
-To: yes@shlinux1.ap.freescale.net
+To: <b38611@freescale.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:42788 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753250AbaIJSzx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 14:55:53 -0400
-In-Reply-To: <54109e51.65d4440a.594b.6b4bSMTPIN_ADDED_BROKEN@mx.google.com>
+Received: from mail-bn1bbn0103.outbound.protection.outlook.com ([157.56.111.103]:30304
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753254AbaIJSyp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Sep 2014 14:54:45 -0400
+In-Reply-To: <1410373845-5801-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 10, 2014 at 1:30 PM,  <yes@shlinux1.ap.freescale.net> wrote:
->
->
-Sorry again, use wrong sender email address.
+From: Fugang Duan <B38611@freescale.com>
+
+Add compatible string "fsl,imx6sx-fec" for i.MX6SX.
+
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 658b0b3..0cc7313 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -157,6 +157,7 @@ enum imx_fec_type {
+ 	IMX28_FEC,
+ 	IMX6Q_FEC,
+ 	MVF600_FEC,
++	IMX6SX_FEC,
+ };
+ 
+ static const struct of_device_id fec_dt_ids[] = {
+@@ -165,6 +166,7 @@ static const struct of_device_id fec_dt_ids[] = {
+ 	{ .compatible = "fsl,imx28-fec", .data = &fec_devtype[IMX28_FEC], },
+ 	{ .compatible = "fsl,imx6q-fec", .data = &fec_devtype[IMX6Q_FEC], },
+ 	{ .compatible = "fsl,mvf600-fec", .data = &fec_devtype[MVF600_FEC], },
++	{ .compatible = "fsl,imx6sx-fec", .data = &fec_devtype[IMX6SX_FEC], },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, fec_dt_ids);
+-- 
+1.9.1
