@@ -1,107 +1,34 @@
-From: Luis de Lago <luisdelago@gmail.com>
-Subject: Trouble with Realtek Ethernet RTL8111/8168/8411 (rev 12)
-Date: Wed, 10 Sep 2014 14:47:09 +0200
-Message-ID: <CAMafrUA0pC01sAw=-nbsknVY_mA1OoW=goehchbyWC0qq0+oCg@mail.gmail.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [Patch v2 net-next 09/12] net: fec: change FEC alignment
+ according to i.mx6 sx requirement
+Date: Wed, 10 Sep 2014 09:51:24 -0300
+Message-ID: <CAOMZO5AwOWr8uWCvt3XzM8CJideu+1LBY6QUQ772QjLjCYxL1w@mail.gmail.com>
+References: <1410293743-27874-1-git-send-email-Frank.Li@freescale.com>
+	<1410293743-27874-10-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Cc: Duan Fugang-B38611 <b38611@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	=?UTF-8?B?5p2O5pm6?= <lznuaa@gmail.com>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Frank Li <Frank.Li@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:35505 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750899AbaIJMrK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 08:47:10 -0400
-Received: by mail-ig0-f177.google.com with SMTP id uq10so2908175igb.10
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 05:47:09 -0700 (PDT)
+Received: from mail-la0-f46.google.com ([209.85.215.46]:58772 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734AbaIJMv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 08:51:26 -0400
+In-Reply-To: <1410293743-27874-10-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello everybody,
+On Tue, Sep 9, 2014 at 5:15 PM, Frank Li <Frank.Li@freescale.com> wrote:
 
-i was directed here by members of the arch forum where i have reported
-my problem and where the information provided below is perhaps more
-readable:
-https://bbs.archlinux.org/viewtopic.php?pid=1455220#p1455220
+> +       fep->rx_align = 0x3;
+> +       fep->tx_align = 0x3;
 
-if i shouldn't have written to you plz feel free to let me know and
-plz help me adressing this to the right channel.
-
-my situation is the following ... [BlogPost]
-
-i plugin the ethernet cable but network manager still shows "no cable
-attached" and no ip adress information ...
-
-neither the lights of the ethernet port of the router nor the ones of
-the laptop light up ...
-
-here are my details:
-i have the same problem under arch in kernel 3.16 and 3.14 and under
-ubuntu 14.04 kernel 3.13
-
-$ ifconfig
--------------------------------------------------------------------------------------
-enp3s0f1: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
-        ether 00:90:f5:f9:fd:d9  txqueuelen 1000  (Ethernet)
-        RX packets 0  bytes 0 (0.0 B)
-        RX errors 0  dropped 0  overruns 0  frame 0
-        TX packets 0  bytes 0 (0.0 B)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
-
-lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
-        inet 127.0.0.1  netmask 255.0.0.0
-        inet6 ::1  prefixlen 128  scopeid 0x10<host>
-        loop  txqueuelen 0  (Local Loopback)
-        RX packets 656  bytes 51072 (49.8 KiB)
-        RX errors 0  dropped 0  overruns 0  frame 0
-        TX packets 656  bytes 51072 (49.8 KiB)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
-
-wlp2s0: wlan chip by intel works fine
-
-$ lspci -v
-----------------------------------------------------------------------------------------------
-[...]
-
-03:00.0 Unassigned class [ff00]: Realtek Semiconductor Co., Ltd.
-Device 5287 (rev 01)
-Subsystem: CLEVO/KAPOK Computer Device 5494
-Flags: bus master, fast devsel, latency 0, IRQ 56
-Memory at f7c15000 (32-bit, non-prefetchable) [size=4K]
-Expansion ROM at f7c00000 [disabled] [size=64K]
-Capabilities: <access denied>
-Kernel driver in use: rtsx_pci
-Kernel modules: rtsx_pci
-
-03:00.1 Ethernet controller: Realtek Semiconductor Co., Ltd.
-RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 12)
-Subsystem: CLEVO/KAPOK Computer Device 5494
-Flags: bus master, fast devsel, latency 0, IRQ 61
-I/O ports at e000 [size=256]
-Memory at f7c14000 (64-bit, non-prefetchable) [size=4K]
-Memory at f7c10000 (64-bit, non-prefetchable) [size=16K]
-Capabilities: <access denied>
-Kernel driver in use: r8169
-Kernel modules: r8169
-
-the computer that has the problem is a laptop and i dunno why there
-are 2 Realtek Entries ... it definitly has only ONE ethernet port!
-
-((installing aur r8168 and loading the module ofc did not fix the
-problem as suggested by others ...))
-
-$ dmesg | grep 8169
-------------------------------------------------------------
-[    2.304595] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-[    2.304609] r8169 0000:03:00.1: can't disable ASPM; OS doesn't have
-ASPM control
-[    2.310138] r8169 0000:03:00.1: irq 61 for MSI/MSI-X
-[    2.310452] r8169 0000:03:00.1 eth0: RTL8411 at 0xffffc900018c6000,
-00:90:f5:f9:fd:d9, XID 1c800880 IRQ 61
-[    2.310457] r8169 0000:03:00.1 eth0: jumbo features [frames: 9200
-bytes, tx checksumming: ko]
-[    5.594516] r8169 0000:03:00.1 enp3s0f1: rtl_phy_reset_cond == 1
-(loop: 100, delay: 1).
-[    5.596608] r8169 0000:03:00.1 enp3s0f1: link down
-
-thanks for reading!
-
-Bruno
+Why do you unconditionally set it as 0x3? It was 0xf for ARM and 0x3
+for non-ARM.
