@@ -1,69 +1,71 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Why ECONNREFUSED from unix_dgram_sendmsg?
-Date: Thu, 11 Sep 2014 17:58:59 +0200
-Message-ID: <1410451139.2693347.166368361.32138EFC@webmail.messagingengine.com>
-References: <CALCETrUM1P0Sydps_4-5yPBOBD35zOcpACv-OX8b==xT0BC1xw@mail.gmail.com>
+From: Martin Rusko <martin.rusko@gmail.com>
+Subject: Re: Sending undersized ARP packets with VXLAN L3 interface
+Date: Thu, 11 Sep 2014 18:16:44 +0200
+Message-ID: <CAMYYbY7PXt=-eJ2BU1YO6biEL1F3NRq-=6NdQ-nJGmhXXOWKbA@mail.gmail.com>
+References: <CAMYYbY79hOVA5b22-gmLJTNQwprdfwa_QxKqveuwNhJMcXv9tA@mail.gmail.com>
+	<CAHA+R7Ok6K_9U6RCZkSLCuVXtFG4Zs60FQKFZMu-v2yK581hog@mail.gmail.com>
+	<53FE1AC3.5030409@gmail.com>
+	<20140827114209.3a9d3761@urahara>
+	<53FE2738.30702@gmail.com>
+	<CAMYYbY4KHTkkv6peT14S8mCzcQJ8wROnHWj5tMy563H-w79KMg@mail.gmail.com>
+	<53FE3E5C.8020804@gmail.com>
+	<CAMYYbY7vCqpW7pqy=a7O=9YnPM=R1Ta2gfXdZEqrmyK-P-Akdw@mail.gmail.com>
+	<CAMYYbY7pp4WDBnFmoeK6D9BdUnuZ-v5fw1hH2V6zxM9GRRK=Mg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: Andy Lutomirski <luto@amacapital.net>,
-	Network Development <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:36213 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751220AbaIKP7A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 11:59:00 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 1D076209C7
-	for <netdev@vger.kernel.org>; Thu, 11 Sep 2014 11:59:00 -0400 (EDT)
-In-Reply-To: <CALCETrUM1P0Sydps_4-5yPBOBD35zOcpACv-OX8b==xT0BC1xw@mail.gmail.com>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:47239 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751552AbaIKQQr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 12:16:47 -0400
+Received: by mail-vc0-f174.google.com with SMTP id hy10so5999118vcb.5
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2014 09:16:45 -0700 (PDT)
+In-Reply-To: <CAMYYbY7pp4WDBnFmoeK6D9BdUnuZ-v5fw1hH2V6zxM9GRRK=Mg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Sep 1, 2014 at 4:26 PM, Martin Rusko <martin.rusko@gmail.com> wrote:
+>>>>>>
+>>>>>> No. The short frame is perfectly valid, over the VXLAN.
+>>>>>> The system doing the decap and forwarding should be where any padding is added if necessary.
+>>>>>>
+>>>>
+>>>> Well, RFC 7348 is not dealing with padding at all. Both deployment
+>>>> scenarios listed in RFC, as well as most of the existing real life
+>>>> deployments today (in my opinion) use VXLAN for bridged traffic. In
+>>>> other words, frame encapsulated by VTEP is received first over some
+>>>> ethernet interface (physical or virtual) which implies that the frame
+>>>> is at least 64 bytes long already.
+>>>>
+>>>> Perhaps we're going to see more VXLAN interfaces in L3 mode, yet it
+>>>> might be safer not to count on receiving VTEP doing the right thing
+>>>> (pad small packets with zeros).
+>>>>
+>>>>>
+>>>>> If that's the case, then Martin is most likely seeing a HW bug on the switch.
+>>>>> I wonder how common such a bug might be?
+>>>>>
+>>>>> -vlad
+>>>>>
+>>>>
+>>>> I see this on Vmware distributed virtual switch. Perhaps soon I will
+>>>> be able to test it against HP 5930 switch. I'm going to try how Linux
+>>>> bridge copes with it, now.
+[...]
+> Haven't had chance to test it with hardware switch yet, so it's only
+> causing problems with Vmware so far, when inner ethernet frame is not
+> padded.
 
+Perhaps nobody is reading this anymore, but at least it will make it
+to the archive for reference. :-)
 
-On Thu, Sep 11, 2014, at 17:11, Andy Lutomirski wrote:
-> What is unix_dgram_sendmsg trying to tell me here?
-> 
->         if (sock_flag(other, SOCK_DEAD)) {
->                 /*
->                  *      Check with 1003.1g - what should
->                  *      datagram error
->                  */
->                 unix_state_unlock(other);
->                 sock_put(other);
-> 
->                 err = 0;
->                 unix_state_lock(sk);
->                 if (unix_peer(sk) == other) {
->                         unix_peer(sk) = NULL;
->                         unix_state_unlock(sk);
-> 
->                         unix_dgram_disconnected(sk, other);
->                         sock_put(other);
->                         err = -ECONNREFUSED;
-> 
-> I'm getting this intermittently on a seqpacket socket when the other
-> end dies.  Shouldn't this be -ECONNRESET?
-> 
-> git blame doesn't tell me anything here -- this code predates git.
+So I tested also how HP 5930 switch handles small inner frames. They
+were padded. So it's in line with what Stephen said, that the
+receiving VTEP should pad frames to minimum size before sending them
+to the medium where size check is enforced.
 
-Changelogs were not that descriptive as they were today: :)
-
-commit 283fd6cf0be690a83b5dbb34e79130f8592c0765
-Author: davem <davem>
-Date:   Fri Aug 20 10:59:51 1999 +0000
-
-    Merge in ANK networking jumbo patch,
-    which includes ATM from Werner Almesberger, Netfilter
-    from Paul Russell, and massive SMP networking enhancements
-    by Alexey.
-
-(in
-https://git.kernel.org/cgit/linux/kernel/git/davem/netdev-vger-cvs.git/)
-
-I agree, -ECONNRESET would be a better errno value, but this is hard to
-change because of backwards compatibility.
-
-Bye,
-Hannes
+Regards,
+Martin
