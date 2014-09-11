@@ -1,8 +1,8 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH net-next 06/14] tipc: add link set to new
-	netlink api
-Date: Thu, 11 Sep 2014 10:29:19 +0200
-Message-ID: <1410424167-17427-7-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next 08/14] tipc: add media get/dump
+	to new netlink api
+Date: Thu, 11 Sep 2014 10:29:21 +0200
+Message-ID: <1410424167-17427-9-git-send-email-richard.alpe@ericsson.com>
 References: <1410424167-17427-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,150 +23,244 @@ List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-Add TIPC_NL_LINK_SET to the new tipc netlink API.
+Add TIPC_NL_MEDIA_GET command to the new tipc netlink API.
 
-This command can set one or more link properties for a particular
-link.
+This command supports dumping all information about all defined
+media as well as getting all information about a specific media.
 
-Netlink logical layout of link set message:
--> link
+The information about a media includes name and link properties.
+
+Netlink logical layout of media get response message:
+-> media
     -> name
-    -> properties
-        [ -> tolerance ]
-        [ -> priority ]
-        [ -> window ]
+    -> link properties
+        -> tolerance
+        -> priority
+        -> window
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- include/uapi/linux/tipc_config.h |    1 +
- net/tipc/link.c                  |   73 ++++++++++++++++++++++++++++++++++++++
- net/tipc/link.h                  |    1 +
- net/tipc/netlink.c               |    5 +++
- 4 files changed, 80 insertions(+)
+ include/uapi/linux/tipc_config.h |   12 ++++
+ net/tipc/bearer.c                |  125 ++++++++++++++++++++++++++++++++++++++
+ net/tipc/bearer.h                |    3 +
+ net/tipc/netlink.c               |    7 +++
+ 4 files changed, 147 insertions(+)
 
 diff --git a/include/uapi/linux/tipc_config.h b/include/uapi/linux/tipc_config.h
-index 9c51151..3b0c0f0 100644
+index b5bedf1..33b5171 100644
 --- a/include/uapi/linux/tipc_config.h
 +++ b/include/uapi/linux/tipc_config.h
-@@ -56,6 +56,7 @@ enum {
- 	TIPC_NL_BEARER_SET,
- 	TIPC_NL_SOCK_GET,
+@@ -58,6 +58,7 @@ enum {
  	TIPC_NL_LINK_GET,
-+	TIPC_NL_LINK_SET,
+ 	TIPC_NL_LINK_SET,
+ 	TIPC_NL_LINK_RESET_STATS,
++	TIPC_NL_MEDIA_GET,
  
  	__TIPC_NL_CMD_MAX,
  	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index e0aaca4..6d0c1fa 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -2435,6 +2435,79 @@ int tipc_nl_parse_link_prop(struct nlattr *prop, struct nlattr *props[])
+@@ -69,6 +70,7 @@ enum {
+ 	TIPC_NLA_BEARER,		/* nest */
+ 	TIPC_NLA_SOCK,			/* nest */
+ 	TIPC_NLA_LINK,			/* nest */
++	TIPC_NLA_MEDIA,			/* nest */
+ 
+ 	__TIPC_NLA_MAX,
+ 	TIPC_NLA_MAX = __TIPC_NLA_MAX - 1
+@@ -114,6 +116,16 @@ enum {
+ 	TIPC_NLA_LINK_MAX = __TIPC_NLA_LINK_MAX - 1
+ };
+ 
++/* Media info */
++enum {
++	TIPC_NLA_MEDIA_UNSPEC,
++	TIPC_NLA_MEDIA_NAME,		/* string */
++	TIPC_NLA_MEDIA_PROP,		/* nest */
++
++	__TIPC_NLA_MEDIA_MAX,
++	TIPC_NLA_MEDIA_MAX = __TIPC_NLA_MEDIA_MAX - 1
++};
++
+ /* Nest, publication info */
+ enum {
+ 	TIPC_NLA_PUBL_UNSPEC,
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 906e644..ad33e44 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -61,6 +61,12 @@ tipc_nl_bearer_policy[TIPC_NLA_BEARER_MAX + 1]	= {
+ 	[TIPC_NLA_BEARER_DOMAIN]		= { .type = NLA_U32 }
+ };
+ 
++static const struct nla_policy tipc_nl_media_policy[TIPC_NLA_MEDIA_MAX + 1] = {
++	[TIPC_NLA_MEDIA_UNSPEC]		= { .type = NLA_UNSPEC },
++	[TIPC_NLA_MEDIA_NAME]		= { .type = NLA_STRING },
++	[TIPC_NLA_MEDIA_PROP]		= { .type = NLA_NESTED }
++};
++
+ struct tipc_bearer __rcu *bearer_list[MAX_BEARERS + 1];
+ 
+ static void bearer_disable(struct tipc_bearer *b_ptr, bool shutting_down);
+@@ -898,3 +904,122 @@ int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info)
+ 
  	return 0;
  }
- 
-+int tipc_nl_link_set(struct sk_buff *skb, struct genl_info *info)
++
++int __tipc_nl_add_media(struct tipc_nl_msg *msg, struct tipc_media *media)
++{
++	void *hdr;
++	struct nlattr *attrs;
++	struct nlattr *prop;
++
++	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
++			  NLM_F_MULTI, TIPC_NL_MEDIA_GET);
++	if (!hdr)
++		return -EMSGSIZE;
++
++	attrs = nla_nest_start(msg->skb, TIPC_NLA_MEDIA);
++	if (!attrs)
++		goto msg_full;
++
++	if (nla_put_string(msg->skb, TIPC_NLA_MEDIA_NAME, media->name))
++		goto attr_msg_full;
++
++	prop = nla_nest_start(msg->skb, TIPC_NLA_MEDIA_PROP);
++	if (!prop)
++		goto prop_msg_full;
++	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_PRIO, media->priority))
++		goto prop_msg_full;
++	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_TOL, media->tolerance))
++		goto prop_msg_full;
++	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_WIN, media->window))
++		goto prop_msg_full;
++
++	nla_nest_end(msg->skb, prop);
++	nla_nest_end(msg->skb, attrs);
++	genlmsg_end(msg->skb, hdr);
++
++	return 0;
++
++prop_msg_full:
++	nla_nest_cancel(msg->skb, prop);
++attr_msg_full:
++	nla_nest_cancel(msg->skb, attrs);
++msg_full:
++	genlmsg_cancel(msg->skb, hdr);
++
++	return -EMSGSIZE;
++}
++
++int tipc_nl_media_dump(struct sk_buff *skb, struct netlink_callback *cb)
 +{
 +	int err;
-+	int res = 0;
-+	int bearer_id;
-+	char *name;
-+	struct tipc_link *link;
-+	struct tipc_node *node;
-+	struct nlattr *attrs[TIPC_NLA_LINK_MAX + 1];
++	int i = cb->args[0];
++	struct tipc_nl_msg msg;
 +
-+	if (!info->attrs[TIPC_NLA_LINK])
++	if (i == MAX_MEDIA)
++		return 0;
++
++	msg.skb = skb;
++	msg.portid = NETLINK_CB(cb->skb).portid;
++	msg.seq = cb->nlh->nlmsg_seq;
++
++	rtnl_lock();
++	for (; media_info_array[i] != NULL; i++) {
++		err = __tipc_nl_add_media(&msg, media_info_array[i]);
++		if (err)
++			break;
++	}
++	rtnl_unlock();
++
++	cb->args[0] = i;
++	return skb->len;
++}
++
++int tipc_nl_media_get(struct sk_buff *skb, struct genl_info *info)
++{
++	int err;
++	char *name;
++	struct tipc_nl_msg msg;
++	struct tipc_media *media;
++	struct sk_buff *rep;
++	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1];
++
++	if (!info->attrs[TIPC_NLA_MEDIA])
 +		return -EINVAL;
 +
-+	err = nla_parse_nested(attrs, TIPC_NLA_LINK_MAX,
-+			       info->attrs[TIPC_NLA_LINK],
-+			       tipc_nl_link_policy);
++	err = nla_parse_nested(attrs, TIPC_NLA_MEDIA_MAX,
++			       info->attrs[TIPC_NLA_MEDIA],
++			       tipc_nl_media_policy);
 +	if (err)
 +		return err;
 +
-+	if (!attrs[TIPC_NLA_LINK_NAME])
++	if (!attrs[TIPC_NLA_MEDIA_NAME])
 +		return -EINVAL;
++	name = nla_data(attrs[TIPC_NLA_MEDIA_NAME]);
 +
-+	name = nla_data(attrs[TIPC_NLA_LINK_NAME]);
++	rep = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	if (!rep)
++		return -ENOMEM;
 +
-+	node = tipc_link_find_owner(name, &bearer_id);
-+	if (!node)
-+		return -EINVAL;
++	msg.skb = rep;
++	msg.portid = info->snd_portid;
++	msg.seq = info->snd_seq;
 +
-+	tipc_node_lock(node);
-+
-+	link = node->links[bearer_id];
-+	if (!link) {
-+		res = -EINVAL;
-+		goto out;
++	rtnl_lock();
++	media = tipc_media_find(name);
++	if (!media) {
++		err = -EINVAL;
++		goto err_out;
 +	}
 +
-+	if (attrs[TIPC_NLA_LINK_PROP]) {
-+		struct nlattr *props[TIPC_NLA_PROP_MAX + 1];
++	err = __tipc_nl_add_media(&msg, media);
++	if (err)
++		goto err_out;
++	rtnl_unlock();
 +
-+		err = tipc_nl_parse_link_prop(attrs[TIPC_NLA_LINK_PROP],
-+					      props);
-+		if (err) {
-+			res = err;
-+			goto out;
-+		}
++	return genlmsg_reply(rep, info);
++err_out:
++	rtnl_unlock();
++	nlmsg_free(rep);
 +
-+		if (props[TIPC_NLA_PROP_TOL]) {
-+			u32 tol;
-+
-+			tol = nla_get_u32(props[TIPC_NLA_PROP_TOL]);
-+			link_set_supervision_props(link, tol);
-+			tipc_link_proto_xmit(link, STATE_MSG, 0, 0, tol, 0, 0);
-+		}
-+		if (props[TIPC_NLA_PROP_PRIO]) {
-+			u32 prio;
-+
-+			prio = nla_get_u32(props[TIPC_NLA_PROP_PRIO]);
-+			link->priority = prio;
-+			tipc_link_proto_xmit(link, STATE_MSG, 0, 0, 0, prio, 0);
-+		}
-+		if (props[TIPC_NLA_PROP_WIN]) {
-+			u32 win;
-+
-+			win = nla_get_u32(props[TIPC_NLA_PROP_WIN]);
-+			tipc_link_set_queue_limits(link, win);
-+		}
-+	}
-+
-+out:
-+	tipc_node_unlock(node);
-+
-+	return res;
++	return err;
 +}
- int __tipc_nl_add_stats(struct sk_buff *skb, struct tipc_stats *s)
- {
- 	int i;
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 8e3542a..3738ba1 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -242,6 +242,7 @@ void tipc_link_retransmit(struct tipc_link *l_ptr,
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index c6cf9df..bacd225 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -184,6 +184,9 @@ int tipc_nl_bearer_dump(struct sk_buff *skb, struct netlink_callback *cb);
+ int tipc_nl_bearer_get(struct sk_buff *skb, struct genl_info *info);
+ int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info);
  
- int tipc_nl_link_dump(struct sk_buff *skb, struct netlink_callback *cb);
- int tipc_nl_link_get(struct sk_buff *skb, struct genl_info *info);
-+int tipc_nl_link_set(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_parse_link_prop(struct nlattr *prop, struct nlattr *props[]);
- 
- /*
++int tipc_nl_media_dump(struct sk_buff *skb, struct netlink_callback *cb);
++int tipc_nl_media_get(struct sk_buff *skb, struct genl_info *info);
++
+ int tipc_media_set_priority(const char *name, u32 new_value);
+ int tipc_media_set_window(const char *name, u32 new_value);
+ void tipc_media_addr_printf(char *buf, int len, struct tipc_media_addr *a);
 diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index 5ecd0d1..745a323 100644
+index de51267..d012857 100644
 --- a/net/tipc/netlink.c
 +++ b/net/tipc/netlink.c
-@@ -123,6 +123,11 @@ static const struct genl_ops tipc_genl_ops[] = {
- 		.doit   = tipc_nl_link_get,
- 		.dumpit	= tipc_nl_link_dump,
+@@ -76,6 +76,7 @@ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
+ 	[TIPC_NLA_BEARER]	= { .type = NLA_NESTED, },
+ 	[TIPC_NLA_SOCK]		= { .type = NLA_NESTED, },
+ 	[TIPC_NLA_LINK]		= { .type = NLA_NESTED, },
++	[TIPC_NLA_MEDIA]	= { .type = NLA_NESTED, },
+ };
+ 
+ struct genl_family tipc_genl_family = {
+@@ -133,6 +134,12 @@ static const struct genl_ops tipc_genl_ops[] = {
+ 		.cmd	= TIPC_NL_LINK_RESET_STATS,
+ 		.doit   = tipc_nl_link_reset_stats,
  		.policy = tipc_nl_policy,
 +	},
 +	{
-+		.cmd	= TIPC_NL_LINK_SET,
-+		.doit	= tipc_nl_link_set,
++		.cmd	= TIPC_NL_MEDIA_GET,
++		.doit	= tipc_nl_media_get,
++		.dumpit	= tipc_nl_media_dump,
 +		.policy = tipc_nl_policy,
  	}
  };
