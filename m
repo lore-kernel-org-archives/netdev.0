@@ -1,82 +1,85 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the arm64 tree with the net tree
-Date: Thu, 11 Sep 2014 12:16:21 +1000
-Message-ID: <20140911121621.4946da46@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH v4 12/16] net: sched: rcu'ify cls_bpf
+Date: Wed, 10 Sep 2014 19:28:01 -0700
+Message-ID: <1410402481.7106.51.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140910154517.2036.53084.stgit@nitbit.x32>
+	 <20140910155141.2036.66048.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/9C7OTosQke2reBX2F=/=u_B"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Zi Shen Lim <zlim.lnx@gmail.com>,
-	Will Deacon <will.deacon@arm.com>
-To: Catalin Marinas <catalin.marinas@arm.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:41466 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751865AbaIKC2D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 22:28:03 -0400
+Received: by mail-pa0-f49.google.com with SMTP id lf10so6878199pab.8
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 19:28:03 -0700 (PDT)
+In-Reply-To: <20140910155141.2036.66048.stgit@nitbit.x32>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/9C7OTosQke2reBX2F=/=u_B
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Wed, 2014-09-10 at 08:51 -0700, John Fastabend wrote:
+> This patch makes the cls_bpf classifier RCU safe. The tcf_lock
+> was being used to protect a list of cls_bpf_prog now this list
+> is RCU safe and updates occur with rcu_replace.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-Hi Catalin,
+...
 
-Today's linux-next merge of the arm64 tree got a conflict in
-Documentation/networking/filter.txt between commit 1d7efe9dfaa6
-("Documentation: filter: Add MIPS to architectures with BPF JIT") from
-the net tree and commit e54bcde3d69d ("arm64: eBPF JIT compiler") from
-the arm64 tree.
+> @@ -256,18 +254,19 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+>  	if (ret < 0)
+>  		return ret;
+>  
+> -	if (prog != NULL) {
+> -		if (handle && prog->handle != handle)
+> -			return -EINVAL;
+> -		return cls_bpf_modify_existing(net, tp, prog, base, tb,
+> -					       tca[TCA_RATE], ovr);
+> -	}
+> -
+>  	prog = kzalloc(sizeof(*prog), GFP_KERNEL);
+> -	if (prog == NULL)
+> +	if (!prog)
+>  		return -ENOBUFS;
+>  
+>  	tcf_exts_init(&prog->exts, TCA_BPF_ACT, TCA_BPF_POLICE);
+> +
+> +	if (oldprog) {
+> +		if (handle && oldprog->handle != handle) {
+> +			ret = -EINVAL;
+> +			goto errout;
+> +		}
+> +	}
+> +
+>  	if (handle == 0)
+>  		prog->handle = cls_bpf_grab_new_handle(tp, head);
+>  	else
+> @@ -281,15 +280,17 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+>  	if (ret < 0)
+>  		goto errout;
+>  
+> -	tcf_tree_lock(tp);
+> -	list_add(&prog->link, &head->plist);
+> -	tcf_tree_unlock(tp);
+> +	if (oldprog) {
+> +		list_replace_rcu(&prog->link, &oldprog->link);
+> +		call_rcu(&oldprog->rcu, __cls_bpf_delete_prog);
+> +	} else {
+> +		list_add_rcu(&prog->link, &head->plist);
+> +	}
+>  
+>  	*arg = (unsigned long) prog;
+> -
+>  	return 0;
+>  errout:
+> -	if (*arg == 0UL && prog)
+> +	if (prog)
+>  		kfree(prog);
+>  
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc Documentation/networking/filter.txt
-index d16f424c5e8d,1842d4f8ae13..000000000000
---- a/Documentation/networking/filter.txt
-+++ b/Documentation/networking/filter.txt
-@@@ -462,9 -462,9 +462,9 @@@ JIT compile
-  ------------
- =20
-  The Linux kernel has a built-in BPF JIT compiler for x86_64, SPARC, Power=
-PC,
-- ARM, MIPS and s390 and can be enabled through CONFIG_BPF_JIT. The JIT com=
-piler
- -ARM, ARM64 and s390 and can be enabled through CONFIG_BPF_JIT. The JIT co=
-mpiler
---is transparently invoked for each attached filter from user space or for
---internal kernel users if it has been previously enabled by root:
-++ARM, ARM64, MIPS and s390 and can be enabled through CONFIG_BPF_JIT. The =
-JIT
-++compiler is transparently invoked for each attached filter from user spac=
-e or
-++for internal kernel users if it has been previously enabled by root:
- =20
-    echo 1 > /proc/sys/net/core/bpf_jit_enable
- =20
-
---Sig_/9C7OTosQke2reBX2F=/=u_B
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJUEQX8AAoJEMDTa8Ir7ZwVDKwP/R/YlfrBu2DFF7YNLR5Wuugq
-KXwcqCZ4FxGyWizO2WPLlyq5KPLttcVs5FhGDBeB1fjVoSgLPGBlotSkaUhRMuHf
-4rNCsV7MPE0PutCvKXKMf062WT85AtRhQFotTtREAF1rvanoNbB3FR8Zy5Tqu3A8
-g3jDxBPIETw8E7yfQ8sGv5wbXD0cC65mlI1QNtywAi1EJQy4t/Cpp0thCc8QQqDG
-XYhfjSimPDFec+z+0DbwilkcwdoS6s6Lw1XCgy5QUB+P2lisdI3H2oe2f3mTjBfC
-oMQuFOUv3Vqi12mZCn9dTpkxKvSx1g5UIkX/CylH2k44BHyv4R1YNproAAOYTlZM
-o4g0BT6NrQWn67ODDe/Symw9+/nlzdLMzayOL4SLVLRc3SnfwxPZ+rmuszM6sI2k
-SPeFhxxmdEduVIqHpVSROg46pPWr3OM2ezt7TzgHfwfDjoJAkXHM9G/BaKnCHor1
-vXSCYsBwsbWyJK0itaeyRNRyQSqOXKVTz6sf2IO9ITXOUdNK9yseVk/woKq5LWC0
-r70r2bzwmFoXfG1hXEU52XqX9bibDEVQH7faxZtlzZPacRdq1aZ1MQ/hPvYlaT6e
-vnZ/y1miOjUR0p0N0c/02JhS8v7ZxroAOV/6ozVBWlVSalbKmD6oNAN8g5b3TIju
-tQp0FVG8/tzDO710l3xA
-=DGVx
------END PGP SIGNATURE-----
-
---Sig_/9C7OTosQke2reBX2F=/=u_B--
+nit, you can directly call kfree(prog) even if prog == NULL
