@@ -1,283 +1,104 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [systemd-devel] [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Thu, 11 Sep 2014 15:26:11 -0700
-Message-ID: <CAB=NE6XmFaWMKuW3vJ7QMZ1BmmWrAPezTYYsqatX4mMNdMjpog@mail.gmail.com>
-References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
- <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
- <20140905141241.GC10455@mtj.dyndns.org> <20140905164405.GA28964@core.coreip.homeip.net>
- <20140905174925.GA12991@mtj.dyndns.org> <CAB=NE6VPTV39pNujOgO422wbUvU44HZ7s=aaxPVraNECqA6e4Q@mail.gmail.com>
- <20140905224047.GC15723@mtj.dyndns.org> <CAB=NE6Uz1VD5qpMFSBfQRV8ih9FQcCUhNtWMvD38t5hdDvix4Q@mail.gmail.com>
- <20140909011059.GB11706@mtj.dyndns.org> <1410241109.2028.22.camel@jarvis.lan>
- <CAB=NE6WGAMvffGDTkN5x5Cd+YOtD-Cmo3v7_8FmJ5cvCRbFEpw@mail.gmail.com>
- <1410291346.13298.16.camel@jarvis.lan> <CAB=NE6U6v-GhAaZv3yXn9uVFvBvE4Uq8z7MQU8N+CyW19WpnNQ@mail.gmail.com>
- <CAG-2HqUiUksdT4UyeDsdc1Q74=2BiX2TuzzGh_hoLiO5_DOvXQ@mail.gmail.com>
- <CAB=NE6UprJH69hzc1mjqyq6PAn+7LZmX65Z8CDwUdJ73nDusHg@mail.gmail.com> <CAG-2HqUzCvd55mq=M3=tXbHAjc2QnVuRtbFZMWTz9k_6BmmngQ@mail.gmail.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v11 net-next 00/12] eBPF syscall, verifier, testsuite
+Date: Thu, 11 Sep 2014 15:29:30 -0700
+Message-ID: <CAMEtUuyzOgCZutgsAXs60BO0=0WJGpVAeTYN2hf0Bh1sZ5PMVg@mail.gmail.com>
+References: <1410325808-3657-1-git-send-email-ast@plumgrid.com>
+	<541013CE.6020307@redhat.com>
+	<CAMEtUuwrHX4ENK9cZ0C+XVB=wkMz1=wLphX_GVLvd8pyJKMXeQ@mail.gmail.com>
+	<5411FC42.3070505@redhat.com>
+	<CAMEtUuziPptHxtw_7fkOdR-paB+8BatNmRPoo3txP8wOp9D6Tw@mail.gmail.com>
+	<CALCETrWCEwscbbfX7wAW-A+VQ5Y92igD36BmTXqFra04Qdwk0Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: James Bottomley <James.Bottomley@hansenpartnership.com>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Takashi Iwai <tiwai@suse.de>, Kay Sievers <kay@vrfy.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	hare <hare@suse.com>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Wu Zhangjin <falcon@meizu.com>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	"mpt-fusionlinux.pdl" <MPT-FusionLinux.pdl@avagotech.com>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	systemd Mailin
-To: Tom Gundersen <teg@jklm.no>, Tejun Heo <tj@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:51277 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751140AbaIKW0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 18:26:33 -0400
-In-Reply-To: <CAG-2HqUzCvd55mq=M3=tXbHAjc2QnVuRtbFZMWTz9k_6BmmngQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALCETrWCEwscbbfX7wAW-A+VQ5Y92igD36BmTXqFra04Qdwk0Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 11, 2014 at 2:43 PM, Tom Gundersen <teg@jklm.no> wrote:
-> On Wed, Sep 10, 2014 at 11:10 PM, Luis R. Rodriguez
-> <mcgrof@do-not-panic.com> wrote:
->>>> More than two years
->>>> have gone by on growing design and assumptions on top of that original
->>>> commit. I'm not sure if *systemd folks* yet believe its was a design
->>>> regression?
->>>
->>> I don't think so. udev should not allow its workers to run for an
->>> unbounded length of time. Whether the upper bound should be 30, 60,
->>> 180 seconds or something else is up for debate (currently it is 60,
->>> but if that is too short for some drivers we could certainly revisit
->>> that).
+On Thu, Sep 11, 2014 at 2:54 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
 >>
->> That's the thing -- the timeout was put in place under the assumption
->> probe was asyncronous and its not, the driver core issues both module
->> init *and* probe together, the loader has to wait. That alone makes
->> the timeout a design flaw, and then systemd carried on top of that
->> design over two years after that. Its not systemd's fault, its just
->> that we never spoke about this as a design thing broadly and we should
->> have, and I will mention that even when the first issues creeped up,
->> the issue was still tossed back a driver problems. It was only until
->> recently that we realized that both init and probe run together that
->> we've been thinking about this problem differently. Systemd was trying
->> to ensure init on driver don't take long but its not init that is
->> taking long, its probe, and probe gets then penalized as the driver
->> core batches both init and probe synchronously before finishing module
->> loading.
->
-> Just to clarify: udev/systemd is not trying to get into the business
-> of what the kernel does on finit_module(), we just need to make sure
-> that none of our workers stay around forever, which is why we have a
-> global timeout. If necessary we can bump this higher (as mentioned in
-> another thread I just bumped it to 180 secs), but we cannot abolish it
-> entirely.
-
-180 seconds is certainly better than 30, but let me be clear here on
-the extent to which the timeout at least for kmod built-in command can
-be an issue. The driver core not only batches init and probe together
-synchronously, it also runs probe for *all* devices that the device
-driver can claim and all those series of probes run synchronously
-within itself, that is bus_for_each_dev() runs synchronously on each
-device. So, if a init takes 1 second and probe for each device takes
-120 seconds and the system has 2 devices with the new timeout the
-second device would not be successfully probed (and in fact I'm not
-sure if this would kill the first).
-
->> Furthermore as clarified by Tejun random userland is known to
->> exist that will wait indefinitely for module loading under the simple
->> assumption things *are done synchronously*, and its precisely why we
->> can't just blindly enable async probe upstream through a new driver
->> boolean as it can be unfair to this old userland. What is being
->> evaluated is to enable aync probe for *all* drivers through a new
->> general system-wide option. We cannot regress old userspace and
->> assumptions but we can create a new shiny universe.
->
-> How about simply introducing a new flag to finit_module() to indicate
-> that the caller does not care about asynchronicity. We could then pass
-> this from udev, but existing scripts calling modprobe/insmod will not
-> be affected.
-
-Do you mean that you *do want asynchronicity*?
-
->>> Moreover, it seems from this discussion that the aim is (still)
->>> that insmod should be near-instantaneous (i.e., not wait for probe),
+>> the verifier log contains full trace. Last unsafe instruction + error
+>> in many cases is useless. What we found empirically from using
+>> it over last 2 years is that developers have different learning curve
+>> to adjust to 'safe' style of C. Pretty much everyone couldn't
+>> figure out why program is rejected based on last error. Therefore
+>> verifier emits full log. From the 1st insn all the way till the last
+>> 'unsafe' instruction. So the log is multiline output.
+>> 'Understanding eBPF verifier messages' section of
+>> Documentation/networking/filter.txt provides few trivial
+>> examples of these multiline messages.
+>> Like for the program:
+>>   BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
+>>   BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
+>>   BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
+>>   BPF_LD_MAP_FD(BPF_REG_1, 0),
+>>   BPF_CALL_FUNC(BPF_FUNC_map_lookup_elem),
+>>   BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
+>>   BPF_ST_MEM(BPF_DW, BPF_REG_0, 4, 0),
+>>   BPF_EXIT_INSN(),
+>> the verifier log_buf is:
+>>   0: (7a) *(u64 *)(r10 -8) = 0
+>>   1: (bf) r2 = r10
+>>   2: (07) r2 += -8
+>>   3: (b7) r1 = 0
+>>   4: (85) call 1
+>>   5: (15) if r0 == 0x0 goto pc+1
+>>    R0=map_ptr R10=fp
+>>   6: (7a) *(u64 *)(r0 +4) = 0
+>>   misaligned access off 4 size 8
 >>
->> The only reason that is being discussed is that systemd has not
->> accepted the timeout as a system design despite me pointing out the
->> original design flaw recently and at this point even if was accepted
->> as a design flaw it seems its too late. The approach taken to help
->> make all drivers async is simply an afterthought to give systemd what
->> it *thought* was in place, and it by no measure should be considered
->> the proper fix to the regression introduced by systemd, it may perhaps
->> be the right step long term for systemd systems given it goes with
->> what it assumed was there, but the timeout was flawed. Its not clear
->> if systemd can help with old kernels, it seems the ship has sailed and
->> there seems no options but for folks to work around that -- unless of
->> course some reasonable solution is found which doesn't break current
->> systemd design?
+>> It will surely change over time as verifier becomes smarter,
+>> supports new types, optimizations and so on.
+>> So this log is not an ABI. It's for humans to read.
+>> The log explains _how_ verifier came to conclusion
+>> that the program is unsafe.
 >
-> If I read the git logs correctly the hard timeout was introduced in
-> April 2011, so reverting it now seems indeed not to help much with all
-> the running systems out there.
+> Given that you've already arranged (I think) for the verifier to be
+> compilable in the kernel and in userspace, would it make more sense to
+> have the kernel version just say yes or no and to make it easy for
+> user code to retry verification in userspace if they want a full
+> explanation?
 
-yeah figured :(
+Good memory :) Long ago I had a hack where I compiled
+verifier.o for kernel and linked it with userspace wrappers to
+have the same verifier for userspace. It was very fragile.
+and maps were not separate objects and there were no fds.
+It's not feasible anymore, since different subsystems
+will configure different bpf_context and helper functions and
+verifier output is dynamic based on maps that were created.
+For example, if user's samples/bpf/sock_example.c does
+bpf_create_map(HASH, sizeof(key) * 2, ...);
+instead of
+bpf_create_map(HASH, sizeof(key), ...);
+the same program will be rejected in first case and will be
+accepted in the second, because map sizes and ebpf
+program expectations are mismatching.
+For the 1st case verifier will complain that program is
+trying to pass uninitialized stack into bpf_lookup(key,...)
+method or stack may be out of bounds.
+Human insight is needed to understand what is going on.
 
->> As part of this series I addressed hunting for the  "misbehaving
->> drivers" in-kernel as I saw no progress on the systemd side of things
->> to non-fatally detect "misbehaving drivers" despite my original RFCs
->> and request for advice. I quote  "misbehaving drivers" as its a flawed
->> view to consider them misbehaving now in light of clarifications of
->> how the driver core works in that it batches both init and probe
->> together always and we can't be penalizing long probes due to the fact
->> long probes are simply fine. My patch to pick up "misbehaving drivers"
->> drivers on the kernel front by picking up systemd's signal was
->> reactive but it was also simply braindead given the same exact reasons
->> why systemd's original timeout was flawed. We want a general solution
->> and we don't want to work around the root cause, in this case it was
->> systemd's assumption on how drivers work.
->
-> Would your ongoing work to make probing asynchronous solve this
-> problem in the long-term? In the short-term I guess bumping the udev
-> timeout should be sufficient.
-
-That and the global flag / module param to specify the async desire
-which would not regress old userspace. Probe afterall is the main
-source of the issue.
-
->> Keep in mind that the above just addresses kmod built-in cmd on
->> systemd, its where the timeout was introduced but as has been
->> clarified here assuming the same timeout on *all* other built-in
->> likely is likely pretty flawed as well and this does concern me. Its
->> why I mentioned that more than two years have gone by now on growing
->> design and assumptions on top of that original commit and its why its
->> hard for systemd to consider an alternative.
->
-> All built-ins should be near-instantaneous. If they are not, that
-> needs to be fixed, or they should not be udev built-ins at all. I have
-> now added a warning to udev if any builtin-in takes more than a third
-> of the timeout, so hopefully any problems should be spotted early.
-
-Great thanks. Collecting these should be valuable and help being proactive.
-
->>>>>>  I'm afraid distributions that want to avoid this
->>>>>> sigkill at least on the kernel front will have to work around this
->>>>>> issue either on systemd by increasing the default timeout which is now
->>>>>> possible thanks to Hannes' changes or by some other means such as the
->>>>>> combination of a modified non-chatty version of this patch + a check
->>>>>> at the end of load_module() as mentioned earlier on these threads.
->>>>>
->>>>> Increasing the default timeout in systemd seems like the obvious bug fix
->>>>> to me.  If the patch exists already, having distros that want it use it
->>>>> looks to be correct ... not every bug is a kernel bug, after all.
->>>>
->>>> Its merged upstream on systemd now, along with a few fixes on top of
->>>> it. I also see Kay merged a change to the default timeout to 60 second
->>>> on August 30. Its unclear if these discussions had any impact on that
->>>> decision or if that was just because udev firmware loading got now
->>>> ripped out. I'll note that the new 60 second timeout wouldn't suffice
->>>> for cxgb4 even if it didn't do firmware loading, its probe takes over
->>>> one full minute.
->>>>
->>>>> Negotiating a probe vs init split for drivers is fine too, but it's a
->>>>> longer term thing rather than a bug fix.
->>>>
->>>> Indeed. What I proposed with a multiplier for the timeout for the
->>>> different types of built in commands was deemed complex but saw no
->>>> alternatives proposed despite my interest to work on one and
->>>> clarifications noted that this was a design regression. Not quite sure
->>>> what else I could have done here. I'm interested in learning what the
->>>> better approach is for the future as if we want to marry init + kernel
->>>> we need a smooth way for us to discuss design without getting worked
->>>> up about it, or taking it personal. I really want this to work as I
->>>> personally like systemd so far.
->>>
->>> How about this: keep the timeout global, but also introduce a
->>> (relatively short, say 10 or 15 seconds) timeout after which a warning
->>> is printed.
->>
->> That is something that I originally was looking forward to on systemd,
->> but here's the thing once that warning comes up  -- what would we do
->> with it?
->
-> Short term: bump the timeout further. Long-term, hopefully the driver
-> (core) can be changed to avoid the problem.
-
-Fine by me, although I think some folks still have concerns with the
-sigkill completely. But not sure if we escape it now.
-
->> This patch addresses this warning in-kernel and the idea was
->> that we'd then peg an async_probe bool as true on the driver as a fix,
->> that was decided to be silly given all the above. These drivers are
->> actually not misbehaving and it would be even more incorrect to try to
->> "fix" them by making them run asynchronously. In fact for some old
->> storage drivers it may even be the worst thing to do given the
->> possible slew of userland deployment and scripts which assume things
->> *are* synchronous.
->
-> As mentioned above, it probably makes sense to switch on the
-> asynchronous behaviour only for a given call to finit_module(), and
-> not globally to avoid problems with userland assumptions.
-
-Sure that's one way.
-
->>> Even if nothing is actually killed, having workers (be it
->>> insmod or something else) take longer than a couple of seconds is
->>> likely a sign that something is seriously off somewhere.
->>
->> Probe can take a long time and that's fine,
->
-> But isn't finit_module() taking a long time a serious problem given
-> that it means no other module can be loaded in parallel?
-
-Indeed but having a desire to make the init() complete fast is
-different than the desire to have the combination of both init and
-probe fast synchronously. If userspace wants init to be fast and let
-probe be async then userspace has no option but to deal with the fact
-that async probe will be async, and it should then use other methods
-to match any dependencies if its doing that itself. For example
-networking should not kick off after a network driver is loaded but
-rather one the device creeps up on udev. We should be good with
-networking dealing with this correctly today but not sure about other
-subsystems. depmod should be able to load the required modules in
-order and if bus drivers work right then probe of the remnant devices
-should happen asynchronously. The one case I can think of that is a
-bit different is modules-load.d things but those *do not rely on the
-timeout*, but are loaded prior to a service requirement. Note though
-that if those modules had probe and they then run async'd then systemd
-service would probably need to consider that the requirements may not
-be there until later. If this is not carefully considered that could
-introduce regression to users of modules-load.d when async probe is
-fully deployed. The same applies to systemd making assumptions of kmod
-loading a module and a dependency being complete as probe would have
-run it before.
-
-> Even if you
-> have some storage device which legitimately needs to take a couple of
-> minutes to probe, you probably still want your computer to boot and
-> get on with its other tasks whilst you wait... Or worse still, some
-> insignificant driver is broken and simply hangs in probe, but surely
-> you still want the rest of the system to boot?
-
-Agreed, I believe one concern here lies in on whether or not userspace
-is properly equipped to deal with the requirements on module loading
-doing async probing and that possibly failing. Perhaps systemd might
-think all userspace is ready for that but are we sure that's the case?
-Another obvious issue was if the driver was a storage driver and your
-boot depended upon it. If it takes a while we kill it and you can't
-boot, no bueno. If systemd can avoid those situations that'd be nice.
-That was the source of the first major issue reported by Joseph.
-
-Chattiness on issues before the timeout should help a lot, we should
-start collecting these somehow. These should be collected and
-addressed. If we really want to be good on this we should put a bit of
-effort on monitoring these and not being reactive.
-
-  Luis
+I think more important is that source of truth needs to be
+in one place == kernel. If we have two verifiers they will
+diverge sooner or later and cause confusion for users.
+I think as long as we document that verifier log
+messages are not cast in stone and will change, we're fine.
+I consider them as continuation of compiler warnings/errors.
+They are meant for humans and do change from time to time.
