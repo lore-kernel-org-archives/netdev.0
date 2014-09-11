@@ -1,8 +1,8 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH net-next 10/14] tipc: add node get/dump to
-	new netlink api
-Date: Thu, 11 Sep 2014 10:29:23 +0200
-Message-ID: <1410424167-17427-11-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next 13/14] tipc: add name table dump
+	to new netlink api
+Date: Thu, 11 Sep 2014 10:29:26 +0200
+Message-ID: <1410424167-17427-14-git-send-email-richard.alpe@ericsson.com>
 References: <1410424167-17427-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,144 +23,160 @@ List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-Add TIPC_NL_NODE_GET to the new tipc netlink API.
+Add TIPC_NL_NAME_TABLE_GET command to the new tipc netlink API.
 
-This command can dump the address and node status of all nodes in the
-tipc cluster.
+This command supports dumping the name table of all nodes.
 
-Netlink logical layout of returned node/address data:
--> node
-    -> address
-    -> up flag
+Netlink logical layout of name table response message:
+-> name table
+    -> publication
+        -> type
+        -> lower
+        -> upper
+        -> scope
+        -> node
+        -> ref
+        -> key
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- include/uapi/linux/tipc_config.h |   12 +++++
- net/tipc/netlink.c               |    7 +++
- net/tipc/node.c                  |   96 ++++++++++++++++++++++++++++++++++++++
- net/tipc/node.h                  |    4 +-
- 4 files changed, 118 insertions(+), 1 deletion(-)
+ include/uapi/linux/tipc_config.h |   11 +++
+ net/tipc/name_table.c            |  190 +++++++++++++++++++++++++++++++++++++-
+ net/tipc/name_table.h            |    4 +-
+ net/tipc/netlink.c               |    9 +-
+ 4 files changed, 211 insertions(+), 3 deletions(-)
 
 diff --git a/include/uapi/linux/tipc_config.h b/include/uapi/linux/tipc_config.h
-index 1bd9c8d..e3dfad7 100644
+index 6fdb819..3d1a4ab 100644
 --- a/include/uapi/linux/tipc_config.h
 +++ b/include/uapi/linux/tipc_config.h
-@@ -60,6 +60,7 @@ enum {
- 	TIPC_NL_LINK_RESET_STATS,
- 	TIPC_NL_MEDIA_GET,
- 	TIPC_NL_MEDIA_SET,
-+	TIPC_NL_NODE_GET,
+@@ -63,6 +63,7 @@ enum {
+ 	TIPC_NL_NODE_GET,
+ 	TIPC_NL_NET_GET,
+ 	TIPC_NL_NET_SET,
++	TIPC_NL_NAME_TABLE_GET,
  
  	__TIPC_NL_CMD_MAX,
  	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-@@ -72,6 +73,7 @@ enum {
- 	TIPC_NLA_SOCK,			/* nest */
- 	TIPC_NLA_LINK,			/* nest */
+@@ -77,6 +78,7 @@ enum {
  	TIPC_NLA_MEDIA,			/* nest */
-+	TIPC_NLA_NODE,			/* nest */
+ 	TIPC_NLA_NODE,			/* nest */
+ 	TIPC_NLA_NET,			/* nest */
++	TIPC_NLA_NAME_TABLE,		/* nest */
  
  	__TIPC_NLA_MAX,
  	TIPC_NLA_MAX = __TIPC_NLA_MAX - 1
-@@ -127,6 +129,16 @@ enum {
- 	TIPC_NLA_MEDIA_MAX = __TIPC_NLA_MEDIA_MAX - 1
+@@ -152,6 +154,15 @@ enum {
+ 	TIPC_NLA_NET_MAX = __TIPC_NLA_NET_MAX - 1
  };
  
-+/* Node info */
++/* Name table info */
 +enum {
-+	TIPC_NLA_NODE_UNSPEC,
-+	TIPC_NLA_NODE_ADDR,		/* u32 */
-+	TIPC_NLA_NODE_UP,		/* flag */
++	TIPC_NLA_NAME_TABLE_UNSPEC,
++	TIPC_NLA_NAME_TABLE_PUBL,	/* nest */
 +
-+	__TIPC_NLA_NODE_MAX,
-+	TIPC_NLA_NODE_MAX = __TIPC_NLA_NODE_MAX - 1
++	__TIPC_NLA_NAME_TABLE_MAX,
++	TIPC_NLA_NAME_TABLE_MAX = __TIPC_NLA_NAME_TABLE_MAX - 1
 +};
 +
  /* Nest, publication info */
  enum {
  	TIPC_NLA_PUBL_UNSPEC,
-diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index 2f56b05..d42027e 100644
---- a/net/tipc/netlink.c
-+++ b/net/tipc/netlink.c
-@@ -39,6 +39,7 @@
- #include "socket.h"
- #include "bearer.h"
- #include "link.h"
-+#include "node.h"
- #include <net/genetlink.h>
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index 3a6a0a7..7d69229 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/name_table.c: TIPC name table code
+  *
+- * Copyright (c) 2000-2006, Ericsson AB
++ * Copyright (c) 2000-2006, 2014, Ericsson AB
+  * Copyright (c) 2004-2008, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+@@ -42,6 +42,12 @@
  
- static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
-@@ -77,6 +78,7 @@ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
- 	[TIPC_NLA_SOCK]		= { .type = NLA_NESTED, },
- 	[TIPC_NLA_LINK]		= { .type = NLA_NESTED, },
- 	[TIPC_NLA_MEDIA]	= { .type = NLA_NESTED, },
-+	[TIPC_NLA_NODE]		= { .type = NLA_NESTED, }
- };
+ #define TIPC_NAMETBL_SIZE 1024		/* must be a power of 2 */
  
- struct genl_family tipc_genl_family = {
-@@ -145,6 +147,11 @@ static const struct genl_ops tipc_genl_ops[] = {
- 		.cmd	= TIPC_NL_MEDIA_SET,
- 		.doit	= tipc_nl_media_set,
- 		.policy = tipc_nl_policy,
-+	},
-+	{
-+		.cmd	= TIPC_NL_NODE_GET,
-+		.dumpit	= tipc_nl_node_dump,
-+		.policy = tipc_nl_policy,
- 	}
- };
- 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 17e6378..80ca561 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -58,6 +58,12 @@ struct tipc_sock_conn {
- 	struct list_head list;
- };
- 
-+static const struct nla_policy tipc_nl_node_policy[TIPC_NLA_NODE_MAX + 1] = {
-+	[TIPC_NLA_NODE_UNSPEC]		= { .type = NLA_UNSPEC },
-+	[TIPC_NLA_NODE_ADDR]		= { .type = NLA_U32 },
-+	[TIPC_NLA_NODE_UP]		= { .type = NLA_FLAG }
++static const struct nla_policy
++tipc_nl_name_table_policy[TIPC_NLA_NAME_TABLE_MAX + 1] = {
++	[TIPC_NLA_NAME_TABLE_UNSPEC]	= { .type = NLA_UNSPEC },
++	[TIPC_NLA_NAME_TABLE_PUBL]	= { .type = NLA_NESTED }
 +};
 +
- /*
-  * A trivial power-of-two bitmask technique is used for speed, since this
-  * operation is done for every incoming TIPC packet. The number of hash table
-@@ -586,3 +592,93 @@ void tipc_node_unlock(struct tipc_node *node)
- 	if (addr)
- 		tipc_named_node_up(addr);
+ /**
+  * struct name_info - name sequence publication info
+  * @node_list: circular list of publications made by own node
+@@ -995,3 +1001,185 @@ void tipc_nametbl_stop(void)
+ 	table.types = NULL;
+ 	write_unlock_bh(&tipc_nametbl_lock);
  }
 +
-+/* Caller should hold node lock for the passed node */
-+int __tipc_nl_add_node(struct tipc_nl_msg *msg, struct tipc_node *node)
++int __tipc_nl_add_nametable_publ(struct tipc_nl_msg *msg, struct name_seq *seq,
++				 struct sub_seq *sseq, u32 *last_publ)
 +{
 +	void *hdr;
 +	struct nlattr *attrs;
++	struct nlattr *publ;
++	struct publication *p;
 +
-+	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
-+			  NLM_F_MULTI, TIPC_NL_NODE_GET);
-+	if (!hdr)
-+		return -EMSGSIZE;
++	if (*last_publ) {
++		list_for_each_entry(p, &sseq->info->zone_list, zone_list)
++			if (p->key == *last_publ)
++				break;
++		if (p->key != *last_publ)
++			return -EPIPE;
++	} else {
++		p = list_first_entry(&sseq->info->zone_list, struct publication,
++				     zone_list);
++	}
 +
-+	attrs = nla_nest_start(msg->skb, TIPC_NLA_NODE);
-+	if (!attrs)
-+		goto msg_full;
++	list_for_each_entry_from(p, &sseq->info->zone_list, zone_list) {
++		*last_publ = p->key;
 +
-+	if (nla_put_u32(msg->skb, TIPC_NLA_NODE_ADDR, node->addr))
-+		goto attr_msg_full;
-+	if (tipc_node_is_up(node))
-+		if (nla_put_flag(msg->skb, TIPC_NLA_NODE_UP))
++		hdr = genlmsg_put(msg->skb, msg->portid, msg->seq,
++				  &tipc_genl_family, NLM_F_MULTI,
++				  TIPC_NL_NAME_TABLE_GET);
++		if (!hdr)
++			return -EMSGSIZE;
++
++		attrs = nla_nest_start(msg->skb, TIPC_NLA_NAME_TABLE);
++		if (!attrs)
++			goto msg_full;
++
++		publ = nla_nest_start(msg->skb, TIPC_NLA_NAME_TABLE_PUBL);
++		if (!publ)
 +			goto attr_msg_full;
 +
-+	nla_nest_end(msg->skb, attrs);
-+	genlmsg_end(msg->skb, hdr);
++		if (nla_put_u32(msg->skb, TIPC_NLA_PUBL_TYPE, seq->type))
++			goto publ_msg_full;
++		if (nla_put_u32(msg->skb, TIPC_NLA_PUBL_LOWER, sseq->lower))
++			goto publ_msg_full;
++		if (nla_put_u32(msg->skb, TIPC_NLA_PUBL_UPPER, sseq->upper))
++			goto publ_msg_full;
++		if (nla_put_u32(msg->skb, TIPC_NLA_PUBL_SCOPE, p->scope))
++			goto publ_msg_full;
++		if (nla_put_u32(msg->skb, TIPC_NLA_PUBL_NODE, p->node))
++			goto publ_msg_full;
++		if (nla_put_u32(msg->skb, TIPC_NLA_PUBL_REF, p->ref))
++			goto publ_msg_full;
++		if (nla_put_u32(msg->skb, TIPC_NLA_PUBL_KEY, p->key))
++			goto publ_msg_full;
++
++		nla_nest_end(msg->skb, publ);
++		nla_nest_end(msg->skb, attrs);
++		genlmsg_end(msg->skb, hdr);
++	}
++	*last_publ = 0;
 +
 +	return 0;
 +
++publ_msg_full:
++	nla_nest_cancel(msg->skb, publ);
 +attr_msg_full:
 +	nla_nest_cancel(msg->skb, attrs);
 +msg_full:
@@ -169,12 +185,85 @@ index 17e6378..80ca561 100644
 +	return -EMSGSIZE;
 +}
 +
-+int tipc_nl_node_dump(struct sk_buff *skb, struct netlink_callback *cb)
++int __tipc_nl_subseq_list(struct tipc_nl_msg *msg, struct name_seq *seq,
++			  u32 *last_lower, u32 *last_publ)
++{
++	struct sub_seq *sseq;
++	struct sub_seq *sseq_start;
++	int err;
++
++	if (*last_lower) {
++		sseq_start = nameseq_find_subseq(seq, *last_lower);
++		if (!sseq_start)
++			return -EPIPE;
++	} else {
++		sseq_start = seq->sseqs;
++	}
++
++	for (sseq = sseq_start; sseq != &seq->sseqs[seq->first_free]; sseq++) {
++		err = __tipc_nl_add_nametable_publ(msg, seq, sseq, last_publ);
++		if (err) {
++			*last_lower = sseq->lower;
++			return err;
++		}
++	}
++	*last_lower = 0;
++
++	return 0;
++}
++
++int __tipc_nl_seq_list(struct tipc_nl_msg *msg, u32 *last_type, u32 *last_lower,
++		       u32 *last_publ)
++{
++	struct hlist_head *seq_head;
++	struct name_seq *seq;
++	int err;
++	int i;
++
++	if (*last_type)
++		i = hash(*last_type);
++	else
++		i = 0;
++
++	for (; i < TIPC_NAMETBL_SIZE; i++) {
++		seq_head = &table.types[i];
++
++		if (*last_type) {
++			seq = nametbl_find_seq(*last_type);
++			if (!seq)
++				return -EPIPE;
++		} else {
++			seq = hlist_entry_safe((seq_head)->first,
++					       struct name_seq, ns_list);
++			if (!seq)
++				continue;
++		}
++
++		hlist_for_each_entry_from(seq, ns_list) {
++			spin_lock_bh(&seq->lock);
++
++			err = __tipc_nl_subseq_list(msg, seq, last_lower,
++						    last_publ);
++
++			if (err) {
++				*last_type = seq->type;
++				spin_unlock_bh(&seq->lock);
++				return err;
++			}
++			spin_unlock_bh(&seq->lock);
++		}
++		*last_type = 0;
++	}
++	return 0;
++}
++
++int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb)
 +{
 +	int err;
-+	int done = cb->args[0];
-+	int last_addr = cb->args[1];
-+	struct tipc_node *node;
++	int done = cb->args[3];
++	u32 last_type = cb->args[0];
++	u32 last_lower = cb->args[1];
++	u32 last_publ = cb->args[2];
 +	struct tipc_nl_msg msg;
 +
 +	if (done)
@@ -184,68 +273,86 @@ index 17e6378..80ca561 100644
 +	msg.portid = NETLINK_CB(cb->skb).portid;
 +	msg.seq = cb->nlh->nlmsg_seq;
 +
-+	rcu_read_lock();
++	read_lock_bh(&tipc_nametbl_lock);
 +
-+	if (last_addr && !tipc_node_find(last_addr)) {
-+		rcu_read_unlock();
++	err = __tipc_nl_seq_list(&msg, &last_type, &last_lower, &last_publ);
++	if (!err) {
++		done = 1;
++	} else if (err != -EMSGSIZE) {
 +		/* We never set seq or call nl_dump_check_consistent() this
 +		 * means that setting prev_seq here will cause the consistence
 +		 * check to fail in the netlink callback handler. Resulting in
 +		 * the NLMSG_DONE message having the NLM_F_DUMP_INTR flag set if
-+		 * the node state changed while we released the lock.
++		 * we got an error.
 +		 */
 +		cb->prev_seq = 1;
-+		return -EPIPE;
 +	}
 +
-+	list_for_each_entry_rcu(node, &tipc_node_list, list) {
-+		if (last_addr) {
-+			if (node->addr == last_addr)
-+				last_addr = 0;
-+			else
-+				continue;
-+		}
++	read_unlock_bh(&tipc_nametbl_lock);
 +
-+		tipc_node_lock(node);
-+		err = __tipc_nl_add_node(&msg, node);
-+		if (err) {
-+			last_addr = node->addr;
-+			tipc_node_unlock(node);
-+			goto out;
-+		}
-+
-+		tipc_node_unlock(node);
-+	}
-+	done = 1;
-+out:
-+	cb->args[0] = done;
-+	cb->args[1] = last_addr;
-+	rcu_read_unlock();
++	cb->args[0] = last_type;
++	cb->args[1] = last_lower;
++	cb->args[2] = last_publ;
++	cb->args[3] = done;
 +
 +	return skb->len;
 +}
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 522d6f3..17c0921 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
+diff --git a/net/tipc/name_table.h b/net/tipc/name_table.h
+index f02f48b..b38ebec 100644
+--- a/net/tipc/name_table.h
++++ b/net/tipc/name_table.h
 @@ -1,7 +1,7 @@
  /*
-  * net/tipc/node.h: Include file for TIPC node management routines
+  * net/tipc/name_table.h: Include file for TIPC name table code
   *
 - * Copyright (c) 2000-2006, Ericsson AB
 + * Copyright (c) 2000-2006, 2014, Ericsson AB
-  * Copyright (c) 2005, 2010-2014, Wind River Systems
+  * Copyright (c) 2004-2005, 2010-2011, Wind River Systems
   * All rights reserved.
   *
-@@ -139,6 +139,8 @@ void tipc_node_unlock(struct tipc_node *node);
- int tipc_node_add_conn(u32 dnode, u32 port, u32 peer_port);
- void tipc_node_remove_conn(u32 dnode, u32 port);
+@@ -84,6 +84,8 @@ struct publication {
  
-+int tipc_nl_node_dump(struct sk_buff *skb, struct netlink_callback *cb);
+ extern rwlock_t tipc_nametbl_lock;
+ 
++int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb);
 +
- static inline void tipc_node_lock(struct tipc_node *node)
- {
- 	spin_lock_bh(&node->lock);
+ struct sk_buff *tipc_nametbl_get(const void *req_tlv_area, int req_tlv_space);
+ u32 tipc_nametbl_translate(u32 type, u32 instance, u32 *node);
+ int tipc_nametbl_mc_translate(u32 type, u32 lower, u32 upper, u32 limit,
+diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
+index 7803aa9..11a2fd8 100644
+--- a/net/tipc/netlink.c
++++ b/net/tipc/netlink.c
+@@ -37,6 +37,7 @@
+ #include "core.h"
+ #include "config.h"
+ #include "socket.h"
++#include "name_table.h"
+ #include "bearer.h"
+ #include "link.h"
+ #include "node.h"
+@@ -80,7 +81,8 @@ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
+ 	[TIPC_NLA_LINK]		= { .type = NLA_NESTED, },
+ 	[TIPC_NLA_MEDIA]	= { .type = NLA_NESTED, },
+ 	[TIPC_NLA_NODE]		= { .type = NLA_NESTED, },
+-	[TIPC_NLA_NET]		= { .type = NLA_NESTED, }
++	[TIPC_NLA_NET]		= { .type = NLA_NESTED, },
++	[TIPC_NLA_NAME_TABLE]	= { .type = NLA_NESTED, }
+ };
+ 
+ struct genl_family tipc_genl_family = {
+@@ -164,6 +166,11 @@ static const struct genl_ops tipc_genl_ops[] = {
+ 		.cmd	= TIPC_NL_NET_SET,
+ 		.doit	= tipc_nl_net_set,
+ 		.policy = tipc_nl_policy,
++	},
++	{
++		.cmd	= TIPC_NL_NAME_TABLE_GET,
++		.dumpit	= tipc_nl_name_table_dump,
++		.policy = tipc_nl_policy,
+ 	}
+ };
+ 
 -- 
 1.7.10.4
 
