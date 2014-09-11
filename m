@@ -1,8 +1,8 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH net-next 11/14] tipc: add net dump to new
-	netlink api
-Date: Thu, 11 Sep 2014 10:29:24 +0200
-Message-ID: <1410424167-17427-12-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next 03/14] tipc: add bearer set to
+	new netlink api
+Date: Thu, 11 Sep 2014 10:29:16 +0200
+Message-ID: <1410424167-17427-4-git-send-email-richard.alpe@ericsson.com>
 References: <1410424167-17427-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,191 +23,123 @@ List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-Add TIPC_NL_NET_GET command to the new tipc netlink API.
+Add TIPC_NL_BEARER_SET command to the new tipc netlink API.
 
-This command dumps the network id of the node.
+This command can set one or more link properties for a particular
+bearer.
 
-Netlink logical layout of returned network data:
--> net
-    -> id
+Netlink logical layout of bearer set message:
+-> bearer
+    -> name
+    -> link properties
+        [ -> tolerance ]
+        [ -> priority ]
+        [ -> window ]
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- include/uapi/linux/tipc_config.h |   11 +++++++
- net/tipc/net.c                   |   59 ++++++++++++++++++++++++++++++++++++++
- net/tipc/net.h                   |    7 ++++-
- net/tipc/netlink.c               |    9 +++++-
- 4 files changed, 84 insertions(+), 2 deletions(-)
+ include/uapi/linux/tipc_config.h |    1 +
+ net/tipc/bearer.c                |   49 ++++++++++++++++++++++++++++++++++++++
+ net/tipc/bearer.h                |    1 +
+ net/tipc/netlink.c               |    5 ++++
+ 4 files changed, 56 insertions(+)
 
 diff --git a/include/uapi/linux/tipc_config.h b/include/uapi/linux/tipc_config.h
-index e3dfad7..68a58b0 100644
+index 6caf581..af7acac 100644
 --- a/include/uapi/linux/tipc_config.h
 +++ b/include/uapi/linux/tipc_config.h
-@@ -61,6 +61,7 @@ enum {
- 	TIPC_NL_MEDIA_GET,
- 	TIPC_NL_MEDIA_SET,
- 	TIPC_NL_NODE_GET,
-+	TIPC_NL_NET_GET,
+@@ -53,6 +53,7 @@ enum {
+ 	TIPC_NL_BEARER_DISABLE,
+ 	TIPC_NL_BEARER_ENABLE,
+ 	TIPC_NL_BEARER_GET,
++	TIPC_NL_BEARER_SET,
  
  	__TIPC_NL_CMD_MAX,
  	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-@@ -74,6 +75,7 @@ enum {
- 	TIPC_NLA_LINK,			/* nest */
- 	TIPC_NLA_MEDIA,			/* nest */
- 	TIPC_NLA_NODE,			/* nest */
-+	TIPC_NLA_NET,			/* nest */
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 7f77cec..906e644 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -849,3 +849,52 @@ int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info)
  
- 	__TIPC_NLA_MAX,
- 	TIPC_NLA_MAX = __TIPC_NLA_MAX - 1
-@@ -139,6 +141,15 @@ enum {
- 	TIPC_NLA_NODE_MAX = __TIPC_NLA_NODE_MAX - 1
- };
- 
-+/* Net info */
-+enum {
-+	TIPC_NLA_NET_UNSPEC,
-+	TIPC_NLA_NET_ID,		/* u32 */
-+
-+	__TIPC_NLA_NET_MAX,
-+	TIPC_NLA_NET_MAX = __TIPC_NLA_NET_MAX - 1
-+};
-+
- /* Nest, publication info */
- enum {
- 	TIPC_NLA_PUBL_UNSPEC,
-diff --git a/net/tipc/net.c b/net/tipc/net.c
-index 93b9944..b5435a6 100644
---- a/net/tipc/net.c
-+++ b/net/tipc/net.c
-@@ -42,6 +42,11 @@
- #include "node.h"
- #include "config.h"
- 
-+static const struct nla_policy tipc_nl_net_policy[TIPC_NLA_NET_MAX + 1] = {
-+	[TIPC_NLA_NET_UNSPEC]	= { .type = NLA_UNSPEC },
-+	[TIPC_NLA_NET_ID]	= { .type = NLA_U32 }
-+};
-+
- /*
-  * The TIPC locking policy is designed to ensure a very fine locking
-  * granularity, permitting complete parallel access to individual
-@@ -138,3 +143,57 @@ void tipc_net_stop(void)
- 
- 	pr_info("Left network mode\n");
+ 	return 0;
  }
 +
-+static int __tipc_nl_add_net(struct tipc_nl_msg *msg)
-+{
-+	void *hdr;
-+	struct nlattr *attrs;
-+
-+	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
-+			  NLM_F_MULTI, TIPC_NL_NET_GET);
-+	if (!hdr)
-+		return -EMSGSIZE;
-+
-+	attrs = nla_nest_start(msg->skb, TIPC_NLA_NET);
-+	if (!attrs)
-+		goto msg_full;
-+
-+	if (nla_put_u32(msg->skb, TIPC_NLA_NET_ID, tipc_net_id))
-+		goto attr_msg_full;
-+
-+	nla_nest_end(msg->skb, attrs);
-+	genlmsg_end(msg->skb, hdr);
-+
-+	return 0;
-+
-+attr_msg_full:
-+	nla_nest_cancel(msg->skb, attrs);
-+msg_full:
-+	genlmsg_cancel(msg->skb, hdr);
-+
-+	return -EMSGSIZE;
-+}
-+
-+int tipc_nl_net_dump(struct sk_buff *skb, struct netlink_callback *cb)
++int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info)
 +{
 +	int err;
-+	int done = cb->args[0];
-+	struct tipc_nl_msg msg;
++	char *name;
++	struct tipc_bearer *b;
++	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1];
 +
-+	if (done)
-+		return 0;
++	if (!info->attrs[TIPC_NLA_BEARER])
++		return -EINVAL;
 +
-+	msg.skb = skb;
-+	msg.portid = NETLINK_CB(cb->skb).portid;
-+	msg.seq = cb->nlh->nlmsg_seq;
-+
-+	err = __tipc_nl_add_net(&msg);
++	err = nla_parse_nested(attrs, TIPC_NLA_BEARER_MAX,
++			       info->attrs[TIPC_NLA_BEARER],
++			       tipc_nl_bearer_policy);
 +	if (err)
-+		goto out;
++		return err;
 +
-+	done = 1;
-+out:
-+	cb->args[0] = done;
++	if (!attrs[TIPC_NLA_BEARER_NAME])
++		return -EINVAL;
++	name = nla_data(attrs[TIPC_NLA_BEARER_NAME]);
 +
-+	return skb->len;
++	rtnl_lock();
++	b = tipc_bearer_find(name);
++	if (!b) {
++		rtnl_unlock();
++		return -EINVAL;
++	}
++
++	if (attrs[TIPC_NLA_BEARER_PROP]) {
++		struct nlattr *props[TIPC_NLA_PROP_MAX + 1];
++
++		err = tipc_nl_parse_link_prop(attrs[TIPC_NLA_BEARER_PROP],
++					      props);
++		if (err) {
++			rtnl_unlock();
++			return err;
++		}
++
++		if (props[TIPC_NLA_PROP_TOL])
++			b->tolerance = nla_get_u32(props[TIPC_NLA_PROP_TOL]);
++		if (props[TIPC_NLA_PROP_PRIO])
++			b->priority = nla_get_u32(props[TIPC_NLA_PROP_PRIO]);
++		if (props[TIPC_NLA_PROP_WIN])
++			b->window = nla_get_u32(props[TIPC_NLA_PROP_WIN]);
++	}
++	rtnl_unlock();
++
++	return 0;
 +}
-diff --git a/net/tipc/net.h b/net/tipc/net.h
-index 59ef338..60dc22f 100644
---- a/net/tipc/net.h
-+++ b/net/tipc/net.h
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/net.h: Include file for TIPC network routing code
-  *
-- * Copyright (c) 1995-2006, Ericsson AB
-+ * Copyright (c) 1995-2006, 2014, Ericsson AB
-  * Copyright (c) 2005, 2010-2011, Wind River Systems
-  * All rights reserved.
-  *
-@@ -37,7 +37,12 @@
- #ifndef _TIPC_NET_H
- #define _TIPC_NET_H
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 2d07e35..c6cf9df 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -182,6 +182,7 @@ int tipc_nl_bearer_disable(struct sk_buff *skb, struct genl_info *info);
+ int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info);
+ int tipc_nl_bearer_dump(struct sk_buff *skb, struct netlink_callback *cb);
+ int tipc_nl_bearer_get(struct sk_buff *skb, struct genl_info *info);
++int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info);
  
-+#include <net/genetlink.h>
-+
- int tipc_net_start(u32 addr);
-+
- void tipc_net_stop(void);
- 
-+int tipc_nl_net_dump(struct sk_buff *skb, struct netlink_callback *cb);
-+
- #endif
+ int tipc_media_set_priority(const char *name, u32 new_value);
+ int tipc_media_set_window(const char *name, u32 new_value);
 diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index d42027e..3730876 100644
+index ef106a7..e5fbea9 100644
 --- a/net/tipc/netlink.c
 +++ b/net/tipc/netlink.c
-@@ -40,6 +40,7 @@
- #include "bearer.h"
- #include "link.h"
- #include "node.h"
-+#include "net.h"
- #include <net/genetlink.h>
- 
- static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
-@@ -78,7 +79,8 @@ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
- 	[TIPC_NLA_SOCK]		= { .type = NLA_NESTED, },
- 	[TIPC_NLA_LINK]		= { .type = NLA_NESTED, },
- 	[TIPC_NLA_MEDIA]	= { .type = NLA_NESTED, },
--	[TIPC_NLA_NODE]		= { .type = NLA_NESTED, }
-+	[TIPC_NLA_NODE]		= { .type = NLA_NESTED, },
-+	[TIPC_NLA_NET]		= { .type = NLA_NESTED, }
- };
- 
- struct genl_family tipc_genl_family = {
-@@ -152,6 +154,11 @@ static const struct genl_ops tipc_genl_ops[] = {
- 		.cmd	= TIPC_NL_NODE_GET,
- 		.dumpit	= tipc_nl_node_dump,
+@@ -103,6 +103,11 @@ static const struct genl_ops tipc_genl_ops[] = {
+ 		.doit	= tipc_nl_bearer_get,
+ 		.dumpit	= tipc_nl_bearer_dump,
  		.policy = tipc_nl_policy,
 +	},
 +	{
-+		.cmd	= TIPC_NL_NET_GET,
-+		.dumpit	= tipc_nl_net_dump,
++		.cmd	= TIPC_NL_BEARER_SET,
++		.doit	= tipc_nl_bearer_set,
 +		.policy = tipc_nl_policy,
  	}
  };
