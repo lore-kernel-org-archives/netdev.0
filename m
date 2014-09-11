@@ -1,74 +1,93 @@
-From: Andres Freund <andres@anarazel.de>
-Subject: Re: Macvlan WARNiNGS about duplicate sysfs filenames (Was [GIT]
- Networking)
-Date: Thu, 11 Sep 2014 14:51:31 +0200
-Message-ID: <20140911125131.GW24649@awork2.anarazel.de>
-References: <20140907.164109.1944849896872238507.davem@davemloft.net>
- <20140908212514.GA2348@awork2.anarazel.de>
- <CAHA+R7NCwhMaWX0Mhr7AqHH4x5RZ6TEEiJB7906yVzQouXD3Lg@mail.gmail.com>
- <20140909234806.GG24649@awork2.anarazel.de>
- <20140909235534.GH24649@awork2.anarazel.de>
- <CAChDUfQtoi2ZeeqdHE_RghyUxdE4TBBOGcnyRmfFTthUVskWpw@mail.gmail.com>
+From: Konstantinos Kolelis <k.kolelis@sirrix.com>
+Subject: Re: [BUG REPORT]  Unencrypted packets after SNAT, allthough IPSEC-Policies
+ are present
+Date: Thu, 11 Sep 2014 15:11:17 +0200
+Message-ID: <54119F75.8090305@sirrix.com>
+References: <541089DD.6060307@sirrix.com> <20140911115401.GL6390@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <cwang@twopensource.com>,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Alexander Y. Fomichev" <git.user@gmail.com>,
-	Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAChDUfQtoi2ZeeqdHE_RghyUxdE4TBBOGcnyRmfFTthUVskWpw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+	<herbert@gondor.apana.org.au>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.sirrix.com ([176.9.214.66]:58027 "EHLO mx.sirrix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751776AbaIKNN2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Sep 2014 09:13:28 -0400
+In-Reply-To: <20140911115401.GL6390@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2014-09-10 13:32:00 +0400, Alexander Y. Fomichev wrote:
-> > I've reproduced the problem on another machine where it's perfectly
-> > reproducible (except being about mv-bond0).
+Am 11.09.2014 13:54, schrieb Steffen Klassert:
+> On Wed, Sep 10, 2014 at 07:26:53PM +0200, Konstantinos Kolelis wrote:
+>> Hi all,
+>>
+>> i' ve observed a problem with xfrm lookups, SNAT, blackhole route and
+>> missing SAs.
+>> The problem occures with all Kernels above 3.6.x and might has to do
+>> with the changes in
+>> ip4_blackhole_route() function in net/route.c.
 > 
-> did you mean this is a macvlan which has bond as a real device?
+> Thanks for the report!
+> 
+> Is kernel v3.6 the first kernel with this issue? It seems that
+> we have this problem already longer, at least if my analysis
+> is correct.
+> 
 
-Only on the other machine where I tried it. It's not dependent on that.
+It worked until Kernel 3.4.103, i did not check with v3.5 though.
 
-Here's a reproducer running in a stock kernel:
-# ip netns add testns
-# ip link add link eth0 name eth0-mv1 netns testns type macvlan
-# readlink -f /sys/class/net/eth0/upper_eth0-mv1
-/sys/devices/virtual/net/eth0-mv1
-# ls -l /sys/devices/virtual/net/eth0-mv1
-ls: cannot access /sys/devices/virtual/net/eth0-mv1: No such file or directory
-# ip netns exec testns readlink -f /sys/class/net/eth0-mv1/lower_eth0
-/sys/devices/pci0000:00/0000:00:1c.4/0000:03:00.0/net/eth0
-# ip netns exec testns ls -l /sys/devices/pci0000:00/0000:00:1c.4/0000:03:00.0/net/eth0
-ls: cannot access /sys/devices/pci0000:00/0000:00:1c.4/0000:03:00.0/net/eth0: No such file or directory
-# ip netns exec testns ip link delete eth0-mv1
-# ip link add link eth0 name eth0-mv1 netns testns type macvlan
-RTNETLINK answers: File exists
+>>
+>> Let say you have two network interfaces:
+>> eth0 with ip 172.16.0.10/24
+>> and
+>> eth1 with ip 192.168.0.1/24
+>>
+>> and you have done the following configuration:
+>>
+>> iptables -t nat -A POSTROUTING -s 192.168.0.0/24 -j SNAT --to-source
+>> 172.16.0.10
+>>
+>> and
+>>
+>> ip xfrm policy add dir out  src 172.16.0.10 dst 0.0.0.0/0 tmpl proto esp
+>> src 172.16.0.10 dst 172.31.0.10 mode tunnel
+>>
+>> with the following routes:
+>> default via 172.16.0.1 dev eth0  proto static
+>> 172.16.0.0/24 dev eth0  proto kernel  scope link  src 172.16.0.10
+>> 192.168.0.0/24 dev eth1  proto kernel  scope link  src 192.168.0.1
+>>
+>> If for what ever reason IPSEC-SAs can not be established, maybe because
+>> 172.31.0.10 is down,
+>> the traffic comming from 192.168.0.0/24 will leave unencrypted the
+>> external (eth0) interface.
+> 
+> I can reproduce it with SNAT and MASQUERADE. Looks like this was
+> introduced back in 2011 with git commit 2774c131 ("xfrm: Handle
+> blackhole route creation via afinfo.").
+> 
+> Before that commit, xfrm_lookup() and __xfrm_lookup() returned
+> an error if we have a matching policy but no states. The route
+> lookup functions used __xfrm_lookup() and generated a blackhole
+> route if __xfrm_lookup() returned -EREMOTE. All other functions
+> used xfrm_lookup() which returned -EAGAIN. This was treated as
+> as an error and the packet was dropped immediately.
+> 
+> After this commit all callers to xfrm_lookup() rely that
+> dst_output() is called afterwards. This seems to be not the
+> case, at least when postrouting nat is used.
+> 
+> Maybe we should go back to let only the route lookup functions
+> genarate a blackhole route. Everyone else should better drop
+> the packets immediately.
+> 
+> I'll try to do a patch.
+> 
 
-Afaics the behaviour with the broken symlinks is old, and the actual
-root cause for the bug. The new thing is that it causes re-adding the
-same interface to fail.
-
-Note that the issue is *not* reproducible when moving the interface into
-the namespace after creation. So I guess that's the problem.
-
-> hmm... current implementation of bonding unconditionally
-> refuses to switch ns due to NETIF_F_NETNS_LOCAL flag afaik,
-> macvlan steals flags from lowerdev so it should behave the same.
-> just to clarify: custom patches?
-
-No custom patches. And this really isn't related to bonding - the only
-reason bond0 was mentioned was because one of the machines I could
-reboot used bonding. As seen above it's independant of that.
-
-> btw, could i ask you to try attached patch?
-
-I'll try later. Thought it made sense to give you the above reproducer
-alone.
-
-Greetings,
-
-Andres Freund
+You should also check what happens if xfrm_larval_drop is false.
+Allthough blackhole route was not used, you could still run into the
+same problem. It just took a while longer.
