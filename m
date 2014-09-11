@@ -1,66 +1,43 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [GIT net-next] Open vSwitch
-Date: Thu, 11 Sep 2014 16:09:05 -0700
-Message-ID: <CALnjE+qO1h5GCixShb7qPdiEajRPvtQe5YM1qpZ1vncNh=iozA@mail.gmail.com>
-References: <1410472889-1417-1-git-send-email-pshelar@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: weiyj_lk@163.com
+Subject: [PATCH -next] net: stmmac: fix return value check in socfpga_dwmac_parse_data()
+Date: Fri, 12 Sep 2014 07:12:57 +0800
+Message-ID: <1410477177-5681-1-git-send-email-weiyj_lk@163.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>, netdev@vger.kernel.org
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog010.obsmtp.com ([74.125.150.60]:39393 "HELO
-	na6sys009bog010.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751652AbaIKXJH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 19:09:07 -0400
-Received: by mail-ie0-f172.google.com with SMTP id tr6so8195520ieb.17
-        for <netdev@vger.kernel.org>; Thu, 11 Sep 2014 16:09:05 -0700 (PDT)
-In-Reply-To: <1410472889-1417-1-git-send-email-pshelar@nicira.com>
+Received: from m12-12.163.com ([220.181.12.12]:54506 "EHLO m12-12.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751215AbaIKXNG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Sep 2014 19:13:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please ignore this series, I have used datapath as subsystem name
-rather than openvswitch. I will respin it shortly.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-On Thu, Sep 11, 2014 at 3:01 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> Following patches adds recirculation and hash action to OVS.
-> First three patches does code restructuring which is required
-> for last patch.
-> Recirculation implementation is changed, according to comments from
-> David Miller, to avoid using recursive calls in OVS. It is using
-> queue to record recirc action and deferred recirc is executed at
-> the end of current actions execution.
->
-> ----------------------------------------------------------------
-> The following changes since commit b954d83421d51d822c42e5ab7b65069b25ad3005:
->
->   net: bpf: only build bpf_jit_binary_{alloc, free}() when jit selected (2014-09-10 14:05:07 -0700)
->
-> are available in the git repository at:
->
->   git://git.kernel.org/pub/scm/linux/kernel/git/pshelar/openvswitch.git net_next_ovs
->
-> for you to fetch changes up to 9b8ede54a8bd319789e8bceb19789463bb944701:
->
->   openvswitch: Add recirc and hash action. (2014-09-11 13:35:29 -0700)
->
-> ----------------------------------------------------------------
-> Andy Zhou (2):
->       datapath: simplify sample action implementation
->       openvswitch: Add recirc and hash action.
->
-> Pravin B Shelar (2):
->       datapath: refactor ovs flow extract API.
->       datapath: Use tun_key only for egress tunnel path.
->
->  include/uapi/linux/openvswitch.h |  26 +++++
->  net/openvswitch/actions.c        | 247 ++++++++++++++++++++++++++++++++++-----
->  net/openvswitch/datapath.c       |  52 +++++----
->  net/openvswitch/datapath.h       |  17 ++-
->  net/openvswitch/flow.c           |  54 +++++++--
->  net/openvswitch/flow.h           |  10 +-
->  net/openvswitch/flow_netlink.c   |  63 +++++++---
->  net/openvswitch/flow_netlink.h   |   4 +-
->  net/openvswitch/vport-gre.c      |  22 ++--
->  net/openvswitch/vport-vxlan.c    |  20 ++--
->  net/openvswitch/vport.c          |  13 ++-
->  11 files changed, 419 insertions(+), 109 deletions(-)
+In case of error, the function devm_ioremap_resource() returns
+ERR_PTR() and never returns NULL. The NULL test in the return
+value check should be replaced with IS_ERR().
+
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+index ddc6115..3aad413 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -120,9 +120,9 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+ 		}
+ 
+ 		dwmac->splitter_base = devm_ioremap_resource(dev, &res_splitter);
+-		if (!dwmac->splitter_base) {
++		if (IS_ERR(dwmac->splitter_base)) {
+ 			dev_info(dev, "Failed to mapping emac splitter\n");
+-			return -EINVAL;
++			return PTR_ERR(dwmac->splitter_base);
+ 		}
+ 	}
+ 
