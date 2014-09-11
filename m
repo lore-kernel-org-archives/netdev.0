@@ -1,49 +1,45 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2] zd1211rw: replace ZD_ASSERT with
+From: "Sharma, Sanjeev" <Sanjeev_Sharma@mentor.com>
+Subject: RE: [PATCH v2] zd1211rw: replace ZD_ASSERT with
  lockdep_assert_held()
-Date: Thu, 11 Sep 2014 12:12:25 +0200
-Message-ID: <1410430345.22863.0.camel@jlt4.sipsolutions.net>
+Date: Thu, 11 Sep 2014 10:36:42 +0000
+Message-ID: <FDC088D3B5555644AE135ED28A7ABDE94DF5256D@EU-MBX-02.mgc.mentorg.com>
 References: <1410418407.1825.0.camel@jlt4.sipsolutions.net>
 	 <1410430179-19944-1-git-send-email-sanjeev_sharma@mentor.com>
 	 (sfid-20140911_121019_335368_163BEA7C)
+ <1410430345.22863.0.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: dsd@gentoo.org, kune@deine-taler.de,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Sanjeev Sharma <sanjeev_sharma@mentor.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:55918 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753881AbaIKKMc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Sep 2014 06:12:32 -0400
-In-Reply-To: <1410430179-19944-1-git-send-email-sanjeev_sharma@mentor.com> (sfid-20140911_121019_335368_163BEA7C)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dsd@gentoo.org" <dsd@gentoo.org>,
+	"kune@deine-taler.de" <kune@deine-taler.de>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1410430345.22863.0.camel@jlt4.sipsolutions.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-09-11 at 15:39 +0530, Sanjeev Sharma wrote:
-> on some architecture spin_is_locked() always return false in
-> uniprocessor configuration and therefore it would be advise
-> to replace with lockdep_assert_held().
-> 
-> Signed-off-by: Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
-> ---
-> Changes in v2:
->   - corrected the typo
-
-Now it compiles, but you got the logic wrong.
-
-> +++ b/drivers/net/wireless/zd1211rw/zd_mac.c
-> @@ -235,7 +235,7 @@ void zd_mac_clear(struct zd_mac *mac)
->  {
->  	flush_workqueue(zd_workqueue);
->  	zd_chip_clear(&mac->chip);
-> -	ZD_ASSERT(!spin_is_locked(&mac->lock));
-> +	lockdep_assert_held(&mac->lock);
->  	ZD_MEMCLEAR(mac, sizeof(struct zd_mac));
->  }
-
-Look closely at this again.
-
-johannes
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IEpvaGFubmVzIEJlcmcgW21haWx0bzpq
+b2hhbm5lc0BzaXBzb2x1dGlvbnMubmV0XSANClNlbnQ6IFRodXJzZGF5LCBTZXB0ZW1iZXIgMTEs
+IDIwMTQgMzo0MiBQTQ0KVG86IFNoYXJtYSwgU2FuamVldg0KQ2M6IGRzZEBnZW50b28ub3JnOyBr
+dW5lQGRlaW5lLXRhbGVyLmRlOyBsaW51eC13aXJlbGVzc0B2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4
+LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNClN1YmplY3Q6
+IFJlOiBbUEFUQ0ggdjJdIHpkMTIxMXJ3OiByZXBsYWNlIFpEX0FTU0VSVCB3aXRoIGxvY2tkZXBf
+YXNzZXJ0X2hlbGQoKQ0KDQpPbiBUaHUsIDIwMTQtMDktMTEgYXQgMTU6MzkgKzA1MzAsIFNhbmpl
+ZXYgU2hhcm1hIHdyb3RlOg0KPiBvbiBzb21lIGFyY2hpdGVjdHVyZSBzcGluX2lzX2xvY2tlZCgp
+IGFsd2F5cyByZXR1cm4gZmFsc2UgaW4gDQo+IHVuaXByb2Nlc3NvciBjb25maWd1cmF0aW9uIGFu
+ZCB0aGVyZWZvcmUgaXQgd291bGQgYmUgYWR2aXNlIHRvIHJlcGxhY2UgDQo+IHdpdGggbG9ja2Rl
+cF9hc3NlcnRfaGVsZCgpLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogU2FuamVldiBTaGFybWEgPFNh
+bmplZXZfU2hhcm1hQG1lbnRvci5jb20+DQo+IC0tLQ0KPiBDaGFuZ2VzIGluIHYyOg0KPiAgIC0g
+Y29ycmVjdGVkIHRoZSB0eXBvDQoNCj4gTm93IGl0IGNvbXBpbGVzLCBidXQgeW91IGdvdCB0aGUg
+bG9naWMgd3JvbmcuDQoNCj4gKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvemQxMjExcncvemRf
+bWFjLmMNCj4gQEAgLTIzNSw3ICsyMzUsNyBAQCB2b2lkIHpkX21hY19jbGVhcihzdHJ1Y3QgemRf
+bWFjICptYWMpICB7DQo+ICAJZmx1c2hfd29ya3F1ZXVlKHpkX3dvcmtxdWV1ZSk7DQo+ICAJemRf
+Y2hpcF9jbGVhcigmbWFjLT5jaGlwKTsNCj4gLQlaRF9BU1NFUlQoIXNwaW5faXNfbG9ja2VkKCZt
+YWMtPmxvY2spKTsNCj4gKwlsb2NrZGVwX2Fzc2VydF9oZWxkKCZtYWMtPmxvY2spOw0KPiAgCVpE
+X01FTUNMRUFSKG1hYywgc2l6ZW9mKHN0cnVjdCB6ZF9tYWMpKTsgIH0NCg0KPkxvb2sgY2xvc2Vs
+eSBhdCB0aGlzIGFnYWluLg0KDQpJIGRpZG4ndCB1bmRlcnN0YW5kIHdoZXJlIEkgIHB1dCB3cm9u
+ZyBsb2dpYyAgPw0KDQpSZWdhcmRzDQpTYW5qZWV2IFNoYXJtYQ0KDQo=
