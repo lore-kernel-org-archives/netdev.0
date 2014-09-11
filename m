@@ -1,406 +1,344 @@
 From: Andy Zhou <azhou@nicira.com>
-Subject: [net-next v5 1/3] udp-tunnel: Expand UDP tunnel APIs
-Date: Wed, 10 Sep 2014 20:29:51 -0700
-Message-ID: <1410406193-6185-2-git-send-email-azhou@nicira.com>
+Subject: [net-next v5 3/3] l2tp: Refactor l2tp core driver to make use of the common UDP tunnel functions
+Date: Wed, 10 Sep 2014 20:29:53 -0700
+Message-ID: <1410406193-6185-4-git-send-email-azhou@nicira.com>
 References: <1410406193-6185-1-git-send-email-azhou@nicira.com>
 Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:46679 "HELO
+Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:42618 "HELO
 	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750967AbaIKDfc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 23:35:32 -0400
-Received: by mail-pd0-f174.google.com with SMTP id v10so12382131pde.5
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 20:35:31 -0700 (PDT)
+	by vger.kernel.org with SMTP id S1751536AbaIKDff (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 23:35:35 -0400
+Received: by mail-pa0-f47.google.com with SMTP id ey11so10677535pad.20
+        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 20:35:35 -0700 (PDT)
 In-Reply-To: <1410406193-6185-1-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added common udp tunnel socket creation, and packet transmission APIs
-API that can be used by other UDP based tunneling protocol
-implementation.
-
 Signed-off-by: Andy Zhou <azhou@nicira.com>
 ---
- include/net/udp_tunnel.h  |   73 +++++++++++++++++++++++++++
- net/ipv4/Kconfig          |    1 +
- net/ipv4/udp_tunnel.c     |  108 ++++++++++++++++++++++++++--------------
- net/ipv6/Makefile         |    1 +
- net/ipv6/ip6_udp_tunnel.c |  121 +++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 268 insertions(+), 36 deletions(-)
- create mode 100644 net/ipv6/ip6_udp_tunnel.c
+ net/l2tp/l2tp_core.c |  208 +++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 128 insertions(+), 80 deletions(-)
 
-diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
-index ffd69cb..e9dcf83 100644
---- a/include/net/udp_tunnel.h
-+++ b/include/net/udp_tunnel.h
-@@ -1,6 +1,14 @@
- #ifndef __NET_UDP_TUNNEL_H
- #define __NET_UDP_TUNNEL_H
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 2aa2b6c..1f2bb8e 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -113,6 +113,11 @@ struct l2tp_net {
+ 	spinlock_t l2tp_session_hlist_lock;
+ };
  
-+#include <net/ip_tunnels.h>
-+#include <net/udp.h>
++struct l2tp_udp_tunnel {
++	struct udp_tunnel_sock uts;
++	struct l2tp_tunnel tunnel;
++};
 +
-+#if IS_ENABLED(CONFIG_IPV6)
-+#include <net/ipv6.h>
-+#include <net/addrconf.h>
-+#endif
-+
- struct udp_port_cfg {
- 	u8			family;
+ static void l2tp_tunnel_free(struct l2tp_tunnel *tunnel);
  
-@@ -29,4 +37,69 @@ struct udp_port_cfg {
- int udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
- 		    struct socket **sockp);
+ static inline struct l2tp_tunnel *l2tp_tunnel(struct sock *sk)
+@@ -1198,7 +1203,6 @@ static void l2tp_tunnel_destruct(struct sock *sk)
  
-+#if IS_ENABLED(CONFIG_IPV6)
-+int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
-+		     struct socket **sockp);
-+#else
-+static inline int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
-+				   struct socket **sockp)
+ 	l2tp_info(tunnel, L2TP_MSG_CONTROL, "%s: closing...\n", tunnel->name);
+ 
+-
+ 	/* Disable udp encapsulation */
+ 	switch (tunnel->encap) {
+ 	case L2TP_ENCAPTYPE_UDP:
+@@ -1298,6 +1302,18 @@ static void l2tp_udp_encap_destroy(struct sock *sk)
+ 	}
+ }
+ 
++static void free_l2tp_udp_sock_rcu(struct rcu_head *rcu)
 +{
++	struct l2tp_tunnel *tunnel;
++	struct l2tp_udp_tunnel *udp_tunnel;
++
++	tunnel = container_of(rcu, struct l2tp_tunnel, rcu);
++
++	udp_tunnel = container_of(tunnel, struct l2tp_udp_tunnel, tunnel);
++
++	udp_tunnel_sock_free(&udp_tunnel->uts);
++}
++
+ /* Really kill the tunnel.
+  * Come here only when all sessions have been cleared from the tunnel.
+  */
+@@ -1306,7 +1322,19 @@ static void l2tp_tunnel_free(struct l2tp_tunnel *tunnel)
+ 	BUG_ON(atomic_read(&tunnel->ref_count) != 0);
+ 	BUG_ON(tunnel->sock != NULL);
+ 	l2tp_info(tunnel, L2TP_MSG_CONTROL, "%s: free...\n", tunnel->name);
+-	kfree_rcu(tunnel, rcu);
++
++	switch (tunnel->encap) {
++	case L2TP_ENCAPTYPE_UDP:
++		call_rcu(&tunnel->rcu, free_l2tp_udp_sock_rcu);
++		break;
++
++	case L2TP_ENCAPTYPE_IP:
++		kfree_rcu(tunnel, rcu);
++		break;
++
++	default:
++		BUG();
++	}
+ }
+ 
+ /* Workqueue tunnel deletion function */
+@@ -1342,6 +1370,35 @@ static void l2tp_tunnel_del_work(struct work_struct *work)
+ 	l2tp_tunnel_sock_put(sk);
+ }
+ 
++static void l2tp_tunnel_udp_port_conf(struct l2tp_tunnel_cfg *cfg,
++				      struct udp_port_cfg *udp_conf)
++{
++	memset(udp_conf, 0, sizeof(*udp_conf));
++
++#if IS_ENABLED(CONFIG_IPV6)
++	if (cfg->local_ip6 && cfg->peer_ip6) {
++		udp_conf->family = AF_INET6;
++		memcpy(&udp_conf->local_ip6, cfg->local_ip6,
++		       sizeof(udp_conf->local_ip6));
++		memcpy(&udp_conf->peer_ip6, cfg->peer_ip6,
++		       sizeof(udp_conf->peer_ip6));
++		udp_conf->use_udp6_tx_checksums =
++			cfg->udp6_zero_tx_checksums;
++		udp_conf->use_udp6_rx_checksums =
++			cfg->udp6_zero_rx_checksums;
++	} else
++#endif
++	{
++		udp_conf->family = AF_INET;
++		udp_conf->local_ip = cfg->local_ip;
++		udp_conf->peer_ip = cfg->peer_ip;
++		udp_conf->use_udp_checksums = cfg->use_udp_checksums;
++	}
++
++	udp_conf->local_udp_port = htons(cfg->local_udp_port);
++	udp_conf->peer_udp_port = htons(cfg->peer_udp_port);
++}
++
+ /* Create a socket for the tunnel, if one isn't set up by
+  * userspace. This is used for static tunnels where there is no
+  * managing L2TP daemon.
+@@ -1363,31 +1420,7 @@ static int l2tp_tunnel_sock_create(struct net *net,
+ 
+ 	switch (cfg->encap) {
+ 	case L2TP_ENCAPTYPE_UDP:
+-		memset(&udp_conf, 0, sizeof(udp_conf));
+-
+-#if IS_ENABLED(CONFIG_IPV6)
+-		if (cfg->local_ip6 && cfg->peer_ip6) {
+-			udp_conf.family = AF_INET6;
+-			memcpy(&udp_conf.local_ip6, cfg->local_ip6,
+-			       sizeof(udp_conf.local_ip6));
+-			memcpy(&udp_conf.peer_ip6, cfg->peer_ip6,
+-			       sizeof(udp_conf.peer_ip6));
+-			udp_conf.use_udp6_tx_checksums =
+-			    cfg->udp6_zero_tx_checksums;
+-			udp_conf.use_udp6_rx_checksums =
+-			    cfg->udp6_zero_rx_checksums;
+-		} else
+-#endif
+-		{
+-			udp_conf.family = AF_INET;
+-			udp_conf.local_ip = cfg->local_ip;
+-			udp_conf.peer_ip = cfg->peer_ip;
+-			udp_conf.use_udp_checksums = cfg->use_udp_checksums;
+-		}
+-
+-		udp_conf.local_udp_port = htons(cfg->local_udp_port);
+-		udp_conf.peer_udp_port = htons(cfg->peer_udp_port);
+-
++		l2tp_tunnel_udp_port_conf(cfg, &udp_conf);
+ 		err = udp_sock_create(net, &udp_conf, &sock);
+ 		if (err < 0)
+ 			goto out;
+@@ -1473,6 +1506,31 @@ out:
+ 
+ static struct lock_class_key l2tp_socket_class;
+ 
++static int l2tp_sk_sanity_check(struct sock *sk, enum l2tp_encap_type encap,
++				u32 tunnel_id, int fd)
++{
++	unsigned int expected_protocol;
++
++	switch (encap) {
++	case L2TP_ENCAPTYPE_UDP:
++		expected_protocol = IPPROTO_UDP;
++		break;
++	case L2TP_ENCAPTYPE_IP:
++		expected_protocol = IPPROTO_L2TP;
++		break;
++	default:
++		return -EPROTONOSUPPORT;
++	}
++
++	if (sk->sk_protocol != expected_protocol) {
++		pr_err("tunl %hu: fd %d wrong protocol, got %d, expected %d\n",
++		       tunnel_id, fd, sk->sk_protocol, expected_protocol);
++		return -EPROTONOSUPPORT;
++	}
++
 +	return 0;
 +}
-+#endif
 +
-+struct udp_tunnel_sock;
-+
-+typedef int (*udp_tunnel_encap_rcv_t)(struct sock *sk, struct sk_buff *skb);
-+typedef void (*udp_tunnel_encap_destroy_t)(struct sock *sk);
-+
-+struct udp_tunnel_sock_cfg {
-+	struct socket *sock;	/* The socket UDP tunnel will attach to */
-+	/* Used for setting up udp_sock fields, see udp.h for details */
-+	__u8  encap_type;
-+	udp_tunnel_encap_rcv_t encap_rcv;
-+	udp_tunnel_encap_destroy_t encap_destroy;
-+};
-+
-+struct udp_tunnel_sock {
-+	struct socket *sock;
-+};
-+
-+struct udp_tunnel_sock *create_udp_tunnel_sock(struct net *net, size_t size,
-+					       struct udp_tunnel_sock_cfg
-+							*sock_cfg);
-+
-+int udp_tunnel_xmit_skb(struct udp_tunnel_sock *uts, struct rtable *rt,
-+			struct sk_buff *skb, __be32 src, __be32 dst,
-+			__u8 tos, __u8 ttl, __be16 df, __be16 src_port,
-+			__be16 dst_port, bool xnet);
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+int udp_tunnel6_xmit_skb(struct udp_tunnel_sock *uts, struct dst_entry *dst,
-+			 struct sk_buff *skb, struct net_device *dev,
-+			 struct in6_addr *saddr, struct in6_addr *daddr,
-+			 __u8 prio, __u8 ttl, __be16 src_port,
-+			 __be16 dst_port);
-+#endif
-+
-+void udp_tunnel_sock_release(struct udp_tunnel_sock *uts);
-+void udp_tunnel_sock_free(struct udp_tunnel_sock *uts);
-+
-+static inline struct sk_buff *udp_tunnel_handle_offloads(struct sk_buff *skb,
-+							 bool udp_csum)
-+{
-+	int type = udp_csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
-+
-+	return iptunnel_handle_offloads(skb, udp_csum, type);
-+}
-+
-+static inline void udp_tunnel_encap_enable(struct socket *sock)
-+{
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (sock->sk->sk_family == PF_INET6)
-+		ipv6_stub->udpv6_encap_enable();
-+	else
-+#endif
-+		udp_encap_enable();
-+}
- #endif
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index dbc10d8..cccb95f 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -308,6 +308,7 @@ config NET_IPVTI
- 	  on top.
- 
- config NET_UDP_TUNNEL
-+	depends on (IPV6 || IPV6=n)
- 	tristate
- 	default n
- 
-diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
-index 61ec1a6..d60c1a0 100644
---- a/net/ipv4/udp_tunnel.c
-+++ b/net/ipv4/udp_tunnel.c
-@@ -14,42 +14,9 @@ int udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
- 	int err = -EINVAL;
+ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg, struct l2tp_tunnel **tunnelp)
+ {
+ 	struct l2tp_tunnel *tunnel = NULL;
+@@ -1480,7 +1538,7 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
  	struct socket *sock = NULL;
+ 	struct sock *sk = NULL;
+ 	struct l2tp_net *pn;
+-	enum l2tp_encap_type encap = L2TP_ENCAPTYPE_UDP;
++	enum l2tp_encap_type encap = cfg ? cfg->encap : L2TP_ENCAPTYPE_UDP;
  
--#if IS_ENABLED(CONFIG_IPV6)
- 	if (cfg->family == AF_INET6) {
--		struct sockaddr_in6 udp6_addr;
--
--		err = sock_create_kern(AF_INET6, SOCK_DGRAM, 0, &sock);
--		if (err < 0)
--			goto error;
--
--		sk_change_net(sock->sk, net);
--
--		udp6_addr.sin6_family = AF_INET6;
--		memcpy(&udp6_addr.sin6_addr, &cfg->local_ip6,
--		       sizeof(udp6_addr.sin6_addr));
--		udp6_addr.sin6_port = cfg->local_udp_port;
--		err = kernel_bind(sock, (struct sockaddr *)&udp6_addr,
--				  sizeof(udp6_addr));
--		if (err < 0)
--			goto error;
--
--		if (cfg->peer_udp_port) {
--			udp6_addr.sin6_family = AF_INET6;
--			memcpy(&udp6_addr.sin6_addr, &cfg->peer_ip6,
--			       sizeof(udp6_addr.sin6_addr));
--			udp6_addr.sin6_port = cfg->peer_udp_port;
--			err = kernel_connect(sock,
--					     (struct sockaddr *)&udp6_addr,
--					     sizeof(udp6_addr), 0);
--		}
--		if (err < 0)
--			goto error;
--
--		udp_set_no_check6_tx(sock->sk, !cfg->use_udp6_tx_checksums);
--		udp_set_no_check6_rx(sock->sk, !cfg->use_udp6_rx_checksums);
--	} else
--#endif
--	if (cfg->family == AF_INET) {
-+		return udp_sock_create6(net, cfg, sockp);
-+	} else if (cfg->family == AF_INET) {
- 		struct sockaddr_in udp_addr;
+ 	/* Get the tunnel socket from the fd, which was opened by
+ 	 * the userspace L2TP daemon. If not specified, create a
+@@ -1488,9 +1546,11 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
+ 	 */
+ 	if (fd < 0) {
+ 		err = l2tp_tunnel_sock_create(net, tunnel_id, peer_tunnel_id,
+-				cfg, &sock);
++					      cfg, &sock);
+ 		if (err < 0)
+ 			goto err;
++
++		sk = sock->sk;
+ 	} else {
+ 		sock = sockfd_lookup(fd, &err);
+ 		if (!sock) {
+@@ -1500,58 +1560,66 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
+ 			goto err;
+ 		}
  
- 		err = sock_create_kern(AF_INET, SOCK_DGRAM, 0, &sock);
-@@ -82,7 +49,6 @@ int udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
- 		return -EPFNOSUPPORT;
++		sk = sock->sk;
++
+ 		/* Reject namespace mismatches */
+-		if (!net_eq(sock_net(sock->sk), net)) {
++		if (!net_eq(sock_net(sk), net)) {
+ 			pr_err("tunl %u: netns mismatch\n", tunnel_id);
+ 			err = -EINVAL;
+ 			goto err;
+ 		}
+-	}
+ 
+-	sk = sock->sk;
++		/* Quick sanity checks */
++		err = l2tp_sk_sanity_check(sk, encap, tunnel_id, fd);
++		if (err)
++			goto err;
+ 
+-	if (cfg != NULL)
+-		encap = cfg->encap;
++		/* Check if this socket has already been prepped */
++		tunnel = l2tp_tunnel(sk);
++		if (tunnel != NULL) {
++			/* This socket has already been prepped */
++			err = -EBUSY;
++			goto err;
++		}
++	}
+ 
+-	/* Quick sanity checks */
+ 	switch (encap) {
+-	case L2TP_ENCAPTYPE_UDP:
+-		err = -EPROTONOSUPPORT;
+-		if (sk->sk_protocol != IPPROTO_UDP) {
+-			pr_err("tunl %hu: fd %d wrong protocol, got %d, expected %d\n",
+-			       tunnel_id, fd, sk->sk_protocol, IPPROTO_UDP);
++	case L2TP_ENCAPTYPE_UDP: {
++		struct udp_tunnel_sock_cfg udp_cfg;
++		struct l2tp_udp_tunnel *udp_tunnel;
++		struct udp_tunnel_sock *uts;
++
++		udp_cfg.sock = sock;
++		udp_cfg.encap_type = UDP_ENCAP_L2TPINUDP;
++		udp_cfg.encap_rcv = l2tp_udp_encap_recv;
++		udp_cfg.encap_destroy = l2tp_udp_encap_destroy;
++
++		uts = create_udp_tunnel_sock(net, sizeof(*udp_tunnel),
++					     &udp_cfg);
++		if (!uts) {
++			err = -ENOMEM;
+ 			goto err;
+ 		}
++
++		udp_tunnel = container_of(uts, struct l2tp_udp_tunnel, uts);
++		tunnel = &udp_tunnel->tunnel;
+ 		break;
++	}
+ 	case L2TP_ENCAPTYPE_IP:
+-		err = -EPROTONOSUPPORT;
+-		if (sk->sk_protocol != IPPROTO_L2TP) {
+-			pr_err("tunl %hu: fd %d wrong protocol, got %d, expected %d\n",
+-			       tunnel_id, fd, sk->sk_protocol, IPPROTO_L2TP);
++		tunnel = kzalloc(sizeof(*tunnel), GFP_KERNEL);
++		if (tunnel == NULL) {
++			err = -ENOMEM;
+ 			goto err;
+ 		}
+-		break;
  	}
  
+-	/* Check if this socket has already been prepped */
+-	tunnel = l2tp_tunnel(sk);
+-	if (tunnel != NULL) {
+-		/* This socket has already been prepped */
+-		err = -EBUSY;
+-		goto err;
+-	}
 -
- 	*sockp = sock;
+-	tunnel = kzalloc(sizeof(struct l2tp_tunnel), GFP_KERNEL);
+-	if (tunnel == NULL) {
+-		err = -ENOMEM;
+-		goto err;
+-	}
++	rcu_assign_sk_user_data(sk, tunnel);
  
- 	return 0;
-@@ -97,4 +63,74 @@ error:
- }
- EXPORT_SYMBOL(udp_sock_create);
++	tunnel->encap = encap;
+ 	tunnel->version = version;
+ 	tunnel->tunnel_id = tunnel_id;
+ 	tunnel->peer_tunnel_id = peer_tunnel_id;
+-	tunnel->debug = L2TP_DEFAULT_DEBUG_FLAGS;
+-
++	tunnel->debug = cfg ? cfg->debug : L2TP_DEFAULT_DEBUG_FLAGS;
+ 	tunnel->magic = L2TP_TUNNEL_MAGIC;
+ 	sprintf(&tunnel->name[0], "tunl %u", tunnel_id);
+ 	rwlock_init(&tunnel->hlist_lock);
+@@ -1560,9 +1628,6 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
+ 	tunnel->l2tp_net = net;
+ 	pn = l2tp_pernet(net);
  
-+struct udp_tunnel_sock *
-+create_udp_tunnel_sock(struct net *net, size_t size,
-+		       struct udp_tunnel_sock_cfg *cfg)
-+{
-+	struct udp_tunnel_sock *uts;
-+	struct sock *sk;
-+	struct socket *sock = cfg->sock;
-+
-+	uts = kzalloc(size, GFP_KERNEL);
-+	if (!uts)
-+		return ERR_PTR(-ENOMEM);
-+
-+	sk = sock->sk;
-+
-+	/* Disable multicast loopback */
-+	inet_sk(sk)->mc_loop = 0;
-+
-+	rcu_assign_sk_user_data(sk, uts);
-+
-+	udp_sk(sk)->encap_type = cfg->encap_type;
-+	udp_sk(sk)->encap_rcv = cfg->encap_rcv;
-+	udp_sk(sk)->encap_destroy = cfg->encap_destroy;
-+
-+	uts->sock = sock;
-+
-+	udp_tunnel_encap_enable(sock);
-+
-+	return uts;
-+}
-+EXPORT_SYMBOL_GPL(create_udp_tunnel_sock);
-+
-+int udp_tunnel_xmit_skb(struct udp_tunnel_sock *uts, struct rtable *rt,
-+			struct sk_buff *skb, __be32 src, __be32 dst,
-+			__u8 tos, __u8 ttl, __be16 df, __be16 src_port,
-+			__be16 dst_port, bool xnet)
-+{
-+	struct udphdr *uh;
-+	struct socket *sock = uts->sock;
-+
-+	__skb_push(skb, sizeof(*uh));
-+	skb_reset_transport_header(skb);
-+	uh = udp_hdr(skb);
-+
-+	uh->dest = dst_port;
-+	uh->source = src_port;
-+	uh->len = htons(skb->len);
-+
-+	udp_set_csum(sock->sk->sk_no_check_tx, skb, src, dst, skb->len);
-+
-+	return iptunnel_xmit(sock->sk, rt, skb, src, dst, IPPROTO_UDP,
-+			     tos, ttl, df, xnet);
-+}
-+EXPORT_SYMBOL_GPL(udp_tunnel_xmit_skb);
-+
-+void udp_tunnel_sock_release(struct udp_tunnel_sock *uts)
-+{
-+	struct sock *sk = uts->sock->sk;
-+
-+	rcu_assign_sk_user_data(uts->sock->sk, NULL);
-+	kernel_sock_shutdown(uts->sock, SHUT_RDWR);
-+	sk_release_kernel(sk);
-+}
-+EXPORT_SYMBOL_GPL(udp_tunnel_sock_release);
-+
-+void udp_tunnel_sock_free(struct udp_tunnel_sock *uts)
-+{
-+	kfree(uts);
-+}
-+EXPORT_SYMBOL_GPL(udp_tunnel_sock_free);
-+
- MODULE_LICENSE("GPL");
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 2fe6836..45f830e 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -35,6 +35,7 @@ obj-$(CONFIG_INET6_XFRM_MODE_ROUTEOPTIMIZATION) += xfrm6_mode_ro.o
- obj-$(CONFIG_INET6_XFRM_MODE_BEET) += xfrm6_mode_beet.o
- obj-$(CONFIG_IPV6_MIP6) += mip6.o
- obj-$(CONFIG_NETFILTER)	+= netfilter/
-+obj-$(CONFIG_NET_UDP_TUNNEL) += ip6_udp_tunnel.o
+-	if (cfg != NULL)
+-		tunnel->debug = cfg->debug;
+-
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	if (sk->sk_family == PF_INET6) {
+ 		struct ipv6_pinfo *np = inet6_sk(sk);
+@@ -1581,23 +1646,6 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
+ 	}
+ #endif
  
- obj-$(CONFIG_IPV6_VTI) += ip6_vti.o
- obj-$(CONFIG_IPV6_SIT) += sit.o
-diff --git a/net/ipv6/ip6_udp_tunnel.c b/net/ipv6/ip6_udp_tunnel.c
-new file mode 100644
-index 0000000..5109f46
---- /dev/null
-+++ b/net/ipv6/ip6_udp_tunnel.c
-@@ -0,0 +1,121 @@
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/socket.h>
-+#include <linux/udp.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/in6.h>
-+#include <net/udp.h>
-+#include <net/udp_tunnel.h>
-+#include <net/net_namespace.h>
-+#include <net/netns/generic.h>
-+#include <net/ip6_tunnel.h>
-+#include <net/ip6_checksum.h>
-+
-+int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
-+		     struct socket **sockp)
-+{
-+	struct sockaddr_in6 udp6_addr;
-+	int err = -EINVAL;
-+	struct socket *sock = NULL;
-+
-+	err = sock_create_kern(AF_INET6, SOCK_DGRAM, 0, &sock);
-+	if (err < 0)
-+		goto error;
-+
-+	sk_change_net(sock->sk, net);
-+
-+	udp6_addr.sin6_family = AF_INET6;
-+	memcpy(&udp6_addr.sin6_addr, &cfg->local_ip6,
-+	       sizeof(udp6_addr.sin6_addr));
-+	udp6_addr.sin6_port = cfg->local_udp_port;
-+	err = kernel_bind(sock, (struct sockaddr *)&udp6_addr,
-+			  sizeof(udp6_addr));
-+	if (err < 0)
-+		goto error;
-+
-+	if (cfg->peer_udp_port) {
-+		udp6_addr.sin6_family = AF_INET6;
-+		memcpy(&udp6_addr.sin6_addr, &cfg->peer_ip6,
-+		       sizeof(udp6_addr.sin6_addr));
-+		udp6_addr.sin6_port = cfg->peer_udp_port;
-+		err = kernel_connect(sock,
-+				     (struct sockaddr *)&udp6_addr,
-+				     sizeof(udp6_addr), 0);
-+	}
-+	if (err < 0)
-+		goto error;
-+
-+	udp_set_no_check6_tx(sock->sk, !cfg->use_udp6_tx_checksums);
-+	udp_set_no_check6_rx(sock->sk, !cfg->use_udp6_rx_checksums);
-+
-+	*sockp = sock;
-+	return 0;
-+
-+error:
-+	if (sock) {
-+		kernel_sock_shutdown(sock, SHUT_RDWR);
-+		sk_release_kernel(sock->sk);
-+	}
-+	*sockp = NULL;
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(udp_sock_create6);
-+
-+int udp_tunnel6_xmit_skb(struct udp_tunnel_sock *uts, struct dst_entry *dst,
-+			 struct sk_buff *skb, struct net_device *dev,
-+			 struct in6_addr *saddr, struct in6_addr *daddr,
-+			 __u8 prio, __u8 ttl, __be16 src_port, __be16 dst_port)
-+{
-+	struct udphdr *uh;
-+	struct ipv6hdr *ip6h;
-+
-+	__skb_push(skb, sizeof(*uh));
-+	skb_reset_transport_header(skb);
-+	uh = udp_hdr(skb);
-+
-+	uh->dest = dst_port;
-+	uh->source = src_port;
-+
-+	uh->len = htons(skb->len);
-+	uh->check = 0;
-+
-+	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-+	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED
-+			    | IPSKB_REROUTED);
-+	skb_dst_set(skb, dst);
-+
-+	if (!skb_is_gso(skb) && !(dst->dev->features & NETIF_F_IPV6_CSUM)) {
-+		__wsum csum = skb_checksum(skb, 0, skb->len, 0);
-+
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		uh->check = csum_ipv6_magic(saddr, daddr, skb->len,
-+				IPPROTO_UDP, csum);
-+		if (uh->check == 0)
-+			uh->check = CSUM_MANGLED_0;
-+	} else {
-+		skb->ip_summed = CHECKSUM_PARTIAL;
-+		skb->csum_start = skb_transport_header(skb) - skb->head;
-+		skb->csum_offset = offsetof(struct udphdr, check);
-+		uh->check = ~csum_ipv6_magic(saddr, daddr,
-+				skb->len, IPPROTO_UDP, 0);
-+	}
-+
-+	__skb_push(skb, sizeof(*ip6h));
-+	skb_reset_network_header(skb);
-+	ip6h		  = ipv6_hdr(skb);
-+	ip6h->version	  = 6;
-+	ip6h->priority	  = prio;
-+	ip6h->flow_lbl[0] = 0;
-+	ip6h->flow_lbl[1] = 0;
-+	ip6h->flow_lbl[2] = 0;
-+	ip6h->payload_len = htons(skb->len);
-+	ip6h->nexthdr     = IPPROTO_UDP;
-+	ip6h->hop_limit   = ttl;
-+	ip6h->daddr	  = *daddr;
-+	ip6h->saddr	  = *saddr;
-+
-+	ip6tunnel_xmit(skb, dev);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(udp_tunnel6_xmit_skb);
+-	/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
+-	tunnel->encap = encap;
+-	if (encap == L2TP_ENCAPTYPE_UDP) {
+-		/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
+-		udp_sk(sk)->encap_type = UDP_ENCAP_L2TPINUDP;
+-		udp_sk(sk)->encap_rcv = l2tp_udp_encap_recv;
+-		udp_sk(sk)->encap_destroy = l2tp_udp_encap_destroy;
+-#if IS_ENABLED(CONFIG_IPV6)
+-		if (sk->sk_family == PF_INET6 && !tunnel->v4mapped)
+-			udpv6_encap_enable();
+-		else
+-#endif
+-		udp_encap_enable();
+-	}
+-
+-	sk->sk_user_data = tunnel;
+-
+ 	/* Hook on the tunnel socket destructor so that we can cleanup
+ 	 * if the tunnel socket goes away.
+ 	 */
 -- 
 1.7.9.5
