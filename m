@@ -1,148 +1,87 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 2/7] bonding: alb: remove curr_slave_lock
-Date: Thu, 11 Sep 2014 13:38:38 +0200
-Message-ID: <1410435523-7520-3-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next 4/7] bonding: convert curr_slave_lock to a spinlock and rename it
+Date: Thu, 11 Sep 2014 13:38:40 +0200
+Message-ID: <1410435523-7520-5-git-send-email-nikolay@redhat.com>
 References: <1410435523-7520-1-git-send-email-nikolay@redhat.com>
 Cc: vfalico@gmail.com, j.vosburgh@gmail.com, andy@greyhouse.net,
 	davem@davemloft.net, Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51243 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40677 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754390AbaIKLi6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Sep 2014 07:38:58 -0400
+	id S1754316AbaIKLjB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Sep 2014 07:39:01 -0400
 In-Reply-To: <1410435523-7520-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-First in rlb_teach_disabled_mac_on_primary() it's okay to remove
-curr_slave_lock as all callers except bond_alb_monitor() already hold
-RTNL, and in case bond_alb_monitor() is executing we can at most have a
-period with bad throughput (very unlikely though).
-In bond_alb_monitor() it's okay to remove the read_lock as the slave
-list is walked with RCU and the worst that could happen is another
-transmitter at the same time and thus for a period which currently is 10
-seconds (bond_alb.h: BOND_ALB_LP_TICKS).
-And bond_alb_handle_active_change() is okay because it's always called
-with RTNL. Removed the ASSERT_RTNL() because it'll be inserted in the
-parent function in a following patch.
+curr_slave_lock is now a misleading name, a much better name is
+mode_lock as it'll be used for each mode's purposes and it's no longer
+necessary to use a rwlock, a simple spinlock is enough.
 
+Suggested-by: Jay Vosburgh <jay.vosburgh@canonical.com>
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_alb.c | 39 +++------------------------------------
- 1 file changed, 3 insertions(+), 36 deletions(-)
+ drivers/net/bonding/bond_3ad.c  | 4 ++--
+ drivers/net/bonding/bond_main.c | 7 +++----
+ drivers/net/bonding/bonding.h   | 2 +-
+ 3 files changed, 6 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 028496205f39..cf4ede8594ff 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -447,7 +447,7 @@ static struct slave *__rlb_next_rx_slave(struct bonding *bond)
- /* teach the switch the mac of a disabled slave
-  * on the primary for fault tolerance
-  *
-- * Caller must hold bond->curr_slave_lock for write or bond lock for write
-+ * Caller must hold RTNL
-  */
- static void rlb_teach_disabled_mac_on_primary(struct bonding *bond, u8 addr[])
- {
-@@ -512,12 +512,8 @@ static void rlb_clear_slave(struct bonding *bond, struct slave *slave)
- 
- 	_unlock_rx_hashtbl_bh(bond);
- 
--	write_lock_bh(&bond->curr_slave_lock);
--
- 	if (slave != bond_deref_active_protected(bond))
- 		rlb_teach_disabled_mac_on_primary(bond, slave->dev->dev_addr);
--
--	write_unlock_bh(&bond->curr_slave_lock);
- }
- 
- static void rlb_update_client(struct rlb_client_info *client_info)
-@@ -1595,13 +1591,6 @@ void bond_alb_monitor(struct work_struct *work)
- 	if (bond_info->lp_counter >= BOND_ALB_LP_TICKS(bond)) {
- 		bool strict_match;
- 
--		/* change of curr_active_slave involves swapping of mac addresses.
--		 * in order to avoid this swapping from happening while
--		 * sending the learning packets, the curr_slave_lock must be held for
--		 * read.
--		 */
--		read_lock(&bond->curr_slave_lock);
--
- 		bond_for_each_slave_rcu(bond, slave, iter) {
- 			/* If updating current_active, use all currently
- 			 * user mac addreses (!strict_match).  Otherwise, only
-@@ -1613,17 +1602,11 @@ void bond_alb_monitor(struct work_struct *work)
- 			alb_send_learning_packets(slave, slave->dev->dev_addr,
- 						  strict_match);
- 		}
--
--		read_unlock(&bond->curr_slave_lock);
--
- 		bond_info->lp_counter = 0;
- 	}
- 
- 	/* rebalance tx traffic */
- 	if (bond_info->tx_rebalance_counter >= BOND_TLB_REBALANCE_TICKS) {
--
--		read_lock(&bond->curr_slave_lock);
--
- 		bond_for_each_slave_rcu(bond, slave, iter) {
- 			tlb_clear_slave(bond, slave, 1);
- 			if (slave == rcu_access_pointer(bond->curr_active_slave)) {
-@@ -1633,9 +1616,6 @@ void bond_alb_monitor(struct work_struct *work)
- 				bond_info->unbalanced_load = 0;
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 6512c1cee666..1b19f35689a4 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2077,10 +2077,10 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 				goto re_arm;
  			}
+ 
+-			read_lock(&bond->curr_slave_lock);
++			spin_lock_bh(&bond->mode_lock);
+ 			aggregator = __get_first_agg(port);
+ 			ad_agg_selection_logic(aggregator);
+-			read_unlock(&bond->curr_slave_lock);
++			spin_unlock_bh(&bond->mode_lock);
  		}
--
--		read_unlock(&bond->curr_slave_lock);
--
- 		bond_info->tx_rebalance_counter = 0;
+ 		bond_3ad_set_carrier(bond);
+ 	}
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 3b06685260b8..99d21c2fd44f 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1679,9 +1679,9 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		/* Sync against bond_3ad_rx_indication and
+ 		 * bond_3ad_state_machine_handler
+ 		 */
+-		write_lock_bh(&bond->curr_slave_lock);
++		spin_lock_bh(&bond->mode_lock);
+ 		bond_3ad_unbind_slave(slave);
+-		write_unlock_bh(&bond->curr_slave_lock);
++		spin_unlock_bh(&bond->mode_lock);
  	}
  
-@@ -1775,21 +1755,14 @@ void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char
-  * Set the bond->curr_active_slave to @new_slave and handle
-  * mac address swapping and promiscuity changes as needed.
-  *
-- * If new_slave is NULL, caller must hold curr_slave_lock for write
-- *
-- * If new_slave is not NULL, caller must hold RTNL, curr_slave_lock
-- * for write.  Processing here may sleep, so no other locks may be held.
-+ * Caller must hold RTNL
-  */
- void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave)
--	__releases(&bond->curr_slave_lock)
--	__acquires(&bond->curr_slave_lock)
+ 	netdev_info(bond_dev, "Releasing %s interface %s\n",
+@@ -3850,8 +3850,7 @@ void bond_setup(struct net_device *bond_dev)
  {
- 	struct slave *swap_slave;
- 	struct slave *curr_active;
+ 	struct bonding *bond = netdev_priv(bond_dev);
  
--	curr_active = rcu_dereference_protected(bond->curr_active_slave,
--						!new_slave ||
--						lockdep_is_held(&bond->curr_slave_lock));
-+	curr_active = rtnl_dereference(bond->curr_active_slave);
- 	if (curr_active == new_slave)
- 		return;
+-	/* initialize rwlocks */
+-	rwlock_init(&bond->curr_slave_lock);
++	spin_lock_init(&bond->mode_lock);
+ 	bond->params = bonding_defaults;
  
-@@ -1820,10 +1793,6 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
- 		tlb_clear_slave(bond, swap_slave, 1);
- 	tlb_clear_slave(bond, new_slave, 1);
- 
--	write_unlock_bh(&bond->curr_slave_lock);
--
--	ASSERT_RTNL();
--
- 	/* in TLB mode, the slave might flip down/up with the old dev_addr,
- 	 * and thus filter bond->dev_addr's packets, so force bond's mac
- 	 */
-@@ -1852,8 +1821,6 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
- 		alb_send_learning_packets(new_slave, bond->dev->dev_addr,
- 					  false);
- 	}
--
--	write_lock_bh(&bond->curr_slave_lock);
- }
- 
- /* Called with RTNL */
+ 	/* Initialize pointers */
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 02afdeb08765..0cda34b827f8 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -195,7 +195,7 @@ struct bonding {
+ 	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
+ 	int     (*recv_probe)(const struct sk_buff *, struct bonding *,
+ 			      struct slave *);
+-	rwlock_t curr_slave_lock;
++	spinlock_t mode_lock;
+ 	u8	 send_peer_notif;
+ 	u8       igmp_retrans;
+ #ifdef CONFIG_PROC_FS
 -- 
 1.9.3
