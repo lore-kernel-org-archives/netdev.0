@@ -1,99 +1,55 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
-Date: Thu, 11 Sep 2014 15:21:46 -0400
-Message-ID: <20140911192146.GC22872@tuxdriver.com>
-References: <CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
- <1403091974.1984.102.camel@x220>
- <1409911856.7832.9.camel@x220>
- <CAHNKnsRipRHicKOUW4dCutD1-sUG6qPnP2QuOveH_t1MFX9XgQ@mail.gmail.com>
- <1409916824.7832.20.camel@x220>
- <CAHNKnsQ1gt=DRBTd9Q9yos1idqmXMepEPvhm8a7unP-whzNAgg@mail.gmail.com>
- <20140909182734.GJ29412@tuxdriver.com>
- <CAHNKnsQ8G3ZFHshq7wOqex1J6DbVD5uHVAyvs+aDC2Znk5zWww@mail.gmail.com>
- <541037D2.7060007@gmail.com>
- <CAHNKnsTtqz10c=vV-f10awLanYZzom3kJ1cO5xgTGs-t3O9NYg@mail.gmail.com>
+From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v11 net-next 00/12] eBPF syscall, verifier, testsuite
+Date: Thu, 11 Sep 2014 21:47:14 +0200
+Message-ID: <5411FC42.3070505@redhat.com>
+References: <1410325808-3657-1-git-send-email-ast@plumgrid.com> <541013CE.6020307@redhat.com> <CAMEtUuwrHX4ENK9cZ0C+XVB=wkMz1=wLphX_GVLvd8pyJKMXeQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Slaby <jirislaby@gmail.com>, Paul Bolle <pebolle@tiscali.nl>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Oleksij Rempel <linux@rempel-privat.de>,
-	Richard Weinberger <richard@nod.at>,
-	Jonathan Bither <jonbither@gmail.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	ath5k-devel@venema.h4ckr.net, open@hauke-m.de,
-	"list@hauke-m.de:NETWORKING DRIVERS" <list@hauke-m.de>,
-	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>,
-	OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: Sergey Ryazanov <ryazanov.s.a@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:58415 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755821AbaIKTaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 15:30:19 -0400
-Content-Disposition: inline
-In-Reply-To: <CAHNKnsTtqz10c=vV-f10awLanYZzom3kJ1cO5xgTGs-t3O9NYg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMEtUuwrHX4ENK9cZ0C+XVB=wkMz1=wLphX_GVLvd8pyJKMXeQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 10, 2014 at 04:19:21PM +0400, Sergey Ryazanov wrote:
-> 2014-09-10 15:36 GMT+04:00, Jiri Slaby <jirislaby@gmail.com>:
-> > On 09/10/2014, 12:33 PM, Sergey Ryazanov wrote:
-> >> 2014-09-09 22:27 GMT+04:00, John W. Linville <linville@tuxdriver.com>:
-> >>> On Fri, Sep 05, 2014 at 04:02:10PM +0400, Sergey Ryazanov wrote:
-> >>>> 2014-09-05 15:33 GMT+04:00 Paul Bolle <pebolle@tiscali.nl>:
-> >>>>> Hi Sergey,
-> >>>>>
-> >>>>> On Fri, 2014-09-05 at 15:12 +0400, Sergey Ryazanov wrote:
-> >>>>>> 2014-09-05 14:10 GMT+04:00, Paul Bolle <pebolle@tiscali.nl>:
-> >>>>>>> On Wed, 2014-06-18 at 13:46 +0200, Paul Bolle wrote:
-> >>>>>>>> Having this conversation every rc1 is getting a bit silly. Could
-> >>>>>>>> Jiri
-> >>>>>>>> e.a. perhaps set some specific deadline for ATHEROS_AR231X to be
-> >>>>>>>> submitted?
-> >>>>>>>
-> >>>>>>> I waited until rc3. Have you seen any activity on this front? If
-> >>>>>>> not,
-> >>>>>>> should I resend the patch that removes the code in mainline that
-> >>>>>>> depends
-> >>>>>>> on ATHEROS_AR231X (ie, AHB bus support)?
-> >>>>>>>
-> >>>>>> Recent activity always could be found in [1]. Now I finish another
-> >>>>>> one
-> >>>>>> round of cleanups and have a plan to fix several things (you can
-> >>>>>> always find something that you really want to improve). But if you
-> >>>>>> insist I could immediately switch to "send upstream" mode. And seems
-> >>>>>> that this would be better approach.
-> >>>>>>
-> >>>>>> 1. https://dev.openwrt.org/log/trunk/target/linux/atheros
-> >>>>>
-> >>>>> And where can the related PULL requests or patch submissions be found?
-> >>>>>
-> >>>> I have not sent patches yet, since I thought that it would be easier
-> >>>> to cleanup them in openwrt tree and then send them upstream.
-> >>>
-> >>> That excuse has worn a bit thin.  Perhaps Paul should repost his
-> >>> removal and you can add a revert to the start of your patch series?
-> >>>
-> >> As for me, I do not like such flapping
-> >
-> > Agreed in case what you have is in a good enough shape. You (and also
-> > others) can still clean up the code in upstream too. So, if it is
-> > mergeable, send it for upstream inclusion now, otherwise I am all for
-> > John to apply the Paul's patch.
-> 
-> Two days is the last deadline :)
-> 
-> > The unused code has been a way too long
-> > in the tree now.
-> 
-> Code actively used in owrt firmware and its forks.
+On 09/10/2014 07:32 PM, Alexei Starovoitov wrote:
+> On Wed, Sep 10, 2014 at 2:03 AM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+>>>              struct { /* anonymous struct used by BPF_PROG_LOAD command */
+>>>                  enum bpf_prog_type    prog_type;
+>>>                  __u32                 insn_cnt;
+>>>                  const struct bpf_insn *insns;
+>>>                  const char            *license;
+>>>                  __u32                 log_level; /* verbosity level of
+>>> eBPF verifier */
+>>>                  __u32                 log_size;  /* size of user buffer */
+>>>                  void                  *log_buf;  /* user supplied buffer
+>>> */
+>>
+>>
+>> What is log buffer? Would that mean the verifier will return an error
+>> string if the program will not pass it, or if not, what other data?
+>> I think the man page is missing how to examine the returned verifier
+>> log buffer data.
+>
+> yes. it's an error log (as text string for humans) from verifier.
 
-Is this code coming or not?  When can I expect to see it posted?
-
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+I was confused due to the void pointer. But that also means that the text
+string becomes part of the ABI; aren't eBPF specific error codes (perhaps
+a tuple of [line + error code]), though ugly as well, but perhaps the better
+solution to this [which user space can then map to an actual string]?
