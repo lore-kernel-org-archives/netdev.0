@@ -1,216 +1,197 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv6: implement rt_genid_bump_ipv6 with
- fn_sernum and remove rt6i_genid
-Date: Thu, 11 Sep 2014 14:05:46 +0200
-Message-ID: <1410437146.18873.2.camel@localhost>
-References: <1410267519.27979.31.camel@localhost>
-	 <130f98f49b1b90a30908bfda8f01109c91edfe1c.1410341451.git.hannes@stressinduktion.org>
-	 <20140910.130929.247064282043941043.davem@davemloft.net>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next] r8152: support VLAN
+Date: Thu, 11 Sep 2014 20:16:24 +0800
+Message-ID: <1394712342-15778-36-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	nicolas.dichtel@6wind.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:36513 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754302AbaIKMFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 08:05:50 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 4DFC520C01
-	for <netdev@vger.kernel.org>; Thu, 11 Sep 2014 08:05:49 -0400 (EDT)
-In-Reply-To: <20140910.130929.247064282043941043.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mi, 2014-09-10 at 13:09 -0700, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Wed, 10 Sep 2014 11:31:28 +0200
-> 
-> > In case we need to force the sockets to relookup the routes we now
-> > increase the fn_sernum on all fibnodes in the routing tree. This is a
-> > costly operation but should only happen if we have major routing/policy
-> > changes in the kernel (e.g. manual route adding/removal, xfrm policy
-> > changes).
-> 
-> Core routers can update thousands of route updates per second, and they
-> do this via what you refer to as "manual route adding/removal".
-> 
-> I don't think we want to put such a scalability problem into the tree.
-> 
-> There has to be a lightweight way to address this.
+Support hw VLAN for tx and rx. And enable them by default.
 
-An alternative approach without traversing the routing table, but each
-newly inserted route (even only cached ones) might bump all other routes
-out of the per-socket caches:
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 85 +++++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 71 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index 9bcb220..a7e45b9 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -119,8 +119,6 @@ struct rt6_info {
- 	struct inet6_dev		*rt6i_idev;
- 	unsigned long			_rt6i_peer;
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 2130c75..9b6c35c 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -506,6 +506,7 @@ struct rx_desc {
+ #define IPF				(1 << 23) /* IP checksum fail */
+ #define UDPF				(1 << 22) /* UDP checksum fail */
+ #define TCPF				(1 << 21) /* TCP checksum fail */
++#define RX_VLAN_TAG			(1 << 16)
  
--	u32				rt6i_genid;
--
- 	/* more non-fragment space at head required */
- 	unsigned short			rt6i_nfheader_len;
+ 	__le32 opts4;
+ 	__le32 opts5;
+@@ -531,6 +532,7 @@ struct tx_desc {
+ #define MSS_MAX			0x7ffU
+ #define TCPHO_SHIFT		17
+ #define TCPHO_MAX		0x7ffU
++#define TX_VLAN_TAG			(1 << 16)
+ };
  
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 361d260..428fdcb 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -358,18 +358,28 @@ static inline int rt_genid_ipv6(struct net *net)
- 	return atomic_read(&net->ipv6.rt_genid);
+ struct r8152;
+@@ -1423,6 +1425,25 @@ static int msdn_giant_send_check(struct sk_buff *skb)
+ 	return ret;
  }
  
--static inline void rt_genid_bump_ipv6(struct net *net)
-+static inline int rt_genid_bump_ipv6(struct net *net)
- {
--	atomic_inc(&net->ipv6.rt_genid);
-+	int new, old;
-+
-+	do {
-+		old = atomic_read(&net->ipv6.rt_genid);
-+		new = old + 1;
-+		if (new <= 0)
-+			new = 1;
-+	} while (atomic_cmpxchg(&net->ipv6.rt_genid, old, new) != old);
-+	return new;
-+
- }
- #else
- static inline int rt_genid_ipv6(struct net *net)
- {
--	return 0;
-+	return 1;
- }
- 
--static inline void rt_genid_bump_ipv6(struct net *net)
-+static inline int rt_genid_bump_ipv6(struct net *net)
- {
-+	return 1;
- }
- #endif
- 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 76b7f5e..4a2f130 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -84,7 +84,10 @@ static int fib6_walk_continue(struct fib6_walker_t *w);
-  *	result of redirects, path MTU changes, etc.
-  */
- 
--static __u32 rt_sernum;
-+static int fib6_new_sernum(struct net *net)
++static inline void rtl_tx_vlan_tag(struct tx_desc *desc, struct sk_buff *skb)
 +{
-+	return rt_genid_bump_ipv6(net);
++	if (vlan_tx_tag_present(skb)) {
++		u32 opts2;
++
++		opts2 = TX_VLAN_TAG | swab16(vlan_tx_tag_get(skb));
++		desc->opts2 |= cpu_to_le32(opts2);
++	}
 +}
++
++static inline void rtl_rx_vlan_tag(struct rx_desc *desc, struct sk_buff *skb)
++{
++	u32 opts2 = le32_to_cpu(desc->opts2);
++
++	if (opts2 & RX_VLAN_TAG)
++		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
++				       swab16(opts2 & 0xffff));
++}
++
+ static int r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc,
+ 			 struct sk_buff *skb, u32 len, u32 transport_offset)
+ {
+@@ -1550,6 +1571,8 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
+ 			continue;
+ 		}
  
- static void fib6_gc_timer_cb(unsigned long arg);
++		rtl_tx_vlan_tag(tx_desc, skb);
++
+ 		tx_data += sizeof(*tx_desc);
  
-@@ -104,13 +107,6 @@ static inline void fib6_walker_unlink(struct fib6_walker_t *w)
- 	list_del(&w->lh);
- 	write_unlock_bh(&fib6_walker_lock);
+ 		len = skb->len;
+@@ -1691,6 +1714,7 @@ static void rx_bottom(struct r8152 *tp)
+ 			memcpy(skb->data, rx_data, pkt_len);
+ 			skb_put(skb, pkt_len);
+ 			skb->protocol = eth_type_trans(skb, netdev);
++			rtl_rx_vlan_tag(rx_desc, skb);
+ 			netif_receive_skb(skb);
+ 			stats->rx_packets++;
+ 			stats->rx_bytes += pkt_len;
+@@ -2082,6 +2106,34 @@ static void r8152_power_cut_en(struct r8152 *tp, bool enable)
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS, ocp_data);
  }
--static __inline__ u32 fib6_new_sernum(void)
--{
--	u32 n = ++rt_sernum;
--	if ((__s32)n <= 0)
--		rt_sernum = n = 1;
--	return n;
--}
  
- /*
-  *	Auxiliary address test functions for the radix tree.
-@@ -421,16 +417,15 @@ out:
-  */
++static void rtl_rx_vlan_en(struct r8152 *tp, bool enable)
++{
++	u32 ocp_data;
++
++	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
++	if (enable)
++		ocp_data |= CPCR_RX_VLAN;
++	else
++		ocp_data &= ~CPCR_RX_VLAN;
++	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
++}
++
++static int rtl8152_set_features(struct net_device *dev,
++				netdev_features_t features)
++{
++	netdev_features_t changed = features ^ dev->features;
++	struct r8152 *tp = netdev_priv(dev);
++
++	if (changed & NETIF_F_HW_VLAN_CTAG_RX) {
++		if (features & NETIF_F_HW_VLAN_CTAG_RX)
++			rtl_rx_vlan_en(tp, true);
++		else
++			rtl_rx_vlan_en(tp, false);
++	}
++
++	return 0;
++}
++
+ #define WAKE_ANY (WAKE_PHY | WAKE_MAGIC | WAKE_UCAST | WAKE_BCAST | WAKE_MCAST)
  
- static struct fib6_node *fib6_add_1(struct fib6_node *root,
--				     struct in6_addr *addr, int plen,
--				     int offset, int allow_create,
--				     int replace_required)
-+				    struct in6_addr *addr, int plen,
-+				    int offset, int allow_create,
-+				    int replace_required, int sernum)
- {
- 	struct fib6_node *fn, *in, *ln;
- 	struct fib6_node *pn = NULL;
- 	struct rt6key *key;
- 	int	bit;
- 	__be32	dir = 0;
--	__u32	sernum = fib6_new_sernum();
+ static u32 __rtl_get_wol(struct r8152 *tp)
+@@ -2330,9 +2382,10 @@ static void r8152b_exit_oob(struct r8152 *tp)
+ 	ocp_write_dword(tp, MCU_TYPE_USB, USB_TX_DMA,
+ 			TEST_MODE_DISABLE | TX_SIZE_ADJUST1);
  
- 	RT6_TRACE("fib6_add_1\n");
+-	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
+-	ocp_data &= ~CPCR_RX_VLAN;
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
++	if (tp->netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
++		rtl_rx_vlan_en(tp, true);
++	else
++		rtl_rx_vlan_en(tp, false);
  
-@@ -844,6 +839,7 @@ void fib6_force_start_gc(struct net *net)
- int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 	     struct nlattr *mx, int mx_len)
- {
-+	struct net *net = dev_net(rt->dst.dev);
- 	struct fib6_node *fn, *pn = NULL;
- 	int err = -ENOMEM;
- 	int allow_create = 1;
-@@ -860,7 +856,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8152_RMS);
  
- 	fn = fib6_add_1(root, &rt->rt6i_dst.addr, rt->rt6i_dst.plen,
- 			offsetof(struct rt6_info, rt6i_dst), allow_create,
--			replace_required);
-+			replace_required, fib6_new_sernum(net));
- 	if (IS_ERR(fn)) {
- 		err = PTR_ERR(fn);
- 		fn = NULL;
-@@ -894,14 +890,15 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 			sfn->leaf = info->nl_net->ipv6.ip6_null_entry;
- 			atomic_inc(&info->nl_net->ipv6.ip6_null_entry->rt6i_ref);
- 			sfn->fn_flags = RTN_ROOT;
--			sfn->fn_sernum = fib6_new_sernum();
-+			sfn->fn_sernum = fib6_new_sernum(net);
+@@ -2376,9 +2429,7 @@ static void r8152b_enter_oob(struct r8152 *tp)
  
- 			/* Now add the first leaf node to new subtree */
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8152_RMS);
  
- 			sn = fib6_add_1(sfn, &rt->rt6i_src.addr,
- 					rt->rt6i_src.plen,
- 					offsetof(struct rt6_info, rt6i_src),
--					allow_create, replace_required);
-+					allow_create, replace_required,
-+					fib6_new_sernum(net));
+-	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
+-	ocp_data |= CPCR_RX_VLAN;
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
++	rtl_rx_vlan_en(tp, true);
  
- 			if (IS_ERR(sn)) {
- 				/* If it is failed, discard just allocated
-@@ -920,7 +917,8 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 			sn = fib6_add_1(fn->subtree, &rt->rt6i_src.addr,
- 					rt->rt6i_src.plen,
- 					offsetof(struct rt6_info, rt6i_src),
--					allow_create, replace_required);
-+					allow_create, replace_required,
-+					fib6_new_sernum(net));
- 
- 			if (IS_ERR(sn)) {
- 				err = PTR_ERR(sn);
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index f74b041..54b7d81 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -314,7 +314,6 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
- 
- 		memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
- 		rt6_init_peer(rt, table ? &table->tb6_peers : net->ipv6.peers);
--		rt->rt6i_genid = rt_genid_ipv6(net);
- 		INIT_LIST_HEAD(&rt->rt6i_siblings);
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PAL_BDC_CR);
+ 	ocp_data |= ALDPS_PROXY_MODE;
+@@ -2532,9 +2583,10 @@ static void r8153_first_init(struct r8152 *tp)
+ 		usleep_range(1000, 2000);
  	}
- 	return rt;
-@@ -1096,10 +1095,7 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
- 	 * DST_OBSOLETE_FORCE_CHK which forces validation calls down
- 	 * into this function always.
- 	 */
--	if (rt->rt6i_genid != rt_genid_ipv6(dev_net(rt->dst.dev)))
--		return NULL;
--
--	if (!rt->rt6i_node || (rt->rt6i_node->fn_sernum != cookie))
-+	if (!rt->rt6i_node || rt_genid_ipv6(dev_net(rt->dst.dev)) != cookie)
- 		return NULL;
  
- 	if (rt6_check_expired(rt))
+-	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
+-	ocp_data &= ~CPCR_RX_VLAN;
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
++	if (tp->netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
++		rtl_rx_vlan_en(tp, true);
++	else
++		rtl_rx_vlan_en(tp, false);
+ 
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8153_RMS);
+ 	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_MTPS, MTPS_JUMBO);
+@@ -2593,9 +2645,7 @@ static void r8153_enter_oob(struct r8152 *tp)
+ 	ocp_data &= ~TEREDO_WAKE_MASK;
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG, ocp_data);
+ 
+-	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
+-	ocp_data |= CPCR_RX_VLAN;
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
++	rtl_rx_vlan_en(tp, true);
+ 
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PAL_BDC_CR);
+ 	ocp_data |= ALDPS_PROXY_MODE;
+@@ -3330,6 +3380,7 @@ static const struct net_device_ops rtl8152_netdev_ops = {
+ 	.ndo_do_ioctl		= rtl8152_ioctl,
+ 	.ndo_start_xmit		= rtl8152_start_xmit,
+ 	.ndo_tx_timeout		= rtl8152_tx_timeout,
++	.ndo_set_features	= rtl8152_set_features,
+ 	.ndo_set_rx_mode	= rtl8152_set_rx_mode,
+ 	.ndo_set_mac_address	= rtl8152_set_mac_address,
+ 	.ndo_change_mtu		= rtl8152_change_mtu,
+@@ -3484,10 +3535,16 @@ static int rtl8152_probe(struct usb_interface *intf,
+ 
+ 	netdev->features |= NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
+ 			    NETIF_F_TSO | NETIF_F_FRAGLIST | NETIF_F_IPV6_CSUM |
+-			    NETIF_F_TSO6;
++			    NETIF_F_TSO6 | NETIF_F_HW_VLAN_CTAG_RX |
++			    NETIF_F_HW_VLAN_CTAG_TX;
+ 	netdev->hw_features = NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
+ 			      NETIF_F_TSO | NETIF_F_FRAGLIST |
+-			      NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
++			      NETIF_F_IPV6_CSUM | NETIF_F_TSO6 |
++			      NETIF_F_HW_VLAN_CTAG_RX |
++			      NETIF_F_HW_VLAN_CTAG_RX;
++	netdev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
++				NETIF_F_HIGHDMA | NETIF_F_FRAGLIST |
++				NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
+ 
+ 	netdev->ethtool_ops = &ops;
+ 	netif_set_gso_max_size(netdev, RTL_LIMITED_TSO_SIZE);
+-- 
+1.9.3
