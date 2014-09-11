@@ -1,78 +1,69 @@
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Subject: Re: [PATCH v2 0/3] net: Add Keystone NetCP ethernet driver support
-Date: Thu, 11 Sep 2014 11:56:54 -0400
-Message-ID: <5411C646.6090701@ti.com>
-References: <1408115562-22487-1-git-send-email-santosh.shilimkar@ti.com> <20140821.163612.282672926741753926.davem@davemloft.net> <53F79DC5.8030003@ti.com> <540DC00F.1080103@ti.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Why ECONNREFUSED from unix_dgram_sendmsg?
+Date: Thu, 11 Sep 2014 17:58:59 +0200
+Message-ID: <1410451139.2693347.166368361.32138EFC@webmail.messagingengine.com>
+References: <CALCETrUM1P0Sydps_4-5yPBOBD35zOcpACv-OX8b==xT0BC1xw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <robh+dt@kernel.org>,
-	<grant.likely@linaro.org>, <devicetree@vger.kernel.org>,
-	<sandeep_n@ti.com>
-To: David Miller <davem@davemloft.net>
+To: Andy Lutomirski <luto@amacapital.net>,
+	Network Development <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:49903 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752709AbaIKP5Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Sep 2014 11:57:25 -0400
-In-Reply-To: <540DC00F.1080103@ti.com>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:36213 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751220AbaIKP7A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 11:59:00 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 1D076209C7
+	for <netdev@vger.kernel.org>; Thu, 11 Sep 2014 11:59:00 -0400 (EDT)
+In-Reply-To: <CALCETrUM1P0Sydps_4-5yPBOBD35zOcpACv-OX8b==xT0BC1xw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
 
-On Monday 08 September 2014 10:41 AM, Santosh Shilimkar wrote:
-> Hi Dave,
+
+On Thu, Sep 11, 2014, at 17:11, Andy Lutomirski wrote:
+> What is unix_dgram_sendmsg trying to tell me here?
 > 
-> On 8/22/14 3:45 PM, Santosh Shilimkar wrote:
->> Hi David,
->>
->> On Thursday 21 August 2014 07:36 PM, David Miller wrote:
->>> From: Santosh Shilimkar <santosh.shilimkar@ti.com>
->>> Date: Fri, 15 Aug 2014 11:12:39 -0400
->>>
->>>> Update version after incorporating David Miller's comment from earlier
->>>> posting [1]. I would like to get these merged for upcoming 3.18 merge
->>>> window if there are no concerns on this version.
->>>>
->>>> The network coprocessor (NetCP) is a hardware accelerator that processes
->>>> Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsystem with a ethernet
->>>> switch sub-module to send and receive packets. NetCP also includes a packet
->>>> accelerator (PA) module to perform packet classification operations such as
->>>> header matching, and packet modification operations such as checksum
->>>> generation. NetCP can also optionally include a Security Accelerator(SA)
->>>> capable of performing IPSec operations on ingress/egress packets.
->>>>
->>>> Keystone SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
->>>> includes a 3-port Ethernet switch sub-module capable of 10Gb/s and
->>>> 1Gb/s rates per Ethernet port.
->>>>
->>>> NetCP driver has a plug-in module architecture where each of the NetCP
->>>> sub-modules exist as a loadable kernel module which plug in to the netcp
->>>> core. These sub-modules are represented as "netcp-devices" in the dts
->>>> bindings. It is mandatory to have the ethernet switch sub-module for
->>>> the ethernet interface to be operational. Any other sub-module like the
->>>> PA is optional.
->>>>
->>>> Both GBE and XGBE network processors supported using common driver. It
->>>> is also designed to handle future variants of NetCP.
->>>
->>> I don't want to see an offload driver that doesn't plug into the existing
->>> generic frameworks for configuration et al.
->>>
->>> If no existing facility exists to support what you need, you must work
->>> with the upstream maintainers to design and create one.
->>>
->>> It is absolutely no reasonable for every "switch on a chip" driver to
->>> export it's own configuration knob, we need a standard interface all
->>> such drivers will plug into and provide.
->>>
-As discussed on other thread, we are dropping the custom exports. I
-will be spinning updated version with the exports removed.
+>         if (sock_flag(other, SOCK_DEAD)) {
+>                 /*
+>                  *      Check with 1003.1g - what should
+>                  *      datagram error
+>                  */
+>                 unix_state_unlock(other);
+>                 sock_put(other);
+> 
+>                 err = 0;
+>                 unix_state_lock(sk);
+>                 if (unix_peer(sk) == other) {
+>                         unix_peer(sk) = NULL;
+>                         unix_state_unlock(sk);
+> 
+>                         unix_dgram_disconnected(sk, other);
+>                         sock_put(other);
+>                         err = -ECONNREFUSED;
+> 
+> I'm getting this intermittently on a seqpacket socket when the other
+> end dies.  Shouldn't this be -ECONNRESET?
+> 
+> git blame doesn't tell me anything here -- this code predates git.
 
-And for the future offload support additions, we will plug into
-generic frameworks as when they are available.
+Changelogs were not that descriptive as they were today: :)
 
-Regards,
-Santosh
+commit 283fd6cf0be690a83b5dbb34e79130f8592c0765
+Author: davem <davem>
+Date:   Fri Aug 20 10:59:51 1999 +0000
+
+    Merge in ANK networking jumbo patch,
+    which includes ATM from Werner Almesberger, Netfilter
+    from Paul Russell, and massive SMP networking enhancements
+    by Alexey.
+
+(in
+https://git.kernel.org/cgit/linux/kernel/git/davem/netdev-vger-cvs.git/)
+
+I agree, -ECONNRESET would be a better errno value, but this is hard to
+change because of backwards compatibility.
+
+Bye,
+Hannes
