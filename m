@@ -1,138 +1,45 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v11 net-next 11/12] net: filter: move eBPF instruction macros
-Date: Wed, 10 Sep 2014 23:45:41 -0700
-Message-ID: <CAMEtUuxkSuvj04AQAmP4LgF_qUV77i_Gzw5KrAHyi6xDUJApMw@mail.gmail.com>
-References: <1410325808-3657-1-git-send-email-ast@plumgrid.com>
-	<1410325808-3657-12-git-send-email-ast@plumgrid.com>
-	<54103506.1030501@redhat.com>
-	<CAMEtUuwQXj=oWzyBkogTSfOAhjhx0oyB5gC4+HoccTGWg8Obfg@mail.gmail.com>
-	<5411415D.4060103@redhat.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] zd1211rw: replace ZD_ASSERT with lockdep_assert_held()
+Date: Thu, 11 Sep 2014 08:53:27 +0200
+Message-ID: <1410418407.1825.0.camel@jlt4.sipsolutions.net>
+References: <1407827133-29493-1-git-send-email-sanjeev_sharma@mentor.com>
+	 <FDC088D3B5555644AE135ED28A7ABDE94DF2FDC2@EU-MBX-02.mgc.mentorg.com>
+	 (sfid-20140819_083957_833442_DEE44B0A) <1408707084.4349.0.camel@jlt4.sipsolutions.net>
+	 <FDC088D3B5555644AE135ED28A7ABDE94DF4D490@EU-MBX-02.mgc.mentorg.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=089e011829146753170502c48430
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linuxfoundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linuxfoundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "dsd@gentoo.org" <dsd@gentoo.org>,
+	"kune@deine-taler.de" <kune@deine-taler.de>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Sharma, Sanjeev" <Sanjeev_Sharma@mentor.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5411415D.4060103@redhat.com>
+In-Reply-To: <FDC088D3B5555644AE135ED28A7ABDE94DF4D490@EU-MBX-02.mgc.mentorg.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---089e011829146753170502c48430
-Content-Type: text/plain; charset=UTF-8
+On Thu, 2014-09-11 at 04:02 +0000, Sharma, Sanjeev wrote:
+> -----Original Message-----
+> From: Johannes Berg [mailto:johannes@sipsolutions.net] 
+> Sent: Friday, August 22, 2014 5:01 PM
+> To: Sharma, Sanjeev
+> Cc: dsd@gentoo.org; kune@deine-taler.de; linville@tuxdriver.com; linux-wireless@vger.kernel.org; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH] zd1211rw: replace ZD_ASSERT with lockdep_assert_held()
+> 
+> On Tue, 2014-08-19 at 06:39 +0000, Sharma, Sanjeev wrote:
+> > Ping for review the patch.
+> 
+> > Make sure it compiles ...
+> 
+> Any update on this patch ?
 
-On Wed, Sep 10, 2014 at 11:29 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
->>
->> Interesting idea. Are you saying just copy paste these
->> 226 lines into user libbpf.h for now to use them in testsuite
->> and examples ? Hmm.
->> Indeed the less lines we add to uapi the better. I'll do that.
->
->
-> Yes, that should be just fine, the existing ABI is not allowed to
-> change anyway and we're running into less pain if we decide to change
-> existing or add new macros internally.
+I don't know, do you have any update for us?
 
-ok. will do that in the next set.
+Since your patch hasn't changed, it still cannot be compiled (when
+lockdep is enabled). Make sure you test your patch before you submit it
+again please.
 
-btw, preliminary compat support in the attached patch.
-It works fine, but Andy's concern about enum is starting
-to get on me. May be we should replace
-enum bpf_.._type with u32 just to be safe...
-
---089e011829146753170502c48430
-Content-Type: application/octet-stream;
-	name="0001-bpf-add-compat_sys_bpf-wrapper.patch"
-Content-Disposition: attachment;
-	filename="0001-bpf-add-compat_sys_bpf-wrapper.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hzxqdrnl0
-
-RnJvbSA5YzA1Y2MxYmQxOGUyNzhmMGNmZDVhNDkwNjQ0MTA1YWE3Y2JiZjUyIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBBbGV4ZWkgU3Rhcm92b2l0b3YgPGFzdEBwbHVtZ3JpZC5jb20+
-CkRhdGU6IFdlZCwgMTAgU2VwIDIwMTQgMTk6NDE6MzEgLTA3MDAKU3ViamVjdDogW1BBVENIXSBi
-cGY6IGFkZCBjb21wYXRfc3lzX2JwZiB3cmFwcGVyCgp0byBzdXBwb3J0IDMyLWJpdCB1c2VyIHNw
-YWNlIHdpdGggNjQtYml0IGtlcm5lbAoKU2lnbmVkLW9mZi1ieTogQWxleGVpIFN0YXJvdm9pdG92
-IDxhc3RAcGx1bWdyaWQuY29tPgotLS0KIGFyY2gveDg2L3N5c2NhbGxzL3N5c2NhbGxfMzIudGJs
-ICB8ICAgIDIgKy0KIGluY2x1ZGUvdWFwaS9hc20tZ2VuZXJpYy91bmlzdGQuaCB8ICAgIDIgKy0K
-IGtlcm5lbC9icGYvc3lzY2FsbC5jICAgICAgICAgICAgICB8ICAgOTUgKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKwogMyBmaWxlcyBjaGFuZ2VkLCA5NyBpbnNlcnRpb25zKCsp
-LCAyIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2FyY2gveDg2L3N5c2NhbGxzL3N5c2NhbGxf
-MzIudGJsIGIvYXJjaC94ODYvc3lzY2FsbHMvc3lzY2FsbF8zMi50YmwKaW5kZXggOWZlMWI1ZDAw
-MmYwLi4yYjFkZGYxZGRiNWUgMTAwNjQ0Ci0tLSBhL2FyY2gveDg2L3N5c2NhbGxzL3N5c2NhbGxf
-MzIudGJsCisrKyBiL2FyY2gveDg2L3N5c2NhbGxzL3N5c2NhbGxfMzIudGJsCkBAIC0zNjMsNCAr
-MzYzLDQgQEAKIDM1NAlpMzg2CXNlY2NvbXAJCQlzeXNfc2VjY29tcAogMzU1CWkzODYJZ2V0cmFu
-ZG9tCQlzeXNfZ2V0cmFuZG9tCiAzNTYJaTM4NgltZW1mZF9jcmVhdGUJCXN5c19tZW1mZF9jcmVh
-dGUKLTM1NwlpMzg2CWJwZgkJCXN5c19icGYKKzM1NwlpMzg2CWJwZgkJCXN5c19icGYJCQkJY29t
-cGF0X3N5c19icGYKZGlmZiAtLWdpdCBhL2luY2x1ZGUvdWFwaS9hc20tZ2VuZXJpYy91bmlzdGQu
-aCBiL2luY2x1ZGUvdWFwaS9hc20tZ2VuZXJpYy91bmlzdGQuaAppbmRleCAyMjc0OWMxMzQxMTcu
-Ljk0YWZlZDkzZjNjYyAxMDA2NDQKLS0tIGEvaW5jbHVkZS91YXBpL2FzbS1nZW5lcmljL3VuaXN0
-ZC5oCisrKyBiL2luY2x1ZGUvdWFwaS9hc20tZ2VuZXJpYy91bmlzdGQuaApAQCAtNzA2LDcgKzcw
-Niw3IEBAIF9fU1lTQ0FMTChfX05SX2dldHJhbmRvbSwgc3lzX2dldHJhbmRvbSkKICNkZWZpbmUg
-X19OUl9tZW1mZF9jcmVhdGUgMjc5CiBfX1NZU0NBTEwoX19OUl9tZW1mZF9jcmVhdGUsIHN5c19t
-ZW1mZF9jcmVhdGUpCiAjZGVmaW5lIF9fTlJfYnBmIDI4MAotX19TWVNDQUxMKF9fTlJfYnBmLCBz
-eXNfYnBmKQorX19TQ19DT01QKF9fTlJfYnBmLCBzeXNfYnBmLCBjb21wYXRfc3lzX2JwZikKIAog
-I3VuZGVmIF9fTlJfc3lzY2FsbHMKICNkZWZpbmUgX19OUl9zeXNjYWxscyAyODEKZGlmZiAtLWdp
-dCBhL2tlcm5lbC9icGYvc3lzY2FsbC5jIGIva2VybmVsL2JwZi9zeXNjYWxsLmMKaW5kZXggNmNk
-ZmUzODhjNzg5Li40ZjJjNTQ0MWUxNzUgMTAwNjQ0Ci0tLSBhL2tlcm5lbC9icGYvc3lzY2FsbC5j
-CisrKyBiL2tlcm5lbC9icGYvc3lzY2FsbC5jCkBAIC0xNiw2ICsxNiw3IEBACiAjaW5jbHVkZSA8
-bGludXgvZmlsZS5oPgogI2luY2x1ZGUgPGxpbnV4L2xpY2Vuc2UuaD4KICNpbmNsdWRlIDxsaW51
-eC9maWx0ZXIuaD4KKyNpbmNsdWRlIDxsaW51eC9jb21wYXQuaD4KIAogc3RhdGljIExJU1RfSEVB
-RChicGZfbWFwX3R5cGVzKTsKIApAQCAtNTc2LDYgKzU3NywxMDAgQEAgZnJlZV9hdHRyOgogCXJl
-dHVybiBlcnI7CiB9CiAKKyNpZmRlZiBDT05GSUdfQ09NUEFUCit1bmlvbiBjb21wYXRfYnBmX2F0
-dHIgeworCXN0cnVjdCB7CisJCWVudW0gYnBmX21hcF90eXBlIG1hcF90eXBlOworCQlfX3UzMglr
-ZXlfc2l6ZTsKKwkJX191MzIJdmFsdWVfc2l6ZTsKKwkJX191MzIJbWF4X2VudHJpZXM7CisJfTsK
-KworCXN0cnVjdCB7CisJCWludCBtYXBfZmQ7CisJCWNvbXBhdF91cHRyX3Qga2V5OworCQl1bmlv
-biB7CisJCQljb21wYXRfdXB0cl90IHZhbHVlOworCQkJY29tcGF0X3VwdHJfdCBuZXh0X2tleTsK
-KwkJfTsKKwl9OworCisJc3RydWN0IHsKKwkJZW51bSBicGZfcHJvZ190eXBlIHByb2dfdHlwZTsK
-KwkJX191MzIgaW5zbl9jbnQ7CisJCWNvbXBhdF91cHRyX3QgaW5zbnM7CisJCWNvbXBhdF91cHRy
-X3QgbGljZW5zZTsKKwkJX191MzIgbG9nX2xldmVsOworCQlfX3UzMiBsb2dfc2l6ZTsKKwkJY29t
-cGF0X3VwdHJfdCBsb2dfYnVmOworCX07Cit9OworQ09NUEFUX1NZU0NBTExfREVGSU5FMyhicGYs
-IGludCwgY21kLCB1bmlvbiBjb21wYXRfYnBmX2F0dHIgX191c2VyICosIHVhdHRyLAorCQkgICAg
-ICAgdW5zaWduZWQgaW50LCBzaXplKQoreworCXVuaW9uIGNvbXBhdF9icGZfYXR0ciBjb21wYXRf
-YXR0ciA9IHt9OworCXVuaW9uIGJwZl9hdHRyIGF0dHIgPSB7fTsKKwlpbnQgZXJyOworCisJaWYg
-KCFjYXBhYmxlKENBUF9TWVNfQURNSU4pKQorCQlyZXR1cm4gLUVQRVJNOworCisJaWYgKHNpemUg
-PiBzaXplb2YoY29tcGF0X2F0dHIpKQorCQlyZXR1cm4gLUVJTlZBTDsKKworCWlmIChjb3B5X2Zy
-b21fdXNlcigmY29tcGF0X2F0dHIsIHVhdHRyLCBzaXplKSAhPSAwKQorCQlyZXR1cm4gLUVGQVVM
-VDsKKworCXN3aXRjaCAoY21kKSB7CisJY2FzZSBCUEZfTUFQX0NSRUFURToKKwkJYXR0ci5tYXBf
-dHlwZSA9IGNvbXBhdF9hdHRyLm1hcF90eXBlOworCQlhdHRyLmtleV9zaXplID0gY29tcGF0X2F0
-dHIua2V5X3NpemU7CisJCWF0dHIudmFsdWVfc2l6ZSA9IGNvbXBhdF9hdHRyLnZhbHVlX3NpemU7
-CisJCWF0dHIubWF4X2VudHJpZXMgPSBjb21wYXRfYXR0ci5tYXhfZW50cmllczsKKwkJZXJyID0g
-bWFwX2NyZWF0ZSgmYXR0cik7CisJCWJyZWFrOworCWNhc2UgQlBGX01BUF9MT09LVVBfRUxFTToK
-KwkJYXR0ci5tYXBfZmQgPSBjb21wYXRfYXR0ci5tYXBfZmQ7CisJCWF0dHIua2V5ID0gY29tcGF0
-X3B0cihjb21wYXRfYXR0ci5rZXkpOworCQlhdHRyLnZhbHVlID0gY29tcGF0X3B0cihjb21wYXRf
-YXR0ci52YWx1ZSk7CisJCWVyciA9IG1hcF9sb29rdXBfZWxlbSgmYXR0cik7CisJCWJyZWFrOwor
-CWNhc2UgQlBGX01BUF9VUERBVEVfRUxFTToKKwkJYXR0ci5tYXBfZmQgPSBjb21wYXRfYXR0ci5t
-YXBfZmQ7CisJCWF0dHIua2V5ID0gY29tcGF0X3B0cihjb21wYXRfYXR0ci5rZXkpOworCQlhdHRy
-LnZhbHVlID0gY29tcGF0X3B0cihjb21wYXRfYXR0ci52YWx1ZSk7CisJCWVyciA9IG1hcF91cGRh
-dGVfZWxlbSgmYXR0cik7CisJCWJyZWFrOworCWNhc2UgQlBGX01BUF9ERUxFVEVfRUxFTToKKwkJ
-YXR0ci5tYXBfZmQgPSBjb21wYXRfYXR0ci5tYXBfZmQ7CisJCWF0dHIua2V5ID0gY29tcGF0X3B0
-cihjb21wYXRfYXR0ci5rZXkpOworCQllcnIgPSBtYXBfZGVsZXRlX2VsZW0oJmF0dHIpOworCQli
-cmVhazsKKwljYXNlIEJQRl9NQVBfR0VUX05FWFRfS0VZOgorCQlhdHRyLm1hcF9mZCA9IGNvbXBh
-dF9hdHRyLm1hcF9mZDsKKwkJYXR0ci5rZXkgPSBjb21wYXRfcHRyKGNvbXBhdF9hdHRyLmtleSk7
-CisJCWF0dHIubmV4dF9rZXkgPSBjb21wYXRfcHRyKGNvbXBhdF9hdHRyLm5leHRfa2V5KTsKKwkJ
-ZXJyID0gbWFwX2dldF9uZXh0X2tleSgmYXR0cik7CisJCWJyZWFrOworCWNhc2UgQlBGX1BST0df
-TE9BRDoKKwkJYXR0ci5wcm9nX3R5cGUgPSBjb21wYXRfYXR0ci5wcm9nX3R5cGU7CisJCWF0dHIu
-aW5zbl9jbnQgPSBjb21wYXRfYXR0ci5pbnNuX2NudDsKKwkJYXR0ci5pbnNucyA9IGNvbXBhdF9w
-dHIoY29tcGF0X2F0dHIuaW5zbnMpOworCQlhdHRyLmxpY2Vuc2UgPSBjb21wYXRfcHRyKGNvbXBh
-dF9hdHRyLmxpY2Vuc2UpOworCQlhdHRyLmxvZ19sZXZlbCA9IGNvbXBhdF9hdHRyLmxvZ19sZXZl
-bDsKKwkJYXR0ci5sb2dfc2l6ZSA9IGNvbXBhdF9hdHRyLmxvZ19zaXplOworCQlhdHRyLmxvZ19i
-dWYgPSBjb21wYXRfcHRyKGNvbXBhdF9hdHRyLmxvZ19idWYpOworCQllcnIgPSBicGZfcHJvZ19s
-b2FkKCZhdHRyKTsKKwkJYnJlYWs7CisJZGVmYXVsdDoKKwkJZXJyID0gLUVJTlZBTDsKKwkJYnJl
-YWs7CisJfQorCisJcmV0dXJuIGVycjsKK30KKyNlbmRpZgorCiAvKiBjYWxsZWQgZnJvbSBlQlBG
-IHByb2dyYW0gdW5kZXIgcmN1IGxvY2sKICAqCiAgKiBpZiBrZXJuZWwgc3Vic3lzdGVtIGlzIGFs
-bG93aW5nIGVCUEYgcHJvZ3JhbXMgdG8gY2FsbCB0aGlzIGZ1bmN0aW9uLAotLSAKMS43LjkuNQoK
---089e011829146753170502c48430--
+johannes
