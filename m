@@ -1,148 +1,59 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v2 2/7] bonding: alb: remove curr_slave_lock
-Date: Thu, 11 Sep 2014 22:49:23 +0200
-Message-ID: <1410468568-13781-3-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next v2 1/7] bonding: 3ad: clean up curr_slave_lock usage
+Date: Thu, 11 Sep 2014 22:49:22 +0200
+Message-ID: <1410468568-13781-2-git-send-email-nikolay@redhat.com>
 References: <1410468568-13781-1-git-send-email-nikolay@redhat.com>
 Cc: vfalico@gmail.com, j.vosburgh@gmail.com, andy@greyhouse.net,
 	davem@davemloft.net, Nikolay Aleksandrov <nikolay@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59320 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:13927 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757364AbaIKUum (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Sep 2014 16:50:42 -0400
+	id S1757364AbaIKUul (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Sep 2014 16:50:41 -0400
 In-Reply-To: <1410468568-13781-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-First in rlb_teach_disabled_mac_on_primary() it's okay to remove
-curr_slave_lock as all callers except bond_alb_monitor() already hold
-RTNL, and in case bond_alb_monitor() is executing we can at most have a
-period with bad throughput (very unlikely though).
-In bond_alb_monitor() it's okay to remove the read_lock as the slave
-list is walked with RCU and the worst that could happen is another
-transmitter at the same time and thus for a period which currently is 10
-seconds (bond_alb.h: BOND_ALB_LP_TICKS).
-And bond_alb_handle_active_change() is okay because it's always called
-with RTNL. Removed the ASSERT_RTNL() because it'll be inserted in the
-parent function in a following patch.
+Remove the read_lock in bond_3ad_lacpdu_recv() since when the slave is
+being released its rx_handler is removed before 3ad unbind, so even if
+packets arrive, they won't see the slave in an inconsistent state.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_alb.c | 39 +++------------------------------------
- 1 file changed, 3 insertions(+), 36 deletions(-)
+v2: Only remove the curr_slave_lock from bond_3ad_lacpdu_recv, leave it in
+    bond_3ad_state_machine_handler
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 028496205f39..cf4ede8594ff 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -447,7 +447,7 @@ static struct slave *__rlb_next_rx_slave(struct bonding *bond)
- /* teach the switch the mac of a disabled slave
-  * on the primary for fault tolerance
-  *
-- * Caller must hold bond->curr_slave_lock for write or bond lock for write
-+ * Caller must hold RTNL
-  */
- static void rlb_teach_disabled_mac_on_primary(struct bonding *bond, u8 addr[])
+ drivers/net/bonding/bond_3ad.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 5d27a6207384..dfd3a7835d17 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2476,20 +2476,16 @@ err_free:
+ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
+ 			 struct slave *slave)
  {
-@@ -512,12 +512,8 @@ static void rlb_clear_slave(struct bonding *bond, struct slave *slave)
+-	int ret = RX_HANDLER_ANOTHER;
+ 	struct lacpdu *lacpdu, _lacpdu;
  
- 	_unlock_rx_hashtbl_bh(bond);
+ 	if (skb->protocol != PKT_TYPE_LACPDU)
+-		return ret;
++		return RX_HANDLER_ANOTHER;
  
--	write_lock_bh(&bond->curr_slave_lock);
--
- 	if (slave != bond_deref_active_protected(bond))
- 		rlb_teach_disabled_mac_on_primary(bond, slave->dev->dev_addr);
--
--	write_unlock_bh(&bond->curr_slave_lock);
+ 	lacpdu = skb_header_pointer(skb, 0, sizeof(_lacpdu), &_lacpdu);
+ 	if (!lacpdu)
+-		return ret;
++		return RX_HANDLER_ANOTHER;
+ 
+-	read_lock(&bond->curr_slave_lock);
+-	ret = bond_3ad_rx_indication(lacpdu, slave, skb->len);
+-	read_unlock(&bond->curr_slave_lock);
+-	return ret;
++	return bond_3ad_rx_indication(lacpdu, slave, skb->len);
  }
  
- static void rlb_update_client(struct rlb_client_info *client_info)
-@@ -1595,13 +1591,6 @@ void bond_alb_monitor(struct work_struct *work)
- 	if (bond_info->lp_counter >= BOND_ALB_LP_TICKS(bond)) {
- 		bool strict_match;
- 
--		/* change of curr_active_slave involves swapping of mac addresses.
--		 * in order to avoid this swapping from happening while
--		 * sending the learning packets, the curr_slave_lock must be held for
--		 * read.
--		 */
--		read_lock(&bond->curr_slave_lock);
--
- 		bond_for_each_slave_rcu(bond, slave, iter) {
- 			/* If updating current_active, use all currently
- 			 * user mac addreses (!strict_match).  Otherwise, only
-@@ -1613,17 +1602,11 @@ void bond_alb_monitor(struct work_struct *work)
- 			alb_send_learning_packets(slave, slave->dev->dev_addr,
- 						  strict_match);
- 		}
--
--		read_unlock(&bond->curr_slave_lock);
--
- 		bond_info->lp_counter = 0;
- 	}
- 
- 	/* rebalance tx traffic */
- 	if (bond_info->tx_rebalance_counter >= BOND_TLB_REBALANCE_TICKS) {
--
--		read_lock(&bond->curr_slave_lock);
--
- 		bond_for_each_slave_rcu(bond, slave, iter) {
- 			tlb_clear_slave(bond, slave, 1);
- 			if (slave == rcu_access_pointer(bond->curr_active_slave)) {
-@@ -1633,9 +1616,6 @@ void bond_alb_monitor(struct work_struct *work)
- 				bond_info->unbalanced_load = 0;
- 			}
- 		}
--
--		read_unlock(&bond->curr_slave_lock);
--
- 		bond_info->tx_rebalance_counter = 0;
- 	}
- 
-@@ -1775,21 +1755,14 @@ void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char
-  * Set the bond->curr_active_slave to @new_slave and handle
-  * mac address swapping and promiscuity changes as needed.
-  *
-- * If new_slave is NULL, caller must hold curr_slave_lock for write
-- *
-- * If new_slave is not NULL, caller must hold RTNL, curr_slave_lock
-- * for write.  Processing here may sleep, so no other locks may be held.
-+ * Caller must hold RTNL
-  */
- void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave)
--	__releases(&bond->curr_slave_lock)
--	__acquires(&bond->curr_slave_lock)
- {
- 	struct slave *swap_slave;
- 	struct slave *curr_active;
- 
--	curr_active = rcu_dereference_protected(bond->curr_active_slave,
--						!new_slave ||
--						lockdep_is_held(&bond->curr_slave_lock));
-+	curr_active = rtnl_dereference(bond->curr_active_slave);
- 	if (curr_active == new_slave)
- 		return;
- 
-@@ -1820,10 +1793,6 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
- 		tlb_clear_slave(bond, swap_slave, 1);
- 	tlb_clear_slave(bond, new_slave, 1);
- 
--	write_unlock_bh(&bond->curr_slave_lock);
--
--	ASSERT_RTNL();
--
- 	/* in TLB mode, the slave might flip down/up with the old dev_addr,
- 	 * and thus filter bond->dev_addr's packets, so force bond's mac
- 	 */
-@@ -1852,8 +1821,6 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
- 		alb_send_learning_packets(new_slave, bond->dev->dev_addr,
- 					  false);
- 	}
--
--	write_lock_bh(&bond->curr_slave_lock);
- }
- 
- /* Called with RTNL */
+ /**
 -- 
 1.9.3
