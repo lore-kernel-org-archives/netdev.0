@@ -1,42 +1,44 @@
-From: Subbaraya Sundeep Bhatta <subbaraya.sundeep.bhatta@xilinx.com>
-Subject: [PATCH] net: axienet: remove unnecessary ether_setup after alloc_etherdev
-Date: Thu, 11 Sep 2014 14:53:33 +0530
-Message-ID: <78ce1faf-0bf8-41bb-a30d-cecd11d82d94@BY2FFO11FD033.protection.gbl>
+From: Sanjeev Sharma <sanjeev_sharma@mentor.com>
+Subject: [PATCH v2] zd1211rw: replace ZD_ASSERT with lockdep_assert_held()
+Date: Thu, 11 Sep 2014 15:39:39 +0530
+Message-ID: <1410430179-19944-1-git-send-email-sanjeev_sharma@mentor.com>
+References: <1410418407.1825.0.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <michals@xilinx.com>, <svemula@xilinx.com>, <anirudh@xilinx.com>,
-	Subbaraya Sundeep Bhatta <sbhatta@xilinx.com>
-To: <davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
-	<jesse.brandeburg@intel.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0079.outbound.protection.outlook.com ([207.46.100.79]:36425
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753923AbaIKJ5f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Sep 2014 05:57:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <kune@deine-taler.de>, <linux-wireless@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Sanjeev Sharma <sanjeev_sharma@mentor.com>,
+	Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
+To: <dsd@gentoo.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1410418407.1825.0.camel@jlt4.sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-calling ether_setup is redundant since alloc_etherdev calls
-it.
+on some architecture spin_is_locked() always return false in
+uniprocessor configuration and therefore it would be advise
+to replace with lockdep_assert_held().
 
-Signed-off-by: Subbaraya Sundeep Bhatta <sbhatta@xilinx.com>
+Signed-off-by: Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
 ---
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+Changes in v2:
+  - corrected the typo
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index c8fd941..4ea2d4e 100644
---- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -1485,7 +1485,6 @@ static int axienet_of_probe(struct platform_device *op)
- 	if (!ndev)
- 		return -ENOMEM;
+ drivers/net/wireless/zd1211rw/zd_mac.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
+index e7af261..adce2ee 100644
+--- a/drivers/net/wireless/zd1211rw/zd_mac.c
++++ b/drivers/net/wireless/zd1211rw/zd_mac.c
+@@ -235,7 +235,7 @@ void zd_mac_clear(struct zd_mac *mac)
+ {
+ 	flush_workqueue(zd_workqueue);
+ 	zd_chip_clear(&mac->chip);
+-	ZD_ASSERT(!spin_is_locked(&mac->lock));
++	lockdep_assert_held(&mac->lock);
+ 	ZD_MEMCLEAR(mac, sizeof(struct zd_mac));
+ }
  
--	ether_setup(ndev);
- 	platform_set_drvdata(op, ndev);
- 
- 	SET_NETDEV_DEV(ndev, &op->dev);
 -- 
-1.7.4
+1.7.11.7
