@@ -1,10 +1,10 @@
 From: Mark Einon <mark.einon@gmail.com>
-Subject: [PATCH] drivers: net: b44: Fix typo in returning multicast stats
-Date: Thu, 11 Sep 2014 23:14:22 +0100
-Message-ID: <1410473662-15342-1-git-send-email-mark.einon@gmail.com>
+Subject: [PATCH Resend] drivers: net: b44: Fix typo in returning multicast stats
+Date: Thu, 11 Sep 2014 23:19:49 +0100
+Message-ID: <1410473989-2049-1-git-send-email-mark.einon@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Mark Einon <mark.einon@gmail.com>
-To: zambrano@broadcom.com
+To: gary.zambrano@qlogic.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -15,6 +15,9 @@ given.
 
 Signed-off-by: Mark Einon <mark.einon@gmail.com>
 ---
+
+changing to send to alternate address for Gary Zambrano, maintainers entry bounced.
+
  drivers/net/ethernet/broadcom/b44.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
