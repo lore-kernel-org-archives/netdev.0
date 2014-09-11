@@ -1,7 +1,7 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next v2 2/8] ipv6: remove ipv6_sk_ac_lock
-Date: Thu, 11 Sep 2014 15:35:10 -0700
-Message-ID: <1410474916-21873-3-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [Patch net-next v2 6/8] ipv6: drop some rcu_read_lock in mcast
+Date: Thu, 11 Sep 2014 15:35:14 -0700
+Message-ID: <1410474916-21873-7-git-send-email-xiyou.wangcong@gmail.com>
 References: <1410474916-21873-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
@@ -9,92 +9,115 @@ Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Cong Wang <xiyou.wangcong@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:38573 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753246AbaIKWfk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 18:35:40 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kq14so7753159pab.33
-        for <netdev@vger.kernel.org>; Thu, 11 Sep 2014 15:35:40 -0700 (PDT)
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:52265 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752241AbaIKWfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 18:35:45 -0400
+Received: by mail-pa0-f53.google.com with SMTP id rd3so10312111pab.40
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2014 15:35:45 -0700 (PDT)
 In-Reply-To: <1410474916-21873-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just move rtnl lock up, so that the anycast list can be protected
-by rtnl lock now.
+Similarly the code is already protected by rtnl lock.
 
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/ipv6/anycast.c | 17 +++--------------
- 1 file changed, 3 insertions(+), 14 deletions(-)
+ net/ipv6/mcast.c | 17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
 
-diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
-index 3b0429b..d10f2e2 100644
---- a/net/ipv6/anycast.c
-+++ b/net/ipv6/anycast.c
-@@ -46,10 +46,6 @@
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 27ca0b7..4fb761d 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -162,7 +162,6 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	mc_lst->addr = *addr;
  
- static int ipv6_dev_ac_dec(struct net_device *dev, const struct in6_addr *addr);
+ 	rtnl_lock();
+-	rcu_read_lock();
+ 	if (ifindex == 0) {
+ 		struct rt6_info *rt;
+ 		rt = rt6_lookup(net, addr, NULL, 0, 0);
+@@ -171,10 +170,9 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 			ip6_rt_put(rt);
+ 		}
+ 	} else
+-		dev = dev_get_by_index_rcu(net, ifindex);
++		dev = __dev_get_by_index(net, ifindex);
  
--/* Big ac list lock for all the sockets */
--static DEFINE_SPINLOCK(ipv6_sk_ac_lock);
--
--
- /*
-  *	socket join an anycast group
-  */
-@@ -128,10 +124,8 @@ int ipv6_sock_ac_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	if (dev == NULL) {
+-		rcu_read_unlock();
+ 		rtnl_unlock();
+ 		sock_kfree_s(sk, mc_lst, sizeof(*mc_lst));
+ 		return -ENODEV;
+@@ -192,7 +190,6 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	err = ipv6_dev_mc_inc(dev, addr);
  
- 	err = ipv6_dev_ac_inc(dev, addr);
- 	if (!err) {
--		spin_lock_bh(&ipv6_sk_ac_lock);
- 		pac->acl_next = np->ipv6_ac_list;
- 		np->ipv6_ac_list = pac;
--		spin_unlock_bh(&ipv6_sk_ac_lock);
- 		pac = NULL;
- 	}
+ 	if (err) {
+-		rcu_read_unlock();
+ 		rtnl_unlock();
+ 		sock_kfree_s(sk, mc_lst, sizeof(*mc_lst));
+ 		return err;
+@@ -201,7 +198,6 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	mc_lst->next = np->ipv6_mc_list;
+ 	rcu_assign_pointer(np->ipv6_mc_list, mc_lst);
  
-@@ -152,7 +146,7 @@ int ipv6_sock_ac_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 	struct ipv6_ac_socklist *pac, *prev_pac;
- 	struct net *net = sock_net(sk);
+-	rcu_read_unlock();
+ 	rtnl_unlock();
  
--	spin_lock_bh(&ipv6_sk_ac_lock);
-+	rtnl_lock();
- 	prev_pac = NULL;
- 	for (pac = np->ipv6_ac_list; pac; pac = pac->acl_next) {
- 		if ((ifindex == 0 || pac->acl_ifindex == ifindex) &&
-@@ -161,7 +155,7 @@ int ipv6_sock_ac_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 		prev_pac = pac;
- 	}
- 	if (!pac) {
--		spin_unlock_bh(&ipv6_sk_ac_lock);
-+		rtnl_unlock();
- 		return -ENOENT;
- 	}
- 	if (prev_pac)
-@@ -169,9 +163,6 @@ int ipv6_sock_ac_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	return 0;
+@@ -230,8 +226,7 @@ int ipv6_sock_mc_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 
+ 			*lnk = mc_lst->next;
+ 
+-			rcu_read_lock();
+-			dev = dev_get_by_index_rcu(net, mc_lst->ifindex);
++			dev = __dev_get_by_index(net, mc_lst->ifindex);
+ 			if (dev != NULL) {
+ 				struct inet6_dev *idev = __in6_dev_get(dev);
+ 
+@@ -240,7 +235,6 @@ int ipv6_sock_mc_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 					__ipv6_dev_mc_dec(idev, &mc_lst->addr);
+ 			} else
+ 				(void) ip6_mc_leave_src(sk, mc_lst, NULL);
+-			rcu_read_unlock();
+ 			rtnl_unlock();
+ 
+ 			atomic_sub(sizeof(*mc_lst), &sk->sk_omem_alloc);
+@@ -299,8 +293,7 @@ void ipv6_sock_mc_close(struct sock *sk)
+ 
+ 		np->ipv6_mc_list = mc_lst->next;
+ 
+-		rcu_read_lock();
+-		dev = dev_get_by_index_rcu(net, mc_lst->ifindex);
++		dev = __dev_get_by_index(net, mc_lst->ifindex);
+ 		if (dev) {
+ 			struct inet6_dev *idev = __in6_dev_get(dev);
+ 
+@@ -309,7 +302,6 @@ void ipv6_sock_mc_close(struct sock *sk)
+ 				__ipv6_dev_mc_dec(idev, &mc_lst->addr);
+ 		} else
+ 			(void) ip6_mc_leave_src(sk, mc_lst, NULL);
+-		rcu_read_unlock();
+ 
+ 		atomic_sub(sizeof(*mc_lst), &sk->sk_omem_alloc);
+ 		kfree_rcu(mc_lst, rcu);
+@@ -934,7 +926,7 @@ int ipv6_dev_mc_dec(struct net_device *dev, const struct in6_addr *addr)
+ 	struct inet6_dev *idev;
+ 	int err;
+ 
+-	rcu_read_lock();
++	ASSERT_RTNL();
+ 
+ 	idev = __in6_dev_get(dev);
+ 	if (!idev)
+@@ -942,7 +934,6 @@ int ipv6_dev_mc_dec(struct net_device *dev, const struct in6_addr *addr)
  	else
- 		np->ipv6_ac_list = pac->acl_next;
+ 		err = __ipv6_dev_mc_dec(idev, addr);
  
--	spin_unlock_bh(&ipv6_sk_ac_lock);
--
--	rtnl_lock();
- 	dev = __dev_get_by_index(net, pac->acl_ifindex);
- 	if (dev)
- 		ipv6_dev_ac_dec(dev, &pac->acl_addr);
-@@ -192,13 +183,11 @@ void ipv6_sock_ac_close(struct sock *sk)
- 	if (!np->ipv6_ac_list)
- 		return;
- 
--	spin_lock_bh(&ipv6_sk_ac_lock);
-+	rtnl_lock();
- 	pac = np->ipv6_ac_list;
- 	np->ipv6_ac_list = NULL;
--	spin_unlock_bh(&ipv6_sk_ac_lock);
- 
- 	prev_index = 0;
--	rtnl_lock();
- 	while (pac) {
- 		struct ipv6_ac_socklist *next = pac->acl_next;
+-	rcu_read_unlock();
+ 	return err;
+ }
  
 -- 
 1.8.3.1
