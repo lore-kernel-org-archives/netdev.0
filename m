@@ -1,197 +1,70 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next] r8152: support VLAN
-Date: Thu, 11 Sep 2014 20:16:24 +0800
-Message-ID: <1394712342-15778-36-Taiwan-albertk@realtek.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: implement rt_genid_bump_ipv6 with fn_sernum
+ and remove rt6i_genid
+Date: Thu, 11 Sep 2014 08:22:33 -0400
+Message-ID: <54119409.20907@gmail.com>
+References: <1410267519.27979.31.camel@localhost>	 <130f98f49b1b90a30908bfda8f01109c91edfe1c.1410341451.git.hannes@stressinduktion.org>	 <20140910.130929.247064282043941043.davem@davemloft.net> <1410424207.2672.21.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	nicolas.dichtel@6wind.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f171.google.com ([209.85.216.171]:39949 "EHLO
+	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754271AbaIKMWg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 08:22:36 -0400
+Received: by mail-qc0-f171.google.com with SMTP id x3so21147388qcv.16
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2014 05:22:35 -0700 (PDT)
+In-Reply-To: <1410424207.2672.21.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Support hw VLAN for tx and rx. And enable them by default.
+On 09/11/2014 04:30 AM, Hannes Frederic Sowa wrote:
+> On Mi, 2014-09-10 at 13:09 -0700, David Miller wrote:
+>> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> Date: Wed, 10 Sep 2014 11:31:28 +0200
+>>
+>>> In case we need to force the sockets to relookup the routes we now
+>>> increase the fn_sernum on all fibnodes in the routing tree. This is a
+>>> costly operation but should only happen if we have major routing/policy
+>>> changes in the kernel (e.g. manual route adding/removal, xfrm policy
+>>> changes).
+>>
+>> Core routers can update thousands of route updates per second, and they
+>> do this via what you refer to as "manual route adding/removal".
+> 
+> Sorry, I was too unspecific here. Route changes because of address
+> removal/addition on the local stack.
+> 
+> The reason why we do the bump_id here is that we want to flush all the
+> socket caches in case we have either lost or gained access to a new
+> source address.
+> 
+> If you think about e.g. BGP routers which update lots of routes, they
+> aren't affected and the flush won't happen on every route change.
+> 
+>> I don't think we want to put such a scalability problem into the tree.
+>>
+>> There has to be a lightweight way to address this.
+> 
+> I am still investigating why this bump_id actually happened. Seems the
+> reason is only sctp ontop of IPv6 and maybe we can build something much
+> more lightweight, yes.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 85 +++++++++++++++++++++++++++++++++++++++++--------
- 1 file changed, 71 insertions(+), 14 deletions(-)
+No.  It was proven that a regular TCP socket could continue sending
+traffic using an address that was removed.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 2130c75..9b6c35c 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -506,6 +506,7 @@ struct rx_desc {
- #define IPF				(1 << 23) /* IP checksum fail */
- #define UDPF				(1 << 22) /* UDP checksum fail */
- #define TCPF				(1 << 21) /* TCP checksum fail */
-+#define RX_VLAN_TAG			(1 << 16)
- 
- 	__le32 opts4;
- 	__le32 opts5;
-@@ -531,6 +532,7 @@ struct tx_desc {
- #define MSS_MAX			0x7ffU
- #define TCPHO_SHIFT		17
- #define TCPHO_MAX		0x7ffU
-+#define TX_VLAN_TAG			(1 << 16)
- };
- 
- struct r8152;
-@@ -1423,6 +1425,25 @@ static int msdn_giant_send_check(struct sk_buff *skb)
- 	return ret;
- }
- 
-+static inline void rtl_tx_vlan_tag(struct tx_desc *desc, struct sk_buff *skb)
-+{
-+	if (vlan_tx_tag_present(skb)) {
-+		u32 opts2;
-+
-+		opts2 = TX_VLAN_TAG | swab16(vlan_tx_tag_get(skb));
-+		desc->opts2 |= cpu_to_le32(opts2);
-+	}
-+}
-+
-+static inline void rtl_rx_vlan_tag(struct rx_desc *desc, struct sk_buff *skb)
-+{
-+	u32 opts2 = le32_to_cpu(desc->opts2);
-+
-+	if (opts2 & RX_VLAN_TAG)
-+		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
-+				       swab16(opts2 & 0xffff));
-+}
-+
- static int r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc,
- 			 struct sk_buff *skb, u32 len, u32 transport_offset)
- {
-@@ -1550,6 +1571,8 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
- 			continue;
- 		}
- 
-+		rtl_tx_vlan_tag(tx_desc, skb);
-+
- 		tx_data += sizeof(*tx_desc);
- 
- 		len = skb->len;
-@@ -1691,6 +1714,7 @@ static void rx_bottom(struct r8152 *tp)
- 			memcpy(skb->data, rx_data, pkt_len);
- 			skb_put(skb, pkt_len);
- 			skb->protocol = eth_type_trans(skb, netdev);
-+			rtl_rx_vlan_tag(rx_desc, skb);
- 			netif_receive_skb(skb);
- 			stats->rx_packets++;
- 			stats->rx_bytes += pkt_len;
-@@ -2082,6 +2106,34 @@ static void r8152_power_cut_en(struct r8152 *tp, bool enable)
- 	ocp_write_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS, ocp_data);
- }
- 
-+static void rtl_rx_vlan_en(struct r8152 *tp, bool enable)
-+{
-+	u32 ocp_data;
-+
-+	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
-+	if (enable)
-+		ocp_data |= CPCR_RX_VLAN;
-+	else
-+		ocp_data &= ~CPCR_RX_VLAN;
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
-+}
-+
-+static int rtl8152_set_features(struct net_device *dev,
-+				netdev_features_t features)
-+{
-+	netdev_features_t changed = features ^ dev->features;
-+	struct r8152 *tp = netdev_priv(dev);
-+
-+	if (changed & NETIF_F_HW_VLAN_CTAG_RX) {
-+		if (features & NETIF_F_HW_VLAN_CTAG_RX)
-+			rtl_rx_vlan_en(tp, true);
-+		else
-+			rtl_rx_vlan_en(tp, false);
-+	}
-+
-+	return 0;
-+}
-+
- #define WAKE_ANY (WAKE_PHY | WAKE_MAGIC | WAKE_UCAST | WAKE_BCAST | WAKE_MCAST)
- 
- static u32 __rtl_get_wol(struct r8152 *tp)
-@@ -2330,9 +2382,10 @@ static void r8152b_exit_oob(struct r8152 *tp)
- 	ocp_write_dword(tp, MCU_TYPE_USB, USB_TX_DMA,
- 			TEST_MODE_DISABLE | TX_SIZE_ADJUST1);
- 
--	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
--	ocp_data &= ~CPCR_RX_VLAN;
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
-+	if (tp->netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
-+		rtl_rx_vlan_en(tp, true);
-+	else
-+		rtl_rx_vlan_en(tp, false);
- 
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8152_RMS);
- 
-@@ -2376,9 +2429,7 @@ static void r8152b_enter_oob(struct r8152 *tp)
- 
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8152_RMS);
- 
--	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
--	ocp_data |= CPCR_RX_VLAN;
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
-+	rtl_rx_vlan_en(tp, true);
- 
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PAL_BDC_CR);
- 	ocp_data |= ALDPS_PROXY_MODE;
-@@ -2532,9 +2583,10 @@ static void r8153_first_init(struct r8152 *tp)
- 		usleep_range(1000, 2000);
- 	}
- 
--	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
--	ocp_data &= ~CPCR_RX_VLAN;
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
-+	if (tp->netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
-+		rtl_rx_vlan_en(tp, true);
-+	else
-+		rtl_rx_vlan_en(tp, false);
- 
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8153_RMS);
- 	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_MTPS, MTPS_JUMBO);
-@@ -2593,9 +2645,7 @@ static void r8153_enter_oob(struct r8152 *tp)
- 	ocp_data &= ~TEREDO_WAKE_MASK;
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG, ocp_data);
- 
--	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
--	ocp_data |= CPCR_RX_VLAN;
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
-+	rtl_rx_vlan_en(tp, true);
- 
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PAL_BDC_CR);
- 	ocp_data |= ALDPS_PROXY_MODE;
-@@ -3330,6 +3380,7 @@ static const struct net_device_ops rtl8152_netdev_ops = {
- 	.ndo_do_ioctl		= rtl8152_ioctl,
- 	.ndo_start_xmit		= rtl8152_start_xmit,
- 	.ndo_tx_timeout		= rtl8152_tx_timeout,
-+	.ndo_set_features	= rtl8152_set_features,
- 	.ndo_set_rx_mode	= rtl8152_set_rx_mode,
- 	.ndo_set_mac_address	= rtl8152_set_mac_address,
- 	.ndo_change_mtu		= rtl8152_change_mtu,
-@@ -3484,10 +3535,16 @@ static int rtl8152_probe(struct usb_interface *intf,
- 
- 	netdev->features |= NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
- 			    NETIF_F_TSO | NETIF_F_FRAGLIST | NETIF_F_IPV6_CSUM |
--			    NETIF_F_TSO6;
-+			    NETIF_F_TSO6 | NETIF_F_HW_VLAN_CTAG_RX |
-+			    NETIF_F_HW_VLAN_CTAG_TX;
- 	netdev->hw_features = NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
- 			      NETIF_F_TSO | NETIF_F_FRAGLIST |
--			      NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
-+			      NETIF_F_IPV6_CSUM | NETIF_F_TSO6 |
-+			      NETIF_F_HW_VLAN_CTAG_RX |
-+			      NETIF_F_HW_VLAN_CTAG_RX;
-+	netdev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
-+				NETIF_F_HIGHDMA | NETIF_F_FRAGLIST |
-+				NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
- 
- 	netdev->ethtool_ops = &ops;
- 	netif_set_gso_max_size(netdev, RTL_LIMITED_TSO_SIZE);
--- 
-1.9.3
+-vlad
+> 
+> Thanks,
+> Hannes
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
