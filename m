@@ -1,66 +1,34 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: [PATCH] udp: Fix inverted NAPI_GRO_CB(skb)->flush test
-Date: Wed, 10 Sep 2014 21:23:18 -0500
-Message-ID: <1410402198-30811-1-git-send-email-scottwood@freescale.com>
+From: "Sharma, Sanjeev" <Sanjeev_Sharma@mentor.com>
+Subject: RE: [PATCH] zd1211rw: replace ZD_ASSERT with lockdep_assert_held()
+Date: Thu, 11 Sep 2014 04:02:49 +0000
+Message-ID: <FDC088D3B5555644AE135ED28A7ABDE94DF4D490@EU-MBX-02.mgc.mentorg.com>
+References: <1407827133-29493-1-git-send-email-sanjeev_sharma@mentor.com>
+	 <FDC088D3B5555644AE135ED28A7ABDE94DF2FDC2@EU-MBX-02.mgc.mentorg.com>
+	 (sfid-20140819_083957_833442_DEE44B0A)
+ <1408707084.4349.0.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Scott Wood <scottwood@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0112.outbound.protection.outlook.com ([157.56.110.112]:5441
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751596AbaIKD5s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Sep 2014 23:57:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dsd@gentoo.org" <dsd@gentoo.org>,
+	"kune@deine-taler.de" <kune@deine-taler.de>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1408707084.4349.0.camel@jlt4.sipsolutions.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 2abb7cdc0d ("udp: Add support for doing checksum unnecessary
-conversion") caused napi_gro_cb structs with the "flush" field zero to
-take the "udp_gro_receive" path rather than the "set flush to 1" path
-that they would previously take.  As a result I saw booting from an NFS
-root hang shortly after starting userspace, with "server not
-responding" messages.
-
-This change to the handling of "flush == 0" packets appears to be
-incidental to the goal of adding new code in the case where
-skb_gro_checksum_validate_zero_check() returns zero.  Based on that and
-the fact that it breaks things, I'm assuming that it is unintentional.
-
-Fixes: 2abb7cdc0d ("udp: Add support for doing checksum unnecessary conversion")
-Cc: Tom Herbert <therbert@google.com>
-Signed-off-by: Scott Wood <scottwood@freescale.com>
----
- net/ipv4/udp_offload.c | 2 +-
- net/ipv6/udp_offload.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 84e0e05..b8c845a 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -294,7 +294,7 @@ static struct sk_buff **udp4_gro_receive(struct sk_buff **head,
- 		goto flush;
- 
- 	/* Don't bother verifying checksum if we're going to flush anyway. */
--	if (!NAPI_GRO_CB(skb)->flush)
-+	if (NAPI_GRO_CB(skb)->flush)
- 		goto skip;
- 
- 	if (skb_gro_checksum_validate_zero_check(skb, IPPROTO_UDP, uh->check,
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index 89cb9a9..2907fb8 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -138,7 +138,7 @@ static struct sk_buff **udp6_gro_receive(struct sk_buff **head,
- 		goto flush;
- 
- 	/* Don't bother verifying checksum if we're going to flush anyway. */
--	if (!NAPI_GRO_CB(skb)->flush)
-+	if (NAPI_GRO_CB(skb)->flush)
- 		goto skip;
- 
- 	if (skb_gro_checksum_validate_zero_check(skb, IPPROTO_UDP, uh->check,
--- 
-1.9.1
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IEpvaGFubmVzIEJlcmcgW21haWx0bzpq
+b2hhbm5lc0BzaXBzb2x1dGlvbnMubmV0XSANClNlbnQ6IEZyaWRheSwgQXVndXN0IDIyLCAyMDE0
+IDU6MDEgUE0NClRvOiBTaGFybWEsIFNhbmplZXYNCkNjOiBkc2RAZ2VudG9vLm9yZzsga3VuZUBk
+ZWluZS10YWxlci5kZTsgbGludmlsbGVAdHV4ZHJpdmVyLmNvbTsgbGludXgtd2lyZWxlc3NAdmdl
+ci5rZXJuZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5r
+ZXJuZWwub3JnDQpTdWJqZWN0OiBSZTogW1BBVENIXSB6ZDEyMTFydzogcmVwbGFjZSBaRF9BU1NF
+UlQgd2l0aCBsb2NrZGVwX2Fzc2VydF9oZWxkKCkNCg0KT24gVHVlLCAyMDE0LTA4LTE5IGF0IDA2
+OjM5ICswMDAwLCBTaGFybWEsIFNhbmplZXYgd3JvdGU6DQo+IFBpbmcgZm9yIHJldmlldyB0aGUg
+cGF0Y2guDQoNCj4gTWFrZSBzdXJlIGl0IGNvbXBpbGVzIC4uLg0KDQpBbnkgdXBkYXRlIG9uIHRo
+aXMgcGF0Y2ggPw0KDQpSZWdhcmRzDQpTYW5qZWV2IFNoYXJtYQ0KDQo=
