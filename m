@@ -1,53 +1,52 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v11 net-next 00/12] eBPF syscall, verifier, testsuite
-Date: Thu, 11 Sep 2014 13:35:31 -0700
-Message-ID: <CAMEtUuyTfRwZi1-yOyrAOkubWLDLC6YZXUq8OFpqXpHPjKRYhw@mail.gmail.com>
-References: <1410325808-3657-1-git-send-email-ast@plumgrid.com>
-	<CALCETrVBb_uQZpodv67XSTGVU40y6+9Ktw=3zAJgGV2mNJ=_0A@mail.gmail.com>
-	<CAMEtUuyY0L2=tz5mSvQqR_=_oN18nA6V9fdbR8OiYTPbQth8AQ@mail.gmail.com>
-	<5411FDE1.3060302@redhat.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
+Date: Thu, 11 Sep 2014 13:42:20 -0700
+Message-ID: <CAB=NE6XfUAm=iVr=qfu5i9QW7BpViXfJ6wsmEZOOmS=rBF1bdA@mail.gmail.com>
+References: <20140905174925.GA12991@mtj.dyndns.org> <20140909224143.GB3154@mtj.dyndns.org>
+ <1410302783.13298.50.camel@jarvis.lan> <5762134.BLS0EbmNJd@dtor-glaptop>
+ <1410465565.10549.19.camel@jarvis> <20140911202354.GA2598@core.coreip.homeip.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5411FDE1.3060302-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: James Bottomley <James.Bottomley@hansenpartnership.com>,
+	Tejun Heo <tj@kernel.org>,
+	Lennart Poettering <lennart@poettering.net>,
+	Kay Sievers <kay@vrfy.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishn
+To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20140911202354.GA2598@core.coreip.homeip.net>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 11, 2014 at 12:54 PM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> On 09/10/2014 10:21 PM, Alexei Starovoitov wrote:
-> ...
->>>>
->>>>                char bpf_log_buf[LOG_BUF_SIZE];
->>>
->>>
->>> What happens if the size isn't LOG_BUF_SIZE?
->>
->>
->> would do you mean?
->> LOG_BUF_SIZE is just a user defined macro.
->> Can be anything.
+On Thu, Sep 11, 2014 at 1:23 PM, Dmitry Torokhov
+<dmitry.torokhov@gmail.com> wrote:
 >
-> I believe, Andy means, what would happen if log_level > 0 but
-> the log_size is not big enough so that the human-readable error
-> text string from the verifier will fit into it? I presume that
-> will be truncated then ... hm.
+>>  There are elements in common, but by and
+>> large the biggest headaches at least in large device number boots have
+>> already been tackled by the enterprise crowd (they don't like their
+>> S390's or 1024 core NUMA systems taking half an hour to come up).
+>
+> Please do not position this as a mostly solved large systems problem,
+> For us it is touchpad detection stalling kernel for 0.5-1 sec. Which is
+> a lot given that we boot in seconds.
 
-Correct. It will be truncated and ENOSPC returned from syscall.
-Just noticed that I didn't mention that in the manpage... will do.
+Dmitry, would working on top of the aysnc series be reasonable? Then
+we could address these as separate things which we'd build on top of.
+The one aspect I see us needing to share is the "async probe universe
+is OK" flag.
+
+ Luis
