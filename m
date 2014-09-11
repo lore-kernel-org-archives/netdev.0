@@ -1,8 +1,8 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH net-next 07/14] tipc: add link stat reset
-	to new netlink api
-Date: Thu, 11 Sep 2014 10:29:20 +0200
-Message-ID: <1410424167-17427-8-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next 11/14] tipc: add net dump to new
+	netlink api
+Date: Thu, 11 Sep 2014 10:29:24 +0200
+Message-ID: <1410424167-17427-12-git-send-email-richard.alpe@ericsson.com>
 References: <1410424167-17427-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,118 +23,191 @@ List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-Add TIPC_NL_LINK_RESET_STATS command to the new netlink API.
+Add TIPC_NL_NET_GET command to the new tipc netlink API.
 
-This command resets the link statistics for a particular link.
+This command dumps the network id of the node.
 
-Netlink logical layout of link reset message:
--> link
-    -> name
+Netlink logical layout of returned network data:
+-> net
+    -> id
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- include/uapi/linux/tipc_config.h |    1 +
- net/tipc/link.c                  |   49 ++++++++++++++++++++++++++++++++++++++
- net/tipc/link.h                  |    1 +
- net/tipc/netlink.c               |    5 ++++
- 4 files changed, 56 insertions(+)
+ include/uapi/linux/tipc_config.h |   11 +++++++
+ net/tipc/net.c                   |   59 ++++++++++++++++++++++++++++++++++++++
+ net/tipc/net.h                   |    7 ++++-
+ net/tipc/netlink.c               |    9 +++++-
+ 4 files changed, 84 insertions(+), 2 deletions(-)
 
 diff --git a/include/uapi/linux/tipc_config.h b/include/uapi/linux/tipc_config.h
-index 3b0c0f0..b5bedf1 100644
+index e3dfad7..68a58b0 100644
 --- a/include/uapi/linux/tipc_config.h
 +++ b/include/uapi/linux/tipc_config.h
-@@ -57,6 +57,7 @@ enum {
- 	TIPC_NL_SOCK_GET,
- 	TIPC_NL_LINK_GET,
- 	TIPC_NL_LINK_SET,
-+	TIPC_NL_LINK_RESET_STATS,
+@@ -61,6 +61,7 @@ enum {
+ 	TIPC_NL_MEDIA_GET,
+ 	TIPC_NL_MEDIA_SET,
+ 	TIPC_NL_NODE_GET,
++	TIPC_NL_NET_GET,
  
  	__TIPC_NL_CMD_MAX,
  	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 6d0c1fa..2195197 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -2774,3 +2774,52 @@ err_out:
+@@ -74,6 +75,7 @@ enum {
+ 	TIPC_NLA_LINK,			/* nest */
+ 	TIPC_NLA_MEDIA,			/* nest */
+ 	TIPC_NLA_NODE,			/* nest */
++	TIPC_NLA_NET,			/* nest */
  
- 	return err;
+ 	__TIPC_NLA_MAX,
+ 	TIPC_NLA_MAX = __TIPC_NLA_MAX - 1
+@@ -139,6 +141,15 @@ enum {
+ 	TIPC_NLA_NODE_MAX = __TIPC_NLA_NODE_MAX - 1
+ };
+ 
++/* Net info */
++enum {
++	TIPC_NLA_NET_UNSPEC,
++	TIPC_NLA_NET_ID,		/* u32 */
++
++	__TIPC_NLA_NET_MAX,
++	TIPC_NLA_NET_MAX = __TIPC_NLA_NET_MAX - 1
++};
++
+ /* Nest, publication info */
+ enum {
+ 	TIPC_NLA_PUBL_UNSPEC,
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index 93b9944..b5435a6 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -42,6 +42,11 @@
+ #include "node.h"
+ #include "config.h"
+ 
++static const struct nla_policy tipc_nl_net_policy[TIPC_NLA_NET_MAX + 1] = {
++	[TIPC_NLA_NET_UNSPEC]	= { .type = NLA_UNSPEC },
++	[TIPC_NLA_NET_ID]	= { .type = NLA_U32 }
++};
++
+ /*
+  * The TIPC locking policy is designed to ensure a very fine locking
+  * granularity, permitting complete parallel access to individual
+@@ -138,3 +143,57 @@ void tipc_net_stop(void)
+ 
+ 	pr_info("Left network mode\n");
  }
 +
-+int tipc_nl_link_reset_stats(struct sk_buff *skb, struct genl_info *info)
++static int __tipc_nl_add_net(struct tipc_nl_msg *msg)
 +{
-+	int err;
-+	char *link_name;
-+	unsigned int bearer_id;
-+	struct tipc_link *link;
-+	struct tipc_node *node;
-+	struct nlattr *attrs[TIPC_NLA_LINK_MAX + 1];
++	void *hdr;
++	struct nlattr *attrs;
 +
-+	if (!info->attrs[TIPC_NLA_LINK])
-+		return -EINVAL;
++	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
++			  NLM_F_MULTI, TIPC_NL_NET_GET);
++	if (!hdr)
++		return -EMSGSIZE;
 +
-+	err = nla_parse_nested(attrs, TIPC_NLA_LINK_MAX,
-+			       info->attrs[TIPC_NLA_LINK],
-+			       tipc_nl_link_policy);
-+	if (err)
-+		return err;
++	attrs = nla_nest_start(msg->skb, TIPC_NLA_NET);
++	if (!attrs)
++		goto msg_full;
 +
-+	if (!attrs[TIPC_NLA_LINK_NAME])
-+		return -EINVAL;
++	if (nla_put_u32(msg->skb, TIPC_NLA_NET_ID, tipc_net_id))
++		goto attr_msg_full;
 +
-+	link_name = nla_data(attrs[TIPC_NLA_LINK_NAME]);
-+
-+	if (strcmp(link_name, tipc_bclink_name) == 0) {
-+		err = tipc_bclink_reset_stats();
-+		if (err)
-+			return err;
-+		return 0;
-+	}
-+
-+	node = tipc_link_find_owner(link_name, &bearer_id);
-+	if (!node)
-+		return -EINVAL;
-+
-+	tipc_node_lock(node);
-+
-+	link = node->links[bearer_id];
-+	if (!link) {
-+		tipc_node_unlock(node);
-+		return -EINVAL;
-+	}
-+
-+	link_reset_statistics(link);
-+
-+	tipc_node_unlock(node);
++	nla_nest_end(msg->skb, attrs);
++	genlmsg_end(msg->skb, hdr);
 +
 +	return 0;
++
++attr_msg_full:
++	nla_nest_cancel(msg->skb, attrs);
++msg_full:
++	genlmsg_cancel(msg->skb, hdr);
++
++	return -EMSGSIZE;
 +}
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 3738ba1..f463e7b 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -243,6 +243,7 @@ void tipc_link_retransmit(struct tipc_link *l_ptr,
- int tipc_nl_link_dump(struct sk_buff *skb, struct netlink_callback *cb);
- int tipc_nl_link_get(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_link_set(struct sk_buff *skb, struct genl_info *info);
-+int tipc_nl_link_reset_stats(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_parse_link_prop(struct nlattr *prop, struct nlattr *props[]);
- 
++
++int tipc_nl_net_dump(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	int err;
++	int done = cb->args[0];
++	struct tipc_nl_msg msg;
++
++	if (done)
++		return 0;
++
++	msg.skb = skb;
++	msg.portid = NETLINK_CB(cb->skb).portid;
++	msg.seq = cb->nlh->nlmsg_seq;
++
++	err = __tipc_nl_add_net(&msg);
++	if (err)
++		goto out;
++
++	done = 1;
++out:
++	cb->args[0] = done;
++
++	return skb->len;
++}
+diff --git a/net/tipc/net.h b/net/tipc/net.h
+index 59ef338..60dc22f 100644
+--- a/net/tipc/net.h
++++ b/net/tipc/net.h
+@@ -1,7 +1,7 @@
  /*
+  * net/tipc/net.h: Include file for TIPC network routing code
+  *
+- * Copyright (c) 1995-2006, Ericsson AB
++ * Copyright (c) 1995-2006, 2014, Ericsson AB
+  * Copyright (c) 2005, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+@@ -37,7 +37,12 @@
+ #ifndef _TIPC_NET_H
+ #define _TIPC_NET_H
+ 
++#include <net/genetlink.h>
++
+ int tipc_net_start(u32 addr);
++
+ void tipc_net_stop(void);
+ 
++int tipc_nl_net_dump(struct sk_buff *skb, struct netlink_callback *cb);
++
+ #endif
 diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index 745a323..de51267 100644
+index d42027e..3730876 100644
 --- a/net/tipc/netlink.c
 +++ b/net/tipc/netlink.c
-@@ -128,6 +128,11 @@ static const struct genl_ops tipc_genl_ops[] = {
- 		.cmd	= TIPC_NL_LINK_SET,
- 		.doit	= tipc_nl_link_set,
+@@ -40,6 +40,7 @@
+ #include "bearer.h"
+ #include "link.h"
+ #include "node.h"
++#include "net.h"
+ #include <net/genetlink.h>
+ 
+ static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
+@@ -78,7 +79,8 @@ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
+ 	[TIPC_NLA_SOCK]		= { .type = NLA_NESTED, },
+ 	[TIPC_NLA_LINK]		= { .type = NLA_NESTED, },
+ 	[TIPC_NLA_MEDIA]	= { .type = NLA_NESTED, },
+-	[TIPC_NLA_NODE]		= { .type = NLA_NESTED, }
++	[TIPC_NLA_NODE]		= { .type = NLA_NESTED, },
++	[TIPC_NLA_NET]		= { .type = NLA_NESTED, }
+ };
+ 
+ struct genl_family tipc_genl_family = {
+@@ -152,6 +154,11 @@ static const struct genl_ops tipc_genl_ops[] = {
+ 		.cmd	= TIPC_NL_NODE_GET,
+ 		.dumpit	= tipc_nl_node_dump,
  		.policy = tipc_nl_policy,
 +	},
 +	{
-+		.cmd	= TIPC_NL_LINK_RESET_STATS,
-+		.doit   = tipc_nl_link_reset_stats,
++		.cmd	= TIPC_NL_NET_GET,
++		.dumpit	= tipc_nl_net_dump,
 +		.policy = tipc_nl_policy,
  	}
  };
