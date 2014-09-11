@@ -1,45 +1,36 @@
-From: "Sharma, Sanjeev" <Sanjeev_Sharma@mentor.com>
-Subject: RE: [PATCH v2] zd1211rw: replace ZD_ASSERT with
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v2] zd1211rw: replace ZD_ASSERT with
  lockdep_assert_held()
-Date: Thu, 11 Sep 2014 10:36:42 +0000
-Message-ID: <FDC088D3B5555644AE135ED28A7ABDE94DF5256D@EU-MBX-02.mgc.mentorg.com>
+Date: Thu, 11 Sep 2014 12:42:19 +0200
+Message-ID: <1410432139.22863.10.camel@jlt4.sipsolutions.net>
 References: <1410418407.1825.0.camel@jlt4.sipsolutions.net>
 	 <1410430179-19944-1-git-send-email-sanjeev_sharma@mentor.com>
-	 (sfid-20140911_121019_335368_163BEA7C)
- <1410430345.22863.0.camel@jlt4.sipsolutions.net>
+	 (sfid-20140911_121019_335368_163BEA7C) <1410430345.22863.0.camel@jlt4.sipsolutions.net>
+	 <FDC088D3B5555644AE135ED28A7ABDE94DF5256D@EU-MBX-02.mgc.mentorg.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: "dsd@gentoo.org" <dsd@gentoo.org>,
 	"kune@deine-taler.de" <kune@deine-taler.de>,
 	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+To: "Sharma, Sanjeev" <Sanjeev_Sharma@mentor.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1410430345.22863.0.camel@jlt4.sipsolutions.net>
-Content-Language: en-US
+In-Reply-To: <FDC088D3B5555644AE135ED28A7ABDE94DF5256D@EU-MBX-02.mgc.mentorg.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IEpvaGFubmVzIEJlcmcgW21haWx0bzpq
-b2hhbm5lc0BzaXBzb2x1dGlvbnMubmV0XSANClNlbnQ6IFRodXJzZGF5LCBTZXB0ZW1iZXIgMTEs
-IDIwMTQgMzo0MiBQTQ0KVG86IFNoYXJtYSwgU2FuamVldg0KQ2M6IGRzZEBnZW50b28ub3JnOyBr
-dW5lQGRlaW5lLXRhbGVyLmRlOyBsaW51eC13aXJlbGVzc0B2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4
-LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNClN1YmplY3Q6
-IFJlOiBbUEFUQ0ggdjJdIHpkMTIxMXJ3OiByZXBsYWNlIFpEX0FTU0VSVCB3aXRoIGxvY2tkZXBf
-YXNzZXJ0X2hlbGQoKQ0KDQpPbiBUaHUsIDIwMTQtMDktMTEgYXQgMTU6MzkgKzA1MzAsIFNhbmpl
-ZXYgU2hhcm1hIHdyb3RlOg0KPiBvbiBzb21lIGFyY2hpdGVjdHVyZSBzcGluX2lzX2xvY2tlZCgp
-IGFsd2F5cyByZXR1cm4gZmFsc2UgaW4gDQo+IHVuaXByb2Nlc3NvciBjb25maWd1cmF0aW9uIGFu
-ZCB0aGVyZWZvcmUgaXQgd291bGQgYmUgYWR2aXNlIHRvIHJlcGxhY2UgDQo+IHdpdGggbG9ja2Rl
-cF9hc3NlcnRfaGVsZCgpLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogU2FuamVldiBTaGFybWEgPFNh
-bmplZXZfU2hhcm1hQG1lbnRvci5jb20+DQo+IC0tLQ0KPiBDaGFuZ2VzIGluIHYyOg0KPiAgIC0g
-Y29ycmVjdGVkIHRoZSB0eXBvDQoNCj4gTm93IGl0IGNvbXBpbGVzLCBidXQgeW91IGdvdCB0aGUg
-bG9naWMgd3JvbmcuDQoNCj4gKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvemQxMjExcncvemRf
-bWFjLmMNCj4gQEAgLTIzNSw3ICsyMzUsNyBAQCB2b2lkIHpkX21hY19jbGVhcihzdHJ1Y3QgemRf
-bWFjICptYWMpICB7DQo+ICAJZmx1c2hfd29ya3F1ZXVlKHpkX3dvcmtxdWV1ZSk7DQo+ICAJemRf
-Y2hpcF9jbGVhcigmbWFjLT5jaGlwKTsNCj4gLQlaRF9BU1NFUlQoIXNwaW5faXNfbG9ja2VkKCZt
-YWMtPmxvY2spKTsNCj4gKwlsb2NrZGVwX2Fzc2VydF9oZWxkKCZtYWMtPmxvY2spOw0KPiAgCVpE
-X01FTUNMRUFSKG1hYywgc2l6ZW9mKHN0cnVjdCB6ZF9tYWMpKTsgIH0NCg0KPkxvb2sgY2xvc2Vs
-eSBhdCB0aGlzIGFnYWluLg0KDQpJIGRpZG4ndCB1bmRlcnN0YW5kIHdoZXJlIEkgIHB1dCB3cm9u
-ZyBsb2dpYyAgPw0KDQpSZWdhcmRzDQpTYW5qZWV2IFNoYXJtYQ0KDQo=
+On Thu, 2014-09-11 at 10:36 +0000, Sharma, Sanjeev wrote:
+
+> > -	ZD_ASSERT(!spin_is_locked(&mac->lock));
+> > +	lockdep_assert_held(&mac->lock);
+
+> >Look closely at this again.
+> 
+> I didn't understand where I  put wrong logic  ?
+
+Ok, that's fine. But please send a new patch only when you've understood
+the logic.
+
+johannes
