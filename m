@@ -1,13 +1,16 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH net-next 00/14] tipc: new netlink API
-Date: Thu, 11 Sep 2014 10:29:13 +0200
-Message-ID: <1410424167-17427-1-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next 04/14] tipc: add sock dump to new
+	netlink api
+Date: Thu, 11 Sep 2014 10:29:17 +0200
+Message-ID: <1410424167-17427-5-git-send-email-richard.alpe@ericsson.com>
+References: <1410424167-17427-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: tipc-discussion@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
 Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1410424167-17427-1-git-send-email-richard.alpe@ericsson.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
@@ -20,101 +23,335 @@ List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-This is a new netlink API for TIPC. It's intended to replace the
-existing ASCII API. It utilizes many of the standard netlink
-functionalities in the kernel, such as attribute nesting and
-input polices.
+Add TIPC_NL_SOCK_GET command to the new tipc netlink API.
 
-There are a couple of reasons for this rewrite. The main and most
-easily justifiable is that the existing API doesn't scale.  Meaning
-that a TIPC cluster with a larger amount of nodes, publications or
-ports will rapidly exceed what the exiting API can handle. Resulting
-in truncated or corrupt responses. In addition to this, the existing
-ASCII API rarely uses "standard" kernel functions and has several
-tipc specific functions for sanity checking and string formating.
+This command supports dumping of all available sockets with their
+associated connection or publication(s). It could be extended to reply
+with a single socket if the NLM_F_DUMP isn't set.
 
-The new API utilizes standard function for pushing data to socket
-buffers and netlink attribute nesting to logically group data.
-The new API can handle an arbitrary amount of data for things that
-are likely to scale up as the TIPC usage and/or cluster size
-increases.
+The information about a socket includes reference, address, connection
+information / publication information.
 
-A new user-space tool has been developed to work with this new API.
-It is called "tipc" and is part of the "tipc-utils" package that
-comes with many Linux distributions.  The new "tipc" tool utilizes
-standard functions from libnl to format, send, receive and process
-messages. The tool has borrowed design philosophies from git and the
-ip tool. Making the syntax resemble that of ip whiles its strong
-modularity resembles that of git.
+Netlink logical layout of response message:
+-> socket
+    -> reference
+    -> address
+    [
+    -> connection
+        -> node
+        -> socket
+        [
+        -> connected flag
+        -> type
+        -> instance
+        ]
+    ]
+    [
+    -> publications
+        -> publication
+            -> type
+            -> lower
+            -> upper
+    ]
 
-The existing tool for managing TIPC, "tipc-config" remains in the
-package, but when built for kernels that has this new API it is
-replaced by a script-based wrapper that maps the old syntax to the
-new tool. This way, backwards compatibility is mostly preserved.
+Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+Acked-by: Ying Xue <ying.xue@windriver.com>
+---
+ include/uapi/linux/tipc_config.h |   44 +++++++++++
+ net/tipc/netlink.c               |    7 ++
+ net/tipc/socket.c                |  159 ++++++++++++++++++++++++++++++++++++++
+ net/tipc/socket.h                |    2 +
+ 4 files changed, 212 insertions(+)
 
-MORE ABOUT THE CODE
-
-The main challenge here is to handle the case where the data is of
-arbitrary size. This was largely neglected in the old API design.
-For example when there is a lot of ports that has a large amount of
-associated publications. In this specific case we can't assume that
-all ports nor for that matter all the publications can fit inside a
-single netlink message. Sending everything in one batch isn't an
-option as we need to yield for the socket layer to cope.
-
-This is solved by using the standard netlink callback for dumping
-data and releasing the locks when the netlink message is full. The
-dumping mechanism gets us back and we keep a reference (logical) to
-where we where when the message became full. This means that we are
-not "atomic", what is retrieved by user-space isn't a snapshot at a
-certain time but rather a continuously updated data set. In the case
-where we can't find our way back i.e. our logical reference are gone
-we set a standard flag (NLM_F_DUMP_INTR) to tell user-space that the
-dump was interrupted.
-
-Richard Alpe (14):
-  tipc: add bearer disable/enable to new netlink api
-  tipc: add bearer get/dump to new netlink api
-  tipc: add bearer set to new netlink api
-  tipc: add sock dump to new netlink api
-  tipc: add link get/dump to new netlink api
-  tipc: add link set to new netlink api
-  tipc: add link stat reset to new netlink api
-  tipc: add media get/dump to new netlink api
-  tipc: add media set to new netlink api
-  tipc: add node get/dump to new netlink api
-  tipc: add net dump to new netlink api
-  tipc: add net set to new netlink api
-  tipc: add name table dump to new netlink api
-  tipc: remove old ASCII netlink API
-
- include/uapi/linux/tipc_config.h |  478 ++++++++++--------------
- net/tipc/Makefile                |    2 +-
- net/tipc/bcast.c                 |  130 +++++--
- net/tipc/bcast.h                 |    4 +-
- net/tipc/bearer.c                |  510 ++++++++++++++++++++++----
- net/tipc/bearer.h                |   15 +-
- net/tipc/config.c                |  342 -----------------
- net/tipc/config.h                |   67 ----
- net/tipc/core.c                  |    3 +-
- net/tipc/link.c                  |  746 +++++++++++++++++++++++---------------
- net/tipc/link.h                  |   14 +-
- net/tipc/log.c                   |    1 -
- net/tipc/name_table.c            |  375 +++++++++----------
- net/tipc/name_table.h            |    5 +-
- net/tipc/net.c                   |  107 +++++-
- net/tipc/net.h                   |    8 +-
- net/tipc/netlink.c               |  129 +++++--
- net/tipc/netlink.h               |   47 +++
- net/tipc/node.c                  |  209 +++++------
- net/tipc/node.h                  |    6 +-
- net/tipc/socket.c                |  236 ++++++++----
- net/tipc/socket.h                |    3 +-
- 22 files changed, 1913 insertions(+), 1524 deletions(-)
- delete mode 100644 net/tipc/config.c
- delete mode 100644 net/tipc/config.h
- create mode 100644 net/tipc/netlink.h
-
+diff --git a/include/uapi/linux/tipc_config.h b/include/uapi/linux/tipc_config.h
+index af7acac..e09dec2 100644
+--- a/include/uapi/linux/tipc_config.h
++++ b/include/uapi/linux/tipc_config.h
+@@ -54,6 +54,7 @@ enum {
+ 	TIPC_NL_BEARER_ENABLE,
+ 	TIPC_NL_BEARER_GET,
+ 	TIPC_NL_BEARER_SET,
++	TIPC_NL_SOCK_GET,
+ 
+ 	__TIPC_NL_CMD_MAX,
+ 	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
+@@ -63,6 +64,7 @@ enum {
+ enum {
+ 	TIPC_NLA_UNSPEC,
+ 	TIPC_NLA_BEARER,		/* nest */
++	TIPC_NLA_SOCK,			/* nest */
+ 
+ 	__TIPC_NLA_MAX,
+ 	TIPC_NLA_MAX = __TIPC_NLA_MAX - 1
+@@ -79,6 +81,48 @@ enum {
+ 	TIPC_NLA_BEARER_MAX = __TIPC_NLA_BEARER_MAX - 1
+ };
+ 
++/* Port info */
++enum {
++	TIPC_NLA_SOCK_UNSPEC,
++	TIPC_NLA_SOCK_ADDR,		/* u32 */
++	TIPC_NLA_SOCK_REF,		/* u32 */
++	TIPC_NLA_SOCK_CON,		/* nest */
++	TIPC_NLA_SOCK_PUBL,		/* nest */
++
++	__TIPC_NLA_SOCK_MAX,
++	TIPC_NLA_SOCK_MAX = __TIPC_NLA_SOCK_MAX - 1
++};
++
++/* Nest, publication info */
++enum {
++	TIPC_NLA_PUBL_UNSPEC,
++
++	TIPC_NLA_PUBL_TYPE,		/* u32 */
++	TIPC_NLA_PUBL_LOWER,		/* u32 */
++	TIPC_NLA_PUBL_UPPER,		/* u32 */
++	TIPC_NLA_PUBL_SCOPE,		/* u32 */
++	TIPC_NLA_PUBL_NODE,		/* u32 */
++	TIPC_NLA_PUBL_REF,		/* u32 */
++	TIPC_NLA_PUBL_KEY,		/* u32 */
++
++	__TIPC_NLA_PUBL_MAX,
++	TIPC_NLA_PUBL_MAX = __TIPC_NLA_PUBL_MAX - 1
++};
++
++/* Nest, connection info */
++enum {
++	TIPC_NLA_CON_UNSPEC,
++
++	TIPC_NLA_CON_FLAG,		/* flag */
++	TIPC_NLA_CON_NODE,		/* u32 */
++	TIPC_NLA_CON_SOCK,		/* u32 */
++	TIPC_NLA_CON_TYPE,		/* u32 */
++	TIPC_NLA_CON_INST,		/* u32 */
++
++	__TIPC_NLA_CON_MAX,
++	TIPC_NLA_CON_MAX = __TIPC_NLA_CON_MAX - 1
++};
++
+ /* Nest, link propreties. Valid for link, media and bearer */
+ enum {
+ 	TIPC_NLA_PROP_UNSPEC,
+diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
+index e5fbea9..52973ce 100644
+--- a/net/tipc/netlink.c
++++ b/net/tipc/netlink.c
+@@ -36,6 +36,7 @@
+ 
+ #include "core.h"
+ #include "config.h"
++#include "socket.h"
+ #include "bearer.h"
+ #include <net/genetlink.h>
+ 
+@@ -72,6 +73,7 @@ static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
+ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
+ 	[TIPC_NLA_UNSPEC]	= { .type = NLA_UNSPEC, },
+ 	[TIPC_NLA_BEARER]	= { .type = NLA_NESTED, },
++	[TIPC_NLA_SOCK]		= { .type = NLA_NESTED, },
+ };
+ 
+ struct genl_family tipc_genl_family = {
+@@ -108,6 +110,11 @@ static const struct genl_ops tipc_genl_ops[] = {
+ 		.cmd	= TIPC_NL_BEARER_SET,
+ 		.doit	= tipc_nl_bearer_set,
+ 		.policy = tipc_nl_policy,
++	},
++	{
++		.cmd	= TIPC_NL_SOCK_GET,
++		.dumpit	= tipc_nl_sk_dump,
++		.policy = tipc_nl_policy,
+ 	}
+ };
+ 
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 75275c5..bb58029 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -2802,3 +2802,162 @@ void tipc_socket_stop(void)
+ 	sock_unregister(tipc_family_ops.family);
+ 	proto_unregister(&tipc_proto);
+ }
++
++/* Caller should hold socket lock for the passed tipc socket. */
++int __tipc_nl_list_sk_publ(struct sk_buff *skb, struct netlink_callback *cb,
++			   struct tipc_sock *tsk, u32 *prev_publ)
++{
++	struct nlattr *publ;
++	struct publication *p;
++
++	if (*prev_publ) {
++		list_for_each_entry(p, &tsk->publications, pport_list) {
++			if (p->key == *prev_publ)
++				break;
++		}
++
++		if (p->key != *prev_publ) {
++			nlmsg_hdr(skb)->nlmsg_flags |= NLM_F_DUMP_INTR;
++			*prev_publ = 0;
++			return -EPIPE;
++		}
++	} else {
++		p = list_first_entry(&tsk->publications, struct publication,
++				     pport_list);
++	}
++
++	list_for_each_entry_from(p, &tsk->publications, pport_list) {
++		publ = nla_nest_start(skb, TIPC_NLA_SOCK_PUBL);
++		if (nla_put_u32(skb, TIPC_NLA_PUBL_TYPE, p->type))
++			goto msg_full;
++		if (nla_put_u32(skb, TIPC_NLA_PUBL_LOWER, p->lower))
++			goto msg_full;
++		if (nla_put_u32(skb, TIPC_NLA_PUBL_UPPER, p->upper))
++			goto msg_full;
++		nla_nest_end(skb, publ);
++	}
++
++	*prev_publ = 0;
++
++	return 0;
++
++msg_full:
++	*prev_publ = p->key;
++	nla_nest_cancel(skb, publ);
++
++	return -EMSGSIZE;
++}
++
++/* Caller should hold socket lock for the passed tipc socket. */
++int __tipc_nl_add_sk_con(struct sk_buff *skb, struct tipc_sock *tsk)
++{
++	u32 peer_node;
++	u32 peer_port;
++	struct nlattr *nest;
++
++	peer_node = tsk_peer_node(tsk);
++	peer_port = tsk_peer_port(tsk);
++
++	nest = nla_nest_start(skb, TIPC_NLA_SOCK_CON);
++
++	if (nla_put_u32(skb, TIPC_NLA_CON_NODE, peer_node))
++		goto msg_full;
++	if (nla_put_u32(skb, TIPC_NLA_CON_SOCK, peer_port))
++		goto msg_full;
++
++	if (tsk->conn_type != 0) {
++		if (nla_put_flag(skb, TIPC_NLA_CON_FLAG))
++			goto msg_full;
++		if (nla_put_u32(skb, TIPC_NLA_CON_TYPE, tsk->conn_type))
++			goto msg_full;
++		if (nla_put_u32(skb, TIPC_NLA_CON_INST, tsk->conn_instance))
++			goto msg_full;
++	}
++	nla_nest_end(skb, nest);
++
++	return 0;
++
++msg_full:
++	nla_nest_cancel(skb, nest);
++
++	return -EMSGSIZE;
++}
++
++/* Caller should hold socket lock for the passed tipc socket. */
++int __tipc_nl_add_sk(struct sk_buff *skb, struct netlink_callback *cb,
++		     struct tipc_sock *tsk, u32 *prev_publ)
++{
++	void *hdr;
++	int res = 0;
++	struct nlattr *attrs;
++	struct nlattr *publs;
++
++	hdr = genlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
++			  &tipc_genl_family, NLM_F_MULTI, TIPC_NL_SOCK_GET);
++	if (!hdr)
++		goto msg_cancel;
++
++	attrs = nla_nest_start(skb, TIPC_NLA_SOCK);
++	if (!attrs)
++		goto genlmsg_cancel;
++
++	if (nla_put_u32(skb, TIPC_NLA_SOCK_REF, tsk->ref))
++		goto attr_msg_cancel;
++	if (nla_put_u32(skb, TIPC_NLA_SOCK_ADDR, tipc_own_addr))
++		goto attr_msg_cancel;
++
++	/* We assume a socket is either connected or published */
++	if (tsk->connected) {
++		res = __tipc_nl_add_sk_con(skb, tsk);
++		if (res != 0)
++			goto attr_msg_cancel;
++	} else {
++		publs = nla_nest_start(skb, TIPC_NLA_SOCK_PUBL);
++		if (!publs)
++			goto attr_msg_cancel;
++
++		res = __tipc_nl_list_sk_publ(skb, cb, tsk, prev_publ);
++		/* As the publication count is arbitrary large, we send even an
++		 * incomplete listing.
++		 */
++		nla_nest_end(skb, publs);
++	}
++
++	nla_nest_end(skb, attrs);
++	genlmsg_end(skb, hdr);
++
++	return res;
++
++attr_msg_cancel:
++	nla_nest_cancel(skb, attrs);
++genlmsg_cancel:
++	genlmsg_cancel(skb, hdr);
++msg_cancel:
++	return -EMSGSIZE;
++}
++
++int tipc_nl_sk_dump(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	int err;
++	struct tipc_sock *tsk;
++	u32 prev_tsk = cb->args[0];
++	u32 prev_publ = cb->args[1];
++	u32 tsk_ref = prev_tsk;
++
++	tsk = tipc_sk_get_next(&tsk_ref);
++	for (; tsk; tsk = tipc_sk_get_next(&tsk_ref)) {
++		lock_sock(&tsk->sk);
++		err = __tipc_nl_add_sk(skb, cb, tsk, &prev_publ);
++		release_sock(&tsk->sk);
++		tipc_sk_put(tsk);
++		if (err)
++			break;
++
++		prev_tsk = tsk_ref;
++	}
++
++	cb->args[0] = prev_tsk;
++	cb->args[1] = prev_publ;
++
++	return skb->len;
++}
+diff --git a/net/tipc/socket.h b/net/tipc/socket.h
+index baa43d0..16dfd62 100644
+--- a/net/tipc/socket.h
++++ b/net/tipc/socket.h
+@@ -36,6 +36,7 @@
+ #define _TIPC_SOCK_H
+ 
+ #include <net/sock.h>
++#include <net/genetlink.h>
+ 
+ #define TIPC_CONNACK_INTV         256
+ #define TIPC_FLOWCTRL_WIN        (TIPC_CONNACK_INTV * 2)
+@@ -47,5 +48,6 @@ void tipc_sk_mcast_rcv(struct sk_buff *buf);
+ void tipc_sk_reinit(void);
+ int tipc_sk_ref_table_init(u32 requested_size, u32 start);
+ void tipc_sk_ref_table_stop(void);
++int tipc_nl_sk_dump(struct sk_buff *skb, struct netlink_callback *cb);
+ 
+ #endif
 -- 
 1.7.10.4
 
