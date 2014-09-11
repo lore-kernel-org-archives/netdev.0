@@ -1,79 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH v4 01/16] net: qdisc: use rcu prefix and
- silence sparse warnings
-Date: Wed, 10 Sep 2014 17:23:58 -0700
-Message-ID: <1410395038.7106.34.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140910154517.2036.53084.stgit@nitbit.x32>
-	 <20140910154659.2036.95037.stgit@nitbit.x32>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
-	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:62461 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752993AbaIKAYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Sep 2014 20:24:00 -0400
-Received: by mail-pd0-f182.google.com with SMTP id w10so7292546pde.41
-        for <netdev@vger.kernel.org>; Wed, 10 Sep 2014 17:24:00 -0700 (PDT)
-In-Reply-To: <20140910154659.2036.95037.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH 1/3] virtio_net: pass well-formed sgs to virtqueue_add_*()
+Date: Thu, 11 Sep 2014 10:17:36 +0930
+Message-ID: <1410396458-1165-2-git-send-email-rusty@rustcorp.com.au>
+References: <1410396458-1165-1-git-send-email-rusty@rustcorp.com.au>
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	"netdev" <netdev@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1410396458-1165-1-git-send-email-rusty@rustcorp.com.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-09-10 at 08:47 -0700, John Fastabend wrote:
-> Add __rcu notation to qdisc handling by doing this we can make
-> smatch output more legible. And anyways some of the cases should
-> be using rcu_dereference() see qdisc_all_tx_empty(),
-> qdisc_tx_chainging(), and so on.
-> 
-> Also *wake_queue() API is commonly called from driver timer routines
-> without rcu lock or rtnl lock. So I added rcu_read_lock() blocks
-> around netif_wake_subqueue and netif_tx_wake_queue.
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+This is the only driver which doesn't hand virtqueue_add_inbuf and
+virtqueue_add_outbuf a well-formed, well-terminated sg.  Fix it,
+so we can make virtio_add_* simpler.
 
-...
+pktgen results:
+	modprobe pktgen
+	echo 'add_device eth0' > /proc/net/pktgen/kpktgend_0
+	echo nowait 1 > /proc/net/pktgen/eth0
+	echo count 1000000 > /proc/net/pktgen/eth0
+	echo clone_skb 100000 > /proc/net/pktgen/eth0
+	echo dst_mac 4e:14:25:a9:30:ac > /proc/net/pktgen/eth0
+	echo dst 192.168.1.2 > /proc/net/pktgen/eth0
+	for i in `seq 20`; do echo start > /proc/net/pktgen/pgctrl; tail -n1 /proc/net/pktgen/eth0; done
 
->  
-> @@ -416,10 +423,13 @@ static inline bool qdisc_all_tx_empty(const struct net_device *dev)
->  static inline bool qdisc_tx_changing(const struct net_device *dev)
->  {
->  	unsigned int i;
-> +
->  	for (i = 0; i < dev->num_tx_queues; i++) {
->  		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
-> -		if (txq->qdisc != txq->qdisc_sleeping)
-> +		if (rcu_access_pointer(txq->qdisc) != txq->qdisc_sleeping) {
-> +			rcu_read_unlock();
+Before:
+  746547-793084(786421+/-9.6e+03)pps 346-367(364.4+/-4.4)Mb/sec (346397808-367990976(3.649e+08+/-4.5e+06)bps) errors: 0
 
-You forgot to remove this rcu_read_unlock();
+After:
+  767390-792966(785159+/-6.5e+03)pps 356-367(363.75+/-2.9)Mb/sec (356068960-367936224(3.64314e+08+/-3e+06)bps) errors: 0
 
->  			return true;
-> +		}
->  	}
->  	return false;
->  }
-> @@ -428,10 +438,13 @@ static inline bool qdisc_tx_changing(const struct net_device *dev)
->  static inline bool qdisc_tx_is_noop(const struct net_device *dev)
->  {
->  	unsigned int i;
-> +
->  	for (i = 0; i < dev->num_tx_queues; i++) {
->  		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
-> -		if (txq->qdisc != &noop_qdisc)
-> +		if (rcu_dereference(txq->qdisc) != &noop_qdisc) {
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/net/virtio_net.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-		rcu_access_pointer()
-
-> +			rcu_read_unlock();
-
-You forgot to remove this rcu_read_unlock();
-
->  			return false;
-> +		}
->  	}
->  	return true;
->  }
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 59caa06f34a6..31cac511b3c3 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -546,8 +546,8 @@ static int add_recvbuf_small(struct receive_queue *rq, gfp_t gfp)
+ 	skb_put(skb, GOOD_PACKET_LEN);
+ 
+ 	hdr = skb_vnet_hdr(skb);
++	sg_init_table(rq->sg, MAX_SKB_FRAGS + 2);
+ 	sg_set_buf(rq->sg, &hdr->hdr, sizeof hdr->hdr);
+-
+ 	skb_to_sgvec(skb, rq->sg + 1, 0, skb->len);
+ 
+ 	err = virtqueue_add_inbuf(rq->vq, rq->sg, 2, skb, gfp);
+@@ -563,6 +563,8 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
+ 	char *p;
+ 	int i, err, offset;
+ 
++	sg_init_table(rq->sg, MAX_SKB_FRAGS + 2);
++
+ 	/* page in rq->sg[MAX_SKB_FRAGS + 1] is list tail */
+ 	for (i = MAX_SKB_FRAGS + 1; i > 1; --i) {
+ 		first = get_a_page(rq, gfp);
+@@ -899,6 +901,7 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+ 	if (vi->mergeable_rx_bufs)
+ 		hdr->mhdr.num_buffers = 0;
+ 
++	sg_init_table(sq->sg, MAX_SKB_FRAGS + 2);
+ 	if (can_push) {
+ 		__skb_push(skb, hdr_len);
+ 		num_sg = skb_to_sgvec(skb, sq->sg, 0, skb->len);
+-- 
+1.9.1
