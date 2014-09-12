@@ -1,80 +1,53 @@
 From: <Frank.Li@freescale.com>
-Subject: [Patch v4 net-next 10/12] net: fec: init complete variable in early to avoid kernel dump
-Date: Sat, 13 Sep 2014 05:00:55 +0800
-Message-ID: <1410555657-10744-11-git-send-email-Frank.Li@freescale.com>
+Subject: [Patch v4 net-next 11/12] ARM: Documentation: Update fec dts binding doc
+Date: Sat, 13 Sep 2014 05:00:56 +0800
+Message-ID: <1410555657-10744-12-git-send-email-Frank.Li@freescale.com>
 References: <1410555657-10744-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
 	<devicetree@vger.kernel.org>, <linux@arm.linux.org.uk>,
-	Fugang Duan <B38611@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>
+	Frank Li <Frank.Li@freescale.com>,
+	Fugang Duan <B38611@freescale.com>
 To: <b38611@freescale.com>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0139.outbound.protection.outlook.com ([157.56.110.139]:34880
+Received: from mail-bn1on0132.outbound.protection.outlook.com ([157.56.110.132]:6064
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752815AbaILWFl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2014 18:05:41 -0400
+	id S1753037AbaILWFp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Sep 2014 18:05:45 -0400
 In-Reply-To: <1410555657-10744-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <B38611@freescale.com>
+From: Frank Li <Frank.Li@freescale.com>
 
-Software clear the MDIO interrupt before MDIO bus access, but
-MAC still generate MDIO interrupt. The issue only happen on
-imx6slx chip.
-
-CPU: 0 PID: 1 Comm: swapper/0 Not tainted 3.17.0-rc1-00399-g0bcad17 #315
-Backtrace:
-[<800121fc>] (dump_backtrace) from [<800124e0>] (show_stack+0x18/0x1c)
- r6:8096e534 r5:8096e534 r4:00000000 r3:00000000
-[<800124c8>] (show_stack) from [<806a4c60>] (dump_stack+0x8c/0xa4)
-[<806a4bd4>] (dump_stack) from [<80060ab8>] (__lock_acquire+0x1814/0x1c40)
- r6:be078000 r5:be074000 r4:be03f6e4 r3:be078000
-[<8005f2a4>] (__lock_acquire) from [<800616e0>] (lock_acquire+0x70/0x84)
- r10:809ada33 r9:be010600 r8:00000096 r7:00000001 r6:be074000 r5:00000000
- r4:60000193
-[<80061670>] (lock_acquire) from [<806abb20>] (_raw_spin_lock_irqsave+0x40/0x54)
- r7:00000000 r6:8005a3f8 r5:00000193 r4:be03f6d4
-[<806abae0>] (_raw_spin_lock_irqsave) from [<8005a3f8>] (complete+0x1c/0x4c)
- r6:80950904 r5:be03f6d0 r4:be03f6d4
-[<8005a3dc>] (complete) from [<8041b4c0>] (fec_enet_interrupt+0x128/0x164)
- r6:80950904 r5:00800000 r4:be03f000 r3:00000000
-[<8041b398>] (fec_enet_interrupt) from [<8006aeac>] (handle_irq_event_percpu+0x38/0x13c)
- r6:00000000 r5:be01065c r4:be399e00 r3:8041b398
-[<8006ae74>] (handle_irq_event_percpu) from [<8006aff4>] (handle_irq_event+0x44/0x64)
- r10:be03f000 r9:80989fe0 r8:00000000 r7:00000096 r6:be399e00 r5:be01065c
- r4:be010600
-[<8006afb0>] (handle_irq_event) from [<8006e3e8>] (handle_fasteoi_irq+0xc8/0x1bc)
- r6:8096e764 r5:be01065c r4:be010600 r3:00000000
-[<8006e320>] (handle_fasteoi_irq) from [<8006a63c>] (generic_handle_irq+0x30/0x44)
- r6:be074010 r5:80945e4c r4:00000096 r3:8006e320
-[<8006a60c>] (generic_handle_irq) from [<8000f218>] (handle_IRQ+0x54/0xbc)
- r4:80950d74 r3:00000180
-[<8000f1c4>] (handle_IRQ) from [<800086cc>] (gic_handle_irq+0x30/0x68)
- r8:be3ab478 r7:c080e100 r6:be075bd8 r5:80950eec r4:c080e10c r3:000000a0
-[<8000869c>] (gic_handle_irq) from [<80013064>] (__irq_svc+0x44/0x5c)
+    This patch update fec devicetree binding doc that add Optional
+    properties "fsl,num-tx-queues" and "fsl,num-rx-queues".
 
 Signed-off-by: Fugang Duan <B38611@freescale.com>
 Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 1 +
- 1 file changed, 1 insertion(+)
+ Documentation/devicetree/bindings/net/fsl-fec.txt | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 9840a10..8f8e55e 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -3066,6 +3066,7 @@ fec_probe(struct platform_device *pdev)
- 			goto failed_irq;
- 	}
+diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
+index 8a2c7b5..0c8775c 100644
+--- a/Documentation/devicetree/bindings/net/fsl-fec.txt
++++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
+@@ -16,6 +16,12 @@ Optional properties:
+ - phy-handle : phandle to the PHY device connected to this device.
+ - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
+   Use instead of phy-handle.
++- fsl,num-tx-queues : The property is valid for enet-avb IP, which supports
++  hw multi queues. Should specify the tx queue number, otherwise set tx queue
++  number to 1.
++- fsl,num-rx-queues : The property is valid for enet-avb IP, which supports
++  hw multi queues. Should specify the rx queue number, otherwise set rx queue
++  number to 1.
  
-+	init_completion(&fep->mdio_done);
- 	ret = fec_enet_mii_init(pdev);
- 	if (ret)
- 		goto failed_mii_init;
+ Optional subnodes:
+ - mdio : specifies the mdio bus in the FEC, used as a container for phy nodes
 -- 
 1.9.1
