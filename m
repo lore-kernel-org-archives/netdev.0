@@ -1,252 +1,150 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH 2/3] bridge: Add filtering support for default_pvid
-Date: Fri, 12 Sep 2014 16:44:50 -0400
-Message-ID: <1410554691-18467-3-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH 3/3] bridge; Automatically filter vlans configured on top of bridge
+Date: Fri, 12 Sep 2014 16:44:51 -0400
+Message-ID: <1410554691-18467-4-git-send-email-vyasevic@redhat.com>
 References: <1410554691-18467-1-git-send-email-vyasevic@redhat.com>
 Cc: shemminger@vyatta.com, bridge@lists.linux-foundation.org,
 	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
 	Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:62358 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752501AbaILUpF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 16:45:05 -0400
-Received: by mail-qg0-f48.google.com with SMTP id q108so1307505qgd.21
-        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 13:45:02 -0700 (PDT)
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:60928 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752439AbaILUpE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 16:45:04 -0400
+Received: by mail-qc0-f169.google.com with SMTP id r5so1495669qcx.14
+        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 13:45:04 -0700 (PDT)
 In-Reply-To: <1410554691-18467-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently when vlan filtering is turned on on the bridge, the bridge
-will drop all traffic untill the user configures the filter.  This
-isn't very nice for ports that don't care about vlans and just
-want untagged traffic.
-
-A concept of a default_pvid was recently introduced.  This patch
-adds filtering support for default_pvid.   Now, ports that don't
-care about vlans and don't define there own filter will belong
-to the VLAN of the default_pvid and continue to receive untagged
-traffic.
+If the user configures vlan devices on top of the bridge,
+automatically set up filter entries for it as long as
+bridge vlan protocol matches that of the vlan.
+This allows the user to atomatically receive vlan traffic
+for the vlans that are convifgured.
 
 Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- net/bridge/br_device.c  |  8 +++--
- net/bridge/br_if.c      |  2 ++
- net/bridge/br_private.h | 13 ++++++--
- net/bridge/br_vlan.c    | 87 +++++++++++++++++++++++++++++++++++++++++++++++--
- 4 files changed, 104 insertions(+), 6 deletions(-)
+ net/bridge/br_device.c  | 46 +++++++++++++++++++++++++++++++++++++++++++---
+ net/bridge/br_private.h | 20 ++++++++++++++++++++
+ 2 files changed, 63 insertions(+), 3 deletions(-)
 
 diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 568cccd..af8f706 100644
+index af8f706..1e8caec 100644
 --- a/net/bridge/br_device.c
 +++ b/net/bridge/br_device.c
-@@ -88,12 +88,17 @@ out:
- static int br_dev_init(struct net_device *dev)
- {
- 	struct net_bridge *br = netdev_priv(dev);
-+	int err;
- 
- 	br->stats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
- 	if (!br->stats)
- 		return -ENOMEM;
- 
--	return 0;
-+	err = br_vlan_init(br);
-+	if (err)
-+		free_percpu(br->stats);
-+
-+	return err;
+@@ -307,6 +307,45 @@ static int br_del_slave(struct net_device *dev, struct net_device *slave_dev)
+ 	return br_del_if(br, slave_dev);
  }
  
- static int br_dev_open(struct net_device *dev)
-@@ -389,5 +394,4 @@ void br_dev_setup(struct net_device *dev)
- 	br_netfilter_rtable_init(br);
- 	br_stp_timer_init(br);
- 	br_multicast_init(br);
--	br_vlan_init(br);
- }
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index a9f54a9..cb2b20f 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -500,6 +500,8 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 	if (br_fdb_insert(br, p, dev->dev_addr, 0))
- 		netdev_err(dev, "failed insert local address bridge forwarding table\n");
- 
-+	nbp_vlan_init(p);
++static int br_vlan_rx_add_vid(struct net_device *br_dev,
++			      __be16 proto, u16 vid)
++{
++	struct net_bridge *br = netdev_priv(br_dev);
 +
- 	spin_lock_bh(&br->lock);
- 	changed_addr = br_stp_recalculate_bridge_id(br);
++	if (proto != br_vlan_protocol(br))
++		return 0;
++
++	/* vid 0 is special and will be added by the vlan layer to lower
++	 * devices.  Don't do anything here.
++	 */
++	if (vid == 0)
++		return 0;
++
++	return br_vlan_add(br, vid, 0);
++}
++
++static int br_vlan_rx_kill_vid(struct net_device *br_dev,
++			       __be16 proto, u16 vid)
++{
++	struct net_bridge *br = netdev_priv(br_dev);
++
++	if (proto != br_vlan_protocol(br))
++		return 0;
++
++	/* vid 0 is special and will be removed by the vlan layer from lower
++	 * devices.  Don't do anything here.
++	 */
++	if (vid == 0)
++		return 0;
++
++	/* Don't report error.  This will fail if the vlan was
++	 * previousely remove by some other means and we don't
++	 * wan't to polute the log/bug the user.
++	 */
++	br_vlan_delete(br, vid);
++	return 0;
++}
++
+ static const struct ethtool_ops br_ethtool_ops = {
+ 	.get_drvinfo    = br_getinfo,
+ 	.get_link	= ethtool_op_get_link,
+@@ -337,6 +376,8 @@ static const struct net_device_ops br_netdev_ops = {
+ 	.ndo_bridge_getlink	 = br_getlink,
+ 	.ndo_bridge_setlink	 = br_setlink,
+ 	.ndo_bridge_dellink	 = br_dellink,
++	.ndo_vlan_rx_add_vid	 = br_vlan_rx_add_vid,
++	.ndo_vlan_rx_kill_vid	 = br_vlan_rx_kill_vid,
+ };
  
+ static void br_dev_free(struct net_device *dev)
+@@ -366,9 +407,8 @@ void br_dev_setup(struct net_device *dev)
+ 	dev->priv_flags = IFF_EBRIDGE;
+ 
+ 	dev->features = COMMON_FEATURES | NETIF_F_LLTX | NETIF_F_NETNS_LOCAL |
+-			NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX;
+-	dev->hw_features = COMMON_FEATURES | NETIF_F_HW_VLAN_CTAG_TX |
+-			   NETIF_F_HW_VLAN_STAG_TX;
++			BRIDGE_VLAN_FEATURES;
++	dev->hw_features = COMMON_FEATURES | BRIDGE_VLAN_FEATURES;
+ 	dev->vlan_features = COMMON_FEATURES;
+ 
+ 	br->dev = dev;
 diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 84c9a5d..bb4abdf 100644
+index bb4abdf..73a1563 100644
 --- a/net/bridge/br_private.h
 +++ b/net/bridge/br_private.h
-@@ -602,12 +602,13 @@ bool br_vlan_find(struct net_bridge *br, u16 vid);
- void br_recalculate_fwd_mask(struct net_bridge *br);
- int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
- int br_vlan_set_proto(struct net_bridge *br, unsigned long val);
--void br_vlan_init(struct net_bridge *br);
-+int br_vlan_init(struct net_bridge *br);
- int br_vlan_set_default_pvid(struct net_bridge *br, unsigned long val);
- int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags);
- int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
- void nbp_vlan_flush(struct net_bridge_port *port);
- bool nbp_vlan_find(struct net_bridge_port *port, u16 vid);
-+int nbp_vlan_init(struct net_bridge_port *port);
+@@ -29,6 +29,16 @@
+ #define BR_MAX_PORTS	(1<<BR_PORT_BITS)
+ #define BR_VLAN_BITMAP_LEN	BITS_TO_LONGS(VLAN_N_VID)
  
- static inline struct net_port_vlans *br_get_vlan_info(
- 						const struct net_bridge *br)
-@@ -640,6 +641,8 @@ static inline int br_vlan_get_tag(const struct sk_buff *skb, u16 *vid)
- 
- static inline u16 br_get_pvid(const struct net_port_vlans *v)
- {
-+	if (!v)
-+		return VLAN_N_VID;
- 	/* Return just the VID if it is set, or VLAN_N_VID (invalid vid) if
- 	 * vid wasn't set
- 	 */
-@@ -703,8 +706,9 @@ static inline void br_recalculate_fwd_mask(struct net_bridge *br)
- {
- }
- 
--static inline void br_vlan_init(struct net_bridge *br)
-+static inline int br_vlan_init(struct net_bridge *br)
- {
-+	return 0;
- }
- 
- static inline int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
-@@ -737,6 +741,11 @@ static inline bool nbp_vlan_find(struct net_bridge_port *port, u16 vid)
- 	return false;
- }
- 
-+static inline int nbp_vlan_init(struct net_bridge_port *port)
-+{
-+	return 0;
-+}
++#ifdef CONFIG_BRIDGE_VLAN_FILTERING
++#define BRIDGE_VLAN_FEATURES (NETIF_F_HW_VLAN_CTAG_TX | \
++			     NETIF_F_HW_VLAN_CTAG_FILTER | \
++			     NETIF_F_HW_VLAN_STAG_TX | \
++			     NETIF_F_HW_VLAN_STAG_FILTER)
++#else
++#define BRIDGE_VLAN_FEATURES (NETIF_F_HW_VLAN_CTAG_TX | \
++			     NETIF_F_HW_VLAN_STAG_TX)
++#endif
 +
- static inline u16 br_vlan_get_tag(const struct sk_buff *skb, u16 *tag)
+ #define BR_VERSION	"2.3"
+ 
+ /* Control of forwarding link local multicast */
+@@ -654,6 +664,11 @@ static inline int br_vlan_enabled(struct net_bridge *br)
+ {
+ 	return br->vlan_enabled;
+ }
++
++static inline __be16 br_vlan_protocol(struct net_bridge *br)
++{
++	return br->vlan_proto;
++}
+ #else
+ static inline bool br_allowed_ingress(struct net_bridge *br,
+ 				      struct net_port_vlans *v,
+@@ -759,6 +774,11 @@ static inline int br_vlan_enabled(struct net_bridge *br)
  {
  	return 0;
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 43a297b..4b807ef 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -489,6 +489,80 @@ err_filt:
- 	goto unlock;
  }
- 
-+static int __br_vlan_set_default_pvid(struct net_bridge *br, u16 pvid)
++
++static inline __be16 br_vlan_protocol(struct net_bridge *br)
 +{
-+	struct net_bridge_port *p;
-+	u16 old_pvid;
-+	int err;
-+	DECLARE_BITMAP(changed, BR_MAX_PORTS);
-+
-+	bitmap_zero(changed, BR_MAX_PORTS);
-+
-+	/* This function runs with filtering turned off so we can
-+	 * remove the old pvid configuration and add the new one after
-+	 * without impacting traffic.
-+	 */
-+
-+	old_pvid = br->default_pvid;
-+
-+	/* If the user has set a different PVID or if the new default pvid
-+	 * conflicts with user configuration, do not modify the configuration.
-+	 */
-+	if (old_pvid != br_get_pvid(br_get_vlan_info(br)) ||
-+	    br_vlan_find(br, pvid))
-+		goto do_ports;
-+
-+	set_bit(0, changed);
-+	br_vlan_delete(br, old_pvid);
-+	err = br_vlan_add(br, pvid,
-+			  BRIDGE_VLAN_INFO_PVID | BRIDGE_VLAN_INFO_UNTAGGED);
-+	if (err)
-+		goto err_br;
-+
-+do_ports:
-+	list_for_each_entry(p, &br->port_list, list) {
-+		/* If the user has set a different PVID or if the new default
-+		 * pvid conflicts with user configuration, do not modify the
-+		 * configuration.
-+		 */
-+		if (old_pvid != br_get_pvid(nbp_get_vlan_info(p)) ||
-+		    nbp_vlan_find(p, pvid))
-+			continue;
-+
-+		set_bit(p->port_no, changed);
-+		err = nbp_vlan_add(p, pvid,
-+				   BRIDGE_VLAN_INFO_PVID |
-+				   BRIDGE_VLAN_INFO_UNTAGGED);
-+		if (err)
-+			goto err_port;
-+		nbp_vlan_delete(p, old_pvid);
-+	}
-+
-+	br->default_pvid = pvid;
-+
 +	return 0;
-+
-+err_port:
-+	list_for_each_entry_continue_reverse(p, &br->port_list, list) {
-+		if (!test_bit(p->port_no, changed))
-+			continue;
-+
-+		nbp_vlan_delete(p, pvid);
-+		nbp_vlan_add(p, old_pvid,
-+			     BRIDGE_VLAN_INFO_PVID |
-+			     BRIDGE_VLAN_INFO_UNTAGGED);
-+	}
-+
-+err_br:
-+	if (test_bit(0, changed)) {
-+		br_vlan_delete(br, pvid);
-+		br_vlan_add(br, old_pvid,
-+			    BRIDGE_VLAN_INFO_PVID |
-+			    BRIDGE_VLAN_INFO_UNTAGGED);
-+	}
-+	return err;
 +}
-+
- int br_vlan_set_default_pvid(struct net_bridge *br, unsigned long val)
- {
- 	u16 pvid = val;
-@@ -509,17 +583,19 @@ int br_vlan_set_default_pvid(struct net_bridge *br, unsigned long val)
- 		goto unlock;
- 	}
+ #endif
  
--	br->default_pvid = vid;
-+	err = __br_vlan_set_default_pvid(br, pvid);
- 
- unlock:
- 	rtnl_unlock();
- 	return err;
- }
- 
--void br_vlan_init(struct net_bridge *br)
-+int br_vlan_init(struct net_bridge *br)
- {
- 	br->vlan_proto = htons(ETH_P_8021Q);
- 	br->default_pvid = 1;
-+	return br_vlan_add(br, 1,
-+			   BRIDGE_VLAN_INFO_PVID | BRIDGE_VLAN_INFO_UNTAGGED);
- }
- 
- /* Must be protected by RTNL.
-@@ -611,3 +687,10 @@ out:
- 	rcu_read_unlock();
- 	return found;
- }
-+
-+int nbp_vlan_init(struct net_bridge_port *p)
-+{
-+	return nbp_vlan_add(p, p->br->default_pvid,
-+			    BRIDGE_VLAN_INFO_PVID |
-+			    BRIDGE_VLAN_INFO_UNTAGGED);
-+}
+ /* br_netfilter.c */
 -- 
 1.9.3
