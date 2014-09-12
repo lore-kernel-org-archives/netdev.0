@@ -1,40 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net-next] sunvnet: Avoid sending superfluous LDC
- messages.
-Date: Fri, 12 Sep 2014 18:19:25 -0400 (EDT)
-Message-ID: <20140912.181925.2227644293597000085.davem@davemloft.net>
-References: <20140911135722.GA22398@oracle.com>
+Subject: Re: [PATCH] net/macb: Add hardware revision information during
+ probe
+Date: Fri, 12 Sep 2014 18:20:52 -0400 (EDT)
+Message-ID: <20140912.182052.1655150437302824636.davem@davemloft.net>
+References: <1410447096-29980-1-git-send-email-alexandre.belloni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org,
-	bob.picco@oracle.com
-To: sowmini.varadhan@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52020 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753117AbaILWT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 18:19:27 -0400
-In-Reply-To: <20140911135722.GA22398@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nicolas.ferre@atmel.com, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	voice.shen@atmel.com
+To: alexandre.belloni@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1410447096-29980-1-git-send-email-alexandre.belloni@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Thu, 11 Sep 2014 09:57:22 -0400
+From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Date: Thu, 11 Sep 2014 16:51:36 +0200
 
-> When sending out a burst of packets across multiple descriptors,
-> it is sufficient to send one LDC "start" trigger for
-> the first descriptor, so do not send an LDC "start" for every
-> pass through vnet_start_xmit. Similarly, it is sufficient to send
-> one "DRING_STOPPED" trigger for the last dring (and if that
-> fails, hold off and send the trigger later).
+> From: Bo Shen <voice.shen@atmel.com>
 > 
-> Optimizations to the number of LDC messages helps avoid
-> filling up the LDC channel with superfluous LDC messages
-> that risk triggering flow-control on the channel,
-> and also boosts performance.
+> Signed-off-by: Bo Shen <voice.shen@atmel.com>
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> ---
+>  drivers/net/ethernet/cadence/macb.c | 1 +
+>  1 file changed, 1 insertion(+)
 > 
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> Acked-by: Raghuram Kothakota <raghuram.kothakota@oracle.com>
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index ca5d7798b265..a3b35c146d9c 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -2241,6 +2241,7 @@ static int __init macb_probe(struct platform_device *pdev)
+>  
+>  	netif_carrier_off(dev);
+>  
+> +	netdev_info(dev, "Cadence rev 0x%08x\n", macb_readl(bp, MID));
+>  	netdev_info(dev, "Cadence %s at 0x%08lx irq %d (%pM)\n",
+>  		    macb_is_gem(bp) ? "GEM" : "MACB", dev->base_addr,
+>  		    dev->irq, dev->dev_addr);
 
-Applied, thanks.
+This is really sloppy.  The "Cadence %s at ..." is what announces the device,
+therefore it's out of context to print out the device revision beforehand.
+
+Why don't you just add it to the existing printout instead?
