@@ -1,41 +1,40 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH] net: rfkill: gpio: Enable module auto-loading for ACPI based switches
-Date: Fri, 12 Sep 2014 20:50:42 +0200
-Message-ID: <1410547842-50207-1-git-send-email-marcel@holtmann.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] IB/ipoib: order:1 failure in ipoib_cm_alloc_rx_skb
+ causes softlockup
+Date: Fri, 12 Sep 2014 15:20:22 -0400 (EDT)
+Message-ID: <20140912.152022.1499599699035890349.davem@davemloft.net>
+References: <1410538533-11029-1-git-send-email-venkat.x.venkatsubra@oracle.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+To: venkat.x.venkatsubra@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:58278 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751082AbaILSuA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 14:50:00 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:49221 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751998AbaILTUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 15:20:25 -0400
+In-Reply-To: <1410538533-11029-1-git-send-email-venkat.x.venkatsubra@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The switches that are enumerated over ACPI require a MODULE_ALIAS to
-allow auto-loading of the module.
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Date: Fri, 12 Sep 2014 09:15:33 -0700
 
-Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
----
- net/rfkill/rfkill-gpio.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+> @@ -61,6 +61,11 @@ enum ipoib_flush_level {
+>  	IPOIB_FLUSH_HEAVY
+>  };
+>  
+> +#ifdef max
+> +#undef max
+> +#endif
+> +#define max(x, y) (((int)(x) > (int)(y)) ? x : y)
+> +
+>  enum {
+>  	IPOIB_ENCAP_LEN		  = 4,
+>  
 
-diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-index 02a86a27fd84..35e659392209 100644
---- a/net/rfkill/rfkill-gpio.c
-+++ b/net/rfkill/rfkill-gpio.c
-@@ -180,3 +180,12 @@ module_platform_driver(rfkill_gpio_driver);
- MODULE_DESCRIPTION("gpio rfkill");
- MODULE_AUTHOR("NVIDIA");
- MODULE_LICENSE("GPL");
-+
-+#ifdef CONFIG_ACPI
-+MODULE_ALIAS("acpi:BCM2E1A");
-+MODULE_ALIAS("acpi:BCM2E39");
-+MODULE_ALIAS("acpi:BCM2E3D");
-+MODULE_ALIAS("acpi:BCM2E64");
-+MODULE_ALIAS("acpi:BCM4752");
-+MODULE_ALIAS("acpi:LNV4752");
-+#endif
--- 
-1.9.3
+This is insanely inappropriate.
+
+Use the linux/kernel.h provided max() definition, there is no reason
+to redefine your own version, ever.
