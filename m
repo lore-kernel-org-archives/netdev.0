@@ -1,106 +1,64 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next v4 2/9] net: filter: keep original BPF program around
-Date: Thu, 11 Sep 2014 20:51:18 -0700
-Message-ID: <CAMEtUuxPSGpOnWUNueMVMzwyQWbP4Kb==9HJwwkKoReL+3h09Q@mail.gmail.com>
-References: <1396029506-16776-1-git-send-email-dborkman@redhat.com>
-	<1396029506-16776-3-git-send-email-dborkman@redhat.com>
-	<1410492457.7106.72.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: filter: export pkt_type_offset() helper
+Date: Thu, 11 Sep 2014 21:01:12 -0700
+Message-ID: <CAADnVQKT7RC9T9fJBeaBHPHA_=ivEA3jR3QiQ7LQ=8791_C6NQ@mail.gmail.com>
+References: <1409778511-21273-1-git-send-email-kda@linux-powerpc.org>
+	<54078FBC.5050402@redhat.com>
+	<CAADnVQKNHL7iY=VHp4bs5k2hSDf8jy7H-0H0SgYjb81S25XB9Q@mail.gmail.com>
+	<1409792893.26422.60.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1409793959.3362714.163402573.6A26EDE1@webmail.messagingengine.com>
+	<1409796348.26422.76.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAADnVQLh6qOD2epUq0S5P8RkUgZA38JNxeP40uBMScLHC2SsJg@mail.gmail.com>
+	<CAHj3AVn8q-JS0Eq0QrfpBo-WfJ+-wXumhNoeDAdkPZC7LSeB5g@mail.gmail.com>
+	<1409831412.23465.3.camel@localhost>
+	<1409836154.26422.101.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1409838010.23465.16.camel@localhost>
+	<1409839892.26422.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	<063D6719AE5E284EB5DD2968C1650D6D174876B4@AcuExch.aculab.com>
+	<1409841129.26422.117.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1409841233.23465.22.camel@localhost>
+	<1409841347.26422.118.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1409841709.23465.25.camel@localhost>
+	<CAADnVQL6s_DRE2aMEw=oBdcu6Bn0Q5CfZ_CKJ4xdGdcp5cRV7w@mail.gmail.com>
+	<1409870759.2310959.163817265.10353D86@webmail.messagingengine.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Pavel Emelyanov <xemul@parallels.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Laight <David.Laight@aculab.com>,
+	Denis Kirjanov <kirjanov@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Denis Kirjanov <kda@linux-powerpc.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Markos Chandras <markos.chandras@imgtec.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f178.google.com ([74.125.82.178]:58798 "EHLO
-	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750841AbaILDvT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 23:51:19 -0400
-Received: by mail-we0-f178.google.com with SMTP id q58so123406wes.9
-        for <netdev@vger.kernel.org>; Thu, 11 Sep 2014 20:51:18 -0700 (PDT)
-In-Reply-To: <1410492457.7106.72.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-qa0-f48.google.com ([209.85.216.48]:40789 "EHLO
+	mail-qa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760AbaILEBN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 00:01:13 -0400
+Received: by mail-qa0-f48.google.com with SMTP id v10so158262qac.21
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2014 21:01:12 -0700 (PDT)
+In-Reply-To: <1409870759.2310959.163817265.10353D86@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 11, 2014 at 8:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> On Fri, 2014-03-28 at 18:58 +0100, Daniel Borkmann wrote:
->> In order to open up the possibility to internally transform a BPF program
->> into an alternative and possibly non-trivial reversible representation, we
->> need to keep the original BPF program around, so that it can be passed back
->> to user space w/o the need of a complex decoder.
+On Thu, Sep 4, 2014 at 3:45 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+>> >
+>> > I think the latest proposals looks good?
 >>
->> The reason for that use case resides in commit a8fc92778080 ("sk-filter:
->> Add ability to get socket filter program (v2)"), that is, the ability
->> to retrieve the currently attached BPF filter from a given socket used
->> mainly by the checkpoint-restore project, for example.
+>> to me: yes
+>> and I think your latest half-patch with:
+>> +       __u8                    __pkt_type_offset[0];
+>> also looks good.
 >>
->> Therefore, we add two helpers sk_{store,release}_orig_filter for taking
->> care of that. In the sk_unattached_filter_create() case, there's no such
->> possibility/requirement to retrieve a loaded BPF program. Therefore, we
->> can spare us the work in that case.
->>
->> This approach will simplify and slightly speed up both, sk_get_filter()
->> and sock_diag_put_filterinfo() handlers as we won't need to successively
->> decode filters anymore through sk_decode_filter(). As we still need
->> sk_decode_filter() later on, we're keeping it around.
->>
->> Joint work with Alexei Starovoitov.
->>
->> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->> Cc: Pavel Emelyanov <xemul@parallels.com>
->> ---
+>> Are you going to take it over from Denis here?
 >
-> Note that this patch added a possible use after free.
->
-> Following patch should be sent to stable trees only, as 3.17+
-> incidentally fixed this with
-> commit 278571baca2aecf5fb5cb5c8b002dbfa0a6c524c
->     net: filter: simplify socket charging
->
-> [PATCH] net: filter: fix possible use after free
->
-> If kmemdup() fails, we free fp->orig_prog and return -ENOMEM
->
-> sk_attach_filter()
->  -> sk_filter_uncharge(sk, fp)
->   -> sk_filter_release(fp)
->    -> call_rcu(&fp->rcu, sk_filter_release_rcu)
->     -> sk_filter_release_rcu()
->      -> sk_release_orig_filter()
->         fprog = fp->orig_prog; // not NULL, but points to freed memory
->           kfree(fprog->filter); // use after free, potential corruption
->           kfree(fprog); // double free or corruption
->
-> Note: This was fixed in 3.17+ with commit 278571baca2a
-> ("net: filter: simplify socket charging")
->
-> Found by AddressSanitizer
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Fixes: a3ea269b8bcdb ("net: filter: keep original BPF program around")
+> I don't know. Denis, do you want to incorperate my changes or should I
+> take over here?
 
-Wow. that's a tricky one. Thanks!
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
-
-Indeed 3.17 is ok, but the fix is small enough, so wouldn't
-hurt to apply it everywhere. Just for consistency?
-
-> ---
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index 1dbf6462f766..3139f966a178 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -1318,6 +1318,7 @@ static int sk_store_orig_filter(struct sk_filter *fp,
->         fkprog->filter = kmemdup(fp->insns, fsize, GFP_KERNEL);
->         if (!fkprog->filter) {
->                 kfree(fp->orig_prog);
-> +               fp->orig_prog = NULL;
->                 return -ENOMEM;
->  }
->
->
->
+Hannes, Denis,
+anyone of you going to continue on that?
+imo it's a good cleanup.
