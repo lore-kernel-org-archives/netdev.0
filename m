@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 3/4] net: stmmac: add support for Intel Quark X1000
-Date: Fri, 12 Sep 2014 18:14:23 -0400 (EDT)
-Message-ID: <20140912.181423.1831537443587796533.davem@davemloft.net>
-References: <cover.1410416223.git.hock.leong.kweh@intel.com>
-	<cover.1410416223.git.hock.leong.kweh@intel.com>
-	<07ca9d2c89cf4f01037c98e3314dd035e4d2ee34.1410416224.git.hock.leong.kweh@intel.com>
+Subject: Re: [PATCH] net: axienet: remove unnecessary ether_setup after
+ alloc_etherdev
+Date: Fri, 12 Sep 2014 18:16:05 -0400 (EDT)
+Message-ID: <20140912.181605.1878319812562851527.davem@davemloft.net>
+References: <78ce1faf-0bf8-41bb-a30d-cecd11d82d94@BY2FFO11FD033.protection.gbl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, rayagond@vayavyalabs.com,
-	vbridgers2013@gmail.com, srinivas.kandagatla@st.com, wens@csie.org,
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	boon.leong.ong@intel.com
-To: hock.leong.kweh@intel.com
+	michals@xilinx.com, svemula@xilinx.com, anirudh@xilinx.com,
+	sbhatta@xilinx.com
+To: subbaraya.sundeep.bhatta@xilinx.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <07ca9d2c89cf4f01037c98e3314dd035e4d2ee34.1410416224.git.hock.leong.kweh@intel.com>
+In-Reply-To: <78ce1faf-0bf8-41bb-a30d-cecd11d82d94@BY2FFO11FD033.protection.gbl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kweh Hock Leong <hock.leong.kweh@intel.com>
-Date: Thu, 11 Sep 2014 16:38:39 +0800
+From: Subbaraya Sundeep Bhatta <subbaraya.sundeep.bhatta@xilinx.com>
+Date: Thu, 11 Sep 2014 14:53:33 +0530
 
-> +		if ((!strcmp(quark_x1000_phy_info[i].board_name, board_name)) &&
-> +		    quark_x1000_phy_info[i].pci_func_num == func_num)
+> calling ether_setup is redundant since alloc_etherdev calls
+> it.
+> 
+> Signed-off-by: Subbaraya Sundeep Bhatta <sbhatta@xilinx.com>
 
-It is entirely erroneous to identify a device by it's _PHYSICAL_ geographic
-location on the PCI bus.
-
-Please get rid of this PCI function number comparison and if necessary
-find another means of identification.
+Applied.
