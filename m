@@ -1,27 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2014-09-11
-Date: Fri, 12 Sep 2014 18:05:00 -0400 (EDT)
-Message-ID: <20140912.180500.36960714875196384.davem@davemloft.net>
-References: <1410421984-15125-1-git-send-email-mkl@pengutronix.de>
+From: <Frank.Li@freescale.com>
+Subject: [Patch v4 net-next 00/12] net: fec: imx6sx multiqueue support
+Date: Sat, 13 Sep 2014 05:00:45 +0800
+Message-ID: <1410555657-10744-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1410421984-15125-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
+	<devicetree@vger.kernel.org>, <linux@arm.linux.org.uk>,
+	Frank Li <Frank.Li@freescale.com>
+To: <b38611@freescale.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0115.outbound.protection.outlook.com ([157.56.110.115]:56201
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751056AbaILWFN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Sep 2014 18:05:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Thu, 11 Sep 2014 09:53:03 +0200
+From: Frank Li <Frank.Li@freescale.com>
 
-> this is a pull request for the current release cycle of a single patch.
-> 
-> The patch by David Jander fixes a scheduling while atomic problem in the
-> flexcan driver, that was introduced by me in v3.14-rc6.
- ...
->   git://gitorious.org/linux-can/linux-can.git tags/linux-can-fixes-for-3.17-20140911
+These patches enable i.MX6SX multi queue support.
+i.MX6SX support 3 queue and AVB feature.
 
-Pulled, thanks Marc.
+Change from v3 to v4
+ - use "unsigned int" instead of "unsigned"
+
+Change from v2 to v3
+ - fixed alignment requirement for ARM and NO-ARM platform
+
+Change from v1 to v2.
+ - Change num_tx_queue to unsigned int
+ - Avoid block non-dt platform
+ - remove call netif_set_real_num_rx_queues
+ - seperate multi queue patch two part, one is tx and rx handle, with fixed queue 0
+   then other one is initilized multiqueue
+ - use two difference alignment for tx and rx path
+
+Frank Li (4):
+  net: fec: init multi queue date structure
+  net: fec: add enet-avb IP support
+  ARM: Documentation: Update fec dts binding doc
+  ARM: dts: imx6sx: add multi-queue support enet
+
+Fugang Duan (8):
+  net:fec: add enet refrence clock for i.MX 6SX chip
+  net:fec: add enet AVB feature macro define for imx6sx
+  net: fec: change data structure to support multiqueue
+  net: fec: parser max queue number from dt file
+  net:fec: Disable enet-avb MAC instead of reset MAC
+  net:fec: Add fsl,imx6sx-fec  compatible strings
+  net: fec: change FEC alignment according to i.mx6 sx requirement
+  net: fec: init complete variable in early to avoid kernel dump
+
+ Documentation/devicetree/bindings/net/fsl-fec.txt |   6 +
+ arch/arm/boot/dts/imx6sx.dtsi                     |   2 +
+ drivers/net/ethernet/freescale/fec.h              | 154 +++-
+ drivers/net/ethernet/freescale/fec_main.c         | 853 ++++++++++++++++------
+ 4 files changed, 756 insertions(+), 259 deletions(-)
+
+-- 
+1.9.1
