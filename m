@@ -1,512 +1,80 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH] net: DSA: Marvell mv88e6171 switch driver
-Date: Fri, 12 Sep 2014 23:58:44 +0200
-Message-ID: <1410559124-10495-1-git-send-email-andrew@lunn.ch>
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	Andrew Lunn <andrew@lunn.ch>,
-	Claudio Leite <leitec@staticky.com>
-To: davem@davemloft.net
+From: <Frank.Li@freescale.com>
+Subject: [Patch v4 net-next 10/12] net: fec: init complete variable in early to avoid kernel dump
+Date: Sat, 13 Sep 2014 05:00:55 +0800
+Message-ID: <1410555657-10744-11-git-send-email-Frank.Li@freescale.com>
+References: <1410555657-10744-1-git-send-email-Frank.Li@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
+	<devicetree@vger.kernel.org>, <linux@arm.linux.org.uk>,
+	Fugang Duan <B38611@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>
+To: <b38611@freescale.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48847 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751056AbaILWFX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2014 18:05:23 -0400
+Received: from mail-bn1on0139.outbound.protection.outlook.com ([157.56.110.139]:34880
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752815AbaILWFl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Sep 2014 18:05:41 -0400
+In-Reply-To: <1410555657-10744-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the Marvell driver with some cleanups by Claudio Leite
-and myself.
+From: Fugang Duan <B38611@freescale.com>
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-Cc: Claudio Leite <leitec@staticky.com>
+Software clear the MDIO interrupt before MDIO bus access, but
+MAC still generate MDIO interrupt. The issue only happen on
+imx6slx chip.
+
+CPU: 0 PID: 1 Comm: swapper/0 Not tainted 3.17.0-rc1-00399-g0bcad17 #315
+Backtrace:
+[<800121fc>] (dump_backtrace) from [<800124e0>] (show_stack+0x18/0x1c)
+ r6:8096e534 r5:8096e534 r4:00000000 r3:00000000
+[<800124c8>] (show_stack) from [<806a4c60>] (dump_stack+0x8c/0xa4)
+[<806a4bd4>] (dump_stack) from [<80060ab8>] (__lock_acquire+0x1814/0x1c40)
+ r6:be078000 r5:be074000 r4:be03f6e4 r3:be078000
+[<8005f2a4>] (__lock_acquire) from [<800616e0>] (lock_acquire+0x70/0x84)
+ r10:809ada33 r9:be010600 r8:00000096 r7:00000001 r6:be074000 r5:00000000
+ r4:60000193
+[<80061670>] (lock_acquire) from [<806abb20>] (_raw_spin_lock_irqsave+0x40/0x54)
+ r7:00000000 r6:8005a3f8 r5:00000193 r4:be03f6d4
+[<806abae0>] (_raw_spin_lock_irqsave) from [<8005a3f8>] (complete+0x1c/0x4c)
+ r6:80950904 r5:be03f6d0 r4:be03f6d4
+[<8005a3dc>] (complete) from [<8041b4c0>] (fec_enet_interrupt+0x128/0x164)
+ r6:80950904 r5:00800000 r4:be03f000 r3:00000000
+[<8041b398>] (fec_enet_interrupt) from [<8006aeac>] (handle_irq_event_percpu+0x38/0x13c)
+ r6:00000000 r5:be01065c r4:be399e00 r3:8041b398
+[<8006ae74>] (handle_irq_event_percpu) from [<8006aff4>] (handle_irq_event+0x44/0x64)
+ r10:be03f000 r9:80989fe0 r8:00000000 r7:00000096 r6:be399e00 r5:be01065c
+ r4:be010600
+[<8006afb0>] (handle_irq_event) from [<8006e3e8>] (handle_fasteoi_irq+0xc8/0x1bc)
+ r6:8096e764 r5:be01065c r4:be010600 r3:00000000
+[<8006e320>] (handle_fasteoi_irq) from [<8006a63c>] (generic_handle_irq+0x30/0x44)
+ r6:be074010 r5:80945e4c r4:00000096 r3:8006e320
+[<8006a60c>] (generic_handle_irq) from [<8000f218>] (handle_IRQ+0x54/0xbc)
+ r4:80950d74 r3:00000180
+[<8000f1c4>] (handle_IRQ) from [<800086cc>] (gic_handle_irq+0x30/0x68)
+ r8:be3ab478 r7:c080e100 r6:be075bd8 r5:80950eec r4:c080e10c r3:000000a0
+[<8000869c>] (gic_handle_irq) from [<80013064>] (__irq_svc+0x44/0x5c)
+
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- drivers/net/dsa/Kconfig     |   9 +
- drivers/net/dsa/Makefile    |   3 +
- drivers/net/dsa/mv88e6171.c | 407 ++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx.c |   6 +
- drivers/net/dsa/mv88e6xxx.h |   1 +
- 5 files changed, 426 insertions(+)
- create mode 100644 drivers/net/dsa/mv88e6171.c
+ drivers/net/ethernet/freescale/fec_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-index c6ee07c6a1b5..ea0697eaeff5 100644
---- a/drivers/net/dsa/Kconfig
-+++ b/drivers/net/dsa/Kconfig
-@@ -36,6 +36,15 @@ config NET_DSA_MV88E6123_61_65
- 	  This enables support for the Marvell 88E6123/6161/6165
- 	  ethernet switch chips.
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 9840a10..8f8e55e 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -3066,6 +3066,7 @@ fec_probe(struct platform_device *pdev)
+ 			goto failed_irq;
+ 	}
  
-+config NET_DSA_MV88E6171
-+	tristate "Marvell 88E6171 ethernet switch chip support"
-+	select NET_DSA
-+	select NET_DSA_MV88E6XXX
-+	select NET_DSA_TAG_EDSA
-+	---help---
-+	  This enables support for the Marvell 88E6171 ethernet switch
-+	  chip.
-+
- config NET_DSA_BCM_SF2
- 	tristate "Broadcom Starfighter 2 Ethernet switch support"
- 	select NET_DSA
-diff --git a/drivers/net/dsa/Makefile b/drivers/net/dsa/Makefile
-index dd3cd3b8157f..23a90de9830e 100644
---- a/drivers/net/dsa/Makefile
-+++ b/drivers/net/dsa/Makefile
-@@ -7,4 +7,7 @@ endif
- ifdef CONFIG_NET_DSA_MV88E6131
- mv88e6xxx_drv-y += mv88e6131.o
- endif
-+ifdef CONFIG_NET_DSA_MV88E6171
-+mv88e6xxx_drv-y += mv88e6171.o
-+endif
- obj-$(CONFIG_NET_DSA_BCM_SF2)	+= bcm_sf2.o
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-new file mode 100644
-index 000000000000..8bae73bec1d7
---- /dev/null
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -0,0 +1,407 @@
-+/* net/dsa/mv88e6171.c - Marvell 88e6171 switch chip support
-+ * Copyright (c) 2008-2009 Marvell Semiconductor
-+ * Copyright (c) 2014 Claudio Leite <leitec@staticky.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/delay.h>
-+#include <linux/jiffies.h>
-+#include <linux/list.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <linux/phy.h>
-+#include <net/dsa.h>
-+#include "mv88e6xxx.h"
-+
-+static char *mv88e6171_probe(struct mii_bus *bus, int sw_addr)
-+{
-+	int ret;
-+
-+	ret = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), 0x03);
-+	if (ret >= 0) {
-+		if ((ret & 0xfff0) == 0x1710)
-+			return "Marvell 88E6171";
-+	}
-+
-+	return NULL;
-+}
-+
-+static int mv88e6171_switch_reset(struct dsa_switch *ds)
-+{
-+	int i;
-+	int ret;
-+	unsigned long timeout;
-+
-+	/* Set all ports to the disabled state. */
-+	for (i = 0; i < 8; i++) {
-+		ret = REG_READ(REG_PORT(i), 0x04);
-+		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
-+	}
-+
-+	/* Wait for transmit queues to drain. */
-+	usleep_range(2000, 4000);
-+
-+	/* Reset the switch. */
-+	REG_WRITE(REG_GLOBAL, 0x04, 0xc400);
-+
-+	/* Wait up to one second for reset to complete. */
-+	timeout = jiffies + 1 * HZ;
-+	while (time_before(jiffies, timeout)) {
-+		ret = REG_READ(REG_GLOBAL, 0x00);
-+		if ((ret & 0xc800) == 0xc800)
-+			break;
-+
-+		usleep_range(1000, 2000);
-+	}
-+	if (time_after(jiffies, timeout))
-+		return -ETIMEDOUT;
-+
-+	/* Enable ports not under DSA, e.g. WAN port */
-+	for (i = 0; i < 8; i++) {
-+		if (dsa_is_cpu_port(ds, i) || ds->phys_port_mask & (1 << i))
-+			continue;
-+
-+		ret = REG_READ(REG_PORT(i), 0x04);
-+		REG_WRITE(REG_PORT(i), 0x04, ret | 0x03);
-+	}
-+
-+	return 0;
-+}
-+
-+static int mv88e6171_setup_global(struct dsa_switch *ds)
-+{
-+	int ret;
-+	int i;
-+
-+	/* Disable the PHY polling unit (since there won't be any
-+	 * external PHYs to poll), don't discard packets with
-+	 * excessive collisions, and mask all interrupt sources.
-+	 */
-+	REG_WRITE(REG_GLOBAL, 0x04, 0x0000);
-+
-+	/* Set the default address aging time to 5 minutes, and
-+	 * enable address learn messages to be sent to all message
-+	 * ports.
-+	 */
-+	REG_WRITE(REG_GLOBAL, 0x0a, 0x0148);
-+
-+	/* Configure the priority mapping registers. */
-+	ret = mv88e6xxx_config_prio(ds);
-+	if (ret < 0)
-+		return ret;
-+
-+	/* Configure the upstream port, and configure the upstream
-+	 * port as the port to which ingress and egress monitor frames
-+	 * are to be sent.
-+	 */
-+	if (REG_READ(REG_PORT(0), 0x03) == 0x1710)
-+		REG_WRITE(REG_GLOBAL, 0x1a, (dsa_upstream_port(ds) * 0x1111));
-+	else
-+		REG_WRITE(REG_GLOBAL, 0x1a, (dsa_upstream_port(ds) * 0x1110));
-+
-+	/* Disable remote management for now, and set the switch's
-+	 * DSA device number.
-+	 */
-+	REG_WRITE(REG_GLOBAL, 0x1c, ds->index & 0x1f);
-+
-+	/* Send all frames with destination addresses matching
-+	 * 01:80:c2:00:00:2x to the CPU port.
-+	 */
-+	REG_WRITE(REG_GLOBAL2, 0x02, 0xffff);
-+
-+	/* Send all frames with destination addresses matching
-+	 * 01:80:c2:00:00:0x to the CPU port.
-+	 */
-+	REG_WRITE(REG_GLOBAL2, 0x03, 0xffff);
-+
-+	/* Disable the loopback filter, disable flow control
-+	 * messages, disable flood broadcast override, disable
-+	 * removing of provider tags, disable ATU age violation
-+	 * interrupts, disable tag flow control, force flow
-+	 * control priority to the highest, and send all special
-+	 * multicast frames to the CPU at the highest priority.
-+	 */
-+	REG_WRITE(REG_GLOBAL2, 0x05, 0x00ff);
-+
-+	/* Program the DSA routing table. */
-+	for (i = 0; i < 32; i++) {
-+		int nexthop;
-+
-+		nexthop = 0x1f;
-+		if (i != ds->index && i < ds->dst->pd->nr_chips)
-+			nexthop = ds->pd->rtable[i] & 0x1f;
-+
-+		REG_WRITE(REG_GLOBAL2, 0x06, 0x8000 | (i << 8) | nexthop);
-+	}
-+
-+	/* Clear all trunk masks. */
-+	for (i = 0; i < 8; i++)
-+		REG_WRITE(REG_GLOBAL2, 0x07, 0x8000 | (i << 12) | 0xff);
-+
-+	/* Clear all trunk mappings. */
-+	for (i = 0; i < 16; i++)
-+		REG_WRITE(REG_GLOBAL2, 0x08, 0x8000 | (i << 11));
-+
-+	/* Disable ingress rate limiting by resetting all ingress
-+	 * rate limit registers to their initial state.
-+	 */
-+	for (i = 0; i < 6; i++)
-+		REG_WRITE(REG_GLOBAL2, 0x09, 0x9000 | (i << 8));
-+
-+	/* Initialise cross-chip port VLAN table to reset defaults. */
-+	REG_WRITE(REG_GLOBAL2, 0x0b, 0x9000);
-+
-+	/* Clear the priority override table. */
-+	for (i = 0; i < 16; i++)
-+		REG_WRITE(REG_GLOBAL2, 0x0f, 0x8000 | (i << 8));
-+
-+	/* @@@ initialise AVB (22/23) watchdog (27) sdet (29) registers */
-+
-+	return 0;
-+}
-+
-+static int mv88e6171_setup_port(struct dsa_switch *ds, int p)
-+{
-+	int addr = REG_PORT(p);
-+	u16 val;
-+
-+	/* MAC Forcing register: don't force link, speed, duplex
-+	 * or flow control state to any particular values on physical
-+	 * ports, but force the CPU port and all DSA ports to 1000 Mb/s
-+	 * full duplex.
-+	 */
-+	val = REG_READ(addr, 0x01);
-+	if (dsa_is_cpu_port(ds, p) || ds->dsa_port_mask & (1 << p))
-+		REG_WRITE(addr, 0x01, val | 0x003e);
-+	else
-+		REG_WRITE(addr, 0x01, val | 0x0003);
-+
-+	/* Do not limit the period of time that this port can be
-+	 * paused for by the remote end or the period of time that
-+	 * this port can pause the remote end.
-+	 */
-+	REG_WRITE(addr, 0x02, 0x0000);
-+
-+	/* Port Control: disable Drop-on-Unlock, disable Drop-on-Lock,
-+	 * disable Header mode, enable IGMP/MLD snooping, disable VLAN
-+	 * tunneling, determine priority by looking at 802.1p and IP
-+	 * priority fields (IP prio has precedence), and set STP state
-+	 * to Forwarding.
-+	 *
-+	 * If this is the CPU link, use DSA or EDSA tagging depending
-+	 * on which tagging mode was configured.
-+	 *
-+	 * If this is a link to another switch, use DSA tagging mode.
-+	 *
-+	 * If this is the upstream port for this switch, enable
-+	 * forwarding of unknown unicasts and multicasts.
-+	 */
-+	val = 0x0433;
-+	if (dsa_is_cpu_port(ds, p)) {
-+		if (ds->dst->tag_protocol == htons(ETH_P_EDSA))
-+			val |= 0x3300;
-+		else
-+			val |= 0x0100;
-+	}
-+	if (ds->dsa_port_mask & (1 << p))
-+		val |= 0x0100;
-+	if (p == dsa_upstream_port(ds))
-+		val |= 0x000c;
-+	REG_WRITE(addr, 0x04, val);
-+
-+	/* Port Control 1: disable trunking.  Also, if this is the
-+	 * CPU port, enable learn messages to be sent to this port.
-+	 */
-+	REG_WRITE(addr, 0x05, dsa_is_cpu_port(ds, p) ? 0x8000 : 0x0000);
-+
-+	/* Port based VLAN map: give each port its own address
-+	 * database, allow the CPU port to talk to each of the 'real'
-+	 * ports, and allow each of the 'real' ports to only talk to
-+	 * the upstream port.
-+	 */
-+	val = (p & 0xf) << 12;
-+	if (dsa_is_cpu_port(ds, p))
-+		val |= ds->phys_port_mask;
-+	else
-+		val |= 1 << dsa_upstream_port(ds);
-+	REG_WRITE(addr, 0x06, val);
-+
-+	/* Default VLAN ID and priority: don't set a default VLAN
-+	 * ID, and set the default packet priority to zero.
-+	 */
-+	REG_WRITE(addr, 0x07, 0x0000);
-+
-+	/* Port Control 2: don't force a good FCS, set the maximum
-+	 * frame size to 10240 bytes, don't let the switch add or
-+	 * strip 802.1q tags, don't discard tagged or untagged frames
-+	 * on this port, do a destination address lookup on all
-+	 * received packets as usual, disable ARP mirroring and don't
-+	 * send a copy of all transmitted/received frames on this port
-+	 * to the CPU.
-+	 */
-+	REG_WRITE(addr, 0x08, 0x2080);
-+
-+	/* Egress rate control: disable egress rate control. */
-+	REG_WRITE(addr, 0x09, 0x0001);
-+
-+	/* Egress rate control 2: disable egress rate control. */
-+	REG_WRITE(addr, 0x0a, 0x0000);
-+
-+	/* Port Association Vector: when learning source addresses
-+	 * of packets, add the address to the address database using
-+	 * a port bitmap that has only the bit for this port set and
-+	 * the other bits clear.
-+	 */
-+	REG_WRITE(addr, 0x0b, 1 << p);
-+
-+	/* Port ATU control: disable limiting the number of address
-+	 * database entries that this port is allowed to use.
-+	 */
-+	REG_WRITE(addr, 0x0c, 0x0000);
-+
-+	/* Priority Override: disable DA, SA and VTU priority override. */
-+	REG_WRITE(addr, 0x0d, 0x0000);
-+
-+	/* Port Ethertype: use the Ethertype DSA Ethertype value. */
-+	REG_WRITE(addr, 0x0f, ETH_P_EDSA);
-+
-+	/* Tag Remap: use an identity 802.1p prio -> switch prio
-+	 * mapping.
-+	 */
-+	REG_WRITE(addr, 0x18, 0x3210);
-+
-+	/* Tag Remap 2: use an identity 802.1p prio -> switch prio
-+	 * mapping.
-+	 */
-+	REG_WRITE(addr, 0x19, 0x7654);
-+
-+	return 0;
-+}
-+
-+static int mv88e6171_setup(struct dsa_switch *ds)
-+{
-+	struct mv88e6xxx_priv_state *ps = (void *)(ds + 1);
-+	int i;
-+	int ret;
-+
-+	mutex_init(&ps->smi_mutex);
-+	mutex_init(&ps->stats_mutex);
-+
-+	ret = mv88e6171_switch_reset(ds);
-+	if (ret < 0)
-+		return ret;
-+
-+	/* @@@ initialise vtu and atu */
-+
-+	ret = mv88e6171_setup_global(ds);
-+	if (ret < 0)
-+		return ret;
-+
-+	for (i = 0; i < 8; i++) {
-+		if (!(dsa_is_cpu_port(ds, i) || ds->phys_port_mask & (1 << i)))
-+			continue;
-+
-+		ret = mv88e6171_setup_port(ds, i);
-+		if (ret < 0)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static int mv88e6171_port_to_phy_addr(int port)
-+{
-+	if (port >= 0 && port <= 4)
-+		return port;
-+	return -1;
-+}
-+
-+static int
-+mv88e6171_phy_read(struct dsa_switch *ds, int port, int regnum)
-+{
-+	int addr = mv88e6171_port_to_phy_addr(port);
-+
-+	return mv88e6xxx_phy_read(ds, addr, regnum);
-+}
-+
-+static int
-+mv88e6171_phy_write(struct dsa_switch *ds,
-+		    int port, int regnum, u16 val)
-+{
-+	int addr = mv88e6171_port_to_phy_addr(port);
-+
-+	return mv88e6xxx_phy_write(ds, addr, regnum, val);
-+}
-+
-+static struct mv88e6xxx_hw_stat mv88e6171_hw_stats[] = {
-+	{ "in_good_octets", 8, 0x00, },
-+	{ "in_bad_octets", 4, 0x02, },
-+	{ "in_unicast", 4, 0x04, },
-+	{ "in_broadcasts", 4, 0x06, },
-+	{ "in_multicasts", 4, 0x07, },
-+	{ "in_pause", 4, 0x16, },
-+	{ "in_undersize", 4, 0x18, },
-+	{ "in_fragments", 4, 0x19, },
-+	{ "in_oversize", 4, 0x1a, },
-+	{ "in_jabber", 4, 0x1b, },
-+	{ "in_rx_error", 4, 0x1c, },
-+	{ "in_fcs_error", 4, 0x1d, },
-+	{ "out_octets", 8, 0x0e, },
-+	{ "out_unicast", 4, 0x10, },
-+	{ "out_broadcasts", 4, 0x13, },
-+	{ "out_multicasts", 4, 0x12, },
-+	{ "out_pause", 4, 0x15, },
-+	{ "excessive", 4, 0x11, },
-+	{ "collisions", 4, 0x1e, },
-+	{ "deferred", 4, 0x05, },
-+	{ "single", 4, 0x14, },
-+	{ "multiple", 4, 0x17, },
-+	{ "out_fcs_error", 4, 0x03, },
-+	{ "late", 4, 0x1f, },
-+	{ "hist_64bytes", 4, 0x08, },
-+	{ "hist_65_127bytes", 4, 0x09, },
-+	{ "hist_128_255bytes", 4, 0x0a, },
-+	{ "hist_256_511bytes", 4, 0x0b, },
-+	{ "hist_512_1023bytes", 4, 0x0c, },
-+	{ "hist_1024_max_bytes", 4, 0x0d, },
-+};
-+
-+static void
-+mv88e6171_get_strings(struct dsa_switch *ds, int port, uint8_t *data)
-+{
-+	mv88e6xxx_get_strings(ds, ARRAY_SIZE(mv88e6171_hw_stats),
-+			      mv88e6171_hw_stats, port, data);
-+}
-+
-+static void
-+mv88e6171_get_ethtool_stats(struct dsa_switch *ds,
-+			    int port, uint64_t *data)
-+{
-+	mv88e6xxx_get_ethtool_stats(ds, ARRAY_SIZE(mv88e6171_hw_stats),
-+				    mv88e6171_hw_stats, port, data);
-+}
-+
-+static int mv88e6171_get_sset_count(struct dsa_switch *ds)
-+{
-+	return ARRAY_SIZE(mv88e6171_hw_stats);
-+}
-+
-+struct dsa_switch_driver mv88e6171_switch_driver = {
-+	.tag_protocol		= cpu_to_be16(ETH_P_EDSA),
-+	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
-+	.probe			= mv88e6171_probe,
-+	.setup			= mv88e6171_setup,
-+	.set_addr		= mv88e6xxx_set_addr_indirect,
-+	.phy_read		= mv88e6171_phy_read,
-+	.phy_write		= mv88e6171_phy_write,
-+	.poll_link		= mv88e6xxx_poll_link,
-+	.get_strings		= mv88e6171_get_strings,
-+	.get_ethtool_stats	= mv88e6171_get_ethtool_stats,
-+	.get_sset_count		= mv88e6171_get_sset_count,
-+};
-+
-+MODULE_ALIAS("platform:mv88e6171");
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 9ce2146346b6..901d2a9704ef 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -501,12 +501,18 @@ static int __init mv88e6xxx_init(void)
- #if IS_ENABLED(CONFIG_NET_DSA_MV88E6123_61_65)
- 	register_switch_driver(&mv88e6123_61_65_switch_driver);
- #endif
-+#if IS_ENABLED(CONFIG_NET_DSA_MV88E6171)
-+	register_switch_driver(&mv88e6171_switch_driver);
-+#endif
- 	return 0;
- }
- module_init(mv88e6xxx_init);
- 
- static void __exit mv88e6xxx_cleanup(void)
- {
-+#if IS_ENABLED(CONFIG_NET_DSA_MV88E6171)
-+	unregister_switch_driver(&mv88e6171_switch_driver);
-+#endif
- #if IS_ENABLED(CONFIG_NET_DSA_MV88E6123_61_65)
- 	unregister_switch_driver(&mv88e6123_61_65_switch_driver);
- #endif
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 911ede58dd12..5e5145ad9525 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -70,6 +70,7 @@ void mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
- 
- extern struct dsa_switch_driver mv88e6131_switch_driver;
- extern struct dsa_switch_driver mv88e6123_61_65_switch_driver;
-+extern struct dsa_switch_driver mv88e6171_switch_driver;
- 
- #define REG_READ(addr, reg)						\
- 	({								\
++	init_completion(&fep->mdio_done);
+ 	ret = fec_enet_mii_init(pdev);
+ 	if (ret)
+ 		goto failed_mii_init;
 -- 
-2.1.0
+1.9.1
