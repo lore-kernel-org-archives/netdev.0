@@ -1,109 +1,197 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v11 net-next 00/12] eBPF syscall, verifier, testsuite
-Date: Thu, 11 Sep 2014 18:29:11 -0700
-Message-ID: <CAMEtUuyez57dMCpVAXVMUjHmKKDuD4X2uniVkG=d-bvT7uDFNw@mail.gmail.com>
-References: <1410325808-3657-1-git-send-email-ast@plumgrid.com>
-	<541013CE.6020307@redhat.com>
-	<CAMEtUuwrHX4ENK9cZ0C+XVB=wkMz1=wLphX_GVLvd8pyJKMXeQ@mail.gmail.com>
-	<5411FC42.3070505@redhat.com>
-	<CAMEtUuziPptHxtw_7fkOdR-paB+8BatNmRPoo3txP8wOp9D6Tw@mail.gmail.com>
-	<CALCETrWCEwscbbfX7wAW-A+VQ5Y92igD36BmTXqFra04Qdwk0Q@mail.gmail.com>
-	<CAMEtUuyzOgCZutgsAXs60BO0=0WJGpVAeTYN2hf0Bh1sZ5PMVg@mail.gmail.com>
-	<CALCETrXqwd=dp31fckMPruQMwVw+UAjaf=SSWp8wr_Cdz_tQdw@mail.gmail.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next v2] r8152: support VLAN
+Date: Fri, 12 Sep 2014 10:43:11 +0800
+Message-ID: <1394712342-15778-37-Taiwan-albertk@realtek.com>
+References: <1394712342-15778-36-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linuxfoundation.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linuxfoundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALCETrXqwd=dp31fckMPruQMwVw+UAjaf=SSWp8wr_Cdz_tQdw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:54390 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751044AbaILCni (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 22:43:38 -0400
+In-Reply-To: <1394712342-15778-36-Taiwan-albertk@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 11, 2014 at 6:17 PM, Andy Lutomirski <luto@amacapital.net> wrote:
-> On Thu, Sep 11, 2014 at 3:29 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->> On Thu, Sep 11, 2014 at 2:54 PM, Andy Lutomirski <luto@amacapital.net> wrote:
->>>>
->>>> the verifier log contains full trace. Last unsafe instruction + error
->>>> in many cases is useless. What we found empirically from using
->>>> it over last 2 years is that developers have different learning curve
->>>> to adjust to 'safe' style of C. Pretty much everyone couldn't
->>>> figure out why program is rejected based on last error. Therefore
->>>> verifier emits full log. From the 1st insn all the way till the last
->>>> 'unsafe' instruction. So the log is multiline output.
->>>> 'Understanding eBPF verifier messages' section of
->>>> Documentation/networking/filter.txt provides few trivial
->>>> examples of these multiline messages.
->>>> Like for the program:
->>>>   BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
->>>>   BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
->>>>   BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
->>>>   BPF_LD_MAP_FD(BPF_REG_1, 0),
->>>>   BPF_CALL_FUNC(BPF_FUNC_map_lookup_elem),
->>>>   BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
->>>>   BPF_ST_MEM(BPF_DW, BPF_REG_0, 4, 0),
->>>>   BPF_EXIT_INSN(),
->>>> the verifier log_buf is:
->>>>   0: (7a) *(u64 *)(r10 -8) = 0
->>>>   1: (bf) r2 = r10
->>>>   2: (07) r2 += -8
->>>>   3: (b7) r1 = 0
->>>>   4: (85) call 1
->>>>   5: (15) if r0 == 0x0 goto pc+1
->>>>    R0=map_ptr R10=fp
->>>>   6: (7a) *(u64 *)(r0 +4) = 0
->>>>   misaligned access off 4 size 8
->>>>
->>>> It will surely change over time as verifier becomes smarter,
->>>> supports new types, optimizations and so on.
->>>> So this log is not an ABI. It's for humans to read.
->>>> The log explains _how_ verifier came to conclusion
->>>> that the program is unsafe.
->>>
->>> Given that you've already arranged (I think) for the verifier to be
->>> compilable in the kernel and in userspace, would it make more sense to
->>> have the kernel version just say yes or no and to make it easy for
->>> user code to retry verification in userspace if they want a full
->>> explanation?
->>
->> Good memory :) Long ago I had a hack where I compiled
->> verifier.o for kernel and linked it with userspace wrappers to
->> have the same verifier for userspace. It was very fragile.
->> and maps were not separate objects and there were no fds.
->> It's not feasible anymore, since different subsystems
->> will configure different bpf_context and helper functions and
->> verifier output is dynamic based on maps that were created.
->> For example, if user's samples/bpf/sock_example.c does
->> bpf_create_map(HASH, sizeof(key) * 2, ...);
->> instead of
->> bpf_create_map(HASH, sizeof(key), ...);
->> the same program will be rejected in first case and will be
->> accepted in the second, because map sizes and ebpf
->> program expectations are mismatching.
->
-> Hmm.
->
-> This actually furthers my thought that the relocations should be a
-> real relocation table.  Then you could encode the types of the
-> referenced objects in the table, and a program could be verified
-> without looking up the fds.  The only extra step would be to confirm
-> that the actual types referenced match those in the table.
+Support hw VLAN for tx and rx. And enable them by default.
 
-It's not the type is being checked, but one particular map instance
-with user specified key/value sizes. type is not helpful. type is not
-even used during verification. Only key_size and value_size of
-elements are meaningful and they're looked up dynamically by fd.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 79 ++++++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 65 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 2130c75..9403219 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -506,6 +506,7 @@ struct rx_desc {
+ #define IPF				(1 << 23) /* IP checksum fail */
+ #define UDPF				(1 << 22) /* UDP checksum fail */
+ #define TCPF				(1 << 21) /* TCP checksum fail */
++#define RX_VLAN_TAG			(1 << 16)
+ 
+ 	__le32 opts4;
+ 	__le32 opts5;
+@@ -531,6 +532,7 @@ struct tx_desc {
+ #define MSS_MAX			0x7ffU
+ #define TCPHO_SHIFT		17
+ #define TCPHO_MAX		0x7ffU
++#define TX_VLAN_TAG			(1 << 16)
+ };
+ 
+ struct r8152;
+@@ -1423,6 +1425,25 @@ static int msdn_giant_send_check(struct sk_buff *skb)
+ 	return ret;
+ }
+ 
++static inline void rtl_tx_vlan_tag(struct tx_desc *desc, struct sk_buff *skb)
++{
++	if (vlan_tx_tag_present(skb)) {
++		u32 opts2;
++
++		opts2 = TX_VLAN_TAG | swab16(vlan_tx_tag_get(skb));
++		desc->opts2 |= cpu_to_le32(opts2);
++	}
++}
++
++static inline void rtl_rx_vlan_tag(struct rx_desc *desc, struct sk_buff *skb)
++{
++	u32 opts2 = le32_to_cpu(desc->opts2);
++
++	if (opts2 & RX_VLAN_TAG)
++		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
++				       swab16(opts2 & 0xffff));
++}
++
+ static int r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc,
+ 			 struct sk_buff *skb, u32 len, u32 transport_offset)
+ {
+@@ -1550,6 +1571,8 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
+ 			continue;
+ 		}
+ 
++		rtl_tx_vlan_tag(tx_desc, skb);
++
+ 		tx_data += sizeof(*tx_desc);
+ 
+ 		len = skb->len;
+@@ -1691,6 +1714,7 @@ static void rx_bottom(struct r8152 *tp)
+ 			memcpy(skb->data, rx_data, pkt_len);
+ 			skb_put(skb, pkt_len);
+ 			skb->protocol = eth_type_trans(skb, netdev);
++			rtl_rx_vlan_tag(rx_desc, skb);
+ 			netif_receive_skb(skb);
+ 			stats->rx_packets++;
+ 			stats->rx_bytes += pkt_len;
+@@ -2082,6 +2106,34 @@ static void r8152_power_cut_en(struct r8152 *tp, bool enable)
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS, ocp_data);
+ }
+ 
++static void rtl_rx_vlan_en(struct r8152 *tp, bool enable)
++{
++	u32 ocp_data;
++
++	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
++	if (enable)
++		ocp_data |= CPCR_RX_VLAN;
++	else
++		ocp_data &= ~CPCR_RX_VLAN;
++	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
++}
++
++static int rtl8152_set_features(struct net_device *dev,
++				netdev_features_t features)
++{
++	netdev_features_t changed = features ^ dev->features;
++	struct r8152 *tp = netdev_priv(dev);
++
++	if (changed & NETIF_F_HW_VLAN_CTAG_RX) {
++		if (features & NETIF_F_HW_VLAN_CTAG_RX)
++			rtl_rx_vlan_en(tp, true);
++		else
++			rtl_rx_vlan_en(tp, false);
++	}
++
++	return 0;
++}
++
+ #define WAKE_ANY (WAKE_PHY | WAKE_MAGIC | WAKE_UCAST | WAKE_BCAST | WAKE_MCAST)
+ 
+ static u32 __rtl_get_wol(struct r8152 *tp)
+@@ -2330,9 +2382,7 @@ static void r8152b_exit_oob(struct r8152 *tp)
+ 	ocp_write_dword(tp, MCU_TYPE_USB, USB_TX_DMA,
+ 			TEST_MODE_DISABLE | TX_SIZE_ADJUST1);
+ 
+-	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
+-	ocp_data &= ~CPCR_RX_VLAN;
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
++	rtl_rx_vlan_en(tp, tp->netdev->features & NETIF_F_HW_VLAN_CTAG_RX);
+ 
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8152_RMS);
+ 
+@@ -2376,9 +2426,7 @@ static void r8152b_enter_oob(struct r8152 *tp)
+ 
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8152_RMS);
+ 
+-	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
+-	ocp_data |= CPCR_RX_VLAN;
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
++	rtl_rx_vlan_en(tp, true);
+ 
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PAL_BDC_CR);
+ 	ocp_data |= ALDPS_PROXY_MODE;
+@@ -2532,9 +2580,7 @@ static void r8153_first_init(struct r8152 *tp)
+ 		usleep_range(1000, 2000);
+ 	}
+ 
+-	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
+-	ocp_data &= ~CPCR_RX_VLAN;
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
++	rtl_rx_vlan_en(tp, tp->netdev->features & NETIF_F_HW_VLAN_CTAG_RX);
+ 
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8153_RMS);
+ 	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_MTPS, MTPS_JUMBO);
+@@ -2593,9 +2639,7 @@ static void r8153_enter_oob(struct r8152 *tp)
+ 	ocp_data &= ~TEREDO_WAKE_MASK;
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG, ocp_data);
+ 
+-	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
+-	ocp_data |= CPCR_RX_VLAN;
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
++	rtl_rx_vlan_en(tp, true);
+ 
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PAL_BDC_CR);
+ 	ocp_data |= ALDPS_PROXY_MODE;
+@@ -3330,6 +3374,7 @@ static const struct net_device_ops rtl8152_netdev_ops = {
+ 	.ndo_do_ioctl		= rtl8152_ioctl,
+ 	.ndo_start_xmit		= rtl8152_start_xmit,
+ 	.ndo_tx_timeout		= rtl8152_tx_timeout,
++	.ndo_set_features	= rtl8152_set_features,
+ 	.ndo_set_rx_mode	= rtl8152_set_rx_mode,
+ 	.ndo_set_mac_address	= rtl8152_set_mac_address,
+ 	.ndo_change_mtu		= rtl8152_change_mtu,
+@@ -3484,10 +3529,16 @@ static int rtl8152_probe(struct usb_interface *intf,
+ 
+ 	netdev->features |= NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
+ 			    NETIF_F_TSO | NETIF_F_FRAGLIST | NETIF_F_IPV6_CSUM |
+-			    NETIF_F_TSO6;
++			    NETIF_F_TSO6 | NETIF_F_HW_VLAN_CTAG_RX |
++			    NETIF_F_HW_VLAN_CTAG_TX;
+ 	netdev->hw_features = NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
+ 			      NETIF_F_TSO | NETIF_F_FRAGLIST |
+-			      NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
++			      NETIF_F_IPV6_CSUM | NETIF_F_TSO6 |
++			      NETIF_F_HW_VLAN_CTAG_RX |
++			      NETIF_F_HW_VLAN_CTAG_TX;
++	netdev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
++				NETIF_F_HIGHDMA | NETIF_F_FRAGLIST |
++				NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
+ 
+ 	netdev->ethtool_ops = &ops;
+ 	netif_set_gso_max_size(netdev, RTL_LIMITED_TSO_SIZE);
+-- 
+1.9.3
