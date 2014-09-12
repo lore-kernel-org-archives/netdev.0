@@ -1,59 +1,210 @@
-From: Alexander Fomichev <git.user@gmail.com>
-Subject: [PATCH net] net: fix sysfs symlinks of adjacent devices
-Date: Fri, 12 Sep 2014 14:13:46 +0400
-Message-ID: <1410516826-6926-1-git-send-email-git.user@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Andres Freund <andres@anarazel.de>,
-	"Alexander Y. Fomichev" <git.user@gmail.com>
-To: <netdev@vger.kernel.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next] net: filter: constify detection of pkt_type_offset
+Date: Fri, 12 Sep 2014 12:22:00 +0200
+Message-ID: <09acea1aba100a62551605ba52ae8541e816d1e6.1410517225.git.hannes@stressinduktion.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Markos Chandras <markos.chandras@imgtec.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Denis Kirjanov <kda@linux-powerpc.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:42197 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753600AbaILKOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 06:14:30 -0400
-Received: by mail-la0-f46.google.com with SMTP id el20so618830lab.5
-        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 03:14:29 -0700 (PDT)
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:58632 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751745AbaILKWK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 06:22:10 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by gateway2.nyi.internal (Postfix) with ESMTP id A8CD720C89
+	for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 06:22:09 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Alexander Y. Fomichev" <git.user@gmail.com>
+Currently we have 2 pkt_type_offset functions doing the same thing and
+spread across the architecture files. Remove those and replace them
+with a PKT_TYPE_OFFSET macro helper which gets the constant value from a
+zero sized sk_buff member right in front of the bitfield with offsetof.
+This new offset marker does not change size of struct sk_buff.
 
-__netdev_adjacent_dev_insert may add adjacent device from another
-namespace. Without proper check it leads to emergence of broken
-symlink from/to device not existing in current namespace.
-Fix: check net_ns is the same before netdev_adjacent_sysfs_add/del
-related to: 4c75431ac3520631f1d9e74aa88407e6374dbbc4
-
-Signed-off-by: Alexander Y. Fomichev <git.user@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Markos Chandras <markos.chandras@imgtec.com>
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/core/dev.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ arch/mips/net/bpf_jit.c      | 27 +--------------------------
+ arch/s390/net/bpf_jit_comp.c | 35 +----------------------------------
+ include/linux/skbuff.h       | 10 ++++++++++
+ net/core/filter.c            | 26 +-------------------------
+ 4 files changed, 13 insertions(+), 85 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ab9a16530c36..887784b2dcde 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4841,7 +4841,8 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	pr_debug("dev_hold for %s, because of link added from %s to %s\n",
- 		 adj_dev->name, dev->name, adj_dev->name);
+diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+index 0e97ccd..7edc083 100644
+--- a/arch/mips/net/bpf_jit.c
++++ b/arch/mips/net/bpf_jit.c
+@@ -765,27 +765,6 @@ static u64 jit_get_skb_w(struct sk_buff *skb, unsigned offset)
+ 	return (u64)err << 32 | ntohl(ret);
+ }
  
--	if (netdev_adjacent_is_neigh_list(dev, dev_list)) {
-+	if (netdev_adjacent_is_neigh_list(dev, dev_list) &&
-+	    net_eq(dev_net(dev), dev_net(adj_dev))) {
- 		ret = netdev_adjacent_sysfs_add(dev, adj_dev, dev_list);
- 		if (ret)
- 			goto free_adj;
-@@ -4862,7 +4863,8 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	return 0;
+-#ifdef __BIG_ENDIAN_BITFIELD
+-#define PKT_TYPE_MAX	(7 << 5)
+-#else
+-#define PKT_TYPE_MAX	7
+-#endif
+-static int pkt_type_offset(void)
+-{
+-	struct sk_buff skb_probe = {
+-		.pkt_type = ~0,
+-	};
+-	u8 *ct = (u8 *)&skb_probe;
+-	unsigned int off;
+-
+-	for (off = 0; off < sizeof(struct sk_buff); off++) {
+-		if (ct[off] == PKT_TYPE_MAX)
+-			return off;
+-	}
+-	pr_err_once("Please fix pkt_type_offset(), as pkt_type couldn't be found\n");
+-	return -1;
+-}
+-
+ static int build_body(struct jit_ctx *ctx)
+ {
+ 	void *load_func[] = {jit_get_skb_b, jit_get_skb_h, jit_get_skb_w};
+@@ -1332,11 +1311,7 @@ jmp_cmp:
+ 		case BPF_ANC | SKF_AD_PKTTYPE:
+ 			ctx->flags |= SEEN_SKB;
  
- remove_symlinks:
--	if (netdev_adjacent_is_neigh_list(dev, dev_list))
-+	if (netdev_adjacent_is_neigh_list(dev, dev_list) &&
-+	    net_eq(dev_net(dev), dev_net(adj_dev)))
- 		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
- free_adj:
- 	kfree(adj);
+-			off = pkt_type_offset();
+-
+-			if (off < 0)
+-				return -1;
+-			emit_load_byte(r_tmp, r_skb, off, ctx);
++			emit_load_byte(r_tmp, r_skb, PKT_TYPE_OFFSET(), ctx);
+ 			/* Keep only the last 3 bits */
+ 			emit_andi(r_A, r_tmp, PKT_TYPE_MAX, ctx);
+ #ifdef __BIG_ENDIAN_BITFIELD
+diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+index 555f5c7..c52ac77 100644
+--- a/arch/s390/net/bpf_jit_comp.c
++++ b/arch/s390/net/bpf_jit_comp.c
+@@ -227,37 +227,6 @@ static void bpf_jit_epilogue(struct bpf_jit *jit)
+ 	EMIT2(0x07fe);
+ }
+ 
+-/* Helper to find the offset of pkt_type in sk_buff
+- * Make sure its still a 3bit field starting at the MSBs within a byte.
+- */
+-#define PKT_TYPE_MAX 0xe0
+-static int pkt_type_offset;
+-
+-static int __init bpf_pkt_type_offset_init(void)
+-{
+-	struct sk_buff skb_probe = {
+-		.pkt_type = ~0,
+-	};
+-	char *ct = (char *)&skb_probe;
+-	int off;
+-
+-	pkt_type_offset = -1;
+-	for (off = 0; off < sizeof(struct sk_buff); off++) {
+-		if (!ct[off])
+-			continue;
+-		if (ct[off] == PKT_TYPE_MAX)
+-			pkt_type_offset = off;
+-		else {
+-			/* Found non matching bit pattern, fix needed. */
+-			WARN_ON_ONCE(1);
+-			pkt_type_offset = -1;
+-			return -1;
+-		}
+-	}
+-	return 0;
+-}
+-device_initcall(bpf_pkt_type_offset_init);
+-
+ /*
+  * make sure we dont leak kernel information to user
+  */
+@@ -757,12 +726,10 @@ call_fn:	/* lg %r1,<d(function)>(%r13) */
+ 		}
+ 		break;
+ 	case BPF_ANC | SKF_AD_PKTTYPE:
+-		if (pkt_type_offset < 0)
+-			goto out;
+ 		/* lhi %r5,0 */
+ 		EMIT4(0xa7580000);
+ 		/* ic %r5,<d(pkt_type_offset)>(%r2) */
+-		EMIT4_DISP(0x43502000, pkt_type_offset);
++		EMIT4_DISP(0x43502000, PKT_TYPE_OFFSET());
+ 		/* srl %r5,5 */
+ 		EMIT4_DISP(0x88500000, 5);
+ 		break;
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 07c9fdd..756e3d0 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -548,6 +548,16 @@ struct sk_buff {
+ 				ip_summed:2,
+ 				nohdr:1,
+ 				nfctinfo:3;
++
++/* if you move pkt_type around you also must adapt those constants */
++#ifdef __BIG_ENDIAN_BITFIELD
++#define PKT_TYPE_MAX	(7 << 5)
++#else
++#define PKT_TYPE_MAX	7
++#endif
++#define PKT_TYPE_OFFSET()	offsetof(struct sk_buff, __pkt_type_offset)
++
++	__u8			__pkt_type_offset[0];
+ 	__u8			pkt_type:3,
+ 				fclone:2,
+ 				ipvs_property:1,
+diff --git a/net/core/filter.c b/net/core/filter.c
+index dfc716f..6cdc303 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -87,30 +87,6 @@ int sk_filter(struct sock *sk, struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(sk_filter);
+ 
+-/* Helper to find the offset of pkt_type in sk_buff structure. We want
+- * to make sure its still a 3bit field starting at a byte boundary;
+- * taken from arch/x86/net/bpf_jit_comp.c.
+- */
+-#ifdef __BIG_ENDIAN_BITFIELD
+-#define PKT_TYPE_MAX	(7 << 5)
+-#else
+-#define PKT_TYPE_MAX	7
+-#endif
+-static unsigned int pkt_type_offset(void)
+-{
+-	struct sk_buff skb_probe = { .pkt_type = ~0, };
+-	u8 *ct = (u8 *) &skb_probe;
+-	unsigned int off;
+-
+-	for (off = 0; off < sizeof(struct sk_buff); off++) {
+-		if (ct[off] == PKT_TYPE_MAX)
+-			return off;
+-	}
+-
+-	pr_err_once("Please fix %s, as pkt_type couldn't be found!\n", __func__);
+-	return -1;
+-}
+-
+ static u64 __skb_get_pay_offset(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
+ {
+ 	return skb_get_poff((struct sk_buff *)(unsigned long) ctx);
+@@ -191,7 +167,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+ 
+ 	case SKF_AD_OFF + SKF_AD_PKTTYPE:
+ 		*insn = BPF_LDX_MEM(BPF_B, BPF_REG_A, BPF_REG_CTX,
+-				    pkt_type_offset());
++				    PKT_TYPE_OFFSET());
+ 		if (insn->off < 0)
+ 			return false;
+ 		insn++;
 -- 
-2.1.0
+1.9.3
