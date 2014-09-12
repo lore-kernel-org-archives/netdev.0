@@ -1,577 +1,126 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/11] e1000: convert to build_skb
-Date: Fri, 12 Sep 2014 05:33:50 -0700
-Message-ID: <1410525231-19851-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/11] ixgbe: Resolve warnings produced in W=2 builds
+Date: Fri, 12 Sep 2014 05:33:41 -0700
+Message-ID: <1410525231-19851-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1410525231-19851-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:49796 "EHLO mga02.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:39378 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754466AbaILMeG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2014 08:34:06 -0400
+	id S1753663AbaILMd6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Sep 2014 08:33:58 -0400
 In-Reply-To: <1410525231-19851-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-Instead of preallocating Rx skbs, allocate them right before sending
-inbound packet up the stack.
+This patch resolves warnings produced by ixgbe in W=2 kernel
+builds. There are missing-field-initializers warnings and shadow
+warnings. None of these point to any deeper problem, so just
+resolve them so any new warnings get analyzed.
 
-e1000-kvm, mtu1500, netperf TCP_STREAM:
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-old: 87380  16384  16384    60.00    4532.40
-new: 87380  16384  16384    60.00    4599.05
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000.h         |   6 +-
- drivers/net/ethernet/intel/e1000/e1000_ethtool.c |  29 +--
- drivers/net/ethernet/intel/e1000/e1000_main.c    | 216 ++++++++++++-----------
- 3 files changed, 131 insertions(+), 120 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 18 +++++++++---------
+ 2 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
-index 4c2a102..6970710 100644
---- a/drivers/net/ethernet/intel/e1000/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000/e1000.h
-@@ -160,9 +160,11 @@ struct e1000_tx_buffer {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index e4100b5..cff383b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -1303,7 +1303,7 @@ static const struct ixgbe_reg_test reg_test_82599[] = {
+ 	{ IXGBE_RAL(0), 16, TABLE64_TEST_LO, 0xFFFFFFFF, 0xFFFFFFFF },
+ 	{ IXGBE_RAL(0), 16, TABLE64_TEST_HI, 0x8001FFFF, 0x800CFFFF },
+ 	{ IXGBE_MTA(0), 128, TABLE32_TEST, 0xFFFFFFFF, 0xFFFFFFFF },
+-	{ 0, 0, 0, 0 }
++	{ .reg = 0 }
  };
  
- struct e1000_rx_buffer {
--	struct sk_buff *skb;
-+	union {
-+		struct page *page; /* jumbo: alloc_page */
-+		u8 *data; /* else, netdev_alloc_frag */
-+	} rxbuf;
- 	dma_addr_t dma;
--	struct page *page;
+ /* default 82598 register test */
+@@ -1331,7 +1331,7 @@ static const struct ixgbe_reg_test reg_test_82598[] = {
+ 	{ IXGBE_RAL(0), 16, TABLE64_TEST_LO, 0xFFFFFFFF, 0xFFFFFFFF },
+ 	{ IXGBE_RAL(0), 16, TABLE64_TEST_HI, 0x800CFFFF, 0x800CFFFF },
+ 	{ IXGBE_MTA(0), 128, TABLE32_TEST, 0xFFFFFFFF, 0xFFFFFFFF },
+-	{ 0, 0, 0, 0 }
++	{ .reg = 0 }
  };
  
- struct e1000_tx_ring {
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-index c7280d9..b691eb4 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-@@ -970,8 +970,7 @@ static void e1000_free_desc_rings(struct e1000_adapter *adapter)
- 						 rxdr->buffer_info[i].dma,
- 						 E1000_RXBUFFER_2048,
- 						 DMA_FROM_DEVICE);
--			if (rxdr->buffer_info[i].skb)
--				dev_kfree_skb(rxdr->buffer_info[i].skb);
-+			kfree(rxdr->buffer_info[i].rxbuf.data);
- 		}
- 	}
+ static bool reg_pattern_test(struct ixgbe_adapter *adapter, u64 *data, int reg,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 166dc00..87613806 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -440,7 +440,7 @@ static const struct ixgbe_reg_info ixgbe_reg_info_tbl[] = {
+ 	{IXGBE_TXDCTL(0), "TXDCTL"},
  
-@@ -1095,24 +1094,25 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
+ 	/* List Terminator */
+-	{}
++	{ .name = NULL }
+ };
  
- 	for (i = 0; i < rxdr->count; i++) {
- 		struct e1000_rx_desc *rx_desc = E1000_RX_DESC(*rxdr, i);
--		struct sk_buff *skb;
-+		u8 *buf;
  
--		skb = alloc_skb(E1000_RXBUFFER_2048 + NET_IP_ALIGN, GFP_KERNEL);
--		if (!skb) {
-+		buf = kzalloc(E1000_RXBUFFER_2048 + NET_SKB_PAD + NET_IP_ALIGN,
-+			      GFP_KERNEL);
-+		if (!buf) {
- 			ret_val = 7;
- 			goto err_nomem;
- 		}
--		skb_reserve(skb, NET_IP_ALIGN);
--		rxdr->buffer_info[i].skb = skb;
-+		rxdr->buffer_info[i].rxbuf.data = buf;
-+
- 		rxdr->buffer_info[i].dma =
--			dma_map_single(&pdev->dev, skb->data,
-+			dma_map_single(&pdev->dev,
-+				       buf + NET_SKB_PAD + NET_IP_ALIGN,
- 				       E1000_RXBUFFER_2048, DMA_FROM_DEVICE);
- 		if (dma_mapping_error(&pdev->dev, rxdr->buffer_info[i].dma)) {
- 			ret_val = 8;
- 			goto err_nomem;
- 		}
- 		rx_desc->buffer_addr = cpu_to_le64(rxdr->buffer_info[i].dma);
--		memset(skb->data, 0x00, skb->len);
- 	}
- 
- 	return 0;
-@@ -1385,13 +1385,13 @@ static void e1000_create_lbtest_frame(struct sk_buff *skb,
- 	memset(&skb->data[frame_size / 2 + 12], 0xAF, 1);
- }
- 
--static int e1000_check_lbtest_frame(struct sk_buff *skb,
-+static int e1000_check_lbtest_frame(const unsigned char *data,
- 				    unsigned int frame_size)
+@@ -5186,15 +5186,15 @@ int ixgbe_setup_tx_resources(struct ixgbe_ring *tx_ring)
  {
- 	frame_size &= ~1;
--	if (skb->data[3] == 0xFF) {
--		if (skb->data[frame_size / 2 + 10] == 0xBE &&
--		    skb->data[frame_size / 2 + 12] == 0xAF) {
-+	if (*(data + 3) == 0xFF) {
-+		if ((*(data + frame_size / 2 + 10) == 0xBE) &&
-+		    (*(data + frame_size / 2 + 12) == 0xAF)) {
- 			return 0;
- 		}
- 	}
-@@ -1443,7 +1443,8 @@ static int e1000_run_loopback_test(struct e1000_adapter *adapter)
- 						DMA_FROM_DEVICE);
+ 	struct device *dev = tx_ring->dev;
+ 	int orig_node = dev_to_node(dev);
+-	int numa_node = -1;
++	int ring_node = -1;
+ 	int size;
  
- 			ret_val = e1000_check_lbtest_frame(
--					rxdr->buffer_info[l].skb,
-+					rxdr->buffer_info[l].rxbuf.data +
-+					NET_SKB_PAD + NET_IP_ALIGN,
- 					1024);
- 			if (!ret_val)
- 				good_cnt++;
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index ccb65ad..2ba640a 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -2054,6 +2054,28 @@ void e1000_free_all_rx_resources(struct e1000_adapter *adapter)
- 		e1000_free_rx_resources(adapter, &adapter->rx_ring[i]);
- }
+ 	size = sizeof(struct ixgbe_tx_buffer) * tx_ring->count;
  
-+#define E1000_HEADROOM (NET_SKB_PAD + NET_IP_ALIGN)
-+static unsigned int e1000_frag_len(const struct e1000_adapter *a)
-+{
-+	return SKB_DATA_ALIGN(a->rx_buffer_len + E1000_HEADROOM) +
-+		SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+}
-+
-+static void *e1000_alloc_frag(const struct e1000_adapter *a)
-+{
-+	unsigned int len = e1000_frag_len(a);
-+	u8 *data = netdev_alloc_frag(len);
-+
-+	if (likely(data))
-+		data += E1000_HEADROOM;
-+	return data;
-+}
-+
-+static void e1000_free_frag(const void *data)
-+{
-+	put_page(virt_to_head_page(data));
-+}
-+
- /**
-  * e1000_clean_rx_ring - Free Rx Buffers per Queue
-  * @adapter: board private structure
-@@ -2068,30 +2090,30 @@ static void e1000_clean_rx_ring(struct e1000_adapter *adapter,
- 	unsigned long size;
- 	unsigned int i;
+ 	if (tx_ring->q_vector)
+-		numa_node = tx_ring->q_vector->numa_node;
++		ring_node = tx_ring->q_vector->numa_node;
  
--	/* Free all the Rx ring sk_buffs */
-+	/* Free all the Rx netfrags */
- 	for (i = 0; i < rx_ring->count; i++) {
- 		buffer_info = &rx_ring->buffer_info[i];
--		if (buffer_info->dma &&
--		    adapter->clean_rx == e1000_clean_rx_irq) {
--			dma_unmap_single(&pdev->dev, buffer_info->dma,
--					 adapter->rx_buffer_len,
--					 DMA_FROM_DEVICE);
--		} else if (buffer_info->dma &&
--		           adapter->clean_rx == e1000_clean_jumbo_rx_irq) {
--			dma_unmap_page(&pdev->dev, buffer_info->dma,
--				       adapter->rx_buffer_len,
--				       DMA_FROM_DEVICE);
-+		if (adapter->clean_rx == e1000_clean_rx_irq) {
-+			if (buffer_info->dma)
-+				dma_unmap_single(&pdev->dev, buffer_info->dma,
-+						 adapter->rx_buffer_len,
-+						 DMA_FROM_DEVICE);
-+			if (buffer_info->rxbuf.data) {
-+				e1000_free_frag(buffer_info->rxbuf.data);
-+				buffer_info->rxbuf.data = NULL;
-+			}
-+		} else if (adapter->clean_rx == e1000_clean_jumbo_rx_irq) {
-+			if (buffer_info->dma)
-+				dma_unmap_page(&pdev->dev, buffer_info->dma,
-+					       adapter->rx_buffer_len,
-+					       DMA_FROM_DEVICE);
-+			if (buffer_info->rxbuf.page) {
-+				put_page(buffer_info->rxbuf.page);
-+				buffer_info->rxbuf.page = NULL;
-+			}
- 		}
+-	tx_ring->tx_buffer_info = vzalloc_node(size, numa_node);
++	tx_ring->tx_buffer_info = vzalloc_node(size, ring_node);
+ 	if (!tx_ring->tx_buffer_info)
+ 		tx_ring->tx_buffer_info = vzalloc(size);
+ 	if (!tx_ring->tx_buffer_info)
+@@ -5206,7 +5206,7 @@ int ixgbe_setup_tx_resources(struct ixgbe_ring *tx_ring)
+ 	tx_ring->size = tx_ring->count * sizeof(union ixgbe_adv_tx_desc);
+ 	tx_ring->size = ALIGN(tx_ring->size, 4096);
  
- 		buffer_info->dma = 0;
--		if (buffer_info->page) {
--			put_page(buffer_info->page);
--			buffer_info->page = NULL;
--		}
--		if (buffer_info->skb) {
--			dev_kfree_skb(buffer_info->skb);
--			buffer_info->skb = NULL;
--		}
- 	}
- 
- 	/* there also may be some cached data from a chained receive */
-@@ -3430,7 +3452,7 @@ rx_ring_summary:
- 
- 		pr_info("R[0x%03X]     %016llX %016llX %016llX %p %s\n",
- 			i, le64_to_cpu(u->a), le64_to_cpu(u->b),
--			(u64)buffer_info->dma, buffer_info->skb, type);
-+			(u64)buffer_info->dma, buffer_info->rxbuf.data, type);
- 	} /* for */
- 
- 	/* dump the descriptor caches */
-@@ -3950,12 +3972,12 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
- }
- 
- /**
-- * e1000_consume_page - helper function
-+ * e1000_consume_page - helper function for jumbo Rx path
-  **/
- static void e1000_consume_page(struct e1000_rx_buffer *bi, struct sk_buff *skb,
- 			       u16 length)
+-	set_dev_node(dev, numa_node);
++	set_dev_node(dev, ring_node);
+ 	tx_ring->desc = dma_alloc_coherent(dev,
+ 					   tx_ring->size,
+ 					   &tx_ring->dma,
+@@ -5270,15 +5270,15 @@ int ixgbe_setup_rx_resources(struct ixgbe_ring *rx_ring)
  {
--	bi->page = NULL;
-+	bi->rxbuf.page = NULL;
- 	skb->len += length;
- 	skb->data_len += length;
- 	skb->truesize += PAGE_SIZE;
-@@ -4111,6 +4133,7 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 	int cleaned_count = 0;
- 	bool cleaned = false;
- 	unsigned int total_rx_bytes=0, total_rx_packets=0;
-+	static const unsigned int bufsz = 256 - 16; /* for skb_reserve */
+ 	struct device *dev = rx_ring->dev;
+ 	int orig_node = dev_to_node(dev);
+-	int numa_node = -1;
++	int ring_node = -1;
+ 	int size;
  
- 	i = rx_ring->next_to_clean;
- 	rx_desc = E1000_RX_DESC(*rx_ring, i);
-@@ -4126,8 +4149,6 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 		rmb(); /* read descriptor and rx_buffer_info after status DD */
+ 	size = sizeof(struct ixgbe_rx_buffer) * rx_ring->count;
  
- 		status = rx_desc->status;
--		skb = buffer_info->skb;
--		buffer_info->skb = NULL;
+ 	if (rx_ring->q_vector)
+-		numa_node = rx_ring->q_vector->numa_node;
++		ring_node = rx_ring->q_vector->numa_node;
  
- 		if (++i == rx_ring->count) i = 0;
- 		next_rxd = E1000_RX_DESC(*rx_ring, i);
-@@ -4146,7 +4167,7 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 		/* errors is only valid for DD + EOP descriptors */
- 		if (unlikely((status & E1000_RXD_STAT_EOP) &&
- 		    (rx_desc->errors & E1000_RXD_ERR_FRAME_ERR_MASK))) {
--			u8 *mapped = page_address(buffer_info->page);
-+			u8 *mapped = page_address(buffer_info->rxbuf.page);
+-	rx_ring->rx_buffer_info = vzalloc_node(size, numa_node);
++	rx_ring->rx_buffer_info = vzalloc_node(size, ring_node);
+ 	if (!rx_ring->rx_buffer_info)
+ 		rx_ring->rx_buffer_info = vzalloc(size);
+ 	if (!rx_ring->rx_buffer_info)
+@@ -5290,7 +5290,7 @@ int ixgbe_setup_rx_resources(struct ixgbe_ring *rx_ring)
+ 	rx_ring->size = rx_ring->count * sizeof(union ixgbe_adv_rx_desc);
+ 	rx_ring->size = ALIGN(rx_ring->size, 4096);
  
- 			if (e1000_tbi_should_accept(adapter, status,
- 						    rx_desc->errors,
-@@ -4155,8 +4176,6 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 			} else if (netdev->features & NETIF_F_RXALL) {
- 				goto process_skb;
- 			} else {
--				/* recycle both page and skb */
--				buffer_info->skb = skb;
- 				/* an error means any chain goes out the window
- 				 * too
- 				 */
-@@ -4173,16 +4192,18 @@ process_skb:
- 			/* this descriptor is only the beginning (or middle) */
- 			if (!rxtop) {
- 				/* this is the beginning of a chain */
--				rxtop = skb;
--				skb_fill_page_desc(rxtop, 0, buffer_info->page,
-+				rxtop = e1000_alloc_rx_skb(adapter, bufsz);
-+				if (!rxtop)
-+					break;
-+
-+				skb_fill_page_desc(rxtop, 0,
-+						   buffer_info->rxbuf.page,
- 						   0, length);
- 			} else {
- 				/* this is the middle of a chain */
- 				skb_fill_page_desc(rxtop,
- 				    skb_shinfo(rxtop)->nr_frags,
--				    buffer_info->page, 0, length);
--				/* re-use the skb, only consumed the page */
--				buffer_info->skb = skb;
-+				    buffer_info->rxbuf.page, 0, length);
- 			}
- 			e1000_consume_page(buffer_info, rxtop, length);
- 			goto next_desc;
-@@ -4191,32 +4212,33 @@ process_skb:
- 				/* end of the chain */
- 				skb_fill_page_desc(rxtop,
- 				    skb_shinfo(rxtop)->nr_frags,
--				    buffer_info->page, 0, length);
--				/* re-use the current skb, we only consumed the
--				 * page
--				 */
--				buffer_info->skb = skb;
-+				    buffer_info->rxbuf.page, 0, length);
- 				skb = rxtop;
- 				rxtop = NULL;
- 				e1000_consume_page(buffer_info, skb, length);
- 			} else {
-+				struct page *p;
- 				/* no chain, got EOP, this buf is the packet
- 				 * copybreak to save the put_page/alloc_page
- 				 */
-+				skb = e1000_alloc_rx_skb(adapter, bufsz);
-+				if (!skb)
-+					break;
-+				p = buffer_info->rxbuf.page;
- 				if (length <= copybreak &&
- 				    skb_tailroom(skb) >= length) {
- 					u8 *vaddr;
--					vaddr = kmap_atomic(buffer_info->page);
-+
-+					vaddr = kmap_atomic(p);
- 					memcpy(skb_tail_pointer(skb), vaddr,
- 					       length);
- 					kunmap_atomic(vaddr);
- 					/* re-use the page, so don't erase
--					 * buffer_info->page
-+					 * buffer_info->rxbuf.page
- 					 */
- 					skb_put(skb, length);
- 				} else {
--					skb_fill_page_desc(skb, 0,
--							   buffer_info->page, 0,
-+					skb_fill_page_desc(skb, 0, p, 0,
- 							   length);
- 					e1000_consume_page(buffer_info, skb,
- 							   length);
-@@ -4321,6 +4343,7 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- 
- 	while (rx_desc->status & E1000_RXD_STAT_DD) {
- 		struct sk_buff *skb;
-+		u8 *data;
- 		u8 status;
- 
- 		if (*work_done >= work_to_do)
-@@ -4331,16 +4354,24 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- 		status = rx_desc->status;
- 		length = le16_to_cpu(rx_desc->length);
- 
--		prefetch(buffer_info->skb->data - NET_IP_ALIGN);
--		skb = e1000_copybreak(adapter, buffer_info, length,
--				      buffer_info->skb->data);
-+		data = buffer_info->rxbuf.data;
-+		prefetch(data);
-+		skb = e1000_copybreak(adapter, buffer_info, length, data);
- 		if (!skb) {
--			skb = buffer_info->skb;
--			buffer_info->skb = NULL;
-+			unsigned int frag_len = e1000_frag_len(adapter);
-+
-+			skb = build_skb(data - E1000_HEADROOM, frag_len);
-+			if (!skb) {
-+				adapter->alloc_rx_buff_failed++;
-+				break;
-+			}
-+
-+			skb_reserve(skb, E1000_HEADROOM);
- 			dma_unmap_single(&pdev->dev, buffer_info->dma,
- 					 adapter->rx_buffer_len,
- 					 DMA_FROM_DEVICE);
- 			buffer_info->dma = 0;
-+			buffer_info->rxbuf.data = NULL;
- 		}
- 
- 		if (++i == rx_ring->count) i = 0;
-@@ -4373,7 +4404,7 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- 		if (unlikely(rx_desc->errors & E1000_RXD_ERR_FRAME_ERR_MASK)) {
- 			if (e1000_tbi_should_accept(adapter, status,
- 						    rx_desc->errors,
--						    length, skb->data)) {
-+						    length, data)) {
- 				length--;
- 			} else if (netdev->features & NETIF_F_RXALL) {
- 				goto process_skb;
-@@ -4393,7 +4424,7 @@ process_skb:
- 			 */
- 			length -= 4;
- 
--		if (buffer_info->skb == NULL)
-+		if (buffer_info->rxbuf.data == NULL)
- 			skb_put(skb, length);
- 		else /* copybreak skb */
- 			skb_trim(skb, length);
-@@ -4442,37 +4473,19 @@ static void
- e1000_alloc_jumbo_rx_buffers(struct e1000_adapter *adapter,
- 			     struct e1000_rx_ring *rx_ring, int cleaned_count)
- {
--	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
- 	struct e1000_rx_desc *rx_desc;
- 	struct e1000_rx_buffer *buffer_info;
--	struct sk_buff *skb;
- 	unsigned int i;
--	unsigned int bufsz = 256 - 16 /*for skb_reserve */ ;
- 
- 	i = rx_ring->next_to_use;
- 	buffer_info = &rx_ring->buffer_info[i];
- 
- 	while (cleaned_count--) {
--		skb = buffer_info->skb;
--		if (skb) {
--			skb_trim(skb, 0);
--			goto check_page;
--		}
--
--		skb = netdev_alloc_skb_ip_align(netdev, bufsz);
--		if (unlikely(!skb)) {
--			/* Better luck next round */
--			adapter->alloc_rx_buff_failed++;
--			break;
--		}
--
--		buffer_info->skb = skb;
--check_page:
- 		/* allocate a new page if necessary */
--		if (!buffer_info->page) {
--			buffer_info->page = alloc_page(GFP_ATOMIC);
--			if (unlikely(!buffer_info->page)) {
-+		if (!buffer_info->rxbuf.page) {
-+			buffer_info->rxbuf.page = alloc_page(GFP_ATOMIC);
-+			if (unlikely(!buffer_info->rxbuf.page)) {
- 				adapter->alloc_rx_buff_failed++;
- 				break;
- 			}
-@@ -4480,17 +4493,15 @@ check_page:
- 
- 		if (!buffer_info->dma) {
- 			buffer_info->dma = dma_map_page(&pdev->dev,
--							buffer_info->page, 0,
--							PAGE_SIZE,
-+							buffer_info->rxbuf.page, 0,
-+							adapter->rx_buffer_len,
- 							DMA_FROM_DEVICE);
- 			if (dma_mapping_error(&pdev->dev, buffer_info->dma)) {
--				put_page(buffer_info->page);
--				dev_kfree_skb(skb);
--				buffer_info->page = NULL;
--				buffer_info->skb = NULL;
-+				put_page(buffer_info->rxbuf.page);
-+				buffer_info->rxbuf.page = NULL;
- 				buffer_info->dma = 0;
- 				adapter->alloc_rx_buff_failed++;
--				break; /* while !buffer_info->skb */
-+				break;
- 			}
- 		}
- 
-@@ -4526,11 +4537,9 @@ static void e1000_alloc_rx_buffers(struct e1000_adapter *adapter,
- 				   int cleaned_count)
- {
- 	struct e1000_hw *hw = &adapter->hw;
--	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
- 	struct e1000_rx_desc *rx_desc;
- 	struct e1000_rx_buffer *buffer_info;
--	struct sk_buff *skb;
- 	unsigned int i;
- 	unsigned int bufsz = adapter->rx_buffer_len;
- 
-@@ -4538,55 +4547,52 @@ static void e1000_alloc_rx_buffers(struct e1000_adapter *adapter,
- 	buffer_info = &rx_ring->buffer_info[i];
- 
- 	while (cleaned_count--) {
--		skb = buffer_info->skb;
--		if (skb) {
--			skb_trim(skb, 0);
-+		void *data;
-+
-+		if (buffer_info->rxbuf.data)
- 			goto skip;
--		}
- 
--		skb = netdev_alloc_skb_ip_align(netdev, bufsz);
--		if (unlikely(!skb)) {
-+		data = e1000_alloc_frag(adapter);
-+		if (!data) {
- 			/* Better luck next round */
- 			adapter->alloc_rx_buff_failed++;
- 			break;
- 		}
- 
- 		/* Fix for errata 23, can't cross 64kB boundary */
--		if (!e1000_check_64k_bound(adapter, skb->data, bufsz)) {
--			struct sk_buff *oldskb = skb;
-+		if (!e1000_check_64k_bound(adapter, data, bufsz)) {
-+			void *olddata = data;
- 			e_err(rx_err, "skb align check failed: %u bytes at "
--			      "%p\n", bufsz, skb->data);
-+			      "%p\n", bufsz, data);
- 			/* Try again, without freeing the previous */
--			skb = netdev_alloc_skb_ip_align(netdev, bufsz);
-+			data = e1000_alloc_frag(adapter);
- 			/* Failed allocation, critical failure */
--			if (!skb) {
--				dev_kfree_skb(oldskb);
-+			if (!data) {
-+				e1000_free_frag(olddata);
- 				adapter->alloc_rx_buff_failed++;
- 				break;
- 			}
- 
--			if (!e1000_check_64k_bound(adapter, skb->data, bufsz)) {
-+			if (!e1000_check_64k_bound(adapter, data, bufsz)) {
- 				/* give up */
--				dev_kfree_skb(skb);
--				dev_kfree_skb(oldskb);
-+				e1000_free_frag(data);
-+				e1000_free_frag(olddata);
- 				adapter->alloc_rx_buff_failed++;
--				break; /* while !buffer_info->skb */
-+				break;
- 			}
- 
- 			/* Use new allocation */
--			dev_kfree_skb(oldskb);
-+			e1000_free_frag(olddata);
- 		}
--		buffer_info->skb = skb;
- 		buffer_info->dma = dma_map_single(&pdev->dev,
--						  skb->data,
-+						  data,
- 						  adapter->rx_buffer_len,
- 						  DMA_FROM_DEVICE);
- 		if (dma_mapping_error(&pdev->dev, buffer_info->dma)) {
--			dev_kfree_skb(skb);
--			buffer_info->skb = NULL;
-+			e1000_free_frag(data);
- 			buffer_info->dma = 0;
- 			adapter->alloc_rx_buff_failed++;
--			break; /* while !buffer_info->skb */
-+			break;
- 		}
- 
- 		/* XXX if it was allocated cleanly it will never map to a
-@@ -4600,21 +4606,23 @@ static void e1000_alloc_rx_buffers(struct e1000_adapter *adapter,
- 			e_err(rx_err, "dma align check failed: %u bytes at "
- 			      "%p\n", adapter->rx_buffer_len,
- 			      (void *)(unsigned long)buffer_info->dma);
--			dev_kfree_skb(skb);
--			buffer_info->skb = NULL;
- 
- 			dma_unmap_single(&pdev->dev, buffer_info->dma,
- 					 adapter->rx_buffer_len,
- 					 DMA_FROM_DEVICE);
-+
-+			e1000_free_frag(data);
-+			buffer_info->rxbuf.data = NULL;
- 			buffer_info->dma = 0;
- 
- 			adapter->alloc_rx_buff_failed++;
--			break; /* while !buffer_info->skb */
-+			break;
- 		}
-+		buffer_info->rxbuf.data = data;
-+ skip:
- 		rx_desc = E1000_RX_DESC(*rx_ring, i);
- 		rx_desc->buffer_addr = cpu_to_le64(buffer_info->dma);
- 
--skip:
- 		if (unlikely(++i == rx_ring->count))
- 			i = 0;
- 		buffer_info = &rx_ring->buffer_info[i];
+-	set_dev_node(dev, numa_node);
++	set_dev_node(dev, ring_node);
+ 	rx_ring->desc = dma_alloc_coherent(dev,
+ 					   rx_ring->size,
+ 					   &rx_ring->dma,
 -- 
 1.9.3
