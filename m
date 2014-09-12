@@ -1,240 +1,210 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 6/8] be2net: fix port-type reporting in get_settings
-Date: Fri, 12 Sep 2014 17:39:19 +0530
-Message-ID: <1410523761-1744-7-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 5/8] be2net: add ethtool "-m" option support
+Date: Fri, 12 Sep 2014 17:39:18 +0530
+Message-ID: <1410523761-1744-6-git-send-email-sathya.perla@emulex.com>
 References: <1410523761-1744-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:21722 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753899AbaILMGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 08:06:49 -0400
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:24676 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754565AbaILMGu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 08:06:50 -0400
 In-Reply-To: <1410523761-1744-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ravikumar Nelavelli <ravikumar.nelavelli@emulex.com>
+From: Mark Leonard <mark.leonard@emulex.com>
 
-Report the ethtool port-type/supported/advertising values based on the
-cable_type for QSFP and SFP+ interfaces. The cable_type is parsed from
-the transceiver data fetched from the FW.
+This patch adds support for the dump-module-eeprom and module-info
+ethtool options.
 
-Signed-off-by: Ravikumar Nelavelli <ravikumar.nelavelli@emulex.com>
+Signed-off-by: Mark Leonard <mark.leonard@emulex.com>
 Signed-off-by: Suresh Reddy <Suresh.Reddy@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h         |    2 +-
- drivers/net/ethernet/emulex/benet/be_cmds.c    |   25 +++++++++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h    |   15 +++++++-
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   47 +++++++++++++++++-------
- 4 files changed, 73 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c    |   47 ++++++++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_cmds.h    |   25 +++--------
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |   56 +++++++++++++++++++++++-
+ 3 files changed, 109 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index a9f239a..9a2d752 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -407,9 +407,9 @@ struct phy_info {
- 	u16 auto_speeds_supported;
- 	u16 fixed_speeds_supported;
- 	int link_speed;
--	u32 dac_cable_len;
- 	u32 advertising;
- 	u32 supported;
-+	u8 cable_type;
- };
- 
- struct be_resources {
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index e0dd482..85edde6 100644
+index 5d8016c..e0dd482 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.c
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2296,6 +2296,31 @@ err_unlock:
+@@ -2176,6 +2176,53 @@ err:
  	return status;
  }
  
-+int be_cmd_query_cable_type(struct be_adapter *adapter)
++/* Uses sync mcc */
++int be_cmd_read_port_transceiver_data(struct be_adapter *adapter,
++				      u8 page_num, u8 *data)
 +{
-+	u8 page_data[PAGE_DATA_LEN];
++	struct be_dma_mem cmd;
++	struct be_mcc_wrb *wrb;
++	struct be_cmd_req_port_type *req;
 +	int status;
 +
-+	status = be_cmd_read_port_transceiver_data(adapter, TR_PAGE_A0,
-+						   page_data);
-+	if (!status) {
-+		switch (adapter->phy.interface_type) {
-+		case PHY_TYPE_QSFP:
-+			adapter->phy.cable_type =
-+				page_data[QSFP_PLUS_CABLE_TYPE_OFFSET];
-+			break;
-+		case PHY_TYPE_SFP_PLUS_10GB:
-+			adapter->phy.cable_type =
-+				page_data[SFP_PLUS_CABLE_TYPE_OFFSET];
-+			break;
-+		default:
-+			adapter->phy.cable_type = 0;
-+			break;
-+		}
++	if (page_num > TR_PAGE_A2)
++		return -EINVAL;
++
++	cmd.size = sizeof(struct be_cmd_resp_port_type);
++	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size, &cmd.dma);
++	if (!cmd.va) {
++		dev_err(&adapter->pdev->dev, "Memory allocation failed\n");
++		return -ENOMEM;
 +	}
++	memset(cmd.va, 0, cmd.size);
++
++	spin_lock_bh(&adapter->mcc_lock);
++
++	wrb = wrb_from_mccq(adapter);
++	if (!wrb) {
++		status = -EBUSY;
++		goto err;
++	}
++	req = cmd.va;
++
++	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
++			       OPCODE_COMMON_READ_TRANSRECV_DATA,
++			       cmd.size, wrb, &cmd);
++
++	req->port = cpu_to_le32(adapter->hba_port_num);
++	req->page_num = cpu_to_le32(page_num);
++	status = be_mcc_notify_wait(adapter);
++	if (!status) {
++		struct be_cmd_resp_port_type *resp = cmd.va;
++
++		memcpy(data, resp->page_data, PAGE_DATA_LEN);
++	}
++err:
++	spin_unlock_bh(&adapter->mcc_lock);
++	pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
 +	return status;
 +}
 +
- int lancer_cmd_delete_object(struct be_adapter *adapter, const char *obj_name)
- {
- 	struct lancer_cmd_req_delete_object *req;
+ int lancer_cmd_write_object(struct be_adapter *adapter, struct be_dma_mem *cmd,
+ 			    u32 data_size, u32 data_offset,
+ 			    const char *obj_name, u32 *data_written,
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index f05f1fb..e86a5ef 100644
+index 3b1606c..f05f1fb 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.h
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1014,8 +1014,16 @@ enum {
+@@ -1014,28 +1014,15 @@ enum {
  	TR_PAGE_A2 = 0xa2
  };
  
-+/* From SFF-8436 QSFP+ spec */
-+#define	QSFP_PLUS_CABLE_TYPE_OFFSET	0x83
-+#define	QSFP_PLUS_CR4_CABLE		0x8
-+#define	QSFP_PLUS_SR4_CABLE		0x4
-+#define	QSFP_PLUS_LR4_CABLE		0x2
++/* From SFF-8472 spec */
++#define	SFP_PLUS_SFF_8472_COMP	0x5E
 +
- /* From SFF-8472 spec */
--#define	SFP_PLUS_SFF_8472_COMP	0x5E
-+#define	SFP_PLUS_SFF_8472_COMP		0x5E
-+#define	SFP_PLUS_CABLE_TYPE_OFFSET	0x8
-+#define	SFP_PLUS_COPPER_CABLE		0x4
- 
- #define PAGE_DATA_LEN   256
++#define PAGE_DATA_LEN   256
  struct be_cmd_resp_port_type {
-@@ -1355,6 +1363,9 @@ enum {
- 	PHY_TYPE_BASET_1GB,
- 	PHY_TYPE_BASEX_1GB,
- 	PHY_TYPE_SGMII,
-+	PHY_TYPE_QSFP,
-+	PHY_TYPE_KR4_40GB,
-+	PHY_TYPE_KR2_20GB,
- 	PHY_TYPE_DISABLED = 255
+ 	struct be_cmd_resp_hdr hdr;
+ 	u32 page_num;
+ 	u32 port;
+-	struct data {
+-		u8 identifier;
+-		u8 identifier_ext;
+-		u8 connector;
+-		u8 transceiver[8];
+-		u8 rsvd0[3];
+-		u8 length_km;
+-		u8 length_hm;
+-		u8 length_om1;
+-		u8 length_om2;
+-		u8 length_cu;
+-		u8 length_cu_m;
+-		u8 vendor_name[16];
+-		u8 rsvd;
+-		u8 vendor_oui[3];
+-		u8 vendor_pn[16];
+-		u8 vendor_rev[4];
+-	} data;
++	u8  page_data[PAGE_DATA_LEN];
  };
  
-@@ -1363,6 +1374,7 @@ enum {
- #define BE_SUPPORTED_SPEED_100MBPS	2
- #define BE_SUPPORTED_SPEED_1GBPS	4
- #define BE_SUPPORTED_SPEED_10GBPS	8
-+#define BE_SUPPORTED_SPEED_40GBPS	0x20
- 
- #define BE_AN_EN			0x2
- #define BE_PAUSE_SYM_EN			0x80
-@@ -2056,6 +2068,7 @@ int be_cmd_get_beacon_state(struct be_adapter *adapter, u8 port_num,
+ /******************** Get FW Version *******************/
+@@ -2067,6 +2054,8 @@ int be_cmd_set_beacon_state(struct be_adapter *adapter, u8 port_num, u8 beacon,
+ 			    u8 status, u8 state);
+ int be_cmd_get_beacon_state(struct be_adapter *adapter, u8 port_num,
  			    u32 *state);
- int be_cmd_read_port_transceiver_data(struct be_adapter *adapter,
- 				      u8 page_num, u8 *data);
-+int be_cmd_query_cable_type(struct be_adapter *adapter);
++int be_cmd_read_port_transceiver_data(struct be_adapter *adapter,
++				      u8 page_num, u8 *data);
  int be_cmd_write_flashrom(struct be_adapter *adapter, struct be_dma_mem *cmd,
  			  u32 flash_oper, u32 flash_opcode, u32 buf_size);
  int lancer_cmd_write_object(struct be_adapter *adapter, struct be_dma_mem *cmd,
 diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index a28013f..43b5595 100644
+index ee565be..a28013f 100644
 --- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
 +++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -475,18 +475,27 @@ static int be_get_sset_count(struct net_device *netdev, int stringset)
- 	}
+@@ -1189,6 +1189,58 @@ static int be_set_rxfh(struct net_device *netdev, const u32 *indir,
+ 	return 0;
  }
  
--static u32 be_get_port_type(u32 phy_type, u32 dac_cable_len)
-+static u32 be_get_port_type(struct be_adapter *adapter)
- {
- 	u32 port;
- 
--	switch (phy_type) {
-+	switch (adapter->phy.interface_type) {
- 	case PHY_TYPE_BASET_1GB:
- 	case PHY_TYPE_BASEX_1GB:
- 	case PHY_TYPE_SGMII:
- 		port = PORT_TP;
- 		break;
- 	case PHY_TYPE_SFP_PLUS_10GB:
--		port = dac_cable_len ? PORT_DA : PORT_FIBRE;
-+		if (adapter->phy.cable_type & SFP_PLUS_COPPER_CABLE)
-+			port = PORT_DA;
-+		else
-+			port = PORT_FIBRE;
-+		break;
-+	case PHY_TYPE_QSFP:
-+		if (adapter->phy.cable_type & QSFP_PLUS_CR4_CABLE)
-+			port = PORT_DA;
-+		else
-+			port = PORT_FIBRE;
- 		break;
- 	case PHY_TYPE_XFP_10GB:
- 	case PHY_TYPE_SFP_1GB:
-@@ -502,11 +511,11 @@ static u32 be_get_port_type(u32 phy_type, u32 dac_cable_len)
- 	return port;
- }
- 
--static u32 convert_to_et_setting(u32 if_type, u32 if_speeds)
-+static u32 convert_to_et_setting(struct be_adapter *adapter, u32 if_speeds)
- {
- 	u32 val = 0;
- 
--	switch (if_type) {
-+	switch (adapter->phy.interface_type) {
- 	case PHY_TYPE_BASET_1GB:
- 	case PHY_TYPE_BASEX_1GB:
- 	case PHY_TYPE_SGMII:
-@@ -529,6 +538,20 @@ static u32 convert_to_et_setting(u32 if_type, u32 if_speeds)
- 		val |= SUPPORTED_Backplane |
- 				SUPPORTED_10000baseKR_Full;
- 		break;
-+	case PHY_TYPE_QSFP:
-+		if (if_speeds & BE_SUPPORTED_SPEED_40GBPS) {
-+			switch (adapter->phy.cable_type) {
-+			case QSFP_PLUS_CR4_CABLE:
-+				val |= SUPPORTED_40000baseCR4_Full;
-+				break;
-+			case QSFP_PLUS_LR4_CABLE:
-+				val |= SUPPORTED_40000baseLR4_Full;
-+				break;
-+			default:
-+				val |= SUPPORTED_40000baseSR4_Full;
-+				break;
-+			}
-+		}
- 	case PHY_TYPE_SFP_PLUS_10GB:
- 	case PHY_TYPE_XFP_10GB:
- 	case PHY_TYPE_SFP_1GB:
-@@ -569,8 +592,6 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 	int status;
- 	u32 auto_speeds;
- 	u32 fixed_speeds;
--	u32 dac_cable_len;
--	u16 interface_type;
- 
- 	if (adapter->phy.link_speed < 0) {
- 		status = be_cmd_link_status_query(adapter, &link_speed,
-@@ -581,21 +602,19 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 
- 		status = be_cmd_get_phy_info(adapter);
- 		if (!status) {
--			interface_type = adapter->phy.interface_type;
- 			auto_speeds = adapter->phy.auto_speeds_supported;
- 			fixed_speeds = adapter->phy.fixed_speeds_supported;
--			dac_cable_len = adapter->phy.dac_cable_len;
++static int be_get_module_info(struct net_device *netdev,
++			      struct ethtool_modinfo *modinfo)
++{
++	struct be_adapter *adapter = netdev_priv(netdev);
++	u8 page_data[PAGE_DATA_LEN];
++	int status;
 +
-+			be_cmd_query_cable_type(adapter);
- 
- 			ecmd->supported =
--				convert_to_et_setting(interface_type,
-+				convert_to_et_setting(adapter,
- 						      auto_speeds |
- 						      fixed_speeds);
- 			ecmd->advertising =
--				convert_to_et_setting(interface_type,
--						      auto_speeds);
-+				convert_to_et_setting(adapter, auto_speeds);
- 
--			ecmd->port = be_get_port_type(interface_type,
--						      dac_cable_len);
-+			ecmd->port = be_get_port_type(adapter);
- 
- 			if (adapter->phy.auto_speeds_supported) {
- 				ecmd->supported |= SUPPORTED_Autoneg;
++	if (!check_privilege(adapter, MAX_PRIVILEGES))
++		return -EOPNOTSUPP;
++
++	status = be_cmd_read_port_transceiver_data(adapter, TR_PAGE_A0,
++						   page_data);
++	if (!status) {
++		if (!page_data[SFP_PLUS_SFF_8472_COMP]) {
++			modinfo->type = ETH_MODULE_SFF_8079;
++			modinfo->eeprom_len = PAGE_DATA_LEN;
++		} else {
++			modinfo->type = ETH_MODULE_SFF_8472;
++			modinfo->eeprom_len = 2 * PAGE_DATA_LEN;
++		}
++	}
++	return be_cmd_status(status);
++}
++
++static int be_get_module_eeprom(struct net_device *netdev,
++				struct ethtool_eeprom *eeprom, u8 *data)
++{
++	struct be_adapter *adapter = netdev_priv(netdev);
++	int status;
++
++	if (!check_privilege(adapter, MAX_PRIVILEGES))
++		return -EOPNOTSUPP;
++
++	status = be_cmd_read_port_transceiver_data(adapter, TR_PAGE_A0,
++						   data);
++	if (status)
++		goto err;
++
++	if (eeprom->offset + eeprom->len > PAGE_DATA_LEN) {
++		status = be_cmd_read_port_transceiver_data(adapter,
++							   TR_PAGE_A2,
++							   data +
++							   PAGE_DATA_LEN);
++		if (status)
++			goto err;
++	}
++	if (eeprom->offset)
++		memcpy(data, data + eeprom->offset, eeprom->len);
++err:
++	return be_cmd_status(status);
++}
++
+ const struct ethtool_ops be_ethtool_ops = {
+ 	.get_settings = be_get_settings,
+ 	.get_drvinfo = be_get_drvinfo,
+@@ -1220,5 +1272,7 @@ const struct ethtool_ops be_ethtool_ops = {
+ 	.get_rxfh = be_get_rxfh,
+ 	.set_rxfh = be_set_rxfh,
+ 	.get_channels = be_get_channels,
+-	.set_channels = be_set_channels
++	.set_channels = be_set_channels,
++	.get_module_info = be_get_module_info,
++	.get_module_eeprom = be_get_module_eeprom
+ };
 -- 
 1.7.1
