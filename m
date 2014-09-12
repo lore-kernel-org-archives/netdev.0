@@ -1,49 +1,65 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Tool: netperf-wrapper and qdisc bulking
-Date: Fri, 12 Sep 2014 12:40:46 +0200
-Message-ID: <20140912124046.68c6615b@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] net: filter: constify detection of pkt_type_offset
+Date: Fri, 12 Sep 2014 12:55:15 +0200
+Message-ID: <5412D113.6000700@redhat.com>
+References: <09acea1aba100a62551605ba52ae8541e816d1e6.1410517225.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Markos Chandras <markos.chandras@imgtec.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Denis Kirjanov <kda@linux-powerpc.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64541 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35761 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752235AbaILKlK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2014 06:41:10 -0400
+	id S1753500AbaILKzd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Sep 2014 06:55:33 -0400
+In-Reply-To: <09acea1aba100a62551605ba52ae8541e816d1e6.1410517225.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 09/12/2014 12:22 PM, Hannes Frederic Sowa wrote:
+> Currently we have 2 pkt_type_offset functions doing the same thing and
+> spread across the architecture files. Remove those and replace them
+> with a PKT_TYPE_OFFSET macro helper which gets the constant value from a
+> zero sized sk_buff member right in front of the bitfield with offsetof.
+> This new offset marker does not change size of struct sk_buff.
+>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Markos Chandras <markos.chandras@imgtec.com>
+> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-I going to use the tool called: "netperf-wrapper", for testing my qdisc
-bulking patches.  It is very useful for network measurements, that
-involves running multiple concurrent instances of testing tools
-(primarily netperf and ping)
+Thanks for doing this, Hannes!
+...
+>   static u64 __skb_get_pay_offset(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
+>   {
+>   	return skb_get_poff((struct sk_buff *)(unsigned long) ctx);
+> @@ -191,7 +167,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+>
+>   	case SKF_AD_OFF + SKF_AD_PKTTYPE:
+>   		*insn = BPF_LDX_MEM(BPF_B, BPF_REG_A, BPF_REG_CTX,
+> -				    pkt_type_offset());
+> +				    PKT_TYPE_OFFSET());
+>   		if (insn->off < 0)
+>   			return false;
+>   		insn++;
 
-For others to get easily started using this tool, I've written a mini-tutorial:
- http://netoptimizer.blogspot.dk/2014/09/mini-tutorial-for-netperf-wrapper-setup.html
+I think this can now be rewritten as ...
 
-I'm currently using it for testing the Head-of-Line blocking issues
-that bulking packets from the qdisc layer can possibly cause.
+	case SKF_AD_OFF + SKF_AD_PKTTYPE:
+		*insn++ = BPF_LDX_MEM(BPF_B, BPF_REG_A, BPF_REG_CTX,
+				      PKT_TYPE_OFFSET());
+		*insn = BPF_ALU32_IMM(BPF_AND, BPF_REG_A, PKT_TYPE_MAX);
 
-For that I've added an extra test called "tcp_upload_prio":
- https://github.com/tohojo/netperf-wrapper/commit/1e6b755e8051b6
-
-More detail on these test results will follow (likely next week)
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+... since we are guaranteed to have always >0 insn->off and despite the
+__s16 type in off we might be able to safely assume that sk_buff will
+never get extended so far w/o fist fights first, where this could wrap
+around. ;) Alternatively, perhaps a BUILD_BUG_ON() for really being
+paranoid?
