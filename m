@@ -1,127 +1,59 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [BUG REPORT]  Unencrypted packets after SNAT, allthough
- IPSEC-Policies are present
-Date: Fri, 12 Sep 2014 11:31:43 +0200
-Message-ID: <20140912093143.GN6390@secunet.com>
-References: <541089DD.6060307@sirrix.com>
- <20140911115401.GL6390@secunet.com>
- <54119F75.8090305@sirrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	<herbert@gondor.apana.org.au>
-To: Konstantinos Kolelis <k.kolelis@sirrix.com>
+From: Alexander Fomichev <git.user@gmail.com>
+Subject: [PATCH net] net: fix sysfs symlinks of adjacent devices
+Date: Fri, 12 Sep 2014 14:13:46 +0400
+Message-ID: <1410516826-6926-1-git-send-email-git.user@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Andres Freund <andres@anarazel.de>,
+	"Alexander Y. Fomichev" <git.user@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:54967 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752501AbaILJbv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2014 05:31:51 -0400
-Content-Disposition: inline
-In-Reply-To: <54119F75.8090305@sirrix.com>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:42197 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753600AbaILKOa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 06:14:30 -0400
+Received: by mail-la0-f46.google.com with SMTP id el20so618830lab.5
+        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 03:14:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 11, 2014 at 03:11:17PM +0200, Konstantinos Kolelis wrote:
-> Am 11.09.2014 13:54, schrieb Steffen Klassert:
-> > On Wed, Sep 10, 2014 at 07:26:53PM +0200, Konstantinos Kolelis wrote:
-> >> Hi all,
-> >>
-> >> i' ve observed a problem with xfrm lookups, SNAT, blackhole route and
-> >> missing SAs.
-> >> The problem occures with all Kernels above 3.6.x and might has to do
-> >> with the changes in
-> >> ip4_blackhole_route() function in net/route.c.
-> > 
-> > Thanks for the report!
-> > 
-> > Is kernel v3.6 the first kernel with this issue? It seems that
-> > we have this problem already longer, at least if my analysis
-> > is correct.
-> > 
-> 
-> It worked until Kernel 3.4.103, i did not check with v3.5 though.
+From: "Alexander Y. Fomichev" <git.user@gmail.com>
 
-Hm. I thought the problem exists already for longer, so I did
-a bisect. To my surprise, the following commit introduced the bug:
+__netdev_adjacent_dev_insert may add adjacent device from another
+namespace. Without proper check it leads to emergence of broken
+symlink from/to device not existing in current namespace.
+Fix: check net_ns is the same before netdev_adjacent_sysfs_add/del
+related to: 4c75431ac3520631f1d9e74aa88407e6374dbbc4
 
-commit a263b3093641fb1ec377582c90986a7fd0625184
-Author: David S. Miller <davem@davemloft.net>
-Date:   Mon Jul 2 02:02:15 2012 -0700
+Signed-off-by: Alexander Y. Fomichev <git.user@gmail.com>
+---
+ net/core/dev.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-    ipv4: Make neigh lookups directly in output packet path.
-    
-    Do not use the dst cached neigh, we'll be getting rid of that.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-But this is not really the offending commit. As I said, the problem
-was introduced by git commit 2774c131 ("xfrm: Handle blackhole route
-creation via afinfo.") because the assumption that dst_output() is
-called always after a  xfrm_lookup() is wrong. On postrouting nat,
-dst_output() is not called for blackholed packets. But we were in luck
-because ip_finish_output2() tried to use a dst cached neigh entry.
-On blackhole routes we did not cache neigh entries, so the packets
-were dropped in the last moment. The above commit finally opened the
-door by replacing the usage of a dst cached neigh entry by a direct
-lookup.
-
-So we need to ensure that a blackhole route is generated only by the
-route lookup functions.
-
-> 
-> >>
-> >> Let say you have two network interfaces:
-> >> eth0 with ip 172.16.0.10/24
-> >> and
-> >> eth1 with ip 192.168.0.1/24
-> >>
-> >> and you have done the following configuration:
-> >>
-> >> iptables -t nat -A POSTROUTING -s 192.168.0.0/24 -j SNAT --to-source
-> >> 172.16.0.10
-> >>
-> >> and
-> >>
-> >> ip xfrm policy add dir out  src 172.16.0.10 dst 0.0.0.0/0 tmpl proto esp
-> >> src 172.16.0.10 dst 172.31.0.10 mode tunnel
-> >>
-> >> with the following routes:
-> >> default via 172.16.0.1 dev eth0  proto static
-> >> 172.16.0.0/24 dev eth0  proto kernel  scope link  src 172.16.0.10
-> >> 192.168.0.0/24 dev eth1  proto kernel  scope link  src 192.168.0.1
-> >>
-> >> If for what ever reason IPSEC-SAs can not be established, maybe because
-> >> 172.31.0.10 is down,
-> >> the traffic comming from 192.168.0.0/24 will leave unencrypted the
-> >> external (eth0) interface.
-> > 
-> > I can reproduce it with SNAT and MASQUERADE. Looks like this was
-> > introduced back in 2011 with git commit 2774c131 ("xfrm: Handle
-> > blackhole route creation via afinfo.").
-> > 
-> > Before that commit, xfrm_lookup() and __xfrm_lookup() returned
-> > an error if we have a matching policy but no states. The route
-> > lookup functions used __xfrm_lookup() and generated a blackhole
-> > route if __xfrm_lookup() returned -EREMOTE. All other functions
-> > used xfrm_lookup() which returned -EAGAIN. This was treated as
-> > as an error and the packet was dropped immediately.
-> > 
-> > After this commit all callers to xfrm_lookup() rely that
-> > dst_output() is called afterwards. This seems to be not the
-> > case, at least when postrouting nat is used.
-> > 
-> > Maybe we should go back to let only the route lookup functions
-> > genarate a blackhole route. Everyone else should better drop
-> > the packets immediately.
-> > 
-> > I'll try to do a patch.
-> > 
-> 
-> You should also check what happens if xfrm_larval_drop is false.
-> Allthough blackhole route was not used, you could still run into the
-> same problem. It just took a while longer.
-> 
-
-Yes, I'm aware of that. Thanks for the hint!
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ab9a16530c36..887784b2dcde 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4841,7 +4841,8 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 	pr_debug("dev_hold for %s, because of link added from %s to %s\n",
+ 		 adj_dev->name, dev->name, adj_dev->name);
+ 
+-	if (netdev_adjacent_is_neigh_list(dev, dev_list)) {
++	if (netdev_adjacent_is_neigh_list(dev, dev_list) &&
++	    net_eq(dev_net(dev), dev_net(adj_dev))) {
+ 		ret = netdev_adjacent_sysfs_add(dev, adj_dev, dev_list);
+ 		if (ret)
+ 			goto free_adj;
+@@ -4862,7 +4863,8 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 	return 0;
+ 
+ remove_symlinks:
+-	if (netdev_adjacent_is_neigh_list(dev, dev_list))
++	if (netdev_adjacent_is_neigh_list(dev, dev_list) &&
++	    net_eq(dev_net(dev), dev_net(adj_dev)))
+ 		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
+ free_adj:
+ 	kfree(adj);
+-- 
+2.1.0
