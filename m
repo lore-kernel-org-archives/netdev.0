@@ -1,53 +1,73 @@
 From: <Frank.Li@freescale.com>
-Subject: [Patch v4 net-next 11/12] ARM: Documentation: Update fec dts binding doc
-Date: Sat, 13 Sep 2014 05:00:56 +0800
-Message-ID: <1410555657-10744-12-git-send-email-Frank.Li@freescale.com>
+Subject: [Patch v4 net-next 02/12] net:fec: add enet AVB feature macro define
+ for imx6sx
+Date: Sat, 13 Sep 2014 05:00:47 +0800
+Message-ID: <1410555657-10744-3-git-send-email-Frank.Li@freescale.com>
 References: <1410555657-10744-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, <linux@arm.linux.org.uk>,
-	Frank Li <Frank.Li@freescale.com>,
-	Fugang Duan <B38611@freescale.com>
-To: <b38611@freescale.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0132.outbound.protection.outlook.com ([157.56.110.132]:6064
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753037AbaILWFp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2014 18:05:45 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, Frank Li <Frank.Li@freescale.com>,
+ Fugang Duan <B38611@freescale.com>, linux@arm.linux.org.uk,
+ shawn.guo@linaro.org, linux-arm-kernel@lists.infradead.org
+To: <b38611@freescale.com>, <davem@davemloft.net>, <netdev@vger.kernel.org>,
+ <lznuaa@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1410555657-10744-1-git-send-email-Frank.Li@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Frank Li <Frank.Li@freescale.com>
+From: Fugang Duan <B38611@freescale.com>
 
-    This patch update fec devicetree binding doc that add Optional
-    properties "fsl,num-tx-queues" and "fsl,num-rx-queues".
+Add enet AVB feature macro define for imx6sx.
 
 Signed-off-by: Fugang Duan <B38611@freescale.com>
 Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- Documentation/devicetree/bindings/net/fsl-fec.txt | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/freescale/fec_main.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
-index 8a2c7b5..0c8775c 100644
---- a/Documentation/devicetree/bindings/net/fsl-fec.txt
-+++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-@@ -16,6 +16,12 @@ Optional properties:
- - phy-handle : phandle to the PHY device connected to this device.
- - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
-   Use instead of phy-handle.
-+- fsl,num-tx-queues : The property is valid for enet-avb IP, which supports
-+  hw multi queues. Should specify the tx queue number, otherwise set tx queue
-+  number to 1.
-+- fsl,num-rx-queues : The property is valid for enet-avb IP, which supports
-+  hw multi queues. Should specify the rx queue number, otherwise set rx queue
-+  number to 1.
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index c21ecff1..ee9f04f 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -104,6 +104,16 @@ static void set_multicast_list(struct net_device *ndev);
+  * ENET_TDAR[TDAR].
+  */
+ #define FEC_QUIRK_ERR006358            (1 << 7)
++/* ENET IP hw AVB
++ *
++ * i.MX6SX ENET IP add Audio Video Bridging (AVB) feature support.
++ * - Two class indicators on receive with configurable priority
++ * - Two class indicators and line speed timer on transmit allowing
++ *   implementation class credit based shapers externally
++ * - Additional DMA registers provisioned to allow managing up to 3
++ *   independent rings
++ */
++#define FEC_QUIRK_HAS_AVB		(1 << 8)
  
- Optional subnodes:
- - mdio : specifies the mdio bus in the FEC, used as a container for phy nodes
+ static struct platform_device_id fec_devtype[] = {
+ 	{
+@@ -128,6 +138,12 @@ static struct platform_device_id fec_devtype[] = {
+ 		.name = "mvf600-fec",
+ 		.driver_data = FEC_QUIRK_ENET_MAC,
+ 	}, {
++		.name = "imx6sx-fec",
++		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
++				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
++				FEC_QUIRK_HAS_VLAN | FEC_QUIRK_ERR006358 |
++				FEC_QUIRK_HAS_AVB,
++	}, {
+ 		/* sentinel */
+ 	}
+ };
 -- 
 1.9.1
