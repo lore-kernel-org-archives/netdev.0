@@ -1,22 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2014-09-11
-Date: Fri, 12 Sep 2014 18:22:04 -0400 (EDT)
-Message-ID: <20140912.182204.730615482466867548.davem@davemloft.net>
-References: <20140911184322.GB22872@tuxdriver.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: [PATCH net-next 0/3] sunvnet: add jumbo frames support
+Date: Fri, 12 Sep 2014 18:22:05 -0400
+Message-ID: <5413720D.9060202@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140911184322.GB22872@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:39466 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752647AbaILWWJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 18:22:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 11 Sep 2014 14:43:22 -0400
+This patch set updates the sunvnet driver to version 1.6 of the VIO protocol
+to support per-port exchange of MTU information and allow non-standard MTU
+sizes, including jumbo frames.
 
-> Please pull this batch of fixes intended for the 3.17 stream:
+Using large MTUs shows a > 4X throughput improvement Linux-Solaris
+and > 8X throughput improvement Linux-Linux.
 
-Pulled, thanks John.
+David L Stevens (3):
+  sunvnet: upgrade to VIO protocol version 1.6
+  sunvnet: allow admin to set sunvnet MTU
+  sunvnet: generate ICMP PTMUD messages for smaller port MTUs
+
+ arch/sparc/include/asm/vio.h       |   19 +++++-
+ arch/sparc/kernel/viohs.c          |   14 +++-
+ drivers/net/ethernet/sun/sunvnet.c |  137 +++++++++++++++++++++++++++++++-----
+ drivers/net/ethernet/sun/sunvnet.h |    1 +
+ 4 files changed, 150 insertions(+), 21 deletions(-)
