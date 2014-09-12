@@ -1,46 +1,34 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: [Patch net-next] ipv6: exit early in addrconf_notify() if IPv6
- is disabled
-Date: Fri, 12 Sep 2014 22:18:19 +0200
-Message-ID: <1410553099.2970.18.camel@localhost>
-References: <1410473236-3346-1-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH 0/2] bridge: Two small fixes to vlan filtering code.
+Date: Fri, 12 Sep 2014 16:26:15 -0400
+Message-ID: <1410553577-17519-1-git-send-email-vyasevic@redhat.com>
+Cc: shemminger@vyatta.com,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Vladislav Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5295 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751726AbaILUS3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2014 16:18:29 -0400
-In-Reply-To: <1410473236-3346-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-qa0-f50.google.com ([209.85.216.50]:57552 "EHLO
+	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752926AbaILU0c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 16:26:32 -0400
+Received: by mail-qa0-f50.google.com with SMTP id dc16so1301125qab.23
+        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 13:26:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Cong,
+This series corrects 2 small issues that I've ran across recently
+while doing more work with vlan filtering changes.
 
-On Do, 2014-09-11 at 15:07 -0700, Cong Wang wrote:
-> If IPv6 is explicitly disabled before the interface comes up,
-> it makes no sense to continue when it comes up, even just
-> print a message.
-> 
-> (I am not sure about other cases though, so I prefer not to touch)
-> 
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Thanks
+-vlad
 
-I checked the other notifier_blocks, I don't think we need to change
-anything there.
+Vlad Yasevich (1):
+  bridge: Check if vlan filtering is enabled only once.
+  bridge: Allow clearing of pvid and untagged bitmap
 
-disable_ipv6 is absolutely bad implemented. It should not be in the ipv6
-procfs namespace at all. An inet6_dev must be available to manage this
-knob! Thus we are automagically subscribed to all ipv6 LL multicast
-groups.
+ net/bridge/br_private.h |  3 +++
+ net/bridge/br_vlan.c    | 18 ++++++++++++++----
+ 2 files changed, 17 insertions(+), 4 deletions(-)
 
-I don't see any problems with this patch:
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Thanks,
-Hannes
+-- 
+1.9.3
