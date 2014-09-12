@@ -1,198 +1,117 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2] net: dsa: change tag_protocol to an enum
-Date: Thu, 11 Sep 2014 21:18:09 -0700
-Message-ID: <1410495489-7050-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, kernel@wantstofly.org,
-	alexander.duyck@gmail.com, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:40875 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750959AbaILEST (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 00:18:19 -0400
-Received: by mail-oi0-f48.google.com with SMTP id a141so125073oig.21
-        for <netdev@vger.kernel.org>; Thu, 11 Sep 2014 21:18:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if
+	not OOM
+Date: Fri, 12 Sep 2014 07:48:16 +0200
+Message-ID: <CAG-2HqWYXo+uRtOk_XW-Bi5aXcTLphEMLCMy8a2THuEg9dHPzw@mail.gmail.com>
+References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
+ <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
+ <20140905141241.GC10455@mtj.dyndns.org>
+ <20140905164405.GA28964@core.coreip.homeip.net>
+ <20140905174925.GA12991@mtj.dyndns.org>
+ <CAB=NE6VPTV39pNujOgO422wbUvU44HZ7s=aaxPVraNECqA6e4Q@mail.gmail.com>
+ <20140905224047.GC15723@mtj.dyndns.org>
+ <CAB=NE6Uz1VD5qpMFSBfQRV8ih9FQcCUhNtWMvD38t5hdDvix4Q@mail.gmail.com>
+ <20140909011059.GB11706@mtj.dyndns.org> <1410241109.2028.22.camel@jarvis.lan>
+ <CAB=NE6WGAMvffGDTkN5x5Cd+YOtD-Cmo3v7_8FmJ5cvCRbFEpw@mail.gmail.com>
+ <1410291346.13298.16.camel@jarvis.lan>
+ <CAB=NE6U6v-GhAaZv3yXn9uVFvBvE4Uq8z7MQU8N+CyW19WpnNQ@mail.gmail.com>
+ <CAG-2HqUiUksdT4UyeDsdc1Q74=2BiX2TuzzGh_hoLiO5_DOvXQ@mail.gmail.com>
+ <CAB=NE6UprJH69hzc1mjqyq6PAn+7LZmX65Z8CDwUdJ73nDusHg@mail.gmail.com>
+ <CAG-2HqUzCvd55mq=M3=tXbHAjc2QnVuRtbFZMWTz9k_6BmmngQ@mail.gmail.com>
+ <CAB=NE6XmFaWMKuW3vJ7QMZ1BmmWrAPezTYYsqatX4mMNdMjpog@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+ Takashi Iwai <tiwai@suse.de>, Kay Sievers <kay@vrfy.org>,
+ Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+ James Bottomley <James.Bottomley@hansenpartnership.com>,
+ Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+ hare <hare@suse.com>,
+ Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+ Wu Zhangjin <falcon@meizu.com>,
+ Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+ "mpt-fusionlinux.pdl" <MPT-FusionLinux.pdl@avagotech.com>,
+ Tim Gardner <tim.gardner@canonical.com>, Benjamin Poirier <bpoirier@suse.de>,
+ Santosh Rastapur <santosh@chelsio.com>, Casey Leedom <leedom@chelsio.com>,
+ Hariprasad S <hariprasad@chelsio.com>,
+ Pierre Fersing <pierre-fersing@pierref.org>,
+ Arjan van de Ven <arjan@linux.intel.com>,
+ Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+ systemd Mailing List <systemd-devel@lists.freedesk
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <systemd-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <CAB=NE6XmFaWMKuW3vJ7QMZ1BmmWrAPezTYYsqatX4mMNdMjpog@mail.gmail.com>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/systemd-devel>
+List-Post: <mailto:systemd-devel@lists.freedesktop.org>
+List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: systemd-devel-bounces@lists.freedesktop.org
+Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-Now that we introduced an additional multiplexing/demultiplexing layer
-with commit 3e8a72d1dae37 ("net: dsa: reduce number of protocol hooks")
-that lives within the DSA code, we no longer need to have a given switch
-driver tag_protocol be an actual ethertype value, instead, we can
-replace it with an enum: dsa_tag_protocol.
+On Fri, Sep 12, 2014 at 12:26 AM, Luis R. Rodriguez
+<mcgrof@do-not-panic.com> wrote:
+> On Thu, Sep 11, 2014 at 2:43 PM, Tom Gundersen <teg@jklm.no> wrote:
+>> How about simply introducing a new flag to finit_module() to indicate
+>> that the caller does not care about asynchronicity. We could then pass
+>> this from udev, but existing scripts calling modprobe/insmod will not
+>> be affected.
+>
+> Do you mean that you *do want asynchronicity*?
 
-Do this replacement in the drivers, which allows us to get rid of the
-cpu_to_be16()/htons() dance, and remove ETH_P_BRCMTAG since we do not
-need it anymore.
+Precisely, udev would opt-in, but existing scripts etc would not.
 
-Suggested-by: Alexander Duyck <alexander.duyck@gmail.com>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Changes in v2:
-- removed now obsolete comment about the former ETH_P_BRCMTAG we did
-  introduce earlier
+>> But isn't finit_module() taking a long time a serious problem given
+>> that it means no other module can be loaded in parallel?
+>
+> Indeed but having a desire to make the init() complete fast is
+> different than the desire to have the combination of both init and
+> probe fast synchronously.
 
- drivers/net/dsa/bcm_sf2.c         |  2 +-
- drivers/net/dsa/mv88e6060.c       |  2 +-
- drivers/net/dsa/mv88e6123_61_65.c |  4 ++--
- drivers/net/dsa/mv88e6131.c       |  2 +-
- include/net/dsa.h                 | 17 ++++++++++-------
- net/dsa/slave.c                   |  8 ++++----
- net/dsa/tag_brcm.c                |  1 -
- 7 files changed, 19 insertions(+), 17 deletions(-)
+I guess no one is arguing that probe should somehow be required to be
+fast, but rather:
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index bb7cb8e..e9918c7 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -592,7 +592,7 @@ static void bcm_sf2_sw_fixed_link_update(struct dsa_switch *ds, int port,
- }
- 
- static struct dsa_switch_driver bcm_sf2_switch_driver = {
--	.tag_protocol		= htons(ETH_P_BRCMTAG),
-+	.tag_protocol		= DSA_TAG_PROTO_BRCM,
- 	.priv_size		= sizeof(struct bcm_sf2_priv),
- 	.probe			= bcm_sf2_sw_probe,
- 	.setup			= bcm_sf2_sw_setup,
-diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-index 7a54ec0..d8037c1 100644
---- a/drivers/net/dsa/mv88e6060.c
-+++ b/drivers/net/dsa/mv88e6060.c
-@@ -258,7 +258,7 @@ static void mv88e6060_poll_link(struct dsa_switch *ds)
- }
- 
- static struct dsa_switch_driver mv88e6060_switch_driver = {
--	.tag_protocol	= htons(ETH_P_TRAILER),
-+	.tag_protocol	= DSA_TAG_PROTO_TRAILER,
- 	.probe		= mv88e6060_probe,
- 	.setup		= mv88e6060_setup,
- 	.set_addr	= mv88e6060_set_addr,
-diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
-index 69c4251..975774f 100644
---- a/drivers/net/dsa/mv88e6123_61_65.c
-+++ b/drivers/net/dsa/mv88e6123_61_65.c
-@@ -207,7 +207,7 @@ static int mv88e6123_61_65_setup_port(struct dsa_switch *ds, int p)
- 	 */
- 	val = 0x0433;
- 	if (dsa_is_cpu_port(ds, p)) {
--		if (ds->dst->tag_protocol == htons(ETH_P_EDSA))
-+		if (ds->dst->tag_protocol == DSA_TAG_PROTO_EDSA)
- 			val |= 0x3300;
- 		else
- 			val |= 0x0100;
-@@ -391,7 +391,7 @@ static int mv88e6123_61_65_get_sset_count(struct dsa_switch *ds)
- }
- 
- struct dsa_switch_driver mv88e6123_61_65_switch_driver = {
--	.tag_protocol		= cpu_to_be16(ETH_P_EDSA),
-+	.tag_protocol		= DSA_TAG_PROTO_EDSA,
- 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
- 	.probe			= mv88e6123_61_65_probe,
- 	.setup			= mv88e6123_61_65_setup,
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 953bc6a..35541f2 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -379,7 +379,7 @@ static int mv88e6131_get_sset_count(struct dsa_switch *ds)
- }
- 
- struct dsa_switch_driver mv88e6131_switch_driver = {
--	.tag_protocol		= cpu_to_be16(ETH_P_DSA),
-+	.tag_protocol		= DSA_TAG_PROTO_DSA,
- 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
- 	.probe			= mv88e6131_probe,
- 	.setup			= mv88e6131_setup,
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 9771292..8a8a5d9 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -19,10 +19,13 @@
- #include <linux/phy.h>
- #include <linux/phy_fixed.h>
- 
--/* Not an official ethertype value, used only internally for DSA
-- * demultiplexing
-- */
--#define ETH_P_BRCMTAG		(ETH_P_XDSA + 1)
-+enum dsa_tag_protocol {
-+	DSA_TAG_PROTO_NONE = 0,
-+	DSA_TAG_PROTO_DSA,
-+	DSA_TAG_PROTO_TRAILER,
-+	DSA_TAG_PROTO_EDSA,
-+	DSA_TAG_PROTO_BRCM,
-+};
- 
- #define DSA_MAX_SWITCHES	4
- #define DSA_MAX_PORTS		12
-@@ -89,7 +92,7 @@ struct dsa_switch_tree {
- 	 */
- 	struct net_device	*master_netdev;
- 	const struct dsa_device_ops	*ops;
--	__be16			tag_protocol;
-+	enum dsa_tag_protocol	tag_protocol;
- 
- 	/*
- 	 * The switch and port to which the CPU is attached.
-@@ -166,7 +169,7 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
- struct dsa_switch_driver {
- 	struct list_head	list;
- 
--	__be16			tag_protocol;
-+	enum dsa_tag_protocol	tag_protocol;
- 	int			priv_size;
- 
- 	/*
-@@ -215,7 +218,7 @@ static inline void *ds_to_priv(struct dsa_switch *ds)
- 
- static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
- {
--	return dst->tag_protocol != 0;
-+	return dst->tag_protocol != DSA_TAG_PROTO_NONE;
- }
- 
- #endif
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 7333a4a..809eeb1 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -437,22 +437,22 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 
- 	switch (ds->dst->tag_protocol) {
- #ifdef CONFIG_NET_DSA_TAG_DSA
--	case htons(ETH_P_DSA):
-+	case DSA_TAG_PROTO_DSA:
- 		ds->dst->ops = &dsa_netdev_ops;
- 		break;
- #endif
- #ifdef CONFIG_NET_DSA_TAG_EDSA
--	case htons(ETH_P_EDSA):
-+	case DSA_TAG_PROTO_EDSA:
- 		ds->dst->ops = &edsa_netdev_ops;
- 		break;
- #endif
- #ifdef CONFIG_NET_DSA_TAG_TRAILER
--	case htons(ETH_P_TRAILER):
-+	case DSA_TAG_PROTO_TRAILER:
- 		ds->dst->ops = &trailer_netdev_ops;
- 		break;
- #endif
- #ifdef CONFIG_NET_DSA_TAG_BRCM
--	case htons(ETH_P_BRCMTAG):
-+	case DSA_TAG_PROTO_BRCM:
- 		ds->dst->ops = &brcm_netdev_ops;
- 		break;
- #endif
-diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
-index e0b759e..8fbc21c 100644
---- a/net/dsa/tag_brcm.c
-+++ b/net/dsa/tag_brcm.c
-@@ -91,7 +91,6 @@ static netdev_tx_t brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* Queue the SKB for transmission on the parent interface, but
- 	 * do not modify its EtherType
- 	 */
--	skb->protocol = htons(ETH_P_BRCMTAG);
- 	skb->dev = p->parent->dst->master_netdev;
- 	dev_queue_xmit(skb);
- 
--- 
-1.9.1
+> If userspace wants init to be fast and let
+> probe be async then userspace has no option but to deal with the fact
+> that async probe will be async, and it should then use other methods
+> to match any dependencies if its doing that itself.
+
+Correct. And this therefore likely needs to be opt-in behaviour per
+finit_module() invocation to avoid breaking old assumptions.
+
+> For example
+> networking should not kick off after a network driver is loaded but
+> rather one the device creeps up on udev. We should be good with
+> networking dealing with this correctly today but not sure about other
+> subsystems. depmod should be able to load the required modules in
+> order and if bus drivers work right then probe of the remnant devices
+> should happen asynchronously. The one case I can think of that is a
+> bit different is modules-load.d things but those *do not rely on the
+> timeout*, but are loaded prior to a service requirement. Note though
+> that if those modules had probe and they then run async'd then systemd
+> service would probably need to consider that the requirements may not
+> be there until later. If this is not carefully considered that could
+> introduce regression to users of modules-load.d when async probe is
+> fully deployed. The same applies to systemd making assumptions of kmod
+> loading a module and a dependency being complete as probe would have
+> run it before.
+
+Yeah, these all needs to be considered when deciding whether or not to
+enable async in each specific case.
+
+> I believe one concern here lies in on whether or not userspace
+> is properly equipped to deal with the requirements on module loading
+> doing async probing and that possibly failing. Perhaps systemd might
+> think all userspace is ready for that but are we sure that's the case?
+
+There almost certainly are custom things out there relying on the
+synchronous behaviour, but if we make it opt-in we should not have a
+problem.
+
+Cheers,
+
+Tom
