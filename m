@@ -1,210 +1,63 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 5/8] be2net: add ethtool "-m" option support
-Date: Fri, 12 Sep 2014 17:39:18 +0530
-Message-ID: <1410523761-1744-6-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 2/8] be2net: replace strcpy with strlcpy
+Date: Fri, 12 Sep 2014 17:39:15 +0530
+Message-ID: <1410523761-1744-3-git-send-email-sathya.perla@emulex.com>
 References: <1410523761-1744-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:24676 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754565AbaILMGu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 08:06:50 -0400
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:21722 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754060AbaILMGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 08:06:48 -0400
 In-Reply-To: <1410523761-1744-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Leonard <mark.leonard@emulex.com>
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-This patch adds support for the dump-module-eeprom and module-info
-ethtool options.
+Replace strcpy with strlcpy, as it avoids a possible buffer overflow.
 
-Signed-off-by: Mark Leonard <mark.leonard@emulex.com>
-Signed-off-by: Suresh Reddy <Suresh.Reddy@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c    |   47 ++++++++++++++++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h    |   25 +++--------
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   56 +++++++++++++++++++++++-
- 3 files changed, 109 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 5d8016c..e0dd482 100644
+index d6685ab..8bb6fd9 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.c
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2176,6 +2176,53 @@ err:
- 	return status;
- }
+@@ -1770,8 +1770,10 @@ int be_cmd_get_fw_ver(struct be_adapter *adapter)
+ 	if (!status) {
+ 		struct be_cmd_resp_get_fw_version *resp = embedded_payload(wrb);
  
-+/* Uses sync mcc */
-+int be_cmd_read_port_transceiver_data(struct be_adapter *adapter,
-+				      u8 page_num, u8 *data)
-+{
-+	struct be_dma_mem cmd;
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_port_type *req;
-+	int status;
-+
-+	if (page_num > TR_PAGE_A2)
-+		return -EINVAL;
-+
-+	cmd.size = sizeof(struct be_cmd_resp_port_type);
-+	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size, &cmd.dma);
-+	if (!cmd.va) {
-+		dev_err(&adapter->pdev->dev, "Memory allocation failed\n");
-+		return -ENOMEM;
-+	}
-+	memset(cmd.va, 0, cmd.size);
-+
-+	spin_lock_bh(&adapter->mcc_lock);
-+
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+	req = cmd.va;
-+
-+	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-+			       OPCODE_COMMON_READ_TRANSRECV_DATA,
-+			       cmd.size, wrb, &cmd);
-+
-+	req->port = cpu_to_le32(adapter->hba_port_num);
-+	req->page_num = cpu_to_le32(page_num);
-+	status = be_mcc_notify_wait(adapter);
-+	if (!status) {
-+		struct be_cmd_resp_port_type *resp = cmd.va;
-+
-+		memcpy(data, resp->page_data, PAGE_DATA_LEN);
-+	}
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
-+	pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
-+	return status;
-+}
-+
- int lancer_cmd_write_object(struct be_adapter *adapter, struct be_dma_mem *cmd,
- 			    u32 data_size, u32 data_offset,
- 			    const char *obj_name, u32 *data_written,
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 3b1606c..f05f1fb 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1014,28 +1014,15 @@ enum {
- 	TR_PAGE_A2 = 0xa2
- };
+-		strcpy(adapter->fw_ver, resp->firmware_version_string);
+-		strcpy(adapter->fw_on_flash, resp->fw_on_flash_version_string);
++		strlcpy(adapter->fw_ver, resp->firmware_version_string,
++			sizeof(adapter->fw_ver));
++		strlcpy(adapter->fw_on_flash, resp->fw_on_flash_version_string,
++			sizeof(adapter->fw_on_flash));
+ 	}
+ err:
+ 	spin_unlock_bh(&adapter->mcc_lock);
+@@ -2209,7 +2211,7 @@ int lancer_cmd_write_object(struct be_adapter *adapter, struct be_dma_mem *cmd,
  
-+/* From SFF-8472 spec */
-+#define	SFP_PLUS_SFF_8472_COMP	0x5E
-+
-+#define PAGE_DATA_LEN   256
- struct be_cmd_resp_port_type {
- 	struct be_cmd_resp_hdr hdr;
- 	u32 page_num;
- 	u32 port;
--	struct data {
--		u8 identifier;
--		u8 identifier_ext;
--		u8 connector;
--		u8 transceiver[8];
--		u8 rsvd0[3];
--		u8 length_km;
--		u8 length_hm;
--		u8 length_om1;
--		u8 length_om2;
--		u8 length_cu;
--		u8 length_cu_m;
--		u8 vendor_name[16];
--		u8 rsvd;
--		u8 vendor_oui[3];
--		u8 vendor_pn[16];
--		u8 vendor_rev[4];
--	} data;
-+	u8  page_data[PAGE_DATA_LEN];
- };
+ 	be_dws_cpu_to_le(ctxt, sizeof(req->context));
+ 	req->write_offset = cpu_to_le32(data_offset);
+-	strcpy(req->object_name, obj_name);
++	strlcpy(req->object_name, obj_name, sizeof(req->object_name));
+ 	req->descriptor_count = cpu_to_le32(1);
+ 	req->buf_len = cpu_to_le32(data_size);
+ 	req->addr_low = cpu_to_le32((cmd->dma +
+@@ -2262,7 +2264,7 @@ int lancer_cmd_delete_object(struct be_adapter *adapter, const char *obj_name)
+ 			       OPCODE_COMMON_DELETE_OBJECT,
+ 			       sizeof(*req), wrb, NULL);
  
- /******************** Get FW Version *******************/
-@@ -2067,6 +2054,8 @@ int be_cmd_set_beacon_state(struct be_adapter *adapter, u8 port_num, u8 beacon,
- 			    u8 status, u8 state);
- int be_cmd_get_beacon_state(struct be_adapter *adapter, u8 port_num,
- 			    u32 *state);
-+int be_cmd_read_port_transceiver_data(struct be_adapter *adapter,
-+				      u8 page_num, u8 *data);
- int be_cmd_write_flashrom(struct be_adapter *adapter, struct be_dma_mem *cmd,
- 			  u32 flash_oper, u32 flash_opcode, u32 buf_size);
- int lancer_cmd_write_object(struct be_adapter *adapter, struct be_dma_mem *cmd,
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index ee565be..a28013f 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -1189,6 +1189,58 @@ static int be_set_rxfh(struct net_device *netdev, const u32 *indir,
- 	return 0;
- }
+-	strcpy(req->object_name, obj_name);
++	strlcpy(req->object_name, obj_name, sizeof(req->object_name));
  
-+static int be_get_module_info(struct net_device *netdev,
-+			      struct ethtool_modinfo *modinfo)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+	u8 page_data[PAGE_DATA_LEN];
-+	int status;
-+
-+	if (!check_privilege(adapter, MAX_PRIVILEGES))
-+		return -EOPNOTSUPP;
-+
-+	status = be_cmd_read_port_transceiver_data(adapter, TR_PAGE_A0,
-+						   page_data);
-+	if (!status) {
-+		if (!page_data[SFP_PLUS_SFF_8472_COMP]) {
-+			modinfo->type = ETH_MODULE_SFF_8079;
-+			modinfo->eeprom_len = PAGE_DATA_LEN;
-+		} else {
-+			modinfo->type = ETH_MODULE_SFF_8472;
-+			modinfo->eeprom_len = 2 * PAGE_DATA_LEN;
-+		}
-+	}
-+	return be_cmd_status(status);
-+}
-+
-+static int be_get_module_eeprom(struct net_device *netdev,
-+				struct ethtool_eeprom *eeprom, u8 *data)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+	int status;
-+
-+	if (!check_privilege(adapter, MAX_PRIVILEGES))
-+		return -EOPNOTSUPP;
-+
-+	status = be_cmd_read_port_transceiver_data(adapter, TR_PAGE_A0,
-+						   data);
-+	if (status)
-+		goto err;
-+
-+	if (eeprom->offset + eeprom->len > PAGE_DATA_LEN) {
-+		status = be_cmd_read_port_transceiver_data(adapter,
-+							   TR_PAGE_A2,
-+							   data +
-+							   PAGE_DATA_LEN);
-+		if (status)
-+			goto err;
-+	}
-+	if (eeprom->offset)
-+		memcpy(data, data + eeprom->offset, eeprom->len);
-+err:
-+	return be_cmd_status(status);
-+}
-+
- const struct ethtool_ops be_ethtool_ops = {
- 	.get_settings = be_get_settings,
- 	.get_drvinfo = be_get_drvinfo,
-@@ -1220,5 +1272,7 @@ const struct ethtool_ops be_ethtool_ops = {
- 	.get_rxfh = be_get_rxfh,
- 	.set_rxfh = be_set_rxfh,
- 	.get_channels = be_get_channels,
--	.set_channels = be_set_channels
-+	.set_channels = be_set_channels,
-+	.get_module_info = be_get_module_info,
-+	.get_module_eeprom = be_get_module_eeprom
- };
+ 	status = be_mcc_notify_wait(adapter);
+ err:
 -- 
 1.7.1
