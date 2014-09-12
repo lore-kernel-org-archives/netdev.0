@@ -1,48 +1,40 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [Patch net-next v2 0/8] ipv6: clean up locking code in anycast
- and mcast
-Date: Fri, 12 Sep 2014 22:40:28 +0200
-Message-ID: <1410554428.2970.21.camel@localhost>
-References: <1410474916-21873-1-git-send-email-xiyou.wangcong@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch v3 net-next 09/12] net: fec: change FEC alignment
+ according to i.mx6 sx requirement
+Date: Fri, 12 Sep 2014 16:40:47 -0400 (EDT)
+Message-ID: <20140912.164047.810313458974612565.davem@davemloft.net>
+References: <1410373845-5801-1-git-send-email-Frank.Li@freescale.com>
+	<1410373845-5801-10-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: b38611@freescale.com, netdev@vger.kernel.org, lznuaa@gmail.com,
+	shawn.guo@linaro.org, linux-arm-kernel@lists.infradead.org,
+	devicetree@vger.kernel.org, linux@arm.linux.org.uk
+To: Frank.Li@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:38215 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752368AbaILUkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 16:40:31 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 684D120C83
-	for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 16:40:30 -0400 (EDT)
-In-Reply-To: <1410474916-21873-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50625 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751056AbaILUkv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 16:40:51 -0400
+In-Reply-To: <1410373845-5801-10-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Do, 2014-09-11 at 15:35 -0700, Cong Wang wrote:
-> This patchset cleans up the locking code in anycast.c and mcast.c
-> and makes the refcount code more readable.
-> 
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> 
-> v1 -> v2:
-> * refactor some code and make it in a separated patch
-> * update comments
-> 
-> Cong Wang (8):
->   ipv6: drop useless rcu_read_lock() in anycast
->   ipv6: remove ipv6_sk_ac_lock
->   ipv6: clean up ipv6_dev_ac_inc()
->   ipv6: refactor __ipv6_dev_ac_inc()
->   ipv6: drop ipv6_sk_mc_lock in mcast
->   ipv6: drop some rcu_read_lock in mcast
->   ipv6: update the comment in mcast.c
->   ipv6: refactor ipv6_dev_mc_inc()
+From: Frank Li <Frank.Li@freescale.com>
+Date: Thu, 11 Sep 2014 02:30:42 +0800
 
-All reviewed, looks good, thanks for following up on this!
+> +
+> +	unsigned tx_align;
+> +	unsigned rx_align;
+>  };
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Please always fully write out "unsigned int" rather than just "unsigned".
+
+> @@ -2399,6 +2393,7 @@ fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
+>  	struct sk_buff *skb;
+>  	struct bufdesc	*bdp;
+>  	struct fec_enet_priv_rx_q *rxq;
+> +	unsigned off;
+
+Likewise.
