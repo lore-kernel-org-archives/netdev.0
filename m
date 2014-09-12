@@ -1,263 +1,224 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/11] e1000: add and use e1000_rx_buffer info for Rx
-Date: Fri, 12 Sep 2014 05:33:48 -0700
-Message-ID: <1410525231-19851-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/11] ixgbe: Refactor busy poll socket code to address multiple issues
+Date: Fri, 12 Sep 2014 05:33:44 -0700
+Message-ID: <1410525231-19851-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1410525231-19851-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:49796 "EHLO mga02.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:50729 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754463AbaILMeG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2014 08:34:06 -0400
+	id S1754217AbaILMd6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Sep 2014 08:33:58 -0400
 In-Reply-To: <1410525231-19851-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-e1000 uses the same metadata struct for Rx and Tx.  But Tx and Rx have
-different requirements.
+This change addresses several issues in the current ixgbe implementation of
+busy poll sockets.
 
-For Rx, we only need to store a buffer and a DMA address.
+First was the fact that it was possible for frames to be delivered out of
+order if they were held in GRO.  This is addressed by flushing the GRO buffers
+before releasing the q_vector back to the idle state.
 
-Follow-up patch will remove skb for Rx, bringing rx_buffer_info down
-to 16 bytes on x86_64.
+The other issue was the fact that we were having to take a spinlock on
+changing the state to and from idle.  To resolve this I have replaced the
+state value with an atomic and use atomic_cmpxchg to change the value from
+idle, and a simple atomic set to restore it back to idle after we have
+acquired it.  This allows us to only use a locked operation on acquiring the
+vector without a need for a locked operation to release it.
 
-[ buffer_info is 48 bytes ]
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000.h         |  8 +++++-
- drivers/net/ethernet/intel/e1000/e1000_ethtool.c |  7 ++---
- drivers/net/ethernet/intel/e1000/e1000_main.c    | 35 ++++++++++++------------
- 3 files changed, 27 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h     | 112 ++++++++++-----------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c |   5 ++
+ 2 files changed, 45 insertions(+), 72 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
-index 10a0f22..81efe33 100644
---- a/drivers/net/ethernet/intel/e1000/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000/e1000.h
-@@ -160,6 +160,12 @@ struct e1000_buffer {
- 	u16 mapped_as_page;
- };
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index ac9f214..06744f8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -386,119 +386,87 @@ struct ixgbe_q_vector {
+ 	char name[IFNAMSIZ + 9];
  
-+struct e1000_rx_buffer {
-+	struct sk_buff *skb;
-+	dma_addr_t dma;
-+	struct page *page;
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+-	unsigned int state;
+-#define IXGBE_QV_STATE_IDLE        0
+-#define IXGBE_QV_STATE_NAPI	   1     /* NAPI owns this QV */
+-#define IXGBE_QV_STATE_POLL	   2     /* poll owns this QV */
+-#define IXGBE_QV_STATE_DISABLED	   4     /* QV is disabled */
+-#define IXGBE_QV_OWNED (IXGBE_QV_STATE_NAPI | IXGBE_QV_STATE_POLL)
+-#define IXGBE_QV_LOCKED (IXGBE_QV_OWNED | IXGBE_QV_STATE_DISABLED)
+-#define IXGBE_QV_STATE_NAPI_YIELD  8     /* NAPI yielded this QV */
+-#define IXGBE_QV_STATE_POLL_YIELD  16    /* poll yielded this QV */
+-#define IXGBE_QV_YIELD (IXGBE_QV_STATE_NAPI_YIELD | IXGBE_QV_STATE_POLL_YIELD)
+-#define IXGBE_QV_USER_PEND (IXGBE_QV_STATE_POLL | IXGBE_QV_STATE_POLL_YIELD)
+-	spinlock_t lock;
++	atomic_t state;
+ #endif  /* CONFIG_NET_RX_BUSY_POLL */
+ 
+ 	/* for dynamic allocation of rings associated with this q_vector */
+ 	struct ixgbe_ring ring[0] ____cacheline_internodealigned_in_smp;
+ };
++
+ #ifdef CONFIG_NET_RX_BUSY_POLL
++enum ixgbe_qv_state_t {
++	IXGBE_QV_STATE_IDLE = 0,
++	IXGBE_QV_STATE_NAPI,
++	IXGBE_QV_STATE_POLL,
++	IXGBE_QV_STATE_DISABLE
 +};
 +
- struct e1000_tx_ring {
- 	/* pointer to the descriptor ring memory */
- 	void *desc;
-@@ -195,7 +201,7 @@ struct e1000_rx_ring {
- 	/* next descriptor to check for DD status bit */
- 	unsigned int next_to_clean;
- 	/* array of buffer information structs */
--	struct e1000_buffer *buffer_info;
-+	struct e1000_rx_buffer *buffer_info;
- 	struct sk_buff *rx_skb_top;
- 
- 	/* cpu for rx queue */
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-index 9b50272..5ebc240 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-@@ -968,7 +968,7 @@ static void e1000_free_desc_rings(struct e1000_adapter *adapter)
- 			if (rxdr->buffer_info[i].dma)
- 				dma_unmap_single(&pdev->dev,
- 						 rxdr->buffer_info[i].dma,
--						 rxdr->buffer_info[i].length,
-+						 E1000_RXBUFFER_2048,
- 						 DMA_FROM_DEVICE);
- 			if (rxdr->buffer_info[i].skb)
- 				dev_kfree_skb(rxdr->buffer_info[i].skb);
-@@ -1065,7 +1065,7 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
- 	if (!rxdr->count)
- 		rxdr->count = E1000_DEFAULT_RXD;
- 
--	rxdr->buffer_info = kcalloc(rxdr->count, sizeof(struct e1000_buffer),
-+	rxdr->buffer_info = kcalloc(rxdr->count, sizeof(struct e1000_rx_buffer),
- 				    GFP_KERNEL);
- 	if (!rxdr->buffer_info) {
- 		ret_val = 5;
-@@ -1104,7 +1104,6 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
- 		}
- 		skb_reserve(skb, NET_IP_ALIGN);
- 		rxdr->buffer_info[i].skb = skb;
--		rxdr->buffer_info[i].length = E1000_RXBUFFER_2048;
- 		rxdr->buffer_info[i].dma =
- 			dma_map_single(&pdev->dev, skb->data,
- 				       E1000_RXBUFFER_2048, DMA_FROM_DEVICE);
-@@ -1440,7 +1439,7 @@ static int e1000_run_loopback_test(struct e1000_adapter *adapter)
- 		do { /* receive the sent packets */
- 			dma_sync_single_for_cpu(&pdev->dev,
- 						rxdr->buffer_info[l].dma,
--						rxdr->buffer_info[l].length,
-+						E1000_RXBUFFER_2048,
- 						DMA_FROM_DEVICE);
- 
- 			ret_val = e1000_check_lbtest_frame(
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 79626ba..694db74 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -1687,7 +1687,7 @@ static int e1000_setup_rx_resources(struct e1000_adapter *adapter,
- 	struct pci_dev *pdev = adapter->pdev;
- 	int size, desc_len;
- 
--	size = sizeof(struct e1000_buffer) * rxdr->count;
-+	size = sizeof(struct e1000_rx_buffer) * rxdr->count;
- 	rxdr->buffer_info = vzalloc(size);
- 	if (!rxdr->buffer_info)
- 		return -ENOMEM;
-@@ -2062,7 +2062,7 @@ static void e1000_clean_rx_ring(struct e1000_adapter *adapter,
- 				struct e1000_rx_ring *rx_ring)
+ static inline void ixgbe_qv_init_lock(struct ixgbe_q_vector *q_vector)
  {
- 	struct e1000_hw *hw = &adapter->hw;
--	struct e1000_buffer *buffer_info;
-+	struct e1000_rx_buffer *buffer_info;
- 	struct pci_dev *pdev = adapter->pdev;
- 	unsigned long size;
- 	unsigned int i;
-@@ -2073,12 +2073,12 @@ static void e1000_clean_rx_ring(struct e1000_adapter *adapter,
- 		if (buffer_info->dma &&
- 		    adapter->clean_rx == e1000_clean_rx_irq) {
- 			dma_unmap_single(&pdev->dev, buffer_info->dma,
--			                 buffer_info->length,
-+					 adapter->rx_buffer_len,
- 					 DMA_FROM_DEVICE);
- 		} else if (buffer_info->dma &&
- 		           adapter->clean_rx == e1000_clean_jumbo_rx_irq) {
- 			dma_unmap_page(&pdev->dev, buffer_info->dma,
--				       buffer_info->length,
-+				       adapter->rx_buffer_len,
- 				       DMA_FROM_DEVICE);
- 		}
+-
+-	spin_lock_init(&q_vector->lock);
+-	q_vector->state = IXGBE_QV_STATE_IDLE;
++	/* reset state to idle */
++	atomic_set(&q_vector->state, IXGBE_QV_STATE_IDLE);
+ }
  
-@@ -2099,7 +2099,7 @@ static void e1000_clean_rx_ring(struct e1000_adapter *adapter,
- 		rx_ring->rx_skb_top = NULL;
- 	}
- 
--	size = sizeof(struct e1000_buffer) * rx_ring->count;
-+	size = sizeof(struct e1000_rx_buffer) * rx_ring->count;
- 	memset(rx_ring->buffer_info, 0, size);
- 
- 	/* Zero out the descriptor ring */
-@@ -3415,7 +3415,7 @@ rx_ring_summary:
- 
- 	for (i = 0; rx_ring->desc && (i < rx_ring->count); i++) {
- 		struct e1000_rx_desc *rx_desc = E1000_RX_DESC(*rx_ring, i);
--		struct e1000_buffer *buffer_info = &rx_ring->buffer_info[i];
-+		struct e1000_rx_buffer *buffer_info = &rx_ring->buffer_info[i];
- 		struct my_u { __le64 a; __le64 b; };
- 		struct my_u *u = (struct my_u *)rx_desc;
- 		const char *type;
-@@ -3951,7 +3951,7 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
- /**
-  * e1000_consume_page - helper function
-  **/
--static void e1000_consume_page(struct e1000_buffer *bi, struct sk_buff *skb,
-+static void e1000_consume_page(struct e1000_rx_buffer *bi, struct sk_buff *skb,
- 			       u16 length)
+ /* called from the device poll routine to get ownership of a q_vector */
+ static inline bool ixgbe_qv_lock_napi(struct ixgbe_q_vector *q_vector)
  {
- 	bi->page = NULL;
-@@ -4104,7 +4104,7 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
- 	struct e1000_rx_desc *rx_desc, *next_rxd;
--	struct e1000_buffer *buffer_info, *next_buffer;
-+	struct e1000_rx_buffer *buffer_info, *next_buffer;
- 	u32 length;
- 	unsigned int i;
- 	int cleaned_count = 0;
-@@ -4137,7 +4137,7 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 		cleaned = true;
- 		cleaned_count++;
- 		dma_unmap_page(&pdev->dev, buffer_info->dma,
--			       buffer_info->length, DMA_FROM_DEVICE);
-+			       adapter->rx_buffer_len, DMA_FROM_DEVICE);
- 		buffer_info->dma = 0;
+-	int rc = true;
+-	spin_lock_bh(&q_vector->lock);
+-	if (q_vector->state & IXGBE_QV_LOCKED) {
+-		WARN_ON(q_vector->state & IXGBE_QV_STATE_NAPI);
+-		q_vector->state |= IXGBE_QV_STATE_NAPI_YIELD;
+-		rc = false;
++	int rc = atomic_cmpxchg(&q_vector->state, IXGBE_QV_STATE_IDLE,
++				IXGBE_QV_STATE_NAPI);
+ #ifdef BP_EXTENDED_STATS
++	if (rc != IXGBE_QV_STATE_IDLE)
+ 		q_vector->tx.ring->stats.yields++;
+ #endif
+-	} else {
+-		/* we don't care if someone yielded */
+-		q_vector->state = IXGBE_QV_STATE_NAPI;
+-	}
+-	spin_unlock_bh(&q_vector->lock);
+-	return rc;
++
++	return rc == IXGBE_QV_STATE_IDLE;
+ }
  
- 		length = le16_to_cpu(rx_desc->length);
-@@ -4273,7 +4273,7 @@ next_desc:
-  * of reassembly being done in the stack
-  */
- static struct sk_buff *e1000_copybreak(struct e1000_adapter *adapter,
--				       struct e1000_buffer *buffer_info,
-+				       struct e1000_rx_buffer *buffer_info,
- 				       u32 length, const void *data)
+ /* returns true is someone tried to get the qv while napi had it */
+-static inline bool ixgbe_qv_unlock_napi(struct ixgbe_q_vector *q_vector)
++static inline void ixgbe_qv_unlock_napi(struct ixgbe_q_vector *q_vector)
  {
- 	struct sk_buff *skb;
-@@ -4307,7 +4307,7 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
- 	struct e1000_rx_desc *rx_desc, *next_rxd;
--	struct e1000_buffer *buffer_info, *next_buffer;
-+	struct e1000_rx_buffer *buffer_info, *next_buffer;
- 	u32 length;
- 	unsigned int i;
- 	int cleaned_count = 0;
-@@ -4337,7 +4337,8 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- 			skb = buffer_info->skb;
- 			buffer_info->skb = NULL;
- 			dma_unmap_single(&pdev->dev, buffer_info->dma,
--					 buffer_info->length, DMA_FROM_DEVICE);
-+					 adapter->rx_buffer_len,
-+					 DMA_FROM_DEVICE);
- 			buffer_info->dma = 0;
- 		}
+-	int rc = false;
+-	spin_lock_bh(&q_vector->lock);
+-	WARN_ON(q_vector->state & (IXGBE_QV_STATE_POLL |
+-			       IXGBE_QV_STATE_NAPI_YIELD));
+-
+-	if (q_vector->state & IXGBE_QV_STATE_POLL_YIELD)
+-		rc = true;
+-	/* will reset state to idle, unless QV is disabled */
+-	q_vector->state &= IXGBE_QV_STATE_DISABLED;
+-	spin_unlock_bh(&q_vector->lock);
+-	return rc;
++	WARN_ON(atomic_read(&q_vector->state) != IXGBE_QV_STATE_NAPI);
++
++	/* flush any outstanding Rx frames */
++	if (q_vector->napi.gro_list)
++		napi_gro_flush(&q_vector->napi, false);
++
++	/* reset state to idle */
++	atomic_set(&q_vector->state, IXGBE_QV_STATE_IDLE);
+ }
  
-@@ -4443,7 +4444,7 @@ e1000_alloc_jumbo_rx_buffers(struct e1000_adapter *adapter,
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
- 	struct e1000_rx_desc *rx_desc;
--	struct e1000_buffer *buffer_info;
-+	struct e1000_rx_buffer *buffer_info;
- 	struct sk_buff *skb;
- 	unsigned int i;
- 	unsigned int bufsz = 256 - 16 /*for skb_reserve */ ;
-@@ -4466,7 +4467,6 @@ e1000_alloc_jumbo_rx_buffers(struct e1000_adapter *adapter,
- 		}
+ /* called from ixgbe_low_latency_poll() */
+ static inline bool ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
+ {
+-	int rc = true;
+-	spin_lock_bh(&q_vector->lock);
+-	if ((q_vector->state & IXGBE_QV_LOCKED)) {
+-		q_vector->state |= IXGBE_QV_STATE_POLL_YIELD;
+-		rc = false;
++	int rc = atomic_cmpxchg(&q_vector->state, IXGBE_QV_STATE_IDLE,
++				IXGBE_QV_STATE_POLL);
+ #ifdef BP_EXTENDED_STATS
+-		q_vector->rx.ring->stats.yields++;
++	if (rc != IXGBE_QV_STATE_IDLE)
++		q_vector->tx.ring->stats.yields++;
+ #endif
+-	} else {
+-		/* preserve yield marks */
+-		q_vector->state |= IXGBE_QV_STATE_POLL;
+-	}
+-	spin_unlock_bh(&q_vector->lock);
+-	return rc;
++	return rc == IXGBE_QV_STATE_IDLE;
+ }
  
- 		buffer_info->skb = skb;
--		buffer_info->length = adapter->rx_buffer_len;
- check_page:
- 		/* allocate a new page if necessary */
- 		if (!buffer_info->page) {
-@@ -4480,7 +4480,7 @@ check_page:
- 		if (!buffer_info->dma) {
- 			buffer_info->dma = dma_map_page(&pdev->dev,
- 							buffer_info->page, 0,
--							buffer_info->length,
-+							PAGE_SIZE,
- 							DMA_FROM_DEVICE);
- 			if (dma_mapping_error(&pdev->dev, buffer_info->dma)) {
- 				put_page(buffer_info->page);
-@@ -4528,7 +4528,7 @@ static void e1000_alloc_rx_buffers(struct e1000_adapter *adapter,
- 	struct net_device *netdev = adapter->netdev;
- 	struct pci_dev *pdev = adapter->pdev;
- 	struct e1000_rx_desc *rx_desc;
--	struct e1000_buffer *buffer_info;
-+	struct e1000_rx_buffer *buffer_info;
- 	struct sk_buff *skb;
- 	unsigned int i;
- 	unsigned int bufsz = adapter->rx_buffer_len;
-@@ -4576,10 +4576,9 @@ static void e1000_alloc_rx_buffers(struct e1000_adapter *adapter,
- 			dev_kfree_skb(oldskb);
- 		}
- 		buffer_info->skb = skb;
--		buffer_info->length = adapter->rx_buffer_len;
- 		buffer_info->dma = dma_map_single(&pdev->dev,
- 						  skb->data,
--						  buffer_info->length,
-+						  adapter->rx_buffer_len,
- 						  DMA_FROM_DEVICE);
- 		if (dma_mapping_error(&pdev->dev, buffer_info->dma)) {
- 			dev_kfree_skb(skb);
+ /* returns true if someone tried to get the qv while it was locked */
+-static inline bool ixgbe_qv_unlock_poll(struct ixgbe_q_vector *q_vector)
++static inline void ixgbe_qv_unlock_poll(struct ixgbe_q_vector *q_vector)
+ {
+-	int rc = false;
+-	spin_lock_bh(&q_vector->lock);
+-	WARN_ON(q_vector->state & (IXGBE_QV_STATE_NAPI));
+-
+-	if (q_vector->state & IXGBE_QV_STATE_POLL_YIELD)
+-		rc = true;
+-	/* will reset state to idle, unless QV is disabled */
+-	q_vector->state &= IXGBE_QV_STATE_DISABLED;
+-	spin_unlock_bh(&q_vector->lock);
+-	return rc;
++	WARN_ON(atomic_read(&q_vector->state) != IXGBE_QV_STATE_POLL);
++
++	/* reset state to idle */
++	atomic_set(&q_vector->state, IXGBE_QV_STATE_IDLE);
+ }
+ 
+ /* true if a socket is polling, even if it did not get the lock */
+ static inline bool ixgbe_qv_busy_polling(struct ixgbe_q_vector *q_vector)
+ {
+-	WARN_ON(!(q_vector->state & IXGBE_QV_OWNED));
+-	return q_vector->state & IXGBE_QV_USER_PEND;
++	return atomic_read(&q_vector->state) == IXGBE_QV_STATE_POLL;
+ }
+ 
+ /* false if QV is currently owned */
+ static inline bool ixgbe_qv_disable(struct ixgbe_q_vector *q_vector)
+ {
+-	int rc = true;
+-	spin_lock_bh(&q_vector->lock);
+-	if (q_vector->state & IXGBE_QV_OWNED)
+-		rc = false;
+-	q_vector->state |= IXGBE_QV_STATE_DISABLED;
+-	spin_unlock_bh(&q_vector->lock);
+-
+-	return rc;
++	int rc = atomic_cmpxchg(&q_vector->state, IXGBE_QV_STATE_IDLE,
++				IXGBE_QV_STATE_DISABLE);
++
++	return rc == IXGBE_QV_STATE_IDLE;
+ }
+ 
+ #else /* CONFIG_NET_RX_BUSY_POLL */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+index ae36fd6..7ecd99c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+@@ -807,6 +807,11 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
+ 		       ixgbe_poll, 64);
+ 	napi_hash_add(&q_vector->napi);
+ 
++#ifdef CONFIG_NET_RX_BUSY_POLL
++	/* initialize busy poll */
++	atomic_set(&q_vector->state, IXGBE_QV_STATE_DISABLE);
++
++#endif
+ 	/* tie q_vector and adapter together */
+ 	adapter->q_vector[v_idx] = q_vector;
+ 	q_vector->adapter = adapter;
 -- 
 1.9.3
