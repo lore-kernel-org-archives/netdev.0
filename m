@@ -1,117 +1,84 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if
-	not OOM
-Date: Fri, 12 Sep 2014 07:48:16 +0200
-Message-ID: <CAG-2HqWYXo+uRtOk_XW-Bi5aXcTLphEMLCMy8a2THuEg9dHPzw@mail.gmail.com>
-References: <1409899047-13045-1-git-send-email-mcgrof@do-not-panic.com>
- <CAB=NE6Wti1RpAFk5q_YeZn2F9Rd=wsiwhyPszu74nG9fXwH5vQ@mail.gmail.com>
- <20140905141241.GC10455@mtj.dyndns.org>
- <20140905164405.GA28964@core.coreip.homeip.net>
- <20140905174925.GA12991@mtj.dyndns.org>
- <CAB=NE6VPTV39pNujOgO422wbUvU44HZ7s=aaxPVraNECqA6e4Q@mail.gmail.com>
- <20140905224047.GC15723@mtj.dyndns.org>
- <CAB=NE6Uz1VD5qpMFSBfQRV8ih9FQcCUhNtWMvD38t5hdDvix4Q@mail.gmail.com>
- <20140909011059.GB11706@mtj.dyndns.org> <1410241109.2028.22.camel@jarvis.lan>
- <CAB=NE6WGAMvffGDTkN5x5Cd+YOtD-Cmo3v7_8FmJ5cvCRbFEpw@mail.gmail.com>
- <1410291346.13298.16.camel@jarvis.lan>
- <CAB=NE6U6v-GhAaZv3yXn9uVFvBvE4Uq8z7MQU8N+CyW19WpnNQ@mail.gmail.com>
- <CAG-2HqUiUksdT4UyeDsdc1Q74=2BiX2TuzzGh_hoLiO5_DOvXQ@mail.gmail.com>
- <CAB=NE6UprJH69hzc1mjqyq6PAn+7LZmX65Z8CDwUdJ73nDusHg@mail.gmail.com>
- <CAG-2HqUzCvd55mq=M3=tXbHAjc2QnVuRtbFZMWTz9k_6BmmngQ@mail.gmail.com>
- <CAB=NE6XmFaWMKuW3vJ7QMZ1BmmWrAPezTYYsqatX4mMNdMjpog@mail.gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next v4 2/9] net: filter: keep original BPF program
+ around
+Date: Fri, 12 Sep 2014 08:09:31 +0200
+Message-ID: <54128E1B.7020407@redhat.com>
+References: <1396029506-16776-1-git-send-email-dborkman@redhat.com>  <1396029506-16776-3-git-send-email-dborkman@redhat.com> <1410492457.7106.72.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
- Takashi Iwai <tiwai@suse.de>, Kay Sievers <kay@vrfy.org>,
- Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
- James Bottomley <James.Bottomley@hansenpartnership.com>,
- Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
- hare <hare@suse.com>,
- Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
- Wu Zhangjin <falcon@meizu.com>,
- Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
- "mpt-fusionlinux.pdl" <MPT-FusionLinux.pdl@avagotech.com>,
- Tim Gardner <tim.gardner@canonical.com>, Benjamin Poirier <bpoirier@suse.de>,
- Santosh Rastapur <santosh@chelsio.com>, Casey Leedom <leedom@chelsio.com>,
- Hariprasad S <hariprasad@chelsio.com>,
- Pierre Fersing <pierre-fersing@pierref.org>,
- Arjan van de Ven <arjan@linux.intel.com>,
- Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
- systemd Mailing List <systemd-devel@lists.freedesk
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <systemd-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <CAB=NE6XmFaWMKuW3vJ7QMZ1BmmWrAPezTYYsqatX4mMNdMjpog@mail.gmail.com>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/systemd-devel>
-List-Post: <mailto:systemd-devel@lists.freedesktop.org>
-List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: systemd-devel-bounces@lists.freedesktop.org
-Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, ast@plumgrid.com, netdev@vger.kernel.org,
+	Pavel Emelyanov <xemul@parallels.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:34550 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751141AbaILGJo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Sep 2014 02:09:44 -0400
+In-Reply-To: <1410492457.7106.72.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 12, 2014 at 12:26 AM, Luis R. Rodriguez
-<mcgrof@do-not-panic.com> wrote:
-> On Thu, Sep 11, 2014 at 2:43 PM, Tom Gundersen <teg@jklm.no> wrote:
->> How about simply introducing a new flag to finit_module() to indicate
->> that the caller does not care about asynchronicity. We could then pass
->> this from udev, but existing scripts calling modprobe/insmod will not
->> be affected.
+On 09/12/2014 05:27 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> Do you mean that you *do want asynchronicity*?
-
-Precisely, udev would opt-in, but existing scripts etc would not.
-
->> But isn't finit_module() taking a long time a serious problem given
->> that it means no other module can be loaded in parallel?
+> On Fri, 2014-03-28 at 18:58 +0100, Daniel Borkmann wrote:
+>> In order to open up the possibility to internally transform a BPF program
+>> into an alternative and possibly non-trivial reversible representation, we
+>> need to keep the original BPF program around, so that it can be passed back
+>> to user space w/o the need of a complex decoder.
+>>
+>> The reason for that use case resides in commit a8fc92778080 ("sk-filter:
+>> Add ability to get socket filter program (v2)"), that is, the ability
+>> to retrieve the currently attached BPF filter from a given socket used
+>> mainly by the checkpoint-restore project, for example.
+>>
+>> Therefore, we add two helpers sk_{store,release}_orig_filter for taking
+>> care of that. In the sk_unattached_filter_create() case, there's no such
+>> possibility/requirement to retrieve a loaded BPF program. Therefore, we
+>> can spare us the work in that case.
+>>
+>> This approach will simplify and slightly speed up both, sk_get_filter()
+>> and sock_diag_put_filterinfo() handlers as we won't need to successively
+>> decode filters anymore through sk_decode_filter(). As we still need
+>> sk_decode_filter() later on, we're keeping it around.
+>>
+>> Joint work with Alexei Starovoitov.
+>>
+>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> Cc: Pavel Emelyanov <xemul@parallels.com>
+>> ---
 >
-> Indeed but having a desire to make the init() complete fast is
-> different than the desire to have the combination of both init and
-> probe fast synchronously.
+> Note that this patch added a possible use after free.
+>
+> Following patch should be sent to stable trees only, as 3.17+
+> incidentally fixed this with
+> commit 278571baca2aecf5fb5cb5c8b002dbfa0a6c524c
+>      net: filter: simplify socket charging
+>
+> [PATCH] net: filter: fix possible use after free
+>
+> If kmemdup() fails, we free fp->orig_prog and return -ENOMEM
+>
+> sk_attach_filter()
+>   -> sk_filter_uncharge(sk, fp)
+>    -> sk_filter_release(fp)
+>     -> call_rcu(&fp->rcu, sk_filter_release_rcu)
+>      -> sk_filter_release_rcu()
+>       -> sk_release_orig_filter()
+>          fprog = fp->orig_prog; // not NULL, but points to freed memory
+> 	  kfree(fprog->filter); // use after free, potential corruption
+>            kfree(fprog); // double free or corruption
+>
+> Note: This was fixed in 3.17+ with commit 278571baca2a
+> ("net: filter: simplify socket charging")
+>
+> Found by AddressSanitizer
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: a3ea269b8bcdb ("net: filter: keep original BPF program around")
 
-I guess no one is arguing that probe should somehow be required to be
-fast, but rather:
+Thanks Eric!
 
-> If userspace wants init to be fast and let
-> probe be async then userspace has no option but to deal with the fact
-> that async probe will be async, and it should then use other methods
-> to match any dependencies if its doing that itself.
-
-Correct. And this therefore likely needs to be opt-in behaviour per
-finit_module() invocation to avoid breaking old assumptions.
-
-> For example
-> networking should not kick off after a network driver is loaded but
-> rather one the device creeps up on udev. We should be good with
-> networking dealing with this correctly today but not sure about other
-> subsystems. depmod should be able to load the required modules in
-> order and if bus drivers work right then probe of the remnant devices
-> should happen asynchronously. The one case I can think of that is a
-> bit different is modules-load.d things but those *do not rely on the
-> timeout*, but are loaded prior to a service requirement. Note though
-> that if those modules had probe and they then run async'd then systemd
-> service would probably need to consider that the requirements may not
-> be there until later. If this is not carefully considered that could
-> introduce regression to users of modules-load.d when async probe is
-> fully deployed. The same applies to systemd making assumptions of kmod
-> loading a module and a dependency being complete as probe would have
-> run it before.
-
-Yeah, these all needs to be considered when deciding whether or not to
-enable async in each specific case.
-
-> I believe one concern here lies in on whether or not userspace
-> is properly equipped to deal with the requirements on module loading
-> doing async probing and that possibly failing. Perhaps systemd might
-> think all userspace is ready for that but are we sure that's the case?
-
-There almost certainly are custom things out there relying on the
-synchronous behaviour, but if we make it opt-in we should not have a
-problem.
-
-Cheers,
-
-Tom
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
