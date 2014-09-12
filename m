@@ -1,48 +1,50 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] net: bpf: correctly handle errors in sk_attach_filter()
-Date: Sat, 13 Sep 2014 00:06:30 -0400
-Message-ID: <1410581190-31922-1-git-send-email-sasha.levin@oracle.com>
-Cc: ast@plumgrid.com, keescook@chromium.org,
-	hannes@stressinduktion.org, dborkman@redhat.com,
-	spender@grsecurity.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: Rusty away 18th September -- 11th October
+Date: Fri, 12 Sep 2014 10:58:03 +0930
+Message-ID: <87tx4dhbks.fsf@rustcorp.com.au>
+References: <87oaunht4b.fsf@rustcorp.com.au>
+	<20140911114351.GA25736@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140911114351.GA25736@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Commit "net: bpf: make eBPF interpreter images read-only" has changed bpf_prog
-to be vmalloc()ed but never handled some of the errors paths of the old code.
+"Michael S. Tsirkin" <mst@redhat.com> writes:
+> On Thu, Sep 11, 2014 at 10:26:52AM +0930, Rusty Russell wrote:
+>> Hi all,
+>> 
+>>         Probably won't read mail.  Linus, I'll have pull requests early
+>> next week; if there's anything needed I'm sure Michael Tsirkin can
+>> handle it.
+>
+> Sure.
+> Rusty, there's a small chance virtio 1.0 bits will be ready in time.
+> I started working on them based on your virtio-pci-new-layout branch.
+>
+> If ready before the merge window, are you ok with me merging this
+> support (without you having the opportunity to review first)?
 
-On error within sk_attach_filter (which userspace can easily trigger), we'd
-kfree() the vmalloc()ed memory, and leak the internal bpf_work_struct.
+Sorry, absolutely not.  I *really* want to review this in depth; if we
+make a mistake, it's going to hurt us significantly.
 
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- net/core/filter.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+And until we have the qemu bits ready, it's really hard to tell if we've
+got this right.  So I'd rather delay and make sure we're solid.
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index dfc716f..09e1c4a 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1074,7 +1074,7 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
- 		return -ENOMEM;
- 
- 	if (copy_from_user(prog->insns, fprog->filter, fsize)) {
--		kfree(prog);
-+		__bpf_prog_free(prog);
- 		return -EFAULT;
- 	}
- 
-@@ -1082,7 +1082,7 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
- 
- 	err = bpf_prog_store_orig_filter(prog, fprog);
- 	if (err) {
--		kfree(prog);
-+		__bpf_prog_free(prog);
- 		return -ENOMEM;
- 	}
- 
--- 
-1.9.1
+Thanks,
+Rusty.
