@@ -1,8 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v5 01/16] net: qdisc: use rcu prefix and silence
- sparse warnings
-Date: Fri, 12 Sep 2014 09:28:52 -0700
-Message-ID: <20140912162851.19588.77481.stgit@nitbit.x32>
+Subject: [net-next PATCH v5 02/16] net: rcu-ify tcf_proto
+Date: Fri, 12 Sep 2014 09:29:18 -0700
+Message-ID: <20140912162916.19588.13687.stgit@nitbit.x32>
 References: <20140912162748.19588.39677.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,334 +11,871 @@ Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
 To: xiyou.wangcong@gmail.com, davem@davemloft.net,
 	eric.dumazet@gmail.com, jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:58498 "EHLO
-	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751487AbaILQ3L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 12:29:11 -0400
-Received: by mail-oi0-f43.google.com with SMTP id i138so676186oig.16
-        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 09:29:10 -0700 (PDT)
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:33755 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752244AbaILQ3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 12:29:35 -0400
+Received: by mail-ob0-f170.google.com with SMTP id uy5so677554obc.1
+        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 09:29:34 -0700 (PDT)
 In-Reply-To: <20140912162748.19588.39677.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add __rcu notation to qdisc handling by doing this we can make
-smatch output more legible. And anyways some of the cases should
-be using rcu_dereference() see qdisc_all_tx_empty(),
-qdisc_tx_chainging(), and so on.
+rcu'ify tcf_proto this allows calling tc_classify() without holding
+any locks. Updaters are protected by RTNL.
 
-Also *wake_queue() API is commonly called from driver timer routines
-without rcu lock or rtnl lock. So I added rcu_read_lock() blocks
-around netif_wake_subqueue and netif_tx_wake_queue.
+This patch prepares the core net_sched infrastracture for running
+the classifier/action chains without holding the qdisc lock however
+it does nothing to ensure cls_xxx and act_xxx types also work without
+locking. Additional patches are required to address the fall out.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- include/linux/netdevice.h |   29 ++++----------------------
- include/net/sch_generic.h |   21 +++++++++++++------
- net/core/dev.c            |   51 +++++++++++++++++++++++++++++++++++++++++++--
- net/sched/sch_generic.c   |    4 ++--
- net/sched/sch_mqprio.c    |    6 ++++-
- net/sched/sch_teql.c      |   13 +++++++----
- 6 files changed, 82 insertions(+), 42 deletions(-)
+ include/net/sch_generic.h |    9 +++++----
+ net/sched/cls_api.c       |   30 +++++++++++++++---------------
+ net/sched/sch_api.c       |   10 +++++-----
+ net/sched/sch_atm.c       |   20 +++++++++++---------
+ net/sched/sch_cbq.c       |   11 +++++++----
+ net/sched/sch_choke.c     |   15 +++++++++------
+ net/sched/sch_drr.c       |    9 ++++++---
+ net/sched/sch_dsmark.c    |    9 +++++----
+ net/sched/sch_fq_codel.c  |   11 +++++++----
+ net/sched/sch_hfsc.c      |    8 ++++----
+ net/sched/sch_htb.c       |   15 ++++++++-------
+ net/sched/sch_ingress.c   |    8 +++++---
+ net/sched/sch_multiq.c    |    8 +++++---
+ net/sched/sch_prio.c      |   11 +++++++----
+ net/sched/sch_qfq.c       |    9 ++++++---
+ net/sched/sch_sfb.c       |   15 +++++++++------
+ net/sched/sch_sfq.c       |   11 +++++++----
+ 17 files changed, 121 insertions(+), 88 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ba72f6b..ae721f5 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -543,7 +543,7 @@ struct netdev_queue {
-  * read mostly part
-  */
- 	struct net_device	*dev;
--	struct Qdisc		*qdisc;
-+	struct Qdisc __rcu	*qdisc;
- 	struct Qdisc		*qdisc_sleeping;
- #ifdef CONFIG_SYSFS
- 	struct kobject		kobj;
-@@ -2356,12 +2356,7 @@ static inline void input_queue_tail_incr_save(struct softnet_data *sd,
- DECLARE_PER_CPU_ALIGNED(struct softnet_data, softnet_data);
- 
- void __netif_schedule(struct Qdisc *q);
--
--static inline void netif_schedule_queue(struct netdev_queue *txq)
--{
--	if (!(txq->state & QUEUE_STATE_ANY_XOFF))
--		__netif_schedule(txq->qdisc);
--}
-+void netif_schedule_queue(struct netdev_queue *txq);
- 
- static inline void netif_tx_schedule_all(struct net_device *dev)
- {
-@@ -2397,11 +2392,7 @@ static inline void netif_tx_start_all_queues(struct net_device *dev)
- 	}
- }
- 
--static inline void netif_tx_wake_queue(struct netdev_queue *dev_queue)
--{
--	if (test_and_clear_bit(__QUEUE_STATE_DRV_XOFF, &dev_queue->state))
--		__netif_schedule(dev_queue->qdisc);
--}
-+void netif_tx_wake_queue(struct netdev_queue *dev_queue);
- 
- /**
-  *	netif_wake_queue - restart transmit
-@@ -2673,19 +2664,7 @@ static inline bool netif_subqueue_stopped(const struct net_device *dev,
- 	return __netif_subqueue_stopped(dev, skb_get_queue_mapping(skb));
- }
- 
--/**
-- *	netif_wake_subqueue - allow sending packets on subqueue
-- *	@dev: network device
-- *	@queue_index: sub queue index
-- *
-- * Resume individual transmit queue of a device with multiple transmit queues.
-- */
--static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
--{
--	struct netdev_queue *txq = netdev_get_tx_queue(dev, queue_index);
--	if (test_and_clear_bit(__QUEUE_STATE_DRV_XOFF, &txq->state))
--		__netif_schedule(txq->qdisc);
--}
-+void netif_wake_subqueue(struct net_device *dev, u16 queue_index);
- 
- #ifdef CONFIG_XPS
- int netif_set_xps_queue(struct net_device *dev, const struct cpumask *mask,
 diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index a3cfb8e..56838ab 100644
+index 56838ab..1e89b9a 100644
 --- a/include/net/sch_generic.h
 +++ b/include/net/sch_generic.h
-@@ -259,7 +259,9 @@ static inline spinlock_t *qdisc_lock(struct Qdisc *qdisc)
+@@ -143,7 +143,7 @@ struct Qdisc_class_ops {
+ 	void			(*walk)(struct Qdisc *, struct qdisc_walker * arg);
  
- static inline struct Qdisc *qdisc_root(const struct Qdisc *qdisc)
+ 	/* Filter manipulation */
+-	struct tcf_proto **	(*tcf_chain)(struct Qdisc *, unsigned long);
++	struct tcf_proto __rcu ** (*tcf_chain)(struct Qdisc *, unsigned long);
+ 	unsigned long		(*bind_tcf)(struct Qdisc *, unsigned long,
+ 					u32 classid);
+ 	void			(*unbind_tcf)(struct Qdisc *, unsigned long);
+@@ -212,8 +212,8 @@ struct tcf_proto_ops {
+ 
+ struct tcf_proto {
+ 	/* Fast access part */
+-	struct tcf_proto	*next;
+-	void			*root;
++	struct tcf_proto __rcu	*next;
++	void __rcu		*root;
+ 	int			(*classify)(struct sk_buff *,
+ 					    const struct tcf_proto *,
+ 					    struct tcf_result *);
+@@ -225,6 +225,7 @@ struct tcf_proto {
+ 	struct Qdisc		*q;
+ 	void			*data;
+ 	const struct tcf_proto_ops	*ops;
++	struct rcu_head		rcu;
+ };
+ 
+ struct qdisc_skb_cb {
+@@ -378,7 +379,7 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
+ void __qdisc_calculate_pkt_len(struct sk_buff *skb,
+ 			       const struct qdisc_size_table *stab);
+ void tcf_destroy(struct tcf_proto *tp);
+-void tcf_destroy_chain(struct tcf_proto **fl);
++void tcf_destroy_chain(struct tcf_proto __rcu **fl);
+ 
+ /* Reset all TX qdiscs greater then index of a device.  */
+ static inline void qdisc_reset_all_tx_gt(struct net_device *dev, unsigned int i)
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index c28b0d3..e547efd 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -117,7 +117,6 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
  {
--	return qdisc->dev_queue->qdisc;
-+	struct Qdisc *q = rcu_dereference_rtnl(qdisc->dev_queue->qdisc);
-+
-+	return q;
- }
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nlattr *tca[TCA_MAX + 1];
+-	spinlock_t *root_lock;
+ 	struct tcmsg *t;
+ 	u32 protocol;
+ 	u32 prio;
+@@ -125,7 +124,8 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
+ 	u32 parent;
+ 	struct net_device *dev;
+ 	struct Qdisc  *q;
+-	struct tcf_proto **back, **chain;
++	struct tcf_proto __rcu **back;
++	struct tcf_proto __rcu **chain;
+ 	struct tcf_proto *tp;
+ 	const struct tcf_proto_ops *tp_ops;
+ 	const struct Qdisc_class_ops *cops;
+@@ -197,7 +197,9 @@ replay:
+ 		goto errout;
  
- static inline struct Qdisc *qdisc_root_sleeping(const struct Qdisc *qdisc)
-@@ -384,7 +386,7 @@ static inline void qdisc_reset_all_tx_gt(struct net_device *dev, unsigned int i)
- 	struct Qdisc *qdisc;
- 
- 	for (; i < dev->num_tx_queues; i++) {
--		qdisc = netdev_get_tx_queue(dev, i)->qdisc;
-+		qdisc = rtnl_dereference(netdev_get_tx_queue(dev, i)->qdisc);
- 		if (qdisc) {
- 			spin_lock_bh(qdisc_lock(qdisc));
- 			qdisc_reset(qdisc);
-@@ -402,13 +404,18 @@ static inline void qdisc_reset_all_tx(struct net_device *dev)
- static inline bool qdisc_all_tx_empty(const struct net_device *dev)
- {
- 	unsigned int i;
-+
-+	rcu_read_lock();
- 	for (i = 0; i < dev->num_tx_queues; i++) {
- 		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
--		const struct Qdisc *q = txq->qdisc;
-+		const struct Qdisc *q = rcu_dereference(txq->qdisc);
- 
--		if (q->q.qlen)
-+		if (q->q.qlen) {
-+			rcu_read_unlock();
- 			return false;
-+		}
+ 	/* Check the chain for existence of proto-tcf with this priority */
+-	for (back = chain; (tp = *back) != NULL; back = &tp->next) {
++	for (back = chain;
++	     (tp = rtnl_dereference(*back)) != NULL;
++	     back = &tp->next) {
+ 		if (tp->prio >= prio) {
+ 			if (tp->prio == prio) {
+ 				if (!nprio ||
+@@ -209,8 +211,6 @@ replay:
+ 		}
  	}
-+	rcu_read_unlock();
- 	return true;
- }
  
-@@ -416,9 +423,10 @@ static inline bool qdisc_all_tx_empty(const struct net_device *dev)
- static inline bool qdisc_tx_changing(const struct net_device *dev)
- {
- 	unsigned int i;
+-	root_lock = qdisc_root_sleeping_lock(q);
+-
+ 	if (tp == NULL) {
+ 		/* Proto-tcf does not exist, create new one */
+ 
+@@ -259,7 +259,8 @@ replay:
+ 		}
+ 		tp->ops = tp_ops;
+ 		tp->protocol = protocol;
+-		tp->prio = nprio ? : TC_H_MAJ(tcf_auto_prio(*back));
++		tp->prio = nprio ? :
++			       TC_H_MAJ(tcf_auto_prio(rtnl_dereference(*back)));
+ 		tp->q = q;
+ 		tp->classify = tp_ops->classify;
+ 		tp->classid = parent;
+@@ -280,9 +281,9 @@ replay:
+ 
+ 	if (fh == 0) {
+ 		if (n->nlmsg_type == RTM_DELTFILTER && t->tcm_handle == 0) {
+-			spin_lock_bh(root_lock);
+-			*back = tp->next;
+-			spin_unlock_bh(root_lock);
++			struct tcf_proto *next = rtnl_dereference(tp->next);
 +
- 	for (i = 0; i < dev->num_tx_queues; i++) {
- 		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
--		if (txq->qdisc != txq->qdisc_sleeping)
-+		if (rcu_access_pointer(txq->qdisc) != txq->qdisc_sleeping)
- 			return true;
- 	}
- 	return false;
-@@ -428,9 +436,10 @@ static inline bool qdisc_tx_changing(const struct net_device *dev)
- static inline bool qdisc_tx_is_noop(const struct net_device *dev)
- {
- 	unsigned int i;
-+
- 	for (i = 0; i < dev->num_tx_queues; i++) {
- 		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
--		if (txq->qdisc != &noop_qdisc)
-+		if (rcu_access_pointer(txq->qdisc) != &noop_qdisc)
- 			return false;
- 	}
- 	return true;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3c6a967..b3d6dbc 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2177,6 +2177,53 @@ static struct dev_kfree_skb_cb *get_kfree_skb_cb(const struct sk_buff *skb)
- 	return (struct dev_kfree_skb_cb *)skb->cb;
- }
++			RCU_INIT_POINTER(*back, next);
  
-+void netif_schedule_queue(struct netdev_queue *txq)
-+{
-+	rcu_read_lock();
-+	if (!(txq->state & QUEUE_STATE_ANY_XOFF)) {
-+		struct Qdisc *q = rcu_dereference(txq->qdisc);
-+
-+		__netif_schedule(q);
-+	}
-+	rcu_read_unlock();
-+}
-+EXPORT_SYMBOL(netif_schedule_queue);
-+
-+/**
-+ *	netif_wake_subqueue - allow sending packets on subqueue
-+ *	@dev: network device
-+ *	@queue_index: sub queue index
-+ *
-+ * Resume individual transmit queue of a device with multiple transmit queues.
-+ */
-+void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
-+{
-+	struct netdev_queue *txq = netdev_get_tx_queue(dev, queue_index);
-+
-+	if (test_and_clear_bit(__QUEUE_STATE_DRV_XOFF, &txq->state)) {
-+		struct Qdisc *q;
-+
-+		rcu_read_lock();
-+		q = rcu_dereference(txq->qdisc);
-+		__netif_schedule(q);
-+		rcu_read_unlock();
-+	}
-+}
-+EXPORT_SYMBOL(netif_wake_subqueue);
-+
-+void netif_tx_wake_queue(struct netdev_queue *dev_queue)
-+{
-+	if (test_and_clear_bit(__QUEUE_STATE_DRV_XOFF, &dev_queue->state)) {
-+		struct Qdisc *q;
-+
-+		rcu_read_lock();
-+		q = rcu_dereference(dev_queue->qdisc);
-+		__netif_schedule(q);
-+		rcu_read_unlock();
-+	}
-+}
-+EXPORT_SYMBOL(netif_tx_wake_queue);
-+
- void __dev_kfree_skb_irq(struct sk_buff *skb, enum skb_free_reason reason)
- {
- 	unsigned long flags;
-@@ -3432,7 +3479,7 @@ static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
- 	skb->tc_verd = SET_TC_RTTL(skb->tc_verd, ttl);
- 	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
- 
--	q = rxq->qdisc;
-+	q = rcu_dereference(rxq->qdisc);
- 	if (q != &noop_qdisc) {
- 		spin_lock(qdisc_lock(q));
- 		if (likely(!test_bit(__QDISC_STATE_DEACTIVATED, &q->state)))
-@@ -3449,7 +3496,7 @@ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
- {
- 	struct netdev_queue *rxq = rcu_dereference(skb->dev->ingress_queue);
- 
--	if (!rxq || rxq->qdisc == &noop_qdisc)
-+	if (!rxq || rcu_access_pointer(rxq->qdisc) == &noop_qdisc)
- 		goto out;
- 
- 	if (*pt_prev) {
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 19696eb..346ef85 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -783,7 +783,7 @@ static void dev_deactivate_queue(struct net_device *dev,
- 	struct Qdisc *qdisc_default = _qdisc_default;
- 	struct Qdisc *qdisc;
- 
--	qdisc = dev_queue->qdisc;
-+	qdisc = rtnl_dereference(dev_queue->qdisc);
- 	if (qdisc) {
- 		spin_lock_bh(qdisc_lock(qdisc));
- 
-@@ -876,7 +876,7 @@ static void dev_init_scheduler_queue(struct net_device *dev,
- {
- 	struct Qdisc *qdisc = _qdisc;
- 
--	dev_queue->qdisc = qdisc;
-+	rcu_assign_pointer(dev_queue->qdisc, qdisc);
- 	dev_queue->qdisc_sleeping = qdisc;
- }
- 
-diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index 6749e2f..37e7d25 100644
---- a/net/sched/sch_mqprio.c
-+++ b/net/sched/sch_mqprio.c
-@@ -231,7 +231,7 @@ static int mqprio_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	memset(&sch->qstats, 0, sizeof(sch->qstats));
- 
- 	for (i = 0; i < dev->num_tx_queues; i++) {
--		qdisc = netdev_get_tx_queue(dev, i)->qdisc;
-+		qdisc = rtnl_dereference(netdev_get_tx_queue(dev, i)->qdisc);
- 		spin_lock_bh(qdisc_lock(qdisc));
- 		sch->q.qlen		+= qdisc->q.qlen;
- 		sch->bstats.bytes	+= qdisc->bstats.bytes;
-@@ -340,7 +340,9 @@ static int mqprio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
- 		spin_unlock_bh(d->lock);
- 
- 		for (i = tc.offset; i < tc.offset + tc.count; i++) {
--			qdisc = netdev_get_tx_queue(dev, i)->qdisc;
-+			struct netdev_queue *q = netdev_get_tx_queue(dev, i);
-+
-+			qdisc = rtnl_dereference(q->qdisc);
- 			spin_lock_bh(qdisc_lock(qdisc));
- 			bstats.bytes      += qdisc->bstats.bytes;
- 			bstats.packets    += qdisc->bstats.packets;
-diff --git a/net/sched/sch_teql.c b/net/sched/sch_teql.c
-index aaa8d03..5cd291b 100644
---- a/net/sched/sch_teql.c
-+++ b/net/sched/sch_teql.c
-@@ -96,11 +96,14 @@ teql_dequeue(struct Qdisc *sch)
- 	struct teql_sched_data *dat = qdisc_priv(sch);
- 	struct netdev_queue *dat_queue;
- 	struct sk_buff *skb;
-+	struct Qdisc *q;
- 
- 	skb = __skb_dequeue(&dat->q);
- 	dat_queue = netdev_get_tx_queue(dat->m->dev, 0);
-+	q = rcu_dereference_bh(dat_queue->qdisc);
-+
- 	if (skb == NULL) {
--		struct net_device *m = qdisc_dev(dat_queue->qdisc);
-+		struct net_device *m = qdisc_dev(q);
- 		if (m) {
- 			dat->m->slaves = sch;
- 			netif_wake_queue(m);
-@@ -108,7 +111,7 @@ teql_dequeue(struct Qdisc *sch)
+ 			tfilter_notify(net, skb, n, tp, fh, RTM_DELTFILTER);
+ 			tcf_destroy(tp);
+@@ -322,10 +323,8 @@ replay:
+ 			      n->nlmsg_flags & NLM_F_CREATE ? TCA_ACT_NOREPLACE : TCA_ACT_REPLACE);
+ 	if (err == 0) {
+ 		if (tp_created) {
+-			spin_lock_bh(root_lock);
+-			tp->next = *back;
+-			*back = tp;
+-			spin_unlock_bh(root_lock);
++			RCU_INIT_POINTER(tp->next, rtnl_dereference(*back));
++			rcu_assign_pointer(*back, tp);
+ 		}
+ 		tfilter_notify(net, skb, n, tp, fh, RTM_NEWTFILTER);
  	} else {
- 		qdisc_bstats_update(sch, skb);
- 	}
--	sch->q.qlen = dat->q.qlen + dat_queue->qdisc->q.qlen;
-+	sch->q.qlen = dat->q.qlen + q->q.qlen;
- 	return skb;
+@@ -420,7 +419,7 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int s_t;
+ 	struct net_device *dev;
+ 	struct Qdisc *q;
+-	struct tcf_proto *tp, **chain;
++	struct tcf_proto *tp, __rcu **chain;
+ 	struct tcmsg *tcm = nlmsg_data(cb->nlh);
+ 	unsigned long cl = 0;
+ 	const struct Qdisc_class_ops *cops;
+@@ -454,7 +453,8 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ 	s_t = cb->args[0];
+ 
+-	for (tp = *chain, t = 0; tp; tp = tp->next, t++) {
++	for (tp = rtnl_dereference(*chain), t = 0;
++	     tp; tp = rtnl_dereference(tp->next), t++) {
+ 		if (t < s_t)
+ 			continue;
+ 		if (TC_H_MAJ(tcm->tcm_info) &&
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 58bed75..ca62483 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -1781,7 +1781,7 @@ int tc_classify_compat(struct sk_buff *skb, const struct tcf_proto *tp,
+ 	__be16 protocol = skb->protocol;
+ 	int err;
+ 
+-	for (; tp; tp = tp->next) {
++	for (; tp; tp = rcu_dereference_bh(tp->next)) {
+ 		if (tp->protocol != protocol &&
+ 		    tp->protocol != htons(ETH_P_ALL))
+ 			continue;
+@@ -1833,15 +1833,15 @@ void tcf_destroy(struct tcf_proto *tp)
+ {
+ 	tp->ops->destroy(tp);
+ 	module_put(tp->ops->owner);
+-	kfree(tp);
++	kfree_rcu(tp, rcu);
  }
  
-@@ -157,9 +160,9 @@ teql_destroy(struct Qdisc *sch)
- 						txq = netdev_get_tx_queue(master->dev, 0);
- 						master->slaves = NULL;
+-void tcf_destroy_chain(struct tcf_proto **fl)
++void tcf_destroy_chain(struct tcf_proto __rcu **fl)
+ {
+ 	struct tcf_proto *tp;
  
--						root_lock = qdisc_root_sleeping_lock(txq->qdisc);
-+						root_lock = qdisc_root_sleeping_lock(rtnl_dereference(txq->qdisc));
- 						spin_lock_bh(root_lock);
--						qdisc_reset(txq->qdisc);
-+						qdisc_reset(rtnl_dereference(txq->qdisc));
- 						spin_unlock_bh(root_lock);
- 					}
- 				}
-@@ -266,7 +269,7 @@ static inline int teql_resolve(struct sk_buff *skb,
- 	struct dst_entry *dst = skb_dst(skb);
- 	int res;
+-	while ((tp = *fl) != NULL) {
+-		*fl = tp->next;
++	while ((tp = rtnl_dereference(*fl)) != NULL) {
++		RCU_INIT_POINTER(*fl, tp->next);
+ 		tcf_destroy(tp);
+ 	}
+ }
+diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
+index 8449b33..c398f9c 100644
+--- a/net/sched/sch_atm.c
++++ b/net/sched/sch_atm.c
+@@ -41,7 +41,7 @@
  
--	if (txq->qdisc == &noop_qdisc)
-+	if (rcu_access_pointer(txq->qdisc) == &noop_qdisc)
- 		return -ENODEV;
+ struct atm_flow_data {
+ 	struct Qdisc		*q;	/* FIFO, TBF, etc. */
+-	struct tcf_proto	*filter_list;
++	struct tcf_proto __rcu	*filter_list;
+ 	struct atm_vcc		*vcc;	/* VCC; NULL if VCC is closed */
+ 	void			(*old_pop)(struct atm_vcc *vcc,
+ 					   struct sk_buff *skb); /* chaining */
+@@ -273,7 +273,7 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
+ 		error = -ENOBUFS;
+ 		goto err_out;
+ 	}
+-	flow->filter_list = NULL;
++	RCU_INIT_POINTER(flow->filter_list, NULL);
+ 	flow->q = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops, classid);
+ 	if (!flow->q)
+ 		flow->q = &noop_qdisc;
+@@ -311,7 +311,7 @@ static int atm_tc_delete(struct Qdisc *sch, unsigned long arg)
+ 	pr_debug("atm_tc_delete(sch %p,[qdisc %p],flow %p)\n", sch, p, flow);
+ 	if (list_empty(&flow->list))
+ 		return -EINVAL;
+-	if (flow->filter_list || flow == &p->link)
++	if (rcu_access_pointer(flow->filter_list) || flow == &p->link)
+ 		return -EBUSY;
+ 	/*
+ 	 * Reference count must be 2: one for "keepalive" (set at class
+@@ -345,7 +345,8 @@ static void atm_tc_walk(struct Qdisc *sch, struct qdisc_walker *walker)
+ 	}
+ }
  
- 	if (!dev->header_ops || !dst)
+-static struct tcf_proto **atm_tc_find_tcf(struct Qdisc *sch, unsigned long cl)
++static struct tcf_proto __rcu **atm_tc_find_tcf(struct Qdisc *sch,
++						unsigned long cl)
+ {
+ 	struct atm_qdisc_data *p = qdisc_priv(sch);
+ 	struct atm_flow_data *flow = (struct atm_flow_data *)cl;
+@@ -369,11 +370,12 @@ static int atm_tc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	flow = NULL;
+ 	if (TC_H_MAJ(skb->priority) != sch->handle ||
+ 	    !(flow = (struct atm_flow_data *)atm_tc_get(sch, skb->priority))) {
++		struct tcf_proto *fl;
++
+ 		list_for_each_entry(flow, &p->flows, list) {
+-			if (flow->filter_list) {
+-				result = tc_classify_compat(skb,
+-							    flow->filter_list,
+-							    &res);
++			fl = rcu_dereference_bh(flow->filter_list);
++			if (fl) {
++				result = tc_classify_compat(skb, fl, &res);
+ 				if (result < 0)
+ 					continue;
+ 				flow = (struct atm_flow_data *)res.class;
+@@ -544,7 +546,7 @@ static int atm_tc_init(struct Qdisc *sch, struct nlattr *opt)
+ 	if (!p->link.q)
+ 		p->link.q = &noop_qdisc;
+ 	pr_debug("atm_tc_init: link (%p) qdisc %p\n", &p->link, p->link.q);
+-	p->link.filter_list = NULL;
++	RCU_INIT_POINTER(p->link.filter_list, NULL);
+ 	p->link.vcc = NULL;
+ 	p->link.sock = NULL;
+ 	p->link.classid = sch->handle;
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index 762a04b..a3244a8 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -133,7 +133,7 @@ struct cbq_class {
+ 	struct gnet_stats_rate_est64 rate_est;
+ 	struct tc_cbq_xstats	xstats;
+ 
+-	struct tcf_proto	*filter_list;
++	struct tcf_proto __rcu	*filter_list;
+ 
+ 	int			refcnt;
+ 	int			filters;
+@@ -221,6 +221,7 @@ cbq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 	struct cbq_class **defmap;
+ 	struct cbq_class *cl = NULL;
+ 	u32 prio = skb->priority;
++	struct tcf_proto *fl;
+ 	struct tcf_result res;
+ 
+ 	/*
+@@ -235,11 +236,12 @@ cbq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 		int result = 0;
+ 		defmap = head->defaults;
+ 
++		fl = rcu_dereference_bh(head->filter_list);
+ 		/*
+ 		 * Step 2+n. Apply classifier.
+ 		 */
+-		if (!head->filter_list ||
+-		    (result = tc_classify_compat(skb, head->filter_list, &res)) < 0)
++		result = tc_classify_compat(skb, fl, &res);
++		if (!fl || result < 0)
+ 			goto fallback;
+ 
+ 		cl = (void *)res.class;
+@@ -1954,7 +1956,8 @@ static int cbq_delete(struct Qdisc *sch, unsigned long arg)
+ 	return 0;
+ }
+ 
+-static struct tcf_proto **cbq_find_tcf(struct Qdisc *sch, unsigned long arg)
++static struct tcf_proto __rcu **cbq_find_tcf(struct Qdisc *sch,
++					     unsigned long arg)
+ {
+ 	struct cbq_sched_data *q = qdisc_priv(sch);
+ 	struct cbq_class *cl = (struct cbq_class *)arg;
+diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
+index ed30e43..74813e6 100644
+--- a/net/sched/sch_choke.c
++++ b/net/sched/sch_choke.c
+@@ -57,7 +57,7 @@ struct choke_sched_data {
+ 
+ /* Variables */
+ 	struct red_vars  vars;
+-	struct tcf_proto *filter_list;
++	struct tcf_proto __rcu *filter_list;
+ 	struct {
+ 		u32	prob_drop;	/* Early probability drops */
+ 		u32	prob_mark;	/* Early probability marks */
+@@ -193,9 +193,11 @@ static bool choke_classify(struct sk_buff *skb,
+ {
+ 	struct choke_sched_data *q = qdisc_priv(sch);
+ 	struct tcf_result res;
++	struct tcf_proto *fl;
+ 	int result;
+ 
+-	result = tc_classify(skb, q->filter_list, &res);
++	fl = rcu_dereference_bh(q->filter_list);
++	result = tc_classify(skb, fl, &res);
+ 	if (result >= 0) {
+ #ifdef CONFIG_NET_CLS_ACT
+ 		switch (result) {
+@@ -249,7 +251,7 @@ static bool choke_match_random(const struct choke_sched_data *q,
+ 		return false;
+ 
+ 	oskb = choke_peek_random(q, pidx);
+-	if (q->filter_list)
++	if (rcu_access_pointer(q->filter_list))
+ 		return choke_get_classid(nskb) == choke_get_classid(oskb);
+ 
+ 	return choke_match_flow(oskb, nskb);
+@@ -257,11 +259,11 @@ static bool choke_match_random(const struct choke_sched_data *q,
+ 
+ static int choke_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
++	int ret = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ 	struct choke_sched_data *q = qdisc_priv(sch);
+ 	const struct red_parms *p = &q->parms;
+-	int ret = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ 
+-	if (q->filter_list) {
++	if (rcu_access_pointer(q->filter_list)) {
+ 		/* If using external classifiers, get result and record it. */
+ 		if (!choke_classify(skb, sch, &ret))
+ 			goto other_drop;	/* Packet was eaten by filter */
+@@ -554,7 +556,8 @@ static unsigned long choke_bind(struct Qdisc *sch, unsigned long parent,
+ 	return 0;
+ }
+ 
+-static struct tcf_proto **choke_find_tcf(struct Qdisc *sch, unsigned long cl)
++static struct tcf_proto __rcu **choke_find_tcf(struct Qdisc *sch,
++					       unsigned long cl)
+ {
+ 	struct choke_sched_data *q = qdisc_priv(sch);
+ 
+diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
+index 7bbbfe1..d8b5ccf 100644
+--- a/net/sched/sch_drr.c
++++ b/net/sched/sch_drr.c
+@@ -35,7 +35,7 @@ struct drr_class {
+ 
+ struct drr_sched {
+ 	struct list_head		active;
+-	struct tcf_proto		*filter_list;
++	struct tcf_proto __rcu		*filter_list;
+ 	struct Qdisc_class_hash		clhash;
+ };
+ 
+@@ -184,7 +184,8 @@ static void drr_put_class(struct Qdisc *sch, unsigned long arg)
+ 		drr_destroy_class(sch, cl);
+ }
+ 
+-static struct tcf_proto **drr_tcf_chain(struct Qdisc *sch, unsigned long cl)
++static struct tcf_proto __rcu **drr_tcf_chain(struct Qdisc *sch,
++					      unsigned long cl)
+ {
+ 	struct drr_sched *q = qdisc_priv(sch);
+ 
+@@ -319,6 +320,7 @@ static struct drr_class *drr_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 	struct drr_sched *q = qdisc_priv(sch);
+ 	struct drr_class *cl;
+ 	struct tcf_result res;
++	struct tcf_proto *fl;
+ 	int result;
+ 
+ 	if (TC_H_MAJ(skb->priority ^ sch->handle) == 0) {
+@@ -328,7 +330,8 @@ static struct drr_class *drr_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 	}
+ 
+ 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+-	result = tc_classify(skb, q->filter_list, &res);
++	fl = rcu_dereference_bh(q->filter_list);
++	result = tc_classify(skb, fl, &res);
+ 	if (result >= 0) {
+ #ifdef CONFIG_NET_CLS_ACT
+ 		switch (result) {
+diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+index 49d6ef3..485e456 100644
+--- a/net/sched/sch_dsmark.c
++++ b/net/sched/sch_dsmark.c
+@@ -37,7 +37,7 @@
+ 
+ struct dsmark_qdisc_data {
+ 	struct Qdisc		*q;
+-	struct tcf_proto	*filter_list;
++	struct tcf_proto __rcu	*filter_list;
+ 	u8			*mask;	/* "owns" the array */
+ 	u8			*value;
+ 	u16			indices;
+@@ -186,8 +186,8 @@ ignore:
+ 	}
+ }
+ 
+-static inline struct tcf_proto **dsmark_find_tcf(struct Qdisc *sch,
+-						 unsigned long cl)
++static inline struct tcf_proto __rcu **dsmark_find_tcf(struct Qdisc *sch,
++						       unsigned long cl)
+ {
+ 	struct dsmark_qdisc_data *p = qdisc_priv(sch);
+ 	return &p->filter_list;
+@@ -229,7 +229,8 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		skb->tc_index = TC_H_MIN(skb->priority);
+ 	else {
+ 		struct tcf_result res;
+-		int result = tc_classify(skb, p->filter_list, &res);
++		struct tcf_proto *fl = rcu_dereference_bh(p->filter_list);
++		int result = tc_classify(skb, fl, &res);
+ 
+ 		pr_debug("result %d class 0x%04x\n", result, res.classid);
+ 
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index cc56c8b..105cf55 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -52,7 +52,7 @@ struct fq_codel_flow {
+ }; /* please try to keep this structure <= 64 bytes */
+ 
+ struct fq_codel_sched_data {
+-	struct tcf_proto *filter_list;	/* optional external classifier */
++	struct tcf_proto __rcu *filter_list; /* optional external classifier */
+ 	struct fq_codel_flow *flows;	/* Flows table [flows_cnt] */
+ 	u32		*backlogs;	/* backlog table [flows_cnt] */
+ 	u32		flows_cnt;	/* number of flows */
+@@ -85,6 +85,7 @@ static unsigned int fq_codel_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 				      int *qerr)
+ {
+ 	struct fq_codel_sched_data *q = qdisc_priv(sch);
++	struct tcf_proto *filter;
+ 	struct tcf_result res;
+ 	int result;
+ 
+@@ -93,11 +94,12 @@ static unsigned int fq_codel_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 	    TC_H_MIN(skb->priority) <= q->flows_cnt)
+ 		return TC_H_MIN(skb->priority);
+ 
+-	if (!q->filter_list)
++	filter = rcu_dereference(q->filter_list);
++	if (!filter)
+ 		return fq_codel_hash(q, skb) + 1;
+ 
+ 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+-	result = tc_classify(skb, q->filter_list, &res);
++	result = tc_classify(skb, filter, &res);
+ 	if (result >= 0) {
+ #ifdef CONFIG_NET_CLS_ACT
+ 		switch (result) {
+@@ -496,7 +498,8 @@ static void fq_codel_put(struct Qdisc *q, unsigned long cl)
+ {
+ }
+ 
+-static struct tcf_proto **fq_codel_find_tcf(struct Qdisc *sch, unsigned long cl)
++static struct tcf_proto __rcu **fq_codel_find_tcf(struct Qdisc *sch,
++						  unsigned long cl)
+ {
+ 	struct fq_codel_sched_data *q = qdisc_priv(sch);
+ 
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index ec8aeaa..04b0de4 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -116,7 +116,7 @@ struct hfsc_class {
+ 	struct gnet_stats_queue qstats;
+ 	struct gnet_stats_rate_est64 rate_est;
+ 	unsigned int	level;		/* class level in hierarchy */
+-	struct tcf_proto *filter_list;	/* filter list */
++	struct tcf_proto __rcu *filter_list; /* filter list */
+ 	unsigned int	filter_cnt;	/* filter count */
+ 
+ 	struct hfsc_sched *sched;	/* scheduler data */
+@@ -1161,7 +1161,7 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 
+ 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ 	head = &q->root;
+-	tcf = q->root.filter_list;
++	tcf = rcu_dereference_bh(q->root.filter_list);
+ 	while (tcf && (result = tc_classify(skb, tcf, &res)) >= 0) {
+ #ifdef CONFIG_NET_CLS_ACT
+ 		switch (result) {
+@@ -1185,7 +1185,7 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 			return cl; /* hit leaf class */
+ 
+ 		/* apply inner filter chain */
+-		tcf = cl->filter_list;
++		tcf = rcu_dereference_bh(cl->filter_list);
+ 		head = cl;
+ 	}
+ 
+@@ -1285,7 +1285,7 @@ hfsc_unbind_tcf(struct Qdisc *sch, unsigned long arg)
+ 	cl->filter_cnt--;
+ }
+ 
+-static struct tcf_proto **
++static struct tcf_proto __rcu **
+ hfsc_tcf_chain(struct Qdisc *sch, unsigned long arg)
+ {
+ 	struct hfsc_sched *q = qdisc_priv(sch);
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index aea942c..6d16b9b 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -103,7 +103,7 @@ struct htb_class {
+ 	u32			prio;		/* these two are used only by leaves... */
+ 	int			quantum;	/* but stored for parent-to-leaf return */
+ 
+-	struct tcf_proto	*filter_list;	/* class attached filters */
++	struct tcf_proto __rcu	*filter_list;	/* class attached filters */
+ 	int			filter_cnt;
+ 	int			refcnt;		/* usage count of this class */
+ 
+@@ -153,7 +153,7 @@ struct htb_sched {
+ 	int			rate2quantum;	/* quant = rate / rate2quantum */
+ 
+ 	/* filters for qdisc itself */
+-	struct tcf_proto	*filter_list;
++	struct tcf_proto __rcu	*filter_list;
+ 
+ #define HTB_WARN_TOOMANYEVENTS	0x1
+ 	unsigned int		warned;	/* only one warning */
+@@ -223,9 +223,9 @@ static struct htb_class *htb_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 		if (cl->level == 0)
+ 			return cl;
+ 		/* Start with inner filter chain if a non-leaf class is selected */
+-		tcf = cl->filter_list;
++		tcf = rcu_dereference_bh(cl->filter_list);
+ 	} else {
+-		tcf = q->filter_list;
++		tcf = rcu_dereference_bh(q->filter_list);
+ 	}
+ 
+ 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+@@ -251,7 +251,7 @@ static struct htb_class *htb_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 			return cl;	/* we hit leaf; return it */
+ 
+ 		/* we have got inner class; apply inner filter chain */
+-		tcf = cl->filter_list;
++		tcf = rcu_dereference_bh(cl->filter_list);
+ 	}
+ 	/* classification failed; try to use default class */
+ 	cl = htb_find(TC_H_MAKE(TC_H_MAJ(sch->handle), q->defcls), sch);
+@@ -1519,11 +1519,12 @@ failure:
+ 	return err;
+ }
+ 
+-static struct tcf_proto **htb_find_tcf(struct Qdisc *sch, unsigned long arg)
++static struct tcf_proto __rcu **htb_find_tcf(struct Qdisc *sch,
++					     unsigned long arg)
+ {
+ 	struct htb_sched *q = qdisc_priv(sch);
+ 	struct htb_class *cl = (struct htb_class *)arg;
+-	struct tcf_proto **fl = cl ? &cl->filter_list : &q->filter_list;
++	struct tcf_proto __rcu **fl = cl ? &cl->filter_list : &q->filter_list;
+ 
+ 	return fl;
+ }
+diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
+index 62871c1..b351125 100644
+--- a/net/sched/sch_ingress.c
++++ b/net/sched/sch_ingress.c
+@@ -17,7 +17,7 @@
+ 
+ 
+ struct ingress_qdisc_data {
+-	struct tcf_proto	*filter_list;
++	struct tcf_proto __rcu	*filter_list;
+ };
+ 
+ /* ------------------------- Class/flow operations ------------------------- */
+@@ -46,7 +46,8 @@ static void ingress_walk(struct Qdisc *sch, struct qdisc_walker *walker)
+ {
+ }
+ 
+-static struct tcf_proto **ingress_find_tcf(struct Qdisc *sch, unsigned long cl)
++static struct tcf_proto __rcu **ingress_find_tcf(struct Qdisc *sch,
++						 unsigned long cl)
+ {
+ 	struct ingress_qdisc_data *p = qdisc_priv(sch);
+ 
+@@ -59,9 +60,10 @@ static int ingress_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ 	struct ingress_qdisc_data *p = qdisc_priv(sch);
+ 	struct tcf_result res;
++	struct tcf_proto *fl = rcu_dereference_bh(p->filter_list);
+ 	int result;
+ 
+-	result = tc_classify(skb, p->filter_list, &res);
++	result = tc_classify(skb, fl, &res);
+ 
+ 	qdisc_bstats_update(sch, skb);
+ 	switch (result) {
+diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
+index afb050a..c0466c1 100644
+--- a/net/sched/sch_multiq.c
++++ b/net/sched/sch_multiq.c
+@@ -31,7 +31,7 @@ struct multiq_sched_data {
+ 	u16 bands;
+ 	u16 max_bands;
+ 	u16 curband;
+-	struct tcf_proto *filter_list;
++	struct tcf_proto __rcu *filter_list;
+ 	struct Qdisc **queues;
+ };
+ 
+@@ -42,10 +42,11 @@ multiq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 	struct multiq_sched_data *q = qdisc_priv(sch);
+ 	u32 band;
+ 	struct tcf_result res;
++	struct tcf_proto *fl = rcu_dereference_bh(q->filter_list);
+ 	int err;
+ 
+ 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+-	err = tc_classify(skb, q->filter_list, &res);
++	err = tc_classify(skb, fl, &res);
+ #ifdef CONFIG_NET_CLS_ACT
+ 	switch (err) {
+ 	case TC_ACT_STOLEN:
+@@ -388,7 +389,8 @@ static void multiq_walk(struct Qdisc *sch, struct qdisc_walker *arg)
+ 	}
+ }
+ 
+-static struct tcf_proto **multiq_find_tcf(struct Qdisc *sch, unsigned long cl)
++static struct tcf_proto __rcu **multiq_find_tcf(struct Qdisc *sch,
++						unsigned long cl)
+ {
+ 	struct multiq_sched_data *q = qdisc_priv(sch);
+ 
+diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
+index 79359b6..03ef99e 100644
+--- a/net/sched/sch_prio.c
++++ b/net/sched/sch_prio.c
+@@ -24,7 +24,7 @@
+ 
+ struct prio_sched_data {
+ 	int bands;
+-	struct tcf_proto *filter_list;
++	struct tcf_proto __rcu *filter_list;
+ 	u8  prio2band[TC_PRIO_MAX+1];
+ 	struct Qdisc *queues[TCQ_PRIO_BANDS];
+ };
+@@ -36,11 +36,13 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 	struct prio_sched_data *q = qdisc_priv(sch);
+ 	u32 band = skb->priority;
+ 	struct tcf_result res;
++	struct tcf_proto *fl;
+ 	int err;
+ 
+ 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ 	if (TC_H_MAJ(skb->priority) != sch->handle) {
+-		err = tc_classify(skb, q->filter_list, &res);
++		fl = rcu_dereference_bh(q->filter_list);
++		err = tc_classify(skb, fl, &res);
+ #ifdef CONFIG_NET_CLS_ACT
+ 		switch (err) {
+ 		case TC_ACT_STOLEN:
+@@ -50,7 +52,7 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 			return NULL;
+ 		}
+ #endif
+-		if (!q->filter_list || err < 0) {
++		if (!fl || err < 0) {
+ 			if (TC_H_MAJ(band))
+ 				band = 0;
+ 			return q->queues[q->prio2band[band & TC_PRIO_MAX]];
+@@ -351,7 +353,8 @@ static void prio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
+ 	}
+ }
+ 
+-static struct tcf_proto **prio_find_tcf(struct Qdisc *sch, unsigned long cl)
++static struct tcf_proto __rcu **prio_find_tcf(struct Qdisc *sch,
++					      unsigned long cl)
+ {
+ 	struct prio_sched_data *q = qdisc_priv(sch);
+ 
+diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+index 8056fb4..602ea01 100644
+--- a/net/sched/sch_qfq.c
++++ b/net/sched/sch_qfq.c
+@@ -181,7 +181,7 @@ struct qfq_group {
+ };
+ 
+ struct qfq_sched {
+-	struct tcf_proto *filter_list;
++	struct tcf_proto __rcu *filter_list;
+ 	struct Qdisc_class_hash clhash;
+ 
+ 	u64			oldV, V;	/* Precise virtual times. */
+@@ -576,7 +576,8 @@ static void qfq_put_class(struct Qdisc *sch, unsigned long arg)
+ 		qfq_destroy_class(sch, cl);
+ }
+ 
+-static struct tcf_proto **qfq_tcf_chain(struct Qdisc *sch, unsigned long cl)
++static struct tcf_proto __rcu **qfq_tcf_chain(struct Qdisc *sch,
++					      unsigned long cl)
+ {
+ 	struct qfq_sched *q = qdisc_priv(sch);
+ 
+@@ -704,6 +705,7 @@ static struct qfq_class *qfq_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 	struct qfq_sched *q = qdisc_priv(sch);
+ 	struct qfq_class *cl;
+ 	struct tcf_result res;
++	struct tcf_proto *fl;
+ 	int result;
+ 
+ 	if (TC_H_MAJ(skb->priority ^ sch->handle) == 0) {
+@@ -714,7 +716,8 @@ static struct qfq_class *qfq_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 	}
+ 
+ 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+-	result = tc_classify(skb, q->filter_list, &res);
++	fl = rcu_dereference_bh(q->filter_list);
++	result = tc_classify(skb, fl, &res);
+ 	if (result >= 0) {
+ #ifdef CONFIG_NET_CLS_ACT
+ 		switch (result) {
+diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
+index 9b0f709..1562fb2 100644
+--- a/net/sched/sch_sfb.c
++++ b/net/sched/sch_sfb.c
+@@ -55,7 +55,7 @@ struct sfb_bins {
+ 
+ struct sfb_sched_data {
+ 	struct Qdisc	*qdisc;
+-	struct tcf_proto *filter_list;
++	struct tcf_proto __rcu *filter_list;
+ 	unsigned long	rehash_interval;
+ 	unsigned long	warmup_time;	/* double buffering warmup time in jiffies */
+ 	u32		max;
+@@ -253,13 +253,13 @@ static bool sfb_rate_limit(struct sk_buff *skb, struct sfb_sched_data *q)
+ 	return false;
+ }
+ 
+-static bool sfb_classify(struct sk_buff *skb, struct sfb_sched_data *q,
++static bool sfb_classify(struct sk_buff *skb, struct tcf_proto *fl,
+ 			 int *qerr, u32 *salt)
+ {
+ 	struct tcf_result res;
+ 	int result;
+ 
+-	result = tc_classify(skb, q->filter_list, &res);
++	result = tc_classify(skb, fl, &res);
+ 	if (result >= 0) {
+ #ifdef CONFIG_NET_CLS_ACT
+ 		switch (result) {
+@@ -281,6 +281,7 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 
+ 	struct sfb_sched_data *q = qdisc_priv(sch);
+ 	struct Qdisc *child = q->qdisc;
++	struct tcf_proto *fl;
+ 	int i;
+ 	u32 p_min = ~0;
+ 	u32 minqlen = ~0;
+@@ -306,9 +307,10 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		}
+ 	}
+ 
+-	if (q->filter_list) {
++	fl = rcu_dereference_bh(q->filter_list);
++	if (fl) {
+ 		/* If using external classifiers, get result and record it. */
+-		if (!sfb_classify(skb, q, &ret, &salt))
++		if (!sfb_classify(skb, fl, &ret, &salt))
+ 			goto other_drop;
+ 		keys.src = salt;
+ 		keys.dst = 0;
+@@ -660,7 +662,8 @@ static void sfb_walk(struct Qdisc *sch, struct qdisc_walker *walker)
+ 	}
+ }
+ 
+-static struct tcf_proto **sfb_find_tcf(struct Qdisc *sch, unsigned long cl)
++static struct tcf_proto __rcu **sfb_find_tcf(struct Qdisc *sch,
++					     unsigned long cl)
+ {
+ 	struct sfb_sched_data *q = qdisc_priv(sch);
+ 
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 211db90..80c36bd 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -125,7 +125,7 @@ struct sfq_sched_data {
+ 	u8		cur_depth;	/* depth of longest slot */
+ 	u8		flags;
+ 	unsigned short  scaled_quantum; /* SFQ_ALLOT_SIZE(quantum) */
+-	struct tcf_proto *filter_list;
++	struct tcf_proto __rcu *filter_list;
+ 	sfq_index	*ht;		/* Hash table ('divisor' slots) */
+ 	struct sfq_slot	*slots;		/* Flows table ('maxflows' entries) */
+ 
+@@ -187,6 +187,7 @@ static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
+ {
+ 	struct sfq_sched_data *q = qdisc_priv(sch);
+ 	struct tcf_result res;
++	struct tcf_proto *fl;
+ 	int result;
+ 
+ 	if (TC_H_MAJ(skb->priority) == sch->handle &&
+@@ -194,13 +195,14 @@ static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 	    TC_H_MIN(skb->priority) <= q->divisor)
+ 		return TC_H_MIN(skb->priority);
+ 
+-	if (!q->filter_list) {
++	fl = rcu_dereference_bh(q->filter_list);
++	if (!fl) {
+ 		skb_flow_dissect(skb, &sfq_skb_cb(skb)->keys);
+ 		return sfq_hash(q, skb) + 1;
+ 	}
+ 
+ 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+-	result = tc_classify(skb, q->filter_list, &res);
++	result = tc_classify(skb, fl, &res);
+ 	if (result >= 0) {
+ #ifdef CONFIG_NET_CLS_ACT
+ 		switch (result) {
+@@ -836,7 +838,8 @@ static void sfq_put(struct Qdisc *q, unsigned long cl)
+ {
+ }
+ 
+-static struct tcf_proto **sfq_find_tcf(struct Qdisc *sch, unsigned long cl)
++static struct tcf_proto __rcu **sfq_find_tcf(struct Qdisc *sch,
++					     unsigned long cl)
+ {
+ 	struct sfq_sched_data *q = qdisc_priv(sch);
+ 
