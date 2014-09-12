@@ -1,197 +1,95 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v2] r8152: support VLAN
-Date: Fri, 12 Sep 2014 10:43:11 +0800
-Message-ID: <1394712342-15778-37-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-36-Taiwan-albertk@realtek.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v4 2/9] net: filter: keep original BPF program
+ around
+Date: Thu, 11 Sep 2014 20:27:37 -0700
+Message-ID: <1410492457.7106.72.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1396029506-16776-1-git-send-email-dborkman@redhat.com>
+	 <1396029506-16776-3-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ast@plumgrid.com, netdev@vger.kernel.org,
+	Pavel Emelyanov <xemul@parallels.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:54390 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751044AbaILCni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 22:43:38 -0400
-In-Reply-To: <1394712342-15778-36-Taiwan-albertk@realtek.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:46301 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751596AbaILD1j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Sep 2014 23:27:39 -0400
+Received: by mail-pa0-f47.google.com with SMTP id ey11so260553pad.34
+        for <netdev@vger.kernel.org>; Thu, 11 Sep 2014 20:27:39 -0700 (PDT)
+In-Reply-To: <1396029506-16776-3-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support hw VLAN for tx and rx. And enable them by default.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+On Fri, 2014-03-28 at 18:58 +0100, Daniel Borkmann wrote:
+> In order to open up the possibility to internally transform a BPF program
+> into an alternative and possibly non-trivial reversible representation, we
+> need to keep the original BPF program around, so that it can be passed back
+> to user space w/o the need of a complex decoder.
+> 
+> The reason for that use case resides in commit a8fc92778080 ("sk-filter:
+> Add ability to get socket filter program (v2)"), that is, the ability
+> to retrieve the currently attached BPF filter from a given socket used
+> mainly by the checkpoint-restore project, for example.
+> 
+> Therefore, we add two helpers sk_{store,release}_orig_filter for taking
+> care of that. In the sk_unattached_filter_create() case, there's no such
+> possibility/requirement to retrieve a loaded BPF program. Therefore, we
+> can spare us the work in that case.
+> 
+> This approach will simplify and slightly speed up both, sk_get_filter()
+> and sock_diag_put_filterinfo() handlers as we won't need to successively
+> decode filters anymore through sk_decode_filter(). As we still need
+> sk_decode_filter() later on, we're keeping it around.
+> 
+> Joint work with Alexei Starovoitov.
+> 
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Pavel Emelyanov <xemul@parallels.com>
+> ---
+
+Note that this patch added a possible use after free.
+
+Following patch should be sent to stable trees only, as 3.17+
+incidentally fixed this with 
+commit 278571baca2aecf5fb5cb5c8b002dbfa0a6c524c
+    net: filter: simplify socket charging
+
+[PATCH] net: filter: fix possible use after free
+
+If kmemdup() fails, we free fp->orig_prog and return -ENOMEM
+
+sk_attach_filter()
+ -> sk_filter_uncharge(sk, fp)
+  -> sk_filter_release(fp)
+   -> call_rcu(&fp->rcu, sk_filter_release_rcu)
+    -> sk_filter_release_rcu()
+     -> sk_release_orig_filter()
+        fprog = fp->orig_prog; // not NULL, but points to freed memory
+	  kfree(fprog->filter); // use after free, potential corruption
+          kfree(fprog); // double free or corruption
+
+Note: This was fixed in 3.17+ with commit 278571baca2a
+("net: filter: simplify socket charging")
+
+Found by AddressSanitizer
+ 
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: a3ea269b8bcdb ("net: filter: keep original BPF program around")
 ---
- drivers/net/usb/r8152.c | 79 ++++++++++++++++++++++++++++++++++++++++---------
- 1 file changed, 65 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 2130c75..9403219 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -506,6 +506,7 @@ struct rx_desc {
- #define IPF				(1 << 23) /* IP checksum fail */
- #define UDPF				(1 << 22) /* UDP checksum fail */
- #define TCPF				(1 << 21) /* TCP checksum fail */
-+#define RX_VLAN_TAG			(1 << 16)
- 
- 	__le32 opts4;
- 	__le32 opts5;
-@@ -531,6 +532,7 @@ struct tx_desc {
- #define MSS_MAX			0x7ffU
- #define TCPHO_SHIFT		17
- #define TCPHO_MAX		0x7ffU
-+#define TX_VLAN_TAG			(1 << 16)
- };
- 
- struct r8152;
-@@ -1423,6 +1425,25 @@ static int msdn_giant_send_check(struct sk_buff *skb)
- 	return ret;
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 1dbf6462f766..3139f966a178 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1318,6 +1318,7 @@ static int sk_store_orig_filter(struct sk_filter *fp,
+ 	fkprog->filter = kmemdup(fp->insns, fsize, GFP_KERNEL);
+ 	if (!fkprog->filter) {
+ 		kfree(fp->orig_prog);
++		fp->orig_prog = NULL;
+ 		return -ENOMEM;
  }
  
-+static inline void rtl_tx_vlan_tag(struct tx_desc *desc, struct sk_buff *skb)
-+{
-+	if (vlan_tx_tag_present(skb)) {
-+		u32 opts2;
-+
-+		opts2 = TX_VLAN_TAG | swab16(vlan_tx_tag_get(skb));
-+		desc->opts2 |= cpu_to_le32(opts2);
-+	}
-+}
-+
-+static inline void rtl_rx_vlan_tag(struct rx_desc *desc, struct sk_buff *skb)
-+{
-+	u32 opts2 = le32_to_cpu(desc->opts2);
-+
-+	if (opts2 & RX_VLAN_TAG)
-+		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
-+				       swab16(opts2 & 0xffff));
-+}
-+
- static int r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc,
- 			 struct sk_buff *skb, u32 len, u32 transport_offset)
- {
-@@ -1550,6 +1571,8 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
- 			continue;
- 		}
- 
-+		rtl_tx_vlan_tag(tx_desc, skb);
-+
- 		tx_data += sizeof(*tx_desc);
- 
- 		len = skb->len;
-@@ -1691,6 +1714,7 @@ static void rx_bottom(struct r8152 *tp)
- 			memcpy(skb->data, rx_data, pkt_len);
- 			skb_put(skb, pkt_len);
- 			skb->protocol = eth_type_trans(skb, netdev);
-+			rtl_rx_vlan_tag(rx_desc, skb);
- 			netif_receive_skb(skb);
- 			stats->rx_packets++;
- 			stats->rx_bytes += pkt_len;
-@@ -2082,6 +2106,34 @@ static void r8152_power_cut_en(struct r8152 *tp, bool enable)
- 	ocp_write_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS, ocp_data);
- }
- 
-+static void rtl_rx_vlan_en(struct r8152 *tp, bool enable)
-+{
-+	u32 ocp_data;
-+
-+	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
-+	if (enable)
-+		ocp_data |= CPCR_RX_VLAN;
-+	else
-+		ocp_data &= ~CPCR_RX_VLAN;
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
-+}
-+
-+static int rtl8152_set_features(struct net_device *dev,
-+				netdev_features_t features)
-+{
-+	netdev_features_t changed = features ^ dev->features;
-+	struct r8152 *tp = netdev_priv(dev);
-+
-+	if (changed & NETIF_F_HW_VLAN_CTAG_RX) {
-+		if (features & NETIF_F_HW_VLAN_CTAG_RX)
-+			rtl_rx_vlan_en(tp, true);
-+		else
-+			rtl_rx_vlan_en(tp, false);
-+	}
-+
-+	return 0;
-+}
-+
- #define WAKE_ANY (WAKE_PHY | WAKE_MAGIC | WAKE_UCAST | WAKE_BCAST | WAKE_MCAST)
- 
- static u32 __rtl_get_wol(struct r8152 *tp)
-@@ -2330,9 +2382,7 @@ static void r8152b_exit_oob(struct r8152 *tp)
- 	ocp_write_dword(tp, MCU_TYPE_USB, USB_TX_DMA,
- 			TEST_MODE_DISABLE | TX_SIZE_ADJUST1);
- 
--	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
--	ocp_data &= ~CPCR_RX_VLAN;
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
-+	rtl_rx_vlan_en(tp, tp->netdev->features & NETIF_F_HW_VLAN_CTAG_RX);
- 
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8152_RMS);
- 
-@@ -2376,9 +2426,7 @@ static void r8152b_enter_oob(struct r8152 *tp)
- 
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8152_RMS);
- 
--	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
--	ocp_data |= CPCR_RX_VLAN;
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
-+	rtl_rx_vlan_en(tp, true);
- 
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PAL_BDC_CR);
- 	ocp_data |= ALDPS_PROXY_MODE;
-@@ -2532,9 +2580,7 @@ static void r8153_first_init(struct r8152 *tp)
- 		usleep_range(1000, 2000);
- 	}
- 
--	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
--	ocp_data &= ~CPCR_RX_VLAN;
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
-+	rtl_rx_vlan_en(tp, tp->netdev->features & NETIF_F_HW_VLAN_CTAG_RX);
- 
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8153_RMS);
- 	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_MTPS, MTPS_JUMBO);
-@@ -2593,9 +2639,7 @@ static void r8153_enter_oob(struct r8152 *tp)
- 	ocp_data &= ~TEREDO_WAKE_MASK;
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG, ocp_data);
- 
--	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CPCR);
--	ocp_data |= CPCR_RX_VLAN;
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
-+	rtl_rx_vlan_en(tp, true);
- 
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PAL_BDC_CR);
- 	ocp_data |= ALDPS_PROXY_MODE;
-@@ -3330,6 +3374,7 @@ static const struct net_device_ops rtl8152_netdev_ops = {
- 	.ndo_do_ioctl		= rtl8152_ioctl,
- 	.ndo_start_xmit		= rtl8152_start_xmit,
- 	.ndo_tx_timeout		= rtl8152_tx_timeout,
-+	.ndo_set_features	= rtl8152_set_features,
- 	.ndo_set_rx_mode	= rtl8152_set_rx_mode,
- 	.ndo_set_mac_address	= rtl8152_set_mac_address,
- 	.ndo_change_mtu		= rtl8152_change_mtu,
-@@ -3484,10 +3529,16 @@ static int rtl8152_probe(struct usb_interface *intf,
- 
- 	netdev->features |= NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
- 			    NETIF_F_TSO | NETIF_F_FRAGLIST | NETIF_F_IPV6_CSUM |
--			    NETIF_F_TSO6;
-+			    NETIF_F_TSO6 | NETIF_F_HW_VLAN_CTAG_RX |
-+			    NETIF_F_HW_VLAN_CTAG_TX;
- 	netdev->hw_features = NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
- 			      NETIF_F_TSO | NETIF_F_FRAGLIST |
--			      NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
-+			      NETIF_F_IPV6_CSUM | NETIF_F_TSO6 |
-+			      NETIF_F_HW_VLAN_CTAG_RX |
-+			      NETIF_F_HW_VLAN_CTAG_TX;
-+	netdev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
-+				NETIF_F_HIGHDMA | NETIF_F_FRAGLIST |
-+				NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
- 
- 	netdev->ethtool_ops = &ops;
- 	netif_set_gso_max_size(netdev, RTL_LIMITED_TSO_SIZE);
--- 
-1.9.3
