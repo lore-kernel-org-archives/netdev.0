@@ -1,62 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 04/14] tipc: add sock dump to new netlink api
-Date: Fri, 12 Sep 2014 17:10:38 -0400 (EDT)
-Message-ID: <20140912.171038.1165432718811920305.davem@davemloft.net>
-References: <1410424167-17427-1-git-send-email-richard.alpe@ericsson.com>
-	<1410424167-17427-5-git-send-email-richard.alpe@ericsson.com>
+Subject: Re: [PATCH v2 0/2] net: arc_emac: fix tx issues
+Date: Fri, 12 Sep 2014 17:19:27 -0400 (EDT)
+Message-ID: <20140912.171927.1101339364255601150.davem@davemloft.net>
+References: <1410382203-10395-1-git-send-email-b.galvani@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: richard.alpe@ericsson.com
+Cc: romain.perier@gmail.com, heiko@sntech.de, arnd@arndb.de,
+	tklauser@distanz.ch, jg1.han@samsung.com, max.schwarz@online.de,
+	f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: b.galvani@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51104 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51232 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752069AbaILVKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 17:10:40 -0400
-In-Reply-To: <1410424167-17427-5-git-send-email-richard.alpe@ericsson.com>
+	with ESMTP id S1752695AbaILVTb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 17:19:31 -0400
+In-Reply-To: <1410382203-10395-1-git-send-email-b.galvani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <richard.alpe@ericsson.com>
-Date: Thu, 11 Sep 2014 10:29:17 +0200
+From: Beniamino Galvani <b.galvani@gmail.com>
+Date: Wed, 10 Sep 2014 22:50:01 +0200
 
-> +	list_for_each_entry_from(p, &tsk->publications, pport_list) {
-> +		publ = nla_nest_start(skb, TIPC_NLA_SOCK_PUBL);
-> +		if (nla_put_u32(skb, TIPC_NLA_PUBL_TYPE, p->type))
-> +			goto msg_full;
-> +		if (nla_put_u32(skb, TIPC_NLA_PUBL_LOWER, p->lower))
-> +			goto msg_full;
-> +		if (nla_put_u32(skb, TIPC_NLA_PUBL_UPPER, p->upper))
-> +			goto msg_full;
-> +		nla_nest_end(skb, publ);
-> +	}
-> +
-> +	*prev_publ = 0;
-> +
-> +	return 0;
-> +
-> +msg_full:
-> +	*prev_publ = p->key;
-> +	nla_nest_cancel(skb, publ);
+> the patches below solve some issues found in the tx ring reclaim
+> strategy currently implemented in the arc_emac driver.
+> 
+> Without these patches a simple outgoing UDP flow blocks almost
+> immediately with the socket send buffer full, until some new rx
+> packets trigger a clean of the tx ring.
+> 
+> Everything seems to work fine on a Radxa Rock with this fix applied.
 
-This restart mechanism is broken.
-
-You can't public nested information this way.
-
-What happens in your code is that if we hit the limit in the middle of
-adding the publications, the next time we'll put the same socket into
-the netlink message and then the rest of the nested publications.
-That's malformed.
-
-You can't just say sometimes you'll partially list the set of nested
-attributes in an object, you must public the entire object fully in
-the netlink message or skip the object entirely.
-
-I would suggest that you instead size the amount of space you'll
-need for at least the first socket being listed, and if NLMSG_GOODSIZE
-is insufficient, allocate as much as you will actually need.
-
-Then you put full socket netlink blobs in there, including all nested
-attributes, and then stop and reset back the the most recent full socket
-published if you run out of space.
+Series applied, thanks.
