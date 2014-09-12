@@ -1,42 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH v5 16/16] net: sched: drop ingress qdisc lock
-Date: Fri, 12 Sep 2014 16:56:28 -0700
-Message-ID: <1410566188.7106.120.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140912162748.19588.39677.stgit@nitbit.x32>
-	 <20140912163519.19588.54966.stgit@nitbit.x32>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
-	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:58664 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751220AbaILX4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 19:56:30 -0400
-Received: by mail-pd0-f174.google.com with SMTP id v10so2234086pde.19
-        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 16:56:30 -0700 (PDT)
-In-Reply-To: <20140912163519.19588.54966.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Subject: [PATCHv2] net/macb: Add hardware revision information during probe
+Date: Sat, 13 Sep 2014 01:57:49 +0200
+Message-ID: <1410566269-16445-1-git-send-email-alexandre.belloni@free-electrons.com>
+Cc: linux-arm-kernel@lists.infradead.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Bo Shen <voice.shen@atmel.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-09-12 at 09:35 -0700, John Fastabend wrote:
-> After the previous patches to make the filters RCU safe and
-> support per cpu counters we can drop the qdisc lock around
-> the ingress qdisc hook.
-> 
-> This is possible because the ingress qdisc is a very basic
-> qdisc and only updates stats and runs tc_classify. Its the
-> simplest qdiscs we have.
-> 
-> In order for the per-cpu counters to get invoked the
-> ingress qdisc must set the LLQDISC flag. We could use per-cpu
-> counters on all counters but it is only necessary when the
-> qdisc lock is not held.
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
+From: Bo Shen <voice.shen@atmel.com>
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Print the IP revision when probing.
+
+Signed-off-by: Bo Shen <voice.shen@atmel.com>
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+Changes in v2:
+ - condense information on one line
+
+ drivers/net/ethernet/cadence/macb.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index ca5d7798b265..d9b8e94b805f 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2241,9 +2241,9 @@ static int __init macb_probe(struct platform_device *pdev)
+ 
+ 	netif_carrier_off(dev);
+ 
+-	netdev_info(dev, "Cadence %s at 0x%08lx irq %d (%pM)\n",
+-		    macb_is_gem(bp) ? "GEM" : "MACB", dev->base_addr,
+-		    dev->irq, dev->dev_addr);
++	netdev_info(dev, "Cadence %s rev 0x%08x at 0x%08lx irq %d (%pM)\n",
++		    macb_is_gem(bp) ? "GEM" : "MACB", macb_readl(bp, MID),
++		    dev->base_addr, dev->irq, dev->dev_addr);
+ 
+ 	phydev = bp->phy_dev;
+ 	netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
+-- 
+1.9.1
