@@ -1,81 +1,39 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v5 16/16] net: sched: drop ingress qdisc lock
-Date: Fri, 12 Sep 2014 09:35:20 -0700
-Message-ID: <20140912163519.19588.54966.stgit@nitbit.x32>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH v5 01/16] net: qdisc: use rcu prefix and
+ silence sparse warnings
+Date: Fri, 12 Sep 2014 09:36:50 -0700
+Message-ID: <1410539810.7106.96.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <20140912162748.19588.39677.stgit@nitbit.x32>
+	 <20140912162851.19588.77481.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
 	brouer@redhat.com
-To: xiyou.wangcong@gmail.com, davem@davemloft.net,
-	eric.dumazet@gmail.com, jhs@mojatatu.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:65429 "EHLO
-	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751903AbaILQfh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 12:35:37 -0400
-Received: by mail-oi0-f54.google.com with SMTP id h136so664596oig.13
-        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 09:35:37 -0700 (PDT)
-In-Reply-To: <20140912162748.19588.39677.stgit@nitbit.x32>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:61259 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751372AbaILQgw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 12:36:52 -0400
+Received: by mail-pa0-f44.google.com with SMTP id kx10so1650026pab.31
+        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 09:36:51 -0700 (PDT)
+In-Reply-To: <20140912162851.19588.77481.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After the previous patches to make the filters RCU safe and
-support per cpu counters we can drop the qdisc lock around
-the ingress qdisc hook.
+On Fri, 2014-09-12 at 09:28 -0700, John Fastabend wrote:
+> Add __rcu notation to qdisc handling by doing this we can make
+> smatch output more legible. And anyways some of the cases should
+> be using rcu_dereference() see qdisc_all_tx_empty(),
+> qdisc_tx_chainging(), and so on.
+> 
+> Also *wake_queue() API is commonly called from driver timer routines
+> without rcu lock or rtnl lock. So I added rcu_read_lock() blocks
+> around netif_wake_subqueue and netif_tx_wake_queue.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
 
-This is possible because the ingress qdisc is a very basic
-qdisc and only updates stats and runs tc_classify. Its the
-simplest qdiscs we have.
-
-In order for the per-cpu counters to get invoked the
-ingress qdisc must set the LLQDISC flag. We could use per-cpu
-counters on all counters but it is only necessary when the
-qdisc lock is not held.
-
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- net/core/dev.c          |    2 --
- net/sched/sch_ingress.c |    6 ++++++
- 2 files changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b3d6dbc..e400df9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3481,10 +3481,8 @@ static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
- 
- 	q = rcu_dereference(rxq->qdisc);
- 	if (q != &noop_qdisc) {
--		spin_lock(qdisc_lock(q));
- 		if (likely(!test_bit(__QDISC_STATE_DEACTIVATED, &q->state)))
- 			result = qdisc_enqueue_root(skb, q);
--		spin_unlock(qdisc_lock(q));
- 	}
- 
- 	return result;
-diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
-index 88a6289..57ea680 100644
---- a/net/sched/sch_ingress.c
-+++ b/net/sched/sch_ingress.c
-@@ -89,6 +89,11 @@ static int ingress_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- }
- 
- /* ------------------------------------------------------------- */
-+static int ingress_init(struct Qdisc *sch, struct nlattr *opt)
-+{
-+	sch->flags |= TCQ_F_LLQDISC;
-+	return 0;
-+}
- 
- static void ingress_destroy(struct Qdisc *sch)
- {
-@@ -122,6 +127,7 @@ static const struct Qdisc_class_ops ingress_class_ops = {
- };
- 
- static struct Qdisc_ops ingress_qdisc_ops __read_mostly = {
-+	.init		=	ingress_init,
- 	.cl_ops		=	&ingress_class_ops,
- 	.id		=	"ingress",
- 	.priv_size	=	sizeof(struct ingress_qdisc_data),
+Acked-by: Eric Dumazet <edumazet@google.com>
