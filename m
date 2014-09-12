@@ -1,51 +1,41 @@
-From: Zhi Li <lznuaa@gmail.com>
-Subject: Re: [Patch v3 net-next 09/12] net: fec: change FEC alignment
- according to i.mx6 sx requirement
-Date: Fri, 12 Sep 2014 15:45:01 -0500
-Message-ID: <CAHrpEqTV=5phAOkOMLoi2kzxNpBAp5g=pVDj9G8CkUmHp9dTwQ@mail.gmail.com>
-References: <1410373845-5801-1-git-send-email-Frank.Li@freescale.com>
-	<1410373845-5801-10-git-send-email-Frank.Li@freescale.com>
-	<20140912.164047.810313458974612565.davem@davemloft.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next v2] net: filter: constify detection of pkt_type_offset
+Date: Fri, 12 Sep 2014 22:48:17 +0200
+Message-ID: <54135C11.1010201@redhat.com>
+References: <5412D9B9.2020300@redhat.com> <3e68956a7e5b8bb9de226bfcc09092c6852a0a0a.1410523297.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	Duan Fugang-B38611 <b38611@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Markos Chandras <markos.chandras@imgtec.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Denis Kirjanov <kda@linux-powerpc.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:39588 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752455AbaILUpD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 16:45:03 -0400
-In-Reply-To: <20140912.164047.810313458974612565.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:61439 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751644AbaILUsi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Sep 2014 16:48:38 -0400
+In-Reply-To: <3e68956a7e5b8bb9de226bfcc09092c6852a0a0a.1410523297.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 12, 2014 at 3:40 PM, David Miller <davem@davemloft.net> wrote:
-> From: Frank Li <Frank.Li@freescale.com>
-> Date: Thu, 11 Sep 2014 02:30:42 +0800
+On 09/12/2014 02:04 PM, Hannes Frederic Sowa wrote:
+> Currently we have 2 pkt_type_offset functions doing the same thing and
+> spread across the architecture files. Remove those and replace them
+> with a PKT_TYPE_OFFSET macro helper which gets the constant value from a
+> zero sized sk_buff member right in front of the bitfield with offsetof.
+> This new offset marker does not change size of struct sk_buff.
 >
->> +
->> +     unsigned tx_align;
->> +     unsigned rx_align;
->>  };
->
-> Please always fully write out "unsigned int" rather than just "unsigned".
->
->> @@ -2399,6 +2393,7 @@ fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
->>       struct sk_buff *skb;
->>       struct bufdesc  *bdp;
->>       struct fec_enet_priv_rx_q *rxq;
->> +     unsigned off;
->
-> Likewise.
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Markos Chandras <markos.chandras@imgtec.com>
+> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Okay, I will fix it next version.
+Looks good to me, thanks!
 
-best regards
-Frank Li
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
