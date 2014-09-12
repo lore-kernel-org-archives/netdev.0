@@ -1,29 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ethernet: amd: use pr_info_once()
-Date: Fri, 12 Sep 2014 18:03:15 -0400 (EDT)
-Message-ID: <20140912.180315.1259712794955554092.davem@davemloft.net>
-References: <1410420050-16088-1-git-send-email-varkab@cdac.in>
+Subject: Re: pull-request: can 2014-09-11
+Date: Fri, 12 Sep 2014 18:05:00 -0400 (EDT)
+Message-ID: <20140912.180500.36960714875196384.davem@davemloft.net>
+References: <1410421984-15125-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Thomas.Lendacky@amd.com, varkab@cdac.in
-To: varkabhadram@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51774 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752106AbaILWDS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 18:03:18 -0400
-In-Reply-To: <1410420050-16088-1-git-send-email-varkab@cdac.in>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1410421984-15125-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Varka Bhadram <varkabhadram@gmail.com>
-Date: Thu, 11 Sep 2014 12:50:50 +0530
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Thu, 11 Sep 2014 09:53:03 +0200
 
-> It will use pr_info_one() to print the version info of the
-> driver in probe function only once. No need to use the static
-> variable here.
+> this is a pull request for the current release cycle of a single patch.
 > 
-> Signed-off-by: Varka Bhadram <varkab@cdac.in>
+> The patch by David Jander fixes a scheduling while atomic problem in the
+> flexcan driver, that was introduced by me in v3.14-rc6.
+ ...
+>   git://gitorious.org/linux-can/linux-can.git tags/linux-can-fixes-for-3.17-20140911
 
-Applied, thank you.
+Pulled, thanks Marc.
