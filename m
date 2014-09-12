@@ -1,49 +1,157 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 8/8] be2net: enable PCIe error reporting on VFs too
-Date: Fri, 12 Sep 2014 17:39:21 +0530
-Message-ID: <1410523761-1744-9-git-send-email-sathya.perla@emulex.com>
-References: <1410523761-1744-1-git-send-email-sathya.perla@emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net] bonding: fix div by zero while enslaving and transmitting
+Date: Fri, 12 Sep 2014 14:22:36 +0200
+Message-ID: <1410524556-27128-1-git-send-email-nikolay@redhat.com>
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:21722 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754561AbaILMGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 08:06:49 -0400
-In-Reply-To: <1410523761-1744-1-git-send-email-sathya.perla@emulex.com>
+Received: from mx1.redhat.com ([209.132.183.28]:23132 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752880AbaILMYe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Sep 2014 08:24:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kalesh AP <kalesh.purayil@emulex.com>
+The problem is that the slave is first linked and slave_cnt is
+incremented afterwards leading to a div by zero in the modes that use it
+as a modulus. What happens is that in bond_start_xmit() bond_has_slaves()
+is used to evaluate further transmission and it becomes true after the
+slave is linked in, but when slave_cnt is used in the xmit path it is
+still 0. The problem was introduced in commit:
+5378c2e6ea236d ("bonding: move bond-specific init after enslave happens")
+when the slave_cnt increment was moved after the linking.
 
-Currently PCIe error reporting is enabled only on PFs. This patch enables
-this feature on VFs too as Lancer VFs support it.
+Call trace (took it out of net-next kernel, but it's the same with net):
+[46934.330038] divide error: 0000 [#1] SMP
+[46934.330041] Modules linked in: bonding(O) 9p fscache
+snd_hda_codec_generic crct10dif_pclmul
+[46934.330041] bond0: Enslaving eth1 as an active interface with an up
+link
+[46934.330051]  ppdev joydev crc32_pclmul crc32c_intel 9pnet_virtio
+ghash_clmulni_intel snd_hda_intel 9pnet snd_hda_controller parport_pc
+serio_raw pcspkr snd_hda_codec parport virtio_balloon virtio_console
+snd_hwdep snd_pcm pvpanic i2c_piix4 snd_timer i2ccore snd soundcore
+virtio_blk virtio_net virtio_pci virtio_ring virtio ata_generic
+pata_acpi floppy [last unloaded: bonding]
+[46934.330053] CPU: 1 PID: 3382 Comm: ping Tainted: G           O
+3.17.0-rc4+ #27
+[46934.330053] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[46934.330054] task: ffff88005aebf2c0 ti: ffff88005b728000 task.ti:
+ffff88005b728000
+[46934.330059] RIP: 0010:[<ffffffffa0198c33>]  [<ffffffffa0198c33>]
+bond_start_xmit+0x1c3/0x450 [bonding]
+[46934.330060] RSP: 0018:ffff88005b72b7f8  EFLAGS: 00010246
+[46934.330060] RAX: 0000000000000679 RBX: ffff88004b077000 RCX:
+000000000000002a
+[46934.330061] RDX: 0000000000000000 RSI: ffff88004b3f0500 RDI:
+ffff88004b077940
+[46934.330061] RBP: ffff88005b72b830 R08: 00000000000000c0 R09:
+ffff88004a83e000
+[46934.330062] R10: 000000000000ffff R11: ffff88004b1f12c0 R12:
+ffff88004b3f0500
+[46934.330062] R13: ffff88004b3f0500 R14: 000000000000002a R15:
+ffff88004b077940
+[46934.330063] FS:  00007fbd91a4c740(0000) GS:ffff88005f080000(0000)
+knlGS:0000000000000000
+[46934.330064] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[46934.330064] CR2: 00007f803a8bb000 CR3: 000000004b2c9000 CR4:
+00000000000406e0
+[46934.330069] Stack:
+[46934.330071]  ffffffff811e6169 00000000e772fa05 ffff88004b077000
+ffff88004b3f0500
+[46934.330072]  ffffffff81d17d18 000000000000002a 0000000000000000
+ffff88005b72b8a0
+[46934.330073]  ffffffff81620108 ffffffff8161fe0e ffff88005b72b8c4
+ffff88005b302000
+[46934.330073] Call Trace:
+[46934.330077]  [<ffffffff811e6169>] ?
+__kmalloc_node_track_caller+0x119/0x300
+[46934.330084]  [<ffffffff81620108>] dev_hard_start_xmit+0x188/0x410
+[46934.330086]  [<ffffffff8161fe0e>] ? harmonize_features+0x2e/0x90
+[46934.330088]  [<ffffffff81620b06>] __dev_queue_xmit+0x456/0x590
+[46934.330089]  [<ffffffff81620c50>] dev_queue_xmit+0x10/0x20
+[46934.330090]  [<ffffffff8168f022>] arp_xmit+0x22/0x60
+[46934.330091]  [<ffffffff8168f090>] arp_send.part.16+0x30/0x40
+[46934.330092]  [<ffffffff8168f1e5>] arp_solicit+0x115/0x2b0
+[46934.330094]  [<ffffffff8160b5d7>] ? copy_skb_header+0x17/0xa0
+[46934.330096]  [<ffffffff8162875a>] neigh_probe+0x4a/0x70
+[46934.330097]  [<ffffffff8162979c>] __neigh_event_send+0xac/0x230
+[46934.330098]  [<ffffffff8162a00b>] neigh_resolve_output+0x13b/0x220
+[46934.330100]  [<ffffffff8165f120>] ? ip_forward_options+0x1c0/0x1c0
+[46934.330101]  [<ffffffff81660478>] ip_finish_output+0x1f8/0x860
+[46934.330102]  [<ffffffff81661f08>] ip_output+0x58/0x90
+[46934.330103]  [<ffffffff81661602>] ? __ip_local_out+0xa2/0xb0
+[46934.330104]  [<ffffffff81661640>] ip_local_out_sk+0x30/0x40
+[46934.330105]  [<ffffffff81662a66>] ip_send_skb+0x16/0x50
+[46934.330106]  [<ffffffff81662ad3>] ip_push_pending_frames+0x33/0x40
+[46934.330107]  [<ffffffff8168854c>] raw_sendmsg+0x88c/0xa30
+[46934.330110]  [<ffffffff81612b31>] ? skb_recv_datagram+0x41/0x60
+[46934.330111]  [<ffffffff816875a9>] ? raw_recvmsg+0xa9/0x1f0
+[46934.330113]  [<ffffffff816978d4>] inet_sendmsg+0x74/0xc0
+[46934.330114]  [<ffffffff81697a9b>] ? inet_recvmsg+0x8b/0xb0
+[46934.330115] bond0: Adding slave eth2
+[46934.330116]  [<ffffffff8160357c>] sock_sendmsg+0x9c/0xe0
+[46934.330118]  [<ffffffff81603248>] ?
+move_addr_to_kernel.part.20+0x28/0x80
+[46934.330121]  [<ffffffff811b4477>] ? might_fault+0x47/0x50
+[46934.330122]  [<ffffffff816039b9>] ___sys_sendmsg+0x3a9/0x3c0
+[46934.330125]  [<ffffffff8144a14a>] ? n_tty_write+0x3aa/0x530
+[46934.330127]  [<ffffffff810d1ae4>] ? __wake_up+0x44/0x50
+[46934.330129]  [<ffffffff81242b38>] ? fsnotify+0x238/0x310
+[46934.330130]  [<ffffffff816048a1>] __sys_sendmsg+0x51/0x90
+[46934.330131]  [<ffffffff816048f2>] SyS_sendmsg+0x12/0x20
+[46934.330134]  [<ffffffff81738b29>] system_call_fastpath+0x16/0x1b
+[46934.330144] Code: 48 8b 10 4c 89 ee 4c 89 ff e8 aa bc ff ff 31 c0 e9
+1a ff ff ff 0f 1f 00 4c 89 ee 4c 89 ff e8 65 fb ff ff 31 d2 4c 89 ee 4c
+89 ff <f7> b3 64 09 00 00 e8 02 bd ff ff 31 c0 e9 f2 fe ff ff 0f 1f 00
+[46934.330146] RIP  [<ffffffffa0198c33>] bond_start_xmit+0x1c3/0x450
+[bonding]
+[46934.330146]  RSP <ffff88005b72b7f8>
 
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Veaceslav Falico <vfalico@gmail.com>
+Fixes: 5378c2e6ea236d ("bonding: move bond-specific init after enslave happens")
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/bonding/bond_main.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index a6cf6c7..beebab6 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4877,11 +4877,9 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
- 		}
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 57912ee231cb..10ad434ea184 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1552,6 +1552,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		goto err_detach;
  	}
  
--	if (be_physfn(adapter)) {
--		status = pci_enable_pcie_error_reporting(pdev);
--		if (!status)
--			dev_info(&pdev->dev, "PCIe error reporting enabled\n");
--	}
-+	status = pci_enable_pcie_error_reporting(pdev);
-+	if (!status)
-+		dev_info(&pdev->dev, "PCIe error reporting enabled\n");
++	/* Increment slave_cnt before linking in the slave so we won't end up in
++	 * bond_start_xmit with bond_has_slaves() true and slave_cnt == 0.
++	 */
++	bond->slave_cnt++;
+ 	res = bond_master_upper_dev_link(bond_dev, slave_dev, new_slave);
+ 	if (res) {
+ 		netdev_dbg(bond_dev, "Error %d calling bond_master_upper_dev_link\n", res);
+@@ -1564,7 +1568,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		goto err_upper_unlink;
+ 	}
  
- 	status = be_ctrl_init(adapter);
- 	if (status)
+-	bond->slave_cnt++;
+ 	bond_compute_features(bond);
+ 	bond_set_carrier(bond);
+ 
+@@ -1590,6 +1593,7 @@ err_upper_unlink:
+ 
+ err_unregister:
+ 	netdev_rx_handler_unregister(slave_dev);
++	bond->slave_cnt--;
+ 
+ err_detach:
+ 	if (!bond_uses_primary(bond))
 -- 
-1.7.1
+1.9.3
