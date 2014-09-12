@@ -1,31 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/phy: micrel: Disable asymmetric pause for
- KSZ9031
-Date: Fri, 12 Sep 2014 18:18:20 -0400 (EDT)
-Message-ID: <20140912.181820.1440041146938289489.davem@davemloft.net>
-References: <5411ECE9.8050600@gmail.com>
-	<1410525637-849-1-git-send-email-mike.looijmans@topic.nl>
+Subject: Re: [PATCHv3 net-next] sunvnet: Avoid sending superfluous LDC
+ messages.
+Date: Fri, 12 Sep 2014 18:19:25 -0400 (EDT)
+Message-ID: <20140912.181925.2227644293597000085.davem@davemloft.net>
+References: <20140911135722.GA22398@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mike.looijmans@topic.nl
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1410525637-849-1-git-send-email-mike.looijmans@topic.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org,
+	bob.picco@oracle.com
+To: sowmini.varadhan@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52020 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753117AbaILWT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 18:19:27 -0400
+In-Reply-To: <20140911135722.GA22398@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mike Looijmans <mike.looijmans@topic.nl>
-Date: Fri, 12 Sep 2014 14:40:37 +0200
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Thu, 11 Sep 2014 09:57:22 -0400
 
-> The KSZ9031 appears to suffer from the same hardware bug as described
-> for the KSZ9021 in commit 32fcafbcd1c9f6c7013016a22a5369b4acb93577
-> ("net/phy: micrel: Disable asymmetric pause for KSZ9021")
-> you have to unplug the cable and plug it back to get it to work.
+> When sending out a burst of packets across multiple descriptors,
+> it is sufficient to send one LDC "start" trigger for
+> the first descriptor, so do not send an LDC "start" for every
+> pass through vnet_start_xmit. Similarly, it is sufficient to send
+> one "DRING_STOPPED" trigger for the last dring (and if that
+> fails, hold off and send the trigger later).
 > 
-> Remove the SUPPORTED_Asym_Pause flag for the KSZ9031 to fix this.
+> Optimizations to the number of LDC messages helps avoid
+> filling up the LDC channel with superfluous LDC messages
+> that risk triggering flow-control on the channel,
+> and also boosts performance.
 > 
-> Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> Acked-by: Raghuram Kothakota <raghuram.kothakota@oracle.com>
 
-This patch does not apply cleanly to the net tree, please respin.
+Applied, thanks.
