@@ -1,223 +1,41 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/11] e1000: move e1000_tbi_adjust_stats to where its used
-Date: Fri, 12 Sep 2014 05:33:45 -0700
-Message-ID: <1410525231-19851-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1410525231-19851-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:50729 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753759AbaILMd6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2014 08:33:58 -0400
-In-Reply-To: <1410525231-19851-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mike Looijmans <mike.looijmans@topic.nl>
+Subject: [PATCH v2] net/phy: micrel: Disable asymmetric pause for KSZ9031
+Date: Fri, 12 Sep 2014 14:40:37 +0200
+Message-ID: <1410525637-849-1-git-send-email-mike.looijmans@topic.nl>
+References: <5411ECE9.8050600@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mike Looijmans <mike.looijmans@topic.nl>
+To: f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5411ECE9.8050600@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+The KSZ9031 appears to suffer from the same hardware bug as described
+for the KSZ9021 in commit 32fcafbcd1c9f6c7013016a22a5369b4acb93577
+("net/phy: micrel: Disable asymmetric pause for KSZ9021")
+you have to unplug the cable and plug it back to get it to work.
 
-... and make it static.
+Remove the SUPPORTED_Asym_Pause flag for the KSZ9031 to fix this.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
 ---
- drivers/net/ethernet/intel/e1000/e1000_hw.c   | 78 ---------------------------
- drivers/net/ethernet/intel/e1000/e1000_hw.h   |  2 -
- drivers/net/ethernet/intel/e1000/e1000_main.c | 77 ++++++++++++++++++++++++++
- 3 files changed, 77 insertions(+), 80 deletions(-)
+ drivers/net/phy/micrel.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-index 1acf503..45c8c864 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_hw.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-@@ -4837,84 +4837,6 @@ void e1000_update_adaptive(struct e1000_hw *hw)
- }
- 
- /**
-- * e1000_tbi_adjust_stats
-- * @hw: Struct containing variables accessed by shared code
-- * @frame_len: The length of the frame in question
-- * @mac_addr: The Ethernet destination address of the frame in question
-- *
-- * Adjusts the statistic counters when a frame is accepted by TBI_ACCEPT
-- */
--void e1000_tbi_adjust_stats(struct e1000_hw *hw, struct e1000_hw_stats *stats,
--			    u32 frame_len, u8 *mac_addr)
--{
--	u64 carry_bit;
--
--	/* First adjust the frame length. */
--	frame_len--;
--	/* We need to adjust the statistics counters, since the hardware
--	 * counters overcount this packet as a CRC error and undercount
--	 * the packet as a good packet
--	 */
--	/* This packet should not be counted as a CRC error. */
--	stats->crcerrs--;
--	/* This packet does count as a Good Packet Received. */
--	stats->gprc++;
--
--	/* Adjust the Good Octets received counters */
--	carry_bit = 0x80000000 & stats->gorcl;
--	stats->gorcl += frame_len;
--	/* If the high bit of Gorcl (the low 32 bits of the Good Octets
--	 * Received Count) was one before the addition,
--	 * AND it is zero after, then we lost the carry out,
--	 * need to add one to Gorch (Good Octets Received Count High).
--	 * This could be simplified if all environments supported
--	 * 64-bit integers.
--	 */
--	if (carry_bit && ((stats->gorcl & 0x80000000) == 0))
--		stats->gorch++;
--	/* Is this a broadcast or multicast?  Check broadcast first,
--	 * since the test for a multicast frame will test positive on
--	 * a broadcast frame.
--	 */
--	if (is_broadcast_ether_addr(mac_addr))
--		/* Broadcast packet */
--		stats->bprc++;
--	else if (is_multicast_ether_addr(mac_addr))
--		/* Multicast packet */
--		stats->mprc++;
--
--	if (frame_len == hw->max_frame_size) {
--		/* In this case, the hardware has overcounted the number of
--		 * oversize frames.
--		 */
--		if (stats->roc > 0)
--			stats->roc--;
--	}
--
--	/* Adjust the bin counters when the extra byte put the frame in the
--	 * wrong bin. Remember that the frame_len was adjusted above.
--	 */
--	if (frame_len == 64) {
--		stats->prc64++;
--		stats->prc127--;
--	} else if (frame_len == 127) {
--		stats->prc127++;
--		stats->prc255--;
--	} else if (frame_len == 255) {
--		stats->prc255++;
--		stats->prc511--;
--	} else if (frame_len == 511) {
--		stats->prc511++;
--		stats->prc1023--;
--	} else if (frame_len == 1023) {
--		stats->prc1023++;
--		stats->prc1522--;
--	} else if (frame_len == 1522) {
--		stats->prc1522++;
--	}
--}
--
--/**
-  * e1000_get_bus_info
-  * @hw: Struct containing variables accessed by shared code
-  *
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.h b/drivers/net/ethernet/intel/e1000/e1000_hw.h
-index 11578c8..5cf7268 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_hw.h
-+++ b/drivers/net/ethernet/intel/e1000/e1000_hw.h
-@@ -393,8 +393,6 @@ s32 e1000_blink_led_start(struct e1000_hw *hw);
- /* Everything else */
- void e1000_reset_adaptive(struct e1000_hw *hw);
- void e1000_update_adaptive(struct e1000_hw *hw);
--void e1000_tbi_adjust_stats(struct e1000_hw *hw, struct e1000_hw_stats *stats,
--			    u32 frame_len, u8 * mac_addr);
- void e1000_get_bus_info(struct e1000_hw *hw);
- void e1000_pci_set_mwi(struct e1000_hw *hw);
- void e1000_pci_clear_mwi(struct e1000_hw *hw);
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index ad3d5d1..fe2b9ad 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -3981,6 +3981,83 @@ static void e1000_receive_skb(struct e1000_adapter *adapter, u8 status,
- }
- 
- /**
-+ * e1000_tbi_adjust_stats
-+ * @hw: Struct containing variables accessed by shared code
-+ * @frame_len: The length of the frame in question
-+ * @mac_addr: The Ethernet destination address of the frame in question
-+ *
-+ * Adjusts the statistic counters when a frame is accepted by TBI_ACCEPT
-+ */
-+static void e1000_tbi_adjust_stats(struct e1000_hw *hw,
-+				   struct e1000_hw_stats *stats,
-+				   u32 frame_len, const u8 *mac_addr)
-+{
-+	u64 carry_bit;
-+
-+	/* First adjust the frame length. */
-+	frame_len--;
-+	/* We need to adjust the statistics counters, since the hardware
-+	 * counters overcount this packet as a CRC error and undercount
-+	 * the packet as a good packet
-+	 */
-+	/* This packet should not be counted as a CRC error. */
-+	stats->crcerrs--;
-+	/* This packet does count as a Good Packet Received. */
-+	stats->gprc++;
-+
-+	/* Adjust the Good Octets received counters */
-+	carry_bit = 0x80000000 & stats->gorcl;
-+	stats->gorcl += frame_len;
-+	/* If the high bit of Gorcl (the low 32 bits of the Good Octets
-+	 * Received Count) was one before the addition,
-+	 * AND it is zero after, then we lost the carry out,
-+	 * need to add one to Gorch (Good Octets Received Count High).
-+	 * This could be simplified if all environments supported
-+	 * 64-bit integers.
-+	 */
-+	if (carry_bit && ((stats->gorcl & 0x80000000) == 0))
-+		stats->gorch++;
-+	/* Is this a broadcast or multicast?  Check broadcast first,
-+	 * since the test for a multicast frame will test positive on
-+	 * a broadcast frame.
-+	 */
-+	if (is_broadcast_ether_addr(mac_addr))
-+		stats->bprc++;
-+	else if (is_multicast_ether_addr(mac_addr))
-+		stats->mprc++;
-+
-+	if (frame_len == hw->max_frame_size) {
-+		/* In this case, the hardware has overcounted the number of
-+		 * oversize frames.
-+		 */
-+		if (stats->roc > 0)
-+			stats->roc--;
-+	}
-+
-+	/* Adjust the bin counters when the extra byte put the frame in the
-+	 * wrong bin. Remember that the frame_len was adjusted above.
-+	 */
-+	if (frame_len == 64) {
-+		stats->prc64++;
-+		stats->prc127--;
-+	} else if (frame_len == 127) {
-+		stats->prc127++;
-+		stats->prc255--;
-+	} else if (frame_len == 255) {
-+		stats->prc255++;
-+		stats->prc511--;
-+	} else if (frame_len == 511) {
-+		stats->prc511++;
-+		stats->prc1023--;
-+	} else if (frame_len == 1023) {
-+		stats->prc1023++;
-+		stats->prc1522--;
-+	} else if (frame_len == 1522) {
-+		stats->prc1522++;
-+	}
-+}
-+
-+/**
-  * e1000_clean_jumbo_rx_irq - Send received data up the network stack; legacy
-  * @adapter: board private structure
-  * @rx_ring: ring to clean
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 5a8993b..a932a35 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -425,8 +425,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id		= PHY_ID_KSZ9031,
+ 	.phy_id_mask	= 0x00fffff0,
+ 	.name		= "Micrel KSZ9031 Gigabit PHY",
+-	.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause
+-				| SUPPORTED_Asym_Pause),
++	.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause),
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= kszphy_config_init,
+ 	.config_aneg	= genphy_config_aneg,
 -- 
-1.9.3
+1.7.9.5
