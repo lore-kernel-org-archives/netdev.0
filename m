@@ -1,47 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: filter: constify detection of
- pkt_type_offset
-Date: Sat, 13 Sep 2014 17:08:24 -0400 (EDT)
-Message-ID: <20140913.170824.959567788304681370.davem@davemloft.net>
-References: <5412D9B9.2020300@redhat.com>
-	<5412D9B9.2020300@redhat.com>
-	<3e68956a7e5b8bb9de226bfcc09092c6852a0a0a.1410523297.git.hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 0/8] be2net: patch set
+Date: Sat, 13 Sep 2014 17:12:43 -0400 (EDT)
+Message-ID: <20140913.171243.1325107254064998995.davem@davemloft.net>
+References: <1410523761-1744-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	markos.chandras@imgtec.com, schwidefsky@de.ibm.com,
-	dborkman@redhat.com, alexei.starovoitov@gmail.com,
-	kda@linux-powerpc.org
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38146 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38168 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752070AbaIMVI0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 17:08:26 -0400
-In-Reply-To: <3e68956a7e5b8bb9de226bfcc09092c6852a0a0a.1410523297.git.hannes@stressinduktion.org>
+	with ESMTP id S1752118AbaIMVMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 17:12:44 -0400
+In-Reply-To: <1410523761-1744-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 12 Sep 2014 14:04:43 +0200
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Fri, 12 Sep 2014 17:39:13 +0530
 
-> Currently we have 2 pkt_type_offset functions doing the same thing and
-> spread across the architecture files. Remove those and replace them
-> with a PKT_TYPE_OFFSET macro helper which gets the constant value from a
-> zero sized sk_buff member right in front of the bitfield with offsetof.
-> This new offset marker does not change size of struct sk_buff.
+> Patch 1 fixes some minor issues with log messages in be2net.
 > 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Markos Chandras <markos.chandras@imgtec.com>
-> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
+> Patch 2 replaces strcpy() calls with strlcpy() to avoid possible buffer
+> overflow.
 > 
-> v2) Incorporated Daniel's feedback. I first misinterpreted the feedback
->     as something not related to pkt_type_offset.
+> Patch 3 improves the RX buffer posting scheme for jumbo frames.
+> 
+> Patch 4 replaces the use of v0 of SET_FLOW_CONTROL cmd with v1 to receive
+> a definitive completion status from FW.
+> 
+> Patch 5 adds support for ethtool "-m" ethtool option.
+> 
+> Patch 6 fixes port-type reporting via ethtool get_settings for QSFP/SFP+
+> interfaces.
+> 
+> Patch 7 fixes the usage of MODIFY_EQD FW cmd to target a max of 8 EQs on
+> Lancer chip. 
+> 
+> Patch 8 enables PCIe error reporting even for VFs.
+> 
+> Pls consider applying this patch set to net-next. Thanks.
 
-Applied, thanks.
+Series applied, thanks.
