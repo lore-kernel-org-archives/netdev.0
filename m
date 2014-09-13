@@ -1,50 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH v5 16/16] net: sched: drop ingress qdisc lock
-Date: Fri, 12 Sep 2014 18:33:57 -0700
-Message-ID: <1410572037.7106.122.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140912162748.19588.39677.stgit@nitbit.x32>
-	 <20140912163519.19588.54966.stgit@nitbit.x32>
-	 <1410566188.7106.120.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: [PATCH] netdevice: Support DSA tagging when DSA is built as a module
+Date: Fri, 12 Sep 2014 18:59:50 -0700
+Message-ID: <20140913015950.26705.51106.stgit@ahduyck-workstation.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, davem@davemloft.net, jhs@mojatatu.com,
-	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>,
-	Changli Gao <xiaosuo@gmail.com>
+Cc: f.fainelli@gmail.com, davem@davemloft.net, kernel@wantstofly.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:37845 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751528AbaIMBd7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 21:33:59 -0400
-Received: by mail-pa0-f44.google.com with SMTP id kx10so2444202pab.17
-        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 18:33:59 -0700 (PDT)
-In-Reply-To: <1410566188.7106.120.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:55221 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751889AbaIMB7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 21:59:50 -0400
+Received: by mail-pd0-f179.google.com with SMTP id g10so2372466pdj.24
+        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 18:59:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-09-12 at 16:56 -0700, Eric Dumazet wrote:
-> On Fri, 2014-09-12 at 09:35 -0700, John Fastabend wrote:
-> > After the previous patches to make the filters RCU safe and
-> > support per cpu counters we can drop the qdisc lock around
-> > the ingress qdisc hook.
-> > 
-> > This is possible because the ingress qdisc is a very basic
-> > qdisc and only updates stats and runs tc_classify. Its the
-> > simplest qdiscs we have.
-> > 
-> > In order for the per-cpu counters to get invoked the
-> > ingress qdisc must set the LLQDISC flag. We could use per-cpu
-> > counters on all counters but it is only necessary when the
-> > qdisc lock is not held.
-> > 
-> > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> > ---
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> 
-> 
+This change corrects an error seen when DSA tagging is built as a module.
+Without this change it is not possible to get XDSA tagged frames as the
+test for tagging is stripped by the #ifdef check.
 
-BTW, it might be time to revive the multiqueue patch for IFB,
-Changli Gao worked on this 5 years ago, but work was not completed.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ include/linux/netdevice.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ba72f6b..c8f3806 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1789,7 +1789,7 @@ void dev_net_set(struct net_device *dev, struct net *net)
+ 
+ static inline bool netdev_uses_dsa(struct net_device *dev)
+ {
+-#ifdef CONFIG_NET_DSA
++#if IS_ENABLED(CONFIG_NET_DSA)
+ 	if (dev->dsa_ptr != NULL)
+ 		return dsa_uses_tagged_protocol(dev->dsa_ptr);
+ #endif
