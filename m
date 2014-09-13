@@ -1,50 +1,49 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: Rusty away 18th September -- 11th October
-Date: Fri, 12 Sep 2014 10:58:03 +0930
-Message-ID: <87tx4dhbks.fsf@rustcorp.com.au>
-References: <87oaunht4b.fsf@rustcorp.com.au>
-	<20140911114351.GA25736@redhat.com>
+From: alexander.duyck@gmail.com
+Subject: [PATCH v2] netdevice: Support DSA tagging when DSA is built as a
+ module
+Date: Fri, 12 Sep 2014 23:12:46 -0700
+Message-ID: <20140913061142.28675.38168.stgit@ahduyck-workstation.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140911114351.GA25736@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: f.fainelli@gmail.com, davem@davemloft.net, kernel@wantstofly.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:36985 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751566AbaIMGMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 02:12:44 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so2672922pdj.22
+        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 23:12:43 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
-> On Thu, Sep 11, 2014 at 10:26:52AM +0930, Rusty Russell wrote:
->> Hi all,
->> 
->>         Probably won't read mail.  Linus, I'll have pull requests early
->> next week; if there's anything needed I'm sure Michael Tsirkin can
->> handle it.
->
-> Sure.
-> Rusty, there's a small chance virtio 1.0 bits will be ready in time.
-> I started working on them based on your virtio-pci-new-layout branch.
->
-> If ready before the merge window, are you ok with me merging this
-> support (without you having the opportunity to review first)?
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Sorry, absolutely not.  I *really* want to review this in depth; if we
-make a mistake, it's going to hurt us significantly.
+This change corrects an error seen when DSA tagging is built as a module.
+Without this change it is not possible to get XDSA tagged frames as the
+test for tagging is stripped by the #ifdef check.
 
-And until we have the qemu bits ready, it's really hard to tell if we've
-got this right.  So I'd rather delay and make sure we're solid.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+---
 
-Thanks,
-Rusty.
+v2: Just working out some kinks in my stgit config so that this patch is
+    attributed to my intel.com address instead of my gmail.com address.
+
+ include/linux/netdevice.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ba72f6b..c8f3806 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1789,7 +1789,7 @@ void dev_net_set(struct net_device *dev, struct net *net)
+ 
+ static inline bool netdev_uses_dsa(struct net_device *dev)
+ {
+-#ifdef CONFIG_NET_DSA
++#if IS_ENABLED(CONFIG_NET_DSA)
+ 	if (dev->dsa_ptr != NULL)
+ 		return dsa_uses_tagged_protocol(dev->dsa_ptr);
+ #endif
