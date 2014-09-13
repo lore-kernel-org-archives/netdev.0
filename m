@@ -1,39 +1,48 @@
-From: sundeep subbaraya <sundeep.lkml@gmail.com>
-Subject: Re: [PATCH] net: axienet: remove unnecessary ether_setup after alloc_etherdev
-Date: Sun, 14 Sep 2014 14:00:36 +0530
-Message-ID: <CALHRZuqGNAo7DLwGx1CYhcEF0rVurgGU3TyWq1fN4Oqp3k9Mtg@mail.gmail.com>
-References: <78ce1faf-0bf8-41bb-a30d-cecd11d82d94@BY2FFO11FD033.protection.gbl>
-	<20140912.181605.1878319812562851527.davem@davemloft.net>
+From: "Mr chin sang" <chinsang8@gmail.com>
+Subject: Jeg skal bruge dine HASTER RESPOND
+Date: Sat, 13 Sep 2014 07:22:28 -0400
+Message-ID: <df06eb074d1169ac8b802d31b3ba8ed7.squirrel@178.62.132.54>
+Reply-To: chinsang411@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Subbaraya Sundeep Bhatta <subbaraya.sundeep.bhatta@xilinx.com>,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Michal Simek <michals@xilinx.com>, svemula@xilinx.com,
-	anirudh@xilinx.com, Subbaraya Sundeep Bhatta <sbhatta@xilinx.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140912.181605.1878319812562851527.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xemno.com ([178.62.132.54]:60730 "EHLO ns1.google.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752490AbaINIzm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Sep 2014 04:55:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks David,
 
-Sundeep.
 
-On Sat, Sep 13, 2014 at 3:46 AM, David Miller <davem@davemloft.net> wrote:
-> From: Subbaraya Sundeep Bhatta <subbaraya.sundeep.bhatta@xilinx.com>
-> Date: Thu, 11 Sep 2014 14:53:33 +0530
->
->> calling ether_setup is redundant since alloc_etherdev calls
->> it.
->>
->> Signed-off-by: Subbaraya Sundeep Bhatta <sbhatta@xilinx.com>
->
-> Applied.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Jeg skal bruge dine HASTER RESPOND
+
+=A0
+
+=A0=A0=A0=A0=A0=A0=A0=A0=A0 Jeg bruger dette medie til at informere dig=
+ om transaktionen for
+overf=F8rsel p=E5 $ 21500000 (Twenty-en million fem hundrede tusinde do=
+llars)
+i min bank i Kina
+
+til dig som modtager. Det vil v=E6re 100% sikker, er den finansielle of=
+ficer
+af den afd=F8de kunden.
+
+=A0
+
+=A0=A0=A0=A0=A0=A0=A0=A0=A0 Kontakt venligst p=E5 min private e-mail ne=
+denfor for eventuelle
+sp=F8rgsm=E5l og yderligere information.
+
+=A0
+
+=A0=A0=A0=A0=A0=A0=A0=A0=A0 Med venlig hilsen
+
+=A0
+
+=A0=A0=A0=A0=A0=A0=A0=A0=A0 sang Chin
+
+=A0=A0=A0=A0=A0=A0=A0=A0=A0 e-post: chinsang411@gmail.com
