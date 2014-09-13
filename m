@@ -1,33 +1,40 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] net: bpf: correctly handle errors in sk_attach_filter()
-Date: Sat, 13 Sep 2014 11:12:39 +0200
-Message-ID: <54140A87.603@redhat.com>
-References: <1410581190-31922-1-git-send-email-sasha.levin@oracle.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: PTP_PEROUT_REQUEST and clock stepping
+Date: Sat, 13 Sep 2014 11:19:15 +0200
+Message-ID: <20140913091915.GB4581@netboy>
+References: <54107965.6040007@emlix.com>
+ <20140910172619.GB5944@localhost.localdomain>
+ <20140911095245.GA5823@emlix.com>
+ <CABkLOboeo_+37rE84gPTEKnmXD+599fRtnBZSR465y9aZeOdrw@mail.gmail.com>
+ <20140912063310.GA6198@netboy>
+ <5412DBB0.9010008@emlix.com>
+ <20140912144025.GA20712@netboy>
+ <54130F01.3080404@emlix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ast@plumgrid.com, keescook@chromium.org,
-	hannes@stressinduktion.org, spender@grsecurity.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sasha Levin <sasha.levin@oracle.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christian Riesch <christian.riesch@omicron.at>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Daniel =?iso-8859-1?Q?Gl=F6ckner?= <dg@emlix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13124 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751879AbaIMJNG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Sep 2014 05:13:06 -0400
-In-Reply-To: <1410581190-31922-1-git-send-email-sasha.levin@oracle.com>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:48649 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751877AbaIMJTW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 05:19:22 -0400
+Received: by mail-wg0-f48.google.com with SMTP id m15so1712224wgh.19
+        for <netdev@vger.kernel.org>; Sat, 13 Sep 2014 02:19:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <54130F01.3080404@emlix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/13/2014 06:06 AM, Sasha Levin wrote:
-> Commit "net: bpf: make eBPF interpreter images read-only" has changed bpf_prog
-> to be vmalloc()ed but never handled some of the errors paths of the old code.
->
-> On error within sk_attach_filter (which userspace can easily trigger), we'd
-> kfree() the vmalloc()ed memory, and leak the internal bpf_work_struct.
->
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+On Fri, Sep 12, 2014 at 05:19:29PM +0200, Daniel Gl=F6ckner wrote:
+> 0. I'm assuming here that new_time >=3D start
 
-[ This patch is for net-next. ]
+=46eel free to submit a patch, but please be sure to handle the case
+where (new_time < start) as well. In addition, it can happen that
+abs(new_time-start) < X, where X is the time it takes to reprogramm
+the signal.
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+Thanks,
+Richard
