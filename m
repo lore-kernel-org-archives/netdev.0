@@ -1,21 +1,48 @@
-From: "Leticia Lucia de Moura S. Rodrigues" <leticialucia@tjto.jus.br>
-Subject: N/A
-Date: Sat, 13 Sep 2014 01:34:16 -0200
-Message-ID: <20140913033105.M40571@tjto.jus.br>
-Reply-To: contactprivate126@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=utf-8
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.tjto.jus.br ([189.10.44.219]:20897 "EHLO
-	webmail.tjto.jus.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751056AbaIMDnH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 23:43:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH] net: bpf: correctly handle errors in sk_attach_filter()
+Date: Sat, 13 Sep 2014 00:06:30 -0400
+Message-ID: <1410581190-31922-1-git-send-email-sasha.levin@oracle.com>
+Cc: ast@plumgrid.com, keescook@chromium.org,
+	hannes@stressinduktion.org, dborkman@redhat.com,
+	spender@grsecurity.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Commit "net: bpf: make eBPF interpreter images read-only" has changed bpf_prog
+to be vmalloc()ed but never handled some of the errors paths of the old code.
 
+On error within sk_attach_filter (which userspace can easily trigger), we'd
+kfree() the vmalloc()ed memory, and leak the internal bpf_work_struct.
 
-Hello my friend, How are you, did you get my last mail on the proposal ? Am
-still waiting for your response.
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+---
+ net/core/filter.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index dfc716f..09e1c4a 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1074,7 +1074,7 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ 		return -ENOMEM;
+ 
+ 	if (copy_from_user(prog->insns, fprog->filter, fsize)) {
+-		kfree(prog);
++		__bpf_prog_free(prog);
+ 		return -EFAULT;
+ 	}
+ 
+@@ -1082,7 +1082,7 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ 
+ 	err = bpf_prog_store_orig_filter(prog, fprog);
+ 	if (err) {
+-		kfree(prog);
++		__bpf_prog_free(prog);
+ 		return -ENOMEM;
+ 	}
+ 
+-- 
+1.9.1
