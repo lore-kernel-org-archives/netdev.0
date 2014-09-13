@@ -1,34 +1,33 @@
-From: Shakil A Khan <shakilk1729@gmail.com>
-Subject: [PATCH] Freeing dst when the reference count <0 causes general protection fault, it could be a major security flaw as rogue app can modify dst to crash kernel.
-Date: Sat, 13 Sep 2014 01:27:13 -0700
-Message-ID: <1410596833-2548-1-git-send-email-shakilk1729@gmail.com>
-Cc: edumazet@google.com, davem@davemloft.net,
-	Shakil A Khan <shakilk1729@gmail.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] net: bpf: correctly handle errors in sk_attach_filter()
+Date: Sat, 13 Sep 2014 11:12:39 +0200
+Message-ID: <54140A87.603@redhat.com>
+References: <1410581190-31922-1-git-send-email-sasha.levin@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ast@plumgrid.com, keescook@chromium.org,
+	hannes@stressinduktion.org, spender@grsecurity.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:13124 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751879AbaIMJNG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Sep 2014 05:13:06 -0400
+In-Reply-To: <1410581190-31922-1-git-send-email-sasha.levin@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Shakil A Khan <shakilk1729@gmail.com>
----
- net/core/dst.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+On 09/13/2014 06:06 AM, Sasha Levin wrote:
+> Commit "net: bpf: make eBPF interpreter images read-only" has changed bpf_prog
+> to be vmalloc()ed but never handled some of the errors paths of the old code.
+>
+> On error within sk_attach_filter (which userspace can easily trigger), we'd
+> kfree() the vmalloc()ed memory, and leak the internal bpf_work_struct.
+>
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 
-diff --git a/net/core/dst.c b/net/core/dst.c
-index a028409..6a848b0 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -284,7 +284,10 @@ void dst_release(struct dst_entry *dst)
- 		int newrefcnt;
- 
- 		newrefcnt = atomic_dec_return(&dst->__refcnt);
--		WARN_ON(newrefcnt < 0);
-+
-+		if (WARN(newrefcnt < 0, "dst reference count less than zero"))
-+			return;
-+
- 		if (unlikely(dst->flags & DST_NOCACHE) && !newrefcnt)
- 			call_rcu(&dst->rcu_head, dst_destroy_rcu);
- 	}
--- 
-1.9.3
+[ This patch is for net-next. ]
+
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
