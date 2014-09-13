@@ -1,53 +1,234 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] netdevice: Support DSA tagging when DSA is built as a
- module
-Date: Sat, 13 Sep 2014 03:06:02 -0700
-Message-ID: <5414170A.4080907@gmail.com>
-References: <20140913015950.26705.51106.stgit@ahduyck-workstation.home>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH 03/12] net: sched: cls_basic use RCU
+Date: Fri, 12 Sep 2014 20:05:59 -0700
+Message-ID: <20140913030558.6249.60650.stgit@nitbit.x32>
+References: <20140913025925.6249.12537.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, kernel@wantstofly.org
-To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	brouer@redhat.com
+To: xiyou.wangcong@gmail.com, davem@davemloft.net,
+	eric.dumazet@gmail.com, jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:54214 "EHLO
-	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751163AbaIMDGG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 23:06:06 -0400
-Received: by mail-oi0-f47.google.com with SMTP id a141so1107054oig.34
-        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 20:06:05 -0700 (PDT)
-In-Reply-To: <20140913015950.26705.51106.stgit@ahduyck-workstation.home>
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:52078 "EHLO
+	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751163AbaIMDGT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 23:06:19 -0400
+Received: by mail-oi0-f42.google.com with SMTP id e131so1004497oig.1
+        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 20:06:18 -0700 (PDT)
+In-Reply-To: <20140913025925.6249.12537.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 12/09/2014 18:59, Alexander Duyck a =C3=A9crit :
-> This change corrects an error seen when DSA tagging is built as a mod=
-ule.
-> Without this change it is not possible to get XDSA tagged frames as t=
-he
-> test for tagging is stripped by the #ifdef check.
->
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Enable basic classifier for RCU.
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Dereferencing tp->root may look a bit strange here but it is needed
+by my accounting because it is allocated at init time and needs to
+be kfree'd at destroy time. However because it may be referenced in
+the classify() path we must wait an RCU grace period before free'ing
+it. We use kfree_rcu() and rcu_ APIs to enforce this. This pattern
+is used in all the classifiers.
 
-> ---
->   include/linux/netdevice.h |    2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index ba72f6b..c8f3806 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1789,7 +1789,7 @@ void dev_net_set(struct net_device *dev, struct=
- net *net)
->
->   static inline bool netdev_uses_dsa(struct net_device *dev)
->   {
-> -#ifdef CONFIG_NET_DSA
-> +#if IS_ENABLED(CONFIG_NET_DSA)
->   	if (dev->dsa_ptr !=3D NULL)
->   		return dsa_uses_tagged_protocol(dev->dsa_ptr);
->   #endif
->
+Also the hgenerator can be incremented without concern because it
+is always incremented under RTNL.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sched/cls_basic.c |   80 ++++++++++++++++++++++++++++---------------------
+ 1 file changed, 45 insertions(+), 35 deletions(-)
+
+diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+index 0ae1813..1937298 100644
+--- a/net/sched/cls_basic.c
++++ b/net/sched/cls_basic.c
+@@ -24,6 +24,7 @@
+ struct basic_head {
+ 	u32			hgenerator;
+ 	struct list_head	flist;
++	struct rcu_head		rcu;
+ };
+ 
+ struct basic_filter {
+@@ -31,17 +32,19 @@ struct basic_filter {
+ 	struct tcf_exts		exts;
+ 	struct tcf_ematch_tree	ematches;
+ 	struct tcf_result	res;
++	struct tcf_proto	*tp;
+ 	struct list_head	link;
++	struct rcu_head		rcu;
+ };
+ 
+ static int basic_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 			  struct tcf_result *res)
+ {
+ 	int r;
+-	struct basic_head *head = tp->root;
++	struct basic_head *head = rcu_dereference_bh(tp->root);
+ 	struct basic_filter *f;
+ 
+-	list_for_each_entry(f, &head->flist, link) {
++	list_for_each_entry_rcu(f, &head->flist, link) {
+ 		if (!tcf_em_tree_match(skb, &f->ematches, NULL))
+ 			continue;
+ 		*res = f->res;
+@@ -56,7 +59,7 @@ static int basic_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ static unsigned long basic_get(struct tcf_proto *tp, u32 handle)
+ {
+ 	unsigned long l = 0UL;
+-	struct basic_head *head = tp->root;
++	struct basic_head *head = rtnl_dereference(tp->root);
+ 	struct basic_filter *f;
+ 
+ 	if (head == NULL)
+@@ -81,12 +84,15 @@ static int basic_init(struct tcf_proto *tp)
+ 	if (head == NULL)
+ 		return -ENOBUFS;
+ 	INIT_LIST_HEAD(&head->flist);
+-	tp->root = head;
++	rcu_assign_pointer(tp->root, head);
+ 	return 0;
+ }
+ 
+-static void basic_delete_filter(struct tcf_proto *tp, struct basic_filter *f)
++static void basic_delete_filter(struct rcu_head *head)
+ {
++	struct basic_filter *f = container_of(head, struct basic_filter, rcu);
++	struct tcf_proto *tp = f->tp;
++
+ 	tcf_unbind_filter(tp, &f->res);
+ 	tcf_exts_destroy(tp, &f->exts);
+ 	tcf_em_tree_destroy(tp, &f->ematches);
+@@ -95,27 +101,26 @@ static void basic_delete_filter(struct tcf_proto *tp, struct basic_filter *f)
+ 
+ static void basic_destroy(struct tcf_proto *tp)
+ {
+-	struct basic_head *head = tp->root;
++	struct basic_head *head = rtnl_dereference(tp->root);
+ 	struct basic_filter *f, *n;
+ 
+ 	list_for_each_entry_safe(f, n, &head->flist, link) {
+-		list_del(&f->link);
+-		basic_delete_filter(tp, f);
++		list_del_rcu(&f->link);
++		call_rcu(&f->rcu, basic_delete_filter);
+ 	}
+-	kfree(head);
++	RCU_INIT_POINTER(tp->root, NULL);
++	kfree_rcu(head, rcu);
+ }
+ 
+ static int basic_delete(struct tcf_proto *tp, unsigned long arg)
+ {
+-	struct basic_head *head = tp->root;
++	struct basic_head *head = rtnl_dereference(tp->root);
+ 	struct basic_filter *t, *f = (struct basic_filter *) arg;
+ 
+ 	list_for_each_entry(t, &head->flist, link)
+ 		if (t == f) {
+-			tcf_tree_lock(tp);
+-			list_del(&t->link);
+-			tcf_tree_unlock(tp);
+-			basic_delete_filter(tp, t);
++			list_del_rcu(&t->link);
++			call_rcu(&t->rcu, basic_delete_filter);
+ 			return 0;
+ 		}
+ 
+@@ -152,6 +157,7 @@ static int basic_set_parms(struct net *net, struct tcf_proto *tp,
+ 
+ 	tcf_exts_change(tp, &f->exts, &e);
+ 	tcf_em_tree_change(tp, &f->ematches, &t);
++	f->tp = tp;
+ 
+ 	return 0;
+ errout:
+@@ -164,9 +170,10 @@ static int basic_change(struct net *net, struct sk_buff *in_skb,
+ 			struct nlattr **tca, unsigned long *arg, bool ovr)
+ {
+ 	int err;
+-	struct basic_head *head = tp->root;
++	struct basic_head *head = rtnl_dereference(tp->root);
+ 	struct nlattr *tb[TCA_BASIC_MAX + 1];
+-	struct basic_filter *f = (struct basic_filter *) *arg;
++	struct basic_filter *fold = (struct basic_filter *) *arg;
++	struct basic_filter *fnew;
+ 
+ 	if (tca[TCA_OPTIONS] == NULL)
+ 		return -EINVAL;
+@@ -176,22 +183,23 @@ static int basic_change(struct net *net, struct sk_buff *in_skb,
+ 	if (err < 0)
+ 		return err;
+ 
+-	if (f != NULL) {
+-		if (handle && f->handle != handle)
++	if (fold != NULL) {
++		if (handle && fold->handle != handle)
+ 			return -EINVAL;
+-		return basic_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
+ 	}
+ 
+ 	err = -ENOBUFS;
+-	f = kzalloc(sizeof(*f), GFP_KERNEL);
+-	if (f == NULL)
++	fnew = kzalloc(sizeof(*fnew), GFP_KERNEL);
++	if (fnew == NULL)
+ 		goto errout;
+ 
+-	tcf_exts_init(&f->exts, TCA_BASIC_ACT, TCA_BASIC_POLICE);
++	tcf_exts_init(&fnew->exts, TCA_BASIC_ACT, TCA_BASIC_POLICE);
+ 	err = -EINVAL;
+-	if (handle)
+-		f->handle = handle;
+-	else {
++	if (handle) {
++		fnew->handle = handle;
++	} else if (fold) {
++		fnew->handle = fold->handle;
++	} else {
+ 		unsigned int i = 0x80000000;
+ 		do {
+ 			if (++head->hgenerator == 0x7FFFFFFF)
+@@ -203,29 +211,31 @@ static int basic_change(struct net *net, struct sk_buff *in_skb,
+ 			goto errout;
+ 		}
+ 
+-		f->handle = head->hgenerator;
++		fnew->handle = head->hgenerator;
+ 	}
+ 
+-	err = basic_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
++	err = basic_set_parms(net, tp, fnew, base, tb, tca[TCA_RATE], ovr);
+ 	if (err < 0)
+ 		goto errout;
+ 
+-	tcf_tree_lock(tp);
+-	list_add(&f->link, &head->flist);
+-	tcf_tree_unlock(tp);
+-	*arg = (unsigned long) f;
++	*arg = (unsigned long)fnew;
++
++	if (fold) {
++		list_replace_rcu(&fold->link, &fnew->link);
++		call_rcu(&fold->rcu, basic_delete_filter);
++	} else {
++		list_add_rcu(&fnew->link, &head->flist);
++	}
+ 
+ 	return 0;
+ errout:
+-	if (*arg == 0UL && f)
+-		kfree(f);
+-
++	kfree(fnew);
+ 	return err;
+ }
+ 
+ static void basic_walk(struct tcf_proto *tp, struct tcf_walker *arg)
+ {
+-	struct basic_head *head = tp->root;
++	struct basic_head *head = rtnl_dereference(tp->root);
+ 	struct basic_filter *f;
+ 
+ 	list_for_each_entry(f, &head->flist, link) {
