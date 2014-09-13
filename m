@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] virtio_net: pass well-formed sgs to
- virtqueue_add_*()
-Date: Sat, 13 Sep 2014 12:53:41 -0400 (EDT)
-Message-ID: <20140913.125341.1440485569100220563.davem@davemloft.net>
-References: <1410396458-1165-2-git-send-email-rusty@rustcorp.com.au>
-	<20140912.175440.1013837932148725302.davem@davemloft.net>
-	<87ioksgjt8.fsf@rustcorp.com.au>
+Subject: Re: [net PATCH 1/1] drivers: net: cpsw: dual_emac: in
+ suspend/resume bring down/up all the netdev
+Date: Sat, 13 Sep 2014 13:01:08 -0400 (EDT)
+Message-ID: <20140913.130108.918693454766007342.davem@davemloft.net>
+References: <1410456158-6215-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mst@redhat.com
-To: rusty@rustcorp.com.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87ioksgjt8.fsf@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: mugunthanvnm@ti.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36580 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751733AbaIMRBK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 13:01:10 -0400
+In-Reply-To: <1410456158-6215-1-git-send-email-mugunthanvnm@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Sat, 13 Sep 2014 15:10:03 +0930
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Thu, 11 Sep 2014 22:52:38 +0530
 
-> David Miller <davem@davemloft.net> writes:
->> Do you guys want me to take this series directly into net-next?
+> During suspend and resume in Dual EMAC, second port is not working as in
+> suspend/resume only the first slave netdev is closed and opened. So bring
+> down and up all the interfaces that are up during suspend/resume.
 > 
-> Actually, yes.  Since I'm going to be travelling, that makes it much
-> easier for me.  And no other patches I have depend on it.
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Tested-by: Nishanth Menon <nm@ti.com>
 
-Series applied, but can you be more careful when you hand edit patches
-or whatever you are doing that puts space characters at the beginning
-of lines before TAB characters?
-
-GIT flags this immediately, so even if you are hella lazy just feeding
-your patches into "git am" will show this.
-
-Thanks.
+Applied, thanks.
