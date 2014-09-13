@@ -1,318 +1,245 @@
 From: Andy Zhou <azhou@nicira.com>
-Subject: [net-next v6 1/4] udp_tunnel: Seperate ipv6 functions into its own file.
-Date: Fri, 12 Sep 2014 19:21:57 -0700
-Message-ID: <1410574920-16486-2-git-send-email-azhou@nicira.com>
+Subject: [net-next v6 3/4] vxlan: Refactor vxlan driver to make use of the common UDP tunnel functions.
+Date: Fri, 12 Sep 2014 19:21:59 -0700
+Message-ID: <1410574920-16486-4-git-send-email-azhou@nicira.com>
 References: <1410574920-16486-1-git-send-email-azhou@nicira.com>
 Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:60682 "HELO
-	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751889AbaIMC1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 22:27:31 -0400
-Received: by mail-pa0-f54.google.com with SMTP id lj1so2541812pab.27
-        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 19:27:31 -0700 (PDT)
+Received: from na3sys009aog138.obsmtp.com ([74.125.149.19]:40265 "HELO
+	na3sys009aog138.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752195AbaIMC1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 22:27:36 -0400
+Received: by mail-pd0-f179.google.com with SMTP id g10so2443756pdj.10
+        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 19:27:35 -0700 (PDT)
 In-Reply-To: <1410574920-16486-1-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add ip6_udp_tunnel.c for ipv6 UDP tunnel functions to avoid ifdefs
-in udp_tunnel.c
-
 Signed-off-by: Andy Zhou <azhou@nicira.com>
 ---
- include/net/udp_tunnel.h  |   28 +++++++++-
- net/ipv4/udp_tunnel.c     |  136 ++++++++++++++++++++++++---------------------
- net/ipv6/Makefile         |    1 +
- net/ipv6/ip6_udp_tunnel.c |   63 +++++++++++++++++++++
- 4 files changed, 162 insertions(+), 66 deletions(-)
- create mode 100644 net/ipv6/ip6_udp_tunnel.c
+ drivers/net/vxlan.c |  106 +++++++++++----------------------------------------
+ 1 file changed, 23 insertions(+), 83 deletions(-)
 
-diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
-index ffd69cb..0b9e017 100644
---- a/include/net/udp_tunnel.h
-+++ b/include/net/udp_tunnel.h
-@@ -26,7 +26,31 @@ struct udp_port_cfg {
- 				use_udp6_rx_checksums:1;
- };
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 53c3ec1..bb56103 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -42,6 +42,7 @@
+ #include <net/netns/generic.h>
+ #include <net/vxlan.h>
+ #include <net/protocol.h>
++#include <net/udp_tunnel.h>
+ #if IS_ENABLED(CONFIG_IPV6)
+ #include <net/ipv6.h>
+ #include <net/addrconf.h>
+@@ -1062,7 +1063,6 @@ void vxlan_sock_release(struct vxlan_sock *vs)
  
--int udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
--		    struct socket **sockp);
-+int udp_sock_create4(struct net *net, struct udp_port_cfg *cfg,
-+		     struct socket **sockp);
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
-+		     struct socket **sockp);
-+#else
-+static inline int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
-+				   struct socket **sockp)
-+{
-+	return 0;
-+}
-+#endif
-+
-+static inline int udp_sock_create(struct net *net,
-+				  struct udp_port_cfg *cfg,
-+				  struct socket **sockp)
-+{
-+	if (cfg->family == AF_INET)
-+		return udp_sock_create4(net, cfg, sockp);
-+
-+	if (cfg->family == AF_INET6)
-+		return udp_sock_create6(net, cfg, sockp);
-+
-+	return -EPFNOSUPPORT;
-+}
+ 	spin_lock(&vn->sock_lock);
+ 	hlist_del_rcu(&vs->hlist);
+-	rcu_assign_sk_user_data(vs->sock->sk, NULL);
+ 	vxlan_notify_del_rx_port(vs);
+ 	spin_unlock(&vn->sock_lock);
  
- #endif
-diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
-index 61ec1a6..93ef133 100644
---- a/net/ipv4/udp_tunnel.c
-+++ b/net/ipv4/udp_tunnel.c
-@@ -8,83 +8,40 @@
- #include <net/udp_tunnel.h>
- #include <net/net_namespace.h>
+@@ -1336,7 +1336,6 @@ out:
+ }
  
--int udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
--		    struct socket **sockp)
-+int udp_sock_create4(struct net *net, struct udp_port_cfg *cfg,
-+		     struct socket **sockp)
+ #if IS_ENABLED(CONFIG_IPV6)
+-
+ static struct sk_buff *vxlan_na_create(struct sk_buff *request,
+ 	struct neighbour *n, bool isrouter)
  {
- 	int err = -EINVAL;
- 	struct socket *sock = NULL;
-+	struct sockaddr_in udp_addr;
+@@ -1570,13 +1569,6 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
+ 	return false;
+ }
  
--#if IS_ENABLED(CONFIG_IPV6)
--	if (cfg->family == AF_INET6) {
--		struct sockaddr_in6 udp6_addr;
-+	err = sock_create_kern(AF_INET, SOCK_DGRAM, 0, &sock);
-+	if (err < 0)
-+		goto error;
+-static inline struct sk_buff *vxlan_handle_offloads(struct sk_buff *skb,
+-						    bool udp_csum)
+-{
+-	int type = udp_csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
+-	return iptunnel_handle_offloads(skb, udp_csum, type);
+-}
+-
+ #if IS_ENABLED(CONFIG_IPV6)
+ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
+ 			   struct dst_entry *dst, struct sk_buff *skb,
+@@ -1585,13 +1577,12 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
+ 			   __be16 src_port, __be16 dst_port, __be32 vni,
+ 			   bool xnet)
+ {
+-	struct ipv6hdr *ip6h;
+ 	struct vxlanhdr *vxh;
+-	struct udphdr *uh;
+ 	int min_headroom;
+ 	int err;
++	bool udp_sum = !udp_get_no_check6_tx(vs->sock->sk);
  
--		err = sock_create_kern(AF_INET6, SOCK_DGRAM, 0, &sock);
--		if (err < 0)
--			goto error;
--
--		sk_change_net(sock->sk, net);
--
--		udp6_addr.sin6_family = AF_INET6;
--		memcpy(&udp6_addr.sin6_addr, &cfg->local_ip6,
--		       sizeof(udp6_addr.sin6_addr));
--		udp6_addr.sin6_port = cfg->local_udp_port;
--		err = kernel_bind(sock, (struct sockaddr *)&udp6_addr,
--				  sizeof(udp6_addr));
--		if (err < 0)
--			goto error;
--
--		if (cfg->peer_udp_port) {
--			udp6_addr.sin6_family = AF_INET6;
--			memcpy(&udp6_addr.sin6_addr, &cfg->peer_ip6,
--			       sizeof(udp6_addr.sin6_addr));
--			udp6_addr.sin6_port = cfg->peer_udp_port;
--			err = kernel_connect(sock,
--					     (struct sockaddr *)&udp6_addr,
--					     sizeof(udp6_addr), 0);
--		}
--		if (err < 0)
--			goto error;
-+	sk_change_net(sock->sk, net);
+-	skb = vxlan_handle_offloads(skb, !udp_get_no_check6_tx(vs->sock->sk));
++	skb = udp_tunnel_handle_offloads(skb, udp_sum);
+ 	if (IS_ERR(skb))
+ 		return -EINVAL;
  
--		udp_set_no_check6_tx(sock->sk, !cfg->use_udp6_tx_checksums);
--		udp_set_no_check6_rx(sock->sk, !cfg->use_udp6_rx_checksums);
--	} else
--#endif
--	if (cfg->family == AF_INET) {
--		struct sockaddr_in udp_addr;
--
--		err = sock_create_kern(AF_INET, SOCK_DGRAM, 0, &sock);
--		if (err < 0)
--			goto error;
--
--		sk_change_net(sock->sk, net);
-+	udp_addr.sin_family = AF_INET;
-+	udp_addr.sin_addr = cfg->local_ip;
-+	udp_addr.sin_port = cfg->local_udp_port;
-+	err = kernel_bind(sock, (struct sockaddr *)&udp_addr,
-+			  sizeof(udp_addr));
-+	if (err < 0)
-+		goto error;
+@@ -1619,38 +1610,8 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
+ 	vxh->vx_flags = htonl(VXLAN_FLAGS);
+ 	vxh->vx_vni = vni;
  
-+	if (cfg->peer_udp_port) {
- 		udp_addr.sin_family = AF_INET;
--		udp_addr.sin_addr = cfg->local_ip;
--		udp_addr.sin_port = cfg->local_udp_port;
--		err = kernel_bind(sock, (struct sockaddr *)&udp_addr,
--				  sizeof(udp_addr));
-+		udp_addr.sin_addr = cfg->peer_ip;
-+		udp_addr.sin_port = cfg->peer_udp_port;
-+		err = kernel_connect(sock, (struct sockaddr *)&udp_addr,
-+				     sizeof(udp_addr), 0);
+-	__skb_push(skb, sizeof(*uh));
+-	skb_reset_transport_header(skb);
+-	uh = udp_hdr(skb);
+-
+-	uh->dest = dst_port;
+-	uh->source = src_port;
+-
+-	uh->len = htons(skb->len);
+-
+-	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+-	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
+-			      IPSKB_REROUTED);
+-	skb_dst_set(skb, dst);
+-
+-	udp6_set_csum(udp_get_no_check6_tx(vs->sock->sk), skb,
+-		      saddr, daddr, skb->len);
+-
+-	__skb_push(skb, sizeof(*ip6h));
+-	skb_reset_network_header(skb);
+-	ip6h		  = ipv6_hdr(skb);
+-	ip6h->version	  = 6;
+-	ip6h->priority	  = prio;
+-	ip6h->flow_lbl[0] = 0;
+-	ip6h->flow_lbl[1] = 0;
+-	ip6h->flow_lbl[2] = 0;
+-	ip6h->payload_len = htons(skb->len);
+-	ip6h->nexthdr     = IPPROTO_UDP;
+-	ip6h->hop_limit   = ttl;
+-	ip6h->daddr	  = *daddr;
+-	ip6h->saddr	  = *saddr;
+-
+-	ip6tunnel_xmit(skb, dev);
++	udp_tunnel6_xmit_skb(vs->sock, dst, skb, dev, saddr, daddr, prio,
++			     ttl, src_port, dst_port);
+ 	return 0;
+ }
+ #endif
+@@ -1661,11 +1622,11 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+ 		   __be16 src_port, __be16 dst_port, __be32 vni, bool xnet)
+ {
+ 	struct vxlanhdr *vxh;
+-	struct udphdr *uh;
+ 	int min_headroom;
+ 	int err;
++	bool udp_sum = !vs->sock->sk->sk_no_check_tx;
+ 
+-	skb = vxlan_handle_offloads(skb, !vs->sock->sk->sk_no_check_tx);
++	skb = udp_tunnel_handle_offloads(skb, udp_sum);
+ 	if (IS_ERR(skb))
+ 		return -EINVAL;
+ 
+@@ -1691,20 +1652,8 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+ 	vxh->vx_flags = htonl(VXLAN_FLAGS);
+ 	vxh->vx_vni = vni;
+ 
+-	__skb_push(skb, sizeof(*uh));
+-	skb_reset_transport_header(skb);
+-	uh = udp_hdr(skb);
+-
+-	uh->dest = dst_port;
+-	uh->source = src_port;
+-
+-	uh->len = htons(skb->len);
+-
+-	udp_set_csum(vs->sock->sk->sk_no_check_tx, skb,
+-		     src, dst, skb->len);
+-
+-	return iptunnel_xmit(vs->sock->sk, rt, skb, src, dst, IPPROTO_UDP,
+-			     tos, ttl, df, xnet);
++	return udp_tunnel_xmit_skb(vs->sock, rt, skb, src, dst, tos,
++				   ttl, df, src_port, dst_port, xnet);
+ }
+ EXPORT_SYMBOL_GPL(vxlan_xmit_skb);
+ 
+@@ -1829,11 +1778,11 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 		tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
+ 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
+ 
+-		err = vxlan_xmit_skb(vxlan->vn_sock, rt, skb,
+-				     fl4.saddr, dst->sin.sin_addr.s_addr,
+-				     tos, ttl, df, src_port, dst_port,
+-				     htonl(vni << 8),
+-				     !net_eq(vxlan->net, dev_net(vxlan->dev)));
++		err = udp_tunnel_xmit_skb(vxlan->vn_sock->sock, rt, skb,
++					  fl4.saddr, dst->sin.sin_addr.s_addr,
++					  tos, ttl, df, src_port, dst_port,
++					  !net_eq(vxlan->net,
++						  dev_net(vxlan->dev)));
+ 
  		if (err < 0)
- 			goto error;
+ 			goto rt_tx_error;
+@@ -2333,8 +2282,7 @@ static const struct ethtool_ops vxlan_ethtool_ops = {
+ static void vxlan_del_work(struct work_struct *work)
+ {
+ 	struct vxlan_sock *vs = container_of(work, struct vxlan_sock, del_work);
 -
--		if (cfg->peer_udp_port) {
--			udp_addr.sin_family = AF_INET;
--			udp_addr.sin_addr = cfg->peer_ip;
--			udp_addr.sin_port = cfg->peer_udp_port;
--			err = kernel_connect(sock,
--					     (struct sockaddr *)&udp_addr,
--					     sizeof(udp_addr), 0);
--			if (err < 0)
--				goto error;
--		}
+-	sk_release_kernel(vs->sock->sk);
++	udp_tunnel_sock_release(vs->sock);
+ 	kfree_rcu(vs, rcu);
+ }
+ 
+@@ -2367,11 +2315,6 @@ static struct socket *vxlan_create_sock(struct net *net, bool ipv6,
+ 	if (err < 0)
+ 		return ERR_PTR(err);
+ 
+-	/* Disable multicast loopback */
+-	inet_sk(sock->sk)->mc_loop = 0;
 -
--		sock->sk->sk_no_check_tx = !cfg->use_udp_checksums;
--	} else {
--		return -EPFNOSUPPORT;
+-	udp_set_convert_csum(sock->sk, true);
+-
+ 	return sock;
+ }
+ 
+@@ -2383,9 +2326,9 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
+ 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+ 	struct vxlan_sock *vs;
+ 	struct socket *sock;
+-	struct sock *sk;
+ 	unsigned int h;
+ 	bool ipv6 = !!(flags & VXLAN_F_IPV6);
++	struct udp_tunnel_sock_cfg tunnel_cfg;
+ 
+ 	vs = kzalloc(sizeof(*vs), GFP_KERNEL);
+ 	if (!vs)
+@@ -2403,11 +2346,9 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
  	}
  
-+	sock->sk->sk_no_check_tx = !cfg->use_udp_checksums;
+ 	vs->sock = sock;
+-	sk = sock->sk;
+ 	atomic_set(&vs->refcnt, 1);
+ 	vs->rcv = rcv;
+ 	vs->data = data;
+-	rcu_assign_sk_user_data(vs->sock->sk, vs);
  
- 	*sockp = sock;
--
- 	return 0;
+ 	/* Initialize the vxlan udp offloads structure */
+ 	vs->udp_offloads.port = port;
+@@ -2420,14 +2361,13 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
+ 	spin_unlock(&vn->sock_lock);
  
- error:
-@@ -95,6 +52,57 @@ error:
- 	*sockp = NULL;
- 	return err;
+ 	/* Mark socket as an encapsulation socket. */
+-	udp_sk(sk)->encap_type = 1;
+-	udp_sk(sk)->encap_rcv = vxlan_udp_encap_recv;
+-#if IS_ENABLED(CONFIG_IPV6)
+-	if (ipv6)
+-		ipv6_stub->udpv6_encap_enable();
+-	else
+-#endif
+-		udp_encap_enable();
++	tunnel_cfg.sock = sock;
++	tunnel_cfg.sk_user_data = vs;
++	tunnel_cfg.encap_type = 1;
++	tunnel_cfg.encap_rcv = vxlan_udp_encap_recv;
++	tunnel_cfg.encap_destroy = NULL;
++
++	setup_udp_tunnel_sock(net, &tunnel_cfg);
+ 
+ 	return vs;
  }
--EXPORT_SYMBOL(udp_sock_create);
-+EXPORT_SYMBOL(udp_sock_create4);
-+
-+void setup_udp_tunnel_sock(struct net *net, struct udp_tunnel_sock_cfg *cfg)
-+{
-+	struct socket *sock = cfg->sock;
-+	struct sock *sk = sock->sk;
-+
-+	/* Disable multicast loopback */
-+	inet_sk(sk)->mc_loop = 0;
-+
-+	/* Enable CHECKSUM_UNNECESSAY to CHECSUM_COMPLETE conversion */
-+	udp_set_convert_csum(sk, true);
-+
-+	rcu_assign_sk_user_data(sk, cfg->sk_user_data);
-+
-+	udp_sk(sk)->encap_type = cfg->encap_type;
-+	udp_sk(sk)->encap_rcv = cfg->encap_rcv;
-+	udp_sk(sk)->encap_destroy = cfg->encap_destroy;
-+
-+	udp_tunnel_encap_enable(sock);
-+}
-+EXPORT_SYMBOL_GPL(setup_udp_tunnel_sock);
-+
-+int udp_tunnel_xmit_skb(struct socket *sock, struct rtable *rt,
-+			struct sk_buff *skb, __be32 src, __be32 dst,
-+			__u8 tos, __u8 ttl, __be16 df, __be16 src_port,
-+			__be16 dst_port, bool xnet)
-+{
-+	struct udphdr *uh;
-+
-+	__skb_push(skb, sizeof(*uh));
-+	skb_reset_transport_header(skb);
-+	uh = udp_hdr(skb);
-+
-+	uh->dest = dst_port;
-+	uh->source = src_port;
-+	uh->len = htons(skb->len);
-+
-+	udp_set_csum(sock->sk->sk_no_check_tx, skb, src, dst, skb->len);
-+
-+	return iptunnel_xmit(sock->sk, rt, skb, src, dst, IPPROTO_UDP,
-+			     tos, ttl, df, xnet);
-+}
-+EXPORT_SYMBOL_GPL(udp_tunnel_xmit_skb);
-+
-+void udp_tunnel_sock_release(struct socket *sock)
-+{
-+	rcu_assign_sk_user_data(sock->sk, NULL);
-+	kernel_sock_shutdown(sock, SHUT_RDWR);
-+	sk_release_kernel(sock->sk);
-+}
-+EXPORT_SYMBOL_GPL(udp_tunnel_sock_release);
- 
- MODULE_LICENSE("GPL");
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 2fe6836..45f830e 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -35,6 +35,7 @@ obj-$(CONFIG_INET6_XFRM_MODE_ROUTEOPTIMIZATION) += xfrm6_mode_ro.o
- obj-$(CONFIG_INET6_XFRM_MODE_BEET) += xfrm6_mode_beet.o
- obj-$(CONFIG_IPV6_MIP6) += mip6.o
- obj-$(CONFIG_NETFILTER)	+= netfilter/
-+obj-$(CONFIG_NET_UDP_TUNNEL) += ip6_udp_tunnel.o
- 
- obj-$(CONFIG_IPV6_VTI) += ip6_vti.o
- obj-$(CONFIG_IPV6_SIT) += sit.o
-diff --git a/net/ipv6/ip6_udp_tunnel.c b/net/ipv6/ip6_udp_tunnel.c
-new file mode 100644
-index 0000000..bcfbb4b
---- /dev/null
-+++ b/net/ipv6/ip6_udp_tunnel.c
-@@ -0,0 +1,63 @@
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/socket.h>
-+#include <linux/udp.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/in6.h>
-+#include <net/udp.h>
-+#include <net/udp_tunnel.h>
-+#include <net/net_namespace.h>
-+#include <net/netns/generic.h>
-+#include <net/ip6_tunnel.h>
-+#include <net/ip6_checksum.h>
-+
-+int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
-+		     struct socket **sockp)
-+{
-+	struct sockaddr_in6 udp6_addr;
-+	int err;
-+	struct socket *sock = NULL;
-+
-+	err = sock_create_kern(AF_INET6, SOCK_DGRAM, 0, &sock);
-+	if (err < 0)
-+		goto error;
-+
-+	sk_change_net(sock->sk, net);
-+
-+	udp6_addr.sin6_family = AF_INET6;
-+	memcpy(&udp6_addr.sin6_addr, &cfg->local_ip6,
-+	       sizeof(udp6_addr.sin6_addr));
-+	udp6_addr.sin6_port = cfg->local_udp_port;
-+	err = kernel_bind(sock, (struct sockaddr *)&udp6_addr,
-+			  sizeof(udp6_addr));
-+	if (err < 0)
-+		goto error;
-+
-+	if (cfg->peer_udp_port) {
-+		udp6_addr.sin6_family = AF_INET6;
-+		memcpy(&udp6_addr.sin6_addr, &cfg->peer_ip6,
-+		       sizeof(udp6_addr.sin6_addr));
-+		udp6_addr.sin6_port = cfg->peer_udp_port;
-+		err = kernel_connect(sock,
-+				     (struct sockaddr *)&udp6_addr,
-+				     sizeof(udp6_addr), 0);
-+	}
-+	if (err < 0)
-+		goto error;
-+
-+	udp_set_no_check6_tx(sock->sk, !cfg->use_udp6_tx_checksums);
-+	udp_set_no_check6_rx(sock->sk, !cfg->use_udp6_rx_checksums);
-+
-+	*sockp = sock;
-+	return 0;
-+
-+error:
-+	if (sock) {
-+		kernel_sock_shutdown(sock, SHUT_RDWR);
-+		sk_release_kernel(sock->sk);
-+	}
-+	*sockp = NULL;
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(udp_sock_create6);
 -- 
 1.7.9.5
