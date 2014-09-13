@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] netdevice: Support DSA tagging when DSA is built as
- a module
-Date: Sat, 13 Sep 2014 17:37:27 -0400 (EDT)
-Message-ID: <20140913.173727.1154743873985384844.davem@davemloft.net>
-References: <20140913061142.28675.38168.stgit@ahduyck-workstation.home>
+Subject: Re: [PATCH] net: bpf: correctly handle errors in sk_attach_filter()
+Date: Sat, 13 Sep 2014 17:38:05 -0400 (EDT)
+Message-ID: <20140913.173805.566607253438396851.davem@davemloft.net>
+References: <1410581190-31922-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com, kernel@wantstofly.org
-To: alexander.duyck@gmail.com
+Cc: ast@plumgrid.com, keescook@chromium.org,
+	hannes@stressinduktion.org, dborkman@redhat.com,
+	spender@grsecurity.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: sasha.levin@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38370 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38390 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752087AbaIMVh3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 17:37:29 -0400
-In-Reply-To: <20140913061142.28675.38168.stgit@ahduyck-workstation.home>
+	with ESMTP id S1752249AbaIMViI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 17:38:08 -0400
+In-Reply-To: <1410581190-31922-1-git-send-email-sasha.levin@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: alexander.duyck@gmail.com
-Date: Fri, 12 Sep 2014 23:12:46 -0700
+From: Sasha Levin <sasha.levin@oracle.com>
+Date: Sat, 13 Sep 2014 00:06:30 -0400
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> Commit "net: bpf: make eBPF interpreter images read-only" has changed bpf_prog
+> to be vmalloc()ed but never handled some of the errors paths of the old code.
 > 
-> This change corrects an error seen when DSA tagging is built as a module.
-> Without this change it is not possible to get XDSA tagged frames as the
-> test for tagging is stripped by the #ifdef check.
+> On error within sk_attach_filter (which userspace can easily trigger), we'd
+> kfree() the vmalloc()ed memory, and leak the internal bpf_work_struct.
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
-> 
-> v2: Just working out some kinks in my stgit config so that this patch is
->     attributed to my intel.com address instead of my gmail.com address.
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 
-Applied, thanks.
+Applied.
