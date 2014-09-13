@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: What is "Awaiting Upstream" ?
-Date: Sat, 13 Sep 2014 15:33:19 -0400 (EDT)
-Message-ID: <20140913.153319.2070458565920303316.davem@davemloft.net>
-References: <CAMw6YJJDvyq4zdjvpOYF=MnT++iJteN2-sd_OXMxEvghREQFWA@mail.gmail.com>
+Subject: Re: [PATCH] netdev: octeon_mgmt: ISO C90 forbids mixed
+ declarations and code
+Date: Sat, 13 Sep 2014 16:03:02 -0400 (EDT)
+Message-ID: <20140913.160302.698126980021738731.davem@davemloft.net>
+References: <1410635108-3589-1-git-send-email-xypron.glpk@gmx.de>
+	<1410635472.917.1.camel@joe-AO725>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vadim4j@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37473 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752078AbaIMTdV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 15:33:21 -0400
-In-Reply-To: <CAMw6YJJDvyq4zdjvpOYF=MnT++iJteN2-sd_OXMxEvghREQFWA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xypron.glpk@gmx.de, david.daney@cavium.com, luka@openwrt.org,
+	willemb@google.com, rmk+kernel@arm.linux.org.uk,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1410635472.917.1.camel@joe-AO725>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vadim Kochan <vadim4j@gmail.com>
-Date: Sat, 13 Sep 2014 21:27:57 +0300
+From: Joe Perches <joe@perches.com>
+Date: Sat, 13 Sep 2014 12:11:12 -0700
 
-> Sorry for the noise, I tried to google but did not find the answer:
+> On Sat, 2014-09-13 at 21:05 +0200, Heinrich Schuchardt wrote:
+>> Compiling with OCTEON_MGMT_ETHERNET gives a warning
+>> drivers/net/ethernet/octeon/octeon_mgmt.c:295:4:
+>> warning: ISO C90 forbids mixed declarations and code
+>> [-Wdeclaration-after-statement]
 > 
->    Could someone explain what does it mean "Awaiting Upstream" status
->    for the sent patch in the patchwork system ?
+> Maybe better to move the memset after the declaration.
 
-It means that the patch isn't going directly into my tree, and should
-be picked up by the maintainer of the subsystem that handles such
-cases.
-
-This is what happens for nearly all wireless, netfilter, and IPSEC
-changes.
-
-Because all of those subsystems have their own top-level maintainers
-from which I pull from.
+Totally agree, keep the variable in the innermost scope
+in which it is used.
