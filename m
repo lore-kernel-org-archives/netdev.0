@@ -1,48 +1,38 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] netdev: octeon_mgmt: ISO C90 forbids mixed declarations
- and code
-Date: Sat, 13 Sep 2014 12:11:12 -0700
-Message-ID: <1410635472.917.1.camel@joe-AO725>
-References: <1410635108-3589-1-git-send-email-xypron.glpk@gmx.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Freeing dst when the reference count <0 causes general
+ protection fault, it could be a major security flaw as rogue app can
+ modify dst to crash kernel.
+Date: Sat, 13 Sep 2014 15:32:14 -0400 (EDT)
+Message-ID: <20140913.153214.322363335285385219.davem@davemloft.net>
+References: <1410596833-2548-1-git-send-email-shakilk1729@gmail.com>
+	<1410609022.7106.132.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAGiEYNd7HEURq0vSh+MgmzG-jyWLF_8UcnbO7EeNMS_vznyX6g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Daney <david.daney@cavium.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Luka Perkov <luka@openwrt.org>,
-	Willem de Bruijn <willemb@google.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, edumazet@google.com
+To: shakilk1729@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1410635108-3589-1-git-send-email-xypron.glpk@gmx.de>
+In-Reply-To: <CAGiEYNd7HEURq0vSh+MgmzG-jyWLF_8UcnbO7EeNMS_vznyX6g@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2014-09-13 at 21:05 +0200, Heinrich Schuchardt wrote:
-> Compiling with OCTEON_MGMT_ETHERNET gives a warning
-> drivers/net/ethernet/octeon/octeon_mgmt.c:295:4:
-> warning: ISO C90 forbids mixed declarations and code
-> [-Wdeclaration-after-statement]
+From: Shakil k <shakilk1729@gmail.com>
+Date: Sat, 13 Sep 2014 10:46:39 -0700
 
-Maybe better to move the memset after the declaration.
+> On Sat, Sep 13, 2014 at 4:50 AM, Eric Dumazet <eric.dumazet@gmail.com>
+> wrote:
+> 
+>> Can you describe how this could trigger with a pristine kernel ?
+>> This can be reproduced with our custom network traffic to simulate malware.
+>>
+> Point is the user can modify certain packets and can cause a kernel crash
+> causing blackout to all the linux boxes hosting services :(
 
-> diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
-[]
-> @@ -254,6 +254,7 @@ static void octeon_mgmt_clean_tx_buffers(struct octeon_mgmt *p)
->  	struct sk_buff *skb;
->  	int cleaned = 0;
->  	unsigned long flags;
-> +	u64 ns;
->  
->  	mix_orcnt.u64 = cvmx_read_csr(p->mix + MIX_ORCNT);
->  	while (mix_orcnt.s.orcnt) {
-> @@ -292,7 +293,7 @@ static void octeon_mgmt_clean_tx_buffers(struct octeon_mgmt *p)
->  			struct skb_shared_hwtstamps ts;
->  			memset(&ts, 0, sizeof(ts));
->  			/* Read the timestamp */
-> -			u64 ns = cvmx_read_csr(CVMX_MIXX_TSTAMP(p->port));
-> +			ns = cvmx_read_csr(CVMX_MIXX_TSTAMP(p->port));
->  			/* Remove the timestamp from the FIFO */
->  			cvmx_write_csr(CVMX_MIXX_TSCTL(p->port), 0);
->  			/* Tell the kernel about the timestamp */
+Eric is kindly asking you exactly how to reproduce the crash, so he
+can 1) fix it and 2) generate a test case that gets run all the time
+in the future.
+
+Please answer his question directly instead of steering the conversation
+endless towards other aspects.
