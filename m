@@ -1,27 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 00/12] net/sched rcu classifiers and tcf
-Date: Sat, 13 Sep 2014 12:38:31 -0400 (EDT)
-Message-ID: <20140913.123831.1668616111639540979.davem@davemloft.net>
-References: <20140913025925.6249.12537.stgit@nitbit.x32>
+Subject: Re: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
+ 2014-09-12
+Date: Sat, 13 Sep 2014 12:43:43 -0400 (EDT)
+Message-ID: <20140913.124343.1829817131947064765.davem@davemloft.net>
+References: <1410525231-19851-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com, jhs@mojatatu.com,
-	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	brouer@redhat.com
-To: john.fastabend@gmail.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36372 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36432 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752129AbaIMQig (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 12:38:36 -0400
-In-Reply-To: <20140913025925.6249.12537.stgit@nitbit.x32>
+	with ESMTP id S1752053AbaIMQnp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 12:43:45 -0400
+In-Reply-To: <1410525231-19851-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Fri, 12 Sep 2014 20:04:20 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 12 Sep 2014 05:33:40 -0700
 
-> This series converts the tcf_proto usage to RCU. 
+> This series contains updates to e1000, ixgbe and ixgbevf.
 
-Series applied, thanks John!
+Pulled, thanks Jeff.
