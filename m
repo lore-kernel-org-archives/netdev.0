@@ -1,48 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Freeing dst when the reference count <0 causes general
- protection fault, it could be a major security flaw as rogue app can modify
- dst to crash kernel.
-Date: Sat, 13 Sep 2014 04:50:22 -0700
-Message-ID: <1410609022.7106.132.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1410596833-2548-1-git-send-email-shakilk1729@gmail.com>
+From: Nicolas Cavallari <nicolas.cavallari@green-communications.fr>
+Subject: Re: [RFC] ipv4: Do not cache routing failures due to disabled forwarding.
+Date: Sat, 13 Sep 2014 14:59:30 +0200
+Message-ID: <54143FB2.9000600@green-communications.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	edumazet@google.com, davem@davemloft.net
-To: Shakil A Khan <shakilk1729@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1410596833-2548-1-git-send-email-shakilk1729@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp3.tech.numericable.fr ([82.216.111.39]:52573 "EHLO
+	smtp3.tech.numericable.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751382AbaIMNJD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 09:09:03 -0400
+Received: from gorlemagne (85-171-57-205.rev.numericable.fr [85.171.57.205])
+	by smtp3.tech.numericable.fr (Postfix) with ESMTP id B2D9218123F
+	for <netdev@vger.kernel.org>; Sat, 13 Sep 2014 14:59:31 +0200 (CEST)
+Received: from [127.0.0.1] (localhost [127.0.0.1])
+	by gorlemagne (Postfix) with ESMTP id ED262163AF1
+	for <netdev@vger.kernel.org>; Sat, 13 Sep 2014 14:59:30 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-09-13 at 01:27 -0700, Shakil A Khan wrote:
-> Signed-off-by: Shakil A Khan <shakilk1729@gmail.com>
-> ---
->  net/core/dst.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
+[Resending to netdev instead of linux-netdev, sorry again.]
+
+For whatever reason, I didn't receive your reply and I'm not subscribed
+to the list but I saw it on archives.
+
+> 	Two alternatives are possible:
 > 
-> diff --git a/net/core/dst.c b/net/core/dst.c
-> index a028409..6a848b0 100644
-> --- a/net/core/dst.c
-> +++ b/net/core/dst.c
-> @@ -284,7 +284,10 @@ void dst_release(struct dst_entry *dst)
->  		int newrefcnt;
->  
->  		newrefcnt = atomic_dec_return(&dst->__refcnt);
-> -		WARN_ON(newrefcnt < 0);
-> +
-> +		if (WARN(newrefcnt < 0, "dst reference count less than zero"))
-> +			return;
-> +
->  		if (unlikely(dst->flags & DST_NOCACHE) && !newrefcnt)
->  			call_rcu(&dst->rcu_head, dst_destroy_rcu);
->  	}
+> 1. set res.fi = NULL after 'no_route:' label
+> 
+> or better
+> 
+> 2. set do_cache = false after 'no_route:' label,
+> then instead of 'goto local_input;' jump to a new
+> label 'create_rt:' just before rt_dst_alloc.
+> 
+> 	Not sure, they may generate less code in the fast path.
 
+If I implement the first alternative, GCC will optimize it to the
+second. And it does not do that same optimization with my patch...
 
-A rogue application can not do trigger this, unless a major bug in the
-kernel exists.
-
-Instead of trying to hide the kernel bug, we need to fix it.
-
-Can you describe how this could trigger with a pristine kernel ?
+Will submit alternative 1 if there are no further issues/comments.
