@@ -1,38 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/7] net: Changes to ip_tunnel to support
- foo-over-udp encapsulation
-Date: Sat, 13 Sep 2014 13:09:55 -0400 (EDT)
-Message-ID: <20140913.130955.2175593212041609028.davem@davemloft.net>
-References: <1410466056-30239-1-git-send-email-therbert@google.com>
-	<1410466056-30239-5-git-send-email-therbert@google.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [RFC PATCH] net: sched: fix unsued cpu variable
+Date: Sat, 13 Sep 2014 11:13:54 -0700
+Message-ID: <20140913181352.32293.58637.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36625 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751759AbaIMRJ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 13:09:57 -0400
-In-Reply-To: <1410466056-30239-5-git-send-email-therbert@google.com>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:54021 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751877AbaIMSOK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 14:14:10 -0400
+Received: by mail-ob0-f181.google.com with SMTP id wo20so1435707obc.40
+        for <netdev@vger.kernel.org>; Sat, 13 Sep 2014 11:14:10 -0700 (PDT)
+Received: from nitbit.x32 ([72.168.139.208])
+        by mx.google.com with ESMTPSA id r19sm4943771obt.26.2014.09.13.11.14.03
+        for <netdev@vger.kernel.org>
+        (version=TLSv1 cipher=RC4-SHA bits=128/128);
+        Sat, 13 Sep 2014 11:14:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Thu, 11 Sep 2014 13:07:33 -0700
+kbuild test robot reported an unused variable cpu in cls_u32.c
+after the patch below. This happens when PERF and MARK config
+variables are disabled
 
-> @@ -17,6 +17,10 @@
->  #define SIOCADD6RD      (SIOCDEVPRIVATE + 9)
->  #define SIOCDEL6RD      (SIOCDEVPRIVATE + 10)
->  #define SIOCCHG6RD      (SIOCDEVPRIVATE + 11)
-> +#define SIOCGETTUNENCAP (SIOCDEVPRIVATE + 12)
-> +#define SIOCADDTUNENCAP (SIOCDEVPRIVATE + 13)
-> +#define SIOCDELTUNENCAP (SIOCDEVPRIVATE + 14)
-> +#define SIOCCHGTUNENCAP (SIOCDEVPRIVATE + 15)
->  
->  #define GRE_CSUM	__cpu_to_be16(0x8000)
->  #define GRE_ROUTING	__cpu_to_be16(0x4000)
+commit 459d5f626da75573e985a7197b0919c3b143146c
+Author: John Fastabend <john.fastabend@gmail.com>
+Date:   Fri Sep 12 20:08:47 2014 -0700
 
-Let's not extend the ioctls and just add the netlink parts,
-thanks.
+    net: sched: make cls_u32 per cpu
+
+One way to fix this is to use separate variables for perf
+and mark and define the cpu variable inside the ifdef
+logic.
+
+I don't really like this though so I'm wondering if I can
+clean up the ifdef/endif logic to make this easier to read.
+So RFC patch until I convince myself there isn't a better
+way. Thought it might be worth sending out in case someone
+else has an idea.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ net/sched/cls_u32.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 5ed5ac4..8cffe5a 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -788,8 +788,8 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 	} else {
+ #ifdef CONFIG_CLS_U32_PERF
+ 		struct tc_u32_pcnt *gpf;
+-#endif
+ 		int cpu;
++#endif
+ 
+ 		if (nla_put(skb, TCA_U32_SEL,
+ 			    sizeof(n->sel) + n->sel.nkeys*sizeof(struct tc_u32_key),
+@@ -816,9 +816,10 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 			struct tc_u32_mark mark = {.val = n->val,
+ 						   .mask = n->mask,
+ 						   .success = 0};
++			int cpum;
+ 
+-			for_each_possible_cpu(cpu) {
+-				__u32 cnt = *per_cpu_ptr(n->pcpu_success, cpu);
++			for_each_possible_cpu(cpum) {
++				__u32 cnt = *per_cpu_ptr(n->pcpu_success, cpum);
+ 
+ 				mark.success += cnt;
+ 			}
