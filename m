@@ -1,37 +1,30 @@
-From: Andrew Lunn <andrew@lunn.ch>
+From: Claudio Leite <leitec@staticky.com>
 Subject: Re: [PATCH] net: DSA: Marvell mv88e6171 switch driver
-Date: Sat, 13 Sep 2014 02:12:46 +0200
-Message-ID: <20140913001246.GB11435@lunn.ch>
+Date: Fri, 12 Sep 2014 20:50:05 -0400
+Message-ID: <20140913005005.GW29911@pfzt.net>
 References: <1410559124-10495-1-git-send-email-andrew@lunn.ch>
- <541370DD.7090309@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>, davem@davemloft.net,
-	netdev@vger.kernel.org, Claudio Leite <leitec@staticky.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48900 "EHLO vps0.lunn.ch"
+Received: from pfzt.net ([173.255.224.99]:39162 "EHLO pfzt.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752041AbaIMATS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Sep 2014 20:19:18 -0400
+	id S1751346AbaIMAuG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Sep 2014 20:50:06 -0400
+Received: from pfzt.net (localhost [127.0.0.1])
+	by pfzt.net (Postfix) with ESMTP id 5EDF780F4
+	for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 20:50:05 -0400 (EDT)
 Content-Disposition: inline
-In-Reply-To: <541370DD.7090309@gmail.com>
+In-Reply-To: <1410559124-10495-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 12, 2014 at 03:17:01PM -0700, Florian Fainelli wrote:
-> Hi Andrew,
+* Andrew Lunn (andrew@lunn.ch) wrote:
+> This is the Marvell driver with some cleanups by Claudio Leite
+> and myself.
 > 
-> On 09/12/2014 02:58 PM, Andrew Lunn wrote:
-> > This is the Marvell driver with some cleanups by Claudio Leite
-> > and myself.
-> 
-> Looks good to me, this will slightly conflict with the patch for the
-> tag_protocol field [1], other than that, good to see this driver
-> submitted! Thanks!
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Cc: Claudio Leite <leitec@staticky.com>
+> ---
 
-Hi Florian
-
-How do you want to handle this conflict?
-
-      Andrew
+Signed-off-by: Claudio Leite <leitec@staticky.com>
