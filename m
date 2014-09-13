@@ -1,33 +1,37 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] ipv6: exit early in addrconf_notify() if IPv6 is disabled
-Date: Fri, 12 Sep 2014 17:10:32 -0700
-Message-ID: <CAM_iQpXSX4q9ZPCXrqZpCFXLduzvXgx_AgFsgHCR8wj00R8PUA@mail.gmail.com>
-References: <1410473236-3346-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1410553099.2970.18.camel@localhost>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: DSA: Marvell mv88e6171 switch driver
+Date: Sat, 13 Sep 2014 02:12:46 +0200
+Message-ID: <20140913001246.GB11435@lunn.ch>
+References: <1410559124-10495-1-git-send-email-andrew@lunn.ch>
+ <541370DD.7090309@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Hannes Frederic Sowa <hannes@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>, davem@davemloft.net,
+	netdev@vger.kernel.org, Claudio Leite <leitec@staticky.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:43835 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751773AbaIMAKd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 20:10:33 -0400
-Received: by mail-oa0-f44.google.com with SMTP id o6so1161540oag.17
-        for <netdev@vger.kernel.org>; Fri, 12 Sep 2014 17:10:32 -0700 (PDT)
-In-Reply-To: <1410553099.2970.18.camel@localhost>
+Received: from vps0.lunn.ch ([178.209.37.122]:48900 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752041AbaIMATS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Sep 2014 20:19:18 -0400
+Content-Disposition: inline
+In-Reply-To: <541370DD.7090309@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 12, 2014 at 1:18 PM, Hannes Frederic Sowa <hannes@redhat.com> wrote:
->
-> disable_ipv6 is absolutely bad implemented. It should not be in the ipv6
-> procfs namespace at all. An inet6_dev must be available to manage this
-> knob! Thus we are automagically subscribed to all ipv6 LL multicast
-> groups.
+On Fri, Sep 12, 2014 at 03:17:01PM -0700, Florian Fainelli wrote:
+> Hi Andrew,
+> 
+> On 09/12/2014 02:58 PM, Andrew Lunn wrote:
+> > This is the Marvell driver with some cleanups by Claudio Leite
+> > and myself.
+> 
+> Looks good to me, this will slightly conflict with the patch for the
+> tag_protocol field [1], other than that, good to see this driver
+> submitted! Thanks!
 
+Hi Florian
 
-Exactly, this is chicken and egg problem and is why we have ipv6_idev_add()
-in the NETDEV_REGISTER event.
+How do you want to handle this conflict?
+
+      Andrew
