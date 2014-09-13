@@ -1,32 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v5 00/16] net/sched rcu filters
-Date: Fri, 12 Sep 2014 22:36:44 -0400 (EDT)
-Message-ID: <20140912.223644.1321799741112871913.davem@davemloft.net>
-References: <20140912162748.19588.39677.stgit@nitbit.x32>
+From: Kyle McMartin <kyle-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH 1/4] Update firmware for rtl8192ce
+Date: Fri, 12 Sep 2014 22:37:09 -0400
+Message-ID: <20140913023709.GJ15412@merlin.infradead.org>
+References: <1409673648-20328-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com, jhs@mojatatu.com,
-	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	brouer@redhat.com
-To: john.fastabend@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54645 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751926AbaIMCgs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Sep 2014 22:36:48 -0400
-In-Reply-To: <20140912162748.19588.39677.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-firmware-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1409673648-20328-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Sep 02, 2014 at 11:00:45AM -0500, Larry Finger wrote:
+> The latest driver, labelled rtlwifi_linux_mac80211_0019.0320.2014V628,
+> has updated firmware for the RTL8192CE.
+> 
+> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+> ---
+>  WHENCE                    |   1 +
+>  rtlwifi/rtl8192cfw.bin    | Bin 13540 -> 16192 bytes
+>  rtlwifi/rtl8192cfwU_B.bin | Bin 14800 -> 16332 bytes
+>  3 files changed, 1 insertion(+)
+> 
 
-John you're getting really close with this series.
+i've applied all 4. thanks larry.
 
-Why don't you post everything up to the tc actions stuff,
-which Eric has ACK'd already, and I can put that all into
-the net-next tree right now.
-
-Then you can concentrate on the bits that remain without
-having to post the other stuff over and over again.
-
-Thanks.
+--kyle
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
