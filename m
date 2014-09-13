@@ -1,23 +1,34 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 1/3] virtio_net: pass well-formed sgs to virtqueue_add_*()
-Date: Sat, 13 Sep 2014 15:10:03 +0930
-Message-ID: <87ioksgjt8.fsf@rustcorp.com.au>
-References: <1410396458-1165-1-git-send-email-rusty@rustcorp.com.au> <1410396458-1165-2-git-send-email-rusty@rustcorp.com.au> <20140912.175440.1013837932148725302.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mst@redhat.com
-To: David Miller <davem@davemloft.net>
+From: Shakil A Khan <shakilk1729@gmail.com>
+Subject: [PATCH] Freeing dst when the reference count <0 causes general protection fault, it could be a major security flaw as rogue app can modify dst to crash kernel.
+Date: Sat, 13 Sep 2014 01:27:13 -0700
+Message-ID: <1410596833-2548-1-git-send-email-shakilk1729@gmail.com>
+Cc: edumazet@google.com, davem@davemloft.net,
+	Shakil A Khan <shakilk1729@gmail.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140912.175440.1013837932148725302.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
-> Do you guys want me to take this series directly into net-next?
+Signed-off-by: Shakil A Khan <shakilk1729@gmail.com>
+---
+ net/core/dst.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Actually, yes.  Since I'm going to be travelling, that makes it much
-easier for me.  And no other patches I have depend on it.
-
-Thanks!
-Rusty.
+diff --git a/net/core/dst.c b/net/core/dst.c
+index a028409..6a848b0 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -284,7 +284,10 @@ void dst_release(struct dst_entry *dst)
+ 		int newrefcnt;
+ 
+ 		newrefcnt = atomic_dec_return(&dst->__refcnt);
+-		WARN_ON(newrefcnt < 0);
++
++		if (WARN(newrefcnt < 0, "dst reference count less than zero"))
++			return;
++
+ 		if (unlikely(dst->flags & DST_NOCACHE) && !newrefcnt)
+ 			call_rcu(&dst->rcu_head, dst_destroy_rcu);
+ 	}
+-- 
+1.9.3
