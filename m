@@ -1,45 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] be2net: patch set
-Date: Sat, 13 Sep 2014 17:12:43 -0400 (EDT)
-Message-ID: <20140913.171243.1325107254064998995.davem@davemloft.net>
-References: <1410523761-1744-1-git-send-email-sathya.perla@emulex.com>
+Subject: Re: [PATCH net v2] bonding: fix div by zero while enslaving and
+ transmitting
+Date: Sat, 13 Sep 2014 17:17:46 -0400 (EDT)
+Message-ID: <20140913.171746.547311064738045536.davem@davemloft.net>
+References: <5413097B.9080802@redhat.com>
+	<1410536298-8022-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, andy@greyhouse.net,
+	j.vosburgh@gmail.com, vfalico@gmail.com
+To: nikolay@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38168 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38205 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752118AbaIMVMo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 17:12:44 -0400
-In-Reply-To: <1410523761-1744-1-git-send-email-sathya.perla@emulex.com>
+	with ESMTP id S1752034AbaIMVRs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 17:17:48 -0400
+In-Reply-To: <1410536298-8022-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Fri, 12 Sep 2014 17:39:13 +0530
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Date: Fri, 12 Sep 2014 17:38:18 +0200
 
-> Patch 1 fixes some minor issues with log messages in be2net.
-> 
-> Patch 2 replaces strcpy() calls with strlcpy() to avoid possible buffer
-> overflow.
-> 
-> Patch 3 improves the RX buffer posting scheme for jumbo frames.
-> 
-> Patch 4 replaces the use of v0 of SET_FLOW_CONTROL cmd with v1 to receive
-> a definitive completion status from FW.
-> 
-> Patch 5 adds support for ethtool "-m" ethtool option.
-> 
-> Patch 6 fixes port-type reporting via ethtool get_settings for QSFP/SFP+
-> interfaces.
-> 
-> Patch 7 fixes the usage of MODIFY_EQD FW cmd to target a max of 8 EQs on
-> Lancer chip. 
-> 
-> Patch 8 enables PCIe error reporting even for VFs.
-> 
-> Pls consider applying this patch set to net-next. Thanks.
+> The problem is that the slave is first linked and slave_cnt is
+> incremented afterwards leading to a div by zero in the modes that use it
+> as a modulus. What happens is that in bond_start_xmit()
+> bond_has_slaves() is used to evaluate further transmission and it becomes
+> true after the slave is linked in, but when slave_cnt is used in the xmit
+> path it is still 0, so fetch it once and transmit based on that. Since
+> it is used only in round-robin and XOR modes, the fix is only for them.
+> Thanks to Eric Dumazet for pointing out the fault in my first try to fix
+> this.
+  ...
+> Fixes: 278b208375 ("bonding: initial RCU conversion")
+> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> ---
+> v2: Based on Eric's feedback change the fix to fetch the value once in a
+>     local variable in the affected modes and to act based on that.
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks.
