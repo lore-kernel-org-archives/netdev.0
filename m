@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] bridge: Two small fixes to vlan filtering code.
-Date: Sat, 13 Sep 2014 17:22:33 -0400 (EDT)
-Message-ID: <20140913.172233.1803608612406909252.davem@davemloft.net>
-References: <1410553577-17519-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH] net: DSA: Marvell mv88e6171 switch driver
+Date: Sat, 13 Sep 2014 17:27:10 -0400 (EDT)
+Message-ID: <20140913.172710.328059942751512747.davem@davemloft.net>
+References: <1410559124-10495-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	makita.toshiaki@lab.ntt.co.jp, vyasevic@redhat.com
-To: vyasevich@gmail.com
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, leitec@staticky.com
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38255 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38287 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752034AbaIMVWf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 17:22:35 -0400
-In-Reply-To: <1410553577-17519-1-git-send-email-vyasevic@redhat.com>
+	with ESMTP id S1752034AbaIMV1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 17:27:12 -0400
+In-Reply-To: <1410559124-10495-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Date: Fri, 12 Sep 2014 16:26:15 -0400
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Fri, 12 Sep 2014 23:58:44 +0200
 
-> This series corrects 2 small issues that I've ran across recently
-> while doing more work with vlan filtering changes.
+> This is the Marvell driver with some cleanups by Claudio Leite
+> and myself.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Series applied and patch #1 queue up for -stable.
+Applied, I took care of the tag_protocol conflict.
