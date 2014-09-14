@@ -1,69 +1,55 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Rusty away 18th September -- 11th October
-Date: Sun, 14 Sep 2014 09:21:17 +0300
-Message-ID: <20140914062116.GA23868@redhat.com>
-References: <87oaunht4b.fsf@rustcorp.com.au>
-	<20140911114351.GA25736@redhat.com>
-	<87tx4dhbks.fsf@rustcorp.com.au>
+From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 0/4 linux-next] drivers/net: use container_of where possible
+Date: Sun, 14 Sep 2014 09:32:38 +0200
+Message-ID: <54154496.3070809@broadcom.com>
+References: <1410640709-18295-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <87tx4dhbks.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: Fabian Frederick <fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1410640709-18295-1-git-send-email-fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 12, 2014 at 10:58:03AM +0930, Rusty Russell wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> writes:
-> > On Thu, Sep 11, 2014 at 10:26:52AM +0930, Rusty Russell wrote:
-> >> Hi all,
-> >> 
-> >>         Probably won't read mail.  Linus, I'll have pull requests early
-> >> next week; if there's anything needed I'm sure Michael Tsirkin can
-> >> handle it.
-> >
-> > Sure.
-> > Rusty, there's a small chance virtio 1.0 bits will be ready in time.
-> > I started working on them based on your virtio-pci-new-layout branch.
-> >
-> > If ready before the merge window, are you ok with me merging this
-> > support (without you having the opportunity to review first)?
-> 
-> Sorry, absolutely not.  I *really* want to review this in depth; if we
-> make a mistake, it's going to hurt us significantly.
+On 09/13/14 22:38, Fabian Frederick wrote:
+> Small patchset using container_of instead of casting on first structure member address.
 
-Right but it's only a merge window - we can fix bugs and even disable
-the new driver afterwards, can't we?
+Hi Fabian,
 
-> And until we have the qemu bits ready, it's really hard to tell if we've
-> got this right.
+I think you need to split up this series. One for the ethernet drivers 
+and one for the wireless driver. As there is not dependency between the 
+patches they can each go through their own subsystem git tree. Generally 
+I tend to submit patches to the subsystem maintainer and Cc the 
+appropriate mailing lists.
 
-Sure, I meant if qemu bits are ready too, and if things work together.
-It wouldn't do to merge a driver that isn't ready.
+Regarding the patches for brcmsmac, you can add
 
+Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 
->  So I'd rather delay and make sure we're solid.
-> 
-> Thanks,
-> Rusty.
+Regards,
+Arend
 
-Something else we can do, is refactoring that splits driver
-out to common and legacy bits, and changes APIs.
-No?
+> Fabian Frederick (4):
+>    net: fec: use container_of to resolve bufdesc_ex from bufdesc
+>    bna: use container_of to resolve bufdesc_ex from bufdesc
+>    brcm80211: use container_of to resolve brcms_phy from brcms_phy_pub
+>    brcm80211: use container_of to resolve dma_info from dma_pub
+>
+>   drivers/net/ethernet/brocade/bna/bna_enet.c        |   9 +-
+>   drivers/net/ethernet/brocade/bna/bna_tx_rx.c       |   4 +-
+>   drivers/net/ethernet/freescale/fec_main.c          |   4 +-
+>   drivers/net/wireless/brcm80211/brcmsmac/dma.c      |  38 +++----
+>   .../net/wireless/brcm80211/brcmsmac/phy/phy_cmn.c  | 122 ++++++++++-----------
+>   .../net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c  |   6 +-
+>   .../net/wireless/brcm80211/brcmsmac/phy/phy_n.c    |   8 +-
+>   7 files changed, 97 insertions(+), 94 deletions(-)
+>
 
--- 
-MSt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
