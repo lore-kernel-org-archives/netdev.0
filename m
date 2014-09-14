@@ -1,80 +1,72 @@
-From: Walter Mack <wmack@componentsw.com>
-Subject: [PATCH 001/001] IEEE 802.15.4: Add module parameter to mrf24j40 to
- allow use of external transmitters/receivers
-Date: Sat, 13 Sep 2014 18:37:39 -0700
-Message-ID: <5414F163.6010309@componentsw.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCHv3 net-next 2/3] sunvnet: allow admin to set sunvnet MTU
+Date: Sat, 13 Sep 2014 22:15:41 -0400
+Message-ID: <5414FA4D.6030504@oracle.com>
+References: <54146A37.5010108@oracle.com> <20140913.162101.515634682549373073.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:29980 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752235AbaINCPq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 22:15:46 -0400
+In-Reply-To: <20140913.162101.515634682549373073.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-enhance module drivers/net/ieee802154/mrf24j40.c to allow designs that 
-use external transmitters/receivers.
 
-Designs that use Microchip's MRF24J40 with external receivers and 
-transmitters require the chip to
-be specifically programmed for this, by setting the "test mode register" 
-to 0xf.
 
-In my testing, without this flag, I could only receive over a distance 
-of a few feet. Setting this flag allows
-distances well above 100 feet.
+On 09/13/2014 04:21 PM, David Miller wrote:
 
-The patch adds a module parameter module_param(ext_rx_tx, bool, 0). When 
-setting the parameter to true,
-the driver configures the "test mode" register of the mrf24j40 device to 
-work with external tranmitters and receivers.
+> I personally find this scheme where we pretend that the device can
+> have an arbitrary MTU, when in fact the effective MTU is a product of
+> the sub-ports, quite ugly.
 
-patch applies to kernel version:3.16.0-rc4csi-git-dirty, git: commit 
-cd3de83f147601356395b57a8673e9c5ff1e59d1
+I wouldn't say I like it, either, but the problem is that without it, we
+are tied to the least common denominator. Anything that doesn't support
+v1.6 of the VIO protocol is stuck at the low MTU and low throughput, and
+since Solaris itself is limited to 16000, Linux, which can do 64K-1, is
+also limited to 16000. On my hardware, the original we'd be tied to is
+about 1Gbps, the 16000 is about 5.4Gbps, and the full linux-linux is about
+8Gbps. So, a big penalty.
 
-(I'm doing a patch submission the first time. If I'm doing this wrong, I 
-would appreciate feedback for how to do this better next time).
+I think of it as an Ethernet connected to a virtual switch, and the ICMP
+errors are for PMTUD are analogous to IGMP snooping. This is not an Ethernet
+device alone-- those don't negotiate per-destination link MTUs. But nothing forces
+anyone to mix MTUs; the ICMP errors simply allow it.
 
-Signed-off-by: Walter J. Mack <wmack@componentsw.com>
+> In fact, that ugly ICMP stuff in the next patch is absolutely required
+> to avoid bogus behavior possible after this patch.  You have to
+> combine #2 and #3 otherwise you are adding an intermediate regression.
 
----
-diff --git a/drivers/net/ieee802154/mrf24j40.c 
-b/drivers/net/ieee802154/mrf24j40.c
-index 4048062..18cff47 100644
---- a/drivers/net/ieee802154/mrf24j40.c
-+++ b/drivers/net/ieee802154/mrf24j40.c
-@@ -26,6 +26,10 @@
-  #include <net/mac802154.h>
-  #include <net/ieee802154.h>
+I disagree here. It's not any more bogus for the admin to set an MTU value
+of what s/he wants when the others have not been. It *always* happens that
+way. Ordinary Ethernet comes up at 1500 and one of them must be increased
+first. At that time, the others don't match, and it is the admin's responsibility
+to make sure they match.
 
-+static bool ext_rx_tx = false ;
-+module_param(ext_rx_tx, bool, 0);
-+MODULE_PARM_DESC(ext_rx_tx, " turn on statemachine to manage external 
-tx/rx");
-+
-  /* MRF24J40 Short Address Registers */
-  #define REG_RXMCR    0x00  /* Receive MAC control */
-  #define REG_PANIDL   0x01  /* PAN ID (low) */
-@@ -63,6 +67,8 @@
-  #define REG_SLPCON1    0x220
-  #define REG_WAKETIMEL  0x222  /* Wake-up Time Match Value Low */
-  #define REG_WAKETIMEH  0x223  /* Wake-up Time Match Value High */
-+#define REG_TESTMODE   0x22f  /* test mode and state machine control 
-register */
-+
-  #define REG_RX_FIFO    0x300  /* Receive FIFO */
+> Logic wise, at the very least you should limit the MTU setting to the
+> largest MTU of all of the individual ports.
 
-  /* Device configuration: Only channels 11-26 on page 0 are supported. */
-@@ -669,6 +675,10 @@ static int mrf24j40_probe(struct spi_device *spi)
-      write_short_reg(devrec, REG_RFCTL, 0x0);
-      udelay(192);
+We can't directly do that, because the MTU for the port is negotiated at
+probe time. That'll be 1500 IP data (always) and we have to raise one of them
+first, so one of them has to be set at a higher value than the negotiated
+MTU at some point, at least until it is reset and re-negotiated. But we
+don't know until we try a higher value if all the links can use it, and we
+can't prevent another link from joining later that has a lower MTU, but we
+can't then lower our on MTU for the whole device.
 
-+    if ( false != ext_rx_tx ){
-+      write_long_reg(devrec, REG_TESTMODE, 0x0f);
-+    }
-+
-      /* Set RX Mode. RXMCR<1:0>: 0x0 normal, 0x1 promisc, 0x2 error */
-      ret = read_short_reg(devrec, REG_RXMCR, &val);
-      if (ret)
+I think in ordinary Ethernet, there is nothing at all enforcing a particular
+MTU-- it is set to what the admin wants, regardless of what other hosts use.
+That's the effect we ought to have here, despite the one-to-many p2p links
+where we can know in advance what the link MTUs are, and that's what patch #2
+does. I don't think we should try too hard to prevent a value an admin wants --
+it will just get in the way of the admin, where it doesn't in ordinary Ethernet.
+
+On the other hand, if the link MTU is lower, we shouldn't quietly drop packets, thus the ICMP
+errors that allow both.
+
+							+-DLS
