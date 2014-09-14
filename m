@@ -1,50 +1,69 @@
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH 1/1 v2] netdev: octeon_mgmt: ISO C90 forbids mixed declarations and code
-Date: Sun, 14 Sep 2014 07:02:14 +0200
-Message-ID: <1410670935-904-1-git-send-email-xypron.glpk@gmx.de>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Luka Perkov <luka@openwrt.org>,
-	Willem de Bruijn <willemb@google.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Heinrich Schuchardt <xypron.glpk@gmx.de>,
-	Joe Perches <joe@perches.com>
-To: David Daney <david.daney@cavium.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: Rusty away 18th September -- 11th October
+Date: Sun, 14 Sep 2014 09:21:17 +0300
+Message-ID: <20140914062116.GA23868@redhat.com>
+References: <87oaunht4b.fsf@rustcorp.com.au>
+	<20140911114351.GA25736@redhat.com>
+	<87tx4dhbks.fsf@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <87tx4dhbks.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Revised patch takes into account comments by Joe and David.
+On Fri, Sep 12, 2014 at 10:58:03AM +0930, Rusty Russell wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> writes:
+> > On Thu, Sep 11, 2014 at 10:26:52AM +0930, Rusty Russell wrote:
+> >> Hi all,
+> >> 
+> >>         Probably won't read mail.  Linus, I'll have pull requests early
+> >> next week; if there's anything needed I'm sure Michael Tsirkin can
+> >> handle it.
+> >
+> > Sure.
+> > Rusty, there's a small chance virtio 1.0 bits will be ready in time.
+> > I started working on them based on your virtio-pci-new-layout branch.
+> >
+> > If ready before the merge window, are you ok with me merging this
+> > support (without you having the opportunity to review first)?
+> 
+> Sorry, absolutely not.  I *really* want to review this in depth; if we
+> make a mistake, it's going to hurt us significantly.
 
-Compiling with OCTEON_MGMT_ETHERNET gives a warning
-drivers/net/ethernet/octeon/octeon_mgmt.c:295:4:
-warning: ISO C90 forbids mixed declarations and code
-[-Wdeclaration-after-statement]
+Right but it's only a merge window - we can fix bugs and even disable
+the new driver afterwards, can't we?
 
-The patch cleans up the code.
+> And until we have the qemu bits ready, it's really hard to tell if we've
+> got this right.
 
-Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
-CC: Joe Perches <joe@perches.com>
-CC: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/octeon/octeon_mgmt.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Sure, I meant if qemu bits are ready too, and if things work together.
+It wouldn't do to merge a driver that isn't ready.
 
-diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
-index 979c698..6cc68b1 100644
---- a/drivers/net/ethernet/octeon/octeon_mgmt.c
-+++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
-@@ -290,9 +290,10 @@ static void octeon_mgmt_clean_tx_buffers(struct octeon_mgmt *p)
- 		/* Read the hardware TX timestamp if one was recorded */
- 		if (unlikely(re.s.tstamp)) {
- 			struct skb_shared_hwtstamps ts;
-+			u64 ns;
- 			memset(&ts, 0, sizeof(ts));
- 			/* Read the timestamp */
--			u64 ns = cvmx_read_csr(CVMX_MIXX_TSTAMP(p->port));
-+			ns = cvmx_read_csr(CVMX_MIXX_TSTAMP(p->port));
- 			/* Remove the timestamp from the FIFO */
- 			cvmx_write_csr(CVMX_MIXX_TSCTL(p->port), 0);
- 			/* Tell the kernel about the timestamp */
+
+>  So I'd rather delay and make sure we're solid.
+> 
+> Thanks,
+> Rusty.
+
+Something else we can do, is refactoring that splits driver
+out to common and legacy bits, and changes APIs.
+No?
+
 -- 
-2.1.0
+MSt
