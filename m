@@ -1,336 +1,77 @@
 From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
 Subject: Re: [PATCHv3 net-next 1/3] sunvnet: upgrade to VIO protocol version 1.6
-Date: Sat, 13 Sep 2014 20:30:58 -0700
-Message-ID: <028736E5-2648-4642-881C-25BBC6E7C848@oracle.com>
-References: <54146A42.1050703@oracle.com>
+Date: Sat, 13 Sep 2014 20:43:09 -0700
+Message-ID: <A19FCF2B-0808-4BD5-9AF6-3830312DAEFF@oracle.com>
+References: <54146A42.1050703@oracle.com> <20140913.161842.2265200935397549583.davem@davemloft.net> <5414FFDD.9050509@oracle.com> <20140913.230120.511140402106277600.davem@davemloft.net>
 Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: David L Stevens <david.stevens@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: david.stevens@oracle.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:37886 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752281AbaINDbC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 23:31:02 -0400
-In-Reply-To: <54146A42.1050703@oracle.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:31899 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752271AbaINDnN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Sep 2014 23:43:13 -0400
+In-Reply-To: <20140913.230120.511140402106277600.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have a question around bumping the sunvnet vio_version to 1.6.
-Each of the versions from 1.0, have a specific feature or behavior defined in the
-protocol, if a given version is negotiated then peers will assume the Guest
-can handle all those feature/enhancement automatically. If a given feature
-is not supported or implemented, it may be best to handle those cases gracefully.
 
-For example, if version 1.3 or higher is negotiated, then Guest is assumed to
-support vlan packet processing. If 1.5 or later is negotiated, then it is assumed
-that the Guest will handle the physical link state notice messages.  Ideally these
-enhancements are implemented, as beyond this it would be harder to differentiate
-if a given guest has the support for them. If not, validate to ensure they are
-handled gracefully. For example, ensure a physical link state notification message
-doesn't cause any functional issues such as logging unnecessary warning messages
-or taking an adverse action such as resetting the channel etc.
+On Sep 13, 2014, at 8:01 PM, David Miller <davem@davemloft.net> wrote:
+
+> From: David L Stevens <david.stevens@oracle.com>
+> Date: Sat, 13 Sep 2014 22:39:25 -0400
+> 
+>> 
+>> 
+>> On 09/13/2014 04:18 PM, David Miller wrote:
+>>> From: David L Stevens <david.stevens@oracle.com>
+>> 
+>>> static inline bool vio_version_before(struct vio_driver_state *vio,
+>>> 				      u16 major, u16 minor)
+>>> {
+>>> 	u32 have = (u32)vio->major << 16 | vio->minor;
+>>> 	u32 want = (u32)major << 16 | minor;
+>>> 
+>>> 	return have < want;
+>>> }
+>>> static inline bool vio_version_after_eq(struct vio_driver_state *vio,
+>>> 					u16 major, u16 minor)
+>>> {
+>>> 	u32 have = (u32)vio->major << 16 | vio->minor;
+>>> 	u32 want = (u32)major << 16 | minor;
+>>> 
+>>> 	return have >= want;
+>>> }
+>>> 
+>>> Something like that.
+>> 
+>> Sure. I was thinking about something like:
+>> 
+>> #define VIO_VER(major, minor)	(((major)<<16)|(minor))
+>> 
+>> change the version struct to a 32-bit int, and do things like:
+>> 
+>> 	if (vio->ver > VIO_VER(1,6)) {
+>> 
+>> unless you have a preference. (?)
+> 
+> I hate wasting space in a structure just to avoid some harmless
+> casting in a helper function that is simply trying to optimize
+> a comparison.
+> 
+> That's why I suggested the inline helpers above, which arguments
+> are strongly typed.
+
+IMO, it would be more readable if we introduce the helper functions
+that check for a specific feature than a specific version number
+and hide the version number detail inside that helper function. Otherwise,
+it will be harder to follow each version number check and why it is
+being done. 
 
 -Raghuram
 
-On Sep 13, 2014, at 9:01 AM, David L Stevens <david.stevens@oracle.com> wrote:
-
-> This patch upgrades the sunvnet driver to support VIO protocol version 1.6.
-> In particular, it adds per-port MTU negotiation, allowing MTUs other than
-> ETH_FRAMELEN with ports using newer VIO protocol versions.
-> 
-> Signed-off-by: David L Stevens <david.stevens@oracle.com>
-> ---
-> arch/sparc/include/asm/vio.h       |   19 ++++++-
-> arch/sparc/kernel/viohs.c          |   14 ++++-
-> drivers/net/ethernet/sun/sunvnet.c |  103 +++++++++++++++++++++++++++++------
-> drivers/net/ethernet/sun/sunvnet.h |    1 +
-> 4 files changed, 115 insertions(+), 22 deletions(-)
-> 
-> diff --git a/arch/sparc/include/asm/vio.h b/arch/sparc/include/asm/vio.h
-> index 5c0ebe7..da13e3b 100644
-> --- a/arch/sparc/include/asm/vio.h
-> +++ b/arch/sparc/include/asm/vio.h
-> @@ -65,6 +65,7 @@ struct vio_dring_register {
-> 	u16			options;
-> #define VIO_TX_DRING		0x0001
-> #define VIO_RX_DRING		0x0002
-> +#define VIO_RX_DRING_DATA	0x0004
-> 	u16			resv;
-> 	u32			num_cookies;
-> 	struct ldc_trans_cookie	cookies[0];
-> @@ -80,6 +81,8 @@ struct vio_dring_unregister {
-> #define VIO_PKT_MODE		0x01 /* Packet based transfer	*/
-> #define VIO_DESC_MODE		0x02 /* In-band descriptors	*/
-> #define VIO_DRING_MODE		0x03 /* Descriptor rings	*/
-> +/* in vers >= 1.2, VIO_DRING_MODE is 0x04 and transfer mode is a bitmask */
-> +#define VIO_NEW_DRING_MODE	0x04
-> 
-> struct vio_dring_data {
-> 	struct vio_msg_tag	tag;
-> @@ -209,10 +212,20 @@ struct vio_net_attr_info {
-> 	u8			addr_type;
-> #define VNET_ADDR_ETHERMAC	0x01
-> 	u16			ack_freq;
-> -	u32			resv1;
-> +	u8			plnk_updt;
-> +#define PHYSLINK_UPDATE_NONE		0x00
-> +#define PHYSLINK_UPDATE_STATE		0x01
-> +#define PHYSLINK_UPDATE_STATE_ACK	0x02
-> +#define PHYSLINK_UPDATE_STATE_NACK	0x03
-> +	u8			options;
-> +	u16			resv1;
-> 	u64			addr;
-> 	u64			mtu;
-> -	u64			resv2[3];
-> +	u16			cflags;
-> +#define VNET_LSO_IPV4_CAPAB		0x0001
-> +	u16			ipv4_lso_maxlen;
-> +	u32			resv2;
-> +	u64			resv3[2];
-> };
-> 
-> #define VNET_NUM_MCAST		7
-> @@ -368,6 +381,8 @@ struct vio_driver_state {
-> 	char			*name;
-> 
-> 	struct vio_driver_ops	*ops;
-> +
-> +	u64			rmtu;	/* remote MTU */
-> };
-> 
-> #define viodbg(TYPE, f, a...) \
-> diff --git a/arch/sparc/kernel/viohs.c b/arch/sparc/kernel/viohs.c
-> index f8e7dd5..446438b 100644
-> --- a/arch/sparc/kernel/viohs.c
-> +++ b/arch/sparc/kernel/viohs.c
-> @@ -426,6 +426,13 @@ static int process_dreg_info(struct vio_driver_state *vio,
-> 	if (vio->dr_state & VIO_DR_STATE_RXREG)
-> 		goto send_nack;
-> 
-> +	/* v1.6 and higher, ACK with desired, supported mode, or NACK */
-> +	if (vio->ver.major <= 1 && vio->ver.minor >= 6) {
-> +		if (!(pkt->options & VIO_TX_DRING))
-> +			goto send_nack;
-> +		pkt->options = VIO_TX_DRING;
-> +	}
-> +
-> 	BUG_ON(vio->desc_buf);
-> 
-> 	vio->desc_buf = kzalloc(pkt->descr_size, GFP_ATOMIC);
-> @@ -453,8 +460,11 @@ static int process_dreg_info(struct vio_driver_state *vio,
-> 	pkt->tag.stype = VIO_SUBTYPE_ACK;
-> 	pkt->dring_ident = ++dr->ident;
-> 
-> -	viodbg(HS, "SEND DRING_REG ACK ident[%llx]\n",
-> -	       (unsigned long long) pkt->dring_ident);
-> +	viodbg(HS, "SEND DRING_REG ACK ident[%llx] "
-> +	       "ndesc[%u] dsz[%u] opt[0x%x] ncookies[%u]\n",
-> +	       (unsigned long long) pkt->dring_ident,
-> +	       pkt->num_descr, pkt->descr_size, pkt->options,
-> +	       pkt->num_cookies);
-> 
-> 	len = (sizeof(*pkt) +
-> 	       (dr->ncookies * sizeof(struct ldc_trans_cookie)));
-> diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-> index a4657a4..04c58b5 100644
-> --- a/drivers/net/ethernet/sun/sunvnet.c
-> +++ b/drivers/net/ethernet/sun/sunvnet.c
-> @@ -15,6 +15,7 @@
-> #include <linux/ethtool.h>
-> #include <linux/etherdevice.h>
-> #include <linux/mutex.h>
-> +#include <linux/if_vlan.h>
-> 
-> #include <asm/vio.h>
-> #include <asm/ldc.h>
-> @@ -39,6 +40,7 @@ MODULE_VERSION(DRV_MODULE_VERSION);
-> 
-> /* Ordered from largest major to lowest */
-> static struct vio_version vnet_versions[] = {
-> +	{ .major = 1, .minor = 6 },
-> 	{ .major = 1, .minor = 0 },
-> };
-> 
-> @@ -65,6 +67,7 @@ static int vnet_send_attr(struct vio_driver_state *vio)
-> 	struct vnet_port *port = to_vnet_port(vio);
-> 	struct net_device *dev = port->vp->dev;
-> 	struct vio_net_attr_info pkt;
-> +	int framelen = ETH_FRAME_LEN;
-> 	int i;
-> 
-> 	memset(&pkt, 0, sizeof(pkt));
-> @@ -72,19 +75,40 @@ static int vnet_send_attr(struct vio_driver_state *vio)
-> 	pkt.tag.stype = VIO_SUBTYPE_INFO;
-> 	pkt.tag.stype_env = VIO_ATTR_INFO;
-> 	pkt.tag.sid = vio_send_sid(vio);
-> -	pkt.xfer_mode = VIO_DRING_MODE;
-> +	if (vio->ver.major <= 1 && vio->ver.minor < 2)
-> +		pkt.xfer_mode = VIO_DRING_MODE;
-> +	else
-> +		pkt.xfer_mode = VIO_NEW_DRING_MODE;
-> 	pkt.addr_type = VNET_ADDR_ETHERMAC;
-> 	pkt.ack_freq = 0;
-> 	for (i = 0; i < 6; i++)
-> 		pkt.addr |= (u64)dev->dev_addr[i] << ((5 - i) * 8);
-> -	pkt.mtu = ETH_FRAME_LEN;
-> +	if (vio->ver.major == 1) {
-> +		if (vio->ver.minor > 3) {
-> +			if (vio->rmtu) {
-> +				vio->rmtu = min(VNET_MAXPACKET, vio->rmtu);
-> +				pkt.mtu = vio->rmtu;
-> +			} else {
-> +				vio->rmtu = VNET_MAXPACKET;
-> +				pkt.mtu = vio->rmtu;
-> +			}
-> +		} else if (vio->ver.minor == 3) {
-> +			pkt.mtu = framelen + VLAN_HLEN;
-> +		} else {
-> +			pkt.mtu = framelen;
-> +		}
-> +		if (vio->ver.minor >= 6)
-> +			pkt.options = VIO_TX_DRING;
-> +	}
-> 
-> 	viodbg(HS, "SEND NET ATTR xmode[0x%x] atype[0x%x] addr[%llx] "
-> -	       "ackfreq[%u] mtu[%llu]\n",
-> +	       "ackfreq[%u] plnk_updt[0x%02x] opts[0x%02x] mtu[%llu] "
-> +	       "cflags[0x%04x] lso_max[%u]\n",
-> 	       pkt.xfer_mode, pkt.addr_type,
-> -	       (unsigned long long) pkt.addr,
-> -	       pkt.ack_freq,
-> -	       (unsigned long long) pkt.mtu);
-> +	       (unsigned long long)pkt.addr,
-> +	       pkt.ack_freq, pkt.plnk_updt, pkt.options,
-> +	       (unsigned long long)pkt.mtu, pkt.cflags, pkt.ipv4_lso_maxlen);
-> +
-> 
-> 	return vio_ldc_send(vio, &pkt, sizeof(pkt));
-> }
-> @@ -92,18 +116,52 @@ static int vnet_send_attr(struct vio_driver_state *vio)
-> static int handle_attr_info(struct vio_driver_state *vio,
-> 			    struct vio_net_attr_info *pkt)
-> {
-> -	viodbg(HS, "GOT NET ATTR INFO xmode[0x%x] atype[0x%x] addr[%llx] "
-> -	       "ackfreq[%u] mtu[%llu]\n",
-> +	u64	localmtu;
-> +	u8	xfer_mode;
-> +
-> +	viodbg(HS, "GOT NET ATTR xmode[0x%x] atype[0x%x] addr[%llx] "
-> +	       "ackfreq[%u] plnk_updt[0x%02x] opts[0x%02x] mtu[%llu] "
-> +	       " (rmtu[%llu]) cflags[0x%04x] lso_max[%u]\n",
-> 	       pkt->xfer_mode, pkt->addr_type,
-> -	       (unsigned long long) pkt->addr,
-> -	       pkt->ack_freq,
-> -	       (unsigned long long) pkt->mtu);
-> +	       (unsigned long long)pkt->addr,
-> +	       pkt->ack_freq, pkt->plnk_updt, pkt->options,
-> +	       (unsigned long long)pkt->mtu, vio->rmtu, pkt->cflags,
-> +	       pkt->ipv4_lso_maxlen);
-> 
-> 	pkt->tag.sid = vio_send_sid(vio);
-> 
-> -	if (pkt->xfer_mode != VIO_DRING_MODE ||
-> +	xfer_mode = pkt->xfer_mode;
-> +	/* for version < 1.2, VIO_DRING_MODE = 0x3 and no bitmask */
-> +	if ((vio->ver.major <= 1 &&  vio->ver.minor < 2) &&
-> +	    xfer_mode == VIO_DRING_MODE)
-> +		xfer_mode = VIO_NEW_DRING_MODE;
-> +
-> +	/* MTU negotiation:
-> +	 *	< v1.3 - ETH_FRAME_LEN exactly
-> +	 *	= v1.3 - ETH_FRAME_LEN + VLAN_HLEN exactly
-> +	 *	> v1.4 - MIN(pkt.mtu, VNET_MAX_PACKET, vio->rmtu) and change
-> +	 *			pkt->mtu for ACK
-> +	 */
-> +	if (vio->ver.major == 1 && vio->ver.minor < 3) {
-> +		localmtu = ETH_FRAME_LEN;
-> +	} else if (vio->ver.major == 1 && vio->ver.minor == 3) {
-> +		localmtu = ETH_FRAME_LEN + VLAN_HLEN;
-> +	} else {
-> +		localmtu = vio->rmtu ? vio->rmtu : VNET_MAXPACKET;
-> +		localmtu = min(pkt->mtu, localmtu);
-> +		pkt->mtu = localmtu;
-> +	}
-> +	vio->rmtu = localmtu;
-> +
-> +	/* for version >= 1.6, ACK packet mode we support */
-> +	if (vio->ver.major <= 1 && vio->ver.minor >= 6) {
-> +		pkt->xfer_mode = VIO_NEW_DRING_MODE;
-> +		pkt->options = VIO_TX_DRING;
-> +	}
-> +
-> +	if (!(xfer_mode | VIO_NEW_DRING_MODE) ||
-> 	    pkt->addr_type != VNET_ADDR_ETHERMAC ||
-> -	    pkt->mtu != ETH_FRAME_LEN) {
-> +	    pkt->mtu != localmtu) {
-> 		viodbg(HS, "SEND NET ATTR NACK\n");
-> 
-> 		pkt->tag.stype = VIO_SUBTYPE_NACK;
-> @@ -112,7 +170,14 @@ static int handle_attr_info(struct vio_driver_state *vio,
-> 
-> 		return -ECONNRESET;
-> 	} else {
-> -		viodbg(HS, "SEND NET ATTR ACK\n");
-> +		viodbg(HS, "SEND NET ATTR ACK xmode[0x%x] atype[0x%x] "
-> +		       "addr[%llx] ackfreq[%u] plnk_updt[0x%02x] opts[0x%02x] "
-> +		       "mtu[%llu] (rmtu[%llu]) cflags[0x%04x] lso_max[%u]\n",
-> +		       pkt->xfer_mode, pkt->addr_type,
-> +		       (unsigned long long)pkt->addr,
-> +		       pkt->ack_freq, pkt->plnk_updt, pkt->options,
-> +		       (unsigned long long)pkt->mtu, vio->rmtu, pkt->cflags,
-> +		       pkt->ipv4_lso_maxlen);
-> 
-> 		pkt->tag.stype = VIO_SUBTYPE_ACK;
-> 
-> @@ -208,7 +273,7 @@ static int vnet_rx_one(struct vnet_port *port, unsigned int len,
-> 	int err;
-> 
-> 	err = -EMSGSIZE;
-> -	if (unlikely(len < ETH_ZLEN || len > ETH_FRAME_LEN)) {
-> +	if (unlikely(len < ETH_ZLEN || len > port->vio.rmtu)) {
-> 		dev->stats.rx_length_errors++;
-> 		goto out_dropped;
-> 	}
-> @@ -528,8 +593,10 @@ static void vnet_event(void *arg, int event)
-> 		vio_link_state_change(vio, event);
-> 		spin_unlock_irqrestore(&vio->lock, flags);
-> 
-> -		if (event == LDC_EVENT_RESET)
-> +		if (event == LDC_EVENT_RESET) {
-> +			vio->rmtu = 0;
-> 			vio_port_up(vio);
-> +		}
-> 		return;
-> 	}
-> 
-> @@ -986,8 +1053,8 @@ static int vnet_port_alloc_tx_bufs(struct vnet_port *port)
-> 	void *dring;
-> 
-> 	for (i = 0; i < VNET_TX_RING_SIZE; i++) {
-> -		void *buf = kzalloc(ETH_FRAME_LEN + 8, GFP_KERNEL);
-> -		int map_len = (ETH_FRAME_LEN + 7) & ~7;
-> +		void *buf = kzalloc(VNET_MAXPACKET + 8, GFP_KERNEL);
-> +		int map_len = (VNET_MAXPACKET + 7) & ~7;
-> 
-> 		err = -ENOMEM;
-> 		if (!buf)
-> diff --git a/drivers/net/ethernet/sun/sunvnet.h b/drivers/net/ethernet/sun/sunvnet.h
-> index de5c2c6..243ae69 100644
-> --- a/drivers/net/ethernet/sun/sunvnet.h
-> +++ b/drivers/net/ethernet/sun/sunvnet.h
-> @@ -11,6 +11,7 @@
->  */
-> #define VNET_TX_TIMEOUT			(5 * HZ)
-> 
-> +#define VNET_MAXPACKET			1518ULL /* ETH_FRAMELEN + VLAN_HDR */
-> #define VNET_TX_RING_SIZE		512
-> #define VNET_TX_WAKEUP_THRESH(dr)	((dr)->pending / 4)
-> 
-> -- 
-> 1.7.1
-> 
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
