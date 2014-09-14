@@ -1,53 +1,45 @@
-From: Kalle Valo <kvalo@adurom.com>
-Subject: Re: iwlwifi no authentication with AP - Re: pull request: wireless-next 2014-09-08
-Date: Sun, 14 Sep 2014 21:08:36 +0300
-Message-ID: <877g162hy3.fsf@purkki.adurom.net>
-References: <20140908191630.GB29412@tuxdriver.com>
-	<540F5927.7000306@hartkopp.net>
-	<CANUX_P3n0v1SzfbYuaAsE4TY7Hz_wo2Fb9SmHVNyFOC9hDhwdg@mail.gmail.com>
-	<540F61D0.9000704@hartkopp.net>
-	<CAMw6YJLeO1JZeY6hNe-TXOS56b-otk+htt5VPPor+9iYCQz53Q@mail.gmail.com>
-	<540FDB3C.6060301@hartkopp.net>
-	<CANUX_P3kOetqEneHgqoCDN4c85SQYD-G=mQj_o1c_TvKmE5psA@mail.gmail.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH net-next 5/5] netfilter: Convert pr_warning to pr_warn
+Date: Sun, 14 Sep 2014 21:13:41 +0200 (CEST)
+Message-ID: <alpine.DEB.2.10.1409142112320.1020@blackhole.kfki.hu>
+References: <cover.1410322181.git.joe@perches.com> <4708b4ef0485c1bc9efe3c0e59924a0f1c3c3bb4.1410322181.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Vadim Kochan <vadim4j@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Emmanuel Grumbach <egrumbach@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from purkki.adurom.net ([80.68.90.206]:50716 "EHLO purkki.adurom.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752533AbaINSIk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Sep 2014 14:08:40 -0400
-In-Reply-To: <CANUX_P3kOetqEneHgqoCDN4c85SQYD-G=mQj_o1c_TvKmE5psA@mail.gmail.com>
-	(Emmanuel Grumbach's message of "Wed, 10 Sep 2014 11:24:01 +0300")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4708b4ef0485c1bc9efe3c0e59924a0f1c3c3bb4.1410322181.git.joe@perches.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Emmanuel Grumbach <egrumbach@gmail.com> writes:
+On Tue, 9 Sep 2014, Joe Perches wrote:
 
-> On Wed, Sep 10, 2014 at 8:01 AM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
->> On 10.09.2014 00:07, Vadim Kochan wrote:
->>> I have the same issue with iwlwifi.
->>
->> I tried an old zd1211 wireless USB stick to check if this problem is 80211
->> related. But the USB stick works fine (I'm using it right now).
->> So its definitely looks like an iwlwifi issue.
->>
->>> iwlwifi 0000:02:00.0: fail to flush all tx fifo queues Q 0
->>
->> Wasn't there any change in the iwlwifi tx path recently??
->
-> Can you please try the patch attached? It works for me.
+> Use the more common pr_warn.
+> 
+> Other miscellanea:
+> 
+> o Coalesce formats
+> o Realign arguments
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  net/netfilter/ipset/ip_set_core.c     | 23 +++++++++++-----------
+>  net/netfilter/ipset/ip_set_hash_gen.h | 12 ++++++------
+>  net/netfilter/xt_connbytes.c          |  2 +-
+>  net/netfilter/xt_hashlimit.c          |  2 +-
+>  net/netfilter/xt_set.c                | 36 ++++++++++++++++-------------------
+>  5 files changed, 35 insertions(+), 40 deletions(-)
 
-Upgraded to latest wireless-testing and iwldvm was broken. This patch
-fixed it for me as well.
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-Could we have the fix in the wireless tree ASAP? Not really fun to find
-out that the driver is completely broken.
-
--- 
-Kalle Valo
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
