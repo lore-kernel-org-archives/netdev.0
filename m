@@ -1,45 +1,82 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH net-next 5/5] netfilter: Convert pr_warning to pr_warn
-Date: Sun, 14 Sep 2014 21:13:41 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1409142112320.1020@blackhole.kfki.hu>
-References: <cover.1410322181.git.joe@perches.com> <4708b4ef0485c1bc9efe3c0e59924a0f1c3c3bb4.1410322181.git.joe@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: fix sysfs symlinks of adjacent devices
+Date: Sun, 14 Sep 2014 17:45:07 -0400 (EDT)
+Message-ID: <20140914.174507.2303420279405209295.davem@davemloft.net>
+References: <1410516826-6926-1-git-send-email-git.user@gmail.com>
+	<5412F633.8020102@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4708b4ef0485c1bc9efe3c0e59924a0f1c3c3bb4.1410322181.git.joe@perches.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: git.user@gmail.com, netdev@vger.kernel.org, cwang@twopensource.com,
+	vyasevic@redhat.com, andres@anarazel.de
+To: vyasevich@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48346 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752768AbaINVpM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2014 17:45:12 -0400
+In-Reply-To: <5412F633.8020102@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 9 Sep 2014, Joe Perches wrote:
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Fri, 12 Sep 2014 09:33:39 -0400
 
-> Use the more common pr_warn.
+> Looking over the code, it might make sense to move all the net_eq checks
+> into adjacent_sysfs calls so as to consolidate them.  I haven't audited
+> all code paths, but at first glance it should do the right thing.
 > 
-> Other miscellanea:
-> 
-> o Coalesce formats
-> o Realign arguments
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  net/netfilter/ipset/ip_set_core.c     | 23 +++++++++++-----------
->  net/netfilter/ipset/ip_set_hash_gen.h | 12 ++++++------
->  net/netfilter/xt_connbytes.c          |  2 +-
->  net/netfilter/xt_hashlimit.c          |  2 +-
->  net/netfilter/xt_set.c                | 36 ++++++++++++++++-------------------
->  5 files changed, 35 insertions(+), 40 deletions(-)
+> What do you think?
 
-Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Agreed, let's do the following then?
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ab9a165..a70e49e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4809,9 +4809,14 @@ static void netdev_adjacent_sysfs_del(struct net_device *dev,
+ 	sysfs_remove_link(&(dev->dev.kobj), linkname);
+ }
+ 
+-#define netdev_adjacent_is_neigh_list(dev, dev_list) \
+-		(dev_list == &dev->adj_list.upper || \
+-		 dev_list == &dev->adj_list.lower)
++static bool netdev_adjacent_is_neigh_list(struct net_device *dev,
++					  struct net_device *adj_dev,
++					  struct list_head *dev_list)
++{
++	return (dev_list == &dev->adj_list.upper ||
++		dev_list == &dev->adj_list.lower) &&
++		net_eq(dev_net(dev), dev_net(adj_dev));
++}
+ 
+ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 					struct net_device *adj_dev,
+@@ -4841,7 +4846,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 	pr_debug("dev_hold for %s, because of link added from %s to %s\n",
+ 		 adj_dev->name, dev->name, adj_dev->name);
+ 
+-	if (netdev_adjacent_is_neigh_list(dev, dev_list)) {
++	if (netdev_adjacent_is_neigh_list(dev, adj_dev, dev_list)) {
+ 		ret = netdev_adjacent_sysfs_add(dev, adj_dev, dev_list);
+ 		if (ret)
+ 			goto free_adj;
+@@ -4862,7 +4867,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 	return 0;
+ 
+ remove_symlinks:
+-	if (netdev_adjacent_is_neigh_list(dev, dev_list))
++	if (netdev_adjacent_is_neigh_list(dev, adj_dev, dev_list))
+ 		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
+ free_adj:
+ 	kfree(adj);
+@@ -4895,8 +4900,7 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
+ 	if (adj->master)
+ 		sysfs_remove_link(&(dev->dev.kobj), "master");
+ 
+-	if (netdev_adjacent_is_neigh_list(dev, dev_list) &&
+-	    net_eq(dev_net(dev),dev_net(adj_dev)))
++	if (netdev_adjacent_is_neigh_list(dev, adj_dev, dev_list))
+ 		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
+ 
+ 	list_del_rcu(&adj->list);
