@@ -1,32 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: neterion: vxge: vxge-main.c: Cleaning
- up missing null-terminate in conjunction with strncpy
-Date: Mon, 15 Sep 2014 14:17:35 -0400 (EDT)
-Message-ID: <20140915.141735.2081988681960673592.davem@davemloft.net>
-References: <1410716087-16154-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+From: <Frank.Li@freescale.com>
+Subject: [Patch net-next 3/4] net:fec: increase DMA queue number
+Date: Tue, 16 Sep 2014 01:12:56 +0800
+Message-ID: <1410801177-15872-4-git-send-email-Frank.Li@freescale.com>
+References: <1410801177-15872-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jdmason@kudzu.us, ebiederm@xmission.com, jg1.han@samsung.com,
-	agordeev@redhat.com, benoit.taine@lip6.fr,
-	manuel.schoelling@gmx.de, bhutchings@solarflare.com,
-	john.stultz@linaro.org, cengelma@gmx.at, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: rickard_strandqvist@spectrumdigital.se
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35971 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754495AbaIOSRi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 14:17:38 -0400
-In-Reply-To: <1410716087-16154-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Frank Li <Frank.Li@freescale.com>, shawn.guo@linaro.org, Fugang
+ Duan <B38611@freescale.com>, linux-arm-kernel@lists.infradead.org
+To: <b38611@freescale.com>, <davem@davemloft.net>, <netdev@vger.kernel.org>,
+ <lznuaa@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1410801177-15872-1-git-send-email-Frank.Li@freescale.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Date: Sun, 14 Sep 2014 19:34:47 +0200
+From: Fugang Duan <B38611@freescale.com>
 
-> Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
-> 
-> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+when enable interrupt coalesce, 8 BD is not enough.
 
-Applied.
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index f13e319..c61eff6 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -296,7 +296,7 @@ struct bufdesc_ex {
+  * the skbuffer directly.
+  */
+ 
+-#define FEC_ENET_RX_PAGES	8
++#define FEC_ENET_RX_PAGES	256
+ #define FEC_ENET_RX_FRSIZE	2048
+ #define FEC_ENET_RX_FRPPG	(PAGE_SIZE / FEC_ENET_RX_FRSIZE)
+ #define RX_RING_SIZE		(FEC_ENET_RX_FRPPG * FEC_ENET_RX_PAGES)
+-- 
+1.9.1
