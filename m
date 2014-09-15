@@ -1,46 +1,43 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next 04/14] tipc: add sock dump to new netlink api
-Date: Mon, 15 Sep 2014 10:51:52 +0200
-Message-ID: <20140915085152.GC14006@breakpoint.cc>
-References: <1410424167-17427-1-git-send-email-richard.alpe@ericsson.com>
- <1410424167-17427-5-git-send-email-richard.alpe@ericsson.com>
- <20140912.171038.1165432718811920305.davem@davemloft.net>
- <54169B6C.5060709@ericsson.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: curent state of GSO over IPv6 tunnel
+Date: Mon, 15 Sep 2014 08:55:23 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63B365F6@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: Richard Alpe <richard.alpe@ericsson.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:53564 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753400AbaIOIv5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 04:51:57 -0400
-Content-Disposition: inline
-In-Reply-To: <54169B6C.5060709@ericsson.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:1392 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752712AbaIOIzZ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Sep 2014 04:55:25 -0400
+Received: from pps.filterd (m0045602.ppops.net [127.0.0.1])
+	by mx0a-0016ce01.pphosted.com (8.14.5/8.14.5) with SMTP id s8F8tPf5009870
+	for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 01:55:25 -0700
+Received: from avcashub1.qlogic.com (avcashub1.qlogic.com [198.70.193.115])
+	by mx0a-0016ce01.pphosted.com with ESMTP id 1patsxg0js-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 01:55:25 -0700
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Richard Alpe <richard.alpe@ericsson.com> wrote:
-> >You can't just say sometimes you'll partially list the set of nested
-> >attributes in an object, you must public the entire object fully in
-> >the netlink message or skip the object entirely.
-> Ok. I bluntly assumed we could put some reassemble logic in the
-> client as the end integrity should still be preserved(?).
-> 
-> >I would suggest that you instead size the amount of space you'll
-> >need for at least the first socket being listed, and if NLMSG_GOODSIZE
-> >is insufficient, allocate as much as you will actually need.
-> >
-> >Then you put full socket netlink blobs in there, including all nested
-> >attributes, and then stop and reset back the the most recent full socket
-> >published if you run out of space.
-> The amount of publications a socket can have is large (~65 000). Do
-> you still think this a viable solution?
+Hi,
 
-I suggest to look at nf_conntrack_netlink.c ctnetlink_dump_table() and
-ctnetlink_fill_info().
+Tried running simple scenarios using ipv6/ipv6 via gre-tunnel [ip6_gre].
 
-It should be doing something similar to what you want and it handles
-the restarts correctly, i.e., cancels all partial nested attributes
-on error and resumes at the beginning of said entry on the next dump.
+When I've tried sniffing Tx traffic [tcpdump] I've noticed there were
+no aggregations being set, i.e., only MTU-sized packets reached NIC.
+
+Looking at output of `ethtool -k', I can see `tx_gre_segmentation' is on.
+
+What's the current state of the feature? Is it feasible and I'm missing
+some configuration, or is it yet an unsupported feature?
+
+Thanks,
+Yuval
+
+________________________________
+
+This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
