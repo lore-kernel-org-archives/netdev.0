@@ -1,129 +1,91 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next 5/7] sit: TX path for sit/UDP foo-over-udp encapsulation
-Date: Sun, 14 Sep 2014 20:08:01 -0700
-Message-ID: <1410750483-3236-6-git-send-email-therbert@google.com>
+Subject: [PATCH v2 net-next 7/7] gre: TX path for GRE/UDP foo-over-udp encapsulation
+Date: Sun, 14 Sep 2014 20:08:03 -0700
+Message-ID: <1410750483-3236-8-git-send-email-therbert@google.com>
 References: <1410750483-3236-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:58217 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753100AbaIODIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2014 23:08:32 -0400
-Received: by mail-pa0-f48.google.com with SMTP id hz1so5447603pad.35
-        for <netdev@vger.kernel.org>; Sun, 14 Sep 2014 20:08:32 -0700 (PDT)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:55004 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753288AbaIODIh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2014 23:08:37 -0400
+Received: by mail-pa0-f51.google.com with SMTP id kx10so5388840pab.24
+        for <netdev@vger.kernel.org>; Sun, 14 Sep 2014 20:08:37 -0700 (PDT)
 In-Reply-To: <1410750483-3236-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/ipv6/sit.c | 107 +++++++++++++++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 97 insertions(+), 10 deletions(-)
+ include/uapi/linux/if_tunnel.h |  4 ++
+ net/ipv4/ip_gre.c              | 98 +++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 95 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 86e3fa8..db75809 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -822,6 +822,8 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 	int addr_type;
- 	u8 ttl;
- 	int err;
-+	u8 protocol = IPPROTO_IPV6;
-+	int t_hlen = tunnel->hlen + sizeof(struct iphdr);
+diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+index 9fedca7..7c832af 100644
+--- a/include/uapi/linux/if_tunnel.h
++++ b/include/uapi/linux/if_tunnel.h
+@@ -106,6 +106,10 @@ enum {
+ 	IFLA_GRE_ENCAP_LIMIT,
+ 	IFLA_GRE_FLOWINFO,
+ 	IFLA_GRE_FLAGS,
++	IFLA_GRE_ENCAP_TYPE,
++	IFLA_GRE_ENCAP_FLAGS,
++	IFLA_GRE_ENCAP_SPORT,
++	IFLA_GRE_ENCAP_DPORT,
+ 	__IFLA_GRE_MAX,
+ };
  
- 	if (skb->protocol != htons(ETH_P_IPV6))
- 		goto tx_error;
-@@ -911,8 +913,14 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 		goto tx_error;
- 	}
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 9b84254..5681344 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -239,7 +239,7 @@ static void __gre_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	tpi.seq = htonl(tunnel->o_seqno);
  
-+	skb = iptunnel_handle_offloads(skb, false, SKB_GSO_SIT);
-+	if (IS_ERR(skb)) {
-+		ip_rt_put(rt);
-+		goto out;
-+	}
-+
- 	if (df) {
--		mtu = dst_mtu(&rt->dst) - sizeof(struct iphdr);
-+		mtu = dst_mtu(&rt->dst) - t_hlen;
+ 	/* Push GRE header. */
+-	gre_build_header(skb, &tpi, tunnel->hlen);
++	gre_build_header(skb, &tpi, tunnel->tun_hlen);
  
- 		if (mtu < 68) {
- 			dev->stats.collisions++;
-@@ -947,7 +955,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 	/*
- 	 * Okay, now see if we can stuff it in the buffer as-is.
- 	 */
--	max_headroom = LL_RESERVED_SPACE(tdev)+sizeof(struct iphdr);
-+	max_headroom = LL_RESERVED_SPACE(tdev) + t_hlen;
- 
- 	if (skb_headroom(skb) < max_headroom || skb_shared(skb) ||
- 	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
-@@ -969,14 +977,13 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 		ttl = iph6->hop_limit;
- 	tos = INET_ECN_encapsulate(tos, ipv6_get_dsfield(iph6));
- 
--	skb = iptunnel_handle_offloads(skb, false, SKB_GSO_SIT);
--	if (IS_ERR(skb)) {
-+	if (ip_tunnel_encap(skb, tunnel, &protocol, &fl4) < 0) {
- 		ip_rt_put(rt);
--		goto out;
-+		goto tx_error;
- 	}
- 
- 	err = iptunnel_xmit(skb->sk, rt, skb, fl4.saddr, fl4.daddr,
--			    IPPROTO_IPV6, tos, ttl, df,
-+			    protocol, tos, ttl, df,
- 			    !net_eq(tunnel->net, dev_net(dev)));
- 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
- 	return NETDEV_TX_OK;
-@@ -1059,8 +1066,10 @@ static void ipip6_tunnel_bind_dev(struct net_device *dev)
- 		tdev = __dev_get_by_index(tunnel->net, tunnel->parms.link);
- 
- 	if (tdev) {
-+		int t_hlen = tunnel->hlen + sizeof(struct iphdr);
-+
- 		dev->hard_header_len = tdev->hard_header_len + sizeof(struct iphdr);
--		dev->mtu = tdev->mtu - sizeof(struct iphdr);
-+		dev->mtu = tdev->mtu - t_hlen;
- 		if (dev->mtu < IPV6_MIN_MTU)
- 			dev->mtu = IPV6_MIN_MTU;
- 	}
-@@ -1307,7 +1316,10 @@ done:
- 
- static int ipip6_tunnel_change_mtu(struct net_device *dev, int new_mtu)
+ 	ip_tunnel_xmit(skb, dev, tnl_params, tnl_params->protocol);
+ }
+@@ -310,7 +310,7 @@ out:
+ static int ipgre_tunnel_ioctl(struct net_device *dev,
+ 			      struct ifreq *ifr, int cmd)
  {
--	if (new_mtu < IPV6_MIN_MTU || new_mtu > 0xFFF8 - sizeof(struct iphdr))
-+	struct ip_tunnel *tunnel = netdev_priv(dev);
-+	int t_hlen = tunnel->hlen + sizeof(struct iphdr);
-+
-+	if (new_mtu < IPV6_MIN_MTU || new_mtu > 0xFFF8 - t_hlen)
- 		return -EINVAL;
- 	dev->mtu = new_mtu;
- 	return 0;
-@@ -1338,12 +1350,15 @@ static void ipip6_dev_free(struct net_device *dev)
+-	int err = 0;
++	int err;
+ 	struct ip_tunnel_parm p;
  
- static void ipip6_tunnel_setup(struct net_device *dev)
+ 	if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
+@@ -470,13 +470,18 @@ static void ipgre_tunnel_setup(struct net_device *dev)
+ static void __gre_tunnel_init(struct net_device *dev)
  {
-+	struct ip_tunnel *tunnel = netdev_priv(dev);
-+	int t_hlen = tunnel->hlen + sizeof(struct iphdr);
+ 	struct ip_tunnel *tunnel;
++	int t_hlen;
+ 
+ 	tunnel = netdev_priv(dev);
+-	tunnel->hlen = ip_gre_calc_hlen(tunnel->parms.o_flags);
++	tunnel->tun_hlen = ip_gre_calc_hlen(tunnel->parms.o_flags);
+ 	tunnel->parms.iph.protocol = IPPROTO_GRE;
+ 
+-	dev->needed_headroom	= LL_MAX_HEADER + sizeof(struct iphdr) + 4;
+-	dev->mtu		= ETH_DATA_LEN - sizeof(struct iphdr) - 4;
++	tunnel->hlen = tunnel->tun_hlen + tunnel->encap_hlen;
 +
- 	dev->netdev_ops		= &ipip6_netdev_ops;
- 	dev->destructor		= ipip6_dev_free;
++	t_hlen = tunnel->hlen + sizeof(struct iphdr);
++
++	dev->needed_headroom	= LL_MAX_HEADER + t_hlen + 4;
++	dev->mtu		= ETH_DATA_LEN - t_hlen - 4;
  
- 	dev->type		= ARPHRD_SIT;
--	dev->hard_header_len	= LL_MAX_HEADER + sizeof(struct iphdr);
--	dev->mtu		= ETH_DATA_LEN - sizeof(struct iphdr);
-+	dev->hard_header_len	= LL_MAX_HEADER + t_hlen;
-+	dev->mtu		= ETH_DATA_LEN - t_hlen;
- 	dev->flags		= IFF_NOARP;
- 	dev->priv_flags	       &= ~IFF_XMIT_DST_RELEASE;
- 	dev->iflink		= 0;
-@@ -1466,6 +1481,40 @@ static void ipip6_netlink_parms(struct nlattr *data[],
- 
+ 	dev->features		|= GRE_FEATURES;
+ 	dev->hw_features	|= GRE_FEATURES;
+@@ -628,6 +633,40 @@ static void ipgre_netlink_parms(struct nlattr *data[], struct nlattr *tb[],
+ 		parms->iph.frag_off = htons(IP_DF);
  }
  
 +/* This function returns true when ENCAP attributes are present in the nl msg */
-+static bool ipip6_netlink_encap_parms(struct nlattr *data[],
++static bool ipgre_netlink_encap_parms(struct nlattr *data[],
 +				      struct ip_tunnel_encap *ipencap)
 +{
 +	bool ret = false;
@@ -133,119 +95,118 @@ index 86e3fa8..db75809 100644
 +	if (!data)
 +		return ret;
 +
-+	if (data[IFLA_IPTUN_ENCAP_TYPE]) {
++	if (data[IFLA_GRE_ENCAP_TYPE]) {
 +		ret = true;
-+		ipencap->type = nla_get_u16(data[IFLA_IPTUN_ENCAP_TYPE]);
++		ipencap->type = nla_get_u16(data[IFLA_GRE_ENCAP_TYPE]);
 +	}
 +
-+	if (data[IFLA_IPTUN_ENCAP_FLAGS]) {
++	if (data[IFLA_GRE_ENCAP_FLAGS]) {
 +		ret = true;
-+		ipencap->flags = nla_get_u16(data[IFLA_IPTUN_ENCAP_FLAGS]);
++		ipencap->flags = nla_get_u16(data[IFLA_GRE_ENCAP_FLAGS]);
 +	}
 +
-+	if (data[IFLA_IPTUN_ENCAP_SPORT]) {
++	if (data[IFLA_GRE_ENCAP_SPORT]) {
 +		ret = true;
-+		ipencap->sport = nla_get_u16(data[IFLA_IPTUN_ENCAP_SPORT]);
++		ipencap->sport = nla_get_u16(data[IFLA_GRE_ENCAP_SPORT]);
 +	}
 +
-+	if (data[IFLA_IPTUN_ENCAP_DPORT]) {
++	if (data[IFLA_GRE_ENCAP_DPORT]) {
 +		ret = true;
-+		ipencap->dport = nla_get_u16(data[IFLA_IPTUN_ENCAP_DPORT]);
++		ipencap->dport = nla_get_u16(data[IFLA_GRE_ENCAP_DPORT]);
 +	}
 +
 +	return ret;
 +}
 +
- #ifdef CONFIG_IPV6_SIT_6RD
- /* This function returns true when 6RD attributes are present in the nl msg */
- static bool ipip6_netlink_6rd_parms(struct nlattr *data[],
-@@ -1509,12 +1558,20 @@ static int ipip6_newlink(struct net *src_net, struct net_device *dev,
+ static int gre_tap_init(struct net_device *dev)
  {
- 	struct net *net = dev_net(dev);
- 	struct ip_tunnel *nt;
+ 	__gre_tunnel_init(dev);
+@@ -657,18 +696,40 @@ static int ipgre_newlink(struct net *src_net, struct net_device *dev,
+ 			 struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct ip_tunnel_parm p;
++	struct ip_tunnel *nt = netdev_priv(dev);
 +	struct ip_tunnel_encap ipencap;
- #ifdef CONFIG_IPV6_SIT_6RD
- 	struct ip_tunnel_6rd ip6rd;
- #endif
- 	int err;
- 
- 	nt = netdev_priv(dev);
++	int err;
 +
-+	if (ipip6_netlink_encap_parms(data, &ipencap)) {
++	if (ipgre_netlink_encap_parms(data, &ipencap)) {
 +		err = ip_tunnel_encap_setup(nt, &ipencap);
 +		if (err < 0)
 +			return err;
 +	}
-+
- 	ipip6_netlink_parms(data, &nt->parms);
  
- 	if (ipip6_tunnel_locate(net, &nt->parms, 0))
-@@ -1537,15 +1594,23 @@ static int ipip6_changelink(struct net_device *dev, struct nlattr *tb[],
+ 	ipgre_netlink_parms(data, tb, &p);
+-	return ip_tunnel_newlink(dev, tb, &p);
++	err = ip_tunnel_newlink(dev, tb, &p);
++
++	return err;
+ }
+ 
+ static int ipgre_changelink(struct net_device *dev, struct nlattr *tb[],
+ 			    struct nlattr *data[])
  {
- 	struct ip_tunnel *t = netdev_priv(dev);
++	struct ip_tunnel *t = netdev_priv(dev);
  	struct ip_tunnel_parm p;
 +	struct ip_tunnel_encap ipencap;
- 	struct net *net = t->net;
- 	struct sit_net *sitn = net_generic(net, sit_net_id);
- #ifdef CONFIG_IPV6_SIT_6RD
- 	struct ip_tunnel_6rd ip6rd;
- #endif
 +	int err;
- 
- 	if (dev == sitn->fb_tunnel_dev)
- 		return -EINVAL;
- 
-+	if (ipip6_netlink_encap_parms(data, &ipencap)) {
++
++	if (ipgre_netlink_encap_parms(data, &ipencap)) {
 +		err = ip_tunnel_encap_setup(t, &ipencap);
 +		if (err < 0)
 +			return err;
 +	}
-+
- 	ipip6_netlink_parms(data, &p);
  
- 	if (((dev->flags & IFF_POINTOPOINT) && !p.iph.daddr) ||
-@@ -1599,6 +1664,14 @@ static size_t ipip6_get_size(const struct net_device *dev)
- 		/* IFLA_IPTUN_6RD_RELAY_PREFIXLEN */
- 		nla_total_size(2) +
- #endif
-+		/* IFLA_IPTUN_ENCAP_TYPE */
+ 	ipgre_netlink_parms(data, tb, &p);
+-	return ip_tunnel_changelink(dev, tb, &p);
++	err = ip_tunnel_changelink(dev, tb, &p);
++
++	return err;
+ }
+ 
+ static size_t ipgre_get_size(const struct net_device *dev)
+@@ -694,6 +755,14 @@ static size_t ipgre_get_size(const struct net_device *dev)
+ 		nla_total_size(1) +
+ 		/* IFLA_GRE_PMTUDISC */
+ 		nla_total_size(1) +
++		/* IFLA_GRE_ENCAP_TYPE */
 +		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_FLAGS */
++		/* IFLA_GRE_ENCAP_FLAGS */
 +		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_SPORT */
++		/* IFLA_GRE_ENCAP_SPORT */
 +		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_DPORT */
++		/* IFLA_GRE_ENCAP_DPORT */
 +		nla_total_size(2) +
  		0;
  }
  
-@@ -1630,6 +1703,16 @@ static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
+@@ -714,6 +783,17 @@ static int ipgre_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	    nla_put_u8(skb, IFLA_GRE_PMTUDISC,
+ 		       !!(p->iph.frag_off & htons(IP_DF))))
  		goto nla_put_failure;
- #endif
- 
-+	if (nla_put_u16(skb, IFLA_IPTUN_ENCAP_TYPE,
-+			tunnel->encap.type) ||
-+	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_SPORT,
-+			tunnel->encap.sport) ||
-+	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_DPORT,
-+			tunnel->encap.dport) ||
-+	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_FLAGS,
-+			tunnel->encap.dport))
++
++	if (nla_put_u16(skb, IFLA_GRE_ENCAP_TYPE,
++			t->encap.type) ||
++	    nla_put_u16(skb, IFLA_GRE_ENCAP_SPORT,
++			t->encap.sport) ||
++	    nla_put_u16(skb, IFLA_GRE_ENCAP_DPORT,
++			t->encap.dport) ||
++	    nla_put_u16(skb, IFLA_GRE_ENCAP_FLAGS,
++			t->encap.dport))
 +		goto nla_put_failure;
 +
  	return 0;
  
  nla_put_failure:
-@@ -1651,6 +1734,10 @@ static const struct nla_policy ipip6_policy[IFLA_IPTUN_MAX + 1] = {
- 	[IFLA_IPTUN_6RD_PREFIXLEN]	= { .type = NLA_U16 },
- 	[IFLA_IPTUN_6RD_RELAY_PREFIXLEN] = { .type = NLA_U16 },
- #endif
-+	[IFLA_IPTUN_ENCAP_TYPE]		= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_FLAGS]	= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_SPORT]	= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_DPORT]	= { .type = NLA_U16 },
+@@ -731,6 +811,10 @@ static const struct nla_policy ipgre_policy[IFLA_GRE_MAX + 1] = {
+ 	[IFLA_GRE_TTL]		= { .type = NLA_U8 },
+ 	[IFLA_GRE_TOS]		= { .type = NLA_U8 },
+ 	[IFLA_GRE_PMTUDISC]	= { .type = NLA_U8 },
++	[IFLA_GRE_ENCAP_TYPE]	= { .type = NLA_U16 },
++	[IFLA_GRE_ENCAP_FLAGS]	= { .type = NLA_U16 },
++	[IFLA_GRE_ENCAP_SPORT]	= { .type = NLA_U16 },
++	[IFLA_GRE_ENCAP_DPORT]	= { .type = NLA_U16 },
  };
  
- static void ipip6_dellink(struct net_device *dev, struct list_head *head)
+ static struct rtnl_link_ops ipgre_link_ops __read_mostly = {
 -- 
 2.1.0.rc2.206.gedb03e5
