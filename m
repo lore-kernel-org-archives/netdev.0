@@ -1,66 +1,32 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 3/3] tcp: do not copy headers in tcp_collapse()
-Date: Mon, 15 Sep 2014 04:19:53 -0700
-Message-ID: <1410779993-31464-4-git-send-email-edumazet@google.com>
-References: <1410779993-31464-1-git-send-email-edumazet@google.com>
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] iproute: update dsfield file values
+Date: Mon, 15 Sep 2014 04:48:19 -0700
+Message-ID: <1410781699.7106.153.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140914204353.5a0579be@urahara>
+	 <20140915130608.5d238cb1@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f74.google.com ([209.85.220.74]:58079 "EHLO
-	mail-pa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753522AbaIOLUU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 07:20:20 -0400
-Received: by mail-pa0-f74.google.com with SMTP id lj1so754420pab.3
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 04:20:19 -0700 (PDT)
-In-Reply-To: <1410779993-31464-1-git-send-email-edumazet@google.com>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:57678 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753673AbaIOLsV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 07:48:21 -0400
+Received: by mail-pd0-f175.google.com with SMTP id z10so6041210pdj.20
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 04:48:20 -0700 (PDT)
+In-Reply-To: <20140915130608.5d238cb1@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tcp_collapse() wants to shrink skb so that the overhead is minimal.
+On Mon, 2014-09-15 at 13:06 +0200, Jesper Dangaard Brouer wrote:
 
-Now we store tcp flags into TCP_SKB_CB(skb)->tcp_flags, we no longer
-need to keep around full headers.
-Whole available space is dedicated to the payload.
+> Is it a bug, that we put DSCP's Expedited Forwarding (EF) into the
+> best-effort priority band(1) in pfifo_fast???
+> 
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_input.c | 17 ++---------------
- 1 file changed, 2 insertions(+), 15 deletions(-)
+With 3 bands pfifo_fast, its hard to please everyone.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 228bf0c5ff19..ea92f23ffaf1 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4535,26 +4535,13 @@ restart:
- 		return;
- 
- 	while (before(start, end)) {
-+		int copy = min_t(int, SKB_MAX_ORDER(0, 0), end - start);
- 		struct sk_buff *nskb;
--		unsigned int header = skb_headroom(skb);
--		int copy = SKB_MAX_ORDER(header, 0);
- 
--		/* Too big header? This can happen with IPv6. */
--		if (copy < 0)
--			return;
--		if (end - start < copy)
--			copy = end - start;
--		nskb = alloc_skb(copy + header, GFP_ATOMIC);
-+		nskb = alloc_skb(copy, GFP_ATOMIC);
- 		if (!nskb)
- 			return;
- 
--		skb_set_mac_header(nskb, skb_mac_header(skb) - skb->head);
--		skb_set_network_header(nskb, (skb_network_header(skb) -
--					      skb->head));
--		skb_set_transport_header(nskb, (skb_transport_header(skb) -
--						skb->head));
--		skb_reserve(nskb, header);
--		memcpy(nskb->head, skb->head, header);
- 		memcpy(nskb->cb, skb->cb, sizeof(skb->cb));
- 		TCP_SKB_CB(nskb)->seq = TCP_SKB_CB(nskb)->end_seq = start;
- 		__skb_queue_before(list, skb, nskb);
--- 
-2.1.0.rc2.206.gedb03e5
+Using 5 or 6 bands would be more generic ;)
