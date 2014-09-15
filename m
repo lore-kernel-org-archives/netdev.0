@@ -1,49 +1,29 @@
-From: <Frank.Li@freescale.com>
-Subject: [Patch net-next 3/4] net:fec: increase DMA queue number
-Date: Tue, 16 Sep 2014 01:12:56 +0800
-Message-ID: <1410801177-15872-4-git-send-email-Frank.Li@freescale.com>
-References: <1410801177-15872-1-git-send-email-Frank.Li@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 1/7] net: Export inet_offloads and
+ inet6_offloads
+Date: Mon, 15 Sep 2014 14:21:47 -0400 (EDT)
+Message-ID: <20140915.142147.1377671205197098996.davem@davemloft.net>
+References: <1410750483-3236-1-git-send-email-therbert@google.com>
+	<1410750483-3236-2-git-send-email-therbert@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Frank Li <Frank.Li@freescale.com>, shawn.guo@linaro.org, Fugang
- Duan <B38611@freescale.com>, linux-arm-kernel@lists.infradead.org
-To: <b38611@freescale.com>, <davem@davemloft.net>, <netdev@vger.kernel.org>,
- <lznuaa@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1410801177-15872-1-git-send-email-Frank.Li@freescale.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36053 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753370AbaIOSVu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 14:21:50 -0400
+In-Reply-To: <1410750483-3236-2-git-send-email-therbert@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <B38611@freescale.com>
+From: Tom Herbert <therbert@google.com>
+Date: Sun, 14 Sep 2014 20:07:57 -0700
 
-when enable interrupt coalesce, 8 BD is not enough.
+> Want to be able to call this in foo-over-udp offloads, etc.
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
- drivers/net/ethernet/freescale/fec.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index f13e319..c61eff6 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -296,7 +296,7 @@ struct bufdesc_ex {
-  * the skbuffer directly.
-  */
- 
--#define FEC_ENET_RX_PAGES	8
-+#define FEC_ENET_RX_PAGES	256
- #define FEC_ENET_RX_FRSIZE	2048
- #define FEC_ENET_RX_FRPPG	(PAGE_SIZE / FEC_ENET_RX_FRSIZE)
- #define RX_RING_SIZE		(FEC_ENET_RX_FRPPG * FEC_ENET_RX_PAGES)
--- 
-1.9.1
+I don't think inet{,6}_offloads are symbols you can "call" :-)
