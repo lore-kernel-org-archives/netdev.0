@@ -1,33 +1,52 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v2 net-next 2/3] tcp: allow segment with FIN in tcp_try_coalesce()
-Date: Mon, 15 Sep 2014 12:20:37 -0400
-Message-ID: <CADVnQykwtVycYjTeg-j+UsDvp3Z7wS6JxUCM3q8ut=UojiuVwg@mail.gmail.com>
-References: <1410779993-31464-1-git-send-email-edumazet@google.com>
-	<1410779993-31464-3-git-send-email-edumazet@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:47456 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752914AbaIOQUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 12:20:41 -0400
-Received: by mail-qa0-f49.google.com with SMTP id i13so4056801qae.8
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 09:20:38 -0700 (PDT)
-In-Reply-To: <1410779993-31464-3-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: [PATCH] netdev: octeon_mgmt: Fix ISO C90 forbids mixed declarations and code warning.
+Date: Mon, 15 Sep 2014 09:23:43 -0700
+Message-ID: <1410798223-21420-1-git-send-email-ddaney.cavm@gmail.com>
+Cc: linux-mips@linux-mips.org, David Daney <david.daney@cavium.com>,
+	Heinrich Schuchardt <xypron.glpk@gmx.de>,
+	Joe Perches <joe@perches.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 15, 2014 at 7:19 AM, Eric Dumazet <edumazet@google.com> wrote:
-> We can allow a segment with FIN to be aggregated,
-> if we take care to add tcp flags,
-> and if skb_try_coalesce() takes care of zero sized skbs.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+From: David Daney <david.daney@cavium.com>
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+We were getting:
 
-neal
+  drivers/net/ethernet/octeon/octeon_mgmt.c:295:4: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+
+The idea of the fix from Joe Perches.
+
+Signed-off-by: David Daney <david.daney@cavium.com>
+Cc: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Cc: Joe Perches <joe@perches.com>
+---
+
+This patch should supersede previous patches from Heinrich Schuchardt,
+and may be preferable as it touches fewer lines of code.
+
+ drivers/net/ethernet/octeon/octeon_mgmt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
+index 979c698..5e10c1d 100644
+--- a/drivers/net/ethernet/octeon/octeon_mgmt.c
++++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
+@@ -290,12 +290,12 @@ static void octeon_mgmt_clean_tx_buffers(struct octeon_mgmt *p)
+ 		/* Read the hardware TX timestamp if one was recorded */
+ 		if (unlikely(re.s.tstamp)) {
+ 			struct skb_shared_hwtstamps ts;
+-			memset(&ts, 0, sizeof(ts));
+ 			/* Read the timestamp */
+ 			u64 ns = cvmx_read_csr(CVMX_MIXX_TSTAMP(p->port));
+ 			/* Remove the timestamp from the FIFO */
+ 			cvmx_write_csr(CVMX_MIXX_TSCTL(p->port), 0);
+ 			/* Tell the kernel about the timestamp */
++			memset(&ts, 0, sizeof(ts));
+ 			ts.hwtstamp = ns_to_ktime(ns);
+ 			skb_tstamp_tx(skb, &ts);
+ 		}
+-- 
+1.7.11.7
