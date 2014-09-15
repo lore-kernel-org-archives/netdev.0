@@ -1,101 +1,54 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] net: ethernet: marvell: sky2.c:  Cleaning up missing
- null-terminate in conjunction with strncpy
-Date: Sun, 14 Sep 2014 19:05:57 -0700
-Message-ID: <20140914190557.690183d2@urahara>
-References: <1410716023-16068-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Mirko Lindner <mlindner@marvell.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/3] tcp: no longer keep around headers in input path
+Date: Sun, 14 Sep 2014 19:56:17 -0700
+Message-ID: <1410749780-30613-1-git-send-email-edumazet@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:62773 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752512AbaIOCGB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2014 22:06:01 -0400
-Received: by mail-pd0-f172.google.com with SMTP id v10so5168343pde.17
-        for <netdev@vger.kernel.org>; Sun, 14 Sep 2014 19:06:00 -0700 (PDT)
-In-Reply-To: <1410716023-16068-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Received: from mail-oa0-f73.google.com ([209.85.219.73]:43899 "EHLO
+	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753273AbaIOC4b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2014 22:56:31 -0400
+Received: by mail-oa0-f73.google.com with SMTP id jd19so504173oac.0
+        for <netdev@vger.kernel.org>; Sun, 14 Sep 2014 19:56:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 14 Sep 2014 19:33:43 +0200
-Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se> wrote:
+Looking at tcp_try_coalesce() I was wondering why I did :
 
-> Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
-> 
-> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-> ---
->  drivers/net/ethernet/marvell/sky2.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-> index dba48a5c..7053d38 100644
-> --- a/drivers/net/ethernet/marvell/sky2.c
-> +++ b/drivers/net/ethernet/marvell/sky2.c
-> @@ -4907,7 +4907,7 @@ static const char *sky2_name(u8 chipid, char *buf, int sz)
->  	};
->  
->  	if (chipid >= CHIP_ID_YUKON_XL && chipid <= CHIP_ID_YUKON_OP_2)
-> -		strncpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
-> +		strlcpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
->  	else
->  		snprintf(buf, sz, "(chip %#x)", chipid);
->  	return buf;
+if (tcp_hdr(from)->fin)
+     return false;
 
-Useless and unnecessary since the list of names is right there.
-Why not avoid the copy all together?
+The answer would be to allow the aggregation, if we simply OR the FIN and PSH
+flags eventually present in @from to @to packet.
 
-Subject: sky2: avoid strncpy
+Then, looking at tcp_recvmsg(), I realized we access tcp_hdr(skb)->syn
+(and maybe tcp_hdr(skb)->fin) for every packet we process from socket
+receive queue.
 
-Don't use strncpy() since security thought police think it is bad.
+We have to understand TCP flags are cold in cpu caches most of the time
+(assuming RPS/RFS is used, or that application calls recvmsg() a long
+time after incoming packet was processed), and bringing a whole
+cache line only to access one bit is not very nice.
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+It would make sense to use in TCP input path TCP_SKB_CB(skb)->tcp_flags
+as we do in output path.
 
+This saves one cache line miss, and TCP tcp_collapse() could avoid dealing
+with the headers.
 
---- a/drivers/net/ethernet/marvell/sky2.c	2014-08-25 09:01:16.292060455 -0700
-+++ b/drivers/net/ethernet/marvell/sky2.c	2014-09-14 19:02:26.731034094 -0700
-@@ -4889,7 +4889,7 @@ static int sky2_test_msi(struct sky2_hw
- }
- 
- /* This driver supports yukon2 chipset only */
--static const char *sky2_name(u8 chipid, char *buf, int sz)
-+static const char *sky2_name(u8 chipid)
- {
- 	const char *name[] = {
- 		"XL",		/* 0xb3 */
-@@ -4905,11 +4905,12 @@ static const char *sky2_name(u8 chipid,
- 		"OptimaEEE",    /* 0xbd */
- 		"Optima 2",	/* 0xbe */
- 	};
-+	static char buf[16];
- 
- 	if (chipid >= CHIP_ID_YUKON_XL && chipid <= CHIP_ID_YUKON_OP_2)
--		strncpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
--	else
--		snprintf(buf, sz, "(chip %#x)", chipid);
-+		return name[chipid - CHIP_ID_YUKON_XL];
-+
-+	snprintf(buf, sizeof(buf), "(chip %#x)", chipid);
- 	return buf;
- }
- 
-@@ -4919,7 +4920,6 @@ static int sky2_probe(struct pci_dev *pd
- 	struct sky2_hw *hw;
- 	int err, using_dac = 0, wol_default;
- 	u32 reg;
--	char buf1[16];
- 
- 	err = pci_enable_device(pdev);
- 	if (err) {
-@@ -5014,7 +5014,7 @@ static int sky2_probe(struct pci_dev *pd
- 	}
- 
- 	dev_info(&pdev->dev, "Yukon-2 %s chip revision %d\n",
--		 sky2_name(hw->chip_id, buf1, sizeof(buf1)), hw->chip_rev);
-+		 sky2_name(hw->chip_id), hw->chip_rev);
- 
- 	sky2_reset(hw);
- 
+Eric Dumazet (3):
+  tcp: use TCP_SKB_CB(skb)->tcp_flags in input path
+  tcp: allow segment with FIN in tcp_try_coalesce()
+  tcp: do not copy headers in tcp_collapse()
+
+ net/ipv4/tcp.c       | 18 ++++++++++--------
+ net/ipv4/tcp_input.c | 31 ++++++++-----------------------
+ net/ipv4/tcp_ipv4.c  |  1 +
+ net/ipv6/tcp_ipv6.c  |  1 +
+ 4 files changed, 20 insertions(+), 31 deletions(-)
+
+-- 
+2.1.0.rc2.206.gedb03e5
