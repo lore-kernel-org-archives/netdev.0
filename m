@@ -1,8 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH 1/2] dsa: Split ops up,
- and avoid assigning tag_protocol and receive separately
-Date: Mon, 15 Sep 2014 13:00:19 -0400
-Message-ID: <20140915165921.1261.9679.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [PATCH 2/2] dsa: Replace mii_bus with a generic host device
+Date: Mon, 15 Sep 2014 13:00:27 -0400
+Message-ID: <20140915170024.1261.97226.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140915165543.1261.2520.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,326 +11,321 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:26094 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753190AbaIORJv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Sep 2014 13:09:51 -0400
+	id S1753966AbaIORJx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Sep 2014 13:09:53 -0400
 In-Reply-To: <20140915165543.1261.2520.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change addresses several issues.
+This change makes it so that instead of passing and storing a mii_bus we
+instead pass and store a host_dev.  From there we can test to determine the
+exact type of device, and can verify it is the correct device for our switch.
 
-First, it was possible to set tag_protocol without setting the ops pointer.
-To correct that I have reordered things so that rcv is now populated before
-we set tag_protocol.
-
-Second, it didn't make much sense to keep setting the device ops each time a
-new slave was registered.  So by moving the receive portion out into root
-switch initialization that issue should be addressed.
-
-Third, I wanted to avoid sending tags if the rcv pointer was not registered
-so I changed the tag check to verify if the rcv function pointer is set on
-the root tree.  If it is then we start sending DSA tagged frames.
-
-Finally I split the device ops pointer in the structures into two spots.  I
-placed the rcv function pointer in the root switch since this makes it
-easiest to access from there, and I placed the xmit function pointer in the
-slave for the same reason.
+So for example it would be possible to pass a device pointer from a pci_dev
+and instead of checking for a PHY ID we could check for a vendor and/or device
+ID.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- include/linux/netdevice.h |    7 -------
- include/net/dsa.h         |   10 ++++++----
- net/dsa/dsa.c             |   32 ++++++++++++++++++++++++++++----
- net/dsa/dsa_priv.h        |   11 ++++++++++-
- net/dsa/slave.c           |   37 +++++++++++++++----------------------
- net/dsa/tag_brcm.c        |    1 -
- net/dsa/tag_dsa.c         |    1 -
- net/dsa/tag_edsa.c        |    1 -
- net/dsa/tag_trailer.c     |    1 -
- 9 files changed, 59 insertions(+), 42 deletions(-)
+ arch/arm/plat-orion/common.c      |    2 +-
+ drivers/net/dsa/bcm_sf2.c         |    2 +-
+ drivers/net/dsa/mv88e6060.c       |   13 +++++++++----
+ drivers/net/dsa/mv88e6123_61_65.c |    6 +++++-
+ drivers/net/dsa/mv88e6131.c       |    6 +++++-
+ drivers/net/dsa/mv88e6171.c       |    6 +++++-
+ drivers/net/dsa/mv88e6xxx.c       |    4 ++--
+ include/net/dsa.h                 |    9 +++++----
+ net/dsa/dsa.c                     |   24 ++++++++----------------
+ net/dsa/slave.c                   |    2 +-
+ 10 files changed, 42 insertions(+), 32 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f9e81d1..28d4378 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1928,13 +1928,6 @@ struct udp_offload {
- 	struct offload_callbacks callbacks;
- };
+diff --git a/arch/arm/plat-orion/common.c b/arch/arm/plat-orion/common.c
+index 3ec6e8e..f5b00f4 100644
+--- a/arch/arm/plat-orion/common.c
++++ b/arch/arm/plat-orion/common.c
+@@ -499,7 +499,7 @@ void __init orion_ge00_switch_init(struct dsa_platform_data *d, int irq)
  
--struct dsa_device_ops {
--	netdev_tx_t (*xmit)(struct sk_buff *skb, struct net_device *dev);
--	int (*rcv)(struct sk_buff *skb, struct net_device *dev,
--		   struct packet_type *pt, struct net_device *orig_dev);
--};
--
--
- /* often modified stats are per cpu, other are shared (netdev->stats) */
- struct pcpu_sw_netstats {
- 	u64     rx_packets;
+ 	d->netdev = &orion_ge00.dev;
+ 	for (i = 0; i < d->nr_chips; i++)
+-		d->chip[i].mii_bus = &orion_ge00_shared.dev;
++		d->chip[i].host_dev = &orion_ge00_shared.dev;
+ 	orion_switch_device.dev.platform_data = d;
+ 
+ 	platform_device_register(&orion_switch_device);
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index e9918c7..02d7db3 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -129,7 +129,7 @@ static int bcm_sf2_sw_get_sset_count(struct dsa_switch *ds)
+ 	return BCM_SF2_STATS_SIZE;
+ }
+ 
+-static char *bcm_sf2_sw_probe(struct mii_bus *bus, int sw_addr)
++static char *bcm_sf2_sw_probe(struct device *host_dev, int sw_addr)
+ {
+ 	return "Broadcom Starfighter 2";
+ }
+diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+index d8037c1..776e965 100644
+--- a/drivers/net/dsa/mv88e6060.c
++++ b/drivers/net/dsa/mv88e6060.c
+@@ -21,7 +21,8 @@
+ 
+ static int reg_read(struct dsa_switch *ds, int addr, int reg)
+ {
+-	return mdiobus_read(ds->master_mii_bus, ds->pd->sw_addr + addr, reg);
++	return mdiobus_read(to_mii_bus(ds->master_dev),
++			    ds->pd->sw_addr + addr, reg);
+ }
+ 
+ #define REG_READ(addr, reg)					\
+@@ -37,8 +38,8 @@ static int reg_read(struct dsa_switch *ds, int addr, int reg)
+ 
+ static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
+ {
+-	return mdiobus_write(ds->master_mii_bus, ds->pd->sw_addr + addr,
+-			     reg, val);
++	return mdiobus_write(to_mii_bus(ds->master_dev),
++			     ds->pd->sw_addr + addr, reg, val);
+ }
+ 
+ #define REG_WRITE(addr, reg, val)				\
+@@ -50,10 +51,14 @@ static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
+ 			return __ret;				\
+ 	})
+ 
+-static char *mv88e6060_probe(struct mii_bus *bus, int sw_addr)
++static char *mv88e6060_probe(struct device *host_dev, int sw_addr)
+ {
++	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+ 	int ret;
+ 
++	if (bus == NULL)
++		return NULL;
++
+ 	ret = mdiobus_read(bus, sw_addr + REG_PORT(0), 0x03);
+ 	if (ret >= 0) {
+ 		ret &= 0xfff0;
+diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
+index 975774f..a332c53 100644
+--- a/drivers/net/dsa/mv88e6123_61_65.c
++++ b/drivers/net/dsa/mv88e6123_61_65.c
+@@ -17,10 +17,14 @@
+ #include <net/dsa.h>
+ #include "mv88e6xxx.h"
+ 
+-static char *mv88e6123_61_65_probe(struct mii_bus *bus, int sw_addr)
++static char *mv88e6123_61_65_probe(struct device *host_dev, int sw_addr)
+ {
++	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+ 	int ret;
+ 
++	if (bus == NULL)
++		return NULL;
++
+ 	ret = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), 0x03);
+ 	if (ret >= 0) {
+ 		if (ret == 0x1212)
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index 35541f2..244c735 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -22,10 +22,14 @@
+ #define ID_6095		0x0950
+ #define ID_6131		0x1060
+ 
+-static char *mv88e6131_probe(struct mii_bus *bus, int sw_addr)
++static char *mv88e6131_probe(struct device *host_dev, int sw_addr)
+ {
++	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+ 	int ret;
+ 
++	if (bus == NULL)
++		return NULL;
++
+ 	ret = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), 0x03);
+ 	if (ret >= 0) {
+ 		ret &= 0xfff0;
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 03a7006..6365e30 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -17,10 +17,14 @@
+ #include <net/dsa.h>
+ #include "mv88e6xxx.h"
+ 
+-static char *mv88e6171_probe(struct mii_bus *bus, int sw_addr)
++static char *mv88e6171_probe(struct device *host_dev, int sw_addr)
+ {
++	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+ 	int ret;
+ 
++	if (bus == NULL)
++		return NULL;
++
+ 	ret = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), 0x03);
+ 	if (ret >= 0) {
+ 		if ((ret & 0xfff0) == 0x1710)
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 901d2a9..d6f6428 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -78,7 +78,7 @@ int mv88e6xxx_reg_read(struct dsa_switch *ds, int addr, int reg)
+ 	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = __mv88e6xxx_reg_read(ds->master_mii_bus,
++	ret = __mv88e6xxx_reg_read(to_mii_bus(ds->master_dev),
+ 				   ds->pd->sw_addr, addr, reg);
+ 	mutex_unlock(&ps->smi_mutex);
+ 
+@@ -122,7 +122,7 @@ int mv88e6xxx_reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
+ 	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = __mv88e6xxx_reg_write(ds->master_mii_bus,
++	ret = __mv88e6xxx_reg_write(to_mii_bus(ds->master_dev),
+ 				    ds->pd->sw_addr, addr, reg, val);
+ 	mutex_unlock(&ps->smi_mutex);
+ 
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 8a8a5d9..a55c4e6 100644
+index a55c4e6..c779e9b 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -77,7 +77,7 @@ struct dsa_platform_data {
- 	struct dsa_chip_data	*chip;
- };
- 
--struct dsa_device_ops;
-+struct packet_type;
- 
- struct dsa_switch_tree {
+@@ -34,7 +34,7 @@ struct dsa_chip_data {
  	/*
-@@ -91,7 +91,10 @@ struct dsa_switch_tree {
- 	 * protocol to use.
+ 	 * How to access the switch configuration registers.
  	 */
- 	struct net_device	*master_netdev;
--	const struct dsa_device_ops	*ops;
-+	int			(*rcv)(struct sk_buff *skb,
-+				       struct net_device *dev,
-+				       struct packet_type *pt,
-+				       struct net_device *orig_dev);
- 	enum dsa_tag_protocol	tag_protocol;
+-	struct device	*mii_bus;
++	struct device	*host_dev;
+ 	int		sw_addr;
+ 
+ 	/* Device tree node pointer for this specific switch chip
+@@ -134,9 +134,9 @@ struct dsa_switch {
+ 	struct dsa_switch_driver	*drv;
  
  	/*
-@@ -218,7 +221,6 @@ static inline void *ds_to_priv(struct dsa_switch *ds)
+-	 * Reference to mii bus to use.
++	 * Reference to host device to use.
+ 	 */
+-	struct mii_bus		*master_mii_bus;
++	struct device		*master_dev;
  
- static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+ 	/*
+ 	 * Slave mii_bus and devices for the individual ports.
+@@ -178,7 +178,7 @@ struct dsa_switch_driver {
+ 	/*
+ 	 * Probing and setup.
+ 	 */
+-	char	*(*probe)(struct mii_bus *bus, int sw_addr);
++	char	*(*probe)(struct device *host_dev, int sw_addr);
+ 	int	(*setup)(struct dsa_switch *ds);
+ 	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
+ 
+@@ -213,6 +213,7 @@ struct dsa_switch_driver {
+ 
+ void register_switch_driver(struct dsa_switch_driver *type);
+ void unregister_switch_driver(struct dsa_switch_driver *type);
++struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev);
+ 
+ static inline void *ds_to_priv(struct dsa_switch *ds)
  {
--	return dst->tag_protocol != DSA_TAG_PROTO_NONE;
-+	return dst->rcv != NULL;
- }
--
- #endif
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 61f145c..1df0a7c 100644
+index 1df0a7c..b34d697 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -10,7 +10,6 @@
-  */
+@@ -43,7 +43,7 @@ void unregister_switch_driver(struct dsa_switch_driver *drv)
+ EXPORT_SYMBOL_GPL(unregister_switch_driver);
  
- #include <linux/list.h>
--#include <linux/netdevice.h>
- #include <linux/platform_device.h>
- #include <linux/slab.h>
- #include <linux/module.h>
-@@ -154,9 +153,34 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 	 * tagging protocol to the preferred tagging format of this
- 	 * switch.
+ static struct dsa_switch_driver *
+-dsa_switch_probe(struct mii_bus *bus, int sw_addr, char **_name)
++dsa_switch_probe(struct device *host_dev, int sw_addr, char **_name)
+ {
+ 	struct dsa_switch_driver *ret;
+ 	struct list_head *list;
+@@ -58,7 +58,7 @@ dsa_switch_probe(struct mii_bus *bus, int sw_addr, char **_name)
+ 
+ 		drv = list_entry(list, struct dsa_switch_driver, list);
+ 
+-		name = drv->probe(bus, sw_addr);
++		name = drv->probe(host_dev, sw_addr);
+ 		if (name != NULL) {
+ 			ret = drv;
+ 			break;
+@@ -75,7 +75,7 @@ dsa_switch_probe(struct mii_bus *bus, int sw_addr, char **_name)
+ /* basic switch operations **************************************************/
+ static struct dsa_switch *
+ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+-		 struct device *parent, struct mii_bus *bus)
++		 struct device *parent, struct device *host_dev)
+ {
+ 	struct dsa_chip_data *pd = dst->pd->chip + index;
+ 	struct dsa_switch_driver *drv;
+@@ -88,7 +88,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 	/*
+ 	 * Probe for switch model.
  	 */
--	if (ds->dst->cpu_switch == index)
--		ds->dst->tag_protocol = drv->tag_protocol;
-+	if (dst->cpu_switch == index) {
-+		switch (drv->tag_protocol) {
-+#ifdef CONFIG_NET_DSA_TAG_DSA
-+		case DSA_TAG_PROTO_DSA:
-+			dst->rcv = dsa_netdev_ops.rcv;
-+			break;
-+#endif
-+#ifdef CONFIG_NET_DSA_TAG_EDSA
-+		case DSA_TAG_PROTO_EDSA:
-+			dst->rcv = edsa_netdev_ops.rcv;
-+			break;
-+#endif
-+#ifdef CONFIG_NET_DSA_TAG_TRAILER
-+		case DSA_TAG_PROTO_TRAILER:
-+			dst->rcv = trailer_netdev_ops.rcv;
-+			break;
-+#endif
-+#ifdef CONFIG_NET_DSA_TAG_BRCM
-+		case DSA_TAG_PROTO_BRCM:
-+			dst->rcv = brcm_netdev_ops.rcv;
-+			break;
-+#endif
-+		default:
-+			break;
-+		}
- 
-+		dst->tag_protocol = drv->tag_protocol;
-+	}
+-	drv = dsa_switch_probe(bus, pd->sw_addr, &name);
++	drv = dsa_switch_probe(host_dev, pd->sw_addr, &name);
+ 	if (drv == NULL) {
+ 		printk(KERN_ERR "%s[%d]: could not detect attached switch\n",
+ 		       dst->master_netdev->name, index);
+@@ -109,8 +109,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 	ds->index = index;
+ 	ds->pd = dst->pd->chip + index;
+ 	ds->drv = drv;
+-	ds->master_mii_bus = bus;
+-
++	ds->master_dev = host_dev;
  
  	/*
- 	 * Do basic register setup.
-@@ -626,7 +650,7 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
- 		return 0;
- 	}
- 
--	return dst->ops->rcv(skb, dev, pt, orig_dev);
-+	return dst->rcv(skb, dev, pt, orig_dev);
+ 	 * Validate supplied switch configuration.
+@@ -285,7 +284,7 @@ static struct device *dev_find_class(struct device *parent, char *class)
+ 	return device_find_child(parent, class, dev_is_class);
  }
  
- static struct packet_type dsa_pack_type __read_mostly = {
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 98afed4..f90899e 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -12,7 +12,13 @@
- #define __DSA_PRIV_H
+-static struct mii_bus *dev_to_mii_bus(struct device *dev)
++struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev)
+ {
+ 	struct device *d;
  
- #include <linux/phy.h>
--#include <net/dsa.h>
-+#include <linux/netdevice.h>
-+
-+struct dsa_device_ops {
-+	netdev_tx_t (*xmit)(struct sk_buff *skb, struct net_device *dev);
-+	int (*rcv)(struct sk_buff *skb, struct net_device *dev,
-+		   struct packet_type *pt, struct net_device *orig_dev);
-+};
+@@ -301,6 +300,7 @@ static struct mii_bus *dev_to_mii_bus(struct device *dev)
  
- struct dsa_slave_priv {
- 	/*
-@@ -20,6 +26,8 @@ struct dsa_slave_priv {
- 	 * switch port.
- 	 */
- 	struct net_device	*dev;
-+	netdev_tx_t		(*xmit)(struct sk_buff *skb,
-+					struct net_device *dev);
+ 	return NULL;
+ }
++EXPORT_SYMBOL_GPL(dsa_host_dev_to_mii_bus);
  
- 	/*
- 	 * Which switch this port is a part of, and the port index
-@@ -43,6 +51,7 @@ struct dsa_slave_priv {
- extern char dsa_driver_version[];
+ static struct net_device *dev_to_net_device(struct device *dev)
+ {
+@@ -566,17 +566,9 @@ static int dsa_probe(struct platform_device *pdev)
+ 	dst->cpu_port = -1;
  
- /* slave.c */
-+extern const struct dsa_device_ops notag_netdev_ops;
- void dsa_slave_mii_bus_init(struct dsa_switch *ds);
- struct net_device *dsa_slave_create(struct dsa_switch *ds,
- 				    struct device *parent,
+ 	for (i = 0; i < pd->nr_chips; i++) {
+-		struct mii_bus *bus;
+ 		struct dsa_switch *ds;
+ 
+-		bus = dev_to_mii_bus(pd->chip[i].mii_bus);
+-		if (bus == NULL) {
+-			printk(KERN_ERR "%s[%d]: no mii bus found for "
+-				"dsa switch\n", dev->name, i);
+-			continue;
+-		}
+-
+-		ds = dsa_switch_setup(dst, i, &pdev->dev, bus);
++		ds = dsa_switch_setup(dst, i, &pdev->dev, pd->chip[i].host_dev);
+ 		if (IS_ERR(ds)) {
+ 			printk(KERN_ERR "%s[%d]: couldn't create dsa switch "
+ 				"instance (error %ld)\n", dev->name, i,
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 809eeb1..e38a331 100644
+index e38a331..90c9689 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -9,7 +9,6 @@
-  */
- 
- #include <linux/list.h>
--#include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/phy.h>
- #include <linux/of_net.h>
-@@ -176,9 +175,8 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct dsa_switch_tree *dst = p->parent->dst;
- 
--	return dst->ops->xmit(skb, dev);
-+	return p->xmit(skb, dev);
+@@ -44,7 +44,7 @@ void dsa_slave_mii_bus_init(struct dsa_switch *ds)
+ 	ds->slave_mii_bus->write = dsa_slave_phy_write;
+ 	snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "dsa-%d:%.2x",
+ 			ds->index, ds->pd->sw_addr);
+-	ds->slave_mii_bus->parent = &ds->master_mii_bus->dev;
++	ds->slave_mii_bus->parent = ds->master_dev;
  }
  
- static netdev_tx_t dsa_slave_notag_xmit(struct sk_buff *skb,
-@@ -325,11 +323,6 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 	.ndo_do_ioctl		= dsa_slave_ioctl,
- };
- 
--static const struct dsa_device_ops notag_netdev_ops = {
--	.xmit	= dsa_slave_notag_xmit,
--	.rcv	= NULL,
--};
--
- static void dsa_slave_adjust_link(struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
-@@ -435,41 +428,41 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	slave_dev->tx_queue_len = 0;
- 	slave_dev->netdev_ops = &dsa_slave_netdev_ops;
- 
-+	SET_NETDEV_DEV(slave_dev, parent);
-+	slave_dev->dev.of_node = ds->pd->port_dn[port];
-+	slave_dev->vlan_features = master->vlan_features;
-+
-+	p = netdev_priv(slave_dev);
-+	p->dev = slave_dev;
-+	p->parent = ds;
-+	p->port = port;
-+
- 	switch (ds->dst->tag_protocol) {
- #ifdef CONFIG_NET_DSA_TAG_DSA
- 	case DSA_TAG_PROTO_DSA:
--		ds->dst->ops = &dsa_netdev_ops;
-+		p->xmit = dsa_netdev_ops.xmit;
- 		break;
- #endif
- #ifdef CONFIG_NET_DSA_TAG_EDSA
- 	case DSA_TAG_PROTO_EDSA:
--		ds->dst->ops = &edsa_netdev_ops;
-+		p->xmit = edsa_netdev_ops.xmit;
- 		break;
- #endif
- #ifdef CONFIG_NET_DSA_TAG_TRAILER
- 	case DSA_TAG_PROTO_TRAILER:
--		ds->dst->ops = &trailer_netdev_ops;
-+		p->xmit = trailer_netdev_ops.xmit;
- 		break;
- #endif
- #ifdef CONFIG_NET_DSA_TAG_BRCM
- 	case DSA_TAG_PROTO_BRCM:
--		ds->dst->ops = &brcm_netdev_ops;
-+		p->xmit = brcm_netdev_ops.xmit;
- 		break;
- #endif
- 	default:
--		ds->dst->ops = &notag_netdev_ops;
-+		p->xmit	= dsa_slave_notag_xmit;
- 		break;
- 	}
- 
--	SET_NETDEV_DEV(slave_dev, parent);
--	slave_dev->dev.of_node = ds->pd->port_dn[port];
--	slave_dev->vlan_features = master->vlan_features;
--
--	p = netdev_priv(slave_dev);
--	p->dev = slave_dev;
--	p->parent = ds;
--	p->port = port;
--
- 	p->old_pause = -1;
- 	p->old_link = -1;
- 	p->old_duplex = -1;
-diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
-index 8fbc21c..83d3572 100644
---- a/net/dsa/tag_brcm.c
-+++ b/net/dsa/tag_brcm.c
-@@ -11,7 +11,6 @@
- 
- #include <linux/etherdevice.h>
- #include <linux/list.h>
--#include <linux/netdevice.h>
- #include <linux/slab.h>
- #include "dsa_priv.h"
- 
-diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
-index d7dbc5b..ce90c8b 100644
---- a/net/dsa/tag_dsa.c
-+++ b/net/dsa/tag_dsa.c
-@@ -10,7 +10,6 @@
- 
- #include <linux/etherdevice.h>
- #include <linux/list.h>
--#include <linux/netdevice.h>
- #include <linux/slab.h>
- #include "dsa_priv.h"
- 
-diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-index 6b30abe..94fcce7 100644
---- a/net/dsa/tag_edsa.c
-+++ b/net/dsa/tag_edsa.c
-@@ -10,7 +10,6 @@
- 
- #include <linux/etherdevice.h>
- #include <linux/list.h>
--#include <linux/netdevice.h>
- #include <linux/slab.h>
- #include "dsa_priv.h"
- 
-diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
-index 5fe9444..115fdca 100644
---- a/net/dsa/tag_trailer.c
-+++ b/net/dsa/tag_trailer.c
-@@ -10,7 +10,6 @@
- 
- #include <linux/etherdevice.h>
- #include <linux/list.h>
--#include <linux/netdevice.h>
- #include <linux/slab.h>
- #include "dsa_priv.h"
  
