@@ -1,157 +1,337 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: DSA and skb->protocol
-Date: Mon, 15 Sep 2014 10:08:52 -0700
-Message-ID: <54171D24.9090009@gmail.com>
-References: <20140914153751.GA28585@lunn.ch>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH 1/2] dsa: Split ops up,
+ and avoid assigning tag_protocol and receive separately
+Date: Mon, 15 Sep 2014 13:00:19 -0400
+Message-ID: <20140915165921.1261.9679.stgit@ahduyck-bv4.jf.intel.com>
+References: <20140915165543.1261.2520.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: seugene@marvell.com, Andrew Lunn <lunn@lunn.ch>,
-	netdev@vger.kernel.org, kernel@wantstofly.org
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: f.fainelli@gmail.com, kernel@wantstofly.org, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:46562 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753799AbaIORJE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 13:09:04 -0400
-Received: by mail-pa0-f42.google.com with SMTP id lj1so6837685pab.29
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 10:09:03 -0700 (PDT)
-In-Reply-To: <20140914153751.GA28585@lunn.ch>
+Received: from mga02.intel.com ([134.134.136.20]:26094 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753190AbaIORJv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Sep 2014 13:09:51 -0400
+In-Reply-To: <20140915165543.1261.2520.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+This change addresses several issues.
 
-On 09/14/2014 08:37 AM, Andrew Lunn wrote:
-> Hi Florian
-> 
-> I've been debugging a WARNING when using DSA with a D-Link
-> DIR665. I've had reports of the same warning with another device.
-> 
-> WARNING: CPU: 0 PID: 2014 at net/core/dev.c:2260 skb_warn_bad_offload+0xd0/0x104()
-> mv643xx_eth_port: caps=(0x0000000400014803, 0x00000000001b482b) len=1722 data_len=16 gso_size=1448 gso_type=1 gso_segs 2 ip_summed=3 encapsulation 0 features 400014801
-> Modules linked in:
-> CPU: 0 PID: 2014 Comm: sshd Tainted: G        W      3.17.0-rc1-00007-g2f06b2c08099-dirty #228
-> [<c000e2a0>] (unwind_backtrace) from [<c000bd88>] (show_stack+0x10/0x14)
-> [<c000bd88>] (show_stack) from [<c0016db8>] (warn_slowpath_common+0x6c/0x8c)
-> [<c0016db8>] (warn_slowpath_common) from [<c0016e08>] (warn_slowpath_fmt+0x30/0x40)
-> [<c0016e08>] (warn_slowpath_fmt) from [<c04ebad4>] (skb_warn_bad_offload+0xd0/0x104)
-> [<c04ebad4>] (skb_warn_bad_offload) from [<c03eea5c>] (skb_checksum_help+0x160/0x170)
-> [<c03eea5c>] (skb_checksum_help) from [<c03eef40>] (dev_hard_start_xmit+0x3f8/0x4c0)
-> [<c03eef40>] (dev_hard_start_xmit) from [<c04071ec>] (sch_direct_xmit+0x148/0x250)
-> [<c04071ec>] (sch_direct_xmit) from [<c03ef280>] (__dev_queue_xmit+0x278/0x5f4)
-> [<c03ef280>] (__dev_queue_xmit) from [<c04719b8>] (edsa_xmit+0xf8/0x2c8)
-> [<c04719b8>] (edsa_xmit) from [<c03eee24>] (dev_hard_start_xmit+0x2dc/0x4c0)
-> [<c03eee24>] (dev_hard_start_xmit) from [<c03ef3cc>] (__dev_queue_xmit+0x3c4/0x5f4)
-> [<c03ef3cc>] (__dev_queue_xmit) from [<c0415e88>] (ip_finish_output+0x64c/0x920)
-> [<c0415e88>] (ip_finish_output) from [<c0416e2c>] (ip_local_out_sk+0x34/0x38)
-> [<c0416e2c>] (ip_local_out_sk) from [<c0417144>] (ip_queue_xmit+0x128/0x388)
-> [<c0417144>] (ip_queue_xmit) from [<c042caa8>] (tcp_transmit_skb+0x534/0x93c)
-> [<c042caa8>] (tcp_transmit_skb) from [<c042cff8>] (tcp_write_xmit+0x148/0xbf8)
-> [<c042cff8>] (tcp_write_xmit) from [<c042dd7c>] (__tcp_push_pending_frames+0x30/0x9c)
-> [<c042dd7c>] (__tcp_push_pending_frames) from [<c041fbc8>] (tcp_sendmsg+0xc0/0xcec)
-> [<c041fbc8>] (tcp_sendmsg) from [<c0445710>] (inet_sendmsg+0x3c/0x70)
-> [<c0445710>] (inet_sendmsg) from [<c03d7d5c>] (sock_aio_write+0xcc/0xec)
-> [<c03d7d5c>] (sock_aio_write) from [<c00bb218>] (do_sync_write+0x7c/0xa4)
-> [<c00bb218>] (do_sync_write) from [<c00bbc40>] (vfs_write+0x108/0x1b0)
-> [<c00bbc40>] (vfs_write) from [<c00bc214>] (SyS_write+0x40/0x94)
-> [<c00bc214>] (SyS_write) from [<c0009480>] (ret_fast_syscall+0x0/0x2c)
-> ---[ end trace b1b02d15aba4766a ]---
-> 
-> I think i understand what is going on, and one of your recent patches
-> may indicate you have seen something similar.
-> 
-> int dev_hard_start_xmit() we have:
-> 
-> 2607 
-> 2608                 features = netif_skb_features(skb);
-> 
-> ...
-> 2637                         /* If packet is not checksummed and device does not
-> 2638                          * support checksumming for this protocol, complete
-> 2639                          * checksumming here.
-> 2640                          */
-> 2641                         if (skb->ip_summed == CHECKSUM_PARTIAL) {
-> 2642                                 if (skb->encapsulation)
-> 2643                                         skb_set_inner_transport_header(skb,
-> 2644                                                 skb_checksum_start_offset(skb));
-> 2645                                 else
-> 2646                                         skb_set_transport_header(skb,
-> 2647                                                 skb_checksum_start_offset(skb));
-> 2648                                 if (!(features & NETIF_F_ALL_CSUM) &&
-> 2649                                      skb_checksum_help(skb))
-> 2650                                         goto out_kfree_skb;
-> 2651                         }
-> 
-> This packet is CHECKSUM_PARTIAL, but it is also a GSO packet, with two
-> segments, so the skb_checksum_help() is throwing the warning. It is
-> expected that the hardware with do the checksum when using GSO. The
-> reason it is trying to do software checksums, not hardware, is because
-> features does not indicate the protocol is supported by hardware
-> checksumming. This i initially thought was odd, since this is a TCP/IP
-> packet, as you can see from the stack trace. However, 
-> 
-> netif_skb_features(skb) calls harmonize_features() which calls
-> can_checksum_protocol():
-> 
-> 3206 static inline bool can_checksum_protocol(netdev_features_t features,
-> 3207                                          __be16 protocol)
-> 3208 {
-> 3209         return ((features & NETIF_F_GEN_CSUM) ||
-> 3210                 ((features & NETIF_F_V4_CSUM) &&
-> 3211                  protocol == htons(ETH_P_IP)) ||
-> 3212                 ((features & NETIF_F_V6_CSUM) &&
-> 3213                  protocol == htons(ETH_P_IPV6)) ||
-> 3214                 ((features & NETIF_F_FCOE_CRC) &&
-> 3215                  protocol == htons(ETH_P_FCOE)));
-> 3216 }
-> 
-> However looking in the skb, we see protocol is now ETH_P_EDSA, not
-> ETH_P_IP. Hence the hardware does not support this protocol.
+First, it was possible to set tag_protocol without setting the ops pointer.
+To correct that I have reordered things so that rcv is now populated before
+we set tag_protocol.
 
-Usually, the hardware needs to be told there is a DSA/EDSA tag before
-the actual Ethernet frame, I don't have the mv643xx_eth documentation
-handy, but I suppose there should be something like this available.
+Second, it didn't make much sense to keep setting the device ops each time a
+new slave was registered.  So by moving the receive portion out into root
+switch initialization that issue should be addressed.
 
-> 
-> This protocol value is because edsa_xmit() changes it in the slave
-> device TX path.
-> 
-> Your patch "net: dsa: change tag_protocol to an enum"
-> has a hunk:
-> 
-> diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
-> index e0b759ec209e..8fbc21c0de78 100644
-> --- a/net/dsa/tag_brcm.c
-> +++ b/net/dsa/tag_brcm.c
-> @@ -91,7 +91,6 @@ static netdev_tx_t brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev)
->         /* Queue the SKB for transmission on the parent interface, but
->          * do not modify its EtherType
->          */
-> -       skb->protocol = htons(ETH_P_BRCMTAG);
->         skb->dev = p->parent->dst->master_netdev;
->         dev_queue_xmit(skb);
-> 
-> making me think it is not actually needed to change
-> skb->protocol. When i remove this from edsa_xmit(), the warning goes
-> away and networking seems to work O.K.
-> 
-> Is this the right fix? Should we remove this setting of skb->protocol
-> in the other dsa xmit functions?
+Third, I wanted to avoid sending tags if the rcv pointer was not registered
+so I changed the tag check to verify if the rcv function pointer is set on
+the root tree.  If it is then we start sending DSA tagged frames.
 
-Adding Lennert here, I suspect that having the skb->protocol assignment
-was initially done to help drivers such as mv643xx_eth and others doing
-DSA to be able to identify these packets properly in the transmit path.
+Finally I split the device ops pointer in the structures into two spots.  I
+placed the rcv function pointer in the root switch since this makes it
+easiest to access from there, and I placed the xmit function pointer in the
+slave for the same reason.
 
-Unless there is something else, I would be inclined to remove the
-skb->protocol assignment from tag_dsa.c and tag_edsa.c. In case the
-driver needs to consult what is configured, it should either:
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ include/linux/netdevice.h |    7 -------
+ include/net/dsa.h         |   10 ++++++----
+ net/dsa/dsa.c             |   32 ++++++++++++++++++++++++++++----
+ net/dsa/dsa_priv.h        |   11 ++++++++++-
+ net/dsa/slave.c           |   37 +++++++++++++++----------------------
+ net/dsa/tag_brcm.c        |    1 -
+ net/dsa/tag_dsa.c         |    1 -
+ net/dsa/tag_edsa.c        |    1 -
+ net/dsa/tag_trailer.c     |    1 -
+ 9 files changed, 59 insertions(+), 42 deletions(-)
 
-- look at dev->dsa_ptr->tag_protocol if we do not need to know on a
-per-packet basis what's the tagging protocol used (using
-netdev_uses_dsa() + a helper function we'd introduce)
-
-- or, if we we need that information to be per-packet, have a
-DSA-specific control block and a set of helpers to retrieve that information
---
-Florian
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f9e81d1..28d4378 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1928,13 +1928,6 @@ struct udp_offload {
+ 	struct offload_callbacks callbacks;
+ };
+ 
+-struct dsa_device_ops {
+-	netdev_tx_t (*xmit)(struct sk_buff *skb, struct net_device *dev);
+-	int (*rcv)(struct sk_buff *skb, struct net_device *dev,
+-		   struct packet_type *pt, struct net_device *orig_dev);
+-};
+-
+-
+ /* often modified stats are per cpu, other are shared (netdev->stats) */
+ struct pcpu_sw_netstats {
+ 	u64     rx_packets;
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 8a8a5d9..a55c4e6 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -77,7 +77,7 @@ struct dsa_platform_data {
+ 	struct dsa_chip_data	*chip;
+ };
+ 
+-struct dsa_device_ops;
++struct packet_type;
+ 
+ struct dsa_switch_tree {
+ 	/*
+@@ -91,7 +91,10 @@ struct dsa_switch_tree {
+ 	 * protocol to use.
+ 	 */
+ 	struct net_device	*master_netdev;
+-	const struct dsa_device_ops	*ops;
++	int			(*rcv)(struct sk_buff *skb,
++				       struct net_device *dev,
++				       struct packet_type *pt,
++				       struct net_device *orig_dev);
+ 	enum dsa_tag_protocol	tag_protocol;
+ 
+ 	/*
+@@ -218,7 +221,6 @@ static inline void *ds_to_priv(struct dsa_switch *ds)
+ 
+ static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+ {
+-	return dst->tag_protocol != DSA_TAG_PROTO_NONE;
++	return dst->rcv != NULL;
+ }
+-
+ #endif
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 61f145c..1df0a7c 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -10,7 +10,6 @@
+  */
+ 
+ #include <linux/list.h>
+-#include <linux/netdevice.h>
+ #include <linux/platform_device.h>
+ #include <linux/slab.h>
+ #include <linux/module.h>
+@@ -154,9 +153,34 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 	 * tagging protocol to the preferred tagging format of this
+ 	 * switch.
+ 	 */
+-	if (ds->dst->cpu_switch == index)
+-		ds->dst->tag_protocol = drv->tag_protocol;
++	if (dst->cpu_switch == index) {
++		switch (drv->tag_protocol) {
++#ifdef CONFIG_NET_DSA_TAG_DSA
++		case DSA_TAG_PROTO_DSA:
++			dst->rcv = dsa_netdev_ops.rcv;
++			break;
++#endif
++#ifdef CONFIG_NET_DSA_TAG_EDSA
++		case DSA_TAG_PROTO_EDSA:
++			dst->rcv = edsa_netdev_ops.rcv;
++			break;
++#endif
++#ifdef CONFIG_NET_DSA_TAG_TRAILER
++		case DSA_TAG_PROTO_TRAILER:
++			dst->rcv = trailer_netdev_ops.rcv;
++			break;
++#endif
++#ifdef CONFIG_NET_DSA_TAG_BRCM
++		case DSA_TAG_PROTO_BRCM:
++			dst->rcv = brcm_netdev_ops.rcv;
++			break;
++#endif
++		default:
++			break;
++		}
+ 
++		dst->tag_protocol = drv->tag_protocol;
++	}
+ 
+ 	/*
+ 	 * Do basic register setup.
+@@ -626,7 +650,7 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		return 0;
+ 	}
+ 
+-	return dst->ops->rcv(skb, dev, pt, orig_dev);
++	return dst->rcv(skb, dev, pt, orig_dev);
+ }
+ 
+ static struct packet_type dsa_pack_type __read_mostly = {
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index 98afed4..f90899e 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -12,7 +12,13 @@
+ #define __DSA_PRIV_H
+ 
+ #include <linux/phy.h>
+-#include <net/dsa.h>
++#include <linux/netdevice.h>
++
++struct dsa_device_ops {
++	netdev_tx_t (*xmit)(struct sk_buff *skb, struct net_device *dev);
++	int (*rcv)(struct sk_buff *skb, struct net_device *dev,
++		   struct packet_type *pt, struct net_device *orig_dev);
++};
+ 
+ struct dsa_slave_priv {
+ 	/*
+@@ -20,6 +26,8 @@ struct dsa_slave_priv {
+ 	 * switch port.
+ 	 */
+ 	struct net_device	*dev;
++	netdev_tx_t		(*xmit)(struct sk_buff *skb,
++					struct net_device *dev);
+ 
+ 	/*
+ 	 * Which switch this port is a part of, and the port index
+@@ -43,6 +51,7 @@ struct dsa_slave_priv {
+ extern char dsa_driver_version[];
+ 
+ /* slave.c */
++extern const struct dsa_device_ops notag_netdev_ops;
+ void dsa_slave_mii_bus_init(struct dsa_switch *ds);
+ struct net_device *dsa_slave_create(struct dsa_switch *ds,
+ 				    struct device *parent,
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 809eeb1..e38a331 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -9,7 +9,6 @@
+  */
+ 
+ #include <linux/list.h>
+-#include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/phy.h>
+ #include <linux/of_net.h>
+@@ -176,9 +175,8 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct dsa_switch_tree *dst = p->parent->dst;
+ 
+-	return dst->ops->xmit(skb, dev);
++	return p->xmit(skb, dev);
+ }
+ 
+ static netdev_tx_t dsa_slave_notag_xmit(struct sk_buff *skb,
+@@ -325,11 +323,6 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+ 	.ndo_do_ioctl		= dsa_slave_ioctl,
+ };
+ 
+-static const struct dsa_device_ops notag_netdev_ops = {
+-	.xmit	= dsa_slave_notag_xmit,
+-	.rcv	= NULL,
+-};
+-
+ static void dsa_slave_adjust_link(struct net_device *dev)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+@@ -435,41 +428,41 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 	slave_dev->tx_queue_len = 0;
+ 	slave_dev->netdev_ops = &dsa_slave_netdev_ops;
+ 
++	SET_NETDEV_DEV(slave_dev, parent);
++	slave_dev->dev.of_node = ds->pd->port_dn[port];
++	slave_dev->vlan_features = master->vlan_features;
++
++	p = netdev_priv(slave_dev);
++	p->dev = slave_dev;
++	p->parent = ds;
++	p->port = port;
++
+ 	switch (ds->dst->tag_protocol) {
+ #ifdef CONFIG_NET_DSA_TAG_DSA
+ 	case DSA_TAG_PROTO_DSA:
+-		ds->dst->ops = &dsa_netdev_ops;
++		p->xmit = dsa_netdev_ops.xmit;
+ 		break;
+ #endif
+ #ifdef CONFIG_NET_DSA_TAG_EDSA
+ 	case DSA_TAG_PROTO_EDSA:
+-		ds->dst->ops = &edsa_netdev_ops;
++		p->xmit = edsa_netdev_ops.xmit;
+ 		break;
+ #endif
+ #ifdef CONFIG_NET_DSA_TAG_TRAILER
+ 	case DSA_TAG_PROTO_TRAILER:
+-		ds->dst->ops = &trailer_netdev_ops;
++		p->xmit = trailer_netdev_ops.xmit;
+ 		break;
+ #endif
+ #ifdef CONFIG_NET_DSA_TAG_BRCM
+ 	case DSA_TAG_PROTO_BRCM:
+-		ds->dst->ops = &brcm_netdev_ops;
++		p->xmit = brcm_netdev_ops.xmit;
+ 		break;
+ #endif
+ 	default:
+-		ds->dst->ops = &notag_netdev_ops;
++		p->xmit	= dsa_slave_notag_xmit;
+ 		break;
+ 	}
+ 
+-	SET_NETDEV_DEV(slave_dev, parent);
+-	slave_dev->dev.of_node = ds->pd->port_dn[port];
+-	slave_dev->vlan_features = master->vlan_features;
+-
+-	p = netdev_priv(slave_dev);
+-	p->dev = slave_dev;
+-	p->parent = ds;
+-	p->port = port;
+-
+ 	p->old_pause = -1;
+ 	p->old_link = -1;
+ 	p->old_duplex = -1;
+diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
+index 8fbc21c..83d3572 100644
+--- a/net/dsa/tag_brcm.c
++++ b/net/dsa/tag_brcm.c
+@@ -11,7 +11,6 @@
+ 
+ #include <linux/etherdevice.h>
+ #include <linux/list.h>
+-#include <linux/netdevice.h>
+ #include <linux/slab.h>
+ #include "dsa_priv.h"
+ 
+diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
+index d7dbc5b..ce90c8b 100644
+--- a/net/dsa/tag_dsa.c
++++ b/net/dsa/tag_dsa.c
+@@ -10,7 +10,6 @@
+ 
+ #include <linux/etherdevice.h>
+ #include <linux/list.h>
+-#include <linux/netdevice.h>
+ #include <linux/slab.h>
+ #include "dsa_priv.h"
+ 
+diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
+index 6b30abe..94fcce7 100644
+--- a/net/dsa/tag_edsa.c
++++ b/net/dsa/tag_edsa.c
+@@ -10,7 +10,6 @@
+ 
+ #include <linux/etherdevice.h>
+ #include <linux/list.h>
+-#include <linux/netdevice.h>
+ #include <linux/slab.h>
+ #include "dsa_priv.h"
+ 
+diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
+index 5fe9444..115fdca 100644
+--- a/net/dsa/tag_trailer.c
++++ b/net/dsa/tag_trailer.c
+@@ -10,7 +10,6 @@
+ 
+ #include <linux/etherdevice.h>
+ #include <linux/list.h>
+-#include <linux/netdevice.h>
+ #include <linux/slab.h>
+ #include "dsa_priv.h"
+ 
