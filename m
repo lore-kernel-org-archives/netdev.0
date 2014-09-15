@@ -1,73 +1,76 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v2 net-next 1/7] net: Export inet_offloads and inet6_offloads
-Date: Mon, 15 Sep 2014 08:13:42 -0700
-Message-ID: <CA+mtBx8ZacxVFEB-odM4qrbawFTWUsijTMFGYBWiLV4Ad22ctw@mail.gmail.com>
-References: <1410750483-3236-1-git-send-email-therbert@google.com>
-	<1410750483-3236-2-git-send-email-therbert@google.com>
-	<CAJ3xEMgNqZ=qHmALiN_bFC5b3n8Ev-27Z7-KFG5Au6+x2A7=5g@mail.gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH 3/3] bridge;
+ Automatically filter vlans configured on top of bridge
+Date: Mon, 15 Sep 2014 11:19:14 -0400
+Message-ID: <54170372.4080903@redhat.com>
+References: <1410554691-18467-1-git-send-email-vyasevic@redhat.com>
+	<1410554691-18467-4-git-send-email-vyasevic@redhat.com>
+	<5415B6C2.5030702@gmail.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jerry Chu <hkchu@google.com>, David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:39533 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752485AbaIOPNn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 11:13:43 -0400
-Received: by mail-ig0-f172.google.com with SMTP id h3so4072863igd.5
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 08:13:42 -0700 (PDT)
-In-Reply-To: <CAJ3xEMgNqZ=qHmALiN_bFC5b3n8Ev-27Z7-KFG5Au6+x2A7=5g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, bridge@lists.linux-foundation.org
+To: Toshiaki Makita <toshiaki.makita1@gmail.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <5415B6C2.5030702@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 15, 2014 at 6:33 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> On Mon, Sep 15, 2014 at 6:07 AM, Tom Herbert <therbert@google.com> wrote:
->> Want to be able to call this in foo-over-udp offloads, etc.
->
-> In the L2 gro case, we did dedicated helpers
-> gro_find_receive/complete_by_type, not sure what was
-> the exact rational there but worth checking, jerry?
->
-It allows offload_base to be kept a static, but then
-gro_find_receive_by_type can't be inlined.
+On 09/14/2014 11:39 AM, Toshiaki Makita wrote:
+> (14/09/13 (土) 5:44), Vladislav Yasevich wrote:
+>> If the user configures vlan devices on top of the bridge,
+>> automatically set up filter entries for it as long as
+>> bridge vlan protocol matches that of the vlan.
+>> This allows the user to atomatically receive vlan traffic
+>> for the vlans that are convifgured.
+> 
+> Changing br->vlan_proto seems to cause inconsistency between vlan
+> interfaces and filter settings.
+> Can we automatically change filters when setting vlan_proto?
+> 
 
->
+I thought we already do that in br_vlan_set_proto()?  Nothing
+here introduces any new kinds of issue with that code.
+
 >>
->> Signed-off-by: Tom Herbert <therbert@google.com>
->> ---
->>  net/ipv4/protocol.c | 1 +
->>  net/ipv6/protocol.c | 1 +
->>  2 files changed, 2 insertions(+)
->>
->> diff --git a/net/ipv4/protocol.c b/net/ipv4/protocol.c
->> index 46d6a1c..4b7c0ec 100644
->> --- a/net/ipv4/protocol.c
->> +++ b/net/ipv4/protocol.c
->> @@ -30,6 +30,7 @@
->>
->>  const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS] __read_mostly;
->>  const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS] __read_mostly;
->> +EXPORT_SYMBOL(inet_offloads);
->>
->>  int inet_add_protocol(const struct net_protocol *prot, unsigned char protocol)
->>  {
->> diff --git a/net/ipv6/protocol.c b/net/ipv6/protocol.c
->> index e048cf1..e3770ab 100644
->> --- a/net/ipv6/protocol.c
->> +++ b/net/ipv6/protocol.c
->> @@ -51,6 +51,7 @@ EXPORT_SYMBOL(inet6_del_protocol);
->>  #endif
->>
->>  const struct net_offload __rcu *inet6_offloads[MAX_INET_PROTOS] __read_mostly;
->> +EXPORT_SYMBOL(inet6_offloads);
->>
->>  int inet6_add_offload(const struct net_offload *prot, unsigned char protocol)
->>  {
->> --
->> 2.1.0.rc2.206.gedb03e5
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ...
+>> +static int br_vlan_rx_kill_vid(struct net_device *br_dev,
+>> +			       __be16 proto, u16 vid)
+> ...
+>> +	/* Don't report error.  This will fail if the vlan was
+>> +	 * previousely remove by some other means and we don't
+>> +	 * wan't to polute the log/bug the user.
+>> +	 */
+>> +	br_vlan_delete(br, vid);
+>> +	return 0;
+>> +}
+> 
+> It might lead to unexpected behaviour, for example,
+> 1. create br0.10
+> 2. set pvid to 10 on br0
+> 3. delete br0.10
+> Then, pvid will also be cleared?
+> Something like ref counting is needed?
+
+Gah!  The bitmap implementation is really starting to annoy me.  Yes, it's fast, but it
+is so restrictive...
+
+We'd need tracking per vlan id and we can't that right now.  OK, this one needs more
+thought.  I'll drop it for now.
+
+Thanks
+-vlad
+> 
+> Thanks,
+> Toshiaki Makita
+> 
