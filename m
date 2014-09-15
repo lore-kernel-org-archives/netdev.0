@@ -1,67 +1,108 @@
-From: Helmut Schaa <helmut.schaa@googlemail.com>
-Subject: Re: [PATCH] crypto: talitos: Avoid excessive loops in softirq context
-Date: Mon, 15 Sep 2014 10:40:38 +0200
-Message-ID: <CAGXE3d9WEyyMSCjj-8bC59x4CxXjaR4Tdfaa+Kauynbz0o7CEw@mail.gmail.com>
-References: <1410338087-5317-1-git-send-email-helmut.schaa@googlemail.com>
-	<20140911194918.9ea4795f7bb3f9d6e32490eb@freescale.com>
-	<CAGXE3d-EiYmJQfEwS9VeR3-5vePNzc2+N20hQTw0vY8FKhJYRA@mail.gmail.com>
-	<20140912182126.2d913df25f491416c3a1a677@freescale.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] net: can: usb: peak_usb: pcan_usb_core.c:  Cleaning up
+ missing null-terminate in conjunction with strncpy
+Date: Mon, 15 Sep 2014 10:42:05 +0200
+Message-ID: <5416A65D.6010500@pengutronix.de>
+References: <1410715898-15904-1-git-send-email-rickard_strandqvist@spectrumdigital.se> <063D6719AE5E284EB5DD2968C1650D6D17491F2B@AcuExch.aculab.com>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="gihElPFK9THk5gpRP0TgpvLhOhHfQC6a7"
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Stephane Grosjean <s.grosjean@peak-system.com>,
+	Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	"Christopher R. Baker" <cbaker@rec.ri.cmu.edu>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	'Rickard Strandqvist' <rickard_strandqvist@spectrumdigital.se>,
+	Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17491F2B@AcuExch.aculab.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--gihElPFK9THk5gpRP0TgpvLhOhHfQC6a7
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-crypto@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	Sandeep Malik <Sandeep.Malik@freescale.com>,
-	Horia Geanta <horia.geanta@freescale.com>,
-	netdev <netdev@vger.kernel.org>
-To: Kim Phillips <kim.phillips@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:36429 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752451AbaIOIkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 04:40:39 -0400
-In-Reply-To: <20140912182126.2d913df25f491416c3a1a677@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Sat, Sep 13, 2014 at 1:21 AM, Kim Phillips
-<kim.phillips@freescale.com> wrote:
-> [adding Sandeep, Horia and netdev]
->
-> On Fri, 12 Sep 2014 09:39:12 +0200
-> Helmut Schaa <helmut.schaa@googlemail.com> wrote:
->
->> On Fri, Sep 12, 2014 at 2:49 AM, Kim Phillips
->> <kim.phillips@freescale.com> wrote:
->> > On Wed, 10 Sep 2014 10:34:47 +0200
->> > Helmut Schaa <helmut.schaa@googlemail.com> wrote:
->> >
->> >> The talitos driver can cause starvation of other softirqs and as such
->> >> it can also cause rcu stalls like:
->> > ...
->> >> Work around this by processing a maximum amount of 16 finished requests
->> >> and rescheduling the done-tasklet if any work is left.
->> >> This allows other softirqs to run.
->> >
->> > 16 sounds rather arbitrary, and application-dependent - talitos'
->> > FIFO size is 24.
+On 09/15/2014 10:28 AM, David Laight wrote:
+> From: Rickard Strandqvist
+> ...
+>> Replacing strncpy with strlcpy to avoid strings that lacks null termin=
+ate.
+> ...
+>> diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+>> b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+>> index 644e6ab..d4fe8ac 100644
+>> --- a/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+>> +++ b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+>> @@ -830,7 +830,7 @@ static void peak_usb_disconnect(struct usb_interfa=
+ce *intf)
+>>  		char name[IFNAMSIZ];
 >>
->> Yep, 16 is arbitrary, I can also do "fifo_len" if you prefer?
+>>  		dev->state &=3D ~PCAN_USB_STATE_CONNECTED;
+>> -		strncpy(name, netdev->name, IFNAMSIZ);
+>> +		strlcpy(name, netdev->name, IFNAMSIZ);
 >>
->> > IIRC, netdev's NAPI can be refactored out of just being able to work
->> > on network devices, and be made to apply to crypto devices, too.  In
->> > fact, some old Freescale hacks of this nature have improved
->> > performance.  Can we do something like refactor NAPI instead?
->>
->> That would indeed be nice but sounds like quite some more work and
->> I won't have time to do so. Especially since my system was taken down
->> completely by the talitos tasklet under some circumstances. If there is
->> any work going on in that regard I'd be fine with just dropping that patch
->> (and carrying it myself until the refactoring is done).
->
-> I'm not aware of any, but to prove whether NAPI actually fixes the
-> issue, can you try applying this patch:
-> http://patchwork.ozlabs.org/patch/146094/
+>>  		unregister_netdev(netdev);
+>>  		free_candev(netdev);
+>=20
+> Or:
+> 	char name[sizeof netdev->name];
+> 	memcpy(name, netdev->name, sizeof netdev->name);
 
-I guess this would fix it too. Will run some tests soon.
-Helmut
+I would be "sizeof(foo)" in kernel coding style, but let's have a look
+at the original code:
+
+                struct net_device *netdev =3D dev->netdev;
+                char name[IFNAMSIZ];
+
+                dev->state &=3D ~PCAN_USB_STATE_CONNECTED;
+                strncpy(name, netdev->name, IFNAMSIZ);
+
+                unregister_netdev(netdev);
+                free_candev(netdev);
+
+                kfree(dev->cmd_buf);
+                dev->next_siblings =3D NULL;
+                if (dev->adapter->dev_free)
+                        dev->adapter->dev_free(dev);
+
+                dev_info(&intf->dev, "%s removed\n", name);
+
+I think it's save to use:
+
+    dev_info(&intf->dev, "%s removed\n", netdev_name(dev->netdev));
+
+instead of doing the str?cpy() in the first place. But why not use:
+
+    netdev_info(dev->netdev, "removed\n");
+
+Is the USB device information lost when using netdev_info()?
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--gihElPFK9THk5gpRP0TgpvLhOhHfQC6a7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlQWpmMACgkQjTAFq1RaXHOpOACdFcOvxPW92F8JemLi2xwvF9Za
+vFsAn131jCiAO/pSBqCmJWABrckzwIV3
+=/Swx
+-----END PGP SIGNATURE-----
+
+--gihElPFK9THk5gpRP0TgpvLhOhHfQC6a7--
