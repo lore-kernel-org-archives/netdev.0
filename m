@@ -1,135 +1,209 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Mon, 15 Sep 2014 10:03:27 +0200
-Message-ID: <54169D4F.2090607@broadcom.com>
-References: <52BDE9DC.5040206@msgid.tls.msk.ru> <52BE9CF9.7030305@broadcom.com> <52BEC2F6.7010505@msgid.tls.msk.ru> <52D4FC8B.6090301@msgid.tls.msk.ru> <52F925A9.1030707@msgid.tls.msk.ru> <53526124.6050407@msgid.tls.msk.ru> <53FC1789.6020407@msgid.tls.msk.ru> <53FCA001.6090404@broadcom.com> <53FCB2A3.1050605@msgid.tls.msk.ru> <53FCFE1A.3060508@broadcom.com> <53FDACD1.8090805@msgid.tls.msk.ru> <53FDF8EB.4050905@broadcom.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [BUG REPORT]  Unencrypted packets after SNAT, allthough
+ IPSEC-Policies are present
+Date: Mon, 15 Sep 2014 10:09:41 +0200
+Message-ID: <20140915080941.GP6390@secunet.com>
+References: <541089DD.6060307@sirrix.com>
+ <20140911115401.GL6390@secunet.com>
+ <54119F75.8090305@sirrix.com>
+ <20140912093143.GN6390@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <brcm80211-dev-list@broadcom.com>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Michael Tokarev <mjt@tls.msk.ru>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+	<herbert@gondor.apana.org.au>
+To: Konstantinos Kolelis <k.kolelis@sirrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:25608 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752451AbaIOIDb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 04:03:31 -0400
-In-Reply-To: <53FDF8EB.4050905@broadcom.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:50553 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752575AbaIOIJs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Sep 2014 04:09:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20140912093143.GN6390@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27-08-14 17:27, Arend van Spriel wrote:
-> On 08/27/14 12:02, Michael Tokarev wrote:
->> 27.08.2014 01:37, Arend van Spriel wrote:
->>> On 08/26/14 18:15, Michael Tokarev wrote:
->> []
->>> Well, sorry about that. I did see the other messages fly by and
->>> noticed you were using the wl driver so assumed you were fine with that.
->>
->> That's past already.  I had several issues with wl driver,
->> and current issue is that even the latest (Aug-2014) version
->> of wl driver doesn't work with current kernel.  So I can't
->> really even compare wl and brcmsmac, -- in kernels<  3.16
->> brcmsmac does not work, but wl can't be compiled for 3.16,
->> and using different kernels for comparison is a bit wrong
->> because there may be differences in other areas.
->>
->>>     Admittedly the brcmsmac got very little attention as all our
->>> resources were put on brcmfmac.
->>
->> That happens. :)
->>
->> []
->>> Ok. Let's put frustration aside and make an effort. So could you make
->>> a trace using trace-cmd utility. The log can get quite big. The
->>> brcmsmac driver needs to be built with CONFIG_BRCM_TRACING enabled.
->>> Please execute the following commands (assuming you use ubuntu with
->>> network-manager):
->>>
->>> $ sudo stop network-manager
->>> $ sudo insmod brcmfmac.ko
->>> $ sudo trace-cmd record -e brcmsmac:*
->>>
->>> In another terminal:
->>>
->>> $ sudo start network-manager
->>>
->>> The trace-cmd must be stopped using ctrl-c.
->>
->> Okay.  This turned out to be not so simple.
->>
->> My initial attempt indicated that brcmsmac in 3.16 does
->> not work at all.  This isn't actually true - subsequent
->> attempts shows that it works.  I was ready to conclude
->> the problem is fixed (after transferring several gigs
->> of data over wifi, with tracing enabled or disabled,
->> after fresh boot or after reboot from wl-enabled kernel,
->> etc - it all worked.
->>
->> Until I hit the same stall as I described initially, the
->> same which happened numerous times with kernel 3.12 ($subj).
->>
->> After several mins of transferring it stalled.  But this
->> time (unlike with 3.12), it continued after about 30 secs.
+On Fri, Sep 12, 2014 at 11:31:43AM +0200, Steffen Klassert wrote:
+> On Thu, Sep 11, 2014 at 03:11:17PM +0200, Konstantinos Kolelis wrote:
+> > Am 11.09.2014 13:54, schrieb Steffen Klassert:
+> > > On Wed, Sep 10, 2014 at 07:26:53PM +0200, Konstantinos Kolelis wrote:
+> > >> Hi all,
+> > >>
+> > >> i' ve observed a problem with xfrm lookups, SNAT, blackhole route and
+> > >> missing SAs.
+> > >> The problem occures with all Kernels above 3.6.x and might has to do
+> > >> with the changes in
+> > >> ip4_blackhole_route() function in net/route.c.
+> > > 
+> > > Thanks for the report!
+> > > 
+> > > Is kernel v3.6 the first kernel with this issue? It seems that
+> > > we have this problem already longer, at least if my analysis
+> > > is correct.
+> > > 
+> > 
+> > It worked until Kernel 3.4.103, i did not check with v3.5 though.
 > 
-> A kernel log (so no trace) of stalling interface might be useful so if
-> you can provide that and put a marker in there where you believe it
-> stalled that would be great.
+> Hm. I thought the problem exists already for longer, so I did
+> a bisect. To my surprise, the following commit introduced the bug:
+> 
+> commit a263b3093641fb1ec377582c90986a7fd0625184
+> Author: David S. Miller <davem@davemloft.net>
+> Date:   Mon Jul 2 02:02:15 2012 -0700
+> 
+>     ipv4: Make neigh lookups directly in output packet path.
+>     
+>     Do not use the dst cached neigh, we'll be getting rid of that.
+>     
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> But this is not really the offending commit. As I said, the problem
+> was introduced by git commit 2774c131 ("xfrm: Handle blackhole route
+> creation via afinfo.") because the assumption that dst_output() is
+> called always after a  xfrm_lookup() is wrong. On postrouting nat,
+> dst_output() is not called for blackholed packets. But we were in luck
+> because ip_finish_output2() tried to use a dst cached neigh entry.
+> On blackhole routes we did not cache neigh entries, so the packets
+> were dropped in the last moment. The above commit finally opened the
+> door by replacing the usage of a dst cached neigh entry by a direct
+> lookup.
+> 
+> So we need to ensure that a blackhole route is generated only by the
+> route lookup functions.
 
-Hi Michael,
+Can you please try the patch below? This should fix the default case
+where xfrm_larval_drop is true. The xfrm_larval_drop false case needs
+a separate fix.
 
-Did you have any opportunity to create a log file. Got a question from
-someone else who got bad bcm4313 behaviour after a certain upgrade. Did
-you have the same experience?
+Subject: [PATCH] xfrm: Generate blackhole routes only from route lookup
+ functions
 
-Regards,
-Arend
+Currently we genarate a blackhole route route whenever we have
+matching policies but can not resolve the states. Here we assume
+that dst_output() is called to kill the balckholed packets.
+Unfortunately this assumption is not true in all cases, so
+it is possible that these packets leave the system unwanted.
 
->> So, while my initial test of 3.16 indicated the prob is still
->> here, at the same (or even worse) state, I can't really
->> reproduce it, at least in a reliable way.  There's something
->> wrong still, but at least current version is significantly
->> more useful than before (in a hope it wont stall at the
->> very wrong moment exactly ;).
->>
->> There's one more difference between brcmsmac and wl -- with
->> wl, I see significantly better speed, -- it is about 5MB/sec,
->> while with brcmsmac it jumps between 2.0..4.5MB/sec (with
->> 58..65Mbps connection rate in both cases).  Here's a typical
->> iwconfig output for brcmsmac version:
->>
->> wlan0     IEEE 802.11bgn  ESSID:"mjt"
->>            Mode:Managed  Frequency:2.412 GHz  Access Point:
->> 64:70:02:29:D9:30
->>            Bit Rate=65 Mb/s   Tx-Power=19 dBm
->>            Retry short limit:7   RTS thr:off   Fragment thr:off
->>            Power Management:off
->>            Link Quality=58/70  Signal level=-61 dBm
->>            Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
->>            Tx excessive retries:56355  Invalid misc:472   Missed beacon:0
->>
->> I'll keep trying/testing various cases, in attempt to
->> understand what's going on.  For now, I can't provide the
->> requested traces (it wont be very useful, I guess).
->>
->> BTW, are there other things not implemented in brcmsmac?
->> I see the module reminds about power management, what
->> does it mean?  Anything else missing?
-> 
-> Well, the wireless twiki has that info [1]. Regarding features the
-> important ones that I know are still not there are 40MHz support, and
-> power-save. The bcm4313 does not support 40MHz. Community contributions
-> added ibss, and ap mode. For P2P and TDLS probably some changes would be
-> needed although most of the legwork is done in mac80211.
-> 
-> Regards,
-> Arend
-> 
-> [1]
-> http://wireless.kernel.org/en/users/Drivers/brcm80211#To_be_done_for_softmac_driver
-> 
-> 
->> Thank you!
->>
->> /mjt
-> 
+We fix this by generating blackhole routes only from the
+route lookup functions, here we can guarantee a call to
+dst_output() afterwards.
+
+Fixes: 2774c131b1d ("xfrm: Handle blackhole route creation via afinfo.")
+Reported-by: Konstantinos Kolelis <k.kolelis@sirrix.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/net/dst.h      | 15 ++++++++++++++-
+ net/ipv4/route.c       |  6 +++---
+ net/ipv6/ip6_output.c  |  4 ++--
+ net/xfrm/xfrm_policy.c | 16 +++++++++++++++-
+ 4 files changed, 34 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 71c60f4..fa11c90 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -490,7 +490,16 @@ static inline struct dst_entry *xfrm_lookup(struct net *net,
+ 					    int flags)
+ {
+ 	return dst_orig;
+-} 
++}
++
++static inline struct dst_entry *xfrm_lookup_route(struct net *net,
++						  struct dst_entry *dst_orig,
++						  const struct flowi *fl,
++						  struct sock *sk,
++						  int flags)
++{
++	return dst_orig;
++}
+ 
+ static inline struct xfrm_state *dst_xfrm(const struct dst_entry *dst)
+ {
+@@ -502,6 +511,10 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+ 			      const struct flowi *fl, struct sock *sk,
+ 			      int flags);
+ 
++struct dst_entry *xfrm_lookup_route(struct net *net, struct dst_entry *dst_orig,
++				    const struct flowi *fl, struct sock *sk,
++				    int flags);
++
+ /* skb attached with this dst needs transformation if dst->xfrm is valid */
+ static inline struct xfrm_state *dst_xfrm(const struct dst_entry *dst)
+ {
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index eaa4b00..173e7ea 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2265,9 +2265,9 @@ struct rtable *ip_route_output_flow(struct net *net, struct flowi4 *flp4,
+ 		return rt;
+ 
+ 	if (flp4->flowi4_proto)
+-		rt = (struct rtable *) xfrm_lookup(net, &rt->dst,
+-						   flowi4_to_flowi(flp4),
+-						   sk, 0);
++		rt = (struct rtable *)xfrm_lookup_route(net, &rt->dst,
++							flowi4_to_flowi(flp4),
++							sk, 0);
+ 
+ 	return rt;
+ }
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 315a55d..0a3448b 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1009,7 +1009,7 @@ struct dst_entry *ip6_dst_lookup_flow(struct sock *sk, struct flowi6 *fl6,
+ 	if (final_dst)
+ 		fl6->daddr = *final_dst;
+ 
+-	return xfrm_lookup(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
++	return xfrm_lookup_route(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
+ }
+ EXPORT_SYMBOL_GPL(ip6_dst_lookup_flow);
+ 
+@@ -1041,7 +1041,7 @@ struct dst_entry *ip6_sk_dst_lookup_flow(struct sock *sk, struct flowi6 *fl6,
+ 	if (final_dst)
+ 		fl6->daddr = *final_dst;
+ 
+-	return xfrm_lookup(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
++	return xfrm_lookup_route(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
+ }
+ EXPORT_SYMBOL_GPL(ip6_sk_dst_lookup_flow);
+ 
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index beeed60..e041822 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2138,7 +2138,8 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+ 			xfrm_pols_put(pols, drop_pols);
+ 			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTNOSTATES);
+ 
+-			return make_blackhole(net, family, dst_orig);
++			err = -EREMOTE;
++			goto error;
+ 		}
+ 
+ 		err = -EAGAIN;
+@@ -2195,6 +2196,19 @@ dropdst:
+ }
+ EXPORT_SYMBOL(xfrm_lookup);
+ 
++struct dst_entry *xfrm_lookup_route(struct net *net, struct dst_entry *dst_orig,
++				    const struct flowi *fl,
++				    struct sock *sk, int flags)
++{
++	struct dst_entry *dst = xfrm_lookup(net, dst_orig, fl, sk, flags);
++
++	if (IS_ERR(dst) && PTR_ERR(dst) == -EREMOTE)
++		return make_blackhole(net, dst_orig->ops->family, dst_orig);
++
++	return dst;
++}
++EXPORT_SYMBOL(xfrm_lookup_route);
++
+ static inline int
+ xfrm_secpath_reject(int idx, struct sk_buff *skb, const struct flowi *fl)
+ {
+-- 
+1.9.1
