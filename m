@@ -1,60 +1,75 @@
-From: Mike Looijmans <mike.looijmans@topic.nl>
-Subject: Re: [PATCH v2] net/phy: micrel: Disable asymmetric pause for KSZ9031
-Date: Mon, 15 Sep 2014 09:44:53 +0200
-Message-ID: <541698F5.2010401@topic.nl>
-References: <5411ECE9.8050600@gmail.com>	<1410525637-849-1-git-send-email-mike.looijmans@topic.nl> <20140912.181820.1440041146938289489.davem@davemloft.net>
+From: Richard Alpe <richard.alpe@ericsson.com>
+Subject: Re: [PATCH net-next 04/14] tipc: add sock dump to new netlink api
+Date: Mon, 15 Sep 2014 09:55:24 +0200
+Message-ID: <54169B6C.5060709@ericsson.com>
+References: <1410424167-17427-1-git-send-email-richard.alpe@ericsson.com>	<1410424167-17427-5-git-send-email-richard.alpe@ericsson.com> <20140912.171038.1165432718811920305.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vif1-retry101.mer-nm.internl.net ([217.149.192.107]:42611 "EHLO
-	retry101.mer-nm.internl.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752380AbaIOHwi convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Sep 2014 03:52:38 -0400
-In-Reply-To: <20140912.181820.1440041146938289489.davem@davemloft.net>
+Received: from sesbmg23.ericsson.net ([193.180.251.37]:46960 "EHLO
+	sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752579AbaIOH40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 03:56:26 -0400
+In-Reply-To: <20140912.171038.1165432718811920305.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=EF=BB=BFOn 09/13/2014 12:18 AM, David Miller wrote:
-> From: Mike Looijmans <mike.looijmans@topic.nl>
-> Date: Fri, 12 Sep 2014 14:40:37 +0200
+On 09/12/2014 11:10 PM, David Miller wrote:
+> From: <richard.alpe@ericsson.com>
+> Date: Thu, 11 Sep 2014 10:29:17 +0200
 >
->> The KSZ9031 appears to suffer from the same hardware bug as describe=
-d
->> for the KSZ9021 in commit 32fcafbcd1c9f6c7013016a22a5369b4acb93577
->> ("net/phy: micrel: Disable asymmetric pause for KSZ9021")
->> you have to unplug the cable and plug it back to get it to work.
->>
->> Remove the SUPPORTED_Asym_Pause flag for the KSZ9031 to fix this.
->>
->> Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
+>> +	list_for_each_entry_from(p, &tsk->publications, pport_list) {
+>> +		publ = nla_nest_start(skb, TIPC_NLA_SOCK_PUBL);
+>> +		if (nla_put_u32(skb, TIPC_NLA_PUBL_TYPE, p->type))
+>> +			goto msg_full;
+>> +		if (nla_put_u32(skb, TIPC_NLA_PUBL_LOWER, p->lower))
+>> +			goto msg_full;
+>> +		if (nla_put_u32(skb, TIPC_NLA_PUBL_UPPER, p->upper))
+>> +			goto msg_full;
+>> +		nla_nest_end(skb, publ);
+>> +	}
+>> +
+>> +	*prev_publ = 0;
+>> +
+>> +	return 0;
+>> +
+>> +msg_full:
+>> +	*prev_publ = p->key;
+>> +	nla_nest_cancel(skb, publ);
 >
-> This patch does not apply cleanly to the net tree, please respin.
+> This restart mechanism is broken.
 >
+> You can't public nested information this way.
+>
+> What happens in your code is that if we hit the limit in the middle of
+> adding the publications, the next time we'll put the same socket into
+> the netlink message and then the rest of the nested publications.
+> That's malformed.
+Yes, that's true.
 
-Okay, just tell me where to find this branch?
+> You can't just say sometimes you'll partially list the set of nested
+> attributes in an object, you must public the entire object fully in
+> the netlink message or skip the object entirely.
+Ok. I bluntly assumed we could put some reassemble logic in the client 
+as the end integrity should still be preserved(?).
 
-Mike.
+> I would suggest that you instead size the amount of space you'll
+> need for at least the first socket being listed, and if NLMSG_GOODSIZE
+> is insufficient, allocate as much as you will actually need.
+>
+> Then you put full socket netlink blobs in there, including all nested
+> attributes, and then stop and reset back the the most recent full socket
+> published if you run out of space.
+The amount of publications a socket can have is large (~65 000). Do you 
+still think this a viable solution?
 
+I thought about querying socket publications individually. Meaning that 
+the user-space tool would have to first list sockets, then ask for there 
+publications. This would remove the nested malformation but create some 
+overhead and increase the potential port-gone window. What do you think?
 
-Met vriendelijke groet / kind regards,
-
-Mike Looijmans
-
-TOPIC Embedded Systems
-Eindhovenseweg 32-C, NL-5683 KH Best
-Postbus 440, NL-5680 AK Best
-Telefoon: (+31) (0) 499 33 69 79
-Telefax:  (+31) (0) 499 33 69 70
-E-mail: mike.looijmans@topic.nl
-Website: www.topic.nl
-
-Please consider the environment before printing this e-mail
-
-Topic zoekt gedreven (embedded) software specialisten!
-http://topic.nl/vacatures/topic-zoekt-software-engineers/
+Thanks for the review, much appreciated!
+/Richard
