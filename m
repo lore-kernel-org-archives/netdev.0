@@ -1,101 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/5] rhashtable: Remove gfp_flags from insert and remove
- functions
-Date: Mon, 15 Sep 2014 05:35:35 -0700
-Message-ID: <1410784535.7106.164.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <cover.1410782841.git.tgraf@suug.ch>
-	 <bd3aa4282e89b022620225101ab491e344852f5f.1410782841.git.tgraf@suug.ch>
+From: Richard Alpe <richard.alpe@ericsson.com>
+Subject: Re: [PATCH net-next 04/14] tipc: add sock dump to new netlink api
+Date: Mon, 15 Sep 2014 14:35:59 +0200
+Message-ID: <5416DD2F.50106@ericsson.com>
+References: <1410424167-17427-1-git-send-email-richard.alpe@ericsson.com> <1410424167-17427-5-git-send-email-richard.alpe@ericsson.com> <20140912.171038.1165432718811920305.davem@davemloft.net> <54169B6C.5060709@ericsson.com> <20140915085152.GC14006@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, paulmck@linux.vnet.ibm.com,
-	john.r.fastabend@intel.com, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <bd3aa4282e89b022620225101ab491e344852f5f.1410782841.git.tgraf@suug.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<tipc-discussion@lists.sourceforge.net>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sessmg23.ericsson.net ([193.180.251.45]:42758 "EHLO
+	sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752151AbaIOMhB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 08:37:01 -0400
+In-Reply-To: <20140915085152.GC14006@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-09-15 at 14:18 +0200, Thomas Graf wrote:
-> As the expansion/shrinking is moved to a worker thread, no allocations
-> will be performed anymore.
-> 
+On 09/15/2014 10:51 AM, Florian Westphal wrote:
+> Richard Alpe <richard.alpe@ericsson.com> wrote:
+>>> You can't just say sometimes you'll partially list the set of nested
+>>> attributes in an object, you must public the entire object fully in
+>>> the netlink message or skip the object entirely.
+>> Ok. I bluntly assumed we could put some reassemble logic in the
+>> client as the end integrity should still be preserved(?).
+>>
+>>> I would suggest that you instead size the amount of space you'll
+>>> need for at least the first socket being listed, and if NLMSG_GOODSIZE
+>>> is insufficient, allocate as much as you will actually need.
+>>>
+>>> Then you put full socket netlink blobs in there, including all nested
+>>> attributes, and then stop and reset back the the most recent full socket
+>>> published if you run out of space.
+>> The amount of publications a socket can have is large (~65 000). Do
+>> you still think this a viable solution?
+>
+> I suggest to look at nf_conntrack_netlink.c ctnetlink_dump_table() and
+> ctnetlink_fill_info().
+>
+> It should be doing something similar to what you want and it handles
+> the restarts correctly, i.e., cancels all partial nested attributes
+> on error and resumes at the beginning of said entry on the next dump.
+Thanks. In the case of ctnetlink_fill_info() it looks to me as if a set 
+of nested attributes is sure to fit inside a new message and that you 
+only have to cancel if the accumulation of multiple top level entities 
+along where their nested attributes fills the message(?).
 
-You meant : no GFP_ATOMIC allocations ?
+The problem in this case isn't solely the listing of a large amount of 
+publication attributes. The problem is that there can be an arbitrary 
+amount of sockets with an arbitrary amount of associated (nested) 
+publications (~65 000 max).
 
-I would rephrase using something like :
+I "solved" this by nesting as many complete publications as possible for 
+each socket. This "works" but as David points out the nested publication 
+data for a specific socket might or might not be complete. This is 
+solely indicated by the NLMSG_DONE flag, forcing the client to know this 
+and reassemble.
 
-Because hash resizes are potentially time consuming, they'll be
-performed in process context where GFP_KERNEL allocations are preferred.
+I'm now considering splitting the socket and publication listing so that 
+the client will have to ask for a list of sockets and then ask for there 
+associated publications individually. This would reduce the complexity 
+on the kernel side but it may introduce some additional overhead when 
+the socket count is high. On the other hand it opens the opportunity for 
+client to only ask for publications.
 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
->  include/linux/rhashtable.h | 10 +++++-----
->  lib/rhashtable.c           | 41 +++++++++++++++++------------------------
->  net/netfilter/nft_hash.c   |  4 ++--
->  net/netlink/af_netlink.c   |  4 ++--
->  4 files changed, 26 insertions(+), 33 deletions(-)
-> 
-> diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-> index fb298e9d..942fa44 100644
-> --- a/include/linux/rhashtable.h
-> +++ b/include/linux/rhashtable.h
-> @@ -96,16 +96,16 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params);
->  u32 rhashtable_hashfn(const struct rhashtable *ht, const void *key, u32 len);
->  u32 rhashtable_obj_hashfn(const struct rhashtable *ht, void *ptr);
->  
-> -void rhashtable_insert(struct rhashtable *ht, struct rhash_head *node, gfp_t);
-> -bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *node, gfp_t);
-> +void rhashtable_insert(struct rhashtable *ht, struct rhash_head *node);
-> +bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *node);
->  void rhashtable_remove_pprev(struct rhashtable *ht, struct rhash_head *obj,
-> -			     struct rhash_head __rcu **pprev, gfp_t flags);
-> +			     struct rhash_head __rcu **pprev);
->  
->  bool rht_grow_above_75(const struct rhashtable *ht, size_t new_size);
->  bool rht_shrink_below_30(const struct rhashtable *ht, size_t new_size);
->  
-> -int rhashtable_expand(struct rhashtable *ht, gfp_t flags);
-> -int rhashtable_shrink(struct rhashtable *ht, gfp_t flags);
-> +int rhashtable_expand(struct rhashtable *ht);
-> +int rhashtable_shrink(struct rhashtable *ht);
->  
->  void *rhashtable_lookup(const struct rhashtable *ht, const void *key);
->  void *rhashtable_lookup_compare(const struct rhashtable *ht, u32 hash,
-> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-> index 8dfec3f..c133d82 100644
-> --- a/lib/rhashtable.c
-> +++ b/lib/rhashtable.c
-> @@ -108,13 +108,13 @@ static u32 head_hashfn(const struct rhashtable *ht,
->  	return obj_hashfn(ht, rht_obj(ht, he), hsize);
->  }
->  
-> -static struct bucket_table *bucket_table_alloc(size_t nbuckets, gfp_t flags)
-> +static struct bucket_table *bucket_table_alloc(size_t nbuckets)
->  {
->  	struct bucket_table *tbl;
->  	size_t size;
->  
->  	size = sizeof(*tbl) + nbuckets * sizeof(tbl->buckets[0]);
-> -	tbl = kzalloc(size, flags);
-> +	tbl = kzalloc(size, GFP_KERNEL);
-
-Add __GFP_NOWARN, as you fallback to vzalloc ?
-
->  	if (tbl == NULL)
->  		tbl = vzalloc(size);
-
-btw, inet hash table uses alloc_large_system_hash() which spreads the
-pages on all available NUMA nodes :
-
-# dmesg | grep "TCP established"
-[    1.223046] TCP established hash table entries: 524288 (order: 10, 4194304 bytes)
-# grep alloc_large_system_hash /proc/vmallocinfo | grep pages=1024
-0xffffc900181d6000-0xffffc900185d7000 4198400 alloc_large_system_hash+0x177/0x237 pages=1024 vmalloc vpages N0=512 N1=512
-0xffffc900185d7000-0xffffc900189d8000 4198400 alloc_large_system_hash+0x177/0x237 pages=1024 vmalloc vpages N0=512 N1=512
-0xffffc90028a01000-0xffffc90028e02000 4198400 alloc_large_system_hash+0x177/0x237 pages=1024 vmalloc vpages N0=512 N1=512
-
-So we might keep in mind to keep this numa policy.
-
-Rest of the patch looks fine to me, thanks.
+Cheers
+Richard
