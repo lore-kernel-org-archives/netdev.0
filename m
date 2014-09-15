@@ -1,47 +1,60 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH v2 net-next 3/7] fou: Add GRO support
-Date: Mon, 15 Sep 2014 20:03:38 +0300
-Message-ID: <CAJ3xEMh-76WMatuknjywQK=ZVWG8UM5swEC0CE5FTv-ts-Jk6g@mail.gmail.com>
-References: <1410750483-3236-1-git-send-email-therbert@google.com>
-	<1410750483-3236-4-git-send-email-therbert@google.com>
-	<CAJ3xEMhwdkNDZxSZGw3dtnfoyPHBiOTw-c5DvQPpFZTf1yhEhQ@mail.gmail.com>
-	<CA+mtBx-945Ku0OtcYGE195=R7cF5AHgacQeh8OPtC7NOQgMNvw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ethernet: marvell: sky2.c: Cleaning up missing
+ null-terminate in conjunction with strncpy
+Date: Mon, 15 Sep 2014 13:07:21 -0400 (EDT)
+Message-ID: <20140915.130721.589682835868904320.davem@davemloft.net>
+References: <1410716023-16068-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+	<20140914190557.690183d2@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:38993 "EHLO
-	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753354AbaIORDi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 13:03:38 -0400
-Received: by mail-oi0-f53.google.com with SMTP id x69so2666505oia.26
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 10:03:38 -0700 (PDT)
-In-Reply-To: <CA+mtBx-945Ku0OtcYGE195=R7cF5AHgacQeh8OPtC7NOQgMNvw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rickard_strandqvist@spectrumdigital.se, mlindner@marvell.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140914190557.690183d2@urahara>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 15, 2014 at 6:10 PM, Tom Herbert <therbert@google.com> wrote:
-> On Mon, Sep 15, 2014 at 8:00 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->> On Mon, Sep 15, 2014 at 6:07 AM, Tom Herbert <therbert@google.com> wrote:
->>> Implement fou_gro_receive and fou_gro_complete, and populate these
->>> in the correponsing udp_offloads for the socket. Added ipproto to
->>> udp_offloads and pass this from UDP to the fou GRO routine in proto
->>> field of napi_gro_cb structure.
->>
->>
->> Do we really need that  extra hop of fou4_gro_receive/complete?
->> can't we somehow plant the gro receive/complete (say) GRE handlers in
->> the udp offload
->> struct with the UDP port that related to (say) GRE over UDP tunneling?
->>
-> That would be nice, but it isn't obvious to me how to manage the
-> references. The offload functions are accessed with RCU pretty consistently.
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sun, 14 Sep 2014 19:05:57 -0700
 
-Currently udp_gro_receive calls rcu_read_lock() before it invokes
-fou4/6_gro_receive
-and rcu_read_unlock after the fou calls returns. The Fou call repeats
-the same practice
-w.r.t the (say) GRE gro receive callback, so... what happens if we
-eliminate the fou part all together?
+> On Sun, 14 Sep 2014 19:33:43 +0200
+> Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se> wrote:
+> 
+>> Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
+>> 
+>> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+>> ---
+>>  drivers/net/ethernet/marvell/sky2.c |    2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>> 
+>> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+>> index dba48a5c..7053d38 100644
+>> --- a/drivers/net/ethernet/marvell/sky2.c
+>> +++ b/drivers/net/ethernet/marvell/sky2.c
+>> @@ -4907,7 +4907,7 @@ static const char *sky2_name(u8 chipid, char *buf, int sz)
+>>  	};
+>>  
+>>  	if (chipid >= CHIP_ID_YUKON_XL && chipid <= CHIP_ID_YUKON_OP_2)
+>> -		strncpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
+>> +		strlcpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
+>>  	else
+>>  		snprintf(buf, sz, "(chip %#x)", chipid);
+>>  	return buf;
+> 
+> Useless and unnecessary since the list of names is right there.
+> Why not avoid the copy all together?
+> 
+> Subject: sky2: avoid strncpy
+> 
+> Don't use strncpy() since security thought police think it is bad.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+I think providing the buffer on the stack of the thread executing the
+probe is superior because it will allow enabling parallel probing
+in the future.
+
+I don't think you have to change that aspect to achieve your goal
+of returning the const char * string when possible.
