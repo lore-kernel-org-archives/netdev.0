@@ -1,41 +1,61 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next 1/5] net_sched: fix an allocation bug in tcindex_set_parms()
-Date: Mon, 15 Sep 2014 14:06:46 -0700
-Message-ID: <1410815210-6693-2-git-send-email-xiyou.wangcong@gmail.com>
-References: <1410815210-6693-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: john.fastabend@gmail.com, "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH] net: Correct TOS priority mapping for DSCP EF
+Date: Mon, 15 Sep 2014 17:09:13 -0400 (EDT)
+Message-ID: <20140915.170913.105209681419359224.davem@davemloft.net>
+References: <=1410783785.7106.154.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140915145023.4834.93706.stgit@dragon>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	shemminger@vyatta.com
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:38369 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758976AbaIOVHG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 17:07:06 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kq14so7163591pab.19
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 14:07:06 -0700 (PDT)
-In-Reply-To: <1410815210-6693-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39420 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759116AbaIOVJQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 17:09:16 -0400
+In-Reply-To: <20140915145023.4834.93706.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes: commit 331b72922c5f58d48fd ("net: sched: RCU cls_tcindex")
-Cc: John Fastabend <john.fastabend@gmail.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/cls_tcindex.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Mon, 15 Sep 2014 16:50:47 +0200
 
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index a9f4279..a02ca72 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -241,7 +241,7 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
- 	 * allocate new tcindex data and RCU assign it onto root. Keeping
- 	 * perfect hash and hash pointers from old data.
- 	 */
--	cp = kzalloc(sizeof(cp), GFP_KERNEL);
-+	cp = kzalloc(sizeof(*cp), GFP_KERNEL);
- 	if (!cp)
- 		return -ENOMEM;
- 
--- 
-1.8.3.1
+> The DSCP value for Expedited Forwarding (EF) got mapped to
+> internal priority TC_PRIO_INTERACTIVE_BULK, which ends up in
+> medium/best-effort priority band(1) of pfifo_fast
+> 
+> This patch change TOS mapping, causing the DSCP EF to get mapped
+> to TC_PRIO_INTERACTIVE, which end up in high priority band(0)
+> of pfifo_fast.
+> 
+> While performing this policy change, document the TOS to priority
+> lookup table ip_tos2prio[16].  Thus, making it easier to
+> understand this table for reviewers.
+> 
+> The DSCP AFxx mappings are also suboptimal, but we choose not to
+> change those mapping, only document the mapping in the code.
+> 
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+
+I don't think you can make these mappings given that we don't
+take the code-service bits of the TOS into account when we use
+this table at all.
+
+The DSCP values are composed in the top 6 bits, but we are only
+considering the low 3 bits of that field (along with the high
+bit of "CU", which is part of the ECN value and thus "don't care")
+
+We should only match EF when the top two DSCP bits are "10".
+
+This table and it's relationship to DSCP is confusing (but your
+comments in this patch helped a lot, thanks).  Also it isn't
+clear why we don't interpret the full DSCP field.
+
+ECN_OR_COST() does nothing but serve as an annotation meaning
+that this value has an ECN bit set.
+
+So why don't we shift down by two bits, to get rid of the entire
+"CU" field, and consider all 6 bits of the DSCP value in the
+ip_tos2prio[] table?
