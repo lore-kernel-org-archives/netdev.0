@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 3/7] fou: Add GRO support
-Date: Mon, 15 Sep 2014 14:22:27 -0400 (EDT)
-Message-ID: <20140915.142227.385081853295017602.davem@davemloft.net>
-References: <1410750483-3236-1-git-send-email-therbert@google.com>
-	<1410750483-3236-4-git-send-email-therbert@google.com>
+Subject: Re: [PATCH v3] net/phy: micrel: Disable asymmetric pause for
+ KSZ9031
+Date: Mon, 15 Sep 2014 14:24:25 -0400 (EDT)
+Message-ID: <20140915.142425.1929538078667151559.davem@davemloft.net>
+References: <20140912.181820.1440041146938289489.davem@davemloft.net>
+	<1410775594-3129-1-git-send-email-mike.looijmans@topic.nl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mike.looijmans@topic.nl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36076 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36135 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753329AbaIOSWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 14:22:30 -0400
-In-Reply-To: <1410750483-3236-4-git-send-email-therbert@google.com>
+	with ESMTP id S1753089AbaIOSY1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 14:24:27 -0400
+In-Reply-To: <1410775594-3129-1-git-send-email-mike.looijmans@topic.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Sun, 14 Sep 2014 20:07:59 -0700
+From: Mike Looijmans <mike.looijmans@topic.nl>
+Date: Mon, 15 Sep 2014 12:06:33 +0200
 
-> @@ -62,6 +64,70 @@ static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
->  					  sizeof(struct udphdr));
->  }
->  
-> +static inline struct sk_buff **fou_gro_receive(struct sk_buff **head,
-> +					       struct sk_buff *skb,
-> +					       const struct net_offload
-> +							     **offloads)
+> The KSZ9031 appears to suffer from the same hardware bug as described
+> for the KSZ9021 in commit 32fcafbcd1c9f6c7013016a22a5369b4acb93577
+> ("net/phy: micrel: Disable asymmetric pause for KSZ9021")
+> you have to unplug the cable and plug it back to get it to work.
+> 
+> Remove the SUPPORTED_Asym_Pause flag for the KSZ9031 to fix this.
+> 
+> Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
 
-Please drop the "inline" in foo.c files and let the compiler decide.  And
-then you won't need to split up the "offloads" variable declaration like
-that.
+Applied, thanks.
