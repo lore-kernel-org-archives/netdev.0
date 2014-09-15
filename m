@@ -1,60 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: marvell: sky2.c: Cleaning up missing
- null-terminate in conjunction with strncpy
-Date: Mon, 15 Sep 2014 13:07:21 -0400 (EDT)
-Message-ID: <20140915.130721.589682835868904320.davem@davemloft.net>
-References: <1410716023-16068-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-	<20140914190557.690183d2@urahara>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH 0/2] DSA Cleanups
+Date: Mon, 15 Sep 2014 12:59:14 -0400
+Message-ID: <20140915165543.1261.2520.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: rickard_strandqvist@spectrumdigital.se, mlindner@marvell.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140914190557.690183d2@urahara>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: f.fainelli@gmail.com, kernel@wantstofly.org, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:38683 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753817AbaIORI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Sep 2014 13:08:29 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Sun, 14 Sep 2014 19:05:57 -0700
+This patch series does two things, first it cleans up the tag_protocol and
+protocol ops being configured seperately.  Second it addresses the desire
+to split DSA away from relying on a MII bus.
 
-> On Sun, 14 Sep 2014 19:33:43 +0200
-> Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se> wrote:
-> 
->> Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
->> 
->> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
->> ---
->>  drivers/net/ethernet/marvell/sky2.c |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->> 
->> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
->> index dba48a5c..7053d38 100644
->> --- a/drivers/net/ethernet/marvell/sky2.c
->> +++ b/drivers/net/ethernet/marvell/sky2.c
->> @@ -4907,7 +4907,7 @@ static const char *sky2_name(u8 chipid, char *buf, int sz)
->>  	};
->>  
->>  	if (chipid >= CHIP_ID_YUKON_XL && chipid <= CHIP_ID_YUKON_OP_2)
->> -		strncpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
->> +		strlcpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
->>  	else
->>  		snprintf(buf, sz, "(chip %#x)", chipid);
->>  	return buf;
-> 
-> Useless and unnecessary since the list of names is right there.
-> Why not avoid the copy all together?
-> 
-> Subject: sky2: avoid strncpy
-> 
-> Don't use strncpy() since security thought police think it is bad.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+---
 
-I think providing the buffer on the stack of the thread executing the
-probe is superior because it will allow enabling parallel probing
-in the future.
+Alexander Duyck (2):
+      dsa: Split ops up, and avoid assigning tag_protocol and receive separately
+      dsa: Replace mii_bus with a generic host device
 
-I don't think you have to change that aspect to achieve your goal
-of returning the const char * string when possible.
+
+ arch/arm/plat-orion/common.c      |    2 +
+ drivers/net/dsa/bcm_sf2.c         |    2 +
+ drivers/net/dsa/mv88e6060.c       |   13 ++++++---
+ drivers/net/dsa/mv88e6123_61_65.c |    6 +++-
+ drivers/net/dsa/mv88e6131.c       |    6 +++-
+ drivers/net/dsa/mv88e6171.c       |    6 +++-
+ drivers/net/dsa/mv88e6xxx.c       |    4 +--
+ include/linux/netdevice.h         |    7 -----
+ include/net/dsa.h                 |   19 +++++++------
+ net/dsa/dsa.c                     |   56 ++++++++++++++++++++++++-------------
+ net/dsa/dsa_priv.h                |   11 +++++++
+ net/dsa/slave.c                   |   39 +++++++++++---------------
+ net/dsa/tag_brcm.c                |    1 -
+ net/dsa/tag_dsa.c                 |    1 -
+ net/dsa/tag_edsa.c                |    1 -
+ net/dsa/tag_trailer.c             |    1 -
+ 16 files changed, 101 insertions(+), 74 deletions(-)
+
+-- 
