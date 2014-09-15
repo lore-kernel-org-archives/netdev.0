@@ -1,51 +1,168 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next 1/7] net: Export inet_offloads and inet6_offloads
-Date: Sun, 14 Sep 2014 20:07:57 -0700
-Message-ID: <1410750483-3236-2-git-send-email-therbert@google.com>
+Subject: [PATCH v2 net-next 6/7] ipip: TX path for IPIP/UDP foo-over-udp encapsulation
+Date: Sun, 14 Sep 2014 20:08:02 -0700
+Message-ID: <1410750483-3236-7-git-send-email-therbert@google.com>
 References: <1410750483-3236-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:63086 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753100AbaIODIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2014 23:08:22 -0400
-Received: by mail-pd0-f171.google.com with SMTP id p10so5310841pdj.2
-        for <netdev@vger.kernel.org>; Sun, 14 Sep 2014 20:08:21 -0700 (PDT)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:45108 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753206AbaIODIf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2014 23:08:35 -0400
+Received: by mail-pa0-f51.google.com with SMTP id kx10so5446955pab.10
+        for <netdev@vger.kernel.org>; Sun, 14 Sep 2014 20:08:34 -0700 (PDT)
 In-Reply-To: <1410750483-3236-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Want to be able to call this in foo-over-udp offloads, etc.
-
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/ipv4/protocol.c | 1 +
- net/ipv6/protocol.c | 1 +
- 2 files changed, 2 insertions(+)
+ net/ipv4/ipip.c | 86 +++++++++++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 83 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/protocol.c b/net/ipv4/protocol.c
-index 46d6a1c..4b7c0ec 100644
---- a/net/ipv4/protocol.c
-+++ b/net/ipv4/protocol.c
-@@ -30,6 +30,7 @@
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 62eaa00..2985551 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -301,7 +301,8 @@ static int ipip_tunnel_init(struct net_device *dev)
+ 	memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
+ 	memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
  
- const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS] __read_mostly;
- const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS] __read_mostly;
-+EXPORT_SYMBOL(inet_offloads);
+-	tunnel->hlen = 0;
++	tunnel->tun_hlen = 0;
++	tunnel->hlen = tunnel->tun_hlen + tunnel->encap_hlen;
+ 	tunnel->parms.iph.protocol = IPPROTO_IPIP;
+ 	return ip_tunnel_init(dev);
+ }
+@@ -340,19 +341,73 @@ static void ipip_netlink_parms(struct nlattr *data[],
+ 		parms->iph.frag_off = htons(IP_DF);
+ }
  
- int inet_add_protocol(const struct net_protocol *prot, unsigned char protocol)
++/* This function returns true when ENCAP attributes are present in the nl msg */
++static bool ipip_netlink_encap_parms(struct nlattr *data[],
++				     struct ip_tunnel_encap *ipencap)
++{
++	bool ret = false;
++
++	memset(ipencap, 0, sizeof(*ipencap));
++
++	if (!data)
++		return ret;
++
++	if (data[IFLA_IPTUN_ENCAP_TYPE]) {
++		ret = true;
++		ipencap->type = nla_get_u16(data[IFLA_IPTUN_ENCAP_TYPE]);
++	}
++
++	if (data[IFLA_IPTUN_ENCAP_FLAGS]) {
++		ret = true;
++		ipencap->flags = nla_get_u16(data[IFLA_IPTUN_ENCAP_FLAGS]);
++	}
++
++	if (data[IFLA_IPTUN_ENCAP_SPORT]) {
++		ret = true;
++		ipencap->sport = nla_get_u16(data[IFLA_IPTUN_ENCAP_SPORT]);
++	}
++
++	if (data[IFLA_IPTUN_ENCAP_DPORT]) {
++		ret = true;
++		ipencap->dport = nla_get_u16(data[IFLA_IPTUN_ENCAP_DPORT]);
++	}
++
++	return ret;
++}
++
+ static int ipip_newlink(struct net *src_net, struct net_device *dev,
+ 			struct nlattr *tb[], struct nlattr *data[])
  {
-diff --git a/net/ipv6/protocol.c b/net/ipv6/protocol.c
-index e048cf1..e3770ab 100644
---- a/net/ipv6/protocol.c
-+++ b/net/ipv6/protocol.c
-@@ -51,6 +51,7 @@ EXPORT_SYMBOL(inet6_del_protocol);
- #endif
+ 	struct ip_tunnel_parm p;
++	struct ip_tunnel *t = netdev_priv(dev);
++	struct ip_tunnel_encap ipencap;
++	int err;
++
++	if (ipip_netlink_encap_parms(data, &ipencap)) {
++		err = ip_tunnel_encap_setup(t, &ipencap);
++		if (err < 0)
++			return err;
++	}
  
- const struct net_offload __rcu *inet6_offloads[MAX_INET_PROTOS] __read_mostly;
-+EXPORT_SYMBOL(inet6_offloads);
+ 	ipip_netlink_parms(data, &p);
+-	return ip_tunnel_newlink(dev, tb, &p);
++	err = ip_tunnel_newlink(dev, tb, &p);
++
++	return err;
+ }
  
- int inet6_add_offload(const struct net_offload *prot, unsigned char protocol)
+ static int ipip_changelink(struct net_device *dev, struct nlattr *tb[],
+ 			   struct nlattr *data[])
  {
++	struct ip_tunnel *t = netdev_priv(dev);
+ 	struct ip_tunnel_parm p;
++	struct ip_tunnel_encap ipencap;
++	int err;
++
++	if (ipip_netlink_encap_parms(data, &ipencap)) {
++		err = ip_tunnel_encap_setup(t, &ipencap);
++		if (err < 0)
++			return err;
++	}
+ 
+ 	ipip_netlink_parms(data, &p);
+ 
+@@ -360,7 +415,9 @@ static int ipip_changelink(struct net_device *dev, struct nlattr *tb[],
+ 	    (!(dev->flags & IFF_POINTOPOINT) && p.iph.daddr))
+ 		return -EINVAL;
+ 
+-	return ip_tunnel_changelink(dev, tb, &p);
++	err = ip_tunnel_changelink(dev, tb, &p);
++
++	return err;
+ }
+ 
+ static size_t ipip_get_size(const struct net_device *dev)
+@@ -378,6 +435,14 @@ static size_t ipip_get_size(const struct net_device *dev)
+ 		nla_total_size(1) +
+ 		/* IFLA_IPTUN_PMTUDISC */
+ 		nla_total_size(1) +
++		/* IFLA_IPTUN_ENCAP_TYPE */
++		nla_total_size(2) +
++		/* IFLA_IPTUN_ENCAP_FLAGS */
++		nla_total_size(2) +
++		/* IFLA_IPTUN_ENCAP_SPORT */
++		nla_total_size(2) +
++		/* IFLA_IPTUN_ENCAP_DPORT */
++		nla_total_size(2) +
+ 		0;
+ }
+ 
+@@ -394,6 +459,17 @@ static int ipip_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	    nla_put_u8(skb, IFLA_IPTUN_PMTUDISC,
+ 		       !!(parm->iph.frag_off & htons(IP_DF))))
+ 		goto nla_put_failure;
++
++	if (nla_put_u16(skb, IFLA_IPTUN_ENCAP_TYPE,
++			tunnel->encap.type) ||
++	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_SPORT,
++			tunnel->encap.sport) ||
++	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_DPORT,
++			tunnel->encap.dport) ||
++	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_FLAGS,
++			tunnel->encap.dport))
++		goto nla_put_failure;
++
+ 	return 0;
+ 
+ nla_put_failure:
+@@ -407,6 +483,10 @@ static const struct nla_policy ipip_policy[IFLA_IPTUN_MAX + 1] = {
+ 	[IFLA_IPTUN_TTL]		= { .type = NLA_U8 },
+ 	[IFLA_IPTUN_TOS]		= { .type = NLA_U8 },
+ 	[IFLA_IPTUN_PMTUDISC]		= { .type = NLA_U8 },
++	[IFLA_IPTUN_ENCAP_TYPE]		= { .type = NLA_U16 },
++	[IFLA_IPTUN_ENCAP_FLAGS]	= { .type = NLA_U16 },
++	[IFLA_IPTUN_ENCAP_SPORT]	= { .type = NLA_U16 },
++	[IFLA_IPTUN_ENCAP_DPORT]	= { .type = NLA_U16 },
+ };
+ 
+ static struct rtnl_link_ops ipip_link_ops __read_mostly = {
 -- 
 2.1.0.rc2.206.gedb03e5
