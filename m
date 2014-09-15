@@ -1,45 +1,66 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v2 net-next 1/3] tcp: use TCP_SKB_CB(skb)->tcp_flags in
- input path
-Date: Mon, 15 Sep 2014 12:13:30 -0400
-Message-ID: <CADVnQykSrxg3NU+F7gwxT+RaLMCtGsPMQhhFg=1EpUsb5to8MQ@mail.gmail.com>
-References: <1410779993-31464-1-git-send-email-edumazet@google.com>
-	<1410779993-31464-2-git-send-email-edumazet@google.com>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: Re: [PATCH 1/1 v2] netdev: octeon_mgmt: ISO C90 forbids mixed declarations
+ and code
+Date: Mon, 15 Sep 2014 09:16:42 -0700
+Message-ID: <541710EA.7090809@gmail.com>
+References: <1410670935-904-1-git-send-email-xypron.glpk@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f45.google.com ([209.85.192.45]:35373 "EHLO
-	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752750AbaIOQNe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 12:13:34 -0400
-Received: by mail-qg0-f45.google.com with SMTP id j107so4134363qga.32
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 09:13:30 -0700 (PDT)
-In-Reply-To: <1410779993-31464-2-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Daney <david.daney@cavium.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Luka Perkov <luka@openwrt.org>,
+	Willem de Bruijn <willemb@google.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Joe Perches <joe@perches.com>
+To: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1410670935-904-1-git-send-email-xypron.glpk@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 15, 2014 at 7:19 AM, Eric Dumazet <edumazet@google.com> wrote:
-> Input path of TCP do not currently uses TCP_SKB_CB(skb)->tcp_flags,
-> which is only used in output path.
+On 09/13/2014 10:02 PM, Heinrich Schuchardt wrote:
+> Revised patch takes into account comments by Joe and David.
 >
-> tcp_recvmsg(), looks at tcp_hdr(skb)->syn for every skb found in receive queue,
-> and its unfortunate because this bit is located in a cache line right before
-> the payload.
+> Compiling with OCTEON_MGMT_ETHERNET gives a warning
+> drivers/net/ethernet/octeon/octeon_mgmt.c:295:4:
+> warning: ISO C90 forbids mixed declarations and code
+> [-Wdeclaration-after-statement]
 >
-> We can simplify TCP by copying tcp flags into TCP_SKB_CB(skb)->tcp_flags.
+> The patch cleans up the code.
 >
-> This patch does so, and avoids the cache line miss in tcp_recvmsg()
+> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> CC: Joe Perches <joe@perches.com>
+> CC: David S. Miller <davem@davemloft.net>
+> ---
+>   drivers/net/ethernet/octeon/octeon_mgmt.c | 3 ++-
+>   1 file changed, 2 insertions(+), 1 deletion(-)
 >
-> Following patches will
-> - allow a segment with FIN being coalesced in tcp_try_coalesce()
-> - simplify tcp_collapse() by not copying the headers.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
+> index 979c698..6cc68b1 100644
+> --- a/drivers/net/ethernet/octeon/octeon_mgmt.c
+> +++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
+> @@ -290,9 +290,10 @@ static void octeon_mgmt_clean_tx_buffers(struct octeon_mgmt *p)
+>   		/* Read the hardware TX timestamp if one was recorded */
+>   		if (unlikely(re.s.tstamp)) {
+>   			struct skb_shared_hwtstamps ts;
+> +			u64 ns;
+>   			memset(&ts, 0, sizeof(ts));
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+I don't think this is the change suggested by Joe Perches and davem.
 
-neal
+So NAK.  In the interestes of Bike Shedding, I will send a patch that 
+clears the warning with a fewer number of changed lines, that follows 
+the suggestion.
+
+David Daney
+
+
+>   			/* Read the timestamp */
+> -			u64 ns = cvmx_read_csr(CVMX_MIXX_TSTAMP(p->port));
+> +			ns = cvmx_read_csr(CVMX_MIXX_TSTAMP(p->port));
+>   			/* Remove the timestamp from the FIFO */
+>   			cvmx_write_csr(CVMX_MIXX_TSCTL(p->port), 0);
+>   			/* Tell the kernel about the timestamp */
+>
