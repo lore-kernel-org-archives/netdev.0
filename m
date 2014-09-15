@@ -1,43 +1,41 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: curent state of GSO over IPv6 tunnel
-Date: Mon, 15 Sep 2014 08:55:23 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63B365F6@avmb3.qlogic.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:1392 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752712AbaIOIzZ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Sep 2014 04:55:25 -0400
-Received: from pps.filterd (m0045602.ppops.net [127.0.0.1])
-	by mx0a-0016ce01.pphosted.com (8.14.5/8.14.5) with SMTP id s8F8tPf5009870
-	for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 01:55:25 -0700
-Received: from avcashub1.qlogic.com (avcashub1.qlogic.com [198.70.193.115])
-	by mx0a-0016ce01.pphosted.com with ESMTP id 1patsxg0js-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 01:55:25 -0700
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mike Looijmans <mike.looijmans@topic.nl>
+Subject: [PATCH v3] net/phy: micrel: Disable asymmetric pause for KSZ9031
+Date: Mon, 15 Sep 2014 12:06:33 +0200
+Message-ID: <1410775594-3129-1-git-send-email-mike.looijmans@topic.nl>
+References: <20140912.181820.1440041146938289489.davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org,
+	Mike Looijmans <mike.looijmans@topic.nl>
+To: f.fainelli@gmail.com, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140912.181820.1440041146938289489.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+The KSZ9031 appears to suffer from the same hardware bug as described
+for the KSZ9021 in commit 32fcafbcd1c9f6c7013016a22a5369b4acb93577
+("net/phy: micrel: Disable asymmetric pause for KSZ9021")
+you have to unplug the cable and plug it back to get it to work.
 
-Tried running simple scenarios using ipv6/ipv6 via gre-tunnel [ip6_gre].
+Remove the SUPPORTED_Asym_Pause flag for the KSZ9031 to fix this.
 
-When I've tried sniffing Tx traffic [tcpdump] I've noticed there were
-no aggregations being set, i.e., only MTU-sized packets reached NIC.
+Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
+---
+ drivers/net/phy/micrel.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Looking at output of `ethtool -k', I can see `tx_gre_segmentation' is on.
-
-What's the current state of the feature? Is it feasible and I'm missing
-some configuration, or is it yet an unsupported feature?
-
-Thanks,
-Yuval
-
-________________________________
-
-This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index fd0ea7c..011dbda 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -592,8 +592,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id		= PHY_ID_KSZ9031,
+ 	.phy_id_mask	= 0x00fffff0,
+ 	.name		= "Micrel KSZ9031 Gigabit PHY",
+-	.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause
+-				| SUPPORTED_Asym_Pause),
++	.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause),
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= ksz9031_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+-- 
+1.7.9.5
