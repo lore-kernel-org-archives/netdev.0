@@ -1,401 +1,249 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next 2/7] fou: Support for foo-over-udp RX path
-Date: Sun, 14 Sep 2014 20:07:58 -0700
-Message-ID: <1410750483-3236-3-git-send-email-therbert@google.com>
+Subject: [PATCH v2 net-next 4/7] net: Changes to ip_tunnel to support foo-over-udp encapsulation
+Date: Sun, 14 Sep 2014 20:08:00 -0700
+Message-ID: <1410750483-3236-5-git-send-email-therbert@google.com>
 References: <1410750483-3236-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:54970 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753206AbaIODIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2014 23:08:25 -0400
-Received: by mail-pd0-f179.google.com with SMTP id g10so5215284pdj.24
-        for <netdev@vger.kernel.org>; Sun, 14 Sep 2014 20:08:25 -0700 (PDT)
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:65227 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753288AbaIODIa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2014 23:08:30 -0400
+Received: by mail-pd0-f181.google.com with SMTP id w10so5280204pde.12
+        for <netdev@vger.kernel.org>; Sun, 14 Sep 2014 20:08:30 -0700 (PDT)
 In-Reply-To: <1410750483-3236-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides a receive path for foo-over-udp. This allows
-direct encapsulation of IP protocols over UDP. The bound destination
-port is used to map to an IP protocol, and the XFRM framework
-(udp_encap_rcv) is used to receive encapsulated packets. Upon
-reception, the encapsulation header is logically removed (pointer
-to transport header is advanced) and the packet is reinjected into
-the receive path with the IP protocol indicated by the mapping.
+This patch changes IP tunnel to support (secondary) encapsulation,
+Foo-over-UDP. Changes include:
 
-Netlink is used to configure FOU ports. The configuration information
-includes the port number to bind to and the IP protocol corresponding
-to that port.
-
-This should support GRE/UDP
-(http://tools.ietf.org/html/draft-yong-tsvwg-gre-in-udp-encap-02),
-as will as the other IP tunneling protocols (IPIP, SIT).
+1) Adding tun_hlen as the tunnel header length, encap_hlen as the
+   encapsulation header length, and hlen becomes the grand total
+   of these.
+2) Added common netlink define to support FOU encapsulation.
+3) Routines to perform FOU encapsulation.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/uapi/linux/fou.h |  32 ++++++
- net/ipv4/Kconfig         |  10 ++
- net/ipv4/Makefile        |   1 +
- net/ipv4/fou.c           | 279 +++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 322 insertions(+)
- create mode 100644 include/uapi/linux/fou.h
- create mode 100644 net/ipv4/fou.c
+ include/net/ip_tunnels.h       | 19 ++++++++-
+ include/uapi/linux/if_tunnel.h | 12 ++++++
+ net/ipv4/ip_tunnel.c           | 91 +++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 120 insertions(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/fou.h b/include/uapi/linux/fou.h
-new file mode 100644
-index 0000000..e03376d
---- /dev/null
-+++ b/include/uapi/linux/fou.h
-@@ -0,0 +1,32 @@
-+/* fou.h - FOU Interface */
-+
-+#ifndef _UAPI_LINUX_FOU_H
-+#define _UAPI_LINUX_FOU_H
-+
-+/* NETLINK_GENERIC related info
-+ */
-+#define FOU_GENL_NAME		"fou"
-+#define FOU_GENL_VERSION	0x1
-+
-+enum {
-+	FOU_ATTR_UNSPEC,
-+	FOU_ATTR_PORT,				/* u16 */
-+	FOU_ATTR_AF,				/* u8 */
-+	FOU_ATTR_IPPROTO,			/* u8 */
-+
-+	__FOU_ATTR_MAX,
-+};
-+
-+#define FOU_ATTR_MAX		(__FOU_ATTR_MAX - 1)
-+
-+enum {
-+	FOU_CMD_UNSPEC,
-+	FOU_CMD_ADD,
-+	FOU_CMD_DEL,
-+
-+	__FOU_CMD_MAX,
-+};
-+
-+#define FOU_CMD_MAX	(__FOU_CMD_MAX - 1)
-+
-+#endif /* _UAPI_LINUX_FOU_H */
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index dbc10d8..84f710b 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -311,6 +311,16 @@ config NET_UDP_TUNNEL
- 	tristate
- 	default n
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 8dd8cab..7f538ba 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -10,6 +10,7 @@
+ #include <net/gro_cells.h>
+ #include <net/inet_ecn.h>
+ #include <net/ip.h>
++#include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
  
-+config NET_FOU
-+	tristate "IP: Foo (IP protocols) over UDP"
-+	select XFRM
-+	select NET_UDP_TUNNEL
-+	---help---
-+	  Foo over UDP allows any IP protocol to be directly encapsulated
-+	  over UDP include tunnels (IPIP, GRE, SIT). By encapsulating in UDP
-+	  network mechanisms and optimizations for UDP (such as ECMP
-+	  and RSS) can be leveraged to provide better service.
+ #if IS_ENABLED(CONFIG_IPV6)
+@@ -31,6 +32,13 @@ struct ip_tunnel_6rd_parm {
+ };
+ #endif
+ 
++struct ip_tunnel_encap {
++	__u16			type;
++	__u16			flags;
++	__be16			sport;
++	__be16			dport;
++};
 +
- config INET_AH
- 	tristate "IP: AH transformation"
- 	select XFRM_ALGO
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index 8ee1cd4..d78d404 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -20,6 +20,7 @@ obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
- obj-$(CONFIG_IP_MROUTE) += ipmr.o
- obj-$(CONFIG_NET_IPIP) += ipip.o
- gre-y := gre_demux.o
-+obj-$(CONFIG_NET_FOU) += fou.o
- obj-$(CONFIG_NET_IPGRE_DEMUX) += gre.o
- obj-$(CONFIG_NET_IPGRE) += ip_gre.o
- obj-$(CONFIG_NET_UDP_TUNNEL) += udp_tunnel.o
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-new file mode 100644
-index 0000000..de2af74
---- /dev/null
-+++ b/net/ipv4/fou.c
-@@ -0,0 +1,279 @@
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/socket.h>
-+#include <linux/skbuff.h>
-+#include <linux/ip.h>
-+#include <linux/udp.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <net/genetlink.h>
-+#include <net/ip.h>
+ struct ip_tunnel_prl_entry {
+ 	struct ip_tunnel_prl_entry __rcu *next;
+ 	__be32				addr;
+@@ -56,13 +64,18 @@ struct ip_tunnel {
+ 	/* These four fields used only by GRE */
+ 	__u32		i_seqno;	/* The last seen seqno	*/
+ 	__u32		o_seqno;	/* The last output seqno */
+-	int		hlen;		/* Precalculated header length */
++	int		tun_hlen;	/* Precalculated header length */
+ 	int		mlink;
+ 
+ 	struct ip_tunnel_dst __percpu *dst_cache;
+ 
+ 	struct ip_tunnel_parm parms;
+ 
++	int		encap_hlen;	/* Encap header length (FOU,GUE) */
++	struct ip_tunnel_encap encap;
++
++	int		hlen;		/* tun_hlen + encap_hlen */
++
+ 	/* for SIT */
+ #ifdef CONFIG_IPV6_SIT_6RD
+ 	struct ip_tunnel_6rd_parm ip6rd;
+@@ -114,6 +127,8 @@ void ip_tunnel_delete_net(struct ip_tunnel_net *itn, struct rtnl_link_ops *ops);
+ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		    const struct iphdr *tnl_params, const u8 protocol);
+ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd);
++int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
++		    u8 *protocol, struct flowi4 *fl4);
+ int ip_tunnel_change_mtu(struct net_device *dev, int new_mtu);
+ 
+ struct rtnl_link_stats64 *ip_tunnel_get_stats64(struct net_device *dev,
+@@ -131,6 +146,8 @@ int ip_tunnel_newlink(struct net_device *dev, struct nlattr *tb[],
+ 		      struct ip_tunnel_parm *p);
+ void ip_tunnel_setup(struct net_device *dev, int net_id);
+ void ip_tunnel_dst_reset_all(struct ip_tunnel *t);
++int ip_tunnel_encap_setup(struct ip_tunnel *t,
++			  struct ip_tunnel_encap *ipencap);
+ 
+ /* Extract dsfield from inner protocol */
+ static inline u8 ip_tunnel_get_dsfield(const struct iphdr *iph,
+diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+index 3bce9e9..9fedca7 100644
+--- a/include/uapi/linux/if_tunnel.h
++++ b/include/uapi/linux/if_tunnel.h
+@@ -53,10 +53,22 @@ enum {
+ 	IFLA_IPTUN_6RD_RELAY_PREFIX,
+ 	IFLA_IPTUN_6RD_PREFIXLEN,
+ 	IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
++	IFLA_IPTUN_ENCAP_TYPE,
++	IFLA_IPTUN_ENCAP_FLAGS,
++	IFLA_IPTUN_ENCAP_SPORT,
++	IFLA_IPTUN_ENCAP_DPORT,
+ 	__IFLA_IPTUN_MAX,
+ };
+ #define IFLA_IPTUN_MAX	(__IFLA_IPTUN_MAX - 1)
+ 
++enum tunnel_encap_types {
++	TUNNEL_ENCAP_NONE,
++	TUNNEL_ENCAP_FOU,
++};
++
++#define TUNNEL_ENCAP_FLAG_CSUM		(1<<0)
++#define TUNNEL_ENCAP_FLAG_CSUM6		(1<<1)
++
+ /* SIT-mode i_flags */
+ #define	SIT_ISATAP	0x0001
+ 
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index afed1aa..e3a3dc9 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -55,6 +55,7 @@
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
 +#include <net/udp.h>
-+#include <net/udp_tunnel.h>
-+#include <net/xfrm.h>
-+#include <uapi/linux/fou.h>
-+#include <uapi/linux/genetlink.h>
-+
-+static DEFINE_SPINLOCK(fou_lock);
-+static LIST_HEAD(fou_list);
-+
-+struct fou {
-+	struct socket *sock;
-+	u8 protocol;
-+	u16 port;
-+	struct list_head list;
-+};
-+
-+struct fou_cfg {
-+	u8 protocol;
-+	struct udp_port_cfg udp_config;
-+};
-+
-+static inline struct fou *fou_from_sock(struct sock *sk)
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ #include <net/ipv6.h>
+@@ -487,6 +488,91 @@ drop:
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_rcv);
+ 
++static int ip_encap_hlen(struct ip_tunnel_encap *e)
 +{
-+	return (struct fou *)sk->sk_user_data;
++	switch (e->type) {
++	case TUNNEL_ENCAP_NONE:
++		return 0;
++	case TUNNEL_ENCAP_FOU:
++		return sizeof(struct udphdr);
++	default:
++		return -EINVAL;
++	}
 +}
 +
-+static int fou_udp_encap_recv_deliver(struct sk_buff *skb,
-+				      u8 protocol, size_t len)
++int ip_tunnel_encap_setup(struct ip_tunnel *t,
++			  struct ip_tunnel_encap *ipencap)
 +{
-+	struct iphdr *iph = ip_hdr(skb);
++	int hlen;
 +
-+	/* Remove 'len' bytes from the packet (UDP header and
-+	 * FOU header if present), modify the protocol to the one
-+	 * we found, and then call rcv_encap.
-+	 */
-+	iph->tot_len = htons(ntohs(iph->tot_len) - len);
-+	__skb_pull(skb, len);
-+	skb_postpull_rcsum(skb, udp_hdr(skb), len);
++	memset(&t->encap, 0, sizeof(t->encap));
++
++	hlen = ip_encap_hlen(ipencap);
++	if (hlen < 0)
++		return hlen;
++
++	t->encap.type = ipencap->type;
++	t->encap.sport = ipencap->sport;
++	t->encap.dport = ipencap->dport;
++	t->encap.flags = ipencap->flags;
++
++	t->encap_hlen = hlen;
++	t->hlen = t->encap_hlen + t->tun_hlen;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(ip_tunnel_encap_setup);
++
++static int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++			    size_t hdr_len, u8 *protocol, struct flowi4 *fl4)
++{
++	struct udphdr *uh;
++	__be16 sport;
++	bool csum = !!(e->flags & TUNNEL_ENCAP_FLAG_CSUM);
++	int type = csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
++
++	skb = iptunnel_handle_offloads(skb, csum, type);
++
++	if (IS_ERR(skb))
++		return PTR_ERR(skb);
++
++	/* Get length and hash before making space in skb */
++
++	sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
++					       skb, 0, 0, false);
++
++	skb_push(skb, hdr_len);
++
 +	skb_reset_transport_header(skb);
++	uh = udp_hdr(skb);
 +
-+	return -protocol;
-+}
++	uh->dest = e->dport;
++	uh->source = sport;
++	uh->len = htons(skb->len);
++	uh->check = 0;
++	udp_set_csum(!(e->flags & TUNNEL_ENCAP_FLAG_CSUM), skb,
++		     fl4->saddr, fl4->daddr, skb->len);
 +
-+static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct fou *fou = fou_from_sock(sk);
-+
-+	if (!fou)
-+		return 1;
-+
-+	return fou_udp_encap_recv_deliver(skb, fou->protocol,
-+					  sizeof(struct udphdr));
-+}
-+
-+static int fou_add_to_port_list(struct fou *fou)
-+{
-+	struct fou *fout;
-+
-+	spin_lock(&fou_lock);
-+	list_for_each_entry(fout, &fou_list, list) {
-+		if (fou->port == fout->port) {
-+			spin_unlock(&fou_lock);
-+			return -EALREADY;
-+		}
-+	}
-+
-+	list_add(&fou->list, &fou_list);
-+	spin_unlock(&fou_lock);
++	*protocol = IPPROTO_UDP;
 +
 +	return 0;
 +}
 +
-+static void fou_release(struct fou *fou)
++int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
++		    u8 *protocol, struct flowi4 *fl4)
 +{
-+	struct socket *sock = fou->sock;
-+	struct sock *sk = sock->sk;
-+
-+	udp_del_offload(&fou->udp_offloads);
-+
-+	list_del(&fou->list);
-+
-+	/* Remove hooks into tunnel socket */
-+	sk->sk_user_data = NULL;
-+
-+	sock_release(sock);
-+
-+	kfree(fou);
-+}
-+
-+static int fou_create(struct net *net, struct fou_cfg *cfg,
-+		      struct socket **sockp)
-+{
-+	struct fou *fou = NULL;
-+	int err;
-+	struct socket *sock = NULL;
-+	struct sock *sk;
-+
-+	/* Open UDP socket */
-+	err = udp_sock_create(net, &cfg->udp_config, &sock);
-+	if (err < 0)
-+		goto error;
-+
-+	sk = sock->sk;
-+
-+	/* Allocate FOU port structure */
-+	fou = kzalloc(sizeof(*fou), GFP_KERNEL);
-+	if (!fou) {
-+		err = -ENOMEM;
-+		goto error;
++	switch (t->encap.type) {
++	case TUNNEL_ENCAP_NONE:
++		return 0;
++	case TUNNEL_ENCAP_FOU:
++		return fou_build_header(skb, &t->encap, t->encap_hlen,
++					protocol, fl4);
++	default:
++		return -EINVAL;
 +	}
-+
-+	/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
-+	fou->protocol = cfg->protocol;
-+	fou->port =  cfg->udp_config.local_udp_port;
-+	udp_sk(sk)->encap_rcv = fou_udp_recv;
-+
-+	udp_sk(sk)->encap_type = 1;
-+	udp_encap_enable();
-+
-+	sk->sk_user_data = fou;
-+	fou->sock = sock;
-+
-+	udp_set_convert_csum(sock->sk, true);
-+
-+	sk->sk_allocation = GFP_ATOMIC;
-+
-+	err = fou_add_to_port_list(fou);
-+	if (err)
-+		goto error;
-+
-+	if (sockp)
-+		*sockp = sock;
-+
-+	return 0;
-+
-+error:
-+	kfree(fou);
-+	if (sock)
-+		sock_release(sock);
-+
-+	return err;
 +}
++EXPORT_SYMBOL(ip_tunnel_encap);
 +
-+static int fou_destroy(struct net *net, struct fou_cfg *cfg)
-+{
-+	struct fou *fou;
-+	u16 port = htons(cfg->udp_config.local_udp_port);
-+	int err = -EINVAL;
+ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
+ 			    struct rtable *rt, __be16 df)
+ {
+@@ -536,7 +622,7 @@ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
+ }
+ 
+ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+-		    const struct iphdr *tnl_params, const u8 protocol)
++		    const struct iphdr *tnl_params, u8 protocol)
+ {
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	const struct iphdr *inner_iph;
+@@ -617,6 +703,9 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	init_tunnel_flow(&fl4, protocol, dst, tnl_params->saddr,
+ 			 tunnel->parms.o_key, RT_TOS(tos), tunnel->parms.link);
+ 
++	if (ip_tunnel_encap(skb, tunnel, &protocol, &fl4) < 0)
++		goto tx_error;
 +
-+	spin_lock(&fou_lock);
-+	list_for_each_entry(fou, &fou_list, list) {
-+		if (fou->port == port) {
-+			fou_release(fou);
-+			err = 0;
-+			break;
-+		}
-+	}
-+	spin_unlock(&fou_lock);
-+
-+	return err;
-+}
-+
-+static struct genl_family fou_nl_family = {
-+	.id		= GENL_ID_GENERATE,
-+	.hdrsize	= 0,
-+	.name		= FOU_GENL_NAME,
-+	.version	= FOU_GENL_VERSION,
-+	.maxattr	= FOU_ATTR_MAX,
-+	.netnsok	= true,
-+};
-+
-+static struct nla_policy fou_nl_policy[FOU_ATTR_MAX + 1] = {
-+	[FOU_ATTR_PORT] = { .type = NLA_U16, },
-+	[FOU_ATTR_AF] = { .type = NLA_U8, },
-+	[FOU_ATTR_IPPROTO] = { .type = NLA_U8, },
-+};
-+
-+static int parse_nl_config(struct genl_info *info,
-+			   struct fou_cfg *cfg)
-+{
-+	memset(cfg, 0, sizeof(*cfg));
-+
-+	cfg->udp_config.family = AF_INET;
-+
-+	if (info->attrs[FOU_ATTR_AF]) {
-+		u8 family = nla_get_u8(info->attrs[FOU_ATTR_AF]);
-+
-+		if (family != AF_INET && family != AF_INET6)
-+			return -EINVAL;
-+
-+		cfg->udp_config.family = family;
-+	}
-+
-+	if (info->attrs[FOU_ATTR_PORT]) {
-+		u16 port = nla_get_u16(info->attrs[FOU_ATTR_PORT]);
-+
-+		cfg->udp_config.local_udp_port = port;
-+	}
-+
-+	if (info->attrs[FOU_ATTR_IPPROTO])
-+		cfg->protocol = nla_get_u8(info->attrs[FOU_ATTR_IPPROTO]);
-+
-+	return 0;
-+}
-+
-+static int fou_nl_cmd_add_port(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct fou_cfg cfg;
-+	int err;
-+
-+	err = parse_nl_config(info, &cfg);
-+	if (err)
-+		return err;
-+
-+	return fou_create(&init_net, &cfg, NULL);
-+}
-+
-+static int fou_nl_cmd_rm_port(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct fou_cfg cfg;
-+
-+	parse_nl_config(info, &cfg);
-+
-+	return fou_destroy(&init_net, &cfg);
-+}
-+
-+static const struct genl_ops fou_nl_ops[] = {
-+	{
-+		.cmd = FOU_CMD_ADD,
-+		.doit = fou_nl_cmd_add_port,
-+		.policy = fou_nl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+	},
-+	{
-+		.cmd = FOU_CMD_DEL,
-+		.doit = fou_nl_cmd_rm_port,
-+		.policy = fou_nl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+	},
-+};
-+
-+static int __init fou_init(void)
-+{
-+	int ret;
-+
-+	ret = genl_register_family_with_ops(&fou_nl_family,
-+					    fou_nl_ops);
-+
-+	return ret;
-+}
-+
-+static void __exit fou_fini(void)
-+{
-+	struct fou *fou, *next;
-+
-+	genl_unregister_family(&fou_nl_family);
-+
-+	/* Close all the FOU sockets */
-+
-+	spin_lock(&fou_lock);
-+	list_for_each_entry_safe(fou, next, &fou_list, list)
-+		fou_release(fou);
-+	spin_unlock(&fou_lock);
-+}
-+
-+module_init(fou_init);
-+module_exit(fou_fini);
-+MODULE_AUTHOR("Tom Herbert <therbert@google.com>");
-+MODULE_LICENSE("GPL");
+ 	rt = connected ? tunnel_rtable_get(tunnel, 0, &fl4.saddr) : NULL;
+ 
+ 	if (!rt) {
 -- 
 2.1.0.rc2.206.gedb03e5
