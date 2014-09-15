@@ -1,86 +1,50 @@
-From: Alexander Fomichev <git.user@gmail.com>
-Subject: [PATCH net] net: fix creation adjacent device symlinks
-Date: Mon, 15 Sep 2014 14:22:35 +0400
-Message-ID: <1410776555-29983-1-git-send-email-git.user@gmail.com>
-References: <20140914.174507.2303420279405209295.davem@davemloft.net>
-Cc: David Miller <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Alexander Fomichev <git.user@gmail.com>
-To: <netdev@vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: curent state of GSO over IPv6 tunnel
+Date: Mon, 15 Sep 2014 03:29:55 -0700
+Message-ID: <1410776995.7106.143.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <B5657A6538887040AD3A81F1008BEC63B365F6@avmb3.qlogic.org>
+	 <1410776054.7106.141.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63B366DB@avmb3.qlogic.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:41535 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753432AbaIOKWt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 06:22:49 -0400
-Received: by mail-lb0-f181.google.com with SMTP id z11so4115581lbi.40
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 03:22:45 -0700 (PDT)
-In-Reply-To: <20140914.174507.2303420279405209295.davem@davemloft.net>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:64414 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752404AbaIOK35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 06:29:57 -0400
+Received: by mail-pd0-f176.google.com with SMTP id y13so5989969pdi.35
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 03:29:56 -0700 (PDT)
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B366DB@avmb3.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-__netdev_adjacent_dev_insert may add adjust device of different net
-namespace, without proper check it leads to emergence of broken
-sysfs links from/to devices in another namespace.
-Fix: rewrite netdev_adjacent_is_neigh_list macro as a function,
-     move net_eq check into netdev_adjacent_is_neigh_list.
-     (thanks David)
-     related to: 4c75431ac3520631f1d9e74aa88407e6374dbbc4
+On Mon, 2014-09-15 at 10:19 +0000, Yuval Mintz wrote:
+> > > Hi,
+> > >
+> > > Tried running simple scenarios using ipv6/ipv6 via gre-tunnel [ip6_gre].
+> > >
+> > > When I've tried sniffing Tx traffic [tcpdump] I've noticed there were
+> > > no aggregations being set, i.e., only MTU-sized packets reached NIC.
+> > >
+> > > Looking at output of `ethtool -k', I can see `tx_gre_segmentation' is on.
+> > >
+> > > What's the current state of the feature? Is it feasible and I'm
+> > > missing some configuration, or is it yet an unsupported feature?
+> > 
+> > As far as I know, only bnx2x driver currently supports NETIF_F_GSO_GRE
+> > 
+> 
+> Hi Eric,
+> 
+> Might be true, but should this flag hold any sway over IPv6?
+> [Both at the moment and in general, i.e., if it does not would we need
+> an additional feature or simply extend the functionality so that it would
+> effect IPv6 as well?]
 
-Signed-off-by: Alexander Fomichev <git.user@gmail.com>
----
- net/core/dev.c | 18 +++++++++++-------
- 1 file changed, 11 insertions(+), 7 deletions(-)
+Both ipv4 and ipv6 are supported under this single flag.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ab9a16530c36..00f15bc0a2ee 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4809,9 +4809,14 @@ static void netdev_adjacent_sysfs_del(struct net_device *dev,
- 	sysfs_remove_link(&(dev->dev.kobj), linkname);
- }
- 
--#define netdev_adjacent_is_neigh_list(dev, dev_list) \
--		(dev_list == &dev->adj_list.upper || \
--		 dev_list == &dev->adj_list.lower)
-+static inline bool netdev_adjacent_is_neigh_list(struct net_device *dev,
-+						 struct net_device *adj_dev,
-+						 struct list_head *dev_list)
-+{
-+	return (dev_list == &dev->adj_list.upper ||
-+		dev_list == &dev->adj_list.lower) &&
-+		net_eq(dev_net(dev), dev_net(adj_dev));
-+}
- 
- static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 					struct net_device *adj_dev,
-@@ -4841,7 +4846,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	pr_debug("dev_hold for %s, because of link added from %s to %s\n",
- 		 adj_dev->name, dev->name, adj_dev->name);
- 
--	if (netdev_adjacent_is_neigh_list(dev, dev_list)) {
-+	if (netdev_adjacent_is_neigh_list(dev, adj_dev, dev_list)) {
- 		ret = netdev_adjacent_sysfs_add(dev, adj_dev, dev_list);
- 		if (ret)
- 			goto free_adj;
-@@ -4862,7 +4867,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	return 0;
- 
- remove_symlinks:
--	if (netdev_adjacent_is_neigh_list(dev, dev_list))
-+	if (netdev_adjacent_is_neigh_list(dev, adj_dev, dev_list))
- 		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
- free_adj:
- 	kfree(adj);
-@@ -4895,8 +4900,7 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 	if (adj->master)
- 		sysfs_remove_link(&(dev->dev.kobj), "master");
- 
--	if (netdev_adjacent_is_neigh_list(dev, dev_list) &&
--	    net_eq(dev_net(dev),dev_net(adj_dev)))
-+	if (netdev_adjacent_is_neigh_list(dev, adj_dev, dev_list))
- 		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
- 
- 	list_del_rcu(&adj->list);
--- 
-2.1.0
+Really, in 2014 all NIC supporting TSO for GRE should support IPv6 as
+well.
