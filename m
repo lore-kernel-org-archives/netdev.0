@@ -1,82 +1,101 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: fix sysfs symlinks of adjacent devices
-Date: Sun, 14 Sep 2014 17:45:07 -0400 (EDT)
-Message-ID: <20140914.174507.2303420279405209295.davem@davemloft.net>
-References: <1410516826-6926-1-git-send-email-git.user@gmail.com>
-	<5412F633.8020102@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] net: ethernet: marvell: sky2.c:  Cleaning up missing
+ null-terminate in conjunction with strncpy
+Date: Sun, 14 Sep 2014 19:05:57 -0700
+Message-ID: <20140914190557.690183d2@urahara>
+References: <1410716023-16068-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: git.user@gmail.com, netdev@vger.kernel.org, cwang@twopensource.com,
-	vyasevic@redhat.com, andres@anarazel.de
-To: vyasevich@gmail.com
+Cc: Mirko Lindner <mlindner@marvell.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48346 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752768AbaINVpM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2014 17:45:12 -0400
-In-Reply-To: <5412F633.8020102@gmail.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:62773 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752512AbaIOCGB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2014 22:06:01 -0400
+Received: by mail-pd0-f172.google.com with SMTP id v10so5168343pde.17
+        for <netdev@vger.kernel.org>; Sun, 14 Sep 2014 19:06:00 -0700 (PDT)
+In-Reply-To: <1410716023-16068-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevich@gmail.com>
-Date: Fri, 12 Sep 2014 09:33:39 -0400
+On Sun, 14 Sep 2014 19:33:43 +0200
+Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se> wrote:
 
-> Looking over the code, it might make sense to move all the net_eq checks
-> into adjacent_sysfs calls so as to consolidate them.  I haven't audited
-> all code paths, but at first glance it should do the right thing.
+> Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
 > 
-> What do you think?
+> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+> ---
+>  drivers/net/ethernet/marvell/sky2.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+> index dba48a5c..7053d38 100644
+> --- a/drivers/net/ethernet/marvell/sky2.c
+> +++ b/drivers/net/ethernet/marvell/sky2.c
+> @@ -4907,7 +4907,7 @@ static const char *sky2_name(u8 chipid, char *buf, int sz)
+>  	};
+>  
+>  	if (chipid >= CHIP_ID_YUKON_XL && chipid <= CHIP_ID_YUKON_OP_2)
+> -		strncpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
+> +		strlcpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
+>  	else
+>  		snprintf(buf, sz, "(chip %#x)", chipid);
+>  	return buf;
 
-Agreed, let's do the following then?
+Useless and unnecessary since the list of names is right there.
+Why not avoid the copy all together?
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ab9a165..a70e49e 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4809,9 +4809,14 @@ static void netdev_adjacent_sysfs_del(struct net_device *dev,
- 	sysfs_remove_link(&(dev->dev.kobj), linkname);
+Subject: sky2: avoid strncpy
+
+Don't use strncpy() since security thought police think it is bad.
+
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+
+--- a/drivers/net/ethernet/marvell/sky2.c	2014-08-25 09:01:16.292060455 -0700
++++ b/drivers/net/ethernet/marvell/sky2.c	2014-09-14 19:02:26.731034094 -0700
+@@ -4889,7 +4889,7 @@ static int sky2_test_msi(struct sky2_hw
  }
  
--#define netdev_adjacent_is_neigh_list(dev, dev_list) \
--		(dev_list == &dev->adj_list.upper || \
--		 dev_list == &dev->adj_list.lower)
-+static bool netdev_adjacent_is_neigh_list(struct net_device *dev,
-+					  struct net_device *adj_dev,
-+					  struct list_head *dev_list)
-+{
-+	return (dev_list == &dev->adj_list.upper ||
-+		dev_list == &dev->adj_list.lower) &&
-+		net_eq(dev_net(dev), dev_net(adj_dev));
-+}
+ /* This driver supports yukon2 chipset only */
+-static const char *sky2_name(u8 chipid, char *buf, int sz)
++static const char *sky2_name(u8 chipid)
+ {
+ 	const char *name[] = {
+ 		"XL",		/* 0xb3 */
+@@ -4905,11 +4905,12 @@ static const char *sky2_name(u8 chipid,
+ 		"OptimaEEE",    /* 0xbd */
+ 		"Optima 2",	/* 0xbe */
+ 	};
++	static char buf[16];
  
- static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 					struct net_device *adj_dev,
-@@ -4841,7 +4846,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	pr_debug("dev_hold for %s, because of link added from %s to %s\n",
- 		 adj_dev->name, dev->name, adj_dev->name);
+ 	if (chipid >= CHIP_ID_YUKON_XL && chipid <= CHIP_ID_YUKON_OP_2)
+-		strncpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
+-	else
+-		snprintf(buf, sz, "(chip %#x)", chipid);
++		return name[chipid - CHIP_ID_YUKON_XL];
++
++	snprintf(buf, sizeof(buf), "(chip %#x)", chipid);
+ 	return buf;
+ }
  
--	if (netdev_adjacent_is_neigh_list(dev, dev_list)) {
-+	if (netdev_adjacent_is_neigh_list(dev, adj_dev, dev_list)) {
- 		ret = netdev_adjacent_sysfs_add(dev, adj_dev, dev_list);
- 		if (ret)
- 			goto free_adj;
-@@ -4862,7 +4867,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	return 0;
+@@ -4919,7 +4920,6 @@ static int sky2_probe(struct pci_dev *pd
+ 	struct sky2_hw *hw;
+ 	int err, using_dac = 0, wol_default;
+ 	u32 reg;
+-	char buf1[16];
  
- remove_symlinks:
--	if (netdev_adjacent_is_neigh_list(dev, dev_list))
-+	if (netdev_adjacent_is_neigh_list(dev, adj_dev, dev_list))
- 		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
- free_adj:
- 	kfree(adj);
-@@ -4895,8 +4900,7 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 	if (adj->master)
- 		sysfs_remove_link(&(dev->dev.kobj), "master");
+ 	err = pci_enable_device(pdev);
+ 	if (err) {
+@@ -5014,7 +5014,7 @@ static int sky2_probe(struct pci_dev *pd
+ 	}
  
--	if (netdev_adjacent_is_neigh_list(dev, dev_list) &&
--	    net_eq(dev_net(dev),dev_net(adj_dev)))
-+	if (netdev_adjacent_is_neigh_list(dev, adj_dev, dev_list))
- 		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
+ 	dev_info(&pdev->dev, "Yukon-2 %s chip revision %d\n",
+-		 sky2_name(hw->chip_id, buf1, sizeof(buf1)), hw->chip_rev);
++		 sky2_name(hw->chip_id), hw->chip_rev);
  
- 	list_del_rcu(&adj->list);
+ 	sky2_reset(hw);
+ 
