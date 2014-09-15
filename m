@@ -1,81 +1,40 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Qdisc: Measuring Head-of-Line blocking with netperf-wrapper
-Date: Mon, 15 Sep 2014 10:10:53 -0700
-Message-ID: <CA+mtBx_EthN8G0oEUENmVhb8MJ2MrijhT+FRjJPomBLvJPoH_w@mail.gmail.com>
-References: <20140915184517.6c5474e5@redhat.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH v2 net-next 1/7] net: Export inet_offloads and inet6_offloads
+Date: Mon, 15 Sep 2014 20:15:26 +0300
+Message-ID: <CAJ3xEMg5Q-qkr-tj0UiFP2tNVLg1P4aT2L2bZk9yWjq+V0zJLg@mail.gmail.com>
+References: <1410750483-3236-1-git-send-email-therbert@google.com>
+	<1410750483-3236-2-git-send-email-therbert@google.com>
+	<CAJ3xEMgNqZ=qHmALiN_bFC5b3n8Ev-27Z7-KFG5Au6+x2A7=5g@mail.gmail.com>
+	<CA+mtBx8ZacxVFEB-odM4qrbawFTWUsijTMFGYBWiLV4Ad22ctw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	=?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>,
-	Dave Taht <dave.taht@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: Jerry Chu <hkchu@google.com>, David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:38074 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753046AbaIORKy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 13:10:54 -0400
-Received: by mail-ig0-f173.google.com with SMTP id l13so4294551iga.12
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 10:10:53 -0700 (PDT)
-In-Reply-To: <20140915184517.6c5474e5@redhat.com>
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:37877 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752896AbaIORP1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 13:15:27 -0400
+Received: by mail-oa0-f52.google.com with SMTP id jd19so2777893oac.39
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 10:15:26 -0700 (PDT)
+In-Reply-To: <CA+mtBx8ZacxVFEB-odM4qrbawFTWUsijTMFGYBWiLV4Ad22ctw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 15, 2014 at 9:45 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
->
-> Hi Eric,
->
-> I've constructed a "netperf-wrapper" test for measuring Head-of-Line
-> blocking, called "tcp_upload_prio", that I hope you will approve of?
->
->  https://github.com/tohojo/netperf-wrapper/commit/1e6b755e8051b6
->
-> The basic idea is to have ping packets with TOS bit 0x10, which end-up
-> in the high-prio band of pfifo_fast.  While two TCP uploads utilize
-> all the bandwidth.
->
-> These high-prio ping packet should then demonstrate the Head-of-Line
-> blocking occurring due to 1) packets in the HW TX ring buffer, or
-> 2) in the qdisc layers requeue mechanism.  Disgusting these two case
-> might be a little difficult.
->
->
->
-> Special care need to be take for using this on the default
-> qdisc MQ which have pfifo_fast assigned for every HW queue.
->
-> Setup requirements:
->  1. IRQ align CPUs to NIC HW queues
->  2. Force netperf-wrapper subcommands to run the same CPU
->   E.g: taskset -c 2 ./netperf-wrapper -H IP tcp_upload_prio
->
-> This will force all measurements to go through the same qdisc.  This
-> is needed so the ping/latency tests measures the real property of
-> the qdisc and Head-of-Line blocking effect.
->
->
-> Basically the same as:
->  sudo taskset -c 2 ping -Q 0x10 192.168.8.2
->  sudo taskset -c 2 ping         192.168.8.2
->  sudo taskset -c 2 netperf   -H 192.168.8.2 -t TCP_STREAM -l 120
->  sudo taskset -c 2 netperf   -H 192.168.8.2 -t TCP_STREAM -l 120
-> --
-ping is a very coarse way to measure latency and in network devices it
-doesn't follow same path as TCP/UDP (no 4-tuple for RSS, ECMP) so it's
-biased and not a very realistic workload. You might want to try using
-netperf TCP_RR at higher priority for a fairer comparison (this is
-what I used to verify BQL benefits). Also, you probably want to make
-sure to have enough antagonist flows to saturate all links when using
-MQ.
+On Mon, Sep 15, 2014 at 6:13 PM, Tom Herbert <therbert@google.com> wrote:
+> On Mon, Sep 15, 2014 at 6:33 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>> On Mon, Sep 15, 2014 at 6:07 AM, Tom Herbert <therbert@google.com> wrote:
+>>> Want to be able to call this in foo-over-udp offloads, etc.
+>>
+>> In the L2 gro case, we did dedicated helpers
+>> gro_find_receive/complete_by_type, not sure what was
+>> the exact rational there but worth checking, jerry?
+>>
+> It allows offload_base to be kept a static, but then
+> gro_find_receive_by_type can't be inlined.
 
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Sr. Network Kernel Developer at Red Hat
->   Author of http://www.iptv-analyzer.org
->   LinkedIn: http://www.linkedin.com/in/brouer
+
+so we have two similar locations in the networking stack acting
+differently on the same/similar simple
+matter... a bit problematic maintainance wise, I would say.
