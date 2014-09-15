@@ -1,39 +1,35 @@
-From: Zhi Li <lznuaa@gmail.com>
+From: Zhi Li <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: [Patch v4 net-next 04/12] net: fec: parser max queue number from
  dt file
-Date: Mon, 15 Sep 2014 08:21:28 -0500
-Message-ID: <CAHrpEqS3aVoWxi_E_dvCkfZJaFwC_HUvjn5u1x=zLSd-vcYyuA@mail.gmail.com>
+Date: Mon, 15 Sep 2014 08:24:42 -0500
+Message-ID: <CAHrpEqTCBMn-P2O7VZOOLUN=Zbc8h_Ow9MKrv5cV5gZPENRqUw@mail.gmail.com>
 References: <1410555657-10744-1-git-send-email-Frank.Li@freescale.com>
 	<1410555657-10744-5-git-send-email-Frank.Li@freescale.com>
 	<20140915093926.11bdbc32@ipc1.ka-ro>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	Duan Fugang-B38611 <b38611@freescale.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: =?UTF-8?Q?Lothar_Wa=C3=9Fmann?= <LW@karo-electronics.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:37519 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751409AbaIONVb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 09:21:31 -0400
-In-Reply-To: <20140915093926.11bdbc32@ipc1.ka-ro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org" <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Duan Fugang-B38611 <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: =?UTF-8?Q?Lothar_Wa=C3=9Fmann?= <LW-AvR2QvxeiV7DiMYJYoSAnRvVK+yQ3ZXh@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140915093926.11bdbc32-VjFSrY7JcPWvSplVBqRQBQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 On Mon, Sep 15, 2014 at 2:39 AM, Lothar Wa=C3=9Fmann <LW@karo-electroni=
 cs.de> wrote:
 > Hi,
 >
-> Frank.Li@freescale.com wrote:
->> From: Fugang Duan <B38611@freescale.com>
+> Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org wrote:
+>> From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 >>
 >> By default, the tx/rx queue number is 1, user can config the queue n=
 umber
@@ -44,8 +40,8 @@ umber
 >> Since i.MX6SX enet-AVB IP support multi queues, so use multi queues
 >> interface to allocate and set up an Ethernet device.
 >>
->> Signed-off-by: Fugang Duan <B38611@freescale.com>
->> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+>> Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+>> Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 >> ---
 >>  drivers/net/ethernet/freescale/fec.h      |  2 ++
 >>  drivers/net/ethernet/freescale/fec_main.c | 46 ++++++++++++++++++++=
@@ -100,6 +96,14 @@ nt *num_rx)
 > properties is given in DT the specified value for that property shoul=
 d
 > be used?
+
+I worry about asymmetric design in future.
+And use two property is the easy debug two directory.
+
+best regards
+=46rank Li
+
+
 >
 >> +             return;
 >> +     }
@@ -142,14 +146,6 @@ ck to 1\n",
 >>
 > useless initialization. These variables are initialized in
 > fec_enet_get_queue_num() anyway.
-
-
-David have applied the whole patch serials.
-How to handle it? use new patch?
-
-best regards
-=46rank Li
-
 >
 >>       of_id =3D of_match_device(fec_dt_ids, &pdev->dev);
 >>       if (of_id)
@@ -168,5 +164,10 @@ best regards
 > Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
 > Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
 >
-> www.karo-electronics.de | info@karo-electronics.de
+> www.karo-electronics.de | info-AvR2QvxeiV7DiMYJYoSAnRvVK+yQ3ZXh@public.gmane.org
 > ___________________________________________________________
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
