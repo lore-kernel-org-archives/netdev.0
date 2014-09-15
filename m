@@ -1,58 +1,54 @@
-From: Sebastian Moeller <moeller0@gmx.de>
-Subject: Re: how to figure out which device a given IFB is connected to
-Date: Mon, 15 Sep 2014 23:24:54 +0200
-Message-ID: <719B90A7-0D8A-4CBB-A0EB-2BDCAA36FEEC@gmx.de>
-References: <CBDE840F-96BA-4839-9774-86F72E99E964@gmx.de> <CAHA+R7NxSY8fbAMLgekAxeN4n5U_NTKUczFRz9WUcY-xSHZTxw@mail.gmail.com> <E5E81534-C300-42C1-B2DF-84C006A117AD@gmx.de> <20140915135508.5b346e22@urahara>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Cong Wang <cwang@twopensource.com>, netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [Patch net-next 3/5] net_sched: fix suspicious RCU usage in tcindex_classify()
+Date: Mon, 15 Sep 2014 14:29:45 -0700
+Message-ID: <54175A49.3040905@intel.com>
+References: <1410815210-6693-1-git-send-email-xiyou.wangcong@gmail.com> <1410815210-6693-4-git-send-email-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: john.fastabend@gmail.com, "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:51379 "EHLO mout.gmx.net"
+Received: from mga02.intel.com ([134.134.136.20]:45198 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754605AbaIOVY6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 17:24:58 -0400
-In-Reply-To: <20140915135508.5b346e22@urahara>
+	id S1753874AbaIOV3r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Sep 2014 17:29:47 -0400
+In-Reply-To: <1410815210-6693-4-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Mr. Hemminger,
+On 09/15/2014 02:06 PM, Cong Wang wrote:
+> This patch fixes the following kernel warning:
+> 
+> [   44.805900] [ INFO: suspicious RCU usage. ]
+> [   44.808946] 3.17.0-rc4+ #610 Not tainted
+> [   44.811831] -------------------------------
+> [   44.814873] net/sched/cls_tcindex.c:84 suspicious rcu_dereference_check() usage!
+> 
+> Fixes: commit 331b72922c5f58d48fd ("net: sched: RCU cls_tcindex")
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  net/sched/cls_tcindex.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+> index 16ec1ed..f276de5 100644
+> --- a/net/sched/cls_tcindex.c
+> +++ b/net/sched/cls_tcindex.c
+> @@ -81,7 +81,7 @@ tcindex_lookup(struct tcindex_data *p, u16 key)
+>  static int tcindex_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+>  			    struct tcf_result *res)
+>  {
+> -	struct tcindex_data *p = rcu_dereference(tp->root);
+> +	struct tcindex_data *p = rcu_dereference_bh(tp->root);
+>  	struct tcindex_filter_result *f;
+>  	int key = (skb->tc_index & p->mask) >> p->shift;
+>  
+> 
+
+Thanks for catching/fixing. I also missed cls_bpf.c case I'll send a fix
+in a moment.
 
 
-On Sep 15, 2014, at 22:55 , Stephen Hemminger <stephen@networkplumber.o=
-rg> wrote:
-
-> On Mon, 15 Sep 2014 21:06:31 +0200
-> Sebastian Moeller <moeller0@gmx.de> wrote:
->=20
->> Hi Mr. Wang,
->>=20
->> Thank you for your help.
->>=20
->> On Sep 15, 2014, at 18:08 , Cong Wang <cwang@twopensource.com> wrote=
-:
->>=20
->>> On Mon, Sep 15, 2014 at 7:37 AM, Sebastian Moeller <moeller0@gmx.de=
-> wrote:
->>>> I am looking for a way of doing the reverse,i.e.  figuring out for=
- a given IFB if it is =93connected=94 to a real interface and, if yes, =
-which interface. Basically, I want to recycle unused IFBs, but want to =
-make sure that they really are unused=85
->>>>=20
->>>=20
->>> There is no way to figure that out.
->>=20
->> 	That is rather unfortunate, so my only recourse is to get a list of=
- all interfaces and query each whether it is attached to an fib and pru=
-ne a list of IFBs so that only the unused ones remain (which is far fro=
-m elegant ;) ).
->=20
-> It can be a many to one mapping.
-> There are cases where you want multiple incoming devices to all be Qo=
-S'd together.
-
-	Good to know, thanks for this information.
-
-Best Regards
-	Sebastian Moeller
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
