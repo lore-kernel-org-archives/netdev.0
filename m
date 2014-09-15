@@ -1,52 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 5/9] net: pxa168_eth: get and set the mac address on
- the Ethernet controller
-Date: Mon, 15 Sep 2014 15:35:45 -0400 (EDT)
-Message-ID: <20140915.153545.2175311588825407387.davem@davemloft.net>
-References: <1410789713-15341-1-git-send-email-antoine.tenart@free-electrons.com>
-	<1410789713-15341-6-git-send-email-antoine.tenart@free-electrons.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: TCP connection will hang in FIN_WAIT1 after closing if zero
+ window is advertised
+Date: Mon, 15 Sep 2014 15:43:27 -0400
+Message-ID: <CADVnQym0NmF-Cqz=OEpVBmMAe6T-G1jmoq=fbVWtL7_Ny-wn3w@mail.gmail.com>
+References: <54170FC0.6020907@oktetlabs.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sebastian.hesselbarth@gmail.com,
-	alexandre.belloni@free-electrons.com,
-	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
-	jszhang@marvell.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: antoine.tenart@free-electrons.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
+	Konstantin Ushakov <kostik@oktetlabs.ru>
+To: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37096 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755054AbaIOTfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 15:35:51 -0400
-In-Reply-To: <1410789713-15341-6-git-send-email-antoine.tenart@free-electrons.com>
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:52682 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754792AbaIOTn3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 15:43:29 -0400
+Received: by mail-qg0-f49.google.com with SMTP id j5so4402160qga.22
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 12:43:28 -0700 (PDT)
+In-Reply-To: <54170FC0.6020907@oktetlabs.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Date: Mon, 15 Sep 2014 16:01:49 +0200
+On Mon, Sep 15, 2014 at 12:11 PM, Andrey Dmitrov
+<andrey.dmitrov@oktetlabs.ru> wrote:
+> It is possible to create a lot of connections in the same manner which will be in FIN_WAIT1 state forever.
+...
+> After ~10 minutes you will see 500 connections in the FIN_WAIT1 state on the host_A:
+> netstat | grep FIN_WAIT1 | wc -l
+> 500
 
-> +static void pxa168_eth_get_mac_address(struct net_device *dev,
-> +				       unsigned char *addr)
-> +{
-> +	struct pxa168_eth_private *pep = netdev_priv(dev);
-> +	unsigned int mac_h = rdl(pep, MAC_ADDR_HIGH);
-> +	unsigned int mac_l = rdl(pep, MAC_ADDR_LOW);
-> +
-> +	addr[0] = (mac_h >> 24) & 0xff;
-> +	addr[1] = (mac_h >> 16) & 0xff;
-> +	addr[2] = (mac_h >> 8) & 0xff;
-> +	addr[3] = mac_h & 0xff;
-> +	addr[4] = (mac_l >> 8) & 0xff;
-> +	addr[5] = mac_l & 0xff;
-> +}
+Thanks for the report. In your tests, have you ever seen the number of
+such connections exceed net.ipv4.tcp_max_orphans?
 
-This function is not used in this patch and thus will result in a compile
-warning.
+Can you set net.ipv4.tcp_max_orphans to a low value and verify that it
+limits the number of such connections? AFAICT it should.
 
-The tree must be fully functional and compile with no new warnings after
-each patch in a patch series.
-
-Therefore you must add this new function in the first patch which actually
-makes use of the new function.
+thanks,
+neal
