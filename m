@@ -1,34 +1,34 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 1/5] rhashtable: Remove gfp_flags from insert and remove
- functions
-Date: Mon, 15 Sep 2014 15:56:25 +0100
-Message-ID: <20140915145625.GE21541@casper.infradead.org>
-References: <cover.1410782841.git.tgraf@suug.ch>
- <bd3aa4282e89b022620225101ab491e344852f5f.1410782841.git.tgraf@suug.ch>
- <1410784535.7106.164.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140915124937.GB21541@casper.infradead.org>
- <1410792596.7106.166.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH v2 net-next 3/7] fou: Add GRO support
+Date: Mon, 15 Sep 2014 18:00:00 +0300
+Message-ID: <CAJ3xEMhwdkNDZxSZGw3dtnfoyPHBiOTw-c5DvQPpFZTf1yhEhQ@mail.gmail.com>
+References: <1410750483-3236-1-git-send-email-therbert@google.com>
+	<1410750483-3236-4-git-send-email-therbert@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, paulmck@linux.vnet.ibm.com,
-	john.r.fastabend@intel.com, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1410792596.7106.166.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:59950 "EHLO
+	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752279AbaIOPAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 11:00:07 -0400
+Received: by mail-oi0-f44.google.com with SMTP id x69so2631571oia.31
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 08:00:00 -0700 (PDT)
+In-Reply-To: <1410750483-3236-4-git-send-email-therbert@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/15/14 at 07:49am, Eric Dumazet wrote:
-> On Mon, 2014-09-15 at 13:49 +0100, Thomas Graf wrote:
-> 
-> > Agreed. Will introduce this through a table parameter option when
-> > converting the inet hash table.
-> 
-> I am not sure you covered the /proc/net/tcp problem yet ? (or inet_diag)
+On Mon, Sep 15, 2014 at 6:07 AM, Tom Herbert <therbert@google.com> wrote:
+> Implement fou_gro_receive and fou_gro_complete, and populate these
+> in the correponsing udp_offloads for the socket. Added ipproto to
+> udp_offloads and pass this from UDP to the fou GRO routine in proto
+> field of napi_gro_cb structure.
 
-I haven't digged through inet_diag in all detail yet but was planning to
-acquire ht->mutex to block expansions and then take bucket locks during
-bucket traverals as done now. I will do that next but wanted to get this
-out for comments in the meantime.
+
+Do we really need that  extra hop of fou4_gro_receive/complete?
+can't we somehow plant the gro receive/complete (say) GRE handlers in
+the udp offload
+struct with the UDP port that related to (say) GRE over UDP tunneling?
+
+Or.
