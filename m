@@ -1,57 +1,56 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 1/5] rhashtable: Remove gfp_flags from insert and remove
- functions
-Date: Mon, 15 Sep 2014 13:49:37 +0100
-Message-ID: <20140915124937.GB21541@casper.infradead.org>
-References: <cover.1410782841.git.tgraf@suug.ch>
- <bd3aa4282e89b022620225101ab491e344852f5f.1410782841.git.tgraf@suug.ch>
- <1410784535.7106.164.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next v7 0/4] Refactor vxlan and l2tp to use common UDP
+ tunnel APIs
+Date: Mon, 15 Sep 2014 15:54:12 +0300
+Message-ID: <CAJ3xEMh4fceTRh7B4dLxM93eyi9bASaD2Uor+p+BVWHi34VeuQ@mail.gmail.com>
+References: <1410777267-28237-1-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, paulmck@linux.vnet.ibm.com,
-	john.r.fastabend@intel.com, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1410784535.7106.164.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Andy Zhou <azhou@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:50830 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750920AbaIOMyO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 08:54:14 -0400
+Received: by mail-ob0-f176.google.com with SMTP id wo20so406202obc.7
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 05:54:14 -0700 (PDT)
+In-Reply-To: <1410777267-28237-1-git-send-email-azhou@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/15/14 at 05:35am, Eric Dumazet wrote:
-> On Mon, 2014-09-15 at 14:18 +0200, Thomas Graf wrote:
-> > As the expansion/shrinking is moved to a worker thread, no allocations
-> > will be performed anymore.
-> > 
-> 
-> You meant : no GFP_ATOMIC allocations ?
-> 
-> I would rephrase using something like :
-> 
-> Because hash resizes are potentially time consuming, they'll be
-> performed in process context where GFP_KERNEL allocations are preferred.
+On Mon, Sep 15, 2014 at 1:34 PM, Andy Zhou <azhou@nicira.com> wrote:
 
-I meant to say no allocations in insert/remove anymore but your wording
-is even clearer. I'll update it.
+Hi Andy,
 
-> > -	tbl = kzalloc(size, flags);
-> > +	tbl = kzalloc(size, GFP_KERNEL);
-> 
-> Add __GFP_NOWARN, as you fallback to vzalloc ?
+It's a bit hard to track/review a series with empty cover letter and
+no Vn-1 --> Vn change tracking... can you please
+add it? no need to re-spin V8 just for that, you can reply here. BTW
+You did had non-empty cover letter in V5
 
-Good point.
+Or.
 
-> btw, inet hash table uses alloc_large_system_hash() which spreads the
-> pages on all available NUMA nodes :
-> 
-> # dmesg | grep "TCP established"
-> [    1.223046] TCP established hash table entries: 524288 (order: 10, 4194304 bytes)
-> # grep alloc_large_system_hash /proc/vmallocinfo | grep pages=1024
-> 0xffffc900181d6000-0xffffc900185d7000 4198400 alloc_large_system_hash+0x177/0x237 pages=1024 vmalloc vpages N0=512 N1=512
-> 0xffffc900185d7000-0xffffc900189d8000 4198400 alloc_large_system_hash+0x177/0x237 pages=1024 vmalloc vpages N0=512 N1=512
-> 0xffffc90028a01000-0xffffc90028e02000 4198400 alloc_large_system_hash+0x177/0x237 pages=1024 vmalloc vpages N0=512 N1=512
-> 
-> So we might keep in mind to keep this numa policy.
-
-Agreed. Will introduce this through a table parameter option when
-converting the inet hash table.
+> Andy Zhou (4):
+>   udp_tunnel: Seperate ipv6 functions into its own file.
+>   udp-tunnel: Expand UDP tunnel APIs
+>   vxlan: Refactor vxlan driver to make use of the common UDP tunnel
+>     functions.
+>   l2tp: Refactor l2tp core driver to make use of the common UDP tunnel
+>     functions
+>
+>  drivers/net/vxlan.c       |  105 ++++++++--------------------------
+>  include/net/udp_tunnel.h  |   83 ++++++++++++++++++++++++++-
+>  net/ipv4/udp_tunnel.c     |  138 ++++++++++++++++++++++++---------------------
+>  net/ipv6/Makefile         |    1 +
+>  net/ipv6/ip6_udp_tunnel.c |  105 ++++++++++++++++++++++++++++++++++
+>  net/l2tp/l2tp_core.c      |   24 ++++----
+>  6 files changed, 292 insertions(+), 164 deletions(-)
+>  create mode 100644 net/ipv6/ip6_udp_tunnel.c
+>
+> --
+> 1.7.9.5
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
