@@ -1,133 +1,107 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: Qdisc: Measuring Head-of-Line blocking with netperf-wrapper
-Date: Mon, 15 Sep 2014 21:55:50 +0300
-Message-ID: <CAA93jw7ZNbvwLtcFfwRVVF8asnxwp104g7iR-oZv3nj0mqKbOQ@mail.gmail.com>
-References: <20140915184517.6c5474e5@redhat.com>
-	<CA+mtBx_EthN8G0oEUENmVhb8MJ2MrijhT+FRjJPomBLvJPoH_w@mail.gmail.com>
-	<1410801863.7106.169.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
+Date: Mon, 15 Sep 2014 14:45:47 -0400
+Message-ID: <20140915184546.GB3891@tuxdriver.com>
+References: <1403091974.1984.102.camel@x220>
+ <1409911856.7832.9.camel@x220>
+ <CAHNKnsRipRHicKOUW4dCutD1-sUG6qPnP2QuOveH_t1MFX9XgQ@mail.gmail.com>
+ <1409916824.7832.20.camel@x220>
+ <CAHNKnsQ1gt=DRBTd9Q9yos1idqmXMepEPvhm8a7unP-whzNAgg@mail.gmail.com>
+ <20140909182734.GJ29412@tuxdriver.com>
+ <CAHNKnsQ8G3ZFHshq7wOqex1J6DbVD5uHVAyvs+aDC2Znk5zWww@mail.gmail.com>
+ <541037D2.7060007@gmail.com>
+ <CAHNKnsTtqz10c=vV-f10awLanYZzom3kJ1cO5xgTGs-t3O9NYg@mail.gmail.com>
+ <20140911192146.GC22872@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	=?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>,
-	Tim Shepard <shep@alum.mit.edu>,
-	Avery Pennarun <apenwarr@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Slaby <jirislaby@gmail.com>, Paul Bolle <pebolle@tiscali.nl>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Oleksij Rempel <linux@rempel-privat.de>,
+	Richard Weinberger <richard@nod.at>,
+	Jonathan Bither <jonbither@gmail.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	ath5k-devel@venema.h4ckr.net, open@hauke-m.de,
+	"list@hauke-m.de:NETWORKING DRIVERS" <list@hauke-m.de>,
+	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>,
+	OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Sergey Ryazanov <ryazanov.s.a@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f49.google.com ([209.85.219.49]:42470 "EHLO
-	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751229AbaIOSzv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 14:55:51 -0400
-Received: by mail-oa0-f49.google.com with SMTP id m19so2892741oag.36
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 11:55:51 -0700 (PDT)
-In-Reply-To: <1410801863.7106.169.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44080 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753822AbaIOTAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 15:00:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20140911192146.GC22872@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 15, 2014 at 8:24 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> On Mon, 2014-09-15 at 10:10 -0700, Tom Herbert wrote:
->> On Mon, Sep 15, 2014 at 9:45 AM, Jesper Dangaard Brouer
->> <brouer@redhat.com> wrote:
->> >
->> > Hi Eric,
->> >
->> > I've constructed a "netperf-wrapper" test for measuring Head-of-Li=
-ne
->> > blocking, called "tcp_upload_prio", that I hope you will approve o=
-f?
->> >
->> >  https://github.com/tohojo/netperf-wrapper/commit/1e6b755e8051b6
->> >
->> > The basic idea is to have ping packets with TOS bit 0x10, which en=
-d-up
->> > in the high-prio band of pfifo_fast.  While two TCP uploads utiliz=
-e
->> > all the bandwidth.
->> >
->> > These high-prio ping packet should then demonstrate the Head-of-Li=
-ne
->> > blocking occurring due to 1) packets in the HW TX ring buffer, or
->> > 2) in the qdisc layers requeue mechanism.  Disgusting these two ca=
-se
->> > might be a little difficult.
->> >
->> >
->> >
->> > Special care need to be take for using this on the default
->> > qdisc MQ which have pfifo_fast assigned for every HW queue.
->> >
->> > Setup requirements:
->> >  1. IRQ align CPUs to NIC HW queues
->> >  2. Force netperf-wrapper subcommands to run the same CPU
->> >   E.g: taskset -c 2 ./netperf-wrapper -H IP tcp_upload_prio
->> >
->> > This will force all measurements to go through the same qdisc.  Th=
-is
->> > is needed so the ping/latency tests measures the real property of
->> > the qdisc and Head-of-Line blocking effect.
->> >
->> >
->> > Basically the same as:
->> >  sudo taskset -c 2 ping -Q 0x10 192.168.8.2
->> >  sudo taskset -c 2 ping         192.168.8.2
->> >  sudo taskset -c 2 netperf   -H 192.168.8.2 -t TCP_STREAM -l 120
->> >  sudo taskset -c 2 netperf   -H 192.168.8.2 -t TCP_STREAM -l 120
->> > --
->> ping is a very coarse way to measure latency and in network devices =
-it
->> doesn't follow same path as TCP/UDP (no 4-tuple for RSS, ECMP) so it=
-'s
->> biased and not a very realistic workload. You might want to try usin=
-g
->> netperf TCP_RR at higher priority for a fairer comparison (this is
->> what I used to verify BQL benefits). Also, you probably want to make
->> sure to have enough antagonist flows to saturate all links when usin=
-g
->> MQ.
+On Thu, Sep 11, 2014 at 03:21:46PM -0400, John W. Linville wrote:
+> On Wed, Sep 10, 2014 at 04:19:21PM +0400, Sergey Ryazanov wrote:
+> > 2014-09-10 15:36 GMT+04:00, Jiri Slaby <jirislaby@gmail.com>:
+> > > On 09/10/2014, 12:33 PM, Sergey Ryazanov wrote:
+> > >> 2014-09-09 22:27 GMT+04:00, John W. Linville <linville@tuxdriver.com>:
+> > >>> On Fri, Sep 05, 2014 at 04:02:10PM +0400, Sergey Ryazanov wrote:
+> > >>>> 2014-09-05 15:33 GMT+04:00 Paul Bolle <pebolle@tiscali.nl>:
+> > >>>>> Hi Sergey,
+> > >>>>>
+> > >>>>> On Fri, 2014-09-05 at 15:12 +0400, Sergey Ryazanov wrote:
+> > >>>>>> 2014-09-05 14:10 GMT+04:00, Paul Bolle <pebolle@tiscali.nl>:
+> > >>>>>>> On Wed, 2014-06-18 at 13:46 +0200, Paul Bolle wrote:
+> > >>>>>>>> Having this conversation every rc1 is getting a bit silly. Could
+> > >>>>>>>> Jiri
+> > >>>>>>>> e.a. perhaps set some specific deadline for ATHEROS_AR231X to be
+> > >>>>>>>> submitted?
+> > >>>>>>>
+> > >>>>>>> I waited until rc3. Have you seen any activity on this front? If
+> > >>>>>>> not,
+> > >>>>>>> should I resend the patch that removes the code in mainline that
+> > >>>>>>> depends
+> > >>>>>>> on ATHEROS_AR231X (ie, AHB bus support)?
+> > >>>>>>>
+> > >>>>>> Recent activity always could be found in [1]. Now I finish another
+> > >>>>>> one
+> > >>>>>> round of cleanups and have a plan to fix several things (you can
+> > >>>>>> always find something that you really want to improve). But if you
+> > >>>>>> insist I could immediately switch to "send upstream" mode. And seems
+> > >>>>>> that this would be better approach.
+> > >>>>>>
+> > >>>>>> 1. https://dev.openwrt.org/log/trunk/target/linux/atheros
+> > >>>>>
+> > >>>>> And where can the related PULL requests or patch submissions be found?
+> > >>>>>
+> > >>>> I have not sent patches yet, since I thought that it would be easier
+> > >>>> to cleanup them in openwrt tree and then send them upstream.
+> > >>>
+> > >>> That excuse has worn a bit thin.  Perhaps Paul should repost his
+> > >>> removal and you can add a revert to the start of your patch series?
+> > >>>
+> > >> As for me, I do not like such flapping
+> > >
+> > > Agreed in case what you have is in a good enough shape. You (and also
+> > > others) can still clean up the code in upstream too. So, if it is
+> > > mergeable, send it for upstream inclusion now, otherwise I am all for
+> > > John to apply the Paul's patch.
+> > 
+> > Two days is the last deadline :)
+> > 
+> > > The unused code has been a way too long
+> > > in the tree now.
+> > 
+> > Code actively used in owrt firmware and its forks.
+> 
+> Is this code coming or not?  When can I expect to see it posted?
 
+FYI -- Sergey posted a series to linux-mips on 14 September 2014 that
+touches the symbol in question.  For whatever reason, it is posted
+there as RFC.
 
-> Right.
->
-> Jesper, relevant netperf option is :
->
->     -y local,remote   Set the socket priority
->
->
+Does this satisfy the interested parties??
 
-Problems with TCP_RR and UDP_RR are that they are subject to a RTO on
-packet loss.
-The time around a packet loss is "interesting". Secondly, several of
-my measurements show that icmp is actually quicker than other code
-paths, I figure because a switch to userspace is not needed to handle
-the packet.
-
-Outside of ping, the only isochronous packet generation code out there
-worth dinking with is owamp,
-
-http://software.internet2.edu/owamp/
-
-And d-itg, at the moment.
-
-There are some neato tools under development for looking at bursty
-loss and mixed classifications (see very buggy code in my isochronous
-dir on github - I put it down to finish stablizing cerowrt, less buggy
-versions are in gfiber's repo which I don't have a link to handy at
-the moment)
-
-It would be nice if netperf could sprout a "send a user specified
-packet size on this isochronous interval (with a resolution below a
-ms) over X transport" test. Or there was something simpler than owamp
-but as secure.
-
---=20
-Dave T=C3=A4ht
-
-https://www.bufferbloat.net/projects/make-wifi-fast
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
