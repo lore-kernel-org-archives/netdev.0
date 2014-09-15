@@ -1,40 +1,96 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next 5/5] net_sched: clean up tcindex_set_parms()
-Date: Mon, 15 Sep 2014 16:39:59 -0700
-Message-ID: <CAM_iQpXSB4PvPuNV-RnsrV7Fv45rgOxy4ewk7poYYmqc-JEmoA@mail.gmail.com>
-References: <1410815210-6693-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1410815210-6693-6-git-send-email-xiyou.wangcong@gmail.com>
-	<5417639F.10008@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	john fastabend <john.fastabend@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: John Fastabend <john.r.fastabend@intel.com>
+Subject: [Patch net-next] net_sched: fix a null pointer dereference in tcindex_set_parms()
+Date: Mon, 15 Sep 2014 16:43:43 -0700
+Message-ID: <1410824623-27516-2-git-send-email-xiyou.wangcong@gmail.com>
+References: <1410824623-27516-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: john.fastabend@gmail.com, "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:62359 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756276AbaIOXj7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 19:39:59 -0400
-Received: by mail-ob0-f171.google.com with SMTP id uz6so1087421obc.16
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 16:39:59 -0700 (PDT)
-In-Reply-To: <5417639F.10008@intel.com>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:43494 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757025AbaIOXnw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 19:43:52 -0400
+Received: by mail-pd0-f176.google.com with SMTP id y13so7336297pdi.7
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 16:43:51 -0700 (PDT)
+In-Reply-To: <1410824623-27516-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 15, 2014 at 3:09 PM, John Fastabend
-<john.r.fastabend@intel.com> wrote:
-> On 09/15/2014 02:06 PM, Cong Wang wrote:
->> -     if (r == &new_filter_result) {
->> -             f = kzalloc(sizeof(*f), GFP_KERNEL);
->> -             if (!f)
->> -                     goto errout_alloc;
->> -     }
->> -
->
-> It was put here to avoid having logic to unwind the state when/if the
-> malloc fails.
->
+This patch fixes the following crash:
 
-Right, some operation after that is not undoable so we have to keep it there.
-So drop this one.
+[   42.199159] BUG: unable to handle kernel NULL pointer dereference at 0000000000000018
+[   42.200027] IP: [<ffffffff817e3fc4>] tcindex_set_parms+0x45c/0x526
+[   42.200027] PGD d2319067 PUD d4ffe067 PMD 0
+[   42.200027] Oops: 0000 [#1] SMP DEBUG_PAGEALLOC
+[   42.200027] CPU: 0 PID: 541 Comm: tc Not tainted 3.17.0-rc4+ #603
+[   42.200027] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[   42.200027] task: ffff8800d22d2670 ti: ffff8800ce790000 task.ti: ffff8800ce790000
+[   42.200027] RIP: 0010:[<ffffffff817e3fc4>]  [<ffffffff817e3fc4>] tcindex_set_parms+0x45c/0x526
+[   42.200027] RSP: 0018:ffff8800ce793898  EFLAGS: 00010202
+[   42.200027] RAX: 0000000000000001 RBX: ffff8800d1786498 RCX: 0000000000000000
+[   42.200027] RDX: ffffffff82114ec8 RSI: ffffffff82114ec8 RDI: ffffffff82114ec8
+[   42.200027] RBP: ffff8800ce793958 R08: 00000000000080d0 R09: 0000000000000001
+[   42.200027] R10: ffff8800ce7939a0 R11: 0000000000000246 R12: ffff8800d017d238
+[   42.200027] R13: 0000000000000018 R14: ffff8800d017c6a0 R15: ffff8800d1786620
+[   42.200027] FS:  00007f4e24539740(0000) GS:ffff88011a600000(0000) knlGS:0000000000000000
+[   42.200027] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   42.200027] CR2: 0000000000000018 CR3: 00000000cff38000 CR4: 00000000000006f0
+[   42.200027] Stack:
+[   42.200027]  ffff8800ce0949f0 0000000000000000 0000000200000003 ffff880000000000
+[   42.200027]  ffff8800ce7938b8 ffff8800ce7938b8 0000000600000007 0000000000000000
+[   42.200027]  ffff8800ce7938d8 ffff8800ce7938d8 0000000600000007 ffff8800ce0949f0
+[   42.200027] Call Trace:
+[   42.200027]  [<ffffffff817e4169>] tcindex_change+0xdb/0xee
+[   42.200027]  [<ffffffff817c16ca>] tc_ctl_tfilter+0x44d/0x63f
+[   42.200027]  [<ffffffff8179d161>] rtnetlink_rcv_msg+0x181/0x194
+[   42.200027]  [<ffffffff8179cf9d>] ? rtnl_lock+0x17/0x19
+[   42.200027]  [<ffffffff8179cfe0>] ? __rtnl_unlock+0x17/0x17
+[   42.200027]  [<ffffffff817ee296>] netlink_rcv_skb+0x49/0x8b
+[   43.462494]  [<ffffffff8179cfc2>] rtnetlink_rcv+0x23/0x2a
+[   43.462494]  [<ffffffff817ec8df>] netlink_unicast+0xc7/0x148
+[   43.462494]  [<ffffffff817ed413>] netlink_sendmsg+0x5cb/0x63d
+[   43.462494]  [<ffffffff810ad781>] ? mark_lock+0x2e/0x224
+[   43.462494]  [<ffffffff817757b8>] __sock_sendmsg_nosec+0x25/0x27
+[   43.462494]  [<ffffffff81778165>] sock_sendmsg+0x57/0x71
+[   43.462494]  [<ffffffff81152bbd>] ? might_fault+0x57/0xa4
+[   43.462494]  [<ffffffff81152c06>] ? might_fault+0xa0/0xa4
+[   43.462494]  [<ffffffff81152bbd>] ? might_fault+0x57/0xa4
+[   43.462494]  [<ffffffff817838fd>] ? verify_iovec+0x69/0xb7
+[   43.462494]  [<ffffffff817784f8>] ___sys_sendmsg+0x21d/0x2bb
+[   43.462494]  [<ffffffff81009db3>] ? native_sched_clock+0x35/0x37
+[   43.462494]  [<ffffffff8109ab53>] ? sched_clock_local+0x12/0x72
+[   43.462494]  [<ffffffff810ad781>] ? mark_lock+0x2e/0x224
+[   43.462494]  [<ffffffff8109ada4>] ? sched_clock_cpu+0xa0/0xb9
+[   43.462494]  [<ffffffff810aee37>] ? __lock_acquire+0x5fe/0xde4
+[   43.462494]  [<ffffffff8119f570>] ? rcu_read_lock_held+0x36/0x38
+[   43.462494]  [<ffffffff8119f75a>] ? __fcheck_files.isra.7+0x4b/0x57
+[   43.462494]  [<ffffffff8119fbf2>] ? __fget_light+0x30/0x54
+[   43.462494]  [<ffffffff81779012>] __sys_sendmsg+0x42/0x60
+[   43.462494]  [<ffffffff81779042>] SyS_sendmsg+0x12/0x1c
+[   43.462494]  [<ffffffff819d24d2>] system_call_fastpath+0x16/0x1b
+
+'p->h' could be NULL while 'cp->h' is always update to date.
+
+Fixes: commit 331b72922c5f58d48fd ("net: sched: RCU cls_tcindex")
+Cc: John Fastabend <john.fastabend@gmail.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/sched/cls_tcindex.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index ee52542..5054fae 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -381,7 +381,7 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 		f->result = new_filter_result;
+ 		f->next = NULL;
+ 
+-		fp = p->h + (handle % p->hash);
++		fp = cp->h + (handle % cp->hash);
+ 		for (nfp = rtnl_dereference(*fp);
+ 		     nfp;
+ 		     fp = &nfp->next, nfp = rtnl_dereference(*fp))
+-- 
+1.8.3.1
