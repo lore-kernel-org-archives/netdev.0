@@ -1,59 +1,49 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the mips tree
-Date: Mon, 15 Sep 2014 13:19:01 +1000
-Message-ID: <20140915131901.0f3c8a09@canb.auug.org.au>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] net: ethernet: marvell: sky2.c:  Cleaning up missing
+ null-terminate in conjunction with strncpy
+Date: Sun, 14 Sep 2014 20:19:10 -0700
+Message-ID: <20140914201910.1de7b857@urahara>
+References: <1410716023-16068-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/C.yhC3eF0NnKQDJtoqdZMi_"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Andrey Utkin <andrey.krieger.utkin@gmail.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Ralf Baechle <ralf@linux-mips.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Sig_/C.yhC3eF0NnKQDJtoqdZMi_
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 7bit
+Cc: Mirko Lindner <mlindner@marvell.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:42423 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752360AbaIODTO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2014 23:19:14 -0400
+Received: by mail-pa0-f46.google.com with SMTP id kq14so5394161pab.33
+        for <netdev@vger.kernel.org>; Sun, 14 Sep 2014 20:19:13 -0700 (PDT)
+In-Reply-To: <1410716023-16068-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Sun, 14 Sep 2014 19:33:43 +0200
+Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se> wrote:
 
-Today's linux-next merge of the net-next tree got a conflict in
-arch/mips/net/bpf_jit.c between commit 98fb24af5e68
-("arch/mips/net/bpf_jit.c: fix failure check") from the mips tree and
-commit 233577a22089 ("net: filter: constify detection of
-pkt_type_offset") from the net-next tree.
+> Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
+> 
+> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+> ---
+>  drivers/net/ethernet/marvell/sky2.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+> index dba48a5c..7053d38 100644
+> --- a/drivers/net/ethernet/marvell/sky2.c
+> +++ b/drivers/net/ethernet/marvell/sky2.c
+> @@ -4907,7 +4907,7 @@ static const char *sky2_name(u8 chipid, char *buf, int sz)
+>  	};
+>  
+>  	if (chipid >= CHIP_ID_YUKON_XL && chipid <= CHIP_ID_YUKON_OP_2)
+> -		strncpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
+> +		strlcpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
+>  	else
+>  		snprintf(buf, sz, "(chip %#x)", chipid);
+>  	return buf;
 
-I fixed it up (the latter removed the code fixed up by the former, so I
-effectively reverted the former and just used the latter) and can carry
-the fix as necessary (no action is required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/C.yhC3eF0NnKQDJtoqdZMi_
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJUFlqqAAoJEMDTa8Ir7ZwVbTgP/R//Yqetbd+E9ind02CU8LD9
-w3DIbQrERgp8t4+nHCKR3cpNBm8TWVW3qdKUFp0Wv4IyzzCjGiO3f3Y2c7ldP+vC
-fBD2Lu1PWbb4tPOQIbHdzMGBObEK3OeyFLWW/q+TBOnRcNeVUeKzhzpCJ3/pU5Jz
-UnjZUZ/oX8ZiXnSeWsnEkFbxurRLI4WkmritjsUZRKemjXVSAcuNxmayvDZ5lM7J
-AbSeOLuPyo1K47U5/LGxNSEWmgGgRlpwNSTZqPheXrhl/ASCfY1OlgNqRThPjy4l
-Q5kVhGY/sJwwWdstyU/TlCrHK1tHGrPIw8daxwqsw0faUvluj7xuGj3UQ8KgjfV6
-X/KFdUDYbry5HeQLmj+lk0inbCNz2rTyjk+cidYlT5vQ8KsxcPW3vGI2Iy3lISbH
-lhe8r1yRF5R9h67Bhng5zYjFVR97PWUwVSy94DUeBdH874DYyHCa8HIUe5UncKF3
-lMjANPGkCt05xSOJeEjUk8awnOAs56Y+ceVCAvgOExyJX3O/JG3GjY+LBuAP+/4/
-UIr+RSQTHQByq67KznBnXrhYTuk/t9I3FtLJkpPalJzNFP3yEP/HikcUez22VcVb
-v90lFw5toDvujXc+pWooBtK8vnrVFw/sJrQ3/KQiqV8B6yI0Wrc2p5r0sBLqsOND
-aF7aZq+zn3I7n0oix7as
-=1lP8
------END PGP SIGNATURE-----
-
---Sig_/C.yhC3eF0NnKQDJtoqdZMi_--
+Useless and unnecessary since the list of names is right there.
+Why not avoid the copy?
