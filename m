@@ -1,168 +1,59 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next 6/7] ipip: TX path for IPIP/UDP foo-over-udp encapsulation
-Date: Sun, 14 Sep 2014 20:08:02 -0700
-Message-ID: <1410750483-3236-7-git-send-email-therbert@google.com>
-References: <1410750483-3236-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:45108 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753206AbaIODIf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Sep 2014 23:08:35 -0400
-Received: by mail-pa0-f51.google.com with SMTP id kx10so5446955pab.10
-        for <netdev@vger.kernel.org>; Sun, 14 Sep 2014 20:08:34 -0700 (PDT)
-In-Reply-To: <1410750483-3236-1-git-send-email-therbert@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the mips tree
+Date: Mon, 15 Sep 2014 13:19:01 +1000
+Message-ID: <20140915131901.0f3c8a09@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/C.yhC3eF0NnKQDJtoqdZMi_"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Andrey Utkin <andrey.krieger.utkin@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Ralf Baechle <ralf@linux-mips.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/ipv4/ipip.c | 86 +++++++++++++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 83 insertions(+), 3 deletions(-)
+--Sig_/C.yhC3eF0NnKQDJtoqdZMi_
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 62eaa00..2985551 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -301,7 +301,8 @@ static int ipip_tunnel_init(struct net_device *dev)
- 	memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
- 	memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
- 
--	tunnel->hlen = 0;
-+	tunnel->tun_hlen = 0;
-+	tunnel->hlen = tunnel->tun_hlen + tunnel->encap_hlen;
- 	tunnel->parms.iph.protocol = IPPROTO_IPIP;
- 	return ip_tunnel_init(dev);
- }
-@@ -340,19 +341,73 @@ static void ipip_netlink_parms(struct nlattr *data[],
- 		parms->iph.frag_off = htons(IP_DF);
- }
- 
-+/* This function returns true when ENCAP attributes are present in the nl msg */
-+static bool ipip_netlink_encap_parms(struct nlattr *data[],
-+				     struct ip_tunnel_encap *ipencap)
-+{
-+	bool ret = false;
-+
-+	memset(ipencap, 0, sizeof(*ipencap));
-+
-+	if (!data)
-+		return ret;
-+
-+	if (data[IFLA_IPTUN_ENCAP_TYPE]) {
-+		ret = true;
-+		ipencap->type = nla_get_u16(data[IFLA_IPTUN_ENCAP_TYPE]);
-+	}
-+
-+	if (data[IFLA_IPTUN_ENCAP_FLAGS]) {
-+		ret = true;
-+		ipencap->flags = nla_get_u16(data[IFLA_IPTUN_ENCAP_FLAGS]);
-+	}
-+
-+	if (data[IFLA_IPTUN_ENCAP_SPORT]) {
-+		ret = true;
-+		ipencap->sport = nla_get_u16(data[IFLA_IPTUN_ENCAP_SPORT]);
-+	}
-+
-+	if (data[IFLA_IPTUN_ENCAP_DPORT]) {
-+		ret = true;
-+		ipencap->dport = nla_get_u16(data[IFLA_IPTUN_ENCAP_DPORT]);
-+	}
-+
-+	return ret;
-+}
-+
- static int ipip_newlink(struct net *src_net, struct net_device *dev,
- 			struct nlattr *tb[], struct nlattr *data[])
- {
- 	struct ip_tunnel_parm p;
-+	struct ip_tunnel *t = netdev_priv(dev);
-+	struct ip_tunnel_encap ipencap;
-+	int err;
-+
-+	if (ipip_netlink_encap_parms(data, &ipencap)) {
-+		err = ip_tunnel_encap_setup(t, &ipencap);
-+		if (err < 0)
-+			return err;
-+	}
- 
- 	ipip_netlink_parms(data, &p);
--	return ip_tunnel_newlink(dev, tb, &p);
-+	err = ip_tunnel_newlink(dev, tb, &p);
-+
-+	return err;
- }
- 
- static int ipip_changelink(struct net_device *dev, struct nlattr *tb[],
- 			   struct nlattr *data[])
- {
-+	struct ip_tunnel *t = netdev_priv(dev);
- 	struct ip_tunnel_parm p;
-+	struct ip_tunnel_encap ipencap;
-+	int err;
-+
-+	if (ipip_netlink_encap_parms(data, &ipencap)) {
-+		err = ip_tunnel_encap_setup(t, &ipencap);
-+		if (err < 0)
-+			return err;
-+	}
- 
- 	ipip_netlink_parms(data, &p);
- 
-@@ -360,7 +415,9 @@ static int ipip_changelink(struct net_device *dev, struct nlattr *tb[],
- 	    (!(dev->flags & IFF_POINTOPOINT) && p.iph.daddr))
- 		return -EINVAL;
- 
--	return ip_tunnel_changelink(dev, tb, &p);
-+	err = ip_tunnel_changelink(dev, tb, &p);
-+
-+	return err;
- }
- 
- static size_t ipip_get_size(const struct net_device *dev)
-@@ -378,6 +435,14 @@ static size_t ipip_get_size(const struct net_device *dev)
- 		nla_total_size(1) +
- 		/* IFLA_IPTUN_PMTUDISC */
- 		nla_total_size(1) +
-+		/* IFLA_IPTUN_ENCAP_TYPE */
-+		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_FLAGS */
-+		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_SPORT */
-+		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_DPORT */
-+		nla_total_size(2) +
- 		0;
- }
- 
-@@ -394,6 +459,17 @@ static int ipip_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_u8(skb, IFLA_IPTUN_PMTUDISC,
- 		       !!(parm->iph.frag_off & htons(IP_DF))))
- 		goto nla_put_failure;
-+
-+	if (nla_put_u16(skb, IFLA_IPTUN_ENCAP_TYPE,
-+			tunnel->encap.type) ||
-+	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_SPORT,
-+			tunnel->encap.sport) ||
-+	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_DPORT,
-+			tunnel->encap.dport) ||
-+	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_FLAGS,
-+			tunnel->encap.dport))
-+		goto nla_put_failure;
-+
- 	return 0;
- 
- nla_put_failure:
-@@ -407,6 +483,10 @@ static const struct nla_policy ipip_policy[IFLA_IPTUN_MAX + 1] = {
- 	[IFLA_IPTUN_TTL]		= { .type = NLA_U8 },
- 	[IFLA_IPTUN_TOS]		= { .type = NLA_U8 },
- 	[IFLA_IPTUN_PMTUDISC]		= { .type = NLA_U8 },
-+	[IFLA_IPTUN_ENCAP_TYPE]		= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_FLAGS]	= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_SPORT]	= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_DPORT]	= { .type = NLA_U16 },
- };
- 
- static struct rtnl_link_ops ipip_link_ops __read_mostly = {
--- 
-2.1.0.rc2.206.gedb03e5
+Hi all,
+
+Today's linux-next merge of the net-next tree got a conflict in
+arch/mips/net/bpf_jit.c between commit 98fb24af5e68
+("arch/mips/net/bpf_jit.c: fix failure check") from the mips tree and
+commit 233577a22089 ("net: filter: constify detection of
+pkt_type_offset") from the net-next tree.
+
+I fixed it up (the latter removed the code fixed up by the former, so I
+effectively reverted the former and just used the latter) and can carry
+the fix as necessary (no action is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/C.yhC3eF0NnKQDJtoqdZMi_
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJUFlqqAAoJEMDTa8Ir7ZwVbTgP/R//Yqetbd+E9ind02CU8LD9
+w3DIbQrERgp8t4+nHCKR3cpNBm8TWVW3qdKUFp0Wv4IyzzCjGiO3f3Y2c7ldP+vC
+fBD2Lu1PWbb4tPOQIbHdzMGBObEK3OeyFLWW/q+TBOnRcNeVUeKzhzpCJ3/pU5Jz
+UnjZUZ/oX8ZiXnSeWsnEkFbxurRLI4WkmritjsUZRKemjXVSAcuNxmayvDZ5lM7J
+AbSeOLuPyo1K47U5/LGxNSEWmgGgRlpwNSTZqPheXrhl/ASCfY1OlgNqRThPjy4l
+Q5kVhGY/sJwwWdstyU/TlCrHK1tHGrPIw8daxwqsw0faUvluj7xuGj3UQ8KgjfV6
+X/KFdUDYbry5HeQLmj+lk0inbCNz2rTyjk+cidYlT5vQ8KsxcPW3vGI2Iy3lISbH
+lhe8r1yRF5R9h67Bhng5zYjFVR97PWUwVSy94DUeBdH874DYyHCa8HIUe5UncKF3
+lMjANPGkCt05xSOJeEjUk8awnOAs56Y+ceVCAvgOExyJX3O/JG3GjY+LBuAP+/4/
+UIr+RSQTHQByq67KznBnXrhYTuk/t9I3FtLJkpPalJzNFP3yEP/HikcUez22VcVb
+v90lFw5toDvujXc+pWooBtK8vnrVFw/sJrQ3/KQiqV8B6yI0Wrc2p5r0sBLqsOND
+aF7aZq+zn3I7n0oix7as
+=1lP8
+-----END PGP SIGNATURE-----
+
+--Sig_/C.yhC3eF0NnKQDJtoqdZMi_--
