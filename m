@@ -1,45 +1,39 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [Patch net-next] net_sched: fix suspicious RCU usage in cls_bpf_classify()
-Date: Mon, 15 Sep 2014 14:30:19 -0700
-Message-ID: <54175A6B.90602@intel.com>
-References: <1410816110-10354-1-git-send-email-xiyou.wangcong@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next 1/4] net: fec: refine error handle of parser
+ queue number from DT
+Date: Mon, 15 Sep 2014 17:32:47 -0400 (EDT)
+Message-ID: <20140915.173247.59215420475562894.davem@davemloft.net>
+References: <1410801177-15872-1-git-send-email-Frank.Li@freescale.com>
+	<1410801177-15872-2-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.fastabend@gmail.com, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Cc: b38611@freescale.com, netdev@vger.kernel.org, lznuaa@gmail.com,
+	shawn.guo@linaro.org, linux-arm-kernel@lists.infradead.org
+To: Frank.Li@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:21175 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755418AbaIOVaj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Sep 2014 17:30:39 -0400
-In-Reply-To: <1410816110-10354-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39969 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755369AbaIOVcu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 17:32:50 -0400
+In-Reply-To: <1410801177-15872-2-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/15/2014 02:21 PM, Cong Wang wrote:
-> Fixes: commit 1f947bf151e90ec0baad2948 ("net: sched: rcu'ify cls_bpf")
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  net/sched/cls_bpf.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-> index 6a7386e..4e3f5bf 100644
-> --- a/net/sched/cls_bpf.c
-> +++ b/net/sched/cls_bpf.c
-> @@ -52,7 +52,7 @@ static const struct nla_policy bpf_policy[TCA_BPF_MAX + 1] = {
->  static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->  			    struct tcf_result *res)
->  {
-> -	struct cls_bpf_head *head = rcu_dereference(tp->root);
-> +	struct cls_bpf_head *head = rcu_dereference_bh(tp->root);
->  	struct cls_bpf_prog *prog;
->  	int ret;
->  
-> 
+From: <Frank.Li@freescale.com>
+Date: Tue, 16 Sep 2014 01:12:54 +0800
 
-you beat me to it.
+> -		dev_err(&pdev->dev, "Invalidate num_tx(=%d), fail back to 1\n",
+> +		dev_warn(&pdev->dev, "Invalid num_tx(=%d), fall back to 1\n",
+>  			*num_tx);
 
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
+Any time you change the function name of a multi-line function call, you must
+be mindful to adjust the indention of the subsequent argument lines, if
+necessary.
+
+>  	if (*num_rx < 1 || *num_rx > FEC_ENET_MAX_RX_QS) {
+> -		dev_err(&pdev->dev, "Invalidate num_rx(=%d), fail back to 1\n",
+> +		dev_warn(&pdev->dev, "Invalid num_rx(=%d), fall back to 1\n",
+>  			*num_rx);
+
+Likewise.
