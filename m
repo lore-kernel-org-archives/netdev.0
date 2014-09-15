@@ -1,69 +1,61 @@
-From: Richard Alpe <richard.alpe@ericsson.com>
-Subject: Re: [PATCH net-next 04/14] tipc: add sock dump to new netlink api
-Date: Mon, 15 Sep 2014 14:35:59 +0200
-Message-ID: <5416DD2F.50106@ericsson.com>
-References: <1410424167-17427-1-git-send-email-richard.alpe@ericsson.com> <1410424167-17427-5-git-send-email-richard.alpe@ericsson.com> <20140912.171038.1165432718811920305.davem@davemloft.net> <54169B6C.5060709@ericsson.com> <20140915085152.GC14006@breakpoint.cc>
+From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+Subject: RE: [PATCH v2 3/4] net: stmmac: add support for Intel Quark X1000
+Date: Mon, 15 Sep 2014 12:42:03 +0000
+Message-ID: <F54AEECA5E2B9541821D670476DAE19C2B7E99A7@PGSMSX102.gar.corp.intel.com>
+References: <cover.1410416223.git.hock.leong.kweh@intel.com>
+	<cover.1410416223.git.hock.leong.kweh@intel.com>
+	<07ca9d2c89cf4f01037c98e3314dd035e4d2ee34.1410416224.git.hock.leong.kweh@intel.com>
+ <20140912.181423.1831537443587796533.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<tipc-discussion@lists.sourceforge.net>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:42758 "EHLO
-	sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752151AbaIOMhB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 08:37:01 -0400
-In-Reply-To: <20140915085152.GC14006@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+	"rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>,
+	"vbridgers2013@gmail.com" <vbridgers2013@gmail.com>,
+	"srinivas.kandagatla@st.com" <srinivas.kandagatla@st.com>,
+	"wens@csie.org" <wens@csie.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Ong, Boon Leong" <boon.leong.ong@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140912.181423.1831537443587796533.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/15/2014 10:51 AM, Florian Westphal wrote:
-> Richard Alpe <richard.alpe@ericsson.com> wrote:
->>> You can't just say sometimes you'll partially list the set of nested
->>> attributes in an object, you must public the entire object fully in
->>> the netlink message or skip the object entirely.
->> Ok. I bluntly assumed we could put some reassemble logic in the
->> client as the end integrity should still be preserved(?).
->>
->>> I would suggest that you instead size the amount of space you'll
->>> need for at least the first socket being listed, and if NLMSG_GOODSIZE
->>> is insufficient, allocate as much as you will actually need.
->>>
->>> Then you put full socket netlink blobs in there, including all nested
->>> attributes, and then stop and reset back the the most recent full socket
->>> published if you run out of space.
->> The amount of publications a socket can have is large (~65 000). Do
->> you still think this a viable solution?
->
-> I suggest to look at nf_conntrack_netlink.c ctnetlink_dump_table() and
-> ctnetlink_fill_info().
->
-> It should be doing something similar to what you want and it handles
-> the restarts correctly, i.e., cancels all partial nested attributes
-> on error and resumes at the beginning of said entry on the next dump.
-Thanks. In the case of ctnetlink_fill_info() it looks to me as if a set 
-of nested attributes is sure to fit inside a new message and that you 
-only have to cancel if the accumulation of multiple top level entities 
-along where their nested attributes fills the message(?).
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Saturday, September 13, 2014 6:14 AM
+> From: Kweh Hock Leong <hock.leong.kweh@intel.com>
+> Date: Thu, 11 Sep 2014 16:38:39 +0800
+> 
+> > +		if ((!strcmp(quark_x1000_phy_info[i].board_name,
+> board_name)) &&
+> > +		    quark_x1000_phy_info[i].pci_func_num == func_num)
+> 
+> It is entirely erroneous to identify a device by it's _PHYSICAL_ geographic
+> location on the PCI bus.
+> 
+> Please get rid of this PCI function number comparison and if necessary find
+> another means of identification.
 
-The problem in this case isn't solely the listing of a large amount of 
-publication attributes. The problem is that there can be an arbitrary 
-amount of sockets with an arbitrary amount of associated (nested) 
-publications (~65 000 max).
+Hi David,
 
-I "solved" this by nesting as many complete publications as possible for 
-each socket. This "works" but as David points out the nested publication 
-data for a specific socket might or might not be complete. This is 
-solely indicated by the NLMSG_DONE flag, forcing the client to know this 
-and reassemble.
+Here is some background of this work. Intel Quark X1000 has 2 stmmac Ethernet IP
+built in the SoC. They both are using the same PCI DEVICE ID number. The only things 
+to differentiate them is PCI BUS DEVICE FUNCTION (Bus:Dev:Func) number which are
+fix numbers 00:20:6 for port 1 and 00:20:7 for port 2 stated in Quark X1000 datasheet.
+(https://communities.intel.com/docs/DOC-23092 page 44 & 97)
 
-I'm now considering splitting the socket and publication listing so that 
-the client will have to ask for a list of sockets and then ask for there 
-associated publications individually. This would reduce the complexity 
-on the kernel side but it may introduce some additional overhead when 
-the socket count is high. On the other hand it opens the opportunity for 
-client to only ask for publications.
+When I was looking into making the code to upstream, I do think about is there a better
+identification way to do it? But, my mind still brought me back to this PCI FUNC number.
 
-Cheers
-Richard
+So, i would like to understand the concern of using PCI FUNC number and also would like
+to see is there any advices, suggestion or pointer to deal with the scenario here.
+
+Appreciate to the comments sharing. Thanks.
+
+
+Regards,
+Wilson
