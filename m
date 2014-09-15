@@ -1,94 +1,107 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 0/5 RFC net-next] rhashtable: Parallel atomic insert/deletion & deferred expansion
-Date: Mon, 15 Sep 2014 14:17:59 +0200
-Message-ID: <cover.1410782841.git.tgraf@suug.ch>
+Subject: [PATCH 4/5] spinlock: Add spin_lock_bh_nested()
+Date: Mon, 15 Sep 2014 14:18:03 +0200
+Message-ID: <146176bc39cec27e9e40a7a484581beed0f1b176.1410782841.git.tgraf@suug.ch>
+References: <cover.1410782841.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: davem@davemloft.net, eric.dumazet@gmail.com,
 	paulmck@linux.vnet.ibm.com, john.r.fastabend@intel.com,
 	kaber@trash.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:47323 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750813AbaIOMSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 08:18:10 -0400
+In-Reply-To: <cover.1410782841.git.tgraf@suug.ch>
+In-Reply-To: <cover.1410782841.git.tgraf@suug.ch>
+References: <cover.1410782841.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is still work in progress but I wanted to share this as soon as the
-direction where this is heading to becomes clear.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ include/linux/spinlock.h         | 8 ++++++++
+ include/linux/spinlock_api_smp.h | 2 ++
+ include/linux/spinlock_api_up.h  | 1 +
+ kernel/locking/spinlock.c        | 8 ++++++++
+ 4 files changed, 19 insertions(+)
 
- * Patch 1: Remove gfp_t awareness
- * Patch 2: Enhance selftest to catch traversal miscount
- * Patch 3: Nulls marker convertion
- * Patch 4: Add spin_lock_bh_nested()
- * Patch 5: Per bucket spinlock, deferred expansion/shrinking
-
-Paul, Eric, John, Dave: Let me know how far off this is from what you had
-in mind.
-
-Opens: 
- * I'm in particular interested in the feasibility of the side effect
-   regarding recent insertion visibility in bucket traversals (see below).
-   I think current users of rhashtable can live with it but it might be
-   worth to offer a synchronous expansion alternative at some point.
-
-   If anybody has a better alternative I'm definitely interested to hear
-   about it.
-
- * Convert inet hashtable over to this and see if it is missing anything.
-
- * Own worker thread as we might eventually sleep for multiple grace
-   periods?
-
- * Yes, some of the rcu_assign_pointer() can probably be replaced with
-   RCU_INIT_POINTER().
-
-Converts the single linked list to us a nulls marker. Reserves 4 bits to
-distinguish list membership. Stores a full 27 bit hash as the default
-marker. This allows the marker to stay valid even if the stable expands
-or shrinks.
-
-Introduces an array of spinlocks to protect bucket mutations. The number
-of spinlocks per CPU is configurable and selected based on the hash of
-the bucket. This allows for parallel insertions and removals of entries
-which do not share a lock.
-
-The patch also defers expansion and shrinking to a worker queue which
-allow insertion and removal from atomic context. Insertions and
-deletions may occur in parallel to it and are only held up briefly
-while the particular bucket is linked or unzipped.
-
-Mutations of the bucket table pointer is protected by a new mutex taken
-during expansion and shrinking, read access to that pointer for insertion
-and deletion is RCU protected.
-
-In the event of an expansion or shrinking, the new bucket table allocated
-is exposed as a so called future table right away. Lookups, deletions, and
-insertions will briefly use both tables. The future table becomes the main
-table after an RCU grace period and initial relinking was performed which
-guarantees that no new insertions occur on the old table and all entries
-can be found.
-
-The side effect of this is that during that RCU grace period, a bucket
-traversal using any rht_for_each() variant on the main table will not see
-any insertions performed during the RCU grace period which would at that
-point land in the future table. The lookup will see them as it searches
-both tables if needed.
-
-Thomas Graf (5):
-  rhashtable: Remove gfp_flags from insert and remove functions
-  rhashtable: Check for count misatch in selftest
-  rhashtable: Convert to nulls list
-  spinlock: Add spin_lock_bh_nested()
-  rhashtable: Per bucket locks & expansion/shrinking in work queue
-
- include/linux/list_nulls.h       |   3 +-
- include/linux/rhashtable.h       | 241 +++++++++++------
- include/linux/spinlock.h         |   8 +
- include/linux/spinlock_api_smp.h |   2 +
- include/linux/spinlock_api_up.h  |   1 +
- kernel/locking/spinlock.c        |   8 +
- lib/rhashtable.c                 | 539 ++++++++++++++++++++++++++-------------
- net/netfilter/nft_hash.c         |  69 ++---
- net/netlink/af_netlink.c         |  18 +-
- net/netlink/diag.c               |   4 +-
- 10 files changed, 604 insertions(+), 289 deletions(-)
-
+diff --git a/include/linux/spinlock.h b/include/linux/spinlock.h
+index 3f2867f..481180a 100644
+--- a/include/linux/spinlock.h
++++ b/include/linux/spinlock.h
+@@ -190,6 +190,8 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
+ #ifdef CONFIG_DEBUG_LOCK_ALLOC
+ # define raw_spin_lock_nested(lock, subclass) \
+ 	_raw_spin_lock_nested(lock, subclass)
++# define raw_spin_lock_bh_nested(lock, subclass) \
++	_raw_spin_lock_bh_nested(lock, subclass)
+ 
+ # define raw_spin_lock_nest_lock(lock, nest_lock)			\
+ 	 do {								\
+@@ -199,6 +201,7 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
+ #else
+ # define raw_spin_lock_nested(lock, subclass)		_raw_spin_lock(lock)
+ # define raw_spin_lock_nest_lock(lock, nest_lock)	_raw_spin_lock(lock)
++# define raw_spin_lock_bh_nested(lock, subclass)	_raw_spin_lock_bh(lock)
+ #endif
+ 
+ #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
+@@ -318,6 +321,11 @@ do {								\
+ 	raw_spin_lock_nested(spinlock_check(lock), subclass);	\
+ } while (0)
+ 
++#define spin_lock_bh_nested(lock, subclass)			\
++do {								\
++	raw_spin_lock_bh_nested(spinlock_check(lock), subclass);\
++} while (0)
++
+ #define spin_lock_nest_lock(lock, nest_lock)				\
+ do {									\
+ 	raw_spin_lock_nest_lock(spinlock_check(lock), nest_lock);	\
+diff --git a/include/linux/spinlock_api_smp.h b/include/linux/spinlock_api_smp.h
+index 42dfab8..5344268 100644
+--- a/include/linux/spinlock_api_smp.h
++++ b/include/linux/spinlock_api_smp.h
+@@ -22,6 +22,8 @@ int in_lock_functions(unsigned long addr);
+ void __lockfunc _raw_spin_lock(raw_spinlock_t *lock)		__acquires(lock);
+ void __lockfunc _raw_spin_lock_nested(raw_spinlock_t *lock, int subclass)
+ 								__acquires(lock);
++void __lockfunc _raw_spin_lock_bh_nested(raw_spinlock_t *lock, int subclass)
++								__acquires(lock);
+ void __lockfunc
+ _raw_spin_lock_nest_lock(raw_spinlock_t *lock, struct lockdep_map *map)
+ 								__acquires(lock);
+diff --git a/include/linux/spinlock_api_up.h b/include/linux/spinlock_api_up.h
+index d0d1888..d3afef9 100644
+--- a/include/linux/spinlock_api_up.h
++++ b/include/linux/spinlock_api_up.h
+@@ -57,6 +57,7 @@
+ 
+ #define _raw_spin_lock(lock)			__LOCK(lock)
+ #define _raw_spin_lock_nested(lock, subclass)	__LOCK(lock)
++#define _raw_spin_lock_bh_nested(lock, subclass) __LOCK(lock)
+ #define _raw_read_lock(lock)			__LOCK(lock)
+ #define _raw_write_lock(lock)			__LOCK(lock)
+ #define _raw_spin_lock_bh(lock)			__LOCK_BH(lock)
+diff --git a/kernel/locking/spinlock.c b/kernel/locking/spinlock.c
+index 4b082b5..db3ccb1 100644
+--- a/kernel/locking/spinlock.c
++++ b/kernel/locking/spinlock.c
+@@ -363,6 +363,14 @@ void __lockfunc _raw_spin_lock_nested(raw_spinlock_t *lock, int subclass)
+ }
+ EXPORT_SYMBOL(_raw_spin_lock_nested);
+ 
++void __lockfunc _raw_spin_lock_bh_nested(raw_spinlock_t *lock, int subclass)
++{
++	__local_bh_disable_ip(_RET_IP_, SOFTIRQ_LOCK_OFFSET);
++	spin_acquire(&lock->dep_map, subclass, 0, _RET_IP_);
++	LOCK_CONTENDED(lock, do_raw_spin_trylock, do_raw_spin_lock);
++}
++EXPORT_SYMBOL(_raw_spin_lock_bh_nested);
++
+ unsigned long __lockfunc _raw_spin_lock_irqsave_nested(raw_spinlock_t *lock,
+ 						   int subclass)
+ {
 -- 
 1.9.3
