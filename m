@@ -1,76 +1,66 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 3/3] bridge;
- Automatically filter vlans configured on top of bridge
-Date: Mon, 15 Sep 2014 11:19:14 -0400
-Message-ID: <54170372.4080903@redhat.com>
-References: <1410554691-18467-1-git-send-email-vyasevic@redhat.com>
-	<1410554691-18467-4-git-send-email-vyasevic@redhat.com>
-	<5415B6C2.5030702@gmail.com>
-Reply-To: vyasevic@redhat.com
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Ring parameter information
+Date: Mon, 15 Sep 2014 08:19:15 -0700
+Message-ID: <54170373.5070303@hp.com>
+References: <06FE00B9-3F10-48CD-ABC7-7817006FDBDD@gmail.com> <F225A4E9-1298-4262-8F24-9BF368100C78@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, bridge@lists.linux-foundation.org
-To: Toshiaki Makita <toshiaki.makita1@gmail.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <5415B6C2.5030702@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Hosam Hittini <h.hittini@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g2t1383g.austin.hp.com ([15.217.136.92]:13724 "EHLO
+	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752656AbaIOPT3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 11:19:29 -0400
+Received: from g5t1625.atlanta.hp.com (g5t1625.atlanta.hp.com [15.192.137.8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id 6073E2217
+	for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 15:19:28 +0000 (UTC)
+In-Reply-To: <F225A4E9-1298-4262-8F24-9BF368100C78@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/14/2014 11:39 AM, Toshiaki Makita wrote:
-> (14/09/13 (土) 5:44), Vladislav Yasevich wrote:
->> If the user configures vlan devices on top of the bridge,
->> automatically set up filter entries for it as long as
->> bridge vlan protocol matches that of the vlan.
->> This allows the user to atomatically receive vlan traffic
->> for the vlans that are convifgured.
-> 
-> Changing br->vlan_proto seems to cause inconsistency between vlan
-> interfaces and filter settings.
-> Can we automatically change filters when setting vlan_proto?
-> 
+On 09/14/2014 11:14 PM, Hosam Hittini wrote:
+> Hi,
+>
+> I have two network interfaces and I used "ethtool -g" to get their ri=
+ng parameters, but I don=92t quite understand the output
+> For the ethernet interface the output says the operation is not suppo=
+rted
+> For the wireless interface the output says the sending and receiving =
+buffer sizes are equal to zero
+> I wonder if anyone can help me with that
+>
+> hosam@Robin-01:~$ sudo ethtool -g eth0
+> Ring parameters for eth0:
+> Cannot get device ring settings: Operation not supported
 
-I thought we already do that in br_vlan_set_proto()?  Nothing
-here introduces any new kinds of issue with that code.
+That means what it says - the driver/device for eth0 does not support=20
+reporting ring settings.
 
->>
-> ...
->> +static int br_vlan_rx_kill_vid(struct net_device *br_dev,
->> +			       __be16 proto, u16 vid)
-> ...
->> +	/* Don't report error.  This will fail if the vlan was
->> +	 * previousely remove by some other means and we don't
->> +	 * wan't to polute the log/bug the user.
->> +	 */
->> +	br_vlan_delete(br, vid);
->> +	return 0;
->> +}
-> 
-> It might lead to unexpected behaviour, for example,
-> 1. create br0.10
-> 2. set pvid to 10 on br0
-> 3. delete br0.10
-> Then, pvid will also be cleared?
-> Something like ref counting is needed?
+> hosam@Robin-01:~$ sudo ethtool -g wlan1
+> Ring parameters for wlan1:
+> Pre-set maximums:
+> RX:			0
+> RX Mini:		0
+> RX Jumbo:	0
+> TX:			0
+> Current hardware settings:
+> RX:			0
+> RX Mini:		0
+> RX Jumbo:	0
+> TX:			0
 
-Gah!  The bitmap implementation is really starting to annoy me.  Yes, it's fast, but it
-is so restrictive...
+I am just guessing, but I would guess one of two things - either that=20
+driver doesn't "really" support retrieving ring settings, or there is a=
+=20
+bug or no way for it to report them in a meaningful way.  You should=20
+look-up the driver name (ethtool -i) and then go to a kernel source tre=
+e=20
+and find that driver under drivers/net/ and see what its ethtool suppor=
+t=20
+code looks like.
 
-We'd need tracking per vlan id and we can't that right now.  OK, this one needs more
-thought.  I'll drop it for now.
-
-Thanks
--vlad
-> 
-> Thanks,
-> Toshiaki Makita
-> 
+rick jones
