@@ -1,61 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] net: Correct TOS priority mapping for DSCP EF
-Date: Mon, 15 Sep 2014 17:09:13 -0400 (EDT)
-Message-ID: <20140915.170913.105209681419359224.davem@davemloft.net>
-References: <=1410783785.7106.154.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140915145023.4834.93706.stgit@dragon>
+Subject: Re: [PATCH net-next 0/3] bonding: style, comment and assertion
+ changes
+Date: Mon, 15 Sep 2014 17:20:49 -0400 (EDT)
+Message-ID: <20140915.172049.2037428886134453050.davem@davemloft.net>
+References: <1410794375-7386-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	shemminger@vyatta.com
-To: brouer@redhat.com
+Cc: netdev@vger.kernel.org, vfalico@gmail.com, j.vosburgh@gmail.com,
+	andy@greyhouse.net
+To: nikolay@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39420 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39680 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759116AbaIOVJQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 17:09:16 -0400
-In-Reply-To: <20140915145023.4834.93706.stgit@dragon>
+	with ESMTP id S1754635AbaIOVUv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 17:20:51 -0400
+In-Reply-To: <1410794375-7386-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Mon, 15 Sep 2014 16:50:47 +0200
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Date: Mon, 15 Sep 2014 17:19:32 +0200
 
-> The DSCP value for Expedited Forwarding (EF) got mapped to
-> internal priority TC_PRIO_INTERACTIVE_BULK, which ends up in
-> medium/best-effort priority band(1) of pfifo_fast
-> 
-> This patch change TOS mapping, causing the DSCP EF to get mapped
-> to TC_PRIO_INTERACTIVE, which end up in high priority band(0)
-> of pfifo_fast.
-> 
-> While performing this policy change, document the TOS to priority
-> lookup table ip_tos2prio[16].  Thus, making it easier to
-> understand this table for reviewers.
-> 
-> The DSCP AFxx mappings are also suboptimal, but we choose not to
-> change those mapping, only document the mapping in the code.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> This is a small and simple patch-set that doesn't introduce (hopefully) any
+> functional changes, but only stylistic and semantic ones.
+> Patch 01 simply uses the already provided __rlb_next_rx_slave function inside
+> rlb_next_rx_slave(), thus removing the duplication of code.
+> Patch 02 changes all comments that I could find to netdev style, removes
+> some outdated ones and fixes a few more small cosmetic issues (new line
+> after declaration, braces around if; else and such)
+> Patch 03 removes one extra ASSERT_RTNL() because we already have it in the
+> parent function and consolidates two other ASSERT_RTNL()s to the function
+> that is exported and supposed to be called with RTNL anyway.
 
-I don't think you can make these mappings given that we don't
-take the code-service bits of the TOS into account when we use
-this table at all.
-
-The DSCP values are composed in the top 6 bits, but we are only
-considering the low 3 bits of that field (along with the high
-bit of "CU", which is part of the ECN value and thus "don't care")
-
-We should only match EF when the top two DSCP bits are "10".
-
-This table and it's relationship to DSCP is confusing (but your
-comments in this patch helped a lot, thanks).  Also it isn't
-clear why we don't interpret the full DSCP field.
-
-ECN_OR_COST() does nothing but serve as an annotation meaning
-that this value has an ECN bit set.
-
-So why don't we shift down by two bits, to get rid of the entire
-"CU" field, and consider all 6 bits of the DSCP value in the
-ip_tos2prio[] table?
+Series applied, thanks.
