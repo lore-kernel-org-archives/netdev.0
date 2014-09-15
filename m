@@ -1,101 +1,45 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v12 net-next 05/11] bpf: handle pseudo BPF_CALL insn
-Date: Mon, 15 Sep 2014 12:18:35 -0700
-Message-ID: <1410808721-27493-6-git-send-email-ast@plumgrid.com>
-References: <1410808721-27493-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH] bridge: Fix br_should_learn to check vlan_enabled
+Date: Mon, 15 Sep 2014 15:24:26 -0400
+Message-ID: <1410809066-4434-1-git-send-email-vyasevic@redhat.com>
+Cc: toshiaki.makita1@gmail.com,
+	Vladislav Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:56878 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754528AbaIOTTJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 15:19:09 -0400
-Received: by mail-pa0-f52.google.com with SMTP id kq14so6950335pab.25
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 12:19:09 -0700 (PDT)
-In-Reply-To: <1410808721-27493-1-git-send-email-ast@plumgrid.com>
+Received: from mail-qa0-f42.google.com ([209.85.216.42]:56372 "EHLO
+	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754185AbaIOTYp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 15:24:45 -0400
+Received: by mail-qa0-f42.google.com with SMTP id j7so4472231qaq.15
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 12:24:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-in native eBPF programs userspace is using pseudo BPF_CALL instructions
-which encode one of 'enum bpf_func_id' inside insn->imm field.
-Verifier checks that program using correct function arguments to given func_id.
-If all checks passed, kernel needs to fixup BPF_CALL->imm fields by
-replacing func_id with in-kernel function pointer.
-eBPF interpreter just calls the function.
+As Toshiaki Makita pointed out, the BRIDGE_INPUT_SKB_CB will
+not be initialized in br_should_learn() as that function
+is called only from br_handle_local_finish().  That is
+an input handler for link-local ethernet traffic so it perfectly
+correct to check br->vlan_enabled here.
 
-In-kernel eBPF users continue to use generic BPF_CALL.
-
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Reported-by: Toshiaki Makita<toshiaki.makita1@gmail.com>
+Fixes: 20adfa1 bridge: Check if vlan filtering is enabled only once.
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- kernel/bpf/syscall.c |   37 +++++++++++++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
+ net/bridge/br_vlan.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index c3aa3264e235..158d3aca29e4 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -351,6 +351,40 @@ void bpf_register_prog_type(struct bpf_prog_type_list *tl)
- 	list_add(&tl->list_node, &bpf_prog_types);
- }
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 4b86738..3ba57fc 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -280,7 +280,7 @@ bool br_should_learn(struct net_bridge_port *p, struct sk_buff *skb, u16 *vid)
+ 	struct net_port_vlans *v;
  
-+/* fixup insn->imm field of bpf_call instructions:
-+ * if (insn->imm == BPF_FUNC_map_lookup_elem)
-+ *      insn->imm = bpf_map_lookup_elem - __bpf_call_base;
-+ * else if (insn->imm == BPF_FUNC_map_update_elem)
-+ *      insn->imm = bpf_map_update_elem - __bpf_call_base;
-+ * else ...
-+ *
-+ * this function is called after eBPF program passed verification
-+ */
-+static void fixup_bpf_calls(struct bpf_prog *prog)
-+{
-+	const struct bpf_func_proto *fn;
-+	int i;
-+
-+	for (i = 0; i < prog->len; i++) {
-+		struct bpf_insn *insn = &prog->insnsi[i];
-+
-+		if (insn->code == (BPF_JMP | BPF_CALL)) {
-+			/* we reach here when program has bpf_call instructions
-+			 * and it passed bpf_check(), means that
-+			 * ops->get_func_proto must have been supplied, check it
-+			 */
-+			BUG_ON(!prog->aux->ops->get_func_proto);
-+
-+			fn = prog->aux->ops->get_func_proto(insn->imm);
-+			/* all functions that have prototype and verifier allowed
-+			 * programs to call them, must be real in-kernel functions
-+			 */
-+			BUG_ON(!fn->func);
-+			insn->imm = fn->func - __bpf_call_base;
-+		}
-+	}
-+}
-+
- /* drop refcnt on maps used by eBPF program and free auxilary data */
- static void free_used_maps(struct bpf_prog_aux *aux)
- {
-@@ -471,6 +505,9 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	if (err < 0)
- 		goto free_used_maps;
+ 	/* If filtering was disabled at input, let it pass. */
+-	if (!BR_INPUT_SKB_CB(skb)->vlan_filtered)
++	if (!br->vlan_enabled)
+ 		return true;
  
-+	/* fixup BPF_CALL->imm field */
-+	fixup_bpf_calls(prog);
-+
- 	/* eBPF program is ready to be JITed */
- 	bpf_prog_select_runtime(prog);
- 
+ 	v = rcu_dereference(p->vlan_info);
 -- 
-1.7.9.5
+1.9.3
