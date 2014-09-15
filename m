@@ -1,173 +1,67 @@
-From: Zhi Li <lznuaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Patch v4 net-next 04/12] net: fec: parser max queue number from
- dt file
-Date: Mon, 15 Sep 2014 08:24:42 -0500
-Message-ID: <CAHrpEqTCBMn-P2O7VZOOLUN=Zbc8h_Ow9MKrv5cV5gZPENRqUw@mail.gmail.com>
-References: <1410555657-10744-1-git-send-email-Frank.Li@freescale.com>
-	<1410555657-10744-5-git-send-email-Frank.Li@freescale.com>
-	<20140915093926.11bdbc32@ipc1.ka-ro>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH v2 net-next 1/7] net: Export inet_offloads and inet6_offloads
+Date: Mon, 15 Sep 2014 16:33:38 +0300
+Message-ID: <CAJ3xEMgNqZ=qHmALiN_bFC5b3n8Ev-27Z7-KFG5Au6+x2A7=5g@mail.gmail.com>
+References: <1410750483-3236-1-git-send-email-therbert@google.com>
+	<1410750483-3236-2-git-send-email-therbert@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org" <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Duan Fugang-B38611 <b38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: =?UTF-8?Q?Lothar_Wa=C3=9Fmann?= <LW-AvR2QvxeiV7DiMYJYoSAnRvVK+yQ3ZXh@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140915093926.11bdbc32-VjFSrY7JcPWvSplVBqRQBQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>, Jerry Chu <hkchu@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:36773 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750986AbaIONdl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 09:33:41 -0400
+Received: by mail-ob0-f176.google.com with SMTP id wo20so447305obc.7
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 06:33:41 -0700 (PDT)
+In-Reply-To: <1410750483-3236-2-git-send-email-therbert@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 15, 2014 at 2:39 AM, Lothar Wa=C3=9Fmann <LW@karo-electroni=
-cs.de> wrote:
-> Hi,
->
-> Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org wrote:
->> From: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
->>
->> By default, the tx/rx queue number is 1, user can config the queue n=
-umber
->> at DTS file like this:
->>       fsl,num-tx-queues=3D<3>;
->>       fsl,num-rx-queues=3D<3>
->>
->> Since i.MX6SX enet-AVB IP support multi queues, so use multi queues
->> interface to allocate and set up an Ethernet device.
->>
->> Signed-off-by: Fugang Duan <B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
->> Signed-off-by: Frank Li <Frank.Li-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
->> ---
->>  drivers/net/ethernet/freescale/fec.h      |  2 ++
->>  drivers/net/ethernet/freescale/fec_main.c | 46 ++++++++++++++++++++=
-++++++++++-
->>  2 files changed, 47 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethe=
-rnet/freescale/fec.h
->> index b2b91f8..72fb90f 100644
->> --- a/drivers/net/ethernet/freescale/fec.h
->> +++ b/drivers/net/ethernet/freescale/fec.h
->> @@ -356,6 +356,8 @@ struct fec_enet_private {
->>
->>       bool ptp_clk_on;
->>       struct mutex ptp_clk_mutex;
->> +     unsigned int num_tx_queues;
->> +     unsigned int num_rx_queues;
->>
->>       /* The saved address of a sent-in-place packet/buffer, for skf=
-ree(). */
->>       struct fec_enet_priv_tx_q *tx_queue[FEC_ENET_MAX_TX_QS];
->> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net=
-/ethernet/freescale/fec_main.c
->> index 4c0d2ee..2240df0 100644
->> --- a/drivers/net/ethernet/freescale/fec_main.c
->> +++ b/drivers/net/ethernet/freescale/fec_main.c
->> @@ -2709,6 +2709,42 @@ static void fec_reset_phy(struct platform_dev=
-ice *pdev)
->>  }
->>  #endif /* CONFIG_OF */
->>
->> +static void
->> +fec_enet_get_queue_num(struct platform_device *pdev, int *num_tx, i=
-nt *num_rx)
->> +{
->> +     struct device_node *np =3D pdev->dev.of_node;
->> +     int err;
->> +
->> +     *num_tx =3D *num_rx =3D 1;
->> +
->> +     if (!np || !of_device_is_available(np))
->> +             return;
->> +
->> +     /* parse the num of tx and rx queues */
->> +     err =3D of_property_read_u32(np, "fsl,num-tx-queues", num_tx);
->> +     err |=3D of_property_read_u32(np, "fsl,num-rx-queues", num_rx)=
-;
->> +     if (err) {
->> +             *num_tx =3D 1;
->> +             *num_rx =3D 1;
-> Shouldn't these be handled seperately? So that if only one of those
-> properties is given in DT the specified value for that property shoul=
-d
-> be used?
+On Mon, Sep 15, 2014 at 6:07 AM, Tom Herbert <therbert@google.com> wrote:
+> Want to be able to call this in foo-over-udp offloads, etc.
 
-I worry about asymmetric design in future.
-And use two property is the easy debug two directory.
-
-best regards
-=46rank Li
+In the L2 gro case, we did dedicated helpers
+gro_find_receive/complete_by_type, not sure what was
+the exact rational there but worth checking, jerry?
 
 
 >
->> +             return;
->> +     }
->> +
->> +     if (*num_tx < 1 || *num_tx > FEC_ENET_MAX_TX_QS) {
->> +             dev_err(&pdev->dev, "Invalidate num_tx(=3D%d), fail ba=
-ck to 1\n",
->>
-> s/Invalidate/Invalid/
-> s/fail/fall/
-> If the problem is fixed up by the driver rather than leading to an
-> error exit it should be dev_warn() rather than dev_err().
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>  net/ipv4/protocol.c | 1 +
+>  net/ipv6/protocol.c | 1 +
+>  2 files changed, 2 insertions(+)
 >
->> +                     *num_tx);
->> +             *num_tx =3D 1;
->> +             return;
->> +     }
->> +
->> +     if (*num_rx < 1 || *num_rx > FEC_ENET_MAX_RX_QS) {
->> +             dev_err(&pdev->dev, "Invalidate num_rx(=3D%d), fail ba=
-ck to 1\n",
-> dto.
+> diff --git a/net/ipv4/protocol.c b/net/ipv4/protocol.c
+> index 46d6a1c..4b7c0ec 100644
+> --- a/net/ipv4/protocol.c
+> +++ b/net/ipv4/protocol.c
+> @@ -30,6 +30,7 @@
 >
->> +                     *num_rx);
->> +             *num_rx =3D 1;
->> +             return;
->> +     }
->> +
->> +}
->> +
->>  static int
->>  fec_probe(struct platform_device *pdev)
->>  {
->> @@ -2720,13 +2756,18 @@ fec_probe(struct platform_device *pdev)
->>       const struct of_device_id *of_id;
->>       static int dev_id;
->>       struct device_node *np =3D pdev->dev.of_node, *phy_node;
->> +     int num_tx_qs =3D 1;
->> +     int num_rx_qs =3D 1;
->>
-> useless initialization. These variables are initialized in
-> fec_enet_get_queue_num() anyway.
+>  const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS] __read_mostly;
+>  const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS] __read_mostly;
+> +EXPORT_SYMBOL(inet_offloads);
 >
->>       of_id =3D of_match_device(fec_dt_ids, &pdev->dev);
->>       if (of_id)
->>               pdev->id_entry =3D of_id->data;
->>
->> +     fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
->> +
+>  int inet_add_protocol(const struct net_protocol *prot, unsigned char protocol)
+>  {
+> diff --git a/net/ipv6/protocol.c b/net/ipv6/protocol.c
+> index e048cf1..e3770ab 100644
+> --- a/net/ipv6/protocol.c
+> +++ b/net/ipv6/protocol.c
+> @@ -51,6 +51,7 @@ EXPORT_SYMBOL(inet6_del_protocol);
+>  #endif
 >
+>  const struct net_offload __rcu *inet6_offloads[MAX_INET_PROTOS] __read_mostly;
+> +EXPORT_SYMBOL(inet6_offloads);
 >
-> Lothar Wa=C3=9Fmann
+>  int inet6_add_offload(const struct net_offload *prot, unsigned char protocol)
+>  {
 > --
-> ___________________________________________________________
+> 2.1.0.rc2.206.gedb03e5
 >
-> Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
-> Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
-> Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
-> Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
->
-> www.karo-electronics.de | info-AvR2QvxeiV7DiMYJYoSAnRvVK+yQ3ZXh@public.gmane.org
-> ___________________________________________________________
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
