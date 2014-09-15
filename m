@@ -1,74 +1,46 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: can: usb: peak_usb: pcan_usb_core.c:  Cleaning up
- missing null-terminate in conjunction with strncpy
-Date: Mon, 15 Sep 2014 08:47:18 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17491F83@AcuExch.aculab.com>
-References: <1410715898-15904-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
- <063D6719AE5E284EB5DD2968C1650D6D17491F2B@AcuExch.aculab.com>
- <5416A65D.6010500@pengutronix.de>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next 04/14] tipc: add sock dump to new netlink api
+Date: Mon, 15 Sep 2014 10:51:52 +0200
+Message-ID: <20140915085152.GC14006@breakpoint.cc>
+References: <1410424167-17427-1-git-send-email-richard.alpe@ericsson.com>
+ <1410424167-17427-5-git-send-email-richard.alpe@ericsson.com>
+ <20140912.171038.1165432718811920305.davem@davemloft.net>
+ <54169B6C.5060709@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Stephane Grosjean <s.grosjean@peak-system.com>,
-	Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	"Christopher R. Baker" <cbaker@rec.ri.cmu.edu>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Marc Kleine-Budde' <mkl@pengutronix.de>,
-	'Rickard Strandqvist' <rickard_strandqvist@spectrumdigital.se>,
-	Wolfgang Grandegger <wg@grandegger.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: Richard Alpe <richard.alpe@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:39183 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753445AbaIOItN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Sep 2014 04:49:13 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 25909-02 for <netdev@vger.kernel.org>;
- Mon, 15 Sep 2014 09:49:11 +0100 (BST)
-In-Reply-To: <5416A65D.6010500@pengutronix.de>
-Content-Language: en-US
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:53564 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753400AbaIOIv5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 04:51:57 -0400
+Content-Disposition: inline
+In-Reply-To: <54169B6C.5060709@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTWFyYyBLbGVpbmUtQnVkZGUgWyANCj4gT24gMDkvMTUvMjAxNCAxMDoyOCBBTSwgRGF2
-aWQgTGFpZ2h0IHdyb3RlOg0KPiA+IEZyb206IFJpY2thcmQgU3RyYW5kcXZpc3QNCj4gPiAuLi4N
-Cj4gPj4gUmVwbGFjaW5nIHN0cm5jcHkgd2l0aCBzdHJsY3B5IHRvIGF2b2lkIHN0cmluZ3MgdGhh
-dCBsYWNrcyBudWxsIHRlcm1pbmF0ZS4NCj4gPiAuLi4NCj4gPj4gZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvbmV0L2Nhbi91c2IvcGVha191c2IvcGNhbl91c2JfY29yZS5jDQo+ID4+IGIvZHJpdmVycy9u
-ZXQvY2FuL3VzYi9wZWFrX3VzYi9wY2FuX3VzYl9jb3JlLmMNCj4gPj4gaW5kZXggNjQ0ZTZhYi4u
-ZDRmZThhYyAxMDA2NDQNCj4gPj4gLS0tIGEvZHJpdmVycy9uZXQvY2FuL3VzYi9wZWFrX3VzYi9w
-Y2FuX3VzYl9jb3JlLmMNCj4gPj4gKysrIGIvZHJpdmVycy9uZXQvY2FuL3VzYi9wZWFrX3VzYi9w
-Y2FuX3VzYl9jb3JlLmMNCj4gPj4gQEAgLTgzMCw3ICs4MzAsNyBAQCBzdGF0aWMgdm9pZCBwZWFr
-X3VzYl9kaXNjb25uZWN0KHN0cnVjdCB1c2JfaW50ZXJmYWNlICppbnRmKQ0KPiA+PiAgCQljaGFy
-IG5hbWVbSUZOQU1TSVpdOw0KPiA+Pg0KPiA+PiAgCQlkZXYtPnN0YXRlICY9IH5QQ0FOX1VTQl9T
-VEFURV9DT05ORUNURUQ7DQo+ID4+IC0JCXN0cm5jcHkobmFtZSwgbmV0ZGV2LT5uYW1lLCBJRk5B
-TVNJWik7DQo+ID4+ICsJCXN0cmxjcHkobmFtZSwgbmV0ZGV2LT5uYW1lLCBJRk5BTVNJWik7DQo+
-ID4+DQo+ID4+ICAJCXVucmVnaXN0ZXJfbmV0ZGV2KG5ldGRldik7DQo+ID4+ICAJCWZyZWVfY2Fu
-ZGV2KG5ldGRldik7DQo+ID4NCj4gPiBPcjoNCj4gPiAJY2hhciBuYW1lW3NpemVvZiBuZXRkZXYt
-Pm5hbWVdOw0KPiA+IAltZW1jcHkobmFtZSwgbmV0ZGV2LT5uYW1lLCBzaXplb2YgbmV0ZGV2LT5u
-YW1lKTsNCj4gDQo+IEkgd291bGQgYmUgInNpemVvZihmb28pIiBpbiBrZXJuZWwgY29kaW5nIHN0
-eWxlLA0KQnV0IG5vdCBpbiBtaW5lIDotKQ0Kc2l6ZW9mIGlzIGFuIG9wZXJhdG9yLCBub3QgYSBm
-dW5jdGlvbiwgaXQncyBhcmd1bWVudCBjYW4gYmUgKHR5cGUpLg0KDQo+IGJ1dCBsZXQncyBoYXZl
-IGEgbG9vayBhdCB0aGUgb3JpZ2luYWwgY29kZToNCj4gDQo+ICAgICAgICAgICAgICAgICBzdHJ1
-Y3QgbmV0X2RldmljZSAqbmV0ZGV2ID0gZGV2LT5uZXRkZXY7DQo+ICAgICAgICAgICAgICAgICBj
-aGFyIG5hbWVbSUZOQU1TSVpdOw0KPiANCj4gICAgICAgICAgICAgICAgIGRldi0+c3RhdGUgJj0g
-flBDQU5fVVNCX1NUQVRFX0NPTk5FQ1RFRDsNCj4gICAgICAgICAgICAgICAgIHN0cm5jcHkobmFt
-ZSwgbmV0ZGV2LT5uYW1lLCBJRk5BTVNJWik7DQo+IA0KPiAgICAgICAgICAgICAgICAgdW5yZWdp
-c3Rlcl9uZXRkZXYobmV0ZGV2KTsNCj4gICAgICAgICAgICAgICAgIGZyZWVfY2FuZGV2KG5ldGRl
-dik7DQo+IA0KPiAgICAgICAgICAgICAgICAga2ZyZWUoZGV2LT5jbWRfYnVmKTsNCj4gICAgICAg
-ICAgICAgICAgIGRldi0+bmV4dF9zaWJsaW5ncyA9IE5VTEw7DQo+ICAgICAgICAgICAgICAgICBp
-ZiAoZGV2LT5hZGFwdGVyLT5kZXZfZnJlZSkNCj4gICAgICAgICAgICAgICAgICAgICAgICAgZGV2
-LT5hZGFwdGVyLT5kZXZfZnJlZShkZXYpOw0KPiANCj4gICAgICAgICAgICAgICAgIGRldl9pbmZv
-KCZpbnRmLT5kZXYsICIlcyByZW1vdmVkXG4iLCBuYW1lKTsNCj4gDQo+IEkgdGhpbmsgaXQncyBz
-YXZlIHRvIHVzZToNCj4gDQo+ICAgICBkZXZfaW5mbygmaW50Zi0+ZGV2LCAiJXMgcmVtb3ZlZFxu
-IiwgbmV0ZGV2X25hbWUoZGV2LT5uZXRkZXYpKTsNCj4gDQo+IGluc3RlYWQgb2YgZG9pbmcgdGhl
-IHN0cj9jcHkoKSBpbiB0aGUgZmlyc3QgcGxhY2UuIEJ1dCB3aHkgbm90IHVzZToNCj4gDQo+ICAg
-ICBuZXRkZXZfaW5mbyhkZXYtPm5ldGRldiwgInJlbW92ZWRcbiIpOw0KPiANCj4gSXMgdGhlIFVT
-QiBkZXZpY2UgaW5mb3JtYXRpb24gbG9zdCB3aGVuIHVzaW5nIG5ldGRldl9pbmZvKCk/DQoNCk15
-IGd1ZXNzIGlzIGl0IGF2b2lkcyBhICd1c2UgYWZ0ZXIgZnJlZScgLSBidXQgSSdtIG5vdCBnb2lu
-ZyB0bw0KZGlnIHRoYXQgZmFyLg0KDQpBbm90aGVyIGlzc3VlIHdpdGggYmxpbmRseSByZXBsYWNp
-bmcgc3RybmNweSgpIHdpdGggc3RybGNweSgpDQood2hpY2ggZG9lc24ndCBhZmZlY3QgdGhlIGFi
-b3ZlKSBpcyB3aGVuIGNvcHlpbmcgc3RhdHVzIHRvIHVzZXJzcGFjZS4NCg0KCURhdmlkDQoNCg==
+Richard Alpe <richard.alpe@ericsson.com> wrote:
+> >You can't just say sometimes you'll partially list the set of nested
+> >attributes in an object, you must public the entire object fully in
+> >the netlink message or skip the object entirely.
+> Ok. I bluntly assumed we could put some reassemble logic in the
+> client as the end integrity should still be preserved(?).
+> 
+> >I would suggest that you instead size the amount of space you'll
+> >need for at least the first socket being listed, and if NLMSG_GOODSIZE
+> >is insufficient, allocate as much as you will actually need.
+> >
+> >Then you put full socket netlink blobs in there, including all nested
+> >attributes, and then stop and reset back the the most recent full socket
+> >published if you run out of space.
+> The amount of publications a socket can have is large (~65 000). Do
+> you still think this a viable solution?
+
+I suggest to look at nf_conntrack_netlink.c ctnetlink_dump_table() and
+ctnetlink_fill_info().
+
+It should be doing something similar to what you want and it handles
+the restarts correctly, i.e., cancels all partial nested attributes
+on error and resumes at the beginning of said entry on the next dump.
