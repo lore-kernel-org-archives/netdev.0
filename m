@@ -1,68 +1,35 @@
-From: Mike Looijmans <mike.looijmans@topic.nl>
-Subject: Re: [PATCH v3] net/phy: micrel: Disable asymmetric pause for KSZ9031
-Date: Mon, 15 Sep 2014 12:07:42 +0200
-Message-ID: <5416BA6E.4080507@topic.nl>
-References: <20140912.181820.1440041146938289489.davem@davemloft.net> <1410775594-3129-1-git-send-email-mike.looijmans@topic.nl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: curent state of GSO over IPv6 tunnel
+Date: Mon, 15 Sep 2014 03:14:14 -0700
+Message-ID: <1410776054.7106.141.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <B5657A6538887040AD3A81F1008BEC63B365F6@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-kernel@vger.kernel.org>,
-	Mike Looijmans <mike.looijmans@topic.nl>
-To: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1410775594-3129-1-git-send-email-mike.looijmans@topic.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:45902 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753602AbaIOKOT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 06:14:19 -0400
+Received: by mail-pa0-f47.google.com with SMTP id ey11so6063721pad.20
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 03:14:15 -0700 (PDT)
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B365F6@avmb3.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=EF=BB=BFI based this patch on the 3.17rc5 state. Hope this applies cle=
-anly now?
+On Mon, 2014-09-15 at 08:55 +0000, Yuval Mintz wrote:
+> Hi,
+> 
+> Tried running simple scenarios using ipv6/ipv6 via gre-tunnel [ip6_gre].
+> 
+> When I've tried sniffing Tx traffic [tcpdump] I've noticed there were
+> no aggregations being set, i.e., only MTU-sized packets reached NIC.
+> 
+> Looking at output of `ethtool -k', I can see `tx_gre_segmentation' is on.
+> 
+> What's the current state of the feature? Is it feasible and I'm missing
+> some configuration, or is it yet an unsupported feature?
 
-
-On 09/15/2014 12:06 PM, Mike Looijmans wrote:
-> The KSZ9031 appears to suffer from the same hardware bug as described
-> for the KSZ9021 in commit 32fcafbcd1c9f6c7013016a22a5369b4acb93577
-> ("net/phy: micrel: Disable asymmetric pause for KSZ9021")
-> you have to unplug the cable and plug it back to get it to work.
->
-> Remove the SUPPORTED_Asym_Pause flag for the KSZ9031 to fix this.
->
-> Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
-> ---
->   drivers/net/phy/micrel.c |    3 +--
->   1 file changed, 1 insertion(+), 2 deletions(-)
->
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index fd0ea7c..011dbda 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -592,8 +592,7 @@ static struct phy_driver ksphy_driver[] =3D {
->   	.phy_id		=3D PHY_ID_KSZ9031,
->   	.phy_id_mask	=3D 0x00fffff0,
->   	.name		=3D "Micrel KSZ9031 Gigabit PHY",
-> -	.features	=3D (PHY_GBIT_FEATURES | SUPPORTED_Pause
-> -				| SUPPORTED_Asym_Pause),
-> +	.features	=3D (PHY_GBIT_FEATURES | SUPPORTED_Pause),
->   	.flags		=3D PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
->   	.config_init	=3D ksz9031_config_init,
->   	.config_aneg	=3D genphy_config_aneg,
->
-
-
-
-Met vriendelijke groet / kind regards,
-
-Mike Looijmans
-
-TOPIC Embedded Systems
-Eindhovenseweg 32-C, NL-5683 KH Best
-Postbus 440, NL-5680 AK Best
-Telefoon: (+31) (0) 499 33 69 79
-Telefax:  (+31) (0) 499 33 69 70
-E-mail: mike.looijmans@topic.nl
-Website: www.topic.nl
-
-Please consider the environment before printing this e-mail
-
-Topic zoekt gedreven (embedded) software specialisten!
-http://topic.nl/vacatures/topic-zoekt-software-engineers/
+As far as I know, only bnx2x driver currently supports NETIF_F_GSO_GRE
