@@ -1,42 +1,50 @@
-From: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
-Subject: Re: TCP connection will hang in FIN_WAIT1 after closing if zero window
- is advertised
-Date: Tue, 16 Sep 2014 13:29:16 +0400
-Message-ID: <541802EC.1060308@oktetlabs.ru>
-References: <54170FC0.6020907@oktetlabs.ru> <CADVnQym0NmF-Cqz=OEpVBmMAe6T-G1jmoq=fbVWtL7_Ny-wn3w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
-	Konstantin Ushakov <kostik@oktetlabs.ru>
-To: Neal Cardwell <ncardwell@google.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] ip lib: Change timestamp to be shorter and on the same line
+Date: Tue, 16 Sep 2014 12:58:06 +0300
+Message-ID: <1410861486-2631-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shelob.oktetlabs.ru ([84.52.89.53]:38868 "EHLO
-	shelob.oktetlabs.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752699AbaIPJ3X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 05:29:23 -0400
-In-Reply-To: <CADVnQym0NmF-Cqz=OEpVBmMAe6T-G1jmoq=fbVWtL7_Ny-wn3w@mail.gmail.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:62417 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753112AbaIPKGZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 06:06:25 -0400
+Received: by mail-lb0-f174.google.com with SMTP id 10so6234582lbg.19
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 03:06:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15/09/14 23:43, Neal Cardwell wrote:
-> On Mon, Sep 15, 2014 at 12:11 PM, Andrey Dmitrov
-> <andrey.dmitrov@oktetlabs.ru> wrote:
->> It is possible to create a lot of connections in the same manner which will be in FIN_WAIT1 state forever.
-> ...
->> After ~10 minutes you will see 500 connections in the FIN_WAIT1 state on the host_A:
->> netstat | grep FIN_WAIT1 | wc -l
->> 500
-> Thanks for the report. In your tests, have you ever seen the number of
-> such connections exceed net.ipv4.tcp_max_orphans?
->
-> Can you set net.ipv4.tcp_max_orphans to a low value and verify that it
-> limits the number of such connections? AFAICT it should.
-I tried to set net.ipv4.tcp_max_orphans to 100, it limits the 
-connections number. As I saw net.ipv4.tcp_max_orphans can be exceeded, 
-but for a short time. Maximum connections number in FIN_WAIT1 state was 
-196, after that it was decreased rather fast to ~100.
+Changed timestamp format to look like more logging info:
 
-Thanks,
-Andrey
+[Sep 01 20:56:11.853146]2: enp0s25: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default
+    link/ether 3c:97:0e:a3:86:2e brd ff:ff:ff:ff:ff:ff
+
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ lib/utils.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/lib/utils.c b/lib/utils.c
+index dc21567..03092ba 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -772,14 +772,13 @@ __u8* hexstring_a2n(const char *str, __u8 *buf, int blen)
+ int print_timestamp(FILE *fp)
+ {
+ 	struct timeval tv;
+-	char *tstr;
++	char tstr[40] = {};
+ 
+ 	memset(&tv, 0, sizeof(tv));
+ 	gettimeofday(&tv, NULL);
+ 
+-	tstr = asctime(localtime(&tv.tv_sec));
+-	tstr[strlen(tstr)-1] = 0;
+-	fprintf(fp, "Timestamp: %s %ld usec\n", tstr, (long)tv.tv_usec);
++	strftime(tstr, sizeof(tstr), "%b %d %H:%M:%S", localtime(&tv.tv_sec));
++	fprintf(fp, "[%s.%ld]", tstr, (long)tv.tv_usec);
+ 	return 0;
+ }
+ 
+-- 
+2.1.0
