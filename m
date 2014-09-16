@@ -1,47 +1,87 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH nf-next 19/21] ipvs: use correct address family in WLC logs
-Date: Tue, 16 Sep 2014 09:34:33 +0900
-Message-ID: <1410827675-3637-20-git-send-email-horms@verge.net.au>
-References: <1410827675-3637-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Alex Gartrell <agartrell@fb.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: [PATCHv4 net-next 3/3] sunvnet: generate ICMP PTMUD messages for
+ smaller port MTUs
+Date: Mon, 15 Sep 2014 20:35:44 -0400
+Message-ID: <541785E0.2090303@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:37564 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932928AbaIPAff (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 20:35:35 -0400
-In-Reply-To: <1410827675-3637-1-git-send-email-horms@verge.net.au>
+Received: from userp1040.oracle.com ([156.151.31.81]:18295 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932876AbaIPAfs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 20:35:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+This patch sends ICMP and ICMPv6 messages for Path MTU Discovery when a remote
+port MTU is smaller than the device MTU. This allows mixing newer VIO protocol
+devices that support MTU negotiation with older devices that do not on the
+same vswitch. It also allows Linux-Linux LDOMs to use 64K-1 data packets even
+though Solaris vswitch is limited to <16K MTU.
 
-Needed to support svc->af != dest->af.
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Alex Gartrell <agartrell@fb.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: David L Stevens <david.stevens@oracle.com>
 ---
- net/netfilter/ipvs/ip_vs_wlc.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/sun/sunvnet.c |   37 +++++++++++++++++++++++++++++++++++-
+ 1 files changed, 36 insertions(+), 1 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_wlc.c b/net/netfilter/ipvs/ip_vs_wlc.c
-index b5b4650..6b366fd 100644
---- a/net/netfilter/ipvs/ip_vs_wlc.c
-+++ b/net/netfilter/ipvs/ip_vs_wlc.c
-@@ -80,7 +80,8 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 5619798..5ac2b0c 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -17,6 +17,13 @@
+ #include <linux/mutex.h>
+ #include <linux/if_vlan.h>
  
- 	IP_VS_DBG_BUF(6, "WLC: server %s:%u "
- 		      "activeconns %d refcnt %d weight %d overhead %d\n",
--		      IP_VS_DBG_ADDR(svc->af, &least->addr), ntohs(least->port),
-+		      IP_VS_DBG_ADDR(least->af, &least->addr),
-+		      ntohs(least->port),
- 		      atomic_read(&least->activeconns),
- 		      atomic_read(&least->refcnt),
- 		      atomic_read(&least->weight), loh);
++#if IS_ENABLED(CONFIG_IPV6)
++#include <linux/icmpv6.h>
++#endif
++
++#include <net/icmp.h>
++#include <net/route.h>
++
+ #include <asm/vio.h>
+ #include <asm/ldc.h>
+ 
+@@ -791,8 +798,36 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (unlikely(!port))
+ 		goto out_dropped;
+ 
+-	if (skb->len > port->rmtu)
++	if (skb->len > port->rmtu) {
++		unsigned long localmtu = port->rmtu - ETH_HLEN;
++
++		if (vio_version_after_eq(&port->vio, 1, 3))
++			localmtu -= VLAN_HLEN;
++
++		if (skb->protocol == htons(ETH_P_IP)) {
++			struct flowi4 fl4;
++			struct rtable *rt = NULL;
++
++			memset(&fl4, 0, sizeof(fl4));
++			fl4.flowi4_oif = dev->ifindex;
++			fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
++			fl4.daddr = ip_hdr(skb)->daddr;
++			fl4.saddr = ip_hdr(skb)->saddr;
++
++			rt = ip_route_output_key(dev_net(dev), &fl4);
++			if (!IS_ERR(rt)) {
++				skb_dst_set(skb, &rt->dst);
++				icmp_send(skb, ICMP_DEST_UNREACH,
++					  ICMP_FRAG_NEEDED,
++					  htonl(localmtu));
++			}
++		}
++#if IS_ENABLED(CONFIG_IPV6)
++		else if (skb->protocol == htons(ETH_P_IPV6))
++			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, localmtu);
++#endif
+ 		goto out_dropped;
++	}
+ 
+ 	spin_lock_irqsave(&port->vio.lock, flags);
+ 
 -- 
-2.0.1
+1.7.1
