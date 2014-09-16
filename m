@@ -1,38 +1,81 @@
-From: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
-Subject: Re: TCP connection will hang in FIN_WAIT1 after closing if zero window
- is advertised
-Date: Tue, 16 Sep 2014 18:08:15 +0400
-Message-ID: <5418444F.7010403@oktetlabs.ru>
-References: <54170FC0.6020907@oktetlabs.ru>	 <1410822949.5018.4.camel@localhost> <54183150.5030400@oktetlabs.ru> <1410872966.7106.187.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] net: can: usb: peak_usb: pcan_usb_core.c:  Cleaning up
+ missing null-terminate in conjunction with strncpy
+Date: Tue, 16 Sep 2014 16:09:32 +0200
+Message-ID: <5418449C.7060808@pengutronix.de>
+References: <1410715898-15904-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org,
-	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
-	Konstantin Ushakov <kostik@oktetlabs.ru>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shelob.oktetlabs.ru ([84.52.89.53]:48076 "EHLO
-	shelob.oktetlabs.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753169AbaIPOI1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 10:08:27 -0400
-In-Reply-To: <1410872966.7106.187.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="uAgvDBGiaJiASEu6KDPo4wcV8jQiumRKC"
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Stephane Grosjean <s.grosjean@peak-system.com>,
+	Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	"Christopher R. Baker" <cbaker@rec.ri.cmu.edu>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1410715898-15904-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16/09/14 17:09, Eric Dumazet wrote:
-> 1) TCP_USER_TIMEOUT would be the fit for this, but its current
-> implementation do not take care of the probes sent, even in FIN_WAIT
-> state when in this zero window mode. A patch would be needed.
->
-> 2) SO_LINGER, timeout=0 might work.
-I tried to set SO_LINGER with non-zero timeout before reporting the bug, 
-it did not help. But I've just tried again with the zero timeout 
-(l_linger=0) and it works, the connection has been interrupted 
-immediately after socket closing, RST packet has been sent. It seems 
-like a bug, SO_LINGER with non-zero timeout does not interrupt the 
-connection.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--uAgvDBGiaJiASEu6KDPo4wcV8jQiumRKC
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Thanks,
-Andrey
+On 09/14/2014 07:31 PM, Rickard Strandqvist wrote:
+> Replacing strncpy with strlcpy to avoid strings that lacks null termina=
+te.
+>=20
+> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital=
+=2Ese>
+> ---
+>  drivers/net/can/usb/peak_usb/pcan_usb_core.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_core.c b/drivers/net=
+/can/usb/peak_usb/pcan_usb_core.c
+> index 644e6ab..d4fe8ac 100644
+> --- a/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+> +++ b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+> @@ -830,7 +830,7 @@ static void peak_usb_disconnect(struct usb_interfac=
+e *intf)
+>  		char name[IFNAMSIZ];
+> =20
+>  		dev->state &=3D ~PCAN_USB_STATE_CONNECTED;
+> -		strncpy(name, netdev->name, IFNAMSIZ);
+> +		strlcpy(name, netdev->name, IFNAMSIZ);
+> =20
+>  		unregister_netdev(netdev);
+>  		free_candev(netdev);
+>=20
+
+What about removing the dev_info(), the name array and the str?cpy()
+completely?
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--uAgvDBGiaJiASEu6KDPo4wcV8jQiumRKC
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlQYRJwACgkQjTAFq1RaXHNFVgCfTa+BDlMUpQkqqLbrm+yAxnKg
+0xEAn0XC/whypEq/c1aDdTX0NPFJY/Vu
+=yOFv
+-----END PGP SIGNATURE-----
+
+--uAgvDBGiaJiASEu6KDPo4wcV8jQiumRKC--
