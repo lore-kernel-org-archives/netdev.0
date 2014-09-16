@@ -1,67 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP connection will hang in FIN_WAIT1 after closing if zero
- window is advertised
-Date: Tue, 16 Sep 2014 10:04:01 -0700
-Message-ID: <1410887041.7106.205.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <54170FC0.6020907@oktetlabs.ru>
-	 <1410822949.5018.4.camel@localhost> <54183150.5030400@oktetlabs.ru>
-	 <1410872966.7106.187.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAK6E8=eNtNwREF8J+eF1LWhmg-aZmkYycDkXEAKn7Xb0_xv2rA@mail.gmail.com>
-	 <CADVnQy=QM8sE93Rn+MyyHdgzW6xqioCsKSQ6xdMTbX5E7iM4WQ@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: phy link status not stable
+Date: Tue, 16 Sep 2014 10:09:36 -0700
+Message-ID: <CAGVrzcZ4BPJ-6t81vevb2g7jMqRmeCnGfEOhZA2gLO7qawZvPg@mail.gmail.com>
+References: <541864D0.7080803@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yuchung Cheng <ycheng@google.com>,
-	Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev <netdev@vger.kernel.org>,
-	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
-	Konstantin Ushakov <kostik@oktetlabs.ru>
-To: Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:44282 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754317AbaIPREF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 13:04:05 -0400
-Received: by mail-pa0-f51.google.com with SMTP id kx10so173898pab.38
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 10:04:05 -0700 (PDT)
-In-Reply-To: <CADVnQy=QM8sE93Rn+MyyHdgzW6xqioCsKSQ6xdMTbX5E7iM4WQ@mail.gmail.com>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:64345 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbaIPRKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 13:10:17 -0400
+Received: by mail-ig0-f173.google.com with SMTP id l13so5960725iga.12
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 10:10:16 -0700 (PDT)
+In-Reply-To: <541864D0.7080803@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-09-16 at 12:31 -0400, Neal Cardwell wrote:
-> On Tue, Sep 16, 2014 at 11:11 AM, Yuchung Cheng <ycheng@google.com> wrote:
-> > On Tue, Sep 16, 2014 at 6:09 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >> Normally SO_LINGER could be used, or TCP_USER_TIMEOUT. This requires a
-> >> system call before doing the close().
-> >>
-> >> 1) TCP_USER_TIMEOUT would be the fit for this, but its current
-> >> implementation do not take care of the probes sent, even in FIN_WAIT
-> >> state when in this zero window mode. A patch would be needed.
-> > Yes that's what I meant. I am proposing we should patch
-> > TCP_USER_TIMEOUT to do this.
-> 
-> We should probably be careful here. It would be a non-trivial change
-> in semantics to have TCP_USER_TIMEOUT solve this issue.
-> 
-> TCP_USER_TIMEOUT, in both the man page, the RFC, and the existing
-> code, is about a user-specific limit on the maximum amount of time the
-> TCP stack will attempt to transmit a single packet. (For example, the
-> man page: "specifies the maximum amount of time in milliseconds that
-> transmitted data may remain unacknowledged before TCP will forcibly
-> close the corresponding connection"). Any existing apps that are
-> setting TCP_USER_TIMEOUT are probably setting it to something in the
-> range of seconds to a few minutes, and may reasonably expect their
-> orphaned connections to last minutes to hours, as long as they are
-> making progress (each of the packets is ACKed in the
-> seconds-to-minutes range).
-> 
-> By contrast, AFAICT what we are talking about here for these
-> ZWP-forever/tarpit scenarios is to be able to cap the maximum overall
-> lifetime of an orphan connection. That's a different parameter, and
-> folks might want to set it in the minutes-to-hours range.
+2014-09-16 9:26 GMT-07:00 Mugunthan V N <mugunthanvnm@ti.com>:
+> Hi
+>
+> While doing ifdown/ifup test, phy link up status is very much delayed
+> and also link up/down comes alternatively without physical link changes
+> which leads to ifup failure. in v3.12 internal tree there is no failure.
+> Pasting the logs below.
 
-Right, but TCP_USER_TIMEOUT should be improved nevertheless ?
+Assuming your driver calls phy_start() and phy_stop() from the
+ndo_open() resp. ndo_stop() functions, these function calls are not
+synchronous, as in they do not wait for the link to go UP resp. DOWN
+before returning. The PHY state machine gets programmed to a new state
+from phy_start() resp. phy_stop() and the next workqueue execution
+will proceed with an actual state change.
 
-Then, we might add support for another safety mechanism, but the bulk
-load of TARPIT attacks would be already handled.
+>
+> root@am437x-evm:~# ifup eth0
+> [  652.633204] net eth0: initializing cpsw version 1.15 (0)
+> [  652.717428] net eth0: phy found : id is : 0x221622
+> udhcpc (v1.20.2) started
+> Sending discover...
+> Sending discover...
+> [  658.717859] cpsw 4a100000.ethernet eth0: Link is Up - 1Gbps/Full -
+> flow control rx/tx
+> Sending discover...
+> [  660.717894] cpsw 4a100000.ethernet eth0: Link is Down
+> [  661.717937] cpsw 4a100000.ethernet eth0: Link is Up - 1Gbps/Full -
+> flow control rx/tx
+> No lease, failing
+> root@am437x-evm:~# udhcpc
+> udhcpc (v1.20.2) started
+> Sending discover...
+> Sending select for 172.24.190.6...
+> Lease of 172.24.190.6 obtained, lease time 3600
+> /etc/udhcpc.d/50default: Adding DNS 192.0.2.2
+> /etc/udhcpc.d/50default: Adding DNS 192.0.2.3
+> root@am437x-evm:~#
+>
+> Is this a known issue or any pointers where to look for clues?
+
+This is not a known issue AFAICT, is the link really flapping? Not
+sure if [1] could explain what you are seeing?
+
+[1]: http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=95e8b10393f88a0db88d97e9d1953f01c854315a
+could ex
+
+>
+> Setup: TI-AM437x EVM
+> Phy: Micrel KSZ9031 Gigabit PHY
+>
+> Thanks,
+> Mugunthan V N
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+Florian
