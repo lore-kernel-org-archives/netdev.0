@@ -1,48 +1,76 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: curent state of GSO over IPv6 tunnel
-Date: Tue, 16 Sep 2014 06:30:51 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63B37694@avmb3.qlogic.org>
-References: <B5657A6538887040AD3A81F1008BEC63B365F6@avmb3.qlogic.org>
-	 <1410776054.7106.141.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <B5657A6538887040AD3A81F1008BEC63B366DB@avmb3.qlogic.org>
- <1410776995.7106.143.camel@edumazet-glaptop2.roam.corp.google.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH v2 2/4] net: sched: cls_u32 add missing
+ rcu_assign_pointer and annotation
+Date: Mon, 15 Sep 2014 23:30:49 -0700
+Message-ID: <20140916063048.2905.92612.stgit@nitbit.x32>
+References: <20140916063024.2905.55403.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com, davem@davemloft.net,
+	eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:30177 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752867AbaIPGa4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 02:30:56 -0400
-In-Reply-To: <1410776995.7106.143.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:49259 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753106AbaIPGbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 02:31:09 -0400
+Received: by mail-ob0-f176.google.com with SMTP id wo20so1309188obc.35
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 23:31:09 -0700 (PDT)
+In-Reply-To: <20140916063024.2905.55403.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ID4gPiA+IEhpLA0KPiA+ID4gPg0KPiA+ID4gPiBUcmllZCBydW5uaW5nIHNpbXBsZSBzY2VuYXJp
-b3MgdXNpbmcgaXB2Ni9pcHY2IHZpYSBncmUtdHVubmVsIFtpcDZfZ3JlXS4NCj4gPiA+ID4NCj4g
-PiA+ID4gV2hlbiBJJ3ZlIHRyaWVkIHNuaWZmaW5nIFR4IHRyYWZmaWMgW3RjcGR1bXBdIEkndmUg
-bm90aWNlZCB0aGVyZQ0KPiA+ID4gPiB3ZXJlIG5vIGFnZ3JlZ2F0aW9ucyBiZWluZyBzZXQsIGku
-ZS4sIG9ubHkgTVRVLXNpemVkIHBhY2tldHMgcmVhY2hlZCBOSUMuDQo+ID4gPiA+DQo+ID4gPiA+
-IExvb2tpbmcgYXQgb3V0cHV0IG9mIGBldGh0b29sIC1rJywgSSBjYW4gc2VlIGB0eF9ncmVfc2Vn
-bWVudGF0aW9uJyBpcyBvbi4NCj4gPiA+ID4NCj4gPiA+ID4gV2hhdCdzIHRoZSBjdXJyZW50IHN0
-YXRlIG9mIHRoZSBmZWF0dXJlPyBJcyBpdCBmZWFzaWJsZSBhbmQgSSdtDQo+ID4gPiA+IG1pc3Np
-bmcgc29tZSBjb25maWd1cmF0aW9uLCBvciBpcyBpdCB5ZXQgYW4gdW5zdXBwb3J0ZWQgZmVhdHVy
-ZT8NCj4gPiA+DQo+ID4gPiBBcyBmYXIgYXMgSSBrbm93LCBvbmx5IGJueDJ4IGRyaXZlciBjdXJy
-ZW50bHkgc3VwcG9ydHMNCj4gPiA+IE5FVElGX0ZfR1NPX0dSRQ0KPiA+ID4NCj4gPg0KPiA+IEhp
-IEVyaWMsDQo+ID4NCj4gPiBNaWdodCBiZSB0cnVlLCBidXQgc2hvdWxkIHRoaXMgZmxhZyBob2xk
-IGFueSBzd2F5IG92ZXIgSVB2Nj8NCj4gPiBbQm90aCBhdCB0aGUgbW9tZW50IGFuZCBpbiBnZW5l
-cmFsLCBpLmUuLCBpZiBpdCBkb2VzIG5vdCB3b3VsZCB3ZSBuZWVkDQo+ID4gYW4gYWRkaXRpb25h
-bCBmZWF0dXJlIG9yIHNpbXBseSBleHRlbmQgdGhlIGZ1bmN0aW9uYWxpdHkgc28gdGhhdCBpdA0K
-PiA+IHdvdWxkIGVmZmVjdCBJUHY2IGFzIHdlbGw/XQ0KPiANCj4gQm90aCBpcHY0IGFuZCBpcHY2
-IGFyZSBzdXBwb3J0ZWQgdW5kZXIgdGhpcyBzaW5nbGUgZmxhZy4NCj4gDQo+IFJlYWxseSwgaW4g
-MjAxNCBhbGwgTklDIHN1cHBvcnRpbmcgVFNPIGZvciBHUkUgc2hvdWxkIHN1cHBvcnQgSVB2NiBh
-cyB3ZWxsLg0KPiANCg0KTy5rLiAtIEkgY2FuIHNlZSB0aGF0IG5hdGl2ZWx5IGlwNl9ncmUgZGV2
-aWNlIGRvZXNuJ3Qgc2hvdyBhbnkgZmVhdHVyZXMuDQpJZiBJIHdvdWxkIGxpa2UgdG8gbW9kaWZ5
-IGl0cyBjb2RlIGluIG9yZGVyIGZvciBpdCB0byBzdXBwb3J0IEdTTy9UU08sDQp3aGF0IHdvdWxk
-IHRoYXQgZW50YWlsPw0KDQpbSSBhc3N1bWUgaXQgd291bGQgcmVxdWlyZSBhIGRlZXAtZGl2ZSBv
-dGhlcndpc2Ugc29tZW9uZSB3b3VsZCBoYXZlIGRvbmUNCml0IGFscmVhZHk7IEJ1dCBzdGlsbCwg
-SSdkIGxpa2UgdG8gZ2V0IGEgcG9pbnRlciBpZiBwb3NzaWJsZV0uDQoNClRoYW5rcywNCll1dmFs
-DQo=
+Add missing rcu_assign_pointer and missing  annotation for ht_up
+in cls_u32.c
+
+Caught by kbuild bot,
+
+>> net/sched/cls_u32.c:378:36: sparse: incorrect type in initializer (different address spaces)
+   net/sched/cls_u32.c:378:36:    expected struct tc_u_hnode *ht
+   net/sched/cls_u32.c:378:36:    got struct tc_u_hnode [noderef] <asn:4>*ht_up
+>> net/sched/cls_u32.c:610:54: sparse: incorrect type in argument 4 (different address spaces)
+   net/sched/cls_u32.c:610:54:    expected struct tc_u_hnode *ht
+   net/sched/cls_u32.c:610:54:    got struct tc_u_hnode [noderef] <asn:4>*ht_up
+>> net/sched/cls_u32.c:684:18: sparse: incorrect type in assignment (different address spaces)
+   net/sched/cls_u32.c:684:18:    expected struct tc_u_hnode [noderef] <asn:4>*ht_up
+   net/sched/cls_u32.c:684:18:    got struct tc_u_hnode *[assigned] ht
+>> net/sched/cls_u32.c:359:18: sparse: dereference of noderef expression
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ net/sched/cls_u32.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 8cffe5a..eceeb04 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -375,7 +375,7 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
+ {
+ 	struct tc_u_knode __rcu **kp;
+ 	struct tc_u_knode *pkp;
+-	struct tc_u_hnode *ht = key->ht_up;
++	struct tc_u_hnode *ht = rtnl_dereference(key->ht_up);
+ 
+ 	if (ht) {
+ 		kp = &ht->ht[TC_U32_HASH(key->handle)];
+@@ -607,7 +607,8 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 		if (TC_U32_KEY(n->handle) == 0)
+ 			return -EINVAL;
+ 
+-		return u32_set_parms(net, tp, base, n->ht_up, n, tb,
++		return u32_set_parms(net, tp, base,
++				     rtnl_dereference(n->ht_up), n, tb,
+ 				     tca[TCA_RATE], ovr);
+ 	}
+ 
+@@ -681,7 +682,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ #endif
+ 
+ 	memcpy(&n->sel, s, sizeof(*s) + s->nkeys*sizeof(struct tc_u32_key));
+-	n->ht_up = ht;
++	RCU_INIT_POINTER(n->ht_up, ht);
+ 	n->handle = handle;
+ 	n->fshift = s->hmask ? ffs(ntohl(s->hmask)) - 1 : 0;
+ 	tcf_exts_init(&n->exts, TCA_U32_ACT, TCA_U32_POLICE);
