@@ -1,35 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -net] scsi: fix users of SCSI_FC_ATTRS to depend on NET
-Date: Tue, 16 Sep 2014 12:41:09 -0400 (EDT)
-Message-ID: <20140916.124109.353198384505832634.davem@davemloft.net>
-References: <5417DA29.4060205@infradead.org>
-	<54184FB7.7020201@linux.vnet.ibm.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: tg3 issue with tcp checksums and vlan packets
+Date: Tue, 16 Sep 2014 12:43:21 -0400
+Message-ID: <541868A9.7080407@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: rdunlap@infradead.org, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org, jbottomley@parallels.com,
-	fengguang.wu@intel.com
-To: maier@linux.vnet.ibm.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Prashant Sreedharan <prashant@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55834 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753895AbaIPQlN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 12:41:13 -0400
-In-Reply-To: <54184FB7.7020201@linux.vnet.ibm.com>
+Received: from mail-qa0-f50.google.com ([209.85.216.50]:42214 "EHLO
+	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbaIPQnY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 12:43:24 -0400
+Received: by mail-qa0-f50.google.com with SMTP id dc16so144743qab.37
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 09:43:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Maier <maier@linux.vnet.ibm.com>
-Date: Tue, 16 Sep 2014 16:56:55 +0200
+Prashant and Michael
 
-> I think zfcp does not have any (direct) dependency on NET.
-> 
-> It looks like SCSI_FC_ATTRS selects SCSI_NETLINK (declaring
-> scsi_nl_sock) and only depends on SCSI but not on NET.
-> SCSI_NETLINK itself only selects NET but does not model its direct
-> depencency on NET?
+I am seeing a strange issue with tg3 driver when I try to pass to it tcp packets
+that have partial checksums and inline (non-accelerated) vlan header.
 
-SCSI_NETLINK now has:
+Looking at the packet at the receiver, it appears as if the tcp checksum is never
+updated.  If I strip the vlan header and set vlan_tci, then everything works ok.
 
-	depends on NET
+You can easily reproduce this by configuring 802.1ad vlans on top of tg3 device.
+This will force software tagging, tg3 will not fix checksums and tcp connections
+will not be established.
+
+I've looked at tg3 driver and it doesn't look like it tries to pass any checksum
+offsets to the nic/firmware.  So it looks like a possible firmware issue.
+
+Can you please take a look.
+
+Thanks
+-vlad
