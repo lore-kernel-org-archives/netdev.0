@@ -1,10 +1,8 @@
 From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [net-next PATCH v2 4/4] net: sched: cls_fw: add missing
- tcf_exts_init call in fw_change()
-Date: Tue, 16 Sep 2014 09:23:26 -0700
-Message-ID: <CAHA+R7Oabw6XcKj+6gn2Y3eXQFQAnboKpeaatTGzUx5ZH6muBw@mail.gmail.com>
-References: <20140916063024.2905.55403.stgit@nitbit.x32>
-	<20140916063141.2905.59421.stgit@nitbit.x32>
+Subject: Re: [net-next PATCH] net: sched: cls_cgroup need tcf_exts_init in all cases
+Date: Tue, 16 Sep 2014 09:26:39 -0700
+Message-ID: <CAHA+R7O8RL3tOa4pTHcA9Npp9zs13zJZk8q-Oasa2TSTR4qTvA@mail.gmail.com>
+References: <20140916073341.2597.36240.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
@@ -14,28 +12,21 @@ Cc: Cong Wang <xiyou.wangcong@gmail.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>
 To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:41117 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753743AbaIPQX2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 12:23:28 -0400
-Received: by mail-la0-f49.google.com with SMTP id pv20so118984lab.36
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 09:23:27 -0700 (PDT)
-In-Reply-To: <20140916063141.2905.59421.stgit@nitbit.x32>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:54691 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754309AbaIPQ0l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 12:26:41 -0400
+Received: by mail-lb0-f172.google.com with SMTP id w7so137823lbi.3
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 09:26:39 -0700 (PDT)
+In-Reply-To: <20140916073341.2597.36240.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 15, 2014 at 11:31 PM, John Fastabend
+On Tue, Sep 16, 2014 at 12:33 AM, John Fastabend
 <john.fastabend@gmail.com> wrote:
-> When allocating a new structure we also need to call tcf_exts_init
-> to initialize exts.
->
-> A follow up patch might be in order to remove some of this code
-> and do tcf_exts_assign(). With this we could remove the
-> tcf_exts_init/tcf_exts_change pattern for some of the classifiers.
-> As part of the future tcf_actions RCU series this will need to be
-> done. For now fix the call here.
+> This ensures the tcf_exts_init() is called for all cases.
 >
 > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-Fixes: commit e35a8ee5993ba81fd6c0 ("net: sched: fw use RCU")
+Fixes: commit 952313bd62589cae216a57 ("net: sched: cls_cgroup use RCU")
 Acked-by: Cong Wang <cwang@twopensource.com>
