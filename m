@@ -1,44 +1,66 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 3/8] net: phy: bcm7xxx: do not use PHY_BRCM_100MBPS_WAR
-Date: Tue, 16 Sep 2014 16:52:59 -0700
-Message-ID: <1410911584-1559-4-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 8/8] net: phy: bcm7xxx: utilize PHY revision in config_init
+Date: Tue, 16 Sep 2014 16:53:04 -0700
+Message-ID: <1410911584-1559-9-git-send-email-f.fainelli@gmail.com>
 References: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:42726 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753854AbaIPXx4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 19:53:56 -0400
-Received: by mail-pd0-f176.google.com with SMTP id y13so827755pdi.21
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 16:53:55 -0700 (PDT)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:55753 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753887AbaIPXyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 19:54:01 -0400
+Received: by mail-pa0-f44.google.com with SMTP id kx10so842306pab.31
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 16:54:00 -0700 (PDT)
 In-Reply-To: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no need for the PHY driver to check PHY_BRCM_100MBPS_WAR since
-that is redundant with checking the PHY device supported features. Get
-rid of that workaround flag.
+Now that the GENET and SF2 drivers have been updated to communicate us
+what is the revision of the BCM7xxx integrated PHY, utilize that
+information in the config_init() callback to call into the appropriate
+workaround function based on our revision.
+
+While at it, we also print the revision and patch level to help debug
+new chips.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/bcm7xxx.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/phy/bcm7xxx.c | 21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
-index 09dd6e1dc6e1..be3a591aabba 100644
+index be3a591aabba..daae69950925 100644
 --- a/drivers/net/phy/bcm7xxx.c
 +++ b/drivers/net/phy/bcm7xxx.c
-@@ -257,8 +257,8 @@ static int bcm7xxx_config_init(struct phy_device *phydev)
- 	phy_write(phydev, MII_BCM7XXX_AUX_MODE, MII_BCM7XX_64CLK_MDIO);
- 	phy_read(phydev, MII_BCM7XXX_AUX_MODE);
+@@ -196,13 +196,22 @@ static int bcm7xxx_eee_enable(struct phy_device *phydev)
  
--	/* Workaround only required for 100Mbits/sec */
--	if (!(phydev->dev_flags & PHY_BRCM_100MBPS_WAR))
-+	/* Workaround only required for 100Mbits/sec capable PHYs */
-+	if (phydev->supported & PHY_GBIT_FEATURES)
- 		return 0;
+ static int bcm7xxx_28nm_config_init(struct phy_device *phydev)
+ {
+-	int ret;
+-
+-	ret = bcm7445_config_init(phydev);
+-	if (ret)
+-		return ret;
++	u8 rev = PHY_BRCM_7XXX_REV(phydev->dev_flags);
++	u8 patch = PHY_BRCM_7XXX_PATCH(phydev->dev_flags);
++	int ret = 0;
++
++	dev_info(&phydev->dev, "PHY revision: 0x%02x, patch: %d\n", rev, patch);
++
++	switch (rev) {
++	case 0xa0:
++	case 0xb0:
++		ret = bcm7445_config_init(phydev);
++		break;
++	default:
++		ret = bcm7xxx_28nm_afe_config_init(phydev);
++		break;
++	}
  
- 	/* set shadow mode 2 */
+-	ret = bcm7xxx_28nm_afe_config_init(phydev);
+ 	if (ret)
+ 		return ret;
+ 
 -- 
 1.9.1
