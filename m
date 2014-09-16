@@ -1,79 +1,92 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 6/8] net: dsa: allow switch drivers to specify phy_device::dev_flags
-Date: Tue, 16 Sep 2014 16:53:02 -0700
-Message-ID: <1410911584-1559-7-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 5/8] net: bcmgenet: communicate integrated PHY revision to PHY driver
+Date: Tue, 16 Sep 2014 16:53:01 -0700
+Message-ID: <1410911584-1559-6-git-send-email-f.fainelli@gmail.com>
 References: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:46989 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753887AbaIPXx7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 19:53:59 -0400
-Received: by mail-pd0-f174.google.com with SMTP id v10so813905pde.33
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 16:53:58 -0700 (PDT)
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:38903 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754081AbaIPXx6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 19:53:58 -0400
+Received: by mail-pd0-f169.google.com with SMTP id fp1so839183pdb.0
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 16:53:57 -0700 (PDT)
 In-Reply-To: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some switch drivers (e.g: bcm_sf2) may have to communicate specific
-workarounds or flags towards the PHY device driver. Allow switches
-driver to be delegated that task by introducing a get_phy_flags()
-callback which will do just that.
+The integrated BCM7xxx PHY contains no useful revision information in
+its MII_PHYSID2 bits 3:0, that information is instead contained in the
+GENET hardware block.
+
+We already read the GENET 32-bit revision register, so store the
+integrated PHY revision in the driver private structure, and then
+communicate this revision value to the PHY driver by overriding the
+phy_flags value.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- include/net/dsa.h | 1 +
- net/dsa/slave.c   | 9 ++++++++-
- 2 files changed, 9 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 7 +++++++
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h | 1 +
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   | 8 ++++++--
+ 3 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index c779e9bba1b3..e020b8a12b7d 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -181,6 +181,7 @@ struct dsa_switch_driver {
- 	char	*(*probe)(struct device *host_dev, int sw_addr);
- 	int	(*setup)(struct dsa_switch *ds);
- 	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
-+	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 3f9d4de8173c..a12c65604f9d 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -2432,6 +2432,13 @@ static void bcmgenet_set_hw_params(struct bcmgenet_priv *priv)
+ 	dev_info(&priv->pdev->dev, "GENET " GENET_VER_FMT,
+ 		 major, (reg >> 16) & 0x0f, reg & 0xffff);
  
- 	/*
- 	 * Access to the switch's PHY registers.
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 90c9689ed362..ea2c52b11739 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -371,6 +371,7 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 	struct dsa_chip_data *cd = ds->pd;
- 	struct device_node *phy_dn, *port_dn;
- 	bool phy_is_fixed = false;
-+	u32 phy_flags = 0;
++	/* Store the integrated PHY revision for the MDIO probing function
++	 * to pass this information to the PHY driver. The PHY driver expects
++	 * to find the PHY major revision in bits 15:8 while the GENET register
++	 * stores that information in bits 7:0, account for that.
++	 */
++	priv->gphy_rev = (reg & 0xffff) << 8;
++
+ #ifdef CONFIG_PHYS_ADDR_T_64BIT
+ 	if (!(params->flags & GENET_HAS_40BITS))
+ 		pr_warn("GENET does not support 40-bits PA\n");
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index c862d0666771..ad95fe57ebcd 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -545,6 +545,7 @@ struct bcmgenet_priv {
+ 	struct phy_device *phydev;
+ 	struct device_node *phy_dn;
+ 	struct mii_bus *mii_bus;
++	u16 gphy_rev;
+ 
+ 	/* PHY device variables */
+ 	int old_duplex;
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+index 71f2ef7d33a9..75b26cbaa7c1 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -296,6 +296,7 @@ static int bcmgenet_mii_probe(struct net_device *dev)
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+ 	struct device_node *dn = priv->pdev->dev.of_node;
+ 	struct phy_device *phydev;
++	u32 phy_flags;
  	int ret;
  
- 	port_dn = cd->port_dn[p->port];
-@@ -390,9 +391,12 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 		phy_dn = port_dn;
+ 	if (priv->phydev) {
+@@ -314,8 +315,11 @@ static int bcmgenet_mii_probe(struct net_device *dev)
+ 		priv->phy_dn = of_node_get(dn);
  	}
  
-+	if (ds->drv->get_phy_flags)
-+		phy_flags = ds->drv->get_phy_flags(ds, port);
+-	phydev = of_phy_connect(dev, priv->phy_dn, bcmgenet_mii_setup, 0,
+-				priv->phy_interface);
++	/* Communicate the integrated PHY revision */
++	phy_flags = priv->gphy_rev;
 +
- 	if (phy_dn)
- 		p->phy = of_phy_connect(slave_dev, phy_dn,
--					dsa_slave_adjust_link, 0,
-+					dsa_slave_adjust_link, phy_flags,
- 					p->phy_interface);
- 
- 	if (p->phy && phy_is_fixed)
-@@ -480,6 +484,9 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	netif_carrier_off(slave_dev);
- 
- 	if (p->phy != NULL) {
-+		if (ds->drv->get_phy_flags(ds, port))
-+			p->phy->dev_flags |= ds->drv->get_phy_flags(ds, port);
-+
- 		phy_attach(slave_dev, dev_name(&p->phy->dev),
- 			   PHY_INTERFACE_MODE_GMII);
- 
++	phydev = of_phy_connect(dev, priv->phy_dn, bcmgenet_mii_setup,
++				phy_flags, priv->phy_interface);
+ 	if (!phydev) {
+ 		pr_err("could not attach to PHY\n");
+ 		return -ENODEV;
 -- 
 1.9.1
