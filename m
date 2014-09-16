@@ -1,46 +1,47 @@
 From: <Frank.Li@freescale.com>
-Subject: [Patch net-next v3 3/4] net:fec: increase DMA queue number
-Date: Wed, 17 Sep 2014 05:18:53 +0800
-Message-ID: <1410902334-7827-4-git-send-email-Frank.Li@freescale.com>
-References: <1410902334-7827-1-git-send-email-Frank.Li@freescale.com>
+Subject: [Patch net-next v3 0/4] net: fec: add interrupt coalescence
+Date: Wed, 17 Sep 2014 05:18:50 +0800
+Message-ID: <1410902334-7827-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
-	"Fugang Duan" <B38611@freescale.com>,
 	Frank Li <Frank.Li@freescale.com>
 To: <b38611@freescale.com>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0134.outbound.protection.outlook.com ([157.56.110.134]:5984
+Received: from mail-bn1bn0101.outbound.protection.outlook.com ([157.56.110.101]:60147
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753820AbaIPWXN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Sep 2014 18:23:13 -0400
-In-Reply-To: <1410902334-7827-1-git-send-email-Frank.Li@freescale.com>
+	id S1751884AbaIPWXH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2014 18:23:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <B38611@freescale.com>
+From: Frank Li <Frank.Li@freescale.com>
 
-when enable interrupt coalesce, 8 BD is not enough.
+improve error handle when parse queue number.
+add interrupt coalescence feature.
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
- drivers/net/ethernet/freescale/fec.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Change from v2 to v3
+ - add error check in fec_enet_set_coalesce
+ - fix a run time warning to get clock rate in interrupt
+ - fix commit message use TKT number
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index b948cdb..c0a66e7 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -296,7 +296,7 @@ struct bufdesc_ex {
-  * the skbuffer directly.
-  */
- 
--#define FEC_ENET_RX_PAGES	8
-+#define FEC_ENET_RX_PAGES	256
- #define FEC_ENET_RX_FRSIZE	2048
- #define FEC_ENET_RX_FRPPG	(PAGE_SIZE / FEC_ENET_RX_FRSIZE)
- #define RX_RING_SIZE		(FEC_ENET_RX_FRPPG * FEC_ENET_RX_PAGES)
+Change from v1 to v2
+ - fix indention
+ - use errata number instead of TKT
+
+Frank Li (1):
+  net: fec: refine error handle of parser queue number from DT
+
+Fugang Duan (3):
+  net: fec: add interrupt coalescence feature support
+  net:fec: increase DMA queue number
+  net: fec: Workaround for imx6sx enet tx hang when enable three queues
+
+ drivers/net/ethernet/freescale/fec.h      |  16 +++-
+ drivers/net/ethernet/freescale/fec_main.c | 144 ++++++++++++++++++++++++++++--
+ 2 files changed, 150 insertions(+), 10 deletions(-)
+
 -- 
 1.9.1
