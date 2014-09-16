@@ -1,113 +1,84 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: Re: [Patch net-next 4/4] net: fec: Workaround for imx6sx enet tx
- hang when enable three queues
-Date: Tue, 16 Sep 2014 08:52:06 +0800
-Message-ID: <20140916005204.GA23482@dragon>
-References: <1410801177-15872-1-git-send-email-Frank.Li@freescale.com>
- <1410801177-15872-5-git-send-email-Frank.Li@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP connection will hang in FIN_WAIT1 after closing if zero
+ window is advertised
+Date: Mon, 15 Sep 2014 18:50:28 -0700
+Message-ID: <1410832228.7106.170.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <54170FC0.6020907@oktetlabs.ru>
+	 <1410822949.5018.4.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: lznuaa@gmail.com, netdev@vger.kernel.org, b38611@freescale.com,
- davem@davemloft.net, linux-arm-kernel@lists.infradead.org
-To: <Frank.Li@freescale.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1410801177-15872-5-git-send-email-Frank.Li@freescale.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>,
+	netdev@vger.kernel.org,
+	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
+	Konstantin Ushakov <kostik@oktetlabs.ru>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:56256 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754113AbaIPBub (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 21:50:31 -0400
+Received: by mail-pa0-f45.google.com with SMTP id rd3so7670665pab.32
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 18:50:30 -0700 (PDT)
+In-Reply-To: <1410822949.5018.4.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 16, 2014 at 01:12:57AM +0800, Frank.Li@freescale.com wrote:
-> From: Fugang Duan <B38611@freescale.com>
+On Tue, 2014-09-16 at 01:15 +0200, Hannes Frederic Sowa wrote:
+> On Mo, 2014-09-15 at 20:11 +0400, Andrey Dmitrov wrote:
+> > Greetings,
+> > 
+> > there is possible vulnerability in the TCP stack. Closing a socket after 
+> > the TCP zero window advertising by peer leads to the socket stuck in 
+> > FIN_WAIT1 state. FIN-ACK packet is not sent and not retransmitted. So 
+> > the connection remains alive and without relation to any socket while 
+> > the peer sends replies to the zero probe packets. It is possible to 
+> > create a lot of connections in the same manner which will be in 
+> > FIN_WAIT1 state forever.
+> > 
+> > Linux version 3.13-1-amd64 (debian-kernel@lists.debian.org) (gcc version 
+> > 4.8.2 (Debian 4.8.2-16) ) #1 SMP Debian 3.13.10-1 (2014-04-15)
+> > 
+> > I've written a script on Lua to reproduce this issue, find it in 
+> > attachment please. I've used it with two hosts host_A (victim) and 
+> > host_B (attacker), which are directly connected to each other. host_A 
+> > has lighttpd installed and runned. Actually host_A can have any opened 
+> > TCP listener socket to be attacked. If it closes any established with 
+> > attacker connection it will stuck in the FIN_WAIT1 state. The script 
+> > creates a number of TCP connections with the victim and sends replies 
+> > for the zero window probe packets.
+> > 
+> > The test requires lua, tcpdump and nemesis on the host_B:
+> > aptitude install lua5.1 lua5.1-posix nemesis tcpdump
+> > 
+> > How to run the test:
+> > 1. Run a httpd daemon on the host_A (I've used lighttpd).
+> > 2. Copy the test script attack.lua to the host_B.
+> > 3. Fill in the tested interfaces configuration (source, destination IP 
+> > and MAC addresses) in the beginning of the file attack.lua. You can set 
+> > maximum connections number in the variable *limit*, by default it is 500.
+> > 4. Set a fake MAC address for victim interface in host_B ARP table. It 
+> > is to prevent host_B system replies (RST) receiving by the host_A:
+> >      sudo arp -s <host_A IP addr> <any MAC address>
+> > 5. Run the test script on the host_B:
+> >      sudo ./attack.lua
+> > 
+> > After ~10 minutes you will see 500 connections in the FIN_WAIT1 state on 
+> > the host_A:
+> > netstat | grep FIN_WAIT1 | wc -l
+> > 500
+> > 
+> > Even if you close the http daemon the connections still will be alive.
 > 
-> When enable three queues on imx6sx enet, and then do tx performance
-> test with iperf tool, after some time running, tx hang.
+> Also thanks for the report.
 > 
-> Found that:
-> 	If uDMA is running, software set TDAR may cause tx hang.
-> 	If uDMA is in idle, software set TDAR don't cause tx hang.
+> Do you see any tcp window repair messages in dmesg? Can you send some
+> output of ss -oemit state FIN-WAIT-1 from the target host?
 > 
-> There is a TDAR race condition for mutliQ when the software sets TDAR
-> and the UDMA clears TDAR simultaneously or in a small window (2-4 cycles).
-> This will cause the udma_tx and udma_tx_arbiter state machines to hang.
-> The issue exist at i.MX6SX enet IP.
-> 
-> So, the Workaround is checking TDAR status four time, if TDAR cleared by
-> hardware and then write TDAR, otherwise don't set TDAR.
-> 
-> The patch is only one Workaround for the issue TKT210582.
-> 
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
-> Signed-off-by: Frank Li <Frank.Li@freescale.com>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 18 ++++++++++++++++--
->  1 file changed, 16 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> index 524ddbe..452e576 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -111,6 +111,13 @@ static void fec_enet_itr_coal_init(struct net_device *ndev);
->   *   independent rings
->   */
->  #define FEC_QUIRK_HAS_AVB		(1 << 8)
-> +/*
-> + * There is a TDAR race condition for mutliQ when the software sets TDAR
-> + * and the UDMA clears TDAR simultaneously or in a small window (2-4 cycles).
-> + * This will cause the udma_tx and udma_tx_arbiter state machines to hang.
-> + * The issue exist at i.MX6SX enet IP.
-> + */
-> +#define FEC_QUIRK_TKT210582		(1 << 9)
+> I thought they should timeout after RTO_MAX (~2 minutes).
 
-I think TKTxxx number is used by Freescale design team to track issues
-internally, and there should be a corresponding errata number like
-ERRxxx which should be accessible by external people in errata document?
 
-Shawn
+Why ? If a TARPIT module always answer to zero window probes, these
+sessions would last forever.
 
->  
->  static struct platform_device_id fec_devtype[] = {
->  	{
-> @@ -139,7 +146,7 @@ static struct platform_device_id fec_devtype[] = {
->  		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
->  				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
->  				FEC_QUIRK_HAS_VLAN | FEC_QUIRK_ERR006358 |
-> -				FEC_QUIRK_HAS_AVB,
-> +				FEC_QUIRK_HAS_AVB | FEC_QUIRK_TKT210582,
->  	}, {
->  		/* sentinel */
->  	}
-> @@ -709,6 +716,8 @@ static int fec_enet_txq_submit_tso(struct fec_enet_priv_tx_q *txq,
->  	struct tso_t tso;
->  	unsigned int index = 0;
->  	int ret;
-> +	const struct platform_device_id *id_entry =
-> +				platform_get_device_id(fep->pdev);
->  
->  	if (tso_count_descs(skb) >= fec_enet_get_free_txdesc_num(fep, txq)) {
->  		dev_kfree_skb_any(skb);
-> @@ -770,7 +779,12 @@ static int fec_enet_txq_submit_tso(struct fec_enet_priv_tx_q *txq,
->  	txq->cur_tx = bdp;
->  
->  	/* Trigger transmission start */
-> -	writel(0, fep->hwp + FEC_X_DES_ACTIVE(queue));
-> +	if (!(id_entry->driver_data & FEC_QUIRK_TKT210582) ||
-> +		!readl(fep->hwp + FEC_X_DES_ACTIVE(queue)) ||
-> +		!readl(fep->hwp + FEC_X_DES_ACTIVE(queue)) ||
-> +		!readl(fep->hwp + FEC_X_DES_ACTIVE(queue)) ||
-> +		!readl(fep->hwp + FEC_X_DES_ACTIVE(queue)))
-> +		writel(0, fep->hwp + FEC_X_DES_ACTIVE(queue));
->  
->  	return 0;
->  
-> -- 
-> 1.9.1
-> 
+This is a rather old problem ;)
