@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 3/4] net: stmmac: add support for Intel Quark X1000
-Date: Tue, 16 Sep 2014 15:00:37 -0400 (EDT)
-Message-ID: <20140916.150037.1715537913178712290.davem@davemloft.net>
-References: <07ca9d2c89cf4f01037c98e3314dd035e4d2ee34.1410416224.git.hock.leong.kweh@intel.com>
-	<20140912.181423.1831537443587796533.davem@davemloft.net>
-	<F54AEECA5E2B9541821D670476DAE19C2B7E99A7@PGSMSX102.gar.corp.intel.com>
+From: <Frank.Li@freescale.com>
+Subject: [Patch net-next v2 0/4] net: fec: add interrupt coalescence
+Date: Wed, 17 Sep 2014 01:58:06 +0800
+Message-ID: <1410890290-11248-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, rayagond@vayavyalabs.com,
-	vbridgers2013@gmail.com, srinivas.kandagatla@st.com, wens@csie.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	boon.leong.ong@intel.com
-To: hock.leong.kweh@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F54AEECA5E2B9541821D670476DAE19C2B7E99A7@PGSMSX102.gar.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
+	Frank Li <Frank.Li@freescale.com>
+To: <b38611@freescale.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0130.outbound.protection.outlook.com ([207.46.100.130]:23072
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755020AbaIPTCW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2014 15:02:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Date: Mon, 15 Sep 2014 12:42:03 +0000
+From: Frank Li <Frank.Li@freescale.com>
 
-> The only things to differentiate them is PCI BUS DEVICE FUNCTION
-> (Bus:Dev:Func) number which are fix numbers 00:20:6 for port 1 and
-> 00:20:7 for port 2 stated in Quark X1000 datasheet.
+improve error handle when parse queue number.
+add interrupt coalescence feature.
 
-Match on the PCI device class, which must be PCI_CLASS_NETWORK_ETHERNET
-or similar.
+Change from v1 to v2
+ - fix indention
+ - use errata number instead of TKT
 
-The pci_device_id used for probing supports matching on this directly.
-.
+Frank Li (1):
+  net: fec: refine error handle of parser queue number from DT
+
+Fugang Duan (3):
+  net: fec: add interrupt coalescence feature support
+  net:fec: increase DMA queue number
+  net: fec: Workaround for imx6sx enet tx hang when enable three queues
+
+ drivers/net/ethernet/freescale/fec.h      |  16 +++-
+ drivers/net/ethernet/freescale/fec_main.c | 144 ++++++++++++++++++++++++++++--
+ 2 files changed, 150 insertions(+), 10 deletions(-)
+
+-- 
+1.9.1
