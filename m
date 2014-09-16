@@ -1,32 +1,53 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [net-next PATCH] net: sched: cls_cgroup need tcf_exts_init in all cases
-Date: Tue, 16 Sep 2014 09:26:39 -0700
-Message-ID: <CAHA+R7O8RL3tOa4pTHcA9Npp9zs13zJZk8q-Oasa2TSTR4qTvA@mail.gmail.com>
-References: <20140916073341.2597.36240.stgit@nitbit.x32>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: phy link status not stable
+Date: Tue, 16 Sep 2014 21:56:56 +0530
+Message-ID: <541864D0.7080803@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:54691 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754309AbaIPQ0l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 12:26:41 -0400
-Received: by mail-lb0-f172.google.com with SMTP id w7so137823lbi.3
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 09:26:39 -0700 (PDT)
-In-Reply-To: <20140916073341.2597.36240.stgit@nitbit.x32>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:43991 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754032AbaIPQ1C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2014 12:27:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 16, 2014 at 12:33 AM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> This ensures the tcf_exts_init() is called for all cases.
->
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Hi
 
-Fixes: commit 952313bd62589cae216a57 ("net: sched: cls_cgroup use RCU")
-Acked-by: Cong Wang <cwang@twopensource.com>
+While doing ifdown/ifup test, phy link up status is very much delayed
+and also link up/down comes alternatively without physical link changes
+which leads to ifup failure. in v3.12 internal tree there is no failure.
+Pasting the logs below.
+
+root@am437x-evm:~# ifup eth0
+[  652.633204] net eth0: initializing cpsw version 1.15 (0)
+[  652.717428] net eth0: phy found : id is : 0x221622
+udhcpc (v1.20.2) started
+Sending discover...
+Sending discover...
+[  658.717859] cpsw 4a100000.ethernet eth0: Link is Up - 1Gbps/Full -
+flow control rx/tx
+Sending discover...
+[  660.717894] cpsw 4a100000.ethernet eth0: Link is Down
+[  661.717937] cpsw 4a100000.ethernet eth0: Link is Up - 1Gbps/Full -
+flow control rx/tx
+No lease, failing
+root@am437x-evm:~# udhcpc
+udhcpc (v1.20.2) started
+Sending discover...
+Sending select for 172.24.190.6...
+Lease of 172.24.190.6 obtained, lease time 3600
+/etc/udhcpc.d/50default: Adding DNS 192.0.2.2
+/etc/udhcpc.d/50default: Adding DNS 192.0.2.3
+root@am437x-evm:~#
+
+Is this a known issue or any pointers where to look for clues?
+
+Setup: TI-AM437x EVM
+Phy: Micrel KSZ9031 Gigabit PHY
+
+Thanks,
+Mugunthan V N
