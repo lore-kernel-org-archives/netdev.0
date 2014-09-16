@@ -1,42 +1,62 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH v2 net-next 0/7] net: foo-over-udp (fou)
-Date: Tue, 16 Sep 2014 23:04:30 +0300
-Message-ID: <CAJ3xEMhax-S1KneM-cpRS9r4yi==JwqaGtMYJ127Ka2tynhHMw@mail.gmail.com>
-References: <1410750483-3236-1-git-send-email-therbert@google.com>
-	<CAJ3xEMjC5PQENzCXS9SNVm6zUVn7pydxf1MLQ57Br1sGjD1ngQ@mail.gmail.com>
-	<CA+mtBx_+JxUn4zT+XN8DpQcCoz5Du+QtF1xzLno2m1yCwbr6ow@mail.gmail.com>
-	<CAJ3xEMjUKRCOodKs0XF_8xc0WY6=1UH=5STmeLS-a0=ofnSA9w@mail.gmail.com>
-	<CA+mtBx9d4wkcfmbPXm8m-Uz8K=_hjb3Q_a-0YNY4Yhz4cYoD5Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -net] scsi: fix users of SCSI_FC_ATTRS to depend on NET
+Date: Tue, 16 Sep 2014 16:15:18 -0400 (EDT)
+Message-ID: <20140916.161518.620276378147910368.davem@davemloft.net>
+References: <5417DA29.4060205@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:46310 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751691AbaIPUEb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 16:04:31 -0400
-Received: by mail-ob0-f180.google.com with SMTP id wp4so314397obc.39
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 13:04:30 -0700 (PDT)
-In-Reply-To: <CA+mtBx9d4wkcfmbPXm8m-Uz8K=_hjb3Q_a-0YNY4Yhz4cYoD5Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	jbottomley@parallels.com, fengguang.wu@intel.com
+To: rdunlap@infradead.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <5417DA29.4060205@infradead.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 16, 2014 at 6:00 PM, Tom Herbert <therbert@google.com> wrote:
-> [...] Fortunately, we'll be able to code
-> around mosts of the limitations of deployed NICs that don't implement
-> generic mechanisms (with UDP RSS, checksum conversions,  remote
-> checksum offload) [...]
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Mon, 15 Sep 2014 23:35:21 -0700
 
-So UDP RSS is a clear requirement and NICs have it by now.
+> From: Randy Dunlap <rdunlap@infradead.org>
+> 
+> There are other kconfig symbols which select SCSI_FC_ATTRS,
+> so they also need to depend on NET to fix kconfig warnings and
+> build errors:
+> 
+> warning: (LIBFC && SCSI_IBMVFC && SCSI_QLA_FC && SCSI_LPFC && ZFCP && SCSI_BFA_FC && SCSI_CHELSIO_FCOE && FUSION_FC) selects SCSI_FC_ATTRS which has unmet direct dependencies (SCSI && NET)
+> drivers/scsi/scsi_transport_fc.c: In function 'fc_host_post_event':
+> drivers/scsi/scsi_transport_fc.c:543:7: error: 'scsi_nl_sock' undeclared (first use in this function)
+> drivers/scsi/scsi_transport_fc.c: In function 'fc_host_post_vendor_event':
+> drivers/scsi/scsi_transport_fc.c:611:7: error: 'scsi_nl_sock' undeclared (first use in this function)
+> 
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
+> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
 
-Re checksum conversions, I assume you mean the ability on the RX path
-to report CHECKSUM_COMPLETE on any sort of IP packet potentially
-having multiple encapsulations, right? how would you phrase (and
-model) the other way around, e.g what is the generic requirement on
-the TX path w.r.t checksum offload?
+Randy, this is starting to get convoluted.
 
-And I wasn't sure what do you mean by remote checksum offload, can you clarify?
+It's pretty much pointless for SCSI_FC_ATTRS to depend on NET itself
+if we have to explicitly place a NET dependency on every single user
+of SCSI_FC_ATTRS.
 
-Or.
+We have expressed a proper dependency for SCSI_FC_ATTRS only to have
+it forcefully bypassed by every single user because we 'select' it
+instead of using 'depends'.
+
+Can we just change these 'select' operations on SCSI_FC_ATTRS to just
+be 'depends' instead?
+
+I really wouldn't mind if select had the effect of force enabling the
+dependencies of the select'd Kconfig symbol.  Then it really does what
+we use it for (keeping the user from having to know obscure
+dependencies just to enable the feature they want) without the ugly
+side effect of dependency bypassing.
+
+So a "select" would do a recursive "select" on all the dependencies
+needed to turn on the select'd object.
+
+I doubt it would even need to recurse often at all, the ways we use
+this is almost always to turn on some top level major piece of
+infrastructure.
+
+Anyways, that's a longer term thing and we need to fix this now, any
+opinions on just using 'depend SCSI_FX_ATTRS' to fix this?
