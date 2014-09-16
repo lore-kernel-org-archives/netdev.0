@@ -1,72 +1,36 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [PATCH -net] scsi: fix users of SCSI_FC_ATTRS to depend on NET
-Date: Tue, 16 Sep 2014 13:24:46 -0700
-Message-ID: <54189C8E.5030409@infradead.org>
-References: <5417DA29.4060205@infradead.org> <20140916.161518.620276378147910368.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT net-next v3] Open vSwitch
+Date: Tue, 16 Sep 2014 16:25:59 -0400 (EDT)
+Message-ID: <20140916.162559.345926762747823937.davem@davemloft.net>
+References: <1410852209-1456-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	jbottomley@parallels.com, fengguang.wu@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20140916.161518.620276378147910368.davem@davemloft.net>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57917 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751966AbaIPU0B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 16:26:01 -0400
+In-Reply-To: <1410852209-1456-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/16/14 13:15, David Miller wrote:
-> From: Randy Dunlap <rdunlap@infradead.org>
-> Date: Mon, 15 Sep 2014 23:35:21 -0700
-> 
->> From: Randy Dunlap <rdunlap@infradead.org>
->>
->> There are other kconfig symbols which select SCSI_FC_ATTRS,
->> so they also need to depend on NET to fix kconfig warnings and
->> build errors:
->>
->> warning: (LIBFC && SCSI_IBMVFC && SCSI_QLA_FC && SCSI_LPFC && ZFCP && SCSI_BFA_FC && SCSI_CHELSIO_FCOE && FUSION_FC) selects SCSI_FC_ATTRS which has unmet direct dependencies (SCSI && NET)
->> drivers/scsi/scsi_transport_fc.c: In function 'fc_host_post_event':
->> drivers/scsi/scsi_transport_fc.c:543:7: error: 'scsi_nl_sock' undeclared (first use in this function)
->> drivers/scsi/scsi_transport_fc.c: In function 'fc_host_post_vendor_event':
->> drivers/scsi/scsi_transport_fc.c:611:7: error: 'scsi_nl_sock' undeclared (first use in this function)
->>
->> Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
->> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-> 
-> Randy, this is starting to get convoluted.
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Tue, 16 Sep 2014 00:23:29 -0700
 
-Yes, I'm not happy about it either.
+> Following patches adds recirculation and hash action to OVS.
+> First patch removes pointer to stack object. Next three patches
+> does code restructuring which is required for last patch.
+> Recirculation implementation is changed, according to comments from
+> David Miller, to avoid using recursive calls in OVS. It is using
+> queue to record recirc action and deferred recirc is executed at
+> the end of current actions execution.
+> 
+> v1-v2:
+> Changed subsystem name in subject to openvswitch
+> v2-v3:
+> Added patch to remove pkt_key pointer from skb->cb.
 
-> It's pretty much pointless for SCSI_FC_ATTRS to depend on NET itself
-> if we have to explicitly place a NET dependency on every single user
-> of SCSI_FC_ATTRS.
-> 
-> We have expressed a proper dependency for SCSI_FC_ATTRS only to have
-> it forcefully bypassed by every single user because we 'select' it
-> instead of using 'depends'.
-> 
-> Can we just change these 'select' operations on SCSI_FC_ATTRS to just
-> be 'depends' instead?
-> 
-> I really wouldn't mind if select had the effect of force enabling the
-> dependencies of the select'd Kconfig symbol.  Then it really does what
-> we use it for (keeping the user from having to know obscure
-> dependencies just to enable the feature they want) without the ugly
-> side effect of dependency bypassing.
-> 
-> So a "select" would do a recursive "select" on all the dependencies
-> needed to turn on the select'd object.
-> 
-> I doubt it would even need to recurse often at all, the ways we use
-> this is almost always to turn on some top level major piece of
-> infrastructure.
-> 
-> Anyways, that's a longer term thing and we need to fix this now, any
-> opinions on just using 'depend SCSI_FX_ATTRS' to fix this?
-
-typo:                     depends on SCSI_FC_ATTRS
-
-No, I certainly have no objection and prefer depends over select anyway.
-
--- 
-~Randy
+Pulled, thanks Pravin.
