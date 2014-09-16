@@ -1,57 +1,37 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH v2] net: rfkill: gpio: Enable module auto-loading for
- ACPI based switches
-Date: Tue, 16 Sep 2014 15:59:11 -0400
-Message-ID: <20140916195911.GC3622@tuxdriver.com>
-References: <1410551368-37316-1-git-send-email-marcel@holtmann.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v2 3/4] net: sched: cls_cgroup fix possible
+ memory leak of 'new'
+Date: Tue, 16 Sep 2014 16:00:14 -0400 (EDT)
+Message-ID: <20140916.160014.443414280812410039.davem@davemloft.net>
+References: <20140916063024.2905.55403.stgit@nitbit.x32>
+	<20140916063115.2905.53827.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, jhs@mojatatu.com
+To: john.fastabend@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38424 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755322AbaIPUAL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 16:00:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1410551368-37316-1-git-send-email-marcel@holtmann.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57698 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755322AbaIPUAQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 16:00:16 -0400
+In-Reply-To: <20140916063115.2905.53827.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm merging this to the wireless tree...
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Mon, 15 Sep 2014 23:31:17 -0700
 
-On Fri, Sep 12, 2014 at 09:49:28PM +0200, Marcel Holtmann wrote:
-> For the ACPI based switches the MODULE_DEVICE_TABLE is missing to
-> export the entries for module auto-loading.
+> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+> head:   54996b529ab70ca1d6f40677cd2698c4f7127e87
+> commit: c7953ef23042b7c4fc2be5ecdd216aacff6df5eb [625/646] net: sched: cls_cgroup use RCU
 > 
-> Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-> ---
-> net/rfkill/rfkill-gpio.c | 1 +
-> 1 file changed, 1 insertion(+)
+> net/sched/cls_cgroup.c:130 cls_cgroup_change() warn: possible memory leak of 'new'
+> net/sched/cls_cgroup.c:135 cls_cgroup_change() warn: possible memory leak of 'new'
+> net/sched/cls_cgroup.c:139 cls_cgroup_change() warn: possible memory leak of 'new'
 > 
-> diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-> index 02a86a27fd84..5fa54dd78e25 100644
-> --- a/net/rfkill/rfkill-gpio.c
-> +++ b/net/rfkill/rfkill-gpio.c
-> @@ -163,6 +163,7 @@ static const struct acpi_device_id rfkill_acpi_match[] = {
->  	{ "LNV4752", RFKILL_TYPE_GPS },
->  	{ },
-> };
-> +MODULE_DEVICE_TABLE(acpi, rfkill_acpi_match);
-> #endif
-> 
-> static struct platform_driver rfkill_gpio_driver = {
-> -- 
-> 1.9.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Applied.
