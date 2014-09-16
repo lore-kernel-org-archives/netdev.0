@@ -1,8 +1,8 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH 2/3] net: sched: cls_u32 add missing
- rcu_assign_pointer and annotation
-Date: Mon, 15 Sep 2014 19:48:01 -0700
-Message-ID: <20140916024759.3010.24175.stgit@nitbit.x32>
+Subject: [net-next PATCH 3/3] net: sched: cls_cgroup fix possible memory
+ leak of 'new'
+Date: Mon, 15 Sep 2014 19:48:34 -0700
+Message-ID: <20140916024831.3010.64477.stgit@nitbit.x32>
 References: <20140916024729.3010.47421.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,66 +11,61 @@ Cc: netdev@vger.kernel.org, jhs@mojatatu.com
 To: xiyou.wangcong@gmail.com, davem@davemloft.net,
 	eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f54.google.com ([209.85.219.54]:37889 "EHLO
-	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753051AbaIPCsb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 22:48:31 -0400
-Received: by mail-oa0-f54.google.com with SMTP id jd19so3285268oac.27
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 19:48:26 -0700 (PDT)
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:40477 "EHLO
+	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753051AbaIPCs5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 22:48:57 -0400
+Received: by mail-oi0-f42.google.com with SMTP id e131so2849799oig.15
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 19:48:56 -0700 (PDT)
 In-Reply-To: <20140916024729.3010.47421.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add missing rcu_assign_pointer and missing  annotation for ht_up
-in cls_u32.c
+tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+head:   54996b529ab70ca1d6f40677cd2698c4f7127e87
+commit: c7953ef23042b7c4fc2be5ecdd216aacff6df5eb [625/646] net: sched: cls_cgroup use RCU
 
-Caught by kbuild bot,
+net/sched/cls_cgroup.c:130 cls_cgroup_change() warn: possible memory leak of 'new'
+net/sched/cls_cgroup.c:135 cls_cgroup_change() warn: possible memory leak of 'new'
+net/sched/cls_cgroup.c:139 cls_cgroup_change() warn: possible memory leak of 'new'
 
->> net/sched/cls_u32.c:378:36: sparse: incorrect type in initializer (different address spaces)
-   net/sched/cls_u32.c:378:36:    expected struct tc_u_hnode *ht
-   net/sched/cls_u32.c:378:36:    got struct tc_u_hnode [noderef] <asn:4>*ht_up
->> net/sched/cls_u32.c:610:54: sparse: incorrect type in argument 4 (different address spaces)
-   net/sched/cls_u32.c:610:54:    expected struct tc_u_hnode *ht
-   net/sched/cls_u32.c:610:54:    got struct tc_u_hnode [noderef] <asn:4>*ht_up
->> net/sched/cls_u32.c:684:18: sparse: incorrect type in assignment (different address spaces)
-   net/sched/cls_u32.c:684:18:    expected struct tc_u_hnode [noderef] <asn:4>*ht_up
-   net/sched/cls_u32.c:684:18:    got struct tc_u_hnode *[assigned] ht
->> net/sched/cls_u32.c:359:18: sparse: dereference of noderef expression
-
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- net/sched/cls_u32.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ net/sched/cls_cgroup.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 8cffe5a..19b2808 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -375,7 +375,7 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
- {
- 	struct tc_u_knode __rcu **kp;
- 	struct tc_u_knode *pkp;
--	struct tc_u_hnode *ht = key->ht_up;
-+	struct tc_u_hnode *ht = rtnl_dereference(key->ht_up);
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 3b75487..52b7900 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -127,16 +127,16 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
+ 	err = nla_parse_nested(tb, TCA_CGROUP_MAX, tca[TCA_OPTIONS],
+ 			       cgroup_policy);
+ 	if (err < 0)
+-		return err;
++		goto errout;
  
- 	if (ht) {
- 		kp = &ht->ht[TC_U32_HASH(key->handle)];
-@@ -607,7 +607,8 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
- 		if (TC_U32_KEY(n->handle) == 0)
- 			return -EINVAL;
+ 	tcf_exts_init(&e, TCA_CGROUP_ACT, TCA_CGROUP_POLICE);
+ 	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e, ovr);
+ 	if (err < 0)
+-		return err;
++		goto errout;
  
--		return u32_set_parms(net, tp, base, n->ht_up, n, tb,
-+		return u32_set_parms(net, tp, base,
-+				     rtnl_dereference(n->ht_up), n, tb,
- 				     tca[TCA_RATE], ovr);
- 	}
+ 	err = tcf_em_tree_validate(tp, tb[TCA_CGROUP_EMATCHES], &t);
+ 	if (err < 0)
+-		return err;
++		goto errout;
  
-@@ -681,7 +682,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
- #endif
+ 	tcf_exts_change(tp, &new->exts, &e);
+ 	tcf_em_tree_change(tp, &new->ematches, &t);
+@@ -145,6 +145,9 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
+ 	if (head)
+ 		call_rcu(&head->rcu, cls_cgroup_destroy_rcu);
+ 	return 0;
++errout:
++	kfree(new);
++	return err;
+ }
  
- 	memcpy(&n->sel, s, sizeof(*s) + s->nkeys*sizeof(struct tc_u32_key));
--	n->ht_up = ht;
-+	rcu_assign_pointer(n->ht_up, ht);
- 	n->handle = handle;
- 	n->fshift = s->hmask ? ffs(ntohl(s->hmask)) - 1 : 0;
- 	tcf_exts_init(&n->exts, TCA_U32_ACT, TCA_U32_POLICE);
+ static void cls_cgroup_destroy(struct tcf_proto *tp)
