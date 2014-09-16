@@ -1,59 +1,64 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH v2 net-next 0/7] net: foo-over-udp (fou)
-Date: Tue, 16 Sep 2014 16:35:38 +0300
-Message-ID: <CAJ3xEMjUKRCOodKs0XF_8xc0WY6=1UH=5STmeLS-a0=ofnSA9w@mail.gmail.com>
-References: <1410750483-3236-1-git-send-email-therbert@google.com>
-	<CAJ3xEMjC5PQENzCXS9SNVm6zUVn7pydxf1MLQ57Br1sGjD1ngQ@mail.gmail.com>
-	<CA+mtBx_+JxUn4zT+XN8DpQcCoz5Du+QtF1xzLno2m1yCwbr6ow@mail.gmail.com>
+From: Sandeep Nair <sandeep_n@ti.com>
+Subject: Re: [PATCH v3 2/3] net: Add Keystone NetCP ethernet driver
+Date: Tue, 16 Sep 2014 09:44:59 -0400
+Message-ID: <54183EDB.20801@ti.com>
+References: <1410638839-14792-1-git-send-email-santosh.shilimkar@ti.com>	<1410638839-14792-3-git-send-email-santosh.shilimkar@ti.com> <20140915.123755.1868053059646672094.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:62082 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752295AbaIPNfj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 09:35:39 -0400
-Received: by mail-oi0-f46.google.com with SMTP id g201so3638865oib.5
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 06:35:38 -0700 (PDT)
-In-Reply-To: <CA+mtBx_+JxUn4zT+XN8DpQcCoz5Du+QtF1xzLno2m1yCwbr6ow@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>, <robh+dt@kernel.org>,
+	<grant.likely@linaro.org>, <devicetree@vger.kernel.org>,
+	<jhs@mojatatu.com>
+To: David Miller <davem@davemloft.net>, <santosh.shilimkar@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140915.123755.1868053059646672094.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 15, 2014 at 10:15 PM, Tom Herbert <therbert@google.com> wrote:
-> On Mon, Sep 15, 2014 at 11:08 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->> On Mon, Sep 15, 2014 at 6:07 AM, Tom Herbert <therbert@google.com> wrote:
+On 9/15/2014 12:37 PM, David Miller wrote:
+> From: Santosh Shilimkar <santosh.shilimkar@ti.com>
+> Date: Sat, 13 Sep 2014 16:07:18 -0400
+>
+>> +	/* Find this module in the sub-tree for this device */
+>> +	devices = of_get_child_by_name(node, "netcp-devices");
+>> +	if (!devices) {
+>> +		dev_err(dev, "could not find netcp-devices node\n");
+>> +		return NETCP_MOD_PROBE_SKIPPED;
+>> +	}
+>> +
+>> +	for_each_available_child_of_node(devices, child) {
+>> +		const char *name = netcp_node_name(child);
+>> +
+>> +		if (!strcasecmp(module->name, name))
+>> +			break;
+>> +	}
+>> +
+>> +	/* If module not used for this device, skip it */
+>> +	if (child == NULL) {
+>> +		dev_warn(dev, "module(%s) not used for device\n", module->name);
+>> +		return NETCP_MOD_PROBE_SKIPPED;
+>> +	}
+>
+> of_get_child_by_name() takes a reference to an OF node, you must release
+> it in the error path.
+>
+Will fix this.
+>> +	inst_modpriv = devm_kzalloc(dev, sizeof(*inst_modpriv), GFP_KERNEL);
+>> +	if (!inst_modpriv) {
+>> +		dev_err(dev, "Failed to allocate instance for %s\n",
+>> +			module->name);
+>> +		return -ENOMEM;
+>> +	}
+>
+> Likewise, but here you have to release both "devices" and "child".
+>
+> You're going to have to fix this OF node refcount problem for this
+> entire probe routine.
+>
+Will do.
 
->>>   - I really don't expect/want devices to have special support for any
->>>     of this. Generic checksum offload mechanisms (NETIF_HW_CSUM
->>>     and use of CHECKSUM_COMPLETE) should be sufficient. RSS and flow
->>>     steering is provided by commonly implemented UDP hashing. GRO/GSO
->>>     seem fairly comparable with LRO/TSO already.
+Thanks for the review David!
 
->> Again, today NICs are advertizing checksum offloads capability in
->> enc_hw_features but aren't capable to compute (say) the TCP checksum
->> of the inner packet regardless of which actual tunneling is used (e.g VXLAN vs
->> GRE), a bit inconsistent?
-
-> I doubt this is true of all NICs! For instance, a NIC that implements
-> NETIF_F_HW_CSUM should have no problem computing an encapsulated
-> checksums in just about any scenario.
-
-The comment for NETIF_F_HW_CSUM says "Can checksum all the packets" --
-so your interpretation is that NICs supporting that will always report
-CHECKSUM_COMPLETE, OK. But there are bunch of 10/40Gbs NIC drivers
-that don't report the HW_CSUM bit in neither of the ->features and
-->hw_enc_features, the system should act in a manner that supports them.
-
-> Both, checksum offload and TSO
-> can be supported for arbitrary flavors of UDP encapsulation if NICs
-> use protocol agnostic means as opposed to protocol specific means that
-> require a lot of parsing the packets themselves. Look at the long
-> standing comments in sk_buff about why protocol specific methods like
-> CHECKSUM_UNNECESSARY and NETIF_F_IP_CSUM are bad ideas. With the
-> emergence of encapsulation these are now *really* bad ideas!
-
-So we go and throw away the HW?
-
-Or.
+Regards
+Sandeep
