@@ -1,33 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net_sched: fix a null pointer dereference in
- tcindex_set_parms()
-Date: Tue, 16 Sep 2014 15:20:33 -0400 (EDT)
-Message-ID: <20140916.152033.225722376313436779.davem@davemloft.net>
-References: <1410824623-27516-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1410824623-27516-2-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
-To: xiyou.wangcong@gmail.com
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next] sparc: bpf_jit: add SKF_AD_PKTTYPE support to JIT
+Date: Tue, 16 Sep 2014 12:35:35 -0700
+Message-ID: <1410896135-9867-1-git-send-email-ast@plumgrid.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57316 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754839AbaIPTUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 15:20:35 -0400
-In-Reply-To: <1410824623-27516-2-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:48792 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754875AbaIPTgC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 15:36:02 -0400
+Received: by mail-pa0-f47.google.com with SMTP id ey11so429071pad.20
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 12:36:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon, 15 Sep 2014 16:43:43 -0700
+commit 233577a22089 ("net: filter: constify detection of pkt_type_offset")
+allows us to implement simple PKTTYPE support in sparc JIT
 
-> This patch fixes the following crash:
- ...
-> 'p->h' could be NULL while 'cp->h' is always update to date.
-> 
-> Fixes: commit 331b72922c5f58d48fd ("net: sched: RCU cls_tcindex")
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+ arch/sparc/net/bpf_jit_comp.c |    9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
-Also applied, thanks Cong.
+diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
+index b2ad9dc5425e..2dde48bdcc42 100644
+--- a/arch/sparc/net/bpf_jit_comp.c
++++ b/arch/sparc/net/bpf_jit_comp.c
+@@ -579,16 +579,11 @@ void bpf_jit_compile(struct bpf_prog *fp)
+ 			case BPF_ANC | SKF_AD_PROTOCOL:
+ 				emit_skb_load16(protocol, r_A);
+ 				break;
+-#if 0
+-				/* GCC won't let us take the address of
+-				 * a bit field even though we very much
+-				 * know what we are doing here.
+-				 */
+ 			case BPF_ANC | SKF_AD_PKTTYPE:
+-				__emit_skb_load8(pkt_type, r_A);
++				__emit_skb_load8(__pkt_type_offset, r_A);
++				emit_andi(r_A, PKT_TYPE_MAX, r_A);
+ 				emit_alu_K(SRL, 5);
+ 				break;
+-#endif
+ 			case BPF_ANC | SKF_AD_IFINDEX:
+ 				emit_skb_loadptr(dev, r_A);
+ 				emit_cmpi(r_A, 0);
+-- 
+1.7.9.5
