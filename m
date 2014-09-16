@@ -1,65 +1,43 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: [PATCH 09/22] batman-adv: Replace strnicmp with strncasecmp
-Date: Tue, 16 Sep 2014 22:51:23 +0200
-Message-ID: <1410900696-6481-10-git-send-email-linux@rasmusvillemoes.dk>
-References: <1410900696-6481-1-git-send-email-linux@rasmusvillemoes.dk>
-Cc: linux-kernel@vger.kernel.org,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1410900696-6481-1-git-send-email-linux@rasmusvillemoes.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] scsi: use 'depends' instead of 'select' for
+ SCSI_FC_ATTRS
+Date: Tue, 16 Sep 2014 16:56:14 -0400 (EDT)
+Message-ID: <20140916.165614.1047136442384470192.davem@davemloft.net>
+References: <5418A1ED.3010302@infradead.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jbottomley@parallels.com, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+To: rdunlap@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58400 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754892AbaIPU4P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 16:56:15 -0400
+In-Reply-To: <5418A1ED.3010302@infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The kernel used to contain two functions for length-delimited,
-case-insensitive string comparison, strnicmp with correct semantics
-and a slightly buggy strncasecmp. The latter is the POSIX name, so
-strnicmp was renamed to strncasecmp, and strnicmp made into a wrapper
-for the new strncasecmp to avoid breaking existing users.
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Tue, 16 Sep 2014 13:47:41 -0700
 
-To allow the compat wrapper strnicmp to be removed at some point in
-the future, and to avoid the extra indirection cost, do
-s/strnicmp/strncasecmp/g.
+> From: Randy Dunlap <rdunlap@infradead.org>
+> 
+> There are other kconfig symbols which use SCSI_FC_ATTRS.
+> In order to maintain sanity and prevent kconfig warnings, change
+> all of these from using 'select' to using 'depends on' so that
+> proper symbol dependencies will be honored and circular depends
+> problems will be avoided.
+> This fixes kconfig warnings and build errors:
+> 
+> warning: (LIBFC && SCSI_IBMVFC && SCSI_QLA_FC && SCSI_LPFC && ZFCP && SCSI_BFA_FC && SCSI_CHELSIO_FCOE && FUSION_FC) selects SCSI_FC_ATTRS which has unmet direct dependencies (SCSI && NET)
+> drivers/scsi/scsi_transport_fc.c: In function 'fc_host_post_event':
+> drivers/scsi/scsi_transport_fc.c:543:7: error: 'scsi_nl_sock' undeclared (first use in this function)
+> drivers/scsi/scsi_transport_fc.c: In function 'fc_host_post_vendor_event':
+> drivers/scsi/scsi_transport_fc.c:611:7: error: 'scsi_nl_sock' undeclared (first use in this function)
+> 
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
+> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
 
-Cc: Marek Lindner <mareklindner@neomailbox.ch>
-Cc: b.a.t.m.a.n@lists.open-mesh.org
-Cc: netdev@vger.kernel.org
-Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
----
- net/batman-adv/gateway_common.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/batman-adv/gateway_common.c b/net/batman-adv/gateway_common.c
-index 6f5e621..88a1bc3 100644
---- a/net/batman-adv/gateway_common.c
-+++ b/net/batman-adv/gateway_common.c
-@@ -44,10 +44,10 @@ static bool batadv_parse_gw_bandwidth(struct net_device *net_dev, char *buff,
- 	if (strlen(buff) > 4) {
- 		tmp_ptr = buff + strlen(buff) - 4;
- 
--		if (strnicmp(tmp_ptr, "mbit", 4) == 0)
-+		if (strncasecmp(tmp_ptr, "mbit", 4) == 0)
- 			bw_unit_type = BATADV_BW_UNIT_MBIT;
- 
--		if ((strnicmp(tmp_ptr, "kbit", 4) == 0) ||
-+		if ((strncasecmp(tmp_ptr, "kbit", 4) == 0) ||
- 		    (bw_unit_type == BATADV_BW_UNIT_MBIT))
- 			*tmp_ptr = '\0';
- 	}
-@@ -77,10 +77,10 @@ static bool batadv_parse_gw_bandwidth(struct net_device *net_dev, char *buff,
- 		if (strlen(slash_ptr + 1) > 4) {
- 			tmp_ptr = slash_ptr + 1 - 4 + strlen(slash_ptr + 1);
- 
--			if (strnicmp(tmp_ptr, "mbit", 4) == 0)
-+			if (strncasecmp(tmp_ptr, "mbit", 4) == 0)
- 				bw_unit_type = BATADV_BW_UNIT_MBIT;
- 
--			if ((strnicmp(tmp_ptr, "kbit", 4) == 0) ||
-+			if ((strncasecmp(tmp_ptr, "kbit", 4) == 0) ||
- 			    (bw_unit_type == BATADV_BW_UNIT_MBIT))
- 				*tmp_ptr = '\0';
- 		}
--- 
-2.0.4
+Applied, thanks Randy.
