@@ -1,81 +1,38 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: phy link status not stable
-Date: Tue, 16 Sep 2014 10:09:36 -0700
-Message-ID: <CAGVrzcZ4BPJ-6t81vevb2g7jMqRmeCnGfEOhZA2gLO7qawZvPg@mail.gmail.com>
-References: <541864D0.7080803@ti.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf-next 00/21] Second Round of IPVS Updates for v3.18
+Date: Tue, 16 Sep 2014 19:25:56 +0200
+Message-ID: <20140916172556.GA21545@salvia>
+References: <1410827675-3637-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:64345 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbaIPRKR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 13:10:17 -0400
-Received: by mail-ig0-f173.google.com with SMTP id l13so5960725iga.12
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 10:10:16 -0700 (PDT)
-In-Reply-To: <541864D0.7080803@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1410827675-3637-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2014-09-16 9:26 GMT-07:00 Mugunthan V N <mugunthanvnm@ti.com>:
-> Hi
->
-> While doing ifdown/ifup test, phy link up status is very much delayed
-> and also link up/down comes alternatively without physical link changes
-> which leads to ifup failure. in v3.12 internal tree there is no failure.
-> Pasting the logs below.
+Hi Simon,
 
-Assuming your driver calls phy_start() and phy_stop() from the
-ndo_open() resp. ndo_stop() functions, these function calls are not
-synchronous, as in they do not wait for the link to go UP resp. DOWN
-before returning. The PHY state machine gets programmed to a new state
-from phy_start() resp. phy_stop() and the next workqueue execution
-will proceed with an actual state change.
+On Tue, Sep 16, 2014 at 09:34:14AM +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> please consider these IPVS updates for v3.18.
+> 
+> * Add simple weighted failover scheduler
+>   - Thanks to Kenny Mathis
+> * Support v6 real servers in v4 pools and vice versa
+>   - Thanks to Alex Gartrell and Julian Anastasov
 
->
-> root@am437x-evm:~# ifup eth0
-> [  652.633204] net eth0: initializing cpsw version 1.15 (0)
-> [  652.717428] net eth0: phy found : id is : 0x221622
-> udhcpc (v1.20.2) started
-> Sending discover...
-> Sending discover...
-> [  658.717859] cpsw 4a100000.ethernet eth0: Link is Up - 1Gbps/Full -
-> flow control rx/tx
-> Sending discover...
-> [  660.717894] cpsw 4a100000.ethernet eth0: Link is Down
-> [  661.717937] cpsw 4a100000.ethernet eth0: Link is Up - 1Gbps/Full -
-> flow control rx/tx
-> No lease, failing
-> root@am437x-evm:~# udhcpc
-> udhcpc (v1.20.2) started
-> Sending discover...
-> Sending select for 172.24.190.6...
-> Lease of 172.24.190.6 obtained, lease time 3600
-> /etc/udhcpc.d/50default: Adding DNS 192.0.2.2
-> /etc/udhcpc.d/50default: Adding DNS 192.0.2.3
-> root@am437x-evm:~#
->
-> Is this a known issue or any pointers where to look for clues?
+I need a slightly larger description of this series.
 
-This is not a known issue AFAICT, is the link really flapping? Not
-sure if [1] could explain what you are seeing?
+I think you can merge patches 13-19 too. They are mostly two liners
+with a similar description, so they naturally belong to the same
+logical change. I would like to reduce the patchbomb pull request for
+David.
 
-[1]: http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=95e8b10393f88a0db88d97e9d1953f01c854315a
-could ex
-
->
-> Setup: TI-AM437x EVM
-> Phy: Micrel KSZ9031 Gigabit PHY
->
-> Thanks,
-> Mugunthan V N
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
--- 
-Florian
+Thanks.
