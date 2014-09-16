@@ -1,35 +1,238 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net 1/2] r8169: fix the default setting of rx vlan
-Date: Tue, 16 Sep 2014 03:23:05 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB25232A5@RTITMBSV03.realtek.com.tw>
-References: <1394712342-15778-38-Taiwan-albertk@realtek.com>
- <1394712342-15778-39-Taiwan-albertk@realtek.com>
- <20140912194014.GA15496@electric-eye.fr.zoreil.com>
- <0835B3720019904CB8F7AA43166CEEB2523183@RTITMBSV03.realtek.com.tw>
- <20140916000321.GA19564@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140916000321.GA19564@electric-eye.fr.zoreil.com>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH v3 net-next 0/7] net: foo-over-udp (fou)
+Date: Mon, 15 Sep 2014 20:30:17 -0700
+Message-ID: <1410838224-19777-1-git-send-email-therbert@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:63113 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753046AbaIPDal (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 23:30:41 -0400
+Received: by mail-pd0-f173.google.com with SMTP id ft15so7652375pdb.18
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 20:30:41 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Tuesday, September 16, 2014 8:03 AM
-[...]
-> However it's getting messy and the code stomps CPlusCmd in 
-> rtl_open right
-> before it's given a chance to be read in hw_start. Something like the
-> untested patch below should avoid it and keep related things together.
-
-You are right. Your patch is more reasonable. I would sent the patch.
-Thanks.
+This patch series implements foo-over-udp. The idea is that we can
+encapsulate different IP protocols in UDP packets. The rationale for
+this is that networking devices such as NICs and switches are usually
+implemented with UDP (and TCP) specific mechanims for processing. For
+instance, many switches and routers will implement a 5-tuple hash
+for UDP packets to perform Equal Cost Multipath Routing (ECMP) or
+RSS (on NICs). Many NICs also only provide rudimentary checksum
+offload (basic TCP and UDP packet), with foo-over-udp we may be
+able to leverage these NICs to offload checksums of tunneled packets
+(using checksum unnecessary conversion and eventually remote checksum
+offload)
  
-Best Regards,
-Hayes
+An example encapsulation of IPIP over FOU is diagrammed below. As
+illustrated, the packet overhead for FOU is the 8 byte UDP header.
+
++------------------+
+|    IPv4 hdr      |
++------------------+
+|     UDP hdr      |
++------------------+
+|    IPv4 hdr      |
++------------------+
+|     TCP hdr      |
++------------------+
+|   TCP payload    |
++------------------+
+
+Conceptually, FOU should be able to encapsulate any IP protocol.
+The FOU header (UDP hdr.) is essentially an inserted header between the
+IP header and transport, so in the case of TCP or UDP encapsulation
+the pseudo header would be based on the outer IP header and its length
+field must not include the UDP header.
+
+* Receive
+
+In this patch set the RX path for FOU is implemented in a new fou
+module. To enable FOU for a particular protocol, a UDP-FOU socket is
+opened to the port to receive FOU packets. The socket is mapped to the
+IP protocol for the packets. The XFRM mechanism used to receive
+encapsulated packets (udp_encap_rcv) for the port. Upon reception, the
+UDP is removed and packet is reinjected in the stack for the
+corresponding protocol associated with the socket (return -protocol
+from udp_encap_rcv function).
+
+GRO is provided with the appropriate fou_gro_receive and
+fou_gro_complete. These routines need to know the encapsulation
+protocol so we save that in udp_offloads structure with the port
+and pass it in the napi_gro_cb structure.
+
+* TX
+
+This patch series implements FOU transmit encapsulation for IPIP, GRE, and
+SIT. This done by some common infrastructure in ip_tunnel including an
+ip_tunnel_encap to perform FOU encapsulation and common configuration
+to enable FOU on IP tunnels. FOU is configured on existing tunnels and
+does not create any new interfaces. The transmit and receive paths are
+independent, so use of FOU may be assymetric between tunnel endpoints.
+
+* Configuration
+
+The fou module using netlink to configure FOU receive ports. The ip
+command can be augmented with a fou subcommand to support this. e.g. to
+configure FOU for IPIP on port 5555:
+
+  ip fou add port 5555 ipproto 4
+
+GRE, IPIP, and SIT have been modified with netlink commands to
+configure use of FOU on transmit. The "ip link" command will be
+augmented with an encap subcommand (for supporting various forms of
+secondary encapsulation). For instance, to configure an ipip tunnel
+with FOU on port 5555:
+
+  ip link add name tun1 type ipip \
+    remote 192.168.1.1 local 192.168.1.2 ttl 225 \
+    encap fou encap-sport auto encap-dport 5555
+
+* Notes
+  - This patch set does not implement GSO for FOU. The UDP encapsulation
+    code assumes TEB, so that will need to be reimplemented.
+  - When a packet is received through FOU, the UDP header is not
+    actually removed for the skbuf, pointers to transport header
+    and length in the IP header are updated (like in ESP/UDP RX). A
+    side effect is the IP header will now appear to have an incorrect
+    checksum by an external observer (e.g. tcpdump), it will be off
+    by sizeof UDP header. If necessary we could adjust the checksum 
+    to compensate.
+  - Performance results are below. My expectation is that FOU should
+    entail little overhead (clearly there is some work to do :-) ).
+    Optimizing UDP socket lookup for encapsulation ports should help
+    significantly.
+  - I really don't expect/want devices to have special support for any
+    of this. Generic checksum offload mechanisms (NETIF_HW_CSUM
+    and use of CHECKSUM_COMPLETE) should be sufficient. RSS and flow
+    steering is provided by commonly implemented UDP hashing. GRO/GSO
+    seem fairly comparable with LRO/TSO already.
+
+* Performance
+
+Ran netperf TCP_RR and TCP_STREAM tests across various configurations.
+This was performed on bnx2x and I disabled TSO/GSO on sender to get
+fair comparison for FOU versus non-FOU. CPU utilization is reported
+for receive in TCP_STREAM.
+
+  GRE
+    IPv4, FOU, UDP checksum enabled
+      TCP_STREAM
+        24.85% CPU utilization
+        9310.6 Mbps
+      TCP_RR
+        94.2% CPU utilization
+        155/249/460 90/95/99% latencies
+        1.17018e+06 tps
+    IPv4, FOU, UDP checksum disabled
+      TCP_STREAM
+        31.04% CPU utilization
+        9302.22 Mbps
+      TCP_RR
+        94.13% CPU utilization
+        154/239/419 90/95/99% latencies
+        1.17555e+06 tps
+    IPv4, no FOU
+      TCP_STREAM
+        23.13% CPU utilization
+        9354.58 Mbps
+      TCP_RR
+        90.24% CPU utilization
+        156/228/360 90/95/99% latencies
+        1.18169e+06 tps
+
+  IPIP
+    FOU, UDP checksum enabled
+      TCP_STREAM
+        24.13% CPU utilization
+        9328 Mbps
+      TCP_RR
+        94.23
+        149/237/429 90/95/99% latencies
+        1.19553e+06 tps
+    FOU, UDP checksum disabled
+      TCP_STREAM
+        29.13% CPU utilization
+        9370.25 Mbps
+      TCP_RR
+        94.13% CPU utilization
+        149/232/398 90/95/99% latencies
+        1.19225e+06 tps
+    No FOU
+      TCP_STREAM
+        10.43% CPU utilization
+        5302.03 Mbps
+      TCP_RR
+        51.53% CPU utilization
+        215/324/475 90/95/99% latencies
+        864998 tps
+
+  SIT
+    FOU, UDP checksum enabled
+      TCP_STREAM
+        30.38% CPU utilization
+        9176.76 Mbps
+      TCP_RR
+        96.9% CPU utilization
+        170/281/581 90/95/99% latencies
+        1.03372e+06 tps
+    FOU, UDP checksum disabled
+      TCP_STREAM
+        39.6% CPU utilization
+        9176.57 Mbps
+      TCP_RR
+        97.14% CPU utilization
+        167/272/548 90/95/99% latencies
+        1.03203e+06 tps
+    No FOU
+      TCP_STREAM
+        11.2% CPU utilization
+        4636.05 Mbps
+      TCP_RR
+        59.51% CPU utilization
+        232/346/489 90/95/99% latencies
+        813199 tps
+
+v2:
+  - Removed encap IP tunnel ioctls, configuration is done by netlink
+    only.
+  - Don't export fou_create and fou_destroy, they are currently
+    intended to be called within fou module only.
+  - Filled on tunnel netlink structures and functions for new values.
+
+v3:
+  - Fixed change logs for some of the patches.
+  - Remove inline from fou_gro_receive and fou_gro_complete, let
+    compiler decide on these.
+
+
+Tom Herbert (7):
+  net: Export inet_offloads and inet6_offloads
+  fou: Support for foo-over-udp RX path
+  fou: Add GRO support
+  net: Changes to ip_tunnel to support foo-over-udp encapsulation
+  sit: Setup and TX path for sit/UDP foo-over-udp encapsulation
+  ipip: Setup and TX path for ipip/UDP foo-over-udp encapsulation
+  gre: Setup and TX path for gre/UDP foo-over-udp encapsulation
+
+ include/linux/netdevice.h      |   3 +-
+ include/net/ip_tunnels.h       |  19 ++-
+ include/uapi/linux/fou.h       |  32 ++++
+ include/uapi/linux/if_tunnel.h |  16 ++
+ net/ipv4/Kconfig               |  10 ++
+ net/ipv4/Makefile              |   1 +
+ net/ipv4/fou.c                 | 368 +++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/ip_gre.c              |  98 ++++++++++-
+ net/ipv4/ip_tunnel.c           |  91 +++++++++-
+ net/ipv4/ipip.c                |  86 +++++++++-
+ net/ipv4/protocol.c            |   1 +
+ net/ipv4/udp_offload.c         |   5 +-
+ net/ipv6/protocol.c            |   1 +
+ net/ipv6/sit.c                 | 107 ++++++++++--
+ 14 files changed, 814 insertions(+), 24 deletions(-)
+ create mode 100644 include/uapi/linux/fou.h
+ create mode 100644 net/ipv4/fou.c
+
+-- 
+2.1.0.rc2.206.gedb03e5
