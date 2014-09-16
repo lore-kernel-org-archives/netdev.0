@@ -1,57 +1,38 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: [PATCH] bridge: Fix br_should_learn to check vlan_enabled
-Date: Tue, 16 Sep 2014 23:02:43 +0900
-Message-ID: <54184303.9070503@gmail.com>
-References: <1410809066-4434-1-git-send-email-vyasevic@redhat.com> <20140915.173849.609066505150727105.davem@davemloft.net> <541813AB.2060301@lab.ntt.co.jp>
+From: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
+Subject: Re: TCP connection will hang in FIN_WAIT1 after closing if zero window
+ is advertised
+Date: Tue, 16 Sep 2014 18:08:15 +0400
+Message-ID: <5418444F.7010403@oktetlabs.ru>
+References: <54170FC0.6020907@oktetlabs.ru>	 <1410822949.5018.4.camel@localhost> <54183150.5030400@oktetlabs.ru> <1410872966.7106.187.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, vyasevic@redhat.com
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	David Miller <davem@davemloft.net>, vyasevich@gmail.com
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org,
+	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
+	Konstantin Ushakov <kostik@oktetlabs.ru>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:41120 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753867AbaIPOCx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 10:02:53 -0400
-Received: by mail-pa0-f51.google.com with SMTP id kx10so8900178pab.24
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 07:02:53 -0700 (PDT)
-In-Reply-To: <541813AB.2060301@lab.ntt.co.jp>
+Received: from shelob.oktetlabs.ru ([84.52.89.53]:48076 "EHLO
+	shelob.oktetlabs.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753169AbaIPOI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 10:08:27 -0400
+In-Reply-To: <1410872966.7106.187.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(14/09/16 (=E7=81=AB) 19:40), Toshiaki Makita wrote:
-> On 2014/09/16 6:38, David Miller wrote:
->> From: Vladislav Yasevich <vyasevich@gmail.com>
->> Date: Mon, 15 Sep 2014 15:24:26 -0400
->>
->>> As Toshiaki Makita pointed out, the BRIDGE_INPUT_SKB_CB will
->>> not be initialized in br_should_learn() as that function
->>> is called only from br_handle_local_finish().  That is
->>> an input handler for link-local ethernet traffic so it perfectly
->>> correct to check br->vlan_enabled here.
->>>
->>> Reported-by: Toshiaki Makita<toshiaki.makita1@gmail.com>
->>> Fixes: 20adfa1 bridge: Check if vlan filtering is enabled only once=
-=2E
->>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->>
->> Applied, thanks Vlad.
+On 16/09/14 17:09, Eric Dumazet wrote:
+> 1) TCP_USER_TIMEOUT would be the fit for this, but its current
+> implementation do not take care of the probes sent, even in FIN_WAIT
+> state when in this zero window mode. A patch would be needed.
 >
-> Hi David,
->
-> Could you queue this for -stable as well?
-> Without this, FDB can be poisoned by disallowed ports.
-> (the same problem as stated in e0d7968ab6c8 "bridge: Prevent insertio=
-n
-> of FDB entry with disallowed vlan")
-
-I'm sorry, I was confusued.
-This doesn't cause that problem, because if vlan_filtered is 0, fdb is=20
-always updated with vid 0. Such an entry is never used as long as=20
-vlan_filtering is enabled.
-Please ignore my previous mail.
+> 2) SO_LINGER, timeout=0 might work.
+I tried to set SO_LINGER with non-zero timeout before reporting the bug, 
+it did not help. But I've just tried again with the zero timeout 
+(l_linger=0) and it works, the connection has been interrupted 
+immediately after socket closing, RST packet has been sent. It seems 
+like a bug, SO_LINGER with non-zero timeout does not interrupt the 
+connection.
 
 Thanks,
-Toshiaki Makita
+Andrey
