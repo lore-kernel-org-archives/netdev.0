@@ -1,74 +1,113 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH nf-next 04/21] ipvs: Pass destination address family to ip_vs_trash_get_dest
-Date: Tue, 16 Sep 2014 09:34:18 +0900
-Message-ID: <1410827675-3637-5-git-send-email-horms@verge.net.au>
-References: <1410827675-3637-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Alex Gartrell <agartrell@fb.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:37564 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758288AbaIPAfB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 20:35:01 -0400
-In-Reply-To: <1410827675-3637-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [Patch net-next 4/4] net: fec: Workaround for imx6sx enet tx
+ hang when enable three queues
+Date: Tue, 16 Sep 2014 08:52:06 +0800
+Message-ID: <20140916005204.GA23482@dragon>
+References: <1410801177-15872-1-git-send-email-Frank.Li@freescale.com>
+ <1410801177-15872-5-git-send-email-Frank.Li@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: lznuaa@gmail.com, netdev@vger.kernel.org, b38611@freescale.com,
+ davem@davemloft.net, linux-arm-kernel@lists.infradead.org
+To: <Frank.Li@freescale.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1410801177-15872-5-git-send-email-Frank.Li@freescale.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Alex Gartrell <agartrell@fb.com>
+On Tue, Sep 16, 2014 at 01:12:57AM +0800, Frank.Li@freescale.com wrote:
+> From: Fugang Duan <B38611@freescale.com>
+> 
+> When enable three queues on imx6sx enet, and then do tx performance
+> test with iperf tool, after some time running, tx hang.
+> 
+> Found that:
+> 	If uDMA is running, software set TDAR may cause tx hang.
+> 	If uDMA is in idle, software set TDAR don't cause tx hang.
+> 
+> There is a TDAR race condition for mutliQ when the software sets TDAR
+> and the UDMA clears TDAR simultaneously or in a small window (2-4 cycles).
+> This will cause the udma_tx and udma_tx_arbiter state machines to hang.
+> The issue exist at i.MX6SX enet IP.
+> 
+> So, the Workaround is checking TDAR status four time, if TDAR cleared by
+> hardware and then write TDAR, otherwise don't set TDAR.
+> 
+> The patch is only one Workaround for the issue TKT210582.
+> 
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
+> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c | 18 ++++++++++++++++--
+>  1 file changed, 16 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 524ddbe..452e576 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -111,6 +111,13 @@ static void fec_enet_itr_coal_init(struct net_device *ndev);
+>   *   independent rings
+>   */
+>  #define FEC_QUIRK_HAS_AVB		(1 << 8)
+> +/*
+> + * There is a TDAR race condition for mutliQ when the software sets TDAR
+> + * and the UDMA clears TDAR simultaneously or in a small window (2-4 cycles).
+> + * This will cause the udma_tx and udma_tx_arbiter state machines to hang.
+> + * The issue exist at i.MX6SX enet IP.
+> + */
+> +#define FEC_QUIRK_TKT210582		(1 << 9)
 
-Part of a series of diffs to tease out destination family from virtual
-family.  This diff just adds a parameter to ip_vs_trash_get and then uses
-it for comparison rather than svc->af.
+I think TKTxxx number is used by Freescale design team to track issues
+internally, and there should be a corresponding errata number like
+ERRxxx which should be accessible by external people in errata document?
 
-Signed-off-by: Alex Gartrell <agartrell@fb.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_ctl.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+Shawn
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index c840d89..6bd2cc6 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -657,8 +657,8 @@ static void __ip_vs_dst_cache_reset(struct ip_vs_dest *dest)
-  *  scheduling.
-  */
- static struct ip_vs_dest *
--ip_vs_trash_get_dest(struct ip_vs_service *svc, const union nf_inet_addr *daddr,
--		     __be16 dport)
-+ip_vs_trash_get_dest(struct ip_vs_service *svc, int dest_af,
-+		     const union nf_inet_addr *daddr, __be16 dport)
- {
- 	struct ip_vs_dest *dest;
- 	struct netns_ipvs *ipvs = net_ipvs(svc->net);
-@@ -671,11 +671,11 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, const union nf_inet_addr *daddr,
- 		IP_VS_DBG_BUF(3, "Destination %u/%s:%u still in trash, "
- 			      "dest->refcnt=%d\n",
- 			      dest->vfwmark,
--			      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-+			      IP_VS_DBG_ADDR(dest->af, &dest->addr),
- 			      ntohs(dest->port),
- 			      atomic_read(&dest->refcnt));
--		if (dest->af == svc->af &&
--		    ip_vs_addr_equal(svc->af, &dest->addr, daddr) &&
-+		if (dest->af == dest_af &&
-+		    ip_vs_addr_equal(dest_af, &dest->addr, daddr) &&
- 		    dest->port == dport &&
- 		    dest->vfwmark == svc->fwmark &&
- 		    dest->protocol == svc->protocol &&
-@@ -950,7 +950,7 @@ ip_vs_add_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest)
- 	 * Check if the dest already exists in the trash and
- 	 * is from the same service
- 	 */
--	dest = ip_vs_trash_get_dest(svc, &daddr, dport);
-+	dest = ip_vs_trash_get_dest(svc, udest->af, &daddr, dport);
- 
- 	if (dest != NULL) {
- 		IP_VS_DBG_BUF(3, "Get destination %s:%u from trash, "
--- 
-2.0.1
+>  
+>  static struct platform_device_id fec_devtype[] = {
+>  	{
+> @@ -139,7 +146,7 @@ static struct platform_device_id fec_devtype[] = {
+>  		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
+>  				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
+>  				FEC_QUIRK_HAS_VLAN | FEC_QUIRK_ERR006358 |
+> -				FEC_QUIRK_HAS_AVB,
+> +				FEC_QUIRK_HAS_AVB | FEC_QUIRK_TKT210582,
+>  	}, {
+>  		/* sentinel */
+>  	}
+> @@ -709,6 +716,8 @@ static int fec_enet_txq_submit_tso(struct fec_enet_priv_tx_q *txq,
+>  	struct tso_t tso;
+>  	unsigned int index = 0;
+>  	int ret;
+> +	const struct platform_device_id *id_entry =
+> +				platform_get_device_id(fep->pdev);
+>  
+>  	if (tso_count_descs(skb) >= fec_enet_get_free_txdesc_num(fep, txq)) {
+>  		dev_kfree_skb_any(skb);
+> @@ -770,7 +779,12 @@ static int fec_enet_txq_submit_tso(struct fec_enet_priv_tx_q *txq,
+>  	txq->cur_tx = bdp;
+>  
+>  	/* Trigger transmission start */
+> -	writel(0, fep->hwp + FEC_X_DES_ACTIVE(queue));
+> +	if (!(id_entry->driver_data & FEC_QUIRK_TKT210582) ||
+> +		!readl(fep->hwp + FEC_X_DES_ACTIVE(queue)) ||
+> +		!readl(fep->hwp + FEC_X_DES_ACTIVE(queue)) ||
+> +		!readl(fep->hwp + FEC_X_DES_ACTIVE(queue)) ||
+> +		!readl(fep->hwp + FEC_X_DES_ACTIVE(queue)))
+> +		writel(0, fep->hwp + FEC_X_DES_ACTIVE(queue));
+>  
+>  	return 0;
+>  
+> -- 
+> 1.9.1
+> 
