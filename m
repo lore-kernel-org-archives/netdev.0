@@ -1,112 +1,48 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Qdisc: Measuring Head-of-Line blocking with netperf-wrapper
-Date: Tue, 16 Sep 2014 08:30:20 +0200
-Message-ID: <20140916083020.4f46015c@redhat.com>
-References: <20140915184517.6c5474e5@redhat.com>
-	<CA+mtBx_EthN8G0oEUENmVhb8MJ2MrijhT+FRjJPomBLvJPoH_w@mail.gmail.com>
-	<1410801863.7106.169.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: curent state of GSO over IPv6 tunnel
+Date: Tue, 16 Sep 2014 06:30:51 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63B37694@avmb3.qlogic.org>
+References: <B5657A6538887040AD3A81F1008BEC63B365F6@avmb3.qlogic.org>
+	 <1410776054.7106.141.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63B366DB@avmb3.qlogic.org>
+ <1410776995.7106.143.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	Toke =?UTF-8?B?SMO4aWxhbmQtSsO4cmdlbnNl?= =?UTF-8?B?bg==?=
-	<toke@toke.dk>, Dave Taht <dave.taht@gmail.com>, brouer@redhat.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17210 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752189AbaIPGan (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Sep 2014 02:30:43 -0400
-In-Reply-To: <1410801863.7106.169.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:30177 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752867AbaIPGa4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 02:30:56 -0400
+In-Reply-To: <1410776995.7106.143.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 Sep 2014 10:24:23 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
-> On Mon, 2014-09-15 at 10:10 -0700, Tom Herbert wrote:
-> > On Mon, Sep 15, 2014 at 9:45 AM, Jesper Dangaard Brouer
-> > <brouer@redhat.com> wrote:
-> > >
-> > > Hi Eric,
-> > >
-> > > I've constructed a "netperf-wrapper" test for measuring Head-of-Line
-> > > blocking, called "tcp_upload_prio", that I hope you will approve of?
-> > >
-> > >  https://github.com/tohojo/netperf-wrapper/commit/1e6b755e8051b6
-> > >
-> > > The basic idea is to have ping packets with TOS bit 0x10, which end-up
-> > > in the high-prio band of pfifo_fast.  While two TCP uploads utilize
-> > > all the bandwidth.
-> > >
-> > > These high-prio ping packet should then demonstrate the Head-of-Line
-> > > blocking occurring due to 1) packets in the HW TX ring buffer, or
-> > > 2) in the qdisc layers requeue mechanism.  Disgusting these two case
-> > > might be a little difficult.
-> > >
-> > >
-> > >
-> > > Special care need to be take for using this on the default
-> > > qdisc MQ which have pfifo_fast assigned for every HW queue.
-> > >
-> > > Setup requirements:
-> > >  1. IRQ align CPUs to NIC HW queues
-> > >  2. Force netperf-wrapper subcommands to run the same CPU
-> > >   E.g: taskset -c 2 ./netperf-wrapper -H IP tcp_upload_prio
-> > >
-> > > This will force all measurements to go through the same qdisc.  This
-> > > is needed so the ping/latency tests measures the real property of
-> > > the qdisc and Head-of-Line blocking effect.
-> > >
-> > >
-> > > Basically the same as:
-> > >  sudo taskset -c 2 ping -Q 0x10 192.168.8.2
-> > >  sudo taskset -c 2 ping         192.168.8.2
-> > >  sudo taskset -c 2 netperf   -H 192.168.8.2 -t TCP_STREAM -l 120
-> > >  sudo taskset -c 2 netperf   -H 192.168.8.2 -t TCP_STREAM -l 120
-> > > --
-> > ping is a very coarse way to measure latency and in network devices it
-> > doesn't follow same path as TCP/UDP (no 4-tuple for RSS, ECMP) so it's
-> > biased and not a very realistic workload. You might want to try using
-> > netperf TCP_RR at higher priority for a fairer comparison (this is
-> > what I used to verify BQL benefits). 
-
-I worry about starvation, when putting too much/heavy traffic in the
-high prio queue.
-
-I've played with UDP_RR (in high prio queue) to measure the latency, it
-worked well (much less fluctuations than ping) for GSO and TSO , but
-for the none-GSO case it disturbed the two TCP uploads so much, that
-they could not utilize the link.
-
-For TCP_RR I worry what happens if a packet loss and RTO happens, but I
-guess putting this in the high prio queue should make drops (a lot)
-less likely.
-
-> > Also, you probably want to make
-> > sure to have enough antagonist flows to saturate all links when using
-> > MQ.
-
-For the none-GSO case, I guess adding more TCP uploads might help, but
-they might just get starvated.  I'll give it a try.
-
-
-> Jesper, relevant netperf option is :
-> 
->     -y local,remote   Set the socket priority
-
-Check, netperf-wrapper already supports setting these.
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+ID4gPiA+IEhpLA0KPiA+ID4gPg0KPiA+ID4gPiBUcmllZCBydW5uaW5nIHNpbXBsZSBzY2VuYXJp
+b3MgdXNpbmcgaXB2Ni9pcHY2IHZpYSBncmUtdHVubmVsIFtpcDZfZ3JlXS4NCj4gPiA+ID4NCj4g
+PiA+ID4gV2hlbiBJJ3ZlIHRyaWVkIHNuaWZmaW5nIFR4IHRyYWZmaWMgW3RjcGR1bXBdIEkndmUg
+bm90aWNlZCB0aGVyZQ0KPiA+ID4gPiB3ZXJlIG5vIGFnZ3JlZ2F0aW9ucyBiZWluZyBzZXQsIGku
+ZS4sIG9ubHkgTVRVLXNpemVkIHBhY2tldHMgcmVhY2hlZCBOSUMuDQo+ID4gPiA+DQo+ID4gPiA+
+IExvb2tpbmcgYXQgb3V0cHV0IG9mIGBldGh0b29sIC1rJywgSSBjYW4gc2VlIGB0eF9ncmVfc2Vn
+bWVudGF0aW9uJyBpcyBvbi4NCj4gPiA+ID4NCj4gPiA+ID4gV2hhdCdzIHRoZSBjdXJyZW50IHN0
+YXRlIG9mIHRoZSBmZWF0dXJlPyBJcyBpdCBmZWFzaWJsZSBhbmQgSSdtDQo+ID4gPiA+IG1pc3Np
+bmcgc29tZSBjb25maWd1cmF0aW9uLCBvciBpcyBpdCB5ZXQgYW4gdW5zdXBwb3J0ZWQgZmVhdHVy
+ZT8NCj4gPiA+DQo+ID4gPiBBcyBmYXIgYXMgSSBrbm93LCBvbmx5IGJueDJ4IGRyaXZlciBjdXJy
+ZW50bHkgc3VwcG9ydHMNCj4gPiA+IE5FVElGX0ZfR1NPX0dSRQ0KPiA+ID4NCj4gPg0KPiA+IEhp
+IEVyaWMsDQo+ID4NCj4gPiBNaWdodCBiZSB0cnVlLCBidXQgc2hvdWxkIHRoaXMgZmxhZyBob2xk
+IGFueSBzd2F5IG92ZXIgSVB2Nj8NCj4gPiBbQm90aCBhdCB0aGUgbW9tZW50IGFuZCBpbiBnZW5l
+cmFsLCBpLmUuLCBpZiBpdCBkb2VzIG5vdCB3b3VsZCB3ZSBuZWVkDQo+ID4gYW4gYWRkaXRpb25h
+bCBmZWF0dXJlIG9yIHNpbXBseSBleHRlbmQgdGhlIGZ1bmN0aW9uYWxpdHkgc28gdGhhdCBpdA0K
+PiA+IHdvdWxkIGVmZmVjdCBJUHY2IGFzIHdlbGw/XQ0KPiANCj4gQm90aCBpcHY0IGFuZCBpcHY2
+IGFyZSBzdXBwb3J0ZWQgdW5kZXIgdGhpcyBzaW5nbGUgZmxhZy4NCj4gDQo+IFJlYWxseSwgaW4g
+MjAxNCBhbGwgTklDIHN1cHBvcnRpbmcgVFNPIGZvciBHUkUgc2hvdWxkIHN1cHBvcnQgSVB2NiBh
+cyB3ZWxsLg0KPiANCg0KTy5rLiAtIEkgY2FuIHNlZSB0aGF0IG5hdGl2ZWx5IGlwNl9ncmUgZGV2
+aWNlIGRvZXNuJ3Qgc2hvdyBhbnkgZmVhdHVyZXMuDQpJZiBJIHdvdWxkIGxpa2UgdG8gbW9kaWZ5
+IGl0cyBjb2RlIGluIG9yZGVyIGZvciBpdCB0byBzdXBwb3J0IEdTTy9UU08sDQp3aGF0IHdvdWxk
+IHRoYXQgZW50YWlsPw0KDQpbSSBhc3N1bWUgaXQgd291bGQgcmVxdWlyZSBhIGRlZXAtZGl2ZSBv
+dGhlcndpc2Ugc29tZW9uZSB3b3VsZCBoYXZlIGRvbmUNCml0IGFscmVhZHk7IEJ1dCBzdGlsbCwg
+SSdkIGxpa2UgdG8gZ2V0IGEgcG9pbnRlciBpZiBwb3NzaWJsZV0uDQoNClRoYW5rcywNCll1dmFs
+DQo=
