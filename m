@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] r8169: adjust __rtl8169_set_features
-Date: Tue, 16 Sep 2014 15:56:27 -0400 (EDT)
-Message-ID: <20140916.155627.1263306577960098199.davem@davemloft.net>
-References: <20140916000321.GA19564@electric-eye.fr.zoreil.com>
-	<1394712342-15778-42-Taiwan-albertk@realtek.com>
+Subject: Re: [net-next PATCH v2 1/4] net: sched: fix unsued cpu variable
+Date: Tue, 16 Sep 2014 16:00:01 -0400 (EDT)
+Message-ID: <20140916.160001.1211965286020279308.davem@davemloft.net>
+References: <20140916063024.2905.55403.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, romieu@fr.zoreil.com
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-42-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, jhs@mojatatu.com
+To: john.fastabend@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57691 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753250AbaIPUAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 16:00:04 -0400
+In-Reply-To: <20140916063024.2905.55403.stgit@nitbit.x32>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Tue, 16 Sep 2014 11:40:47 +0800
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Mon, 15 Sep 2014 23:30:26 -0700
 
-> Remove the "changed" test in __rtl8169_set_features(). Instead, do
-> simple test in rtl8169_set_features().
+> kbuild test robot reported an unused variable cpu in cls_u32.c
+> after the patch below. This happens when PERF and MARK config
+> variables are disabled
 > 
-> Set the RxChkSum and RxVlan through __rtl8169_set_features() in
-> rtl_open().
+> Fix this is to use separate variables for perf and mark
+> and define the cpu variable inside the ifdef logic.
 > 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> 'commit 459d5f626da7 ("net: sched: make cls_u32 per cpu")'
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-Applied, thanks.
+Applied.
