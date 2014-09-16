@@ -1,50 +1,47 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v2 net-next 0/7] net: foo-over-udp (fou)
-Date: Tue, 16 Sep 2014 13:35:30 -0700
-Message-ID: <CA+mtBx_4czWNAPSD7a06OrDyWrgvULu69E0BMKW5-V-UZatB4A@mail.gmail.com>
-References: <1410750483-3236-1-git-send-email-therbert@google.com>
-	<CAJ3xEMjC5PQENzCXS9SNVm6zUVn7pydxf1MLQ57Br1sGjD1ngQ@mail.gmail.com>
-	<CA+mtBx_+JxUn4zT+XN8DpQcCoz5Du+QtF1xzLno2m1yCwbr6ow@mail.gmail.com>
-	<CAJ3xEMjUKRCOodKs0XF_8xc0WY6=1UH=5STmeLS-a0=ofnSA9w@mail.gmail.com>
-	<CA+mtBx9d4wkcfmbPXm8m-Uz8K=_hjb3Q_a-0YNY4Yhz4cYoD5Q@mail.gmail.com>
-	<CAJ3xEMhax-S1KneM-cpRS9r4yi==JwqaGtMYJ127Ka2tynhHMw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] of: mdio: honor flags passed to of_phy_connect
+Date: Tue, 16 Sep 2014 16:39:51 -0400 (EDT)
+Message-ID: <20140916.163951.1456738615389200706.davem@davemloft.net>
+References: <1410889776-11107-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:59023 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755102AbaIPUfb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 16:35:31 -0400
-Received: by mail-ig0-f174.google.com with SMTP id h18so69044igc.13
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 13:35:30 -0700 (PDT)
-In-Reply-To: <CAJ3xEMhax-S1KneM-cpRS9r4yi==JwqaGtMYJ127Ka2tynhHMw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58106 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751955AbaIPUjx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 16:39:53 -0400
+In-Reply-To: <1410889776-11107-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 16, 2014 at 1:04 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> On Tue, Sep 16, 2014 at 6:00 PM, Tom Herbert <therbert@google.com> wrote:
->> [...] Fortunately, we'll be able to code
->> around mosts of the limitations of deployed NICs that don't implement
->> generic mechanisms (with UDP RSS, checksum conversions,  remote
->> checksum offload) [...]
->
-> So UDP RSS is a clear requirement and NICs have it by now.
->
-> Re checksum conversions, I assume you mean the ability on the RX path
-> to report CHECKSUM_COMPLETE on any sort of IP packet potentially
-> having multiple encapsulations, right? how would you phrase (and
-> model) the other way around, e.g what is the generic requirement on
-> the TX path w.r.t checksum offload?
->
-> And I wasn't sure what do you mean by remote checksum offload, can you clarify?
->
-This is the part intend to solve TX checksum offload for encapsulation
-for "dumb" devices. Unlike, checksum conversion, this one requires a
-bit of protocol support so we need an extensible encapsulation header.
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 16 Sep 2014 10:49:36 -0700
 
-http://tools.ietf.org/html/draft-herbert-remotecsumoffload-00
+> Commit f9a8f83b04e0 ("net: phy: remove flags argument from phy_{attach,
+> connect, connect_direct}") removed the flags argument to the PHY library
+> calls to: phy_{attach,connect,connect_direct}.
+> 
+> Most Device Tree aware drivers call of_phy_connect() with the flag
+> argument set to 0, but some of them might want to set a different value
+> there in order for the PHY driver to key a specific behavior based on
+> the phy_device::dev_flags value.
+> 
+> Allow such drivers to set custom dev_flags as part of the
+> of_phy_connect() call since of_phy_connect() does start the PHY state
+> machine, it will call into the PHY driver config_init() callback which
+> is usually where a specific phy_flags value is important.
+> 
+> Fixes: f9a8f83b04e0 ("net: phy: remove flags argument from phy_{attach, connect, connect_direct}")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-> Or.
+I do not see anyone passing non-zero in as the flags argument.
+
+It is difficult for me to determine the impact of this patch,
+whether it should really go to 'net' and/or 'stable', etc.
+if you don't tell me who this could possibly break.
+
+It's even worse when I do all of the searching around and
+cannot find a breakage case myself. :-/
