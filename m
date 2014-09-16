@@ -1,61 +1,64 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v2 1/4] net: sched: fix unsued cpu variable
-Date: Mon, 15 Sep 2014 23:30:26 -0700
-Message-ID: <20140916063024.2905.55403.stgit@nitbit.x32>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com, davem@davemloft.net,
-	eric.dumazet@gmail.com
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [GIT net-next v3] Open vSwitch
+Date: Tue, 16 Sep 2014 00:23:29 -0700
+Message-ID: <1410852209-1456-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:44974 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752735AbaIPGhs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 02:37:48 -0400
-Received: by mail-ob0-f179.google.com with SMTP id wp18so1617586obc.24
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 23:37:48 -0700 (PDT)
+Received: from na3sys009aog114.obsmtp.com ([74.125.149.211]:60046 "HELO
+	na3sys009aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752485AbaIPHXB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 03:23:01 -0400
+Received: by mail-pa0-f48.google.com with SMTP id hz1so8348658pad.35
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 00:23:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-kbuild test robot reported an unused variable cpu in cls_u32.c
-after the patch below. This happens when PERF and MARK config
-variables are disabled
+Following patches adds recirculation and hash action to OVS.
+First patch removes pointer to stack object. Next three patches
+does code restructuring which is required for last patch.
+Recirculation implementation is changed, according to comments from
+David Miller, to avoid using recursive calls in OVS. It is using
+queue to record recirc action and deferred recirc is executed at
+the end of current actions execution.
 
-Fix this is to use separate variables for perf and mark
-and define the cpu variable inside the ifdef logic.
+v1-v2:
+Changed subsystem name in subject to openvswitch
+v2-v3:
+Added patch to remove pkt_key pointer from skb->cb.
 
-'commit 459d5f626da7 ("net: sched: make cls_u32 per cpu")'
+----------------------------------------------------------------
+The following changes since commit c1f570a6abc192f047550743f9957b617af605af:
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- net/sched/cls_u32.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+  net: dsa: fix mii_bus to host_dev replacement (2014-09-15 17:52:48 -0400)
 
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 5ed5ac4..8cffe5a 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -788,8 +788,8 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 	} else {
- #ifdef CONFIG_CLS_U32_PERF
- 		struct tc_u32_pcnt *gpf;
--#endif
- 		int cpu;
-+#endif
- 
- 		if (nla_put(skb, TCA_U32_SEL,
- 			    sizeof(n->sel) + n->sel.nkeys*sizeof(struct tc_u32_key),
-@@ -816,9 +816,10 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 			struct tc_u32_mark mark = {.val = n->val,
- 						   .mask = n->mask,
- 						   .success = 0};
-+			int cpum;
- 
--			for_each_possible_cpu(cpu) {
--				__u32 cnt = *per_cpu_ptr(n->pcpu_success, cpu);
-+			for_each_possible_cpu(cpum) {
-+				__u32 cnt = *per_cpu_ptr(n->pcpu_success, cpum);
- 
- 				mark.success += cnt;
- 			}
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pshelar/openvswitch.git net_next_ovs
+
+for you to fetch changes up to 971427f353f3c42c8dcef62e7124440df68eb809:
+
+  openvswitch: Add recirc and hash action. (2014-09-15 23:28:14 -0700)
+
+----------------------------------------------------------------
+Andy Zhou (2):
+      openvswitch: simplify sample action implementation
+      openvswitch: Add recirc and hash action.
+
+Pravin B Shelar (3):
+      openvswitch: Remove pkt_key from OVS_CB
+      openvswitch: refactor ovs flow extract API.
+      openvswitch: Use tun_key only for egress tunnel path.
+
+ include/uapi/linux/openvswitch.h |  26 ++++
+ net/openvswitch/actions.c        | 258 +++++++++++++++++++++++++++++++++------
+ net/openvswitch/datapath.c       |  52 ++++----
+ net/openvswitch/datapath.h       |  23 ++--
+ net/openvswitch/flow.c           |  57 ++++++---
+ net/openvswitch/flow.h           |  10 +-
+ net/openvswitch/flow_netlink.c   |  65 +++++++---
+ net/openvswitch/flow_netlink.h   |   4 +-
+ net/openvswitch/vport-gre.c      |  23 ++--
+ net/openvswitch/vport-vxlan.c    |  21 ++--
+ net/openvswitch/vport.c          |  15 ++-
+ 11 files changed, 428 insertions(+), 126 deletions(-)
