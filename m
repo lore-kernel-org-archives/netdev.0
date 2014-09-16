@@ -1,53 +1,47 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/8] of: mdio: honor flags passed to of_phy_connect
-Date: Tue, 16 Sep 2014 16:52:57 -0700
-Message-ID: <1410911584-1559-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/8] net: phy: broadcom: add helper for PHY revision and patch level
+Date: Tue, 16 Sep 2014 16:52:58 -0700
+Message-ID: <1410911584-1559-3-git-send-email-f.fainelli@gmail.com>
 References: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:63768 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753467AbaIPXxy (ORCPT
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:39013 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753032AbaIPXxy (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 19:53:54 -0400
-Received: by mail-pa0-f45.google.com with SMTP id rd3so828695pab.18
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 16:53:53 -0700 (PDT)
+Received: by mail-pa0-f42.google.com with SMTP id lj1so825704pab.15
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 16:53:54 -0700 (PDT)
 In-Reply-To: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit f9a8f83b04e0 ("net: phy: remove flags argument from phy_{attach,
-connect, connect_direct}") removed the flags argument to the PHY library
-calls to: phy_{attach,connect,connect_direct}.
+The Broadcom BCM7xxx internal PHYs do not contain any useful revision
+information in the low 4-bits of their MII_PHYSID2 (MII register 3)
+which could allow us to properly identify them.
 
-Most Device Tree aware drivers call of_phy_connect() with the flag
-argument set to 0, but some of them might want to set a different value
-there in order for the PHY driver to key a specific behavior based on
-the phy_device::phy_flags value.
+As a result, we need the actual hardware block integrating these PHYs:
+GENET or the SF2 switch to tell us what revision they are built with. To
+assist with that, add two helper macros for fetching the the PHY
+revision and patch level from the struct phy_device::dev_flags.
 
-Allow such drivers to set custom phy_flags as part of the
-of_phy_connect() call since of_phy_connect() does start the PHY state
-machine, it will call into the PHY driver config_init() callback which
-is usually where a specific phy_flags value is important.
-
-Fixes: f9a8f83b04e0 ("net: phy: remove flags argument from phy_{attach, connect, connect_direct}")
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/of/of_mdio.c | 2 ++
+ include/linux/brcmphy.h | 2 ++
  1 file changed, 2 insertions(+)
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 401b2453da45..a85d80012993 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -224,6 +224,8 @@ struct phy_device *of_phy_connect(struct net_device *dev,
- 	if (!phy)
- 		return NULL;
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 5bd35cc0d471..e4ee9c6679e8 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -41,6 +41,8 @@
+ #define PHY_BRCM_DIS_TXCRXC_NOENRGY	0x00008000
+ /* Broadcom BCM7xxx specific workarounds */
+ #define PHY_BRCM_100MBPS_WAR		0x00010000
++#define PHY_BRCM_7XXX_REV(x)		(((x) >> 8) & 0xff)
++#define PHY_BRCM_7XXX_PATCH(x)		((x) & 0xff)
+ #define PHY_BCM_FLAGS_VALID		0x80000000
  
-+	phy->dev_flags = flags;
-+
- 	return phy_connect_direct(dev, phy, hndlr, iface) ? NULL : phy;
- }
- EXPORT_SYMBOL(of_phy_connect);
+ /* Broadcom BCM54XX register definitions, common to most Broadcom PHYs */
 -- 
 1.9.1
