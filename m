@@ -1,47 +1,61 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [net-next PATCH v2 1/4] net: sched: fix unsued cpu variable
-Date: Tue, 16 Sep 2014 09:17:26 -0700
-Message-ID: <CAHA+R7NgXAVTzvbE+WZvJ8VXC6J1pHP3+sggOJj=GZda_x17BA@mail.gmail.com>
-References: <20140916063024.2905.55403.stgit@nitbit.x32>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH RFC 1/6] ipv6: also increase fib6_node sernum on deletion
+ events
+Date: Tue, 16 Sep 2014 18:18:53 +0200
+Message-ID: <541862ED.8090600@6wind.com>
+References: <cover.1410477596.git.hannes@stressinduktion.org> <4f55afa99da1dab957b2dc5e7b313a1b70f864f3.1410477596.git.hannes@stressinduktion.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:43942 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754075AbaIPQR2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 12:17:28 -0400
-Received: by mail-lb0-f171.google.com with SMTP id 10so109713lbg.30
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 09:17:26 -0700 (PDT)
-In-Reply-To: <20140916063024.2905.55403.stgit@nitbit.x32>
+Received: from mail-we0-f178.google.com ([74.125.82.178]:54597 "EHLO
+	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754319AbaIPQS4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 12:18:56 -0400
+Received: by mail-we0-f178.google.com with SMTP id q58so84454wes.23
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 09:18:55 -0700 (PDT)
+In-Reply-To: <4f55afa99da1dab957b2dc5e7b313a1b70f864f3.1410477596.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 15, 2014 at 11:30 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> kbuild test robot reported an unused variable cpu in cls_u32.c
-> after the patch below. This happens when PERF and MARK config
-> variables are disabled
+Le 12/09/2014 01:21, Hannes Frederic Sowa a =C3=A9crit :
+> fib6_add increases the fn_sernum of fib6_nodes while it traverses the
+> tree. This serial number is used by ip6_dst_check to judge whether a
+> relookup for the socket cache should be done (e.g. a better route is
+> available).
 >
-> Fix this is to use separate variables for perf and mark
-> and define the cpu variable inside the ifdef logic.
+> We didn't do so for fib6_del, so we missed relookups on ipv6 address
+> deletion events. Because this caused trouble in the SCTP stack, inste=
+ad
+> the genid for ipv6 was bumped. Also TCP connections used old source
+> addresses, which were not available anymore.
 >
-> 'commit 459d5f626da7 ("net: sched: make cls_u32 per cpu")'
-
-
-Please use the Fixes: tag.
-
-
+> Because we have static rt6_nodes in the tree (no RTF_GATEWAY,
+> RTF_NONEXTHOP nor RTF_CACHE nodes but still DST_HOST) flag, we ended =
+up
+> in a situation where the genid of the routing node was always smaller
+> than the published genid in the namespace. That caused ip6_dst_check =
+to
+> always discard the current dst_entry and a relookup happend.
 >
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> This patch prepares for the removal of the ipv6 genid by also modifyi=
+ng
+> the fn_sernum on route deletion.
+>
+> Thanks to Eric Dumazet who noticed this problem!
+>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Vlad Yasevich <vyasevich@gmail.com>
+> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+This serie looks good to me. Thank you for working on this topic!
 
-Other than that,
 
-Acked-by: Cong Wang <cwang@twopensource.com>
-
-Thanks!
+Regards,
+Nicolas
