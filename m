@@ -1,45 +1,43 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: tg3 issue with tcp checksums and vlan packets
-Date: Tue, 16 Sep 2014 14:45:57 -0400
-Message-ID: <54188565.7040600@gmail.com>
-References: <541868A9.7080407@gmail.com> <1410886475.7520.73.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCHv4 net-next 2/3] sunvnet: allow admin to set sunvnet MTU
+Date: Tue, 16 Sep 2014 14:51:37 -0400
+Message-ID: <541886B9.3010206@oracle.com>
+References: <541785D8.5030101@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Prashant Sreedharan <prashant@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f169.google.com ([209.85.216.169]:52015 "EHLO
-	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754594AbaIPSqA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 14:46:00 -0400
-Received: by mail-qc0-f169.google.com with SMTP id r5so447439qcx.28
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 11:45:59 -0700 (PDT)
-In-Reply-To: <1410886475.7520.73.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:50638 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755282AbaIPSvo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 14:51:44 -0400
+In-Reply-To: <541785D8.5030101@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/16/2014 12:54 PM, Michael Chan wrote:
-> On Tue, 2014-09-16 at 12:43 -0400, Vlad Yasevich wrote: 
->> Prashant and Michael
->>
->> I am seeing a strange issue with tg3 driver when I try to pass to it tcp packets
->> that have partial checksums and inline (non-accelerated) vlan header.
->>
-> 
-> Are you disabling NETIF_F_HW_VLAN_CTAG_TX?  I believe TX checksum and
-> TSO won't work.  We need to add some code to disable both when VLAN
-> acceleration is disabled.
-> 
-> 
 
-No, in this case, I am simply creating an 802.1ad vlan on top.  Since
-tg3 doesn't provide ETIF_F_HW_VLAN_STAG_TX, we follow the non-accelerated
-path.
 
-Currently the driver doesn't appear to be offer ability to disable vlan acceleration.
-However, if any software devices on top of the card do not support it for some reason,
-then the issue would be seen as well.
+On 09/15/2014 08:35 PM, David L Stevens wrote:
 
--vlad
+>   */
+>  #define VNET_TX_TIMEOUT			(5 * HZ)
+>  
+> -#define VNET_MAXPACKET			1518ULL /* ETH_FRAMELEN + VLAN_HDR */
+> +#define VNET_MAXPACKET			65553ULL /* 64K-1  +ETH HDR +VLAN HDR*/
+>  #define VNET_TX_RING_SIZE		512
+>  #define VNET_TX_WAKEUP_THRESH(dr)	((dr)->pending / 4)
+
+While looking at adding TSO support, I've turned up a bug with this.
+
+The transmit buffer mapping should be using a cookie per-page and this increases
+the page count (without page alignment) from 2 with a 1500-byte MTU to 10 with a 64K MTU
++ framing and allowing from unaligned buffers.
+
+I think it worked during my testing because the pages were contiguous, but the tx buffer
+allocation code is assuming 2 pages (and 2 cookies) max.
+
+So, it's incorrect. I'll fix and repost; please don't apply these yet.
+
+							+-DLS
