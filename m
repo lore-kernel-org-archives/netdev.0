@@ -1,61 +1,67 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v2 1/3] can: c_can_platform: Fix c_can_hw_raminit_ti()
- and add timeout
-Date: Tue, 16 Sep 2014 16:13:33 +0200
-Message-ID: <5418458D.7030709@pengutronix.de>
-References: <1410273070-22485-1-git-send-email-rogerq@ti.com> <1410273070-22485-2-git-send-email-rogerq@ti.com> <540F0FDD.60201@pengutronix.de> <540F1138.3090502@ti.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: bisected regression: 3c59x corrupts packets in 3.17-rc5
+Date: Tue, 16 Sep 2014 10:31:22 -0400
+Message-ID: <20140916143122.GD3792@hmsreliant.think-freely.org>
+References: <alpine.LRH.2.11.1409160209280.21050@adalberg.ut.ee>
+ <20140916101704.GA3792@hmsreliant.think-freely.org>
+ <alpine.LRH.2.11.1409161327110.24403@adalberg.ut.ee>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="jeCUGKnIeamVp0AimWKQlWEeWO9TrROtv"
-Cc: tony@atomide.com, tglx@linutronix.de, mugunthanvnm@ti.com,
-	george.cherian@ti.com, balbi@ti.com, nsekhar@ti.com, nm@ti.com,
-	sergei.shtylyov@cogentembedded.com, linux-omap@vger.kernel.org,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org
-To: Roger Quadros <rogerq@ti.com>, wg@grandegger.com
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <540F1138.3090502@ti.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Steffen Klassert <steffen@klassert.de>, netdev@vger.kernel.org,
+	Linux Kernel list <linux-kernel@vger.kernel.org>
+To: Meelis Roos <mroos@linux.ee>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LRH.2.11.1409161327110.24403@adalberg.ut.ee>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---jeCUGKnIeamVp0AimWKQlWEeWO9TrROtv
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Tue, Sep 16, 2014 at 01:32:31PM +0300, Meelis Roos wrote:
+> [ Fixed Steffen Klasserts bouncing email address as per the bounce message ]
+> 
+> > > Somewhere between 3.17.0-rc3 and 3.17.0-rc5 I started seeing dropped ssh 
+> > > connections to a couple of test servers with dual AthlonMP (32-bit) and 
+> > > 3C90x family of NICs (3Com Corporation 3c980-C 10/100baseTX NIC 
+> > > [Python-T] (rev 78) in one server and 3Com Corporation 3c905C-TX/TX-M 
+> > > [Tornado] (rev 78) in the other server). Bisect leads to the following 
+> > > commit:
+> > > 
+> > > 98ea232cf63961fad734cc8c5e07e8915ec73073 is the first bad commit
+> > > commit 98ea232cf63961fad734cc8c5e07e8915ec73073
+> > > Author: Neil Horman <nhorman@tuxdriver.com>
+> > > Date:   Thu Sep 4 06:13:38 2014 -0400
+> > > 
+> > >     3c59x: avoid panic in boomerang_start_xmit when finding page address:
+> > >     ...
+> > > 
+> > I'm guessing the above change has uncovered another bug, mostly likely an
+> > exhaustion of dma space on your system.  Nothing in the transmit path there does
+> > any error checking for successful dma mapping, which it really should.  I'd be
+> > willing to be that any dma mapping error leads to a leak in the mapping table.
+> > Does your system have an iommu, or does it use swiotlb?  If its the latter, can
+> > you increase the swiotlb table space and see if that relieves the problem?  In
+> > the interim, I'll start adding some error checking to the transmit path.
+> 
+> # CONFIG_IOMMU_SUPPORT is not set
+> 
+> nothing matching iommu or iotlb in dmesg. I thought the system does not 
+> have any - K7 CPUs and AMD 760MP chipset with normal AGP gart.
+> 
+> [    3.763519] agpgart-amdk7 0000:00:00.0: AMD 760MP chipset
+> [    3.782995] agpgart-amdk7 0000:00:00.0: AGP aperture is 64M @ 0xf8000000
+> 
+Then I think you are likely very lmiited in how much DMA memory you can map (may
+be limited to ZONE_DMA), which is likely from where this problem is stemming.
+Try adding swiotlb= setup to the kernel command line and play with the size to
+see if you can avoid the problem.  I also have a patch I'm sending you to test.
 
-On 09/09/2014 04:39 PM, Roger Quadros wrote:
-> On 09/09/2014 05:34 PM, Marc Kleine-Budde wrote:
->> On 09/09/2014 04:31 PM, Roger Quadros wrote:
->>> Pass the correct 'mask' and 'value' bits to c_can_hw_raminit_wait_ti(=
-).
->>> They seem to have been swapped in the usage instances.
->>
->> Can you split this fix into a seperate patch, please.
->=20
-> OK.
+Neil
 
-I've added this fix only to the can-tree.
-
-Thanks,
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---jeCUGKnIeamVp0AimWKQlWEeWO9TrROtv
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlQYRY0ACgkQjTAFq1RaXHNLNgCgglm8Nlr1Dz8eIERnpbhGpONq
-+2QAn2LC1qLeWewCPFuDgpjs/GzMywjN
-=ISeT
------END PGP SIGNATURE-----
-
---jeCUGKnIeamVp0AimWKQlWEeWO9TrROtv--
+> -- 
+> Meelis Roos (mroos@linux.ee)
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+> 
