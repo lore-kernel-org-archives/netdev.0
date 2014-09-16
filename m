@@ -1,217 +1,164 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v3 net-next 7/7] gre: Setup and TX path for gre/UDP foo-over-udp encapsulation
-Date: Mon, 15 Sep 2014 20:30:24 -0700
-Message-ID: <1410838224-19777-8-git-send-email-therbert@google.com>
-References: <1410838224-19777-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:47371 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754040AbaIPDbN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 23:31:13 -0400
-Received: by mail-pd0-f169.google.com with SMTP id fp1so7646616pdb.0
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 20:31:12 -0700 (PDT)
-In-Reply-To: <1410838224-19777-1-git-send-email-therbert@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net] r8169: adjust __rtl8169_set_features
+Date: Tue, 16 Sep 2014 11:40:47 +0800
+Message-ID: <1394712342-15778-42-Taiwan-albertk@realtek.com>
+References: <20140916000321.GA19564@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140916000321.GA19564@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Added netlink attrs to configure FOU encapsulation for GRE, netlink
-handling of these flags, and properly adjust MTU for encapsulation.
-ip_tunnel_encap is called from ip_tunnel_xmit to actually perform FOU
-encapsulation.
+Remove the "changed" test in __rtl8169_set_features(). Instead, do
+simple test in rtl8169_set_features().
 
-Signed-off-by: Tom Herbert <therbert@google.com>
+Set the RxChkSum and RxVlan through __rtl8169_set_features() in
+rtl_open().
+
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- include/uapi/linux/if_tunnel.h |  4 ++
- net/ipv4/ip_gre.c              | 98 +++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 95 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 74 +++++++++++++++++-------------------
+ 1 file changed, 34 insertions(+), 40 deletions(-)
 
-diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
-index 9fedca7..7c832af 100644
---- a/include/uapi/linux/if_tunnel.h
-+++ b/include/uapi/linux/if_tunnel.h
-@@ -106,6 +106,10 @@ enum {
- 	IFLA_GRE_ENCAP_LIMIT,
- 	IFLA_GRE_FLOWINFO,
- 	IFLA_GRE_FLAGS,
-+	IFLA_GRE_ENCAP_TYPE,
-+	IFLA_GRE_ENCAP_FLAGS,
-+	IFLA_GRE_ENCAP_SPORT,
-+	IFLA_GRE_ENCAP_DPORT,
- 	__IFLA_GRE_MAX,
- };
- 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 9b84254..5681344 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -239,7 +239,7 @@ static void __gre_xmit(struct sk_buff *skb, struct net_device *dev,
- 	tpi.seq = htonl(tunnel->o_seqno);
- 
- 	/* Push GRE header. */
--	gre_build_header(skb, &tpi, tunnel->hlen);
-+	gre_build_header(skb, &tpi, tunnel->tun_hlen);
- 
- 	ip_tunnel_xmit(skb, dev, tnl_params, tnl_params->protocol);
- }
-@@ -310,7 +310,7 @@ out:
- static int ipgre_tunnel_ioctl(struct net_device *dev,
- 			      struct ifreq *ifr, int cmd)
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 7a7860a..ef2cee5 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1783,33 +1783,31 @@ static void __rtl8169_set_features(struct net_device *dev,
+ 				   netdev_features_t features)
  {
--	int err = 0;
-+	int err;
- 	struct ip_tunnel_parm p;
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+-	netdev_features_t changed = features ^ dev->features;
+ 	void __iomem *ioaddr = tp->mmio_addr;
++	u32 rx_config;
  
- 	if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
-@@ -470,13 +470,18 @@ static void ipgre_tunnel_setup(struct net_device *dev)
- static void __gre_tunnel_init(struct net_device *dev)
- {
- 	struct ip_tunnel *tunnel;
-+	int t_hlen;
+-	if (!(changed & (NETIF_F_RXALL | NETIF_F_RXCSUM |
+-			 NETIF_F_HW_VLAN_CTAG_RX)))
+-		return;
++	rx_config = RTL_R32(RxConfig);
++	if (features & NETIF_F_RXALL)
++		rx_config |= (AcceptErr | AcceptRunt);
++	else
++		rx_config &= ~(AcceptErr | AcceptRunt);
  
- 	tunnel = netdev_priv(dev);
--	tunnel->hlen = ip_gre_calc_hlen(tunnel->parms.o_flags);
-+	tunnel->tun_hlen = ip_gre_calc_hlen(tunnel->parms.o_flags);
- 	tunnel->parms.iph.protocol = IPPROTO_GRE;
+-	if (changed & (NETIF_F_RXCSUM | NETIF_F_HW_VLAN_CTAG_RX)) {
+-		if (features & NETIF_F_RXCSUM)
+-			tp->cp_cmd |= RxChkSum;
+-		else
+-			tp->cp_cmd &= ~RxChkSum;
++	RTL_W32(RxConfig, rx_config);
  
--	dev->needed_headroom	= LL_MAX_HEADER + sizeof(struct iphdr) + 4;
--	dev->mtu		= ETH_DATA_LEN - sizeof(struct iphdr) - 4;
-+	tunnel->hlen = tunnel->tun_hlen + tunnel->encap_hlen;
+-		if (features & NETIF_F_HW_VLAN_CTAG_RX)
+-			tp->cp_cmd |= RxVlan;
+-		else
+-			tp->cp_cmd &= ~RxVlan;
++	if (features & NETIF_F_RXCSUM)
++		tp->cp_cmd |= RxChkSum;
++	else
++		tp->cp_cmd &= ~RxChkSum;
+ 
+-		RTL_W16(CPlusCmd, tp->cp_cmd);
+-		RTL_R16(CPlusCmd);
+-	}
+-	if (changed & NETIF_F_RXALL) {
+-		int tmp = (RTL_R32(RxConfig) & ~(AcceptErr | AcceptRunt));
+-		if (features & NETIF_F_RXALL)
+-			tmp |= (AcceptErr | AcceptRunt);
+-		RTL_W32(RxConfig, tmp);
+-	}
++	if (features & NETIF_F_HW_VLAN_CTAG_RX)
++		tp->cp_cmd |= RxVlan;
++	else
++		tp->cp_cmd &= ~RxVlan;
 +
-+	t_hlen = tunnel->hlen + sizeof(struct iphdr);
++	tp->cp_cmd |= RTL_R16(CPlusCmd) & ~(RxVlan | RxChkSum);
 +
-+	dev->needed_headroom	= LL_MAX_HEADER + t_hlen + 4;
-+	dev->mtu		= ETH_DATA_LEN - t_hlen - 4;
- 
- 	dev->features		|= GRE_FEATURES;
- 	dev->hw_features	|= GRE_FEATURES;
-@@ -628,6 +633,40 @@ static void ipgre_netlink_parms(struct nlattr *data[], struct nlattr *tb[],
- 		parms->iph.frag_off = htons(IP_DF);
++	RTL_W16(CPlusCmd, tp->cp_cmd);
++	RTL_R16(CPlusCmd);
  }
  
-+/* This function returns true when ENCAP attributes are present in the nl msg */
-+static bool ipgre_netlink_encap_parms(struct nlattr *data[],
-+				      struct ip_tunnel_encap *ipencap)
-+{
-+	bool ret = false;
-+
-+	memset(ipencap, 0, sizeof(*ipencap));
-+
-+	if (!data)
-+		return ret;
-+
-+	if (data[IFLA_GRE_ENCAP_TYPE]) {
-+		ret = true;
-+		ipencap->type = nla_get_u16(data[IFLA_GRE_ENCAP_TYPE]);
-+	}
-+
-+	if (data[IFLA_GRE_ENCAP_FLAGS]) {
-+		ret = true;
-+		ipencap->flags = nla_get_u16(data[IFLA_GRE_ENCAP_FLAGS]);
-+	}
-+
-+	if (data[IFLA_GRE_ENCAP_SPORT]) {
-+		ret = true;
-+		ipencap->sport = nla_get_u16(data[IFLA_GRE_ENCAP_SPORT]);
-+	}
-+
-+	if (data[IFLA_GRE_ENCAP_DPORT]) {
-+		ret = true;
-+		ipencap->dport = nla_get_u16(data[IFLA_GRE_ENCAP_DPORT]);
-+	}
-+
-+	return ret;
-+}
-+
- static int gre_tap_init(struct net_device *dev)
+ static int rtl8169_set_features(struct net_device *dev,
+@@ -1817,8 +1815,11 @@ static int rtl8169_set_features(struct net_device *dev,
  {
- 	__gre_tunnel_init(dev);
-@@ -657,18 +696,40 @@ static int ipgre_newlink(struct net *src_net, struct net_device *dev,
- 			 struct nlattr *tb[], struct nlattr *data[])
- {
- 	struct ip_tunnel_parm p;
-+	struct ip_tunnel *nt = netdev_priv(dev);
-+	struct ip_tunnel_encap ipencap;
-+	int err;
-+
-+	if (ipgre_netlink_encap_parms(data, &ipencap)) {
-+		err = ip_tunnel_encap_setup(nt, &ipencap);
-+		if (err < 0)
-+			return err;
-+	}
+ 	struct rtl8169_private *tp = netdev_priv(dev);
  
- 	ipgre_netlink_parms(data, tb, &p);
--	return ip_tunnel_newlink(dev, tb, &p);
-+	err = ip_tunnel_newlink(dev, tb, &p);
++	features &= NETIF_F_RXALL | NETIF_F_RXCSUM | NETIF_F_HW_VLAN_CTAG_RX;
 +
-+	return err;
- }
+ 	rtl_lock_work(tp);
+-	__rtl8169_set_features(dev, features);
++	if (features ^ dev->features);
++		__rtl8169_set_features(dev, features);
+ 	rtl_unlock_work(tp);
  
- static int ipgre_changelink(struct net_device *dev, struct nlattr *tb[],
- 			    struct nlattr *data[])
- {
-+	struct ip_tunnel *t = netdev_priv(dev);
- 	struct ip_tunnel_parm p;
-+	struct ip_tunnel_encap ipencap;
-+	int err;
-+
-+	if (ipgre_netlink_encap_parms(data, &ipencap)) {
-+		err = ip_tunnel_encap_setup(t, &ipencap);
-+		if (err < 0)
-+			return err;
-+	}
- 
- 	ipgre_netlink_parms(data, tb, &p);
--	return ip_tunnel_changelink(dev, tb, &p);
-+	err = ip_tunnel_changelink(dev, tb, &p);
-+
-+	return err;
- }
- 
- static size_t ipgre_get_size(const struct net_device *dev)
-@@ -694,6 +755,14 @@ static size_t ipgre_get_size(const struct net_device *dev)
- 		nla_total_size(1) +
- 		/* IFLA_GRE_PMTUDISC */
- 		nla_total_size(1) +
-+		/* IFLA_GRE_ENCAP_TYPE */
-+		nla_total_size(2) +
-+		/* IFLA_GRE_ENCAP_FLAGS */
-+		nla_total_size(2) +
-+		/* IFLA_GRE_ENCAP_SPORT */
-+		nla_total_size(2) +
-+		/* IFLA_GRE_ENCAP_DPORT */
-+		nla_total_size(2) +
- 		0;
- }
- 
-@@ -714,6 +783,17 @@ static int ipgre_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_u8(skb, IFLA_GRE_PMTUDISC,
- 		       !!(p->iph.frag_off & htons(IP_DF))))
- 		goto nla_put_failure;
-+
-+	if (nla_put_u16(skb, IFLA_GRE_ENCAP_TYPE,
-+			t->encap.type) ||
-+	    nla_put_u16(skb, IFLA_GRE_ENCAP_SPORT,
-+			t->encap.sport) ||
-+	    nla_put_u16(skb, IFLA_GRE_ENCAP_DPORT,
-+			t->encap.dport) ||
-+	    nla_put_u16(skb, IFLA_GRE_ENCAP_FLAGS,
-+			t->encap.dport))
-+		goto nla_put_failure;
-+
  	return 0;
+@@ -6707,12 +6708,7 @@ static int rtl_open(struct net_device *dev)
  
- nla_put_failure:
-@@ -731,6 +811,10 @@ static const struct nla_policy ipgre_policy[IFLA_GRE_MAX + 1] = {
- 	[IFLA_GRE_TTL]		= { .type = NLA_U8 },
- 	[IFLA_GRE_TOS]		= { .type = NLA_U8 },
- 	[IFLA_GRE_PMTUDISC]	= { .type = NLA_U8 },
-+	[IFLA_GRE_ENCAP_TYPE]	= { .type = NLA_U16 },
-+	[IFLA_GRE_ENCAP_FLAGS]	= { .type = NLA_U16 },
-+	[IFLA_GRE_ENCAP_SPORT]	= { .type = NLA_U16 },
-+	[IFLA_GRE_ENCAP_DPORT]	= { .type = NLA_U16 },
- };
+ 	rtl8169_init_phy(dev, tp);
  
- static struct rtnl_link_ops ipgre_link_ops __read_mostly = {
+-	if (dev->features & NETIF_F_HW_VLAN_CTAG_RX)
+-		tp->cp_cmd |= RxVlan;
+-	else
+-		tp->cp_cmd &= ~RxVlan;
+-
+-	RTL_W16(CPlusCmd, tp->cp_cmd);
++	__rtl8169_set_features(dev, dev->features);
+ 
+ 	rtl_pll_power_up(tp);
+ 
+@@ -7123,8 +7119,7 @@ static void rtl_hw_initialize(struct rtl8169_private *tp)
+ 	}
+ }
+ 
+-static int
+-rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
++static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	const struct rtl_cfg_info *cfg = rtl_cfg_infos + ent->driver_data;
+ 	const unsigned int region = cfg->region;
+@@ -7199,7 +7194,7 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_out_mwi_2;
+ 	}
+ 
+-	tp->cp_cmd = RxChkSum;
++	tp->cp_cmd = 0;
+ 
+ 	if ((sizeof(dma_addr_t) > 4) &&
+ 	    !pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) && use_dac) {
+@@ -7240,13 +7235,6 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	pci_set_master(pdev);
+ 
+-	/*
+-	 * Pretend we are using VLANs; This bypasses a nasty bug where
+-	 * Interrupts stop flowing on high load on 8110SCd controllers.
+-	 */
+-	if (tp->mac_version == RTL_GIGA_MAC_VER_05)
+-		tp->cp_cmd |= RxVlan;
+-
+ 	rtl_init_mdio_ops(tp);
+ 	rtl_init_pll_power_ops(tp);
+ 	rtl_init_jumbo_ops(tp);
+@@ -7307,8 +7295,14 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
+ 		NETIF_F_HIGHDMA;
+ 
++	tp->cp_cmd |= RxChkSum | RxVlan;
++
++	/*
++	 * Pretend we are using VLANs; This bypasses a nasty bug where
++	 * Interrupts stop flowing on high load on 8110SCd controllers.
++	 */
+ 	if (tp->mac_version == RTL_GIGA_MAC_VER_05)
+-		/* 8110SCd requires hardware Rx VLAN - disallow toggling */
++		/* Disallow toggling */
+ 		dev->hw_features &= ~NETIF_F_HW_VLAN_CTAG_RX;
+ 
+ 	if (tp->txd_version == RTL_TD_0)
 -- 
-2.1.0.rc2.206.gedb03e5
+1.9.3
