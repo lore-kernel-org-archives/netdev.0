@@ -1,98 +1,50 @@
-From: <Frank.Li@freescale.com>
-Subject: [Patch net-next 1/1] net: fec: fix build error at m68k platform
-Date: Wed, 17 Sep 2014 02:34:18 +0800
-Message-ID: <1410892458-2113-1-git-send-email-Frank.Li@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 2/7] fou: Support for foo-over-udp RX path
+Date: Tue, 16 Sep 2014 15:42:42 -0400 (EDT)
+Message-ID: <20140916.154242.2033127900890183747.davem@davemloft.net>
+References: <1410838224-19777-1-git-send-email-therbert@google.com>
+	<1410838224-19777-3-git-send-email-therbert@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
-	Frank Li <Frank.Li@freescale.com>
-To: <b38611@freescale.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0112.outbound.protection.outlook.com ([207.46.100.112]:1920
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754881AbaIPTiV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Sep 2014 15:38:21 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:57569 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755150AbaIPTmq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 15:42:46 -0400
+In-Reply-To: <1410838224-19777-3-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <Frank.Li@freescale.com>
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 15 Sep 2014 20:30:19 -0700
 
-reproduce:
-  wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
-  chmod +x ~/bin/make.cross
-  git checkout 4d494cdc92b3b9a0f5fb9e1560810fa27d5a0489
-  make.cross ARCH=m68k  m5272c3_defconfig
-  make.cross ARCH=m68k
+> +static inline struct fou *fou_from_sock(struct sock *sk)
+> +{
+> +	return (struct fou *)sk->sk_user_data;
+> +}
 
-drivers/net/ethernet/freescale/fec.h:262:0: warning: "FEC_R_DES_START" redefined
- #define FEC_R_DES_START(X) ((X == 1) ? FEC_R_DES_START_1 : \
- ^
-drivers/net/ethernet/freescale/fec.h:158:0: note: this is the location of the previous definition
- #define FEC_R_DES_START  0x3d0 /* Receive descriptor ring */
- ^
-drivers/net/ethernet/freescale/fec.h:265:0: warning: "FEC_X_DES_START" redefined
- #define FEC_X_DES_START(X) ((X == 1) ? FEC_X_DES_START_1 : \
+Void pointers never need explicit casts, please remove it.
 
-...
+> +static int fou_create(struct net *net, struct fou_cfg *cfg,
+> +		      struct socket **sockp)
+> +{
+ ...
+> +	/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
+> +	fou->protocol = cfg->protocol;
+> +	fou->port =  cfg->udp_config.local_udp_port;
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
- This patch based on previous interrupt coalescence patches
+Hmmm...
 
- drivers/net/ethernet/freescale/fec.h | 30 +++++++++++++++++++++++++-----
- 1 file changed, 25 insertions(+), 5 deletions(-)
+> +	u16 port = htons(cfg->udp_config.local_udp_port);
+> +	int err = -EINVAL;
+> +
+> +	spin_lock(&fou_lock);
+> +	list_for_each_entry(fou, &fou_list, list) {
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 2814610..de86d61 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -140,8 +140,12 @@
- #define FEC_IEVENT		0x004 /* Interrupt even reg */
- #define FEC_IMASK		0x008 /* Interrupt mask reg */
- #define FEC_IVEC		0x00c /* Interrupt vec status reg */
--#define FEC_R_DES_ACTIVE	0x010 /* Receive descriptor reg */
--#define FEC_X_DES_ACTIVE	0x014 /* Transmit descriptor reg */
-+#define FEC_R_DES_ACTIVE_0	0x010 /* Receive descriptor reg */
-+#define FEC_R_DES_ACTIVE_1	FEC_R_DES_ACTIVE_0
-+#define FEC_R_DES_ACTIVE_2	FEC_R_DES_ACTIVE_0
-+#define FEC_X_DES_ACTIVE_0	0x014 /* Transmit descriptor reg */
-+#define FEC_X_DES_ACTIVE_1	FEC_X_DES_ACTIVE_0
-+#define FEC_X_DES_ACTIVE_2	FEC_X_DES_ACTIVE_0
- #define FEC_MII_DATA		0x040 /* MII manage frame reg */
- #define FEC_MII_SPEED		0x044 /* MII speed control reg */
- #define FEC_R_BOUND		0x08c /* FIFO receive bound reg */
-@@ -155,11 +159,27 @@
- #define FEC_ADDR_HIGH		0x3c4 /* High 16bits MAC address */
- #define FEC_GRP_HASH_TABLE_HIGH	0x3c8 /* High 32bits hash table */
- #define FEC_GRP_HASH_TABLE_LOW	0x3cc /* Low 32bits hash table */
--#define FEC_R_DES_START		0x3d0 /* Receive descriptor ring */
--#define FEC_X_DES_START		0x3d4 /* Transmit descriptor ring */
-+#define FEC_R_DES_START_0	0x3d0 /* Receive descriptor ring */
-+#define FEC_R_DES_START_1	FEC_R_DES_START_0
-+#define FEC_R_DES_START_2	FEC_R_DES_START_0
-+#define FEC_X_DES_START_0	0x3d4 /* Transmit descriptor ring */
-+#define FEC_X_DES_START_1	FEC_X_DES_START_0
-+#define FEC_X_DES_START_2	FEC_X_DES_START_0
- #define FEC_R_BUFF_SIZE		0x3d8 /* Maximum receive buff size */
- #define FEC_FIFO_RAM		0x400 /* FIFO RAM buffer */
--
-+/* Not existed in real chip
-+ * Just for pass build.
-+ */
-+#define FEC_RCMR_1		0xFFF
-+#define FEC_RCMR_2		0xFFF
-+#define FEC_DMA_CFG_1		0xFFF
-+#define FEC_DMA_CFG_2		0xFFF
-+#define FEC_TXIC0		0xFFF
-+#define FEC_TXIC1		0xFFF
-+#define FEC_TXIC2		0xFFF
-+#define FEC_RXIC0		0xFFF
-+#define FEC_RXIC1		0xFFF
-+#define FEC_RXIC2		0xFFF
- #endif /* CONFIG_M5272 */
- 
- 
--- 
-1.9.1
+Why different endianness for create and destroy?  Please make both
+operations use the same endianness for the port.
+
+> +		if (fou->port == port) {
