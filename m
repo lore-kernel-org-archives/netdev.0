@@ -1,71 +1,53 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: RE: [PATCH 3] scsi: fix build errors, SCSI_FC_ATTRS needs to depend
- on SCSI && NET
-Date: Tue, 16 Sep 2014 03:00:21 +0000
-Message-ID: <525DB349B3FB5444AE057A887CB2A8D88EBB11@nice.asicdesigners.com>
-References: <1410813921-24400-1-git-send-email-anish@chelsio.com>
- <1410813921-24400-2-git-send-email-anish@chelsio.com>,<5417825A.4050902@infradead.org>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [net-next PATCH 3/3] net: sched: cls_cgroup fix possible memory
+ leak of 'new'
+Date: Mon, 15 Sep 2014 20:04:37 -0700
+Message-ID: <CAHA+R7Pz2sCRC7BYAtd2P48gy2oxb=YfJqmx4=+8gKEyLwvMBA@mail.gmail.com>
+References: <20140916024729.3010.47421.stgit@nitbit.x32>
+	<20140916024831.3010.64477.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"mchan@broadcom.com" <mchan@broadcom.com>,
-	"eddie.wai@broadcom.com" <eddie.wai@broadcom.com>,
-	"jim.epost@gmail.com" <jim.epost@gmail.com>
-To: Randy Dunlap <rdunlap@infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"JBottomley@parallels.com" <JBottomley@parallels.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <5417825A.4050902@infradead.org>
-Content-Language: en-US
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:38465 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752914AbaIPDEi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 23:04:38 -0400
+Received: by mail-lb0-f182.google.com with SMTP id u10so1984144lbd.41
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 20:04:37 -0700 (PDT)
+In-Reply-To: <20140916024831.3010.64477.stgit@nitbit.x32>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From : Randy Dunlap [rdunlap@infradead.org]
-> Sent: Monday, September 15, 2014 5:20 PM
-> To: Anish Bhatt; netdev@vger.kernel.org; JBottomley@parallels.com; David Miller
-> Cc: linux-scsi@vger.kernel.org; mchan@broadcom.com; eddie.wai@broadcom.com; jim.epost@gmail.com
-> Subject: [PATCH 3] scsi: fix build errors, SCSI_FC_ATTRS needs to depend on SCSI && NET
+On Mon, Sep 15, 2014 at 7:48 PM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+> diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+> index 3b75487..52b7900 100644
+> --- a/net/sched/cls_cgroup.c
+> +++ b/net/sched/cls_cgroup.c
+> @@ -127,16 +127,16 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
+>         err = nla_parse_nested(tb, TCA_CGROUP_MAX, tca[TCA_OPTIONS],
+>                                cgroup_policy);
+>         if (err < 0)
+> -               return err;
+> +               goto errout;
 >
-> From: Randy Dunlap <rdunlap@infradead.org>
+>         tcf_exts_init(&e, TCA_CGROUP_ACT, TCA_CGROUP_POLICE);
+>         err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e, ovr);
+>         if (err < 0)
+> -               return err;
+> +               goto errout;
 >
-> Fix build errors when CONFIG_SCSI_NETLINK is enabled but
-> CONFIG_NET is not enabled:
+>         err = tcf_em_tree_validate(tp, tb[TCA_CGROUP_EMATCHES], &t);
+>         if (err < 0)
+> -               return err;
+> +               goto errout;
 >
-> drivers/built-in.o: In function `scsi_nl_rcv_msg':
-> scsi_netlink.c:(.text+0x1850fa): undefined reference to `netlink_ack'
-> scsi_netlink.c:(.text+0x185105): undefined reference to `skb_pull'
-> scsi_netlink.c:(.text+0x18515d): undefined reference to `netlink_capable'
-> drivers/built-in.o: In function `scsi_netlink_init':
-> (.text+0x185244): undefined reference to `init_net'
-> drivers/built-in.o: In function `scsi_netlink_init':
-> (.text+0x185258): undefined reference to `__netlink_kernel_create'
-> drivers/built-in.o: In function `scsi_netlink_exit':
-> (.text+0x185291): undefined reference to `netlink_kernel_release'
->
-> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
 
-Doesn't fix make warnings, but SCSI_FC_ATTRS can no longer be selected without
-NET. Though both ia64 and powerpc emit a lot of unmet dependency warnings as is 
-on defconfig
-
-Tested-by: Anish Bhatt <anish@chelsio.com>
-> ---
->  drivers/scsi/Kconfig |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> Based on Anish's previous SCSI_NETLINK patch.
-> Sorry about missing this one.
->
-> --- lnx-317-rc5.orig/drivers/scsi/Kconfig
-> +++ lnx-317-rc5/drivers/scsi/Kconfig
-> @@ -257,7 +257,7 @@ config SCSI_SPI_ATTRS
->
->  config SCSI_FC_ATTRS
->         tristate "FiberChannel Transport Attributes"
-> -       depends on SCSI
-> +       depends on SCSI && NET
->         select SCSI_NETLINK
->         help
->           If you wish to export transport-specific information about
+I think you need to call tcf_exts_destroy() too after tcf_exts_validate(),
+while you are on it. :)
