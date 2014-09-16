@@ -1,38 +1,59 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: [PATCH] hostap: proc: Remove unused variable
-Date: Tue, 16 Sep 2014 16:16:55 -0700
-Message-ID: <1410909415-11661-1-git-send-email-broonie@kernel.org>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linaro-kernel@lists.linaro.org, Mark Brown <broonie@kernel.org>
-To: Jouni Malinen <j@w1.fi>,
-	"John W. Linville" <linville@tuxdriver.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/8] net: phy: Broadcom BCM7xxx PHY workaround update
+Date: Tue, 16 Sep 2014 16:52:56 -0700
+Message-ID: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mezzanine.sirena.org.uk ([106.187.55.193]:46385 "EHLO
-	mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753032AbaIPXT2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 19:19:28 -0400
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:64970 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753032AbaIPXxx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 19:53:53 -0400
+Received: by mail-pd0-f179.google.com with SMTP id g10so806339pdj.38
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 16:53:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since "hostap: proc: substitute loops by %*phN" (62c5afb8e388) the
-variable i has been unused in prism2_bss_list_proc_show() so remove it.
+Hi David,
 
-Signed-off-by: Mark Brown <broonie@kernel.org>
----
- drivers/net/wireless/hostap/hostap_proc.c | 1 -
- 1 file changed, 1 deletion(-)
+This patch sets the change to of_phy_connect() that you have seen before,
+this time with the full context of why it is useful and applicable here.
 
-diff --git a/drivers/net/wireless/hostap/hostap_proc.c b/drivers/net/wireless/hostap/hostap_proc.c
-index 3a23a6d..dd84557 100644
---- a/drivers/net/wireless/hostap/hostap_proc.c
-+++ b/drivers/net/wireless/hostap/hostap_proc.c
-@@ -168,7 +168,6 @@ static int prism2_bss_list_proc_show(struct seq_file *m, void *v)
- 	local_info_t *local = m->private;
- 	struct list_head *ptr = v;
- 	struct hostap_bss_info *bss;
--	int i;
- 
- 	if (ptr == &local->bss_list) {
- 		seq_printf(m, "#BSSID\tlast_update\tcount\tcapab_info\tSSID(txt)\t"
+Due to some design decision, the internal PHY on Broadcom BCM7xxx chips
+is not entirely self contained and does not report its internal revision
+through MII_PHYSID2, that is left to external PHY designs.
+
+This forces us to get the PHY revision from the GENET and SF2 switch drivers
+because those two peripherals integrate such a PHY and do contain the PHY
+revision in their registers.
+
+The approach taken here is hopefully easy to extend to similar needs for
+other chips/ as well.
+
+Thanks!
+
+Florian Fainelli (8):
+  of: mdio: honor flags passed to of_phy_connect
+  net: phy: broadcom: add helper for PHY revision and patch level
+  net: phy: bcm7xxx: do not use PHY_BRCM_100MBPS_WAR
+  net: bcmgenet: remove PHY_BRCM_100MBPS_WAR
+  net: bcmgenet: communicate integrated PHY revision to PHY driver
+  net: dsa: allow switch drivers to specify phy_device::dev_flags
+  net: dsa: bcm_sf2: communicate integrated PHY revision to PHY driver
+  net: phy: bcm7xxx: utilize PHY revision in config_init
+
+ drivers/net/dsa/bcm_sf2.c                      | 16 ++++++++++++++++
+ drivers/net/dsa/bcm_sf2.h                      |  1 +
+ drivers/net/dsa/bcm_sf2_regs.h                 |  1 +
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c |  7 +++++++
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  1 +
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   | 18 ++++++------------
+ drivers/net/phy/bcm7xxx.c                      | 25 +++++++++++++++++--------
+ drivers/of/of_mdio.c                           |  2 ++
+ include/linux/brcmphy.h                        |  3 ++-
+ include/net/dsa.h                              |  1 +
+ net/dsa/slave.c                                |  9 ++++++++-
+ 11 files changed, 62 insertions(+), 22 deletions(-)
+
 -- 
-2.1.0
+1.9.1
