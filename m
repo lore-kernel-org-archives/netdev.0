@@ -1,41 +1,65 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 1/3] virtio_net: pass well-formed sgs to virtqueue_add_*()
-Date: Tue, 16 Sep 2014 10:18:15 +0930
-Message-ID: <87wq94fl0w.fsf@rustcorp.com.au>
-References: <1410396458-1165-2-git-send-email-rusty@rustcorp.com.au> <20140912.175440.1013837932148725302.davem@davemloft.net> <87ioksgjt8.fsf@rustcorp.com.au> <20140913.125341.1440485569100220563.davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH 1/3] net: sched: fix unsued cpu variable
+Date: Mon, 15 Sep 2014 19:47:33 -0700
+Message-ID: <20140916024729.3010.47421.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mst@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com, davem@davemloft.net,
+	eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:40786 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754588AbaIPCeO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Sep 2014 22:34:14 -0400
-In-Reply-To: <20140913.125341.1440485569100220563.davem@davemloft.net>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:50966 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752992AbaIPCrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 22:47:52 -0400
+Received: by mail-ob0-f179.google.com with SMTP id wp18so1465671obc.10
+        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 19:47:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> Date: Sat, 13 Sep 2014 15:10:03 +0930
->
->> David Miller <davem@davemloft.net> writes:
->>> Do you guys want me to take this series directly into net-next?
->> 
->> Actually, yes.  Since I'm going to be travelling, that makes it much
->> easier for me.  And no other patches I have depend on it.
->
-> Series applied, but can you be more careful when you hand edit patches
-> or whatever you are doing that puts space characters at the beginning
-> of lines before TAB characters?
->
-> GIT flags this immediately, so even if you are hella lazy just feeding
-> your patches into "git am" will show this.
+kbuild test robot reported an unused variable cpu in cls_u32.c
+after the patch below. This happens when PERF and MARK config
+variables are disabled
 
-Hmm, that was weird, thanks for the warning.  This patch is pretty old,
-so maybe I did hand-hack it at one stage.
+commit 459d5f626da75573e985a7197b0919c3b143146c
+Author: John Fastabend <john.fastabend@gmail.com>
+Date:   Fri Sep 12 20:08:47 2014 -0700
 
-Cheers,
-Rusty.
+    net: sched: make cls_u32 per cpu
+
+Fix this is to use separate variables for perf and mark
+and define the cpu variable inside the ifdef logic.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ net/sched/cls_u32.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 5ed5ac4..8cffe5a 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -788,8 +788,8 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 	} else {
+ #ifdef CONFIG_CLS_U32_PERF
+ 		struct tc_u32_pcnt *gpf;
+-#endif
+ 		int cpu;
++#endif
+ 
+ 		if (nla_put(skb, TCA_U32_SEL,
+ 			    sizeof(n->sel) + n->sel.nkeys*sizeof(struct tc_u32_key),
+@@ -816,9 +816,10 @@ static int u32_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 			struct tc_u32_mark mark = {.val = n->val,
+ 						   .mask = n->mask,
+ 						   .success = 0};
++			int cpum;
+ 
+-			for_each_possible_cpu(cpu) {
+-				__u32 cnt = *per_cpu_ptr(n->pcpu_success, cpu);
++			for_each_possible_cpu(cpum) {
++				__u32 cnt = *per_cpu_ptr(n->pcpu_success, cpum);
+ 
+ 				mark.success += cnt;
+ 			}
