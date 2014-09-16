@@ -1,55 +1,70 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] ip tuntap: Add checking if tun/tap mode was set by default
-Date: Tue, 16 Sep 2014 23:54:34 +0300
-Message-ID: <1410900874-8317-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC 1/6] ipv6: also increase fib6_node sernum on
+ deletion events
+Date: Tue, 16 Sep 2014 23:05:50 +0200
+Message-ID: <1410901550.32691.18.camel@localhost>
+References: <cover.1410477596.git.hannes@stressinduktion.org>
+	 <4f55afa99da1dab957b2dc5e7b313a1b70f864f3.1410477596.git.hannes@stressinduktion.org>
+	 <541862ED.8090600@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:44220 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752935AbaIPVCv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 17:02:51 -0400
-Received: by mail-la0-f52.google.com with SMTP id gq15so613840lab.25
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 14:02:50 -0700 (PDT)
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:36399 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753210AbaIPVFy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 17:05:54 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 800FC206E8
+	for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 17:05:53 -0400 (EDT)
+In-Reply-To: <541862ED.8090600@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This checking was performed only when adding interface but
-it is needed also when deleting, otherwise the error will be:
+On Di, 2014-09-16 at 18:18 +0200, Nicolas Dichtel wrote:
+> Le 12/09/2014 01:21, Hannes Frederic Sowa a =C3=A9crit :
+> > fib6_add increases the fn_sernum of fib6_nodes while it traverses t=
+he
+> > tree. This serial number is used by ip6_dst_check to judge whether =
+a
+> > relookup for the socket cache should be done (e.g. a better route i=
+s
+> > available).
+> >
+> > We didn't do so for fib6_del, so we missed relookups on ipv6 addres=
+s
+> > deletion events. Because this caused trouble in the SCTP stack, ins=
+tead
+> > the genid for ipv6 was bumped. Also TCP connections used old source
+> > addresses, which were not available anymore.
+> >
+> > Because we have static rt6_nodes in the tree (no RTF_GATEWAY,
+> > RTF_NONEXTHOP nor RTF_CACHE nodes but still DST_HOST) flag, we ende=
+d up
+> > in a situation where the genid of the routing node was always small=
+er
+> > than the published genid in the namespace. That caused ip6_dst_chec=
+k to
+> > always discard the current dst_entry and a relookup happend.
+> >
+> > This patch prepares for the removal of the ipv6 genid by also modif=
+ying
+> > the fn_sernum on route deletion.
+> >
+> > Thanks to Eric Dumazet who noticed this problem!
+> >
+> > Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> > Cc: Vlad Yasevich <vyasevich@gmail.com>
+> > Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> This serie looks good to me. Thank you for working on this topic!
 
-    ioctl(TUNSETIFF): Invalid argument
+Thanks a lot for your review, Nicolas! I'll do some more build tests I
+got all the module handling correct and will send the formal submission=
+=2E
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- ip/iptuntap.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/ip/iptuntap.c b/ip/iptuntap.c
-index 2391af2..c6dacd7 100644
---- a/ip/iptuntap.c
-+++ b/ip/iptuntap.c
-@@ -186,6 +186,11 @@ static int parse_args(int argc, char **argv, struct ifreq *ifr, uid_t *uid, gid_
- 		argc--; argv++;
- 	}
- 
-+	if (!(ifr->ifr_flags & TUN_TYPE_MASK)) {
-+		fprintf(stderr, "You failed to specify a tunnel mode\n");
-+		return -1;
-+	}
-+
- 	return 0;
- }
- 
-@@ -199,10 +204,6 @@ static int do_add(int argc, char **argv)
- 	if (parse_args(argc, argv, &ifr, &uid, &gid) < 0)
- 		return -1;
- 
--	if (!(ifr.ifr_flags & TUN_TYPE_MASK)) {
--		fprintf(stderr, "You failed to specify a tunnel mode\n");
--		return -1;
--	}
- 	return tap_add_ioctl(&ifr, uid, gid);
- }
- 
--- 
-2.1.0
+Bye,
+Hannes
