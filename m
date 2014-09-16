@@ -1,69 +1,87 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v2 net-next 0/7] net: foo-over-udp (fou)
-Date: Tue, 16 Sep 2014 08:00:18 -0700
-Message-ID: <CA+mtBx9d4wkcfmbPXm8m-Uz8K=_hjb3Q_a-0YNY4Yhz4cYoD5Q@mail.gmail.com>
-References: <1410750483-3236-1-git-send-email-therbert@google.com>
-	<CAJ3xEMjC5PQENzCXS9SNVm6zUVn7pydxf1MLQ57Br1sGjD1ngQ@mail.gmail.com>
-	<CA+mtBx_+JxUn4zT+XN8DpQcCoz5Du+QtF1xzLno2m1yCwbr6ow@mail.gmail.com>
-	<CAJ3xEMjUKRCOodKs0XF_8xc0WY6=1UH=5STmeLS-a0=ofnSA9w@mail.gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH 3/3] bridge;
+ Automatically filter vlans configured on top of bridge
+Date: Tue, 16 Sep 2014 11:00:37 -0400
+Message-ID: <54185095.4020102@redhat.com>
+References: <1410554691-18467-1-git-send-email-vyasevic@redhat.com>
+	<1410554691-18467-4-git-send-email-vyasevic@redhat.com>
+	<5415B6C2.5030702@gmail.com> <54170372.4080903@redhat.com>
+	<54181EC1.2010608@lab.ntt.co.jp> <54183BCF.8070506@redhat.com>
+	<54184BB9.8010802@gmail.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:61023 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753393AbaIPPAU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 11:00:20 -0400
-Received: by mail-ig0-f174.google.com with SMTP id h18so5667609igc.7
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 08:00:19 -0700 (PDT)
-In-Reply-To: <CAJ3xEMjUKRCOodKs0XF_8xc0WY6=1UH=5STmeLS-a0=ofnSA9w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, bridge@lists.linux-foundation.org
+To: Toshiaki Makita <toshiaki.makita1@gmail.com>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <54184BB9.8010802@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 16, 2014 at 6:35 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> On Mon, Sep 15, 2014 at 10:15 PM, Tom Herbert <therbert@google.com> wrote:
->> On Mon, Sep 15, 2014 at 11:08 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>> On Mon, Sep 15, 2014 at 6:07 AM, Tom Herbert <therbert@google.com> wrote:
->
->>>>   - I really don't expect/want devices to have special support for any
->>>>     of this. Generic checksum offload mechanisms (NETIF_HW_CSUM
->>>>     and use of CHECKSUM_COMPLETE) should be sufficient. RSS and flow
->>>>     steering is provided by commonly implemented UDP hashing. GRO/GSO
->>>>     seem fairly comparable with LRO/TSO already.
->
->>> Again, today NICs are advertizing checksum offloads capability in
->>> enc_hw_features but aren't capable to compute (say) the TCP checksum
->>> of the inner packet regardless of which actual tunneling is used (e.g VXLAN vs
->>> GRE), a bit inconsistent?
->
->> I doubt this is true of all NICs! For instance, a NIC that implements
->> NETIF_F_HW_CSUM should have no problem computing an encapsulated
->> checksums in just about any scenario.
->
-> The comment for NETIF_F_HW_CSUM says "Can checksum all the packets" --
-> so your interpretation is that NICs supporting that will always report
-> CHECKSUM_COMPLETE, OK. But there are bunch of 10/40Gbs NIC drivers
-> that don't report the HW_CSUM bit in neither of the ->features and
-> ->hw_enc_features, the system should act in a manner that supports them.
->
->> Both, checksum offload and TSO
->> can be supported for arbitrary flavors of UDP encapsulation if NICs
->> use protocol agnostic means as opposed to protocol specific means that
->> require a lot of parsing the packets themselves. Look at the long
->> standing comments in sk_buff about why protocol specific methods like
->> CHECKSUM_UNNECESSARY and NETIF_F_IP_CSUM are bad ideas. With the
->> emergence of encapsulation these are now *really* bad ideas!
->
-> So we go and throw away the HW?
->
-No, and this is exactly the point! I shouldn't have to throw away all
-my deployed hardware to just to get support for the latest
-encapsulation protocol du jour. Fortunately, we'll be able to code
-around mosts of the limitations of deployed NICs that don't implement
-generic mechanisms (with UDP RSS, checksum conversions,  remote
-checksum offload). But if you're contemplating a new NIC, *please*
-consider implementing generic, protocol agnostic mechanisms.
+On 09/16/2014 10:39 AM, Toshiaki Makita wrote:
+> (14/09/16 (火) 22:31), Vlad Yasevich wrote:
+>> On 09/16/2014 07:28 AM, Toshiaki Makita wrote:
+>>> On 2014/09/16 0:19, Vlad Yasevich wrote:
+>>>> On 09/14/2014 11:39 AM, Toshiaki Makita wrote:
+>>>>> (14/09/13 (土) 5:44), Vladislav Yasevich wrote:
+>>>>>> If the user configures vlan devices on top of the bridge,
+>>>>>> automatically set up filter entries for it as long as
+>>>>>> bridge vlan protocol matches that of the vlan.
+>>>>>> This allows the user to atomatically receive vlan traffic
+>>>>>> for the vlans that are convifgured.
+>>>>>
+>>>>> Changing br->vlan_proto seems to cause inconsistency between vlan
+>>>>> interfaces and filter settings.
+>>>>> Can we automatically change filters when setting vlan_proto?
+>>>>>
+>>>>
+>>>> I thought we already do that in br_vlan_set_proto()?  Nothing
+>>>> here introduces any new kinds of issue with that code.
+>>>
+>>> I'm referring to a case like this:
+>>> 1. create br0.10 (802.1ad)
+>>> 2. change br->vlan_proto into 88a8
+>>>
+>>> When creating br0.10 (1), br->vlan_proto is 8100 and different from
+>>> protocol of br0.10, so it is ignored by br_vlan_rx_add_vid().
+>>> After changing br->vlan_proto (2), we might expect vlan 10 is not
+>>> filtered on br0, but it will be filtered.
+>>
+>> Ok, I see what you mean.  This one is a bit tough.  Our options are:
+>>   1) Return an error when configuring br0.10.  This might break user-space.  Not good.
+>>   2) Ignore protocol when crating the filter.  This is not good either as the user
+>>      may not switch the bridge vlan_proto value and we'd end up with a wrong filter.
+>>   3) Re-implement .1ad support per-vlan instead of per-bridge.
+>>
+>> You see another other alternatives?
+> 
+> We might be able to configure filterings on changing vlan_proto.
+> 4) Memorize different protocol's filtering requests in
+> br_vlan_rx_add_vid() and use them when switching vlan_proto.
 
-> Or.
+If we do this, we might as well take it one small step further and make per-vlan protocol
+support.
+
+> 5) Scan vlan devices on bridge device when changing vlan_proto.
+> 
+
+The scan could work...  walk the upper devices looking for vlans and add/delete filters
+based on the protocol of the vlan devices.
+
+Seems kind of hacky, but let me give this one a try...
+
+-vlad
+> Thanks,
+> Toshiaki Makita
+> 
