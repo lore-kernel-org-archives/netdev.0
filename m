@@ -1,70 +1,62 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC 1/6] ipv6: also increase fib6_node sernum on
- deletion events
-Date: Tue, 16 Sep 2014 23:05:50 +0200
-Message-ID: <1410901550.32691.18.camel@localhost>
-References: <cover.1410477596.git.hannes@stressinduktion.org>
-	 <4f55afa99da1dab957b2dc5e7b313a1b70f864f3.1410477596.git.hannes@stressinduktion.org>
-	 <541862ED.8090600@6wind.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v12 net-next 03/11] bpf: add lookup/update/delete/iterate
+ methods to BPF maps
+Date: Tue, 16 Sep 2014 14:23:27 -0700
+Message-ID: <CAMEtUuzy0Hvjr0f4XBrH+FAxaKD7aijnYzDe3-MPrGWe6+MD4Q@mail.gmail.com>
+References: <1410808721-27493-4-git-send-email-ast@plumgrid.com>
+	<20140916.151606.448751391205382097.davem@davemloft.net>
+	<CAMEtUuxp6709mdygiQyCqwjv-0kF-CbNOzCCZmKw_mUckF4NZA@mail.gmail.com>
+	<20140916.165452.1747695341192703967.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:36399 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753210AbaIPVFy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 17:05:54 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 800FC206E8
-	for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 17:05:53 -0400 (EDT)
-In-Reply-To: <541862ED.8090600@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140916.165452.1747695341192703967.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Di, 2014-09-16 at 18:18 +0200, Nicolas Dichtel wrote:
-> Le 12/09/2014 01:21, Hannes Frederic Sowa a =C3=A9crit :
-> > fib6_add increases the fn_sernum of fib6_nodes while it traverses t=
-he
-> > tree. This serial number is used by ip6_dst_check to judge whether =
-a
-> > relookup for the socket cache should be done (e.g. a better route i=
-s
-> > available).
-> >
-> > We didn't do so for fib6_del, so we missed relookups on ipv6 addres=
-s
-> > deletion events. Because this caused trouble in the SCTP stack, ins=
-tead
-> > the genid for ipv6 was bumped. Also TCP connections used old source
-> > addresses, which were not available anymore.
-> >
-> > Because we have static rt6_nodes in the tree (no RTF_GATEWAY,
-> > RTF_NONEXTHOP nor RTF_CACHE nodes but still DST_HOST) flag, we ende=
-d up
-> > in a situation where the genid of the routing node was always small=
-er
-> > than the published genid in the namespace. That caused ip6_dst_chec=
-k to
-> > always discard the current dst_entry and a relookup happend.
-> >
-> > This patch prepares for the removal of the ipv6 genid by also modif=
-ying
-> > the fn_sernum on route deletion.
-> >
-> > Thanks to Eric Dumazet who noticed this problem!
-> >
-> > Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> > Cc: Vlad Yasevich <vyasevich@gmail.com>
-> > Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> This serie looks good to me. Thank you for working on this topic!
+On Tue, Sep 16, 2014 at 1:54 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>
+> The cost of the compat layer must be considered and weighted
+> against this cast, which I think is really no big deal.
+>
+>> I think compat layer is a better option.
+>
+> It's overhead you'll have to support forever, I think you should
+> reconsider.
+>
+> All of the "ugly casting" will be hidden, or can be hidden, in the
+> syscall wrappers and/or interfaces in userspace.
 
-Thanks a lot for your review, Nicolas! I'll do some more build tests I
-got all the module handling correct and will send the formal submission=
-=2E
-
-Bye,
-Hannes
+ahh, ok. I thought you're strongly against any type of casts.
+In such case I can get rid of 'union bpf_attr' as well and simply
+define a struct per command, then syscall will look like:
+sys_bpf(int cmd, void __user *attr, unsigned int size);
+and uapi/linux/bpf.h will have:
+struct bpf_prog_load_attr { /* for BPF_PROG_LOAD cmd */
+    __u32 prog_type;
+    __u32 insn_cnt;
+    __aligned_u64 insns;
+    __aligned_u64 license;
+    __u32 log_level;
+    __u32 log_size;
+    __aligned_u64 log_buf;
+};
+and similar for other commands.
+no compat layer and type checking will be done
+by syscall wrappers. Ok?
