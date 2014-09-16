@@ -1,81 +1,60 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH v2 net-next 0/7] net: foo-over-udp (fou)
-Date: Tue, 16 Sep 2014 22:14:21 +0300
-Message-ID: <CAJ3xEMghyiuo3TOdsiSBOBBOk21zSfso6fdt-jEqY5ifA2Q1vg@mail.gmail.com>
-References: <1410750483-3236-1-git-send-email-therbert@google.com>
-	<CAJ3xEMjC5PQENzCXS9SNVm6zUVn7pydxf1MLQ57Br1sGjD1ngQ@mail.gmail.com>
-	<CA+mtBx_+JxUn4zT+XN8DpQcCoz5Du+QtF1xzLno2m1yCwbr6ow@mail.gmail.com>
-	<CAEP_g=_bnr94YHKd40qipmniYs80CH4g3iFiHOgZHOnDQ82Epw@mail.gmail.com>
-	<CAJ3xEMgEUsBic5N_eXm=OYx94FL7ERkz5CUNCo4OBhqCVwC42g@mail.gmail.com>
-	<CA+mtBx-B-25-nS1pVgeCiuykdFydCiay0QCwiE75P37Q3ODRCQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v12 net-next 03/11] bpf: add
+ lookup/update/delete/iterate methods to BPF maps
+Date: Tue, 16 Sep 2014 15:16:06 -0400 (EDT)
+Message-ID: <20140916.151606.448751391205382097.davem@davemloft.net>
+References: <1410808721-27493-1-git-send-email-ast@plumgrid.com>
+	<1410808721-27493-4-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesse Gross <jesse@nicira.com>, David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mingo@kernel.org, torvalds@linux-foundation.org,
+	luto@amacapital.net, dborkman@redhat.com,
+	hannes@stressinduktion.org, chema@google.com, edumazet@google.com,
+	a.p.zijlstra@chello.nl, pablo@netfilter.org, hpa@zytor.com,
+	akpm@linux-foundation.org, keescook@chromium.org,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:62949 "EHLO
-	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754923AbaIPTOW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 15:14:22 -0400
-Received: by mail-oi0-f47.google.com with SMTP id e131so126503oig.34
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 12:14:21 -0700 (PDT)
-In-Reply-To: <CA+mtBx-B-25-nS1pVgeCiuykdFydCiay0QCwiE75P37Q3ODRCQ@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57242 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754849AbaIPTQK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 15:16:10 -0400
+In-Reply-To: <1410808721-27493-4-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 16, 2014 at 9:34 PM, Tom Herbert <therbert@google.com> wrote:
-> On Tue, Sep 16, 2014 at 5:44 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->> On Tue, Sep 16, 2014 at 1:44 AM, Jesse Gross <jesse@nicira.com> wrote:
->>> On Mon, Sep 15, 2014 at 12:15 PM, Tom Herbert <therbert@google.com> wrote:
->>
->>>> My interpretation is that NETIF_F_GSO_UDP_TUNNEL means L3/L4
->>>> encapsulation over UDP, not VXLAN.
->>>> If the NIC implements things properly following the generic interface then I believe it should work
->>>> with various flavors of UDP encapsulation (FOU, GUE, VXLAN, VXLAN-gpe,
->>>> geneve, LISP, L2TP, nvgre, or whatever else people might dream up).
->>>> This presumes that any encapsulation headers doesn't require any per
->>>> segment update (so no GRE csum for instance). The stack will set up
->>>> inner headers as needed, which should enough to provide to devices the
->>>> offsets inner IP and TCP header which are needed for the the TSO
->>>> operation (outer IP and UDP can be deduced also).
->>
->>
->>
->>> From the NICs that I am familiar with this is mostly true. The main
->>> part that is missing from the current implementation is a length
->>> limit: just because the hardware can skip over headers to an offset
->>> doesn't mean that it can do so to an arbitrary depth. For example, in
->>> the NICs that are exposing VXLAN as NETIF_F_GSO_UDP_TUNNEL we can
->>> probably assume that this is limited to 8 bytes. With the Intel NICs
->>> that were just announced with Geneve support, this limit has been
->>> increased to 64. If we add a parameter to the driver interface to
->>> expose this then it should be generic across tunnels.
->>
->> I'm not sure to see why the length limit became our primary concern here...
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Mon, 15 Sep 2014 12:18:33 -0700
 
-> Like Jesse mentioned above, looks like some NICs may have assumed all
-> encapsulation headers are eight bytes (which allows HW to implement
-> everything in fixed offsets). But this length is not a universal
-> constant: FOU is zero length encapsulation headers, GUE or geneve is
-> variable. The driver should really be checking if NIC can handle the
-> length and if it can't perform GSO in software-- I don't think we'll
-> need to expose this in the features.
+> @@ -83,6 +112,15 @@ union bpf_attr {
+>  		__u32	value_size;	/* size of value in bytes */
+>  		__u32	max_entries;	/* max number of entries in a map */
+>  	};
+> +
+> +	struct { /* anonymous struct used by BPF_MAP_*_ELEM commands */
+> +		int map_fd;
+> +		void __user *key;
+> +		union {
+> +			void __user *value;
+> +			void __user *next_key;
+> +		};
+> +	};
+>  };
+>  
+>  #endif /* _UAPI__LINUX_BPF_H__ */
 
-I understand that for some NICs there's a claim saying the essence of
-the limitation lies in an assumption on fixed length of the
-encapsulation headers  -- and BTW for VXLAN it's 50 (= 14 + 20 + 8 +
-8) bytes, not eight. So newer NICs  or new brands of existing NICs
-should be more flexible.
+Depending upon the processor ABI, this change can increase the
+alignment requirements of union bpf_attr.  So the structure is not
+compatible between patch #1 and patch #3 here.
 
-If I correctly read your comment "The driver should really be checking
-if NIC can handle the length and if it can't perform GSO in software"
-as saying that a SW GSO call should be made from within the driver
-when they can't serve GSO under some encap scheme -- I don't think
-this is the correct track, the driver should advertize up what they
-can do in HW so the stack does in SW what's not supported.
+Also, you haven't implemented any compat layer whatsoever for the
+necessary translations.  This happens because you are using pointers
+which are different sized between 32-bit and 64-bit ABIs.
 
-Another clarification - so FOU doesn't supersedes GUE? what's their
-difference...?
-
-Or.
+I would suggest you use instead something like "aligned_u64" since
+these are just arbitrary userland cookies and using "aligned_u64"
+vs. "u64" will make it so that you don't have to deal with the 64-bit
+type alignment differences between x86-32 and x86-64 while writing the
+compat wrappers (if any).
