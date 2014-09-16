@@ -1,44 +1,87 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: [PATCHv4 net-next 0/3] sunvnet: add jumbo frames support
-Date: Mon, 15 Sep 2014 20:34:39 -0400
-Message-ID: <5417859F.20603@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:18051 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754720AbaIPAeo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Sep 2014 20:34:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf-next 00/21] Second Round of IPVS Updates for v3.18
+Date: Tue, 16 Sep 2014 09:34:14 +0900
+Message-ID: <1410827675-3637-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch set updates the sunvnet driver to version 1.6 of the VIO protocol
-to support per-port exchange of MTU information and allow non-standard MTU
-sizes, including jumbo frames.
+Hi Pablo,
 
-Using large MTUs shows a > 4X throughput improvement Linux-Solaris
-and > 8X throughput improvement Linux-Linux.
+please consider these IPVS updates for v3.18.
 
-Changes from v3:
-	- added version functions per Dave Miller <davem@davemloft.net>
-	- moved rmtu to vnet_port per Dave Miller <davem@davemloft.net>
-	- explicitly set options bits and capability flags to 0 per
-		Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
-Changes from v2:
-	- make checkpatch clean
-Changes from v1:
-	- fix brace formatting per Dave Miller <davem@davemloft.net>
+* Add simple weighted failover scheduler
+  - Thanks to Kenny Mathis
+* Support v6 real servers in v4 pools and vice versa
+  - Thanks to Alex Gartrell and Julian Anastasov
 
-David L Stevens (3):
-  sunvnet: upgrade to VIO protocol version 1.6
-  sunvnet: allow admin to set sunvnet MTU
-  sunvnet: generate ICMP PTMUD messages for smaller port MTUs
 
- arch/sparc/include/asm/vio.h       |   44 +++++++++++-
- arch/sparc/kernel/viohs.c          |   14 +++-
- drivers/net/ethernet/sun/sunvnet.c |  144 +++++++++++++++++++++++++++++++-----
- drivers/net/ethernet/sun/sunvnet.h |    3 +
- 4 files changed, 182 insertions(+), 23 deletions(-)
+The following changes since commit 0bbe80e571c7b866afd92a98edd32a969467a7a9:
+
+  netfilter: masquerading needs to be independent of x_tables in Kconfig (2014-09-12 09:40:18 +0200)
+
+are available in the git repository at:
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs2-for-v3.18
+
+for you to fetch changes up to 87f2b83b77d6139a888af87352ff35894e5c5d69:
+
+  ipvs: Allow heterogeneous pools now that we support them (2014-09-16 09:03:43 +0900)
+
+----------------------------------------------------------------
+Alex Gartrell (10):
+      ipvs: Add destination address family to netlink interface
+      ipvs: Supply destination addr family to ip_vs_{lookup_dest,find_dest}
+      ipvs: Pass destination address family to ip_vs_trash_get_dest
+      ipvs: Supply destination address family to ip_vs_conn_new
+      ipvs: prevent mixing heterogeneous pools and synchronization
+      ipvs: Pull out crosses_local_route_boundary logic
+      ipvs: Pull out update_pmtu code
+      ipvs: Add generic ensure_mtu_is_adequate to handle mixed pools
+      ipvs: support ipv4 in ipv6 and ipv6 in ipv4 tunnel forwarding
+      ipvs: Allow heterogeneous pools now that we support them
+
+Julian Anastasov (10):
+      ipvs: address family of LBLC entry depends on svc family
+      ipvs: address family of LBLCR entry depends on svc family
+      ipvs: use correct address family in DH logs
+      ipvs: use correct address family in LC logs
+      ipvs: use correct address family in NQ logs
+      ipvs: use correct address family in RR logs
+      ipvs: use correct address family in SED logs
+      ipvs: use correct address family in SH logs
+      ipvs: use correct address family in WLC logs
+      ipvs: use the new dest addr family field
+
+Kenny Mathis (1):
+      ipvs: Add simple weighted failover scheduler
+
+ include/net/ip_vs.h                   |  15 +-
+ include/uapi/linux/ip_vs.h            |   3 +
+ net/netfilter/ipvs/Kconfig            |  10 +
+ net/netfilter/ipvs/Makefile           |   1 +
+ net/netfilter/ipvs/ip_vs_conn.c       |  74 +++++--
+ net/netfilter/ipvs/ip_vs_core.c       |  15 +-
+ net/netfilter/ipvs/ip_vs_ctl.c        | 112 +++++++---
+ net/netfilter/ipvs/ip_vs_dh.c         |   2 +-
+ net/netfilter/ipvs/ip_vs_fo.c         |  79 +++++++
+ net/netfilter/ipvs/ip_vs_ftp.c        |   6 +-
+ net/netfilter/ipvs/ip_vs_lblc.c       |  12 +-
+ net/netfilter/ipvs/ip_vs_lblcr.c      |  12 +-
+ net/netfilter/ipvs/ip_vs_lc.c         |   2 +-
+ net/netfilter/ipvs/ip_vs_nq.c         |   3 +-
+ net/netfilter/ipvs/ip_vs_proto_sctp.c |   2 +-
+ net/netfilter/ipvs/ip_vs_proto_tcp.c  |   2 +-
+ net/netfilter/ipvs/ip_vs_rr.c         |   2 +-
+ net/netfilter/ipvs/ip_vs_sed.c        |   3 +-
+ net/netfilter/ipvs/ip_vs_sh.c         |   8 +-
+ net/netfilter/ipvs/ip_vs_sync.c       |  13 +-
+ net/netfilter/ipvs/ip_vs_wlc.c        |   3 +-
+ net/netfilter/ipvs/ip_vs_xmit.c       | 388 +++++++++++++++++++++-------------
+ 22 files changed, 543 insertions(+), 224 deletions(-)
+ create mode 100644 net/netfilter/ipvs/ip_vs_fo.c
