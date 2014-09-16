@@ -1,50 +1,114 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v2 4/4] net: sched: cls_fw: add missing
- tcf_exts_init call in fw_change()
-Date: Mon, 15 Sep 2014 23:31:42 -0700
-Message-ID: <20140916063141.2905.59421.stgit@nitbit.x32>
-References: <20140916063024.2905.55403.stgit@nitbit.x32>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: [PATCH -net] scsi: fix users of SCSI_FC_ATTRS to depend on NET
+Date: Mon, 15 Sep 2014 23:35:21 -0700
+Message-ID: <5417DA29.4060205@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com, davem@davemloft.net,
-	eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:50180 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753162AbaIPGb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 02:31:58 -0400
-Received: by mail-ob0-f172.google.com with SMTP id va2so1809190obc.17
-        for <netdev@vger.kernel.org>; Mon, 15 Sep 2014 23:31:57 -0700 (PDT)
-In-Reply-To: <20140916063024.2905.55403.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Fengguang Wu <fengguang.wu@intel.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When allocating a new structure we also need to call tcf_exts_init
-to initialize exts.
+From: Randy Dunlap <rdunlap@infradead.org>
 
-A follow up patch might be in order to remove some of this code
-and do tcf_exts_assign(). With this we could remove the
-tcf_exts_init/tcf_exts_change pattern for some of the classifiers.
-As part of the future tcf_actions RCU series this will need to be
-done. For now fix the call here.
+There are other kconfig symbols which select SCSI_FC_ATTRS,
+so they also need to depend on NET to fix kconfig warnings and
+build errors:
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+warning: (LIBFC && SCSI_IBMVFC && SCSI_QLA_FC && SCSI_LPFC && ZFCP && SCSI_BFA_FC && SCSI_CHELSIO_FCOE && FUSION_FC) selects SCSI_FC_ATTRS which has unmet direct dependencies (SCSI && NET)
+drivers/scsi/scsi_transport_fc.c: In function 'fc_host_post_event':
+drivers/scsi/scsi_transport_fc.c:543:7: error: 'scsi_nl_sock' undeclared (first use in this function)
+drivers/scsi/scsi_transport_fc.c: In function 'fc_host_post_vendor_event':
+drivers/scsi/scsi_transport_fc.c:611:7: error: 'scsi_nl_sock' undeclared (first use in this function)
+
+Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
 ---
- net/sched/cls_fw.c |    2 ++
- 1 file changed, 2 insertions(+)
+ drivers/message/fusion/Kconfig |    2 +-
+ drivers/scsi/Kconfig           |    9 +++++----
+ drivers/scsi/csiostor/Kconfig  |    2 +-
+ drivers/scsi/qla2xxx/Kconfig   |    2 +-
+ 4 files changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-index 006b45a..2650285 100644
---- a/net/sched/cls_fw.c
-+++ b/net/sched/cls_fw.c
-@@ -264,6 +264,8 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
- #endif /* CONFIG_NET_CLS_IND */
- 		fnew->tp = f->tp;
+--- lnx-317-rc5.orig/drivers/message/fusion/Kconfig
++++ lnx-317-rc5/drivers/message/fusion/Kconfig
+@@ -28,7 +28,7 @@ config FUSION_SPI
  
-+		tcf_exts_init(&fnew->exts, TCA_FW_ACT, TCA_FW_POLICE);
-+
- 		err = fw_change_attrs(net, tp, fnew, tb, tca, base, ovr);
- 		if (err < 0) {
- 			kfree(fnew);
+ config FUSION_FC
+ 	tristate "Fusion MPT ScsiHost drivers for FC"
+-	depends on PCI && SCSI
++	depends on PCI && SCSI && NET
+ 	select SCSI_FC_ATTRS
+ 	---help---
+ 	  SCSI HOST support for a Fiber Channel host adapters.
+--- lnx-317-rc5.orig/drivers/scsi/Kconfig
++++ lnx-317-rc5/drivers/scsi/Kconfig
+@@ -585,6 +585,7 @@ config HYPERV_STORAGE
+ 
+ config LIBFC
+ 	tristate "LibFC module"
++	depends on NET
+ 	select SCSI_FC_ATTRS
+ 	select CRC32
+ 	---help---
+@@ -815,7 +816,7 @@ config SCSI_IBMVSCSI
+ 
+ config SCSI_IBMVFC
+ 	tristate "IBM Virtual FC support"
+-	depends on PPC_PSERIES && SCSI
++	depends on PPC_PSERIES && SCSI && NET
+ 	select SCSI_FC_ATTRS
+ 	help
+ 	  This is the IBM POWER Virtual FC Client
+@@ -1265,7 +1266,7 @@ source "drivers/scsi/qla4xxx/Kconfig"
+ 
+ config SCSI_LPFC
+ 	tristate "Emulex LightPulse Fibre Channel Support"
+-	depends on PCI && SCSI
++	depends on PCI && SCSI && NET
+ 	select SCSI_FC_ATTRS
+ 	select CRC_T10DIF
+ 	help
+@@ -1675,7 +1676,7 @@ config SCSI_SUNESP
+ 
+ config ZFCP
+ 	tristate "FCP host bus adapter driver for IBM eServer zSeries"
+-	depends on S390 && QDIO && SCSI
++	depends on S390 && QDIO && SCSI && NET
+ 	select SCSI_FC_ATTRS
+ 	help
+           If you want to access SCSI devices attached to your IBM eServer
+@@ -1703,7 +1704,7 @@ config SCSI_PM8001
+ 
+ config SCSI_BFA_FC
+ 	tristate "Brocade BFA Fibre Channel Support"
+-	depends on PCI && SCSI
++	depends on PCI && SCSI && NET
+ 	select SCSI_FC_ATTRS
+ 	help
+ 	  This bfa driver supports all Brocade PCIe FC/FCOE host adapters.
+--- lnx-317-rc5.orig/drivers/scsi/csiostor/Kconfig
++++ lnx-317-rc5/drivers/scsi/csiostor/Kconfig
+@@ -1,6 +1,6 @@
+ config SCSI_CHELSIO_FCOE
+ 	tristate "Chelsio Communications FCoE support"
+-	depends on PCI && SCSI
++	depends on PCI && SCSI && NET
+ 	select SCSI_FC_ATTRS
+ 	select FW_LOADER
+ 	help
+--- lnx-317-rc5.orig/drivers/scsi/qla2xxx/Kconfig
++++ lnx-317-rc5/drivers/scsi/qla2xxx/Kconfig
+@@ -1,6 +1,6 @@
+ config SCSI_QLA_FC
+ 	tristate "QLogic QLA2XXX Fibre Channel Support"
+-	depends on PCI && SCSI
++	depends on PCI && SCSI && NET
+ 	select SCSI_FC_ATTRS
+ 	select FW_LOADER
+ 	---help---
