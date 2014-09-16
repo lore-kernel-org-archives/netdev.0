@@ -1,35 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v2 1/4] net: sched: fix unsued cpu variable
-Date: Tue, 16 Sep 2014 16:00:01 -0400 (EDT)
-Message-ID: <20140916.160001.1211965286020279308.davem@davemloft.net>
-References: <20140916063024.2905.55403.stgit@nitbit.x32>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH v2] net: rfkill: gpio: Enable module auto-loading for
+ ACPI based switches
+Date: Tue, 16 Sep 2014 15:59:11 -0400
+Message-ID: <20140916195911.GC3622@tuxdriver.com>
+References: <1410551368-37316-1-git-send-email-marcel@holtmann.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, jhs@mojatatu.com
-To: john.fastabend@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57691 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753250AbaIPUAE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 16:00:04 -0400
-In-Reply-To: <20140916063024.2905.55403.stgit@nitbit.x32>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38424 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755322AbaIPUAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 16:00:11 -0400
+Content-Disposition: inline
+In-Reply-To: <1410551368-37316-1-git-send-email-marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Mon, 15 Sep 2014 23:30:26 -0700
+I'm merging this to the wireless tree...
 
-> kbuild test robot reported an unused variable cpu in cls_u32.c
-> after the patch below. This happens when PERF and MARK config
-> variables are disabled
+On Fri, Sep 12, 2014 at 09:49:28PM +0200, Marcel Holtmann wrote:
+> For the ACPI based switches the MODULE_DEVICE_TABLE is missing to
+> export the entries for module auto-loading.
 > 
-> Fix this is to use separate variables for perf and mark
-> and define the cpu variable inside the ifdef logic.
+> Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+> ---
+> net/rfkill/rfkill-gpio.c | 1 +
+> 1 file changed, 1 insertion(+)
 > 
-> 'commit 459d5f626da7 ("net: sched: make cls_u32 per cpu")'
+> diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
+> index 02a86a27fd84..5fa54dd78e25 100644
+> --- a/net/rfkill/rfkill-gpio.c
+> +++ b/net/rfkill/rfkill-gpio.c
+> @@ -163,6 +163,7 @@ static const struct acpi_device_id rfkill_acpi_match[] = {
+>  	{ "LNV4752", RFKILL_TYPE_GPS },
+>  	{ },
+> };
+> +MODULE_DEVICE_TABLE(acpi, rfkill_acpi_match);
+> #endif
 > 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> static struct platform_driver rfkill_gpio_driver = {
+> -- 
+> 1.9.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
 
-Applied.
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
