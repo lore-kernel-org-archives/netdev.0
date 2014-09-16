@@ -1,71 +1,55 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 00/13] introduce rocker switch driver with
- openvswitch hardware accelerated datapath
-Date: Tue, 16 Sep 2014 17:58:32 +0200
-Message-ID: <20140916155832.GA1869@nanopsycho.orion>
-References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
- <20140908135413.GA5995@casper.infradead.org>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net] sfc: fix addr_list_lock spinlock use before init
+Date: Tue, 16 Sep 2014 18:02:32 +0200
+Message-ID: <54185F18.4020003@redhat.com>
+References: <1410785727-659-1-git-send-email-nikolay@redhat.com> <alpine.LFD.2.03.1409161540490.25290@solarflare.com> <alpine.LFD.2.03.1409161654370.25290@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@cumulusnetworks.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
-	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
-	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
-	Neil.Jerram@metaswitch.com, ronye@mellanox.com
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Shradha Shah <sshah@solarflare.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:33285 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754323AbaIPP6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 11:58:35 -0400
-Received: by mail-wi0-f175.google.com with SMTP id cc10so6602924wib.8
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 08:58:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140908135413.GA5995@casper.infradead.org>
+Received: from mx1.redhat.com ([209.132.183.28]:5947 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754032AbaIPQCo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2014 12:02:44 -0400
+In-Reply-To: <alpine.LFD.2.03.1409161654370.25290@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Sep 08, 2014 at 03:54:13PM CEST, tgraf@suug.ch wrote:
->On 09/03/14 at 11:24am, Jiri Pirko wrote:
->> This patchset can be divided into 3 main sections:
->> - introduce switchdev api for implementing switch drivers
->> - add hardware acceleration bits into openvswitch datapath, This uses
->>   previously mentioned switchdev api
->> - introduce rocker switch driver which implements switchdev api
+On 16/09/14 17:57, Edward Cree wrote:
+> Reported by Nikolay Aleksandrov.  In efx_init_port() we call
+>   efx_mac_reconfigure() to work around a Falcon/A1 limitation, and this calls
+>   efx_{arch}_filter_sync_rx_mode(), which takes the addr_list_lock; but this
+>   lock is uninitialised, because we haven't called register_netdevice() yet.
+> So, in efx_farch_filter_sync_rx_mode(), check efx_dev_registered() before
+>   doing anything else.
+> The EF10 equivalent, efx_ef10_filter_sync_rx_mode(), already has the
+>   corresponding check.
+> ---
+>   drivers/net/ethernet/sfc/farch.c | 3 +++
+>   1 file changed, 3 insertions(+)
 >
->Jiri, Scott,
+> diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
+> index 0537381..6859437 100644
+> --- a/drivers/net/ethernet/sfc/farch.c
+> +++ b/drivers/net/ethernet/sfc/farch.c
+> @@ -2933,6 +2933,9 @@ void efx_farch_filter_sync_rx_mode(struct efx_nic *efx)
+>   	u32 crc;
+>   	int bit;
 >
->Enclosed is the GOOG doc which outlines some details on my particular
->interests [0]. It includes several diagrams which might help to
->understand the overall arch. It is highly related to John's work as
->well. Please let me know if something does not align with the model
->you have in mind.
-
-
-Hi Thomas.
-
-Sorry for late answer, I returned from vacation yesterday.
-I went over your document, I did not find anything which would not align
-with our approach. Looks good to me.
-
+> +	if (!efx_dev_registered(efx))
+> +		return;
+> +
+>   	netif_addr_lock_bh(net_dev);
 >
->Summary:
->The full virtual tunnel endpoint flow offload attempts to offload full
->flows to the hardware and utilize the embedded switch on the host NIC
->to empower the eSwitch with the required flexibility of the software
->driven network. In this model, the guest (VM or LXC) attaches through a
->SR-IOV VF which serves as the primary path. A slow path / software path
->is provided via the CPU which can route packets back into the VF by
->tagging packets with forwarding metadata and sending the frame back to
->the NIC.
+>   	efx->unicast_filter = !(net_dev->flags & IFF_PROMISC);
 >
->[0] https://docs.google.com/document/d/195waUliu7G5YYVuXHmLmHgJ38DFSte321WPq0oaFhyU/edit?usp=sharing
->(Publicly accessible and open for comments)
+
+You should add a Signed-off-by, otherwise looks good to me.
+FWIW, you can add my Tested-by as well.
+
+Tested-by: Nikolay Aleksandrov <nikolay@redhat.com>
