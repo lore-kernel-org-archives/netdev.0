@@ -1,71 +1,91 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: [PATCH 3/3] bridge;
- Automatically filter vlans configured on top of bridge
-Date: Tue, 16 Sep 2014 23:39:53 +0900
-Message-ID: <54184BB9.8010802@gmail.com>
-References: <1410554691-18467-1-git-send-email-vyasevic@redhat.com>
-	<1410554691-18467-4-git-send-email-vyasevic@redhat.com>
-	<5415B6C2.5030702@gmail.com> <54170372.4080903@redhat.com>
-	<54181EC1.2010608@lab.ntt.co.jp> <54183BCF.8070506@redhat.com>
+From: Steffen Maier <maier@linux.vnet.ibm.com>
+Subject: Re: [PATCH -net] scsi: fix users of SCSI_FC_ATTRS to depend on NET
+Date: Tue, 16 Sep 2014 16:56:55 +0200
+Message-ID: <54184FB7.7020201@linux.vnet.ibm.com>
+References: <5417DA29.4060205@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, bridge@lists.linux-foundation.org
-To: vyasevic@redhat.com, Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <54183BCF.8070506@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Fengguang Wu <fengguang.wu@intel.com>
+To: Randy Dunlap <rdunlap@infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:48395 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753884AbaIPO5K convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 10:57:10 -0400
+Received: from /spool/local
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <maier@linux.vnet.ibm.com>;
+	Tue, 16 Sep 2014 15:57:08 +0100
+In-Reply-To: <5417DA29.4060205@infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(14/09/16 (火) 22:31), Vlad Yasevich wrote:
-> On 09/16/2014 07:28 AM, Toshiaki Makita wrote:
->> On 2014/09/16 0:19, Vlad Yasevich wrote:
->>> On 09/14/2014 11:39 AM, Toshiaki Makita wrote:
->>>> (14/09/13 (土) 5:44), Vladislav Yasevich wrote:
->>>>> If the user configures vlan devices on top of the bridge,
->>>>> automatically set up filter entries for it as long as
->>>>> bridge vlan protocol matches that of the vlan.
->>>>> This allows the user to atomatically receive vlan traffic
->>>>> for the vlans that are convifgured.
->>>>
->>>> Changing br->vlan_proto seems to cause inconsistency between vlan
->>>> interfaces and filter settings.
->>>> Can we automatically change filters when setting vlan_proto?
->>>>
->>>
->>> I thought we already do that in br_vlan_set_proto()?  Nothing
->>> here introduces any new kinds of issue with that code.
->>
->> I'm referring to a case like this:
->> 1. create br0.10 (802.1ad)
->> 2. change br->vlan_proto into 88a8
->>
->> When creating br0.10 (1), br->vlan_proto is 8100 and different from
->> protocol of br0.10, so it is ignored by br_vlan_rx_add_vid().
->> After changing br->vlan_proto (2), we might expect vlan 10 is not
->> filtered on br0, but it will be filtered.
-> 
-> Ok, I see what you mean.  This one is a bit tough.  Our options are:
->   1) Return an error when configuring br0.10.  This might break user-space.  Not good.
->   2) Ignore protocol when crating the filter.  This is not good either as the user
->      may not switch the bridge vlan_proto value and we'd end up with a wrong filter.
->   3) Re-implement .1ad support per-vlan instead of per-bridge.
-> 
-> You see another other alternatives?
+On 09/16/2014 08:35 AM, Randy Dunlap wrote:
+> From: Randy Dunlap <rdunlap@infradead.org>
+>
+> There are other kconfig symbols which select SCSI_FC_ATTRS,
+> so they also need to depend on NET to fix kconfig warnings and
+> build errors:
+>
+> warning: (LIBFC && SCSI_IBMVFC && SCSI_QLA_FC && SCSI_LPFC && ZFCP &&=
+ SCSI_BFA_FC && SCSI_CHELSIO_FCOE && FUSION_FC) selects SCSI_FC_ATTRS w=
+hich has unmet direct dependencies (SCSI && NET)
+> drivers/scsi/scsi_transport_fc.c: In function 'fc_host_post_event':
+> drivers/scsi/scsi_transport_fc.c:543:7: error: 'scsi_nl_sock' undecla=
+red (first use in this function)
+> drivers/scsi/scsi_transport_fc.c: In function 'fc_host_post_vendor_ev=
+ent':
+> drivers/scsi/scsi_transport_fc.c:611:7: error: 'scsi_nl_sock' undecla=
+red (first use in this function)
+>
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
+> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+> ---
+>   drivers/message/fusion/Kconfig |    2 +-
+>   drivers/scsi/Kconfig           |    9 +++++----
+>   drivers/scsi/csiostor/Kconfig  |    2 +-
+>   drivers/scsi/qla2xxx/Kconfig   |    2 +-
+>   4 files changed, 8 insertions(+), 7 deletions(-)
 
-We might be able to configure filterings on changing vlan_proto.
-4) Memorize different protocol's filtering requests in
-br_vlan_rx_add_vid() and use them when switching vlan_proto.
-5) Scan vlan devices on bridge device when changing vlan_proto.
+> --- lnx-317-rc5.orig/drivers/scsi/Kconfig
+> +++ lnx-317-rc5/drivers/scsi/Kconfig
 
-Thanks,
-Toshiaki Makita
+> @@ -1675,7 +1676,7 @@ config SCSI_SUNESP
+>
+>   config ZFCP
+>   	tristate "FCP host bus adapter driver for IBM eServer zSeries"
+> -	depends on S390 && QDIO && SCSI
+> +	depends on S390 && QDIO && SCSI && NET
+>   	select SCSI_FC_ATTRS
+>   	help
+>             If you want to access SCSI devices attached to your IBM e=
+Server
+
+I think zfcp does not have any (direct) dependency on NET.
+
+It looks like SCSI_FC_ATTRS selects SCSI_NETLINK (declaring=20
+scsi_nl_sock) and only depends on SCSI but not on NET.
+SCSI_NETLINK itself only selects NET but does not model its direct=20
+depencency on NET?
+
+Do I understand correctly, that the only solution is to make all=20
+INdirect (transitive) dependencies explicit with the LLDDs instead of=20
+making the direct exploiter SCSI_NETLINK(?) depend on NET?
+
+--=20
+Mit freundlichen Gr=C3=BC=C3=9Fen / Kind regards
+Steffen Maier
+
+Linux on System z Development
+
+IBM Deutschland Research & Development GmbH
+Vorsitzende des Aufsichtsrats: Martina Koederitz
+Geschaeftsfuehrung: Dirk Wittkopp
+Sitz der Gesellschaft: Boeblingen
+Registergericht: Amtsgericht Stuttgart, HRB 243294
