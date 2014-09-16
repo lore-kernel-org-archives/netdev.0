@@ -1,78 +1,102 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: Rusty away 18th September -- 11th October
-Date: Wed, 17 Sep 2014 01:23:46 +0930
-Message-ID: <87a95zfto5.fsf@rustcorp.com.au>
-References: <87oaunht4b.fsf@rustcorp.com.au>
-	<20140911114351.GA25736@redhat.com>
-	<87tx4dhbks.fsf@rustcorp.com.au>
-	<20140914062116.GA23868@redhat.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Qdisc: Measuring Head-of-Line blocking with netperf-wrapper
+Date: Tue, 16 Sep 2014 17:56:00 +0200
+Message-ID: <20140916175600.018350fe@redhat.com>
+References: <20140915184517.6c5474e5@redhat.com>
+	<20140916152221.41811287@redhat.com>
+	<1410875959.7106.200.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140914062116.GA23868@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Florian Westphal <fw@strlen.de>,
+	Toke =?UTF-8?B?SMO4aWxhbmQtSsO4cmdlbnNl?= =?UTF-8?B?bg==?=
+	<toke@toke.dk>, Dave Taht <dave.taht@gmail.com>, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50886 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751540AbaIPP4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2014 11:56:24 -0400
+In-Reply-To: <1410875959.7106.200.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
-> On Fri, Sep 12, 2014 at 10:58:03AM +0930, Rusty Russell wrote:
->> "Michael S. Tsirkin" <mst@redhat.com> writes:
->> > On Thu, Sep 11, 2014 at 10:26:52AM +0930, Rusty Russell wrote:
->> >> Hi all,
->> >> 
->> >>         Probably won't read mail.  Linus, I'll have pull requests early
->> >> next week; if there's anything needed I'm sure Michael Tsirkin can
->> >> handle it.
->> >
->> > Sure.
->> > Rusty, there's a small chance virtio 1.0 bits will be ready in time.
->> > I started working on them based on your virtio-pci-new-layout branch.
->> >
->> > If ready before the merge window, are you ok with me merging this
->> > support (without you having the opportunity to review first)?
->> 
->> Sorry, absolutely not.  I *really* want to review this in depth; if we
->> make a mistake, it's going to hurt us significantly.
->
-> Right but it's only a merge window - we can fix bugs and even disable
-> the new driver afterwards, can't we?
+On Tue, 16 Sep 2014 06:59:19 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Yes, but if we get something wrong we have to live with it.  We made
-that mistake with virtio-pci the first time around...
+> With the TCP usec rtt work I did lately, you'll get more precise results
+> from a TCP_RR flow, as Tom and I explained.
 
-It isn't enough that the code 'works', it has to match the spec.  And
-that requires careful thought and review.
+Here you go, developed a new test:
+ http://people.netfilter.org/hawk/qdisc/experiment01/README.txt
+ http://people.netfilter.org/hawk/qdisc/experiment01/qdisc_prio_hol.conf
+ https://github.com/netoptimizer/netperf-wrapper/commit/7d0241a78e5
 
->> And until we have the qemu bits ready, it's really hard to tell if we've
->> got this right.
->
-> Sure, I meant if qemu bits are ready too, and if things work together.
-> It wouldn't do to merge a driver that isn't ready.
->
->
->>  So I'd rather delay and make sure we're solid.
->> 
->> Thanks,
->> Rusty.
->
-> Something else we can do, is refactoring that splits driver
-> out to common and legacy bits, and changes APIs.
-> No?
+The test includes both a TCP_RR and UDP_RR test that derive the
+latency, also kept the ping tests for comparison.
 
-Yes, for sure.  But there's no hurry to get those into the merge window.
+One problem: The NoneXSO test is basically invalid, because I cannot
+make it exhaust the bandwidth, see "Total Upload":
+ http://people.netfilter.org/hawk/qdisc/experiment01/qdisc_prio_hol__totals--NoneXSO_net_next.png
 
-Cheers,
-Rusty.
+Looking at the ping test, there is a clear difference between priority
+bands, this just shows that the priority band are working as expected
+and the qdisc is backlogged.
+ http://people.netfilter.org/hawk/qdisc/experiment01/qdisc_prio_hol__ping--GSO_net_next.png
+E.g. ping test for NoneXSO show it is not backlogged, a broken test:
+ http://people.netfilter.org/hawk/qdisc/experiment01/qdisc_prio_hol__ping--NoneXSO_net_next.png
+
+
+Zooming in on the high priority band, we see how the different
+high-prio band measurements are working.
+Here for GSO:
+ http://people.netfilter.org/hawk/qdisc/experiment01/qdisc_prio_hol__ping_hiprio--GSO_net_next.png
+Here for TSO:
+ http://people.netfilter.org/hawk/qdisc/experiment01/qdisc_prio_hol__ping_hiprio--TSO_net_next.png
+
+I've created a new graph called "rr_latency" that further zooms in on
+the difference between TCP_RR and UDP_RR measurements:
+Here for GSO:
+ http://people.netfilter.org/hawk/qdisc/experiment01/qdisc_prio_hol__rr_latency--GSO_net_next.png
+Here for TSO:
+ http://people.netfilter.org/hawk/qdisc/experiment01/qdisc_prio_hol__rr_latency--TSO_net_next.png
+A compare graph:
+ http://people.netfilter.org/hawk/qdisc/experiment01/compare_TSO_vs_GSO__rr_latency.png
+
+I found the interactions a little strange in the above graphs.
+
+
+Even more strange, I started to play with the ixgbe cleanup interval,
+adjusting via cmdline:
+ sudo ethtool -C eth4 rx-usecs 30
+
+Then the "rr_latency" graph change, significantly lowering the latetency.
+Here for GSO:
+ http://people.netfilter.org/hawk/qdisc/experiment01/qdisc_prio_hol__rr_latency--rxusecs30_GSO_net_next.png
+Here for TSO:
+ http://people.netfilter.org/hawk/qdisc/experiment01/qdisc_prio_hol__totals--rxusecs30_TSO_net_next.png
+
+Compare graph for GSO:
+ http://people.netfilter.org/hawk/qdisc/experiment01/compare_GSO_vs_GSO_with_rxusec30__rr_latency.png
+Compare graph for TSO:
+ http://people.netfilter.org/hawk/qdisc/experiment01/compare_TSO_vs_TSO_with_rxusec30__rr_latency.png
+Comparing TSO vs GSO both with rx-usecs 30, which is almost equal.
+ http://people.netfilter.org/hawk/qdisc/experiment01/compare_TSO_vs_GSO_both_with_rxusec30__rr_latency.png
+
+
+Checking ping, still follow TCP_RR and UDP_RR, with rx-usecs 30:
+ http://people.netfilter.org/hawk/qdisc/experiment01/qdisc_prio_hol__ping_hiprio--rxusecs30_GSO_net_next.png
+ http://people.netfilter.org/hawk/qdisc/experiment01/qdisc_prio_hol__ping_hiprio--rxusecs30_TSO_net_next.png
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
