@@ -1,91 +1,74 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Qdisc: Measuring Head-of-Line blocking with netperf-wrapper
-Date: Tue, 16 Sep 2014 15:22:21 +0200
-Message-ID: <20140916152221.41811287@redhat.com>
-References: <20140915184517.6c5474e5@redhat.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH 2/3] bridge: Add filtering support for
+	default_pvid
+Date: Tue, 16 Sep 2014 09:23:41 -0400
+Message-ID: <541839DD.5010303@redhat.com>
+References: <1410554691-18467-1-git-send-email-vyasevic@redhat.com>
+	<1410554691-18467-3-git-send-email-vyasevic@redhat.com>
+	<5415B27A.2000508@gmail.com> <5417011D.2000301@redhat.com>
+	<54181A93.2070604@lab.ntt.co.jp>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	Toke =?UTF-8?B?SMO4aWxhbmQtSsO4cmdlbnNlbg==?= <toke@toke.dk>,
-	Dave Taht <dave.taht@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8887 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752295AbaIPNWw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Sep 2014 09:22:52 -0400
-In-Reply-To: <20140915184517.6c5474e5@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: shemminger@vyatta.com, bridge@lists.linux-foundation.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Toshiaki Makita <toshiaki.makita1@gmail.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <54181A93.2070604@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Sep 2014 18:45:17 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-
-> I've constructed a "netperf-wrapper" test for measuring Head-of-Line
-> blocking, called "tcp_upload_prio", that I hope you will approve of?
+On 09/16/2014 07:10 AM, Toshiaki Makita wrote:
+> On 2014/09/16 0:09, Vlad Yasevich wrote:
+>> On 09/14/2014 11:21 AM, Toshiaki Makita wrote:
+>>> (14/09/13 (土) 5:44), Vladislav Yasevich wrote:
+>>>> Currently when vlan filtering is turned on on the bridge, the bridge
+>>>> will drop all traffic untill the user configures the filter.  This
+>>>> isn't very nice for ports that don't care about vlans and just
+>>>> want untagged traffic.
+>>>>
+>>>> A concept of a default_pvid was recently introduced.  This patch
+>>>> adds filtering support for default_pvid.   Now, ports that don't
+>>>> care about vlans and don't define there own filter will belong
+>>>> to the VLAN of the default_pvid and continue to receive untagged
+>>>> traffic.
+>>>
+>>> If user sets pvid, then vid 1 (default_pvid) will become non-pvid but
+>>> still not be filtered, right?
+>>
+>> Right.
+>>
+>>> vlan_bitmap of default_pvid shouldn't be cleared on setting pvid?
+>>
+>> I can see arguments for both.  Just because the user wishes to set a
+>> different pvid may not always mean that vlan associated with default pvid
+>> shouldn't be filtered.  I think it's at user's discretion.  I hesitate
+>> to do too many things automatically.
 > 
->  https://github.com/tohojo/netperf-wrapper/commit/1e6b755e8051b6
+> On second thought, I agree with you.
+> It's reasonable that what default_pvid should do is only to set pvid on
+> adding a bridge/port.
 > 
-> The basic idea is to have ping packets with TOS bit 0x10, which end-up
-> in the high-prio band of pfifo_fast.  While two TCP uploads utilize
-> all the bandwidth.
+> My another concern is how we can disable default_pvid, since this
+> feature is originally non-existent.
+
+My knee-jerk reaction is to disable it with a value of 0, but I am trying
+to think of a way to address Stephen's comment.
+
+The other alternative might be to use any invalid vlan id to disable it.
+
+-vlad
 > 
-> These high-prio ping packet should then demonstrate the Head-of-Line
-> blocking occurring due to 1) packets in the HW TX ring buffer, or
-> 2) in the qdisc layers requeue mechanism.  Disgusting these two case
-> might be a little difficult.
-
-Let me demonstrate some the results with some graphs. I'm comparing
-same kernel (net-next at c0d1379a) with different TSO, GSO and
-disabled-TSO+GSO:
-
-Test TYPES are:
-- TSO     == ethtool -K eth4 gro on  gso on  tso on
-- GSO     == ethtool -K eth4 gro on  gso on  tso off
-- NoneXSO == ethtool -K eth4 gro off gso off tso off
-
-A ping graph for with TSO enabled looks like:
- http://people.netfilter.org/hawk/qdisc/measure01/tcp_upload_prio__ping--TSO_net_next.png
-
-- It clearly shows that we can measure the difference between the
-  best-effort and high-priority ping packets.
-
-
-Zooming in on high-prio ping only, and comparing TSO vs GSO:
- http://people.netfilter.org/hawk/qdisc/measure01/compare_TSO_vs_GSO__ping_hiprio.png
- http://people.netfilter.org/hawk/qdisc/measure01/compare_TSO_vs_GSO__ping_cdf.png
-
-- It clearly shows that GSO have lower/better ping values that TSO,
-  e.g. smaller HoL blocking
-
-
-When adding the NoneXSO to the high-prio compare:
- http://people.netfilter.org/hawk/qdisc/measure01/compare_TSO_vs_GSO_vs_NoneXSO__ping_hiprio.png
- http://people.netfilter.org/hawk/qdisc/measure01/compare_TSO_vs_GSO_vs_NoneXSO__ping_cdf.png
-
-- Then it look a little strange, because the none-GSO/TSO setting looks
-  like it have larger Head-of-Line blocking delays.  Something I was
-  not expecting.
-
-Do notice that the NoneXSO case have a lower overall/average latency,
-likely due to 1) TSO and GSO can put more "bytes" into the qdisc's 1000
-packet limit, 2) NoneXSO have more difficulties exausting all
-bandwidth, see graph:
- http://people.netfilter.org/hawk/qdisc/measure01/tcp_upload_prio__totals--NoneXSO_net_next.png
-vs a more stable TCP speeds with GSO:
- http://people.netfilter.org/hawk/qdisc/measure01/tcp_upload_prio__totals--GSO_net_next.png
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+> Thanks,
+> Toshiaki Makita
+> 
