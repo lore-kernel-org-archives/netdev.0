@@ -1,40 +1,42 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: can: usb: peak_usb: pcan_usb_core.c: Cleaning up
- missing null-terminate in conjunction with strncpy
-Date: Tue, 16 Sep 2014 08:40:57 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17493206@AcuExch.aculab.com>
-References: <1410715898-15904-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
- <063D6719AE5E284EB5DD2968C1650D6D17491F2B@AcuExch.aculab.com>
- <5416A65D.6010500@pengutronix.de>
- <063D6719AE5E284EB5DD2968C1650D6D17491F83@AcuExch.aculab.com>
- <CAFo99gb9Rqnc7HrPbN7UVyQwPv_a=fxAbe+FTtm+9GgsjG7StA@mail.gmail.com>
+From: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
+Subject: Re: TCP connection will hang in FIN_WAIT1 after closing if zero window
+ is advertised
+Date: Tue, 16 Sep 2014 13:29:16 +0400
+Message-ID: <541802EC.1060308@oktetlabs.ru>
+References: <54170FC0.6020907@oktetlabs.ru> <CADVnQym0NmF-Cqz=OEpVBmMAe6T-G1jmoq=fbVWtL7_Ny-wn3w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	"Stephane Grosjean" <s.grosjean@peak-system.com>,
-	Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	"Christopher R. Baker" <cbaker@rec.ri.cmu.edu>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Rickard Strandqvist' <rickard_strandqvist@spectrumdigital.se>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFo99gb9Rqnc7HrPbN7UVyQwPv_a=fxAbe+FTtm+9GgsjG7StA@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
+	Konstantin Ushakov <kostik@oktetlabs.ru>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shelob.oktetlabs.ru ([84.52.89.53]:38868 "EHLO
+	shelob.oktetlabs.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752699AbaIPJ3X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 05:29:23 -0400
+In-Reply-To: <CADVnQym0NmF-Cqz=OEpVBmMAe6T-G1jmoq=fbVWtL7_Ny-wn3w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUmlja2FyZCBTdHJhbmRxdmlzdCANCj4gPiAyMDE0LTA5LTE1IDEwOjQ3IEdNVCswMjow
-MCBEYXZpZCBMYWlnaHQgPERhdmlkLkxhaWdodEBhY3VsYWIuY29tPjoNCi4uLg0KPiA+IE9yOg0K
-PiA+ICAgICBjaGFyIG5hbWVbc2l6ZW9mIG5ldGRldi0+bmFtZV07DQo+ID4gICAgIG1lbWNweShu
-YW1lLCBuZXRkZXYtPm5hbWUsIHNpemVvZiBuZXRkZXYtPm5hbWUpOw0KPiA+DQouLi4NCj4gSSBs
-aWtlZCB0aGUgdmFyaWFudDoNCj4gY2hhciBuYW1lW3NpemVvZihuZXRkZXYtPm5hbWUpXTsNCj4g
-DQo+IEJ1dCBkaXNsaWtlIGFuZCBkbyBub3QgdW5kZXJzdGFuZCB3aGF0IHRoZSBwb2ludCB3b3Vs
-ZCBiZSB3aXRoIG1lbWNweSB2YXJpYW50Lg0KDQpUaGUgbWVtY3B5KCkgd2lsbCBiZSBhIGxvdCBm
-YXN0ZXIgdGhhbiBhbnkgb2YgdGhlIHN0cmluZyBjb3B5IGZ1bmN0aW9ucw0KYmVjYXVzZSBpdCBk
-b2Vzbid0IG5lZWQgdG8gd29ycnkgYWJvdXQgdGhlIHRlcm1pbmF0b3IuDQpJbiBtYW55IGNhc2Vz
-IGl0IHdpbGwgYmUgaW5saW5lZCB0byBhIHNob3J0IHNlcmllcyBvZiBsb2FkIGFuZCBzdG9yZXMu
-DQoNCglEYXZpZA0KDQo=
+On 15/09/14 23:43, Neal Cardwell wrote:
+> On Mon, Sep 15, 2014 at 12:11 PM, Andrey Dmitrov
+> <andrey.dmitrov@oktetlabs.ru> wrote:
+>> It is possible to create a lot of connections in the same manner which will be in FIN_WAIT1 state forever.
+> ...
+>> After ~10 minutes you will see 500 connections in the FIN_WAIT1 state on the host_A:
+>> netstat | grep FIN_WAIT1 | wc -l
+>> 500
+> Thanks for the report. In your tests, have you ever seen the number of
+> such connections exceed net.ipv4.tcp_max_orphans?
+>
+> Can you set net.ipv4.tcp_max_orphans to a low value and verify that it
+> limits the number of such connections? AFAICT it should.
+I tried to set net.ipv4.tcp_max_orphans to 100, it limits the 
+connections number. As I saw net.ipv4.tcp_max_orphans can be exceeded, 
+but for a short time. Maximum connections number in FIN_WAIT1 state was 
+196, after that it was decreased rather fast to ~100.
+
+Thanks,
+Andrey
