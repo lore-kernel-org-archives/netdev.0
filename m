@@ -1,87 +1,90 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 3/3] bridge;
- Automatically filter vlans configured on top of bridge
-Date: Tue, 16 Sep 2014 11:00:37 -0400
-Message-ID: <54185095.4020102@redhat.com>
-References: <1410554691-18467-1-git-send-email-vyasevic@redhat.com>
-	<1410554691-18467-4-git-send-email-vyasevic@redhat.com>
-	<5415B6C2.5030702@gmail.com> <54170372.4080903@redhat.com>
-	<54181EC1.2010608@lab.ntt.co.jp> <54183BCF.8070506@redhat.com>
-	<54184BB9.8010802@gmail.com>
-Reply-To: vyasevic@redhat.com
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: TCP connection will hang in FIN_WAIT1 after closing if zero
+ window is advertised
+Date: Tue, 16 Sep 2014 08:11:46 -0700
+Message-ID: <CAK6E8=eNtNwREF8J+eF1LWhmg-aZmkYycDkXEAKn7Xb0_xv2rA@mail.gmail.com>
+References: <54170FC0.6020907@oktetlabs.ru> <1410822949.5018.4.camel@localhost>
+ <54183150.5030400@oktetlabs.ru> <1410872966.7106.187.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, bridge@lists.linux-foundation.org
-To: Toshiaki Makita <toshiaki.makita1@gmail.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <54184BB9.8010802@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
+	Konstantin Ushakov <kostik@oktetlabs.ru>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:38339 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753881AbaIPPM1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 11:12:27 -0400
+Received: by mail-ig0-f171.google.com with SMTP id r10so5682894igi.16
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 08:12:26 -0700 (PDT)
+In-Reply-To: <1410872966.7106.187.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/16/2014 10:39 AM, Toshiaki Makita wrote:
-> (14/09/16 (火) 22:31), Vlad Yasevich wrote:
->> On 09/16/2014 07:28 AM, Toshiaki Makita wrote:
->>> On 2014/09/16 0:19, Vlad Yasevich wrote:
->>>> On 09/14/2014 11:39 AM, Toshiaki Makita wrote:
->>>>> (14/09/13 (土) 5:44), Vladislav Yasevich wrote:
->>>>>> If the user configures vlan devices on top of the bridge,
->>>>>> automatically set up filter entries for it as long as
->>>>>> bridge vlan protocol matches that of the vlan.
->>>>>> This allows the user to atomatically receive vlan traffic
->>>>>> for the vlans that are convifgured.
->>>>>
->>>>> Changing br->vlan_proto seems to cause inconsistency between vlan
->>>>> interfaces and filter settings.
->>>>> Can we automatically change filters when setting vlan_proto?
->>>>>
->>>>
->>>> I thought we already do that in br_vlan_set_proto()?  Nothing
->>>> here introduces any new kinds of issue with that code.
->>>
->>> I'm referring to a case like this:
->>> 1. create br0.10 (802.1ad)
->>> 2. change br->vlan_proto into 88a8
->>>
->>> When creating br0.10 (1), br->vlan_proto is 8100 and different from
->>> protocol of br0.10, so it is ignored by br_vlan_rx_add_vid().
->>> After changing br->vlan_proto (2), we might expect vlan 10 is not
->>> filtered on br0, but it will be filtered.
->>
->> Ok, I see what you mean.  This one is a bit tough.  Our options are:
->>   1) Return an error when configuring br0.10.  This might break user-space.  Not good.
->>   2) Ignore protocol when crating the filter.  This is not good either as the user
->>      may not switch the bridge vlan_proto value and we'd end up with a wrong filter.
->>   3) Re-implement .1ad support per-vlan instead of per-bridge.
->>
->> You see another other alternatives?
-> 
-> We might be able to configure filterings on changing vlan_proto.
-> 4) Memorize different protocol's filtering requests in
-> br_vlan_rx_add_vid() and use them when switching vlan_proto.
+On Tue, Sep 16, 2014 at 6:09 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2014-09-16 at 16:47 +0400, Andrey Dmitrov wrote:
+>> On 16/09/14 03:15, Hannes Frederic Sowa wrote:
+>> > Also thanks for the report.
+>> >
+>> > Do you see any tcp window repair messages in dmesg? Can you send some
+>> > output of ss -oemit state FIN-WAIT-1 from the target host?
+>> Hannes,
+>> no, there aren't any messages in dmesg until net.ipv4.tcp_max_orphans is
+>> achieved.
+>
+>
+> Andrey, you should take a look at Labrea Tarpit,
+>
+> http://www.sans.org/reading-room/whitepapers/casestudies/smart-ids-hybrid-labrea-tarpit-33254
+>
+> What happens is the following :
+>
+> A normal TCP session is established, traffic is sent from server to
+> client.
+>
+> Client sends a zero window.
+>
+> 1) This can be normal, because application reading client queue no
+> longer can. (For example its a ssh session, and output to the terminal
+> is blocked by CTRL S). There are valid cases when you block this for
+> many hours.
+>
+> 2) This can be faked by malicious peer, willing to make server enter
+> this mode (inability to send more data, data stack in output queue, one
+> probe sent every RTO). This is a very well known way to let servers
+> consume a lot of kernel memory and eventually OOM.
+>
+>
+> Then server sends a probe every RTO, and client responds with a ACK with
+> win=0
+>
+> TCP specs say : This can last forever, even if socket is eventually
+> closed by the server (because he gave up) and enters FIN_WAIT
+>
+> Supposedly, if a server is about to give up, it might tell the TCP
+> stack : Oh, do not bother absolutely sending the remaining bytes you
+> have in output queue (I, the application, already waited for a very
+> reasonable time)
+>
+> Normally SO_LINGER could be used, or TCP_USER_TIMEOUT. This requires a
+> system call before doing the close().
+>
+> 1) TCP_USER_TIMEOUT would be the fit for this, but its current
+> implementation do not take care of the probes sent, even in FIN_WAIT
+> state when in this zero window mode. A patch would be needed.
+Yes that's what I meant. I am proposing we should patch
+TCP_USER_TIMEOUT to do this.
 
-If we do this, we might as well take it one small step further and make per-vlan protocol
-support.
 
-> 5) Scan vlan devices on bridge device when changing vlan_proto.
-> 
-
-The scan could work...  walk the upper devices looking for vlans and add/delete filters
-based on the protocol of the vlan devices.
-
-Seems kind of hacky, but let me give this one a try...
-
--vlad
-> Thanks,
-> Toshiaki Makita
-> 
+>
+> 2) SO_LINGER, timeout=0 might work.
+>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
