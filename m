@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: bisected regression: 3c59x corrupts packets in 3.17-rc5
-Date: Tue, 16 Sep 2014 16:29:23 -0400 (EDT)
-Message-ID: <20140916.162923.605101746131407931.davem@davemloft.net>
-References: <alpine.LRH.2.11.1409160209280.21050@adalberg.ut.ee>
-	<20140916101704.GA3792@hmsreliant.think-freely.org>
+Subject: Re: [PATCH -net] scsi: fix users of SCSI_FC_ATTRS to depend on NET
+Date: Tue, 16 Sep 2014 16:31:06 -0400 (EDT)
+Message-ID: <20140916.163106.2212454105464887253.davem@davemloft.net>
+References: <5417DA29.4060205@infradead.org>
+	<20140916.161518.620276378147910368.davem@davemloft.net>
+	<54189C8E.5030409@infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mroos@linux.ee, klassert@mathematik.tu-chemnitz.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: nhorman@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140916101704.GA3792@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	jbottomley@parallels.com, fengguang.wu@intel.com
+To: rdunlap@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57970 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753115AbaIPUbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 16:31:09 -0400
+In-Reply-To: <54189C8E.5030409@infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Tue, 16 Sep 2014 06:17:04 -0400
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Tue, 16 Sep 2014 13:24:46 -0700
 
-> I'm guessing the above change has uncovered another bug,
+> typo:                     depends on SCSI_FC_ATTRS
+> 
+> No, I certainly have no objection and prefer depends over select anyway.
 
-Neil, read your patch carefully, I think it added the bug.
+Ok, then please send me a patch which fixes things that way.
 
-The ->page_offset of the frag gets applied two times.
-
-skb_dma_map_frag() already takes frag->page_offset into consideration,
-you then pass it in as the 'offset' argument and it then gets added to
-itself to compute th final offset.
+Thanks!
