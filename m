@@ -1,62 +1,57 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v12 net-next 03/11] bpf: add lookup/update/delete/iterate
- methods to BPF maps
-Date: Tue, 16 Sep 2014 14:23:27 -0700
-Message-ID: <CAMEtUuzy0Hvjr0f4XBrH+FAxaKD7aijnYzDe3-MPrGWe6+MD4Q@mail.gmail.com>
-References: <1410808721-27493-4-git-send-email-ast@plumgrid.com>
-	<20140916.151606.448751391205382097.davem@davemloft.net>
-	<CAMEtUuxp6709mdygiQyCqwjv-0kF-CbNOzCCZmKw_mUckF4NZA@mail.gmail.com>
-	<20140916.165452.1747695341192703967.davem@davemloft.net>
+From: Zhi Li <lznuaa@gmail.com>
+Subject: Re: [Patch net-next v2 4/4] net: fec: Workaround for imx6sx enet tx
+ hang when enable three queues
+Date: Tue, 16 Sep 2014 16:24:20 -0500
+Message-ID: <CAHrpEqRnFLUSyKk+1-0Os0XgJ0X0aSOsL-mEYpxBPqBem3Zt9A@mail.gmail.com>
+References: <1410890290-11248-1-git-send-email-Frank.Li@freescale.com>
+	<1410890290-11248-5-git-send-email-Frank.Li@freescale.com>
+	<CAOMZO5DnmHBaDr7RzozJoBsuEY=bzmusKcfJQ4NjCyD4+13=Tg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140916.165452.1747695341192703967.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Frank Li <Frank.Li@freescale.com>,
+	Duan Fugang-B38611 <b38611@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:44793 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753138AbaIPVYW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 17:24:22 -0400
+Received: by mail-la0-f45.google.com with SMTP id b17so650835lan.32
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 14:24:21 -0700 (PDT)
+In-Reply-To: <CAOMZO5DnmHBaDr7RzozJoBsuEY=bzmusKcfJQ4NjCyD4+13=Tg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 16, 2014 at 1:54 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+On Tue, Sep 16, 2014 at 3:52 PM, Fabio Estevam <festevam@gmail.com> wrote:
+> On Tue, Sep 16, 2014 at 2:58 PM,  <Frank.Li@freescale.com> wrote:
+>> From: Fugang Duan <B38611@freescale.com>
+>>
+>> When enable three queues on imx6sx enet, and then do tx performance
+>> test with iperf tool, after some time running, tx hang.
+>>
+>> Found that:
+>>         If uDMA is running, software set TDAR may cause tx hang.
+>>         If uDMA is in idle, software set TDAR don't cause tx hang.
+>>
+>> There is a TDAR race condition for mutliQ when the software sets TDAR
+>> and the UDMA clears TDAR simultaneously or in a small window (2-4 cycles).
+>> This will cause the udma_tx and udma_tx_arbiter state machines to hang.
+>> The issue exist at i.MX6SX enet IP.
+>>
+>> So, the Workaround is checking TDAR status four time, if TDAR cleared by
+>> hardware and then write TDAR, otherwise don't set TDAR.
+>>
+>> The patch is only one Workaround for the issue TKT210582.
 >
-> The cost of the compat layer must be considered and weighted
-> against this cast, which I think is really no big deal.
->
->> I think compat layer is a better option.
->
-> It's overhead you'll have to support forever, I think you should
-> reconsider.
->
-> All of the "ugly casting" will be hidden, or can be hidden, in the
-> syscall wrappers and/or interfaces in userspace.
+> As Shawn pointed out, it is better to use the ERR007885 instead of an
+> internal bug numbering.
 
-ahh, ok. I thought you're strongly against any type of casts.
-In such case I can get rid of 'union bpf_attr' as well and simply
-define a struct per command, then syscall will look like:
-sys_bpf(int cmd, void __user *attr, unsigned int size);
-and uapi/linux/bpf.h will have:
-struct bpf_prog_load_attr { /* for BPF_PROG_LOAD cmd */
-    __u32 prog_type;
-    __u32 insn_cnt;
-    __aligned_u64 insns;
-    __aligned_u64 license;
-    __u32 log_level;
-    __u32 log_size;
-    __aligned_u64 log_buf;
-};
-and similar for other commands.
-no compat layer and type checking will be done
-by syscall wrappers. Ok?
+Sorry, I forget change commit message.
+
+best regards
+Frank Li
