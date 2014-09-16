@@ -1,581 +1,182 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v3 5/5] openvswitch: Add recirc and hash action.
-Date: Tue, 16 Sep 2014 00:24:14 -0700
-Message-ID: <1410852254-1601-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [BUG REPORT]  Unencrypted packets after SNAT, allthough
+ IPSEC-Policies are present
+Date: Tue, 16 Sep 2014 09:30:31 +0200
+Message-ID: <20140916073031.GR6390@secunet.com>
+References: <541089DD.6060307@sirrix.com>
+ <20140911115401.GL6390@secunet.com>
+ <54119F75.8090305@sirrix.com>
+ <20140912093143.GN6390@secunet.com>
+ <20140915080941.GP6390@secunet.com>
+ <20140915120407.GQ6390@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+	<herbert@gondor.apana.org.au>
+To: Konstantinos Kolelis <k.kolelis@sirrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog117.obsmtp.com ([74.125.149.242]:43857 "HELO
-	na3sys009aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752485AbaIPHXv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 03:23:51 -0400
-Received: by mail-pa0-f44.google.com with SMTP id kx10so8392697pab.31
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 00:23:50 -0700 (PDT)
+Received: from a.mx.secunet.com ([195.81.216.161]:45500 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751796AbaIPHai (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2014 03:30:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20140915120407.GQ6390@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Zhou <azhou@nicira.com>
+On Mon, Sep 15, 2014 at 02:04:07PM +0200, Steffen Klassert wrote:
+> On Mon, Sep 15, 2014 at 10:09:41AM +0200, Steffen Klassert wrote:
+> >  
+> > diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> > index beeed60..e041822 100644
+> > --- a/net/xfrm/xfrm_policy.c
+> > +++ b/net/xfrm/xfrm_policy.c
+> > @@ -2138,7 +2138,8 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+> >  			xfrm_pols_put(pols, drop_pols);
+> >  			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTNOSTATES);
+> >  
+> > -			return make_blackhole(net, family, dst_orig);
+> > +			err = -EREMOTE;
+> > +			goto error;
+> 
+> We must return here, otherwise we drop some refcounts too much.
+> I'll send an updated patch tomorrow.
+> 
 
-Recirc action allows a packet to reenter openvswitch processing.
-currently openvswitch lookup flow for packet received and execute
-set of actions on that packet, with help of recirc action we can
-process/modify the packet and recirculate it back in openvswitch
-for another pass.
+Below is the updated version of the patch.
 
-OVS hash action calculates 5-tupple hash and set hash in flow-key
-hash. This can be used along with recirculation for distributing
-packets among different ports for bond devices.
-For example:
-OVS bonding can use following actions:
-Match on: bond flow; Action: hash, recirc(id)
-Match on: recirc-id == id and hash lower bits == a;
-          Action: output port_bond_a
+Subject: [PATCH] xfrm: Generate blackhole routes only from route lookup
+ functions
 
-Signed-off-by: Andy Zhou <azhou@nicira.com>
-Acked-by: Jesse Gross <jesse@nicira.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Currently we genarate a blackhole route route whenever we have
+matching policies but can not resolve the states. Here we assume
+that dst_output() is called to kill the balckholed packets.
+Unfortunately this assumption is not true in all cases, so
+it is possible that these packets leave the system unwanted.
+
+We fix this by generating blackhole routes only from the
+route lookup functions, here we can guarantee a call to
+dst_output() afterwards.
+
+Fixes: 2774c131b1d ("xfrm: Handle blackhole route creation via afinfo.")
+Reported-by: Konstantinos Kolelis <k.kolelis@sirrix.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/uapi/linux/openvswitch.h |  26 +++++
- net/openvswitch/actions.c        | 203 +++++++++++++++++++++++++++++++++++++--
- net/openvswitch/datapath.c       |  11 ++-
- net/openvswitch/datapath.h       |   7 +-
- net/openvswitch/flow.c           |   7 +-
- net/openvswitch/flow.h           |   3 +
- net/openvswitch/flow_netlink.c   |  43 ++++++++-
- 7 files changed, 288 insertions(+), 12 deletions(-)
+ include/net/dst.h      | 15 ++++++++++++++-
+ net/ipv4/route.c       |  6 +++---
+ net/ipv6/ip6_output.c  |  4 ++--
+ net/xfrm/xfrm_policy.c | 18 +++++++++++++++++-
+ 4 files changed, 36 insertions(+), 7 deletions(-)
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index a794d1d..f7fc507 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -289,6 +289,9 @@ enum ovs_key_attr {
- 	OVS_KEY_ATTR_TUNNEL,    /* Nested set of ovs_tunnel attributes */
- 	OVS_KEY_ATTR_SCTP,      /* struct ovs_key_sctp */
- 	OVS_KEY_ATTR_TCP_FLAGS,	/* be16 TCP flags. */
-+	OVS_KEY_ATTR_DP_HASH,      /* u32 hash value. Value 0 indicates the hash
-+				   is not computed by the datapath. */
-+	OVS_KEY_ATTR_RECIRC_ID, /* u32 recirc id */
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 71c60f4..fa11c90 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -490,7 +490,16 @@ static inline struct dst_entry *xfrm_lookup(struct net *net,
+ 					    int flags)
+ {
+ 	return dst_orig;
+-} 
++}
++
++static inline struct dst_entry *xfrm_lookup_route(struct net *net,
++						  struct dst_entry *dst_orig,
++						  const struct flowi *fl,
++						  struct sock *sk,
++						  int flags)
++{
++	return dst_orig;
++}
  
- #ifdef __KERNEL__
- 	OVS_KEY_ATTR_IPV4_TUNNEL,  /* struct ovs_key_ipv4_tunnel */
-@@ -493,6 +496,27 @@ struct ovs_action_push_vlan {
- 	__be16 vlan_tci;	/* 802.1Q TCI (VLAN ID and priority). */
- };
+ static inline struct xfrm_state *dst_xfrm(const struct dst_entry *dst)
+ {
+@@ -502,6 +511,10 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+ 			      const struct flowi *fl, struct sock *sk,
+ 			      int flags);
  
-+/* Data path hash algorithm for computing Datapath hash.
-+ *
-+ * The algorithm type only specifies the fields in a flow
-+ * will be used as part of the hash. Each datapath is free
-+ * to use its own hash algorithm. The hash value will be
-+ * opaque to the user space daemon.
++struct dst_entry *xfrm_lookup_route(struct net *net, struct dst_entry *dst_orig,
++				    const struct flowi *fl, struct sock *sk,
++				    int flags);
++
+ /* skb attached with this dst needs transformation if dst->xfrm is valid */
+ static inline struct xfrm_state *dst_xfrm(const struct dst_entry *dst)
+ {
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index eaa4b00..173e7ea 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2265,9 +2265,9 @@ struct rtable *ip_route_output_flow(struct net *net, struct flowi4 *flp4,
+ 		return rt;
+ 
+ 	if (flp4->flowi4_proto)
+-		rt = (struct rtable *) xfrm_lookup(net, &rt->dst,
+-						   flowi4_to_flowi(flp4),
+-						   sk, 0);
++		rt = (struct rtable *)xfrm_lookup_route(net, &rt->dst,
++							flowi4_to_flowi(flp4),
++							sk, 0);
+ 
+ 	return rt;
+ }
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 315a55d..0a3448b 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1009,7 +1009,7 @@ struct dst_entry *ip6_dst_lookup_flow(struct sock *sk, struct flowi6 *fl6,
+ 	if (final_dst)
+ 		fl6->daddr = *final_dst;
+ 
+-	return xfrm_lookup(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
++	return xfrm_lookup_route(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
+ }
+ EXPORT_SYMBOL_GPL(ip6_dst_lookup_flow);
+ 
+@@ -1041,7 +1041,7 @@ struct dst_entry *ip6_sk_dst_lookup_flow(struct sock *sk, struct flowi6 *fl6,
+ 	if (final_dst)
+ 		fl6->daddr = *final_dst;
+ 
+-	return xfrm_lookup(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
++	return xfrm_lookup_route(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
+ }
+ EXPORT_SYMBOL_GPL(ip6_sk_dst_lookup_flow);
+ 
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index beeed60..7505674 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2138,7 +2138,7 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+ 			xfrm_pols_put(pols, drop_pols);
+ 			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTNOSTATES);
+ 
+-			return make_blackhole(net, family, dst_orig);
++			return ERR_PTR(-EREMOTE);
+ 		}
+ 
+ 		err = -EAGAIN;
+@@ -2195,6 +2195,22 @@ dropdst:
+ }
+ EXPORT_SYMBOL(xfrm_lookup);
+ 
++/* Callers of xfrm_lookup_route() must ensure a call to dst_output().
++ * Otherwise we may send out blackholed packets.
 + */
-+enum ovs_hash_alg {
-+	OVS_HASH_ALG_L4,
-+};
-+
-+/*
-+ * struct ovs_action_hash - %OVS_ACTION_ATTR_HASH action argument.
-+ * @hash_alg: Algorithm used to compute hash prior to recirculation.
-+ * @hash_basis: basis used for computing hash.
-+ */
-+struct ovs_action_hash {
-+	uint32_t  hash_alg;     /* One of ovs_hash_alg. */
-+	uint32_t  hash_basis;
-+};
-+
- /**
-  * enum ovs_action_attr - Action types.
-  *
-@@ -521,6 +545,8 @@ enum ovs_action_attr {
- 	OVS_ACTION_ATTR_PUSH_VLAN,    /* struct ovs_action_push_vlan. */
- 	OVS_ACTION_ATTR_POP_VLAN,     /* No argument. */
- 	OVS_ACTION_ATTR_SAMPLE,       /* Nested OVS_SAMPLE_ATTR_*. */
-+	OVS_ACTION_ATTR_RECIRC,       /* u32 recirc_id. */
-+	OVS_ACTION_ATTR_HASH,	      /* struct ovs_action_hash. */
- 	__OVS_ACTION_ATTR_MAX
- };
- 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index c31bb80..6932a42 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2007-2013 Nicira, Inc.
-+ * Copyright (c) 2007-2014 Nicira, Inc.
-  *
-  * This program is free software; you can redistribute it and/or
-  * modify it under the terms of version 2 of the GNU General Public
-@@ -35,12 +35,78 @@
- #include <net/sctp/checksum.h>
- 
- #include "datapath.h"
-+#include "flow.h"
- #include "vport.h"
- 
- static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			      struct sw_flow_key *key,
- 			      const struct nlattr *attr, int len);
- 
-+struct deferred_action {
-+	struct sk_buff *skb;
-+	const struct nlattr *actions;
-+
-+	/* Store pkt_key clone when creating deferred action. */
-+	struct sw_flow_key pkt_key;
-+};
-+
-+#define DEFERRED_ACTION_FIFO_SIZE 10
-+struct action_fifo {
-+	int head;
-+	int tail;
-+	/* Deferred action fifo queue storage. */
-+	struct deferred_action fifo[DEFERRED_ACTION_FIFO_SIZE];
-+};
-+
-+static struct action_fifo __percpu *action_fifos;
-+static DEFINE_PER_CPU(int, exec_actions_level);
-+
-+static void action_fifo_init(struct action_fifo *fifo)
++struct dst_entry *xfrm_lookup_route(struct net *net, struct dst_entry *dst_orig,
++				    const struct flowi *fl,
++				    struct sock *sk, int flags)
 +{
-+	fifo->head = 0;
-+	fifo->tail = 0;
++	struct dst_entry *dst = xfrm_lookup(net, dst_orig, fl, sk, flags);
++
++	if (IS_ERR(dst) && PTR_ERR(dst) == -EREMOTE)
++		return make_blackhole(net, dst_orig->ops->family, dst_orig);
++
++	return dst;
 +}
++EXPORT_SYMBOL(xfrm_lookup_route);
 +
-+static bool action_fifo_is_empty(struct action_fifo *fifo)
-+{
-+	return (fifo->head == fifo->tail);
-+}
-+
-+static struct deferred_action *action_fifo_get(struct action_fifo *fifo)
-+{
-+	if (action_fifo_is_empty(fifo))
-+		return NULL;
-+
-+	return &fifo->fifo[fifo->tail++];
-+}
-+
-+static struct deferred_action *action_fifo_put(struct action_fifo *fifo)
-+{
-+	if (fifo->head >= DEFERRED_ACTION_FIFO_SIZE - 1)
-+		return NULL;
-+
-+	return &fifo->fifo[fifo->head++];
-+}
-+
-+/* Return true if fifo is not full */
-+static struct deferred_action *add_deferred_actions(struct sk_buff *skb,
-+						    struct sw_flow_key *key,
-+						    const struct nlattr *attr)
-+{
-+	struct action_fifo *fifo;
-+	struct deferred_action *da;
-+
-+	fifo = this_cpu_ptr(action_fifos);
-+	da = action_fifo_put(fifo);
-+	if (da) {
-+		da->skb = skb;
-+		da->actions = attr;
-+		da->pkt_key = *key;
-+	}
-+
-+	return da;
-+}
-+
- static int make_writable(struct sk_buff *skb, int write_len)
+ static inline int
+ xfrm_secpath_reject(int idx, struct sk_buff *skb, const struct flowi *fl)
  {
- 	if (!pskb_may_pull(skb, write_len))
-@@ -485,8 +551,29 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
- 		/* Skip the sample action when out of memory. */
- 		return 0;
- 
--	/* do_execute_actions() will consume the cloned skb. */
--	return do_execute_actions(dp, skb, key, a, rem);
-+	if (!add_deferred_actions(skb, key, a)) {
-+		if (net_ratelimit())
-+			pr_warn("%s: deferred actions limit reached, dropping sample action\n",
-+				ovs_dp_name(dp));
-+
-+		kfree_skb(skb);
-+	}
-+	return 0;
-+}
-+
-+static void execute_hash(struct sk_buff *skb, struct sw_flow_key *key,
-+			 const struct nlattr *attr)
-+{
-+	struct ovs_action_hash *hash_act = nla_data(attr);
-+	u32 hash = 0;
-+
-+	/* OVS_HASH_ALG_L4 is the only possible hash algorithm.  */
-+	hash = skb_get_hash(skb);
-+	hash = jhash_1word(hash, hash_act->hash_basis);
-+	if (!hash)
-+		hash = 0x1;
-+
-+	key->ovs_flow_hash = hash;
- }
- 
- static int execute_set_action(struct sk_buff *skb,
-@@ -535,6 +622,44 @@ static int execute_set_action(struct sk_buff *skb,
- 	return err;
- }
- 
-+static int execute_recirc(struct datapath *dp, struct sk_buff *skb,
-+			  struct sw_flow_key *key,
-+			  const struct nlattr *a, int rem)
-+{
-+	struct deferred_action *da;
-+	int err;
-+
-+	err = ovs_flow_key_update(skb, key);
-+	if (err)
-+		return err;
-+
-+	if (!last_action(a, rem)) {
-+		/* Recirc action is the not the last action
-+		 * of the action list, need to clone the skb.
-+		 */
-+		skb = skb_clone(skb, GFP_ATOMIC);
-+
-+		/* Skip the recirc action when out of memory, but
-+		 * continue on with the rest of the action list.
-+		 */
-+		if (!skb)
-+			return 0;
-+	}
-+
-+	da = add_deferred_actions(skb, key, NULL);
-+	if (da) {
-+		da->pkt_key.recirc_id = nla_get_u32(a);
-+	} else {
-+		kfree_skb(skb);
-+
-+		if (net_ratelimit())
-+			pr_warn("%s: deferred action limit reached, drop recirc action\n",
-+				ovs_dp_name(dp));
-+	}
-+
-+	return 0;
-+}
-+
- /* Execute a list of actions against 'skb'. */
- static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			      struct sw_flow_key *key,
-@@ -566,6 +691,10 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			output_userspace(dp, skb, key, a);
- 			break;
- 
-+		case OVS_ACTION_ATTR_HASH:
-+			execute_hash(skb, key, a);
-+			break;
-+
- 		case OVS_ACTION_ATTR_PUSH_VLAN:
- 			err = push_vlan(skb, nla_data(a));
- 			if (unlikely(err)) /* skb already freed. */
-@@ -576,6 +705,17 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			err = pop_vlan(skb);
- 			break;
- 
-+		case OVS_ACTION_ATTR_RECIRC:
-+			err = execute_recirc(dp, skb, key, a, rem);
-+			if (last_action(a, rem)) {
-+				/* If this is the last action, the skb has
-+				 * been consumed or freed.
-+				 * Return immediately.
-+				 */
-+				return err;
-+			}
-+			break;
-+
- 		case OVS_ACTION_ATTR_SET:
- 			err = execute_set_action(skb, nla_data(a));
- 			break;
-@@ -601,12 +741,63 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 	return 0;
- }
- 
-+static void process_deferred_actions(struct datapath *dp)
-+{
-+	struct action_fifo *fifo = this_cpu_ptr(action_fifos);
-+
-+	/* Do not touch the FIFO in case there is no deferred actions. */
-+	if (action_fifo_is_empty(fifo))
-+		return;
-+
-+	/* Finishing executing all deferred actions. */
-+	do {
-+		struct deferred_action *da = action_fifo_get(fifo);
-+		struct sk_buff *skb = da->skb;
-+		struct sw_flow_key *key = &da->pkt_key;
-+		const struct nlattr *actions = da->actions;
-+
-+		if (actions)
-+			do_execute_actions(dp, skb, key, actions,
-+					   nla_len(actions));
-+		else
-+			ovs_dp_process_packet(skb, key);
-+	} while (!action_fifo_is_empty(fifo));
-+
-+	/* Reset FIFO for the next packet.  */
-+	action_fifo_init(fifo);
-+}
-+
- /* Execute a list of actions against 'skb'. */
- int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			struct sw_flow_key *key)
- {
--	struct sw_flow_actions *acts = rcu_dereference(OVS_CB(skb)->flow->sf_acts);
-+	int level = this_cpu_read(exec_actions_level);
-+	struct sw_flow_actions *acts;
-+	int err;
-+
-+	acts = rcu_dereference(OVS_CB(skb)->flow->sf_acts);
-+
-+	this_cpu_inc(exec_actions_level);
-+	err = do_execute_actions(dp, skb, key,
-+				 acts->actions, acts->actions_len);
-+
-+	if (!level)
-+		process_deferred_actions(dp);
-+
-+	this_cpu_dec(exec_actions_level);
-+	return err;
-+}
-+
-+int action_fifos_init(void)
-+{
-+	action_fifos = alloc_percpu(struct action_fifo);
-+	if (!action_fifos)
-+		return -ENOMEM;
- 
--	return do_execute_actions(dp, skb, key,
--				  acts->actions, acts->actions_len);
-+	return 0;
-+}
-+
-+void action_fifos_exit(void)
-+{
-+	free_percpu(action_fifos);
- }
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 7e08199..16cad14 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -156,7 +156,7 @@ static struct datapath *get_dp(struct net *net, int dp_ifindex)
- }
- 
- /* Must be called with rcu_read_lock or ovs_mutex. */
--static const char *ovs_dp_name(const struct datapath *dp)
-+const char *ovs_dp_name(const struct datapath *dp)
- {
- 	struct vport *vport = ovs_vport_ovsl_rcu(dp, OVSP_LOCAL);
- 	return vport->ops->get_name(vport);
-@@ -2065,10 +2065,14 @@ static int __init dp_init(void)
- 
- 	pr_info("Open vSwitch switching datapath\n");
- 
--	err = ovs_internal_dev_rtnl_link_register();
-+	err = action_fifos_init();
- 	if (err)
- 		goto error;
- 
-+	err = ovs_internal_dev_rtnl_link_register();
-+	if (err)
-+		goto error_action_fifos_exit;
-+
- 	err = ovs_flow_init();
- 	if (err)
- 		goto error_unreg_rtnl_link;
-@@ -2101,6 +2105,8 @@ error_flow_exit:
- 	ovs_flow_exit();
- error_unreg_rtnl_link:
- 	ovs_internal_dev_rtnl_link_unregister();
-+error_action_fifos_exit:
-+	action_fifos_exit();
- error:
- 	return err;
- }
-@@ -2114,6 +2120,7 @@ static void dp_cleanup(void)
- 	ovs_vport_exit();
- 	ovs_flow_exit();
- 	ovs_internal_dev_rtnl_link_unregister();
-+	action_fifos_exit();
- }
- 
- module_init(dp_init);
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index 25b0e88..ac3f3df 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2007-2012 Nicira, Inc.
-+ * Copyright (c) 2007-2014 Nicira, Inc.
-  *
-  * This program is free software; you can redistribute it and/or
-  * modify it under the terms of version 2 of the GNU General Public
-@@ -189,13 +189,18 @@ void ovs_dp_detach_port(struct vport *);
- int ovs_dp_upcall(struct datapath *, struct sk_buff *,
- 		  const struct dp_upcall_info *);
- 
-+const char *ovs_dp_name(const struct datapath *dp);
- struct sk_buff *ovs_vport_cmd_build_info(struct vport *, u32 pid, u32 seq,
- 					 u8 cmd);
- 
- int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			struct sw_flow_key *);
-+
- void ovs_dp_notify_wq(struct work_struct *work);
- 
-+int action_fifos_init(void);
-+void action_fifos_exit(void);
-+
- #define OVS_NLERR(fmt, ...)					\
- do {								\
- 	if (net_ratelimit())					\
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index bf84420..4010423 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2007-2013 Nicira, Inc.
-+ * Copyright (c) 2007-2014 Nicira, Inc.
-  *
-  * This program is free software; you can redistribute it and/or
-  * modify it under the terms of version 2 of the GNU General Public
-@@ -606,6 +606,11 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
- 	return 0;
- }
- 
-+int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
-+{
-+	return key_extract(skb, key);
-+}
-+
- int ovs_flow_key_extract(struct ovs_key_ipv4_tunnel *tun_key,
- 			 struct sk_buff *skb, struct sw_flow_key *key)
- {
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index 3869a54..0f5db4e 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -72,6 +72,8 @@ struct sw_flow_key {
- 		u32	skb_mark;	/* SKB mark. */
- 		u16	in_port;	/* Input switch port (or DP_MAX_PORTS). */
- 	} __packed phy; /* Safe when right after 'tun_key'. */
-+	u32 ovs_flow_hash;		/* Datapath computed hash value.  */
-+	u32 recirc_id;			/* Recirculation ID.  */
- 	struct {
- 		u8     src[ETH_ALEN];	/* Ethernet source address. */
- 		u8     dst[ETH_ALEN];	/* Ethernet destination address. */
-@@ -187,6 +189,7 @@ void ovs_flow_stats_get(const struct sw_flow *, struct ovs_flow_stats *,
- void ovs_flow_stats_clear(struct sw_flow *);
- u64 ovs_flow_used_time(unsigned long flow_jiffies);
- 
-+int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key);
- int ovs_flow_key_extract(struct ovs_key_ipv4_tunnel *tun_key,
- 			 struct sk_buff *skb, struct sw_flow_key *key);
- /* Extract key from packet coming from userspace. */
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 630b320..f4c8daa 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2007-2013 Nicira, Inc.
-+ * Copyright (c) 2007-2014 Nicira, Inc.
-  *
-  * This program is free software; you can redistribute it and/or
-  * modify it under the terms of version 2 of the GNU General Public
-@@ -251,6 +251,8 @@ static const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
- 	[OVS_KEY_ATTR_ICMPV6] = sizeof(struct ovs_key_icmpv6),
- 	[OVS_KEY_ATTR_ARP] = sizeof(struct ovs_key_arp),
- 	[OVS_KEY_ATTR_ND] = sizeof(struct ovs_key_nd),
-+	[OVS_KEY_ATTR_RECIRC_ID] = sizeof(u32),
-+	[OVS_KEY_ATTR_DP_HASH] = sizeof(u32),
- 	[OVS_KEY_ATTR_TUNNEL] = -1,
- };
- 
-@@ -454,6 +456,20 @@ static int ipv4_tun_to_nlattr(struct sk_buff *skb,
- static int metadata_from_nlattrs(struct sw_flow_match *match,  u64 *attrs,
- 				 const struct nlattr **a, bool is_mask)
- {
-+	if (*attrs & (1 << OVS_KEY_ATTR_DP_HASH)) {
-+		u32 hash_val = nla_get_u32(a[OVS_KEY_ATTR_DP_HASH]);
-+
-+		SW_FLOW_KEY_PUT(match, ovs_flow_hash, hash_val, is_mask);
-+		*attrs &= ~(1 << OVS_KEY_ATTR_DP_HASH);
-+	}
-+
-+	if (*attrs & (1 << OVS_KEY_ATTR_RECIRC_ID)) {
-+		u32 recirc_id = nla_get_u32(a[OVS_KEY_ATTR_RECIRC_ID]);
-+
-+		SW_FLOW_KEY_PUT(match, recirc_id, recirc_id, is_mask);
-+		*attrs &= ~(1 << OVS_KEY_ATTR_RECIRC_ID);
-+	}
-+
- 	if (*attrs & (1 << OVS_KEY_ATTR_PRIORITY)) {
- 		SW_FLOW_KEY_PUT(match, phy.priority,
- 			  nla_get_u32(a[OVS_KEY_ATTR_PRIORITY]), is_mask);
-@@ -873,6 +889,12 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
- 	struct nlattr *nla, *encap;
- 	bool is_mask = (swkey != output);
- 
-+	if (nla_put_u32(skb, OVS_KEY_ATTR_RECIRC_ID, output->recirc_id))
-+		goto nla_put_failure;
-+
-+	if (nla_put_u32(skb, OVS_KEY_ATTR_DP_HASH, output->ovs_flow_hash))
-+		goto nla_put_failure;
-+
- 	if (nla_put_u32(skb, OVS_KEY_ATTR_PRIORITY, output->phy.priority))
- 		goto nla_put_failure;
- 
-@@ -1401,11 +1423,13 @@ int ovs_nla_copy_actions(const struct nlattr *attr,
- 		/* Expected argument lengths, (u32)-1 for variable length. */
- 		static const u32 action_lens[OVS_ACTION_ATTR_MAX + 1] = {
- 			[OVS_ACTION_ATTR_OUTPUT] = sizeof(u32),
-+			[OVS_ACTION_ATTR_RECIRC] = sizeof(u32),
- 			[OVS_ACTION_ATTR_USERSPACE] = (u32)-1,
- 			[OVS_ACTION_ATTR_PUSH_VLAN] = sizeof(struct ovs_action_push_vlan),
- 			[OVS_ACTION_ATTR_POP_VLAN] = 0,
- 			[OVS_ACTION_ATTR_SET] = (u32)-1,
--			[OVS_ACTION_ATTR_SAMPLE] = (u32)-1
-+			[OVS_ACTION_ATTR_SAMPLE] = (u32)-1,
-+			[OVS_ACTION_ATTR_HASH] = sizeof(struct ovs_action_hash)
- 		};
- 		const struct ovs_action_push_vlan *vlan;
- 		int type = nla_type(a);
-@@ -1432,6 +1456,18 @@ int ovs_nla_copy_actions(const struct nlattr *attr,
- 				return -EINVAL;
- 			break;
- 
-+		case OVS_ACTION_ATTR_HASH: {
-+			const struct ovs_action_hash *act_hash = nla_data(a);
-+
-+			switch (act_hash->hash_alg) {
-+			case OVS_HASH_ALG_L4:
-+				break;
-+			default:
-+				return  -EINVAL;
-+			}
-+
-+			break;
-+		}
- 
- 		case OVS_ACTION_ATTR_POP_VLAN:
- 			break;
-@@ -1444,6 +1480,9 @@ int ovs_nla_copy_actions(const struct nlattr *attr,
- 				return -EINVAL;
- 			break;
- 
-+		case OVS_ACTION_ATTR_RECIRC:
-+			break;
-+
- 		case OVS_ACTION_ATTR_SET:
- 			err = validate_set(a, key, sfa, &skip_copy);
- 			if (err)
 -- 
-1.9.3
+1.9.1
