@@ -1,91 +1,69 @@
-From: Steffen Maier <maier@linux.vnet.ibm.com>
-Subject: Re: [PATCH -net] scsi: fix users of SCSI_FC_ATTRS to depend on NET
-Date: Tue, 16 Sep 2014 16:56:55 +0200
-Message-ID: <54184FB7.7020201@linux.vnet.ibm.com>
-References: <5417DA29.4060205@infradead.org>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH v2 net-next 0/7] net: foo-over-udp (fou)
+Date: Tue, 16 Sep 2014 08:00:18 -0700
+Message-ID: <CA+mtBx9d4wkcfmbPXm8m-Uz8K=_hjb3Q_a-0YNY4Yhz4cYoD5Q@mail.gmail.com>
+References: <1410750483-3236-1-git-send-email-therbert@google.com>
+	<CAJ3xEMjC5PQENzCXS9SNVm6zUVn7pydxf1MLQ57Br1sGjD1ngQ@mail.gmail.com>
+	<CA+mtBx_+JxUn4zT+XN8DpQcCoz5Du+QtF1xzLno2m1yCwbr6ow@mail.gmail.com>
+	<CAJ3xEMjUKRCOodKs0XF_8xc0WY6=1UH=5STmeLS-a0=ofnSA9w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fengguang Wu <fengguang.wu@intel.com>
-To: Randy Dunlap <rdunlap@infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-scsi <linux-scsi@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:48395 "EHLO
-	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753884AbaIPO5K convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 10:57:10 -0400
-Received: from /spool/local
-	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <maier@linux.vnet.ibm.com>;
-	Tue, 16 Sep 2014 15:57:08 +0100
-In-Reply-To: <5417DA29.4060205@infradead.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:61023 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753393AbaIPPAU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 11:00:20 -0400
+Received: by mail-ig0-f174.google.com with SMTP id h18so5667609igc.7
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 08:00:19 -0700 (PDT)
+In-Reply-To: <CAJ3xEMjUKRCOodKs0XF_8xc0WY6=1UH=5STmeLS-a0=ofnSA9w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/16/2014 08:35 AM, Randy Dunlap wrote:
-> From: Randy Dunlap <rdunlap@infradead.org>
+On Tue, Sep 16, 2014 at 6:35 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Mon, Sep 15, 2014 at 10:15 PM, Tom Herbert <therbert@google.com> wrote:
+>> On Mon, Sep 15, 2014 at 11:08 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>> On Mon, Sep 15, 2014 at 6:07 AM, Tom Herbert <therbert@google.com> wrote:
 >
-> There are other kconfig symbols which select SCSI_FC_ATTRS,
-> so they also need to depend on NET to fix kconfig warnings and
-> build errors:
+>>>>   - I really don't expect/want devices to have special support for any
+>>>>     of this. Generic checksum offload mechanisms (NETIF_HW_CSUM
+>>>>     and use of CHECKSUM_COMPLETE) should be sufficient. RSS and flow
+>>>>     steering is provided by commonly implemented UDP hashing. GRO/GSO
+>>>>     seem fairly comparable with LRO/TSO already.
 >
-> warning: (LIBFC && SCSI_IBMVFC && SCSI_QLA_FC && SCSI_LPFC && ZFCP &&=
- SCSI_BFA_FC && SCSI_CHELSIO_FCOE && FUSION_FC) selects SCSI_FC_ATTRS w=
-hich has unmet direct dependencies (SCSI && NET)
-> drivers/scsi/scsi_transport_fc.c: In function 'fc_host_post_event':
-> drivers/scsi/scsi_transport_fc.c:543:7: error: 'scsi_nl_sock' undecla=
-red (first use in this function)
-> drivers/scsi/scsi_transport_fc.c: In function 'fc_host_post_vendor_ev=
-ent':
-> drivers/scsi/scsi_transport_fc.c:611:7: error: 'scsi_nl_sock' undecla=
-red (first use in this function)
+>>> Again, today NICs are advertizing checksum offloads capability in
+>>> enc_hw_features but aren't capable to compute (say) the TCP checksum
+>>> of the inner packet regardless of which actual tunneling is used (e.g VXLAN vs
+>>> GRE), a bit inconsistent?
 >
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
-> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-> ---
->   drivers/message/fusion/Kconfig |    2 +-
->   drivers/scsi/Kconfig           |    9 +++++----
->   drivers/scsi/csiostor/Kconfig  |    2 +-
->   drivers/scsi/qla2xxx/Kconfig   |    2 +-
->   4 files changed, 8 insertions(+), 7 deletions(-)
-
-> --- lnx-317-rc5.orig/drivers/scsi/Kconfig
-> +++ lnx-317-rc5/drivers/scsi/Kconfig
-
-> @@ -1675,7 +1676,7 @@ config SCSI_SUNESP
+>> I doubt this is true of all NICs! For instance, a NIC that implements
+>> NETIF_F_HW_CSUM should have no problem computing an encapsulated
+>> checksums in just about any scenario.
 >
->   config ZFCP
->   	tristate "FCP host bus adapter driver for IBM eServer zSeries"
-> -	depends on S390 && QDIO && SCSI
-> +	depends on S390 && QDIO && SCSI && NET
->   	select SCSI_FC_ATTRS
->   	help
->             If you want to access SCSI devices attached to your IBM e=
-Server
+> The comment for NETIF_F_HW_CSUM says "Can checksum all the packets" --
+> so your interpretation is that NICs supporting that will always report
+> CHECKSUM_COMPLETE, OK. But there are bunch of 10/40Gbs NIC drivers
+> that don't report the HW_CSUM bit in neither of the ->features and
+> ->hw_enc_features, the system should act in a manner that supports them.
+>
+>> Both, checksum offload and TSO
+>> can be supported for arbitrary flavors of UDP encapsulation if NICs
+>> use protocol agnostic means as opposed to protocol specific means that
+>> require a lot of parsing the packets themselves. Look at the long
+>> standing comments in sk_buff about why protocol specific methods like
+>> CHECKSUM_UNNECESSARY and NETIF_F_IP_CSUM are bad ideas. With the
+>> emergence of encapsulation these are now *really* bad ideas!
+>
+> So we go and throw away the HW?
+>
+No, and this is exactly the point! I shouldn't have to throw away all
+my deployed hardware to just to get support for the latest
+encapsulation protocol du jour. Fortunately, we'll be able to code
+around mosts of the limitations of deployed NICs that don't implement
+generic mechanisms (with UDP RSS, checksum conversions,  remote
+checksum offload). But if you're contemplating a new NIC, *please*
+consider implementing generic, protocol agnostic mechanisms.
 
-I think zfcp does not have any (direct) dependency on NET.
-
-It looks like SCSI_FC_ATTRS selects SCSI_NETLINK (declaring=20
-scsi_nl_sock) and only depends on SCSI but not on NET.
-SCSI_NETLINK itself only selects NET but does not model its direct=20
-depencency on NET?
-
-Do I understand correctly, that the only solution is to make all=20
-INdirect (transitive) dependencies explicit with the LLDDs instead of=20
-making the direct exploiter SCSI_NETLINK(?) depend on NET?
-
---=20
-Mit freundlichen Gr=C3=BC=C3=9Fen / Kind regards
-Steffen Maier
-
-Linux on System z Development
-
-IBM Deutschland Research & Development GmbH
-Vorsitzende des Aufsichtsrats: Martina Koederitz
-Geschaeftsfuehrung: Dirk Wittkopp
-Sitz der Gesellschaft: Boeblingen
-Registergericht: Amtsgericht Stuttgart, HRB 243294
+> Or.
