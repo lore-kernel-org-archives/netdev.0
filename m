@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v12 net-next 03/11] bpf: add
- lookup/update/delete/iterate methods to BPF maps
-Date: Tue, 16 Sep 2014 15:16:06 -0400 (EDT)
-Message-ID: <20140916.151606.448751391205382097.davem@davemloft.net>
+Subject: Re: [PATCH v12 net-next 04/11] bpf: expand BPF syscall with
+ program load/unload
+Date: Tue, 16 Sep 2014 15:17:11 -0400 (EDT)
+Message-ID: <20140916.151711.203074982751372582.davem@davemloft.net>
 References: <1410808721-27493-1-git-send-email-ast@plumgrid.com>
-	<1410808721-27493-4-git-send-email-ast@plumgrid.com>
+	<1410808721-27493-5-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -16,45 +16,26 @@ Cc: mingo@kernel.org, torvalds@linux-foundation.org,
 	linux-api@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: ast@plumgrid.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57242 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754849AbaIPTQK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 15:16:10 -0400
-In-Reply-To: <1410808721-27493-4-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1410808721-27493-5-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Mon, 15 Sep 2014 12:18:33 -0700
+Date: Mon, 15 Sep 2014 12:18:34 -0700
 
-> @@ -83,6 +112,15 @@ union bpf_attr {
->  		__u32	value_size;	/* size of value in bytes */
->  		__u32	max_entries;	/* max number of entries in a map */
+> @@ -121,6 +132,21 @@ union bpf_attr {
+>  			void __user *next_key;
+>  		};
 >  	};
 > +
-> +	struct { /* anonymous struct used by BPF_MAP_*_ELEM commands */
-> +		int map_fd;
-> +		void __user *key;
-> +		union {
-> +			void __user *value;
-> +			void __user *next_key;
-> +		};
+> +	struct { /* anonymous struct used by BPF_PROG_LOAD command */
+> +		__u32 prog_type;	/* one of enum bpf_prog_type */
+> +		__u32 insn_cnt;
+> +		const struct bpf_insn __user *insns;
+> +		const char __user *license;
 > +	};
->  };
->  
->  #endif /* _UAPI__LINUX_BPF_H__ */
+> +};
 
-Depending upon the processor ABI, this change can increase the
-alignment requirements of union bpf_attr.  So the structure is not
-compatible between patch #1 and patch #3 here.
-
-Also, you haven't implemented any compat layer whatsoever for the
-necessary translations.  This happens because you are using pointers
-which are different sized between 32-bit and 64-bit ABIs.
-
-I would suggest you use instead something like "aligned_u64" since
-these are just arbitrary userland cookies and using "aligned_u64"
-vs. "u64" will make it so that you don't have to deal with the 64-bit
-type alignment differences between x86-32 and x86-64 while writing the
-compat wrappers (if any).
+Again, these need syscall compat handling.  You may want to redesign
+the types so that perhaps no compat layer translations will be needed.
