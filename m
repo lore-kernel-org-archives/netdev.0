@@ -1,42 +1,98 @@
 From: <Frank.Li@freescale.com>
-Subject: [Patch net-next v2 0/4] net: fec: add interrupt coalescence
-Date: Wed, 17 Sep 2014 01:58:06 +0800
-Message-ID: <1410890290-11248-1-git-send-email-Frank.Li@freescale.com>
+Subject: [Patch net-next v2 4/4] net: fec: Workaround for imx6sx enet tx hang when enable three queues
+Date: Wed, 17 Sep 2014 01:58:10 +0800
+Message-ID: <1410890290-11248-5-git-send-email-Frank.Li@freescale.com>
+References: <1410890290-11248-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
+	"Fugang Duan" <B38611@freescale.com>,
 	Frank Li <Frank.Li@freescale.com>
 To: <b38611@freescale.com>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0130.outbound.protection.outlook.com ([207.46.100.130]:23072
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1on0146.outbound.protection.outlook.com ([157.56.110.146]:35464
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755020AbaIPTCW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Sep 2014 15:02:22 -0400
+	id S1755237AbaIPTC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2014 15:02:29 -0400
+In-Reply-To: <1410890290-11248-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <Frank.Li@freescale.com>
+From: Fugang Duan <B38611@freescale.com>
 
-improve error handle when parse queue number.
-add interrupt coalescence feature.
+When enable three queues on imx6sx enet, and then do tx performance
+test with iperf tool, after some time running, tx hang.
 
-Change from v1 to v2
- - fix indention
- - use errata number instead of TKT
+Found that:
+	If uDMA is running, software set TDAR may cause tx hang.
+	If uDMA is in idle, software set TDAR don't cause tx hang.
 
-Frank Li (1):
-  net: fec: refine error handle of parser queue number from DT
+There is a TDAR race condition for mutliQ when the software sets TDAR
+and the UDMA clears TDAR simultaneously or in a small window (2-4 cycles).
+This will cause the udma_tx and udma_tx_arbiter state machines to hang.
+The issue exist at i.MX6SX enet IP.
 
-Fugang Duan (3):
-  net: fec: add interrupt coalescence feature support
-  net:fec: increase DMA queue number
-  net: fec: Workaround for imx6sx enet tx hang when enable three queues
+So, the Workaround is checking TDAR status four time, if TDAR cleared by
+hardware and then write TDAR, otherwise don't set TDAR.
 
- drivers/net/ethernet/freescale/fec.h      |  16 +++-
- drivers/net/ethernet/freescale/fec_main.c | 144 ++++++++++++++++++++++++++++--
- 2 files changed, 150 insertions(+), 10 deletions(-)
+The patch is only one Workaround for the issue TKT210582.
 
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 3a735ef..cc8c934 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -111,6 +111,12 @@ static void fec_enet_itr_coal_init(struct net_device *ndev);
+  *   independent rings
+  */
+ #define FEC_QUIRK_HAS_AVB		(1 << 8)
++/* There is a TDAR race condition for mutliQ when the software sets TDAR
++ * and the UDMA clears TDAR simultaneously or in a small window (2-4 cycles).
++ * This will cause the udma_tx and udma_tx_arbiter state machines to hang.
++ * The issue exist at i.MX6SX enet IP.
++ */
++#define FEC_QUIRK_ERR007885		(1 << 9)
+ 
+ static struct platform_device_id fec_devtype[] = {
+ 	{
+@@ -139,7 +145,7 @@ static struct platform_device_id fec_devtype[] = {
+ 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
+ 				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
+ 				FEC_QUIRK_HAS_VLAN | FEC_QUIRK_ERR006358 |
+-				FEC_QUIRK_HAS_AVB,
++				FEC_QUIRK_HAS_AVB | FEC_QUIRK_ERR007885,
+ 	}, {
+ 		/* sentinel */
+ 	}
+@@ -709,6 +715,8 @@ static int fec_enet_txq_submit_tso(struct fec_enet_priv_tx_q *txq,
+ 	struct tso_t tso;
+ 	unsigned int index = 0;
+ 	int ret;
++	const struct platform_device_id *id_entry =
++				platform_get_device_id(fep->pdev);
+ 
+ 	if (tso_count_descs(skb) >= fec_enet_get_free_txdesc_num(fep, txq)) {
+ 		dev_kfree_skb_any(skb);
+@@ -770,7 +778,12 @@ static int fec_enet_txq_submit_tso(struct fec_enet_priv_tx_q *txq,
+ 	txq->cur_tx = bdp;
+ 
+ 	/* Trigger transmission start */
+-	writel(0, fep->hwp + FEC_X_DES_ACTIVE(queue));
++	if (!(id_entry->driver_data & FEC_QUIRK_ERR007885) ||
++	    !readl(fep->hwp + FEC_X_DES_ACTIVE(queue)) ||
++	    !readl(fep->hwp + FEC_X_DES_ACTIVE(queue)) ||
++	    !readl(fep->hwp + FEC_X_DES_ACTIVE(queue)) ||
++	    !readl(fep->hwp + FEC_X_DES_ACTIVE(queue)))
++		writel(0, fep->hwp + FEC_X_DES_ACTIVE(queue));
+ 
+ 	return 0;
+ 
 -- 
 1.9.1
