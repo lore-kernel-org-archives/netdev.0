@@ -1,29 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] of: mdio: honor flags passed to of_phy_connect
-Date: Tue, 16 Sep 2014 16:55:31 -0400 (EDT)
-Message-ID: <20140916.165531.2238198026412033010.davem@davemloft.net>
-References: <1410889776-11107-1-git-send-email-f.fainelli@gmail.com>
-	<20140916.163951.1456738615389200706.davem@davemloft.net>
-	<5418A1CC.9090704@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58396 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752903AbaIPUzc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 16:55:32 -0400
-In-Reply-To: <5418A1CC.9090704@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: [PATCH 09/22] batman-adv: Replace strnicmp with strncasecmp
+Date: Tue, 16 Sep 2014 22:51:23 +0200
+Message-ID: <1410900696-6481-10-git-send-email-linux@rasmusvillemoes.dk>
+References: <1410900696-6481-1-git-send-email-linux@rasmusvillemoes.dk>
+Cc: linux-kernel@vger.kernel.org,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1410900696-6481-1-git-send-email-linux@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 16 Sep 2014 13:47:08 -0700
+The kernel used to contain two functions for length-delimited,
+case-insensitive string comparison, strnicmp with correct semantics
+and a slightly buggy strncasecmp. The latter is the POSIX name, so
+strnicmp was renamed to strncasecmp, and strnicmp made into a wrapper
+for the new strncasecmp to avoid breaking existing users.
 
-> Right, I have a follow-up patch that will pass non-zero, I will just
-> submit everything at once so it is clear in what context and purpose
-> this gets used.
+To allow the compat wrapper strnicmp to be removed at some point in
+the future, and to avoid the extra indirection cost, do
+s/strnicmp/strncasecmp/g.
 
-That would work a lot better, thanks.
+Cc: Marek Lindner <mareklindner@neomailbox.ch>
+Cc: b.a.t.m.a.n@lists.open-mesh.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+---
+ net/batman-adv/gateway_common.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/batman-adv/gateway_common.c b/net/batman-adv/gateway_common.c
+index 6f5e621..88a1bc3 100644
+--- a/net/batman-adv/gateway_common.c
++++ b/net/batman-adv/gateway_common.c
+@@ -44,10 +44,10 @@ static bool batadv_parse_gw_bandwidth(struct net_device *net_dev, char *buff,
+ 	if (strlen(buff) > 4) {
+ 		tmp_ptr = buff + strlen(buff) - 4;
+ 
+-		if (strnicmp(tmp_ptr, "mbit", 4) == 0)
++		if (strncasecmp(tmp_ptr, "mbit", 4) == 0)
+ 			bw_unit_type = BATADV_BW_UNIT_MBIT;
+ 
+-		if ((strnicmp(tmp_ptr, "kbit", 4) == 0) ||
++		if ((strncasecmp(tmp_ptr, "kbit", 4) == 0) ||
+ 		    (bw_unit_type == BATADV_BW_UNIT_MBIT))
+ 			*tmp_ptr = '\0';
+ 	}
+@@ -77,10 +77,10 @@ static bool batadv_parse_gw_bandwidth(struct net_device *net_dev, char *buff,
+ 		if (strlen(slash_ptr + 1) > 4) {
+ 			tmp_ptr = slash_ptr + 1 - 4 + strlen(slash_ptr + 1);
+ 
+-			if (strnicmp(tmp_ptr, "mbit", 4) == 0)
++			if (strncasecmp(tmp_ptr, "mbit", 4) == 0)
+ 				bw_unit_type = BATADV_BW_UNIT_MBIT;
+ 
+-			if ((strnicmp(tmp_ptr, "kbit", 4) == 0) ||
++			if ((strncasecmp(tmp_ptr, "kbit", 4) == 0) ||
+ 			    (bw_unit_type == BATADV_BW_UNIT_MBIT))
+ 				*tmp_ptr = '\0';
+ 		}
+-- 
+2.0.4
