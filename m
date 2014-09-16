@@ -1,50 +1,81 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v12 net-next 03/11] bpf: add lookup/update/delete/iterate
- methods to BPF maps
-Date: Tue, 16 Sep 2014 15:06:51 -0700
-Message-ID: <CAMEtUux2mLD7X+PFq1kZv893Dg9u2rO6w=HwsOirx-VoYejuQQ@mail.gmail.com>
-References: <CAMEtUuxp6709mdygiQyCqwjv-0kF-CbNOzCCZmKw_mUckF4NZA@mail.gmail.com>
-	<20140916.165452.1747695341192703967.davem@davemloft.net>
-	<CAMEtUuzy0Hvjr0f4XBrH+FAxaKD7aijnYzDe3-MPrGWe6+MD4Q@mail.gmail.com>
-	<20140916.174901.2174503796369572537.davem@davemloft.net>
+From: <Frank.Li@freescale.com>
+Subject: [Patch net-next v3 1/4] net: fec: refine error handle of parser queue number from DT
+Date: Wed, 17 Sep 2014 05:18:51 +0800
+Message-ID: <1410902334-7827-2-git-send-email-Frank.Li@freescale.com>
+References: <1410902334-7827-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140916.174901.2174503796369572537.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
+	Frank Li <Frank.Li@freescale.com>
+To: <b38611@freescale.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0145.outbound.protection.outlook.com ([207.46.100.145]:11960
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752512AbaIPWXI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2014 18:23:08 -0400
+In-Reply-To: <1410902334-7827-1-git-send-email-Frank.Li@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 16, 2014 at 2:49 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-> Date: Tue, 16 Sep 2014 14:23:27 -0700
->
->> no compat layer and type checking will be done
->> by syscall wrappers. Ok?
->
-> Why are you against using strong typing just for everything other
-> than the user pointer blobs?
->
-> I don't understand the resistence to my suggestion to just use
-> aligned_u64 instead of "void __user *" in the union members.
+From: Frank Li <Frank.Li@freescale.com>
 
-All these different variants are ok to me. There are pros and
-cons to either approach. I'm not against strong typing.
-I just thought it would be cleaner not to use 'union' and
-was asking for opinion. That's all. Sure, I will keep 'union'
-and only change pointers to __aligned_u64.
+check tx and rx queue seperately.
+fix typo, "Invalidate" and "fail".
+change pr_err to pr_warn.
+
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 8f8e55e..d209d2e 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -2890,23 +2890,23 @@ fec_enet_get_queue_num(struct platform_device *pdev, int *num_tx, int *num_rx)
+ 
+ 	/* parse the num of tx and rx queues */
+ 	err = of_property_read_u32(np, "fsl,num-tx-queues", num_tx);
+-	err |= of_property_read_u32(np, "fsl,num-rx-queues", num_rx);
+-	if (err) {
++	if (err)
+ 		*num_tx = 1;
++
++	err = of_property_read_u32(np, "fsl,num-rx-queues", num_rx);
++	if (err)
+ 		*num_rx = 1;
+-		return;
+-	}
+ 
+ 	if (*num_tx < 1 || *num_tx > FEC_ENET_MAX_TX_QS) {
+-		dev_err(&pdev->dev, "Invalidate num_tx(=%d), fail back to 1\n",
+-			*num_tx);
++		dev_warn(&pdev->dev, "Invalid num_tx(=%d), fall back to 1\n",
++			 *num_tx);
+ 		*num_tx = 1;
+ 		return;
+ 	}
+ 
+ 	if (*num_rx < 1 || *num_rx > FEC_ENET_MAX_RX_QS) {
+-		dev_err(&pdev->dev, "Invalidate num_rx(=%d), fail back to 1\n",
+-			*num_rx);
++		dev_warn(&pdev->dev, "Invalid num_rx(=%d), fall back to 1\n",
++			 *num_rx);
+ 		*num_rx = 1;
+ 		return;
+ 	}
+@@ -2924,8 +2924,8 @@ fec_probe(struct platform_device *pdev)
+ 	const struct of_device_id *of_id;
+ 	static int dev_id;
+ 	struct device_node *np = pdev->dev.of_node, *phy_node;
+-	int num_tx_qs = 1;
+-	int num_rx_qs = 1;
++	int num_tx_qs;
++	int num_rx_qs;
+ 
+ 	of_id = of_match_device(fec_dt_ids, &pdev->dev);
+ 	if (of_id)
+-- 
+1.9.1
