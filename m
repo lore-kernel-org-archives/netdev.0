@@ -1,16 +1,16 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next 3/3] sis190: use ethtool for changing rx_copybreak
-Date: Wed, 17 Sep 2014 02:21:27 +0530
-Message-ID: <1410900687-9686-4-git-send-email-_govind@gmx.com>
+Subject: [PATCH net-next 2/3] pcnet32: use ethtool for changing rx_copybreak
+Date: Wed, 17 Sep 2014 02:21:26 +0530
+Message-ID: <1410900687-9686-3-git-send-email-_govind@gmx.com>
 References: <1410900687-9686-1-git-send-email-_govind@gmx.com>
 Cc: Govindarajulu Varadarajan <_govind@gmx.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
+	Don Fry <pcnet32@frontier.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:61784 "EHLO mout.gmx.com"
+Received: from mout.gmx.com ([74.208.4.201]:56513 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755498AbaIPUwi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Sep 2014 16:52:38 -0400
+	id S1755498AbaIPUwa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Sep 2014 16:52:30 -0400
 In-Reply-To: <1410900687-9686-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -18,71 +18,55 @@ List-ID: <netdev.vger.kernel.org>
 This patch removes the module parameter rx_copybreak. Add new ethtool
 tunable support for setting/getting rx_copybreak.
 
-Cc: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Don Fry <pcnet32@frontier.com>
 Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 ---
- drivers/net/ethernet/sis/sis190.c | 47 +++++++++++++++++++++++++++++++++++----
- 1 file changed, 43 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/amd/pcnet32.c | 49 ++++++++++++++++++++++++++++++++++----
+ 1 file changed, 44 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/sis/sis190.c b/drivers/net/ethernet/sis/sis190.c
-index 27be6c8..804d88d 100644
---- a/drivers/net/ethernet/sis/sis190.c
-+++ b/drivers/net/ethernet/sis/sis190.c
-@@ -290,6 +290,7 @@ struct sis190_private {
- 		LNK_ON,
- 		LNK_AUTONEG,
- 	} link_status;
-+	u32 rx_copybreak;
+diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+index e2e3aaf..20ef8d6 100644
+--- a/drivers/net/ethernet/amd/pcnet32.c
++++ b/drivers/net/ethernet/amd/pcnet32.c
+@@ -92,7 +92,7 @@ static int pcnet32vlb;		/* check for VLB cards ? */
+ static struct net_device *pcnet32_dev;
+ 
+ static int max_interrupt_work = 2;
+-static int rx_copybreak = 200;
++#define PCNET_RX_COPYBREAK_DEFAULT 200
+ 
+ #define PCNET32_PORT_AUI      0x00
+ #define PCNET32_PORT_10BT     0x01
+@@ -303,6 +303,7 @@ struct pcnet32_private {
+ 
+ 	/* saved registers during ethtool blink */
+ 	u16 			save_regs[4];
++	u32			rx_copybreak;
  };
  
- struct sis190_phy {
-@@ -338,15 +339,13 @@ static const struct pci_device_id sis190_pci_tbl[] = {
+ static int pcnet32_probe_pci(struct pci_dev *, const struct pci_device_id *);
+@@ -1155,7 +1156,7 @@ static void pcnet32_rx_entry(struct net_device *dev,
+ 		return;
+ 	}
  
- MODULE_DEVICE_TABLE(pci, sis190_pci_tbl);
+-	if (pkt_len > rx_copybreak) {
++	if (pkt_len > lp->rx_copybreak) {
+ 		struct sk_buff *newskb;
+ 		dma_addr_t new_dma_addr;
  
--static int rx_copybreak = 200;
-+#define SIS190_RX_COPYBREAK_DEFAULT 200
- 
- static struct {
- 	u32 msg_enable;
- } debug = { -1 };
- 
- MODULE_DESCRIPTION("SiS sis190/191 Gigabit Ethernet driver");
--module_param(rx_copybreak, int, 0);
--MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
- module_param_named(debug, debug.msg_enable, int, 0);
- MODULE_PARM_DESC(debug, "Debug verbosity level (0=none, ..., 16=all)");
- MODULE_AUTHOR("K.M. Liu <kmliu@sis.com>, Ueimor <romieu@fr.zoreil.com>");
-@@ -535,7 +534,7 @@ static bool sis190_try_rx_copy(struct sis190_private *tp,
- 	struct sk_buff *skb;
- 	bool done = false;
- 
--	if (pkt_size >= rx_copybreak)
-+	if (pkt_size >= tp->rx_copybreak)
- 		goto out;
- 
- 	skb = netdev_alloc_skb_ip_align(tp->dev, pkt_size);
-@@ -1522,6 +1521,7 @@ static struct net_device *sis190_init_board(struct pci_dev *pdev)
- 	tp->pci_dev = pdev;
- 	tp->mmio_addr = ioaddr;
- 	tp->link_status = LNK_OFF;
-+	tp->rx_copybreak = SIS190_RX_COPYBREAK_DEFAULT;
- 
- 	sis190_irq_mask_and_ack(ioaddr);
- 
-@@ -1796,6 +1796,43 @@ static void sis190_set_msglevel(struct net_device *dev, u32 value)
- 	tp->msg_enable = value;
+@@ -1439,6 +1440,43 @@ static void pcnet32_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 	spin_unlock_irqrestore(&lp->lock, flags);
  }
  
-+static int sis190_get_tunable(struct net_device *dev,
-+			      const struct ethtool_tunable *tuna, void *data)
++static int pcnet32_get_tunable(struct net_device *dev,
++			       const struct ethtool_tunable *tuna, void *data)
 +{
-+	struct sis190_private *tp = netdev_priv(dev);
++	struct pcnet32_private *lp = netdev_priv(dev);
 +	int ret = 0;
 +
 +	switch (tuna->id) {
 +	case ETHTOOL_RX_COPYBREAK:
-+		*(u32 *)data = tp->rx_copybreak;
++		*(u32 *)data = lp->rx_copybreak;
 +		break;
 +	default:
 +		ret = -EINVAL;
@@ -92,16 +76,16 @@ index 27be6c8..804d88d 100644
 +	return ret;
 +}
 +
-+static int sis190_set_tunable(struct net_device *dev,
-+			      const struct ethtool_tunable *tuna,
-+			      const void *data)
++static int pcnet32_set_tunable(struct net_device *dev,
++			       const struct ethtool_tunable *tuna,
++			       const void *data)
 +{
-+	struct sis190_private *tp = netdev_priv(dev);
++	struct pcnet32_private *lp = netdev_priv(dev);
 +	int ret = 0;
 +
 +	switch (tuna->id) {
 +	case ETHTOOL_RX_COPYBREAK:
-+		tp->rx_copybreak = *(u32 *)data;
++		lp->rx_copybreak = *(u32 *)data;
 +		break;
 +	default:
 +		ret = -EINVAL;
@@ -111,17 +95,36 @@ index 27be6c8..804d88d 100644
 +	return ret;
 +}
 +
- static const struct ethtool_ops sis190_ethtool_ops = {
- 	.get_settings	= sis190_get_settings,
- 	.set_settings	= sis190_set_settings,
-@@ -1806,6 +1843,8 @@ static const struct ethtool_ops sis190_ethtool_ops = {
- 	.get_msglevel	= sis190_get_msglevel,
- 	.set_msglevel	= sis190_set_msglevel,
- 	.nway_reset	= sis190_nway_reset,
-+	.get_tunable	= sis190_get_tunable,
-+	.set_tunable	= sis190_set_tunable,
+ static const struct ethtool_ops pcnet32_ethtool_ops = {
+ 	.get_settings		= pcnet32_get_settings,
+ 	.set_settings		= pcnet32_set_settings,
+@@ -1455,6 +1493,8 @@ static const struct ethtool_ops pcnet32_ethtool_ops = {
+ 	.get_regs_len		= pcnet32_get_regs_len,
+ 	.get_regs		= pcnet32_get_regs,
+ 	.get_sset_count		= pcnet32_get_sset_count,
++	.get_tunable		= pcnet32_get_tunable,
++	.set_tunable		= pcnet32_set_tunable,
  };
  
- static int sis190_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ /* only probes for non-PCI devices, the rest are handled by
+@@ -1912,6 +1952,8 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 	/* enable LED writes */
+ 	a->write_bcr(ioaddr, 2, a->read_bcr(ioaddr, 2) | 0x1000);
+ 
++	lp->rx_copybreak = PCNET_RX_COPYBREAK_DEFAULT;
++
+ 	return 0;
+ 
+ err_free_ring:
+@@ -2885,9 +2927,6 @@ MODULE_PARM_DESC(debug, DRV_NAME " debug level");
+ module_param(max_interrupt_work, int, 0);
+ MODULE_PARM_DESC(max_interrupt_work,
+ 		 DRV_NAME " maximum events handled per interrupt");
+-module_param(rx_copybreak, int, 0);
+-MODULE_PARM_DESC(rx_copybreak,
+-		 DRV_NAME " copy breakpoint for copy-only-tiny-frames");
+ module_param(tx_start_pt, int, 0);
+ MODULE_PARM_DESC(tx_start_pt, DRV_NAME " transmit start point (0-3)");
+ module_param(pcnet32vlb, int, 0);
 -- 
 2.1.0
