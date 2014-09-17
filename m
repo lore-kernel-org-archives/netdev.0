@@ -1,55 +1,64 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] macvlan: allow to enqueue broadcast pkt on virtual device
-Date: Wed, 17 Sep 2014 10:08:08 +0200
-Message-ID: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: davem@davemloft.net
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf-next 00/21] Second Round of IPVS Updates for v3.18
+Date: Wed, 17 Sep 2014 10:30:41 +0200
+Message-ID: <20140917083041.GA4762@salvia>
+References: <1410827675-3637-1-git-send-email-horms@verge.net.au>
+ <20140916172556.GA21545@salvia>
+ <alpine.LFD.2.11.1409170013440.3254@ja.home.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34299 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751570AbaIQIIk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 04:08:40 -0400
+Received: from mail.us.es ([193.147.175.20]:53600 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753919AbaIQI3w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Sep 2014 04:29:52 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1409170013440.3254@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 412ca1550cbe ("macvlan: Move broadcasts into a work queue"), the
-driver uses tx_queue_len of the master device as the limit of packets enqueuing.
-Problem is that virtual drivers have this value set to 0, thus all broadcast
-packets were rejected.
-Because tx_queue_len was arbitrarily chosen, I replace it with a static limit
-of 1000 (also arbitrarily chosen).
+On Wed, Sep 17, 2014 at 12:27:03AM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Tue, 16 Sep 2014, Pablo Neira Ayuso wrote:
+> 
+> > Hi Simon,
+> > 
+> > On Tue, Sep 16, 2014 at 09:34:14AM +0900, Simon Horman wrote:
+> > > Hi Pablo,
+> > > 
+> > > please consider these IPVS updates for v3.18.
+> > > 
+> > > * Add simple weighted failover scheduler
+> > >   - Thanks to Kenny Mathis
+> > > * Support v6 real servers in v4 pools and vice versa
+> > >   - Thanks to Alex Gartrell and Julian Anastasov
+> > 
+> > I need a slightly larger description of this series.
+> > 
+> > I think you can merge patches 13-19 too. They are mostly two liners
+> > with a similar description, so they naturally belong to the same
+> > logical change. I would like to reduce the patchbomb pull request for
+> > David.
+> 
+> 	Good idea, done.
+> 
+> 	Simon, I'm attaching such patch that replaces all
+> these "ipvs: use correct address family in * logs".
+> It additionally changes the new ip_vs_fo.c scheduler
+> and ip_vs_wrr.c which was missed.
 
-CC: Herbert Xu <herbert@gondor.apana.org.au>
-Reported-by: Thibaut Collet <thibaut.collet@6wind.com>
-Suggested-by: Thibaut Collet <thibaut.collet@6wind.com>
-Tested-by: Thibaut Collet <thibaut.collet@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- drivers/net/macvlan.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Thanks Julian.
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index a96955597755..8e776935ca52 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -36,6 +36,7 @@
- #include <linux/netpoll.h>
- 
- #define MACVLAN_HASH_SIZE	(1 << BITS_PER_BYTE)
-+#define MACVLAN_BC_QUEUE_LEN	1000
- 
- struct macvlan_port {
- 	struct net_device	*dev;
-@@ -248,7 +249,7 @@ static void macvlan_broadcast_enqueue(struct macvlan_port *port,
- 		goto err;
- 
- 	spin_lock(&port->bc_queue.lock);
--	if (skb_queue_len(&port->bc_queue) < skb->dev->tx_queue_len) {
-+	if (skb_queue_len(&port->bc_queue) < MACVLAN_BC_QUEUE_LEN) {
- 		__skb_queue_tail(&port->bc_queue, nskb);
- 		err = 0;
- 	}
--- 
-2.1.0
+@Simon, I can manually apply this batch if that reduces your workload.
+Please let me know what you prefer.
+
+Still I'd really appreciate a longer series description that I can
+include in the pull-request for David.
+
+Thanks.
