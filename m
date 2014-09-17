@@ -1,206 +1,97 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v4 net-next 7/7] gre: Setup and TX path for gre/UDP foo-over-udp encapsulation
-Date: Wed, 17 Sep 2014 12:26:01 -0700
-Message-ID: <1410981961-15545-8-git-send-email-therbert@google.com>
-References: <1410981961-15545-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:51834 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756698AbaIQT0j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 15:26:39 -0400
-Received: by mail-pd0-f179.google.com with SMTP id g10so2755925pdj.24
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 12:26:38 -0700 (PDT)
-In-Reply-To: <1410981961-15545-1-git-send-email-therbert@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v13 net-next 07/11] bpf: verifier (add ability to receive
+ verification log)
+Date: Wed, 17 Sep 2014 12:37:45 -0700
+Message-ID: <CAMEtUuzhcmZiYZL8TR008or8uaefDBrEKDjqA-tOrRLEZsm95A@mail.gmail.com>
+References: <1410914370-29883-1-git-send-email-ast@plumgrid.com>
+	<1410914370-29883-8-git-send-email-ast@plumgrid.com>
+	<54192F66.8020200@redhat.com>
+	<CAMEtUuxK68ZoJ-izjLoygv0f+rLtPmMLUUq1=BJ+_ZBGfynkdA@mail.gmail.com>
+	<5419BED8.5020309@redhat.com>
+	<5419DE51.1060904@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5419DE51.1060904-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Added netlink attrs to configure FOU encapsulation for GRE, netlink
-handling of these flags, and properly adjust MTU for encapsulation.
-ip_tunnel_encap is called from ip_tunnel_xmit to actually perform FOU
-encapsulation.
+On Wed, Sep 17, 2014 at 12:17 PM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On 09/17/2014 07:03 PM, Daniel Borkmann wrote:
+>>
+>> You built your shiny new binary on that uapi setting, and later on
+>> decide to run it on an older kernel. What will happen is that in your
+>> bpf syscall handler you will return with -EINVAL on that kernel right
+>> away since the size of union bpf_attr is greater.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- include/uapi/linux/if_tunnel.h |  4 ++
- net/ipv4/ip_gre.c              | 90 +++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 89 insertions(+), 5 deletions(-)
+that's a correct description of the code in this set.
+What I mentioned in cover letter during v7 was:
+"I've decided not to bother with forward compatiblity for now.
+We can address it later the way perf_event_open did."
+I was trying not open this can of worms :)
 
-diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
-index 9fedca7..7c832af 100644
---- a/include/uapi/linux/if_tunnel.h
-+++ b/include/uapi/linux/if_tunnel.h
-@@ -106,6 +106,10 @@ enum {
- 	IFLA_GRE_ENCAP_LIMIT,
- 	IFLA_GRE_FLOWINFO,
- 	IFLA_GRE_FLAGS,
-+	IFLA_GRE_ENCAP_TYPE,
-+	IFLA_GRE_ENCAP_FLAGS,
-+	IFLA_GRE_ENCAP_SPORT,
-+	IFLA_GRE_ENCAP_DPORT,
- 	__IFLA_GRE_MAX,
- };
- 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 9b84254..829aff8b 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -239,7 +239,7 @@ static void __gre_xmit(struct sk_buff *skb, struct net_device *dev,
- 	tpi.seq = htonl(tunnel->o_seqno);
- 
- 	/* Push GRE header. */
--	gre_build_header(skb, &tpi, tunnel->hlen);
-+	gre_build_header(skb, &tpi, tunnel->tun_hlen);
- 
- 	ip_tunnel_xmit(skb, dev, tnl_params, tnl_params->protocol);
- }
-@@ -310,7 +310,7 @@ out:
- static int ipgre_tunnel_ioctl(struct net_device *dev,
- 			      struct ifreq *ifr, int cmd)
- {
--	int err = 0;
-+	int err;
- 	struct ip_tunnel_parm p;
- 
- 	if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
-@@ -470,13 +470,18 @@ static void ipgre_tunnel_setup(struct net_device *dev)
- static void __gre_tunnel_init(struct net_device *dev)
- {
- 	struct ip_tunnel *tunnel;
-+	int t_hlen;
- 
- 	tunnel = netdev_priv(dev);
--	tunnel->hlen = ip_gre_calc_hlen(tunnel->parms.o_flags);
-+	tunnel->tun_hlen = ip_gre_calc_hlen(tunnel->parms.o_flags);
- 	tunnel->parms.iph.protocol = IPPROTO_GRE;
- 
--	dev->needed_headroom	= LL_MAX_HEADER + sizeof(struct iphdr) + 4;
--	dev->mtu		= ETH_DATA_LEN - sizeof(struct iphdr) - 4;
-+	tunnel->hlen = tunnel->tun_hlen + tunnel->encap_hlen;
-+
-+	t_hlen = tunnel->hlen + sizeof(struct iphdr);
-+
-+	dev->needed_headroom	= LL_MAX_HEADER + t_hlen + 4;
-+	dev->mtu		= ETH_DATA_LEN - t_hlen - 4;
- 
- 	dev->features		|= GRE_FEATURES;
- 	dev->hw_features	|= GRE_FEATURES;
-@@ -628,6 +633,40 @@ static void ipgre_netlink_parms(struct nlattr *data[], struct nlattr *tb[],
- 		parms->iph.frag_off = htons(IP_DF);
- }
- 
-+/* This function returns true when ENCAP attributes are present in the nl msg */
-+static bool ipgre_netlink_encap_parms(struct nlattr *data[],
-+				      struct ip_tunnel_encap *ipencap)
-+{
-+	bool ret = false;
-+
-+	memset(ipencap, 0, sizeof(*ipencap));
-+
-+	if (!data)
-+		return ret;
-+
-+	if (data[IFLA_GRE_ENCAP_TYPE]) {
-+		ret = true;
-+		ipencap->type = nla_get_u16(data[IFLA_GRE_ENCAP_TYPE]);
-+	}
-+
-+	if (data[IFLA_GRE_ENCAP_FLAGS]) {
-+		ret = true;
-+		ipencap->flags = nla_get_u16(data[IFLA_GRE_ENCAP_FLAGS]);
-+	}
-+
-+	if (data[IFLA_GRE_ENCAP_SPORT]) {
-+		ret = true;
-+		ipencap->sport = nla_get_u16(data[IFLA_GRE_ENCAP_SPORT]);
-+	}
-+
-+	if (data[IFLA_GRE_ENCAP_DPORT]) {
-+		ret = true;
-+		ipencap->dport = nla_get_u16(data[IFLA_GRE_ENCAP_DPORT]);
-+	}
-+
-+	return ret;
-+}
-+
- static int gre_tap_init(struct net_device *dev)
- {
- 	__gre_tunnel_init(dev);
-@@ -657,6 +696,15 @@ static int ipgre_newlink(struct net *src_net, struct net_device *dev,
- 			 struct nlattr *tb[], struct nlattr *data[])
- {
- 	struct ip_tunnel_parm p;
-+	struct ip_tunnel_encap ipencap;
-+
-+	if (ipgre_netlink_encap_parms(data, &ipencap)) {
-+		struct ip_tunnel *t = netdev_priv(dev);
-+		int err = ip_tunnel_encap_setup(t, &ipencap);
-+
-+		if (err < 0)
-+			return err;
-+	}
- 
- 	ipgre_netlink_parms(data, tb, &p);
- 	return ip_tunnel_newlink(dev, tb, &p);
-@@ -666,6 +714,15 @@ static int ipgre_changelink(struct net_device *dev, struct nlattr *tb[],
- 			    struct nlattr *data[])
- {
- 	struct ip_tunnel_parm p;
-+	struct ip_tunnel_encap ipencap;
-+
-+	if (ipgre_netlink_encap_parms(data, &ipencap)) {
-+		struct ip_tunnel *t = netdev_priv(dev);
-+		int err = ip_tunnel_encap_setup(t, &ipencap);
-+
-+		if (err < 0)
-+			return err;
-+	}
- 
- 	ipgre_netlink_parms(data, tb, &p);
- 	return ip_tunnel_changelink(dev, tb, &p);
-@@ -694,6 +751,14 @@ static size_t ipgre_get_size(const struct net_device *dev)
- 		nla_total_size(1) +
- 		/* IFLA_GRE_PMTUDISC */
- 		nla_total_size(1) +
-+		/* IFLA_GRE_ENCAP_TYPE */
-+		nla_total_size(2) +
-+		/* IFLA_GRE_ENCAP_FLAGS */
-+		nla_total_size(2) +
-+		/* IFLA_GRE_ENCAP_SPORT */
-+		nla_total_size(2) +
-+		/* IFLA_GRE_ENCAP_DPORT */
-+		nla_total_size(2) +
- 		0;
- }
- 
-@@ -714,6 +779,17 @@ static int ipgre_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_u8(skb, IFLA_GRE_PMTUDISC,
- 		       !!(p->iph.frag_off & htons(IP_DF))))
- 		goto nla_put_failure;
-+
-+	if (nla_put_u16(skb, IFLA_GRE_ENCAP_TYPE,
-+			t->encap.type) ||
-+	    nla_put_u16(skb, IFLA_GRE_ENCAP_SPORT,
-+			t->encap.sport) ||
-+	    nla_put_u16(skb, IFLA_GRE_ENCAP_DPORT,
-+			t->encap.dport) ||
-+	    nla_put_u16(skb, IFLA_GRE_ENCAP_FLAGS,
-+			t->encap.dport))
-+		goto nla_put_failure;
-+
- 	return 0;
- 
- nla_put_failure:
-@@ -731,6 +807,10 @@ static const struct nla_policy ipgre_policy[IFLA_GRE_MAX + 1] = {
- 	[IFLA_GRE_TTL]		= { .type = NLA_U8 },
- 	[IFLA_GRE_TOS]		= { .type = NLA_U8 },
- 	[IFLA_GRE_PMTUDISC]	= { .type = NLA_U8 },
-+	[IFLA_GRE_ENCAP_TYPE]	= { .type = NLA_U16 },
-+	[IFLA_GRE_ENCAP_FLAGS]	= { .type = NLA_U16 },
-+	[IFLA_GRE_ENCAP_SPORT]	= { .type = NLA_U16 },
-+	[IFLA_GRE_ENCAP_DPORT]	= { .type = NLA_U16 },
- };
- 
- static struct rtnl_link_ops ipgre_link_ops __read_mostly = {
--- 
-2.1.0.rc2.206.gedb03e5
+>> That would mean over time when new features will get added, applications
+>> that want to make sure to run on _all_ kernels where the bpf syscall is
+>> available have to make sure to either use the _initial_ version of
+>> union bpf_attr in order to not get an -EINVAL, or worse they have
+>> to probe though a syscall different versions of union bpf_attr if they
+>> wish to make use of a particular feature until they do not get an -EINVAL
+>> anymore.
+
+Correct as well.
+I say that would be the least of user space concerns.
+If user app is built with newer bpf_attr and relies on it for some
+functionality, it would need a lot more than probing.
+Depending how big the new bpf_attr feature is, the app might
+not have a workaround for older kernels at all.
+So seeing EINVAL on older kernel might be a preferred way.
+
+>> in BPF extensions we can ask the kernel up to what extension it
+>> supports and accordingly adapt to it up front. I know it's just a
+>> /trivial/ example but have you thought about something on that kind for
+>> the syscall?
+
+A 2nd option would be to do what perf_copy_attr() does:
+when newer struct is coming from user space, kernel checks
+that space beyond known last field is all zeros.
+We can do the same, but I'm not convinced that it will
+help userspace much. Newer user space can only be
+_compiled_ with newer bpf_attr. It is still cannot use any new
+features and it needs to make sure that all new fields are zero.
+I'm not sure how it helps.
+perf_event_open() also returns size. In that case it's helpful,
+since it's one structure. In ebpf case we have multiple
+structures under one union, so returning size of the whole
+bpf_attr doesn't help one particular command.
+
+> Hm, thinking out loudly ... perhaps this could be made a library problem.
+> Such that the library which wraps the syscall needs to be aware of a
+> marker where the initial version ends, and if the application doesn't
+> make use of any of the new features, it would just pass in the length up
+> to the marker as size attribute into the syscall. Similarly, if new
+> features are always added to the end of a structure and the library
+> truncates the overall-length after the last used member we might have
+> a chance to load something on older kernels, haven't tried that though.
+
+that's a 3rd option. I think it's cleaner than 2nd, since it solves it
+completely from user space.
+It can even be smarter than that. If this syscall wrapper library
+sees that newer features are used and it can workaround them:
+it can chop size and pass older fields into the older kernel
+and when it returns, do a workaround based on newer fields.
