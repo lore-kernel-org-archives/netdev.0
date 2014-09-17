@@ -1,46 +1,50 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH 2/2] 3c59x: Fix bad offset spec in skb_frag_dma_map
-Date: Wed, 17 Sep 2014 09:04:45 -0400
-Message-ID: <1410959085-7351-2-git-send-email-nhorman@tuxdriver.com>
-References: <alpine.LRH.2.11.1409160209280.21050@adalberg.ut.ee>
- <1410959085-7351-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Linux Kernel list <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Meelis Roos <mroos@linux.ee>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1410959085-7351-1-git-send-email-nhorman@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 0/3] bnx2x: Support new Multi-function modes
+Date: Wed, 17 Sep 2014 16:24:35 +0300
+Message-ID: <1410960278-32064-1-git-send-email-Yuval.Mintz@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:24562 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754831AbaIQNYw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 09:24:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Recently aded the use of skb_frag_dma_map to 3c59x, but didn't realize it
-automatically included the frag_offset internally, as well as provided an option
-to specify an extra offset in the parameter list.  We need to specify an offset
-of 0 in the parameter list to avoid skb corruption that results in lost
-connections.
+This patch series adds support for 2 new Multi-function modes -
+Unified Fabric Port [UFP] as well as nic partitioning 1.5 [NPAR1.5].
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Linux Kernel list <linux-kernel@vger.kernel.org>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Meelis Roos <mroos@linux.ee>
-Tested-by: Meelis Roos <mroos@linux.ee>
----
- drivers/net/ethernet/3com/3c59x.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+With the addition of the new multi-function modes, the series also
+revises some of the storage-related multi-function macros.
 
-diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
-index 5621dab..0f59d68 100644
---- a/drivers/net/ethernet/3com/3c59x.c
-+++ b/drivers/net/ethernet/3com/3c59x.c
-@@ -2186,7 +2186,7 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
- 
- 			dma_addr = skb_frag_dma_map(&VORTEX_PCI(vp)->dev, frag,
--						    frag->page_offset,
-+						    0,
- 						    frag->size,
- 						    DMA_TO_DEVICE);
- 			if (dma_mapping_error(&VORTEX_PCI(vp)->dev, dma_addr)) {
+[Do notice this series has several small issues with checkpatch]
+
+Dave,
+
+Please consider applying this series to `net-next'.
+
+Thanks,
+Yuval
+
+Dmitry Kravkov (1):
+  bnx2x: Changes with storage & MAC macros
+
+Yuval Mintz (2):
+  bnx2x: New multi-function mode: UFP
+  bnx2x: Add a fallback multi-function mode NPAR1.5
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |  53 +++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |  12 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |  14 +-
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h    |  28 +--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   | 204 ++++++++++++++++-----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c     |  41 ++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h     |  23 +++
+ 8 files changed, 296 insertions(+), 81 deletions(-)
+
 -- 
-1.9.3
+1.8.3.1
