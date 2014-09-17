@@ -1,247 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: add alloc_skb_with_frags() helper
-Date: Wed, 17 Sep 2014 04:49:49 -0700
-Message-ID: <1410954589.7106.227.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/2 nf-next] net: bridge: don't register netfilter
+ call_iptables hooks by default
+Date: Wed, 17 Sep 2014 14:15:30 +0200
+Message-ID: <20140917121530.GA3750@salvia>
+References: <1410882457-16641-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:47914 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754363AbaIQLtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 07:49:51 -0400
-Received: by mail-pa0-f45.google.com with SMTP id rd3so2003465pab.18
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 04:49:51 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1410882457-16641-1-git-send-email-fw@strlen.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Hi Florian,
 
-Extract from sock_alloc_send_pskb() code building skb with frags,
-so that we can reuse this in other contexts.
+On Tue, Sep 16, 2014 at 05:47:36PM +0200, Florian Westphal wrote:
+> Jesper reports that kernels with CONFIG_BRIDGE_NETFILTER=n show significantly
+> better performance vs. CONFIG_BRIDGE_NETFILTER=y, even with
+> bridge-nf-call-iptables=0.
+> 
+> This is because bridge registers some bridge netfilter hooks at
+> module load time, so the static key to bypass nf rule evaluation
+> via NF_HOOK() is false.
+> 
+> The hooks serve no purpose, unless iptables filtering for bridges is
+> desired (i.e., bridge-nf-call-*=1 and active iptables rules present).
+> 
+> The proper solution would be to just change the bridge-nf-call-iptables sysctl
+> default value to 0 and then register the hooks when user enables call-iptables
+> sysctl.  We cannot do that though since it breaks existing setups.
+>
+> The next best solution is to delay registering of the hooks until
+> we know that
+> 
+> a) call-iptables sysctl is enabled (this is the default)
+> AND
+> b) ip(6)tables rules are loaded.
+> 
+> This adds br_nf_check_call_iptables() helper in bridge input before
+> bridge 'prerouting' (sic) hooks to perform this check.
+> 
+> IOW, if user does not turn off call-iptables sysctl on the bridge, hook
+> registering is only done if NFPROTO_IPV4/IPV6 hooks are registered as
+> well once the first packet arrives on a bridge port.
+> 
+> Doing this check for every packet is still faster than registering
+> the hooks unconditionally.  To not add overhead for setups where
+> the call-iptables hooks are required, a static key shortcut is provided.
+> 
+> As its not possible to register hooks from bh context (grabs mutex)
+> its scheduled via workqueue.
 
-Intent is to use it from tcp_send_rcvq(), tcp_collapse(), ...
+My main concern with this approach is that we may let packets go
+through unfiltered for some little time until the worker thread has
+the chance to register the hooks.
 
-We also want to replace some skb_linearize() calls to a more reliable
-strategy in pathological cases where we need to reduce number of frags.
+Alternatives that I see for these are:
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/linux/skbuff.h |    6 +++
- net/core/skbuff.c      |   78 +++++++++++++++++++++++++++++++++++++++
- net/core/sock.c        |   78 +++++++--------------------------------
- 3 files changed, 99 insertions(+), 63 deletions(-)
+* pr_info to indicate the br_netfilter enable by default is
+  deprecated. Similar to your small patch 2/2, but it will take quite
+  some time until we can finally change this to zero.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 756e3d057e84..f1bfa3781c75 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -769,6 +769,12 @@ static inline struct sk_buff *alloc_skb(unsigned int size,
- 	return __alloc_skb(size, priority, 0, NUMA_NO_NODE);
- }
- 
-+struct sk_buff *alloc_skb_with_frags(unsigned long header_len,
-+				     unsigned long data_len,
-+				     int max_page_order,
-+				     int *errcode,
-+				     gfp_t gfp_mask);
-+
- static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
- 					       gfp_t priority)
- {
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 29f7f0121491..06a8feb10099 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4102,3 +4102,81 @@ err_free:
- 	return NULL;
- }
- EXPORT_SYMBOL(skb_vlan_untag);
-+
-+/**
-+ * alloc_skb_with_frags - allocate skb with page frags
-+ *
-+ * header_len: size of linear part
-+ * data_len: needed length in frags
-+ * max_page_order: max page order desired.
-+ * errcode: pointer to error code if any
-+ * gfp_mask: allocation mask
-+ *
-+ * This can be used to allocate a paged skb, given a maximal order for frags.
-+ */
-+struct sk_buff *alloc_skb_with_frags(unsigned long header_len,
-+				     unsigned long data_len,
-+				     int max_page_order,
-+				     int *errcode,
-+				     gfp_t gfp_mask)
-+{
-+	int npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
-+	unsigned long chunk;
-+	struct sk_buff *skb;
-+	struct page *page;
-+	gfp_t gfp_head;
-+	int i;
-+
-+	*errcode = -EMSGSIZE;
-+	/* Note this test could be relaxed, if we succeed to allocate
-+	 * high order pages...
-+	 */
-+	if (npages > MAX_SKB_FRAGS)
-+		return NULL;
-+
-+	gfp_head = gfp_mask;
-+	if (gfp_head & __GFP_WAIT)
-+		gfp_head |= __GFP_REPEAT;
-+
-+	*errcode = -ENOBUFS;
-+	skb = alloc_skb(header_len, gfp_head);
-+	if (!skb)
-+		return NULL;
-+
-+	skb->truesize += npages << PAGE_SHIFT;
-+
-+	for (i = 0; npages > 0; i++) {
-+		int order = max_page_order;
-+
-+		while (order) {
-+			if (npages >= 1 << order) {
-+				page = alloc_pages(gfp_mask |
-+						   __GFP_COMP |
-+						   __GFP_NOWARN |
-+						   __GFP_NORETRY,
-+						   order);
-+				if (page)
-+					goto fill_page;
-+				/* Do not retry other high order allocations */
-+				order = 1;
-+				max_page_order = 0;
-+			}
-+			order--;
-+		}
-+		page = alloc_page(gfp_mask);
-+		if (!page)
-+			goto failure;
-+fill_page:
-+		chunk = min_t(unsigned long, data_len,
-+			      PAGE_SIZE << order);
-+		skb_fill_page_desc(skb, i, page, 0, chunk);
-+		data_len -= chunk;
-+		npages -= 1 << order;
-+	}
-+	return skb;
-+
-+failure:
-+	kfree_skb(skb);
-+	return NULL;
-+}
-+EXPORT_SYMBOL(alloc_skb_with_frags);
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 6f436b5e4961..de887c45c63b 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1762,21 +1762,12 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
- 				     unsigned long data_len, int noblock,
- 				     int *errcode, int max_page_order)
- {
--	struct sk_buff *skb = NULL;
--	unsigned long chunk;
--	gfp_t gfp_mask;
-+	struct sk_buff *skb;
- 	long timeo;
- 	int err;
--	int npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
--	struct page *page;
--	int i;
--
--	err = -EMSGSIZE;
--	if (npages > MAX_SKB_FRAGS)
--		goto failure;
- 
- 	timeo = sock_sndtimeo(sk, noblock);
--	while (!skb) {
-+	for (;;) {
- 		err = sock_error(sk);
- 		if (err != 0)
- 			goto failure;
-@@ -1785,66 +1776,27 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
- 		if (sk->sk_shutdown & SEND_SHUTDOWN)
- 			goto failure;
- 
--		if (atomic_read(&sk->sk_wmem_alloc) >= sk->sk_sndbuf) {
--			set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
--			set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
--			err = -EAGAIN;
--			if (!timeo)
--				goto failure;
--			if (signal_pending(current))
--				goto interrupted;
--			timeo = sock_wait_for_wmem(sk, timeo);
--			continue;
--		}
--
--		err = -ENOBUFS;
--		gfp_mask = sk->sk_allocation;
--		if (gfp_mask & __GFP_WAIT)
--			gfp_mask |= __GFP_REPEAT;
-+		if (sk_wmem_alloc_get(sk) < sk->sk_sndbuf)
-+			break;
- 
--		skb = alloc_skb(header_len, gfp_mask);
--		if (!skb)
-+		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-+		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
-+		err = -EAGAIN;
-+		if (!timeo)
- 			goto failure;
--
--		skb->truesize += data_len;
--
--		for (i = 0; npages > 0; i++) {
--			int order = max_page_order;
--
--			while (order) {
--				if (npages >= 1 << order) {
--					page = alloc_pages(sk->sk_allocation |
--							   __GFP_COMP |
--							   __GFP_NOWARN |
--							   __GFP_NORETRY,
--							   order);
--					if (page)
--						goto fill_page;
--					/* Do not retry other high order allocations */
--					order = 1;
--					max_page_order = 0;
--				}
--				order--;
--			}
--			page = alloc_page(sk->sk_allocation);
--			if (!page)
--				goto failure;
--fill_page:
--			chunk = min_t(unsigned long, data_len,
--				      PAGE_SIZE << order);
--			skb_fill_page_desc(skb, i, page, 0, chunk);
--			data_len -= chunk;
--			npages -= 1 << order;
--		}
-+		if (signal_pending(current))
-+			goto interrupted;
-+		timeo = sock_wait_for_wmem(sk, timeo);
- 	}
--
--	skb_set_owner_w(skb, sk);
-+	skb = alloc_skb_with_frags(header_len, data_len, max_page_order,
-+				   errcode, sk->sk_allocation);
-+	if (skb)
-+		skb_set_owner_w(skb, sk);
- 	return skb;
- 
- interrupted:
- 	err = sock_intr_errno(timeo);
- failure:
--	kfree_skb(skb);
- 	*errcode = err;
- 	return NULL;
- }
+* I think we can unregister the hooks when we notice that all
+  bridge-nf-call-*tables are zero from the sysctl. We register them if
+  any of them becomes 1 again.
+
+Let me know, thanks.
