@@ -1,69 +1,45 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Figuring out how vti works
-Date: Wed, 17 Sep 2014 07:28:11 +0200
-Message-ID: <20140917052811.GT6390@secunet.com>
-References: <20140915142043.GA22070@master>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH] net: sched: cls_u32: rcu can not be last node
+Date: Tue, 16 Sep 2014 22:34:38 -0700
+Message-ID: <20140917053434.2833.66129.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: Joe M <joe9mail@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com, davem@davemloft.net,
+	eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49638 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751086AbaIQF2W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Sep 2014 01:28:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20140915142043.GA22070@master>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:64254 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751539AbaIQFe6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 01:34:58 -0400
+Received: by mail-ob0-f180.google.com with SMTP id wp4so698215obc.39
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 22:34:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 15, 2014 at 09:20:43AM -0500, Joe M wrote:
-> Hello Steffen Klassert,
-> 
-> Very sorry for this bother.
-> 
-> I could not figure out how vti works with ipsec and your patch was the
-> latest to ip_vti.c. If you cannot help, please excuse me.
-> 
-> I cannot get the vpn traffic to get on the vti tunnel. tcpdump on vti
-> does not show anything. I think the tunnel lookup code, for some
-> reason, is not able to use the "vtil" tunnel.
+tc_u32_sel 'sel' in tc_u_knode expects to be the last element in the
+structure and pads the structure with tc_u32_key fields for each key.
 
-Do you know where the packets are getting dropped?
-netstat -i or /proc/net/xfrm_stat could give a hint.
+ kzalloc(sizeof(*n) + s->nkeys*sizeof(struct tc_u32_key), GFP_KERNEL)
 
-> 
-> The pings worked fine if I remove the ip_vti and ip_tunnel modules,
-> the "mark=1" from /etc/ipsec.conf and the iptables mangle rules to
-> set-mark.
+CC: Eric Dumazet <edumazet@google.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ net/sched/cls_u32.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-You don't need to set the mark with iptables.
-You just have to ensure that the policy and state marks
-match the tunnel keys. I.e. direction in and forward must
-match the ikey, direction out must match the okey.
-
-> 
-> sudo ip tunnel list
-> vtil: ip/ip  remote 192.168.1.232  local 192.168.0.11  ttl inherit ikey 0  okey 1
-
-Your ikey does not match the policy and the state mark.
-
-> 
-> sudo ip xfrm policy
-> src 192.168.1.0/24 dst 192.168.0.0/24
->         dir fwd priority 2883
->         mark 1/0xffffffff
->         tmpl src <bnglr public ip> dst 192.168.0.11
->                 proto esp reqid 2 mode tunnel
-> src 192.168.1.0/24 dst 192.168.0.0/24
->         dir in priority 2883
->         mark 1/0xffffffff
-
-If you set mark 1 here, the tunnel should set ikey 1.
-
-> 
-> I tried setting the mangle rules to set-mark but that did not help. I
-> could not find any more documentation.
-> 
-
-Please try without setting a mark with netfilter.
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index eceeb04..be24e7e 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -64,8 +64,8 @@ struct tc_u_knode {
+ 	u32 __percpu		*pcpu_success;
+ #endif
+ 	struct tcf_proto	*tp;
+-	struct tc_u32_sel	sel;
+ 	struct rcu_head		rcu;
++	struct tc_u32_sel	sel;
+ };
+ 
+ struct tc_u_hnode {
