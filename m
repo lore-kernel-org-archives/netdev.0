@@ -1,71 +1,73 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: bisected regression: 3c59x corrupts packets in 3.17-rc5
-Date: Wed, 17 Sep 2014 06:27:01 -0400
-Message-ID: <20140917102701.GA5699@hmsreliant.think-freely.org>
-References: <alpine.LRH.2.11.1409160209280.21050@adalberg.ut.ee>
- <20140916101704.GA3792@hmsreliant.think-freely.org>
- <20140916.162923.605101746131407931.davem@davemloft.net>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net v2] bonding: fix div by zero while enslaving and transmitting
+Date: Wed, 17 Sep 2014 13:08:19 +0200
+Message-ID: <54196BA3.4020505@redhat.com>
+References: <5413097B.9080802@redhat.com> <1410536298-8022-1-git-send-email-nikolay@redhat.com> <541926EB.4010809@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mroos@linux.ee, klassert@mathematik.tu-chemnitz.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>
+To: Ding Tianhong <dingtianhong@huawei.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46716 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754590AbaIQK1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 06:27:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20140916.162923.605101746131407931.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:38262 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754993AbaIQLJA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Sep 2014 07:09:00 -0400
+In-Reply-To: <541926EB.4010809@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 16, 2014 at 04:29:23PM -0400, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Tue, 16 Sep 2014 06:17:04 -0400
-> 
-> > I'm guessing the above change has uncovered another bug,
-> 
-> Neil, read your patch carefully, I think it added the bug.
-> 
-> The ->page_offset of the frag gets applied two times.
-> 
-> skb_dma_map_frag() already takes frag->page_offset into consideration,
-> you then pass it in as the 'offset' argument and it then gets added to
-> itself to compute th final offset.
-> 
-Shit, you're right, sorry about that.  Its odd, I'm running it here, and its not 
-causing problems, but thats obviously wrong.  Meelis, please add the above fix
-to your test and confirm that it sovles the problem.  If you could keep the
-previous patch in place too that would be great, as we should probably add the
-dma error checking anyway.
+On 17/09/14 08:15, Ding Tianhong wrote:
+> On 2014/9/12 23:38, Nikolay Aleksandrov wrote:
+>> The problem is that the slave is first linked and slave_cnt is
+>> incremented afterwards leading to a div by zero in the modes that use it
+>> as a modulus. What happens is that in bond_start_xmit()
+>> bond_has_slaves() is used to evaluate further transmission and it becomes
+>> true after the slave is linked in, but when slave_cnt is used in the xmit
+>> path it is still 0, so fetch it once and transmit based on that. Since
+>> it is used only in round-robin and XOR modes, the fix is only for them.
+>> Thanks to Eric Dumazet for pointing out the fault in my first try to fix
+>> this.
+>>
+>
+> Hi, I think no need to add more checks in the xmit fast path, why not add a barrier to make
+> sure the slave_cnt inc to 1 before access it.
+>
+> +	/* Increment slave_cnt before linking in the slave so we won't end up in
+> +	 * bond_start_xmit with bond_has_slaves() true and slave_cnt == 0.
+> +	 */
+> +	bond->slave_cnt++;
+> +	wmb();
+>
+> I think it looks more efficiency, sorry for reply so late.
+>
+> Regards
+> Ding
+>
+>
 
+Hi Ding,
+You should re-read Eric's comment to my first fix. In my first attempt I moved 
+the increment before the slave linking which does rcu_assign_pointer() which 
+implies a full memory barrier, IIRC. The issue is that this fixes the writer 
+side and makes sure the increment is visible before linking the slave, but I 
+missed that on the reader side (bond_start_xmit()) we don't have any barriers, 
+so the CPU is free to do whatever it likes with the access to slave_cnt F.e. it 
+can fetch it before the slave list.
+Now, this fix shouldn't be felt much performance-wise since the likely() hint 
+will be correct 99% of the time because the situation where slave_cnt is not in 
+sync is only in a very short period of time while enslaving and releasing 
+slaves. If you'd like to further remove this one check - you could. You can 
+fetch slave_cnt only once in bond_start_xmit() and use that as a check for 
+further transmitting instead of empty slave list but you must pass down the 
+fetched value to the xmitting functions, that is you should not re-fetch it, so 
+it'd probably require you to add additional parameter to all modes' xmit 
+functions so you can pass it down from bond_start_xmit(). Since only 2 modes 
+actually use slave_cnt I don't think that is necessary.
+In any case net should be merged with net-next first.
 
-[PATCH] 3c59x: Fix bad offset spec in skb_frag_dma_map
-
-Recently aded the use of skb_frag_dma_map to 3c59x, but didn't realize it
-automatically included the frag_offset internally, as well as provided an option
-to specify an extra offset in the parameter list.  We need to specify an offset
-of 0 in the parameter list to avoid skb corruption that results in lost
-connections.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
----
- drivers/net/ethernet/3com/3c59x.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
-index 5621dab..0f59d68 100644
---- a/drivers/net/ethernet/3com/3c59x.c
-+++ b/drivers/net/ethernet/3com/3c59x.c
-@@ -2186,7 +2186,7 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
- 
- 			dma_addr = skb_frag_dma_map(&VORTEX_PCI(vp)->dev, frag,
--						    frag->page_offset,
-+						    0,
- 						    frag->size,
- 						    DMA_TO_DEVICE);
- 			if (dma_mapping_error(&VORTEX_PCI(vp)->dev, dma_addr)) {
--- 
-1.9.3
+Cheers,
+  Nik
