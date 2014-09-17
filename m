@@ -1,265 +1,230 @@
 From: Andy Zhou <azhou@nicira.com>
-Subject: [v8 net-next 1/4] udp_tunnel: Seperate ipv6 functions into its own file.
-Date: Tue, 16 Sep 2014 17:31:16 -0700
-Message-ID: <1410913879-31688-1-git-send-email-azhou@nicira.com>
+Subject: [v8 net-next 2/4] udp-tunnel: Add a few more UDP tunnel APIs
+Date: Tue, 16 Sep 2014 17:31:17 -0700
+Message-ID: <1410913879-31688-2-git-send-email-azhou@nicira.com>
+References: <1410913879-31688-1-git-send-email-azhou@nicira.com>
 Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog136.obsmtp.com ([74.125.149.85]:57482 "HELO
-	na3sys009aog136.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753707AbaIQAgw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 20:36:52 -0400
-Received: by mail-pd0-f177.google.com with SMTP id y10so877760pdj.22
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 17:36:51 -0700 (PDT)
+Received: from na3sys009aog137.obsmtp.com ([74.125.149.18]:48833 "HELO
+	na3sys009aog137.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753854AbaIQAgz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 20:36:55 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so880588pdj.36
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 17:36:54 -0700 (PDT)
+In-Reply-To: <1410913879-31688-1-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add ip6_udp_tunnel.c for ipv6 UDP tunnel functions to avoid ifdefs
-in udp_tunnel.c
+Added a few more UDP tunnel APIs that can be shared by UDP based
+tunnel protocol implementation. The main ones are highlighted below.
+
+setup_udp_tunnel_sock() configures UDP listener socket for
+receiving UDP encapsulated packets.
+
+udp_tunnel_xmit_skb() and upd_tunnel6_xmit_skb() transmit skb
+using UDP encapsulation.
+
+udp_tunnel_sock_release() closes the UDP tunnel listener socket.
 
 Signed-off-by: Andy Zhou <azhou@nicira.com>
 ---
- include/net/udp_tunnel.h  |   28 +++++++++++++--
- net/ipv4/udp_tunnel.c     |   85 +++++++++++----------------------------------
- net/ipv6/Makefile         |    1 +
- net/ipv6/ip6_udp_tunnel.c |   63 +++++++++++++++++++++++++++++++++
- 4 files changed, 111 insertions(+), 66 deletions(-)
- create mode 100644 net/ipv6/ip6_udp_tunnel.c
+ include/net/udp_tunnel.h  |   57 +++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/udp_tunnel.c     |   53 ++++++++++++++++++++++++++++++++++++++++-
+ net/ipv6/ip6_udp_tunnel.c |   42 +++++++++++++++++++++++++++++++++
+ 3 files changed, 151 insertions(+), 1 deletion(-)
 
 diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
-index ffd69cb..0b9e017 100644
+index 0b9e017..a47790b 100644
 --- a/include/net/udp_tunnel.h
 +++ b/include/net/udp_tunnel.h
-@@ -26,7 +26,31 @@ struct udp_port_cfg {
- 				use_udp6_rx_checksums:1;
- };
+@@ -1,6 +1,14 @@
+ #ifndef __NET_UDP_TUNNEL_H
+ #define __NET_UDP_TUNNEL_H
  
--int udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
--		    struct socket **sockp);
-+int udp_sock_create4(struct net *net, struct udp_port_cfg *cfg,
-+		     struct socket **sockp);
++#include <net/ip_tunnels.h>
++#include <net/udp.h>
 +
 +#if IS_ENABLED(CONFIG_IPV6)
-+int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
-+		     struct socket **sockp);
-+#else
-+static inline int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
-+				   struct socket **sockp)
-+{
-+	return 0;
-+}
++#include <net/ipv6.h>
++#include <net/addrconf.h>
 +#endif
 +
-+static inline int udp_sock_create(struct net *net,
-+				  struct udp_port_cfg *cfg,
-+				  struct socket **sockp)
-+{
-+	if (cfg->family == AF_INET)
-+		return udp_sock_create4(net, cfg, sockp);
-+
-+	if (cfg->family == AF_INET6)
-+		return udp_sock_create6(net, cfg, sockp);
-+
-+	return -EPFNOSUPPORT;
-+}
+ struct udp_port_cfg {
+ 	u8			family;
  
+@@ -53,4 +61,53 @@ static inline int udp_sock_create(struct net *net,
+ 	return -EPFNOSUPPORT;
+ }
+ 
++typedef int (*udp_tunnel_encap_rcv_t)(struct sock *sk, struct sk_buff *skb);
++typedef void (*udp_tunnel_encap_destroy_t)(struct sock *sk);
++
++struct udp_tunnel_sock_cfg {
++	void *sk_user_data;     /* user data used by encap_rcv call back */
++	/* Used for setting up udp_sock fields, see udp.h for details */
++	__u8  encap_type;
++	udp_tunnel_encap_rcv_t encap_rcv;
++	udp_tunnel_encap_destroy_t encap_destroy;
++};
++
++/* Setup the given (UDP) sock to receive UDP encapsulated packets */
++void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
++			   struct udp_tunnel_sock_cfg *sock_cfg);
++
++/* Transmit the skb using UDP encapsulation. */
++int udp_tunnel_xmit_skb(struct socket *sock, struct rtable *rt,
++			struct sk_buff *skb, __be32 src, __be32 dst,
++			__u8 tos, __u8 ttl, __be16 df, __be16 src_port,
++			__be16 dst_port, bool xnet);
++
++#if IS_ENABLED(CONFIG_IPV6)
++int udp_tunnel6_xmit_skb(struct socket *sock, struct dst_entry *dst,
++			 struct sk_buff *skb, struct net_device *dev,
++			 struct in6_addr *saddr, struct in6_addr *daddr,
++			 __u8 prio, __u8 ttl, __be16 src_port,
++			 __be16 dst_port);
++#endif
++
++void udp_tunnel_sock_release(struct socket *sock);
++
++static inline struct sk_buff *udp_tunnel_handle_offloads(struct sk_buff *skb,
++							 bool udp_csum)
++{
++	int type = udp_csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
++
++	return iptunnel_handle_offloads(skb, udp_csum, type);
++}
++
++static inline void udp_tunnel_encap_enable(struct socket *sock)
++{
++#if IS_ENABLED(CONFIG_IPV6)
++	if (sock->sk->sk_family == PF_INET6)
++		ipv6_stub->udpv6_encap_enable();
++	else
++#endif
++		udp_encap_enable();
++}
++
  #endif
 diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
-index 61ec1a6..7fccf6c 100644
+index 7fccf6c..1671263 100644
 --- a/net/ipv4/udp_tunnel.c
 +++ b/net/ipv4/udp_tunnel.c
-@@ -8,83 +8,40 @@
- #include <net/udp_tunnel.h>
- #include <net/net_namespace.h>
- 
--int udp_sock_create(struct net *net, struct udp_port_cfg *cfg,
--		    struct socket **sockp)
-+int udp_sock_create4(struct net *net, struct udp_port_cfg *cfg,
-+		     struct socket **sockp)
+@@ -11,7 +11,7 @@
+ int udp_sock_create4(struct net *net, struct udp_port_cfg *cfg,
+ 		     struct socket **sockp)
  {
- 	int err = -EINVAL;
+-	int err = -EINVAL;
++	int err;
  	struct socket *sock = NULL;
-+	struct sockaddr_in udp_addr;
+ 	struct sockaddr_in udp_addr;
  
--#if IS_ENABLED(CONFIG_IPV6)
--	if (cfg->family == AF_INET6) {
--		struct sockaddr_in6 udp6_addr;
-+	err = sock_create_kern(AF_INET, SOCK_DGRAM, 0, &sock);
-+	if (err < 0)
-+		goto error;
+@@ -54,4 +54,55 @@ error:
+ }
+ EXPORT_SYMBOL(udp_sock_create4);
  
--		err = sock_create_kern(AF_INET6, SOCK_DGRAM, 0, &sock);
--		if (err < 0)
--			goto error;
--
--		sk_change_net(sock->sk, net);
--
--		udp6_addr.sin6_family = AF_INET6;
--		memcpy(&udp6_addr.sin6_addr, &cfg->local_ip6,
--		       sizeof(udp6_addr.sin6_addr));
--		udp6_addr.sin6_port = cfg->local_udp_port;
--		err = kernel_bind(sock, (struct sockaddr *)&udp6_addr,
--				  sizeof(udp6_addr));
--		if (err < 0)
--			goto error;
--
--		if (cfg->peer_udp_port) {
--			udp6_addr.sin6_family = AF_INET6;
--			memcpy(&udp6_addr.sin6_addr, &cfg->peer_ip6,
--			       sizeof(udp6_addr.sin6_addr));
--			udp6_addr.sin6_port = cfg->peer_udp_port;
--			err = kernel_connect(sock,
--					     (struct sockaddr *)&udp6_addr,
--					     sizeof(udp6_addr), 0);
--		}
--		if (err < 0)
--			goto error;
--
--		udp_set_no_check6_tx(sock->sk, !cfg->use_udp6_tx_checksums);
--		udp_set_no_check6_rx(sock->sk, !cfg->use_udp6_rx_checksums);
--	} else
--#endif
--	if (cfg->family == AF_INET) {
--		struct sockaddr_in udp_addr;
--
--		err = sock_create_kern(AF_INET, SOCK_DGRAM, 0, &sock);
--		if (err < 0)
--			goto error;
-+	sk_change_net(sock->sk, net);
- 
--		sk_change_net(sock->sk, net);
-+	udp_addr.sin_family = AF_INET;
-+	udp_addr.sin_addr = cfg->local_ip;
-+	udp_addr.sin_port = cfg->local_udp_port;
-+	err = kernel_bind(sock, (struct sockaddr *)&udp_addr,
-+			  sizeof(udp_addr));
-+	if (err < 0)
-+		goto error;
- 
-+	if (cfg->peer_udp_port) {
- 		udp_addr.sin_family = AF_INET;
--		udp_addr.sin_addr = cfg->local_ip;
--		udp_addr.sin_port = cfg->local_udp_port;
--		err = kernel_bind(sock, (struct sockaddr *)&udp_addr,
--				  sizeof(udp_addr));
-+		udp_addr.sin_addr = cfg->peer_ip;
-+		udp_addr.sin_port = cfg->peer_udp_port;
-+		err = kernel_connect(sock, (struct sockaddr *)&udp_addr,
-+				     sizeof(udp_addr), 0);
- 		if (err < 0)
- 			goto error;
--
--		if (cfg->peer_udp_port) {
--			udp_addr.sin_family = AF_INET;
--			udp_addr.sin_addr = cfg->peer_ip;
--			udp_addr.sin_port = cfg->peer_udp_port;
--			err = kernel_connect(sock,
--					     (struct sockaddr *)&udp_addr,
--					     sizeof(udp_addr), 0);
--			if (err < 0)
--				goto error;
--		}
--
--		sock->sk->sk_no_check_tx = !cfg->use_udp_checksums;
--	} else {
--		return -EPFNOSUPPORT;
- 	}
- 
-+	sock->sk->sk_no_check_tx = !cfg->use_udp_checksums;
- 
- 	*sockp = sock;
--
- 	return 0;
- 
- error:
-@@ -95,6 +52,6 @@ error:
- 	*sockp = NULL;
++void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
++			   struct udp_tunnel_sock_cfg *cfg)
++{
++	struct sock *sk = sock->sk;
++
++	/* Disable multicast loopback */
++	inet_sk(sk)->mc_loop = 0;
++
++	/* Enable CHECKSUM_UNNECESSARY to CHECKSUM_COMPLETE conversion */
++	udp_set_convert_csum(sk, true);
++
++	rcu_assign_sk_user_data(sk, cfg->sk_user_data);
++
++	udp_sk(sk)->encap_type = cfg->encap_type;
++	udp_sk(sk)->encap_rcv = cfg->encap_rcv;
++	udp_sk(sk)->encap_destroy = cfg->encap_destroy;
++
++	udp_tunnel_encap_enable(sock);
++}
++EXPORT_SYMBOL_GPL(setup_udp_tunnel_sock);
++
++int udp_tunnel_xmit_skb(struct socket *sock, struct rtable *rt,
++			struct sk_buff *skb, __be32 src, __be32 dst,
++			__u8 tos, __u8 ttl, __be16 df, __be16 src_port,
++			__be16 dst_port, bool xnet)
++{
++	struct udphdr *uh;
++
++	__skb_push(skb, sizeof(*uh));
++	skb_reset_transport_header(skb);
++	uh = udp_hdr(skb);
++
++	uh->dest = dst_port;
++	uh->source = src_port;
++	uh->len = htons(skb->len);
++
++	udp_set_csum(sock->sk->sk_no_check_tx, skb, src, dst, skb->len);
++
++	return iptunnel_xmit(sock->sk, rt, skb, src, dst, IPPROTO_UDP,
++			     tos, ttl, df, xnet);
++}
++EXPORT_SYMBOL_GPL(udp_tunnel_xmit_skb);
++
++void udp_tunnel_sock_release(struct socket *sock)
++{
++	rcu_assign_sk_user_data(sock->sk, NULL);
++	kernel_sock_shutdown(sock, SHUT_RDWR);
++	sk_release_kernel(sock->sk);
++}
++EXPORT_SYMBOL_GPL(udp_tunnel_sock_release);
++
+ MODULE_LICENSE("GPL");
+diff --git a/net/ipv6/ip6_udp_tunnel.c b/net/ipv6/ip6_udp_tunnel.c
+index bcfbb4b..cbc9907 100644
+--- a/net/ipv6/ip6_udp_tunnel.c
++++ b/net/ipv6/ip6_udp_tunnel.c
+@@ -61,3 +61,45 @@ error:
  	return err;
  }
--EXPORT_SYMBOL(udp_sock_create);
-+EXPORT_SYMBOL(udp_sock_create4);
- 
- MODULE_LICENSE("GPL");
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 2fe6836..45f830e 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -35,6 +35,7 @@ obj-$(CONFIG_INET6_XFRM_MODE_ROUTEOPTIMIZATION) += xfrm6_mode_ro.o
- obj-$(CONFIG_INET6_XFRM_MODE_BEET) += xfrm6_mode_beet.o
- obj-$(CONFIG_IPV6_MIP6) += mip6.o
- obj-$(CONFIG_NETFILTER)	+= netfilter/
-+obj-$(CONFIG_NET_UDP_TUNNEL) += ip6_udp_tunnel.o
- 
- obj-$(CONFIG_IPV6_VTI) += ip6_vti.o
- obj-$(CONFIG_IPV6_SIT) += sit.o
-diff --git a/net/ipv6/ip6_udp_tunnel.c b/net/ipv6/ip6_udp_tunnel.c
-new file mode 100644
-index 0000000..bcfbb4b
---- /dev/null
-+++ b/net/ipv6/ip6_udp_tunnel.c
-@@ -0,0 +1,63 @@
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/socket.h>
-+#include <linux/udp.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/in6.h>
-+#include <net/udp.h>
-+#include <net/udp_tunnel.h>
-+#include <net/net_namespace.h>
-+#include <net/netns/generic.h>
-+#include <net/ip6_tunnel.h>
-+#include <net/ip6_checksum.h>
+ EXPORT_SYMBOL_GPL(udp_sock_create6);
 +
-+int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
-+		     struct socket **sockp)
++int udp_tunnel6_xmit_skb(struct socket *sock, struct dst_entry *dst,
++			 struct sk_buff *skb, struct net_device *dev,
++			 struct in6_addr *saddr, struct in6_addr *daddr,
++			 __u8 prio, __u8 ttl, __be16 src_port, __be16 dst_port)
 +{
-+	struct sockaddr_in6 udp6_addr;
-+	int err;
-+	struct socket *sock = NULL;
++	struct udphdr *uh;
++	struct ipv6hdr *ip6h;
++	struct sock *sk = sock->sk;
 +
-+	err = sock_create_kern(AF_INET6, SOCK_DGRAM, 0, &sock);
-+	if (err < 0)
-+		goto error;
++	__skb_push(skb, sizeof(*uh));
++	skb_reset_transport_header(skb);
++	uh = udp_hdr(skb);
 +
-+	sk_change_net(sock->sk, net);
++	uh->dest = dst_port;
++	uh->source = src_port;
 +
-+	udp6_addr.sin6_family = AF_INET6;
-+	memcpy(&udp6_addr.sin6_addr, &cfg->local_ip6,
-+	       sizeof(udp6_addr.sin6_addr));
-+	udp6_addr.sin6_port = cfg->local_udp_port;
-+	err = kernel_bind(sock, (struct sockaddr *)&udp6_addr,
-+			  sizeof(udp6_addr));
-+	if (err < 0)
-+		goto error;
++	uh->len = htons(skb->len);
++	uh->check = 0;
 +
-+	if (cfg->peer_udp_port) {
-+		udp6_addr.sin6_family = AF_INET6;
-+		memcpy(&udp6_addr.sin6_addr, &cfg->peer_ip6,
-+		       sizeof(udp6_addr.sin6_addr));
-+		udp6_addr.sin6_port = cfg->peer_udp_port;
-+		err = kernel_connect(sock,
-+				     (struct sockaddr *)&udp6_addr,
-+				     sizeof(udp6_addr), 0);
-+	}
-+	if (err < 0)
-+		goto error;
++	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
++	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED
++			    | IPSKB_REROUTED);
++	skb_dst_set(skb, dst);
 +
-+	udp_set_no_check6_tx(sock->sk, !cfg->use_udp6_tx_checksums);
-+	udp_set_no_check6_rx(sock->sk, !cfg->use_udp6_rx_checksums);
++	udp6_set_csum(udp_get_no_check6_tx(sk), skb, &inet6_sk(sk)->saddr,
++		      &sk->sk_v6_daddr, skb->len);
 +
-+	*sockp = sock;
++	__skb_push(skb, sizeof(*ip6h));
++	skb_reset_network_header(skb);
++	ip6h		  = ipv6_hdr(skb);
++	ip6_flow_hdr(ip6h, prio, htonl(0));
++	ip6h->payload_len = htons(skb->len);
++	ip6h->nexthdr     = IPPROTO_UDP;
++	ip6h->hop_limit   = ttl;
++	ip6h->daddr	  = *daddr;
++	ip6h->saddr	  = *saddr;
++
++	ip6tunnel_xmit(skb, dev);
 +	return 0;
-+
-+error:
-+	if (sock) {
-+		kernel_sock_shutdown(sock, SHUT_RDWR);
-+		sk_release_kernel(sock->sk);
-+	}
-+	*sockp = NULL;
-+	return err;
 +}
-+EXPORT_SYMBOL_GPL(udp_sock_create6);
++EXPORT_SYMBOL_GPL(udp_tunnel6_xmit_skb);
 -- 
 1.7.9.5
