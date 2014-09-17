@@ -1,69 +1,71 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net-next] net: fix sparse warnings in SNMP_UPD_PO_STATS(_BH)
-Date: Wed, 17 Sep 2014 23:23:12 +0200
-Message-ID: <20140917212312.GA13866@kria>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: Cannot move macvlan interface on top of bonding device
+Date: Wed, 17 Sep 2014 23:28:49 +0200
+Message-ID: <20140917212849.GA8484@breakpoint.cc>
+References: <CA+HUmGi74nx0zELqXX63nJCNXshTC9AkWoRG5bo6AMHyr_3+fg@mail.gmail.com>
+ <CAHA+R7O0LuvFujDnDjW-kcwG=9BGbaSBfO9GXhxD0ANLyeJLXQ@mail.gmail.com>
+ <20140917190626.GA11354@breakpoint.cc>
+ <5419F17D.2090409@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	Cong Wang <cwang@twopensource.com>,
+	Francesco Ruggeri <fruggeri@arista.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Weilong Chen <chenweilong@huawei.com>
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:47563 "EHLO smtp5-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756521AbaIQVXQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Sep 2014 17:23:16 -0400
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:33245 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755552AbaIQV2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 17:28:55 -0400
 Content-Disposition: inline
+In-Reply-To: <5419F17D.2090409@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ptr used to be a non __percpu pointer (result of a this_cpu_ptr
-assignment, 7d720c3e4f0c4 ("percpu: add __percpu sparse annotations to
-net")). Since d25398df59b56 ("net: avoid reloads in SNMP_UPD_PO_STATS"),
-that's no longer the case, SNMP_UPD_PO_STATS uses this_cpu_add and ptr
-is now __percpu.
+Vlad Yasevich <vyasevich@gmail.com> wrote:
+> On 09/17/2014 03:06 PM, Florian Westphal wrote:
+> > Cong Wang <cwang@twopensource.com> wrote:
+> >> On Wed, Sep 17, 2014 at 8:56 AM, Francesco Ruggeri <fruggeri@arista.com> wrote:
+> >>> This used to work in older releases.
+> >>> The problem seems to be that commit f939981492 sets NETIF_F_NETNS_LOCAL
+> >>> on bonding interfaces, and commit 797f87f83 causes macvlan interfaces
+> >>> to inherit its features from the lower device.
+> >>>
+> >>> Is there a reason why NETIF_F_NETNS_LOCAL should be inherited from the
+> >>> lower device
+> >>> by macvlan interfaces?
+> >>
+> >> commit 797f87f83 looks wrong, it should not inherit NETIF_F_NETNS_LOCAL,
+> >> so just clear this flag. Please submit a patch.
+> > 
+> > Under which conditions would NETIF_F_NETNS_LOCAL have to be inherited?
+> > (i.e., why is it inheritable in the first place?)
 
-Silence sparse warnings by preserving the original type and
-annotation, and remove the out-of-date comment.
+To answer my own question:  Its inherited since lowerdev->features is
+passed as 'all' flag, so we would 'decrement' feature set if we'd remove
+it in _increment_features().
 
-warning: incorrect type in initializer (different address spaces)
-   expected unsigned long long *ptr
-   got unsigned long long [noderef] <asn:3>*<noident>
-warning: incorrect type in initializer (different address spaces)
-   expected void const [noderef] <asn:3>*__vpp_verify
-   got unsigned long long *<noident>
-warning: incorrect type in initializer (different address spaces)
-   expected void const [noderef] <asn:3>*__vpp_verify
-   got unsigned long long *<noident>
+> macvlan code calls
+>         features = netdev_increment_features(vlan->lowerdev->features,
+>                                              features,
+>                                              mask);
+> 
+> where lowerdev->features contains the NETIF_F_NETNS_LOCAL bit.  That
 
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- include/net/snmp.h | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+[..]
 
-diff --git a/include/net/snmp.h b/include/net/snmp.h
-index f1f27fdbb0d5..8fd2f498782e 100644
---- a/include/net/snmp.h
-+++ b/include/net/snmp.h
-@@ -146,19 +146,15 @@ struct linux_xfrm_mib {
- 
- #define SNMP_ADD_STATS(mib, field, addend)	\
- 			this_cpu_add(mib->mibs[field], addend)
--/*
-- * Use "__typeof__(*mib) *ptr" instead of "__typeof__(mib) ptr"
-- * to make @ptr a non-percpu pointer.
-- */
- #define SNMP_UPD_PO_STATS(mib, basefield, addend)	\
- 	do { \
--		__typeof__(*mib->mibs) *ptr = mib->mibs;	\
-+		__typeof__((mib->mibs) + 0) ptr = mib->mibs;	\
- 		this_cpu_inc(ptr[basefield##PKTS]);		\
- 		this_cpu_add(ptr[basefield##OCTETS], addend);	\
- 	} while (0)
- #define SNMP_UPD_PO_STATS_BH(mib, basefield, addend)	\
- 	do { \
--		__typeof__(*mib->mibs) *ptr = mib->mibs;	\
-+		__typeof__((mib->mibs) + 0) ptr = mib->mibs;	\
- 		__this_cpu_inc(ptr[basefield##PKTS]);		\
- 		__this_cpu_add(ptr[basefield##OCTETS], addend);	\
- 	} while (0)
--- 
-2.1.0
+> May be a better solution is:
+> 
+>         features = netdev_increment_features(vlan->lowerdev->features & MACVLAN_FEATURS,
+>                                              features,
+>                                              mask);
+> 
+> This way we start with only the feature MACVLAN is interested in.
+
+Seems correct, since it will also prevent other non-macvlan features from
+appearing.
+
+Thanks Vlad.
