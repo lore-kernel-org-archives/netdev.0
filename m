@@ -1,82 +1,48 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Cannot move macvlan interface on top of bonding device
-Date: Wed, 17 Sep 2014 13:46:55 -0700
-Message-ID: <CAHA+R7M5+1gbfx7pv=bPdNempL1eeXRu-J79c29z1k6Mr-aXfA@mail.gmail.com>
-References: <CA+HUmGi74nx0zELqXX63nJCNXshTC9AkWoRG5bo6AMHyr_3+fg@mail.gmail.com>
-	<CAHA+R7O0LuvFujDnDjW-kcwG=9BGbaSBfO9GXhxD0ANLyeJLXQ@mail.gmail.com>
-	<20140917190626.GA11354@breakpoint.cc>
-	<5419F17D.2090409@gmail.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: [PATCHv5 net-next 0/3] sunvnet: add jumbo frames support
+Date: Wed, 17 Sep 2014 16:49:32 -0400
+Message-ID: <5419F3DC.60104@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Westphal <fw@strlen.de>,
-	Francesco Ruggeri <fruggeri@arista.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Weilong Chen <chenweilong@huawei.com>
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:61482 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756416AbaIQUq5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 16:46:57 -0400
-Received: by mail-lb0-f175.google.com with SMTP id n15so2599143lbi.20
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 13:46:55 -0700 (PDT)
-In-Reply-To: <5419F17D.2090409@gmail.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:17348 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932089AbaIQUti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 16:49:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 17, 2014 at 1:39 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
-> On 09/17/2014 03:06 PM, Florian Westphal wrote:
->> Cong Wang <cwang@twopensource.com> wrote:
->>> On Wed, Sep 17, 2014 at 8:56 AM, Francesco Ruggeri <fruggeri@arista.com> wrote:
->>>> This used to work in older releases.
->>>> The problem seems to be that commit f939981492 sets NETIF_F_NETNS_LOCAL
->>>> on bonding interfaces, and commit 797f87f83 causes macvlan interfaces
->>>> to inherit its features from the lower device.
->>>>
->>>> Is there a reason why NETIF_F_NETNS_LOCAL should be inherited from the
->>>> lower device
->>>> by macvlan interfaces?
->>>
->>> commit 797f87f83 looks wrong, it should not inherit NETIF_F_NETNS_LOCAL,
->>> so just clear this flag. Please submit a patch.
->>
->> Under which conditions would NETIF_F_NETNS_LOCAL have to be inherited?
->> (i.e., why is it inheritable in the first place?)
->
-> macvlan code calls
->         features = netdev_increment_features(vlan->lowerdev->features,
->                                              features,
->                                              mask);
->
-> where lowerdev->features contains the NETIF_F_NETNS_LOCAL bit.  That
-> bit is not set in features or in mask.  It is also not one of the ALL_FOR_ALL
-> bits so it's not turned off.
->
-> As an example, here are the values from a quit test I ran:
->
-> bond features = 0x400f3888
-> features = 0x3b5a09  (mask is the same).
-> incremented features = 0x41bf389
->
-> NETIF_F_NETNS_LOCAL is still on.
+This patch set updates the sunvnet driver to version 1.6 of the VIO protocol
+to support per-port exchange of MTU information and allow non-standard MTU
+sizes, including jumbo frames.
 
-I think the comment on netdev_increment_features() is clear:
+Using large MTUs shows a > 4X throughput improvement Linux-Solaris
+and > 8X throughput improvement Linux-Linux.
 
- *      Computes a new feature set after adding a device with feature set
- *      @one to the master device with current feature set @all.  Will not
- *      enable anything that is off in @mask. Returns the new feature set.
+Changes from v4:
+	- changed VNET_MAXPACKET per David Laight <David.Laight@ACULAB.COM>
+	- added cookies to support non-contiguous buffers of max size
+Changes from v3:
+	- added version functions per Dave Miller <davem@davemloft.net>
+	- moved rmtu to vnet_port per Dave Miller <davem@davemloft.net>
+	- explicitly set options bits and capability flags to 0 per
+		Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
+Changes from v2:
+	- make checkpatch clean
+Changes from v1:
+	- fix brace formatting per Dave Miller <davem@davemloft.net>
 
-And NETIF_F_NETNS_LOCAL is on in mask.
+David L Stevens (3):
+  sunvnet: upgrade to VIO protocol version 1.6
+  sunvnet: allow admin to set sunvnet MTU
+  sunvnet: generate ICMP PTMUD messages for smaller port MTUs
 
->
-> May be a better solution is:
->
->         features = netdev_increment_features(vlan->lowerdev->features & MACVLAN_FEATURS,
->                                              features,
->                                              mask);
->
-> This way we start with only the feature MACVLAN is interested in.
->
-
-Or clear it in mask?
+ arch/sparc/include/asm/vio.h       |   44 ++++++++++-
+ arch/sparc/kernel/ldc.c            |    2 +-
+ arch/sparc/kernel/viohs.c          |   14 +++-
+ drivers/net/ethernet/sun/sunvnet.c |  146 +++++++++++++++++++++++++++++++-----
+ drivers/net/ethernet/sun/sunvnet.h |    7 ++-
+ 5 files changed, 187 insertions(+), 26 deletions(-)
