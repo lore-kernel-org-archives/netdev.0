@@ -1,74 +1,46 @@
-From: Martin Kelly <martin@martingkelly.com>
-Subject: Re: Question about synchronize_net() in AF_PACKET close()
-Date: Wed, 17 Sep 2014 10:04:04 -0700
-Message-ID: <CAN8CM3wpZ236h3Okfi0AS+9+0P05fd1JVwfUOXfbp_LV2PqLLQ@mail.gmail.com>
-References: <CAN8CM3zo3bMxZV_UvywCPNjJrMwMA2-+POfY8cR429iodHRc+A@mail.gmail.com>
-	<20140909.150000.1647602729214485795.davem@davemloft.net>
-	<CAN8CM3xEnQXVgrLpV0rfAJoZ75v6Xv64pAGJ-9SAPACAT8WJ_w@mail.gmail.com>
-	<54199AC7.1040502@martingkelly.com>
-	<1410965690.7106.233.camel@edumazet-glaptop2.roam.corp.google.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH v2] net: sched: cls_u32: rcu can not be last node
+Date: Wed, 17 Sep 2014 10:31:14 -0700
+Message-ID: <20140917173108.3864.57490.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com, davem@davemloft.net,
+	eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:52210 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756370AbaIQREH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 13:04:07 -0400
-Received: by mail-wg0-f45.google.com with SMTP id z12so1708337wgg.4
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 10:04:05 -0700 (PDT)
-In-Reply-To: <1410965690.7106.233.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:47609 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755801AbaIQRbl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 13:31:41 -0400
+Received: by mail-oa0-f46.google.com with SMTP id i7so1511045oag.5
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 10:31:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 17, 2014 at 7:54 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> Can you describe the ... ?
->
+tc_u32_sel 'sel' in tc_u_knode expects to be the last element in the
+structure and pads the structure with tc_u32_key fields for each key.
 
-Sure. The patch I've been looking at is functionally identical to the
-one referenced in http://patchwork.ozlabs.org/patch/181605/ with the
-exception that sock_orphan() and sock->sk = NULL is moved before the
-synchronize_net(). This further improves the performance relative to
-http://patchwork.ozlabs.org/patch/181605/ because it never calls
-synchronize_net(), whereas http://patchwork.ozlabs.org/patch/181605/
-calls synchronize_net() in the po->running case. However, it looks
-like making that optimization is not safe, for the reasons you
-mentioned below.
+ kzalloc(sizeof(*n) + s->nkeys*sizeof(struct tc_u32_key), GFP_KERNEL)
 
->
-> What problem do you want to solve exactly ?
->
-> I believe its not safe, you missed sk_data_ready() call
-> (sock_def_readable())
->
+CC: Eric Dumazet <edumazet@google.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ net/sched/cls_u32.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-The problem I I'm trying to solve is the same one mentioned in
-http://patchwork.ozlabs.org/patch/181605/: On systems with a lot of
-RCU contention, raw socket close() can take up to 300 ms or so, which
-really adds up for processes that open lots of raw sockets. What you
-see is a many-second hang when the process exits as it waits for many
-synchronize_rcu calls (all in serial) to finish. Although it would be
-better for close() not to be in a critical path, it's sometimes hard
-to get around for some userspace processes, so this kind of change
-could yield a significant performance improvement for such processes.
-
-You're right, I missed sk_def_readable(), which looks like it would
-cause a crash if it occurred before the call_rcu() was called. I see
-that sk_def_readable() acceses sk->sk_wq through rcu_read_lock(),
-rcu_dereference(), rcu_read_unlock(), while sock_orphan() sets
-sk->sk_wq = NULL without an RCU function. You could modify
-sock_orphan() and sock->sk to use RCU too, but you would need to patch
-all access sites, and the patch would quickly become complex and
-error-prone, which is not worth it.
-
-Does my analysis sound correct to you? If so, can you think of a more
-natural way to improve raw socket close() performance? I agree that
-optimally, userspace should not put close() in a critical path, but it
-still seems like a bug for close() to take 300 ms to complete.
-
-Thanks,
-Martin
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index eceeb04..8462132 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -64,8 +64,9 @@ struct tc_u_knode {
+ 	u32 __percpu		*pcpu_success;
+ #endif
+ 	struct tcf_proto	*tp;
+-	struct tc_u32_sel	sel;
+ 	struct rcu_head		rcu;
++	struct tc_u32_sel	sel;
++	/* tc_u32_keys allocated at end of structure */
+ };
+ 
+ struct tc_u_hnode {
