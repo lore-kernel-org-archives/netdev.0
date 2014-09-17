@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v13 net-next 08/11] bpf: handle pseudo BPF_LD_IMM64 insn
-Date: Tue, 16 Sep 2014 17:39:27 -0700
-Message-ID: <1410914370-29883-9-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v13 net-next 07/11] bpf: verifier (add ability to receive verification log)
+Date: Tue, 16 Sep 2014 17:39:26 -0700
+Message-ID: <1410914370-29883-8-git-send-email-ast@plumgrid.com>
 References: <1410914370-29883-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
 	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
@@ -22,234 +22,328 @@ In-Reply-To: <1410914370-29883-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@publi
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-eBPF programs passed from userspace are using pseudo BPF_LD_IMM64 instructions
-to refer to process-local map_fd. Scan the program for such instructions and
-if FDs are valid, convert them to 'struct bpf_map' pointers which will be used
-by verifier to check access to maps in bpf_map_lookup/update() calls.
-If program passes verifier, convert pseudo BPF_LD_IMM64 into generic by dropping
-BPF_PSEUDO_MAP_FD flag.
+add optional attributes for BPF_PROG_LOAD syscall:
+union bpf_attr {
+    struct {
+	...
+	__u32         log_level; /* verbosity level of eBPF verifier */
+	__u32         log_size;  /* size of user buffer */
+	__aligned_u64 log_buf;   /* user supplied 'char *buffer' */
+    };
+};
 
-Note that eBPF interpreter is generic and knows nothing about pseudo insns.
+when log_level > 0 the verifier will return its verification log in the user
+supplied buffer 'log_buf' which can be used by program author to analyze why
+verifier rejected given program.
+
+'Understanding eBPF verifier messages' section of Documentation/networking/filter.txt
+provides several examples of these messages, like the program:
+
+  BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
+  BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
+  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
+  BPF_LD_MAP_FD(BPF_REG_1, 0),
+  BPF_CALL_FUNC(BPF_FUNC_map_lookup_elem),
+  BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
+  BPF_ST_MEM(BPF_DW, BPF_REG_0, 4, 0),
+  BPF_EXIT_INSN(),
+
+will be rejected with the following multi-line message in log_buf:
+
+  0: (7a) *(u64 *)(r10 -8) = 0
+  1: (bf) r2 = r10
+  2: (07) r2 += -8
+  3: (b7) r1 = 0
+  4: (85) call 1
+  5: (15) if r0 == 0x0 goto pc+1
+   R0=map_ptr R10=fp
+  6: (7a) *(u64 *)(r0 +4) = 0
+  misaligned access off 4 size 8
+
+The format of the output can change at any time as verifier evolves.
 
 Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 ---
- include/linux/filter.h |    6 ++
- kernel/bpf/verifier.c  |  147 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 153 insertions(+)
+ include/uapi/linux/bpf.h |    3 +
+ kernel/bpf/syscall.c     |    2 +-
+ kernel/bpf/verifier.c    |  235 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 239 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 4ffc0958d85e..ca95abd2bed1 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -145,6 +145,12 @@ struct bpf_prog_aux;
- 		.off   = 0,					\
- 		.imm   = ((__u64) (IMM)) >> 32 })
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 424f442016e7..31b0ac208a52 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -138,6 +138,9 @@ union bpf_attr {
+ 		__u32		insn_cnt;
+ 		__aligned_u64	insns;
+ 		__aligned_u64	license;
++		__u32		log_level;	/* verbosity level of verifier */
++		__u32		log_size;	/* size of user buffer */
++		__aligned_u64	log_buf;	/* user supplied buffer */
+ 	};
+ } __attribute__((aligned(8)));
  
-+#define BPF_PSEUDO_MAP_FD	1
-+
-+/* pseudo BPF_LD_IMM64 insn used to refer to process-local map_fd */
-+#define BPF_LD_MAP_FD(DST, MAP_FD)				\
-+	BPF_LD_IMM64_RAW(DST, BPF_PSEUDO_MAP_FD, MAP_FD)
-+
- /* Short form of mov based on type, BPF_X: dst_reg = src_reg, BPF_K: dst_reg = imm32 */
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 67b5e29f183e..c7be7163bd11 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -458,7 +458,7 @@ struct bpf_prog *bpf_prog_get(u32 ufd)
+ }
  
- #define BPF_MOV64_RAW(TYPE, DST, SRC, IMM)			\
+ /* last field in 'union bpf_attr' used by this command */
+-#define	BPF_PROG_LOAD_LAST_FIELD license
++#define	BPF_PROG_LOAD_LAST_FIELD log_buf
+ 
+ static int bpf_prog_load(union bpf_attr *attr)
+ {
 diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 871edc1f2e1f..7227543e474b 100644
+index d6f9c3d6b4d7..871edc1f2e1f 100644
 --- a/kernel/bpf/verifier.c
 +++ b/kernel/bpf/verifier.c
-@@ -125,10 +125,15 @@
+@@ -125,9 +125,244 @@
   * are set to NOT_INIT to indicate that they are no longer readable.
   */
  
-+#define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
-+
- /* single container for all structs
-  * one verifier_env per bpf_check() call
-  */
- struct verifier_env {
-+	struct bpf_prog *prog;		/* eBPF program being verified */
-+	struct bpf_map *used_maps[MAX_USED_MAPS]; /* array of map's used by eBPF program */
-+	u32 used_map_cnt;		/* number of used maps */
- };
- 
- /* verbose verifier prints what it's seeing
-@@ -300,6 +305,115 @@ static void print_bpf_insn(struct bpf_insn *insn)
- 	}
- }
- 
-+/* return the map pointer stored inside BPF_LD_IMM64 instruction */
-+static struct bpf_map *ld_imm64_to_map_ptr(struct bpf_insn *insn)
-+{
-+	u64 imm64 = ((u64) (u32) insn[0].imm) | ((u64) (u32) insn[1].imm) << 32;
-+
-+	return (struct bpf_map *) (unsigned long) imm64;
-+}
-+
-+/* look for pseudo eBPF instructions that access map FDs and
-+ * replace them with actual map pointers
++/* single container for all structs
++ * one verifier_env per bpf_check() call
 + */
-+static int replace_map_fd_with_map_ptr(struct verifier_env *env)
++struct verifier_env {
++};
++
++/* verbose verifier prints what it's seeing
++ * bpf_check() is called under lock, so no race to access these global vars
++ */
++static u32 log_level, log_size, log_len;
++static char *log_buf;
++
++static DEFINE_MUTEX(bpf_verifier_lock);
++
++/* log_level controls verbosity level of eBPF verifier.
++ * verbose() is used to dump the verification trace to the log, so the user
++ * can figure out what's wrong with the program
++ */
++static void verbose(const char *fmt, ...)
 +{
-+	struct bpf_insn *insn = env->prog->insnsi;
-+	int insn_cnt = env->prog->len;
-+	int i, j;
++	va_list args;
 +
-+	for (i = 0; i < insn_cnt; i++, insn++) {
-+		if (insn[0].code == (BPF_LD | BPF_IMM | BPF_DW)) {
-+			struct bpf_map *map;
-+			struct fd f;
++	if (log_level == 0 || log_len >= log_size - 1)
++		return;
 +
-+			if (i == insn_cnt - 1 || insn[1].code != 0 ||
-+			    insn[1].dst_reg != 0 || insn[1].src_reg != 0 ||
-+			    insn[1].off != 0) {
-+				verbose("invalid bpf_ld_imm64 insn\n");
-+				return -EINVAL;
-+			}
++	va_start(args, fmt);
++	log_len += vscnprintf(log_buf + log_len, log_size - log_len, fmt, args);
++	va_end(args);
++}
 +
-+			if (insn->src_reg == 0)
-+				/* valid generic load 64-bit imm */
-+				goto next_insn;
++static const char *const bpf_class_string[] = {
++	[BPF_LD]    = "ld",
++	[BPF_LDX]   = "ldx",
++	[BPF_ST]    = "st",
++	[BPF_STX]   = "stx",
++	[BPF_ALU]   = "alu",
++	[BPF_JMP]   = "jmp",
++	[BPF_RET]   = "BUG",
++	[BPF_ALU64] = "alu64",
++};
 +
-+			if (insn->src_reg != BPF_PSEUDO_MAP_FD) {
-+				verbose("unrecognized bpf_ld_imm64 insn\n");
-+				return -EINVAL;
-+			}
++static const char *const bpf_alu_string[] = {
++	[BPF_ADD >> 4]  = "+=",
++	[BPF_SUB >> 4]  = "-=",
++	[BPF_MUL >> 4]  = "*=",
++	[BPF_DIV >> 4]  = "/=",
++	[BPF_OR  >> 4]  = "|=",
++	[BPF_AND >> 4]  = "&=",
++	[BPF_LSH >> 4]  = "<<=",
++	[BPF_RSH >> 4]  = ">>=",
++	[BPF_NEG >> 4]  = "neg",
++	[BPF_MOD >> 4]  = "%=",
++	[BPF_XOR >> 4]  = "^=",
++	[BPF_MOV >> 4]  = "=",
++	[BPF_ARSH >> 4] = "s>>=",
++	[BPF_END >> 4]  = "endian",
++};
 +
-+			f = fdget(insn->imm);
++static const char *const bpf_ldst_string[] = {
++	[BPF_W >> 3]  = "u32",
++	[BPF_H >> 3]  = "u16",
++	[BPF_B >> 3]  = "u8",
++	[BPF_DW >> 3] = "u64",
++};
 +
-+			map = bpf_map_get(f);
-+			if (IS_ERR(map)) {
-+				verbose("fd %d is not pointing to valid bpf_map\n",
-+					insn->imm);
-+				fdput(f);
-+				return PTR_ERR(map);
-+			}
++static const char *const bpf_jmp_string[] = {
++	[BPF_JA >> 4]   = "jmp",
++	[BPF_JEQ >> 4]  = "==",
++	[BPF_JGT >> 4]  = ">",
++	[BPF_JGE >> 4]  = ">=",
++	[BPF_JSET >> 4] = "&",
++	[BPF_JNE >> 4]  = "!=",
++	[BPF_JSGT >> 4] = "s>",
++	[BPF_JSGE >> 4] = "s>=",
++	[BPF_CALL >> 4] = "call",
++	[BPF_EXIT >> 4] = "exit",
++};
 +
-+			/* store map pointer inside BPF_LD_IMM64 instruction */
-+			insn[0].imm = (u32) (unsigned long) map;
-+			insn[1].imm = ((u64) (unsigned long) map) >> 32;
++static void print_bpf_insn(struct bpf_insn *insn)
++{
++	u8 class = BPF_CLASS(insn->code);
 +
-+			/* check whether we recorded this map already */
-+			for (j = 0; j < env->used_map_cnt; j++)
-+				if (env->used_maps[j] == map) {
-+					fdput(f);
-+					goto next_insn;
-+				}
-+
-+			if (env->used_map_cnt >= MAX_USED_MAPS) {
-+				fdput(f);
-+				return -E2BIG;
-+			}
-+
-+			/* remember this map */
-+			env->used_maps[env->used_map_cnt++] = map;
-+
-+			/* hold the map. If the program is rejected by verifier,
-+			 * the map will be released by release_maps() or it
-+			 * will be used by the valid program until it's unloaded
-+			 * and all maps are released in free_bpf_prog_info()
-+			 */
-+			atomic_inc(&map->refcnt);
-+
-+			fdput(f);
-+next_insn:
-+			insn++;
-+			i++;
++	if (class == BPF_ALU || class == BPF_ALU64) {
++		if (BPF_SRC(insn->code) == BPF_X)
++			verbose("(%02x) %sr%d %s %sr%d\n",
++				insn->code, class == BPF_ALU ? "(u32) " : "",
++				insn->dst_reg,
++				bpf_alu_string[BPF_OP(insn->code) >> 4],
++				class == BPF_ALU ? "(u32) " : "",
++				insn->src_reg);
++		else
++			verbose("(%02x) %sr%d %s %s%d\n",
++				insn->code, class == BPF_ALU ? "(u32) " : "",
++				insn->dst_reg,
++				bpf_alu_string[BPF_OP(insn->code) >> 4],
++				class == BPF_ALU ? "(u32) " : "",
++				insn->imm);
++	} else if (class == BPF_STX) {
++		if (BPF_MODE(insn->code) == BPF_MEM)
++			verbose("(%02x) *(%s *)(r%d %+d) = r%d\n",
++				insn->code,
++				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++				insn->dst_reg,
++				insn->off, insn->src_reg);
++		else if (BPF_MODE(insn->code) == BPF_XADD)
++			verbose("(%02x) lock *(%s *)(r%d %+d) += r%d\n",
++				insn->code,
++				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++				insn->dst_reg, insn->off,
++				insn->src_reg);
++		else
++			verbose("BUG_%02x\n", insn->code);
++	} else if (class == BPF_ST) {
++		if (BPF_MODE(insn->code) != BPF_MEM) {
++			verbose("BUG_st_%02x\n", insn->code);
++			return;
 +		}
++		verbose("(%02x) *(%s *)(r%d %+d) = %d\n",
++			insn->code,
++			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++			insn->dst_reg,
++			insn->off, insn->imm);
++	} else if (class == BPF_LDX) {
++		if (BPF_MODE(insn->code) != BPF_MEM) {
++			verbose("BUG_ldx_%02x\n", insn->code);
++			return;
++		}
++		verbose("(%02x) r%d = *(%s *)(r%d %+d)\n",
++			insn->code, insn->dst_reg,
++			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++			insn->src_reg, insn->off);
++	} else if (class == BPF_LD) {
++		if (BPF_MODE(insn->code) == BPF_ABS) {
++			verbose("(%02x) r0 = *(%s *)skb[%d]\n",
++				insn->code,
++				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++				insn->imm);
++		} else if (BPF_MODE(insn->code) == BPF_IND) {
++			verbose("(%02x) r0 = *(%s *)skb[r%d + %d]\n",
++				insn->code,
++				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
++				insn->src_reg, insn->imm);
++		} else if (BPF_MODE(insn->code) == BPF_IMM) {
++			verbose("(%02x) r%d = 0x%x\n",
++				insn->code, insn->dst_reg, insn->imm);
++		} else {
++			verbose("BUG_ld_%02x\n", insn->code);
++			return;
++		}
++	} else if (class == BPF_JMP) {
++		u8 opcode = BPF_OP(insn->code);
++
++		if (opcode == BPF_CALL) {
++			verbose("(%02x) call %d\n", insn->code, insn->imm);
++		} else if (insn->code == (BPF_JMP | BPF_JA)) {
++			verbose("(%02x) goto pc%+d\n",
++				insn->code, insn->off);
++		} else if (insn->code == (BPF_JMP | BPF_EXIT)) {
++			verbose("(%02x) exit\n", insn->code);
++		} else if (BPF_SRC(insn->code) == BPF_X) {
++			verbose("(%02x) if r%d %s r%d goto pc%+d\n",
++				insn->code, insn->dst_reg,
++				bpf_jmp_string[BPF_OP(insn->code) >> 4],
++				insn->src_reg, insn->off);
++		} else {
++			verbose("(%02x) if r%d %s 0x%x goto pc%+d\n",
++				insn->code, insn->dst_reg,
++				bpf_jmp_string[BPF_OP(insn->code) >> 4],
++				insn->imm, insn->off);
++		}
++	} else {
++		verbose("(%02x) %s\n", insn->code, bpf_class_string[class]);
 +	}
-+
-+	/* now all pseudo BPF_LD_IMM64 instructions load valid
-+	 * 'struct bpf_map *' into a register instead of user map_fd.
-+	 * These pointers will be used later by verifier to validate map access.
-+	 */
-+	return 0;
-+}
-+
-+/* drop refcnt of maps used by the rejected program */
-+static void release_maps(struct verifier_env *env)
-+{
-+	int i;
-+
-+	for (i = 0; i < env->used_map_cnt; i++)
-+		bpf_map_put(env->used_maps[i]);
-+}
-+
-+/* convert pseudo BPF_LD_IMM64 into generic BPF_LD_IMM64 */
-+static void convert_pseudo_ld_imm64(struct verifier_env *env)
-+{
-+	struct bpf_insn *insn = env->prog->insnsi;
-+	int insn_cnt = env->prog->len;
-+	int i;
-+
-+	for (i = 0; i < insn_cnt; i++, insn++)
-+		if (insn->code == (BPF_LD | BPF_IMM | BPF_DW))
-+			insn->src_reg = 0;
 +}
 +
  int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
  {
- 	char __user *log_ubuf = NULL;
-@@ -316,6 +430,8 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
- 	if (!env)
- 		return -ENOMEM;
++	char __user *log_ubuf = NULL;
++	struct verifier_env *env;
+ 	int ret = -EINVAL;
  
-+	env->prog = prog;
++	if (prog->len <= 0 || prog->len > BPF_MAXINSNS)
++		return -E2BIG;
 +
- 	/* grab the mutex to protect few globals used by verifier */
- 	mutex_lock(&bpf_verifier_lock);
- 
-@@ -342,8 +458,14 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
- 		log_level = 0;
- 	}
- 
-+	ret = replace_map_fd_with_map_ptr(env);
-+	if (ret < 0)
-+		goto skip_full_check;
++	/* 'struct verifier_env' can be global, but since it's not small,
++	 * allocate/free it every time bpf_check() is called
++	 */
++	env = kzalloc(sizeof(struct verifier_env), GFP_KERNEL);
++	if (!env)
++		return -ENOMEM;
 +
- 	/* ret = do_check(env); */
- 
-+skip_full_check:
++	/* grab the mutex to protect few globals used by verifier */
++	mutex_lock(&bpf_verifier_lock);
 +
- 	if (log_level && log_len >= log_size - 1) {
- 		BUG_ON(log_len >= log_size);
- 		/* verifier log exceeded user supplied buffer */
-@@ -357,11 +479,36 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
- 		goto free_log_buf;
- 	}
- 
-+	if (ret == 0 && env->used_map_cnt) {
-+		/* if program passed verifier, update used_maps in bpf_prog_info */
-+		prog->aux->used_maps = kmalloc_array(env->used_map_cnt,
-+						     sizeof(env->used_maps[0]),
-+						     GFP_KERNEL);
-+
-+		if (!prog->aux->used_maps) {
-+			ret = -ENOMEM;
-+			goto free_log_buf;
-+		}
-+
-+		memcpy(prog->aux->used_maps, env->used_maps,
-+		       sizeof(env->used_maps[0]) * env->used_map_cnt);
-+		prog->aux->used_map_cnt = env->used_map_cnt;
-+
-+		/* program is valid. Convert pseudo bpf_ld_imm64 into generic
-+		 * bpf_ld_imm64 instructions
++	if (attr->log_level || attr->log_buf || attr->log_size) {
++		/* user requested verbose verifier output
++		 * and supplied buffer to store the verification trace
 +		 */
-+		convert_pseudo_ld_imm64(env);
++		log_level = attr->log_level;
++		log_ubuf = (char __user *) (unsigned long) attr->log_buf;
++		log_size = attr->log_size;
++		log_len = 0;
++
++		ret = -EINVAL;
++		/* log_* values have to be sane */
++		if (log_size < 128 || log_size > UINT_MAX >> 8 ||
++		    log_level == 0 || log_ubuf == NULL)
++			goto free_env;
++
++		ret = -ENOMEM;
++		log_buf = vmalloc(log_size);
++		if (!log_buf)
++			goto free_env;
++	} else {
++		log_level = 0;
 +	}
- 
- free_log_buf:
- 	if (log_level)
- 		vfree(log_buf);
- free_env:
-+	if (!prog->aux->used_maps)
-+		/* if we didn't copy map pointers into bpf_prog_info, release
-+		 * them now. Otherwise free_bpf_prog_info() will release them.
-+		 */
-+		release_maps(env);
- 	kfree(env);
- 	mutex_unlock(&bpf_verifier_lock);
++
++	/* ret = do_check(env); */
++
++	if (log_level && log_len >= log_size - 1) {
++		BUG_ON(log_len >= log_size);
++		/* verifier log exceeded user supplied buffer */
++		ret = -ENOSPC;
++		/* fall through to return what was recorded */
++	}
++
++	/* copy verifier log back to user space including trailing zero */
++	if (log_level && copy_to_user(log_ubuf, log_buf, log_len + 1) != 0) {
++		ret = -EFAULT;
++		goto free_log_buf;
++	}
++
++
++free_log_buf:
++	if (log_level)
++		vfree(log_buf);
++free_env:
++	kfree(env);
++	mutex_unlock(&bpf_verifier_lock);
  	return ret;
+ }
 -- 
 1.7.9.5
