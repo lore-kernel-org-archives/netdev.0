@@ -1,81 +1,55 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Qdisc: Measuring Head-of-Line blocking with netperf-wrapper
-Date: Wed, 17 Sep 2014 09:39:56 +0200
-Message-ID: <20140917093956.1115fd61@redhat.com>
-References: <20140915184517.6c5474e5@redhat.com>
-	<20140916152221.41811287@redhat.com>
-	<1410875959.7106.200.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140916175600.018350fe@redhat.com>
-	<1410885016.7106.203.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	Toke =?UTF-8?B?SMO4aWxhbmQtSsO4cmdlbnNl?= =?UTF-8?B?bg==?=
-	<toke@toke.dk>, Dave Taht <dave.taht@gmail.com>, brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net] macvlan: allow to enqueue broadcast pkt on virtual device
+Date: Wed, 17 Sep 2014 10:08:08 +0200
+Message-ID: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4288 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751716AbaIQHkf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Sep 2014 03:40:35 -0400
-In-Reply-To: <1410885016.7106.203.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34299 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751570AbaIQIIk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 04:08:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 16 Sep 2014 09:30:16 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Since commit 412ca1550cbe ("macvlan: Move broadcasts into a work queue"), the
+driver uses tx_queue_len of the master device as the limit of packets enqueuing.
+Problem is that virtual drivers have this value set to 0, thus all broadcast
+packets were rejected.
+Because tx_queue_len was arbitrarily chosen, I replace it with a static limit
+of 1000 (also arbitrarily chosen).
 
-> On Tue, 2014-09-16 at 17:56 +0200, Jesper Dangaard Brouer wrote:
-> > On Tue, 16 Sep 2014 06:59:19 -0700
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > 
-> > > With the TCP usec rtt work I did lately, you'll get more precise results
-> > > from a TCP_RR flow, as Tom and I explained.
-> > 
-> > Here you go, developed a new test:
-> 
-> Just to make sure I understand (sorry I dont have time going all your
-> graphs right now)
+CC: Herbert Xu <herbert@gondor.apana.org.au>
+Reported-by: Thibaut Collet <thibaut.collet@6wind.com>
+Suggested-by: Thibaut Collet <thibaut.collet@6wind.com>
+Tested-by: Thibaut Collet <thibaut.collet@6wind.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ drivers/net/macvlan.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Summary for you:
-1) I have created the TCP_RR latency test you and Tom asked for.
-
-2) Graphs shows TCP_RR and UDP_RR are more accurate than ping
-
-3) Graphs shows that ping is within same range as TCP_RR and UDP_RR
-
-4) My only problem, NoneXSO case does not work with TCP_RR, and
-   I need the NoneXSO case for evaluating my qdisc bulking patches.
-
-> The target of your high prio flow is different from target of the
-> antagonist flows ?
-> 
-> Otherwise, you are not only measuring head of line blocking of your
-> host, but the whole chain, including scheduling latencies of the
-> (shared) target.
-
-For the target-host I'm avoiding the problem, as it receives packets on
-different HW queue and netservers will be running on different CPUs.
-
-For the host, I'm by design, forcing it to run on the same single CPU,
-to force using the same HW queue, so I can measure this HW queue and
-its/BQLs push back. So, yes the host, is also affected by scheduling
-latencies, which is bad. (perhaps reason NoneXSO cannot util BW).
-
-How can I construct a test-case, on the host, to solve this problem?
-(and still using/measuring the same xmit HW queue)
-
-
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index a96955597755..8e776935ca52 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -36,6 +36,7 @@
+ #include <linux/netpoll.h>
+ 
+ #define MACVLAN_HASH_SIZE	(1 << BITS_PER_BYTE)
++#define MACVLAN_BC_QUEUE_LEN	1000
+ 
+ struct macvlan_port {
+ 	struct net_device	*dev;
+@@ -248,7 +249,7 @@ static void macvlan_broadcast_enqueue(struct macvlan_port *port,
+ 		goto err;
+ 
+ 	spin_lock(&port->bc_queue.lock);
+-	if (skb_queue_len(&port->bc_queue) < skb->dev->tx_queue_len) {
++	if (skb_queue_len(&port->bc_queue) < MACVLAN_BC_QUEUE_LEN) {
+ 		__skb_queue_tail(&port->bc_queue, nskb);
+ 		err = 0;
+ 	}
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.1.0
