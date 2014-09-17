@@ -1,98 +1,74 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v13 net-next 07/11] bpf: verifier (add ability to receive
- verification log)
-Date: Wed, 17 Sep 2014 19:03:20 +0200
-Message-ID: <5419BED8.5020309@redhat.com>
-References: <1410914370-29883-1-git-send-email-ast@plumgrid.com> <1410914370-29883-8-git-send-email-ast@plumgrid.com> <54192F66.8020200@redhat.com> <CAMEtUuxK68ZoJ-izjLoygv0f+rLtPmMLUUq1=BJ+_ZBGfynkdA@mail.gmail.com>
+From: Martin Kelly <martin@martingkelly.com>
+Subject: Re: Question about synchronize_net() in AF_PACKET close()
+Date: Wed, 17 Sep 2014 10:04:04 -0700
+Message-ID: <CAN8CM3wpZ236h3Okfi0AS+9+0P05fd1JVwfUOXfbp_LV2PqLLQ@mail.gmail.com>
+References: <CAN8CM3zo3bMxZV_UvywCPNjJrMwMA2-+POfY8cR429iodHRc+A@mail.gmail.com>
+	<20140909.150000.1647602729214485795.davem@davemloft.net>
+	<CAN8CM3xEnQXVgrLpV0rfAJoZ75v6Xv64pAGJ-9SAPACAT8WJ_w@mail.gmail.com>
+	<54199AC7.1040502@martingkelly.com>
+	<1410965690.7106.233.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUuxK68ZoJ-izjLoygv0f+rLtPmMLUUq1=BJ+_ZBGfynkdA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Paul McKenney <paulmck@linux.vnet.ibm.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:52210 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756370AbaIQREH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 13:04:07 -0400
+Received: by mail-wg0-f45.google.com with SMTP id z12so1708337wgg.4
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 10:04:05 -0700 (PDT)
+In-Reply-To: <1410965690.7106.233.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/17/2014 06:08 PM, Alexei Starovoitov wrote:
-> On Tue, Sep 16, 2014 at 11:51 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
->>>
->>>    /* last field in 'union bpf_attr' used by this command */
->>> -#define        BPF_PROG_LOAD_LAST_FIELD license
->>> +#define        BPF_PROG_LOAD_LAST_FIELD log_buf
->>
->> I was looking to find a use case for this item, but couldn't find anything,
->> so
->> this seems to be dead code?
+On Wed, Sep 17, 2014 at 7:54 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >
-> See CHECK_ATTR() macro and comment next to it in patch #1
+> Can you describe the ... ?
 >
->> Was it, so that each time you extend an uapi structure like above that you
->> would
->> only access the structure up to BPF_PROG_LOAD_LAST_FIELD? That might not
->> work for
->> old binaries using this ABI running on newer kernels where there are
->> different
->> expectations of what BPF_PROG_LOAD_LAST_FIELD has been at the time of
->> compilation.
+
+Sure. The patch I've been looking at is functionally identical to the
+one referenced in http://patchwork.ozlabs.org/patch/181605/ with the
+exception that sock_orphan() and sock->sk = NULL is moved before the
+synchronize_net(). This further improves the performance relative to
+http://patchwork.ozlabs.org/patch/181605/ because it never calls
+synchronize_net(), whereas http://patchwork.ozlabs.org/patch/181605/
+calls synchronize_net() in the po->running case. However, it looks
+like making that optimization is not safe, for the reasons you
+mentioned below.
+
 >
-> exactly the opposite.
-> CHECK_ATTR() is checking that all fields beyond last for given
-> command are zero, so we can extend bpf_attr with new fields
-> added after last.
-> Transition from patch 4 to patch 7 and the hunk you quoted are
-> demonstrating exactly that. Say, userspace was compiled
-> with bpf_attr as defined in patch 4 and it populated fields all the way
-> till 'license', and kernel is compiled with patch 7. Kernel does:
-> union bpf_attr attr = {};
-> /* copy attributes from user space, may be less than sizeof(bpf_attr) */
-> copy_from_user(&attr, uattr, size)
-> so newer fields (all the way till log_buf) stay zero and kernel
-> behavior is the same as it was in patch 4.
-> So older user space works as-is with newer kernel.
+> What problem do you want to solve exactly ?
+>
+> I believe its not safe, you missed sk_data_ready() call
+> (sock_def_readable())
+>
 
-Ok, I see. Lets say, since the introduction of this syscall you have
-added a couple of features and thus extended union bpf_attr where it
-grew in size over time.
+The problem I I'm trying to solve is the same one mentioned in
+http://patchwork.ozlabs.org/patch/181605/: On systems with a lot of
+RCU contention, raw socket close() can take up to 300 ms or so, which
+really adds up for processes that open lots of raw sockets. What you
+see is a many-second hang when the process exits as it waits for many
+synchronize_rcu calls (all in serial) to finish. Although it would be
+better for close() not to be in a critical path, it's sometimes hard
+to get around for some userspace processes, so this kind of change
+could yield a significant performance improvement for such processes.
 
-You built your shiny new binary on that uapi setting, and later on
-decide to run it on an older kernel. What will happen is that in your
-bpf syscall handler you will return with -EINVAL on that kernel right
-away since the size of union bpf_attr is greater.
+You're right, I missed sk_def_readable(), which looks like it would
+cause a crash if it occurred before the call_rcu() was called. I see
+that sk_def_readable() acceses sk->sk_wq through rcu_read_lock(),
+rcu_dereference(), rcu_read_unlock(), while sock_orphan() sets
+sk->sk_wq = NULL without an RCU function. You could modify
+sock_orphan() and sock->sk to use RCU too, but you would need to patch
+all access sites, and the patch would quickly become complex and
+error-prone, which is not worth it.
 
-That would mean over time when new features will get added, applications
-that want to make sure to run on _all_ kernels where the bpf syscall is
-available have to make sure to either use the _initial_ version of
-union bpf_attr in order to not get an -EINVAL, or worse they have
-to probe though a syscall different versions of union bpf_attr if they
-wish to make use of a particular feature until they do not get an -EINVAL
-anymore.
+Does my analysis sound correct to you? If so, can you think of a more
+natural way to improve raw socket close() performance? I agree that
+optimally, userspace should not put close() in a critical path, but it
+still seems like a bug for close() to take 300 ms to complete.
 
-I guess that might be problematic for an application developer that
-wants to ship its application across different distributions usually
-running different kernels. At least those people might then consider
-holding a private copy of the _initial_ version of union bpf_attr in
-their own source code, but it's not pleasant I guess.
-
-I know you seem to have the constraint to run on NET-less systems, but
-netlink could partially resolve that in the sense that it would allow
-to at least load an eBPF program with initial feature set. Couldn't
-there be some mechanism to make this interaction more pleasant? E.g.
-in BPF extensions we can ask the kernel up to what extension it
-supports and accordingly adapt to it up front. I know it's just a
-/trivial/ example but have you thought about something on that kind for
-the syscall?
+Thanks,
+Martin
