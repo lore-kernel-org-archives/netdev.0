@@ -1,65 +1,83 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [net-next PATCH 2/2] net: sched: cls_u32 changes to knode must
- appear atomic to readers
-Date: Wed, 17 Sep 2014 14:11:22 -0700
-Message-ID: <CAHA+R7NWzv8+2aUM1uQX8uZkQv-Dp9fYb0SNwmZqk3gKvXVWtw@mail.gmail.com>
-References: <20140917191131.20529.91136.stgit@nitbit.x32>
-	<20140917191202.20529.87231.stgit@nitbit.x32>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCHv5 net-next 3/3] sunvnet: generate ICMP PTMUD messages
+ for smaller port MTUs
+Date: Thu, 18 Sep 2014 00:13:32 +0300
+Message-ID: <5419F97C.1080105@cogentembedded.com>
+References: <5419F3E5.4050708@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David L Stevens <david.stevens@oracle.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:39311 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756245AbaIQVLY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 17:11:24 -0400
-Received: by mail-la0-f42.google.com with SMTP id hz20so2717738lab.15
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 14:11:22 -0700 (PDT)
-In-Reply-To: <20140917191202.20529.87231.stgit@nitbit.x32>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:48402 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756625AbaIQVOT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 17:14:19 -0400
+Received: by mail-wi0-f181.google.com with SMTP id bs8so107799wib.2
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 14:14:18 -0700 (PDT)
+In-Reply-To: <5419F3E5.4050708@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 17, 2014 at 12:12 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
->
-> -static int u32_destroy_key(struct tcf_proto *tp, struct tc_u_knode *n)
-> +static int u32_destroy_key(struct tcf_proto *tp, struct tc_u_knode *n, bool pf)
->  {
->         tcf_unbind_filter(tp, &n->res);
->         tcf_exts_destroy(tp, &n->exts);
->         if (n->ht_down)
->                 n->ht_down->refcnt--;
->  #ifdef CONFIG_CLS_U32_PERF
-> -       free_percpu(n->pf);
-> +       if (pf)
+Hello.
 
-Nit: 'free_pf' is a better name than just 'pf'.
+On 9/17/2014 11:49 PM, David L Stevens wrote:
 
-> +               free_percpu(n->pf);
->  #endif
->  #ifdef CONFIG_CLS_U32_MARK
-> -       free_percpu(n->pcpu_success);
-> +       if (pf)
-> +               free_percpu(n->pcpu_success);
->  #endif
->         kfree(n);
->         return 0;
->  }
+> This patch sends ICMP and ICMPv6 messages for Path MTU Discovery when a remote
+> port MTU is smaller than the device MTU. This allows mixing newer VIO protocol
+> devices that support MTU negotiation with older devices that do not on the
+> same vswitch. It also allows Linux-Linux LDOMs to use 64K-1 data packets even
+> though Solaris vswitch is limited to <16K MTU.
+
+> Signed-off-by: David L Stevens <david.stevens@oracle.com>
+> ---
+>   drivers/net/ethernet/sun/sunvnet.c |   37 +++++++++++++++++++++++++++++++++++-
+>   1 files changed, 36 insertions(+), 1 deletions(-)
+
+> diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+> index 5e64e60..3c4ee18 100644
+> --- a/drivers/net/ethernet/sun/sunvnet.c
+> +++ b/drivers/net/ethernet/sun/sunvnet.c
+[...]
+> @@ -791,8 +798,36 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>   	if (unlikely(!port))
+>   		goto out_dropped;
 >
-> +static void u32_delete_key_rcu_pf(struct rcu_head *rcu)
-> +{
-> +       struct tc_u_knode *key = container_of(rcu, struct tc_u_knode, rcu);
+> -	if (skb->len > port->rmtu)
+> +	if (skb->len > port->rmtu) {
+> +		unsigned long localmtu = port->rmtu - ETH_HLEN;
 > +
-> +       u32_destroy_key(key->tp, key, false);
-> +}
+> +		if (vio_version_after_eq(&port->vio, 1, 3))
+> +			localmtu -= VLAN_HLEN;
+> +
+> +		if (skb->protocol == htons(ETH_P_IP)) {
+> +			struct flowi4 fl4;
+> +			struct rtable *rt = NULL;
+> +
+> +			memset(&fl4, 0, sizeof(fl4));
+> +			fl4.flowi4_oif = dev->ifindex;
+> +			fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
+> +			fl4.daddr = ip_hdr(skb)->daddr;
+> +			fl4.saddr = ip_hdr(skb)->saddr;
+> +
+> +			rt = ip_route_output_key(dev_net(dev), &fl4);
+> +			if (!IS_ERR(rt)) {
+> +				skb_dst_set(skb, &rt->dst);
+> +				icmp_send(skb, ICMP_DEST_UNREACH,
+> +					  ICMP_FRAG_NEEDED,
+> +					  htonl(localmtu));
+> +			}
+> +		}
+> +#if IS_ENABLED(CONFIG_IPV6)
 
-I think you need a comment here to explain why you free it partially
-on purpose, it is not that clear, at least I spent some time to figure
-it out when I read your cls_tcindex patch.
+    This #if could be avoided by extending the *if* statement below, no?
 
-Thanks!
+> +		else if (skb->protocol == htons(ETH_P_IPV6))
+> +			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, localmtu);
+> +#endif
+>   		goto out_dropped;
+> +	}
+
+WBR, Sergei
