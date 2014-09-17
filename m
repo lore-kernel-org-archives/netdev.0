@@ -1,218 +1,108 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH 2/2] net: sched: cls_u32 changes to knode must
- appear atomic to readers
-Date: Wed, 17 Sep 2014 12:12:03 -0700
-Message-ID: <20140917191202.20529.87231.stgit@nitbit.x32>
-References: <20140917191131.20529.91136.stgit@nitbit.x32>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v13 net-next 07/11] bpf: verifier (add ability to receive
+ verification log)
+Date: Wed, 17 Sep 2014 21:17:37 +0200
+Message-ID: <5419DE51.1060904@redhat.com>
+References: <1410914370-29883-1-git-send-email-ast@plumgrid.com> <1410914370-29883-8-git-send-email-ast@plumgrid.com> <54192F66.8020200@redhat.com> <CAMEtUuxK68ZoJ-izjLoygv0f+rLtPmMLUUq1=BJ+_ZBGfynkdA@mail.gmail.com> <5419BED8.5020309@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com, davem@davemloft.net,
-	eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:44172 "EHLO
-	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756299AbaIQTM0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 15:12:26 -0400
-Received: by mail-oi0-f49.google.com with SMTP id x69so1383621oia.8
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 12:12:25 -0700 (PDT)
-In-Reply-To: <20140917191131.20529.91136.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5419BED8.5020309@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Changes to the cls_u32 classifier must appear atomic to the
-readers. Before this patch if a change is requested for both
-the exts and ifindex, first the ifindex is updated then the
-exts with tcf_exts_change(). This opens a small window where
-a reader can have a exts chain with an incorrect ifindex. This
-violates the the RCU semantics.
+On 09/17/2014 07:03 PM, Daniel Borkmann wrote:
+> On 09/17/2014 06:08 PM, Alexei Starovoitov wrote:
+>> On Tue, Sep 16, 2014 at 11:51 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>>>>
+>>>>    /* last field in 'union bpf_attr' used by this command */
+>>>> -#define        BPF_PROG_LOAD_LAST_FIELD license
+>>>> +#define        BPF_PROG_LOAD_LAST_FIELD log_buf
+>>>
+>>> I was looking to find a use case for this item, but couldn't find anything,
+>>> so
+>>> this seems to be dead code?
+>>
+>> See CHECK_ATTR() macro and comment next to it in patch #1
+>>
+>>> Was it, so that each time you extend an uapi structure like above that you
+>>> would
+>>> only access the structure up to BPF_PROG_LOAD_LAST_FIELD? That might not
+>>> work for
+>>> old binaries using this ABI running on newer kernels where there are
+>>> different
+>>> expectations of what BPF_PROG_LOAD_LAST_FIELD has been at the time of
+>>> compilation.
+>>
+>> exactly the opposite.
+>> CHECK_ATTR() is checking that all fields beyond last for given
+>> command are zero, so we can extend bpf_attr with new fields
+>> added after last.
+>> Transition from patch 4 to patch 7 and the hunk you quoted are
+>> demonstrating exactly that. Say, userspace was compiled
+>> with bpf_attr as defined in patch 4 and it populated fields all the way
+>> till 'license', and kernel is compiled with patch 7. Kernel does:
+>> union bpf_attr attr = {};
+>> /* copy attributes from user space, may be less than sizeof(bpf_attr) */
+>> copy_from_user(&attr, uattr, size)
+>> so newer fields (all the way till log_buf) stay zero and kernel
+>> behavior is the same as it was in patch 4.
+>> So older user space works as-is with newer kernel.
+>
+> Ok, I see. Lets say, since the introduction of this syscall you have
+> added a couple of features and thus extended union bpf_attr where it
+> grew in size over time.
+>
+> You built your shiny new binary on that uapi setting, and later on
+> decide to run it on an older kernel. What will happen is that in your
+> bpf syscall handler you will return with -EINVAL on that kernel right
+> away since the size of union bpf_attr is greater.
+>
+> That would mean over time when new features will get added, applications
+> that want to make sure to run on _all_ kernels where the bpf syscall is
+> available have to make sure to either use the _initial_ version of
+> union bpf_attr in order to not get an -EINVAL, or worse they have
+> to probe though a syscall different versions of union bpf_attr if they
+> wish to make use of a particular feature until they do not get an -EINVAL
+> anymore.
+>
+> I guess that might be problematic for an application developer that
+> wants to ship its application across different distributions usually
+> running different kernels. At least those people might then consider
+> holding a private copy of the _initial_ version of union bpf_attr in
+> their own source code, but it's not pleasant I guess.
+>
+> I know you seem to have the constraint to run on NET-less systems, but
+> netlink could partially resolve that in the sense that it would allow
+> to at least load an eBPF program with initial feature set. Couldn't
+> there be some mechanism to make this interaction more pleasant? E.g.
+> in BPF extensions we can ask the kernel up to what extension it
+> supports and accordingly adapt to it up front. I know it's just a
+> /trivial/ example but have you thought about something on that kind for
+> the syscall?
 
-Here we resolve this by always passing u32_set_parms() a copy
-of the tc_u_knode to work on and then inserting it into the hash
-table after the updates have been successfully applied.
-
-Tested with the following short script:
-
-
-#tc filter add dev p3p2 parent 8001:0 protocol ip prio 99 handle 1: \
-	       u32 divisor 256
-
-#tc filter add dev p3p2 parent 8001:0 protocol ip prio 99 \
-	       u32 link 1: hashkey mask ffffff00 at 12    \
-	       match ip src 192.168.8.0/2
-
-#tc filter add dev p3p2 parent 8001:0 protocol ip prio 102    \
-	       handle 1::10 u32 classid 1:2 ht 1: 	      \
-	       match ip src 192.168.8.0/8 match ip tos 0x0a 1e
-
-#tc filter change dev p3p2 parent 8001:0 protocol ip prio 102 \
-		 handle 1::10 u32 classid 1:2 ht 1:        \
-		 match ip src 1.1.0.0/8 match ip tos 0x0b 1e
-
-CC: Eric Dumazet <edumazet@google.com>
-CC: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- net/sched/cls_u32.c |  114 ++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 107 insertions(+), 7 deletions(-)
-
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index e76d50b..7ddc896 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -354,27 +354,36 @@ static int u32_init(struct tcf_proto *tp)
- 	return 0;
- }
- 
--static int u32_destroy_key(struct tcf_proto *tp, struct tc_u_knode *n)
-+static int u32_destroy_key(struct tcf_proto *tp, struct tc_u_knode *n, bool pf)
- {
- 	tcf_unbind_filter(tp, &n->res);
- 	tcf_exts_destroy(tp, &n->exts);
- 	if (n->ht_down)
- 		n->ht_down->refcnt--;
- #ifdef CONFIG_CLS_U32_PERF
--	free_percpu(n->pf);
-+	if (pf)
-+		free_percpu(n->pf);
- #endif
- #ifdef CONFIG_CLS_U32_MARK
--	free_percpu(n->pcpu_success);
-+	if (pf)
-+		free_percpu(n->pcpu_success);
- #endif
- 	kfree(n);
- 	return 0;
- }
- 
-+static void u32_delete_key_rcu_pf(struct rcu_head *rcu)
-+{
-+	struct tc_u_knode *key = container_of(rcu, struct tc_u_knode, rcu);
-+
-+	u32_destroy_key(key->tp, key, false);
-+}
-+
- static void u32_delete_key_rcu(struct rcu_head *rcu)
- {
- 	struct tc_u_knode *key = container_of(rcu, struct tc_u_knode, rcu);
- 
--	u32_destroy_key(key->tp, key);
-+	u32_destroy_key(key->tp, key, true);
- }
- 
- static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
-@@ -584,6 +593,82 @@ errout:
- 	return err;
- }
- 
-+static void u32_replace_knode(struct tcf_proto *tp,
-+			      struct tc_u_common *tp_c,
-+			      struct tc_u_knode *n)
-+{
-+	struct tc_u_knode __rcu **ins;
-+	struct tc_u_knode *pins;
-+	struct tc_u_hnode *ht;
-+
-+	if (TC_U32_HTID(n->handle) == TC_U32_ROOT)
-+		ht = rtnl_dereference(tp->root);
-+	else
-+		ht = u32_lookup_ht(tp_c, TC_U32_HTID(n->handle));
-+
-+	ins = &ht->ht[TC_U32_HASH(n->handle)];
-+
-+	/* The node must always exist for it to be replaced if this is not the
-+	 * case then something went very wrong elsewhere.
-+	 */
-+	for (pins = rtnl_dereference(*ins); ;
-+	     ins = &pins->next, pins = rtnl_dereference(*ins))
-+		if (pins->handle == n->handle)
-+			break;
-+
-+	RCU_INIT_POINTER(n->next, pins->next);
-+	rcu_assign_pointer(*ins, n);
-+}
-+
-+static struct tc_u_knode *u32_init_knode(struct tcf_proto *tp,
-+					 struct tc_u_knode *n)
-+{
-+	struct tc_u_knode *new;
-+	struct tc_u32_sel *s = &n->sel;
-+
-+	new = kzalloc(sizeof(*n) + s->nkeys*sizeof(struct tc_u32_key),
-+		      GFP_KERNEL);
-+
-+	if (!new)
-+		return NULL;
-+
-+	RCU_INIT_POINTER(new->next, n->next);
-+	new->handle = n->handle;
-+	RCU_INIT_POINTER(new->ht_up, n->ht_up);
-+
-+#ifdef CONFIG_NET_CLS_IND
-+	new->ifindex = n->ifindex;
-+#endif
-+	new->fshift = n->fshift;
-+	new->res = n->res;
-+	RCU_INIT_POINTER(new->ht_down, n->ht_down);
-+
-+	/* bump reference count as long as we hold pointer to structure */
-+	if (new->ht_down)
-+		new->ht_down->refcnt++;
-+
-+#ifdef CONFIG_CLS_U32_PERF
-+	/* Statistics may be incremented by readers during update
-+	 * so we must keep them in tact. When the node is later destroyed
-+	 * a special destroy call must be made to not free the pf memory.
-+	 */
-+	new->pf = n->pf;
-+#endif
-+
-+#ifdef CONFIG_CLS_U32_MARK
-+	new->val = n->val;
-+	new->mask = n->mask;
-+	/* Similarly success statistics must be moved as pointers */
-+	new->pcpu_success = n->pcpu_success;
-+#endif
-+	new->tp = tp;
-+	memcpy(&new->sel, s, sizeof(*s) + s->nkeys*sizeof(struct tc_u32_key));
-+
-+	tcf_exts_init(&new->exts, TCA_U32_ACT, TCA_U32_POLICE);
-+
-+	return new;
-+}
-+
- static int u32_change(struct net *net, struct sk_buff *in_skb,
- 		      struct tcf_proto *tp, unsigned long base, u32 handle,
- 		      struct nlattr **tca,
-@@ -610,12 +695,27 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
- 
- 	n = (struct tc_u_knode *)*arg;
- 	if (n) {
-+		struct tc_u_knode *new;
-+
- 		if (TC_U32_KEY(n->handle) == 0)
- 			return -EINVAL;
- 
--		return u32_set_parms(net, tp, base,
--				     rtnl_dereference(n->ht_up), n, tb,
--				     tca[TCA_RATE], ovr);
-+		new = u32_init_knode(tp, n);
-+		if (!new)
-+			return -ENOMEM;
-+
-+		err = u32_set_parms(net, tp, base,
-+				    rtnl_dereference(n->ht_up), new, tb,
-+				    tca[TCA_RATE], ovr);
-+
-+		if (err) {
-+			u32_destroy_key(tp, new, false);
-+			return err;
-+		}
-+
-+		u32_replace_knode(tp, tp_c, new);
-+		call_rcu(&n->rcu, u32_delete_key_rcu_pf);
-+		return 0;
- 	}
- 
- 	if (tb[TCA_U32_DIVISOR]) {
+Hm, thinking out loudly ... perhaps this could be made a library problem.
+Such that the library which wraps the syscall needs to be aware of a
+marker where the initial version ends, and if the application doesn't
+make use of any of the new features, it would just pass in the length up
+to the marker as size attribute into the syscall. Similarly, if new
+features are always added to the end of a structure and the library
+truncates the overall-length after the last used member we might have
+a chance to load something on older kernels, haven't tried that though.
