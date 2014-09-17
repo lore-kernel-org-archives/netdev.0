@@ -1,75 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: do not fake tcp headers in tcp_send_rcvq()
-Date: Wed, 17 Sep 2014 03:14:42 -0700
-Message-ID: <1410948882.7106.212.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: bisected regression: 3c59x corrupts packets in 3.17-rc5
+Date: Wed, 17 Sep 2014 06:27:01 -0400
+Message-ID: <20140917102701.GA5699@hmsreliant.think-freely.org>
+References: <alpine.LRH.2.11.1409160209280.21050@adalberg.ut.ee>
+ <20140916101704.GA3792@hmsreliant.think-freely.org>
+ <20140916.162923.605101746131407931.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: mroos@linux.ee, klassert@mathematik.tu-chemnitz.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:39930 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754025AbaIQKOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 06:14:45 -0400
-Received: by mail-pa0-f51.google.com with SMTP id kx10so1874907pab.10
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 03:14:44 -0700 (PDT)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46716 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754590AbaIQK1S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 06:27:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20140916.162923.605101746131407931.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Tue, Sep 16, 2014 at 04:29:23PM -0400, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Tue, 16 Sep 2014 06:17:04 -0400
+> 
+> > I'm guessing the above change has uncovered another bug,
+> 
+> Neil, read your patch carefully, I think it added the bug.
+> 
+> The ->page_offset of the frag gets applied two times.
+> 
+> skb_dma_map_frag() already takes frag->page_offset into consideration,
+> you then pass it in as the 'offset' argument and it then gets added to
+> itself to compute th final offset.
+> 
+Shit, you're right, sorry about that.  Its odd, I'm running it here, and its not 
+causing problems, but thats obviously wrong.  Meelis, please add the above fix
+to your test and confirm that it sovles the problem.  If you could keep the
+previous patch in place too that would be great, as we should probably add the
+dma error checking anyway.
 
-Now we no longer rely on having tcp headers for skbs in receive queue,
-tcp repair do not need to build fake ones.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+[PATCH] 3c59x: Fix bad offset spec in skb_frag_dma_map
+
+Recently aded the use of skb_frag_dma_map to 3c59x, but didn't realize it
+automatically included the frag_offset internally, as well as provided an option
+to specify an extra offset in the parameter list.  We need to specify an offset
+of 0 in the parameter list to avoid skb corruption that results in lost
+connections.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 ---
-Note: It seems we have no checks against too big sizes and alloc_skb()
-      could die hard ?
+ drivers/net/ethernet/3com/3c59x.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- net/ipv4/tcp_input.c |   13 ++++---------
- 1 file changed, 4 insertions(+), 9 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ea92f23ffaf1..02fb66d4a018 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4304,24 +4304,19 @@ static int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb, int
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index 5621dab..0f59d68 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -2186,7 +2186,7 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
  
- int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size)
- {
--	struct sk_buff *skb = NULL;
--	struct tcphdr *th;
-+	struct sk_buff *skb;
- 	bool fragstolen;
- 
- 	if (size == 0)
- 		return 0;
- 
--	skb = alloc_skb(size + sizeof(*th), sk->sk_allocation);
-+	skb = alloc_skb(size, sk->sk_allocation);
- 	if (!skb)
- 		goto err;
- 
--	if (tcp_try_rmem_schedule(sk, skb, size + sizeof(*th)))
-+	if (tcp_try_rmem_schedule(sk, skb, skb->truesize))
- 		goto err_free;
- 
--	th = (struct tcphdr *)skb_put(skb, sizeof(*th));
--	skb_reset_transport_header(skb);
--	memset(th, 0, sizeof(*th));
--
- 	if (memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size))
- 		goto err_free;
- 
-@@ -4329,7 +4324,7 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size)
- 	TCP_SKB_CB(skb)->end_seq = TCP_SKB_CB(skb)->seq + size;
- 	TCP_SKB_CB(skb)->ack_seq = tcp_sk(sk)->snd_una - 1;
- 
--	if (tcp_queue_rcv(sk, skb, sizeof(*th), &fragstolen)) {
-+	if (tcp_queue_rcv(sk, skb, 0, &fragstolen)) {
- 		WARN_ON_ONCE(fragstolen); /* should not happen */
- 		__kfree_skb(skb);
- 	}
+ 			dma_addr = skb_frag_dma_map(&VORTEX_PCI(vp)->dev, frag,
+-						    frag->page_offset,
++						    0,
+ 						    frag->size,
+ 						    DMA_TO_DEVICE);
+ 			if (dma_mapping_error(&VORTEX_PCI(vp)->dev, dma_addr)) {
+-- 
+1.9.3
