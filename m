@@ -1,32 +1,41 @@
-From: mroos@linux.ee
-Subject: Re: bisected regression: 3c59x corrupts packets in 3.17-rc5
-Date: Wed, 17 Sep 2014 15:43:54 +0300 (EEST)
-Message-ID: <alpine.LRH.2.11.1409171529350.26961@adalberg.ut.ee>
-References: <alpine.LRH.2.11.1409160209280.21050@adalberg.ut.ee> <20140916101704.GA3792@hmsreliant.think-freely.org> <20140916.162923.605101746131407931.davem@davemloft.net> <20140917102701.GA5699@hmsreliant.think-freely.org>
+From: "Hon. Amirel Yacouba" <armellyacouba@gmail.com>
+Subject: Request For PartnerShip.
+Date: Wed, 17 Sep 2014 14:45:06 +0200
+Message-ID: <CAEZHpvzTGNWRT980Z49ycsr+re8PoungxrsoS8QpNA90X_rUOA@mail.gmail.com>
+Reply-To: armelllyacouba@gmail.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, steffen@klassert.de,
-	netdev@vger.kernel.org,
-	Linux Kernel list <linux-kernel@vger.kernel.org>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140917102701.GA5699@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-> Shit, you're right, sorry about that.  Its odd, I'm running it here, and its not 
-> causing problems, but thats obviously wrong.  Meelis, please add the above fix
-> to your test and confirm that it sovles the problem.  If you could keep the
-> previous patch in place too that would be great, as we should probably add the
-> dma error checking anyway.
-> 
-> 
-> [PATCH] 3c59x: Fix bad offset spec in skb_frag_dma_map
-
-Tested 2 variants: only this patch (backported to old state) and both 
-patches together.
-
-Both work fine.
+Content-Type: text/plain; charset=ISO-8859-1
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f196.google.com ([209.85.212.196]:37561 "EHLO
+	mail-wi0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755315AbaIQMpI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 08:45:08 -0400
+Received: by mail-wi0-f196.google.com with SMTP id e4so49126wiv.11
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 05:45:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 -- 
-Meelis Roos (mroos@linux.ee)
+Greetings,
+
+I have emailed you earlier without a response.In my first email I
+mentioned about my late client whose relatives I cannot get in touch
+with.But both of you have the same last name so it will be very easy
+to make you become her official next of kin.I am compelled to do this
+because I would not want the bank to push my late client's funds
+amount $5.5 million dollars into the bank treasury as unclaimed
+inheritance.If you are interested you do let me know and get back to
+me with this bellow information's.
+
+Your Full Names:....................
+Residential Address:................
+Private Email Address...............
+Telephone/fax Numbers:..............
+Age:................................
+Occupation:.........................
+Marital status......................
+
+Yours faithfully,
+Barrister.Amirel Yacouba
+Email:armelllyacouba@gmail.com
