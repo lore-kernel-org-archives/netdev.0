@@ -1,67 +1,189 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2] ip lib: Change timestamp to be shorter and on
- the same line
-Date: Wed, 17 Sep 2014 09:06:47 +0300
-Message-ID: <CAMw6YJJcu69p=43c3ey2Ha1q_7Rkzs00jOtyiK058nNEcE78Wg@mail.gmail.com>
-References: <1410861486-2631-1-git-send-email-vadim4j@gmail.com>
-	<20140916193850.4dec41e8@urahara>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net v2] bonding: fix div by zero while enslaving and transmitting
+Date: Wed, 17 Sep 2014 14:15:07 +0800
+Message-ID: <541926EB.4010809@huawei.com>
+References: <5413097B.9080802@redhat.com> <1410536298-8022-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>
+To: Nikolay Aleksandrov <nikolay@redhat.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f53.google.com ([209.85.192.53]:36121 "EHLO
-	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751262AbaIQGGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 02:06:48 -0400
-Received: by mail-qg0-f53.google.com with SMTP id q108so1276266qgd.12
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 23:06:47 -0700 (PDT)
-In-Reply-To: <20140916193850.4dec41e8@urahara>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:37587 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751327AbaIQGPf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 02:15:35 -0400
+In-Reply-To: <1410536298-8022-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sure, I can add new option, currently timestamp is printed on separated
-line so this solution I think can be easier to parse when it will be
-on the same line as message,
-and easier to detect to which message timestamp belongs.
+On 2014/9/12 23:38, Nikolay Aleksandrov wrote:
+> The problem is that the slave is first linked and slave_cnt is
+> incremented afterwards leading to a div by zero in the modes that use it
+> as a modulus. What happens is that in bond_start_xmit()
+> bond_has_slaves() is used to evaluate further transmission and it becomes
+> true after the slave is linked in, but when slave_cnt is used in the xmit
+> path it is still 0, so fetch it once and transmit based on that. Since
+> it is used only in round-robin and XOR modes, the fix is only for them.
+> Thanks to Eric Dumazet for pointing out the fault in my first try to fix
+> this.
+> 
 
-On Wed, Sep 17, 2014 at 5:38 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Tue, 16 Sep 2014 12:58:06 +0300
-> Vadim Kochan <vadim4j@gmail.com> wrote:
->
->> Changed timestamp format to look like more logging info:
->>
->> [Sep 01 20:56:11.853146]2: enp0s25: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default
->>     link/ether 3c:97:0e:a3:86:2e brd ff:ff:ff:ff:ff:ff
->>
->> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
->> ---
->>  lib/utils.c | 7 +++----
->>  1 file changed, 3 insertions(+), 4 deletions(-)
->>
->> diff --git a/lib/utils.c b/lib/utils.c
->> index dc21567..03092ba 100644
->> --- a/lib/utils.c
->> +++ b/lib/utils.c
->> @@ -772,14 +772,13 @@ __u8* hexstring_a2n(const char *str, __u8 *buf, int blen)
->>  int print_timestamp(FILE *fp)
->>  {
->>       struct timeval tv;
->> -     char *tstr;
->> +     char tstr[40] = {};
->>
->>       memset(&tv, 0, sizeof(tv));
->>       gettimeofday(&tv, NULL);
->>
->> -     tstr = asctime(localtime(&tv.tv_sec));
->> -     tstr[strlen(tstr)-1] = 0;
->> -     fprintf(fp, "Timestamp: %s %ld usec\n", tstr, (long)tv.tv_usec);
->> +     strftime(tstr, sizeof(tstr), "%b %d %H:%M:%S", localtime(&tv.tv_sec));
->> +     fprintf(fp, "[%s.%ld]", tstr, (long)tv.tv_usec);
->>       return 0;
->>  }
->>
->
-> I am loath to change the output format since people write scripts parsing
-> output. Maybe add a new flag option to choose format?
+Hi, I think no need to add more checks in the xmit fast path, why not add a barrier to make
+sure the slave_cnt inc to 1 before access it.
+
++	/* Increment slave_cnt before linking in the slave so we won't end up in
++	 * bond_start_xmit with bond_has_slaves() true and slave_cnt == 0.
++	 */
++	bond->slave_cnt++;
++	wmb();
+
+I think it looks more efficiency, sorry for reply so late.
+
+Regards
+Ding
+
+
+> Call trace (took it out of net-next kernel, but it's the same with net):
+> [46934.330038] divide error: 0000 [#1] SMP
+> [46934.330041] Modules linked in: bonding(O) 9p fscache
+> snd_hda_codec_generic crct10dif_pclmul
+> [46934.330041] bond0: Enslaving eth1 as an active interface with an up
+> link
+> [46934.330051]  ppdev joydev crc32_pclmul crc32c_intel 9pnet_virtio
+> ghash_clmulni_intel snd_hda_intel 9pnet snd_hda_controller parport_pc
+> serio_raw pcspkr snd_hda_codec parport virtio_balloon virtio_console
+> snd_hwdep snd_pcm pvpanic i2c_piix4 snd_timer i2ccore snd soundcore
+> virtio_blk virtio_net virtio_pci virtio_ring virtio ata_generic
+> pata_acpi floppy [last unloaded: bonding]
+> [46934.330053] CPU: 1 PID: 3382 Comm: ping Tainted: G           O
+> 3.17.0-rc4+ #27
+> [46934.330053] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+> [46934.330054] task: ffff88005aebf2c0 ti: ffff88005b728000 task.ti:
+> ffff88005b728000
+> [46934.330059] RIP: 0010:[<ffffffffa0198c33>]  [<ffffffffa0198c33>]
+> bond_start_xmit+0x1c3/0x450 [bonding]
+> [46934.330060] RSP: 0018:ffff88005b72b7f8  EFLAGS: 00010246
+> [46934.330060] RAX: 0000000000000679 RBX: ffff88004b077000 RCX:
+> 000000000000002a
+> [46934.330061] RDX: 0000000000000000 RSI: ffff88004b3f0500 RDI:
+> ffff88004b077940
+> [46934.330061] RBP: ffff88005b72b830 R08: 00000000000000c0 R09:
+> ffff88004a83e000
+> [46934.330062] R10: 000000000000ffff R11: ffff88004b1f12c0 R12:
+> ffff88004b3f0500
+> [46934.330062] R13: ffff88004b3f0500 R14: 000000000000002a R15:
+> ffff88004b077940
+> [46934.330063] FS:  00007fbd91a4c740(0000) GS:ffff88005f080000(0000)
+> knlGS:0000000000000000
+> [46934.330064] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [46934.330064] CR2: 00007f803a8bb000 CR3: 000000004b2c9000 CR4:
+> 00000000000406e0
+> [46934.330069] Stack:
+> [46934.330071]  ffffffff811e6169 00000000e772fa05 ffff88004b077000
+> ffff88004b3f0500
+> [46934.330072]  ffffffff81d17d18 000000000000002a 0000000000000000
+> ffff88005b72b8a0
+> [46934.330073]  ffffffff81620108 ffffffff8161fe0e ffff88005b72b8c4
+> ffff88005b302000
+> [46934.330073] Call Trace:
+> [46934.330077]  [<ffffffff811e6169>] ?
+> __kmalloc_node_track_caller+0x119/0x300
+> [46934.330084]  [<ffffffff81620108>] dev_hard_start_xmit+0x188/0x410
+> [46934.330086]  [<ffffffff8161fe0e>] ? harmonize_features+0x2e/0x90
+> [46934.330088]  [<ffffffff81620b06>] __dev_queue_xmit+0x456/0x590
+> [46934.330089]  [<ffffffff81620c50>] dev_queue_xmit+0x10/0x20
+> [46934.330090]  [<ffffffff8168f022>] arp_xmit+0x22/0x60
+> [46934.330091]  [<ffffffff8168f090>] arp_send.part.16+0x30/0x40
+> [46934.330092]  [<ffffffff8168f1e5>] arp_solicit+0x115/0x2b0
+> [46934.330094]  [<ffffffff8160b5d7>] ? copy_skb_header+0x17/0xa0
+> [46934.330096]  [<ffffffff8162875a>] neigh_probe+0x4a/0x70
+> [46934.330097]  [<ffffffff8162979c>] __neigh_event_send+0xac/0x230
+> [46934.330098]  [<ffffffff8162a00b>] neigh_resolve_output+0x13b/0x220
+> [46934.330100]  [<ffffffff8165f120>] ? ip_forward_options+0x1c0/0x1c0
+> [46934.330101]  [<ffffffff81660478>] ip_finish_output+0x1f8/0x860
+> [46934.330102]  [<ffffffff81661f08>] ip_output+0x58/0x90
+> [46934.330103]  [<ffffffff81661602>] ? __ip_local_out+0xa2/0xb0
+> [46934.330104]  [<ffffffff81661640>] ip_local_out_sk+0x30/0x40
+> [46934.330105]  [<ffffffff81662a66>] ip_send_skb+0x16/0x50
+> [46934.330106]  [<ffffffff81662ad3>] ip_push_pending_frames+0x33/0x40
+> [46934.330107]  [<ffffffff8168854c>] raw_sendmsg+0x88c/0xa30
+> [46934.330110]  [<ffffffff81612b31>] ? skb_recv_datagram+0x41/0x60
+> [46934.330111]  [<ffffffff816875a9>] ? raw_recvmsg+0xa9/0x1f0
+> [46934.330113]  [<ffffffff816978d4>] inet_sendmsg+0x74/0xc0
+> [46934.330114]  [<ffffffff81697a9b>] ? inet_recvmsg+0x8b/0xb0
+> [46934.330115] bond0: Adding slave eth2
+> [46934.330116]  [<ffffffff8160357c>] sock_sendmsg+0x9c/0xe0
+> [46934.330118]  [<ffffffff81603248>] ?
+> move_addr_to_kernel.part.20+0x28/0x80
+> [46934.330121]  [<ffffffff811b4477>] ? might_fault+0x47/0x50
+> [46934.330122]  [<ffffffff816039b9>] ___sys_sendmsg+0x3a9/0x3c0
+> [46934.330125]  [<ffffffff8144a14a>] ? n_tty_write+0x3aa/0x530
+> [46934.330127]  [<ffffffff810d1ae4>] ? __wake_up+0x44/0x50
+> [46934.330129]  [<ffffffff81242b38>] ? fsnotify+0x238/0x310
+> [46934.330130]  [<ffffffff816048a1>] __sys_sendmsg+0x51/0x90
+> [46934.330131]  [<ffffffff816048f2>] SyS_sendmsg+0x12/0x20
+> [46934.330134]  [<ffffffff81738b29>] system_call_fastpath+0x16/0x1b
+> [46934.330144] Code: 48 8b 10 4c 89 ee 4c 89 ff e8 aa bc ff ff 31 c0 e9
+> 1a ff ff ff 0f 1f 00 4c 89 ee 4c 89 ff e8 65 fb ff ff 31 d2 4c 89 ee 4c
+> 89 ff <f7> b3 64 09 00 00 e8 02 bd ff ff 31 c0 e9 f2 fe ff ff 0f 1f 00
+> [46934.330146] RIP  [<ffffffffa0198c33>] bond_start_xmit+0x1c3/0x450
+> [bonding]
+> [46934.330146]  RSP <ffff88005b72b7f8>
+> 
+> CC: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> CC: Veaceslav Falico <vfalico@gmail.com>
+> Fixes: 278b208375 ("bonding: initial RCU conversion")
+> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> ---
+> v2: Based on Eric's feedback change the fix to fetch the value once in a
+>     local variable in the affected modes and to act based on that.
+> 
+> I believe we don't need to move the increment now as it doesn't really
+> matter if it'll be before the wmb or after.
+> 
+>  drivers/net/bonding/bond_main.c | 17 ++++++++++++++---
+>  1 file changed, 14 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 57912ee231cb..798ae69fb63c 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -3659,8 +3659,14 @@ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev
+>  		else
+>  			bond_xmit_slave_id(bond, skb, 0);
+>  	} else {
+> -		slave_id = bond_rr_gen_slave_id(bond);
+> -		bond_xmit_slave_id(bond, skb, slave_id % bond->slave_cnt);
+> +		int slave_cnt = ACCESS_ONCE(bond->slave_cnt);
+> +
+> +		if (likely(slave_cnt)) {
+> +			slave_id = bond_rr_gen_slave_id(bond);
+> +			bond_xmit_slave_id(bond, skb, slave_id % slave_cnt);
+> +		} else {
+> +			dev_kfree_skb_any(skb);
+> +		}
+>  	}
+>  
+>  	return NETDEV_TX_OK;
+> @@ -3691,8 +3697,13 @@ static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *bond_d
+>  static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev)
+>  {
+>  	struct bonding *bond = netdev_priv(bond_dev);
+> +	int slave_cnt = ACCESS_ONCE(bond->slave_cnt);
+>  
+> -	bond_xmit_slave_id(bond, skb, bond_xmit_hash(bond, skb) % bond->slave_cnt);
+> +	if (likely(slave_cnt))
+> +		bond_xmit_slave_id(bond, skb,
+> +				   bond_xmit_hash(bond, skb) % slave_cnt);
+> +	else
+> +		dev_kfree_skb_any(skb);
+>  
+>  	return NETDEV_TX_OK;
+>  }
+> 
