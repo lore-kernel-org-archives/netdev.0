@@ -1,46 +1,43 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v2] net: sched: cls_u32: rcu can not be last node
-Date: Wed, 17 Sep 2014 10:31:14 -0700
-Message-ID: <20140917173108.3864.57490.stgit@nitbit.x32>
+Subject: Re: [net-next PATCH] net: sched: cls_u32: rcu can not be last node
+Date: Wed, 17 Sep 2014 10:31:40 -0700
+Message-ID: <5419C57C.4020907@gmail.com>
+References: <20140917053434.2833.66129.stgit@nitbit.x32> <541921FD.1090203@hartkopp.net> <CAM_iQpW1AOgKqQXwh2BNMH_GypTVX6NgyQJZ7Mby0kABjbBu4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com, davem@davemloft.net,
-	eric.dumazet@gmail.com
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:47609 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755801AbaIQRbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 13:31:41 -0400
-Received: by mail-oa0-f46.google.com with SMTP id i7so1511045oag.5
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 10:31:41 -0700 (PDT)
+Received: from mail-oa0-f41.google.com ([209.85.219.41]:62168 "EHLO
+	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755801AbaIQRb7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 13:31:59 -0400
+Received: by mail-oa0-f41.google.com with SMTP id o6so1508471oag.14
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 10:31:59 -0700 (PDT)
+In-Reply-To: <CAM_iQpW1AOgKqQXwh2BNMH_GypTVX6NgyQJZ7Mby0kABjbBu4w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tc_u32_sel 'sel' in tc_u_knode expects to be the last element in the
-structure and pads the structure with tc_u32_key fields for each key.
+On 09/17/2014 09:40 AM, Cong Wang wrote:
+> On Tue, Sep 16, 2014 at 10:54 PM, Oliver Hartkopp
+> <socketcan@hartkopp.net> wrote:
+>> Please add an appropriate comment to the *code* to prevent this knowledge to
+>> disappear. No one will search/find this in git commit messages next time.
+>>
+>
+> +1
+>
+> Even though I dig git log, I agree adding a one-line comment is better.
+>
 
- kzalloc(sizeof(*n) + s->nkeys*sizeof(struct tc_u32_key), GFP_KERNEL)
+Sure I'll add a comment at the end of the structure.
 
-CC: Eric Dumazet <edumazet@google.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- net/sched/cls_u32.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Thanks.
 
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index eceeb04..8462132 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -64,8 +64,9 @@ struct tc_u_knode {
- 	u32 __percpu		*pcpu_success;
- #endif
- 	struct tcf_proto	*tp;
--	struct tc_u32_sel	sel;
- 	struct rcu_head		rcu;
-+	struct tc_u32_sel	sel;
-+	/* tc_u32_keys allocated at end of structure */
- };
- 
- struct tc_u_hnode {
+-- 
+John Fastabend         Intel Corporation
