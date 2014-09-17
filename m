@@ -1,189 +1,369 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net v2] bonding: fix div by zero while enslaving and transmitting
-Date: Wed, 17 Sep 2014 14:15:07 +0800
-Message-ID: <541926EB.4010809@huawei.com>
-References: <5413097B.9080802@redhat.com> <1410536298-8022-1-git-send-email-nikolay@redhat.com>
+From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v13 net-next 07/11] bpf: verifier (add ability to receive
+ verification log)
+Date: Wed, 17 Sep 2014 08:51:18 +0200
+Message-ID: <54192F66.8020200@redhat.com>
+References: <1410914370-29883-1-git-send-email-ast@plumgrid.com> <1410914370-29883-8-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>
-To: Nikolay Aleksandrov <nikolay@redhat.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:37587 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751327AbaIQGPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 02:15:35 -0400
-In-Reply-To: <1410536298-8022-1-git-send-email-nikolay@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1410914370-29883-8-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/9/12 23:38, Nikolay Aleksandrov wrote:
-> The problem is that the slave is first linked and slave_cnt is
-> incremented afterwards leading to a div by zero in the modes that use it
-> as a modulus. What happens is that in bond_start_xmit()
-> bond_has_slaves() is used to evaluate further transmission and it becomes
-> true after the slave is linked in, but when slave_cnt is used in the xmit
-> path it is still 0, so fetch it once and transmit based on that. Since
-> it is used only in round-robin and XOR modes, the fix is only for them.
-> Thanks to Eric Dumazet for pointing out the fault in my first try to fix
-> this.
-> 
-
-Hi, I think no need to add more checks in the xmit fast path, why not add a barrier to make
-sure the slave_cnt inc to 1 before access it.
-
-+	/* Increment slave_cnt before linking in the slave so we won't end up in
-+	 * bond_start_xmit with bond_has_slaves() true and slave_cnt == 0.
-+	 */
-+	bond->slave_cnt++;
-+	wmb();
-
-I think it looks more efficiency, sorry for reply so late.
-
-Regards
-Ding
-
-
-> Call trace (took it out of net-next kernel, but it's the same with net):
-> [46934.330038] divide error: 0000 [#1] SMP
-> [46934.330041] Modules linked in: bonding(O) 9p fscache
-> snd_hda_codec_generic crct10dif_pclmul
-> [46934.330041] bond0: Enslaving eth1 as an active interface with an up
-> link
-> [46934.330051]  ppdev joydev crc32_pclmul crc32c_intel 9pnet_virtio
-> ghash_clmulni_intel snd_hda_intel 9pnet snd_hda_controller parport_pc
-> serio_raw pcspkr snd_hda_codec parport virtio_balloon virtio_console
-> snd_hwdep snd_pcm pvpanic i2c_piix4 snd_timer i2ccore snd soundcore
-> virtio_blk virtio_net virtio_pci virtio_ring virtio ata_generic
-> pata_acpi floppy [last unloaded: bonding]
-> [46934.330053] CPU: 1 PID: 3382 Comm: ping Tainted: G           O
-> 3.17.0-rc4+ #27
-> [46934.330053] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-> [46934.330054] task: ffff88005aebf2c0 ti: ffff88005b728000 task.ti:
-> ffff88005b728000
-> [46934.330059] RIP: 0010:[<ffffffffa0198c33>]  [<ffffffffa0198c33>]
-> bond_start_xmit+0x1c3/0x450 [bonding]
-> [46934.330060] RSP: 0018:ffff88005b72b7f8  EFLAGS: 00010246
-> [46934.330060] RAX: 0000000000000679 RBX: ffff88004b077000 RCX:
-> 000000000000002a
-> [46934.330061] RDX: 0000000000000000 RSI: ffff88004b3f0500 RDI:
-> ffff88004b077940
-> [46934.330061] RBP: ffff88005b72b830 R08: 00000000000000c0 R09:
-> ffff88004a83e000
-> [46934.330062] R10: 000000000000ffff R11: ffff88004b1f12c0 R12:
-> ffff88004b3f0500
-> [46934.330062] R13: ffff88004b3f0500 R14: 000000000000002a R15:
-> ffff88004b077940
-> [46934.330063] FS:  00007fbd91a4c740(0000) GS:ffff88005f080000(0000)
-> knlGS:0000000000000000
-> [46934.330064] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [46934.330064] CR2: 00007f803a8bb000 CR3: 000000004b2c9000 CR4:
-> 00000000000406e0
-> [46934.330069] Stack:
-> [46934.330071]  ffffffff811e6169 00000000e772fa05 ffff88004b077000
-> ffff88004b3f0500
-> [46934.330072]  ffffffff81d17d18 000000000000002a 0000000000000000
-> ffff88005b72b8a0
-> [46934.330073]  ffffffff81620108 ffffffff8161fe0e ffff88005b72b8c4
-> ffff88005b302000
-> [46934.330073] Call Trace:
-> [46934.330077]  [<ffffffff811e6169>] ?
-> __kmalloc_node_track_caller+0x119/0x300
-> [46934.330084]  [<ffffffff81620108>] dev_hard_start_xmit+0x188/0x410
-> [46934.330086]  [<ffffffff8161fe0e>] ? harmonize_features+0x2e/0x90
-> [46934.330088]  [<ffffffff81620b06>] __dev_queue_xmit+0x456/0x590
-> [46934.330089]  [<ffffffff81620c50>] dev_queue_xmit+0x10/0x20
-> [46934.330090]  [<ffffffff8168f022>] arp_xmit+0x22/0x60
-> [46934.330091]  [<ffffffff8168f090>] arp_send.part.16+0x30/0x40
-> [46934.330092]  [<ffffffff8168f1e5>] arp_solicit+0x115/0x2b0
-> [46934.330094]  [<ffffffff8160b5d7>] ? copy_skb_header+0x17/0xa0
-> [46934.330096]  [<ffffffff8162875a>] neigh_probe+0x4a/0x70
-> [46934.330097]  [<ffffffff8162979c>] __neigh_event_send+0xac/0x230
-> [46934.330098]  [<ffffffff8162a00b>] neigh_resolve_output+0x13b/0x220
-> [46934.330100]  [<ffffffff8165f120>] ? ip_forward_options+0x1c0/0x1c0
-> [46934.330101]  [<ffffffff81660478>] ip_finish_output+0x1f8/0x860
-> [46934.330102]  [<ffffffff81661f08>] ip_output+0x58/0x90
-> [46934.330103]  [<ffffffff81661602>] ? __ip_local_out+0xa2/0xb0
-> [46934.330104]  [<ffffffff81661640>] ip_local_out_sk+0x30/0x40
-> [46934.330105]  [<ffffffff81662a66>] ip_send_skb+0x16/0x50
-> [46934.330106]  [<ffffffff81662ad3>] ip_push_pending_frames+0x33/0x40
-> [46934.330107]  [<ffffffff8168854c>] raw_sendmsg+0x88c/0xa30
-> [46934.330110]  [<ffffffff81612b31>] ? skb_recv_datagram+0x41/0x60
-> [46934.330111]  [<ffffffff816875a9>] ? raw_recvmsg+0xa9/0x1f0
-> [46934.330113]  [<ffffffff816978d4>] inet_sendmsg+0x74/0xc0
-> [46934.330114]  [<ffffffff81697a9b>] ? inet_recvmsg+0x8b/0xb0
-> [46934.330115] bond0: Adding slave eth2
-> [46934.330116]  [<ffffffff8160357c>] sock_sendmsg+0x9c/0xe0
-> [46934.330118]  [<ffffffff81603248>] ?
-> move_addr_to_kernel.part.20+0x28/0x80
-> [46934.330121]  [<ffffffff811b4477>] ? might_fault+0x47/0x50
-> [46934.330122]  [<ffffffff816039b9>] ___sys_sendmsg+0x3a9/0x3c0
-> [46934.330125]  [<ffffffff8144a14a>] ? n_tty_write+0x3aa/0x530
-> [46934.330127]  [<ffffffff810d1ae4>] ? __wake_up+0x44/0x50
-> [46934.330129]  [<ffffffff81242b38>] ? fsnotify+0x238/0x310
-> [46934.330130]  [<ffffffff816048a1>] __sys_sendmsg+0x51/0x90
-> [46934.330131]  [<ffffffff816048f2>] SyS_sendmsg+0x12/0x20
-> [46934.330134]  [<ffffffff81738b29>] system_call_fastpath+0x16/0x1b
-> [46934.330144] Code: 48 8b 10 4c 89 ee 4c 89 ff e8 aa bc ff ff 31 c0 e9
-> 1a ff ff ff 0f 1f 00 4c 89 ee 4c 89 ff e8 65 fb ff ff 31 d2 4c 89 ee 4c
-> 89 ff <f7> b3 64 09 00 00 e8 02 bd ff ff 31 c0 e9 f2 fe ff ff 0f 1f 00
-> [46934.330146] RIP  [<ffffffffa0198c33>] bond_start_xmit+0x1c3/0x450
-> [bonding]
-> [46934.330146]  RSP <ffff88005b72b7f8>
-> 
-> CC: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: Jay Vosburgh <j.vosburgh@gmail.com>
-> CC: Veaceslav Falico <vfalico@gmail.com>
-> Fixes: 278b208375 ("bonding: initial RCU conversion")
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+On 09/17/2014 02:39 AM, Alexei Starovoitov wrote:
+> add optional attributes for BPF_PROG_LOAD syscall:
+> union bpf_attr {
+>      struct {
+> 	...
+> 	__u32         log_level; /* verbosity level of eBPF verifier */
+> 	__u32         log_size;  /* size of user buffer */
+> 	__aligned_u64 log_buf;   /* user supplied 'char *buffer' */
+>      };
+> };
+>
+> when log_level > 0 the verifier will return its verification log in the user
+> supplied buffer 'log_buf' which can be used by program author to analyze why
+> verifier rejected given program.
+>
+> 'Understanding eBPF verifier messages' section of Documentation/networking/filter.txt
+> provides several examples of these messages, like the program:
+>
+>    BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
+>    BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
+>    BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
+>    BPF_LD_MAP_FD(BPF_REG_1, 0),
+>    BPF_CALL_FUNC(BPF_FUNC_map_lookup_elem),
+>    BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
+>    BPF_ST_MEM(BPF_DW, BPF_REG_0, 4, 0),
+>    BPF_EXIT_INSN(),
+>
+> will be rejected with the following multi-line message in log_buf:
+>
+>    0: (7a) *(u64 *)(r10 -8) = 0
+>    1: (bf) r2 = r10
+>    2: (07) r2 += -8
+>    3: (b7) r1 = 0
+>    4: (85) call 1
+>    5: (15) if r0 == 0x0 goto pc+1
+>     R0=map_ptr R10=fp
+>    6: (7a) *(u64 *)(r0 +4) = 0
+>    misaligned access off 4 size 8
+>
+> The format of the output can change at any time as verifier evolves.
+>
+> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 > ---
-> v2: Based on Eric's feedback change the fix to fetch the value once in a
->     local variable in the affected modes and to act based on that.
-> 
-> I believe we don't need to move the increment now as it doesn't really
-> matter if it'll be before the wmb or after.
-> 
->  drivers/net/bonding/bond_main.c | 17 ++++++++++++++---
->  1 file changed, 14 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 57912ee231cb..798ae69fb63c 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -3659,8 +3659,14 @@ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev
->  		else
->  			bond_xmit_slave_id(bond, skb, 0);
->  	} else {
-> -		slave_id = bond_rr_gen_slave_id(bond);
-> -		bond_xmit_slave_id(bond, skb, slave_id % bond->slave_cnt);
-> +		int slave_cnt = ACCESS_ONCE(bond->slave_cnt);
+>   include/uapi/linux/bpf.h |    3 +
+>   kernel/bpf/syscall.c     |    2 +-
+>   kernel/bpf/verifier.c    |  235 ++++++++++++++++++++++++++++++++++++++++++++++
+>   3 files changed, 239 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index 424f442016e7..31b0ac208a52 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -138,6 +138,9 @@ union bpf_attr {
+>   		__u32		insn_cnt;
+>   		__aligned_u64	insns;
+>   		__aligned_u64	license;
+> +		__u32		log_level;	/* verbosity level of verifier */
+> +		__u32		log_size;	/* size of user buffer */
+> +		__aligned_u64	log_buf;	/* user supplied buffer */
+>   	};
+>   } __attribute__((aligned(8)));
+>
+> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+> index 67b5e29f183e..c7be7163bd11 100644
+> --- a/kernel/bpf/syscall.c
+> +++ b/kernel/bpf/syscall.c
+> @@ -458,7 +458,7 @@ struct bpf_prog *bpf_prog_get(u32 ufd)
+>   }
+>
+>   /* last field in 'union bpf_attr' used by this command */
+> -#define	BPF_PROG_LOAD_LAST_FIELD license
+> +#define	BPF_PROG_LOAD_LAST_FIELD log_buf
+
+I was looking to find a use case for this item, but couldn't find anything, so
+this seems to be dead code?
+
+Was it, so that each time you extend an uapi structure like above that you would
+only access the structure up to BPF_PROG_LOAD_LAST_FIELD? That might not work for
+old binaries using this ABI running on newer kernels where there are different
+expectations of what BPF_PROG_LOAD_LAST_FIELD has been at the time of compilation.
+
+>   static int bpf_prog_load(union bpf_attr *attr)
+>   {
+> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+> index d6f9c3d6b4d7..871edc1f2e1f 100644
+> --- a/kernel/bpf/verifier.c
+> +++ b/kernel/bpf/verifier.c
+> @@ -125,9 +125,244 @@
+>    * are set to NOT_INIT to indicate that they are no longer readable.
+>    */
+>
+> +/* single container for all structs
+> + * one verifier_env per bpf_check() call
+> + */
+> +struct verifier_env {
+> +};
 > +
-> +		if (likely(slave_cnt)) {
-> +			slave_id = bond_rr_gen_slave_id(bond);
-> +			bond_xmit_slave_id(bond, skb, slave_id % slave_cnt);
-> +		} else {
-> +			dev_kfree_skb_any(skb);
+> +/* verbose verifier prints what it's seeing
+> + * bpf_check() is called under lock, so no race to access these global vars
+> + */
+> +static u32 log_level, log_size, log_len;
+> +static char *log_buf;
+> +
+> +static DEFINE_MUTEX(bpf_verifier_lock);
+> +
+> +/* log_level controls verbosity level of eBPF verifier.
+> + * verbose() is used to dump the verification trace to the log, so the user
+> + * can figure out what's wrong with the program
+> + */
+> +static void verbose(const char *fmt, ...)
+> +{
+> +	va_list args;
+> +
+> +	if (log_level == 0 || log_len >= log_size - 1)
+> +		return;
+> +
+> +	va_start(args, fmt);
+> +	log_len += vscnprintf(log_buf + log_len, log_size - log_len, fmt, args);
+> +	va_end(args);
+> +}
+> +
+> +static const char *const bpf_class_string[] = {
+> +	[BPF_LD]    = "ld",
+> +	[BPF_LDX]   = "ldx",
+> +	[BPF_ST]    = "st",
+> +	[BPF_STX]   = "stx",
+> +	[BPF_ALU]   = "alu",
+> +	[BPF_JMP]   = "jmp",
+> +	[BPF_RET]   = "BUG",
+> +	[BPF_ALU64] = "alu64",
+> +};
+> +
+> +static const char *const bpf_alu_string[] = {
+> +	[BPF_ADD >> 4]  = "+=",
+> +	[BPF_SUB >> 4]  = "-=",
+> +	[BPF_MUL >> 4]  = "*=",
+> +	[BPF_DIV >> 4]  = "/=",
+> +	[BPF_OR  >> 4]  = "|=",
+> +	[BPF_AND >> 4]  = "&=",
+> +	[BPF_LSH >> 4]  = "<<=",
+> +	[BPF_RSH >> 4]  = ">>=",
+> +	[BPF_NEG >> 4]  = "neg",
+> +	[BPF_MOD >> 4]  = "%=",
+> +	[BPF_XOR >> 4]  = "^=",
+> +	[BPF_MOV >> 4]  = "=",
+> +	[BPF_ARSH >> 4] = "s>>=",
+> +	[BPF_END >> 4]  = "endian",
+> +};
+> +
+> +static const char *const bpf_ldst_string[] = {
+> +	[BPF_W >> 3]  = "u32",
+> +	[BPF_H >> 3]  = "u16",
+> +	[BPF_B >> 3]  = "u8",
+> +	[BPF_DW >> 3] = "u64",
+> +};
+> +
+> +static const char *const bpf_jmp_string[] = {
+> +	[BPF_JA >> 4]   = "jmp",
+> +	[BPF_JEQ >> 4]  = "==",
+> +	[BPF_JGT >> 4]  = ">",
+> +	[BPF_JGE >> 4]  = ">=",
+> +	[BPF_JSET >> 4] = "&",
+> +	[BPF_JNE >> 4]  = "!=",
+> +	[BPF_JSGT >> 4] = "s>",
+> +	[BPF_JSGE >> 4] = "s>=",
+> +	[BPF_CALL >> 4] = "call",
+> +	[BPF_EXIT >> 4] = "exit",
+> +};
+> +
+> +static void print_bpf_insn(struct bpf_insn *insn)
+> +{
+> +	u8 class = BPF_CLASS(insn->code);
+> +
+> +	if (class == BPF_ALU || class == BPF_ALU64) {
+> +		if (BPF_SRC(insn->code) == BPF_X)
+> +			verbose("(%02x) %sr%d %s %sr%d\n",
+> +				insn->code, class == BPF_ALU ? "(u32) " : "",
+> +				insn->dst_reg,
+> +				bpf_alu_string[BPF_OP(insn->code) >> 4],
+> +				class == BPF_ALU ? "(u32) " : "",
+> +				insn->src_reg);
+> +		else
+> +			verbose("(%02x) %sr%d %s %s%d\n",
+> +				insn->code, class == BPF_ALU ? "(u32) " : "",
+> +				insn->dst_reg,
+> +				bpf_alu_string[BPF_OP(insn->code) >> 4],
+> +				class == BPF_ALU ? "(u32) " : "",
+> +				insn->imm);
+> +	} else if (class == BPF_STX) {
+> +		if (BPF_MODE(insn->code) == BPF_MEM)
+> +			verbose("(%02x) *(%s *)(r%d %+d) = r%d\n",
+> +				insn->code,
+> +				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
+> +				insn->dst_reg,
+> +				insn->off, insn->src_reg);
+> +		else if (BPF_MODE(insn->code) == BPF_XADD)
+> +			verbose("(%02x) lock *(%s *)(r%d %+d) += r%d\n",
+> +				insn->code,
+> +				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
+> +				insn->dst_reg, insn->off,
+> +				insn->src_reg);
+> +		else
+> +			verbose("BUG_%02x\n", insn->code);
+> +	} else if (class == BPF_ST) {
+> +		if (BPF_MODE(insn->code) != BPF_MEM) {
+> +			verbose("BUG_st_%02x\n", insn->code);
+> +			return;
 > +		}
->  	}
->  
->  	return NETDEV_TX_OK;
-> @@ -3691,8 +3697,13 @@ static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *bond_d
->  static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev)
->  {
->  	struct bonding *bond = netdev_priv(bond_dev);
-> +	int slave_cnt = ACCESS_ONCE(bond->slave_cnt);
->  
-> -	bond_xmit_slave_id(bond, skb, bond_xmit_hash(bond, skb) % bond->slave_cnt);
-> +	if (likely(slave_cnt))
-> +		bond_xmit_slave_id(bond, skb,
-> +				   bond_xmit_hash(bond, skb) % slave_cnt);
-> +	else
-> +		dev_kfree_skb_any(skb);
->  
->  	return NETDEV_TX_OK;
->  }
-> 
+> +		verbose("(%02x) *(%s *)(r%d %+d) = %d\n",
+> +			insn->code,
+> +			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
+> +			insn->dst_reg,
+> +			insn->off, insn->imm);
+> +	} else if (class == BPF_LDX) {
+> +		if (BPF_MODE(insn->code) != BPF_MEM) {
+> +			verbose("BUG_ldx_%02x\n", insn->code);
+> +			return;
+> +		}
+> +		verbose("(%02x) r%d = *(%s *)(r%d %+d)\n",
+> +			insn->code, insn->dst_reg,
+> +			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
+> +			insn->src_reg, insn->off);
+> +	} else if (class == BPF_LD) {
+> +		if (BPF_MODE(insn->code) == BPF_ABS) {
+> +			verbose("(%02x) r0 = *(%s *)skb[%d]\n",
+> +				insn->code,
+> +				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
+> +				insn->imm);
+> +		} else if (BPF_MODE(insn->code) == BPF_IND) {
+> +			verbose("(%02x) r0 = *(%s *)skb[r%d + %d]\n",
+> +				insn->code,
+> +				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
+> +				insn->src_reg, insn->imm);
+> +		} else if (BPF_MODE(insn->code) == BPF_IMM) {
+> +			verbose("(%02x) r%d = 0x%x\n",
+> +				insn->code, insn->dst_reg, insn->imm);
+> +		} else {
+> +			verbose("BUG_ld_%02x\n", insn->code);
+> +			return;
+> +		}
+> +	} else if (class == BPF_JMP) {
+> +		u8 opcode = BPF_OP(insn->code);
+> +
+> +		if (opcode == BPF_CALL) {
+> +			verbose("(%02x) call %d\n", insn->code, insn->imm);
+> +		} else if (insn->code == (BPF_JMP | BPF_JA)) {
+> +			verbose("(%02x) goto pc%+d\n",
+> +				insn->code, insn->off);
+> +		} else if (insn->code == (BPF_JMP | BPF_EXIT)) {
+> +			verbose("(%02x) exit\n", insn->code);
+> +		} else if (BPF_SRC(insn->code) == BPF_X) {
+> +			verbose("(%02x) if r%d %s r%d goto pc%+d\n",
+> +				insn->code, insn->dst_reg,
+> +				bpf_jmp_string[BPF_OP(insn->code) >> 4],
+> +				insn->src_reg, insn->off);
+> +		} else {
+> +			verbose("(%02x) if r%d %s 0x%x goto pc%+d\n",
+> +				insn->code, insn->dst_reg,
+> +				bpf_jmp_string[BPF_OP(insn->code) >> 4],
+> +				insn->imm, insn->off);
+> +		}
+> +	} else {
+> +		verbose("(%02x) %s\n", insn->code, bpf_class_string[class]);
+> +	}
+> +}
+> +
+>   int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+>   {
+> +	char __user *log_ubuf = NULL;
+> +	struct verifier_env *env;
+>   	int ret = -EINVAL;
+>
+> +	if (prog->len <= 0 || prog->len > BPF_MAXINSNS)
+> +		return -E2BIG;
+> +
+> +	/* 'struct verifier_env' can be global, but since it's not small,
+> +	 * allocate/free it every time bpf_check() is called
+> +	 */
+> +	env = kzalloc(sizeof(struct verifier_env), GFP_KERNEL);
+> +	if (!env)
+> +		return -ENOMEM;
+> +
+> +	/* grab the mutex to protect few globals used by verifier */
+> +	mutex_lock(&bpf_verifier_lock);
+
+So only because of the verifier error log (which are global vars here) we
+now have to hold a eBPF-related mutex lock each time when attaching a program?
+
+Also, if you really have to do the verifier error log, can't we spare ourself
+most part of the textifying parts if you would encode the verifier log into a
+normal structure array with eBPF specific error codes and then do all this
+pretty printing in user space? Why is that impossible? I really think it's odd.
+
+> +	if (attr->log_level || attr->log_buf || attr->log_size) {
+> +		/* user requested verbose verifier output
+> +		 * and supplied buffer to store the verification trace
+> +		 */
+> +		log_level = attr->log_level;
+> +		log_ubuf = (char __user *) (unsigned long) attr->log_buf;
+> +		log_size = attr->log_size;
+> +		log_len = 0;
+> +
+> +		ret = -EINVAL;
+> +		/* log_* values have to be sane */
+> +		if (log_size < 128 || log_size > UINT_MAX >> 8 ||
+> +		    log_level == 0 || log_ubuf == NULL)
+> +			goto free_env;
+> +
+> +		ret = -ENOMEM;
+> +		log_buf = vmalloc(log_size);
+> +		if (!log_buf)
+> +			goto free_env;
+> +	} else {
+> +		log_level = 0;
+> +	}
+> +
+> +	/* ret = do_check(env); */
+> +
+> +	if (log_level && log_len >= log_size - 1) {
+> +		BUG_ON(log_len >= log_size);
+> +		/* verifier log exceeded user supplied buffer */
+> +		ret = -ENOSPC;
+> +		/* fall through to return what was recorded */
+> +	}
+> +
+> +	/* copy verifier log back to user space including trailing zero */
+> +	if (log_level && copy_to_user(log_ubuf, log_buf, log_len + 1) != 0) {
+> +		ret = -EFAULT;
+> +		goto free_log_buf;
+> +	}
+> +
+> +
+> +free_log_buf:
+> +	if (log_level)
+> +		vfree(log_buf);
+> +free_env:
+> +	kfree(env);
+> +	mutex_unlock(&bpf_verifier_lock);
+>   	return ret;
+>   }
+>
