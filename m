@@ -1,92 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: ipsec: Remove obsolete MAX_AH_AUTH_LEN
-Date: Wed, 17 Sep 2014 12:58:28 +0800
-Message-ID: <20140917045828.GA32086@gondor.apana.org.au>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Figuring out how vti works
+Date: Wed, 17 Sep 2014 07:28:11 +0200
+Message-ID: <20140917052811.GT6390@secunet.com>
+References: <20140915142043.GA22070@master>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: Joe M <joe9mail@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:40149 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751026AbaIQE6d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 00:58:33 -0400
+Received: from a.mx.secunet.com ([195.81.216.161]:49638 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751086AbaIQF2W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Sep 2014 01:28:22 -0400
 Content-Disposition: inline
+In-Reply-To: <20140915142043.GA22070@master>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave:
+On Mon, Sep 15, 2014 at 09:20:43AM -0500, Joe M wrote:
+> Hello Steffen Klassert,
+> 
+> Very sorry for this bother.
+> 
+> I could not figure out how vti works with ipsec and your patch was the
+> latest to ip_vti.c. If you cannot help, please excuse me.
+> 
+> I cannot get the vpn traffic to get on the vti tunnel. tcpdump on vti
+> does not show anything. I think the tunnel lookup code, for some
+> reason, is not able to use the "vtil" tunnel.
 
-While tracking down the MAX_AH_AUTH_LEN crash in an old kernel
-I thought that this limit was rather arbitrary and we should
-just get rid of it.
+Do you know where the packets are getting dropped?
+netstat -i or /proc/net/xfrm_stat could give a hint.
 
-In fact it seems that we've already done all the work needed
-to remove it apart from actually removing it.  This limit was
-there in order to limit stack usage.  Since we've already
-switched over to allocating scratch space using kmalloc, there
-is no longer any need to limit the authentication length.
+> 
+> The pings worked fine if I remove the ip_vti and ip_tunnel modules,
+> the "mark=1" from /etc/ipsec.conf and the iptables mangle rules to
+> set-mark.
 
-This patch kills all references to it, including the BUG_ONs
-that led me here.
+You don't need to set the mark with iptables.
+You just have to ensure that the policy and state marks
+match the tunnel keys. I.e. direction in and forward must
+match the ikey, direction out must match the okey.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> sudo ip tunnel list
+> vtil: ip/ip  remote 192.168.1.232  local 192.168.0.11  ttl inherit ikey 0  okey 1
 
-diff --git a/include/net/ah.h b/include/net/ah.h
-index ca95b98..4e2dfa4 100644
---- a/include/net/ah.h
-+++ b/include/net/ah.h
-@@ -3,9 +3,6 @@
- 
- #include <linux/skbuff.h>
- 
--/* This is the maximum truncated ICV length that we know of. */
--#define MAX_AH_AUTH_LEN	64
--
- struct crypto_ahash;
- 
- struct ah_data {
-diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-index a2afa89..ac9a32e 100644
---- a/net/ipv4/ah4.c
-+++ b/net/ipv4/ah4.c
-@@ -505,8 +505,6 @@ static int ah_init_state(struct xfrm_state *x)
- 	ahp->icv_full_len = aalg_desc->uinfo.auth.icv_fullbits/8;
- 	ahp->icv_trunc_len = x->aalg->alg_trunc_len/8;
- 
--	BUG_ON(ahp->icv_trunc_len > MAX_AH_AUTH_LEN);
--
- 	if (x->props.flags & XFRM_STATE_ALIGN4)
- 		x->props.header_len = XFRM_ALIGN4(sizeof(struct ip_auth_hdr) +
- 						  ahp->icv_trunc_len);
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-index 72a4930..2176893 100644
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -713,8 +713,6 @@ static int ah6_init_state(struct xfrm_state *x)
- 	ahp->icv_full_len = aalg_desc->uinfo.auth.icv_fullbits/8;
- 	ahp->icv_trunc_len = x->aalg->alg_trunc_len/8;
- 
--	BUG_ON(ahp->icv_trunc_len > MAX_AH_AUTH_LEN);
--
- 	x->props.header_len = XFRM_ALIGN8(sizeof(struct ip_auth_hdr) +
- 					  ahp->icv_trunc_len);
- 	switch (x->props.mode) {
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index d4db6eb..8cf382b 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -333,8 +333,7 @@ static int attach_auth_trunc(struct xfrm_algo_auth **algpp, u8 *props,
- 	algo = xfrm_aalg_get_byname(ualg->alg_name, 1);
- 	if (!algo)
- 		return -ENOSYS;
--	if ((ualg->alg_trunc_len / 8) > MAX_AH_AUTH_LEN ||
--	    ualg->alg_trunc_len > algo->uinfo.auth.icv_fullbits)
-+	if (ualg->alg_trunc_len > algo->uinfo.auth.icv_fullbits)
- 		return -EINVAL;
- 	*props = algo->desc.sadb_alg_id;
- 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Your ikey does not match the policy and the state mark.
+
+> 
+> sudo ip xfrm policy
+> src 192.168.1.0/24 dst 192.168.0.0/24
+>         dir fwd priority 2883
+>         mark 1/0xffffffff
+>         tmpl src <bnglr public ip> dst 192.168.0.11
+>                 proto esp reqid 2 mode tunnel
+> src 192.168.1.0/24 dst 192.168.0.0/24
+>         dir in priority 2883
+>         mark 1/0xffffffff
+
+If you set mark 1 here, the tunnel should set ikey 1.
+
+> 
+> I tried setting the mangle rules to set-mark but that did not help. I
+> could not find any more documentation.
+> 
+
+Please try without setting a mark with netfilter.
