@@ -1,80 +1,75 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net] openvswitch: restore OVS_FLOW_CMD_NEW notifications
-Date: Wed, 17 Sep 2014 15:04:40 -0700
-Message-ID: <CALnjE+qqv66Zkh==bJAxBSUEkh8H-9YMnox1yF+4_BwetqERmg@mail.gmail.com>
-References: <1410970400-9797-1-git-send-email-nicolas.dichtel@6wind.com>
-	<CALnjE+rzvxC1-SvkkF237JitBTqHWaria6mw4EmDygMUSzUcUQ@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [patch net-next 01/13] openvswitch: split flow structures into
+ ovs specific and generic ones
+Date: Wed, 17 Sep 2014 15:07:27 -0700
+Message-ID: <CAEP_g=-3JxrG0Ho0pmkFqgZos4nmAdmY85EFn0qE7cO1PsmZ5A@mail.gmail.com>
+References: <1409736300-12303-1-git-send-email-jiri@resnulli.us>
+ <1409736300-12303-2-git-send-email-jiri@resnulli.us> <CALnjE+pscRmfhaWgkWCunJfjvG04RiNUAj6nefSFHrknQTC+xw@mail.gmail.com>
+ <20140904123323.GF1867@nanopsycho.lan> <CALnjE+qwbQ=5wsLddvZX95xE2_U=osuDg8S10zKWarMD9mp4Aw@mail.gmail.com>
+ <20140917083421.GB1863@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
+Cc: Pravin Shelar <pshelar@nicira.com>,
 	netdev <netdev@vger.kernel.org>,
-	Samuel Gauthier <samuel.gauthier@6wind.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+	David Miller <davem@davemloft.net>,
+	nhorman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Andy Zhou <azhou@nicira.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"jeffrey.t.kirsher" <jeffrey.t.kirsher@intel.com>,
+	vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	"john.r.fastabend" <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	sfeldma <sfeldma@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	roopa <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	jasowang <jasowang@redhat.com>, ebie
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:54348 "HELO
-	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755726AbaIQWEl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 18:04:41 -0400
-Received: by mail-ie0-f180.google.com with SMTP id rd18so2629154iec.25
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 15:04:40 -0700 (PDT)
-In-Reply-To: <CALnjE+rzvxC1-SvkkF237JitBTqHWaria6mw4EmDygMUSzUcUQ@mail.gmail.com>
+Received: from na3sys009aog138.obsmtp.com ([74.125.149.19]:40704 "HELO
+	na3sys009aog138.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755998AbaIQWHs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 18:07:48 -0400
+Received: by mail-qa0-f52.google.com with SMTP id m5so2951qaj.11
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 15:07:47 -0700 (PDT)
+In-Reply-To: <20140917083421.GB1863@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 17, 2014 at 2:56 PM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Wed, Sep 17, 2014 at 9:13 AM, Nicolas Dichtel
-> <nicolas.dichtel@6wind.com> wrote:
->> From: Samuel Gauthier <samuel.gauthier@6wind.com>
->>
->> Since commit fb5d1e9e127a ("openvswitch: Build flow cmd netlink reply only if needed."),
->> the new flows are not notified to the listeners of OVS_FLOW_MCGROUP.
->>
->> This commit fixes the problem by checking that there are listeners in
->> the actual OVS_FLOW_MCGROUP group, instead of 0.
->>
+On Wed, Sep 17, 2014 at 1:34 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Thu, Sep 04, 2014 at 10:46:28PM CEST, pshelar@nicira.com wrote:
+>>On the other hand if vswitchd uses common interface (switchdev) there
+>>is no need to extend ovs kernel interface. For example specifying
+>>extra metadata, like (sw only, hw olny, both).
 >
-> right, this is bug. group id should be one.
+> I understand you point of view. However from the offloading perspective
+> it makes much more sense to push the flows through a single interface
+> (ovs genl) and only offload selected flows to hw (pushing further).
+> Having vswitchd to handle 2 different ifaces for the same/similar thing
+> does not seem like a clean solution to me. And it really breaks the
+> offloading view.
 >
->> Signed-off-by: Samuel Gauthier <samuel.gauthier@6wind.com>
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> ---
->>  net/openvswitch/datapath.c | 6 +++---
->>  1 file changed, 3 insertions(+), 3 deletions(-)
->>
->> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
->> index 91d66b7e64ac..8396f6063343 100644
->> --- a/net/openvswitch/datapath.c
->> +++ b/net/openvswitch/datapath.c
->> @@ -79,10 +79,10 @@ static const struct genl_multicast_group ovs_dp_vport_multicast_group = {
->>  /* Check if need to build a reply message.
->>   * OVS userspace sets the NLM_F_ECHO flag if it needs the reply. */
->>  static bool ovs_must_notify(struct genl_info *info,
->> -                           const struct genl_multicast_group *grp)
->> +                           unsigned int group)
->>  {
->>         return info->nlhdr->nlmsg_flags & NLM_F_ECHO ||
->> -               netlink_has_listeners(genl_info_net(info)->genl_sock, 0);
->> +               netlink_has_listeners(genl_info_net(info)->genl_sock, group);
->>  }
->>
->>  static void ovs_notify(struct genl_family *family,
->> @@ -763,7 +763,7 @@ static struct sk_buff *ovs_flow_cmd_alloc_info(const struct sw_flow_actions *act
->>  {
->>         struct sk_buff *skb;
->>
->> -       if (!always && !ovs_must_notify(info, &ovs_dp_flow_multicast_group))
->> +       if (!always && !ovs_must_notify(info, dp_flow_genl_family.mcgrp_offset))
->>                 return NULL;
->>
->
->
-> I do not think mcgrp_offset is right group id. It is starting offset
-> of groups in a family and it is marked as private member of genl
-> module.
-> Rather we can just define enum for ovs_dp_flow_multicast_group and
-> directly use that as group-id.
->
+> Plus the amount of code needed to be pushed into ovs kernel dp code in
+> order to enable this is small.
 
-I just realized that there is no equivalent netlink_has_listeners()
-function in genl, so we have to add such function first.
+This is missing the point: software forwarding and a hardware driver
+interface are doing totally different things. Over time, these will
+diverge and you will essentially up with two separate paths packed
+together which doesn't help anything. This is not a theoretical
+concern as different directions either already exist or have been
+proposed. On the software side, there is the BPF proposal which is not
+likely to map to hardware any time soon. On the other hand, hardware
+is usually composed of multiple tables/functions with varying
+capabilities. Sooner or later you will want to take advantage of these
+and doing so isn't really possible with the software optimized flows
+that the kernel handles. At that point, you will likely introduce a
+new interface to userspace to expose this and get flows processed in a
+different way.
