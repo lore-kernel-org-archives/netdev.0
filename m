@@ -1,468 +1,255 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v13 net-next 04/11] bpf: expand BPF syscall with program load/unload
-Date: Tue, 16 Sep 2014 17:39:23 -0700
-Message-ID: <1410914370-29883-5-git-send-email-ast@plumgrid.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v13 net-next 08/11] bpf: handle pseudo BPF_LD_IMM64 insn
+Date: Tue, 16 Sep 2014 17:39:27 -0700
+Message-ID: <1410914370-29883-9-git-send-email-ast@plumgrid.com>
 References: <1410914370-29883-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1410914370-29883-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1410914370-29883-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-eBPF programs are similar to kernel modules. They are loaded by the user
-process and automatically unloaded when process exits. Each eBPF program is
-a safe run-to-completion set of instructions. eBPF verifier statically
-determines that the program terminates and is safe to execute.
+eBPF programs passed from userspace are using pseudo BPF_LD_IMM64 instructions
+to refer to process-local map_fd. Scan the program for such instructions and
+if FDs are valid, convert them to 'struct bpf_map' pointers which will be used
+by verifier to check access to maps in bpf_map_lookup/update() calls.
+If program passes verifier, convert pseudo BPF_LD_IMM64 into generic by dropping
+BPF_PSEUDO_MAP_FD flag.
 
-The following syscall wrapper can be used to load the program:
-int bpf_prog_load(enum bpf_prog_type prog_type,
-                  const struct bpf_insn *insns, int insn_cnt,
-                  const char *license)
-{
-    union bpf_attr attr = {
-        .prog_type = prog_type,
-        .insns = ptr_to_u64(insns),
-        .insn_cnt = insn_cnt,
-        .license = ptr_to_u64(license),
-    };
+Note that eBPF interpreter is generic and knows nothing about pseudo insns.
 
-    return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
-}
-where 'insns' is an array of eBPF instructions and 'license' is a string
-that must be GPL compatible to call helper functions marked gpl_only
-
-Upon succesful load the syscall returns prog_fd.
-Use close(prog_fd) to unload the program.
-
-User space tests and examples follow in the later patches
-
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 ---
- include/linux/bpf.h      |   38 +++++++++++
- include/linux/filter.h   |    8 +--
- include/uapi/linux/bpf.h |   26 ++++++++
- kernel/bpf/core.c        |   29 ++++----
- kernel/bpf/syscall.c     |  165 ++++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 246 insertions(+), 20 deletions(-)
+ include/linux/filter.h |    6 ++
+ kernel/bpf/verifier.c  |  147 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 153 insertions(+)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 2887f3f9da59..92979182be81 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -46,4 +46,42 @@ void bpf_register_map_type(struct bpf_map_type_list *tl);
- void bpf_map_put(struct bpf_map *map);
- struct bpf_map *bpf_map_get(struct fd f);
- 
-+/* eBPF function prototype used by verifier to allow BPF_CALLs from eBPF programs
-+ * to in-kernel helper functions and for adjusting imm32 field in BPF_CALL
-+ * instructions after verifying
-+ */
-+struct bpf_func_proto {
-+	u64 (*func)(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
-+	bool gpl_only;
-+};
-+
-+struct bpf_verifier_ops {
-+	/* return eBPF function prototype for verification */
-+	const struct bpf_func_proto *(*get_func_proto)(enum bpf_func_id func_id);
-+};
-+
-+struct bpf_prog_type_list {
-+	struct list_head list_node;
-+	struct bpf_verifier_ops *ops;
-+	enum bpf_prog_type type;
-+};
-+
-+void bpf_register_prog_type(struct bpf_prog_type_list *tl);
-+
-+struct bpf_prog;
-+
-+struct bpf_prog_aux {
-+	atomic_t refcnt;
-+	bool is_gpl_compatible;
-+	enum bpf_prog_type prog_type;
-+	struct bpf_verifier_ops *ops;
-+	struct bpf_map **used_maps;
-+	u32 used_map_cnt;
-+	struct bpf_prog *prog;
-+	struct work_struct work;
-+};
-+
-+void bpf_prog_put(struct bpf_prog *prog);
-+struct bpf_prog *bpf_prog_get(u32 ufd);
-+
- #endif /* _LINUX_BPF_H */
 diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 1a0bc6d134d7..4ffc0958d85e 100644
+index 4ffc0958d85e..ca95abd2bed1 100644
 --- a/include/linux/filter.h
 +++ b/include/linux/filter.h
-@@ -21,6 +21,7 @@
- struct sk_buff;
- struct sock;
- struct seccomp_data;
-+struct bpf_prog_aux;
+@@ -145,6 +145,12 @@ struct bpf_prog_aux;
+ 		.off   = 0,					\
+ 		.imm   = ((__u64) (IMM)) >> 32 })
  
- /* ArgX, context and stack frame pointer register positions. Note,
-  * Arg1, Arg2, Arg3, etc are used as argument mappings of function
-@@ -300,17 +301,12 @@ struct bpf_binary_header {
- 	u8 image[];
++#define BPF_PSEUDO_MAP_FD	1
++
++/* pseudo BPF_LD_IMM64 insn used to refer to process-local map_fd */
++#define BPF_LD_MAP_FD(DST, MAP_FD)				\
++	BPF_LD_IMM64_RAW(DST, BPF_PSEUDO_MAP_FD, MAP_FD)
++
+ /* Short form of mov based on type, BPF_X: dst_reg = src_reg, BPF_K: dst_reg = imm32 */
+ 
+ #define BPF_MOV64_RAW(TYPE, DST, SRC, IMM)			\
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 871edc1f2e1f..7227543e474b 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -125,10 +125,15 @@
+  * are set to NOT_INIT to indicate that they are no longer readable.
+  */
+ 
++#define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
++
+ /* single container for all structs
+  * one verifier_env per bpf_check() call
+  */
+ struct verifier_env {
++	struct bpf_prog *prog;		/* eBPF program being verified */
++	struct bpf_map *used_maps[MAX_USED_MAPS]; /* array of map's used by eBPF program */
++	u32 used_map_cnt;		/* number of used maps */
  };
  
--struct bpf_work_struct {
--	struct bpf_prog *prog;
--	struct work_struct work;
--};
--
- struct bpf_prog {
- 	u16			pages;		/* Number of allocated pages */
- 	bool			jited;		/* Is our filter JIT'ed? */
- 	u32			len;		/* Number of filter blocks */
- 	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
--	struct bpf_work_struct	*work;		/* Deferred free work struct */
-+	struct bpf_prog_aux	*aux;		/* Auxiliary fields */
- 	unsigned int		(*bpf_func)(const struct sk_buff *skb,
- 					    const struct bpf_insn *filter);
- 	/* Instructions for interpreter */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 395cabd2ca0a..424f442016e7 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -99,12 +99,23 @@ enum bpf_cmd {
- 	 * returns zero and stores next key or negative error
- 	 */
- 	BPF_MAP_GET_NEXT_KEY,
-+
-+	/* verify and load eBPF program
-+	 * prog_fd = bpf(BPF_PROG_LOAD, union bpf_attr *attr, u32 size)
-+	 * Using attr->prog_type, attr->insns, attr->license
-+	 * returns fd or negative error
-+	 */
-+	BPF_PROG_LOAD,
- };
- 
- enum bpf_map_type {
- 	BPF_MAP_TYPE_UNSPEC,
- };
- 
-+enum bpf_prog_type {
-+	BPF_PROG_TYPE_UNSPEC,
-+};
-+
- union bpf_attr {
- 	struct { /* anonymous struct used by BPF_MAP_CREATE command */
- 		__u32	map_type;	/* one of enum bpf_map_type */
-@@ -121,6 +132,21 @@ union bpf_attr {
- 			__aligned_u64 next_key;
- 		};
- 	};
-+
-+	struct { /* anonymous struct used by BPF_PROG_LOAD command */
-+		__u32		prog_type;	/* one of enum bpf_prog_type */
-+		__u32		insn_cnt;
-+		__aligned_u64	insns;
-+		__aligned_u64	license;
-+	};
- } __attribute__((aligned(8)));
- 
-+/* integer value in 'imm' field of BPF_CALL instruction selects which helper
-+ * function eBPF program intends to call
-+ */
-+enum bpf_func_id {
-+	BPF_FUNC_unspec,
-+	__BPF_FUNC_MAX_ID,
-+};
-+
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 8b7002488251..f0c30c59b317 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -27,6 +27,7 @@
- #include <linux/random.h>
- #include <linux/moduleloader.h>
- #include <asm/unaligned.h>
-+#include <linux/bpf.h>
- 
- /* Registers */
- #define BPF_R0	regs[BPF_REG_0]
-@@ -71,7 +72,7 @@ struct bpf_prog *bpf_prog_alloc(unsigned int size, gfp_t gfp_extra_flags)
- {
- 	gfp_t gfp_flags = GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO |
- 			  gfp_extra_flags;
--	struct bpf_work_struct *ws;
-+	struct bpf_prog_aux *aux;
- 	struct bpf_prog *fp;
- 
- 	size = round_up(size, PAGE_SIZE);
-@@ -79,14 +80,14 @@ struct bpf_prog *bpf_prog_alloc(unsigned int size, gfp_t gfp_extra_flags)
- 	if (fp == NULL)
- 		return NULL;
- 
--	ws = kmalloc(sizeof(*ws), GFP_KERNEL | gfp_extra_flags);
--	if (ws == NULL) {
-+	aux = kzalloc(sizeof(*aux), GFP_KERNEL | gfp_extra_flags);
-+	if (aux == NULL) {
- 		vfree(fp);
- 		return NULL;
+ /* verbose verifier prints what it's seeing
+@@ -300,6 +305,115 @@ static void print_bpf_insn(struct bpf_insn *insn)
  	}
- 
- 	fp->pages = size / PAGE_SIZE;
--	fp->work = ws;
-+	fp->aux = aux;
- 
- 	return fp;
- }
-@@ -110,10 +111,10 @@ struct bpf_prog *bpf_prog_realloc(struct bpf_prog *fp_old, unsigned int size,
- 		memcpy(fp, fp_old, fp_old->pages * PAGE_SIZE);
- 		fp->pages = size / PAGE_SIZE;
- 
--		/* We keep fp->work from fp_old around in the new
-+		/* We keep fp->aux from fp_old around in the new
- 		 * reallocated structure.
- 		 */
--		fp_old->work = NULL;
-+		fp_old->aux = NULL;
- 		__bpf_prog_free(fp_old);
- 	}
- 
-@@ -123,7 +124,7 @@ EXPORT_SYMBOL_GPL(bpf_prog_realloc);
- 
- void __bpf_prog_free(struct bpf_prog *fp)
- {
--	kfree(fp->work);
-+	kfree(fp->aux);
- 	vfree(fp);
- }
- EXPORT_SYMBOL_GPL(__bpf_prog_free);
-@@ -638,19 +639,19 @@ EXPORT_SYMBOL_GPL(bpf_prog_select_runtime);
- 
- static void bpf_prog_free_deferred(struct work_struct *work)
- {
--	struct bpf_work_struct *ws;
-+	struct bpf_prog_aux *aux;
- 
--	ws = container_of(work, struct bpf_work_struct, work);
--	bpf_jit_free(ws->prog);
-+	aux = container_of(work, struct bpf_prog_aux, work);
-+	bpf_jit_free(aux->prog);
  }
  
- /* Free internal BPF program */
- void bpf_prog_free(struct bpf_prog *fp)
- {
--	struct bpf_work_struct *ws = fp->work;
-+	struct bpf_prog_aux *aux = fp->aux;
- 
--	INIT_WORK(&ws->work, bpf_prog_free_deferred);
--	ws->prog = fp;
--	schedule_work(&ws->work);
-+	INIT_WORK(&aux->work, bpf_prog_free_deferred);
-+	aux->prog = fp;
-+	schedule_work(&aux->work);
- }
- EXPORT_SYMBOL_GPL(bpf_prog_free);
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index d2d6491c21b5..a5b5c7ca0264 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -14,6 +14,8 @@
- #include <linux/slab.h>
- #include <linux/anon_inodes.h>
- #include <linux/file.h>
-+#include <linux/license.h>
-+#include <linux/filter.h>
- 
- static LIST_HEAD(bpf_map_types);
- 
-@@ -334,6 +336,166 @@ err_put:
- 	return err;
- }
- 
-+static LIST_HEAD(bpf_prog_types);
-+
-+static int find_prog_type(enum bpf_prog_type type, struct bpf_prog *prog)
++/* return the map pointer stored inside BPF_LD_IMM64 instruction */
++static struct bpf_map *ld_imm64_to_map_ptr(struct bpf_insn *insn)
 +{
-+	struct bpf_prog_type_list *tl;
++	u64 imm64 = ((u64) (u32) insn[0].imm) | ((u64) (u32) insn[1].imm) << 32;
 +
-+	list_for_each_entry(tl, &bpf_prog_types, list_node) {
-+		if (tl->type == type) {
-+			prog->aux->ops = tl->ops;
-+			prog->aux->prog_type = type;
-+			return 0;
++	return (struct bpf_map *) (unsigned long) imm64;
++}
++
++/* look for pseudo eBPF instructions that access map FDs and
++ * replace them with actual map pointers
++ */
++static int replace_map_fd_with_map_ptr(struct verifier_env *env)
++{
++	struct bpf_insn *insn = env->prog->insnsi;
++	int insn_cnt = env->prog->len;
++	int i, j;
++
++	for (i = 0; i < insn_cnt; i++, insn++) {
++		if (insn[0].code == (BPF_LD | BPF_IMM | BPF_DW)) {
++			struct bpf_map *map;
++			struct fd f;
++
++			if (i == insn_cnt - 1 || insn[1].code != 0 ||
++			    insn[1].dst_reg != 0 || insn[1].src_reg != 0 ||
++			    insn[1].off != 0) {
++				verbose("invalid bpf_ld_imm64 insn\n");
++				return -EINVAL;
++			}
++
++			if (insn->src_reg == 0)
++				/* valid generic load 64-bit imm */
++				goto next_insn;
++
++			if (insn->src_reg != BPF_PSEUDO_MAP_FD) {
++				verbose("unrecognized bpf_ld_imm64 insn\n");
++				return -EINVAL;
++			}
++
++			f = fdget(insn->imm);
++
++			map = bpf_map_get(f);
++			if (IS_ERR(map)) {
++				verbose("fd %d is not pointing to valid bpf_map\n",
++					insn->imm);
++				fdput(f);
++				return PTR_ERR(map);
++			}
++
++			/* store map pointer inside BPF_LD_IMM64 instruction */
++			insn[0].imm = (u32) (unsigned long) map;
++			insn[1].imm = ((u64) (unsigned long) map) >> 32;
++
++			/* check whether we recorded this map already */
++			for (j = 0; j < env->used_map_cnt; j++)
++				if (env->used_maps[j] == map) {
++					fdput(f);
++					goto next_insn;
++				}
++
++			if (env->used_map_cnt >= MAX_USED_MAPS) {
++				fdput(f);
++				return -E2BIG;
++			}
++
++			/* remember this map */
++			env->used_maps[env->used_map_cnt++] = map;
++
++			/* hold the map. If the program is rejected by verifier,
++			 * the map will be released by release_maps() or it
++			 * will be used by the valid program until it's unloaded
++			 * and all maps are released in free_bpf_prog_info()
++			 */
++			atomic_inc(&map->refcnt);
++
++			fdput(f);
++next_insn:
++			insn++;
++			i++;
 +		}
 +	}
-+	return -EINVAL;
-+}
 +
-+void bpf_register_prog_type(struct bpf_prog_type_list *tl)
-+{
-+	list_add(&tl->list_node, &bpf_prog_types);
-+}
-+
-+/* drop refcnt on maps used by eBPF program and free auxilary data */
-+static void free_used_maps(struct bpf_prog_aux *aux)
-+{
-+	int i;
-+
-+	for (i = 0; i < aux->used_map_cnt; i++)
-+		bpf_map_put(aux->used_maps[i]);
-+
-+	kfree(aux->used_maps);
-+}
-+
-+void bpf_prog_put(struct bpf_prog *prog)
-+{
-+	if (atomic_dec_and_test(&prog->aux->refcnt)) {
-+		free_used_maps(prog->aux);
-+		bpf_prog_free(prog);
-+	}
-+}
-+
-+static int bpf_prog_release(struct inode *inode, struct file *filp)
-+{
-+	struct bpf_prog *prog = filp->private_data;
-+
-+	bpf_prog_put(prog);
++	/* now all pseudo BPF_LD_IMM64 instructions load valid
++	 * 'struct bpf_map *' into a register instead of user map_fd.
++	 * These pointers will be used later by verifier to validate map access.
++	 */
 +	return 0;
 +}
 +
-+static const struct file_operations bpf_prog_fops = {
-+        .release = bpf_prog_release,
-+};
-+
-+static struct bpf_prog *get_prog(struct fd f)
++/* drop refcnt of maps used by the rejected program */
++static void release_maps(struct verifier_env *env)
 +{
-+	struct bpf_prog *prog;
++	int i;
 +
-+	if (!f.file)
-+		return ERR_PTR(-EBADF);
-+
-+	if (f.file->f_op != &bpf_prog_fops) {
-+		fdput(f);
-+		return ERR_PTR(-EINVAL);
-+	}
-+
-+	prog = f.file->private_data;
-+
-+	return prog;
++	for (i = 0; i < env->used_map_cnt; i++)
++		bpf_map_put(env->used_maps[i]);
 +}
 +
-+/* called by sockets/tracing/seccomp before attaching program to an event
-+ * pairs with bpf_prog_put()
-+ */
-+struct bpf_prog *bpf_prog_get(u32 ufd)
++/* convert pseudo BPF_LD_IMM64 into generic BPF_LD_IMM64 */
++static void convert_pseudo_ld_imm64(struct verifier_env *env)
 +{
-+	struct fd f = fdget(ufd);
-+	struct bpf_prog *prog;
++	struct bpf_insn *insn = env->prog->insnsi;
++	int insn_cnt = env->prog->len;
++	int i;
 +
-+	prog = get_prog(f);
-+
-+	if (IS_ERR(prog))
-+		return prog;
-+
-+	atomic_inc(&prog->aux->refcnt);
-+	fdput(f);
-+	return prog;
++	for (i = 0; i < insn_cnt; i++, insn++)
++		if (insn->code == (BPF_LD | BPF_IMM | BPF_DW))
++			insn->src_reg = 0;
 +}
 +
-+/* last field in 'union bpf_attr' used by this command */
-+#define	BPF_PROG_LOAD_LAST_FIELD license
-+
-+static int bpf_prog_load(union bpf_attr *attr)
-+{
-+	enum bpf_prog_type type = attr->prog_type;
-+	struct bpf_prog *prog;
-+	int err;
-+	char license[128];
-+	bool is_gpl;
-+
-+	if (CHECK_ATTR(BPF_PROG_LOAD))
-+		return -EINVAL;
-+
-+	/* copy eBPF program license from user space */
-+	if (strncpy_from_user(license, u64_to_ptr(attr->license),
-+			      sizeof(license) - 1) < 0)
-+		return -EFAULT;
-+	license[sizeof(license) - 1] = 0;
-+
-+	/* eBPF programs must be GPL compatible to use GPL-ed functions */
-+	is_gpl = license_is_gpl_compatible(license);
-+
-+	if (attr->insn_cnt >= BPF_MAXINSNS)
-+		return -EINVAL;
-+
-+	/* plain bpf_prog allocation */
-+	prog = bpf_prog_alloc(bpf_prog_size(attr->insn_cnt), GFP_USER);
-+	if (!prog)
-+		return -ENOMEM;
-+
-+	prog->len = attr->insn_cnt;
-+
-+	err = -EFAULT;
-+	if (copy_from_user(prog->insns, u64_to_ptr(attr->insns),
-+			   prog->len * sizeof(struct bpf_insn)) != 0)
-+		goto free_prog;
-+
-+	prog->orig_prog = NULL;
-+	prog->jited = false;
-+
-+	atomic_set(&prog->aux->refcnt, 1);
-+	prog->aux->is_gpl_compatible = is_gpl;
-+
-+	/* find program type: socket_filter vs tracing_filter */
-+	err = find_prog_type(type, prog);
-+	if (err < 0)
-+		goto free_prog;
-+
-+	/* run eBPF verifier */
-+	/* err = bpf_check(prog, tb); */
-+
-+	if (err < 0)
-+		goto free_used_maps;
-+
-+	/* eBPF program is ready to be JITed */
-+	bpf_prog_select_runtime(prog);
-+
-+	err = anon_inode_getfd("bpf-prog", &bpf_prog_fops, prog, O_RDWR | O_CLOEXEC);
-+
-+	if (err < 0)
-+		/* failed to allocate fd */
-+		goto free_used_maps;
-+
-+	return err;
-+
-+free_used_maps:
-+	free_used_maps(prog->aux);
-+free_prog:
-+	bpf_prog_free(prog);
-+	return err;
-+}
-+
- SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
+ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
  {
- 	union bpf_attr attr = {};
-@@ -370,6 +532,9 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
- 	case BPF_MAP_GET_NEXT_KEY:
- 		err = map_get_next_key(&attr);
- 		break;
-+	case BPF_PROG_LOAD:
-+		err = bpf_prog_load(&attr);
-+		break;
- 	default:
- 		err = -EINVAL;
- 		break;
+ 	char __user *log_ubuf = NULL;
+@@ -316,6 +430,8 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+ 	if (!env)
+ 		return -ENOMEM;
+ 
++	env->prog = prog;
++
+ 	/* grab the mutex to protect few globals used by verifier */
+ 	mutex_lock(&bpf_verifier_lock);
+ 
+@@ -342,8 +458,14 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+ 		log_level = 0;
+ 	}
+ 
++	ret = replace_map_fd_with_map_ptr(env);
++	if (ret < 0)
++		goto skip_full_check;
++
+ 	/* ret = do_check(env); */
+ 
++skip_full_check:
++
+ 	if (log_level && log_len >= log_size - 1) {
+ 		BUG_ON(log_len >= log_size);
+ 		/* verifier log exceeded user supplied buffer */
+@@ -357,11 +479,36 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+ 		goto free_log_buf;
+ 	}
+ 
++	if (ret == 0 && env->used_map_cnt) {
++		/* if program passed verifier, update used_maps in bpf_prog_info */
++		prog->aux->used_maps = kmalloc_array(env->used_map_cnt,
++						     sizeof(env->used_maps[0]),
++						     GFP_KERNEL);
++
++		if (!prog->aux->used_maps) {
++			ret = -ENOMEM;
++			goto free_log_buf;
++		}
++
++		memcpy(prog->aux->used_maps, env->used_maps,
++		       sizeof(env->used_maps[0]) * env->used_map_cnt);
++		prog->aux->used_map_cnt = env->used_map_cnt;
++
++		/* program is valid. Convert pseudo bpf_ld_imm64 into generic
++		 * bpf_ld_imm64 instructions
++		 */
++		convert_pseudo_ld_imm64(env);
++	}
+ 
+ free_log_buf:
+ 	if (log_level)
+ 		vfree(log_buf);
+ free_env:
++	if (!prog->aux->used_maps)
++		/* if we didn't copy map pointers into bpf_prog_info, release
++		 * them now. Otherwise free_bpf_prog_info() will release them.
++		 */
++		release_maps(env);
+ 	kfree(env);
+ 	mutex_unlock(&bpf_verifier_lock);
+ 	return ret;
 -- 
 1.7.9.5
