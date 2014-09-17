@@ -1,255 +1,249 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v4 net-next 5/7] sit: Setup and TX path for sit/UDP foo-over-udp encapsulation
-Date: Wed, 17 Sep 2014 12:25:59 -0700
-Message-ID: <1410981961-15545-6-git-send-email-therbert@google.com>
+Subject: [PATCH v4 net-next 4/7] net: Changes to ip_tunnel to support foo-over-udp encapsulation
+Date: Wed, 17 Sep 2014 12:25:58 -0700
+Message-ID: <1410981961-15545-5-git-send-email-therbert@google.com>
 References: <1410981961-15545-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:33510 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756527AbaIQT0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 15:26:32 -0400
-Received: by mail-pd0-f177.google.com with SMTP id r10so1306175pdi.8
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 12:26:32 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:37911 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756527AbaIQT0a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 15:26:30 -0400
+Received: by mail-pa0-f48.google.com with SMTP id hz1so2807536pad.21
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 12:26:29 -0700 (PDT)
 In-Reply-To: <1410981961-15545-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added netlink handling of IP tunnel encapulation paramters, properly
-adjust MTU for encapsulation. Added ip_tunnel_encap call to
-ipip6_tunnel_xmit to actually perform FOU encapsulation.
+This patch changes IP tunnel to support (secondary) encapsulation,
+Foo-over-UDP. Changes include:
+
+1) Adding tun_hlen as the tunnel header length, encap_hlen as the
+   encapsulation header length, and hlen becomes the grand total
+   of these.
+2) Added common netlink define to support FOU encapsulation.
+3) Routines to perform FOU encapsulation.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/ipv6/sit.c | 107 +++++++++++++++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 97 insertions(+), 10 deletions(-)
+ include/net/ip_tunnels.h       | 19 ++++++++-
+ include/uapi/linux/if_tunnel.h | 12 ++++++
+ net/ipv4/ip_tunnel.c           | 91 +++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 120 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 86e3fa8..db75809 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -822,6 +822,8 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 	int addr_type;
- 	u8 ttl;
- 	int err;
-+	u8 protocol = IPPROTO_IPV6;
-+	int t_hlen = tunnel->hlen + sizeof(struct iphdr);
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 8dd8cab..7f538ba 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -10,6 +10,7 @@
+ #include <net/gro_cells.h>
+ #include <net/inet_ecn.h>
+ #include <net/ip.h>
++#include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
  
- 	if (skb->protocol != htons(ETH_P_IPV6))
- 		goto tx_error;
-@@ -911,8 +913,14 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 		goto tx_error;
- 	}
+ #if IS_ENABLED(CONFIG_IPV6)
+@@ -31,6 +32,13 @@ struct ip_tunnel_6rd_parm {
+ };
+ #endif
  
-+	skb = iptunnel_handle_offloads(skb, false, SKB_GSO_SIT);
-+	if (IS_ERR(skb)) {
-+		ip_rt_put(rt);
-+		goto out;
-+	}
++struct ip_tunnel_encap {
++	__u16			type;
++	__u16			flags;
++	__be16			sport;
++	__be16			dport;
++};
 +
- 	if (df) {
--		mtu = dst_mtu(&rt->dst) - sizeof(struct iphdr);
-+		mtu = dst_mtu(&rt->dst) - t_hlen;
+ struct ip_tunnel_prl_entry {
+ 	struct ip_tunnel_prl_entry __rcu *next;
+ 	__be32				addr;
+@@ -56,13 +64,18 @@ struct ip_tunnel {
+ 	/* These four fields used only by GRE */
+ 	__u32		i_seqno;	/* The last seen seqno	*/
+ 	__u32		o_seqno;	/* The last output seqno */
+-	int		hlen;		/* Precalculated header length */
++	int		tun_hlen;	/* Precalculated header length */
+ 	int		mlink;
  
- 		if (mtu < 68) {
- 			dev->stats.collisions++;
-@@ -947,7 +955,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 	/*
- 	 * Okay, now see if we can stuff it in the buffer as-is.
- 	 */
--	max_headroom = LL_RESERVED_SPACE(tdev)+sizeof(struct iphdr);
-+	max_headroom = LL_RESERVED_SPACE(tdev) + t_hlen;
+ 	struct ip_tunnel_dst __percpu *dst_cache;
  
- 	if (skb_headroom(skb) < max_headroom || skb_shared(skb) ||
- 	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
-@@ -969,14 +977,13 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 		ttl = iph6->hop_limit;
- 	tos = INET_ECN_encapsulate(tos, ipv6_get_dsfield(iph6));
+ 	struct ip_tunnel_parm parms;
  
--	skb = iptunnel_handle_offloads(skb, false, SKB_GSO_SIT);
--	if (IS_ERR(skb)) {
-+	if (ip_tunnel_encap(skb, tunnel, &protocol, &fl4) < 0) {
- 		ip_rt_put(rt);
--		goto out;
-+		goto tx_error;
- 	}
- 
- 	err = iptunnel_xmit(skb->sk, rt, skb, fl4.saddr, fl4.daddr,
--			    IPPROTO_IPV6, tos, ttl, df,
-+			    protocol, tos, ttl, df,
- 			    !net_eq(tunnel->net, dev_net(dev)));
- 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
- 	return NETDEV_TX_OK;
-@@ -1059,8 +1066,10 @@ static void ipip6_tunnel_bind_dev(struct net_device *dev)
- 		tdev = __dev_get_by_index(tunnel->net, tunnel->parms.link);
- 
- 	if (tdev) {
-+		int t_hlen = tunnel->hlen + sizeof(struct iphdr);
++	int		encap_hlen;	/* Encap header length (FOU,GUE) */
++	struct ip_tunnel_encap encap;
 +
- 		dev->hard_header_len = tdev->hard_header_len + sizeof(struct iphdr);
--		dev->mtu = tdev->mtu - sizeof(struct iphdr);
-+		dev->mtu = tdev->mtu - t_hlen;
- 		if (dev->mtu < IPV6_MIN_MTU)
- 			dev->mtu = IPV6_MIN_MTU;
- 	}
-@@ -1307,7 +1316,10 @@ done:
- 
- static int ipip6_tunnel_change_mtu(struct net_device *dev, int new_mtu)
- {
--	if (new_mtu < IPV6_MIN_MTU || new_mtu > 0xFFF8 - sizeof(struct iphdr))
-+	struct ip_tunnel *tunnel = netdev_priv(dev);
-+	int t_hlen = tunnel->hlen + sizeof(struct iphdr);
++	int		hlen;		/* tun_hlen + encap_hlen */
 +
-+	if (new_mtu < IPV6_MIN_MTU || new_mtu > 0xFFF8 - t_hlen)
- 		return -EINVAL;
- 	dev->mtu = new_mtu;
- 	return 0;
-@@ -1338,12 +1350,15 @@ static void ipip6_dev_free(struct net_device *dev)
+ 	/* for SIT */
+ #ifdef CONFIG_IPV6_SIT_6RD
+ 	struct ip_tunnel_6rd_parm ip6rd;
+@@ -114,6 +127,8 @@ void ip_tunnel_delete_net(struct ip_tunnel_net *itn, struct rtnl_link_ops *ops);
+ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		    const struct iphdr *tnl_params, const u8 protocol);
+ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd);
++int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
++		    u8 *protocol, struct flowi4 *fl4);
+ int ip_tunnel_change_mtu(struct net_device *dev, int new_mtu);
  
- static void ipip6_tunnel_setup(struct net_device *dev)
- {
-+	struct ip_tunnel *tunnel = netdev_priv(dev);
-+	int t_hlen = tunnel->hlen + sizeof(struct iphdr);
+ struct rtnl_link_stats64 *ip_tunnel_get_stats64(struct net_device *dev,
+@@ -131,6 +146,8 @@ int ip_tunnel_newlink(struct net_device *dev, struct nlattr *tb[],
+ 		      struct ip_tunnel_parm *p);
+ void ip_tunnel_setup(struct net_device *dev, int net_id);
+ void ip_tunnel_dst_reset_all(struct ip_tunnel *t);
++int ip_tunnel_encap_setup(struct ip_tunnel *t,
++			  struct ip_tunnel_encap *ipencap);
+ 
+ /* Extract dsfield from inner protocol */
+ static inline u8 ip_tunnel_get_dsfield(const struct iphdr *iph,
+diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+index 3bce9e9..9fedca7 100644
+--- a/include/uapi/linux/if_tunnel.h
++++ b/include/uapi/linux/if_tunnel.h
+@@ -53,10 +53,22 @@ enum {
+ 	IFLA_IPTUN_6RD_RELAY_PREFIX,
+ 	IFLA_IPTUN_6RD_PREFIXLEN,
+ 	IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
++	IFLA_IPTUN_ENCAP_TYPE,
++	IFLA_IPTUN_ENCAP_FLAGS,
++	IFLA_IPTUN_ENCAP_SPORT,
++	IFLA_IPTUN_ENCAP_DPORT,
+ 	__IFLA_IPTUN_MAX,
+ };
+ #define IFLA_IPTUN_MAX	(__IFLA_IPTUN_MAX - 1)
+ 
++enum tunnel_encap_types {
++	TUNNEL_ENCAP_NONE,
++	TUNNEL_ENCAP_FOU,
++};
 +
- 	dev->netdev_ops		= &ipip6_netdev_ops;
- 	dev->destructor		= ipip6_dev_free;
++#define TUNNEL_ENCAP_FLAG_CSUM		(1<<0)
++#define TUNNEL_ENCAP_FLAG_CSUM6		(1<<1)
++
+ /* SIT-mode i_flags */
+ #define	SIT_ISATAP	0x0001
  
- 	dev->type		= ARPHRD_SIT;
--	dev->hard_header_len	= LL_MAX_HEADER + sizeof(struct iphdr);
--	dev->mtu		= ETH_DATA_LEN - sizeof(struct iphdr);
-+	dev->hard_header_len	= LL_MAX_HEADER + t_hlen;
-+	dev->mtu		= ETH_DATA_LEN - t_hlen;
- 	dev->flags		= IFF_NOARP;
- 	dev->priv_flags	       &= ~IFF_XMIT_DST_RELEASE;
- 	dev->iflink		= 0;
-@@ -1466,6 +1481,40 @@ static void ipip6_netlink_parms(struct nlattr *data[],
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index afed1aa..e3a3dc9 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -55,6 +55,7 @@
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
++#include <net/udp.h>
  
+ #if IS_ENABLED(CONFIG_IPV6)
+ #include <net/ipv6.h>
+@@ -487,6 +488,91 @@ drop:
  }
+ EXPORT_SYMBOL_GPL(ip_tunnel_rcv);
  
-+/* This function returns true when ENCAP attributes are present in the nl msg */
-+static bool ipip6_netlink_encap_parms(struct nlattr *data[],
-+				      struct ip_tunnel_encap *ipencap)
++static int ip_encap_hlen(struct ip_tunnel_encap *e)
 +{
-+	bool ret = false;
-+
-+	memset(ipencap, 0, sizeof(*ipencap));
-+
-+	if (!data)
-+		return ret;
-+
-+	if (data[IFLA_IPTUN_ENCAP_TYPE]) {
-+		ret = true;
-+		ipencap->type = nla_get_u16(data[IFLA_IPTUN_ENCAP_TYPE]);
++	switch (e->type) {
++	case TUNNEL_ENCAP_NONE:
++		return 0;
++	case TUNNEL_ENCAP_FOU:
++		return sizeof(struct udphdr);
++	default:
++		return -EINVAL;
 +	}
-+
-+	if (data[IFLA_IPTUN_ENCAP_FLAGS]) {
-+		ret = true;
-+		ipencap->flags = nla_get_u16(data[IFLA_IPTUN_ENCAP_FLAGS]);
-+	}
-+
-+	if (data[IFLA_IPTUN_ENCAP_SPORT]) {
-+		ret = true;
-+		ipencap->sport = nla_get_u16(data[IFLA_IPTUN_ENCAP_SPORT]);
-+	}
-+
-+	if (data[IFLA_IPTUN_ENCAP_DPORT]) {
-+		ret = true;
-+		ipencap->dport = nla_get_u16(data[IFLA_IPTUN_ENCAP_DPORT]);
-+	}
-+
-+	return ret;
 +}
 +
- #ifdef CONFIG_IPV6_SIT_6RD
- /* This function returns true when 6RD attributes are present in the nl msg */
- static bool ipip6_netlink_6rd_parms(struct nlattr *data[],
-@@ -1509,12 +1558,20 @@ static int ipip6_newlink(struct net *src_net, struct net_device *dev,
- {
- 	struct net *net = dev_net(dev);
- 	struct ip_tunnel *nt;
-+	struct ip_tunnel_encap ipencap;
- #ifdef CONFIG_IPV6_SIT_6RD
- 	struct ip_tunnel_6rd ip6rd;
- #endif
- 	int err;
- 
- 	nt = netdev_priv(dev);
++int ip_tunnel_encap_setup(struct ip_tunnel *t,
++			  struct ip_tunnel_encap *ipencap)
++{
++	int hlen;
 +
-+	if (ipip6_netlink_encap_parms(data, &ipencap)) {
-+		err = ip_tunnel_encap_setup(nt, &ipencap);
-+		if (err < 0)
-+			return err;
++	memset(&t->encap, 0, sizeof(t->encap));
++
++	hlen = ip_encap_hlen(ipencap);
++	if (hlen < 0)
++		return hlen;
++
++	t->encap.type = ipencap->type;
++	t->encap.sport = ipencap->sport;
++	t->encap.dport = ipencap->dport;
++	t->encap.flags = ipencap->flags;
++
++	t->encap_hlen = hlen;
++	t->hlen = t->encap_hlen + t->tun_hlen;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(ip_tunnel_encap_setup);
++
++static int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++			    size_t hdr_len, u8 *protocol, struct flowi4 *fl4)
++{
++	struct udphdr *uh;
++	__be16 sport;
++	bool csum = !!(e->flags & TUNNEL_ENCAP_FLAG_CSUM);
++	int type = csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
++
++	skb = iptunnel_handle_offloads(skb, csum, type);
++
++	if (IS_ERR(skb))
++		return PTR_ERR(skb);
++
++	/* Get length and hash before making space in skb */
++
++	sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
++					       skb, 0, 0, false);
++
++	skb_push(skb, hdr_len);
++
++	skb_reset_transport_header(skb);
++	uh = udp_hdr(skb);
++
++	uh->dest = e->dport;
++	uh->source = sport;
++	uh->len = htons(skb->len);
++	uh->check = 0;
++	udp_set_csum(!(e->flags & TUNNEL_ENCAP_FLAG_CSUM), skb,
++		     fl4->saddr, fl4->daddr, skb->len);
++
++	*protocol = IPPROTO_UDP;
++
++	return 0;
++}
++
++int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
++		    u8 *protocol, struct flowi4 *fl4)
++{
++	switch (t->encap.type) {
++	case TUNNEL_ENCAP_NONE:
++		return 0;
++	case TUNNEL_ENCAP_FOU:
++		return fou_build_header(skb, &t->encap, t->encap_hlen,
++					protocol, fl4);
++	default:
++		return -EINVAL;
 +	}
++}
++EXPORT_SYMBOL(ip_tunnel_encap);
 +
- 	ipip6_netlink_parms(data, &nt->parms);
- 
- 	if (ipip6_tunnel_locate(net, &nt->parms, 0))
-@@ -1537,15 +1594,23 @@ static int ipip6_changelink(struct net_device *dev, struct nlattr *tb[],
+ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
+ 			    struct rtable *rt, __be16 df)
  {
- 	struct ip_tunnel *t = netdev_priv(dev);
- 	struct ip_tunnel_parm p;
-+	struct ip_tunnel_encap ipencap;
- 	struct net *net = t->net;
- 	struct sit_net *sitn = net_generic(net, sit_net_id);
- #ifdef CONFIG_IPV6_SIT_6RD
- 	struct ip_tunnel_6rd ip6rd;
- #endif
-+	int err;
- 
- 	if (dev == sitn->fb_tunnel_dev)
- 		return -EINVAL;
- 
-+	if (ipip6_netlink_encap_parms(data, &ipencap)) {
-+		err = ip_tunnel_encap_setup(t, &ipencap);
-+		if (err < 0)
-+			return err;
-+	}
-+
- 	ipip6_netlink_parms(data, &p);
- 
- 	if (((dev->flags & IFF_POINTOPOINT) && !p.iph.daddr) ||
-@@ -1599,6 +1664,14 @@ static size_t ipip6_get_size(const struct net_device *dev)
- 		/* IFLA_IPTUN_6RD_RELAY_PREFIXLEN */
- 		nla_total_size(2) +
- #endif
-+		/* IFLA_IPTUN_ENCAP_TYPE */
-+		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_FLAGS */
-+		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_SPORT */
-+		nla_total_size(2) +
-+		/* IFLA_IPTUN_ENCAP_DPORT */
-+		nla_total_size(2) +
- 		0;
+@@ -536,7 +622,7 @@ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
  }
  
-@@ -1630,6 +1703,16 @@ static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 		goto nla_put_failure;
- #endif
+ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+-		    const struct iphdr *tnl_params, const u8 protocol)
++		    const struct iphdr *tnl_params, u8 protocol)
+ {
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	const struct iphdr *inner_iph;
+@@ -617,6 +703,9 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	init_tunnel_flow(&fl4, protocol, dst, tnl_params->saddr,
+ 			 tunnel->parms.o_key, RT_TOS(tos), tunnel->parms.link);
  
-+	if (nla_put_u16(skb, IFLA_IPTUN_ENCAP_TYPE,
-+			tunnel->encap.type) ||
-+	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_SPORT,
-+			tunnel->encap.sport) ||
-+	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_DPORT,
-+			tunnel->encap.dport) ||
-+	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_FLAGS,
-+			tunnel->encap.dport))
-+		goto nla_put_failure;
++	if (ip_tunnel_encap(skb, tunnel, &protocol, &fl4) < 0)
++		goto tx_error;
 +
- 	return 0;
+ 	rt = connected ? tunnel_rtable_get(tunnel, 0, &fl4.saddr) : NULL;
  
- nla_put_failure:
-@@ -1651,6 +1734,10 @@ static const struct nla_policy ipip6_policy[IFLA_IPTUN_MAX + 1] = {
- 	[IFLA_IPTUN_6RD_PREFIXLEN]	= { .type = NLA_U16 },
- 	[IFLA_IPTUN_6RD_RELAY_PREFIXLEN] = { .type = NLA_U16 },
- #endif
-+	[IFLA_IPTUN_ENCAP_TYPE]		= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_FLAGS]	= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_SPORT]	= { .type = NLA_U16 },
-+	[IFLA_IPTUN_ENCAP_DPORT]	= { .type = NLA_U16 },
- };
- 
- static void ipip6_dellink(struct net_device *dev, struct list_head *head)
+ 	if (!rt) {
 -- 
 2.1.0.rc2.206.gedb03e5
