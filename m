@@ -1,300 +1,78 @@
-From: Joe M <joe9mail@gmail.com>
-Subject: Re: Figuring out how vti works
-Date: Wed, 17 Sep 2014 18:04:07 -0500
-Message-ID: <CAHjjW16qdT6RWuJaUd1c6k39RgcPtfsyF=V-dVowW_2UwhF_dw@mail.gmail.com>
-References: <20140915142043.GA22070@master>
-	<20140917052811.GT6390@secunet.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCHv5 net-next 3/3] sunvnet: generate ICMP PTMUD messages
+ for smaller port MTUs
+Date: Wed, 17 Sep 2014 19:41:58 -0400
+Message-ID: <541A1C46.90201@oracle.com>
+References: <5419F3E5.4050708@oracle.com> <20140917224351.GM26828@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f52.google.com ([209.85.216.52]:54117 "EHLO
-	mail-qa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756959AbaIQXEI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 19:04:08 -0400
-Received: by mail-qa0-f52.google.com with SMTP id m5so76414qaj.11
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 16:04:07 -0700 (PDT)
-In-Reply-To: <20140917052811.GT6390@secunet.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:48429 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751978AbaIQXmE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 19:42:04 -0400
+In-Reply-To: <20140917224351.GM26828@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Steffen,
-
-Thanks for responding. Sorry that it took me some time to gather all
-the information.
-
-> Do you know where the packets are getting dropped?
-
-All I can see from the below statistics is that the ip_vti0 tunnel is
-getting picked up instead of the vtil tunnel.
-
-> netstat -i or /proc/net/xfrm_stat could give a hint.
-
-master# netstat -i
-Kernel Interface table
-Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
-enp4s0    1500     2310      0     57 0          1974      0      0      0 BMRU
-ip_vti0   1428        0      2      0 0             0     10      0      0 ORU
-lo       65536      600      0      0 0           600      0      0      0 LRU
-vtil      1428        0      0      0 0             0      0      0      0 OPRU
-master# ip -statistics xfrm state
-src 192.168.0.11 dst <client or alice or bnglr public ip>
-        proto esp spi 0xc0b44648(3233039944) reqid 1(0x00000001) mode tunnel
-        replay-window 32 seq 0x00000000 flag af-unspec (0x00100000)
-        mark 1/0xffffffff
-        auth-trunc hmac(sha1)
-0x6fb52dc437eb26b65bd0dced995aa27e78a7e869 (160 bits) 96
-        enc cbc(aes) 0x7e431bdc0ec138d0d8476c4afb0ccd63 (128 bits)
-        encap type espinudp sport 4500 dport 4500 addr 0.0.0.0
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 902(sec), hard 1200(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          0(bytes), 0(packets)
-          add 2014-09-17 17:38:06 use -
-        stats:
-          replay-window 0 replay 0 failed 0
-src <client or alice or bnglr public ip> dst 192.168.0.11
-        proto esp spi 0xc514e2d3(3306480339) reqid 1(0x00000001) mode tunnel
-        replay-window 32 seq 0x00000000 flag af-unspec (0x00100000)
-        mark 1/0xffffffff
-        auth-trunc hmac(sha1)
-0x8b4fd0749314d3656c962124e69c554ca03c9e11 (160 bits) 96
-        enc cbc(aes) 0x27e2a7cae3a24c20584e841a16dcf89d (128 bits)
-        encap type espinudp sport 4500 dport 4500 addr 0.0.0.0
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 848(sec), hard 1200(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          0(bytes), 0(packets)
-          add 2014-09-17 17:38:05 use -
-        stats:
-          replay-window 0 replay 0 failed 0
 
 
-master# netstat -i
-Kernel Interface table
-Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
-enp4s0    1500     3214      0     69 0          2886      0      0      0 BMRU
-ip_vti0   1428        0      2      0 0             0     21      0      0 ORU
-lo       65536      629      0      0 0           629      0      0      0 LRU
-vtil      1428        0      0      0 0             0      1      0      0 OPRU
-master# ping -c 1 -I 192.168.0.11 192.168.1.232
-PING 192.168.1.232 (192.168.1.232) from 192.168.0.11 : 56(84) bytes of data.
+On 09/17/2014 06:43 PM, Sowmini Varadhan wrote:
+> On (09/17/14 16:49), David L Stevens wrote:
+>> +
+>> +			rt = ip_route_output_key(dev_net(dev), &fl4);
+>> +			if (!IS_ERR(rt)) {
+> 
+> As I've mentioned before, this layering violation makes me uneasy,
+> so its benefits should be evaluated carefully.  You will typically not be
+> able to find an rt for packets coming here from any application
+> that does not itself use/update the FIB, e.g., uspace based packet-injectors
+> (PF_PACKET-based applications, intel dpdk-based uspace stacks etc.)
 
---- 192.168.1.232 ping statistics ---
-1 packets transmitted, 0 received, 100% packet loss, time 0ms
+I think the configurations where it doesn't work are reasonably rare, and
+the default on boot is a 1500-byte MTU for everyone and none of these ICMP
+errors will be triggered if that is where all hosts on the vswitch leave it.
+You don't have to ever mix MTUs. The alternative in all cases where we send
+an ICMP error to make it work is to instead silently drop those packets, all
+packets of the same size or larger that we get after. It does nothing different
+whatsoever for any configuration that works today. It only allows other configurations
+to work also.
 
-master# netstat -i
-Kernel Interface table
-Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
-enp4s0    1500     3217      0     69 0          2890      0      0      0 BMRU
-ip_vti0   1428        0      2      0 0             0     21      0      0 ORU
-lo       65536      629      0      0 0           629      0      0      0 LRU
-vtil      1428        0      0      0 0             0      1      0      0 OPRU
-master# ping -c 1 -I 192.168.0.11 192.168.1.232
-PING 192.168.1.232 (192.168.1.232) from 192.168.0.11 : 56(84) bytes of data.
+A pair of Linux LDOMs can get 8X throughput improvement by raising the MTU to 64K, but
+many packets will be *silently* dropped if they go to any other destination that does
+not support 64K MTU. Those destinations that don't support 64K MTU include any legacy
+Linux running the pre-jumbo code and all Solaris hosts, including the current releases.
 
---- 192.168.1.232 ping statistics ---
-1 packets transmitted, 0 received, 100% packet loss, time 0ms
+With the ICMP errors, the new linux code can interoperate properly with all of them, and
+do so at much higher throughput (4-8X) with those that can support higher MTUs.
 
-master# netstat -i
-Kernel Interface table
-Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
-enp4s0    1500     3230      0     69 0          2897      0      0      0 BMRU
-ip_vti0   1428        0      2      0 0             0     22      0      0 ORU
-lo       65536      629      0      0 0           629      0      0      0 LRU
-vtil      1428        0      0      0 0             0      1      0      0 OPRU
-master# ping -c 1 -I 192.168.0.11 192.168.1.232
-PING 192.168.1.232 (192.168.1.232) from 192.168.0.11 : 56(84) bytes of data.
+Also, I wouldn't call it a layering violation. icmp_send() is the external API for
+triggering ICMP errors, and we are sending them at the point where we know the next-hop MTU.
+It is exactly equivalent to an Ethernet device connected to a switch where the switch
+sends useful layer-3 packets (like IGMP queries). In this case, that useful layer 3 info
+is remote link MTU data; something not available in ordinary Ethernet.
 
---- 192.168.1.232 ping statistics ---
-1 packets transmitted, 0 received, 100% packet loss, time 0ms
+Also, any PF_PACKET or other applications that bypass the routing tables can still (and
+should) receive and process PMTUD packets. If you're sending raw Ethernet frames that are
+IP, you should. If you mean non-routable protocols, none of those can be delivered over
+any link where these ICMP errors would be sent, anyway. If you try to send an 18000-byte
+non-IP packet with a 1500-byte MTU, it will be dropped today, and still dropped with this
+patchset.
 
-master# netstat -i
-Kernel Interface table
-Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
-enp4s0    1500     3250      0     69 0          2912      0      0      0 BMRU
-ip_vti0   1428        0      2      0 0             0     22      0      0 ORU
-lo       65536      629      0      0 0           629      0      0      0 LRU
-vtil      1428        0      0      0 0             0      1      0      0 OPRU
-master#
+Large broadcast frames (your comment from another mail) will not work, just as they won't
+work today. If you need to do that, you should leave the MTU of the sender below the lowest
+MTU attached to the same switch, the way you would for any other Ethernet, and they'll be
+fragmented and reassembled.
 
->From what I gather, nothing seems to be going through the vtil tunnel.
-The ip_vti0 seems to get used instead.
+On the other hand, if you want your TCP and UDP traffic over IPv4 and IPv6 to be 4-8 times
+faster than it is today without any other change, you can accept the deficiencies in the
+otherwise not-allowed configuration and set the device MTU to 64K even when it's mixed with
+other devices that can't do it. If all of them support the higher MTU, none of this code
+comes into play. If some of them don't, this code allows them to interoperate; without this
+code, all those packets are simply silently dropped and your network can only function at
+the level of the least capable attached LDOM.
 
->> The pings worked fine if I remove the ip_vti and ip_tunnel modules,
->> the "mark=1" from /etc/ipsec.conf and the iptables mangle rules to
->> set-mark.
->
-> You don't need to set the mark with iptables.
-> You just have to ensure that the policy and state marks
-> match the tunnel keys. I.e. direction in and forward must
-> match the ikey, direction out must match the okey.
->
->>
->> sudo ip tunnel list
->> vtil: ip/ip  remote 192.168.1.232  local 192.168.0.11  ttl inherit ikey 0  okey 1
->
-> Your ikey does not match the policy and the state mark.
->
->>
->> sudo ip xfrm policy
->> src 192.168.1.0/24 dst 192.168.0.0/24
->>         dir fwd priority 2883
->>         mark 1/0xffffffff
->>         tmpl src <bnglr public ip> dst 192.168.0.11
->>                 proto esp reqid 2 mode tunnel
->> src 192.168.1.0/24 dst 192.168.0.0/24
->>         dir in priority 2883
->>         mark 1/0xffffffff
->
-> If you set mark 1 here, the tunnel should set ikey 1.
->
->>
->> I tried setting the mangle rules to set-mark but that did not help. I
->> could not find any more documentation.
->>
->
-> Please try without setting a mark with netfilter.
->
-
-I removed the iptables rules and set all policy to ACCEPT in iptables
-raw, nat, mangle and raw tables.
-
-master# echo "1" | sudo tee /proc/sys/net/ipv4/ip_forward
-1
-master# modprobe ip_vti
-master# ipsec start
-Starting strongSwan 5.2.0 IPsec [starter]...
-master# ip tunnel add vtil mode vti local 192.168.0.11 remote
-192.168.1.232 ikey 1 okey 1
-master# ip link set vtil up
-master# sleep 60
-master# ip route add 192.168.1.0/24 dev vtil
-master# ip xfrm state
-src 192.168.0.11 dst <client or alice or bnglr public ip>
-        proto esp spi 0xc0b44648 reqid 1 mode tunnel
-        replay-window 32 flag af-unspec
-        mark 1/0xffffffff
-        auth-trunc hmac(sha1) 0x6fb52dc437eb26b65bd0dced995aa27e78a7e869 96
-        enc cbc(aes) 0x7e431bdc0ec138d0d8476c4afb0ccd63
-        encap type espinudp sport 4500 dport 4500 addr 0.0.0.0
-src <client or alice or bnglr public ip> dst 192.168.0.11
-        proto esp spi 0xc514e2d3 reqid 1 mode tunnel
-        replay-window 32 flag af-unspec
-        mark 1/0xffffffff
-        auth-trunc hmac(sha1) 0x8b4fd0749314d3656c962124e69c554ca03c9e11 96
-        enc cbc(aes) 0x27e2a7cae3a24c20584e841a16dcf89d
-        encap type espinudp sport 4500 dport 4500 addr 0.0.0.0
-master# ip xfrm policy
-src 192.168.1.0/24 dst 192.168.0.0/24
-        dir fwd priority 2883
-        mark 1/0xffffffff
-        tmpl src <client or alice or bnglr public ip> dst 192.168.0.11
-                proto esp reqid 1 mode tunnel
-src 192.168.1.0/24 dst 192.168.0.0/24
-        dir in priority 2883
-        mark 1/0xffffffff
-        tmpl src <client or alice or bnglr public ip> dst 192.168.0.11
-                proto esp reqid 1 mode tunnel
-src 192.168.0.0/24 dst 192.168.1.0/24
-        dir out priority 2883
-        mark 1/0xffffffff
-        tmpl src 192.168.0.11 dst <client or alice or bnglr public ip>
-                proto esp reqid 1 mode tunnel
-src 0.0.0.0/0 dst 0.0.0.0/0
-        socket in priority 0
-src 0.0.0.0/0 dst 0.0.0.0/0
-        socket out priority 0
-src 0.0.0.0/0 dst 0.0.0.0/0
-        socket in priority 0
-src 0.0.0.0/0 dst 0.0.0.0/0
-        socket out priority 0
-src ::/0 dst ::/0
-        socket in priority 0
-src ::/0 dst ::/0
-        socket out priority 0
-src ::/0 dst ::/0
-        socket in priority 0
-src ::/0 dst ::/0
-        socket out priority 0
-master# ip tunnel list
-ip_vti0: ip/ip  remote any  local any  ttl inherit  nopmtudisc key 0
-vtil: ip/ip  remote 192.168.1.232  local 192.168.0.11  ttl inherit  key 1
-master# ip route list
-default via 192.168.0.1 dev enp4s0  metric 202
-127.0.0.0/8 dev lo  scope host
-192.168.0.0/24 dev enp4s0  proto kernel  scope link  src 192.168.0.11
-metric 202
-192.168.1.0/24 dev vtil  scope link
-master# uname -a
-Linux master 3.16.3 #90 SMP PREEMPT Wed Sep 17 13:39:17 CDT 2014
-x86_64 Intel(R) Pentium(R) CPU G620 @ 2.60GHz GenuineIntel GNU/Linux
-master# ip -V
-ip utility, iproute2-ss140804
-
-
-
-sudo tcpdump -nS 'src port 500 or dst port 500 or src port 4500 or dst
-port 4500' -i enp4s0
-Password:
-error : ret -1
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on enp4s0, link-type EN10MB (Ethernet), capture size 65535 bytes
-17:56:48.651871 IP 192.168.0.11.4500 > <client or alice or bnglr
-public ip>.4500: isakmp-nat-keep-alive
-17:56:56.934729 IP <client or alice or bnglr public ip>.4500 >
-192.168.0.11.4500: isakmp-nat-keep-alive
-17:57:08.652113 IP 192.168.0.11.4500 > <client or alice or bnglr
-public ip>.4500: isakmp-nat-keep-alive
-17:57:16.934548 IP <client or alice or bnglr public ip>.4500 >
-192.168.0.11.4500: isakmp-nat-keep-alive
-17:57:28.652359 IP 192.168.0.11.4500 > <client or alice or bnglr
-public ip>.4500: isakmp-nat-keep-alive
-17:57:36.938056 IP <client or alice or bnglr public ip>.4500 >
-192.168.0.11.4500: isakmp-nat-keep-alive
-17:57:48.652624 IP 192.168.0.11.4500 > <client or alice or bnglr
-public ip>.4500: isakmp-nat-keep-alive
-17:57:56.935926 IP <client or alice or bnglr public ip>.4500 >
-192.168.0.11.4500: isakmp-nat-keep-alive
-17:58:08.652872 IP 192.168.0.11.4500 > <client or alice or bnglr
-public ip>.4500: isakmp-nat-keep-alive
-17:58:17.005488 IP <client or alice or bnglr public ip>.4500 >
-192.168.0.11.4500: isakmp-nat-keep-alive
-
-and there is no tcpdump output on vtil interface.
-
-master# cat /etc/ipsec.conf
-# /etc/ipsec.conf - strongSwan IPsec configuration file
-
-config setup
-
-conn %default
-        ikelifetime=60m
-        keylife=20m
-        rekeymargin=3m
-        keyingtries=1
-        keyexchange=ikev2
-        mobike=no
-
-conn master-bnglr
-        leftid="C=CH, O=strongSwan, CN=master"
-        leftcert=masterCert.der
-        left=192.168.0.11
-        leftsubnet=192.168.0.0/24
-        rightid="C=CH, O=strongSwan, CN=bnglr"
-        right=%any
-        rightsubnet=192.168.1.0/24
-        auto=add
-        mark=1
-
-Any other thoughts, please?
-
-Thanks
-Joe
+								+-DLS
