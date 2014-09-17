@@ -1,77 +1,67 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: Re: [B.A.T.M.A.N.] [PATCH 09/22] batman-adv: Replace strnicmp with
- strncasecmp
-Date: Wed, 17 Sep 2014 08:00:42 +0200
-Message-ID: <5419238A.8030001@meshcoding.com>
-References: <1410900696-6481-1-git-send-email-linux@rasmusvillemoes.dk> <1410900696-6481-10-git-send-email-linux@rasmusvillemoes.dk>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] ip lib: Change timestamp to be shorter and on
+ the same line
+Date: Wed, 17 Sep 2014 09:06:47 +0300
+Message-ID: <CAMw6YJJcu69p=43c3ey2Ha1q_7Rkzs00jOtyiK058nNEcE78Wg@mail.gmail.com>
+References: <1410861486-2631-1-git-send-email-vadim4j@gmail.com>
+	<20140916193850.4dec41e8@urahara>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="SOcx18Pxa3dtFqOhd25HGjq8DjMx6bgaw"
-Cc: netdev@vger.kernel.org,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	linux-kernel@vger.kernel.org,
-	Marek Lindner <mareklindner@neomailbox.ch>
-To: The list for a Better Approach To Mobile Ad-hoc
-	 Networking <b.a.t.m.a.n@lists.open-mesh.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1410900696-6481-10-git-send-email-linux@rasmusvillemoes.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---SOcx18Pxa3dtFqOhd25HGjq8DjMx6bgaw
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f53.google.com ([209.85.192.53]:36121 "EHLO
+	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751262AbaIQGGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 02:06:48 -0400
+Received: by mail-qg0-f53.google.com with SMTP id q108so1276266qgd.12
+        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 23:06:47 -0700 (PDT)
+In-Reply-To: <20140916193850.4dec41e8@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16/09/14 22:51, Rasmus Villemoes wrote:
-> The kernel used to contain two functions for length-delimited,
-> case-insensitive string comparison, strnicmp with correct semantics
-> and a slightly buggy strncasecmp. The latter is the POSIX name, so
-> strnicmp was renamed to strncasecmp, and strnicmp made into a wrapper
-> for the new strncasecmp to avoid breaking existing users.
->=20
-> To allow the compat wrapper strnicmp to be removed at some point in
-> the future, and to avoid the extra indirection cost, do
-> s/strnicmp/strncasecmp/g.
->=20
-> Cc: Marek Lindner <mareklindner@neomailbox.ch>
-> Cc: b.a.t.m.a.n@lists.open-mesh.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Sure, I can add new option, currently timestamp is printed on separated
+line so this solution I think can be easier to parse when it will be
+on the same line as message,
+and easier to detect to which message timestamp belongs.
 
-Acked-by: Antonio Quartulli <antonio@meshcoding.com>
-
-Thank you
-
-
-
---=20
-Antonio Quartulli
-
-
---SOcx18Pxa3dtFqOhd25HGjq8DjMx6bgaw
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJUGSOOAAoJEJgn97Bh2u9eVvMQAJVCB7XfWcFSKT4CaiV5BIf9
-FmoWMmk0GFHOOhjCzmBSPZ0OY62r75rleJBfd8j4gCpJZnrekX6RODUf1OGK9U2q
-DnQjTdPVneI3EM72c9v7tQBH+HWsMffPX7xIAfHpUXNbSH97860tdddAIMBVAf3I
-ESEPOTwW/Nz1DnAI8/qVzErJAo28/BNjCL/19pwjmudj4AgTx8IxmXyAdGW+Kib6
-NvBGMt7Wh528yatvh/VrcFRr14XgFZHFYXkKXBEtYFW/Vu/TbxXsZIunk9if61On
-noV1isZ2o73+/kucMfjSWfciMyaDEwZCqTVEv57DVeSNkJ8bC3f8tx5ad8GDL7UF
-bvR7XV+mKZAJiA0rH0KS+Pof1l9l6fdQxqtw0yPSKm3T3vCXvz+9F2Axk4ievd7C
-Zuy5z46PLnO2ZzX3W6bgjYAkEA/cXvn+DM7j/03Rcn6RqCbRHLofsyPfNnFAuUvN
-3/YC2nxjilogX9bi1Wx3s05hZdUNqboxLzby0mOMo8oHxR/TTWjKi68HZ7YG8UiD
-Rg1GNJc/8/KmFCZuYKXZYjPkEj1kJ/8sgovSLHytJ2Xqb35GWmkRpcDemO+VGB/H
-a8BkB8IsdrncBRRpgPvoBNAkujJKPg4WENPB2ORumrLNBMjXDdk9IkkK1b9SBPWm
-Oi5cA2z0uaoNw5HwBRrI
-=sDAN
------END PGP SIGNATURE-----
-
---SOcx18Pxa3dtFqOhd25HGjq8DjMx6bgaw--
+On Wed, Sep 17, 2014 at 5:38 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Tue, 16 Sep 2014 12:58:06 +0300
+> Vadim Kochan <vadim4j@gmail.com> wrote:
+>
+>> Changed timestamp format to look like more logging info:
+>>
+>> [Sep 01 20:56:11.853146]2: enp0s25: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default
+>>     link/ether 3c:97:0e:a3:86:2e brd ff:ff:ff:ff:ff:ff
+>>
+>> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+>> ---
+>>  lib/utils.c | 7 +++----
+>>  1 file changed, 3 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/lib/utils.c b/lib/utils.c
+>> index dc21567..03092ba 100644
+>> --- a/lib/utils.c
+>> +++ b/lib/utils.c
+>> @@ -772,14 +772,13 @@ __u8* hexstring_a2n(const char *str, __u8 *buf, int blen)
+>>  int print_timestamp(FILE *fp)
+>>  {
+>>       struct timeval tv;
+>> -     char *tstr;
+>> +     char tstr[40] = {};
+>>
+>>       memset(&tv, 0, sizeof(tv));
+>>       gettimeofday(&tv, NULL);
+>>
+>> -     tstr = asctime(localtime(&tv.tv_sec));
+>> -     tstr[strlen(tstr)-1] = 0;
+>> -     fprintf(fp, "Timestamp: %s %ld usec\n", tstr, (long)tv.tv_usec);
+>> +     strftime(tstr, sizeof(tstr), "%b %d %H:%M:%S", localtime(&tv.tv_sec));
+>> +     fprintf(fp, "[%s.%ld]", tstr, (long)tv.tv_usec);
+>>       return 0;
+>>  }
+>>
+>
+> I am loath to change the output format since people write scripts parsing
+> output. Maybe add a new flag option to choose format?
