@@ -1,100 +1,87 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 7/8] net: dsa: bcm_sf2: communicate integrated PHY revision to PHY driver
-Date: Tue, 16 Sep 2014 16:53:03 -0700
-Message-ID: <1410911584-1559-8-git-send-email-f.fainelli@gmail.com>
-References: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:46573 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754211AbaIPXyA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Sep 2014 19:54:00 -0400
-Received: by mail-pa0-f41.google.com with SMTP id bj1so849814pad.0
-        for <netdev@vger.kernel.org>; Tue, 16 Sep 2014 16:53:59 -0700 (PDT)
-In-Reply-To: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH 3/3] bridge;
+ Automatically filter vlans configured on top of bridge
+Date: Wed, 17 Sep 2014 09:25:23 +0900
+Message-ID: <5418D4F3.5070701@lab.ntt.co.jp>
+References: <1410554691-18467-1-git-send-email-vyasevic@redhat.com>
+	<1410554691-18467-4-git-send-email-vyasevic@redhat.com>
+	<5415B6C2.5030702@gmail.com> <54170372.4080903@redhat.com>
+	<54181EC1.2010608@lab.ntt.co.jp> <54183BCF.8070506@redhat.com>
+	<54184BB9.8010802@gmail.com> <54185095.4020102@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, bridge@lists.linux-foundation.org
+To: vyasevic@redhat.com, Toshiaki Makita <toshiaki.makita1@gmail.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <54185095.4020102@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-The integrated BCM7xxx PHY contains no useful revision information
-in its MII_PHYSID2 bits 3:0, that information is instead contained in
-the SWITCH_REG_PHY_REVISION register.
+On 2014/09/17 0:00, Vlad Yasevich wrote:
+> On 09/16/2014 10:39 AM, Toshiaki Makita wrote:
+>> (14/09/16 (火) 22:31), Vlad Yasevich wrote:
+>>> On 09/16/2014 07:28 AM, Toshiaki Makita wrote:
+>>>> On 2014/09/16 0:19, Vlad Yasevich wrote:
+>>>>> On 09/14/2014 11:39 AM, Toshiaki Makita wrote:
+>>>>>> (14/09/13 (土) 5:44), Vladislav Yasevich wrote:
+>>>>>>> If the user configures vlan devices on top of the bridge,
+>>>>>>> automatically set up filter entries for it as long as
+>>>>>>> bridge vlan protocol matches that of the vlan.
+>>>>>>> This allows the user to atomatically receive vlan traffic
+>>>>>>> for the vlans that are convifgured.
+>>>>>>
+>>>>>> Changing br->vlan_proto seems to cause inconsistency between vlan
+>>>>>> interfaces and filter settings.
+>>>>>> Can we automatically change filters when setting vlan_proto?
+>>>>>>
+>>>>>
+>>>>> I thought we already do that in br_vlan_set_proto()?  Nothing
+>>>>> here introduces any new kinds of issue with that code.
+>>>>
+>>>> I'm referring to a case like this:
+>>>> 1. create br0.10 (802.1ad)
+>>>> 2. change br->vlan_proto into 88a8
+>>>>
+>>>> When creating br0.10 (1), br->vlan_proto is 8100 and different from
+>>>> protocol of br0.10, so it is ignored by br_vlan_rx_add_vid().
+>>>> After changing br->vlan_proto (2), we might expect vlan 10 is not
+>>>> filtered on br0, but it will be filtered.
+>>>
+>>> Ok, I see what you mean.  This one is a bit tough.  Our options are:
+>>>   1) Return an error when configuring br0.10.  This might break user-space.  Not good.
+>>>   2) Ignore protocol when crating the filter.  This is not good either as the user
+>>>      may not switch the bridge vlan_proto value and we'd end up with a wrong filter.
+>>>   3) Re-implement .1ad support per-vlan instead of per-bridge.
+>>>
+>>> You see another other alternatives?
+>>
+>> We might be able to configure filterings on changing vlan_proto.
+>> 4) Memorize different protocol's filtering requests in
+>> br_vlan_rx_add_vid() and use them when switching vlan_proto.
+> 
+> If we do this, we might as well take it one small step further and make per-vlan protocol
+> support.
+> 
+>> 5) Scan vlan devices on bridge device when changing vlan_proto.
+>>
+> 
+> The scan could work...  walk the upper devices looking for vlans and add/delete filters
+> based on the protocol of the vlan devices.
+> 
+> Seems kind of hacky, but let me give this one a try...
 
-Read this register, store its value, and return it by implementing the
-dsa_switch::get_phy_flags() callback accordingly. The register layout is
-already matching what the BCM7xxx PHY driver is expecting to find.
+dev->vlan_info->vid_list might be a more appropriate list since
+vlan_vid_add() can be called not only by vlan devices.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/bcm_sf2.c      | 16 ++++++++++++++++
- drivers/net/dsa/bcm_sf2.h      |  1 +
- drivers/net/dsa/bcm_sf2_regs.h |  1 +
- 3 files changed, 18 insertions(+)
-
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 02d7db320d90..a97ba2548ea5 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -376,6 +376,9 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
- 					SWITCH_TOP_REV_MASK;
- 	priv->hw_params.core_rev = (rev & SF2_REV_MASK);
- 
-+	rev = reg_readl(priv, REG_PHY_REVISION);
-+	priv->hw_params.gphy_rev = rev & PHY_REVISION_MASK;
-+
- 	pr_info("Starfighter 2 top: %x.%02x, core: %x.%02x base: 0x%p, IRQs: %d, %d\n",
- 		priv->hw_params.top_rev >> 8, priv->hw_params.top_rev & 0xff,
- 		priv->hw_params.core_rev >> 8, priv->hw_params.core_rev & 0xff,
-@@ -399,6 +402,18 @@ static int bcm_sf2_sw_set_addr(struct dsa_switch *ds, u8 *addr)
- 	return 0;
- }
- 
-+static u32 bcm_sf2_sw_get_phy_flags(struct dsa_switch *ds, int port)
-+{
-+	struct bcm_sf2_priv *priv = ds_to_priv(ds);
-+
-+	/* The BCM7xxx PHY driver expects to find the integrated PHY revision
-+	 * in bits 15:8 and the patch level in bits 7:0 which is exactly what
-+	 * the REG_PHY_REVISION register layout is.
-+	 */
-+
-+	return priv->hw_params.gphy_rev;
-+}
-+
- static int bcm_sf2_sw_indir_rw(struct dsa_switch *ds, int op, int addr,
- 			       int regnum, u16 val)
- {
-@@ -597,6 +612,7 @@ static struct dsa_switch_driver bcm_sf2_switch_driver = {
- 	.probe			= bcm_sf2_sw_probe,
- 	.setup			= bcm_sf2_sw_setup,
- 	.set_addr		= bcm_sf2_sw_set_addr,
-+	.get_phy_flags		= bcm_sf2_sw_get_phy_flags,
- 	.phy_read		= bcm_sf2_sw_phy_read,
- 	.phy_write		= bcm_sf2_sw_phy_write,
- 	.get_strings		= bcm_sf2_sw_get_strings,
-diff --git a/drivers/net/dsa/bcm_sf2.h b/drivers/net/dsa/bcm_sf2.h
-index 260bab313e58..d3bd52dc40d2 100644
---- a/drivers/net/dsa/bcm_sf2.h
-+++ b/drivers/net/dsa/bcm_sf2.h
-@@ -26,6 +26,7 @@
- struct bcm_sf2_hw_params {
- 	u16	top_rev;
- 	u16	core_rev;
-+	u16	gphy_rev;
- 	u32	num_gphy;
- 	u8	num_acb_queue;
- 	u8	num_rgmii;
-diff --git a/drivers/net/dsa/bcm_sf2_regs.h b/drivers/net/dsa/bcm_sf2_regs.h
-index 885c231b03b5..c65f138c777f 100644
---- a/drivers/net/dsa/bcm_sf2_regs.h
-+++ b/drivers/net/dsa/bcm_sf2_regs.h
-@@ -25,6 +25,7 @@
- #define  SWITCH_TOP_REV_MASK		0xffff
- 
- #define REG_PHY_REVISION		0x1C
-+#define  PHY_REVISION_MASK		0xffff
- 
- #define REG_SPHY_CNTRL			0x2C
- #define  IDDQ_BIAS			(1 << 0)
--- 
-1.9.1
+Thanks,
+Toshiaki Makita
