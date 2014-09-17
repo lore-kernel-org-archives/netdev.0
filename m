@@ -1,69 +1,60 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: CPU scheduler to TXQ binding? (ixgbe vs. igb)
-Date: Wed, 17 Sep 2014 07:59:51 -0700
-Message-ID: <5419A1E7.8040109@intel.com>
-References: <20140917152653.1c824a22@redhat.com> <1410964359.7106.229.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: sched: use __skb_queue_head_init() where
+ applicable
+Date: Wed, 17 Sep 2014 08:05:05 -0700
+Message-ID: <1410966305.7106.238.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jesper Dangaard Brouer <jbrouer@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:11695 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755672AbaIQO7w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Sep 2014 10:59:52 -0400
-In-Reply-To: <1410964359.7106.229.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:57734 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755268AbaIQPFH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 11:05:07 -0400
+Received: by mail-pa0-f42.google.com with SMTP id lj1so2323611pab.15
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 08:05:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/17/2014 07:32 AM, Eric Dumazet wrote:
-> On Wed, 2014-09-17 at 15:26 +0200, Jesper Dangaard Brouer wrote:
->> The CPU to TXQ binding behavior of ixgbe vs. igb NIC driver are
->> somehow different.  Normally I setup NIC IRQ-to-CPU bindings 1-to-1,
->> with script set_irq_affinity [1].
->>
->> For forcing use of a specific HW TXQ, I normally force the CPU binding
->> of the process, either with "taskset" or with "netperf -T lcpu,rcpu".
->>
->> This works fine with driver ixgbe, but not with driver igb.  That is
->> with igb, the program forced to specific CPU, can still use another
->> TXQ. What am I missing?
->>
->>
->> I'm monitoring this with both:
->>  1) watch -d sudo tc -s -d q ls dev ethXX
->>  2) https://github.com/ffainelli/bqlmon
->>
->> [1] https://github.com/netoptimizer/network-testing/blob/master/bin/set_irq_affinity
-> 
-> Have you setup XPS ?
-> 
-> echo 0001 >/sys/class/net/ethX/queues/tx-0/xps_cpus
-> echo 0002 >/sys/class/net/ethX/queues/tx-1/xps_cpus
-> echo 0004 >/sys/class/net/ethX/queues/tx-2/xps_cpus
-> echo 0008 >/sys/class/net/ethX/queues/tx-3/xps_cpus
-> echo 0010 >/sys/class/net/ethX/queues/tx-4/xps_cpus
-> echo 0020 >/sys/class/net/ethX/queues/tx-5/xps_cpus
-> echo 0040 >/sys/class/net/ethX/queues/tx-6/xps_cpus
-> echo 0080 >/sys/class/net/ethX/queues/tx-7/xps_cpus
-> 
-> Or something like that, depending on number of cpus and TX queues.
-> 
+From: Eric Dumazet <edumazet@google.com>
 
-That was what I was thinking as well.
+pfifo_fast and htb use skb lists, without needing their spinlocks.
+(They instead use the standard qdisc lock)
 
-ixgbe has ATR which makes use of XPS to setup the transmit queues for a
-1:1 mapping.  The receive side of the flow is routed back to the same Rx
-queue through flow director mappings.
+We can use __skb_queue_head_init() instead of skb_queue_head_init()
+to be consistent.
 
-In the case of igb it only has RSS and doesn't set a default XPS
-configuration.  So you should probably setup XPS and you might also want
-to try and make use of RPS to try and steer receive packets since the Rx
-queues won't match the Tx queues.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sched/sch_generic.c |    2 +-
+ net/sched/sch_htb.c     |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Thanks,
-
-Alex
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 346ef85617d3..11b28f651ad1 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -523,7 +523,7 @@ static int pfifo_fast_init(struct Qdisc *qdisc, struct nlattr *opt)
+ 	struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
+ 
+ 	for (prio = 0; prio < PFIFO_FAST_BANDS; prio++)
+-		skb_queue_head_init(band2list(priv, prio));
++		__skb_queue_head_init(band2list(priv, prio));
+ 
+ 	/* Can by-pass the queue discipline */
+ 	qdisc->flags |= TCQ_F_CAN_BYPASS;
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 6d16b9b81c28..14408f262143 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1044,7 +1044,7 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 	qdisc_watchdog_init(&q->watchdog, sch);
+ 	INIT_WORK(&q->work, htb_work_func);
+-	skb_queue_head_init(&q->direct_queue);
++	__skb_queue_head_init(&q->direct_queue);
+ 
+ 	if (tb[TCA_HTB_DIRECT_QLEN])
+ 		q->direct_qlen = nla_get_u32(tb[TCA_HTB_DIRECT_QLEN]);
