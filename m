@@ -1,80 +1,53 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net] openvswitch: restore OVS_FLOW_CMD_NEW notifications
-Date: Wed, 17 Sep 2014 14:56:28 -0700
-Message-ID: <CALnjE+rzvxC1-SvkkF237JitBTqHWaria6mw4EmDygMUSzUcUQ@mail.gmail.com>
-References: <1410970400-9797-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v11 net-next 12/12] bpf: mini eBPF library, test stubs
+ and verifier testsuite
+Date: Wed, 17 Sep 2014 23:59:58 +0200
+Message-ID: <541A045E.3030206@redhat.com>
+References: <1410325808-3657-1-git-send-email-ast@plumgrid.com> <1410325808-3657-13-git-send-email-ast@plumgrid.com> <54103776.3080706@redhat.com> <CAMEtUuzEQu30WiYprRcDBogJxxrDeNhvn=kF+z8cVvhR-vjTQg@mail.gmail.com> <54193542.6080101@redhat.com> <CAMEtUuzaCEX9RKDBMnQBZSHdTjjidp81myfSVVi4qQqtSGgtmw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Samuel Gauthier <samuel.gauthier@6wind.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog106.obsmtp.com ([74.125.149.77]:46843 "HELO
-	na3sys009aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755953AbaIQV4c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 17:56:32 -0400
-Received: by mail-ie0-f182.google.com with SMTP id y20so2668817ier.41
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 14:56:28 -0700 (PDT)
-In-Reply-To: <1410970400-9797-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMEtUuzaCEX9RKDBMnQBZSHdTjjidp81myfSVVi4qQqtSGgtmw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 17, 2014 at 9:13 AM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
-> From: Samuel Gauthier <samuel.gauthier@6wind.com>
+On 09/17/2014 06:17 PM, Alexei Starovoitov wrote:
+> On Wed, Sep 17, 2014 at 12:16 AM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+>>
+>> That actually still doesn't answer my question why the test stub
+>> cannot live in lib/test_bpf where we have our actual testing
+>> framework for eBPF/BPF, also since you exactly only build test_stub.c
+>> when TEST_BPF is enabled which is the Kconfig for lib/test_bpf.
 >
-> Since commit fb5d1e9e127a ("openvswitch: Build flow cmd netlink reply only if needed."),
-> the new flows are not notified to the listeners of OVS_FLOW_MCGROUP.
+> multiple reasons:
+> 1.
+> lib/test_bpf.c is a module, whereas test_stub.c is kernel builtin.
 >
-> This commit fixes the problem by checking that there are listeners in
-> the actual OVS_FLOW_MCGROUP group, instead of 0.
+> 2.
+> I wasn't sure that reusing CONFIG_TEST_BPF for this
+> purpose was a good idea. May be it's better to introduce
+> CONFIG_BPF_VERIFIER_TEST_STUBS or something.
 >
+> 3.
+> kernel/bpf/test_stubs.c can be removed once real tracing
+> or socket use case is in.
 
-right, this is bug. group id should be one.
-
-> Signed-off-by: Samuel Gauthier <samuel.gauthier@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  net/openvswitch/datapath.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> index 91d66b7e64ac..8396f6063343 100644
-> --- a/net/openvswitch/datapath.c
-> +++ b/net/openvswitch/datapath.c
-> @@ -79,10 +79,10 @@ static const struct genl_multicast_group ovs_dp_vport_multicast_group = {
->  /* Check if need to build a reply message.
->   * OVS userspace sets the NLM_F_ECHO flag if it needs the reply. */
->  static bool ovs_must_notify(struct genl_info *info,
-> -                           const struct genl_multicast_group *grp)
-> +                           unsigned int group)
->  {
->         return info->nlhdr->nlmsg_flags & NLM_F_ECHO ||
-> -               netlink_has_listeners(genl_info_net(info)->genl_sock, 0);
-> +               netlink_has_listeners(genl_info_net(info)->genl_sock, group);
->  }
->
->  static void ovs_notify(struct genl_family *family,
-> @@ -763,7 +763,7 @@ static struct sk_buff *ovs_flow_cmd_alloc_info(const struct sw_flow_actions *act
->  {
->         struct sk_buff *skb;
->
-> -       if (!always && !ovs_must_notify(info, &ovs_dp_flow_multicast_group))
-> +       if (!always && !ovs_must_notify(info, dp_flow_genl_family.mcgrp_offset))
->                 return NULL;
->
-
-
-I do not think mcgrp_offset is right group id. It is starting offset
-of groups in a family and it is marked as private member of genl
-module.
-Rather we can just define enum for ovs_dp_flow_multicast_group and
-directly use that as group-id.
-
-
->         skb = genlmsg_new_unicast(ovs_flow_cmd_msg_size(acts), info, GFP_KERNEL);
-> --
-> 2.1.0
->
+Yes, please, lets go for point 3 at the very least.
