@@ -1,77 +1,40 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH v7 ethtool 0/2] patchset - Support for configurable RSS
- hash key
-Date: Wed, 17 Sep 2014 10:55:29 +0200
-Message-ID: <54194C81.2020109@redhat.com>
-References: <e8020e05-df87-4251-90b1-cbaf53296631@CMEXHTCAS1.ad.emulex.com> <BF3270C86E8B1349A26C34E4EC1C44CB2C908A15@CMEXMB1.ad.emulex.com> <53E86A79.8010700@redhat.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCHv4 net-next 2/3] sunvnet: allow admin to set sunvnet MTU
+Date: Wed, 17 Sep 2014 09:07:04 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17494244@AcuExch.aculab.com>
+References: <541785D8.5030101@oracle.com> <541886B9.3010206@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "ben@decadent.org.uk" <ben@decadent.org.uk>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'David L Stevens' <david.stevens@oracle.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1031 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751754AbaIQIzR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Sep 2014 04:55:17 -0400
-In-Reply-To: <53E86A79.8010700@redhat.com>
+Received: from mx0.aculab.com ([213.249.233.131]:38608 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751754AbaIQJJH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 05:09:07 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 23153-03 for <netdev@vger.kernel.org>;
+ Wed, 17 Sep 2014 10:08:56 +0100 (BST)
+In-Reply-To: <541886B9.3010206@oracle.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11.8.2014 09:02, Ivan Vecera wrote:
-> On 31.7.2014 09:43, Venkat Duvvuru wrote:
->>
->>
->>> -----Original Message-----
->>> From: netdev-owner@vger.kernel.org [mailto:netdev-
->>> owner@vger.kernel.org] On Behalf Of Venkat Duvvuru
->>> Sent: Tuesday, July 22, 2014 5:51 PM
->>> To: ben@decadent.org.uk
->>> Cc: netdev@vger.kernel.org; Venkat Duvvuru
->>> Subject: [PATCH v7 ethtool 0/2] patchset - Support for configurable
->>> RSS hash
->>> key
->>>
->>> NIC drivers that support RSS use either a hard-coded value or a
->>> random value
->>> for the RSS hash key. Irrespective of the type of the key used, the user
->>> would want to change the hash key if he/she is not satisfied with the
->>> effectiveness of the default hash-key in spreading the incoming flows
->>> evenly
->>> across the RSS queues.
->>>
->>> This patch set adds support for configuring the RSS hash-key via the
->>> ethtool
->>> interface using -X/-x option.
->>>
->>> v7:
->>> 1. Changed rss string to RSS to be consistent with other parts of the
->>> error
->>> codes
->>>     and documentation.
->>> 2. Corrected a few error messages
->>> 3. Changed error codes to use either 1 or 2 based on the situation
->>> 4. Added test cases in test-cmdline.c
->>>
->>> Venkat Duvvuru (2):
->>>    ethtool: Support for configurable RSS hash key.
->>>    ethtool: Support for configurable RSS hash key.
->>>
->>>   ethtool-copy.h |  478
->>> ++++++++++++++++++++++++++++++++++++++++++--------------
->>>   ethtool.8.in   |   18 ++-
->>>   ethtool.c      |  393 +++++++++++++++++++++++++++++++++++++++--------
->>>   test-cmdline.c |   11 ++
->>>   4 files changed, 717 insertions(+), 183 deletions(-)
->>
->> Ben, Please let me know if you have any further comments on this.
->>
->> /Venkat.
-> Hi Ben,
-> any objection?
->
-> Ivan
-Ben, is there any problem with this??
+From: David L Stevens
+> On 09/15/2014 08:35 PM, David L Stevens wrote:
+> 
+> >   */
+> >  #define VNET_TX_TIMEOUT			(5 * HZ)
+> >
+> > -#define VNET_MAXPACKET			1518ULL /* ETH_FRAMELEN + VLAN_HDR */
+> > +#define VNET_MAXPACKET			65553ULL /* 64K-1  +ETH HDR +VLAN HDR*/
 
-Ivan
+That would be better as the expression (0xffffull + 14 + 4).
+
+> >  #define VNET_TX_RING_SIZE		512
+> >  #define VNET_TX_WAKEUP_THRESH(dr)	((dr)->pending / 4)
+
+	David
