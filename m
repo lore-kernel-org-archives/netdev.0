@@ -1,58 +1,54 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] openvswitch: restore OVS_FLOW_CMD_NEW notifications
-Date: Wed, 17 Sep 2014 18:13:20 +0200
-Message-ID: <1410970400-9797-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, dev@openvswitch.org, netdev@vger.kernel.org,
-	Samuel Gauthier <samuel.gauthier@6wind.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35385 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755940AbaIQQOC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 12:14:02 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v11 net-next 12/12] bpf: mini eBPF library, test stubs and
+ verifier testsuite
+Date: Wed, 17 Sep 2014 09:17:41 -0700
+Message-ID: <CAMEtUuzaCEX9RKDBMnQBZSHdTjjidp81myfSVVi4qQqtSGgtmw@mail.gmail.com>
+References: <1410325808-3657-1-git-send-email-ast@plumgrid.com>
+	<1410325808-3657-13-git-send-email-ast@plumgrid.com>
+	<54103776.3080706@redhat.com>
+	<CAMEtUuzEQu30WiYprRcDBogJxxrDeNhvn=kF+z8cVvhR-vjTQg@mail.gmail.com>
+	<54193542.6080101@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linuxfoundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linuxfoundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54193542.6080101@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Samuel Gauthier <samuel.gauthier@6wind.com>
+On Wed, Sep 17, 2014 at 12:16 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>
+>
+> That actually still doesn't answer my question why the test stub
+> cannot live in lib/test_bpf where we have our actual testing
+> framework for eBPF/BPF, also since you exactly only build test_stub.c
+> when TEST_BPF is enabled which is the Kconfig for lib/test_bpf.
 
-Since commit fb5d1e9e127a ("openvswitch: Build flow cmd netlink reply only if needed."),
-the new flows are not notified to the listeners of OVS_FLOW_MCGROUP.
+multiple reasons:
+1.
+lib/test_bpf.c is a module, whereas test_stub.c is kernel builtin.
 
-This commit fixes the problem by checking that there are listeners in
-the actual OVS_FLOW_MCGROUP group, instead of 0.
+2.
+I wasn't sure that reusing CONFIG_TEST_BPF for this
+purpose was a good idea. May be it's better to introduce
+CONFIG_BPF_VERIFIER_TEST_STUBS or something.
 
-Signed-off-by: Samuel Gauthier <samuel.gauthier@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/openvswitch/datapath.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 91d66b7e64ac..8396f6063343 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -79,10 +79,10 @@ static const struct genl_multicast_group ovs_dp_vport_multicast_group = {
- /* Check if need to build a reply message.
-  * OVS userspace sets the NLM_F_ECHO flag if it needs the reply. */
- static bool ovs_must_notify(struct genl_info *info,
--			    const struct genl_multicast_group *grp)
-+			    unsigned int group)
- {
- 	return info->nlhdr->nlmsg_flags & NLM_F_ECHO ||
--		netlink_has_listeners(genl_info_net(info)->genl_sock, 0);
-+		netlink_has_listeners(genl_info_net(info)->genl_sock, group);
- }
- 
- static void ovs_notify(struct genl_family *family,
-@@ -763,7 +763,7 @@ static struct sk_buff *ovs_flow_cmd_alloc_info(const struct sw_flow_actions *act
- {
- 	struct sk_buff *skb;
- 
--	if (!always && !ovs_must_notify(info, &ovs_dp_flow_multicast_group))
-+	if (!always && !ovs_must_notify(info, dp_flow_genl_family.mcgrp_offset))
- 		return NULL;
- 
- 	skb = genlmsg_new_unicast(ovs_flow_cmd_msg_size(acts), info, GFP_KERNEL);
--- 
-2.1.0
+3.
+kernel/bpf/test_stubs.c can be removed once real tracing
+or socket use case is in.
