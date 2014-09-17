@@ -1,104 +1,60 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 3/3] bridge;
- Automatically filter vlans configured on top of bridge
-Date: Wed, 17 Sep 2014 10:14:43 -0400
-Message-ID: <54199753.8050608@redhat.com>
-References: <1410554691-18467-1-git-send-email-vyasevic@redhat.com>
-	<1410554691-18467-4-git-send-email-vyasevic@redhat.com>
-	<5415B6C2.5030702@gmail.com> <54170372.4080903@redhat.com>
-	<54181EC1.2010608@lab.ntt.co.jp> <54183BCF.8070506@redhat.com>
-	<54184BB9.8010802@gmail.com> <54185095.4020102@redhat.com>
-	<5418D4F3.5070701@lab.ntt.co.jp>
-Reply-To: vyasevic@redhat.com
+From: Martin Kelly <martin@martingkelly.com>
+Subject: Re: Question about synchronize_net() in AF_PACKET close()
+Date: Wed, 17 Sep 2014 07:29:27 -0700
+Message-ID: <54199AC7.1040502@martingkelly.com>
+References: <CAN8CM3zo3bMxZV_UvywCPNjJrMwMA2-+POfY8cR429iodHRc+A@mail.gmail.com>	<20140909.150000.1647602729214485795.davem@davemloft.net> <CAN8CM3xEnQXVgrLpV0rfAJoZ75v6Xv64pAGJ-9SAPACAT8WJ_w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: shemminger@vyatta.com, bridge@lists.linux-foundation.org
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Toshiaki Makita <toshiaki.makita1@gmail.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <5418D4F3.5070701@lab.ntt.co.jp>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Paul McKenney <paulmck@linux.vnet.ibm.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:42194 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754061AbaIQO3b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 10:29:31 -0400
+Received: by mail-pa0-f46.google.com with SMTP id kq14so2270629pab.33
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 07:29:30 -0700 (PDT)
+In-Reply-To: <CAN8CM3xEnQXVgrLpV0rfAJoZ75v6Xv64pAGJ-9SAPACAT8WJ_w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/16/2014 08:25 PM, Toshiaki Makita wrote:
-> On 2014/09/17 0:00, Vlad Yasevich wrote:
->> On 09/16/2014 10:39 AM, Toshiaki Makita wrote:
->>> (14/09/16 (=E7=81=AB) 22:31), Vlad Yasevich wrote:
->>>> On 09/16/2014 07:28 AM, Toshiaki Makita wrote:
->>>>> On 2014/09/16 0:19, Vlad Yasevich wrote:
->>>>>> On 09/14/2014 11:39 AM, Toshiaki Makita wrote:
->>>>>>> (14/09/13 (=E5=9C=9F) 5:44), Vladislav Yasevich wrote:
->>>>>>>> If the user configures vlan devices on top of the bridge,
->>>>>>>> automatically set up filter entries for it as long as
->>>>>>>> bridge vlan protocol matches that of the vlan.
->>>>>>>> This allows the user to atomatically receive vlan traffic
->>>>>>>> for the vlans that are convifgured.
->>>>>>>
->>>>>>> Changing br->vlan_proto seems to cause inconsistency between vlan
->>>>>>> interfaces and filter settings.
->>>>>>> Can we automatically change filters when setting vlan_proto?
->>>>>>>
->>>>>>
->>>>>> I thought we already do that in br_vlan_set_proto()?  Nothing
->>>>>> here introduces any new kinds of issue with that code.
->>>>>
->>>>> I'm referring to a case like this:
->>>>> 1. create br0.10 (802.1ad)
->>>>> 2. change br->vlan_proto into 88a8
->>>>>
->>>>> When creating br0.10 (1), br->vlan_proto is 8100 and different from
->>>>> protocol of br0.10, so it is ignored by br_vlan_rx_add_vid().
->>>>> After changing br->vlan_proto (2), we might expect vlan 10 is not
->>>>> filtered on br0, but it will be filtered.
->>>>
->>>> Ok, I see what you mean.  This one is a bit tough.  Our options are:
->>>>   1) Return an error when configuring br0.10.  This might break user=
--space.  Not good.
->>>>   2) Ignore protocol when crating the filter.  This is not good eith=
-er as the user
->>>>      may not switch the bridge vlan_proto value and we'd end up with=
- a wrong filter.
->>>>   3) Re-implement .1ad support per-vlan instead of per-bridge.
->>>>
->>>> You see another other alternatives?
->>>
->>> We might be able to configure filterings on changing vlan_proto.
->>> 4) Memorize different protocol's filtering requests in
->>> br_vlan_rx_add_vid() and use them when switching vlan_proto.
+On 09/10/2014 02:37 PM, Martin Kelly wrote:
+>> The synchronize_net() is also there to protect against the prot hook
+>> which can run asynchronously from the core packet input path on any
+>> cpu.
 >>
->> If we do this, we might as well take it one small step further and mak=
-e per-vlan protocol
->> support.
->>
->>> 5) Scan vlan devices on bridge device when changing vlan_proto.
->>>
->>
->> The scan could work...  walk the upper devices looking for vlans and a=
-dd/delete filters
->> based on the protocol of the vlan devices.
->>
->> Seems kind of hacky, but let me give this one a try...
->=20
-> dev->vlan_info->vid_list might be a more appropriate list since
-> vlan_vid_add() can be called not only by vlan devices.
+> 
+> Yes, understood. What I'm not clear about is whether it is safe to do
+> the following:
+> 
+> unregister_prot_hook(sk, false);
+> sock_orphan(sk);
+> sock->sk = NULL;
+> call_rcu(...);
+> close socket, return to userspace
+> 
+> instead of
+> 
+> unregister_prot_hook(sk, false);
+> synchronize_net();
+> sock_orphan(sk);
+> sock->sk = NULL;
+> close socket, return to userspace
+> 
+> If you don't call synchronize_net() immediately, then other readers
+> could see the protocol hook in the protocol list and try to use it.
+> They could call into prot_hook.func. However, it appears that  such
+> functions ( e.g. packet_rcv() ) touch the socket buffer but not the
+> socket itself, so orphaning the socket before all RCUs have been
+> processed is safe. In addition, no new packets will come in after
+> packet_release() and touch the socket because the socket fd will be
+> removed from the process fd list.
+> 
+> From my testing, I'm not seeing any obvious issues, but I could be
+> missing something. Is orphaning the socket before all RCUs have
+> finished unsafe?
+> 
 
-That's private to vlan implementation and I don't think this is a good re=
-ason
-to expose it.
-
--vlad
-
->=20
-> Thanks,
-> Toshiaki Makita
->=20
+(friendly ping)
