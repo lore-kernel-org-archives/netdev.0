@@ -1,54 +1,32 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 1/2 nf-next] net: bridge: don't register netfilter
- call_iptables hooks by default
-Date: Wed, 17 Sep 2014 14:42:30 +0200
-Message-ID: <20140917124230.GJ14006@breakpoint.cc>
-References: <1410882457-16641-1-git-send-email-fw@strlen.de>
- <20140917121530.GA3750@salvia>
+From: mroos@linux.ee
+Subject: Re: bisected regression: 3c59x corrupts packets in 3.17-rc5
+Date: Wed, 17 Sep 2014 15:43:54 +0300 (EEST)
+Message-ID: <alpine.LRH.2.11.1409171529350.26961@adalberg.ut.ee>
+References: <alpine.LRH.2.11.1409160209280.21050@adalberg.ut.ee> <20140916101704.GA3792@hmsreliant.think-freely.org> <20140916.162923.605101746131407931.davem@davemloft.net> <20140917102701.GA5699@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:60337 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754061AbaIQMmc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 08:42:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20140917121530.GA3750@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, steffen@klassert.de,
+	netdev@vger.kernel.org,
+	Linux Kernel list <linux-kernel@vger.kernel.org>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140917102701.GA5699@hmsreliant.think-freely.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> > As its not possible to register hooks from bh context (grabs mutex)
-> > its scheduled via workqueue.
+> Shit, you're right, sorry about that.  Its odd, I'm running it here, and its not 
+> causing problems, but thats obviously wrong.  Meelis, please add the above fix
+> to your test and confirm that it sovles the problem.  If you could keep the
+> previous patch in place too that would be great, as we should probably add the
+> dma error checking anyway.
 > 
-> My main concern with this approach is that we may let packets go
-> through unfiltered for some little time until the worker thread has
-> the chance to register the hooks.
+> 
+> [PATCH] 3c59x: Fix bad offset spec in skb_frag_dma_map
 
-They are supposed to be dropped until hook is there.
-However, Nikolay Alexandrov just (correctly...) pointed out to me via irc that this mutex
-abuse is against the rules (lock/unlock in different threads!).
+Tested 2 variants: only this patch (backported to old state) and both 
+patches together.
 
-So, please toss this series.
+Both work fine.
 
-> Alternatives that I see for these are:
-> * pr_info to indicate the br_netfilter enable by default is
->   deprecated. Similar to your small patch 2/2, but it will take quite
->   some time until we can finally change this to zero.
-
-Right.  I had planned to send a revert for patch 1 at some point,
-plus a change to default to 0.
-
-> * I think we can unregister the hooks when we notice that all
->   bridge-nf-call-*tables are zero from the sysctl. We register them if
->   any of them becomes 1 again.
-
-Thats what I thought, but we now also have per-bridge sysfs knobs,
-i.e. sysctl could be 0 and someone enabling br42->call_iptables ....
-
-Its doable, but it gets ugly.
-I don't think its worth the pain to care about "sometimes
-enabled/disabled".
+-- 
+Meelis Roos (mroos@linux.ee)
