@@ -1,401 +1,204 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v4 net-next 2/7] fou: Support for foo-over-udp RX path
-Date: Wed, 17 Sep 2014 12:25:56 -0700
-Message-ID: <1410981961-15545-3-git-send-email-therbert@google.com>
+Subject: [PATCH v4 net-next 3/7] fou: Add GRO support
+Date: Wed, 17 Sep 2014 12:25:57 -0700
+Message-ID: <1410981961-15545-4-git-send-email-therbert@google.com>
 References: <1410981961-15545-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:56583 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756527AbaIQT0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 15:26:21 -0400
-Received: by mail-pd0-f182.google.com with SMTP id w10so2757448pde.41
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 12:26:21 -0700 (PDT)
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:50555 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756527AbaIQT00 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 15:26:26 -0400
+Received: by mail-pd0-f179.google.com with SMTP id g10so2762693pdj.10
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 12:26:25 -0700 (PDT)
 In-Reply-To: <1410981961-15545-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides a receive path for foo-over-udp. This allows
-direct encapsulation of IP protocols over UDP. The bound destination
-port is used to map to an IP protocol, and the XFRM framework
-(udp_encap_rcv) is used to receive encapsulated packets. Upon
-reception, the encapsulation header is logically removed (pointer
-to transport header is advanced) and the packet is reinjected into
-the receive path with the IP protocol indicated by the mapping.
-
-Netlink is used to configure FOU ports. The configuration information
-includes the port number to bind to and the IP protocol corresponding
-to that port.
-
-This should support GRE/UDP
-(http://tools.ietf.org/html/draft-yong-tsvwg-gre-in-udp-encap-02),
-as will as the other IP tunneling protocols (IPIP, SIT).
+Implement fou_gro_receive and fou_gro_complete, and populate these
+in the correponsing udp_offloads for the socket. Added ipproto to
+udp_offloads and pass this from UDP to the fou GRO routine in proto
+field of napi_gro_cb structure.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/uapi/linux/fou.h |  32 ++++++
- net/ipv4/Kconfig         |  10 ++
- net/ipv4/Makefile        |   1 +
- net/ipv4/fou.c           | 279 +++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 322 insertions(+)
- create mode 100644 include/uapi/linux/fou.h
- create mode 100644 net/ipv4/fou.c
+ include/linux/netdevice.h |  3 +-
+ net/ipv4/fou.c            | 89 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/udp_offload.c    |  5 ++-
+ 3 files changed, 95 insertions(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/fou.h b/include/uapi/linux/fou.h
-new file mode 100644
-index 0000000..e03376d
---- /dev/null
-+++ b/include/uapi/linux/fou.h
-@@ -0,0 +1,32 @@
-+/* fou.h - FOU Interface */
-+
-+#ifndef _UAPI_LINUX_FOU_H
-+#define _UAPI_LINUX_FOU_H
-+
-+/* NETLINK_GENERIC related info
-+ */
-+#define FOU_GENL_NAME		"fou"
-+#define FOU_GENL_VERSION	0x1
-+
-+enum {
-+	FOU_ATTR_UNSPEC,
-+	FOU_ATTR_PORT,				/* u16 */
-+	FOU_ATTR_AF,				/* u8 */
-+	FOU_ATTR_IPPROTO,			/* u8 */
-+
-+	__FOU_ATTR_MAX,
-+};
-+
-+#define FOU_ATTR_MAX		(__FOU_ATTR_MAX - 1)
-+
-+enum {
-+	FOU_CMD_UNSPEC,
-+	FOU_CMD_ADD,
-+	FOU_CMD_DEL,
-+
-+	__FOU_CMD_MAX,
-+};
-+
-+#define FOU_CMD_MAX	(__FOU_CMD_MAX - 1)
-+
-+#endif /* _UAPI_LINUX_FOU_H */
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index dbc10d8..84f710b 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -311,6 +311,16 @@ config NET_UDP_TUNNEL
- 	tristate
- 	default n
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 28d4378..4354b43 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1874,7 +1874,7 @@ struct napi_gro_cb {
+ 	/* jiffies when first packet was created/queued */
+ 	unsigned long age;
  
-+config NET_FOU
-+	tristate "IP: Foo (IP protocols) over UDP"
-+	select XFRM
-+	select NET_UDP_TUNNEL
-+	---help---
-+	  Foo over UDP allows any IP protocol to be directly encapsulated
-+	  over UDP include tunnels (IPIP, GRE, SIT). By encapsulating in UDP
-+	  network mechanisms and optimizations for UDP (such as ECMP
-+	  and RSS) can be leveraged to provide better service.
-+
- config INET_AH
- 	tristate "IP: AH transformation"
- 	select XFRM_ALGO
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index 8ee1cd4..d78d404 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -20,6 +20,7 @@ obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
- obj-$(CONFIG_IP_MROUTE) += ipmr.o
- obj-$(CONFIG_NET_IPIP) += ipip.o
- gre-y := gre_demux.o
-+obj-$(CONFIG_NET_FOU) += fou.o
- obj-$(CONFIG_NET_IPGRE_DEMUX) += gre.o
- obj-$(CONFIG_NET_IPGRE) += ip_gre.o
- obj-$(CONFIG_NET_UDP_TUNNEL) += udp_tunnel.o
+-	/* Used in ipv6_gro_receive() */
++	/* Used in ipv6_gro_receive() and foo-over-udp */
+ 	u16	proto;
+ 
+ 	/* Used in udp_gro_receive */
+@@ -1925,6 +1925,7 @@ struct packet_offload {
+ 
+ struct udp_offload {
+ 	__be16			 port;
++	u8			 ipproto;
+ 	struct offload_callbacks callbacks;
+ };
+ 
 diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-new file mode 100644
-index 0000000..d44f97b
---- /dev/null
+index d44f97b..dced89f 100644
+--- a/net/ipv4/fou.c
 +++ b/net/ipv4/fou.c
-@@ -0,0 +1,279 @@
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/socket.h>
-+#include <linux/skbuff.h>
-+#include <linux/ip.h>
-+#include <linux/udp.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <net/genetlink.h>
-+#include <net/ip.h>
-+#include <net/udp.h>
-+#include <net/udp_tunnel.h>
-+#include <net/xfrm.h>
-+#include <uapi/linux/fou.h>
-+#include <uapi/linux/genetlink.h>
-+
-+static DEFINE_SPINLOCK(fou_lock);
-+static LIST_HEAD(fou_list);
-+
-+struct fou {
-+	struct socket *sock;
-+	u8 protocol;
-+	u16 port;
-+	struct list_head list;
-+};
-+
-+struct fou_cfg {
-+	u8 protocol;
-+	struct udp_port_cfg udp_config;
-+};
-+
-+static inline struct fou *fou_from_sock(struct sock *sk)
+@@ -8,6 +8,7 @@
+ #include <linux/kernel.h>
+ #include <net/genetlink.h>
+ #include <net/ip.h>
++#include <net/protocol.h>
+ #include <net/udp.h>
+ #include <net/udp_tunnel.h>
+ #include <net/xfrm.h>
+@@ -21,6 +22,7 @@ struct fou {
+ 	struct socket *sock;
+ 	u8 protocol;
+ 	u16 port;
++	struct udp_offload udp_offloads;
+ 	struct list_head list;
+ };
+ 
+@@ -62,6 +64,69 @@ static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
+ 					  sizeof(struct udphdr));
+ }
+ 
++static struct sk_buff **fou_gro_receive(struct sk_buff **head,
++					struct sk_buff *skb,
++					const struct net_offload **offloads)
 +{
-+	return sk->sk_user_data;
++	const struct net_offload *ops;
++	struct sk_buff **pp = NULL;
++	u8 proto = NAPI_GRO_CB(skb)->proto;
++
++	rcu_read_lock();
++	ops = rcu_dereference(offloads[proto]);
++	if (!ops || !ops->callbacks.gro_receive)
++		goto out_unlock;
++
++	pp = ops->callbacks.gro_receive(head, skb);
++
++out_unlock:
++	rcu_read_unlock();
++
++	return pp;
 +}
 +
-+static int fou_udp_encap_recv_deliver(struct sk_buff *skb,
-+				      u8 protocol, size_t len)
++static int fou_gro_complete(struct sk_buff *skb, int nhoff,
++			    const struct net_offload **offloads)
 +{
-+	struct iphdr *iph = ip_hdr(skb);
++	const struct net_offload *ops;
++	u8 proto = NAPI_GRO_CB(skb)->proto;
++	int err = -ENOSYS;
 +
-+	/* Remove 'len' bytes from the packet (UDP header and
-+	 * FOU header if present), modify the protocol to the one
-+	 * we found, and then call rcv_encap.
-+	 */
-+	iph->tot_len = htons(ntohs(iph->tot_len) - len);
-+	__skb_pull(skb, len);
-+	skb_postpull_rcsum(skb, udp_hdr(skb), len);
-+	skb_reset_transport_header(skb);
++	rcu_read_lock();
++	ops = rcu_dereference(offloads[proto]);
++	if (WARN_ON(!ops || !ops->callbacks.gro_complete))
++		goto out_unlock;
 +
-+	return -protocol;
-+}
++	err = ops->callbacks.gro_complete(skb, nhoff);
 +
-+static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct fou *fou = fou_from_sock(sk);
-+
-+	if (!fou)
-+		return 1;
-+
-+	return fou_udp_encap_recv_deliver(skb, fou->protocol,
-+					  sizeof(struct udphdr));
-+}
-+
-+static int fou_add_to_port_list(struct fou *fou)
-+{
-+	struct fou *fout;
-+
-+	spin_lock(&fou_lock);
-+	list_for_each_entry(fout, &fou_list, list) {
-+		if (fou->port == fout->port) {
-+			spin_unlock(&fou_lock);
-+			return -EALREADY;
-+		}
-+	}
-+
-+	list_add(&fou->list, &fou_list);
-+	spin_unlock(&fou_lock);
-+
-+	return 0;
-+}
-+
-+static void fou_release(struct fou *fou)
-+{
-+	struct socket *sock = fou->sock;
-+	struct sock *sk = sock->sk;
-+
-+	udp_del_offload(&fou->udp_offloads);
-+
-+	list_del(&fou->list);
-+
-+	/* Remove hooks into tunnel socket */
-+	sk->sk_user_data = NULL;
-+
-+	sock_release(sock);
-+
-+	kfree(fou);
-+}
-+
-+static int fou_create(struct net *net, struct fou_cfg *cfg,
-+		      struct socket **sockp)
-+{
-+	struct fou *fou = NULL;
-+	int err;
-+	struct socket *sock = NULL;
-+	struct sock *sk;
-+
-+	/* Open UDP socket */
-+	err = udp_sock_create(net, &cfg->udp_config, &sock);
-+	if (err < 0)
-+		goto error;
-+
-+	/* Allocate FOU port structure */
-+	fou = kzalloc(sizeof(*fou), GFP_KERNEL);
-+	if (!fou) {
-+		err = -ENOMEM;
-+		goto error;
-+	}
-+
-+	sk = sock->sk;
-+
-+	/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
-+	fou->protocol = cfg->protocol;
-+	fou->port =  cfg->udp_config.local_udp_port;
-+	udp_sk(sk)->encap_rcv = fou_udp_recv;
-+
-+	udp_sk(sk)->encap_type = 1;
-+	udp_encap_enable();
-+
-+	sk->sk_user_data = fou;
-+	fou->sock = sock;
-+
-+	udp_set_convert_csum(sk, true);
-+
-+	sk->sk_allocation = GFP_ATOMIC;
-+
-+	err = fou_add_to_port_list(fou);
-+	if (err)
-+		goto error;
-+
-+	if (sockp)
-+		*sockp = sock;
-+
-+	return 0;
-+
-+error:
-+	kfree(fou);
-+	if (sock)
-+		sock_release(sock);
++out_unlock:
++	rcu_read_unlock();
 +
 +	return err;
 +}
 +
-+static int fou_destroy(struct net *net, struct fou_cfg *cfg)
++static struct sk_buff **fou4_gro_receive(struct sk_buff **head,
++					 struct sk_buff *skb)
 +{
-+	struct fou *fou;
-+	u16 port = cfg->udp_config.local_udp_port;
-+	int err = -EINVAL;
-+
-+	spin_lock(&fou_lock);
-+	list_for_each_entry(fou, &fou_list, list) {
-+		if (fou->port == port) {
-+			fou_release(fou);
-+			err = 0;
-+			break;
-+		}
-+	}
-+	spin_unlock(&fou_lock);
-+
-+	return err;
++	return fou_gro_receive(head, skb, inet_offloads);
 +}
 +
-+static struct genl_family fou_nl_family = {
-+	.id		= GENL_ID_GENERATE,
-+	.hdrsize	= 0,
-+	.name		= FOU_GENL_NAME,
-+	.version	= FOU_GENL_VERSION,
-+	.maxattr	= FOU_ATTR_MAX,
-+	.netnsok	= true,
-+};
-+
-+static struct nla_policy fou_nl_policy[FOU_ATTR_MAX + 1] = {
-+	[FOU_ATTR_PORT] = { .type = NLA_U16, },
-+	[FOU_ATTR_AF] = { .type = NLA_U8, },
-+	[FOU_ATTR_IPPROTO] = { .type = NLA_U8, },
-+};
-+
-+static int parse_nl_config(struct genl_info *info,
-+			   struct fou_cfg *cfg)
++static int fou4_gro_complete(struct sk_buff *skb, int nhoff)
 +{
-+	memset(cfg, 0, sizeof(*cfg));
++	return fou_gro_complete(skb, nhoff, inet_offloads);
++}
 +
-+	cfg->udp_config.family = AF_INET;
++static struct sk_buff **fou6_gro_receive(struct sk_buff **head,
++					 struct sk_buff *skb)
++{
++	return fou_gro_receive(head, skb, inet6_offloads);
++}
 +
-+	if (info->attrs[FOU_ATTR_AF]) {
-+		u8 family = nla_get_u8(info->attrs[FOU_ATTR_AF]);
++static int fou6_gro_complete(struct sk_buff *skb, int nhoff)
++{
++	return fou_gro_complete(skb, nhoff, inet6_offloads);
++}
 +
-+		if (family != AF_INET && family != AF_INET6)
-+			return -EINVAL;
-+
-+		cfg->udp_config.family = family;
+ static int fou_add_to_port_list(struct fou *fou)
+ {
+ 	struct fou *fout;
+@@ -134,6 +199,29 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+ 
+ 	sk->sk_allocation = GFP_ATOMIC;
+ 
++	switch (cfg->udp_config.family) {
++	case AF_INET:
++		fou->udp_offloads.callbacks.gro_receive = fou4_gro_receive;
++		fou->udp_offloads.callbacks.gro_complete = fou4_gro_complete;
++		break;
++	case AF_INET6:
++		fou->udp_offloads.callbacks.gro_receive = fou6_gro_receive;
++		fou->udp_offloads.callbacks.gro_complete = fou6_gro_complete;
++		break;
++	default:
++		err = -EPFNOSUPPORT;
++		goto error;
 +	}
 +
-+	if (info->attrs[FOU_ATTR_PORT]) {
-+		u16 port = nla_get_u16(info->attrs[FOU_ATTR_PORT]);
++	fou->udp_offloads.port = cfg->udp_config.local_udp_port;
++	fou->udp_offloads.ipproto = cfg->protocol;
 +
-+		cfg->udp_config.local_udp_port = port;
++	if (cfg->udp_config.family == AF_INET) {
++		err = udp_add_offload(&fou->udp_offloads);
++		if (err)
++			goto error;
 +	}
 +
-+	if (info->attrs[FOU_ATTR_IPPROTO])
-+		cfg->protocol = nla_get_u8(info->attrs[FOU_ATTR_IPPROTO]);
-+
-+	return 0;
-+}
-+
-+static int fou_nl_cmd_add_port(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct fou_cfg cfg;
-+	int err;
-+
-+	err = parse_nl_config(info, &cfg);
-+	if (err)
-+		return err;
-+
-+	return fou_create(&init_net, &cfg, NULL);
-+}
-+
-+static int fou_nl_cmd_rm_port(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct fou_cfg cfg;
-+
-+	parse_nl_config(info, &cfg);
-+
-+	return fou_destroy(&init_net, &cfg);
-+}
-+
-+static const struct genl_ops fou_nl_ops[] = {
-+	{
-+		.cmd = FOU_CMD_ADD,
-+		.doit = fou_nl_cmd_add_port,
-+		.policy = fou_nl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+	},
-+	{
-+		.cmd = FOU_CMD_DEL,
-+		.doit = fou_nl_cmd_rm_port,
-+		.policy = fou_nl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+	},
-+};
-+
-+static int __init fou_init(void)
-+{
-+	int ret;
-+
-+	ret = genl_register_family_with_ops(&fou_nl_family,
-+					    fou_nl_ops);
-+
-+	return ret;
-+}
-+
-+static void __exit fou_fini(void)
-+{
-+	struct fou *fou, *next;
-+
-+	genl_unregister_family(&fou_nl_family);
-+
-+	/* Close all the FOU sockets */
-+
-+	spin_lock(&fou_lock);
-+	list_for_each_entry_safe(fou, next, &fou_list, list)
-+		fou_release(fou);
-+	spin_unlock(&fou_lock);
-+}
-+
-+module_init(fou_init);
-+module_exit(fou_fini);
-+MODULE_AUTHOR("Tom Herbert <therbert@google.com>");
-+MODULE_LICENSE("GPL");
+ 	err = fou_add_to_port_list(fou);
+ 	if (err)
+ 		goto error;
+@@ -160,6 +248,7 @@ static int fou_destroy(struct net *net, struct fou_cfg *cfg)
+ 	spin_lock(&fou_lock);
+ 	list_for_each_entry(fou, &fou_list, list) {
+ 		if (fou->port == port) {
++			udp_del_offload(&fou->udp_offloads);
+ 			fou_release(fou);
+ 			err = 0;
+ 			break;
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index adab393..d7c43f7 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -276,6 +276,7 @@ unflush:
+ 
+ 	skb_gro_pull(skb, sizeof(struct udphdr)); /* pull encapsulating udp header */
+ 	skb_gro_postpull_rcsum(skb, uh, sizeof(struct udphdr));
++	NAPI_GRO_CB(skb)->proto = uo_priv->offload->ipproto;
+ 	pp = uo_priv->offload->callbacks.gro_receive(head, skb);
+ 
+ out_unlock:
+@@ -329,8 +330,10 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
+ 			break;
+ 	}
+ 
+-	if (uo_priv != NULL)
++	if (uo_priv != NULL) {
++		NAPI_GRO_CB(skb)->proto = uo_priv->offload->ipproto;
+ 		err = uo_priv->offload->callbacks.gro_complete(skb, nhoff + sizeof(struct udphdr));
++	}
+ 
+ 	rcu_read_unlock();
+ 	return err;
 -- 
 2.1.0.rc2.206.gedb03e5
