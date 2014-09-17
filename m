@@ -1,7 +1,7 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 3/3] bnx2x: Add a fallback multi-function mode NPAR1.5
-Date: Wed, 17 Sep 2014 16:24:38 +0300
-Message-ID: <1410960278-32064-4-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 2/3] bnx2x: New multi-function mode: UFP
+Date: Wed, 17 Sep 2014 16:24:37 +0300
+Message-ID: <1410960278-32064-3-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1410960278-32064-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,151 +9,428 @@ Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>,
 	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:29539 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:7703 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755402AbaIQNZD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 09:25:03 -0400
+	by vger.kernel.org with ESMTP id S1755287AbaIQNY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 09:24:59 -0400
 In-Reply-To: <1410960278-32064-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using new Multi-function modes it's possible that due to incompatible
-configuration management FW will fallback into an existing mode.
-
-Notice that at the moment this fallback is exactly the same as the already
-existing switch-independent multi-function mode, but we still use existing
-infrastructure to hold this information [in case some small differences will
-arise in the future].
+Add support for a new multi-function mode based on the Unified Fabric Port
+system specifications.
+Support includes configuration of:
+  1. Outer vlan tags.
+  2. Bandwidth settings.
+  3. Virtual link enable/disable.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Signed-off-by: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
 Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |  1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h  | 17 ++++-----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 45 ++++++++++++++++++------
- 3 files changed, 42 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   8 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |   6 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h  |  11 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 129 ++++++++++++++++++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c   |  41 ++++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h   |  23 ++++
+ 6 files changed, 200 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 10291df..c3a6072 100644
+index 7ecb61f..10291df 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1451,6 +1451,7 @@ struct bnx2x_fp_stats {
- enum {
- 	SUB_MF_MODE_UNKNOWN = 0,
- 	SUB_MF_MODE_UFP,
-+	SUB_MF_MODE_NPAR1_DOT_5,
+@@ -1448,6 +1448,11 @@ struct bnx2x_fp_stats {
+ 	struct bnx2x_eth_q_stats_old eth_q_stats_old;
  };
  
++enum {
++	SUB_MF_MODE_UNKNOWN = 0,
++	SUB_MF_MODE_UFP,
++};
++
  struct bnx2x {
+ 	/* Fields used in the tx and intr/napi performance paths
+ 	 * are grouped together in the beginning of the structure
+@@ -1659,6 +1664,9 @@ struct bnx2x {
+ #define IS_MF_SI(bp)		(bp->mf_mode == MULTI_FUNCTION_SI)
+ #define IS_MF_SD(bp)		(bp->mf_mode == MULTI_FUNCTION_SD)
+ #define IS_MF_AFEX(bp)		(bp->mf_mode == MULTI_FUNCTION_AFEX)
++	u8			mf_sub_mode;
++#define IS_MF_UFP(bp)		(IS_MF_SD(bp) && \
++				 bp->mf_sub_mode == SUB_MF_MODE_UFP)
+ 
+ 	u8			wol;
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index 0102775..adcacda 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -936,6 +936,12 @@ static inline int bnx2x_func_start(struct bnx2x *bp)
+ 	start_params->gre_tunnel_type	= IPGRE_TUNNEL;
+ 	start_params->inner_gre_rss_en	= 1;
+ 
++	if (IS_MF_UFP(bp) && BNX2X_IS_MF_SD_PROTOCOL_FCOE(bp)) {
++		start_params->class_fail_ethtype = ETH_P_FIP;
++		start_params->class_fail = 1;
++		start_params->no_added_tags = 1;
++	}
++
+ 	return bnx2x_func_state_change(bp, &func_params);
+ }
+ 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-index 3295863..583591d 100644
+index 3e0621a..3295863 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-@@ -280,17 +280,11 @@ struct shared_hw_cfg {			 /* NVRAM Offset */
- 		#define SHARED_HW_CFG_MDC_MDIO_ACCESS2_BOTH          0x60000000
- 		#define SHARED_HW_CFG_MDC_MDIO_ACCESS2_SWAPPED       0x80000000
- 
--
--	u32 power_dissipated;			/* 0x11c */
--	#define SHARED_HW_CFG_POWER_MGNT_SCALE_MASK         0x00ff0000
--		#define SHARED_HW_CFG_POWER_MGNT_SCALE_SHIFT         16
--		#define SHARED_HW_CFG_POWER_MGNT_UNKNOWN_SCALE       0x00000000
--		#define SHARED_HW_CFG_POWER_MGNT_DOT_1_WATT          0x00010000
--		#define SHARED_HW_CFG_POWER_MGNT_DOT_01_WATT         0x00020000
--		#define SHARED_HW_CFG_POWER_MGNT_DOT_001_WATT        0x00030000
--
--	#define SHARED_HW_CFG_POWER_DIS_CMN_MASK            0xff000000
--	#define SHARED_HW_CFG_POWER_DIS_CMN_SHIFT                    24
-+	u32 config_3;				/* 0x11C */
-+	#define SHARED_HW_CFG_EXTENDED_MF_MODE_MASK         0x00000F00
-+		#define SHARED_HW_CFG_EXTENDED_MF_MODE_SHIFT              8
-+		#define SHARED_HW_CFG_EXTENDED_MF_MODE_NPAR1_DOT_5        0x00000000
-+		#define SHARED_HW_CFG_EXTENDED_MF_MODE_NPAR2_DOT_0        0x00000100
- 
- 	u32 ump_nc_si_config;			/* 0x120 */
- 	#define SHARED_HW_CFG_UMP_NC_SI_MII_MODE_MASK       0x00000003
-@@ -860,6 +854,7 @@ struct shared_feat_cfg {		 /* NVRAM Offset */
+@@ -859,6 +859,7 @@ struct shared_feat_cfg {		 /* NVRAM Offset */
+ 		#define SHARED_FEAT_CFG_FORCE_SF_MODE_SPIO4          0x00000200
  		#define SHARED_FEAT_CFG_FORCE_SF_MODE_SWITCH_INDEPT  0x00000300
  		#define SHARED_FEAT_CFG_FORCE_SF_MODE_AFEX_MODE      0x00000400
- 		#define SHARED_FEAT_CFG_FORCE_SF_MODE_UFP_MODE       0x00000600
-+		#define SHARED_FEAT_CFG_FORCE_SF_MODE_EXTENDED_MODE  0x00000700
++		#define SHARED_FEAT_CFG_FORCE_SF_MODE_UFP_MODE       0x00000600
  
  	/* The interval in seconds between sending LLDP packets. Set to zero
  	   to disable the feature */
+@@ -1268,6 +1269,10 @@ struct drv_func_mb {
+ 	#define DRV_MSG_CODE_GET_UPGRADE_KEY            0x81000000
+ 	#define DRV_MSG_CODE_GET_MANUF_KEY              0x82000000
+ 	#define DRV_MSG_CODE_LOAD_L2B_PRAM              0x90000000
++	#define DRV_MSG_CODE_OEM_OK			0x00010000
++	#define DRV_MSG_CODE_OEM_FAILURE		0x00020000
++	#define DRV_MSG_CODE_OEM_UPDATE_SVID_OK		0x00030000
++	#define DRV_MSG_CODE_OEM_UPDATE_SVID_FAILURE	0x00040000
+ 	/*
+ 	 * The optic module verification command requires bootcode
+ 	 * v5.0.6 or later, te specific optic module verification command
+@@ -1423,6 +1428,12 @@ struct drv_func_mb {
+ 	#define DRV_STATUS_SET_MF_BW                    0x00000004
+ 	#define DRV_STATUS_LINK_EVENT                   0x00000008
+ 
++	#define DRV_STATUS_OEM_EVENT_MASK               0x00000070
++	#define DRV_STATUS_OEM_DISABLE_ENABLE_PF        0x00000010
++	#define DRV_STATUS_OEM_BANDWIDTH_ALLOCATION     0x00000020
++
++	#define DRV_STATUS_OEM_UPDATE_SVID              0x00000080
++
+ 	#define DRV_STATUS_DCC_EVENT_MASK               0x0000ff00
+ 	#define DRV_STATUS_DCC_DISABLE_ENABLE_PF        0x00000100
+ 	#define DRV_STATUS_DCC_BANDWIDTH_ALLOCATION     0x00000200
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index da6c5bb..74fbf9e 100644
+index 82ea6b6..da6c5bb 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -11624,11 +11624,27 @@ static bool bnx2x_get_dropless_info(struct bnx2x *bp)
- 	return cfg;
+@@ -2905,6 +2905,57 @@ static void bnx2x_handle_afex_cmd(struct bnx2x *bp, u32 cmd)
+ 	}
  }
  
-+static void validate_set_si_mode(struct bnx2x *bp)
++static void bnx2x_handle_update_svid_cmd(struct bnx2x *bp)
 +{
-+	u8 func = BP_ABS_FUNC(bp);
-+	u32 val;
++	struct bnx2x_func_switch_update_params *switch_update_params;
++	struct bnx2x_func_state_params func_params;
 +
-+	val = MF_CFG_RD(bp, func_mf_config[func].mac_upper);
++	memset(&func_params, 0, sizeof(struct bnx2x_func_state_params));
++	switch_update_params = &func_params.params.switch_update;
++	func_params.f_obj = &bp->func_obj;
++	func_params.cmd = BNX2X_F_CMD_SWITCH_UPDATE;
 +
-+	/* check for legal mac (upper bytes) */
-+	if (val != 0xffff) {
-+		bp->mf_mode = MULTI_FUNCTION_SI;
-+		bp->mf_config[BP_VN(bp)] =
-+			MF_CFG_RD(bp, func_mf_config[func].config);
-+	} else
-+		BNX2X_DEV_INFO("illegal MAC address for SI\n");
++	if (IS_MF_UFP(bp)) {
++		int func = BP_ABS_FUNC(bp);
++		u32 val;
++
++		/* Re-learn the S-tag from shmem */
++		val = MF_CFG_RD(bp, func_mf_config[func].e1hov_tag) &
++				FUNC_MF_CFG_E1HOV_TAG_MASK;
++		if (val != FUNC_MF_CFG_E1HOV_TAG_DEFAULT) {
++			bp->mf_ov = val;
++		} else {
++			BNX2X_ERR("Got an SVID event, but no tag is configured in shmem\n");
++			goto fail;
++		}
++
++		/* Configure new S-tag in LLH */
++		REG_WR(bp, NIG_REG_LLH0_FUNC_VLAN_ID + BP_PORT(bp) * 8,
++		       bp->mf_ov);
++
++		/* Send Ramrod to update FW of change */
++		__set_bit(BNX2X_F_UPDATE_SD_VLAN_TAG_CHNG,
++			  &switch_update_params->changes);
++		switch_update_params->vlan = bp->mf_ov;
++
++		if (bnx2x_func_state_change(bp, &func_params) < 0) {
++			BNX2X_ERR("Failed to configure FW of S-tag Change to %02x\n",
++				  bp->mf_ov);
++			goto fail;
++		}
++
++		DP(BNX2X_MSG_MCP, "Configured S-tag %02x\n", bp->mf_ov);
++
++		bnx2x_fw_command(bp, DRV_MSG_CODE_OEM_UPDATE_SVID_OK, 0);
++
++		return;
++	}
++
++	/* not supported by SW yet */
++fail:
++	bnx2x_fw_command(bp, DRV_MSG_CODE_OEM_UPDATE_SVID_FAILURE, 0);
 +}
 +
- static int bnx2x_get_hwinfo(struct bnx2x *bp)
+ static void bnx2x_pmf_update(struct bnx2x *bp)
  {
- 	int /*abs*/func = BP_ABS_FUNC(bp);
- 	int vn;
--	u32 val = 0;
-+	u32 val = 0, val2 = 0;
- 	int rc = 0;
+ 	int port = BP_PORT(bp);
+@@ -3297,7 +3348,8 @@ static void bnx2x_e1h_enable(struct bnx2x *bp)
+ {
+ 	int port = BP_PORT(bp);
  
- 	bnx2x_get_common_hwinfo(bp);
-@@ -11738,15 +11754,7 @@ static int bnx2x_get_hwinfo(struct bnx2x *bp)
+-	REG_WR(bp, NIG_REG_LLH0_FUNC_EN + port*8, 1);
++	if (!(IS_MF_UFP(bp) && BNX2X_IS_MF_SD_PROTOCOL_FCOE(bp)))
++		REG_WR(bp, NIG_REG_LLH0_FUNC_EN + port * 8, 1);
  
- 			switch (val) {
- 			case SHARED_FEAT_CFG_FORCE_SF_MODE_SWITCH_INDEPT:
--				val = MF_CFG_RD(bp, func_mf_config[func].
--						mac_upper);
--				/* check for legal mac (upper bytes)*/
--				if (val != 0xffff) {
--					bp->mf_mode = MULTI_FUNCTION_SI;
--					bp->mf_config[vn] = MF_CFG_RD(bp,
--						   func_mf_config[func].config);
--				} else
--					BNX2X_DEV_INFO("illegal MAC address for SI\n");
-+				validate_set_si_mode(bp);
+ 	/* Tx queue should be only re-enabled */
+ 	netif_tx_wake_all_queues(bp->dev);
+@@ -3652,14 +3704,30 @@ out:
+ 	   ethver, iscsiver, fcoever);
+ }
+ 
+-static void bnx2x_dcc_event(struct bnx2x *bp, u32 dcc_event)
++static void bnx2x_oem_event(struct bnx2x *bp, u32 event)
+ {
+-	DP(BNX2X_MSG_MCP, "dcc_event 0x%x\n", dcc_event);
++	u32 cmd_ok, cmd_fail;
++
++	/* sanity */
++	if (event & DRV_STATUS_DCC_EVENT_MASK &&
++	    event & DRV_STATUS_OEM_EVENT_MASK) {
++		BNX2X_ERR("Received simultaneous events %08x\n", event);
++		return;
++	}
+ 
+-	if (dcc_event & DRV_STATUS_DCC_DISABLE_ENABLE_PF) {
++	if (event & DRV_STATUS_DCC_EVENT_MASK) {
++		cmd_fail = DRV_MSG_CODE_DCC_FAILURE;
++		cmd_ok = DRV_MSG_CODE_DCC_OK;
++	} else /* if (event & DRV_STATUS_OEM_EVENT_MASK) */ {
++		cmd_fail = DRV_MSG_CODE_OEM_FAILURE;
++		cmd_ok = DRV_MSG_CODE_OEM_OK;
++	}
+ 
+-		/*
+-		 * This is the only place besides the function initialization
++	DP(BNX2X_MSG_MCP, "oem_event 0x%x\n", event);
++
++	if (event & (DRV_STATUS_DCC_DISABLE_ENABLE_PF |
++		     DRV_STATUS_OEM_DISABLE_ENABLE_PF)) {
++		/* This is the only place besides the function initialization
+ 		 * where the bp->flags can change so it is done without any
+ 		 * locks
+ 		 */
+@@ -3674,18 +3742,22 @@ static void bnx2x_dcc_event(struct bnx2x *bp, u32 dcc_event)
+ 
+ 			bnx2x_e1h_enable(bp);
+ 		}
+-		dcc_event &= ~DRV_STATUS_DCC_DISABLE_ENABLE_PF;
++		event &= ~(DRV_STATUS_DCC_DISABLE_ENABLE_PF |
++			   DRV_STATUS_OEM_DISABLE_ENABLE_PF);
+ 	}
+-	if (dcc_event & DRV_STATUS_DCC_BANDWIDTH_ALLOCATION) {
++
++	if (event & (DRV_STATUS_DCC_BANDWIDTH_ALLOCATION |
++		     DRV_STATUS_OEM_BANDWIDTH_ALLOCATION)) {
+ 		bnx2x_config_mf_bw(bp);
+-		dcc_event &= ~DRV_STATUS_DCC_BANDWIDTH_ALLOCATION;
++		event &= ~(DRV_STATUS_DCC_BANDWIDTH_ALLOCATION |
++			   DRV_STATUS_OEM_BANDWIDTH_ALLOCATION);
+ 	}
+ 
+ 	/* Report results to MCP */
+-	if (dcc_event)
+-		bnx2x_fw_command(bp, DRV_MSG_CODE_DCC_FAILURE, 0);
++	if (event)
++		bnx2x_fw_command(bp, cmd_fail, 0);
+ 	else
+-		bnx2x_fw_command(bp, DRV_MSG_CODE_DCC_OK, 0);
++		bnx2x_fw_command(bp, cmd_ok, 0);
+ }
+ 
+ /* must be called under the spq lock */
+@@ -4167,9 +4239,12 @@ static void bnx2x_attn_int_deasserted3(struct bnx2x *bp, u32 attn)
+ 					func_mf_config[BP_ABS_FUNC(bp)].config);
+ 			val = SHMEM_RD(bp,
+ 				       func_mb[BP_FW_MB_IDX(bp)].drv_status);
+-			if (val & DRV_STATUS_DCC_EVENT_MASK)
+-				bnx2x_dcc_event(bp,
+-					    (val & DRV_STATUS_DCC_EVENT_MASK));
++
++			if (val & (DRV_STATUS_DCC_EVENT_MASK |
++				   DRV_STATUS_OEM_EVENT_MASK))
++				bnx2x_oem_event(bp,
++					(val & (DRV_STATUS_DCC_EVENT_MASK |
++						DRV_STATUS_OEM_EVENT_MASK)));
+ 
+ 			if (val & DRV_STATUS_SET_MF_BW)
+ 				bnx2x_set_mf_bw(bp);
+@@ -4195,6 +4270,10 @@ static void bnx2x_attn_int_deasserted3(struct bnx2x *bp, u32 attn)
+ 					val & DRV_STATUS_AFEX_EVENT_MASK);
+ 			if (val & DRV_STATUS_EEE_NEGOTIATION_RESULTS)
+ 				bnx2x_handle_eee_event(bp);
++
++			if (val & DRV_STATUS_OEM_UPDATE_SVID)
++				bnx2x_handle_update_svid_cmd(bp);
++
+ 			if (bp->link_vars.periodic_flags &
+ 			    PERIODIC_FLAGS_LINK_EVENT) {
+ 				/*  sync with link */
+@@ -7930,8 +8009,11 @@ static int bnx2x_init_hw_func(struct bnx2x *bp)
+ 		REG_WR(bp, CFC_REG_WEAK_ENABLE_PF, 1);
+ 
+ 	if (IS_MF(bp)) {
+-		REG_WR(bp, NIG_REG_LLH0_FUNC_EN + port*8, 1);
+-		REG_WR(bp, NIG_REG_LLH0_FUNC_VLAN_ID + port*8, bp->mf_ov);
++		if (!(IS_MF_UFP(bp) && BNX2X_IS_MF_SD_PROTOCOL_FCOE(bp))) {
++			REG_WR(bp, NIG_REG_LLH0_FUNC_EN + port * 8, 1);
++			REG_WR(bp, NIG_REG_LLH0_FUNC_VLAN_ID + port * 8,
++			       bp->mf_ov);
++		}
+ 	}
+ 
+ 	bnx2x_init_block(bp, BLOCK_MISC_AEU, init_phase);
+@@ -11626,6 +11708,7 @@ static int bnx2x_get_hwinfo(struct bnx2x *bp)
+ 
+ 	bp->mf_ov = 0;
+ 	bp->mf_mode = 0;
++	bp->mf_sub_mode = 0;
+ 	vn = BP_VN(bp);
+ 
+ 	if (!CHIP_IS_E1(bp) && !BP_NOMCP(bp)) {
+@@ -11691,6 +11774,13 @@ static int bnx2x_get_hwinfo(struct bnx2x *bp)
+ 				} else
+ 					BNX2X_DEV_INFO("illegal OV for SD\n");
  				break;
- 			case SHARED_FEAT_CFG_FORCE_SF_MODE_AFEX_MODE:
- 				if ((!CHIP_IS_E1x(bp)) &&
-@@ -11784,6 +11792,23 @@ static int bnx2x_get_hwinfo(struct bnx2x *bp)
++			case SHARED_FEAT_CFG_FORCE_SF_MODE_UFP_MODE:
++				bp->mf_mode = MULTI_FUNCTION_SD;
++				bp->mf_sub_mode = SUB_MF_MODE_UFP;
++				bp->mf_config[vn] =
++					MF_CFG_RD(bp,
++						  func_mf_config[func].config);
++				break;
  			case SHARED_FEAT_CFG_FORCE_SF_MODE_FORCED_SF:
  				bp->mf_config[vn] = 0;
  				break;
-+			case SHARED_FEAT_CFG_FORCE_SF_MODE_EXTENDED_MODE:
-+				val2 = SHMEM_RD(bp,
-+					dev_info.shared_hw_config.config_3);
-+				val2 &= SHARED_HW_CFG_EXTENDED_MF_MODE_MASK;
-+				switch (val2) {
-+				case SHARED_HW_CFG_EXTENDED_MF_MODE_NPAR1_DOT_5:
-+					validate_set_si_mode(bp);
-+					bp->mf_sub_mode =
-+							SUB_MF_MODE_NPAR1_DOT_5;
-+					break;
-+				default:
-+					/* Unknown configuration */
-+					bp->mf_config[vn] = 0;
-+					BNX2X_DEV_INFO("unknown extended MF mode 0x%x\n",
-+						       val);
-+				}
-+				break;
- 			default:
- 				/* Unknown configuration: reset mf_config */
- 				bp->mf_config[vn] = 0;
+@@ -11714,6 +11804,11 @@ static int bnx2x_get_hwinfo(struct bnx2x *bp)
+ 
+ 				BNX2X_DEV_INFO("MF OV for func %d is %d (0x%04x)\n",
+ 					       func, bp->mf_ov, bp->mf_ov);
++			} else if (bp->mf_sub_mode == SUB_MF_MODE_UFP) {
++				dev_err(&bp->pdev->dev,
++					"Unexpected - no valid MF OV for func %d in UFP mode\n",
++					func);
++				bp->path_has_ovlan = true;
+ 			} else {
+ 				dev_err(&bp->pdev->dev,
+ 					"No valid MF OV for func %d, aborting\n",
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index 19d0c11..7bc2924 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -5673,8 +5673,23 @@ static inline int bnx2x_func_send_start(struct bnx2x *bp,
+ 	rdata->gre_tunnel_type	= start_params->gre_tunnel_type;
+ 	rdata->inner_gre_rss_en = start_params->inner_gre_rss_en;
+ 	rdata->vxlan_dst_port	= cpu_to_le16(4789);
+-	rdata->sd_vlan_eth_type = cpu_to_le16(0x8100);
++	rdata->sd_accept_mf_clss_fail = start_params->class_fail;
++	if (start_params->class_fail_ethtype) {
++		rdata->sd_accept_mf_clss_fail_match_ethtype = 1;
++		rdata->sd_accept_mf_clss_fail_ethtype =
++			cpu_to_le16(start_params->class_fail_ethtype);
++	}
++
++	rdata->sd_vlan_force_pri_flg = start_params->sd_vlan_force_pri;
++	rdata->sd_vlan_force_pri_val = start_params->sd_vlan_force_pri_val;
++	if (start_params->sd_vlan_eth_type)
++		rdata->sd_vlan_eth_type =
++			cpu_to_le16(start_params->sd_vlan_eth_type);
++	else
++		rdata->sd_vlan_eth_type =
++			cpu_to_le16(0x8100);
+ 
++	rdata->no_added_tags = start_params->no_added_tags;
+ 	/* No need for an explicit memory barrier here as long we would
+ 	 * need to ensure the ordering of writing to the SPQ element
+ 	 * and updating of the SPQ producer which involves a memory
+@@ -5708,6 +5723,30 @@ static inline int bnx2x_func_send_switch_update(struct bnx2x *bp,
+ 				 &switch_update_params->changes);
+ 	}
+ 
++	if (test_bit(BNX2X_F_UPDATE_SD_VLAN_TAG_CHNG,
++		     &switch_update_params->changes)) {
++		rdata->sd_vlan_tag_change_flg = 1;
++		rdata->sd_vlan_tag =
++			cpu_to_le16(switch_update_params->vlan);
++	}
++
++	if (test_bit(BNX2X_F_UPDATE_SD_VLAN_ETH_TYPE_CHNG,
++		     &switch_update_params->changes)) {
++		rdata->sd_vlan_eth_type_change_flg = 1;
++		rdata->sd_vlan_eth_type =
++			cpu_to_le16(switch_update_params->vlan_eth_type);
++	}
++
++	if (test_bit(BNX2X_F_UPDATE_VLAN_FORCE_PRIO_CHNG,
++		     &switch_update_params->changes)) {
++		rdata->sd_vlan_force_pri_change_flg = 1;
++		if (test_bit(BNX2X_F_UPDATE_VLAN_FORCE_PRIO_FLAG,
++			     &switch_update_params->changes))
++			rdata->sd_vlan_force_pri_flg = 1;
++		rdata->sd_vlan_force_pri_flg =
++			switch_update_params->vlan_force_prio;
++	}
++
+ 	if (test_bit(BNX2X_F_UPDATE_TUNNEL_CFG_CHNG,
+ 		     &switch_update_params->changes)) {
+ 		rdata->update_tunn_cfg_flg = 1;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+index 21c8f6f..e97275f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+@@ -1098,6 +1098,10 @@ struct bnx2x_queue_sp_obj {
+ enum {
+ 	BNX2X_F_UPDATE_TX_SWITCH_SUSPEND_CHNG,
+ 	BNX2X_F_UPDATE_TX_SWITCH_SUSPEND,
++	BNX2X_F_UPDATE_SD_VLAN_TAG_CHNG,
++	BNX2X_F_UPDATE_SD_VLAN_ETH_TYPE_CHNG,
++	BNX2X_F_UPDATE_VLAN_FORCE_PRIO_CHNG,
++	BNX2X_F_UPDATE_VLAN_FORCE_PRIO_FLAG,
+ 	BNX2X_F_UPDATE_TUNNEL_CFG_CHNG,
+ 	BNX2X_F_UPDATE_TUNNEL_CLSS_EN,
+ 	BNX2X_F_UPDATE_TUNNEL_INNER_GRE_RSS_EN,
+@@ -1178,10 +1182,29 @@ struct bnx2x_func_start_params {
+ 	 * capailities
+ 	 */
+ 	u8 inner_gre_rss_en;
++
++	/* Allows accepting of packets failing MF classification, possibly
++	 * only matching a given ethertype
++	 */
++	u8 class_fail;
++	u16 class_fail_ethtype;
++
++	/* Override priority of output packets */
++	u8 sd_vlan_force_pri;
++	u8 sd_vlan_force_pri_val;
++
++	/* Replace vlan's ethertype */
++	u16 sd_vlan_eth_type;
++
++	/* Prevent inner vlans from being added by FW */
++	u8 no_added_tags;
+ };
+ 
+ struct bnx2x_func_switch_update_params {
+ 	unsigned long changes; /* BNX2X_F_UPDATE_XX bits */
++	u16 vlan;
++	u16 vlan_eth_type;
++	u8 vlan_force_prio;
+ 	u8 tunnel_mode;
+ 	u8 gre_tunnel_type;
+ };
 -- 
 1.8.3.1
