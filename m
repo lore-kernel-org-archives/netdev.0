@@ -1,34 +1,35 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [net-next PATCH] net: sched: cls_u32: rcu can not be last node
-Date: Wed, 17 Sep 2014 09:40:33 -0700
-Message-ID: <CAM_iQpW1AOgKqQXwh2BNMH_GypTVX6NgyQJZ7Mby0kABjbBu4w@mail.gmail.com>
-References: <20140917053434.2833.66129.stgit@nitbit.x32>
-	<541921FD.1090203@hartkopp.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Cannot move macvlan interface on top of bonding device
+Date: Wed, 17 Sep 2014 09:46:52 -0700
+Message-ID: <CAHA+R7O0LuvFujDnDjW-kcwG=9BGbaSBfO9GXhxD0ANLyeJLXQ@mail.gmail.com>
+References: <CA+HUmGi74nx0zELqXX63nJCNXshTC9AkWoRG5bo6AMHyr_3+fg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Weilong Chen <chenweilong@huawei.com>,
+	Florian Westphal <fw@strlen.de>
+To: Francesco Ruggeri <fruggeri@arista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f43.google.com ([209.85.219.43]:39617 "EHLO
-	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755682AbaIQQke (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 12:40:34 -0400
-Received: by mail-oa0-f43.google.com with SMTP id m19so692336oag.16
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 09:40:33 -0700 (PDT)
-In-Reply-To: <541921FD.1090203@hartkopp.net>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:56461 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755891AbaIQQqy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 12:46:54 -0400
+Received: by mail-la0-f54.google.com with SMTP id ge10so2176286lab.41
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 09:46:53 -0700 (PDT)
+In-Reply-To: <CA+HUmGi74nx0zELqXX63nJCNXshTC9AkWoRG5bo6AMHyr_3+fg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 16, 2014 at 10:54 PM, Oliver Hartkopp
-<socketcan@hartkopp.net> wrote:
-> Please add an appropriate comment to the *code* to prevent this knowledge to
-> disappear. No one will search/find this in git commit messages next time.
+On Wed, Sep 17, 2014 at 8:56 AM, Francesco Ruggeri <fruggeri@arista.com> wrote:
+> This used to work in older releases.
+> The problem seems to be that commit f939981492 sets NETIF_F_NETNS_LOCAL
+> on bonding interfaces, and commit 797f87f83 causes macvlan interfaces
+> to inherit its features from the lower device.
 >
+> Is there a reason why NETIF_F_NETNS_LOCAL should be inherited from the
+> lower device
+> by macvlan interfaces?
 
-+1
-
-Even though I dig git log, I agree adding a one-line comment is better.
+commit 797f87f83 looks wrong, it should not inherit NETIF_F_NETNS_LOCAL,
+so just clear this flag. Please submit a patch.
