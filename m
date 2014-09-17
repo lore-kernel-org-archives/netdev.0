@@ -1,85 +1,81 @@
-From: Bernhard Thaler <bernhard.thaler@r-it.at>
-Subject: [PATCH 1/1] bluetooth: Check for SCO type before setting  retransmission effort
-Date: Wed, 17 Sep 2014 09:13:30 +0200
-Message-ID: <1410938010-6181-1-git-send-email-bernhard.thaler@r-it.at>
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"Bernhard Thaler" <bernhard.thaler@r-it.at>
-To: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Qdisc: Measuring Head-of-Line blocking with netperf-wrapper
+Date: Wed, 17 Sep 2014 09:39:56 +0200
+Message-ID: <20140917093956.1115fd61@redhat.com>
+References: <20140915184517.6c5474e5@redhat.com>
+	<20140916152221.41811287@redhat.com>
+	<1410875959.7106.200.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140916175600.018350fe@redhat.com>
+	<1410885016.7106.203.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Florian Westphal <fw@strlen.de>,
+	Toke =?UTF-8?B?SMO4aWxhbmQtSsO4cmdlbnNl?= =?UTF-8?B?bg==?=
+	<toke@toke.dk>, Dave Taht <dave.taht@gmail.com>, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:4288 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751716AbaIQHkf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Sep 2014 03:40:35 -0400
+In-Reply-To: <1410885016.7106.203.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Bernhard Thaler" <bernhard.thaler@r-it.at>
+On Tue, 16 Sep 2014 09:30:16 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-SCO connection cannot be setup to devices that do not support retransmission.
-Patch based on http://permalink.gmane.org/gmane.linux.bluez.kernel/7779 and
-adapted for this kernel version.
-Code changed to check SCO/eSCO type before setting retransmission effort 
-and max. latency. The purpose of the patch is to support older devices not
- capable of eSCO.
+> On Tue, 2014-09-16 at 17:56 +0200, Jesper Dangaard Brouer wrote:
+> > On Tue, 16 Sep 2014 06:59:19 -0700
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > 
+> > > With the TCP usec rtt work I did lately, you'll get more precise results
+> > > from a TCP_RR flow, as Tom and I explained.
+> > 
+> > Here you go, developed a new test:
+> 
+> Just to make sure I understand (sorry I dont have time going all your
+> graphs right now)
 
-Tested on Blackberry 655+ headset which does not support retransmission.
-Credits go to Alexander Sommerhuber.
+Summary for you:
+1) I have created the TCP_RR latency test you and Tom asked for.
 
-Signed-off-by: Bernhard Thaler <bernhard.thaler@r-it.at>
----
- net/bluetooth/hci_conn.c |   39 ++++++++++++++++++++++-----------------
- 1 file changed, 22 insertions(+), 17 deletions(-)
+2) Graphs shows TCP_RR and UDP_RR are more accurate than ping
 
-diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
-index faff624..093abcc 100644
---- a/net/bluetooth/hci_conn.c
-+++ b/net/bluetooth/hci_conn.c
-@@ -186,26 +186,31 @@ bool hci_setup_sync(struct hci_conn *conn, __u16 handle)
- 	cp.rx_bandwidth   = cpu_to_le32(0x00001f40);
- 	cp.voice_setting  = cpu_to_le16(conn->setting);
- 
--	switch (conn->setting & SCO_AIRMODE_MASK) {
--	case SCO_AIRMODE_TRANSP:
--		if (conn->attempt > ARRAY_SIZE(sco_param_wideband))
--			return false;
--		cp.retrans_effort = 0x02;
--		param = &sco_param_wideband[conn->attempt - 1];
--		break;
--	case SCO_AIRMODE_CVSD:
--		if (conn->attempt > ARRAY_SIZE(sco_param_cvsd))
-+	if (!(conn->link->features[0][3] & LMP_ESCO)) {
-+		cp.retrans_effort = 0xff;
-+		cp.pkt_type = __cpu_to_le16(conn->pkt_type);
-+		cp.max_latency = __cpu_to_le16(0xffff);
-+	} else {
-+		switch (conn->setting & SCO_AIRMODE_MASK) {
-+		case SCO_AIRMODE_TRANSP:
-+			if (conn->attempt > ARRAY_SIZE(sco_param_wideband))
-+				return false;
-+			cp.retrans_effort = 0x02;
-+			param = &sco_param_wideband[conn->attempt - 1];
-+			break;
-+		case SCO_AIRMODE_CVSD:
-+			if (conn->attempt > ARRAY_SIZE(sco_param_cvsd))
-+				return false;
-+			cp.retrans_effort = 0x01;
-+			param = &sco_param_cvsd[conn->attempt - 1];
-+			break;
-+		default:
- 			return false;
--		cp.retrans_effort = 0x01;
--		param = &sco_param_cvsd[conn->attempt - 1];
--		break;
--	default:
--		return false;
-+		}
-+		cp.pkt_type = __cpu_to_le16(param->pkt_type);
-+		cp.max_latency = __cpu_to_le16(param->max_latency);
- 	}
- 
--	cp.pkt_type = __cpu_to_le16(param->pkt_type);
--	cp.max_latency = __cpu_to_le16(param->max_latency);
--
- 	if (hci_send_cmd(hdev, HCI_OP_SETUP_SYNC_CONN, sizeof(cp), &cp) < 0)
- 		return false;
- 
+3) Graphs shows that ping is within same range as TCP_RR and UDP_RR
+
+4) My only problem, NoneXSO case does not work with TCP_RR, and
+   I need the NoneXSO case for evaluating my qdisc bulking patches.
+
+> The target of your high prio flow is different from target of the
+> antagonist flows ?
+> 
+> Otherwise, you are not only measuring head of line blocking of your
+> host, but the whole chain, including scheduling latencies of the
+> (shared) target.
+
+For the target-host I'm avoiding the problem, as it receives packets on
+different HW queue and netservers will be running on different CPUs.
+
+For the host, I'm by design, forcing it to run on the same single CPU,
+to force using the same HW queue, so I can measure this HW queue and
+its/BQLs push back. So, yes the host, is also affected by scheduling
+latencies, which is bad. (perhaps reason NoneXSO cannot util BW).
+
+How can I construct a test-case, on the host, to solve this problem?
+(and still using/measuring the same xmit HW queue)
+
+
 -- 
-1.7.10.4
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
