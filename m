@@ -1,78 +1,76 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: Re: [PATCHv5 net-next 3/3] sunvnet: generate ICMP PTMUD messages
- for smaller port MTUs
-Date: Wed, 17 Sep 2014 19:41:58 -0400
-Message-ID: <541A1C46.90201@oracle.com>
-References: <5419F3E5.4050708@oracle.com> <20140917224351.GM26828@oracle.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v13 net-next 07/11] bpf: verifier (add ability to receive
+ verification log)
+Date: Wed, 17 Sep 2014 16:45:42 -0700
+Message-ID: <CAMEtUuw0aDPpQhd13ssk2PDLffBJNeef9jicOnhQLH6KtJ8gsQ@mail.gmail.com>
+References: <1410914370-29883-1-git-send-email-ast@plumgrid.com>
+	<1410914370-29883-8-git-send-email-ast@plumgrid.com>
+	<54192F66.8020200@redhat.com>
+	<CAMEtUuxK68ZoJ-izjLoygv0f+rLtPmMLUUq1=BJ+_ZBGfynkdA@mail.gmail.com>
+	<5419BED8.5020309@redhat.com>
+	<5419DE51.1060904@redhat.com>
+	<CAMEtUuzhcmZiYZL8TR008or8uaefDBrEKDjqA-tOrRLEZsm95A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:48429 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751978AbaIQXmE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 19:42:04 -0400
-In-Reply-To: <20140917224351.GM26828@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMEtUuzhcmZiYZL8TR008or8uaefDBrEKDjqA-tOrRLEZsm95A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Sep 17, 2014 at 12:37 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>
+>> Hm, thinking out loudly ... perhaps this could be made a library problem.
+>> Such that the library which wraps the syscall needs to be aware of a
+>> marker where the initial version ends, and if the application doesn't
+>> make use of any of the new features, it would just pass in the length up
+>> to the marker as size attribute into the syscall. Similarly, if new
+>> features are always added to the end of a structure and the library
+>> truncates the overall-length after the last used member we might have
+>> a chance to load something on older kernels, haven't tried that though.
+>
+> that's a 3rd option. I think it's cleaner than 2nd, since it solves it
+> completely from user space.
+> It can even be smarter than that. If this syscall wrapper library
+> sees that newer features are used and it can workaround them:
+> it can chop size and pass older fields into the older kernel
+> and when it returns, do a workaround based on newer fields.
 
+the more I think about 'new user space + old kernel' problem,
+the more certain I am that kernel should not try to help
+user space, since most of the time it's not going to be enough,
+but additional code in kernel would need to be maintained.
 
-On 09/17/2014 06:43 PM, Sowmini Varadhan wrote:
-> On (09/17/14 16:49), David L Stevens wrote:
->> +
->> +			rt = ip_route_output_key(dev_net(dev), &fl4);
->> +			if (!IS_ERR(rt)) {
-> 
-> As I've mentioned before, this layering violation makes me uneasy,
-> so its benefits should be evaluated carefully.  You will typically not be
-> able to find an rt for packets coming here from any application
-> that does not itself use/update the FIB, e.g., uspace based packet-injectors
-> (PF_PACKET-based applications, intel dpdk-based uspace stacks etc.)
-
-I think the configurations where it doesn't work are reasonably rare, and
-the default on boot is a 1500-byte MTU for everyone and none of these ICMP
-errors will be triggered if that is where all hosts on the vswitch leave it.
-You don't have to ever mix MTUs. The alternative in all cases where we send
-an ICMP error to make it work is to instead silently drop those packets, all
-packets of the same size or larger that we get after. It does nothing different
-whatsoever for any configuration that works today. It only allows other configurations
-to work also.
-
-A pair of Linux LDOMs can get 8X throughput improvement by raising the MTU to 64K, but
-many packets will be *silently* dropped if they go to any other destination that does
-not support 64K MTU. Those destinations that don't support 64K MTU include any legacy
-Linux running the pre-jumbo code and all Solaris hosts, including the current releases.
-
-With the ICMP errors, the new linux code can interoperate properly with all of them, and
-do so at much higher throughput (4-8X) with those that can support higher MTUs.
-
-Also, I wouldn't call it a layering violation. icmp_send() is the external API for
-triggering ICMP errors, and we are sending them at the point where we know the next-hop MTU.
-It is exactly equivalent to an Ethernet device connected to a switch where the switch
-sends useful layer-3 packets (like IGMP queries). In this case, that useful layer 3 info
-is remote link MTU data; something not available in ordinary Ethernet.
-
-Also, any PF_PACKET or other applications that bypass the routing tables can still (and
-should) receive and process PMTUD packets. If you're sending raw Ethernet frames that are
-IP, you should. If you mean non-routable protocols, none of those can be delivered over
-any link where these ICMP errors would be sent, anyway. If you try to send an 18000-byte
-non-IP packet with a 1500-byte MTU, it will be dropped today, and still dropped with this
-patchset.
-
-Large broadcast frames (your comment from another mail) will not work, just as they won't
-work today. If you need to do that, you should leave the MTU of the sender below the lowest
-MTU attached to the same switch, the way you would for any other Ethernet, and they'll be
-fragmented and reassembled.
-
-On the other hand, if you want your TCP and UDP traffic over IPv4 and IPv6 to be 4-8 times
-faster than it is today without any other change, you can accept the deficiencies in the
-otherwise not-allowed configuration and set the device MTU to 64K even when it's mixed with
-other devices that can't do it. If all of them support the higher MTU, none of this code
-comes into play. If some of them don't, this code allows them to interoperate; without this
-code, all those packets are simply silently dropped and your network can only function at
-the level of the least capable attached LDOM.
-
-								+-DLS
+syscall commands and size of bpf_attr is the least of problems.
+New map_type and prog_type will be added, new helper
+functions will be available to programs.
+One would think that md5 of uapi/linux/bpf.h would be
+enough to say that user app is compatible... In reality,
+it's not. The 'state pruning' verifier optimization I've talked
+about will not change a single bit in bpf.h, but it will be
+able to recognize more programs as safe.
+A program developed on a new kernel with more
+advanced verifier will load just fine on new kernel, but
+this valid program will not load on old kernel, only because
+verifier is not smart enough. Now we would need a version
+of verifier exposed all the way to user space?!
+imo that's too much. I think for eBPF infra kernel
+should only guarantee backwards compatibility
+(old user space must work with new kernel) and that's it.
+That's what this patch is trying to do.
+Thoughts?
