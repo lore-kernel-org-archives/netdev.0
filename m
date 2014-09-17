@@ -1,108 +1,242 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v13 net-next 07/11] bpf: verifier (add ability to receive
- verification log)
-Date: Wed, 17 Sep 2014 21:17:37 +0200
-Message-ID: <5419DE51.1060904@redhat.com>
-References: <1410914370-29883-1-git-send-email-ast@plumgrid.com> <1410914370-29883-8-git-send-email-ast@plumgrid.com> <54192F66.8020200@redhat.com> <CAMEtUuxK68ZoJ-izjLoygv0f+rLtPmMLUUq1=BJ+_ZBGfynkdA@mail.gmail.com> <5419BED8.5020309@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5419BED8.5020309@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH v4 net-next 0/7] net: foo-over-udp (fou)
+Date: Wed, 17 Sep 2014 12:25:54 -0700
+Message-ID: <1410981961-15545-1-git-send-email-therbert@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:63261 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756006AbaIQT0N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 15:26:13 -0400
+Received: by mail-pa0-f52.google.com with SMTP id kq14so2724139pab.11
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 12:26:12 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/17/2014 07:03 PM, Daniel Borkmann wrote:
-> On 09/17/2014 06:08 PM, Alexei Starovoitov wrote:
->> On Tue, Sep 16, 2014 at 11:51 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
->>>>
->>>>    /* last field in 'union bpf_attr' used by this command */
->>>> -#define        BPF_PROG_LOAD_LAST_FIELD license
->>>> +#define        BPF_PROG_LOAD_LAST_FIELD log_buf
->>>
->>> I was looking to find a use case for this item, but couldn't find anything,
->>> so
->>> this seems to be dead code?
->>
->> See CHECK_ATTR() macro and comment next to it in patch #1
->>
->>> Was it, so that each time you extend an uapi structure like above that you
->>> would
->>> only access the structure up to BPF_PROG_LOAD_LAST_FIELD? That might not
->>> work for
->>> old binaries using this ABI running on newer kernels where there are
->>> different
->>> expectations of what BPF_PROG_LOAD_LAST_FIELD has been at the time of
->>> compilation.
->>
->> exactly the opposite.
->> CHECK_ATTR() is checking that all fields beyond last for given
->> command are zero, so we can extend bpf_attr with new fields
->> added after last.
->> Transition from patch 4 to patch 7 and the hunk you quoted are
->> demonstrating exactly that. Say, userspace was compiled
->> with bpf_attr as defined in patch 4 and it populated fields all the way
->> till 'license', and kernel is compiled with patch 7. Kernel does:
->> union bpf_attr attr = {};
->> /* copy attributes from user space, may be less than sizeof(bpf_attr) */
->> copy_from_user(&attr, uattr, size)
->> so newer fields (all the way till log_buf) stay zero and kernel
->> behavior is the same as it was in patch 4.
->> So older user space works as-is with newer kernel.
->
-> Ok, I see. Lets say, since the introduction of this syscall you have
-> added a couple of features and thus extended union bpf_attr where it
-> grew in size over time.
->
-> You built your shiny new binary on that uapi setting, and later on
-> decide to run it on an older kernel. What will happen is that in your
-> bpf syscall handler you will return with -EINVAL on that kernel right
-> away since the size of union bpf_attr is greater.
->
-> That would mean over time when new features will get added, applications
-> that want to make sure to run on _all_ kernels where the bpf syscall is
-> available have to make sure to either use the _initial_ version of
-> union bpf_attr in order to not get an -EINVAL, or worse they have
-> to probe though a syscall different versions of union bpf_attr if they
-> wish to make use of a particular feature until they do not get an -EINVAL
-> anymore.
->
-> I guess that might be problematic for an application developer that
-> wants to ship its application across different distributions usually
-> running different kernels. At least those people might then consider
-> holding a private copy of the _initial_ version of union bpf_attr in
-> their own source code, but it's not pleasant I guess.
->
-> I know you seem to have the constraint to run on NET-less systems, but
-> netlink could partially resolve that in the sense that it would allow
-> to at least load an eBPF program with initial feature set. Couldn't
-> there be some mechanism to make this interaction more pleasant? E.g.
-> in BPF extensions we can ask the kernel up to what extension it
-> supports and accordingly adapt to it up front. I know it's just a
-> /trivial/ example but have you thought about something on that kind for
-> the syscall?
+This patch series implements foo-over-udp. The idea is that we can
+encapsulate different IP protocols in UDP packets. The rationale for
+this is that networking devices such as NICs and switches are usually
+implemented with UDP (and TCP) specific mechanims for processing. For
+instance, many switches and routers will implement a 5-tuple hash
+for UDP packets to perform Equal Cost Multipath Routing (ECMP) or
+RSS (on NICs). Many NICs also only provide rudimentary checksum
+offload (basic TCP and UDP packet), with foo-over-udp we may be
+able to leverage these NICs to offload checksums of tunneled packets
+(using checksum unnecessary conversion and eventually remote checksum
+offload)
+ 
+An example encapsulation of IPIP over FOU is diagrammed below. As
+illustrated, the packet overhead for FOU is the 8 byte UDP header.
 
-Hm, thinking out loudly ... perhaps this could be made a library problem.
-Such that the library which wraps the syscall needs to be aware of a
-marker where the initial version ends, and if the application doesn't
-make use of any of the new features, it would just pass in the length up
-to the marker as size attribute into the syscall. Similarly, if new
-features are always added to the end of a structure and the library
-truncates the overall-length after the last used member we might have
-a chance to load something on older kernels, haven't tried that though.
++------------------+
+|    IPv4 hdr      |
++------------------+
+|     UDP hdr      |
++------------------+
+|    IPv4 hdr      |
++------------------+
+|     TCP hdr      |
++------------------+
+|   TCP payload    |
++------------------+
+
+Conceptually, FOU should be able to encapsulate any IP protocol.
+The FOU header (UDP hdr.) is essentially an inserted header between the
+IP header and transport, so in the case of TCP or UDP encapsulation
+the pseudo header would be based on the outer IP header and its length
+field must not include the UDP header.
+
+* Receive
+
+In this patch set the RX path for FOU is implemented in a new fou
+module. To enable FOU for a particular protocol, a UDP-FOU socket is
+opened to the port to receive FOU packets. The socket is mapped to the
+IP protocol for the packets. The XFRM mechanism used to receive
+encapsulated packets (udp_encap_rcv) for the port. Upon reception, the
+UDP is removed and packet is reinjected in the stack for the
+corresponding protocol associated with the socket (return -protocol
+from udp_encap_rcv function).
+
+GRO is provided with the appropriate fou_gro_receive and
+fou_gro_complete. These routines need to know the encapsulation
+protocol so we save that in udp_offloads structure with the port
+and pass it in the napi_gro_cb structure.
+
+* TX
+
+This patch series implements FOU transmit encapsulation for IPIP, GRE, and
+SIT. This done by some common infrastructure in ip_tunnel including an
+ip_tunnel_encap to perform FOU encapsulation and common configuration
+to enable FOU on IP tunnels. FOU is configured on existing tunnels and
+does not create any new interfaces. The transmit and receive paths are
+independent, so use of FOU may be assymetric between tunnel endpoints.
+
+* Configuration
+
+The fou module using netlink to configure FOU receive ports. The ip
+command can be augmented with a fou subcommand to support this. e.g. to
+configure FOU for IPIP on port 5555:
+
+  ip fou add port 5555 ipproto 4
+
+GRE, IPIP, and SIT have been modified with netlink commands to
+configure use of FOU on transmit. The "ip link" command will be
+augmented with an encap subcommand (for supporting various forms of
+secondary encapsulation). For instance, to configure an ipip tunnel
+with FOU on port 5555:
+
+  ip link add name tun1 type ipip \
+    remote 192.168.1.1 local 192.168.1.2 ttl 225 \
+    encap fou encap-sport auto encap-dport 5555
+
+* Notes
+  - This patch set does not implement GSO for FOU. The UDP encapsulation
+    code assumes TEB, so that will need to be reimplemented.
+  - When a packet is received through FOU, the UDP header is not
+    actually removed for the skbuf, pointers to transport header
+    and length in the IP header are updated (like in ESP/UDP RX). A
+    side effect is the IP header will now appear to have an incorrect
+    checksum by an external observer (e.g. tcpdump), it will be off
+    by sizeof UDP header. If necessary we could adjust the checksum 
+    to compensate.
+  - Performance results are below. My expectation is that FOU should
+    entail little overhead (clearly there is some work to do :-) ).
+    Optimizing UDP socket lookup for encapsulation ports should help
+    significantly.
+  - I really don't expect/want devices to have special support for any
+    of this. Generic checksum offload mechanisms (NETIF_HW_CSUM
+    and use of CHECKSUM_COMPLETE) should be sufficient. RSS and flow
+    steering is provided by commonly implemented UDP hashing. GRO/GSO
+    seem fairly comparable with LRO/TSO already.
+
+* Performance
+
+Ran netperf TCP_RR and TCP_STREAM tests across various configurations.
+This was performed on bnx2x and I disabled TSO/GSO on sender to get
+fair comparison for FOU versus non-FOU. CPU utilization is reported
+for receive in TCP_STREAM.
+
+  GRE
+    IPv4, FOU, UDP checksum enabled
+      TCP_STREAM
+        24.85% CPU utilization
+        9310.6 Mbps
+      TCP_RR
+        94.2% CPU utilization
+        155/249/460 90/95/99% latencies
+        1.17018e+06 tps
+    IPv4, FOU, UDP checksum disabled
+      TCP_STREAM
+        31.04% CPU utilization
+        9302.22 Mbps
+      TCP_RR
+        94.13% CPU utilization
+        154/239/419 90/95/99% latencies
+        1.17555e+06 tps
+    IPv4, no FOU
+      TCP_STREAM
+        23.13% CPU utilization
+        9354.58 Mbps
+      TCP_RR
+        90.24% CPU utilization
+        156/228/360 90/95/99% latencies
+        1.18169e+06 tps
+
+  IPIP
+    FOU, UDP checksum enabled
+      TCP_STREAM
+        24.13% CPU utilization
+        9328 Mbps
+      TCP_RR
+        94.23
+        149/237/429 90/95/99% latencies
+        1.19553e+06 tps
+    FOU, UDP checksum disabled
+      TCP_STREAM
+        29.13% CPU utilization
+        9370.25 Mbps
+      TCP_RR
+        94.13% CPU utilization
+        149/232/398 90/95/99% latencies
+        1.19225e+06 tps
+    No FOU
+      TCP_STREAM
+        10.43% CPU utilization
+        5302.03 Mbps
+      TCP_RR
+        51.53% CPU utilization
+        215/324/475 90/95/99% latencies
+        864998 tps
+
+  SIT
+    FOU, UDP checksum enabled
+      TCP_STREAM
+        30.38% CPU utilization
+        9176.76 Mbps
+      TCP_RR
+        96.9% CPU utilization
+        170/281/581 90/95/99% latencies
+        1.03372e+06 tps
+    FOU, UDP checksum disabled
+      TCP_STREAM
+        39.6% CPU utilization
+        9176.57 Mbps
+      TCP_RR
+        97.14% CPU utilization
+        167/272/548 90/95/99% latencies
+        1.03203e+06 tps
+    No FOU
+      TCP_STREAM
+        11.2% CPU utilization
+        4636.05 Mbps
+      TCP_RR
+        59.51% CPU utilization
+        232/346/489 90/95/99% latencies
+        813199 tps
+
+v2:
+  - Removed encap IP tunnel ioctls, configuration is done by netlink
+    only.
+  - Don't export fou_create and fou_destroy, they are currently
+    intended to be called within fou module only.
+  - Filled on tunnel netlink structures and functions for new values.
+
+v3:
+  - Fixed change logs for some of the patches.
+  - Remove inline from fou_gro_receive and fou_gro_complete, let
+    compiler decide on these.
+
+v4:
+  - Don't need to cast void in fou_from_sock
+  - Removed incorrest htons for port in fou_destroy
+  - Some minor cleanup for readability
+
+Tom Herbert (7):
+  net: Export inet_offloads and inet6_offloads
+  fou: Support for foo-over-udp RX path
+  fou: Add GRO support
+  net: Changes to ip_tunnel to support foo-over-udp encapsulation
+  sit: Setup and TX path for sit/UDP foo-over-udp encapsulation
+  ipip: Setup and TX path for ipip/UDP foo-over-udp encapsulation
+  gre: Setup and TX path for gre/UDP foo-over-udp encapsulation
+
+ include/linux/netdevice.h      |   3 +-
+ include/net/ip_tunnels.h       |  19 ++-
+ include/uapi/linux/fou.h       |  32 ++++
+ include/uapi/linux/if_tunnel.h |  16 ++
+ net/ipv4/Kconfig               |  10 ++
+ net/ipv4/Makefile              |   1 +
+ net/ipv4/fou.c                 | 368 +++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/ip_gre.c              |  90 +++++++++-
+ net/ipv4/ip_tunnel.c           |  91 +++++++++-
+ net/ipv4/ipip.c                |  78 ++++++++-
+ net/ipv4/protocol.c            |   1 +
+ net/ipv4/udp_offload.c         |   5 +-
+ net/ipv6/protocol.c            |   1 +
+ net/ipv6/sit.c                 | 107 ++++++++++--
+ 14 files changed, 802 insertions(+), 20 deletions(-)
+ create mode 100644 include/uapi/linux/fou.h
+ create mode 100644 net/ipv4/fou.c
+
+-- 
+2.1.0.rc2.206.gedb03e5
