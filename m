@@ -1,39 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 3/4] net: stmmac: add support for Intel Quark X1000
-Date: Wed, 17 Sep 2014 00:55:32 -0400 (EDT)
-Message-ID: <20140917.005532.2054822778882237895.davem@davemloft.net>
-References: <F54AEECA5E2B9541821D670476DAE19C2B7E99A7@PGSMSX102.gar.corp.intel.com>
-	<20140916.150037.1715537913178712290.davem@davemloft.net>
-	<F54AEECA5E2B9541821D670476DAE19C2B7E9DCA@PGSMSX102.gar.corp.intel.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: ipsec: Remove obsolete MAX_AH_AUTH_LEN
+Date: Wed, 17 Sep 2014 12:58:28 +0800
+Message-ID: <20140917045828.GA32086@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, rayagond@vayavyalabs.com,
-	vbridgers2013@gmail.com, srinivas.kandagatla@st.com, wens@csie.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	boon.leong.ong@intel.com
-To: hock.leong.kweh@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F54AEECA5E2B9541821D670476DAE19C2B7E9DCA@PGSMSX102.gar.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:40149 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751026AbaIQE6d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 00:58:33 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Date: Wed, 17 Sep 2014 02:41:39 +0000
+Hi Dave:
 
-> Thanks for the pointer. I did a quickly checking on the class number to see if
-> I could use it for differentiation the ports number. Whereas I found them 
-> both have the same class number as well. Below shows the "lspci" dump to 
-> all the PCI devices on Quark X1000 Galileo board (Ethernet controllers are
-> 00:14.6 and 00:14.7). Very unfortunately we are unlikely to use the class 
-> number as well as pci_device_id for the differentiation.
- ...
-> 00:14.6 "Class 0200" "8086" "0937" "8086" "0937"
-> 00:14.7 "Class 0200" "8086" "0937" "8086" "0937"
+While tracking down the MAX_AH_AUTH_LEN crash in an old kernel
+I thought that this limit was rather arbitrary and we should
+just get rid of it.
 
-Are you kidding me?  It's a perfect way to identify this device, it
-properly uses PCI_CLASS_NETWORK_ETHERNET (0x0200) in both cases and
-this will not match any other function on this PCI device at all.
+In fact it seems that we've already done all the work needed
+to remove it apart from actually removing it.  This limit was
+there in order to limit stack usage.  Since we've already
+switched over to allocating scratch space using kmalloc, there
+is no longer any need to limit the authentication length.
 
-Please do as I suggested and use the PCI class for the differentiation
-and matching during probing.
+This patch kills all references to it, including the BUG_ONs
+that led me here.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/include/net/ah.h b/include/net/ah.h
+index ca95b98..4e2dfa4 100644
+--- a/include/net/ah.h
++++ b/include/net/ah.h
+@@ -3,9 +3,6 @@
+ 
+ #include <linux/skbuff.h>
+ 
+-/* This is the maximum truncated ICV length that we know of. */
+-#define MAX_AH_AUTH_LEN	64
+-
+ struct crypto_ahash;
+ 
+ struct ah_data {
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index a2afa89..ac9a32e 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -505,8 +505,6 @@ static int ah_init_state(struct xfrm_state *x)
+ 	ahp->icv_full_len = aalg_desc->uinfo.auth.icv_fullbits/8;
+ 	ahp->icv_trunc_len = x->aalg->alg_trunc_len/8;
+ 
+-	BUG_ON(ahp->icv_trunc_len > MAX_AH_AUTH_LEN);
+-
+ 	if (x->props.flags & XFRM_STATE_ALIGN4)
+ 		x->props.header_len = XFRM_ALIGN4(sizeof(struct ip_auth_hdr) +
+ 						  ahp->icv_trunc_len);
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index 72a4930..2176893 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -713,8 +713,6 @@ static int ah6_init_state(struct xfrm_state *x)
+ 	ahp->icv_full_len = aalg_desc->uinfo.auth.icv_fullbits/8;
+ 	ahp->icv_trunc_len = x->aalg->alg_trunc_len/8;
+ 
+-	BUG_ON(ahp->icv_trunc_len > MAX_AH_AUTH_LEN);
+-
+ 	x->props.header_len = XFRM_ALIGN8(sizeof(struct ip_auth_hdr) +
+ 					  ahp->icv_trunc_len);
+ 	switch (x->props.mode) {
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index d4db6eb..8cf382b 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -333,8 +333,7 @@ static int attach_auth_trunc(struct xfrm_algo_auth **algpp, u8 *props,
+ 	algo = xfrm_aalg_get_byname(ualg->alg_name, 1);
+ 	if (!algo)
+ 		return -ENOSYS;
+-	if ((ualg->alg_trunc_len / 8) > MAX_AH_AUTH_LEN ||
+-	    ualg->alg_trunc_len > algo->uinfo.auth.icv_fullbits)
++	if (ualg->alg_trunc_len > algo->uinfo.auth.icv_fullbits)
+ 		return -EINVAL;
+ 	*props = algo->desc.sadb_alg_id;
+ 
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
