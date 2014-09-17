@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v13 net-next 05/11] bpf: handle pseudo BPF_CALL insn
-Date: Tue, 16 Sep 2014 17:39:24 -0700
-Message-ID: <1410914370-29883-6-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v13 net-next 02/11] bpf: enable bpf syscall on x64 and i386
+Date: Tue, 16 Sep 2014 17:39:21 -0700
+Message-ID: <1410914370-29883-3-git-send-email-ast@plumgrid.com>
 References: <1410914370-29883-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -22,74 +22,84 @@ In-Reply-To: <1410914370-29883-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-in native eBPF programs userspace is using pseudo BPF_CALL instructions
-which encode one of 'enum bpf_func_id' inside insn->imm field.
-Verifier checks that program using correct function arguments to given func_id.
-If all checks passed, kernel needs to fixup BPF_CALL->imm fields by
-replacing func_id with in-kernel function pointer.
-eBPF interpreter just calls the function.
-
-In-kernel eBPF users continue to use generic BPF_CALL.
+done as separate commit to ease conflict resolution
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- kernel/bpf/syscall.c |   37 +++++++++++++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
+ arch/x86/syscalls/syscall_32.tbl  |    1 +
+ arch/x86/syscalls/syscall_64.tbl  |    1 +
+ include/linux/syscalls.h          |    3 ++-
+ include/uapi/asm-generic/unistd.h |    4 +++-
+ kernel/sys_ni.c                   |    3 +++
+ 5 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index a5b5c7ca0264..5a45cdc511e1 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -357,6 +357,40 @@ void bpf_register_prog_type(struct bpf_prog_type_list *tl)
- 	list_add(&tl->list_node, &bpf_prog_types);
- }
+diff --git a/arch/x86/syscalls/syscall_32.tbl b/arch/x86/syscalls/syscall_32.tbl
+index 028b78168d85..9fe1b5d002f0 100644
+--- a/arch/x86/syscalls/syscall_32.tbl
++++ b/arch/x86/syscalls/syscall_32.tbl
+@@ -363,3 +363,4 @@
+ 354	i386	seccomp			sys_seccomp
+ 355	i386	getrandom		sys_getrandom
+ 356	i386	memfd_create		sys_memfd_create
++357	i386	bpf			sys_bpf
+diff --git a/arch/x86/syscalls/syscall_64.tbl b/arch/x86/syscalls/syscall_64.tbl
+index 35dd922727b9..281150b539a2 100644
+--- a/arch/x86/syscalls/syscall_64.tbl
++++ b/arch/x86/syscalls/syscall_64.tbl
+@@ -327,6 +327,7 @@
+ 318	common	getrandom		sys_getrandom
+ 319	common	memfd_create		sys_memfd_create
+ 320	common	kexec_file_load		sys_kexec_file_load
++321	common	bpf			sys_bpf
  
-+/* fixup insn->imm field of bpf_call instructions:
-+ * if (insn->imm == BPF_FUNC_map_lookup_elem)
-+ *      insn->imm = bpf_map_lookup_elem - __bpf_call_base;
-+ * else if (insn->imm == BPF_FUNC_map_update_elem)
-+ *      insn->imm = bpf_map_update_elem - __bpf_call_base;
-+ * else ...
-+ *
-+ * this function is called after eBPF program passed verification
-+ */
-+static void fixup_bpf_calls(struct bpf_prog *prog)
-+{
-+	const struct bpf_func_proto *fn;
-+	int i;
-+
-+	for (i = 0; i < prog->len; i++) {
-+		struct bpf_insn *insn = &prog->insnsi[i];
-+
-+		if (insn->code == (BPF_JMP | BPF_CALL)) {
-+			/* we reach here when program has bpf_call instructions
-+			 * and it passed bpf_check(), means that
-+			 * ops->get_func_proto must have been supplied, check it
-+			 */
-+			BUG_ON(!prog->aux->ops->get_func_proto);
-+
-+			fn = prog->aux->ops->get_func_proto(insn->imm);
-+			/* all functions that have prototype and verifier allowed
-+			 * programs to call them, must be real in-kernel functions
-+			 */
-+			BUG_ON(!fn->func);
-+			insn->imm = fn->func - __bpf_call_base;
-+		}
-+	}
-+}
-+
- /* drop refcnt on maps used by eBPF program and free auxilary data */
- static void free_used_maps(struct bpf_prog_aux *aux)
- {
-@@ -478,6 +512,9 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	if (err < 0)
- 		goto free_used_maps;
+ #
+ # x32-specific system call numbers start at 512 to avoid cache impact
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index 0f86d85a9ce4..bda9b81357cc 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -65,6 +65,7 @@ struct old_linux_dirent;
+ struct perf_event_attr;
+ struct file_handle;
+ struct sigaltstack;
++union bpf_attr;
  
-+	/* fixup BPF_CALL->imm field */
-+	fixup_bpf_calls(prog);
-+
- 	/* eBPF program is ready to be JITed */
- 	bpf_prog_select_runtime(prog);
+ #include <linux/types.h>
+ #include <linux/aio_abi.h>
+@@ -875,5 +876,5 @@ asmlinkage long sys_seccomp(unsigned int op, unsigned int flags,
+ 			    const char __user *uargs);
+ asmlinkage long sys_getrandom(char __user *buf, size_t count,
+ 			      unsigned int flags);
+-
++asmlinkage long sys_bpf(int cmd, union bpf_attr *attr, unsigned int size);
+ #endif
+diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
+index 11d11bc5c78f..22749c134117 100644
+--- a/include/uapi/asm-generic/unistd.h
++++ b/include/uapi/asm-generic/unistd.h
+@@ -705,9 +705,11 @@ __SYSCALL(__NR_seccomp, sys_seccomp)
+ __SYSCALL(__NR_getrandom, sys_getrandom)
+ #define __NR_memfd_create 279
+ __SYSCALL(__NR_memfd_create, sys_memfd_create)
++#define __NR_bpf 280
++__SYSCALL(__NR_bpf, sys_bpf)
  
+ #undef __NR_syscalls
+-#define __NR_syscalls 280
++#define __NR_syscalls 281
+ 
+ /*
+  * All syscalls below here should go away really,
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+index 391d4ddb6f4b..b4b5083f5f5e 100644
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -218,3 +218,6 @@ cond_syscall(sys_kcmp);
+ 
+ /* operate on Secure Computing state */
+ cond_syscall(sys_seccomp);
++
++/* access BPF programs and maps */
++cond_syscall(sys_bpf);
 -- 
 1.7.9.5
