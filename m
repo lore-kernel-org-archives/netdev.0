@@ -1,127 +1,91 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: CPU scheduler to TXQ binding? (ixgbe vs. igb)
-Date: Thu, 18 Sep 2014 09:28:50 +0200
-Message-ID: <20140918092850.117d4c15@redhat.com>
-References: <20140917152653.1c824a22@redhat.com>
-	<1410964359.7106.229.camel@edumazet-glaptop2.roam.corp.google.com>
-	<5419A1E7.8040109@intel.com>
-	<20140918085640.0815df6d@redhat.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCHv2] ipv4: Do not cache routing failures due to disabled
+ forwarding.
+Date: Thu, 18 Sep 2014 11:04:04 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1409181031260.16485@ja.home.ssi.bg>
+References: <54143FB2.9000600@green-communications.fr> <1410776893-5284-1-git-send-email-nicolas.cavallari@green-communications.fr> <alpine.LFD.2.11.1409180749570.4152@ja.home.ssi.bg> <541A7EFA.8070506@green-communications.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Nicolas Cavallari <nicolas.cavallari@green-communications.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11207 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756052AbaIRH27 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2014 03:28:59 -0400
-In-Reply-To: <20140918085640.0815df6d@redhat.com>
+Received: from ja.ssi.bg ([178.16.129.10]:51919 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753309AbaIRIEx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2014 04:04:53 -0400
+In-Reply-To: <541A7EFA.8070506@green-communications.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 18 Sep 2014 08:56:40 +0200
-Jesper Dangaard Brouer <jbrouer@redhat.com> wrote:
 
-> On Wed, 17 Sep 2014 07:59:51 -0700
-> Alexander Duyck <alexander.h.duyck@intel.com> wrote:
-> 
-> > On 09/17/2014 07:32 AM, Eric Dumazet wrote:
-> > > On Wed, 2014-09-17 at 15:26 +0200, Jesper Dangaard Brouer wrote:
-> > >> The CPU to TXQ binding behavior of ixgbe vs. igb NIC driver are
-> > >> somehow different.  Normally I setup NIC IRQ-to-CPU bindings 1-to-1,
-> > >> with script set_irq_affinity [1].
-> > >>
-> > >> For forcing use of a specific HW TXQ, I normally force the CPU binding
-> > >> of the process, either with "taskset" or with "netperf -T lcpu,rcpu".
-> > >>
-> > >> This works fine with driver ixgbe, but not with driver igb.  That is
-> > >> with igb, the program forced to specific CPU, can still use another
-> > >> TXQ. What am I missing?
-> > >>
-> > >>
-> > >> I'm monitoring this with both:
-> > >>  1) watch -d sudo tc -s -d q ls dev ethXX
-> > >>  2) https://github.com/ffainelli/bqlmon
-> > >>
-> > >> [1] https://github.com/netoptimizer/network-testing/blob/master/bin/set_irq_affinity
-> > > 
-> > > Have you setup XPS ?
-> > > 
-> > > echo 0001 >/sys/class/net/ethX/queues/tx-0/xps_cpus
-> > > echo 0002 >/sys/class/net/ethX/queues/tx-1/xps_cpus
-> > > echo 0004 >/sys/class/net/ethX/queues/tx-2/xps_cpus
-> > > echo 0008 >/sys/class/net/ethX/queues/tx-3/xps_cpus
-> > > echo 0010 >/sys/class/net/ethX/queues/tx-4/xps_cpus
-> > > echo 0020 >/sys/class/net/ethX/queues/tx-5/xps_cpus
-> > > echo 0040 >/sys/class/net/ethX/queues/tx-6/xps_cpus
-> > > echo 0080 >/sys/class/net/ethX/queues/tx-7/xps_cpus
-> > > 
-> > > Or something like that, depending on number of cpus and TX queues.
-> > > 
+	Hello,
+
+On Thu, 18 Sep 2014, Nicolas Cavallari wrote:
+
+> On 18/09/2014 07:17, Julian Anastasov wrote:
 > > 
-> > That was what I was thinking as well.
-> > 
-> > ixgbe has ATR which makes use of XPS to setup the transmit queues for a
-> > 1:1 mapping.  The receive side of the flow is routed back to the same Rx
-> > queue through flow director mappings.
-> > 
-> > In the case of igb it only has RSS and doesn't set a default XPS
-> > configuration.  So you should probably setup XPS and you might also want
-> > to try and make use of RPS to try and steer receive packets since the Rx
-> > queues won't match the Tx queues.
+> > 	Still, I fail to see how the compiler optimizes
+> > the jump, 'goto local_input' still jumps to res.fi check.
+> > I tried even likely() after 'local_input:" checks for
+> > res.fi and !itag but the 'if (res.fi) {' block is still
+> > moved below and reached with jnz. I expected likely() to
+> > prefer the res.fi != NULL path.
 > 
-> After setting up XPS to CPU 1:1 binding, it works most of the time.
-> Meaning, most of the traffic will go through the TXQ I've bound the
-> process to, BUT some packets can still choose another TXQ (observed
-> monitoring tc output and blqmon).
-> 
-> Could this be related to the missing RPS setup?
+> Different compiler/arch/options perhaps ?  I'm using Debian's GCC
+> 4.9.1-11 on amd64 with a defconfig + CONFIG_DEBUG_INFO. It does this:
 
-It helped setting up RPS, but not 100%.  I see small periods of packets
-going out on other TXQs, and sometimes as before some heavy flow will
-find its way to another TXQ.
+	I see, new compilers can do better, I'm on x86 32-bit:
 
- 
-> Can I get some hints setting up RPS?
+# rpm -qi gcc | grep -e Version -e Date
+Version     : 4.8.3
+Install Date: Sat 06 Sep 2014 05:56:15 PM EEST
+Build Date  : Tue 24 Jun 2014 10:18:10 PM EEST
 
-My setup command now maps both XPS and RPS 1:1 to CPUs.
+# make net/ipv4/route.s
 
-# Setup both RPS and XPS with a 1:1 binding to CPUs
-export DEV=eth1 ; export NR_CPUS=11 ; \
-for txq in `seq 0 $NR_CPUS` ; do \
-  file_xps=/sys/class/net/${DEV}/queues/tx-${txq}/xps_cpus \
-  file_rps=/sys/class/net/${DEV}/queues/rx-${txq}/rps_cpus \
-  mask=`printf %X $((1<<$txq))`
-  test -e $file_xps && sudo sh -c "echo $mask > $file_xps" && grep . -H $file_xps ;\
-  test -e $file_rps && sudo sh -c "echo $mask > $file_rps" && grep . -H $file_rps ;\
-done
+---> local_input:
+.L1031:
+        movl    -56(%ebp), %edx # res.fi, D.55132
+        testl   %edx, %edx      # D.55132
 
-Output:
-/sys/class/net/eth1/queues/tx-0/xps_cpus:001
-/sys/class/net/eth1/queues/rx-0/rps_cpus:001
-/sys/class/net/eth1/queues/tx-1/xps_cpus:002
-/sys/class/net/eth1/queues/rx-1/rps_cpus:002
-/sys/class/net/eth1/queues/tx-2/xps_cpus:004
-/sys/class/net/eth1/queues/rx-2/rps_cpus:004
-/sys/class/net/eth1/queues/tx-3/xps_cpus:008
-/sys/class/net/eth1/queues/rx-3/rps_cpus:008
-/sys/class/net/eth1/queues/tx-4/xps_cpus:010
-/sys/class/net/eth1/queues/rx-4/rps_cpus:010
-/sys/class/net/eth1/queues/tx-5/xps_cpus:020
-/sys/class/net/eth1/queues/rx-5/rps_cpus:020
-/sys/class/net/eth1/queues/tx-6/xps_cpus:040
-/sys/class/net/eth1/queues/rx-6/rps_cpus:040
-/sys/class/net/eth1/queues/tx-7/xps_cpus:080
-/sys/class/net/eth1/queues/rx-7/rps_cpus:080
+---> jump for likely(res.fi != NULL):
 
+        jne     .L1219  #,
+.L1095:
+        movb    $0, -88(%ebp)   #, %sfp
+.L1059:
+        movzbl  -88(%ebp), %eax # %sfp, D.55118
+        xorl    %edx, %edx      # D.55127
+        cmpl    $0, 236(%edi)   #, in_dev_129->cnf.data
+        pushl   %eax    # D.55118
+        movl    init_net+172, %eax      # init_net.loopback_dev,
+        setne   %dl     #, D.55127
+        xorl    %ecx, %ecx      #
+        call    rt_dst_alloc    #
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+...
+
+---> no_route:
+.L1027:
+        movb    $7, -62(%ebp)   #, res.type
+        movl    $0, -56(%ebp)   #, res.fi
+#APP
+# 1773 "net/ipv4/route.c" 1
+        incl rt_cache_stat+8    # rt_cache_stat.in_no_route
+# 0 "" 2
+#NO_APP
+.L1214:
+        movl    $0, -92(%ebp)   #, %sfp
+
+---> jump to local_input:
+
+        jmp     .L1031  #
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
