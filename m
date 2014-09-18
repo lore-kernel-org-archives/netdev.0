@@ -1,61 +1,64 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 2/8] can: peak_pci: add PCI ID definition pcie card variant
-Date: Thu, 18 Sep 2014 12:40:56 +0200
-Message-ID: <1411036862-13255-3-git-send-email-mkl@pengutronix.de>
-References: <1411036862-13255-1-git-send-email-mkl@pengutronix.de>
+Subject: pull-request: can 2014-09-18
+Date: Thu, 18 Sep 2014 12:40:54 +0200
+Message-ID: <1411036862-13255-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Oliver Hartkopp <socketcan@hartkopp.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
+	kernel@pengutronix.de
 To: netdev@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1411036862-13255-1-git-send-email-mkl@pengutronix.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
+this is a pull request of 8 patches for current net.
 
-Add PCI ID definition for the single channel PCAN ExpressCard 34 adapter. Due
-to the subsystem id evaluation the correct number of channels (here 1) is
-created at initialization time. Tested including the LED functionality.
+A patch by Roger Quadros for the c_can driver fixes the swapped parameters of
+the c_can_hw_raminit_ti() function. Oliver Hartkopp adds the missing PCI ids to
+the peak_pci driver to support the single channel PCAN ExpressCard 34 adapter.
+David Dueck converts the at91_can driver to use proper clock handling
+functions. Then there are 5 patches by David Jander and me which fix several
+mailbox related problems in the flexcan driver.
 
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-Acked-by: Stephane Grosjean <s.grosjean@peak-system.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Marc
+
 ---
- drivers/net/can/sja1000/peak_pci.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/can/sja1000/peak_pci.c b/drivers/net/can/sja1000/peak_pci.c
-index 7a85590..e5fac36 100644
---- a/drivers/net/can/sja1000/peak_pci.c
-+++ b/drivers/net/can/sja1000/peak_pci.c
-@@ -70,6 +70,8 @@ struct peak_pci_chan {
- #define PEAK_PC_104P_DEVICE_ID	0x0006	/* PCAN-PC/104+ cards */
- #define PEAK_PCI_104E_DEVICE_ID	0x0007	/* PCAN-PCI/104 Express cards */
- #define PEAK_MPCIE_DEVICE_ID	0x0008	/* The miniPCIe slot cards */
-+#define PEAK_PCIE_OEM_ID	0x0009	/* PCAN-PCI Express OEM */
-+#define PEAK_PCIEC34_DEVICE_ID	0x000A	/* PCAN-PCI Express 34 (one channel) */
- 
- #define PEAK_PCI_CHAN_MAX	4
- 
-@@ -87,6 +89,7 @@ static const struct pci_device_id peak_pci_tbl[] = {
- 	{PEAK_PCI_VENDOR_ID, PEAK_CPCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
- #ifdef CONFIG_CAN_PEAK_PCIEC
- 	{PEAK_PCI_VENDOR_ID, PEAK_PCIEC_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
-+	{PEAK_PCI_VENDOR_ID, PEAK_PCIEC34_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
- #endif
- 	{0,}
- };
-@@ -653,7 +656,8 @@ static int peak_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		 * This must be done *before* register_sja1000dev() but
- 		 * *after* devices linkage
- 		 */
--		if (pdev->device == PEAK_PCIEC_DEVICE_ID) {
-+		if (pdev->device == PEAK_PCIEC_DEVICE_ID ||
-+		    pdev->device == PEAK_PCIEC34_DEVICE_ID) {
- 			err = peak_pciec_probe(pdev, dev);
- 			if (err) {
- 				dev_err(&pdev->dev,
--- 
-2.1.0
+The following changes since commit 6a38792ca8a5da28f65dc42eeb73d9a431f8d0fd:
+
+  scsi: use 'depends' instead of 'select' for SCSI_FC_ATTRS (2014-09-16 16:55:55 -0400)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can.git tags/linux-can-fixes-for-3.17-20140918
+
+for you to fetch changes up to e77980e50bc2850599d4d9c0192b67a9ffd6daac:
+
+  can: at91_can: add missing prepare and unprepare of the clock (2014-09-18 11:15:37 +0200)
+
+----------------------------------------------------------------
+linux-can-fixes-for-3.17-20140918
+
+----------------------------------------------------------------
+David Dueck (1):
+      can: at91_can: add missing prepare and unprepare of the clock
+
+David Jander (2):
+      can: flexcan: correctly initialize mailboxes
+      can: flexcan: implement workaround for errata ERR005829
+
+Marc Kleine-Budde (3):
+      can: flexcan: mark TX mailbox as TX_INACTIVE
+      can: flexcan: put TX mailbox into TX_INACTIVE mode after tx-complete
+      can: flexcan: increase FLEXCAN_MCR_MAXMB() macro to 7 bits
+
+Oliver Hartkopp (1):
+      can: peak_pci: add PCI ID definition pcie card variant
+
+Roger Quadros (1):
+      can: c_can_platform: fix parameters of c_can_hw_raminit_ti()
+
+ drivers/net/can/at91_can.c             |  8 ++++---
+ drivers/net/can/c_can/c_can_platform.c |  4 ++--
+ drivers/net/can/flexcan.c              | 43 ++++++++++++++++++++++++++++++----
+ drivers/net/can/sja1000/peak_pci.c     |  6 ++++-
+ 4 files changed, 51 insertions(+), 10 deletions(-)
 
