@@ -1,300 +1,117 @@
-From: Joe M <joe9mail@gmail.com>
-Subject: Re: Figuring out how vti works
-Date: Thu, 18 Sep 2014 10:00:00 -0500
-Message-ID: <20140918150000.GA30949@master>
-References: <20140915142043.GA22070@master>
- <20140917052811.GT6390@secunet.com>
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net: sched: shrink struct qdisc_skb_cb to 28 bytes
+Date: Thu, 18 Sep 2014 08:02:05 -0700
+Message-ID: <1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1402338773-5996-1-git-send-email-_govind@gmx.com>
+	 <1402338773-5996-2-git-send-email-_govind@gmx.com>
+	 <CAE9FiQW+Rv4o9Pc1J9hyqgW1WrhEANKEXH6zYQc2NQqeMbAcvA@mail.gmail.com>
+	 <alpine.LNX.2.03.1406261159071.1438@ws.cisco>
+	 <CAJZOPZJ7+n0t1LCqaa3JCBByRw=f_Tp6rk8vm0ZnCzmtKFKX_g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>,
+	Yinghai Lu <yinghai@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>, ssujith@cisco.com,
+	gvaradar@cisco.com, "Christian Benvenuti (benve)" <benve@cisco.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:45208 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932154AbaIRPAC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 11:00:02 -0400
-Received: by mail-oa0-f44.google.com with SMTP id eb12so771324oac.17
-        for <netdev@vger.kernel.org>; Thu, 18 Sep 2014 08:00:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140917052811.GT6390@secunet.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:58950 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755841AbaIRPCI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 11:02:08 -0400
+Received: by mail-pd0-f178.google.com with SMTP id p10so1571749pdj.9
+        for <netdev@vger.kernel.org>; Thu, 18 Sep 2014 08:02:07 -0700 (PDT)
+In-Reply-To: <CAJZOPZJ7+n0t1LCqaa3JCBByRw=f_Tp6rk8vm0ZnCzmtKFKX_g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Steffen,
+From: Eric Dumazet <edumazet@google.com>
 
-Thanks for responding. Sorry that it took me some time to gather all
-the information.
+We cannot make struct qdisc_skb_cb bigger without impacting IPoIB,
+or increasing skb->cb[] size.
 
-> Do you know where the packets are getting dropped?
+Commit e0f31d849867 ("flow_keys: Record IP layer protocol in
+skb_flow_dissect()") broke IPoIB.
 
-All I can see from the below statistics is that the ip_vti0 tunnel is
-getting picked up instead of the vtil tunnel.
+Only current offender is sch_choke, and this one do not need an
+absolutely precise flow key.
 
-> netstat -i or /proc/net/xfrm_stat could give a hint.
+If we store 17 bytes of flow key, its more than enough. (Its the actual
+size of flow_keys if it was a packed structure, but we might add new
+fields at the end of it later)
 
-master# netstat -i
-Kernel Interface table
-Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
-enp4s0    1500     2310      0     57 0          1974      0      0      0 BMRU
-ip_vti0   1428        0      2      0 0             0     10      0      0 ORU
-lo       65536      600      0      0 0           600      0      0      0 LRU
-vtil      1428        0      0      0 0             0      0      0      0 OPRU
-master# ip -statistics xfrm state
-src 192.168.0.11 dst <client or alice or bnglr public ip>
-        proto esp spi 0xc0b44648(3233039944) reqid 1(0x00000001) mode tunnel
-        replay-window 32 seq 0x00000000 flag af-unspec (0x00100000)
-        mark 1/0xffffffff
-        auth-trunc hmac(sha1)
-0x6fb52dc437eb26b65bd0dced995aa27e78a7e869 (160 bits) 96
-        enc cbc(aes) 0x7e431bdc0ec138d0d8476c4afb0ccd63 (128 bits)
-        encap type espinudp sport 4500 dport 4500 addr 0.0.0.0
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 902(sec), hard 1200(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          0(bytes), 0(packets)
-          add 2014-09-17 17:38:06 use -
-        stats:
-          replay-window 0 replay 0 failed 0
-src <client or alice or bnglr public ip> dst 192.168.0.11
-        proto esp spi 0xc514e2d3(3306480339) reqid 1(0x00000001) mode tunnel
-        replay-window 32 seq 0x00000000 flag af-unspec (0x00100000)
-        mark 1/0xffffffff
-        auth-trunc hmac(sha1)
-0x8b4fd0749314d3656c962124e69c554ca03c9e11 (160 bits) 96
-        enc cbc(aes) 0x27e2a7cae3a24c20584e841a16dcf89d (128 bits)
-        encap type espinudp sport 4500 dport 4500 addr 0.0.0.0
-        lifetime config:
-          limit: soft (INF)(bytes), hard (INF)(bytes)
-          limit: soft (INF)(packets), hard (INF)(packets)
-          expire add: soft 848(sec), hard 1200(sec)
-          expire use: soft 0(sec), hard 0(sec)
-        lifetime current:
-          0(bytes), 0(packets)
-          add 2014-09-17 17:38:05 use -
-        stats:
-          replay-window 0 replay 0 failed 0
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: e0f31d849867 ("flow_keys: Record IP layer protocol in skb_flow_dissect()")
+---
+ include/net/sch_generic.h |    3 ++-
+ net/sched/sch_choke.c     |   18 ++++++++++++++----
+ 2 files changed, 16 insertions(+), 5 deletions(-)
 
-
-master# netstat -i
-Kernel Interface table
-Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
-enp4s0    1500     3214      0     69 0          2886      0      0      0 BMRU
-ip_vti0   1428        0      2      0 0             0     21      0      0 ORU
-lo       65536      629      0      0 0           629      0      0      0 LRU
-vtil      1428        0      0      0 0             0      1      0      0 OPRU
-master# ping -c 1 -I 192.168.0.11 192.168.1.232
-PING 192.168.1.232 (192.168.1.232) from 192.168.0.11 : 56(84) bytes of data.
-
---- 192.168.1.232 ping statistics ---
-1 packets transmitted, 0 received, 100% packet loss, time 0ms
-
-master# netstat -i
-Kernel Interface table
-Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
-enp4s0    1500     3217      0     69 0          2890      0      0      0 BMRU
-ip_vti0   1428        0      2      0 0             0     21      0      0 ORU
-lo       65536      629      0      0 0           629      0      0      0 LRU
-vtil      1428        0      0      0 0             0      1      0      0 OPRU
-master# ping -c 1 -I 192.168.0.11 192.168.1.232
-PING 192.168.1.232 (192.168.1.232) from 192.168.0.11 : 56(84) bytes of data.
-
---- 192.168.1.232 ping statistics ---
-1 packets transmitted, 0 received, 100% packet loss, time 0ms
-
-master# netstat -i
-Kernel Interface table
-Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
-enp4s0    1500     3230      0     69 0          2897      0      0      0 BMRU
-ip_vti0   1428        0      2      0 0             0     22      0      0 ORU
-lo       65536      629      0      0 0           629      0      0      0 LRU
-vtil      1428        0      0      0 0             0      1      0      0 OPRU
-master# ping -c 1 -I 192.168.0.11 192.168.1.232
-PING 192.168.1.232 (192.168.1.232) from 192.168.0.11 : 56(84) bytes of data.
-
---- 192.168.1.232 ping statistics ---
-1 packets transmitted, 0 received, 100% packet loss, time 0ms
-
-master# netstat -i
-Kernel Interface table
-Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
-enp4s0    1500     3250      0     69 0          2912      0      0      0 BMRU
-ip_vti0   1428        0      2      0 0             0     22      0      0 ORU
-lo       65536      629      0      0 0           629      0      0      0 LRU
-vtil      1428        0      0      0 0             0      1      0      0 OPRU
-master#
-
->From what I gather, nothing seems to be going through the vtil tunnel.
-The ip_vti0 seems to get used instead.
-
->> The pings worked fine if I remove the ip_vti and ip_tunnel modules,
->> the "mark=1" from /etc/ipsec.conf and the iptables mangle rules to
->> set-mark.
->
-> You don't need to set the mark with iptables.
-> You just have to ensure that the policy and state marks
-> match the tunnel keys. I.e. direction in and forward must
-> match the ikey, direction out must match the okey.
->
->>
->> sudo ip tunnel list
->> vtil: ip/ip  remote 192.168.1.232  local 192.168.0.11  ttl inherit ikey 0  okey 1
->
-> Your ikey does not match the policy and the state mark.
->
->>
->> sudo ip xfrm policy
->> src 192.168.1.0/24 dst 192.168.0.0/24
->>         dir fwd priority 2883
->>         mark 1/0xffffffff
->>         tmpl src <bnglr public ip> dst 192.168.0.11
->>                 proto esp reqid 2 mode tunnel
->> src 192.168.1.0/24 dst 192.168.0.0/24
->>         dir in priority 2883
->>         mark 1/0xffffffff
->
-> If you set mark 1 here, the tunnel should set ikey 1.
->
->>
->> I tried setting the mangle rules to set-mark but that did not help. I
->> could not find any more documentation.
->>
->
-> Please try without setting a mark with netfilter.
->
-
-I removed the iptables rules and set all policy to ACCEPT in iptables
-raw, nat, mangle and raw tables.
-
-master# echo "1" | sudo tee /proc/sys/net/ipv4/ip_forward
-1
-master# modprobe ip_vti
-master# ipsec start
-Starting strongSwan 5.2.0 IPsec [starter]...
-master# ip tunnel add vtil mode vti local 192.168.0.11 remote
-192.168.1.232 ikey 1 okey 1
-master# ip link set vtil up
-master# sleep 60
-master# ip route add 192.168.1.0/24 dev vtil
-master# ip xfrm state
-src 192.168.0.11 dst <client or alice or bnglr public ip>
-        proto esp spi 0xc0b44648 reqid 1 mode tunnel
-        replay-window 32 flag af-unspec
-        mark 1/0xffffffff
-        auth-trunc hmac(sha1) 0x6fb52dc437eb26b65bd0dced995aa27e78a7e869 96
-        enc cbc(aes) 0x7e431bdc0ec138d0d8476c4afb0ccd63
-        encap type espinudp sport 4500 dport 4500 addr 0.0.0.0
-src <client or alice or bnglr public ip> dst 192.168.0.11
-        proto esp spi 0xc514e2d3 reqid 1 mode tunnel
-        replay-window 32 flag af-unspec
-        mark 1/0xffffffff
-        auth-trunc hmac(sha1) 0x8b4fd0749314d3656c962124e69c554ca03c9e11 96
-        enc cbc(aes) 0x27e2a7cae3a24c20584e841a16dcf89d
-        encap type espinudp sport 4500 dport 4500 addr 0.0.0.0
-master# ip xfrm policy
-src 192.168.1.0/24 dst 192.168.0.0/24
-        dir fwd priority 2883
-        mark 1/0xffffffff
-        tmpl src <client or alice or bnglr public ip> dst 192.168.0.11
-                proto esp reqid 1 mode tunnel
-src 192.168.1.0/24 dst 192.168.0.0/24
-        dir in priority 2883
-        mark 1/0xffffffff
-        tmpl src <client or alice or bnglr public ip> dst 192.168.0.11
-                proto esp reqid 1 mode tunnel
-src 192.168.0.0/24 dst 192.168.1.0/24
-        dir out priority 2883
-        mark 1/0xffffffff
-        tmpl src 192.168.0.11 dst <client or alice or bnglr public ip>
-                proto esp reqid 1 mode tunnel
-src 0.0.0.0/0 dst 0.0.0.0/0
-        socket in priority 0
-src 0.0.0.0/0 dst 0.0.0.0/0
-        socket out priority 0
-src 0.0.0.0/0 dst 0.0.0.0/0
-        socket in priority 0
-src 0.0.0.0/0 dst 0.0.0.0/0
-        socket out priority 0
-src ::/0 dst ::/0
-        socket in priority 0
-src ::/0 dst ::/0
-        socket out priority 0
-src ::/0 dst ::/0
-        socket in priority 0
-src ::/0 dst ::/0
-        socket out priority 0
-master# ip tunnel list
-ip_vti0: ip/ip  remote any  local any  ttl inherit  nopmtudisc key 0
-vtil: ip/ip  remote 192.168.1.232  local 192.168.0.11  ttl inherit  key 1
-master# ip route list
-default via 192.168.0.1 dev enp4s0  metric 202
-127.0.0.0/8 dev lo  scope host
-192.168.0.0/24 dev enp4s0  proto kernel  scope link  src 192.168.0.11
-metric 202
-192.168.1.0/24 dev vtil  scope link
-master# uname -a
-Linux master 3.16.3 #90 SMP PREEMPT Wed Sep 17 13:39:17 CDT 2014
-x86_64 Intel(R) Pentium(R) CPU G620 @ 2.60GHz GenuineIntel GNU/Linux
-master# ip -V
-ip utility, iproute2-ss140804
-
-
-
-sudo tcpdump -nS 'src port 500 or dst port 500 or src port 4500 or dst
-port 4500' -i enp4s0
-Password:
-error : ret -1
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on enp4s0, link-type EN10MB (Ethernet), capture size 65535 bytes
-17:56:48.651871 IP 192.168.0.11.4500 > <client or alice or bnglr
-public ip>.4500: isakmp-nat-keep-alive
-17:56:56.934729 IP <client or alice or bnglr public ip>.4500 >
-192.168.0.11.4500: isakmp-nat-keep-alive
-17:57:08.652113 IP 192.168.0.11.4500 > <client or alice or bnglr
-public ip>.4500: isakmp-nat-keep-alive
-17:57:16.934548 IP <client or alice or bnglr public ip>.4500 >
-192.168.0.11.4500: isakmp-nat-keep-alive
-17:57:28.652359 IP 192.168.0.11.4500 > <client or alice or bnglr
-public ip>.4500: isakmp-nat-keep-alive
-17:57:36.938056 IP <client or alice or bnglr public ip>.4500 >
-192.168.0.11.4500: isakmp-nat-keep-alive
-17:57:48.652624 IP 192.168.0.11.4500 > <client or alice or bnglr
-public ip>.4500: isakmp-nat-keep-alive
-17:57:56.935926 IP <client or alice or bnglr public ip>.4500 >
-192.168.0.11.4500: isakmp-nat-keep-alive
-17:58:08.652872 IP 192.168.0.11.4500 > <client or alice or bnglr
-public ip>.4500: isakmp-nat-keep-alive
-17:58:17.005488 IP <client or alice or bnglr public ip>.4500 >
-192.168.0.11.4500: isakmp-nat-keep-alive
-
-and there is no tcpdump output on vtil interface.
-
-master# cat /etc/ipsec.conf
-# /etc/ipsec.conf - strongSwan IPsec configuration file
-
-config setup
-
-conn %default
-        ikelifetime=60m
-        keylife=20m
-        rekeymargin=3m
-        keyingtries=1
-        keyexchange=ikev2
-        mobike=no
-
-conn master-bnglr
-        leftid="C=CH, O=strongSwan, CN=master"
-        leftcert=masterCert.der
-        left=192.168.0.11
-        leftsubnet=192.168.0.0/24
-        rightid="C=CH, O=strongSwan, CN=bnglr"
-        right=%any
-        rightsubnet=192.168.1.0/24
-        auto=add
-        mark=1
-
-Any other thoughts, please?
-
-Thanks
-Joe
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index a3cfb8ebeb53..620e086c0cbe 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -231,7 +231,8 @@ struct qdisc_skb_cb {
+ 	unsigned int		pkt_len;
+ 	u16			slave_dev_queue_mapping;
+ 	u16			_pad;
+-	unsigned char		data[24];
++#define QDISC_CB_PRIV_LEN 20
++	unsigned char		data[QDISC_CB_PRIV_LEN];
+ };
+ 
+ static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
+diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
+index ed30e436128b..fb666d1e4de3 100644
+--- a/net/sched/sch_choke.c
++++ b/net/sched/sch_choke.c
+@@ -133,10 +133,16 @@ static void choke_drop_by_idx(struct Qdisc *sch, unsigned int idx)
+ 	--sch->q.qlen;
+ }
+ 
++/* private part of skb->cb[] that a qdisc is allowed to use
++ * is limited to QDISC_CB_PRIV_LEN bytes.
++ * As a flow key might be too large, we store a part of it only.
++ */
++#define CHOKE_K_LEN min_t(u32, sizeof(struct flow_keys), QDISC_CB_PRIV_LEN - 3)
++
+ struct choke_skb_cb {
+ 	u16			classid;
+ 	u8			keys_valid;
+-	struct flow_keys	keys;
++	u8			keys[QDISC_CB_PRIV_LEN - 3];
+ };
+ 
+ static inline struct choke_skb_cb *choke_skb_cb(const struct sk_buff *skb)
+@@ -163,22 +169,26 @@ static u16 choke_get_classid(const struct sk_buff *skb)
+ static bool choke_match_flow(struct sk_buff *skb1,
+ 			     struct sk_buff *skb2)
+ {
++	struct flow_keys temp;
++
+ 	if (skb1->protocol != skb2->protocol)
+ 		return false;
+ 
+ 	if (!choke_skb_cb(skb1)->keys_valid) {
+ 		choke_skb_cb(skb1)->keys_valid = 1;
+-		skb_flow_dissect(skb1, &choke_skb_cb(skb1)->keys);
++		skb_flow_dissect(skb1, &temp);
++		memcpy(&choke_skb_cb(skb1)->keys, &temp, CHOKE_K_LEN);
+ 	}
+ 
+ 	if (!choke_skb_cb(skb2)->keys_valid) {
+ 		choke_skb_cb(skb2)->keys_valid = 1;
+-		skb_flow_dissect(skb2, &choke_skb_cb(skb2)->keys);
++		skb_flow_dissect(skb2, &temp);
++		memcpy(&choke_skb_cb(skb2)->keys, &temp, CHOKE_K_LEN);
+ 	}
+ 
+ 	return !memcmp(&choke_skb_cb(skb1)->keys,
+ 		       &choke_skb_cb(skb2)->keys,
+-		       sizeof(struct flow_keys));
++		       CHOKE_K_LEN);
+ }
+ 
+ /*
