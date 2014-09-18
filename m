@@ -1,64 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/8] flow_keys: Record IP layer protocol in
- skb_flow_dissect()
-Date: Thu, 18 Sep 2014 07:38:00 -0700
-Message-ID: <1411051080.7106.259.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1402338773-5996-1-git-send-email-_govind@gmx.com>
-	 <1402338773-5996-2-git-send-email-_govind@gmx.com>
-	 <CAE9FiQW+Rv4o9Pc1J9hyqgW1WrhEANKEXH6zYQc2NQqeMbAcvA@mail.gmail.com>
-	 <alpine.LNX.2.03.1406261159071.1438@ws.cisco>
-	 <CAJZOPZJ7+n0t1LCqaa3JCBByRw=f_Tp6rk8vm0ZnCzmtKFKX_g@mail.gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] net: stmmac: fix stmmac_pci_probe failed when CONFIG_HAVE_CLK
+ is selected
+Date: Thu, 18 Sep 2014 16:49:58 +0200
+Message-ID: <541AF116.9010004@st.com>
+References: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Govindarajulu Varadarajan <_govind@gmx.com>,
-	Yinghai Lu <yinghai@kernel.org>,
-	David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>, ssujith@cisco.com,
-	gvaradar@cisco.com, "Christian Benvenuti (benve)" <benve@cisco.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:44912 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755855AbaIROiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 10:38:03 -0400
-Received: by mail-pa0-f53.google.com with SMTP id rd3so1624408pab.12
-        for <netdev@vger.kernel.org>; Thu, 18 Sep 2014 07:38:02 -0700 (PDT)
-In-Reply-To: <CAJZOPZJ7+n0t1LCqaa3JCBByRw=f_Tp6rk8vm0ZnCzmtKFKX_g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Vince Bridgers <vbridgers2013@gmail.com>,
+	Chen-Yu Tsai <wens@csie.org>, <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Ong Boon Leong <boon.leong.ong@intel.com>,
+	Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
+To: Kweh Hock Leong <hock.leong.kweh@intel.com>,
+	"David S. Miller" <davem@davemloft.net>, <rayagond@vayavyalabs.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-09-18 at 17:18 +0300, Or Gerlitz wrote:
+On 9/18/2014 2:34 PM, Kweh Hock Leong wrote:
+> From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+>
+> When the CONFIG_HAVE_CLK is selected for the system, the stmmac_pci_probe
+> will fail with dmesg:
+> [    2.167225] stmmaceth 0000:00:14.6: enabling device (0000 -> 0002)
+> [    2.178267] stmmaceth 0000:00:14.6: enabling bus mastering
+> [    2.178436] stmmaceth 0000:00:14.6: irq 24 for MSI/MSI-X
+> [    2.178703] stmmaceth 0000:00:14.6: stmmac_dvr_probe: warning: cannot
+> get CSR clock
+> [    2.186503] stmmac_pci_probe: main driver probe failed
+> [    2.194003] stmmaceth 0000:00:14.6: disabling bus mastering
+> [    2.196473] stmmaceth: probe of 0000:00:14.6 failed with error -2
+>
+> This patch fix the issue by breaking the dependency to devm_clk_get()
+> as the CSR clock can be obtained at priv->plat->clk_csr from pci driver.
+>
+> Reported-by: Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
+> Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   13 +++++++++----
+>   1 file changed, 9 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 08addd6..ea3859a 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -2714,10 +2714,15 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+>
+>   	priv->stmmac_clk = devm_clk_get(priv->device, STMMAC_RESOURCE_NAME);
+>   	if (IS_ERR(priv->stmmac_clk)) {
+> -		dev_warn(priv->device, "%s: warning: cannot get CSR clock\n",
 
-> The crash happens 100% on IPoIB (IP-over-Infiniband) [1] interfaces
-> b/c your upstream commit e0f31d8 "flow_keys: Record IP layer protocol
-> in skb_flow_dissect()" causes the IPoIB data stashed on skb->cb [2] to
-> smash other skb fields.
-> 
-> So your 3.17-rc1 commit introduced a regression to how things work
-> since kernel 3.2
-> 
-> Can please see how to revert this hunk
-> 
-> -- a/include/net/sch_generic.h
-> +++ b/include/net/sch_generic.h
-> @@ -231,7 +231,7 @@ struct qdisc_skb_cb {
->         unsigned int            pkt_len;
->         u16                     slave_dev_queue_mapping;
->         u16                     _pad;
-> -       unsigned char           data[20];
-> +       unsigned char           data[24];
->  };
-> 
-> thanks,
-> 
-> Or.
-> 
-> [1]  http://marc.info/?l=linux-rdma&m=141029109017035&w=2
-> [2] see these commits
-> 
-> 936d7de3 IPoIB: Stop lying about hard_header_len and use skb->cb to
-> stash LL addresses
-> a0417fa3  net: Make qdisc_skb_cb upper size bound explicit
 
-I am taking care of this right now guys.
+Hmm I am not sure this is the right fix. The driver has to fail if the
+main clock is not found. Indeed dev_warn has to be changed in dev_err.
+
+Take a look at Documentation/networking/stmmac.txt but I will post some
+patch to improve the documentation adding further detail for clocks too.
+
+The the logic behind the code is that the CSR clock will be set at
+runtime if in case of priv->plat->clk_csr ==0 or it will be forced to
+a fixed value if passed from the platform instead of.
+IIRC This was required on some platforms time ago.
+For sure the driver is designed to fail in case of no main clock is
+found.
+
+Peppe
+
+
+> -			 __func__);
+> -		ret = PTR_ERR(priv->stmmac_clk);
+> -		goto error_clk_get;
+> +		if (!priv->plat->clk_csr) {
+> +			dev_warn(priv->device,
+> +				 "%s: warning: cannot get CSR clock\n",
+> +				 __func__);
+> +			ret = PTR_ERR(priv->stmmac_clk);
+> +			goto error_clk_get;
+> +		} else {
+> +			priv->stmmac_clk = NULL;
+> +		}
+>   	}
+>   	clk_prepare_enable(priv->stmmac_clk);
+>
+>
