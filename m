@@ -1,365 +1,100 @@
-From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
-Subject: Re: [PATCHv6 net-next 1/3] sunvnet: upgrade to VIO protocol version 1.6
-Date: Wed, 17 Sep 2014 21:23:46 -0700
-Message-ID: <F34B8038-D189-4DD7-BF98-26CC4BD11990@oracle.com>
-References: <541A2316.5010603@oracle.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: David L Stevens <david.stevens@oracle.com>
+From: Joe M <joe9mail@gmail.com>
+Subject: Re: Figuring out how vti works
+Date: Thu, 18 Sep 2014 00:08:07 -0500
+Message-ID: <20140918050807.GA10599@master>
+References: <20140915142043.GA22070@master>
+ <20140917052811.GT6390@secunet.com>
+ <CAHjjW16qdT6RWuJaUd1c6k39RgcPtfsyF=V-dVowW_2UwhF_dw@mail.gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="45Z9DzgjV8m4Oswq"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:19656 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750855AbaIREXx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 00:23:53 -0400
-In-Reply-To: <541A2316.5010603@oracle.com>
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:33086 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751099AbaIRFIJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 01:08:09 -0400
+Received: by mail-oi0-f51.google.com with SMTP id x69so262079oia.24
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 22:08:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAHjjW16qdT6RWuJaUd1c6k39RgcPtfsyF=V-dVowW_2UwhF_dw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On Sep 17, 2014, at 5:11 PM, David L Stevens <david.stevens@oracle.com> wrote:
+--45Z9DzgjV8m4Oswq
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> This patch upgrades the sunvnet driver to support VIO protocol version 1.6.
-> In particular, it adds per-port MTU negotiation, allowing MTUs other than
-> ETH_FRAMELEN with ports using newer VIO protocol versions.
-> 
-> Signed-off-by: David L Stevens <david.stevens@oracle.com>
-> ---
-> arch/sparc/include/asm/vio.h       |   44 ++++++++++++++-
-> arch/sparc/kernel/viohs.c          |   14 ++++-
-> drivers/net/ethernet/sun/sunvnet.c |  104 +++++++++++++++++++++++++++++------
-> drivers/net/ethernet/sun/sunvnet.h |    3 +
-> 4 files changed, 143 insertions(+), 22 deletions(-)
-> 
-> diff --git a/arch/sparc/include/asm/vio.h b/arch/sparc/include/asm/vio.h
-> index 5c0ebe7..107d4a4 100644
-> --- a/arch/sparc/include/asm/vio.h
-> +++ b/arch/sparc/include/asm/vio.h
-> @@ -65,6 +65,7 @@ struct vio_dring_register {
-> 	u16			options;
-> #define VIO_TX_DRING		0x0001
-> #define VIO_RX_DRING		0x0002
-> +#define VIO_RX_DRING_DATA	0x0004
-> 	u16			resv;
-> 	u32			num_cookies;
-> 	struct ldc_trans_cookie	cookies[0];
-> @@ -80,6 +81,8 @@ struct vio_dring_unregister {
-> #define VIO_PKT_MODE		0x01 /* Packet based transfer	*/
-> #define VIO_DESC_MODE		0x02 /* In-band descriptors	*/
-> #define VIO_DRING_MODE		0x03 /* Descriptor rings	*/
-> +/* in vers >= 1.2, VIO_DRING_MODE is 0x04 and transfer mode is a bitmask */
-> +#define VIO_NEW_DRING_MODE	0x04
-> 
-> struct vio_dring_data {
-> 	struct vio_msg_tag	tag;
-> @@ -209,10 +212,20 @@ struct vio_net_attr_info {
-> 	u8			addr_type;
-> #define VNET_ADDR_ETHERMAC	0x01
-> 	u16			ack_freq;
-> -	u32			resv1;
-> +	u8			plnk_updt;
-> +#define PHYSLINK_UPDATE_NONE		0x00
-> +#define PHYSLINK_UPDATE_STATE		0x01
-> +#define PHYSLINK_UPDATE_STATE_ACK	0x02
-> +#define PHYSLINK_UPDATE_STATE_NACK	0x03
-> +	u8			options;
-> +	u16			resv1;
-> 	u64			addr;
-> 	u64			mtu;
-> -	u64			resv2[3];
-> +	u16			cflags;
-> +#define VNET_LSO_IPV4_CAPAB		0x0001
-> +	u16			ipv4_lso_maxlen;
-> +	u32			resv2;
-> +	u64			resv3[2];
-> };
-> 
-> #define VNET_NUM_MCAST		7
-> @@ -370,6 +383,33 @@ struct vio_driver_state {
-> 	struct vio_driver_ops	*ops;
-> };
-> 
-> +static inline bool vio_version_before(struct vio_driver_state *vio,
-> +				      u16 major, u16 minor)
-> +{
-> +	u32 have = (u32)vio->ver.major << 16 | vio->ver.minor;
-> +	u32 want = (u32)major << 16 | minor;
-> +
-> +	return have < want;
-> +}
-> +
-> +static inline bool vio_version_after(struct vio_driver_state *vio,
-> +				      u16 major, u16 minor)
-> +{
-> +	u32 have = (u32)vio->ver.major << 16 | vio->ver.minor;
-> +	u32 want = (u32)major << 16 | minor;
-> +
-> +	return have > want;
-> +}
-> +
-> +static inline bool vio_version_after_eq(struct vio_driver_state *vio,
-> +					u16 major, u16 minor)
-> +{
-> +	u32 have = (u32)vio->ver.major << 16 | vio->ver.minor;
-> +	u32 want = (u32)major << 16 | minor;
-> +
-> +	return have >= want;
-> +}
-> +
-> #define viodbg(TYPE, f, a...) \
-> do {	if (vio->debug & VIO_DEBUG_##TYPE) \
-> 		printk(KERN_INFO "vio: ID[%lu] " f, \
-> diff --git a/arch/sparc/kernel/viohs.c b/arch/sparc/kernel/viohs.c
-> index f8e7dd5..7ef081a 100644
-> --- a/arch/sparc/kernel/viohs.c
-> +++ b/arch/sparc/kernel/viohs.c
-> @@ -426,6 +426,13 @@ static int process_dreg_info(struct vio_driver_state *vio,
-> 	if (vio->dr_state & VIO_DR_STATE_RXREG)
-> 		goto send_nack;
-> 
-> +	/* v1.6 and higher, ACK with desired, supported mode, or NACK */
-> +	if (vio_version_after_eq(vio, 1, 6)) {
-> +		if (!(pkt->options & VIO_TX_DRING))
-> +			goto send_nack;
-> +		pkt->options = VIO_TX_DRING;
-> +	}
-> +
+Hello Steffen,
+
+Checking further with printk's, I can see
+
+vti_tunnel_init being called for both ip_vti0 and vtil tunnels. But,
+when vti_tunnel_xmit is called, it is called with ip_vti0 tunnel and
+not the vtil tunnel. I am not sure if I am setting the route wrong. I
+saw a comment that vti_tunnel_xmit is called by dev_queue_xmit
+function. I could not figure out what dev_queue_xmit does though.=20
+
+master# echo "1" | sudo tee /proc/sys/net/ipv4/ip_forward
+1
+master# modprobe ip_vti
+master# ipsec start
+Starting strongSwan 5.2.0 IPsec [starter]...
+master# ip tunnel add vtil mode vti local 192.168.0.11 remote 192.168.1.232=
+ ikey 1 okey 1
+master# ip link set vtil up
+master# sleep 10
+master# ip route add 192.168.1.0/24 dev vtil
+master# ip route list
+default via 192.168.0.1 dev enp4s0  metric 202
+127.0.0.0/8 dev lo  scope host
+192.168.0.0/24 dev enp4s0  proto kernel  scope link  src 192.168.0.11  metr=
+ic 202
+192.168.1.0/24 dev vtil  scope link
+
+ip link list
+=2E
+=2E
+=2E
+13: ip_vti0@NONE: <NOARP,UP,LOWER_UP> mtu 1428 qdisc noqueue state UNKNOWN =
+mode DEFAULT group default
+    link/ipip 0.0.0.0 brd 0.0.0.0
+14: vtil@NONE: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1428 qdisc noqueue state=
+ UNKNOWN mode DEFAULT group default
+    link/ipip 192.168.0.11 peer 192.168.1.232
+master# ip tunnel list
+ip_vti0: ip/ip  remote any  local any  ttl inherit  nopmtudisc key 0
+vtil: ip/ip  remote 192.168.1.232  local 192.168.0.11  ttl inherit  key 1
+
+Just wanted to check if you have any suggestions to go about debugging
+this.
+
+Thanks
+Joe
 
 
-I forget to send this comment in my previous email. The above function is
-common to all clients, that includes vdisk.  The vdisk today doesn't use any
-version number above 1.2 or 1.3, so it probably won't impact it, but  this
-special handling doesn't seem to belong in the common code.
+--45Z9DzgjV8m4Oswq
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
--Raghuram
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-> 	BUG_ON(vio->desc_buf);
-> 
-> 	vio->desc_buf = kzalloc(pkt->descr_size, GFP_ATOMIC);
-> @@ -453,8 +460,11 @@ static int process_dreg_info(struct vio_driver_state *vio,
-> 	pkt->tag.stype = VIO_SUBTYPE_ACK;
-> 	pkt->dring_ident = ++dr->ident;
-> 
-> -	viodbg(HS, "SEND DRING_REG ACK ident[%llx]\n",
-> -	       (unsigned long long) pkt->dring_ident);
-> +	viodbg(HS, "SEND DRING_REG ACK ident[%llx] "
-> +	       "ndesc[%u] dsz[%u] opt[0x%x] ncookies[%u]\n",
-> +	       (unsigned long long) pkt->dring_ident,
-> +	       pkt->num_descr, pkt->descr_size, pkt->options,
-> +	       pkt->num_cookies);
-> 
-> 	len = (sizeof(*pkt) +
-> 	       (dr->ncookies * sizeof(struct ldc_trans_cookie)));
-> diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-> index 763cdfc..a9638c1 100644
-> --- a/drivers/net/ethernet/sun/sunvnet.c
-> +++ b/drivers/net/ethernet/sun/sunvnet.c
-> @@ -15,6 +15,7 @@
-> #include <linux/ethtool.h>
-> #include <linux/etherdevice.h>
-> #include <linux/mutex.h>
-> +#include <linux/if_vlan.h>
-> 
-> #include <asm/vio.h>
-> #include <asm/ldc.h>
-> @@ -41,6 +42,7 @@ static int __vnet_tx_trigger(struct vnet_port *port, u32 start);
-> 
-> /* Ordered from largest major to lowest */
-> static struct vio_version vnet_versions[] = {
-> +	{ .major = 1, .minor = 6 },
-> 	{ .major = 1, .minor = 0 },
-> };
-> 
-> @@ -67,6 +69,7 @@ static int vnet_send_attr(struct vio_driver_state *vio)
-> 	struct vnet_port *port = to_vnet_port(vio);
-> 	struct net_device *dev = port->vp->dev;
-> 	struct vio_net_attr_info pkt;
-> +	int framelen = ETH_FRAME_LEN;
-> 	int i;
-> 
-> 	memset(&pkt, 0, sizeof(pkt));
-> @@ -74,19 +77,41 @@ static int vnet_send_attr(struct vio_driver_state *vio)
-> 	pkt.tag.stype = VIO_SUBTYPE_INFO;
-> 	pkt.tag.stype_env = VIO_ATTR_INFO;
-> 	pkt.tag.sid = vio_send_sid(vio);
-> -	pkt.xfer_mode = VIO_DRING_MODE;
-> +	if (vio_version_before(vio, 1, 2))
-> +		pkt.xfer_mode = VIO_DRING_MODE;
-> +	else
-> +		pkt.xfer_mode = VIO_NEW_DRING_MODE;
-> 	pkt.addr_type = VNET_ADDR_ETHERMAC;
-> 	pkt.ack_freq = 0;
-> 	for (i = 0; i < 6; i++)
-> 		pkt.addr |= (u64)dev->dev_addr[i] << ((5 - i) * 8);
-> -	pkt.mtu = ETH_FRAME_LEN;
-> +	if (vio_version_after(vio, 1, 3)) {
-> +		if (port->rmtu) {
-> +			port->rmtu = min(VNET_MAXPACKET, port->rmtu);
-> +			pkt.mtu = port->rmtu;
-> +		} else {
-> +			port->rmtu = VNET_MAXPACKET;
-> +			pkt.mtu = port->rmtu;
-> +		}
-> +		if (vio_version_after_eq(vio, 1, 6))
-> +			pkt.options = VIO_TX_DRING;
-> +	} else if (vio_version_before(vio, 1, 3)) {
-> +		pkt.mtu = framelen;
-> +	} else { /* v1.3 */
-> +		pkt.mtu = framelen + VLAN_HLEN;
-> +	}
-> +
-> +	pkt.plnk_updt = PHYSLINK_UPDATE_NONE;
-> +	pkt.cflags = 0;
-> 
-> 	viodbg(HS, "SEND NET ATTR xmode[0x%x] atype[0x%x] addr[%llx] "
-> -	       "ackfreq[%u] mtu[%llu]\n",
-> +	       "ackfreq[%u] plnk_updt[0x%02x] opts[0x%02x] mtu[%llu] "
-> +	       "cflags[0x%04x] lso_max[%u]\n",
-> 	       pkt.xfer_mode, pkt.addr_type,
-> -	       (unsigned long long) pkt.addr,
-> -	       pkt.ack_freq,
-> -	       (unsigned long long) pkt.mtu);
-> +	       (unsigned long long)pkt.addr,
-> +	       pkt.ack_freq, pkt.plnk_updt, pkt.options,
-> +	       (unsigned long long)pkt.mtu, pkt.cflags, pkt.ipv4_lso_maxlen);
-> +
-> 
-> 	return vio_ldc_send(vio, &pkt, sizeof(pkt));
-> }
-> @@ -94,18 +119,52 @@ static int vnet_send_attr(struct vio_driver_state *vio)
-> static int handle_attr_info(struct vio_driver_state *vio,
-> 			    struct vio_net_attr_info *pkt)
-> {
-> -	viodbg(HS, "GOT NET ATTR INFO xmode[0x%x] atype[0x%x] addr[%llx] "
-> -	       "ackfreq[%u] mtu[%llu]\n",
-> +	struct vnet_port *port = to_vnet_port(vio);
-> +	u64	localmtu;
-> +	u8	xfer_mode;
-> +
-> +	viodbg(HS, "GOT NET ATTR xmode[0x%x] atype[0x%x] addr[%llx] "
-> +	       "ackfreq[%u] plnk_updt[0x%02x] opts[0x%02x] mtu[%llu] "
-> +	       " (rmtu[%llu]) cflags[0x%04x] lso_max[%u]\n",
-> 	       pkt->xfer_mode, pkt->addr_type,
-> -	       (unsigned long long) pkt->addr,
-> -	       pkt->ack_freq,
-> -	       (unsigned long long) pkt->mtu);
-> +	       (unsigned long long)pkt->addr,
-> +	       pkt->ack_freq, pkt->plnk_updt, pkt->options,
-> +	       (unsigned long long)pkt->mtu, port->rmtu, pkt->cflags,
-> +	       pkt->ipv4_lso_maxlen);
-> 
-> 	pkt->tag.sid = vio_send_sid(vio);
-> 
-> -	if (pkt->xfer_mode != VIO_DRING_MODE ||
-> +	xfer_mode = pkt->xfer_mode;
-> +	/* for version < 1.2, VIO_DRING_MODE = 0x3 and no bitmask */
-> +	if (vio_version_before(vio, 1, 2) && xfer_mode == VIO_DRING_MODE)
-> +		xfer_mode = VIO_NEW_DRING_MODE;
-> +
-> +	/* MTU negotiation:
-> +	 *	< v1.3 - ETH_FRAME_LEN exactly
-> +	 *	> v1.3 - MIN(pkt.mtu, VNET_MAXPACKET, port->rmtu) and change
-> +	 *			pkt->mtu for ACK
-> +	 *	= v1.3 - ETH_FRAME_LEN + VLAN_HLEN exactly
-> +	 */
-> +	if (vio_version_before(vio, 1, 3)) {
-> +		localmtu = ETH_FRAME_LEN;
-> +	} else if (vio_version_after(vio, 1, 3)) {
-> +		localmtu = port->rmtu ? port->rmtu : VNET_MAXPACKET;
-> +		localmtu = min(pkt->mtu, localmtu);
-> +		pkt->mtu = localmtu;
-> +	} else { /* v1.3 */
-> +		localmtu = ETH_FRAME_LEN + VLAN_HLEN;
-> +	}
-> +	port->rmtu = localmtu;
-> +
-> +	/* for version >= 1.6, ACK packet mode we support */
-> +	if (vio_version_after_eq(vio, 1, 6)) {
-> +		pkt->xfer_mode = VIO_NEW_DRING_MODE;
-> +		pkt->options = VIO_TX_DRING;
-> +	}
-> +
-> +	if (!(xfer_mode | VIO_NEW_DRING_MODE) ||
-> 	    pkt->addr_type != VNET_ADDR_ETHERMAC ||
-> -	    pkt->mtu != ETH_FRAME_LEN) {
-> +	    pkt->mtu != localmtu) {
-> 		viodbg(HS, "SEND NET ATTR NACK\n");
-> 
-> 		pkt->tag.stype = VIO_SUBTYPE_NACK;
-> @@ -114,7 +173,14 @@ static int handle_attr_info(struct vio_driver_state *vio,
-> 
-> 		return -ECONNRESET;
-> 	} else {
-> -		viodbg(HS, "SEND NET ATTR ACK\n");
-> +		viodbg(HS, "SEND NET ATTR ACK xmode[0x%x] atype[0x%x] "
-> +		       "addr[%llx] ackfreq[%u] plnk_updt[0x%02x] opts[0x%02x] "
-> +		       "mtu[%llu] (rmtu[%llu]) cflags[0x%04x] lso_max[%u]\n",
-> +		       pkt->xfer_mode, pkt->addr_type,
-> +		       (unsigned long long)pkt->addr,
-> +		       pkt->ack_freq, pkt->plnk_updt, pkt->options,
-> +		       (unsigned long long)pkt->mtu, port->rmtu, pkt->cflags,
-> +		       pkt->ipv4_lso_maxlen);
-> 
-> 		pkt->tag.stype = VIO_SUBTYPE_ACK;
-> 
-> @@ -210,7 +276,7 @@ static int vnet_rx_one(struct vnet_port *port, unsigned int len,
-> 	int err;
-> 
-> 	err = -EMSGSIZE;
-> -	if (unlikely(len < ETH_ZLEN || len > ETH_FRAME_LEN)) {
-> +	if (unlikely(len < ETH_ZLEN || len > port->rmtu)) {
-> 		dev->stats.rx_length_errors++;
-> 		goto out_dropped;
-> 	}
-> @@ -555,8 +621,10 @@ static void vnet_event(void *arg, int event)
-> 		vio_link_state_change(vio, event);
-> 		spin_unlock_irqrestore(&vio->lock, flags);
-> 
-> -		if (event == LDC_EVENT_RESET)
-> +		if (event == LDC_EVENT_RESET) {
-> +			port->rmtu = 0;
-> 			vio_port_up(vio);
-> +		}
-> 		return;
-> 	}
-> 
-> @@ -1048,8 +1116,8 @@ static int vnet_port_alloc_tx_bufs(struct vnet_port *port)
-> 	void *dring;
-> 
-> 	for (i = 0; i < VNET_TX_RING_SIZE; i++) {
-> -		void *buf = kzalloc(ETH_FRAME_LEN + 8, GFP_KERNEL);
-> -		int map_len = (ETH_FRAME_LEN + 7) & ~7;
-> +		void *buf = kzalloc(VNET_MAXPACKET + 8, GFP_KERNEL);
-> +		int map_len = (VNET_MAXPACKET + 7) & ~7;
-> 
-> 		err = -ENOMEM;
-> 		if (!buf)
-> diff --git a/drivers/net/ethernet/sun/sunvnet.h b/drivers/net/ethernet/sun/sunvnet.h
-> index da49337..986e04b 100644
-> --- a/drivers/net/ethernet/sun/sunvnet.h
-> +++ b/drivers/net/ethernet/sun/sunvnet.h
-> @@ -11,6 +11,7 @@
->  */
-> #define VNET_TX_TIMEOUT			(5 * HZ)
-> 
-> +#define VNET_MAXPACKET			1518ULL /* ETH_FRAMELEN + VLAN_HDR */
-> #define VNET_TX_RING_SIZE		512
-> #define VNET_TX_WAKEUP_THRESH(dr)	((dr)->pending / 4)
-> 
-> @@ -44,6 +45,8 @@ struct vnet_port {
-> 	u32			stop_rx_idx;
-> 	bool			stop_rx;
-> 	bool			start_cons;
-> +
-> +	u64			rmtu;
-> };
-> 
-> static inline struct vnet_port *to_vnet_port(struct vio_driver_state *vio)
-> -- 
-> 1.7.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+iQIcBAEBAgAGBQJUGmi3AAoJENvmPC7PRKkILsYQAIsgshOZp9s48hSQwLxqj812
+8brtXhBRyMunWnFJUvx4ifmfLLTVpPfsTTpI0Z33B+bzhrPep/H37nc5lKpW0w+C
+RJRR9+NA+uIrpIKGE1u6Gg8dhbhl7v6Dw/GFj4+cfK1JnjckloCjbRnFW1k3J44b
+M/0qvoYjBF87SQGD/4zdOYtTD9sE6v43IbZixE0DOmqH+yLTu9cIY/DXEqv1lNaL
+PQK1AIm/exIug2lv+6KhBwM60rDp4JoWNp2JLX5f3/db59r6cdaSVnk1A7aDvlp5
+FYUCM80B38YhH3ULya93N2cw4jhJmPbjU7UnD4Te85KtbxALeSwVWkc9/IswI/Q2
+IQ7oW5nCWi7l4ZCMgFmOumvQ99p4OlT3l/I2rV/1O61EV65xSk8e3fv92iQm8QcF
+thiq7WoxNS31AdOpiFKVLi7Z6ocUrL1aL3+Tup0A9Oa4FvWmbjLqf9KQnPe4+7lh
+M0m+WQKCvB6NWExWHkpNPlF9jcocT/0Gl4KK8t2yUQrdpyvUczc68TAlAQ/veBb6
+7QdJeefztIwfC+7UPahJ9VBg+UYa3hPCLP/x6qAYMv4CE2NwOPs1u1XGwBoa2Euy
+BuMZeN9SgPvyxqWrhVjdjss/kRt8jN9/ZbyI4ELv56Q6cCsagwzcds9oh8mdeb43
+6+YOxKR/VMoEo92+4csD
+=13cj
+-----END PGP SIGNATURE-----
+
+--45Z9DzgjV8m4Oswq--
