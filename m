@@ -1,64 +1,52 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Figuring out how vti works
-Date: Thu, 18 Sep 2014 11:20:50 +0200
-Message-ID: <20140918092050.GV6390@secunet.com>
-References: <20140915142043.GA22070@master>
- <20140917052811.GT6390@secunet.com>
- <CAHjjW16qdT6RWuJaUd1c6k39RgcPtfsyF=V-dVowW_2UwhF_dw@mail.gmail.com>
- <20140918050807.GA10599@master>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next] am2150: Update nmclan_cs.c to use update PCMCIA API
+Date: Thu, 18 Sep 2014 02:33:41 -0700
+Message-ID: <1411032821-9753-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Joe M <joe9mail@gmail.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Roger Pao <rpao@paonet.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:42357 "EHLO a.mx.secunet.com"
+Received: from mga14.intel.com ([192.55.52.115]:27974 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754949AbaIRJVA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2014 05:21:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20140918050807.GA10599@master>
+	id S1755505AbaIRJdp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2014 05:33:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 18, 2014 at 12:08:07AM -0500, Joe M wrote:
-> Hello Steffen,
-> 
-> Checking further with printk's, I can see
-> 
-> vti_tunnel_init being called for both ip_vti0 and vtil tunnels. But,
-> when vti_tunnel_xmit is called, it is called with ip_vti0 tunnel and
-> not the vtil tunnel. I am not sure if I am setting the route wrong.
+Resolves compile warning about use of a deprecated function call:
+drivers/net/ethernet/amd/nmclan_cs.c: In function =E2=80=98nmclan_confi=
+g=E2=80=99:
+drivers/net/ethernet/amd/nmclan_cs.c:624:3: warning: =E2=80=98pcmcia_re=
+quest_exclusive_irq=E2=80=99 is deprecated (declared at include/pcmcia/=
+ds.h:213) [-Wdeprecated-declarations]
+   ret =3D pcmcia_request_exclusive_irq(link, mace_interrupt);
 
-If you can't get traffic into the tunnel, then the routing is
-likely to be wrong. 
+Updates pcmcia_request_exclusive_irq() to pcmcia_request_irq().
 
-> 
-> master# echo "1" | sudo tee /proc/sys/net/ipv4/ip_forward
-> 1
-> master# modprobe ip_vti
-> master# ipsec start
-> Starting strongSwan 5.2.0 IPsec [starter]...
-> master# ip tunnel add vtil mode vti local 192.168.0.11 remote 192.168.1.232 ikey 1 okey 1
-> master# ip link set vtil up
-> master# sleep 10
-> master# ip route add 192.168.1.0/24 dev vtil
-> master# ip route list
-> default via 192.168.0.1 dev enp4s0  metric 202
-> 127.0.0.0/8 dev lo  scope host
-> 192.168.0.0/24 dev enp4s0  proto kernel  scope link  src 192.168.0.11  metric 202
-> 192.168.1.0/24 dev vtil  scope link
-> 
-> ip link list
-> .
-> .
-> .
-> 13: ip_vti0@NONE: <NOARP,UP,LOWER_UP> mtu 1428 qdisc noqueue state UNKNOWN mode DEFAULT group default
->     link/ipip 0.0.0.0 brd 0.0.0.0
+CC: Roger Pao <rpao@paonet.org>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/amd/nmclan_cs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Why is the ip_vti0 interface up? This should be down after inserting
-the ip_vti module and I don't see that you've set it up with the
-commands above.
-
-Set the ip_vti0 interface down and try to find out where your
-packets are getting dropped. As I said already, netstat -i and
-/proc/net/xfrm_stat can help.
+diff --git a/drivers/net/ethernet/amd/nmclan_cs.c b/drivers/net/etherne=
+t/amd/nmclan_cs.c
+index abf3b15..5b22764 100644
+--- a/drivers/net/ethernet/amd/nmclan_cs.c
++++ b/drivers/net/ethernet/amd/nmclan_cs.c
+@@ -621,7 +621,7 @@ static int nmclan_config(struct pcmcia_device *link=
+)
+   ret =3D pcmcia_request_io(link);
+   if (ret)
+ 	  goto failed;
+-  ret =3D pcmcia_request_exclusive_irq(link, mace_interrupt);
++  ret =3D pcmcia_request_irq(link, mace_interrupt);
+   if (ret)
+ 	  goto failed;
+   ret =3D pcmcia_enable_device(link);
+--=20
+1.9.3
