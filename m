@@ -1,58 +1,45 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: CPU scheduler to TXQ binding? (ixgbe vs. igb)
-Date: Thu, 18 Sep 2014 17:59:10 +0200
-Message-ID: <20140918175910.5fc67efa@redhat.com>
+Date: Thu, 18 Sep 2014 09:07:06 -0700
+Message-ID: <1411056426.7106.274.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <20140917152653.1c824a22@redhat.com>
-	<1410964359.7106.229.camel@edumazet-glaptop2.roam.corp.google.com>
-	<5419A1E7.8040109@intel.com>
-	<20140918085640.0815df6d@redhat.com>
-	<1411047209.7106.255.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1411047689.7106.258.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1411054951.7106.272.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1410964359.7106.229.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5419A1E7.8040109@intel.com> <20140918085640.0815df6d@redhat.com>
+	 <1411047209.7106.255.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411047689.7106.258.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411054951.7106.272.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Tom Herbert <therbert@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Jesper Dangaard Brouer <jbrouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41413 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757274AbaIRP7S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2014 11:59:18 -0400
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:39452 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756150AbaIRQHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 12:07:07 -0400
+Received: by mail-pa0-f42.google.com with SMTP id lj1so1808232pab.1
+        for <netdev@vger.kernel.org>; Thu, 18 Sep 2014 09:07:07 -0700 (PDT)
 In-Reply-To: <1411054951.7106.272.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 18 Sep 2014 08:42:31 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
+On Thu, 2014-09-18 at 08:42 -0700, Eric Dumazet wrote:
 > On Thu, 2014-09-18 at 06:41 -0700, Eric Dumazet wrote:
 > 
 > > Last but not least, there is the fact that networking stacks use
 > > mod_timer() to arm timers, and that by default, timer migration is on 
 > > ( cf /proc/sys/kernel/timer_migration )
-
-I don't have this proc file on my system, as I didn't select CONFIG_SCHED_DEBUG.
-
+> > 
 > > We probably should use mod_timer_pinned(), but I could not really see
 > > any difference.
 > 
 > Hmm... actually its quite noticeable :
-
-Interesting impact.
-
-I'm looking for some 1G hardware without multiqueue, so I can get
-around this measurement constraint.  And possibly turning it down to
-100Mbit/s, so I can more easily measure the HoL blocking effect.
-
-
+> 
 > # ./super_netperf 500 --google-pacing-rate 3000000 -H lpaa24 -l 1000 &
 > ...
-
-Interesting option "--google-pacing-rate" ;-)
-
 > # echo 1 >/proc/sys/kernel/timer_migration
 > # vmstat 5
 > procs -----------memory---------- ---swap-- -----io---- -system-- ----cpu----
@@ -61,8 +48,19 @@ Interesting option "--google-pacing-rate" ;-)
 >  0  0      0 261173456  15812 1001884    0    0     0     0 1548055 35472  0 15 85  0
 >  2  0      0 261174880  15812 1001888    0    0     0     0 1533309 35163  0 15 85  0
 >  3  0      0 261176768  15812 1001896    0    0     0     0 1533442 35694  0 15 85  0
-[]
-
+>  2  0      0 261173584  15812 1001912    0    0     0     3 1524024 35489  0 16 83  0
+>  3  0      0 261173344  15812 1001912    0    0     0     4 1525034 35392  0 15 85  0
+>  2  0      0 261175840  15812 1001920    0    0     0     0 1545652 35772  0 15 84  0
+>  3  0      0 261176800  15812 1001920    0    0     0     0 1513413 35703  0 15 85  0
+>  0  0      0 261175136  15812 1001920    0    0     0     2 1528775 35639  0 15 85  0
+>  1  0      0 261176480  15812 1001924    0    0     0     0 1510346 35364  0 15 85  0
+>  0  0      0 261174624  15812 1001924    0    0     0     0 1523893 35669  0 15 85  0
+>  0  0      0 261175568  15812 1001928    0    0     0     5 1524099 35605  0 15 85  0
+>  2  0      0 261175776  15812 1001932    0    0     0     5 1510481 35631  0 15 85  0
+>  2  0      0 261173776  15812 1001932    0    0     0     0 1528381 36127  0 15 84  0
+>  3  0      0 261175424  15812 1001932    0    0     0     0 1508722 35402  0 15 85  0
+>  1  0      0 261176048  15812 1001932    0    0     0     0 1495438 35280  0 15 85  0
+> ^C
 > # echo 0 >/proc/sys/kernel/timer_migration
 > # vmstat 5
 > procs -----------memory---------- ---swap-- -----io---- -system-- ----cpu----
@@ -70,10 +68,14 @@ Interesting option "--google-pacing-rate" ;-)
 >  2  0      0 261172784  15812 1001936    0    0     5     1  165  228  0  5 95  0
 >  1  0      0 261175776  15812 1001940    0    0     0     0 1187446 32238  0 12 88  0
 >  2  0      0 261172752  15812 1001940    0    0     0     3 1166697 32060  0 12 88  0
-
-Quite significant, both interrupts and especially CPU system usage drop.
-
-
+>  1  0      0 261174528  15812 1001944    0    0     0     3 1156846 32048  0 12 88  0
+>  1  0      0 261172688  15812 1001944    0    0     0     0 1152953 32048  0 12 88  0
+>  0  0      0 261169888  15812 1001952    0    0     0     0 1143630 32710  0 12 88  0
+>  2  0      0 261159936  15812 1001748    0    0     0  1016 1153256 32616  0 12 88  0
+>  2  0      0 261162128  15812 1001936    0    0     0     0 1153065 32689  0 12 88  0
+>  1  0      0 261171984  15812 1001936    0    0     0     3 1164407 32041  0 12 88  0
+>  2  0      0 261169552  15812 1001936    0    0     0     5 1162068 31917  0 12 88  0
+> 
 > I am tempted to simply :
 > 
 > diff --git a/net/core/sock.c b/net/core/sock.c
@@ -95,10 +97,7 @@ Quite significant, both interrupts and especially CPU system usage drop.
 >  EXPORT_SYMBOL(sk_reset_timer);
 > 
 
+And/or changing all occurences of HRTIMER_MODE_ABS in net/sched
+into HRTIMER_MODE_ABS_PINNED
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Because we _want_ qdisc being restarted on the right cpu for sure.
