@@ -1,46 +1,79 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC 8/8] hack: ofproto: enable odp select action
-Date: Thu, 18 Sep 2014 10:52:33 +0900
-Message-ID: <1411005153-11041-9-git-send-email-simon.horman@netronome.com>
-References: <1411005153-11041-1-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH/RFC repost 0/8] Open vSwtich ODP Select Group Action
+Date: Thu, 18 Sep 2014 10:55:03 +0900
+Message-ID: <1411005311-11752-1-git-send-email-simon.horman@netronome.com>
 Cc: Pravin Shelar <pshelar@nicira.com>, Jesse Gross <jesse@nicira.com>,
 	Thomas Graf <tgraf@suug.ch>,
 	Simon Horman <simon.horman@netronome.com>
-To: dev@openvswtich.org, netdev@vger.kernel.org
+To: dev@openvswitch.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:43908 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757328AbaIRBxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 21:53:09 -0400
-Received: by mail-pa0-f48.google.com with SMTP id hz1so335101pad.21
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 18:53:09 -0700 (PDT)
-In-Reply-To: <1411005153-11041-1-git-send-email-simon.horman@netronome.com>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:58703 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755705AbaIRBze (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 21:55:34 -0400
+Received: by mail-pd0-f169.google.com with SMTP id fp1so320553pdb.14
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 18:55:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a quick hack to enable the datapath group select action.
-It is in lieu of some combination of:
-* probing
-* run-time configuration by the end-use.
-* run-time heuristic to use the action as appropriate
+[repost with correct dev@openvswitch.org address]
 
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
- ofproto/ofproto-dpif-xlate.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi,
 
-diff --git a/ofproto/ofproto-dpif-xlate.c b/ofproto/ofproto-dpif-xlate.c
-index b08a821..eca617d 100644
---- a/ofproto/ofproto-dpif-xlate.c
-+++ b/ofproto/ofproto-dpif-xlate.c
-@@ -2896,7 +2896,7 @@ xlate_select_group_userspace(struct xlate_ctx *ctx, struct group_dpif *group)
- static void
- xlate_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
- {
--    if (ctx->xbridge->dp_select_group) {
-+    if (true /*ctx->xbridge->dp_select_group*/ ) {
-         xlate_select_group_datapath(ctx, group);
-     } else {
-         xlate_select_group_userspace(ctx, group);
+the purpose of this patch-set is to provide a prototype of a select group
+action in the Open vSwitch datapath. And the motivation for that is to
+allow offloading of selection either in the datapath or by any hooks
+provided by the datapath for hardware offloads (a topic of quite some
+discussion elsewhere).
+
+This proposal is also designed to tie in with another proposal we have
+made to allow the selection method of a select group to be configured using
+Open Flow. As such the selection method included in this patchset is
+not the focus of this work: any method may be implemented. Rather,
+the focus is on the ability to do selection in the datapath.
+
+There are several implementation limitations of this prototype:
+
+* It does not address per-bucket statistics.
+  - We believe that the datapath can track per-bucket statistics and;
+  - Expose them to user-space using new netlink attributes
+* It assumes the select group comes last as the resulting packet
+  may vary depending on the bucket that is chosen. Some possibilities
+  for handling this include:
+  - Performing selection in userspace for such cases
+  - Using recirculation
+* It seems that if recirculation may occur in more than one bucket
+  then separate recirculation ids would be required. This prototype
+  does not implement that.
+
+This series is based on the Open vSwitch and its datapath maintained at
+https://github.com/openvswitch/ovs.git
+
+It is based on commit 5545e7826896e861c ("lib/odp-util: Add tunnel tp_src,
+tp_dst parsing and formatting") of that tree.
+
+Simon Horman (8):
+  odp: select group action attributes
+  netlink: Allow suppression of warnings for duplicate attributes
+  odp-util: formatting of datapath select group action
+  datapath: execution of select group action
+  datapath: Move last_action() helper to datapath.h
+  datapath: validation of select group action
+  ofproto: translate datapath select group action
+  hack: ofproto: enable odp select action
+
+ datapath/actions.c                                |  74 ++++++++++++++-
+ datapath/datapath.h                               |   5 +
+ datapath/flow_netlink.c                           | 102 ++++++++++++++++++++
+ datapath/linux/compat/include/linux/openvswitch.h |  31 +++++++
+ lib/dpif-netdev.c                                 |   1 +
+ lib/dpif.c                                        |   1 +
+ lib/netlink.c                                     |   2 +-
+ lib/netlink.h                                     |   1 +
+ lib/odp-execute.c                                 |   1 +
+ lib/odp-util.c                                    |  69 ++++++++++++++
+ ofproto/ofproto-dpif-xlate.c                      | 108 +++++++++++++++++++++-
+ 11 files changed, 388 insertions(+), 7 deletions(-)
+
 -- 
 2.0.1
