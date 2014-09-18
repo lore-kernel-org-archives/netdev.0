@@ -1,53 +1,56 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: sched: shrink struct qdisc_skb_cb to 28 bytes
-Date: Thu, 18 Sep 2014 13:31:44 -0700
-Message-ID: <1411072304.7106.287.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1402338773-5996-1-git-send-email-_govind@gmx.com>
-	 <1402338773-5996-2-git-send-email-_govind@gmx.com>
-	 <CAE9FiQW+Rv4o9Pc1J9hyqgW1WrhEANKEXH6zYQc2NQqeMbAcvA@mail.gmail.com>
-	 <alpine.LNX.2.03.1406261159071.1438@ws.cisco>
-	 <CAJZOPZJ7+n0t1LCqaa3JCBByRw=f_Tp6rk8vm0ZnCzmtKFKX_g@mail.gmail.com>
-	 <1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140918092628.566eae2b@urahara>
-	 <1411057934.7106.275.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411063227.7106.280.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411063655.4290.18.camel@joe-AO725>
-	 <1411067679.7106.283.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411068671.4290.24.camel@joe-AO725>
+Subject: [PATCH net-next] bnx2x: set gso_segs in LRO mode
+Date: Thu, 18 Sep 2014 13:48:44 -0700
+Message-ID: <1411073324.7106.294.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	Yinghai Lu <yinghai@kernel.org>,
-	David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>, ssujith@cisco.com,
-	gvaradar@cisco.com, "Christian Benvenuti (benve)" <benve@cisco.com>
-To: Joe Perches <joe@perches.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Ariel Elior <ariel.elior@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:55083 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757345AbaIRUbq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 16:31:46 -0400
-Received: by mail-pd0-f182.google.com with SMTP id w10so2153425pde.27
-        for <netdev@vger.kernel.org>; Thu, 18 Sep 2014 13:31:45 -0700 (PDT)
-In-Reply-To: <1411068671.4290.24.camel@joe-AO725>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:65029 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757049AbaIRUsq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 16:48:46 -0400
+Received: by mail-pa0-f46.google.com with SMTP id kq14so2295128pab.5
+        for <netdev@vger.kernel.org>; Thu, 18 Sep 2014 13:48:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-09-18 at 12:31 -0700, Joe Perches wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> I don't mind the const argument, but casting
-> the return to non-const seems like poor form.
+In commits cbf1de72324a8 ("bnx2x: fix GRO parameters"), and
+ab5777d748302 ("bnx2x: Get gso_segs from FW")
+special care was taken for GRO mode.
 
-This is the current way to do this, even if we do not like it.
+We can also get proper gso_segs for LRO mode.
 
-C does not allow to have the same function name for different
-parameters, there is nothing we can do about it at this moment.
+This helps to get proper values for these SNMP counters, which should
+count number of segments. This also helps qdisc_pkt_len_init() to better
+track packet sizes when ingress qdisc is in place.
 
-->
+IpExtInNoECTPkts                63458
+IpExtInECT0Pkts                 8772480
+IpExtInCEPkts                   1390713
 
-static inline const struct ipoib_cb *ipoib_skb_cb(const struct sk_buff *skb)
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-static inline struct ipoib_cb *ipoib_skb_cb(struct sk_buff *skb)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 6dc32aee96bf..9c0c0f4bdfc3 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -537,8 +537,10 @@ static void bnx2x_set_gro_params(struct sk_buff *skb, u16 parsing_flags,
+ 
+ 	/* tcp_gro_complete() will copy NAPI_GRO_CB(skb)->count
+ 	 * to skb_shinfo(skb)->gso_segs
++	 * We also set skb_shinfo(skb)->gso_segs in case we are in LRO mode
+ 	 */
+ 	NAPI_GRO_CB(skb)->count = num_of_coalesced_segs;
++	skb_shinfo(skb)->gso_segs = num_of_coalesced_segs;
+ }
+ 
+ static int bnx2x_alloc_rx_sge(struct bnx2x *bp, struct bnx2x_fastpath *fp,
