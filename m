@@ -1,39 +1,91 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Figuring out how vti works
-Date: Thu, 18 Sep 2014 11:06:23 +0200
-Message-ID: <20140918090623.GU6390@secunet.com>
-References: <20140915142043.GA22070@master>
- <20140917052811.GT6390@secunet.com>
- <CAHjjW16qdT6RWuJaUd1c6k39RgcPtfsyF=V-dVowW_2UwhF_dw@mail.gmail.com>
+From: "Brazelton, DeBorah A." <DeBorah.Brazelton@slps.org>
+Subject: =?windows-1256?Q?Donation_Made_To_You=FE_?=
+Date: Thu, 18 Sep 2014 03:46:16 -0500
+Message-ID: <5265F093F714E640AC67720A83DC7E4C01D792B9586C@EX2K72.slps.SLPSROOT.ORG>
+References: <5265F093F714E640AC67720A83DC7E4C01D792B9584D@EX2K72.slps.SLPSROOT.ORG>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Joe M <joe9mail@gmail.com>
+Content-Type: multipart/mixed;
+	boundary="_002_5265F093F714E640AC67720A83DC7E4C01D792B9586CEX2K72slpsS_"
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:41936 "EHLO a.mx.secunet.com"
+Received: from mailf.slps.org ([204.76.0.67]:62707 "EHLO mailf.slps.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753540AbaIRJGh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2014 05:06:37 -0400
-Content-Disposition: inline
-In-Reply-To: <CAHjjW16qdT6RWuJaUd1c6k39RgcPtfsyF=V-dVowW_2UwhF_dw@mail.gmail.com>
+	id S1753184AbaIRJLI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2014 05:11:08 -0400
+In-Reply-To: <5265F093F714E640AC67720A83DC7E4C01D792B9584D@EX2K72.slps.SLPSROOT.ORG>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 17, 2014 at 06:04:07PM -0500, Joe M wrote:
-> 
-> master# echo "1" | sudo tee /proc/sys/net/ipv4/ip_forward
-> 1
-> master# modprobe ip_vti
-> master# ipsec start
-> Starting strongSwan 5.2.0 IPsec [starter]...
-> master# ip tunnel add vtil mode vti local 192.168.0.11 remote
-> 192.168.1.232 ikey 1 okey 1
-> master# ip link set vtil up
-> master# sleep 60
-> master# ip route add 192.168.1.0/24 dev vtil
-> master# ip xfrm state
-> src 192.168.0.11 dst <client or alice or bnglr public ip>
+--_002_5265F093F714E640AC67720A83DC7E4C01D792B9586CEX2K72slpsS_
+Content-Type: text/plain; charset="windows-1256"
+Content-Transfer-Encoding: quoted-printable
 
-Not sure what <client or alice or bnglr public ip> is,
-but dst must match the remote tunnel endpoint i.e.
-192.168.1.232 in your case.
+See attached file for details=
+
+--_002_5265F093F714E640AC67720A83DC7E4C01D792B9586CEX2K72slpsS_
+Content-Type: application/octet-stream; name="From Pedro.docx"
+Content-Description: From Pedro.docx
+Content-Disposition: attachment; filename="From Pedro.docx"; size=3158;
+	creation-date="Thu, 18 Sep 2014 03:41:59 GMT";
+	modification-date="Thu, 18 Sep 2014 03:41:59 GMT"
+Content-Transfer-Encoding: base64
+
+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
+bFBLBQYAAAAABgAGAIABAADACgAAAAA=
+
+--_002_5265F093F714E640AC67720A83DC7E4C01D792B9586CEX2K72slpsS_--
