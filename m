@@ -1,8 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH 18/29] fm10k: Add support for PCI power management
- and error handling
-Date: Thu, 18 Sep 2014 18:38:38 -0400
-Message-ID: <20140918223831.10373.21683.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [net-next PATCH 19/29] fm10k: Add support for multiple queues
+Date: Thu, 18 Sep 2014 18:38:50 -0400
+Message-ID: <20140918223843.10373.92502.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,274 +11,349 @@ Cc: nhorman@redhat.com, netdev@vger.kernel.org,
 	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:7394 "EHLO mga11.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:28646 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756630AbaIRWrT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2014 18:47:19 -0400
+	id S1755864AbaIRWrb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2014 18:47:31 -0400
 In-Reply-To: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add PCI power management and error handling to allow the device to support
-suspend/resume and recovery of any PCIe errors.  The fm10k devices do not
-support wake on LAN, and there is no plan to add this as a feature.
+This patch takes the driver from supporting a single queue to supporting
+multiple queues.  The upper queue limit for the PF is 128 queues and the
+upper limit for the VF is (128 / num_vfs) rounded down to nearest power of 2.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c |  221 ++++++++++++++++++++++++++
- 1 file changed, 221 insertions(+)
+ drivers/net/ethernet/intel/fm10k/fm10k.h         |    1 
+ drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c |   57 ++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c    |  148 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  |   41 ++++++
+ 4 files changed, 247 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 4e21ddd..9b97da7 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -19,6 +19,7 @@
-  */
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
+index aea79b7..19c3f8c 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
+@@ -422,6 +422,7 @@ void fm10k_unmap_and_free_tx_resource(struct fm10k_ring *,
+ 				      struct fm10k_tx_buffer *);
+ void fm10k_restore_rx_state(struct fm10k_intfc *);
+ void fm10k_reset_rx_state(struct fm10k_intfc *);
++int fm10k_setup_tc(struct net_device *dev, u8 tc);
+ int fm10k_open(struct net_device *netdev);
+ int fm10k_close(struct net_device *netdev);
  
- #include <linux/module.h>
-+#include <linux/aer.h>
- 
- #include "fm10k.h"
- 
-@@ -1534,6 +1535,8 @@ static int fm10k_probe(struct pci_dev *pdev,
- 		goto err_pci_reg;
- 	}
- 
-+	pci_enable_pcie_error_reporting(pdev);
-+
- 	pci_set_master(pdev);
- 	pci_save_state(pdev);
- 
-@@ -1660,14 +1663,232 @@ static void fm10k_remove(struct pci_dev *pdev)
- 	pci_release_selected_regions(pdev,
- 				     pci_select_bars(pdev, IORESOURCE_MEM));
- 
-+	pci_disable_pcie_error_reporting(pdev);
-+
- 	pci_disable_device(pdev);
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+index a88c75c..54e8ebd 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+@@ -838,6 +838,61 @@ static int fm10k_set_rssh(struct net_device *netdev, const u32 *indir,
+ 	return 0;
  }
  
-+#ifdef CONFIG_PM
-+/**
-+ * fm10k_resume - Restore device to pre-sleep state
-+ * @pdev: PCI device information struct
-+ *
-+ * fm10k_resume is called after the system has powered back up from a sleep
-+ * state and is ready to resume operation.  This function is meant to restore
-+ * the device back to its pre-sleep state.
-+ **/
-+static int fm10k_resume(struct pci_dev *pdev)
++static unsigned int fm10k_max_channels(struct net_device *dev)
 +{
-+	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
-+	struct net_device *netdev = interface->netdev;
++	struct fm10k_intfc *interface = netdev_priv(dev);
++	unsigned int max_combined = interface->hw.mac.max_queues;
++	u8 tcs = netdev_get_num_tc(dev);
++
++	/* For QoS report channels per traffic class */
++	if (tcs > 1)
++		max_combined = 1 << (fls(max_combined / tcs) - 1);
++
++	return max_combined;
++}
++
++static void fm10k_get_channels(struct net_device *dev,
++			       struct ethtool_channels *ch)
++{
++	struct fm10k_intfc *interface = netdev_priv(dev);
 +	struct fm10k_hw *hw = &interface->hw;
-+	u32 err;
 +
-+	pci_set_power_state(pdev, PCI_D0);
-+	pci_restore_state(pdev);
++	/* report maximum channels */
++	ch->max_combined = fm10k_max_channels(dev);
 +
-+	/* pci_restore_state clears dev->state_saved so call
-+	 * pci_save_state to restore it.
-+	 */
-+	pci_save_state(pdev);
++	/* report info for other vector */
++	ch->max_other = NON_Q_VECTORS(hw);
++	ch->other_count = ch->max_other;
 +
-+	err = pci_enable_device_mem(pdev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Cannot enable PCI device from suspend\n");
-+		return err;
-+	}
-+	pci_set_master(pdev);
++	/* record RSS queues */
++	ch->combined_count = interface->ring_feature[RING_F_RSS].indices;
++}
 +
-+	pci_wake_from_d3(pdev, false);
++static int fm10k_set_channels(struct net_device *dev,
++			      struct ethtool_channels *ch)
++{
++	struct fm10k_intfc *interface = netdev_priv(dev);
++	unsigned int count = ch->combined_count;
++	struct fm10k_hw *hw = &interface->hw;
 +
-+	/* refresh hw_addr in case it was dropped */
-+	hw->hw_addr = interface->uc_addr;
++	/* verify they are not requesting separate vectors */
++	if (!count || ch->rx_count || ch->tx_count)
++		return -EINVAL;
 +
-+	/* reset hardware to known state */
-+	err = hw->mac.ops.init_hw(&interface->hw);
-+	if (err)
-+		return err;
++	/* verify other_count has not changed */
++	if (ch->other_count != NON_Q_VECTORS(hw))
++		return -EINVAL;
 +
-+	/* reset statistics starting values */
-+	hw->mac.ops.rebind_hw_stats(hw, &interface->stats);
++	/* verify the number of channels does not exceed hardware limits */
++	if (count > fm10k_max_channels(dev))
++		return -EINVAL;
 +
-+	rtnl_lock();
++	interface->ring_feature[RING_F_RSS].limit = count;
 +
-+	err = fm10k_init_queueing_scheme(interface);
-+	if (!err) {
-+		fm10k_mbx_request_irq(interface);
-+		if (netif_running(netdev))
-+			err = fm10k_open(netdev);
-+	}
++	/* use setup TC to update any traffic class queue mapping */
++	return fm10k_setup_tc(dev, netdev_get_num_tc(dev));
++}
 +
-+	rtnl_unlock();
+ static const struct ethtool_ops fm10k_ethtool_ops = {
+ 	.get_strings		= fm10k_get_strings,
+ 	.get_sset_count		= fm10k_get_sset_count,
+@@ -860,6 +915,8 @@ static const struct ethtool_ops fm10k_ethtool_ops = {
+ 	.get_rxfh_key_size	= fm10k_get_rssrk_size,
+ 	.get_rxfh		= fm10k_get_rssh,
+ 	.set_rxfh		= fm10k_set_rssh,
++	.get_channels		= fm10k_get_channels,
++	.set_channels		= fm10k_set_channels,
+ };
+ 
+ void fm10k_set_ethtool_ops(struct net_device *dev)
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index 0d209c5..1c2dfa1 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -1085,6 +1085,81 @@ static int fm10k_poll(struct napi_struct *napi, int budget)
+ }
+ 
+ /**
++ * fm10k_set_qos_queues: Allocate queues for a QOS-enabled device
++ * @interface: board private structure to initialize
++ *
++ * When QoS (Quality of Service) is enabled, allocate queues for
++ * each traffic class.  If multiqueue isn't available,then abort QoS
++ * initialization.
++ *
++ * This function handles all combinations of Qos and RSS.
++ *
++ **/
++static bool fm10k_set_qos_queues(struct fm10k_intfc *interface)
++{
++	struct net_device *dev = interface->netdev;
++	struct fm10k_ring_feature *f;
++	int rss_i, i;
++	int pcs;
 +
-+	if (err)
-+		return err;
++	/* Map queue offset and counts onto allocated tx queues */
++	pcs = netdev_get_num_tc(dev);
 +
-+	netif_device_attach(netdev);
++	if (pcs <= 1)
++		return false;
 +
-+	return 0;
++	/* set QoS mask and indices */
++	f = &interface->ring_feature[RING_F_QOS];
++	f->indices = pcs;
++	f->mask = (1 << fls(pcs - 1)) - 1;
++
++	/* determine the upper limit for our current DCB mode */
++	rss_i = interface->hw.mac.max_queues / pcs;
++	rss_i = 1 << (fls(rss_i) - 1);
++
++	/* set RSS mask and indices */
++	f = &interface->ring_feature[RING_F_RSS];
++	rss_i = min_t(u16, rss_i, f->limit);
++	f->indices = rss_i;
++	f->mask = (1 << fls(rss_i - 1)) - 1;
++
++	/* configure pause class to queue mapping */
++	for (i = 0; i < pcs; i++)
++		netdev_set_tc_queue(dev, i, rss_i, rss_i * i);
++
++	interface->num_rx_queues = rss_i * pcs;
++	interface->num_tx_queues = rss_i * pcs;
++
++	return true;
 +}
 +
 +/**
-+ * fm10k_suspend - Prepare the device for a system sleep state
-+ * @pdev: PCI device information struct
++ * fm10k_set_rss_queues: Allocate queues for RSS
++ * @interface: board private structure to initialize
 + *
-+ * fm10k_suspend is meant to shutdown the device prior to the system entering
-+ * a sleep state.  The fm10k hardware does not support wake on lan so the
-+ * driver simply needs to shut down the device so it is in a low power state.
++ * This is our "base" multiqueue mode.  RSS (Receive Side Scaling) will try
++ * to allocate one Rx queue per CPU, and if available, one Tx queue per CPU.
++ *
 + **/
-+static int fm10k_suspend(struct pci_dev *pdev, pm_message_t state)
++static bool fm10k_set_rss_queues(struct fm10k_intfc *interface)
 +{
-+	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
-+	struct net_device *netdev = interface->netdev;
-+	int err = 0;
++	struct fm10k_ring_feature *f;
++	u16 rss_i;
 +
-+	netif_device_detach(netdev);
++	f = &interface->ring_feature[RING_F_RSS];
++	rss_i = min_t(u16, interface->hw.mac.max_queues, f->limit);
 +
-+	rtnl_lock();
++	/* record indices and power of 2 mask for RSS */
++	f->indices = rss_i;
++	f->mask = (1 << fls(rss_i - 1)) - 1;
 +
-+	if (netif_running(netdev))
-+		fm10k_close(netdev);
++	interface->num_rx_queues = rss_i;
++	interface->num_tx_queues = rss_i;
++
++	return true;
++}
++
++/**
+  * fm10k_set_num_queues: Allocate queues for device, feature dependent
+  * @interface: board private structure to initialize
+  *
+@@ -1100,6 +1175,11 @@ static void fm10k_set_num_queues(struct fm10k_intfc *interface)
+ 	/* Start with base case */
+ 	interface->num_rx_queues = 1;
+ 	interface->num_tx_queues = 1;
++
++	if (fm10k_set_qos_queues(interface))
++		return;
++
++	fm10k_set_rss_queues(interface);
+ }
+ 
+ /**
+@@ -1380,6 +1460,71 @@ static int fm10k_init_msix_capability(struct fm10k_intfc *interface)
+ 	return 0;
+ }
+ 
++/**
++ * fm10k_cache_ring_qos - Descriptor ring to register mapping for QoS
++ * @interface: Interface structure continaining rings and devices
++ *
++ * Cache the descriptor ring offsets for Qos
++ **/
++static bool fm10k_cache_ring_qos(struct fm10k_intfc *interface)
++{
++	struct net_device *dev = interface->netdev;
++	int pc, offset, rss_i, i, q_idx;
++	u16 pc_stride = interface->ring_feature[RING_F_QOS].mask + 1;
++	u8 num_pcs = netdev_get_num_tc(dev);
++
++	if (num_pcs <= 1)
++		return false;
++
++	rss_i = interface->ring_feature[RING_F_RSS].indices;
++
++	for (pc = 0, offset = 0; pc < num_pcs; pc++, offset += rss_i) {
++		q_idx = pc;
++		for (i = 0; i < rss_i; i++) {
++			interface->tx_ring[offset + i]->reg_idx = q_idx;
++			interface->tx_ring[offset + i]->qos_pc = pc;
++			interface->rx_ring[offset + i]->reg_idx = q_idx;
++			interface->rx_ring[offset + i]->qos_pc = pc;
++			q_idx += pc_stride;
++		}
++	}
++
++	return true;
++}
++
++/**
++ * fm10k_cache_ring_rss - Descriptor ring to register mapping for RSS
++ * @interface: Interface structure continaining rings and devices
++ *
++ * Cache the descriptor ring offsets for RSS
++ **/
++static void fm10k_cache_ring_rss(struct fm10k_intfc *interface)
++{
++	int i;
++
++	for (i = 0; i < interface->num_rx_queues; i++)
++		interface->rx_ring[i]->reg_idx = i;
++
++	for (i = 0; i < interface->num_tx_queues; i++)
++		interface->tx_ring[i]->reg_idx = i;
++}
++
++/**
++ * fm10k_assign_rings - Map rings to network devices
++ * @interface: Interface structure containing rings and devices
++ *
++ * This function is meant to go though and configure both the network
++ * devices so that they contain rings, and configure the rings so that
++ * they function with their network devices.
++ **/
++static void fm10k_assign_rings(struct fm10k_intfc *interface)
++{
++	if (fm10k_cache_ring_qos(interface))
++		return;
++
++	fm10k_cache_ring_rss(interface);
++}
++
+ static void fm10k_init_reta(struct fm10k_intfc *interface)
+ {
+ 	u16 i, rss_i = interface->ring_feature[RING_F_RSS].indices;
+@@ -1447,6 +1592,9 @@ int fm10k_init_queueing_scheme(struct fm10k_intfc *interface)
+ 	if (err)
+ 		return err;
+ 
++	/* Map rings to devices, and map devices to physical queues */
++	fm10k_assign_rings(interface);
++
+ 	/* Initialize RSS redirection table */
+ 	fm10k_init_reta(interface);
+ 
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index 7437244..2433a14 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -969,6 +969,46 @@ static struct rtnl_link_stats64 *fm10k_get_stats64(struct net_device *netdev,
+ 	return stats;
+ }
+ 
++int fm10k_setup_tc(struct net_device *dev, u8 tc)
++{
++	struct fm10k_intfc *interface = netdev_priv(dev);
++
++	/* Currently only the PF supports priority classes */
++	if (tc && (interface->hw.mac.type != fm10k_mac_pf))
++		return -EINVAL;
++
++	/* Hardware supports up to 8 traffic classes */
++	if (tc > 8)
++		return -EINVAL;
++
++	/* Hardware has to reinitialize queues to match packet
++	 * buffer alignment. Unfortunately, the hardware is not
++	 * flexible enough to do this dynamically.
++	 */
++	if (netif_running(dev))
++		fm10k_close(dev);
 +
 +	fm10k_mbx_free_irq(interface);
 +
 +	fm10k_clear_queueing_scheme(interface);
 +
-+	rtnl_unlock();
++	/* we expect the prio_tc map to be repopulated later */
++	netdev_reset_tc(dev);
++	netdev_set_num_tc(dev, tc);
 +
-+	err = pci_save_state(pdev);
-+	if (err)
-+		return err;
++	fm10k_init_queueing_scheme(interface);
 +
-+	pci_disable_device(pdev);
-+	pci_wake_from_d3(pdev, false);
-+	pci_set_power_state(pdev, PCI_D3hot);
++	fm10k_mbx_request_irq(interface);
++
++	if (netif_running(dev))
++		fm10k_open(dev);
++
++	/* flag to indicate SWPRI has yet to be updated */
++	interface->flags |= FM10K_FLAG_SWPRI_CONFIG;
 +
 +	return 0;
 +}
 +
-+#endif /* CONFIG_PM */
-+/**
-+ * fm10k_io_error_detected - called when PCI error is detected
-+ * @pdev: Pointer to PCI device
-+ * @state: The current pci connection state
-+ *
-+ * This function is called after a PCI bus error affecting
-+ * this device has been detected.
-+ */
-+static pci_ers_result_t fm10k_io_error_detected(struct pci_dev *pdev,
-+						pci_channel_state_t state)
-+{
-+	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
-+	struct net_device *netdev = interface->netdev;
-+
-+	netif_device_detach(netdev);
-+
-+	if (state == pci_channel_io_perm_failure)
-+		return PCI_ERS_RESULT_DISCONNECT;
-+
-+	if (netif_running(netdev))
-+		fm10k_close(netdev);
-+
-+	fm10k_mbx_free_irq(interface);
-+
-+	pci_disable_device(pdev);
-+
-+	/* Request a slot reset. */
-+	return PCI_ERS_RESULT_NEED_RESET;
-+}
-+
-+/**
-+ * fm10k_io_slot_reset - called after the pci bus has been reset.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * Restart the card from scratch, as if from a cold-boot.
-+ */
-+static pci_ers_result_t fm10k_io_slot_reset(struct pci_dev *pdev)
-+{
-+	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
-+	pci_ers_result_t result;
-+
-+	if (pci_enable_device_mem(pdev)) {
-+		dev_err(&pdev->dev,
-+			"Cannot re-enable PCI device after reset.\n");
-+		result = PCI_ERS_RESULT_DISCONNECT;
-+	} else {
-+		pci_set_master(pdev);
-+		pci_restore_state(pdev);
-+
-+		/* After second error pci->state_saved is false, this
-+		 * resets it so EEH doesn't break.
-+		 */
-+		pci_save_state(pdev);
-+
-+		pci_wake_from_d3(pdev, false);
-+
-+		/* refresh hw_addr in case it was dropped */
-+		interface->hw.hw_addr = interface->uc_addr;
-+
-+		interface->flags |= FM10K_FLAG_RESET_REQUESTED;
-+		fm10k_service_event_schedule(interface);
-+
-+		result = PCI_ERS_RESULT_RECOVERED;
-+	}
-+
-+	pci_cleanup_aer_uncorrect_error_status(pdev);
-+
-+	return result;
-+}
-+
-+/**
-+ * fm10k_io_resume - called when traffic can start flowing again.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * This callback is called when the error recovery driver tells us that
-+ * its OK to resume normal operation.
-+ */
-+static void fm10k_io_resume(struct pci_dev *pdev)
-+{
-+	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
-+	struct net_device *netdev = interface->netdev;
-+	struct fm10k_hw *hw = &interface->hw;
-+	int err = 0;
-+
-+	/* reset hardware to known state */
-+	hw->mac.ops.init_hw(&interface->hw);
-+
-+	/* reset statistics starting values */
-+	hw->mac.ops.rebind_hw_stats(hw, &interface->stats);
-+
-+	/* reassociate interrupts */
-+	fm10k_mbx_request_irq(interface);
-+
-+	if (netif_running(netdev))
-+		err = fm10k_open(netdev);
-+
-+	/* final check of hardware state before registering the interface */
-+	err = err ? : fm10k_hw_ready(interface);
-+
-+	if (!err)
-+		netif_device_attach(netdev);
-+}
-+
-+static const struct pci_error_handlers fm10k_err_handler = {
-+	.error_detected = fm10k_io_error_detected,
-+	.slot_reset = fm10k_io_slot_reset,
-+	.resume = fm10k_io_resume,
-+};
-+
- static struct pci_driver fm10k_driver = {
- 	.name			= fm10k_driver_name,
- 	.id_table		= fm10k_pci_tbl,
- 	.probe			= fm10k_probe,
- 	.remove			= fm10k_remove,
-+#ifdef CONFIG_PM
-+	.suspend		= fm10k_suspend,
-+	.resume			= fm10k_resume,
-+#endif
-+	.err_handler		= &fm10k_err_handler
+ static const struct net_device_ops fm10k_netdev_ops = {
+ 	.ndo_open		= fm10k_open,
+ 	.ndo_stop		= fm10k_close,
+@@ -981,6 +1021,7 @@ static const struct net_device_ops fm10k_netdev_ops = {
+ 	.ndo_vlan_rx_kill_vid	= fm10k_vlan_rx_kill_vid,
+ 	.ndo_set_rx_mode	= fm10k_set_rx_mode,
+ 	.ndo_get_stats64	= fm10k_get_stats64,
++	.ndo_setup_tc		= fm10k_setup_tc,
  };
  
- /**
+ #define DEFAULT_DEBUG_LEVEL_SHIFT 3
