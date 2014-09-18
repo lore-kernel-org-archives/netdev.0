@@ -1,80 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net] net: sched: shrink struct qdisc_skb_cb to 28 bytes
-Date: Thu, 18 Sep 2014 11:07:35 -0700
-Message-ID: <1411063655.4290.18.camel@joe-AO725>
-References: <1402338773-5996-1-git-send-email-_govind@gmx.com>
-	 <1402338773-5996-2-git-send-email-_govind@gmx.com>
-	 <CAE9FiQW+Rv4o9Pc1J9hyqgW1WrhEANKEXH6zYQc2NQqeMbAcvA@mail.gmail.com>
-	 <alpine.LNX.2.03.1406261159071.1438@ws.cisco>
-	 <CAJZOPZJ7+n0t1LCqaa3JCBByRw=f_Tp6rk8vm0ZnCzmtKFKX_g@mail.gmail.com>
-	 <1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140918092628.566eae2b@urahara>
-	 <1411057934.7106.275.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411063227.7106.280.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v13 net-next 07/11] bpf: verifier (add ability to receive
+ verification log)
+Date: Thu, 18 Sep 2014 19:28:04 +0200
+Message-ID: <541B1624.80302@redhat.com>
+References: <1410914370-29883-1-git-send-email-ast@plumgrid.com> <1410914370-29883-8-git-send-email-ast@plumgrid.com> <54192F66.8020200@redhat.com> <CAMEtUuxK68ZoJ-izjLoygv0f+rLtPmMLUUq1=BJ+_ZBGfynkdA@mail.gmail.com> <5419BED8.5020309@redhat.com> <5419DE51.1060904@redhat.com> <CAMEtUuzhcmZiYZL8TR008or8uaefDBrEKDjqA-tOrRLEZsm95A@mail.gmail.com> <CAMEtUuw0aDPpQhd13ssk2PDLffBJNeef9jicOnhQLH6KtJ8gsQ@mail.gmail.com> <541A7F35.2010804@redhat.com> <CAMEtUuyZCHh7SGeLF+g0ye3OrEFWnTZCn3SBeK0-8qz-y8U30w@mail.gmail.com> <541AF11C.9050405@redhat.com> <CAMEtUuykgG70sP0tAmovLvPxgjwaR8h=R-c6Tyo6m96+Lg3sXQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	Yinghai Lu <yinghai@kernel.org>,
-	David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>, ssujith@cisco.com,
-	gvaradar@cisco.com, "Christian Benvenuti (benve)" <benve@cisco.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0134.hostedemail.com ([216.40.44.134]:52559 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932117AbaIRSHj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 14:07:39 -0400
-In-Reply-To: <1411063227.7106.280.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMEtUuykgG70sP0tAmovLvPxgjwaR8h=R-c6Tyo6m96+Lg3sXQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-09-18 at 11:00 -0700, Eric Dumazet wrote:
-> On Thu, 2014-09-18 at 09:32 -0700, Eric Dumazet wrote:
-> > On Thu, 2014-09-18 at 09:26 -0700, Stephen Hemminger wrote:
-[]
-> > Or, do you have an idea ?
-> 
-> Seems straightforward ...
-> 
-> Or can you carry this fix for me ?
-> 
-> Thanks
-> 
-> [PATCH] ipoib: validate struct ipoib_cb size
-> 
-> To catch future errors sooner.
-[]
-> diff --git a/drivers/infiniband/ulp/ipoib/ipoib.h b/drivers/infiniband/ulp/ipoib/ipoib.h
-[]
-> +static inline struct ipoib_cb *ipoib_skb_cb(const struct sk_buff *skb)
-> +{
-> +	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct ipoib_cb));
-> +	return (struct ipoib_cb *)skb->cb;
-> +}
+On 09/18/2014 05:24 PM, Alexei Starovoitov wrote:
+...
+> solve or not. If we decide to solve it, we need to have
+> a plan to solve it all the way. Partial fix for size of bpf_attr
+> is not a plan. It's something that is not addressing the problem
+> completely. Little bit of help is not useful for userspace. It
+> would need to deal with new types, verifier differences and
+> other things that I mentioned earlier.
 
-It seems better not to use const for the struct sk_buff * here.
+Hm, I don't think it would be a strict requirement to solve it
+all the way, and I think that perf_event_open() with perf_copy_attr()
+is not trying to do so either. It, however, is trying on a ``best
+effort basis'' to still load something if new features are unused
+by the binary (I guess you saw the comment in perf_copy_attr()).
 
-Neither of the uses take a const struct sk_buff *
-
-> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-
-> @@ -716,7 +716,7 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  {
->  	struct ipoib_dev_priv *priv = netdev_priv(dev);
->  	struct ipoib_neigh *neigh;
-> -	struct ipoib_cb *cb = (struct ipoib_cb *) skb->cb;
-> +	struct ipoib_cb *cb = ipoib_skb_cb(skb);
->  	struct ipoib_header *header;
->  	unsigned long flags;
->  
-> @@ -813,7 +813,7 @@ static int ipoib_hard_header(struct sk_buff *skb,
->  			     const void *daddr, const void *saddr, unsigned len)
->  {
->  	struct ipoib_header *header;
-> -	struct ipoib_cb *cb = (struct ipoib_cb *) skb->cb;
-> +	struct ipoib_cb *cb = ipoib_skb_cb(skb);
->  
->  	header = (struct ipoib_header *) skb_push(skb, sizeof *header);
+Iff, e.g. due to new types we fail at the verifier stage, sure,
+that's life since we only have backwards-compatible guarantee,
+but in case we tried to use features we support, we're still able
+to load the eBPF program while right now, we're rejecting it right
+up-front. That's just my $0.02 ...
