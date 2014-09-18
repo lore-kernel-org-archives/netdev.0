@@ -1,58 +1,40 @@
 From: David L Stevens <david.stevens@oracle.com>
-Subject: Re: [PATCHv6 net-next 1/3] sunvnet: upgrade to VIO protocol version
- 1.6
-Date: Thu, 18 Sep 2014 09:03:52 -0400
-Message-ID: <541AD838.50700@oracle.com>
-References: <541A2316.5010603@oracle.com> <2AB76E42-C12D-47C5-8476-0D0C611691A5@oracle.com>
+Subject: Re: [PATCHv6 net-next 2/3] sunvnet: allow admin to set sunvnet MTU
+Date: Thu, 18 Sep 2014 09:10:40 -0400
+Message-ID: <541AD9D0.2010007@oracle.com>
+References: <541A22FC.20407@oracle.com> <C383AC6E-F0A2-4510-8EC6-0EC606870249@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:33521 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752969AbaIRND6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 09:03:58 -0400
-In-Reply-To: <2AB76E42-C12D-47C5-8476-0D0C611691A5@oracle.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:24163 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752778AbaIRNKn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 09:10:43 -0400
+In-Reply-To: <C383AC6E-F0A2-4510-8EC6-0EC606870249@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On 09/18/2014 12:09 AM, Raghuram Kothakota wrote:
+On 09/18/2014 12:19 AM, Raghuram Kothakota wrote:
 
->> @@ -1048,8 +1116,8 @@ static int vnet_port_alloc_tx_bufs(struct vnet_port *port)
->> 	void *dring;
->>
->> 	for (i = 0; i < VNET_TX_RING_SIZE; i++) {
->> -		void *buf = kzalloc(ETH_FRAME_LEN + 8, GFP_KERNEL);
->> -		int map_len = (ETH_FRAME_LEN + 7) & ~7;
->> +		void *buf = kzalloc(VNET_MAXPACKET + 8, GFP_KERNEL);
 > 
-> 
-> This patch doesn't change the VNET_MAXPACKET to 64k, but the patch 2/3 changes
-> it to 64k+. Allocating buffers of size VNET_MAXPACKET always can consume too much
-> memory for every port/LDC, that would be more than 32MB.  You may want to allocate
-> buffers based on the mtu that is negotiated, so that this memory used only when
-> such large packets are accepted by the peer.
+> FYI, LDoms manager provides the maximum MTU of packets allowed for
+> a vnet device in the "virtual-device" MD node corresponding to the vnet device.
+> The virtual switch is expected to enforce that size for packets that go through
+> it. Ideally we want a Guest OS to honor that MTU setting as well, which is probably
+> not the case here. LDoms manager doesn't allow setting more than 16K today,
+> I guess this code is ignoring this for Guest to Guest communication.
 
-I originally had code to dynamically allocate them after the MTU negotiation, but
-that opens up a can of worms regarding stopping and freeing an active ring. I don't
-believe the shutdown code addresses this adequately, either, and I think this is
-worth addressing, but separately.
+Yes, this is negotiated per LDC connection, and it uses the switch size when using
+the switch port, but can use a full 64K linux-linux. Anything involving Solaris will
+be limited to 16000, and any connections to Legacy linux will be limited to 1500 bytes.
 
-I convinced myself to do it this way because:
-a) memory is cheap
-b) I think most people will want to use large MTUs for performance; enough so
-	that perhaps the bring-up MTU should be 64K too
-c) future (actually current) TSO/GSO work will want large buffers even if the MTU
-	is not changed
+If the port for a particular destination changes and the new port has a smaller MTU,
+the packets will trigger an ICMP PMTUD notification and any active connections will
+continue to work at the smaller MTU, by PMTUD design.
 
-So, if this is actually too much memory, I was more inclined to reduce the ring
-size rather than either add complicating code to handle active-ring reallocation
-that would typically be run once per boot, or another alternative of adding
-module parameters to specify the buffer size TSO/GSO will need 64K to perform
-well, regardless of the device MTU.
-
-							+-DLS
+								+-DLS
