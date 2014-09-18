@@ -1,7 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH 25/29] fm10k: Add support for SR-IOV to driver
-Date: Thu, 18 Sep 2014 18:39:58 -0400
-Message-ID: <20140918223956.10373.39390.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [net-next PATCH 26/29] fm10k: Add support for IEEE DCBx
+Date: Thu, 18 Sep 2014 18:40:08 -0400
+Message-ID: <20140918224004.10373.65972.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,93 +11,60 @@ Cc: nhorman@redhat.com, netdev@vger.kernel.org,
 	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:57154 "EHLO mga11.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:33604 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755978AbaIRWsl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2014 18:48:41 -0400
+	id S1757600AbaIRWsv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2014 18:48:51 -0400
 In-Reply-To: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch combines the recently added VF messaging and configuration
-functionality with the interfaces provided by the kernel to allow for
-configuration and management of SR-IOV.
+This patch adds support for management of the limited QOS features of the
+FM10000 interface.  Specifically we can support up to 8 traffic classes,
+however the part only provides 1 Rx and 1 Tx FIFO in the host interface and
+as a result this can lead to head-of-line blocking on Rx.  This can be
+avoided by setting PFC only for priorities that cannot afford to drop
+frames.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/Makefile       |    2 
- drivers/net/ethernet/intel/fm10k/fm10k.h        |   26 +
- drivers/net/ethernet/intel/fm10k/fm10k_iov.c    |  536 +++++++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |   20 +
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c    |   32 +
- 5 files changed, 614 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_iov.c
+ drivers/net/ethernet/intel/fm10k/Makefile      |    3 
+ drivers/net/ethernet/intel/fm10k/fm10k.h       |    3 
+ drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c |  174 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c   |    3 
+ 4 files changed, 182 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
 
 diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
-index f70893a..70565ab 100644
+index 70565ab..5023625 100644
 --- a/drivers/net/ethernet/intel/fm10k/Makefile
 +++ b/drivers/net/ethernet/intel/fm10k/Makefile
-@@ -29,4 +29,4 @@ obj-$(CONFIG_FM10K) += fm10k.o
+@@ -29,4 +29,5 @@ obj-$(CONFIG_FM10K) += fm10k.o
  
  fm10k-objs := fm10k_main.o fm10k_common.o fm10k_pci.o \
  	      fm10k_netdev.o fm10k_ethtool.o fm10k_pf.o fm10k_vf.o \
--	      fm10k_mbx.o fm10k_tlv.o
-+	      fm10k_mbx.o fm10k_iov.o fm10k_tlv.o
+-	      fm10k_mbx.o fm10k_iov.o fm10k_tlv.o
++	      fm10k_mbx.o fm10k_iov.o fm10k_tlv.o \
++	      fm10k_dcbnl.o
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index 0c4a873..e529bfe 100644
+index e529bfe..fe1c033 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k.h
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -218,6 +218,13 @@ struct fm10k_ring_feature {
- 	u16 offset;	/* offset to start of feature */
- };
- 
-+struct fm10k_iov_data {
-+	unsigned int		num_vfs;
-+	unsigned int		next_vf_mbx;
-+	struct rcu_head		rcu;
-+	struct fm10k_vf_info	vf_info[0];
-+};
+@@ -467,4 +467,7 @@ int fm10k_ndo_set_vf_bw(struct net_device *netdev, int vf_idx, int rate,
+ 			int unused);
+ int fm10k_ndo_get_vf_config(struct net_device *netdev,
+ 			    int vf_idx, struct ifla_vf_info *ivi);
 +
- #define fm10k_vxlan_port_for_each(vp, intfc) \
- 	list_for_each_entry(vp, &(intfc)->vxlan_port, list)
- struct fm10k_vxlan_port {
-@@ -277,6 +284,9 @@ struct fm10k_intfc {
- 	int num_q_vectors;	/* current number of q_vectors for device */
- 	struct fm10k_ring_feature ring_feature[RING_F_ARRAY_SIZE];
- 
-+	/* SR-IOV information management structure */
-+	struct fm10k_iov_data *iov_data;
-+
- 	struct fm10k_hw_stats stats;
- 	struct fm10k_hw hw;
- 	u32 __iomem *uc_addr;
-@@ -441,4 +451,20 @@ int fm10k_close(struct net_device *netdev);
- 
- /* Ethtool */
- void fm10k_set_ethtool_ops(struct net_device *dev);
-+
-+/* IOV */
-+s32 fm10k_iov_event(struct fm10k_intfc *interface);
-+s32 fm10k_iov_mbx(struct fm10k_intfc *interface);
-+void fm10k_iov_suspend(struct pci_dev *pdev);
-+int fm10k_iov_resume(struct pci_dev *pdev);
-+void fm10k_iov_disable(struct pci_dev *pdev);
-+int fm10k_iov_configure(struct pci_dev *pdev, int num_vfs);
-+s32 fm10k_iov_update_pvid(struct fm10k_intfc *interface, u16 glort, u16 pvid);
-+int fm10k_ndo_set_vf_mac(struct net_device *netdev, int vf_idx, u8 *mac);
-+int fm10k_ndo_set_vf_vlan(struct net_device *netdev,
-+			  int vf_idx, u16 vid, u8 qos);
-+int fm10k_ndo_set_vf_bw(struct net_device *netdev, int vf_idx, int rate,
-+			int unused);
-+int fm10k_ndo_get_vf_config(struct net_device *netdev,
-+			    int vf_idx, struct ifla_vf_info *ivi);
++/* DCB */
++void fm10k_dcbnl_set_ops(struct net_device *dev);
  #endif /* _FM10K_H_ */
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c b/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
 new file mode 100644
-index 0000000..0601908
+index 0000000..8d74edb
 --- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-@@ -0,0 +1,536 @@
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
+@@ -0,0 +1,174 @@
 +/* Intel Ethernet Switch Host Interface Driver
 + * Copyright(c) 2013 - 2014 Intel Corporation.
 + *
@@ -119,676 +86,170 @@ index 0000000..0601908
 + */
 +
 +#include "fm10k.h"
-+#include "fm10k_vf.h"
-+#include "fm10k_pf.h"
 +
-+static s32 fm10k_iov_msg_error(struct fm10k_hw *hw, u32 **results,
-+			       struct fm10k_mbx_info *mbx)
++#if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
++/**
++ * fm10k_dcbnl_ieee_getets - get the ETS configuration for the device
++ * @dev: netdev interface for the device
++ * @ets: ETS structure to push configuration to
++ **/
++static int fm10k_dcbnl_ieee_getets(struct net_device *dev, struct ieee_ets *ets)
 +{
-+	struct fm10k_vf_info *vf_info = (struct fm10k_vf_info *)mbx;
-+	struct fm10k_intfc *interface = hw->back;
-+	struct pci_dev *pdev = interface->pdev;
-+
-+	dev_err(&pdev->dev, "Unknown message ID %u on VF %d\n",
-+		**results & FM10K_TLV_ID_MASK, vf_info->vf_idx);
-+
-+	return fm10k_tlv_msg_error(hw, results, mbx);
-+}
-+
-+static const struct fm10k_msg_data iov_mbx_data[] = {
-+	FM10K_TLV_MSG_TEST_HANDLER(fm10k_tlv_msg_test),
-+	FM10K_VF_MSG_MSIX_HANDLER(fm10k_iov_msg_msix_pf),
-+	FM10K_VF_MSG_MAC_VLAN_HANDLER(fm10k_iov_msg_mac_vlan_pf),
-+	FM10K_VF_MSG_LPORT_STATE_HANDLER(fm10k_iov_msg_lport_state_pf),
-+	FM10K_TLV_MSG_ERROR_HANDLER(fm10k_iov_msg_error),
-+};
-+
-+s32 fm10k_iov_event(struct fm10k_intfc *interface)
-+{
-+	struct fm10k_hw *hw = &interface->hw;
-+	struct fm10k_iov_data *iov_data;
-+	s64 mbicr, vflre;
 +	int i;
 +
-+	/* if there is no iov_data then there is no mailboxes to process */
-+	if (!ACCESS_ONCE(interface->iov_data))
-+		return 0;
++	/* we support 8 TCs in all modes */
++	ets->ets_cap = IEEE_8021QAZ_MAX_TCS;
++	ets->cbs = 0;
 +
-+	rcu_read_lock();
++	/* we only support strict priority and cannot do traffic shaping */
++	memset(ets->tc_tx_bw, 0, sizeof(ets->tc_tx_bw));
++	memset(ets->tc_rx_bw, 0, sizeof(ets->tc_rx_bw));
++	memset(ets->tc_tsa, IEEE_8021QAZ_TSA_STRICT, sizeof(ets->tc_tsa));
 +
-+	iov_data = interface->iov_data;
-+
-+	/* check again now that we are in the RCU block */
-+	if (!iov_data)
-+		goto read_unlock;
-+
-+	if (!(fm10k_read_reg(hw, FM10K_EICR) & FM10K_EICR_VFLR))
-+		goto process_mbx;
-+
-+	/* read VFLRE to determine if any VFs have been reset */
-+	do {
-+		vflre = fm10k_read_reg(hw, FM10K_PFVFLRE(0));
-+		vflre <<= 32;
-+		vflre |= fm10k_read_reg(hw, FM10K_PFVFLRE(1));
-+		vflre = (vflre << 32) | (vflre >> 32);
-+		vflre |= fm10k_read_reg(hw, FM10K_PFVFLRE(0));
-+
-+		i = iov_data->num_vfs;
-+
-+		for (vflre <<= 64 - i; vflre && i--; vflre += vflre) {
-+			struct fm10k_vf_info *vf_info = &iov_data->vf_info[i];
-+
-+			if (vflre >= 0)
-+				continue;
-+
-+			hw->iov.ops.reset_resources(hw, vf_info);
-+			vf_info->mbx.ops.connect(hw, &vf_info->mbx);
-+		}
-+	} while (i != iov_data->num_vfs);
-+
-+process_mbx:
-+	/* read MBICR to determine which VFs require attention */
-+	mbicr = fm10k_read_reg(hw, FM10K_MBICR(1));
-+	mbicr <<= 32;
-+	mbicr |= fm10k_read_reg(hw, FM10K_MBICR(0));
-+
-+	i = iov_data->next_vf_mbx ? : iov_data->num_vfs;
-+
-+	for (mbicr <<= 64 - i; i--; mbicr += mbicr) {
-+		struct fm10k_mbx_info *mbx = &iov_data->vf_info[i].mbx;
-+
-+		if (mbicr >= 0)
-+			continue;
-+
-+		if (!hw->mbx.ops.tx_ready(&hw->mbx, FM10K_VFMBX_MSG_MTU))
-+			break;
-+
-+		mbx->ops.process(hw, mbx);
-+	}
-+
-+	if (i >= 0) {
-+		iov_data->next_vf_mbx = i + 1;
-+	} else if (iov_data->next_vf_mbx) {
-+		iov_data->next_vf_mbx = 0;
-+		goto process_mbx;
-+	}
-+read_unlock:
-+	rcu_read_unlock();
++	/* populate the prio map based on the netdev */
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
++		ets->prio_tc[i] = netdev_get_prio_tc_map(dev, i);
 +
 +	return 0;
 +}
 +
-+s32 fm10k_iov_mbx(struct fm10k_intfc *interface)
++/**
++ * fm10k_dcbnl_ieee_setets - set the ETS configuration for the device
++ * @dev: netdev interface for the device
++ * @ets: ETS structure to pull configuration from
++ **/
++static int fm10k_dcbnl_ieee_setets(struct net_device *dev, struct ieee_ets *ets)
 +{
-+	struct fm10k_hw *hw = &interface->hw;
-+	struct fm10k_iov_data *iov_data;
-+	int i;
-+
-+	/* if there is no iov_data then there is no mailboxes to process */
-+	if (!ACCESS_ONCE(interface->iov_data))
-+		return 0;
-+
-+	rcu_read_lock();
-+
-+	iov_data = interface->iov_data;
-+
-+	/* check again now that we are in the RCU block */
-+	if (!iov_data)
-+		goto read_unlock;
-+
-+	/* lock the mailbox for transmit and receive */
-+	fm10k_mbx_lock(interface);
-+
-+process_mbx:
-+	for (i = iov_data->next_vf_mbx ? : iov_data->num_vfs; i--;) {
-+		struct fm10k_vf_info *vf_info = &iov_data->vf_info[i];
-+		struct fm10k_mbx_info *mbx = &vf_info->mbx;
-+		u16 glort = vf_info->glort;
-+
-+		/* verify port mapping is valid, if not reset port */
-+		if (vf_info->vf_flags && !fm10k_glort_valid_pf(hw, glort))
-+			hw->iov.ops.reset_lport(hw, vf_info);
-+
-+		/* reset VFs that have mailbox timed out */
-+		if (!mbx->timeout) {
-+			hw->iov.ops.reset_resources(hw, vf_info);
-+			mbx->ops.connect(hw, mbx);
-+		}
-+
-+		/* no work pending, then just continue */
-+		if (mbx->ops.tx_complete(mbx) && !mbx->ops.rx_ready(mbx))
-+			continue;
-+
-+		/* guarantee we have free space in the SM mailbox */
-+		if (!hw->mbx.ops.tx_ready(&hw->mbx, FM10K_VFMBX_MSG_MTU))
-+			break;
-+
-+		/* cleanup mailbox and process received messages */
-+		mbx->ops.process(hw, mbx);
-+	}
-+
-+	if (i >= 0) {
-+		iov_data->next_vf_mbx = i + 1;
-+	} else if (iov_data->next_vf_mbx) {
-+		iov_data->next_vf_mbx = 0;
-+		goto process_mbx;
-+	}
-+
-+	/* free the lock */
-+	fm10k_mbx_unlock(interface);
-+
-+read_unlock:
-+	rcu_read_unlock();
-+
-+	return 0;
-+}
-+
-+void fm10k_iov_suspend(struct pci_dev *pdev)
-+{
-+	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
-+	struct fm10k_iov_data *iov_data = interface->iov_data;
-+	struct fm10k_hw *hw = &interface->hw;
-+	int num_vfs, i;
-+
-+	/* pull out num_vfs from iov_data */
-+	num_vfs = iov_data ? iov_data->num_vfs : 0;
-+
-+	/* shut down queue mapping for VFs */
-+	fm10k_write_reg(hw, FM10K_DGLORTMAP(fm10k_dglort_vf_rss),
-+			FM10K_DGLORTMAP_NONE);
-+
-+	/* Stop any active VFs and reset their resources */
-+	for (i = 0; i < num_vfs; i++) {
-+		struct fm10k_vf_info *vf_info = &iov_data->vf_info[i];
-+
-+		hw->iov.ops.reset_resources(hw, vf_info);
-+		hw->iov.ops.reset_lport(hw, vf_info);
-+	}
-+}
-+
-+int fm10k_iov_resume(struct pci_dev *pdev)
-+{
-+	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
-+	struct fm10k_iov_data *iov_data = interface->iov_data;
-+	struct fm10k_dglort_cfg dglort = { 0 };
-+	struct fm10k_hw *hw = &interface->hw;
-+	int num_vfs, i;
-+
-+	/* pull out num_vfs from iov_data */
-+	num_vfs = iov_data ? iov_data->num_vfs : 0;
-+
-+	/* return error if iov_data is not already populated */
-+	if (!iov_data)
-+		return -ENOMEM;
-+
-+	/* allocate hardware resources for the VFs */
-+	hw->iov.ops.assign_resources(hw, num_vfs, num_vfs);
-+
-+	/* configure DGLORT mapping for RSS */
-+	dglort.glort = hw->mac.dglort_map & FM10K_DGLORTMAP_NONE;
-+	dglort.idx = fm10k_dglort_vf_rss;
-+	dglort.inner_rss = 1;
-+	dglort.rss_l = fls(fm10k_queues_per_pool(hw) - 1);
-+	dglort.queue_b = fm10k_vf_queue_index(hw, 0);
-+	dglort.vsi_l = fls(hw->iov.total_vfs - 1);
-+	dglort.vsi_b = 1;
-+
-+	hw->mac.ops.configure_dglort_map(hw, &dglort);
-+
-+	/* assign resources to the device */
-+	for (i = 0; i < num_vfs; i++) {
-+		struct fm10k_vf_info *vf_info = &iov_data->vf_info[i];
-+
-+		/* allocate all but the last GLORT to the VFs */
-+		if (i == ((~hw->mac.dglort_map) >> FM10K_DGLORTMAP_MASK_SHIFT))
-+			break;
-+
-+		/* assign GLORT to VF, and restrict it to multicast */
-+		hw->iov.ops.set_lport(hw, vf_info, i,
-+				      FM10K_VF_FLAG_MULTI_CAPABLE);
-+
-+		/* assign our default vid to the VF following reset */
-+		vf_info->sw_vid = hw->mac.default_vid;
-+
-+		/* mailbox is disconnected so we don't send a message */
-+		hw->iov.ops.assign_default_mac_vlan(hw, vf_info);
-+
-+		/* now we are ready so we can connect */
-+		vf_info->mbx.ops.connect(hw, &vf_info->mbx);
-+	}
-+
-+	return 0;
-+}
-+
-+s32 fm10k_iov_update_pvid(struct fm10k_intfc *interface, u16 glort, u16 pvid)
-+{
-+	struct fm10k_iov_data *iov_data = interface->iov_data;
-+	struct fm10k_hw *hw = &interface->hw;
-+	struct fm10k_vf_info *vf_info;
-+	u16 vf_idx = (glort - hw->mac.dglort_map) & FM10K_DGLORTMAP_NONE;
-+
-+	/* no IOV support, not our message to process */
-+	if (!iov_data)
-+		return FM10K_ERR_PARAM;
-+
-+	/* glort outside our range, not our message to process */
-+	if (vf_idx >= iov_data->num_vfs)
-+		return FM10K_ERR_PARAM;
-+
-+	/* determine if an update has occured and if so notify the VF */
-+	vf_info = &iov_data->vf_info[vf_idx];
-+	if (vf_info->sw_vid != pvid) {
-+		vf_info->sw_vid = pvid;
-+		hw->iov.ops.assign_default_mac_vlan(hw, vf_info);
-+	}
-+
-+	return 0;
-+}
-+
-+static void fm10k_iov_free_data(struct pci_dev *pdev)
-+{
-+	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
-+
-+	if (!interface->iov_data)
-+		return;
-+
-+	/* reclaim hardware resources */
-+	fm10k_iov_suspend(pdev);
-+
-+	/* drop iov_data from interface */
-+	kfree_rcu(interface->iov_data, rcu);
-+	interface->iov_data = NULL;
-+}
-+
-+static s32 fm10k_iov_alloc_data(struct pci_dev *pdev, int num_vfs)
-+{
-+	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
-+	struct fm10k_iov_data *iov_data = interface->iov_data;
-+	struct fm10k_hw *hw = &interface->hw;
-+	size_t size;
++	u8 num_tc = 0;
 +	int i, err;
 +
-+	/* return error if iov_data is already populated */
-+	if (iov_data)
-+		return -EBUSY;
++	/* verify type and determine num_tcs needed */
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
++		if (ets->tc_tx_bw[i] || ets->tc_rx_bw[i])
++			return -EINVAL;
++		if (ets->tc_tsa[i] != IEEE_8021QAZ_TSA_STRICT)
++			return -EINVAL;
++		if (ets->prio_tc[i] > num_tc)
++			num_tc = ets->prio_tc[i];
++	}
 +
-+	/* The PF should always be able to assign resources */
-+	if (!hw->iov.ops.assign_resources)
-+		return -ENODEV;
++	/* if requested TC is greater than 0 then num_tcs is max + 1 */
++	if (num_tc)
++		num_tc++;
 +
-+	/* nothing to do if no VFs are requested */
-+	if (!num_vfs)
-+		return 0;
++	if (num_tc > IEEE_8021QAZ_MAX_TCS)
++		return -EINVAL;
 +
-+	/* allocate memory for VF storage */
-+	size = offsetof(struct fm10k_iov_data, vf_info[num_vfs]);
-+	iov_data = kzalloc(size, GFP_KERNEL);
-+	if (!iov_data)
-+		return -ENOMEM;
-+
-+	/* record number of VFs */
-+	iov_data->num_vfs = num_vfs;
-+
-+	/* loop through vf_info structures initializing each entry */
-+	for (i = 0; i < num_vfs; i++) {
-+		struct fm10k_vf_info *vf_info = &iov_data->vf_info[i];
-+
-+		/* Record VF VSI value */
-+		vf_info->vsi = i + 1;
-+		vf_info->vf_idx = i;
-+
-+		/* initialize mailbox memory */
-+		err = fm10k_pfvf_mbx_init(hw, &vf_info->mbx, iov_mbx_data, i);
-+		if (err) {
-+			dev_err(&pdev->dev,
-+				"Unable to initialize SR-IOV mailbox\n");
-+			kfree(iov_data);
++	/* update TC hardware mapping if necessary */
++	if (num_tc != netdev_get_num_tc(dev)) {
++		err = fm10k_setup_tc(dev, num_tc);
++		if (err)
 +			return err;
-+		}
 +	}
 +
-+	/* assign iov_data to interface */
-+	interface->iov_data = iov_data;
-+
-+	/* allocate hardware resources for the VFs */
-+	fm10k_iov_resume(pdev);
++	/* update priority mapping */
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
++		netdev_set_prio_tc_map(dev, i, ets->prio_tc[i]);
 +
 +	return 0;
 +}
 +
-+void fm10k_iov_disable(struct pci_dev *pdev)
++/**
++ * fm10k_dcbnl_ieee_getpfc - get the PFC configuration for the device
++ * @dev: netdev interface for the device
++ * @pfc: PFC structure to push configuration to
++ **/
++static int fm10k_dcbnl_ieee_getpfc(struct net_device *dev, struct ieee_pfc *pfc)
 +{
-+	if (pci_num_vf(pdev) && pci_vfs_assigned(pdev))
-+		dev_err(&pdev->dev,
-+			"Cannot disable SR-IOV while VFs are assigned\n");
-+	else
-+		pci_disable_sriov(pdev);
++	struct fm10k_intfc *interface = netdev_priv(dev);
 +
-+	fm10k_iov_free_data(pdev);
-+}
-+
-+static void fm10k_disable_aer_comp_abort(struct pci_dev *pdev)
-+{
-+	u32 err_sev;
-+	int pos;
-+
-+	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_ERR);
-+	if (!pos)
-+		return;
-+
-+	pci_read_config_dword(pdev, pos + PCI_ERR_UNCOR_SEVER, &err_sev);
-+	err_sev &= ~PCI_ERR_UNC_COMP_ABORT;
-+	pci_write_config_dword(pdev, pos + PCI_ERR_UNCOR_SEVER, err_sev);
-+}
-+
-+int fm10k_iov_configure(struct pci_dev *pdev, int num_vfs)
-+{
-+	int current_vfs = pci_num_vf(pdev);
-+	int err = 0;
-+
-+	if (current_vfs && pci_vfs_assigned(pdev)) {
-+		dev_err(&pdev->dev,
-+			"Cannot modify SR-IOV while VFs are assigned\n");
-+		num_vfs = current_vfs;
-+	} else {
-+		pci_disable_sriov(pdev);
-+		fm10k_iov_free_data(pdev);
-+	}
-+
-+	/* allocate resources for the VFs */
-+	err = fm10k_iov_alloc_data(pdev, num_vfs);
-+	if (err)
-+		return err;
-+
-+	/* allocate VFs if not already allocated */
-+	if (num_vfs && (num_vfs != current_vfs)) {
-+		/* Disable completer abort error reporting as
-+		 * the VFs can trigger this any time they read a queue
-+		 * that they don't own.
-+		 */
-+		fm10k_disable_aer_comp_abort(pdev);
-+
-+		err = pci_enable_sriov(pdev, num_vfs);
-+		if (err) {
-+			dev_err(&pdev->dev,
-+				"Enable PCI SR-IOV failed: %d\n", err);
-+			return err;
-+		}
-+	}
-+
-+	return num_vfs;
-+}
-+
-+int fm10k_ndo_set_vf_mac(struct net_device *netdev, int vf_idx, u8 *mac)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+	struct fm10k_iov_data *iov_data = interface->iov_data;
-+	struct fm10k_hw *hw = &interface->hw;
-+	struct fm10k_vf_info *vf_info;
-+
-+	/* verify SR-IOV is active and that vf idx is valid */
-+	if (!iov_data || vf_idx >= iov_data->num_vfs)
-+		return -EINVAL;
-+
-+	/* verify MAC addr is valid */
-+	if (!is_zero_ether_addr(mac) && !is_valid_ether_addr(mac))
-+		return -EINVAL;
-+
-+	/* record new MAC address */
-+	vf_info = &iov_data->vf_info[vf_idx];
-+	ether_addr_copy(vf_info->mac, mac);
-+
-+	/* assigning the MAC will send a mailbox message so lock is needed */
-+	fm10k_mbx_lock(interface);
-+
-+	/* assign MAC address to VF */
-+	hw->iov.ops.assign_default_mac_vlan(hw, vf_info);
-+
-+	fm10k_mbx_unlock(interface);
++	/* record flow control max count and state of TCs */
++	pfc->pfc_cap = IEEE_8021QAZ_MAX_TCS;
++	pfc->pfc_en = interface->pfc_en;
 +
 +	return 0;
 +}
 +
-+int fm10k_ndo_set_vf_vlan(struct net_device *netdev, int vf_idx, u16 vid,
-+			  u8 qos)
++/**
++ * fm10k_dcbnl_ieee_setpfc - set the PFC configuration for the device
++ * @dev: netdev interface for the device
++ * @pfc: PFC structure to pull configuration from
++ **/
++static int fm10k_dcbnl_ieee_setpfc(struct net_device *dev, struct ieee_pfc *pfc)
 +{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+	struct fm10k_iov_data *iov_data = interface->iov_data;
-+	struct fm10k_hw *hw = &interface->hw;
-+	struct fm10k_vf_info *vf_info;
++	struct fm10k_intfc *interface = netdev_priv(dev);
 +
-+	/* verify SR-IOV is active and that vf idx is valid */
-+	if (!iov_data || vf_idx >= iov_data->num_vfs)
-+		return -EINVAL;
++	/* record PFC configuration to interface */
++	interface->pfc_en = pfc->pfc_en;
 +
-+	/* QOS is unsupported and VLAN IDs accepted range 0-4094 */
-+	if (qos || (vid > (VLAN_VID_MASK - 1)))
-+		return -EINVAL;
-+
-+	vf_info = &iov_data->vf_info[vf_idx];
-+
-+	/* exit if there is nothing to do */
-+	if (vf_info->pf_vid == vid)
-+		return 0;
-+
-+	/* record default VLAN ID for VF */
-+	vf_info->pf_vid = vid;
-+
-+	/* assigning the VLAN will send a mailbox message so lock is needed */
-+	fm10k_mbx_lock(interface);
-+
-+	/* Clear the VLAN table for the VF */
-+	hw->mac.ops.update_vlan(hw, FM10K_VLAN_ALL, vf_info->vsi, false);
-+
-+	/* Update VF assignment and trigger reset */
-+	hw->iov.ops.assign_default_mac_vlan(hw, vf_info);
-+
-+	fm10k_mbx_unlock(interface);
++	/* if we are running update the drop_en state for all queues */
++	if (netif_running(dev))
++		fm10k_update_rx_drop_en(interface);
 +
 +	return 0;
 +}
 +
-+int fm10k_ndo_set_vf_bw(struct net_device *netdev, int vf_idx, int unused,
-+			int rate)
++/**
++ * fm10k_dcbnl_ieee_getdcbx - get the DCBX configuration for the device
++ * @dev: netdev interface for the device
++ *
++ * Returns that we support only IEEE DCB for this interface
++ **/
++static u8 fm10k_dcbnl_getdcbx(struct net_device *dev)
 +{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+	struct fm10k_iov_data *iov_data = interface->iov_data;
++	return DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_IEEE;
++}
++
++/**
++ * fm10k_dcbnl_ieee_setdcbx - get the DCBX configuration for the device
++ * @dev: netdev interface for the device
++ * @mode: new mode for this device
++ *
++ * Returns error on attempt to enable anything but IEEE DCB for this interface
++ **/
++static u8 fm10k_dcbnl_setdcbx(struct net_device *dev, u8 mode)
++{
++	return (mode != (DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_IEEE)) ? 1 : 0;
++}
++
++static const struct dcbnl_rtnl_ops fm10k_dcbnl_ops = {
++	.ieee_getets	= fm10k_dcbnl_ieee_getets,
++	.ieee_setets	= fm10k_dcbnl_ieee_setets,
++	.ieee_getpfc	= fm10k_dcbnl_ieee_getpfc,
++	.ieee_setpfc	= fm10k_dcbnl_ieee_setpfc,
++
++	.getdcbx	= fm10k_dcbnl_getdcbx,
++	.setdcbx	= fm10k_dcbnl_setdcbx,
++};
++
++#endif /* HAVE_DCBNL_IEEE && CONFIG_DCB */
++/**
++ * fm10k_dcbnl_set_ops - Configures dcbnl ops pointer for netdev
++ * @dev: netdev interface for the device
++ *
++ * Enables PF for DCB by assigning DCBNL ops pointer.
++ **/
++void fm10k_dcbnl_set_ops(struct net_device *dev)
++{
++#if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
++	struct fm10k_intfc *interface = netdev_priv(dev);
 +	struct fm10k_hw *hw = &interface->hw;
 +
-+	/* verify SR-IOV is active and that vf idx is valid */
-+	if (!iov_data || vf_idx >= iov_data->num_vfs)
-+		return -EINVAL;
-+
-+	/* rate limit cannot be less than 10Mbs or greater than link speed */
-+	if (rate && ((rate < FM10K_VF_TC_MIN) || rate > FM10K_VF_TC_MAX))
-+		return -EINVAL;
-+
-+	/* store values */
-+	iov_data->vf_info[vf_idx].rate = rate;
-+
-+	/* update hardware configuration */
-+	hw->iov.ops.configure_tc(hw, vf_idx, rate);
-+
-+	return 0;
++	if (hw->mac.type == fm10k_mac_pf)
++		dev->dcbnl_ops = &fm10k_dcbnl_ops;
++#endif /* HAVE_DCBNL_IEEE && CONFIG_DCB */
 +}
-+
-+int fm10k_ndo_get_vf_config(struct net_device *netdev,
-+			    int vf_idx, struct ifla_vf_info *ivi)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+	struct fm10k_iov_data *iov_data = interface->iov_data;
-+	struct fm10k_vf_info *vf_info;
-+
-+	/* verify SR-IOV is active and that vf idx is valid */
-+	if (!iov_data || vf_idx >= iov_data->num_vfs)
-+		return -EINVAL;
-+
-+	vf_info = &iov_data->vf_info[vf_idx];
-+
-+	ivi->vf = vf_idx;
-+	ivi->max_tx_rate = vf_info->rate;
-+	ivi->min_tx_rate = 0;
-+	ether_addr_copy(ivi->mac, vf_info->mac);
-+	ivi->vlan = vf_info->pf_vid;
-+	ivi->qos = 0;
-+
-+	return 0;
-+}
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 057fcb0..3e56506 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -364,7 +364,21 @@ static void fm10k_request_glort_range(struct fm10k_intfc *interface)
- 	if (hw->mac.dglort_map == FM10K_DGLORTMAP_NONE)
- 		return;
- 
--	interface->glort_count = mask + 1;
-+	/* we support 3 possible GLORT configurations.
-+	 * 1: VFs consume all but the last 1
-+	 * 2: VFs and PF split glorts with possible gap between
-+	 * 3: VFs allocated first 64, all others belong to PF
-+	 */
-+	if (mask <= hw->iov.total_vfs) {
-+		interface->glort_count = 1;
-+		interface->glort += mask;
-+	} else if (mask < 64) {
-+		interface->glort_count = (mask + 1) / 2;
-+		interface->glort += interface->glort_count;
-+	} else {
-+		interface->glort_count = mask - 63;
-+		interface->glort += 64;
-+	}
- }
- 
- /**
-@@ -1321,6 +1335,10 @@ static const struct net_device_ops fm10k_netdev_ops = {
- 	.ndo_set_rx_mode	= fm10k_set_rx_mode,
- 	.ndo_get_stats64	= fm10k_get_stats64,
- 	.ndo_setup_tc		= fm10k_setup_tc,
-+	.ndo_set_vf_mac		= fm10k_ndo_set_vf_mac,
-+	.ndo_set_vf_vlan	= fm10k_ndo_set_vf_vlan,
-+	.ndo_set_vf_rate	= fm10k_ndo_set_vf_bw,
-+	.ndo_get_vf_config	= fm10k_ndo_get_vf_config,
- 	.ndo_add_vxlan_port	= fm10k_add_vxlan_port,
- 	.ndo_del_vxlan_port	= fm10k_del_vxlan_port,
- 	.ndo_dfwd_add_station	= fm10k_dfwd_add_station,
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index ec34438..a2eb889 100644
+index a2eb889..b3ebedb 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -152,6 +152,8 @@ static void fm10k_reinit(struct fm10k_intfc *interface)
- 
- 	rtnl_lock();
- 
-+	fm10k_iov_suspend(interface->pdev);
-+
- 	if (netif_running(netdev))
- 		fm10k_close(netdev);
- 
-@@ -171,6 +173,8 @@ static void fm10k_reinit(struct fm10k_intfc *interface)
- 	if (netif_running(netdev))
- 		fm10k_open(netdev);
- 
-+	fm10k_iov_resume(interface->pdev);
-+
- 	rtnl_unlock();
- 
- 	clear_bit(__FM10K_RESETTING, &interface->state);
-@@ -260,6 +264,9 @@ static void fm10k_mbx_subtask(struct fm10k_intfc *interface)
- {
- 	/* process upstream mailbox and update device state */
- 	fm10k_watchdog_update_host_state(interface);
-+
-+	/* process downstream mailboxes */
-+	fm10k_iov_mbx(interface);
- }
- 
- /**
-@@ -975,6 +982,7 @@ static irqreturn_t fm10k_msix_mbx_pf(int irq, void *data)
- 	/* service mailboxes */
- 	if (fm10k_mbx_trylock(interface)) {
- 		mbx->ops.process(hw, mbx);
-+		fm10k_iov_event(interface);
- 		fm10k_mbx_unlock(interface);
+@@ -1555,6 +1555,9 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
+ 		netdev->hw_features &= ~NETIF_F_GSO_UDP_TUNNEL;
  	}
  
-@@ -1158,6 +1166,11 @@ static s32 fm10k_update_pvid(struct fm10k_hw *hw, u32 **results,
- 	if (pvid >= FM10K_VLAN_TABLE_VID_MAX)
- 		return FM10K_ERR_PARAM;
- 
-+	/* check to see if this belongs to one of the VFs */
-+	err = fm10k_iov_update_pvid(interface, glort, pvid);
-+	if (!err)
-+		return 0;
++	/* initialize DCBNL interface */
++	fm10k_dcbnl_set_ops(netdev);
 +
- 	/* we need to reset if default VLAN was just updated */
- 	if (pvid != hw->mac.default_vid)
- 		interface->flags |= FM10K_FLAG_RESET_REQUESTED;
-@@ -1476,6 +1489,10 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
- 	memcpy(&hw->mac.ops, fi->mac_ops, sizeof(hw->mac.ops));
- 	hw->mac.type = fi->mac;
- 
-+	/* Setup IOV handlers */
-+	if (fi->iov_ops)
-+		memcpy(&hw->iov.ops, fi->iov_ops, sizeof(hw->iov.ops));
-+
- 	/* Set common capability flags and settings */
- 	rss = min_t(int, FM10K_MAX_RSS_INDICES, num_online_cpus());
- 	interface->ring_feature[RING_F_RSS].limit = rss;
-@@ -1508,6 +1525,9 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
- 	/* initialize hardware statistics */
- 	hw->mac.ops.update_hw_stats(hw, &interface->stats);
- 
-+	/* Set upper limit on IOV VFs that can be allocated */
-+	pci_sriov_set_totalvfs(pdev, hw->iov.total_vfs);
-+
- 	/* Start with random Ethernet address */
- 	eth_random_addr(hw->mac.addr);
- 
-@@ -1707,6 +1727,9 @@ static int fm10k_probe(struct pci_dev *pdev,
- 	/* print warning for non-optimal configurations */
- 	fm10k_slot_warn(interface);
- 
-+	/* enable SR-IOV after registering netdev to enforce PF/VF ordering */
-+	fm10k_iov_configure(pdev, 0);
-+
- 	/* clear the service task disable bit to allow service task to start */
- 	clear_bit(__FM10K_SERVICE_DISABLE, &interface->state);
- 
-@@ -1750,6 +1773,9 @@ static void fm10k_remove(struct pci_dev *pdev)
- 	if (netdev->reg_state == NETREG_REGISTERED)
- 		unregister_netdev(netdev);
- 
-+	/* release VFs */
-+	fm10k_iov_disable(pdev);
-+
- 	/* disable mailbox interrupt */
- 	fm10k_mbx_free_irq(interface);
- 
-@@ -1826,6 +1852,9 @@ static int fm10k_resume(struct pci_dev *pdev)
- 	if (err)
- 		return err;
- 
-+	/* restore SR-IOV interface */
-+	fm10k_iov_resume(pdev);
-+
- 	netif_device_attach(netdev);
- 
- 	return 0;
-@@ -1847,6 +1876,8 @@ static int fm10k_suspend(struct pci_dev *pdev, pm_message_t state)
- 
- 	netif_device_detach(netdev);
- 
-+	fm10k_iov_suspend(pdev);
-+
- 	rtnl_lock();
- 
- 	if (netif_running(netdev))
-@@ -1988,6 +2019,7 @@ static struct pci_driver fm10k_driver = {
- 	.suspend		= fm10k_suspend,
- 	.resume			= fm10k_resume,
- #endif
-+	.sriov_configure	= fm10k_iov_configure,
- 	.err_handler		= &fm10k_err_handler
- };
- 
+ 	/* Initialize service timer and service task */
+ 	set_bit(__FM10K_SERVICE_DISABLE, &interface->state);
+ 	setup_timer(&interface->service_timer, &fm10k_service_timer,
