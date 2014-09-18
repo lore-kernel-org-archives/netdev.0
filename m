@@ -1,7 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH 05/29] fm10k: Add support for mailbox
-Date: Thu, 18 Sep 2014 18:36:18 -0400
-Message-ID: <20140918223617.10373.75398.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [net-next PATCH 02/29] fm10k: Add register defines and basic
+ structures
+Date: Thu, 18 Sep 2014 18:35:57 -0400
+Message-ID: <20140918223555.10373.34397.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,689 +12,705 @@ Cc: nhorman@redhat.com, netdev@vger.kernel.org,
 	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:31171 "EHLO mga02.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:44673 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756536AbaIRWpB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2014 18:45:01 -0400
+	id S1756536AbaIRWpG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2014 18:45:06 -0400
 In-Reply-To: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds generic mailbox support.  The general idea of the mailboxes
-is to use a pair of ring buffers, one for request, one for response to send
-data between the local driver and some remote entity be it the PF of the
-Switch Manager.
+This patch adds the basic defines and structures needed by the PF for
+operation.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_mbx.h  |  241 +++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_tlv.c  |  320 +++++++++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_tlv.h  |   45 ++++
- drivers/net/ethernet/intel/fm10k/fm10k_type.h |    3 
- 4 files changed, 609 insertions(+)
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c |    3 
+ drivers/net/ethernet/intel/fm10k/fm10k_type.h |  659 +++++++++++++++++++++++++
+ 2 files changed, 661 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
-new file mode 100644
-index 0000000..ee2f712
---- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
-@@ -0,0 +1,241 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ */
-+
-+#ifndef _FM10K_MBX_H_
-+#define _FM10K_MBX_H_
-+
-+/* forward declaration */
-+struct fm10k_mbx_info;
-+
-+#include "fm10k_type.h"
-+#include "fm10k_tlv.h"
-+
-+/* PF Mailbox Registers */
-+#define FM10K_MBMEM(_n)		((_n) + 0x18000)
-+#define FM10K_MBMEM_VF(_n, _m)	(((_n) * 0x10) + (_m) + 0x18000)
-+#define FM10K_MBMEM_SM(_n)	((_n) + 0x18400)
-+#define FM10K_MBMEM_PF(_n)	((_n) + 0x18600)
-+/* XOR provides means of switching from Tx to Rx FIFO */
-+#define FM10K_MBMEM_PF_XOR	(FM10K_MBMEM_SM(0) ^ FM10K_MBMEM_PF(0))
-+#define FM10K_MBX(_n)		((_n) + 0x18800)
-+#define FM10K_MBX_REQ				0x00000002
-+#define FM10K_MBX_ACK				0x00000004
-+#define FM10K_MBX_REQ_INTERRUPT			0x00000008
-+#define FM10K_MBX_ACK_INTERRUPT			0x00000010
-+#define FM10K_MBX_INTERRUPT_ENABLE		0x00000020
-+#define FM10K_MBX_INTERRUPT_DISABLE		0x00000040
-+#define FM10K_MBICR(_n)		((_n) + 0x18840)
-+#define FM10K_GMBX		0x18842
-+
-+/* VF Mailbox Registers */
-+#define FM10K_VFMBX		0x00010
-+#define FM10K_VFMBMEM(_n)	((_n) + 0x00020)
-+#define FM10K_VFMBMEM_LEN	16
-+#define FM10K_VFMBMEM_VF_XOR	(FM10K_VFMBMEM_LEN / 2)
-+
-+/* Delays/timeouts */
-+#define FM10K_MBX_DISCONNECT_TIMEOUT		500
-+#define FM10K_MBX_POLL_DELAY			19
-+#define FM10K_MBX_INT_DELAY			20
-+
-+/* PF/VF Mailbox state machine
-+ *
-+ * +----------+	    connect()	+----------+
-+ * |  CLOSED  | --------------> |  CONNECT |
-+ * +----------+			+----------+
-+ *   ^				  ^	 |
-+ *   | rcv:	      rcv:	  |	 | rcv:
-+ *   |  Connect	       Disconnect |	 |  Connect
-+ *   |  Disconnect     Error	  |	 |  Data
-+ *   |				  |	 |
-+ *   |				  |	 V
-+ * +----------+   disconnect()	+----------+
-+ * |DISCONNECT| <-------------- |   OPEN   |
-+ * +----------+			+----------+
-+ *
-+ * The diagram above describes the PF/VF mailbox state machine.  There
-+ * are four main states to this machine.
-+ * Closed: This state represents a mailbox that is in a standby state
-+ *	   with interrupts disabled.  In this state the mailbox should not
-+ *	   read the mailbox or write any data.  The only means of exiting
-+ *	   this state is for the system to make the connect() call for the
-+ *	   mailbox, it will then transition to the connect state.
-+ * Connect: In this state the mailbox is seeking a connection.  It will
-+ *	    post a connect message with no specified destination and will
-+ *	    wait for a reply from the other side of the mailbox.  This state
-+ *	    is exited when either a connect with the local mailbox as the
-+ *	    destination is received or when a data message is received with
-+ *	    a valid sequence number.
-+ * Open: In this state the mailbox is able to transfer data between the local
-+ *       entity and the remote.  It will fall back to connect in the event of
-+ *       receiving either an error message, or a disconnect message.  It will
-+ *       transition to disconnect on a call to disconnect();
-+ * Disconnect: In this state the mailbox is attempting to gracefully terminate
-+ *	       the connection.  It will do so at the first point where it knows
-+ *	       that the remote endpoint is either done sending, or when the
-+ *	       remote endpoint has fallen back into connect.
-+ */
-+enum fm10k_mbx_state {
-+	FM10K_STATE_CLOSED,
-+	FM10K_STATE_CONNECT,
-+	FM10K_STATE_OPEN,
-+	FM10K_STATE_DISCONNECT,
-+};
-+
-+/* macros for retriving and setting header values */
-+#define FM10K_MSG_HDR_MASK(name) \
-+	((0x1u << FM10K_MSG_##name##_SIZE) - 1)
-+#define FM10K_MSG_HDR_FIELD_SET(value, name) \
-+	(((u32)(value) & FM10K_MSG_HDR_MASK(name)) << FM10K_MSG_##name##_SHIFT)
-+#define FM10K_MSG_HDR_FIELD_GET(value, name) \
-+	((u16)((value) >> FM10K_MSG_##name##_SHIFT) & FM10K_MSG_HDR_MASK(name))
-+
-+/* HNI/SM Mailbox FIFO format
-+ *    3                   2                   1                   0
-+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
-+ * +-------+-----------------------+-------+-----------------------+
-+ * | Error |      Remote Head      |Version|      Local Tail       |
-+ * +-------+-----------------------+-------+-----------------------+
-+ * |                                                               |
-+ * .                        Local FIFO Data                        .
-+ * .                                                               .
-+ * +-------+-----------------------+-------+-----------------------+
-+ *
-+ * The layout above describes the format for the FIFOs used by the host
-+ * network interface and the switch manager to communicate messages back
-+ * and forth.  Both the HNI and the switch maintain one such FIFO.  The
-+ * layout in memory has the switch manager FIFO followed immediately by
-+ * the HNI FIFO.  For this reason I am using just the pointer to the
-+ * HNI FIFO in the mailbox ops as the offset between the two is fixed.
-+ *
-+ * The header for the FIFO is broken out into the following fields:
-+ * Local Tail:  Offset into FIFO region for next DWORD to write.
-+ * Version:  Version info for mailbox, only values of 0/1 are supported.
-+ * Remote Head:  Offset into remote FIFO to indicate how much we have read.
-+ * Error: Error indication, values TBD.
-+ */
-+
-+/* version number for switch manager mailboxes */
-+#define FM10K_SM_MBX_VERSION		1
-+#define FM10K_SM_MBX_FIFO_LEN		(FM10K_MBMEM_PF_XOR - 1)
-+#define FM10K_SM_MBX_FIFO_HDR_LEN	1
-+
-+/* offsets shared between all SM FIFO headers */
-+#define FM10K_MSG_SM_TAIL_SHIFT			0
-+#define FM10K_MSG_SM_TAIL_SIZE			12
-+#define FM10K_MSG_SM_VER_SHIFT			12
-+#define FM10K_MSG_SM_VER_SIZE			4
-+#define FM10K_MSG_SM_HEAD_SHIFT			16
-+#define FM10K_MSG_SM_HEAD_SIZE			12
-+#define FM10K_MSG_SM_ERR_SHIFT			28
-+#define FM10K_MSG_SM_ERR_SIZE			4
-+
-+/* All error messages returned by mailbox functions
-+ * The value -511 is 0xFE01 in hex.  The idea is to order the errors
-+ * from 0xFE01 - 0xFEFF so error codes are easily visible in the mailbox
-+ * messages.  This also helps to avoid error number collisions as Linux
-+ * doesn't appear to use error numbers 256 - 511.
-+ */
-+#define FM10K_MBX_ERR(_n) ((_n) - 512)
-+#define FM10K_MBX_ERR_NO_MBX		FM10K_MBX_ERR(0x01)
-+#define FM10K_MBX_ERR_NO_SPACE		FM10K_MBX_ERR(0x03)
-+#define FM10K_MBX_ERR_TAIL		FM10K_MBX_ERR(0x05)
-+#define FM10K_MBX_ERR_HEAD		FM10K_MBX_ERR(0x06)
-+#define FM10K_MBX_ERR_SRC		FM10K_MBX_ERR(0x08)
-+#define FM10K_MBX_ERR_TYPE		FM10K_MBX_ERR(0x09)
-+#define FM10K_MBX_ERR_SIZE		FM10K_MBX_ERR(0x0B)
-+#define FM10K_MBX_ERR_BUSY		FM10K_MBX_ERR(0x0C)
-+#define FM10K_MBX_ERR_RSVD0		FM10K_MBX_ERR(0x0E)
-+#define FM10K_MBX_ERR_CRC		FM10K_MBX_ERR(0x0F)
-+
-+#define FM10K_MBX_CRC_SEED		0xFFFF
-+
-+struct fm10k_mbx_ops {
-+	s32 (*connect)(struct fm10k_hw *, struct fm10k_mbx_info *);
-+	void (*disconnect)(struct fm10k_hw *, struct fm10k_mbx_info *);
-+	bool (*rx_ready)(struct fm10k_mbx_info *);
-+	bool (*tx_ready)(struct fm10k_mbx_info *, u16);
-+	bool (*tx_complete)(struct fm10k_mbx_info *);
-+	s32 (*enqueue_tx)(struct fm10k_hw *, struct fm10k_mbx_info *,
-+			  const u32 *);
-+	s32 (*process)(struct fm10k_hw *, struct fm10k_mbx_info *);
-+	s32 (*register_handlers)(struct fm10k_mbx_info *,
-+				 const struct fm10k_msg_data *);
-+};
-+
-+struct fm10k_mbx_fifo {
-+	u32 *buffer;
-+	u16 head;
-+	u16 tail;
-+	u16 size;
-+};
-+
-+/* size of buffer to be stored in mailbox for FIFOs */
-+#define FM10K_MBX_TX_BUFFER_SIZE	512
-+#define FM10K_MBX_RX_BUFFER_SIZE	128
-+#define FM10K_MBX_BUFFER_SIZE \
-+	(FM10K_MBX_TX_BUFFER_SIZE + FM10K_MBX_RX_BUFFER_SIZE)
-+
-+/* minimum and maximum message size in dwords */
-+#define FM10K_MBX_MSG_MAX_SIZE \
-+	((FM10K_MBX_TX_BUFFER_SIZE - 1) & (FM10K_MBX_RX_BUFFER_SIZE - 1))
-+#define FM10K_VFMBX_MSG_MTU	((FM10K_VFMBMEM_LEN / 2) - 1)
-+
-+#define FM10K_MBX_INIT_TIMEOUT	2000 /* number of retries on mailbox */
-+#define FM10K_MBX_INIT_DELAY	500  /* microseconds between retries */
-+
-+struct fm10k_mbx_info {
-+	/* function pointers for mailbox operations */
-+	struct fm10k_mbx_ops ops;
-+	const struct fm10k_msg_data *msg_data;
-+
-+	/* message FIFOs */
-+	struct fm10k_mbx_fifo rx;
-+	struct fm10k_mbx_fifo tx;
-+
-+	/* delay for handling timeouts */
-+	u32 timeout;
-+	u32 udelay;
-+
-+	/* mailbox state info */
-+	u32 mbx_reg, mbmem_reg, mbx_lock, mbx_hdr;
-+	u16 max_size, mbmem_len;
-+	u16 tail, tail_len, pulled;
-+	u16 head, head_len, pushed;
-+	u16 local, remote;
-+	enum fm10k_mbx_state state;
-+
-+	/* result of last mailbox test */
-+	s32 test_result;
-+
-+	/* statistics */
-+	u64 tx_busy;
-+	u64 tx_dropped;
-+	u64 tx_messages;
-+	u64 tx_dwords;
-+	u64 rx_messages;
-+	u64 rx_dwords;
-+	u64 rx_parse_err;
-+
-+	/* Buffer to store messages */
-+	u32 buffer[FM10K_MBX_BUFFER_SIZE];
-+};
-+
-+#endif /* _FM10K_MBX_H_ */
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
-index f1fc709..fd0a05f 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
-@@ -541,3 +541,323 @@ s32 fm10k_tlv_attr_parse(u32 *attr, u32 **results,
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index a7822b8..6ca0614 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -40,7 +40,8 @@ MODULE_DESCRIPTION("Intel(R) Ethernet Switch Host Interface Driver");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_VERSION);
  
- 	return 0;
- }
-+
+-/** fm10k_init_module - Driver Registration Routine
 +/**
-+ *  fm10k_tlv_msg_parse - Parses message header and calls function handler
-+ *  @hw: Pointer to hardware structure
-+ *  @msg: Pointer to message
-+ *  @mbx: Pointer to mailbox information structure
-+ *  @func: Function array containing list of message handling functions
-+ *
-+ *  This function should be the first function called upon receiving a
-+ *  message.  The handler will identify the message type and call the correct
-+ *  handler for the given message.  It will return the value from the function
-+ *  call on a recognized message type, otherwise it will return
-+ *  FM10K_NOT_IMPLEMENTED on an unrecognized type.
-+ **/
-+s32 fm10k_tlv_msg_parse(struct fm10k_hw *hw, u32 *msg,
-+			struct fm10k_mbx_info *mbx,
-+			const struct fm10k_msg_data *data)
-+{
-+	u32 *results[FM10K_TLV_RESULTS_MAX];
-+	u32 msg_id;
-+	s32 err;
-+
-+	/* verify pointer is not NULL */
-+	if (!msg || !data)
-+		return FM10K_ERR_PARAM;
-+
-+	/* verify this is a message and not an attribute */
-+	if (!(*msg & (FM10K_TLV_FLAGS_MSG << FM10K_TLV_FLAGS_SHIFT)))
-+		return FM10K_ERR_PARAM;
-+
-+	/* grab message ID */
-+	msg_id = *msg & FM10K_TLV_ID_MASK;
-+
-+	while (data->id < msg_id)
-+		data++;
-+
-+	/* if we didn't find it then pass it up as an error */
-+	if (data->id != msg_id) {
-+		while (data->id != FM10K_TLV_ERROR)
-+			data++;
-+	}
-+
-+	/* parse the attributes into the results list */
-+	err = fm10k_tlv_attr_parse(msg, results, data->attr);
-+	if (err < 0)
-+		return err;
-+
-+	return data->func(hw, results, mbx);
-+}
-+
-+/**
-+ *  fm10k_tlv_msg_error - Default handler for unrecognized TLV message IDs
-+ *  @hw: Pointer to hardware structure
-+ *  @results: Pointer array to message, results[0] is pointer to message
-+ *  @mbx: Unused mailbox pointer
-+ *
-+ *  This function is a default handler for unrecognized messages.  At a
-+ *  a minimum it just indicates that the message requested was
-+ *  unimplemented.
-+ **/
-+s32 fm10k_tlv_msg_error(struct fm10k_hw *hw, u32 **results,
-+			struct fm10k_mbx_info *mbx)
-+{
-+	return FM10K_NOT_IMPLEMENTED;
-+}
-+
-+static const unsigned char test_str[] =	"fm10k";
-+static const unsigned char test_mac[ETH_ALEN] = { 0x12, 0x34, 0x56,
-+						  0x78, 0x9a, 0xbc };
-+static const u16 test_vlan = 0x0FED;
-+static const u64 test_u64 = 0xfedcba9876543210ull;
-+static const u32 test_u32 = 0x87654321;
-+static const u16 test_u16 = 0x8765;
-+static const u8  test_u8  = 0x87;
-+static const s64 test_s64 = -0x123456789abcdef0ll;
-+static const s32 test_s32 = -0x1235678;
-+static const s16 test_s16 = -0x1234;
-+static const s8  test_s8  = -0x12;
-+static const __le32 test_le[2] = { cpu_to_le32(0x12345678),
-+				   cpu_to_le32(0x9abcdef0)};
-+
-+/* The message below is meant to be used as a test message to demonstrate
-+ * how to use the TLV interface and to test the types.  Normally this code
-+ * be compiled out by stripping the code wrapped in FM10K_TLV_TEST_MSG
-+ */
-+const struct fm10k_tlv_attr fm10k_tlv_msg_test_attr[] = {
-+	FM10K_TLV_ATTR_NULL_STRING(FM10K_TEST_MSG_STRING, 80),
-+	FM10K_TLV_ATTR_MAC_ADDR(FM10K_TEST_MSG_MAC_ADDR),
-+	FM10K_TLV_ATTR_U8(FM10K_TEST_MSG_U8),
-+	FM10K_TLV_ATTR_U16(FM10K_TEST_MSG_U16),
-+	FM10K_TLV_ATTR_U32(FM10K_TEST_MSG_U32),
-+	FM10K_TLV_ATTR_U64(FM10K_TEST_MSG_U64),
-+	FM10K_TLV_ATTR_S8(FM10K_TEST_MSG_S8),
-+	FM10K_TLV_ATTR_S16(FM10K_TEST_MSG_S16),
-+	FM10K_TLV_ATTR_S32(FM10K_TEST_MSG_S32),
-+	FM10K_TLV_ATTR_S64(FM10K_TEST_MSG_S64),
-+	FM10K_TLV_ATTR_LE_STRUCT(FM10K_TEST_MSG_LE_STRUCT, 8),
-+	FM10K_TLV_ATTR_NESTED(FM10K_TEST_MSG_NESTED),
-+	FM10K_TLV_ATTR_S32(FM10K_TEST_MSG_RESULT),
-+	FM10K_TLV_ATTR_LAST
-+};
-+
-+/**
-+ *  fm10k_tlv_msg_test_generate_data - Stuff message with data
-+ *  @msg: Pointer to message
-+ *  @attr_flags: List of flags indicating what attributes to add
-+ *
-+ *  This function is meant to load a message buffer with attribute data
-+ **/
-+static void fm10k_tlv_msg_test_generate_data(u32 *msg, u32 attr_flags)
-+{
-+	if (attr_flags & (1 << FM10K_TEST_MSG_STRING))
-+		fm10k_tlv_attr_put_null_string(msg, FM10K_TEST_MSG_STRING,
-+					       test_str);
-+	if (attr_flags & (1 << FM10K_TEST_MSG_MAC_ADDR))
-+		fm10k_tlv_attr_put_mac_vlan(msg, FM10K_TEST_MSG_MAC_ADDR,
-+					    test_mac, test_vlan);
-+	if (attr_flags & (1 << FM10K_TEST_MSG_U8))
-+		fm10k_tlv_attr_put_u8(msg, FM10K_TEST_MSG_U8,  test_u8);
-+	if (attr_flags & (1 << FM10K_TEST_MSG_U16))
-+		fm10k_tlv_attr_put_u16(msg, FM10K_TEST_MSG_U16, test_u16);
-+	if (attr_flags & (1 << FM10K_TEST_MSG_U32))
-+		fm10k_tlv_attr_put_u32(msg, FM10K_TEST_MSG_U32, test_u32);
-+	if (attr_flags & (1 << FM10K_TEST_MSG_U64))
-+		fm10k_tlv_attr_put_u64(msg, FM10K_TEST_MSG_U64, test_u64);
-+	if (attr_flags & (1 << FM10K_TEST_MSG_S8))
-+		fm10k_tlv_attr_put_s8(msg, FM10K_TEST_MSG_S8,  test_s8);
-+	if (attr_flags & (1 << FM10K_TEST_MSG_S16))
-+		fm10k_tlv_attr_put_s16(msg, FM10K_TEST_MSG_S16, test_s16);
-+	if (attr_flags & (1 << FM10K_TEST_MSG_S32))
-+		fm10k_tlv_attr_put_s32(msg, FM10K_TEST_MSG_S32, test_s32);
-+	if (attr_flags & (1 << FM10K_TEST_MSG_S64))
-+		fm10k_tlv_attr_put_s64(msg, FM10K_TEST_MSG_S64, test_s64);
-+	if (attr_flags & (1 << FM10K_TEST_MSG_LE_STRUCT))
-+		fm10k_tlv_attr_put_le_struct(msg, FM10K_TEST_MSG_LE_STRUCT,
-+					     test_le, 8);
-+}
-+
-+/**
-+ *  fm10k_tlv_msg_test_create - Create a test message testing all attributes
-+ *  @msg: Pointer to message
-+ *  @attr_flags: List of flags indicating what attributes to add
-+ *
-+ *  This function is meant to load a message buffer with all attribute types
-+ *  including a nested attribute.
-+ **/
-+void fm10k_tlv_msg_test_create(u32 *msg, u32 attr_flags)
-+{
-+	u32 *nest = NULL;
-+
-+	fm10k_tlv_msg_init(msg, FM10K_TLV_MSG_ID_TEST);
-+
-+	fm10k_tlv_msg_test_generate_data(msg, attr_flags);
-+
-+	/* check for nested attributes */
-+	attr_flags >>= FM10K_TEST_MSG_NESTED;
-+
-+	if (attr_flags) {
-+		nest = fm10k_tlv_attr_nest_start(msg, FM10K_TEST_MSG_NESTED);
-+
-+		fm10k_tlv_msg_test_generate_data(nest, attr_flags);
-+
-+		fm10k_tlv_attr_nest_stop(msg);
-+	}
-+}
-+
-+/**
-+ *  fm10k_tlv_msg_test - Validate all results on test message receive
-+ *  @hw: Pointer to hardware structure
-+ *  @results: Pointer array to attributes in the mesage
-+ *  @mbx: Pointer to mailbox information structure
-+ *
-+ *  This function does a check to verify all attributes match what the test
-+ *  message placed in the message buffer.  It is the default handler
-+ *  for TLV test messages.
-+ **/
-+s32 fm10k_tlv_msg_test(struct fm10k_hw *hw, u32 **results,
-+		       struct fm10k_mbx_info *mbx)
-+{
-+	u32 *nest_results[FM10K_TLV_RESULTS_MAX];
-+	unsigned char result_str[80];
-+	unsigned char result_mac[ETH_ALEN];
-+	s32 err = 0;
-+	__le32 result_le[2];
-+	u16 result_vlan;
-+	u64 result_u64;
-+	u32 result_u32;
-+	u16 result_u16;
-+	u8  result_u8;
-+	s64 result_s64;
-+	s32 result_s32;
-+	s16 result_s16;
-+	s8  result_s8;
-+	u32 reply[3];
-+
-+	/* retrieve results of a previous test */
-+	if (!!results[FM10K_TEST_MSG_RESULT])
-+		return fm10k_tlv_attr_get_s32(results[FM10K_TEST_MSG_RESULT],
-+					      &mbx->test_result);
-+
-+parse_nested:
-+	if (!!results[FM10K_TEST_MSG_STRING]) {
-+		err = fm10k_tlv_attr_get_null_string(
-+					results[FM10K_TEST_MSG_STRING],
-+					result_str);
-+		if (!err && memcmp(test_str, result_str, sizeof(test_str)))
-+			err = FM10K_ERR_INVALID_VALUE;
-+		if (err)
-+			goto report_result;
-+	}
-+	if (!!results[FM10K_TEST_MSG_MAC_ADDR]) {
-+		err = fm10k_tlv_attr_get_mac_vlan(
-+					results[FM10K_TEST_MSG_MAC_ADDR],
-+					result_mac, &result_vlan);
-+		if (!err && memcmp(test_mac, result_mac, ETH_ALEN))
-+			err = FM10K_ERR_INVALID_VALUE;
-+		if (!err && test_vlan != result_vlan)
-+			err = FM10K_ERR_INVALID_VALUE;
-+		if (err)
-+			goto report_result;
-+	}
-+	if (!!results[FM10K_TEST_MSG_U8]) {
-+		err = fm10k_tlv_attr_get_u8(results[FM10K_TEST_MSG_U8],
-+					    &result_u8);
-+		if (!err && test_u8 != result_u8)
-+			err = FM10K_ERR_INVALID_VALUE;
-+		if (err)
-+			goto report_result;
-+	}
-+	if (!!results[FM10K_TEST_MSG_U16]) {
-+		err = fm10k_tlv_attr_get_u16(results[FM10K_TEST_MSG_U16],
-+					     &result_u16);
-+		if (!err && test_u16 != result_u16)
-+			err = FM10K_ERR_INVALID_VALUE;
-+		if (err)
-+			goto report_result;
-+	}
-+	if (!!results[FM10K_TEST_MSG_U32]) {
-+		err = fm10k_tlv_attr_get_u32(results[FM10K_TEST_MSG_U32],
-+					     &result_u32);
-+		if (!err && test_u32 != result_u32)
-+			err = FM10K_ERR_INVALID_VALUE;
-+		if (err)
-+			goto report_result;
-+	}
-+	if (!!results[FM10K_TEST_MSG_U64]) {
-+		err = fm10k_tlv_attr_get_u64(results[FM10K_TEST_MSG_U64],
-+					     &result_u64);
-+		if (!err && test_u64 != result_u64)
-+			err = FM10K_ERR_INVALID_VALUE;
-+		if (err)
-+			goto report_result;
-+	}
-+	if (!!results[FM10K_TEST_MSG_S8]) {
-+		err = fm10k_tlv_attr_get_s8(results[FM10K_TEST_MSG_S8],
-+					    &result_s8);
-+		if (!err && test_s8 != result_s8)
-+			err = FM10K_ERR_INVALID_VALUE;
-+		if (err)
-+			goto report_result;
-+	}
-+	if (!!results[FM10K_TEST_MSG_S16]) {
-+		err = fm10k_tlv_attr_get_s16(results[FM10K_TEST_MSG_S16],
-+					     &result_s16);
-+		if (!err && test_s16 != result_s16)
-+			err = FM10K_ERR_INVALID_VALUE;
-+		if (err)
-+			goto report_result;
-+	}
-+	if (!!results[FM10K_TEST_MSG_S32]) {
-+		err = fm10k_tlv_attr_get_s32(results[FM10K_TEST_MSG_S32],
-+					     &result_s32);
-+		if (!err && test_s32 != result_s32)
-+			err = FM10K_ERR_INVALID_VALUE;
-+		if (err)
-+			goto report_result;
-+	}
-+	if (!!results[FM10K_TEST_MSG_S64]) {
-+		err = fm10k_tlv_attr_get_s64(results[FM10K_TEST_MSG_S64],
-+					     &result_s64);
-+		if (!err && test_s64 != result_s64)
-+			err = FM10K_ERR_INVALID_VALUE;
-+		if (err)
-+			goto report_result;
-+	}
-+	if (!!results[FM10K_TEST_MSG_LE_STRUCT]) {
-+		err = fm10k_tlv_attr_get_le_struct(
-+					results[FM10K_TEST_MSG_LE_STRUCT],
-+					result_le,
-+					sizeof(result_le));
-+		if (!err && memcmp(test_le, result_le, sizeof(test_le)))
-+			err = FM10K_ERR_INVALID_VALUE;
-+		if (err)
-+			goto report_result;
-+	}
-+
-+	if (!!results[FM10K_TEST_MSG_NESTED]) {
-+		/* clear any pointers */
-+		memset(nest_results, 0, sizeof(nest_results));
-+
-+		/* parse the nested attributes into the nest results list */
-+		err = fm10k_tlv_attr_parse(results[FM10K_TEST_MSG_NESTED],
-+					   nest_results,
-+					   fm10k_tlv_msg_test_attr);
-+		if (err)
-+			goto report_result;
-+
-+		/* loop back through to the start */
-+		results = nest_results;
-+		goto parse_nested;
-+	}
-+
-+report_result:
-+	/* generate reply with test result */
-+	fm10k_tlv_msg_init(reply, FM10K_TLV_MSG_ID_TEST);
-+	fm10k_tlv_attr_put_s32(reply, FM10K_TEST_MSG_RESULT, err);
-+
-+	/* load onto outgoing mailbox */
-+	return mbx->ops.enqueue_tx(hw, mbx, reply);
-+}
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
-index 6d22db6..7e045e8 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
-@@ -21,6 +21,9 @@
- #ifndef _FM10K_TLV_H_
- #define _FM10K_TLV_H_
- 
-+/* forward declaration */
-+struct fm10k_msg_data;
-+
- #include "fm10k_type.h"
- 
- /* Message / Argument header format
-@@ -93,6 +96,15 @@ struct fm10k_tlv_attr {
- #define FM10K_TLV_ATTR_NESTED(id)	    { id, FM10K_TLV_NESTED }
- #define FM10K_TLV_ATTR_LAST		    { FM10K_TLV_ERROR }
- 
-+struct fm10k_msg_data {
-+	unsigned int		    id;
-+	const struct fm10k_tlv_attr *attr;
-+	s32			    (*func)(struct fm10k_hw *, u32 **,
-+					    struct fm10k_mbx_info *);
-+};
-+
-+#define FM10K_MSG_HANDLER(id, attr, func) { id, attr, func }
-+
- s32 fm10k_tlv_msg_init(u32 *, u16);
- s32 fm10k_tlv_attr_put_null_string(u32 *, u16, const unsigned char *);
- s32 fm10k_tlv_attr_get_null_string(u32 *, unsigned char *);
-@@ -138,4 +150,37 @@ s32 fm10k_tlv_attr_get_le_struct(u32 *, void *, u32);
- u32 *fm10k_tlv_attr_nest_start(u32 *, u16);
- s32 fm10k_tlv_attr_nest_stop(u32 *);
- s32 fm10k_tlv_attr_parse(u32 *, u32 **, const struct fm10k_tlv_attr *);
-+s32 fm10k_tlv_msg_parse(struct fm10k_hw *, u32 *, struct fm10k_mbx_info *,
-+			const struct fm10k_msg_data *);
-+s32 fm10k_tlv_msg_error(struct fm10k_hw *hw, u32 **results,
-+			struct fm10k_mbx_info *);
-+
-+#define FM10K_TLV_MSG_ID_TEST	0
-+
-+enum fm10k_tlv_test_attr_id {
-+	FM10K_TEST_MSG_UNSET,
-+	FM10K_TEST_MSG_STRING,
-+	FM10K_TEST_MSG_MAC_ADDR,
-+	FM10K_TEST_MSG_U8,
-+	FM10K_TEST_MSG_U16,
-+	FM10K_TEST_MSG_U32,
-+	FM10K_TEST_MSG_U64,
-+	FM10K_TEST_MSG_S8,
-+	FM10K_TEST_MSG_S16,
-+	FM10K_TEST_MSG_S32,
-+	FM10K_TEST_MSG_S64,
-+	FM10K_TEST_MSG_LE_STRUCT,
-+	FM10K_TEST_MSG_NESTED,
-+	FM10K_TEST_MSG_RESULT,
-+	FM10K_TEST_MSG_MAX
-+};
-+
-+extern const struct fm10k_tlv_attr fm10k_tlv_msg_test_attr[];
-+void fm10k_tlv_msg_test_create(u32 *, u32);
-+s32 fm10k_tlv_msg_test(struct fm10k_hw *, u32 **, struct fm10k_mbx_info *);
-+
-+#define FM10K_TLV_MSG_TEST_HANDLER(func) \
-+	FM10K_MSG_HANDLER(FM10K_TLV_MSG_ID_TEST, fm10k_tlv_msg_test_attr, func)
-+#define FM10K_TLV_MSG_ERROR_HANDLER(func) \
-+	FM10K_MSG_HANDLER(FM10K_TLV_ERROR, NULL, func)
- #endif /* _FM10K_MSG_H_ */
++ * fm10k_init_module - Driver Registration Routine
+  *
+  * fm10k_init_module is the first routine called when the driver is
+  * loaded.  All it does is register with the PCI subsystem.
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-index 1606805..eda0c7c 100644
+index 2c06f02..1606805 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_type.h
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-@@ -28,6 +28,8 @@ struct fm10k_hw;
- #include <asm/byteorder.h>
- #include <linux/etherdevice.h>
+@@ -21,7 +21,666 @@
+ #ifndef _FM10K_TYPE_H_
+ #define _FM10K_TYPE_H_
  
-+#include "fm10k_mbx.h"
++/* forward declaration */
++struct fm10k_hw;
++
++#include <linux/types.h>
++#include <asm/byteorder.h>
++#include <linux/etherdevice.h>
 +
  #define FM10K_DEV_ID_PF			0x15A4
  #define FM10K_DEV_ID_VF			0x15A5
  
-@@ -573,6 +575,7 @@ struct fm10k_hw {
- 	struct fm10k_mac_info mac;
- 	struct fm10k_bus_info bus;
- 	struct fm10k_bus_info bus_caps;
-+	struct fm10k_mbx_info mbx;
- 	struct fm10k_swapi_info swapi;
- 	u16 device_id;
- 	u16 vendor_id;
++#define FM10K_MAX_QUEUES		256
++#define FM10K_MAX_QUEUES_PF		128
++#define FM10K_MAX_QUEUES_POOL		16
++
++#define FM10K_48_BIT_MASK		0x0000FFFFFFFFFFFFull
++#define FM10K_STAT_VALID		0x80000000
++
++/* PCI Bus Info */
++#define FM10K_PCIE_LINK_CAP		0x7C
++#define FM10K_PCIE_LINK_STATUS		0x82
++#define FM10K_PCIE_LINK_WIDTH		0x3F0
++#define FM10K_PCIE_LINK_WIDTH_1		0x10
++#define FM10K_PCIE_LINK_WIDTH_2		0x20
++#define FM10K_PCIE_LINK_WIDTH_4		0x40
++#define FM10K_PCIE_LINK_WIDTH_8		0x80
++#define FM10K_PCIE_LINK_SPEED		0xF
++#define FM10K_PCIE_LINK_SPEED_2500	0x1
++#define FM10K_PCIE_LINK_SPEED_5000	0x2
++#define FM10K_PCIE_LINK_SPEED_8000	0x3
++
++/* PCIe payload size */
++#define FM10K_PCIE_DEV_CAP			0x74
++#define FM10K_PCIE_DEV_CAP_PAYLOAD		0x07
++#define FM10K_PCIE_DEV_CAP_PAYLOAD_128		0x00
++#define FM10K_PCIE_DEV_CAP_PAYLOAD_256		0x01
++#define FM10K_PCIE_DEV_CAP_PAYLOAD_512		0x02
++#define FM10K_PCIE_DEV_CTRL			0x78
++#define FM10K_PCIE_DEV_CTRL_PAYLOAD		0xE0
++#define FM10K_PCIE_DEV_CTRL_PAYLOAD_128		0x00
++#define FM10K_PCIE_DEV_CTRL_PAYLOAD_256		0x20
++#define FM10K_PCIE_DEV_CTRL_PAYLOAD_512		0x40
++
++/* PCIe MSI-X Capability info */
++#define FM10K_PCI_MSIX_MSG_CTRL			0xB2
++#define FM10K_PCI_MSIX_MSG_CTRL_TBL_SZ_MASK	0x7FF
++#define FM10K_MAX_MSIX_VECTORS			256
++#define FM10K_MAX_VECTORS_PF			256
++#define FM10K_MAX_VECTORS_POOL			32
++
++/* PCIe SR-IOV Info */
++#define FM10K_PCIE_SRIOV_CTRL			0x190
++#define FM10K_PCIE_SRIOV_CTRL_VFARI		0x10
++
++#define FM10K_ERR_PARAM				-2
++#define FM10K_ERR_REQUESTS_PENDING		-4
++#define FM10K_ERR_RESET_REQUESTED		-5
++#define FM10K_ERR_DMA_PENDING			-6
++#define FM10K_ERR_RESET_FAILED			-7
++#define FM10K_ERR_INVALID_MAC_ADDR		-8
++#define FM10K_ERR_INVALID_VALUE			-9
++#define FM10K_NOT_IMPLEMENTED			0x7FFFFFFF
++
++/* Start of PF registers */
++#define FM10K_CTRL		0x0000
++#define FM10K_CTRL_BAR4_ALLOWED			0x00000004
++
++#define FM10K_CTRL_EXT		0x0001
++#define FM10K_GCR		0x0003
++#define FM10K_GCR_EXT		0x0005
++
++/* Interrupt control registers */
++#define FM10K_EICR		0x0006
++#define FM10K_EICR_FAULT_MASK			0x0000003F
++#define FM10K_EICR_MAILBOX			0x00000040
++#define FM10K_EICR_SWITCHREADY			0x00000080
++#define FM10K_EICR_SWITCHNOTREADY		0x00000100
++#define FM10K_EICR_SWITCHINTERRUPT		0x00000200
++#define FM10K_EICR_VFLR				0x00000800
++#define FM10K_EICR_MAXHOLDTIME			0x00001000
++#define FM10K_EIMR		0x0007
++#define FM10K_EIMR_PCA_FAULT			0x00000001
++#define FM10K_EIMR_THI_FAULT			0x00000010
++#define FM10K_EIMR_FUM_FAULT			0x00000400
++#define FM10K_EIMR_MAILBOX			0x00001000
++#define FM10K_EIMR_SWITCHREADY			0x00004000
++#define FM10K_EIMR_SWITCHNOTREADY		0x00010000
++#define FM10K_EIMR_SWITCHINTERRUPT		0x00040000
++#define FM10K_EIMR_SRAMERROR			0x00100000
++#define FM10K_EIMR_VFLR				0x00400000
++#define FM10K_EIMR_MAXHOLDTIME			0x01000000
++#define FM10K_EIMR_ALL				0x55555555
++#define FM10K_EIMR_DISABLE(NAME)		((FM10K_EIMR_ ## NAME) << 0)
++#define FM10K_EIMR_ENABLE(NAME)			((FM10K_EIMR_ ## NAME) << 1)
++#define FM10K_FAULT_ADDR_LO		0x0
++#define FM10K_FAULT_ADDR_HI		0x1
++#define FM10K_FAULT_SPECINFO		0x2
++#define FM10K_FAULT_FUNC		0x3
++#define FM10K_FAULT_SIZE		0x4
++#define FM10K_FAULT_FUNC_VALID			0x00008000
++#define FM10K_FAULT_FUNC_PF			0x00004000
++#define FM10K_FAULT_FUNC_VF_MASK		0x00003F00
++#define FM10K_FAULT_FUNC_VF_SHIFT		8
++#define FM10K_FAULT_FUNC_TYPE_MASK		0x000000FF
++
++#define FM10K_PCA_FAULT		0x0008
++#define FM10K_THI_FAULT		0x0010
++#define FM10K_FUM_FAULT		0x001C
++
++/* Rx queue timeout indicator */
++#define FM10K_MAXHOLDQ(_n)	((_n) + 0x0020)
++
++/* Switch Manager info */
++#define FM10K_SM_AREA(_n)	((_n) + 0x0028)
++
++/* GLORT mapping registers */
++#define FM10K_DGLORTMAP(_n)	((_n) + 0x0030)
++#define FM10K_DGLORT_COUNT			8
++#define FM10K_DGLORTMAP_MASK_SHIFT		16
++#define FM10K_DGLORTMAP_ANY			0x00000000
++#define FM10K_DGLORTMAP_NONE			0x0000FFFF
++#define FM10K_DGLORTMAP_ZERO			0xFFFF0000
++#define FM10K_DGLORTDEC(_n)	((_n) + 0x0038)
++#define FM10K_DGLORTDEC_VSILENGTH_SHIFT		4
++#define FM10K_DGLORTDEC_VSIBASE_SHIFT		7
++#define FM10K_DGLORTDEC_PCLENGTH_SHIFT		14
++#define FM10K_DGLORTDEC_QBASE_SHIFT		16
++#define FM10K_DGLORTDEC_RSSLENGTH_SHIFT		24
++#define FM10K_DGLORTDEC_INNERRSS_ENABLE		0x08000000
++#define FM10K_TUNNEL_CFG	0x0040
++#define FM10K_TUNNEL_CFG_NVGRE_SHIFT		16
++#define FM10K_SWPRI_MAP(_n)	((_n) + 0x0050)
++#define FM10K_SWPRI_MAX		16
++#define FM10K_RSSRK(_n, _m)	(((_n) * 0x10) + (_m) + 0x0800)
++#define FM10K_RSSRK_SIZE	10
++#define FM10K_RSSRK_ENTRIES_PER_REG		4
++#define FM10K_RETA(_n, _m)	(((_n) * 0x20) + (_m) + 0x1000)
++#define FM10K_RETA_SIZE		32
++#define FM10K_RETA_ENTRIES_PER_REG		4
++#define FM10K_MAX_RSS_INDICES	128
++
++/* Rate limiting registers */
++#define FM10K_TC_CREDIT(_n)	((_n) + 0x2000)
++#define FM10K_TC_CREDIT_CREDIT_MASK		0x001FFFFF
++#define FM10K_TC_MAXCREDIT(_n)	((_n) + 0x2040)
++#define FM10K_TC_MAXCREDIT_64K			0x00010000
++#define FM10K_TC_RATE(_n)	((_n) + 0x2080)
++#define FM10K_TC_RATE_QUANTA_MASK		0x0000FFFF
++#define FM10K_TC_RATE_INTERVAL_4US_GEN1		0x00020000
++#define FM10K_TC_RATE_INTERVAL_4US_GEN2		0x00040000
++#define FM10K_TC_RATE_INTERVAL_4US_GEN3		0x00080000
++
++/* DMA control registers */
++#define FM10K_DMA_CTRL		0x20C3
++#define FM10K_DMA_CTRL_TX_ENABLE		0x00000001
++#define FM10K_DMA_CTRL_TX_ACTIVE		0x00000008
++#define FM10K_DMA_CTRL_RX_ENABLE		0x00000010
++#define FM10K_DMA_CTRL_RX_ACTIVE		0x00000080
++#define FM10K_DMA_CTRL_RX_DESC_SIZE		0x00000100
++#define FM10K_DMA_CTRL_MINMSS_64		0x00008000
++#define FM10K_DMA_CTRL_MAX_HOLD_1US_GEN3	0x04800000
++#define FM10K_DMA_CTRL_MAX_HOLD_1US_GEN2	0x04000000
++#define FM10K_DMA_CTRL_MAX_HOLD_1US_GEN1	0x03800000
++#define FM10K_DMA_CTRL_DATAPATH_RESET		0x20000000
++#define FM10K_DMA_CTRL_32_DESC			0x00000000
++
++#define FM10K_DMA_CTRL2		0x20C4
++#define FM10K_DMA_CTRL2_SWITCH_READY		0x00002000
++
++/* TSO flags configuration
++ * First packet contains all flags except for fin and psh
++ * Middle packet contains only urg and ack
++ * Last packet contains urg, ack, fin, and psh
++ */
++#define FM10K_TSO_FLAGS_LOW		0x00300FF6
++#define FM10K_TSO_FLAGS_HI		0x00000039
++#define FM10K_DTXTCPFLGL	0x20C5
++#define FM10K_DTXTCPFLGH	0x20C6
++
++#define FM10K_TPH_CTRL		0x20C7
++#define FM10K_MRQC(_n)		((_n) + 0x2100)
++#define FM10K_MRQC_TCP_IPV4			0x00000001
++#define FM10K_MRQC_IPV4				0x00000002
++#define FM10K_MRQC_IPV6				0x00000010
++#define FM10K_MRQC_TCP_IPV6			0x00000020
++#define FM10K_MRQC_UDP_IPV4			0x00000040
++#define FM10K_MRQC_UDP_IPV6			0x00000080
++
++#define FM10K_TQMAP(_n)		((_n) + 0x2800)
++#define FM10K_TQMAP_TABLE_SIZE			2048
++#define FM10K_RQMAP(_n)		((_n) + 0x3000)
++
++/* Hardware Statistics */
++#define FM10K_STATS_TIMEOUT		0x3800
++#define FM10K_STATS_UR			0x3801
++#define FM10K_STATS_CA			0x3802
++#define FM10K_STATS_UM			0x3803
++#define FM10K_STATS_XEC			0x3804
++#define FM10K_STATS_VLAN_DROP		0x3805
++#define FM10K_STATS_LOOPBACK_DROP	0x3806
++#define FM10K_STATS_NODESC_DROP		0x3807
++
++/* PCIe state registers */
++#define FM10K_PHYADDR		0x381C
++
++/* Rx ring registers */
++#define FM10K_RDBAL(_n)		((0x40 * (_n)) + 0x4000)
++#define FM10K_RDBAH(_n)		((0x40 * (_n)) + 0x4001)
++#define FM10K_RDLEN(_n)		((0x40 * (_n)) + 0x4002)
++#define FM10K_TPH_RXCTRL(_n)	((0x40 * (_n)) + 0x4003)
++#define FM10K_TPH_RXCTRL_DESC_TPHEN		0x00000020
++#define FM10K_TPH_RXCTRL_DESC_RROEN		0x00000200
++#define FM10K_TPH_RXCTRL_DATA_WROEN		0x00002000
++#define FM10K_TPH_RXCTRL_HDR_WROEN		0x00008000
++#define FM10K_RDH(_n)		((0x40 * (_n)) + 0x4004)
++#define FM10K_RDT(_n)		((0x40 * (_n)) + 0x4005)
++#define FM10K_RXQCTL(_n)	((0x40 * (_n)) + 0x4006)
++#define FM10K_RXQCTL_ENABLE			0x00000001
++#define FM10K_RXQCTL_PF				0x000000FC
++#define FM10K_RXQCTL_VF_SHIFT			2
++#define FM10K_RXQCTL_VF				0x00000100
++#define FM10K_RXQCTL_ID_MASK	(FM10K_RXQCTL_PF | FM10K_RXQCTL_VF)
++#define FM10K_RXDCTL(_n)	((0x40 * (_n)) + 0x4007)
++#define FM10K_RXDCTL_WRITE_BACK_MIN_DELAY	0x00000001
++#define FM10K_RXDCTL_DROP_ON_EMPTY		0x00000200
++#define FM10K_RXINT(_n)		((0x40 * (_n)) + 0x4008)
++#define FM10K_SRRCTL(_n)	((0x40 * (_n)) + 0x4009)
++#define FM10K_SRRCTL_BSIZEPKT_SHIFT		8 /* shift _right_ */
++#define FM10K_SRRCTL_LOOPBACK_SUPPRESS		0x40000000
++#define FM10K_SRRCTL_BUFFER_CHAINING_EN		0x80000000
++
++/* Rx Statistics */
++#define FM10K_QPRC(_n)		((0x40 * (_n)) + 0x400A)
++#define FM10K_QPRDC(_n)		((0x40 * (_n)) + 0x400B)
++#define FM10K_QBRC_L(_n)	((0x40 * (_n)) + 0x400C)
++#define FM10K_QBRC_H(_n)	((0x40 * (_n)) + 0x400D)
++
++/* Rx GLORT register */
++#define FM10K_RX_SGLORT(_n)		((0x40 * (_n)) + 0x400E)
++
++/* Tx ring registers */
++#define FM10K_TDBAL(_n)		((0x40 * (_n)) + 0x8000)
++#define FM10K_TDBAH(_n)		((0x40 * (_n)) + 0x8001)
++#define FM10K_TDLEN(_n)		((0x40 * (_n)) + 0x8002)
++#define FM10K_TPH_TXCTRL(_n)	((0x40 * (_n)) + 0x8003)
++#define FM10K_TPH_TXCTRL_DESC_TPHEN		0x00000020
++#define FM10K_TPH_TXCTRL_DESC_RROEN		0x00000200
++#define FM10K_TPH_TXCTRL_DESC_WROEN		0x00000800
++#define FM10K_TPH_TXCTRL_DATA_RROEN		0x00002000
++#define FM10K_TDH(_n)		((0x40 * (_n)) + 0x8004)
++#define FM10K_TDT(_n)		((0x40 * (_n)) + 0x8005)
++#define FM10K_TXDCTL(_n)	((0x40 * (_n)) + 0x8006)
++#define FM10K_TXDCTL_ENABLE			0x00004000
++#define FM10K_TXDCTL_MAX_TIME_SHIFT		16
++#define FM10K_TXQCTL(_n)	((0x40 * (_n)) + 0x8007)
++#define FM10K_TXQCTL_PF				0x0000003F
++#define FM10K_TXQCTL_VF				0x00000040
++#define FM10K_TXQCTL_ID_MASK	(FM10K_TXQCTL_PF | FM10K_TXQCTL_VF)
++#define FM10K_TXQCTL_PC_SHIFT			7
++#define FM10K_TXQCTL_PC_MASK			0x00000380
++#define FM10K_TXQCTL_TC_SHIFT			10
++#define FM10K_TXQCTL_VID_SHIFT			16
++#define FM10K_TXQCTL_VID_MASK			0x0FFF0000
++#define FM10K_TXQCTL_UNLIMITED_BW		0x10000000
++#define FM10K_TXINT(_n)		((0x40 * (_n)) + 0x8008)
++
++/* Tx Statistics */
++#define FM10K_QPTC(_n)		((0x40 * (_n)) + 0x8009)
++#define FM10K_QBTC_L(_n)	((0x40 * (_n)) + 0x800A)
++#define FM10K_QBTC_H(_n)	((0x40 * (_n)) + 0x800B)
++
++/* Tx Push registers */
++#define FM10K_TQDLOC(_n)	((0x40 * (_n)) + 0x800C)
++#define FM10K_TQDLOC_BASE_32_DESC		0x08
++#define FM10K_TQDLOC_SIZE_32_DESC		0x00050000
++
++/* Tx GLORT registers */
++#define FM10K_TX_SGLORT(_n)	((0x40 * (_n)) + 0x800D)
++#define FM10K_PFVTCTL(_n)	((0x40 * (_n)) + 0x800E)
++#define FM10K_PFVTCTL_FTAG_DESC_ENABLE		0x00000001
++
++/* Interrupt moderation and control registers */
++#define FM10K_INT_MAP(_n)	((_n) + 0x10080)
++#define FM10K_INT_MAP_TIMER0			0x00000000
++#define FM10K_INT_MAP_TIMER1			0x00000100
++#define FM10K_INT_MAP_IMMEDIATE			0x00000200
++#define FM10K_INT_MAP_DISABLE			0x00000300
++#define FM10K_MSIX_VECTOR_MASK(_n)	((0x4 * (_n)) + 0x11003)
++#define FM10K_INT_CTRL		0x12000
++#define FM10K_INT_CTRL_ENABLEMODERATOR		0x00000400
++#define FM10K_ITR(_n)		((_n) + 0x12400)
++#define FM10K_ITR_INTERVAL1_SHIFT		12
++#define FM10K_ITR_PENDING2			0x10000000
++#define FM10K_ITR_AUTOMASK			0x20000000
++#define FM10K_ITR_MASK_SET			0x40000000
++#define FM10K_ITR_MASK_CLEAR			0x80000000
++#define FM10K_ITR2(_n)		((0x2 * (_n)) + 0x12800)
++#define FM10K_ITR_REG_COUNT			768
++#define FM10K_ITR_REG_COUNT_PF			256
++
++/* Switch manager interrupt registers */
++#define FM10K_IP		0x13000
++#define FM10K_IP_NOTINRESET			0x00000100
++
++/* VLAN registers */
++#define FM10K_VLAN_TABLE(_n, _m)	((0x80 * (_n)) + (_m) + 0x14000)
++#define FM10K_VLAN_TABLE_SIZE			128
++
++/* VLAN specific message offsets */
++#define FM10K_VLAN_TABLE_VID_MAX		4096
++#define FM10K_VLAN_TABLE_VSI_MAX		64
++#define FM10K_VLAN_LENGTH_SHIFT			16
++#define FM10K_VLAN_CLEAR			(1 << 15)
++#define FM10K_VLAN_ALL \
++	((FM10K_VLAN_TABLE_VID_MAX - 1) << FM10K_VLAN_LENGTH_SHIFT)
++
++/* VF FLR event notification registers */
++#define FM10K_PFVFLRE(_n)	((0x1 * (_n)) + 0x18844)
++#define FM10K_PFVFLREC(_n)	((0x1 * (_n)) + 0x18846)
++
++/* Defines for size of uncacheable memories */
++#define FM10K_UC_ADDR_START	0x000000	/* start of standard regs */
++#define FM10K_UC_ADDR_END	0x100000	/* end of standard regs */
++#define FM10K_UC_ADDR_SIZE	(FM10K_UC_ADDR_END - FM10K_UC_ADDR_START)
++
++/* Define timeouts for resets and disables */
++#define FM10K_QUEUE_DISABLE_TIMEOUT		100
++#define FM10K_RESET_TIMEOUT			100
++
++enum fm10k_int_source {
++	fm10k_int_Mailbox	= 0,
++	fm10k_int_PCIeFault	= 1,
++	fm10k_int_SwitchUpDown	= 2,
++	fm10k_int_SwitchEvent	= 3,
++	fm10k_int_SRAM		= 4,
++	fm10k_int_VFLR		= 5,
++	fm10k_int_MaxHoldTime	= 6,
++	fm10k_int_sources_max_pf
++};
++
++/* PCIe bus speeds */
++enum fm10k_bus_speed {
++	fm10k_bus_speed_unknown	= 0,
++	fm10k_bus_speed_2500	= 2500,
++	fm10k_bus_speed_5000	= 5000,
++	fm10k_bus_speed_8000	= 8000,
++	fm10k_bus_speed_reserved
++};
++
++/* PCIe bus widths */
++enum fm10k_bus_width {
++	fm10k_bus_width_unknown	= 0,
++	fm10k_bus_width_pcie_x1	= 1,
++	fm10k_bus_width_pcie_x2	= 2,
++	fm10k_bus_width_pcie_x4	= 4,
++	fm10k_bus_width_pcie_x8	= 8,
++	fm10k_bus_width_reserved
++};
++
++/* PCIe payload sizes */
++enum fm10k_bus_payload {
++	fm10k_bus_payload_unknown = 0,
++	fm10k_bus_payload_128	  = 1,
++	fm10k_bus_payload_256	  = 2,
++	fm10k_bus_payload_512	  = 3,
++	fm10k_bus_payload_reserved
++};
++
++/* Bus parameters */
++struct fm10k_bus_info {
++	enum fm10k_bus_speed speed;
++	enum fm10k_bus_width width;
++	enum fm10k_bus_payload payload;
++};
++
++/* Statistics related declarations */
++struct fm10k_hw_stat {
++	u64 count;
++	u32 base_l;
++	u32 base_h;
++};
++
++struct fm10k_hw_stats_q {
++	struct fm10k_hw_stat tx_bytes;
++	struct fm10k_hw_stat tx_packets;
++#define tx_stats_idx	tx_packets.base_h
++	struct fm10k_hw_stat rx_bytes;
++	struct fm10k_hw_stat rx_packets;
++#define rx_stats_idx	rx_packets.base_h
++	struct fm10k_hw_stat rx_drops;
++};
++
++struct fm10k_hw_stats {
++	struct fm10k_hw_stat	timeout;
++#define stats_idx	timeout.base_h
++	struct fm10k_hw_stat	ur;
++	struct fm10k_hw_stat	ca;
++	struct fm10k_hw_stat	um;
++	struct fm10k_hw_stat	xec;
++	struct fm10k_hw_stat	vlan_drop;
++	struct fm10k_hw_stat	loopback_drop;
++	struct fm10k_hw_stat	nodesc_drop;
++	struct fm10k_hw_stats_q q[FM10K_MAX_QUEUES_PF];
++};
++
++/* Establish DGLORT feature priority */
++enum fm10k_dglortdec_idx {
++	fm10k_dglort_default	= 0,
++	fm10k_dglort_vf_rsvd0	= 1,
++	fm10k_dglort_vf_rss	= 2,
++	fm10k_dglort_pf_rsvd0	= 3,
++	fm10k_dglort_pf_queue	= 4,
++	fm10k_dglort_pf_vsi	= 5,
++	fm10k_dglort_pf_rsvd1	= 6,
++	fm10k_dglort_pf_rss	= 7
++};
++
++struct fm10k_dglort_cfg {
++	u16 glort;	/* GLORT base */
++	u16 queue_b;	/* Base value for queue */
++	u8  vsi_b;	/* Base value for VSI */
++	u8  idx;	/* index of DGLORTDEC entry */
++	u8  rss_l;	/* RSS indices */
++	u8  pc_l;	/* Priority Class indices */
++	u8  vsi_l;	/* Number of bits from GLORT used to determine VSI */
++	u8  queue_l;	/* Number of bits from GLORT used to determine queue */
++	u8  shared_l;	/* Ignored bits from GLORT resulting in shared VSI */
++	u8  inner_rss;	/* Boolean value if inner header is used for RSS */
++};
++
++enum fm10k_pca_fault {
++	PCA_NO_FAULT,
++	PCA_UNMAPPED_ADDR,
++	PCA_BAD_QACCESS_PF,
++	PCA_BAD_QACCESS_VF,
++	PCA_MALICIOUS_REQ,
++	PCA_POISONED_TLP,
++	PCA_TLP_ABORT,
++	__PCA_MAX
++};
++
++enum fm10k_thi_fault {
++	THI_NO_FAULT,
++	THI_MAL_DIS_Q_FAULT,
++	__THI_MAX
++};
++
++enum fm10k_fum_fault {
++	FUM_NO_FAULT,
++	FUM_UNMAPPED_ADDR,
++	FUM_POISONED_TLP,
++	FUM_BAD_VF_QACCESS,
++	FUM_ADD_DECODE_ERR,
++	FUM_RO_ERROR,
++	FUM_QPRC_CRC_ERROR,
++	FUM_CSR_TIMEOUT,
++	FUM_INVALID_TYPE,
++	FUM_INVALID_LENGTH,
++	FUM_INVALID_BE,
++	FUM_INVALID_ALIGN,
++	__FUM_MAX
++};
++
++struct fm10k_fault {
++	u64 address;	/* Address at the time fault was detected */
++	u32 specinfo;	/* Extra info on this fault (fault dependent) */
++	u8 type;	/* Fault value dependent on subunit */
++	u8 func;	/* Function number of the fault */
++};
++
++struct fm10k_mac_ops {
++	/* basic bring-up and tear-down */
++	s32 (*reset_hw)(struct fm10k_hw *);
++	s32 (*init_hw)(struct fm10k_hw *);
++	s32 (*start_hw)(struct fm10k_hw *);
++	s32 (*stop_hw)(struct fm10k_hw *);
++	s32 (*get_bus_info)(struct fm10k_hw *);
++	s32 (*get_host_state)(struct fm10k_hw *, bool *);
++	bool (*is_slot_appropriate)(struct fm10k_hw *);
++	s32 (*update_vlan)(struct fm10k_hw *, u32, u8, bool);
++	s32 (*read_mac_addr)(struct fm10k_hw *);
++	s32 (*update_uc_addr)(struct fm10k_hw *, u16, const u8 *,
++			      u16, bool, u8);
++	s32 (*update_mc_addr)(struct fm10k_hw *, u16, const u8 *, u16, bool);
++	s32 (*update_xcast_mode)(struct fm10k_hw *, u16, u8);
++	void (*update_int_moderator)(struct fm10k_hw *);
++	s32  (*update_lport_state)(struct fm10k_hw *, u16, u16, bool);
++	void (*update_hw_stats)(struct fm10k_hw *, struct fm10k_hw_stats *);
++	void (*rebind_hw_stats)(struct fm10k_hw *, struct fm10k_hw_stats *);
++	s32 (*configure_dglort_map)(struct fm10k_hw *,
++				    struct fm10k_dglort_cfg *);
++	void (*set_dma_mask)(struct fm10k_hw *, u64);
++	s32 (*get_fault)(struct fm10k_hw *, int, struct fm10k_fault *);
++	void (*request_lport_map)(struct fm10k_hw *);
++	s32 (*adjust_systime)(struct fm10k_hw *, s32 ppb);
++};
++
++enum fm10k_mac_type {
++	fm10k_mac_unknown = 0,
++	fm10k_mac_pf,
++	fm10k_num_macs
++};
++
++struct fm10k_mac_info {
++	struct fm10k_mac_ops ops;
++	enum fm10k_mac_type type;
++	u8 addr[ETH_ALEN];
++	u8 perm_addr[ETH_ALEN];
++	u16 default_vid;
++	u16 max_msix_vectors;
++	u16 max_queues;
++	bool vlan_override;
++	bool get_host_state;
++	bool tx_ready;
++	u32 dglort_map;
++};
++
++struct fm10k_swapi_table_info {
++	u32 used;
++	u32 avail;
++};
++
++struct fm10k_swapi_info {
++	u32 status;
++	struct fm10k_swapi_table_info mac;
++	struct fm10k_swapi_table_info nexthop;
++	struct fm10k_swapi_table_info ffu;
++};
++
++enum fm10k_xcast_modes {
++	FM10K_XCAST_MODE_ALLMULTI	= 0,
++	FM10K_XCAST_MODE_MULTI		= 1,
++	FM10K_XCAST_MODE_PROMISC	= 2,
++	FM10K_XCAST_MODE_NONE		= 3,
++	FM10K_XCAST_MODE_DISABLE	= 4
++};
++
++enum fm10k_devices {
++	fm10k_device_pf,
++};
++
++struct fm10k_info {
++	enum fm10k_mac_type	mac;
++	s32			(*get_invariants)(struct fm10k_hw *);
++	struct fm10k_mac_ops	*mac_ops;
++};
++
++struct fm10k_hw {
++	u32 __iomem *hw_addr;
++	void *back;
++	struct fm10k_mac_info mac;
++	struct fm10k_bus_info bus;
++	struct fm10k_bus_info bus_caps;
++	struct fm10k_swapi_info swapi;
++	u16 device_id;
++	u16 vendor_id;
++	u16 subsystem_device_id;
++	u16 subsystem_vendor_id;
++	u8 revision_id;
++};
++
++/* Number of Transmit and Receive Descriptors must be a multiple of 8 */
++#define FM10K_REQ_TX_DESCRIPTOR_MULTIPLE	8
++#define FM10K_REQ_RX_DESCRIPTOR_MULTIPLE	8
++
++/* Transmit Descriptor */
++struct fm10k_tx_desc {
++	__le64 buffer_addr;	/* Address of the descriptor's data buffer */
++	__le16 buflen;		/* Length of data to be DMAed */
++	__le16 vlan;		/* VLAN_ID and VPRI to be inserted in FTAG */
++	__le16 mss;		/* MSS for segmentation offload */
++	u8 hdrlen;		/* Header size for segmentation offload */
++	u8 flags;		/* Status and offload request flags */
++};
++
++/* Transmit Descriptor Cache Structure */
++struct fm10k_tx_desc_cache {
++	struct fm10k_tx_desc tx_desc[256];
++};
++
++#define FM10K_TXD_FLAG_INT	0x01
++#define FM10K_TXD_FLAG_TIME	0x02
++#define FM10K_TXD_FLAG_CSUM	0x04
++#define FM10K_TXD_FLAG_FTAG	0x10
++#define FM10K_TXD_FLAG_RS	0x20
++#define FM10K_TXD_FLAG_LAST	0x40
++#define FM10K_TXD_FLAG_DONE	0x80
++
++/* These macros are meant to enable optimal placement of the RS and INT
++ * bits.  It will point us to the last descriptor in the cache for either the
++ * start of the packet, or the end of the packet.  If the index is actually
++ * at the start of the FIFO it will point to the offset for the last index
++ * in the FIFO to prevent an unnecessary write.
++ */
++#define FM10K_TXD_WB_FIFO_SIZE	4
++
++/* Receive Descriptor - 32B */
++union fm10k_rx_desc {
++	struct {
++		__le64 pkt_addr; /* Packet buffer address */
++		__le64 hdr_addr; /* Header buffer address */
++		__le64 reserved; /* Empty space, RSS hash */
++		__le64 timestamp;
++	} q; /* Read, Writeback, 64b quad-words */
++	struct {
++		__le32 data; /* RSS and header data */
++		__le32 rss;  /* RSS Hash */
++		__le32 staterr;
++		__le32 vlan_len;
++		__le32 glort; /* sglort/dglort */
++	} d; /* Writeback, 32b double-words */
++	struct {
++		__le16 pkt_info; /* RSS, Pkt type */
++		__le16 hdr_info; /* Splithdr, hdrlen, xC */
++		__le16 rss_lower;
++		__le16 rss_upper;
++		__le16 status; /* status/error */
++		__le16 csum_err; /* checksum or extended error value */
++		__le16 length; /* Packet length */
++		__le16 vlan; /* VLAN tag */
++		__le16 dglort;
++		__le16 sglort;
++	} w; /* Writeback, 16b words */
++};
++
++#define FM10K_RXD_RSSTYPE_MASK		0x000F
++enum fm10k_rdesc_rss_type {
++	FM10K_RSSTYPE_NONE	= 0x0,
++	FM10K_RSSTYPE_IPV4_TCP	= 0x1,
++	FM10K_RSSTYPE_IPV4	= 0x2,
++	FM10K_RSSTYPE_IPV6_TCP	= 0x3,
++	/* Reserved 0x4 */
++	FM10K_RSSTYPE_IPV6	= 0x5,
++	/* Reserved 0x6 */
++	FM10K_RSSTYPE_IPV4_UDP	= 0x7,
++	FM10K_RSSTYPE_IPV6_UDP	= 0x8
++	/* Reserved 0x9 - 0xF */
++};
++
++#define FM10K_RXD_HDR_INFO_XC_MASK	0x0006
++enum fm10k_rxdesc_xc {
++	FM10K_XC_UNICAST	= 0x0,
++	FM10K_XC_MULTICAST	= 0x4,
++	FM10K_XC_BROADCAST	= 0x6
++};
++
++#define FM10K_RXD_STATUS_DD		0x0001 /* Descriptor done */
++#define FM10K_RXD_STATUS_EOP		0x0002 /* End of packet */
++#define FM10K_RXD_STATUS_L4CS		0x0010 /* Indicates an L4 csum */
++#define FM10K_RXD_STATUS_L4CS2		0x0040 /* Inner header L4 csum */
++#define FM10K_RXD_STATUS_L4E2		0x0800 /* Inner header L4 csum err */
++#define FM10K_RXD_STATUS_IPE2		0x1000 /* Inner header IPv4 csum err */
++#define FM10K_RXD_STATUS_RXE		0x2000 /* Generic Rx error */
++#define FM10K_RXD_STATUS_L4E		0x4000 /* L4 csum error */
++#define FM10K_RXD_STATUS_IPE		0x8000 /* IPv4 csum error */
++
++struct fm10k_ftag {
++	__be16 swpri_type_user;
++	__be16 vlan;
++	__be16 sglort;
++	__be16 dglort;
++};
++
+ #endif /* _FM10K_TYPE_H */
