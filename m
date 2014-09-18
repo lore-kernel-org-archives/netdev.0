@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
 Subject: Re: [PATCHv2 1/1] bluetooth: Check for SCO type before setting retransmission effort
-Date: Thu, 18 Sep 2014 08:43:40 -0700
-Message-ID: <AE7A1F22-766E-4C9B-A748-ACA5426B7DBD@holtmann.org>
+Date: Thu, 18 Sep 2014 08:48:48 -0700
+Message-ID: <A8855298-3814-4E46-B106-167C05366E2B@holtmann.org>
 References: <8B07B86E-19D4-49E2-B471-DAF31C8D4F34@holtmann.org> <1411035321-10215-1-git-send-email-bernhard.thaler@r-it.at>
 Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
 Content-Type: text/plain; charset=us-ascii
