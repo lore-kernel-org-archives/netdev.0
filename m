@@ -1,100 +1,76 @@
-From: Joe M <joe9mail@gmail.com>
-Subject: Re: Figuring out how vti works
-Date: Thu, 18 Sep 2014 00:08:07 -0500
-Message-ID: <20140918050807.GA10599@master>
-References: <20140915142043.GA22070@master>
- <20140917052811.GT6390@secunet.com>
- <CAHjjW16qdT6RWuJaUd1c6k39RgcPtfsyF=V-dVowW_2UwhF_dw@mail.gmail.com>
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="45Z9DzgjV8m4Oswq"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCHv2] ipv4: Do not cache routing failures due to disabled
+ forwarding.
+Date: Thu, 18 Sep 2014 08:17:08 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1409180749570.4152@ja.home.ssi.bg>
+References: <54143FB2.9000600@green-communications.fr> <1410776893-5284-1-git-send-email-nicolas.cavallari@green-communications.fr>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Nicolas Cavallari <nicolas.cavallari@green-communications.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:33086 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751099AbaIRFIJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 01:08:09 -0400
-Received: by mail-oi0-f51.google.com with SMTP id x69so262079oia.24
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 22:08:09 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAHjjW16qdT6RWuJaUd1c6k39RgcPtfsyF=V-dVowW_2UwhF_dw@mail.gmail.com>
+Received: from ja.ssi.bg ([178.16.129.10]:51566 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751090AbaIRFSF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2014 01:18:05 -0400
+In-Reply-To: <1410776893-5284-1-git-send-email-nicolas.cavallari@green-communications.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---45Z9DzgjV8m4Oswq
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+	Hello,
 
-Hello Steffen,
+On Mon, 15 Sep 2014, Nicolas Cavallari wrote:
 
-Checking further with printk's, I can see
+> If we cache them, the kernel will reuse them, independently of
+> whether forwarding is enabled or not.  Which means that if forwarding is
+> disabled on the input interface where the first routing request comes
+> from, then that unreachable result will be cached and reused for
+> other interfaces, even if forwarding is enabled on them.
+> 
+> This can be verified with two interfaces A and B and an output interface
+> C, where B has forwarding enabled, but not A and trying
+> ip route get $dst iif A from $src && ip route get $dst iif B from $src
+> 
+> Signed-off-by: Nicolas Cavallari <nicolas.cavallari@green-communications.fr>
 
-vti_tunnel_init being called for both ip_vti0 and vtil tunnels. But,
-when vti_tunnel_xmit is called, it is called with ip_vti0 tunnel and
-not the vtil tunnel. I am not sure if I am setting the route wrong. I
-saw a comment that vti_tunnel_xmit is called by dev_queue_xmit
-function. I could not figure out what dev_queue_xmit does though.=20
+	Looks good to me,
 
-master# echo "1" | sudo tee /proc/sys/net/ipv4/ip_forward
-1
-master# modprobe ip_vti
-master# ipsec start
-Starting strongSwan 5.2.0 IPsec [starter]...
-master# ip tunnel add vtil mode vti local 192.168.0.11 remote 192.168.1.232=
- ikey 1 okey 1
-master# ip link set vtil up
-master# sleep 10
-master# ip route add 192.168.1.0/24 dev vtil
-master# ip route list
-default via 192.168.0.1 dev enp4s0  metric 202
-127.0.0.0/8 dev lo  scope host
-192.168.0.0/24 dev enp4s0  proto kernel  scope link  src 192.168.0.11  metr=
-ic 202
-192.168.1.0/24 dev vtil  scope link
+Reviewed-by: Julian Anastasov <ja@ssi.bg>
 
-ip link list
-=2E
-=2E
-=2E
-13: ip_vti0@NONE: <NOARP,UP,LOWER_UP> mtu 1428 qdisc noqueue state UNKNOWN =
-mode DEFAULT group default
-    link/ipip 0.0.0.0 brd 0.0.0.0
-14: vtil@NONE: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1428 qdisc noqueue state=
- UNKNOWN mode DEFAULT group default
-    link/ipip 192.168.0.11 peer 192.168.1.232
-master# ip tunnel list
-ip_vti0: ip/ip  remote any  local any  ttl inherit  nopmtudisc key 0
-vtil: ip/ip  remote 192.168.1.232  local 192.168.0.11  ttl inherit  key 1
+	Still, I fail to see how the compiler optimizes
+the jump, 'goto local_input' still jumps to res.fi check.
+I tried even likely() after 'local_input:" checks for
+res.fi and !itag but the 'if (res.fi) {' block is still
+moved below and reached with jnz. I expected likely() to
+prefer the res.fi != NULL path.
 
-Just wanted to check if you have any suggestions to go about debugging
-this.
+> ---
+> v2: simplify patch using julian anastasov's suggestion.
+> 
+>  net/ipv4/route.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 234a43e..b09fda8 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1798,6 +1798,7 @@ local_input:
+>  no_route:
+>  	RT_CACHE_STAT_INC(in_no_route);
+>  	res.type = RTN_UNREACHABLE;
+> +	res.fi = NULL;
+>  	goto local_input;
+>  
+>  	/*
+> -- 
+> 2.1.0
 
-Thanks
-Joe
+Regards
 
-
---45Z9DzgjV8m4Oswq
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBAgAGBQJUGmi3AAoJENvmPC7PRKkILsYQAIsgshOZp9s48hSQwLxqj812
-8brtXhBRyMunWnFJUvx4ifmfLLTVpPfsTTpI0Z33B+bzhrPep/H37nc5lKpW0w+C
-RJRR9+NA+uIrpIKGE1u6Gg8dhbhl7v6Dw/GFj4+cfK1JnjckloCjbRnFW1k3J44b
-M/0qvoYjBF87SQGD/4zdOYtTD9sE6v43IbZixE0DOmqH+yLTu9cIY/DXEqv1lNaL
-PQK1AIm/exIug2lv+6KhBwM60rDp4JoWNp2JLX5f3/db59r6cdaSVnk1A7aDvlp5
-FYUCM80B38YhH3ULya93N2cw4jhJmPbjU7UnD4Te85KtbxALeSwVWkc9/IswI/Q2
-IQ7oW5nCWi7l4ZCMgFmOumvQ99p4OlT3l/I2rV/1O61EV65xSk8e3fv92iQm8QcF
-thiq7WoxNS31AdOpiFKVLi7Z6ocUrL1aL3+Tup0A9Oa4FvWmbjLqf9KQnPe4+7lh
-M0m+WQKCvB6NWExWHkpNPlF9jcocT/0Gl4KK8t2yUQrdpyvUczc68TAlAQ/veBb6
-7QdJeefztIwfC+7UPahJ9VBg+UYa3hPCLP/x6qAYMv4CE2NwOPs1u1XGwBoa2Euy
-BuMZeN9SgPvyxqWrhVjdjss/kRt8jN9/ZbyI4ELv56Q6cCsagwzcds9oh8mdeb43
-6+YOxKR/VMoEo92+4csD
-=13cj
------END PGP SIGNATURE-----
-
---45Z9DzgjV8m4Oswq--
+--
+Julian Anastasov <ja@ssi.bg>
