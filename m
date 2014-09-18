@@ -1,44 +1,50 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: Comments regarding patch about setting netns for wireless devices
-Date: Thu, 18 Sep 2014 09:13:25 -0400
-Message-ID: <20140918131324.GA20197@tuxdriver.com>
-References: <CAMw6YJ+uhthY83_cBHE20FgqFWdvT5M12AbfgVC7qbyHegh78Q@mail.gmail.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCHv6 net-next 1/3] sunvnet: upgrade to VIO protocol version
+ 1.6
+Date: Thu, 18 Sep 2014 09:21:31 -0400
+Message-ID: <541ADC5B.2080702@oracle.com>
+References: <541A2316.5010603@oracle.com> <F34B8038-D189-4DD7-BF98-26CC4BD11990@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Emmanuel Grumbach <egrumbach@gmail.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	johannes@sipsolutions.net
-To: Vadim Kochan <vadim4j@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35851 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751280AbaIRNPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 09:15:17 -0400
-Content-Disposition: inline
-In-Reply-To: <CAMw6YJ+uhthY83_cBHE20FgqFWdvT5M12AbfgVC7qbyHegh78Q@mail.gmail.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:30978 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753540AbaIRNVf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 09:21:35 -0400
+In-Reply-To: <F34B8038-D189-4DD7-BF98-26CC4BD11990@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 18, 2014 at 11:05:11AM +0300, Vadim Kochan wrote:
-> Hi All,
-> 
-> I'd like to get some feedback about the patch:
->     https://patchwork.kernel.org/patch/4890451/
-> 
-> The idea is that currently Linux wireless device is allowed to change
-> the network namespace only by nl80211 API, so RTM_LINK API does
-> not work. So I think that it should be possible to change netns
-> through the RTM_LINK too as generic way to change netns,
-> thats why I tried to solve this in the patch.
-> 
-> Thanks,
 
-I think Johannes is vacationing right now.  I'm sure he will comment
-when he returns.
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+On 09/18/2014 12:23 AM, Raghuram Kothakota wrote:
+
+>>
+>> +	/* v1.6 and higher, ACK with desired, supported mode, or NACK */
+>> +	if (vio_version_after_eq(vio, 1, 6)) {
+>> +		if (!(pkt->options & VIO_TX_DRING))
+>> +			goto send_nack;
+>> +		pkt->options = VIO_TX_DRING;
+>> +	}
+>> +
+> 
+> 
+> I forget to send this comment in my previous email. The above function is
+> common to all clients, that includes vdisk.  The vdisk today doesn't use any
+> version number above 1.2 or 1.3, so it probably won't impact it, but  this
+> special handling doesn't seem to belong in the common code.
+
+Yes, this is updating the VIO protocol, which is used by both sunvnet and sunvdc.
+If the vdisk uses a newer protocol version, it will need to do exactly what this
+code does (and it already will, because this code is there).
+
+Any protocol version differences in the vdisk-specific code will need to be part
+of a vdisk version upgrade patch. The particular VIO version that is negotiated
+is specified in the individual drivers and my patches update that for sunvnet only.
+The sunvdc code is still negotiating and using 1.0 in the net-next kernel, so
+none of these version checks change anything for the sunvdc driver.
+
+							+-DLS
