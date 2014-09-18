@@ -1,52 +1,45 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] net: sched: shrink struct qdisc_skb_cb to 28 bytes
-Date: Thu, 18 Sep 2014 09:26:28 -0700
-Message-ID: <20140918092628.566eae2b@urahara>
-References: <1402338773-5996-1-git-send-email-_govind@gmx.com>
-	<1402338773-5996-2-git-send-email-_govind@gmx.com>
-	<CAE9FiQW+Rv4o9Pc1J9hyqgW1WrhEANKEXH6zYQc2NQqeMbAcvA@mail.gmail.com>
-	<alpine.LNX.2.03.1406261159071.1438@ws.cisco>
-	<CAJZOPZJ7+n0t1LCqaa3JCBByRw=f_Tp6rk8vm0ZnCzmtKFKX_g@mail.gmail.com>
-	<1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [net-next PATCH 2/2] net: sched: cls_u32 changes to knode must
+ appear atomic to readers
+Date: Thu, 18 Sep 2014 09:28:05 -0700
+Message-ID: <CAHA+R7Nk6kO_eXLYppwimX5Cp-QpzHGVo4yHCO+4xSf-kcpqkw@mail.gmail.com>
+References: <20140917191131.20529.91136.stgit@nitbit.x32>
+	<20140917191202.20529.87231.stgit@nitbit.x32>
+	<CAHA+R7NWzv8+2aUM1uQX8uZkQv-Dp9fYb0SNwmZqk3gKvXVWtw@mail.gmail.com>
+	<541A21F8.3000206@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	Yinghai Lu <yinghai@kernel.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
 	David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>, ssujith@cisco.com,
-	gvaradar@cisco.com, "Christian Benvenuti (benve)" <benve@cisco.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:40155 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756556AbaIRQ0j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 12:26:39 -0400
-Received: by mail-pd0-f171.google.com with SMTP id y13so711204pdi.2
-        for <netdev@vger.kernel.org>; Thu, 18 Sep 2014 09:26:39 -0700 (PDT)
-In-Reply-To: <1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:42848 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756463AbaIRQ2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 12:28:08 -0400
+Received: by mail-la0-f52.google.com with SMTP id gq15so1473524lab.25
+        for <netdev@vger.kernel.org>; Thu, 18 Sep 2014 09:28:05 -0700 (PDT)
+In-Reply-To: <541A21F8.3000206@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 18 Sep 2014 08:02:05 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Wed, Sep 17, 2014 at 5:06 PM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+>
+> Sure how about this,
+>
+> /* u32_delete_key_rcu_pf should be called when free'ing a copied
+>  * version of a tc_u_knode obtained from u32_init_knode(). When
+>  * copies are obtained from u32_init_knode() the statistics are
+>  * shared between the old and new copies to allow readers to
+>  * continue to update the statistics during the copy. To support
+>  * this the u32_delete_key_rcu_pf variant does not free the percpu
+>  * statistics.
+>  */
+>
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> We cannot make struct qdisc_skb_cb bigger without impacting IPoIB,
-> or increasing skb->cb[] size.
-> 
-> Commit e0f31d849867 ("flow_keys: Record IP layer protocol in
-> skb_flow_dissect()") broke IPoIB.
-> 
-> Only current offender is sch_choke, and this one do not need an
-> absolutely precise flow key.
-> 
-> If we store 17 bytes of flow key, its more than enough. (Its the actual
-> size of flow_keys if it was a packed structure, but we might add new
-> fields at the end of it later)
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Can we add BUILD_BUG to stop next time something smacks this.
+Looks good, but why you pick the name u32_delete_key_rcu_pf()?
+It sounds like you will free pf, but actually you will skip freeing pf. :)
