@@ -1,64 +1,58 @@
-From: Kweh Hock Leong <hock.leong.kweh@intel.com>
-Subject: [PATCH] net: stmmac: fix stmmac_pci_probe failed when CONFIG_HAVE_CLK is selected
-Date: Thu, 18 Sep 2014 20:34:10 +0800
-Message-ID: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com>
-Cc: Vince Bridgers <vbridgers2013@gmail.com>,
-	Chen-Yu Tsai <wens@csie.org>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Ong Boon Leong <boon.leong.ong@intel.com>,
-	Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
-To: "David S. Miller" <davem@davemloft.net>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	rayagond@vayavyalabs.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCHv6 net-next 1/3] sunvnet: upgrade to VIO protocol version
+ 1.6
+Date: Thu, 18 Sep 2014 09:03:52 -0400
+Message-ID: <541AD838.50700@oracle.com>
+References: <541A2316.5010603@oracle.com> <2AB76E42-C12D-47C5-8476-0D0C611691A5@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:33521 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752969AbaIRND6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 09:03:58 -0400
+In-Reply-To: <2AB76E42-C12D-47C5-8476-0D0C611691A5@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
 
-When the CONFIG_HAVE_CLK is selected for the system, the stmmac_pci_probe
-will fail with dmesg:
-[    2.167225] stmmaceth 0000:00:14.6: enabling device (0000 -> 0002)
-[    2.178267] stmmaceth 0000:00:14.6: enabling bus mastering
-[    2.178436] stmmaceth 0000:00:14.6: irq 24 for MSI/MSI-X
-[    2.178703] stmmaceth 0000:00:14.6: stmmac_dvr_probe: warning: cannot
-get CSR clock
-[    2.186503] stmmac_pci_probe: main driver probe failed
-[    2.194003] stmmaceth 0000:00:14.6: disabling bus mastering
-[    2.196473] stmmaceth: probe of 0000:00:14.6 failed with error -2
 
-This patch fix the issue by breaking the dependency to devm_clk_get()
-as the CSR clock can be obtained at priv->plat->clk_csr from pci driver.
+On 09/18/2014 12:09 AM, Raghuram Kothakota wrote:
 
-Reported-by: Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
-Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
+>> @@ -1048,8 +1116,8 @@ static int vnet_port_alloc_tx_bufs(struct vnet_port *port)
+>> 	void *dring;
+>>
+>> 	for (i = 0; i < VNET_TX_RING_SIZE; i++) {
+>> -		void *buf = kzalloc(ETH_FRAME_LEN + 8, GFP_KERNEL);
+>> -		int map_len = (ETH_FRAME_LEN + 7) & ~7;
+>> +		void *buf = kzalloc(VNET_MAXPACKET + 8, GFP_KERNEL);
+> 
+> 
+> This patch doesn't change the VNET_MAXPACKET to 64k, but the patch 2/3 changes
+> it to 64k+. Allocating buffers of size VNET_MAXPACKET always can consume too much
+> memory for every port/LDC, that would be more than 32MB.  You may want to allocate
+> buffers based on the mtu that is negotiated, so that this memory used only when
+> such large packets are accepted by the peer.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 08addd6..ea3859a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2714,10 +2714,15 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 
- 	priv->stmmac_clk = devm_clk_get(priv->device, STMMAC_RESOURCE_NAME);
- 	if (IS_ERR(priv->stmmac_clk)) {
--		dev_warn(priv->device, "%s: warning: cannot get CSR clock\n",
--			 __func__);
--		ret = PTR_ERR(priv->stmmac_clk);
--		goto error_clk_get;
-+		if (!priv->plat->clk_csr) {
-+			dev_warn(priv->device,
-+				 "%s: warning: cannot get CSR clock\n",
-+				 __func__);
-+			ret = PTR_ERR(priv->stmmac_clk);
-+			goto error_clk_get;
-+		} else {
-+			priv->stmmac_clk = NULL;
-+		}
- 	}
- 	clk_prepare_enable(priv->stmmac_clk);
- 
--- 
-1.7.9.5
+I originally had code to dynamically allocate them after the MTU negotiation, but
+that opens up a can of worms regarding stopping and freeing an active ring. I don't
+believe the shutdown code addresses this adequately, either, and I think this is
+worth addressing, but separately.
+
+I convinced myself to do it this way because:
+a) memory is cheap
+b) I think most people will want to use large MTUs for performance; enough so
+	that perhaps the bring-up MTU should be 64K too
+c) future (actually current) TSO/GSO work will want large buffers even if the MTU
+	is not changed
+
+So, if this is actually too much memory, I was more inclined to reduce the ring
+size rather than either add complicating code to handle active-ring reallocation
+that would typically be run once per boot, or another alternative of adding
+module parameters to specify the buffer size TSO/GSO will need 64K to perform
+well, regardless of the device MTU.
+
+							+-DLS
