@@ -1,62 +1,39 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL v2 00/15] Second Round of IPVS Updates for v3.18
-Date: Thu, 18 Sep 2014 11:03:31 +0200
-Message-ID: <20140918090331.GA24111@salvia>
-References: <1410999961-7975-1-git-send-email-horms@verge.net.au>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Figuring out how vti works
+Date: Thu, 18 Sep 2014 11:06:23 +0200
+Message-ID: <20140918090623.GU6390@secunet.com>
+References: <20140915142043.GA22070@master>
+ <20140917052811.GT6390@secunet.com>
+ <CAHjjW16qdT6RWuJaUd1c6k39RgcPtfsyF=V-dVowW_2UwhF_dw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Joe M <joe9mail@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:41936 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753540AbaIRJGh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2014 05:06:37 -0400
 Content-Disposition: inline
-In-Reply-To: <1410999961-7975-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CAHjjW16qdT6RWuJaUd1c6k39RgcPtfsyF=V-dVowW_2UwhF_dw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 18, 2014 at 09:25:46AM +0900, Simon Horman wrote:
-> Hi Pablo,
+On Wed, Sep 17, 2014 at 06:04:07PM -0500, Joe M wrote:
 > 
-> please consider these IPVS updates for v3.18.
-> 
-> I hope that v2 of this pull request addresses the issues you raised
-> in v1. In particular "ipvs: use correct address family in scheduler logs"
-> patch consolidates what was previously 7 patches. And I have provided
-> a longer description: I hope the tone is closer to what you need.
-> 
-> This pull requests makes the following changes:
-> 
-> * Add simple weighted fail-over scheduler.
->   - Unlike other IPVS schedulers this offers fail-over rather than load
->     balancing. Connections are directed to the appropriate server based
->     solely on highest weight value and server availability.
->   - Thanks to Kenny Mathis
-> 
-> * Support IPv6 real servers in IPv4 virtual-services and vice versa
->   - This feature is supported in conjunction with the tunnel (IPIP)
->     forwarding mechanism. That is, IPv4 may be forwarded in IPv6 and
->     vice versa.
->   - The motivation for this is to allow more flexibility in the
->     choice of IP version offered by both virtual-servers and
->     real-servers as they no longer need to match: An IPv4 connection from an
->     end-user may be forwarded to a real-server using IPv6 and vice versa.
->   - Further work need to be done to support this feature in conjunction
->     with connection synchronisation. For now such configurations are
->     not allowed.
->   - This change includes update to netlink protocol, adding a new
->     destination address family attribute. And the necessary changes
->     to plumb this information throughout IPVS.
->   - Thanks to Alex Gartrell and Julian Anastasov
-> 
-> The following changes since commit 0bbe80e571c7b866afd92a98edd32a969467a7a9:
-> 
->   netfilter: masquerading needs to be independent of x_tables in Kconfig (2014-09-12 09:40:18 +0200)
-> 
-> are available in the git repository at:
-> 
->   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs2-for-v3.18
+> master# echo "1" | sudo tee /proc/sys/net/ipv4/ip_forward
+> 1
+> master# modprobe ip_vti
+> master# ipsec start
+> Starting strongSwan 5.2.0 IPsec [starter]...
+> master# ip tunnel add vtil mode vti local 192.168.0.11 remote
+> 192.168.1.232 ikey 1 okey 1
+> master# ip link set vtil up
+> master# sleep 60
+> master# ip route add 192.168.1.0/24 dev vtil
+> master# ip xfrm state
+> src 192.168.0.11 dst <client or alice or bnglr public ip>
 
-Pulled, thanks a lot Simon.
-
+Not sure what <client or alice or bnglr public ip> is,
+but dst must match the remote tunnel endpoint i.e.
+192.168.1.232 in your case.
