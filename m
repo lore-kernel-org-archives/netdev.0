@@ -1,117 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net: sched: shrink struct qdisc_skb_cb to 28 bytes
-Date: Thu, 18 Sep 2014 08:02:05 -0700
-Message-ID: <1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1402338773-5996-1-git-send-email-_govind@gmx.com>
-	 <1402338773-5996-2-git-send-email-_govind@gmx.com>
-	 <CAE9FiQW+Rv4o9Pc1J9hyqgW1WrhEANKEXH6zYQc2NQqeMbAcvA@mail.gmail.com>
-	 <alpine.LNX.2.03.1406261159071.1438@ws.cisco>
-	 <CAJZOPZJ7+n0t1LCqaa3JCBByRw=f_Tp6rk8vm0ZnCzmtKFKX_g@mail.gmail.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v13 net-next 07/11] bpf: verifier (add ability to receive
+ verification log)
+Date: Thu, 18 Sep 2014 08:24:26 -0700
+Message-ID: <CAMEtUuykgG70sP0tAmovLvPxgjwaR8h=R-c6Tyo6m96+Lg3sXQ@mail.gmail.com>
+References: <1410914370-29883-1-git-send-email-ast@plumgrid.com>
+	<1410914370-29883-8-git-send-email-ast@plumgrid.com>
+	<54192F66.8020200@redhat.com>
+	<CAMEtUuxK68ZoJ-izjLoygv0f+rLtPmMLUUq1=BJ+_ZBGfynkdA@mail.gmail.com>
+	<5419BED8.5020309@redhat.com>
+	<5419DE51.1060904@redhat.com>
+	<CAMEtUuzhcmZiYZL8TR008or8uaefDBrEKDjqA-tOrRLEZsm95A@mail.gmail.com>
+	<CAMEtUuw0aDPpQhd13ssk2PDLffBJNeef9jicOnhQLH6KtJ8gsQ@mail.gmail.com>
+	<541A7F35.2010804@redhat.com>
+	<CAMEtUuyZCHh7SGeLF+g0ye3OrEFWnTZCn3SBeK0-8qz-y8U30w@mail.gmail.com>
+	<541AF11C.9050405@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Govindarajulu Varadarajan <_govind@gmx.com>,
-	Yinghai Lu <yinghai@kernel.org>,
-	David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>, ssujith@cisco.com,
-	gvaradar@cisco.com, "Christian Benvenuti (benve)" <benve@cisco.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:58950 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755841AbaIRPCI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 11:02:08 -0400
-Received: by mail-pd0-f178.google.com with SMTP id p10so1571749pdj.9
-        for <netdev@vger.kernel.org>; Thu, 18 Sep 2014 08:02:07 -0700 (PDT)
-In-Reply-To: <CAJZOPZJ7+n0t1LCqaa3JCBByRw=f_Tp6rk8vm0ZnCzmtKFKX_g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <541AF11C.9050405-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, Sep 18, 2014 at 7:50 AM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On 09/18/2014 04:34 PM, Alexei Starovoitov wrote:
+>>
+>> On Wed, Sep 17, 2014 at 11:44 PM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>> wrote:
+>
+> ...
+>>>
+>>> Sure, you will never get a full compatibility on that regard
+>>> while backwards compatibility needs to be guaranteed on the
+>>> other hand. I looked at perf_copy_attr() implementation and I
+>>> think that we should mimic it in a very similar way as it
+>>> exactly solves what we need.
+>>>
+>>> For example, it will return with -EINVAL for (size > PAGE_SIZE)
+>>> and (size < PERF_ATTR_SIZE_VER0) where PAGE_SIZE has been chosen
+>>> as an arbitrary hard upper limit where it is believed that it will
+>>> never grow beyond that large limit in future.
+>>>
+>>> So this is a more loose constraint than what we currently do,
+>>> that is, -EINVAL on (size > sizeof(attr)) where attr is the
+>>> currently known size of a specific kernel. That would at least
+>>> be a start, you won't be able to cover everything though, but
+>>> it would allow to address the issue raised when running with
+>>> a basic feature set.
+>>
+>>
+>> you missed my point. We should not 'do a start', since it
+>> doesn't help user space in the long run and only makes
+>> kernel more complex.
+>
+>
+> Sorry, I don't think I missed your point. But if you see things
+> differently, fair enough, it was just a suggestion.
 
-We cannot make struct qdisc_skb_cb bigger without impacting IPoIB,
-or increasing skb->cb[] size.
-
-Commit e0f31d849867 ("flow_keys: Record IP layer protocol in
-skb_flow_dissect()") broke IPoIB.
-
-Only current offender is sch_choke, and this one do not need an
-absolutely precise flow key.
-
-If we store 17 bytes of flow key, its more than enough. (Its the actual
-size of flow_keys if it was a packed structure, but we might add new
-fields at the end of it later)
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: e0f31d849867 ("flow_keys: Record IP layer protocol in skb_flow_dissect()")
----
- include/net/sch_generic.h |    3 ++-
- net/sched/sch_choke.c     |   18 ++++++++++++++----
- 2 files changed, 16 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index a3cfb8ebeb53..620e086c0cbe 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -231,7 +231,8 @@ struct qdisc_skb_cb {
- 	unsigned int		pkt_len;
- 	u16			slave_dev_queue_mapping;
- 	u16			_pad;
--	unsigned char		data[24];
-+#define QDISC_CB_PRIV_LEN 20
-+	unsigned char		data[QDISC_CB_PRIV_LEN];
- };
- 
- static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
-diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
-index ed30e436128b..fb666d1e4de3 100644
---- a/net/sched/sch_choke.c
-+++ b/net/sched/sch_choke.c
-@@ -133,10 +133,16 @@ static void choke_drop_by_idx(struct Qdisc *sch, unsigned int idx)
- 	--sch->q.qlen;
- }
- 
-+/* private part of skb->cb[] that a qdisc is allowed to use
-+ * is limited to QDISC_CB_PRIV_LEN bytes.
-+ * As a flow key might be too large, we store a part of it only.
-+ */
-+#define CHOKE_K_LEN min_t(u32, sizeof(struct flow_keys), QDISC_CB_PRIV_LEN - 3)
-+
- struct choke_skb_cb {
- 	u16			classid;
- 	u8			keys_valid;
--	struct flow_keys	keys;
-+	u8			keys[QDISC_CB_PRIV_LEN - 3];
- };
- 
- static inline struct choke_skb_cb *choke_skb_cb(const struct sk_buff *skb)
-@@ -163,22 +169,26 @@ static u16 choke_get_classid(const struct sk_buff *skb)
- static bool choke_match_flow(struct sk_buff *skb1,
- 			     struct sk_buff *skb2)
- {
-+	struct flow_keys temp;
-+
- 	if (skb1->protocol != skb2->protocol)
- 		return false;
- 
- 	if (!choke_skb_cb(skb1)->keys_valid) {
- 		choke_skb_cb(skb1)->keys_valid = 1;
--		skb_flow_dissect(skb1, &choke_skb_cb(skb1)->keys);
-+		skb_flow_dissect(skb1, &temp);
-+		memcpy(&choke_skb_cb(skb1)->keys, &temp, CHOKE_K_LEN);
- 	}
- 
- 	if (!choke_skb_cb(skb2)->keys_valid) {
- 		choke_skb_cb(skb2)->keys_valid = 1;
--		skb_flow_dissect(skb2, &choke_skb_cb(skb2)->keys);
-+		skb_flow_dissect(skb2, &temp);
-+		memcpy(&choke_skb_cb(skb2)->keys, &temp, CHOKE_K_LEN);
- 	}
- 
- 	return !memcmp(&choke_skb_cb(skb1)->keys,
- 		       &choke_skb_cb(skb2)->keys,
--		       sizeof(struct flow_keys));
-+		       CHOKE_K_LEN);
- }
- 
- /*
+now you probably think I'm shutting you up. Sorry. Was not
+my intention. Let me rephrase what I meant:
+I think we should decide right now whether
+'new user + old kernel' is really a problem we're going to
+solve or not. If we decide to solve it, we need to have
+a plan to solve it all the way. Partial fix for size of bpf_attr
+is not a plan. It's something that is not addressing the problem
+completely. Little bit of help is not useful for userspace. It
+would need to deal with new types, verifier differences and
+other things that I mentioned earlier. So we either decide
+that we're going to spend time to solve all of them (not
+necessarily today, but over long haul) or we're not doing
+any of it.
