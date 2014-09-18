@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/11] ixgbe: move msix_entries allocation into ixgbe_acquire_msix_vectors
-Date: Thu, 18 Sep 2014 05:26:56 -0700
-Message-ID: <1411043221-7163-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/11] ixgbe: return integer from ixgbe_acquire_msix_vectors
+Date: Thu, 18 Sep 2014 05:26:55 -0700
+Message-ID: <1411043221-7163-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1411043221-7163-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:17651 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:43214 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752955AbaIRM1G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752247AbaIRM1G (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 18 Sep 2014 08:27:06 -0400
 In-Reply-To: <1411043221-7163-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,73 +18,75 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-We already have to kfree this value if we fail, and this is only part of
-MSI-X mode, so we should simply allocate the value where we need it.
-This is cleaner, and makes it a lot more obvious why we are freeing it
-inside of ixgbe_acquire_msix_vectors.
+Similar to how ixgbevf handles acquiring MSI-X vectors, we can return an
+error code instead of relying on the flag being set. This makes it more
+clear that we have failed to setup MSI-X mode, and also will make it
+easier to consolidate MSI-X related code all into the single function.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c | 24 +++++++++++++-----------
- 1 file changed, 13 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c | 32 ++++++++++++++++------------
+ 1 file changed, 18 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index 2a38894..f504faf 100644
+index 5d085d5..2a38894 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -699,7 +699,7 @@ static void ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
- static int ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
- 				      int vectors)
+@@ -696,8 +696,8 @@ static void ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
+ 	ixgbe_set_rss_queues(adapter);
+ }
+ 
+-static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
+-				       int vectors)
++static int ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
++				      int vectors)
  {
--	int vector_threshold;
-+	int i, vector_threshold;
+ 	int vector_threshold;
  
- 	/* We'll want at least 2 (vector_threshold):
- 	 * 1) TxQ[0] + RxQ[0] handler
-@@ -713,6 +713,15 @@ static int ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
- 	 * Right now, we simply care about how many we'll get; we'll
- 	 * set them up later while requesting irq's.
- 	 */
-+	adapter->msix_entries = kcalloc(vectors,
-+					sizeof(struct msix_entry),
-+					GFP_KERNEL);
-+	if (!adapter->msix_entries)
-+		return -ENOMEM;
+@@ -726,16 +726,22 @@ static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
+ 		adapter->flags &= ~IXGBE_FLAG_MSIX_ENABLED;
+ 		kfree(adapter->msix_entries);
+ 		adapter->msix_entries = NULL;
+-	} else {
+-		adapter->flags |= IXGBE_FLAG_MSIX_ENABLED; /* Woot! */
+-		/*
+-		 * Adjust for only the vectors we'll use, which is minimum
+-		 * of max_msix_q_vectors + NON_Q_VECTORS, or the number of
+-		 * vectors we were allocated.
+-		 */
+-		vectors -= NON_Q_VECTORS;
+-		adapter->num_q_vectors = min(vectors, adapter->max_q_vectors);
 +
-+	for (i = 0; i < vectors; i++)
-+		adapter->msix_entries[i].entry = i;
++		return vectors;
+ 	}
 +
- 	vectors = pci_enable_msix_range(adapter->pdev, adapter->msix_entries,
- 					vector_threshold, vectors);
++	/* we successfully allocated some number of vectors within our
++	 * requested range.
++	 */
++	adapter->flags |= IXGBE_FLAG_MSIX_ENABLED;
++
++	/* Adjust for only the vectors we'll use, which is minimum
++	 * of max_q_vectors, or the number of vectors we were allocated.
++	 */
++	vectors -= NON_Q_VECTORS;
++	adapter->num_q_vectors = min_t(int, vectors, adapter->max_q_vectors);
++
++	return 0;
+ }
  
-@@ -1061,7 +1070,7 @@ static void ixgbe_reset_interrupt_capability(struct ixgbe_adapter *adapter)
- static void ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
--	int vector, v_budget, err;
-+	int v_budget, err;
+ static void ixgbe_add_ring(struct ixgbe_ring *ring,
+@@ -1085,9 +1091,7 @@ static void ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
+ 		for (vector = 0; vector < v_budget; vector++)
+ 			adapter->msix_entries[vector].entry = vector;
  
- 	/*
- 	 * It's easy to be greedy for MSI-X vectors, but it really
-@@ -1085,15 +1094,8 @@ static void ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
- 
- 	/* A failure in MSI-X entry allocation isn't fatal, but it does
- 	 * mean we disable MSI-X capabilities of the adapter. */
--	adapter->msix_entries = kcalloc(v_budget,
--					sizeof(struct msix_entry), GFP_KERNEL);
--	if (adapter->msix_entries) {
--		for (vector = 0; vector < v_budget; vector++)
--			adapter->msix_entries[vector].entry = vector;
+-		ixgbe_acquire_msix_vectors(adapter, v_budget);
 -
--		if (!ixgbe_acquire_msix_vectors(adapter, v_budget))
--			return;
--	}
-+	if (!ixgbe_acquire_msix_vectors(adapter, v_budget))
-+		return;
+-		if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED)
++		if (!ixgbe_acquire_msix_vectors(adapter, v_budget))
+ 			return;
+ 	}
  
- 	/* At this point, we do not have MSI-X capabilities. We need to
- 	 * reconfigure or disable various features which require MSI-X
 -- 
 1.9.3
