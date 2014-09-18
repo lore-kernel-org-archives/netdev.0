@@ -1,56 +1,57 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: CPU scheduler to TXQ binding? (ixgbe vs. igb)
-Date: Thu, 18 Sep 2014 20:57:25 +0200
-Message-ID: <20140918205725.64ddd4a7@redhat.com>
-References: <20140917152653.1c824a22@redhat.com>
-	<1410964359.7106.229.camel@edumazet-glaptop2.roam.corp.google.com>
-	<5419A1E7.8040109@intel.com>
-	<20140918085640.0815df6d@redhat.com>
-	<1411047209.7106.255.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1411047689.7106.258.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1411054951.7106.272.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140918175910.5fc67efa@redhat.com>
-	<1411058064.7106.277.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net: sched: shrink struct qdisc_skb_cb to 28 bytes
+Date: Thu, 18 Sep 2014 12:14:39 -0700
+Message-ID: <1411067679.7106.283.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1402338773-5996-1-git-send-email-_govind@gmx.com>
+	 <1402338773-5996-2-git-send-email-_govind@gmx.com>
+	 <CAE9FiQW+Rv4o9Pc1J9hyqgW1WrhEANKEXH6zYQc2NQqeMbAcvA@mail.gmail.com>
+	 <alpine.LNX.2.03.1406261159071.1438@ws.cisco>
+	 <CAJZOPZJ7+n0t1LCqaa3JCBByRw=f_Tp6rk8vm0ZnCzmtKFKX_g@mail.gmail.com>
+	 <1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140918092628.566eae2b@urahara>
+	 <1411057934.7106.275.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411063227.7106.280.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411063655.4290.18.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	Yinghai Lu <yinghai@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>, ssujith@cisco.com,
+	gvaradar@cisco.com, "Christian Benvenuti (benve)" <benve@cisco.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5535 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753874AbaIRS5d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2014 14:57:33 -0400
-In-Reply-To: <1411058064.7106.277.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:42600 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750924AbaIRTOw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 15:14:52 -0400
+Received: by mail-pa0-f42.google.com with SMTP id lj1so2144412pab.15
+        for <netdev@vger.kernel.org>; Thu, 18 Sep 2014 12:14:52 -0700 (PDT)
+In-Reply-To: <1411063655.4290.18.camel@joe-AO725>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2014-09-18 at 11:07 -0700, Joe Perches wrote:
 
-On Thu, 18 Sep 2014 09:34:24 -0700 Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2014-09-18 at 17:59 +0200, Jesper Dangaard Brouer wrote:
-> > On Thu, 18 Sep 2014 08:42:31 -0700
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > 
-[...]
-> > I'm looking for some 1G hardware without multiqueue, so I can get
-> > around this measurement constraint.  And possibly turning it down to
-> > 100Mbit/s, so I can more easily measure the HoL blocking effect.
-> > 
+> > +static inline struct ipoib_cb *ipoib_skb_cb(const struct sk_buff *skb)
+> > +{
+> > +	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct ipoib_cb));
+> > +	return (struct ipoib_cb *)skb->cb;
+> > +}
 > 
-> ethtool -L   eth0    rx 1 tx 1 
+> It seems better not to use const for the struct sk_buff * here.
 > 
-> (Or similar if combined is used)
+> Neither of the uses take a const struct sk_buff *
 
-Thanks! - that solves my qdisc measurement problem :-)
-And yes, I had to use:
+Thats pretty standard, check for other similar constructs like that.
 
- ethtool -L eth1 combined 1
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+static inline struct qdisc_skb_cb *qdisc_skb_cb(const struct sk_buff *skb)
+{
+        return (struct qdisc_skb_cb *)skb->cb;
+}
+
+This allows uses of the helper when the skb is only read (has the const qual)
