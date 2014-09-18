@@ -1,88 +1,32 @@
-From: Rob Jones <rob.jones@codethink.co.uk>
-Subject: [PATCH] net/netfilter/x_tables.c: use __seq_open_private()
-Date: Thu, 18 Sep 2014 17:48:31 +0100
-Message-ID: <1411058911-17655-1-git-send-email-rob.jones@codethink.co.uk>
-Cc: netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-kernel@codethink.co.uk, rob.jones@codethink.co.uk
-To: davem@davemloft.net
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Calltrace in process_backlog()
+Date: Thu, 18 Sep 2014 09:52:03 -0700
+Message-ID: <CAHA+R7PR88ObqKm2CnrgU7K8MLN5Q51yYZZOO4uw=Ww5eo9zZA@mail.gmail.com>
+References: <alpine.LNX.2.03.1409181138160.5266@127.0.0.1>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: sdrb@onet.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:36886 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756218AbaIRQsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 12:48:45 -0400
+Received: from mail-la0-f42.google.com ([209.85.215.42]:44427 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756296AbaIRQwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 12:52:06 -0400
+Received: by mail-la0-f42.google.com with SMTP id hz20so1550474lab.1
+        for <netdev@vger.kernel.org>; Thu, 18 Sep 2014 09:52:03 -0700 (PDT)
+In-Reply-To: <alpine.LNX.2.03.1409181138160.5266@127.0.0.1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reduce boilerplate code by using __seq_open_private() instead of seq_open()
-in xt_match_open() and xt_target_open().
+On Thu, Sep 18, 2014 at 2:53 AM,  <sdrb@onet.eu> wrote:
 
-Signed-off-by: Rob Jones <rob.jones@codethink.co.uk>
----
+> I know that the this problem occures because there is napi->poll_list freed
+> twice. But I cannot find out where in my code is the source
+> of the problem. How can I find it?
+>
+> The system bases on single core ARM.
+>
+> Any suggestions?
 
-This patch uses an existing variant of seq_open() to reduce the kernel code
-size.
-
-The only significant variation from the pre-existing code is the fact that
-__seq_open_private() calls kzalloc() rather than kmalloc(), which could
-conceivably have an impact on timing.
-
- net/netfilter/x_tables.c |   30 ++++--------------------------
- 1 file changed, 4 insertions(+), 26 deletions(-)
-
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 227aa11..89aa680 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -1137,22 +1137,11 @@ static const struct seq_operations xt_match_seq_ops = {
- 
- static int xt_match_open(struct inode *inode, struct file *file)
- {
--	struct seq_file *seq;
- 	struct nf_mttg_trav *trav;
--	int ret;
--
--	trav = kmalloc(sizeof(*trav), GFP_KERNEL);
--	if (trav == NULL)
-+	trav = __seq_open_private(file, &xt_match_seq_ops, sizeof(*trav));
-+	if (!trav)
- 		return -ENOMEM;
- 
--	ret = seq_open(file, &xt_match_seq_ops);
--	if (ret < 0) {
--		kfree(trav);
--		return ret;
--	}
--
--	seq = file->private_data;
--	seq->private = trav;
- 	trav->nfproto = (unsigned long)PDE_DATA(inode);
- 	return 0;
- }
-@@ -1201,22 +1190,11 @@ static const struct seq_operations xt_target_seq_ops = {
- 
- static int xt_target_open(struct inode *inode, struct file *file)
- {
--	struct seq_file *seq;
- 	struct nf_mttg_trav *trav;
--	int ret;
--
--	trav = kmalloc(sizeof(*trav), GFP_KERNEL);
--	if (trav == NULL)
-+	trav = __seq_open_private(file, &xt_target_seq_ops, sizeof(*trav));
-+	if (!trav)
- 		return -ENOMEM;
- 
--	ret = seq_open(file, &xt_target_seq_ops);
--	if (ret < 0) {
--		kfree(trav);
--		return ret;
--	}
--
--	seq = file->private_data;
--	seq->private = trav;
- 	trav->nfproto = (unsigned long)PDE_DATA(inode);
- 	return 0;
- }
--- 
-1.7.10.4
+Try to enable some VM debug option, for example if you use SLUB enable
+CONFIG_SLUB_DEBUG=y, it should be able to catch double free bug.
