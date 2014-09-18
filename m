@@ -1,47 +1,62 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 0/3] mlx4: CQE/EQE stride support
-Date: Thu, 18 Sep 2014 11:50:58 +0300
-Message-ID: <1411030261-12145-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:45082 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751509AbaIRIvH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2014 04:51:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL v2 00/15] Second Round of IPVS Updates for v3.18
+Date: Thu, 18 Sep 2014 11:03:31 +0200
+Message-ID: <20140918090331.GA24111@salvia>
+References: <1410999961-7975-1-git-send-email-horms@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1410999961-7975-1-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This series from Ido Shamay is intended for archs having 
-cache line larger then 64 bytes.
+On Thu, Sep 18, 2014 at 09:25:46AM +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> please consider these IPVS updates for v3.18.
+> 
+> I hope that v2 of this pull request addresses the issues you raised
+> in v1. In particular "ipvs: use correct address family in scheduler logs"
+> patch consolidates what was previously 7 patches. And I have provided
+> a longer description: I hope the tone is closer to what you need.
+> 
+> This pull requests makes the following changes:
+> 
+> * Add simple weighted fail-over scheduler.
+>   - Unlike other IPVS schedulers this offers fail-over rather than load
+>     balancing. Connections are directed to the appropriate server based
+>     solely on highest weight value and server availability.
+>   - Thanks to Kenny Mathis
+> 
+> * Support IPv6 real servers in IPv4 virtual-services and vice versa
+>   - This feature is supported in conjunction with the tunnel (IPIP)
+>     forwarding mechanism. That is, IPv4 may be forwarded in IPv6 and
+>     vice versa.
+>   - The motivation for this is to allow more flexibility in the
+>     choice of IP version offered by both virtual-servers and
+>     real-servers as they no longer need to match: An IPv4 connection from an
+>     end-user may be forwarded to a real-server using IPv6 and vice versa.
+>   - Further work need to be done to support this feature in conjunction
+>     with connection synchronisation. For now such configurations are
+>     not allowed.
+>   - This change includes update to netlink protocol, adding a new
+>     destination address family attribute. And the necessary changes
+>     to plumb this information throughout IPVS.
+>   - Thanks to Alex Gartrell and Julian Anastasov
+> 
+> The following changes since commit 0bbe80e571c7b866afd92a98edd32a969467a7a9:
+> 
+>   netfilter: masquerading needs to be independent of x_tables in Kconfig (2014-09-12 09:40:18 +0200)
+> 
+> are available in the git repository at:
+> 
+>   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs2-for-v3.18
 
-Since our CQE/EQEs are generally 64B in those systems, HW will write
-twice to the same cache line consecutively, causing pipe locks due to
-he hazard prevention mechanism. For elements in a cyclic buffer, writes
-are consecutive, so entries smaller than a cache line should be
-avoided, especially if they are written at a high rate.
+Pulled, thanks a lot Simon.
 
-Reduce consecutive writes to same cache line in CQs/EQs, by allowing the
-driver to increase the distance between entries so that each will reside
-in a different cache line.
-
-Or.
-
-Ido Shamay (3):
-  net/mlx4_core: Enable CQE/EQE stride support
-  net/mlx4_core: Cache line EQE size support
-  net/mlx4_en: Add mlx4_en_get_cqe helper
-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    1 +
- drivers/net/ethernet/mellanox/mlx4/en_rx.c     |    4 +-
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     |    4 +-
- drivers/net/ethernet/mellanox/mlx4/eq.c        |   30 +++++++----
- drivers/net/ethernet/mellanox/mlx4/fw.c        |   38 ++++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/fw.h        |    2 +
- drivers/net/ethernet/mellanox/mlx4/main.c      |   61 +++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h      |    3 +
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    6 ++
- include/linux/mlx4/device.h                    |   11 +++-
- 10 files changed, 138 insertions(+), 22 deletions(-)
