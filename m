@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH 01/29] fm10k: Add skeletal frame for Intel(R)
- FM10000 Ethernet Switch Host Interface Driver
-Date: Thu, 18 Sep 2014 18:35:49 -0400
-Message-ID: <20140918223542.10373.14919.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [net-next PATCH 04/29] fm10k: Add support for basic interaction
+ with hardware
+Date: Thu, 18 Sep 2014 18:36:11 -0400
+Message-ID: <20140918223610.10373.94757.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,113 +12,54 @@ Cc: nhorman@redhat.com, netdev@vger.kernel.org,
 	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:32102 "EHLO mga01.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:46427 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755860AbaIRWoz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2014 18:44:55 -0400
+	id S1756536AbaIRWo7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2014 18:44:59 -0400
 In-Reply-To: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the beginning framework onto which I am going to add the
-fm10k driver which supports the Intel(R) FM10000 Ethernet Switch Host
-Interface.
+This patch adds the basic read/write operations for accessing the hardware.
+
+In addition to read read functionality the read functions also provide
+surprise remove detection in the event that the device either loses power
+or is removed.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- drivers/net/ethernet/intel/Kconfig            |   19 +++
- drivers/net/ethernet/intel/Makefile           |    1 
- drivers/net/ethernet/intel/fm10k/Makefile     |   30 +++++
- drivers/net/ethernet/intel/fm10k/fm10k.h      |   39 +++++++
- drivers/net/ethernet/intel/fm10k/fm10k_main.c |   67 ++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c  |  145 +++++++++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_type.h |   27 +++++
- 7 files changed, 328 insertions(+)
- create mode 100644 drivers/net/ethernet/intel/fm10k/Makefile
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k.h
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_main.c
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_pci.c
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_type.h
+ drivers/net/ethernet/intel/fm10k/fm10k.h        |    9 ++++-
+ drivers/net/ethernet/intel/fm10k/fm10k_common.h |   44 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c    |   30 ++++++++++++++++
+ 3 files changed, 82 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_common.h
 
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index bb9f0ba..6a6d5ee 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -300,4 +300,23 @@ config I40EVF
- 	  will be called i40evf.  MSI-X interrupt support is required
- 	  for this driver to work correctly.
- 
-+config FM10K
-+	tristate "Intel(R) FM10000 Ethernet Switch Host Interface Support"
-+	default n
-+	depends on PCI_MSI
-+	---help---
-+	  This driver supports Intel(R) FM10000 Ethernet Switch Host
-+	  Interface.  For more information on how to identify your adapter,
-+	  go to the Adapter & Driver ID Guide at:
-+
-+	  <http://support.intel.com/support/network/sb/CS-008441.htm>
-+
-+	  For general information and support, go to the Intel support
-+	  website at:
-+
-+	  <http://support.intel.com>
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called fm10k.  MSI-X interrupt support is required
-+
- endif # NET_VENDOR_INTEL
-diff --git a/drivers/net/ethernet/intel/Makefile b/drivers/net/ethernet/intel/Makefile
-index cdbbca8..5ea764d 100644
---- a/drivers/net/ethernet/intel/Makefile
-+++ b/drivers/net/ethernet/intel/Makefile
-@@ -12,3 +12,4 @@ obj-$(CONFIG_IXGBEVF) += ixgbevf/
- obj-$(CONFIG_I40E) += i40e/
- obj-$(CONFIG_IXGB) += ixgb/
- obj-$(CONFIG_I40EVF) += i40evf/
-+obj-$(CONFIG_FM10K) += fm10k/
-diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
-new file mode 100644
-index 0000000..ddc0eb7
---- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/Makefile
-@@ -0,0 +1,30 @@
-+################################################################################
-+#
-+# Intel Ethernet Switch Host Interface Driver
-+# Copyright(c) 2013 - 2014 Intel Corporation.
-+#
-+# This program is free software; you can redistribute it and/or modify it
-+# under the terms and conditions of the GNU General Public License,
-+# version 2, as published by the Free Software Foundation.
-+#
-+# This program is distributed in the hope it will be useful, but WITHOUT
-+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+# more details.
-+#
-+# The full GNU General Public License is included in this distribution in
-+# the file called "COPYING".
-+#
-+# Contact Information:
-+# e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+# Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+#
-+################################################################################
-+
-+#
-+# Makefile for the Intel(R) FM10000 Ethernet Switch Host Interface driver
-+#
-+
-+obj-$(CONFIG_FM10K) += fm10k.o
-+
-+fm10k-objs := fm10k_main.o fm10k_pci.o
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-new file mode 100644
-index 0000000..2e27bd9
---- /dev/null
+index 2e27bd9..3da3a99 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -0,0 +1,39 @@
+@@ -27,7 +27,14 @@
+ #include <linux/if_vlan.h>
+ #include <linux/pci.h>
+ 
+-#include "fm10k_type.h"
++#include "fm10k_common.h"
++
++struct fm10k_intfc {
++	struct pci_dev *pdev;
++
++	struct fm10k_hw hw;
++	u32 __iomem *uc_addr;
++};
+ 
+ /* main */
+ extern char fm10k_driver_name[];
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_common.h b/drivers/net/ethernet/intel/fm10k/fm10k_common.h
+new file mode 100644
+index 0000000..2b214a6
+--- /dev/null
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_common.h
+@@ -0,0 +1,44 @@
 +/* Intel Ethernet Switch Host Interface Driver
 + * Copyright(c) 2013 - 2014 Intel Corporation.
 + *
@@ -139,279 +80,68 @@ index 0000000..2e27bd9
 + * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
 + */
 +
-+#ifndef _FM10K_H_
-+#define _FM10K_H_
-+
-+#include <linux/types.h>
-+#include <linux/etherdevice.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/if_vlan.h>
-+#include <linux/pci.h>
++#ifndef _FM10K_COMMON_H_
++#define _FM10K_COMMON_H_
 +
 +#include "fm10k_type.h"
 +
-+/* main */
-+extern char fm10k_driver_name[];
-+extern const char fm10k_driver_version[];
++#define FM10K_REMOVED(hw_addr) unlikely(!(hw_addr))
 +
-+/* PCI */
-+int fm10k_register_pci_driver(void);
-+void fm10k_unregister_pci_driver(void);
-+#endif /* _FM10K_H_ */
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-new file mode 100644
-index 0000000..a7822b8
---- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -0,0 +1,67 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ */
++/* PCI configuration read */
++u16 fm10k_read_pci_cfg_word(struct fm10k_hw *hw, u32 reg);
 +
-+#include <linux/types.h>
-+#include <linux/module.h>
-+#include <net/ipv6.h>
-+#include <net/ip.h>
-+#include <net/tcp.h>
-+#include <linux/if_macvlan.h>
++/* read operations, indexed using DWORDS */
++u32 fm10k_read_reg(struct fm10k_hw *hw, int reg);
 +
-+#include "fm10k.h"
++/* write operations, indexed using DWORDS */
++#define fm10k_write_reg(hw, reg, val) \
++do { \
++	u32 __iomem *hw_addr = ACCESS_ONCE((hw)->hw_addr); \
++	if (!FM10K_REMOVED(hw_addr)) \
++		writel((val), &hw_addr[(reg)]); \
++} while (0)
 +
-+#define DRV_VERSION	"0.12.2-k"
-+const char fm10k_driver_version[] = DRV_VERSION;
-+char fm10k_driver_name[] = "fm10k";
-+static const char fm10k_driver_string[] =
-+	"Intel(R) Ethernet Switch Host Interface Driver";
-+static const char fm10k_copyright[] =
-+	"Copyright (c) 2013 Intel Corporation.";
-+
-+MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
-+MODULE_DESCRIPTION("Intel(R) Ethernet Switch Host Interface Driver");
-+MODULE_LICENSE("GPL");
-+MODULE_VERSION(DRV_VERSION);
-+
-+/** fm10k_init_module - Driver Registration Routine
-+ *
-+ * fm10k_init_module is the first routine called when the driver is
-+ * loaded.  All it does is register with the PCI subsystem.
-+ **/
-+static int __init fm10k_init_module(void)
-+{
-+	pr_info("%s - version %s\n", fm10k_driver_string, fm10k_driver_version);
-+	pr_info("%s\n", fm10k_copyright);
-+
-+	return fm10k_register_pci_driver();
-+}
-+module_init(fm10k_init_module);
-+
-+/**
-+ * fm10k_exit_module - Driver Exit Cleanup Routine
-+ *
-+ * fm10k_exit_module is called just before the driver is removed
-+ * from memory.
-+ **/
-+static void __exit fm10k_exit_module(void)
-+{
-+	fm10k_unregister_pci_driver();
-+}
-+module_exit(fm10k_exit_module);
++/* read ctrl register which has no clear on read fields as PCIe flush */
++#define fm10k_write_flush(hw) fm10k_read_reg((hw), FM10K_CTRL)
++#endif /* _FM10K_COMMON_H_ */
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-new file mode 100644
-index 0000000..12089ce
---- /dev/null
+index 12089ce..6d5e33c 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -0,0 +1,145 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ */
-+
-+#include <linux/module.h>
-+
-+#include "fm10k.h"
-+
-+/**
-+ * fm10k_pci_tbl - PCI Device ID Table
-+ *
-+ * Wildcard entries (PCI_ANY_ID) should come last
-+ * Last entry must be all 0s
-+ *
-+ * { Vendor ID, Device ID, SubVendor ID, SubDevice ID,
-+ *   Class, Class Mask, private data (not used) }
-+ */
-+static const struct pci_device_id fm10k_pci_tbl[] = {
-+	{ PCI_VDEVICE(INTEL, FM10K_DEV_ID_PF) },
-+	/* required last entry */
-+	{ 0, }
-+};
-+MODULE_DEVICE_TABLE(pci, fm10k_pci_tbl);
-+
-+/**
-+ * fm10k_probe - Device Initialization Routine
-+ * @pdev: PCI device information struct
-+ * @ent: entry in fm10k_pci_tbl
-+ *
-+ * Returns 0 on success, negative on failure
-+ *
-+ * fm10k_probe initializes an interface identified by a pci_dev structure.
-+ * The OS initialization, configuring of the interface private structure,
-+ * and a hardware reset occur.
-+ **/
-+static int fm10k_probe(struct pci_dev *pdev,
-+		       const struct pci_device_id *ent)
+@@ -38,6 +38,36 @@ static const struct pci_device_id fm10k_pci_tbl[] = {
+ };
+ MODULE_DEVICE_TABLE(pci, fm10k_pci_tbl);
+ 
++u16 fm10k_read_pci_cfg_word(struct fm10k_hw *hw, u32 reg)
 +{
-+	int err;
-+	u64 dma_mask;
++	struct fm10k_intfc *interface = hw->back;
++	u16 value = 0;
 +
-+	err = pci_enable_device_mem(pdev);
-+	if (err)
-+		return err;
++	if (FM10K_REMOVED(hw->hw_addr))
++		return ~value;
 +
-+	/* By default fm10k only supports a 48 bit DMA mask */
-+	dma_mask = DMA_BIT_MASK(48) | dma_get_required_mask(&pdev->dev);
++	pci_read_config_word(interface->pdev, reg, &value);
++	if (value == 0xFFFF)
++		fm10k_write_flush(hw);
 +
-+	if ((dma_mask <= DMA_BIT_MASK(32)) ||
-+	    dma_set_mask_and_coherent(&pdev->dev, dma_mask)) {
-+		dma_mask &= DMA_BIT_MASK(32);
-+
-+		err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
-+		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
-+		if (err) {
-+			err = dma_set_coherent_mask(&pdev->dev,
-+						    DMA_BIT_MASK(32));
-+			if (err) {
-+				dev_err(&pdev->dev,
-+					"No usable DMA configuration, aborting\n");
-+				goto err_dma;
-+			}
-+		}
-+	}
-+
-+	err = pci_request_selected_regions(pdev,
-+					   pci_select_bars(pdev,
-+							   IORESOURCE_MEM),
-+					   fm10k_driver_name);
-+	if (err) {
-+		dev_err(&pdev->dev,
-+			"pci_request_selected_regions failed 0x%x\n", err);
-+		goto err_pci_reg;
-+	}
-+
-+	pci_set_master(pdev);
-+	pci_save_state(pdev);
-+
-+	return 0;
-+
-+err_pci_reg:
-+err_dma:
-+	pci_disable_device(pdev);
-+	return err;
++	return value;
 +}
 +
-+/**
-+ * fm10k_remove - Device Removal Routine
-+ * @pdev: PCI device information struct
-+ *
-+ * fm10k_remove is called by the PCI subsystem to alert the driver
-+ * that it should release a PCI device.  The could be caused by a
-+ * Hot-Plug event, or because the driver is going to be removed from
-+ * memory.
-+ **/
-+static void fm10k_remove(struct pci_dev *pdev)
++u32 fm10k_read_reg(struct fm10k_hw *hw, int reg)
 +{
-+	pci_release_selected_regions(pdev,
-+				     pci_select_bars(pdev, IORESOURCE_MEM));
++	u32 __iomem *hw_addr = ACCESS_ONCE(hw->hw_addr);
++	u32 value = 0;
 +
-+	pci_disable_device(pdev);
++	if (FM10K_REMOVED(hw_addr))
++		return ~value;
++
++	value = readl(&hw_addr[reg]);
++	if (!(~value) && (!reg || !(~readl(hw_addr))))
++		hw->hw_addr = NULL;
++
++	return value;
 +}
 +
-+static struct pci_driver fm10k_driver = {
-+	.name			= fm10k_driver_name,
-+	.id_table		= fm10k_pci_tbl,
-+	.probe			= fm10k_probe,
-+	.remove			= fm10k_remove,
-+};
-+
-+/**
-+ * fm10k_register_pci_driver - register driver interface
-+ *
-+ * This funciton is called on module load in order to register the driver.
-+ **/
-+int fm10k_register_pci_driver(void)
-+{
-+	return pci_register_driver(&fm10k_driver);
-+}
-+
-+/**
-+ * fm10k_unregister_pci_driver - unregister driver interface
-+ *
-+ * This funciton is called on module unload in order to remove the driver.
-+ **/
-+void fm10k_unregister_pci_driver(void)
-+{
-+	pci_unregister_driver(&fm10k_driver);
-+}
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-new file mode 100644
-index 0000000..2c06f02
---- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-@@ -0,0 +1,27 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ */
-+
-+#ifndef _FM10K_TYPE_H_
-+#define _FM10K_TYPE_H_
-+
-+#define FM10K_DEV_ID_PF			0x15A4
-+#define FM10K_DEV_ID_VF			0x15A5
-+
-+#endif /* _FM10K_TYPE_H */
+ /**
+  * fm10k_probe - Device Initialization Routine
+  * @pdev: PCI device information struct
