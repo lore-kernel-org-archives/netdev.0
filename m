@@ -1,58 +1,41 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 3/8] can: flexcan: mark TX mailbox as TX_INACTIVE
-Date: Thu, 18 Sep 2014 12:40:57 +0200
-Message-ID: <1411036862-13255-4-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 7/8] can: flexcan: increase FLEXCAN_MCR_MAXMB() macro to 7 bits
+Date: Thu, 18 Sep 2014 12:41:01 +0200
+Message-ID: <1411036862-13255-8-git-send-email-mkl@pengutronix.de>
 References: <1411036862-13255-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-stable <stable@vger.kernel.org>
+	kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:37913 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756574AbaIRKlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 06:41:14 -0400
 In-Reply-To: <1411036862-13255-1-git-send-email-mkl@pengutronix.de>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the initialization of the TX mailbox. It is now correctly
-initialized as TX_INACTIVE not RX_EMPTY.
+This patch increases the mask in the FLEXCAN_MCR_MAXMB() to 7 bits as in the
+newer flexcan cores the MAXMB field is 7 bits wide.
 
-Cc: linux-stable <stable@vger.kernel.org>
+Reported-by: David Jander <david@protonic.nl>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/flexcan.c | 15 +++++++++++++--
- 1 file changed, 13 insertions(+), 2 deletions(-)
+ drivers/net/can/flexcan.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index 630c7bf..76dcbca 100644
+index c17ae9e..6586309 100644
 --- a/drivers/net/can/flexcan.c
 +++ b/drivers/net/can/flexcan.c
-@@ -136,6 +136,17 @@
- 
- /* FLEXCAN message buffers */
- #define FLEXCAN_MB_CNT_CODE(x)		(((x) & 0xf) << 24)
-+#define FLEXCAN_MB_CODE_RX_INACTIVE	(0x0 << 24)
-+#define FLEXCAN_MB_CODE_RX_EMPTY	(0x4 << 24)
-+#define FLEXCAN_MB_CODE_RX_FULL		(0x2 << 24)
-+#define FLEXCAN_MB_CODE_RX_OVERRRUN	(0x6 << 24)
-+#define FLEXCAN_MB_CODE_RX_RANSWER	(0xa << 24)
-+
-+#define FLEXCAN_MB_CODE_TX_INACTIVE	(0x8 << 24)
-+#define FLEXCAN_MB_CODE_TX_ABORT	(0x9 << 24)
-+#define FLEXCAN_MB_CODE_TX_DATA		(0xc << 24)
-+#define FLEXCAN_MB_CODE_TX_TANSWER	(0xe << 24)
-+
- #define FLEXCAN_MB_CNT_SRR		BIT(22)
- #define FLEXCAN_MB_CNT_IDE		BIT(21)
- #define FLEXCAN_MB_CNT_RTR		BIT(20)
-@@ -867,8 +878,8 @@ static int flexcan_chip_start(struct net_device *dev)
- 	netdev_dbg(dev, "%s: writing ctrl=0x%08x", __func__, reg_ctrl);
- 	flexcan_write(reg_ctrl, &regs->ctrl);
- 
--	/* Abort any pending TX, mark Mailbox as INACTIVE */
--	flexcan_write(FLEXCAN_MB_CNT_CODE(0x4),
-+	/* mark TX mailbox as INACTIVE */
-+	flexcan_write(FLEXCAN_MB_CODE_TX_INACTIVE,
- 		      &regs->cantxfg[FLEXCAN_TX_BUF_ID].can_ctrl);
- 
- 	/* acceptance mask/acceptance code (accept everything) */
+@@ -62,7 +62,7 @@
+ #define FLEXCAN_MCR_BCC			BIT(16)
+ #define FLEXCAN_MCR_LPRIO_EN		BIT(13)
+ #define FLEXCAN_MCR_AEN			BIT(12)
+-#define FLEXCAN_MCR_MAXMB(x)		((x) & 0x1f)
++#define FLEXCAN_MCR_MAXMB(x)		((x) & 0x7f)
+ #define FLEXCAN_MCR_IDAM_A		(0 << 8)
+ #define FLEXCAN_MCR_IDAM_B		(1 << 8)
+ #define FLEXCAN_MCR_IDAM_C		(2 << 8)
 -- 
 2.1.0
