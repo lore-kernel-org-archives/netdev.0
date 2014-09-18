@@ -1,117 +1,64 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC repost 3/8] odp-util: formatting of datapath select group action
-Date: Thu, 18 Sep 2014 10:55:06 +0900
-Message-ID: <1411005311-11752-4-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH/RFC repost 2/8] netlink: Allow suppression of warnings for duplicate attributes
+Date: Thu, 18 Sep 2014 10:55:05 +0900
+Message-ID: <1411005311-11752-3-git-send-email-simon.horman@netronome.com>
 References: <1411005311-11752-1-git-send-email-simon.horman@netronome.com>
 Cc: Pravin Shelar <pshelar@nicira.com>, Jesse Gross <jesse@nicira.com>,
 	Thomas Graf <tgraf@suug.ch>,
 	Simon Horman <simon.horman@netronome.com>
 To: dev@openvswitch.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:53730 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757052AbaIRB5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 21:57:44 -0400
-Received: by mail-pd0-f171.google.com with SMTP id p10so327254pdj.2
-        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 18:57:44 -0700 (PDT)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:40470 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757052AbaIRB5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 21:57:41 -0400
+Received: by mail-pa0-f45.google.com with SMTP id rd3so353148pab.4
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 18:57:40 -0700 (PDT)
 In-Reply-To: <1411005311-11752-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow formatting of select group action. This is used
-when pretty-printing datapath flows. Subsequent patches
-will add support for the select group action to the datapath
-and ovs-vswtichd.
+Add a multiple field to struct nl_policy which if set suppresses
+warning of duplicate attributes in nl_parse_nested().
+
+As is the case without this patch only the last occurrence of an
+attribute is stored in attrs by nl_parse_nested(). As such
+if the multiple field of struct nl_policy is set then it
+is up to the caller to parse the message to extract all the attributes.
+
+This is in preparation for allowing multiple OVS_SELECT_GROUP_ATTR_BUCKET
+attributes in a nested OVS_ACTION_ATTR_SELECT_GROUP attribute.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- lib/odp-util.c | 67 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 67 insertions(+)
+ lib/netlink.c | 2 +-
+ lib/netlink.h | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/lib/odp-util.c b/lib/odp-util.c
-index 77b456f..4c8dd39 100644
---- a/lib/odp-util.c
-+++ b/lib/odp-util.c
-@@ -182,6 +182,71 @@ format_odp_sample_action(struct ds *ds, const struct nlattr *attr)
-     ds_put_format(ds, "))");
- }
+diff --git a/lib/netlink.c b/lib/netlink.c
+index 24b2168..bc30248 100644
+--- a/lib/netlink.c
++++ b/lib/netlink.c
+@@ -743,7 +743,7 @@ nl_policy_parse(const struct ofpbuf *msg, size_t nla_offset,
+             if (!nl_attr_validate(nla, e)) {
+                 return false;
+             }
+-            if (attrs[type]) {
++            if (attrs[type] && !e->multiple) {
+                 VLOG_DBG_RL(&rl, "duplicate attr %"PRIu16, type);
+             }
+             attrs[type] = nla;
+diff --git a/lib/netlink.h b/lib/netlink.h
+index f9234da..b0a72fd 100644
+--- a/lib/netlink.h
++++ b/lib/netlink.h
+@@ -195,6 +195,7 @@ struct nl_policy
+     enum nl_attr_type type;
+     size_t min_len, max_len;
+     bool optional;
++    bool multiple;
+ };
  
-+static bool
-+format_odp_bucket(struct ds *ds, const struct nlattr *attr)
-+{
-+    static const struct nl_policy ovs_sample_policy[] = {
-+        [OVS_BUCKET_ATTR_WEIGHT] = { .type = NL_A_U16 },
-+        [OVS_BUCKET_ATTR_ACTIONS] = { .type = NL_A_NESTED }
-+    };
-+    struct nlattr *a[ARRAY_SIZE(ovs_sample_policy)];
-+    const struct nlattr *nla_acts;
-+    int len;
-+
-+    ds_put_cstr(ds, "bucket");
-+
-+    if (!nl_parse_nested(attr, ovs_sample_policy, a, ARRAY_SIZE(a))) {
-+        ds_put_cstr(ds, "(error)");
-+        return false;
-+    }
-+
-+    ds_put_format(ds, "(weight=%d,",
-+                  nl_attr_get_u16(a[OVS_BUCKET_ATTR_WEIGHT]));
-+
-+    ds_put_cstr(ds, "actions(");
-+    nla_acts = nl_attr_get(a[OVS_SAMPLE_ATTR_ACTIONS]);
-+    len = nl_attr_get_size(a[OVS_SAMPLE_ATTR_ACTIONS]);
-+    format_odp_actions(ds, nla_acts, len);
-+    ds_put_format(ds, "))");
-+
-+    return true;
-+}
-+
-+static void
-+format_odp_select_group_action(struct ds *ds, const struct nlattr *attr)
-+{
-+    static const struct nl_policy ovs_sample_policy[] = {
-+        [OVS_SELECT_GROUP_ATTR_BUCKET] = { .type = NL_A_NESTED,
-+                                           .multiple = true }
-+    };
-+    struct nlattr *a[ARRAY_SIZE(ovs_sample_policy)];
-+    struct nlattr *nla;
-+    struct ofpbuf buf;
-+    size_t left;
-+
-+    ds_put_cstr(ds, "select_group");
-+
-+    if (!nl_parse_nested(attr, ovs_sample_policy, a, ARRAY_SIZE(a))) {
-+        ds_put_cstr(ds, "(error)");
-+        return;
-+    }
-+
-+    ds_put_cstr(ds, "(actions(");
-+
-+    nl_attr_get_nested(attr, &buf);
-+    NL_ATTR_FOR_EACH (nla, left, ofpbuf_data(&buf), ofpbuf_size(&buf))
-+    {
-+        uint16_t type = nl_attr_type(nla);
-+
-+        ovs_assert(type == OVS_SELECT_GROUP_ATTR_BUCKET);
-+        if (!format_odp_bucket(ds, nla)) {
-+            break;
-+        }
-+    }
-+
-+    ds_put_format(ds, "))");
-+}
-+
- static const char *
- slow_path_reason_to_string(uint32_t reason)
- {
-@@ -583,6 +648,8 @@ format_odp_action(struct ds *ds, const struct nlattr *a)
-         format_odp_sample_action(ds, a);
-         break;
-     case OVS_ACTION_ATTR_SELECT_GROUP:
-+        format_odp_select_group_action(ds, a);
-+        break;
-     case OVS_ACTION_ATTR_UNSPEC:
-     case __OVS_ACTION_ATTR_MAX:
-     default:
+ #define NL_POLICY_FOR(TYPE) \
 -- 
 2.0.1
