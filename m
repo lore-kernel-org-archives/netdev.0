@@ -1,7 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH 07/29] fm10k: Add support for PF
-Date: Thu, 18 Sep 2014 18:36:34 -0400
-Message-ID: <20140918223631.10373.28734.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [net-next PATCH 06/29] fm10k: Implement PF <-> SM mailbox operations
+Date: Thu, 18 Sep 2014 18:36:26 -0400
+Message-ID: <20140918223623.10373.94242.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,48 +11,45 @@ Cc: nhorman@redhat.com, netdev@vger.kernel.org,
 	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:52057 "EHLO mga14.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:16753 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752000AbaIRWp1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2014 18:45:27 -0400
+	id S1752000AbaIRWpm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2014 18:45:42 -0400
 In-Reply-To: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds basic support for the PF.  With this it is possible to
-bring up the interface, but without being able to configure any of the
-filters on the interface itself.
+This patch adds support for the mailbox that connects the PF to the Switch
+Management entity.  This mailbox will pass TLV formatted messages between
+the two entities by using a pair of shared ring buffers.
+
+The primary use of the mailbox is to configure L2 forwarding addresses,
+VLANs, and general resource allocation from the switch.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/Makefile       |    3 
- drivers/net/ethernet/intel/fm10k/fm10k_common.c |  534 +++++++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_common.h |   13 +
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c     |  392 +++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_pf.h     |   28 +
- 5 files changed, 969 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_common.c
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_pf.c
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_pf.h
+ drivers/net/ethernet/intel/fm10k/Makefile    |    2 
+ drivers/net/ethernet/intel/fm10k/fm10k_mbx.c | 1351 ++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_mbx.h |    4 
+ 3 files changed, 1355 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
 
 diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
-index 6642611..0904bcb 100644
+index 1052808..6642611 100644
 --- a/drivers/net/ethernet/intel/fm10k/Makefile
 +++ b/drivers/net/ethernet/intel/fm10k/Makefile
-@@ -27,5 +27,6 @@
- 
+@@ -28,4 +28,4 @@
  obj-$(CONFIG_FM10K) += fm10k.o
  
--fm10k-objs := fm10k_main.o fm10k_pci.o \
-+fm10k-objs := fm10k_main.o fm10k_common.o fm10k_pci.o \
-+	      fm10k_pf.o \
- 	      fm10k_mbx.o fm10k_tlv.o
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_common.c b/drivers/net/ethernet/intel/fm10k/fm10k_common.c
+ fm10k-objs := fm10k_main.o fm10k_pci.o \
+-	      fm10k_tlv.o
++	      fm10k_mbx.o fm10k_tlv.o
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
 new file mode 100644
-index 0000000..bf19dcc
+index 0000000..2609847
 --- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_common.c
-@@ -0,0 +1,534 @@
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
+@@ -0,0 +1,1351 @@
 +/* Intel Ethernet Switch Host Interface Driver
 + * Copyright(c) 2013 - 2014 Intel Corporation.
 + *
@@ -76,968 +73,1351 @@ index 0000000..bf19dcc
 +#include "fm10k_common.h"
 +
 +/**
-+ *  fm10k_get_bus_info_generic - Generic set PCI bus info
-+ *  @hw: pointer to hardware structure
-+ *
-+ *  Gets the PCI bus info (speed, width, type) then calls helper function to
-+ *  store this data within the fm10k_hw structure.
++ *  fm10k_fifo_init - Initialize a message FIFO
++ *  @fifo: pointer to FIFO
++ *  @buffer: pointer to memory to be used to store FIFO
++ *  @size: maximum message size to store in FIFO, must be 2^n - 1
 + **/
-+s32 fm10k_get_bus_info_generic(struct fm10k_hw *hw)
++static void fm10k_fifo_init(struct fm10k_mbx_fifo *fifo, u32 *buffer, u16 size)
 +{
-+	u16 link_cap, link_status, device_cap, device_control;
++	fifo->buffer = buffer;
++	fifo->size = size;
++	fifo->head = 0;
++	fifo->tail = 0;
++}
 +
-+	/* Get the maximum link width and speed from PCIe config space */
-+	link_cap = fm10k_read_pci_cfg_word(hw, FM10K_PCIE_LINK_CAP);
++/**
++ *  fm10k_fifo_used - Retrieve used space in FIFO
++ *  @fifo: pointer to FIFO
++ *
++ *  This function returns the number of DWORDs used in the FIFO
++ **/
++static u16 fm10k_fifo_used(struct fm10k_mbx_fifo *fifo)
++{
++	return fifo->tail - fifo->head;
++}
 +
-+	switch (link_cap & FM10K_PCIE_LINK_WIDTH) {
-+	case FM10K_PCIE_LINK_WIDTH_1:
-+		hw->bus_caps.width = fm10k_bus_width_pcie_x1;
-+		break;
-+	case FM10K_PCIE_LINK_WIDTH_2:
-+		hw->bus_caps.width = fm10k_bus_width_pcie_x2;
-+		break;
-+	case FM10K_PCIE_LINK_WIDTH_4:
-+		hw->bus_caps.width = fm10k_bus_width_pcie_x4;
-+		break;
-+	case FM10K_PCIE_LINK_WIDTH_8:
-+		hw->bus_caps.width = fm10k_bus_width_pcie_x8;
-+		break;
-+	default:
-+		hw->bus_caps.width = fm10k_bus_width_unknown;
-+		break;
-+	}
++/**
++ *  fm10k_fifo_unused - Retrieve unused space in FIFO
++ *  @fifo: pointer to FIFO
++ *
++ *  This function returns the number of unused DWORDs in the FIFO
++ **/
++static u16 fm10k_fifo_unused(struct fm10k_mbx_fifo *fifo)
++{
++	return fifo->size + fifo->head - fifo->tail;
++}
 +
-+	switch (link_cap & FM10K_PCIE_LINK_SPEED) {
-+	case FM10K_PCIE_LINK_SPEED_2500:
-+		hw->bus_caps.speed = fm10k_bus_speed_2500;
-+		break;
-+	case FM10K_PCIE_LINK_SPEED_5000:
-+		hw->bus_caps.speed = fm10k_bus_speed_5000;
-+		break;
-+	case FM10K_PCIE_LINK_SPEED_8000:
-+		hw->bus_caps.speed = fm10k_bus_speed_8000;
-+		break;
-+	default:
-+		hw->bus_caps.speed = fm10k_bus_speed_unknown;
-+		break;
-+	}
++/**
++ *  fm10k_fifo_empty - Test to verify if fifo is empty
++ *  @fifo: pointer to FIFO
++ *
++ *  This function returns true if the FIFO is empty, else false
++ **/
++static bool fm10k_fifo_empty(struct fm10k_mbx_fifo *fifo)
++{
++	return fifo->head == fifo->tail;
++}
 +
-+	/* Get the PCIe maximum payload size for the PCIe function */
-+	device_cap = fm10k_read_pci_cfg_word(hw, FM10K_PCIE_DEV_CAP);
++/**
++ *  fm10k_fifo_head_offset - returns indices of head with given offset
++ *  @fifo: pointer to FIFO
++ *  @offset: offset to add to head
++ *
++ *  This function returns the indicies into the fifo based on head + offset
++ **/
++static u16 fm10k_fifo_head_offset(struct fm10k_mbx_fifo *fifo, u16 offset)
++{
++	return (fifo->head + offset) & (fifo->size - 1);
++}
 +
-+	switch (device_cap & FM10K_PCIE_DEV_CAP_PAYLOAD) {
-+	case FM10K_PCIE_DEV_CAP_PAYLOAD_128:
-+		hw->bus_caps.payload = fm10k_bus_payload_128;
-+		break;
-+	case FM10K_PCIE_DEV_CAP_PAYLOAD_256:
-+		hw->bus_caps.payload = fm10k_bus_payload_256;
-+		break;
-+	case FM10K_PCIE_DEV_CAP_PAYLOAD_512:
-+		hw->bus_caps.payload = fm10k_bus_payload_512;
-+		break;
-+	default:
-+		hw->bus_caps.payload = fm10k_bus_payload_unknown;
-+		break;
-+	}
++/**
++ *  fm10k_fifo_tail_offset - returns indices of tail with given offset
++ *  @fifo: pointer to FIFO
++ *  @offset: offset to add to tail
++ *
++ *  This function returns the indicies into the fifo based on tail + offset
++ **/
++static u16 fm10k_fifo_tail_offset(struct fm10k_mbx_fifo *fifo, u16 offset)
++{
++	return (fifo->tail + offset) & (fifo->size - 1);
++}
 +
-+	/* Get the negotiated link width and speed from PCIe config space */
-+	link_status = fm10k_read_pci_cfg_word(hw, FM10K_PCIE_LINK_STATUS);
++/**
++ *  fm10k_fifo_head_len - Retrieve length of first message in FIFO
++ *  @fifo: pointer to FIFO
++ *
++ *  This function returns the size of the first message in the FIFO
++ **/
++static u16 fm10k_fifo_head_len(struct fm10k_mbx_fifo *fifo)
++{
++	u32 *head = fifo->buffer + fm10k_fifo_head_offset(fifo, 0);
 +
-+	switch (link_status & FM10K_PCIE_LINK_WIDTH) {
-+	case FM10K_PCIE_LINK_WIDTH_1:
-+		hw->bus.width = fm10k_bus_width_pcie_x1;
-+		break;
-+	case FM10K_PCIE_LINK_WIDTH_2:
-+		hw->bus.width = fm10k_bus_width_pcie_x2;
-+		break;
-+	case FM10K_PCIE_LINK_WIDTH_4:
-+		hw->bus.width = fm10k_bus_width_pcie_x4;
-+		break;
-+	case FM10K_PCIE_LINK_WIDTH_8:
-+		hw->bus.width = fm10k_bus_width_pcie_x8;
-+		break;
-+	default:
-+		hw->bus.width = fm10k_bus_width_unknown;
-+		break;
-+	}
++	/* verify there is at least 1 DWORD in the fifo so *head is valid */
++	if (fm10k_fifo_empty(fifo))
++		return 0;
 +
-+	switch (link_status & FM10K_PCIE_LINK_SPEED) {
-+	case FM10K_PCIE_LINK_SPEED_2500:
-+		hw->bus.speed = fm10k_bus_speed_2500;
-+		break;
-+	case FM10K_PCIE_LINK_SPEED_5000:
-+		hw->bus.speed = fm10k_bus_speed_5000;
-+		break;
-+	case FM10K_PCIE_LINK_SPEED_8000:
-+		hw->bus.speed = fm10k_bus_speed_8000;
-+		break;
-+	default:
-+		hw->bus.speed = fm10k_bus_speed_unknown;
-+		break;
-+	}
++	/* retieve the message length */
++	return FM10K_TLV_DWORD_LEN(*head);
++}
 +
-+	/* Get the negotiated PCIe maximum payload size for the PCIe function */
-+	device_control = fm10k_read_pci_cfg_word(hw, FM10K_PCIE_DEV_CTRL);
++/**
++ *  fm10k_fifo_head_drop - Drop the first message in FIFO
++ *  @fifo: pointer to FIFO
++ *
++ *  This function returns the size of the message dropped from the FIFO
++ **/
++static u16 fm10k_fifo_head_drop(struct fm10k_mbx_fifo *fifo)
++{
++	u16 len = fm10k_fifo_head_len(fifo);
 +
-+	switch (device_control & FM10K_PCIE_DEV_CTRL_PAYLOAD) {
-+	case FM10K_PCIE_DEV_CTRL_PAYLOAD_128:
-+		hw->bus.payload = fm10k_bus_payload_128;
-+		break;
-+	case FM10K_PCIE_DEV_CTRL_PAYLOAD_256:
-+		hw->bus.payload = fm10k_bus_payload_256;
-+		break;
-+	case FM10K_PCIE_DEV_CTRL_PAYLOAD_512:
-+		hw->bus.payload = fm10k_bus_payload_512;
-+		break;
-+	default:
-+		hw->bus.payload = fm10k_bus_payload_unknown;
-+		break;
-+	}
++	/* update head so it is at the start of next frame */
++	fifo->head += len;
++
++	return len;
++}
++
++/**
++ *  fm10k_mbx_index_len - Convert a head/tail index into a length value
++ *  @mbx: pointer to mailbox
++ *  @head: head index
++ *  @tail: head index
++ *
++ *  This function takes the head and tail index and determines the length
++ *  of the data indicated by this pair.
++ **/
++static u16 fm10k_mbx_index_len(struct fm10k_mbx_info *mbx, u16 head, u16 tail)
++{
++	u16 len = tail - head;
++
++	/* we wrapped so subtract 2, one for index 0, one for all 1s index */
++	if (len > tail)
++		len -= 2;
++
++	return len & ((mbx->mbmem_len << 1) - 1);
++}
++
++/**
++ *  fm10k_mbx_tail_add - Determine new tail value with added offset
++ *  @mbx: pointer to mailbox
++ *  @offset: length to add to head offset
++ *
++ *  This function takes the local tail index and recomputes it for
++ *  a given length added as an offset.
++ **/
++static u16 fm10k_mbx_tail_add(struct fm10k_mbx_info *mbx, u16 offset)
++{
++	u16 tail = (mbx->tail + offset + 1) & ((mbx->mbmem_len << 1) - 1);
++
++	/* add/sub 1 because we cannot have offset 0 or all 1s */
++	return (tail > mbx->tail) ? --tail : ++tail;
++}
++
++/**
++ *  fm10k_mbx_tail_sub - Determine new tail value with subtracted offset
++ *  @mbx: pointer to mailbox
++ *  @offset: length to add to head offset
++ *
++ *  This function takes the local tail index and recomputes it for
++ *  a given length added as an offset.
++ **/
++static u16 fm10k_mbx_tail_sub(struct fm10k_mbx_info *mbx, u16 offset)
++{
++	u16 tail = (mbx->tail - offset - 1) & ((mbx->mbmem_len << 1) - 1);
++
++	/* sub/add 1 because we cannot have offset 0 or all 1s */
++	return (tail < mbx->tail) ? ++tail : --tail;
++}
++
++/**
++ *  fm10k_mbx_head_add - Determine new head value with added offset
++ *  @mbx: pointer to mailbox
++ *  @offset: length to add to head offset
++ *
++ *  This function takes the local head index and recomputes it for
++ *  a given length added as an offset.
++ **/
++static u16 fm10k_mbx_head_add(struct fm10k_mbx_info *mbx, u16 offset)
++{
++	u16 head = (mbx->head + offset + 1) & ((mbx->mbmem_len << 1) - 1);
++
++	/* add/sub 1 because we cannot have offset 0 or all 1s */
++	return (head > mbx->head) ? --head : ++head;
++}
++
++/**
++ *  fm10k_mbx_head_sub - Determine new head value with subtracted offset
++ *  @mbx: pointer to mailbox
++ *  @offset: length to add to head offset
++ *
++ *  This function takes the local head index and recomputes it for
++ *  a given length added as an offset.
++ **/
++static u16 fm10k_mbx_head_sub(struct fm10k_mbx_info *mbx, u16 offset)
++{
++	u16 head = (mbx->head - offset - 1) & ((mbx->mbmem_len << 1) - 1);
++
++	/* sub/add 1 because we cannot have offset 0 or all 1s */
++	return (head < mbx->head) ? ++head : --head;
++}
++
++/**
++ *  fm10k_mbx_pushed_tail_len - Retrieve the length of message being pushed
++ *  @mbx: pointer to mailbox
++ *
++ *  This function will return the length of the message currently being
++ *  pushed onto the tail of the Rx queue.
++ **/
++static u16 fm10k_mbx_pushed_tail_len(struct fm10k_mbx_info *mbx)
++{
++	u32 *tail = mbx->rx.buffer + fm10k_fifo_tail_offset(&mbx->rx, 0);
++
++	/* pushed tail is only valid if pushed is set */
++	if (!mbx->pushed)
++		return 0;
++
++	return FM10K_TLV_DWORD_LEN(*tail);
++}
++
++/**
++ *  fm10k_fifo_write_copy - pulls data off of msg and places it in fifo
++ *  @fifo: pointer to FIFO
++ *  @msg: message array to populate
++ *  @tail_offset: additional offset to add to tail pointer
++ *  @len: length of FIFO to copy into message header
++ *
++ *  This function will take a message and copy it into a section of the
++ *  FIFO.  In order to get something into a location other than just
++ *  the tail you can use tail_offset to adjust the pointer.
++ **/
++static void fm10k_fifo_write_copy(struct fm10k_mbx_fifo *fifo,
++				  const u32 *msg, u16 tail_offset, u16 len)
++{
++	u16 end = fm10k_fifo_tail_offset(fifo, tail_offset);
++	u32 *tail = fifo->buffer + end;
++
++	/* track when we should cross the end of the FIFO */
++	end = fifo->size - end;
++
++	/* copy end of message before start of message */
++	if (end < len)
++		memcpy(fifo->buffer, msg + end, (len - end) << 2);
++	else
++		end = len;
++
++	/* Copy remaining message into Tx FIFO */
++	memcpy(tail, msg, end << 2);
++}
++
++/**
++ *  fm10k_fifo_enqueue - Enqueues the message to the tail of the FIFO
++ *  @fifo: pointer to FIFO
++ *  @msg: message array to read
++ *
++ *  This function enqueues a message up to the size specified by the length
++ *  contained in the first DWORD of the message and will place at the tail
++ *  of the FIFO.  It will return 0 on success, or a negative value on error.
++ **/
++static s32 fm10k_fifo_enqueue(struct fm10k_mbx_fifo *fifo, const u32 *msg)
++{
++	u16 len = FM10K_TLV_DWORD_LEN(*msg);
++
++	/* verify parameters */
++	if (len > fifo->size)
++		return FM10K_MBX_ERR_SIZE;
++
++	/* verify there is room for the message */
++	if (len > fm10k_fifo_unused(fifo))
++		return FM10K_MBX_ERR_NO_SPACE;
++
++	/* Copy message into FIFO */
++	fm10k_fifo_write_copy(fifo, msg, 0, len);
++
++	/* memory barrier to guarantee FIFO is written before tail update */
++	wmb();
++
++	/* Update Tx FIFO tail */
++	fifo->tail += len;
 +
 +	return 0;
 +}
 +
-+static u16 fm10k_get_pcie_msix_count_generic(struct fm10k_hw *hw)
-+{
-+	u16 msix_count;
-+
-+	/* read in value from MSI-X capability register */
-+	msix_count = fm10k_read_pci_cfg_word(hw, FM10K_PCI_MSIX_MSG_CTRL);
-+	msix_count &= FM10K_PCI_MSIX_MSG_CTRL_TBL_SZ_MASK;
-+
-+	/* MSI-X count is zero-based in HW */
-+	msix_count++;
-+
-+	if (msix_count > FM10K_MAX_MSIX_VECTORS)
-+		msix_count = FM10K_MAX_MSIX_VECTORS;
-+
-+	return msix_count;
-+}
-+
 +/**
-+ *  fm10k_get_invariants_generic - Inits constant values
-+ *  @hw: pointer to the hardware structure
++ *  fm10k_mbx_validate_msg_size - Validate incoming message based on size
++ *  @mbx: pointer to mailbox
++ *  @len: length of data pushed onto buffer
 + *
-+ *  Initialize the common invariants for the device.
++ *  This function analyzes the frame and will return a non-zero value when
++ *  the start of a message larger than the mailbox is detected.
 + **/
-+s32 fm10k_get_invariants_generic(struct fm10k_hw *hw)
++static u16 fm10k_mbx_validate_msg_size(struct fm10k_mbx_info *mbx, u16 len)
 +{
-+	struct fm10k_mac_info *mac = &hw->mac;
++	struct fm10k_mbx_fifo *fifo = &mbx->rx;
++	u16 total_len = 0, msg_len;
++	u32 *msg;
 +
-+	/* initialize GLORT state to avoid any false hits */
-+	mac->dglort_map = FM10K_DGLORTMAP_NONE;
++	/* length should include previous amounts pushed */
++	len += mbx->pushed;
 +
-+	/* record maximum number of MSI-X vectors */
-+	mac->max_msix_vectors = fm10k_get_pcie_msix_count_generic(hw);
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_start_hw_generic - Prepare hardware for Tx/Rx
-+ *  @hw: pointer to hardware structure
-+ *
-+ *  This function sets the Tx ready flag to indicate that the Tx path has
-+ *  been initialized.
-+ **/
-+s32 fm10k_start_hw_generic(struct fm10k_hw *hw)
-+{
-+	/* set flag indicating we are beginning Tx */
-+	hw->mac.tx_ready = true;
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_disable_queues_generic - Stop Tx/Rx queues
-+ *  @hw: pointer to hardware structure
-+ *  @q_cnt: number of queues to be disabled
-+ *
-+ **/
-+s32 fm10k_disable_queues_generic(struct fm10k_hw *hw, u16 q_cnt)
-+{
-+	u32 reg;
-+	u16 i, time;
-+
-+	/* clear tx_ready to prevent any false hits for reset */
-+	hw->mac.tx_ready = false;
-+
-+	/* clear the enable bit for all rings */
-+	for (i = 0; i < q_cnt; i++) {
-+		reg = fm10k_read_reg(hw, FM10K_TXDCTL(i));
-+		fm10k_write_reg(hw, FM10K_TXDCTL(i),
-+				reg & ~FM10K_TXDCTL_ENABLE);
-+		reg = fm10k_read_reg(hw, FM10K_RXQCTL(i));
-+		fm10k_write_reg(hw, FM10K_RXQCTL(i),
-+				reg & ~FM10K_RXQCTL_ENABLE);
-+	}
-+
-+	fm10k_write_flush(hw);
-+	udelay(1);
-+
-+	/* loop through all queues to verify that they are all disabled */
-+	for (i = 0, time = FM10K_QUEUE_DISABLE_TIMEOUT; time;) {
-+		/* if we are at end of rings all rings are disabled */
-+		if (i == q_cnt)
-+			return 0;
-+
-+		/* if queue enables cleared, then move to next ring pair */
-+		reg = fm10k_read_reg(hw, FM10K_TXDCTL(i));
-+		if (!~reg || !(reg & FM10K_TXDCTL_ENABLE)) {
-+			reg = fm10k_read_reg(hw, FM10K_RXQCTL(i));
-+			if (!~reg || !(reg & FM10K_RXQCTL_ENABLE)) {
-+				i++;
-+				continue;
-+			}
-+		}
-+
-+		/* decrement time and wait 1 usec */
-+		time--;
-+		if (time)
-+			udelay(1);
-+	}
-+
-+	return FM10K_ERR_REQUESTS_PENDING;
-+}
-+
-+/**
-+ *  fm10k_stop_hw_generic - Stop Tx/Rx units
-+ *  @hw: pointer to hardware structure
-+ *
-+ **/
-+s32 fm10k_stop_hw_generic(struct fm10k_hw *hw)
-+{
-+	return fm10k_disable_queues_generic(hw, hw->mac.max_queues);
-+}
-+
-+/**
-+ *  fm10k_read_hw_stats_32b - Reads value of 32-bit registers
-+ *  @hw: pointer to the hardware structure
-+ *  @addr: address of register containing a 32-bit value
-+ *
-+ *  Function reads the content of the register and returns the delta
-+ *  between the base and the current value.
-+ *  **/
-+u32 fm10k_read_hw_stats_32b(struct fm10k_hw *hw, u32 addr,
-+			    struct fm10k_hw_stat *stat)
-+{
-+	u32 delta = fm10k_read_reg(hw, addr) - stat->base_l;
-+
-+	if (FM10K_REMOVED(hw->hw_addr))
-+		stat->base_h = 0;
-+
-+	return delta;
-+}
-+
-+/**
-+ *  fm10k_read_hw_stats_48b - Reads value of 48-bit registers
-+ *  @hw: pointer to the hardware structure
-+ *  @addr: address of register containing the lower 32-bit value
-+ *
-+ *  Function reads the content of 2 registers, combined to represent a 48-bit
-+ *  statistical value. Extra processing is required to handle overflowing.
-+ *  Finally, a delta value is returned representing the difference between the
-+ *  values stored in registers and values stored in the statistic counters.
-+ *  **/
-+static u64 fm10k_read_hw_stats_48b(struct fm10k_hw *hw, u32 addr,
-+				   struct fm10k_hw_stat *stat)
-+{
-+	u32 count_l;
-+	u32 count_h;
-+	u32 count_tmp;
-+	u64 delta;
-+
-+	count_h = fm10k_read_reg(hw, addr + 1);
-+
-+	/* Check for overflow */
++	/* offset in message is based off of current message size */
 +	do {
-+		count_tmp = count_h;
-+		count_l = fm10k_read_reg(hw, addr);
-+		count_h = fm10k_read_reg(hw, addr + 1);
-+	} while (count_h != count_tmp);
++		msg = fifo->buffer + fm10k_fifo_tail_offset(fifo, total_len);
++		msg_len = FM10K_TLV_DWORD_LEN(*msg);
++		total_len += msg_len;
++	} while (total_len < len);
 +
-+	delta = ((u64)(count_h - stat->base_h) << 32) + count_l;
-+	delta -= stat->base_l;
++	/* message extends out of pushed section, but fits in FIFO */
++	if ((len < total_len) && (msg_len <= mbx->rx.size))
++		return 0;
 +
-+	return delta & FM10K_48_BIT_MASK;
++	/* return length of invalid section */
++	return (len < total_len) ? len : (len - total_len);
 +}
 +
 +/**
-+ *  fm10k_update_hw_base_48b - Updates 48-bit statistic base value
-+ *  @stat: pointer to the hardware statistic structure
-+ *  @delta: value to be updated into the hardware statistic structure
++ *  fm10k_mbx_write_copy - pulls data off of Tx FIFO and places it in mbmem
++ *  @mbx: pointer to mailbox
 + *
-+ *  Function receives a value and determines if an update is required based on
-+ *  a delta calculation. Only the base value will be updated.
++ *  This function will take a seciton of the Rx FIFO and copy it into the
++		mbx->tail--;
++ *  mailbox memory.  The offset in mbmem is based on the lower bits of the
++ *  tail and len determines the length to copy.
 + **/
-+static void fm10k_update_hw_base_48b(struct fm10k_hw_stat *stat, u64 delta)
++static void fm10k_mbx_write_copy(struct fm10k_hw *hw,
++				 struct fm10k_mbx_info *mbx)
 +{
-+	if (!delta)
++	struct fm10k_mbx_fifo *fifo = &mbx->tx;
++	u32 mbmem = mbx->mbmem_reg;
++	u32 *head = fifo->buffer;
++	u16 end, len, tail, mask;
++
++	if (!mbx->tail_len)
 +		return;
 +
-+	/* update lower 32 bits */
-+	delta += stat->base_l;
-+	stat->base_l = (u32)delta;
++	/* determine data length and mbmem tail index */
++	mask = mbx->mbmem_len - 1;
++	len = mbx->tail_len;
++	tail = fm10k_mbx_tail_sub(mbx, len);
++	if (tail > mask)
++		tail++;
 +
-+	/* update upper 32 bits */
-+	stat->base_h += (u32)(delta >> 32);
-+}
++	/* determine offset in the ring */
++	end = fm10k_fifo_head_offset(fifo, mbx->pulled);
++	head += end;
 +
-+/**
-+ *  fm10k_update_hw_stats_tx_q - Updates TX queue statistics counters
-+ *  @hw: pointer to the hardware structure
-+ *  @q: pointer to the ring of hardware statistics queue
-+ *  @idx: index pointing to the start of the ring iteration
-+ *
-+ *  Function updates the TX queue statistics counters that are related to the
-+ *  hardware.
-+ **/
-+static void fm10k_update_hw_stats_tx_q(struct fm10k_hw *hw,
-+				       struct fm10k_hw_stats_q *q,
-+				       u32 idx)
-+{
-+	u32 id_tx, id_tx_prev, tx_packets;
-+	u64 tx_bytes = 0;
++	/* memory barrier to guarantee data is ready to be read */
++	rmb();
 +
-+	/* Retrieve TX Owner Data */
-+	id_tx = fm10k_read_reg(hw, FM10K_TXQCTL(idx));
++	/* Copy message from Tx FIFO */
++	for (end = fifo->size - end; len; head = fifo->buffer) {
++		do {
++			/* adjust tail to match offset for FIFO */
++			tail &= mask;
++			if (!tail)
++				tail++;
 +
-+	/* Process TX Ring */
-+	do {
-+		tx_packets = fm10k_read_hw_stats_32b(hw, FM10K_QPTC(idx),
-+						     &q->tx_packets);
-+
-+		if (tx_packets)
-+			tx_bytes = fm10k_read_hw_stats_48b(hw,
-+							   FM10K_QBTC_L(idx),
-+							   &q->tx_bytes);
-+
-+		/* Re-Check Owner Data */
-+		id_tx_prev = id_tx;
-+		id_tx = fm10k_read_reg(hw, FM10K_TXQCTL(idx));
-+	} while ((id_tx ^ id_tx_prev) & FM10K_TXQCTL_ID_MASK);
-+
-+	/* drop non-ID bits and set VALID ID bit */
-+	id_tx &= FM10K_TXQCTL_ID_MASK;
-+	id_tx |= FM10K_STAT_VALID;
-+
-+	/* update packet counts */
-+	if (q->tx_stats_idx == id_tx) {
-+		q->tx_packets.count += tx_packets;
-+		q->tx_bytes.count += tx_bytes;
-+	}
-+
-+	/* update bases and record ID */
-+	fm10k_update_hw_base_32b(&q->tx_packets, tx_packets);
-+	fm10k_update_hw_base_48b(&q->tx_bytes, tx_bytes);
-+
-+	q->tx_stats_idx = id_tx;
-+}
-+
-+/**
-+ *  fm10k_update_hw_stats_rx_q - Updates RX queue statistics counters
-+ *  @hw: pointer to the hardware structure
-+ *  @q: pointer to the ring of hardware statistics queue
-+ *  @idx: index pointing to the start of the ring iteration
-+ *
-+ *  Function updates the RX queue statistics counters that are related to the
-+ *  hardware.
-+ **/
-+static void fm10k_update_hw_stats_rx_q(struct fm10k_hw *hw,
-+				       struct fm10k_hw_stats_q *q,
-+				       u32 idx)
-+{
-+	u32 id_rx, id_rx_prev, rx_packets, rx_drops;
-+	u64 rx_bytes = 0;
-+
-+	/* Retrieve RX Owner Data */
-+	id_rx = fm10k_read_reg(hw, FM10K_RXQCTL(idx));
-+
-+	/* Process RX Ring*/
-+	do {
-+		rx_drops = fm10k_read_hw_stats_32b(hw, FM10K_QPRDC(idx),
-+						   &q->rx_drops);
-+
-+		rx_packets = fm10k_read_hw_stats_32b(hw, FM10K_QPRC(idx),
-+						     &q->rx_packets);
-+
-+		if (rx_packets)
-+			rx_bytes = fm10k_read_hw_stats_48b(hw,
-+							   FM10K_QBRC_L(idx),
-+							   &q->rx_bytes);
-+
-+		/* Re-Check Owner Data */
-+		id_rx_prev = id_rx;
-+		id_rx = fm10k_read_reg(hw, FM10K_RXQCTL(idx));
-+	} while ((id_rx ^ id_rx_prev) & FM10K_RXQCTL_ID_MASK);
-+
-+	/* drop non-ID bits and set VALID ID bit */
-+	id_rx &= FM10K_RXQCTL_ID_MASK;
-+	id_rx |= FM10K_STAT_VALID;
-+
-+	/* update packet counts */
-+	if (q->rx_stats_idx == id_rx) {
-+		q->rx_drops.count += rx_drops;
-+		q->rx_packets.count += rx_packets;
-+		q->rx_bytes.count += rx_bytes;
-+	}
-+
-+	/* update bases and record ID */
-+	fm10k_update_hw_base_32b(&q->rx_drops, rx_drops);
-+	fm10k_update_hw_base_32b(&q->rx_packets, rx_packets);
-+	fm10k_update_hw_base_48b(&q->rx_bytes, rx_bytes);
-+
-+	q->rx_stats_idx = id_rx;
-+}
-+
-+/**
-+ *  fm10k_update_hw_stats_q - Updates queue statistics counters
-+ *  @hw: pointer to the hardware structure
-+ *  @q: pointer to the ring of hardware statistics queue
-+ *  @idx: index pointing to the start of the ring iteration
-+ *  @count: number of queues to iterate over
-+ *
-+ *  Function updates the queue statistics counters that are related to the
-+ *  hardware.
-+ **/
-+void fm10k_update_hw_stats_q(struct fm10k_hw *hw, struct fm10k_hw_stats_q *q,
-+			     u32 idx, u32 count)
-+{
-+	u32 i;
-+
-+	for (i = 0; i < count; i++, idx++, q++) {
-+		fm10k_update_hw_stats_tx_q(hw, q, idx);
-+		fm10k_update_hw_stats_rx_q(hw, q, idx);
++			/* write message to hardware FIFO */
++			fm10k_write_reg(hw, mbmem + tail++, *(head++));
++		} while (--len && --end);
 +	}
 +}
 +
 +/**
-+ *  fm10k_unbind_hw_stats_q - Unbind the queue counters from their queues
-+ *  @hw: pointer to the hardware structure
-+ *  @q: pointer to the ring of hardware statistics queue
-+ *  @idx: index pointing to the start of the ring iteration
-+ *  @count: number of queues to iterate over
-+ *
-+ *  Function invalidates the index values for the queues so any updates that
-+ *  may have happened are ignored and the base for the queue stats is reset.
-+ **/
-+
-+void fm10k_unbind_hw_stats_q(struct fm10k_hw_stats_q *q, u32 idx, u32 count)
-+{
-+	u32 i;
-+
-+	for (i = 0; i < count; i++, idx++, q++) {
-+		q->rx_stats_idx = 0;
-+		q->tx_stats_idx = 0;
-+	}
-+}
-+
-+/**
-+ *  fm10k_get_host_state_generic - Returns the state of the host
++ *  fm10k_mbx_pull_head - Pulls data off of head of Tx FIFO
 + *  @hw: pointer to hardware structure
-+ *  @host_ready: pointer to boolean value that will record host state
++ *  @mbx: pointer to mailbox
++ *  @head: acknowledgement number last received
 + *
-+ *  This function will check the health of the mailbox and Tx queue 0
-+ *  in order to determine if we should report that the link is up or not.
++ *  This function will push the tail index forward based on the remote
++ *  head index.  It will then pull up to mbmem_len DWORDs off of the
++ *  head of the FIFO and will place it in the MBMEM registers
++ *  associated with the mailbox.
 + **/
-+s32 fm10k_get_host_state_generic(struct fm10k_hw *hw, bool *host_ready)
++static void fm10k_mbx_pull_head(struct fm10k_hw *hw,
++				struct fm10k_mbx_info *mbx, u16 head)
 +{
-+	struct fm10k_mbx_info *mbx = &hw->mbx;
-+	struct fm10k_mac_info *mac = &hw->mac;
-+	s32 ret_val = 0;
-+	u32 txdctl = fm10k_read_reg(hw, FM10K_TXDCTL(0));
++	u16 mbmem_len, len, ack = fm10k_mbx_index_len(mbx, head, mbx->tail);
++	struct fm10k_mbx_fifo *fifo = &mbx->tx;
 +
-+	/* process upstream mailbox in case interrupts were disabled */
-+	mbx->ops.process(hw, mbx);
++	/* update number of bytes pulled and update bytes in transit */
++	mbx->pulled += mbx->tail_len - ack;
 +
-+	/* If Tx is no longer enabled link should come down */
-+	if (!(~txdctl) || !(txdctl & FM10K_TXDCTL_ENABLE))
-+		mac->get_host_state = true;
++	/* determine length of data to pull, reserve space for mbmem header */
++	mbmem_len = mbx->mbmem_len - 1;
++	len = fm10k_fifo_used(fifo) - mbx->pulled;
++	if (len > mbmem_len)
++		len = mbmem_len;
 +
-+	/* exit if not checking for link, or link cannot be changed */
-+	if (!mac->get_host_state || !(~txdctl))
-+		goto out;
++	/* update tail and record number of bytes in transit */
++	mbx->tail = fm10k_mbx_tail_add(mbx, len - ack);
++	mbx->tail_len = len;
 +
-+	/* if we somehow dropped the Tx enable we should reset */
-+	if (hw->mac.tx_ready && !(txdctl & FM10K_TXDCTL_ENABLE)) {
-+		ret_val = FM10K_ERR_RESET_REQUESTED;
-+		goto out;
++	/* drop pulled messages from the FIFO */
++	for (len = fm10k_fifo_head_len(fifo);
++	     len && (mbx->pulled >= len);
++	     len = fm10k_fifo_head_len(fifo)) {
++		mbx->pulled -= fm10k_fifo_head_drop(fifo);
++		mbx->tx_messages++;
++		mbx->tx_dwords += len;
 +	}
 +
-+	/* if Mailbox timed out we should request reset */
-+	if (!mbx->timeout) {
-+		ret_val = FM10K_ERR_RESET_REQUESTED;
-+		goto out;
-+	}
-+
-+	/* verify Mailbox is still valid */
-+	if (!mbx->ops.tx_ready(mbx, FM10K_VFMBX_MSG_MTU))
-+		goto out;
-+
-+	/* interface cannot receive traffic without logical ports */
-+	if (mac->dglort_map == FM10K_DGLORTMAP_NONE)
-+		goto out;
-+
-+	/* if we passed all the tests above then the switch is ready and we no
-+	 * longer need to check for link
-+	 */
-+	mac->get_host_state = false;
-+
-+out:
-+	*host_ready = !mac->get_host_state;
-+	return ret_val;
++	/* Copy message out from the Tx FIFO */
++	fm10k_mbx_write_copy(hw, mbx);
 +}
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_common.h b/drivers/net/ethernet/intel/fm10k/fm10k_common.h
-index 2b214a6..8250e14 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_common.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_common.h
-@@ -41,4 +41,17 @@ do { \
- 
- /* read ctrl register which has no clear on read fields as PCIe flush */
- #define fm10k_write_flush(hw) fm10k_read_reg((hw), FM10K_CTRL)
-+s32 fm10k_get_bus_info_generic(struct fm10k_hw *hw);
-+s32 fm10k_get_invariants_generic(struct fm10k_hw *hw);
-+s32 fm10k_disable_queues_generic(struct fm10k_hw *hw, u16 q_cnt);
-+s32 fm10k_start_hw_generic(struct fm10k_hw *hw);
-+s32 fm10k_stop_hw_generic(struct fm10k_hw *hw);
-+u32 fm10k_read_hw_stats_32b(struct fm10k_hw *hw, u32 addr,
-+			    struct fm10k_hw_stat *stat);
-+#define fm10k_update_hw_base_32b(stat, delta) ((stat)->base_l += (delta))
-+void fm10k_update_hw_stats_q(struct fm10k_hw *hw, struct fm10k_hw_stats_q *q,
-+			     u32 idx, u32 count);
-+#define fm10k_unbind_hw_stats_32b(s) ((s)->base_h = 0)
-+void fm10k_unbind_hw_stats_q(struct fm10k_hw_stats_q *q, u32 idx, u32 count);
-+s32 fm10k_get_host_state_generic(struct fm10k_hw *hw, bool *host_ready);
- #endif /* _FM10K_COMMON_H_ */
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-new file mode 100644
-index 0000000..b798cd5
---- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-@@ -0,0 +1,392 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ */
-+
-+#include "fm10k_pf.h"
 +
 +/**
-+ *  fm10k_reset_hw_pf - PF hardware reset
++ *  fm10k_mbx_read_copy - pulls data off of mbmem and places it in Rx FIFO
 + *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
 + *
-+ *  This function should return the hardware to a state similar to the
-+ *  one it is in after being powered on.
++ *  This function will take a seciton of the mailbox memory and copy it
++ *  into the Rx FIFO.  The offset is based on the lower bits of the
++ *  head and len determines the length to copy.
 + **/
-+static s32 fm10k_reset_hw_pf(struct fm10k_hw *hw)
++static void fm10k_mbx_read_copy(struct fm10k_hw *hw,
++				struct fm10k_mbx_info *mbx)
 +{
++	struct fm10k_mbx_fifo *fifo = &mbx->rx;
++	u32 mbmem = mbx->mbmem_reg ^ mbx->mbmem_len;
++	u32 *tail = fifo->buffer;
++	u16 end, len, head;
++
++	/* determine data length and mbmem head index */
++	len = mbx->head_len;
++	head = fm10k_mbx_head_sub(mbx, len);
++	if (head >= mbx->mbmem_len)
++		head++;
++
++	/* determine offset in the ring */
++	end = fm10k_fifo_tail_offset(fifo, mbx->pushed);
++	tail += end;
++
++	/* Copy message into Rx FIFO */
++	for (end = fifo->size - end; len; tail = fifo->buffer) {
++		do {
++			/* adjust head to match offset for FIFO */
++			head &= mbx->mbmem_len - 1;
++			if (!head)
++				head++;
++
++			/* read message from hardware FIFO */
++			*(tail++) = fm10k_read_reg(hw, mbmem + head++);
++		} while (--len && --end);
++	}
++
++	/* memory barrier to guarantee FIFO is written before tail update */
++	wmb();
++}
++
++/**
++ *  fm10k_mbx_push_tail - Pushes up to 15 DWORDs on to tail of FIFO
++ *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
++ *  @tail: tail index of message
++ *
++ *  This function will first validate the tail index and size for the
++ *  incoming message.  It then updates the acknowlegment number and
++ *  copies the data into the FIFO.  It will return the number of messages
++ *  dequeued on success and a negative value on error.
++ **/
++static s32 fm10k_mbx_push_tail(struct fm10k_hw *hw,
++			       struct fm10k_mbx_info *mbx,
++			       u16 tail)
++{
++	struct fm10k_mbx_fifo *fifo = &mbx->rx;
++	u16 len, seq = fm10k_mbx_index_len(mbx, mbx->head, tail);
++
++	/* determine length of data to push */
++	len = fm10k_fifo_unused(fifo) - mbx->pushed;
++	if (len > seq)
++		len = seq;
++
++	/* update head and record bytes received */
++	mbx->head = fm10k_mbx_head_add(mbx, len);
++	mbx->head_len = len;
++
++	/* nothing to do if there is no data */
++	if (!len)
++		return 0;
++
++	/* Copy msg into Rx FIFO */
++	fm10k_mbx_read_copy(hw, mbx);
++
++	/* determine if there are any invalid lengths in message */
++	if (fm10k_mbx_validate_msg_size(mbx, len))
++		return FM10K_MBX_ERR_SIZE;
++
++	/* Update pushed */
++	mbx->pushed += len;
++
++	/* flush any completed messages */
++	for (len = fm10k_mbx_pushed_tail_len(mbx);
++	     len && (mbx->pushed >= len);
++	     len = fm10k_mbx_pushed_tail_len(mbx)) {
++		fifo->tail += len;
++		mbx->pushed -= len;
++		mbx->rx_messages++;
++		mbx->rx_dwords += len;
++	}
++
++	return 0;
++}
++
++/**
++ *  fm10k_mbx_rx_ready - Indicates that a message is ready in the Rx FIFO
++ *  @mbx: pointer to mailbox
++ *
++ *  This function returns true if there is a message in the Rx FIFO to dequeue.
++ **/
++static bool fm10k_mbx_rx_ready(struct fm10k_mbx_info *mbx)
++{
++	u16 msg_size = fm10k_fifo_head_len(&mbx->rx);
++
++	return msg_size && (fm10k_fifo_used(&mbx->rx) >= msg_size);
++}
++
++/**
++ *  fm10k_mbx_tx_ready - Indicates that the mailbox is in state ready for Tx
++ *  @mbx: pointer to mailbox
++ *  @len: verify free space is >= this value
++ *
++ *  This function returns true if the mailbox is in a state ready to transmit.
++ **/
++static bool fm10k_mbx_tx_ready(struct fm10k_mbx_info *mbx, u16 len)
++{
++	u16 fifo_unused = fm10k_fifo_unused(&mbx->tx);
++
++	return (mbx->state == FM10K_STATE_OPEN) && (fifo_unused >= len);
++}
++
++/**
++ *  fm10k_mbx_tx_complete - Indicates that the Tx FIFO has been emptied
++ *  @mbx: pointer to mailbox
++ *
++ *  This function returns true if the Tx FIFO is empty.
++ **/
++static bool fm10k_mbx_tx_complete(struct fm10k_mbx_info *mbx)
++{
++	return fm10k_fifo_empty(&mbx->tx);
++}
++
++/**
++ *  fm10k_mbx_deqeueue_rx - Dequeues the message from the head in the Rx FIFO
++ *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
++ *
++ *  This function dequeues messages and hands them off to the tlv parser.
++ *  It will return the number of messages processed when called.
++ **/
++static u16 fm10k_mbx_dequeue_rx(struct fm10k_hw *hw,
++				struct fm10k_mbx_info *mbx)
++{
++	struct fm10k_mbx_fifo *fifo = &mbx->rx;
 +	s32 err;
-+	u32 reg;
-+	u16 i;
++	u16 cnt;
 +
-+	/* Disable interrupts */
-+	fm10k_write_reg(hw, FM10K_EIMR, FM10K_EIMR_DISABLE(ALL));
++	/* parse Rx messages out of the Rx FIFO to empty it */
++	for (cnt = 0; !fm10k_fifo_empty(fifo); cnt++) {
++		err = fm10k_tlv_msg_parse(hw, fifo->buffer + fifo->head,
++					  mbx, mbx->msg_data);
++		if (err < 0)
++			mbx->rx_parse_err++;
 +
-+	/* Lock ITR2 reg 0 into itself and disable interrupt moderation */
-+	fm10k_write_reg(hw, FM10K_ITR2(0), 0);
-+	fm10k_write_reg(hw, FM10K_INT_CTRL, 0);
-+
-+	/* We assume here Tx and Rx queue 0 are owned by the PF */
-+
-+	/* Shut off VF access to their queues forcing them to queue 0 */
-+	for (i = 0; i < FM10K_TQMAP_TABLE_SIZE; i++) {
-+		fm10k_write_reg(hw, FM10K_TQMAP(i), 0);
-+		fm10k_write_reg(hw, FM10K_RQMAP(i), 0);
++		fm10k_fifo_head_drop(fifo);
 +	}
 +
-+	/* shut down all rings */
-+	err = fm10k_disable_queues_generic(hw, FM10K_MAX_QUEUES);
-+	if (err)
++	/* shift remaining bytes back to start of FIFO */
++	memmove(fifo->buffer, fifo->buffer + fifo->tail, mbx->pushed << 2);
++
++	/* shift head and tail based on the memory we moved */
++	fifo->tail -= fifo->head;
++	fifo->head = 0;
++
++	return cnt;
++}
++
++/**
++ *  fm10k_mbx_enqueue_tx - Enqueues the message to the tail of the Tx FIFO
++ *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
++ *  @msg: message array to read
++ *
++ *  This function enqueues a message up to the size specified by the length
++ *  contained in the first DWORD of the message and will place at the tail
++ *  of the FIFO.  It will return 0 on success, or a negative value on error.
++ **/
++static s32 fm10k_mbx_enqueue_tx(struct fm10k_hw *hw,
++				struct fm10k_mbx_info *mbx, const u32 *msg)
++{
++	u32 countdown = mbx->timeout;
++	s32 err;
++
++	switch (mbx->state) {
++	case FM10K_STATE_CLOSED:
++	case FM10K_STATE_DISCONNECT:
++		return FM10K_MBX_ERR_NO_MBX;
++	default:
++		break;
++	}
++
++	/* enqueue the message on the Tx FIFO */
++	err = fm10k_fifo_enqueue(&mbx->tx, msg);
++
++	/* if it failed give the FIFO a chance to drain */
++	while (err && countdown) {
++		countdown--;
++		udelay(mbx->udelay);
++		mbx->ops.process(hw, mbx);
++		err = fm10k_fifo_enqueue(&mbx->tx, msg);
++	}
++
++	/* if we failed trhead the error */
++	if (err) {
++		mbx->timeout = 0;
++		mbx->tx_busy++;
++	}
++
++	/* begin processing message, ignore errors as this is just meant
++	 * to start the mailbox flow so we are not concerned if there
++	 * is a bad error, or the mailbox is already busy with a request
++	 */
++	if (!mbx->tail_len)
++		mbx->ops.process(hw, mbx);
++
++	return 0;
++}
++
++/**
++ *  fm10k_mbx_read - Copies the mbmem to local message buffer
++ *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
++ *
++ *  This function copies the message from the mbmem to the message array
++ **/
++static s32 fm10k_mbx_read(struct fm10k_hw *hw, struct fm10k_mbx_info *mbx)
++{
++	/* only allow one reader in here at a time */
++	if (mbx->mbx_hdr)
++		return FM10K_MBX_ERR_BUSY;
++
++	/* read to capture initial interrupt bits */
++	if (fm10k_read_reg(hw, mbx->mbx_reg) & FM10K_MBX_REQ_INTERRUPT)
++		mbx->mbx_lock = FM10K_MBX_ACK;
++
++	/* write back interrupt bits to clear */
++	fm10k_write_reg(hw, mbx->mbx_reg,
++			FM10K_MBX_REQ_INTERRUPT | FM10K_MBX_ACK_INTERRUPT);
++
++	/* read remote header */
++	mbx->mbx_hdr = fm10k_read_reg(hw, mbx->mbmem_reg ^ mbx->mbmem_len);
++
++	return 0;
++}
++
++/**
++ *  fm10k_mbx_write - Copies the local message buffer to mbmem
++ *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
++ *
++ *  This function copies the message from the the message array to mbmem
++ **/
++static void fm10k_mbx_write(struct fm10k_hw *hw, struct fm10k_mbx_info *mbx)
++{
++	u32 mbmem = mbx->mbmem_reg;
++
++	/* write new msg header to notify recepient of change */
++	fm10k_write_reg(hw, mbmem, mbx->mbx_hdr);
++
++	/* write mailbox to sent interrupt */
++	if (mbx->mbx_lock)
++		fm10k_write_reg(hw, mbx->mbx_reg, mbx->mbx_lock);
++
++	/* we no longer are using the header so free it */
++	mbx->mbx_hdr = 0;
++	mbx->mbx_lock = 0;
++}
++
++/**
++ *  fm10k_mbx_reset_work- Reset internal pointers for any pending work
++ *  @mbx: pointer to mailbox
++ *
++ *  This function will reset all internal pointers so any work in progress
++ *  is dropped.  This call should occur every time we transition from the
++ *  open state to the connect state.
++ **/
++static void fm10k_mbx_reset_work(struct fm10k_mbx_info *mbx)
++{
++	/* reset our outgoing max size back to Rx limits */
++	mbx->max_size = mbx->rx.size - 1;
++
++	/* just do a quick resysnc to start of message */
++	mbx->pushed = 0;
++	mbx->pulled = 0;
++	mbx->tail_len = 0;
++	mbx->head_len = 0;
++	mbx->rx.tail = 0;
++	mbx->rx.head = 0;
++}
++
++/**
++ *  fm10k_mbx_update_max_size - Update the max_size and drop any large messages
++ *  @mbx: pointer to mailbox
++ *  @size: new value for max_size
++ *
++ *  This function will update the max_size value and drop any outgoing messages
++ *  from the head of the Tx FIFO that are larger than max_size.
++ **/
++static void fm10k_mbx_update_max_size(struct fm10k_mbx_info *mbx, u16 size)
++{
++	u16 len;
++
++	mbx->max_size = size;
++
++	/* flush any oversized messages from the queue */
++	for (len = fm10k_fifo_head_len(&mbx->tx);
++	     len > size;
++	     len = fm10k_fifo_head_len(&mbx->tx)) {
++		fm10k_fifo_head_drop(&mbx->tx);
++		mbx->tx_dropped++;
++	}
++}
++
++/**
++ *  fm10k_mbx_validate_handlers - Validate layout of message parsing data
++ *  @msg_data: handlers for mailbox events
++ *
++ *  This function validates the layout of the message parsing data.  This
++ *  should be mostly static, but it is important to catch any errors that
++ *  are made when constructing the parsers.
++ **/
++static s32 fm10k_mbx_validate_handlers(const struct fm10k_msg_data *msg_data)
++{
++	const struct fm10k_tlv_attr *attr;
++	unsigned int id;
++
++	/* Allow NULL mailboxes that transmit but don't receive */
++	if (!msg_data)
++		return 0;
++
++	while (msg_data->id != FM10K_TLV_ERROR) {
++		/* all messages should have a function handler */
++		if (!msg_data->func)
++			return FM10K_ERR_PARAM;
++
++		/* parser is optional */
++		attr = msg_data->attr;
++		if (attr) {
++			while (attr->id != FM10K_TLV_ERROR) {
++				id = attr->id;
++				attr++;
++				/* ID should always be increasing */
++				if (id >= attr->id)
++					return FM10K_ERR_PARAM;
++				/* ID should fit in results array */
++				if (id >= FM10K_TLV_RESULTS_MAX)
++					return FM10K_ERR_PARAM;
++			}
++
++			/* verify terminator is in the list */
++			if (attr->id != FM10K_TLV_ERROR)
++				return FM10K_ERR_PARAM;
++		}
++
++		id = msg_data->id;
++		msg_data++;
++		/* ID should always be increasing */
++		if (id >= msg_data->id)
++			return FM10K_ERR_PARAM;
++	}
++
++	/* verify terminator is in the list */
++	if ((msg_data->id != FM10K_TLV_ERROR) || !msg_data->func)
++		return FM10K_ERR_PARAM;
++
++	return 0;
++}
++
++/**
++ *  fm10k_mbx_register_handlers - Register a set of handler ops for mailbox
++ *  @mbx: pointer to mailbox
++ *  @msg_data: handlers for mailbox events
++ *
++ *  This function associates a set of message handling ops with a mailbox.
++ **/
++static s32 fm10k_mbx_register_handlers(struct fm10k_mbx_info *mbx,
++				       const struct fm10k_msg_data *msg_data)
++{
++	/* validate layout of handlers before assigning them */
++	if (fm10k_mbx_validate_handlers(msg_data))
++		return FM10K_ERR_PARAM;
++
++	/* initialize the message handlers */
++	mbx->msg_data = msg_data;
++
++	return 0;
++}
++
++/**
++ *  fm10k_sm_mbx_create_data_hdr - Generate a mailbox header for local FIFO
++ *  @mbx: pointer to mailbox
++ *
++ *  This function returns a connection mailbox header
++ **/
++static void fm10k_sm_mbx_create_data_hdr(struct fm10k_mbx_info *mbx)
++{
++	if (mbx->tail_len)
++		mbx->mbx_lock |= FM10K_MBX_REQ;
++
++	mbx->mbx_hdr = FM10K_MSG_HDR_FIELD_SET(mbx->tail, SM_TAIL) |
++		       FM10K_MSG_HDR_FIELD_SET(mbx->remote, SM_VER) |
++		       FM10K_MSG_HDR_FIELD_SET(mbx->head, SM_HEAD);
++}
++
++/**
++ *  fm10k_sm_mbx_create_connect_hdr - Generate a mailbox header for local FIFO
++ *  @mbx: pointer to mailbox
++ *  @err: error flags to report if any
++ *
++ *  This function returns a connection mailbox header
++ **/
++static void fm10k_sm_mbx_create_connect_hdr(struct fm10k_mbx_info *mbx, u8 err)
++{
++	if (mbx->local)
++		mbx->mbx_lock |= FM10K_MBX_REQ;
++
++	mbx->mbx_hdr = FM10K_MSG_HDR_FIELD_SET(mbx->tail, SM_TAIL) |
++		       FM10K_MSG_HDR_FIELD_SET(mbx->remote, SM_VER) |
++		       FM10K_MSG_HDR_FIELD_SET(mbx->head, SM_HEAD) |
++		       FM10K_MSG_HDR_FIELD_SET(err, SM_ERR);
++}
++
++/**
++ *  fm10k_sm_mbx_connect_reset - Reset following request for reset
++ *  @mbx: pointer to mailbox
++ *
++ *  This function resets the mailbox to a just connected state
++ **/
++static void fm10k_sm_mbx_connect_reset(struct fm10k_mbx_info *mbx)
++{
++	/* flush any uncompleted work */
++	fm10k_mbx_reset_work(mbx);
++
++	/* set local version to max and remote version to 0 */
++	mbx->local = FM10K_SM_MBX_VERSION;
++	mbx->remote = 0;
++
++	/* initalize tail and head */
++	mbx->tail = 1;
++	mbx->head = 1;
++
++	/* reset state back to connect */
++	mbx->state = FM10K_STATE_CONNECT;
++}
++
++/**
++ *  fm10k_sm_mbx_connect - Start switch manager mailbox connection
++ *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
++ *
++ *  This function will initiate a mailbox connection with the switch
++ *  manager.  To do this it will first disconnect the mailbox, and then
++ *  reconnect it in order to complete a reset of the mailbox.
++ *
++ *  This function will return an error if the mailbox has not been initiated
++ *  or is currently in use.
++ **/
++static s32 fm10k_sm_mbx_connect(struct fm10k_hw *hw, struct fm10k_mbx_info *mbx)
++{
++	/* we cannot connect an uninitialized mailbox */
++	if (!mbx->rx.buffer)
++		return FM10K_MBX_ERR_NO_SPACE;
++
++	/* we cannot connect an already connected mailbox */
++	if (mbx->state != FM10K_STATE_CLOSED)
++		return FM10K_MBX_ERR_BUSY;
++
++	/* mailbox timeout can now become active */
++	mbx->timeout = FM10K_MBX_INIT_TIMEOUT;
++
++	/* Place mbx in ready to connect state */
++	mbx->state = FM10K_STATE_CONNECT;
++	mbx->max_size = FM10K_MBX_MSG_MAX_SIZE;
++
++	/* reset interface back to connect */
++	fm10k_sm_mbx_connect_reset(mbx);
++
++	/* enable interrupt and notify other party of new message */
++	mbx->mbx_lock = FM10K_MBX_REQ_INTERRUPT | FM10K_MBX_ACK_INTERRUPT |
++			FM10K_MBX_INTERRUPT_ENABLE;
++
++	/* generate and load connect header into mailbox */
++	fm10k_sm_mbx_create_connect_hdr(mbx, 0);
++	fm10k_mbx_write(hw, mbx);
++
++	/* enable interrupt and notify other party of new message */
++
++	return 0;
++}
++
++/**
++ *  fm10k_sm_mbx_disconnect - Shutdown mailbox connection
++ *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
++ *
++ *  This function will shut down the mailbox.  It places the mailbox first
++ *  in the disconnect state, it then allows up to a predefined timeout for
++ *  the mailbox to transition to close on its own.  If this does not occur
++ *  then the mailbox will be forced into the closed state.
++ *
++ *  Any mailbox transactions not completed before calling this function
++ *  are not guaranteed to complete and may be dropped.
++ **/
++static void fm10k_sm_mbx_disconnect(struct fm10k_hw *hw,
++				    struct fm10k_mbx_info *mbx)
++{
++	int timeout = mbx->timeout ? FM10K_MBX_DISCONNECT_TIMEOUT : 0;
++
++	/* Place mbx in ready to disconnect state */
++	mbx->state = FM10K_STATE_DISCONNECT;
++
++	/* trigger interrupt to start shutdown process */
++	fm10k_write_reg(hw, mbx->mbx_reg, FM10K_MBX_REQ |
++					  FM10K_MBX_INTERRUPT_DISABLE);
++	do {
++		udelay(FM10K_MBX_POLL_DELAY);
++		mbx->ops.process(hw, mbx);
++		timeout -= FM10K_MBX_POLL_DELAY;
++	} while ((timeout > 0) && (mbx->state != FM10K_STATE_CLOSED));
++
++	/* in case we didn't close just force the mailbox into shutdown */
++	mbx->state = FM10K_STATE_CLOSED;
++	mbx->remote = 0;
++	fm10k_mbx_reset_work(mbx);
++	fm10k_mbx_update_max_size(mbx, 0);
++
++	fm10k_write_reg(hw, mbx->mbmem_reg, 0);
++}
++
++/**
++ *  fm10k_mbx_validate_fifo_hdr - Validate fields in the remote FIFO header
++ *  @mbx: pointer to mailbox
++ *
++ *  This function will parse up the fields in the mailbox header and return
++ *  an error if the header contains any of a number of invalid configurations
++ *  including unrecognized offsets or version numbers.
++ **/
++static s32 fm10k_sm_mbx_validate_fifo_hdr(struct fm10k_mbx_info *mbx)
++{
++	const u32 *hdr = &mbx->mbx_hdr;
++	u16 tail, head, ver;
++
++	tail = FM10K_MSG_HDR_FIELD_GET(*hdr, SM_TAIL);
++	ver = FM10K_MSG_HDR_FIELD_GET(*hdr, SM_VER);
++	head = FM10K_MSG_HDR_FIELD_GET(*hdr, SM_HEAD);
++
++	switch (ver) {
++	case 0:
++		break;
++	case FM10K_SM_MBX_VERSION:
++		if (!head || head > FM10K_SM_MBX_FIFO_LEN)
++			return FM10K_MBX_ERR_HEAD;
++		if (!tail || tail > FM10K_SM_MBX_FIFO_LEN)
++			return FM10K_MBX_ERR_TAIL;
++		if (mbx->tail < head)
++			head += mbx->mbmem_len - 1;
++		if (tail < mbx->head)
++			tail += mbx->mbmem_len - 1;
++		if (fm10k_mbx_index_len(mbx, head, mbx->tail) > mbx->tail_len)
++			return FM10K_MBX_ERR_HEAD;
++		if (fm10k_mbx_index_len(mbx, mbx->head, tail) < mbx->mbmem_len)
++			break;
++		return FM10K_MBX_ERR_TAIL;
++	default:
++		return FM10K_MBX_ERR_SRC;
++	}
++
++	return 0;
++}
++
++/**
++ *  fm10k_sm_mbx_process_error - Process header with error flag set
++ *  @mbx: pointer to mailbox
++ *
++ *  This function is meant to respond to a request where the error flag
++ *  is set.  As a result we will terminate a connection if one is present
++ *  and fall back into the reset state with a connection header of version
++ *  0 (RESET).
++ **/
++static void fm10k_sm_mbx_process_error(struct fm10k_mbx_info *mbx)
++{
++	const enum fm10k_mbx_state state = mbx->state;
++
++	switch (state) {
++	case FM10K_STATE_DISCONNECT:
++		/* if there is an error just disconnect */
++		mbx->remote = 0;
++		break;
++	case FM10K_STATE_OPEN:
++		/* flush any uncompleted work */
++		fm10k_sm_mbx_connect_reset(mbx);
++		break;
++	case FM10K_STATE_CONNECT:
++		/* try connnecting at lower version */
++		if (mbx->remote) {
++			while (mbx->local > 1)
++				mbx->local--;
++			mbx->remote = 0;
++		}
++		break;
++	default:
++		break;
++	}
++
++	fm10k_sm_mbx_create_connect_hdr(mbx, 0);
++}
++
++/**
++ *  fm10k_sm_mbx_create_error_message - Process an error in FIFO hdr
++ *  @mbx: pointer to mailbox
++ *  @err: local error encountered
++ *
++ *  This function will interpret the error provided by err, and based on
++ *  that it may set the error bit in the local message header
++ **/
++static void fm10k_sm_mbx_create_error_msg(struct fm10k_mbx_info *mbx, s32 err)
++{
++	/* only generate an error message for these types */
++	switch (err) {
++	case FM10K_MBX_ERR_TAIL:
++	case FM10K_MBX_ERR_HEAD:
++	case FM10K_MBX_ERR_SRC:
++	case FM10K_MBX_ERR_SIZE:
++	case FM10K_MBX_ERR_RSVD0:
++		break;
++	default:
++		return;
++	}
++
++	/* process it as though we received an error, and send error reply */
++	fm10k_sm_mbx_process_error(mbx);
++	fm10k_sm_mbx_create_connect_hdr(mbx, 1);
++}
++
++/**
++ *  fm10k_sm_mbx_receive - Take message from Rx mailbox FIFO and put it in Rx
++ *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
++ *
++ *  This function will dequeue one message from the Rx switch manager mailbox
++ *  FIFO and place it in the Rx mailbox FIFO for processing by software.
++ **/
++static s32 fm10k_sm_mbx_receive(struct fm10k_hw *hw,
++				struct fm10k_mbx_info *mbx,
++				u16 tail)
++{
++	/* reduce length by 1 to convert to a mask */
++	u16 mbmem_len = mbx->mbmem_len - 1;
++	s32 err;
++
++	/* push tail in front of head */
++	if (tail < mbx->head)
++		tail += mbmem_len;
++
++	/* copy data to the Rx FIFO */
++	err = fm10k_mbx_push_tail(hw, mbx, tail);
++	if (err < 0)
 +		return err;
 +
-+	/* Verify that DMA is no longer active */
-+	reg = fm10k_read_reg(hw, FM10K_DMA_CTRL);
-+	if (reg & (FM10K_DMA_CTRL_TX_ACTIVE | FM10K_DMA_CTRL_RX_ACTIVE))
-+		return FM10K_ERR_DMA_PENDING;
++	/* process messages if we have received any */
++	fm10k_mbx_dequeue_rx(hw, mbx);
 +
-+	/* Inititate data path reset */
-+	reg |= FM10K_DMA_CTRL_DATAPATH_RESET;
-+	fm10k_write_reg(hw, FM10K_DMA_CTRL, reg);
++	/* guarantee head aligns with the end of the last message */
++	mbx->head = fm10k_mbx_head_sub(mbx, mbx->pushed);
++	mbx->pushed = 0;
 +
-+	/* Flush write and allow 100us for reset to complete */
-+	fm10k_write_flush(hw);
-+	udelay(FM10K_RESET_TIMEOUT);
-+
-+	/* Verify we made it out of reset */
-+	reg = fm10k_read_reg(hw, FM10K_IP);
-+	if (!(reg & FM10K_IP_NOTINRESET))
-+		err = FM10K_ERR_RESET_FAILED;
++	/* clear any extra bits left over since index adds 1 extra bit */
++	if (mbx->head > mbmem_len)
++		mbx->head -= mbmem_len;
 +
 +	return err;
 +}
 +
 +/**
-+ *  fm10k_init_hw_pf - PF hardware initialization
++ *  fm10k_sm_mbx_transmit - Take message from Tx and put it in Tx mailbox FIFO
 + *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
 + *
++ *  This function will dequeue one message from the Tx mailbox FIFO and place
++ *  it in the Tx switch manager mailbox FIFO for processing by hardware.
 + **/
-+static s32 fm10k_init_hw_pf(struct fm10k_hw *hw)
++static void fm10k_sm_mbx_transmit(struct fm10k_hw *hw,
++				  struct fm10k_mbx_info *mbx, u16 head)
 +{
-+	u32 dma_ctrl, txqctl;
-+	u16 i;
++	struct fm10k_mbx_fifo *fifo = &mbx->tx;
++	/* reduce length by 1 to convert to a mask */
++	u16 mbmem_len = mbx->mbmem_len - 1;
++	u16 tail_len, len = 0;
++	u32 *msg;
 +
-+	/* Establish default VSI as valid */
-+	fm10k_write_reg(hw, FM10K_DGLORTDEC(fm10k_dglort_default), 0);
-+	fm10k_write_reg(hw, FM10K_DGLORTMAP(fm10k_dglort_default),
-+			FM10K_DGLORTMAP_ANY);
++	/* push head behind tail */
++	if (mbx->tail < head)
++		head += mbmem_len;
 +
-+	/* Invalidate all other GLORT entries */
-+	for (i = 1; i < FM10K_DGLORT_COUNT; i++)
-+		fm10k_write_reg(hw, FM10K_DGLORTMAP(i), FM10K_DGLORTMAP_NONE);
++	fm10k_mbx_pull_head(hw, mbx, head);
 +
-+	/* reset ITR2(0) to point to itself */
-+	fm10k_write_reg(hw, FM10K_ITR2(0), 0);
-+
-+	/* reset VF ITR2(0) to point to 0 avoid PF registers */
-+	fm10k_write_reg(hw, FM10K_ITR2(FM10K_ITR_REG_COUNT_PF), 0);
-+
-+	/* loop through all PF ITR2 registers pointing them to the previous */
-+	for (i = 1; i < FM10K_ITR_REG_COUNT_PF; i++)
-+		fm10k_write_reg(hw, FM10K_ITR2(i), i - 1);
-+
-+	/* Enable interrupt moderator if not already enabled */
-+	fm10k_write_reg(hw, FM10K_INT_CTRL, FM10K_INT_CTRL_ENABLEMODERATOR);
-+
-+	/* compute the default txqctl configuration */
-+	txqctl = FM10K_TXQCTL_PF | FM10K_TXQCTL_UNLIMITED_BW |
-+		 (hw->mac.default_vid << FM10K_TXQCTL_VID_SHIFT);
-+
-+	for (i = 0; i < FM10K_MAX_QUEUES; i++) {
-+		/* configure rings for 256 Queue / 32 Descriptor cache mode */
-+		fm10k_write_reg(hw, FM10K_TQDLOC(i),
-+				(i * FM10K_TQDLOC_BASE_32_DESC) |
-+				FM10K_TQDLOC_SIZE_32_DESC);
-+		fm10k_write_reg(hw, FM10K_TXQCTL(i), txqctl);
-+
-+		/* configure rings to provide TPH processing hints */
-+		fm10k_write_reg(hw, FM10K_TPH_TXCTRL(i),
-+				FM10K_TPH_TXCTRL_DESC_TPHEN |
-+				FM10K_TPH_TXCTRL_DESC_RROEN |
-+				FM10K_TPH_TXCTRL_DESC_WROEN |
-+				FM10K_TPH_TXCTRL_DATA_RROEN);
-+		fm10k_write_reg(hw, FM10K_TPH_RXCTRL(i),
-+				FM10K_TPH_RXCTRL_DESC_TPHEN |
-+				FM10K_TPH_RXCTRL_DESC_RROEN |
-+				FM10K_TPH_RXCTRL_DATA_WROEN |
-+				FM10K_TPH_RXCTRL_HDR_WROEN);
-+	}
-+
-+	/* set max hold interval to align with 1.024 usec in all modes */
-+	switch (hw->bus.speed) {
-+	case fm10k_bus_speed_2500:
-+		dma_ctrl = FM10K_DMA_CTRL_MAX_HOLD_1US_GEN1;
-+		break;
-+	case fm10k_bus_speed_5000:
-+		dma_ctrl = FM10K_DMA_CTRL_MAX_HOLD_1US_GEN2;
-+		break;
-+	case fm10k_bus_speed_8000:
-+		dma_ctrl = FM10K_DMA_CTRL_MAX_HOLD_1US_GEN3;
-+		break;
-+	default:
-+		dma_ctrl = 0;
-+		break;
-+	}
-+
-+	/* Configure TSO flags */
-+	fm10k_write_reg(hw, FM10K_DTXTCPFLGL, FM10K_TSO_FLAGS_LOW);
-+	fm10k_write_reg(hw, FM10K_DTXTCPFLGH, FM10K_TSO_FLAGS_HI);
-+
-+	/* Enable DMA engine
-+	 * Set Rx Descriptor size to 32
-+	 * Set Minimum MSS to 64
-+	 * Set Maximum number of Rx queues to 256 / 32 Descriptor
-+	 */
-+	dma_ctrl |= FM10K_DMA_CTRL_TX_ENABLE | FM10K_DMA_CTRL_RX_ENABLE |
-+		    FM10K_DMA_CTRL_RX_DESC_SIZE | FM10K_DMA_CTRL_MINMSS_64 |
-+		    FM10K_DMA_CTRL_32_DESC;
-+
-+	fm10k_write_reg(hw, FM10K_DMA_CTRL, dma_ctrl);
-+
-+	/* record maximum queue count, we limit ourselves to 128 */
-+	hw->mac.max_queues = FM10K_MAX_QUEUES_PF;
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_is_slot_appropriate_pf - Indicate appropriate slot for this SKU
-+ *  @hw: pointer to hardware structure
-+ *
-+ *  Looks at the PCIe bus info to confirm whether or not this slot can support
-+ *  the necessary bandwidth for this device.
-+ **/
-+static bool fm10k_is_slot_appropriate_pf(struct fm10k_hw *hw)
-+{
-+	return (hw->bus.speed == hw->bus_caps.speed) &&
-+	       (hw->bus.width == hw->bus_caps.width);
-+}
-+
-+/**
-+ *  fm10k_read_mac_addr_pf - Read device MAC address
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  Reads the device MAC address from the SM_AREA and stores the value.
-+ **/
-+static s32 fm10k_read_mac_addr_pf(struct fm10k_hw *hw)
-+{
-+	u8 perm_addr[ETH_ALEN];
-+	u32 serial_num;
-+	int i;
-+
-+	serial_num = fm10k_read_reg(hw, FM10K_SM_AREA(1));
-+
-+	/* last byte should be all 1's */
-+	if ((~serial_num) << 24)
-+		return  FM10K_ERR_INVALID_MAC_ADDR;
-+
-+	perm_addr[0] = (u8)(serial_num >> 24);
-+	perm_addr[1] = (u8)(serial_num >> 16);
-+	perm_addr[2] = (u8)(serial_num >> 8);
-+
-+	serial_num = fm10k_read_reg(hw, FM10K_SM_AREA(0));
-+
-+	/* first byte should be all 1's */
-+	if ((~serial_num) >> 24)
-+		return  FM10K_ERR_INVALID_MAC_ADDR;
-+
-+	perm_addr[3] = (u8)(serial_num >> 16);
-+	perm_addr[4] = (u8)(serial_num >> 8);
-+	perm_addr[5] = (u8)(serial_num);
-+
-+	for (i = 0; i < ETH_ALEN; i++) {
-+		hw->mac.perm_addr[i] = perm_addr[i];
-+		hw->mac.addr[i] = perm_addr[i];
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_update_stats_hw_pf - Updates hardware related statistics of PF
-+ *  @hw: pointer to hardware structure
-+ *  @stats: pointer to the stats structure to update
-+ *
-+ *  This function collects and aggregates global and per queue hardware
-+ *  statistics.
-+ **/
-+static void fm10k_update_hw_stats_pf(struct fm10k_hw *hw,
-+				     struct fm10k_hw_stats *stats)
-+{
-+	u32 timeout, ur, ca, um, xec, vlan_drop, loopback_drop, nodesc_drop;
-+	u32 id, id_prev;
-+
-+	/* Use Tx queue 0 as a canary to detect a reset */
-+	id = fm10k_read_reg(hw, FM10K_TXQCTL(0));
-+
-+	/* Read Global Statistics */
++	/* determine msg aligned offset for end of buffer */
 +	do {
-+		timeout = fm10k_read_hw_stats_32b(hw, FM10K_STATS_TIMEOUT,
-+						  &stats->timeout);
-+		ur = fm10k_read_hw_stats_32b(hw, FM10K_STATS_UR, &stats->ur);
-+		ca = fm10k_read_hw_stats_32b(hw, FM10K_STATS_CA, &stats->ca);
-+		um = fm10k_read_hw_stats_32b(hw, FM10K_STATS_UM, &stats->um);
-+		xec = fm10k_read_hw_stats_32b(hw, FM10K_STATS_XEC, &stats->xec);
-+		vlan_drop = fm10k_read_hw_stats_32b(hw, FM10K_STATS_VLAN_DROP,
-+						    &stats->vlan_drop);
-+		loopback_drop = fm10k_read_hw_stats_32b(hw,
-+							FM10K_STATS_LOOPBACK_DROP,
-+						     &stats->loopback_drop);
-+		nodesc_drop = fm10k_read_hw_stats_32b(hw,
-+						      FM10K_STATS_NODESC_DROP,
-+						      &stats->nodesc_drop);
++		msg = fifo->buffer + fm10k_fifo_head_offset(fifo, len);
++		tail_len = len;
++		len += FM10K_TLV_DWORD_LEN(*msg);
++	} while ((len <= mbx->tail_len) && (len < mbmem_len));
 +
-+		/* if value has not changed then we have consistent data */
-+		id_prev = id;
-+		id = fm10k_read_reg(hw, FM10K_TXQCTL(0));
-+	} while ((id ^ id_prev) & FM10K_TXQCTL_ID_MASK);
-+
-+	/* drop non-ID bits and set VALID ID bit */
-+	id &= FM10K_TXQCTL_ID_MASK;
-+	id |= FM10K_STAT_VALID;
-+
-+	/* Update Global Statistics */
-+	if (stats->stats_idx == id) {
-+		stats->timeout.count += timeout;
-+		stats->ur.count += ur;
-+		stats->ca.count += ca;
-+		stats->um.count += um;
-+		stats->xec.count += xec;
-+		stats->vlan_drop.count += vlan_drop;
-+		stats->loopback_drop.count += loopback_drop;
-+		stats->nodesc_drop.count += nodesc_drop;
++	/* guarantee we stop on a message boundary */
++	if (mbx->tail_len > tail_len) {
++		mbx->tail = fm10k_mbx_tail_sub(mbx, mbx->tail_len - tail_len);
++		mbx->tail_len = tail_len;
 +	}
 +
-+	/* Update bases and record current PF id */
-+	fm10k_update_hw_base_32b(&stats->timeout, timeout);
-+	fm10k_update_hw_base_32b(&stats->ur, ur);
-+	fm10k_update_hw_base_32b(&stats->ca, ca);
-+	fm10k_update_hw_base_32b(&stats->um, um);
-+	fm10k_update_hw_base_32b(&stats->xec, xec);
-+	fm10k_update_hw_base_32b(&stats->vlan_drop, vlan_drop);
-+	fm10k_update_hw_base_32b(&stats->loopback_drop, loopback_drop);
-+	fm10k_update_hw_base_32b(&stats->nodesc_drop, nodesc_drop);
-+	stats->stats_idx = id;
-+
-+	/* Update Queue Statistics */
-+	fm10k_update_hw_stats_q(hw, stats->q, 0, hw->mac.max_queues);
++	/* clear any extra bits left over since index adds 1 extra bit */
++	if (mbx->tail > mbmem_len)
++		mbx->tail -= mbmem_len;
 +}
 +
 +/**
-+ *  fm10k_rebind_hw_stats_pf - Resets base for hardware statistics of PF
-+ *  @hw: pointer to hardware structure
-+ *  @stats: pointer to the stats structure to update
++ *  fm10k_sm_mbx_create_reply - Generate reply based on state and remote head
++ *  @mbx: pointer to mailbox
++ *  @head: acknowledgement number
 + *
-+ *  This function resets the base for global and per queue hardware
-+ *  statistics.
++ *  This function will generate an outgoing message based on the current
++ *  mailbox state and the remote fifo head.  It will return the length
++ *  of the outgoing message excluding header on success, and a negative value
++ *  on error.
 + **/
-+static void fm10k_rebind_hw_stats_pf(struct fm10k_hw *hw,
-+				     struct fm10k_hw_stats *stats)
++static void fm10k_sm_mbx_create_reply(struct fm10k_hw *hw,
++				      struct fm10k_mbx_info *mbx, u16 head)
 +{
-+	/* Unbind Global Statistics */
-+	fm10k_unbind_hw_stats_32b(&stats->timeout);
-+	fm10k_unbind_hw_stats_32b(&stats->ur);
-+	fm10k_unbind_hw_stats_32b(&stats->ca);
-+	fm10k_unbind_hw_stats_32b(&stats->um);
-+	fm10k_unbind_hw_stats_32b(&stats->xec);
-+	fm10k_unbind_hw_stats_32b(&stats->vlan_drop);
-+	fm10k_unbind_hw_stats_32b(&stats->loopback_drop);
-+	fm10k_unbind_hw_stats_32b(&stats->nodesc_drop);
++	switch (mbx->state) {
++	case FM10K_STATE_OPEN:
++	case FM10K_STATE_DISCONNECT:
++		/* flush out Tx data */
++		fm10k_sm_mbx_transmit(hw, mbx, head);
 +
-+	/* Unbind Queue Statistics */
-+	fm10k_unbind_hw_stats_q(stats->q, 0, hw->mac.max_queues);
-+
-+	/* Reinitialize bases for all stats */
-+	fm10k_update_hw_stats_pf(hw, stats);
-+}
-+
-+/**
-+ *  fm10k_get_fault_pf - Record a fault in one of the interface units
-+ *  @hw: pointer to hardware structure
-+ *  @type: pointer to fault type register offset
-+ *  @fault: pointer to memory location to record the fault
-+ *
-+ *  Record the fault register contents to the fault data structure and
-+ *  clear the entry from the register.
-+ *
-+ *  Returns ERR_PARAM if invalid register is specified or no error is present.
-+ **/
-+static s32 fm10k_get_fault_pf(struct fm10k_hw *hw, int type,
-+			      struct fm10k_fault *fault)
-+{
-+	u32 func;
-+
-+	/* verify the fault register is in range and is aligned */
-+	switch (type) {
-+	case FM10K_PCA_FAULT:
-+	case FM10K_THI_FAULT:
-+	case FM10K_FUM_FAULT:
++		/* generate new header based on data */
++		if (mbx->tail_len || (mbx->state == FM10K_STATE_OPEN)) {
++			fm10k_sm_mbx_create_data_hdr(mbx);
++		} else {
++			mbx->remote = 0;
++			fm10k_sm_mbx_create_connect_hdr(mbx, 0);
++		}
++		break;
++	case FM10K_STATE_CONNECT:
++	case FM10K_STATE_CLOSED:
++		fm10k_sm_mbx_create_connect_hdr(mbx, 0);
 +		break;
 +	default:
-+		return FM10K_ERR_PARAM;
++		break;
++	}
++}
++
++/**
++ *  fm10k_sm_mbx_process_reset - Process header with version == 0 (RESET)
++ *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
++ *
++ *  This function is meant to respond to a request where the version data
++ *  is set to 0.  As such we will either terminate the connection or go
++ *  into the connect state in order to re-establish the connection.  This
++ *  function can also be used to respond to an error as the connection
++ *  resetting would also be a means of dealing with errors.
++ **/
++static void fm10k_sm_mbx_process_reset(struct fm10k_hw *hw,
++				       struct fm10k_mbx_info *mbx)
++{
++	const enum fm10k_mbx_state state = mbx->state;
++
++	switch (state) {
++	case FM10K_STATE_DISCONNECT:
++		/* drop remote connections and disconnect */
++		mbx->state = FM10K_STATE_CLOSED;
++		mbx->remote = 0;
++		mbx->local = 0;
++		break;
++	case FM10K_STATE_OPEN:
++		/* flush any incomplete work */
++		fm10k_sm_mbx_connect_reset(mbx);
++		break;
++	case FM10K_STATE_CONNECT:
++		/* Update remote value to match local value */
++		mbx->remote = mbx->local;
++	default:
++		break;
 +	}
 +
-+	/* only service faults that are valid */
-+	func = fm10k_read_reg(hw, type + FM10K_FAULT_FUNC);
-+	if (!(func & FM10K_FAULT_FUNC_VALID))
-+		return FM10K_ERR_PARAM;
++	fm10k_sm_mbx_create_reply(hw, mbx, mbx->tail);
++}
 +
-+	/* read remaining fields */
-+	fault->address = fm10k_read_reg(hw, type + FM10K_FAULT_ADDR_HI);
-+	fault->address <<= 32;
-+	fault->address = fm10k_read_reg(hw, type + FM10K_FAULT_ADDR_LO);
-+	fault->specinfo = fm10k_read_reg(hw, type + FM10K_FAULT_SPECINFO);
++/**
++ *  fm10k_sm_mbx_process_version_1 - Process header with version == 1
++ *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
++ *
++ *  This function is meant to process messages received when the remote
++ *  mailbox is active.
++ **/
++static s32 fm10k_sm_mbx_process_version_1(struct fm10k_hw *hw,
++					  struct fm10k_mbx_info *mbx)
++{
++	const u32 *hdr = &mbx->mbx_hdr;
++	u16 head, tail;
++	s32 len;
 +
-+	/* clear valid bit to allow for next error */
-+	fm10k_write_reg(hw, type + FM10K_FAULT_FUNC, FM10K_FAULT_FUNC_VALID);
++	/* pull all fields needed for verification */
++	tail = FM10K_MSG_HDR_FIELD_GET(*hdr, SM_TAIL);
++	head = FM10K_MSG_HDR_FIELD_GET(*hdr, SM_HEAD);
 +
-+	/* Record which function triggered the error */
-+	if (func & FM10K_FAULT_FUNC_PF)
-+		fault->func = 0;
-+	else
-+		fault->func = 1 + ((func & FM10K_FAULT_FUNC_VF_MASK) >>
-+				   FM10K_FAULT_FUNC_VF_SHIFT);
++	/* if we are in connect and wanting version 1 then start up and go */
++	if (mbx->state == FM10K_STATE_CONNECT) {
++		if (!mbx->remote)
++			goto send_reply;
++		if (mbx->remote != 1)
++			return FM10K_MBX_ERR_SRC;
 +
-+	/* record fault type */
-+	fault->type = func & FM10K_FAULT_FUNC_TYPE_MASK;
++		mbx->state = FM10K_STATE_OPEN;
++	}
++
++	do {
++		/* abort on message size errors */
++		len = fm10k_sm_mbx_receive(hw, mbx, tail);
++		if (len < 0)
++			return len;
++
++		/* continue until we have flushed the Rx FIFO */
++	} while (len);
++
++send_reply:
++	fm10k_sm_mbx_create_reply(hw, mbx, head);
 +
 +	return 0;
 +}
 +
-+static struct fm10k_mac_ops mac_ops_pf = {
-+	.get_bus_info		= &fm10k_get_bus_info_generic,
-+	.reset_hw		= &fm10k_reset_hw_pf,
-+	.init_hw		= &fm10k_init_hw_pf,
-+	.start_hw		= &fm10k_start_hw_generic,
-+	.stop_hw		= &fm10k_stop_hw_generic,
-+	.is_slot_appropriate	= &fm10k_is_slot_appropriate_pf,
-+	.read_mac_addr		= &fm10k_read_mac_addr_pf,
-+	.update_hw_stats	= &fm10k_update_hw_stats_pf,
-+	.rebind_hw_stats	= &fm10k_rebind_hw_stats_pf,
-+	.get_fault		= &fm10k_get_fault_pf,
-+	.get_host_state		= &fm10k_get_host_state_generic,
-+};
-+
-+struct fm10k_info fm10k_pf_info = {
-+	.mac		= fm10k_mac_pf,
-+	.get_invariants	= &fm10k_get_invariants_generic,
-+	.mac_ops	= &mac_ops_pf,
-+};
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
-new file mode 100644
-index 0000000..054392f
---- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
-@@ -0,0 +1,28 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
++/**
++ *  fm10k_sm_mbx_process - Process mailbox switch mailbox interrupt
++ *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
 + *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ */
++ *  This function will process incoming mailbox events and generate mailbox
++ *  replies.  It will return a value indicating the number of DWORDs
++ *  transmitted excluding header on success or a negative value on error.
++ **/
++static s32 fm10k_sm_mbx_process(struct fm10k_hw *hw,
++				struct fm10k_mbx_info *mbx)
++{
++	s32 err;
 +
-+#ifndef _FM10K_PF_H_
-+#define _FM10K_PF_H_
++	/* we do not read mailbox if closed */
++	if (mbx->state == FM10K_STATE_CLOSED)
++		return 0;
 +
-+#include "fm10k_type.h"
-+#include "fm10k_common.h"
++	/* retrieve data from switch manager */
++	err = fm10k_mbx_read(hw, mbx);
++	if (err)
++		return err;
 +
-+extern struct fm10k_info fm10k_pf_info;
-+#endif /* _FM10K_PF_H */
++	err = fm10k_sm_mbx_validate_fifo_hdr(mbx);
++	if (err < 0)
++		goto fifo_err;
++
++	if (FM10K_MSG_HDR_FIELD_GET(mbx->mbx_hdr, SM_ERR)) {
++		fm10k_sm_mbx_process_error(mbx);
++		goto fifo_err;
++	}
++
++	switch (FM10K_MSG_HDR_FIELD_GET(mbx->mbx_hdr, SM_VER)) {
++	case 0:
++		fm10k_sm_mbx_process_reset(hw, mbx);
++		break;
++	case FM10K_SM_MBX_VERSION:
++		err = fm10k_sm_mbx_process_version_1(hw, mbx);
++		break;
++	}
++
++fifo_err:
++	if (err < 0)
++		fm10k_sm_mbx_create_error_msg(mbx, err);
++
++	/* report data to switch manager */
++	fm10k_mbx_write(hw, mbx);
++
++	return err;
++}
++
++/**
++ *  fm10k_sm_mbx_init - Initialize mailbox memory for PF/SM mailbox
++ *  @hw: pointer to hardware structure
++ *  @mbx: pointer to mailbox
++ *  @msg_data: handlers for mailbox events
++ *
++ *  This function for now is used to stub out the PF/SM mailbox
++ **/
++s32 fm10k_sm_mbx_init(struct fm10k_hw *hw, struct fm10k_mbx_info *mbx,
++		      const struct fm10k_msg_data *msg_data)
++{
++	mbx->mbx_reg = FM10K_GMBX;
++	mbx->mbmem_reg = FM10K_MBMEM_PF(0);
++	/* start out in closed state */
++	mbx->state = FM10K_STATE_CLOSED;
++
++	/* validate layout of handlers before assigning them */
++	if (fm10k_mbx_validate_handlers(msg_data))
++		return FM10K_ERR_PARAM;
++
++	/* initialize the message handlers */
++	mbx->msg_data = msg_data;
++
++	/* start mailbox as timed out and let the reset_hw call
++	 * set the timeout value to begin communications
++	 */
++	mbx->timeout = 0;
++	mbx->udelay = FM10K_MBX_INIT_DELAY;
++
++	/* Split buffer for use by Tx/Rx FIFOs */
++	mbx->max_size = FM10K_MBX_MSG_MAX_SIZE;
++	mbx->mbmem_len = FM10K_MBMEM_PF_XOR;
++
++	/* initialize the FIFOs, sizes are in 4 byte increments */
++	fm10k_fifo_init(&mbx->tx, mbx->buffer, FM10K_MBX_TX_BUFFER_SIZE);
++	fm10k_fifo_init(&mbx->rx, &mbx->buffer[FM10K_MBX_TX_BUFFER_SIZE],
++			FM10K_MBX_RX_BUFFER_SIZE);
++
++	/* initialize function pointers */
++	mbx->ops.connect = fm10k_sm_mbx_connect;
++	mbx->ops.disconnect = fm10k_sm_mbx_disconnect;
++	mbx->ops.rx_ready = fm10k_mbx_rx_ready;
++	mbx->ops.tx_ready = fm10k_mbx_tx_ready;
++	mbx->ops.tx_complete = fm10k_mbx_tx_complete;
++	mbx->ops.enqueue_tx = fm10k_mbx_enqueue_tx;
++	mbx->ops.process = fm10k_sm_mbx_process;
++	mbx->ops.register_handlers = fm10k_mbx_register_handlers;
++
++	return 0;
++}
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
+index ee2f712..f5ba86f 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
+@@ -135,7 +135,6 @@ enum fm10k_mbx_state {
+ /* version number for switch manager mailboxes */
+ #define FM10K_SM_MBX_VERSION		1
+ #define FM10K_SM_MBX_FIFO_LEN		(FM10K_MBMEM_PF_XOR - 1)
+-#define FM10K_SM_MBX_FIFO_HDR_LEN	1
+ 
+ /* offsets shared between all SM FIFO headers */
+ #define FM10K_MSG_SM_TAIL_SHIFT			0
+@@ -238,4 +237,7 @@ struct fm10k_mbx_info {
+ 	u32 buffer[FM10K_MBX_BUFFER_SIZE];
+ };
+ 
++s32 fm10k_sm_mbx_init(struct fm10k_hw *, struct fm10k_mbx_info *,
++		      const struct fm10k_msg_data *);
++
+ #endif /* _FM10K_MBX_H_ */
