@@ -1,67 +1,95 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net v2 2/2] openvswitch: restore OVS_FLOW_CMD_NEW notifications
-Date: Thu, 18 Sep 2014 10:31:04 +0200
-Message-ID: <1411029064-15376-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <CALnjE+qqv66Zkh==bJAxBSUEkh8H-9YMnox1yF+4_BwetqERmg@mail.gmail.com>
- <1411029064-15376-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, dev@openvswitch.org, netdev@vger.kernel.org,
-	Samuel Gauthier <samuel.gauthier@6wind.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: pshelar@nicira.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: ipsec: Remove obsolete MAX_AH_AUTH_LEN
+Date: Thu, 18 Sep 2014 16:38:18 +0800
+Message-ID: <20140918083818.GA13056@gondor.apana.org.au>
+References: <20140917045828.GA32086@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:36090 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755123AbaIRIbR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 04:31:17 -0400
-In-Reply-To: <1411029064-15376-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from helcar.apana.org.au ([209.40.204.226]:56553 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751668AbaIRIid (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 04:38:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20140917045828.GA32086@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Samuel Gauthier <samuel.gauthier@6wind.com>
+Oops, should've sent this to Steffen:
 
-Since commit fb5d1e9e127a ("openvswitch: Build flow cmd netlink reply only if needed."),
-the new flows are not notified to the listeners of OVS_FLOW_MCGROUP.
+While tracking down the MAX_AH_AUTH_LEN crash in an old kernel
+I thought that this limit was rather arbitrary and we should
+just get rid of it.
 
-This commit fixes the problem by using the genl function, ie
-genl_has_listerners() instead of netlink_has_listeners().
+In fact it seems that we've already done all the work needed
+to remove it apart from actually removing it.  This limit was
+there in order to limit stack usage.  Since we've already
+switched over to allocating scratch space using kmalloc, there
+is no longer any need to limit the authentication length.
 
-Signed-off-by: Samuel Gauthier <samuel.gauthier@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
+This patch kills all references to it, including the BUG_ONs
+that led me here.
 
-v2: add patch 1/2
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
- net/openvswitch/datapath.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 91d66b7e64ac..64dc864a417f 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -78,11 +78,12 @@ static const struct genl_multicast_group ovs_dp_vport_multicast_group = {
+diff --git a/include/net/ah.h b/include/net/ah.h
+index ca95b98..4e2dfa4 100644
+--- a/include/net/ah.h
++++ b/include/net/ah.h
+@@ -3,9 +3,6 @@
  
- /* Check if need to build a reply message.
-  * OVS userspace sets the NLM_F_ECHO flag if it needs the reply. */
--static bool ovs_must_notify(struct genl_info *info,
--			    const struct genl_multicast_group *grp)
-+static bool ovs_must_notify(struct genl_family *family, struct genl_info *info,
-+			    unsigned int group)
- {
- 	return info->nlhdr->nlmsg_flags & NLM_F_ECHO ||
--		netlink_has_listeners(genl_info_net(info)->genl_sock, 0);
-+	       genl_has_listeners(family, genl_info_net(info)->genl_sock,
-+				  group);
- }
+ #include <linux/skbuff.h>
  
- static void ovs_notify(struct genl_family *family,
-@@ -763,7 +764,7 @@ static struct sk_buff *ovs_flow_cmd_alloc_info(const struct sw_flow_actions *act
- {
- 	struct sk_buff *skb;
+-/* This is the maximum truncated ICV length that we know of. */
+-#define MAX_AH_AUTH_LEN	64
+-
+ struct crypto_ahash;
  
--	if (!always && !ovs_must_notify(info, &ovs_dp_flow_multicast_group))
-+	if (!always && !ovs_must_notify(&dp_flow_genl_family, info, 0))
- 		return NULL;
+ struct ah_data {
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index a2afa89..ac9a32e 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -505,8 +505,6 @@ static int ah_init_state(struct xfrm_state *x)
+ 	ahp->icv_full_len = aalg_desc->uinfo.auth.icv_fullbits/8;
+ 	ahp->icv_trunc_len = x->aalg->alg_trunc_len/8;
  
- 	skb = genlmsg_new_unicast(ovs_flow_cmd_msg_size(acts), info, GFP_KERNEL);
+-	BUG_ON(ahp->icv_trunc_len > MAX_AH_AUTH_LEN);
+-
+ 	if (x->props.flags & XFRM_STATE_ALIGN4)
+ 		x->props.header_len = XFRM_ALIGN4(sizeof(struct ip_auth_hdr) +
+ 						  ahp->icv_trunc_len);
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index 72a4930..2176893 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -713,8 +713,6 @@ static int ah6_init_state(struct xfrm_state *x)
+ 	ahp->icv_full_len = aalg_desc->uinfo.auth.icv_fullbits/8;
+ 	ahp->icv_trunc_len = x->aalg->alg_trunc_len/8;
+ 
+-	BUG_ON(ahp->icv_trunc_len > MAX_AH_AUTH_LEN);
+-
+ 	x->props.header_len = XFRM_ALIGN8(sizeof(struct ip_auth_hdr) +
+ 					  ahp->icv_trunc_len);
+ 	switch (x->props.mode) {
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index d4db6eb..8cf382b 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -333,8 +333,7 @@ static int attach_auth_trunc(struct xfrm_algo_auth **algpp, u8 *props,
+ 	algo = xfrm_aalg_get_byname(ualg->alg_name, 1);
+ 	if (!algo)
+ 		return -ENOSYS;
+-	if ((ualg->alg_trunc_len / 8) > MAX_AH_AUTH_LEN ||
+-	    ualg->alg_trunc_len > algo->uinfo.auth.icv_fullbits)
++	if (ualg->alg_trunc_len > algo->uinfo.auth.icv_fullbits)
+ 		return -EINVAL;
+ 	*props = algo->desc.sadb_alg_id;
+ 
+Thanks,
 -- 
-2.1.0
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
