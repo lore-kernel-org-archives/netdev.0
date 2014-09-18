@@ -1,87 +1,57 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] net: stmmac: fix stmmac_pci_probe failed when CONFIG_HAVE_CLK
- is selected
-Date: Thu, 18 Sep 2014 16:49:58 +0200
-Message-ID: <541AF116.9010004@st.com>
-References: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v13 net-next 07/11] bpf: verifier (add ability to receive
+ verification log)
+Date: Thu, 18 Sep 2014 16:50:04 +0200
+Message-ID: <541AF11C.9050405@redhat.com>
+References: <1410914370-29883-1-git-send-email-ast@plumgrid.com> <1410914370-29883-8-git-send-email-ast@plumgrid.com> <54192F66.8020200@redhat.com> <CAMEtUuxK68ZoJ-izjLoygv0f+rLtPmMLUUq1=BJ+_ZBGfynkdA@mail.gmail.com> <5419BED8.5020309@redhat.com> <5419DE51.1060904@redhat.com> <CAMEtUuzhcmZiYZL8TR008or8uaefDBrEKDjqA-tOrRLEZsm95A@mail.gmail.com> <CAMEtUuw0aDPpQhd13ssk2PDLffBJNeef9jicOnhQLH6KtJ8gsQ@mail.gmail.com> <541A7F35.2010804@redhat.com> <CAMEtUuyZCHh7SGeLF+g0ye3OrEFWnTZCn3SBeK0-8qz-y8U30w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Vince Bridgers <vbridgers2013@gmail.com>,
-	Chen-Yu Tsai <wens@csie.org>, <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Ong Boon Leong <boon.leong.ong@intel.com>,
-	Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
-To: Kweh Hock Leong <hock.leong.kweh@intel.com>,
-	"David S. Miller" <davem@davemloft.net>, <rayagond@vayavyalabs.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com>
+In-Reply-To: <CAMEtUuyZCHh7SGeLF+g0ye3OrEFWnTZCn3SBeK0-8qz-y8U30w@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/18/2014 2:34 PM, Kweh Hock Leong wrote:
-> From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+On 09/18/2014 04:34 PM, Alexei Starovoitov wrote:
+> On Wed, Sep 17, 2014 at 11:44 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+...
+>> Sure, you will never get a full compatibility on that regard
+>> while backwards compatibility needs to be guaranteed on the
+>> other hand. I looked at perf_copy_attr() implementation and I
+>> think that we should mimic it in a very similar way as it
+>> exactly solves what we need.
+>>
+>> For example, it will return with -EINVAL for (size > PAGE_SIZE)
+>> and (size < PERF_ATTR_SIZE_VER0) where PAGE_SIZE has been chosen
+>> as an arbitrary hard upper limit where it is believed that it will
+>> never grow beyond that large limit in future.
+>>
+>> So this is a more loose constraint than what we currently do,
+>> that is, -EINVAL on (size > sizeof(attr)) where attr is the
+>> currently known size of a specific kernel. That would at least
+>> be a start, you won't be able to cover everything though, but
+>> it would allow to address the issue raised when running with
+>> a basic feature set.
 >
-> When the CONFIG_HAVE_CLK is selected for the system, the stmmac_pci_probe
-> will fail with dmesg:
-> [    2.167225] stmmaceth 0000:00:14.6: enabling device (0000 -> 0002)
-> [    2.178267] stmmaceth 0000:00:14.6: enabling bus mastering
-> [    2.178436] stmmaceth 0000:00:14.6: irq 24 for MSI/MSI-X
-> [    2.178703] stmmaceth 0000:00:14.6: stmmac_dvr_probe: warning: cannot
-> get CSR clock
-> [    2.186503] stmmac_pci_probe: main driver probe failed
-> [    2.194003] stmmaceth 0000:00:14.6: disabling bus mastering
-> [    2.196473] stmmaceth: probe of 0000:00:14.6 failed with error -2
->
-> This patch fix the issue by breaking the dependency to devm_clk_get()
-> as the CSR clock can be obtained at priv->plat->clk_csr from pci driver.
->
-> Reported-by: Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
-> Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
-> ---
->   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   13 +++++++++----
->   1 file changed, 9 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 08addd6..ea3859a 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -2714,10 +2714,15 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
->
->   	priv->stmmac_clk = devm_clk_get(priv->device, STMMAC_RESOURCE_NAME);
->   	if (IS_ERR(priv->stmmac_clk)) {
-> -		dev_warn(priv->device, "%s: warning: cannot get CSR clock\n",
+> you missed my point. We should not 'do a start', since it
+> doesn't help user space in the long run and only makes
+> kernel more complex.
 
-
-Hmm I am not sure this is the right fix. The driver has to fail if the
-main clock is not found. Indeed dev_warn has to be changed in dev_err.
-
-Take a look at Documentation/networking/stmmac.txt but I will post some
-patch to improve the documentation adding further detail for clocks too.
-
-The the logic behind the code is that the CSR clock will be set at
-runtime if in case of priv->plat->clk_csr ==0 or it will be forced to
-a fixed value if passed from the platform instead of.
-IIRC This was required on some platforms time ago.
-For sure the driver is designed to fail in case of no main clock is
-found.
-
-Peppe
-
-
-> -			 __func__);
-> -		ret = PTR_ERR(priv->stmmac_clk);
-> -		goto error_clk_get;
-> +		if (!priv->plat->clk_csr) {
-> +			dev_warn(priv->device,
-> +				 "%s: warning: cannot get CSR clock\n",
-> +				 __func__);
-> +			ret = PTR_ERR(priv->stmmac_clk);
-> +			goto error_clk_get;
-> +		} else {
-> +			priv->stmmac_clk = NULL;
-> +		}
->   	}
->   	clk_prepare_enable(priv->stmmac_clk);
->
->
+Sorry, I don't think I missed your point. But if you see things
+differently, fair enough, it was just a suggestion.
