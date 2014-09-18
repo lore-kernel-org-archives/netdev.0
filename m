@@ -1,7 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH 27/29] fm10k: Add support for debugfs
-Date: Thu, 18 Sep 2014 18:40:17 -0400
-Message-ID: <20140918224014.10373.28194.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [net-next PATCH 28/29] fm10k: Add support for ptp to hw specific
+ files
+Date: Thu, 18 Sep 2014 18:40:30 -0400
+Message-ID: <20140918224023.10373.11456.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,456 +12,286 @@ Cc: nhorman@redhat.com, netdev@vger.kernel.org,
 	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:21350 "EHLO mga09.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:2323 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757594AbaIRWtB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2014 18:49:01 -0400
+	id S1755860AbaIRWtS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2014 18:49:18 -0400
 In-Reply-To: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds limited debugfs support for the driver.  Most of the
-functionality needed for dumping registers is already provided via ethtool.
-The only thing we saw that we really neeed was the ability to dump the
-descriptor rings so as such this patch will add a fm10k directory containing a
-listing of directories each one with a unique PCI Bus, Device, and Function
-number.  Each of those BDF directories will have a list of q_vectors, and
-the q_vectors will contain a file for each of the Rx/Tx rings that are a part
-of the vector.  For example:
-
-# ls -RD /sys/kernel/debug/fm10k/
-/sys/kernel/debug/fm10k/:
-0000:01:00.0
-
-/sys/kernel/debug/fm10k/0000:01:00.0:
-q_vector.000  q_vector.001  q_vector.002  q_vector.003
-
-/sys/kernel/debug/fm10k/0000:01:00.0/q_vector.000:
-rx_ring.000  tx_ring.000
-
-/sys/kernel/debug/fm10k/0000:01:00.0/q_vector.001:
-rx_ring.001  tx_ring.001
-
-/sys/kernel/debug/fm10k/0000:01:00.0/q_vector.002:
-rx_ring.002  tx_ring.002
-
-/sys/kernel/debug/fm10k/0000:01:00.0/q_vector.003:
-rx_ring.003  tx_ring.003
-
-# cat /sys/kernel/debug/fm10k/0000:01:00.0/q_vector.000/rx_ring.000
-DES DATA       RSS        STATERR    LENGTH VLAN   DGLORT SGLORT TIMESTAMP
----------------------------------------------------------------------------
-000 0x00000000 0x00000000 0x00000003 0x002a 0x0000 0x0000 0x0000 0x13951807dc4fedf0
-001 0x00000000 0x00000000 0x00000003 0x002a 0x0000 0x0000 0x0000 0x1395180906c9f2c8
-002 0x3731c000 0x00000000 0x00000000 0x0000 0x0000 0x0000 0x0000 0x0000000000000000
-003 0x3731d000 0x00000000 0x00000000 0x0000 0x0000 0x0000 0x0000 0x0000000000000000
-004 0xaab3a000 0x00000000 0x00000000 0x0000 0x0000 0x0000 0x0000 0x0000000000000000
-...
-
-# cat /sys/kernel/debug/fm10k/0000:01:00.0/q_vector.000/tx_ring.000
-DES BUFFER_ADDRESS     LENGTH VLAN   MSS    HDRLEN FLAGS
----------------------------------------------------------
-000 0x00000000aa8a1002 0x005a 0x0000 0x0000 0x0000 0xc0
-001 0x00000000aa8a2002 0x005a 0x0000 0x0000 0x0000 0xc0
-002 0x000000006bc13202 0x004e 0x0000 0x0000 0x0000 0xc0
-003 0x000000006bc13c02 0x002a 0x0000 0x0000 0x0000 0xe1
-004 0x000000006bc13602 0x0062 0x0000 0x0000 0x0000 0xc0
+This change adds the messaging support needed to support PTP.  In the case
+of Tx timestamps it is necessary for the Switch Management entity to return
+the frames via the mailbox as the host interface cannot know which port the
+timestamp will be delivered to.  In addition there is only one clock on the
+entire switch, as such the entity that has BAR 4 access is the only one who
+can actually update the frequency as it is the only one with access.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/Makefile        |    2 
- drivers/net/ethernet/intel/fm10k/fm10k.h         |   24 ++
- drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c |  259 ++++++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_main.c    |    8 +
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c     |    6 +
- 5 files changed, 298 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
+ drivers/net/ethernet/intel/fm10k/fm10k_common.h |    8 +++
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c     |   68 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_type.h   |   20 +++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_vf.c     |   29 ++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_vf.h     |   10 +++
+ 5 files changed, 135 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
-index 5023625..fbc0e09 100644
---- a/drivers/net/ethernet/intel/fm10k/Makefile
-+++ b/drivers/net/ethernet/intel/fm10k/Makefile
-@@ -30,4 +30,4 @@ obj-$(CONFIG_FM10K) += fm10k.o
- fm10k-objs := fm10k_main.o fm10k_common.o fm10k_pci.o \
- 	      fm10k_netdev.o fm10k_ethtool.o fm10k_pf.o fm10k_vf.o \
- 	      fm10k_mbx.o fm10k_iov.o fm10k_tlv.o \
--	      fm10k_dcbnl.o
-+	      fm10k_debugfs.o fm10k_dcbnl.o
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index fe1c033..c355456 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -199,6 +199,9 @@ struct fm10k_q_vector {
- 	struct napi_struct napi;
- 	char name[IFNAMSIZ + 9];
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_common.h b/drivers/net/ethernet/intel/fm10k/fm10k_common.h
+index 8250e14..45e4e5b 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_common.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_common.h
+@@ -39,6 +39,14 @@ do { \
+ 		writel((val), &hw_addr[(reg)]); \
+ } while (0)
  
-+#ifdef CONFIG_DEBUG_FS
-+	struct dentry *dbg_q_vector;
-+#endif /* CONFIG_DEBUG_FS */
- 	struct rcu_head rcu;	/* to avoid race with update stats on free */
- 
- 	/* for dynamic allocation of rings associated with this q_vector */
-@@ -307,6 +310,10 @@ struct fm10k_intfc {
- 	/* VXLAN port tracking information */
- 	struct list_head vxlan_port;
- 
-+#ifdef CONFIG_DEBUG_FS
-+	struct dentry *dbg_intfc;
++/* Switch register write operations, index using DWORDS */
++#define fm10k_write_sw_reg(hw, reg, val) \
++do { \
++	u32 __iomem *sw_addr = ACCESS_ONCE((hw)->sw_addr); \
++	if (!FM10K_REMOVED(sw_addr)) \
++		writel((val), &sw_addr[(reg)]); \
++} while (0)
 +
-+#endif /* CONFIG_DEBUG_FS */
- #if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
- 	u8 pfc_en;
- #endif
-@@ -468,6 +475,23 @@ int fm10k_ndo_set_vf_bw(struct net_device *netdev, int vf_idx, int rate,
- int fm10k_ndo_get_vf_config(struct net_device *netdev,
- 			    int vf_idx, struct ifla_vf_info *ivi);
- 
-+/* DebugFS */
-+#ifdef CONFIG_DEBUG_FS
-+void fm10k_dbg_q_vector_init(struct fm10k_q_vector *q_vector);
-+void fm10k_dbg_q_vector_exit(struct fm10k_q_vector *q_vector);
-+void fm10k_dbg_intfc_init(struct fm10k_intfc *interface);
-+void fm10k_dbg_intfc_exit(struct fm10k_intfc *interface);
-+void fm10k_dbg_init(void);
-+void fm10k_dbg_exit(void);
-+#else
-+static inline void fm10k_dbg_q_vector_init(struct fm10k_q_vector *q_vector) {}
-+static inline void fm10k_dbg_q_vector_exit(struct fm10k_q_vector *q_vector) {}
-+static inline void fm10k_dbg_intfc_init(struct fm10k_intfc *interface) {}
-+static inline void fm10k_dbg_intfc_exit(struct fm10k_intfc *interface) {}
-+static inline void fm10k_dbg_init(void) {}
-+static inline void fm10k_dbg_exit(void) {}
-+#endif /* CONFIG_DEBUG_FS */
-+
- /* DCB */
- void fm10k_dcbnl_set_ops(struct net_device *dev);
- #endif /* _FM10K_H_ */
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c b/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
-new file mode 100644
-index 0000000..4327f86
---- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
-@@ -0,0 +1,259 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ */
-+
-+#ifdef CONFIG_DEBUG_FS
-+
-+#include "fm10k.h"
-+
-+#include <linux/debugfs.h>
-+#include <linux/seq_file.h>
-+
-+static struct dentry *dbg_root;
-+
-+/* Descriptor Seq Functions */
-+
-+static void *fm10k_dbg_desc_seq_start(struct seq_file *s, loff_t *pos)
-+{
-+	struct fm10k_ring *ring = s->private;
-+
-+	return (*pos < ring->count) ? pos : NULL;
-+}
-+
-+static void *fm10k_dbg_desc_seq_next(struct seq_file *s, void *v, loff_t *pos)
-+{
-+	struct fm10k_ring *ring = s->private;
-+
-+	return (++(*pos) < ring->count) ? pos : NULL;
-+}
-+
-+static void fm10k_dbg_desc_seq_stop(struct seq_file *s, void *v)
-+{
-+	/* Do nothing. */
-+}
-+
-+static void fm10k_dbg_desc_break(struct seq_file *s, int i)
-+{
-+	while (i--)
-+		seq_puts(s, "-");
-+
-+	seq_puts(s, "\n");
-+}
-+
-+static int fm10k_dbg_tx_desc_seq_show(struct seq_file *s, void *v)
-+{
-+	struct fm10k_ring *ring = s->private;
-+	int i = *(loff_t *)v;
-+	static const char tx_desc_hdr[] =
-+		"DES BUFFER_ADDRESS     LENGTH VLAN   MSS    HDRLEN FLAGS\n";
-+
-+	/* Generate header */
-+	if (!i) {
-+		seq_printf(s, tx_desc_hdr);
-+		fm10k_dbg_desc_break(s, sizeof(tx_desc_hdr) - 1);
-+	}
-+
-+	/* Validate descriptor allocation */
-+	if (!ring->desc) {
-+		seq_printf(s, "%03X Descriptor ring not allocated.\n", i);
-+	} else {
-+		struct fm10k_tx_desc *txd = FM10K_TX_DESC(ring, i);
-+
-+		seq_printf(s, "%03X %#018llx %#06x %#06x %#06x %#06x %#04x\n",
-+			   i, txd->buffer_addr, txd->buflen, txd->vlan,
-+			   txd->mss, txd->hdrlen, txd->flags);
-+	}
-+
-+	return 0;
-+}
-+
-+static int fm10k_dbg_rx_desc_seq_show(struct seq_file *s, void *v)
-+{
-+	struct fm10k_ring *ring = s->private;
-+	int i = *(loff_t *)v;
-+	static const char rx_desc_hdr[] =
-+	"DES DATA       RSS        STATERR    LENGTH VLAN   DGLORT SGLORT TIMESTAMP\n";
-+
-+	/* Generate header */
-+	if (!i) {
-+		seq_printf(s, rx_desc_hdr);
-+		fm10k_dbg_desc_break(s, sizeof(rx_desc_hdr) - 1);
-+	}
-+
-+	/* Validate descriptor allocation */
-+	if (!ring->desc) {
-+		seq_printf(s, "%03X Descriptor ring not allocated.\n", i);
-+	} else {
-+		union fm10k_rx_desc *rxd = FM10K_RX_DESC(ring, i);
-+
-+		seq_printf(s,
-+			   "%03X %#010x %#010x %#010x %#06x %#06x %#06x %#06x %#018llx\n",
-+			   i, rxd->d.data, rxd->d.rss, rxd->d.staterr,
-+			   rxd->w.length, rxd->w.vlan, rxd->w.dglort,
-+			   rxd->w.sglort, rxd->q.timestamp);
-+	}
-+
-+	return 0;
-+}
-+
-+static const struct seq_operations fm10k_dbg_tx_desc_seq_ops = {
-+	.start = fm10k_dbg_desc_seq_start,
-+	.next  = fm10k_dbg_desc_seq_next,
-+	.stop  = fm10k_dbg_desc_seq_stop,
-+	.show  = fm10k_dbg_tx_desc_seq_show,
-+};
-+
-+static const struct seq_operations fm10k_dbg_rx_desc_seq_ops = {
-+	.start = fm10k_dbg_desc_seq_start,
-+	.next  = fm10k_dbg_desc_seq_next,
-+	.stop  = fm10k_dbg_desc_seq_stop,
-+	.show  = fm10k_dbg_rx_desc_seq_show,
-+};
-+
-+static int fm10k_dbg_desc_open(struct inode *inode, struct file *filep)
-+{
-+	struct fm10k_ring *ring = inode->i_private;
-+	struct fm10k_q_vector *q_vector = ring->q_vector;
-+	const struct seq_operations *desc_seq_ops;
-+	int err;
-+
-+	if (ring < q_vector->rx.ring)
-+		desc_seq_ops = &fm10k_dbg_tx_desc_seq_ops;
-+	else
-+		desc_seq_ops = &fm10k_dbg_rx_desc_seq_ops;
-+
-+	err = seq_open(filep, desc_seq_ops);
-+	if (err)
-+		return err;
-+
-+	((struct seq_file *)filep->private_data)->private = ring;
-+
-+	return 0;
-+}
-+
-+static const struct file_operations fm10k_dbg_desc_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = fm10k_dbg_desc_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = seq_release,
-+};
-+
-+/**
-+ * fm10k_dbg_q_vector_init - setup debugfs for the q_vectors
-+ * @q_vector: q_vector to allocate directories for
-+ *
-+ * A folder is created for each q_vector found. In each q_vector
-+ * folder, a debugfs file is created for each tx and rx ring
-+ * allocated to the q_vector.
-+ **/
-+void fm10k_dbg_q_vector_init(struct fm10k_q_vector *q_vector)
-+{
-+	struct fm10k_intfc *interface = q_vector->interface;
-+	char name[16];
-+	int i;
-+
-+	if (!interface->dbg_intfc)
-+		return;
-+
-+	/* Generate a folder for each q_vector */
-+	sprintf(name, "q_vector.%03d", q_vector->v_idx);
-+
-+	q_vector->dbg_q_vector = debugfs_create_dir(name, interface->dbg_intfc);
-+	if (!q_vector->dbg_q_vector)
-+		return;
-+
-+	/* Generate a file for each rx ring in the q_vector */
-+	for (i = 0; i < q_vector->tx.count; i++) {
-+		struct fm10k_ring *ring = &q_vector->tx.ring[i];
-+
-+		sprintf(name, "tx_ring.%03d", ring->queue_index);
-+
-+		debugfs_create_file(name, 0600,
-+				    q_vector->dbg_q_vector, ring,
-+				    &fm10k_dbg_desc_fops);
-+	}
-+
-+	/* Generate a file for each rx ring in the q_vector */
-+	for (i = 0; i < q_vector->rx.count; i++) {
-+		struct fm10k_ring *ring = &q_vector->rx.ring[i];
-+
-+		sprintf(name, "rx_ring.%03d", ring->queue_index);
-+
-+		debugfs_create_file(name, 0600,
-+				    q_vector->dbg_q_vector, ring,
-+				    &fm10k_dbg_desc_fops);
-+	}
-+}
-+
-+/**
-+ * fm10k_dbg_free_q_vector_dir - setup debugfs for the q_vectors
-+ * @q_vector: q_vector to allocate directories for
-+ **/
-+void fm10k_dbg_q_vector_exit(struct fm10k_q_vector *q_vector)
-+{
-+	struct fm10k_intfc *interface = q_vector->interface;
-+
-+	if (interface->dbg_intfc)
-+		debugfs_remove_recursive(q_vector->dbg_q_vector);
-+	q_vector->dbg_q_vector = NULL;
-+}
-+
-+/**
-+ * fm10k_dbg_intfc_init - setup the debugfs directory for the intferface
-+ * @interface: the interface that is starting up
-+ **/
-+
-+void fm10k_dbg_intfc_init(struct fm10k_intfc *interface)
-+{
-+	const char *name = pci_name(interface->pdev);
-+
-+	if (dbg_root)
-+		interface->dbg_intfc = debugfs_create_dir(name, dbg_root);
-+}
-+
-+/**
-+ * fm10k_dbg_intfc_exit - clean out the interface's debugfs entries
-+ * @interface: the interface that is stopping
-+ **/
-+void fm10k_dbg_intfc_exit(struct fm10k_intfc *interface)
-+{
-+	if (dbg_root)
-+		debugfs_remove_recursive(interface->dbg_intfc);
-+	interface->dbg_intfc = NULL;
-+}
-+
-+/**
-+ * fm10k_dbg_init - start up debugfs for the driver
-+ **/
-+void fm10k_dbg_init(void)
-+{
-+	dbg_root = debugfs_create_dir(fm10k_driver_name, NULL);
-+}
-+
-+/**
-+ * fm10k_dbg_exit - clean out the driver's debugfs entries
-+ **/
-+void fm10k_dbg_exit(void)
-+{
-+	debugfs_remove_recursive(dbg_root);
-+	dbg_root = NULL;
-+}
-+
-+#endif /* CONFIG_DEBUG_FS */
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index 1e4fcba..d4b2fad 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -51,6 +51,8 @@ static int __init fm10k_init_module(void)
- 	pr_info("%s - version %s\n", fm10k_driver_string, fm10k_driver_version);
- 	pr_info("%s\n", fm10k_copyright);
- 
-+	fm10k_dbg_init();
-+
- 	return fm10k_register_pci_driver();
+ /* read ctrl register which has no clear on read fields as PCIe flush */
+ #define fm10k_write_flush(hw) fm10k_read_reg((hw), FM10K_CTRL)
+ s32 fm10k_get_bus_info_generic(struct fm10k_hw *hw);
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+index 0b6ce10..d7f9b89 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+@@ -1123,6 +1123,19 @@ static void fm10k_iov_update_stats_pf(struct fm10k_hw *hw,
+ 	fm10k_update_hw_stats_q(hw, q, idx, qpp);
  }
- module_init(fm10k_init_module);
-@@ -64,6 +66,8 @@ module_init(fm10k_init_module);
- static void __exit fm10k_exit_module(void)
- {
- 	fm10k_unregister_pci_driver();
-+
-+	fm10k_dbg_exit();
- }
- module_exit(fm10k_exit_module);
  
-@@ -1616,6 +1620,8 @@ static int fm10k_alloc_q_vector(struct fm10k_intfc *interface,
- 		ring++;
- 	}
- 
-+	fm10k_dbg_q_vector_init(q_vector);
++static s32 fm10k_iov_report_timestamp_pf(struct fm10k_hw *hw,
++					 struct fm10k_vf_info *vf_info,
++					 u64 timestamp)
++{
++	u32 msg[4];
 +
++	/* generate port state response to notify VF it is not ready */
++	fm10k_tlv_msg_init(msg, FM10K_VF_MSG_ID_1588);
++	fm10k_tlv_attr_put_u64(msg, FM10K_1588_MSG_TIMESTAMP, timestamp);
++
++	return vf_info->mbx.ops.enqueue_tx(hw, &vf_info->mbx, msg);
++}
++
+ /**
+  *  fm10k_iov_msg_msix_pf - Message handler for MSI-X request from VF
+  *  @hw: Pointer to hardware structure
+@@ -1723,6 +1736,59 @@ s32 fm10k_msg_err_pf(struct fm10k_hw *hw, u32 **results,
  	return 0;
  }
  
-@@ -1633,6 +1639,8 @@ static void fm10k_free_q_vector(struct fm10k_intfc *interface, int v_idx)
- 	struct fm10k_q_vector *q_vector = interface->q_vector[v_idx];
- 	struct fm10k_ring *ring;
- 
-+	fm10k_dbg_q_vector_exit(q_vector);
++const struct fm10k_tlv_attr fm10k_1588_timestamp_msg_attr[] = {
++	FM10K_TLV_ATTR_LE_STRUCT(FM10K_PF_ATTR_ID_1588_TIMESTAMP,
++				 sizeof(struct fm10k_swapi_1588_timestamp)),
++	FM10K_TLV_ATTR_LAST
++};
 +
- 	fm10k_for_each_ring(ring, q_vector->tx)
- 		interface->tx_ring[ring->queue_index] = NULL;
- 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index b3ebedb..31741e5 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -1689,6 +1689,9 @@ static int fm10k_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_sw_init;
- 
-+	/* enable debugfs support */
-+	fm10k_dbg_intfc_init(interface);
++/* currently there is no shared 1588 timestamp handler */
 +
- 	err = fm10k_init_queueing_scheme(interface);
- 	if (err)
- 		goto err_sw_init;
-@@ -1785,6 +1788,9 @@ static void fm10k_remove(struct pci_dev *pdev)
- 	/* free interrupts */
- 	fm10k_clear_queueing_scheme(interface);
- 
-+	/* remove any debugfs interfaces */
-+	fm10k_dbg_intfc_exit(interface);
++/**
++ *  fm10k_adjust_systime_pf - Adjust systime frequency
++ *  @hw: pointer to hardware structure
++ *  @ppb: adjustment rate in parts per billion
++ *
++ *  This function will adjust the SYSTIME_CFG register contained in BAR 4
++ *  if this function is supported for BAR 4 access.  The adjustment amount
++ *  is based on the parts per billion value provided and adjusted to a
++ *  value based on parts per 2^48 clock cycles.
++ *
++ *  If adjustment is not supported or the requested value is too large
++ *  we will return an error.
++ **/
++static s32 fm10k_adjust_systime_pf(struct fm10k_hw *hw, s32 ppb)
++{
++	u64 systime_adjust;
 +
- 	iounmap(interface->uc_addr);
++	/* if sw_addr is not set we don't have switch register access */
++	if (!hw->sw_addr)
++		return ppb ? FM10K_ERR_PARAM : 0;
++
++	/* we must convert the value from parts per billion to parts per
++	 * 2^48 cycles.  In addition we can only use the upper 30 bits of
++	 * the value when making the change so that restricts us futher.
++	 * The math for this is equivilent to ABS(pps) * 2^40 / 10 ^ 9,
++	 * the function below is roughly ABS(pps) * 2 ^ 31 / 5 ^ 9 which
++	 * is as close as we can get to the exact value with numbers as
++	 * small as possible.
++	 */
++	systime_adjust = (ppb < 0) ? -ppb : ppb;
++	systime_adjust <<= 31;
++	do_div(systime_adjust, 1953125);
++
++	/* verify the requested adjustment value is in range */
++	if (systime_adjust > FM10K_SW_SYSTIME_ADJUST_MASK)
++		return FM10K_ERR_PARAM;
++
++	if (ppb < 0)
++		systime_adjust |= FM10K_SW_SYSTIME_ADJUST_DIR_NEGATIVE;
++
++	fm10k_write_sw_reg(hw, FM10K_SW_SYSTIME_ADJUST, (u32)systime_adjust);
++
++	return 0;
++}
++
+ static const struct fm10k_msg_data fm10k_msg_data_pf[] = {
+ 	FM10K_PF_MSG_ERR_HANDLER(XCAST_MODES, fm10k_msg_err_pf),
+ 	FM10K_PF_MSG_ERR_HANDLER(UPDATE_MAC_FWD_RULE, fm10k_msg_err_pf),
+@@ -1753,6 +1819,7 @@ static struct fm10k_mac_ops mac_ops_pf = {
+ 	.set_dma_mask		= &fm10k_set_dma_mask_pf,
+ 	.get_fault		= &fm10k_get_fault_pf,
+ 	.get_host_state		= &fm10k_get_host_state_pf,
++	.adjust_systime		= &fm10k_adjust_systime_pf,
+ };
  
- 	free_netdev(netdev);
+ static struct fm10k_iov_ops iov_ops_pf = {
+@@ -1764,6 +1831,7 @@ static struct fm10k_iov_ops iov_ops_pf = {
+ 	.set_lport			= &fm10k_iov_set_lport_pf,
+ 	.reset_lport			= &fm10k_iov_reset_lport_pf,
+ 	.update_stats			= &fm10k_iov_update_stats_pf,
++	.report_timestamp		= &fm10k_iov_report_timestamp_pf,
+ };
+ 
+ static s32 fm10k_get_invariants_pf(struct fm10k_hw *hw)
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
+index ecaf93a..5055bef 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_type.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
+@@ -224,6 +224,15 @@ struct fm10k_hw;
+ #define FM10K_STATS_LOOPBACK_DROP	0x3806
+ #define FM10K_STATS_NODESC_DROP		0x3807
+ 
++/* Timesync registers */
++#define FM10K_RRTIME_CFG	0x3808
++#define FM10K_RRTIME_LIMIT(_n)	((_n) + 0x380C)
++#define FM10K_RRTIME_COUNT(_n)	((_n) + 0x3810)
++#define FM10K_SYSTIME		0x3814
++#define FM10K_SYSTIME0		0x3816
++#define FM10K_SYSTIME_CFG	0x3818
++#define FM10K_SYSTIME_CFG_STEP_MASK		0x0000000F
++
+ /* PCIe state registers */
+ #define FM10K_PHYADDR		0x381C
+ 
+@@ -358,6 +367,15 @@ struct fm10k_hw;
+ #define FM10K_VFSYSTIME		0x00040
+ #define FM10K_VFITR(_n)		((_n) + 0x00060)
+ 
++/* Registers contained in BAR 4 for Switch management */
++#define FM10K_SW_SYSTIME_CFG	0x0224C
++#define FM10K_SW_SYSTIME_CFG_STEP_SHIFT		4
++#define FM10K_SW_SYSTIME_CFG_ADJUST_MASK	0xFF000000
++#define FM10K_SW_SYSTIME_ADJUST	0x0224D
++#define FM10K_SW_SYSTIME_ADJUST_MASK		0x3FFFFFFF
++#define FM10K_SW_SYSTIME_ADJUST_DIR_NEGATIVE	0x80000000
++#define FM10K_SW_SYSTIME_PULSE(_n)	((_n) + 0x02252)
++
+ enum fm10k_int_source {
+ 	fm10k_int_Mailbox	= 0,
+ 	fm10k_int_PCIeFault	= 1,
+@@ -614,6 +632,7 @@ struct fm10k_iov_ops {
+ 	s32 (*set_lport)(struct fm10k_hw *, struct fm10k_vf_info *, u16, u8);
+ 	void (*reset_lport)(struct fm10k_hw *, struct fm10k_vf_info *);
+ 	void (*update_stats)(struct fm10k_hw *, struct fm10k_hw_stats_q *, u16);
++	s32 (*report_timestamp)(struct fm10k_hw *, struct fm10k_vf_info *, u64);
+ };
+ 
+ struct fm10k_iov_info {
+@@ -637,6 +656,7 @@ struct fm10k_info {
+ 
+ struct fm10k_hw {
+ 	u32 __iomem *hw_addr;
++	u32 __iomem *sw_addr;
+ 	void *back;
+ 	struct fm10k_mac_info mac;
+ 	struct fm10k_bus_info bus;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_vf.c b/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
+index 25c23fc..a0c47fc 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
+@@ -431,6 +431,13 @@ static s32 fm10k_update_xcast_mode_vf(struct fm10k_hw *hw, u16 glort, u8 mode)
+ 	return mbx->ops.enqueue_tx(hw, mbx, msg);
+ }
+ 
++const struct fm10k_tlv_attr fm10k_1588_msg_attr[] = {
++	FM10K_TLV_ATTR_U64(FM10K_1588_MSG_TIMESTAMP),
++	FM10K_TLV_ATTR_LAST
++};
++
++/* currently there is no shared 1588 timestamp handler */
++
+ /**
+  *  fm10k_update_hw_stats_vf - Updates hardware related statistics of VF
+  *  @hw: pointer to hardware structure
+@@ -482,6 +489,27 @@ static s32 fm10k_configure_dglort_map_vf(struct fm10k_hw *hw,
+ 	return 0;
+ }
+ 
++/**
++ *  fm10k_adjust_systime_vf - Adjust systime frequency
++ *  @hw: pointer to hardware structure
++ *  @ppb: adjustment rate in parts per billion
++ *
++ *  This function takes an adjustment rate in parts per billion and will
++ *  verify that this value is 0 as the VF cannot support adjusting the
++ *  systime clock.
++ *
++ *  If the ppb value is non-zero the return is ERR_PARAM else success
++ **/
++static s32 fm10k_adjust_systime_vf(struct fm10k_hw *hw, s32 ppb)
++{
++	/* The VF cannot adjust the clock frequency, however it should
++	 * already have a syntonic clock with whichever host interface is
++	 * running as the master for the host interface clock domain so
++	 * there should be not frequency adjustment necessary.
++	 */
++	return ppb ? FM10K_ERR_PARAM : 0;
++}
++
+ static const struct fm10k_msg_data fm10k_msg_data_vf[] = {
+ 	FM10K_TLV_MSG_TEST_HANDLER(fm10k_tlv_msg_test),
+ 	FM10K_VF_MSG_MAC_VLAN_HANDLER(fm10k_msg_mac_vlan_vf),
+@@ -507,6 +535,7 @@ static struct fm10k_mac_ops mac_ops_vf = {
+ 	.rebind_hw_stats	= &fm10k_rebind_hw_stats_vf,
+ 	.configure_dglort_map	= &fm10k_configure_dglort_map_vf,
+ 	.get_host_state		= &fm10k_get_host_state_generic,
++	.adjust_systime		= &fm10k_adjust_systime_vf,
+ };
+ 
+ static s32 fm10k_get_invariants_vf(struct fm10k_hw *hw)
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_vf.h b/drivers/net/ethernet/intel/fm10k/fm10k_vf.h
+index 8e96ee5..06a99d7 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_vf.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_vf.h
+@@ -29,6 +29,7 @@ enum fm10k_vf_tlv_msg_id {
+ 	FM10K_VF_MSG_ID_MSIX,
+ 	FM10K_VF_MSG_ID_MAC_VLAN,
+ 	FM10K_VF_MSG_ID_LPORT_STATE,
++	FM10K_VF_MSG_ID_1588,
+ 	FM10K_VF_MSG_ID_MAX,
+ };
+ 
+@@ -48,6 +49,11 @@ enum fm10k_tlv_lport_state_attr_id {
+ 	FM10K_LPORT_STATE_MSG_MAX
+ };
+ 
++enum fm10k_tlv_1588_attr_id {
++	FM10K_1588_MSG_TIMESTAMP,
++	FM10K_1588_MSG_MAX
++};
++
+ #define FM10K_VF_MSG_MSIX_HANDLER(func) \
+ 	 FM10K_MSG_HANDLER(FM10K_VF_MSG_ID_MSIX, NULL, func)
+ 
+@@ -64,5 +70,9 @@ extern const struct fm10k_tlv_attr fm10k_lport_state_msg_attr[];
+ 	FM10K_MSG_HANDLER(FM10K_VF_MSG_ID_LPORT_STATE, \
+ 			  fm10k_lport_state_msg_attr, func)
+ 
++extern const struct fm10k_tlv_attr fm10k_1588_msg_attr[];
++#define FM10K_VF_MSG_1588_HANDLER(func) \
++	FM10K_MSG_HANDLER(FM10K_VF_MSG_ID_1588, fm10k_1588_msg_attr, func)
++
+ extern struct fm10k_info fm10k_vf_info;
+ #endif /* _FM10K_VF_H */
