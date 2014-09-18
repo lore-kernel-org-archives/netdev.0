@@ -1,38 +1,38 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: linux-next: build warning after merge of the net tree
-Date: Wed, 17 Sep 2014 17:35:06 -0700
-Message-ID: <541A28BA.1060201@infradead.org>
-References: <20140918103200.12b79941@canb.auug.org.au>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH 1/2] net: cls_u32: fix missed pcpu_success free_percpu
+Date: Wed, 17 Sep 2014 18:17:06 -0700
+Message-ID: <541A3292.70308@gmail.com>
+References: <20140917191131.20529.91136.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-kbuild <linux-kbuild@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <20140918103200.12b79941@canb.auug.org.au>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com, davem@davemloft.net,
+	eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f48.google.com ([209.85.219.48]:60601 "EHLO
+	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753741AbaIRBRU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Sep 2014 21:17:20 -0400
+Received: by mail-oa0-f48.google.com with SMTP id g18so126379oah.35
+        for <netdev@vger.kernel.org>; Wed, 17 Sep 2014 18:17:19 -0700 (PDT)
+In-Reply-To: <20140917191131.20529.91136.stgit@nitbit.x32>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/17/14 17:32, Stephen Rothwell wrote:
-> Hi all,
-> 
-> After merging the net tree, today's linux-next build (powerpc
-> ppc64_defconfig) produced these warnings:
-> 
-> warning: (PPC_CELL_NATIVE && BLUESTONE && CANYONLANDS && GLACIER && EIGER && 440EPX && 440GRX && 440GX && 460SX && 405EX) selects IBM_EMAC_RGMII which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
-> warning: (PPC_CELL_NATIVE && CANYONLANDS && GLACIER && 440EP && 440EPX && 440GRX && 440GP && 440GX && 460SX && 405GP) selects IBM_EMAC_ZMII which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
-> warning: (PPC_CELL_NATIVE && 440GX && 460EX && 460SX && APM821xx) selects IBM_EMAC_TAH which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
-> warning: (PPC_CELL_NATIVE && AKEBONO && 440EPX && 440GRX && 440GX && 440SPe && 460EX && 460SX && APM821xx && 405EX) selects IBM_EMAC_EMAC4 which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
-> warning: (PPC_CELL_NATIVE && CANYONLANDS && GLACIER && 440EP && 440EPX && 440GRX && 440GP && 440GX && 460SX && 405GP) selects IBM_EMAC_ZMII which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
-> warning: (PPC_CELL_NATIVE && BLUESTONE && CANYONLANDS && GLACIER && EIGER && 440EPX && 440GRX && 440GX && 460SX && 405EX) selects IBM_EMAC_RGMII which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
-> warning: (PPC_CELL_NATIVE && 440GX && 460EX && 460SX && APM821xx) selects IBM_EMAC_TAH which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
-> warning: (PPC_CELL_NATIVE && AKEBONO && 440EPX && 440GRX && 440GX && 440SPe && 460EX && 460SX && APM821xx && 405EX) selects IBM_EMAC_EMAC4 which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
-> 
+On 09/17/2014 12:11 PM, John Fastabend wrote:
+> This fixes a missed free_percpu in the unwind code path and when
+> keys are destroyed.
+>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>   net/sched/cls_u32.c |    6 ++++++
+>   1 file changed, 6 insertions(+)
+>
 
-I have looked into these and don't see why there is a problem.
-Any help would be appreciated.
+This patch still misses free'ing pcpu_success in an error path
+so I'll address it when I send a v2 to address comments on the
+second patch
 
 -- 
-~Randy
+John Fastabend         Intel Corporation
