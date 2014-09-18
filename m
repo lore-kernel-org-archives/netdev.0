@@ -1,46 +1,46 @@
-From: Harish Patil <harish.patil@qlogic.com>
-Subject: [PATCH net-next 2/2] Update qlge driver maintainers list
-Date: Thu, 18 Sep 2014 17:27:25 -0400
-Message-ID: <1411075645-21845-3-git-send-email-harish.patil@qlogic.com>
-References: <1411075645-21845-1-git-send-email-harish.patil@qlogic.com>
+From: Doug Ledford <dledford@xsintricity.com>
+Subject: Re: [net] net: sched: shrink struct qdisc_skb_cb to 28 bytes
+Date: Thu, 18 Sep 2014 18:29:31 -0400
+Message-ID: <541B5CCB.6060808@xsintricity.com>
+References: <1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-GELinuxNICDev@qlogic.com>,
-	<sudarsana.kalluru@qlogic.com>,
-	Harish Patil <harish.patil@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>,
+	Yinghai Lu <yinghai@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>, ssujith@cisco.com,
+	gvaradar@cisco.com, "Christian Benvenuti (benve)" <benve@cisco.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:6544 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757158AbaIRWBK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 18:01:10 -0400
-In-Reply-To: <1411075645-21845-1-git-send-email-harish.patil@qlogic.com>
+Received: from p3plsmtpa11-05.prod.phx3.secureserver.net ([68.178.252.106]:59834
+	"EHLO p3plsmtpa11-05.prod.phx3.secureserver.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751978AbaIRWh0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 18:37:26 -0400
+In-Reply-To: <1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harish Patil <harish.patil@qlogic.com>
+On 09/18/2014 11:02 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> We cannot make struct qdisc_skb_cb bigger without impacting IPoIB,
+> or increasing skb->cb[] size.
+>
+> Commit e0f31d849867 ("flow_keys: Record IP layer protocol in
+> skb_flow_dissect()") broke IPoIB.
+>
+> Only current offender is sch_choke, and this one do not need an
+> absolutely precise flow key.
+>
+> If we store 17 bytes of flow key, its more than enough. (Its the actual
+> size of flow_keys if it was a packed structure, but we might add new
+> fields at the end of it later)
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: e0f31d849867 ("flow_keys: Record IP layer protocol in skb_flow_dissect()")
 
-Signed-off-by: Harish Patil <harish.patil@qlogic.com>
----
- MAINTAINERS | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+I've installed this patch on my cluster and it resolves the problem.
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 5e3709e..b4e23ac 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -7385,9 +7385,9 @@ S:	Supported
- F:	drivers/net/ethernet/qlogic/qlcnic/
- 
- QLOGIC QLGE 10Gb ETHERNET DRIVER
--M:	Shahed Shaikh <shahed.shaikh@qlogic.com>
--M:	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
--M:	Ron Mercer <ron.mercer@qlogic.com>
-+M:	Harish Patil <harish.patil@qlogic.com>
-+M:	Sudarsana Kalluru <sudarsana.kalluru@qlogic.com>
-+M:	Dept-GELinuxNICDev@qlogic.com
- M:	linux-driver@qlogic.com
- L:	netdev@vger.kernel.org
- S:	Supported
--- 
-1.8.1.4
+Tested-by/Acked-by: Doug Ledford <dledford@redhat.com>
