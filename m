@@ -1,8 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH 02/29] fm10k: Add register defines and basic
- structures
-Date: Thu, 18 Sep 2014 18:35:57 -0400
-Message-ID: <20140918223555.10373.34397.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [net-next PATCH 07/29] fm10k: Add support for PF
+Date: Thu, 18 Sep 2014 18:36:34 -0400
+Message-ID: <20140918223631.10373.28734.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,705 +11,1033 @@ Cc: nhorman@redhat.com, netdev@vger.kernel.org,
 	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:44673 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:52057 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756536AbaIRWpG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Sep 2014 18:45:06 -0400
+	id S1752000AbaIRWp1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Sep 2014 18:45:27 -0400
 In-Reply-To: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the basic defines and structures needed by the PF for
-operation.
+This patch adds basic support for the PF.  With this it is possible to
+bring up the interface, but without being able to configure any of the
+filters on the interface itself.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_main.c |    3 
- drivers/net/ethernet/intel/fm10k/fm10k_type.h |  659 +++++++++++++++++++++++++
- 2 files changed, 661 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/fm10k/Makefile       |    3 
+ drivers/net/ethernet/intel/fm10k/fm10k_common.c |  534 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_common.h |   13 +
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c     |  392 +++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.h     |   28 +
+ 5 files changed, 969 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_common.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_pf.h
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index a7822b8..6ca0614 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -40,7 +40,8 @@ MODULE_DESCRIPTION("Intel(R) Ethernet Switch Host Interface Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
+diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
+index 6642611..0904bcb 100644
+--- a/drivers/net/ethernet/intel/fm10k/Makefile
++++ b/drivers/net/ethernet/intel/fm10k/Makefile
+@@ -27,5 +27,6 @@
  
--/** fm10k_init_module - Driver Registration Routine
+ obj-$(CONFIG_FM10K) += fm10k.o
+ 
+-fm10k-objs := fm10k_main.o fm10k_pci.o \
++fm10k-objs := fm10k_main.o fm10k_common.o fm10k_pci.o \
++	      fm10k_pf.o \
+ 	      fm10k_mbx.o fm10k_tlv.o
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_common.c b/drivers/net/ethernet/intel/fm10k/fm10k_common.c
+new file mode 100644
+index 0000000..bf19dcc
+--- /dev/null
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_common.c
+@@ -0,0 +1,534 @@
++/* Intel Ethernet Switch Host Interface Driver
++ * Copyright(c) 2013 - 2014 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ */
++
++#include "fm10k_common.h"
++
 +/**
-+ * fm10k_init_module - Driver Registration Routine
-  *
-  * fm10k_init_module is the first routine called when the driver is
-  * loaded.  All it does is register with the PCI subsystem.
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-index 2c06f02..1606805 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-@@ -21,7 +21,666 @@
- #ifndef _FM10K_TYPE_H_
- #define _FM10K_TYPE_H_
++ *  fm10k_get_bus_info_generic - Generic set PCI bus info
++ *  @hw: pointer to hardware structure
++ *
++ *  Gets the PCI bus info (speed, width, type) then calls helper function to
++ *  store this data within the fm10k_hw structure.
++ **/
++s32 fm10k_get_bus_info_generic(struct fm10k_hw *hw)
++{
++	u16 link_cap, link_status, device_cap, device_control;
++
++	/* Get the maximum link width and speed from PCIe config space */
++	link_cap = fm10k_read_pci_cfg_word(hw, FM10K_PCIE_LINK_CAP);
++
++	switch (link_cap & FM10K_PCIE_LINK_WIDTH) {
++	case FM10K_PCIE_LINK_WIDTH_1:
++		hw->bus_caps.width = fm10k_bus_width_pcie_x1;
++		break;
++	case FM10K_PCIE_LINK_WIDTH_2:
++		hw->bus_caps.width = fm10k_bus_width_pcie_x2;
++		break;
++	case FM10K_PCIE_LINK_WIDTH_4:
++		hw->bus_caps.width = fm10k_bus_width_pcie_x4;
++		break;
++	case FM10K_PCIE_LINK_WIDTH_8:
++		hw->bus_caps.width = fm10k_bus_width_pcie_x8;
++		break;
++	default:
++		hw->bus_caps.width = fm10k_bus_width_unknown;
++		break;
++	}
++
++	switch (link_cap & FM10K_PCIE_LINK_SPEED) {
++	case FM10K_PCIE_LINK_SPEED_2500:
++		hw->bus_caps.speed = fm10k_bus_speed_2500;
++		break;
++	case FM10K_PCIE_LINK_SPEED_5000:
++		hw->bus_caps.speed = fm10k_bus_speed_5000;
++		break;
++	case FM10K_PCIE_LINK_SPEED_8000:
++		hw->bus_caps.speed = fm10k_bus_speed_8000;
++		break;
++	default:
++		hw->bus_caps.speed = fm10k_bus_speed_unknown;
++		break;
++	}
++
++	/* Get the PCIe maximum payload size for the PCIe function */
++	device_cap = fm10k_read_pci_cfg_word(hw, FM10K_PCIE_DEV_CAP);
++
++	switch (device_cap & FM10K_PCIE_DEV_CAP_PAYLOAD) {
++	case FM10K_PCIE_DEV_CAP_PAYLOAD_128:
++		hw->bus_caps.payload = fm10k_bus_payload_128;
++		break;
++	case FM10K_PCIE_DEV_CAP_PAYLOAD_256:
++		hw->bus_caps.payload = fm10k_bus_payload_256;
++		break;
++	case FM10K_PCIE_DEV_CAP_PAYLOAD_512:
++		hw->bus_caps.payload = fm10k_bus_payload_512;
++		break;
++	default:
++		hw->bus_caps.payload = fm10k_bus_payload_unknown;
++		break;
++	}
++
++	/* Get the negotiated link width and speed from PCIe config space */
++	link_status = fm10k_read_pci_cfg_word(hw, FM10K_PCIE_LINK_STATUS);
++
++	switch (link_status & FM10K_PCIE_LINK_WIDTH) {
++	case FM10K_PCIE_LINK_WIDTH_1:
++		hw->bus.width = fm10k_bus_width_pcie_x1;
++		break;
++	case FM10K_PCIE_LINK_WIDTH_2:
++		hw->bus.width = fm10k_bus_width_pcie_x2;
++		break;
++	case FM10K_PCIE_LINK_WIDTH_4:
++		hw->bus.width = fm10k_bus_width_pcie_x4;
++		break;
++	case FM10K_PCIE_LINK_WIDTH_8:
++		hw->bus.width = fm10k_bus_width_pcie_x8;
++		break;
++	default:
++		hw->bus.width = fm10k_bus_width_unknown;
++		break;
++	}
++
++	switch (link_status & FM10K_PCIE_LINK_SPEED) {
++	case FM10K_PCIE_LINK_SPEED_2500:
++		hw->bus.speed = fm10k_bus_speed_2500;
++		break;
++	case FM10K_PCIE_LINK_SPEED_5000:
++		hw->bus.speed = fm10k_bus_speed_5000;
++		break;
++	case FM10K_PCIE_LINK_SPEED_8000:
++		hw->bus.speed = fm10k_bus_speed_8000;
++		break;
++	default:
++		hw->bus.speed = fm10k_bus_speed_unknown;
++		break;
++	}
++
++	/* Get the negotiated PCIe maximum payload size for the PCIe function */
++	device_control = fm10k_read_pci_cfg_word(hw, FM10K_PCIE_DEV_CTRL);
++
++	switch (device_control & FM10K_PCIE_DEV_CTRL_PAYLOAD) {
++	case FM10K_PCIE_DEV_CTRL_PAYLOAD_128:
++		hw->bus.payload = fm10k_bus_payload_128;
++		break;
++	case FM10K_PCIE_DEV_CTRL_PAYLOAD_256:
++		hw->bus.payload = fm10k_bus_payload_256;
++		break;
++	case FM10K_PCIE_DEV_CTRL_PAYLOAD_512:
++		hw->bus.payload = fm10k_bus_payload_512;
++		break;
++	default:
++		hw->bus.payload = fm10k_bus_payload_unknown;
++		break;
++	}
++
++	return 0;
++}
++
++static u16 fm10k_get_pcie_msix_count_generic(struct fm10k_hw *hw)
++{
++	u16 msix_count;
++
++	/* read in value from MSI-X capability register */
++	msix_count = fm10k_read_pci_cfg_word(hw, FM10K_PCI_MSIX_MSG_CTRL);
++	msix_count &= FM10K_PCI_MSIX_MSG_CTRL_TBL_SZ_MASK;
++
++	/* MSI-X count is zero-based in HW */
++	msix_count++;
++
++	if (msix_count > FM10K_MAX_MSIX_VECTORS)
++		msix_count = FM10K_MAX_MSIX_VECTORS;
++
++	return msix_count;
++}
++
++/**
++ *  fm10k_get_invariants_generic - Inits constant values
++ *  @hw: pointer to the hardware structure
++ *
++ *  Initialize the common invariants for the device.
++ **/
++s32 fm10k_get_invariants_generic(struct fm10k_hw *hw)
++{
++	struct fm10k_mac_info *mac = &hw->mac;
++
++	/* initialize GLORT state to avoid any false hits */
++	mac->dglort_map = FM10K_DGLORTMAP_NONE;
++
++	/* record maximum number of MSI-X vectors */
++	mac->max_msix_vectors = fm10k_get_pcie_msix_count_generic(hw);
++
++	return 0;
++}
++
++/**
++ *  fm10k_start_hw_generic - Prepare hardware for Tx/Rx
++ *  @hw: pointer to hardware structure
++ *
++ *  This function sets the Tx ready flag to indicate that the Tx path has
++ *  been initialized.
++ **/
++s32 fm10k_start_hw_generic(struct fm10k_hw *hw)
++{
++	/* set flag indicating we are beginning Tx */
++	hw->mac.tx_ready = true;
++
++	return 0;
++}
++
++/**
++ *  fm10k_disable_queues_generic - Stop Tx/Rx queues
++ *  @hw: pointer to hardware structure
++ *  @q_cnt: number of queues to be disabled
++ *
++ **/
++s32 fm10k_disable_queues_generic(struct fm10k_hw *hw, u16 q_cnt)
++{
++	u32 reg;
++	u16 i, time;
++
++	/* clear tx_ready to prevent any false hits for reset */
++	hw->mac.tx_ready = false;
++
++	/* clear the enable bit for all rings */
++	for (i = 0; i < q_cnt; i++) {
++		reg = fm10k_read_reg(hw, FM10K_TXDCTL(i));
++		fm10k_write_reg(hw, FM10K_TXDCTL(i),
++				reg & ~FM10K_TXDCTL_ENABLE);
++		reg = fm10k_read_reg(hw, FM10K_RXQCTL(i));
++		fm10k_write_reg(hw, FM10K_RXQCTL(i),
++				reg & ~FM10K_RXQCTL_ENABLE);
++	}
++
++	fm10k_write_flush(hw);
++	udelay(1);
++
++	/* loop through all queues to verify that they are all disabled */
++	for (i = 0, time = FM10K_QUEUE_DISABLE_TIMEOUT; time;) {
++		/* if we are at end of rings all rings are disabled */
++		if (i == q_cnt)
++			return 0;
++
++		/* if queue enables cleared, then move to next ring pair */
++		reg = fm10k_read_reg(hw, FM10K_TXDCTL(i));
++		if (!~reg || !(reg & FM10K_TXDCTL_ENABLE)) {
++			reg = fm10k_read_reg(hw, FM10K_RXQCTL(i));
++			if (!~reg || !(reg & FM10K_RXQCTL_ENABLE)) {
++				i++;
++				continue;
++			}
++		}
++
++		/* decrement time and wait 1 usec */
++		time--;
++		if (time)
++			udelay(1);
++	}
++
++	return FM10K_ERR_REQUESTS_PENDING;
++}
++
++/**
++ *  fm10k_stop_hw_generic - Stop Tx/Rx units
++ *  @hw: pointer to hardware structure
++ *
++ **/
++s32 fm10k_stop_hw_generic(struct fm10k_hw *hw)
++{
++	return fm10k_disable_queues_generic(hw, hw->mac.max_queues);
++}
++
++/**
++ *  fm10k_read_hw_stats_32b - Reads value of 32-bit registers
++ *  @hw: pointer to the hardware structure
++ *  @addr: address of register containing a 32-bit value
++ *
++ *  Function reads the content of the register and returns the delta
++ *  between the base and the current value.
++ *  **/
++u32 fm10k_read_hw_stats_32b(struct fm10k_hw *hw, u32 addr,
++			    struct fm10k_hw_stat *stat)
++{
++	u32 delta = fm10k_read_reg(hw, addr) - stat->base_l;
++
++	if (FM10K_REMOVED(hw->hw_addr))
++		stat->base_h = 0;
++
++	return delta;
++}
++
++/**
++ *  fm10k_read_hw_stats_48b - Reads value of 48-bit registers
++ *  @hw: pointer to the hardware structure
++ *  @addr: address of register containing the lower 32-bit value
++ *
++ *  Function reads the content of 2 registers, combined to represent a 48-bit
++ *  statistical value. Extra processing is required to handle overflowing.
++ *  Finally, a delta value is returned representing the difference between the
++ *  values stored in registers and values stored in the statistic counters.
++ *  **/
++static u64 fm10k_read_hw_stats_48b(struct fm10k_hw *hw, u32 addr,
++				   struct fm10k_hw_stat *stat)
++{
++	u32 count_l;
++	u32 count_h;
++	u32 count_tmp;
++	u64 delta;
++
++	count_h = fm10k_read_reg(hw, addr + 1);
++
++	/* Check for overflow */
++	do {
++		count_tmp = count_h;
++		count_l = fm10k_read_reg(hw, addr);
++		count_h = fm10k_read_reg(hw, addr + 1);
++	} while (count_h != count_tmp);
++
++	delta = ((u64)(count_h - stat->base_h) << 32) + count_l;
++	delta -= stat->base_l;
++
++	return delta & FM10K_48_BIT_MASK;
++}
++
++/**
++ *  fm10k_update_hw_base_48b - Updates 48-bit statistic base value
++ *  @stat: pointer to the hardware statistic structure
++ *  @delta: value to be updated into the hardware statistic structure
++ *
++ *  Function receives a value and determines if an update is required based on
++ *  a delta calculation. Only the base value will be updated.
++ **/
++static void fm10k_update_hw_base_48b(struct fm10k_hw_stat *stat, u64 delta)
++{
++	if (!delta)
++		return;
++
++	/* update lower 32 bits */
++	delta += stat->base_l;
++	stat->base_l = (u32)delta;
++
++	/* update upper 32 bits */
++	stat->base_h += (u32)(delta >> 32);
++}
++
++/**
++ *  fm10k_update_hw_stats_tx_q - Updates TX queue statistics counters
++ *  @hw: pointer to the hardware structure
++ *  @q: pointer to the ring of hardware statistics queue
++ *  @idx: index pointing to the start of the ring iteration
++ *
++ *  Function updates the TX queue statistics counters that are related to the
++ *  hardware.
++ **/
++static void fm10k_update_hw_stats_tx_q(struct fm10k_hw *hw,
++				       struct fm10k_hw_stats_q *q,
++				       u32 idx)
++{
++	u32 id_tx, id_tx_prev, tx_packets;
++	u64 tx_bytes = 0;
++
++	/* Retrieve TX Owner Data */
++	id_tx = fm10k_read_reg(hw, FM10K_TXQCTL(idx));
++
++	/* Process TX Ring */
++	do {
++		tx_packets = fm10k_read_hw_stats_32b(hw, FM10K_QPTC(idx),
++						     &q->tx_packets);
++
++		if (tx_packets)
++			tx_bytes = fm10k_read_hw_stats_48b(hw,
++							   FM10K_QBTC_L(idx),
++							   &q->tx_bytes);
++
++		/* Re-Check Owner Data */
++		id_tx_prev = id_tx;
++		id_tx = fm10k_read_reg(hw, FM10K_TXQCTL(idx));
++	} while ((id_tx ^ id_tx_prev) & FM10K_TXQCTL_ID_MASK);
++
++	/* drop non-ID bits and set VALID ID bit */
++	id_tx &= FM10K_TXQCTL_ID_MASK;
++	id_tx |= FM10K_STAT_VALID;
++
++	/* update packet counts */
++	if (q->tx_stats_idx == id_tx) {
++		q->tx_packets.count += tx_packets;
++		q->tx_bytes.count += tx_bytes;
++	}
++
++	/* update bases and record ID */
++	fm10k_update_hw_base_32b(&q->tx_packets, tx_packets);
++	fm10k_update_hw_base_48b(&q->tx_bytes, tx_bytes);
++
++	q->tx_stats_idx = id_tx;
++}
++
++/**
++ *  fm10k_update_hw_stats_rx_q - Updates RX queue statistics counters
++ *  @hw: pointer to the hardware structure
++ *  @q: pointer to the ring of hardware statistics queue
++ *  @idx: index pointing to the start of the ring iteration
++ *
++ *  Function updates the RX queue statistics counters that are related to the
++ *  hardware.
++ **/
++static void fm10k_update_hw_stats_rx_q(struct fm10k_hw *hw,
++				       struct fm10k_hw_stats_q *q,
++				       u32 idx)
++{
++	u32 id_rx, id_rx_prev, rx_packets, rx_drops;
++	u64 rx_bytes = 0;
++
++	/* Retrieve RX Owner Data */
++	id_rx = fm10k_read_reg(hw, FM10K_RXQCTL(idx));
++
++	/* Process RX Ring*/
++	do {
++		rx_drops = fm10k_read_hw_stats_32b(hw, FM10K_QPRDC(idx),
++						   &q->rx_drops);
++
++		rx_packets = fm10k_read_hw_stats_32b(hw, FM10K_QPRC(idx),
++						     &q->rx_packets);
++
++		if (rx_packets)
++			rx_bytes = fm10k_read_hw_stats_48b(hw,
++							   FM10K_QBRC_L(idx),
++							   &q->rx_bytes);
++
++		/* Re-Check Owner Data */
++		id_rx_prev = id_rx;
++		id_rx = fm10k_read_reg(hw, FM10K_RXQCTL(idx));
++	} while ((id_rx ^ id_rx_prev) & FM10K_RXQCTL_ID_MASK);
++
++	/* drop non-ID bits and set VALID ID bit */
++	id_rx &= FM10K_RXQCTL_ID_MASK;
++	id_rx |= FM10K_STAT_VALID;
++
++	/* update packet counts */
++	if (q->rx_stats_idx == id_rx) {
++		q->rx_drops.count += rx_drops;
++		q->rx_packets.count += rx_packets;
++		q->rx_bytes.count += rx_bytes;
++	}
++
++	/* update bases and record ID */
++	fm10k_update_hw_base_32b(&q->rx_drops, rx_drops);
++	fm10k_update_hw_base_32b(&q->rx_packets, rx_packets);
++	fm10k_update_hw_base_48b(&q->rx_bytes, rx_bytes);
++
++	q->rx_stats_idx = id_rx;
++}
++
++/**
++ *  fm10k_update_hw_stats_q - Updates queue statistics counters
++ *  @hw: pointer to the hardware structure
++ *  @q: pointer to the ring of hardware statistics queue
++ *  @idx: index pointing to the start of the ring iteration
++ *  @count: number of queues to iterate over
++ *
++ *  Function updates the queue statistics counters that are related to the
++ *  hardware.
++ **/
++void fm10k_update_hw_stats_q(struct fm10k_hw *hw, struct fm10k_hw_stats_q *q,
++			     u32 idx, u32 count)
++{
++	u32 i;
++
++	for (i = 0; i < count; i++, idx++, q++) {
++		fm10k_update_hw_stats_tx_q(hw, q, idx);
++		fm10k_update_hw_stats_rx_q(hw, q, idx);
++	}
++}
++
++/**
++ *  fm10k_unbind_hw_stats_q - Unbind the queue counters from their queues
++ *  @hw: pointer to the hardware structure
++ *  @q: pointer to the ring of hardware statistics queue
++ *  @idx: index pointing to the start of the ring iteration
++ *  @count: number of queues to iterate over
++ *
++ *  Function invalidates the index values for the queues so any updates that
++ *  may have happened are ignored and the base for the queue stats is reset.
++ **/
++
++void fm10k_unbind_hw_stats_q(struct fm10k_hw_stats_q *q, u32 idx, u32 count)
++{
++	u32 i;
++
++	for (i = 0; i < count; i++, idx++, q++) {
++		q->rx_stats_idx = 0;
++		q->tx_stats_idx = 0;
++	}
++}
++
++/**
++ *  fm10k_get_host_state_generic - Returns the state of the host
++ *  @hw: pointer to hardware structure
++ *  @host_ready: pointer to boolean value that will record host state
++ *
++ *  This function will check the health of the mailbox and Tx queue 0
++ *  in order to determine if we should report that the link is up or not.
++ **/
++s32 fm10k_get_host_state_generic(struct fm10k_hw *hw, bool *host_ready)
++{
++	struct fm10k_mbx_info *mbx = &hw->mbx;
++	struct fm10k_mac_info *mac = &hw->mac;
++	s32 ret_val = 0;
++	u32 txdctl = fm10k_read_reg(hw, FM10K_TXDCTL(0));
++
++	/* process upstream mailbox in case interrupts were disabled */
++	mbx->ops.process(hw, mbx);
++
++	/* If Tx is no longer enabled link should come down */
++	if (!(~txdctl) || !(txdctl & FM10K_TXDCTL_ENABLE))
++		mac->get_host_state = true;
++
++	/* exit if not checking for link, or link cannot be changed */
++	if (!mac->get_host_state || !(~txdctl))
++		goto out;
++
++	/* if we somehow dropped the Tx enable we should reset */
++	if (hw->mac.tx_ready && !(txdctl & FM10K_TXDCTL_ENABLE)) {
++		ret_val = FM10K_ERR_RESET_REQUESTED;
++		goto out;
++	}
++
++	/* if Mailbox timed out we should request reset */
++	if (!mbx->timeout) {
++		ret_val = FM10K_ERR_RESET_REQUESTED;
++		goto out;
++	}
++
++	/* verify Mailbox is still valid */
++	if (!mbx->ops.tx_ready(mbx, FM10K_VFMBX_MSG_MTU))
++		goto out;
++
++	/* interface cannot receive traffic without logical ports */
++	if (mac->dglort_map == FM10K_DGLORTMAP_NONE)
++		goto out;
++
++	/* if we passed all the tests above then the switch is ready and we no
++	 * longer need to check for link
++	 */
++	mac->get_host_state = false;
++
++out:
++	*host_ready = !mac->get_host_state;
++	return ret_val;
++}
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_common.h b/drivers/net/ethernet/intel/fm10k/fm10k_common.h
+index 2b214a6..8250e14 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_common.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_common.h
+@@ -41,4 +41,17 @@ do { \
  
-+/* forward declaration */
-+struct fm10k_hw;
-+
-+#include <linux/types.h>
-+#include <asm/byteorder.h>
-+#include <linux/etherdevice.h>
-+
- #define FM10K_DEV_ID_PF			0x15A4
- #define FM10K_DEV_ID_VF			0x15A5
- 
-+#define FM10K_MAX_QUEUES		256
-+#define FM10K_MAX_QUEUES_PF		128
-+#define FM10K_MAX_QUEUES_POOL		16
-+
-+#define FM10K_48_BIT_MASK		0x0000FFFFFFFFFFFFull
-+#define FM10K_STAT_VALID		0x80000000
-+
-+/* PCI Bus Info */
-+#define FM10K_PCIE_LINK_CAP		0x7C
-+#define FM10K_PCIE_LINK_STATUS		0x82
-+#define FM10K_PCIE_LINK_WIDTH		0x3F0
-+#define FM10K_PCIE_LINK_WIDTH_1		0x10
-+#define FM10K_PCIE_LINK_WIDTH_2		0x20
-+#define FM10K_PCIE_LINK_WIDTH_4		0x40
-+#define FM10K_PCIE_LINK_WIDTH_8		0x80
-+#define FM10K_PCIE_LINK_SPEED		0xF
-+#define FM10K_PCIE_LINK_SPEED_2500	0x1
-+#define FM10K_PCIE_LINK_SPEED_5000	0x2
-+#define FM10K_PCIE_LINK_SPEED_8000	0x3
-+
-+/* PCIe payload size */
-+#define FM10K_PCIE_DEV_CAP			0x74
-+#define FM10K_PCIE_DEV_CAP_PAYLOAD		0x07
-+#define FM10K_PCIE_DEV_CAP_PAYLOAD_128		0x00
-+#define FM10K_PCIE_DEV_CAP_PAYLOAD_256		0x01
-+#define FM10K_PCIE_DEV_CAP_PAYLOAD_512		0x02
-+#define FM10K_PCIE_DEV_CTRL			0x78
-+#define FM10K_PCIE_DEV_CTRL_PAYLOAD		0xE0
-+#define FM10K_PCIE_DEV_CTRL_PAYLOAD_128		0x00
-+#define FM10K_PCIE_DEV_CTRL_PAYLOAD_256		0x20
-+#define FM10K_PCIE_DEV_CTRL_PAYLOAD_512		0x40
-+
-+/* PCIe MSI-X Capability info */
-+#define FM10K_PCI_MSIX_MSG_CTRL			0xB2
-+#define FM10K_PCI_MSIX_MSG_CTRL_TBL_SZ_MASK	0x7FF
-+#define FM10K_MAX_MSIX_VECTORS			256
-+#define FM10K_MAX_VECTORS_PF			256
-+#define FM10K_MAX_VECTORS_POOL			32
-+
-+/* PCIe SR-IOV Info */
-+#define FM10K_PCIE_SRIOV_CTRL			0x190
-+#define FM10K_PCIE_SRIOV_CTRL_VFARI		0x10
-+
-+#define FM10K_ERR_PARAM				-2
-+#define FM10K_ERR_REQUESTS_PENDING		-4
-+#define FM10K_ERR_RESET_REQUESTED		-5
-+#define FM10K_ERR_DMA_PENDING			-6
-+#define FM10K_ERR_RESET_FAILED			-7
-+#define FM10K_ERR_INVALID_MAC_ADDR		-8
-+#define FM10K_ERR_INVALID_VALUE			-9
-+#define FM10K_NOT_IMPLEMENTED			0x7FFFFFFF
-+
-+/* Start of PF registers */
-+#define FM10K_CTRL		0x0000
-+#define FM10K_CTRL_BAR4_ALLOWED			0x00000004
-+
-+#define FM10K_CTRL_EXT		0x0001
-+#define FM10K_GCR		0x0003
-+#define FM10K_GCR_EXT		0x0005
-+
-+/* Interrupt control registers */
-+#define FM10K_EICR		0x0006
-+#define FM10K_EICR_FAULT_MASK			0x0000003F
-+#define FM10K_EICR_MAILBOX			0x00000040
-+#define FM10K_EICR_SWITCHREADY			0x00000080
-+#define FM10K_EICR_SWITCHNOTREADY		0x00000100
-+#define FM10K_EICR_SWITCHINTERRUPT		0x00000200
-+#define FM10K_EICR_VFLR				0x00000800
-+#define FM10K_EICR_MAXHOLDTIME			0x00001000
-+#define FM10K_EIMR		0x0007
-+#define FM10K_EIMR_PCA_FAULT			0x00000001
-+#define FM10K_EIMR_THI_FAULT			0x00000010
-+#define FM10K_EIMR_FUM_FAULT			0x00000400
-+#define FM10K_EIMR_MAILBOX			0x00001000
-+#define FM10K_EIMR_SWITCHREADY			0x00004000
-+#define FM10K_EIMR_SWITCHNOTREADY		0x00010000
-+#define FM10K_EIMR_SWITCHINTERRUPT		0x00040000
-+#define FM10K_EIMR_SRAMERROR			0x00100000
-+#define FM10K_EIMR_VFLR				0x00400000
-+#define FM10K_EIMR_MAXHOLDTIME			0x01000000
-+#define FM10K_EIMR_ALL				0x55555555
-+#define FM10K_EIMR_DISABLE(NAME)		((FM10K_EIMR_ ## NAME) << 0)
-+#define FM10K_EIMR_ENABLE(NAME)			((FM10K_EIMR_ ## NAME) << 1)
-+#define FM10K_FAULT_ADDR_LO		0x0
-+#define FM10K_FAULT_ADDR_HI		0x1
-+#define FM10K_FAULT_SPECINFO		0x2
-+#define FM10K_FAULT_FUNC		0x3
-+#define FM10K_FAULT_SIZE		0x4
-+#define FM10K_FAULT_FUNC_VALID			0x00008000
-+#define FM10K_FAULT_FUNC_PF			0x00004000
-+#define FM10K_FAULT_FUNC_VF_MASK		0x00003F00
-+#define FM10K_FAULT_FUNC_VF_SHIFT		8
-+#define FM10K_FAULT_FUNC_TYPE_MASK		0x000000FF
-+
-+#define FM10K_PCA_FAULT		0x0008
-+#define FM10K_THI_FAULT		0x0010
-+#define FM10K_FUM_FAULT		0x001C
-+
-+/* Rx queue timeout indicator */
-+#define FM10K_MAXHOLDQ(_n)	((_n) + 0x0020)
-+
-+/* Switch Manager info */
-+#define FM10K_SM_AREA(_n)	((_n) + 0x0028)
-+
-+/* GLORT mapping registers */
-+#define FM10K_DGLORTMAP(_n)	((_n) + 0x0030)
-+#define FM10K_DGLORT_COUNT			8
-+#define FM10K_DGLORTMAP_MASK_SHIFT		16
-+#define FM10K_DGLORTMAP_ANY			0x00000000
-+#define FM10K_DGLORTMAP_NONE			0x0000FFFF
-+#define FM10K_DGLORTMAP_ZERO			0xFFFF0000
-+#define FM10K_DGLORTDEC(_n)	((_n) + 0x0038)
-+#define FM10K_DGLORTDEC_VSILENGTH_SHIFT		4
-+#define FM10K_DGLORTDEC_VSIBASE_SHIFT		7
-+#define FM10K_DGLORTDEC_PCLENGTH_SHIFT		14
-+#define FM10K_DGLORTDEC_QBASE_SHIFT		16
-+#define FM10K_DGLORTDEC_RSSLENGTH_SHIFT		24
-+#define FM10K_DGLORTDEC_INNERRSS_ENABLE		0x08000000
-+#define FM10K_TUNNEL_CFG	0x0040
-+#define FM10K_TUNNEL_CFG_NVGRE_SHIFT		16
-+#define FM10K_SWPRI_MAP(_n)	((_n) + 0x0050)
-+#define FM10K_SWPRI_MAX		16
-+#define FM10K_RSSRK(_n, _m)	(((_n) * 0x10) + (_m) + 0x0800)
-+#define FM10K_RSSRK_SIZE	10
-+#define FM10K_RSSRK_ENTRIES_PER_REG		4
-+#define FM10K_RETA(_n, _m)	(((_n) * 0x20) + (_m) + 0x1000)
-+#define FM10K_RETA_SIZE		32
-+#define FM10K_RETA_ENTRIES_PER_REG		4
-+#define FM10K_MAX_RSS_INDICES	128
-+
-+/* Rate limiting registers */
-+#define FM10K_TC_CREDIT(_n)	((_n) + 0x2000)
-+#define FM10K_TC_CREDIT_CREDIT_MASK		0x001FFFFF
-+#define FM10K_TC_MAXCREDIT(_n)	((_n) + 0x2040)
-+#define FM10K_TC_MAXCREDIT_64K			0x00010000
-+#define FM10K_TC_RATE(_n)	((_n) + 0x2080)
-+#define FM10K_TC_RATE_QUANTA_MASK		0x0000FFFF
-+#define FM10K_TC_RATE_INTERVAL_4US_GEN1		0x00020000
-+#define FM10K_TC_RATE_INTERVAL_4US_GEN2		0x00040000
-+#define FM10K_TC_RATE_INTERVAL_4US_GEN3		0x00080000
-+
-+/* DMA control registers */
-+#define FM10K_DMA_CTRL		0x20C3
-+#define FM10K_DMA_CTRL_TX_ENABLE		0x00000001
-+#define FM10K_DMA_CTRL_TX_ACTIVE		0x00000008
-+#define FM10K_DMA_CTRL_RX_ENABLE		0x00000010
-+#define FM10K_DMA_CTRL_RX_ACTIVE		0x00000080
-+#define FM10K_DMA_CTRL_RX_DESC_SIZE		0x00000100
-+#define FM10K_DMA_CTRL_MINMSS_64		0x00008000
-+#define FM10K_DMA_CTRL_MAX_HOLD_1US_GEN3	0x04800000
-+#define FM10K_DMA_CTRL_MAX_HOLD_1US_GEN2	0x04000000
-+#define FM10K_DMA_CTRL_MAX_HOLD_1US_GEN1	0x03800000
-+#define FM10K_DMA_CTRL_DATAPATH_RESET		0x20000000
-+#define FM10K_DMA_CTRL_32_DESC			0x00000000
-+
-+#define FM10K_DMA_CTRL2		0x20C4
-+#define FM10K_DMA_CTRL2_SWITCH_READY		0x00002000
-+
-+/* TSO flags configuration
-+ * First packet contains all flags except for fin and psh
-+ * Middle packet contains only urg and ack
-+ * Last packet contains urg, ack, fin, and psh
+ /* read ctrl register which has no clear on read fields as PCIe flush */
+ #define fm10k_write_flush(hw) fm10k_read_reg((hw), FM10K_CTRL)
++s32 fm10k_get_bus_info_generic(struct fm10k_hw *hw);
++s32 fm10k_get_invariants_generic(struct fm10k_hw *hw);
++s32 fm10k_disable_queues_generic(struct fm10k_hw *hw, u16 q_cnt);
++s32 fm10k_start_hw_generic(struct fm10k_hw *hw);
++s32 fm10k_stop_hw_generic(struct fm10k_hw *hw);
++u32 fm10k_read_hw_stats_32b(struct fm10k_hw *hw, u32 addr,
++			    struct fm10k_hw_stat *stat);
++#define fm10k_update_hw_base_32b(stat, delta) ((stat)->base_l += (delta))
++void fm10k_update_hw_stats_q(struct fm10k_hw *hw, struct fm10k_hw_stats_q *q,
++			     u32 idx, u32 count);
++#define fm10k_unbind_hw_stats_32b(s) ((s)->base_h = 0)
++void fm10k_unbind_hw_stats_q(struct fm10k_hw_stats_q *q, u32 idx, u32 count);
++s32 fm10k_get_host_state_generic(struct fm10k_hw *hw, bool *host_ready);
+ #endif /* _FM10K_COMMON_H_ */
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+new file mode 100644
+index 0000000..b798cd5
+--- /dev/null
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+@@ -0,0 +1,392 @@
++/* Intel Ethernet Switch Host Interface Driver
++ * Copyright(c) 2013 - 2014 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
 + */
-+#define FM10K_TSO_FLAGS_LOW		0x00300FF6
-+#define FM10K_TSO_FLAGS_HI		0x00000039
-+#define FM10K_DTXTCPFLGL	0x20C5
-+#define FM10K_DTXTCPFLGH	0x20C6
 +
-+#define FM10K_TPH_CTRL		0x20C7
-+#define FM10K_MRQC(_n)		((_n) + 0x2100)
-+#define FM10K_MRQC_TCP_IPV4			0x00000001
-+#define FM10K_MRQC_IPV4				0x00000002
-+#define FM10K_MRQC_IPV6				0x00000010
-+#define FM10K_MRQC_TCP_IPV6			0x00000020
-+#define FM10K_MRQC_UDP_IPV4			0x00000040
-+#define FM10K_MRQC_UDP_IPV6			0x00000080
++#include "fm10k_pf.h"
 +
-+#define FM10K_TQMAP(_n)		((_n) + 0x2800)
-+#define FM10K_TQMAP_TABLE_SIZE			2048
-+#define FM10K_RQMAP(_n)		((_n) + 0x3000)
++/**
++ *  fm10k_reset_hw_pf - PF hardware reset
++ *  @hw: pointer to hardware structure
++ *
++ *  This function should return the hardware to a state similar to the
++ *  one it is in after being powered on.
++ **/
++static s32 fm10k_reset_hw_pf(struct fm10k_hw *hw)
++{
++	s32 err;
++	u32 reg;
++	u16 i;
 +
-+/* Hardware Statistics */
-+#define FM10K_STATS_TIMEOUT		0x3800
-+#define FM10K_STATS_UR			0x3801
-+#define FM10K_STATS_CA			0x3802
-+#define FM10K_STATS_UM			0x3803
-+#define FM10K_STATS_XEC			0x3804
-+#define FM10K_STATS_VLAN_DROP		0x3805
-+#define FM10K_STATS_LOOPBACK_DROP	0x3806
-+#define FM10K_STATS_NODESC_DROP		0x3807
++	/* Disable interrupts */
++	fm10k_write_reg(hw, FM10K_EIMR, FM10K_EIMR_DISABLE(ALL));
 +
-+/* PCIe state registers */
-+#define FM10K_PHYADDR		0x381C
++	/* Lock ITR2 reg 0 into itself and disable interrupt moderation */
++	fm10k_write_reg(hw, FM10K_ITR2(0), 0);
++	fm10k_write_reg(hw, FM10K_INT_CTRL, 0);
 +
-+/* Rx ring registers */
-+#define FM10K_RDBAL(_n)		((0x40 * (_n)) + 0x4000)
-+#define FM10K_RDBAH(_n)		((0x40 * (_n)) + 0x4001)
-+#define FM10K_RDLEN(_n)		((0x40 * (_n)) + 0x4002)
-+#define FM10K_TPH_RXCTRL(_n)	((0x40 * (_n)) + 0x4003)
-+#define FM10K_TPH_RXCTRL_DESC_TPHEN		0x00000020
-+#define FM10K_TPH_RXCTRL_DESC_RROEN		0x00000200
-+#define FM10K_TPH_RXCTRL_DATA_WROEN		0x00002000
-+#define FM10K_TPH_RXCTRL_HDR_WROEN		0x00008000
-+#define FM10K_RDH(_n)		((0x40 * (_n)) + 0x4004)
-+#define FM10K_RDT(_n)		((0x40 * (_n)) + 0x4005)
-+#define FM10K_RXQCTL(_n)	((0x40 * (_n)) + 0x4006)
-+#define FM10K_RXQCTL_ENABLE			0x00000001
-+#define FM10K_RXQCTL_PF				0x000000FC
-+#define FM10K_RXQCTL_VF_SHIFT			2
-+#define FM10K_RXQCTL_VF				0x00000100
-+#define FM10K_RXQCTL_ID_MASK	(FM10K_RXQCTL_PF | FM10K_RXQCTL_VF)
-+#define FM10K_RXDCTL(_n)	((0x40 * (_n)) + 0x4007)
-+#define FM10K_RXDCTL_WRITE_BACK_MIN_DELAY	0x00000001
-+#define FM10K_RXDCTL_DROP_ON_EMPTY		0x00000200
-+#define FM10K_RXINT(_n)		((0x40 * (_n)) + 0x4008)
-+#define FM10K_SRRCTL(_n)	((0x40 * (_n)) + 0x4009)
-+#define FM10K_SRRCTL_BSIZEPKT_SHIFT		8 /* shift _right_ */
-+#define FM10K_SRRCTL_LOOPBACK_SUPPRESS		0x40000000
-+#define FM10K_SRRCTL_BUFFER_CHAINING_EN		0x80000000
++	/* We assume here Tx and Rx queue 0 are owned by the PF */
 +
-+/* Rx Statistics */
-+#define FM10K_QPRC(_n)		((0x40 * (_n)) + 0x400A)
-+#define FM10K_QPRDC(_n)		((0x40 * (_n)) + 0x400B)
-+#define FM10K_QBRC_L(_n)	((0x40 * (_n)) + 0x400C)
-+#define FM10K_QBRC_H(_n)	((0x40 * (_n)) + 0x400D)
++	/* Shut off VF access to their queues forcing them to queue 0 */
++	for (i = 0; i < FM10K_TQMAP_TABLE_SIZE; i++) {
++		fm10k_write_reg(hw, FM10K_TQMAP(i), 0);
++		fm10k_write_reg(hw, FM10K_RQMAP(i), 0);
++	}
 +
-+/* Rx GLORT register */
-+#define FM10K_RX_SGLORT(_n)		((0x40 * (_n)) + 0x400E)
++	/* shut down all rings */
++	err = fm10k_disable_queues_generic(hw, FM10K_MAX_QUEUES);
++	if (err)
++		return err;
 +
-+/* Tx ring registers */
-+#define FM10K_TDBAL(_n)		((0x40 * (_n)) + 0x8000)
-+#define FM10K_TDBAH(_n)		((0x40 * (_n)) + 0x8001)
-+#define FM10K_TDLEN(_n)		((0x40 * (_n)) + 0x8002)
-+#define FM10K_TPH_TXCTRL(_n)	((0x40 * (_n)) + 0x8003)
-+#define FM10K_TPH_TXCTRL_DESC_TPHEN		0x00000020
-+#define FM10K_TPH_TXCTRL_DESC_RROEN		0x00000200
-+#define FM10K_TPH_TXCTRL_DESC_WROEN		0x00000800
-+#define FM10K_TPH_TXCTRL_DATA_RROEN		0x00002000
-+#define FM10K_TDH(_n)		((0x40 * (_n)) + 0x8004)
-+#define FM10K_TDT(_n)		((0x40 * (_n)) + 0x8005)
-+#define FM10K_TXDCTL(_n)	((0x40 * (_n)) + 0x8006)
-+#define FM10K_TXDCTL_ENABLE			0x00004000
-+#define FM10K_TXDCTL_MAX_TIME_SHIFT		16
-+#define FM10K_TXQCTL(_n)	((0x40 * (_n)) + 0x8007)
-+#define FM10K_TXQCTL_PF				0x0000003F
-+#define FM10K_TXQCTL_VF				0x00000040
-+#define FM10K_TXQCTL_ID_MASK	(FM10K_TXQCTL_PF | FM10K_TXQCTL_VF)
-+#define FM10K_TXQCTL_PC_SHIFT			7
-+#define FM10K_TXQCTL_PC_MASK			0x00000380
-+#define FM10K_TXQCTL_TC_SHIFT			10
-+#define FM10K_TXQCTL_VID_SHIFT			16
-+#define FM10K_TXQCTL_VID_MASK			0x0FFF0000
-+#define FM10K_TXQCTL_UNLIMITED_BW		0x10000000
-+#define FM10K_TXINT(_n)		((0x40 * (_n)) + 0x8008)
++	/* Verify that DMA is no longer active */
++	reg = fm10k_read_reg(hw, FM10K_DMA_CTRL);
++	if (reg & (FM10K_DMA_CTRL_TX_ACTIVE | FM10K_DMA_CTRL_RX_ACTIVE))
++		return FM10K_ERR_DMA_PENDING;
 +
-+/* Tx Statistics */
-+#define FM10K_QPTC(_n)		((0x40 * (_n)) + 0x8009)
-+#define FM10K_QBTC_L(_n)	((0x40 * (_n)) + 0x800A)
-+#define FM10K_QBTC_H(_n)	((0x40 * (_n)) + 0x800B)
++	/* Inititate data path reset */
++	reg |= FM10K_DMA_CTRL_DATAPATH_RESET;
++	fm10k_write_reg(hw, FM10K_DMA_CTRL, reg);
 +
-+/* Tx Push registers */
-+#define FM10K_TQDLOC(_n)	((0x40 * (_n)) + 0x800C)
-+#define FM10K_TQDLOC_BASE_32_DESC		0x08
-+#define FM10K_TQDLOC_SIZE_32_DESC		0x00050000
++	/* Flush write and allow 100us for reset to complete */
++	fm10k_write_flush(hw);
++	udelay(FM10K_RESET_TIMEOUT);
 +
-+/* Tx GLORT registers */
-+#define FM10K_TX_SGLORT(_n)	((0x40 * (_n)) + 0x800D)
-+#define FM10K_PFVTCTL(_n)	((0x40 * (_n)) + 0x800E)
-+#define FM10K_PFVTCTL_FTAG_DESC_ENABLE		0x00000001
++	/* Verify we made it out of reset */
++	reg = fm10k_read_reg(hw, FM10K_IP);
++	if (!(reg & FM10K_IP_NOTINRESET))
++		err = FM10K_ERR_RESET_FAILED;
 +
-+/* Interrupt moderation and control registers */
-+#define FM10K_INT_MAP(_n)	((_n) + 0x10080)
-+#define FM10K_INT_MAP_TIMER0			0x00000000
-+#define FM10K_INT_MAP_TIMER1			0x00000100
-+#define FM10K_INT_MAP_IMMEDIATE			0x00000200
-+#define FM10K_INT_MAP_DISABLE			0x00000300
-+#define FM10K_MSIX_VECTOR_MASK(_n)	((0x4 * (_n)) + 0x11003)
-+#define FM10K_INT_CTRL		0x12000
-+#define FM10K_INT_CTRL_ENABLEMODERATOR		0x00000400
-+#define FM10K_ITR(_n)		((_n) + 0x12400)
-+#define FM10K_ITR_INTERVAL1_SHIFT		12
-+#define FM10K_ITR_PENDING2			0x10000000
-+#define FM10K_ITR_AUTOMASK			0x20000000
-+#define FM10K_ITR_MASK_SET			0x40000000
-+#define FM10K_ITR_MASK_CLEAR			0x80000000
-+#define FM10K_ITR2(_n)		((0x2 * (_n)) + 0x12800)
-+#define FM10K_ITR_REG_COUNT			768
-+#define FM10K_ITR_REG_COUNT_PF			256
++	return err;
++}
 +
-+/* Switch manager interrupt registers */
-+#define FM10K_IP		0x13000
-+#define FM10K_IP_NOTINRESET			0x00000100
++/**
++ *  fm10k_init_hw_pf - PF hardware initialization
++ *  @hw: pointer to hardware structure
++ *
++ **/
++static s32 fm10k_init_hw_pf(struct fm10k_hw *hw)
++{
++	u32 dma_ctrl, txqctl;
++	u16 i;
 +
-+/* VLAN registers */
-+#define FM10K_VLAN_TABLE(_n, _m)	((0x80 * (_n)) + (_m) + 0x14000)
-+#define FM10K_VLAN_TABLE_SIZE			128
++	/* Establish default VSI as valid */
++	fm10k_write_reg(hw, FM10K_DGLORTDEC(fm10k_dglort_default), 0);
++	fm10k_write_reg(hw, FM10K_DGLORTMAP(fm10k_dglort_default),
++			FM10K_DGLORTMAP_ANY);
 +
-+/* VLAN specific message offsets */
-+#define FM10K_VLAN_TABLE_VID_MAX		4096
-+#define FM10K_VLAN_TABLE_VSI_MAX		64
-+#define FM10K_VLAN_LENGTH_SHIFT			16
-+#define FM10K_VLAN_CLEAR			(1 << 15)
-+#define FM10K_VLAN_ALL \
-+	((FM10K_VLAN_TABLE_VID_MAX - 1) << FM10K_VLAN_LENGTH_SHIFT)
++	/* Invalidate all other GLORT entries */
++	for (i = 1; i < FM10K_DGLORT_COUNT; i++)
++		fm10k_write_reg(hw, FM10K_DGLORTMAP(i), FM10K_DGLORTMAP_NONE);
 +
-+/* VF FLR event notification registers */
-+#define FM10K_PFVFLRE(_n)	((0x1 * (_n)) + 0x18844)
-+#define FM10K_PFVFLREC(_n)	((0x1 * (_n)) + 0x18846)
++	/* reset ITR2(0) to point to itself */
++	fm10k_write_reg(hw, FM10K_ITR2(0), 0);
 +
-+/* Defines for size of uncacheable memories */
-+#define FM10K_UC_ADDR_START	0x000000	/* start of standard regs */
-+#define FM10K_UC_ADDR_END	0x100000	/* end of standard regs */
-+#define FM10K_UC_ADDR_SIZE	(FM10K_UC_ADDR_END - FM10K_UC_ADDR_START)
++	/* reset VF ITR2(0) to point to 0 avoid PF registers */
++	fm10k_write_reg(hw, FM10K_ITR2(FM10K_ITR_REG_COUNT_PF), 0);
 +
-+/* Define timeouts for resets and disables */
-+#define FM10K_QUEUE_DISABLE_TIMEOUT		100
-+#define FM10K_RESET_TIMEOUT			100
++	/* loop through all PF ITR2 registers pointing them to the previous */
++	for (i = 1; i < FM10K_ITR_REG_COUNT_PF; i++)
++		fm10k_write_reg(hw, FM10K_ITR2(i), i - 1);
 +
-+enum fm10k_int_source {
-+	fm10k_int_Mailbox	= 0,
-+	fm10k_int_PCIeFault	= 1,
-+	fm10k_int_SwitchUpDown	= 2,
-+	fm10k_int_SwitchEvent	= 3,
-+	fm10k_int_SRAM		= 4,
-+	fm10k_int_VFLR		= 5,
-+	fm10k_int_MaxHoldTime	= 6,
-+	fm10k_int_sources_max_pf
-+};
++	/* Enable interrupt moderator if not already enabled */
++	fm10k_write_reg(hw, FM10K_INT_CTRL, FM10K_INT_CTRL_ENABLEMODERATOR);
 +
-+/* PCIe bus speeds */
-+enum fm10k_bus_speed {
-+	fm10k_bus_speed_unknown	= 0,
-+	fm10k_bus_speed_2500	= 2500,
-+	fm10k_bus_speed_5000	= 5000,
-+	fm10k_bus_speed_8000	= 8000,
-+	fm10k_bus_speed_reserved
-+};
++	/* compute the default txqctl configuration */
++	txqctl = FM10K_TXQCTL_PF | FM10K_TXQCTL_UNLIMITED_BW |
++		 (hw->mac.default_vid << FM10K_TXQCTL_VID_SHIFT);
 +
-+/* PCIe bus widths */
-+enum fm10k_bus_width {
-+	fm10k_bus_width_unknown	= 0,
-+	fm10k_bus_width_pcie_x1	= 1,
-+	fm10k_bus_width_pcie_x2	= 2,
-+	fm10k_bus_width_pcie_x4	= 4,
-+	fm10k_bus_width_pcie_x8	= 8,
-+	fm10k_bus_width_reserved
-+};
++	for (i = 0; i < FM10K_MAX_QUEUES; i++) {
++		/* configure rings for 256 Queue / 32 Descriptor cache mode */
++		fm10k_write_reg(hw, FM10K_TQDLOC(i),
++				(i * FM10K_TQDLOC_BASE_32_DESC) |
++				FM10K_TQDLOC_SIZE_32_DESC);
++		fm10k_write_reg(hw, FM10K_TXQCTL(i), txqctl);
 +
-+/* PCIe payload sizes */
-+enum fm10k_bus_payload {
-+	fm10k_bus_payload_unknown = 0,
-+	fm10k_bus_payload_128	  = 1,
-+	fm10k_bus_payload_256	  = 2,
-+	fm10k_bus_payload_512	  = 3,
-+	fm10k_bus_payload_reserved
-+};
++		/* configure rings to provide TPH processing hints */
++		fm10k_write_reg(hw, FM10K_TPH_TXCTRL(i),
++				FM10K_TPH_TXCTRL_DESC_TPHEN |
++				FM10K_TPH_TXCTRL_DESC_RROEN |
++				FM10K_TPH_TXCTRL_DESC_WROEN |
++				FM10K_TPH_TXCTRL_DATA_RROEN);
++		fm10k_write_reg(hw, FM10K_TPH_RXCTRL(i),
++				FM10K_TPH_RXCTRL_DESC_TPHEN |
++				FM10K_TPH_RXCTRL_DESC_RROEN |
++				FM10K_TPH_RXCTRL_DATA_WROEN |
++				FM10K_TPH_RXCTRL_HDR_WROEN);
++	}
 +
-+/* Bus parameters */
-+struct fm10k_bus_info {
-+	enum fm10k_bus_speed speed;
-+	enum fm10k_bus_width width;
-+	enum fm10k_bus_payload payload;
-+};
++	/* set max hold interval to align with 1.024 usec in all modes */
++	switch (hw->bus.speed) {
++	case fm10k_bus_speed_2500:
++		dma_ctrl = FM10K_DMA_CTRL_MAX_HOLD_1US_GEN1;
++		break;
++	case fm10k_bus_speed_5000:
++		dma_ctrl = FM10K_DMA_CTRL_MAX_HOLD_1US_GEN2;
++		break;
++	case fm10k_bus_speed_8000:
++		dma_ctrl = FM10K_DMA_CTRL_MAX_HOLD_1US_GEN3;
++		break;
++	default:
++		dma_ctrl = 0;
++		break;
++	}
 +
-+/* Statistics related declarations */
-+struct fm10k_hw_stat {
-+	u64 count;
-+	u32 base_l;
-+	u32 base_h;
-+};
++	/* Configure TSO flags */
++	fm10k_write_reg(hw, FM10K_DTXTCPFLGL, FM10K_TSO_FLAGS_LOW);
++	fm10k_write_reg(hw, FM10K_DTXTCPFLGH, FM10K_TSO_FLAGS_HI);
 +
-+struct fm10k_hw_stats_q {
-+	struct fm10k_hw_stat tx_bytes;
-+	struct fm10k_hw_stat tx_packets;
-+#define tx_stats_idx	tx_packets.base_h
-+	struct fm10k_hw_stat rx_bytes;
-+	struct fm10k_hw_stat rx_packets;
-+#define rx_stats_idx	rx_packets.base_h
-+	struct fm10k_hw_stat rx_drops;
-+};
++	/* Enable DMA engine
++	 * Set Rx Descriptor size to 32
++	 * Set Minimum MSS to 64
++	 * Set Maximum number of Rx queues to 256 / 32 Descriptor
++	 */
++	dma_ctrl |= FM10K_DMA_CTRL_TX_ENABLE | FM10K_DMA_CTRL_RX_ENABLE |
++		    FM10K_DMA_CTRL_RX_DESC_SIZE | FM10K_DMA_CTRL_MINMSS_64 |
++		    FM10K_DMA_CTRL_32_DESC;
 +
-+struct fm10k_hw_stats {
-+	struct fm10k_hw_stat	timeout;
-+#define stats_idx	timeout.base_h
-+	struct fm10k_hw_stat	ur;
-+	struct fm10k_hw_stat	ca;
-+	struct fm10k_hw_stat	um;
-+	struct fm10k_hw_stat	xec;
-+	struct fm10k_hw_stat	vlan_drop;
-+	struct fm10k_hw_stat	loopback_drop;
-+	struct fm10k_hw_stat	nodesc_drop;
-+	struct fm10k_hw_stats_q q[FM10K_MAX_QUEUES_PF];
-+};
++	fm10k_write_reg(hw, FM10K_DMA_CTRL, dma_ctrl);
 +
-+/* Establish DGLORT feature priority */
-+enum fm10k_dglortdec_idx {
-+	fm10k_dglort_default	= 0,
-+	fm10k_dglort_vf_rsvd0	= 1,
-+	fm10k_dglort_vf_rss	= 2,
-+	fm10k_dglort_pf_rsvd0	= 3,
-+	fm10k_dglort_pf_queue	= 4,
-+	fm10k_dglort_pf_vsi	= 5,
-+	fm10k_dglort_pf_rsvd1	= 6,
-+	fm10k_dglort_pf_rss	= 7
-+};
++	/* record maximum queue count, we limit ourselves to 128 */
++	hw->mac.max_queues = FM10K_MAX_QUEUES_PF;
 +
-+struct fm10k_dglort_cfg {
-+	u16 glort;	/* GLORT base */
-+	u16 queue_b;	/* Base value for queue */
-+	u8  vsi_b;	/* Base value for VSI */
-+	u8  idx;	/* index of DGLORTDEC entry */
-+	u8  rss_l;	/* RSS indices */
-+	u8  pc_l;	/* Priority Class indices */
-+	u8  vsi_l;	/* Number of bits from GLORT used to determine VSI */
-+	u8  queue_l;	/* Number of bits from GLORT used to determine queue */
-+	u8  shared_l;	/* Ignored bits from GLORT resulting in shared VSI */
-+	u8  inner_rss;	/* Boolean value if inner header is used for RSS */
-+};
++	return 0;
++}
 +
-+enum fm10k_pca_fault {
-+	PCA_NO_FAULT,
-+	PCA_UNMAPPED_ADDR,
-+	PCA_BAD_QACCESS_PF,
-+	PCA_BAD_QACCESS_VF,
-+	PCA_MALICIOUS_REQ,
-+	PCA_POISONED_TLP,
-+	PCA_TLP_ABORT,
-+	__PCA_MAX
-+};
++/**
++ *  fm10k_is_slot_appropriate_pf - Indicate appropriate slot for this SKU
++ *  @hw: pointer to hardware structure
++ *
++ *  Looks at the PCIe bus info to confirm whether or not this slot can support
++ *  the necessary bandwidth for this device.
++ **/
++static bool fm10k_is_slot_appropriate_pf(struct fm10k_hw *hw)
++{
++	return (hw->bus.speed == hw->bus_caps.speed) &&
++	       (hw->bus.width == hw->bus_caps.width);
++}
 +
-+enum fm10k_thi_fault {
-+	THI_NO_FAULT,
-+	THI_MAL_DIS_Q_FAULT,
-+	__THI_MAX
-+};
-+
-+enum fm10k_fum_fault {
-+	FUM_NO_FAULT,
-+	FUM_UNMAPPED_ADDR,
-+	FUM_POISONED_TLP,
-+	FUM_BAD_VF_QACCESS,
-+	FUM_ADD_DECODE_ERR,
-+	FUM_RO_ERROR,
-+	FUM_QPRC_CRC_ERROR,
-+	FUM_CSR_TIMEOUT,
-+	FUM_INVALID_TYPE,
-+	FUM_INVALID_LENGTH,
-+	FUM_INVALID_BE,
-+	FUM_INVALID_ALIGN,
-+	__FUM_MAX
-+};
-+
-+struct fm10k_fault {
-+	u64 address;	/* Address at the time fault was detected */
-+	u32 specinfo;	/* Extra info on this fault (fault dependent) */
-+	u8 type;	/* Fault value dependent on subunit */
-+	u8 func;	/* Function number of the fault */
-+};
-+
-+struct fm10k_mac_ops {
-+	/* basic bring-up and tear-down */
-+	s32 (*reset_hw)(struct fm10k_hw *);
-+	s32 (*init_hw)(struct fm10k_hw *);
-+	s32 (*start_hw)(struct fm10k_hw *);
-+	s32 (*stop_hw)(struct fm10k_hw *);
-+	s32 (*get_bus_info)(struct fm10k_hw *);
-+	s32 (*get_host_state)(struct fm10k_hw *, bool *);
-+	bool (*is_slot_appropriate)(struct fm10k_hw *);
-+	s32 (*update_vlan)(struct fm10k_hw *, u32, u8, bool);
-+	s32 (*read_mac_addr)(struct fm10k_hw *);
-+	s32 (*update_uc_addr)(struct fm10k_hw *, u16, const u8 *,
-+			      u16, bool, u8);
-+	s32 (*update_mc_addr)(struct fm10k_hw *, u16, const u8 *, u16, bool);
-+	s32 (*update_xcast_mode)(struct fm10k_hw *, u16, u8);
-+	void (*update_int_moderator)(struct fm10k_hw *);
-+	s32  (*update_lport_state)(struct fm10k_hw *, u16, u16, bool);
-+	void (*update_hw_stats)(struct fm10k_hw *, struct fm10k_hw_stats *);
-+	void (*rebind_hw_stats)(struct fm10k_hw *, struct fm10k_hw_stats *);
-+	s32 (*configure_dglort_map)(struct fm10k_hw *,
-+				    struct fm10k_dglort_cfg *);
-+	void (*set_dma_mask)(struct fm10k_hw *, u64);
-+	s32 (*get_fault)(struct fm10k_hw *, int, struct fm10k_fault *);
-+	void (*request_lport_map)(struct fm10k_hw *);
-+	s32 (*adjust_systime)(struct fm10k_hw *, s32 ppb);
-+};
-+
-+enum fm10k_mac_type {
-+	fm10k_mac_unknown = 0,
-+	fm10k_mac_pf,
-+	fm10k_num_macs
-+};
-+
-+struct fm10k_mac_info {
-+	struct fm10k_mac_ops ops;
-+	enum fm10k_mac_type type;
-+	u8 addr[ETH_ALEN];
++/**
++ *  fm10k_read_mac_addr_pf - Read device MAC address
++ *  @hw: pointer to the HW structure
++ *
++ *  Reads the device MAC address from the SM_AREA and stores the value.
++ **/
++static s32 fm10k_read_mac_addr_pf(struct fm10k_hw *hw)
++{
 +	u8 perm_addr[ETH_ALEN];
-+	u16 default_vid;
-+	u16 max_msix_vectors;
-+	u16 max_queues;
-+	bool vlan_override;
-+	bool get_host_state;
-+	bool tx_ready;
-+	u32 dglort_map;
++	u32 serial_num;
++	int i;
++
++	serial_num = fm10k_read_reg(hw, FM10K_SM_AREA(1));
++
++	/* last byte should be all 1's */
++	if ((~serial_num) << 24)
++		return  FM10K_ERR_INVALID_MAC_ADDR;
++
++	perm_addr[0] = (u8)(serial_num >> 24);
++	perm_addr[1] = (u8)(serial_num >> 16);
++	perm_addr[2] = (u8)(serial_num >> 8);
++
++	serial_num = fm10k_read_reg(hw, FM10K_SM_AREA(0));
++
++	/* first byte should be all 1's */
++	if ((~serial_num) >> 24)
++		return  FM10K_ERR_INVALID_MAC_ADDR;
++
++	perm_addr[3] = (u8)(serial_num >> 16);
++	perm_addr[4] = (u8)(serial_num >> 8);
++	perm_addr[5] = (u8)(serial_num);
++
++	for (i = 0; i < ETH_ALEN; i++) {
++		hw->mac.perm_addr[i] = perm_addr[i];
++		hw->mac.addr[i] = perm_addr[i];
++	}
++
++	return 0;
++}
++
++/**
++ *  fm10k_update_stats_hw_pf - Updates hardware related statistics of PF
++ *  @hw: pointer to hardware structure
++ *  @stats: pointer to the stats structure to update
++ *
++ *  This function collects and aggregates global and per queue hardware
++ *  statistics.
++ **/
++static void fm10k_update_hw_stats_pf(struct fm10k_hw *hw,
++				     struct fm10k_hw_stats *stats)
++{
++	u32 timeout, ur, ca, um, xec, vlan_drop, loopback_drop, nodesc_drop;
++	u32 id, id_prev;
++
++	/* Use Tx queue 0 as a canary to detect a reset */
++	id = fm10k_read_reg(hw, FM10K_TXQCTL(0));
++
++	/* Read Global Statistics */
++	do {
++		timeout = fm10k_read_hw_stats_32b(hw, FM10K_STATS_TIMEOUT,
++						  &stats->timeout);
++		ur = fm10k_read_hw_stats_32b(hw, FM10K_STATS_UR, &stats->ur);
++		ca = fm10k_read_hw_stats_32b(hw, FM10K_STATS_CA, &stats->ca);
++		um = fm10k_read_hw_stats_32b(hw, FM10K_STATS_UM, &stats->um);
++		xec = fm10k_read_hw_stats_32b(hw, FM10K_STATS_XEC, &stats->xec);
++		vlan_drop = fm10k_read_hw_stats_32b(hw, FM10K_STATS_VLAN_DROP,
++						    &stats->vlan_drop);
++		loopback_drop = fm10k_read_hw_stats_32b(hw,
++							FM10K_STATS_LOOPBACK_DROP,
++						     &stats->loopback_drop);
++		nodesc_drop = fm10k_read_hw_stats_32b(hw,
++						      FM10K_STATS_NODESC_DROP,
++						      &stats->nodesc_drop);
++
++		/* if value has not changed then we have consistent data */
++		id_prev = id;
++		id = fm10k_read_reg(hw, FM10K_TXQCTL(0));
++	} while ((id ^ id_prev) & FM10K_TXQCTL_ID_MASK);
++
++	/* drop non-ID bits and set VALID ID bit */
++	id &= FM10K_TXQCTL_ID_MASK;
++	id |= FM10K_STAT_VALID;
++
++	/* Update Global Statistics */
++	if (stats->stats_idx == id) {
++		stats->timeout.count += timeout;
++		stats->ur.count += ur;
++		stats->ca.count += ca;
++		stats->um.count += um;
++		stats->xec.count += xec;
++		stats->vlan_drop.count += vlan_drop;
++		stats->loopback_drop.count += loopback_drop;
++		stats->nodesc_drop.count += nodesc_drop;
++	}
++
++	/* Update bases and record current PF id */
++	fm10k_update_hw_base_32b(&stats->timeout, timeout);
++	fm10k_update_hw_base_32b(&stats->ur, ur);
++	fm10k_update_hw_base_32b(&stats->ca, ca);
++	fm10k_update_hw_base_32b(&stats->um, um);
++	fm10k_update_hw_base_32b(&stats->xec, xec);
++	fm10k_update_hw_base_32b(&stats->vlan_drop, vlan_drop);
++	fm10k_update_hw_base_32b(&stats->loopback_drop, loopback_drop);
++	fm10k_update_hw_base_32b(&stats->nodesc_drop, nodesc_drop);
++	stats->stats_idx = id;
++
++	/* Update Queue Statistics */
++	fm10k_update_hw_stats_q(hw, stats->q, 0, hw->mac.max_queues);
++}
++
++/**
++ *  fm10k_rebind_hw_stats_pf - Resets base for hardware statistics of PF
++ *  @hw: pointer to hardware structure
++ *  @stats: pointer to the stats structure to update
++ *
++ *  This function resets the base for global and per queue hardware
++ *  statistics.
++ **/
++static void fm10k_rebind_hw_stats_pf(struct fm10k_hw *hw,
++				     struct fm10k_hw_stats *stats)
++{
++	/* Unbind Global Statistics */
++	fm10k_unbind_hw_stats_32b(&stats->timeout);
++	fm10k_unbind_hw_stats_32b(&stats->ur);
++	fm10k_unbind_hw_stats_32b(&stats->ca);
++	fm10k_unbind_hw_stats_32b(&stats->um);
++	fm10k_unbind_hw_stats_32b(&stats->xec);
++	fm10k_unbind_hw_stats_32b(&stats->vlan_drop);
++	fm10k_unbind_hw_stats_32b(&stats->loopback_drop);
++	fm10k_unbind_hw_stats_32b(&stats->nodesc_drop);
++
++	/* Unbind Queue Statistics */
++	fm10k_unbind_hw_stats_q(stats->q, 0, hw->mac.max_queues);
++
++	/* Reinitialize bases for all stats */
++	fm10k_update_hw_stats_pf(hw, stats);
++}
++
++/**
++ *  fm10k_get_fault_pf - Record a fault in one of the interface units
++ *  @hw: pointer to hardware structure
++ *  @type: pointer to fault type register offset
++ *  @fault: pointer to memory location to record the fault
++ *
++ *  Record the fault register contents to the fault data structure and
++ *  clear the entry from the register.
++ *
++ *  Returns ERR_PARAM if invalid register is specified or no error is present.
++ **/
++static s32 fm10k_get_fault_pf(struct fm10k_hw *hw, int type,
++			      struct fm10k_fault *fault)
++{
++	u32 func;
++
++	/* verify the fault register is in range and is aligned */
++	switch (type) {
++	case FM10K_PCA_FAULT:
++	case FM10K_THI_FAULT:
++	case FM10K_FUM_FAULT:
++		break;
++	default:
++		return FM10K_ERR_PARAM;
++	}
++
++	/* only service faults that are valid */
++	func = fm10k_read_reg(hw, type + FM10K_FAULT_FUNC);
++	if (!(func & FM10K_FAULT_FUNC_VALID))
++		return FM10K_ERR_PARAM;
++
++	/* read remaining fields */
++	fault->address = fm10k_read_reg(hw, type + FM10K_FAULT_ADDR_HI);
++	fault->address <<= 32;
++	fault->address = fm10k_read_reg(hw, type + FM10K_FAULT_ADDR_LO);
++	fault->specinfo = fm10k_read_reg(hw, type + FM10K_FAULT_SPECINFO);
++
++	/* clear valid bit to allow for next error */
++	fm10k_write_reg(hw, type + FM10K_FAULT_FUNC, FM10K_FAULT_FUNC_VALID);
++
++	/* Record which function triggered the error */
++	if (func & FM10K_FAULT_FUNC_PF)
++		fault->func = 0;
++	else
++		fault->func = 1 + ((func & FM10K_FAULT_FUNC_VF_MASK) >>
++				   FM10K_FAULT_FUNC_VF_SHIFT);
++
++	/* record fault type */
++	fault->type = func & FM10K_FAULT_FUNC_TYPE_MASK;
++
++	return 0;
++}
++
++static struct fm10k_mac_ops mac_ops_pf = {
++	.get_bus_info		= &fm10k_get_bus_info_generic,
++	.reset_hw		= &fm10k_reset_hw_pf,
++	.init_hw		= &fm10k_init_hw_pf,
++	.start_hw		= &fm10k_start_hw_generic,
++	.stop_hw		= &fm10k_stop_hw_generic,
++	.is_slot_appropriate	= &fm10k_is_slot_appropriate_pf,
++	.read_mac_addr		= &fm10k_read_mac_addr_pf,
++	.update_hw_stats	= &fm10k_update_hw_stats_pf,
++	.rebind_hw_stats	= &fm10k_rebind_hw_stats_pf,
++	.get_fault		= &fm10k_get_fault_pf,
++	.get_host_state		= &fm10k_get_host_state_generic,
 +};
 +
-+struct fm10k_swapi_table_info {
-+	u32 used;
-+	u32 avail;
++struct fm10k_info fm10k_pf_info = {
++	.mac		= fm10k_mac_pf,
++	.get_invariants	= &fm10k_get_invariants_generic,
++	.mac_ops	= &mac_ops_pf,
 +};
-+
-+struct fm10k_swapi_info {
-+	u32 status;
-+	struct fm10k_swapi_table_info mac;
-+	struct fm10k_swapi_table_info nexthop;
-+	struct fm10k_swapi_table_info ffu;
-+};
-+
-+enum fm10k_xcast_modes {
-+	FM10K_XCAST_MODE_ALLMULTI	= 0,
-+	FM10K_XCAST_MODE_MULTI		= 1,
-+	FM10K_XCAST_MODE_PROMISC	= 2,
-+	FM10K_XCAST_MODE_NONE		= 3,
-+	FM10K_XCAST_MODE_DISABLE	= 4
-+};
-+
-+enum fm10k_devices {
-+	fm10k_device_pf,
-+};
-+
-+struct fm10k_info {
-+	enum fm10k_mac_type	mac;
-+	s32			(*get_invariants)(struct fm10k_hw *);
-+	struct fm10k_mac_ops	*mac_ops;
-+};
-+
-+struct fm10k_hw {
-+	u32 __iomem *hw_addr;
-+	void *back;
-+	struct fm10k_mac_info mac;
-+	struct fm10k_bus_info bus;
-+	struct fm10k_bus_info bus_caps;
-+	struct fm10k_swapi_info swapi;
-+	u16 device_id;
-+	u16 vendor_id;
-+	u16 subsystem_device_id;
-+	u16 subsystem_vendor_id;
-+	u8 revision_id;
-+};
-+
-+/* Number of Transmit and Receive Descriptors must be a multiple of 8 */
-+#define FM10K_REQ_TX_DESCRIPTOR_MULTIPLE	8
-+#define FM10K_REQ_RX_DESCRIPTOR_MULTIPLE	8
-+
-+/* Transmit Descriptor */
-+struct fm10k_tx_desc {
-+	__le64 buffer_addr;	/* Address of the descriptor's data buffer */
-+	__le16 buflen;		/* Length of data to be DMAed */
-+	__le16 vlan;		/* VLAN_ID and VPRI to be inserted in FTAG */
-+	__le16 mss;		/* MSS for segmentation offload */
-+	u8 hdrlen;		/* Header size for segmentation offload */
-+	u8 flags;		/* Status and offload request flags */
-+};
-+
-+/* Transmit Descriptor Cache Structure */
-+struct fm10k_tx_desc_cache {
-+	struct fm10k_tx_desc tx_desc[256];
-+};
-+
-+#define FM10K_TXD_FLAG_INT	0x01
-+#define FM10K_TXD_FLAG_TIME	0x02
-+#define FM10K_TXD_FLAG_CSUM	0x04
-+#define FM10K_TXD_FLAG_FTAG	0x10
-+#define FM10K_TXD_FLAG_RS	0x20
-+#define FM10K_TXD_FLAG_LAST	0x40
-+#define FM10K_TXD_FLAG_DONE	0x80
-+
-+/* These macros are meant to enable optimal placement of the RS and INT
-+ * bits.  It will point us to the last descriptor in the cache for either the
-+ * start of the packet, or the end of the packet.  If the index is actually
-+ * at the start of the FIFO it will point to the offset for the last index
-+ * in the FIFO to prevent an unnecessary write.
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
+new file mode 100644
+index 0000000..054392f
+--- /dev/null
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
+@@ -0,0 +1,28 @@
++/* Intel Ethernet Switch Host Interface Driver
++ * Copyright(c) 2013 - 2014 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
 + */
-+#define FM10K_TXD_WB_FIFO_SIZE	4
 +
-+/* Receive Descriptor - 32B */
-+union fm10k_rx_desc {
-+	struct {
-+		__le64 pkt_addr; /* Packet buffer address */
-+		__le64 hdr_addr; /* Header buffer address */
-+		__le64 reserved; /* Empty space, RSS hash */
-+		__le64 timestamp;
-+	} q; /* Read, Writeback, 64b quad-words */
-+	struct {
-+		__le32 data; /* RSS and header data */
-+		__le32 rss;  /* RSS Hash */
-+		__le32 staterr;
-+		__le32 vlan_len;
-+		__le32 glort; /* sglort/dglort */
-+	} d; /* Writeback, 32b double-words */
-+	struct {
-+		__le16 pkt_info; /* RSS, Pkt type */
-+		__le16 hdr_info; /* Splithdr, hdrlen, xC */
-+		__le16 rss_lower;
-+		__le16 rss_upper;
-+		__le16 status; /* status/error */
-+		__le16 csum_err; /* checksum or extended error value */
-+		__le16 length; /* Packet length */
-+		__le16 vlan; /* VLAN tag */
-+		__le16 dglort;
-+		__le16 sglort;
-+	} w; /* Writeback, 16b words */
-+};
++#ifndef _FM10K_PF_H_
++#define _FM10K_PF_H_
 +
-+#define FM10K_RXD_RSSTYPE_MASK		0x000F
-+enum fm10k_rdesc_rss_type {
-+	FM10K_RSSTYPE_NONE	= 0x0,
-+	FM10K_RSSTYPE_IPV4_TCP	= 0x1,
-+	FM10K_RSSTYPE_IPV4	= 0x2,
-+	FM10K_RSSTYPE_IPV6_TCP	= 0x3,
-+	/* Reserved 0x4 */
-+	FM10K_RSSTYPE_IPV6	= 0x5,
-+	/* Reserved 0x6 */
-+	FM10K_RSSTYPE_IPV4_UDP	= 0x7,
-+	FM10K_RSSTYPE_IPV6_UDP	= 0x8
-+	/* Reserved 0x9 - 0xF */
-+};
++#include "fm10k_type.h"
++#include "fm10k_common.h"
 +
-+#define FM10K_RXD_HDR_INFO_XC_MASK	0x0006
-+enum fm10k_rxdesc_xc {
-+	FM10K_XC_UNICAST	= 0x0,
-+	FM10K_XC_MULTICAST	= 0x4,
-+	FM10K_XC_BROADCAST	= 0x6
-+};
-+
-+#define FM10K_RXD_STATUS_DD		0x0001 /* Descriptor done */
-+#define FM10K_RXD_STATUS_EOP		0x0002 /* End of packet */
-+#define FM10K_RXD_STATUS_L4CS		0x0010 /* Indicates an L4 csum */
-+#define FM10K_RXD_STATUS_L4CS2		0x0040 /* Inner header L4 csum */
-+#define FM10K_RXD_STATUS_L4E2		0x0800 /* Inner header L4 csum err */
-+#define FM10K_RXD_STATUS_IPE2		0x1000 /* Inner header IPv4 csum err */
-+#define FM10K_RXD_STATUS_RXE		0x2000 /* Generic Rx error */
-+#define FM10K_RXD_STATUS_L4E		0x4000 /* L4 csum error */
-+#define FM10K_RXD_STATUS_IPE		0x8000 /* IPv4 csum error */
-+
-+struct fm10k_ftag {
-+	__be16 swpri_type_user;
-+	__be16 vlan;
-+	__be16 sglort;
-+	__be16 dglort;
-+};
-+
- #endif /* _FM10K_TYPE_H */
++extern struct fm10k_info fm10k_pf_info;
++#endif /* _FM10K_PF_H */
