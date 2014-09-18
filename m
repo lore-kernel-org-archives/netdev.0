@@ -1,57 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: sched: shrink struct qdisc_skb_cb to 28 bytes
-Date: Thu, 18 Sep 2014 12:14:39 -0700
-Message-ID: <1411067679.7106.283.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1402338773-5996-1-git-send-email-_govind@gmx.com>
-	 <1402338773-5996-2-git-send-email-_govind@gmx.com>
-	 <CAE9FiQW+Rv4o9Pc1J9hyqgW1WrhEANKEXH6zYQc2NQqeMbAcvA@mail.gmail.com>
-	 <alpine.LNX.2.03.1406261159071.1438@ws.cisco>
-	 <CAJZOPZJ7+n0t1LCqaa3JCBByRw=f_Tp6rk8vm0ZnCzmtKFKX_g@mail.gmail.com>
-	 <1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140918092628.566eae2b@urahara>
-	 <1411057934.7106.275.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411063227.7106.280.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411063655.4290.18.camel@joe-AO725>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCHv5 net-next 3/3] sunvnet: generate ICMP PTMUD messages
+ for smaller port MTUs
+Date: Thu, 18 Sep 2014 15:23:54 -0400
+Message-ID: <541B314A.8090203@oracle.com>
+References: <5419F3E5.4050708@oracle.com> <20140917224351.GM26828@oracle.com> <541A1C46.90201@oracle.com>
+Reply-To: sowmini.varadhan@oracle.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	Yinghai Lu <yinghai@kernel.org>,
-	David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>, ssujith@cisco.com,
-	gvaradar@cisco.com, "Christian Benvenuti (benve)" <benve@cisco.com>
-To: Joe Perches <joe@perches.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: David L Stevens <david.stevens@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:42600 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750924AbaIRTOw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 15:14:52 -0400
-Received: by mail-pa0-f42.google.com with SMTP id lj1so2144412pab.15
-        for <netdev@vger.kernel.org>; Thu, 18 Sep 2014 12:14:52 -0700 (PDT)
-In-Reply-To: <1411063655.4290.18.camel@joe-AO725>
+Received: from userp1040.oracle.com ([156.151.31.81]:48476 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753340AbaIRTX5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Sep 2014 15:23:57 -0400
+In-Reply-To: <541A1C46.90201@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-09-18 at 11:07 -0700, Joe Perches wrote:
+On 09/17/2014 07:41 PM, David L Stevens wrote:
+>
+>
+> On 09/17/2014 06:43 PM, Sowmini Varadhan wrote:
+>> On (09/17/14 16:49), David L Stevens wrote:
+>>> +
+>>> +			rt = ip_route_output_key(dev_net(dev), &fl4);
+>>> +			if (!IS_ERR(rt)) {
+>>
+>> As I've mentioned before, this layering violation makes me uneasy,
+>> so its benefits should be evaluated carefully.  You will typically not be
+>> able to find an rt for packets coming here from any application
+>> that does not itself use/update the FIB, e.g., uspace based packet-injectors
+>> (PF_PACKET-based applications, intel dpdk-based uspace stacks etc.)
 
-> > +static inline struct ipoib_cb *ipoib_skb_cb(const struct sk_buff *skb)
-> > +{
-> > +	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct ipoib_cb));
-> > +	return (struct ipoib_cb *)skb->cb;
-> > +}
-> 
-> It seems better not to use const for the struct sk_buff * here.
-> 
-> Neither of the uses take a const struct sk_buff *
+>
+> A pair of Linux LDOMs can get 8X throughput improvement by raising the MTU to 64K, but
+> many packets will be *silently* dropped if they go to any other destination that does
+> not support 64K MTU. Those destinations that don't support 64K MTU include any legacy
+> Linux running the pre-jumbo code and all Solaris hosts, including the current releases.
 
-Thats pretty standard, check for other similar constructs like that.
+by now I am actually quite confused by what the Administrator will see.
+If I do "ifconfig -a" or "ip addr", what is the reported mtu of the 
+interface?
 
 
-static inline struct qdisc_skb_cb *qdisc_skb_cb(const struct sk_buff *skb)
-{
-        return (struct qdisc_skb_cb *)skb->cb;
-}
+> Also, I wouldn't call it a layering violation. icmp_send() is the external API for
+> triggering ICMP errors, and we are sending them at the point where we know the next-hop MTU.
+> It is exactly equivalent to an Ethernet device connected to a switch where the switch
+> sends useful layer-3 packets (like IGMP queries). In this case, that useful layer 3 info
+> is remote link MTU data; something not available in ordinary Ethernet.
 
-This allows uses of the helper when the skb is only read (has the const qual)
+Interesting. So if the Administrator sets up ICMP filters for 
+outbound/inbound (at the IP layer), what will be the observed behavior?
+
+--Sowmini
