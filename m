@@ -1,65 +1,28 @@
-From: fruggeri@aristanetworks.com (Francesco Ruggeri)
-Subject: cannot ARP macvlan on top of bonding device
-Date: Fri, 19 Sep 2014 00:03:32 -0700
-Message-ID: <20140919070332.D47D1481010@fruggeri-Arora18.sjc.aristanetworks.com>
+From: "Dr. Nonaka Takashi" <info@nidoco.co.jp>
+Subject: Waiting to hear from you
+Date: Sat, 20 Sep 2014 08:43:06 +1200 (NZST)
+Message-ID: <7303.46.114.141.194.1411159386.squirrel@mail.fseromania.ro>
+Reply-To: nonakatak@aol.jp
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fruggeri@arista.com, davem@davemloft.net,
-	herbert@gondor.apana.org.au
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.aristanetworks.com ([162.210.130.12]:39378 "EHLO
-	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932205AbaISUMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 16:12:12 -0400
+Received: from mail.fseromania.ro ([89.35.192.164]:35044 "EHLO
+	mail.fseromania.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757734AbaISUWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 16:22:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Waiting to hear from you
 
-Ping in the following test fails:
+I am Dr. Nonaka Takashi. (Head of Internal Audit Group, Deputy President,
+Executive Officer and Director of Mizuho Trust & Banking Co., Ltd), Japan.
+I have a lucrative business proposal of mutual interest to share with you,
+If you are interested in working with me, contact me through my private
+Email; ( nonakatak@aol.jp ) for further details
 
-# Create veth pair v1 v2
-ip link add v1 type veth peer name v2
-
-# Stack macvlan on top of bonding device on top of v1
-ip link set v1 up
-ip link add bond1 type bond
-ip link set bond1 up
-ifenslave bond1 v1
-ip link add link bond1 name mac1 type macvlan mode bridge
-ip link set mac1 up
-ifconfig mac1 1.2.3.1/24
-
-# Move v2 to namespace dummy2 and ping v1
-ip netns add dummy2
-ip link set v2 netns dummy2
-ip netns exec dummy2 bash
-ip link set lo up
-ip link set v2 up
-ifconfig v2 1.2.3.2/24
-ping 1.2.3.1 -c 5
-
-# Clean up
-exit
-ip netns del dummy2
-ip link del bond
-
-It passes on older releases.
-The problem is that txqueuelen in bond1 is 0, and ARP requests are dropped in macvlan_broadcast_enqueue at:
-
-        if (skb_queue_len(&port->bc_queue) < skb->dev->tx_queue_len) {
-                __skb_queue_tail(&port->bc_queue, nskb);
-                err = 0;
-        }
-
-where
-port->dev = skb->dev = "bond1"
-skb_queue_len(&port->bc_queue) = skb->dev->tx_queue_len = 0
-
-macvlan_broadcast_enqueue was introduced in 412ca1550 (macvlan: Move broadcasts into a work queue).
-
-Why are we using tx_queue_len to limit an rx queue?
-
-Thanks,
-Francesco Ruggeri
+Kind Regards
+Dr. Nonaka Takashi
+E-mail: nonakatak@aol.jp
