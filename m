@@ -1,51 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net] macvlan: allow to enqueue broadcast pkt on virtual
- device
-Date: Sat, 20 Sep 2014 07:31:08 +0800
-Message-ID: <20140919233108.GA31226@gondor.apana.org.au>
-References: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
- <20140919.160351.1490731758266834534.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 2/2] tg3: Allow for receive of full-size 8021AD frames
+Date: Fri, 19 Sep 2014 16:37:42 -0700
+Message-ID: <1411169862.26859.62.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
+	 <1411165389-21276-3-git-send-email-vyasevic@redhat.com>
+	 <1411167552.26859.58.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411168475.6401.37.camel@prashant>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
+	Vladislav Yasevich <vyasevic@redhat.com>,
+	Michael Chan <mchan@broadcom.com>
+To: Prashant Sreedharan <prashant@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:34808 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756996AbaISXbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 19:31:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20140919.160351.1490731758266834534.davem@davemloft.net>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:38171 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752685AbaISXhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 19:37:45 -0400
+Received: by mail-pd0-f181.google.com with SMTP id r10so818860pdi.26
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 16:37:44 -0700 (PDT)
+In-Reply-To: <1411168475.6401.37.camel@prashant>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 19, 2014 at 04:03:51PM -0400, David Miller wrote:
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Wed, 17 Sep 2014 10:08:08 +0200
-> 
-> > Since commit 412ca1550cbe ("macvlan: Move broadcasts into a work queue"), the
-> > driver uses tx_queue_len of the master device as the limit of packets enqueuing.
-> > Problem is that virtual drivers have this value set to 0, thus all broadcast
-> > packets were rejected.
-> > Because tx_queue_len was arbitrarily chosen, I replace it with a static limit
-> > of 1000 (also arbitrarily chosen).
-> > 
-> > CC: Herbert Xu <herbert@gondor.apana.org.au>
-> > Reported-by: Thibaut Collet <thibaut.collet@6wind.com>
-> > Suggested-by: Thibaut Collet <thibaut.collet@6wind.com>
-> > Tested-by: Thibaut Collet <thibaut.collet@6wind.com>
-> > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> 
-> Herbert please review.
+On Fri, 2014-09-19 at 16:14 -0700, Prashant Sreedharan wrote:
 
-While it would be nice to maintain the ability to chnge this
-parameter, I'm fine with this patch as it stands since it fixes
-a real regression.
+> The NIC will not receive frames of size > mtu + ETH_HLEN + VLAN_HLEN it
+> will update the oversize_frame count and drop it. The check is to make
+> sure the additional 4 bytes is due to a valid vlan header.
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I see, thanks for the explanation ;)
