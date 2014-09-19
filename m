@@ -1,63 +1,44 @@
-From: Zhi Li <lznuaa@gmail.com>
-Subject: Re: [PATCH net-next v2] fec: Staticize fec_enet_select_queue()
-Date: Fri, 19 Sep 2014 13:55:14 -0500
-Message-ID: <CAHrpEqQ3zQHqGnF_cZb_MSSwrbu10O6XRzsOn3DK79KQ=o26mw@mail.gmail.com>
-References: <1411149574-26296-1-git-send-email-fabio.estevam@freescale.com>
+From: Thomas Martitz <kugel@rockbox.org>
+Subject: Bridge IGMP snooping question
+Date: Fri, 19 Sep 2014 20:55:31 +0200
+Message-ID: <541C7C23.90008@rockbox.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Fabio Estevam <fabio.estevam@freescale.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: herbert@gondor.apana.org.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:32831 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756771AbaISSzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 14:55:16 -0400
-Received: by mail-la0-f44.google.com with SMTP id q1so3754520lam.3
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 11:55:14 -0700 (PDT)
-In-Reply-To: <1411149574-26296-1-git-send-email-fabio.estevam@freescale.com>
+Received: from mailout01.t-online.de ([194.25.134.80]:42850 "EHLO
+	mailout01.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757658AbaISTCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 15:02:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 19, 2014 at 12:59 PM, Fabio Estevam
-<fabio.estevam@freescale.com> wrote:
-> fec_enet_select_queue() is only used locally, so mark it as 'static' to fix the
-> following sparse warning:
->
-> drivers/net/ethernet/freescale/fec_main.c:2707:5: warning: symbol 'fec_enet_select_queue' was not declared. Should it be static?
->
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+Hello Linux folks,
 
-Acked-by: Frank Li <Frank.Li@freescale.com>
+I have one question regarding IGMP snooping on bridges, specifically 
+about leaving multicast groups.
 
-> ---
-> Changes since v1:
-> - Make checkpatch happy
->
->  drivers/net/ethernet/freescale/fec_main.c | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> index 6e93336..2389dff 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -2704,8 +2704,9 @@ static int fec_set_features(struct net_device *netdev,
->         return 0;
->  }
->
-> -u16 fec_enet_select_queue(struct net_device *ndev, struct sk_buff *skb,
-> -                         void *accel_priv, select_queue_fallback_t fallback)
-> +static u16 fec_enet_select_queue(struct net_device *ndev, struct sk_buff *skb,
-> +                                void *accel_priv,
-> +                                select_queue_fallback_t fallback)
->  {
->         return skb_tx_hash(ndev, skb);
->  }
-> --
-> 1.9.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+br_multicast_leave_group() has this check early on:
+
+if (!netif_running(br->dev) ||
+         (port && port->state == BR_STATE_DISABLED) ||
+         timer_pending(&querier->timer)) /* <- THIS */
+                goto out;
+
+I'm wondering why the bridge code prevents group leaves if if the 
+querier timer is pending. From my understanding the timer acts as an 
+indication whether the local system is the network's querier or not (if 
+pending then another router is querier). Therefore this check prevents 
+to leave groups if there is another querier.
+
+I'm wondering what's the rationale for this, if any. It seems to be that 
+the decision whether an attached client gets mc forwarded is independent 
+on whether the local system is querier or not. Git log does not reveal 
+the answer as this check is there from the beginning.
+
+PS: This behavior conflicts with something I'm working.
+
+Thank you very much in advance.
+
+Best regards.
