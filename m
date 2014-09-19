@@ -1,74 +1,46 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH v2 1/2] tg3: Work around HW/FW limitations with vlan encapsulated frames
-Date: Fri, 19 Sep 2014 18:23:08 -0400
-Message-ID: <1411165389-21276-2-git-send-email-vyasevic@redhat.com>
-References: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
-Cc: Vladislav Yasevich <vyasevic@redhat.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f181.google.com ([209.85.216.181]:35396 "EHLO
-	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932467AbaISWXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 18:23:22 -0400
-Received: by mail-qc0-f181.google.com with SMTP id r5so3884919qcx.26
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 15:23:21 -0700 (PDT)
-In-Reply-To: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: [PATCH] scsi: fix SCSI_BNX2X_FCOE dependencies and build errors
+Date: Fri, 19 Sep 2014 15:38:13 -0700
+Message-ID: <541CB055.6000504@infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Anish Bhatt <anish@chelsio.com>,
+	James Bottomley <jbottomley@parallels.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-TG3 appears to have an issue performing TSO and checksum offloading
-correctly when the frame has been vlan encapsulated (non-accelerated).
-In these cases, tcp checksum is not correctly updated.
+From: Randy Dunlap <rdunlap@infradead.org>
 
-This patch attempts to work around this issue.  After the patch,
-802.1ad vlans start working correctly over tg3 devices.
+Don't enable NETDEVICES when NET is not enabled. That causes
+build warnings and errors.
 
-CC: Prashant Sreedharan <prashant@broadcom.com>
-CC: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+warning: (SCSI_CXGB3_ISCSI && SCSI_CXGB4_ISCSI && SCSI_BNX2X_FCOE) selects NETDEVICES which has unmet direct dependencies (NET)
+warning: (SCSI_CXGB3_ISCSI && SCSI_CXGB4_ISCSI && SCSI_BNX2_ISCSI && SCSI_BNX2X_FCOE) selects ETHERNET which has unmet direct dependencies (NETDEVICES && NET)
+warning: (SCSI_BNX2X_FCOE && LIBFCOE && TCM_QLA2XXX) selects LIBFC which has unmet direct dependencies (SCSI_LOWLEVEL && SCSI && SCSI_FC_ATTRS)
+
+../drivers/net/ethernet/cisco/enic/enic_main.c: In function 'enic_rq_indicate_buf':
+../drivers/net/ethernet/cisco/enic/enic_main.c:1077:3: error: implicit declaration of function 'skb_mark_napi_id' [-Werror=implicit-function-declaration]
+../drivers/net/ethernet/cisco/enic/enic_main.c:1078:3: error: implicit declaration of function 'enic_poll_busy_polling' [-Werror=implicit-function-declaration]
+
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
 ---
-v2: - Moved segmentation call sooner
-    - Preserve checksum txd flag for LSO.
+ drivers/scsi/bnx2fc/Kconfig |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
- drivers/net/ethernet/broadcom/tg3.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index cb77ae9..b78d043 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -7924,6 +7924,13 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		if (skb_cow_head(skb, 0))
- 			goto drop;
- 
-+		/* HW/FW can not correctly segment packets that have been
-+		 * vlan encapsulated.
-+		 */
-+		if (skb->protocol == htons(ETH_P_8021Q) ||
-+		    skb->protocol == htons(ETH_P_8021AD))
-+			return tg3_tso_bug(tp, tnapi, txq, skb);
-+
- 		iph = ip_hdr(skb);
- 		tcp_opt_len = tcp_optlen(skb);
- 
-@@ -7979,6 +7986,16 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 				base_flags |= tsflags << 12;
- 			}
- 		}
-+	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		/* HW/FW can not correctly checksum packets that have been
-+		 * vlan encapsulated.
-+		 */
-+		if (skb->protocol == htons(ETH_P_8021Q) ||
-+		    skb->protocol == htons(ETH_P_8021AD)) {
-+			if (skb_checksum_help(skb))
-+				goto drop;
-+			base_flags &= ~TXD_FLAG_TCPUDP_CSUM;
-+		}
- 	}
- 
- 	if (tg3_flag(tp, USE_JUMBO_BDFLAG) &&
--- 
-1.9.3
+--- linux-next-20140918.orig/drivers/scsi/bnx2fc/Kconfig
++++ linux-next-20140918/drivers/scsi/bnx2fc/Kconfig
+@@ -1,7 +1,8 @@
+ config SCSI_BNX2X_FCOE
+ 	tristate "QLogic NetXtreme II FCoE support"
+-	depends on PCI
++	depends on PCI && NET
+ 	depends on (IPV6 || IPV6=n)
++	depends on SCSI_FC_ATTRS
+ 	select NETDEVICES
+ 	select ETHERNET
+ 	select NET_VENDOR_BROADCOM
