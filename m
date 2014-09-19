@@ -1,145 +1,57 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH] tg3: Work around HW/FW limitations with vlan encapsulated
- frames
-Date: Fri, 19 Sep 2014 09:59:40 -0400
-Message-ID: <541C36CC.60405@redhat.com>
-References: <1411050677-28147-1-git-send-email-vyasevic@redhat.com> <1411081221.18724.84.camel@prashant>
-Reply-To: vyasevic@redhat.com
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: Re: [patch net-next v2 0/9] introduce rocker switch
+ driver with hardware accelerated datapath api
+Date: Fri, 19 Sep 2014 14:15:32 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17495CC6@AcuExch.aculab.com>
+References: <1411134590-4586-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>
-To: Prashant Sreedharan <prashant@broadcom.com>,
-	Vladislav Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:18700 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756520AbaISN7p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Sep 2014 09:59:45 -0400
-In-Reply-To: <1411081221.18724.84.camel@prashant>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ "jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ "john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ "Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org" <Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org>,
+ "edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org" <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+ "andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org" <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
+ "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ "nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org" <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+ "f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ "ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+ "jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ "ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+ "ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org" <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+ "buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org" <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
+ "alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ "simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org" <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+ "roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org" <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
+ "jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org" <jh
+To: 'Jiri Pirko' <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+ <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1411134590-4586-1-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 09/18/2014 07:00 PM, Prashant Sreedharan wrote:
-> On Thu, 2014-09-18 at 10:31 -0400, Vladislav Yasevich wrote:
->> TG3 appears to have an issue performing TSO and checksum offloading
->> correclty when the frame has been vlan encapsulated (non-accelrated).
->> In these cases, tcp checksum is not correctly updated.
-> 
-> Yes that is true for inline vlan headers, to clarify was TSO and
-> checksum offload working for accelerated 802.1ad packets ? 
+From: Jiri Pirko
+> This patchset can be divided into 3 main sections:
+> - introduce switchdev api for implementing switch drivers
+> - introduce switchdev generic netlink api for userspace manipulation
+> - introduce rocker switch driver which implements switchdev api
 
-We don't accelerate 802.1ad if the driver doesn't claim offload support.
-If I had to guess, the TSO would probably work, but the packet would
-be encapsulated as 802.1Q by the FW/HW and connection would fail.
+Perhaps you should be including the name of what you are switching
+in the name of the API?
 
-> 
->> This patch attempts to work around this issue.  After the patch,
->> 802.1ad vlans start working correctly over tg3 devices.
->>
->> CC: Prashant Sreedharan <prashant@broadcom.com>
->> CC: Michael Chan <mchan@broadcom.com>
->> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->> ---
->>  drivers/net/ethernet/broadcom/tg3.c | 20 ++++++++++++++++++--
->>  1 file changed, 18 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
->> index cb77ae9..e7d3a62 100644
->> --- a/drivers/net/ethernet/broadcom/tg3.c
->> +++ b/drivers/net/ethernet/broadcom/tg3.c
->> @@ -7914,8 +7914,6 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
->>  
->>  	entry = tnapi->tx_prod;
->>  	base_flags = 0;
->> -	if (skb->ip_summed == CHECKSUM_PARTIAL)
->> -		base_flags |= TXD_FLAG_TCPUDP_CSUM;
->>  
->>  	mss = skb_shinfo(skb)->gso_size;
->>  	if (mss) {
->> @@ -7929,6 +7927,13 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
->>  
->>  		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb) - ETH_HLEN;
->>  
->> +		/* HW/FW can not correctly segment packets that have been
->> +		 * vlan encapsulated.
->> +		 */
->> +		if (skb->protocol == htons(ETH_P_8021Q) ||
->> +		    skb->protocol == htons(ETH_P_8021AD))
->> +			return tg3_tso_bug(tp, tnapi, txq, skb);
-> 
-> I think skb_gso_segment() would return skbs that would still have
-> checksum offloaded to the chip.
+Is this for interfacing to ethernet switches, TDM switches or
+mechanical ones?
+It isn't really clear from any of these commit messages.
 
-Doesn't appear to.  If I don't do this, then netperf throughput drops
-to 45.75 Mbps.  If I put the above back in, the throughput goes to to 940Mbps.
-
->  
->> +
->>  		if (!skb_is_gso_v6(skb)) {
->>  			if (unlikely((ETH_HLEN + hdr_len) > 80) &&
->>  			    tg3_flag(tp, TSO_BUG))
->> @@ -7979,6 +7984,17 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
->>  				base_flags |= tsflags << 12;
->>  			}
->>  		}
->> +	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
->> +		/* HW/FW can not correctly checksum packets that have been
->> +		 * vlan encapsulated.
->> +		 */
->> +		if (skb->protocol == htons(ETH_P_8021Q) ||
->> +		    skb->protocol == htons(ETH_P_8021AD)) {
->> +			if (skb_checksum_help(skb))
->> +				goto drop;
->> +		} else  {
->> +			base_flags |= TXD_FLAG_TCPUDP_CSUM;
->> +		}
->>  	}
->>  
->>  	if (tg3_flag(tp, USE_JUMBO_BDFLAG) &&
-> 
-> Instead of the above workarounds since the chips supported by tg3 does
-> not support checksum offload and TSO for inline vlan headers, these
-> features can be disabled/cleared in dev->vlan_features. Side effect is
-> accelerated vlan headers will also have TSO and checksum offload
-> disabled.
-
-I didn't want to impact normal accelerated usage.  The non-accelerated
-case is rather rare especially since tg3 driver doesn't allow you to
-turn off vlan acceleration.  One has to put a software device between
-tg3 and vlan that allow you to turn off vlan acceleration (ex: bridge)
-and turn off acceleration on the bridge to get this to happen for 802.1Q
-vlans.  People don't normally turn off vlan acceleration though as evidenced
-by this bug (and issues in other drivers) being around for a _very_ long time.
-
-> 
-> Also as part of this review, found a problem with the receive section of
-> the driver it was not checking for 802.1ad vlan protocol and dropping
-> 802.1ad vlan packets of size > mtu + ETH_HLEN
-
-Good catch.  I should have run the TCP_MAERTS test.  :)
-
-I'll update the patch with the below hunk and resubmit if we can agree
-on using the tg3_tso_bug workaround.
-
--vlad
-
-> 
-> diff --git a/drivers/net/ethernet/broadcom/tg3.c
-> b/drivers/net/ethernet/broadcom/tg3.c
-> index cb77ae9..620887a 100644
-> --- a/drivers/net/ethernet/broadcom/tg3.c
-> +++ b/drivers/net/ethernet/broadcom/tg3.c
-> @@ -6918,7 +6918,8 @@ static int tg3_rx(struct tg3_napi *tnapi, int
-> budget)
->                 skb->protocol = eth_type_trans(skb, tp->dev);
->  
->                 if (len > (tp->dev->mtu + ETH_HLEN) &&
-> -                   skb->protocol != htons(ETH_P_8021Q)) {
-> +                   skb->protocol != htons(ETH_P_8021Q) &&
-> +                   skb->protocol != htons(ETH_P_8021AD)) {
->                         dev_kfree_skb_any(skb);
->                         goto drop_it_no_recycle;
->                 }
-> 
-> 
+	David
