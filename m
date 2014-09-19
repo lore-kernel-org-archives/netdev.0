@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] macvlan: allow to enqueue broadcast pkt on virtual
- device
-Date: Fri, 19 Sep 2014 16:03:51 -0400 (EDT)
-Message-ID: <20140919.160351.1490731758266834534.davem@davemloft.net>
-References: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] tcp: do not fake tcp headers in
+ tcp_send_rcvq()
+Date: Fri, 19 Sep 2014 16:04:40 -0400 (EDT)
+Message-ID: <20140919.160440.278963055238455366.davem@davemloft.net>
+References: <1410948882.7106.212.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: nicolas.dichtel@6wind.com
+Cc: netdev@vger.kernel.org, xemul@parallels.com, ncardwell@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58733 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58745 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932117AbaISUDx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 16:03:53 -0400
-In-Reply-To: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S932117AbaISUEm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 16:04:42 -0400
+In-Reply-To: <1410948882.7106.212.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 17 Sep 2014 10:08:08 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 17 Sep 2014 03:14:42 -0700
 
-> Since commit 412ca1550cbe ("macvlan: Move broadcasts into a work queue"), the
-> driver uses tx_queue_len of the master device as the limit of packets enqueuing.
-> Problem is that virtual drivers have this value set to 0, thus all broadcast
-> packets were rejected.
-> Because tx_queue_len was arbitrarily chosen, I replace it with a static limit
-> of 1000 (also arbitrarily chosen).
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> CC: Herbert Xu <herbert@gondor.apana.org.au>
-> Reported-by: Thibaut Collet <thibaut.collet@6wind.com>
-> Suggested-by: Thibaut Collet <thibaut.collet@6wind.com>
-> Tested-by: Thibaut Collet <thibaut.collet@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Now we no longer rely on having tcp headers for skbs in receive queue,
+> tcp repair do not need to build fake ones.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Herbert please review.
+Applied, thanks Eric.
