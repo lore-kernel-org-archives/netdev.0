@@ -1,54 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] macvlan: allow to enqueue broadcast pkt on virtual
- device
-Date: Fri, 19 Sep 2014 14:35:01 -0700
-Message-ID: <1411162501.26859.39.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
-	 <CAHA+R7OQ=R8Y0LDVormukRjdosODiRuGq+NTrZQ08sXvfJYUnQ@mail.gmail.com>
+From: Francesco Ruggeri <fruggeri@arista.com>
+Subject: Re: cannot ARP macvlan on top of bonding device
+Date: Fri, 19 Sep 2014 14:35:48 -0700
+Message-ID: <CA+HUmGi16QV2r7BuJYQWBckUG=oCe04JwJQFAyj=LihL=Rj5Kg@mail.gmail.com>
+References: <20140919210040.E09BA481010@fruggeri-Arora18.sjc.aristanetworks.com>
+	<1411161451.26859.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Francesco Ruggeri <fruggeri@aristanetworks.com>,
 	netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Cong Wang <cwang@twopensource.com>
+	David Miller <davem@davemloft.net>,
+	herbert@gondor.apana.org.au, nicolas.dichtel@6wind.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:37286 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757910AbaISVfE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 17:35:04 -0400
-Received: by mail-pa0-f51.google.com with SMTP id fa1so880031pad.10
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 14:35:03 -0700 (PDT)
-In-Reply-To: <CAHA+R7OQ=R8Y0LDVormukRjdosODiRuGq+NTrZQ08sXvfJYUnQ@mail.gmail.com>
+Received: from mail-oa0-f44.google.com ([209.85.219.44]:58256 "EHLO
+	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758033AbaISVft (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 17:35:49 -0400
+Received: by mail-oa0-f44.google.com with SMTP id eb12so2268498oac.31
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 14:35:48 -0700 (PDT)
+In-Reply-To: <1411161451.26859.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-09-19 at 14:24 -0700, Cong Wang wrote:
-> On Wed, Sep 17, 2014 at 1:08 AM, Nicolas Dichtel
-> <nicolas.dichtel@6wind.com> wrote:
-> > Since commit 412ca1550cbe ("macvlan: Move broadcasts into a work queue"), the
-> > driver uses tx_queue_len of the master device as the limit of packets enqueuing.
-> > Problem is that virtual drivers have this value set to 0, thus all broadcast
-> > packets were rejected.
-> > Because tx_queue_len was arbitrarily chosen, I replace it with a static limit
-> > of 1000 (also arbitrarily chosen).
-> >
-> 
-> Hmm, why not manually set this tx_queue_len to fix it?
-> 
-> At least fifo qdisc also uses tx_queue_len, and when you bond
-> you have to set it to non-zero.
+On Fri, Sep 19, 2014 at 2:17 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2014-09-19 at 14:00 -0700, Francesco Ruggeri wrote:
+>> [Resending with correct date]
+>>
+>> Ping in the following test fails:
+>>
+>> # Create veth pair v1 v2
+>> ip link add v1 type veth peer name v2
+>>
+>> # Stack macvlan on top of bonding device on top of v1
+>> ip link set v1 up
+>> ip link add bond1 type bond
+>> ip link set bond1 up
+>> ifenslave bond1 v1
+>> ip link add link bond1 name mac1 type macvlan mode bridge
+>> ip link set mac1 up
+>> ifconfig mac1 1.2.3.1/24
+>>
+>> # Move v2 to namespace dummy2 and ping v1
+>> ip netns add dummy2
+>> ip link set v2 netns dummy2
+>> ip netns exec dummy2 bash
+>> ip link set lo up
+>> ip link set v2 up
+>> ifconfig v2 1.2.3.2/24
+>> ping 1.2.3.1 -c 5
+>>
+>> # Clean up
+>> exit
+>> ip netns del dummy2
+>> ip link del bond
+>>
+>> It passes on older releases.
+>> The problem is that txqueuelen in bond1 is 0, and ARP requests are dropped in macvlan_broadcast_enqueue at:
+>>
+>>         if (skb_queue_len(&port->bc_queue) < skb->dev->tx_queue_len) {
+>>                 __skb_queue_tail(&port->bc_queue, nskb);
+>>                 err = 0;
+>>         }
+>>
+>> where
+>> port->dev = skb->dev = "bond1"
+>> skb_queue_len(&port->bc_queue) = skb->dev->tx_queue_len = 0
+>>
+>> macvlan_broadcast_enqueue was introduced in 412ca1550 (macvlan: Move broadcasts into a work queue).
+>>
+>> Why are we using tx_queue_len to limit an rx queue?
+>
+> You're right, we probably should use netdev_max_backlog instead.
+>
+> Please send a formal patch ?
+>
+>
+>
 
+After sending my email I noticed that Nicolas Dichtel already
+submitted a similar patch at
+http://marc.info/?l=linux-netdev&m=141094132726614&w=2
 
-This is not true. We usually leave virtual devices with tx_queue_len to
-0, otherwise you get a qdisc on them for nothing...
-
-Only when you want to have say HTB on the bonding, you might need to
-change tx_queue_len
-
-> 
-> I am not saying using this tx_queue_len is absolutely correct,
-> I am saying it may be expected to set tx_queue_len by yourself.
-
-I disagree.
+Francesco
