@@ -1,82 +1,65 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 6/8] net: dsa: allow switch drivers to specify phy_device::dev_flags
-Date: Fri, 19 Sep 2014 13:07:54 -0700
-Message-ID: <1411157276-18260-7-git-send-email-f.fainelli@gmail.com>
-References: <1411157276-18260-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+From: fruggeri@aristanetworks.com (Francesco Ruggeri)
+Subject: cannot ARP macvlan on top of bonding device
+Date: Fri, 19 Sep 2014 00:03:32 -0700
+Message-ID: <20140919070332.D47D1481010@fruggeri-Arora18.sjc.aristanetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fruggeri@arista.com, davem@davemloft.net,
+	herbert@gondor.apana.org.au
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:56920 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932364AbaISUIT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 16:08:19 -0400
-Received: by mail-pd0-f174.google.com with SMTP id g10so110434pdj.5
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 13:08:19 -0700 (PDT)
-In-Reply-To: <1411157276-18260-1-git-send-email-f.fainelli@gmail.com>
+Received: from mx.aristanetworks.com ([162.210.130.12]:39378 "EHLO
+	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932205AbaISUMM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 16:12:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some switch drivers (e.g: bcm_sf2) may have to communicate specific
-workarounds or flags towards the PHY device driver. Allow switches
-driver to be delegated that task by introducing a get_phy_flags()
-callback which will do just that.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Changes in v2:
-- fixed the build failure, use 'p->port' instead of 'port'
+Ping in the following test fails:
 
- include/net/dsa.h | 1 +
- net/dsa/slave.c   | 9 ++++++++-
- 2 files changed, 9 insertions(+), 1 deletion(-)
+# Create veth pair v1 v2
+ip link add v1 type veth peer name v2
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index c779e9bba1b3..e020b8a12b7d 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -181,6 +181,7 @@ struct dsa_switch_driver {
- 	char	*(*probe)(struct device *host_dev, int sw_addr);
- 	int	(*setup)(struct dsa_switch *ds);
- 	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
-+	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
- 
- 	/*
- 	 * Access to the switch's PHY registers.
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 90c9689ed362..a7997265019a 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -371,6 +371,7 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 	struct dsa_chip_data *cd = ds->pd;
- 	struct device_node *phy_dn, *port_dn;
- 	bool phy_is_fixed = false;
-+	u32 phy_flags = 0;
- 	int ret;
- 
- 	port_dn = cd->port_dn[p->port];
-@@ -390,9 +391,12 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 		phy_dn = port_dn;
- 	}
- 
-+	if (ds->drv->get_phy_flags)
-+		phy_flags = ds->drv->get_phy_flags(ds, p->port);
-+
- 	if (phy_dn)
- 		p->phy = of_phy_connect(slave_dev, phy_dn,
--					dsa_slave_adjust_link, 0,
-+					dsa_slave_adjust_link, phy_flags,
- 					p->phy_interface);
- 
- 	if (p->phy && phy_is_fixed)
-@@ -480,6 +484,9 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	netif_carrier_off(slave_dev);
- 
- 	if (p->phy != NULL) {
-+		if (ds->drv->get_phy_flags(ds, port))
-+			p->phy->dev_flags |= ds->drv->get_phy_flags(ds, port);
-+
- 		phy_attach(slave_dev, dev_name(&p->phy->dev),
- 			   PHY_INTERFACE_MODE_GMII);
- 
--- 
-1.9.1
+# Stack macvlan on top of bonding device on top of v1
+ip link set v1 up
+ip link add bond1 type bond
+ip link set bond1 up
+ifenslave bond1 v1
+ip link add link bond1 name mac1 type macvlan mode bridge
+ip link set mac1 up
+ifconfig mac1 1.2.3.1/24
+
+# Move v2 to namespace dummy2 and ping v1
+ip netns add dummy2
+ip link set v2 netns dummy2
+ip netns exec dummy2 bash
+ip link set lo up
+ip link set v2 up
+ifconfig v2 1.2.3.2/24
+ping 1.2.3.1 -c 5
+
+# Clean up
+exit
+ip netns del dummy2
+ip link del bond
+
+It passes on older releases.
+The problem is that txqueuelen in bond1 is 0, and ARP requests are dropped in macvlan_broadcast_enqueue at:
+
+        if (skb_queue_len(&port->bc_queue) < skb->dev->tx_queue_len) {
+                __skb_queue_tail(&port->bc_queue, nskb);
+                err = 0;
+        }
+
+where
+port->dev = skb->dev = "bond1"
+skb_queue_len(&port->bc_queue) = skb->dev->tx_queue_len = 0
+
+macvlan_broadcast_enqueue was introduced in 412ca1550 (macvlan: Move broadcasts into a work queue).
+
+Why are we using tx_queue_len to limit an rx queue?
+
+Thanks,
+Francesco Ruggeri
