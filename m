@@ -1,40 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 0/8] net: phy: Broadcom BCM7xxx PHY workaround
- update
-Date: Fri, 19 Sep 2014 12:59:11 -0700
-Message-ID: <541C8B0F.9050109@gmail.com>
-References: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>	<20140919.154104.286842667424203847.davem@davemloft.net> <20140919.155554.871635845344096230.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] sparc: bpf_jit: fix support for ldx/stx mem and
+ SKF_AD_VLAN_TAG
+Date: Fri, 19 Sep 2014 16:02:00 -0400 (EDT)
+Message-ID: <20140919.160200.48663669220936853.davem@davemloft.net>
+References: <1410917578-5122-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dborkman@redhat.com, netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:63133 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932069AbaIST70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 15:59:26 -0400
-Received: by mail-pd0-f180.google.com with SMTP id r10so556238pdi.11
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 12:59:25 -0700 (PDT)
-In-Reply-To: <20140919.155554.871635845344096230.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58711 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932250AbaISUCC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 16:02:02 -0400
+In-Reply-To: <1410917578-5122-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/19/2014 12:55 PM, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Fri, 19 Sep 2014 15:41:04 -0400 (EDT)
->=20
->> Series applied, thanks Florian.
->=20
-> Actually I had to revert:
->=20
-> net/dsa/slave.c: In function =E2=80=98dsa_slave_phy_setup=E2=80=99:
-> net/dsa/slave.c:395:42: error: =E2=80=98port=E2=80=99 undeclared (fir=
-st use in this function)
->    phy_flags =3D ds->drv->get_phy_flags(ds, port);
->                                           ^
-> net/dsa/slave.c:395:42: note: each undeclared identifier is reported =
-only once for each function it appears in
->=20
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Tue, 16 Sep 2014 18:32:58 -0700
 
-Whoops, I will fix that immediately.
+> fix several issues in sparc BPF JIT compiler.
+> 
+> ldx/stx related:
+> . classic BPF instructions that access mem[] slots were not setting
+>   SEEN_MEM flag, so stack wasn't allocated. Fix that by advertising
+>   correct flags
+> 
+> . LDX/STX instructions were missing SEEN_XREG, so register value
+>   could have leaked to user space. Fix it.
+> 
+> . since stack for mem[] slots is allocated with 'sub %sp' instead
+>   of 'save %sp', use %sp as base register instead of %fp.
+> 
+> . ldx mem[0] means first slot in classic BPF which should have
+>   -4 offset instead of 0.
+> 
+> . sparc64 needs 2047 stack bias as per ABI to access stack
+> 
+> . emit_stmem() was using LD32I macro instead of ST32I
+> 
+> SKF_AD_VLAN_TAG* related:
+> . SKF_AD_VLAN_TAG_PRESENT must return 1 or 0 instead of '> 0' or 0
+>   as per classic BPF de facto standard
+> 
+> . SKF_AD_VLAN_TAG needs to mask the field correctly
+> 
+> Fixes: 2809a2087cc4 ("net: filter: Just In Time compiler for sparc")
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+
+Applied and queued up for -stable, thanks!
