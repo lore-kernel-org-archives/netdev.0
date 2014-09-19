@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v3 0/4] net: fec: add interrupt coalescence
-Date: Fri, 19 Sep 2014 15:37:58 -0400 (EDT)
-Message-ID: <20140919.153758.2070105844475669082.davem@davemloft.net>
-References: <1410902334-7827-1-git-send-email-Frank.Li@freescale.com>
+Subject: Re: [PATCH net-next 0/8] net: phy: Broadcom BCM7xxx PHY workaround
+ update
+Date: Fri, 19 Sep 2014 15:41:04 -0400 (EDT)
+Message-ID: <20140919.154104.286842667424203847.davem@davemloft.net>
+References: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: b38611@freescale.com, netdev@vger.kernel.org, lznuaa@gmail.com,
-	shawn.guo@linaro.org, linux-arm-kernel@lists.infradead.org
-To: Frank.Li@freescale.com
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58486 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58534 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757739AbaISTiA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 15:38:00 -0400
-In-Reply-To: <1410902334-7827-1-git-send-email-Frank.Li@freescale.com>
+	with ESMTP id S1757595AbaISTlG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 15:41:06 -0400
+In-Reply-To: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <Frank.Li@freescale.com>
-Date: Wed, 17 Sep 2014 05:18:50 +0800
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 16 Sep 2014 16:52:56 -0700
 
-> From: Frank Li <Frank.Li@freescale.com>
-> improve error handle when parse queue number.
-> add interrupt coalescence feature.
+> This patch sets the change to of_phy_connect() that you have seen before,
+> this time with the full context of why it is useful and applicable here.
 > 
-> Change from v2 to v3
->  - add error check in fec_enet_set_coalesce
->  - fix a run time warning to get clock rate in interrupt
->  - fix commit message use TKT number
+> Due to some design decision, the internal PHY on Broadcom BCM7xxx chips
+> is not entirely self contained and does not report its internal revision
+> through MII_PHYSID2, that is left to external PHY designs.
 > 
-> Change from v1 to v2
->  - fix indention
->  - use errata number instead of TKT
+> This forces us to get the PHY revision from the GENET and SF2 switch drivers
+> because those two peripherals integrate such a PHY and do contain the PHY
+> revision in their registers.
+> 
+> The approach taken here is hopefully easy to extend to similar needs for
+> other chips/ as well.
 
-Series applied, thanks Frank.
+Series applied, thanks Florian.
