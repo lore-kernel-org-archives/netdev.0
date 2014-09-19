@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sparc: bpf_jit: add SKF_AD_PKTTYPE support to
- JIT
-Date: Fri, 19 Sep 2014 15:34:58 -0400 (EDT)
-Message-ID: <20140919.153458.1586666418789079695.davem@davemloft.net>
-References: <1410896135-9867-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [Patch net-next v3 0/4] net: fec: add interrupt coalescence
+Date: Fri, 19 Sep 2014 15:37:58 -0400 (EDT)
+Message-ID: <20140919.153758.2070105844475669082.davem@davemloft.net>
+References: <1410902334-7827-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, hannes@stressinduktion.org,
-	netdev@vger.kernel.org
-To: ast@plumgrid.com
+Cc: b38611@freescale.com, netdev@vger.kernel.org, lznuaa@gmail.com,
+	shawn.guo@linaro.org, linux-arm-kernel@lists.infradead.org
+To: Frank.Li@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58457 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58486 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757483AbaISTfA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 15:35:00 -0400
-In-Reply-To: <1410896135-9867-1-git-send-email-ast@plumgrid.com>
+	with ESMTP id S1757739AbaISTiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 15:38:00 -0400
+In-Reply-To: <1410902334-7827-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Tue, 16 Sep 2014 12:35:35 -0700
+From: <Frank.Li@freescale.com>
+Date: Wed, 17 Sep 2014 05:18:50 +0800
 
-> commit 233577a22089 ("net: filter: constify detection of pkt_type_offset")
-> allows us to implement simple PKTTYPE support in sparc JIT
+> From: Frank Li <Frank.Li@freescale.com>
+> improve error handle when parse queue number.
+> add interrupt coalescence feature.
 > 
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Change from v2 to v3
+>  - add error check in fec_enet_set_coalesce
+>  - fix a run time warning to get clock rate in interrupt
+>  - fix commit message use TKT number
+> 
+> Change from v1 to v2
+>  - fix indention
+>  - use errata number instead of TKT
 
-Applied, thanks for doing this work Alexei.
+Series applied, thanks Frank.
