@@ -1,36 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] mlx4: CQE/EQE stride support
-Date: Fri, 19 Sep 2014 17:32:08 -0400 (EDT)
-Message-ID: <20140919.173208.77064865716362179.davem@davemloft.net>
-References: <1411030261-12145-1-git-send-email-ogerlitz@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: cannot ARP macvlan on top of bonding device
+Date: Fri, 19 Sep 2014 14:32:12 -0700
+Message-ID: <1411162332.26859.36.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140919210040.E09BA481010@fruggeri-Arora18.sjc.aristanetworks.com>
+	 <1411161451.26859.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com, idos@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org, fruggeri@arista.com, davem@davemloft.net,
+	herbert@gondor.apana.org.au
+To: Francesco Ruggeri <fruggeri@aristanetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59444 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757848AbaISVcK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 17:32:10 -0400
-In-Reply-To: <1411030261-12145-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:46378 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758103AbaISVcP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 17:32:15 -0400
+Received: by mail-pd0-f181.google.com with SMTP id r10so678943pdi.12
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 14:32:14 -0700 (PDT)
+In-Reply-To: <1411161451.26859.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu, 18 Sep 2014 11:50:58 +0300
+On Fri, 2014-09-19 at 14:17 -0700, Eric Dumazet wrote:
 
-> This series from Ido Shamay is intended for archs having 
-> cache line larger then 64 bytes.
+> You're right, we probably should use netdev_max_backlog instead.
 > 
-> Since our CQE/EQEs are generally 64B in those systems, HW will write
-> twice to the same cache line consecutively, causing pipe locks due to
-> he hazard prevention mechanism. For elements in a cyclic buffer, writes
-> are consecutive, so entries smaller than a cache line should be
-> avoided, especially if they are written at a high rate.
-> 
-> Reduce consecutive writes to same cache line in CQs/EQs, by allowing the
-> driver to increase the distance between entries so that each will reside
-> in a different cache line.
+> Please send a formal patch ?
 
-Series applied, thanks.
+BTW, we should add a cond_resched() in macvlan_process_broadcast() ...
+
+It also seems MACVLAN_SKB_CB(skb)->src escapes an RCU protected region,
+without taking a refcount on struct macvlan_dev
+
+This seems racy to me :(
