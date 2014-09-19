@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: add alloc_skb_with_frags() helper
-Date: Fri, 19 Sep 2014 16:25:44 -0400 (EDT)
-Message-ID: <20140919.162544.729091670312572114.davem@davemloft.net>
-References: <1410954589.7106.227.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next v2 0/8] net: phy: Broadcom BCM7xxx PHY
+ workaround update
+Date: Fri, 19 Sep 2014 16:27:34 -0400 (EDT)
+Message-ID: <20140919.162734.2072914871245072340.davem@davemloft.net>
+References: <1411157276-18260-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58904 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58914 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757671AbaISUZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 16:25:46 -0400
-In-Reply-To: <1410954589.7106.227.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1757483AbaISU1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 16:27:36 -0400
+In-Reply-To: <1411157276-18260-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 17 Sep 2014 04:49:49 -0700
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Fri, 19 Sep 2014 13:07:48 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> This patch sets the change to of_phy_connect() that you have seen before,
+> this time with the full context of why it is useful and applicable here.
 > 
-> Extract from sock_alloc_send_pskb() code building skb with frags,
-> so that we can reuse this in other contexts.
+> Due to some design decision, the internal PHY on Broadcom BCM7xxx chips
+> is not entirely self contained and does not report its internal revision
+> through MII_PHYSID2, that is left to external PHY designs.
 > 
-> Intent is to use it from tcp_send_rcvq(), tcp_collapse(), ...
+> This forces us to get the PHY revision from the GENET and SF2 switch drivers
+> because those two peripherals integrate such a PHY and do contain the PHY
+> revision in their registers.
 > 
-> We also want to replace some skb_linearize() calls to a more reliable
-> strategy in pathological cases where we need to reduce number of frags.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> The approach taken here is hopefully easy to extend to similar needs for
+> other chips/ as well.
 
-Looks good, applied.
+Applied, thanks for fixing things up so fast.
