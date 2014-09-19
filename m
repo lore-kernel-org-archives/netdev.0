@@ -1,91 +1,41 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
-Date: Fri, 19 Sep 2014 18:18:02 -0400
-Message-ID: <541CAB9A.3040100@mojatatu.com>
-References: <1411134590-4586-1-git-send-email-jiri@resnulli.us> <1411134590-4586-9-git-send-email-jiri@resnulli.us> <541C4AFC.8060500@mojatatu.com> <20140919154946.GH1980@nanopsycho.orion> <541C6E6D.9000109@mojatatu.com> <541CAA3C.5080105@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, edumazet@google.com,
-	sfeldma@cumulusnetworks.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	dev@openvswitch.org, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@intel.com
-To: John Fastabend <john.r.fastabend@intel.com>,
-	Jiri Pirko <jiri@resnulli.us>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH v2 0/2] tg3:  Fix handling of non-acceleration vlans
+Date: Fri, 19 Sep 2014 18:23:07 -0400
+Message-ID: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
+Cc: Vladislav Yasevich <vyasevic@redhat.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:61587 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757837AbaISWSM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 18:18:12 -0400
-Received: by mail-ie0-f180.google.com with SMTP id ar1so1507627iec.11
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 15:18:11 -0700 (PDT)
-In-Reply-To: <541CAA3C.5080105@intel.com>
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:37010 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932195AbaISWXU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 18:23:20 -0400
+Received: by mail-qg0-f42.google.com with SMTP id i50so599854qgf.1
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 15:23:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/19/14 18:12, John Fastabend wrote:
-> On 09/19/2014 10:57 AM, Jamal Hadi Salim wrote:
->> On 09/19/14 11:49, Jiri Pirko wrote:
->>> Fri, Sep 19, 2014 at 05:25:48PM CEST, jhs@mojatatu.com wrote:
->>
->>>> Is this just a temporary test tool? Otherwise i dont see reason
->>>> for its existence (or the API that it feeds on).
->>>
->>> Please read the conversation I had with Pravin and Jesse in v1 thread.
->>> Long story short they like to have the api separated from ovs datapath
->>> so ovs daemon can use it to directly communicate with driver. Also John
->>> Fastabend requested a way to work with driver flows without using ovs ->
->>> that was the original reason I created switchdev genl api.
->>>
->>> Regarding the "sw" tool, yes it is for testing purposes now. ovs daemon
->>> will use directly switchdev genl api.
->>>
->>> I hope I cleared this out.
->>>
->>
->> It is - thanks Jiri.
->>
->> cheers,
->> jamal
->
-> Hi Jiri,
->
-> I was considering a slightly different approach where the
-> device would report via netlink the fields/actions it
-> supported rather than creating pre-defined enums for every
-> possible key.
->
-> I already need to have an API to report fields/matches
-> that are being supported why not have the device report
-> the headers as header fields (len, offset) and the
-> associated parse graph the hardware uses? Vendors should
-> have this already to describe/design their real hardware.
->
-> As always its better to have code and when I get some
-> time I'll try to write it up. Maybe its just a separate
-> classifier although I don't actually want two hardware
-> flow APIs.
->
-> I see you dropped the RFC tag are you proposing we include
-> this now?
->
+TG3 can't cope with checksum and TSO offloads when vlan headers were
+not accelerated.  This can be demonstrated with 802.1ad vlans or
+by configuring a vlan on top of a bridge and turning off vlan acceleration
+on the bridge device.
 
+Instead of disabling all vlan acceleration, this series works around
+the issue by having tg3 driver call software segmentation and checksum
+generation.
 
-Actually I just realized i missed something very basic that
-Jiri said. I think i understand the tool being there for testing
-but i am assumed the same about the genlink api.
-Jiri, are you saying that genlink api is there to
-stay?
+v2: - moved the call to software segment soonner
+    - Preserve the checksum flags for TSO/LSO case and turn it off
+      if software checksum was computed.
+    - Add code to correctly receive full sized 802.1ad frames.
 
-cheers,
-jamal
+Vladislav Yasevich (2):
+  tg3: Work around HW/FW limitations with vlan encapsulated frames
+  tg3: Allow for receive of full-size 8021AD frames
+
+ drivers/net/ethernet/broadcom/tg3.c | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
+
+-- 
+1.9.3
