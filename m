@@ -1,54 +1,74 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH v2 2/2] tg3: Allow for receive of full-size 8021AD frames
-Date: Fri, 19 Sep 2014 18:23:09 -0400
-Message-ID: <1411165389-21276-3-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v2 1/2] tg3: Work around HW/FW limitations with vlan encapsulated frames
+Date: Fri, 19 Sep 2014 18:23:08 -0400
+Message-ID: <1411165389-21276-2-git-send-email-vyasevic@redhat.com>
 References: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
 Cc: Vladislav Yasevich <vyasevic@redhat.com>,
 	Prashant Sreedharan <prashant@broadcom.com>,
 	Michael Chan <mchan@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f50.google.com ([209.85.216.50]:41645 "EHLO
-	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932195AbaISWXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 18:23:23 -0400
-Received: by mail-qa0-f50.google.com with SMTP id k15so3208845qaq.23
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 15:23:22 -0700 (PDT)
+Received: from mail-qc0-f181.google.com ([209.85.216.181]:35396 "EHLO
+	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932467AbaISWXW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 18:23:22 -0400
+Received: by mail-qc0-f181.google.com with SMTP id r5so3884919qcx.26
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 15:23:21 -0700 (PDT)
 In-Reply-To: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When receiving a vlan-tagged frame that still contains
-a vlan header, the length of the packet will be greater
-then MTU+ETH_HLEN since it will account of the extra
-vlan header.  TG3 checks this for the case for 802.1Q,
-but not for 802.1ad.  As a result, full sized 802.1ad
-frames get dropped by the card.
+TG3 appears to have an issue performing TSO and checksum offloading
+correctly when the frame has been vlan encapsulated (non-accelerated).
+In these cases, tcp checksum is not correctly updated.
 
-Add a check for 802.1ad protocol when receiving full
-sized frames.
+This patch attempts to work around this issue.  After the patch,
+802.1ad vlans start working correctly over tg3 devices.
 
-Suggested-by: Prashant Sreedharan <prashant@broadcom.com>
 CC: Prashant Sreedharan <prashant@broadcom.com>
 CC: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+v2: - Moved segmentation call sooner
+    - Preserve checksum txd flag for LSO.
+
+ drivers/net/ethernet/broadcom/tg3.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 0a0938d..4f674f9 100644
+index cb77ae9..b78d043 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -6918,7 +6918,8 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 		skb->protocol = eth_type_trans(skb, tp->dev);
+@@ -7924,6 +7924,13 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		if (skb_cow_head(skb, 0))
+ 			goto drop;
  
- 		if (len > (tp->dev->mtu + ETH_HLEN) &&
--		    skb->protocol != htons(ETH_P_8021Q)) {
-+		    skb->protocol != htons(ETH_P_8021Q) &&
-+		    skb->protocol != htons(ETH_P_8021AD)) {
- 			dev_kfree_skb_any(skb);
- 			goto drop_it_no_recycle;
++		/* HW/FW can not correctly segment packets that have been
++		 * vlan encapsulated.
++		 */
++		if (skb->protocol == htons(ETH_P_8021Q) ||
++		    skb->protocol == htons(ETH_P_8021AD))
++			return tg3_tso_bug(tp, tnapi, txq, skb);
++
+ 		iph = ip_hdr(skb);
+ 		tcp_opt_len = tcp_optlen(skb);
+ 
+@@ -7979,6 +7986,16 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 				base_flags |= tsflags << 12;
+ 			}
  		}
++	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
++		/* HW/FW can not correctly checksum packets that have been
++		 * vlan encapsulated.
++		 */
++		if (skb->protocol == htons(ETH_P_8021Q) ||
++		    skb->protocol == htons(ETH_P_8021AD)) {
++			if (skb_checksum_help(skb))
++				goto drop;
++			base_flags &= ~TXD_FLAG_TCPUDP_CSUM;
++		}
+ 	}
+ 
+ 	if (tg3_flag(tp, USE_JUMBO_BDFLAG) &&
 -- 
 1.9.3
