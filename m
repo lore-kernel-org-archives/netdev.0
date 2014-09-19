@@ -1,56 +1,42 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2] net: keep original skb which only needs header checking during software GSO
-Date: Fri, 19 Sep 2014 16:04:38 +0800
-Message-ID: <1411113878-11910-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andres Freund <andres@anarazel.de>
+Subject: Re: [PATCH net] net: fix sysfs symlinks of adjacent devices
+Date: Fri, 19 Sep 2014 10:59:25 +0200
+Message-ID: <20140919085925.GE4277@alap3.anarazel.de>
+References: <1410516826-6926-1-git-send-email-git.user@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: Alexander Fomichev <git.user@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.anarazel.de ([217.115.131.40]:53072 "EHLO mail.anarazel.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751244AbaISI7a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Sep 2014 04:59:30 -0400
+Content-Disposition: inline
+In-Reply-To: <1410516826-6926-1-git-send-email-git.user@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit ce93718fb7cdbc064c3000ff59e4d3200bdfa744 ("net: Don't keep
-around original SKB when we software segment GSO frames") frees the
-original skb after software GSO even for dodgy gso skbs. This breaks
-the stream throughput from untrusted sources, since only header
-checking was done during software GSO instead of a true
-segmentation. This patch fixes this by freeing the original gso skb
-only when it was really segmented by software.
+Hi,
 
-Fixes ce93718fb7cdbc064c3000ff59e4d3200bdfa744 ("net: Don't keep
-around original SKB when we software segment GSO frames.")
+On 2014-09-12 14:13:46 +0400, Alexander Fomichev wrote:
+> From: "Alexander Y. Fomichev" <git.user@gmail.com>
+> 
+> __netdev_adjacent_dev_insert may add adjacent device from another
+> namespace. Without proper check it leads to emergence of broken
+> symlink from/to device not existing in current namespace.
+> Fix: check net_ns is the same before netdev_adjacent_sysfs_add/del
+> related to: 4c75431ac3520631f1d9e74aa88407e6374dbbc4
+> 
 
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-Changes from V1:
-- use consume_skb() instead of kfree_skb()
-- fix coding style
----
- net/core/dev.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+This version, applied on top of 8ba4caf1ee, fixes the bug I had
+reported. Not just the testcase, but the actual usage scenario.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e916ba8..52cd71a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2694,10 +2694,12 @@ struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev)
- 		struct sk_buff *segs;
- 
- 		segs = skb_gso_segment(skb, features);
--		kfree_skb(skb);
--		if (IS_ERR(segs))
-+		if (IS_ERR(segs)) {
- 			segs = NULL;
--		skb = segs;
-+		} else if (segs) {
-+			consume_skb(skb);
-+			skb = segs;
-+		}
- 	} else {
- 		if (skb_needs_linearize(skb, features) &&
- 		    __skb_linearize(skb))
--- 
-1.9.1
+I haven't tested David's version, but it doesn't look likely to be
+materially different.
+
+Greetings,
+
+Andres Freund
