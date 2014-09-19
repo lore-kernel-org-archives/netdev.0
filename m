@@ -1,58 +1,47 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 1/2 v2 nf-next] net: bridge: don't register netfilter
- call_iptables hooks by default
-Date: Fri, 19 Sep 2014 12:13:12 +0200
-Message-ID: <20140919101312.GA2054@breakpoint.cc>
-References: <1410969137-11885-1-git-send-email-fw@strlen.de>
- <20140918133511.GA8740@salvia>
- <20140918143108.GB8484@breakpoint.cc>
- <20140918183956.GA3989@salvia>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next 02/12] be2net: fix sparse warnings in be_cmd_req_port_type{}
+Date: Fri, 19 Sep 2014 15:46:52 +0530
+Message-ID: <1411121822-25842-3-git-send-email-sathya.perla@emulex.com>
+References: <1411121822-25842-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140918183956.GA3989@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:52817 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753944AbaISKO3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 06:14:29 -0400
+In-Reply-To: <1411121822-25842-1-git-send-email-sathya.perla@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> We can keep those sysctls there in bridge.ko and deprecated them in
-> favour of br_netlink. I think we can add some IFLA_BRPORT_NF for the
-> setlink command to replace the existing global proc nf-call-thing.
-> We'll have to enhance the 'bridge' tool in iproute2 to support this.
+From: Suresh Reddy <Suresh.Reddy@emulex.com>
 
-Not sure this is needed.  Patrick added support for a per-bridge
-sysfs flag a while back.
+This patch fixes a sprase warnings regarding endian declarations introduced
+by the following commit:
 
-> > Then, in two years or so, we would remove the autoload hook
-> > in the packet procesing path.
-> 
-> Agreed. By that time, we can kill the bridge.ko <-> br_netfilter.ko
-> dependency and the /proc call-nf-bridge stuff in favour of br_netlink.
-> 
-> Let me know if you still have any concern. Thanks.
+fixes: e36edd9 ("be2net: add ethtool "-m" option support")
 
-Yes, well... I am afraid Patrick is right, we cannot remove it without
-breaking some setups.
+Signed-off-by: Suresh Reddy <Suresh.Reddy@emulex.com>
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-So, what to do?
-
-I think the first step would be to go ahead and split the hook glue to
-a separate module, and then add the autoprobing from the packet processing
-path (only loading br_nf module when needed).
-
-We could still add a deprecation warning later on (aka 'please modprobe
-br_nf_core' instead).  But yes, Patricks probably right, waiting two
-years doesn't make it more 'safe' than waiting 6 months...
-
-What _might_ help is if there was an easy (and fast) way to tell wheter
-iptables rules are loaded (right now it checks for active netfilter hooks).
-
-Then, we could restrict the autoload to arp/ip(6)tables and not load
-the br_nf glue module when nft is used instead.
-
-That will allow removing autload with iptables removal.  Yes, I know
-this is in a very distant future...
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index e86a5ef..b064c50 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1005,8 +1005,8 @@ struct be_cmd_resp_link_status {
+ /*    Identifies the type of port attached to NIC     */
+ struct be_cmd_req_port_type {
+ 	struct be_cmd_req_hdr hdr;
+-	u32 page_num;
+-	u32 port;
++	__le32 page_num;
++	__le32 port;
+ };
+ 
+ enum {
+-- 
+1.7.1
