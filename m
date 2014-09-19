@@ -1,95 +1,58 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next v4 2/2] bonding: Simplify the xmit function for
- modes that use xmit_hash
-Date: Fri, 19 Sep 2014 12:08:29 +0200
-Message-ID: <541C009D.2030004@redhat.com>
-References: <1411077211-20117-1-git-send-email-maheshb@google.com> <541BFEA4.9080702@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 1/2 v2 nf-next] net: bridge: don't register netfilter
+ call_iptables hooks by default
+Date: Fri, 19 Sep 2014 12:13:12 +0200
+Message-ID: <20140919101312.GA2054@breakpoint.cc>
+References: <1410969137-11885-1-git-send-email-fw@strlen.de>
+ <20140918133511.GA8740@salvia>
+ <20140918143108.GB8484@breakpoint.cc>
+ <20140918183956.GA3989@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Mahesh Bandewar <maheshb@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19154 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751147AbaISKIn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Sep 2014 06:08:43 -0400
-In-Reply-To: <541BFEA4.9080702@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140918183956.GA3989@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/19/2014 12:00 PM, Nikolay Aleksandrov wrote:
-> On 09/18/2014 11:53 PM, Mahesh Bandewar wrote:
->> Earlier change to use usable slave array for TLB mode had an additional
->> performance advantage. So extending the same logic to all other modes
->> that use xmit-hash for slave selection (viz 802.3AD, and XOR modes).
->> Also consolidating this with the earlier TLB change.
->>
->> The main idea is to build the usable slaves array in the control path
->> and use that array for slave selection during xmit operation.
->>
->> Measured performance in a setup with a bond of 4x1G NICs with 200
->> instances of netperf for the modes involved (3ad, xor, tlb)
->> cmd: netperf -t TCP_RR -H <TargetHost> -l 60 -s 5
->>
->> Mode        TPS-Before   TPS-After
->>
->> 802.3ad   : 468,694      493,101
->> TLB (lb=0): 392,583      392,965
->> XOR       : 475,696      484,517
->>
->> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->> ---
->> v1:
->>   (a) If bond_update_slave_arr() fails to allocate memory, it will overwrite
->>       the slave that need to be removed.
->>   (b) Freeing of array will assign NULL (to handle bond->down to bond->up
->>       transition gracefully.
->>   (c) Change from pr_debug() to pr_err() if bond_update_slave_arr() returns
->>       failure.
->>   (d) XOR: bond_update_slave_arr() will consider mii-mon, arp-mon cases and
->>       will populate the array even if these parameters are not used.
->>   (e) 3AD: Should handle the ad_agg_selection_logic correctly.
->> v2:
->>   (a) Removed rcu_read_{un}lock() calls from array manipulation code.
->>   (b) Slave link-events now refresh array for all these modes.
->>   (c) Moved free-array call from bond_close() to bond_uninit().
->> v3:
->>   (a) Fixed null pointer dereference.
->>   (b) Removed bond->lock lockdep dependency.
->> v4:
->>   (a) Made to changes to comply with Nikolay's locking changes
->>   (b) Added a work-queue to refresh slave-array when RTNL is not held
->>   (c) Array refresh happens ONLY with RTNL now.
->>   (d) alloc changed from GFP_ATOMIC to GFP_KERNEL
->>
-<<<<snip>>>>>
->> @@ -1963,6 +1972,10 @@ static void bond_miimon_commit(struct bonding *bond)
->>  				bond_alb_handle_link_change(bond, slave,
->>  							    BOND_LINK_UP);
->>  
->> +			if (BOND_MODE(bond) == BOND_MODE_XOR &&
->> +			    bond_update_slave_arr(bond, NULL))
->> +				pr_err("Failed to build slave-array for XOR mode.\n");
->> +
-> miimon is also supported in the other hash using modes, it's used to look
-> for link failure and speed/duplex changes. There's even a warning about it
-> for 802.3ad/TLB/ALB modes:
-> pr_warn("Warning: miimon must be specified, otherwise bonding will not
-> detect link failure, speed and duplex which are essential for 802.3ad
-> operation\n");
-> pr_warn("Forcing miimon to 100msec\n");
-> 
-> bond_main.c: line 4026
-> 
-Actually nevermind this comment, their arrays will get rebuilt in their
-respective link handling functions. I just thought we could somehow fold
-these rebuilds but it seems impossible currently.
+Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> We can keep those sysctls there in bridge.ko and deprecated them in
+> favour of br_netlink. I think we can add some IFLA_BRPORT_NF for the
+> setlink command to replace the existing global proc nf-call-thing.
+> We'll have to enhance the 'bridge' tool in iproute2 to support this.
 
-Nik
+Not sure this is needed.  Patrick added support for a per-bridge
+sysfs flag a while back.
+
+> > Then, in two years or so, we would remove the autoload hook
+> > in the packet procesing path.
+> 
+> Agreed. By that time, we can kill the bridge.ko <-> br_netfilter.ko
+> dependency and the /proc call-nf-bridge stuff in favour of br_netlink.
+> 
+> Let me know if you still have any concern. Thanks.
+
+Yes, well... I am afraid Patrick is right, we cannot remove it without
+breaking some setups.
+
+So, what to do?
+
+I think the first step would be to go ahead and split the hook glue to
+a separate module, and then add the autoprobing from the packet processing
+path (only loading br_nf module when needed).
+
+We could still add a deprecation warning later on (aka 'please modprobe
+br_nf_core' instead).  But yes, Patricks probably right, waiting two
+years doesn't make it more 'safe' than waiting 6 months...
+
+What _might_ help is if there was an easy (and fast) way to tell wheter
+iptables rules are loaded (right now it checks for active netfilter hooks).
+
+Then, we could restrict the autoload to arp/ip(6)tables and not load
+the br_nf glue module when nft is used instead.
+
+That will allow removing autload with iptables removal.  Yes, I know
+this is in a very distant future...
