@@ -1,78 +1,53 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
-Date: Fri, 19 Sep 2014 15:12:12 -0700
-Message-ID: <541CAA3C.5080105@intel.com>
-References: <1411134590-4586-1-git-send-email-jiri@resnulli.us> <1411134590-4586-9-git-send-email-jiri@resnulli.us> <541C4AFC.8060500@mojatatu.com> <20140919154946.GH1980@nanopsycho.orion> <541C6E6D.9000109@mojatatu.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net] macvlan: allow to enqueue broadcast pkt on virtual device
+Date: Fri, 19 Sep 2014 15:14:21 -0700
+Message-ID: <CAHA+R7M-HKbCmX3kEPLGrNjh+qF-OnL+V8C2biFBz24_7VOsxw@mail.gmail.com>
+References: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
+	<CAHA+R7OQ=R8Y0LDVormukRjdosODiRuGq+NTrZQ08sXvfJYUnQ@mail.gmail.com>
+	<1411162501.26859.39.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAHA+R7M=Wp1u1hXD9YE52Ct74KOovEaVjCECV_5EsrAO_rJ7ag@mail.gmail.com>
+	<1411164317.26859.45.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
-	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, edumazet@google.com,
-	sfeldma@cumulusnetworks.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	dev@openvswitch.org, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@intel.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:34307 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757837AbaISWMN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Sep 2014 18:12:13 -0400
-In-Reply-To: <541C6E6D.9000109@mojatatu.com>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:63689 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757837AbaISWOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 18:14:23 -0400
+Received: by mail-lb0-f171.google.com with SMTP id l4so3955357lbv.2
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 15:14:22 -0700 (PDT)
+In-Reply-To: <1411164317.26859.45.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/19/2014 10:57 AM, Jamal Hadi Salim wrote:
-> On 09/19/14 11:49, Jiri Pirko wrote:
->> Fri, Sep 19, 2014 at 05:25:48PM CEST, jhs@mojatatu.com wrote:
-> 
->>> Is this just a temporary test tool? Otherwise i dont see reason
->>> for its existence (or the API that it feeds on).
+On Fri, Sep 19, 2014 at 3:05 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2014-09-19 at 14:59 -0700, Cong Wang wrote:
+>
 >>
->> Please read the conversation I had with Pravin and Jesse in v1 thread.
->> Long story short they like to have the api separated from ovs datapath
->> so ovs daemon can use it to directly communicate with driver. Also John
->> Fastabend requested a way to work with driver flows without using ovs ->
->> that was the original reason I created switchdev genl api.
->>
->> Regarding the "sw" tool, yes it is for testing purposes now. ovs daemon
->> will use directly switchdev genl api.
->>
->> I hope I cleared this out.
->>
-> 
-> It is - thanks Jiri.
-> 
-> cheers,
-> jamal
+>> Then fix these tx_queue_len = 0?
+>
+> What are you suggesting exactly ?
 
-Hi Jiri,
+Quote:
+">
+ >>
+ >> I am not saying using this tx_queue_len is absolutely correct,
+ >> I am saying it may be expected to set tx_queue_len by yourself.
+ >
+ > I disagree.
+ >"
 
-I was considering a slightly different approach where the
-device would report via netlink the fields/actions it
-supported rather than creating pre-defined enums for every
-possible key.
+So you disagree with setting tx_queue_len manually, then it means
+you think every tx_queue_len should have a non-zero value, therefore
+those tx_queue_len = 0 should be fixed?
 
-I already need to have an API to report fields/matches
-that are being supported why not have the device report
-the headers as header fields (len, offset) and the
-associated parse graph the hardware uses? Vendors should
-have this already to describe/design their real hardware.
+>
+> We want them being 0, exactly.
 
-As always its better to have code and when I get some
-time I'll try to write it up. Maybe its just a separate
-classifier although I don't actually want two hardware
-flow APIs.
 
-I see you dropped the RFC tag are you proposing we include
-this now?
-
-.John
+Conflicts with what you claimed by "I disagree." :)
