@@ -1,46 +1,60 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: [PATCH] scsi: fix SCSI_BNX2X_FCOE dependencies and build errors
-Date: Fri, 19 Sep 2014 15:38:13 -0700
-Message-ID: <541CB055.6000504@infradead.org>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [RFC net-next PATCH V3 0/2] qdisc bulk dequeuing and utilizing
+ delayed tailptr updates
+Date: Fri, 19 Sep 2014 15:39:27 -0700
+Message-ID: <CAHA+R7NHRaLtzBJd_Sc6_aNLMs=iGHTBK8j9Bq0ntCDg-meLZg@mail.gmail.com>
+References: <20140919204706.3231.59125.stgit@dragon>
+	<1411160360.26859.31.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140919233108.5bd43ccc@redhat.com>
+	<1411163126.26859.40.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Anish Bhatt <anish@chelsio.com>,
-	James Bottomley <jbottomley@parallels.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Dave Taht <dave.taht@gmail.com>, toke@toke.dk
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:46525 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758069AbaISWj2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 18:39:28 -0400
+Received: by mail-lb0-f175.google.com with SMTP id n15so3938973lbi.20
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 15:39:27 -0700 (PDT)
+In-Reply-To: <1411163126.26859.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@infradead.org>
+On Fri, Sep 19, 2014 at 2:45 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2014-09-19 at 23:31 +0200, Jesper Dangaard Brouer wrote:
+>
+>> How can I test if the dev supports BQL?
+>
+>
+> CONFIG_BQL should be enough.
 
-Don't enable NETDEVICES when NET is not enabled. That causes
-build warnings and errors.
+Then why commits like this one?
 
-warning: (SCSI_CXGB3_ISCSI && SCSI_CXGB4_ISCSI && SCSI_BNX2X_FCOE) selects NETDEVICES which has unmet direct dependencies (NET)
-warning: (SCSI_CXGB3_ISCSI && SCSI_CXGB4_ISCSI && SCSI_BNX2_ISCSI && SCSI_BNX2X_FCOE) selects ETHERNET which has unmet direct dependencies (NETDEVICES && NET)
-warning: (SCSI_BNX2X_FCOE && LIBFCOE && TCM_QLA2XXX) selects LIBFC which has unmet direct dependencies (SCSI_LOWLEVEL && SCSI && SCSI_FC_ATTRS)
+commit 7070ce0a6419a118842298bc967061ad6cea40db
+Author: Alexander Duyck <alexander.h.duyck@intel.com>
+Date:   Sat Sep 28 06:00:37 2013 +0000
 
-../drivers/net/ethernet/cisco/enic/enic_main.c: In function 'enic_rq_indicate_buf':
-../drivers/net/ethernet/cisco/enic/enic_main.c:1077:3: error: implicit declaration of function 'skb_mark_napi_id' [-Werror=implicit-function-declaration]
-../drivers/net/ethernet/cisco/enic/enic_main.c:1078:3: error: implicit declaration of function 'enic_poll_busy_polling' [-Werror=implicit-function-declaration]
+    i40e: Add support for Tx byte queue limits
 
-Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
----
- drivers/scsi/bnx2fc/Kconfig |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+    Implement BQL (byte queue limit) support in i40e.
 
---- linux-next-20140918.orig/drivers/scsi/bnx2fc/Kconfig
-+++ linux-next-20140918/drivers/scsi/bnx2fc/Kconfig
-@@ -1,7 +1,8 @@
- config SCSI_BNX2X_FCOE
- 	tristate "QLogic NetXtreme II FCoE support"
--	depends on PCI
-+	depends on PCI && NET
- 	depends on (IPV6 || IPV6=n)
-+	depends on SCSI_FC_ATTRS
- 	select NETDEVICES
- 	select ETHERNET
- 	select NET_VENDOR_BROADCOM
+
+>
+> If a device driver do nothing about BQL, byte_queue_limits/limit will be
+> zero by default.
+
+Also note that for some virtual device, BQL may make no sense at all,
+at least veth doesn't even use a TX queue (I know it has tx-0 mostly for
+qdisc). Perhaps all NETIF_F_LLTX ones?
