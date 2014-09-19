@@ -1,103 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] icmp: add a global rate limitation
-Date: Fri, 19 Sep 2014 08:11:35 -0700
-Message-ID: <1411139495.26859.18.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1411137520.26859.13.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411138613.24444.13.camel@joe-AO725>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [net-next PATCH 28/29] fm10k: Add support for ptp to hw specific
+ files
+Date: Fri, 19 Sep 2014 17:19:26 +0200
+Message-ID: <20140919151926.GA542@netboy>
+References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
+ <20140918224023.10373.11456.stgit@ahduyck-bv4.jf.intel.com>
+ <20140919073820.GA5954@netboy>
+ <541C3F88.2090004@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, nhorman@redhat.com, netdev@vger.kernel.org,
+	john.fastabend@gmail.com, matthew.vick@intel.com,
+	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:49563 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757090AbaISPLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 11:11:37 -0400
-Received: by mail-pd0-f177.google.com with SMTP id fp1so119451pdb.8
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 08:11:37 -0700 (PDT)
-In-Reply-To: <1411138613.24444.13.camel@joe-AO725>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:38240 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755372AbaISPTc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 11:19:32 -0400
+Received: by mail-wg0-f42.google.com with SMTP id y10so468936wgg.25
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 08:19:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <541C3F88.2090004@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-09-19 at 07:56 -0700, Joe Perches wrote:
-> On Fri, 2014-09-19 at 07:38 -0700, Eric Dumazet wrote:
-> > Current ICMP rate limiting uses inetpeer cache, which is an RBL tree
-> > protected by a lock, meaning that hosts can be stuck hard if all cpus
-> > want to check ICMP limits.
+On Fri, Sep 19, 2014 at 07:36:56AM -0700, Alexander Duyck wrote:
+> On 09/19/2014 12:38 AM, Richard Cochran wrote:
+> > On Thu, Sep 18, 2014 at 06:40:30PM -0400, Alexander Duyck wrote:
 > > 
-> > When say a DNS or NTP server process is restarted, inetpeer tree grows
-> > quick and machine comes to its knees.
-> > 
-> > iptables can not help because the bottleneck happens before ICMP
-> > messages are even cooked and sent.
-> > 
-> > This patch adds a new global limitation, using a token bucket filter,
-> > controlled by two new sysctl :
-> > 
-> > icmp_msgs_per_sec - INTEGER
-> >     Limit maximal number of ICMP packets sent per second from this host.
-> >     Only messages whose type matches icmp_ratemask are
-> >     controlled by this limit.
-> >     Default: 1000
-> > 
-> > icmp_msgs_burst - INTEGER
-> >     icmp_msgs_per_sec controls number of ICMP packets sent per second,
-> >     while icmp_msgs_burst controls the burst size of these packets.
-> >     Default: 50
-> 
-> nice.
-> 
-> > diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-> []
-> > @@ -231,12 +231,62 @@ static inline void icmp_xmit_unlock(struct sock *sk)
-> >  	spin_unlock_bh(&sk->sk_lock.slock);
-> >  }
-> >  
-> > +int sysctl_icmp_msgs_per_sec __read_mostly = 1000;
-> > +int sysctl_icmp_msgs_burst __read_mostly = 50;
-> > +
-> > +static struct {
-> > +	spinlock_t	lock;
-> > +	u32		credit;
-> > +	u32		stamp;
-> > +} icmp_global = {
-> > +	.lock		= __SPIN_LOCK_UNLOCKED(icmp_global.lock),
-> > +};
-> 
-> Is there any real benefit using a u32 stamp
-> instead of unsigned long?
+> >> +static s32 fm10k_adjust_systime_pf(struct fm10k_hw *hw, s32 ppb)
+> >> +{
+> >> +	u64 systime_adjust;
+> >> +
+> >> +	/* if sw_addr is not set we don't have switch register access */
+> >> +	if (!hw->sw_addr)
+> >> +		return ppb ? FM10K_ERR_PARAM : 0;
+> >> +
+> >> +	/* we must convert the value from parts per billion to parts per
+> >> +	 * 2^48 cycles.  In addition we can only use the upper 30 bits of
+> >> +	 * the value when making the change so that restricts us futher.
+> >> +	 * The math for this is equivilent to ABS(pps) * 2^40 / 10 ^ 9,
 
-This is because the computation and sysctl are 32bit wide.
+...
 
-We clamp the delta to 1 sec anyway, so there is no value having 64bit
-wide stamp.
+> 2.  The value is in 2 ^ 48 units, and the OS wants to give us a value in
+> parts per billion, not parts per 256 * 2 ^ 40.  So in order to simplify
+> things I dropped the lower 8 bits and only update
 
-Note that I do not expect anybody trying to overflow the computations,
-so I did not bother using u64 to perform the (x * y / HZ) operation.
+So what does the comment in the code about "upper 30 bits" mean?
 
-> 
-> The stamp comparisons are to jiffies and now
-> have slightly odd (u32) casts.
-
-Thats because I am planning to eventually use a common helper for the
-inetpeer token bucket, or the hashed one I mention at the end of
-changelog. Keeping u32 would avoid taking too much room.
-
-> 
-> > +
-> > +/**
-> > + * icmp_global_allow - Are we allowed to send one more ICMP message ?
-> > + *
-> > + * Uses a token bucket to limit our ICMP messages to sysctl_icmp_msgs_per_sec.
-> > + * Returns false if we reached the limit and can not send another packet.
-> > + * Note: called with BH disabled
-> > + */
-> > +bool icmp_global_allow(void)
-> > +{
-> > +	u32 credit, delta, incr = 0, now = (u32)jiffies;
-> 
-> Doesn't casting jiffies costs a couple cycles
-> on a 64 bit machine?
-
-No, thats a word access, instead of a qword.
+Thanks,
+Richard
