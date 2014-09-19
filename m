@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next 0/8] net: phy: Broadcom BCM7xxx PHY workaround
  update
-Date: Fri, 19 Sep 2014 15:41:04 -0400 (EDT)
-Message-ID: <20140919.154104.286842667424203847.davem@davemloft.net>
+Date: Fri, 19 Sep 2014 15:55:54 -0400 (EDT)
+Message-ID: <20140919.155554.871635845344096230.davem@davemloft.net>
 References: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>
+	<20140919.154104.286842667424203847.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org
 To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58534 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58638 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757595AbaISTlG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 15:41:06 -0400
-In-Reply-To: <1410911584-1559-1-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S1756771AbaISTz4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 15:55:56 -0400
+In-Reply-To: <20140919.154104.286842667424203847.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 16 Sep 2014 16:52:56 -0700
-
-> This patch sets the change to of_phy_connect() that you have seen before,
-> this time with the full context of why it is useful and applicable here.
-> 
-> Due to some design decision, the internal PHY on Broadcom BCM7xxx chips
-> is not entirely self contained and does not report its internal revision
-> through MII_PHYSID2, that is left to external PHY designs.
-> 
-> This forces us to get the PHY revision from the GENET and SF2 switch drivers
-> because those two peripherals integrate such a PHY and do contain the PHY
-> revision in their registers.
-> 
-> The approach taken here is hopefully easy to extend to similar needs for
-> other chips/ as well.
-
-Series applied, thanks Florian.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAxOSBT
+ZXAgMjAxNCAxNTo0MTowNCAtMDQwMCAoRURUKQ0KDQo+IFNlcmllcyBhcHBsaWVkLCB0aGFua3Mg
+Rmxvcmlhbi4NCg0KQWN0dWFsbHkgSSBoYWQgdG8gcmV2ZXJ0Og0KDQpuZXQvZHNhL3NsYXZlLmM6
+IEluIGZ1bmN0aW9uIKFkc2Ffc2xhdmVfcGh5X3NldHVwojoNCm5ldC9kc2Evc2xhdmUuYzozOTU6
+NDI6IGVycm9yOiChcG9ydKIgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluIHRoaXMgZnVuY3Rpb24p
+DQogICBwaHlfZmxhZ3MgPSBkcy0+ZHJ2LT5nZXRfcGh5X2ZsYWdzKGRzLCBwb3J0KTsNCiAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4NCm5ldC9kc2Evc2xhdmUuYzoz
+OTU6NDI6IG5vdGU6IGVhY2ggdW5kZWNsYXJlZCBpZGVudGlmaWVyIGlzIHJlcG9ydGVkIG9ubHkg
+b25jZSBmb3IgZWFjaCBmdW5jdGlvbiBpdCBhcHBlYXJzIGluDQo=
