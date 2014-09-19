@@ -1,41 +1,54 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH v2 0/2] tg3:  Fix handling of non-acceleration vlans
-Date: Fri, 19 Sep 2014 18:23:07 -0400
-Message-ID: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v2 2/2] tg3: Allow for receive of full-size 8021AD frames
+Date: Fri, 19 Sep 2014 18:23:09 -0400
+Message-ID: <1411165389-21276-3-git-send-email-vyasevic@redhat.com>
+References: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
 Cc: Vladislav Yasevich <vyasevic@redhat.com>,
 	Prashant Sreedharan <prashant@broadcom.com>,
 	Michael Chan <mchan@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f42.google.com ([209.85.192.42]:37010 "EHLO
-	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932195AbaISWXU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 18:23:20 -0400
-Received: by mail-qg0-f42.google.com with SMTP id i50so599854qgf.1
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 15:23:19 -0700 (PDT)
+Received: from mail-qa0-f50.google.com ([209.85.216.50]:41645 "EHLO
+	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932195AbaISWXX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 18:23:23 -0400
+Received: by mail-qa0-f50.google.com with SMTP id k15so3208845qaq.23
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 15:23:22 -0700 (PDT)
+In-Reply-To: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TG3 can't cope with checksum and TSO offloads when vlan headers were
-not accelerated.  This can be demonstrated with 802.1ad vlans or
-by configuring a vlan on top of a bridge and turning off vlan acceleration
-on the bridge device.
+When receiving a vlan-tagged frame that still contains
+a vlan header, the length of the packet will be greater
+then MTU+ETH_HLEN since it will account of the extra
+vlan header.  TG3 checks this for the case for 802.1Q,
+but not for 802.1ad.  As a result, full sized 802.1ad
+frames get dropped by the card.
 
-Instead of disabling all vlan acceleration, this series works around
-the issue by having tg3 driver call software segmentation and checksum
-generation.
+Add a check for 802.1ad protocol when receiving full
+sized frames.
 
-v2: - moved the call to software segment soonner
-    - Preserve the checksum flags for TSO/LSO case and turn it off
-      if software checksum was computed.
-    - Add code to correctly receive full sized 802.1ad frames.
+Suggested-by: Prashant Sreedharan <prashant@broadcom.com>
+CC: Prashant Sreedharan <prashant@broadcom.com>
+CC: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Vladislav Yasevich (2):
-  tg3: Work around HW/FW limitations with vlan encapsulated frames
-  tg3: Allow for receive of full-size 8021AD frames
-
- drivers/net/ethernet/broadcom/tg3.c | 21 ++++++++++++++++++++-
- 1 file changed, 20 insertions(+), 1 deletion(-)
-
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 0a0938d..4f674f9 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -6918,7 +6918,8 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 		skb->protocol = eth_type_trans(skb, tp->dev);
+ 
+ 		if (len > (tp->dev->mtu + ETH_HLEN) &&
+-		    skb->protocol != htons(ETH_P_8021Q)) {
++		    skb->protocol != htons(ETH_P_8021Q) &&
++		    skb->protocol != htons(ETH_P_8021AD)) {
+ 			dev_kfree_skb_any(skb);
+ 			goto drop_it_no_recycle;
+ 		}
 -- 
 1.9.3
