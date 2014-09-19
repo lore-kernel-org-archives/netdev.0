@@ -1,43 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] macvlan: allow to enqueue broadcast pkt on virtual
- device
-Date: Fri, 19 Sep 2014 16:44:31 -0700
-Message-ID: <1411170271.26859.67.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
-	 <20140919.160351.1490731758266834534.davem@davemloft.net>
-	 <20140919233108.GA31226@gondor.apana.org.au>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: [PATCH] scsi: fix kconfig dependency warnings for SCSI_FC_ATTRS
+Date: Fri, 19 Sep 2014 16:50:59 -0700
+Message-ID: <541CC163.3080709@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, nicolas.dichtel@6wind.com,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:63139 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753883AbaISXod (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 19:44:33 -0400
-Received: by mail-pa0-f54.google.com with SMTP id fb1so1029695pad.41
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 16:44:33 -0700 (PDT)
-In-Reply-To: <20140919233108.GA31226@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: James Bottomley <jbottomley@parallels.com>,
+	Anish Bhatt <anish@chelsio.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	linux-scsi <linux-scsi@vger.kernel.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2014-09-20 at 07:31 +0800, Herbert Xu wrote:
+From: Randy Dunlap <rdunlap@infradead.org>
 
-> While it would be nice to maintain the ability to chnge this
-> parameter, I'm fine with this patch as it stands since it fixes
-> a real regression.
-> 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Fix kconfig dependency warnings which can lead to build errors:
 
-Another interesting feature would be to be able to time limit the queue,
-and/or use a head drop instead of tail drop.
+warning: (SCSI_BNX2X_FCOE && LIBFCOE && TCM_QLA2XXX) selects LIBFC which has unmet direct dependencies (SCSI_LOWLEVEL && SCSI && SCSI_FC_ATTRS)
 
-(ie timestamp skb when its enqueued into bc_queue,
- and at dequeue time, drop it if elapsed time is above a configurable
-limit)
+warning: (FCOE && FCOE_FNIC) selects LIBFCOE which has unmet direct dependencies (SCSI_LOWLEVEL && SCSI && SCSI_FC_ATTRS)
 
-Processing a broadcast one minute after it was really sent makes little
-sense, especially if we drop new incoming broadcasts because bc_queue is
-full.
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+---
+ drivers/scsi/Kconfig         |    3 +++
+ drivers/scsi/qla2xxx/Kconfig |    2 +-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+--- linux-next-20140918.orig/drivers/scsi/Kconfig
++++ linux-next-20140918/drivers/scsi/Kconfig
+@@ -601,6 +601,7 @@ config LIBFC
+ 
+ config LIBFCOE
+ 	tristate "LibFCoE module"
++	depends on SCSI_FC_ATTRS
+ 	select LIBFC
+ 	---help---
+ 	  Library for Fibre Channel over Ethernet module
+@@ -608,6 +609,7 @@ config LIBFCOE
+ config FCOE
+ 	tristate "FCoE module"
+ 	depends on PCI
++	depends on SCSI_FC_ATTRS
+ 	select LIBFCOE
+ 	---help---
+ 	  Fibre Channel over Ethernet module
+@@ -615,6 +617,7 @@ config FCOE
+ config FCOE_FNIC
+ 	tristate "Cisco FNIC Driver"
+ 	depends on PCI && X86
++	depends on SCSI_FC_ATTRS
+ 	select LIBFCOE
+ 	help
+ 	  This is support for the Cisco PCI-Express FCoE HBA.
+--- linux-next-20140918.orig/drivers/scsi/qla2xxx/Kconfig
++++ linux-next-20140918/drivers/scsi/qla2xxx/Kconfig
+@@ -30,7 +30,7 @@ config SCSI_QLA_FC
+ 
+ config TCM_QLA2XXX
+ 	tristate "TCM_QLA2XXX fabric module for Qlogic 2xxx series target mode HBAs"
+-	depends on SCSI_QLA_FC && TARGET_CORE
++	depends on SCSI_QLA_FC && TARGET_CORE && SCSI_FC_ATTRS
+ 	select LIBFC
+ 	select BTREE
+ 	default n
