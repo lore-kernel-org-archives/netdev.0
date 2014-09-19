@@ -1,175 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: add coalescing attempt in tcp_ofo_queue()
-Date: Fri, 19 Sep 2014 08:26:20 -0700
-Message-ID: <1411140380.26859.28.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next PATCH 28/29] fm10k: Add support for ptp to hw specific
+ files
+Date: Fri, 19 Sep 2014 08:34:46 -0700
+Message-ID: <541C4D16.9050603@intel.com>
+References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com> <20140918224023.10373.11456.stgit@ahduyck-bv4.jf.intel.com> <20140919073820.GA5954@netboy> <541C3F88.2090004@intel.com> <20140919151926.GA542@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: davem@davemloft.net, nhorman@redhat.com, netdev@vger.kernel.org,
+	john.fastabend@gmail.com, matthew.vick@intel.com,
+	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:38923 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756107AbaISP0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 11:26:23 -0400
-Received: by mail-pa0-f48.google.com with SMTP id ey11so351579pad.7
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 08:26:23 -0700 (PDT)
+Received: from mga11.intel.com ([192.55.52.93]:51862 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932225AbaISPfX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Sep 2014 11:35:23 -0400
+In-Reply-To: <20140919151926.GA542@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 09/19/2014 08:19 AM, Richard Cochran wrote:
+> On Fri, Sep 19, 2014 at 07:36:56AM -0700, Alexander Duyck wrote:
+>> On 09/19/2014 12:38 AM, Richard Cochran wrote:
+>>> On Thu, Sep 18, 2014 at 06:40:30PM -0400, Alexander Duyck wrote:
+>>>
+>>>> +static s32 fm10k_adjust_systime_pf(struct fm10k_hw *hw, s32 ppb)
+>>>> +{
+>>>> +	u64 systime_adjust;
+>>>> +
+>>>> +	/* if sw_addr is not set we don't have switch register access */
+>>>> +	if (!hw->sw_addr)
+>>>> +		return ppb ? FM10K_ERR_PARAM : 0;
+>>>> +
+>>>> +	/* we must convert the value from parts per billion to parts per
+>>>> +	 * 2^48 cycles.  In addition we can only use the upper 30 bits of
+>>>> +	 * the value when making the change so that restricts us futher.
+>>>> +	 * The math for this is equivilent to ABS(pps) * 2^40 / 10 ^ 9,
+> 
+> ...
+> 
+>> 2.  The value is in 2 ^ 48 units, and the OS wants to give us a value in
+>> parts per billion, not parts per 256 * 2 ^ 40.  So in order to simplify
+>> things I dropped the lower 8 bits and only update
+> 
+> So what does the comment in the code about "upper 30 bits" mean?
+> 
 
-In order to make TCP more resilient in presence of reorders, we need
-to allow coalescing to happen when skbs from out of order queue are
-transferred into receive queue. LRO/GRO can be completely canceled
-in some pathological cases, like per packet load balancing on aggregated
-links.
+The value is measured in parts per 2^48 units, but the field we are
+given to provide adjustment units is 38 bits wide, with the 30 most
+significant bits in the main adjustment register, and the 8 least
+significant bits in another register.  The direction is a separate bit
+at bit 31 in the upper register with a 1 bit gap between it and the value.
 
-I had to move tcp_try_coalesce() up in the file above tcp_ofo_queue()
+Thanks,
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
-
-Note: I am not sure we really need this part in tcp_try_coalesce(),
-as I doubt we need ack_seq in the skbs stored in receive queues ?
-
-	TCP_SKB_CB(to)->ack_seq = TCP_SKB_CB(from)->ack_seq;
-
- net/ipv4/tcp_input.c |   89 +++++++++++++++++++++--------------------
- 1 file changed, 47 insertions(+), 42 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ea92f23ffaf1..44ff50aac96c 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4060,6 +4060,44 @@ static void tcp_sack_remove(struct tcp_sock *tp)
- 	tp->rx_opt.num_sacks = num_sacks;
- }
- 
-+/**
-+ * tcp_try_coalesce - try to merge skb to prior one
-+ * @sk: socket
-+ * @to: prior buffer
-+ * @from: buffer to add in queue
-+ * @fragstolen: pointer to boolean
-+ *
-+ * Before queueing skb @from after @to, try to merge them
-+ * to reduce overall memory use and queue lengths, if cost is small.
-+ * Packets in ofo or receive queues can stay a long time.
-+ * Better try to coalesce them right now to avoid future collapses.
-+ * Returns true if caller should free @from instead of queueing it
-+ */
-+static bool tcp_try_coalesce(struct sock *sk,
-+			     struct sk_buff *to,
-+			     struct sk_buff *from,
-+			     bool *fragstolen)
-+{
-+	int delta;
-+
-+	*fragstolen = false;
-+
-+	/* Its possible this segment overlaps with prior segment in queue */
-+	if (TCP_SKB_CB(from)->seq != TCP_SKB_CB(to)->end_seq)
-+		return false;
-+
-+	if (!skb_try_coalesce(to, from, fragstolen, &delta))
-+		return false;
-+
-+	atomic_add(delta, &sk->sk_rmem_alloc);
-+	sk_mem_charge(sk, delta);
-+	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPRCVCOALESCE);
-+	TCP_SKB_CB(to)->end_seq = TCP_SKB_CB(from)->end_seq;
-+	TCP_SKB_CB(to)->ack_seq = TCP_SKB_CB(from)->ack_seq;
-+	TCP_SKB_CB(to)->tcp_flags |= TCP_SKB_CB(from)->tcp_flags;
-+	return true;
-+}
-+
- /* This one checks to see if we can put data from the
-  * out_of_order queue into the receive_queue.
-  */
-@@ -4067,7 +4105,8 @@ static void tcp_ofo_queue(struct sock *sk)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	__u32 dsack_high = tp->rcv_nxt;
--	struct sk_buff *skb;
-+	struct sk_buff *skb, *tail;
-+	bool fragstolen, eaten;
- 
- 	while ((skb = skb_peek(&tp->out_of_order_queue)) != NULL) {
- 		if (after(TCP_SKB_CB(skb)->seq, tp->rcv_nxt))
-@@ -4080,9 +4119,9 @@ static void tcp_ofo_queue(struct sock *sk)
- 			tcp_dsack_extend(sk, TCP_SKB_CB(skb)->seq, dsack);
- 		}
- 
-+		__skb_unlink(skb, &tp->out_of_order_queue);
- 		if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
- 			SOCK_DEBUG(sk, "ofo packet was already received\n");
--			__skb_unlink(skb, &tp->out_of_order_queue);
- 			__kfree_skb(skb);
- 			continue;
- 		}
-@@ -4090,11 +4129,15 @@ static void tcp_ofo_queue(struct sock *sk)
- 			   tp->rcv_nxt, TCP_SKB_CB(skb)->seq,
- 			   TCP_SKB_CB(skb)->end_seq);
- 
--		__skb_unlink(skb, &tp->out_of_order_queue);
--		__skb_queue_tail(&sk->sk_receive_queue, skb);
-+		tail = skb_peek_tail(&sk->sk_receive_queue);
-+		eaten = tail && tcp_try_coalesce(sk, tail, skb, &fragstolen);
- 		tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
-+		if (!eaten)
-+			__skb_queue_tail(&sk->sk_receive_queue, skb);
- 		if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
- 			tcp_fin(sk);
-+		if (eaten)
-+			kfree_skb_partial(skb, fragstolen);
- 	}
- }
- 
-@@ -4121,44 +4164,6 @@ static int tcp_try_rmem_schedule(struct sock *sk, struct sk_buff *skb,
- 	return 0;
- }
- 
--/**
-- * tcp_try_coalesce - try to merge skb to prior one
-- * @sk: socket
-- * @to: prior buffer
-- * @from: buffer to add in queue
-- * @fragstolen: pointer to boolean
-- *
-- * Before queueing skb @from after @to, try to merge them
-- * to reduce overall memory use and queue lengths, if cost is small.
-- * Packets in ofo or receive queues can stay a long time.
-- * Better try to coalesce them right now to avoid future collapses.
-- * Returns true if caller should free @from instead of queueing it
-- */
--static bool tcp_try_coalesce(struct sock *sk,
--			     struct sk_buff *to,
--			     struct sk_buff *from,
--			     bool *fragstolen)
--{
--	int delta;
--
--	*fragstolen = false;
--
--	/* Its possible this segment overlaps with prior segment in queue */
--	if (TCP_SKB_CB(from)->seq != TCP_SKB_CB(to)->end_seq)
--		return false;
--
--	if (!skb_try_coalesce(to, from, fragstolen, &delta))
--		return false;
--
--	atomic_add(delta, &sk->sk_rmem_alloc);
--	sk_mem_charge(sk, delta);
--	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPRCVCOALESCE);
--	TCP_SKB_CB(to)->end_seq = TCP_SKB_CB(from)->end_seq;
--	TCP_SKB_CB(to)->ack_seq = TCP_SKB_CB(from)->ack_seq;
--	TCP_SKB_CB(to)->tcp_flags |= TCP_SKB_CB(from)->tcp_flags;
--	return true;
--}
--
- static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
+Alex
