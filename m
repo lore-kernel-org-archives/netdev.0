@@ -1,49 +1,42 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next] net: keep original skb which only needs header checking during software GSO
-Date: Fri, 19 Sep 2014 14:38:06 +0800
-Message-ID: <1411108686-20602-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH] net: fec: fix code identation
+Date: Fri, 19 Sep 2014 14:26:03 +0800
+Message-ID: <1411107963-8303-1-git-send-email-b38611@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <dan.carpenter@oracle.com>,
+	<b38611@freescale.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0134.outbound.protection.outlook.com ([207.46.100.134]:25838
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751464AbaISGwu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Sep 2014 02:52:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit ce93718fb7cdbc064c3000ff59e4d3200bdfa744 ("net: Don't keep
-around original SKB when we software segment GSO frames") frees the
-original skb after software GSO even for dodgy gso skbs. This breaks
-the stream throughput from untrusted sources, since only header
-checking was done during software GSO instead of a true
-segmentation. This patch fixes this by freeing the original gso skb
-only when it was really segmented by software.
+There have extra identation before .skb_copy_to_linear_data_offset(),
+this patch just remove the identation.
 
-Fixes ce93718fb7cdbc064c3000ff59e4d3200bdfa744 ("net: Don't keep
-around original SKB when we software segment GSO frames.")
-
-CC: David S. Miller <davem@davemloft.net>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Fugang Duan <B38611@freescale.com>
 ---
- net/core/dev.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e916ba8..b7a0e1d 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2694,10 +2694,12 @@ struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev)
- 		struct sk_buff *segs;
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 6e93336..bf3fd15 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1415,7 +1415,7 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
+ 			skb_copy_to_linear_data(skb, data, (2 * ETH_ALEN));
+ 			if (vlan_packet_rcvd)
+ 				payload_offset = (2 * ETH_ALEN) + VLAN_HLEN;
+-				skb_copy_to_linear_data_offset(skb, (2 * ETH_ALEN),
++			skb_copy_to_linear_data_offset(skb, (2 * ETH_ALEN),
+ 						       data + payload_offset,
+ 						       pkt_len - 4 - (2 * ETH_ALEN));
  
- 		segs = skb_gso_segment(skb, features);
--		kfree_skb(skb);
- 		if (IS_ERR(segs))
- 			segs = NULL;
--		skb = segs;
-+		else if (segs) {
-+			kfree_skb(skb);
-+			skb = segs;
-+		}
- 	} else {
- 		if (skb_needs_linearize(skb, features) &&
- 		    __skb_linearize(skb))
 -- 
-1.9.1
+1.7.8
