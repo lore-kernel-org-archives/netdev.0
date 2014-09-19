@@ -1,53 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] macvlan: allow to enqueue broadcast pkt on virtual
- device
-Date: Fri, 19 Sep 2014 16:09:32 -0700
-Message-ID: <1411168172.26859.61.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
-	 <CAHA+R7OQ=R8Y0LDVormukRjdosODiRuGq+NTrZQ08sXvfJYUnQ@mail.gmail.com>
-	 <1411162501.26859.39.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHA+R7M=Wp1u1hXD9YE52Ct74KOovEaVjCECV_5EsrAO_rJ7ag@mail.gmail.com>
-	 <1411164317.26859.45.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHA+R7M-HKbCmX3kEPLGrNjh+qF-OnL+V8C2biFBz24_7VOsxw@mail.gmail.com>
-	 <1411166670.26859.48.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHA+R7MxiP9gZe2daJunXOKNa6sQd9JZ_4_ko6ipYGtshVP0bg@mail.gmail.com>
+From: Prashant Sreedharan <prashant@broadcom.com>
+Subject: Re: [PATCH v2 2/2] tg3: Allow for receive of full-size 8021AD
+ frames
+Date: Fri, 19 Sep 2014 16:14:35 -0700
+Message-ID: <1411168475.6401.37.camel@prashant>
+References: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
+	 <1411165389-21276-3-git-send-email-vyasevic@redhat.com>
+	 <1411167552.26859.58.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Cong Wang <cwang@twopensource.com>
+Cc: Vladislav Yasevich <vyasevich@gmail.com>, <netdev@vger.kernel.org>,
+	Vladislav Yasevich <vyasevic@redhat.com>,
+	Michael Chan <mchan@broadcom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:34433 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752139AbaISXJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 19:09:34 -0400
-Received: by mail-pd0-f177.google.com with SMTP id fp1so804973pdb.36
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 16:09:34 -0700 (PDT)
-In-Reply-To: <CAHA+R7MxiP9gZe2daJunXOKNa6sQd9JZ_4_ko6ipYGtshVP0bg@mail.gmail.com>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:6834 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752139AbaISXYg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 19:24:36 -0400
+In-Reply-To: <1411167552.26859.58.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-09-19 at 15:57 -0700, Cong Wang wrote:
-> On Fri, Sep 19, 2014 at 3:44 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >
-> > Therefore, suggesting user to 'fix tx_queue_len' is totally wrong.
+On Fri, 2014-09-19 at 15:59 -0700, Eric Dumazet wrote:
+> On Fri, 2014-09-19 at 18:23 -0400, Vladislav Yasevich wrote:
+> > When receiving a vlan-tagged frame that still contains
+> > a vlan header, the length of the packet will be greater
+> > then MTU+ETH_HLEN since it will account of the extra
+> > vlan header.  TG3 checks this for the case for 802.1Q,
+> > but not for 802.1ad.  As a result, full sized 802.1ad
+> > frames get dropped by the card.
+> > 
+> > Add a check for 802.1ad protocol when receiving full
+> > sized frames.
+> > 
+> > Suggested-by: Prashant Sreedharan <prashant@broadcom.com>
+> > CC: Prashant Sreedharan <prashant@broadcom.com>
+> > CC: Michael Chan <mchan@broadcom.com>
+> > Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+> > ---
+> >  drivers/net/ethernet/broadcom/tg3.c | 3 ++-
+> >  1 file changed, 2 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> > index 0a0938d..4f674f9 100644
+> > --- a/drivers/net/ethernet/broadcom/tg3.c
+> > +++ b/drivers/net/ethernet/broadcom/tg3.c
+> > @@ -6918,7 +6918,8 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+> >  		skb->protocol = eth_type_trans(skb, tp->dev);
+> >  
+> >  		if (len > (tp->dev->mtu + ETH_HLEN) &&
+> > -		    skb->protocol != htons(ETH_P_8021Q)) {
+> > +		    skb->protocol != htons(ETH_P_8021Q) &&
+> > +		    skb->protocol != htons(ETH_P_8021AD)) {
+> >  			dev_kfree_skb_any(skb);
+> >  			goto drop_it_no_recycle;
+> >  		}
 > 
-> How about HTB? You said:
+> Really I do not understand what is the value of this check.
 > 
-> "Only when you want to have say HTB on the bonding, you might need to
-> change tx_queue_len"
-
-Again, what is your point ?
-
-How is it relevant to this particular bug report ?
-
-Don't you think people using HTB on a virtual device do not already know
-its better to either :
-
-- Not use the default pfifo on htb classes
-- Increase device queue len on the device.
-
-Its been like that since a decade. No changes are needed in bond driver.
+> If NIC is dumb enough to send oversized frames, what prevents these
+> frames being VLAN ones, and this test wont avoid the crash anyway ?
+> 
+The NIC will not receive frames of size > mtu + ETH_HLEN + VLAN_HLEN it
+will update the oversize_frame count and drop it. The check is to make
+sure the additional 4 bytes is due to a valid vlan header.
