@@ -1,39 +1,73 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: ipsec: Remove obsolete MAX_AH_AUTH_LEN
-Date: Fri, 19 Sep 2014 09:48:27 +0200
-Message-ID: <20140919074827.GW6390@secunet.com>
-References: <20140917045828.GA32086@gondor.apana.org.au>
- <20140918083818.GA13056@gondor.apana.org.au>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] net: keep original skb which only needs header
+ checking during software GSO
+Date: Fri, 19 Sep 2014 15:49:34 +0800
+Message-ID: <541BE00E.9060802@redhat.com>
+References: <1411108686-20602-1-git-send-email-jasowang@redhat.com> <1411110263.7106.301.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:56409 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751294AbaISHse (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Sep 2014 03:48:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20140918083818.GA13056@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1411110263.7106.301.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 18, 2014 at 04:38:18PM +0800, Herbert Xu wrote:
-> Oops, should've sent this to Steffen:
-> 
-> While tracking down the MAX_AH_AUTH_LEN crash in an old kernel
-> I thought that this limit was rather arbitrary and we should
-> just get rid of it.
-> 
-> In fact it seems that we've already done all the work needed
-> to remove it apart from actually removing it.  This limit was
-> there in order to limit stack usage.  Since we've already
-> switched over to allocating scratch space using kmalloc, there
-> is no longer any need to limit the authentication length.
-> 
-> This patch kills all references to it, including the BUG_ONs
-> that led me here.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+On 09/19/2014 03:04 PM, Eric Dumazet wrote:
+> On Fri, 2014-09-19 at 14:38 +0800, Jason Wang wrote:
+>> Commit ce93718fb7cdbc064c3000ff59e4d3200bdfa744 ("net: Don't keep
+>> around original SKB when we software segment GSO frames") frees the
+>> original skb after software GSO even for dodgy gso skbs. This breaks
+>> the stream throughput from untrusted sources, since only header
+>> checking was done during software GSO instead of a true
+>> segmentation. This patch fixes this by freeing the original gso skb
+>> only when it was really segmented by software.
+>>
+>> Fixes ce93718fb7cdbc064c3000ff59e4d3200bdfa744 ("net: Don't keep
+>> around original SKB when we software segment GSO frames.")
+>>
+>> CC: David S. Miller <davem@davemloft.net>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>  net/core/dev.c | 6 ++++--
+>>  1 file changed, 4 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index e916ba8..b7a0e1d 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -2694,10 +2694,12 @@ struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev)
+>>  		struct sk_buff *segs;
+>>  
+>>  		segs = skb_gso_segment(skb, features);
+>> -		kfree_skb(skb);
+>>  		if (IS_ERR(segs))
+>>  			
+>> -		skb = segs;
+>> +		else if (segs) {
+>> +			kfree_skb(skb);
+>> +			skb = segs;
+>> +		}
+>>  	} else {
+>>  		if (skb_needs_linearize(skb, features) &&
+>>  		    __skb_linearize(skb))
+> Good catch !
+>
+> While we are at it, could you use consume_skb() instead of kfree_skb(),
+> and add missing {} (CodingStyle) ?
+>
+> if (IS_ERR(segs)) {
+> 	segs = NULL;
+> } else if (segs) {
+> 	consume_skb(skb);
+> 	skb = segs;
+> }
+>
+>
+> Thanks !
+>
+>
 
-Applied to ipsec-next, thanks Herbert!
+Yes, it's better. Will do them in V2.
