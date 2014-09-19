@@ -1,44 +1,30 @@
-From: Thomas Martitz <kugel@rockbox.org>
-Subject: Bridge IGMP snooping question
-Date: Fri, 19 Sep 2014 20:55:31 +0200
-Message-ID: <541C7C23.90008@rockbox.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] sparc: bpf_jit: add SKF_AD_PKTTYPE support to
+ JIT
+Date: Fri, 19 Sep 2014 15:34:58 -0400 (EDT)
+Message-ID: <20140919.153458.1586666418789079695.davem@davemloft.net>
+References: <1410896135-9867-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+Cc: dborkman@redhat.com, hannes@stressinduktion.org,
+	netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout01.t-online.de ([194.25.134.80]:42850 "EHLO
-	mailout01.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757658AbaISTCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 15:02:35 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:58457 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757483AbaISTfA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 15:35:00 -0400
+In-Reply-To: <1410896135-9867-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Linux folks,
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Tue, 16 Sep 2014 12:35:35 -0700
 
-I have one question regarding IGMP snooping on bridges, specifically 
-about leaving multicast groups.
+> commit 233577a22089 ("net: filter: constify detection of pkt_type_offset")
+> allows us to implement simple PKTTYPE support in sparc JIT
+> 
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-br_multicast_leave_group() has this check early on:
-
-if (!netif_running(br->dev) ||
-         (port && port->state == BR_STATE_DISABLED) ||
-         timer_pending(&querier->timer)) /* <- THIS */
-                goto out;
-
-I'm wondering why the bridge code prevents group leaves if if the 
-querier timer is pending. From my understanding the timer acts as an 
-indication whether the local system is the network's querier or not (if 
-pending then another router is querier). Therefore this check prevents 
-to leave groups if there is another querier.
-
-I'm wondering what's the rationale for this, if any. It seems to be that 
-the decision whether an attached client gets mc forwarded is independent 
-on whether the local system is querier or not. Git log does not reveal 
-the answer as this check is there from the beginning.
-
-PS: This behavior conflicts with something I'm working.
-
-Thank you very much in advance.
-
-Best regards.
+Applied, thanks for doing this work Alexei.
