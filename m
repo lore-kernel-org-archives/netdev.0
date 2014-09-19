@@ -1,69 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC net-next PATCH V3 0/2] qdisc bulk dequeuing and utilizing
- delayed tailptr updates
-Date: Fri, 19 Sep 2014 13:59:20 -0700
-Message-ID: <1411160360.26859.31.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140919204706.3231.59125.stgit@dragon>
+From: fruggeri@aristanetworks.com (Francesco Ruggeri)
+Subject: cannot ARP macvlan on top of bonding device
+Date: Fri, 19 Sep 2014 14:00:40 -0700
+Message-ID: <20140919210040.E09BA481010@fruggeri-Arora18.sjc.aristanetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Dave Taht <dave.taht@gmail.com>, toke@toke.dk
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: fruggeri@arista.com, davem@davemloft.net,
+	herbert@gondor.apana.org.au
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:65110 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757740AbaISU7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 16:59:23 -0400
-Received: by mail-pa0-f43.google.com with SMTP id kx10so823709pab.30
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 13:59:22 -0700 (PDT)
-In-Reply-To: <20140919204706.3231.59125.stgit@dragon>
+Received: from mx.aristanetworks.com ([162.210.130.12]:40708 "EHLO
+	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757765AbaISVAx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 17:00:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-09-19 at 22:49 +0200, Jesper Dangaard Brouer wrote:
-> This patchset uses DaveM's recent API changes to dev_hard_start_xmit(),
-> from the qdisc layer, to implement dequeue bulking.
-> 
-> RFC V3: Keeping the ball rolling.
-> 
-> This patchset should now use BQL correctly.  I've done lots of testing
-> for Head-of-Line blocking issues that can occur due to requeue of a
-> SKB bulk list.  I've not been able to provoke any HoL blocking
-> situation, simply because BQL is doing such a good job, thus I'm
-> unable to "overshoot" HW/BQL limits with more than a single packet.
-> 
-> This patch chooses a very conservative approach, as by default only
-> allowing dequeue of one extra packet, besides the normal dequeue.
-> 
-> Open questions:
-> 
-> - How do we expose tuning to userspace?
->   Patch adds /proc/sys/net/core/qdisc_bulk_dequeue_limit but I don't like it...
->   Per device tunable?
-> 
 
-bql is using /sys, of course ;)
+[Resending with correct date]
 
-# grep . /sys/class/net/eth1/queues/tx-0/byte_queue_limits/*
-/sys/class/net/eth1/queues/tx-0/byte_queue_limits/hold_time:1000
-/sys/class/net/eth1/queues/tx-0/byte_queue_limits/inflight:0
-/sys/class/net/eth1/queues/tx-0/byte_queue_limits/limit:113314
-/sys/class/net/eth1/queues/tx-0/byte_queue_limits/limit_max:1879048192
-/sys/class/net/eth1/queues/tx-0/byte_queue_limits/limit_min:0
+Ping in the following test fails:
 
-Maybe you could simply reuse byte_queue_limits/limit, I am not sure we
-need a specific tunable.
+# Create veth pair v1 v2
+ip link add v1 type veth peer name v2
 
+# Stack macvlan on top of bonding device on top of v1
+ip link set v1 up
+ip link add bond1 type bond
+ip link set bond1 up
+ifenslave bond1 v1
+ip link add link bond1 name mac1 type macvlan mode bridge
+ip link set mac1 up
+ifconfig mac1 1.2.3.1/24
 
-> - Can/should we limit dequeue bulking to devices supporting BQL?
-> 
+# Move v2 to namespace dummy2 and ping v1
+ip netns add dummy2
+ip link set v2 netns dummy2
+ip netns exec dummy2 bash
+ip link set lo up
+ip link set v2 up
+ifconfig v2 1.2.3.2/24
+ping 1.2.3.1 -c 5
 
-Yes please. This will be an incentive to get BQL on drivers.
+# Clean up
+exit
+ip netns del dummy2
+ip link del bond
+
+It passes on older releases.
+The problem is that txqueuelen in bond1 is 0, and ARP requests are dropped in macvlan_broadcast_enqueue at:
+
+        if (skb_queue_len(&port->bc_queue) < skb->dev->tx_queue_len) {
+                __skb_queue_tail(&port->bc_queue, nskb);
+                err = 0;
+        }
+
+where
+port->dev = skb->dev = "bond1"
+skb_queue_len(&port->bc_queue) = skb->dev->tx_queue_len = 0
+
+macvlan_broadcast_enqueue was introduced in 412ca1550 (macvlan: Move broadcasts into a work queue).
+
+Why are we using tx_queue_len to limit an rx queue?
+
+Thanks,
+Francesco Ruggeri
