@@ -1,76 +1,55 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: qdisc/trafgen: Measuring effect of qdisc bulk dequeue, with trafgen
-Date: Fri, 19 Sep 2014 07:57:37 -0400
-Message-ID: <541C1A31.3000401@mojatatu.com>
-References: <20140919123536.636fa226@redhat.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [net] net: sched: shrink struct qdisc_skb_cb to 28 bytes
+Date: Fri, 19 Sep 2014 15:07:12 +0300
+Message-ID: <CAJZOPZLheP-zD8y20cc5u23DduQp3Yu8=OxxHnggT+S-Cnt7AQ@mail.gmail.com>
+References: <1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
+	<541B5CCB.6060808@xsintricity.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	Yinghai Lu <yinghai@kernel.org>,
+	NetDev <netdev@vger.kernel.org>, ssujith@cisco.com,
+	gvaradar@cisco.com, "Christian Benvenuti (benve)" <benve@cisco.com>
+To: Doug Ledford <dledford@xsintricity.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:57833 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753558AbaISL5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 07:57:41 -0400
-Received: by mail-ie0-f169.google.com with SMTP id rp18so1277601iec.0
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 04:57:40 -0700 (PDT)
-In-Reply-To: <20140919123536.636fa226@redhat.com>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:62881 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755372AbaISMHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 08:07:14 -0400
+Received: by mail-qg0-f44.google.com with SMTP id z107so2664201qgd.3
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 05:07:13 -0700 (PDT)
+In-Reply-To: <541B5CCB.6060808@xsintricity.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/19/14 06:35, Jesper Dangaard Brouer wrote:
->
-> This experiment were about finding the tipping-point, when bulking
-> from the qdisc kicks in.  This is an artificial benchmark.
->
-> This testing relates to my qdisc bulk dequeue patches:
->   http://thread.gmane.org/gmane.linux.network/328829/focus=328951
->
-> My point have always been, we should only start bulking packets when
-> really needed, I dislike attempts to delay TX in antisipation of
-> packets arriving shortly (due to the added latency).  IMHO the qdisc
-> layer seems the right place "see" when bulking makes sense.
->
-> The reason behind this test is, there is two code paths in the qdisc
-> layer.  1) when qdisc is empty we allow packet to directly call
-> sch_direct_xmit(), 2) when qdisc contains packet we go through a more
-> expensive process of enqueue, dequeue and possibly rescheduling a
-> softirq.
->
-> Thus, the cost when the qdisc kicks-in should be slightly higher.  My
-> qdisc bulk dequeue patch, should help us actually getting faster in
-> this case.  Below results (with dequeue bulking max 4 packets) show
-> that, this was true, as expected the locking cost were reduced, giving
-> us an actual speedup.
->
->
-> Testing this tipping point is hard, but found an trafgen setup, that
-> were just balancing on this tipping point, single CPU 1Gbit/s setup
-> driver igb.
->
+On Fri, Sep 19, 2014 at 1:29 AM, Doug Ledford <dledford@xsintricity.com> wrote:
+> On 09/18/2014 11:02 AM, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>> We cannot make struct qdisc_skb_cb bigger without impacting IPoIB,
+>> or increasing skb->cb[] size.
+>>
+>> Commit e0f31d849867 ("flow_keys: Record IP layer protocol in
+>> skb_flow_dissect()") broke IPoIB.
+>>
+>> Only current offender is sch_choke, and this one do not need an
+>> absolutely precise flow key.
+>>
+>> If we store 17 bytes of flow key, its more than enough. (Its the actual
+>> size of flow_keys if it was a packed structure, but we might add new
+>> fields at the end of it later)
+>>
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Fixes: e0f31d849867 ("flow_keys: Record IP layer protocol in
+>> skb_flow_dissect()")
 
-The feedback system is clearly very well oiled. Or is it now? ;->
-Jesper, maybe you need to poke at system level as opposed to
-microscopic lock level. The transmit path is essentially kicked by
-tx softirq which is driven by rx path etc. And those guys work like
-a clock pendulum.
-To busy that sucker, You may be able to get more luck with
-forwarding kind of traffic.
-Funnel traffic from many nic ports tied to different CPUs to one egress
-port.
-Some coffee helped me remember i actually surrendered that it can be
-done at all in netconf 2011[1] but please let me not poison your
-thinking - you may find otherwise.
+> I've installed this patch on my cluster and it resolves the problem.
+> Tested-by/Acked-by: Doug Ledford <dledford@redhat.com>
 
-cheers,
-jamal
+Thanks Eric/Doug!
 
-http://vger.kernel.org/netconf2011_slides/jamal_netconf2011.pdf slide 12
+Dave - just to make sure, this is for net, as the regression was
+introduced in 3.17-rc1.
+
+Or.
