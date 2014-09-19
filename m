@@ -1,29 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2014-09-18
-Date: Fri, 19 Sep 2014 17:34:48 -0400 (EDT)
-Message-ID: <20140919.173448.2187577520178284616.davem@davemloft.net>
-References: <1411036862-13255-1-git-send-email-mkl@pengutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] macvlan: allow to enqueue broadcast pkt on virtual
+ device
+Date: Fri, 19 Sep 2014 14:35:01 -0700
+Message-ID: <1411162501.26859.39.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
+	 <CAHA+R7OQ=R8Y0LDVormukRjdosODiRuGq+NTrZQ08sXvfJYUnQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1411036862-13255-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:37286 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757910AbaISVfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 17:35:04 -0400
+Received: by mail-pa0-f51.google.com with SMTP id fa1so880031pad.10
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 14:35:03 -0700 (PDT)
+In-Reply-To: <CAHA+R7OQ=R8Y0LDVormukRjdosODiRuGq+NTrZQ08sXvfJYUnQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Thu, 18 Sep 2014 12:40:54 +0200
-
-> this is a pull request of 8 patches for current net.
+On Fri, 2014-09-19 at 14:24 -0700, Cong Wang wrote:
+> On Wed, Sep 17, 2014 at 1:08 AM, Nicolas Dichtel
+> <nicolas.dichtel@6wind.com> wrote:
+> > Since commit 412ca1550cbe ("macvlan: Move broadcasts into a work queue"), the
+> > driver uses tx_queue_len of the master device as the limit of packets enqueuing.
+> > Problem is that virtual drivers have this value set to 0, thus all broadcast
+> > packets were rejected.
+> > Because tx_queue_len was arbitrarily chosen, I replace it with a static limit
+> > of 1000 (also arbitrarily chosen).
+> >
 > 
-> A patch by Roger Quadros for the c_can driver fixes the swapped parameters of
-> the c_can_hw_raminit_ti() function. Oliver Hartkopp adds the missing PCI ids to
-> the peak_pci driver to support the single channel PCAN ExpressCard 34 adapter.
-> David Dueck converts the at91_can driver to use proper clock handling
-> functions. Then there are 5 patches by David Jander and me which fix several
-> mailbox related problems in the flexcan driver.
+> Hmm, why not manually set this tx_queue_len to fix it?
+> 
+> At least fifo qdisc also uses tx_queue_len, and when you bond
+> you have to set it to non-zero.
 
-Pulled, thanks Marc.
+
+This is not true. We usually leave virtual devices with tx_queue_len to
+0, otherwise you get a qdisc on them for nothing...
+
+Only when you want to have say HTB on the bonding, you might need to
+change tx_queue_len
+
+> 
+> I am not saying using this tx_queue_len is absolutely correct,
+> I am saying it may be expected to set tx_queue_len by yourself.
+
+I disagree.
