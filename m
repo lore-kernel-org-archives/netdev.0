@@ -1,67 +1,51 @@
-From: Prashant Sreedharan <prashant@broadcom.com>
-Subject: Re: [PATCH v2 2/2] tg3: Allow for receive of full-size 8021AD
- frames
-Date: Fri, 19 Sep 2014 16:14:35 -0700
-Message-ID: <1411168475.6401.37.camel@prashant>
-References: <1411165389-21276-1-git-send-email-vyasevic@redhat.com>
-	 <1411165389-21276-3-git-send-email-vyasevic@redhat.com>
-	 <1411167552.26859.58.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net] macvlan: allow to enqueue broadcast pkt on virtual
+ device
+Date: Sat, 20 Sep 2014 07:31:08 +0800
+Message-ID: <20140919233108.GA31226@gondor.apana.org.au>
+References: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
+ <20140919.160351.1490731758266834534.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Vladislav Yasevich <vyasevich@gmail.com>, <netdev@vger.kernel.org>,
-	Vladislav Yasevich <vyasevic@redhat.com>,
-	Michael Chan <mchan@broadcom.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:6834 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752139AbaISXYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 19:24:36 -0400
-In-Reply-To: <1411167552.26859.58.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from helcar.apana.org.au ([209.40.204.226]:34808 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756996AbaISXbT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 19:31:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20140919.160351.1490731758266834534.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-09-19 at 15:59 -0700, Eric Dumazet wrote:
-> On Fri, 2014-09-19 at 18:23 -0400, Vladislav Yasevich wrote:
-> > When receiving a vlan-tagged frame that still contains
-> > a vlan header, the length of the packet will be greater
-> > then MTU+ETH_HLEN since it will account of the extra
-> > vlan header.  TG3 checks this for the case for 802.1Q,
-> > but not for 802.1ad.  As a result, full sized 802.1ad
-> > frames get dropped by the card.
-> > 
-> > Add a check for 802.1ad protocol when receiving full
-> > sized frames.
-> > 
-> > Suggested-by: Prashant Sreedharan <prashant@broadcom.com>
-> > CC: Prashant Sreedharan <prashant@broadcom.com>
-> > CC: Michael Chan <mchan@broadcom.com>
-> > Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-> > ---
-> >  drivers/net/ethernet/broadcom/tg3.c | 3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-> > index 0a0938d..4f674f9 100644
-> > --- a/drivers/net/ethernet/broadcom/tg3.c
-> > +++ b/drivers/net/ethernet/broadcom/tg3.c
-> > @@ -6918,7 +6918,8 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
-> >  		skb->protocol = eth_type_trans(skb, tp->dev);
-> >  
-> >  		if (len > (tp->dev->mtu + ETH_HLEN) &&
-> > -		    skb->protocol != htons(ETH_P_8021Q)) {
-> > +		    skb->protocol != htons(ETH_P_8021Q) &&
-> > +		    skb->protocol != htons(ETH_P_8021AD)) {
-> >  			dev_kfree_skb_any(skb);
-> >  			goto drop_it_no_recycle;
-> >  		}
+On Fri, Sep 19, 2014 at 04:03:51PM -0400, David Miller wrote:
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Wed, 17 Sep 2014 10:08:08 +0200
 > 
-> Really I do not understand what is the value of this check.
+> > Since commit 412ca1550cbe ("macvlan: Move broadcasts into a work queue"), the
+> > driver uses tx_queue_len of the master device as the limit of packets enqueuing.
+> > Problem is that virtual drivers have this value set to 0, thus all broadcast
+> > packets were rejected.
+> > Because tx_queue_len was arbitrarily chosen, I replace it with a static limit
+> > of 1000 (also arbitrarily chosen).
+> > 
+> > CC: Herbert Xu <herbert@gondor.apana.org.au>
+> > Reported-by: Thibaut Collet <thibaut.collet@6wind.com>
+> > Suggested-by: Thibaut Collet <thibaut.collet@6wind.com>
+> > Tested-by: Thibaut Collet <thibaut.collet@6wind.com>
+> > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 > 
-> If NIC is dumb enough to send oversized frames, what prevents these
-> frames being VLAN ones, and this test wont avoid the crash anyway ?
-> 
-The NIC will not receive frames of size > mtu + ETH_HLEN + VLAN_HLEN it
-will update the oversize_frame count and drop it. The check is to make
-sure the additional 4 bytes is due to a valid vlan header.
+> Herbert please review.
+
+While it would be nice to maintain the ability to chnge this
+parameter, I'm fine with this patch as it stands since it fixes
+a real regression.
+
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
