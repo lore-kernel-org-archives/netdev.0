@@ -1,67 +1,63 @@
-From: fruggeri@aristanetworks.com (Francesco Ruggeri)
-Subject: cannot ARP macvlan on top of bonding device
-Date: Fri, 19 Sep 2014 14:00:40 -0700
-Message-ID: <20140919210040.E09BA481010@fruggeri-Arora18.sjc.aristanetworks.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v13 net-next 07/11] bpf: verifier (add ability to receive
+ verification log)
+Date: Fri, 19 Sep 2014 14:04:50 -0700
+Message-ID: <CAMEtUux071cELLdoWs21WL0dqgdwj+O=P64aeXSfyUtFW9U69w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fruggeri@arista.com, davem@davemloft.net,
-	herbert@gondor.apana.org.au
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.aristanetworks.com ([162.210.130.12]:40708 "EHLO
-	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757765AbaISVAx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 17:00:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Sep 18, 2014 at 10:28 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 09/18/2014 05:24 PM, Alexei Starovoitov wrote:
+> ...
+>>
+>> solve or not. If we decide to solve it, we need to have
+>> a plan to solve it all the way. Partial fix for size of bpf_attr
+>> is not a plan. It's something that is not addressing the problem
+>> completely. Little bit of help is not useful for userspace. It
+>> would need to deal with new types, verifier differences and
+>> other things that I mentioned earlier.
+>
+>
+> Hm, I don't think it would be a strict requirement to solve it
+> all the way, and I think that perf_event_open() with perf_copy_attr()
+> is not trying to do so either. It, however, is trying on a ``best
+> effort basis'' to still load something if new features are unused
+> by the binary (I guess you saw the comment in perf_copy_attr()).
+>
+> Iff, e.g. due to new types we fail at the verifier stage, sure,
+> that's life since we only have backwards-compatible guarantee,
+> but in case we tried to use features we support, we're still able
+> to load the eBPF program while right now, we're rejecting it right
+> up-front. That's just my $0.02 ...
 
-[Resending with correct date]
+David,
 
-Ping in the following test fails:
+the 'changes requested' status means that you want me to
+address this forward compatibility now instead of later?
+Or something else?
+I don't want to second guess, respin and spam people
+unnecessary. In this case I don't think Daniel is insisting
+on doing it in this patch set. The things discussed above
+are not urgent. Unless I'm missing something.
+Please clarify.
 
-# Create veth pair v1 v2
-ip link add v1 type veth peer name v2
-
-# Stack macvlan on top of bonding device on top of v1
-ip link set v1 up
-ip link add bond1 type bond
-ip link set bond1 up
-ifenslave bond1 v1
-ip link add link bond1 name mac1 type macvlan mode bridge
-ip link set mac1 up
-ifconfig mac1 1.2.3.1/24
-
-# Move v2 to namespace dummy2 and ping v1
-ip netns add dummy2
-ip link set v2 netns dummy2
-ip netns exec dummy2 bash
-ip link set lo up
-ip link set v2 up
-ifconfig v2 1.2.3.2/24
-ping 1.2.3.1 -c 5
-
-# Clean up
-exit
-ip netns del dummy2
-ip link del bond
-
-It passes on older releases.
-The problem is that txqueuelen in bond1 is 0, and ARP requests are dropped in macvlan_broadcast_enqueue at:
-
-        if (skb_queue_len(&port->bc_queue) < skb->dev->tx_queue_len) {
-                __skb_queue_tail(&port->bc_queue, nskb);
-                err = 0;
-        }
-
-where
-port->dev = skb->dev = "bond1"
-skb_queue_len(&port->bc_queue) = skb->dev->tx_queue_len = 0
-
-macvlan_broadcast_enqueue was introduced in 412ca1550 (macvlan: Move broadcasts into a work queue).
-
-Why are we using tx_queue_len to limit an rx queue?
-
-Thanks,
-Francesco Ruggeri
+Thanks
