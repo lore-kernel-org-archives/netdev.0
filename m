@@ -1,66 +1,92 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 8/8] net: phy: bcm7xxx: utilize PHY revision in config_init
-Date: Fri, 19 Sep 2014 13:07:56 -0700
-Message-ID: <1411157276-18260-9-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 5/8] net: bcmgenet: communicate integrated PHY revision to PHY driver
+Date: Fri, 19 Sep 2014 13:07:53 -0700
+Message-ID: <1411157276-18260-6-git-send-email-f.fainelli@gmail.com>
 References: <1411157276-18260-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36039 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932330AbaISUIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 16:08:22 -0400
-Received: by mail-pa0-f41.google.com with SMTP id ey11so845570pad.0
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 13:08:21 -0700 (PDT)
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:37146 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932361AbaISUIS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 16:08:18 -0400
+Received: by mail-pd0-f175.google.com with SMTP id z10so570352pdj.34
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 13:08:17 -0700 (PDT)
 In-Reply-To: <1411157276-18260-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that the GENET and SF2 drivers have been updated to communicate us
-what is the revision of the BCM7xxx integrated PHY, utilize that
-information in the config_init() callback to call into the appropriate
-workaround function based on our revision.
+The integrated BCM7xxx PHY contains no useful revision information in
+its MII_PHYSID2 bits 3:0, that information is instead contained in the
+GENET hardware block.
 
-While at it, we also print the revision and patch level to help debug
-new chips.
+We already read the GENET 32-bit revision register, so store the
+integrated PHY revision in the driver private structure, and then
+communicate this revision value to the PHY driver by overriding the
+phy_flags value.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/bcm7xxx.c | 21 +++++++++++++++------
- 1 file changed, 15 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 7 +++++++
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h | 1 +
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   | 8 ++++++--
+ 3 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
-index be3a591aabba..daae69950925 100644
---- a/drivers/net/phy/bcm7xxx.c
-+++ b/drivers/net/phy/bcm7xxx.c
-@@ -196,13 +196,22 @@ static int bcm7xxx_eee_enable(struct phy_device *phydev)
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 3f9d4de8173c..a12c65604f9d 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -2432,6 +2432,13 @@ static void bcmgenet_set_hw_params(struct bcmgenet_priv *priv)
+ 	dev_info(&priv->pdev->dev, "GENET " GENET_VER_FMT,
+ 		 major, (reg >> 16) & 0x0f, reg & 0xffff);
  
- static int bcm7xxx_28nm_config_init(struct phy_device *phydev)
- {
--	int ret;
--
--	ret = bcm7445_config_init(phydev);
--	if (ret)
--		return ret;
-+	u8 rev = PHY_BRCM_7XXX_REV(phydev->dev_flags);
-+	u8 patch = PHY_BRCM_7XXX_PATCH(phydev->dev_flags);
-+	int ret = 0;
++	/* Store the integrated PHY revision for the MDIO probing function
++	 * to pass this information to the PHY driver. The PHY driver expects
++	 * to find the PHY major revision in bits 15:8 while the GENET register
++	 * stores that information in bits 7:0, account for that.
++	 */
++	priv->gphy_rev = (reg & 0xffff) << 8;
 +
-+	dev_info(&phydev->dev, "PHY revision: 0x%02x, patch: %d\n", rev, patch);
+ #ifdef CONFIG_PHYS_ADDR_T_64BIT
+ 	if (!(params->flags & GENET_HAS_40BITS))
+ 		pr_warn("GENET does not support 40-bits PA\n");
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index c862d0666771..ad95fe57ebcd 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -545,6 +545,7 @@ struct bcmgenet_priv {
+ 	struct phy_device *phydev;
+ 	struct device_node *phy_dn;
+ 	struct mii_bus *mii_bus;
++	u16 gphy_rev;
+ 
+ 	/* PHY device variables */
+ 	int old_duplex;
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+index 71f2ef7d33a9..75b26cbaa7c1 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -296,6 +296,7 @@ static int bcmgenet_mii_probe(struct net_device *dev)
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+ 	struct device_node *dn = priv->pdev->dev.of_node;
+ 	struct phy_device *phydev;
++	u32 phy_flags;
+ 	int ret;
+ 
+ 	if (priv->phydev) {
+@@ -314,8 +315,11 @@ static int bcmgenet_mii_probe(struct net_device *dev)
+ 		priv->phy_dn = of_node_get(dn);
+ 	}
+ 
+-	phydev = of_phy_connect(dev, priv->phy_dn, bcmgenet_mii_setup, 0,
+-				priv->phy_interface);
++	/* Communicate the integrated PHY revision */
++	phy_flags = priv->gphy_rev;
 +
-+	switch (rev) {
-+	case 0xa0:
-+	case 0xb0:
-+		ret = bcm7445_config_init(phydev);
-+		break;
-+	default:
-+		ret = bcm7xxx_28nm_afe_config_init(phydev);
-+		break;
-+	}
- 
--	ret = bcm7xxx_28nm_afe_config_init(phydev);
- 	if (ret)
- 		return ret;
- 
++	phydev = of_phy_connect(dev, priv->phy_dn, bcmgenet_mii_setup,
++				phy_flags, priv->phy_interface);
+ 	if (!phydev) {
+ 		pr_err("could not attach to PHY\n");
+ 		return -ENODEV;
 -- 
 1.9.1
