@@ -1,62 +1,53 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: RE: [PATCH] scsi: fix SCSI_BNX2X_FCOE dependencies and build errors
-Date: Fri, 19 Sep 2014 22:59:13 +0000
-Message-ID: <525DB349B3FB5444AE057A887CB2A8D88EF6BE@nice.asicdesigners.com>
-References: <541CB055.6000504@infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] macvlan: allow to enqueue broadcast pkt on virtual
+ device
+Date: Fri, 19 Sep 2014 16:09:32 -0700
+Message-ID: <1411168172.26859.61.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
+	 <CAHA+R7OQ=R8Y0LDVormukRjdosODiRuGq+NTrZQ08sXvfJYUnQ@mail.gmail.com>
+	 <1411162501.26859.39.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7M=Wp1u1hXD9YE52Ct74KOovEaVjCECV_5EsrAO_rJ7ag@mail.gmail.com>
+	 <1411164317.26859.45.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7M-HKbCmX3kEPLGrNjh+qF-OnL+V8C2biFBz24_7VOsxw@mail.gmail.com>
+	 <1411166670.26859.48.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7MxiP9gZe2daJunXOKNa6sQd9JZ_4_ko6ipYGtshVP0bg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>
-To: Randy Dunlap <rdunlap@infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <541CB055.6000504@infradead.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:34433 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752139AbaISXJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 19:09:34 -0400
+Received: by mail-pd0-f177.google.com with SMTP id fp1so804973pdb.36
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 16:09:34 -0700 (PDT)
+In-Reply-To: <CAHA+R7MxiP9gZe2daJunXOKNa6sQd9JZ_4_ko6ipYGtshVP0bg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Leaves only 1 warning still reproduceable : 
-(LIBFCOE && TCM_QLA2XXX) selects LIBFC which has unmet direct dependencies (SCSI_LOWLEVEL && SCSI && SCSI_FC_ATTRS),
- so maybe that needs a fix too ? All the other fcoe/scsi menu entries behave 
-as expected.
+On Fri, 2014-09-19 at 15:57 -0700, Cong Wang wrote:
+> On Fri, Sep 19, 2014 at 3:44 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >
+> > Therefore, suggesting user to 'fix tx_queue_len' is totally wrong.
+> 
+> How about HTB? You said:
+> 
+> "Only when you want to have say HTB on the bonding, you might need to
+> change tx_queue_len"
 
-Tested-by: Anish Bhatt <anish@chelsio.com>
-________________________________________
-From: Randy Dunlap [rdunlap@infradead.org]
-Sent: Friday, September 19, 2014 3:38 PM
-To: netdev@vger.kernel.org; David Miller
-Cc: LKML; Anish Bhatt; James Bottomley
-Subject: [PATCH] scsi: fix SCSI_BNX2X_FCOE dependencies and build errors
+Again, what is your point ?
 
-From: Randy Dunlap <rdunlap@infradead.org>
+How is it relevant to this particular bug report ?
 
-Don't enable NETDEVICES when NET is not enabled. That causes
-build warnings and errors.
+Don't you think people using HTB on a virtual device do not already know
+its better to either :
 
-warning: (SCSI_CXGB3_ISCSI && SCSI_CXGB4_ISCSI && SCSI_BNX2X_FCOE) selects NETDEVICES which has unmet direct dependencies (NET)
-warning: (SCSI_CXGB3_ISCSI && SCSI_CXGB4_ISCSI && SCSI_BNX2_ISCSI && SCSI_BNX2X_FCOE) selects ETHERNET which has unmet direct dependencies (NETDEVICES && NET)
-warning: (SCSI_BNX2X_FCOE && LIBFCOE && TCM_QLA2XXX) selects LIBFC which has unmet direct dependencies (SCSI_LOWLEVEL && SCSI && SCSI_FC_ATTRS)
+- Not use the default pfifo on htb classes
+- Increase device queue len on the device.
 
-../drivers/net/ethernet/cisco/enic/enic_main.c: In function 'enic_rq_indicate_buf':
-../drivers/net/ethernet/cisco/enic/enic_main.c:1077:3: error: implicit declaration of function 'skb_mark_napi_id' [-Werror=implicit-function-declaration]
-../drivers/net/ethernet/cisco/enic/enic_main.c:1078:3: error: implicit declaration of function 'enic_poll_busy_polling' [-Werror=implicit-function-declaration]
-
-Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
----
- drivers/scsi/bnx2fc/Kconfig |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
---- linux-next-20140918.orig/drivers/scsi/bnx2fc/Kconfig
-+++ linux-next-20140918/drivers/scsi/bnx2fc/Kconfig
-@@ -1,7 +1,8 @@
- config SCSI_BNX2X_FCOE
-        tristate "QLogic NetXtreme II FCoE support"
--       depends on PCI
-+       depends on PCI && NET
-        depends on (IPV6 || IPV6=n)
-+       depends on SCSI_FC_ATTRS
-        select NETDEVICES
-        select ETHERNET
-        select NET_VENDOR_BROADCOM
+Its been like that since a decade. No changes are needed in bond driver.
