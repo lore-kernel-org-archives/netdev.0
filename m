@@ -1,230 +1,70 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH RFC ipsec-next] xfrm: Add sysctl option to enforce
- inbound policies for transport mode
-Date: Fri, 19 Sep 2014 11:24:38 +0200
-Message-ID: <20140919092437.GX6390@secunet.com>
-References: <541815C3.7080509@strongswan.org>
+From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+Subject: RE: [PATCH] net: stmmac: fix stmmac_pci_probe failed when
+ CONFIG_HAVE_CLK is selected
+Date: Fri, 19 Sep 2014 09:52:21 +0000
+Message-ID: <F54AEECA5E2B9541821D670476DAE19C2B7EA4B1@PGSMSX102.gar.corp.intel.com>
+References: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com>
+ <541AF116.9010004@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Tobias Brunner <tobias@strongswan.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:58411 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754044AbaISJYp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Sep 2014 05:24:45 -0400
-Content-Disposition: inline
-In-Reply-To: <541815C3.7080509@strongswan.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8BIT
+Cc: Vince Bridgers <vbridgers2013@gmail.com>,
+	Chen-Yu Tsai <wens@csie.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Ong, Boon Leong" <boon.leong.ong@intel.com>,
+	Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <541AF116.9010004@st.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ccing Herbert Xu.
-
-On Tue, Sep 16, 2014 at 12:49:39PM +0200, Tobias Brunner wrote:
-> Currently inbound policies for transport mode SAs are not enforced.
-> If no policy is found or if the templates don't match this is not
-> considered an error for transport mode SAs.
+> -----Original Message-----
+> From: Giuseppe CAVALLARO [mailto:peppe.cavallaro@st.com]
+> Sent: Thursday, September 18, 2014 10:50 PM
+> On 9/18/2014 2:34 PM, Kweh Hock Leong wrote:
+> > From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
 > 
-
-The strict inbound policy enforcement was implemented by Herbert.
-The commit predates our git history but can be found in the history
-tree:
-
-git://git.kernel.org/pub/scm/linux/kernel/git/tglx/history.git
-
-It was the following commit:
-
-commit 8fe7ee2ba983fd89b2555dce5930ffd0f7f6c361
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Thu Oct 23 14:57:11 2003 -0700
-
-    [IPSEC]: Strengthen policy checks.
-
-Maybe Herbert remembers why this was done only for tunnel mode.
-
-If I read section 5.2.1 of RFC 2401 correct, the inbound policy
-must be enforced regardless of the mode.
-
-> The new sysctl option (net.core.xfrm_enforce_policies_transport_mode)
-> allows enforcing the inbound policies also for transport mode SAs.
-> By default this option remains disabled.
-
-I'd not like to have a sysctl for this. I consider it as a bug
-if an installed policy can not be enforced, and we don't fix bugs
-with sysctls :).
-
+> Hmm I am not sure this is the right fix. The driver has to fail if the main clock is
+> not found. Indeed dev_warn has to be changed in dev_err.
 > 
-> Signed-off-by: Tobias Brunner <tobias@strongswan.org>
-> ---
-> Consider a transport mode SA between two peers over which only TCP and
-> ICMP traffic should be allowed.  Because two protocols are involved the
-> selector on the SA itself (xfrm_usersa_info.sel) can't be set.  Instead
-> one either has to negotiate separate SAs for each protocol (with a
-> selector on each) or negotiate one SA and install two policies that
-> use it.  The problem with the latter is that the peer does not have to
-> adhere to the negotiated traffic selectors, it is basically free to
-> send anything over the SA e.g. UDP packets.  So if no selectors are
-> installed on the SA itself, the current implementation would accept
-> such packets, even though the installed policies don't allow UDP
-> traffic (some might consider this a security issue - at the very least
-> it is not very intuitive, especially because the behavior is different
-> for tunnel mode SAs).
-> By enabling the new sysctl option the UDP packets would get dropped,
-> exactly as they would if the SA were negotiated in tunnel mode.
+> Take a look at Documentation/networking/stmmac.txt but I will post some
+> patch to improve the documentation adding further detail for clocks too.
 > 
-> The behavior for optional transport mode templates also changes when
-> the option is enabled.  Basically, the special treatment of transport
-> mode SAs is disabled and the behavior is like it is for other modes.
-> I tested this with IPComp/ESP and strongSwan where the optional IPComp
-> transform is installed in transport or tunnel mode depending on the
-> negotiated mode of the SA (the ESP SA is always installed in transport
-> mode in this combination).  But I'm not sure if there are other uses
-> for optional transport mode transforms that might rely on the current
-> behavior (i.e. why are optional templates treated differently depending
-> on their mode in the first place?).
+> The the logic behind the code is that the CSR clock will be set at runtime if in
+> case of priv->plat->clk_csr ==0 or it will be forced to a fixed value if passed
+> from the platform instead of.
+> IIRC This was required on some platforms time ago.
+> For sure the driver is designed to fail in case of no main clock is found.
+> 
+> Peppe
 
-The code arround xfrm_policy_ok() looks a bit obscure, I'm not sure if
-all combinations of required and optional templates are handled correct.
+Hi Peppe,
 
-> 
-> With this patch the default behavior remains as it is, but I wondered
-> why it is like that and if we could perhaps change it so that policies
-> are enforced by default, thus making such setups more secure out of
-> the box.  Or if we could even change the whole inbound processing so
-> that transport mode SAs are treated exactly like their counterparts
-> in other modes, without an option to change it.
-> 
->  Documentation/networking/xfrm_sysctl.txt |  4 ++++
->  include/net/netns/xfrm.h                 |  1 +
->  net/xfrm/xfrm_policy.c                   | 24 +++++++++++++++---------
->  net/xfrm/xfrm_sysctl.c                   |  8 ++++++++
->  4 files changed, 28 insertions(+), 9 deletions(-)
-> 
-> diff --git a/Documentation/networking/xfrm_sysctl.txt b/Documentation/networking/xfrm_sysctl.txt
-> index 5bbd167..2fbe539 100644
-> --- a/Documentation/networking/xfrm_sysctl.txt
-> +++ b/Documentation/networking/xfrm_sysctl.txt
-> @@ -2,3 +2,7 @@
->   xfrm_acq_expires - INTEGER
->  	default 30 - hard timeout in seconds for acquire requests
-> +
-> +xfrm_enforce_policies_transport_mode - BOOLEAN
-> +	default 0 (disabled) - whether to enforce inbound policies for transport
-> +	mode SAs
-> \ No newline at end of file
-> diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-> index 9da7982..e045ecc 100644
-> --- a/include/net/netns/xfrm.h
-> +++ b/include/net/netns/xfrm.h
-> @@ -64,6 +64,7 @@ struct netns_xfrm {
->  	u32			sysctl_aevent_rseqth;
->  	int			sysctl_larval_drop;
->  	u32			sysctl_acq_expires;
-> +	int			sysctl_enforce_policies_transport_mode;
->  #ifdef CONFIG_SYSCTL
->  	struct ctl_table_header	*sysctl_hdr;
->  #endif
-> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> index 55bcb86..5296f6b 100644
-> --- a/net/xfrm/xfrm_policy.c
-> +++ b/net/xfrm/xfrm_policy.c
-> @@ -2355,20 +2355,22 @@ xfrm_state_ok(const struct xfrm_tmpl *tmpl, const struct xfrm_state *x,
->   * Otherwise "-2 - errored_index" is returned.
->   */
->  static inline int
-> -xfrm_policy_ok(const struct xfrm_tmpl *tmpl, const struct sec_path *sp, int start,
-> -	       unsigned short family)
-> +xfrm_policy_ok(const struct net *net, const struct xfrm_tmpl *tmpl,
-> +	       const struct sec_path *sp, int start, unsigned short family)
->  {
->  	int idx = start;
->   	if (tmpl->optional) {
-> -		if (tmpl->mode == XFRM_MODE_TRANSPORT)
-> +		if (tmpl->mode == XFRM_MODE_TRANSPORT &&
-> +		    !net->xfrm.sysctl_enforce_policies_transport_mode)
->  			return start;
->  	} else
->  		start = -1;
->  	for (; idx < sp->len; idx++) {
->  		if (xfrm_state_ok(tmpl, sp->xvec[idx], family))
->  			return ++idx;
-> -		if (sp->xvec[idx]->props.mode != XFRM_MODE_TRANSPORT) {
-> +		if (sp->xvec[idx]->props.mode != XFRM_MODE_TRANSPORT ||
-> +		    net->xfrm.sysctl_enforce_policies_transport_mode) {
->  			if (start == -1)
->  				start = -2-idx;
->  			break;
-> @@ -2393,10 +2395,13 @@ int __xfrm_decode_session(struct sk_buff *skb, struct flowi *fl,
->  }
->  EXPORT_SYMBOL(__xfrm_decode_session);
->  -static inline int secpath_has_nontransport(const struct sec_path *sp, int k, int *idxp)
-> +static inline int secpath_has_nontransport(const struct net *net,
-> +					   const struct sec_path *sp,
-> +					   int k, int *idxp)
->  {
->  	for (; k < sp->len; k++) {
-> -		if (sp->xvec[k]->props.mode != XFRM_MODE_TRANSPORT) {
-> +		if (sp->xvec[k]->props.mode != XFRM_MODE_TRANSPORT ||
-> +		    net->xfrm.sysctl_enforce_policies_transport_mode) {
->  			*idxp = k;
->  			return 1;
->  		}
-> @@ -2469,7 +2474,8 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
->  	}
->   	if (!pol) {
-> -		if (skb->sp && secpath_has_nontransport(skb->sp, 0, &xerr_idx)) {
-> +		if (skb->sp &&
-> +		    secpath_has_nontransport(net, skb->sp, 0, &xerr_idx)) {
->  			xfrm_secpath_reject(xerr_idx, skb, &fl);
->  			XFRM_INC_STATS(net, LINUX_MIB_XFRMINNOPOLS);
->  			return 0;
-> @@ -2535,7 +2541,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
->  		 * are implied between each two transformations.
->  		 */
->  		for (i = xfrm_nr-1, k = 0; i >= 0; i--) {
-> -			k = xfrm_policy_ok(tpp[i], sp, k, family);
-> +			k = xfrm_policy_ok(net, tpp[i], sp, k, family);
->  			if (k < 0) {
->  				if (k < -1)
->  					/* "-2 - errored_index" returned */
-> @@ -2545,7 +2551,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
->  			}
->  		}
->  -		if (secpath_has_nontransport(sp, k, &xerr_idx)) {
-> +		if (secpath_has_nontransport(net, sp, k, &xerr_idx)) {
->  			XFRM_INC_STATS(net, LINUX_MIB_XFRMINTMPLMISMATCH);
->  			goto reject;
->  		}
-> diff --git a/net/xfrm/xfrm_sysctl.c b/net/xfrm/xfrm_sysctl.c
-> index 05a6e3d..17671af 100644
-> --- a/net/xfrm/xfrm_sysctl.c
-> +++ b/net/xfrm/xfrm_sysctl.c
-> @@ -9,6 +9,7 @@ static void __net_init __xfrm_sysctl_init(struct net *net)
->  	net->xfrm.sysctl_aevent_rseqth = XFRM_AE_SEQT_SIZE;
->  	net->xfrm.sysctl_larval_drop = 1;
->  	net->xfrm.sysctl_acq_expires = 30;
-> +	net->xfrm.sysctl_enforce_policies_transport_mode = 0;
->  }
->   #ifdef CONFIG_SYSCTL
-> @@ -37,6 +38,12 @@ static struct ctl_table xfrm_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec
->  	},
-> +	{
-> +		.procname	= "xfrm_enforce_policies_transport_mode",
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec
-> +	},
->  	{}
->  };
->  @@ -53,6 +60,7 @@ int __net_init xfrm_sysctl_init(struct net *net)
->  	table[1].data = &net->xfrm.sysctl_aevent_rseqth;
->  	table[2].data = &net->xfrm.sysctl_larval_drop;
->  	table[3].data = &net->xfrm.sysctl_acq_expires;
-> +	table[4].data = &net->xfrm.sysctl_enforce_policies_transport_mode;
->   	/* Don't export sysctls to unprivileged users */
->  	if (net->user_ns != &init_user_ns)
-> -- 
-> 1.9.1
+I understand your point from the code below (at file stmmac_main.c line 2784):
+
+/* If a specific clk_csr value is passed from the platform
+  * this means that the CSR Clock Range selection cannot be
+  * changed at run-time and it is fixed. Viceversa the driver'll try to
+  * set the MDC clock dynamically according to the csr actual
+  * clock input.
+  */
+if (!priv->plat->clk_csr)
+        stmmac_clk_csr_set(priv);
+else
+        priv->clk_csr = priv->plat->clk_csr;
+
+
+I did search through the whole stmmac_main.c file and found that only stmmac_clk_csr_set()
+function is leveraging the priv->stmmac_clk params for it calculation. By the logic point of
+view, I do not need priv->stmmac_clk when I got priv->plat->clk_csr. With this thinking,
+I propose this fix as when the probe get priv->plat->clk_csr, it shouldn't fail if priv->stmmac_clk
+has the error value.
+
+
+Regards,
+Wilson
