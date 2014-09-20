@@ -1,148 +1,56 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next v2 4/5] net: tcp: more detailed ACK events and events for CE marked packets
-Date: Sat, 20 Sep 2014 23:29:21 +0200
-Message-ID: <1411248562-26581-5-git-send-email-fw@strlen.de>
-References: <1411248562-26581-1-git-send-email-fw@strlen.de>
-Cc: hagen@jauu.net, lars@netapp.com, eric.dumazet@gmail.com,
-	fontana@sharpeleven.org, hannes@stressinduktion.org,
-	glenn.judd@morganstanley.com, dborkman@redhat.com,
-	netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
-To: davem@davemloft.net
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next PATCH 29/29] fm10k: Add support for PTP
+Date: Sat, 20 Sep 2014 14:37:02 -0700
+Message-ID: <1411249022.10610.9.camel@joe-AO725>
+References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
+	 <20140918224042.10373.93162.stgit@ahduyck-bv4.jf.intel.com>
+	 <20140919173504.GA4136@localhost.localdomain> <541C76B8.6040708@intel.com>
+	 <20140920210704.GA5258@netboy>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>, davem@davemloft.net,
+	nhorman@redhat.com, netdev@vger.kernel.org,
+	john.fastabend@gmail.com, matthew.vick@intel.com,
+	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:38441 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754502AbaITV3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 17:29:48 -0400
-In-Reply-To: <1411248562-26581-1-git-send-email-fw@strlen.de>
+Received: from smtprelay0232.hostedemail.com ([216.40.44.232]:34992 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755162AbaITVhH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 17:37:07 -0400
+In-Reply-To: <20140920210704.GA5258@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DataCenter TCP (DCTCP) determines cwnd growth based on ECN information
-and ACK properties, e.g. ACK that updates window is treated differently
-than DUPACK.
+On Sat, 2014-09-20 at 23:07 +0200, Richard Cochran wrote:
+> On Fri, Sep 19, 2014 at 11:32:24AM -0700, Alexander Duyck wrote:
+> > Because doing it that way it extends over 80 characters.
+> 
+> Obviously, but still the result is really ugly.
 
-Also DCTCP needs information whether ACK was delayed ACK. Furthermore,
-DCTCP also implements a CE state machine that keeps track of CE markings
-of incoming packets.
+True.
 
-Therefore, extend the congestion control framework to provide these
-event types, so that DCTCP can be properly implemented as a normal
-congestion algorithm module outside of the core stack.
+It might be reasonable to add a new container_of_ptr
+to kernel.h
 
-Joint work with Daniel Borkmann and Glenn Judd.
+Something like:
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Glenn Judd <glenn.judd@morganstanley.com>
----
- include/net/tcp.h     |  9 ++++++++-
- net/ipv4/tcp_input.c  | 22 ++++++++++++++++++----
- net/ipv4/tcp_output.c |  4 ++++
- 3 files changed, 30 insertions(+), 5 deletions(-)
+/**
+ * container_of_ptr - cast a member of a pointer to a structure
+ *		      out to the containing structure
+ * @ptr:	the pointer to the member.
+ * @type_ptr:	a pointer of type of the container struct this is embedded in.
+ * @member:	the name of the member within the type_ptr.
+ *
+ */
+#define container_of_ptr(ptr, type_ptr, member)				\
+({									\
+	const typeof((type_ptr)->member) *__mptr = (ptr);		\
+	(type_ptr)((char *)__mptr -					\
+		   ((char *)&((ptr_type)->member) - (char *)(ptr_type))); \
+})
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index e71884a..382714e 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -744,10 +744,17 @@ enum tcp_ca_event {
- 	CA_EVENT_CWND_RESTART,	/* congestion window restart */
- 	CA_EVENT_COMPLETE_CWR,	/* end of congestion recovery */
- 	CA_EVENT_LOSS,		/* loss timeout */
-+	CA_EVENT_ECN_NO_CE,	/* ECT set, but not CE marked */
-+	CA_EVENT_ECN_IS_CE,	/* received CE marked IP packet */
-+	CA_EVENT_DELAYED_ACK,	/* Delayed ack is sent */
-+	CA_EVENT_NON_DELAYED_ACK,
- };
- 
-+/* Information about inbound ACK, passed to cong_ops->in_ack_event() */
- enum tcp_ca_ack_event_flags {
--	CA_ACK_SLOWPATH = (1 << 0),
-+	CA_ACK_SLOWPATH		= (1 << 0),	/* In slow path processing */
-+	CA_ACK_WIN_UPDATE	= (1 << 1),	/* ACK updated window */
-+	CA_ACK_ECE		= (1 << 2),	/* ECE bit is set on ack */
- };
- 
- /*
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 14dc3ee..3ebbba8 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -233,14 +233,21 @@ static inline void TCP_ECN_check_ce(struct tcp_sock *tp, const struct sk_buff *s
- 			tcp_enter_quickack_mode((struct sock *)tp);
- 		break;
- 	case INET_ECN_CE:
-+		if (tcp_ca_needs_ecn((struct sock *)tp))
-+			tcp_ca_event((struct sock *)tp, CA_EVENT_ECN_IS_CE);
-+
- 		if (!(tp->ecn_flags & TCP_ECN_DEMAND_CWR)) {
- 			/* Better not delay acks, sender can have a very low cwnd */
- 			tcp_enter_quickack_mode((struct sock *)tp);
- 			tp->ecn_flags |= TCP_ECN_DEMAND_CWR;
- 		}
--		/* fallinto */
-+		tp->ecn_flags |= TCP_ECN_SEEN;
-+		break;
- 	default:
-+		if (tcp_ca_needs_ecn((struct sock *)tp))
-+			tcp_ca_event((struct sock *)tp, CA_EVENT_ECN_NO_CE);
- 		tp->ecn_flags |= TCP_ECN_SEEN;
-+		break;
- 	}
- }
- 
-@@ -3428,10 +3435,12 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 		tp->snd_una = ack;
- 		flag |= FLAG_WIN_UPDATE;
- 
--		tcp_in_ack_event(sk, 0);
-+		tcp_in_ack_event(sk, CA_ACK_WIN_UPDATE);
- 
- 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPHPACKS);
- 	} else {
-+		u32 ack_ev_flags = CA_ACK_SLOWPATH;
-+
- 		if (ack_seq != TCP_SKB_CB(skb)->end_seq)
- 			flag |= FLAG_DATA;
- 		else
-@@ -3443,10 +3452,15 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 			flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una,
- 							&sack_rtt_us);
- 
--		if (TCP_ECN_rcv_ecn_echo(tp, tcp_hdr(skb)))
-+		if (TCP_ECN_rcv_ecn_echo(tp, tcp_hdr(skb))) {
- 			flag |= FLAG_ECE;
-+			ack_ev_flags |= CA_ACK_ECE;
-+		}
-+
-+		if (flag & FLAG_WIN_UPDATE)
-+			ack_ev_flags |= CA_ACK_WIN_UPDATE;
- 
--		tcp_in_ack_event(sk, CA_ACK_SLOWPATH);
-+		tcp_in_ack_event(sk, ack_ev_flags);
- 	}
- 
- 	/* We passed data and got it acked, remove any soft error
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 3a0ef04..8600641 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3122,6 +3122,8 @@ void tcp_send_delayed_ack(struct sock *sk)
- 	int ato = icsk->icsk_ack.ato;
- 	unsigned long timeout;
- 
-+	tcp_ca_event(sk, CA_EVENT_DELAYED_ACK);
-+
- 	if (ato > TCP_DELACK_MIN) {
- 		const struct tcp_sock *tp = tcp_sk(sk);
- 		int max_ato = HZ / 2;
-@@ -3178,6 +3180,8 @@ void tcp_send_ack(struct sock *sk)
- 	if (sk->sk_state == TCP_CLOSE)
- 		return;
- 
-+	tcp_ca_event(sk, CA_EVENT_NON_DELAYED_ACK);
-+
- 	/* We are not putting this on the write queue, so
- 	 * tcp_transmit_skb() will set the ownership to this
- 	 * sock.
--- 
-1.7.11.7
+So this could be written as:
+
+	struct fm10k_intfc *interface = container_of_ptr(hw, interface, hw);
