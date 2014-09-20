@@ -1,222 +1,94 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] ipv6: mld: answer mldv2 queries with mldv1 reports in mldv1 fallback
-Date: Sat, 20 Sep 2014 14:03:55 +0200
-Message-ID: <1411214635-14136-1-git-send-email-dborkman@redhat.com>
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22678 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753183AbaITMEC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Sep 2014 08:04:02 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink
+	API
+Date: Sat, 20 Sep 2014 08:35:52 -0400
+Message-ID: <541D74A8.6080501@mojatatu.com>
+References: <1411134590-4586-9-git-send-email-jiri@resnulli.us>
+ <541C4AFC.8060500@mojatatu.com> <20140919154946.GH1980@nanopsycho.orion>
+ <541C6E6D.9000109@mojatatu.com> <541CAA3C.5080105@intel.com>
+ <541CAB9A.3040100@mojatatu.com> <20140920081702.GF1821@nanopsycho.orion>
+ <541D54BA.6070709@mojatatu.com> <20140920110121.GB29419@casper.infradead.org>
+ <541D65CE.7080108@mojatatu.com> <20140920115140.GA3777@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org,
+ edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
+ f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
+ alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
+ simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20140920115140.GA3777-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-RFC2710 (MLDv1), section 3.7. says:
+On 09/20/14 07:51, Thomas Graf wrote:
 
-  The length of a received MLD message is computed by taking the
-  IPv6 Payload Length value and subtracting the length of any IPv6
-  extension headers present between the IPv6 header and the MLD
-  message. If that length is greater than 24 octets, that indicates
-  that there are other fields present *beyond* the fields described
-  above, perhaps belonging to a *future backwards-compatible* version
-  of MLD. An implementation of the version of MLD specified in this
-  document *MUST NOT* send an MLD message longer than 24 octets and
-  MUST ignore anything past the first 24 octets of a received MLD
-  message.
+> I fail to see the connection. You can use switch vendor SDK no matter
+> how we define the kernel APIs. They already exist and have been
+> designed in a way to be completely indepenedent from the kernel.
+>
+> Are you referring to vendor specific decisions in user space in
+> general? I believe that the whole point of swdev is to provide *that*
+> level of abstraction so decisions can be made in a vendor neutral way.
+>
 
-RFC3810 (MLDv2), section 8.2.1. states for *listeners* regarding
-presence of MLDv1 routers:
+I am not against the swdev idea. I think we have disagreements
+for the general classification/action interface how that should look
+like - but that is resolvable with correct interfaces.
+The vendor neutral way *already exists* via current netlink
+abstractions that existing tools use. When we need to add new
+interfaces then we should.
 
-  In order to be compatible with MLDv1 routers, MLDv2 hosts MUST
-  operate in version 1 compatibility mode. [...] When Host
-  Compatibility Mode is MLDv2, a host acts using the MLDv2 protocol
-  on that interface. When Host Compatibility Mode is MLDv1, a host
-  acts in MLDv1 compatibility mode, using *only* the MLDv1 protocol,
-  on that interface. [...]
+> I don't think anybody is saying that. P4 is likely a reality soon. But
+> we definitely want hardware offload in a BPF world even if the hardware
+> can't do BPF yet.
+>
 
-While section 8.3.1. specifies *router* behaviour regarding presence
-of MLDv1 routers:
 
-  MLDv2 routers may be placed on a network where there is at least
-  one MLDv1 router. The following requirements apply:
+I dont think we have contradictions. We are speaking past each other.
+You implied that in the future OVS s/w path might be based on BPF.
+I implied BPF itself could be offloaded and stands on its own merit
+and should work if we have the correct interface. As an example,
+I dont care about P4 or OVS - but i have no problem if they use
+the common interfaces provided by Linux. i.e
+If i want to build  a little cpu running the BPF instruction set
+and use that as my offload then that interface should work and if
+it doesnt i should provide extensions.
 
-  If an MLDv1 router is present on the link, the Querier MUST use
-  the *lowest* version of MLD present on the network. This must be
-  administratively assured. Routers that desire to be compatible
-  with MLDv1 MUST have a configuration option to act in MLDv1 mode;
-  if an MLDv1 router is present on the link, the system administrator
-  must explicitly configure all MLDv2 routers to act in MLDv1 mode.
-  When in MLDv1 mode, the Querier MUST send periodic General Queries
-  truncated at the Multicast Address field (i.e., 24 bytes long),
-  and SHOULD also warn about receiving an MLDv2 Query (such warnings
-  must be rate-limited). The Querier MUST also fill in the Maximum
-  Response Delay in the Maximum Response Code field, i.e., the
-  exponential algorithm described in section 5.1.3. is not used. [...]
+> Not sure I understand. OVS would be a user of eBPF just like tracing,
+> xt_BPF, socket filter, ...
+>
 
-That means that we should not get queries from different versions of
-MLD. When there's a MLDv1 router present, MLDv2 enforces truncation
-and MRC == MRD (both fields are overlapping within the 24 octet range).
+Ok, we are on the same page then.
 
-Section 8.3.2. specifies behaviour in the presence of MLDv1 multicast
-address *listeners*:
+> As I said, this can be argued about. It would require to push a lot of
+> context into the kernel though. The FDB offload is relatively trivial
+> in comparison to the complexity OVS user space can handle. I can't think
+> of any reasons why to complicate the kernel further with OVS specific
+> knowledge as long as we can guarantee the vendor abstraction.
+>
 
-  MLDv2 routers may be placed on a network where there are hosts
-  that have not yet been upgraded to MLDv2. In order to be compatible
-  with MLDv1 hosts, MLDv2 routers MUST operate in version 1 compatibility
-  mode. MLDv2 routers keep a compatibility mode per multicast address
-  record. The compatibility mode of a multicast address is determined
-  from the Multicast Address Compatibility Mode variable, which can be
-  in one of the two following states: MLDv1 or MLDv2.
+I disagree. OVS maybe complex in that sense (I am sorry i am making
+an assumption based on what you are saying) but i dont think there is
+any other kernel subsystem that has this challenge.
+Note: i am pointing to fdb only because it carries the concept of "put
+this in hardware and/or software". I agree the fdb maybe reasonably
+simpler.
 
-  The Multicast Address Compatibility Mode of a multicast address
-  record is set to MLDv1 whenever an MLDv1 Multicast Listener Report is
-  *received* for that multicast address. At the same time, the Older
-  Version Host Present timer for the multicast address is set to Older
-  Version Host Present Timeout seconds. The timer is re-set whenever a
-  new MLDv1 Report is received for that multicast address. If the Older
-  Version Host Present timer expires, the router switches back to
-  Multicast Address Compatibility Mode of MLDv2 for that multicast
-  address. [...]
-
-That means, what can happen is the following scenario, that hosts can
-act in MLDv1 compatibility mode when they previously have received an
-MLDv1 query (or, simply operate in MLDv1 mode-only); and at the same
-time, an MLDv2 router could start up and transmits MLDv2 startup query
-messages while being unaware of the current operational mode.
-
-Given RFC2710, section 3.7 we would need to answer to that with an MLDv1
-listener report, so that the router according to RFC3810, section 8.3.2.
-would receive that and internally switch to MLDv1 compatibility as well.
-
-Right now, I believe since the initial implementation of MLDv2, Linux
-hosts would just silently drop such MLDv2 queries instead of replying
-with an MLDv1 listener report, which would prevent a MLDv2 router going
-into fallback mode (until it receives other MLDv1 queries).
-
-Since the mapping of MRC to MRD in exactly such cases can make use of
-the exponential algorithm from 5.1.3, we cannot [strictly speaking] be
-aware in MLDv1 of the encoding in MRC, it seems also not mentioned by
-the RFC. Since encodings are the same up to 32767, assume in such a
-situation this value as a hard upper limit we would clamp. We have asked
-one of the RFC authors on that regard, and he mentioned that there seem
-not to be any implementations that make use of that exponential algorithm
-on startup messages. In any case, this patch fixes this MLD
-interoperability issue.
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- [ Sending to net-next as it's nothing critical and nobody was screaming
-   out loud for so many years, so it can linger a bit in net-next first. ]
-
- include/net/mld.h |  5 ++++-
- net/ipv6/mcast.c  | 41 +++++++++++++++++++++++++++++++----------
- 2 files changed, 35 insertions(+), 11 deletions(-)
-
-diff --git a/include/net/mld.h b/include/net/mld.h
-index faa1d16..5e9be79 100644
---- a/include/net/mld.h
-+++ b/include/net/mld.h
-@@ -88,12 +88,15 @@ struct mld2_query {
- #define MLDV2_QQIC_EXP(value)	(((value) >> 4) & 0x07)
- #define MLDV2_QQIC_MAN(value)	((value) & 0x0f)
- 
-+#define MLD_EXP_MIN_LIMIT	32768UL
-+#define MLDV1_MRD_MAX_COMPAT	(MLD_EXP_MIN_LIMIT - 1)
-+
- static inline unsigned long mldv2_mrc(const struct mld2_query *mlh2)
- {
- 	/* RFC3810, 5.1.3. Maximum Response Code */
- 	unsigned long ret, mc_mrc = ntohs(mlh2->mld2q_mrc);
- 
--	if (mc_mrc < 32768) {
-+	if (mc_mrc < MLD_EXP_MIN_LIMIT) {
- 		ret = mc_mrc;
- 	} else {
- 		unsigned long mc_man, mc_exp;
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 592eba6..9648de2 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -1237,7 +1237,7 @@ static void mld_update_qri(struct inet6_dev *idev,
- }
- 
- static int mld_process_v1(struct inet6_dev *idev, struct mld_msg *mld,
--			  unsigned long *max_delay)
-+			  unsigned long *max_delay, bool v1_query)
- {
- 	unsigned long mldv1_md;
- 
-@@ -1245,11 +1245,32 @@ static int mld_process_v1(struct inet6_dev *idev, struct mld_msg *mld,
- 	if (mld_in_v2_mode_only(idev))
- 		return -EINVAL;
- 
--	/* MLDv1 router present */
- 	mldv1_md = ntohs(mld->mld_maxdelay);
-+
-+	/* When in MLDv1 fallback and a MLDv2 router start-up being
-+	 * unaware of current MLDv1 operation, the MRC == MRD mapping
-+	 * only works when the exponential algorithm is not being
-+	 * used (as MLDv1 is unaware of such things).
-+	 *
-+	 * According to the RFC author, the MLDv2 implementations
-+	 * he's aware of all use a MRC < 32768 on start up queries.
-+	 *
-+	 * Thus, should we *ever* encounter something else larger
-+	 * than that, just assume the maximum possible within our
-+	 * reach.
-+	 */
-+	if (!v1_query)
-+		mldv1_md = min(mldv1_md, MLDV1_MRD_MAX_COMPAT);
-+
- 	*max_delay = max(msecs_to_jiffies(mldv1_md), 1UL);
- 
--	mld_set_v1_mode(idev);
-+	/* MLDv1 router present: we need to go into v1 mode *only*
-+	 * when an MLDv1 query is received as per section 9.12. of
-+	 * RFC3810! And we know from RFC2710 section 3.7 that MLDv1
-+	 * queries MUST be of exactly 24 octets.
-+	 */
-+	if (v1_query)
-+		mld_set_v1_mode(idev);
- 
- 	/* cancel MLDv2 report timer */
- 	mld_gq_stop_timer(idev);
-@@ -1264,10 +1285,6 @@ static int mld_process_v1(struct inet6_dev *idev, struct mld_msg *mld,
- static int mld_process_v2(struct inet6_dev *idev, struct mld2_query *mld,
- 			  unsigned long *max_delay)
- {
--	/* hosts need to stay in MLDv1 mode, discard MLDv2 queries */
--	if (mld_in_v1_mode(idev))
--		return -EINVAL;
--
- 	*max_delay = max(msecs_to_jiffies(mldv2_mrc(mld)), 1UL);
- 
- 	mld_update_qrv(idev, mld);
-@@ -1324,8 +1341,11 @@ int igmp6_event_query(struct sk_buff *skb)
- 	    !(group_type&IPV6_ADDR_MULTICAST))
- 		return -EINVAL;
- 
--	if (len == MLD_V1_QUERY_LEN) {
--		err = mld_process_v1(idev, mld, &max_delay);
-+	if (len < MLD_V1_QUERY_LEN) {
-+		return -EINVAL;
-+	} else if (len == MLD_V1_QUERY_LEN || mld_in_v1_mode(idev)) {
-+		err = mld_process_v1(idev, mld, &max_delay,
-+				     len == MLD_V1_QUERY_LEN);
- 		if (err < 0)
- 			return err;
- 	} else if (len >= MLD_V2_QUERY_LEN_MIN) {
-@@ -1357,8 +1377,9 @@ int igmp6_event_query(struct sk_buff *skb)
- 			mlh2 = (struct mld2_query *)skb_transport_header(skb);
- 			mark = 1;
- 		}
--	} else
-+	} else {
- 		return -EINVAL;
-+	}
- 
- 	read_lock_bh(&idev->lock);
- 	if (group_type == IPV6_ADDR_ANY) {
--- 
-1.9.0
+cheers,
+jamal
