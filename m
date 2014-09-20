@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH v2 14/29] fm10k: Add service task to handle delayed
- events
-Date: Sat, 20 Sep 2014 19:49:25 -0400
-Message-ID: <20140920234908.2977.87810.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [net-next PATCH v2 15/29] fm10k: Add Tx/Rx hardware ring
+ bring-up/tear-down
+Date: Sat, 20 Sep 2014 19:49:43 -0400
+Message-ID: <20140920234930.2977.74351.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140920234342.2977.21667.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,578 +12,745 @@ Cc: nhorman@redhat.com, netdev@vger.kernel.org,
 	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:2469 "EHLO mga01.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:35370 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751719AbaITX6J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Sep 2014 19:58:09 -0400
+	id S1751425AbaITX62 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Sep 2014 19:58:28 -0400
 In-Reply-To: <20140920234342.2977.21667.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for the service task.  The service task takes care
-of all processes that cannot be done in interrupt context such as resets,
-stats updates, TC prio updates, and checking for hung or detached devices.
+This patch adds support for allocating, configuring, and freeing Tx/Rx ring
+resources.  With these changes in place the descriptor queues are in a
+state where they are ready to transmit or receive if provided buffers.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
 
-v2: Moved use of container_of macro out of interface declaration.
+v2: Added u64_stats_init as part of setting up ring resources.
 
- drivers/net/ethernet/intel/fm10k/fm10k.h     |   25 +
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c |  435 ++++++++++++++++++++++++++
- 2 files changed, 460 insertions(+)
+ drivers/net/ethernet/intel/fm10k/fm10k.h        |    8 +
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |  342 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c    |  302 ++++++++++++++++++++
+ 3 files changed, 652 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index ae48d72..b88a52c 100644
+index b88a52c..c0a169a 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k.h
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -239,8 +239,21 @@ struct fm10k_intfc {
- 	/* TX */
- 	struct fm10k_ring *tx_ring[MAX_QUEUES] ____cacheline_aligned_in_smp;
- 
-+	u64 restart_queue;
-+	u64 tx_busy;
-+	u64 tx_csum_errors;
-+	u64 alloc_failed;
-+	u64 rx_csum_errors;
-+	u64 rx_errors;
-+
-+	u64 tx_bytes_nic;
-+	u64 tx_packets_nic;
-+	u64 rx_bytes_nic;
-+	u64 rx_packets_nic;
-+	u64 rx_drops_nic;
- 	u64 rx_overrun_pf;
- 	u64 rx_overrun_vf;
-+	u32 tx_timeout_count;
- 
- 	/* RX */
- 	struct fm10k_ring *rx_ring[MAX_QUEUES];
-@@ -257,6 +270,13 @@ struct fm10k_intfc {
- 	u16 msg_enable;
- 	u16 tx_ring_count;
- 	u16 rx_ring_count;
-+	struct timer_list service_timer;
-+	struct work_struct service_task;
-+	unsigned long next_stats_update;
-+	unsigned long next_tx_hang_check;
-+	unsigned long last_reset;
-+	unsigned long link_down_event;
-+	bool host_ready;
- 
- 	u32 reta[FM10K_RETA_SIZE];
- 	u32 rssrk[FM10K_RSSRK_SIZE];
-@@ -280,6 +300,8 @@ struct fm10k_intfc {
- enum fm10k_state_t {
- 	__FM10K_RESETTING,
- 	__FM10K_DOWN,
-+	__FM10K_SERVICE_SCHED,
-+	__FM10K_SERVICE_DISABLE,
- 	__FM10K_MBX_LOCK,
- 	__FM10K_LINK_DOWN,
- };
-@@ -379,6 +401,9 @@ int fm10k_register_pci_driver(void);
- void fm10k_unregister_pci_driver(void);
- void fm10k_up(struct fm10k_intfc *interface);
- void fm10k_down(struct fm10k_intfc *interface);
-+void fm10k_update_stats(struct fm10k_intfc *interface);
-+void fm10k_service_event_schedule(struct fm10k_intfc *interface);
-+void fm10k_update_rx_drop_en(struct fm10k_intfc *interface);
+@@ -407,6 +407,14 @@ void fm10k_update_rx_drop_en(struct fm10k_intfc *interface);
  
  /* Netdev */
  struct net_device *fm10k_alloc_netdev(void);
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 5a28298..4fd272c 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -87,6 +87,404 @@ static int fm10k_hw_ready(struct fm10k_intfc *interface)
- 	return FM10K_REMOVED(hw->hw_addr) ? -ENODEV : 0;
- }
++int fm10k_setup_rx_resources(struct fm10k_ring *);
++int fm10k_setup_tx_resources(struct fm10k_ring *);
++void fm10k_free_rx_resources(struct fm10k_ring *);
++void fm10k_free_tx_resources(struct fm10k_ring *);
++void fm10k_clean_all_rx_rings(struct fm10k_intfc *);
++void fm10k_clean_all_tx_rings(struct fm10k_intfc *);
++void fm10k_unmap_and_free_tx_resource(struct fm10k_ring *,
++				      struct fm10k_tx_buffer *);
+ void fm10k_restore_rx_state(struct fm10k_intfc *);
+ void fm10k_reset_rx_state(struct fm10k_intfc *);
+ int fm10k_open(struct net_device *netdev);
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index b987bb6..f9b085e 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -21,6 +21,331 @@
+ #include "fm10k.h"
  
-+void fm10k_service_event_schedule(struct fm10k_intfc *interface)
-+{
-+	if (!test_bit(__FM10K_SERVICE_DISABLE, &interface->state) &&
-+	    !test_and_set_bit(__FM10K_SERVICE_SCHED, &interface->state))
-+		schedule_work(&interface->service_task);
-+}
-+
-+static void fm10k_service_event_complete(struct fm10k_intfc *interface)
-+{
-+	BUG_ON(!test_bit(__FM10K_SERVICE_SCHED, &interface->state));
-+
-+	/* flush memory to make sure state is correct before next watchog */
-+	smp_mb__before_clear_bit();
-+	clear_bit(__FM10K_SERVICE_SCHED, &interface->state);
-+}
-+
-+/**
-+ * fm10k_service_timer - Timer Call-back
-+ * @data: pointer to interface cast into an unsigned long
+ /**
++ * fm10k_setup_tx_resources - allocate Tx resources (Descriptors)
++ * @tx_ring:    tx descriptor ring (for a specific queue) to setup
++ *
++ * Return 0 on success, negative on failure
 + **/
-+static void fm10k_service_timer(unsigned long data)
++int fm10k_setup_tx_resources(struct fm10k_ring *tx_ring)
 +{
-+	struct fm10k_intfc *interface = (struct fm10k_intfc *)data;
++	struct device *dev = tx_ring->dev;
++	int size;
 +
-+	/* Reset the timer */
-+	mod_timer(&interface->service_timer, (HZ * 2) + jiffies);
++	size = sizeof(struct fm10k_tx_buffer) * tx_ring->count;
 +
-+	fm10k_service_event_schedule(interface);
-+}
++	tx_ring->tx_buffer = vzalloc(size);
++	if (!tx_ring->tx_buffer)
++		goto err;
 +
-+static void fm10k_detach_subtask(struct fm10k_intfc *interface)
-+{
-+	struct net_device *netdev = interface->netdev;
++	u64_stats_init(&tx_ring->syncp);
 +
-+	/* do nothing if device is still present or hw_addr is set */
-+	if (netif_device_present(netdev) || interface->hw.hw_addr)
-+		return;
++	/* round up to nearest 4K */
++	tx_ring->size = tx_ring->count * sizeof(struct fm10k_tx_desc);
++	tx_ring->size = ALIGN(tx_ring->size, 4096);
 +
-+	rtnl_lock();
++	tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
++					   &tx_ring->dma, GFP_KERNEL);
++	if (!tx_ring->desc)
++		goto err;
 +
-+	if (netif_running(netdev))
-+		dev_close(netdev);
++	return 0;
 +
-+	rtnl_unlock();
-+}
-+
-+static void fm10k_reinit(struct fm10k_intfc *interface)
-+{
-+	struct net_device *netdev = interface->netdev;
-+	struct fm10k_hw *hw = &interface->hw;
-+	int err;
-+
-+	WARN_ON(in_interrupt());
-+
-+	/* put off any impending NetWatchDogTimeout */
-+	netdev->trans_start = jiffies;
-+
-+	while (test_and_set_bit(__FM10K_RESETTING, &interface->state))
-+		usleep_range(1000, 2000);
-+
-+	rtnl_lock();
-+
-+	if (netif_running(netdev))
-+		fm10k_close(netdev);
-+
-+	fm10k_mbx_free_irq(interface);
-+
-+	/* delay any future reset requests */
-+	interface->last_reset = jiffies + (10 * HZ);
-+
-+	/* reset and initialize the hardware so it is in a known state */
-+	err = hw->mac.ops.reset_hw(hw) ? : hw->mac.ops.init_hw(hw);
-+	if (err)
-+		dev_err(&interface->pdev->dev, "init_hw failed: %d\n", err);
-+
-+	/* reassociate interrupts */
-+	fm10k_mbx_request_irq(interface);
-+
-+	if (netif_running(netdev))
-+		fm10k_open(netdev);
-+
-+	rtnl_unlock();
-+
-+	clear_bit(__FM10K_RESETTING, &interface->state);
-+}
-+
-+static void fm10k_reset_subtask(struct fm10k_intfc *interface)
-+{
-+	if (!(interface->flags & FM10K_FLAG_RESET_REQUESTED))
-+		return;
-+
-+	interface->flags &= ~FM10K_FLAG_RESET_REQUESTED;
-+
-+	netdev_err(interface->netdev, "Reset interface\n");
-+	interface->tx_timeout_count++;
-+
-+	fm10k_reinit(interface);
++err:
++	vfree(tx_ring->tx_buffer);
++	tx_ring->tx_buffer = NULL;
++	return -ENOMEM;
 +}
 +
 +/**
-+ * fm10k_configure_swpri_map - Configure Receive SWPRI to PC mapping
++ * fm10k_setup_all_tx_resources - allocate all queues Tx resources
 + * @interface: board private structure
 + *
-+ * Configure the SWPRI to PC mapping for the port.
-+ **/
-+static void fm10k_configure_swpri_map(struct fm10k_intfc *interface)
-+{
-+	struct net_device *netdev = interface->netdev;
-+	struct fm10k_hw *hw = &interface->hw;
-+	int i;
-+
-+	/* clear flag indicating update is needed */
-+	interface->flags &= ~FM10K_FLAG_SWPRI_CONFIG;
-+
-+	/* these registers are only available on the PF */
-+	if (hw->mac.type != fm10k_mac_pf)
-+		return;
-+
-+	/* configure SWPRI to PC map */
-+	for (i = 0; i < FM10K_SWPRI_MAX; i++)
-+		fm10k_write_reg(hw, FM10K_SWPRI_MAP(i),
-+				netdev_get_prio_tc_map(netdev, i));
-+}
-+
-+/**
-+ * fm10k_watchdog_update_host_state - Update the link status based on host.
-+ * @interface: board private structure
-+ **/
-+static void fm10k_watchdog_update_host_state(struct fm10k_intfc *interface)
-+{
-+	struct fm10k_hw *hw = &interface->hw;
-+	s32 err;
-+
-+	if (test_bit(__FM10K_LINK_DOWN, &interface->state)) {
-+		interface->host_ready = false;
-+		if (time_is_after_jiffies(interface->link_down_event))
-+			return;
-+		clear_bit(__FM10K_LINK_DOWN, &interface->state);
-+	}
-+
-+	if (interface->flags & FM10K_FLAG_SWPRI_CONFIG) {
-+		if (rtnl_trylock()) {
-+			fm10k_configure_swpri_map(interface);
-+			rtnl_unlock();
-+		}
-+	}
-+
-+	/* lock the mailbox for transmit and receive */
-+	fm10k_mbx_lock(interface);
-+
-+	err = hw->mac.ops.get_host_state(hw, &interface->host_ready);
-+	if (err && time_is_before_jiffies(interface->last_reset))
-+		interface->flags |= FM10K_FLAG_RESET_REQUESTED;
-+
-+	/* free the lock */
-+	fm10k_mbx_unlock(interface);
-+}
-+
-+/**
-+ * fm10k_mbx_subtask - Process upstream and downstream mailboxes
-+ * @interface: board private structure
++ * If this function returns with an error, then it's possible one or
++ * more of the rings is populated (while the rest are not).  It is the
++ * callers duty to clean those orphaned rings.
 + *
-+ * This function will process both the upstream and downstream mailboxes.
-+ * It is necessary for us to hold the rtnl_lock while doing this as the
-+ * mailbox accesses are protected by this lock.
++ * Return 0 on success, negative on failure
 + **/
-+static void fm10k_mbx_subtask(struct fm10k_intfc *interface)
++static int fm10k_setup_all_tx_resources(struct fm10k_intfc *interface)
 +{
-+	/* process upstream mailbox and update device state */
-+	fm10k_watchdog_update_host_state(interface);
-+}
-+
-+/**
-+ * fm10k_watchdog_host_is_ready - Update netdev status based on host ready
-+ * @interface: board private structure
-+ **/
-+static void fm10k_watchdog_host_is_ready(struct fm10k_intfc *interface)
-+{
-+	struct net_device *netdev = interface->netdev;
-+
-+	/* only continue if link state is currently down */
-+	if (netif_carrier_ok(netdev))
-+		return;
-+
-+	netif_info(interface, drv, netdev, "NIC Link is up\n");
-+
-+	netif_carrier_on(netdev);
-+	netif_tx_wake_all_queues(netdev);
-+}
-+
-+/**
-+ * fm10k_watchdog_host_not_ready - Update netdev status based on host not ready
-+ * @interface: board private structure
-+ **/
-+static void fm10k_watchdog_host_not_ready(struct fm10k_intfc *interface)
-+{
-+	struct net_device *netdev = interface->netdev;
-+
-+	/* only continue if link state is currently up */
-+	if (!netif_carrier_ok(netdev))
-+		return;
-+
-+	netif_info(interface, drv, netdev, "NIC Link is down\n");
-+
-+	netif_carrier_off(netdev);
-+	netif_tx_stop_all_queues(netdev);
-+}
-+
-+/**
-+ * fm10k_update_stats - Update the board statistics counters.
-+ * @interface: board private structure
-+ **/
-+void fm10k_update_stats(struct fm10k_intfc *interface)
-+{
-+	struct net_device_stats *net_stats = &interface->netdev->stats;
-+	struct fm10k_hw *hw = &interface->hw;
-+	u64 rx_errors = 0, rx_csum_errors = 0, tx_csum_errors = 0;
-+	u64 restart_queue = 0, tx_busy = 0, alloc_failed = 0;
-+	u64 rx_bytes_nic = 0, rx_pkts_nic = 0, rx_drops_nic = 0;
-+	u64 tx_bytes_nic = 0, tx_pkts_nic = 0;
-+	u64 bytes, pkts;
-+	int i;
-+
-+	/* do not allow stats update via service task for next second */
-+	interface->next_stats_update = jiffies + HZ;
-+
-+	/* gather some stats to the interface struct that are per queue */
-+	for (bytes = 0, pkts = 0, i = 0; i < interface->num_tx_queues; i++) {
-+		struct fm10k_ring *tx_ring = interface->tx_ring[i];
-+
-+		restart_queue += tx_ring->tx_stats.restart_queue;
-+		tx_busy += tx_ring->tx_stats.tx_busy;
-+		tx_csum_errors += tx_ring->tx_stats.csum_err;
-+		bytes += tx_ring->stats.bytes;
-+		pkts += tx_ring->stats.packets;
-+	}
-+
-+	interface->restart_queue = restart_queue;
-+	interface->tx_busy = tx_busy;
-+	net_stats->tx_bytes = bytes;
-+	net_stats->tx_packets = pkts;
-+	interface->tx_csum_errors = tx_csum_errors;
-+	/* gather some stats to the interface struct that are per queue */
-+	for (bytes = 0, pkts = 0, i = 0; i < interface->num_rx_queues; i++) {
-+		struct fm10k_ring *rx_ring = interface->rx_ring[i];
-+
-+		bytes += rx_ring->stats.bytes;
-+		pkts += rx_ring->stats.packets;
-+		alloc_failed += rx_ring->rx_stats.alloc_failed;
-+		rx_csum_errors += rx_ring->rx_stats.csum_err;
-+		rx_errors += rx_ring->rx_stats.errors;
-+	}
-+
-+	net_stats->rx_bytes = bytes;
-+	net_stats->rx_packets = pkts;
-+	interface->alloc_failed = alloc_failed;
-+	interface->rx_csum_errors = rx_csum_errors;
-+	interface->rx_errors = rx_errors;
-+
-+	hw->mac.ops.update_hw_stats(hw, &interface->stats);
-+
-+	for (i = 0; i < FM10K_MAX_QUEUES_PF; i++) {
-+		struct fm10k_hw_stats_q *q = &interface->stats.q[i];
-+
-+		tx_bytes_nic += q->tx_bytes.count;
-+		tx_pkts_nic += q->tx_packets.count;
-+		rx_bytes_nic += q->rx_bytes.count;
-+		rx_pkts_nic += q->rx_packets.count;
-+		rx_drops_nic += q->rx_drops.count;
-+	}
-+
-+	interface->tx_bytes_nic = tx_bytes_nic;
-+	interface->tx_packets_nic = tx_pkts_nic;
-+	interface->rx_bytes_nic = rx_bytes_nic;
-+	interface->rx_packets_nic = rx_pkts_nic;
-+	interface->rx_drops_nic = rx_drops_nic;
-+
-+	/* Fill out the OS statistics structure */
-+	net_stats->rx_errors = interface->stats.xec.count;
-+	net_stats->rx_dropped = interface->stats.nodesc_drop.count;
-+}
-+
-+/**
-+ * fm10k_watchdog_flush_tx - flush queues on host not ready
-+ * @interface - pointer to the device interface structure
-+ **/
-+static void fm10k_watchdog_flush_tx(struct fm10k_intfc *interface)
-+{
-+	int some_tx_pending = 0;
-+	int i;
-+
-+	/* nothing to do if carrier is up */
-+	if (netif_carrier_ok(interface->netdev))
-+		return;
++	int i, err = 0;
 +
 +	for (i = 0; i < interface->num_tx_queues; i++) {
-+		struct fm10k_ring *tx_ring = interface->tx_ring[i];
++		err = fm10k_setup_tx_resources(interface->tx_ring[i]);
++		if (!err)
++			continue;
 +
-+		if (tx_ring->next_to_use != tx_ring->next_to_clean) {
-+			some_tx_pending = 1;
-+			break;
-+		}
++		netif_err(interface, probe, interface->netdev,
++			  "Allocation for Tx Queue %u failed\n", i);
++		goto err_setup_tx;
 +	}
 +
-+	/* We've lost link, so the controller stops DMA, but we've got
-+	 * queued Tx work that's never going to get done, so reset
-+	 * controller to flush Tx.
-+	 */
-+	if (some_tx_pending)
-+		interface->flags |= FM10K_FLAG_RESET_REQUESTED;
++	return 0;
++err_setup_tx:
++	/* rewind the index freeing the rings as we go */
++	while (i--)
++		fm10k_free_tx_resources(interface->tx_ring[i]);
++	return err;
 +}
 +
 +/**
-+ * fm10k_watchdog_subtask - check and bring link up
-+ * @interface - pointer to the device interface structure
++ * fm10k_setup_rx_resources - allocate Rx resources (Descriptors)
++ * @rx_ring:    rx descriptor ring (for a specific queue) to setup
++ *
++ * Returns 0 on success, negative on failure
 + **/
-+static void fm10k_watchdog_subtask(struct fm10k_intfc *interface)
++int fm10k_setup_rx_resources(struct fm10k_ring *rx_ring)
 +{
-+	/* if interface is down do nothing */
-+	if (test_bit(__FM10K_DOWN, &interface->state) ||
-+	    test_bit(__FM10K_RESETTING, &interface->state))
++	struct device *dev = rx_ring->dev;
++	int size;
++
++	size = sizeof(struct fm10k_rx_buffer) * rx_ring->count;
++
++	rx_ring->rx_buffer = vzalloc(size);
++	if (!rx_ring->rx_buffer)
++		goto err;
++
++	u64_stats_init(&rx_ring->syncp);
++
++	/* Round up to nearest 4K */
++	rx_ring->size = rx_ring->count * sizeof(union fm10k_rx_desc);
++	rx_ring->size = ALIGN(rx_ring->size, 4096);
++
++	rx_ring->desc = dma_alloc_coherent(dev, rx_ring->size,
++					   &rx_ring->dma, GFP_KERNEL);
++	if (!rx_ring->desc)
++		goto err;
++
++	return 0;
++err:
++	vfree(rx_ring->rx_buffer);
++	rx_ring->rx_buffer = NULL;
++	return -ENOMEM;
++}
++
++/**
++ * fm10k_setup_all_rx_resources - allocate all queues Rx resources
++ * @interface: board private structure
++ *
++ * If this function returns with an error, then it's possible one or
++ * more of the rings is populated (while the rest are not).  It is the
++ * callers duty to clean those orphaned rings.
++ *
++ * Return 0 on success, negative on failure
++ **/
++static int fm10k_setup_all_rx_resources(struct fm10k_intfc *interface)
++{
++	int i, err = 0;
++
++	for (i = 0; i < interface->num_rx_queues; i++) {
++		err = fm10k_setup_rx_resources(interface->rx_ring[i]);
++		if (!err)
++			continue;
++
++		netif_err(interface, probe, interface->netdev,
++			  "Allocation for Rx Queue %u failed\n", i);
++		goto err_setup_rx;
++	}
++
++	return 0;
++err_setup_rx:
++	/* rewind the index freeing the rings as we go */
++	while (i--)
++		fm10k_free_rx_resources(interface->rx_ring[i]);
++	return err;
++}
++
++void fm10k_unmap_and_free_tx_resource(struct fm10k_ring *ring,
++				      struct fm10k_tx_buffer *tx_buffer)
++{
++	if (tx_buffer->skb) {
++		dev_kfree_skb_any(tx_buffer->skb);
++		if (dma_unmap_len(tx_buffer, len))
++			dma_unmap_single(ring->dev,
++					 dma_unmap_addr(tx_buffer, dma),
++					 dma_unmap_len(tx_buffer, len),
++					 DMA_TO_DEVICE);
++	} else if (dma_unmap_len(tx_buffer, len)) {
++		dma_unmap_page(ring->dev,
++			       dma_unmap_addr(tx_buffer, dma),
++			       dma_unmap_len(tx_buffer, len),
++			       DMA_TO_DEVICE);
++	}
++	tx_buffer->next_to_watch = NULL;
++	tx_buffer->skb = NULL;
++	dma_unmap_len_set(tx_buffer, len, 0);
++	/* tx_buffer must be completely set up in the transmit path */
++}
++
++/**
++ * fm10k_clean_tx_ring - Free Tx Buffers
++ * @tx_ring: ring to be cleaned
++ **/
++static void fm10k_clean_tx_ring(struct fm10k_ring *tx_ring)
++{
++	struct fm10k_tx_buffer *tx_buffer;
++	unsigned long size;
++	u16 i;
++
++	/* ring already cleared, nothing to do */
++	if (!tx_ring->tx_buffer)
 +		return;
 +
-+	if (interface->host_ready)
-+		fm10k_watchdog_host_is_ready(interface);
-+	else
-+		fm10k_watchdog_host_not_ready(interface);
++	/* Free all the Tx ring sk_buffs */
++	for (i = 0; i < tx_ring->count; i++) {
++		tx_buffer = &tx_ring->tx_buffer[i];
++		fm10k_unmap_and_free_tx_resource(tx_ring, tx_buffer);
++	}
 +
-+	/* update stats only once every second */
-+	if (time_is_before_jiffies(interface->next_stats_update))
-+		fm10k_update_stats(interface);
++	/* reset BQL values */
++	netdev_tx_reset_queue(txring_txq(tx_ring));
 +
-+	/* flush any uncompleted work */
-+	fm10k_watchdog_flush_tx(interface);
++	size = sizeof(struct fm10k_tx_buffer) * tx_ring->count;
++	memset(tx_ring->tx_buffer, 0, size);
++
++	/* Zero out the descriptor ring */
++	memset(tx_ring->desc, 0, tx_ring->size);
 +}
 +
 +/**
-+ * fm10k_check_hang_subtask - check for hung queues and dropped interrupts
-+ * @interface - pointer to the device interface structure
++ * fm10k_free_tx_resources - Free Tx Resources per Queue
++ * @tx_ring: Tx descriptor ring for a specific queue
 + *
-+ * This function serves two purposes.  First it strobes the interrupt lines
-+ * in order to make certain interrupts are occurring.  Secondly it sets the
-+ * bits needed to check for TX hangs.  As a result we should immediately
-+ * determine if a hang has occurred.
-+ */
-+static void fm10k_check_hang_subtask(struct fm10k_intfc *interface)
++ * Free all transmit software resources
++ **/
++void fm10k_free_tx_resources(struct fm10k_ring *tx_ring)
++{
++	fm10k_clean_tx_ring(tx_ring);
++
++	vfree(tx_ring->tx_buffer);
++	tx_ring->tx_buffer = NULL;
++
++	/* if not set, then don't free */
++	if (!tx_ring->desc)
++		return;
++
++	dma_free_coherent(tx_ring->dev, tx_ring->size,
++			  tx_ring->desc, tx_ring->dma);
++	tx_ring->desc = NULL;
++}
++
++/**
++ * fm10k_clean_all_tx_rings - Free Tx Buffers for all queues
++ * @interface: board private structure
++ **/
++void fm10k_clean_all_tx_rings(struct fm10k_intfc *interface)
 +{
 +	int i;
 +
-+	/* If we're down or resetting, just bail */
-+	if (test_bit(__FM10K_DOWN, &interface->state) ||
-+	    test_bit(__FM10K_RESETTING, &interface->state))
++	for (i = 0; i < interface->num_tx_queues; i++)
++		fm10k_clean_tx_ring(interface->tx_ring[i]);
++}
++
++/**
++ * fm10k_free_all_tx_resources - Free Tx Resources for All Queues
++ * @interface: board private structure
++ *
++ * Free all transmit software resources
++ **/
++static void fm10k_free_all_tx_resources(struct fm10k_intfc *interface)
++{
++	int i = interface->num_tx_queues;
++
++	while (i--)
++		fm10k_free_tx_resources(interface->tx_ring[i]);
++}
++
++/**
++ * fm10k_clean_rx_ring - Free Rx Buffers per Queue
++ * @rx_ring: ring to free buffers from
++ **/
++static void fm10k_clean_rx_ring(struct fm10k_ring *rx_ring)
++{
++	unsigned long size;
++	u16 i;
++
++	if (!rx_ring->rx_buffer)
 +		return;
 +
-+	/* rate limit tx hang checks to only once every 2 seconds */
-+	if (time_is_after_eq_jiffies(interface->next_tx_hang_check))
++	if (rx_ring->skb)
++		dev_kfree_skb(rx_ring->skb);
++	rx_ring->skb = NULL;
++
++	/* Free all the Rx ring sk_buffs */
++	for (i = 0; i < rx_ring->count; i++) {
++		struct fm10k_rx_buffer *buffer = &rx_ring->rx_buffer[i];
++		/* clean-up will only set page pointer to NULL */
++		if (!buffer->page)
++			continue;
++
++		dma_unmap_page(rx_ring->dev, buffer->dma,
++			       PAGE_SIZE, DMA_FROM_DEVICE);
++		__free_page(buffer->page);
++
++		buffer->page = NULL;
++	}
++
++	size = sizeof(struct fm10k_rx_buffer) * rx_ring->count;
++	memset(rx_ring->rx_buffer, 0, size);
++
++	/* Zero out the descriptor ring */
++	memset(rx_ring->desc, 0, rx_ring->size);
++
++	rx_ring->next_to_alloc = 0;
++	rx_ring->next_to_clean = 0;
++	rx_ring->next_to_use = 0;
++}
++
++/**
++ * fm10k_free_rx_resources - Free Rx Resources
++ * @rx_ring: ring to clean the resources from
++ *
++ * Free all receive software resources
++ **/
++void fm10k_free_rx_resources(struct fm10k_ring *rx_ring)
++{
++	fm10k_clean_rx_ring(rx_ring);
++
++	vfree(rx_ring->rx_buffer);
++	rx_ring->rx_buffer = NULL;
++
++	/* if not set, then don't free */
++	if (!rx_ring->desc)
 +		return;
-+	interface->next_tx_hang_check = jiffies + (2 * HZ);
 +
-+	if (netif_carrier_ok(interface->netdev)) {
-+		/* Force detection of hung controller */
-+		for (i = 0; i < interface->num_tx_queues; i++)
-+			set_check_for_tx_hang(interface->tx_ring[i]);
++	dma_free_coherent(rx_ring->dev, rx_ring->size,
++			  rx_ring->desc, rx_ring->dma);
 +
-+		/* Rearm all in-use q_vectors for immediate firing */
-+		for (i = 0; i < interface->num_q_vectors; i++) {
-+			struct fm10k_q_vector *qv = interface->q_vector[i];
++	rx_ring->desc = NULL;
++}
 +
-+			if (!qv->tx.count && !qv->rx.count)
-+				continue;
-+			writel(FM10K_ITR_ENABLE | FM10K_ITR_PENDING2, qv->itr);
-+		}
++/**
++ * fm10k_clean_all_rx_rings - Free Rx Buffers for all queues
++ * @interface: board private structure
++ **/
++void fm10k_clean_all_rx_rings(struct fm10k_intfc *interface)
++{
++	int i;
++
++	for (i = 0; i < interface->num_rx_queues; i++)
++		fm10k_clean_rx_ring(interface->rx_ring[i]);
++}
++
++/**
++ * fm10k_free_all_rx_resources - Free Rx Resources for All Queues
++ * @interface: board private structure
++ *
++ * Free all receive software resources
++ **/
++static void fm10k_free_all_rx_resources(struct fm10k_intfc *interface)
++{
++	int i = interface->num_rx_queues;
++
++	while (i--)
++		fm10k_free_rx_resources(interface->rx_ring[i]);
++}
++
++/**
+  * fm10k_request_glort_range - Request GLORTs for use in configuring rules
+  * @interface: board private structure
+  *
+@@ -59,6 +384,16 @@ int fm10k_open(struct net_device *netdev)
+ 	struct fm10k_intfc *interface = netdev_priv(netdev);
+ 	int err;
+ 
++	/* allocate transmit descriptors */
++	err = fm10k_setup_all_tx_resources(interface);
++	if (err)
++		goto err_setup_tx;
++
++	/* allocate receive descriptors */
++	err = fm10k_setup_all_rx_resources(interface);
++	if (err)
++		goto err_setup_rx;
++
+ 	/* allocate interrupt resources */
+ 	err = fm10k_qv_request_irq(interface);
+ 	if (err)
+@@ -81,6 +416,10 @@ int fm10k_open(struct net_device *netdev)
+ err_set_queues:
+ 	fm10k_qv_free_irq(interface);
+ err_req_irq:
++	fm10k_free_all_rx_resources(interface);
++err_setup_rx:
++	fm10k_free_all_tx_resources(interface);
++err_setup_tx:
+ 	return err;
+ }
+ 
+@@ -103,6 +442,9 @@ int fm10k_close(struct net_device *netdev)
+ 
+ 	fm10k_qv_free_irq(interface);
+ 
++	fm10k_free_all_tx_resources(interface);
++	fm10k_free_all_rx_resources(interface);
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index 4fd272c..c53307d 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -485,6 +485,299 @@ static void fm10k_service_task(struct work_struct *work)
+ 	fm10k_service_event_complete(interface);
+ }
+ 
++/**
++ * fm10k_configure_tx_ring - Configure Tx ring after Reset
++ * @interface: board private structure
++ * @ring: structure containing ring specific data
++ *
++ * Configure the Tx descriptor ring after a reset.
++ **/
++static void fm10k_configure_tx_ring(struct fm10k_intfc *interface,
++				    struct fm10k_ring *ring)
++{
++	struct fm10k_hw *hw = &interface->hw;
++	u64 tdba = ring->dma;
++	u32 size = ring->count * sizeof(struct fm10k_tx_desc);
++	u32 txint = FM10K_INT_MAP_DISABLE;
++	u32 txdctl = FM10K_TXDCTL_ENABLE | (1 << FM10K_TXDCTL_MAX_TIME_SHIFT);
++	u8 reg_idx = ring->reg_idx;
++
++	/* disable queue to avoid issues while updating state */
++	fm10k_write_reg(hw, FM10K_TXDCTL(reg_idx), 0);
++	fm10k_write_flush(hw);
++
++	/* possible poll here to verify ring resources have been cleaned */
++
++	/* set location and size for descriptor ring */
++	fm10k_write_reg(hw, FM10K_TDBAL(reg_idx), tdba & DMA_BIT_MASK(32));
++	fm10k_write_reg(hw, FM10K_TDBAH(reg_idx), tdba >> 32);
++	fm10k_write_reg(hw, FM10K_TDLEN(reg_idx), size);
++
++	/* reset head and tail pointers */
++	fm10k_write_reg(hw, FM10K_TDH(reg_idx), 0);
++	fm10k_write_reg(hw, FM10K_TDT(reg_idx), 0);
++
++	/* store tail pointer */
++	ring->tail = &interface->uc_addr[FM10K_TDT(reg_idx)];
++
++	/* reset ntu and ntc to place SW in sync with hardwdare */
++	ring->next_to_clean = 0;
++	ring->next_to_use = 0;
++
++	/* Map interrupt */
++	if (ring->q_vector) {
++		txint = ring->q_vector->v_idx + NON_Q_VECTORS(hw);
++		txint |= FM10K_INT_MAP_TIMER0;
++	}
++
++	fm10k_write_reg(hw, FM10K_TXINT(reg_idx), txint);
++
++	/* enable use of FTAG bit in Tx descriptor, register is RO for VF */
++	fm10k_write_reg(hw, FM10K_PFVTCTL(reg_idx),
++			FM10K_PFVTCTL_FTAG_DESC_ENABLE);
++
++	/* enable queue */
++	fm10k_write_reg(hw, FM10K_TXDCTL(reg_idx), txdctl);
++}
++
++/**
++ * fm10k_enable_tx_ring - Verify Tx ring is enabled after configuration
++ * @interface: board private structure
++ * @ring: structure containing ring specific data
++ *
++ * Verify the Tx descriptor ring is ready for transmit.
++ **/
++static void fm10k_enable_tx_ring(struct fm10k_intfc *interface,
++				 struct fm10k_ring *ring)
++{
++	struct fm10k_hw *hw = &interface->hw;
++	int wait_loop = 10;
++	u32 txdctl;
++	u8 reg_idx = ring->reg_idx;
++
++	/* if we are already enabled just exit */
++	if (fm10k_read_reg(hw, FM10K_TXDCTL(reg_idx)) & FM10K_TXDCTL_ENABLE)
++		return;
++
++	/* poll to verify queue is enabled */
++	do {
++		usleep_range(1000, 2000);
++		txdctl = fm10k_read_reg(hw, FM10K_TXDCTL(reg_idx));
++	} while (!(txdctl & FM10K_TXDCTL_ENABLE) && --wait_loop);
++	if (!wait_loop)
++		netif_err(interface, drv, interface->netdev,
++			  "Could not enable Tx Queue %d\n", reg_idx);
++}
++
++/**
++ * fm10k_configure_tx - Configure Transmit Unit after Reset
++ * @interface: board private structure
++ *
++ * Configure the Tx unit of the MAC after a reset.
++ **/
++static void fm10k_configure_tx(struct fm10k_intfc *interface)
++{
++	int i;
++
++	/* Setup the HW Tx Head and Tail descriptor pointers */
++	for (i = 0; i < interface->num_tx_queues; i++)
++		fm10k_configure_tx_ring(interface, interface->tx_ring[i]);
++
++	/* poll here to verify that Tx rings are now enabled */
++	for (i = 0; i < interface->num_tx_queues; i++)
++		fm10k_enable_tx_ring(interface, interface->tx_ring[i]);
++}
++
++/**
++ * fm10k_configure_rx_ring - Configure Rx ring after Reset
++ * @interface: board private structure
++ * @ring: structure containing ring specific data
++ *
++ * Configure the Rx descriptor ring after a reset.
++ **/
++static void fm10k_configure_rx_ring(struct fm10k_intfc *interface,
++				    struct fm10k_ring *ring)
++{
++	u64 rdba = ring->dma;
++	struct fm10k_hw *hw = &interface->hw;
++	u32 size = ring->count * sizeof(union fm10k_rx_desc);
++	u32 rxqctl = FM10K_RXQCTL_ENABLE | FM10K_RXQCTL_PF;
++	u32 rxdctl = FM10K_RXDCTL_WRITE_BACK_MIN_DELAY;
++	u32 srrctl = FM10K_SRRCTL_BUFFER_CHAINING_EN;
++	u32 rxint = FM10K_INT_MAP_DISABLE;
++	u8 rx_pause = interface->rx_pause;
++	u8 reg_idx = ring->reg_idx;
++
++	/* disable queue to avoid issues while updating state */
++	fm10k_write_reg(hw, FM10K_RXQCTL(reg_idx), 0);
++	fm10k_write_flush(hw);
++
++	/* possible poll here to verify ring resources have been cleaned */
++
++	/* set location and size for descriptor ring */
++	fm10k_write_reg(hw, FM10K_RDBAL(reg_idx), rdba & DMA_BIT_MASK(32));
++	fm10k_write_reg(hw, FM10K_RDBAH(reg_idx), rdba >> 32);
++	fm10k_write_reg(hw, FM10K_RDLEN(reg_idx), size);
++
++	/* reset head and tail pointers */
++	fm10k_write_reg(hw, FM10K_RDH(reg_idx), 0);
++	fm10k_write_reg(hw, FM10K_RDT(reg_idx), 0);
++
++	/* store tail pointer */
++	ring->tail = &interface->uc_addr[FM10K_RDT(reg_idx)];
++
++	/* reset ntu and ntc to place SW in sync with hardwdare */
++	ring->next_to_clean = 0;
++	ring->next_to_use = 0;
++	ring->next_to_alloc = 0;
++
++	/* Configure the Rx buffer size for one buff without split */
++	srrctl |= FM10K_RX_BUFSZ >> FM10K_SRRCTL_BSIZEPKT_SHIFT;
++
++	/* Configure the Rx ring to supress loopback packets */
++	srrctl |= FM10K_SRRCTL_LOOPBACK_SUPPRESS;
++	fm10k_write_reg(hw, FM10K_SRRCTL(reg_idx), srrctl);
++
++	/* Enable drop on empty */
++#if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
++	if (interface->pfc_en)
++		rx_pause = interface->pfc_en;
++#endif
++	if (!(rx_pause & (1 << ring->qos_pc)))
++		rxdctl |= FM10K_RXDCTL_DROP_ON_EMPTY;
++
++	fm10k_write_reg(hw, FM10K_RXDCTL(reg_idx), rxdctl);
++
++	/* assign default VLAN to queue */
++	ring->vid = hw->mac.default_vid;
++
++	/* Map interrupt */
++	if (ring->q_vector) {
++		rxint = ring->q_vector->v_idx + NON_Q_VECTORS(hw);
++		rxint |= FM10K_INT_MAP_TIMER1;
++	}
++
++	fm10k_write_reg(hw, FM10K_RXINT(reg_idx), rxint);
++
++	/* enable queue */
++	fm10k_write_reg(hw, FM10K_RXQCTL(reg_idx), rxqctl);
++}
++
++/**
++ * fm10k_update_rx_drop_en - Configures the drop enable bits for Rx rings
++ * @interface: board private structure
++ *
++ * Configure the drop enable bits for the Rx rings.
++ **/
++void fm10k_update_rx_drop_en(struct fm10k_intfc *interface)
++{
++	struct fm10k_hw *hw = &interface->hw;
++	u8 rx_pause = interface->rx_pause;
++	int i;
++
++#if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
++	if (interface->pfc_en)
++		rx_pause = interface->pfc_en;
++
++#endif
++	for (i = 0; i < interface->num_rx_queues; i++) {
++		struct fm10k_ring *ring = interface->rx_ring[i];
++		u32 rxdctl = FM10K_RXDCTL_WRITE_BACK_MIN_DELAY;
++		u8 reg_idx = ring->reg_idx;
++
++		if (!(rx_pause & (1 << ring->qos_pc)))
++			rxdctl |= FM10K_RXDCTL_DROP_ON_EMPTY;
++
++		fm10k_write_reg(hw, FM10K_RXDCTL(reg_idx), rxdctl);
 +	}
 +}
 +
 +/**
-+ * fm10k_service_task - manages and runs subtasks
-+ * @work: pointer to work_struct containing our data
++ * fm10k_configure_dglort - Configure Receive DGLORT after reset
++ * @interface: board private structure
++ *
++ * Configure the DGLORT description and RSS tables.
 + **/
-+static void fm10k_service_task(struct work_struct *work)
++static void fm10k_configure_dglort(struct fm10k_intfc *interface)
 +{
-+	struct fm10k_intfc *interface;
++	struct fm10k_dglort_cfg dglort = { 0 };
++	struct fm10k_hw *hw = &interface->hw;
++	int i;
++	u32 mrqc;
 +
-+	interface = container_of(work, struct fm10k_intfc, service_task);
++	/* Fill out hash function seeds */
++	for (i = 0; i < FM10K_RSSRK_SIZE; i++)
++		fm10k_write_reg(hw, FM10K_RSSRK(0, i), interface->rssrk[i]);
 +
-+	/* tasks always capable of running, but must be rtnl protected */
-+	fm10k_mbx_subtask(interface);
-+	fm10k_detach_subtask(interface);
-+	fm10k_reset_subtask(interface);
++	/* Write RETA table to hardware */
++	for (i = 0; i < FM10K_RETA_SIZE; i++)
++		fm10k_write_reg(hw, FM10K_RETA(0, i), interface->reta[i]);
 +
-+	/* tasks only run when interface is up */
-+	fm10k_watchdog_subtask(interface);
-+	fm10k_check_hang_subtask(interface);
++	/* Generate RSS hash based on packet types, TCP/UDP
++	 * port numbers and/or IPv4/v6 src and dst addresses
++	 */
++	mrqc = FM10K_MRQC_IPV4 |
++	       FM10K_MRQC_TCP_IPV4 |
++	       FM10K_MRQC_IPV6 |
++	       FM10K_MRQC_TCP_IPV6;
 +
-+	/* release lock on service events to allow scheduling next event */
-+	fm10k_service_event_complete(interface);
++	if (interface->flags & FM10K_FLAG_RSS_FIELD_IPV4_UDP)
++		mrqc |= FM10K_MRQC_UDP_IPV4;
++	if (interface->flags & FM10K_FLAG_RSS_FIELD_IPV6_UDP)
++		mrqc |= FM10K_MRQC_UDP_IPV6;
++
++	fm10k_write_reg(hw, FM10K_MRQC(0), mrqc);
++
++	/* configure default DGLORT mapping for RSS/DCB */
++	dglort.inner_rss = 1;
++	dglort.rss_l = fls(interface->ring_feature[RING_F_RSS].mask);
++	dglort.pc_l = fls(interface->ring_feature[RING_F_QOS].mask);
++	hw->mac.ops.configure_dglort_map(hw, &dglort);
++
++	/* assign GLORT per queue for queue mapped testing */
++	if (interface->glort_count > 64) {
++		memset(&dglort, 0, sizeof(dglort));
++		dglort.inner_rss = 1;
++		dglort.glort = interface->glort + 64;
++		dglort.idx = fm10k_dglort_pf_queue;
++		dglort.queue_l = fls(interface->num_rx_queues - 1);
++		hw->mac.ops.configure_dglort_map(hw, &dglort);
++	}
++
++	/* assign glort value for RSS/DCB specific to this interface */
++	memset(&dglort, 0, sizeof(dglort));
++	dglort.inner_rss = 1;
++	dglort.glort = interface->glort;
++	dglort.rss_l = fls(interface->ring_feature[RING_F_RSS].mask);
++	dglort.pc_l = fls(interface->ring_feature[RING_F_QOS].mask);
++	/* configure DGLORT mapping for RSS/DCB */
++	dglort.idx = fm10k_dglort_pf_rss;
++	hw->mac.ops.configure_dglort_map(hw, &dglort);
++}
++
++/**
++ * fm10k_configure_rx - Configure Receive Unit after Reset
++ * @interface: board private structure
++ *
++ * Configure the Rx unit of the MAC after a reset.
++ **/
++static void fm10k_configure_rx(struct fm10k_intfc *interface)
++{
++	int i;
++
++	/* Configure SWPRI to PC map */
++	fm10k_configure_swpri_map(interface);
++
++	/* Configure RSS and DGLORT map */
++	fm10k_configure_dglort(interface);
++
++	/* Setup the HW Rx Head and Tail descriptor pointers */
++	for (i = 0; i < interface->num_rx_queues; i++)
++		fm10k_configure_rx_ring(interface, interface->rx_ring[i]);
++
++	/* possible poll here to verify that Rx rings are now enabled */
 +}
 +
  static void fm10k_napi_enable_all(struct fm10k_intfc *interface)
  {
  	struct fm10k_q_vector *q_vector;
-@@ -257,6 +655,20 @@ static irqreturn_t fm10k_msix_mbx_pf(int irq, void *data)
- 		fm10k_mbx_unlock(interface);
- 	}
+@@ -970,6 +1263,12 @@ void fm10k_up(struct fm10k_intfc *interface)
+ 	/* Enable Tx/Rx DMA */
+ 	hw->mac.ops.start_hw(hw);
  
-+	/* if switch toggled state we should reset GLORTs */
-+	if (eicr & FM10K_EICR_SWITCHNOTREADY) {
-+		/* force link down for at least 4 seconds */
-+		interface->link_down_event = jiffies + (4 * HZ);
-+		set_bit(__FM10K_LINK_DOWN, &interface->state);
++	/* configure Tx descriptor rings */
++	fm10k_configure_tx(interface);
 +
-+		/* reset dglort_map back to no config */
-+		hw->mac.dglort_map = FM10K_DGLORTMAP_NONE;
-+	}
++	/* configure Rx descriptor rings */
++	fm10k_configure_rx(interface);
 +
-+	/* we should validate host state after interrupt event */
-+	hw->mac.get_host_state = 1;
-+	fm10k_service_event_schedule(interface);
-+
- 	/* re-enable mailbox interrupt and indicate 20us delay */
- 	fm10k_write_reg(hw, FM10K_ITR(FM10K_MBX_VECTOR),
- 			FM10K_ITR_ENABLE | FM10K_MBX_INT_DELAY);
-@@ -572,6 +984,9 @@ void fm10k_up(struct fm10k_intfc *interface)
+ 	/* configure interrupts */
+ 	hw->mac.ops.update_int_moderator(hw);
  
- 	/* enable transmits */
- 	netif_tx_start_all_queues(interface->netdev);
-+
-+	/* kick off the service timer */
-+	mod_timer(&interface->service_timer, jiffies);
- }
+@@ -1031,6 +1330,9 @@ void fm10k_down(struct fm10k_intfc *interface)
  
- static void fm10k_napi_disable_all(struct fm10k_intfc *interface)
-@@ -609,6 +1024,11 @@ void fm10k_down(struct fm10k_intfc *interface)
- 	/* disable polling routines */
- 	fm10k_napi_disable_all(interface);
- 
-+	del_timer_sync(&interface->service_timer);
-+
-+	/* capture stats one last time before stopping interface */
-+	fm10k_update_stats(interface);
-+
  	/* Disable DMA engine for Tx/Rx */
  	hw->mac.ops.stop_hw(hw);
++
++	/* free any buffers still on the rings */
++	fm10k_clean_all_tx_rings(interface);
  }
-@@ -670,6 +1090,9 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
- 		netdev->vlan_features |= NETIF_F_HIGHDMA;
- 	}
  
-+	/* delay any future reset requests */
-+	interface->last_reset = jiffies + (10 * HZ);
-+
- 	/* reset and initialize the hardware so it is in a known state */
- 	err = hw->mac.ops.reset_hw(hw) ? : hw->mac.ops.init_hw(hw);
- 	if (err) {
-@@ -707,6 +1130,12 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
- 		netdev->hw_features &= ~NETIF_F_GSO_UDP_TUNNEL;
- 	}
- 
-+	/* Initialize service timer and service task */
-+	set_bit(__FM10K_SERVICE_DISABLE, &interface->state);
-+	setup_timer(&interface->service_timer, &fm10k_service_timer,
-+		    (unsigned long)interface);
-+	INIT_WORK(&interface->service_task, fm10k_service_task);
-+
- 	/* set default ring sizes */
- 	interface->tx_ring_count = FM10K_DEFAULT_TXD;
- 	interface->rx_ring_count = FM10K_DEFAULT_RXD;
-@@ -871,6 +1300,9 @@ static int fm10k_probe(struct pci_dev *pdev,
- 	/* print warning for non-optimal configurations */
- 	fm10k_slot_warn(interface);
- 
-+	/* clear the service task disable bit to allow service task to start */
-+	clear_bit(__FM10K_SERVICE_DISABLE, &interface->state);
-+
- 	return 0;
- 
- err_register:
-@@ -904,6 +1336,9 @@ static void fm10k_remove(struct pci_dev *pdev)
- 	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
- 	struct net_device *netdev = interface->netdev;
- 
-+	set_bit(__FM10K_SERVICE_DISABLE, &interface->state);
-+	cancel_work_sync(&interface->service_task);
-+
- 	/* free netdev, this may bounce the interrupts due to setup_tc */
- 	if (netdev->reg_state == NETREG_REGISTERED)
- 		unregister_netdev(netdev);
+ /**
