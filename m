@@ -1,8 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH v2 08/29] fm10k: Add support for configuring PF
- interface
-Date: Sat, 20 Sep 2014 19:47:58 -0400
-Message-ID: <20140920234754.2977.62166.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [net-next PATCH v2 09/29] fm10k: Add netdev
+Date: Sat, 20 Sep 2014 19:48:10 -0400
+Message-ID: <20140920234804.2977.8975.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140920234342.2977.21667.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,763 +11,537 @@ Cc: nhorman@redhat.com, netdev@vger.kernel.org,
 	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:42388 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:34030 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751108AbaITX4o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Sep 2014 19:56:44 -0400
+	id S1751536AbaITX4x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Sep 2014 19:56:53 -0400
 In-Reply-To: <20140920234342.2977.21667.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for the operations which will configure filters on
-the interface.  In addition with these patches we begin to introduce the PF
-messages that will be sent to or received from the Switch Management
-entity.
+Now that we have the ability to configure the basic settings on the device
+we can start allocating and configuring a netdev for the interface.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c |  587 +++++++++++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_pf.h |   98 +++++
- 2 files changed, 683 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/fm10k/Makefile       |    2 
+ drivers/net/ethernet/intel/fm10k/fm10k.h        |   92 +++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |   98 ++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c    |  230 +++++++++++++++++++++++
+ 4 files changed, 418 insertions(+), 4 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-index b798cd5..8da382c 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-@@ -181,6 +181,66 @@ static bool fm10k_is_slot_appropriate_pf(struct fm10k_hw *hw)
- }
+diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
+index 0904bcb..ee4e415 100644
+--- a/drivers/net/ethernet/intel/fm10k/Makefile
++++ b/drivers/net/ethernet/intel/fm10k/Makefile
+@@ -28,5 +28,5 @@
+ obj-$(CONFIG_FM10K) += fm10k.o
  
- /**
-+ *  fm10k_update_vlan_pf - Update status of VLAN ID in VLAN filter table
-+ *  @hw: pointer to hardware structure
-+ *  @vid: VLAN ID to add to table
-+ *  @vsi: Index indicating VF ID or PF ID in table
-+ *  @set: Indicates if this is a set or clear operation
-+ *
-+ *  This function adds or removes the corresponding VLAN ID from the VLAN
-+ *  filter table for the corresponding function.  In addition to the
-+ *  standard set/clear that supports one bit a multi-bit write is
-+ *  supported to set 64 bits at a time.
-+ **/
-+static s32 fm10k_update_vlan_pf(struct fm10k_hw *hw, u32 vid, u8 vsi, bool set)
+ fm10k-objs := fm10k_main.o fm10k_common.o fm10k_pci.o \
+-	      fm10k_pf.o \
++	      fm10k_netdev.o fm10k_pf.o \
+ 	      fm10k_mbx.o fm10k_tlv.o
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
+index 3da3a99..fa3e5e1 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
+@@ -27,15 +27,102 @@
+ #include <linux/if_vlan.h>
+ #include <linux/pci.h>
+ 
+-#include "fm10k_common.h"
++#include "fm10k_pf.h"
++
++#define FM10K_MAX_JUMBO_FRAME_SIZE	15358	/* Maximum supported size 15K */
++
++enum fm10k_ring_f_enum {
++	RING_F_RSS,
++	RING_F_QOS,
++	RING_F_ARRAY_SIZE  /* must be last in enum set */
++};
++
++struct fm10k_ring_feature {
++	u16 limit;	/* upper limit on feature indices */
++	u16 indices;	/* current value of indices */
++	u16 mask;	/* Mask used for feature to ring mapping */
++	u16 offset;	/* offset to start of feature */
++};
++
++#define fm10k_vxlan_port_for_each(vp, intfc) \
++	list_for_each_entry(vp, &(intfc)->vxlan_port, list)
++struct fm10k_vxlan_port {
++	struct list_head	list;
++	sa_family_t		sa_family;
++	__be16			port;
++};
+ 
+ struct fm10k_intfc {
++	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
++	struct net_device *netdev;
+ 	struct pci_dev *pdev;
++	unsigned long state;
++
++	u32 flags;
++#define FM10K_FLAG_RESET_REQUESTED		(u32)(1 << 0)
++#define FM10K_FLAG_RSS_FIELD_IPV4_UDP		(u32)(1 << 1)
++#define FM10K_FLAG_RSS_FIELD_IPV6_UDP		(u32)(1 << 2)
++#define FM10K_FLAG_RX_TS_ENABLED		(u32)(1 << 3)
++#define FM10K_FLAG_SWPRI_CONFIG			(u32)(1 << 4)
++	int xcast_mode;
++
++	u64 rx_overrun_pf;
++	u64 rx_overrun_vf;
+ 
++	struct fm10k_ring_feature ring_feature[RING_F_ARRAY_SIZE];
++
++	struct fm10k_hw_stats stats;
+ 	struct fm10k_hw hw;
+ 	u32 __iomem *uc_addr;
++	u16 msg_enable;
++
++	u32 reta[FM10K_RETA_SIZE];
++	u32 rssrk[FM10K_RSSRK_SIZE];
++
++	/* VXLAN port tracking information */
++	struct list_head vxlan_port;
++
++#if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
++	u8 pfc_en;
++#endif
++	u8 rx_pause;
++
++	/* GLORT resources in use by PF */
++	u16 glort;
++	u16 glort_count;
++
++	/* VLAN ID for updating multicast/unicast lists */
++	u16 vid;
++};
++
++enum fm10k_state_t {
++	__FM10K_RESETTING,
++	__FM10K_DOWN,
++	__FM10K_MBX_LOCK,
++	__FM10K_LINK_DOWN,
+ };
+ 
++static inline void fm10k_mbx_lock(struct fm10k_intfc *interface)
 +{
-+	u32 vlan_table, reg, mask, bit, len;
-+
-+	/* verify the VSI index is valid */
-+	if (vsi > FM10K_VLAN_TABLE_VSI_MAX)
-+		return FM10K_ERR_PARAM;
-+
-+	/* VLAN multi-bit write:
-+	 * The multi-bit write has several parts to it.
-+	 *    3			  2		      1			  0
-+	 *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
-+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+	 * | RSVD0 |         Length        |C|RSVD0|        VLAN ID        |
-+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+	 *
-+	 * VLAN ID: Vlan Starting value
-+	 * RSVD0: Reserved section, must be 0
-+	 * C: Flag field, 0 is set, 1 is clear (Used in VF VLAN message)
-+	 * Length: Number of times to repeat the bit being set
++	/* busy loop if we cannot obtain the lock as some calls
++	 * such as ndo_set_rx_mode may be made in atomic context
 +	 */
-+	len = vid >> 16;
-+	vid = (vid << 17) >> 17;
++	while (test_and_set_bit(__FM10K_MBX_LOCK, &interface->state))
++		udelay(20);
++}
 +
-+	/* verify the reserved 0 fields are 0 */
-+	if (len >= FM10K_VLAN_TABLE_VID_MAX ||
-+	    vid >= FM10K_VLAN_TABLE_VID_MAX)
-+		return FM10K_ERR_PARAM;
++static inline void fm10k_mbx_unlock(struct fm10k_intfc *interface)
++{
++	/* flush memory to make sure state is correct */
++	smp_mb__before_clear_bit();
++	clear_bit(__FM10K_MBX_LOCK, &interface->state);
++}
 +
-+	/* Loop through the table updating all required VLANs */
-+	for (reg = FM10K_VLAN_TABLE(vsi, vid / 32), bit = vid % 32;
-+	     len < FM10K_VLAN_TABLE_VID_MAX;
-+	     len -= 32 - bit, reg++, bit = 0) {
-+		/* record the initial state of the register */
-+		vlan_table = fm10k_read_reg(hw, reg);
++static inline int fm10k_mbx_trylock(struct fm10k_intfc *interface)
++{
++	return !test_and_set_bit(__FM10K_MBX_LOCK, &interface->state);
++}
 +
-+		/* truncate mask if we are at the start or end of the run */
-+		mask = (~(u32)0 >> ((len < 31) ? 31 - len : 0)) << bit;
+ /* main */
+ extern char fm10k_driver_name[];
+ extern const char fm10k_driver_version[];
+@@ -43,4 +130,7 @@ extern const char fm10k_driver_version[];
+ /* PCI */
+ int fm10k_register_pci_driver(void);
+ void fm10k_unregister_pci_driver(void);
 +
-+		/* make necessary modifications to the register */
-+		mask &= set ? ~vlan_table : vlan_table;
-+		if (mask)
-+			fm10k_write_reg(hw, reg, vlan_table ^ mask);
-+	}
++/* Netdev */
++struct net_device *fm10k_alloc_netdev(void);
+ #endif /* _FM10K_H_ */
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+new file mode 100644
+index 0000000..9a4f3a6
+--- /dev/null
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -0,0 +1,98 @@
++/* Intel Ethernet Switch Host Interface Driver
++ * Copyright(c) 2013 - 2014 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ */
++
++#include "fm10k.h"
++
++static netdev_tx_t fm10k_xmit_frame(struct sk_buff *skb, struct net_device *dev)
++{
++	dev_kfree_skb_any(skb);
++	return NETDEV_TX_OK;
++}
++
++static int fm10k_change_mtu(struct net_device *dev, int new_mtu)
++{
++	if (new_mtu < 68 || new_mtu > FM10K_MAX_JUMBO_FRAME_SIZE)
++		return -EINVAL;
++
++	dev->mtu = new_mtu;
 +
 +	return 0;
 +}
 +
-+/**
-  *  fm10k_read_mac_addr_pf - Read device MAC address
-  *  @hw: pointer to the HW structure
++static int fm10k_set_mac(struct net_device *dev, void *p)
++{
++	struct sockaddr *addr = p;
++	s32 err = 0;
++
++	if (!is_valid_ether_addr(addr->sa_data))
++		return -EADDRNOTAVAIL;
++
++	if (!err) {
++		ether_addr_copy(dev->dev_addr, addr->sa_data);
++		dev->addr_assign_type &= ~NET_ADDR_RANDOM;
++	}
++
++	return err;
++}
++
++static void fm10k_set_rx_mode(struct net_device *dev)
++{
++}
++
++static const struct net_device_ops fm10k_netdev_ops = {
++	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_start_xmit		= fm10k_xmit_frame,
++	.ndo_set_mac_address	= fm10k_set_mac,
++	.ndo_change_mtu		= fm10k_change_mtu,
++	.ndo_set_rx_mode	= fm10k_set_rx_mode,
++};
++
++#define DEFAULT_DEBUG_LEVEL_SHIFT 3
++
++struct net_device *fm10k_alloc_netdev(void)
++{
++	struct fm10k_intfc *interface;
++	struct net_device *dev;
++
++	dev = alloc_etherdev(sizeof(struct fm10k_intfc));
++	if (!dev)
++		return NULL;
++
++	/* set net device and ethtool ops */
++	dev->netdev_ops = &fm10k_netdev_ops;
++
++	/* configure default debug level */
++	interface = netdev_priv(dev);
++	interface->msg_enable = (1 << DEFAULT_DEBUG_LEVEL_SHIFT) - 1;
++
++	/* configure default features */
++	dev->features |= NETIF_F_SG;
++
++	/* all features defined to this point should be changeable */
++	dev->hw_features |= dev->features;
++
++	/* configure VLAN features */
++	dev->vlan_features |= dev->features;
++
++	/* configure tunnel offloads */
++	dev->hw_enc_features = NETIF_F_SG;
++
++	return dev;
++}
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index 6d5e33c..5fcbd1d 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -22,6 +22,10 @@
+ 
+ #include "fm10k.h"
+ 
++static const struct fm10k_info *fm10k_info_tbl[] = {
++	[fm10k_device_pf] = &fm10k_pf_info,
++};
++
+ /**
+  * fm10k_pci_tbl - PCI Device ID Table
   *
-@@ -221,6 +281,297 @@ static s32 fm10k_read_mac_addr_pf(struct fm10k_hw *hw)
+@@ -32,7 +36,7 @@
+  *   Class, Class Mask, private data (not used) }
+  */
+ static const struct pci_device_id fm10k_pci_tbl[] = {
+-	{ PCI_VDEVICE(INTEL, FM10K_DEV_ID_PF) },
++	{ PCI_VDEVICE(INTEL, FM10K_DEV_ID_PF), fm10k_device_pf },
+ 	/* required last entry */
+ 	{ 0, }
+ };
+@@ -62,12 +66,153 @@ u32 fm10k_read_reg(struct fm10k_hw *hw, int reg)
+ 		return ~value;
+ 
+ 	value = readl(&hw_addr[reg]);
+-	if (!(~value) && (!reg || !(~readl(hw_addr))))
++	if (!(~value) && (!reg || !(~readl(hw_addr)))) {
++		struct fm10k_intfc *interface = hw->back;
++		struct net_device *netdev = interface->netdev;
++
+ 		hw->hw_addr = NULL;
++		netif_device_detach(netdev);
++		netdev_err(netdev, "PCIe link lost, device now detached\n");
++	}
+ 
+ 	return value;
  }
  
- /**
-+ *  fm10k_glort_valid_pf - Validate that the provided glort is valid
-+ *  @hw: pointer to the HW structure
-+ *  @glort: base glort to be validated
-+ *
-+ *  This function will return an error if the provided glort is invalid
-+ **/
-+bool fm10k_glort_valid_pf(struct fm10k_hw *hw, u16 glort)
++static int fm10k_hw_ready(struct fm10k_intfc *interface)
 +{
-+	glort &= hw->mac.dglort_map >> FM10K_DGLORTMAP_MASK_SHIFT;
++	struct fm10k_hw *hw = &interface->hw;
 +
-+	return glort == (hw->mac.dglort_map & FM10K_DGLORTMAP_NONE);
++	fm10k_write_flush(hw);
++
++	return FM10K_REMOVED(hw->hw_addr) ? -ENODEV : 0;
 +}
 +
 +/**
-+ *  fm10k_update_uc_addr_pf - Update device unicast addresss
-+ *  @hw: pointer to the HW structure
-+ *  @glort: base resource tag for this request
-+ *  @mac: MAC address to add/remove from table
-+ *  @vid: VLAN ID to add/remove from table
-+ *  @add: Indicates if this is an add or remove operation
-+ *  @flags: flags field to indicate add and secure
++ * fm10k_sw_init - Initialize general software structures
++ * @interface: host interface private structure to initialize
 + *
-+ *  This function generates a message to the Switch API requesting
-+ *  that the given logical port add/remove the given L2 MAC/VLAN address.
++ * fm10k_sw_init initializes the interface private data structure.
++ * Fields are initialized based on PCI device information and
++ * OS network device settings (MTU size).
 + **/
-+static s32 fm10k_update_xc_addr_pf(struct fm10k_hw *hw, u16 glort,
-+				   const u8 *mac, u16 vid, bool add, u8 flags)
++static int fm10k_sw_init(struct fm10k_intfc *interface,
++			 const struct pci_device_id *ent)
 +{
-+	struct fm10k_mbx_info *mbx = &hw->mbx;
-+	struct fm10k_mac_update mac_update;
-+	u32 msg[5];
++	static const u32 seed[FM10K_RSSRK_SIZE] = { 0xda565a6d, 0xc20e5b25,
++						    0x3d256741, 0xb08fa343,
++						    0xcb2bcad0, 0xb4307bae,
++						    0xa32dcb77, 0x0cf23080,
++						    0x3bb7426a, 0xfa01acbe };
++	const struct fm10k_info *fi = fm10k_info_tbl[ent->driver_data];
++	struct fm10k_hw *hw = &interface->hw;
++	struct pci_dev *pdev = interface->pdev;
++	struct net_device *netdev = interface->netdev;
++	unsigned int rss;
++	int err;
 +
-+	/* if glort is not valid return error */
-+	if (!fm10k_glort_valid_pf(hw, glort))
-+		return FM10K_ERR_PARAM;
++	/* initialize back pointer */
++	hw->back = interface;
++	hw->hw_addr = interface->uc_addr;
 +
-+	/* drop upper 4 bits of VLAN ID */
-+	vid = (vid << 4) >> 4;
++	/* PCI config space info */
++	hw->vendor_id = pdev->vendor;
++	hw->device_id = pdev->device;
++	hw->revision_id = pdev->revision;
++	hw->subsystem_vendor_id = pdev->subsystem_vendor;
++	hw->subsystem_device_id = pdev->subsystem_device;
 +
-+	/* record fields */
-+	mac_update.mac_lower = cpu_to_le32(((u32)mac[2] << 24) |
-+						 ((u32)mac[3] << 16) |
-+						 ((u32)mac[4] << 8) |
-+						 ((u32)mac[5]));
-+	mac_update.mac_upper = cpu_to_le16(((u32)mac[0] << 8) |
-+						 ((u32)mac[1]));
-+	mac_update.vlan = cpu_to_le16(vid);
-+	mac_update.glort = cpu_to_le16(glort);
-+	mac_update.action = add ? 0 : 1;
-+	mac_update.flags = flags;
++	/* Setup hw api */
++	memcpy(&hw->mac.ops, fi->mac_ops, sizeof(hw->mac.ops));
++	hw->mac.type = fi->mac;
 +
-+	/* populate mac_update fields */
-+	fm10k_tlv_msg_init(msg, FM10K_PF_MSG_ID_UPDATE_MAC_FWD_RULE);
-+	fm10k_tlv_attr_put_le_struct(msg, FM10K_PF_ATTR_ID_MAC_UPDATE,
-+				     &mac_update, sizeof(mac_update));
++	/* Set common capability flags and settings */
++	rss = min_t(int, FM10K_MAX_RSS_INDICES, num_online_cpus());
++	interface->ring_feature[RING_F_RSS].limit = rss;
++	fi->get_invariants(hw);
 +
-+	/* load onto outgoing mailbox */
-+	return mbx->ops.enqueue_tx(hw, mbx, msg);
-+}
++	/* pick up the PCIe bus settings for reporting later */
++	if (hw->mac.ops.get_bus_info)
++		hw->mac.ops.get_bus_info(hw);
 +
-+/**
-+ *  fm10k_update_uc_addr_pf - Update device unicast addresss
-+ *  @hw: pointer to the HW structure
-+ *  @glort: base resource tag for this request
-+ *  @mac: MAC address to add/remove from table
-+ *  @vid: VLAN ID to add/remove from table
-+ *  @add: Indicates if this is an add or remove operation
-+ *  @flags: flags field to indicate add and secure
-+ *
-+ *  This function is used to add or remove unicast addresses for
-+ *  the PF.
-+ **/
-+static s32 fm10k_update_uc_addr_pf(struct fm10k_hw *hw, u16 glort,
-+				   const u8 *mac, u16 vid, bool add, u8 flags)
-+{
-+	/* verify MAC address is valid */
-+	if (!is_valid_ether_addr(mac))
-+		return FM10K_ERR_PARAM;
++	/* limit the usable DMA range */
++	if (hw->mac.ops.set_dma_mask)
++		hw->mac.ops.set_dma_mask(hw, dma_get_mask(&pdev->dev));
 +
-+	return fm10k_update_xc_addr_pf(hw, glort, mac, vid, add, flags);
-+}
-+
-+/**
-+ *  fm10k_update_mc_addr_pf - Update device multicast addresses
-+ *  @hw: pointer to the HW structure
-+ *  @glort: base resource tag for this request
-+ *  @mac: MAC address to add/remove from table
-+ *  @vid: VLAN ID to add/remove from table
-+ *  @add: Indicates if this is an add or remove operation
-+ *
-+ *  This function is used to add or remove multicast MAC addresses for
-+ *  the PF.
-+ **/
-+static s32 fm10k_update_mc_addr_pf(struct fm10k_hw *hw, u16 glort,
-+				   const u8 *mac, u16 vid, bool add)
-+{
-+	/* verify multicast address is valid */
-+	if (!is_multicast_ether_addr(mac))
-+		return FM10K_ERR_PARAM;
-+
-+	return fm10k_update_xc_addr_pf(hw, glort, mac, vid, add, 0);
-+}
-+
-+/**
-+ *  fm10k_update_xcast_mode_pf - Request update of multicast mode
-+ *  @hw: pointer to hardware structure
-+ *  @glort: base resource tag for this request
-+ *  @mode: integer value indicating mode being requested
-+ *
-+ *  This function will attempt to request a higher mode for the port
-+ *  so that it can enable either multicast, multicast promiscuous, or
-+ *  promiscuous mode of operation.
-+ **/
-+static s32 fm10k_update_xcast_mode_pf(struct fm10k_hw *hw, u16 glort, u8 mode)
-+{
-+	struct fm10k_mbx_info *mbx = &hw->mbx;
-+	u32 msg[3], xcast_mode;
-+
-+	if (mode > FM10K_XCAST_MODE_NONE)
-+		return FM10K_ERR_PARAM;
-+	/* if glort is not valid return error */
-+	if (!fm10k_glort_valid_pf(hw, glort))
-+		return FM10K_ERR_PARAM;
-+
-+	/* write xcast mode as a single u32 value,
-+	 * lower 16 bits: glort
-+	 * upper 16 bits: mode
-+	 */
-+	xcast_mode = ((u32)mode << 16) | glort;
-+
-+	/* generate message requesting to change xcast mode */
-+	fm10k_tlv_msg_init(msg, FM10K_PF_MSG_ID_XCAST_MODES);
-+	fm10k_tlv_attr_put_u32(msg, FM10K_PF_ATTR_ID_XCAST_MODE, xcast_mode);
-+
-+	/* load onto outgoing mailbox */
-+	return mbx->ops.enqueue_tx(hw, mbx, msg);
-+}
-+
-+/**
-+ *  fm10k_update_int_moderator_pf - Update interrupt moderator linked list
-+ *  @hw: pointer to hardware structure
-+ *
-+ *  This function walks through the MSI-X vector table to determine the
-+ *  number of active interrupts and based on that information updates the
-+ *  interrupt moderator linked list.
-+ **/
-+static void fm10k_update_int_moderator_pf(struct fm10k_hw *hw)
-+{
-+	u32 i;
-+
-+	/* Disable interrupt moderator */
-+	fm10k_write_reg(hw, FM10K_INT_CTRL, 0);
-+
-+	/* loop through PF from last to first looking enabled vectors */
-+	for (i = FM10K_ITR_REG_COUNT_PF - 1; i; i--) {
-+		if (!fm10k_read_reg(hw, FM10K_MSIX_VECTOR_MASK(i)))
-+			break;
++	/* update netdev with DMA restrictions */
++	if (dma_get_mask(&pdev->dev) > DMA_BIT_MASK(32)) {
++		netdev->features |= NETIF_F_HIGHDMA;
++		netdev->vlan_features |= NETIF_F_HIGHDMA;
 +	}
 +
-+	/* always reset VFITR2[0] to point to last enabled PF vector*/
-+	fm10k_write_reg(hw, FM10K_ITR2(FM10K_ITR_REG_COUNT_PF), i);
-+
-+	/* reset ITR2[0] to point to last enabled PF vector */
-+	fm10k_write_reg(hw, FM10K_ITR2(0), i);
-+
-+	/* Enable interrupt moderator */
-+	fm10k_write_reg(hw, FM10K_INT_CTRL, FM10K_INT_CTRL_ENABLEMODERATOR);
-+}
-+
-+/**
-+ *  fm10k_update_lport_state_pf - Notify the switch of a change in port state
-+ *  @hw: pointer to the HW structure
-+ *  @glort: base resource tag for this request
-+ *  @count: number of logical ports being updated
-+ *  @enable: boolean value indicating enable or disable
-+ *
-+ *  This function is used to add/remove a logical port from the switch.
-+ **/
-+static s32 fm10k_update_lport_state_pf(struct fm10k_hw *hw, u16 glort,
-+				       u16 count, bool enable)
-+{
-+	struct fm10k_mbx_info *mbx = &hw->mbx;
-+	u32 msg[3], lport_msg;
-+
-+	/* do nothing if we are being asked to create or destroy 0 ports */
-+	if (!count)
-+		return 0;
-+
-+	/* if glort is not valid return error */
-+	if (!fm10k_glort_valid_pf(hw, glort))
-+		return FM10K_ERR_PARAM;
-+
-+	/* construct the lport message from the 2 pieces of data we have */
-+	lport_msg = ((u32)count << 16) | glort;
-+
-+	/* generate lport create/delete message */
-+	fm10k_tlv_msg_init(msg, enable ? FM10K_PF_MSG_ID_LPORT_CREATE :
-+					 FM10K_PF_MSG_ID_LPORT_DELETE);
-+	fm10k_tlv_attr_put_u32(msg, FM10K_PF_ATTR_ID_PORT, lport_msg);
-+
-+	/* load onto outgoing mailbox */
-+	return mbx->ops.enqueue_tx(hw, mbx, msg);
-+}
-+
-+/**
-+ *  fm10k_configure_dglort_map_pf - Configures GLORT entry and queues
-+ *  @hw: pointer to hardware structure
-+ *  @dglort: pointer to dglort configuration structure
-+ *
-+ *  Reads the configuration structure contained in dglort_cfg and uses
-+ *  that information to then populate a DGLORTMAP/DEC entry and the queues
-+ *  to which it has been assigned.
-+ **/
-+static s32 fm10k_configure_dglort_map_pf(struct fm10k_hw *hw,
-+					 struct fm10k_dglort_cfg *dglort)
-+{
-+	u16 glort, queue_count, vsi_count, pc_count;
-+	u16 vsi, queue, pc, q_idx;
-+	u32 txqctl, dglortdec, dglortmap;
-+
-+	/* verify the dglort pointer */
-+	if (!dglort)
-+		return FM10K_ERR_PARAM;
-+
-+	/* verify the dglort values */
-+	if ((dglort->idx > 7) || (dglort->rss_l > 7) || (dglort->pc_l > 3) ||
-+	    (dglort->vsi_l > 6) || (dglort->vsi_b > 64) ||
-+	    (dglort->queue_l > 8) || (dglort->queue_b >= 256))
-+		return FM10K_ERR_PARAM;
-+
-+	/* determine count of VSIs and queues */
-+	queue_count = 1 << (dglort->rss_l + dglort->pc_l);
-+	vsi_count = 1 << (dglort->vsi_l + dglort->queue_l);
-+	glort = dglort->glort;
-+	q_idx = dglort->queue_b;
-+
-+	/* configure SGLORT for queues */
-+	for (vsi = 0; vsi < vsi_count; vsi++, glort++) {
-+		for (queue = 0; queue < queue_count; queue++, q_idx++) {
-+			if (q_idx >= FM10K_MAX_QUEUES)
-+				break;
-+
-+			fm10k_write_reg(hw, FM10K_TX_SGLORT(q_idx), glort);
-+			fm10k_write_reg(hw, FM10K_RX_SGLORT(q_idx), glort);
-+		}
++	/* reset and initialize the hardware so it is in a known state */
++	err = hw->mac.ops.reset_hw(hw) ? : hw->mac.ops.init_hw(hw);
++	if (err) {
++		dev_err(&pdev->dev, "init_hw failed: %d\n", err);
++		return err;
 +	}
 +
-+	/* determine count of PCs and queues */
-+	queue_count = 1 << (dglort->queue_l + dglort->rss_l + dglort->vsi_l);
-+	pc_count = 1 << dglort->pc_l;
++	/* initialize hardware statistics */
++	hw->mac.ops.update_hw_stats(hw, &interface->stats);
 +
-+	/* configure PC for Tx queues */
-+	for (pc = 0; pc < pc_count; pc++) {
-+		q_idx = pc + dglort->queue_b;
-+		for (queue = 0; queue < queue_count; queue++) {
-+			if (q_idx >= FM10K_MAX_QUEUES)
-+				break;
++	/* Start with random Ethernet address */
++	eth_random_addr(hw->mac.addr);
 +
-+			txqctl = fm10k_read_reg(hw, FM10K_TXQCTL(q_idx));
-+			txqctl &= ~FM10K_TXQCTL_PC_MASK;
-+			txqctl |= pc << FM10K_TXQCTL_PC_SHIFT;
-+			fm10k_write_reg(hw, FM10K_TXQCTL(q_idx), txqctl);
-+
-+			q_idx += pc_count;
-+		}
++	/* Initialize MAC address from hardware */
++	err = hw->mac.ops.read_mac_addr(hw);
++	if (err) {
++		dev_warn(&pdev->dev,
++			 "Failed to obtain MAC address defaulting to random\n");
++		/* tag address assignment as random */
++		netdev->addr_assign_type |= NET_ADDR_RANDOM;
 +	}
 +
-+	/* configure DGLORTDEC */
-+	dglortdec = ((u32)(dglort->rss_l) << FM10K_DGLORTDEC_RSSLENGTH_SHIFT) |
-+		    ((u32)(dglort->queue_b) << FM10K_DGLORTDEC_QBASE_SHIFT) |
-+		    ((u32)(dglort->pc_l) << FM10K_DGLORTDEC_PCLENGTH_SHIFT) |
-+		    ((u32)(dglort->vsi_b) << FM10K_DGLORTDEC_VSIBASE_SHIFT) |
-+		    ((u32)(dglort->vsi_l) << FM10K_DGLORTDEC_VSILENGTH_SHIFT) |
-+		    ((u32)(dglort->queue_l));
-+	if (dglort->inner_rss)
-+		dglortdec |=  FM10K_DGLORTDEC_INNERRSS_ENABLE;
++	memcpy(netdev->dev_addr, hw->mac.addr, netdev->addr_len);
++	memcpy(netdev->perm_addr, hw->mac.addr, netdev->addr_len);
 +
-+	/* configure DGLORTMAP */
-+	dglortmap = (dglort->idx == fm10k_dglort_default) ?
-+			FM10K_DGLORTMAP_ANY : FM10K_DGLORTMAP_ZERO;
-+	dglortmap <<= dglort->vsi_l + dglort->queue_l + dglort->shared_l;
-+	dglortmap |= dglort->glort;
++	if (!is_valid_ether_addr(netdev->perm_addr)) {
++		dev_err(&pdev->dev, "Invalid MAC Address\n");
++		return -EIO;
++	}
 +
-+	/* write values to hardware */
-+	fm10k_write_reg(hw, FM10K_DGLORTDEC(dglort->idx), dglortdec);
-+	fm10k_write_reg(hw, FM10K_DGLORTMAP(dglort->idx), dglortmap);
++	/* Only the PF can support VXLAN and NVGRE offloads */
++	if (hw->mac.type != fm10k_mac_pf) {
++		netdev->hw_enc_features = 0;
++		netdev->features &= ~NETIF_F_GSO_UDP_TUNNEL;
++		netdev->hw_features &= ~NETIF_F_GSO_UDP_TUNNEL;
++	}
++
++	/* initialize vxlan_port list */
++	INIT_LIST_HEAD(&interface->vxlan_port);
++
++	/* initialize RSS key */
++	memcpy(interface->rssrk, seed, sizeof(seed));
++
++	/* Start off interface as being down */
++	set_bit(__FM10K_DOWN, &interface->state);
 +
 +	return 0;
 +}
 +
-+/**
-  *  fm10k_update_stats_hw_pf - Updates hardware related statistics of PF
-  *  @hw: pointer to hardware structure
-  *  @stats: pointer to the stats structure to update
-@@ -319,6 +670,22 @@ static void fm10k_rebind_hw_stats_pf(struct fm10k_hw *hw,
- }
- 
- /**
-+ *  fm10k_set_dma_mask_pf - Configures PhyAddrSpace to limit DMA to system
-+ *  @hw: pointer to hardware structure
-+ *  @dma_mask: 64 bit DMA mask required for platform
-+ *
-+ *  This function sets the PHYADDR.PhyAddrSpace bits for the endpoint in order
-+ *  to limit the access to memory beyond what is physically in the system.
-+ **/
-+static void fm10k_set_dma_mask_pf(struct fm10k_hw *hw, u64 dma_mask)
++static void fm10k_slot_warn(struct fm10k_intfc *interface)
 +{
-+	/* we need to write the upper 32 bits of DMA mask to PhyAddrSpace */
-+	u32 phyaddr = (u32)(dma_mask >> 32);
++	struct device *dev = &interface->pdev->dev;
++	struct fm10k_hw *hw = &interface->hw;
 +
-+	fm10k_write_reg(hw, FM10K_PHYADDR, phyaddr);
++	if (hw->mac.ops.is_slot_appropriate(hw))
++		return;
++
++	dev_warn(dev,
++		 "For optimal performance, a %s %s slot is recommended.\n",
++		 (hw->bus_caps.width == fm10k_bus_width_pcie_x1 ? "x1" :
++		  hw->bus_caps.width == fm10k_bus_width_pcie_x4 ? "x4" :
++		  "x8"),
++		 (hw->bus_caps.speed == fm10k_bus_speed_2500 ? "2.5GT/s" :
++		  hw->bus_caps.speed == fm10k_bus_speed_5000 ? "5.0GT/s" :
++		  "8.0GT/s"));
++	dev_warn(dev,
++		 "A slot with more lanes and/or higher speed is suggested.\n");
 +}
 +
-+/**
-  *  fm10k_get_fault_pf - Record a fault in one of the interface units
-  *  @hw: pointer to hardware structure
-  *  @type: pointer to fault type register offset
-@@ -371,6 +738,207 @@ static s32 fm10k_get_fault_pf(struct fm10k_hw *hw, int type,
+ /**
+  * fm10k_probe - Device Initialization Routine
+  * @pdev: PCI device information struct
+@@ -82,6 +227,9 @@ u32 fm10k_read_reg(struct fm10k_hw *hw, int reg)
+ static int fm10k_probe(struct pci_dev *pdev,
+ 		       const struct pci_device_id *ent)
+ {
++	struct net_device *netdev;
++	struct fm10k_intfc *interface;
++	struct fm10k_hw *hw;
+ 	int err;
+ 	u64 dma_mask;
+ 
+@@ -122,8 +270,75 @@ static int fm10k_probe(struct pci_dev *pdev,
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
+ 
++	netdev = fm10k_alloc_netdev();
++	if (!netdev) {
++		err = -ENOMEM;
++		goto err_alloc_netdev;
++	}
++
++	SET_NETDEV_DEV(netdev, &pdev->dev);
++
++	interface = netdev_priv(netdev);
++	pci_set_drvdata(pdev, interface);
++
++	interface->netdev = netdev;
++	interface->pdev = pdev;
++	hw = &interface->hw;
++
++	interface->uc_addr = ioremap(pci_resource_start(pdev, 0),
++				     FM10K_UC_ADDR_SIZE);
++	if (!interface->uc_addr) {
++		err = -EIO;
++		goto err_ioremap;
++	}
++
++	err = fm10k_sw_init(interface, ent);
++	if (err)
++		goto err_sw_init;
++
++	/* final check of hardware state before registering the interface */
++	err = fm10k_hw_ready(interface);
++	if (err)
++		goto err_register;
++
++	err = register_netdev(netdev);
++	if (err)
++		goto err_register;
++
++	/* carrier off reporting is important to ethtool even BEFORE open */
++	netif_carrier_off(netdev);
++
++	/* stop all the transmit queues from transmitting until link is up */
++	netif_tx_stop_all_queues(netdev);
++
++	/* print bus type/speed/width info */
++	dev_info(&pdev->dev, "(PCI Express:%s Width: %s Payload: %s)\n",
++		 (hw->bus.speed == fm10k_bus_speed_8000 ? "8.0GT/s" :
++		  hw->bus.speed == fm10k_bus_speed_5000 ? "5.0GT/s" :
++		  hw->bus.speed == fm10k_bus_speed_2500 ? "2.5GT/s" :
++		  "Unknown"),
++		 (hw->bus.width == fm10k_bus_width_pcie_x8 ? "x8" :
++		  hw->bus.width == fm10k_bus_width_pcie_x4 ? "x4" :
++		  hw->bus.width == fm10k_bus_width_pcie_x1 ? "x1" :
++		  "Unknown"),
++		 (hw->bus.payload == fm10k_bus_payload_128 ? "128B" :
++		  hw->bus.payload == fm10k_bus_payload_256 ? "256B" :
++		  hw->bus.payload == fm10k_bus_payload_512 ? "512B" :
++		  "Unknown"));
++
++	/* print warning for non-optimal configurations */
++	fm10k_slot_warn(interface);
++
  	return 0;
- }
  
-+/**
-+ *  fm10k_request_lport_map_pf - Request LPORT map from the switch API
-+ *  @hw: pointer to hardware structure
-+ *
-+ **/
-+static s32 fm10k_request_lport_map_pf(struct fm10k_hw *hw)
-+{
-+	struct fm10k_mbx_info *mbx = &hw->mbx;
-+	u32 msg[1];
++err_register:
++err_sw_init:
++	iounmap(interface->uc_addr);
++err_ioremap:
++	free_netdev(netdev);
++err_alloc_netdev:
++	pci_release_selected_regions(pdev,
++				     pci_select_bars(pdev, IORESOURCE_MEM));
+ err_pci_reg:
+ err_dma:
+ 	pci_disable_device(pdev);
+@@ -141,6 +356,17 @@ err_dma:
+  **/
+ static void fm10k_remove(struct pci_dev *pdev)
+ {
++	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
++	struct net_device *netdev = interface->netdev;
 +
-+	/* issue request asking for LPORT map */
-+	fm10k_tlv_msg_init(msg, FM10K_PF_MSG_ID_LPORT_MAP);
++	/* free netdev, this may bounce the interrupts due to setup_tc */
++	if (netdev->reg_state == NETREG_REGISTERED)
++		unregister_netdev(netdev);
 +
-+	/* load onto outgoing mailbox */
-+	return mbx->ops.enqueue_tx(hw, mbx, msg);
-+}
++	iounmap(interface->uc_addr);
 +
-+/**
-+ *  fm10k_get_host_state_pf - Returns the state of the switch and mailbox
-+ *  @hw: pointer to hardware structure
-+ *  @switch_ready: pointer to boolean value that will record switch state
-+ *
-+ *  This funciton will check the DMA_CTRL2 register and mailbox in order
-+ *  to determine if the switch is ready for the PF to begin requesting
-+ *  addresses and mapping traffic to the local interface.
-+ **/
-+static s32 fm10k_get_host_state_pf(struct fm10k_hw *hw, bool *switch_ready)
-+{
-+	s32 ret_val = 0;
-+	u32 dma_ctrl2;
++	free_netdev(netdev);
 +
-+	/* verify the switch is ready for interraction */
-+	dma_ctrl2 = fm10k_read_reg(hw, FM10K_DMA_CTRL2);
-+	if (!(dma_ctrl2 & FM10K_DMA_CTRL2_SWITCH_READY))
-+		goto out;
-+
-+	/* retrieve generic host state info */
-+	ret_val = fm10k_get_host_state_generic(hw, switch_ready);
-+	if (ret_val)
-+		goto out;
-+
-+	/* interface cannot receive traffic without logical ports */
-+	if (hw->mac.dglort_map == FM10K_DGLORTMAP_NONE)
-+		ret_val = fm10k_request_lport_map_pf(hw);
-+
-+out:
-+	return ret_val;
-+}
-+
-+/* This structure defines the attibutes to be parsed below */
-+const struct fm10k_tlv_attr fm10k_lport_map_msg_attr[] = {
-+	FM10K_TLV_ATTR_U32(FM10K_PF_ATTR_ID_LPORT_MAP),
-+	FM10K_TLV_ATTR_LAST
-+};
-+
-+/**
-+ *  fm10k_msg_lport_map_pf - Message handler for lport_map message from SM
-+ *  @hw: Pointer to hardware structure
-+ *  @results: pointer array containing parsed data
-+ *  @mbx: Pointer to mailbox information structure
-+ *
-+ *  This handler configures the lport mapping based on the reply from the
-+ *  switch API.
-+ **/
-+s32 fm10k_msg_lport_map_pf(struct fm10k_hw *hw, u32 **results,
-+			   struct fm10k_mbx_info *mbx)
-+{
-+	u16 glort, mask;
-+	u32 dglort_map;
-+	s32 err;
-+
-+	err = fm10k_tlv_attr_get_u32(results[FM10K_PF_ATTR_ID_LPORT_MAP],
-+				     &dglort_map);
-+	if (err)
-+		return err;
-+
-+	/* extract values out of the header */
-+	glort = FM10K_MSG_HDR_FIELD_GET(dglort_map, LPORT_MAP_GLORT);
-+	mask = FM10K_MSG_HDR_FIELD_GET(dglort_map, LPORT_MAP_MASK);
-+
-+	/* verify mask is set and none of the masked bits in glort are set */
-+	if (!mask || (glort & ~mask))
-+		return FM10K_ERR_PARAM;
-+
-+	/* verify the mask is contiguous, and that it is 1's followed by 0's */
-+	if (((~(mask - 1) & mask) + mask) & FM10K_DGLORTMAP_NONE)
-+		return FM10K_ERR_PARAM;
-+
-+	/* record the glort, mask, and port count */
-+	hw->mac.dglort_map = dglort_map;
-+
-+	return 0;
-+}
-+
-+const struct fm10k_tlv_attr fm10k_update_pvid_msg_attr[] = {
-+	FM10K_TLV_ATTR_U32(FM10K_PF_ATTR_ID_UPDATE_PVID),
-+	FM10K_TLV_ATTR_LAST
-+};
-+
-+/**
-+ *  fm10k_msg_update_pvid_pf - Message handler for port VLAN message from SM
-+ *  @hw: Pointer to hardware structure
-+ *  @results: pointer array containing parsed data
-+ *  @mbx: Pointer to mailbox information structure
-+ *
-+ *  This handler configures the default VLAN for the PF
-+ **/
-+s32 fm10k_msg_update_pvid_pf(struct fm10k_hw *hw, u32 **results,
-+			     struct fm10k_mbx_info *mbx)
-+{
-+	u16 glort, pvid;
-+	u32 pvid_update;
-+	s32 err;
-+
-+	err = fm10k_tlv_attr_get_u32(results[FM10K_PF_ATTR_ID_UPDATE_PVID],
-+				     &pvid_update);
-+	if (err)
-+		return err;
-+
-+	/* extract values from the pvid update */
-+	glort = FM10K_MSG_HDR_FIELD_GET(pvid_update, UPDATE_PVID_GLORT);
-+	pvid = FM10K_MSG_HDR_FIELD_GET(pvid_update, UPDATE_PVID_PVID);
-+
-+	/* if glort is not valid return error */
-+	if (!fm10k_glort_valid_pf(hw, glort))
-+		return FM10K_ERR_PARAM;
-+
-+	/* verify VID is valid */
-+	if (pvid >= FM10K_VLAN_TABLE_VID_MAX)
-+		return FM10K_ERR_PARAM;
-+
-+	/* record the port VLAN ID value */
-+	hw->mac.default_vid = pvid;
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_record_global_table_data - Move global table data to swapi table info
-+ *  @from: pointer to source table data structure
-+ *  @to: pointer to destination table info structure
-+ *
-+ *  This function is will copy table_data to the table_info contained in
-+ *  the hw struct.
-+ **/
-+static void fm10k_record_global_table_data(struct fm10k_global_table_data *from,
-+					   struct fm10k_swapi_table_info *to)
-+{
-+	/* convert from le32 struct to CPU byte ordered values */
-+	to->used = le32_to_cpu(from->used);
-+	to->avail = le32_to_cpu(from->avail);
-+}
-+
-+const struct fm10k_tlv_attr fm10k_err_msg_attr[] = {
-+	FM10K_TLV_ATTR_LE_STRUCT(FM10K_PF_ATTR_ID_ERR,
-+				 sizeof(struct fm10k_swapi_error)),
-+	FM10K_TLV_ATTR_LAST
-+};
-+
-+/**
-+ *  fm10k_msg_err_pf - Message handler for error reply
-+ *  @hw: Pointer to hardware structure
-+ *  @results: pointer array containing parsed data
-+ *  @mbx: Pointer to mailbox information structure
-+ *
-+ *  This handler will capture the data for any error replies to previous
-+ *  messages that the PF has sent.
-+ **/
-+s32 fm10k_msg_err_pf(struct fm10k_hw *hw, u32 **results,
-+		     struct fm10k_mbx_info *mbx)
-+{
-+	struct fm10k_swapi_error err_msg;
-+	s32 err;
-+
-+	/* extract structure from message */
-+	err = fm10k_tlv_attr_get_le_struct(results[FM10K_PF_ATTR_ID_ERR],
-+					   &err_msg, sizeof(err_msg));
-+	if (err)
-+		return err;
-+
-+	/* record table status */
-+	fm10k_record_global_table_data(&err_msg.mac, &hw->swapi.mac);
-+	fm10k_record_global_table_data(&err_msg.nexthop, &hw->swapi.nexthop);
-+	fm10k_record_global_table_data(&err_msg.ffu, &hw->swapi.ffu);
-+
-+	/* record SW API status value */
-+	hw->swapi.status = le32_to_cpu(err_msg.status);
-+
-+	return 0;
-+}
-+
-+static const struct fm10k_msg_data fm10k_msg_data_pf[] = {
-+	FM10K_PF_MSG_ERR_HANDLER(XCAST_MODES, fm10k_msg_err_pf),
-+	FM10K_PF_MSG_ERR_HANDLER(UPDATE_MAC_FWD_RULE, fm10k_msg_err_pf),
-+	FM10K_PF_MSG_LPORT_MAP_HANDLER(fm10k_msg_lport_map_pf),
-+	FM10K_PF_MSG_ERR_HANDLER(LPORT_CREATE, fm10k_msg_err_pf),
-+	FM10K_PF_MSG_ERR_HANDLER(LPORT_DELETE, fm10k_msg_err_pf),
-+	FM10K_PF_MSG_UPDATE_PVID_HANDLER(fm10k_msg_update_pvid_pf),
-+	FM10K_TLV_MSG_ERROR_HANDLER(fm10k_tlv_msg_error),
-+};
-+
- static struct fm10k_mac_ops mac_ops_pf = {
- 	.get_bus_info		= &fm10k_get_bus_info_generic,
- 	.reset_hw		= &fm10k_reset_hw_pf,
-@@ -378,15 +946,30 @@ static struct fm10k_mac_ops mac_ops_pf = {
- 	.start_hw		= &fm10k_start_hw_generic,
- 	.stop_hw		= &fm10k_stop_hw_generic,
- 	.is_slot_appropriate	= &fm10k_is_slot_appropriate_pf,
-+	.update_vlan		= &fm10k_update_vlan_pf,
- 	.read_mac_addr		= &fm10k_read_mac_addr_pf,
-+	.update_uc_addr		= &fm10k_update_uc_addr_pf,
-+	.update_mc_addr		= &fm10k_update_mc_addr_pf,
-+	.update_xcast_mode	= &fm10k_update_xcast_mode_pf,
-+	.update_int_moderator	= &fm10k_update_int_moderator_pf,
-+	.update_lport_state	= &fm10k_update_lport_state_pf,
- 	.update_hw_stats	= &fm10k_update_hw_stats_pf,
- 	.rebind_hw_stats	= &fm10k_rebind_hw_stats_pf,
-+	.configure_dglort_map	= &fm10k_configure_dglort_map_pf,
-+	.set_dma_mask		= &fm10k_set_dma_mask_pf,
- 	.get_fault		= &fm10k_get_fault_pf,
--	.get_host_state		= &fm10k_get_host_state_generic,
-+	.get_host_state		= &fm10k_get_host_state_pf,
- };
+ 	pci_release_selected_regions(pdev,
+ 				     pci_select_bars(pdev, IORESOURCE_MEM));
  
-+static s32 fm10k_get_invariants_pf(struct fm10k_hw *hw)
-+{
-+	fm10k_get_invariants_generic(hw);
-+
-+	return fm10k_sm_mbx_init(hw, &hw->mbx, fm10k_msg_data_pf);
-+}
-+
- struct fm10k_info fm10k_pf_info = {
- 	.mac		= fm10k_mac_pf,
--	.get_invariants	= &fm10k_get_invariants_generic,
-+	.get_invariants	= &fm10k_get_invariants_pf,
- 	.mac_ops	= &mac_ops_pf,
- };
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
-index 054392f..108a7a7 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
-@@ -24,5 +24,103 @@
- #include "fm10k_type.h"
- #include "fm10k_common.h"
- 
-+bool fm10k_glort_valid_pf(struct fm10k_hw *hw, u16 glort);
-+
-+enum fm10k_pf_tlv_msg_id_v1 {
-+	FM10K_PF_MSG_ID_TEST			= 0x000, /* msg ID reserved */
-+	FM10K_PF_MSG_ID_XCAST_MODES		= 0x001,
-+	FM10K_PF_MSG_ID_UPDATE_MAC_FWD_RULE	= 0x002,
-+	FM10K_PF_MSG_ID_LPORT_MAP		= 0x100,
-+	FM10K_PF_MSG_ID_LPORT_CREATE		= 0x200,
-+	FM10K_PF_MSG_ID_LPORT_DELETE		= 0x201,
-+	FM10K_PF_MSG_ID_CONFIG			= 0x300,
-+	FM10K_PF_MSG_ID_UPDATE_PVID		= 0x400,
-+	FM10K_PF_MSG_ID_CREATE_FLOW_TABLE	= 0x501,
-+	FM10K_PF_MSG_ID_DELETE_FLOW_TABLE	= 0x502,
-+	FM10K_PF_MSG_ID_UPDATE_FLOW		= 0x503,
-+	FM10K_PF_MSG_ID_DELETE_FLOW		= 0x504,
-+	FM10K_PF_MSG_ID_SET_FLOW_STATE		= 0x505,
-+	FM10K_PF_MSG_ID_GET_1588_INFO		= 0x506,
-+	FM10K_PF_MSG_ID_1588_TIMESTAMP		= 0x701,
-+};
-+
-+enum fm10k_pf_tlv_attr_id_v1 {
-+	FM10K_PF_ATTR_ID_ERR			= 0x00,
-+	FM10K_PF_ATTR_ID_LPORT_MAP		= 0x01,
-+	FM10K_PF_ATTR_ID_XCAST_MODE		= 0x02,
-+	FM10K_PF_ATTR_ID_MAC_UPDATE		= 0x03,
-+	FM10K_PF_ATTR_ID_VLAN_UPDATE		= 0x04,
-+	FM10K_PF_ATTR_ID_CONFIG			= 0x05,
-+	FM10K_PF_ATTR_ID_CREATE_FLOW_TABLE	= 0x06,
-+	FM10K_PF_ATTR_ID_DELETE_FLOW_TABLE	= 0x07,
-+	FM10K_PF_ATTR_ID_UPDATE_FLOW		= 0x08,
-+	FM10K_PF_ATTR_ID_FLOW_STATE		= 0x09,
-+	FM10K_PF_ATTR_ID_FLOW_HANDLE		= 0x0A,
-+	FM10K_PF_ATTR_ID_DELETE_FLOW		= 0x0B,
-+	FM10K_PF_ATTR_ID_PORT			= 0x0C,
-+	FM10K_PF_ATTR_ID_UPDATE_PVID		= 0x0D,
-+	FM10K_PF_ATTR_ID_1588_TIMESTAMP		= 0x10,
-+};
-+
-+#define FM10K_MSG_LPORT_MAP_GLORT_SHIFT	0
-+#define FM10K_MSG_LPORT_MAP_GLORT_SIZE	16
-+#define FM10K_MSG_LPORT_MAP_MASK_SHIFT	16
-+#define FM10K_MSG_LPORT_MAP_MASK_SIZE	16
-+
-+#define FM10K_MSG_UPDATE_PVID_GLORT_SHIFT	0
-+#define FM10K_MSG_UPDATE_PVID_GLORT_SIZE	16
-+#define FM10K_MSG_UPDATE_PVID_PVID_SHIFT	16
-+#define FM10K_MSG_UPDATE_PVID_PVID_SIZE		16
-+
-+struct fm10k_mac_update {
-+	__le32	mac_lower;
-+	__le16	mac_upper;
-+	__le16	vlan;
-+	__le16	glort;
-+	u8	flags;
-+	u8	action;
-+};
-+
-+struct fm10k_global_table_data {
-+	__le32	used;
-+	__le32	avail;
-+};
-+
-+struct fm10k_swapi_error {
-+	__le32				status;
-+	struct fm10k_global_table_data	mac;
-+	struct fm10k_global_table_data	nexthop;
-+	struct fm10k_global_table_data	ffu;
-+};
-+
-+struct fm10k_swapi_1588_timestamp {
-+	__le64 egress;
-+	__le64 ingress;
-+	__le16 dglort;
-+	__le16 sglort;
-+};
-+
-+s32 fm10k_msg_lport_map_pf(struct fm10k_hw *, u32 **, struct fm10k_mbx_info *);
-+extern const struct fm10k_tlv_attr fm10k_lport_map_msg_attr[];
-+#define FM10K_PF_MSG_LPORT_MAP_HANDLER(func) \
-+	FM10K_MSG_HANDLER(FM10K_PF_MSG_ID_LPORT_MAP, \
-+			  fm10k_lport_map_msg_attr, func)
-+s32 fm10k_msg_update_pvid_pf(struct fm10k_hw *, u32 **,
-+			     struct fm10k_mbx_info *);
-+extern const struct fm10k_tlv_attr fm10k_update_pvid_msg_attr[];
-+#define FM10K_PF_MSG_UPDATE_PVID_HANDLER(func) \
-+	FM10K_MSG_HANDLER(FM10K_PF_MSG_ID_UPDATE_PVID, \
-+			  fm10k_update_pvid_msg_attr, func)
-+
-+s32 fm10k_msg_err_pf(struct fm10k_hw *, u32 **, struct fm10k_mbx_info *);
-+extern const struct fm10k_tlv_attr fm10k_err_msg_attr[];
-+#define FM10K_PF_MSG_ERR_HANDLER(msg, func) \
-+	FM10K_MSG_HANDLER(FM10K_PF_MSG_ID_##msg, fm10k_err_msg_attr, func)
-+
-+extern const struct fm10k_tlv_attr fm10k_1588_timestamp_msg_attr[];
-+#define FM10K_PF_MSG_1588_TIMESTAMP_HANDLER(func) \
-+	FM10K_MSG_HANDLER(FM10K_PF_MSG_ID_1588_TIMESTAMP, \
-+			  fm10k_1588_timestamp_msg_attr, func)
-+
- extern struct fm10k_info fm10k_pf_info;
- #endif /* _FM10K_PF_H */
