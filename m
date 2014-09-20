@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH v2 02/29] fm10k: Add register defines and basic
- structures
-Date: Sat, 20 Sep 2014 19:46:20 -0400
-Message-ID: <20140920234611.2977.5092.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [net-next PATCH v2 03/29] fm10k: Add support for TLV message
+ parsing and generation
+Date: Sat, 20 Sep 2014 19:46:30 -0400
+Message-ID: <20140920234625.2977.93874.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140920234342.2977.21667.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,705 +12,730 @@ Cc: nhorman@redhat.com, netdev@vger.kernel.org,
 	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:64433 "EHLO mga14.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:50598 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751108AbaITXzE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Sep 2014 19:55:04 -0400
+	id S1751108AbaITXzO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Sep 2014 19:55:14 -0400
 In-Reply-To: <20140920234342.2977.21667.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the basic defines and structures needed by the PF for
-operation.
+This patch adds support for the TVL message formats supported by the PF,
+VF, and Switch Management entity.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_main.c |    3 
- drivers/net/ethernet/intel/fm10k/fm10k_type.h |  659 +++++++++++++++++++++++++
- 2 files changed, 661 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/fm10k/Makefile    |    3 
+ drivers/net/ethernet/intel/fm10k/fm10k_tlv.c |  543 ++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_tlv.h |  141 +++++++
+ 3 files changed, 686 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index a7822b8..6ca0614 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -40,7 +40,8 @@ MODULE_DESCRIPTION("Intel(R) Ethernet Switch Host Interface Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
+diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
+index ddc0eb7..1052808 100644
+--- a/drivers/net/ethernet/intel/fm10k/Makefile
++++ b/drivers/net/ethernet/intel/fm10k/Makefile
+@@ -27,4 +27,5 @@
  
--/** fm10k_init_module - Driver Registration Routine
+ obj-$(CONFIG_FM10K) += fm10k.o
+ 
+-fm10k-objs := fm10k_main.o fm10k_pci.o
++fm10k-objs := fm10k_main.o fm10k_pci.o \
++	      fm10k_tlv.o
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
+new file mode 100644
+index 0000000..f1fc709
+--- /dev/null
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
+@@ -0,0 +1,543 @@
++/* Intel Ethernet Switch Host Interface Driver
++ * Copyright(c) 2013 - 2014 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ */
++
++#include "fm10k_tlv.h"
++
 +/**
-+ * fm10k_init_module - Driver Registration Routine
-  *
-  * fm10k_init_module is the first routine called when the driver is
-  * loaded.  All it does is register with the PCI subsystem.
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-index 2c06f02..1606805 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-@@ -21,7 +21,666 @@
- #ifndef _FM10K_TYPE_H_
- #define _FM10K_TYPE_H_
- 
-+/* forward declaration */
-+struct fm10k_hw;
++ *  fm10k_tlv_msg_init - Initialize message block for TLV data storage
++ *  @msg: Pointer to message block
++ *  @msg_id: Message ID indicating message type
++ *
++ *  This function return success if provided with a valid message pointer
++ **/
++s32 fm10k_tlv_msg_init(u32 *msg, u16 msg_id)
++{
++	/* verify pointer is not NULL */
++	if (!msg)
++		return FM10K_ERR_PARAM;
 +
-+#include <linux/types.h>
-+#include <asm/byteorder.h>
-+#include <linux/etherdevice.h>
++	*msg = (FM10K_TLV_FLAGS_MSG << FM10K_TLV_FLAGS_SHIFT) | msg_id;
 +
- #define FM10K_DEV_ID_PF			0x15A4
- #define FM10K_DEV_ID_VF			0x15A5
- 
-+#define FM10K_MAX_QUEUES		256
-+#define FM10K_MAX_QUEUES_PF		128
-+#define FM10K_MAX_QUEUES_POOL		16
++	return 0;
++}
 +
-+#define FM10K_48_BIT_MASK		0x0000FFFFFFFFFFFFull
-+#define FM10K_STAT_VALID		0x80000000
++/**
++ *  fm10k_tlv_attr_put_null_string - Place null terminated string on message
++ *  @msg: Pointer to message block
++ *  @attr_id: Attribute ID
++ *  @string: Pointer to string to be stored in attribute
++ *
++ *  This function will reorder a string to be CPU endian and store it in
++ *  the attribute buffer.  It will return success if provided with a valid
++ *  pointers.
++ **/
++s32 fm10k_tlv_attr_put_null_string(u32 *msg, u16 attr_id,
++				   const unsigned char *string)
++{
++	u32 attr_data = 0, len = 0;
++	u32 *attr;
 +
-+/* PCI Bus Info */
-+#define FM10K_PCIE_LINK_CAP		0x7C
-+#define FM10K_PCIE_LINK_STATUS		0x82
-+#define FM10K_PCIE_LINK_WIDTH		0x3F0
-+#define FM10K_PCIE_LINK_WIDTH_1		0x10
-+#define FM10K_PCIE_LINK_WIDTH_2		0x20
-+#define FM10K_PCIE_LINK_WIDTH_4		0x40
-+#define FM10K_PCIE_LINK_WIDTH_8		0x80
-+#define FM10K_PCIE_LINK_SPEED		0xF
-+#define FM10K_PCIE_LINK_SPEED_2500	0x1
-+#define FM10K_PCIE_LINK_SPEED_5000	0x2
-+#define FM10K_PCIE_LINK_SPEED_8000	0x3
++	/* verify pointers are not NULL */
++	if (!string || !msg)
++		return FM10K_ERR_PARAM;
 +
-+/* PCIe payload size */
-+#define FM10K_PCIE_DEV_CAP			0x74
-+#define FM10K_PCIE_DEV_CAP_PAYLOAD		0x07
-+#define FM10K_PCIE_DEV_CAP_PAYLOAD_128		0x00
-+#define FM10K_PCIE_DEV_CAP_PAYLOAD_256		0x01
-+#define FM10K_PCIE_DEV_CAP_PAYLOAD_512		0x02
-+#define FM10K_PCIE_DEV_CTRL			0x78
-+#define FM10K_PCIE_DEV_CTRL_PAYLOAD		0xE0
-+#define FM10K_PCIE_DEV_CTRL_PAYLOAD_128		0x00
-+#define FM10K_PCIE_DEV_CTRL_PAYLOAD_256		0x20
-+#define FM10K_PCIE_DEV_CTRL_PAYLOAD_512		0x40
++	attr = &msg[FM10K_TLV_DWORD_LEN(*msg)];
 +
-+/* PCIe MSI-X Capability info */
-+#define FM10K_PCI_MSIX_MSG_CTRL			0xB2
-+#define FM10K_PCI_MSIX_MSG_CTRL_TBL_SZ_MASK	0x7FF
-+#define FM10K_MAX_MSIX_VECTORS			256
-+#define FM10K_MAX_VECTORS_PF			256
-+#define FM10K_MAX_VECTORS_POOL			32
++	/* copy string into local variable and then write to msg */
++	do {
++		/* write data to message */
++		if (len && !(len % 4)) {
++			attr[len / 4] = attr_data;
++			attr_data = 0;
++		}
 +
-+/* PCIe SR-IOV Info */
-+#define FM10K_PCIE_SRIOV_CTRL			0x190
-+#define FM10K_PCIE_SRIOV_CTRL_VFARI		0x10
++		/* record character to offset location */
++		attr_data |= (u32)(*string) << (8 * (len % 4));
++		len++;
 +
-+#define FM10K_ERR_PARAM				-2
-+#define FM10K_ERR_REQUESTS_PENDING		-4
-+#define FM10K_ERR_RESET_REQUESTED		-5
-+#define FM10K_ERR_DMA_PENDING			-6
-+#define FM10K_ERR_RESET_FAILED			-7
-+#define FM10K_ERR_INVALID_MAC_ADDR		-8
-+#define FM10K_ERR_INVALID_VALUE			-9
-+#define FM10K_NOT_IMPLEMENTED			0x7FFFFFFF
++		/* test for NULL and then increment */
++	} while (*(string++));
 +
-+/* Start of PF registers */
-+#define FM10K_CTRL		0x0000
-+#define FM10K_CTRL_BAR4_ALLOWED			0x00000004
++	/* write last piece of data to message */
++	attr[(len + 3) / 4] = attr_data;
 +
-+#define FM10K_CTRL_EXT		0x0001
-+#define FM10K_GCR		0x0003
-+#define FM10K_GCR_EXT		0x0005
++	/* record attribute header, update message length */
++	len <<= FM10K_TLV_LEN_SHIFT;
++	attr[0] = len | attr_id;
 +
-+/* Interrupt control registers */
-+#define FM10K_EICR		0x0006
-+#define FM10K_EICR_FAULT_MASK			0x0000003F
-+#define FM10K_EICR_MAILBOX			0x00000040
-+#define FM10K_EICR_SWITCHREADY			0x00000080
-+#define FM10K_EICR_SWITCHNOTREADY		0x00000100
-+#define FM10K_EICR_SWITCHINTERRUPT		0x00000200
-+#define FM10K_EICR_VFLR				0x00000800
-+#define FM10K_EICR_MAXHOLDTIME			0x00001000
-+#define FM10K_EIMR		0x0007
-+#define FM10K_EIMR_PCA_FAULT			0x00000001
-+#define FM10K_EIMR_THI_FAULT			0x00000010
-+#define FM10K_EIMR_FUM_FAULT			0x00000400
-+#define FM10K_EIMR_MAILBOX			0x00001000
-+#define FM10K_EIMR_SWITCHREADY			0x00004000
-+#define FM10K_EIMR_SWITCHNOTREADY		0x00010000
-+#define FM10K_EIMR_SWITCHINTERRUPT		0x00040000
-+#define FM10K_EIMR_SRAMERROR			0x00100000
-+#define FM10K_EIMR_VFLR				0x00400000
-+#define FM10K_EIMR_MAXHOLDTIME			0x01000000
-+#define FM10K_EIMR_ALL				0x55555555
-+#define FM10K_EIMR_DISABLE(NAME)		((FM10K_EIMR_ ## NAME) << 0)
-+#define FM10K_EIMR_ENABLE(NAME)			((FM10K_EIMR_ ## NAME) << 1)
-+#define FM10K_FAULT_ADDR_LO		0x0
-+#define FM10K_FAULT_ADDR_HI		0x1
-+#define FM10K_FAULT_SPECINFO		0x2
-+#define FM10K_FAULT_FUNC		0x3
-+#define FM10K_FAULT_SIZE		0x4
-+#define FM10K_FAULT_FUNC_VALID			0x00008000
-+#define FM10K_FAULT_FUNC_PF			0x00004000
-+#define FM10K_FAULT_FUNC_VF_MASK		0x00003F00
-+#define FM10K_FAULT_FUNC_VF_SHIFT		8
-+#define FM10K_FAULT_FUNC_TYPE_MASK		0x000000FF
++	/* add header length to length */
++	len += FM10K_TLV_HDR_LEN << FM10K_TLV_LEN_SHIFT;
++	*msg += FM10K_TLV_LEN_ALIGN(len);
 +
-+#define FM10K_PCA_FAULT		0x0008
-+#define FM10K_THI_FAULT		0x0010
-+#define FM10K_FUM_FAULT		0x001C
++	return 0;
++}
 +
-+/* Rx queue timeout indicator */
-+#define FM10K_MAXHOLDQ(_n)	((_n) + 0x0020)
++/**
++ *  fm10k_tlv_attr_get_null_string - Get null terminated string from attribute
++ *  @attr: Pointer to attribute
++ *  @string: Pointer to location of destination string
++ *
++ *  This function pulls the string back out of the attribute and will place
++ *  it in the array pointed by by string.  It will return success if provided
++ *  with a valid pointers.
++ **/
++s32 fm10k_tlv_attr_get_null_string(u32 *attr, unsigned char *string)
++{
++	u32 len;
 +
-+/* Switch Manager info */
-+#define FM10K_SM_AREA(_n)	((_n) + 0x0028)
++	/* verify pointers are not NULL */
++	if (!string || !attr)
++		return FM10K_ERR_PARAM;
 +
-+/* GLORT mapping registers */
-+#define FM10K_DGLORTMAP(_n)	((_n) + 0x0030)
-+#define FM10K_DGLORT_COUNT			8
-+#define FM10K_DGLORTMAP_MASK_SHIFT		16
-+#define FM10K_DGLORTMAP_ANY			0x00000000
-+#define FM10K_DGLORTMAP_NONE			0x0000FFFF
-+#define FM10K_DGLORTMAP_ZERO			0xFFFF0000
-+#define FM10K_DGLORTDEC(_n)	((_n) + 0x0038)
-+#define FM10K_DGLORTDEC_VSILENGTH_SHIFT		4
-+#define FM10K_DGLORTDEC_VSIBASE_SHIFT		7
-+#define FM10K_DGLORTDEC_PCLENGTH_SHIFT		14
-+#define FM10K_DGLORTDEC_QBASE_SHIFT		16
-+#define FM10K_DGLORTDEC_RSSLENGTH_SHIFT		24
-+#define FM10K_DGLORTDEC_INNERRSS_ENABLE		0x08000000
-+#define FM10K_TUNNEL_CFG	0x0040
-+#define FM10K_TUNNEL_CFG_NVGRE_SHIFT		16
-+#define FM10K_SWPRI_MAP(_n)	((_n) + 0x0050)
-+#define FM10K_SWPRI_MAX		16
-+#define FM10K_RSSRK(_n, _m)	(((_n) * 0x10) + (_m) + 0x0800)
-+#define FM10K_RSSRK_SIZE	10
-+#define FM10K_RSSRK_ENTRIES_PER_REG		4
-+#define FM10K_RETA(_n, _m)	(((_n) * 0x20) + (_m) + 0x1000)
-+#define FM10K_RETA_SIZE		32
-+#define FM10K_RETA_ENTRIES_PER_REG		4
-+#define FM10K_MAX_RSS_INDICES	128
++	len = *attr >> FM10K_TLV_LEN_SHIFT;
++	attr++;
 +
-+/* Rate limiting registers */
-+#define FM10K_TC_CREDIT(_n)	((_n) + 0x2000)
-+#define FM10K_TC_CREDIT_CREDIT_MASK		0x001FFFFF
-+#define FM10K_TC_MAXCREDIT(_n)	((_n) + 0x2040)
-+#define FM10K_TC_MAXCREDIT_64K			0x00010000
-+#define FM10K_TC_RATE(_n)	((_n) + 0x2080)
-+#define FM10K_TC_RATE_QUANTA_MASK		0x0000FFFF
-+#define FM10K_TC_RATE_INTERVAL_4US_GEN1		0x00020000
-+#define FM10K_TC_RATE_INTERVAL_4US_GEN2		0x00040000
-+#define FM10K_TC_RATE_INTERVAL_4US_GEN3		0x00080000
++	while (len--)
++		string[len] = (u8)(attr[len / 4] >> (8 * (len % 4)));
 +
-+/* DMA control registers */
-+#define FM10K_DMA_CTRL		0x20C3
-+#define FM10K_DMA_CTRL_TX_ENABLE		0x00000001
-+#define FM10K_DMA_CTRL_TX_ACTIVE		0x00000008
-+#define FM10K_DMA_CTRL_RX_ENABLE		0x00000010
-+#define FM10K_DMA_CTRL_RX_ACTIVE		0x00000080
-+#define FM10K_DMA_CTRL_RX_DESC_SIZE		0x00000100
-+#define FM10K_DMA_CTRL_MINMSS_64		0x00008000
-+#define FM10K_DMA_CTRL_MAX_HOLD_1US_GEN3	0x04800000
-+#define FM10K_DMA_CTRL_MAX_HOLD_1US_GEN2	0x04000000
-+#define FM10K_DMA_CTRL_MAX_HOLD_1US_GEN1	0x03800000
-+#define FM10K_DMA_CTRL_DATAPATH_RESET		0x20000000
-+#define FM10K_DMA_CTRL_32_DESC			0x00000000
++	return 0;
++}
 +
-+#define FM10K_DMA_CTRL2		0x20C4
-+#define FM10K_DMA_CTRL2_SWITCH_READY		0x00002000
++/**
++ *  fm10k_tlv_attr_put_mac_vlan - Store MAC/VLAN attribute in message
++ *  @msg: Pointer to message block
++ *  @attr_id: Attribute ID
++ *  @mac_addr: MAC address to be stored
++ *
++ *  This function will reorder a MAC address to be CPU endian and store it
++ *  in the attribute buffer.  It will return success if provided with a
++ *  valid pointers.
++ **/
++s32 fm10k_tlv_attr_put_mac_vlan(u32 *msg, u16 attr_id,
++				const u8 *mac_addr, u16 vlan)
++{
++	u32 len = ETH_ALEN << FM10K_TLV_LEN_SHIFT;
++	u32 *attr;
 +
-+/* TSO flags configuration
-+ * First packet contains all flags except for fin and psh
-+ * Middle packet contains only urg and ack
-+ * Last packet contains urg, ack, fin, and psh
++	/* verify pointers are not NULL */
++	if (!msg || !mac_addr)
++		return FM10K_ERR_PARAM;
++
++	attr = &msg[FM10K_TLV_DWORD_LEN(*msg)];
++
++	/* record attribute header, update message length */
++	attr[0] = len | attr_id;
++
++	/* copy value into local variable and then write to msg */
++	attr[1] = le32_to_cpu(*(const __le32 *)&mac_addr[0]);
++	attr[2] = le16_to_cpu(*(const __le16 *)&mac_addr[4]);
++	attr[2] |= (u32)vlan << 16;
++
++	/* add header length to length */
++	len += FM10K_TLV_HDR_LEN << FM10K_TLV_LEN_SHIFT;
++	*msg += FM10K_TLV_LEN_ALIGN(len);
++
++	return 0;
++}
++
++/**
++ *  fm10k_tlv_attr_get_mac_vlan - Get MAC/VLAN stored in attribute
++ *  @attr: Pointer to attribute
++ *  @attr_id: Attribute ID
++ *  @mac_addr: location of buffer to store MAC address
++ *
++ *  This function pulls the MAC address back out of the attribute and will
++ *  place it in the array pointed by by mac_addr.  It will return success
++ *  if provided with a valid pointers.
++ **/
++s32 fm10k_tlv_attr_get_mac_vlan(u32 *attr, u8 *mac_addr, u16 *vlan)
++{
++	/* verify pointers are not NULL */
++	if (!mac_addr || !attr)
++		return FM10K_ERR_PARAM;
++
++	*(__le32 *)&mac_addr[0] = cpu_to_le32(attr[1]);
++	*(__le16 *)&mac_addr[4] = cpu_to_le16((u16)(attr[2]));
++	*vlan = (u16)(attr[2] >> 16);
++
++	return 0;
++}
++
++/**
++ *  fm10k_tlv_attr_put_bool - Add header indicating value "true"
++ *  @msg: Pointer to message block
++ *  @attr_id: Attribute ID
++ *
++ *  This function will simply add an attribute header, the fact
++ *  that the header is here means the attribute value is true, else
++ *  it is false.  The function will return success if provided with a
++ *  valid pointers.
++ **/
++s32 fm10k_tlv_attr_put_bool(u32 *msg, u16 attr_id)
++{
++	/* verify pointers are not NULL */
++	if (!msg)
++		return FM10K_ERR_PARAM;
++
++	/* record attribute header */
++	msg[FM10K_TLV_DWORD_LEN(*msg)] = attr_id;
++
++	/* add header length to length */
++	*msg += FM10K_TLV_HDR_LEN << FM10K_TLV_LEN_SHIFT;
++
++	return 0;
++}
++
++/**
++ *  fm10k_tlv_attr_put_value - Store integer value attribute in message
++ *  @msg: Pointer to message block
++ *  @attr_id: Attribute ID
++ *  @value: Value to be written
++ *  @len: Size of value
++ *
++ *  This function will place an integer value of up to 8 bytes in size
++ *  in a message attribute.  The function will return success provided
++ *  that msg is a valid pointer, and len is 1, 2, 4, or 8.
++ **/
++s32 fm10k_tlv_attr_put_value(u32 *msg, u16 attr_id, s64 value, u32 len)
++{
++	u32 *attr;
++
++	/* verify non-null msg and len is 1, 2, 4, or 8 */
++	if (!msg || !len || len > 8 || (len & (len - 1)))
++		return FM10K_ERR_PARAM;
++
++	attr = &msg[FM10K_TLV_DWORD_LEN(*msg)];
++
++	if (len < 4) {
++		attr[1] = (u32)value & ((0x1ul << (8 * len)) - 1);
++	} else {
++		attr[1] = (u32)value;
++		if (len > 4)
++			attr[2] = (u32)(value >> 32);
++	}
++
++	/* record attribute header, update message length */
++	len <<= FM10K_TLV_LEN_SHIFT;
++	attr[0] = len | attr_id;
++
++	/* add header length to length */
++	len += FM10K_TLV_HDR_LEN << FM10K_TLV_LEN_SHIFT;
++	*msg += FM10K_TLV_LEN_ALIGN(len);
++
++	return 0;
++}
++
++/**
++ *  fm10k_tlv_attr_get_value - Get integer value stored in attribute
++ *  @attr: Pointer to attribute
++ *  @value: Pointer to destination buffer
++ *  @len: Size of value
++ *
++ *  This function will place an integer value of up to 8 bytes in size
++ *  in the offset pointed to by value.  The function will return success
++ *  provided that pointers are valid and the len value matches the
++ *  attribute length.
++ **/
++s32 fm10k_tlv_attr_get_value(u32 *attr, void *value, u32 len)
++{
++	/* verify pointers are not NULL */
++	if (!attr || !value)
++		return FM10K_ERR_PARAM;
++
++	if ((*attr >> FM10K_TLV_LEN_SHIFT) != len)
++		return FM10K_ERR_PARAM;
++
++	if (len == 8)
++		*(u64 *)value = ((u64)attr[2] << 32) | attr[1];
++	else if (len == 4)
++		*(u32 *)value = attr[1];
++	else if (len == 2)
++		*(u16 *)value = (u16)attr[1];
++	else
++		*(u8 *)value = (u8)attr[1];
++
++	return 0;
++}
++
++/**
++ *  fm10k_tlv_attr_put_le_struct - Store little endian structure in message
++ *  @msg: Pointer to message block
++ *  @attr_id: Attribute ID
++ *  @le_struct: Pointer to structure to be written
++ *  @len: Size of le_struct
++ *
++ *  This function will place a little endian structure value in a message
++ *  attribute.  The function will return success provided that all pointers
++ *  are valid and length is a non-zero multiple of 4.
++ **/
++s32 fm10k_tlv_attr_put_le_struct(u32 *msg, u16 attr_id,
++				 const void *le_struct, u32 len)
++{
++	const __le32 *le32_ptr = (const __le32 *)le_struct;
++	u32 *attr;
++	u32 i;
++
++	/* verify non-null msg and len is in 32 bit words */
++	if (!msg || !len || (len % 4))
++		return FM10K_ERR_PARAM;
++
++	attr = &msg[FM10K_TLV_DWORD_LEN(*msg)];
++
++	/* copy le32 structure into host byte order at 32b boundaries */
++	for (i = 0; i < (len / 4); i++)
++		attr[i + 1] = le32_to_cpu(le32_ptr[i]);
++
++	/* record attribute header, update message length */
++	len <<= FM10K_TLV_LEN_SHIFT;
++	attr[0] = len | attr_id;
++
++	/* add header length to length */
++	len += FM10K_TLV_HDR_LEN << FM10K_TLV_LEN_SHIFT;
++	*msg += FM10K_TLV_LEN_ALIGN(len);
++
++	return 0;
++}
++
++/**
++ *  fm10k_tlv_attr_get_le_struct - Get little endian struct form attribute
++ *  @attr: Pointer to attribute
++ *  @le_struct: Pointer to structure to be written
++ *  @len: Size of structure
++ *
++ *  This function will place a little endian structure in the buffer
++ *  pointed to by le_struct.  The function will return success
++ *  provided that pointers are valid and the len value matches the
++ *  attribute length.
++ **/
++s32 fm10k_tlv_attr_get_le_struct(u32 *attr, void *le_struct, u32 len)
++{
++	__le32 *le32_ptr = (__le32 *)le_struct;
++	u32 i;
++
++	/* verify pointers are not NULL */
++	if (!le_struct || !attr)
++		return FM10K_ERR_PARAM;
++
++	if ((*attr >> FM10K_TLV_LEN_SHIFT) != len)
++		return FM10K_ERR_PARAM;
++
++	attr++;
++
++	for (i = 0; len; i++, len -= 4)
++		le32_ptr[i] = cpu_to_le32(attr[i]);
++
++	return 0;
++}
++
++/**
++ *  fm10k_tlv_attr_nest_start - Start a set of nested attributes
++ *  @msg: Pointer to message block
++ *  @attr_id: Attribute ID
++ *
++ *  This function will mark off a new nested region for encapsulating
++ *  a given set of attributes.  The idea is if you wish to place a secondary
++ *  structure within the message this mechanism allows for that.  The
++ *  function will return NULL on failure, and a pointer to the start
++ *  of the nested attributes on success.
++ **/
++u32 *fm10k_tlv_attr_nest_start(u32 *msg, u16 attr_id)
++{
++	u32 *attr;
++
++	/* verify pointer is not NULL */
++	if (!msg)
++		return NULL;
++
++	attr = &msg[FM10K_TLV_DWORD_LEN(*msg)];
++
++	attr[0] = attr_id;
++
++	/* return pointer to nest header */
++	return attr;
++}
++
++/**
++ *  fm10k_tlv_attr_nest_start - Start a set of nested attributes
++ *  @msg: Pointer to message block
++ *
++ *  This function closes off an existing set of nested attributes.  The
++ *  message pointer should be pointing to the parent of the nest.  So in
++ *  the case of a nest within the nest this would be the outer nest pointer.
++ *  This function will return success provided all pointers are valid.
++ **/
++s32 fm10k_tlv_attr_nest_stop(u32 *msg)
++{
++	u32 *attr;
++	u32 len;
++
++	/* verify pointer is not NULL */
++	if (!msg)
++		return FM10K_ERR_PARAM;
++
++	/* locate the nested header and retrieve its length */
++	attr = &msg[FM10K_TLV_DWORD_LEN(*msg)];
++	len = (attr[0] >> FM10K_TLV_LEN_SHIFT) << FM10K_TLV_LEN_SHIFT;
++
++	/* only include nest if data was added to it */
++	if (len) {
++		len += FM10K_TLV_HDR_LEN << FM10K_TLV_LEN_SHIFT;
++		*msg += len;
++	}
++
++	return 0;
++}
++
++/**
++ *  fm10k_tlv_attr_validate - Validate attribute metadata
++ *  @attr: Pointer to attribute
++ *  @tlv_attr: Type and length info for attribute
++ *
++ *  This function does some basic validation of the input TLV.  It
++ *  verifies the length, and in the case of null terminated strings
++ *  it verifies that the last byte is null.  The function will
++ *  return FM10K_ERR_PARAM if any attribute is malformed, otherwise
++ *  it returns 0.
++ **/
++static s32 fm10k_tlv_attr_validate(u32 *attr,
++				   const struct fm10k_tlv_attr *tlv_attr)
++{
++	u32 attr_id = *attr & FM10K_TLV_ID_MASK;
++	u16 len = *attr >> FM10K_TLV_LEN_SHIFT;
++
++	/* verify this is an attribute and not a message */
++	if (*attr & (FM10K_TLV_FLAGS_MSG << FM10K_TLV_FLAGS_SHIFT))
++		return FM10K_ERR_PARAM;
++
++	/* search through the list of attributes to find a matching ID */
++	while (tlv_attr->id < attr_id)
++		tlv_attr++;
++
++	/* if didn't find a match then we should exit */
++	if (tlv_attr->id != attr_id)
++		return FM10K_NOT_IMPLEMENTED;
++
++	/* move to start of attribute data */
++	attr++;
++
++	switch (tlv_attr->type) {
++	case FM10K_TLV_NULL_STRING:
++		if (!len ||
++		    (attr[(len - 1) / 4] & (0xFF << (8 * ((len - 1) % 4)))))
++			return FM10K_ERR_PARAM;
++		if (len > tlv_attr->len)
++			return FM10K_ERR_PARAM;
++		break;
++	case FM10K_TLV_MAC_ADDR:
++		if (len != ETH_ALEN)
++			return FM10K_ERR_PARAM;
++		break;
++	case FM10K_TLV_BOOL:
++		if (len)
++			return FM10K_ERR_PARAM;
++		break;
++	case FM10K_TLV_UNSIGNED:
++	case FM10K_TLV_SIGNED:
++		if (len != tlv_attr->len)
++			return FM10K_ERR_PARAM;
++		break;
++	case FM10K_TLV_LE_STRUCT:
++		/* struct must be 4 byte aligned */
++		if ((len % 4) || len != tlv_attr->len)
++			return FM10K_ERR_PARAM;
++		break;
++	case FM10K_TLV_NESTED:
++		/* nested attributes must be 4 byte aligned */
++		if (len % 4)
++			return FM10K_ERR_PARAM;
++		break;
++	default:
++		/* attribute id is mapped to bad value */
++		return FM10K_ERR_PARAM;
++	}
++
++	return 0;
++}
++
++/**
++ *  fm10k_tlv_attr_parse - Parses stream of attribute data
++ *  @attr: Pointer to attribute list
++ *  @results: Pointer array to store pointers to attributes
++ *  @tlv_attr: Type and length info for attributes
++ *
++ *  This function validates a stream of attributes and parses them
++ *  up into an array of pointers stored in results.  The function will
++ *  return FM10K_ERR_PARAM on any input or message error,
++ *  FM10K_NOT_IMPLEMENTED for any attribute that is outside of the array
++ *  and 0 on success.
++ **/
++s32 fm10k_tlv_attr_parse(u32 *attr, u32 **results,
++			 const struct fm10k_tlv_attr *tlv_attr)
++{
++	u32 i, attr_id, offset = 0;
++	s32 err = 0;
++	u16 len;
++
++	/* verify pointers are not NULL */
++	if (!attr || !results)
++		return FM10K_ERR_PARAM;
++
++	/* initialize results to NULL */
++	for (i = 0; i < FM10K_TLV_RESULTS_MAX; i++)
++		results[i] = NULL;
++
++	/* pull length from the message header */
++	len = *attr >> FM10K_TLV_LEN_SHIFT;
++
++	/* no attributes to parse if there is no length */
++	if (!len)
++		return 0;
++
++	/* no attributes to parse, just raw data, message becomes attribute */
++	if (!tlv_attr) {
++		results[0] = attr;
++		return 0;
++	}
++
++	/* move to start of attribute data */
++	attr++;
++
++	/* run through list parsing all attributes */
++	while (offset < len) {
++		attr_id = *attr & FM10K_TLV_ID_MASK;
++
++		if (attr_id < FM10K_TLV_RESULTS_MAX)
++			err = fm10k_tlv_attr_validate(attr, tlv_attr);
++		else
++			err = FM10K_NOT_IMPLEMENTED;
++
++		if (err < 0)
++			return err;
++		if (!err)
++			results[attr_id] = attr;
++
++		/* update offset */
++		offset += FM10K_TLV_DWORD_LEN(*attr) * 4;
++
++		/* move to next attribute */
++		attr = &attr[FM10K_TLV_DWORD_LEN(*attr)];
++	}
++
++	/* we should find ourselves at the end of the list */
++	if (offset != len)
++		return FM10K_ERR_PARAM;
++
++	return 0;
++}
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
+new file mode 100644
+index 0000000..6d22db6
+--- /dev/null
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
+@@ -0,0 +1,141 @@
++/* Intel Ethernet Switch Host Interface Driver
++ * Copyright(c) 2013 - 2014 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
 + */
-+#define FM10K_TSO_FLAGS_LOW		0x00300FF6
-+#define FM10K_TSO_FLAGS_HI		0x00000039
-+#define FM10K_DTXTCPFLGL	0x20C5
-+#define FM10K_DTXTCPFLGH	0x20C6
 +
-+#define FM10K_TPH_CTRL		0x20C7
-+#define FM10K_MRQC(_n)		((_n) + 0x2100)
-+#define FM10K_MRQC_TCP_IPV4			0x00000001
-+#define FM10K_MRQC_IPV4				0x00000002
-+#define FM10K_MRQC_IPV6				0x00000010
-+#define FM10K_MRQC_TCP_IPV6			0x00000020
-+#define FM10K_MRQC_UDP_IPV4			0x00000040
-+#define FM10K_MRQC_UDP_IPV6			0x00000080
++#ifndef _FM10K_TLV_H_
++#define _FM10K_TLV_H_
 +
-+#define FM10K_TQMAP(_n)		((_n) + 0x2800)
-+#define FM10K_TQMAP_TABLE_SIZE			2048
-+#define FM10K_RQMAP(_n)		((_n) + 0x3000)
++#include "fm10k_type.h"
 +
-+/* Hardware Statistics */
-+#define FM10K_STATS_TIMEOUT		0x3800
-+#define FM10K_STATS_UR			0x3801
-+#define FM10K_STATS_CA			0x3802
-+#define FM10K_STATS_UM			0x3803
-+#define FM10K_STATS_XEC			0x3804
-+#define FM10K_STATS_VLAN_DROP		0x3805
-+#define FM10K_STATS_LOOPBACK_DROP	0x3806
-+#define FM10K_STATS_NODESC_DROP		0x3807
-+
-+/* PCIe state registers */
-+#define FM10K_PHYADDR		0x381C
-+
-+/* Rx ring registers */
-+#define FM10K_RDBAL(_n)		((0x40 * (_n)) + 0x4000)
-+#define FM10K_RDBAH(_n)		((0x40 * (_n)) + 0x4001)
-+#define FM10K_RDLEN(_n)		((0x40 * (_n)) + 0x4002)
-+#define FM10K_TPH_RXCTRL(_n)	((0x40 * (_n)) + 0x4003)
-+#define FM10K_TPH_RXCTRL_DESC_TPHEN		0x00000020
-+#define FM10K_TPH_RXCTRL_DESC_RROEN		0x00000200
-+#define FM10K_TPH_RXCTRL_DATA_WROEN		0x00002000
-+#define FM10K_TPH_RXCTRL_HDR_WROEN		0x00008000
-+#define FM10K_RDH(_n)		((0x40 * (_n)) + 0x4004)
-+#define FM10K_RDT(_n)		((0x40 * (_n)) + 0x4005)
-+#define FM10K_RXQCTL(_n)	((0x40 * (_n)) + 0x4006)
-+#define FM10K_RXQCTL_ENABLE			0x00000001
-+#define FM10K_RXQCTL_PF				0x000000FC
-+#define FM10K_RXQCTL_VF_SHIFT			2
-+#define FM10K_RXQCTL_VF				0x00000100
-+#define FM10K_RXQCTL_ID_MASK	(FM10K_RXQCTL_PF | FM10K_RXQCTL_VF)
-+#define FM10K_RXDCTL(_n)	((0x40 * (_n)) + 0x4007)
-+#define FM10K_RXDCTL_WRITE_BACK_MIN_DELAY	0x00000001
-+#define FM10K_RXDCTL_DROP_ON_EMPTY		0x00000200
-+#define FM10K_RXINT(_n)		((0x40 * (_n)) + 0x4008)
-+#define FM10K_SRRCTL(_n)	((0x40 * (_n)) + 0x4009)
-+#define FM10K_SRRCTL_BSIZEPKT_SHIFT		8 /* shift _right_ */
-+#define FM10K_SRRCTL_LOOPBACK_SUPPRESS		0x40000000
-+#define FM10K_SRRCTL_BUFFER_CHAINING_EN		0x80000000
-+
-+/* Rx Statistics */
-+#define FM10K_QPRC(_n)		((0x40 * (_n)) + 0x400A)
-+#define FM10K_QPRDC(_n)		((0x40 * (_n)) + 0x400B)
-+#define FM10K_QBRC_L(_n)	((0x40 * (_n)) + 0x400C)
-+#define FM10K_QBRC_H(_n)	((0x40 * (_n)) + 0x400D)
-+
-+/* Rx GLORT register */
-+#define FM10K_RX_SGLORT(_n)		((0x40 * (_n)) + 0x400E)
-+
-+/* Tx ring registers */
-+#define FM10K_TDBAL(_n)		((0x40 * (_n)) + 0x8000)
-+#define FM10K_TDBAH(_n)		((0x40 * (_n)) + 0x8001)
-+#define FM10K_TDLEN(_n)		((0x40 * (_n)) + 0x8002)
-+#define FM10K_TPH_TXCTRL(_n)	((0x40 * (_n)) + 0x8003)
-+#define FM10K_TPH_TXCTRL_DESC_TPHEN		0x00000020
-+#define FM10K_TPH_TXCTRL_DESC_RROEN		0x00000200
-+#define FM10K_TPH_TXCTRL_DESC_WROEN		0x00000800
-+#define FM10K_TPH_TXCTRL_DATA_RROEN		0x00002000
-+#define FM10K_TDH(_n)		((0x40 * (_n)) + 0x8004)
-+#define FM10K_TDT(_n)		((0x40 * (_n)) + 0x8005)
-+#define FM10K_TXDCTL(_n)	((0x40 * (_n)) + 0x8006)
-+#define FM10K_TXDCTL_ENABLE			0x00004000
-+#define FM10K_TXDCTL_MAX_TIME_SHIFT		16
-+#define FM10K_TXQCTL(_n)	((0x40 * (_n)) + 0x8007)
-+#define FM10K_TXQCTL_PF				0x0000003F
-+#define FM10K_TXQCTL_VF				0x00000040
-+#define FM10K_TXQCTL_ID_MASK	(FM10K_TXQCTL_PF | FM10K_TXQCTL_VF)
-+#define FM10K_TXQCTL_PC_SHIFT			7
-+#define FM10K_TXQCTL_PC_MASK			0x00000380
-+#define FM10K_TXQCTL_TC_SHIFT			10
-+#define FM10K_TXQCTL_VID_SHIFT			16
-+#define FM10K_TXQCTL_VID_MASK			0x0FFF0000
-+#define FM10K_TXQCTL_UNLIMITED_BW		0x10000000
-+#define FM10K_TXINT(_n)		((0x40 * (_n)) + 0x8008)
-+
-+/* Tx Statistics */
-+#define FM10K_QPTC(_n)		((0x40 * (_n)) + 0x8009)
-+#define FM10K_QBTC_L(_n)	((0x40 * (_n)) + 0x800A)
-+#define FM10K_QBTC_H(_n)	((0x40 * (_n)) + 0x800B)
-+
-+/* Tx Push registers */
-+#define FM10K_TQDLOC(_n)	((0x40 * (_n)) + 0x800C)
-+#define FM10K_TQDLOC_BASE_32_DESC		0x08
-+#define FM10K_TQDLOC_SIZE_32_DESC		0x00050000
-+
-+/* Tx GLORT registers */
-+#define FM10K_TX_SGLORT(_n)	((0x40 * (_n)) + 0x800D)
-+#define FM10K_PFVTCTL(_n)	((0x40 * (_n)) + 0x800E)
-+#define FM10K_PFVTCTL_FTAG_DESC_ENABLE		0x00000001
-+
-+/* Interrupt moderation and control registers */
-+#define FM10K_INT_MAP(_n)	((_n) + 0x10080)
-+#define FM10K_INT_MAP_TIMER0			0x00000000
-+#define FM10K_INT_MAP_TIMER1			0x00000100
-+#define FM10K_INT_MAP_IMMEDIATE			0x00000200
-+#define FM10K_INT_MAP_DISABLE			0x00000300
-+#define FM10K_MSIX_VECTOR_MASK(_n)	((0x4 * (_n)) + 0x11003)
-+#define FM10K_INT_CTRL		0x12000
-+#define FM10K_INT_CTRL_ENABLEMODERATOR		0x00000400
-+#define FM10K_ITR(_n)		((_n) + 0x12400)
-+#define FM10K_ITR_INTERVAL1_SHIFT		12
-+#define FM10K_ITR_PENDING2			0x10000000
-+#define FM10K_ITR_AUTOMASK			0x20000000
-+#define FM10K_ITR_MASK_SET			0x40000000
-+#define FM10K_ITR_MASK_CLEAR			0x80000000
-+#define FM10K_ITR2(_n)		((0x2 * (_n)) + 0x12800)
-+#define FM10K_ITR_REG_COUNT			768
-+#define FM10K_ITR_REG_COUNT_PF			256
-+
-+/* Switch manager interrupt registers */
-+#define FM10K_IP		0x13000
-+#define FM10K_IP_NOTINRESET			0x00000100
-+
-+/* VLAN registers */
-+#define FM10K_VLAN_TABLE(_n, _m)	((0x80 * (_n)) + (_m) + 0x14000)
-+#define FM10K_VLAN_TABLE_SIZE			128
-+
-+/* VLAN specific message offsets */
-+#define FM10K_VLAN_TABLE_VID_MAX		4096
-+#define FM10K_VLAN_TABLE_VSI_MAX		64
-+#define FM10K_VLAN_LENGTH_SHIFT			16
-+#define FM10K_VLAN_CLEAR			(1 << 15)
-+#define FM10K_VLAN_ALL \
-+	((FM10K_VLAN_TABLE_VID_MAX - 1) << FM10K_VLAN_LENGTH_SHIFT)
-+
-+/* VF FLR event notification registers */
-+#define FM10K_PFVFLRE(_n)	((0x1 * (_n)) + 0x18844)
-+#define FM10K_PFVFLREC(_n)	((0x1 * (_n)) + 0x18846)
-+
-+/* Defines for size of uncacheable memories */
-+#define FM10K_UC_ADDR_START	0x000000	/* start of standard regs */
-+#define FM10K_UC_ADDR_END	0x100000	/* end of standard regs */
-+#define FM10K_UC_ADDR_SIZE	(FM10K_UC_ADDR_END - FM10K_UC_ADDR_START)
-+
-+/* Define timeouts for resets and disables */
-+#define FM10K_QUEUE_DISABLE_TIMEOUT		100
-+#define FM10K_RESET_TIMEOUT			100
-+
-+enum fm10k_int_source {
-+	fm10k_int_Mailbox	= 0,
-+	fm10k_int_PCIeFault	= 1,
-+	fm10k_int_SwitchUpDown	= 2,
-+	fm10k_int_SwitchEvent	= 3,
-+	fm10k_int_SRAM		= 4,
-+	fm10k_int_VFLR		= 5,
-+	fm10k_int_MaxHoldTime	= 6,
-+	fm10k_int_sources_max_pf
-+};
-+
-+/* PCIe bus speeds */
-+enum fm10k_bus_speed {
-+	fm10k_bus_speed_unknown	= 0,
-+	fm10k_bus_speed_2500	= 2500,
-+	fm10k_bus_speed_5000	= 5000,
-+	fm10k_bus_speed_8000	= 8000,
-+	fm10k_bus_speed_reserved
-+};
-+
-+/* PCIe bus widths */
-+enum fm10k_bus_width {
-+	fm10k_bus_width_unknown	= 0,
-+	fm10k_bus_width_pcie_x1	= 1,
-+	fm10k_bus_width_pcie_x2	= 2,
-+	fm10k_bus_width_pcie_x4	= 4,
-+	fm10k_bus_width_pcie_x8	= 8,
-+	fm10k_bus_width_reserved
-+};
-+
-+/* PCIe payload sizes */
-+enum fm10k_bus_payload {
-+	fm10k_bus_payload_unknown = 0,
-+	fm10k_bus_payload_128	  = 1,
-+	fm10k_bus_payload_256	  = 2,
-+	fm10k_bus_payload_512	  = 3,
-+	fm10k_bus_payload_reserved
-+};
-+
-+/* Bus parameters */
-+struct fm10k_bus_info {
-+	enum fm10k_bus_speed speed;
-+	enum fm10k_bus_width width;
-+	enum fm10k_bus_payload payload;
-+};
-+
-+/* Statistics related declarations */
-+struct fm10k_hw_stat {
-+	u64 count;
-+	u32 base_l;
-+	u32 base_h;
-+};
-+
-+struct fm10k_hw_stats_q {
-+	struct fm10k_hw_stat tx_bytes;
-+	struct fm10k_hw_stat tx_packets;
-+#define tx_stats_idx	tx_packets.base_h
-+	struct fm10k_hw_stat rx_bytes;
-+	struct fm10k_hw_stat rx_packets;
-+#define rx_stats_idx	rx_packets.base_h
-+	struct fm10k_hw_stat rx_drops;
-+};
-+
-+struct fm10k_hw_stats {
-+	struct fm10k_hw_stat	timeout;
-+#define stats_idx	timeout.base_h
-+	struct fm10k_hw_stat	ur;
-+	struct fm10k_hw_stat	ca;
-+	struct fm10k_hw_stat	um;
-+	struct fm10k_hw_stat	xec;
-+	struct fm10k_hw_stat	vlan_drop;
-+	struct fm10k_hw_stat	loopback_drop;
-+	struct fm10k_hw_stat	nodesc_drop;
-+	struct fm10k_hw_stats_q q[FM10K_MAX_QUEUES_PF];
-+};
-+
-+/* Establish DGLORT feature priority */
-+enum fm10k_dglortdec_idx {
-+	fm10k_dglort_default	= 0,
-+	fm10k_dglort_vf_rsvd0	= 1,
-+	fm10k_dglort_vf_rss	= 2,
-+	fm10k_dglort_pf_rsvd0	= 3,
-+	fm10k_dglort_pf_queue	= 4,
-+	fm10k_dglort_pf_vsi	= 5,
-+	fm10k_dglort_pf_rsvd1	= 6,
-+	fm10k_dglort_pf_rss	= 7
-+};
-+
-+struct fm10k_dglort_cfg {
-+	u16 glort;	/* GLORT base */
-+	u16 queue_b;	/* Base value for queue */
-+	u8  vsi_b;	/* Base value for VSI */
-+	u8  idx;	/* index of DGLORTDEC entry */
-+	u8  rss_l;	/* RSS indices */
-+	u8  pc_l;	/* Priority Class indices */
-+	u8  vsi_l;	/* Number of bits from GLORT used to determine VSI */
-+	u8  queue_l;	/* Number of bits from GLORT used to determine queue */
-+	u8  shared_l;	/* Ignored bits from GLORT resulting in shared VSI */
-+	u8  inner_rss;	/* Boolean value if inner header is used for RSS */
-+};
-+
-+enum fm10k_pca_fault {
-+	PCA_NO_FAULT,
-+	PCA_UNMAPPED_ADDR,
-+	PCA_BAD_QACCESS_PF,
-+	PCA_BAD_QACCESS_VF,
-+	PCA_MALICIOUS_REQ,
-+	PCA_POISONED_TLP,
-+	PCA_TLP_ABORT,
-+	__PCA_MAX
-+};
-+
-+enum fm10k_thi_fault {
-+	THI_NO_FAULT,
-+	THI_MAL_DIS_Q_FAULT,
-+	__THI_MAX
-+};
-+
-+enum fm10k_fum_fault {
-+	FUM_NO_FAULT,
-+	FUM_UNMAPPED_ADDR,
-+	FUM_POISONED_TLP,
-+	FUM_BAD_VF_QACCESS,
-+	FUM_ADD_DECODE_ERR,
-+	FUM_RO_ERROR,
-+	FUM_QPRC_CRC_ERROR,
-+	FUM_CSR_TIMEOUT,
-+	FUM_INVALID_TYPE,
-+	FUM_INVALID_LENGTH,
-+	FUM_INVALID_BE,
-+	FUM_INVALID_ALIGN,
-+	__FUM_MAX
-+};
-+
-+struct fm10k_fault {
-+	u64 address;	/* Address at the time fault was detected */
-+	u32 specinfo;	/* Extra info on this fault (fault dependent) */
-+	u8 type;	/* Fault value dependent on subunit */
-+	u8 func;	/* Function number of the fault */
-+};
-+
-+struct fm10k_mac_ops {
-+	/* basic bring-up and tear-down */
-+	s32 (*reset_hw)(struct fm10k_hw *);
-+	s32 (*init_hw)(struct fm10k_hw *);
-+	s32 (*start_hw)(struct fm10k_hw *);
-+	s32 (*stop_hw)(struct fm10k_hw *);
-+	s32 (*get_bus_info)(struct fm10k_hw *);
-+	s32 (*get_host_state)(struct fm10k_hw *, bool *);
-+	bool (*is_slot_appropriate)(struct fm10k_hw *);
-+	s32 (*update_vlan)(struct fm10k_hw *, u32, u8, bool);
-+	s32 (*read_mac_addr)(struct fm10k_hw *);
-+	s32 (*update_uc_addr)(struct fm10k_hw *, u16, const u8 *,
-+			      u16, bool, u8);
-+	s32 (*update_mc_addr)(struct fm10k_hw *, u16, const u8 *, u16, bool);
-+	s32 (*update_xcast_mode)(struct fm10k_hw *, u16, u8);
-+	void (*update_int_moderator)(struct fm10k_hw *);
-+	s32  (*update_lport_state)(struct fm10k_hw *, u16, u16, bool);
-+	void (*update_hw_stats)(struct fm10k_hw *, struct fm10k_hw_stats *);
-+	void (*rebind_hw_stats)(struct fm10k_hw *, struct fm10k_hw_stats *);
-+	s32 (*configure_dglort_map)(struct fm10k_hw *,
-+				    struct fm10k_dglort_cfg *);
-+	void (*set_dma_mask)(struct fm10k_hw *, u64);
-+	s32 (*get_fault)(struct fm10k_hw *, int, struct fm10k_fault *);
-+	void (*request_lport_map)(struct fm10k_hw *);
-+	s32 (*adjust_systime)(struct fm10k_hw *, s32 ppb);
-+};
-+
-+enum fm10k_mac_type {
-+	fm10k_mac_unknown = 0,
-+	fm10k_mac_pf,
-+	fm10k_num_macs
-+};
-+
-+struct fm10k_mac_info {
-+	struct fm10k_mac_ops ops;
-+	enum fm10k_mac_type type;
-+	u8 addr[ETH_ALEN];
-+	u8 perm_addr[ETH_ALEN];
-+	u16 default_vid;
-+	u16 max_msix_vectors;
-+	u16 max_queues;
-+	bool vlan_override;
-+	bool get_host_state;
-+	bool tx_ready;
-+	u32 dglort_map;
-+};
-+
-+struct fm10k_swapi_table_info {
-+	u32 used;
-+	u32 avail;
-+};
-+
-+struct fm10k_swapi_info {
-+	u32 status;
-+	struct fm10k_swapi_table_info mac;
-+	struct fm10k_swapi_table_info nexthop;
-+	struct fm10k_swapi_table_info ffu;
-+};
-+
-+enum fm10k_xcast_modes {
-+	FM10K_XCAST_MODE_ALLMULTI	= 0,
-+	FM10K_XCAST_MODE_MULTI		= 1,
-+	FM10K_XCAST_MODE_PROMISC	= 2,
-+	FM10K_XCAST_MODE_NONE		= 3,
-+	FM10K_XCAST_MODE_DISABLE	= 4
-+};
-+
-+enum fm10k_devices {
-+	fm10k_device_pf,
-+};
-+
-+struct fm10k_info {
-+	enum fm10k_mac_type	mac;
-+	s32			(*get_invariants)(struct fm10k_hw *);
-+	struct fm10k_mac_ops	*mac_ops;
-+};
-+
-+struct fm10k_hw {
-+	u32 __iomem *hw_addr;
-+	void *back;
-+	struct fm10k_mac_info mac;
-+	struct fm10k_bus_info bus;
-+	struct fm10k_bus_info bus_caps;
-+	struct fm10k_swapi_info swapi;
-+	u16 device_id;
-+	u16 vendor_id;
-+	u16 subsystem_device_id;
-+	u16 subsystem_vendor_id;
-+	u8 revision_id;
-+};
-+
-+/* Number of Transmit and Receive Descriptors must be a multiple of 8 */
-+#define FM10K_REQ_TX_DESCRIPTOR_MULTIPLE	8
-+#define FM10K_REQ_RX_DESCRIPTOR_MULTIPLE	8
-+
-+/* Transmit Descriptor */
-+struct fm10k_tx_desc {
-+	__le64 buffer_addr;	/* Address of the descriptor's data buffer */
-+	__le16 buflen;		/* Length of data to be DMAed */
-+	__le16 vlan;		/* VLAN_ID and VPRI to be inserted in FTAG */
-+	__le16 mss;		/* MSS for segmentation offload */
-+	u8 hdrlen;		/* Header size for segmentation offload */
-+	u8 flags;		/* Status and offload request flags */
-+};
-+
-+/* Transmit Descriptor Cache Structure */
-+struct fm10k_tx_desc_cache {
-+	struct fm10k_tx_desc tx_desc[256];
-+};
-+
-+#define FM10K_TXD_FLAG_INT	0x01
-+#define FM10K_TXD_FLAG_TIME	0x02
-+#define FM10K_TXD_FLAG_CSUM	0x04
-+#define FM10K_TXD_FLAG_FTAG	0x10
-+#define FM10K_TXD_FLAG_RS	0x20
-+#define FM10K_TXD_FLAG_LAST	0x40
-+#define FM10K_TXD_FLAG_DONE	0x80
-+
-+/* These macros are meant to enable optimal placement of the RS and INT
-+ * bits.  It will point us to the last descriptor in the cache for either the
-+ * start of the packet, or the end of the packet.  If the index is actually
-+ * at the start of the FIFO it will point to the offset for the last index
-+ * in the FIFO to prevent an unnecessary write.
++/* Message / Argument header format
++ *    3			  2		      1			  0
++ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |	     Length	   | Flags |	      Type / ID		   |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *
++ * The message header format described here is used for messages that are
++ * passed between the PF and the VF.  To allow for messages larger then
++ * mailbox size we will provide a message with the above header and it
++ * will be segmented and transported to the mailbox to the other side where
++ * it is reassembled.  It contains the following fields:
++ * Len: Length of the message in bytes excluding the message header
++ * Flags: TBD
++ * Rule: These will be the message/argument types we pass
 + */
-+#define FM10K_TXD_WB_FIFO_SIZE	4
++/* message data header */
++#define FM10K_TLV_ID_SHIFT		0
++#define FM10K_TLV_ID_SIZE		16
++#define FM10K_TLV_ID_MASK		((1u << FM10K_TLV_ID_SIZE) - 1)
++#define FM10K_TLV_FLAGS_SHIFT		16
++#define FM10K_TLV_FLAGS_MSG		0x1
++#define FM10K_TLV_FLAGS_SIZE		4
++#define FM10K_TLV_LEN_SHIFT		20
++#define FM10K_TLV_LEN_SIZE		12
 +
-+/* Receive Descriptor - 32B */
-+union fm10k_rx_desc {
-+	struct {
-+		__le64 pkt_addr; /* Packet buffer address */
-+		__le64 hdr_addr; /* Header buffer address */
-+		__le64 reserved; /* Empty space, RSS hash */
-+		__le64 timestamp;
-+	} q; /* Read, Writeback, 64b quad-words */
-+	struct {
-+		__le32 data; /* RSS and header data */
-+		__le32 rss;  /* RSS Hash */
-+		__le32 staterr;
-+		__le32 vlan_len;
-+		__le32 glort; /* sglort/dglort */
-+	} d; /* Writeback, 32b double-words */
-+	struct {
-+		__le16 pkt_info; /* RSS, Pkt type */
-+		__le16 hdr_info; /* Splithdr, hdrlen, xC */
-+		__le16 rss_lower;
-+		__le16 rss_upper;
-+		__le16 status; /* status/error */
-+		__le16 csum_err; /* checksum or extended error value */
-+		__le16 length; /* Packet length */
-+		__le16 vlan; /* VLAN tag */
-+		__le16 dglort;
-+		__le16 sglort;
-+	} w; /* Writeback, 16b words */
++#define FM10K_TLV_HDR_LEN		4ul
++#define FM10K_TLV_LEN_ALIGN_MASK \
++	((FM10K_TLV_HDR_LEN - 1) << FM10K_TLV_LEN_SHIFT)
++#define FM10K_TLV_LEN_ALIGN(tlv) \
++	(((tlv) + FM10K_TLV_LEN_ALIGN_MASK) & ~FM10K_TLV_LEN_ALIGN_MASK)
++#define FM10K_TLV_DWORD_LEN(tlv) \
++	((u16)((FM10K_TLV_LEN_ALIGN(tlv)) >> (FM10K_TLV_LEN_SHIFT + 2)) + 1)
++
++#define FM10K_TLV_RESULTS_MAX		32
++
++enum fm10k_tlv_type {
++	FM10K_TLV_NULL_STRING,
++	FM10K_TLV_MAC_ADDR,
++	FM10K_TLV_BOOL,
++	FM10K_TLV_UNSIGNED,
++	FM10K_TLV_SIGNED,
++	FM10K_TLV_LE_STRUCT,
++	FM10K_TLV_NESTED,
++	FM10K_TLV_MAX_TYPE
 +};
 +
-+#define FM10K_RXD_RSSTYPE_MASK		0x000F
-+enum fm10k_rdesc_rss_type {
-+	FM10K_RSSTYPE_NONE	= 0x0,
-+	FM10K_RSSTYPE_IPV4_TCP	= 0x1,
-+	FM10K_RSSTYPE_IPV4	= 0x2,
-+	FM10K_RSSTYPE_IPV6_TCP	= 0x3,
-+	/* Reserved 0x4 */
-+	FM10K_RSSTYPE_IPV6	= 0x5,
-+	/* Reserved 0x6 */
-+	FM10K_RSSTYPE_IPV4_UDP	= 0x7,
-+	FM10K_RSSTYPE_IPV6_UDP	= 0x8
-+	/* Reserved 0x9 - 0xF */
++#define FM10K_TLV_ERROR (~0u)
++
++struct fm10k_tlv_attr {
++	unsigned int		id;
++	enum fm10k_tlv_type	type;
++	u16			len;
 +};
 +
-+#define FM10K_RXD_HDR_INFO_XC_MASK	0x0006
-+enum fm10k_rxdesc_xc {
-+	FM10K_XC_UNICAST	= 0x0,
-+	FM10K_XC_MULTICAST	= 0x4,
-+	FM10K_XC_BROADCAST	= 0x6
-+};
++#define FM10K_TLV_ATTR_NULL_STRING(id, len) { id, FM10K_TLV_NULL_STRING, len }
++#define FM10K_TLV_ATTR_MAC_ADDR(id)	    { id, FM10K_TLV_MAC_ADDR, 6 }
++#define FM10K_TLV_ATTR_BOOL(id)		    { id, FM10K_TLV_BOOL, 0 }
++#define FM10K_TLV_ATTR_U8(id)		    { id, FM10K_TLV_UNSIGNED, 1 }
++#define FM10K_TLV_ATTR_U16(id)		    { id, FM10K_TLV_UNSIGNED, 2 }
++#define FM10K_TLV_ATTR_U32(id)		    { id, FM10K_TLV_UNSIGNED, 4 }
++#define FM10K_TLV_ATTR_U64(id)		    { id, FM10K_TLV_UNSIGNED, 8 }
++#define FM10K_TLV_ATTR_S8(id)		    { id, FM10K_TLV_SIGNED, 1 }
++#define FM10K_TLV_ATTR_S16(id)		    { id, FM10K_TLV_SIGNED, 2 }
++#define FM10K_TLV_ATTR_S32(id)		    { id, FM10K_TLV_SIGNED, 4 }
++#define FM10K_TLV_ATTR_S64(id)		    { id, FM10K_TLV_SIGNED, 8 }
++#define FM10K_TLV_ATTR_LE_STRUCT(id, len)   { id, FM10K_TLV_LE_STRUCT, len }
++#define FM10K_TLV_ATTR_NESTED(id)	    { id, FM10K_TLV_NESTED }
++#define FM10K_TLV_ATTR_LAST		    { FM10K_TLV_ERROR }
 +
-+#define FM10K_RXD_STATUS_DD		0x0001 /* Descriptor done */
-+#define FM10K_RXD_STATUS_EOP		0x0002 /* End of packet */
-+#define FM10K_RXD_STATUS_L4CS		0x0010 /* Indicates an L4 csum */
-+#define FM10K_RXD_STATUS_L4CS2		0x0040 /* Inner header L4 csum */
-+#define FM10K_RXD_STATUS_L4E2		0x0800 /* Inner header L4 csum err */
-+#define FM10K_RXD_STATUS_IPE2		0x1000 /* Inner header IPv4 csum err */
-+#define FM10K_RXD_STATUS_RXE		0x2000 /* Generic Rx error */
-+#define FM10K_RXD_STATUS_L4E		0x4000 /* L4 csum error */
-+#define FM10K_RXD_STATUS_IPE		0x8000 /* IPv4 csum error */
-+
-+struct fm10k_ftag {
-+	__be16 swpri_type_user;
-+	__be16 vlan;
-+	__be16 sglort;
-+	__be16 dglort;
-+};
-+
- #endif /* _FM10K_TYPE_H */
++s32 fm10k_tlv_msg_init(u32 *, u16);
++s32 fm10k_tlv_attr_put_null_string(u32 *, u16, const unsigned char *);
++s32 fm10k_tlv_attr_get_null_string(u32 *, unsigned char *);
++s32 fm10k_tlv_attr_put_mac_vlan(u32 *, u16, const u8 *, u16);
++s32 fm10k_tlv_attr_get_mac_vlan(u32 *, u8 *, u16 *);
++s32 fm10k_tlv_attr_put_bool(u32 *, u16);
++s32 fm10k_tlv_attr_put_value(u32 *, u16, s64, u32);
++#define fm10k_tlv_attr_put_u8(msg, attr_id, val) \
++		fm10k_tlv_attr_put_value(msg, attr_id, val, 1)
++#define fm10k_tlv_attr_put_u16(msg, attr_id, val) \
++		fm10k_tlv_attr_put_value(msg, attr_id, val, 2)
++#define fm10k_tlv_attr_put_u32(msg, attr_id, val) \
++		fm10k_tlv_attr_put_value(msg, attr_id, val, 4)
++#define fm10k_tlv_attr_put_u64(msg, attr_id, val) \
++		fm10k_tlv_attr_put_value(msg, attr_id, val, 8)
++#define fm10k_tlv_attr_put_s8(msg, attr_id, val) \
++		fm10k_tlv_attr_put_value(msg, attr_id, val, 1)
++#define fm10k_tlv_attr_put_s16(msg, attr_id, val) \
++		fm10k_tlv_attr_put_value(msg, attr_id, val, 2)
++#define fm10k_tlv_attr_put_s32(msg, attr_id, val) \
++		fm10k_tlv_attr_put_value(msg, attr_id, val, 4)
++#define fm10k_tlv_attr_put_s64(msg, attr_id, val) \
++		fm10k_tlv_attr_put_value(msg, attr_id, val, 8)
++s32 fm10k_tlv_attr_get_value(u32 *, void *, u32);
++#define fm10k_tlv_attr_get_u8(attr, ptr) \
++		fm10k_tlv_attr_get_value(attr, ptr, sizeof(u8))
++#define fm10k_tlv_attr_get_u16(attr, ptr) \
++		fm10k_tlv_attr_get_value(attr, ptr, sizeof(u16))
++#define fm10k_tlv_attr_get_u32(attr, ptr) \
++		fm10k_tlv_attr_get_value(attr, ptr, sizeof(u32))
++#define fm10k_tlv_attr_get_u64(attr, ptr) \
++		fm10k_tlv_attr_get_value(attr, ptr, sizeof(u64))
++#define fm10k_tlv_attr_get_s8(attr, ptr) \
++		fm10k_tlv_attr_get_value(attr, ptr, sizeof(s8))
++#define fm10k_tlv_attr_get_s16(attr, ptr) \
++		fm10k_tlv_attr_get_value(attr, ptr, sizeof(s16))
++#define fm10k_tlv_attr_get_s32(attr, ptr) \
++		fm10k_tlv_attr_get_value(attr, ptr, sizeof(s32))
++#define fm10k_tlv_attr_get_s64(attr, ptr) \
++		fm10k_tlv_attr_get_value(attr, ptr, sizeof(s64))
++s32 fm10k_tlv_attr_put_le_struct(u32 *, u16, const void *, u32);
++s32 fm10k_tlv_attr_get_le_struct(u32 *, void *, u32);
++u32 *fm10k_tlv_attr_nest_start(u32 *, u16);
++s32 fm10k_tlv_attr_nest_stop(u32 *);
++s32 fm10k_tlv_attr_parse(u32 *, u32 **, const struct fm10k_tlv_attr *);
++#endif /* _FM10K_MSG_H_ */
