@@ -1,15 +1,15 @@
 From: Tom Herbert <therbert@google.com>
-Subject: Re: [RFC net-next PATCH V3 2/2] qdisc: bulk dequeue support for
- qdiscs with TCQ_F_ONETXQUEUE
-Date: Fri, 19 Sep 2014 17:22:14 -0700
-Message-ID: <CA+mtBx8guwOH7uoxA8Jt-r8s8FYWj=oOp28AodrVW4FhDeagZA@mail.gmail.com>
+Subject: Re: [RFC net-next PATCH V3 0/2] qdisc bulk dequeuing and utilizing
+ delayed tailptr updates
+Date: Fri, 19 Sep 2014 17:31:02 -0700
+Message-ID: <CA+mtBx-t4nonk3XH4V2J=DBBZ5SJLkXp4mF8Cz=Gfm67cEn7tg@mail.gmail.com>
 References: <20140919204706.3231.59125.stgit@dragon>
-	<20140919204926.3231.1970.stgit@dragon>
+	<1411160360.26859.31.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Florian Westphal <fw@strlen.de>,
 	Daniel Borkmann <dborkman@redhat.com>,
@@ -17,220 +17,70 @@ Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	Alexander Duyck <alexander.duyck@gmail.com>,
 	John Fastabend <john.r.fastabend@intel.com>,
 	Dave Taht <dave.taht@gmail.com>,
-	=?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+	=?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>,
+	Tino Reichardt <milky-kernel@mcmilk.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:36886 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756608AbaITAWP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 20:22:15 -0400
-Received: by mail-ig0-f178.google.com with SMTP id r10so41196igi.5
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 17:22:14 -0700 (PDT)
-In-Reply-To: <20140919204926.3231.1970.stgit@dragon>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:36939 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756392AbaITAbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Sep 2014 20:31:04 -0400
+Received: by mail-ie0-f170.google.com with SMTP id x19so1687811ier.1
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 17:31:03 -0700 (PDT)
+In-Reply-To: <1411160360.26859.31.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 19, 2014 at 1:49 PM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> Based on DaveM's recent API work on dev_hard_start_xmit(), that allows
-> sending/processing an entire skb list.
+On Fri, Sep 19, 2014 at 1:59 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2014-09-19 at 22:49 +0200, Jesper Dangaard Brouer wrote:
+>> This patchset uses DaveM's recent API changes to dev_hard_start_xmit(),
+>> from the qdisc layer, to implement dequeue bulking.
+>>
+>> RFC V3: Keeping the ball rolling.
+>>
+>> This patchset should now use BQL correctly.  I've done lots of testing
+>> for Head-of-Line blocking issues that can occur due to requeue of a
+>> SKB bulk list.  I've not been able to provoke any HoL blocking
+>> situation, simply because BQL is doing such a good job, thus I'm
+>> unable to "overshoot" HW/BQL limits with more than a single packet.
+>>
+>> This patch chooses a very conservative approach, as by default only
+>> allowing dequeue of one extra packet, besides the normal dequeue.
+>>
+>> Open questions:
+>>
+>> - How do we expose tuning to userspace?
+>>   Patch adds /proc/sys/net/core/qdisc_bulk_dequeue_limit but I don't like it...
+>>   Per device tunable?
+>>
 >
-> This patch implements qdisc bulk dequeue, by allowing multiple packets
-> to be dequeued in dequeue_skb().
+> bql is using /sys, of course ;)
 >
-> The optimization principle for this is two fold, (1) to amortize
-> locking cost and (2) avoid expensive tailptr update for notifying HW.
->  (1) Several packets are dequeued while holding the qdisc root_lock,
-> amortizing locking cost over several packet.  The dequeued SKB list is
-> processed under the TXQ lock in dev_hard_start_xmit(), thus also
-> amortizing the cost of the TXQ lock.
->  (2) Further more, dev_hard_start_xmit() will utilize the skb->xmit_more
-> API to delay HW tailptr update, which also reduces the cost per
-> packet.
+> # grep . /sys/class/net/eth1/queues/tx-0/byte_queue_limits/*
+> /sys/class/net/eth1/queues/tx-0/byte_queue_limits/hold_time:1000
+> /sys/class/net/eth1/queues/tx-0/byte_queue_limits/inflight:0
+> /sys/class/net/eth1/queues/tx-0/byte_queue_limits/limit:113314
+> /sys/class/net/eth1/queues/tx-0/byte_queue_limits/limit_max:1879048192
+> /sys/class/net/eth1/queues/tx-0/byte_queue_limits/limit_min:0
 >
-> One restriction of the new API is that every SKB must belong to the
-> same TXQ.  This patch takes the easy way out, by restricting bulk
-> dequeue to qdisc's with the TCQ_F_ONETXQUEUE flag, that specifies the
-> qdisc only have attached a single TXQ.
+> Maybe you could simply reuse byte_queue_limits/limit, I am not sure we
+> need a specific tunable.
 >
-> Some detail about the flow; dev_hard_start_xmit() will process the skb
-> list, and transmit packets individually towards the driver (see
-> xmit_one()).  In case the driver stops midway in the list, the
-> remaining skb list is returned by dev_hard_start_xmit().  In
-> sch_direct_xmit() this returned list is requeued by dev_requeue_skb().
 >
-> To avoid overshooting the HW limits, which results in requeuing, the
-> patch limits the amount of bytes dequeued, based on the drivers BQL
-> limits.
+>> - Can/should we limit dequeue bulking to devices supporting BQL?
+>>
 >
-> It also see GSO and segmented GSO packets, as a seperate kind of SKB
-> bulking, and thus tries to avoid and stop dequeuing when seeing a GSO
-> packet (both real GSO and segmented GSO skb lists).
+> Yes please. This will be an incentive to get BQL on drivers.
 >
-> Choosing a very conservative initial default value of 1 extra packet
-> dequeue, if bulking is allowed.
->
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
->
-> ---
-> V2:
->  - Restruct functions, split out functionality
->  - Use BQL bytelimit to avoid overshooting driver limits
->
-> V3:
->  - Correct use of BQL
->  - Some minor adjustments based on feedback.
->  - Default setting only bulk dequeue 1 extra packet (2 packets).
->
->  include/net/sch_generic.h  |    2 +
->  net/core/sysctl_net_core.c |    9 ++++++
->  net/sched/sch_generic.c    |   70 ++++++++++++++++++++++++++++++++++++++++++--
->  3 files changed, 78 insertions(+), 3 deletions(-)
->
-> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> index 1e89b9a..da9324f 100644
-> --- a/include/net/sch_generic.h
-> +++ b/include/net/sch_generic.h
-> @@ -14,6 +14,8 @@ struct qdisc_walker;
->  struct tcf_walker;
->  struct module;
->
-> +extern int qdisc_bulk_dequeue_limit;
-> +
->  struct qdisc_rate_table {
->         struct tc_ratespec rate;
->         u32             data[256];
-> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-> index cf9cd13..5505841 100644
-> --- a/net/core/sysctl_net_core.c
-> +++ b/net/core/sysctl_net_core.c
-> @@ -361,6 +361,15 @@ static struct ctl_table net_core_table[] = {
->                 .mode           = 0644,
->                 .proc_handler   = proc_dointvec
->         },
-> +       {
-> +               .procname       = "qdisc_bulk_dequeue_limit",
-> +               .data           = &qdisc_bulk_dequeue_limit,
-> +               .maxlen         = sizeof(int),
-> +               .mode           = 0644,
-> +               .extra1         = &zero,
-> +               .extra2         = &ushort_max,
-> +               .proc_handler   = proc_dointvec_minmax
-> +       },
->         { }
->  };
->
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index 346ef85..eee2280 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -34,6 +34,9 @@
->  const struct Qdisc_ops *default_qdisc_ops = &pfifo_fast_ops;
->  EXPORT_SYMBOL(default_qdisc_ops);
->
-> +// FIXME: Still undecided where to put this parameter...
-> +int qdisc_bulk_dequeue_limit __read_mostly = 1;
-> +
->  /* Main transmission queue. */
->
->  /* Modifications to data participating in scheduling must be protected with
-> @@ -56,6 +59,67 @@ static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
->         return 0;
->  }
->
-> +static inline bool qdisc_may_bulk(const struct Qdisc *qdisc)
-> +{
-> +       return qdisc->flags & TCQ_F_ONETXQUEUE;
-> +}
-> +
-> +static inline struct sk_buff *qdisc_dequeue_validate(struct Qdisc *qdisc)
-> +{
-> +       struct sk_buff *skb = qdisc->dequeue(qdisc);
-> +
-> +       if (skb != NULL)
-> +               skb = validate_xmit_skb(skb, qdisc_dev(qdisc));
-> +
-> +       return skb;
-> +}
-> +
-> +static inline struct sk_buff *qdisc_bulk_dequeue_skb(struct Qdisc *q,
-> +                                                    struct sk_buff *head)
-> +{
-> +       struct sk_buff *new, *skb = head;
-> +       struct netdev_queue *txq = q->dev_queue;
-> +       int bytelimit = netdev_tx_avail_queue(txq);
-> +       int limit = qdisc_bulk_dequeue_limit;
-> +
-> +       bytelimit -= skb->len; /* incorrect len if skb->next, but exits below */
-> +
-> +       // if (bytelimit < psched_mtu(qdisc_dev(q)) //proposed by fw
-> +       if (bytelimit < 0)
-> +               return head;
-> +
-> +       do {
-> +               if (skb->next || skb_is_gso(skb)) {
-> +                       /* Stop processing if the skb is already a skb
-> +                        * list (e.g a segmented GSO packet, from
-> +                        * below or func caller) or a real GSO packet
-> +                        */
-> +                       break;
-> +               }
-> +               new = q->dequeue(q);
-> +               if (new) {
-> +                       bytelimit -= new->len; /* covers GSO len */
-> +                       new = validate_xmit_skb(new, qdisc_dev(q));
-> +                       if (!new)
-> +                               break;
-> +                       /* "new" can be a skb list after validate call
-> +                        * above (GSO segmented), but it is okay to
-> +                        * append it to current skb->next, because
-> +                        * next round will exit in-case "new" were a
-> +                        * skb list.
-> +                        */
-> +                       skb->next = new;
-> +                       skb = new;
-> +               }
-> +       } while (new && --limit && (bytelimit >= 0));
-> +       skb = head;
-> +
-> +       return skb;
-> +}
-> +
-> +/* Note that dequeue_skb can possibly return a SKB list (via skb->next).
-> + * A requeued skb (via q->gso_skb) can also be a SKB list.
-> + */
->  static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
->  {
->         struct sk_buff *skb = q->gso_skb;
-> @@ -71,9 +135,9 @@ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
->                         skb = NULL;
->         } else {
->                 if (!(q->flags & TCQ_F_ONETXQUEUE) || !netif_xmit_frozen_or_stopped(txq)) {
-> -                       skb = q->dequeue(q);
-> -                       if (skb)
-> -                               skb = validate_xmit_skb(skb, qdisc_dev(q));
-> +                       skb = qdisc_dequeue_validate(q);
-> +                       if (skb && qdisc_may_bulk(q) && qdisc_bulk_dequeue_limit)
-> +                               skb = qdisc_bulk_dequeue_skb(q, skb);
->                 }
-This is hard to read. I don't understand why qdisc_bulk_dequeue_skb
-needs to be a separate function. Single dequeue and bulk dequeue can
-happen in one common loop. Maybe something like:
+I think we can refine the expectation a bit. Bulk qdisc dequeue should
+work for devices that don't support BQL, but the packet dequeue limit
+is fixed number of packets (we don't want to create new mechanisms to
+track fragments or packets that are outstanding in device). However,
+in order to get bulk device transmit for a device, I think it
+reasonable to request that BQL is supported since whoever is adding
+that is already mucking in driver TX path anyway.
 
-struct sk_buff *ret = NULL, **next = &ret;
+Tom
 
-bytelimit = qdisc_may_bulk(q) ? netdev_tx_avail_queue(txq) : 0;
-
-do {
-    skb= q->dequeue;
-    if (!skb)
-        break;
-    *next = skb;
-    next = &skb->next;
-    bytelimit -= skb->len;
-    limit--;
-} while (bytelimit > 0 && limit > 0);
-
->         }
 >
 >
