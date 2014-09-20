@@ -1,94 +1,91 @@
-From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink
-	API
-Date: Sat, 20 Sep 2014 08:35:52 -0400
-Message-ID: <541D74A8.6080501@mojatatu.com>
-References: <1411134590-4586-9-git-send-email-jiri@resnulli.us>
- <541C4AFC.8060500@mojatatu.com> <20140919154946.GH1980@nanopsycho.orion>
- <541C6E6D.9000109@mojatatu.com> <541CAA3C.5080105@intel.com>
- <541CAB9A.3040100@mojatatu.com> <20140920081702.GF1821@nanopsycho.orion>
- <541D54BA.6070709@mojatatu.com> <20140920110121.GB29419@casper.infradead.org>
- <541D65CE.7080108@mojatatu.com> <20140920115140.GA3777@casper.infradead.org>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
+Date: Sat, 20 Sep 2014 05:39:57 -0700
+Message-ID: <541D759D.3030000@cumulusnetworks.com>
+References: <1411134590-4586-1-git-send-email-jiri@resnulli.us> <1411134590-4586-9-git-send-email-jiri@resnulli.us> <541C4AFC.8060500@mojatatu.com> <20140919154946.GH1980@nanopsycho.orion> <541CF75C.9030209@cumulusnetworks.com> <20140920080943.GD1821@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org,
- edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
- f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org,
- alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
- simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20140920115140.GA3777-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, sfeldma@cumulusnetworks.com,
+	f.fainelli@gmail.com, linville@tuxdriver.com, dev@openvswitch.org,
+	jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
+	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
+	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
+	ronye@mellanox.com, simon.horman@netronome.com,
+	alexander.h.duyck@intel.com,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:51635 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755110AbaITMkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 08:40:07 -0400
+In-Reply-To: <20140920080943.GD1821@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/20/14 07:51, Thomas Graf wrote:
-
-> I fail to see the connection. You can use switch vendor SDK no matter
-> how we define the kernel APIs. They already exist and have been
-> designed in a way to be completely indepenedent from the kernel.
+On 9/20/14, 1:09 AM, Jiri Pirko wrote:
+> Sat, Sep 20, 2014 at 05:41:16AM CEST, roopa@cumulusnetworks.com wrote:
+>> On 9/19/14, 8:49 AM, Jiri Pirko wrote:
+>>> Fri, Sep 19, 2014 at 05:25:48PM CEST, jhs@mojatatu.com wrote:
+>>>> On 09/19/14 09:49, Jiri Pirko wrote:
+>>>>> This patch exposes switchdev API using generic Netlink.
+>>>>> Example userspace utility is here:
+>>>>> https://github.com/jpirko/switchdev
+>>>>>
+>>>> Is this just a temporary test tool? Otherwise i dont see reason
+>>>> for its existence (or the API that it feeds on).
+>>> Please read the conversation I had with Pravin and Jesse in v1 thread.
+>>> Long story short they like to have the api separated from ovs datapath
+>>> so ovs daemon can use it to directly communicate with driver. Also John
+>>> Fastabend requested a way to work with driver flows without using ovs ->
+>>> that was the original reason I created switchdev genl api.
+>>>
+>>> Regarding the "sw" tool, yes it is for testing purposes now. ovs daemon
+>>> will use directly switchdev genl api.
+>>>
+>>> I hope I cleared this out.
+>> We already have all the needed rtnetlink kernel api and userspace tools
+>> around it to support all
+>> switching asic features. ie, the rtnetlink api is the switchdev api. We can
+>> do l2, l3, acl's with it.
+>> Its unclear to me why we need another new netlink api. Which will mean none
+>> of the existing tools to
+>> create bridges etc will work on a switchdev.
+> No one is proposing such API. Note that what I'm trying to solve in my
+> patchset is FLOW world. There is only one API there, ovs genl. But the
+> usage of that for hw offload purposes was nacked by ovs maintainer. Plus
+> couple of people wanted to run the offloading independently on ovs
+> instance. Therefore I introduced the switchdev genl, which takes care of
+> that. No plan to extend it for other things you mentioned, just flows.
+ok, That was not clear to me. Introducing a new genl api and calling it the
+switchd dev api can result it non-flow creep into it in the future.
 >
-> Are you referring to vendor specific decisions in user space in
-> general? I believe that the whole point of swdev is to provide *that*
-> level of abstraction so decisions can be made in a vendor neutral way.
 >
-
-I am not against the swdev idea. I think we have disagreements
-for the general classification/action interface how that should look
-like - but that is resolvable with correct interfaces.
-The vendor neutral way *already exists* via current netlink
-abstractions that existing tools use. When we need to add new
-interfaces then we should.
-
-> I don't think anybody is saying that. P4 is likely a reality soon. But
-> we definitely want hardware offload in a BPF world even if the hardware
-> can't do BPF yet.
->
+>> Which seems like going in the direction exactly opposite to what we had
+>> discussed earlier.
+> Nope. The previous discussion ignored flows.
+>> If a non-ovs flow interface is needed from userspace, we can extend the
+>> existing interface to include flows.
+> How? You mean to extend rtnetlink? What advantage it would bring
+> comparing to separate genl iface?
+yes. Advantage would be that we dont have yet another parallel switchdev 
+netlink api.
 
 
-I dont think we have contradictions. We are speaking past each other.
-You implied that in the future OVS s/w path might be based on BPF.
-I implied BPF itself could be offloaded and stands on its own merit
-and should work if we have the correct interface. As an example,
-I dont care about P4 or OVS - but i have no problem if they use
-the common interfaces provided by Linux. i.e
-If i want to build  a little cpu running the BPF instruction set
-and use that as my offload then that interface should work and if
-it doesnt i should provide extensions.
+>> I don't understand why we should replace the existing rtnetlink switchdev api
+>> to accommodate flows.
+> Sorry, I do not undertand what "existing rtnetlink switchdev api" you
+> have on mind. Would you care to explain?
 
-> Not sure I understand. OVS would be a user of eBPF just like tracing,
-> xt_BPF, socket filter, ...
->
-
-Ok, we are on the same page then.
-
-> As I said, this can be argued about. It would require to push a lot of
-> context into the kernel though. The FDB offload is relatively trivial
-> in comparison to the complexity OVS user space can handle. I can't think
-> of any reasons why to complicate the kernel further with OVS specific
-> knowledge as long as we can guarantee the vendor abstraction.
->
-
-I disagree. OVS maybe complex in that sense (I am sorry i am making
-an assumption based on what you are saying) but i dont think there is
-any other kernel subsystem that has this challenge.
-Note: i am pointing to fdb only because it carries the concept of "put
-this in hardware and/or software". I agree the fdb maybe reasonably
-simpler.
-
-cheers,
-jamal
+I am taking about existing rtnetlink api that bridge, ip link uses to 
+talk l2 and l3 to the kernel.
+RTM_NEWROUTE etc.
