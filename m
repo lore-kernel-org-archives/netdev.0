@@ -1,116 +1,135 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: avoid possible arithmetic overflows
-Date: Sat, 20 Sep 2014 10:19:10 -0700
-Message-ID: <1411233550.26859.76.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
+Date: Sat, 20 Sep 2014 10:21:10 -0700
+Message-ID: <DCCFAE52-F4BD-4877-A6FC-3C3AE180E871@cumulusnetworks.com>
+References: <1411134590-4586-1-git-send-email-jiri@resnulli.us> <1411134590-4586-9-git-send-email-jiri@resnulli.us> <541C4AFC.8060500@mojatatu.com> <20140919154946.GH1980@nanopsycho.orion> <541CF75C.9030209@cumulusnetworks.com> <DDC24110-C3F5-470F-B9BE-1D1792415D1E@cumulusnetworks.com> <541D784B.6030302@cumulusnetworks.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Thomas Graf <tgraf@suug.ch>, dborkman <dborkman@redhat.com>,
+	ogerlitz <ogerlitz@mellanox.com>, jesse <jesse@nicira.com>,
+	pshelar <pshelar@nicira.com>, azhou <azhou@nicira.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>, dev@openvswitch.org,
+	jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com,
+	Sergey Ryazanov <ryazanov
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:59939 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753431AbaITRTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 13:19:12 -0400
-Received: by mail-pa0-f47.google.com with SMTP id et14so1998045pad.20
-        for <netdev@vger.kernel.org>; Sat, 20 Sep 2014 10:19:11 -0700 (PDT)
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:37478 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753961AbaITRVc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 13:21:32 -0400
+In-Reply-To: <541D784B.6030302@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-icsk_rto is an 32bit field, and icsk_backoff can reach 15 by default,
-or more if some sysctl (eg tcp_retries2) are changed.
+On Sep 20, 2014, at 5:51 AM, Roopa Prabhu <roopa@cumulusnetworks.com> w=
+rote:
 
-Better use 64bit to perform icsk_rto << icsk_backoff operations
+> On 9/20/14, 1:10 AM, Scott Feldman wrote:
+>> On Sep 19, 2014, at 8:41 PM, Roopa Prabhu <roopa@cumulusnetworks.com=
+>
+>>  wrote:
+>>=20
+>>=20
+>>> On 9/19/14, 8:49 AM, Jiri Pirko wrote:
+>>>=20
+>>>> Fri, Sep 19, 2014 at 05:25:48PM CEST, jhs@mojatatu.com
+>>>>  wrote:
+>>>>=20
+>>>>> On 09/19/14 09:49, Jiri Pirko wrote:
+>>>>>=20
+>>>>>> This patch exposes switchdev API using generic Netlink.
+>>>>>> Example userspace utility is here:
+>>>>>>=20
+>>>>>> https://github.com/jpirko/switchdev
+>>>>>>=20
+>>>>>>=20
+>>>>>>=20
+>>>>> Is this just a temporary test tool? Otherwise i dont see reason
+>>>>> for its existence (or the API that it feeds on).
+>>>>>=20
+>>>> Please read the conversation I had with Pravin and Jesse in v1 thr=
+ead.
+>>>> Long story short they like to have the api separated from ovs data=
+path
+>>>> so ovs daemon can use it to directly communicate with driver. Also=
+ John
+>>>> Fastabend requested a way to work with driver flows without using =
+ovs ->
+>>>> that was the original reason I created switchdev genl api.
+>>>>=20
+>>>> Regarding the "sw" tool, yes it is for testing purposes now. ovs d=
+aemon
+>>>> will use directly switchdev genl api.
+>>>>=20
+>>>> I hope I cleared this out.
+>>>>=20
+>>> We already have all the needed rtnetlink kernel api and userspace t=
+ools around it to support all
+>>> switching asic features. ie, the rtnetlink api is the switchdev api=
+=2E We can do l2, l3, acl's with it.
+>>> Its unclear to me why we need another new netlink api. Which will m=
+ean none of the existing tools to
+>>> create bridges etc will work on a switchdev.
+>>> Which seems like going in the direction exactly opposite to what we=
+ had discussed earlier.
+>>>=20
+>> Existing rtnetlink isn=92t available to swdev without some kind of s=
+nooping the echoes from the various kernel components (bridge, fib, etc=
+).  With swdev_flow, as Jiri has defined it, there is an additional con=
+version needed to bridge the gap (bad expression, I know) between rtnet=
+link and swdev_flow.  This conversion happens in the kernel components.=
+  For example, the bridge module, still driven from userspace by existi=
+ng rtnetlink, will formulate the necessary swdev_flow insert/remove cal=
+ls to the swdev driver such that HW will offload the fwd path.
+>>=20
+>> You have:
+>>     user -> rtnetlink -> kernel -> netlink echo -> [some process] ->=
+ [some driver] -> HW
+>>=20
+>>=20
+>> Jiri has:
+>>     user -> rtnetlink -> kernel -> swdev_* -> swdev driver -> HW
+>>=20
+>>=20
+> Keeping the goal to not change or not add a new userspace API in mind=
+,
+> I have :
+>     user -> rtnetlink -> kernel -> ndo_op -> swdev driver  -> HW
+>=20
 
-From: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_input.c  |    7 +++++--
- net/ipv4/tcp_output.c |   13 ++++++-------
- net/ipv4/tcp_timer.c  |    5 +++--
- 3 files changed, 14 insertions(+), 11 deletions(-)
+Then you have the same as Jiri, for the traditional L2/L3 case.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 02fb66d4a018..1ea3847c62fc 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3208,9 +3208,12 @@ static void tcp_ack_probe(struct sock *sk)
- 		 * This function is not for random using!
- 		 */
- 	} else {
-+		unsigned long when;
-+
-+		when = min((u64)icsk->icsk_rto << icsk->icsk_backoff,
-+			   (u64)TCP_RTO_MAX);
- 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0,
--					  min(icsk->icsk_rto << icsk->icsk_backoff, TCP_RTO_MAX),
--					  TCP_RTO_MAX);
-+					  when, TCP_RTO_MAX);
- 	}
- }
- 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 7f1280dcad57..2231b400f3ce 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3279,6 +3279,7 @@ void tcp_send_probe0(struct sock *sk)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	unsigned long when;
- 	int err;
- 
- 	err = tcp_write_wakeup(sk);
-@@ -3294,9 +3295,8 @@ void tcp_send_probe0(struct sock *sk)
- 		if (icsk->icsk_backoff < sysctl_tcp_retries2)
- 			icsk->icsk_backoff++;
- 		icsk->icsk_probes_out++;
--		inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0,
--					  min(icsk->icsk_rto << icsk->icsk_backoff, TCP_RTO_MAX),
--					  TCP_RTO_MAX);
-+		when = min((u64)icsk->icsk_rto << icsk->icsk_backoff,
-+			   (u64)TCP_RTO_MAX);
- 	} else {
- 		/* If packet was not sent due to local congestion,
- 		 * do not backoff and do not remember icsk_probes_out.
-@@ -3306,11 +3306,10 @@ void tcp_send_probe0(struct sock *sk)
- 		 */
- 		if (!icsk->icsk_probes_out)
- 			icsk->icsk_probes_out = 1;
--		inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0,
--					  min(icsk->icsk_rto << icsk->icsk_backoff,
--					      TCP_RESOURCE_PROBE_INTERVAL),
--					  TCP_RTO_MAX);
-+		when = min((u64)icsk->icsk_rto << icsk->icsk_backoff,
-+			   (u64)TCP_RESOURCE_PROBE_INTERVAL);
- 	}
-+	inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0, when, TCP_RTO_MAX);
- }
- 
- int tcp_rtx_synack(struct sock *sk, struct request_sock *req)
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index a339e7ba05a4..05e1d0723233 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -180,7 +180,7 @@ static int tcp_write_timeout(struct sock *sk)
- 
- 		retry_until = sysctl_tcp_retries2;
- 		if (sock_flag(sk, SOCK_DEAD)) {
--			const int alive = (icsk->icsk_rto < TCP_RTO_MAX);
-+			const int alive = icsk->icsk_rto < TCP_RTO_MAX;
- 
- 			retry_until = tcp_orphan_retries(sk, alive);
- 			do_reset = alive ||
-@@ -294,7 +294,8 @@ static void tcp_probe_timer(struct sock *sk)
- 	max_probes = sysctl_tcp_retries2;
- 
- 	if (sock_flag(sk, SOCK_DEAD)) {
--		const int alive = ((icsk->icsk_rto << icsk->icsk_backoff) < TCP_RTO_MAX);
-+		u64 exp_rto = (u64)icsk->icsk_rto << icsk->icsk_backoff;
-+		const int alive = exp_rto < TCP_RTO_MAX;
- 
- 		max_probes = tcp_orphan_retries(sk, alive);
- 
+> Jiri has:
+>     user -> genl (newapi) -> kernel -> swdev_* -> swdev driver -> HW
+
+Jiri=92s genl is for userspace apps that are talking rtnetlink, like OV=
+S.  It=92s not a substitute for rtnetlink, it=92s an alternative.  The =
+complete picture is:
+
+user -> swdev genl -----
+                        \
+                         \
+                          -------> kernel -> ndo_swdev_* -> swdev drive=
+r -> HW
+                         /
+                        /
+user -> rtnetlink ------
+
+
+-scott
