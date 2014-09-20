@@ -1,88 +1,91 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next v2 6/9] switchdev: add basic support for flow
- matching and actions
-Date: Fri, 19 Sep 2014 22:32:08 -0700
-Message-ID: <541D1158.2070909@gmail.com>
-References: <1411134590-4586-1-git-send-email-jiri@resnulli.us> <1411134590-4586-7-git-send-email-jiri@resnulli.us>
+Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
+Date: Fri, 19 Sep 2014 22:36:02 -0700
+Message-ID: <541D1242.8080403@gmail.com>
+References: <1411134590-4586-1-git-send-email-jiri@resnulli.us> <1411134590-4586-9-git-send-email-jiri@resnulli.us> <541C4AFC.8060500@mojatatu.com> <20140919154946.GH1980@nanopsycho.orion> <541C6E6D.9000109@mojatatu.com> <541CAA3C.5080105@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
+	ogerlitz@mellanox.com, jesse@nicira.com, pshelar@nicira.com,
+	azhou@nicira.com, ben@decadent.org.uk, stephen@networkplumber.org,
 	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@cumulusnetworks.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	dev@openvswitch.org, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@intel.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+	xiyou.wangcong@gmail.com, edumazet@google.com,
+	sfeldma@cumulusnetworks.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com, ronye@mellanox.com,
+	simon.horman@netronome.com, alexander.h.duyck@intel.com
+To: John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:64776 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932150AbaITFcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 01:32:13 -0400
-Received: by mail-oi0-f51.google.com with SMTP id x69so2342900oia.10
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 22:32:13 -0700 (PDT)
-In-Reply-To: <1411134590-4586-7-git-send-email-jiri@resnulli.us>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:39720 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756832AbaITFgI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 01:36:08 -0400
+Received: by mail-ob0-f170.google.com with SMTP id wm4so2414038obc.1
+        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 22:36:07 -0700 (PDT)
+In-Reply-To: <541CAA3C.5080105@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/19/14 06:49, Jiri Pirko wrote:
-> This patch adds basic support for flows. The infrastructure is prepared
-> to easily add another flow matching types. So far, only the key one is
-> implemented.
+On 09/19/14 15:12, John Fastabend wrote:
+> On 09/19/2014 10:57 AM, Jamal Hadi Salim wrote:
+>> On 09/19/14 11:49, Jiri Pirko wrote:
+>>> Fri, Sep 19, 2014 at 05:25:48PM CEST, jhs@mojatatu.com wrote:
+>>
+>>>> Is this just a temporary test tool? Otherwise i dont see reason
+>>>> for its existence (or the API that it feeds on).
+>>>
+>>> Please read the conversation I had with Pravin and Jesse in v1 thread.
+>>> Long story short they like to have the api separated from ovs datapath
+>>> so ovs daemon can use it to directly communicate with driver. Also John
+>>> Fastabend requested a way to work with driver flows without using ovs ->
+>>> that was the original reason I created switchdev genl api.
+>>>
+>>> Regarding the "sw" tool, yes it is for testing purposes now. ovs daemon
+>>> will use directly switchdev genl api.
+>>>
+>>> I hope I cleared this out.
+>>>
+>>
+>> It is - thanks Jiri.
+>>
+>> cheers,
+>> jamal
 >
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
+> Hi Jiri,
+>
+> I was considering a slightly different approach where the
+> device would report via netlink the fields/actions it
+> supported rather than creating pre-defined enums for every
+> possible key.
+>
+> I already need to have an API to report fields/matches
+> that are being supported why not have the device report
+> the headers as header fields (len, offset) and the
+> associated parse graph the hardware uses? Vendors should
+> have this already to describe/design their real hardware.
 
-[snip]
+Humm would not that slightly go against coming with a netlink API that 
+is generic? Surely we could pay close attention when reviewing what is 
+being added and spot when a common API needs to be introduced...
+
+This might become very similar to the private ioctl(), private wireless 
+extensions, nl80211 testmode and well it's not extremely pretty.
 
 >
-> +struct swdev_flow_match_key {
-> +	struct {
-> +		u32	priority;	/* Packet QoS priority. */
-> +		u32	in_port_ifindex; /* Input switch port ifindex (or 0). */
-> +	} phy;
-> +	struct {
-> +		u8     src[ETH_ALEN];	/* Ethernet source address. */
-> +		u8     dst[ETH_ALEN];	/* Ethernet destination address. */
-> +		__be16 tci;		/* 0 if no VLAN, VLAN_TAG_PRESENT set otherwise. */
-
-Humm, how about QinQ here? I would provision two more 16 bits fields so 
-we can do all sorts of VLAN matching.
-
-You might want to allow for a 4 to 8 bytes hardware switch tag as well.
-
-> +		__be16 type;		/* Ethernet frame type. */
-> +	} eth;
-> +	struct {
-> +		u8     proto;		/* IP protocol or lower 8 bits of ARP opcode. */
-> +		u8     tos;		/* IP ToS. */
-> +		u8     ttl;		/* IP TTL/hop limit. */
-> +		u8     frag;		/* One of OVS_FRAG_TYPE_*. */
-
-Options might be missing?
-
-[snip]
-
-> +
-> +static void print_flow(const struct swdev_flow *flow, struct net_device *dev,
-> +		       const char *comment)
-> +{
-> +	pr_debug("%s flow %s:\n", dev->name, comment);
-> +	print_flow_match(&flow->match);
-> +	print_flow_actions(flow->action, flow->action_count);
-> +}
-
-I am really not sure how much of this valuable besides early (as in, 
-right now) debugging, don't we rather want a generic way to dump a given 
-flow under a its native netlink format, does that code has to be here in 
-the first place?
---
-Florian
+> As always its better to have code and when I get some
+> time I'll try to write it up. Maybe its just a separate
+> classifier although I don't actually want two hardware
+> flow APIs.
+>
+> I see you dropped the RFC tag are you proposing we include
+> this now?
+>
+> .John
+>
