@@ -1,81 +1,246 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH 2/2] net: sched: cls_u32 changes to knode must
- appear atomic to readers
-Date: Fri, 19 Sep 2014 21:55:34 -0700
-Message-ID: <541D08C6.8060804@gmail.com>
-References: <20140917191131.20529.91136.stgit@nitbit.x32> <20140917191202.20529.87231.stgit@nitbit.x32> <541AC425.2090300@mojatatu.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [patch net-next v2 5/9] net: introduce dummy switch
+Date: Fri, 19 Sep 2014 22:21:00 -0700
+Message-ID: <541D0EBC.6010103@gmail.com>
+References: <1411134590-4586-1-git-send-email-jiri@resnulli.us>
+ <1411134590-4586-6-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, davem@davemloft.net,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:56049 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753879AbaITEzv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 00:55:51 -0400
-Received: by mail-oa0-f44.google.com with SMTP id eb12so2480177oac.31
-        for <netdev@vger.kernel.org>; Fri, 19 Sep 2014 21:55:50 -0700 (PDT)
-In-Reply-To: <541AC425.2090300@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+ dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
+ buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+ aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1411134590-4586-6-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 09/18/2014 04:38 AM, Jamal Hadi Salim wrote:
-> On 09/17/14 15:12, John Fastabend wrote:
->> Changes to the cls_u32 classifier must appear atomic to the
->> readers. Before this patch if a change is requested for both
->> the exts and ifindex, first the ifindex is updated then the
->> exts with tcf_exts_change(). This opens a small window where
->> a reader can have a exts chain with an incorrect ifindex. This
->> violates the the RCU semantics.
->>
->> Here we resolve this by always passing u32_set_parms() a copy
->> of the tc_u_knode to work on and then inserting it into the hash
->> table after the updates have been successfully applied.
->>
->> Tested with the following short script:
->>
+On 09/19/14 06:49, Jiri Pirko wrote:
+> Dummy switch implementation using switchdev interface
+
+This really looks like a DSA driver that has 0 ports, and is not 
+attached to an useful network interface, and which is registering its 
+own set of rtnl operations for a purpose that is unclear to me.
+
+I think registering these rtnl ops is misleading as it leads to a false 
+idea that this is allowed, and that people are actually encouraged to do 
+that for custom switch drivers, and this completely defeats the purpose 
+of coming up with a generic API.
+
+If we are to go that route anyway, I really prefer the way Felix did it 
+in swconfig, and the fake switch driver did do something useful being 
+attached to the loopback interface:
+
+http://lists.openwall.net/netdev/2013/10/22/103
+http://patchwork.ozlabs.org/patch/285478/
+
 >
->>
->> #tc filter add dev p3p2 parent 8001:0 protocol ip prio 99 handle 1: \
->>            u32 divisor 256
->>
->> #tc filter add dev p3p2 parent 8001:0 protocol ip prio 99 \
->>            u32 link 1: hashkey mask ffffff00 at 12    \
->>            match ip src 192.168.8.0/2
->>
->> #tc filter add dev p3p2 parent 8001:0 protocol ip prio 102    \
->>            handle 1::10 u32 classid 1:2 ht 1:           \
->>            match ip src 192.168.8.0/8 match ip tos 0x0a 1e
->>
->> #tc filter change dev p3p2 parent 8001:0 protocol ip prio 102 \
->>          handle 1::10 u32 classid 1:2 ht 1:        \
->>          match ip src 1.1.0.0/8 match ip tos 0x0b 1e
->>
->> CC: Eric Dumazet <edumazet@google.com>
->> CC: Jamal Hadi Salim <jhs@mojatatu.com>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+> ---
+>   drivers/net/Kconfig          |   7 +++
+>   drivers/net/Makefile         |   1 +
+>   drivers/net/dummyswitch.c    | 130 +++++++++++++++++++++++++++++++++++++++++++
+>   include/uapi/linux/if_link.h |   9 +++
+>   4 files changed, 147 insertions(+)
+>   create mode 100644 drivers/net/dummyswitch.c
 >
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index c6f6f69..7822c74 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -71,6 +71,13 @@ config DUMMY
+>   	  To compile this driver as a module, choose M here: the module
+>   	  will be called dummy.
 >
-> Looks good to me.
-> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> +config NET_DUMMY_SWITCH
+> +	tristate "Dummy switch net driver support"
+> +	depends on NET_SWITCHDEV
+> +	---help---
+> +	  To compile this driver as a module, choose M here: the module
+> +	  will be called dummyswitch.
+> +
+>   config EQUALIZER
+>   	tristate "EQL (serial line load balancing) support"
+>   	---help---
+> diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+> index 61aefdd..3c835ba 100644
+> --- a/drivers/net/Makefile
+> +++ b/drivers/net/Makefile
+> @@ -7,6 +7,7 @@
+>   #
+>   obj-$(CONFIG_BONDING) += bonding/
+>   obj-$(CONFIG_DUMMY) += dummy.o
+> +obj-$(CONFIG_NET_DUMMY_SWITCH) += dummyswitch.o
+>   obj-$(CONFIG_EQUALIZER) += eql.o
+>   obj-$(CONFIG_IFB) += ifb.o
+>   obj-$(CONFIG_MACVLAN) += macvlan.o
+> diff --git a/drivers/net/dummyswitch.c b/drivers/net/dummyswitch.c
+> new file mode 100644
+> index 0000000..e7a48f4
+> --- /dev/null
+> +++ b/drivers/net/dummyswitch.c
+> @@ -0,0 +1,130 @@
+> +/*
+> + * drivers/net/dummyswitch.c - Dummy switch device
+> + * Copyright (c) 2014 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + */
+> +
+> +#include <linux/module.h>
+> +#include <linux/kernel.h>
+> +#include <linux/init.h>
+> +#include <linux/netdevice.h>
+> +#include <linux/etherdevice.h>
+> +#include <net/rtnetlink.h>
+> +
+> +struct dummyswport_priv {
+> +	struct netdev_phys_item_id psid;
+> +};
+> +
+> +static netdev_tx_t dummyswport_start_xmit(struct sk_buff *skb,
+> +					  struct net_device *dev)
+> +{
+> +	dev_kfree_skb(skb);
+> +	return NETDEV_TX_OK;
+> +}
+> +
+> +static int dummyswport_swdev_id_get(struct net_device *dev,
+> +				    struct netdev_phys_item_id *psid)
+> +{
+> +	struct dummyswport_priv *dsp = netdev_priv(dev);
+> +
+> +	memcpy(psid, &dsp->psid, sizeof(*psid));
+> +	return 0;
+> +}
+> +
+> +static int dummyswport_change_carrier(struct net_device *dev, bool new_carrier)
+> +{
+> +	if (new_carrier)
+> +		netif_carrier_on(dev);
+> +	else
+> +		netif_carrier_off(dev);
+> +	return 0;
+> +}
+> +
+> +static const struct net_device_ops dummyswport_netdev_ops = {
+> +	.ndo_start_xmit		= dummyswport_start_xmit,
+> +	.ndo_swdev_id_get	= dummyswport_swdev_id_get,
+> +	.ndo_change_carrier	= dummyswport_change_carrier,
+> +};
+> +
+> +static void dummyswport_setup(struct net_device *dev)
+> +{
+> +	ether_setup(dev);
+> +
+> +	/* Initialize the device structure. */
+> +	dev->netdev_ops = &dummyswport_netdev_ops;
+> +	dev->destructor = free_netdev;
+> +
+> +	/* Fill in device structure with ethernet-generic values. */
+> +	dev->tx_queue_len = 0;
+> +	dev->flags |= IFF_NOARP;
+> +	dev->flags &= ~IFF_MULTICAST;
+> +	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+> +	dev->features	|= NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_TSO;
+> +	dev->features	|= NETIF_F_HW_CSUM | NETIF_F_HIGHDMA | NETIF_F_LLTX;
+> +	eth_hw_addr_random(dev);
+> +}
+> +
+> +static int dummyswport_validate(struct nlattr *tb[], struct nlattr *data[])
+> +{
+> +	if (tb[IFLA_ADDRESS])
+> +		return -EINVAL;
+> +	if (!data || !data[IFLA_DUMMYSWPORT_PHYS_SWITCH_ID])
+> +		return -EINVAL;
+> +	return 0;
+> +}
+> +
+> +static int dummyswport_newlink(struct net *src_net, struct net_device *dev,
+> +			       struct nlattr *tb[], struct nlattr *data[])
+> +{
+> +	struct dummyswport_priv *dsp = netdev_priv(dev);
+> +	int err;
+> +
+> +	dsp->psid.id_len = nla_len(data[IFLA_DUMMYSWPORT_PHYS_SWITCH_ID]);
+> +	memcpy(dsp->psid.id, nla_data(data[IFLA_DUMMYSWPORT_PHYS_SWITCH_ID]),
+> +	       dsp->psid.id_len);
+> +
+> +	err = register_netdevice(dev);
+> +	if (err)
+> +		return err;
+> +
+> +	netif_carrier_on(dev);
+> +
+> +	return 0;
+> +}
+> +
+> +static const struct nla_policy dummyswport_policy[IFLA_DUMMYSWPORT_MAX + 1] = {
+> +	[IFLA_DUMMYSWPORT_PHYS_SWITCH_ID] = { .type = NLA_BINARY,
+> +					      .len = MAX_PHYS_ITEM_ID_LEN },
+> +};
+> +
+> +static struct rtnl_link_ops dummyswport_link_ops __read_mostly = {
+> +	.kind		= "dummyswport",
+> +	.priv_size	= sizeof(struct dummyswport_priv),
+> +	.setup		= dummyswport_setup,
+> +	.validate	= dummyswport_validate,
+> +	.newlink	= dummyswport_newlink,
+> +	.policy		= dummyswport_policy,
+> +	.maxtype	= IFLA_DUMMYSWPORT_MAX,
+> +};
+> +
+> +static int __init dummysw_module_init(void)
+> +{
+> +	return rtnl_link_register(&dummyswport_link_ops);
+> +}
+> +
+> +static void __exit dummysw_module_exit(void)
+> +{
+> +	rtnl_link_unregister(&dummyswport_link_ops);
+> +}
+> +
+> +module_init(dummysw_module_init);
+> +module_exit(dummysw_module_exit);
+> +
+> +MODULE_LICENSE("GPL v2");
+> +MODULE_AUTHOR("Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>");
+> +MODULE_DESCRIPTION("Dummy switch device");
+> +MODULE_ALIAS_RTNL_LINK("dummyswport");
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index c5ca3b9..bd24d69 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -574,4 +574,13 @@ enum {
 >
-> cheers,
-> jamal
-
-Thanks for looking it over! I made v2 though to address a comment
-that my variable/function names could be better and added a comment
-around the perhaps tricky cases where it is safe to free the percpu
-variables.
-
-Because I did touch the patch and make some changes I dropped your
-ACK. I always thought it was a bit of bad form to carry ack's around
-after modifying the code without an explicit approval. Please add it
-back though if you want.
-
-Thanks,
-John
-
--- 
-John Fastabend         Intel Corporation
+>   #define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
+>
+> +/* DUMMYSWPORT section */
+> +enum {
+> +	IFLA_DUMMYSWPORT_UNSPEC,
+> +	IFLA_DUMMYSWPORT_PHYS_SWITCH_ID,
+> +	__IFLA_DUMMYSWPORT_MAX,
+> +};
+> +
+> +#define IFLA_DUMMYSWPORT_MAX (__IFLA_DUMMYSWPORT_MAX - 1)
+> +
+>   #endif /* _UAPI_LINUX_IF_LINK_H */
+>
