@@ -1,7 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH v2 22/29] fm10k: Add support for PF <-> VF mailbox
-Date: Sat, 20 Sep 2014 19:51:27 -0400
-Message-ID: <20140920235120.2977.44214.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [net-next PATCH v2 23/29] fm10k: Add support for VF
+Date: Sat, 20 Sep 2014 19:51:40 -0400
+Message-ID: <20140920235132.2977.34422.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140920234342.2977.21667.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,914 +11,1081 @@ Cc: nhorman@redhat.com, netdev@vger.kernel.org,
 	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:25144 "EHLO mga02.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:13400 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751293AbaIUAAM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Sep 2014 20:00:12 -0400
+	id S1751293AbaIUAAY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Sep 2014 20:00:24 -0400
 In-Reply-To: <20140920234342.2977.21667.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for the PF <-> VF mailbox.  It functions similar to
-the PF <-> SM mailbox however there are several modifications made to
-improve the reliability of the mailbox itself.  In addition the PF/VF
-mailbox is much smaller an only supports a total size of 16 DWORDs vs the
-1024 DWORDS provided for the PF/SM mailbox.
+This patch provides the functions necessary to configure the VF making use
+of the same API pointers as the PF.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_mbx.c |  770 ++++++++++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_mbx.h |   64 ++
- 2 files changed, 834 insertions(+)
+ drivers/net/ethernet/intel/fm10k/Makefile        |    2 
+ drivers/net/ethernet/intel/fm10k/fm10k.h         |    4 
+ drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c |  114 +++++
+ drivers/net/ethernet/intel/fm10k/fm10k_mbx.c     |    4 
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  |   15 +
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c     |  102 ++++
+ drivers/net/ethernet/intel/fm10k/fm10k_type.h    |    9 
+ drivers/net/ethernet/intel/fm10k/fm10k_vf.c      |  523 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_vf.h      |   68 +++
+ 9 files changed, 837 insertions(+), 4 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_vf.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_vf.h
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-index 2609847..a6a66fd 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-@@ -511,6 +511,148 @@ static s32 fm10k_mbx_push_tail(struct fm10k_hw *hw,
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
+index b72815e..f70893a 100644
+--- a/drivers/net/ethernet/intel/fm10k/Makefile
++++ b/drivers/net/ethernet/intel/fm10k/Makefile
+@@ -28,5 +28,5 @@
+ obj-$(CONFIG_FM10K) += fm10k.o
  
-+/* pre-generated data for generating the CRC based on the poly 0xAC9A. */
-+static const u16 fm10k_crc_16b_table[256] = {
-+	0x0000, 0x7956, 0xF2AC, 0x8BFA, 0xBC6D, 0xC53B, 0x4EC1, 0x3797,
-+	0x21EF, 0x58B9, 0xD343, 0xAA15, 0x9D82, 0xE4D4, 0x6F2E, 0x1678,
-+	0x43DE, 0x3A88, 0xB172, 0xC824, 0xFFB3, 0x86E5, 0x0D1F, 0x7449,
-+	0x6231, 0x1B67, 0x909D, 0xE9CB, 0xDE5C, 0xA70A, 0x2CF0, 0x55A6,
-+	0x87BC, 0xFEEA, 0x7510, 0x0C46, 0x3BD1, 0x4287, 0xC97D, 0xB02B,
-+	0xA653, 0xDF05, 0x54FF, 0x2DA9, 0x1A3E, 0x6368, 0xE892, 0x91C4,
-+	0xC462, 0xBD34, 0x36CE, 0x4F98, 0x780F, 0x0159, 0x8AA3, 0xF3F5,
-+	0xE58D, 0x9CDB, 0x1721, 0x6E77, 0x59E0, 0x20B6, 0xAB4C, 0xD21A,
-+	0x564D, 0x2F1B, 0xA4E1, 0xDDB7, 0xEA20, 0x9376, 0x188C, 0x61DA,
-+	0x77A2, 0x0EF4, 0x850E, 0xFC58, 0xCBCF, 0xB299, 0x3963, 0x4035,
-+	0x1593, 0x6CC5, 0xE73F, 0x9E69, 0xA9FE, 0xD0A8, 0x5B52, 0x2204,
-+	0x347C, 0x4D2A, 0xC6D0, 0xBF86, 0x8811, 0xF147, 0x7ABD, 0x03EB,
-+	0xD1F1, 0xA8A7, 0x235D, 0x5A0B, 0x6D9C, 0x14CA, 0x9F30, 0xE666,
-+	0xF01E, 0x8948, 0x02B2, 0x7BE4, 0x4C73, 0x3525, 0xBEDF, 0xC789,
-+	0x922F, 0xEB79, 0x6083, 0x19D5, 0x2E42, 0x5714, 0xDCEE, 0xA5B8,
-+	0xB3C0, 0xCA96, 0x416C, 0x383A, 0x0FAD, 0x76FB, 0xFD01, 0x8457,
-+	0xAC9A, 0xD5CC, 0x5E36, 0x2760, 0x10F7, 0x69A1, 0xE25B, 0x9B0D,
-+	0x8D75, 0xF423, 0x7FD9, 0x068F, 0x3118, 0x484E, 0xC3B4, 0xBAE2,
-+	0xEF44, 0x9612, 0x1DE8, 0x64BE, 0x5329, 0x2A7F, 0xA185, 0xD8D3,
-+	0xCEAB, 0xB7FD, 0x3C07, 0x4551, 0x72C6, 0x0B90, 0x806A, 0xF93C,
-+	0x2B26, 0x5270, 0xD98A, 0xA0DC, 0x974B, 0xEE1D, 0x65E7, 0x1CB1,
-+	0x0AC9, 0x739F, 0xF865, 0x8133, 0xB6A4, 0xCFF2, 0x4408, 0x3D5E,
-+	0x68F8, 0x11AE, 0x9A54, 0xE302, 0xD495, 0xADC3, 0x2639, 0x5F6F,
-+	0x4917, 0x3041, 0xBBBB, 0xC2ED, 0xF57A, 0x8C2C, 0x07D6, 0x7E80,
-+	0xFAD7, 0x8381, 0x087B, 0x712D, 0x46BA, 0x3FEC, 0xB416, 0xCD40,
-+	0xDB38, 0xA26E, 0x2994, 0x50C2, 0x6755, 0x1E03, 0x95F9, 0xECAF,
-+	0xB909, 0xC05F, 0x4BA5, 0x32F3, 0x0564, 0x7C32, 0xF7C8, 0x8E9E,
-+	0x98E6, 0xE1B0, 0x6A4A, 0x131C, 0x248B, 0x5DDD, 0xD627, 0xAF71,
-+	0x7D6B, 0x043D, 0x8FC7, 0xF691, 0xC106, 0xB850, 0x33AA, 0x4AFC,
-+	0x5C84, 0x25D2, 0xAE28, 0xD77E, 0xE0E9, 0x99BF, 0x1245, 0x6B13,
-+	0x3EB5, 0x47E3, 0xCC19, 0xB54F, 0x82D8, 0xFB8E, 0x7074, 0x0922,
-+	0x1F5A, 0x660C, 0xEDF6, 0x94A0, 0xA337, 0xDA61, 0x519B, 0x28CD };
-+
-+/**
-+ *  fm10k_crc_16b - Generate a 16 bit CRC for a region of 16 bit data
-+ *  @data: pointer to data to process
-+ *  @seed: seed value for CRC
-+ *  @len: length measured in 16 bits words
-+ *
-+ *  This function will generate a CRC based on the polynomial 0xAC9A and
-+ *  whatever value is stored in the seed variable.  Note that this
-+ *  value inverts the local seed and the result in order to capture all
-+ *  leading and trailing zeros.
-+ */
-+static u16 fm10k_crc_16b(const u32 *data, u16 seed, u16 len)
-+{
-+	u32 result = seed;
-+
-+	while (len--) {
-+		result ^= *(data++);
-+		result = (result >> 8) ^ fm10k_crc_16b_table[result & 0xFF];
-+		result = (result >> 8) ^ fm10k_crc_16b_table[result & 0xFF];
-+
-+		if (!(len--))
-+			break;
-+
-+		result = (result >> 8) ^ fm10k_crc_16b_table[result & 0xFF];
-+		result = (result >> 8) ^ fm10k_crc_16b_table[result & 0xFF];
-+	}
-+
-+	return (u16)result;
-+}
-+
-+/**
-+ *  fm10k_fifo_crc - generate a CRC based off of FIFO data
-+ *  @fifo: pointer to FIFO
-+ *  @offset: offset point for start of FIFO
-+ *  @len: number of DWORDS words to process
-+ *  @seed: seed value for CRC
-+ *
-+ *  This function generates a CRC for some region of the FIFO
-+ **/
-+static u16 fm10k_fifo_crc(struct fm10k_mbx_fifo *fifo, u16 offset,
-+			  u16 len, u16 seed)
-+{
-+	u32 *data = fifo->buffer + offset;
-+
-+	/* track when we should cross the end of the FIFO */
-+	offset = fifo->size - offset;
-+
-+	/* if we are in 2 blocks process the end of the FIFO first */
-+	if (offset < len) {
-+		seed = fm10k_crc_16b(data, seed, offset * 2);
-+		data = fifo->buffer;
-+		len -= offset;
-+	}
-+
-+	/* process any remaining bits */
-+	return fm10k_crc_16b(data, seed, len * 2);
-+}
-+
-+/**
-+ *  fm10k_mbx_update_local_crc - Update the local CRC for outgoing data
-+ *  @mbx: pointer to mailbox
-+ *  @head: head index provided by remote mailbox
-+ *
-+ *  This function will generate the CRC for all data from the end of the
-+ *  last head update to the current one.  It uses the result of the
-+ *  previous CRC as the seed for this update.  The result is stored in
-+ *  mbx->local.
-+ **/
-+static void fm10k_mbx_update_local_crc(struct fm10k_mbx_info *mbx, u16 head)
-+{
-+	u16 len = mbx->tail_len - fm10k_mbx_index_len(mbx, head, mbx->tail);
-+
-+	/* determine the offset for the start of the region to be pulled */
-+	head = fm10k_fifo_head_offset(&mbx->tx, mbx->pulled);
-+
-+	/* update local CRC to include all of the pulled data */
-+	mbx->local = fm10k_fifo_crc(&mbx->tx, head, len, mbx->local);
-+}
-+
-+/**
-+ *  fm10k_mbx_verify_remote_crc - Verify the CRC is correct for current data
-+ *  @mbx: pointer to mailbox
-+ *
-+ *  This function will take all data that has been provided from the remote
-+ *  end and generate a CRC for it.  This is stored in mbx->remote.  The
-+ *  CRC for the header is then computed and if the result is non-zero this
-+ *  is an error and we signal an error dropping all data and resetting the
-+ *  connection.
-+ */
-+static s32 fm10k_mbx_verify_remote_crc(struct fm10k_mbx_info *mbx)
-+{
-+	struct fm10k_mbx_fifo *fifo = &mbx->rx;
-+	u16 len = mbx->head_len;
-+	u16 offset = fm10k_fifo_tail_offset(fifo, mbx->pushed) - len;
-+	u16 crc;
-+
-+	/* update the remote CRC if new data has been received */
-+	if (len)
-+		mbx->remote = fm10k_fifo_crc(fifo, offset, len, mbx->remote);
-+
-+	/* process the full header as we have to validate the CRC */
-+	crc = fm10k_crc_16b(&mbx->mbx_hdr, mbx->remote, 1);
-+
-+	/* notify other end if we have a problem */
-+	return crc ? FM10K_MBX_ERR_CRC : 0;
-+}
-+
- /**
-  *  fm10k_mbx_rx_ready - Indicates that a message is ready in the Rx FIFO
-  *  @mbx: pointer to mailbox
-@@ -686,6 +828,204 @@ static void fm10k_mbx_write(struct fm10k_hw *hw, struct fm10k_mbx_info *mbx)
- }
+ fm10k-objs := fm10k_main.o fm10k_common.o fm10k_pci.o \
+-	      fm10k_netdev.o fm10k_ethtool.o fm10k_pf.o \
++	      fm10k_netdev.o fm10k_ethtool.o fm10k_pf.o fm10k_vf.o \
+ 	      fm10k_mbx.o fm10k_tlv.o
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
+index 82efaed..0c4a873 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
+@@ -28,6 +28,7 @@
+ #include <linux/pci.h>
  
- /**
-+ *  fm10k_mbx_create_connect_hdr - Generate a connect mailbox header
-+ *  @mbx: pointer to mailbox
-+ *
-+ *  This function returns a connection mailbox header
-+ **/
-+static void fm10k_mbx_create_connect_hdr(struct fm10k_mbx_info *mbx)
-+{
-+	mbx->mbx_lock |= FM10K_MBX_REQ;
+ #include "fm10k_pf.h"
++#include "fm10k_vf.h"
+ 
+ #define FM10K_MAX_JUMBO_FRAME_SIZE	15358	/* Maximum supported size 15K */
+ 
+@@ -180,12 +181,13 @@ static inline struct netdev_queue *txring_txq(const struct fm10k_ring *ring)
+ #define MIN_Q_VECTORS	1
+ enum fm10k_non_q_vectors {
+ 	FM10K_MBX_VECTOR,
++#define NON_Q_VECTORS_VF NON_Q_VECTORS_PF
+ 	NON_Q_VECTORS_PF
+ };
+ 
+ #define NON_Q_VECTORS(hw)	(((hw)->mac.type == fm10k_mac_pf) ? \
+ 						NON_Q_VECTORS_PF : \
+-						0)
++						NON_Q_VECTORS_VF)
+ #define MIN_MSIX_COUNT(hw)	(MIN_Q_VECTORS + NON_Q_VECTORS(hw))
+ 
+ struct fm10k_q_vector {
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+index 54e8ebd..42beb89 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+@@ -102,6 +102,17 @@ static const struct fm10k_stats fm10k_gstrings_stats[] = {
+ 			 FM10K_NETDEV_STATS_LEN + \
+ 			 FM10K_QUEUE_STATS_LEN)
+ 
++static const char fm10k_gstrings_test[][ETH_GSTRING_LEN] = {
++	"Mailbox test (on/offline)"
++};
 +
-+	mbx->mbx_hdr = FM10K_MSG_HDR_FIELD_SET(FM10K_MSG_CONNECT, TYPE) |
-+		       FM10K_MSG_HDR_FIELD_SET(mbx->head, HEAD) |
-+		       FM10K_MSG_HDR_FIELD_SET(mbx->rx.size - 1, CONNECT_SIZE);
-+}
++#define FM10K_TEST_LEN (sizeof(fm10k_gstrings_test) / ETH_GSTRING_LEN)
 +
-+/**
-+ *  fm10k_mbx_create_data_hdr - Generate a data mailbox header
-+ *  @mbx: pointer to mailbox
-+ *
-+ *  This function returns a data mailbox header
-+ **/
-+static void fm10k_mbx_create_data_hdr(struct fm10k_mbx_info *mbx)
-+{
-+	u32 hdr = FM10K_MSG_HDR_FIELD_SET(FM10K_MSG_DATA, TYPE) |
-+		  FM10K_MSG_HDR_FIELD_SET(mbx->tail, TAIL) |
-+		  FM10K_MSG_HDR_FIELD_SET(mbx->head, HEAD);
-+	struct fm10k_mbx_fifo *fifo = &mbx->tx;
-+	u16 crc;
++enum fm10k_self_test_types {
++	FM10K_TEST_MBX,
++	FM10K_TEST_MAX = FM10K_TEST_LEN
++};
 +
-+	if (mbx->tail_len)
-+		mbx->mbx_lock |= FM10K_MBX_REQ;
-+
-+	/* generate CRC for data in flight and header */
-+	crc = fm10k_fifo_crc(fifo, fm10k_fifo_head_offset(fifo, mbx->pulled),
-+			     mbx->tail_len, mbx->local);
-+	crc = fm10k_crc_16b(&hdr, crc, 1);
-+
-+	/* load header to memory to be written */
-+	mbx->mbx_hdr = hdr | FM10K_MSG_HDR_FIELD_SET(crc, CRC);
-+}
-+
-+/**
-+ *  fm10k_mbx_create_disconnect_hdr - Generate a disconnect mailbox header
-+ *  @mbx: pointer to mailbox
-+ *
-+ *  This function returns a disconnect mailbox header
-+ **/
-+static void fm10k_mbx_create_disconnect_hdr(struct fm10k_mbx_info *mbx)
-+{
-+	u32 hdr = FM10K_MSG_HDR_FIELD_SET(FM10K_MSG_DISCONNECT, TYPE) |
-+		  FM10K_MSG_HDR_FIELD_SET(mbx->tail, TAIL) |
-+		  FM10K_MSG_HDR_FIELD_SET(mbx->head, HEAD);
-+	u16 crc = fm10k_crc_16b(&hdr, mbx->local, 1);
-+
-+	mbx->mbx_lock |= FM10K_MBX_ACK;
-+
-+	/* load header to memory to be written */
-+	mbx->mbx_hdr = hdr | FM10K_MSG_HDR_FIELD_SET(crc, CRC);
-+}
-+
-+/**
-+ *  fm10k_mbx_create_error_msg - Generate a error message
-+ *  @mbx: pointer to mailbox
-+ *  @err: local error encountered
-+ *
-+ *  This function will interpret the error provided by err, and based on
-+ *  that it may shift the message by 1 DWORD and then place an error header
-+ *  at the start of the message.
-+ **/
-+static void fm10k_mbx_create_error_msg(struct fm10k_mbx_info *mbx, s32 err)
-+{
-+	/* only generate an error message for these types */
-+	switch (err) {
-+	case FM10K_MBX_ERR_TAIL:
-+	case FM10K_MBX_ERR_HEAD:
-+	case FM10K_MBX_ERR_TYPE:
-+	case FM10K_MBX_ERR_SIZE:
-+	case FM10K_MBX_ERR_RSVD0:
-+	case FM10K_MBX_ERR_CRC:
+ static void fm10k_get_strings(struct net_device *dev, u32 stringset,
+ 			      u8 *data)
+ {
+@@ -109,6 +120,10 @@ static void fm10k_get_strings(struct net_device *dev, u32 stringset,
+ 	int i;
+ 
+ 	switch (stringset) {
++	case ETH_SS_TEST:
++		memcpy(data, *fm10k_gstrings_test,
++		       FM10K_TEST_LEN * ETH_GSTRING_LEN);
 +		break;
-+	default:
+ 	case ETH_SS_STATS:
+ 		for (i = 0; i < FM10K_NETDEV_STATS_LEN; i++) {
+ 			memcpy(p, fm10k_gstrings_net_stats[i].stat_string,
+@@ -138,6 +153,8 @@ static void fm10k_get_strings(struct net_device *dev, u32 stringset,
+ static int fm10k_get_sset_count(struct net_device *dev, int sset)
+ {
+ 	switch (sset) {
++	case ETH_SS_TEST:
++		return FM10K_TEST_LEN;
+ 	case ETH_SS_STATS:
+ 		return FM10K_STATS_LEN;
+ 	default:
+@@ -288,6 +305,28 @@ static void fm10k_get_regs(struct net_device *netdev,
+ 			*(buff++) = fm10k_read_reg(hw, FM10K_ITR(i));
+ 
+ 		break;
++	case fm10k_mac_vf:
++		/* General VF registers */
++		*(buff++) = fm10k_read_reg(hw, FM10K_VFCTRL);
++		*(buff++) = fm10k_read_reg(hw, FM10K_VFINT_MAP);
++		*(buff++) = fm10k_read_reg(hw, FM10K_VFSYSTIME);
++
++		/* Interrupt Throttling Registers */
++		for (i = 0; i < 8; i++)
++			*(buff++) = fm10k_read_reg(hw, FM10K_VFITR(i));
++
++		fm10k_get_reg_vsi(hw, buff, 0);
++		buff += FM10K_REGS_LEN_VSI;
++
++		for (i = 0; i < FM10K_MAX_QUEUES_POOL; i++) {
++			if (i < hw->mac.max_queues)
++				fm10k_get_reg_q(hw, buff, i);
++			else
++				memset(buff, 0, sizeof(u32) * FM10K_REGS_LEN_Q);
++			buff += FM10K_REGS_LEN_Q;
++		}
++
++		break;
+ 	default:
+ 		return;
+ 	}
+@@ -296,6 +335,8 @@ static void fm10k_get_regs(struct net_device *netdev,
+ /* If function above adds more registers these define need to be updated */
+ #define FM10K_REGS_LEN_PF \
+ (162 + (65 * FM10K_REGS_LEN_VSI) + (FM10K_MAX_QUEUES_PF * FM10K_REGS_LEN_Q))
++#define FM10K_REGS_LEN_VF \
++(11 + FM10K_REGS_LEN_VSI + (FM10K_MAX_QUEUES_POOL * FM10K_REGS_LEN_Q))
+ 
+ static int fm10k_get_regs_len(struct net_device *netdev)
+ {
+@@ -305,6 +346,8 @@ static int fm10k_get_regs_len(struct net_device *netdev)
+ 	switch (hw->mac.type) {
+ 	case fm10k_mac_pf:
+ 		return FM10K_REGS_LEN_PF * sizeof(u32);
++	case fm10k_mac_vf:
++		return FM10K_REGS_LEN_VF * sizeof(u32);
+ 	default:
+ 		return 0;
+ 	}
+@@ -734,6 +777,76 @@ static int fm10k_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
+ 	return ret;
+ }
+ 
++static int fm10k_mbx_test(struct fm10k_intfc *interface, u64 *data)
++{
++	struct fm10k_hw *hw = &interface->hw;
++	struct fm10k_mbx_info *mbx = &hw->mbx;
++	u32 attr_flag, test_msg[6];
++	unsigned long timeout;
++	int err;
++
++	/* For now this is a VF only feature */
++	if (hw->mac.type != fm10k_mac_vf)
++		return 0;
++
++	/* loop through both nested and unnested attribute types */
++	for (attr_flag = (1 << FM10K_TEST_MSG_UNSET);
++	     attr_flag < (1 << (2 * FM10K_TEST_MSG_NESTED));
++	     attr_flag += attr_flag) {
++		/* generate message to be tested */
++		fm10k_tlv_msg_test_create(test_msg, attr_flag);
++
++		fm10k_mbx_lock(interface);
++		mbx->test_result = FM10K_NOT_IMPLEMENTED;
++		err = mbx->ops.enqueue_tx(hw, mbx, test_msg);
++		fm10k_mbx_unlock(interface);
++
++		/* wait up to 1 second for response */
++		timeout = jiffies + HZ;
++		do {
++			if (err < 0)
++				goto err_out;
++
++			usleep_range(500, 1000);
++
++			fm10k_mbx_lock(interface);
++			mbx->ops.process(hw, mbx);
++			fm10k_mbx_unlock(interface);
++
++			err = mbx->test_result;
++			if (!err)
++				break;
++		} while (time_is_after_jiffies(timeout));
++
++		/* reporting errors */
++		if (err)
++			goto err_out;
++	}
++
++err_out:
++	*data = err < 0 ? (attr_flag) : (err > 0);
++	return err;
++}
++
++static void fm10k_self_test(struct net_device *dev,
++			    struct ethtool_test *eth_test, u64 *data)
++{
++	struct fm10k_intfc *interface = netdev_priv(dev);
++	struct fm10k_hw *hw = &interface->hw;
++
++	memset(data, 0, sizeof(*data) * FM10K_TEST_LEN);
++
++	if (FM10K_REMOVED(hw)) {
++		netif_err(interface, drv, dev,
++			  "Interface removed - test blocked\n");
++		eth_test->flags |= ETH_TEST_FL_FAILED;
 +		return;
 +	}
 +
-+	mbx->mbx_lock |= FM10K_MBX_REQ;
-+
-+	mbx->mbx_hdr = FM10K_MSG_HDR_FIELD_SET(FM10K_MSG_ERROR, TYPE) |
-+		       FM10K_MSG_HDR_FIELD_SET(err, ERR_NO) |
-+		       FM10K_MSG_HDR_FIELD_SET(mbx->head, HEAD);
++	if (fm10k_mbx_test(interface, &data[FM10K_TEST_MBX]))
++		eth_test->flags |= ETH_TEST_FL_FAILED;
 +}
 +
-+/**
-+ *  fm10k_mbx_validate_msg_hdr - Validate common fields in the message header
-+ *  @mbx: pointer to mailbox
-+ *  @msg: message array to read
-+ *
-+ *  This function will parse up the fields in the mailbox header and return
-+ *  an error if the header contains any of a number of invalid configurations
-+ *  including unrecognized type, invalid route, or a malformed message.
-+ **/
-+static s32 fm10k_mbx_validate_msg_hdr(struct fm10k_mbx_info *mbx)
-+{
-+	u16 type, rsvd0, head, tail, size;
-+	const u32 *hdr = &mbx->mbx_hdr;
-+
-+	type = FM10K_MSG_HDR_FIELD_GET(*hdr, TYPE);
-+	rsvd0 = FM10K_MSG_HDR_FIELD_GET(*hdr, RSVD0);
-+	tail = FM10K_MSG_HDR_FIELD_GET(*hdr, TAIL);
-+	head = FM10K_MSG_HDR_FIELD_GET(*hdr, HEAD);
-+	size = FM10K_MSG_HDR_FIELD_GET(*hdr, CONNECT_SIZE);
-+
-+	if (rsvd0)
-+		return FM10K_MBX_ERR_RSVD0;
-+
-+	switch (type) {
-+	case FM10K_MSG_DISCONNECT:
-+		/* validate that all data has been received */
-+		if (tail != mbx->head)
-+			return FM10K_MBX_ERR_TAIL;
-+
-+		/* fall through */
-+	case FM10K_MSG_DATA:
-+		/* validate that head is moving correctly */
-+		if (!head || (head == FM10K_MSG_HDR_MASK(HEAD)))
-+			return FM10K_MBX_ERR_HEAD;
-+		if (fm10k_mbx_index_len(mbx, head, mbx->tail) > mbx->tail_len)
-+			return FM10K_MBX_ERR_HEAD;
-+
-+		/* validate that tail is moving correctly */
-+		if (!tail || (tail == FM10K_MSG_HDR_MASK(TAIL)))
-+			return FM10K_MBX_ERR_TAIL;
-+		if (fm10k_mbx_index_len(mbx, mbx->head, tail) < mbx->mbmem_len)
-+			break;
-+
-+		return FM10K_MBX_ERR_TAIL;
-+	case FM10K_MSG_CONNECT:
-+		/* validate size is in range and is power of 2 mask */
-+		if ((size < FM10K_VFMBX_MSG_MTU) || (size & (size + 1)))
-+			return FM10K_MBX_ERR_SIZE;
-+
-+		/* fall through */
-+	case FM10K_MSG_ERROR:
-+		if (!head || (head == FM10K_MSG_HDR_MASK(HEAD)))
-+			return FM10K_MBX_ERR_HEAD;
-+		/* neither create nor error include a tail offset */
-+		if (tail)
-+			return FM10K_MBX_ERR_TAIL;
-+
+ static u32 fm10k_get_reta_size(struct net_device *netdev)
+ {
+ 	return FM10K_RETA_SIZE * FM10K_RETA_ENTRIES_PER_REG;
+@@ -911,6 +1024,7 @@ static const struct ethtool_ops fm10k_ethtool_ops = {
+ 	.set_rxnfc		= fm10k_set_rxnfc,
+ 	.get_regs               = fm10k_get_regs,
+ 	.get_regs_len           = fm10k_get_regs_len,
++	.self_test		= fm10k_self_test,
+ 	.get_rxfh_indir_size	= fm10k_get_reta_size,
+ 	.get_rxfh_key_size	= fm10k_get_rssrk_size,
+ 	.get_rxfh		= fm10k_get_rssh,
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
+index a6a66fd..14a4ea7 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
+@@ -1517,6 +1517,10 @@ s32 fm10k_pfvf_mbx_init(struct fm10k_hw *hw, struct fm10k_mbx_info *mbx,
+ {
+ 	/* initialize registers */
+ 	switch (hw->mac.type) {
++	case fm10k_mac_vf:
++		mbx->mbx_reg = FM10K_VFMBX;
++		mbx->mbmem_reg = FM10K_VFMBMEM(FM10K_VFMBMEM_VF_XOR);
 +		break;
-+	default:
-+		return FM10K_MBX_ERR_TYPE;
-+	}
+ 	case fm10k_mac_pf:
+ 		/* there are only 64 VF <-> PF mailboxes */
+ 		if (id < 64) {
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index 76440f2..2387ea1 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -975,6 +975,21 @@ void fm10k_restore_rx_state(struct fm10k_intfc *interface)
+ 	int xcast_mode;
+ 	u16 vid, glort;
+ 
++	/* restore our address if perm_addr is set */
++	if (hw->mac.type == fm10k_mac_vf) {
++		if (is_valid_ether_addr(hw->mac.perm_addr)) {
++			ether_addr_copy(hw->mac.addr, hw->mac.perm_addr);
++			ether_addr_copy(netdev->perm_addr, hw->mac.perm_addr);
++			ether_addr_copy(netdev->dev_addr, hw->mac.perm_addr);
++			netdev->addr_assign_type &= ~NET_ADDR_RANDOM;
++		}
 +
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_mbx_create_reply - Generate reply based on state and remote head
-+ *  @mbx: pointer to mailbox
-+ *  @head: acknowledgement number
-+ *
-+ *  This function will generate an outgoing message based on the current
-+ *  mailbox state and the remote fifo head.  It will return the length
-+ *  of the outgoing message excluding header on success, and a negative value
-+ *  on error.
-+ **/
-+static s32 fm10k_mbx_create_reply(struct fm10k_hw *hw,
-+				  struct fm10k_mbx_info *mbx, u16 head)
-+{
-+	switch (mbx->state) {
-+	case FM10K_STATE_OPEN:
-+	case FM10K_STATE_DISCONNECT:
-+		/* update our checksum for the outgoing data */
-+		fm10k_mbx_update_local_crc(mbx, head);
-+
-+		/* as long as other end recognizes us keep sending data */
-+		fm10k_mbx_pull_head(hw, mbx, head);
-+
-+		/* generate new header based on data */
-+		if (mbx->tail_len || (mbx->state == FM10K_STATE_OPEN))
-+			fm10k_mbx_create_data_hdr(mbx);
++		if (hw->mac.vlan_override)
++			netdev->features &= ~NETIF_F_HW_VLAN_CTAG_RX;
 +		else
-+			fm10k_mbx_create_disconnect_hdr(mbx);
-+		break;
-+	case FM10K_STATE_CONNECT:
-+		/* send disconnect even if we aren't connected */
-+		fm10k_mbx_create_connect_hdr(mbx);
-+		break;
-+	case FM10K_STATE_CLOSED:
-+		/* generate new header based on data */
-+		fm10k_mbx_create_disconnect_hdr(mbx);
-+	default:
-+		break;
++			netdev->features |= NETIF_F_HW_VLAN_CTAG_RX;
 +	}
 +
-+	return 0;
-+}
-+
-+/**
-  *  fm10k_mbx_reset_work- Reset internal pointers for any pending work
-  *  @mbx: pointer to mailbox
-  *
-@@ -731,6 +1071,359 @@ static void fm10k_mbx_update_max_size(struct fm10k_mbx_info *mbx, u16 size)
- }
+ 	/* record glort for this interface */
+ 	glort = interface->glort;
+ 
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index 3f2d4ca..2a03afa 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -25,6 +25,7 @@
+ 
+ static const struct fm10k_info *fm10k_info_tbl[] = {
+ 	[fm10k_device_pf] = &fm10k_pf_info,
++	[fm10k_device_vf] = &fm10k_vf_info,
+ };
  
  /**
-+ *  fm10k_mbx_connect_reset - Reset following request for reset
-+ *  @mbx: pointer to mailbox
-+ *
-+ *  This function resets the mailbox to either a disconnected state
-+ *  or a connect state depending on the current mailbox state
-+ **/
-+static void fm10k_mbx_connect_reset(struct fm10k_mbx_info *mbx)
+@@ -38,6 +39,7 @@ static const struct fm10k_info *fm10k_info_tbl[] = {
+  */
+ static const struct pci_device_id fm10k_pci_tbl[] = {
+ 	{ PCI_VDEVICE(INTEL, FM10K_DEV_ID_PF), fm10k_device_pf },
++	{ PCI_VDEVICE(INTEL, FM10K_DEV_ID_VF), fm10k_device_vf },
+ 	/* required last entry */
+ 	{ 0, }
+ };
+@@ -805,6 +807,28 @@ static irqreturn_t fm10k_msix_clean_rings(int irq, void *data)
+ 	return IRQ_HANDLED;
+ }
+ 
++static irqreturn_t fm10k_msix_mbx_vf(int irq, void *data)
 +{
-+	/* just do a quick resysnc to start of frame */
-+	fm10k_mbx_reset_work(mbx);
++	struct fm10k_intfc *interface = data;
++	struct fm10k_hw *hw = &interface->hw;
++	struct fm10k_mbx_info *mbx = &hw->mbx;
 +
-+	/* reset CRC seeds */
-+	mbx->local = FM10K_MBX_CRC_SEED;
-+	mbx->remote = FM10K_MBX_CRC_SEED;
++	/* re-enable mailbox interrupt and indicate 20us delay */
++	fm10k_write_reg(hw, FM10K_VFITR(FM10K_MBX_VECTOR),
++			FM10K_ITR_ENABLE | FM10K_MBX_INT_DELAY);
 +
-+	/* we cannot exit connect until the size is good */
-+	if (mbx->state == FM10K_STATE_OPEN)
-+		mbx->state = FM10K_STATE_CONNECT;
++	/* service upstream mailbox */
++	if (fm10k_mbx_trylock(interface)) {
++		mbx->ops.process(hw, mbx);
++		fm10k_mbx_unlock(interface);
++	}
++
++	hw->mac.get_host_state = 1;
++	fm10k_service_event_schedule(interface);
++
++	return IRQ_HANDLED;
++}
++
+ #define FM10K_ERR_MSG(type) case (type): error = #type; break
+ static void fm10k_print_fault(struct fm10k_intfc *interface, int type,
+ 			      struct fm10k_fault *fault)
+@@ -996,6 +1020,8 @@ void fm10k_mbx_free_irq(struct fm10k_intfc *interface)
+ 				FM10K_EIMR_DISABLE(VFLR) |
+ 				FM10K_EIMR_DISABLE(MAXHOLDTIME));
+ 		itr_reg = FM10K_ITR(FM10K_MBX_VECTOR);
++	} else {
++		itr_reg = FM10K_VFITR(FM10K_MBX_VECTOR);
+ 	}
+ 
+ 	fm10k_write_reg(hw, itr_reg, FM10K_ITR_MASK_SET);
+@@ -1003,6 +1029,33 @@ void fm10k_mbx_free_irq(struct fm10k_intfc *interface)
+ 	free_irq(entry->vector, interface);
+ }
+ 
++static s32 fm10k_mbx_mac_addr(struct fm10k_hw *hw, u32 **results,
++			      struct fm10k_mbx_info *mbx)
++{
++	bool vlan_override = hw->mac.vlan_override;
++	u16 default_vid = hw->mac.default_vid;
++	struct fm10k_intfc *interface;
++	s32 err;
++
++	err = fm10k_msg_mac_vlan_vf(hw, results, mbx);
++	if (err)
++		return err;
++
++	interface = container_of(hw, struct fm10k_intfc, hw);
++
++	/* MAC was changed so we need reset */
++	if (is_valid_ether_addr(hw->mac.perm_addr) &&
++	    memcmp(hw->mac.perm_addr, hw->mac.addr, ETH_ALEN))
++		interface->flags |= FM10K_FLAG_RESET_REQUESTED;
++
++	/* VLAN override was changed, or default VLAN changed */
++	if ((vlan_override != hw->mac.vlan_override) ||
++	    (default_vid != hw->mac.default_vid))
++		interface->flags |= FM10K_FLAG_RESET_REQUESTED;
++
++	return 0;
++}
++
+ /* generic error handler for mailbox issues */
+ static s32 fm10k_mbx_error(struct fm10k_hw *hw, u32 **results,
+ 			   struct fm10k_mbx_info *mbx)
+@@ -1019,6 +1072,46 @@ static s32 fm10k_mbx_error(struct fm10k_hw *hw, u32 **results,
+ 	return 0;
+ }
+ 
++static const struct fm10k_msg_data vf_mbx_data[] = {
++	FM10K_TLV_MSG_TEST_HANDLER(fm10k_tlv_msg_test),
++	FM10K_VF_MSG_MAC_VLAN_HANDLER(fm10k_mbx_mac_addr),
++	FM10K_VF_MSG_LPORT_STATE_HANDLER(fm10k_msg_lport_state_vf),
++	FM10K_TLV_MSG_ERROR_HANDLER(fm10k_mbx_error),
++};
++
++static int fm10k_mbx_request_irq_vf(struct fm10k_intfc *interface)
++{
++	struct msix_entry *entry = &interface->msix_entries[FM10K_MBX_VECTOR];
++	struct net_device *dev = interface->netdev;
++	struct fm10k_hw *hw = &interface->hw;
++	int err;
++
++	/* Use timer0 for interrupt moderation on the mailbox */
++	u32 itr = FM10K_INT_MAP_TIMER0 | entry->entry;
++
++	/* register mailbox handlers */
++	err = hw->mbx.ops.register_handlers(&hw->mbx, vf_mbx_data);
++	if (err)
++		return err;
++
++	/* request the IRQ */
++	err = request_irq(entry->vector, fm10k_msix_mbx_vf, 0,
++			  dev->name, interface);
++	if (err) {
++		netif_err(interface, probe, dev,
++			  "request_irq for msix_mbx failed: %d\n", err);
++		return err;
++	}
++
++	/* map all of the interrupt sources */
++	fm10k_write_reg(hw, FM10K_VFINT_MAP, itr);
++
++	/* enable interrupt */
++	fm10k_write_reg(hw, FM10K_VFITR(entry->entry), FM10K_ITR_ENABLE);
++
++	return 0;
++}
++
+ static s32 fm10k_lport_map(struct fm10k_hw *hw, u32 **results,
+ 			   struct fm10k_mbx_info *mbx)
+ {
+@@ -1142,7 +1235,10 @@ int fm10k_mbx_request_irq(struct fm10k_intfc *interface)
+ 	int err;
+ 
+ 	/* enable Mailbox cause */
+-	err = fm10k_mbx_request_irq_pf(interface);
++	if (hw->mac.type == fm10k_mac_pf)
++		err = fm10k_mbx_request_irq_pf(interface);
 +	else
-+		mbx->state = FM10K_STATE_CLOSED;
-+}
++		err = fm10k_mbx_request_irq_vf(interface);
+ 
+ 	/* connect mailbox */
+ 	if (!err)
+@@ -1220,7 +1316,9 @@ int fm10k_qv_request_irq(struct fm10k_intfc *interface)
+ 		}
+ 
+ 		/* Assign ITR register to q_vector */
+-		q_vector->itr = &interface->uc_addr[FM10K_ITR(entry->entry)];
++		q_vector->itr = (hw->mac.type == fm10k_mac_pf) ?
++				&interface->uc_addr[FM10K_ITR(entry->entry)] :
++				&interface->uc_addr[FM10K_VFITR(entry->entry)];
+ 
+ 		/* request the IRQ */
+ 		err = request_irq(entry->vector, &fm10k_msix_clean_rings, 0,
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
+index eda0c7c..cc1df60 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_type.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
+@@ -351,6 +351,13 @@ struct fm10k_hw;
+ #define FM10K_QUEUE_DISABLE_TIMEOUT		100
+ #define FM10K_RESET_TIMEOUT			100
+ 
++/* VF registers */
++#define FM10K_VFCTRL		0x00000
++#define FM10K_VFCTRL_RST			0x00000008
++#define FM10K_VFINT_MAP		0x00030
++#define FM10K_VFSYSTIME		0x00040
++#define FM10K_VFITR(_n)		((_n) + 0x00060)
 +
-+/**
-+ *  fm10k_mbx_process_connect - Process connect header
-+ *  @mbx: pointer to mailbox
-+ *  @msg: message array to process
+ enum fm10k_int_source {
+ 	fm10k_int_Mailbox	= 0,
+ 	fm10k_int_PCIeFault	= 1,
+@@ -522,6 +529,7 @@ struct fm10k_mac_ops {
+ enum fm10k_mac_type {
+ 	fm10k_mac_unknown = 0,
+ 	fm10k_mac_pf,
++	fm10k_mac_vf,
+ 	fm10k_num_macs
+ };
+ 
+@@ -561,6 +569,7 @@ enum fm10k_xcast_modes {
+ 
+ enum fm10k_devices {
+ 	fm10k_device_pf,
++	fm10k_device_vf,
+ };
+ 
+ struct fm10k_info {
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_vf.c b/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
+new file mode 100644
+index 0000000..25c23fc
+--- /dev/null
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
+@@ -0,0 +1,523 @@
++/* Intel Ethernet Switch Host Interface Driver
++ * Copyright(c) 2013 - 2014 Intel Corporation.
 + *
-+ *  This function will read an incoming connect header and reply with the
-+ *  appropriate message.  It will return a value indicating the number of
-+ *  data DWORDs on success, or will return a negative value on failure.
-+ **/
-+static s32 fm10k_mbx_process_connect(struct fm10k_hw *hw,
-+				     struct fm10k_mbx_info *mbx)
-+{
-+	const enum fm10k_mbx_state state = mbx->state;
-+	const u32 *hdr = &mbx->mbx_hdr;
-+	u16 size, head;
-+
-+	/* we will need to pull all of the fields for verification */
-+	size = FM10K_MSG_HDR_FIELD_GET(*hdr, CONNECT_SIZE);
-+	head = FM10K_MSG_HDR_FIELD_GET(*hdr, HEAD);
-+
-+	switch (state) {
-+	case FM10K_STATE_DISCONNECT:
-+	case FM10K_STATE_OPEN:
-+		/* reset any in-progress work */
-+		fm10k_mbx_connect_reset(mbx);
-+		break;
-+	case FM10K_STATE_CONNECT:
-+		/* we cannot exit connect until the size is good */
-+		if (size > mbx->rx.size) {
-+			mbx->max_size = mbx->rx.size - 1;
-+		} else {
-+			/* record the remote system requesting connection */
-+			mbx->state = FM10K_STATE_OPEN;
-+
-+			fm10k_mbx_update_max_size(mbx, size);
-+		}
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	/* align our tail index to remote head index */
-+	mbx->tail = head;
-+
-+	return fm10k_mbx_create_reply(hw, mbx, head);
-+}
-+
-+/**
-+ *  fm10k_mbx_process_data - Process data header
-+ *  @mbx: pointer to mailbox
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
 + *
-+ *  This function will read an incoming data header and reply with the
-+ *  appropriate message.  It will return a value indicating the number of
-+ *  data DWORDs on success, or will return a negative value on failure.
-+ **/
-+static s32 fm10k_mbx_process_data(struct fm10k_hw *hw,
-+				  struct fm10k_mbx_info *mbx)
-+{
-+	const u32 *hdr = &mbx->mbx_hdr;
-+	u16 head, tail;
-+	s32 err;
-+
-+	/* we will need to pull all of the fields for verification */
-+	head = FM10K_MSG_HDR_FIELD_GET(*hdr, HEAD);
-+	tail = FM10K_MSG_HDR_FIELD_GET(*hdr, TAIL);
-+
-+	/* if we are in connect just update our data and go */
-+	if (mbx->state == FM10K_STATE_CONNECT) {
-+		mbx->tail = head;
-+		mbx->state = FM10K_STATE_OPEN;
-+	}
-+
-+	/* abort on message size errors */
-+	err = fm10k_mbx_push_tail(hw, mbx, tail);
-+	if (err < 0)
-+		return err;
-+
-+	/* verify the checksum on the incoming data */
-+	err = fm10k_mbx_verify_remote_crc(mbx);
-+	if (err)
-+		return err;
-+
-+	/* process messages if we have received any */
-+	fm10k_mbx_dequeue_rx(hw, mbx);
-+
-+	return fm10k_mbx_create_reply(hw, mbx, head);
-+}
-+
-+/**
-+ *  fm10k_mbx_process_disconnect - Process disconnect header
-+ *  @mbx: pointer to mailbox
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
 + *
-+ *  This function will read an incoming disconnect header and reply with the
-+ *  appropriate message.  It will return a value indicating the number of
-+ *  data DWORDs on success, or will return a negative value on failure.
-+ **/
-+static s32 fm10k_mbx_process_disconnect(struct fm10k_hw *hw,
-+					struct fm10k_mbx_info *mbx)
-+{
-+	const enum fm10k_mbx_state state = mbx->state;
-+	const u32 *hdr = &mbx->mbx_hdr;
-+	u16 head, tail;
-+	s32 err;
-+
-+	/* we will need to pull all of the fields for verification */
-+	head = FM10K_MSG_HDR_FIELD_GET(*hdr, HEAD);
-+	tail = FM10K_MSG_HDR_FIELD_GET(*hdr, TAIL);
-+
-+	/* We should not be receiving disconnect if Rx is incomplete */
-+	if (mbx->pushed)
-+		return FM10K_MBX_ERR_TAIL;
-+
-+	/* we have already verified mbx->head == tail so we know this is 0 */
-+	mbx->head_len = 0;
-+
-+	/* verify the checksum on the incoming header is correct */
-+	err = fm10k_mbx_verify_remote_crc(mbx);
-+	if (err)
-+		return err;
-+
-+	switch (state) {
-+	case FM10K_STATE_DISCONNECT:
-+	case FM10K_STATE_OPEN:
-+		/* state doesn't change if we still have work to do */
-+		if (!fm10k_mbx_tx_complete(mbx))
-+			break;
-+
-+		/* verify the head indicates we completed all transmits */
-+		if (head != mbx->tail)
-+			return FM10K_MBX_ERR_HEAD;
-+
-+		/* reset any in-progress work */
-+		fm10k_mbx_connect_reset(mbx);
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	return fm10k_mbx_create_reply(hw, mbx, head);
-+}
-+
-+/**
-+ *  fm10k_mbx_process_error - Process error header
-+ *  @mbx: pointer to mailbox
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
 + *
-+ *  This function will read an incoming error header and reply with the
-+ *  appropriate message.  It will return a value indicating the number of
-+ *  data DWORDs on success, or will return a negative value on failure.
-+ **/
-+static s32 fm10k_mbx_process_error(struct fm10k_hw *hw,
-+				   struct fm10k_mbx_info *mbx)
-+{
-+	const u32 *hdr = &mbx->mbx_hdr;
-+	s32 err_no;
-+	u16 head;
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ */
 +
-+	/* we will need to pull all of the fields for verification */
-+	head = FM10K_MSG_HDR_FIELD_GET(*hdr, HEAD);
-+
-+	/* we only have lower 10 bits of error number os add upper bits */
-+	err_no = FM10K_MSG_HDR_FIELD_GET(*hdr, ERR_NO);
-+	err_no |= ~FM10K_MSG_HDR_MASK(ERR_NO);
-+
-+	switch (mbx->state) {
-+	case FM10K_STATE_OPEN:
-+	case FM10K_STATE_DISCONNECT:
-+		/* flush any uncompleted work */
-+		fm10k_mbx_reset_work(mbx);
-+
-+		/* reset CRC seeds */
-+		mbx->local = FM10K_MBX_CRC_SEED;
-+		mbx->remote = FM10K_MBX_CRC_SEED;
-+
-+		/* reset tail index and size to prepare for reconnect */
-+		mbx->tail = head;
-+
-+		/* if open then reset max_size and go back to connect */
-+		if (mbx->state == FM10K_STATE_OPEN) {
-+			mbx->state = FM10K_STATE_CONNECT;
-+			break;
-+		}
-+
-+		/* send a connect message to get data flowing again */
-+		fm10k_mbx_create_connect_hdr(mbx);
-+		return 0;
-+	default:
-+		break;
-+	}
-+
-+	return fm10k_mbx_create_reply(hw, mbx, mbx->tail);
-+}
++#include "fm10k_vf.h"
 +
 +/**
-+ *  fm10k_mbx_process - Process mailbox interrupt
++ *  fm10k_stop_hw_vf - Stop Tx/Rx units
 + *  @hw: pointer to hardware structure
-+ *  @mbx: pointer to mailbox
 + *
-+ *  This function will process incoming mailbox events and generate mailbox
-+ *  replies.  It will return a value indicating the number of DWORDs
-+ *  transmitted excluding header on success or a negative value on error.
 + **/
-+static s32 fm10k_mbx_process(struct fm10k_hw *hw,
-+			     struct fm10k_mbx_info *mbx)
++static s32 fm10k_stop_hw_vf(struct fm10k_hw *hw)
 +{
++	u8 *perm_addr = hw->mac.perm_addr;
++	u32 bal = 0, bah = 0;
 +	s32 err;
++	u16 i;
 +
-+	/* we do not read mailbox if closed */
-+	if (mbx->state == FM10K_STATE_CLOSED)
-+		return 0;
-+
-+	/* copy data from mailbox */
-+	err = fm10k_mbx_read(hw, mbx);
++	/* we need to disable the queues before taking further steps */
++	err = fm10k_stop_hw_generic(hw);
 +	if (err)
 +		return err;
 +
-+	/* validate type, source, and destination */
-+	err = fm10k_mbx_validate_msg_hdr(mbx);
-+	if (err < 0)
-+		goto msg_err;
-+
-+	switch (FM10K_MSG_HDR_FIELD_GET(mbx->mbx_hdr, TYPE)) {
-+	case FM10K_MSG_CONNECT:
-+		err = fm10k_mbx_process_connect(hw, mbx);
-+		break;
-+	case FM10K_MSG_DATA:
-+		err = fm10k_mbx_process_data(hw, mbx);
-+		break;
-+	case FM10K_MSG_DISCONNECT:
-+		err = fm10k_mbx_process_disconnect(hw, mbx);
-+		break;
-+	case FM10K_MSG_ERROR:
-+		err = fm10k_mbx_process_error(hw, mbx);
-+		break;
-+	default:
-+		err = FM10K_MBX_ERR_TYPE;
-+		break;
++	/* If permenant address is set then we need to restore it */
++	if (is_valid_ether_addr(perm_addr)) {
++		bal = (((u32)perm_addr[3]) << 24) |
++		      (((u32)perm_addr[4]) << 16) |
++		      (((u32)perm_addr[5]) << 8);
++		bah = (((u32)0xFF)	   << 24) |
++		      (((u32)perm_addr[0]) << 16) |
++		      (((u32)perm_addr[1]) << 8) |
++		       ((u32)perm_addr[2]);
 +	}
 +
-+msg_err:
-+	/* notify partner of errors on our end */
-+	if (err < 0)
-+		fm10k_mbx_create_error_msg(mbx, err);
++	/* The queues have already been disabled so we just need to
++	 * update their base address registers
++	 */
++	for (i = 0; i < hw->mac.max_queues; i++) {
++		fm10k_write_reg(hw, FM10K_TDBAL(i), bal);
++		fm10k_write_reg(hw, FM10K_TDBAH(i), bah);
++		fm10k_write_reg(hw, FM10K_RDBAL(i), bal);
++		fm10k_write_reg(hw, FM10K_RDBAH(i), bah);
++	}
 +
-+	/* copy data from mailbox */
-+	fm10k_mbx_write(hw, mbx);
++	return 0;
++}
++
++/**
++ *  fm10k_reset_hw_vf - VF hardware reset
++ *  @hw: pointer to hardware structure
++ *
++ *  This function should return the hardare to a state similar to the
++ *  one it is in after just being initialized.
++ **/
++static s32 fm10k_reset_hw_vf(struct fm10k_hw *hw)
++{
++	s32 err;
++
++	/* shut down queues we own and reset DMA configuration */
++	err = fm10k_stop_hw_vf(hw);
++	if (err)
++		return err;
++
++	/* Inititate VF reset */
++	fm10k_write_reg(hw, FM10K_VFCTRL, FM10K_VFCTRL_RST);
++
++	/* Flush write and allow 100us for reset to complete */
++	fm10k_write_flush(hw);
++	udelay(FM10K_RESET_TIMEOUT);
++
++	/* Clear reset bit and verify it was cleared */
++	fm10k_write_reg(hw, FM10K_VFCTRL, 0);
++	if (fm10k_read_reg(hw, FM10K_VFCTRL) & FM10K_VFCTRL_RST)
++		err = FM10K_ERR_RESET_FAILED;
 +
 +	return err;
 +}
 +
 +/**
-+ *  fm10k_mbx_disconnect - Shutdown mailbox connection
++ *  fm10k_init_hw_vf - VF hardware initialization
 + *  @hw: pointer to hardware structure
-+ *  @mbx: pointer to mailbox
 + *
-+ *  This function will shut down the mailbox.  It places the mailbox first
-+ *  in the disconnect state, it then allows up to a predefined timeout for
-+ *  the mailbox to transition to close on its own.  If this does not occur
-+ *  then the mailbox will be forced into the closed state.
-+ *
-+ *  Any mailbox transactions not completed before calling this function
-+ *  are not guaranteed to complete and may be dropped.
 + **/
-+static void fm10k_mbx_disconnect(struct fm10k_hw *hw,
-+				 struct fm10k_mbx_info *mbx)
++static s32 fm10k_init_hw_vf(struct fm10k_hw *hw)
 +{
-+	int timeout = mbx->timeout ? FM10K_MBX_DISCONNECT_TIMEOUT : 0;
++	u32 tqdloc, tqdloc0 = ~fm10k_read_reg(hw, FM10K_TQDLOC(0));
++	s32 err;
++	u16 i;
 +
-+	/* Place mbx in ready to disconnect state */
-+	mbx->state = FM10K_STATE_DISCONNECT;
-+
-+	/* trigger interrupt to start shutdown process */
-+	fm10k_write_reg(hw, mbx->mbx_reg, FM10K_MBX_REQ |
-+					  FM10K_MBX_INTERRUPT_DISABLE);
-+	do {
-+		udelay(FM10K_MBX_POLL_DELAY);
-+		mbx->ops.process(hw, mbx);
-+		timeout -= FM10K_MBX_POLL_DELAY;
-+	} while ((timeout > 0) && (mbx->state != FM10K_STATE_CLOSED));
-+
-+	/* in case we didn't close just force the mailbox into shutdown */
-+	fm10k_mbx_connect_reset(mbx);
-+	fm10k_mbx_update_max_size(mbx, 0);
-+
-+	fm10k_write_reg(hw, mbx->mbmem_reg, 0);
-+}
-+
-+/**
-+ *  fm10k_mbx_connect - Start mailbox connection
-+ *  @hw: pointer to hardware structure
-+ *  @mbx: pointer to mailbox
-+ *
-+ *  This function will initiate a mailbox connection.  It will populate the
-+ *  mailbox with a broadcast connect message and then initialize the lock.
-+ *  This is safe since the connect message is a single DWORD so the mailbox
-+ *  transaction is guaranteed to be atomic.
-+ *
-+ *  This function will return an error if the mailbox has not been initiated
-+ *  or is currently in use.
-+ **/
-+static s32 fm10k_mbx_connect(struct fm10k_hw *hw, struct fm10k_mbx_info *mbx)
-+{
-+	/* we cannot connect an uninitialized mailbox */
-+	if (!mbx->rx.buffer)
-+		return FM10K_MBX_ERR_NO_SPACE;
-+
-+	/* we cannot connect an already connected mailbox */
-+	if (mbx->state != FM10K_STATE_CLOSED)
-+		return FM10K_MBX_ERR_BUSY;
-+
-+	/* mailbox timeout can now become active */
-+	mbx->timeout = FM10K_MBX_INIT_TIMEOUT;
-+
-+	/* Place mbx in ready to connect state */
-+	mbx->state = FM10K_STATE_CONNECT;
-+
-+	/* initialize header of remote mailbox */
-+	fm10k_mbx_create_disconnect_hdr(mbx);
-+	fm10k_write_reg(hw, mbx->mbmem_reg ^ mbx->mbmem_len, mbx->mbx_hdr);
-+
-+	/* enable interrupt and notify other party of new message */
-+	mbx->mbx_lock = FM10K_MBX_REQ_INTERRUPT | FM10K_MBX_ACK_INTERRUPT |
-+			FM10K_MBX_INTERRUPT_ENABLE;
-+
-+	/* generate and load connect header into mailbox */
-+	fm10k_mbx_create_connect_hdr(mbx);
-+	fm10k_mbx_write(hw, mbx);
-+
-+	return 0;
-+}
-+
-+/**
-  *  fm10k_mbx_validate_handlers - Validate layout of message parsing data
-  *  @msg_data: handlers for mailbox events
-  *
-@@ -806,6 +1499,83 @@ static s32 fm10k_mbx_register_handlers(struct fm10k_mbx_info *mbx,
- }
- 
- /**
-+ *  fm10k_pfvf_mbx_init - Initialize mailbox memory for PF/VF mailbox
-+ *  @hw: pointer to hardware structure
-+ *  @mbx: pointer to mailbox
-+ *  @msg_data: handlers for mailbox events
-+ *  @id: ID reference for PF as it supports up to 64 PF/VF mailboxes
-+ *
-+ *  This function initializes the mailbox for use.  It will split the
-+ *  buffer provided an use that th populate both the Tx and Rx FIFO by
-+ *  evenly splitting it.  In order to allow for easy masking of head/tail
-+ *  the value reported in size must be a power of 2 and is reported in
-+ *  DWORDs, not bytes.  Any invalid values will cause the mailbox to return
-+ *  error.
-+ **/
-+s32 fm10k_pfvf_mbx_init(struct fm10k_hw *hw, struct fm10k_mbx_info *mbx,
-+			const struct fm10k_msg_data *msg_data, u8 id)
-+{
-+	/* initialize registers */
-+	switch (hw->mac.type) {
-+	case fm10k_mac_pf:
-+		/* there are only 64 VF <-> PF mailboxes */
-+		if (id < 64) {
-+			mbx->mbx_reg = FM10K_MBX(id);
-+			mbx->mbmem_reg = FM10K_MBMEM_VF(id, 0);
++	/* assume we always have at least 1 queue */
++	for (i = 1; tqdloc0 && (i < FM10K_MAX_QUEUES_POOL); i++) {
++		/* verify the Descriptor cache offsets are increasing */
++		tqdloc = ~fm10k_read_reg(hw, FM10K_TQDLOC(i));
++		if (!tqdloc || (tqdloc == tqdloc0))
 +			break;
-+		}
-+		/* fallthough */
-+	default:
-+		return FM10K_MBX_ERR_NO_MBX;
++
++		/* check to verify the PF doesn't own any of our queues */
++		if (!~fm10k_read_reg(hw, FM10K_TXQCTL(i)) ||
++		    !~fm10k_read_reg(hw, FM10K_RXQCTL(i)))
++			break;
 +	}
 +
-+	/* start out in closed state */
-+	mbx->state = FM10K_STATE_CLOSED;
++	/* shut down queues we own and reset DMA configuration */
++	err = fm10k_disable_queues_generic(hw, i);
++	if (err)
++		return err;
 +
-+	/* validate layout of handlers before assigning them */
-+	if (fm10k_mbx_validate_handlers(msg_data))
-+		return FM10K_ERR_PARAM;
-+
-+	/* initialize the message handlers */
-+	mbx->msg_data = msg_data;
-+
-+	/* start mailbox as timed out and let the reset_hw call
-+	 * set the timeout value to begin communications
-+	 */
-+	mbx->timeout = 0;
-+	mbx->udelay = FM10K_MBX_INIT_DELAY;
-+
-+	/* initalize tail and head */
-+	mbx->tail = 1;
-+	mbx->head = 1;
-+
-+	/* initialize CRC seeds */
-+	mbx->local = FM10K_MBX_CRC_SEED;
-+	mbx->remote = FM10K_MBX_CRC_SEED;
-+
-+	/* Split buffer for use by Tx/Rx FIFOs */
-+	mbx->max_size = FM10K_MBX_MSG_MAX_SIZE;
-+	mbx->mbmem_len = FM10K_VFMBMEM_VF_XOR;
-+
-+	/* initialize the FIFOs, sizes are in 4 byte increments */
-+	fm10k_fifo_init(&mbx->tx, mbx->buffer, FM10K_MBX_TX_BUFFER_SIZE);
-+	fm10k_fifo_init(&mbx->rx, &mbx->buffer[FM10K_MBX_TX_BUFFER_SIZE],
-+			FM10K_MBX_RX_BUFFER_SIZE);
-+
-+	/* initialize function pointers */
-+	mbx->ops.connect = fm10k_mbx_connect;
-+	mbx->ops.disconnect = fm10k_mbx_disconnect;
-+	mbx->ops.rx_ready = fm10k_mbx_rx_ready;
-+	mbx->ops.tx_ready = fm10k_mbx_tx_ready;
-+	mbx->ops.tx_complete = fm10k_mbx_tx_complete;
-+	mbx->ops.enqueue_tx = fm10k_mbx_enqueue_tx;
-+	mbx->ops.process = fm10k_mbx_process;
-+	mbx->ops.register_handlers = fm10k_mbx_register_handlers;
++	/* record maximum queue count */
++	hw->mac.max_queues = i;
 +
 +	return 0;
 +}
 +
 +/**
-  *  fm10k_sm_mbx_create_data_hdr - Generate a mailbox header for local FIFO
-  *  @mbx: pointer to mailbox
-  *
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
-index f5ba86f..0419a7f 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
-@@ -99,6 +99,39 @@ enum fm10k_mbx_state {
- 	FM10K_STATE_DISCONNECT,
- };
- 
-+/* PF/VF Mailbox header format
-+ *    3			  2		      1			  0
-+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |        Size/Err_no/CRC        | Rsvd0 | Head  | Tail  | Type  |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *  fm10k_is_slot_appropriate_vf - Indicate appropriate slot for this SKU
++ *  @hw: pointer to hardware structure
 + *
-+ * The layout above describes the format for the header used in the PF/VF
-+ * mailbox.  The header is broken out into the following fields:
-+ * Type: There are 4 supported message types
-+ *		0x8: Data header - used to transport message data
-+ *		0xC: Connect header - used to establish connection
-+ *		0xD: Disconnect header - used to tear down a connection
-+ *		0xE: Error header - used to address message exceptions
-+ * Tail: Tail index for local FIFO
-+ *		Tail index actually consists of two parts.  The MSB of
-+ *		the head is a loop tracker, it is 0 on an even numbered
-+ *		loop through the FIFO, and 1 on the odd numbered loops.
-+ *		To get the actual mailbox offset based on the tail it
-+ *		is necessary to add bit 3 to bit 0 and clear bit 3.  This
-+ *		gives us a valid range of 0x1 - 0xE.
-+ * Head: Head index for remote FIFO
-+ *		Head index follows the same format as the tail index.
-+ * Rsvd0: Reserved 0 portion of the mailbox header
-+ * CRC: Running CRC for all data since connect plus current message header
-+ * Size: Maximum message size - Applies only to connect headers
-+ *		The maximum message size is provided during connect to avoid
-+ *		jamming the mailbox with messages that do not fit.
-+ * Err_no: Error number - Applies only to error headers
-+ *		The error number provides a indication of the type of error
-+ *		experienced.
-+ */
++ *  Looks at the PCIe bus info to confirm whether or not this slot can support
++ *  the necessary bandwidth for this device. Since the VF has no control over
++ *  the "slot" it is in, always indicate that the slot is appropriate.
++ **/
++static bool fm10k_is_slot_appropriate_vf(struct fm10k_hw *hw)
++{
++	return true;
++}
 +
- /* macros for retriving and setting header values */
- #define FM10K_MSG_HDR_MASK(name) \
- 	((0x1u << FM10K_MSG_##name##_SIZE) - 1)
-@@ -107,6 +140,35 @@ enum fm10k_mbx_state {
- #define FM10K_MSG_HDR_FIELD_GET(value, name) \
- 	((u16)((value) >> FM10K_MSG_##name##_SHIFT) & FM10K_MSG_HDR_MASK(name))
- 
-+/* offsets shared between all headers */
-+#define FM10K_MSG_TYPE_SHIFT			0
-+#define FM10K_MSG_TYPE_SIZE			4
-+#define FM10K_MSG_TAIL_SHIFT			4
-+#define FM10K_MSG_TAIL_SIZE			4
-+#define FM10K_MSG_HEAD_SHIFT			8
-+#define FM10K_MSG_HEAD_SIZE			4
-+#define FM10K_MSG_RSVD0_SHIFT			12
-+#define FM10K_MSG_RSVD0_SIZE			4
-+
-+/* offsets for data/disconnect headers */
-+#define FM10K_MSG_CRC_SHIFT			16
-+#define FM10K_MSG_CRC_SIZE			16
-+
-+/* offsets for connect headers */
-+#define FM10K_MSG_CONNECT_SIZE_SHIFT		16
-+#define FM10K_MSG_CONNECT_SIZE_SIZE		16
-+
-+/* offsets for error headers */
-+#define FM10K_MSG_ERR_NO_SHIFT			16
-+#define FM10K_MSG_ERR_NO_SIZE			16
-+
-+enum fm10k_msg_type {
-+	FM10K_MSG_DATA			= 0x8,
-+	FM10K_MSG_CONNECT		= 0xC,
-+	FM10K_MSG_DISCONNECT		= 0xD,
-+	FM10K_MSG_ERROR			= 0xE,
++/* This structure defines the attibutes to be parsed below */
++const struct fm10k_tlv_attr fm10k_mac_vlan_msg_attr[] = {
++	FM10K_TLV_ATTR_U32(FM10K_MAC_VLAN_MSG_VLAN),
++	FM10K_TLV_ATTR_BOOL(FM10K_MAC_VLAN_MSG_SET),
++	FM10K_TLV_ATTR_MAC_ADDR(FM10K_MAC_VLAN_MSG_MAC),
++	FM10K_TLV_ATTR_MAC_ADDR(FM10K_MAC_VLAN_MSG_DEFAULT_MAC),
++	FM10K_TLV_ATTR_MAC_ADDR(FM10K_MAC_VLAN_MSG_MULTICAST),
++	FM10K_TLV_ATTR_LAST
 +};
 +
- /* HNI/SM Mailbox FIFO format
-  *    3                   2                   1                   0
-  *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
-@@ -237,6 +299,8 @@ struct fm10k_mbx_info {
- 	u32 buffer[FM10K_MBX_BUFFER_SIZE];
- };
- 
-+s32 fm10k_pfvf_mbx_init(struct fm10k_hw *, struct fm10k_mbx_info *,
-+			const struct fm10k_msg_data *, u8);
- s32 fm10k_sm_mbx_init(struct fm10k_hw *, struct fm10k_mbx_info *,
- 		      const struct fm10k_msg_data *);
- 
++/**
++ *  fm10k_update_vlan_vf - Update status of VLAN ID in VLAN filter table
++ *  @hw: pointer to hardware structure
++ *  @vid: VLAN ID to add to table
++ *  @vsi: Reserved, should always be 0
++ *  @set: Indicates if this is a set or clear operation
++ *
++ *  This function adds or removes the corresponding VLAN ID from the VLAN
++ *  filter table for this VF.
++ **/
++static s32 fm10k_update_vlan_vf(struct fm10k_hw *hw, u32 vid, u8 vsi, bool set)
++{
++	struct fm10k_mbx_info *mbx = &hw->mbx;
++	u32 msg[4];
++
++	/* verify the index is not set */
++	if (vsi)
++		return FM10K_ERR_PARAM;
++
++	/* verify upper 4 bits of vid and length are 0 */
++	if ((vid << 16 | vid) >> 28)
++		return FM10K_ERR_PARAM;
++
++	/* encode set bit into the VLAN ID */
++	if (!set)
++		vid |= FM10K_VLAN_CLEAR;
++
++	/* generate VLAN request */
++	fm10k_tlv_msg_init(msg, FM10K_VF_MSG_ID_MAC_VLAN);
++	fm10k_tlv_attr_put_u32(msg, FM10K_MAC_VLAN_MSG_VLAN, vid);
++
++	/* load onto outgoing mailbox */
++	return mbx->ops.enqueue_tx(hw, mbx, msg);
++}
++
++/**
++ *  fm10k_msg_mac_vlan_vf - Read device MAC address from mailbox message
++ *  @hw: pointer to the HW structure
++ *  @results: Attributes for message
++ *  @mbx: unused mailbox data
++ *
++ *  This function should determine the MAC address for the VF
++ **/
++s32 fm10k_msg_mac_vlan_vf(struct fm10k_hw *hw, u32 **results,
++			  struct fm10k_mbx_info *mbx)
++{
++	u8 perm_addr[ETH_ALEN];
++	u16 vid;
++	s32 err;
++
++	/* record MAC address requested */
++	err = fm10k_tlv_attr_get_mac_vlan(
++					results[FM10K_MAC_VLAN_MSG_DEFAULT_MAC],
++					perm_addr, &vid);
++	if (err)
++		return err;
++
++	ether_addr_copy(hw->mac.perm_addr, perm_addr);
++	hw->mac.default_vid = vid & (FM10K_VLAN_TABLE_VID_MAX - 1);
++	hw->mac.vlan_override = !!(vid & FM10K_VLAN_CLEAR);
++
++	return 0;
++}
++
++/**
++ *  fm10k_read_mac_addr_vf - Read device MAC address
++ *  @hw: pointer to the HW structure
++ *
++ *  This function should determine the MAC address for the VF
++ **/
++static s32 fm10k_read_mac_addr_vf(struct fm10k_hw *hw)
++{
++	u8 perm_addr[ETH_ALEN];
++	u32 base_addr;
++
++	base_addr = fm10k_read_reg(hw, FM10K_TDBAL(0));
++
++	/* last byte should be 0 */
++	if (base_addr << 24)
++		return  FM10K_ERR_INVALID_MAC_ADDR;
++
++	perm_addr[3] = (u8)(base_addr >> 24);
++	perm_addr[4] = (u8)(base_addr >> 16);
++	perm_addr[5] = (u8)(base_addr >> 8);
++
++	base_addr = fm10k_read_reg(hw, FM10K_TDBAH(0));
++
++	/* first byte should be all 1's */
++	if ((~base_addr) >> 24)
++		return  FM10K_ERR_INVALID_MAC_ADDR;
++
++	perm_addr[0] = (u8)(base_addr >> 16);
++	perm_addr[1] = (u8)(base_addr >> 8);
++	perm_addr[2] = (u8)(base_addr);
++
++	ether_addr_copy(hw->mac.perm_addr, perm_addr);
++	ether_addr_copy(hw->mac.addr, perm_addr);
++
++	return 0;
++}
++
++/**
++ *  fm10k_update_uc_addr_vf - Update device unicast address
++ *  @hw: pointer to the HW structure
++ *  @glort: unused
++ *  @mac: MAC address to add/remove from table
++ *  @vid: VLAN ID to add/remove from table
++ *  @add: Indicates if this is an add or remove operation
++ *  @flags: flags field to indicate add and secure - unused
++ *
++ *  This function is used to add or remove unicast MAC addresses for
++ *  the VF.
++ **/
++static s32 fm10k_update_uc_addr_vf(struct fm10k_hw *hw, u16 glort,
++				   const u8 *mac, u16 vid, bool add, u8 flags)
++{
++	struct fm10k_mbx_info *mbx = &hw->mbx;
++	u32 msg[7];
++
++	/* verify VLAN ID is valid */
++	if (vid >= FM10K_VLAN_TABLE_VID_MAX)
++		return FM10K_ERR_PARAM;
++
++	/* verify MAC address is valid */
++	if (!is_valid_ether_addr(mac))
++		return FM10K_ERR_PARAM;
++
++	/* verify we are not locked down on the MAC address */
++	if (is_valid_ether_addr(hw->mac.perm_addr) &&
++	    memcmp(hw->mac.perm_addr, mac, ETH_ALEN))
++		return FM10K_ERR_PARAM;
++
++	/* add bit to notify us if this is a set of clear operation */
++	if (!add)
++		vid |= FM10K_VLAN_CLEAR;
++
++	/* generate VLAN request */
++	fm10k_tlv_msg_init(msg, FM10K_VF_MSG_ID_MAC_VLAN);
++	fm10k_tlv_attr_put_mac_vlan(msg, FM10K_MAC_VLAN_MSG_MAC, mac, vid);
++
++	/* load onto outgoing mailbox */
++	return mbx->ops.enqueue_tx(hw, mbx, msg);
++}
++
++/**
++ *  fm10k_update_mc_addr_vf - Update device multicast address
++ *  @hw: pointer to the HW structure
++ *  @glort: unused
++ *  @mac: MAC address to add/remove from table
++ *  @vid: VLAN ID to add/remove from table
++ *  @add: Indicates if this is an add or remove operation
++ *
++ *  This function is used to add or remove multicast MAC addresses for
++ *  the VF.
++ **/
++static s32 fm10k_update_mc_addr_vf(struct fm10k_hw *hw, u16 glort,
++				   const u8 *mac, u16 vid, bool add)
++{
++	struct fm10k_mbx_info *mbx = &hw->mbx;
++	u32 msg[7];
++
++	/* verify VLAN ID is valid */
++	if (vid >= FM10K_VLAN_TABLE_VID_MAX)
++		return FM10K_ERR_PARAM;
++
++	/* verify multicast address is valid */
++	if (!is_multicast_ether_addr(mac))
++		return FM10K_ERR_PARAM;
++
++	/* add bit to notify us if this is a set of clear operation */
++	if (!add)
++		vid |= FM10K_VLAN_CLEAR;
++
++	/* generate VLAN request */
++	fm10k_tlv_msg_init(msg, FM10K_VF_MSG_ID_MAC_VLAN);
++	fm10k_tlv_attr_put_mac_vlan(msg, FM10K_MAC_VLAN_MSG_MULTICAST,
++				    mac, vid);
++
++	/* load onto outgoing mailbox */
++	return mbx->ops.enqueue_tx(hw, mbx, msg);
++}
++
++/**
++ *  fm10k_update_int_moderator_vf - Request update of interrupt moderator list
++ *  @hw: pointer to hardware structure
++ *
++ *  This function will issue a request to the PF to rescan our MSI-X table
++ *  and to update the interrupt moderator linked list.
++ **/
++static void fm10k_update_int_moderator_vf(struct fm10k_hw *hw)
++{
++	struct fm10k_mbx_info *mbx = &hw->mbx;
++	u32 msg[1];
++
++	/* generate MSI-X request */
++	fm10k_tlv_msg_init(msg, FM10K_VF_MSG_ID_MSIX);
++
++	/* load onto outgoing mailbox */
++	mbx->ops.enqueue_tx(hw, mbx, msg);
++}
++
++/* This structure defines the attibutes to be parsed below */
++const struct fm10k_tlv_attr fm10k_lport_state_msg_attr[] = {
++	FM10K_TLV_ATTR_BOOL(FM10K_LPORT_STATE_MSG_DISABLE),
++	FM10K_TLV_ATTR_U8(FM10K_LPORT_STATE_MSG_XCAST_MODE),
++	FM10K_TLV_ATTR_BOOL(FM10K_LPORT_STATE_MSG_READY),
++	FM10K_TLV_ATTR_LAST
++};
++
++/**
++ *  fm10k_msg_lport_state_vf - Message handler for lport_state message from PF
++ *  @hw: Pointer to hardware structure
++ *  @results: pointer array containing parsed data
++ *  @mbx: Pointer to mailbox information structure
++ *
++ *  This handler is meant to capture the indication from the PF that we
++ *  are ready to bring up the interface.
++ **/
++s32 fm10k_msg_lport_state_vf(struct fm10k_hw *hw, u32 **results,
++			     struct fm10k_mbx_info *mbx)
++{
++	hw->mac.dglort_map = !results[FM10K_LPORT_STATE_MSG_READY] ?
++			     FM10K_DGLORTMAP_NONE : FM10K_DGLORTMAP_ZERO;
++
++	return 0;
++}
++
++/**
++ *  fm10k_update_lport_state_vf - Update device state in lower device
++ *  @hw: pointer to the HW structure
++ *  @glort: unused
++ *  @count: number of logical ports to enable - unused (always 1)
++ *  @enable: boolean value indicating if this is an enable or disable request
++ *
++ *  Notify the lower device of a state change.  If the lower device is
++ *  enabled we can add filters, if it is disabled all filters for this
++ *  logical port are flushed.
++ **/
++static s32 fm10k_update_lport_state_vf(struct fm10k_hw *hw, u16 glort,
++				       u16 count, bool enable)
++{
++	struct fm10k_mbx_info *mbx = &hw->mbx;
++	u32 msg[2];
++
++	/* reset glort mask 0 as we have to wait to be enabled */
++	hw->mac.dglort_map = FM10K_DGLORTMAP_NONE;
++
++	/* generate port state request */
++	fm10k_tlv_msg_init(msg, FM10K_VF_MSG_ID_LPORT_STATE);
++	if (!enable)
++		fm10k_tlv_attr_put_bool(msg, FM10K_LPORT_STATE_MSG_DISABLE);
++
++	/* load onto outgoing mailbox */
++	return mbx->ops.enqueue_tx(hw, mbx, msg);
++}
++
++/**
++ *  fm10k_update_xcast_mode_vf - Request update of multicast mode
++ *  @hw: pointer to hardware structure
++ *  @glort: unused
++ *  @mode: integer value indicating mode being requested
++ *
++ *  This function will attempt to request a higher mode for the port
++ *  so that it can enable either multicast, multicast promiscuous, or
++ *  promiscuous mode of operation.
++ **/
++static s32 fm10k_update_xcast_mode_vf(struct fm10k_hw *hw, u16 glort, u8 mode)
++{
++	struct fm10k_mbx_info *mbx = &hw->mbx;
++	u32 msg[3];
++
++	if (mode > FM10K_XCAST_MODE_NONE)
++		return FM10K_ERR_PARAM;
++	/* generate message requesting to change xcast mode */
++	fm10k_tlv_msg_init(msg, FM10K_VF_MSG_ID_LPORT_STATE);
++	fm10k_tlv_attr_put_u8(msg, FM10K_LPORT_STATE_MSG_XCAST_MODE, mode);
++
++	/* load onto outgoing mailbox */
++	return mbx->ops.enqueue_tx(hw, mbx, msg);
++}
++
++/**
++ *  fm10k_update_hw_stats_vf - Updates hardware related statistics of VF
++ *  @hw: pointer to hardware structure
++ *  @stats: pointer to statistics structure
++ *
++ *  This function collects and aggregates per queue hardware statistics.
++ **/
++static void fm10k_update_hw_stats_vf(struct fm10k_hw *hw,
++				     struct fm10k_hw_stats *stats)
++{
++	fm10k_update_hw_stats_q(hw, stats->q, 0, hw->mac.max_queues);
++}
++
++/**
++ *  fm10k_rebind_hw_stats_vf - Resets base for hardware statistics of VF
++ *  @hw: pointer to hardware structure
++ *  @stats: pointer to the stats structure to update
++ *
++ *  This function resets the base for queue hardware statistics.
++ **/
++static void fm10k_rebind_hw_stats_vf(struct fm10k_hw *hw,
++				     struct fm10k_hw_stats *stats)
++{
++	/* Unbind Queue Statistics */
++	fm10k_unbind_hw_stats_q(stats->q, 0, hw->mac.max_queues);
++
++	/* Reinitialize bases for all stats */
++	fm10k_update_hw_stats_vf(hw, stats);
++}
++
++/**
++ *  fm10k_configure_dglort_map_vf - Configures GLORT entry and queues
++ *  @hw: pointer to hardware structure
++ *  @dglort: pointer to dglort configuration structure
++ *
++ *  Reads the configuration structure contained in dglort_cfg and uses
++ *  that information to then populate a DGLORTMAP/DEC entry and the queues
++ *  to which it has been assigned.
++ **/
++static s32 fm10k_configure_dglort_map_vf(struct fm10k_hw *hw,
++					 struct fm10k_dglort_cfg *dglort)
++{
++	/* verify the dglort pointer */
++	if (!dglort)
++		return FM10K_ERR_PARAM;
++
++	/* stub for now until we determine correct message for this */
++
++	return 0;
++}
++
++static const struct fm10k_msg_data fm10k_msg_data_vf[] = {
++	FM10K_TLV_MSG_TEST_HANDLER(fm10k_tlv_msg_test),
++	FM10K_VF_MSG_MAC_VLAN_HANDLER(fm10k_msg_mac_vlan_vf),
++	FM10K_VF_MSG_LPORT_STATE_HANDLER(fm10k_msg_lport_state_vf),
++	FM10K_TLV_MSG_ERROR_HANDLER(fm10k_tlv_msg_error),
++};
++
++static struct fm10k_mac_ops mac_ops_vf = {
++	.get_bus_info		= &fm10k_get_bus_info_generic,
++	.reset_hw		= &fm10k_reset_hw_vf,
++	.init_hw		= &fm10k_init_hw_vf,
++	.start_hw		= &fm10k_start_hw_generic,
++	.stop_hw		= &fm10k_stop_hw_vf,
++	.is_slot_appropriate	= &fm10k_is_slot_appropriate_vf,
++	.update_vlan		= &fm10k_update_vlan_vf,
++	.read_mac_addr		= &fm10k_read_mac_addr_vf,
++	.update_uc_addr		= &fm10k_update_uc_addr_vf,
++	.update_mc_addr		= &fm10k_update_mc_addr_vf,
++	.update_xcast_mode	= &fm10k_update_xcast_mode_vf,
++	.update_int_moderator	= &fm10k_update_int_moderator_vf,
++	.update_lport_state	= &fm10k_update_lport_state_vf,
++	.update_hw_stats	= &fm10k_update_hw_stats_vf,
++	.rebind_hw_stats	= &fm10k_rebind_hw_stats_vf,
++	.configure_dglort_map	= &fm10k_configure_dglort_map_vf,
++	.get_host_state		= &fm10k_get_host_state_generic,
++};
++
++static s32 fm10k_get_invariants_vf(struct fm10k_hw *hw)
++{
++	fm10k_get_invariants_generic(hw);
++
++	return fm10k_pfvf_mbx_init(hw, &hw->mbx, fm10k_msg_data_vf, 0);
++}
++
++struct fm10k_info fm10k_vf_info = {
++	.mac		= fm10k_mac_vf,
++	.get_invariants	= &fm10k_get_invariants_vf,
++	.mac_ops	= &mac_ops_vf,
++};
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_vf.h b/drivers/net/ethernet/intel/fm10k/fm10k_vf.h
+new file mode 100644
+index 0000000..8e96ee5
+--- /dev/null
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_vf.h
+@@ -0,0 +1,68 @@
++/* Intel Ethernet Switch Host Interface Driver
++ * Copyright(c) 2013 - 2014 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ */
++
++#ifndef _FM10K_VF_H_
++#define _FM10K_VF_H_
++
++#include "fm10k_type.h"
++#include "fm10k_common.h"
++
++enum fm10k_vf_tlv_msg_id {
++	FM10K_VF_MSG_ID_TEST = 0,	/* msg ID reserved for testing */
++	FM10K_VF_MSG_ID_MSIX,
++	FM10K_VF_MSG_ID_MAC_VLAN,
++	FM10K_VF_MSG_ID_LPORT_STATE,
++	FM10K_VF_MSG_ID_MAX,
++};
++
++enum fm10k_tlv_mac_vlan_attr_id {
++	FM10K_MAC_VLAN_MSG_VLAN,
++	FM10K_MAC_VLAN_MSG_SET,
++	FM10K_MAC_VLAN_MSG_MAC,
++	FM10K_MAC_VLAN_MSG_DEFAULT_MAC,
++	FM10K_MAC_VLAN_MSG_MULTICAST,
++	FM10K_MAC_VLAN_MSG_ID_MAX
++};
++
++enum fm10k_tlv_lport_state_attr_id {
++	FM10K_LPORT_STATE_MSG_DISABLE,
++	FM10K_LPORT_STATE_MSG_XCAST_MODE,
++	FM10K_LPORT_STATE_MSG_READY,
++	FM10K_LPORT_STATE_MSG_MAX
++};
++
++#define FM10K_VF_MSG_MSIX_HANDLER(func) \
++	 FM10K_MSG_HANDLER(FM10K_VF_MSG_ID_MSIX, NULL, func)
++
++s32 fm10k_msg_mac_vlan_vf(struct fm10k_hw *, u32 **, struct fm10k_mbx_info *);
++extern const struct fm10k_tlv_attr fm10k_mac_vlan_msg_attr[];
++#define FM10K_VF_MSG_MAC_VLAN_HANDLER(func) \
++	FM10K_MSG_HANDLER(FM10K_VF_MSG_ID_MAC_VLAN, \
++			  fm10k_mac_vlan_msg_attr, func)
++
++s32 fm10k_msg_lport_state_vf(struct fm10k_hw *, u32 **,
++			     struct fm10k_mbx_info *);
++extern const struct fm10k_tlv_attr fm10k_lport_state_msg_attr[];
++#define FM10K_VF_MSG_LPORT_STATE_HANDLER(func) \
++	FM10K_MSG_HANDLER(FM10K_VF_MSG_ID_LPORT_STATE, \
++			  fm10k_lport_state_msg_attr, func)
++
++extern struct fm10k_info fm10k_vf_info;
++#endif /* _FM10K_VF_H */
