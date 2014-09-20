@@ -1,7 +1,7 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next v2 3/5] net: tcp: split ack slow/fast events from cwnd_event
-Date: Sat, 20 Sep 2014 23:29:20 +0200
-Message-ID: <1411248562-26581-4-git-send-email-fw@strlen.de>
+Subject: [PATCH net-next v2 1/5] net: tcp: assign tcp cong_ops when tcp sk is created
+Date: Sat, 20 Sep 2014 23:29:18 +0200
+Message-ID: <1411248562-26581-2-git-send-email-fw@strlen.de>
 References: <1411248562-26581-1-git-send-email-fw@strlen.de>
 Cc: hagen@jauu.net, lars@netapp.com, eric.dumazet@gmail.com,
 	fontana@sharpeleven.org, hannes@stressinduktion.org,
@@ -9,28 +9,31 @@ Cc: hagen@jauu.net, lars@netapp.com, eric.dumazet@gmail.com,
 	netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:38440 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:38439 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755266AbaITV3r (ORCPT
+	by vger.kernel.org with ESMTP id S1755162AbaITV3r (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 17:29:47 -0400
 In-Reply-To: <1411248562-26581-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The congestion control ops "cwnd_event" currently supports
-CA_EVENT_FAST_ACK and CA_EVENT_SLOW_ACK events (among others).
-Both FAST and SLOW_ACK are only used by Westwood congestion
-control algorithm.
+Split assignment and initialization from one into two functions.
 
-This removes both flags from cwnd_event and adds a new
-in_ack_event callback for this. The goal is to be able to
-provide more detailed information about ACKs, such as whether
-ECE flag was set, or whether the ACK resulted in a window
-update.
+This is required by followup patches that add Datacenter TCP
+(DCTCP) congestion control algorithm - we need to be able to
+determine if the connection is moderated by DCTCP before the
+3WHS has finished.
 
-It is required for DataCenter TCP (DCTCP) congestion control
-algorithm as it makes a different choice depending on ECE being
-set or not.
+As we walk the available congestion control list during the
+assignment, we are always guaranteed to have Reno present as
+it's fixed compiled-in. Therefore, since we're doing the
+early assignment, we don't have a real use for the Reno alias
+tcp_init_congestion_ops anymore and can thus remove it.
+
+Actual usage of the congestion control operations are being
+made after the 3WHS has finished, in some cases however we
+can access get_info() via diag if implemented, therefore we
+need to zero out the private area for those modules.
 
 Joint work with Daniel Borkmann and Glenn Judd.
 
@@ -38,133 +41,137 @@ Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Signed-off-by: Glenn Judd <glenn.judd@morganstanley.com>
 ---
- include/net/tcp.h       |  8 ++++++--
- net/ipv4/tcp_input.c    | 12 ++++++++++--
- net/ipv4/tcp_westwood.c | 28 ++++++++++++++++------------
- 3 files changed, 32 insertions(+), 16 deletions(-)
+ include/net/tcp.h        |  2 +-
+ net/ipv4/tcp.c           |  6 ++----
+ net/ipv4/tcp_cong.c      | 46 ++++++++++++++++++++++------------------------
+ net/ipv4/tcp_minisocks.c |  5 ++---
+ 4 files changed, 27 insertions(+), 32 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 82d012e..e71884a 100644
+index a4201ef..1c75356 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -744,8 +744,10 @@ enum tcp_ca_event {
- 	CA_EVENT_CWND_RESTART,	/* congestion window restart */
- 	CA_EVENT_COMPLETE_CWR,	/* end of congestion recovery */
- 	CA_EVENT_LOSS,		/* loss timeout */
--	CA_EVENT_FAST_ACK,	/* in sequence ack */
--	CA_EVENT_SLOW_ACK,	/* other ack */
-+};
-+
-+enum tcp_ca_ack_event_flags {
-+	CA_ACK_SLOWPATH = (1 << 0),
- };
+@@ -805,6 +805,7 @@ struct tcp_congestion_ops {
+ int tcp_register_congestion_control(struct tcp_congestion_ops *type);
+ void tcp_unregister_congestion_control(struct tcp_congestion_ops *type);
  
- /*
-@@ -777,6 +779,8 @@ struct tcp_congestion_ops {
- 	void (*set_state)(struct sock *sk, u8 new_state);
- 	/* call when cwnd event occurs (optional) */
- 	void (*cwnd_event)(struct sock *sk, enum tcp_ca_event ev);
-+	/* call when ack arrives (optional) */
-+	void (*in_ack_event)(struct sock *sk, u32 flags);
- 	/* new value of cwnd after loss (optional) */
- 	u32  (*undo_cwnd)(struct sock *sk);
- 	/* hook for packet ack accounting (optional) */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 0af12a4..14dc3ee 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3361,6 +3361,14 @@ static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
- 	}
++void tcp_assign_congestion_control(struct sock *sk);
+ void tcp_init_congestion_control(struct sock *sk);
+ void tcp_cleanup_congestion_control(struct sock *sk);
+ int tcp_set_default_congestion_control(const char *name);
+@@ -816,7 +817,6 @@ int tcp_set_congestion_control(struct sock *sk, const char *name);
+ int tcp_slow_start(struct tcp_sock *tp, u32 acked);
+ void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w);
+ 
+-extern struct tcp_congestion_ops tcp_init_congestion_ops;
+ u32 tcp_reno_ssthresh(struct sock *sk);
+ void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 acked);
+ extern struct tcp_congestion_ops tcp_reno;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 070aeff..344707f 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -405,7 +405,7 @@ void tcp_init_sock(struct sock *sk)
+ 
+ 	tp->reordering = sysctl_tcp_reordering;
+ 	tcp_enable_early_retrans(tp);
+-	icsk->icsk_ca_ops = &tcp_init_congestion_ops;
++	tcp_assign_congestion_control(sk);
+ 
+ 	tp->tsoffset = 0;
+ 
+@@ -3258,8 +3258,6 @@ void __init tcp_init(void)
+ 		tcp_hashinfo.ehash_mask + 1, tcp_hashinfo.bhash_size);
+ 
+ 	tcp_metrics_init();
+-
+-	tcp_register_congestion_control(&tcp_reno);
+-
++	BUG_ON(tcp_register_congestion_control(&tcp_reno) != 0);
+ 	tcp_tasklet_init();
  }
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index 80248f5..a6c8a57 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -74,24 +74,34 @@ void tcp_unregister_congestion_control(struct tcp_congestion_ops *ca)
+ EXPORT_SYMBOL_GPL(tcp_unregister_congestion_control);
  
-+static inline void tcp_in_ack_event(struct sock *sk, u32 flags)
+ /* Assign choice of congestion control. */
+-void tcp_init_congestion_control(struct sock *sk)
++void tcp_assign_congestion_control(struct sock *sk)
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_congestion_ops *ca;
+ 
+-	/* if no choice made yet assign the current value set as default */
+-	if (icsk->icsk_ca_ops == &tcp_init_congestion_ops) {
+-		rcu_read_lock();
+-		list_for_each_entry_rcu(ca, &tcp_cong_list, list) {
+-			if (try_module_get(ca->owner)) {
+-				icsk->icsk_ca_ops = ca;
+-				break;
+-			}
+-
+-			/* fallback to next available */
++	rcu_read_lock();
++	list_for_each_entry_rcu(ca, &tcp_cong_list, list) {
++		if (likely(try_module_get(ca->owner))) {
++			icsk->icsk_ca_ops = ca;
++			goto out;
+ 		}
+-		rcu_read_unlock();
++		/* Fallback to next available. The last really
++		 * guaranteed fallback is Reno from this list.
++		 */
+ 	}
++out:
++	rcu_read_unlock();
++
++	/* Clear out private data before diag gets it and
++	 * the ca has not been initialized.
++	 */
++	if (ca->get_info)
++		memset(icsk->icsk_ca_priv, 0, sizeof(icsk->icsk_ca_priv));
++}
++
++void tcp_init_congestion_control(struct sock *sk)
 +{
 +	const struct inet_connection_sock *icsk = inet_csk(sk);
-+
-+	if (icsk->icsk_ca_ops->in_ack_event)
-+		icsk->icsk_ca_ops->in_ack_event(sk, flags);
-+}
-+
- /* This routine deals with incoming acks, but not outgoing ones. */
- static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- {
-@@ -3420,7 +3428,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 		tp->snd_una = ack;
- 		flag |= FLAG_WIN_UPDATE;
  
--		tcp_ca_event(sk, CA_EVENT_FAST_ACK);
-+		tcp_in_ack_event(sk, 0);
- 
- 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPHPACKS);
- 	} else {
-@@ -3438,7 +3446,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 		if (TCP_ECN_rcv_ecn_echo(tp, tcp_hdr(skb)))
- 			flag |= FLAG_ECE;
- 
--		tcp_ca_event(sk, CA_EVENT_SLOW_ACK);
-+		tcp_in_ack_event(sk, CA_ACK_SLOWPATH);
- 	}
- 
- 	/* We passed data and got it acked, remove any soft error
-diff --git a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
-index 81911a9..bb63fba 100644
---- a/net/ipv4/tcp_westwood.c
-+++ b/net/ipv4/tcp_westwood.c
-@@ -220,32 +220,35 @@ static u32 tcp_westwood_bw_rttmin(const struct sock *sk)
- 	return max_t(u32, (w->bw_est * w->rtt_min) / tp->mss_cache, 2);
- }
- 
-+static void tcp_westwood_ack(struct sock *sk, u32 ack_flags)
-+{
-+	if (ack_flags & CA_ACK_SLOWPATH) {
-+		struct westwood *w = inet_csk_ca(sk);
-+
-+		westwood_update_window(sk);
-+		w->bk += westwood_acked_count(sk);
-+
-+		update_rtt_min(w);
-+		return;
-+	}
-+
-+	westwood_fast_bw(sk);
-+}
-+
- static void tcp_westwood_event(struct sock *sk, enum tcp_ca_event event)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct westwood *w = inet_csk_ca(sk);
- 
- 	switch (event) {
--	case CA_EVENT_FAST_ACK:
--		westwood_fast_bw(sk);
--		break;
--
- 	case CA_EVENT_COMPLETE_CWR:
- 		tp->snd_cwnd = tp->snd_ssthresh = tcp_westwood_bw_rttmin(sk);
- 		break;
--
- 	case CA_EVENT_LOSS:
- 		tp->snd_ssthresh = tcp_westwood_bw_rttmin(sk);
- 		/* Update RTT_min when next ack arrives */
- 		w->reset_rtt_min = 1;
- 		break;
--
--	case CA_EVENT_SLOW_ACK:
--		westwood_update_window(sk);
--		w->bk += westwood_acked_count(sk);
--		update_rtt_min(w);
--		break;
--
- 	default:
- 		/* don't care */
- 		break;
-@@ -274,6 +277,7 @@ static struct tcp_congestion_ops tcp_westwood __read_mostly = {
+ 	if (icsk->icsk_ca_ops->init)
+ 		icsk->icsk_ca_ops->init(sk);
+@@ -345,15 +355,3 @@ struct tcp_congestion_ops tcp_reno = {
  	.ssthresh	= tcp_reno_ssthresh,
  	.cong_avoid	= tcp_reno_cong_avoid,
- 	.cwnd_event	= tcp_westwood_event,
-+	.in_ack_event	= tcp_westwood_ack,
- 	.get_info	= tcp_westwood_info,
- 	.pkts_acked	= tcp_westwood_pkts_acked,
+ };
+-
+-/* Initial congestion control used (until SYN)
+- * really reno under another name so we can tell difference
+- * during tcp_set_default_congestion_control
+- */
+-struct tcp_congestion_ops tcp_init_congestion_ops  = {
+-	.name		= "",
+-	.owner		= THIS_MODULE,
+-	.ssthresh	= tcp_reno_ssthresh,
+-	.cong_avoid	= tcp_reno_cong_avoid,
+-};
+-EXPORT_SYMBOL_GPL(tcp_init_congestion_ops);
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index a058f41..47b7350 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -451,9 +451,8 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
+ 		newtp->snd_cwnd = TCP_INIT_CWND;
+ 		newtp->snd_cwnd_cnt = 0;
  
+-		if (newicsk->icsk_ca_ops != &tcp_init_congestion_ops &&
+-		    !try_module_get(newicsk->icsk_ca_ops->owner))
+-			newicsk->icsk_ca_ops = &tcp_init_congestion_ops;
++		if (!try_module_get(newicsk->icsk_ca_ops->owner))
++			tcp_assign_congestion_control(newsk);
+ 
+ 		tcp_set_ca_state(newsk, TCP_CA_Open);
+ 		tcp_init_xmit_timers(newsk);
 -- 
 1.7.11.7
