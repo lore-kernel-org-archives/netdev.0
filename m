@@ -1,361 +1,287 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH v2 28/29] fm10k: Add support for ptp to hw specific
- files
-Date: Sat, 20 Sep 2014 19:53:40 -0400
-Message-ID: <20140920235328.2977.77018.stgit@ahduyck-bv4.jf.intel.com>
+Subject: [net-next PATCH v2 26/29] fm10k: Add support for IEEE DCBx
+Date: Sat, 20 Sep 2014 19:53:08 -0400
+Message-ID: <20140920235214.2977.82824.stgit@ahduyck-bv4.jf.intel.com>
 References: <20140920234342.2977.21667.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: nhorman@redhat.com, netdev@vger.kernel.org,
-	Richard Cochran <richardcochran@gmail.com>,
-	john.fastabend@gmail.com, matthew.vick@intel.com,
-	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
+	john.fastabend@gmail.com,
+	John Fastabend <john.r.fastabend@intel.com>,
+	matthew.vick@intel.com, jeffrey.t.kirsher@intel.com,
+	sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:60529 "EHLO mga14.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:58333 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751569AbaIUACY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Sep 2014 20:02:24 -0400
+	id S1751212AbaIUACW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Sep 2014 20:02:22 -0400
 In-Reply-To: <20140920234342.2977.21667.stgit@ahduyck-bv4.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change adds the messaging support needed to support PTP.  In the case
-of Tx timestamps it is necessary for the Switch Management entity to return
-the frames via the mailbox as the host interface cannot know which port the
-timestamp will be delivered to.  In addition there is only one clock on the
-entire switch, as such the entity that has BAR 4 access is the only one who
-can actually update the frequency as it is the only one with access.
+This patch adds support for management of the limited QOS features of the
+FM10000 interface.  Specifically we can support up to 8 traffic classes,
+however the part only provides 1 Rx and 1 Tx FIFO in the host interface and
+as a result this can lead to head-of-line blocking on Rx.  This can be
+avoided by setting PFC only for priorities that cannot afford to drop
+frames.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
-v2: Updated comment about how we compute the adjustment value.
-    Added read_systime function to MAC operations for PF and VF.
+v2: Dropped invalid define check only needed for out-of-tree driver
 
- drivers/net/ethernet/intel/fm10k/fm10k_common.h |    8 ++
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c     |   99 +++++++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_type.h   |   14 +++
- drivers/net/ethernet/intel/fm10k/fm10k_vf.c     |   55 +++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_vf.h     |   10 ++
- 5 files changed, 186 insertions(+)
+ drivers/net/ethernet/intel/fm10k/Makefile      |    3 
+ drivers/net/ethernet/intel/fm10k/fm10k.h       |    5 +
+ drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c |  174 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c   |    7 +
+ 4 files changed, 185 insertions(+), 4 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_common.h b/drivers/net/ethernet/intel/fm10k/fm10k_common.h
-index 8250e14..45e4e5b 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_common.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_common.h
-@@ -39,6 +39,14 @@ do { \
- 		writel((val), &hw_addr[(reg)]); \
- } while (0)
+diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
+index 70565ab..5023625 100644
+--- a/drivers/net/ethernet/intel/fm10k/Makefile
++++ b/drivers/net/ethernet/intel/fm10k/Makefile
+@@ -29,4 +29,5 @@ obj-$(CONFIG_FM10K) += fm10k.o
  
-+/* Switch register write operations, index using DWORDS */
-+#define fm10k_write_sw_reg(hw, reg, val) \
-+do { \
-+	u32 __iomem *sw_addr = ACCESS_ONCE((hw)->sw_addr); \
-+	if (!FM10K_REMOVED(sw_addr)) \
-+		writel((val), &sw_addr[(reg)]); \
-+} while (0)
-+
- /* read ctrl register which has no clear on read fields as PCIe flush */
- #define fm10k_write_flush(hw) fm10k_read_reg((hw), FM10K_CTRL)
- s32 fm10k_get_bus_info_generic(struct fm10k_hw *hw);
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-index 0b6ce10..275423d 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-@@ -1123,6 +1123,19 @@ static void fm10k_iov_update_stats_pf(struct fm10k_hw *hw,
- 	fm10k_update_hw_stats_q(hw, q, idx, qpp);
- }
+ fm10k-objs := fm10k_main.o fm10k_common.o fm10k_pci.o \
+ 	      fm10k_netdev.o fm10k_ethtool.o fm10k_pf.o fm10k_vf.o \
+-	      fm10k_mbx.o fm10k_iov.o fm10k_tlv.o
++	      fm10k_mbx.o fm10k_iov.o fm10k_tlv.o \
++	      fm10k_dcbnl.o
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
+index e529bfe..7025b91 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
+@@ -307,7 +307,7 @@ struct fm10k_intfc {
+ 	/* VXLAN port tracking information */
+ 	struct list_head vxlan_port;
  
-+static s32 fm10k_iov_report_timestamp_pf(struct fm10k_hw *hw,
-+					 struct fm10k_vf_info *vf_info,
-+					 u64 timestamp)
-+{
-+	u32 msg[4];
+-#if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
++#ifdef CONFIG_DCB
+ 	u8 pfc_en;
+ #endif
+ 	u8 rx_pause;
+@@ -467,4 +467,7 @@ int fm10k_ndo_set_vf_bw(struct net_device *netdev, int vf_idx, int rate,
+ 			int unused);
+ int fm10k_ndo_get_vf_config(struct net_device *netdev,
+ 			    int vf_idx, struct ifla_vf_info *ivi);
 +
-+	/* generate port state response to notify VF it is not ready */
-+	fm10k_tlv_msg_init(msg, FM10K_VF_MSG_ID_1588);
-+	fm10k_tlv_attr_put_u64(msg, FM10K_1588_MSG_TIMESTAMP, timestamp);
++/* DCB */
++void fm10k_dcbnl_set_ops(struct net_device *dev);
+ #endif /* _FM10K_H_ */
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c b/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
+new file mode 100644
+index 0000000..212a92d
+--- /dev/null
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
+@@ -0,0 +1,174 @@
++/* Intel Ethernet Switch Host Interface Driver
++ * Copyright(c) 2013 - 2014 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ */
 +
-+	return vf_info->mbx.ops.enqueue_tx(hw, &vf_info->mbx, msg);
-+}
++#include "fm10k.h"
 +
- /**
-  *  fm10k_iov_msg_msix_pf - Message handler for MSI-X request from VF
-  *  @hw: Pointer to hardware structure
-@@ -1723,6 +1736,89 @@ s32 fm10k_msg_err_pf(struct fm10k_hw *hw, u32 **results,
- 	return 0;
- }
- 
-+const struct fm10k_tlv_attr fm10k_1588_timestamp_msg_attr[] = {
-+	FM10K_TLV_ATTR_LE_STRUCT(FM10K_PF_ATTR_ID_1588_TIMESTAMP,
-+				 sizeof(struct fm10k_swapi_1588_timestamp)),
-+	FM10K_TLV_ATTR_LAST
-+};
-+
-+/* currently there is no shared 1588 timestamp handler */
-+
++#ifdef CONFIG_DCB
 +/**
-+ *  fm10k_adjust_systime_pf - Adjust systime frequency
-+ *  @hw: pointer to hardware structure
-+ *  @ppb: adjustment rate in parts per billion
-+ *
-+ *  This function will adjust the SYSTIME_CFG register contained in BAR 4
-+ *  if this function is supported for BAR 4 access.  The adjustment amount
-+ *  is based on the parts per billion value provided and adjusted to a
-+ *  value based on parts per 2^48 clock cycles.
-+ *
-+ *  If adjustment is not supported or the requested value is too large
-+ *  we will return an error.
++ * fm10k_dcbnl_ieee_getets - get the ETS configuration for the device
++ * @dev: netdev interface for the device
++ * @ets: ETS structure to push configuration to
 + **/
-+static s32 fm10k_adjust_systime_pf(struct fm10k_hw *hw, s32 ppb)
++static int fm10k_dcbnl_ieee_getets(struct net_device *dev, struct ieee_ets *ets)
 +{
-+	u64 systime_adjust;
++	int i;
 +
-+	/* if sw_addr is not set we don't have switch register access */
-+	if (!hw->sw_addr)
-+		return ppb ? FM10K_ERR_PARAM : 0;
++	/* we support 8 TCs in all modes */
++	ets->ets_cap = IEEE_8021QAZ_MAX_TCS;
++	ets->cbs = 0;
 +
-+	/* we must convert the value from parts per billion to parts per
-+	 * 2^48 cycles.  In addition I have opted to only use the 30 most
-+	 * significant bits of the adjustment value as the 8 least
-+	 * significant bits are located in another register and represent
-+	 * a value significantly less than a part per billion, the result
-+	 * of dropping the 8 least significant bits is that the adjustment
-+	 * value is effectively multiplied by 2^8 when we write it.
-+	 *
-+	 * As a result of all this the math for this breaks down as follows:
-+	 *	ppb / 10^9 == adjust * 2^8 / 2^48
-+	 * If we solve this for adjust, and simplify it comes out as:
-+	 *	ppb * 2^31 / 5^9 == adjust
-+	 */
-+	systime_adjust = (ppb < 0) ? -ppb : ppb;
-+	systime_adjust <<= 31;
-+	do_div(systime_adjust, 1953125);
++	/* we only support strict priority and cannot do traffic shaping */
++	memset(ets->tc_tx_bw, 0, sizeof(ets->tc_tx_bw));
++	memset(ets->tc_rx_bw, 0, sizeof(ets->tc_rx_bw));
++	memset(ets->tc_tsa, IEEE_8021QAZ_TSA_STRICT, sizeof(ets->tc_tsa));
 +
-+	/* verify the requested adjustment value is in range */
-+	if (systime_adjust > FM10K_SW_SYSTIME_ADJUST_MASK)
-+		return FM10K_ERR_PARAM;
-+
-+	if (ppb < 0)
-+		systime_adjust |= FM10K_SW_SYSTIME_ADJUST_DIR_NEGATIVE;
-+
-+	fm10k_write_sw_reg(hw, FM10K_SW_SYSTIME_ADJUST, (u32)systime_adjust);
++	/* populate the prio map based on the netdev */
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
++		ets->prio_tc[i] = netdev_get_prio_tc_map(dev, i);
 +
 +	return 0;
 +}
 +
 +/**
-+ *  fm10k_read_systime_pf - Reads value of systime registers
-+ *  @hw: pointer to the hardware structure
-+ *
-+ *  Function reads the content of 2 registers, combined to represent a 64 bit
-+ *  value measured in nanosecods.  In order to guarantee the value is accurate
-+ *  we check the 32 most significant bits both before and after reading the
-+ *  32 least significant bits to verify they didn't change as we were reading
-+ *  the registers.
++ * fm10k_dcbnl_ieee_setets - set the ETS configuration for the device
++ * @dev: netdev interface for the device
++ * @ets: ETS structure to pull configuration from
 + **/
-+static u64 fm10k_read_systime_pf(struct fm10k_hw *hw)
++static int fm10k_dcbnl_ieee_setets(struct net_device *dev, struct ieee_ets *ets)
 +{
-+	u32 systime_l, systime_h, systime_tmp;
++	u8 num_tc = 0;
++	int i, err;
 +
-+	systime_h = fm10k_read_reg(hw, FM10K_SYSTIME + 1);
++	/* verify type and determine num_tcs needed */
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
++		if (ets->tc_tx_bw[i] || ets->tc_rx_bw[i])
++			return -EINVAL;
++		if (ets->tc_tsa[i] != IEEE_8021QAZ_TSA_STRICT)
++			return -EINVAL;
++		if (ets->prio_tc[i] > num_tc)
++			num_tc = ets->prio_tc[i];
++	}
 +
-+	do {
-+		systime_tmp = systime_h;
-+		systime_l = fm10k_read_reg(hw, FM10K_SYSTIME);
-+		systime_h = fm10k_read_reg(hw, FM10K_SYSTIME + 1);
-+	} while (systime_tmp != systime_h);
++	/* if requested TC is greater than 0 then num_tcs is max + 1 */
++	if (num_tc)
++		num_tc++;
 +
-+	return ((u64)systime_h << 32) | systime_l;
-+}
++	if (num_tc > IEEE_8021QAZ_MAX_TCS)
++		return -EINVAL;
 +
- static const struct fm10k_msg_data fm10k_msg_data_pf[] = {
- 	FM10K_PF_MSG_ERR_HANDLER(XCAST_MODES, fm10k_msg_err_pf),
- 	FM10K_PF_MSG_ERR_HANDLER(UPDATE_MAC_FWD_RULE, fm10k_msg_err_pf),
-@@ -1753,6 +1849,8 @@ static struct fm10k_mac_ops mac_ops_pf = {
- 	.set_dma_mask		= &fm10k_set_dma_mask_pf,
- 	.get_fault		= &fm10k_get_fault_pf,
- 	.get_host_state		= &fm10k_get_host_state_pf,
-+	.adjust_systime		= &fm10k_adjust_systime_pf,
-+	.read_systime		= &fm10k_read_systime_pf,
- };
- 
- static struct fm10k_iov_ops iov_ops_pf = {
-@@ -1764,6 +1862,7 @@ static struct fm10k_iov_ops iov_ops_pf = {
- 	.set_lport			= &fm10k_iov_set_lport_pf,
- 	.reset_lport			= &fm10k_iov_reset_lport_pf,
- 	.update_stats			= &fm10k_iov_update_stats_pf,
-+	.report_timestamp		= &fm10k_iov_report_timestamp_pf,
- };
- 
- static s32 fm10k_get_invariants_pf(struct fm10k_hw *hw)
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-index ecaf93a..280296f 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-@@ -224,6 +224,11 @@ struct fm10k_hw;
- #define FM10K_STATS_LOOPBACK_DROP	0x3806
- #define FM10K_STATS_NODESC_DROP		0x3807
- 
-+/* Timesync registers */
-+#define FM10K_SYSTIME		0x3814
-+#define FM10K_SYSTIME_CFG	0x3818
-+#define FM10K_SYSTIME_CFG_STEP_MASK		0x0000000F
++	/* update TC hardware mapping if necessary */
++	if (num_tc != netdev_get_num_tc(dev)) {
++		err = fm10k_setup_tc(dev, num_tc);
++		if (err)
++			return err;
++	}
 +
- /* PCIe state registers */
- #define FM10K_PHYADDR		0x381C
- 
-@@ -358,6 +363,12 @@ struct fm10k_hw;
- #define FM10K_VFSYSTIME		0x00040
- #define FM10K_VFITR(_n)		((_n) + 0x00060)
- 
-+/* Registers contained in BAR 4 for Switch management */
-+#define FM10K_SW_SYSTIME_ADJUST	0x0224D
-+#define FM10K_SW_SYSTIME_ADJUST_MASK		0x3FFFFFFF
-+#define FM10K_SW_SYSTIME_ADJUST_DIR_NEGATIVE	0x80000000
-+#define FM10K_SW_SYSTIME_PULSE(_n)	((_n) + 0x02252)
++	/* update priority mapping */
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
++		netdev_set_prio_tc_map(dev, i, ets->prio_tc[i]);
 +
- enum fm10k_int_source {
- 	fm10k_int_Mailbox	= 0,
- 	fm10k_int_PCIeFault	= 1,
-@@ -524,6 +535,7 @@ struct fm10k_mac_ops {
- 	s32 (*get_fault)(struct fm10k_hw *, int, struct fm10k_fault *);
- 	void (*request_lport_map)(struct fm10k_hw *);
- 	s32 (*adjust_systime)(struct fm10k_hw *, s32 ppb);
-+	u64 (*read_systime)(struct fm10k_hw *);
- };
- 
- enum fm10k_mac_type {
-@@ -614,6 +626,7 @@ struct fm10k_iov_ops {
- 	s32 (*set_lport)(struct fm10k_hw *, struct fm10k_vf_info *, u16, u8);
- 	void (*reset_lport)(struct fm10k_hw *, struct fm10k_vf_info *);
- 	void (*update_stats)(struct fm10k_hw *, struct fm10k_hw_stats_q *, u16);
-+	s32 (*report_timestamp)(struct fm10k_hw *, struct fm10k_vf_info *, u64);
- };
- 
- struct fm10k_iov_info {
-@@ -637,6 +650,7 @@ struct fm10k_info {
- 
- struct fm10k_hw {
- 	u32 __iomem *hw_addr;
-+	u32 __iomem *sw_addr;
- 	void *back;
- 	struct fm10k_mac_info mac;
- 	struct fm10k_bus_info bus;
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_vf.c b/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
-index 25c23fc..f0aa0f9 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
-@@ -431,6 +431,13 @@ static s32 fm10k_update_xcast_mode_vf(struct fm10k_hw *hw, u16 glort, u8 mode)
- 	return mbx->ops.enqueue_tx(hw, mbx, msg);
- }
- 
-+const struct fm10k_tlv_attr fm10k_1588_msg_attr[] = {
-+	FM10K_TLV_ATTR_U64(FM10K_1588_MSG_TIMESTAMP),
-+	FM10K_TLV_ATTR_LAST
-+};
-+
-+/* currently there is no shared 1588 timestamp handler */
-+
- /**
-  *  fm10k_update_hw_stats_vf - Updates hardware related statistics of VF
-  *  @hw: pointer to hardware structure
-@@ -482,6 +489,52 @@ static s32 fm10k_configure_dglort_map_vf(struct fm10k_hw *hw,
- 	return 0;
- }
- 
-+/**
-+ *  fm10k_adjust_systime_vf - Adjust systime frequency
-+ *  @hw: pointer to hardware structure
-+ *  @ppb: adjustment rate in parts per billion
-+ *
-+ *  This function takes an adjustment rate in parts per billion and will
-+ *  verify that this value is 0 as the VF cannot support adjusting the
-+ *  systime clock.
-+ *
-+ *  If the ppb value is non-zero the return is ERR_PARAM else success
-+ **/
-+static s32 fm10k_adjust_systime_vf(struct fm10k_hw *hw, s32 ppb)
-+{
-+	/* The VF cannot adjust the clock frequency, however it should
-+	 * already have a syntonic clock with whichever host interface is
-+	 * running as the master for the host interface clock domain so
-+	 * there should be not frequency adjustment necessary.
-+	 */
-+	return ppb ? FM10K_ERR_PARAM : 0;
++	return 0;
 +}
 +
 +/**
-+ *  fm10k_read_systime_vf - Reads value of systime registers
-+ *  @hw: pointer to the hardware structure
-+ *
-+ *  Function reads the content of 2 registers, combined to represent a 64 bit
-+ *  value measured in nanosecods.  In order to guarantee the value is accurate
-+ *  we check the 32 most significant bits both before and after reading the
-+ *  32 least significant bits to verify they didn't change as we were reading
-+ *  the registers.
++ * fm10k_dcbnl_ieee_getpfc - get the PFC configuration for the device
++ * @dev: netdev interface for the device
++ * @pfc: PFC structure to push configuration to
 + **/
-+static u64 fm10k_read_systime_vf(struct fm10k_hw *hw)
++static int fm10k_dcbnl_ieee_getpfc(struct net_device *dev, struct ieee_pfc *pfc)
 +{
-+	u32 systime_l, systime_h, systime_tmp;
++	struct fm10k_intfc *interface = netdev_priv(dev);
 +
-+	systime_h = fm10k_read_reg(hw, FM10K_VFSYSTIME + 1);
++	/* record flow control max count and state of TCs */
++	pfc->pfc_cap = IEEE_8021QAZ_MAX_TCS;
++	pfc->pfc_en = interface->pfc_en;
 +
-+	do {
-+		systime_tmp = systime_h;
-+		systime_l = fm10k_read_reg(hw, FM10K_VFSYSTIME);
-+		systime_h = fm10k_read_reg(hw, FM10K_VFSYSTIME + 1);
-+	} while (systime_tmp != systime_h);
-+
-+	return ((u64)systime_h << 32) | systime_l;
++	return 0;
 +}
 +
- static const struct fm10k_msg_data fm10k_msg_data_vf[] = {
- 	FM10K_TLV_MSG_TEST_HANDLER(fm10k_tlv_msg_test),
- 	FM10K_VF_MSG_MAC_VLAN_HANDLER(fm10k_msg_mac_vlan_vf),
-@@ -507,6 +560,8 @@ static struct fm10k_mac_ops mac_ops_vf = {
- 	.rebind_hw_stats	= &fm10k_rebind_hw_stats_vf,
- 	.configure_dglort_map	= &fm10k_configure_dglort_map_vf,
- 	.get_host_state		= &fm10k_get_host_state_generic,
-+	.adjust_systime		= &fm10k_adjust_systime_vf,
-+	.read_systime		= &fm10k_read_systime_vf,
- };
- 
- static s32 fm10k_get_invariants_vf(struct fm10k_hw *hw)
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_vf.h b/drivers/net/ethernet/intel/fm10k/fm10k_vf.h
-index 8e96ee5..06a99d7 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_vf.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_vf.h
-@@ -29,6 +29,7 @@ enum fm10k_vf_tlv_msg_id {
- 	FM10K_VF_MSG_ID_MSIX,
- 	FM10K_VF_MSG_ID_MAC_VLAN,
- 	FM10K_VF_MSG_ID_LPORT_STATE,
-+	FM10K_VF_MSG_ID_1588,
- 	FM10K_VF_MSG_ID_MAX,
- };
- 
-@@ -48,6 +49,11 @@ enum fm10k_tlv_lport_state_attr_id {
- 	FM10K_LPORT_STATE_MSG_MAX
- };
- 
-+enum fm10k_tlv_1588_attr_id {
-+	FM10K_1588_MSG_TIMESTAMP,
-+	FM10K_1588_MSG_MAX
++/**
++ * fm10k_dcbnl_ieee_setpfc - set the PFC configuration for the device
++ * @dev: netdev interface for the device
++ * @pfc: PFC structure to pull configuration from
++ **/
++static int fm10k_dcbnl_ieee_setpfc(struct net_device *dev, struct ieee_pfc *pfc)
++{
++	struct fm10k_intfc *interface = netdev_priv(dev);
++
++	/* record PFC configuration to interface */
++	interface->pfc_en = pfc->pfc_en;
++
++	/* if we are running update the drop_en state for all queues */
++	if (netif_running(dev))
++		fm10k_update_rx_drop_en(interface);
++
++	return 0;
++}
++
++/**
++ * fm10k_dcbnl_ieee_getdcbx - get the DCBX configuration for the device
++ * @dev: netdev interface for the device
++ *
++ * Returns that we support only IEEE DCB for this interface
++ **/
++static u8 fm10k_dcbnl_getdcbx(struct net_device *dev)
++{
++	return DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_IEEE;
++}
++
++/**
++ * fm10k_dcbnl_ieee_setdcbx - get the DCBX configuration for the device
++ * @dev: netdev interface for the device
++ * @mode: new mode for this device
++ *
++ * Returns error on attempt to enable anything but IEEE DCB for this interface
++ **/
++static u8 fm10k_dcbnl_setdcbx(struct net_device *dev, u8 mode)
++{
++	return (mode != (DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_IEEE)) ? 1 : 0;
++}
++
++static const struct dcbnl_rtnl_ops fm10k_dcbnl_ops = {
++	.ieee_getets	= fm10k_dcbnl_ieee_getets,
++	.ieee_setets	= fm10k_dcbnl_ieee_setets,
++	.ieee_getpfc	= fm10k_dcbnl_ieee_getpfc,
++	.ieee_setpfc	= fm10k_dcbnl_ieee_setpfc,
++
++	.getdcbx	= fm10k_dcbnl_getdcbx,
++	.setdcbx	= fm10k_dcbnl_setdcbx,
 +};
 +
- #define FM10K_VF_MSG_MSIX_HANDLER(func) \
- 	 FM10K_MSG_HANDLER(FM10K_VF_MSG_ID_MSIX, NULL, func)
- 
-@@ -64,5 +70,9 @@ extern const struct fm10k_tlv_attr fm10k_lport_state_msg_attr[];
- 	FM10K_MSG_HANDLER(FM10K_VF_MSG_ID_LPORT_STATE, \
- 			  fm10k_lport_state_msg_attr, func)
- 
-+extern const struct fm10k_tlv_attr fm10k_1588_msg_attr[];
-+#define FM10K_VF_MSG_1588_HANDLER(func) \
-+	FM10K_MSG_HANDLER(FM10K_VF_MSG_ID_1588, fm10k_1588_msg_attr, func)
++#endif /* CONFIG_DCB */
++/**
++ * fm10k_dcbnl_set_ops - Configures dcbnl ops pointer for netdev
++ * @dev: netdev interface for the device
++ *
++ * Enables PF for DCB by assigning DCBNL ops pointer.
++ **/
++void fm10k_dcbnl_set_ops(struct net_device *dev)
++{
++#ifdef CONFIG_DCB
++	struct fm10k_intfc *interface = netdev_priv(dev);
++	struct fm10k_hw *hw = &interface->hw;
 +
- extern struct fm10k_info fm10k_vf_info;
- #endif /* _FM10K_VF_H */
++	if (hw->mac.type == fm10k_mac_pf)
++		dev->dcbnl_ops = &fm10k_dcbnl_ops;
++#endif /* CONFIG_DCB */
++}
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index ea2c9fa..8485d59 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -649,7 +649,7 @@ static void fm10k_configure_rx_ring(struct fm10k_intfc *interface,
+ 	fm10k_write_reg(hw, FM10K_SRRCTL(reg_idx), srrctl);
+ 
+ 	/* Enable drop on empty */
+-#if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
++#ifdef CONFIG_DCB
+ 	if (interface->pfc_en)
+ 		rx_pause = interface->pfc_en;
+ #endif
+@@ -688,7 +688,7 @@ void fm10k_update_rx_drop_en(struct fm10k_intfc *interface)
+ 	u8 rx_pause = interface->rx_pause;
+ 	int i;
+ 
+-#if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
++#ifdef CONFIG_DCB
+ 	if (interface->pfc_en)
+ 		rx_pause = interface->pfc_en;
+ 
+@@ -1556,6 +1556,9 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
+ 		netdev->hw_features &= ~NETIF_F_GSO_UDP_TUNNEL;
+ 	}
+ 
++	/* initialize DCBNL interface */
++	fm10k_dcbnl_set_ops(netdev);
++
+ 	/* Initialize service timer and service task */
+ 	set_bit(__FM10K_SERVICE_DISABLE, &interface->state);
+ 	setup_timer(&interface->service_timer, &fm10k_service_timer,
