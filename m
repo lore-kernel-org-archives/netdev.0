@@ -1,83 +1,89 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: action stats broken?
-Date: Sat, 20 Sep 2014 08:21:28 -0700
-Message-ID: <541D9B78.8070505@gmail.com>
-References: <541D7E55.6070306@mojatatu.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Fwd: [Bug 84661] New: tc filter show from iproute2 does not work
+ correctly on 32bit x86
+Date: Sat, 20 Sep 2014 17:39:07 +0200
+Message-ID: <541D9F9B.9040404@redhat.com>
+References: <bug-84661-65011@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: john Fastabend <john.r.fastabend@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: rider@altlinux.org, netdev@vger.kernel.org
+To: yangyingliang@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f41.google.com ([209.85.219.41]:60393 "EHLO
-	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751073AbaITPVm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 11:21:42 -0400
-Received: by mail-oa0-f41.google.com with SMTP id i7so1034759oag.14
-        for <netdev@vger.kernel.org>; Sat, 20 Sep 2014 08:21:41 -0700 (PDT)
-In-Reply-To: <541D7E55.6070306@mojatatu.com>
+Received: from mx1.redhat.com ([209.132.183.28]:3648 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754361AbaITPjY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Sep 2014 11:39:24 -0400
+In-Reply-To: <bug-84661-65011@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/20/2014 06:17 AM, Jamal Hadi Salim wrote:
->
-> Sorry, dont have time to chase this today and it may be fixed in the
-> latest  tree. Possibly recent patches or likely earlier patches
-> even.
->
-> It seems stats are no longer displaying for actions.
-> This is a net-next kernel. I have tried kernel 3.16.0-rc2
-> and 3.17.0-rc4 with same results.
->
-> Simple test case:
->
-> ----
-> root@moja-1:~# tc actions add  action drop index 4
-> root@moja-1:~# tc -s actions ls action gact
->
->      action order 0: gact action drop
->       random type none pass val 0
->       index 4 ref 1 bind 0 installed 9 sec used 4 sec
-> -----
->
-> What I would have expected to see is:
-> ---
->      action order 0: gact action drop
->       random type none pass val 0
->       index 4 ref 1 bind 0 installed 9 sec used 4 sec
->           Sent 108948 bytes 1297 pkts (dropped 1297, overlimits 0)
-> ---
->
->
+[ Cc'ing Yang ]
 
-I'm looking into it which classifier? A basic u32 classifier attached
-to the ingress qdisc seems to work. If your using u32 any hash tables,
-or 'filter change' commands before this?
+-------- Original Message --------
+Subject: [Bug 84661] New: tc filter show from iproute2 does not work correctly on 32bit x86
+Date: Tue, 16 Sep 2014 11:47:20 +0000
+From: bugzilla-daemon@bugzilla.kernel.org
+To: dborkman@redhat.com
 
-# tc actions add  action drop index 4
+https://bugzilla.kernel.org/show_bug.cgi?id=84661
 
-# tc filter add dev p3p1 parent ffff:0 protocol ip prio 100 \
-	u32 match ip src 16.0.0.2 action gact index 4
+             Bug ID: 84661
+            Summary: tc filter show from iproute2 does not work correctly
+                     on 32bit x86
+            Product: Networking
+            Version: 2.5
+     Kernel Version: 3.14.17 and 3.16.1
+           Hardware: All
+                 OS: Linux
+               Tree: Mainline
+             Status: NEW
+           Severity: normal
+           Priority: P1
+          Component: Other
+           Assignee: shemminger@linux-foundation.org
+           Reporter: rider@altlinux.org
+         Regression: No
 
-#tc -s actions ls action gact
+i tested this issue with kernels 3.14.x and 3.16.x. and iproute2-3.16.0
 
-         action order 0: gact action drop
-          random type none pass val 0
-          index 4 ref 2 bind 1 installed 142 sec used 0 sec
-         Action statistics:
-         Sent 840 bytes 10 pkt (dropped 10, overlimits 0 requeues 0)
-         backlog 0b 0p requeues 0
+This commit:
+https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/?id=6a031f67c83aa175aedd10d4ae64750415ab57b0
+breaking output tc filter show on 32bit systems.
+
+This simple script shows the difference in the work on i586 and x86_64:
+-------------------------
+#!/bin/sh
+dev=$1
+tc qdisc add dev $dev root handle 1: htb default fffe
+tc filter add dev $dev parent 1:0 protocol ip pref 10 u32
+tc filter add dev $dev parent 1:0 protocol ip pref 10 handle 100: u32 divisor 8
+tc filter add dev $dev parent 1:0 protocol ip pref 10 u32 ht 800:: match ip dst
+10.21.10.0/21 hashkey mask 0x00000700 at 16 link 100:
+tc filter show dev $dev
+tc filter del dev $dev parent 1:0 protocol ip pref 10 u32 ht 800:: match ip dst
+10.21.10.0/21 hashkey mask 0x00000700 at 16 link 100:
+tc qdisc del dev $dev root handle 1: htb default fffe
+---------------------------
+
+output on i586:
+
+#./script enp0s25
+filter parent 1: protocol ip pref 10 u32
+filter parent 1: protocol ip pref 10 u32 fh 100: ht divisor 8
+filter parent 1: protocol ip pref 10 u32 fh 800: ht divisor 1
 
 
-> cheers,
-> jamal
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+output on x86_64:
+# ./script eth0
+filter parent 1: protocol ip pref 10 u32
+filter parent 1: protocol ip pref 10 u32 fh 100: ht divisor 8
+filter parent 1: protocol ip pref 10 u32 fh 800: ht divisor 1
+filter parent 1: protocol ip pref 10 u32 fh 800::800 order 2048 key ht 800 bkt
+0 link 100:
+   match 0a150800/fffff800 at 16
+     hash mask 00000700 at 16
 
 -- 
-John Fastabend         Intel Corporation
+You are receiving this mail because:
+You are watching the assignee of the bug.
