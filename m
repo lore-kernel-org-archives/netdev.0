@@ -1,110 +1,78 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 3/8] ipv6: only generate one new serial number during fib6_add()
-Date: Sun, 21 Sep 2014 00:05:20 +0200
-Message-ID: <a8c28d9c6940bd30d414d3587dfe737184f5d158.1411249633.git.hannes@stressinduktion.org>
-References: <cover.1411249633.git.hannes@stressinduktion.org>
-Cc: eric.dumazet@gmail.com, vyasevich@gmail.com,
-	nicolas.dichtel@6wind.com, kafai@fb.com
-To: netdev@vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
+Date: Sat, 20 Sep 2014 15:50:46 -0700
+Message-ID: <CAADnVQK0wT2Fjqdg+C=ruSt8jF6sKeMo7cFj7K1fsu7-1u5g=g@mail.gmail.com>
+References: <1411134590-4586-1-git-send-email-jiri@resnulli.us>
+	<1411134590-4586-9-git-send-email-jiri@resnulli.us>
+	<541C4AFC.8060500@mojatatu.com>
+	<20140919154946.GH1980@nanopsycho.orion>
+	<541C6E6D.9000109@mojatatu.com>
+	<541CAA3C.5080105@intel.com>
+	<20140920081426.GE1821@nanopsycho.orion>
+	<20140920105354.GA29419@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>, ben@decadent.org.uk,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com,
+	Vladislav Yasevich <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>,
+	"dev@openvswitch.org" <dev@openvswitch.o
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:43031 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750707AbaITWFg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 18:05:36 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 3349D20766
-	for <netdev@vger.kernel.org>; Sat, 20 Sep 2014 18:05:36 -0400 (EDT)
-In-Reply-To: <cover.1411249633.git.hannes@stressinduktion.org>
-In-Reply-To: <cover.1411249633.git.hannes@stressinduktion.org>
-References: <cover.1411249633.git.hannes@stressinduktion.org>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:32790 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751020AbaITWur (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 18:50:47 -0400
+Received: by mail-qa0-f46.google.com with SMTP id f12so3999552qad.19
+        for <netdev@vger.kernel.org>; Sat, 20 Sep 2014 15:50:47 -0700 (PDT)
+In-Reply-To: <20140920105354.GA29419@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Vlad Yasevich <vyasevich@gmail.com>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Cc: Martin Lau <kafai@fb.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/ip6_fib.c | 19 +++++++++----------
- 1 file changed, 9 insertions(+), 10 deletions(-)
+On Sat, Sep 20, 2014 at 3:53 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 09/20/14 at 10:14am, Jiri Pirko wrote:
+>> Sat, Sep 20, 2014 at 12:12:12AM CEST, john.r.fastabend@intel.com wrote:
+>> >I was considering a slightly different approach where the
+>> >device would report via netlink the fields/actions it
+>> >supported rather than creating pre-defined enums for every
+>> >possible key.
+>> >
+>> >I already need to have an API to report fields/matches
+>> >that are being supported why not have the device report
+>> >the headers as header fields (len, offset) and the
+>> >associated parse graph the hardware uses? Vendors should
+>> >have this already to describe/design their real hardware.
+>>
+>> Hmm, let me think about this a bit more. I will try to figure out how to
+>> handle that. Sound logic though. Will try to incorporate the idea in the
+>> patchset.
+>
+> I think this is the right track.
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index c5e7e04..0725fc1 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -415,16 +415,15 @@ out:
-  */
- 
- static struct fib6_node *fib6_add_1(struct fib6_node *root,
--				     struct in6_addr *addr, int plen,
--				     int offset, int allow_create,
--				     int replace_required)
-+				    struct in6_addr *addr, int plen,
-+				    int offset, int allow_create,
-+				    int replace_required, u32 sernum)
- {
- 	struct fib6_node *fn, *in, *ln;
- 	struct fib6_node *pn = NULL;
- 	struct rt6key *key;
- 	int	bit;
- 	__be32	dir = 0;
--	u32	sernum = fib6_new_sernum();
- 
- 	RT6_TRACE("fib6_add_1\n");
- 
-@@ -842,6 +841,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 	int err = -ENOMEM;
- 	int allow_create = 1;
- 	int replace_required = 0;
-+	u32 sernum = fib6_new_sernum();
- 
- 	if (info->nlh) {
- 		if (!(info->nlh->nlmsg_flags & NLM_F_CREATE))
-@@ -854,7 +854,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 
- 	fn = fib6_add_1(root, &rt->rt6i_dst.addr, rt->rt6i_dst.plen,
- 			offsetof(struct rt6_info, rt6i_dst), allow_create,
--			replace_required);
-+			replace_required, sernum);
- 	if (IS_ERR(fn)) {
- 		err = PTR_ERR(fn);
- 		fn = NULL;
-@@ -888,14 +888,14 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 			sfn->leaf = info->nl_net->ipv6.ip6_null_entry;
- 			atomic_inc(&info->nl_net->ipv6.ip6_null_entry->rt6i_ref);
- 			sfn->fn_flags = RTN_ROOT;
--			sfn->fn_sernum = fib6_new_sernum();
-+			sfn->fn_sernum = sernum;
- 
- 			/* Now add the first leaf node to new subtree */
- 
- 			sn = fib6_add_1(sfn, &rt->rt6i_src.addr,
- 					rt->rt6i_src.plen,
- 					offsetof(struct rt6_info, rt6i_src),
--					allow_create, replace_required);
-+					allow_create, replace_required, sernum);
- 
- 			if (IS_ERR(sn)) {
- 				/* If it is failed, discard just allocated
-@@ -914,7 +914,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 			sn = fib6_add_1(fn->subtree, &rt->rt6i_src.addr,
- 					rt->rt6i_src.plen,
- 					offsetof(struct rt6_info, rt6i_src),
--					allow_create, replace_required);
-+					allow_create, replace_required, sernum);
- 
- 			if (IS_ERR(sn)) {
- 				err = PTR_ERR(sn);
-@@ -934,8 +934,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 	if (!err) {
- 		fib6_start_gc(info->nl_net, rt);
- 		if (!(rt->rt6i_flags & RTF_CACHE))
--			fib6_prune_clones(info->nl_net, pn,
--					  FIB6_NO_SERNUM_CHANGE);
-+			fib6_prune_clones(info->nl_net, pn, sernum);
- 	}
- 
- out:
--- 
-1.9.3
+I agree with John and Thomas here.
+I think HW should not be limited by SW abstractions whether
+these abstractions are called flows, n-tuples, bridge or else.
+Really looking forward to see "device reporting the headers as
+header fields (len, offset) and the associated parse graph"
+as the first step.
+
+Another topic that this discussion didn't cover yet is how this
+all connects to tunnels and what is 'tunnel offloading'.
+imo flow offloading by itself serves only academic interest.
