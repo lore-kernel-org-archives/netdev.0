@@ -1,67 +1,115 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 29/29] fm10k: Add support for PTP
-Date: Sat, 20 Sep 2014 16:36:45 -0700
-Message-ID: <541E0F8D.3040900@gmail.com>
-References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com> <20140918224042.10373.93162.stgit@ahduyck-bv4.jf.intel.com> <20140919173504.GA4136@localhost.localdomain> <541C76B8.6040708@intel.com> <20140920211647.GB5258@netboy>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [net-next PATCH v2 00/29] Add support for the Intel FM10000
+ Ethernet Switch Host Interface
+Date: Sat, 20 Sep 2014 19:45:34 -0400
+Message-ID: <20140920234342.2977.21667.stgit@ahduyck-bv4.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, nhorman@redhat.com, netdev@vger.kernel.org,
+Cc: nhorman@redhat.com, netdev@vger.kernel.org,
 	john.fastabend@gmail.com, matthew.vick@intel.com,
 	jeffrey.t.kirsher@intel.com, sassmann@redhat.com
-To: Richard Cochran <richardcochran@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:56470 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751067AbaITXgr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 19:36:47 -0400
-Received: by mail-pa0-f43.google.com with SMTP id kx10so2299772pab.30
-        for <netdev@vger.kernel.org>; Sat, 20 Sep 2014 16:36:47 -0700 (PDT)
-In-Reply-To: <20140920211647.GB5258@netboy>
+Received: from mga01.intel.com ([192.55.52.88]:45396 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751108AbaITXyQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Sep 2014 19:54:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/20/2014 02:16 PM, Richard Cochran wrote:
-> On Fri, Sep 19, 2014 at 11:32:24AM -0700, Alexander Duyck wrote:
->> Because the value cannot be adjusted directly.  The timesource for the
->> switch is shared by all ports and host interfaces.  As such we have to
->> maintain a software offset per host to avoid corrupting the other clocks.
-> So any host can set the time, but only one may adjust the frequency?
+This patch series adds support for the FM10000 Ethernet switch host
+interface.  The Intel FM10000 Ethernet Switch is a 48-port Ethernet switch
+supporting both Ethernet ports and PCI Express host interfaces.  The fm10k
+driver provides support for the host interface portion of the switch, both
+PF and VF.
 
-Yes.  Essentially the one who should be adjusting the frequency should
-be the host interface that is providing traffic for the control plane
-processor.  That way the control plane processor can act as a boundary
-clock and can adjust the frequency to match the port it has decided to
-be a slave on.
+As the host interfaces are directly connected to the switch this results in
+some significant differences versus a standard network driver.  For example
+there is no PHY or MII on the device.  Since packets are delivered directly
+from the switch to the host interface these are unnecessary.  Otherwise most
+of the functionality is very similar to our other network drivers such as
+ixgbe or igb.  For example we support all the standard network offloads,
+jumbo frames, SR-IOV (64 VFS), PTP, and some VXLAN and NVGRE offloads.
 
-In the case of the ordinary clock host interfaces they will be slaves to
-the boundary clock and since they share the same clock source anyway
-they shouldn't need any frequency adjustments, or at least that is how
-it is supposed to work.  The other reason for using the software offset
-is that it can be very time intensive as you have to stop the clock,
-update the staring value for each host interface and the Ethernet ports,
-and then you can resume the clock.  It can be a rather time consuming
-process doing it that way versus just maintaining an offset in software.
+---
 
-Tx timestamps from the host interface are actually identical to the Rx
-timestamps on the receiving host interface in the case of traffic going
-between two fm10k host interfaces on the same switch.  So what you end
-up with is that any two hosts should be able to perfectly synchronize
-their clocks with just the follow-up to the first sync message.  I've
-done some testing for this with an FPGA and actually it has proven out
-as ptp4l did one offset adjustment on the follow-up and then indicated 0
-adjustments from there forward.  It is one of the reasons why I believe
-we should be able to disable the frequency adjustment for interfaces
-configured as ordinary clocks.
+Alexander Duyck (29):
+      fm10k: Add skeletal frame for Intel(R) FM10000 Ethernet Switch Host Interface Driver
+      fm10k: Add register defines and basic structures
+      fm10k: Add support for TLV message parsing and generation
+      fm10k: Add support for basic interaction with hardware
+      fm10k: Add support for mailbox
+      fm10k: Implement PF <-> SM mailbox operations
+      fm10k: Add support for PF
+      fm10k: Add support for configuring PF interface
+      fm10k: Add netdev
+      fm10k: Add support for L2 filtering
+      fm10k: Add support for ndo_open/stop
+      fm10k: Add interrupt support
+      fm10k: add support for Tx/Rx rings
+      fm10k: Add service task to handle delayed events
+      fm10k: Add Tx/Rx hardware ring bring-up/tear-down
+      fm10k: Add transmit and receive fastpath and interrupt handlers
+      fm10k: Add ethtool support
+      fm10k: Add support for PCI power management and error handling
+      fm10k: Add support for multiple queues
+      fm10k: Add support for netdev offloads
+      fm10k: Add support for MACVLAN acceleration
+      fm10k: Add support for PF <-> VF mailbox
+      fm10k: Add support for VF
+      fm10k: Add support for SR-IOV to PF core files
+      fm10k: Add support for SR-IOV to driver
+      fm10k: Add support for IEEE DCBx
+      fm10k: Add support for debugfs
+      fm10k: Add support for ptp to hw specific files
+      fm10k: Add support for PTP
 
-> Regarding the overflow, probably you can remove the daily check, since
-> you only need a single clock read every 300 years, and that is
-> reasonable to expect in any case.
 
-Yeah, I figured that out after I recalled that the overflow check is
-only really necessary if the mask is less than 64 bits.
+ drivers/net/ethernet/intel/Kconfig               |   19 
+ drivers/net/ethernet/intel/Makefile              |    1 
+ drivers/net/ethernet/intel/fm10k/Makefile        |   33 
+ drivers/net/ethernet/intel/fm10k/fm10k.h         |  534 +++++
+ drivers/net/ethernet/intel/fm10k/fm10k_common.c  |  534 +++++
+ drivers/net/ethernet/intel/fm10k/fm10k_common.h  |   65 +
+ drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c   |  174 ++
+ drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c |  259 +++
+ drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 1069 +++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_iov.c     |  536 +++++
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c    | 1978 ++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_mbx.c     | 2125 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_mbx.h     |  307 +++
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  | 1430 +++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c     | 2166 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c      | 1880 +++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.h      |  135 +
+ drivers/net/ethernet/intel/fm10k/fm10k_ptp.c     |  463 +++++
+ drivers/net/ethernet/intel/fm10k/fm10k_tlv.c     |  863 +++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_tlv.h     |  186 ++
+ drivers/net/ethernet/intel/fm10k/fm10k_type.h    |  770 ++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_vf.c      |  578 ++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_vf.h      |   78 +
+ 23 files changed, 16183 insertions(+)
+ create mode 100644 drivers/net/ethernet/intel/fm10k/Makefile
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k.h
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_common.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_common.h
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_iov.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_main.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_pf.h
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_ptp.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_type.h
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_vf.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_vf.h
 
-Thanks,
-
-Alex
+-- 
