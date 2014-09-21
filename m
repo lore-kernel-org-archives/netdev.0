@@ -1,70 +1,43 @@
-From: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>
-Subject: Re: [PATCH net-next 5/8] ipv6: new function fib6_flush_trees and
- use it instead of bumping removed rt6_genid
-Date: Sun, 21 Sep 2014 11:21:52 +0900
-Message-ID: <541E3640.6020907@yoshifuji.org>
-References: <cover.1411249633.git.hannes@stressinduktion.org> <c0a1543fe7608640f2dd1f37f8fe5978f30536d1.1411249633.git.hannes@stressinduktion.org>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: ipv4 dead route delete notification on netdev down
+Date: Sat, 20 Sep 2014 21:02:28 -0700
+Message-ID: <541E4DD4.1050609@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, vyasevich@gmail.com,
-	nicolas.dichtel@6wind.com, kafai@fb.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	nicolas.dichtel@6wind.com, Thomas Graf <tgraf@suug.ch>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:48821 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751446AbaIUCVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 22:21:54 -0400
-In-Reply-To: <c0a1543fe7608640f2dd1f37f8fe5978f30536d1.1411249633.git.hannes@stressinduktion.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48976 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750727AbaIUECe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 00:02:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa wrote:
-> fib6_flush_trees is still a very costly operation but now is only called
-> by xfrm code when a policy changes or ipv6 addresses are added/removed.
-> 
-> fib6_flush_tree must walk all ipv6 routing tables and modify fn_sernum,
-> so all sockets relookup their dst_entries. Use a NULL callback, so we
-> only walk the nodes without looking at the rt6_infos.
-> 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Cc: Martin Lau <kafai@fb.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  include/net/net_namespace.h | 14 +++-----------
->  include/net/netns/ipv6.h    |  1 -
->  net/ipv6/addrconf_core.c    |  6 ++++++
->  net/ipv6/af_inet6.c         |  1 -
->  net/ipv6/ip6_fib.c          | 21 +++++++++++++++++----
->  net/ipv6/route.c            |  4 ----
->  6 files changed, 26 insertions(+), 21 deletions(-)
-> 
-> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-> index 361d260..61aad36 100644
-> --- a/include/net/net_namespace.h
-> +++ b/include/net/net_namespace.h
-> @@ -353,21 +353,13 @@ static inline void rt_genid_bump_ipv4(struct net *net)
->  }
->  
->  #if IS_ENABLED(CONFIG_IPV6)
-> -static inline int rt_genid_ipv6(struct net *net)
-> -{
-> -	return atomic_read(&net->ipv6.rt_genid);
-> -}
-> -
-> +extern void (*__fib6_flush_trees)(struct net *);
->  static inline void rt_genid_bump_ipv6(struct net *net)
->  {
-> -	atomic_inc(&net->ipv6.rt_genid);
-> +	if (__fib6_flush_trees)
-> +		__fib6_flush_trees(net);
->  }
->  #else
+Hi,
 
-Now it does not "bump" the genid anymore.  Why not to change the
-function name to reflect the fact?
+The kernel does not send notification for deleted dead ipv4 routes on 
+netdev down.
+This has been brought up before and patches for the fix have been rejected.
+The reason for rejection is that the routing daemons are expected to 
+purge their
+routing tables on netdev down notifications.
 
---yoshfuji
+http://www.spinics.net/lists/netdev/msg215161.html
+http://lists.openwall.net/netdev/2013/10/17/55
+
+This issue keeps coming back. We run into this too. Wanted to send this 
+email out to see if opinions have changed.
+
+There are multiple problems:
+1) inconsistency in kernel notification behavior between ipv4 and ipv6 
+for dead routes
+2) Its not just the routing daemons, its also the userspace netlink 
+caches like libnl. In abcense of a direct notification,
+these will have to purge the routes on link down too.
+
+Thanks,
+Roopa
