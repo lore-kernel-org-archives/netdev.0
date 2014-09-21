@@ -1,26 +1,24 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH v2 net-next 4/9] ipv6: if no function for cleaner is specified only visit fib6_nodes
-Date: Sun, 21 Sep 2014 16:11:48 +0200
-Message-ID: <28641f9c60fce5968850ac2c1b6fb90cf73edd7a.1411308211.git.hannes@stressinduktion.org>
+Subject: [PATCH v2 net-next 7/9] ipv6: keep rt_sernum per namespace to reduce number of flushes
+Date: Sun, 21 Sep 2014 16:11:51 +0200
+Message-ID: <baa26096e13c61cfbe1ba50dcac7214a807d0a1d.1411308211.git.hannes@stressinduktion.org>
 References: <cover.1411308211.git.hannes@stressinduktion.org>
 Cc: eric.dumazet@gmail.com, hideaki@yoshifuji.org, vyasevich@gmail.com,
 	nicolas.dichtel@6wind.com, kafai@fb.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:36566 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:54261 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751335AbaIUOMJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 10:12:09 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by gateway2.nyi.internal (Postfix) with ESMTP id B010F207DD
-	for <netdev@vger.kernel.org>; Sun, 21 Sep 2014 10:12:08 -0400 (EDT)
+	by vger.kernel.org with ESMTP id S1751388AbaIUOMM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 10:12:12 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 0F0D7207ED
+	for <netdev@vger.kernel.org>; Sun, 21 Sep 2014 10:12:12 -0400 (EDT)
 In-Reply-To: <cover.1411308211.git.hannes@stressinduktion.org>
 In-Reply-To: <cover.1411308211.git.hannes@stressinduktion.org>
 References: <cover.1411308211.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-We now allow NULL rt6_info walker functions to we only visit nodes.
 
 Cc: Eric Dumazet <eric.dumazet@gmail.com>
 Cc: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>
@@ -29,25 +27,86 @@ Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Cc: Martin Lau <kafai@fb.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/ipv6/ip6_fib.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ include/net/netns/ipv6.h |  1 +
+ net/ipv6/af_inet6.c      |  1 +
+ net/ipv6/ip6_fib.c       | 19 ++++++++++---------
+ 3 files changed, 12 insertions(+), 9 deletions(-)
 
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index 3291ba6..2319949 100644
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -76,6 +76,7 @@ struct netns_ipv6 {
+ #endif
+ #endif
+ 	atomic_t		dev_addr_genid;
++	u32			rt_sernum;
+ };
+ 
+ #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 2189d2d..7ff8996 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -766,6 +766,7 @@ static int __net_init inet6_net_init(struct net *net)
+ 	net->ipv6.sysctl.icmpv6_time = 1*HZ;
+ 	net->ipv6.sysctl.flowlabel_consistency = 1;
+ 	net->ipv6.sysctl.auto_flowlabels = 0;
++	net->ipv6.rt_sernum = 1;
+ 
+ 	err = ipv6_init_mibs(net);
+ 	if (err)
 diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index d8f0af4..4dfadd4 100644
+index 0a97216..9f973e4 100644
 --- a/net/ipv6/ip6_fib.c
 +++ b/net/ipv6/ip6_fib.c
-@@ -1518,6 +1518,12 @@ static int fib6_clean_node(struct fib6_walker_t *w)
- 	if (c->sernum != FIB6_NO_SERNUM_CHANGE)
- 		c->w.node->fn_sernum = c->sernum;
+@@ -76,8 +76,6 @@ static int fib6_walk_continue(struct fib6_walker_t *w);
+  *	result of redirects, path MTU changes, etc.
+  */
  
-+	if (!c->func) {
-+		WARN_ON_ONCE(c->sernum == FIB6_NO_SERNUM_CHANGE);
-+		w->leaf = NULL;
-+		return 0;
-+	}
+-static u32 rt_sernum;
+-
+ static void fib6_gc_timer_cb(unsigned long arg);
+ 
+ static LIST_HEAD(fib6_walkers);
+@@ -96,12 +94,15 @@ static inline void fib6_walker_unlink(struct fib6_walker_t *w)
+ 	list_del(&w->lh);
+ 	write_unlock_bh(&fib6_walker_lock);
+ }
+-static __inline__ u32 fib6_new_sernum(void)
 +
- 	for (rt = w->leaf; rt; rt = rt->dst.rt6_next) {
- 		res = c->func(rt, c->arg);
- 		if (res < 0) {
++static u32 fib6_new_sernum(struct net *net)
+ {
+-	u32 n = ++rt_sernum;
+-	if ((s32)n <= 0)
+-		rt_sernum = n = 1;
+-	return n;
++	int *n = &net->ipv6.rt_sernum;
++
++	++*n;
++	if ((s32)*n <= 0)
++		*n = 1;
++	return *n;
+ }
+ 
+ #define FIB6_NO_SERNUM_CHANGE (0U)
+@@ -841,7 +842,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
+ 	int err = -ENOMEM;
+ 	int allow_create = 1;
+ 	int replace_required = 0;
+-	u32 sernum = fib6_new_sernum();
++	u32 sernum = fib6_new_sernum(dev_net(rt->dst.dev));
+ 
+ 	if (info->nlh) {
+ 		if (!(info->nlh->nlmsg_flags & NLM_F_CREATE))
+@@ -1603,7 +1604,7 @@ void fib6_clean_all(struct net *net, int (*func)(struct rt6_info *, void *arg),
+ 
+ static void fib6_flush_trees(struct net *net)
+ {
+-	__fib6_clean_all(net, NULL, fib6_new_sernum(), NULL);
++	__fib6_clean_all(net, NULL, fib6_new_sernum(net), NULL);
+ }
+ 
+ static int fib6_prune_clone(struct rt6_info *rt, void *arg)
 -- 
 1.9.3
