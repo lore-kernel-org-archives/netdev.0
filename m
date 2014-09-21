@@ -1,140 +1,53 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
-Date: Sat, 20 Sep 2014 18:30:33 -0700
-Message-ID: <541E2A39.8010306@cumulusnetworks.com>
-References: <1411134590-4586-1-git-send-email-jiri@resnulli.us> <1411134590-4586-9-git-send-email-jiri@resnulli.us> <541C4AFC.8060500@mojatatu.com> <20140919154946.GH1980@nanopsycho.orion> <541CF75C.9030209@cumulusnetworks.com> <DDC24110-C3F5-470F-B9BE-1D1792415D1E@cumulusnetworks.com> <541D784B.6030302@cumulusnetworks.com> <DCCFAE52-F4BD-4877-A6FC-3C3AE180E871@cumulusnetworks.com> <20140920173854.GA1829@nanopsycho.orion>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next] udp_tunnel: Only build ip6_udp_tunnel.c when IPV6
+ is selected
+Date: Sat, 20 Sep 2014 21:38:14 -0400 (EDT)
+Message-ID: <20140920.213814.1639075278770502877.davem@davemloft.net>
+References: <1411174973-323-1-git-send-email-azhou@nicira.com>
+	<20140919.220620.557633612726378260.davem@davemloft.net>
+	<CA+mtBx-U+198m671ebOZikiQhT3fEBOSQK6My7SNZ4DtPJCuAQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Thomas Graf <tgraf@suug.ch>, dborkman <dborkman@redhat.com>,
-	ogerlitz <ogerlitz@mellanox.com>, jesse <jesse@nicira.com>,
-	pshelar <pshelar@nicira.com>, azhou <azhou@nicira.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>, dev@openvswitch.org,
-	jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com,
-	Sergey Rya
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: azhou@nicira.com, netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:40228 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751425AbaIUBao convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 21:30:44 -0400
-In-Reply-To: <20140920173854.GA1829@nanopsycho.orion>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40405 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751418AbaIUBiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 21:38:19 -0400
+In-Reply-To: <CA+mtBx-U+198m671ebOZikiQhT3fEBOSQK6My7SNZ4DtPJCuAQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/20/14, 10:38 AM, Jiri Pirko wrote:
-> Sat, Sep 20, 2014 at 07:21:10PM CEST, sfeldma@cumulusnetworks.com wro=
-te:
->> On Sep 20, 2014, at 5:51 AM, Roopa Prabhu <roopa@cumulusnetworks.com=
-> wrote:
+From: Tom Herbert <therbert@google.com>
+Date: Sat, 20 Sep 2014 16:14:47 -0700
+
+> On Fri, Sep 19, 2014 at 7:06 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Andy Zhou <azhou@nicira.com>
+>> Date: Fri, 19 Sep 2014 18:02:53 -0700
 >>
->>> On 9/20/14, 1:10 AM, Scott Feldman wrote:
->>>> On Sep 19, 2014, at 8:41 PM, Roopa Prabhu <roopa@cumulusnetworks.c=
-om>
->>>>   wrote:
->>>>
->>>>
->>>>> On 9/19/14, 8:49 AM, Jiri Pirko wrote:
->>>>>
->>>>>> Fri, Sep 19, 2014 at 05:25:48PM CEST, jhs@mojatatu.com
->>>>>>   wrote:
->>>>>>
->>>>>>> On 09/19/14 09:49, Jiri Pirko wrote:
->>>>>>>
->>>>>>>> This patch exposes switchdev API using generic Netlink.
->>>>>>>> Example userspace utility is here:
->>>>>>>>
->>>>>>>> https://github.com/jpirko/switchdev
->>>>>>>>
->>>>>>>>
->>>>>>>>
->>>>>>> Is this just a temporary test tool? Otherwise i dont see reason
->>>>>>> for its existence (or the API that it feeds on).
->>>>>>>
->>>>>> Please read the conversation I had with Pravin and Jesse in v1 t=
-hread.
->>>>>> Long story short they like to have the api separated from ovs da=
-tapath
->>>>>> so ovs daemon can use it to directly communicate with driver. Al=
-so John
->>>>>> Fastabend requested a way to work with driver flows without usin=
-g ovs ->
->>>>>> that was the original reason I created switchdev genl api.
->>>>>>
->>>>>> Regarding the "sw" tool, yes it is for testing purposes now. ovs=
- daemon
->>>>>> will use directly switchdev genl api.
->>>>>>
->>>>>> I hope I cleared this out.
->>>>>>
->>>>> We already have all the needed rtnetlink kernel api and userspace=
- tools around it to support all
->>>>> switching asic features. ie, the rtnetlink api is the switchdev a=
-pi. We can do l2, l3, acl's with it.
->>>>> Its unclear to me why we need another new netlink api. Which will=
- mean none of the existing tools to
->>>>> create bridges etc will work on a switchdev.
->>>>> Which seems like going in the direction exactly opposite to what =
-we had discussed earlier.
->>>>>
->>>> Existing rtnetlink isn=E2=80=99t available to swdev without some k=
-ind of snooping the echoes from the various kernel components (bridge, =
-fib, etc).  With swdev_flow, as Jiri has defined it, there is an additi=
-onal conversion needed to bridge the gap (bad expression, I know) betwe=
-en rtnetlink and swdev_flow.  This conversion happens in the kernel com=
-ponents.  For example, the bridge module, still driven from userspace b=
-y existing rtnetlink, will formulate the necessary swdev_flow insert/re=
-move calls to the swdev driver such that HW will offload the fwd path.
->>>>
->>>> You have:
->>>>      user -> rtnetlink -> kernel -> netlink echo -> [some process]=
- -> [some driver] -> HW
->>>>
->>>>
->>>> Jiri has:
->>>>      user -> rtnetlink -> kernel -> swdev_* -> swdev driver -> HW
->>>>
->>>>
->>> Keeping the goal to not change or not add a new userspace API in mi=
-nd,
->>> I have :
->>>      user -> rtnetlink -> kernel -> ndo_op -> swdev driver  -> HW
+>>> Functions supplied in ip6_udp_tunnel.c are only needed when IPV6 is
+>>> selected. When IPV6 is not selected, those functions are stubbed out
+>>> in udp_tunnel.h.
 >>>
->> Then you have the same as Jiri, for the traditional L2/L3 case.
+>>> ==================================================================
+>>>  net/ipv6/ip6_udp_tunnel.c:15:5: error: redefinition of 'udp_sock_create6'
+>>>      int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
+>>>  In file included from net/ipv6/ip6_udp_tunnel.c:9:0:
+>>>       include/net/udp_tunnel.h:36:19: note: previous definition of 'udp_sock_create6' was here
+>>>        static inline int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
+>>> ==================================================================
+>>>
+>>> Fixes:  fd384412e udp_tunnel: Seperate ipv6 functions into its own file
+>>> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+>>> Signed-off-by: Andy Zhou <azhou@nicira.com>
 >>
->>> Jiri has:
->>>      user -> genl (newapi) -> kernel -> swdev_* -> swdev driver -> =
-HW
->> Jiri=E2=80=99s genl is for userspace apps that are talking rtnetlink=
-, like OVS.  It=E2=80=99s not a substitute for rtnetlink, it=E2=80=99s =
-an alternative.  The complete picture is:
-> Not an alternative, an addition.
->
->> user -> swdev genl -----
->>                         \
->>                          \
->>                           -------> kernel -> ndo_swdev_* -> swdev dr=
-iver -> HW
->>                          /
->>                         /
->> user -> rtnetlink ------
-> True is that, as Thomas pointed out, we can probably nest this into
-> rtnl_link messages. That might work.
-That's the thing i was hinting as well. You can extend the existing=20
-infrastructure/api  instead of adding a new one.
+>> Applied, thanks Andy.
+> 
+> David, what branch did you apply this to? I pulled from your net-next
+> but don't see this patch...
+
+The one I didn't push from my workstation yet, oops :-)
+
+It should be there now, sorry about that.
