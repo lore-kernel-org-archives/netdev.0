@@ -1,10 +1,11 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 2/8] ipv6: a bit more typesafety
-Date: Sun, 21 Sep 2014 12:08:20 +0200
-Message-ID: <1411294100.3376466.169937701.2E73D7E5@webmail.messagingengine.com>
+Subject: Re: [PATCH net-next 1/8] ipv6: support for fib6_clean_* to update
+ fn_sernum
+Date: Sun, 21 Sep 2014 12:09:24 +0200
+Message-ID: <1411294164.3376664.169937765.22738C16@webmail.messagingengine.com>
 References: <cover.1411249633.git.hannes@stressinduktion.org>
- <fab79c190ca6d2b728a2bacb30c234c0f054e76b.1411249633.git.hannes@stressinduktion.org>
- <541E344E.4040500@yoshifuji.org>
+ <d63a1ee6a3dee0d2a08f38e1e8a11a120b6ce3f5.1411249633.git.hannes@stressinduktion.org>
+ <541E32E9.2040409@yoshifuji.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -13,27 +14,47 @@ Cc: eric.dumazet@gmail.com, vyasevich@gmail.com,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 To: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:43173 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:53878 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750752AbaIUKIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 06:08:21 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 62FB2205DC
-	for <netdev@vger.kernel.org>; Sun, 21 Sep 2014 06:08:20 -0400 (EDT)
-In-Reply-To: <541E344E.4040500@yoshifuji.org>
+	by vger.kernel.org with ESMTP id S1750800AbaIUKJY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 06:09:24 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 3916D2056A
+	for <netdev@vger.kernel.org>; Sun, 21 Sep 2014 06:09:24 -0400 (EDT)
+In-Reply-To: <541E32E9.2040409@yoshifuji.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Sun, Sep 21, 2014, at 04:13, YOSHIFUJI Hideaki wrote:
-> Hannes Frederic Sowa wrote:
-> > Convert bool to bool and fib6_walker_t.state to the already existing enum.
+On Sun, Sep 21, 2014, at 04:07, YOSHIFUJI Hideaki wrote:
+> Hi,
 > 
-> Do you mean "boolean" variable (or member/type) to bool?
+> Hannes Frederic Sowa wrote:
+> 
+> > @@ -71,7 +72,8 @@ static DEFINE_RWLOCK(fib6_walker_lock);
+> >  #define FWS_INIT FWS_L
+> >  #endif
+> >  
+> > -static void fib6_prune_clones(struct net *net, struct fib6_node *fn);
+> > +static void fib6_prune_clones(struct net *net, struct fib6_node *fn,
+> > +			      u32 sernum);
+> >  static struct rt6_info *fib6_find_prefix(struct net *net, struct fib6_node *fn);
+> >  static struct fib6_node *fib6_repair_tree(struct net *net, struct fib6_node *fn);
+> >  static int fib6_walk(struct fib6_walker_t *w);
+> > @@ -84,7 +86,7 @@ static int fib6_walk_continue(struct fib6_walker_t *w);
+> >   *	result of redirects, path MTU changes, etc.
+> >   */
+> >  
+> > -static __u32 rt_sernum;
+> > +static u32 rt_sernum;
+> >  
+> >  static void fib6_gc_timer_cb(unsigned long arg);
+> >  
+> 
+> I don't think you do really convert __u32 to u32
+> in this series.
 
-I meant to say I convert the prune member/argument type to bool. Will
-fix it up.
+You're right there are some places left. I'll fix that up and resend. In
+the end I'll convert the fn_sernum over to int to align with atomic_t.
 
 Thanks,
 Hannes
