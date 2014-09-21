@@ -1,15 +1,19 @@
 From: Guenter Roeck <linux@roeck-us.net>
 Subject: [RFC PATCH 00/11] next: mips: Fix default configurations
-Date: Sat, 20 Sep 2014 17:44:33 -0700
-Message-ID: <1411260284-6574-1-git-send-email-linux@roeck-us.net>
+Date: Sat, 20 Sep 2014 17:45:19 -0700
+Message-ID: <1411260330-6716-1-git-send-email-linux@roeck-us.net>
 Cc: Randy Dunlap <rdunlap@infradead.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Anish Bhatt <anish@chelsio.com>, linux-mips@linux-mips.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Ralf Baechle <ralf@linux-mips.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:55326 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751843AbaIUApf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 20:45:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Commit 5d6be6a5d486 ('scsi_netlink : Make SCSI_NETLINK dependent on NET instead
 of selecting NET') in linux-next changes 'select NET' to 'depends NET'. As a
