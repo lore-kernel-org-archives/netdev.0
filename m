@@ -1,25 +1,17 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [RFC PATCH 05/11] next: mips: Fix malta_defconfig
-Date: Sat, 20 Sep 2014 17:46:20 -0700
-Message-ID: <1411260386-6800-6-git-send-email-linux@roeck-us.net>
+Subject: [RFC PATCH 07/11] next: mips: Fix malta_kvm_guest_defconfig
+Date: Sat, 20 Sep 2014 17:46:22 -0700
+Message-ID: <1411260386-6800-8-git-send-email-linux@roeck-us.net>
 References: <1411260386-6800-1-git-send-email-linux@roeck-us.net>
 Cc: Randy Dunlap <rdunlap@infradead.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Anish Bhatt <anish@chelsio.com>, linux-mips@linux-mips.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        Guenter Roeck <linux@roeck-us.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Anish Bhatt <anish@chelsio.com>, linux-mips@linux-mips.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Guenter Roeck <linux@roeck-us.net>
 To: Ralf Baechle <ralf@linux-mips.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1411260386-6800-1-git-send-email-linux@roeck-us.net>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Commit 5d6be6a5d486 ('scsi_netlink : Make SCSI_NETLINK dependent on NET instead
@@ -39,13 +31,13 @@ The command sequence to create the new configuration is as follows.
 Fixes: 5d6be6a5d486 ('scsi_netlink : Make SCSI_NETLINK dependent on NET instead of selecting NET')
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- arch/mips/configs/malta_defconfig | 6 +-----
+ arch/mips/configs/malta_kvm_guest_defconfig | 6 +-----
  1 file changed, 1 insertion(+), 5 deletions(-)
 
-diff --git a/arch/mips/configs/malta_defconfig b/arch/mips/configs/malta_defconfig
-index e18741e..7c3973f 100644
---- a/arch/mips/configs/malta_defconfig
-+++ b/arch/mips/configs/malta_defconfig
+diff --git a/arch/mips/configs/malta_kvm_guest_defconfig b/arch/mips/configs/malta_kvm_guest_defconfig
+index edd9ec9..2decf36 100644
+--- a/arch/mips/configs/malta_kvm_guest_defconfig
++++ b/arch/mips/configs/malta_kvm_guest_defconfig
 @@ -19,6 +19,7 @@ CONFIG_MODULE_UNLOAD=y
  CONFIG_MODVERSIONS=y
  CONFIG_MODULE_SRCVERSION_ALL=y
@@ -79,7 +71,7 @@ index e18741e..7c3973f 100644
  CONFIG_MAC80211_MESH=y
  CONFIG_RFKILL=m
  CONFIG_UEVENT_HELPER_PATH="/sbin/hotplug"
-@@ -259,7 +256,6 @@ CONFIG_CHR_DEV_OSST=m
+@@ -260,7 +257,6 @@ CONFIG_CHR_DEV_OSST=m
  CONFIG_BLK_DEV_SR=m
  CONFIG_BLK_DEV_SR_VENDOR=y
  CONFIG_CHR_DEV_SG=m
