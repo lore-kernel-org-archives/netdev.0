@@ -1,119 +1,140 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 2/3] udp: move logic out of udp[46]_ufo_send_check
-Date: Sat, 20 Sep 2014 18:29:11 -0700
-Message-ID: <CA+mtBx_f0yfOxDq_L96_bESGU2nG3PJSFwDEFDW7Ynt=6b+0Zw@mail.gmail.com>
-References: <1411249950-6795-1-git-send-email-therbert@google.com>
-	<1411249950-6795-3-git-send-email-therbert@google.com>
-	<1411261954.26859.108.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
+Date: Sat, 20 Sep 2014 18:30:33 -0700
+Message-ID: <541E2A39.8010306@cumulusnetworks.com>
+References: <1411134590-4586-1-git-send-email-jiri@resnulli.us> <1411134590-4586-9-git-send-email-jiri@resnulli.us> <541C4AFC.8060500@mojatatu.com> <20140919154946.GH1980@nanopsycho.orion> <541CF75C.9030209@cumulusnetworks.com> <DDC24110-C3F5-470F-B9BE-1D1792415D1E@cumulusnetworks.com> <541D784B.6030302@cumulusnetworks.com> <DCCFAE52-F4BD-4877-A6FC-3C3AE180E871@cumulusnetworks.com> <20140920173854.GA1829@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Thomas Graf <tgraf@suug.ch>, dborkman <dborkman@redhat.com>,
+	ogerlitz <ogerlitz@mellanox.com>, jesse <jesse@nicira.com>,
+	pshelar <pshelar@nicira.com>, azhou <azhou@nicira.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>, dev@openvswitch.org,
+	jasowang@redhat.com, ebiederm@xmission.com,
+	nicolas.dichtel@6wind.com,
+	Sergey Rya
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:44767 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751307AbaIUB3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 21:29:12 -0400
-Received: by mail-ie0-f172.google.com with SMTP id rp18so3646095iec.17
-        for <netdev@vger.kernel.org>; Sat, 20 Sep 2014 18:29:11 -0700 (PDT)
-In-Reply-To: <1411261954.26859.108.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:40228 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751425AbaIUBao convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 21:30:44 -0400
+In-Reply-To: <20140920173854.GA1829@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 20, 2014 at 6:12 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sat, 2014-09-20 at 14:52 -0700, Tom Herbert wrote:
->> In udp[46]_ufo_send_check the UDP checksum initialized to the pseudo
->> header checksum. We can move this logic into udp[46]_ufo_fragment.
->> After this change udp[64]_ufo_send_check is a no-op.
+On 9/20/14, 10:38 AM, Jiri Pirko wrote:
+> Sat, Sep 20, 2014 at 07:21:10PM CEST, sfeldma@cumulusnetworks.com wro=
+te:
+>> On Sep 20, 2014, at 5:51 AM, Roopa Prabhu <roopa@cumulusnetworks.com=
+> wrote:
 >>
->> Signed-off-by: Tom Herbert <therbert@google.com>
->> ---
->>  net/ipv4/udp_offload.c | 37 +++++++++++++++----------------------
->>  net/ipv6/udp_offload.c | 40 ++++++++++++++++++----------------------
->>  2 files changed, 33 insertions(+), 44 deletions(-)
+>>> On 9/20/14, 1:10 AM, Scott Feldman wrote:
+>>>> On Sep 19, 2014, at 8:41 PM, Roopa Prabhu <roopa@cumulusnetworks.c=
+om>
+>>>>   wrote:
+>>>>
+>>>>
+>>>>> On 9/19/14, 8:49 AM, Jiri Pirko wrote:
+>>>>>
+>>>>>> Fri, Sep 19, 2014 at 05:25:48PM CEST, jhs@mojatatu.com
+>>>>>>   wrote:
+>>>>>>
+>>>>>>> On 09/19/14 09:49, Jiri Pirko wrote:
+>>>>>>>
+>>>>>>>> This patch exposes switchdev API using generic Netlink.
+>>>>>>>> Example userspace utility is here:
+>>>>>>>>
+>>>>>>>> https://github.com/jpirko/switchdev
+>>>>>>>>
+>>>>>>>>
+>>>>>>>>
+>>>>>>> Is this just a temporary test tool? Otherwise i dont see reason
+>>>>>>> for its existence (or the API that it feeds on).
+>>>>>>>
+>>>>>> Please read the conversation I had with Pravin and Jesse in v1 t=
+hread.
+>>>>>> Long story short they like to have the api separated from ovs da=
+tapath
+>>>>>> so ovs daemon can use it to directly communicate with driver. Al=
+so John
+>>>>>> Fastabend requested a way to work with driver flows without usin=
+g ovs ->
+>>>>>> that was the original reason I created switchdev genl api.
+>>>>>>
+>>>>>> Regarding the "sw" tool, yes it is for testing purposes now. ovs=
+ daemon
+>>>>>> will use directly switchdev genl api.
+>>>>>>
+>>>>>> I hope I cleared this out.
+>>>>>>
+>>>>> We already have all the needed rtnetlink kernel api and userspace=
+ tools around it to support all
+>>>>> switching asic features. ie, the rtnetlink api is the switchdev a=
+pi. We can do l2, l3, acl's with it.
+>>>>> Its unclear to me why we need another new netlink api. Which will=
+ mean none of the existing tools to
+>>>>> create bridges etc will work on a switchdev.
+>>>>> Which seems like going in the direction exactly opposite to what =
+we had discussed earlier.
+>>>>>
+>>>> Existing rtnetlink isn=E2=80=99t available to swdev without some k=
+ind of snooping the echoes from the various kernel components (bridge, =
+fib, etc).  With swdev_flow, as Jiri has defined it, there is an additi=
+onal conversion needed to bridge the gap (bad expression, I know) betwe=
+en rtnetlink and swdev_flow.  This conversion happens in the kernel com=
+ponents.  For example, the bridge module, still driven from userspace b=
+y existing rtnetlink, will formulate the necessary swdev_flow insert/re=
+move calls to the swdev driver such that HW will offload the fwd path.
+>>>>
+>>>> You have:
+>>>>      user -> rtnetlink -> kernel -> netlink echo -> [some process]=
+ -> [some driver] -> HW
+>>>>
+>>>>
+>>>> Jiri has:
+>>>>      user -> rtnetlink -> kernel -> swdev_* -> swdev driver -> HW
+>>>>
+>>>>
+>>> Keeping the goal to not change or not add a new userspace API in mi=
+nd,
+>>> I have :
+>>>      user -> rtnetlink -> kernel -> ndo_op -> swdev driver  -> HW
+>>>
+>> Then you have the same as Jiri, for the traditional L2/L3 case.
 >>
->> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
->> index d7c43f7..2918cc9 100644
->> --- a/net/ipv4/udp_offload.c
->> +++ b/net/ipv4/udp_offload.c
->> @@ -27,23 +27,6 @@ struct udp_offload_priv {
->>
->>  static int udp4_ufo_send_check(struct sk_buff *skb)
->>  {
->> -     if (!pskb_may_pull(skb, sizeof(struct udphdr)))
->> -             return -EINVAL;
->> -
->> -     if (likely(!skb->encapsulation)) {
->> -             const struct iphdr *iph;
->> -             struct udphdr *uh;
->> -
->> -             iph = ip_hdr(skb);
->> -             uh = udp_hdr(skb);
->> -
->> -             uh->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr, skb->len,
->> -                             IPPROTO_UDP, 0);
->> -             skb->csum_start = skb_transport_header(skb) - skb->head;
->> -             skb->csum_offset = offsetof(struct udphdr, check);
->> -             skb->ip_summed = CHECKSUM_PARTIAL;
->> -     }
->> -
->>       return 0;
->>  }
->>
->> @@ -128,8 +111,9 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
->>  {
->>       struct sk_buff *segs = ERR_PTR(-EINVAL);
->>       unsigned int mss;
->> -     int offset;
->>       __wsum csum;
->> +     struct udphdr *uh;
->> +     struct iphdr *iph;
->>
->>       if (skb->encapsulation &&
->>           (skb_shinfo(skb)->gso_type &
->> @@ -138,6 +122,9 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
->>               goto out;
->>       }
->>
->> +     if (!pskb_may_pull(skb, sizeof(struct udphdr)))
->> +             goto out;
->> +
->>       mss = skb_shinfo(skb)->gso_size;
->>       if (unlikely(skb->len <= mss))
->>               goto out;
->> @@ -165,10 +152,16 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
->>        * HW cannot do checksum of UDP packets sent as multiple
->>        * IP fragments.
->>        */
->> -     offset = skb_checksum_start_offset(skb);
->> -     csum = skb_checksum(skb, offset, skb->len - offset, 0);
->> -     offset += skb->csum_offset;
->> -     *(__sum16 *)(skb->data + offset) = csum_fold(csum);
->> +
->> +     uh = udp_hdr(skb);
->> +     iph = ip_hdr(skb);
->> +
->> +     uh->check = 0;
->> +     csum = skb_checksum(skb, 0, skb->len, 0);
->> +     uh->check = udp_v4_check(skb->len, iph->saddr, iph->daddr, csum);
->> +     if (uh->check == 0)
->> +             uh->check = CSUM_MANGLED_0;
->> +
->>       skb->ip_summed = CHECKSUM_NONE;
+>>> Jiri has:
+>>>      user -> genl (newapi) -> kernel -> swdev_* -> swdev driver -> =
+HW
+>> Jiri=E2=80=99s genl is for userspace apps that are talking rtnetlink=
+, like OVS.  It=E2=80=99s not a substitute for rtnetlink, it=E2=80=99s =
+an alternative.  The complete picture is:
+> Not an alternative, an addition.
 >
->
-> Shouldn't it be changed to CHECKSUM_PARTIAL or something ?
->
-> udp4_ufo_send_check() was able to fill CHECKSUM_PARTIAL,
-> I fear I do not understand enough this part.
-
-Right, I had tried that also. Didn't work, IIRC there was a crash
-later on because csum_start wasn't initialized.
-
-
->
->
->
->
->
+>> user -> swdev genl -----
+>>                         \
+>>                          \
+>>                           -------> kernel -> ndo_swdev_* -> swdev dr=
+iver -> HW
+>>                          /
+>>                         /
+>> user -> rtnetlink ------
+> True is that, as Thomas pointed out, we can probably nest this into
+> rtnl_link messages. That might work.
+That's the thing i was hinting as well. You can extend the existing=20
+infrastructure/api  instead of adding a new one.
