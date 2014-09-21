@@ -1,40 +1,119 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH v2 2/2] net: sched: cls_u32 changes to knode
- must appear atomic to readers
-Date: Sat, 20 Sep 2014 18:20:50 -0700
-Message-ID: <1411262450.26859.110.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140920045003.9869.16851.stgit@nitbit.x32>
-	 <20140920045031.9869.76112.stgit@nitbit.x32>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 2/3] udp: move logic out of udp[46]_ufo_send_check
+Date: Sat, 20 Sep 2014 18:29:11 -0700
+Message-ID: <CA+mtBx_f0yfOxDq_L96_bESGU2nG3PJSFwDEFDW7Ynt=6b+0Zw@mail.gmail.com>
+References: <1411249950-6795-1-git-send-email-therbert@google.com>
+	<1411249950-6795-3-git-send-email-therbert@google.com>
+	<1411261954.26859.108.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:44922 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751307AbaIUBUw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 21:20:52 -0400
-Received: by mail-pa0-f50.google.com with SMTP id rd3so760516pab.9
-        for <netdev@vger.kernel.org>; Sat, 20 Sep 2014 18:20:52 -0700 (PDT)
-In-Reply-To: <20140920045031.9869.76112.stgit@nitbit.x32>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:44767 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751307AbaIUB3M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 21:29:12 -0400
+Received: by mail-ie0-f172.google.com with SMTP id rp18so3646095iec.17
+        for <netdev@vger.kernel.org>; Sat, 20 Sep 2014 18:29:11 -0700 (PDT)
+In-Reply-To: <1411261954.26859.108.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-09-19 at 21:50 -0700, John Fastabend wrote:
-> Changes to the cls_u32 classifier must appear atomic to the
-> readers. Before this patch if a change is requested for both
-> the exts and ifindex, first the ifindex is updated then the
-> exts with tcf_exts_change(). This opens a small window where
-> a reader can have a exts chain with an incorrect ifindex. This
-> violates the the RCU semantics.
+On Sat, Sep 20, 2014 at 6:12 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sat, 2014-09-20 at 14:52 -0700, Tom Herbert wrote:
+>> In udp[46]_ufo_send_check the UDP checksum initialized to the pseudo
+>> header checksum. We can move this logic into udp[46]_ufo_fragment.
+>> After this change udp[64]_ufo_send_check is a no-op.
+>>
+>> Signed-off-by: Tom Herbert <therbert@google.com>
+>> ---
+>>  net/ipv4/udp_offload.c | 37 +++++++++++++++----------------------
+>>  net/ipv6/udp_offload.c | 40 ++++++++++++++++++----------------------
+>>  2 files changed, 33 insertions(+), 44 deletions(-)
+>>
+>> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+>> index d7c43f7..2918cc9 100644
+>> --- a/net/ipv4/udp_offload.c
+>> +++ b/net/ipv4/udp_offload.c
+>> @@ -27,23 +27,6 @@ struct udp_offload_priv {
+>>
+>>  static int udp4_ufo_send_check(struct sk_buff *skb)
+>>  {
+>> -     if (!pskb_may_pull(skb, sizeof(struct udphdr)))
+>> -             return -EINVAL;
+>> -
+>> -     if (likely(!skb->encapsulation)) {
+>> -             const struct iphdr *iph;
+>> -             struct udphdr *uh;
+>> -
+>> -             iph = ip_hdr(skb);
+>> -             uh = udp_hdr(skb);
+>> -
+>> -             uh->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr, skb->len,
+>> -                             IPPROTO_UDP, 0);
+>> -             skb->csum_start = skb_transport_header(skb) - skb->head;
+>> -             skb->csum_offset = offsetof(struct udphdr, check);
+>> -             skb->ip_summed = CHECKSUM_PARTIAL;
+>> -     }
+>> -
+>>       return 0;
+>>  }
+>>
+>> @@ -128,8 +111,9 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+>>  {
+>>       struct sk_buff *segs = ERR_PTR(-EINVAL);
+>>       unsigned int mss;
+>> -     int offset;
+>>       __wsum csum;
+>> +     struct udphdr *uh;
+>> +     struct iphdr *iph;
+>>
+>>       if (skb->encapsulation &&
+>>           (skb_shinfo(skb)->gso_type &
+>> @@ -138,6 +122,9 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+>>               goto out;
+>>       }
+>>
+>> +     if (!pskb_may_pull(skb, sizeof(struct udphdr)))
+>> +             goto out;
+>> +
+>>       mss = skb_shinfo(skb)->gso_size;
+>>       if (unlikely(skb->len <= mss))
+>>               goto out;
+>> @@ -165,10 +152,16 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+>>        * HW cannot do checksum of UDP packets sent as multiple
+>>        * IP fragments.
+>>        */
+>> -     offset = skb_checksum_start_offset(skb);
+>> -     csum = skb_checksum(skb, offset, skb->len - offset, 0);
+>> -     offset += skb->csum_offset;
+>> -     *(__sum16 *)(skb->data + offset) = csum_fold(csum);
+>> +
+>> +     uh = udp_hdr(skb);
+>> +     iph = ip_hdr(skb);
+>> +
+>> +     uh->check = 0;
+>> +     csum = skb_checksum(skb, 0, skb->len, 0);
+>> +     uh->check = udp_v4_check(skb->len, iph->saddr, iph->daddr, csum);
+>> +     if (uh->check == 0)
+>> +             uh->check = CSUM_MANGLED_0;
+>> +
+>>       skb->ip_summed = CHECKSUM_NONE;
+>
+>
+> Shouldn't it be changed to CHECKSUM_PARTIAL or something ?
+>
+> udp4_ufo_send_check() was able to fill CHECKSUM_PARTIAL,
+> I fear I do not understand enough this part.
 
-> CC: Eric Dumazet <edumazet@google.com>
-> CC: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  net/sched/cls_u32.c |  135 ++++++++++++++++++++++++++++++++++++++++++++++++---
->  1 file changed, 126 insertions(+), 9 deletions(-)
+Right, I had tried that also. Didn't work, IIRC there was a crash
+later on because csum_start wasn't initialized.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+
+>
+>
+>
+>
+>
