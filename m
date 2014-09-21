@@ -1,72 +1,85 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: ethtool 3.16 released
-Date: Mon, 22 Sep 2014 00:32:43 +0100
-Message-ID: <1411342363.20019.34.camel@decadent.org.uk>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
+Subject: [PATCH] bridge: fix netfilter/NF_BR_LOCAL_OUT for own,
+	locally generated queries
+Date: Mon, 22 Sep 2014 01:32:44 +0200
+Message-ID: <1411342364-4791-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-BO0o4xOoIvmRyEN1E81R"
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33403 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751939AbaIUXcv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 19:32:51 -0400
-Received: from deadeye.wl.decadent.org.uk ([192.168.4.249] helo=deadeye)
-	by shadbolt.decadent.org.uk with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.80)
-	(envelope-from <ben@decadent.org.uk>)
-	id 1XVqcb-0004jw-H5
-	for netdev@vger.kernel.org; Mon, 22 Sep 2014 00:32:49 +0100
-Received: from ben by deadeye with local (Exim 4.84)
-	(envelope-from <ben@decadent.org.uk>)
-	id 1XVqcV-0003MG-VS
-	for netdev@vger.kernel.org; Mon, 22 Sep 2014 00:32:43 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-BO0o4xOoIvmRyEN1E81R
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-ethtool version 3.16 has been released.
+Ebtables on the OUTPUT chain (NF_BR_LOCAL_OUT) would not work as expected
+for both locally generated IGMP and MLD queries. The IP header specific
+filter options are off by 14 Bytes for netfilter (actual output on
+interfaces is fine).
 
-Home page: https://www.kernel.org/pub/software/network/ethtool/
-Download link:
-https://www.kernel.org/pub/software/network/ethtool/ethtool-3.16.tar.xz
+NF_HOOK()=E2=80=AFexpects the skb->data to point to the IP header, not th=
+e
+ethernet one (while dev_queue_xmit()=E2=80=AFdoes not). Luckily there is =
+an
+br_dev_queue_push_xmit() helper function already - let's just use that.
 
-Release notes:
+Introduced by eb1d16414339a6e113d89e2cca2556005d7ce919
+("bridge: Add core IGMP snooping support")
 
-	* Feature: Support for configurable RSS hash key (-x/-X options)
+Ebtables example:
 
-Ben.
+$ ebtables -I OUTPUT -p IPv6 -o eth1 --logical-out br0 \
+	--log --log-level 6 --log-ip6 --log-prefix=3D"~EBT: " -j DROP
 
+before (broken):
+
+~EBT:  IN=3D OUT=3Deth1 MAC source =3D 02:04:64:a4:39:c2 \
+	MAC dest =3D 33:33:00:00:00:01 proto =3D 0x86dd IPv6 \
+	SRC=3D64a4:39c2:86dd:6000:0000:0020:0001:fe80 IPv6 \
+	DST=3D0000:0000:0000:0004:64ff:fea4:39c2:ff02, \
+	IPv6 priority=3D0x3, Next Header=3D2
+
+after (working):
+
+~EBT:  IN=3D OUT=3Deth1 MAC source =3D 02:04:64:a4:39:c2 \
+	MAC dest =3D 33:33:00:00:00:01 proto =3D 0x86dd IPv6 \
+	SRC=3Dfe80:0000:0000:0000:0004:64ff:fea4:39c2 IPv6 \
+	DST=3Dff02:0000:0000:0000:0000:0000:0000:0001, \
+	IPv6 priority=3D0x0, Next Header=3D0
+
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
+---
+ net/bridge/br_multicast.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 7751c92..9d02e6c 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -813,10 +813,9 @@ static void __br_multicast_send_query(struct net_bri=
+dge *br,
+ 		return;
+=20
+ 	if (port) {
+-		__skb_push(skb, sizeof(struct ethhdr));
+ 		skb->dev =3D port->dev;
+ 		NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_OUT, skb, NULL, skb->dev,
+-			dev_queue_xmit);
++			br_dev_queue_push_xmit);
+ 	} else {
+ 		br_multicast_select_own_querier(br, ip, skb);
+ 		netif_rx(skb);
 --=20
-Ben Hutchings
-Everything should be made as simple as possible, but not simpler.
-                                                           - Albert Einstei=
-n
-
---=-BO0o4xOoIvmRyEN1E81R
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVB9gG+e/yOyVhhEJAQocRw/8CIfuaAXnE8jmSZRphrCcz7vlQFhtb61w
-MyxifLmuVuJyxMHj3c+UkWSL0DqgAfUDCYNgpeSlWUCdZGfdrQvD8jpazgV793ZA
-C3LRYOOzgD6ZHuUniN91F75tASzMauYVAuKyn3/XpfG8XfB3godSK6mZEZSSTJUW
-Ez5OAmMTuigbKBFqm9DB/oAEw2W73KhaBoWhTjaCYsKuIRmjgDpIcdCIb2sLJojZ
-fpAIJB46jU8VWHkvLzGGcjbFpH+fifXsdXEs/u1euXpKWeHTGbSaOtNnW1ED7xYi
-RI/Zk30TYkqpXTL/9nN0RNm6Z62lLnP+2/E3FGyixPIhQXTgGec/D/5igf99EnAU
-G3LHhrSr7gFJwoU0MBY4jPzqpXZfHkUTgyvdkwcmhGCkjH1+x8/1o5WikfDlAbkA
-iAUDpkWdXnTYfETRIJDXrMJCqsO72dt6C16B+WPq5KR9MEo5zgVi3aDji+LaUtTk
-f4/G+ZEqZw7rAMqfqrT+6jZgoZ6EObVTBIgb4YnE4EdQkFow9YEahnE9S0Yoa7u+
-6jAjOatojDESSGSCS11TzD7IayAho+LpRF5KtUBD4mBegGoJ6oe4fUMd91u7/RRU
-HXVpJCxUwuT4vk+MmDnyBNUCH0cTfXzgqjQ0H7Mn1FDbCUuvwNKTo9X2G8w3dsAV
-vGMSjkIiAO8=
-=qXi6
------END PGP SIGNATURE-----
-
---=-BO0o4xOoIvmRyEN1E81R--
+1.7.10.4
