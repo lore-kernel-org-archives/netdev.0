@@ -1,27 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ipv4 dead route delete notification on netdev down
-Date: Sun, 21 Sep 2014 00:08:13 -0400 (EDT)
-Message-ID: <20140921.000813.1588671793402452076.davem@davemloft.net>
-References: <541E4DD4.1050609@cumulusnetworks.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 2/8] ipv6: a bit more typesafety
+Date: Sun, 21 Sep 2014 12:08:20 +0200
+Message-ID: <1411294100.3376466.169937701.2E73D7E5@webmail.messagingengine.com>
+References: <cover.1411249633.git.hannes@stressinduktion.org>
+ <fab79c190ca6d2b728a2bacb30c234c0f054e76b.1411249633.git.hannes@stressinduktion.org>
+ <541E344E.4040500@yoshifuji.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	nicolas.dichtel@6wind.com, tgraf@suug.ch
-To: roopa@cumulusnetworks.com
+Cc: eric.dumazet@gmail.com, vyasevich@gmail.com,
+	nicolas.dichtel@6wind.com, kafai@fb.com,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41033 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750785AbaIUEIS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 00:08:18 -0400
-In-Reply-To: <541E4DD4.1050609@cumulusnetworks.com>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:43173 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750752AbaIUKIV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 06:08:21 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 62FB2205DC
+	for <netdev@vger.kernel.org>; Sun, 21 Sep 2014 06:08:20 -0400 (EDT)
+In-Reply-To: <541E344E.4040500@yoshifuji.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Date: Sat, 20 Sep 2014 21:02:28 -0700
 
-> This issue keeps coming back. We run into this too. Wanted to send
-> this email out to see if opinions have changed.
 
-My opinion has not changed.
+On Sun, Sep 21, 2014, at 04:13, YOSHIFUJI Hideaki wrote:
+> Hannes Frederic Sowa wrote:
+> > Convert bool to bool and fib6_walker_t.state to the already existing enum.
+> 
+> Do you mean "boolean" variable (or member/type) to bool?
+
+I meant to say I convert the prune member/argument type to bool. Will
+fix it up.
+
+Thanks,
+Hannes
