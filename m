@@ -1,116 +1,79 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH v2 net-next 2/9] ipv6: a bit more typesafety
-Date: Sun, 21 Sep 2014 16:11:46 +0200
-Message-ID: <31097022ee699d738ab991fecdd36055cc73cdbb.1411308211.git.hannes@stressinduktion.org>
-References: <cover.1411308211.git.hannes@stressinduktion.org>
+Subject: [PATCH v2 net-next 0/9] ipv6: fib6: socket dst_entry improvments and cleanups
+Date: Sun, 21 Sep 2014 16:11:44 +0200
+Message-ID: <cover.1411308211.git.hannes@stressinduktion.org>
 Cc: eric.dumazet@gmail.com, hideaki@yoshifuji.org, vyasevich@gmail.com,
 	nicolas.dichtel@6wind.com, kafai@fb.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:60071 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:35420 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751316AbaIUOMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 10:12:07 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 9326B2080C
-	for <netdev@vger.kernel.org>; Sun, 21 Sep 2014 10:12:06 -0400 (EDT)
-In-Reply-To: <cover.1411308211.git.hannes@stressinduktion.org>
-In-Reply-To: <cover.1411308211.git.hannes@stressinduktion.org>
-References: <cover.1411308211.git.hannes@stressinduktion.org>
+	by vger.kernel.org with ESMTP id S1751097AbaIUOMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 10:12:05 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 2232D206F1
+	for <netdev@vger.kernel.org>; Sun, 21 Sep 2014 10:12:04 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert prune argument/struct member to bool and fib6_walker_t.state to
-the already existing enum.
+Eric Dumazet noticed that rt6_nodes wich are neither RTF_NONEXTHOP nor
+RTF_GATEWAY but DST_HOST ones cause major routing lookup churn because
+their rt6_genid is never renewed, thus ip6_dst_check always considers
+them outdated. This is a major problem, because these kind of routes
+are normally used to in input handling.
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>
-Cc: Vlad Yasevich <vyasevich@gmail.com>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Cc: Martin Lau <kafai@fb.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/net/ip6_fib.h | 14 ++++++++++++--
- net/ipv6/ip6_fib.c    | 17 ++++-------------
- 2 files changed, 16 insertions(+), 15 deletions(-)
+Thus it does not make sense to use rt6i_genid anymore. This series
+removes it.
 
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index 1cdd46e..a09e554 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -205,12 +205,22 @@ static inline void ip6_rt_put(struct rt6_info *rt)
- 	dst_release(&rt->dst);
- }
- 
-+enum fib_walk_state_t {
-+#ifdef CONFIG_IPV6_SUBTREES
-+	FWS_S,
-+#endif
-+	FWS_L,
-+	FWS_R,
-+	FWS_C,
-+	FWS_U
-+};
-+
- struct fib6_walker_t {
- 	struct list_head lh;
- 	struct fib6_node *root, *node;
- 	struct rt6_info *leaf;
--	unsigned char state;
--	unsigned char prune;
-+	enum fib_walk_state_t state;
-+	bool prune;
- 	unsigned int skip;
- 	unsigned int count;
- 	int (*func)(struct fib6_walker_t *);
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 900254e..67599d8 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -46,16 +46,6 @@
- 
- static struct kmem_cache *fib6_node_kmem __read_mostly;
- 
--enum fib_walk_state_t {
--#ifdef CONFIG_IPV6_SUBTREES
--	FWS_S,
--#endif
--	FWS_L,
--	FWS_R,
--	FWS_C,
--	FWS_U
--};
--
- struct fib6_cleaner_t {
- 	struct fib6_walker_t w;
- 	struct net *net;
-@@ -1562,7 +1552,7 @@ static int fib6_clean_node(struct fib6_walker_t *w)
- 
- static void fib6_clean_tree(struct net *net, struct fib6_node *root,
- 			    int (*func)(struct rt6_info *, void *arg),
--			    int prune, u32 sernum, void *arg)
-+			    bool prune, u32 sernum, void *arg)
- {
- 	struct fib6_cleaner_t c;
- 
-@@ -1592,7 +1582,8 @@ void fib6_clean_all(struct net *net, int (*func)(struct rt6_info *, void *arg),
- 		hlist_for_each_entry_rcu(table, head, tb6_hlist) {
- 			write_lock_bh(&table->tb6_lock);
- 			fib6_clean_tree(net, &table->tb6_root,
--					func, 0, FIB6_NO_SERNUM_CHANGE, arg);
-+					func, false, FIB6_NO_SERNUM_CHANGE,
-+					arg);
- 			write_unlock_bh(&table->tb6_lock);
- 		}
- 	}
-@@ -1611,7 +1602,7 @@ static int fib6_prune_clone(struct rt6_info *rt, void *arg)
- 
- static void fib6_prune_clones(struct net *net, struct fib6_node *fn, u32 sernum)
- {
--	fib6_clean_tree(net, fn, fib6_prune_clone, 1, sernum, NULL);
-+	fib6_clean_tree(net, fn, fib6_prune_clone, true, sernum, NULL);
- }
- 
- /*
+The address deletion path is already covered and does not depend on
+rt6i_genid. When we add a new address, we update the fn_sernums while
+traversing the tree.
+
+Because inet6_connect_socket depend on dst_check returning NULL also
+for source address invalidation, we currently have to walk the whole
+tree and update the fn_sernums manually when an address gets deleted.
+This is a fairly expensive operation we currenlty have to do for
+address deletion and xfrm policy changes. We currently do that for
+interface mtu changes already.
+
+I dropped the patch for updating the fn_sernum on deletion as it
+showed some side effects with /proc/net/ipv6_route and we currently
+don't need it. I stashed it away.
+
+Thanks to Eric Dumazet for noticing the problem with rt6i_genid!
+
+v2 (addressed YOSHIFUJI Hideaki's feedback, thanks!):
+* fixed changelog in patch #2
+* added patch to rename rt_genid_bump_ipv6 etc.
+
+Regarding the __u32 to u32 conversion, I didn't see anything
+problematic or left over, if I missed something there I am happy to
+fix it up in a next version.
+
+
+Hannes Frederic Sowa (9):
+  ipv6: support for fib6_clean_* to update fn_sernum
+  ipv6: a bit more typesafety
+  ipv6: only generate one new serial number during fib6_add()
+  ipv6: if no function for cleaner is specified only visit fib6_nodes
+  ipv6: new function fib6_flush_trees and use it instead of bumping
+    removed rt6_genid
+  ipv6: no need to bump rt_genid_ipv6 on address addition
+  ipv6: keep rt_sernum per namespace to reduce number of flushes
+  ipv6: switch rt_sernum to atomic_t and clean up types
+  ipv6: rename rt_genid_bump_ipv6 to rt6_inval_dst_caches
+
+ include/net/ip6_fib.h           | 16 ++++++--
+ include/net/net_namespace.h     | 22 ++++------
+ include/net/netns/ipv6.h        |  2 +-
+ net/ipv6/addrconf.c             |  3 +-
+ net/ipv6/addrconf_core.c        |  6 +++
+ net/ipv6/af_inet6.c             |  2 +-
+ net/ipv6/ip6_fib.c              | 90 +++++++++++++++++++++++++----------------
+ net/ipv6/route.c                |  4 --
+ net/xfrm/xfrm_policy.c          |  2 +-
+ security/selinux/include/xfrm.h |  2 +-
+ 10 files changed, 87 insertions(+), 62 deletions(-)
+
 -- 
 1.9.3
