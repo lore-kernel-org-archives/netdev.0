@@ -1,7 +1,8 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [RFC PATCH 00/11] next: mips: Fix default configurations
-Date: Sat, 20 Sep 2014 17:46:15 -0700
-Message-ID: <1411260386-6800-1-git-send-email-linux@roeck-us.net>
+Subject: [RFC PATCH 03/11] next: mips: Fix jazz_defconfig
+Date: Sat, 20 Sep 2014 17:46:18 -0700
+Message-ID: <1411260386-6800-4-git-send-email-linux@roeck-us.net>
+References: <1411260386-6800-1-git-send-email-linux@roeck-us.net>
 Cc: Randy Dunlap <rdunlap@infradead.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Anish Bhatt <anish@chelsio.com>, linux-mips@linux-mips.org,
@@ -9,24 +10,16 @@ Cc: Randy Dunlap <rdunlap@infradead.org>,
 	Guenter Roeck <linux@roeck-us.net>
 To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1411260386-6800-1-git-send-email-linux@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Commit 5d6be6a5d486 ('scsi_netlink : Make SCSI_NETLINK dependent on NET instead
-of selecting NET') in linux-next changes 'select NET' to 'depends NET'. As a
-result, many configurations which do not explicitly select CONFIG_NET are no
-longer valid and need to be updated.
+of selecting NET') changes 'select NET' to 'depends NET'. As a result, many
+configurations which do not explicitly select CONFIG_NET are no longer valid
+and need to be updated.
 
-An alternative to this patch series would be to revert the original commit which
-caused the problem. However, a simple revert is no longer possible due to
-secondary commits changing more dependencies; an attempt to build
-nlm_xlp_defconfig after reverting the commit still failed with a build error.
-It would therefore be necessary to track down and revert all related commits.
-
-This patch series attempts to fix the problem for the affected mips
-configurations. I did not look into other architectures or configurations.
-
-The command sequence to create the new configuration files is as follows.
+The command sequence to create the new configuration is as follows.
 
 - Run "make ARCH=mips <configuration>" on upstream kernel
 - Copy resulting .config to next-20140919
@@ -35,6 +28,190 @@ The command sequence to create the new configuration files is as follows.
 - Copy resulting defconfig file to arch/mips/configs/<configuration>
 - Build the image with the resulting configuration
 
-This sequence results in building images for all modified configurations,
-but due to secondary dependency changes can not guarantee correctness
-or completeness. Only time will show if there are more problems.
+Fixes: 5d6be6a5d486 ('scsi_netlink : Make SCSI_NETLINK dependent on NET instead of selecting NET')
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ arch/mips/configs/jazz_defconfig | 43 +++++-----------------------------------
+ 1 file changed, 5 insertions(+), 38 deletions(-)
+
+diff --git a/arch/mips/configs/jazz_defconfig b/arch/mips/configs/jazz_defconfig
+index 2575302..c24896f 100644
+--- a/arch/mips/configs/jazz_defconfig
++++ b/arch/mips/configs/jazz_defconfig
+@@ -1,7 +1,6 @@
+ CONFIG_MACH_JAZZ=y
+ CONFIG_OLIVETTI_M700=y
+ CONFIG_PREEMPT_VOLUNTARY=y
+-CONFIG_EXPERIMENTAL=y
+ CONFIG_SYSVIPC=y
+ CONFIG_POSIX_MQUEUE=y
+ CONFIG_BSD_PROCESS_ACCT=y
+@@ -9,15 +8,14 @@ CONFIG_IKCONFIG=y
+ CONFIG_IKCONFIG_PROC=y
+ CONFIG_LOG_BUF_SHIFT=14
+ CONFIG_RELAY=y
+-# CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
+ CONFIG_EXPERT=y
+-# CONFIG_SYSCTL_SYSCALL is not set
+ CONFIG_SLAB=y
+ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
+ CONFIG_MODVERSIONS=y
++CONFIG_PARTITION_ADVANCED=y
+ CONFIG_BINFMT_MISC=m
+-CONFIG_PM=y
++CONFIG_NET=y
+ CONFIG_PACKET=m
+ CONFIG_UNIX=y
+ CONFIG_NET_KEY=m
+@@ -25,15 +23,12 @@ CONFIG_NET_KEY_MIGRATE=y
+ CONFIG_INET=y
+ CONFIG_IP_MULTICAST=y
+ CONFIG_NET_IPIP=m
+-CONFIG_NET_IPGRE=m
+-CONFIG_NET_IPGRE_BROADCAST=y
+ CONFIG_IP_MROUTE=y
+ CONFIG_IP_PIMSM_V1=y
+ CONFIG_IP_PIMSM_V2=y
+ CONFIG_INET_XFRM_MODE_TRANSPORT=m
+ CONFIG_INET_XFRM_MODE_TUNNEL=m
+ CONFIG_TCP_MD5SIG=y
+-CONFIG_IPV6_PRIVACY=y
+ CONFIG_IPV6_ROUTER_PREF=y
+ CONFIG_IPV6_ROUTE_INFO=y
+ CONFIG_INET6_AH=m
+@@ -42,7 +37,6 @@ CONFIG_INET6_IPCOMP=m
+ CONFIG_IPV6_TUNNEL=m
+ CONFIG_NETWORK_SECMARK=y
+ CONFIG_NETFILTER=y
+-CONFIG_NETFILTER_NETLINK_QUEUE=m
+ CONFIG_NF_CONNTRACK=m
+ CONFIG_NF_CONNTRACK_SECMARK=y
+ CONFIG_NF_CONNTRACK_EVENTS=y
+@@ -85,21 +79,12 @@ CONFIG_NETFILTER_XT_MATCH_STATISTIC=m
+ CONFIG_NETFILTER_XT_MATCH_STRING=m
+ CONFIG_NETFILTER_XT_MATCH_TCPMSS=m
+ CONFIG_NF_CONNTRACK_IPV4=m
+-CONFIG_IP_NF_QUEUE=m
+ CONFIG_IP_NF_IPTABLES=m
+-CONFIG_IP_NF_MATCH_ADDRTYPE=m
+ CONFIG_IP_NF_MATCH_AH=m
+ CONFIG_IP_NF_MATCH_ECN=m
+ CONFIG_IP_NF_MATCH_TTL=m
+ CONFIG_IP_NF_FILTER=m
+ CONFIG_IP_NF_TARGET_REJECT=m
+-CONFIG_IP_NF_TARGET_LOG=m
+-CONFIG_IP_NF_TARGET_ULOG=m
+-CONFIG_NF_NAT=m
+-CONFIG_IP_NF_TARGET_MASQUERADE=m
+-CONFIG_IP_NF_TARGET_NETMAP=m
+-CONFIG_IP_NF_TARGET_REDIRECT=m
+-CONFIG_NF_NAT_SNMP_BASIC=m
+ CONFIG_IP_NF_MANGLE=m
+ CONFIG_IP_NF_TARGET_CLUSTERIP=m
+ CONFIG_IP_NF_TARGET_ECN=m
+@@ -109,7 +94,6 @@ CONFIG_IP_NF_ARPTABLES=m
+ CONFIG_IP_NF_ARPFILTER=m
+ CONFIG_IP_NF_ARP_MANGLE=m
+ CONFIG_NF_CONNTRACK_IPV6=m
+-CONFIG_IP6_NF_QUEUE=m
+ CONFIG_IP6_NF_IPTABLES=m
+ CONFIG_IP6_NF_MATCH_AH=m
+ CONFIG_IP6_NF_MATCH_EUI64=m
+@@ -120,7 +104,6 @@ CONFIG_IP6_NF_MATCH_IPV6HEADER=m
+ CONFIG_IP6_NF_MATCH_MH=m
+ CONFIG_IP6_NF_MATCH_RT=m
+ CONFIG_IP6_NF_TARGET_HL=m
+-CONFIG_IP6_NF_TARGET_LOG=m
+ CONFIG_IP6_NF_FILTER=m
+ CONFIG_IP6_NF_TARGET_REJECT=m
+ CONFIG_IP6_NF_MANGLE=m
+@@ -145,7 +128,6 @@ CONFIG_BRIDGE_EBT_MARK_T=m
+ CONFIG_BRIDGE_EBT_REDIRECT=m
+ CONFIG_BRIDGE_EBT_SNAT=m
+ CONFIG_BRIDGE_EBT_LOG=m
+-CONFIG_BRIDGE_EBT_ULOG=m
+ CONFIG_BRIDGE=m
+ CONFIG_DECNET=m
+ CONFIG_NET_SCHED=y
+@@ -235,10 +217,12 @@ CONFIG_DM_MIRROR=m
+ CONFIG_DM_ZERO=m
+ CONFIG_DM_MULTIPATH=m
+ CONFIG_NETDEVICES=y
+-CONFIG_DUMMY=m
+ CONFIG_BONDING=m
++CONFIG_DUMMY=m
+ CONFIG_EQUALIZER=m
+ CONFIG_TUN=m
++CONFIG_MIPS_JAZZ_SONIC=y
++CONFIG_NE2000=m
+ CONFIG_PHYLIB=m
+ CONFIG_MARVELL_PHY=m
+ CONFIG_DAVICOM_PHY=m
+@@ -247,12 +231,6 @@ CONFIG_LXT_PHY=m
+ CONFIG_CICADA_PHY=m
+ CONFIG_VITESSE_PHY=m
+ CONFIG_SMSC_PHY=m
+-CONFIG_NET_ETHERNET=y
+-CONFIG_MII=y
+-CONFIG_MIPS_JAZZ_SONIC=y
+-CONFIG_NET_ISA=y
+-CONFIG_NE2000=m
+-CONFIG_NET_PCI=y
+ CONFIG_PLIP=m
+ CONFIG_INPUT_FF_MEMLESS=m
+ CONFIG_SERIO_PARKBD=m
+@@ -276,7 +254,6 @@ CONFIG_REISERFS_FS_POSIX_ACL=y
+ CONFIG_REISERFS_FS_SECURITY=y
+ CONFIG_XFS_FS=m
+ CONFIG_XFS_QUOTA=y
+-CONFIG_AUTOFS_FS=m
+ CONFIG_AUTOFS4_FS=m
+ CONFIG_FUSE_FS=m
+ CONFIG_ISO9660_FS=m
+@@ -303,12 +280,8 @@ CONFIG_ROMFS_FS=m
+ CONFIG_SYSV_FS=m
+ CONFIG_UFS_FS=m
+ CONFIG_NFS_FS=m
+-CONFIG_NFS_V3=y
+ CONFIG_NFSD=m
+ CONFIG_NFSD_V3=y
+-CONFIG_RPCSEC_GSS_KRB5=m
+-CONFIG_RPCSEC_GSS_SPKM3=m
+-CONFIG_SMB_FS=m
+ CONFIG_CIFS=m
+ CONFIG_NCP_FS=m
+ CONFIG_NCPFS_PACKET_SIGNING=y
+@@ -321,7 +294,6 @@ CONFIG_NCPFS_NLS=y
+ CONFIG_NCPFS_EXTRAS=y
+ CONFIG_CODA_FS=m
+ CONFIG_AFS_FS=m
+-CONFIG_PARTITION_ADVANCED=y
+ CONFIG_NLS_CODEPAGE_437=m
+ CONFIG_NLS_CODEPAGE_737=m
+ CONFIG_NLS_CODEPAGE_775=m
+@@ -360,22 +332,17 @@ CONFIG_NLS_ISO8859_15=m
+ CONFIG_NLS_KOI8_R=m
+ CONFIG_NLS_KOI8_U=m
+ CONFIG_NLS_UTF8=m
+-CONFIG_DLM=m
+ CONFIG_KEYS_DEBUG_PROC_KEYS=y
+ CONFIG_CRYPTO_NULL=m
+-CONFIG_CRYPTO_ECB=m
+ CONFIG_CRYPTO_LRW=m
+ CONFIG_CRYPTO_PCBC=m
+ CONFIG_CRYPTO_HMAC=y
+ CONFIG_CRYPTO_XCBC=m
+-CONFIG_CRYPTO_MD4=m
+ CONFIG_CRYPTO_MICHAEL_MIC=m
+-CONFIG_CRYPTO_SHA256=m
+ CONFIG_CRYPTO_SHA512=m
+ CONFIG_CRYPTO_TGR192=m
+ CONFIG_CRYPTO_WP512=m
+ CONFIG_CRYPTO_ANUBIS=m
+-CONFIG_CRYPTO_ARC4=m
+ CONFIG_CRYPTO_BLOWFISH=m
+ CONFIG_CRYPTO_CAMELLIA=m
+ CONFIG_CRYPTO_CAST6=m
+-- 
+1.9.1
