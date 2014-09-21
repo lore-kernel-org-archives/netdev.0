@@ -1,60 +1,38 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 1/8] ipv6: support for fib6_clean_* to update
- fn_sernum
-Date: Sun, 21 Sep 2014 12:09:24 +0200
-Message-ID: <1411294164.3376664.169937765.22738C16@webmail.messagingengine.com>
+Subject: Re: [PATCH net-next 5/8] ipv6: new function fib6_flush_trees and use it
+ instead of bumping removed rt6_genid
+Date: Sun, 21 Sep 2014 12:11:11 +0200
+Message-ID: <1411294271.3376835.169937873.377FEBCA@webmail.messagingengine.com>
 References: <cover.1411249633.git.hannes@stressinduktion.org>
- <d63a1ee6a3dee0d2a08f38e1e8a11a120b6ce3f5.1411249633.git.hannes@stressinduktion.org>
- <541E32E9.2040409@yoshifuji.org>
+ <c0a1543fe7608640f2dd1f37f8fe5978f30536d1.1411249633.git.hannes@stressinduktion.org>
+ <541E3640.6020907@yoshifuji.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: eric.dumazet@gmail.com, vyasevich@gmail.com,
-	nicolas.dichtel@6wind.com, kafai@fb.com,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+	nicolas.dichtel@6wind.com, kafai@fb.com
 To: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:53878 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:33989 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750800AbaIUKJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 06:09:24 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by gateway2.nyi.internal (Postfix) with ESMTP id 3916D2056A
-	for <netdev@vger.kernel.org>; Sun, 21 Sep 2014 06:09:24 -0400 (EDT)
-In-Reply-To: <541E32E9.2040409@yoshifuji.org>
+	by vger.kernel.org with ESMTP id S1750707AbaIUKLM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 06:11:12 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 2B44A207AE
+	for <netdev@vger.kernel.org>; Sun, 21 Sep 2014 06:11:12 -0400 (EDT)
+In-Reply-To: <541E3640.6020907@yoshifuji.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 21, 2014, at 04:07, YOSHIFUJI Hideaki wrote:
-> Hi,
-> 
-> Hannes Frederic Sowa wrote:
-> 
-> > @@ -71,7 +72,8 @@ static DEFINE_RWLOCK(fib6_walker_lock);
-> >  #define FWS_INIT FWS_L
-> >  #endif
-> >  
-> > -static void fib6_prune_clones(struct net *net, struct fib6_node *fn);
-> > +static void fib6_prune_clones(struct net *net, struct fib6_node *fn,
-> > +			      u32 sernum);
-> >  static struct rt6_info *fib6_find_prefix(struct net *net, struct fib6_node *fn);
-> >  static struct fib6_node *fib6_repair_tree(struct net *net, struct fib6_node *fn);
-> >  static int fib6_walk(struct fib6_walker_t *w);
-> > @@ -84,7 +86,7 @@ static int fib6_walk_continue(struct fib6_walker_t *w);
-> >   *	result of redirects, path MTU changes, etc.
-> >   */
-> >  
-> > -static __u32 rt_sernum;
-> > +static u32 rt_sernum;
-> >  
-> >  static void fib6_gc_timer_cb(unsigned long arg);
-> >  
-> 
-> I don't think you do really convert __u32 to u32
-> in this series.
+On Sun, Sep 21, 2014, at 04:21, YOSHIFUJI Hideaki wrote: 
+> Now it does not "bump" the genid anymore.  Why not to change the
+> function name to reflect the fact?
 
-You're right there are some places left. I'll fix that up and resend. In
-the end I'll convert the fn_sernum over to int to align with atomic_t.
+I first named the new function fib6_flush_trees but then realized this
+function itself gets called by rt_genid_bump_all, so I left the name.
+I'll append a patch to generalize those names, because it should not
+matter for ipv4 or ipv6 how it is ensured that sockets drop their cached
+dst_entries.
 
 Thanks,
 Hannes
