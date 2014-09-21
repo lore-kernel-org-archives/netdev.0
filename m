@@ -1,147 +1,80 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH v2 net-next] tcp: avoid possible arithmetic overflows
-Date: Sun, 21 Sep 2014 10:46:48 -0700
-Message-ID: <CAK6E8=d9y8D5we_fibzxstaXBMnQcOG3DsOAL0jhzDGK1H62cw@mail.gmail.com>
-References: <1411233550.26859.76.camel@edumazet-glaptop2.roam.corp.google.com>
- <1411236071.8612.6.camel@joe-AO725> <CAK6E8=etvB4MUBu96ck+7yucbFLgbxvEPJ3TM8X5qBsZLTnhDg@mail.gmail.com>
- <1411242956.26859.81.camel@edumazet-glaptop2.roam.corp.google.com>
- <1411244392.10610.4.camel@joe-AO725> <1411259357.26859.89.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH v7 ethtool 2/2] ethtool: Support for configurable RSS
+ hash key
+Date: Sun, 21 Sep 2014 21:52:31 +0100
+Message-ID: <1411332751.20019.24.camel@decadent.org.uk>
+References: <1406031667-30364-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
+	 <7ea09e91-8845-4e2a-b69a-3796b0825664@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-rnm/y7IJf8b9qEpcAtfY"
+Cc: netdev@vger.kernel.org
+To: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:45624 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751325AbaIURr3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 13:47:29 -0400
-Received: by mail-ig0-f179.google.com with SMTP id l13so1564863iga.6
-        for <netdev@vger.kernel.org>; Sun, 21 Sep 2014 10:47:29 -0700 (PDT)
-In-Reply-To: <1411259357.26859.89.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33079 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751311AbaIUUwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 16:52:45 -0400
+In-Reply-To: <7ea09e91-8845-4e2a-b69a-3796b0825664@CMEXHTCAS1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 20, 2014 at 5:29 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> icsk_rto is a 32bit field, and icsk_backoff can reach 15 by default,
-> or more if some sysctl (eg tcp_retries2) are changed.
->
-> Better use 64bit to perform icsk_rto << icsk_backoff operations
->
-> As Joe Perches suggested, add a helper for this.
->
-> From: Eric Dumazet <edumazet@google.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
 
-Maybe also use the new helper for the backoff in tcp_v4_err()?
+--=-rnm/y7IJf8b9qEpcAtfY
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> ---
->  include/net/inet_connection_sock.h |    9 +++++++++
->  net/ipv4/tcp_input.c               |    5 +++--
->  net/ipv4/tcp_output.c              |   13 ++++++-------
->  net/ipv4/tcp_timer.c               |    4 ++--
->  4 files changed, 20 insertions(+), 11 deletions(-)
->
-> diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-> index 5fbe6568c3cf..7551b402d6fe 100644
-> --- a/include/net/inet_connection_sock.h
-> +++ b/include/net/inet_connection_sock.h
-> @@ -242,6 +242,15 @@ static inline void inet_csk_reset_xmit_timer(struct sock *sk, const int what,
->  #endif
->  }
->
-> +static inline unsigned long
-> +inet_csk_rto_backoff(const struct inet_connection_sock *icsk,
-> +                    unsigned long max_when)
-> +{
-> +        u64 when = (u64)icsk->icsk_rto << icsk->icsk_backoff;
-> +
-> +        return (unsigned long)min_t(u64, when, max_when);
-> +}
-> +
->  struct sock *inet_csk_accept(struct sock *sk, int flags, int *err);
->
->  struct request_sock *inet_csk_search_req(const struct sock *sk,
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 02fb66d4a018..13f3da4762e3 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -3208,9 +3208,10 @@ static void tcp_ack_probe(struct sock *sk)
->                  * This function is not for random using!
->                  */
->         } else {
-> +               unsigned long when = inet_csk_rto_backoff(icsk, TCP_RTO_MAX);
-> +
->                 inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0,
-> -                                         min(icsk->icsk_rto << icsk->icsk_backoff, TCP_RTO_MAX),
-> -                                         TCP_RTO_MAX);
-> +                                         when, TCP_RTO_MAX);
->         }
->  }
->
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 7f1280dcad57..8c61a7c0c889 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -3279,6 +3279,7 @@ void tcp_send_probe0(struct sock *sk)
->  {
->         struct inet_connection_sock *icsk = inet_csk(sk);
->         struct tcp_sock *tp = tcp_sk(sk);
-> +       unsigned long probe_max;
->         int err;
->
->         err = tcp_write_wakeup(sk);
-> @@ -3294,9 +3295,7 @@ void tcp_send_probe0(struct sock *sk)
->                 if (icsk->icsk_backoff < sysctl_tcp_retries2)
->                         icsk->icsk_backoff++;
->                 icsk->icsk_probes_out++;
-> -               inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0,
-> -                                         min(icsk->icsk_rto << icsk->icsk_backoff, TCP_RTO_MAX),
-> -                                         TCP_RTO_MAX);
-> +               probe_max = TCP_RTO_MAX;
->         } else {
->                 /* If packet was not sent due to local congestion,
->                  * do not backoff and do not remember icsk_probes_out.
-> @@ -3306,11 +3305,11 @@ void tcp_send_probe0(struct sock *sk)
->                  */
->                 if (!icsk->icsk_probes_out)
->                         icsk->icsk_probes_out = 1;
-> -               inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0,
-> -                                         min(icsk->icsk_rto << icsk->icsk_backoff,
-> -                                             TCP_RESOURCE_PROBE_INTERVAL),
-> -                                         TCP_RTO_MAX);
-> +               probe_max = TCP_RESOURCE_PROBE_INTERVAL;
->         }
-> +       inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0,
-> +                                 inet_csk_rto_backoff(icsk, probe_max),
-> +                                 TCP_RTO_MAX);
->  }
->
->  int tcp_rtx_synack(struct sock *sk, struct request_sock *req)
-> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-> index a339e7ba05a4..b24360f6e293 100644
-> --- a/net/ipv4/tcp_timer.c
-> +++ b/net/ipv4/tcp_timer.c
-> @@ -180,7 +180,7 @@ static int tcp_write_timeout(struct sock *sk)
->
->                 retry_until = sysctl_tcp_retries2;
->                 if (sock_flag(sk, SOCK_DEAD)) {
-> -                       const int alive = (icsk->icsk_rto < TCP_RTO_MAX);
-> +                       const int alive = icsk->icsk_rto < TCP_RTO_MAX;
->
->                         retry_until = tcp_orphan_retries(sk, alive);
->                         do_reset = alive ||
-> @@ -294,7 +294,7 @@ static void tcp_probe_timer(struct sock *sk)
->         max_probes = sysctl_tcp_retries2;
->
->         if (sock_flag(sk, SOCK_DEAD)) {
-> -               const int alive = ((icsk->icsk_rto << icsk->icsk_backoff) < TCP_RTO_MAX);
-> +               const int alive = inet_csk_rto_backoff(icsk, TCP_RTO_MAX) < TCP_RTO_MAX;
->
->                 max_probes = tcp_orphan_retries(sk, alive);
->
->
->
+On Tue, 2014-07-22 at 17:51 +0530, Venkat Duvvuru wrote:
+> This ethtool patch will primarily implement the parser for the options pr=
+ovided
+> by the user for get and set rxfh before invoking the ioctl.
+> This patch also has
+> 1. Ethtool man page changes which describes the Usage of
+>    get and set rxfh options.
+> 2. Test cases for get and set rxfh in test-cmdline.c
+>=20
+> Signed-off-by: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+[...]
+
+FAIL: test-cmdline
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+
+E: ethtool --rxfh devname hkey foo returns 0
+E: ethtool -X devname hkey foo returns 0
+
+The problem with these test cases is we can't parse the hash key (and
+reject "foo") until after we start sending ioctls.  test-cmdline doesn't
+include any mocking of ioctls, but instead makes each test successful if
+it calls an ioctl.
+
+Ben.
+
+--=20
+Ben Hutchings
+We get into the habit of living before acquiring the habit of thinking.
+                                                              - Albert Camu=
+s
+
+--=-rnm/y7IJf8b9qEpcAtfY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVB86lOe/yOyVhhEJAQrtxhAAkUgIwPyGoUKcBfsZioS4latZOx+YZB7i
+y0z1X6U84cN9ggOkTXJVyGMceUE2QSDIB8kKAIGWvzBmI6TFHNAAdZoQ+KnaMlKC
+N9n1YakWs87xuEOR/M6ueXA//Sue/8lwWPArDrSL0yI/kPDH/3k5x181XkyIGWAA
+NVzrJoHgbDCbSw///G9NbxxaPk39cuOVNfpgYs5t4Azm77ItJOWrnaCNih+1u4Ra
+4I00eaeCkblnRpUwXYQB54DHzXil1fgwCmeIWBjmrxl11kTdaHJJN0gmsmZwsoxG
+MDIc0gyIpRt0PTI1Stknnf3vIjF337l9zpBMoGyFL0FVA6GvzAeelUcB/BV08ejz
+kVydopxtOCZWuZVeChNEepx7V3ruRJaZghImQqm0Jsm1TmksYvkI8nJrZHOQMxIH
+whQrJLKyYdgCkZpJP5rJhPioESnymzrLLDRIKJ3GSgqUdO01L+SFjoRT6oFzKKT3
+Y6PHsSRR9yQMwAutyQrfrmUdfSVFfDdT3L/iIMFs+vRxNVkna5P2zX5vomoFqGrl
+ZlZquQsZcjww1DwJn2kD5s6Eiqi/AMyRgTcWVZ9fdkMNgdxr2zdgbP/cRN+nMt58
+iI65HytnSp6nZ4c3kd4aZ1AJ4extJ5SjF5TAYwre2IsRLI3mwGA8fHG9E3oc4HET
+GsmQzn2bd8U=
+=qkh7
+-----END PGP SIGNATURE-----
+
+--=-rnm/y7IJf8b9qEpcAtfY--
