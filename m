@@ -1,69 +1,65 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH v7 ethtool 2/2] ethtool: Support for configurable RSS
- hash key
-Date: Sun, 21 Sep 2014 23:38:10 +0100
-Message-ID: <1411339090.20019.28.camel@decadent.org.uk>
-References: <1406031667-30364-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
-	 <7ea09e91-8845-4e2a-b69a-3796b0825664@CMEXHTCAS1.ad.emulex.com>
-	 <1411332751.20019.24.camel@decadent.org.uk>
-	 <1411337728.20019.26.camel@decadent.org.uk>
+Subject: [PATCH ethtool] test-cmdline: Disable test cases for --rxfh hash
+ key parsing
+Date: Sun, 21 Sep 2014 23:52:24 +0100
+Message-ID: <1411339944.20019.30.camel@decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-OxGYXqFIHdARPwNCz+/J"
-Cc: netdev@vger.kernel.org
-To: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+	protocol="application/pgp-signature"; boundary="=-mDWuqAZ+hBDU9wGYLHmb"
+Cc: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33304 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33329 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751386AbaIUWiW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 18:38:22 -0400
-In-Reply-To: <1411337728.20019.26.camel@decadent.org.uk>
+	by vger.kernel.org with ESMTP id S1751386AbaIUWwn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 18:52:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-OxGYXqFIHdARPwNCz+/J
+--=-mDWuqAZ+hBDU9wGYLHmb
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2014-09-21 at 23:15 +0100, Ben Hutchings wrote:
-> On Sun, 2014-09-21 at 21:52 +0100, Ben Hutchings wrote:
-> > On Tue, 2014-07-22 at 17:51 +0530, Venkat Duvvuru wrote:
-> > > This ethtool patch will primarily implement the parser for the option=
-s provided
-> > > by the user for get and set rxfh before invoking the ioctl.
-> > > This patch also has
-> > > 1. Ethtool man page changes which describes the Usage of
-> > >    get and set rxfh options.
-> > > 2. Test cases for get and set rxfh in test-cmdline.c
-> > >=20
-> > > Signed-off-by: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
-> > [...]
-> >=20
-> > FAIL: test-cmdline
-> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> >=20
-> > E: ethtool --rxfh devname hkey foo returns 0
-> > E: ethtool -X devname hkey foo returns 0
-> >=20
-> > The problem with these test cases is we can't parse the hash key (and
-> > reject "foo") until after we start sending ioctls.  test-cmdline doesn'=
-t
-> > include any mocking of ioctls, but instead makes each test successful i=
-f
-> > it calls an ioctl.
->=20
-> It also doesn't work for me with an older kernel version (I tested on
-> Linux 3.14).  I don't know why that is, as your fallback code does look
-> reasonable.
+test-cmdline does not mock the result of send_ioctl() but just treats
+a call to send_ioctl() as indicating successful parsing.  Any parse
+failure after this point cannot be tested for.  Currently, the hash
+key string passed to --rxfh isn't parsed until after the device's key
+size is known, so we can't test it tis way.
 
-Oops, I tested the previous version of this on 3.14.  The latest version
-does work correctly.
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ test-cmdline.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-I'll apply your changes and then disable the two failing test cases for
-now.  Thanks for persisting with this.
-
-Ben.
+diff --git a/test-cmdline.c b/test-cmdline.c
+index be41a30..2fd7cbb 100644
+--- a/test-cmdline.c
++++ b/test-cmdline.c
+@@ -184,8 +184,14 @@ static struct test_case {
+ 	{ 0, "--set-rxfh-indir devname weight 1 2 3 4" },
+ 	{ 0, "--rxfh devname hkey 48:15:6e:bb:d8:bd:6f:b1:a4:c6:7a:c4:76:1c:29:98=
+:da:e1:ae:6c:2e:12:2f:c0:b9:be:61:3d:00:54:35:9e:09:05:c7:d7:93:72:4a:ee" }=
+,
+ 	{ 0, "-X devname hkey 48:15:6e:bb:d8:bd:6f:b1:a4:c6:7a:c4:76:1c:29:98:da:=
+e1:ae:6c:2e:12:2f:c0:b9:be:61:3d:00:54:35:9e:09:05:c7:d7:93:72:4a:ee" },
++#if 0
++	/* XXX These won't fail as expected because we don't parse the
++	 * hash key until after the first send_ioctl().  That needs to
++	 * be changed before we enable them.
++	 */
+ 	{ 1, "--rxfh devname hkey foo" },
+ 	{ 1, "-X devname hkey foo" },
++#endif
+ 	{ 0, "--rxfh devname hkey 48:15:6e:bb:d8:bd:6f:b1:a4:c6:7a:c4:76:1c:29:98=
+:da:e1:ae:6c:2e:12:2f:c0:b9:be:61:3d:00:54:35:9e:09:05:c7:d7:93:72:4a:ee we=
+ight 1 2 3 4" },
+ 	{ 0, "-X devname weight 1 2 3 4 hkey 48:15:6e:bb:d8:bd:6f:b1:a4:c6:7a:c4:=
+76:1c:29:98:da:e1:ae:6c:2e:12:2f:c0:b9:be:61:3d:00:54:35:9e:09:05:c7:d7:93:=
+72:4a:ee" },
+ 	{ 0, "--rxfh devname hkey 48:15:6e:bb:d8:bd:6f:b1:a4:c6:7a:c4:76:1c:29:98=
+:da:e1:ae:6c:2e:12:2f:c0:b9:be:61:3d:00:54:35:9e:09:05:c7:d7:93:72:4a:ee eq=
+ual 2" },
 
 --=20
 Ben Hutchings
@@ -71,26 +67,26 @@ We get into the habit of living before acquiring the habit of thinking.
                                                               - Albert Camu=
 s
 
---=-OxGYXqFIHdARPwNCz+/J
+--=-mDWuqAZ+hBDU9wGYLHmb
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIVAwUAVB9TV+e/yOyVhhEJAQq61Q//axik19TP1Qdi1fzeyye3Gh4yhwceqAIS
-gH/S/3lTH/Pm3R4GRP/RbPivXy5/0D6irhxYBDlJmjb9J1Ggl1jTfW5sK4vv1mGe
-P4Ztkj3KkB2lMaBKmBdToAjHxQ8eAaX396TJu17LzwzSD1o9gtEpXwgMNPXLvHWV
-MPui/mqJnkLsgcNXAj2JSxykf0G3I4iIZd9RWNZJFe++f4D7GKOLRxtnSbBLv9W2
-0CQyR986opsZtJVsFrqbCU5Pix0bSi9OLexV5F1flQlGyXMAmJO/uj3HL/yr1xdn
-g6yYsCreOjEHutNeFnDn1+RBFv06pKSQ576V7wKdFI9mobcSggiRDaEkb3MGhb2/
-aqMXeKzvWinalZdraPtYOxOnRAstExEcHXc8MfzFcUgbT9EL8bHIGjO/QVXV9zo/
-49B7bYDAN1uBuAKtKW6aJwyTOBtAJ6KfsNOba5RqbuA76sgCFDFfWCfFnaAdCfxd
-e/AfSmBi81idQp2mx/MWEMtHGKiBUNUJmEl5vEkVQF2d0pjmdohbkd+I+ccn2MKw
-Df7F2FbQI4FU6zZPpbrPafVr5ddas1LpN2Lq8MxRL/lL6litAXG+4gTxh3/m4cTg
-bxijwoBmjzHnv8RKXivrV8EdKPLzWo1JMjKNr57cbB2Uv1BSeioHOJbj9iDnbWde
-tUlLxGHFoAw=
-=Eut/
+iQIVAwUAVB9Wsue/yOyVhhEJAQq5+A/+LVk0rzkhfYZf+tD75yTV+hSLnG0jNtHg
+L7lQstVROUuJGnIh0kgg6zB0jRZRp2AFV2BBTbJvQq+c2Y/dIhJT/Yy4gc482NBu
+G0vGVHwP1KIkQ/e7HQaxjaS1hbyGwfOQBnbb7NJcRn82d2QmxriqoqeVurw0+5oY
+bRN0y2o92+59JNTv5KdlS7C85u59eV+qTDy6dmxo3Uuwutz6P4QsaAmRkQLNjsr0
+qFTf7c1UwiDTtHR3/jpfobW2IqRlyh7mQvtrqQB02BZfvm3bbtt7vY1eWsJx5KP2
+wxKE5K5a+xUHQE6XAK9TFr/q5WPYIWHSWKOw2ycrg8eux/G1WVaPkDHaze3bSjfL
+uX6/LMbwc+NpliKXvL4VAPcuClDK68zlsGtZmzwXw5FnvIx55YowC3fvGZhKIiw7
+k824jXv9OX0qXMYPwfsERVaEoD04DSBRJ5jcHIFLW2WUFHbGQx1SDLMsrjypymuY
+su7vBSxnhKqOpM/rRJqrRWlL52AIHZZckDqLT5UroeWlsmznIp7ZtnSsHXoxLt4B
+97DRJNcmA2nR2gULrUrq+wqlDH7bLctyy1Rd7kmCwkofd2/35tpMH7K9f8dGoIoi
+HojR77Kw7a8q8uytDY+mr0eKxN325O9zOWPQH1ObaIG70O3HqgqgMBKiHLLICc3S
+C+hfrJvC0TU=
+=VET9
 -----END PGP SIGNATURE-----
 
---=-OxGYXqFIHdARPwNCz+/J--
+--=-mDWuqAZ+hBDU9wGYLHmb--
