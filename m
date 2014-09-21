@@ -1,53 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] udp_tunnel: Only build ip6_udp_tunnel.c when IPV6
- is selected
-Date: Sat, 20 Sep 2014 21:38:14 -0400 (EDT)
-Message-ID: <20140920.213814.1639075278770502877.davem@davemloft.net>
-References: <1411174973-323-1-git-send-email-azhou@nicira.com>
-	<20140919.220620.557633612726378260.davem@davemloft.net>
-	<CA+mtBx-U+198m671ebOZikiQhT3fEBOSQK6My7SNZ4DtPJCuAQ@mail.gmail.com>
+From: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>
+Subject: Re: [PATCH net-next 2/8] ipv6: a bit more typesafety
+Date: Sun, 21 Sep 2014 11:13:34 +0900
+Message-ID: <541E344E.4040500@yoshifuji.org>
+References: <cover.1411249633.git.hannes@stressinduktion.org> <fab79c190ca6d2b728a2bacb30c234c0f054e76b.1411249633.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: azhou@nicira.com, netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 8bit
+Cc: eric.dumazet@gmail.com, vyasevich@gmail.com,
+	nicolas.dichtel@6wind.com, kafai@fb.com,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40405 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751418AbaIUBiT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 21:38:19 -0400
-In-Reply-To: <CA+mtBx-U+198m671ebOZikiQhT3fEBOSQK6My7SNZ4DtPJCuAQ@mail.gmail.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:48620 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751537AbaIUCNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 22:13:49 -0400
+In-Reply-To: <fab79c190ca6d2b728a2bacb30c234c0f054e76b.1411249633.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Sat, 20 Sep 2014 16:14:47 -0700
+Hannes Frederic Sowa wrote:
+> Convert bool to bool and fib6_walker_t.state to the already existing enum.
 
-> On Fri, Sep 19, 2014 at 7:06 PM, David Miller <davem@davemloft.net> wrote:
->> From: Andy Zhou <azhou@nicira.com>
->> Date: Fri, 19 Sep 2014 18:02:53 -0700
->>
->>> Functions supplied in ip6_udp_tunnel.c are only needed when IPV6 is
->>> selected. When IPV6 is not selected, those functions are stubbed out
->>> in udp_tunnel.h.
->>>
->>> ==================================================================
->>>  net/ipv6/ip6_udp_tunnel.c:15:5: error: redefinition of 'udp_sock_create6'
->>>      int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
->>>  In file included from net/ipv6/ip6_udp_tunnel.c:9:0:
->>>       include/net/udp_tunnel.h:36:19: note: previous definition of 'udp_sock_create6' was here
->>>        static inline int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
->>> ==================================================================
->>>
->>> Fixes:  fd384412e udp_tunnel: Seperate ipv6 functions into its own file
->>> Reported-by: kbuild test robot <fengguang.wu@intel.com>
->>> Signed-off-by: Andy Zhou <azhou@nicira.com>
->>
->> Applied, thanks Andy.
-> 
-> David, what branch did you apply this to? I pulled from your net-next
-> but don't see this patch...
+Do you mean "boolean" variable (or member/type) to bool?
 
-The one I didn't push from my workstation yet, oops :-)
-
-It should be there now, sorry about that.
+--yoshfuji
