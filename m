@@ -1,35 +1,25 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [RFC PATCH 00/11] next: mips: Fix default configurations
-Date: Sat, 20 Sep 2014 17:45:19 -0700
-Message-ID: <1411260330-6716-1-git-send-email-linux@roeck-us.net>
+Subject: [RFC PATCH 01/11] next: mips: Fix gpr_defconfig
+Date: Sat, 20 Sep 2014 17:46:16 -0700
+Message-ID: <1411260386-6800-2-git-send-email-linux@roeck-us.net>
+References: <1411260386-6800-1-git-send-email-linux@roeck-us.net>
 Cc: Randy Dunlap <rdunlap@infradead.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Anish Bhatt <anish@chelsio.com>, linux-mips@linux-mips.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Guenter Roeck <linux@roeck-us.net>
 To: Ralf Baechle <ralf@linux-mips.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:55326 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751843AbaIUApf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Sep 2014 20:45:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1411260386-6800-1-git-send-email-linux@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Commit 5d6be6a5d486 ('scsi_netlink : Make SCSI_NETLINK dependent on NET instead
-of selecting NET') in linux-next changes 'select NET' to 'depends NET'. As a
-result, many configurations which do not explicitly select CONFIG_NET are no
-longer valid and need to be updated.
+of selecting NET') changes 'select NET' to 'depends NET'. As a result, many
+configurations which do not explicitly select CONFIG_NET are no longer valid
+and need to be updated.
 
-An alternative to this patch series would be to revert the original commit which
-caused the problem. However, a simple revert is no longer possible due to
-secondary commits changing more dependencies; an attempt to build
-nlm_xlp_defconfig after reverting the commit still failed with a build error.
-It would therefore be necessary to track down and revert all related commits.
-
-This patch series attempts to fix the problem for the affected mips
-configurations. I did not look into other architectures or configurations.
-
-The command sequence to create the new configuration files is as follows.
+The command sequence to create the new configuration is as follows.
 
 - Run "make ARCH=mips <configuration>" on upstream kernel
 - Copy resulting .config to next-20140919
@@ -38,6 +28,250 @@ The command sequence to create the new configuration files is as follows.
 - Copy resulting defconfig file to arch/mips/configs/<configuration>
 - Build the image with the resulting configuration
 
-This sequence results in building images for all modified configurations,
-but due to secondary dependency changes can not guarantee correctness
-or completeness. Only time will show if there are more problems.
+Fixes: 5d6be6a5d486 ('scsi_netlink : Make SCSI_NETLINK dependent on NET instead of selecting NET')
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ arch/mips/configs/gpr_defconfig | 104 +++++++++++++---------------------------
+ 1 file changed, 34 insertions(+), 70 deletions(-)
+
+diff --git a/arch/mips/configs/gpr_defconfig b/arch/mips/configs/gpr_defconfig
+index 8f219da..8cc7cab 100644
+--- a/arch/mips/configs/gpr_defconfig
++++ b/arch/mips/configs/gpr_defconfig
+@@ -1,24 +1,23 @@
+ CONFIG_MIPS_ALCHEMY=y
+ CONFIG_MIPS_GPR=y
+-CONFIG_HIGH_RES_TIMERS=y
+ CONFIG_PREEMPT_VOLUNTARY=y
+-CONFIG_EXPERIMENTAL=y
+ # CONFIG_LOCALVERSION_AUTO is not set
+ CONFIG_SYSVIPC=y
+ CONFIG_POSIX_MQUEUE=y
++CONFIG_HIGH_RES_TIMERS=y
+ CONFIG_BSD_PROCESS_ACCT=y
+ CONFIG_BSD_PROCESS_ACCT_V3=y
+ CONFIG_RELAY=y
+ CONFIG_BLK_DEV_INITRD=y
+-# CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
+ CONFIG_EXPERT=y
+ CONFIG_SLAB=y
+ CONFIG_PROFILING=y
+ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
+-# CONFIG_BLK_DEV_BSG is not set
++CONFIG_PARTITION_ADVANCED=y
+ CONFIG_PCI=y
+ CONFIG_BINFMT_MISC=m
++CONFIG_NET=y
+ CONFIG_PACKET=y
+ CONFIG_UNIX=y
+ CONFIG_INET=y
+@@ -36,7 +35,6 @@ CONFIG_SYN_COOKIES=y
+ # CONFIG_IPV6 is not set
+ CONFIG_NETWORK_SECMARK=y
+ CONFIG_NETFILTER=y
+-CONFIG_NETFILTER_NETLINK_QUEUE=m
+ CONFIG_NETFILTER_NETLINK_LOG=m
+ CONFIG_NETFILTER_XT_TARGET_CLASSIFY=m
+ CONFIG_NETFILTER_XT_TARGET_DSCP=m
+@@ -58,16 +56,12 @@ CONFIG_NETFILTER_XT_MATCH_REALM=m
+ CONFIG_NETFILTER_XT_MATCH_STATISTIC=m
+ CONFIG_NETFILTER_XT_MATCH_STRING=m
+ CONFIG_NETFILTER_XT_MATCH_TCPMSS=m
+-CONFIG_IP_NF_QUEUE=m
+ CONFIG_IP_NF_IPTABLES=m
+-CONFIG_IP_NF_MATCH_ADDRTYPE=m
+ CONFIG_IP_NF_MATCH_AH=m
+ CONFIG_IP_NF_MATCH_ECN=m
+ CONFIG_IP_NF_MATCH_TTL=m
+ CONFIG_IP_NF_FILTER=m
+ CONFIG_IP_NF_TARGET_REJECT=m
+-CONFIG_IP_NF_TARGET_LOG=m
+-CONFIG_IP_NF_TARGET_ULOG=m
+ CONFIG_IP_NF_MANGLE=m
+ CONFIG_IP_NF_TARGET_ECN=m
+ CONFIG_IP_NF_TARGET_TTL=m
+@@ -95,7 +89,6 @@ CONFIG_BRIDGE_EBT_MARK_T=m
+ CONFIG_BRIDGE_EBT_REDIRECT=m
+ CONFIG_BRIDGE_EBT_SNAT=m
+ CONFIG_BRIDGE_EBT_LOG=m
+-CONFIG_BRIDGE_EBT_ULOG=m
+ CONFIG_IP_DCCP=m
+ CONFIG_IP_SCTP=m
+ CONFIG_TIPC=m
+@@ -113,13 +106,8 @@ CONFIG_ATALK=m
+ CONFIG_DEV_APPLETALK=m
+ CONFIG_IPDDP=m
+ CONFIG_IPDDP_ENCAP=y
+-CONFIG_IPDDP_DECAP=y
+ CONFIG_X25=m
+ CONFIG_LAPB=m
+-CONFIG_ECONET=m
+-CONFIG_ECONET_AUNUDP=y
+-CONFIG_ECONET_NATIVE=y
+-CONFIG_WAN_ROUTER=m
+ CONFIG_NET_SCHED=y
+ CONFIG_NET_SCH_CBQ=m
+ CONFIG_NET_SCH_HTB=m
+@@ -165,7 +153,6 @@ CONFIG_YAM=m
+ CONFIG_CFG80211=y
+ CONFIG_MAC80211=y
+ CONFIG_MTD=y
+-CONFIG_MTD_CHAR=y
+ CONFIG_MTD_BLOCK=y
+ CONFIG_MTD_CFI=y
+ CONFIG_MTD_CFI_INTELEXT=y
+@@ -180,15 +167,29 @@ CONFIG_TIFM_CORE=m
+ CONFIG_SCSI=m
+ CONFIG_BLK_DEV_SD=m
+ CONFIG_CHR_DEV_SG=m
+-CONFIG_SCSI_MULTI_LUN=y
+ CONFIG_SCSI_LOGGING=y
+ CONFIG_SCSI_SPI_ATTRS=m
+ CONFIG_SCSI_FC_ATTRS=m
+ CONFIG_SCSI_ISCSI_ATTRS=m
+ CONFIG_SCSI_SAS_LIBSAS=m
+-# CONFIG_SCSI_SAS_LIBSAS_DEBUG is not set
+ # CONFIG_SCSI_LOWLEVEL is not set
+ CONFIG_NETDEVICES=y
++CONFIG_NET_FC=y
++CONFIG_NETCONSOLE=m
++CONFIG_ATM_TCP=m
++CONFIG_ATM_LANAI=m
++CONFIG_ATM_ENI=m
++CONFIG_ATM_FIRESTREAM=m
++CONFIG_ATM_ZATM=m
++CONFIG_ATM_NICSTAR=m
++CONFIG_ATM_IDT77252=m
++CONFIG_ATM_AMBASSADOR=m
++CONFIG_ATM_HORIZON=m
++CONFIG_ATM_IA=m
++CONFIG_ATM_FORE200E=m
++CONFIG_ATM_HE=m
++CONFIG_ATM_HE_USE_SUNI=y
++CONFIG_MIPS_AU1X00_ENET=y
+ CONFIG_MARVELL_PHY=m
+ CONFIG_DAVICOM_PHY=m
+ CONFIG_QSEMI_PHY=m
+@@ -196,15 +197,20 @@ CONFIG_LXT_PHY=m
+ CONFIG_CICADA_PHY=m
+ CONFIG_VITESSE_PHY=m
+ CONFIG_SMSC_PHY=m
+-CONFIG_NET_ETHERNET=y
+-CONFIG_MII=y
+-CONFIG_MIPS_AU1X00_ENET=y
+-# CONFIG_NETDEV_1000 is not set
+-# CONFIG_NETDEV_10000 is not set
+-CONFIG_ATH_COMMON=y
+-CONFIG_ATH_DEBUG=y
+-CONFIG_ATH5K=y
+-CONFIG_ATH5K_DEBUG=y
++CONFIG_PPP=m
++CONFIG_PPP_BSDCOMP=m
++CONFIG_PPP_DEFLATE=m
++CONFIG_PPP_FILTER=y
++CONFIG_PPP_MPPE=m
++CONFIG_PPP_MULTILINK=y
++CONFIG_PPPOATM=m
++CONFIG_PPPOE=m
++CONFIG_PPP_ASYNC=m
++CONFIG_PPP_SYNC_TTY=m
++CONFIG_SLIP=m
++CONFIG_SLIP_COMPRESSED=y
++CONFIG_SLIP_SMART=y
++CONFIG_SLIP_MODE_SLIP6=y
+ CONFIG_WAN=y
+ CONFIG_LANMEDIA=m
+ CONFIG_HDLC=m
+@@ -221,40 +227,8 @@ CONFIG_DSCC4=m
+ CONFIG_DSCC4_PCISYNC=y
+ CONFIG_DSCC4_PCI_RST=y
+ CONFIG_DLCI=m
+-CONFIG_WAN_ROUTER_DRIVERS=m
+-CONFIG_CYCLADES_SYNC=m
+-CONFIG_CYCLOMX_X25=y
+ CONFIG_LAPBETHER=m
+ CONFIG_X25_ASY=m
+-CONFIG_ATM_TCP=m
+-CONFIG_ATM_LANAI=m
+-CONFIG_ATM_ENI=m
+-CONFIG_ATM_FIRESTREAM=m
+-CONFIG_ATM_ZATM=m
+-CONFIG_ATM_NICSTAR=m
+-CONFIG_ATM_IDT77252=m
+-CONFIG_ATM_AMBASSADOR=m
+-CONFIG_ATM_HORIZON=m
+-CONFIG_ATM_IA=m
+-CONFIG_ATM_FORE200E=m
+-CONFIG_ATM_HE=m
+-CONFIG_ATM_HE_USE_SUNI=y
+-CONFIG_PPP=m
+-CONFIG_PPP_MULTILINK=y
+-CONFIG_PPP_FILTER=y
+-CONFIG_PPP_ASYNC=m
+-CONFIG_PPP_SYNC_TTY=m
+-CONFIG_PPP_DEFLATE=m
+-CONFIG_PPP_BSDCOMP=m
+-CONFIG_PPP_MPPE=m
+-CONFIG_PPPOE=m
+-CONFIG_PPPOATM=m
+-CONFIG_SLIP=m
+-CONFIG_SLIP_COMPRESSED=y
+-CONFIG_SLIP_SMART=y
+-CONFIG_SLIP_MODE_SLIP6=y
+-CONFIG_NET_FC=y
+-CONFIG_NETCONSOLE=m
+ # CONFIG_INPUT_MOUSEDEV is not set
+ # CONFIG_INPUT_KEYBOARD is not set
+ # CONFIG_INPUT_MOUSE is not set
+@@ -267,7 +241,6 @@ CONFIG_HW_RANDOM=y
+ CONFIG_I2C=y
+ CONFIG_I2C_CHARDEV=y
+ CONFIG_I2C_GPIO=y
+-CONFIG_GPIOLIB=y
+ CONFIG_GPIO_SYSFS=y
+ CONFIG_SENSORS_LM83=y
+ CONFIG_WATCHDOG=y
+@@ -285,22 +258,15 @@ CONFIG_USB_HIDDEV=y
+ CONFIG_USB_KBD=m
+ CONFIG_USB_MOUSE=m
+ CONFIG_USB=y
+-# CONFIG_USB_DEVICE_CLASS is not set
+ CONFIG_USB_MON=y
+ CONFIG_USB_EHCI_HCD=y
+ CONFIG_USB_EHCI_ROOT_HUB_TT=y
+ CONFIG_USB_OHCI_HCD=y
+ CONFIG_USB_OHCI_HCD_PLATFORM=y
+ CONFIG_USB_STORAGE=m
+-CONFIG_USB_LIBUSUAL=y
+ CONFIG_USB_SERIAL=y
+-CONFIG_USB_EZUSB=y
+ CONFIG_USB_SERIAL_GENERIC=y
+ CONFIG_USB_SERIAL_SIERRAWIRELESS=y
+-CONFIG_LEDS_GPIO=y
+-CONFIG_LEDS_TRIGGER_TIMER=y
+-CONFIG_LEDS_TRIGGER_HEARTBEAT=y
+-CONFIG_LEDS_TRIGGER_DEFAULT_ON=y
+ # CONFIG_DNOTIFY is not set
+ # CONFIG_INOTIFY_USER is not set
+ CONFIG_ISO9660_FS=m
+@@ -315,16 +281,14 @@ CONFIG_JFFS2_FS=y
+ CONFIG_JFFS2_COMPRESSION_OPTIONS=y
+ CONFIG_JFFS2_RUBIN=y
+ CONFIG_NFS_FS=y
+-CONFIG_NFS_V3=y
+ CONFIG_NFS_V4=y
+ CONFIG_ROOT_NFS=y
+-CONFIG_PARTITION_ADVANCED=y
+ CONFIG_NLS_CODEPAGE_437=y
+ CONFIG_NLS_CODEPAGE_850=y
+ CONFIG_NLS_ISO8859_1=y
+ # CONFIG_ENABLE_MUST_CHECK is not set
+-CONFIG_MAGIC_SYSRQ=y
+ CONFIG_DEBUG_FS=y
++CONFIG_MAGIC_SYSRQ=y
+ CONFIG_CMDLINE_BOOL=y
+ CONFIG_CMDLINE="console=ttyS0,115200 root=/dev/nfs rw ip=auto"
+ CONFIG_CRYPTO_NULL=m
+-- 
+1.9.1
