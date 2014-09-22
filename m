@@ -1,40 +1,26 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next] udp: Need to make ip6_udp_tunnel.c have GPL license
-Date: Mon, 22 Sep 2014 11:39:44 -0700
-Message-ID: <1411411184-11993-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, azhou@nicira.com, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/4] dsa: Broadcom SF2 suspend/resume and WoL
+Date: Mon, 22 Sep 2014 14:41:53 -0400 (EDT)
+Message-ID: <20140922.144153.999031062365126889.davem@davemloft.net>
+References: <1411086685-18684-1-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:39349 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753958AbaIVSkC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:40:02 -0400
-Received: by mail-pd0-f175.google.com with SMTP id v10so3798639pde.20
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 11:40:02 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:52806 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754427AbaIVSl4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:41:56 -0400
+In-Reply-To: <1411086685-18684-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unable to load various tunneling modules without this:
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 18 Sep 2014 17:31:21 -0700
 
-[   80.679049] fou: Unknown symbol udp_sock_create6 (err 0)
-[   91.439939] ip6_udp_tunnel: Unknown symbol ip6_local_out (err 0)
-[   91.439954] ip6_udp_tunnel: Unknown symbol __put_net (err 0)
-[   91.457792] vxlan: Unknown symbol udp_sock_create6 (err 0)
-[   91.457831] vxlan: Unknown symbol udp_tunnel6_xmit_skb (err 0)
+> This patch add supports for suspend/resume and configuring Wake-on-LAN
+> for Broadcom Starfighter 2 switches.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/ipv6/ip6_udp_tunnel.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ipv6/ip6_udp_tunnel.c b/net/ipv6/ip6_udp_tunnel.c
-index cbc9907..b04ed72 100644
---- a/net/ipv6/ip6_udp_tunnel.c
-+++ b/net/ipv6/ip6_udp_tunnel.c
-@@ -103,3 +103,5 @@ int udp_tunnel6_xmit_skb(struct socket *sock, struct dst_entry *dst,
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(udp_tunnel6_xmit_skb);
-+
-+MODULE_LICENSE("GPL");
--- 
-2.1.0.rc2.206.gedb03e5
+Series applied, thanks Florian.
