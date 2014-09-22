@@ -1,91 +1,69 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Mon, 22 Sep 2014 13:23:54 -0700
-Message-ID: <2306678.TJaWkZCAc8@dtor-glaptop>
-References: <20140905174925.GA12991@mtj.dyndns.org> <20140911202354.GA2598@core.coreip.homeip.net> <20140922194906.GB9868@amd>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv6: mld: answer mldv2 queries with mldv1
+ reports in mldv1 fallback
+Date: Mon, 22 Sep 2014 16:23:55 -0400 (EDT)
+Message-ID: <20140922.162355.1814856663172821128.davem@davemloft.net>
+References: <1411214635-14136-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: James Bottomley <James.Bottomley@hansenpartnership.com>,
-	Tejun Heo <tj@kernel.org>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Lennart Poettering <lennart@poettering.net>,
-	Kay Sievers <kay@vrfy.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagote
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140922194906.GB9868@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53628 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754643AbaIVUX6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 16:23:58 -0400
+In-Reply-To: <1411214635-14136-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, September 22, 2014 09:49:06 PM Pavel Machek wrote:
-> On Thu 2014-09-11 13:23:54, Dmitry Torokhov wrote:
-> > On Thu, Sep 11, 2014 at 12:59:25PM -0700, James Bottomley wrote:
-> > > On Tue, 2014-09-09 at 16:01 -0700, Dmitry Torokhov wrote:
-> > > > On Tuesday, September 09, 2014 03:46:23 PM James Bottomley wrote:
-> > > > > On Wed, 2014-09-10 at 07:41 +0900, Tejun Heo wrote:
-> > > > > > The thing is that we have to have dynamic mechanism to listen for
-> > > > > > device attachments no matter what and such mechanism has been in
-> > > > > > place
-> > > > > > for a long time at this point.  The synchronous wait simply
-> > > > > > doesn't
-> > > > > > serve any purpose anymore and kinda gets in the way in that it
-> > > > > > makes
-> > > > > > it a possibly extremely slow process to tell whether loading of a
-> > > > > > module succeeded or not because the wait for the initial round of
-> > > > > > probe is piggybacked.
-> > > > > 
-> > > > > OK, so we just fire and forget in userland ... why bother inventing
-> > > > > an
-> > > > > elaborate new infrastructure in the kernel to do exactly what
-> > > > > 
-> > > > > modprobe <mod> &
-> > > > > 
-> > > > > would do?
-> > > > 
-> > > > Just so we do not forget: we also want the no-modules case to also be
-> > > > able
-> > > > to probe asynchronously so that a slow device does not stall kernel
-> > > > booting.> > 
-> > > Yes, but we mostly do this anyway.  SCSI for instance does asynchronous
-> > > scanning of attached devices (once the cards are probed)
-> > 
-> > What would it do it card was a bit slow to probe?
-> > 
-> > > but has a sync
-> > > point for ordering.
-> > 
-> > Quite often we do not really care about ordering of devices. I mean,
-> > does it matter if your mouse is discovered before your keyboard or
-> > after?
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Sat, 20 Sep 2014 14:03:55 +0200
+
+> RFC2710 (MLDv1), section 3.7. says:
+ ,,,
+> RFC3810 (MLDv2), section 8.2.1. states for *listeners* regarding
+> presence of MLDv1 routers:
+ ...
+> While section 8.3.1. specifies *router* behaviour regarding presence
+> of MLDv1 routers:
+ ...
+> That means that we should not get queries from different versions of
+> MLD. When there's a MLDv1 router present, MLDv2 enforces truncation
+> and MRC == MRD (both fields are overlapping within the 24 octet range).
 > 
-> Actually yes, I suspect it does.
+> Section 8.3.2. specifies behaviour in the presence of MLDv1 multicast
+> address *listeners*:
+ ...
+> That means, what can happen is the following scenario, that hosts can
+> act in MLDv1 compatibility mode when they previously have received an
+> MLDv1 query (or, simply operate in MLDv1 mode-only); and at the same
+> time, an MLDv2 router could start up and transmits MLDv2 startup query
+> messages while being unaware of the current operational mode.
 > 
-> I do evtest /dev/input/eventX by hand, occassionaly. It would be
-> annoying if they moved between reboots.
+> Given RFC2710, section 3.7 we would need to answer to that with an MLDv1
+> listener report, so that the router according to RFC3810, section 8.3.2.
+> would receive that and internally switch to MLDv1 compatibility as well.
+> 
+> Right now, I believe since the initial implementation of MLDv2, Linux
+> hosts would just silently drop such MLDv2 queries instead of replying
+> with an MLDv1 listener report, which would prevent a MLDv2 router going
+> into fallback mode (until it receives other MLDv1 queries).
+> 
+> Since the mapping of MRC to MRD in exactly such cases can make use of
+> the exponential algorithm from 5.1.3, we cannot [strictly speaking] be
+> aware in MLDv1 of the encoding in MRC, it seems also not mentioned by
+> the RFC. Since encodings are the same up to 32767, assume in such a
+> situation this value as a hard upper limit we would clamp. We have asked
+> one of the RFC authors on that regard, and he mentioned that there seem
+> not to be any implementations that make use of that exponential algorithm
+> on startup messages. In any case, this patch fixes this MLD
+> interoperability issue.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  [ Sending to net-next as it's nothing critical and nobody was screaming
+>    out loud for so many years, so it can linger a bit in net-next first. ]
 
-I am sorry but you will have to cope with such annoyances. It' snot like we 
-fail to boot the box here.
-
-The systems are now mostly hot-pluggable and userland is supposed to
-handle it, and it does, at least for input devices. If you want stable naming
-use udev facilities to rename devices as needed or add needed symlinks (by-id, 
-etc.).
-
-Thanks.
-
--- 
-Dmitry
+Applied, thanks Daniel.
