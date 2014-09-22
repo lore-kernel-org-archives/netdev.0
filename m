@@ -1,50 +1,43 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 net-next] tcp: avoid possible arithmetic overflows
-Date: Sun, 21 Sep 2014 20:56:55 -0700
-Message-ID: <1411358215.2952.26.camel@joe-AO725>
-References: <1411233550.26859.76.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411236071.8612.6.camel@joe-AO725>
-	 <CAK6E8=etvB4MUBu96ck+7yucbFLgbxvEPJ3TM8X5qBsZLTnhDg@mail.gmail.com>
-	 <1411242956.26859.81.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411244392.10610.4.camel@joe-AO725>
-	 <1411259357.26859.89.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCHv6 net-next 1/3] sunvnet: upgrade to VIO protocol version
+ 1.6
+Date: Mon, 22 Sep 2014 00:40:27 -0400
+Message-ID: <541FA83B.2050608@oracle.com>
+References: <541A2316.5010603@oracle.com> <2AB76E42-C12D-47C5-8476-0D0C611691A5@oracle.com> <541AD838.50700@oracle.com> <9BA1705F-0C89-471A-9872-688A3FA3165C@oracle.com> <541B395D.1000809@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Yuchung Cheng <ycheng@google.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0208.hostedemail.com ([216.40.44.208]:37906 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751498AbaIVD46 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 23:56:58 -0400
-In-Reply-To: <1411259357.26859.89.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:21590 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750723AbaIVEkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 00:40:33 -0400
+In-Reply-To: <541B395D.1000809@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-09-20 at 17:29 -0700, Eric Dumazet wrote:
-> icsk_rto is a 32bit field, and icsk_backoff can reach 15 by default,
-> or more if some sysctl (eg tcp_retries2) are changed.
-> 
-> Better use 64bit to perform icsk_rto << icsk_backoff operations
 
-Thanks Eric.
 
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-[]
-> @@ -3208,9 +3208,10 @@ static void tcp_ack_probe(struct sock *sk)
->  		 * This function is not for random using!
->  		 */
->  	} else {
-> +		unsigned long when = inet_csk_rto_backoff(icsk, TCP_RTO_MAX);
-> +
->  		inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0,
-> -					  min(icsk->icsk_rto << icsk->icsk_backoff, TCP_RTO_MAX),
-> -					  TCP_RTO_MAX);
-> +					  when, TCP_RTO_MAX);
+> On 09/18/2014 02:49 PM, Raghuram Kothakota wrote:
 
-Pity about the possible extra compare to TCP_RTO_MAX here.
-I hope gcc smart enough to optimize it away.
+>> In the virtualization world, we want resources to be efficiently used and memory is
+>> still very important resource. My concern is mostly because this memory usage of
+>> 32+MB is on a per LDC basis. LDoms today supports a max of 128 domains, but
+>> from my experience seen actual deployments of the order of 50 domains. This is
+>> going up as the platforms getting more and more powerful.  If there are really
+>> that many peers,  then the amount of memory consumed by one vnet instance
+>> is 50 * 32+MB = 1.6GB+.  It's fine if this memory is really used, but it seems like this
+>> will be useful only when the peer is another linux guest with this version of vnet and
+>> also the MTU is configured to use 64K.  The memory is being wasted for all other
+>> peers that either don't support 64K MTU or not configured to use it and also 
+>> the switch port as obviously it doesn't support 64K MTU today.
+
+I think I have a solution for this -- I'm doing some experimenting, but it may be a few days.
+
+However, fundamentally, the problem is that there are n^2-n links both ways, so 50 LDOMs on the same vswitch
+will always be 2450X the resources of a single pair, and lead to scary aggregate numbers. Large installations
+really need more vswitches with fewer LDOMs per switch, at least with the current code.
+
+								+-DLS
