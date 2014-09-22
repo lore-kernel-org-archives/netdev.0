@@ -1,93 +1,33 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH 08/11 NEXT] rtlwifi: Finish modifying core routines for new drivers
-Date: Mon, 22 Sep 2014 09:39:24 -0500
-Message-ID: <1411396767-20611-9-git-send-email-Larry.Finger@lwfinger.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 06/11 NEXT] rtlwifi: Modify cam.{c,h} and efuse.{c,h} for new drivers
+Date: Mon, 22 Sep 2014 09:39:22 -0500
+Message-ID: <1411396767-20611-7-git-send-email-Larry.Finger@lwfinger.net>
 References: <1411396767-20611-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1411396767-20611-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, troy_tan@realsil.com.cn,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:54028 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754208AbaIVOkB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 10:40:01 -0400
+In-Reply-To: <1411396767-20611-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Addition of the new drivers and the update to a new version for the others
-lead to changes in all the core routines.
-
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/net/wireless/rtlwifi/debug.c |  10 +---
- drivers/net/wireless/rtlwifi/debug.h |  10 +---
- drivers/net/wireless/rtlwifi/rc.c    |  98 ++++++++++++++++++-------------
- drivers/net/wireless/rtlwifi/rc.h    |   9 +--
- drivers/net/wireless/rtlwifi/regd.c  | 109 ++++++++++++++++++++---------------
- drivers/net/wireless/rtlwifi/regd.h  |  11 ++--
- drivers/net/wireless/rtlwifi/stats.c |  51 +++++++++-------
- drivers/net/wireless/rtlwifi/stats.h |   8 +--
- drivers/net/wireless/rtlwifi/wifi.h  |   5 ++
- 9 files changed, 178 insertions(+), 133 deletions(-)
+ drivers/net/wireless/rtlwifi/cam.c   |  61 +++++-----
+ drivers/net/wireless/rtlwifi/cam.h   |  10 +-
+ drivers/net/wireless/rtlwifi/efuse.c | 224 ++++++++++++++++++-----------------
+ drivers/net/wireless/rtlwifi/efuse.h |  17 ++-
+ 4 files changed, 156 insertions(+), 156 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/debug.c b/drivers/net/wireless/rtlwifi/debug.c
-index 76e2086..fd25aba 100644
---- a/drivers/net/wireless/rtlwifi/debug.c
-+++ b/drivers/net/wireless/rtlwifi/debug.c
-@@ -2,20 +2,16 @@
-  *
-  * Copyright(c) 2009-2012  Realtek Corporation.
-  *
-- * Tmis program is free software; you can redistribute it and/or modify it
-+ * This program is free software; you can redistribute it and/or modify it
-  * under the terms of version 2 of the GNU General Public License as
-  * published by the Free Software Foundation.
-  *
-- * Tmis program is distributed in the hope that it will be useful, but WITHOUT
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-  * more details.
-  *
-- * You should have received a copy of the GNU General Public License along with
-- * tmis program; if not, write to the Free Software Foundation, Inc.,
-- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-- *
-- * Tme full GNU General Public License is included in this distribution in the
-+ * The full GNU General Public License is included in this distribution in the
-  * file called LICENSE.
-  *
-  * Contact Information:
-diff --git a/drivers/net/wireless/rtlwifi/debug.h b/drivers/net/wireless/rtlwifi/debug.h
-index 6d66936..534c224 100644
---- a/drivers/net/wireless/rtlwifi/debug.h
-+++ b/drivers/net/wireless/rtlwifi/debug.h
-@@ -2,20 +2,16 @@
-  *
-  * Copyright(c) 2009-2012  Realtek Corporation.
-  *
-- * Tmis program is free software; you can redistribute it and/or modify it
-+ * This program is free software; you can redistribute it and/or modify it
-  * under the terms of version 2 of the GNU General Public License as
-  * published by the Free Software Foundation.
-  *
-- * Tmis program is distributed in the hope that it will be useful, but WITHOUT
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-  * more details.
-  *
-- * You should have received a copy of the GNU General Public License along with
-- * tmis program; if not, write to the Free Software Foundation, Inc.,
-- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-- *
-- * Tme full GNU General Public License is included in this distribution in the
-+ * The full GNU General Public License is included in this distribution in the
-  * file called LICENSE.
-  *
-  * Contact Information:
-diff --git a/drivers/net/wireless/rtlwifi/rc.c b/drivers/net/wireless/rtlwifi/rc.c
-index ee28a1a..a42a236 100644
---- a/drivers/net/wireless/rtlwifi/rc.c
-+++ b/drivers/net/wireless/rtlwifi/rc.c
+diff --git a/drivers/net/wireless/rtlwifi/cam.c b/drivers/net/wireless/rtlwifi/cam.c
+index 0276153..8fe8b4c 100644
+--- a/drivers/net/wireless/rtlwifi/cam.c
++++ b/drivers/net/wireless/rtlwifi/cam.c
 @@ -11,10 +11,6 @@
   * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
   * more details.
@@ -99,674 +39,152 @@ index ee28a1a..a42a236 100644
   * The full GNU General Public License is included in this distribution in the
   * file called LICENSE.
   *
-@@ -35,13 +31,13 @@
-  *Finds the highest rate index we can use
-  *if skb is special data like DHCP/EAPOL, we set should
-  *it to lowest rate CCK_1M, otherwise we set rate to
-- *CCK11M or OFDM_54M based on wireless mode.
-+ *highest rate based on wireless mode used for iwconfig
-+ *show Tx rate.
-  */
- static u8 _rtl_rc_get_highest_rix(struct rtl_priv *rtlpriv,
- 				  struct ieee80211_sta *sta,
- 				  struct sk_buff *skb, bool not_data)
+@@ -26,10 +22,9 @@
+  * Larry Finger <Larry.Finger@lwfinger.net>
+  *
+  *****************************************************************************/
+-
+-#include <linux/export.h>
+ #include "wifi.h"
+ #include "cam.h"
++#include <linux/export.h>
+ 
+ void rtl_cam_reset_sec_info(struct ieee80211_hw *hw)
  {
--	struct rtl_mac *rtlmac = rtl_mac(rtlpriv);
- 	struct rtl_hal *rtlhal = rtl_hal(rtlpriv);
- 	struct rtl_phy *rtlphy = &(rtlpriv->phy);
- 	struct rtl_sta_info *sta_entry = NULL;
-@@ -54,21 +50,13 @@ static u8 _rtl_rc_get_highest_rix(struct rtl_priv *rtlpriv,
- 	 *2.in rtl_get_tcb_desc when we check rate is
- 	 *      1M we will not use FW rate but user rate.
- 	 */
--	if (rtlmac->opmode == NL80211_IFTYPE_AP ||
--	    rtlmac->opmode == NL80211_IFTYPE_ADHOC ||
--	    rtlmac->opmode == NL80211_IFTYPE_MESH_POINT) {
--		if (sta) {
--			sta_entry = (struct rtl_sta_info *) sta->drv_priv;
--			wireless_mode = sta_entry->wireless_mode;
--		} else {
--			return 0;
--		}
--	} else {
--		wireless_mode = rtlmac->mode;
-+
-+	if (sta) {
-+		sta_entry = (struct rtl_sta_info *)sta->drv_priv;
-+		wireless_mode = sta_entry->wireless_mode;
+@@ -52,8 +47,8 @@ static void rtl_cam_program_entry(struct ieee80211_hw *hw, u32 entry_no,
+ 	u32 target_content = 0;
+ 	u8 entry_i;
+ 
+-	RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD, "key_cont_128: %6phC\n",
+-		 key_cont_128);
++	RT_PRINT_DATA(rtlpriv, COMP_SEC, DBG_DMESG, "Key content :",
++		      key_cont_128, 16);
+ 
+ 	for (entry_i = 0; entry_i < CAM_CONTENT_COUNT; entry_i++) {
+ 		target_command = entry_i + CAM_CONTENT_COUNT * entry_no;
+@@ -68,11 +63,13 @@ static void rtl_cam_program_entry(struct ieee80211_hw *hw, u32 entry_no,
+ 			rtl_write_dword(rtlpriv, rtlpriv->cfg->maps[RWCAM],
+ 					target_command);
+ 
+-			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD, "WRITE %x: %x\n",
++			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
++				 "WRITE %x: %x\n",
+ 				 rtlpriv->cfg->maps[WCAMI], target_content);
+ 			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
+ 				 "The Key ID is %d\n", entry_no);
+-			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD, "WRITE %x: %x\n",
++			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
++				 "WRITE %x: %x\n",
+ 				 rtlpriv->cfg->maps[RWCAM], target_command);
+ 
+ 		} else if (entry_i == 1) {
+@@ -87,10 +84,10 @@ static void rtl_cam_program_entry(struct ieee80211_hw *hw, u32 entry_no,
+ 			rtl_write_dword(rtlpriv, rtlpriv->cfg->maps[RWCAM],
+ 					target_command);
+ 
+-			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD, "WRITE A4: %x\n",
+-				 target_content);
+-			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD, "WRITE A0: %x\n",
+-				 target_command);
++			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
++				 "WRITE A4: %x\n", target_content);
++			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
++				 "WRITE A0: %x\n", target_command);
+ 
+ 		} else {
+ 
+@@ -107,15 +104,15 @@ static void rtl_cam_program_entry(struct ieee80211_hw *hw, u32 entry_no,
+ 					target_command);
+ 			udelay(100);
+ 
+-			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD, "WRITE A4: %x\n",
+-				 target_content);
+-			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD, "WRITE A0: %x\n",
+-				 target_command);
++			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
++				 "WRITE A4: %x\n", target_content);
++			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
++				 "WRITE A0: %x\n", target_command);
+ 		}
  	}
  
--	if (rtl_is_special_data(rtlpriv->mac80211.hw, skb, true) ||
--			not_data) {
-+	if (rtl_is_special_data(rtlpriv->mac80211.hw, skb, true) || not_data) {
+-	RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD, "after set key, usconfig:%x\n",
+-		 us_config);
++	RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
++		 "after set key, usconfig:%x\n", us_config);
+ }
+ 
+ u8 rtl_cam_add_one_entry(struct ieee80211_hw *hw, u8 *mac_addr,
+@@ -125,27 +122,26 @@ u8 rtl_cam_add_one_entry(struct ieee80211_hw *hw, u8 *mac_addr,
+ 	u32 us_config;
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 
+-	RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
++	RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG,
+ 		 "EntryNo:%x, ulKeyId=%x, ulEncAlg=%x, ulUseDK=%x MacAddr %pM\n",
+ 		 ul_entry_idx, ul_key_id, ul_enc_alg,
+ 		 ul_default_key, mac_addr);
+ 
+ 	if (ul_key_id == TOTAL_CAM_ENTRY) {
+ 		RT_TRACE(rtlpriv, COMP_ERR, DBG_WARNING,
+-			 "<=== ulKeyId exceed!\n");
++			 "ulKeyId exceed!\n");
  		return 0;
- 	} else {
- 		if (rtlhal->current_bandtype == BAND_ON_2_4G) {
-@@ -76,21 +64,27 @@ static u8 _rtl_rc_get_highest_rix(struct rtl_priv *rtlpriv,
- 				return B_MODE_MAX_RIX;
- 			} else if (wireless_mode == WIRELESS_MODE_G) {
- 				return G_MODE_MAX_RIX;
--			} else {
-+			} else if (wireless_mode == WIRELESS_MODE_N_24G) {
- 				if (get_rf_type(rtlphy) != RF_2T2R)
- 					return N_MODE_MCS7_RIX;
- 				else
- 					return N_MODE_MCS15_RIX;
-+			} else if (wireless_mode == WIRELESS_MODE_AC_24G) {
-+				return AC_MODE_MCS9_RIX;
- 			}
-+			return 0;
- 		} else {
- 			if (wireless_mode == WIRELESS_MODE_A) {
- 				return A_MODE_MAX_RIX;
--			} else {
-+			} else if (wireless_mode == WIRELESS_MODE_N_5G) {
- 				if (get_rf_type(rtlphy) != RF_2T2R)
- 					return N_MODE_MCS7_RIX;
- 				else
- 					return N_MODE_MCS15_RIX;
-+			} else if (wireless_mode == WIRELESS_MODE_AC_5G) {
-+				return AC_MODE_MCS9_RIX;
- 			}
-+			return 0;
- 		}
- 	}
- }
-@@ -103,35 +97,52 @@ static void _rtl_rc_rate_set_series(struct rtl_priv *rtlpriv,
- 				    bool not_data)
- {
- 	struct rtl_mac *mac = rtl_mac(rtlpriv);
--	u8 sgi_20 = 0, sgi_40 = 0;
-+	struct rtl_sta_info *sta_entry = NULL;
-+	u8 wireless_mode = 0;
-+	u8 sgi_20 = 0, sgi_40 = 0, sgi_80 = 0;
- 
- 	if (sta) {
- 		sgi_20 = sta->ht_cap.cap & IEEE80211_HT_CAP_SGI_20;
- 		sgi_40 = sta->ht_cap.cap & IEEE80211_HT_CAP_SGI_40;
-+		sgi_80 = sta->vht_cap.cap & IEEE80211_VHT_CAP_SHORT_GI_80;
-+		sta_entry = (struct rtl_sta_info *)sta->drv_priv;
-+		wireless_mode = sta_entry->wireless_mode;
- 	}
- 	rate->count = tries;
- 	rate->idx = rix >= 0x00 ? rix : 0x00;
-+	if (rtlpriv->rtlhal.hw_type == HARDWARE_TYPE_RTL8812AE &&
-+	    wireless_mode == WIRELESS_MODE_AC_5G)
-+		rate->idx += 0x10;/*2NSS for 8812AE*/
- 
- 	if (!not_data) {
- 		if (txrc->short_preamble)
- 			rate->flags |= IEEE80211_TX_RC_USE_SHORT_PREAMBLE;
- 		if (mac->opmode == NL80211_IFTYPE_AP ||
--		    mac->opmode == NL80211_IFTYPE_ADHOC) {
--			if (sta && (sta->bandwidth >= IEEE80211_STA_RX_BW_40))
-+			mac->opmode == NL80211_IFTYPE_ADHOC) {
-+			if (sta && (sta->ht_cap.cap &
-+				    IEEE80211_HT_CAP_SUP_WIDTH_20_40))
- 				rate->flags |= IEEE80211_TX_RC_40_MHZ_WIDTH;
-+			if (sta && (sta->vht_cap.vht_supported))
-+				rate->flags |= IEEE80211_TX_RC_80_MHZ_WIDTH;
- 		} else {
- 			if (mac->bw_40)
- 				rate->flags |= IEEE80211_TX_RC_40_MHZ_WIDTH;
-+			if (mac->bw_80)
-+				rate->flags |= IEEE80211_TX_RC_80_MHZ_WIDTH;
- 		}
--		if (sgi_20 || sgi_40)
-+
-+		if (sgi_20 || sgi_40 || sgi_80)
- 			rate->flags |= IEEE80211_TX_RC_SHORT_GI;
--		if (sta && sta->ht_cap.ht_supported)
-+		if (sta && sta->ht_cap.ht_supported &&
-+		    ((wireless_mode == WIRELESS_MODE_N_5G) ||
-+		     (wireless_mode == WIRELESS_MODE_N_24G)))
- 			rate->flags |= IEEE80211_TX_RC_MCS;
- 	}
- }
- 
- static void rtl_get_rate(void *ppriv, struct ieee80211_sta *sta,
--			 void *priv_sta, struct ieee80211_tx_rate_control *txrc)
-+			 void *priv_sta,
-+			 struct ieee80211_tx_rate_control *txrc)
- {
- 	struct rtl_priv *rtlpriv = ppriv;
- 	struct sk_buff *skb = txrc->skb;
-@@ -158,7 +169,7 @@ static void rtl_get_rate(void *ppriv, struct ieee80211_sta *sta,
- }
- 
- static bool _rtl_tx_aggr_check(struct rtl_priv *rtlpriv,
--		struct rtl_sta_info *sta_entry, u16 tid)
-+			       struct rtl_sta_info *sta_entry, u16 tid)
- {
- 	struct rtl_mac *mac = rtl_mac(rtlpriv);
- 
-@@ -166,7 +177,7 @@ static bool _rtl_tx_aggr_check(struct rtl_priv *rtlpriv,
- 		return false;
- 
- 	if (mac->opmode == NL80211_IFTYPE_STATION &&
--		mac->cnt_after_linked < 3)
-+	    mac->cnt_after_linked < 3)
- 		return false;
- 
- 	if (sta_entry->tids[tid].agg.agg_state == RTL_AGG_STOP)
-@@ -193,23 +204,23 @@ static void rtl_tx_status(void *ppriv,
- 	if (rtl_is_special_data(mac->hw, skb, true))
- 		return;
- 
--	if (is_multicast_ether_addr(ieee80211_get_DA(hdr))
--	    || is_broadcast_ether_addr(ieee80211_get_DA(hdr)))
-+	if (is_multicast_ether_addr(ieee80211_get_DA(hdr)) ||
-+	    is_broadcast_ether_addr(ieee80211_get_DA(hdr)))
- 		return;
- 
- 	if (sta) {
- 		/* Check if aggregation has to be enabled for this tid */
- 		sta_entry = (struct rtl_sta_info *) sta->drv_priv;
- 		if ((sta->ht_cap.ht_supported) &&
--				!(skb->protocol == cpu_to_be16(ETH_P_PAE))) {
-+		    !(skb->protocol == cpu_to_be16(ETH_P_PAE))) {
- 			if (ieee80211_is_data_qos(fc)) {
- 				u8 tid = rtl_get_tid(skb);
- 				if (_rtl_tx_aggr_check(rtlpriv, sta_entry,
--				    tid)) {
-+						       tid)) {
- 					sta_entry->tids[tid].agg.agg_state =
--							 RTL_AGG_PROGRESS;
--					ieee80211_start_tx_ba_session(sta,
--								 tid, 5000);
-+						RTL_AGG_PROGRESS;
-+					ieee80211_start_tx_ba_session(sta, tid,
-+								      5000);
- 				}
- 			}
- 		}
-@@ -223,8 +234,15 @@ static void rtl_rate_init(void *ppriv,
- {
- }
- 
--static void *rtl_rate_alloc(struct ieee80211_hw *hw,
--		struct dentry *debugfsdir)
-+static void rtl_rate_update(void *ppriv,
-+			    struct ieee80211_supported_band *sband,
-+			    struct cfg80211_chan_def *chandef,
-+			    struct ieee80211_sta *sta, void *priv_sta,
-+			    u32 changed)
-+{
-+}
-+
-+static void *rtl_rate_alloc(struct ieee80211_hw *hw, struct dentry *debugfsdir)
- {
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
- 	return rtlpriv;
-@@ -260,13 +278,14 @@ static void rtl_rate_free_sta(void *rtlpriv,
- 	kfree(rate_priv);
- }
- 
--static const struct rate_control_ops rtl_rate_ops = {
-+static struct rate_control_ops rtl_rate_ops = {
- 	.name = "rtl_rc",
- 	.alloc = rtl_rate_alloc,
- 	.free = rtl_rate_free,
- 	.alloc_sta = rtl_rate_alloc_sta,
- 	.free_sta = rtl_rate_free_sta,
- 	.rate_init = rtl_rate_init,
-+	.rate_update = rtl_rate_update,
- 	.tx_status = rtl_tx_status,
- 	.get_rate = rtl_get_rate,
- };
-@@ -280,3 +299,4 @@ void rtl_rate_control_unregister(void)
- {
- 	ieee80211_rate_control_unregister(&rtl_rate_ops);
- }
-+
-diff --git a/drivers/net/wireless/rtlwifi/rc.h b/drivers/net/wireless/rtlwifi/rc.h
-index 4d61761..f29643d 100644
---- a/drivers/net/wireless/rtlwifi/rc.h
-+++ b/drivers/net/wireless/rtlwifi/rc.h
-@@ -11,10 +11,6 @@
-  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-  * more details.
-  *
-- * You should have received a copy of the GNU General Public License along with
-- * this program; if not, write to the Free Software Foundation, Inc.,
-- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-- *
-  * The full GNU General Public License is included in this distribution in the
-  * file called LICENSE.
-  *
-@@ -38,10 +34,15 @@
- #define N_MODE_MCS7_RIX 7
- #define N_MODE_MCS15_RIX 15
- 
-+#define AC_MODE_MCS7_RIX 7
-+#define AC_MODE_MCS8_RIX 8
-+#define AC_MODE_MCS9_RIX 9
-+
- struct rtl_rate_priv {
- 	u8 ht_cap;
- };
- 
- int rtl_rate_control_register(void);
- void rtl_rate_control_unregister(void);
-+
- #endif
-diff --git a/drivers/net/wireless/rtlwifi/regd.c b/drivers/net/wireless/rtlwifi/regd.c
-index a4eb9b2..aca003a 100644
---- a/drivers/net/wireless/rtlwifi/regd.c
-+++ b/drivers/net/wireless/rtlwifi/regd.c
-@@ -11,10 +11,6 @@
-  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-  * more details.
-  *
-- * You should have received a copy of the GNU General Public License along with
-- * this program; if not, write to the Free Software Foundation, Inc.,
-- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-- *
-  * The full GNU General Public License is included in this distribution in the
-  * file called LICENSE.
-  *
-@@ -59,26 +55,23 @@ static struct country_code_to_enum_rd allCountries[] = {
-  */
- #define RTL819x_2GHZ_CH12_13	\
- 	REG_RULE(2467-10, 2472+10, 40, 0, 20,\
--		 NL80211_RRF_NO_IR)
-+	NL80211_RRF_PASSIVE_SCAN)
- 
- #define RTL819x_2GHZ_CH14	\
- 	REG_RULE(2484-10, 2484+10, 40, 0, 20, \
--		 NL80211_RRF_NO_IR | NL80211_RRF_NO_OFDM)
-+	NL80211_RRF_PASSIVE_SCAN | \
-+	NL80211_RRF_NO_OFDM)
-+
- 
- /* 5G chan 36 - chan 64*/
- #define RTL819x_5GHZ_5150_5350	\
--	REG_RULE(5150-10, 5350+10, 40, 0, 30, \
--		 NL80211_RRF_NO_IR)
--
-+	REG_RULE(5150-10, 5350+10, 80, 0, 30, 0)
- /* 5G chan 100 - chan 165*/
- #define RTL819x_5GHZ_5470_5850	\
--	REG_RULE(5470-10, 5850+10, 40, 0, 30, \
--		 NL80211_RRF_NO_IR)
--
-+	REG_RULE(5470-10, 5850+10, 80, 0, 30, 0)
- /* 5G chan 149 - chan 165*/
- #define RTL819x_5GHZ_5725_5850	\
--	REG_RULE(5725-10, 5850+10, 40, 0, 30, \
--		 NL80211_RRF_NO_IR)
-+	REG_RULE(5725-10, 5850+10, 80, 0, 30, 0)
- 
- #define RTL819x_5GHZ_ALL	\
- 	(RTL819x_5GHZ_5150_5350, RTL819x_5GHZ_5470_5850)
-@@ -143,7 +136,7 @@ static const struct ieee80211_regdomain rtl_regdom_14 = {
- 
- static bool _rtl_is_radar_freq(u16 center_freq)
- {
--	return (center_freq >= 5260 && center_freq <= 5700);
-+	return center_freq >= 5260 && center_freq <= 5700;
- }
- 
- static void _rtl_reg_apply_beaconing_flags(struct wiphy *wiphy,
-@@ -169,10 +162,9 @@ static void _rtl_reg_apply_beaconing_flags(struct wiphy *wiphy,
- 				continue;
- 			if (initiator == NL80211_REGDOM_SET_BY_COUNTRY_IE) {
- 				reg_rule = freq_reg_info(wiphy,
--							 MHZ_TO_KHZ(ch->center_freq));
-+							 ch->center_freq);
- 				if (IS_ERR(reg_rule))
- 					continue;
--
- 				/*
- 				 *If 11d had a rule for this channel ensure
- 				 *we enable adhoc/beaconing if it allows us to
-@@ -182,11 +174,16 @@ static void _rtl_reg_apply_beaconing_flags(struct wiphy *wiphy,
- 				 *regulatory_hint().
- 				 */
- 
--				if (!(reg_rule->flags & NL80211_RRF_NO_IR))
--					ch->flags &= ~IEEE80211_CHAN_NO_IR;
-+				if (!(reg_rule->flags & NL80211_RRF_NO_IBSS))
-+					ch->flags &= ~IEEE80211_CHAN_NO_IBSS;
-+				if (!(reg_rule->flags &
-+				      NL80211_RRF_PASSIVE_SCAN))
-+					ch->flags &=
-+					    ~IEEE80211_CHAN_PASSIVE_SCAN;
- 			} else {
- 				if (ch->beacon_found)
--					ch->flags &= ~IEEE80211_CHAN_NO_IR;
-+					ch->flags &= ~(IEEE80211_CHAN_NO_IBSS |
-+						   IEEE80211_CHAN_PASSIVE_SCAN);
- 			}
- 		}
- 	}
-@@ -211,35 +208,35 @@ static void _rtl_reg_apply_active_scan_flags(struct wiphy *wiphy,
- 	 */
- 	if (initiator != NL80211_REGDOM_SET_BY_COUNTRY_IE) {
- 		ch = &sband->channels[11];	/* CH 12 */
--		if (ch->flags & IEEE80211_CHAN_NO_IR)
--			ch->flags &= ~IEEE80211_CHAN_NO_IR;
-+		if (ch->flags & IEEE80211_CHAN_PASSIVE_SCAN)
-+			ch->flags &= ~IEEE80211_CHAN_PASSIVE_SCAN;
- 		ch = &sband->channels[12];	/* CH 13 */
--		if (ch->flags & IEEE80211_CHAN_NO_IR)
--			ch->flags &= ~IEEE80211_CHAN_NO_IR;
-+		if (ch->flags & IEEE80211_CHAN_PASSIVE_SCAN)
-+			ch->flags &= ~IEEE80211_CHAN_PASSIVE_SCAN;
- 		return;
  	}
  
- 	/*
--	 *If a country IE has been received check its rule for this
-+	 *If a country IE has been recieved check its rule for this
- 	 *channel first before enabling active scan. The passive scan
- 	 *would have been enforced by the initial processing of our
- 	 *custom regulatory domain.
- 	 */
- 
- 	ch = &sband->channels[11];	/* CH 12 */
--	reg_rule = freq_reg_info(wiphy, MHZ_TO_KHZ(ch->center_freq));
-+	reg_rule = freq_reg_info(wiphy, ch->center_freq);
- 	if (!IS_ERR(reg_rule)) {
--		if (!(reg_rule->flags & NL80211_RRF_NO_IR))
--			if (ch->flags & IEEE80211_CHAN_NO_IR)
--				ch->flags &= ~IEEE80211_CHAN_NO_IR;
-+		if (!(reg_rule->flags & NL80211_RRF_PASSIVE_SCAN))
-+			if (ch->flags & IEEE80211_CHAN_PASSIVE_SCAN)
-+				ch->flags &= ~IEEE80211_CHAN_PASSIVE_SCAN;
- 	}
- 
- 	ch = &sband->channels[12];	/* CH 13 */
--	reg_rule = freq_reg_info(wiphy, MHZ_TO_KHZ(ch->center_freq));
-+	reg_rule = freq_reg_info(wiphy, ch->center_freq);
- 	if (!IS_ERR(reg_rule)) {
--		if (!(reg_rule->flags & NL80211_RRF_NO_IR))
--			if (ch->flags & IEEE80211_CHAN_NO_IR)
--				ch->flags &= ~IEEE80211_CHAN_NO_IR;
-+		if (!(reg_rule->flags & NL80211_RRF_PASSIVE_SCAN))
-+			if (ch->flags & IEEE80211_CHAN_PASSIVE_SCAN)
-+				ch->flags &= ~IEEE80211_CHAN_PASSIVE_SCAN;
- 	}
- }
- 
-@@ -276,7 +273,8 @@ static void _rtl_reg_apply_radar_flags(struct wiphy *wiphy)
- 		 */
- 		if (!(ch->flags & IEEE80211_CHAN_DISABLED))
- 			ch->flags |= IEEE80211_CHAN_RADAR |
--				     IEEE80211_CHAN_NO_IR;
-+			    IEEE80211_CHAN_NO_IBSS |
-+			    IEEE80211_CHAN_PASSIVE_SCAN;
- 	}
- }
- 
-@@ -289,9 +287,25 @@ static void _rtl_reg_apply_world_flags(struct wiphy *wiphy,
- 	return;
- }
- 
--static void _rtl_reg_notifier_apply(struct wiphy *wiphy,
--				    struct regulatory_request *request,
--				    struct rtl_regulatory *reg)
-+static void _rtl_dump_channel_map(struct wiphy *wiphy)
-+{
-+	enum ieee80211_band band;
-+	struct ieee80211_supported_band *sband;
-+	struct ieee80211_channel *ch;
-+	unsigned int i;
-+
-+	for (band = 0; band < IEEE80211_NUM_BANDS; band++) {
-+		if (!wiphy->bands[band])
-+			continue;
-+		sband = wiphy->bands[band];
-+		for (i = 0; i < sband->n_channels; i++)
-+			ch = &sband->channels[i];
-+	}
-+}
-+
-+static int _rtl_reg_notifier_apply(struct wiphy *wiphy,
-+				   struct regulatory_request *request,
-+				   struct rtl_regulatory *reg)
- {
- 	/* We always apply this */
- 	_rtl_reg_apply_radar_flags(wiphy);
-@@ -305,10 +319,14 @@ static void _rtl_reg_notifier_apply(struct wiphy *wiphy,
- 		_rtl_reg_apply_world_flags(wiphy, request->initiator, reg);
- 		break;
- 	}
-+
-+	_rtl_dump_channel_map(wiphy);
-+
-+	return 0;
- }
- 
- static const struct ieee80211_regdomain *_rtl_regdomain_select(
--					       struct rtl_regulatory *reg)
-+						struct rtl_regulatory *reg)
- {
- 	switch (reg->country_code) {
- 	case COUNTRY_CODE_FCC:
-@@ -337,9 +355,9 @@ static const struct ieee80211_regdomain *_rtl_regdomain_select(
- 
- static int _rtl_regd_init_wiphy(struct rtl_regulatory *reg,
- 				struct wiphy *wiphy,
--				void (*reg_notifier) (struct wiphy *wiphy,
--						      struct regulatory_request *
--						      request))
-+				void (*reg_notifier)(struct wiphy *wiphy,
-+						     struct regulatory_request *
-+						     request))
- {
- 	const struct ieee80211_regdomain *regd;
- 
-@@ -348,7 +366,6 @@ static int _rtl_regd_init_wiphy(struct rtl_regulatory *reg,
- 	wiphy->regulatory_flags |= REGULATORY_CUSTOM_REG;
- 	wiphy->regulatory_flags &= ~REGULATORY_STRICT_REG;
- 	wiphy->regulatory_flags &= ~REGULATORY_DISABLE_BEACON_HINTS;
--
- 	regd = _rtl_regdomain_select(reg);
- 	wiphy_apply_custom_regulatory(wiphy, regd);
- 	_rtl_reg_apply_radar_flags(wiphy);
-@@ -368,7 +385,7 @@ static struct country_code_to_enum_rd *_rtl_regd_find_country(u16 countrycode)
- }
- 
- int rtl_regd_init(struct ieee80211_hw *hw,
--		  void (*reg_notifier) (struct wiphy *wiphy,
-+		  void (*reg_notifier)(struct wiphy *wiphy,
- 				       struct regulatory_request *request))
- {
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
-@@ -382,7 +399,8 @@ int rtl_regd_init(struct ieee80211_hw *hw,
- 	rtlpriv->regd.country_code = rtlpriv->efuse.channel_plan;
- 
- 	RT_TRACE(rtlpriv, COMP_REGD, DBG_TRACE,
--		 "rtl: EEPROM regdomain: 0x%0x\n", rtlpriv->regd.country_code);
-+		 "rtl: EEPROM regdomain: 0x%0x\n",
-+		  rtlpriv->regd.country_code);
- 
- 	if (rtlpriv->regd.country_code >= COUNTRY_CODE_MAX) {
- 		RT_TRACE(rtlpriv, COMP_REGD, DBG_DMESG,
-@@ -403,7 +421,7 @@ int rtl_regd_init(struct ieee80211_hw *hw,
- 
- 	RT_TRACE(rtlpriv, COMP_REGD, DBG_TRACE,
- 		 "rtl: Country alpha2 being used: %c%c\n",
--		 rtlpriv->regd.alpha2[0], rtlpriv->regd.alpha2[1]);
-+		  rtlpriv->regd.alpha2[0], rtlpriv->regd.alpha2[1]);
- 
- 	_rtl_regd_init_wiphy(&rtlpriv->regd, wiphy, reg_notifier);
- 
-@@ -419,3 +437,4 @@ void rtl_reg_notifier(struct wiphy *wiphy, struct regulatory_request *request)
- 
- 	_rtl_reg_notifier_apply(wiphy, request, &rtlpriv->regd);
- }
-+
-diff --git a/drivers/net/wireless/rtlwifi/regd.h b/drivers/net/wireless/rtlwifi/regd.h
-index 4e1f4f00..3bbbaaa 100644
---- a/drivers/net/wireless/rtlwifi/regd.h
-+++ b/drivers/net/wireless/rtlwifi/regd.h
-@@ -11,10 +11,6 @@
-  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-  * more details.
-  *
-- * You should have received a copy of the GNU General Public License along with
-- * this program; if not, write to the Free Software Foundation, Inc.,
-- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-- *
-  * The full GNU General Public License is included in this distribution in the
-  * file called LICENSE.
-  *
-@@ -30,6 +26,10 @@
- #ifndef __RTL_REGD_H__
- #define __RTL_REGD_H__
- 
-+/* for kernel 3.14 , both value are changed to IEEE80211_CHAN_NO_IR*/
-+#define IEEE80211_CHAN_NO_IBSS IEEE80211_CHAN_NO_IR
-+#define IEEE80211_CHAN_PASSIVE_SCAN IEEE80211_CHAN_NO_IR
-+
- struct country_code_to_enum_rd {
- 	u16 countrycode;
- 	const char *iso_name;
-@@ -56,6 +56,7 @@ enum country_code_type_t {
- 
- int rtl_regd_init(struct ieee80211_hw *hw,
- 		  void (*reg_notifier) (struct wiphy *wiphy,
--					struct regulatory_request *request));
-+		  struct regulatory_request *request));
- void rtl_reg_notifier(struct wiphy *wiphy, struct regulatory_request *request);
-+
- #endif
-diff --git a/drivers/net/wireless/rtlwifi/stats.c b/drivers/net/wireless/rtlwifi/stats.c
-index 4f083fc..6541683 100644
---- a/drivers/net/wireless/rtlwifi/stats.c
-+++ b/drivers/net/wireless/rtlwifi/stats.c
-@@ -11,10 +11,6 @@
-  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-  * more details.
-  *
-- * You should have received a copy of the GNU General Public License along with
-- * this program; if not, write to the Free Software Foundation, Inc.,
-- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-- *
-  * The full GNU General Public License is included in this distribution in the
-  * file called LICENSE.
-  *
-@@ -59,8 +55,23 @@ u8 rtl_evm_db_to_percentage(char value)
- }
- EXPORT_SYMBOL(rtl_evm_db_to_percentage);
- 
-+u8 rtl_evm_dbm_jaguar(char value)
-+{
-+	char ret_val = value;
-+
-+	/* -33dB~0dB to 33dB ~ 0dB*/
-+	if (ret_val == -128)
-+		ret_val = 127;
-+	else if (ret_val < 0)
-+		ret_val = 0 - ret_val;
-+
-+	ret_val  = ret_val >> 1;
-+	return ret_val;
-+}
-+EXPORT_SYMBOL(rtl_evm_dbm_jaguar);
-+
- static long rtl_translate_todbm(struct ieee80211_hw *hw,
--				u8 signal_strength_index)
-+			 u8 signal_strength_index)
- {
- 	long signal_power;
- 
-@@ -106,6 +117,10 @@ static void rtl_process_ui_rssi(struct ieee80211_hw *hw,
- 	u8 rfpath;
- 	u32 last_rssi, tmpval;
- 
-+	if (!pstatus->packet_toself && !pstatus->packet_beacon)
-+		return;
-+
-+	rtlpriv->stats.pwdb_all_cnt += pstatus->rx_pwdb_all;
- 	rtlpriv->stats.rssi_calculate_cnt++;
- 
- 	if (rtlpriv->stats.ui_rssi.total_num++ >= PHY_RSSI_SLID_WIN_MAX) {
-@@ -151,6 +166,12 @@ static void rtl_process_ui_rssi(struct ieee80211_hw *hw,
- 			     (pstatus->rx_mimo_signalstrength[rfpath])) /
- 			    (RX_SMOOTH_FACTOR);
- 		}
-+		rtlpriv->stats.rx_snr_db[rfpath] = pstatus->rx_snr[rfpath];
-+		rtlpriv->stats.rx_evm_dbm[rfpath] =
-+					pstatus->rx_mimo_evm_dbm[rfpath];
-+		rtlpriv->stats.rx_cfo_short[rfpath] =
-+					pstatus->cfo_short[rfpath];
-+		rtlpriv->stats.rx_cfo_tail[rfpath] = pstatus->cfo_tail[rfpath];
- 	}
- }
- 
-@@ -176,7 +197,6 @@ static void rtl_process_pwdb(struct ieee80211_hw *hw, struct rtl_stats *pstatus)
- 	struct rtl_sta_info *drv_priv = NULL;
- 	struct ieee80211_sta *sta = NULL;
- 	long undec_sm_pwdb;
--	long undec_sm_cck;
- 
- 	rcu_read_lock();
- 	if (rtlpriv->mac80211.opmode != NL80211_IFTYPE_STATION)
-@@ -186,33 +206,21 @@ static void rtl_process_pwdb(struct ieee80211_hw *hw, struct rtl_stats *pstatus)
- 	if (sta) {
- 		drv_priv = (struct rtl_sta_info *) sta->drv_priv;
- 		undec_sm_pwdb = drv_priv->rssi_stat.undec_sm_pwdb;
--		undec_sm_cck = drv_priv->rssi_stat.undec_sm_cck;
- 	} else {
- 		undec_sm_pwdb = rtlpriv->dm.undec_sm_pwdb;
--		undec_sm_cck = rtlpriv->dm.undec_sm_cck;
- 	}
- 
- 	if (undec_sm_pwdb < 0)
- 		undec_sm_pwdb = pstatus->rx_pwdb_all;
--	if (undec_sm_cck < 0)
--		undec_sm_cck = pstatus->rx_pwdb_all;
- 	if (pstatus->rx_pwdb_all > (u32) undec_sm_pwdb) {
- 		undec_sm_pwdb = (((undec_sm_pwdb) *
- 		      (RX_SMOOTH_FACTOR - 1)) +
- 		     (pstatus->rx_pwdb_all)) / (RX_SMOOTH_FACTOR);
- 		undec_sm_pwdb = undec_sm_pwdb + 1;
- 	} else {
--		undec_sm_pwdb = (((undec_sm_pwdb) * (RX_SMOOTH_FACTOR - 1)) +
--		     (pstatus->rx_pwdb_all)) / (RX_SMOOTH_FACTOR);
--	}
--	if (pstatus->rx_pwdb_all > (u32) undec_sm_cck) {
--		undec_sm_cck = (((undec_sm_pwdb) *
-+		undec_sm_pwdb = (((undec_sm_pwdb) *
- 		      (RX_SMOOTH_FACTOR - 1)) +
- 		     (pstatus->rx_pwdb_all)) / (RX_SMOOTH_FACTOR);
--		undec_sm_cck = undec_sm_cck + 1;
+-	if (ul_default_key == 1) {
++	if (ul_default_key == 1)
+ 		us_config = CFG_VALID | ((u16) (ul_enc_alg) << 2);
 -	} else {
--		undec_sm_pwdb = (((undec_sm_cck) * (RX_SMOOTH_FACTOR - 1)) +
--		     (pstatus->rx_pwdb_all)) / (RX_SMOOTH_FACTOR);
++	else
+ 		us_config = CFG_VALID | ((ul_enc_alg) << 2) | ul_key_id;
+-	}
+ 
+ 	rtl_cam_program_entry(hw, ul_entry_idx, mac_addr,
+-			      key_content, us_config);
++			      (u8 *)key_content, us_config);
+ 
+-	RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG, "<===\n");
++	RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG, "end\n");
+ 
+ 	return 1;
+ 
+@@ -289,7 +285,8 @@ u8 rtl_cam_get_free_entry(struct ieee80211_hw *hw, u8 *sta_addr)
+ 	u8 i, *addr;
+ 
+ 	if (NULL == sta_addr) {
+-		RT_TRACE(rtlpriv, COMP_SEC, DBG_EMERG, "sta_addr is NULL\n");
++		RT_TRACE(rtlpriv, COMP_SEC, DBG_EMERG,
++			 "sta_addr is NULL.\n");
+ 		return TOTAL_CAM_ENTRY;
+ 	}
+ 	/* Does STA already exist? */
+@@ -322,7 +319,9 @@ void rtl_cam_del_entry(struct ieee80211_hw *hw, u8 *sta_addr)
+ 	u8 i, *addr;
+ 
+ 	if (NULL == sta_addr) {
+-		RT_TRACE(rtlpriv, COMP_SEC, DBG_EMERG, "sta_addr is NULL\n");
++		RT_TRACE(rtlpriv, COMP_SEC, DBG_EMERG,
++			 "sta_addr is NULL.\n");
++		return;
  	}
  
- 	if (sta) {
-@@ -245,7 +253,7 @@ static void rtl_process_ui_link_quality(struct ieee80211_hw *hw,
- 	rtlpriv->stats.ui_link_quality.total_val += pstatus->signalquality;
- 	rtlpriv->stats.ui_link_quality.elements[
- 		rtlpriv->stats.ui_link_quality.index++] =
--						 pstatus->signalquality;
-+							pstatus->signalquality;
- 	if (rtlpriv->stats.ui_link_quality.index >=
- 	    PHY_LINKQUALITY_SLID_WIN_MAX)
- 		rtlpriv->stats.ui_link_quality.index = 0;
-@@ -269,7 +277,7 @@ static void rtl_process_ui_link_quality(struct ieee80211_hw *hw,
- }
- 
- void rtl_process_phyinfo(struct ieee80211_hw *hw, u8 *buffer,
--	struct rtl_stats *pstatus)
-+			 struct rtl_stats *pstatus)
- {
- 
- 	if (!pstatus->packet_matchbssid)
-@@ -280,3 +288,4 @@ void rtl_process_phyinfo(struct ieee80211_hw *hw, u8 *buffer,
- 	rtl_process_ui_link_quality(hw, pstatus);
- }
- EXPORT_SYMBOL(rtl_process_phyinfo);
-+
-diff --git a/drivers/net/wireless/rtlwifi/stats.h b/drivers/net/wireless/rtlwifi/stats.h
-index 0dbdc52..6d0cbaa 100644
---- a/drivers/net/wireless/rtlwifi/stats.h
-+++ b/drivers/net/wireless/rtlwifi/stats.h
+ 	if (is_zero_ether_addr(sta_addr)) {
+@@ -339,8 +338,8 @@ void rtl_cam_del_entry(struct ieee80211_hw *hw, u8 *sta_addr)
+ 			/* Remove from HW Security CAM */
+ 			eth_zero_addr(rtlpriv->sec.hwsec_cam_sta_addr[i]);
+ 			rtlpriv->sec.hwsec_cam_bitmap &= ~(BIT(0) << i);
+-			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
+-				 "del CAM entry %d\n", i);
++			RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG,
++				 "&&&&&&&&&del entry %d\n", i);
+ 		}
+ 	}
+ 	return;
+diff --git a/drivers/net/wireless/rtlwifi/cam.h b/drivers/net/wireless/rtlwifi/cam.h
+index 0105e6c..3550808 100644
+--- a/drivers/net/wireless/rtlwifi/cam.h
++++ b/drivers/net/wireless/rtlwifi/cam.h
 @@ -11,10 +11,6 @@
   * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
   * more details.
@@ -778,45 +196,638 @@ index 0dbdc52..6d0cbaa 100644
   * The full GNU General Public License is included in this distribution in the
   * file called LICENSE.
   *
-@@ -39,8 +35,10 @@
+@@ -36,15 +32,15 @@
+ #define CFG_VALID					BIT(15)
  
- u8 rtl_query_rxpwrpercentage(char antpower);
- u8 rtl_evm_db_to_percentage(char value);
-+u8 rtl_evm_dbm_jaguar(char value);
- long rtl_signal_scale_mapping(struct ieee80211_hw *hw, long currsig);
- void rtl_process_phyinfo(struct ieee80211_hw *hw, u8 *buffer,
--	struct rtl_stats *pstatus);
-+			 struct rtl_stats *pstatus);
+ #define PAIRWISE_KEYIDX					0
+-#define CAM_PAIRWISE_KEY_POSITION		4
++#define CAM_PAIRWISE_KEY_POSITION			4
  
- #endif
+ #define	CAM_CONFIG_USEDK				1
+ #define	CAM_CONFIG_NO_USEDK				0
+ 
+ void rtl_cam_reset_all_entry(struct ieee80211_hw *hw);
+ u8 rtl_cam_add_one_entry(struct ieee80211_hw *hw, u8 *mac_addr,
+-			 u32 ul_key_id, u32 ul_entry_idx, u32 ul_enc_alg,
+-			 u32 ul_default_key, u8 *key_content);
++				u32 ul_key_id, u32 ul_entry_idx, u32 ul_enc_alg,
++				u32 ul_default_key, u8 *key_content);
+ int rtl_cam_delete_one_entry(struct ieee80211_hw *hw, u8 *mac_addr,
+ 			     u32 ul_key_id);
+ void rtl_cam_mark_invalid(struct ieee80211_hw *hw, u8 uc_index);
+diff --git a/drivers/net/wireless/rtlwifi/efuse.c b/drivers/net/wireless/rtlwifi/efuse.c
+index 2ffc729..118293b 100644
+--- a/drivers/net/wireless/rtlwifi/efuse.c
++++ b/drivers/net/wireless/rtlwifi/efuse.c
+@@ -11,10 +11,6 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * tmis program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
+- *
+  * Tme full GNU General Public License is included in this distribution in the
+  * file called LICENSE.
+  *
+@@ -26,10 +22,9 @@
+  * Larry Finger <Larry.Finger@lwfinger.net>
+  *
+  *****************************************************************************/
+-
+-#include <linux/export.h>
+ #include "wifi.h"
+ #include "efuse.h"
++#include <linux/export.h>
+ 
+ static const u8 MAX_PGPKT_SIZE = 9;
+ static const u8 PGPKT_DATA_SIZE = 8;
+@@ -63,21 +58,19 @@ static void efuse_shadow_write_2byte(struct ieee80211_hw *hw, u16 offset,
+ 				     u16 value);
+ static void efuse_shadow_write_4byte(struct ieee80211_hw *hw, u16 offset,
+ 				     u32 value);
+-static int efuse_one_byte_read(struct ieee80211_hw *hw, u16 addr,
+-					u8 *data);
+ static int efuse_one_byte_write(struct ieee80211_hw *hw, u16 addr,
+-					u8 data);
++				u8 data);
+ static void efuse_read_all_map(struct ieee80211_hw *hw, u8 *efuse);
+ static int efuse_pg_packet_read(struct ieee80211_hw *hw, u8 offset,
+-					u8 *data);
++				u8 *data);
+ static int efuse_pg_packet_write(struct ieee80211_hw *hw, u8 offset,
+ 				 u8 word_en, u8 *data);
+ static void efuse_word_enable_data_read(u8 word_en, u8 *sourdata,
+ 					u8 *targetdata);
+-static u8 efuse_word_enable_data_write(struct ieee80211_hw *hw,
+-				       u16 efuse_addr, u8 word_en, u8 *data);
++static u8 enable_efuse_data_write(struct ieee80211_hw *hw,
++				  u16 efuse_addr, u8 word_en, u8 *data);
+ static void efuse_power_switch(struct ieee80211_hw *hw, u8 write,
+-					u8 pwrstate);
++			       u8 pwrstate);
+ static u16 efuse_get_current_size(struct ieee80211_hw *hw);
+ static u8 efuse_calculate_word_cnts(u8 word_en);
+ 
+@@ -413,8 +406,7 @@ bool efuse_shadow_update_chk(struct ieee80211_hw *hw)
+ 	efuse_used = rtlefuse->efuse_usedbytes;
+ 
+ 	if ((totalbytes + efuse_used) >=
+-	    (EFUSE_MAX_SIZE -
+-	     rtlpriv->cfg->maps[EFUSE_OOB_PROTECT_BYTES_LEN]))
++	    (EFUSE_MAX_SIZE - rtlpriv->cfg->maps[EFUSE_OOB_PROTECT_BYTES_LEN]))
+ 		result = false;
+ 
+ 	RT_TRACE(rtlpriv, COMP_EFUSE, DBG_LOUD,
+@@ -428,13 +420,14 @@ void efuse_shadow_read(struct ieee80211_hw *hw, u8 type,
+ 		       u16 offset, u32 *value)
+ {
+ 	if (type == 1)
+-		efuse_shadow_read_1byte(hw, offset, (u8 *) value);
++		efuse_shadow_read_1byte(hw, offset, (u8 *)value);
+ 	else if (type == 2)
+-		efuse_shadow_read_2byte(hw, offset, (u16 *) value);
++		efuse_shadow_read_2byte(hw, offset, (u16 *)value);
+ 	else if (type == 4)
+ 		efuse_shadow_read_4byte(hw, offset, value);
+ 
+ }
++EXPORT_SYMBOL(efuse_shadow_read);
+ 
+ void efuse_shadow_write(struct ieee80211_hw *hw, u8 type, u16 offset,
+ 				u32 value)
+@@ -456,7 +449,7 @@ bool efuse_shadow_update(struct ieee80211_hw *hw)
+ 	u8 word_en = 0x0F;
+ 	u8 first_pg = false;
+ 
+-	RT_TRACE(rtlpriv, COMP_EFUSE, DBG_LOUD, "--->\n");
++	RT_TRACE(rtlpriv, COMP_EFUSE, DBG_LOUD, "\n");
+ 
+ 	if (!efuse_shadow_update_chk(hw)) {
+ 		efuse_read_all_map(hw, &rtlefuse->efuse_map[EFUSE_INIT_MAP][0]);
+@@ -465,7 +458,7 @@ bool efuse_shadow_update(struct ieee80211_hw *hw)
+ 		       rtlpriv->cfg->maps[EFUSE_HWSET_MAX_SIZE]);
+ 
+ 		RT_TRACE(rtlpriv, COMP_EFUSE, DBG_LOUD,
+-			 "<---efuse out of capacity!!\n");
++			 "efuse out of capacity!!\n");
+ 		return false;
+ 	}
+ 	efuse_power_switch(hw, true, true);
+@@ -477,7 +470,6 @@ bool efuse_shadow_update(struct ieee80211_hw *hw)
+ 
+ 		for (i = 0; i < 8; i++) {
+ 			if (first_pg) {
+-
+ 				word_en &= ~(BIT(i / 2));
+ 
+ 				rtlefuse->efuse_map[EFUSE_INIT_MAP][base + i] =
+@@ -500,7 +492,7 @@ bool efuse_shadow_update(struct ieee80211_hw *hw)
+ 			       &rtlefuse->efuse_map[EFUSE_MODIFY_MAP][base],
+ 			       8);
+ 			RT_PRINT_DATA(rtlpriv, COMP_INIT, DBG_LOUD,
+-				      "U-efuse", tmpdata, 8);
++				      "U-efuse\n", tmpdata, 8);
+ 
+ 			if (!efuse_pg_packet_write(hw, (u8) offset, word_en,
+ 						   tmpdata)) {
+@@ -519,7 +511,7 @@ bool efuse_shadow_update(struct ieee80211_hw *hw)
+ 	       &rtlefuse->efuse_map[EFUSE_INIT_MAP][0],
+ 	       rtlpriv->cfg->maps[EFUSE_HWSET_MAX_SIZE]);
+ 
+-	RT_TRACE(rtlpriv, COMP_EFUSE, DBG_LOUD, "<---\n");
++	RT_TRACE(rtlpriv, COMP_EFUSE, DBG_LOUD, "\n");
+ 	return true;
+ }
+ 
+@@ -529,14 +521,14 @@ void rtl_efuse_shadow_map_update(struct ieee80211_hw *hw)
+ 	struct rtl_efuse *rtlefuse = rtl_efuse(rtl_priv(hw));
+ 
+ 	if (rtlefuse->autoload_failflag)
+-		memset(&rtlefuse->efuse_map[EFUSE_INIT_MAP][0], 0xFF,
+-			rtlpriv->cfg->maps[EFUSE_HWSET_MAX_SIZE]);
++		memset((&rtlefuse->efuse_map[EFUSE_INIT_MAP][0]),
++		       0xFF, rtlpriv->cfg->maps[EFUSE_HWSET_MAX_SIZE]);
+ 	else
+ 		efuse_read_all_map(hw, &rtlefuse->efuse_map[EFUSE_INIT_MAP][0]);
+ 
+ 	memcpy(&rtlefuse->efuse_map[EFUSE_MODIFY_MAP][0],
+-	       &rtlefuse->efuse_map[EFUSE_INIT_MAP][0],
+-	       rtlpriv->cfg->maps[EFUSE_HWSET_MAX_SIZE]);
++			&rtlefuse->efuse_map[EFUSE_INIT_MAP][0],
++			rtlpriv->cfg->maps[EFUSE_HWSET_MAX_SIZE]);
+ 
+ }
+ EXPORT_SYMBOL(rtl_efuse_shadow_map_update);
+@@ -619,7 +611,7 @@ static void efuse_shadow_write_4byte(struct ieee80211_hw *hw,
+ 
+ }
+ 
+-static int efuse_one_byte_read(struct ieee80211_hw *hw, u16 addr, u8 *data)
++int efuse_one_byte_read(struct ieee80211_hw *hw, u16 addr, u8 *data)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	u8 tmpidx = 0;
+@@ -650,14 +642,15 @@ static int efuse_one_byte_read(struct ieee80211_hw *hw, u16 addr, u8 *data)
+ 	}
+ 	return result;
+ }
++EXPORT_SYMBOL(efuse_one_byte_read);
+ 
+ static int efuse_one_byte_write(struct ieee80211_hw *hw, u16 addr, u8 data)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	u8 tmpidx = 0;
+ 
+-	RT_TRACE(rtlpriv, COMP_EFUSE, DBG_LOUD, "Addr = %x Data=%x\n",
+-		 addr, data);
++	RT_TRACE(rtlpriv, COMP_EFUSE, DBG_LOUD,
++		 "Addr = %x Data=%x\n", addr, data);
+ 
+ 	rtl_write_byte(rtlpriv,
+ 		       rtlpriv->cfg->maps[EFUSE_CTRL] + 1, (u8) (addr & 0xff));
+@@ -677,11 +670,10 @@ static int efuse_one_byte_write(struct ieee80211_hw *hw, u16 addr, u8 data)
+ 
+ 	if (tmpidx < 100)
+ 		return true;
+-
+ 	return false;
+ }
+ 
+-static void efuse_read_all_map(struct ieee80211_hw *hw, u8 * efuse)
++static void efuse_read_all_map(struct ieee80211_hw *hw, u8 *efuse)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	efuse_power_switch(hw, false, true);
+@@ -706,14 +698,14 @@ static void efuse_read_data_case1(struct ieee80211_hw *hw, u16 *efuse_addr,
+ 	if (hoffset == offset) {
+ 		for (tmpidx = 0; tmpidx < word_cnts * 2; tmpidx++) {
+ 			if (efuse_one_byte_read(hw, *efuse_addr + 1 + tmpidx,
+-			    &efuse_data)) {
++						&efuse_data)) {
+ 				tmpdata[tmpidx] = efuse_data;
+ 				if (efuse_data != 0xff)
+-					dataempty = true;
++					dataempty = false;
+ 			}
+ 		}
+ 
+-		if (dataempty) {
++		if (!dataempty) {
+ 			*readstate = PG_STATE_DATA;
+ 		} else {
+ 			*efuse_addr = *efuse_addr + (word_cnts * 2) + 1;
+@@ -729,7 +721,9 @@ static void efuse_read_data_case1(struct ieee80211_hw *hw, u16 *efuse_addr,
+ static int efuse_pg_packet_read(struct ieee80211_hw *hw, u8 offset, u8 *data)
+ {
+ 	u8 readstate = PG_STATE_HEADER;
 +
-diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
-index 1d58528..af7c6f2 100644
---- a/drivers/net/wireless/rtlwifi/wifi.h
-+++ b/drivers/net/wireless/rtlwifi/wifi.h
-@@ -951,6 +951,7 @@ struct wireless_stats {
- 	long last_sigstrength_inpercent;
- 
- 	u32 rssi_calculate_cnt;
-+	u32 pwdb_all_cnt;
- 
- 	/*Transformed, in dbm. Beautified signal
- 	   strength for UI, not correct. */
-@@ -1889,6 +1890,10 @@ struct rtl_stats {
- 	bool rx_is40Mhzpacket;
- 	u32 rx_pwdb_all;
- 	u8 rx_mimo_signalstrength[4];	/*in 0~100 index */
-+	u8 rx_mimo_evm_dbm[4];
-+	u16 cfo_short[4];		/* per-path's Cfo_short */
-+	u16 cfo_tail[4];
+ 	bool continual = true;
 +
- 	s8 rx_mimo_sig_qual[4];
- 	u8 rx_pwr[4]; /* per-path's pwdb */
- 	u8 rx_snr[4]; /* per-path's SNR */
+ 	u8 efuse_data, word_cnts = 0;
+ 	u16 efuse_addr = 0;
+ 	u8 tmpdata[8];
+@@ -747,9 +741,8 @@ static int efuse_pg_packet_read(struct ieee80211_hw *hw, u8 offset, u8 *data)
+ 			if (efuse_one_byte_read(hw, efuse_addr, &efuse_data)
+ 			    && (efuse_data != 0xFF))
+ 				efuse_read_data_case1(hw, &efuse_addr,
+-						      efuse_data,
+-						      offset, tmpdata,
+-						      &readstate);
++						      efuse_data, offset,
++						      tmpdata, &readstate);
+ 			else
+ 				continual = false;
+ 		} else if (readstate & PG_STATE_DATA) {
+@@ -771,13 +764,14 @@ static int efuse_pg_packet_read(struct ieee80211_hw *hw, u8 offset, u8 *data)
+ }
+ 
+ static void efuse_write_data_case1(struct ieee80211_hw *hw, u16 *efuse_addr,
+-			u8 efuse_data, u8 offset, int *continual,
+-			u8 *write_state, struct pgpkt_struct *target_pkt,
+-			int *repeat_times, int *result, u8 word_en)
++				   u8 efuse_data, u8 offset,
++				   int *continual, u8 *write_state,
++				   struct pgpkt_struct *target_pkt,
++				   int *repeat_times, int *result, u8 word_en)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct pgpkt_struct tmp_pkt;
+-	bool dataempty = true;
++	int dataempty = true;
+ 	u8 originaldata[8 * sizeof(u8)];
+ 	u8 badworden = 0x0F;
+ 	u8 match_word_en, tmp_word_en;
+@@ -794,9 +788,10 @@ static void efuse_write_data_case1(struct ieee80211_hw *hw, u16 *efuse_addr,
+ 		*write_state = PG_STATE_HEADER;
+ 	} else {
+ 		for (tmpindex = 0; tmpindex < (tmp_word_cnts * 2); tmpindex++) {
+-			u16 address = *efuse_addr + 1 + tmpindex;
+-			if (efuse_one_byte_read(hw, address,
+-			     &efuse_data) && (efuse_data != 0xFF))
++			if (efuse_one_byte_read(hw,
++						(*efuse_addr + 1 + tmpindex),
++						&efuse_data) &&
++			    (efuse_data != 0xFF))
+ 				dataempty = false;
+ 		}
+ 
+@@ -806,33 +801,34 @@ static void efuse_write_data_case1(struct ieee80211_hw *hw, u16 *efuse_addr,
+ 		} else {
+ 			match_word_en = 0x0F;
+ 			if (!((target_pkt->word_en & BIT(0)) |
+-			     (tmp_pkt.word_en & BIT(0))))
++			    (tmp_pkt.word_en & BIT(0))))
+ 				match_word_en &= (~BIT(0));
+ 
+ 			if (!((target_pkt->word_en & BIT(1)) |
+-			     (tmp_pkt.word_en & BIT(1))))
++			    (tmp_pkt.word_en & BIT(1))))
+ 				match_word_en &= (~BIT(1));
+ 
+ 			if (!((target_pkt->word_en & BIT(2)) |
+-			     (tmp_pkt.word_en & BIT(2))))
++			    (tmp_pkt.word_en & BIT(2))))
+ 				match_word_en &= (~BIT(2));
+ 
+ 			if (!((target_pkt->word_en & BIT(3)) |
+-			     (tmp_pkt.word_en & BIT(3))))
++			    (tmp_pkt.word_en & BIT(3))))
+ 				match_word_en &= (~BIT(3));
+ 
+ 			if ((match_word_en & 0x0F) != 0x0F) {
+-				badworden = efuse_word_enable_data_write(
+-							    hw, *efuse_addr + 1,
+-							    tmp_pkt.word_en,
+-							    target_pkt->data);
++				badworden =
++				  enable_efuse_data_write(hw,
++							  *efuse_addr + 1,
++							  tmp_pkt.word_en,
++							  target_pkt->data);
+ 
+-				if (0x0F != (badworden & 0x0F)) {
++				if (0x0F != (badworden & 0x0F))	{
+ 					u8 reorg_offset = offset;
+ 					u8 reorg_worden = badworden;
+ 					efuse_pg_packet_write(hw, reorg_offset,
+-							       reorg_worden,
+-							       originaldata);
++							      reorg_worden,
++							      originaldata);
+ 				}
+ 
+ 				tmp_word_en = 0x0F;
+@@ -845,11 +841,11 @@ static void efuse_write_data_case1(struct ieee80211_hw *hw, u16 *efuse_addr,
+ 					tmp_word_en &= (~BIT(1));
+ 
+ 				if ((target_pkt->word_en & BIT(2)) ^
+-				     (match_word_en & BIT(2)))
++				    (match_word_en & BIT(2)))
+ 					tmp_word_en &= (~BIT(2));
+ 
+ 				if ((target_pkt->word_en & BIT(3)) ^
+-				     (match_word_en & BIT(3)))
++				    (match_word_en & BIT(3)))
+ 					tmp_word_en &= (~BIT(3));
+ 
+ 				if ((tmp_word_en & 0x0F) != 0x0F) {
+@@ -873,7 +869,7 @@ static void efuse_write_data_case1(struct ieee80211_hw *hw, u16 *efuse_addr,
+ 			}
+ 		}
+ 	}
+-	RTPRINT(rtlpriv, FEEPROM, EFUSE_PG,  "efuse PG_STATE_HEADER-1\n");
++	RTPRINT(rtlpriv, FEEPROM, EFUSE_PG, "efuse PG_STATE_HEADER-1\n");
+ }
+ 
+ static void efuse_write_data_case2(struct ieee80211_hw *hw, u16 *efuse_addr,
+@@ -908,12 +904,13 @@ static void efuse_write_data_case2(struct ieee80211_hw *hw, u16 *efuse_addr,
+ 
+ 		tmp_word_cnts = efuse_calculate_word_cnts(tmp_pkt.word_en);
+ 
+-		memset(originaldata, 0xff, 8 * sizeof(u8));
++		memset(originaldata, 0xff,  8 * sizeof(u8));
+ 
+ 		if (efuse_pg_packet_read(hw, tmp_pkt.offset, originaldata)) {
+-			badworden = efuse_word_enable_data_write(hw,
+-				    *efuse_addr + 1, tmp_pkt.word_en,
+-				    originaldata);
++			badworden = enable_efuse_data_write(hw,
++							    *efuse_addr + 1,
++							    tmp_pkt.word_en,
++							    originaldata);
+ 
+ 			if (0x0F != (badworden & 0x0F)) {
+ 				u8 reorg_offset = tmp_pkt.offset;
+@@ -923,8 +920,8 @@ static void efuse_write_data_case2(struct ieee80211_hw *hw, u16 *efuse_addr,
+ 						      originaldata);
+ 				*efuse_addr = efuse_get_current_size(hw);
+ 			} else {
+-				*efuse_addr = *efuse_addr + (tmp_word_cnts * 2)
+-					      + 1;
++				*efuse_addr = *efuse_addr +
++					      (tmp_word_cnts * 2) + 1;
+ 			}
+ 		} else {
+ 			*efuse_addr = *efuse_addr + (tmp_word_cnts * 2) + 1;
+@@ -948,7 +945,7 @@ static int efuse_pg_packet_write(struct ieee80211_hw *hw,
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct pgpkt_struct target_pkt;
+ 	u8 write_state = PG_STATE_HEADER;
+-	int continual = true, result = true;
++	int continual = true, dataempty = true, result = true;
+ 	u16 efuse_addr = 0;
+ 	u8 efuse_data;
+ 	u8 target_word_cnts = 0;
+@@ -956,7 +953,7 @@ static int efuse_pg_packet_write(struct ieee80211_hw *hw,
+ 	static int repeat_times;
+ 
+ 	if (efuse_get_current_size(hw) >= (EFUSE_MAX_SIZE -
+-	    rtlpriv->cfg->maps[EFUSE_OOB_PROTECT_BYTES_LEN])) {
++		rtlpriv->cfg->maps[EFUSE_OOB_PROTECT_BYTES_LEN])) {
+ 		RTPRINT(rtlpriv, FEEPROM, EFUSE_PG,
+ 			"efuse_pg_packet_write error\n");
+ 		return false;
+@@ -965,17 +962,18 @@ static int efuse_pg_packet_write(struct ieee80211_hw *hw,
+ 	target_pkt.offset = offset;
+ 	target_pkt.word_en = word_en;
+ 
+-	memset(target_pkt.data, 0xFF, 8 * sizeof(u8));
++	memset(target_pkt.data, 0xFF,  8 * sizeof(u8));
+ 
+ 	efuse_word_enable_data_read(word_en, data, target_pkt.data);
+ 	target_word_cnts = efuse_calculate_word_cnts(target_pkt.word_en);
+ 
+-	RTPRINT(rtlpriv, FEEPROM, EFUSE_PG,  "efuse Power ON\n");
++	RTPRINT(rtlpriv, FEEPROM, EFUSE_PG, "efuse Power ON\n");
+ 
+ 	while (continual && (efuse_addr < (EFUSE_MAX_SIZE -
+-	       rtlpriv->cfg->maps[EFUSE_OOB_PROTECT_BYTES_LEN]))) {
++		rtlpriv->cfg->maps[EFUSE_OOB_PROTECT_BYTES_LEN]))) {
+ 
+ 		if (write_state == PG_STATE_HEADER) {
++			dataempty = true;
+ 			badworden = 0x0F;
+ 			RTPRINT(rtlpriv, FEEPROM, EFUSE_PG,
+ 				"efuse PG_STATE_HEADER\n");
+@@ -985,7 +983,8 @@ static int efuse_pg_packet_write(struct ieee80211_hw *hw,
+ 				efuse_write_data_case1(hw, &efuse_addr,
+ 						       efuse_data, offset,
+ 						       &continual,
+-						       &write_state, &target_pkt,
++						       &write_state,
++						       &target_pkt,
+ 						       &repeat_times, &result,
+ 						       word_en);
+ 			else
+@@ -999,15 +998,17 @@ static int efuse_pg_packet_write(struct ieee80211_hw *hw,
+ 		} else if (write_state == PG_STATE_DATA) {
+ 			RTPRINT(rtlpriv, FEEPROM, EFUSE_PG,
+ 				"efuse PG_STATE_DATA\n");
++			badworden = 0x0f;
+ 			badworden =
+-			    efuse_word_enable_data_write(hw, efuse_addr + 1,
+-							 target_pkt.word_en,
+-							 target_pkt.data);
++			    enable_efuse_data_write(hw, efuse_addr + 1,
++						    target_pkt.word_en,
++						    target_pkt.data);
+ 
+ 			if ((badworden & 0x0F) == 0x0F) {
+ 				continual = false;
+ 			} else {
+-				efuse_addr += (2 * target_word_cnts) + 1;
++				efuse_addr =
++				    efuse_addr + (2 * target_word_cnts) + 1;
+ 
+ 				target_pkt.offset = offset;
+ 				target_pkt.word_en = badworden;
+@@ -1027,7 +1028,7 @@ static int efuse_pg_packet_write(struct ieee80211_hw *hw,
+ 	}
+ 
+ 	if (efuse_addr >= (EFUSE_MAX_SIZE -
+-	    rtlpriv->cfg->maps[EFUSE_OOB_PROTECT_BYTES_LEN])) {
++		rtlpriv->cfg->maps[EFUSE_OOB_PROTECT_BYTES_LEN])) {
+ 		RT_TRACE(rtlpriv, COMP_EFUSE, DBG_LOUD,
+ 			 "efuse_addr(%#x) Out of size!!\n", efuse_addr);
+ 	}
+@@ -1035,8 +1036,8 @@ static int efuse_pg_packet_write(struct ieee80211_hw *hw,
+ 	return true;
+ }
+ 
+-static void efuse_word_enable_data_read(u8 word_en,
+-					u8 *sourdata, u8 *targetdata)
++static void efuse_word_enable_data_read(u8 word_en, u8 *sourdata,
++					u8 *targetdata)
+ {
+ 	if (!(word_en & BIT(0))) {
+ 		targetdata[0] = sourdata[0];
+@@ -1059,8 +1060,8 @@ static void efuse_word_enable_data_read(u8 word_en,
+ 	}
+ }
+ 
+-static u8 efuse_word_enable_data_write(struct ieee80211_hw *hw,
+-				       u16 efuse_addr, u8 word_en, u8 *data)
++static u8 enable_efuse_data_write(struct ieee80211_hw *hw,
++				  u16 efuse_addr, u8 word_en, u8 *data)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	u16 tmpaddr;
+@@ -1069,8 +1070,8 @@ static u8 efuse_word_enable_data_write(struct ieee80211_hw *hw,
+ 	u8 tmpdata[8];
+ 
+ 	memset(tmpdata, 0xff, PGPKT_DATA_SIZE);
+-	RT_TRACE(rtlpriv, COMP_EFUSE, DBG_LOUD, "word_en = %x efuse_addr=%x\n",
+-		 word_en, efuse_addr);
++	RT_TRACE(rtlpriv, COMP_EFUSE, DBG_LOUD,
++		 "word_en = %x efuse_addr=%x\n", word_en, efuse_addr);
+ 
+ 	if (!(word_en & BIT(0))) {
+ 		tmpaddr = start_addr;
+@@ -1127,19 +1128,22 @@ static void efuse_power_switch(struct ieee80211_hw *hw, u8 write, u8 pwrstate)
+ 	u16 tmpV16;
+ 
+ 	if (pwrstate && (rtlhal->hw_type != HARDWARE_TYPE_RTL8192SE)) {
+-		if (rtlhal->hw_type == HARDWARE_TYPE_RTL8188EE)
+-			rtl_write_byte(rtlpriv, rtlpriv->cfg->maps[EFUSE_ACCESS],
+-				       0x69);
+ 
+-		tmpV16 = rtl_read_word(rtlpriv,
+-				       rtlpriv->cfg->maps[SYS_ISO_CTRL]);
+-		if (!(tmpV16 & rtlpriv->cfg->maps[EFUSE_PWC_EV12V])) {
+-			tmpV16 |= rtlpriv->cfg->maps[EFUSE_PWC_EV12V];
+-			rtl_write_word(rtlpriv,
+-				       rtlpriv->cfg->maps[SYS_ISO_CTRL],
+-				       tmpV16);
++		if (rtlhal->hw_type != HARDWARE_TYPE_RTL8192CE &&
++		    rtlhal->hw_type != HARDWARE_TYPE_RTL8192DE) {
++			rtl_write_byte(rtlpriv,
++				       rtlpriv->cfg->maps[EFUSE_ACCESS], 0x69);
++		} else {
++			tmpV16 =
++			  rtl_read_word(rtlpriv,
++					rtlpriv->cfg->maps[SYS_ISO_CTRL]);
++			if (!(tmpV16 & rtlpriv->cfg->maps[EFUSE_PWC_EV12V])) {
++				tmpV16 |= rtlpriv->cfg->maps[EFUSE_PWC_EV12V];
++				rtl_write_word(rtlpriv,
++					       rtlpriv->cfg->maps[SYS_ISO_CTRL],
++					       tmpV16);
++			}
+ 		}
+-
+ 		tmpV16 = rtl_read_word(rtlpriv,
+ 				       rtlpriv->cfg->maps[SYS_FUNC_EN]);
+ 		if (!(tmpV16 & rtlpriv->cfg->maps[EFUSE_FEN_ELDR])) {
+@@ -1164,7 +1168,10 @@ static void efuse_power_switch(struct ieee80211_hw *hw, u8 write, u8 pwrstate)
+ 						rtlpriv->cfg->maps[EFUSE_TEST] +
+ 						3);
+ 
+-			if (rtlhal->hw_type != HARDWARE_TYPE_RTL8192SE) {
++			if (rtlhal->hw_type == HARDWARE_TYPE_RTL8812AE) {
++				tempval &= ~(BIT(3) | BIT(4) | BIT(5) | BIT(6));
++				tempval |= (VOLTAGE_V25 << 3);
++			} else if (rtlhal->hw_type != HARDWARE_TYPE_RTL8192SE) {
+ 				tempval &= 0x0F;
+ 				tempval |= (VOLTAGE_V25 << 4);
+ 			}
+@@ -1176,11 +1183,11 @@ static void efuse_power_switch(struct ieee80211_hw *hw, u8 write, u8 pwrstate)
+ 
+ 		if (rtlhal->hw_type == HARDWARE_TYPE_RTL8192SE) {
+ 			rtl_write_byte(rtlpriv, rtlpriv->cfg->maps[EFUSE_CLK],
+-						0x03);
++				       0x03);
+ 		}
+-
+ 	} else {
+-		if (rtlhal->hw_type == HARDWARE_TYPE_RTL8188EE)
++		if (rtlhal->hw_type != HARDWARE_TYPE_RTL8192CE &&
++		    rtlhal->hw_type != HARDWARE_TYPE_RTL8192DE)
+ 			rtl_write_byte(rtlpriv,
+ 				       rtlpriv->cfg->maps[EFUSE_ACCESS], 0);
+ 
+@@ -1195,27 +1202,28 @@ static void efuse_power_switch(struct ieee80211_hw *hw, u8 write, u8 pwrstate)
+ 
+ 		if (rtlhal->hw_type == HARDWARE_TYPE_RTL8192SE) {
+ 			rtl_write_byte(rtlpriv, rtlpriv->cfg->maps[EFUSE_CLK],
+-						0x02);
++				       0x02);
+ 		}
+-
+ 	}
+-
+ }
+ 
+ static u16 efuse_get_current_size(struct ieee80211_hw *hw)
+ {
++	int continual = true;
+ 	u16 efuse_addr = 0;
+-	u8 hworden;
++	u8 hoffset, hworden;
+ 	u8 efuse_data, word_cnts;
+ 
+-	while (efuse_one_byte_read(hw, efuse_addr, &efuse_data) &&
+-	       efuse_addr < EFUSE_MAX_SIZE) {
+-		if (efuse_data == 0xFF)
+-			break;
+-
+-		hworden = efuse_data & 0x0F;
+-		word_cnts = efuse_calculate_word_cnts(hworden);
+-		efuse_addr = efuse_addr + (word_cnts * 2) + 1;
++	while (continual && efuse_one_byte_read(hw, efuse_addr, &efuse_data) &&
++	       (efuse_addr < EFUSE_MAX_SIZE)) {
++		if (efuse_data != 0xFF) {
++			hoffset = (efuse_data >> 4) & 0x0F;
++			hworden = efuse_data & 0x0F;
++			word_cnts = efuse_calculate_word_cnts(hworden);
++			efuse_addr = efuse_addr + (word_cnts * 2) + 1;
++		} else {
++			continual = false;
++		}
+ 	}
+ 
+ 	return efuse_addr;
+diff --git a/drivers/net/wireless/rtlwifi/efuse.h b/drivers/net/wireless/rtlwifi/efuse.h
+index 1663b3a..fdab824 100644
+--- a/drivers/net/wireless/rtlwifi/efuse.h
++++ b/drivers/net/wireless/rtlwifi/efuse.h
+@@ -11,10 +11,6 @@
+  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  * more details.
+  *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
+- *
+  * The full GNU General Public License is included in this distribution in the
+  * file called LICENSE.
+  *
+@@ -32,7 +28,6 @@
+ 
+ #define EFUSE_IC_ID_OFFSET		506
+ 
+-#define EFUSE_MAP_LEN			128
+ #define EFUSE_MAX_WORD_UNIT		4
+ 
+ #define EFUSE_INIT_MAP			0
+@@ -107,12 +102,14 @@ struct efuse_priv {
+ void read_efuse_byte(struct ieee80211_hw *hw, u16 _offset, u8 *pbuf);
+ void efuse_initialize(struct ieee80211_hw *hw);
+ u8 efuse_read_1byte(struct ieee80211_hw *hw, u16 address);
++int efuse_one_byte_read(struct ieee80211_hw *hw, u16 addr, u8 *data);
+ void efuse_write_1byte(struct ieee80211_hw *hw, u16 address, u8 value);
+-void read_efuse(struct ieee80211_hw *hw, u16 _offset, u16 _size_byte, u8 *pbuf);
+-void efuse_shadow_read(struct ieee80211_hw *hw, u8 type, u16 offset,
+-		       u32 *value);
+-void efuse_shadow_write(struct ieee80211_hw *hw, u8 type, u16 offset,
+-			u32 value);
++void read_efuse(struct ieee80211_hw *hw, u16 _offset,
++		u16 _size_byte, u8 *pbuf);
++void efuse_shadow_read(struct ieee80211_hw *hw, u8 type,
++		       u16 offset, u32 *value);
++void efuse_shadow_write(struct ieee80211_hw *hw, u8 type,
++			u16 offset, u32 value);
+ bool efuse_shadow_update(struct ieee80211_hw *hw);
+ bool efuse_shadow_update_chk(struct ieee80211_hw *hw);
+ void rtl_efuse_shadow_map_update(struct ieee80211_hw *hw);
 -- 
 1.8.4.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
