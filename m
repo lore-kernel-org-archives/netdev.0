@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -next] r8169: fix an if condition
-Date: Mon, 22 Sep 2014 15:19:50 -0400 (EDT)
-Message-ID: <20140922.151950.1466634293164677043.davem@davemloft.net>
-References: <20140919104025.GA26391@mwanda>
+Subject: Re: [PATCH net-next 1/2] bonding: slight optimization for
+ bond_xmit_roundrobin()
+Date: Mon, 22 Sep 2014 15:21:14 -0400 (EDT)
+Message-ID: <20140922.152114.498793346386042050.davem@davemloft.net>
+References: <541C29F9.6020001@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nic_swsd@realtek.com, hayeswang@realtek.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: nikolay@redhat.com, andy@greyhouse.net, fubar@us.ibm.com,
+	vfalico@redhat.com, netdev@vger.kernel.org
+To: dingtianhong@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53121 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53141 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752856AbaIVTTw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 15:19:52 -0400
-In-Reply-To: <20140919104025.GA26391@mwanda>
+	with ESMTP id S1751730AbaIVTVR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 15:21:17 -0400
+In-Reply-To: <541C29F9.6020001@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Fri, 19 Sep 2014 13:40:25 +0300
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Fri, 19 Sep 2014 21:04:57 +0800
 
-> There is an extra semi-colon so __rtl8169_set_features() is called every
-> time.
+> When the slave is the curr_active_slave, no need to check
+> whether the slave is active or not, it is always active.
 > 
-> Fixes: 929a031dfd62 ('r8169: adjust __rtl8169_set_features')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 
-Dan, this bug exists in 'net' so that is what you should have
-targetted this tree at.
-
-Applied, thanks.
+Applied.
