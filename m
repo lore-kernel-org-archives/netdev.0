@@ -1,66 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] tcp: avoid possible arithmetic overflows
-Date: Mon, 22 Sep 2014 05:42:19 -0700
-Message-ID: <1411389739.26859.113.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1411233550.26859.76.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411236071.8612.6.camel@joe-AO725>
-	 <CAK6E8=etvB4MUBu96ck+7yucbFLgbxvEPJ3TM8X5qBsZLTnhDg@mail.gmail.com>
-	 <1411242956.26859.81.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411244392.10610.4.camel@joe-AO725>
-	 <1411259357.26859.89.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAK6E8=d9y8D5we_fibzxstaXBMnQcOG3DsOAL0jhzDGK1H62cw@mail.gmail.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next PATCH 29/29] fm10k: Add support for PTP
+Date: Mon, 22 Sep 2014 07:21:38 -0700
+Message-ID: <54203072.5070701@intel.com>
+References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com> <20140918224042.10373.93162.stgit@ahduyck-bv4.jf.intel.com> <20140919173504.GA4136@localhost.localdomain> <063D6719AE5E284EB5DD2968C1650D6D174973B0@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>
-To: Yuchung Cheng <ycheng@google.com>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+	"matthew.vick@intel.com" <matthew.vick@intel.com>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	'Richard Cochran' <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:58380 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753804AbaIVMmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 08:42:20 -0400
-Received: by mail-pa0-f51.google.com with SMTP id eu11so2760620pac.38
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 05:42:20 -0700 (PDT)
-In-Reply-To: <CAK6E8=d9y8D5we_fibzxstaXBMnQcOG3DsOAL0jhzDGK1H62cw@mail.gmail.com>
+Received: from mga01.intel.com ([192.55.52.88]:62831 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751070AbaIVOVj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Sep 2014 10:21:39 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174973B0@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-09-21 at 10:46 -0700, Yuchung Cheng wrote:
-> On Sat, Sep 20, 2014 at 5:29 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> >
-> > icsk_rto is a 32bit field, and icsk_backoff can reach 15 by default,
-> > or more if some sysctl (eg tcp_retries2) are changed.
-> >
-> > Better use 64bit to perform icsk_rto << icsk_backoff operations
-> >
-> > As Joe Perches suggested, add a helper for this.
-> >
-> > From: Eric Dumazet <edumazet@google.com>
-> Acked-by: Yuchung Cheng <ycheng@google.com>
+On 09/22/2014 04:03 AM, David Laight wrote:
+> From: Of Richard Cochran
+>> On Thu, Sep 18, 2014 at 06:40:46PM -0400, Alexander Duyck wrote:
+>>
+>>> +static s32 fm10k_1588_msg_vf(struct fm10k_hw *hw, u32 **results,
+>>> +			     struct fm10k_mbx_info *mbx)
+>>> +{
+>>> +	struct fm10k_intfc *interface = container_of(hw,
+>>> +						     struct fm10k_intfc,
+>>> +						     hw);
+>>
+>> This looks really funny to me here and in the other spot. Why not this?
+>>
+>> 	struct fm10k_intfc *interface = container_of(hw, struct fm10k_intfc, hw);
+>>
+>> Its only one over the 80 km/h speed limit.
 > 
-> Maybe also use the new helper for the backoff in tcp_v4_err()?
+> Or split the assignment from the declaration.
+> 
+> 	David
 
-You mean the following bit ? If yes, I'll incorporate it in v3
+That was the solution I went with.  It solved both the line over 80
+characters and breaking up of the container_of parameter list.
 
-Thanks
+Thanks,
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 006b045716d8..3b2e49cb2b61 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -430,9 +430,9 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
- 			break;
- 
- 		icsk->icsk_backoff--;
--		inet_csk(sk)->icsk_rto = (tp->srtt_us ? __tcp_set_rto(tp) :
--			TCP_TIMEOUT_INIT) << icsk->icsk_backoff;
--		tcp_bound_rto(sk);
-+		icsk->icsk_rto = tp->srtt_us ? __tcp_set_rto(tp) :
-+					       TCP_TIMEOUT_INIT;
-+		icsk->icsk_rto = inet_csk_rto_backoff(icsk, TCP_RTO_MAX);
- 
- 		skb = tcp_write_queue_head(sk);
- 		BUG_ON(!skb);
+Alex
