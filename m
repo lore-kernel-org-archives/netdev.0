@@ -1,86 +1,44 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v2 net] ipv4: do not use this_cpu_ptr() in preemptible context
-Date: Mon, 22 Sep 2014 11:44:02 -0700
-Message-ID: <CA+mtBx9U1EVmRi4amqVT=MMUvMSqo5907yzM0ytkQNvT74Gu2Q@mail.gmail.com>
-References: <20140922090242.5ef15c83@urahara>
-	<1411405767.26859.128.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1411406513.26859.136.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1411407496.26859.141.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/2] net: bcmgenet: TX reclaim and DMA fixes
+Date: Mon, 22 Sep 2014 14:46:18 -0400 (EDT)
+Message-ID: <20140922.144618.340968117925494461.davem@davemloft.net>
+References: <1411087697-19306-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	joe9mail@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:39960 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753879AbaIVSoD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:44:03 -0400
-Received: by mail-ie0-f182.google.com with SMTP id tp5so2677874ieb.41
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 11:44:02 -0700 (PDT)
-In-Reply-To: <1411407496.26859.141.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52839 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754375AbaIVSqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:46:21 -0400
+In-Reply-To: <1411087697-19306-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 22, 2014 at 10:38 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> this_cpu_ptr() in preemptible context is generally bad
->
-> Sep 22 05:05:55 br kernel: [   94.608310] BUG: using smp_processor_id()
-> in
-> preemptible [00000000] code: ip/2261
-> Sep 22 05:05:55 br kernel: [   94.608316] caller is
-> tunnel_dst_set.isra.28+0x20/0x60 [ip_tunnel]
-> Sep 22 05:05:55 br kernel: [   94.608319] CPU: 3 PID: 2261 Comm: ip Not
-> tainted
-> 3.17.0-rc5 #82
->
-> We can simply use raw_cpu_ptr(), as preemption is safe in these
-> contexts.
->
-> Should fix https://bugzilla.kernel.org/show_bug.cgi?id=84991
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Joe <joe9mail@gmail.com>
-> Fixes: 9a4aa9af447f ("ipv4: Use percpu Cache route in IP tunnels")
-
-Acked-by: Tom Herbert <therbert@google.com>
-
-> ---
-> v2: use latest and shiny raw_cpu_ptr(), as it seems the latest
-> incantation of ever changing percpu interface.
->
->  net/ipv4/ip_tunnel.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-> index afed1aac2638..bd41dd1948b6 100644
-> --- a/net/ipv4/ip_tunnel.c
-> +++ b/net/ipv4/ip_tunnel.c
-> @@ -79,10 +79,10 @@ static void __tunnel_dst_set(struct ip_tunnel_dst *idst,
->         idst->saddr = saddr;
->  }
->
-> -static void tunnel_dst_set(struct ip_tunnel *t,
-> +static noinline void tunnel_dst_set(struct ip_tunnel *t,
->                            struct dst_entry *dst, __be32 saddr)
->  {
-> -       __tunnel_dst_set(this_cpu_ptr(t->dst_cache), dst, saddr);
-> +       __tunnel_dst_set(raw_cpu_ptr(t->dst_cache), dst, saddr);
->  }
->
->  static void tunnel_dst_reset(struct ip_tunnel *t)
-> @@ -106,7 +106,7 @@ static struct rtable *tunnel_rtable_get(struct ip_tunnel *t,
->         struct dst_entry *dst;
->
->         rcu_read_lock();
-> -       idst = this_cpu_ptr(t->dst_cache);
-> +       idst = raw_cpu_ptr(t->dst_cache);
->         dst = rcu_dereference(idst->dst);
->         if (dst && !atomic_inc_not_zero(&dst->__refcnt))
->                 dst = NULL;
->
->
+RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+DQpEYXRlOiBUaHUs
+IDE4IFNlcCAyMDE0IDE3OjQ4OjE1IC0wNzAwDQoNCj4gVGhpcyBwYXRjaCBzZXQgY29udGFpbnMg
+b25lIGZpeCBmb3IgYW4gYWNjb3VudGluZyBwcm9ibGVtIHdoaWxlIHJlY2xhaW1pbmcNCj4gdHJh
+bnNtaXR0ZWQgYnVmZmVycyBoYXZpbmcgZnJhZ21lbnRzLCBhbmQgdGhlIHNlY29uZCBmaXggaXMg
+dG8gbWFrZSBzdXJlDQo+IHRoYXQgdGhlIERNQSBzaHV0ZG93biBpcyBwcm9wZXJseSBjb250cm9s
+bGVkLg0KDQpGbG9yaWFuIEkgYW0gc2VyaWVzbHkgaXJyaXRhdGVkLCBhcmUgeW91IGV2ZW4gYnVp
+bGQgdGVzdGluZyB0aGVzZQ0KY2hhbmdlcz8NCg0KYmNtZ2VuZXRfZG1hX3RlYXJkb3duKCkgaXMg
+YSBzdGF0aWMgZnVuY3Rpb24gZGVjbGFyZWQgZmFyIGFmdGVyIHRoZQ0KbmV3IGNhbGwgeW91IGFy
+ZSBhZGRpbmcgaW4gcGF0Y2ggIzIsIHNvIG5vdyB3ZSBnZXQ6DQoNCmRyaXZlcnMvbmV0L2V0aGVy
+bmV0L2Jyb2FkY29tL2dlbmV0L2JjbWdlbmV0LmM6IEluIGZ1bmN0aW9uIKFiY21nZW5ldF9maW5p
+X2RtYaI6DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9nZW5ldC9iY21nZW5ldC5jOjE3
+NTI6MjogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIKFiY21nZW5ldF9k
+bWFfdGVhcmRvd26iIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KZHJp
+dmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vZ2VuZXQvYmNtZ2VuZXQuYzogQXQgdG9wIGxldmVs
+Og0KZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vZ2VuZXQvYmNtZ2VuZXQuYzoyMTExOjEy
+OiBlcnJvcjogc3RhdGljIGRlY2xhcmF0aW9uIG9mIKFiY21nZW5ldF9kbWFfdGVhcmRvd26iIGZv
+bGxvd3Mgbm9uLXN0YXRpYyBkZWNsYXJhdGlvbg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRj
+b20vZ2VuZXQvYmNtZ2VuZXQuYzoxNzUyOjI6IG5vdGU6IHByZXZpb3VzIGltcGxpY2l0IGRlY2xh
+cmF0aW9uIG9mIKFiY21nZW5ldF9kbWFfdGVhcmRvd26iIHdhcyBoZXJlDQoNCkkgd2FudCB0byBt
+YWtlIGl0IGNsZWFyIHRvIHlvdSB0aGF0IHdoYXRldmVyIHRpbWUgeW91IHRoaW5rIHlvdSdyZQ0K
+c2F2aW5nIGJ5IHNraXBwaW5nIGV2ZW4gdGhlIG1vc3QgYmFzaWMgY29tcGlsYXRpb24gdGVzdCwg
+Z29lcyBkaXJlY3RseQ0KdG8gX01FXyBhbmQgeW91IGFyZSB0aGVyZWZvcmUgaGF2aW5nIGEgbmVn
+YXRpdmUgaW1wYWN0IG9uIGV2ZXJ5IHNpbmdsZQ0KZGV2ZWxvcGVyIHdobyBpcyBhbHNvIHdhaXRp
+bmcgZm9yIG1lIHRvIHJldmlldyBhbmQgaW50ZWdyYXRlIHRoZWlyDQpuZXR3b3JraW5nIGNoYW5n
+ZXMuDQoNClBsZWFzZSBkbyBub3QgZG8gdGhpcyBhbnkgbW9yZS4NCg0KVGhhbmtzLg0K
