@@ -1,53 +1,42 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [net-next PATCH 29/29] fm10k: Add support for PTP
-Date: Mon, 22 Sep 2014 07:21:38 -0700
-Message-ID: <54203072.5070701@intel.com>
-References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com> <20140918224042.10373.93162.stgit@ahduyck-bv4.jf.intel.com> <20140919173504.GA4136@localhost.localdomain> <063D6719AE5E284EB5DD2968C1650D6D174973B0@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-	"matthew.vick@intel.com" <matthew.vick@intel.com>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-	'Richard Cochran' <richardcochran@gmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 00/11 NEXT] Modify rtlwifi, rtl_pci, rtl8188ee, and rtl8821ae for merge with Realtek code repo
+Date: Mon, 22 Sep 2014 09:39:16 -0500
+Message-ID: <1411396767-20611-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org, troy_tan@realsil.com.cn,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:62831 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751070AbaIVOVj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Sep 2014 10:21:39 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174973B0@AcuExch.aculab.com>
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:37096 "EHLO
+	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753925AbaIVOju (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 10:39:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/22/2014 04:03 AM, David Laight wrote:
-> From: Of Richard Cochran
->> On Thu, Sep 18, 2014 at 06:40:46PM -0400, Alexander Duyck wrote:
->>
->>> +static s32 fm10k_1588_msg_vf(struct fm10k_hw *hw, u32 **results,
->>> +			     struct fm10k_mbx_info *mbx)
->>> +{
->>> +	struct fm10k_intfc *interface = container_of(hw,
->>> +						     struct fm10k_intfc,
->>> +						     hw);
->>
->> This looks really funny to me here and in the other spot. Why not this?
->>
->> 	struct fm10k_intfc *interface = container_of(hw, struct fm10k_intfc, hw);
->>
->> Its only one over the 80 km/h speed limit.
-> 
-> Or split the assignment from the declaration.
-> 
-> 	David
+These patches accomplish the following:
 
-That was the solution I went with.  It solved both the line over 80
-characters and breaking up of the container_of parameter list.
+1. Update existing drivers to the level of the latest Realtek drivers from 06/28/2014
+2. Move the updated rtl8821ae driver into the regular wireless tree. Removal of
+   the staging version will be sent to GregKH once these patches are in place.
+3. Make all this code match what is found in the Realtek code repo. Because of
+   this, there is considerable churning of the code; however, the same is true
+   for the Realtek repo. Once the two code bases are the same, incorporation
+   of the Realtek updates and bug fixes will be a lot easier. In fact, if all
+   goes well, I hope that Realtek can handle it without my interventikon.
 
-Thanks,
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
 
-Alex
+Larry Finger (11):
+  rtlwifi: Remove extra workqueue for enter/leave power state
+  rtlwifi: rtl_pci: Start modification for new drivers
+  rtlwifi: Modify core.c for new drivers
+  rtlwifi: Modify base.{c,h} for new drivers
+  rtlwifi: Modify cam.{c,h} and efuse.{c,h} for new drivers
+  rtlwifi: Update power-save routines for 062814 driver
+  rtlwifi: Finish modifying core routines for new drivers
+  rtlwifi: rtl8188ee: Update driver to match Realtek release of 06282014
+  rtlwifi: rtl8821ae: Move driver from staging to regular tree
+  rtlwifi: Fix problems with building an allyesconfig
+  rtlwifi: Fix Sparse warnings
