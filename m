@@ -1,42 +1,43 @@
-From: Pete Clements <clem@clem.clem-digital.net>
-Subject: Re: Corrupt Network Packets -- 3.17-rc5/rc6
-Date: Mon, 22 Sep 2014 13:24:59 -0400 (EDT)
-Message-ID: <201409221724.s8MHOxe5002845@clem.clem-digital.net>
-References: <CAM_iQpXQcM2E2oez+nNbbecd25fXqOKNqAfoOgCfQ72-VfBOUA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: randconfig build error with next-20140922, in
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+Date: Mon, 22 Sep 2014 13:26:03 -0400 (EDT)
+Message-ID: <20140922.132603.812620829504982755.davem@davemloft.net>
+References: <CA+r1ZhhHsR=1JRv80Oahp2FeGXU0zkMGdUB56Ryjx50yxWbhKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: clem@clem.clem-digital.net (Pete Clements),
-	linux-kernel@vger.kernel.org (linux-kernel),
-	netdev@vger.kernel.org (Linux Kernel Network Developers)
-To: xiyou.wangcong@gmail.com (Cong Wang)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpXQcM2E2oez+nNbbecd25fXqOKNqAfoOgCfQ72-VfBOUA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: jim.epost@gmail.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <CA+r1ZhhHsR=1JRv80Oahp2FeGXU0zkMGdUB56Ryjx50yxWbhKQ@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Cong Wang
-  > <clem@clem.clem-digital.net> wrote:
-  > > Heads up fyi: system is i386 UP.
-  > >
-  > > Started getting some pop3 reception errors from the above system.
-  > > Investigating the problem discovered scp of the mailbox failed
-  > > with "Corrupted MAC on input"
-  > >
-  > > Problem started with rc5, still in rc6. Running rc4 with no
-  > > problem.
-  > >
-  > > Sorry for lack of better definition.
-  > 
-  > 
-  > Which driver are you using?
-  > 
-Here's the output from boot log:
-
- PCI: setting IRQ 11 as level-triggered
- 3c59x 0000:00:0d.0: found PCI INT A -> IRQ 11
- 3c59x: Donald Becker and others.
- 0000:00:0d.0: 3Com PCI 3c900 Cyclone 10Mbps TPC at d8812000.
-
--- 
-Pete Clements 
+RnJvbTogSmltIERhdmlzIDxqaW0uZXBvc3RAZ21haWwuY29tPg0KRGF0ZTogTW9uLCAyMiBTZXAg
+MjAxNCAxMDoxNjoyNiAtMDcwMA0KDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L29raS1zZW1pL3Bj
+aF9nYmUvcGNoX2diZV9tYWluLmM6IEluIGZ1bmN0aW9uDQo+IKFwY2hfcHRwX21hdGNoojoNCj4g
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvb2tpLXNlbWkvcGNoX2diZS9wY2hfZ2JlX21haW4uYzoxMzA6
+MjogZXJyb3I6DQo+IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIKFwdHBfY2xhc3Np
+ZnlfcmF3og0KPiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5jdGlvbi1kZWNsYXJhdGlvbl0NCj4gICBp
+ZiAocHRwX2NsYXNzaWZ5X3Jhdyhza2IpID09IFBUUF9DTEFTU19OT05FKQ0KPiAgIF4NCj4gY2Mx
+OiBzb21lIHdhcm5pbmdzIGJlaW5nIHRyZWF0ZWQgYXMgZXJyb3JzDQo+IG1ha2VbNV06ICoqKiBb
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvb2tpLXNlbWkvcGNoX2diZS9wY2hfZ2JlX21haW4ub10gRXJy
+b3IgMQ0KDQpUaGVzZSBkZXBlbmRlbmNpZXMgYXJlIHNvIGJyb2tlbi4NCg0KWW91IGNhbm5vdCBz
+ZWxlY3QgY3JhcCB3aXRob3V0IGFsc28gc2VsZWN0aW5nIGFsbCBvZiB0aGF0IG9wdGlvbnMNCmRl
+cGVuZGVuY2llcywgYW5kIHNvIG9uIGFuZCBzbyBmb3J0aCBhbGwgdGhlIHdheSB1cCB0byB0aGUg
+ZGlyZWN0DQphbmQgaW5kaXJlY3QgZGVwZW5kZW5jaWVzIHRoYXQgaGF2ZSBubyBkZXBlbmRlbmNp
+ZXMgb2YgdGhlaXIgb3duLg0KDQpUaGUgaXNzdWUgc3BlY2lmaWNhbGx5IGlzIFBDSF9HQkUgbmVl
+ZHMgTkVUX1BUUF9DTEFTU0lGWS4NCg0KUENIX0dCRSAic2VsZWN0cyIgUFRQXzE1ODhfQ0xPQ0tf
+UENILCB3aGljaCBzZWxlY3RzIFBUUF8xNTg4X0NMT0NLLA0Kd2hpY2ggc2VsZWN0cyBORVRfUFRQ
+X0NMQVNTSUZZLg0KDQpCdXQgdGhhdCBkb2VzIG5vdCByZWxpYWJseSB0dXJuIG9uIE5FVF9QVFBf
+Q0xBU1NJRlkuICBJZiB0aGUgdG9wDQpsZXZlbCBQVFBfMTU4OF9DTE9DS19QQ0ggc2VsZWN0IGlz
+IHdoYXQgdHJpZ2dlcnMsIGFzIGV4cGxhaW5lZA0KYWJvdXQgdGhpcyBkb2VzIG5vdCBlbmQgdXAg
+c2VsZWN0J2luZyBORVRfUFRQX0NMQVNTSUZZLg0KDQpTYWlkIGFub3RoZXIgd2F5LCAnc2VsZWN0
+JyBkb2VzIG5vdCByZWN1cnNpdmVseSBwcm9jZXNzIGRlcGVuZGVuY2llcy4NCllvdSBoYXZlIHRv
+IGRvIHRoZW0gYWxsIGJ5IGhhbmQgYXQgZWFjaCBhbmQgZXZlcnkgc2VsZWN0aW9uIHBvaW50Lg0K
+DQpJJ20gZ29pbmcgdG8gYWRkIHRoZSBORVRfUFRQX0NMQVNTSUZZIHNlbGVjdCB0byBQQ0hfR0JF
+J3MgS2NvbmZpZw0KZW50cnksIGJ1dCB0aGlzIGlzIG5vdCB0aGUgdGhpbmcgdG8gZG8gbG9uZyB0
+ZXJtLg0KDQpMb25nIHRlcm0gd2Ugc2hvdWxkIGJlIHVzaW5nICdkZXBlbmRzJyBmb3IgYWxsIG9m
+IHRoZXNlIG5vbi10cml2aWFsDQpkZXBlbmRlbmNpZXMsIG5vdCAnc2VsZWN0Jy4NCg==
