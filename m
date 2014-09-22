@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v14 net-next 08/11] bpf: handle pseudo BPF_LD_IMM64 insn
-Date: Sun, 21 Sep 2014 17:06:48 -0700
-Message-ID: <1411344411-3824-9-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v14 net-next 05/11] bpf: handle pseudo BPF_CALL insn
+Date: Sun, 21 Sep 2014 17:06:45 -0700
+Message-ID: <1411344411-3824-6-git-send-email-ast@plumgrid.com>
 References: <1411344411-3824-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -22,234 +22,74 @@ In-Reply-To: <1411344411-3824-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-eBPF programs passed from userspace are using pseudo BPF_LD_IMM64 instructions
-to refer to process-local map_fd. Scan the program for such instructions and
-if FDs are valid, convert them to 'struct bpf_map' pointers which will be used
-by verifier to check access to maps in bpf_map_lookup/update() calls.
-If program passes verifier, convert pseudo BPF_LD_IMM64 into generic by dropping
-BPF_PSEUDO_MAP_FD flag.
+in native eBPF programs userspace is using pseudo BPF_CALL instructions
+which encode one of 'enum bpf_func_id' inside insn->imm field.
+Verifier checks that program using correct function arguments to given func_id.
+If all checks passed, kernel needs to fixup BPF_CALL->imm fields by
+replacing func_id with in-kernel function pointer.
+eBPF interpreter just calls the function.
 
-Note that eBPF interpreter is generic and knows nothing about pseudo insns.
+In-kernel eBPF users continue to use generic BPF_CALL.
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- include/linux/filter.h |    6 ++
- kernel/bpf/verifier.c  |  147 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 153 insertions(+)
+ kernel/bpf/syscall.c |   37 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 4ffc0958d85e..ca95abd2bed1 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -145,6 +145,12 @@ struct bpf_prog_aux;
- 		.off   = 0,					\
- 		.imm   = ((__u64) (IMM)) >> 32 })
- 
-+#define BPF_PSEUDO_MAP_FD	1
-+
-+/* pseudo BPF_LD_IMM64 insn used to refer to process-local map_fd */
-+#define BPF_LD_MAP_FD(DST, MAP_FD)				\
-+	BPF_LD_IMM64_RAW(DST, BPF_PSEUDO_MAP_FD, MAP_FD)
-+
- /* Short form of mov based on type, BPF_X: dst_reg = src_reg, BPF_K: dst_reg = imm32 */
- 
- #define BPF_MOV64_RAW(TYPE, DST, SRC, IMM)			\
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 871edc1f2e1f..7227543e474b 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -125,10 +125,15 @@
-  * are set to NOT_INIT to indicate that they are no longer readable.
-  */
- 
-+#define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
-+
- /* single container for all structs
-  * one verifier_env per bpf_check() call
-  */
- struct verifier_env {
-+	struct bpf_prog *prog;		/* eBPF program being verified */
-+	struct bpf_map *used_maps[MAX_USED_MAPS]; /* array of map's used by eBPF program */
-+	u32 used_map_cnt;		/* number of used maps */
- };
- 
- /* verbose verifier prints what it's seeing
-@@ -300,6 +305,115 @@ static void print_bpf_insn(struct bpf_insn *insn)
- 	}
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 0afb4eaa1887..b513659d120f 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -357,6 +357,40 @@ void bpf_register_prog_type(struct bpf_prog_type_list *tl)
+ 	list_add(&tl->list_node, &bpf_prog_types);
  }
  
-+/* return the map pointer stored inside BPF_LD_IMM64 instruction */
-+static struct bpf_map *ld_imm64_to_map_ptr(struct bpf_insn *insn)
-+{
-+	u64 imm64 = ((u64) (u32) insn[0].imm) | ((u64) (u32) insn[1].imm) << 32;
-+
-+	return (struct bpf_map *) (unsigned long) imm64;
-+}
-+
-+/* look for pseudo eBPF instructions that access map FDs and
-+ * replace them with actual map pointers
++/* fixup insn->imm field of bpf_call instructions:
++ * if (insn->imm == BPF_FUNC_map_lookup_elem)
++ *      insn->imm = bpf_map_lookup_elem - __bpf_call_base;
++ * else if (insn->imm == BPF_FUNC_map_update_elem)
++ *      insn->imm = bpf_map_update_elem - __bpf_call_base;
++ * else ...
++ *
++ * this function is called after eBPF program passed verification
 + */
-+static int replace_map_fd_with_map_ptr(struct verifier_env *env)
++static void fixup_bpf_calls(struct bpf_prog *prog)
 +{
-+	struct bpf_insn *insn = env->prog->insnsi;
-+	int insn_cnt = env->prog->len;
-+	int i, j;
++	const struct bpf_func_proto *fn;
++	int i;
 +
-+	for (i = 0; i < insn_cnt; i++, insn++) {
-+		if (insn[0].code == (BPF_LD | BPF_IMM | BPF_DW)) {
-+			struct bpf_map *map;
-+			struct fd f;
++	for (i = 0; i < prog->len; i++) {
++		struct bpf_insn *insn = &prog->insnsi[i];
 +
-+			if (i == insn_cnt - 1 || insn[1].code != 0 ||
-+			    insn[1].dst_reg != 0 || insn[1].src_reg != 0 ||
-+			    insn[1].off != 0) {
-+				verbose("invalid bpf_ld_imm64 insn\n");
-+				return -EINVAL;
-+			}
-+
-+			if (insn->src_reg == 0)
-+				/* valid generic load 64-bit imm */
-+				goto next_insn;
-+
-+			if (insn->src_reg != BPF_PSEUDO_MAP_FD) {
-+				verbose("unrecognized bpf_ld_imm64 insn\n");
-+				return -EINVAL;
-+			}
-+
-+			f = fdget(insn->imm);
-+
-+			map = bpf_map_get(f);
-+			if (IS_ERR(map)) {
-+				verbose("fd %d is not pointing to valid bpf_map\n",
-+					insn->imm);
-+				fdput(f);
-+				return PTR_ERR(map);
-+			}
-+
-+			/* store map pointer inside BPF_LD_IMM64 instruction */
-+			insn[0].imm = (u32) (unsigned long) map;
-+			insn[1].imm = ((u64) (unsigned long) map) >> 32;
-+
-+			/* check whether we recorded this map already */
-+			for (j = 0; j < env->used_map_cnt; j++)
-+				if (env->used_maps[j] == map) {
-+					fdput(f);
-+					goto next_insn;
-+				}
-+
-+			if (env->used_map_cnt >= MAX_USED_MAPS) {
-+				fdput(f);
-+				return -E2BIG;
-+			}
-+
-+			/* remember this map */
-+			env->used_maps[env->used_map_cnt++] = map;
-+
-+			/* hold the map. If the program is rejected by verifier,
-+			 * the map will be released by release_maps() or it
-+			 * will be used by the valid program until it's unloaded
-+			 * and all maps are released in free_bpf_prog_info()
++		if (insn->code == (BPF_JMP | BPF_CALL)) {
++			/* we reach here when program has bpf_call instructions
++			 * and it passed bpf_check(), means that
++			 * ops->get_func_proto must have been supplied, check it
 +			 */
-+			atomic_inc(&map->refcnt);
++			BUG_ON(!prog->aux->ops->get_func_proto);
 +
-+			fdput(f);
-+next_insn:
-+			insn++;
-+			i++;
++			fn = prog->aux->ops->get_func_proto(insn->imm);
++			/* all functions that have prototype and verifier allowed
++			 * programs to call them, must be real in-kernel functions
++			 */
++			BUG_ON(!fn->func);
++			insn->imm = fn->func - __bpf_call_base;
 +		}
 +	}
-+
-+	/* now all pseudo BPF_LD_IMM64 instructions load valid
-+	 * 'struct bpf_map *' into a register instead of user map_fd.
-+	 * These pointers will be used later by verifier to validate map access.
-+	 */
-+	return 0;
 +}
 +
-+/* drop refcnt of maps used by the rejected program */
-+static void release_maps(struct verifier_env *env)
-+{
-+	int i;
-+
-+	for (i = 0; i < env->used_map_cnt; i++)
-+		bpf_map_put(env->used_maps[i]);
-+}
-+
-+/* convert pseudo BPF_LD_IMM64 into generic BPF_LD_IMM64 */
-+static void convert_pseudo_ld_imm64(struct verifier_env *env)
-+{
-+	struct bpf_insn *insn = env->prog->insnsi;
-+	int insn_cnt = env->prog->len;
-+	int i;
-+
-+	for (i = 0; i < insn_cnt; i++, insn++)
-+		if (insn->code == (BPF_LD | BPF_IMM | BPF_DW))
-+			insn->src_reg = 0;
-+}
-+
- int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+ /* drop refcnt on maps used by eBPF program and free auxilary data */
+ static void free_used_maps(struct bpf_prog_aux *aux)
  {
- 	char __user *log_ubuf = NULL;
-@@ -316,6 +430,8 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
- 	if (!env)
- 		return -ENOMEM;
+@@ -478,6 +512,9 @@ static int bpf_prog_load(union bpf_attr *attr)
+ 	if (err < 0)
+ 		goto free_used_maps;
  
-+	env->prog = prog;
++	/* fixup BPF_CALL->imm field */
++	fixup_bpf_calls(prog);
 +
- 	/* grab the mutex to protect few globals used by verifier */
- 	mutex_lock(&bpf_verifier_lock);
+ 	/* eBPF program is ready to be JITed */
+ 	bpf_prog_select_runtime(prog);
  
-@@ -342,8 +458,14 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
- 		log_level = 0;
- 	}
- 
-+	ret = replace_map_fd_with_map_ptr(env);
-+	if (ret < 0)
-+		goto skip_full_check;
-+
- 	/* ret = do_check(env); */
- 
-+skip_full_check:
-+
- 	if (log_level && log_len >= log_size - 1) {
- 		BUG_ON(log_len >= log_size);
- 		/* verifier log exceeded user supplied buffer */
-@@ -357,11 +479,36 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
- 		goto free_log_buf;
- 	}
- 
-+	if (ret == 0 && env->used_map_cnt) {
-+		/* if program passed verifier, update used_maps in bpf_prog_info */
-+		prog->aux->used_maps = kmalloc_array(env->used_map_cnt,
-+						     sizeof(env->used_maps[0]),
-+						     GFP_KERNEL);
-+
-+		if (!prog->aux->used_maps) {
-+			ret = -ENOMEM;
-+			goto free_log_buf;
-+		}
-+
-+		memcpy(prog->aux->used_maps, env->used_maps,
-+		       sizeof(env->used_maps[0]) * env->used_map_cnt);
-+		prog->aux->used_map_cnt = env->used_map_cnt;
-+
-+		/* program is valid. Convert pseudo bpf_ld_imm64 into generic
-+		 * bpf_ld_imm64 instructions
-+		 */
-+		convert_pseudo_ld_imm64(env);
-+	}
- 
- free_log_buf:
- 	if (log_level)
- 		vfree(log_buf);
- free_env:
-+	if (!prog->aux->used_maps)
-+		/* if we didn't copy map pointers into bpf_prog_info, release
-+		 * them now. Otherwise free_bpf_prog_info() will release them.
-+		 */
-+		release_maps(env);
- 	kfree(env);
- 	mutex_unlock(&bpf_verifier_lock);
- 	return ret;
 -- 
 1.7.9.5
