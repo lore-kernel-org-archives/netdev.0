@@ -1,49 +1,51 @@
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: Re: net/fec: Unable to get a permanent link when connecting to a
- PC
-Date: Mon, 22 Sep 2014 10:06:14 +0200
-Message-ID: <541FD876.4090109@i2se.com>
-References: <1XUuZV-0zjkn20@fwd01.aul.t-online.de>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH net 1/3] ip6_tunnel: Return an error when adding an existing tunnel.
+Date: Mon, 22 Sep 2014 10:07:24 +0200
+Message-ID: <1411373246-22389-2-git-send-email-steffen.klassert@secunet.com>
+References: <1411373246-22389-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: "to-fleischer@t-online.de" <to-fleischer@t-online.de>,
-	linux-arm-kernel@lists.infradead.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:59509 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752984AbaIVIHG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 04:07:06 -0400
-In-Reply-To: <1XUuZV-0zjkn20@fwd01.aul.t-online.de>
+Received: from a.mx.secunet.com ([195.81.216.161]:53890 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753171AbaIVIHr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Sep 2014 04:07:47 -0400
+In-Reply-To: <1411373246-22389-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 19.09.2014 um 11:33 schrieb to-fleischer@t-online.de:
-> I have an i.MX283 board with a KSZ8081 PHY that is connected to the controller
-> via RMII. The PHY's interrupt line is currently unused, but connected to the
-> controller. The board runs the linux version 3.17-rc5.
-> When I connect the board directly to a PC the ethernet link goes up and a second
-> later down. This is repeated again and again.
-> After some investigation I found that this is caused by the reset of the FEC at
-> the begin of fec_restart() that is called by fec_enet_adjust_link() if the link
-> is up.
-> Due to the reset the mode is set to MII. After switching back to RMII the PHY 
-> seems to restart the autonegotiation. Since this takes a while the next call of 
-> phy_state_machine() detects that the link is down.
-> It would work, if the reset in fec_restart is avoided for the case that the link
-> goes up and the fec is still stopped.
->
-> Its quite remarkable that this issue does not occur if I connect the board to a
-> switch or if I use the PHY's interrupt line.
->
-> What do you think?
->
-> Best Regards,
-> Torsten Fleischer
->
+ip6_tnl_locate() should not return an existing tunnel if
+create is true. Otherwise it is possible to add the same
+tunnel multiple times without getting an error.
 
-Add netdev list
+So return NULL if the tunnel that should be created already
+exists.
 
-Best regards
-Stefan Wahren
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv6/ip6_tunnel.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index f9de5a6..69a84b4 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -364,8 +364,12 @@ static struct ip6_tnl *ip6_tnl_locate(struct net *net,
+ 	     (t = rtnl_dereference(*tp)) != NULL;
+ 	     tp = &t->next) {
+ 		if (ipv6_addr_equal(local, &t->parms.laddr) &&
+-		    ipv6_addr_equal(remote, &t->parms.raddr))
++		    ipv6_addr_equal(remote, &t->parms.raddr)) {
++			if (create)
++				return NULL;
++
+ 			return t;
++		}
+ 	}
+ 	if (!create)
+ 		return NULL;
+-- 
+1.9.1
