@@ -1,41 +1,43 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH net-next v2 2/5] net: tcp: add flag for ca to indicate
- that ECN is required
-Date: Mon, 22 Sep 2014 22:11:32 +0200
-Message-ID: <CAPh34mdo74StDtpJ_E21jgS2K8P8Y5T24WwDLdOzZs3fNB7_9g@mail.gmail.com>
-References: <1411248562-26581-1-git-send-email-fw@strlen.de>
-	<1411248562-26581-3-git-send-email-fw@strlen.de>
-	<20140922092606.10977e48@urahara>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net] ipv4: do not use this_cpu_ptr() in preemptible
+ context
+Date: Mon, 22 Sep 2014 13:11:46 -0700
+Message-ID: <1411416706.26859.144.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140922090242.5ef15c83@urahara>
+	 <1411405767.26859.128.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411406513.26859.136.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411407496.26859.141.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx9U1EVmRi4amqVT=MMUvMSqo5907yzM0ytkQNvT74Gu2Q@mail.gmail.com>
+	 <20140922190953.GA15929@master> <20140922193451.GA23177@master>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Westphal <fw@strlen.de>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
 	David Miller <davem@davemloft.net>,
-	"Eggert, Lars" <lars@netapp.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, fontana@sharpeleven.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	glenn.judd@morganstanley.com,
-	Daniel Borkmann <dborkman@redhat.com>,
-	netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Joe M <joe9mail@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:52486 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751270AbaIVULd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 16:11:33 -0400
-Received: by mail-lb0-f178.google.com with SMTP id z12so4869493lbi.37
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 13:11:32 -0700 (PDT)
-In-Reply-To: <20140922092606.10977e48@urahara>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:38473 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754715AbaIVULr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 16:11:47 -0400
+Received: by mail-pd0-f182.google.com with SMTP id p10so4915671pdj.27
+        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 13:11:47 -0700 (PDT)
+In-Reply-To: <20140922193451.GA23177@master>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 22 September 2014 18:26, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
->> +static inline void
->> +TCP_ECN_create_request(struct request_sock *req, const struct sk_buff *skb,
->> +                    const struct sock *listen_sk)
->
-> Maybe good time to switch to lower case here for function name.
+On Mon, 2014-09-22 at 14:34 -0500, Joe M wrote:
+> p --ignore-case --exclude-dir=".git" --recursive this_cpu_ptr *.c
+> ip_input.c:             struct ip_rt_acct *st = this_cpu_ptr(ip_rt_acct);
+> ip_vti.c:       tstats = this_cpu_ptr(dev->tstats);
+> route.c:                p = (struct rtable **)__this_cpu_ptr(nh->nh_pcpu_rth_output);
+> route.c:                        prth = __this_cpu_ptr(nh->nh_pcpu_rth_output);
+> tcp.c:          return __this_cpu_ptr(p);
+> 
+> Is it ok for ip_vti.c and ip_input.c to use this_cpu_ptr?
 
-Probably a follow up patch can convert all of TCP_ECN_* to lower case.
+It is ok.
 
-HGN
+We run with BH disabled in these contexts.
