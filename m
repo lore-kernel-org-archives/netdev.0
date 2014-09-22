@@ -1,39 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/12] be2net: patch set
-Date: Mon, 22 Sep 2014 15:01:33 -0400 (EDT)
-Message-ID: <20140922.150133.537343037610956008.davem@davemloft.net>
-References: <1411121822-25842-1-git-send-email-sathya.perla@emulex.com>
+Subject: Re: Corrupt Network Packets -- 3.17-rc5/rc6
+Date: Mon, 22 Sep 2014 15:07:36 -0400 (EDT)
+Message-ID: <20140922.150736.400581155949686923.davem@davemloft.net>
+References: <20140922.133831.220769383344675250.davem@davemloft.net>
+	<201409221830.s8MIUbWS002990@clem.clem-digital.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
+Cc: xiyou.wangcong@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: clem@clem.clem-digital.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52960 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52997 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754879AbaIVTBg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 15:01:36 -0400
-In-Reply-To: <1411121822-25842-1-git-send-email-sathya.perla@emulex.com>
+	with ESMTP id S1751577AbaIVTHi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 15:07:38 -0400
+In-Reply-To: <201409221830.s8MIUbWS002990@clem.clem-digital.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Fri, 19 Sep 2014 15:46:50 +0530
+From: Pete Clements <clem@clem.clem-digital.net>
+Date: Mon, 22 Sep 2014 14:30:36 -0400 (EDT)
 
-> Patches 1 and 2 fix sparse warnings (static declaration needed and endian
-> declaration needed) introduced by the earlier patch set.
 > 
-> Patches 3 and 4 add 20G/40G speed reporting via ethtool for the Skyhawk-R
-> chip.
+> Thanks. Does not patch. Code looks not to be in the rc6 that Linus
+> put out. Guess there is more to come.  (This is what I believe is
+> the segment in rc6 -- at line 2179.)
 > 
-> Patches 5 to 12 fix various style issues and checkpatch warnings in the
-> driver such as:
-> 	- removing unnecessary return statements in void routines
-> 	- adding needed blank lines after a declaration block
-> 	- deleting multiple blank lines
-> 	- inserting a blank line after a function/struct definition
-> 	- removing space after typecast
-> 	- fixing multiple assignments on a single line
-> 	- fixing alignment on a line wrap
+> 	vp->tx_ring[entry].frag[i+1].addr =
+> 		cpu_to_le32(skb_frag_dma_map(
+> 		&VORTEX_PCI(vp)->dev,
+> 		frag,
+> 		frag->page_offset, frag->size, DMA_TO_DEVICE));
 
-Series applied, thank you.
+Just simply change the frag->page_offset argument to zero.
