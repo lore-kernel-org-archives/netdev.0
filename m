@@ -1,75 +1,52 @@
-From: Soren Brinkmann <soren.brinkmann@xilinx.com>
-Subject: [PATCH] Revert "net/macb: add pinctrl consumer support"
-Date: Mon, 22 Sep 2014 16:49:08 -0700
-Message-ID: <1411429748-31444-1-git-send-email-soren.brinkmann@xilinx.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Soren Brinkmann <soren.brinkmann@xilinx.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/3] tcp: better TCP_SKB_CB layout
+Date: Mon, 22 Sep 2014 16:50:41 -0700
+Message-ID: <1411429844-11099-1-git-send-email-edumazet@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f73.google.com ([209.85.220.73]:42448 "EHLO
+	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752727AbaIVXur (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 19:50:47 -0400
+Received: by mail-pa0-f73.google.com with SMTP id ey11so1189753pad.2
+        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 16:50:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 8ef29f8aae524bd51298fb10ac6a5ce6c4c5a3d8.
-The driver core already calls pinctrl_get() and claims the default
-state. There is no need to replicate this in the driver.
----
-Hi,
+TCP had the assumption that IPCB and IP6CB are first members of skb->cb[]
 
-I might be mistaken, but I think the driver core does already take care=
- of
-calling into the pinctrl framework and the driver does not need to do i=
-t on its
-own (drivers/base/dd.c:really_probe() calls 'pinctrl_bind_pins() which =
-takes
-care of the pinctrl setup).
+This is fine, except that IPCB/IP6CB are used for a very short time
+in input path.
 
-	Thanks,
-	S=C3=B6ren
+What really matters for TCP stack is to get skb->next,
+TCP_SKB_CB(skb)->seq, and TCP_SKB_CB(skb)->end_seq in the same cache line.
 
- drivers/net/ethernet/cadence/macb.c | 11 -----------
- 1 file changed, 11 deletions(-)
+skb that are immediately consumed do not care because whole skb->cb[] is
+hot in cpu cache, while skb that sit in wocket write queue or receive queues
+do not need TCP_SKB_CB(skb)->header at all.
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet=
-/cadence/macb.c
-index ca5d7798b265..e1e02fba4fcc 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -30,7 +30,6 @@
- #include <linux/of_device.h>
- #include <linux/of_mdio.h>
- #include <linux/of_net.h>
--#include <linux/pinctrl/consumer.h>
-=20
- #include "macb.h"
-=20
-@@ -2071,7 +2070,6 @@ static int __init macb_probe(struct platform_devi=
-ce *pdev)
- 	struct phy_device *phydev;
- 	u32 config;
- 	int err =3D -ENXIO;
--	struct pinctrl *pinctrl;
- 	const char *mac;
-=20
- 	regs =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
-@@ -2080,15 +2078,6 @@ static int __init macb_probe(struct platform_dev=
-ice *pdev)
- 		goto err_out;
- 	}
-=20
--	pinctrl =3D devm_pinctrl_get_select_default(&pdev->dev);
--	if (IS_ERR(pinctrl)) {
--		err =3D PTR_ERR(pinctrl);
--		if (err =3D=3D -EPROBE_DEFER)
--			goto err_out;
--
--		dev_warn(&pdev->dev, "No pinctrl provided\n");
--	}
--
- 	err =3D -ENOMEM;
- 	dev =3D alloc_etherdev(sizeof(*bp));
- 	if (!dev)
---=20
-2.1.0.1.g27b9230
+This patch set implements the prereq for IPv4, IPv6, and TCP to make this
+possible. This makes TCP more efficient.
+
+Eric Dumazet (3):
+  ipv4: rename ip_options_echo to __ip_options_echo()
+  ipv6: add a struct inet6_skb_parm param to ipv6_opt_accepted()
+  tcp: better TCP_SKB_CB layout to reduce cache line misses
+
+ include/net/ip.h      | 15 ++++++++++++---
+ include/net/ipv6.h    |  3 ++-
+ include/net/tcp.h     | 12 ++++++------
+ net/dccp/ipv6.c       |  2 +-
+ net/ipv4/ip_options.c |  6 ++----
+ net/ipv4/ip_output.c  |  8 +++++---
+ net/ipv4/tcp_ipv4.c   | 17 +++++++++++++----
+ net/ipv6/af_inet6.c   |  4 ++--
+ net/ipv6/syncookies.c |  2 +-
+ net/ipv6/tcp_ipv6.c   | 12 ++++++++++--
+ 10 files changed, 54 insertions(+), 27 deletions(-)
+
+-- 
+2.1.0.rc2.206.gedb03e5
