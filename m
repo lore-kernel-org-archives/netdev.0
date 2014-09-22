@@ -1,34 +1,37 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: ipv4 dead route delete notification on netdev down
-Date: Mon, 22 Sep 2014 10:26:10 +0200
-Message-ID: <541FDD22.7050807@6wind.com>
-References: <541E4DD4.1050609@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Robert Pullman <r.pullman0@gmail.com>
+Subject: Dear Friend !!!
+Date: Mon, 22 Sep 2014 01:31:09 -0700
+Message-ID: <CAG3h4wzZVOr9rPmqwv5gQkc6Q6c7PV-brC_P=90u+94DxZL+Ug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Thomas Graf <tgraf@suug.ch>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:63395 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753498AbaIVI0N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 04:26:13 -0400
-Received: by mail-wi0-f181.google.com with SMTP id z2so2451368wiv.8
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 01:26:11 -0700 (PDT)
-In-Reply-To: <541E4DD4.1050609@cumulusnetworks.com>
+Received: from mail-qc0-f194.google.com ([209.85.216.194]:35403 "EHLO
+	mail-qc0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753215AbaIVIbK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 04:31:10 -0400
+Received: by mail-qc0-f194.google.com with SMTP id r5so1924610qcx.5
+        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 01:31:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 21/09/2014 06:02, Roopa Prabhu a =E9crit :
-> Hi,
->
-> The kernel does not send notification for deleted dead ipv4 routes on=
- netdev down.
-Not only on netdev down. If you remove the last IPv4 address, the kerne=
-l will
-also purge its routing table without any notification :/
+Dear Friend,
+
+Do not despair at my sudden contact, there is a business proposal that
+I want to initiate with you, and i demand that you can handle this
+proposal with a serious mind, as it requires utmost urgency and
+attention. I am Robert Pullman, Senior Audit Officer under the City of
+New York Office of the Comptroller, John C. liu, and as a matter of
+fact i was asked to contact you to draw your attention to this
+beneficial matter.
+
+In other words, Am Contacting you in a benevolent spirit; utmost
+confidence and trust to provide an account as solution to money
+transfer of a huge amount of fund (amount undisclosed), all modalities
+has been mapped out, it is legal and confidential.
+
+Contact me for details via my private email;  pullman.rb@gmail.com
+
+Best Regard,
+
+Robert Pullman
