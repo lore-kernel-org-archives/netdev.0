@@ -1,48 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: sched: fix compile warning in cls_u32
-Date: Mon, 22 Sep 2014 13:42:53 -0700
-Message-ID: <1411418573.26859.157.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request (net): ipsec 2014-09-22
+Date: Mon, 22 Sep 2014 16:43:55 -0400 (EDT)
+Message-ID: <20140922.164355.932664395205178101.davem@davemloft.net>
+References: <1411364320-5309-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:46267 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753879AbaIVUmy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 16:42:54 -0400
-Received: by mail-pa0-f52.google.com with SMTP id hz1so5213994pad.11
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 13:42:54 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:53753 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751130AbaIVUn5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 16:43:57 -0400
+In-Reply-To: <1411364320-5309-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Mon, 22 Sep 2014 07:38:38 +0200
 
-$ grep CONFIG_CLS_U32_MARK .config
-# CONFIG_CLS_U32_MARK is not set
+> We generate a blackhole or queueing route if a packet
+> matches an IPsec policy but a state can't be resolved.
+> Here we assume that dst_output() is called to kill
+> these packets. Unfortunately this assumption is not
+> true in all cases, so it is possible that these packets
+> leave the system without the necessary transformations.
+> 
+> This pull request contains two patches to fix this issue:
+> 
+> 1) Fix for blackhole routed packets.
+> 
+> 2) Fix for queue routed packets.
+> 
+> Both patches are serious stable candidates.
+> 
+> Please pull or let me know if there are problems.
 
-net/sched/cls_u32.c: In function 'u32_change':
-net/sched/cls_u32.c:852:1: warning: label 'errout' defined but not used
-[-Wunused-label]
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/sched/cls_u32.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index e3fb5308d44a..ef97a646ee94 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -847,9 +847,9 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
- 
- #ifdef CONFIG_CLS_U32_MARK
- 	free_percpu(n->pcpu_success);
-+errout:
- #endif
- 
--errout:
- #ifdef CONFIG_CLS_U32_PERF
- 	free_percpu(n->pf);
- #endif
+Pulled and queued up for -stable, thanks.
