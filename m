@@ -1,36 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: Work around HW/FW limitations with vlan
- encapsulated frames
-Date: Mon, 22 Sep 2014 14:20:50 -0400 (EDT)
-Message-ID: <20140922.142050.1675487445764875212.davem@davemloft.net>
-References: <1411050677-28147-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH net] net: sched: shrink struct qdisc_skb_cb to 28 bytes
+Date: Mon, 22 Sep 2014 14:22:00 -0400 (EDT)
+Message-ID: <20140922.142200.2003937036676881256.davem@davemloft.net>
+References: <alpine.LNX.2.03.1406261159071.1438@ws.cisco>
+	<CAJZOPZJ7+n0t1LCqaa3JCBByRw=f_Tp6rk8vm0ZnCzmtKFKX_g@mail.gmail.com>
+	<1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevic@redhat.com, prashant@broadcom.com,
-	mchan@broadcom.com
-To: vyasevich@gmail.com
+Cc: or.gerlitz@gmail.com, _govind@gmx.com, yinghai@kernel.org,
+	netdev@vger.kernel.org, ssujith@cisco.com, gvaradar@cisco.com,
+	benve@cisco.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52680 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52697 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754466AbaIVSUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:20:53 -0400
-In-Reply-To: <1411050677-28147-1-git-send-email-vyasevic@redhat.com>
+	with ESMTP id S1753879AbaIVSWD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:22:03 -0400
+In-Reply-To: <1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Date: Thu, 18 Sep 2014 10:31:17 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 18 Sep 2014 08:02:05 -0700
 
-> TG3 appears to have an issue performing TSO and checksum offloading
-> correclty when the frame has been vlan encapsulated (non-accelrated).
-> In these cases, tcp checksum is not correctly updated.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> This patch attempts to work around this issue.  After the patch,
-> 802.1ad vlans start working correctly over tg3 devices.
+> We cannot make struct qdisc_skb_cb bigger without impacting IPoIB,
+> or increasing skb->cb[] size.
 > 
-> CC: Prashant Sreedharan <prashant@broadcom.com>
-> CC: Michael Chan <mchan@broadcom.com>
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+> Commit e0f31d849867 ("flow_keys: Record IP layer protocol in
+> skb_flow_dissect()") broke IPoIB.
+> 
+> Only current offender is sch_choke, and this one do not need an
+> absolutely precise flow key.
+> 
+> If we store 17 bytes of flow key, its more than enough. (Its the actual
+> size of flow_keys if it was a packed structure, but we might add new
+> fields at the end of it later)
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: e0f31d849867 ("flow_keys: Record IP layer protocol in skb_flow_dissect()")
 
-Applied and queued up for -stable.
+Applied, thanks Eric.
