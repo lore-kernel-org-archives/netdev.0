@@ -1,79 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net] ipv4: do not use this_cpu_ptr() in preemptible
- context
-Date: Mon, 22 Sep 2014 10:38:16 -0700
-Message-ID: <1411407496.26859.141.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140922090242.5ef15c83@urahara>
-	 <1411405767.26859.128.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411406513.26859.136.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Corrupt Network Packets -- 3.17-rc5/rc6
+Date: Mon, 22 Sep 2014 13:38:31 -0400 (EDT)
+Message-ID: <20140922.133831.220769383344675250.davem@davemloft.net>
+References: <CAM_iQpXQcM2E2oez+nNbbecd25fXqOKNqAfoOgCfQ72-VfBOUA@mail.gmail.com>
+	<201409221724.s8MHOxe5002845@clem.clem-digital.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Tom Herbert <therbert@google.com>, joe9mail@gmail.com
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:58649 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753524AbaIVRiT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 13:38:19 -0400
-Received: by mail-pd0-f170.google.com with SMTP id y13so4882377pdi.29
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 10:38:19 -0700 (PDT)
-In-Reply-To: <1411406513.26859.136.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xiyou.wangcong@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: clem@clem.clem-digital.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201409221724.s8MHOxe5002845@clem.clem-digital.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+From: Pete Clements <clem@clem.clem-digital.net>
+Date: Mon, 22 Sep 2014 13:24:59 -0400 (EDT)
 
-this_cpu_ptr() in preemptible context is generally bad
+> Quoting Cong Wang
+>   > <clem@clem.clem-digital.net> wrote:
+>   > > Heads up fyi: system is i386 UP.
+>   > >
+>   > > Started getting some pop3 reception errors from the above system.
+>   > > Investigating the problem discovered scp of the mailbox failed
+>   > > with "Corrupted MAC on input"
+>   > >
+>   > > Problem started with rc5, still in rc6. Running rc4 with no
+>   > > problem.
+>   > >
+>   > > Sorry for lack of better definition.
+>   > 
+>   > 
+>   > Which driver are you using?
+>   > 
+> Here's the output from boot log:
+> 
+>  PCI: setting IRQ 11 as level-triggered
+>  3c59x 0000:00:0d.0: found PCI INT A -> IRQ 11
+>  3c59x: Donald Becker and others.
+>  0000:00:0d.0: 3Com PCI 3c900 Cyclone 10Mbps TPC at d8812000.
 
-Sep 22 05:05:55 br kernel: [   94.608310] BUG: using smp_processor_id()
-in
-preemptible [00000000] code: ip/2261
-Sep 22 05:05:55 br kernel: [   94.608316] caller is
-tunnel_dst_set.isra.28+0x20/0x60 [ip_tunnel]
-Sep 22 05:05:55 br kernel: [   94.608319] CPU: 3 PID: 2261 Comm: ip Not
-tainted
-3.17.0-rc5 #82
+Should be fixed by:
 
-We can simply use raw_cpu_ptr(), as preemption is safe in these
-contexts.
+commit 8400dd029e764e30361a51a7ae35900ae0032b43
+Author: Neil Horman <nhorman@tuxdriver.com>
+Date:   Wed Sep 17 09:04:45 2014 -0400
 
-Should fix https://bugzilla.kernel.org/show_bug.cgi?id=84991
+    3c59x: Fix bad offset spec in skb_frag_dma_map
+    
+    Recently aded the use of skb_frag_dma_map to 3c59x, but didn't realize it
+    automatically included the frag_offset internally, as well as provided an option
+    to specify an extra offset in the parameter list.  We need to specify an offset
+    of 0 in the parameter list to avoid skb corruption that results in lost
+    connections.
+    
+    Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+    CC: Linux Kernel list <linux-kernel@vger.kernel.org>
+    CC: "David S. Miller" <davem@davemloft.net>
+    CC: Meelis Roos <mroos@linux.ee>
+    Tested-by: Meelis Roos <mroos@linux.ee>
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Joe <joe9mail@gmail.com>
-Fixes: 9a4aa9af447f ("ipv4: Use percpu Cache route in IP tunnels")
----
-v2: use latest and shiny raw_cpu_ptr(), as it seems the latest
-incantation of ever changing percpu interface.
-
- net/ipv4/ip_tunnel.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index afed1aac2638..bd41dd1948b6 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -79,10 +79,10 @@ static void __tunnel_dst_set(struct ip_tunnel_dst *idst,
- 	idst->saddr = saddr;
- }
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index 8ab87ff..8ca49f04 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -2186,7 +2186,7 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
  
--static void tunnel_dst_set(struct ip_tunnel *t,
-+static noinline void tunnel_dst_set(struct ip_tunnel *t,
- 			   struct dst_entry *dst, __be32 saddr)
- {
--	__tunnel_dst_set(this_cpu_ptr(t->dst_cache), dst, saddr);
-+	__tunnel_dst_set(raw_cpu_ptr(t->dst_cache), dst, saddr);
- }
- 
- static void tunnel_dst_reset(struct ip_tunnel *t)
-@@ -106,7 +106,7 @@ static struct rtable *tunnel_rtable_get(struct ip_tunnel *t,
- 	struct dst_entry *dst;
- 
- 	rcu_read_lock();
--	idst = this_cpu_ptr(t->dst_cache);
-+	idst = raw_cpu_ptr(t->dst_cache);
- 	dst = rcu_dereference(idst->dst);
- 	if (dst && !atomic_inc_not_zero(&dst->__refcnt))
- 		dst = NULL;
+ 			dma_addr = skb_frag_dma_map(&VORTEX_PCI(vp)->dev, frag,
+-						    frag->page_offset,
++						    0,
+ 						    frag->size,
+ 						    DMA_TO_DEVICE);
+ 			if (dma_mapping_error(&VORTEX_PCI(vp)->dev, dma_addr)) {
