@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: fix code identation
-Date: Mon, 22 Sep 2014 14:52:33 -0400 (EDT)
-Message-ID: <20140922.145233.858465532218349114.davem@davemloft.net>
-References: <1411107963-8303-1-git-send-email-b38611@freescale.com>
+Subject: Re: [PATCH net] r8152: disable ALDPS
+Date: Mon, 22 Sep 2014 14:54:46 -0400 (EDT)
+Message-ID: <20140922.145446.2112922203236872469.davem@davemloft.net>
+References: <1394712342-15778-44-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com
-To: b38611@freescale.com
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52885 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52925 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752520AbaIVSwg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:52:36 -0400
-In-Reply-To: <1411107963-8303-1-git-send-email-b38611@freescale.com>
+	with ESMTP id S1751730AbaIVSys (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:54:48 -0400
+In-Reply-To: <1394712342-15778-44-Taiwan-albertk@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <b38611@freescale.com>
-Date: Fri, 19 Sep 2014 14:26:03 +0800
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Fri, 19 Sep 2014 15:17:18 +0800
 
-> There have extra identation before .skb_copy_to_linear_data_offset(),
-> this patch just remove the identation.
+> If the hw is in ALDPS mode, the hw may have no response for accessing
+> the most registers. Therefore, the ALDPS should be disabled before
+> accessing the hw in rtl_ops.init(), rtl_ops.disable(), rtl_ops.up(),
+> and rtl_ops.down(). Regardless of rtl_ops.enable(), because the hw
+> wouldn't enter ALDPS mode when linking on. The hw would enter the
+> ALDPS mode after several seconds when link down occurs and the ALDPS
+> is enabled.
 > 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
 Applied, thanks.
