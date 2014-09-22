@@ -1,46 +1,83 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH net 3/3] ip6_gre: Return an error when adding an existing tunnel.
-Date: Mon, 22 Sep 2014 10:07:26 +0200
-Message-ID: <1411373246-22389-4-git-send-email-steffen.klassert@secunet.com>
-References: <1411373246-22389-1-git-send-email-steffen.klassert@secunet.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
+Date: Mon, 22 Sep 2014 09:13:41 +0100
+Message-ID: <20140922081341.GA20905@casper.infradead.org>
+References: <1411134590-4586-1-git-send-email-jiri@resnulli.us>
+ <1411134590-4586-9-git-send-email-jiri@resnulli.us>
+ <541C4AFC.8060500@mojatatu.com>
+ <20140919154946.GH1980@nanopsycho.orion>
+ <541C6E6D.9000109@mojatatu.com>
+ <541CAA3C.5080105@intel.com>
+ <20140920081426.GE1821@nanopsycho.orion>
+ <20140920105354.GA29419@casper.infradead.org>
+ <CAADnVQK0wT2Fjqdg+C=ruSt8jF6sKeMo7cFj7K1fsu7-1u5g=g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>, ben@decadent.org.uk,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com,
+	Vladislav Yasevich <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>,
+	"dev@openvswitch.org" <dev@openvswitch.o
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53884 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752984AbaIVIHp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Sep 2014 04:07:45 -0400
-In-Reply-To: <1411373246-22389-1-git-send-email-steffen.klassert@secunet.com>
+Received: from casper.infradead.org ([85.118.1.10]:52821 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753301AbaIVINu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 04:13:50 -0400
+Content-Disposition: inline
+In-Reply-To: <CAADnVQK0wT2Fjqdg+C=ruSt8jF6sKeMo7cFj7K1fsu7-1u5g=g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ip6gre_tunnel_locate() should not return an existing tunnel if
-create is true. Otherwise it is possible to add the same
-tunnel multiple times without getting an error.
+On 09/20/14 at 03:50pm, Alexei Starovoitov wrote:
+> I think HW should not be limited by SW abstractions whether
+> these abstractions are called flows, n-tuples, bridge or else.
+> Really looking forward to see "device reporting the headers as
+> header fields (len, offset) and the associated parse graph"
+> as the first step.
+> 
+> Another topic that this discussion didn't cover yet is how this
+> all connects to tunnels and what is 'tunnel offloading'.
+> imo flow offloading by itself serves only academic interest.
 
-So return NULL if the tunnel that should be created already
-exists.
+We haven't touched encryption yet either ;-)
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv6/ip6_gre.c | 2 ++
- 1 file changed, 2 insertions(+)
+Certainly true for the host case. The Linux on TOR case is less
+dependant on this and L2/L3 offload w/o encap already has value.
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 5f19dfb..2e5a882 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -314,6 +314,8 @@ static struct ip6_tnl *ip6gre_tunnel_locate(struct net *net,
- 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
- 
- 	t = ip6gre_tunnel_find(net, parms, ARPHRD_IP6GRE);
-+	if (t && create)
-+		return NULL;
- 	if (t || !create)
- 		return t;
- 
--- 
-1.9.1
+I'm with you though, all of this has little value on the host in
+the DC if stateful encap offload is not incorporated. I expect the
+HW to provide filters on the outer header plus metadata in the
+encap. Actually, this was a follow-up question I had for John as
+this is not easily describable with offset/len filters. How would
+we represent such capabilities?
+
+The TX side of this was one of the reasons why I initially thought
+it would be beneficial to implement a cache like offload as we could
+serve an initial encap in SW, do the FIB lookup and offload it
+transparently to avoid replicating the FIB in user space.
+
+What seems most feasisble to me right now is to separate the offload
+of the encap action from the IP -> dev mapping decision. The eSwitch
+would send the first encap for an unknown dest IP to the CPU due
+to a miss in the IP mapping table, the CPU would do the FIB lookup,
+update the table and send it back.
+
+What do you have in mind?
