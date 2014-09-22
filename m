@@ -1,44 +1,63 @@
-From: David Miller <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
 Subject: Re: [PATCH net 0/2] net: bcmgenet: TX reclaim and DMA fixes
-Date: Mon, 22 Sep 2014 14:46:18 -0400 (EDT)
-Message-ID: <20140922.144618.340968117925494461.davem@davemloft.net>
-References: <1411087697-19306-1-git-send-email-f.fainelli@gmail.com>
+Date: Mon, 22 Sep 2014 11:50:05 -0700
+Message-ID: <54206F5D.7070000@gmail.com>
+References: <1411087697-19306-1-git-send-email-f.fainelli@gmail.com> <20140922.144618.340968117925494461.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52839 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754375AbaIVSqV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:46:21 -0400
-In-Reply-To: <1411087697-19306-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:59650 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753336AbaIVSuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:50:22 -0400
+Received: by mail-pa0-f54.google.com with SMTP id fb1so5052953pad.41
+        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 11:50:22 -0700 (PDT)
+In-Reply-To: <20140922.144618.340968117925494461.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+DQpEYXRlOiBUaHUs
-IDE4IFNlcCAyMDE0IDE3OjQ4OjE1IC0wNzAwDQoNCj4gVGhpcyBwYXRjaCBzZXQgY29udGFpbnMg
-b25lIGZpeCBmb3IgYW4gYWNjb3VudGluZyBwcm9ibGVtIHdoaWxlIHJlY2xhaW1pbmcNCj4gdHJh
-bnNtaXR0ZWQgYnVmZmVycyBoYXZpbmcgZnJhZ21lbnRzLCBhbmQgdGhlIHNlY29uZCBmaXggaXMg
-dG8gbWFrZSBzdXJlDQo+IHRoYXQgdGhlIERNQSBzaHV0ZG93biBpcyBwcm9wZXJseSBjb250cm9s
-bGVkLg0KDQpGbG9yaWFuIEkgYW0gc2VyaWVzbHkgaXJyaXRhdGVkLCBhcmUgeW91IGV2ZW4gYnVp
-bGQgdGVzdGluZyB0aGVzZQ0KY2hhbmdlcz8NCg0KYmNtZ2VuZXRfZG1hX3RlYXJkb3duKCkgaXMg
-YSBzdGF0aWMgZnVuY3Rpb24gZGVjbGFyZWQgZmFyIGFmdGVyIHRoZQ0KbmV3IGNhbGwgeW91IGFy
-ZSBhZGRpbmcgaW4gcGF0Y2ggIzIsIHNvIG5vdyB3ZSBnZXQ6DQoNCmRyaXZlcnMvbmV0L2V0aGVy
-bmV0L2Jyb2FkY29tL2dlbmV0L2JjbWdlbmV0LmM6IEluIGZ1bmN0aW9uIKFiY21nZW5ldF9maW5p
-X2RtYaI6DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9nZW5ldC9iY21nZW5ldC5jOjE3
-NTI6MjogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIKFiY21nZW5ldF9k
-bWFfdGVhcmRvd26iIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KZHJp
-dmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vZ2VuZXQvYmNtZ2VuZXQuYzogQXQgdG9wIGxldmVs
-Og0KZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vZ2VuZXQvYmNtZ2VuZXQuYzoyMTExOjEy
-OiBlcnJvcjogc3RhdGljIGRlY2xhcmF0aW9uIG9mIKFiY21nZW5ldF9kbWFfdGVhcmRvd26iIGZv
-bGxvd3Mgbm9uLXN0YXRpYyBkZWNsYXJhdGlvbg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRj
-b20vZ2VuZXQvYmNtZ2VuZXQuYzoxNzUyOjI6IG5vdGU6IHByZXZpb3VzIGltcGxpY2l0IGRlY2xh
-cmF0aW9uIG9mIKFiY21nZW5ldF9kbWFfdGVhcmRvd26iIHdhcyBoZXJlDQoNCkkgd2FudCB0byBt
-YWtlIGl0IGNsZWFyIHRvIHlvdSB0aGF0IHdoYXRldmVyIHRpbWUgeW91IHRoaW5rIHlvdSdyZQ0K
-c2F2aW5nIGJ5IHNraXBwaW5nIGV2ZW4gdGhlIG1vc3QgYmFzaWMgY29tcGlsYXRpb24gdGVzdCwg
-Z29lcyBkaXJlY3RseQ0KdG8gX01FXyBhbmQgeW91IGFyZSB0aGVyZWZvcmUgaGF2aW5nIGEgbmVn
-YXRpdmUgaW1wYWN0IG9uIGV2ZXJ5IHNpbmdsZQ0KZGV2ZWxvcGVyIHdobyBpcyBhbHNvIHdhaXRp
-bmcgZm9yIG1lIHRvIHJldmlldyBhbmQgaW50ZWdyYXRlIHRoZWlyDQpuZXR3b3JraW5nIGNoYW5n
-ZXMuDQoNClBsZWFzZSBkbyBub3QgZG8gdGhpcyBhbnkgbW9yZS4NCg0KVGhhbmtzLg0K
+On 09/22/2014 11:46 AM, David Miller wrote:
+> From: Florian Fainelli <f.fainelli@gmail.com>
+> Date: Thu, 18 Sep 2014 17:48:15 -0700
+>=20
+>> This patch set contains one fix for an accounting problem while recl=
+aiming
+>> transmitted buffers having fragments, and the second fix is to make =
+sure
+>> that the DMA shutdown is properly controlled.
+>=20
+> Florian I am seriesly irritated, are you even build testing these
+> changes?
+>=20
+> bcmgenet_dma_teardown() is a static function declared far after the
+> new call you are adding in patch #2, so now we get:
+>=20
+> drivers/net/ethernet/broadcom/genet/bcmgenet.c: In function =E2=80=98=
+bcmgenet_fini_dma=E2=80=99:
+> drivers/net/ethernet/broadcom/genet/bcmgenet.c:1752:2: error: implici=
+t declaration of function =E2=80=98bcmgenet_dma_teardown=E2=80=99 [-Wer=
+ror=3Dimplicit-function-declaration]
+> drivers/net/ethernet/broadcom/genet/bcmgenet.c: At top level:
+> drivers/net/ethernet/broadcom/genet/bcmgenet.c:2111:12: error: static=
+ declaration of =E2=80=98bcmgenet_dma_teardown=E2=80=99 follows non-sta=
+tic declaration
+> drivers/net/ethernet/broadcom/genet/bcmgenet.c:1752:2: note: previous=
+ implicit declaration of =E2=80=98bcmgenet_dma_teardown=E2=80=99 was he=
+re
+>=20
+> I want to make it clear to you that whatever time you think you're
+> saving by skipping even the most basic compilation test, goes directl=
+y
+> to _ME_ and you are therefore having a negative impact on every singl=
+e
+> developer who is also waiting for me to review and integrate their
+> networking changes.
+>=20
+> Please do not do this any more.
+
+Very sorry about that, v2 is on your way, I will be more careful.
+--
+=46lorian
