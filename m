@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/2] xfrm: Generate blackhole routes only from route lookup functions
-Date: Mon, 22 Sep 2014 07:38:39 +0200
-Message-ID: <1411364320-5309-2-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 2/2] xfrm: Generate queueing routes only from route lookup functions
+Date: Mon, 22 Sep 2014 07:38:40 +0200
+Message-ID: <1411364320-5309-3-git-send-email-steffen.klassert@secunet.com>
 References: <1411364320-5309-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,141 +10,156 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:51323 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:51325 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750828AbaIVFjG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750949AbaIVFjG (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 22 Sep 2014 01:39:06 -0400
 In-Reply-To: <1411364320-5309-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we genarate a blackhole route route whenever we have
-matching policies but can not resolve the states. Here we assume
-that dst_output() is called to kill the balckholed packets.
-Unfortunately this assumption is not true in all cases, so
-it is possible that these packets leave the system unwanted.
+Currently we genarate a queueing route if we have matching policies
+but can not resolve the states and the sysctl xfrm_larval_drop is
+disabled. Here we assume that dst_output() is called to kill the
+queued packets. Unfortunately this assumption is not true in all
+cases, so it is possible that these packets leave the system unwanted.
 
-We fix this by generating blackhole routes only from the
+We fix this by generating queueing routes only from the
 route lookup functions, here we can guarantee a call to
 dst_output() afterwards.
 
-Fixes: 2774c131b1d ("xfrm: Handle blackhole route creation via afinfo.")
+Fixes: a0073fe18e71 ("xfrm: Add a state resolution packet queue")
 Reported-by: Konstantinos Kolelis <k.kolelis@sirrix.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/dst.h      | 15 ++++++++++++++-
- net/ipv4/route.c       |  6 +++---
- net/ipv6/ip6_output.c  |  4 ++--
- net/xfrm/xfrm_policy.c | 18 +++++++++++++++++-
- 4 files changed, 36 insertions(+), 7 deletions(-)
+ include/net/dst.h      |  1 +
+ net/xfrm/xfrm_policy.c | 32 ++++++++++++++++++++++++--------
+ 2 files changed, 25 insertions(+), 8 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
-index 71c60f4..fa11c90 100644
+index fa11c90..a8ae4e7 100644
 --- a/include/net/dst.h
 +++ b/include/net/dst.h
-@@ -490,7 +490,16 @@ static inline struct dst_entry *xfrm_lookup(struct net *net,
- 					    int flags)
- {
- 	return dst_orig;
--} 
-+}
-+
-+static inline struct dst_entry *xfrm_lookup_route(struct net *net,
-+						  struct dst_entry *dst_orig,
-+						  const struct flowi *fl,
-+						  struct sock *sk,
-+						  int flags)
-+{
-+	return dst_orig;
-+}
+@@ -480,6 +480,7 @@ void dst_init(void);
+ /* Flags for xfrm_lookup flags argument. */
+ enum {
+ 	XFRM_LOOKUP_ICMP = 1 << 0,
++	XFRM_LOOKUP_QUEUE = 1 << 1,
+ };
  
- static inline struct xfrm_state *dst_xfrm(const struct dst_entry *dst)
- {
-@@ -502,6 +511,10 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
- 			      const struct flowi *fl, struct sock *sk,
- 			      int flags);
- 
-+struct dst_entry *xfrm_lookup_route(struct net *net, struct dst_entry *dst_orig,
-+				    const struct flowi *fl, struct sock *sk,
-+				    int flags);
-+
- /* skb attached with this dst needs transformation if dst->xfrm is valid */
- static inline struct xfrm_state *dst_xfrm(const struct dst_entry *dst)
- {
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index eaa4b00..173e7ea 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2265,9 +2265,9 @@ struct rtable *ip_route_output_flow(struct net *net, struct flowi4 *flp4,
- 		return rt;
- 
- 	if (flp4->flowi4_proto)
--		rt = (struct rtable *) xfrm_lookup(net, &rt->dst,
--						   flowi4_to_flowi(flp4),
--						   sk, 0);
-+		rt = (struct rtable *)xfrm_lookup_route(net, &rt->dst,
-+							flowi4_to_flowi(flp4),
-+							sk, 0);
- 
- 	return rt;
- }
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 315a55d..0a3448b 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1009,7 +1009,7 @@ struct dst_entry *ip6_dst_lookup_flow(struct sock *sk, struct flowi6 *fl6,
- 	if (final_dst)
- 		fl6->daddr = *final_dst;
- 
--	return xfrm_lookup(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
-+	return xfrm_lookup_route(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
- }
- EXPORT_SYMBOL_GPL(ip6_dst_lookup_flow);
- 
-@@ -1041,7 +1041,7 @@ struct dst_entry *ip6_sk_dst_lookup_flow(struct sock *sk, struct flowi6 *fl6,
- 	if (final_dst)
- 		fl6->daddr = *final_dst;
- 
--	return xfrm_lookup(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
-+	return xfrm_lookup_route(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
- }
- EXPORT_SYMBOL_GPL(ip6_sk_dst_lookup_flow);
- 
+ struct flowi;
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index beeed60..7505674 100644
+index 7505674..fdde51f 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -2138,7 +2138,7 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
- 			xfrm_pols_put(pols, drop_pols);
- 			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTNOSTATES);
+@@ -39,6 +39,11 @@
+ #define XFRM_QUEUE_TMO_MAX ((unsigned)(60*HZ))
+ #define XFRM_MAX_QUEUE_LEN	100
  
--			return make_blackhole(net, family, dst_orig);
-+			return ERR_PTR(-EREMOTE);
- 		}
- 
- 		err = -EAGAIN;
-@@ -2195,6 +2195,22 @@ dropdst:
++struct xfrm_flo {
++	struct dst_entry *dst_orig;
++	u8 flags;
++};
++
+ static DEFINE_SPINLOCK(xfrm_policy_afinfo_lock);
+ static struct xfrm_policy_afinfo __rcu *xfrm_policy_afinfo[NPROTO]
+ 						__read_mostly;
+@@ -1877,13 +1882,14 @@ static int xdst_queue_output(struct sock *sk, struct sk_buff *skb)
  }
- EXPORT_SYMBOL(xfrm_lookup);
  
-+/* Callers of xfrm_lookup_route() must ensure a call to dst_output().
-+ * Otherwise we may send out blackholed packets.
-+ */
-+struct dst_entry *xfrm_lookup_route(struct net *net, struct dst_entry *dst_orig,
-+				    const struct flowi *fl,
-+				    struct sock *sk, int flags)
-+{
-+	struct dst_entry *dst = xfrm_lookup(net, dst_orig, fl, sk, flags);
-+
-+	if (IS_ERR(dst) && PTR_ERR(dst) == -EREMOTE)
-+		return make_blackhole(net, dst_orig->ops->family, dst_orig);
-+
-+	return dst;
-+}
-+EXPORT_SYMBOL(xfrm_lookup_route);
-+
- static inline int
- xfrm_secpath_reject(int idx, struct sk_buff *skb, const struct flowi *fl)
+ static struct xfrm_dst *xfrm_create_dummy_bundle(struct net *net,
+-						 struct dst_entry *dst,
++						 struct xfrm_flo *xflo,
+ 						 const struct flowi *fl,
+ 						 int num_xfrms,
+ 						 u16 family)
  {
+ 	int err;
+ 	struct net_device *dev;
++	struct dst_entry *dst;
+ 	struct dst_entry *dst1;
+ 	struct xfrm_dst *xdst;
+ 
+@@ -1891,9 +1897,12 @@ static struct xfrm_dst *xfrm_create_dummy_bundle(struct net *net,
+ 	if (IS_ERR(xdst))
+ 		return xdst;
+ 
+-	if (net->xfrm.sysctl_larval_drop || num_xfrms <= 0)
++	if (!(xflo->flags & XFRM_LOOKUP_QUEUE) ||
++	    net->xfrm.sysctl_larval_drop ||
++	    num_xfrms <= 0)
+ 		return xdst;
+ 
++	dst = xflo->dst_orig;
+ 	dst1 = &xdst->u.dst;
+ 	dst_hold(dst);
+ 	xdst->route = dst;
+@@ -1935,7 +1944,7 @@ static struct flow_cache_object *
+ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir,
+ 		   struct flow_cache_object *oldflo, void *ctx)
+ {
+-	struct dst_entry *dst_orig = (struct dst_entry *)ctx;
++	struct xfrm_flo *xflo = (struct xfrm_flo *)ctx;
+ 	struct xfrm_policy *pols[XFRM_POLICY_TYPE_MAX];
+ 	struct xfrm_dst *xdst, *new_xdst;
+ 	int num_pols = 0, num_xfrms = 0, i, err, pol_dead;
+@@ -1976,7 +1985,8 @@ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir,
+ 			goto make_dummy_bundle;
+ 	}
+ 
+-	new_xdst = xfrm_resolve_and_create_bundle(pols, num_pols, fl, family, dst_orig);
++	new_xdst = xfrm_resolve_and_create_bundle(pols, num_pols, fl, family,
++						  xflo->dst_orig);
+ 	if (IS_ERR(new_xdst)) {
+ 		err = PTR_ERR(new_xdst);
+ 		if (err != -EAGAIN)
+@@ -2010,7 +2020,7 @@ make_dummy_bundle:
+ 	/* We found policies, but there's no bundles to instantiate:
+ 	 * either because the policy blocks, has no transformations or
+ 	 * we could not build template (no xfrm_states).*/
+-	xdst = xfrm_create_dummy_bundle(net, dst_orig, fl, num_xfrms, family);
++	xdst = xfrm_create_dummy_bundle(net, xflo, fl, num_xfrms, family);
+ 	if (IS_ERR(xdst)) {
+ 		xfrm_pols_put(pols, num_pols);
+ 		return ERR_CAST(xdst);
+@@ -2104,13 +2114,18 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+ 	}
+ 
+ 	if (xdst == NULL) {
++		struct xfrm_flo xflo;
++
++		xflo.dst_orig = dst_orig;
++		xflo.flags = flags;
++
+ 		/* To accelerate a bit...  */
+ 		if ((dst_orig->flags & DST_NOXFRM) ||
+ 		    !net->xfrm.policy_count[XFRM_POLICY_OUT])
+ 			goto nopol;
+ 
+ 		flo = flow_cache_lookup(net, fl, family, dir,
+-					xfrm_bundle_lookup, dst_orig);
++					xfrm_bundle_lookup, &xflo);
+ 		if (flo == NULL)
+ 			goto nopol;
+ 		if (IS_ERR(flo)) {
+@@ -2202,7 +2217,8 @@ struct dst_entry *xfrm_lookup_route(struct net *net, struct dst_entry *dst_orig,
+ 				    const struct flowi *fl,
+ 				    struct sock *sk, int flags)
+ {
+-	struct dst_entry *dst = xfrm_lookup(net, dst_orig, fl, sk, flags);
++	struct dst_entry *dst = xfrm_lookup(net, dst_orig, fl, sk,
++					    flags | XFRM_LOOKUP_QUEUE);
+ 
+ 	if (IS_ERR(dst) && PTR_ERR(dst) == -EREMOTE)
+ 		return make_blackhole(net, dst_orig->ops->family, dst_orig);
+@@ -2476,7 +2492,7 @@ int __xfrm_route_forward(struct sk_buff *skb, unsigned short family)
+ 
+ 	skb_dst_force(skb);
+ 
+-	dst = xfrm_lookup(net, skb_dst(skb), &fl, NULL, 0);
++	dst = xfrm_lookup(net, skb_dst(skb), &fl, NULL, XFRM_LOOKUP_QUEUE);
+ 	if (IS_ERR(dst)) {
+ 		res = 0;
+ 		dst = NULL;
 -- 
 1.9.1
