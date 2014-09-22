@@ -1,43 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: randconfig build error with next-20140922, in
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-Date: Mon, 22 Sep 2014 13:26:03 -0400 (EDT)
-Message-ID: <20140922.132603.812620829504982755.davem@davemloft.net>
-References: <CA+r1ZhhHsR=1JRv80Oahp2FeGXU0zkMGdUB56Ryjx50yxWbhKQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ipv4: do not use this_cpu_ptr() in preemptible
+ context
+Date: Mon, 22 Sep 2014 10:28:21 -0700
+Message-ID: <1411406901.26859.137.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140922090242.5ef15c83@urahara>
+	 <1411405767.26859.128.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411406513.26859.136.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jim.epost@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CA+r1ZhhHsR=1JRv80Oahp2FeGXU0zkMGdUB56Ryjx50yxWbhKQ@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Tom Herbert <therbert@google.com>, joe9mail@gmail.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:40622 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754224AbaIVR2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 13:28:25 -0400
+Received: by mail-pa0-f45.google.com with SMTP id lj1so4426209pab.18
+        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 10:28:25 -0700 (PDT)
+In-Reply-To: <1411406513.26859.136.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSmltIERhdmlzIDxqaW0uZXBvc3RAZ21haWwuY29tPg0KRGF0ZTogTW9uLCAyMiBTZXAg
-MjAxNCAxMDoxNjoyNiAtMDcwMA0KDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L29raS1zZW1pL3Bj
-aF9nYmUvcGNoX2diZV9tYWluLmM6IEluIGZ1bmN0aW9uDQo+IKFwY2hfcHRwX21hdGNoojoNCj4g
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvb2tpLXNlbWkvcGNoX2diZS9wY2hfZ2JlX21haW4uYzoxMzA6
-MjogZXJyb3I6DQo+IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIKFwdHBfY2xhc3Np
-ZnlfcmF3og0KPiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5jdGlvbi1kZWNsYXJhdGlvbl0NCj4gICBp
-ZiAocHRwX2NsYXNzaWZ5X3Jhdyhza2IpID09IFBUUF9DTEFTU19OT05FKQ0KPiAgIF4NCj4gY2Mx
-OiBzb21lIHdhcm5pbmdzIGJlaW5nIHRyZWF0ZWQgYXMgZXJyb3JzDQo+IG1ha2VbNV06ICoqKiBb
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvb2tpLXNlbWkvcGNoX2diZS9wY2hfZ2JlX21haW4ub10gRXJy
-b3IgMQ0KDQpUaGVzZSBkZXBlbmRlbmNpZXMgYXJlIHNvIGJyb2tlbi4NCg0KWW91IGNhbm5vdCBz
-ZWxlY3QgY3JhcCB3aXRob3V0IGFsc28gc2VsZWN0aW5nIGFsbCBvZiB0aGF0IG9wdGlvbnMNCmRl
-cGVuZGVuY2llcywgYW5kIHNvIG9uIGFuZCBzbyBmb3J0aCBhbGwgdGhlIHdheSB1cCB0byB0aGUg
-ZGlyZWN0DQphbmQgaW5kaXJlY3QgZGVwZW5kZW5jaWVzIHRoYXQgaGF2ZSBubyBkZXBlbmRlbmNp
-ZXMgb2YgdGhlaXIgb3duLg0KDQpUaGUgaXNzdWUgc3BlY2lmaWNhbGx5IGlzIFBDSF9HQkUgbmVl
-ZHMgTkVUX1BUUF9DTEFTU0lGWS4NCg0KUENIX0dCRSAic2VsZWN0cyIgUFRQXzE1ODhfQ0xPQ0tf
-UENILCB3aGljaCBzZWxlY3RzIFBUUF8xNTg4X0NMT0NLLA0Kd2hpY2ggc2VsZWN0cyBORVRfUFRQ
-X0NMQVNTSUZZLg0KDQpCdXQgdGhhdCBkb2VzIG5vdCByZWxpYWJseSB0dXJuIG9uIE5FVF9QVFBf
-Q0xBU1NJRlkuICBJZiB0aGUgdG9wDQpsZXZlbCBQVFBfMTU4OF9DTE9DS19QQ0ggc2VsZWN0IGlz
-IHdoYXQgdHJpZ2dlcnMsIGFzIGV4cGxhaW5lZA0KYWJvdXQgdGhpcyBkb2VzIG5vdCBlbmQgdXAg
-c2VsZWN0J2luZyBORVRfUFRQX0NMQVNTSUZZLg0KDQpTYWlkIGFub3RoZXIgd2F5LCAnc2VsZWN0
-JyBkb2VzIG5vdCByZWN1cnNpdmVseSBwcm9jZXNzIGRlcGVuZGVuY2llcy4NCllvdSBoYXZlIHRv
-IGRvIHRoZW0gYWxsIGJ5IGhhbmQgYXQgZWFjaCBhbmQgZXZlcnkgc2VsZWN0aW9uIHBvaW50Lg0K
-DQpJJ20gZ29pbmcgdG8gYWRkIHRoZSBORVRfUFRQX0NMQVNTSUZZIHNlbGVjdCB0byBQQ0hfR0JF
-J3MgS2NvbmZpZw0KZW50cnksIGJ1dCB0aGlzIGlzIG5vdCB0aGUgdGhpbmcgdG8gZG8gbG9uZyB0
-ZXJtLg0KDQpMb25nIHRlcm0gd2Ugc2hvdWxkIGJlIHVzaW5nICdkZXBlbmRzJyBmb3IgYWxsIG9m
-IHRoZXNlIG5vbi10cml2aWFsDQpkZXBlbmRlbmNpZXMsIG5vdCAnc2VsZWN0Jy4NCg==
+On Mon, 2014-09-22 at 10:21 -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> this_cpu_ptr() in preemptible context is generally bad
+> 
+> Sep 22 05:05:55 br kernel: [   94.608310] BUG: using smp_processor_id() in
+> preemptible [00000000] code: ip/2261
+> Sep 22 05:05:55 br kernel: [   94.608316] caller is
+> tunnel_dst_set.isra.28+0x20/0x60 [ip_tunnel]
+> Sep 22 05:05:55 br kernel: [   94.608319] CPU: 3 PID: 2261 Comm: ip Not tainted
+> 3.17.0-rc5 #82
+> 
+> We can simply use __this_cpu_ptr(), as preemption is safe in these contexts.
+> 
+> Should fix https://bugzilla.kernel.org/show_bug.cgi?id=84991
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Joe <joe9mail@gmail.com>
+> Fixes: 9a4aa9af447f ("ipv4: Use percpu Cache route in IP tunnels")
+> ---
+
+Hmm, I just saw raw_cpu_ptr() should be used.
+
+I'll send a v2
