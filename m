@@ -1,34 +1,66 @@
-From: "Pickens, Rhonda" <RPICKENS@dallasisd.org>
-Subject: (unknown)
-Date: Mon, 22 Sep 2014 11:58:17 +0000
-Message-ID: <0affc203216b4d0591cddc6460a5a9c7@BLUPR04MB740.namprd04.prod.outlook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] tcp: avoid possible arithmetic overflows
+Date: Mon, 22 Sep 2014 05:42:19 -0700
+Message-ID: <1411389739.26859.113.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1411233550.26859.76.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411236071.8612.6.camel@joe-AO725>
+	 <CAK6E8=etvB4MUBu96ck+7yucbFLgbxvEPJ3TM8X5qBsZLTnhDg@mail.gmail.com>
+	 <1411242956.26859.81.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411244392.10610.4.camel@joe-AO725>
+	 <1411259357.26859.89.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAK6E8=d9y8D5we_fibzxstaXBMnQcOG3DsOAL0jhzDGK1H62cw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bn0107.outbound.protection.outlook.com ([157.56.110.107]:7904
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753528AbaIVMc5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Sep 2014 08:32:57 -0400
-Subject: 
-Content-Language: en-US
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:58380 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753804AbaIVMmU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 08:42:20 -0400
+Received: by mail-pa0-f51.google.com with SMTP id eu11so2760620pac.38
+        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 05:42:20 -0700 (PDT)
+In-Reply-To: <CAK6E8=d9y8D5we_fibzxstaXBMnQcOG3DsOAL0jhzDGK1H62cw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-V2lubmluZyBCYXRjaCBObzogUUYtMTM0LTg4NzYsVi01ODgpDQpZb3VyIGVtYWlsIHdhcyBsaXN0
-ZWQgZm9yIFFhdGFyIEZvdW5kYXRpb24gQ29tcGVuc2F0aW9uIGZ1bmRzIGZvciBDb21tdW5pdHkg
-ZGV2ZWxvcG1lbnQsY29udGFjdChtb3JnYW5hZG1hc0BhdHQubmV0KQ0KX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX18NCiBDT05GSURFTlRJQUxJVFkgTk9USUNFOiBUaGlzIGVtYWlsIG1l
-c3NhZ2UsIGluY2x1ZGluZyBhbGwgYXR0YWNobWVudHMsIGlzIGZvciB0aGUgc29sZSB1c2Ugb2Yg
-dGhlIGludGVuZGVkIHJlY2lwaWVudChzKSBhbmQgbWF5IGNvbnRhaW4gY29uZmlkZW50aWFsIHN0
-dWRlbnQgYW5kL29yIGVtcGxveWVlIGluZm9ybWF0aW9uLiBVbmF1dGhvcml6ZWQgdXNlIGFuZC9v
-ciBkaXNjbG9zdXJlIGlzIHByb2hpYml0ZWQgdW5kZXIgdGhlIGZlZGVyYWwgRmFtaWx5IEVkdWNh
-dGlvbiBSaWdodHMgJiBQcml2YWN5IEFjdCAoMjAgVS5TLkMuIMKnMTIzMmcsIDM0IENGUiBQYXJ0
-IDk5LCAxOSBUQUMgMjQ3LjIsIFRleGFzIEdvdmVybm1lbnQgQ29kZSA1NTIuMDIzLCBUZXhhcyBF
-ZHVjYXRpb24gQ29kZSAyMS4zNTUsIDI5IENGUiAxNjMwLjE0KGIpKGMpKS4gSWYgeW91IGFyZSBu
-b3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgeW91IG1heSBub3QgdXNlLCBkaXNjbG9zZSwgY29w
-eSBvciBkaXNzZW1pbmF0ZSB0aGlzIGluZm9ybWF0aW9uLiBQbGVhc2UgY2FsbCB0aGUgc2VuZGVy
-IGltbWVkaWF0ZWx5IG9yIHJlcGx5IGJ5IGVtYWlsIGFuZCBkZXN0cm95IGFsbCBjb3BpZXMgb2Yg
-dGhlIG9yaWdpbmFsIG1lc3NhZ2UsIGluY2x1ZGluZyBhdHRhY2htZW50cy4NCg==
+On Sun, 2014-09-21 at 10:46 -0700, Yuchung Cheng wrote:
+> On Sat, Sep 20, 2014 at 5:29 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > icsk_rto is a 32bit field, and icsk_backoff can reach 15 by default,
+> > or more if some sysctl (eg tcp_retries2) are changed.
+> >
+> > Better use 64bit to perform icsk_rto << icsk_backoff operations
+> >
+> > As Joe Perches suggested, add a helper for this.
+> >
+> > From: Eric Dumazet <edumazet@google.com>
+> Acked-by: Yuchung Cheng <ycheng@google.com>
+> 
+> Maybe also use the new helper for the backoff in tcp_v4_err()?
+
+You mean the following bit ? If yes, I'll incorporate it in v3
+
+Thanks
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 006b045716d8..3b2e49cb2b61 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -430,9 +430,9 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
+ 			break;
+ 
+ 		icsk->icsk_backoff--;
+-		inet_csk(sk)->icsk_rto = (tp->srtt_us ? __tcp_set_rto(tp) :
+-			TCP_TIMEOUT_INIT) << icsk->icsk_backoff;
+-		tcp_bound_rto(sk);
++		icsk->icsk_rto = tp->srtt_us ? __tcp_set_rto(tp) :
++					       TCP_TIMEOUT_INIT;
++		icsk->icsk_rto = inet_csk_rto_backoff(icsk, TCP_RTO_MAX);
+ 
+ 		skb = tcp_write_queue_head(sk);
+ 		BUG_ON(!skb);
