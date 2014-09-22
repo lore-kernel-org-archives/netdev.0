@@ -1,45 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: sched: shrink struct qdisc_skb_cb to 28 bytes
-Date: Mon, 22 Sep 2014 14:22:00 -0400 (EDT)
-Message-ID: <20140922.142200.2003937036676881256.davem@davemloft.net>
-References: <alpine.LNX.2.03.1406261159071.1438@ws.cisco>
-	<CAJZOPZJ7+n0t1LCqaa3JCBByRw=f_Tp6rk8vm0ZnCzmtKFKX_g@mail.gmail.com>
-	<1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [net-next] am2150: Update nmclan_cs.c to use update PCMCIA API
+Date: Mon, 22 Sep 2014 14:28:19 -0400 (EDT)
+Message-ID: <20140922.142819.1077548667368665453.davem@davemloft.net>
+References: <1411032821-9753-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: or.gerlitz@gmail.com, _govind@gmx.com, yinghai@kernel.org,
-	netdev@vger.kernel.org, ssujith@cisco.com, gvaradar@cisco.com,
-	benve@cisco.com
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, rpao@paonet.org
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52697 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52730 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753879AbaIVSWD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:22:03 -0400
-In-Reply-To: <1411052525.7106.269.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1753524AbaIVS2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:28:25 -0400
+In-Reply-To: <1411032821-9753-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 18 Sep 2014 08:02:05 -0700
-
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> We cannot make struct qdisc_skb_cb bigger without impacting IPoIB,
-> or increasing skb->cb[] size.
-> 
-> Commit e0f31d849867 ("flow_keys: Record IP layer protocol in
-> skb_flow_dissect()") broke IPoIB.
-> 
-> Only current offender is sch_choke, and this one do not need an
-> absolutely precise flow key.
-> 
-> If we store 17 bytes of flow key, its more than enough. (Its the actual
-> size of flow_keys if it was a packed structure, but we might add new
-> fields at the end of it later)
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Fixes: e0f31d849867 ("flow_keys: Record IP layer protocol in skb_flow_dissect()")
-
-Applied, thanks Eric.
+RnJvbTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+DQpEYXRlOiBU
+aHUsIDE4IFNlcCAyMDE0IDAyOjMzOjQxIC0wNzAwDQoNCj4gUmVzb2x2ZXMgY29tcGlsZSB3YXJu
+aW5nIGFib3V0IHVzZSBvZiBhIGRlcHJlY2F0ZWQgZnVuY3Rpb24gY2FsbDoNCj4gZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvYW1kL25tY2xhbl9jcy5jOiBJbiBmdW5jdGlvbiChbm1jbGFuX2NvbmZpZ6I6
+DQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2FtZC9ubWNsYW5fY3MuYzo2MjQ6Mzogd2FybmluZzog
+oXBjbWNpYV9yZXF1ZXN0X2V4Y2x1c2l2ZV9pcnGiIGlzIGRlcHJlY2F0ZWQgKGRlY2xhcmVkIGF0
+IGluY2x1ZGUvcGNtY2lhL2RzLmg6MjEzKSBbLVdkZXByZWNhdGVkLWRlY2xhcmF0aW9uc10NCj4g
+ICAgcmV0ID0gcGNtY2lhX3JlcXVlc3RfZXhjbHVzaXZlX2lycShsaW5rLCBtYWNlX2ludGVycnVw
+dCk7DQo+IA0KPiBVcGRhdGVzIHBjbWNpYV9yZXF1ZXN0X2V4Y2x1c2l2ZV9pcnEoKSB0byBwY21j
+aWFfcmVxdWVzdF9pcnEoKS4NCj4gDQo+IENDOiBSb2dlciBQYW8gPHJwYW9AcGFvbmV0Lm9yZz4N
+Cj4gU2lnbmVkLW9mZi1ieTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5j
+b20+DQoNCkFwcGxpZWQsIHRoYW5rcyBKZWZmLg0K
