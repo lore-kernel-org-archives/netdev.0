@@ -1,90 +1,84 @@
-From: Joe M <joe9mail@gmail.com>
-Subject: Re: [PATCH v2 net] ipv4: do not use this_cpu_ptr() in preemptible
- context
-Date: Mon, 22 Sep 2014 14:34:51 -0500
-Message-ID: <20140922193451.GA23177@master>
-References: <20140922090242.5ef15c83@urahara>
- <1411405767.26859.128.camel@edumazet-glaptop2.roam.corp.google.com>
- <1411406513.26859.136.camel@edumazet-glaptop2.roam.corp.google.com>
- <1411407496.26859.141.camel@edumazet-glaptop2.roam.corp.google.com>
- <CA+mtBx9U1EVmRi4amqVT=MMUvMSqo5907yzM0ytkQNvT74Gu2Q@mail.gmail.com>
- <20140922190953.GA15929@master>
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="cWoXeonUoKmBZSoM"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:55853 "EHLO
-	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751130AbaIVTex (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 15:34:53 -0400
-Received: by mail-oi0-f47.google.com with SMTP id e131so3756356oig.20
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 12:34:53 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140922190953.GA15929@master>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---cWoXeonUoKmBZSoM
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
+Date: Mon, 22 Sep 2014 21:49:06 +0200
+Message-ID: <20140922194906.GB9868@amd>
+References: <20140905174925.GA12991@mtj.dyndns.org>
+ <20140909224143.GB3154@mtj.dyndns.org>
+ <1410302783.13298.50.camel@jarvis.lan>
+ <5762134.BLS0EbmNJd@dtor-glaptop>
+ <1410465565.10549.19.camel@jarvis>
+ <20140911202354.GA2598@core.coreip.homeip.net>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Tejun Heo <tj@kernel.org>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Lennart Poettering <lennart@poettering.net>,
+	Kay Sievers <kay@vrfy.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagote
+To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <20140911202354.GA2598@core.coreip.homeip.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Eric,
+On Thu 2014-09-11 13:23:54, Dmitry Torokhov wrote:
+> On Thu, Sep 11, 2014 at 12:59:25PM -0700, James Bottomley wrote:
+> > 
+> > On Tue, 2014-09-09 at 16:01 -0700, Dmitry Torokhov wrote:
+> > > On Tuesday, September 09, 2014 03:46:23 PM James Bottomley wrote:
+> > > > On Wed, 2014-09-10 at 07:41 +0900, Tejun Heo wrote:
+> > > > > 
+> > > > > The thing is that we have to have dynamic mechanism to listen for
+> > > > > device attachments no matter what and such mechanism has been in place
+> > > > > for a long time at this point.  The synchronous wait simply doesn't
+> > > > > serve any purpose anymore and kinda gets in the way in that it makes
+> > > > > it a possibly extremely slow process to tell whether loading of a
+> > > > > module succeeded or not because the wait for the initial round of
+> > > > > probe is piggybacked.
+> > > > 
+> > > > OK, so we just fire and forget in userland ... why bother inventing an
+> > > > elaborate new infrastructure in the kernel to do exactly what
+> > > > 
+> > > > modprobe <mod> &
+> > > > 
+> > > > would do?
+> > > 
+> > > Just so we do not forget: we also want the no-modules case to also be able
+> > > to probe asynchronously so that a slow device does not stall kernel booting.
+> > 
+> > Yes, but we mostly do this anyway.  SCSI for instance does asynchronous
+> > scanning of attached devices (once the cards are probed)
+> 
+> What would it do it card was a bit slow to probe?
+> 
+> > but has a sync
+> > point for ordering.
+> 
+> Quite often we do not really care about ordering of devices. I mean,
+> does it matter if your mouse is discovered before your keyboard or
+> after?
 
-> > > v2: use latest and shiny raw_cpu_ptr(), as it seems the latest
-> > > incantation of ever changing percpu interface.
-> > >
-> > >  net/ipv4/ip_tunnel.c |    4 ++--
-> > >  1 file changed, 2 insertions(+), 2 deletions(-)
-> > >
-> The below grep shows 3 uses of this_cpu_ptr, whereas the patch only
-> replaces 2 instances. Just want to check if that is ok.
->=20
-> grep --ignore-case --exclude-dir=3D".git" --recursive this_cpu_ptr ip_tun=
-nel.c
->         __tunnel_dst_set(this_cpu_ptr(t->dst_cache), dst, saddr);
->         idst =3D this_cpu_ptr(t->dst_cache);
->         tstats =3D this_cpu_ptr(tunnel->dev->tstats);
+Actually yes, I suspect it does.
 
-grep --ignore-case --exclude-dir=3D".git" --recursive this_cpu_ptr *.c
-ip_input.c:             struct ip_rt_acct *st =3D this_cpu_ptr(ip_rt_acct);
-ip_vti.c:       tstats =3D this_cpu_ptr(dev->tstats);
-route.c:                p =3D (struct rtable **)__this_cpu_ptr(nh->nh_pcpu_=
-rth_output);
-route.c:                        prth =3D __this_cpu_ptr(nh->nh_pcpu_rth_out=
-put);
-tcp.c:          return __this_cpu_ptr(p);
+I do evtest /dev/input/eventX by hand, occassionaly. It would be
+annoying if they moved between reboots.
+									Pavel
 
-Is it ok for ip_vti.c and ip_input.c to use this_cpu_ptr?
-
-Thanks
-Joe
-
---cWoXeonUoKmBZSoM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBAgAGBQJUIHnbAAoJENvmPC7PRKkInZ4P/igtxUKkqeGSfajmtqyQ4w6P
-loOO4wYjP3QMgsSr5XHJPjkMjlw8GGChA9IrktAhu/ze0lGPJY/fdNjjKO+GcJ9W
-5kJcrsuJ0ZlGHIOBe7aBSm4cOMXT9bECr+1MajNTRUbZa69xkg41LMjLW5Uh3++/
-WlB714ypsBKV2n632g2x7ID43qS/CUhNCfdoNmyzXT6v8SJHFDuMZFBMmiIRbxs6
-8ff7heIJN3xn+1KOQrCUKOs8w/EO3J4wmWbuvFXoTRg2F7S6cGhTGCfYCQ8G+o9I
-PWln1yT3EkSGOI6+RFmD6RgwJqntXWS3U0jC6SuuZ9m/k4m3gIa+hDxU3CCxgZm6
-EtkaZ+/Q7Os7ec9cB8wfsyvwiuEnBFvSJGYyFsI4CWTSmIW7y4oBaf0hPKfInNxp
-kzsngteRM3XQIASOQS1tYnUvReonnxAX8JK6NwBb/2AangHYC829QCFJv5SKFHOu
-GLu20/0jByF8QbK+c+UdBwttHFTk250VrgyZTZMqBztbtCGppsIa/JDAsea0D+sm
-qy9t095W7ZgJLmBZtEMX6RVBmcB1YF6aGGOPsuW6l8RxtIWCnMlv2bSyQoDtq6UU
-Ws+4pbjxOFUdUOE3JX7Si/lAc+nW7Y5e9++bs8JJhxZgdgHwXqm+usyxV92yyD+a
-Qq4gPMt0cKmBWRroUwvT
-=l8O6
------END PGP SIGNATURE-----
-
---cWoXeonUoKmBZSoM--
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
