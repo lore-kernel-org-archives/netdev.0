@@ -1,43 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] ipv4: do not use this_cpu_ptr() in preemptible
- context
-Date: Mon, 22 Sep 2014 13:11:46 -0700
-Message-ID: <1411416706.26859.144.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140922090242.5ef15c83@urahara>
-	 <1411405767.26859.128.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411406513.26859.136.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411407496.26859.141.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx9U1EVmRi4amqVT=MMUvMSqo5907yzM0ytkQNvT74Gu2Q@mail.gmail.com>
-	 <20140922190953.GA15929@master> <20140922193451.GA23177@master>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] fec: Staticize fec_enet_select_queue()
+Date: Mon, 22 Sep 2014 16:16:56 -0400 (EDT)
+Message-ID: <20140922.161656.2073239522143660859.davem@davemloft.net>
+References: <1411149574-26296-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Joe M <joe9mail@gmail.com>
+Cc: Frank.Li@freescale.com, netdev@vger.kernel.org
+To: fabio.estevam@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:38473 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754715AbaIVULr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 16:11:47 -0400
-Received: by mail-pd0-f182.google.com with SMTP id p10so4915671pdj.27
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 13:11:47 -0700 (PDT)
-In-Reply-To: <20140922193451.GA23177@master>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53590 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753128AbaIVURA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 16:17:00 -0400
+In-Reply-To: <1411149574-26296-1-git-send-email-fabio.estevam@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-09-22 at 14:34 -0500, Joe M wrote:
-> p --ignore-case --exclude-dir=".git" --recursive this_cpu_ptr *.c
-> ip_input.c:             struct ip_rt_acct *st = this_cpu_ptr(ip_rt_acct);
-> ip_vti.c:       tstats = this_cpu_ptr(dev->tstats);
-> route.c:                p = (struct rtable **)__this_cpu_ptr(nh->nh_pcpu_rth_output);
-> route.c:                        prth = __this_cpu_ptr(nh->nh_pcpu_rth_output);
-> tcp.c:          return __this_cpu_ptr(p);
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Date: Fri, 19 Sep 2014 14:59:34 -0300
+
+> fec_enet_select_queue() is only used locally, so mark it as 'static' to fix the
+> following sparse warning:
 > 
-> Is it ok for ip_vti.c and ip_input.c to use this_cpu_ptr?
+> drivers/net/ethernet/freescale/fec_main.c:2707:5: warning: symbol 'fec_enet_select_queue' was not declared. Should it be static?
+> 
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> ---
+> Changes since v1:
+> - Make checkpatch happy
 
-It is ok.
+Please just delete this function.
 
-We run with BH disabled in these contexts.
+It's overriding code which does exactly the same thing.
+
+Actually, more precisely, this code is duplicating code in a way that
+bypasses many core facilitites of the networking.  For example, this
+override means that socket based flow steering, XPS, etc. are all
+not happening on these devices.
+
+Without ->ndo_select_queue(), the flow dissector does __netdev_pick_tx
+which is exactly what you want to happen.
