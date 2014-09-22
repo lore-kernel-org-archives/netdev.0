@@ -1,46 +1,165 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next] udp: Need to make ip6_udp_tunnel.c have GPL license
-Date: Mon, 22 Sep 2014 13:17:04 -0700
-Message-ID: <CA+mtBx8EbRBxS2OF65cWjBHGMXhLkbmMjibOtRRBMTqWGmgD5g@mail.gmail.com>
-References: <1411411184-11993-1-git-send-email-therbert@google.com>
-	<20140922.150832.1458585102153232594.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v3 net-next] tcp: avoid possible arithmetic overflows
+Date: Mon, 22 Sep 2014 13:19:44 -0700
+Message-ID: <1411417184.26859.147.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1411233550.26859.76.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411236071.8612.6.camel@joe-AO725>
+	 <CAK6E8=etvB4MUBu96ck+7yucbFLgbxvEPJ3TM8X5qBsZLTnhDg@mail.gmail.com>
+	 <1411242956.26859.81.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411244392.10610.4.camel@joe-AO725>
+	 <1411259357.26859.89.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAK6E8=d9y8D5we_fibzxstaXBMnQcOG3DsOAL0jhzDGK1H62cw@mail.gmail.com>
+	 <1411389739.26859.113.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andy Zhou <azhou@nicira.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:59136 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754795AbaIVURF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 16:17:05 -0400
-Received: by mail-ig0-f180.google.com with SMTP id a13so3419531igq.13
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 13:17:04 -0700 (PDT)
-In-Reply-To: <20140922.150832.1458585102153232594.davem@davemloft.net>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:35084 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754135AbaIVUTp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 16:19:45 -0400
+Received: by mail-pd0-f180.google.com with SMTP id r10so5052126pdi.11
+        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 13:19:45 -0700 (PDT)
+In-Reply-To: <1411389739.26859.113.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy, even with the is patch I still can't get VXLAN to work again. I
-am assuming this is a problem related to the common UDP tunnel
-functions. I haven't had time to look into it in depth, can you verify
-if there is an issue.
+From: Eric Dumazet <edumazet@google.com>
 
-Thanks,
-Tom
+icsk_rto is a 32bit field, and icsk_backoff can reach 15 by default,
+or more if some sysctl (eg tcp_retries2) are changed.
 
+Better use 64bit to perform icsk_rto << icsk_backoff operations
 
-On Mon, Sep 22, 2014 at 12:08 PM, David Miller <davem@davemloft.net> wrote:
-> From: Tom Herbert <therbert@google.com>
-> Date: Mon, 22 Sep 2014 11:39:44 -0700
->
->> Unable to load various tunneling modules without this:
->>
->> [   80.679049] fou: Unknown symbol udp_sock_create6 (err 0)
->> [   91.439939] ip6_udp_tunnel: Unknown symbol ip6_local_out (err 0)
->> [   91.439954] ip6_udp_tunnel: Unknown symbol __put_net (err 0)
->> [   91.457792] vxlan: Unknown symbol udp_sock_create6 (err 0)
->> [   91.457831] vxlan: Unknown symbol udp_tunnel6_xmit_skb (err 0)
->>
->> Signed-off-by: Tom Herbert <therbert@google.com>
->
-> Applied, thanks Tom.
+As Joe Perches suggested, add a helper for this.
+
+Yuchung spotted the tcp_v4_err() case.
+
+From: Eric Dumazet <edumazet@google.com>
+---
+ include/net/inet_connection_sock.h |    9 +++++++++
+ net/ipv4/tcp_input.c               |    5 +++--
+ net/ipv4/tcp_ipv4.c                |    6 +++---
+ net/ipv4/tcp_output.c              |   13 ++++++-------
+ net/ipv4/tcp_timer.c               |    4 ++--
+ 5 files changed, 23 insertions(+), 14 deletions(-)
+
+diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+index 5fbe6568c3cf..848e85cb5c61 100644
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -242,6 +242,15 @@ static inline void inet_csk_reset_xmit_timer(struct sock *sk, const int what,
+ #endif
+ }
+ 
++static inline unsigned long
++inet_csk_rto_backoff(const struct inet_connection_sock *icsk,
++		     unsigned long max_when)
++{
++        u64 when = (u64)icsk->icsk_rto << icsk->icsk_backoff;
++
++        return (unsigned long)min_t(u64, when, max_when);
++}
++
+ struct sock *inet_csk_accept(struct sock *sk, int flags, int *err);
+ 
+ struct request_sock *inet_csk_search_req(const struct sock *sk,
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 02fb66d4a018..13f3da4762e3 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3208,9 +3208,10 @@ static void tcp_ack_probe(struct sock *sk)
+ 		 * This function is not for random using!
+ 		 */
+ 	} else {
++		unsigned long when = inet_csk_rto_backoff(icsk, TCP_RTO_MAX);
++
+ 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0,
+-					  min(icsk->icsk_rto << icsk->icsk_backoff, TCP_RTO_MAX),
+-					  TCP_RTO_MAX);
++					  when, TCP_RTO_MAX);
+ 	}
+ }
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 006b045716d8..3b2e49cb2b61 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -430,9 +430,9 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
+ 			break;
+ 
+ 		icsk->icsk_backoff--;
+-		inet_csk(sk)->icsk_rto = (tp->srtt_us ? __tcp_set_rto(tp) :
+-			TCP_TIMEOUT_INIT) << icsk->icsk_backoff;
+-		tcp_bound_rto(sk);
++		icsk->icsk_rto = tp->srtt_us ? __tcp_set_rto(tp) :
++					       TCP_TIMEOUT_INIT;
++		icsk->icsk_rto = inet_csk_rto_backoff(icsk, TCP_RTO_MAX);
+ 
+ 		skb = tcp_write_queue_head(sk);
+ 		BUG_ON(!skb);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 7f1280dcad57..8c61a7c0c889 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -3279,6 +3279,7 @@ void tcp_send_probe0(struct sock *sk)
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	unsigned long probe_max;
+ 	int err;
+ 
+ 	err = tcp_write_wakeup(sk);
+@@ -3294,9 +3295,7 @@ void tcp_send_probe0(struct sock *sk)
+ 		if (icsk->icsk_backoff < sysctl_tcp_retries2)
+ 			icsk->icsk_backoff++;
+ 		icsk->icsk_probes_out++;
+-		inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0,
+-					  min(icsk->icsk_rto << icsk->icsk_backoff, TCP_RTO_MAX),
+-					  TCP_RTO_MAX);
++		probe_max = TCP_RTO_MAX;
+ 	} else {
+ 		/* If packet was not sent due to local congestion,
+ 		 * do not backoff and do not remember icsk_probes_out.
+@@ -3306,11 +3305,11 @@ void tcp_send_probe0(struct sock *sk)
+ 		 */
+ 		if (!icsk->icsk_probes_out)
+ 			icsk->icsk_probes_out = 1;
+-		inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0,
+-					  min(icsk->icsk_rto << icsk->icsk_backoff,
+-					      TCP_RESOURCE_PROBE_INTERVAL),
+-					  TCP_RTO_MAX);
++		probe_max = TCP_RESOURCE_PROBE_INTERVAL;
+ 	}
++	inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0,
++				  inet_csk_rto_backoff(icsk, probe_max),
++				  TCP_RTO_MAX);
+ }
+ 
+ int tcp_rtx_synack(struct sock *sk, struct request_sock *req)
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index a339e7ba05a4..b24360f6e293 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -180,7 +180,7 @@ static int tcp_write_timeout(struct sock *sk)
+ 
+ 		retry_until = sysctl_tcp_retries2;
+ 		if (sock_flag(sk, SOCK_DEAD)) {
+-			const int alive = (icsk->icsk_rto < TCP_RTO_MAX);
++			const int alive = icsk->icsk_rto < TCP_RTO_MAX;
+ 
+ 			retry_until = tcp_orphan_retries(sk, alive);
+ 			do_reset = alive ||
+@@ -294,7 +294,7 @@ static void tcp_probe_timer(struct sock *sk)
+ 	max_probes = sysctl_tcp_retries2;
+ 
+ 	if (sock_flag(sk, SOCK_DEAD)) {
+-		const int alive = ((icsk->icsk_rto << icsk->icsk_backoff) < TCP_RTO_MAX);
++		const int alive = inet_csk_rto_backoff(icsk, TCP_RTO_MAX) < TCP_RTO_MAX;
+ 
+ 		max_probes = tcp_orphan_retries(sk, alive);
+ 
