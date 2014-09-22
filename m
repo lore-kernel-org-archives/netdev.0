@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: fix stmmac_pci_probe failed when
- CONFIG_HAVE_CLK is selected
-Date: Mon, 22 Sep 2014 14:19:21 -0400 (EDT)
-Message-ID: <20140922.141921.577008114679288180.davem@davemloft.net>
-References: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com>
+Subject: Re: [PATCH] tg3: Work around HW/FW limitations with vlan
+ encapsulated frames
+Date: Mon, 22 Sep 2014 14:20:50 -0400 (EDT)
+Message-ID: <20140922.142050.1675487445764875212.davem@davemloft.net>
+References: <1411050677-28147-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, rayagond@vayavyalabs.com,
-	vbridgers2013@gmail.com, wens@csie.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, boon.leong.ong@intel.com,
-	tobias.johannes.klausmann@mni.thm.de
-To: hock.leong.kweh@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vyasevic@redhat.com, prashant@broadcom.com,
+	mchan@broadcom.com
+To: vyasevich@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52680 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754466AbaIVSUx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:20:53 -0400
+In-Reply-To: <1411050677-28147-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kweh Hock Leong <hock.leong.kweh@intel.com>
-Date: Thu, 18 Sep 2014 20:34:10 +0800
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Date: Thu, 18 Sep 2014 10:31:17 -0400
 
-> From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+> TG3 appears to have an issue performing TSO and checksum offloading
+> correclty when the frame has been vlan encapsulated (non-accelrated).
+> In these cases, tcp checksum is not correctly updated.
 > 
-> When the CONFIG_HAVE_CLK is selected for the system, the stmmac_pci_probe
-> will fail with dmesg:
-> [    2.167225] stmmaceth 0000:00:14.6: enabling device (0000 -> 0002)
-> [    2.178267] stmmaceth 0000:00:14.6: enabling bus mastering
-> [    2.178436] stmmaceth 0000:00:14.6: irq 24 for MSI/MSI-X
-> [    2.178703] stmmaceth 0000:00:14.6: stmmac_dvr_probe: warning: cannot
-> get CSR clock
-> [    2.186503] stmmac_pci_probe: main driver probe failed
-> [    2.194003] stmmaceth 0000:00:14.6: disabling bus mastering
-> [    2.196473] stmmaceth: probe of 0000:00:14.6 failed with error -2
+> This patch attempts to work around this issue.  After the patch,
+> 802.1ad vlans start working correctly over tg3 devices.
 > 
-> This patch fix the issue by breaking the dependency to devm_clk_get()
-> as the CSR clock can be obtained at priv->plat->clk_csr from pci driver.
-> 
-> Reported-by: Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
-> Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
+> CC: Prashant Sreedharan <prashant@broadcom.com>
+> CC: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 
-Giuseppe, Kweh, where are we with this patch?
+Applied and queued up for -stable.
