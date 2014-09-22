@@ -1,41 +1,73 @@
-From: "Benjamin Siaka" <siajaka@gmail.com>
-Subject: HOW ARE YOU?
-Date: Mon, 22 Sep 2014 01:13:44 +0000
-Message-ID: <20140922011355.4F9E33AE81DE@studentsvm0.itb.ac.id>
-Reply-To: bensiaka@she.com
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 22 Sep 2014 11:52:40 +1000
+Message-ID: <20140922115240.51c9a6fd@canb.auug.org.au>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/Jk5dDN7Z2zuV9vOMi2iwbmw"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Jander <david@protonic.nl>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Stefan Agner <stefan@agner.ch>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Sig_/Jk5dDN7Z2zuV9vOMi2iwbmw
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.itb.ac.id ([167.205.23.7]:29484 "EHLO mx2.itb.ac.id"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752686AbaIVBWt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 21:22:49 -0400
-Received: from av1.itb.ac.id (av1.itb.ac.id [167.205.1.71])
-	by mx2.itb.ac.id (Postfix) with ESMTP id 3j1SN56X6fz4fbrG
-	for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 08:13:57 +0700 (WIT)
-Received: from mx2.itb.ac.id ([167.205.1.67])
-	by av1.itb.ac.id (av1.itb.ac.id [167.205.1.73]) (amavisd-new, port 10002)
-	with ESMTP id kCpMrxWSyWS6 for <netdev@vger.kernel.org>;
-	Mon, 22 Sep 2014 08:16:52 +0700 (WIT)
-Received: from studentsvm0.itb.ac.id (unknown [167.205.50.87])
-	by mx2.itb.ac.id (Postfix) with ESMTP id 3j1SN45hRRz4fb72
-	for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 08:13:56 +0700 (WIT)
-Received: from [10.200.21.4] (unknown [79.142.73.220])
-	by studentsvm0.itb.ac.id (Postfix) with ESMTPSA id 4F9E33AE81DE
-	for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 08:13:54 +0700 (WIB)
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-Hello my Dear,
+Hi all,
 
-I will greatly appreciate my correspondence meets you in good health condition.
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/can/flexcan.c between commit fc05b884a31d ("can: flexcan:
+correctly initialize mailboxes") from the net tree and commit
+cdce844865be ("can: flexcan: add vf610 support for FlexCAN") from the
+net-next tree.
 
-My name is Mr. Benjamin Siaka. I am seeking for your co-operation for investment partnership in your Country. I shall provide the FUND for the investment. When you acknowledged the receipt of this correspondence, thereafter I will give you the Full Details of my investment proposal.
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
-I await your response in earliest.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-My regards,
-Mr. Benjamin Siaka.
+diff --cc drivers/net/can/flexcan.c
+index 6586309329e6,2700865efcad..000000000000
+--- a/drivers/net/can/flexcan.c
++++ b/drivers/net/can/flexcan.c
+@@@ -824,8 -859,7 +883,8 @@@ static int flexcan_chip_start(struct ne
+  	struct flexcan_priv *priv =3D netdev_priv(dev);
+  	struct flexcan_regs __iomem *regs =3D priv->base;
+  	int err;
+- 	u32 reg_mcr, reg_ctrl;
++ 	u32 reg_mcr, reg_ctrl, reg_crl2, reg_mecr;
+ +	int i;
+ =20
+  	/* enable module */
+  	err =3D flexcan_chip_enable(priv);
+
+--Sig_/Jk5dDN7Z2zuV9vOMi2iwbmw
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJUH4DvAAoJEMDTa8Ir7ZwV1YsP/jFx2tjNgR/WURmwaW2Lpiss
+p9Cw8vJckzLu80lgcYZmXhp8+ROv2Qe6GFUkU3pHsNBM1YOqM6gYsL+ib71OIdcg
+b07EWyRuJ8RROtSUvE3iiRxEJCJQ1Gl6XjIzndKJL69z0v6zeYtZ75ORuHgzwlo1
+LhIPkmBx8/YG2rBLmN+PXFSvypYooa4Ze0DmpGezMTxoG+Y+YIjdQ2Bh6GOX8FVv
+4efComZTz2kssa1rKEy1PZ/G9Cce/PWfsu8pRmeyQmr1m9OflvCvg6Pc/63ys3FQ
+7ULqFKd5XlzQSFm1R2n+RqGnFko712gqJVMxqr35K0l7+iJ2lsTpFYt5tJtl69El
+XWxbeoM3Q6q0pO/13c6cWfMziqEkabTeEBgBzt+UHyDxXqXEOjnDJdRe1p8e8gqf
+n5RJZYiQIuBU7+gE1yC+8qcno6ZARzqHI9h4T0KcysYN6JfCyEiFxZwc9zm1/OpV
+y+MyVrzWJP8WwxiPUwu3EpsODSO6A81Y1WaphUiIYkxYLJxLbcR/pybkrZ8cs6vc
+V6707yqgZyI4gM8HwNfXUaw7beDDBp8WYlkMSJdEPePE3GpoecuajCh4rDWMiVK8
+AjUQP9Csv1x7XLwE8rlaCYkjpjUTN8f6KjN5Jh86Odzn2PR3rVBRfFVZOp+1BO0M
+wkDIEkosNOTC1qWL6s6O
+=xjoc
+-----END PGP SIGNATURE-----
+
+--Sig_/Jk5dDN7Z2zuV9vOMi2iwbmw--
