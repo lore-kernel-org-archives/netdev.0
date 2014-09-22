@@ -1,83 +1,34 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
-Date: Mon, 22 Sep 2014 09:13:41 +0100
-Message-ID: <20140922081341.GA20905@casper.infradead.org>
-References: <1411134590-4586-1-git-send-email-jiri@resnulli.us>
- <1411134590-4586-9-git-send-email-jiri@resnulli.us>
- <541C4AFC.8060500@mojatatu.com>
- <20140919154946.GH1980@nanopsycho.orion>
- <541C6E6D.9000109@mojatatu.com>
- <541CAA3C.5080105@intel.com>
- <20140920081426.GE1821@nanopsycho.orion>
- <20140920105354.GA29419@casper.infradead.org>
- <CAADnVQK0wT2Fjqdg+C=ruSt8jF6sKeMo7cFj7K1fsu7-1u5g=g@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: ipv4 dead route delete notification on netdev down
+Date: Mon, 22 Sep 2014 10:26:10 +0200
+Message-ID: <541FDD22.7050807@6wind.com>
+References: <541E4DD4.1050609@cumulusnetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>, ben@decadent.org.uk,
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com,
-	Vladislav Yasevich <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>,
-	"dev@openvswitch.org" <dev@openvswitch.o
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+	Thomas Graf <tgraf@suug.ch>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:52821 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753301AbaIVINu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 04:13:50 -0400
-Content-Disposition: inline
-In-Reply-To: <CAADnVQK0wT2Fjqdg+C=ruSt8jF6sKeMo7cFj7K1fsu7-1u5g=g@mail.gmail.com>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:63395 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753498AbaIVI0N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 04:26:13 -0400
+Received: by mail-wi0-f181.google.com with SMTP id z2so2451368wiv.8
+        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 01:26:11 -0700 (PDT)
+In-Reply-To: <541E4DD4.1050609@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/20/14 at 03:50pm, Alexei Starovoitov wrote:
-> I think HW should not be limited by SW abstractions whether
-> these abstractions are called flows, n-tuples, bridge or else.
-> Really looking forward to see "device reporting the headers as
-> header fields (len, offset) and the associated parse graph"
-> as the first step.
-> 
-> Another topic that this discussion didn't cover yet is how this
-> all connects to tunnels and what is 'tunnel offloading'.
-> imo flow offloading by itself serves only academic interest.
-
-We haven't touched encryption yet either ;-)
-
-Certainly true for the host case. The Linux on TOR case is less
-dependant on this and L2/L3 offload w/o encap already has value.
-
-I'm with you though, all of this has little value on the host in
-the DC if stateful encap offload is not incorporated. I expect the
-HW to provide filters on the outer header plus metadata in the
-encap. Actually, this was a follow-up question I had for John as
-this is not easily describable with offset/len filters. How would
-we represent such capabilities?
-
-The TX side of this was one of the reasons why I initially thought
-it would be beneficial to implement a cache like offload as we could
-serve an initial encap in SW, do the FIB lookup and offload it
-transparently to avoid replicating the FIB in user space.
-
-What seems most feasisble to me right now is to separate the offload
-of the encap action from the IP -> dev mapping decision. The eSwitch
-would send the first encap for an unknown dest IP to the CPU due
-to a miss in the IP mapping table, the CPU would do the FIB lookup,
-update the table and send it back.
-
-What do you have in mind?
+Le 21/09/2014 06:02, Roopa Prabhu a =E9crit :
+> Hi,
+>
+> The kernel does not send notification for deleted dead ipv4 routes on=
+ netdev down.
+Not only on netdev down. If you remove the last IPv4 address, the kerne=
+l will
+also purge its routing table without any notification :/
