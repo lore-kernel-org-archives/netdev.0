@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v14 net-next 09/11] bpf: verifier (add branch/goto checks)
-Date: Sun, 21 Sep 2014 17:06:49 -0700
-Message-ID: <1411344411-3824-10-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v14 net-next 08/11] bpf: handle pseudo BPF_LD_IMM64 insn
+Date: Sun, 21 Sep 2014 17:06:48 -0700
+Message-ID: <1411344411-3824-9-git-send-email-ast@plumgrid.com>
 References: <1411344411-3824-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -17,230 +17,239 @@ Cc: Ingo Molnar <mingo@kernel.org>,
 	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:36601 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753055AbaIVAHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Sep 2014 20:07:20 -0400
-Received: by mail-pa0-f45.google.com with SMTP id lj1so2683198pab.32
-        for <netdev@vger.kernel.org>; Sun, 21 Sep 2014 17:07:19 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1411344411-3824-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-check that control flow graph of eBPF program is a directed acyclic graph
+eBPF programs passed from userspace are using pseudo BPF_LD_IMM64 instructions
+to refer to process-local map_fd. Scan the program for such instructions and
+if FDs are valid, convert them to 'struct bpf_map' pointers which will be used
+by verifier to check access to maps in bpf_map_lookup/update() calls.
+If program passes verifier, convert pseudo BPF_LD_IMM64 into generic by dropping
+BPF_PSEUDO_MAP_FD flag.
 
-check_cfg() does:
-- detect loops
-- detect unreachable instructions
-- check that program terminates with BPF_EXIT insn
-- check that all branches are within program boundary
+Note that eBPF interpreter is generic and knows nothing about pseudo insns.
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- kernel/bpf/verifier.c |  183 +++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 183 insertions(+)
+ include/linux/filter.h |    6 ++
+ kernel/bpf/verifier.c  |  147 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 153 insertions(+)
 
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 4ffc0958d85e..ca95abd2bed1 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -145,6 +145,12 @@ struct bpf_prog_aux;
+ 		.off   = 0,					\
+ 		.imm   = ((__u64) (IMM)) >> 32 })
+ 
++#define BPF_PSEUDO_MAP_FD	1
++
++/* pseudo BPF_LD_IMM64 insn used to refer to process-local map_fd */
++#define BPF_LD_MAP_FD(DST, MAP_FD)				\
++	BPF_LD_IMM64_RAW(DST, BPF_PSEUDO_MAP_FD, MAP_FD)
++
+ /* Short form of mov based on type, BPF_X: dst_reg = src_reg, BPF_K: dst_reg = imm32 */
+ 
+ #define BPF_MOV64_RAW(TYPE, DST, SRC, IMM)			\
 diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 7227543e474b..effab7d1c7e8 100644
+index 871edc1f2e1f..7227543e474b 100644
 --- a/kernel/bpf/verifier.c
 +++ b/kernel/bpf/verifier.c
-@@ -313,6 +313,185 @@ static struct bpf_map *ld_imm64_to_map_ptr(struct bpf_insn *insn)
- 	return (struct bpf_map *) (unsigned long) imm64;
+@@ -125,10 +125,15 @@
+  * are set to NOT_INIT to indicate that they are no longer readable.
+  */
+ 
++#define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
++
+ /* single container for all structs
+  * one verifier_env per bpf_check() call
+  */
+ struct verifier_env {
++	struct bpf_prog *prog;		/* eBPF program being verified */
++	struct bpf_map *used_maps[MAX_USED_MAPS]; /* array of map's used by eBPF program */
++	u32 used_map_cnt;		/* number of used maps */
+ };
+ 
+ /* verbose verifier prints what it's seeing
+@@ -300,6 +305,115 @@ static void print_bpf_insn(struct bpf_insn *insn)
+ 	}
  }
  
-+/* non-recursive DFS pseudo code
-+ * 1  procedure DFS-iterative(G,v):
-+ * 2      label v as discovered
-+ * 3      let S be a stack
-+ * 4      S.push(v)
-+ * 5      while S is not empty
-+ * 6            t <- S.pop()
-+ * 7            if t is what we're looking for:
-+ * 8                return t
-+ * 9            for all edges e in G.adjacentEdges(t) do
-+ * 10               if edge e is already labelled
-+ * 11                   continue with the next edge
-+ * 12               w <- G.adjacentVertex(t,e)
-+ * 13               if vertex w is not discovered and not explored
-+ * 14                   label e as tree-edge
-+ * 15                   label w as discovered
-+ * 16                   S.push(w)
-+ * 17                   continue at 5
-+ * 18               else if vertex w is discovered
-+ * 19                   label e as back-edge
-+ * 20               else
-+ * 21                   // vertex w is explored
-+ * 22                   label e as forward- or cross-edge
-+ * 23           label t as explored
-+ * 24           S.pop()
-+ *
-+ * convention:
-+ * 0x10 - discovered
-+ * 0x11 - discovered and fall-through edge labelled
-+ * 0x12 - discovered and fall-through and branch edges labelled
-+ * 0x20 - explored
-+ */
-+
-+enum {
-+	DISCOVERED = 0x10,
-+	EXPLORED = 0x20,
-+	FALLTHROUGH = 1,
-+	BRANCH = 2,
-+};
-+
-+#define PUSH_INT(I) \
-+	do { \
-+		if (cur_stack >= insn_cnt) { \
-+			ret = -E2BIG; \
-+			goto free_st; \
-+		} \
-+		stack[cur_stack++] = I; \
-+	} while (0)
-+
-+#define PEEK_INT() \
-+	({ \
-+		int _ret; \
-+		if (cur_stack == 0) \
-+			_ret = -1; \
-+		else \
-+			_ret = stack[cur_stack - 1]; \
-+		_ret; \
-+	 })
-+
-+#define POP_INT() \
-+	({ \
-+		int _ret; \
-+		if (cur_stack == 0) \
-+			_ret = -1; \
-+		else \
-+			_ret = stack[--cur_stack]; \
-+		_ret; \
-+	 })
-+
-+#define PUSH_INSN(T, W, E) \
-+	do { \
-+		int w = W; \
-+		if (E == FALLTHROUGH && st[T] >= (DISCOVERED | FALLTHROUGH)) \
-+			break; \
-+		if (E == BRANCH && st[T] >= (DISCOVERED | BRANCH)) \
-+			break; \
-+		if (w < 0 || w >= insn_cnt) { \
-+			verbose("jump out of range from insn %d to %d\n", T, w); \
-+			ret = -EINVAL; \
-+			goto free_st; \
-+		} \
-+		if (st[w] == 0) { \
-+			/* tree-edge */ \
-+			st[T] = DISCOVERED | E; \
-+			st[w] = DISCOVERED; \
-+			PUSH_INT(w); \
-+			goto peek_stack; \
-+		} else if ((st[w] & 0xF0) == DISCOVERED) { \
-+			verbose("back-edge from insn %d to %d\n", T, w); \
-+			ret = -EINVAL; \
-+			goto free_st; \
-+		} else if (st[w] == EXPLORED) { \
-+			/* forward- or cross-edge */ \
-+			st[T] = DISCOVERED | E; \
-+		} else { \
-+			verbose("insn state internal bug\n"); \
-+			ret = -EFAULT; \
-+			goto free_st; \
-+		} \
-+	} while (0)
-+
-+/* non-recursive depth-first-search to detect loops in BPF program
-+ * loop == back-edge in directed graph
-+ */
-+static int check_cfg(struct verifier_env *env)
++/* return the map pointer stored inside BPF_LD_IMM64 instruction */
++static struct bpf_map *ld_imm64_to_map_ptr(struct bpf_insn *insn)
 +{
-+	struct bpf_insn *insns = env->prog->insnsi;
-+	int insn_cnt = env->prog->len;
-+	int cur_stack = 0;
-+	int *stack;
-+	int ret = 0;
-+	int *st;
-+	int i, t;
++	u64 imm64 = ((u64) (u32) insn[0].imm) | ((u64) (u32) insn[1].imm) << 32;
 +
-+	st = kzalloc(sizeof(int) * insn_cnt, GFP_KERNEL);
-+	if (!st)
-+		return -ENOMEM;
-+
-+	stack = kzalloc(sizeof(int) * insn_cnt, GFP_KERNEL);
-+	if (!stack) {
-+		kfree(st);
-+		return -ENOMEM;
-+	}
-+
-+	st[0] = DISCOVERED; /* mark 1st insn as discovered */
-+	PUSH_INT(0);
-+
-+peek_stack:
-+	while ((t = PEEK_INT()) != -1) {
-+		if (BPF_CLASS(insns[t].code) == BPF_JMP) {
-+			u8 opcode = BPF_OP(insns[t].code);
-+
-+			if (opcode == BPF_EXIT) {
-+				goto mark_explored;
-+			} else if (opcode == BPF_CALL) {
-+				PUSH_INSN(t, t + 1, FALLTHROUGH);
-+			} else if (opcode == BPF_JA) {
-+				if (BPF_SRC(insns[t].code) != BPF_K) {
-+					ret = -EINVAL;
-+					goto free_st;
-+				}
-+				/* unconditional jump with single edge */
-+				PUSH_INSN(t, t + insns[t].off + 1, FALLTHROUGH);
-+			} else {
-+				/* conditional jump with two edges */
-+				PUSH_INSN(t, t + 1, FALLTHROUGH);
-+				PUSH_INSN(t, t + insns[t].off + 1, BRANCH);
-+			}
-+		} else {
-+			/* all other non-branch instructions with single
-+			 * fall-through edge
-+			 */
-+			PUSH_INSN(t, t + 1, FALLTHROUGH);
-+		}
-+
-+mark_explored:
-+		st[t] = EXPLORED;
-+		if (POP_INT() == -1) {
-+			verbose("pop_int internal bug\n");
-+			ret = -EFAULT;
-+			goto free_st;
-+		}
-+	}
-+
-+
-+	for (i = 0; i < insn_cnt; i++) {
-+		if (st[i] != EXPLORED) {
-+			verbose("unreachable insn %d\n", i);
-+			ret = -EINVAL;
-+			goto free_st;
-+		}
-+	}
-+
-+free_st:
-+	kfree(st);
-+	kfree(stack);
-+	return ret;
++	return (struct bpf_map *) (unsigned long) imm64;
 +}
 +
- /* look for pseudo eBPF instructions that access map FDs and
-  * replace them with actual map pointers
-  */
-@@ -462,6 +641,10 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
- 	if (ret < 0)
- 		goto skip_full_check;
++/* look for pseudo eBPF instructions that access map FDs and
++ * replace them with actual map pointers
++ */
++static int replace_map_fd_with_map_ptr(struct verifier_env *env)
++{
++	struct bpf_insn *insn = env->prog->insnsi;
++	int insn_cnt = env->prog->len;
++	int i, j;
++
++	for (i = 0; i < insn_cnt; i++, insn++) {
++		if (insn[0].code == (BPF_LD | BPF_IMM | BPF_DW)) {
++			struct bpf_map *map;
++			struct fd f;
++
++			if (i == insn_cnt - 1 || insn[1].code != 0 ||
++			    insn[1].dst_reg != 0 || insn[1].src_reg != 0 ||
++			    insn[1].off != 0) {
++				verbose("invalid bpf_ld_imm64 insn\n");
++				return -EINVAL;
++			}
++
++			if (insn->src_reg == 0)
++				/* valid generic load 64-bit imm */
++				goto next_insn;
++
++			if (insn->src_reg != BPF_PSEUDO_MAP_FD) {
++				verbose("unrecognized bpf_ld_imm64 insn\n");
++				return -EINVAL;
++			}
++
++			f = fdget(insn->imm);
++
++			map = bpf_map_get(f);
++			if (IS_ERR(map)) {
++				verbose("fd %d is not pointing to valid bpf_map\n",
++					insn->imm);
++				fdput(f);
++				return PTR_ERR(map);
++			}
++
++			/* store map pointer inside BPF_LD_IMM64 instruction */
++			insn[0].imm = (u32) (unsigned long) map;
++			insn[1].imm = ((u64) (unsigned long) map) >> 32;
++
++			/* check whether we recorded this map already */
++			for (j = 0; j < env->used_map_cnt; j++)
++				if (env->used_maps[j] == map) {
++					fdput(f);
++					goto next_insn;
++				}
++
++			if (env->used_map_cnt >= MAX_USED_MAPS) {
++				fdput(f);
++				return -E2BIG;
++			}
++
++			/* remember this map */
++			env->used_maps[env->used_map_cnt++] = map;
++
++			/* hold the map. If the program is rejected by verifier,
++			 * the map will be released by release_maps() or it
++			 * will be used by the valid program until it's unloaded
++			 * and all maps are released in free_bpf_prog_info()
++			 */
++			atomic_inc(&map->refcnt);
++
++			fdput(f);
++next_insn:
++			insn++;
++			i++;
++		}
++	}
++
++	/* now all pseudo BPF_LD_IMM64 instructions load valid
++	 * 'struct bpf_map *' into a register instead of user map_fd.
++	 * These pointers will be used later by verifier to validate map access.
++	 */
++	return 0;
++}
++
++/* drop refcnt of maps used by the rejected program */
++static void release_maps(struct verifier_env *env)
++{
++	int i;
++
++	for (i = 0; i < env->used_map_cnt; i++)
++		bpf_map_put(env->used_maps[i]);
++}
++
++/* convert pseudo BPF_LD_IMM64 into generic BPF_LD_IMM64 */
++static void convert_pseudo_ld_imm64(struct verifier_env *env)
++{
++	struct bpf_insn *insn = env->prog->insnsi;
++	int insn_cnt = env->prog->len;
++	int i;
++
++	for (i = 0; i < insn_cnt; i++, insn++)
++		if (insn->code == (BPF_LD | BPF_IMM | BPF_DW))
++			insn->src_reg = 0;
++}
++
+ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+ {
+ 	char __user *log_ubuf = NULL;
+@@ -316,6 +430,8 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+ 	if (!env)
+ 		return -ENOMEM;
  
-+	ret = check_cfg(env);
++	env->prog = prog;
++
+ 	/* grab the mutex to protect few globals used by verifier */
+ 	mutex_lock(&bpf_verifier_lock);
+ 
+@@ -342,8 +458,14 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+ 		log_level = 0;
+ 	}
+ 
++	ret = replace_map_fd_with_map_ptr(env);
 +	if (ret < 0)
 +		goto skip_full_check;
 +
  	/* ret = do_check(env); */
  
- skip_full_check:
++skip_full_check:
++
+ 	if (log_level && log_len >= log_size - 1) {
+ 		BUG_ON(log_len >= log_size);
+ 		/* verifier log exceeded user supplied buffer */
+@@ -357,11 +479,36 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+ 		goto free_log_buf;
+ 	}
+ 
++	if (ret == 0 && env->used_map_cnt) {
++		/* if program passed verifier, update used_maps in bpf_prog_info */
++		prog->aux->used_maps = kmalloc_array(env->used_map_cnt,
++						     sizeof(env->used_maps[0]),
++						     GFP_KERNEL);
++
++		if (!prog->aux->used_maps) {
++			ret = -ENOMEM;
++			goto free_log_buf;
++		}
++
++		memcpy(prog->aux->used_maps, env->used_maps,
++		       sizeof(env->used_maps[0]) * env->used_map_cnt);
++		prog->aux->used_map_cnt = env->used_map_cnt;
++
++		/* program is valid. Convert pseudo bpf_ld_imm64 into generic
++		 * bpf_ld_imm64 instructions
++		 */
++		convert_pseudo_ld_imm64(env);
++	}
+ 
+ free_log_buf:
+ 	if (log_level)
+ 		vfree(log_buf);
+ free_env:
++	if (!prog->aux->used_maps)
++		/* if we didn't copy map pointers into bpf_prog_info, release
++		 * them now. Otherwise free_bpf_prog_info() will release them.
++		 */
++		release_maps(env);
+ 	kfree(env);
+ 	mutex_unlock(&bpf_verifier_lock);
+ 	return ret;
 -- 
 1.7.9.5
