@@ -1,68 +1,36 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 1/2 v2] net: bcmgenet: fix TX reclaim accounting for fragments
-Date: Mon, 22 Sep 2014 11:54:42 -0700
-Message-ID: <1411412083-9370-2-git-send-email-f.fainelli@gmail.com>
-References: <1411412083-9370-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:55833 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754605AbaIVSzE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:55:04 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kx10so5068151pab.33
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 11:55:03 -0700 (PDT)
-In-Reply-To: <1411412083-9370-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V2] net: keep original skb which only needs
+ header checking during software GSO
+Date: Mon, 22 Sep 2014 14:57:36 -0400 (EDT)
+Message-ID: <20140922.145736.1677768375039003963.davem@davemloft.net>
+References: <1411113878-11910-1-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1411113878-11910-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The GENET driver supports SKB fragments, and succeeds in transmitting
-them properly, but when reclaiming these transmitted fragments, we will
-only update the count of free buffer descriptors by 1, even for SKBs
-with fragments. This leads to the networking stack thinking it has more
-room than the hardware has when pushing new SKBs, and backing off
-consequently because we return NETDEV_TX_BUSY.
+From: Jason Wang <jasowang@redhat.com>
+Date: Fri, 19 Sep 2014 16:04:38 +0800
 
-Fix this by accounting for the SKB nr_frags plus one (itself) and update
-ring->free_bds accordingly with that value for each iteration loop in
-__bcmgenet_tx_reclaim().
+> Commit ce93718fb7cdbc064c3000ff59e4d3200bdfa744 ("net: Don't keep
+> around original SKB when we software segment GSO frames") frees the
+> original skb after software GSO even for dodgy gso skbs. This breaks
+> the stream throughput from untrusted sources, since only header
+> checking was done during software GSO instead of a true
+> segmentation. This patch fixes this by freeing the original gso skb
+> only when it was really segmented by software.
+> 
+> Fixes ce93718fb7cdbc064c3000ff59e4d3200bdfa744 ("net: Don't keep
+> around original SKB when we software segment GSO frames.")
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Fixes: 1c1008c793fa ("net: bcmgenet: add main driver file")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index cdef86a03862..11a96437862d 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -875,6 +875,7 @@ static void __bcmgenet_tx_reclaim(struct net_device *dev,
- 	int last_tx_cn, last_c_index, num_tx_bds;
- 	struct enet_cb *tx_cb_ptr;
- 	struct netdev_queue *txq;
-+	unsigned int bds_compl;
- 	unsigned int c_index;
- 
- 	/* Compute how many buffers are transmitted since last xmit call */
-@@ -899,7 +900,9 @@ static void __bcmgenet_tx_reclaim(struct net_device *dev,
- 	/* Reclaim transmitted buffers */
- 	while (last_tx_cn-- > 0) {
- 		tx_cb_ptr = ring->cbs + last_c_index;
-+		bds_compl = 0;
- 		if (tx_cb_ptr->skb) {
-+			bds_compl = skb_shinfo(tx_cb_ptr->skb)->nr_frags + 1;
- 			dev->stats.tx_bytes += tx_cb_ptr->skb->len;
- 			dma_unmap_single(&dev->dev,
- 					 dma_unmap_addr(tx_cb_ptr, dma_addr),
-@@ -916,7 +919,7 @@ static void __bcmgenet_tx_reclaim(struct net_device *dev,
- 			dma_unmap_addr_set(tx_cb_ptr, dma_addr, 0);
- 		}
- 		dev->stats.tx_packets++;
--		ring->free_bds += 1;
-+		ring->free_bds += bds_compl;
- 
- 		last_c_index++;
- 		last_c_index &= (num_tx_bds - 1);
--- 
-1.9.1
+Applied, thanks Jeff.
