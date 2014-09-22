@@ -1,39 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] macvlan: allow to enqueue broadcast pkt on virtual
- device
-Date: Mon, 22 Sep 2014 14:10:48 -0400 (EDT)
-Message-ID: <20140922.141048.2225879376615599480.davem@davemloft.net>
-References: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] bluetooth: Convert bt_<level> logging functions to
+ return void
+Date: Mon, 22 Sep 2014 11:17:41 -0700
+Message-ID: <1411409861.2952.57.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52621 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754220AbaIVSKz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 14:10:55 -0400
-In-Reply-To: <1410941288-1880-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 17 Sep 2014 10:08:08 +0200
+No caller or macro uses the return value so make all
+the functions return void.
 
-> Since commit 412ca1550cbe ("macvlan: Move broadcasts into a work queue"), the
-> driver uses tx_queue_len of the master device as the limit of packets enqueuing.
-> Problem is that virtual drivers have this value set to 0, thus all broadcast
-> packets were rejected.
-> Because tx_queue_len was arbitrarily chosen, I replace it with a static limit
-> of 1000 (also arbitrarily chosen).
-> 
-> CC: Herbert Xu <herbert@gondor.apana.org.au>
-> Reported-by: Thibaut Collet <thibaut.collet@6wind.com>
-> Suggested-by: Thibaut Collet <thibaut.collet@6wind.com>
-> Tested-by: Thibaut Collet <thibaut.collet@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+This change is associated to a desire to eventually
+change printk to return void.
 
-Applied and queued up for -stable.
+ include/net/bluetooth/bluetooth.h |  4 ++--
+ net/bluetooth/lib.c               | 14 ++++----------
+ 2 files changed, 6 insertions(+), 12 deletions(-)
 
-Longer term we should come up with something a little bit nicer.
+diff --git a/include/net/bluetooth/bluetooth.h b/include/net/bluetooth/bluetooth.h
+index 7e666d0..58695ff 100644
+--- a/include/net/bluetooth/bluetooth.h
++++ b/include/net/bluetooth/bluetooth.h
+@@ -120,9 +120,9 @@ struct bt_voice {
+ #define BT_RCVMTU		13
+ 
+ __printf(1, 2)
+-int bt_info(const char *fmt, ...);
++void bt_info(const char *fmt, ...);
+ __printf(1, 2)
+-int bt_err(const char *fmt, ...);
++void bt_err(const char *fmt, ...);
+ 
+ #define BT_INFO(fmt, ...)	bt_info(fmt "\n", ##__VA_ARGS__)
+ #define BT_ERR(fmt, ...)	bt_err(fmt "\n", ##__VA_ARGS__)
+diff --git a/net/bluetooth/lib.c b/net/bluetooth/lib.c
+index 941ad75..b36bc04 100644
+--- a/net/bluetooth/lib.c
++++ b/net/bluetooth/lib.c
+@@ -135,40 +135,34 @@ int bt_to_errno(__u16 code)
+ }
+ EXPORT_SYMBOL(bt_to_errno);
+ 
+-int bt_info(const char *format, ...)
++void bt_info(const char *format, ...)
+ {
+ 	struct va_format vaf;
+ 	va_list args;
+-	int r;
+ 
+ 	va_start(args, format);
+ 
+ 	vaf.fmt = format;
+ 	vaf.va = &args;
+ 
+-	r = pr_info("%pV", &vaf);
++	pr_info("%pV", &vaf);
+ 
+ 	va_end(args);
+-
+-	return r;
+ }
+ EXPORT_SYMBOL(bt_info);
+ 
+-int bt_err(const char *format, ...)
++void bt_err(const char *format, ...)
+ {
+ 	struct va_format vaf;
+ 	va_list args;
+-	int r;
+ 
+ 	va_start(args, format);
+ 
+ 	vaf.fmt = format;
+ 	vaf.va = &args;
+ 
+-	r = pr_err("%pV", &vaf);
++	pr_err("%pV", &vaf);
+ 
+ 	va_end(args);
+-
+-	return r;
+ }
+ EXPORT_SYMBOL(bt_err);
