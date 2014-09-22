@@ -1,96 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] scsi: fix kconfig dependency warnings for SCSI_FC_ATTRS
-Date: Mon, 22 Sep 2014 12:11:06 -0400 (EDT)
-Message-ID: <20140922.121106.1110168028426156500.davem@davemloft.net>
-References: <541CC163.3080709@infradead.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next v2 0/5] net: tcp: DCTCP congestion control
+ algorithm
+Date: Mon, 22 Sep 2014 09:28:31 -0700
+Message-ID: <20140922092831.17331575@urahara>
+References: <1411248562-26581-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	jbottomley@parallels.com, anish@chelsio.com
-To: rdunlap@infradead.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <541CC163.3080709@infradead.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, hagen@jauu.net, lars@netapp.com,
+	eric.dumazet@gmail.com, fontana@sharpeleven.org,
+	hannes@stressinduktion.org, glenn.judd@morganstanley.com,
+	dborkman@redhat.com, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:45655 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754199AbaIVQ2m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 12:28:42 -0400
+Received: by mail-pd0-f175.google.com with SMTP id v10so3596586pde.20
+        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 09:28:41 -0700 (PDT)
+In-Reply-To: <1411248562-26581-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Fri, 19 Sep 2014 16:50:59 -0700
+On Sat, 20 Sep 2014 23:29:17 +0200
+Florian Westphal <fw@strlen.de> wrote:
 
-> From: Randy Dunlap <rdunlap@infradead.org>
+> This patch series adds support for the DataCenter TCP (DCTCP) congestion
+> control algorithm. Please see individual patches for the details.
 > 
-> Fix kconfig dependency warnings which can lead to build errors:
+> Over the last couple of months, we have resolved all outstanding issues
+> from last time in the background and as agreed with Dave, we're now
+> sending v2 of the set.
 > 
-> warning: (SCSI_BNX2X_FCOE && LIBFCOE && TCM_QLA2XXX) selects LIBFC which has unmet direct dependencies (SCSI_LOWLEVEL && SCSI && SCSI_FC_ATTRS)
+> The last patch adds DCTCP as a congestion control module, and previous
+> ones add needed infrastructure to extend the congestion control framework.
 > 
-> warning: (FCOE && FCOE_FNIC) selects LIBFCOE which has unmet direct dependencies (SCSI_LOWLEVEL && SCSI && SCSI_FC_ATTRS)
+> Joint work between Florian Westphal, Daniel Borkmann and Glenn Judd.
 > 
-> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+> v1 -> v2:
+>  - Rebased to latest net-next
+>  - Addressed Eric's feedback, thanks!
+>   - Update stale comment wrt. DCTCP ECN usage
+>   - Don't call INET_ECN_xmit for every packet
+>  - Add dctcp ss/inetdiag support to expose internal stats to userspace
+> 
+> Thanks!
+> 
+> Daniel Borkmann (2):
+>   net: tcp: add flag for ca to indicate that ECN is required
+>   net: tcp: add DCTCP congestion control algorithm
+> 
+> Florian Westphal (3):
+>   net: tcp: assign tcp cong_ops when tcp sk is created
+>   net: tcp: split ack slow/fast events from cwnd_event
+>   net: tcp: more detailed ACK events and events for CE marked packets
+> 
+>  Documentation/networking/dctcp.txt |   43 ++++
+>  include/net/tcp.h                  |   80 ++++++--
+>  include/uapi/linux/inet_diag.h     |   13 +
+>  net/ipv4/Kconfig                   |   26 ++
+>  net/ipv4/Makefile                  |    1 
+>  net/ipv4/tcp.c                     |    6 
+>  net/ipv4/tcp_cong.c                |   46 ++--
+>  net/ipv4/tcp_dctcp.c               |  344 +++++++++++++++++++++++++++++++++++++
+>  net/ipv4/tcp_input.c               |   36 +++
+>  net/ipv4/tcp_minisocks.c           |    5 
+>  net/ipv4/tcp_output.c              |   30 ++-
+>  net/ipv4/tcp_westwood.c            |   28 +--
+>  12 files changed, 577 insertions(+), 81 deletions(-)
 
-Randy, I think we need to propagate usage of depends into LIBFC and LIBFCOE as well.
+The CC ops stuff looks good.
 
-I'm playing around with the following patch and will probably use this to resolve
-everything.
-
-Thanks.
-
-diff --git a/drivers/scsi/Kconfig b/drivers/scsi/Kconfig
-index b745012..bd85fb4 100644
---- a/drivers/scsi/Kconfig
-+++ b/drivers/scsi/Kconfig
-@@ -592,21 +592,21 @@ config LIBFC
- 
- config LIBFCOE
- 	tristate "LibFCoE module"
--	select LIBFC
-+	depends on LIBFC
- 	---help---
- 	  Library for Fibre Channel over Ethernet module
- 
- config FCOE
- 	tristate "FCoE module"
- 	depends on PCI
--	select LIBFCOE
-+	depends on LIBFCOE
- 	---help---
- 	  Fibre Channel over Ethernet module
- 
- config FCOE_FNIC
- 	tristate "Cisco FNIC Driver"
- 	depends on PCI && X86
--	select LIBFCOE
-+	depends on LIBFCOE
- 	help
- 	  This is support for the Cisco PCI-Express FCoE HBA.
- 
-diff --git a/drivers/scsi/bnx2fc/Kconfig b/drivers/scsi/bnx2fc/Kconfig
-index 02b0ba8..0978828 100644
---- a/drivers/scsi/bnx2fc/Kconfig
-+++ b/drivers/scsi/bnx2fc/Kconfig
-@@ -2,11 +2,11 @@ config SCSI_BNX2X_FCOE
- 	tristate "QLogic NetXtreme II FCoE support"
- 	depends on PCI
- 	depends on (IPV6 || IPV6=n)
-+	depends on LIBFC
-+	depends on LIBFCOE
- 	select NETDEVICES
- 	select ETHERNET
- 	select NET_VENDOR_BROADCOM
--	select LIBFC
--	select LIBFCOE
- 	select CNIC
- 	---help---
- 	This driver supports FCoE offload for the QLogic NetXtreme II
-diff --git a/drivers/scsi/qla2xxx/Kconfig b/drivers/scsi/qla2xxx/Kconfig
-index 7d65776..113e6c9 100644
---- a/drivers/scsi/qla2xxx/Kconfig
-+++ b/drivers/scsi/qla2xxx/Kconfig
-@@ -31,7 +31,7 @@ config SCSI_QLA_FC
- config TCM_QLA2XXX
- 	tristate "TCM_QLA2XXX fabric module for Qlogic 2xxx series target mode HBAs"
- 	depends on SCSI_QLA_FC && TARGET_CORE
--	select LIBFC
-+	depends on LIBFC
- 	select BTREE
- 	default n
- 	---help---
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
