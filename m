@@ -1,58 +1,52 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH net 2/4] qlcnic: Fix memory corruption while reading stats using ethtool.
-Date: Mon, 22 Sep 2014 05:51:51 -0400
-Message-ID: <1411379513-26902-3-git-send-email-manish.chopra@qlogic.com>
-References: <1411379513-26902-1-git-send-email-manish.chopra@qlogic.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net-next PATCH 29/29] fm10k: Add support for PTP
+Date: Mon, 22 Sep 2014 11:03:13 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174973B0@AcuExch.aculab.com>
+References: <20140918223242.10373.27403.stgit@ahduyck-bv4.jf.intel.com>
+ <20140918224042.10373.93162.stgit@ahduyck-bv4.jf.intel.com>
+ <20140919173504.GA4136@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-GELinuxNICDev@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+	"matthew.vick@intel.com" <matthew.vick@intel.com>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: 'Richard Cochran' <richardcochran@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:43056 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753229AbaIVKZr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 06:25:47 -0400
-In-Reply-To: <1411379513-26902-1-git-send-email-manish.chopra@qlogic.com>
+Received: from mx0.aculab.com ([213.249.233.131]:49544 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752908AbaIVLEc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 07:04:32 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 11426-03 for <netdev@vger.kernel.org>;
+ Mon, 22 Sep 2014 12:04:22 +0100 (BST)
+In-Reply-To: <20140919173504.GA4136@localhost.localdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o  Driver is doing memset with zero for total number of stats bytes when
-   it has already filled some data in the stats buffer, which can overwrite
-   memory area beyond the length of stats buffer.
+From: Of Richard Cochran
+> On Thu, Sep 18, 2014 at 06:40:46PM -0400, Alexander Duyck wrote:
+> 
+> > +static s32 fm10k_1588_msg_vf(struct fm10k_hw *hw, u32 **results,
+> > +			     struct fm10k_mbx_info *mbx)
+> > +{
+> > +	struct fm10k_intfc *interface = container_of(hw,
+> > +						     struct fm10k_intfc,
+> > +						     hw);
+> 
+> This looks really funny to me here and in the other spot. Why not this?
+> 
+> 	struct fm10k_intfc *interface = container_of(hw, struct fm10k_intfc, hw);
+> 
+> Its only one over the 80 km/h speed limit.
 
-o  Fix this by initializing stats buffer with zero before filling any data in it.
+Or split the assignment from the declaration.
 
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
----
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 141f116..2d77b76 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -1333,12 +1333,11 @@ static void qlcnic_get_ethtool_stats(struct net_device *dev,
- 	struct qlcnic_host_tx_ring *tx_ring;
- 	struct qlcnic_esw_statistics port_stats;
- 	struct qlcnic_mac_statistics mac_stats;
--	int index, ret, length, size, tx_size, ring;
-+	int index, ret, length, size, ring;
- 	char *p;
- 
--	tx_size = adapter->drv_tx_rings * QLCNIC_TX_STATS_LEN;
-+	memset(data, 0, stats->n_stats * sizeof(u64));
- 
--	memset(data, 0, tx_size * sizeof(u64));
- 	for (ring = 0, index = 0; ring < adapter->drv_tx_rings; ring++) {
- 		if (test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
- 			tx_ring = &adapter->tx_ring[ring];
-@@ -1347,7 +1346,6 @@ static void qlcnic_get_ethtool_stats(struct net_device *dev,
- 		}
- 	}
- 
--	memset(data, 0, stats->n_stats * sizeof(u64));
- 	length = QLCNIC_STATS_LEN;
- 	for (index = 0; index < length; index++) {
- 		p = (char *)adapter + qlcnic_gstrings_stats[index].stat_offset;
--- 
-1.7.1
+	David
