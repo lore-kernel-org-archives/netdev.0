@@ -1,34 +1,30 @@
-From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v14 net-next 00/11] eBPF syscall, verifier, testsuite
-Date: Mon, 22 Sep 2014 21:57:16 +0200
-Message-ID: <54207F1C.1090003@redhat.com>
-References: <1411344411-3824-1-git-send-email-ast@plumgrid.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v2 1/2] net: cls_u32: fix missed pcpu_success
+ free_percpu
+Date: Mon, 22 Sep 2014 15:59:43 -0400 (EDT)
+Message-ID: <20140922.155943.695471801124269403.davem@davemloft.net>
+References: <20140920045003.9869.16851.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1411344411-3824-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: john.fastabend@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53469 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754416AbaIVT77 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 15:59:59 -0400
+In-Reply-To: <20140920045003.9869.16851.stgit@nitbit.x32>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/22/2014 02:06 AM, Alexei Starovoitov wrote:
-...
-> v13 -> v14:
-> - small change to 1st patch to ease 'new userspace with old kernel'
->    problem (done similar to perf_copy_attr()) (suggested by Daniel)
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Fri, 19 Sep 2014 21:50:04 -0700
 
-Thanks for taking care of it.
+> This fixes a missed free_percpu in the unwind code path and when
+> keys are destroyed.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+
+Applied.
