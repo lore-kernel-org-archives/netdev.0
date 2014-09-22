@@ -1,98 +1,49 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
-Date: Mon, 22 Sep 2014 09:53:37 +0200
-Message-ID: <20140922075337.GA1828@nanopsycho.orion>
-References: <1411134590-4586-9-git-send-email-jiri@resnulli.us>
- <541C4AFC.8060500@mojatatu.com>
- <20140919154946.GH1980@nanopsycho.orion>
- <541C6E6D.9000109@mojatatu.com>
- <541CAA3C.5080105@intel.com>
- <541CAB9A.3040100@mojatatu.com>
- <20140920081702.GF1821@nanopsycho.orion>
- <541D54BA.6070709@mojatatu.com>
- <20140920110121.GB29419@casper.infradead.org>
- <541D65CE.7080108@mojatatu.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: Re: net/fec: Unable to get a permanent link when connecting to a
+ PC
+Date: Mon, 22 Sep 2014 10:06:14 +0200
+Message-ID: <541FD876.4090109@i2se.com>
+References: <1XUuZV-0zjkn20@fwd01.aul.t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, edumazet@google.com,
-	sfeldma@cumulusnetworks.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	dev@openvswitch.org, jasowang@redhat.com, ebiederm@xmission.com,
-	nicolas.dichtel@6wind.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com,
-	ronye@mellanox.com, simon.horman@netronome.com,
-	alexander.h.duyck@intel.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: "to-fleischer@t-online.de" <to-fleischer@t-online.de>,
+	linux-arm-kernel@lists.infradead.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f178.google.com ([74.125.82.178]:35642 "EHLO
-	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750894AbaIVHxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 03:53:39 -0400
-Received: by mail-we0-f178.google.com with SMTP id t60so2418824wes.23
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 00:53:38 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <541D65CE.7080108@mojatatu.com>
+Received: from mout.kundenserver.de ([212.227.126.187]:59509 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752984AbaIVIHG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 04:07:06 -0400
+In-Reply-To: <1XUuZV-0zjkn20@fwd01.aul.t-online.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Sep 20, 2014 at 01:32:30PM CEST, jhs@mojatatu.com wrote:
->On 09/20/14 07:01, Thomas Graf wrote:
+Am 19.09.2014 um 11:33 schrieb to-fleischer@t-online.de:
+> I have an i.MX283 board with a KSZ8081 PHY that is connected to the controller
+> via RMII. The PHY's interrupt line is currently unused, but connected to the
+> controller. The board runs the linux version 3.17-rc5.
+> When I connect the board directly to a PC the ethernet link goes up and a second
+> later down. This is repeated again and again.
+> After some investigation I found that this is caused by the reset of the FEC at
+> the begin of fec_restart() that is called by fec_enet_adjust_link() if the link
+> is up.
+> Due to the reset the mode is set to MII. After switching back to RMII the PHY 
+> seems to restart the autonegotiation. Since this takes a while the next call of 
+> phy_state_machine() detects that the link is down.
+> It would work, if the reset in fec_restart is avoided for the case that the link
+> goes up and the fec is still stopped.
 >
->>Nothing speaks against having such a tc classifier. In fact, having
->>the interface consist of only an embedded Netlink attribute structure
->>would allow for such a classifier in a very straight forward way.
->>
->>That doesn't mean everybody should be forced to use the stateful
->>tc interface.
->>
+> Its quite remarkable that this issue does not occur if I connect the board to a
+> switch or if I use the PHY's interrupt line.
 >
+> What do you think?
 >
->Agreed. The response was to Jiri's strange statement that now that
->he cant use OVS, there is no such api. I point to tc as very capable of
->such usage.
+> Best Regards,
+> Torsten Fleischer
+>
 
-Jamal, would you please give us some examples on how to use tc to work
-with flows? I have a feeling that you see something other people does not.
-Lets get on the same page now.
-Thanks.
+Add netdev list
 
-
->
->>No need for false accusations here. Nobody ever mentioned vendor SDKs.
->>
->
->I am sorry to have tied the two together. Maybe not OVS but the approach
->described is heaven for vendor SDKs.
->
->>The statement was that the requirement of deriving hardware flows from
->>software flows *in the kernel* is not flexible enough for the future
->>for reasons such as:
->>
->>1) The OVS software data path might be based on eBPF in the future and
->>    it is unclear how we could derive hardware flows from that
->>    transparently.
->>
->
->Who says you cant put BPF in hardware?
->And why is OVS defining how BPF should evolve or how it should be used?
->
->>2) Depending on hardware capabilities. Hardware flows might need to be
->>    assisted by software flow counterparts and it is believed that it
->>    is the wrong approach to push all the necessary context for the
->>    decision down into the kernel. This can be argued about and I don't
->>    feel strongly either way.
->>
->
->Pointing to the current FDB offload: You can select to bypass
->and not use s/ware.
->
->cheers,
->jamal
+Best regards
+Stefan Wahren
