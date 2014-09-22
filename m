@@ -1,84 +1,95 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [RFC v2 3/6] kthread: warn on kill signal if not OOM
-Date: Mon, 22 Sep 2014 21:49:06 +0200
-Message-ID: <20140922194906.GB9868@amd>
-References: <20140905174925.GA12991@mtj.dyndns.org>
- <20140909224143.GB3154@mtj.dyndns.org>
- <1410302783.13298.50.camel@jarvis.lan>
- <5762134.BLS0EbmNJd@dtor-glaptop>
- <1410465565.10549.19.camel@jarvis>
- <20140911202354.GA2598@core.coreip.homeip.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next PATCH v2 00/29] Add support for the Intel FM10000
+ Ethernet Switch Host Interface
+Date: Mon, 22 Sep 2014 12:46:45 -0700
+Message-ID: <1411415205.2513.9.camel@jtkirshe-mobl.jf.intel.com>
+References: <20140920234342.2977.21667.stgit@ahduyck-bv4.jf.intel.com>
+	 <1411410964.2513.1.camel@jtkirshe-mobl.jf.intel.com>
+	 <20140922.151750.1374374207690364454.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Tejun Heo <tj@kernel.org>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Lennart Poettering <lennart@poettering.net>,
-	Kay Sievers <kay@vrfy.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Wu Zhangjin <falcon@meizu.com>, Takashi Iwai <tiwai@suse.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>, hare@suse.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagote
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140911202354.GA2598@core.coreip.homeip.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-0ej7DdQIp6DYaUBR05UD"
+Cc: alexander.h.duyck@intel.com, nhorman@redhat.com,
+	netdev@vger.kernel.org, john.fastabend@gmail.com,
+	matthew.vick@intel.com, sassmann@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:45534 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754056AbaIVTuH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Sep 2014 15:50:07 -0400
+In-Reply-To: <20140922.151750.1374374207690364454.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu 2014-09-11 13:23:54, Dmitry Torokhov wrote:
-> On Thu, Sep 11, 2014 at 12:59:25PM -0700, James Bottomley wrote:
-> > 
-> > On Tue, 2014-09-09 at 16:01 -0700, Dmitry Torokhov wrote:
-> > > On Tuesday, September 09, 2014 03:46:23 PM James Bottomley wrote:
-> > > > On Wed, 2014-09-10 at 07:41 +0900, Tejun Heo wrote:
-> > > > > 
-> > > > > The thing is that we have to have dynamic mechanism to listen for
-> > > > > device attachments no matter what and such mechanism has been in place
-> > > > > for a long time at this point.  The synchronous wait simply doesn't
-> > > > > serve any purpose anymore and kinda gets in the way in that it makes
-> > > > > it a possibly extremely slow process to tell whether loading of a
-> > > > > module succeeded or not because the wait for the initial round of
-> > > > > probe is piggybacked.
-> > > > 
-> > > > OK, so we just fire and forget in userland ... why bother inventing an
-> > > > elaborate new infrastructure in the kernel to do exactly what
-> > > > 
-> > > > modprobe <mod> &
-> > > > 
-> > > > would do?
-> > > 
-> > > Just so we do not forget: we also want the no-modules case to also be able
-> > > to probe asynchronously so that a slow device does not stall kernel booting.
-> > 
-> > Yes, but we mostly do this anyway.  SCSI for instance does asynchronous
-> > scanning of attached devices (once the cards are probed)
-> 
-> What would it do it card was a bit slow to probe?
-> 
-> > but has a sync
-> > point for ordering.
-> 
-> Quite often we do not really care about ordering of devices. I mean,
-> does it matter if your mouse is discovered before your keyboard or
-> after?
 
-Actually yes, I suspect it does.
+--=-0ej7DdQIp6DYaUBR05UD
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-I do evtest /dev/input/eventX by hand, occassionaly. It would be
-annoying if they moved between reboots.
-									Pavel
+On Mon, 2014-09-22 at 15:17 -0400, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Mon, 22 Sep 2014 11:36:04 -0700
+>=20
+> > On Sat, 2014-09-20 at 19:45 -0400, Alexander Duyck wrote:
+> >> This patch series adds support for the FM10000 Ethernet switch host
+> >> interface.  The Intel FM10000 Ethernet Switch is a 48-port Ethernet sw=
+itch
+> >> supporting both Ethernet ports and PCI Express host interfaces.  The f=
+m10k
+> >> driver provides support for the host interface portion of the switch, =
+both
+> >> PF and VF.
+> >>=20
+> >> As the host interfaces are directly connected to the switch this resul=
+ts in
+> >> some significant differences versus a standard network driver.  For ex=
+ample
+> >> there is no PHY or MII on the device.  Since packets are delivered dir=
+ectly
+> >> from the switch to the host interface these are unnecessary.  Otherwis=
+e most
+> >> of the functionality is very similar to our other network drivers such=
+ as
+> >> ixgbe or igb.  For example we support all the standard network offload=
+s,
+> >> jumbo frames, SR-IOV (64 VFS), PTP, and some VXLAN and NVGRE offloads.
+> >>=20
+> >> ---
+> >=20
+> > Dave, if it makes it easier on you, I can add Alex's series of patches
+> > to my net-next tree for you to pull.  Just give me an hour or so so tha=
+t
+> > I can update my net-next and push his patches up to my tree.
+>=20
+> Yeah, could you please do that?
+>=20
+> Thanks.
 
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+Working on it now, I will let you know when I have it pushed up to my
+tree.
+
+--=-0ej7DdQIp6DYaUBR05UD
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJUIHylAAoJEOVv75VaS+3O2i0QAKYmtwj9Hy9enFuvw9vQAqcW
+7Y6Y94mA07gMF801bF2kPCaNq/oTnlYNNXIE2of0HhwA8Q4H8i/YxdPj/v8c0wgO
+kkHvSCGT7AiJSSsynRWm8ltTGA4dAh5E+kWfeDDo74w1xCrCsgDUmlwvbTjrDjro
+2wqB2Z4XFBzVL5vLKZA4vRUh2XyYvdtUkibEr67SUcGkz0X5uj0tSQIOjyxF+C0K
+PiiXWbXcRiPw8CBgpMWFWxSY9tyiCI9MIA9qoj7tTQZXNKY64QyXTn300/4k2oNW
+slsCpmcpjZX3dMzORwbX8rQn6VVERRnb9ZEDNfZ2Pn9xe5/uAE1onY5QheSMW5iw
+FeOYQR+3CJa6NArcTCLFV5f2nmXyWM6ZYnMeoFfriQ5tGF7sPDWlmF2KJ6hnH1mf
+dOlxOCGMRj95Ht00AFUvvhb6GelhC6QJ1NMDwEjNNhRZKk4XYpm5o5ck3NhvUMzb
+tY23enTlU5DINLUDAbcczdIDUz+4H5LRUQEPBJ9OIEwkaD6tE+eBdrTRL53c59y0
+xzV1HVYPvsBNq72LOxXU43oggNIXhU1AFzgQia/kL4dbruR/JL/+RtdpQYVrxbSq
+5wrhrkJQN4fZQByoCuygk+2L/LikVOxxlBYir/RZc+TvvQ0A9Yweki4OyPIx8ey3
+i5S9WJHHNZVcU5xAaDu6
+=1GIH
+-----END PGP SIGNATURE-----
+
+--=-0ej7DdQIp6DYaUBR05UD--
