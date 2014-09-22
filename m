@@ -1,41 +1,49 @@
 From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH net 3/4] qlcnic: Remove __QLCNIC_DEV_UP bit check to read TX queues statistics.
-Date: Mon, 22 Sep 2014 05:51:52 -0400
-Message-ID: <1411379513-26902-4-git-send-email-manish.chopra@qlogic.com>
+Subject: [PATCH net 1/4] qlcnic: Use qlcnic_83xx_flash_read32() API instead of lockless version of the API.
+Date: Mon, 22 Sep 2014 05:51:50 -0400
+Message-ID: <1411379513-26902-2-git-send-email-manish.chopra@qlogic.com>
 References: <1411379513-26902-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-GELinuxNICDev@qlogic.com>
+Cc: <netdev@vger.kernel.org>, <Dept-GELinuxNICDev@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:33649 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:57823 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753902AbaIVKZt (ORCPT
+	by vger.kernel.org with ESMTP id S1753906AbaIVKZt (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 06:25:49 -0400
 In-Reply-To: <1411379513-26902-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o TX queues stats must be read when queues are allocated regardless
-  of interface is up or not.
+From: Sony Chacko <sony.chacko@qlogic.com>
 
+In qlcnic_83xx_setup_idc_parameters() routine use qlcnic_83xx_flash_read32() API
+which takes flash lock internally instead of the lockless version
+qlcnic_83xx_lockless_flash_read32().
+
+Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
 Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 2d77b76..863c445 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -1339,7 +1339,7 @@ static void qlcnic_get_ethtool_stats(struct net_device *dev,
- 	memset(data, 0, stats->n_stats * sizeof(u64));
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index 86783e1..3172cdf 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -1177,9 +1177,8 @@ static void qlcnic_83xx_setup_idc_parameters(struct qlcnic_adapter *adapter)
+ {
+ 	u32 idc_params, val;
  
- 	for (ring = 0, index = 0; ring < adapter->drv_tx_rings; ring++) {
--		if (test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
-+		if (adapter->is_up == QLCNIC_ADAPTER_UP_MAGIC) {
- 			tx_ring = &adapter->tx_ring[ring];
- 			data = qlcnic_fill_tx_queue_stats(data, tx_ring);
- 			qlcnic_update_stats(adapter);
+-	if (qlcnic_83xx_lockless_flash_read32(adapter,
+-					      QLC_83XX_IDC_FLASH_PARAM_ADDR,
+-					      (u8 *)&idc_params, 1)) {
++	if (qlcnic_83xx_flash_read32(adapter, QLC_83XX_IDC_FLASH_PARAM_ADDR,
++				     (u8 *)&idc_params, 1)) {
+ 		dev_info(&adapter->pdev->dev,
+ 			 "%s:failed to get IDC params from flash\n", __func__);
+ 		adapter->dev_init_timeo = QLC_83XX_IDC_INIT_TIMEOUT_SECS;
 -- 
 1.7.1
