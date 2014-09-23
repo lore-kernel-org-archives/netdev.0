@@ -1,45 +1,42 @@
 From: Arnd Bergmann <arnd@arndb.de>
 Subject: Re: [PATCH v4 3/9] Documentation: bindings: net: add the Marvell PXA168 Ethernet controller
-Date: Tue, 23 Sep 2014 16:33:48 +0200
-Message-ID: <3708177.kEGF9Dk44n@wuerfel>
-References: <1411474536-22626-1-git-send-email-antoine.tenart@free-electrons.com> <51745791.Wuu5QiQB2e@wuerfel> <20140923140113.GC18924@kwain>
+Date: Tue, 23 Sep 2014 16:37:17 +0200
+Message-ID: <4014272.rJbSfrLcuB@wuerfel>
+References: <1411474536-22626-1-git-send-email-antoine.tenart@free-electrons.com> <20140923140113.GC18924@kwain> <20140923142922.GE18924@kwain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: sebastian.hesselbarth@gmail.com,
-	alexandre.belloni@free-electrons.com,
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
 	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
-	jszhang@marvell.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140923140113.GC18924@kwain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
+	jszhang@marvell.com, sebastian.hesselbarth@gmail.com
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.10]:52479 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755953AbaIWOh3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 10:37:29 -0400
+In-Reply-To: <20140923142922.GE18924@kwain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 23 September 2014 16:01:13 Antoine Tenart wrote:
+On Tuesday 23 September 2014 16:29:22 Antoine Tenart wrote:
 > 
-> On Tue, Sep 23, 2014 at 02:38:39PM +0200, Arnd Bergmann wrote:
-> > On Tuesday 23 September 2014 14:15:30 Antoine Tenart wrote:
-> > > +Optional properties:
-> > > +- port-id: should be '0','1' or '2'.
-> > > +- phy-addr: MDIO address of the PHY.
-> > > +- local-mac-address: see ethernet.txt file in the same directory.
-> > > +
-> > > 
-> > 
-> > I believe new bindings should not use "phy-addr" properties, but
-> > instead use a phy-handle property pointing to a phy device instead.
+> So I had a look on other Ethernet bindings. Would you agree with
+> something like the following?
 > 
-> That's the MDIO address of the PHY. It's a bit difficult to use a phy
-> device as the driver uses the libphy. And that would break the platform
-> using it.
+>         eth0: ethernet@f7b90000 {
+>                 ...
+>                 #address-cells = <1>;
+>                 #size-cells = <0>;
+>                 phy-handle = <&ethphy0>;
 > 
-> Or maybe you have something in mind?
+>                 ethphy0: ethernet-phy@0 {
+>                         reg = <0>;
+>                 };
+>         };
 
-I don't understand what you mean. Doesn't libphy imply using a phy_device?
-What I meant was that you should be able to just call the standard
-of_phy_connect() and other interfaces to deal with phylib.
+Yes, that looks good.
 
 	Arnd
