@@ -1,61 +1,68 @@
-From: Eyal perry <eyalpe@dev.mellanox.co.il>
-Subject: Re: ip6_udp_tunnel fails to load
-Date: Tue, 23 Sep 2014 19:33:37 +0300
-Message-ID: <5421A0E1.2050309@dev.mellanox.co.il>
-References: <54218FED.4080102@dev.mellanox.co.il> <1411486777.26859.189.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+From: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v4 3/9] Documentation: bindings: net: add the Marvell
+ PXA168 Ethernet controller
+Date: Tue, 23 Sep 2014 18:40:46 +0200
+Message-ID: <5421A28E.7060600@gmail.com>
+References: <1411474536-22626-1-git-send-email-antoine.tenart@free-electrons.com> <4014272.rJbSfrLcuB@wuerfel> <542195B0.6080706@gmail.com> <9401592.hUYDkriFVO@wuerfel>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Zhou <azhou@nicira.com>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:48348 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755737AbaIWQdk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:33:40 -0400
-Received: by mail-wi0-f176.google.com with SMTP id fb4so5235759wid.3
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 09:33:39 -0700 (PDT)
-In-Reply-To: <1411486777.26859.189.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, zmxu-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <9401592.hUYDkriFVO@wuerfel>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 9/23/2014 6:39 PM, Eric Dumazet wrote:
-> On Tue, 2014-09-23 at 18:21 +0300, Eyal perry wrote:
->> Hello Andy,
+On 09/23/2014 06:29 PM, Arnd Bergmann wrote:
+> On Tuesday 23 September 2014 17:45:52 Sebastian Hesselbarth wrote:
+>> For reference, this is what we have for MVEBU SoCs with multiple ports
+>> per controller:
 >>
->> Lately I've start to observe a phenomena where the mlx4_en driver
->> couldn't load on my system as a result of an 'Unknown symbol in module'.
+>> eth: ethernet-ctrl@72000 {
+>>          compatible = "marvell,orion-eth";
+...
+>>          reg = <0x72000 0x4000>;
+...
 >>
->> [ 1277.458715] ip6_udp_tunnel: Unknown symbol ip6_local_out (err 0)
->> [ 1277.486810] ip6_udp_tunnel: Unknown symbol __put_net (err 0)
+>>          ethernet-port@0 {
+>>                  compatible = "marvell,orion-eth-port";
+...
+>>                  phy-handle = <&ethphy>;
+>>          };
+>> };
 >>
->> Apparently, the mlx4_en driver is depend on the vxlan driver, which
->> depends on the ip6_udp_tunnel module which fails to load.
->>
->> 1. I've bisected this issue down to the following commit:
->> fd38441 udp_tunnel: Seperate ipv6 functions into its own file.
->>
->> 2. on a different host with a different .config, the module is loads
->> cleanly.
->>
->> 3. my sources are based on net-next commit
->> 6d967f8 udp_tunnel: Only build ip6_udp_tunnel.c when IPV6 is selected
->>
->> I'll send you both of the .config files in a private message.
->>
->> This issue is making any driver which is depend on vxlan/ip6_udp_tunnel
->> unusable, please take a look and fix
-> 
-> Have you tried this patch ?
-> 
-> https://patchwork.ozlabs.org/patch/392275/
-> 
-> Thanks
+>> mdio: mdio-bus@72004 {
+>>          compatible = "marvell,orion-mdio";
+...
+>>          reg = <0x72004 0x84>;
+..
+>>          ethphy: ethernet-phy {
+>>                  /* set phy address in board file */
+>>          };
+>> };
 
-Hello Eric,
+> But in this example, you have the same registers and the same
+> clocks in two nodes, which are even used by the same device driver
+> at the moment. It's not a big issue, but my feeling is that Antoine's
+> approach was actually better because it more closely reflects
+> the way that the hardware is built.
 
-Now I've tried but it still fails - the vxlan is still depends on the
-ip6_udp_tunnel and it still fails to load because of the missing symbols
-mentioned above.
+I was not referring to the separate mdio bus node, but putting the
+ethernet-phy node as a child of ethernet-ctrl.
+
+Anyway, I can live with the ethernet-phy being a child of the controller
+node until we discover where it is hooked up.
+
+For the internal MII PHY the controller node maybe is the only sane
+place to put it in. The HEC PHY will reside within the CEC IP node but
+that is compatible with Antoine's proposal.
+
+Sebastian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
