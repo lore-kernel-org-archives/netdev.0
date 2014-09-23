@@ -1,123 +1,58 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v4 3/9] Documentation: bindings: net: add the Marvell
- PXA168 Ethernet controller
-Date: Tue, 23 Sep 2014 19:31:40 +0200
-Message-ID: <5421AE7C.30504@gmail.com>
-References: <1411474536-22626-1-git-send-email-antoine.tenart@free-electrons.com> <9401592.hUYDkriFVO@wuerfel> <5421A28E.7060600@gmail.com> <5150779.ibmzDh88cj@wuerfel>
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, zmxu-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5150779.ibmzDh88cj@wuerfel>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
+Date: Tue, 23 Sep 2014 19:35:24 +0200
+Message-ID: <5421AF5C.6000106@broadcom.com>
+References: <53FDACD1.8090805@msgid.tls.msk.ru> <53FDF8EB.4050905@broadcom.com> <54169D4F.2090607@broadcom.com> <541EEF17.7020806@msgid.tls.msk.ru> <542145B1.4030202@msgid.tls.msk.ru> <54216BF1.3060500@broadcom.com> <20140923134419.GA19016@ubuntu-hedt> <54217AA5.2060803@broadcom.com> <542182BE.2000606@msgid.tls.msk.ru> <542183A6.4070207@msgid.tls.msk.ru> <20140923143124.GC19016@ubuntu-hedt> <54219984.2080601@msgid.tls.msk.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Seth Forshee <seth.forshee@canonical.com>,
+	<brcm80211-dev-list@broadcom.com>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Michael Tokarev <mjt@tls.msk.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:24743 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932149AbaIWRf1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 13:35:27 -0400
+In-Reply-To: <54219984.2080601@msgid.tls.msk.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/23/2014 07:02 PM, Arnd Bergmann wrote:
-> On Tuesday 23 September 2014 18:40:46 Sebastian Hesselbarth wrote:
->> On 09/23/2014 06:29 PM, Arnd Bergmann wrote:
->>> On Tuesday 23 September 2014 17:45:52 Sebastian Hesselbarth wrote:
->>>> For reference, this is what we have for MVEBU SoCs with multiple ports
->>>> per controller:
->>>>
->>>> eth: ethernet-ctrl@72000 {
->>>>           compatible = "marvell,orion-eth";
->> ...
->>>>           reg = <0x72000 0x4000>;
->> ...
->>>>
->>>>           ethernet-port@0 {
->>>>                   compatible = "marvell,orion-eth-port";
->> ...
->>>>                   phy-handle = <&ethphy>;
->>>>           };
->>>> };
->>>>
->>>> mdio: mdio-bus@72004 {
->>>>           compatible = "marvell,orion-mdio";
->> ...
->>>>           reg = <0x72004 0x84>;
->> ..
->>>>           ethphy: ethernet-phy {
->>>>                   /* set phy address in board file */
->>>>           };
->>>> };
+On 09/23/14 18:02, Michael Tokarev wrote:
+> 23.09.2014 18:31, Seth Forshee =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>> On Tue, Sep 23, 2014 at 06:28:54PM +0400, Michael Tokarev wrote:
+>>> 23.09.2014 18:25, Michael Tokarev wrote:
+>>>> 23.09.2014 17:50, Arend van Spriel wrote:
+>>>>> On 09/23/14 15:44, Seth Forshee wrote:
+>>> []
+>>>>>> It's been quite some time since I used them, but I think brcmsma=
+c_tx is
+>>>>>> quite noisy so you may only want to enable that if you already s=
+uspect a
+>>>>>> tx problem. I always find it useful to enable the mac80211 and
+>>>>>> mac80211_msg events too when debugging wireless, and I often ena=
+ble
+>>>>>> cfg80211 events as well (none of these are especially verbose).
+>>>
+>>> mac80211_msg does not exist, it looks like.  fwiw.
 >>
->>> But in this example, you have the same registers and the same
->>> clocks in two nodes, which are even used by the same device driver
->>> at the moment. It's not a big issue, but my feeling is that Antoine's
->>> approach was actually better because it more closely reflects
->>> the way that the hardware is built.
->>
->> I was not referring to the separate mdio bus node, but putting the
->> ethernet-phy node as a child of ethernet-ctrl.
+>> Did you check your kernel's config? You need to have
+>> CONFIG_MAC80211_MESSAGE_TRACING enabled.
 >
-> Ah, got it (I think). Yes, that makes sense.
-
-> The part I don't understand yet is how one uses multiple ports. pxa168_eth.c
-> seems to be written with the assumption that only one port is ever used at
-> a time, while mv643xx_eth.c can actually use multiple ports simultaneously.
+> Oh. Indeed.  While I enabled it, I recompiled only drivers/net/wirele=
+ss,
+> but not net/.  Rebuilt, another trace is here --
 >
-> Do you think that is that a hardware limitation of pxa168_eth or a feature
-> that nobody so far has needed from the driver?
+>   http://www.corpit.ru/mjt/tmp/brcmsmac-4313-trace-201409233.dat.gz
+>
+> Thanks,
 
-It has been a while I looked it up in the pxa168 datasheet, but IIRC
-there is only one port per controller. FWIW, there actually is also
-just one port per controller for Orion SoCs. The multiple ports per
-controller comes from the PPC system controllers, i.e. mv643xx hence
-the name. We just made the binding look like it is more ports available
-to make it backwards compatible.. although I doubt anyone is still using
-mv643xx anywhere.
+Just to confirm. With this trace you also get a stall during wget?
 
-> If there is only one port and we just have to know which one that is,
-> I don't think we need the child nodes, but if one can have multiple
-> ports operate independently then the driver will need a rework
-> to actually be usable with that configuration.
+Regards,
+Arend
 
-I doubt pxa168 needs port nodes at all, i.e. we have the phy-handle
-directly as property of the controller node.
-
-The HEC PHY node itself will be a sub-node of some future CEC node,
-while the (internal) MII PHY node can stay as a sub-node of the
-controller, e.g.
-
-(one final example to make sure we agree on the same)
-
-eth0: ethernet@f7b90000 {
-	compatible = "marvell,pxa168-eth";
-	reg = <...>;
-	#address-cells = <1>;
-	#size-cells = <0>;
-	phy-handle = <&ethphy0>;
-
-	ethphy0: ethernet-phy@0 {
-		reg = <0>;
-	};
-};
-
-cec0: cec@f7f00baa {
-	compatible = "marvell,berlin-cec";
-	reg = <...>;
-	#address-cells = <1>;
-	#size-cells = <0>;
-	
-	hecphy0: hdmi-ethernet-phy@0 {
-		reg = <0>;
-	};
-};
-
-With berlin2cd-google-chromecast.dts overwriting
-
-&eth0 { phy-handle = <&hecphy0>; };
-
-Sebastian
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> /mjt
+>
