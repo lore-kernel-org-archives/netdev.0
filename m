@@ -1,97 +1,91 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Subject: Re: net: stmmac glue layer for Amlogic Meson SoCs
-Date: Tue, 23 Sep 2014 08:16:18 +0200
-Message-ID: <54211032.6010009@st.com>
-References: <1411219757-9201-1-git-send-email-b.galvani@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
-	Jerry Cao <jerry.cao-LpR1jeaWuhtBDgjK7y7TUQ@public.gmane.org>,
-	Victor Wan <victor.wan-LpR1jeaWuhtBDgjK7y7TUQ@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Beniamino Galvani <b.galvani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1411219757-9201-1-git-send-email-b.galvani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 2/3] ipv6: mld: do not overwrite uri when receiving an mldv2 query
+Date: Tue, 23 Sep 2014 09:03:47 +0200
+Message-ID: <1411455828-5196-3-git-send-email-dborkman@redhat.com>
+References: <1411455828-5196-1-git-send-email-dborkman@redhat.com>
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:7162 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753080AbaIWHD5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 03:03:57 -0400
+In-Reply-To: <1411455828-5196-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 9/20/2014 3:29 PM, Beniamino Galvani wrote:
-> Hi,
->
-> the Ethernet controller available in Amlogic Meson6 and Meson8 SoCs is
-> a Synopsys DesignWare MAC IP core, already supported by the stmmac
-> driver.
->
-> These patches add a glue layer to the driver for the platform-specific
-> settings required by the Amlogic variant.
->
-> This has been tested on a Amlogic S802 device with the initial Meson
-> support submitted by Carlo Caione [1].
+While reviewing the code, I found it confusing why we update the URI when
+receiving an MLDv2 query. The RFC does not mention any of this, and I also
+double-checked with other implementations.
 
-patches look fine just a warning with checkpatch as shown below then
+It is true that we start the general query timer with the received max_delay,
+as mentioned in the older RFC2710, section 5.:
 
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+  [...] "start timer" for the address on the interface, using a delay
+  value chosen uniformly from the interval [0, Maximum Response Delay],
+  where Maximum Response Delay is specified in the Query. If this is
+  an unsolicited Report, the timer is set to a delay value chosen
+  uniformly from the interval [0, [Unsolicited Report Interval] ].
 
+It however does not say anywhere that we are supposed to overwrite that
+value. The purpose of the report is quite different and described as:
 
-[cavagiu@lxmcdt5 net.git]$ git-format-patch -2
-0001-net-stmmac-add-Amlogic-Meson-glue-layer.patch
-0002-net-stmmac-meson-document-device-tree-bindings.patch
-[cavagiu@lxmcdt5 net.git]$ !./
-./scripts/checkpatch.pl 000*
-WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
-#57:
-new file mode 100644
+  When a node starts listening to a multicast address on an interface,
+  it should immediately transmit an unsolicited Report for that address
+  on that interface, in case it is the first listener on the link.
+  To cover the possibility of the initial Report being lost or damaged,
+  it is recommended that it be repeated once or twice after short delays
+  [Unsolicited Report Interval]. (A simple way to accomplish this is to
+  send the initial Report and then act as if a Multicast-Address-Specific
+  Query was received for that address, and set a timer appropriately).
 
-WARNING: DT compatible string vendor "amlogic" appears un-documented -- 
-check ./Documentation/devicetree/bindings/vendor-prefixes.txt
-#152: FILE: drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c:34:
-+	{ .compatible = "amlogic,meson6-dwmac", .data = &meson6_dwmac_data},
+RFC3810, section 9.11. only changed that default interval into 1 second (in
+contrast to the older RFC2710). Therefore, do not update the URI sysctl
+provided interval value when receiving an MLDv2 query, only pass that max
+delay as mentioned in section 5. along to mld_gq_start_timer(). This
+behaviour seems to be the case since the initial implementation of MLDv2.
 
-total: 0 errors, 2 warnings, 0 checks, 108 lines checked
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ [ Sending to net-next to let this linger a bit here first, seems to be
+   the case like this since initial MLDv2. ]
 
-0001-net-stmmac-add-Amlogic-Meson-glue-layer.patch has style problems, 
-please review.
+ net/ipv6/mcast.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-If any of these errors are false positives, please report
-them to the maintainer, see CHECKPATCH in MAINTAINERS.
-WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
-#17:
-new file mode 100644
-
-total: 0 errors, 1 warnings, 25 lines checked
-
-0002-net-stmmac-meson-document-device-tree-bindings.patch has style 
-problems, please review.
-
-If any of these errors are false positives, please report
-them to the maintainer, see CHECKPATCH in MAINTAINERS.
-
->
-> [1] http://lwn.net/Articles/612000/
->
-> Beniamino Galvani (2):
->    net: stmmac: add Amlogic Meson glue layer
->    net: stmmac: meson: document device tree bindings
->
->   .../devicetree/bindings/net/meson-dwmac.txt        | 25 ++++++++
->   drivers/net/ethernet/stmicro/stmmac/Kconfig        | 10 ++++
->   drivers/net/ethernet/stmicro/stmmac/Makefile       |  1 +
->   drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c  | 67 ++++++++++++++++++++++
->   drivers/net/ethernet/stmicro/stmmac/stmmac.h       |  3 +
->   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  3 +
->   6 files changed, 109 insertions(+)
->   create mode 100644 Documentation/devicetree/bindings/net/meson-dwmac.txt
->   create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c
->
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 3d0e8fc..2a4d2b1 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -994,9 +994,9 @@ bool ipv6_chk_mcast_addr(struct net_device *dev, const struct in6_addr *group,
+ 	return rv;
+ }
+ 
+-static void mld_gq_start_timer(struct inet6_dev *idev)
++static void mld_gq_start_timer(struct inet6_dev *idev, unsigned long delay)
+ {
+-	unsigned long tv = prandom_u32() % idev->mc_uri;
++	unsigned long tv = prandom_u32() % delay;
+ 
+ 	idev->mc_gq_running = 1;
+ 	if (!mod_timer(&idev->mc_gq_timer, jiffies+tv+2))
+@@ -1274,8 +1274,6 @@ static int mld_process_v2(struct inet6_dev *idev, struct mld2_query *mld,
+ 	mld_update_qi(idev, mld);
+ 	mld_update_qri(idev, mld);
+ 
+-	idev->mc_uri = *max_delay;
+-
+ 	return 0;
+ }
+ 
+@@ -1345,7 +1343,7 @@ int igmp6_event_query(struct sk_buff *skb)
+ 			if (mlh2->mld2q_nsrcs)
+ 				return -EINVAL; /* no sources allowed */
+ 
+-			mld_gq_start_timer(idev);
++			mld_gq_start_timer(idev, max_delay);
+ 			return 0;
+ 		}
+ 		/* mark sources to include, if group & source-specific */
+-- 
+1.7.11.7
