@@ -1,35 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: optimise inet_proto_csum_replace4()
-Date: Tue, 23 Sep 2014 04:10:54 -0700
-Message-ID: <1411470654.26859.183.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140923085437.696B81AB26D@localhost.localdomain>
+From: "Sharma, Karun" <karun.sharma@intel.com>
+Subject: RE: 3.17 kernel crash while loading IPoIB
+Date: Tue, 23 Sep 2014 11:11:53 +0000
+Message-ID: <637AD4DF2E595346BAB0DF8C46F3A2B0032921A7@BGSMSX101.gar.corp.intel.com>
+References: <637AD4DF2E595346BAB0DF8C46F3A2B003291F06@BGSMSX101.gar.corp.intel.com>
+ <1411463138.26859.168.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	netdev@vger.kernel.org
-To: Christophe Leroy <christophe.leroy@c-s.fr>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140923085437.696B81AB26D@localhost.localdomain>
+In-Reply-To: <1411463138.26859.168.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-09-23 at 10:54 +0200, Christophe Leroy wrote:
-> csum_partial() is a generic function which is not optimised for small fixed
-> length calculations, and its use requires to store "from" and "to" values in
-> memory while we already have them available in registers. This also has impact,
-> especially on RISC processors. In the same spirit as the change done by
-> Eric Dumazet on csum_replace2(), this patch rewrites inet_proto_csum_replace4()
-> taking into account RFC1624.
-> 
-> I spotted during a NATted tcp transfert that csum_partial() is one of top 5
-> consuming functions (around 8%), and the second user of csum_partial() is 
-> inet_proto_csum_replace4().
-> 
-> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
-> 
-
-Acked-by: Eric Dumazet <edumazet@google.com>
-
-Thanks !
+VGhhbmtzIEVyaWMuIFllcywgdGhlIGNvbW1pdHMgYmVsb3cgaGF2ZSBmaXhlZCB0aGUgaXNzdWUu
+DQoNClJlZ2FyZHMsDQpLYXJ1biBTaGFybWENCg0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0t
+LQ0KRnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0gDQpT
+ZW50OiBUdWVzZGF5LCBTZXB0ZW1iZXIgMjMsIDIwMTQgMjozNiBQTQ0KVG86IFNoYXJtYSwgS2Fy
+dW4NCkNjOiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnDQpTdWJqZWN0OiBSZTogMy4xNyBrZXJuZWwgY3Jhc2ggd2hpbGUgbG9hZGluZyBJUG9JQg0K
+DQpPbiBUdWUsIDIwMTQtMDktMjMgYXQgMDU6MTUgKzAwMDAsIFNoYXJtYSwgS2FydW4gd3JvdGU6
+DQo+IEhlbGxvOg0KPiANCj4gSSBhbSBmYWNpbmcgYW4gaXNzdWUgd2hlcmVpbiBrZXJuZWwgMy4x
+NyBjcmFzaGVzIHdoaWxlIGxvYWRpbmcgSVBvSUIgDQo+IG1vZHVsZS4gSSBndWVzcyB0aGUgaXNz
+dWUgZGlzY3Vzc2VkIGluIHRoaXMgdGhyZWFkDQo+IChodHRwczovL3d3dy5tYWlsLWFyY2hpdmUu
+Y29tL2xpbnV4LXJkbWFAdmdlci5rZXJuZWwub3JnL21zZzIwOTYzLmh0bWwpIGlzIHNpbWlsYXIu
+DQo+IA0KPiBXZSB3ZXJlIGFibGUgdG8gcmVwcm9kdWNlIHRoZSBpc3N1ZSB3aXRoIFJDNiBhbHNv
+LiBIZXJlIGFyZSB0aGUgc3RlcHMgDQo+IEkgZm9sbG93ZWQ6DQo+IA0KPiBJIGNvbXBpbGVkIGFu
+ZCBpbnN0YWxsZWQgMy4xNyBrZXJuZWwgb24gdG9wIG9mIFJIRUwgNi41LiANCj4gVGhlbiBJIGNo
+YW5nZWQgcmRtYS5jb25mIHRvIG5vdCBsb2FkIElQb0lCIChJZiBJIGRvbid0IGRvIHRoaXMsIHRo
+ZSANCj4ga2VybmVsIGNyYXNoZXMgd2hpbGUgYm9vdGluZyBhbmQgc3RhcnRpbmcgUkRNQSBzZXJ2
+aWNlLikgQWZ0ZXIgdGhlIA0KPiBzZXJ2ZXIgY29tZXMgdXAsIEkganVzdCBkaWQgIm1vZHByb2Jl
+IGliX2lwb2liIiBhbmQga2VybmVsIGNyYXNoZXMuDQo+IFBsZWFzZSBzZWUgYmVsb3cgdGhlIGtl
+cm5lbCBiYWNrIHRyYWNlLg0KPiANCj4gU2VlaW5nIHRoZSBhbm5vdW5jZW1lbnQsIGl0IGxvb2tz
+IGxpa2UgUkM2IHdpbGwgYmUgdGhlIGxhc3QgUkMgZm9yDQo+IDMuMTcga2VybmVsLiBXaWxsIHRo
+ZSByZWxlYXNlIGhhcHBlbiB3aXRoIHRoaXMgaXNzdWU/IElzIHRoZXJlIGFueSANCj4gd29ya2Fy
+b3VuZCBhdmFpbGFibGUgZm9yIHRoaXMgaXNzdWU/DQo+IEkgYW0gbm90IHN1cmUgd2hhdCBtZWNo
+YW5pc20vcHJvY2VzcyBpcyB1c2VkIHRvIHJlcG9ydCBpc3N1ZSB0byBrZXJuZWwgDQo+IGNvbW11
+bml0eS4NCj4gDQo+IFJlZ2FyZHMNCj4gS2FydW4NCg0KVGhpcyBzZWVtcyBmaXhlZCBub3cgOg0K
+DQpodHRwOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJuZWwvZ2l0L3RvcnZhbGRzL2xp
+bnV4LmdpdC9jb21taXQvP2lkPTI1NzExNzg2MjYzNGQ4OWRlMzNmZWM3NDg1OGIxYTBiYTVhYjQ0
+NGINCg0KaHR0cDovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgva2VybmVsL2dpdC90b3J2YWxk
+cy9saW51eC5naXQvY29tbWl0Lz9pZD1iNDlmZTM2MjA4YjQ1Zjc2ZGZiY2ZjZDNhZmQ5NTJhMzNm
+YTlmNWNlDQoNCg0K
