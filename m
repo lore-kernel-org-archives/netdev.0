@@ -1,87 +1,86 @@
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Subject: RE: [PATCH] net: stmmac: fix stmmac_pci_probe failed when
- CONFIG_HAVE_CLK is selected
-Date: Tue, 23 Sep 2014 01:16:12 +0000
-Message-ID: <F54AEECA5E2B9541821D670476DAE19C2B7EAE19@PGSMSX102.gar.corp.intel.com>
-References: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com>
- <20140922.141921.577008114679288180.davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
+Date: Mon, 22 Sep 2014 18:36:44 -0700
+Message-ID: <5420CEAC.2070104@gmail.com>
+References: <20140919154946.GH1980@nanopsycho.orion> <541C6E6D.9000109@mojatatu.com> <541CAA3C.5080105@intel.com> <20140920081426.GE1821@nanopsycho.orion> <20140920105354.GA29419@casper.infradead.org> <CAADnVQK0wT2Fjqdg+C=ruSt8jF6sKeMo7cFj7K1fsu7-1u5g=g@mail.gmail.com> <20140922081341.GA20905@casper.infradead.org> <CA+mtBx-ZvkZ2ALGLsLEN7Cgn9gN_rY36ZhuqYC3mZ9WVxjFDaQ@mail.gmail.com> <20140922221727.GA4708@casper.infradead.org> <CA+mtBx9ZVQ5r5Hzy9-uEnk+iu+HKkOP4+VANC06Xf8VvTxktwQ@mail.gmail.com> <20140922225305.GB4708@casper.infradead.org> <CA+mtBx94TrLzQrZDo58d9ktma3ZioOpO=2FAODMRoiyiuYkQ9Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-	"rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>,
-	"vbridgers2013@gmail.com" <vbridgers2013@gmail.com>,
-	"wens@csie.org" <wens@csie.org>,
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ong, Boon Leong" <boon.leong.ong@intel.com>,
-	"tobias.johannes.klausmann@mni.thm.de"
-	<tobias.johannes.klausmann@mni.thm.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140922.141921.577008114679288180.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Vladislav Yasevich <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prab
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f43.google.com ([209.85.218.43]:64233 "EHLO
+	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751435AbaIWBhc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 21:37:32 -0400
+Received: by mail-oi0-f43.google.com with SMTP id v63so4044294oia.16
+        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 18:37:31 -0700 (PDT)
+In-Reply-To: <CA+mtBx94TrLzQrZDo58d9ktma3ZioOpO=2FAODMRoiyiuYkQ9Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, September 23, 2014 2:19 AM
-> From: Kweh Hock Leong <hock.leong.kweh@intel.com>
-> Date: Thu, 18 Sep 2014 20:34:10 +0800
-> 
-> Giuseppe, Kweh, where are we with this patch?
-
-We are discussing whether this is the correct fix to the issue. Below is the discussion log:
-
-> > Hmm I am not sure this is the right fix. The driver has to fail if the 
-> > main clock is not found. Indeed dev_warn has to be changed in dev_err.
-> > 
-> > Take a look at Documentation/networking/stmmac.txt but I will post 
-> > some patch to improve the documentation adding further detail for clocks too.
-> > 
-> > The the logic behind the code is that the CSR clock will be set at 
-> > runtime if in case of priv->plat->clk_csr ==0 or it will be forced to 
-> > a fixed value if passed from the platform instead of.
-> > IIRC This was required on some platforms time ago.
-> > For sure the driver is designed to fail in case of no main clock is found.
-> > 
-> > Peppe
+On 09/22/2014 04:07 PM, Tom Herbert wrote:
+> On Mon, Sep 22, 2014 at 3:53 PM, Thomas Graf <tgraf@suug.ch> wrote:
+>> On 09/22/14 at 03:40pm, Tom Herbert wrote:
+>>> On Mon, Sep 22, 2014 at 3:17 PM, Thomas Graf <tgraf@suug.ch> wrote:
+>>>> What makes stateful offload interesting to me is that the final
+>>>> desintation of a packet is known at RX and can be redirected to a
+>>>> queue or VF. This allows to build packet batches on shared pages
+>>>> while preserving the securiy model.
+>>>>
+>>> How is this different from what rx-filtering already does?
+>>
+>> Without stateful offload I can't know where the packet is destined
+>> to until after I've allocated an skb and parsed the packet in
+>> software. I might be missing what you refer to here specifically.
 >
-> Hi Peppe,
->
-> I understand your point from the code below (at file stmmac_main.c line 2784):
->
-> /* If a specific clk_csr value is passed from the platform
->   * this means that the CSR Clock Range selection cannot be
->   * changed at run-time and it is fixed. Viceversa the driver'll try to
->   * set the MDC clock dynamically according to the csr actual
->   * clock input.
->   */
-> if (!priv->plat->clk_csr)
->         stmmac_clk_csr_set(priv);
-> else
->         priv->clk_csr = priv->plat->clk_csr;
->
->
-> I did search through the whole stmmac_main.c file and found that only stmmac_clk_csr_set() 
-> function is leveraging the priv->stmmac_clk params for it calculation. By the logic point of view, 
-> I do not need priv->stmmac_clk when I got priv->plat->clk_csr. With this thinking, I propose this 
-> fix as when the probe get priv->plat->clk_csr, it shouldn't fail if priv->stmmac_clk has the error value.
+> n-tuple filtering in as exposed by ethtool.
 
-Hi Peppe, 
+n-tuple has some deficiencies,
 
-Are you trying to tell that if there is a fix CSR clock value, but driver cannot obtain the clk from devm_clk_get()
-(even it is not in use), the driver should fail the probe? 
+	- its not possible to get the capabilities to learn what
+	  fields are supported by the device, what actions, etc.
 
-You have a case with this condition:
-HW allow SW to discover the STMMAC controller but HW/SW configures not to supply the CLOCK to STMMAC controller?
+	- its ioctl based so we have to poll the device
 
-My understanding to these priv->plat->clk_csr and priv->stmmac_clk is that 1st one is fixed and 2nd one is dynamic.
-When fixed value occurs, dynamic one would not be use. Do I understand this correctly?
+	- only supports a single table, where we have devices with
+	  multiple tables
 
-Thanks.
+	- sort of the same as above but it doesn't allow creating new
+	  tables or destroying old tables.
 
+I probably missed a few others but those are the main ones that I
+would like to address. Granted other than the ioctl line the rest could
+be solved by extending the existing interface. However I would just
+assume port it to ndo_ops and netlink then extend the existing ioctl
+seeing it needs a reasonable overall to support the above anyways.
 
-Regards,
-Wilson
+We could port the ethtool ops over to the new interface to
+simplify drivers.
+
+.John
+
+-- 
+John Fastabend         Intel Corporation
