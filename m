@@ -1,83 +1,163 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/5] netfilter: nft_hash: no need for rcu in the hash set destroy path
-Date: Tue, 23 Sep 2014 11:24:44 +0200
-Message-ID: <1411464288-18069-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/5] netfilter: nfnetlink: deliver netlink errors on batch completion
+Date: Tue, 23 Sep 2014 11:24:47 +0200
+Message-ID: <1411464288-18069-5-git-send-email-pablo@netfilter.org>
 References: <1411464288-18069-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:53443 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:53476 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753411AbaIWJXs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2014 05:23:48 -0400
+	id S1754381AbaIWJXv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 05:23:51 -0400
 In-Reply-To: <1411464288-18069-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sets are released from the rcu callback, after the rule is removed
-from the chain list, which implies that nfnetlink cannot update the
-hashes (thus, no resizing may occur) and no packets are walking on the
-set anymore.
+We have to wait until the full batch has been processed to deliver the
+netlink error messages to userspace. Otherwise, we may deliver
+duplicated errors to userspace in case that we need to abort and replay
+the transaction if any of the required modules needs to be autoloaded.
 
-This resolves a lockdep splat in the nft_hash_destroy() path since the
-nfnl mutex is not held there.
+A simple way to reproduce this (assumming nft_meta is not loaded) with
+the following test file:
 
-===============================
-[ INFO: suspicious RCU usage. ]
-3.16.0-rc2+ #168 Not tainted
--------------------------------
-net/netfilter/nft_hash.c:362 suspicious rcu_dereference_protected() usage!
+ add table filter
+ add chain filter test
+ add chain bad test                 # intentional wrong unexistent table
+ add rule filter test meta mark 0
 
-other info that might help us debug this:
+Then, when trying to load the batch:
 
-rcu_scheduler_active = 1, debug_locks = 1
-1 lock held by ksoftirqd/0/3:
- #0:  (rcu_callback){......}, at: [<ffffffff81096393>] rcu_process_callbacks+0x27e/0x4c7
+ # nft -f test
+ test:4:1-19: Error: Could not process rule: No such file or directory
+ add chain bad test
+ ^^^^^^^^^^^^^^^^^^^
+ test:4:1-19: Error: Could not process rule: No such file or directory
+ add chain bad test
+ ^^^^^^^^^^^^^^^^^^^
 
-stack backtrace:
-CPU: 0 PID: 3 Comm: ksoftirqd/0 Not tainted 3.16.0-rc2+ #168
-Hardware name: LENOVO 23259H1/23259H1, BIOS G2ET32WW (1.12 ) 05/30/2012
- 0000000000000001 ffff88011769bb98 ffffffff8142c922 0000000000000006
- ffff880117694090 ffff88011769bbc8 ffffffff8107c3ff ffff8800cba52400
- ffff8800c476bea8 ffff8800c476bea8 ffff8800cba52400 ffff88011769bc08
-Call Trace:
- [<ffffffff8142c922>] dump_stack+0x4e/0x68
- [<ffffffff8107c3ff>] lockdep_rcu_suspicious+0xfa/0x103
- [<ffffffffa079931e>] nft_hash_destroy+0x50/0x137 [nft_hash]
- [<ffffffffa078cd57>] nft_set_destroy+0x11/0x2a [nf_tables]
+The error is reported twice, once when the batch is aborted due to
+missing nft_meta and another when it is fully processed.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Acked-by: Thomas Graf <tgraf@suug.ch>
 ---
- net/netfilter/nft_hash.c |   12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ net/netfilter/nfnetlink.c |   64 ++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 63 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-index 28fb8f3..8892b7b 100644
---- a/net/netfilter/nft_hash.c
-+++ b/net/netfilter/nft_hash.c
-@@ -180,15 +180,17 @@ static int nft_hash_init(const struct nft_set *set,
- static void nft_hash_destroy(const struct nft_set *set)
- {
- 	const struct rhashtable *priv = nft_set_priv(set);
--	const struct bucket_table *tbl;
-+	const struct bucket_table *tbl = priv->tbl;
- 	struct nft_hash_elem *he, *next;
- 	unsigned int i;
- 
--	tbl = rht_dereference(priv->tbl, priv);
--	for (i = 0; i < tbl->size; i++)
--		rht_for_each_entry_safe(he, next, tbl->buckets[i], priv, node)
-+	for (i = 0; i < tbl->size; i++) {
-+		for (he = rht_entry(tbl->buckets[i], struct nft_hash_elem, node);
-+		     he != NULL; he = next) {
-+			next = rht_entry(he->node.next, struct nft_hash_elem, node);
- 			nft_hash_elem_destroy(set, he);
--
-+		}
-+	}
- 	rhashtable_destroy(priv);
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index c138b8f..f37f071 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -222,6 +222,51 @@ replay:
+ 	}
  }
  
++struct nfnl_err {
++	struct list_head	head;
++	struct nlmsghdr		*nlh;
++	int			err;
++};
++
++static int nfnl_err_add(struct list_head *list, struct nlmsghdr *nlh, int err)
++{
++	struct nfnl_err *nfnl_err;
++
++	nfnl_err = kmalloc(sizeof(struct nfnl_err), GFP_KERNEL);
++	if (nfnl_err == NULL)
++		return -ENOMEM;
++
++	nfnl_err->nlh = nlh;
++	nfnl_err->err = err;
++	list_add_tail(&nfnl_err->head, list);
++
++	return 0;
++}
++
++static void nfnl_err_del(struct nfnl_err *nfnl_err)
++{
++	list_del(&nfnl_err->head);
++	kfree(nfnl_err);
++}
++
++static void nfnl_err_reset(struct list_head *err_list)
++{
++	struct nfnl_err *nfnl_err, *next;
++
++	list_for_each_entry_safe(nfnl_err, next, err_list, head)
++		nfnl_err_del(nfnl_err);
++}
++
++static void nfnl_err_deliver(struct list_head *err_list, struct sk_buff *skb)
++{
++	struct nfnl_err *nfnl_err, *next;
++
++	list_for_each_entry_safe(nfnl_err, next, err_list, head) {
++		netlink_ack(skb, nfnl_err->nlh, nfnl_err->err);
++		nfnl_err_del(nfnl_err);
++	}
++}
++
+ static void nfnetlink_rcv_batch(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 				u_int16_t subsys_id)
+ {
+@@ -230,6 +275,7 @@ static void nfnetlink_rcv_batch(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	const struct nfnetlink_subsystem *ss;
+ 	const struct nfnl_callback *nc;
+ 	bool success = true, done = false;
++	static LIST_HEAD(err_list);
+ 	int err;
+ 
+ 	if (subsys_id >= NFNL_SUBSYS_COUNT)
+@@ -287,6 +333,7 @@ replay:
+ 		type = nlh->nlmsg_type;
+ 		if (type == NFNL_MSG_BATCH_BEGIN) {
+ 			/* Malformed: Batch begin twice */
++			nfnl_err_reset(&err_list);
+ 			success = false;
+ 			goto done;
+ 		} else if (type == NFNL_MSG_BATCH_END) {
+@@ -333,6 +380,7 @@ replay:
+ 			 * original skb.
+ 			 */
+ 			if (err == -EAGAIN) {
++				nfnl_err_reset(&err_list);
+ 				ss->abort(skb);
+ 				nfnl_unlock(subsys_id);
+ 				kfree_skb(nskb);
+@@ -341,11 +389,24 @@ replay:
+ 		}
+ ack:
+ 		if (nlh->nlmsg_flags & NLM_F_ACK || err) {
++			/* Errors are delivered once the full batch has been
++			 * processed, this avoids that the same error is
++			 * reported several times when replaying the batch.
++			 */
++			if (nfnl_err_add(&err_list, nlh, err) < 0) {
++				/* We failed to enqueue an error, reset the
++				 * list of errors and send OOM to userspace
++				 * pointing to the batch header.
++				 */
++				nfnl_err_reset(&err_list);
++				netlink_ack(skb, nlmsg_hdr(oskb), -ENOMEM);
++				success = false;
++				goto done;
++			}
+ 			/* We don't stop processing the batch on errors, thus,
+ 			 * userspace gets all the errors that the batch
+ 			 * triggers.
+ 			 */
+-			netlink_ack(skb, nlh, err);
+ 			if (err)
+ 				success = false;
+ 		}
+@@ -361,6 +422,7 @@ done:
+ 	else
+ 		ss->abort(skb);
+ 
++	nfnl_err_deliver(&err_list, oskb);
+ 	nfnl_unlock(subsys_id);
+ 	kfree_skb(nskb);
+ }
 -- 
 1.7.10.4
