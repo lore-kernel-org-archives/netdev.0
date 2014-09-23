@@ -1,49 +1,58 @@
-From: Michal Marek <mmarek@suse.cz>
-Subject: Re: [PATCH 1/5] mips: Set CONFIG_NET=y in defconfigs
-Date: Tue, 23 Sep 2014 18:06:04 +0200
-Message-ID: <54219A6C.7000407@suse.cz>
-References: <54218AEF.5090200@suse.cz>  <1411487044-14071-1-git-send-email-mmarek@suse.cz> <20140923.120237.1788295912902036193.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 2/5] netfilter: nft_rbtree: no need for spinlock from set
+ destroy path
+Date: Tue, 23 Sep 2014 18:10:40 +0200
+Message-ID: <20140923161040.GA3609@salvia>
+References: <1411464288-18069-1-git-send-email-pablo@netfilter.org>
+ <1411464288-18069-3-git-send-email-pablo@netfilter.org>
+ <1411465957.26859.179.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140923110159.GA20055@salvia>
+ <1411473245.26859.188.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, rdunlap@infradead.org,
-        netdev@vger.kernel.org, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-kbuild@vger.kernel.org,
-        linux-mips@linux-mips.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20140923.120237.1788295912902036193.davem@davemloft.net>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1411473245.26859.188.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2014-09-23 18:02, David Miller wrote:
-> From: Michal Marek <mmarek@suse.cz>
-> Date: Tue, 23 Sep 2014 17:44:00 +0200
+On Tue, Sep 23, 2014 at 04:54:05AM -0700, Eric Dumazet wrote:
+> On Tue, 2014-09-23 at 13:01 +0200, Pablo Neira Ayuso wrote:
 > 
->> Commit 5d6be6a5 ("scsi_netlink : Make SCSI_NETLINK dependent on NET
->> instead of selecting NET") removed what happened to be the only instance
->> of 'select NET'. Defconfigs that were relying on the select now lack
->> networking support.
->>
->> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
->> Cc: linux-mips@linux-mips.org
->> Signed-off-by: Michal Marek <mmarek@suse.cz>
+> > I'll send a follow up patch for nf-next to use rb_first() in that
+> > patch. Thanks Eric.
 > 
-> On the contrary, since NET was being selected for them indirectly
-> previously, weren't they depending instead upon NET being enabled?
+> I did a test, and its indeed a bit faster to use rb_first(), by about 5%
 > 
-> Likewise for SCSI_NETLINK, SCSI_FC_ATTRS, and whatever was triggering
-> the select upon them?
+> Real win is to be able to build a chain using rb_first()/rb_next(),
+> (leaving the tree as is), then deleting the items in the chain, and
+> simply reset rb_root.
+> 
+> This only needs to reuse one pointer to store the item->next pointer.
+> 
+> This is then about ~50% faster, because we do not constantly rebalance
+> tree for every removed item.
 
-They have SCSI_FC_ATTRS=y/m and were relying on the select statements
-turning this into SCSI_NETLINK=y and CONFIG_NET=y.
+Indeed.
 
-Michal
+struct nft_rbtree_elem {
+        struct rb_node          node;
+        u16                     flags;
+        struct nft_data         key;
+        struct nft_data         data[];
+};
+
+Actually, I could add to nft_data a pointer in the union area, but I'm
+not very confortable with adding it for this specific case. At this
+moment we're releasing this from rcu_callback which is "hiding" the
+deletion time from the netlink interface.
+
+But I'll keep this back in my head if we later on have some pointer
+candidate to be reused in a nice way.
+
+I'll send a patch to make the rb_first()/rb_next() conversion though.
+
+Thanks for your comments!
