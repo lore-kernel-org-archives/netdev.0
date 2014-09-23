@@ -1,83 +1,136 @@
-From: Nicolas Cavallari <Nicolas.Cavallari@green-communications.fr>
-Subject: Re: [PATCHv2] ipv4: Do not cache routing failures due to disabled
- forwarding.
-Date: Tue, 23 Sep 2014 10:34:08 +0200
-Message-ID: <54213080.9000803@green-communications.fr>
-References: <54143FB2.9000600@green-communications.fr>	<1410776893-5284-1-git-send-email-nicolas.cavallari@green-communications.fr> <20140916.145435.714034191389495557.davem@davemloft.net> <541894F6.3090903@green-communications.fr>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net] r8152: fix the carrier off when autoresuming
+Date: Tue, 23 Sep 2014 16:31:47 +0800
+Message-ID: <1394712342-15778-45-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:64112 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753541AbaIWIe7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 04:34:59 -0400
-In-Reply-To: <541894F6.3090903@green-communications.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 16/09/2014 21:52, Nicolas Cavallari wrote:
-> On 16/09/2014 20:54, David Miller wrote:
->> From: Nicolas Cavallari <nicolas.cavallari@green-communications.fr>
->> Date: Mon, 15 Sep 2014 12:28:13 +0200
->>
->>> If we cache them, the kernel will reuse them, independently of
->>> whether forwarding is enabled or not.  Which means that if forwarding is
->>> disabled on the input interface where the first routing request comes
->>> from, then that unreachable result will be cached and reused for
->>> other interfaces, even if forwarding is enabled on them.
->>>
->>> This can be verified with two interfaces A and B and an output interface
->>> C, where B has forwarding enabled, but not A and trying
->>> ip route get $dst iif A from $src && ip route get $dst iif B from $src
->>>
->>> Signed-off-by: Nicolas Cavallari <nicolas.cavallari@green-communications.fr>
->>> ---
->>> v2: simplify patch using julian anastasov's suggestion.
->>
->> This also disables caching for the cases of a simple fib lookup failure.
-> 
-> Caching is already not done on a fib lookup failure. On which fib_info
-> would you cache anyway ? res.fi is already NULL in this case.
-> 
->> Handle cached route invalidation the way it's meant to be, by bumping
->> the rt_genid.
->>
->> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
->> index 214882e..aa4e63c 100644
->> --- a/net/ipv4/devinet.c
->> +++ b/net/ipv4/devinet.c
->> @@ -1965,6 +1965,8 @@ static void inet_forward_change(struct net *net)
->>  		}
->>  		rcu_read_unlock();
->>  	}
->> +
->> +	rt_cache_flush(net);
->>  }
->>  
->>  static int devinet_conf_ifindex(struct net *net, struct ipv4_devconf *cnf)
-> 
-> This doesn't solve the problem. Flushing the cache only changes how the
-> bug manifests:
-> 
-> ip route flush cache
-> ip route get 10.0.0.1 from 10.0.0.2 iif A
-> # unreachable (because forwarding on A is disabled). This is cached.
-> ip route get 10.0.0.1 from 10.0.0.2 iif B
-> # unreachable (at first fib_lookup finds it reachable and forwarding on
-> B is enabled. And then there is a valid cache entry, which is reused
-> blindly even if it says "unreachable").
-> 
-> ip route flush cache
-> ip route get 10.0.0.1 from 10.0.0.2 iif B
-> # reachable (because forwarding on B is enabled).  This is cached
-> ip route get 10.0.0.1 from 10.0.0.2 iif A
-> # reachable (forwarding on A is disabled, so it is unreachable
-> initially.  But there is a valid cache entry, which says "reachable",
-> which is reused)
+netif_carrier_off would be called when autoresuming, even though
+the cable is plugged. This causes some applications do relative
+actions when detecting the carrier off. Keep the status of the
+carrier, and let it be modified when the linking change occurs.
 
-Any news on this patch ? Is there anything I can do so that this bug
-is finally fixed ?
+Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/net/usb/r8152.c | 52 +++++++++++++++++++++++++++++++++----------------
+ 1 file changed, 35 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 74760e8..e039442 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -1949,10 +1949,34 @@ static void rxdy_gated_en(struct r8152 *tp, bool enable)
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MISC_1, ocp_data);
+ }
+ 
++static int rtl_start_rx(struct r8152 *tp)
++{
++	int i, ret = 0;
++
++	INIT_LIST_HEAD(&tp->rx_done);
++	for (i = 0; i < RTL8152_MAX_RX; i++) {
++		INIT_LIST_HEAD(&tp->rx_info[i].list);
++		ret = r8152_submit_rx(tp, &tp->rx_info[i], GFP_KERNEL);
++		if (ret)
++			break;
++	}
++
++	return ret;
++}
++
++static int rtl_stop_rx(struct r8152 *tp)
++{
++	int i;
++
++	for (i = 0; i < RTL8152_MAX_RX; i++)
++		usb_kill_urb(tp->rx_info[i].urb);
++
++	return 0;
++}
++
+ static int rtl_enable(struct r8152 *tp)
+ {
+ 	u32 ocp_data;
+-	int i, ret;
+ 
+ 	r8152b_reset_packet_filter(tp);
+ 
+@@ -1962,14 +1986,7 @@ static int rtl_enable(struct r8152 *tp)
+ 
+ 	rxdy_gated_en(tp, false);
+ 
+-	INIT_LIST_HEAD(&tp->rx_done);
+-	ret = 0;
+-	for (i = 0; i < RTL8152_MAX_RX; i++) {
+-		INIT_LIST_HEAD(&tp->rx_info[i].list);
+-		ret |= r8152_submit_rx(tp, &tp->rx_info[i], GFP_KERNEL);
+-	}
+-
+-	return ret;
++	return rtl_start_rx(tp);
+ }
+ 
+ static int rtl8152_enable(struct r8152 *tp)
+@@ -2053,8 +2070,7 @@ static void rtl_disable(struct r8152 *tp)
+ 		mdelay(1);
+ 	}
+ 
+-	for (i = 0; i < RTL8152_MAX_RX; i++)
+-		usb_kill_urb(tp->rx_info[i].urb);
++	rtl_stop_rx(tp);
+ 
+ 	rtl8152_nic_reset(tp);
+ }
+@@ -3083,13 +3099,14 @@ static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
+ 		clear_bit(WORK_ENABLE, &tp->flags);
+ 		usb_kill_urb(tp->intr_urb);
+ 		cancel_delayed_work_sync(&tp->schedule);
++		tasklet_disable(&tp->tl);
+ 		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
++			rtl_stop_rx(tp);
+ 			rtl_runtime_suspend_enable(tp, true);
+ 		} else {
+-			tasklet_disable(&tp->tl);
+ 			tp->rtl_ops.down(tp);
+-			tasklet_enable(&tp->tl);
+ 		}
++		tasklet_enable(&tp->tl);
+ 	}
+ 
+ 	return 0;
+@@ -3108,17 +3125,18 @@ static int rtl8152_resume(struct usb_interface *intf)
+ 		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
+ 			rtl_runtime_suspend_enable(tp, false);
+ 			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
++			set_bit(WORK_ENABLE, &tp->flags);
+ 			if (tp->speed & LINK_STATUS)
+-				tp->rtl_ops.disable(tp);
++				rtl_start_rx(tp);
+ 		} else {
+ 			tp->rtl_ops.up(tp);
+ 			rtl8152_set_speed(tp, AUTONEG_ENABLE,
+ 				tp->mii.supports_gmii ? SPEED_1000 : SPEED_100,
+ 				DUPLEX_FULL);
++			tp->speed = 0;
++			netif_carrier_off(tp->netdev);
++			set_bit(WORK_ENABLE, &tp->flags);
+ 		}
+-		tp->speed = 0;
+-		netif_carrier_off(tp->netdev);
+-		set_bit(WORK_ENABLE, &tp->flags);
+ 		usb_submit_urb(tp->intr_urb, GFP_KERNEL);
+ 	}
+ 
+-- 
+1.9.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
