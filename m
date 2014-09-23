@@ -1,7 +1,7 @@
 From: Mark Einon <mark.einon@gmail.com>
-Subject: [PATCH 3/4] staging: et131x: Add space after { in pci ID table
-Date: Tue, 23 Sep 2014 20:41:13 +0100
-Message-ID: <1411501274-2970-3-git-send-email-mark.einon@gmail.com>
+Subject: [PATCH 2/4] staging: et131x: don't cast a void* to a struct pointer
+Date: Tue, 23 Sep 2014 20:41:12 +0100
+Message-ID: <1411501274-2970-2-git-send-email-mark.einon@gmail.com>
 References: <20140923100106.GE4657@distanz.ch>
  <1411501274-2970-1-git-send-email-mark.einon@gmail.com>
 Mime-Version: 1.0
@@ -23,23 +23,26 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
+Casting a void* popinter to a struct pointer is unnecessary, don't do
+it.
+
 Signed-off-by: Mark Einon <mark.einon@gmail.com>
 ---
  drivers/staging/et131x/et131x.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/staging/et131x/et131x.c b/drivers/staging/et131x/et131x.c
-index 6539a8a..10f20b3 100644
+index 2889f86..6539a8a 100644
 --- a/drivers/staging/et131x/et131x.c
 +++ b/drivers/staging/et131x/et131x.c
-@@ -4397,7 +4397,7 @@ err_disable:
- static const struct pci_device_id et131x_pci_table[] = {
- 	{ PCI_VDEVICE(ATT, ET131X_PCI_DEVICE_ID_GIG), 0UL},
- 	{ PCI_VDEVICE(ATT, ET131X_PCI_DEVICE_ID_FAST), 0UL},
--	{0,}
-+	{ 0,}
- };
- MODULE_DEVICE_TABLE(pci, et131x_pci_table);
- 
+@@ -3624,7 +3624,7 @@ static irqreturn_t et131x_isr(int irq, void *dev_id)
+ {
+ 	bool handled = true;
+ 	bool enable_interrupts = true;
+-	struct net_device *netdev = (struct net_device *)dev_id;
++	struct net_device *netdev = dev_id;
+ 	struct et131x_adapter *adapter = netdev_priv(netdev);
+ 	struct address_map __iomem *iomem = adapter->regs;
+ 	struct rx_ring *rx_ring = &adapter->rx_ring;
 -- 
 2.1.0
