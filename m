@@ -1,86 +1,83 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/5] rhashtable: fix lockdep splat in rhashtable_destroy()
-Date: Tue, 23 Sep 2014 11:24:46 +0200
-Message-ID: <1411464288-18069-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/5] netfilter: nft_hash: no need for rcu in the hash set destroy path
+Date: Tue, 23 Sep 2014 11:24:44 +0200
+Message-ID: <1411464288-18069-2-git-send-email-pablo@netfilter.org>
 References: <1411464288-18069-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:53467 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:53443 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754298AbaIWJXu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2014 05:23:50 -0400
+	id S1753411AbaIWJXs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 05:23:48 -0400
 In-Reply-To: <1411464288-18069-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No need for rht_dereference() from rhashtable_destroy() since the
-existing callers don't hold the mutex when invoking this function
-from:
+The sets are released from the rcu callback, after the rule is removed
+from the chain list, which implies that nfnetlink cannot update the
+hashes (thus, no resizing may occur) and no packets are walking on the
+set anymore.
 
-1) Netlink, this is called in case of memory allocation errors in the
-   initialization path, no nl_sk_hash_lock is held.
-2) Netfilter, this is called from the rcu callback, no nfnl_lock is
-   held either.
-
-I think it's reasonable to assume that the caller has to make sure
-that no hash resizing may happen before releasing the bucket array.
-Therefore, the caller should be responsible for releasing this in a
-safe way, document this to make people aware of it.
-
-This resolves a rcu lockdep splat in nft_hash:
+This resolves a lockdep splat in the nft_hash_destroy() path since the
+nfnl mutex is not held there.
 
 ===============================
 [ INFO: suspicious RCU usage. ]
-3.16.0+ #178 Not tainted
+3.16.0-rc2+ #168 Not tainted
 -------------------------------
-lib/rhashtable.c:596 suspicious rcu_dereference_protected() usage!
+net/netfilter/nft_hash.c:362 suspicious rcu_dereference_protected() usage!
 
 other info that might help us debug this:
 
 rcu_scheduler_active = 1, debug_locks = 1
-1 lock held by ksoftirqd/2/18:
- #0:  (rcu_callback){......}, at: [<ffffffff810918fd>] rcu_process_callbacks+0x27e/0x4c7
+1 lock held by ksoftirqd/0/3:
+ #0:  (rcu_callback){......}, at: [<ffffffff81096393>] rcu_process_callbacks+0x27e/0x4c7
 
 stack backtrace:
-CPU: 2 PID: 18 Comm: ksoftirqd/2 Not tainted 3.16.0+ #178
+CPU: 0 PID: 3 Comm: ksoftirqd/0 Not tainted 3.16.0-rc2+ #168
 Hardware name: LENOVO 23259H1/23259H1, BIOS G2ET32WW (1.12 ) 05/30/2012
- 0000000000000001 ffff88011706bb68 ffffffff8143debc 0000000000000000
- ffff880117062610 ffff88011706bb98 ffffffff81077515 ffff8800ca041a50
- 0000000000000004 ffff8800ca386480 ffff8800ca041a00 ffff88011706bbb8
+ 0000000000000001 ffff88011769bb98 ffffffff8142c922 0000000000000006
+ ffff880117694090 ffff88011769bbc8 ffffffff8107c3ff ffff8800cba52400
+ ffff8800c476bea8 ffff8800c476bea8 ffff8800cba52400 ffff88011769bc08
 Call Trace:
- [<ffffffff8143debc>] dump_stack+0x4e/0x68
- [<ffffffff81077515>] lockdep_rcu_suspicious+0xfa/0x103
- [<ffffffff81228b1b>] rhashtable_destroy+0x46/0x52
- [<ffffffffa06f21a7>] nft_hash_destroy+0x73/0x82 [nft_hash]
+ [<ffffffff8142c922>] dump_stack+0x4e/0x68
+ [<ffffffff8107c3ff>] lockdep_rcu_suspicious+0xfa/0x103
+ [<ffffffffa079931e>] nft_hash_destroy+0x50/0x137 [nft_hash]
+ [<ffffffffa078cd57>] nft_set_destroy+0x11/0x2a [nf_tables]
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 Acked-by: Thomas Graf <tgraf@suug.ch>
 ---
- lib/rhashtable.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/netfilter/nft_hash.c |   12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index a2c7881..fc0dd8e 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -589,13 +589,13 @@ EXPORT_SYMBOL_GPL(rhashtable_init);
-  * rhashtable_destroy - destroy hash table
-  * @ht:		the hash table to destroy
-  *
-- * Frees the bucket array.
-+ * Frees the bucket array. This function is not rcu safe, therefore the caller
-+ * has to make sure that no resizing may happen by unpublishing the hashtable
-+ * and waiting for the quiescent cycle before releasing the bucket array.
-  */
- void rhashtable_destroy(const struct rhashtable *ht)
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index 28fb8f3..8892b7b 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -180,15 +180,17 @@ static int nft_hash_init(const struct nft_set *set,
+ static void nft_hash_destroy(const struct nft_set *set)
  {
--	const struct bucket_table *tbl = rht_dereference(ht->tbl, ht);
+ 	const struct rhashtable *priv = nft_set_priv(set);
+-	const struct bucket_table *tbl;
++	const struct bucket_table *tbl = priv->tbl;
+ 	struct nft_hash_elem *he, *next;
+ 	unsigned int i;
+ 
+-	tbl = rht_dereference(priv->tbl, priv);
+-	for (i = 0; i < tbl->size; i++)
+-		rht_for_each_entry_safe(he, next, tbl->buckets[i], priv, node)
++	for (i = 0; i < tbl->size; i++) {
++		for (he = rht_entry(tbl->buckets[i], struct nft_hash_elem, node);
++		     he != NULL; he = next) {
++			next = rht_entry(he->node.next, struct nft_hash_elem, node);
+ 			nft_hash_elem_destroy(set, he);
 -
--	bucket_table_free(tbl);
-+	bucket_table_free(ht->tbl);
++		}
++	}
+ 	rhashtable_destroy(priv);
  }
- EXPORT_SYMBOL_GPL(rhashtable_destroy);
  
 -- 
 1.7.10.4
