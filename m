@@ -1,38 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/5] netfilter: nft_rbtree: no need for spinlock from
- set destroy path
-Date: Tue, 23 Sep 2014 04:54:05 -0700
-Message-ID: <1411473245.26859.188.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1411464288-18069-1-git-send-email-pablo@netfilter.org>
-	 <1411464288-18069-3-git-send-email-pablo@netfilter.org>
-	 <1411465957.26859.179.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140923110159.GA20055@salvia>
+From: Wang Sheng-Hui <shhuiw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] net/openvswitch: remove dup comment in vport.h
+Date: Tue, 23 Sep 2014 20:02:15 +0800
+Message-ID: <1411473735-15184-1-git-send-email-shhuiw@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20140923110159.GA20055@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Wang Sheng-Hui <shhuiw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-09-23 at 13:01 +0200, Pablo Neira Ayuso wrote:
+Remove the duplicated comment
+"/* The following definitions are for users of the vport subsytem: */"
+in vport.h
 
-> I'll send a follow up patch for nf-next to use rb_first() in that
-> patch. Thanks Eric.
+Signed-off-by: Wang Sheng-Hui <shhuiw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/openvswitch/vport.h | 1 -
+ 1 file changed, 1 deletion(-)
 
-I did a test, and its indeed a bit faster to use rb_first(), by about 5%
-
-Real win is to be able to build a chain using rb_first()/rb_next(),
-(leaving the tree as is), then deleting the items in the chain, and
-simply reset rb_root.
-
-This only needs to reuse one pointer to store the item->next pointer.
-
-This is then about ~50% faster, because we do not constantly rebalance
-tree for every removed item.
-
-
-
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index 35f89d8..5b43010 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -35,7 +35,6 @@ struct vport_parms;
+ 
+ /* The following definitions are for users of the vport subsytem: */
+ 
+-/* The following definitions are for users of the vport subsytem: */
+ struct vport_net {
+ 	struct vport __rcu *gre_vport;
+ };
+-- 
+1.8.4.5
