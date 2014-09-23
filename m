@@ -1,52 +1,55 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net-next] sparc: bpf_jit: add support for BPF_LD(X) | BPF_LEN instructions
-Date: Tue, 23 Sep 2014 14:36:11 -0700
-Message-ID: <1411508171-10740-1-git-send-email-ast@plumgrid.com>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:59264 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756611AbaIWVgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 17:36:15 -0400
-Received: by mail-pd0-f174.google.com with SMTP id g10so6699534pdj.19
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 14:36:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2] net/netfilter/x_tables.c: use
+ __seq_open_private()
+Date: Tue, 23 Sep 2014 23:40:21 +0200
+Message-ID: <20140923214021.GA4206@salvia>
+References: <1411491955-9131-1-git-send-email-rob.jones@codethink.co.uk>
+ <1411494387.32579.138.camel@xylophone>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Jones <rob.jones@codethink.co.uk>, davem@davemloft.net,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@codethink.co.uk, linux-kernel@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Ben Hutchings <ben.hutchings@codethink.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1411494387.32579.138.camel@xylophone>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-BPF_LD | BPF_W | BPF_LEN instruction is occasionally used by tcpdump
-and present in 11 tests in lib/test_bpf.c
-Teach sparc JIT compiler to emit it.
+On Tue, Sep 23, 2014 at 06:46:27PM +0100, Ben Hutchings wrote:
+> On Tue, 2014-09-23 at 18:05 +0100, Rob Jones wrote:
+> > Reduce boilerplate code by using __seq_open_private() instead of seq_open()
+> > in xt_match_open() and xt_target_open().
+> > 
+> > Signed-off-by: Rob Jones <rob.jones@codethink.co.uk>
+> > ---
+> > 
+> > This patch uses an existing variant of seq_open() to reduce the kernel code
+> > size.
+> > 
+> > The only significant variation from the pre-existing code is the fact that
+> > __seq_open_private() calls kzalloc() rather than kmalloc(), which could
+> > conceivably have an impact on timing.
+> > 
+> > This version 2 incorporates a minor initialisation simplification (resulting
+> > from kzalloc() being used) requested by netfilter-devel@vger.kernel.org
+> [...]
+> > --- a/net/netfilter/x_tables.c
+> > +++ b/net/netfilter/x_tables.c
+> > @@ -1080,7 +1080,6 @@ static void *xt_mttg_seq_start(struct seq_file *seq, loff_t *pos,
+> >         struct nf_mttg_trav *trav = seq->private;
+> >         unsigned int j;
+> >  
+> > -       trav->class = MTTG_TRAV_INIT;
+> >         for (j = 0; j < *pos; ++j)
+> >                 if (xt_mttg_seq_next(seq, NULL, NULL, is_target) == NULL)
+> >                         return NULL;
+> [...]
+> 
+> I'm fairly sure this simplification is wrong, as xt_mttg_seq_start() is
+> potentially called multiple times on the same file handle.
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
-
-coupled with pending net fix test_bpf still comes out clean on sparc64.
-compile tested only on sparc32
-
-Though both patches touch the same file, there should be no conflicts
-between net and net-next.
-
- arch/sparc/net/bpf_jit_comp.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
-index 7c06f18150ab..86bad49d6604 100644
---- a/arch/sparc/net/bpf_jit_comp.c
-+++ b/arch/sparc/net/bpf_jit_comp.c
-@@ -624,7 +624,12 @@ void bpf_jit_compile(struct bpf_prog *fp)
- 					emit_and(r_A, r_TMP, r_A);
- 				}
- 				break;
--
-+			case BPF_LD | BPF_W | BPF_LEN:
-+				emit_skb_load32(len, r_A);
-+				break;
-+			case BPF_LDX | BPF_W | BPF_LEN:
-+				emit_skb_load32(len, r_X);
-+				break;
- 			case BPF_LD | BPF_IMM:
- 				emit_loadimm(K, r_A);
- 				break;
--- 
-1.7.9.5
+Right. I'm going to take v1 of this patch instead, sorry for the
+inconvenience Rob.
