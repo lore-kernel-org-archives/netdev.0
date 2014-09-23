@@ -1,104 +1,120 @@
-From: Beniamino Galvani <b.galvani@gmail.com>
-Subject: Re: net: stmmac glue layer for Amlogic Meson SoCs
-Date: Tue, 23 Sep 2014 13:15:00 +0200
-Message-ID: <20140923111459.GA4487@gmail.com>
-References: <1411219757-9201-1-git-send-email-b.galvani@gmail.com>
- <54211032.6010009@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Carlo Caione <carlo@caione.org>,
-	Jerry Cao <jerry.cao@amlogic.com>,
-	Victor Wan <victor.wan@amlogic.com>,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54211032.6010009@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 00/29][pull request] Intel Wired LAN Driver Updates 2014-09-23
+Date: Tue, 23 Sep 2014 04:16:28 -0700
+Message-ID: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:10551 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751360AbaIWLRE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 07:17:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 23, 2014 at 08:16:18AM +0200, Giuseppe CAVALLARO wrote:
-> On 9/20/2014 3:29 PM, Beniamino Galvani wrote:
-> >Hi,
-> >
-> >the Ethernet controller available in Amlogic Meson6 and Meson8 SoCs is
-> >a Synopsys DesignWare MAC IP core, already supported by the stmmac
-> >driver.
-> >
-> >These patches add a glue layer to the driver for the platform-specific
-> >settings required by the Amlogic variant.
-> >
-> >This has been tested on a Amlogic S802 device with the initial Meson
-> >support submitted by Carlo Caione [1].
-> 
-> patches look fine just a warning with checkpatch as shown below then
-> 
-> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> 
-> 
-> [cavagiu@lxmcdt5 net.git]$ git-format-patch -2
-> 0001-net-stmmac-add-Amlogic-Meson-glue-layer.patch
-> 0002-net-stmmac-meson-document-device-tree-bindings.patch
-> [cavagiu@lxmcdt5 net.git]$ !./
-> ./scripts/checkpatch.pl 000*
-> WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
-> #57:
-> new file mode 100644
-> 
-> WARNING: DT compatible string vendor "amlogic" appears un-documented
-> -- check ./Documentation/devicetree/bindings/vendor-prefixes.txt
-> #152: FILE: drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c:34:
-> +	{ .compatible = "amlogic,meson6-dwmac", .data = &meson6_dwmac_data},
+This patch series adds support for the FM10000 Ethernet switch host
+interface.  The Intel FM10000 Ethernet Switch is a 48-port Ethernet switch
+supporting both Ethernet ports and PCI Express host interfaces.  The fm10k
+driver provides support for the host interface portion of the switch, both
+PF and VF.
 
-Hi Giuseppe,
+As the host interfaces are directly connected to the switch this results in
+some significant differences versus a standard network driver.  For example
+there is no PHY or MII on the device.  Since packets are delivered directly
+from the switch to the host interface these are unnecessary.  Otherwise most
+of the functionality is very similar to our other network drivers such as
+ixgbe or igb.  For example we support all the standard network offloads,
+jumbo frames, SR-IOV (64 VFS), PTP, and some VXLAN and NVGRE offloads.
 
-thanks for the review. The amlogic vendor prefix is documented as part
-of the initial Meson support in the series reported in the cover
-letter.
+v2: converted dev_consume_skb_any() to dev_kfree_skb_any()
+    fix up PTP code based on feedback from the community
+v3: converted the use of smb_mb__before_clear_bit() to smb_mb__before_atomic()
+    added vmalloc header to patch 15
+    added prefetch header to patch 16
 
-Beniamino
+The following are changes since commit b749fc9bff50013182edf2371d7f6c6796aed808:
+  net: fec: fix code identation
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-> 
-> total: 0 errors, 2 warnings, 0 checks, 108 lines checked
-> 
-> 0001-net-stmmac-add-Amlogic-Meson-glue-layer.patch has style
-> problems, please review.
-> 
-> If any of these errors are false positives, please report
-> them to the maintainer, see CHECKPATCH in MAINTAINERS.
-> WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
-> #17:
-> new file mode 100644
-> 
-> total: 0 errors, 1 warnings, 25 lines checked
-> 
-> 0002-net-stmmac-meson-document-device-tree-bindings.patch has style
-> problems, please review.
-> 
-> If any of these errors are false positives, please report
-> them to the maintainer, see CHECKPATCH in MAINTAINERS.
-> 
-> >
-> >[1] http://lwn.net/Articles/612000/
-> >
-> >Beniamino Galvani (2):
-> >   net: stmmac: add Amlogic Meson glue layer
-> >   net: stmmac: meson: document device tree bindings
-> >
-> >  .../devicetree/bindings/net/meson-dwmac.txt        | 25 ++++++++
-> >  drivers/net/ethernet/stmicro/stmmac/Kconfig        | 10 ++++
-> >  drivers/net/ethernet/stmicro/stmmac/Makefile       |  1 +
-> >  drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c  | 67 ++++++++++++++++++++++
-> >  drivers/net/ethernet/stmicro/stmmac/stmmac.h       |  3 +
-> >  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  3 +
-> >  6 files changed, 109 insertions(+)
-> >  create mode 100644 Documentation/devicetree/bindings/net/meson-dwmac.txt
-> >  create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c
-> >
-> 
+Alexander Duyck (29):
+  fm10k: Add skeletal frame for Intel(R) FM10000 Ethernet Switch Host
+    Interface Driver
+  fm10k: Add register defines and basic structures
+  fm10k: Add support for TLV message parsing and generation
+  fm10k: Add support for basic interaction with hardware
+  fm10k: Add support for mailbox
+  fm10k: Implement PF <-> SM mailbox operations
+  fm10k: Add support for PF
+  fm10k: Add support for configuring PF interface
+  fm10k: Add netdev
+  fm10k: Add support for L2 filtering
+  fm10k: Add support for ndo_open/stop
+  fm10k: Add interrupt support
+  fm10k: add support for Tx/Rx rings
+  fm10k: Add service task to handle delayed events
+  fm10k: Add Tx/Rx hardware ring bring-up/tear-down
+  fm10k: Add transmit and receive fastpath and interrupt handlers
+  fm10k: Add ethtool support
+  fm10k: Add support for PCI power management and error handling
+  fm10k: Add support for multiple queues
+  fm10k: Add support for netdev offloads
+  fm10k: Add support for MACVLAN acceleration
+  fm10k: Add support for PF <-> VF mailbox
+  fm10k: Add support for VF
+  fm10k: Add support for SR-IOV to PF core files
+  fm10k: Add support for SR-IOV to driver
+  fm10k: Add support for IEEE DCBx
+  fm10k: Add support for debugfs
+  fm10k: Add support for ptp to hw specific files
+  fm10k: Add support for PTP
+
+ drivers/net/ethernet/intel/Kconfig               |   19 +
+ drivers/net/ethernet/intel/Makefile              |    1 +
+ drivers/net/ethernet/intel/fm10k/Makefile        |   33 +
+ drivers/net/ethernet/intel/fm10k/fm10k.h         |  534 ++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_common.c  |  534 ++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_common.h  |   65 +
+ drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c   |  174 ++
+ drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c |  259 +++
+ drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 1069 +++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_iov.c     |  536 ++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c    | 1979 ++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_mbx.c     | 2125 +++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_mbx.h     |  307 +++
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  | 1431 ++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c     | 2166 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c      | 1880 +++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.h      |  135 ++
+ drivers/net/ethernet/intel/fm10k/fm10k_ptp.c     |  463 +++++
+ drivers/net/ethernet/intel/fm10k/fm10k_tlv.c     |  863 +++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_tlv.h     |  186 ++
+ drivers/net/ethernet/intel/fm10k/fm10k_type.h    |  770 ++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_vf.c      |  578 ++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_vf.h      |   78 +
+ 23 files changed, 16185 insertions(+)
+ create mode 100644 drivers/net/ethernet/intel/fm10k/Makefile
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k.h
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_common.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_common.h
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_iov.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_main.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_mbx.h
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_pf.h
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_ptp.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_type.h
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_vf.c
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_vf.h
+
+-- 
+1.9.3
