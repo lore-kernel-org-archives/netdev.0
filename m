@@ -1,323 +1,286 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 21/29] fm10k: Add support for MACVLAN acceleration
-Date: Tue, 23 Sep 2014 04:16:49 -0700
-Message-ID: <1411471017-28213-22-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 18/29] fm10k: Add support for PCI power management and error handling
+Date: Tue, 23 Sep 2014 04:16:46 -0700
+Message-ID: <1411471017-28213-19-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:14536 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:33801 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755754AbaIWLRW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2014 07:17:22 -0400
+	id S1755741AbaIWLRT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 07:17:19 -0400
 In-Reply-To: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds support for L2 MACVLAN by making use of the fact that the
-RRC provides a unique tag per filter called a Global Resource Tag, or GLORT.
-In the case of this offload what I have done is assigned a linear block of
-these so that each GLORT represents one of the MACVLAN netdevs.  By doing
-this I can share the Rx queues and Tx queues for all of the MACVLAN netdevs
-while allowing them to be demuxed in the Rx cleanup path.
+Add PCI power management and error handling to allow the device to support
+suspend/resume and recovery of any PCIe errors.  The fm10k devices do not
+support wake on LAN, and there is no plan to add this as a feature.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k.h        |  11 ++
- drivers/net/ethernet/intel/fm10k/fm10k_main.c   |  32 ++++-
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 154 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c    |   2 +
- 4 files changed, 198 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 221 +++++++++++++++++++++++++++
+ 1 file changed, 221 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index 4b6f406..58c1475 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -54,6 +54,15 @@
- /* How many Rx Buffers do we bundle into one write to the hardware ? */
- #define FM10K_RX_BUFFER_WRITE	16	/* Must be power of 2 */
- 
-+#define FM10K_MAX_STATIONS	63
-+struct fm10k_l2_accel {
-+	int size;
-+	u16 count;
-+	u16 dglort;
-+	struct rcu_head rcu;
-+	struct net_device *macvlan[0];
-+};
-+
- enum fm10k_ring_state_t {
- 	__FM10K_TX_DETECT_HANG,
- 	__FM10K_HANG_CHECK_ARMED,
-@@ -104,6 +113,7 @@ struct fm10k_ring {
- 	struct fm10k_q_vector *q_vector;/* backpointer to host q_vector */
- 	struct net_device *netdev;	/* netdev ring belongs to */
- 	struct device *dev;		/* device for DMA mapping */
-+	struct fm10k_l2_accel __rcu *l2_accel;	/* L2 acceleration list */
- 	void *desc;			/* descriptor ring memory */
- 	union {
- 		struct fm10k_tx_buffer *tx_buffer;
-@@ -217,6 +227,7 @@ struct fm10k_vxlan_port {
- struct fm10k_intfc {
- 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
- 	struct net_device *netdev;
-+	struct fm10k_l2_accel *l2_accel; /* pointer to L2 acceleration list */
- 	struct pci_dev *pdev;
- 	unsigned long state;
- 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index ac39e50..d2c189b 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -395,6 +395,35 @@ static inline void fm10k_rx_hash(struct fm10k_ring *ring,
- 		     PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
- }
- 
-+static void fm10k_type_trans(struct fm10k_ring *rx_ring,
-+			     union fm10k_rx_desc *rx_desc,
-+			     struct sk_buff *skb)
-+{
-+	struct net_device *dev = rx_ring->netdev;
-+	struct fm10k_l2_accel *l2_accel = rcu_dereference_bh(rx_ring->l2_accel);
-+
-+	/* check to see if DGLORT belongs to a MACVLAN */
-+	if (l2_accel) {
-+		u16 idx = le16_to_cpu(FM10K_CB(skb)->fi.w.dglort) - 1;
-+
-+		idx -= l2_accel->dglort;
-+		if (idx < l2_accel->size && l2_accel->macvlan[idx])
-+			dev = l2_accel->macvlan[idx];
-+		else
-+			l2_accel = NULL;
-+	}
-+
-+	skb->protocol = eth_type_trans(skb, dev);
-+
-+	if (!l2_accel)
-+		return;
-+
-+	/* update MACVLAN statistics */
-+	macvlan_count_rx(netdev_priv(dev), skb->len + ETH_HLEN, 1,
-+			 !!(rx_desc->w.hdr_info &
-+			    cpu_to_le16(FM10K_RXD_HDR_INFO_XC_MASK)));
-+}
-+
- /**
-  * fm10k_process_skb_fields - Populate skb header fields from Rx descriptor
-  * @rx_ring: rx descriptor ring packet is being transacted on
-@@ -428,7 +457,7 @@ static unsigned int fm10k_process_skb_fields(struct fm10k_ring *rx_ring,
- 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vid);
- 	}
- 
--	skb->protocol = eth_type_trans(skb, rx_ring->netdev);
-+	fm10k_type_trans(rx_ring, rx_desc, skb);
- 
- 	return len;
- }
-@@ -1568,6 +1597,7 @@ static int fm10k_alloc_q_vector(struct fm10k_intfc *interface,
- 		/* assign generic ring traits */
- 		ring->dev = &interface->pdev->dev;
- 		ring->netdev = interface->netdev;
-+		rcu_assign_pointer(ring->l2_accel, interface->l2_accel);
- 
- 		/* configure backlink on ring */
- 		ring->q_vector = q_vector;
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 5dbb4d7..268966b 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -1148,6 +1148,155 @@ int fm10k_setup_tc(struct net_device *dev, u8 tc)
- 	return 0;
- }
- 
-+static void fm10k_assign_l2_accel(struct fm10k_intfc *interface,
-+				  struct fm10k_l2_accel *l2_accel)
-+{
-+	struct fm10k_ring *ring;
-+	int i;
-+
-+	for (i = 0; i < interface->num_rx_queues; i++) {
-+		ring = interface->rx_ring[i];
-+		rcu_assign_pointer(ring->l2_accel, l2_accel);
-+	}
-+
-+	interface->l2_accel = l2_accel;
-+}
-+
-+static void *fm10k_dfwd_add_station(struct net_device *dev,
-+				    struct net_device *sdev)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(dev);
-+	struct fm10k_l2_accel *l2_accel = interface->l2_accel;
-+	struct fm10k_l2_accel *old_l2_accel = NULL;
-+	struct fm10k_dglort_cfg dglort = { 0 };
-+	struct fm10k_hw *hw = &interface->hw;
-+	int size = 0, i;
-+	u16 glort;
-+
-+	/* allocate l2 accel structure if it is not available */
-+	if (!l2_accel) {
-+		/* verify there is enough free GLORTs to support l2_accel */
-+		if (interface->glort_count < 7)
-+			return ERR_PTR(-EBUSY);
-+
-+		size = offsetof(struct fm10k_l2_accel, macvlan[7]);
-+		l2_accel = kzalloc(size, GFP_KERNEL);
-+		if (!l2_accel)
-+			return ERR_PTR(-ENOMEM);
-+
-+		l2_accel->size = 7;
-+		l2_accel->dglort = interface->glort;
-+
-+		/* update pointers */
-+		fm10k_assign_l2_accel(interface, l2_accel);
-+	/* do not expand if we are at our limit */
-+	} else if ((l2_accel->count == FM10K_MAX_STATIONS) ||
-+		   (l2_accel->count == (interface->glort_count - 1))) {
-+		return ERR_PTR(-EBUSY);
-+	/* expand if we have hit the size limit */
-+	} else if (l2_accel->count == l2_accel->size) {
-+		old_l2_accel = l2_accel;
-+		size = offsetof(struct fm10k_l2_accel,
-+				macvlan[(l2_accel->size * 2) + 1]);
-+		l2_accel = kzalloc(size, GFP_KERNEL);
-+		if (!l2_accel)
-+			return ERR_PTR(-ENOMEM);
-+
-+		memcpy(l2_accel, old_l2_accel,
-+		       offsetof(struct fm10k_l2_accel,
-+				macvlan[old_l2_accel->size]));
-+
-+		l2_accel->size = (old_l2_accel->size * 2) + 1;
-+
-+		/* update pointers */
-+		fm10k_assign_l2_accel(interface, l2_accel);
-+		kfree_rcu(old_l2_accel, rcu);
-+	}
-+
-+	/* add macvlan to accel table, and record GLORT for position */
-+	for (i = 0; i < l2_accel->size; i++) {
-+		if (!l2_accel->macvlan[i])
-+			break;
-+	}
-+
-+	/* record station */
-+	l2_accel->macvlan[i] = sdev;
-+	l2_accel->count++;
-+
-+	/* configure default DGLORT mapping for RSS/DCB */
-+	dglort.idx = fm10k_dglort_pf_rss;
-+	dglort.inner_rss = 1;
-+	dglort.rss_l = fls(interface->ring_feature[RING_F_RSS].mask);
-+	dglort.pc_l = fls(interface->ring_feature[RING_F_QOS].mask);
-+	dglort.glort = interface->glort;
-+	dglort.shared_l = fls(l2_accel->size);
-+	hw->mac.ops.configure_dglort_map(hw, &dglort);
-+
-+	/* Add rules for this specific dglort to the switch */
-+	fm10k_mbx_lock(interface);
-+
-+	glort = l2_accel->dglort + 1 + i;
-+	hw->mac.ops.update_xcast_mode(hw, glort, FM10K_XCAST_MODE_MULTI);
-+	hw->mac.ops.update_uc_addr(hw, glort, sdev->dev_addr, 0, true, 0);
-+
-+	fm10k_mbx_unlock(interface);
-+
-+	return sdev;
-+}
-+
-+static void fm10k_dfwd_del_station(struct net_device *dev, void *priv)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(dev);
-+	struct fm10k_l2_accel *l2_accel = ACCESS_ONCE(interface->l2_accel);
-+	struct fm10k_dglort_cfg dglort = { 0 };
-+	struct fm10k_hw *hw = &interface->hw;
-+	struct net_device *sdev = priv;
-+	int i;
-+	u16 glort;
-+
-+	if (!l2_accel)
-+		return;
-+
-+	/* search table for matching interface */
-+	for (i = 0; i < l2_accel->size; i++) {
-+		if (l2_accel->macvlan[i] == sdev)
-+			break;
-+	}
-+
-+	/* exit if macvlan not found */
-+	if (i == l2_accel->size)
-+		return;
-+
-+	/* Remove any rules specific to this dglort */
-+	fm10k_mbx_lock(interface);
-+
-+	glort = l2_accel->dglort + 1 + i;
-+	hw->mac.ops.update_xcast_mode(hw, glort, FM10K_XCAST_MODE_NONE);
-+	hw->mac.ops.update_uc_addr(hw, glort, sdev->dev_addr, 0, false, 0);
-+
-+	fm10k_mbx_unlock(interface);
-+
-+	/* record removal */
-+	l2_accel->macvlan[i] = NULL;
-+	l2_accel->count--;
-+
-+	/* configure default DGLORT mapping for RSS/DCB */
-+	dglort.idx = fm10k_dglort_pf_rss;
-+	dglort.inner_rss = 1;
-+	dglort.rss_l = fls(interface->ring_feature[RING_F_RSS].mask);
-+	dglort.pc_l = fls(interface->ring_feature[RING_F_QOS].mask);
-+	dglort.glort = interface->glort;
-+	if (l2_accel)
-+		dglort.shared_l = fls(l2_accel->size);
-+	hw->mac.ops.configure_dglort_map(hw, &dglort);
-+
-+	/* If table is empty remove it */
-+	if (l2_accel->count == 0) {
-+		fm10k_assign_l2_accel(interface, NULL);
-+		kfree_rcu(l2_accel, rcu);
-+	}
-+}
-+
- static const struct net_device_ops fm10k_netdev_ops = {
- 	.ndo_open		= fm10k_open,
- 	.ndo_stop		= fm10k_close,
-@@ -1163,6 +1312,8 @@ static const struct net_device_ops fm10k_netdev_ops = {
- 	.ndo_setup_tc		= fm10k_setup_tc,
- 	.ndo_add_vxlan_port	= fm10k_add_vxlan_port,
- 	.ndo_del_vxlan_port	= fm10k_del_vxlan_port,
-+	.ndo_dfwd_add_station	= fm10k_dfwd_add_station,
-+	.ndo_dfwd_del_station	= fm10k_dfwd_del_station,
- };
- 
- #define DEFAULT_DEBUG_LEVEL_SHIFT 3
-@@ -1198,6 +1349,9 @@ struct net_device *fm10k_alloc_netdev(void)
- 	/* all features defined to this point should be changeable */
- 	dev->hw_features |= dev->features;
- 
-+	/* allow user to enable L2 forwarding acceleration */
-+	dev->hw_features |= NETIF_F_HW_L2FW_DOFFLOAD;
-+
- 	/* configure VLAN features */
- 	dev->vlan_features |= dev->features;
- 
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index b54c9e1..d647814 100644
+index 229c7e4..b54c9e1 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -756,6 +756,8 @@ static void fm10k_configure_dglort(struct fm10k_intfc *interface)
- 	dglort.pc_l = fls(interface->ring_feature[RING_F_QOS].mask);
- 	/* configure DGLORT mapping for RSS/DCB */
- 	dglort.idx = fm10k_dglort_pf_rss;
-+	if (interface->l2_accel)
-+		dglort.shared_l = fls(interface->l2_accel->size);
- 	hw->mac.ops.configure_dglort_map(hw, &dglort);
+@@ -19,6 +19,7 @@
+  */
+ 
+ #include <linux/module.h>
++#include <linux/aer.h>
+ 
+ #include "fm10k.h"
+ 
+@@ -1535,6 +1536,8 @@ static int fm10k_probe(struct pci_dev *pdev,
+ 		goto err_pci_reg;
+ 	}
+ 
++	pci_enable_pcie_error_reporting(pdev);
++
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
+ 
+@@ -1661,14 +1664,232 @@ static void fm10k_remove(struct pci_dev *pdev)
+ 	pci_release_selected_regions(pdev,
+ 				     pci_select_bars(pdev, IORESOURCE_MEM));
+ 
++	pci_disable_pcie_error_reporting(pdev);
++
+ 	pci_disable_device(pdev);
  }
  
++#ifdef CONFIG_PM
++/**
++ * fm10k_resume - Restore device to pre-sleep state
++ * @pdev: PCI device information struct
++ *
++ * fm10k_resume is called after the system has powered back up from a sleep
++ * state and is ready to resume operation.  This function is meant to restore
++ * the device back to its pre-sleep state.
++ **/
++static int fm10k_resume(struct pci_dev *pdev)
++{
++	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
++	struct net_device *netdev = interface->netdev;
++	struct fm10k_hw *hw = &interface->hw;
++	u32 err;
++
++	pci_set_power_state(pdev, PCI_D0);
++	pci_restore_state(pdev);
++
++	/* pci_restore_state clears dev->state_saved so call
++	 * pci_save_state to restore it.
++	 */
++	pci_save_state(pdev);
++
++	err = pci_enable_device_mem(pdev);
++	if (err) {
++		dev_err(&pdev->dev, "Cannot enable PCI device from suspend\n");
++		return err;
++	}
++	pci_set_master(pdev);
++
++	pci_wake_from_d3(pdev, false);
++
++	/* refresh hw_addr in case it was dropped */
++	hw->hw_addr = interface->uc_addr;
++
++	/* reset hardware to known state */
++	err = hw->mac.ops.init_hw(&interface->hw);
++	if (err)
++		return err;
++
++	/* reset statistics starting values */
++	hw->mac.ops.rebind_hw_stats(hw, &interface->stats);
++
++	rtnl_lock();
++
++	err = fm10k_init_queueing_scheme(interface);
++	if (!err) {
++		fm10k_mbx_request_irq(interface);
++		if (netif_running(netdev))
++			err = fm10k_open(netdev);
++	}
++
++	rtnl_unlock();
++
++	if (err)
++		return err;
++
++	netif_device_attach(netdev);
++
++	return 0;
++}
++
++/**
++ * fm10k_suspend - Prepare the device for a system sleep state
++ * @pdev: PCI device information struct
++ *
++ * fm10k_suspend is meant to shutdown the device prior to the system entering
++ * a sleep state.  The fm10k hardware does not support wake on lan so the
++ * driver simply needs to shut down the device so it is in a low power state.
++ **/
++static int fm10k_suspend(struct pci_dev *pdev, pm_message_t state)
++{
++	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
++	struct net_device *netdev = interface->netdev;
++	int err = 0;
++
++	netif_device_detach(netdev);
++
++	rtnl_lock();
++
++	if (netif_running(netdev))
++		fm10k_close(netdev);
++
++	fm10k_mbx_free_irq(interface);
++
++	fm10k_clear_queueing_scheme(interface);
++
++	rtnl_unlock();
++
++	err = pci_save_state(pdev);
++	if (err)
++		return err;
++
++	pci_disable_device(pdev);
++	pci_wake_from_d3(pdev, false);
++	pci_set_power_state(pdev, PCI_D3hot);
++
++	return 0;
++}
++
++#endif /* CONFIG_PM */
++/**
++ * fm10k_io_error_detected - called when PCI error is detected
++ * @pdev: Pointer to PCI device
++ * @state: The current pci connection state
++ *
++ * This function is called after a PCI bus error affecting
++ * this device has been detected.
++ */
++static pci_ers_result_t fm10k_io_error_detected(struct pci_dev *pdev,
++						pci_channel_state_t state)
++{
++	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
++	struct net_device *netdev = interface->netdev;
++
++	netif_device_detach(netdev);
++
++	if (state == pci_channel_io_perm_failure)
++		return PCI_ERS_RESULT_DISCONNECT;
++
++	if (netif_running(netdev))
++		fm10k_close(netdev);
++
++	fm10k_mbx_free_irq(interface);
++
++	pci_disable_device(pdev);
++
++	/* Request a slot reset. */
++	return PCI_ERS_RESULT_NEED_RESET;
++}
++
++/**
++ * fm10k_io_slot_reset - called after the pci bus has been reset.
++ * @pdev: Pointer to PCI device
++ *
++ * Restart the card from scratch, as if from a cold-boot.
++ */
++static pci_ers_result_t fm10k_io_slot_reset(struct pci_dev *pdev)
++{
++	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
++	pci_ers_result_t result;
++
++	if (pci_enable_device_mem(pdev)) {
++		dev_err(&pdev->dev,
++			"Cannot re-enable PCI device after reset.\n");
++		result = PCI_ERS_RESULT_DISCONNECT;
++	} else {
++		pci_set_master(pdev);
++		pci_restore_state(pdev);
++
++		/* After second error pci->state_saved is false, this
++		 * resets it so EEH doesn't break.
++		 */
++		pci_save_state(pdev);
++
++		pci_wake_from_d3(pdev, false);
++
++		/* refresh hw_addr in case it was dropped */
++		interface->hw.hw_addr = interface->uc_addr;
++
++		interface->flags |= FM10K_FLAG_RESET_REQUESTED;
++		fm10k_service_event_schedule(interface);
++
++		result = PCI_ERS_RESULT_RECOVERED;
++	}
++
++	pci_cleanup_aer_uncorrect_error_status(pdev);
++
++	return result;
++}
++
++/**
++ * fm10k_io_resume - called when traffic can start flowing again.
++ * @pdev: Pointer to PCI device
++ *
++ * This callback is called when the error recovery driver tells us that
++ * its OK to resume normal operation.
++ */
++static void fm10k_io_resume(struct pci_dev *pdev)
++{
++	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
++	struct net_device *netdev = interface->netdev;
++	struct fm10k_hw *hw = &interface->hw;
++	int err = 0;
++
++	/* reset hardware to known state */
++	hw->mac.ops.init_hw(&interface->hw);
++
++	/* reset statistics starting values */
++	hw->mac.ops.rebind_hw_stats(hw, &interface->stats);
++
++	/* reassociate interrupts */
++	fm10k_mbx_request_irq(interface);
++
++	if (netif_running(netdev))
++		err = fm10k_open(netdev);
++
++	/* final check of hardware state before registering the interface */
++	err = err ? : fm10k_hw_ready(interface);
++
++	if (!err)
++		netif_device_attach(netdev);
++}
++
++static const struct pci_error_handlers fm10k_err_handler = {
++	.error_detected = fm10k_io_error_detected,
++	.slot_reset = fm10k_io_slot_reset,
++	.resume = fm10k_io_resume,
++};
++
+ static struct pci_driver fm10k_driver = {
+ 	.name			= fm10k_driver_name,
+ 	.id_table		= fm10k_pci_tbl,
+ 	.probe			= fm10k_probe,
+ 	.remove			= fm10k_remove,
++#ifdef CONFIG_PM
++	.suspend		= fm10k_suspend,
++	.resume			= fm10k_resume,
++#endif
++	.err_handler		= &fm10k_err_handler
+ };
+ 
+ /**
 -- 
 1.9.3
