@@ -1,55 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv6 net-next 1/3] sunvnet: upgrade to VIO protocol
- version 1.6
-Date: Tue, 23 Sep 2014 12:24:20 -0400 (EDT)
-Message-ID: <20140923.122420.1216927815526255624.davem@davemloft.net>
-References: <541A2316.5010603@oracle.com>
-	<2AB76E42-C12D-47C5-8476-0D0C611691A5@oracle.com>
-	<541AD838.50700@oracle.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: LTP recv/recvmsg tests failing on 3.17
+Date: Tue, 23 Sep 2014 12:24:57 -0400
+Message-ID: <CA+FuTSeyzMayJ6zR8KBpt_Wu-orCowMDtTOwXxp84-RobBZ1xA@mail.gmail.com>
+References: <20140923091108.2788de76@as> <CA+FuTScNSGYxWtB-D_iL_7TQO=z4r5_29-W8d=VRwh1M6Ym_UQ@mail.gmail.com>
+ <20140923103933.1b5fb88b@as>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Raghuram.Kothakota@oracle.com, netdev@vger.kernel.org
-To: david.stevens@oracle.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>
+To: Chuck Ebbert <cebbert.lkml@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35289 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751783AbaIWQYX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:24:23 -0400
-In-Reply-To: <541AD838.50700@oracle.com>
+Received: from mail-qa0-f44.google.com ([209.85.216.44]:52298 "EHLO
+	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753708AbaIWQZ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:25:29 -0400
+Received: by mail-qa0-f44.google.com with SMTP id x12so1940698qac.3
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 09:25:29 -0700 (PDT)
+In-Reply-To: <20140923103933.1b5fb88b@as>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David L Stevens <david.stevens@oracle.com>
-Date: Thu, 18 Sep 2014 09:03:52 -0400
+> But I was also wondering why we return EAGAIN here for no data waiting,
+> when we return EINVAL for the same case with a different type of data.
+> There's no spec and it's not documented, so I guess the answer is "it's
+> always been that way."
 
-> So, if this is actually too much memory, I was more inclined to reduce the ring
-> size rather than either add complicating code to handle active-ring reallocation
-> that would typically be run once per boot, or another alternative of adding
-> module parameters to specify the buffer size TSO/GSO will need 64K to perform
-> well, regardless of the device MTU.
+EAGAIN is the common response. I don't know why TCP urgent
+data returns EINVAL. It is unusual enough that the relevant line
+in tcp_recv_urg explicitly comments on it:
 
-The only reason we are having this discussion is because of how we
-handle TX packets.
-
-I think we really should directly map the SKBs in vnet_start_xmit()
-instead of having these preallocate TX buffers.
-
-The only thing to accomodate is the VNET_PACKET_SKIP, but that
-shouldn't be hard at all.
-
-And I am rather certain that an LDC map call will be cheaper than
-copying the entire packet.
-
-Then the MTU will have no material impact on per-vnet_port memory
-costs, and bulk sending performance should also increase.
-
-David I know you've worked hard on this patch set, but I'm going to
-defer on this series for now.  There are several implementation level
-issues that are still seemingly up in the air.
-
-I'm almost completely sold on your PMTU scheme, however if we do
-direct mapping of SKBs in vnet_start_xmit() then the performance
-characteristics with larger MTUs might be different.
-
-Thanks.
+                return -EINVAL; /* Yes this is right ! */
