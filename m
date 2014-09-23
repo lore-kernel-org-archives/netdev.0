@@ -1,122 +1,102 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
-Date: Tue, 23 Sep 2014 13:57:08 -0700
-Message-ID: <CA+mtBx9kKATy7LUSaD1nXrY=h0LiEVciDGzWnyjqCXt_LVQMyQ@mail.gmail.com>
-References: <CAADnVQ+=vKEjzUTcEW+yzA4bTL4TKabrzzk=gb=OyfuVGwOyPA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Vladislav Yasevich <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linvi
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net] sparc: bpf_jit: fix loads from negative offsets
+Date: Tue, 23 Sep 2014 13:50:10 -0700
+Message-ID: <1411505410-25215-1-git-send-email-ast@plumgrid.com>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:43746 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932184AbaIWU5J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 16:57:09 -0400
-Received: by mail-ie0-f182.google.com with SMTP id tp5so4989415ieb.27
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 13:57:09 -0700 (PDT)
-In-Reply-To: <CAADnVQ+=vKEjzUTcEW+yzA4bTL4TKabrzzk=gb=OyfuVGwOyPA@mail.gmail.com>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:41607 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753947AbaIWUuV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 16:50:21 -0400
+Received: by mail-pd0-f181.google.com with SMTP id r10so7205910pdi.40
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 13:50:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> SKB_GSO_UDP_TUNNEL_CSUM was the right way
-> to start splitting overloaded and messy semantics of
-> UDP_TUNNEL. I'm still not sure whether you've intended
-> it for both rx and tx, since to support tunnel_csum on rx,
-> parsing of encap is needed, whereas tx is so much simpler.
-> Unless you're assuming checksum_complete model for rx...
->
->> If properly implemented, HW can implement a whole bunch of
->> UDP encap protocols without knowing how to parse them.
->
-> on a tx side... yes, but I cannot see how you can do rx
-> with inner csum verify without parsing encap.
-> What do you have in mind ?
->
-Implement checksum-complete. It does not require a device to parse the
-encap, is usable with probably all encapsulation formats being
-discussed, and easily supports multiple checksums in a packet. This
-will even work with something like L2TP where a device can't do
-stateless parsing (pseudo wire encapsulation).
+- fix BPF_LD|ABS|IND from negative offsets:
+  make sure to sign extend lower 32 bits in 64-bit register
+  before calling C helpers from JITed code, otherwise 'int k'
+  argument of bpf_internal_load_pointer_neg_helper() function
+  will be added as large unsigned integer, causing packet size
+  check to trigger and abort the program.
 
-Of the five basic NIC offloads (RX-csum, TX-csum, TSO, LRO, and RSS),
-LRO is the one that probably cannot be generalized so that NICs don't
-need to parse specific encapsulation protocols. Fortunately, GRO
-performance is now very comparable anyway so I tend to think LRO
-support is not crucial (the same argument might be made for GSO/TSO I
-suppose, but TSO we can mostly generalize). HW support for checksum
-offloads and RSS are definitely still very relevant!
+  It's worth noting that JITed code for 'A = A op K' will affect
+  upper 32 bits differently depending whether K is simm13 or not.
+  Since small constants are sign extended, whereas large constants
+  are stored in temp register and zero extended.
+  That is ok and we don't have to pay a penalty of sign extension
+  for every sethi, since all classic BPF instructions have 32-bit
+  semantics and we only need to set correct upper bits when
+  transitioning from JITed code into C.
 
->> I don't see how
->> a switch on the NIC helps this...
->
-> correct, just a switch on a nic isn't very useful.
->
-> If immediate consumer of the packet is a VM,
-> then doing switching in the nic after decap doesn't
-> add much speed, since bridge+router+nat+policy in sw
-> after decap and csum verify done by hw are fast enough.
-> But switching in HW becomes useful when VF
-> is a destination device, since it avoids hw->sw->hw
-> roundtrip as Thomas was saying.
->
-> Also there are x86 network gateways where tunneled
-> traffic from virtual network is terminated and sent
-> over internet or to other datacenter. Performance
-> demands are high, so if tunnel+switch+nat+policy
-> can be done in off-the-shelf HW it would be great.
->
->>> And this is just tx offload. On rx smart tunnel offload in HW parses
->>> encap and goes all the way to inner headers to verify checksums,
->>> it also steers based on inner headers.
->>> Try mellanox nics with and without vxlan offload to see
->>> the difference.
->>
->> Turn on UDP RSS on the device and I bet you'll see those differences
->> go away!
->
-> Logically it should, since all inner flows should get
-> hashed into different outer src_port, but somehow
-> that didn't work. Need to re-investigate with your
-> l4_hash stuff.
->
-You may need to enable RSS for UDP. Like "ethtool -N eth0 rx-flow-hash
-udp4 sdfn"
+- though instructions 'A &= 0' and 'A *= 0' are odd, JIT compiler
+  should not optimize them out
 
->> Alexei, I believe you said previously said that SW should not dictate
->> HW models. I agree with this, but also believe the converse is true--
->> HW shouldn't dictate SW model.
->
-> completely agree!
->
->> This is really why I'm raising the
->> question of what it means to integrate a switch into the host stack.
->> If this is something that doesn't require any model change to the
->> stack and is just a clever backend for rx-filters or tc, then I'm fine
->> with that!
->
-> agree as well. I'm not excited about switchdev
-> abstraction from this given patch, since it looks overly
-> simplified and not applicable to real silicon, but
-> discussion about exposing programmable
-> nics/switches to sw in a generic way is worth having :)
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+
+More detailed explanation of 1st bug:
+  BPF_STMT(BPF_LD | BPF_B | BPF_ABS, SKF_LL_OFF)
+will be JITed as:
+  sethi	%hi(0xffe00000), %g3
+  or	%g3, 0, %g3
+  call	bpf_jit_load_byte_negative_offset
+which will do:
+  mov	%g3, %o1
+  call	bpf_internal_load_pointer_neg_helper
+  mov	1, %o2
+
+void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, unsigned int size)
+{
+  ...
+  ptr = skb_mac_header(skb) + k - SKF_LL_OFF;
+  here 'k' will be added as 0xffe00000 instead of SKF_LL_OFF == -0x200000
+
+After these fixes, test_bpf is now clean on sparc64.
+Compile tested only on sparc32
+
+ arch/sparc/net/bpf_jit_asm.S  |    3 +++
+ arch/sparc/net/bpf_jit_comp.c |    2 +-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/arch/sparc/net/bpf_jit_asm.S b/arch/sparc/net/bpf_jit_asm.S
+index 9d016c7..8c83f4b 100644
+--- a/arch/sparc/net/bpf_jit_asm.S
++++ b/arch/sparc/net/bpf_jit_asm.S
+@@ -6,10 +6,12 @@
+ #define SAVE_SZ		176
+ #define SCRATCH_OFF	STACK_BIAS + 128
+ #define BE_PTR(label)	be,pn %xcc, label
++#define SIGN_EXTEND(reg)	sra reg, 0, reg
+ #else
+ #define SAVE_SZ		96
+ #define SCRATCH_OFF	72
+ #define BE_PTR(label)	be label
++#define SIGN_EXTEND(reg)
+ #endif
+ 
+ #define SKF_MAX_NEG_OFF	(-0x200000) /* SKF_LL_OFF from filter.h */
+@@ -135,6 +137,7 @@ bpf_slow_path_byte_msh:
+ 	save	%sp, -SAVE_SZ, %sp;			\
+ 	mov	%i0, %o0;				\
+ 	mov	r_OFF, %o1;				\
++	SIGN_EXTEND(%o1);				\
+ 	call	bpf_internal_load_pointer_neg_helper;	\
+ 	 mov	(LEN), %o2;				\
+ 	mov	%o0, r_TMP;				\
+diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
+index 51ae87b..ece4af0 100644
+--- a/arch/sparc/net/bpf_jit_comp.c
++++ b/arch/sparc/net/bpf_jit_comp.c
+@@ -184,7 +184,7 @@ do {								\
+ 	 */
+ #define emit_alu_K(OPCODE, K)					\
+ do {								\
+-	if (K) {						\
++	if (K || OPCODE == AND || OPCODE == MUL) {		\
+ 		unsigned int _insn = OPCODE;			\
+ 		_insn |= RS1(r_A) | RD(r_A);			\
+ 		if (is_simm13(K)) {				\
+-- 
+1.7.9.5
