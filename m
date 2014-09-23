@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 27/29] fm10k: Add support for debugfs
-Date: Tue, 23 Sep 2014 04:16:55 -0700
-Message-ID: <1411471017-28213-28-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 26/29] fm10k: Add support for IEEE DCBx
+Date: Tue, 23 Sep 2014 04:16:54 -0700
+Message-ID: <1411471017-28213-27-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -10,137 +10,70 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:4747 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755796AbaIWLRa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2014 07:17:30 -0400
+	id S1755741AbaIWLR3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 07:17:29 -0400
 In-Reply-To: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds limited debugfs support for the driver.  Most of the
-functionality needed for dumping registers is already provided via ethtool.
-The only thing we saw that we really neeed was the ability to dump the
-descriptor rings so as such this patch will add a fm10k directory containing a
-listing of directories each one with a unique PCI Bus, Device, and Function
-number.  Each of those BDF directories will have a list of q_vectors, and
-the q_vectors will contain a file for each of the Rx/Tx rings that are a part
-of the vector.  For example:
-
-# ls -RD /sys/kernel/debug/fm10k/
-/sys/kernel/debug/fm10k/:
-0000:01:00.0
-
-/sys/kernel/debug/fm10k/0000:01:00.0:
-q_vector.000  q_vector.001  q_vector.002  q_vector.003
-
-/sys/kernel/debug/fm10k/0000:01:00.0/q_vector.000:
-rx_ring.000  tx_ring.000
-
-/sys/kernel/debug/fm10k/0000:01:00.0/q_vector.001:
-rx_ring.001  tx_ring.001
-
-/sys/kernel/debug/fm10k/0000:01:00.0/q_vector.002:
-rx_ring.002  tx_ring.002
-
-/sys/kernel/debug/fm10k/0000:01:00.0/q_vector.003:
-rx_ring.003  tx_ring.003
-
-# cat /sys/kernel/debug/fm10k/0000:01:00.0/q_vector.000/rx_ring.000
-DES DATA       RSS        STATERR    LENGTH VLAN   DGLORT SGLORT TIMESTAMP
----------------------------------------------------------------------------
-000 0x00000000 0x00000000 0x00000003 0x002a 0x0000 0x0000 0x0000 0x13951807dc4fedf0
-001 0x00000000 0x00000000 0x00000003 0x002a 0x0000 0x0000 0x0000 0x1395180906c9f2c8
-002 0x3731c000 0x00000000 0x00000000 0x0000 0x0000 0x0000 0x0000 0x0000000000000000
-003 0x3731d000 0x00000000 0x00000000 0x0000 0x0000 0x0000 0x0000 0x0000000000000000
-004 0xaab3a000 0x00000000 0x00000000 0x0000 0x0000 0x0000 0x0000 0x0000000000000000
-...
-
-# cat /sys/kernel/debug/fm10k/0000:01:00.0/q_vector.000/tx_ring.000
-DES BUFFER_ADDRESS     LENGTH VLAN   MSS    HDRLEN FLAGS
----------------------------------------------------------
-000 0x00000000aa8a1002 0x005a 0x0000 0x0000 0x0000 0xc0
-001 0x00000000aa8a2002 0x005a 0x0000 0x0000 0x0000 0xc0
-002 0x000000006bc13202 0x004e 0x0000 0x0000 0x0000 0xc0
-003 0x000000006bc13c02 0x002a 0x0000 0x0000 0x0000 0xe1
-004 0x000000006bc13602 0x0062 0x0000 0x0000 0x0000 0xc0
+This patch adds support for management of the limited QOS features of the
+FM10000 interface.  Specifically we can support up to 8 traffic classes,
+however the part only provides 1 Rx and 1 Tx FIFO in the host interface and
+as a result this can lead to head-of-line blocking on Rx.  This can be
+avoided by setting PFC only for priorities that cannot afford to drop
+frames.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/Makefile        |   2 +-
- drivers/net/ethernet/intel/fm10k/fm10k.h         |  24 +++
- drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c | 259 +++++++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_main.c    |   8 +
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c     |   6 +
- 5 files changed, 298 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
+ drivers/net/ethernet/intel/fm10k/Makefile      |   3 +-
+ drivers/net/ethernet/intel/fm10k/fm10k.h       |   5 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c | 174 +++++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c   |   7 +-
+ 4 files changed, 185 insertions(+), 4 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
 
 diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
-index 5023625..fbc0e09 100644
+index 70565ab..5023625 100644
 --- a/drivers/net/ethernet/intel/fm10k/Makefile
 +++ b/drivers/net/ethernet/intel/fm10k/Makefile
-@@ -30,4 +30,4 @@ obj-$(CONFIG_FM10K) += fm10k.o
+@@ -29,4 +29,5 @@ obj-$(CONFIG_FM10K) += fm10k.o
+ 
  fm10k-objs := fm10k_main.o fm10k_common.o fm10k_pci.o \
  	      fm10k_netdev.o fm10k_ethtool.o fm10k_pf.o fm10k_vf.o \
- 	      fm10k_mbx.o fm10k_iov.o fm10k_tlv.o \
--	      fm10k_dcbnl.o
-+	      fm10k_debugfs.o fm10k_dcbnl.o
+-	      fm10k_mbx.o fm10k_iov.o fm10k_tlv.o
++	      fm10k_mbx.o fm10k_iov.o fm10k_tlv.o \
++	      fm10k_dcbnl.o
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index 33a5949..1045483 100644
+index fb71871..33a5949 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k.h
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -199,6 +199,9 @@ struct fm10k_q_vector {
- 	struct napi_struct napi;
- 	char name[IFNAMSIZ + 9];
- 
-+#ifdef CONFIG_DEBUG_FS
-+	struct dentry *dbg_q_vector;
-+#endif /* CONFIG_DEBUG_FS */
- 	struct rcu_head rcu;	/* to avoid race with update stats on free */
- 
- 	/* for dynamic allocation of rings associated with this q_vector */
-@@ -307,6 +310,10 @@ struct fm10k_intfc {
+@@ -307,7 +307,7 @@ struct fm10k_intfc {
  	/* VXLAN port tracking information */
  	struct list_head vxlan_port;
  
-+#ifdef CONFIG_DEBUG_FS
-+	struct dentry *dbg_intfc;
-+
-+#endif /* CONFIG_DEBUG_FS */
- #ifdef CONFIG_DCB
+-#if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
++#ifdef CONFIG_DCB
  	u8 pfc_en;
  #endif
-@@ -468,6 +475,23 @@ int fm10k_ndo_set_vf_bw(struct net_device *netdev, int vf_idx, int rate,
+ 	u8 rx_pause;
+@@ -467,4 +467,7 @@ int fm10k_ndo_set_vf_bw(struct net_device *netdev, int vf_idx, int rate,
+ 			int unused);
  int fm10k_ndo_get_vf_config(struct net_device *netdev,
  			    int vf_idx, struct ifla_vf_info *ivi);
- 
-+/* DebugFS */
-+#ifdef CONFIG_DEBUG_FS
-+void fm10k_dbg_q_vector_init(struct fm10k_q_vector *q_vector);
-+void fm10k_dbg_q_vector_exit(struct fm10k_q_vector *q_vector);
-+void fm10k_dbg_intfc_init(struct fm10k_intfc *interface);
-+void fm10k_dbg_intfc_exit(struct fm10k_intfc *interface);
-+void fm10k_dbg_init(void);
-+void fm10k_dbg_exit(void);
-+#else
-+static inline void fm10k_dbg_q_vector_init(struct fm10k_q_vector *q_vector) {}
-+static inline void fm10k_dbg_q_vector_exit(struct fm10k_q_vector *q_vector) {}
-+static inline void fm10k_dbg_intfc_init(struct fm10k_intfc *interface) {}
-+static inline void fm10k_dbg_intfc_exit(struct fm10k_intfc *interface) {}
-+static inline void fm10k_dbg_init(void) {}
-+static inline void fm10k_dbg_exit(void) {}
-+#endif /* CONFIG_DEBUG_FS */
 +
- /* DCB */
- void fm10k_dcbnl_set_ops(struct net_device *dev);
++/* DCB */
++void fm10k_dcbnl_set_ops(struct net_device *dev);
  #endif /* _FM10K_H_ */
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c b/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c b/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
 new file mode 100644
-index 0000000..4327f86
+index 0000000..212a92d
 --- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
-@@ -0,0 +1,259 @@
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_dcbnl.c
+@@ -0,0 +1,174 @@
 +/* Intel Ethernet Switch Host Interface Driver
 + * Copyright(c) 2013 - 2014 Intel Corporation.
 + *
@@ -161,308 +94,191 @@ index 0000000..4327f86
 + * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
 + */
 +
-+#ifdef CONFIG_DEBUG_FS
-+
 +#include "fm10k.h"
 +
-+#include <linux/debugfs.h>
-+#include <linux/seq_file.h>
-+
-+static struct dentry *dbg_root;
-+
-+/* Descriptor Seq Functions */
-+
-+static void *fm10k_dbg_desc_seq_start(struct seq_file *s, loff_t *pos)
-+{
-+	struct fm10k_ring *ring = s->private;
-+
-+	return (*pos < ring->count) ? pos : NULL;
-+}
-+
-+static void *fm10k_dbg_desc_seq_next(struct seq_file *s, void *v, loff_t *pos)
-+{
-+	struct fm10k_ring *ring = s->private;
-+
-+	return (++(*pos) < ring->count) ? pos : NULL;
-+}
-+
-+static void fm10k_dbg_desc_seq_stop(struct seq_file *s, void *v)
-+{
-+	/* Do nothing. */
-+}
-+
-+static void fm10k_dbg_desc_break(struct seq_file *s, int i)
-+{
-+	while (i--)
-+		seq_puts(s, "-");
-+
-+	seq_puts(s, "\n");
-+}
-+
-+static int fm10k_dbg_tx_desc_seq_show(struct seq_file *s, void *v)
-+{
-+	struct fm10k_ring *ring = s->private;
-+	int i = *(loff_t *)v;
-+	static const char tx_desc_hdr[] =
-+		"DES BUFFER_ADDRESS     LENGTH VLAN   MSS    HDRLEN FLAGS\n";
-+
-+	/* Generate header */
-+	if (!i) {
-+		seq_printf(s, tx_desc_hdr);
-+		fm10k_dbg_desc_break(s, sizeof(tx_desc_hdr) - 1);
-+	}
-+
-+	/* Validate descriptor allocation */
-+	if (!ring->desc) {
-+		seq_printf(s, "%03X Descriptor ring not allocated.\n", i);
-+	} else {
-+		struct fm10k_tx_desc *txd = FM10K_TX_DESC(ring, i);
-+
-+		seq_printf(s, "%03X %#018llx %#06x %#06x %#06x %#06x %#04x\n",
-+			   i, txd->buffer_addr, txd->buflen, txd->vlan,
-+			   txd->mss, txd->hdrlen, txd->flags);
-+	}
-+
-+	return 0;
-+}
-+
-+static int fm10k_dbg_rx_desc_seq_show(struct seq_file *s, void *v)
-+{
-+	struct fm10k_ring *ring = s->private;
-+	int i = *(loff_t *)v;
-+	static const char rx_desc_hdr[] =
-+	"DES DATA       RSS        STATERR    LENGTH VLAN   DGLORT SGLORT TIMESTAMP\n";
-+
-+	/* Generate header */
-+	if (!i) {
-+		seq_printf(s, rx_desc_hdr);
-+		fm10k_dbg_desc_break(s, sizeof(rx_desc_hdr) - 1);
-+	}
-+
-+	/* Validate descriptor allocation */
-+	if (!ring->desc) {
-+		seq_printf(s, "%03X Descriptor ring not allocated.\n", i);
-+	} else {
-+		union fm10k_rx_desc *rxd = FM10K_RX_DESC(ring, i);
-+
-+		seq_printf(s,
-+			   "%03X %#010x %#010x %#010x %#06x %#06x %#06x %#06x %#018llx\n",
-+			   i, rxd->d.data, rxd->d.rss, rxd->d.staterr,
-+			   rxd->w.length, rxd->w.vlan, rxd->w.dglort,
-+			   rxd->w.sglort, rxd->q.timestamp);
-+	}
-+
-+	return 0;
-+}
-+
-+static const struct seq_operations fm10k_dbg_tx_desc_seq_ops = {
-+	.start = fm10k_dbg_desc_seq_start,
-+	.next  = fm10k_dbg_desc_seq_next,
-+	.stop  = fm10k_dbg_desc_seq_stop,
-+	.show  = fm10k_dbg_tx_desc_seq_show,
-+};
-+
-+static const struct seq_operations fm10k_dbg_rx_desc_seq_ops = {
-+	.start = fm10k_dbg_desc_seq_start,
-+	.next  = fm10k_dbg_desc_seq_next,
-+	.stop  = fm10k_dbg_desc_seq_stop,
-+	.show  = fm10k_dbg_rx_desc_seq_show,
-+};
-+
-+static int fm10k_dbg_desc_open(struct inode *inode, struct file *filep)
-+{
-+	struct fm10k_ring *ring = inode->i_private;
-+	struct fm10k_q_vector *q_vector = ring->q_vector;
-+	const struct seq_operations *desc_seq_ops;
-+	int err;
-+
-+	if (ring < q_vector->rx.ring)
-+		desc_seq_ops = &fm10k_dbg_tx_desc_seq_ops;
-+	else
-+		desc_seq_ops = &fm10k_dbg_rx_desc_seq_ops;
-+
-+	err = seq_open(filep, desc_seq_ops);
-+	if (err)
-+		return err;
-+
-+	((struct seq_file *)filep->private_data)->private = ring;
-+
-+	return 0;
-+}
-+
-+static const struct file_operations fm10k_dbg_desc_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = fm10k_dbg_desc_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = seq_release,
-+};
-+
++#ifdef CONFIG_DCB
 +/**
-+ * fm10k_dbg_q_vector_init - setup debugfs for the q_vectors
-+ * @q_vector: q_vector to allocate directories for
-+ *
-+ * A folder is created for each q_vector found. In each q_vector
-+ * folder, a debugfs file is created for each tx and rx ring
-+ * allocated to the q_vector.
++ * fm10k_dcbnl_ieee_getets - get the ETS configuration for the device
++ * @dev: netdev interface for the device
++ * @ets: ETS structure to push configuration to
 + **/
-+void fm10k_dbg_q_vector_init(struct fm10k_q_vector *q_vector)
++static int fm10k_dcbnl_ieee_getets(struct net_device *dev, struct ieee_ets *ets)
 +{
-+	struct fm10k_intfc *interface = q_vector->interface;
-+	char name[16];
 +	int i;
 +
-+	if (!interface->dbg_intfc)
-+		return;
++	/* we support 8 TCs in all modes */
++	ets->ets_cap = IEEE_8021QAZ_MAX_TCS;
++	ets->cbs = 0;
 +
-+	/* Generate a folder for each q_vector */
-+	sprintf(name, "q_vector.%03d", q_vector->v_idx);
++	/* we only support strict priority and cannot do traffic shaping */
++	memset(ets->tc_tx_bw, 0, sizeof(ets->tc_tx_bw));
++	memset(ets->tc_rx_bw, 0, sizeof(ets->tc_rx_bw));
++	memset(ets->tc_tsa, IEEE_8021QAZ_TSA_STRICT, sizeof(ets->tc_tsa));
 +
-+	q_vector->dbg_q_vector = debugfs_create_dir(name, interface->dbg_intfc);
-+	if (!q_vector->dbg_q_vector)
-+		return;
++	/* populate the prio map based on the netdev */
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
++		ets->prio_tc[i] = netdev_get_prio_tc_map(dev, i);
 +
-+	/* Generate a file for each rx ring in the q_vector */
-+	for (i = 0; i < q_vector->tx.count; i++) {
-+		struct fm10k_ring *ring = &q_vector->tx.ring[i];
++	return 0;
++}
 +
-+		sprintf(name, "tx_ring.%03d", ring->queue_index);
++/**
++ * fm10k_dcbnl_ieee_setets - set the ETS configuration for the device
++ * @dev: netdev interface for the device
++ * @ets: ETS structure to pull configuration from
++ **/
++static int fm10k_dcbnl_ieee_setets(struct net_device *dev, struct ieee_ets *ets)
++{
++	u8 num_tc = 0;
++	int i, err;
 +
-+		debugfs_create_file(name, 0600,
-+				    q_vector->dbg_q_vector, ring,
-+				    &fm10k_dbg_desc_fops);
++	/* verify type and determine num_tcs needed */
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
++		if (ets->tc_tx_bw[i] || ets->tc_rx_bw[i])
++			return -EINVAL;
++		if (ets->tc_tsa[i] != IEEE_8021QAZ_TSA_STRICT)
++			return -EINVAL;
++		if (ets->prio_tc[i] > num_tc)
++			num_tc = ets->prio_tc[i];
 +	}
 +
-+	/* Generate a file for each rx ring in the q_vector */
-+	for (i = 0; i < q_vector->rx.count; i++) {
-+		struct fm10k_ring *ring = &q_vector->rx.ring[i];
++	/* if requested TC is greater than 0 then num_tcs is max + 1 */
++	if (num_tc)
++		num_tc++;
 +
-+		sprintf(name, "rx_ring.%03d", ring->queue_index);
++	if (num_tc > IEEE_8021QAZ_MAX_TCS)
++		return -EINVAL;
 +
-+		debugfs_create_file(name, 0600,
-+				    q_vector->dbg_q_vector, ring,
-+				    &fm10k_dbg_desc_fops);
++	/* update TC hardware mapping if necessary */
++	if (num_tc != netdev_get_num_tc(dev)) {
++		err = fm10k_setup_tc(dev, num_tc);
++		if (err)
++			return err;
 +	}
++
++	/* update priority mapping */
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
++		netdev_set_prio_tc_map(dev, i, ets->prio_tc[i]);
++
++	return 0;
 +}
 +
 +/**
-+ * fm10k_dbg_free_q_vector_dir - setup debugfs for the q_vectors
-+ * @q_vector: q_vector to allocate directories for
++ * fm10k_dcbnl_ieee_getpfc - get the PFC configuration for the device
++ * @dev: netdev interface for the device
++ * @pfc: PFC structure to push configuration to
 + **/
-+void fm10k_dbg_q_vector_exit(struct fm10k_q_vector *q_vector)
++static int fm10k_dcbnl_ieee_getpfc(struct net_device *dev, struct ieee_pfc *pfc)
 +{
-+	struct fm10k_intfc *interface = q_vector->interface;
++	struct fm10k_intfc *interface = netdev_priv(dev);
 +
-+	if (interface->dbg_intfc)
-+		debugfs_remove_recursive(q_vector->dbg_q_vector);
-+	q_vector->dbg_q_vector = NULL;
++	/* record flow control max count and state of TCs */
++	pfc->pfc_cap = IEEE_8021QAZ_MAX_TCS;
++	pfc->pfc_en = interface->pfc_en;
++
++	return 0;
 +}
 +
 +/**
-+ * fm10k_dbg_intfc_init - setup the debugfs directory for the intferface
-+ * @interface: the interface that is starting up
++ * fm10k_dcbnl_ieee_setpfc - set the PFC configuration for the device
++ * @dev: netdev interface for the device
++ * @pfc: PFC structure to pull configuration from
 + **/
-+
-+void fm10k_dbg_intfc_init(struct fm10k_intfc *interface)
++static int fm10k_dcbnl_ieee_setpfc(struct net_device *dev, struct ieee_pfc *pfc)
 +{
-+	const char *name = pci_name(interface->pdev);
++	struct fm10k_intfc *interface = netdev_priv(dev);
 +
-+	if (dbg_root)
-+		interface->dbg_intfc = debugfs_create_dir(name, dbg_root);
++	/* record PFC configuration to interface */
++	interface->pfc_en = pfc->pfc_en;
++
++	/* if we are running update the drop_en state for all queues */
++	if (netif_running(dev))
++		fm10k_update_rx_drop_en(interface);
++
++	return 0;
 +}
 +
 +/**
-+ * fm10k_dbg_intfc_exit - clean out the interface's debugfs entries
-+ * @interface: the interface that is stopping
++ * fm10k_dcbnl_ieee_getdcbx - get the DCBX configuration for the device
++ * @dev: netdev interface for the device
++ *
++ * Returns that we support only IEEE DCB for this interface
 + **/
-+void fm10k_dbg_intfc_exit(struct fm10k_intfc *interface)
++static u8 fm10k_dcbnl_getdcbx(struct net_device *dev)
 +{
-+	if (dbg_root)
-+		debugfs_remove_recursive(interface->dbg_intfc);
-+	interface->dbg_intfc = NULL;
++	return DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_IEEE;
 +}
 +
 +/**
-+ * fm10k_dbg_init - start up debugfs for the driver
++ * fm10k_dcbnl_ieee_setdcbx - get the DCBX configuration for the device
++ * @dev: netdev interface for the device
++ * @mode: new mode for this device
++ *
++ * Returns error on attempt to enable anything but IEEE DCB for this interface
 + **/
-+void fm10k_dbg_init(void)
++static u8 fm10k_dcbnl_setdcbx(struct net_device *dev, u8 mode)
 +{
-+	dbg_root = debugfs_create_dir(fm10k_driver_name, NULL);
++	return (mode != (DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_IEEE)) ? 1 : 0;
 +}
 +
++static const struct dcbnl_rtnl_ops fm10k_dcbnl_ops = {
++	.ieee_getets	= fm10k_dcbnl_ieee_getets,
++	.ieee_setets	= fm10k_dcbnl_ieee_setets,
++	.ieee_getpfc	= fm10k_dcbnl_ieee_getpfc,
++	.ieee_setpfc	= fm10k_dcbnl_ieee_setpfc,
++
++	.getdcbx	= fm10k_dcbnl_getdcbx,
++	.setdcbx	= fm10k_dcbnl_setdcbx,
++};
++
++#endif /* CONFIG_DCB */
 +/**
-+ * fm10k_dbg_exit - clean out the driver's debugfs entries
++ * fm10k_dcbnl_set_ops - Configures dcbnl ops pointer for netdev
++ * @dev: netdev interface for the device
++ *
++ * Enables PF for DCB by assigning DCBNL ops pointer.
 + **/
-+void fm10k_dbg_exit(void)
++void fm10k_dcbnl_set_ops(struct net_device *dev)
 +{
-+	debugfs_remove_recursive(dbg_root);
-+	dbg_root = NULL;
++#ifdef CONFIG_DCB
++	struct fm10k_intfc *interface = netdev_priv(dev);
++	struct fm10k_hw *hw = &interface->hw;
++
++	if (hw->mac.type == fm10k_mac_pf)
++		dev->dcbnl_ops = &fm10k_dcbnl_ops;
++#endif /* CONFIG_DCB */
 +}
-+
-+#endif /* CONFIG_DEBUG_FS */
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index d2c189b..d998733 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -52,6 +52,8 @@ static int __init fm10k_init_module(void)
- 	pr_info("%s - version %s\n", fm10k_driver_string, fm10k_driver_version);
- 	pr_info("%s\n", fm10k_copyright);
- 
-+	fm10k_dbg_init();
-+
- 	return fm10k_register_pci_driver();
- }
- module_init(fm10k_init_module);
-@@ -65,6 +67,8 @@ module_init(fm10k_init_module);
- static void __exit fm10k_exit_module(void)
- {
- 	fm10k_unregister_pci_driver();
-+
-+	fm10k_dbg_exit();
- }
- module_exit(fm10k_exit_module);
- 
-@@ -1617,6 +1621,8 @@ static int fm10k_alloc_q_vector(struct fm10k_intfc *interface,
- 		ring++;
- 	}
- 
-+	fm10k_dbg_q_vector_init(q_vector);
-+
- 	return 0;
- }
- 
-@@ -1634,6 +1640,8 @@ static void fm10k_free_q_vector(struct fm10k_intfc *interface, int v_idx)
- 	struct fm10k_q_vector *q_vector = interface->q_vector[v_idx];
- 	struct fm10k_ring *ring;
- 
-+	fm10k_dbg_q_vector_exit(q_vector);
-+
- 	fm10k_for_each_ring(ring, q_vector->tx)
- 		interface->tx_ring[ring->queue_index] = NULL;
- 
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 04ca7f2..74d7d47 100644
+index 7935c1a..04ca7f2 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -1690,6 +1690,9 @@ static int fm10k_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_sw_init;
+@@ -649,7 +649,7 @@ static void fm10k_configure_rx_ring(struct fm10k_intfc *interface,
+ 	fm10k_write_reg(hw, FM10K_SRRCTL(reg_idx), srrctl);
  
-+	/* enable debugfs support */
-+	fm10k_dbg_intfc_init(interface);
+ 	/* Enable drop on empty */
+-#if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
++#ifdef CONFIG_DCB
+ 	if (interface->pfc_en)
+ 		rx_pause = interface->pfc_en;
+ #endif
+@@ -688,7 +688,7 @@ void fm10k_update_rx_drop_en(struct fm10k_intfc *interface)
+ 	u8 rx_pause = interface->rx_pause;
+ 	int i;
+ 
+-#if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
++#ifdef CONFIG_DCB
+ 	if (interface->pfc_en)
+ 		rx_pause = interface->pfc_en;
+ 
+@@ -1556,6 +1556,9 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
+ 		netdev->hw_features &= ~NETIF_F_GSO_UDP_TUNNEL;
+ 	}
+ 
++	/* initialize DCBNL interface */
++	fm10k_dcbnl_set_ops(netdev);
 +
- 	err = fm10k_init_queueing_scheme(interface);
- 	if (err)
- 		goto err_sw_init;
-@@ -1786,6 +1789,9 @@ static void fm10k_remove(struct pci_dev *pdev)
- 	/* free interrupts */
- 	fm10k_clear_queueing_scheme(interface);
- 
-+	/* remove any debugfs interfaces */
-+	fm10k_dbg_intfc_exit(interface);
-+
- 	iounmap(interface->uc_addr);
- 
- 	free_netdev(netdev);
+ 	/* Initialize service timer and service task */
+ 	set_bit(__FM10K_SERVICE_DISABLE, &interface->state);
+ 	setup_timer(&interface->service_timer, &fm10k_service_timer,
 -- 
 1.9.3
