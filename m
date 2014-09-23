@@ -1,31 +1,44 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: LTP recv/recvmsg tests failing on 3.17
-Date: Tue, 23 Sep 2014 12:24:57 -0400
-Message-ID: <CA+FuTSeyzMayJ6zR8KBpt_Wu-orCowMDtTOwXxp84-RobBZ1xA@mail.gmail.com>
-References: <20140923091108.2788de76@as> <CA+FuTScNSGYxWtB-D_iL_7TQO=z4r5_29-W8d=VRwh1M6Ym_UQ@mail.gmail.com>
- <20140923103933.1b5fb88b@as>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/5] netfilter: nft_rbtree: no need for spinlock from
+ set destroy path
+Date: Tue, 23 Sep 2014 09:29:37 -0700
+Message-ID: <1411489777.15395.1.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1411464288-18069-1-git-send-email-pablo@netfilter.org>
+	 <1411464288-18069-3-git-send-email-pablo@netfilter.org>
+	 <1411465957.26859.179.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140923110159.GA20055@salvia>
+	 <1411473245.26859.188.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140923161040.GA3609@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>
-To: Chuck Ebbert <cebbert.lkml@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f44.google.com ([209.85.216.44]:52298 "EHLO
-	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753708AbaIWQZ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:25:29 -0400
-Received: by mail-qa0-f44.google.com with SMTP id x12so1940698qac.3
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 09:25:29 -0700 (PDT)
-In-Reply-To: <20140923103933.1b5fb88b@as>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:64920 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932215AbaIWQ3g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:29:36 -0400
+In-Reply-To: <20140923161040.GA3609@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> But I was also wondering why we return EAGAIN here for no data waiting,
-> when we return EINVAL for the same case with a different type of data.
-> There's no spec and it's not documented, so I guess the answer is "it's
-> always been that way."
+On Tue, 2014-09-23 at 18:10 +0200, Pablo Neira Ayuso wrote:
 
-EAGAIN is the common response. I don't know why TCP urgent
-data returns EINVAL. It is unusual enough that the relevant line
-in tcp_recv_urg explicitly comments on it:
+> Actually, I could add to nft_data a pointer in the union area, but I'm
+> not very confortable with adding it for this specific case. At this
+> moment we're releasing this from rcu_callback which is "hiding" the
+> deletion time from the netlink interface.
+> 
+> But I'll keep this back in my head if we later on have some pointer
+> candidate to be reused in a nice way.
+> 
+> I'll send a patch to make the rb_first()/rb_next() conversion though.
 
-                return -EINVAL; /* Yes this is right ! */
+Ah, forget what I said, its actually slower to build a list by 7%, I had
+an error in my test.
+
+So the rb_first() thing is the easy and fast way.
+
+Thanks
