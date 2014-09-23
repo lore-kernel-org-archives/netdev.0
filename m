@@ -1,59 +1,77 @@
-From: Mark Einon <mark.einon@gmail.com>
-Subject: Re: [RFC PATCH linux-next] et131x: Promote staging et131x driver to
- drivers/net
-Date: Tue, 23 Sep 2014 10:50:04 +0100
-Message-ID: <20140923095004.GB5130@leicester.auvation.com>
-References: <1411421283-25073-1-git-send-email-mark.einon@gmail.com>
- <1411437445.2952.61.camel@joe-AO725>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
+Date: Tue, 23 Sep 2014 10:52:05 +0100
+Message-ID: <20140923095205.GC6944@casper.infradead.org>
+References: <20140919154946.GH1980@nanopsycho.orion>
+ <541C6E6D.9000109@mojatatu.com>
+ <541CAA3C.5080105@intel.com>
+ <20140920081426.GE1821@nanopsycho.orion>
+ <20140920105354.GA29419@casper.infradead.org>
+ <CAADnVQK0wT2Fjqdg+C=ruSt8jF6sKeMo7cFj7K1fsu7-1u5g=g@mail.gmail.com>
+ <20140922081341.GA20905@casper.infradead.org>
+ <CA+mtBx-ZvkZ2ALGLsLEN7Cgn9gN_rY36ZhuqYC3mZ9WVxjFDaQ@mail.gmail.com>
+ <CAADnVQKhUAR=qVg9q82ngYMzQnoDVbq+wupzdMrH8WiCeMiU4A@mail.gmail.com>
+ <CA+mtBx-mJE6SW2bqf3_t6iu=o5FY1WAF1ByeZpDJnc+6fpK6nA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
- netdev@vger.kernel.org, davem@davemloft.net, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Vladislav Yasevich <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:59829 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754134AbaIWJwK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 05:52:10 -0400
 Content-Disposition: inline
-In-Reply-To: <1411437445.2952.61.camel@joe-AO725>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CA+mtBx-mJE6SW2bqf3_t6iu=o5FY1WAF1ByeZpDJnc+6fpK6nA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 22, 2014 at 06:57:25PM -0700, Joe Perches wrote:
-> On Mon, 2014-09-22 at 22:28 +0100, Mark Einon wrote:
-> > This patch moves the et131x gigabit ethernet driver from drivers/staging
-> > to drivers/net/ethernet/agere.
-> > 
-> > There are no known issues at this time.
-> 
-> This doesn't apply to -next or -linux
+On 09/22/14 at 07:16pm, Tom Herbert wrote:
+> Turn on UDP RSS on the device and I bet you'll see those differences
+> go away! Once we moved to UDP encapsulation, there's really little
+> value in looking at inner headers for RSS or ECMP, this should be
+> sufficient. Sure someone might want to parse the inner headers for
+> some sort of advanced RX steering, but again this implies rx-filtering
+> and not switch functionality.
 
-Hi Joe,
+Agreed. The reason we discuss this in the context of this thread is
+because the required rx-filtering capabilities seem to be introduced
+in the form of (adapted) switch chip integrations onto NICs. In that
+sense, OVS is essentially doing advanced RX steering in software.
 
-Thanks for the review.
+I agree that switch functionality (whatever that specifically implies)
+is not strictly required for the host if you consider queue
+redirection as part of RX steering. The exception here would be use
+of SR-IOV which could be highly interesting for corner cases if
+combined with smart elephant guest detection. A classic example would
+be NFV deployed in a virtualized environment, i.e. a virtual firewall
+or DPI application serving a bunch of guests.
 
-Yes, there are a further (minor) 8 patches by me on the driver-devel
-list that are needed that this patch is based upon, as per my comment
-below. As the merge window is close, I've put this out an an RFC to
-get feedback ASAP.
+> If this is something that doesn't require any model change to the
+> stack and is just a clever backend for rx-filters or tc, then I'm fine
+> with that!
 
-> 
-> []
-> > This patch will only apply once the last few pending changes
-> > make their way from staging-next to linux-next, but posting
-> > now in the hope that feedback can be given and this change can
-> > make it in before the next merge window.n yo
-> 
-> When you do post the actual patch, can you please use
-> "git format-patch -M" so that the patch is significantly
-> smaller and the renames are obvious?
-
-Will do, thanks.
-
-Mark
+I haven't seen any model change proposed. I'm most certainly not
+advocating that. Anyone who can live a model change might as well
+just stick to SnabbSwitch or DPDK.
