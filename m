@@ -1,64 +1,99 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [PATCH net-next 3/3] tcp: better TCP_SKB_CB layout to reduce
- cache line misses
-Date: Tue, 23 Sep 2014 09:36:53 +0200
-Message-ID: <20140923073653.GM3291@cpaasch-mac>
-References: <1411429844-11099-1-git-send-email-edumazet@google.com>
- <1411429844-11099-4-git-send-email-edumazet@google.com>
- <20140923072016.GL3291@cpaasch-mac>
-Mime-Version: 1.0
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCHv3 1/1] bluetooth: Check for SCO type before setting retransmission effort
+Date: Tue, 23 Sep 2014 09:44:33 +0200
+Message-ID: <736161F0-DA1F-4AD4-B74A-22FCAB58B23F@holtmann.org>
+References: <1411035321-10215-1-git-send-email-bernhard.thaler@r-it.at> <1411451964-4025-1-git-send-email-bernhard.thaler@r-it.at>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Transfer-Encoding: 8BIT
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bernhard Thaler <bernhard.thaler@r-it.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f180.google.com ([74.125.82.180]:58163 "EHLO
-	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750797AbaIWHg5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 03:36:57 -0400
-Received: by mail-we0-f180.google.com with SMTP id u56so4075556wes.25
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 00:36:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140923072016.GL3291@cpaasch-mac>
+Received: from senator.holtmann.net ([87.106.208.187]:48145 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753959AbaIWHoi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 03:44:38 -0400
+In-Reply-To: <1411451964-4025-1-git-send-email-bernhard.thaler@r-it.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/09/14 - 09:20:16, Christoph Paasch wrote:
-> Hello Eric,
+Hi Bernhard,
+
+> SCO connection cannot be setup to devices that do not support retransmission.
+> Patch based on http://permalink.gmane.org/gmane.linux.bluez.kernel/7779 and
+> adapted for this kernel version.
+> Code changed to check SCO/eSCO type before setting retransmission effort
+> and max. latency. The purpose of the patch is to support older devices not
+> capable of eSCO.
 > 
-> On 22/09/14 - 16:50:44, Eric Dumazet wrote:
-> > TCP maintains lists of skb in write queue, and in receive queues
-> > (in order and out of order queues)
-> > 
-> > Scanning these lists both in input and output path usually requires
-> > access to skb->next, TCP_SKB_CB(skb)->seq, and TCP_SKB_CB(skb)->end_seq
-> > 
-> > These fields are currently in two different cache lines, meaning we
-> > waste lot of memory bandwidth when these queues are big and flows
-> > have either packet drops or packet reorders.
-> > 
-> > We can move TCP_SKB_CB(skb)->header at the end of TCP_SKB_CB, because
-> > this header is not used in fast path. This allows TCP to search much faster
-> > in the skb lists.
-> > 
-> > Even with regular flows, we save one cache line miss in fast path.
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > ---
-> >  include/net/tcp.h   | 12 ++++++------
-> >  net/ipv4/tcp_ipv4.c |  7 +++++++
-> >  net/ipv6/tcp_ipv6.c |  7 +++++++
-> >  3 files changed, 20 insertions(+), 6 deletions(-)
+> Tested on Blackberry 655+ headset which does not support retransmission.
+> Credits go to Alexander Sommerhuber.
 > 
-> doesn't also the tx-path relies on IPCB(skb) being memset to 0 (e.g., in
-> xfrm4_output or ip_options_build)
+> Signed-off-by: Bernhard Thaler <bernhard.thaler@r-it.at>
+> ---
+> net/bluetooth/hci_conn.c |   22 +++++++++++++++++-----
+> 1 file changed, 17 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
+> index faff624..32dcde1 100644
+> --- a/net/bluetooth/hci_conn.c
+> +++ b/net/bluetooth/hci_conn.c
+> @@ -38,7 +38,7 @@ struct sco_param {
+> 	u16 max_latency;
+> };
+> 
+> -static const struct sco_param sco_param_cvsd[] = {
+> +static const struct sco_param esco_param_cvsd[] = {
+> 	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x000a }, /* S3 */
+> 	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x0007 }, /* S2 */
+> 	{ EDR_ESCO_MASK | ESCO_EV3,   0x0007 }, /* S1 */
+> @@ -46,6 +46,11 @@ static const struct sco_param sco_param_cvsd[] = {
+> 	{ EDR_ESCO_MASK | ESCO_HV1,   0xffff }, /* D0 */
+> };
+> 
+> +static const struct sco_param sco_param_cvsd[] = {
+> +	{ EDR_ESCO_MASK | ESCO_HV3,   0xffff }, /* D1 */
+> +	{ EDR_ESCO_MASK | ESCO_HV1,   0xffff }, /* D0 */
+> +};
+> +
+> static const struct sco_param sco_param_wideband[] = {
+> 	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x000d }, /* T2 */
+> 	{ EDR_ESCO_MASK | ESCO_EV3,   0x0008 }, /* T1 */
+> @@ -194,10 +199,17 @@ bool hci_setup_sync(struct hci_conn *conn, __u16 handle)
+> 		param = &sco_param_wideband[conn->attempt - 1];
+> 		break;
+> 	case SCO_AIRMODE_CVSD:
+> -		if (conn->attempt > ARRAY_SIZE(sco_param_cvsd))
+> -			return false;
+> -		cp.retrans_effort = 0x01;
+> -		param = &sco_param_cvsd[conn->attempt - 1];
+> +		if (!lmp_esco_capable(conn->link)) {
 
-Crap, forget about ip_options_build. It is memcpy'ing into IPCB... Confused
-src with dest... :-)
+please change this statement around to check if eSCO support exists and not if it does not exist. The negation is pointless if you have an else branch anyway.
 
-Nevertheless, wouldn't there be a problem in xfrm4_output?
+> +			if ((conn->attempt) > ARRAY_SIZE(sco_param_cvsd))
 
+The extra (conn->attempt) is not needed. Just do (conn->attempt > ARRAY_SIZE(..))
 
-Cheers,
-Christoph
+> +				return false;
+> +			cp.retrans_effort = 0xff;
+> +			param = &sco_param_cvsd[conn->attempt - 1];
+> +		} else {
+> +			if (conn->attempt > ARRAY_SIZE(esco_param_cvsd))
+> +				return false;
+> +			cp.retrans_effort = 0x01;
+> +			param = &esco_param_cvsd[conn->attempt - 1];
+> +		}
+> 		break;
+> 	default:
+> 		return false;
+
+The rest looks fine.
+
+Regards
+
+Marcel
