@@ -1,35 +1,79 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next] mellanox: Change en_print to return void
-Date: Tue, 23 Sep 2014 08:45:54 +0300
-Message-ID: <54210912.1000203@mellanox.com>
-References: <1411407622.2952.49.camel@joe-AO725>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:50057 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751730AbaIWFva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 01:51:30 -0400
-In-Reply-To: <1411407622.2952.49.camel@joe-AO725>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bernhard Thaler <bernhard.thaler@r-it.at>
+Subject: [PATCHv3 1/1] bluetooth: Check for SCO type before setting retransmission effort
+Date: Tue, 23 Sep 2014 07:59:24 +0200
+Message-ID: <1411451964-4025-1-git-send-email-bernhard.thaler@r-it.at>
+References: <1411035321-10215-1-git-send-email-bernhard.thaler@r-it.at>
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Bernhard Thaler <bernhard.thaler@r-it.at>
+To: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1411035321-10215-1-git-send-email-bernhard.thaler@r-it.at>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/22/2014 8:40 PM, Joe Perches wrote:
-> No caller or macro uses the return value so make it void.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
-> This change is associated to a desire to eventually
-> change printk to return void.
-> 
->  drivers/net/ethernet/mellanox/mlx4/en_main.c | 17 +++++++----------
->  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  4 ++--
->  2 files changed, 9 insertions(+), 12 deletions(-)
+SCO connection cannot be setup to devices that do not support retransmission.
+Patch based on http://permalink.gmane.org/gmane.linux.bluez.kernel/7779 and
+adapted for this kernel version.
+Code changed to check SCO/eSCO type before setting retransmission effort
+and max. latency. The purpose of the patch is to support older devices not
+ capable of eSCO.
 
-Thanks Joe.
+Tested on Blackberry 655+ headset which does not support retransmission.
+Credits go to Alexander Sommerhuber.
 
-Acked-By: Amir Vadai <amirv@mellanox.com>
+Signed-off-by: Bernhard Thaler <bernhard.thaler@r-it.at>
+---
+ net/bluetooth/hci_conn.c |   22 +++++++++++++++++-----
+ 1 file changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
+index faff624..32dcde1 100644
+--- a/net/bluetooth/hci_conn.c
++++ b/net/bluetooth/hci_conn.c
+@@ -38,7 +38,7 @@ struct sco_param {
+ 	u16 max_latency;
+ };
+ 
+-static const struct sco_param sco_param_cvsd[] = {
++static const struct sco_param esco_param_cvsd[] = {
+ 	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x000a }, /* S3 */
+ 	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x0007 }, /* S2 */
+ 	{ EDR_ESCO_MASK | ESCO_EV3,   0x0007 }, /* S1 */
+@@ -46,6 +46,11 @@ static const struct sco_param sco_param_cvsd[] = {
+ 	{ EDR_ESCO_MASK | ESCO_HV1,   0xffff }, /* D0 */
+ };
+ 
++static const struct sco_param sco_param_cvsd[] = {
++	{ EDR_ESCO_MASK | ESCO_HV3,   0xffff }, /* D1 */
++	{ EDR_ESCO_MASK | ESCO_HV1,   0xffff }, /* D0 */
++};
++
+ static const struct sco_param sco_param_wideband[] = {
+ 	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x000d }, /* T2 */
+ 	{ EDR_ESCO_MASK | ESCO_EV3,   0x0008 }, /* T1 */
+@@ -194,10 +199,17 @@ bool hci_setup_sync(struct hci_conn *conn, __u16 handle)
+ 		param = &sco_param_wideband[conn->attempt - 1];
+ 		break;
+ 	case SCO_AIRMODE_CVSD:
+-		if (conn->attempt > ARRAY_SIZE(sco_param_cvsd))
+-			return false;
+-		cp.retrans_effort = 0x01;
+-		param = &sco_param_cvsd[conn->attempt - 1];
++		if (!lmp_esco_capable(conn->link)) {
++			if ((conn->attempt) > ARRAY_SIZE(sco_param_cvsd))
++				return false;
++			cp.retrans_effort = 0xff;
++			param = &sco_param_cvsd[conn->attempt - 1];
++		} else {
++			if (conn->attempt > ARRAY_SIZE(esco_param_cvsd))
++				return false;
++			cp.retrans_effort = 0x01;
++			param = &esco_param_cvsd[conn->attempt - 1];
++		}
+ 		break;
+ 	default:
+ 		return false;
+-- 
+1.7.10.4
