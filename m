@@ -1,43 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH linux-next] et131x: Promote staging et131x driver to
- drivers/net
-Date: Tue, 23 Sep 2014 12:17:55 -0700
-Message-ID: <1411499875.29268.7.camel@joe-AO725>
-References: <1411421283-25073-1-git-send-email-mark.einon@gmail.com>
-	 <20140923072251.GD4657@distanz.ch>
-	 <20140923094614.GA5130@leicester.auvation.com>
-	 <20140923190242.GA8096@electric-eye.fr.zoreil.com>
+From: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
+Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
+Date: Tue, 23 Sep 2014 12:22:01 -0700
+Message-ID: <CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw@mail.gmail.com>
+References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Einon <mark.einon@gmail.com>,
-	Tobias Klauser <tklauser@distanz.ch>,
-	gregkh@linuxfoundation.org, davem@davemloft.net,
-	devel@driverdev.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0022.hostedemail.com ([216.40.44.22]:44102 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751638AbaIWTR7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 15:17:59 -0400
-In-Reply-To: <20140923190242.GA8096@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1411478430-4989-1-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-09-23 at 21:02 +0200, Francois Romieu wrote:
-> Mark Einon <mark.einon@gmail.com> :
-> [...]
-> > > No need for the #define here, just assigne et131x_pm_ops to .driver.pm
-> > > directly, its members will be NULL and thus never called. Also, you can
-> > > make et131x_pm_ops const.
-> > 
-> > Ok, I can change this.
-> > 
-> > Btw, this appears to be a fairly standard way of using .driver.pm among
-> > ethernet drivers, e.g. see 3com/3c59x.c, atheros, marvell... - perhaps
-> > there is a case for changing all instances of this code?
-> 
-> How about kernel tinification ?
+On Tue, Sep 23, 2014 at 6:20 AM, Nicolas Dichtel
+<nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org> wrote:
+>
+> Here is a small screenshot to show how it can be used by userland:
+> $ ip netns add foo
+> $ ip netns del foo
+> $ ip netns
+> $ touch /var/run/netns/init_net
+> $ mount --bind /proc/1/ns/net /var/run/netns/init_net
+> $ ip netns add foo
+> $ ip netns
+> foo (id: 3)
+> init_net (id: 1)
+> $ ip netns exec foo ip netns
+> foo (id: 3)
+> init_net (id: 1)
+> $ ip netns exec foo ip link add ipip1 link-netnsid 1 type ipip remote 10.16.0.121 local 10.16.0.249
+> $ ip netns exec foo ip l ls ipip1
+> 6: ipip1@NONE: <POINTOPOINT,NOARP> mtu 1480 qdisc noop state DOWN mode DEFAULT group default
+>     link/ipip 10.16.0.249 peer 10.16.0.121 link-netnsid 1
+>
+> The parameter link-netnsid shows us where the interface sends and receives
+> packets (and thus we know where encapsulated addresses are set).
+>
 
-The tiny case where a large number of ethernet drivers are included?
+So ipip1 is shown in netns foo but functioning in netns init_net? Getting the
+id of init_net in foo depends on your mount namespace, /var/run/netns/ may
+not visible inside foo, in this case, link-netnsid is meaningless. It
+is not your
+fault, network namespace already heavily relies on mount namespace (sysfs
+needs to be remount otherwise you can not create device with the same name.)
+
+On the other hand, what's the problem you are trying to solve? AFAIK,
+the ifindex
+issue is purely in output, IOW, the device still functions correctly
+even through
+its link ifindex is not correct after moving to another namespace. If
+not, it is bug
+we need to fix.
