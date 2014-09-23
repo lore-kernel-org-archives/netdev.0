@@ -1,33 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 04/14] tipc: add sock dump to new netlink api
-Date: Tue, 23 Sep 2014 11:37:38 -0400 (EDT)
-Message-ID: <20140923.113738.2189831519873566622.davem@davemloft.net>
-References: <54169B6C.5060709@ericsson.com>
-	<20140915.113846.1276168899072885.davem@davemloft.net>
-	<542155AF.4020805@ericsson.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ip6_udp_tunnel fails to load
+Date: Tue, 23 Sep 2014 08:39:37 -0700
+Message-ID: <1411486777.26859.189.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <54218FED.4080102@dev.mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: richard.alpe@ericsson.com
+Cc: Andy Zhou <azhou@nicira.com>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: Eyal perry <eyalpe@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34810 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753971AbaIWPhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 11:37:40 -0400
-In-Reply-To: <542155AF.4020805@ericsson.com>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:41021 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752593AbaIWPjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 11:39:36 -0400
+Received: by mail-pd0-f173.google.com with SMTP id y10so6658418pdj.4
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 08:39:36 -0700 (PDT)
+In-Reply-To: <54218FED.4080102@dev.mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Alpe <richard.alpe@ericsson.com>
-Date: Tue, 23 Sep 2014 13:12:47 +0200
+On Tue, 2014-09-23 at 18:21 +0300, Eyal perry wrote:
+> Hello Andy,
+> 
+> Lately I've start to observe a phenomena where the mlx4_en driver
+> couldn't load on my system as a result of an 'Unknown symbol in module'.
+> 
+> [ 1277.458715] ip6_udp_tunnel: Unknown symbol ip6_local_out (err 0)
+> [ 1277.486810] ip6_udp_tunnel: Unknown symbol __put_net (err 0)
+> 
+> Apparently, the mlx4_en driver is depend on the vxlan driver, which
+> depends on the ip6_udp_tunnel module which fails to load.
+> 
+> 1. I've bisected this issue down to the following commit:
+> fd38441 udp_tunnel: Seperate ipv6 functions into its own file.
+> 
+> 2. on a different host with a different .config, the module is loads
+> cleanly.
+> 
+> 3. my sources are based on net-next commit
+> 6d967f8 udp_tunnel: Only build ip6_udp_tunnel.c when IPV6 is selected
+> 
+> I'll send you both of the .config files in a private message.
+> 
+> This issue is making any driver which is depend on vxlan/ip6_udp_tunnel
+> unusable, please take a look and fix
 
-> Ideally I would like to use the existing dump framework .dumpit
-> (netlink_dump_start()) but I can't figure out a way to pass the socket
-> for which to dump publications. I really don't want to reinvent the
-> dumping mechanism. Any suggestions?
+Have you tried this patch ?
 
-Look at inet_diag, and how the dump netlink request passes in a key
-to match upon.
+https://patchwork.ozlabs.org/patch/392275/
 
-The key is of the form: include/uapi/linux/inet_diag.h:inet_diag_req{,_v2}
+Thanks
