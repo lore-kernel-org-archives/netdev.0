@@ -1,44 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: add coalescing attempt in tcp_ofo_queue()
-Date: Tue, 23 Sep 2014 12:48:29 -0400 (EDT)
-Message-ID: <20140923.124829.1758543819770208914.davem@davemloft.net>
-References: <1411140380.26859.28.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCHv6 net-next 1/3] sunvnet: upgrade to VIO protocol version
+ 1.6
+Date: Tue, 23 Sep 2014 12:49:27 -0400
+Message-ID: <5421A497.9060903@oracle.com>
+References: <541A2316.5010603@oracle.com>	<2AB76E42-C12D-47C5-8476-0D0C611691A5@oracle.com>	<541AD838.50700@oracle.com> <20140923.122420.1216927815526255624.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com
-To: eric.dumazet@gmail.com
+Cc: Raghuram.Kothakota@oracle.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35561 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756101AbaIWQsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:48:30 -0400
-In-Reply-To: <1411140380.26859.28.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:18568 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755515AbaIWQtc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:49:32 -0400
+In-Reply-To: <20140923.122420.1216927815526255624.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 19 Sep 2014 08:26:20 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> In order to make TCP more resilient in presence of reorders, we need
-> to allow coalescing to happen when skbs from out of order queue are
-> transferred into receive queue. LRO/GRO can be completely canceled
-> in some pathological cases, like per packet load balancing on aggregated
-> links.
-> 
-> I had to move tcp_try_coalesce() up in the file above tcp_ofo_queue()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
-> 
-> Note: I am not sure we really need this part in tcp_try_coalesce(),
-> as I doubt we need ack_seq in the skbs stored in receive queues ?
-> 
-> 	TCP_SKB_CB(to)->ack_seq = TCP_SKB_CB(from)->ack_seq;
 
-Yes, it's used only for incoming ACKs.  But better safe than
-sorry. :-)
+On 09/23/2014 12:24 PM, David Miller wrote:
+> From: David L Stevens <david.stevens@oracle.com>
+> Date: Thu, 18 Sep 2014 09:03:52 -0400
+> 
+>> So, if this is actually too much memory, I was more inclined to reduce the ring
+>> size rather than either add complicating code to handle active-ring reallocation
+>> that would typically be run once per boot, or another alternative of adding
+>> module parameters to specify the buffer size TSO/GSO will need 64K to perform
+>> well, regardless of the device MTU.
+> 
+> The only reason we are having this discussion is because of how we
+> handle TX packets.
+> 
+> I think we really should directly map the SKBs in vnet_start_xmit()
+> instead of having these preallocate TX buffers.
+> 
+> The only thing to accomodate is the VNET_PACKET_SKIP, but that
+> shouldn't be hard at all.
+> 
+> And I am rather certain that an LDC map call will be cheaper than
+> copying the entire packet.
+> 
+> Then the MTU will have no material impact on per-vnet_port memory
+> costs, and bulk sending performance should also increase.
+> 
 
-Applied, thanks.
+Actually, that's exactly what I've been working on for the last few
+days. I hope to post this soon. Currently, I allow for misaligned
+packets by reallocating the skbs with the proper alignment, skip and
+length restrictions, so the code can handle either, but still copies
+most of the time. Once I have all the kinks worked out there, I was
+planning to possibly make *all* skb allocations on LDOMs and/or SPARC64 fit
+those requirements, since they are compatible with the existing alignments
+and would allow using the HV copy in any case.
+
+> David I know you've worked hard on this patch set, but I'm going to
+> defer on this series for now.  There are several implementation level
+> issues that are still seemingly up in the air.
+
+	Yes, sorry if it wasn't clear in my response to Raghuram, but I
+agree to the extent that we shouldn't attach large-buffer allocations to
+something scaling at O(n^2), which is why I started on this other patch.
+
+> I'm almost completely sold on your PMTU scheme, however if we do
+> direct mapping of SKBs in vnet_start_xmit() then the performance
+> characteristics with larger MTUs might be different.
+
+	Yes; the good news is that without the fixed-size buffers,
+memory use is only for the pending traffic, greatly improving scalability.
+The bad news is that the allocs and frees will have a performance cost,
+which I'm hoping will be balanced or bettered by removing the copy.
+	Anyway, I'll repost when I have all this ready.
+
+						+-DLS
