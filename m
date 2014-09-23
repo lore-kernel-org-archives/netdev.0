@@ -1,48 +1,69 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: LTP recv/recvmsg tests failing on 3.17
-Date: Tue, 23 Sep 2014 10:57:41 -0400
-Message-ID: <CA+FuTScNSGYxWtB-D_iL_7TQO=z4r5_29-W8d=VRwh1M6Ym_UQ@mail.gmail.com>
-References: <20140923091108.2788de76@as>
+From: Michal Marek <mmarek@suse.cz>
+Subject: Re: linux-next: build warning after merge of the net tree
+Date: Tue, 23 Sep 2014 16:59:59 +0200
+Message-ID: <54218AEF.5090200@suse.cz>
+References: <20140918103200.12b79941@canb.auug.org.au> <541A28BA.1060201@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>
-To: Chuck Ebbert <cebbert.lkml@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:55372 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756185AbaIWO6O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 10:58:14 -0400
-Received: by mail-qa0-f53.google.com with SMTP id cm18so1726778qab.12
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 07:58:11 -0700 (PDT)
-In-Reply-To: <20140923091108.2788de76@as>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-kbuild <linux-kbuild@vger.kernel.org>
+To: Randy Dunlap <rdunlap@infradead.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <541A28BA.1060201@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 23, 2014 at 10:11 AM, Chuck Ebbert <cebbert.lkml@gmail.com> wrote:
-> LTP tests recv01, recvfrom01 and recvmsg01 are reporting failure on
-> their "invalid flags" tests on 3.17. They pass a value of -1 for flags
-> and expect to get EINVAL back, but now they get EAGAIN.
-..
->
-> Before this change, the first flag tested was MSG_OOB, which eventually
-> causes EINVAL to be returned. Now this flag gets tested first, and
-> ip_recv_err() returns EAGAIN.
->
-> LTP setting every flag and expecting behavior to remain unchanged is
-> probably wrong, but is EAGAIN correct here? I can't find any spec for
-> this.
+On 2014-09-18 02:35, Randy Dunlap wrote:
+> On 09/17/14 17:32, Stephen Rothwell wrote:
+>> Hi all,
+>>
+>> After merging the net tree, today's linux-next build (powerpc
+>> ppc64_defconfig) produced these warnings:
+>>
+>> warning: (PPC_CELL_NATIVE && BLUESTONE && CANYONLANDS && GLACIER && EIGER && 440EPX && 440GRX && 440GX && 460SX && 405EX) selects IBM_EMAC_RGMII which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
+>> warning: (PPC_CELL_NATIVE && CANYONLANDS && GLACIER && 440EP && 440EPX && 440GRX && 440GP && 440GX && 460SX && 405GP) selects IBM_EMAC_ZMII which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
+>> warning: (PPC_CELL_NATIVE && 440GX && 460EX && 460SX && APM821xx) selects IBM_EMAC_TAH which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
+>> warning: (PPC_CELL_NATIVE && AKEBONO && 440EPX && 440GRX && 440GX && 440SPe && 460EX && 460SX && APM821xx && 405EX) selects IBM_EMAC_EMAC4 which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
+>> warning: (PPC_CELL_NATIVE && CANYONLANDS && GLACIER && 440EP && 440EPX && 440GRX && 440GP && 440GX && 460SX && 405GP) selects IBM_EMAC_ZMII which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
+>> warning: (PPC_CELL_NATIVE && BLUESTONE && CANYONLANDS && GLACIER && EIGER && 440EPX && 440GRX && 440GX && 460SX && 405EX) selects IBM_EMAC_RGMII which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
+>> warning: (PPC_CELL_NATIVE && 440GX && 460EX && 460SX && APM821xx) selects IBM_EMAC_TAH which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
+>> warning: (PPC_CELL_NATIVE && AKEBONO && 440EPX && 440GRX && 440GX && 440SPe && 460EX && 460SX && APM821xx && 405EX) selects IBM_EMAC_EMAC4 which has unmet direct dependencies (NETDEVICES && ETHERNET && NET_VENDOR_IBM)
+>>
+> 
+> I have looked into these and don't see why there is a problem.
+> Any help would be appreciated.
 
-EINVAL does seem a suitable return value for invalid
-combinations of flags, if those are explicitly checked. The
-stack does not do this, though. Most flags are simply
-ignored. For backward compatibility, this leniency is
-likely required.
+This is a side effect of 5d6be6a5 ("scsi_netlink : Make SCSI_NETLINK
+dependent on NET instead of selecting NET"). Previously, SCSI_FC_ATTRS
+would select SCSI_NETLINK which would select CONFIG_NET. The above
+warnings are just a tip of the iceberg, the more serious issue is that
+ppc64_defconfig is lacking networking support. This is the downside of
+savedefconfig, because the 'select' implications can disappear over
+time. Looks like more defconfigs are affected by this:
 
-Previously, EINVAL was returned, but not  because msg_flags
-contained an unsupported combination. MSG_OOB happened
-to be the first tested flag in the set and happens to return
-EINVAL when no urgent data is waiting.
+$ grep -rL CONFIG_NET= arch/*/configs/ | xargs grep -l CONFIG_SCSI_FC_ATTRS=
+arch/ia64/configs/generic_defconfig
+arch/ia64/configs/gensparse_defconfig
+arch/mips/configs/ip27_defconfig
+arch/mips/configs/malta_defconfig
+arch/mips/configs/rm200_defconfig
+arch/mips/configs/malta_kvm_guest_defconfig
+arch/mips/configs/gpr_defconfig
+arch/mips/configs/jazz_defconfig
+arch/mips/configs/mtx1_defconfig
+arch/mips/configs/malta_kvm_defconfig
+arch/mips/configs/loongson3_defconfig
+arch/parisc/configs/c8000_defconfig
+arch/powerpc/configs/pseries_defconfig
+arch/powerpc/configs/pseries_le_defconfig
+arch/powerpc/configs/ppc64e_defconfig
+arch/powerpc/configs/ppc64_defconfig
+arch/powerpc/configs/pmac32_defconfig
+arch/sh/configs/sh2007_defconfig
+arch/sh/configs/sdk7780_defconfig
+arch/sparc/configs/sparc64_defconfig
 
-I think applications simply cannot assume a consistent
-return value when passing unsupported combinations
-of flags. This is undefined behavior.
+Michal
