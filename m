@@ -1,587 +1,606 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 14/29] fm10k: Add service task to handle delayed events
-Date: Tue, 23 Sep 2014 04:16:42 -0700
-Message-ID: <1411471017-28213-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 20/29] fm10k: Add support for netdev offloads
+Date: Tue, 23 Sep 2014 04:16:48 -0700
+Message-ID: <1411471017-28213-21-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:20875 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:33801 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755733AbaIWLRP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2014 07:17:15 -0400
+	id S1755517AbaIWLRW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 07:17:22 -0400
 In-Reply-To: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds support for the service task.  The service task takes care
-of all processes that cannot be done in interrupt context such as resets,
-stats updates, TC prio updates, and checking for hung or detached devices.
+This patch adds support for basic offloads including TSO, Tx checksum, Rx
+checksum, Rx hash, and the same features applied to VXLAN/NVGRE tunnels.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k.h     |  25 ++
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 435 +++++++++++++++++++++++++++
- 2 files changed, 460 insertions(+)
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c   | 307 +++++++++++++++++++++++-
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 155 +++++++++++-
+ 2 files changed, 459 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index c641f41..26a30ba 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -239,8 +239,21 @@ struct fm10k_intfc {
- 	/* TX */
- 	struct fm10k_ring *tx_ring[MAX_QUEUES] ____cacheline_aligned_in_smp;
- 
-+	u64 restart_queue;
-+	u64 tx_busy;
-+	u64 tx_csum_errors;
-+	u64 alloc_failed;
-+	u64 rx_csum_errors;
-+	u64 rx_errors;
-+
-+	u64 tx_bytes_nic;
-+	u64 tx_packets_nic;
-+	u64 rx_bytes_nic;
-+	u64 rx_packets_nic;
-+	u64 rx_drops_nic;
- 	u64 rx_overrun_pf;
- 	u64 rx_overrun_vf;
-+	u32 tx_timeout_count;
- 
- 	/* RX */
- 	struct fm10k_ring *rx_ring[MAX_QUEUES];
-@@ -257,6 +270,13 @@ struct fm10k_intfc {
- 	u16 msg_enable;
- 	u16 tx_ring_count;
- 	u16 rx_ring_count;
-+	struct timer_list service_timer;
-+	struct work_struct service_task;
-+	unsigned long next_stats_update;
-+	unsigned long next_tx_hang_check;
-+	unsigned long last_reset;
-+	unsigned long link_down_event;
-+	bool host_ready;
- 
- 	u32 reta[FM10K_RETA_SIZE];
- 	u32 rssrk[FM10K_RSSRK_SIZE];
-@@ -280,6 +300,8 @@ struct fm10k_intfc {
- enum fm10k_state_t {
- 	__FM10K_RESETTING,
- 	__FM10K_DOWN,
-+	__FM10K_SERVICE_SCHED,
-+	__FM10K_SERVICE_DISABLE,
- 	__FM10K_MBX_LOCK,
- 	__FM10K_LINK_DOWN,
- };
-@@ -379,6 +401,9 @@ int fm10k_register_pci_driver(void);
- void fm10k_unregister_pci_driver(void);
- void fm10k_up(struct fm10k_intfc *interface);
- void fm10k_down(struct fm10k_intfc *interface);
-+void fm10k_update_stats(struct fm10k_intfc *interface);
-+void fm10k_service_event_schedule(struct fm10k_intfc *interface);
-+void fm10k_update_rx_drop_en(struct fm10k_intfc *interface);
- 
- /* Netdev */
- struct net_device *fm10k_alloc_netdev(void);
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 5a28298..33d6f47 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -87,6 +87,404 @@ static int fm10k_hw_ready(struct fm10k_intfc *interface)
- 	return FM10K_REMOVED(hw->hw_addr) ? -ENODEV : 0;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index dae82d2..ac39e50 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -342,6 +342,59 @@ static struct sk_buff *fm10k_fetch_rx_buffer(struct fm10k_ring *rx_ring,
+ 	return skb;
  }
  
-+void fm10k_service_event_schedule(struct fm10k_intfc *interface)
++static inline void fm10k_rx_checksum(struct fm10k_ring *ring,
++				     union fm10k_rx_desc *rx_desc,
++				     struct sk_buff *skb)
 +{
-+	if (!test_bit(__FM10K_SERVICE_DISABLE, &interface->state) &&
-+	    !test_and_set_bit(__FM10K_SERVICE_SCHED, &interface->state))
-+		schedule_work(&interface->service_task);
-+}
++	skb_checksum_none_assert(skb);
 +
-+static void fm10k_service_event_complete(struct fm10k_intfc *interface)
-+{
-+	BUG_ON(!test_bit(__FM10K_SERVICE_SCHED, &interface->state));
-+
-+	/* flush memory to make sure state is correct before next watchog */
-+	smp_mb__before_atomic();
-+	clear_bit(__FM10K_SERVICE_SCHED, &interface->state);
-+}
-+
-+/**
-+ * fm10k_service_timer - Timer Call-back
-+ * @data: pointer to interface cast into an unsigned long
-+ **/
-+static void fm10k_service_timer(unsigned long data)
-+{
-+	struct fm10k_intfc *interface = (struct fm10k_intfc *)data;
-+
-+	/* Reset the timer */
-+	mod_timer(&interface->service_timer, (HZ * 2) + jiffies);
-+
-+	fm10k_service_event_schedule(interface);
-+}
-+
-+static void fm10k_detach_subtask(struct fm10k_intfc *interface)
-+{
-+	struct net_device *netdev = interface->netdev;
-+
-+	/* do nothing if device is still present or hw_addr is set */
-+	if (netif_device_present(netdev) || interface->hw.hw_addr)
++	/* Rx checksum disabled via ethtool */
++	if (!(ring->netdev->features & NETIF_F_RXCSUM))
 +		return;
 +
-+	rtnl_lock();
++	/* TCP/UDP checksum error bit is set */
++	if (fm10k_test_staterr(rx_desc,
++			       FM10K_RXD_STATUS_L4E |
++			       FM10K_RXD_STATUS_L4E2 |
++			       FM10K_RXD_STATUS_IPE |
++			       FM10K_RXD_STATUS_IPE2)) {
++		ring->rx_stats.csum_err++;
++		return;
++	}
 +
-+	if (netif_running(netdev))
-+		dev_close(netdev);
-+
-+	rtnl_unlock();
-+}
-+
-+static void fm10k_reinit(struct fm10k_intfc *interface)
-+{
-+	struct net_device *netdev = interface->netdev;
-+	struct fm10k_hw *hw = &interface->hw;
-+	int err;
-+
-+	WARN_ON(in_interrupt());
-+
-+	/* put off any impending NetWatchDogTimeout */
-+	netdev->trans_start = jiffies;
-+
-+	while (test_and_set_bit(__FM10K_RESETTING, &interface->state))
-+		usleep_range(1000, 2000);
-+
-+	rtnl_lock();
-+
-+	if (netif_running(netdev))
-+		fm10k_close(netdev);
-+
-+	fm10k_mbx_free_irq(interface);
-+
-+	/* delay any future reset requests */
-+	interface->last_reset = jiffies + (10 * HZ);
-+
-+	/* reset and initialize the hardware so it is in a known state */
-+	err = hw->mac.ops.reset_hw(hw) ? : hw->mac.ops.init_hw(hw);
-+	if (err)
-+		dev_err(&interface->pdev->dev, "init_hw failed: %d\n", err);
-+
-+	/* reassociate interrupts */
-+	fm10k_mbx_request_irq(interface);
-+
-+	if (netif_running(netdev))
-+		fm10k_open(netdev);
-+
-+	rtnl_unlock();
-+
-+	clear_bit(__FM10K_RESETTING, &interface->state);
-+}
-+
-+static void fm10k_reset_subtask(struct fm10k_intfc *interface)
-+{
-+	if (!(interface->flags & FM10K_FLAG_RESET_REQUESTED))
++	/* It must be a TCP or UDP packet with a valid checksum */
++	if (fm10k_test_staterr(rx_desc, FM10K_RXD_STATUS_L4CS2))
++		skb->encapsulation = true;
++	else if (!fm10k_test_staterr(rx_desc, FM10K_RXD_STATUS_L4CS))
 +		return;
 +
-+	interface->flags &= ~FM10K_FLAG_RESET_REQUESTED;
-+
-+	netdev_err(interface->netdev, "Reset interface\n");
-+	interface->tx_timeout_count++;
-+
-+	fm10k_reinit(interface);
++	skb->ip_summed = CHECKSUM_UNNECESSARY;
 +}
 +
-+/**
-+ * fm10k_configure_swpri_map - Configure Receive SWPRI to PC mapping
++#define FM10K_RSS_L4_TYPES_MASK \
++	((1ul << FM10K_RSSTYPE_IPV4_TCP) | \
++	 (1ul << FM10K_RSSTYPE_IPV4_UDP) | \
++	 (1ul << FM10K_RSSTYPE_IPV6_TCP) | \
++	 (1ul << FM10K_RSSTYPE_IPV6_UDP))
++
++static inline void fm10k_rx_hash(struct fm10k_ring *ring,
++				 union fm10k_rx_desc *rx_desc,
++				 struct sk_buff *skb)
++{
++	u16 rss_type;
++
++	if (!(ring->netdev->features & NETIF_F_RXHASH))
++		return;
++
++	rss_type = le16_to_cpu(rx_desc->w.pkt_info) & FM10K_RXD_RSSTYPE_MASK;
++	if (!rss_type)
++		return;
++
++	skb_set_hash(skb, le32_to_cpu(rx_desc->d.rss),
++		     (FM10K_RSS_L4_TYPES_MASK & (1ul << rss_type)) ?
++		     PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
++}
++
+ /**
+  * fm10k_process_skb_fields - Populate skb header fields from Rx descriptor
+  * @rx_ring: rx descriptor ring packet is being transacted on
+@@ -358,6 +411,10 @@ static unsigned int fm10k_process_skb_fields(struct fm10k_ring *rx_ring,
+ {
+ 	unsigned int len = skb->len;
+ 
++	fm10k_rx_hash(rx_ring, rx_desc, skb);
++
++	fm10k_rx_checksum(rx_ring, rx_desc, skb);
++
+ 	FM10K_CB(skb)->fi.w.vlan = rx_desc->w.vlan;
+ 
+ 	skb_record_rx_queue(skb, rx_ring->queue_index);
+@@ -569,6 +626,240 @@ static bool fm10k_clean_rx_irq(struct fm10k_q_vector *q_vector,
+ 	return total_packets < budget;
+ }
+ 
++#define VXLAN_HLEN (sizeof(struct udphdr) + 8)
++static struct ethhdr *fm10k_port_is_vxlan(struct sk_buff *skb)
++{
++	struct fm10k_intfc *interface = netdev_priv(skb->dev);
++	struct fm10k_vxlan_port *vxlan_port;
++
++	/* we can only offload a vxlan if we recognize it as such */
++	vxlan_port = list_first_entry_or_null(&interface->vxlan_port,
++					      struct fm10k_vxlan_port, list);
++
++	if (!vxlan_port)
++		return NULL;
++	if (vxlan_port->port != udp_hdr(skb)->dest)
++		return NULL;
++
++	/* return offset of udp_hdr plus 8 bytes for VXLAN header */
++	return (struct ethhdr *)(skb_transport_header(skb) + VXLAN_HLEN);
++}
++
++#define FM10K_NVGRE_RESERVED0_FLAGS htons(0x9FFF)
++#define NVGRE_TNI htons(0x2000)
++struct fm10k_nvgre_hdr {
++	__be16 flags;
++	__be16 proto;
++	__be32 tni;
++};
++
++static struct ethhdr *fm10k_gre_is_nvgre(struct sk_buff *skb)
++{
++	struct fm10k_nvgre_hdr *nvgre_hdr;
++	int hlen = ip_hdrlen(skb);
++
++	/* currently only IPv4 is supported due to hlen above */
++	if (vlan_get_protocol(skb) != htons(ETH_P_IP))
++		return NULL;
++
++	/* our transport header should be NVGRE */
++	nvgre_hdr = (struct fm10k_nvgre_hdr *)(skb_network_header(skb) + hlen);
++
++	/* verify all reserved flags are 0 */
++	if (nvgre_hdr->flags & FM10K_NVGRE_RESERVED0_FLAGS)
++		return NULL;
++
++	/* verify protocol is transparent Ethernet bridging */
++	if (nvgre_hdr->proto != htons(ETH_P_TEB))
++		return NULL;
++
++	/* report start of ethernet header */
++	if (nvgre_hdr->flags & NVGRE_TNI)
++		return (struct ethhdr *)(nvgre_hdr + 1);
++
++	return (struct ethhdr *)(&nvgre_hdr->tni);
++}
++
++static __be16 fm10k_tx_encap_offload(struct sk_buff *skb)
++{
++	struct ethhdr *eth_hdr;
++	u8 l4_hdr = 0;
++
++	switch (vlan_get_protocol(skb)) {
++	case htons(ETH_P_IP):
++		l4_hdr = ip_hdr(skb)->protocol;
++		break;
++	case htons(ETH_P_IPV6):
++		l4_hdr = ipv6_hdr(skb)->nexthdr;
++		break;
++	default:
++		return 0;
++	}
++
++	switch (l4_hdr) {
++	case IPPROTO_UDP:
++		eth_hdr = fm10k_port_is_vxlan(skb);
++		break;
++	case IPPROTO_GRE:
++		eth_hdr = fm10k_gre_is_nvgre(skb);
++		break;
++	default:
++		return 0;
++	}
++
++	if (!eth_hdr)
++		return 0;
++
++	switch (eth_hdr->h_proto) {
++	case htons(ETH_P_IP):
++	case htons(ETH_P_IPV6):
++		break;
++	default:
++		return 0;
++	}
++
++	return eth_hdr->h_proto;
++}
++
++static int fm10k_tso(struct fm10k_ring *tx_ring,
++		     struct fm10k_tx_buffer *first)
++{
++	struct sk_buff *skb = first->skb;
++	struct fm10k_tx_desc *tx_desc;
++	unsigned char *th;
++	u8 hdrlen;
++
++	if (skb->ip_summed != CHECKSUM_PARTIAL)
++		return 0;
++
++	if (!skb_is_gso(skb))
++		return 0;
++
++	/* compute header lengths */
++	if (skb->encapsulation) {
++		if (!fm10k_tx_encap_offload(skb))
++			goto err_vxlan;
++		th = skb_inner_transport_header(skb);
++	} else {
++		th = skb_transport_header(skb);
++	}
++
++	/* compute offset from SOF to transport header and add header len */
++	hdrlen = (th - skb->data) + (((struct tcphdr *)th)->doff << 2);
++
++	first->tx_flags |= FM10K_TX_FLAGS_CSUM;
++
++	/* update gso size and bytecount with header size */
++	first->gso_segs = skb_shinfo(skb)->gso_segs;
++	first->bytecount += (first->gso_segs - 1) * hdrlen;
++
++	/* populate Tx descriptor header size and mss */
++	tx_desc = FM10K_TX_DESC(tx_ring, tx_ring->next_to_use);
++	tx_desc->hdrlen = hdrlen;
++	tx_desc->mss = cpu_to_le16(skb_shinfo(skb)->gso_size);
++
++	return 1;
++err_vxlan:
++	tx_ring->netdev->features &= ~NETIF_F_GSO_UDP_TUNNEL;
++	if (!net_ratelimit())
++		netdev_err(tx_ring->netdev,
++			   "TSO requested for unsupported tunnel, disabling offload\n");
++	return -1;
++}
++
++static void fm10k_tx_csum(struct fm10k_ring *tx_ring,
++			  struct fm10k_tx_buffer *first)
++{
++	struct sk_buff *skb = first->skb;
++	struct fm10k_tx_desc *tx_desc;
++	union {
++		struct iphdr *ipv4;
++		struct ipv6hdr *ipv6;
++		u8 *raw;
++	} network_hdr;
++	__be16 protocol;
++	u8 l4_hdr = 0;
++
++	if (skb->ip_summed != CHECKSUM_PARTIAL)
++		goto no_csum;
++
++	if (skb->encapsulation) {
++		protocol = fm10k_tx_encap_offload(skb);
++		if (!protocol) {
++			if (skb_checksum_help(skb)) {
++				dev_warn(tx_ring->dev,
++					 "failed to offload encap csum!\n");
++				tx_ring->tx_stats.csum_err++;
++			}
++			goto no_csum;
++		}
++		network_hdr.raw = skb_inner_network_header(skb);
++	} else {
++		protocol = vlan_get_protocol(skb);
++		network_hdr.raw = skb_network_header(skb);
++	}
++
++	switch (protocol) {
++	case htons(ETH_P_IP):
++		l4_hdr = network_hdr.ipv4->protocol;
++		break;
++	case htons(ETH_P_IPV6):
++		l4_hdr = network_hdr.ipv6->nexthdr;
++		break;
++	default:
++		if (unlikely(net_ratelimit())) {
++			dev_warn(tx_ring->dev,
++				 "partial checksum but ip version=%x!\n",
++				 protocol);
++		}
++		tx_ring->tx_stats.csum_err++;
++		goto no_csum;
++	}
++
++	switch (l4_hdr) {
++	case IPPROTO_TCP:
++	case IPPROTO_UDP:
++		break;
++	case IPPROTO_GRE:
++		if (skb->encapsulation)
++			break;
++	default:
++		if (unlikely(net_ratelimit())) {
++			dev_warn(tx_ring->dev,
++				 "partial checksum but l4 proto=%x!\n",
++				 l4_hdr);
++		}
++		tx_ring->tx_stats.csum_err++;
++		goto no_csum;
++	}
++
++	/* update TX checksum flag */
++	first->tx_flags |= FM10K_TX_FLAGS_CSUM;
++
++no_csum:
++	/* populate Tx descriptor header size and mss */
++	tx_desc = FM10K_TX_DESC(tx_ring, tx_ring->next_to_use);
++	tx_desc->hdrlen = 0;
++	tx_desc->mss = 0;
++}
++
++#define FM10K_SET_FLAG(_input, _flag, _result) \
++	((_flag <= _result) ? \
++	 ((u32)(_input & _flag) * (_result / _flag)) : \
++	 ((u32)(_input & _flag) / (_flag / _result)))
++
++static u8 fm10k_tx_desc_flags(struct sk_buff *skb, u32 tx_flags)
++{
++	/* set type for advanced descriptor with frame checksum insertion */
++	u32 desc_flags = 0;
++
++	/* set checksum offload bits */
++	desc_flags |= FM10K_SET_FLAG(tx_flags, FM10K_TX_FLAGS_CSUM,
++				     FM10K_TXD_FLAG_CSUM);
++
++	return desc_flags;
++}
++
+ static bool fm10k_tx_desc_push(struct fm10k_ring *tx_ring,
+ 			       struct fm10k_tx_desc *tx_desc, u16 i,
+ 			       dma_addr_t dma, unsigned int size, u8 desc_flags)
+@@ -596,8 +887,9 @@ static void fm10k_tx_map(struct fm10k_ring *tx_ring,
+ 	unsigned char *data;
+ 	dma_addr_t dma;
+ 	unsigned int data_len, size;
++	u32 tx_flags = first->tx_flags;
+ 	u16 i = tx_ring->next_to_use;
+-	u8 flags = 0;
++	u8 flags = fm10k_tx_desc_flags(skb, tx_flags);
+ 
+ 	tx_desc = FM10K_TX_DESC(tx_ring, i);
+ 
+@@ -732,6 +1024,7 @@ netdev_tx_t fm10k_xmit_frame_ring(struct sk_buff *skb,
+ 				  struct fm10k_ring *tx_ring)
+ {
+ 	struct fm10k_tx_buffer *first;
++	int tso;
+ 	u32 tx_flags = 0;
+ #if PAGE_SIZE > FM10K_MAX_DATA_PER_TXD
+ 	unsigned short f;
+@@ -763,11 +1056,23 @@ netdev_tx_t fm10k_xmit_frame_ring(struct sk_buff *skb,
+ 	/* record initial flags and protocol */
+ 	first->tx_flags = tx_flags;
+ 
++	tso = fm10k_tso(tx_ring, first);
++	if (tso < 0)
++		goto out_drop;
++	else if (!tso)
++		fm10k_tx_csum(tx_ring, first);
++
+ 	fm10k_tx_map(tx_ring, first);
+ 
+ 	fm10k_maybe_stop_tx(tx_ring, DESC_NEEDED);
+ 
+ 	return NETDEV_TX_OK;
++
++out_drop:
++	dev_kfree_skb_any(first->skb);
++	first->skb = NULL;
++
++	return NETDEV_TX_OK;
+ }
+ 
+ static u64 fm10k_get_tx_completed(struct fm10k_ring *ring)
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index 2cda9f9..5dbb4d7 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -20,6 +20,9 @@
+ 
+ #include "fm10k.h"
+ #include <linux/vmalloc.h>
++#if IS_ENABLED(CONFIG_VXLAN)
++#include <net/vxlan.h>
++#endif /* CONFIG_VXLAN */
+ 
+ /**
+  * fm10k_setup_tx_resources - allocate Tx resources (Descriptors)
+@@ -369,6 +372,128 @@ static void fm10k_request_glort_range(struct fm10k_intfc *interface)
+ }
+ 
+ /**
++ * fm10k_del_vxlan_port_all
 + * @interface: board private structure
 + *
-+ * Configure the SWPRI to PC mapping for the port.
++ * This function frees the entire vxlan_port list
 + **/
-+static void fm10k_configure_swpri_map(struct fm10k_intfc *interface)
++static void fm10k_del_vxlan_port_all(struct fm10k_intfc *interface)
 +{
-+	struct net_device *netdev = interface->netdev;
++	struct fm10k_vxlan_port *vxlan_port;
++
++	/* flush all entries from list */
++	vxlan_port = list_first_entry_or_null(&interface->vxlan_port,
++					      struct fm10k_vxlan_port, list);
++	while (vxlan_port) {
++		list_del(&vxlan_port->list);
++		kfree(vxlan_port);
++		vxlan_port = list_first_entry_or_null(&interface->vxlan_port,
++						      struct fm10k_vxlan_port,
++						      list);
++	}
++}
++
++/**
++ * fm10k_restore_vxlan_port
++ * @interface: board private structure
++ *
++ * This function restores the value in the tunnel_cfg register after reset
++ **/
++static void fm10k_restore_vxlan_port(struct fm10k_intfc *interface)
++{
 +	struct fm10k_hw *hw = &interface->hw;
-+	int i;
++	struct fm10k_vxlan_port *vxlan_port;
 +
-+	/* clear flag indicating update is needed */
-+	interface->flags &= ~FM10K_FLAG_SWPRI_CONFIG;
-+
-+	/* these registers are only available on the PF */
++	/* only the PF supports configuring tunnels */
 +	if (hw->mac.type != fm10k_mac_pf)
 +		return;
 +
-+	/* configure SWPRI to PC map */
-+	for (i = 0; i < FM10K_SWPRI_MAX; i++)
-+		fm10k_write_reg(hw, FM10K_SWPRI_MAP(i),
-+				netdev_get_prio_tc_map(netdev, i));
++	vxlan_port = list_first_entry_or_null(&interface->vxlan_port,
++					      struct fm10k_vxlan_port, list);
++
++	/* restore tunnel configuration register */
++	fm10k_write_reg(hw, FM10K_TUNNEL_CFG,
++			(vxlan_port ? ntohs(vxlan_port->port) : 0) |
++			(ETH_P_TEB << FM10K_TUNNEL_CFG_NVGRE_SHIFT));
 +}
 +
 +/**
-+ * fm10k_watchdog_update_host_state - Update the link status based on host.
-+ * @interface: board private structure
++ * fm10k_add_vxlan_port
++ * @netdev: network interface device structure
++ * @sa_family: Address family of new port
++ * @port: port number used for VXLAN
++ *
++ * This funciton is called when a new VXLAN interface has added a new port
++ * number to the range that is currently in use for VXLAN.  The new port
++ * number is always added to the tail so that the port number list should
++ * match the order in which the ports were allocated.  The head of the list
++ * is always used as the VXLAN port number for offloads.
 + **/
-+static void fm10k_watchdog_update_host_state(struct fm10k_intfc *interface)
-+{
-+	struct fm10k_hw *hw = &interface->hw;
-+	s32 err;
++static void fm10k_add_vxlan_port(struct net_device *dev,
++				 sa_family_t sa_family, __be16 port) {
++	struct fm10k_intfc *interface = netdev_priv(dev);
++	struct fm10k_vxlan_port *vxlan_port;
 +
-+	if (test_bit(__FM10K_LINK_DOWN, &interface->state)) {
-+		interface->host_ready = false;
-+		if (time_is_after_jiffies(interface->link_down_event))
-+			return;
-+		clear_bit(__FM10K_LINK_DOWN, &interface->state);
-+	}
++	/* only the PF supports configuring tunnels */
++	if (interface->hw.mac.type != fm10k_mac_pf)
++		return;
 +
-+	if (interface->flags & FM10K_FLAG_SWPRI_CONFIG) {
-+		if (rtnl_trylock()) {
-+			fm10k_configure_swpri_map(interface);
-+			rtnl_unlock();
++	/* existing ports are pulled out so our new entry is always last */
++	fm10k_vxlan_port_for_each(vxlan_port, interface) {
++		if ((vxlan_port->port == port) &&
++		    (vxlan_port->sa_family == sa_family)) {
++			list_del(&vxlan_port->list);
++			goto insert_tail;
 +		}
 +	}
 +
-+	/* lock the mailbox for transmit and receive */
-+	fm10k_mbx_lock(interface);
++	/* allocate memory to track ports */
++	vxlan_port = kmalloc(sizeof(*vxlan_port), GFP_ATOMIC);
++	if (!vxlan_port)
++		return;
++	vxlan_port->port = port;
++	vxlan_port->sa_family = sa_family;
 +
-+	err = hw->mac.ops.get_host_state(hw, &interface->host_ready);
-+	if (err && time_is_before_jiffies(interface->last_reset))
-+		interface->flags |= FM10K_FLAG_RESET_REQUESTED;
++insert_tail:
++	/* add new port value to list */
++	list_add_tail(&vxlan_port->list, &interface->vxlan_port);
 +
-+	/* free the lock */
-+	fm10k_mbx_unlock(interface);
++	fm10k_restore_vxlan_port(interface);
 +}
 +
 +/**
-+ * fm10k_mbx_subtask - Process upstream and downstream mailboxes
-+ * @interface: board private structure
++ * fm10k_del_vxlan_port
++ * @netdev: network interface device structure
++ * @sa_family: Address family of freed port
++ * @port: port number used for VXLAN
 + *
-+ * This function will process both the upstream and downstream mailboxes.
-+ * It is necessary for us to hold the rtnl_lock while doing this as the
-+ * mailbox accesses are protected by this lock.
++ * This funciton is called when a new VXLAN interface has freed a port
++ * number from the range that is currently in use for VXLAN.  The freed
++ * port is removed from the list and the new head is used to determine
++ * the port number for offloads.
 + **/
-+static void fm10k_mbx_subtask(struct fm10k_intfc *interface)
-+{
-+	/* process upstream mailbox and update device state */
-+	fm10k_watchdog_update_host_state(interface);
-+}
++static void fm10k_del_vxlan_port(struct net_device *dev,
++				 sa_family_t sa_family, __be16 port) {
++	struct fm10k_intfc *interface = netdev_priv(dev);
++	struct fm10k_vxlan_port *vxlan_port;
 +
-+/**
-+ * fm10k_watchdog_host_is_ready - Update netdev status based on host ready
-+ * @interface: board private structure
-+ **/
-+static void fm10k_watchdog_host_is_ready(struct fm10k_intfc *interface)
-+{
-+	struct net_device *netdev = interface->netdev;
-+
-+	/* only continue if link state is currently down */
-+	if (netif_carrier_ok(netdev))
++	if (interface->hw.mac.type != fm10k_mac_pf)
 +		return;
 +
-+	netif_info(interface, drv, netdev, "NIC Link is up\n");
-+
-+	netif_carrier_on(netdev);
-+	netif_tx_wake_all_queues(netdev);
-+}
-+
-+/**
-+ * fm10k_watchdog_host_not_ready - Update netdev status based on host not ready
-+ * @interface: board private structure
-+ **/
-+static void fm10k_watchdog_host_not_ready(struct fm10k_intfc *interface)
-+{
-+	struct net_device *netdev = interface->netdev;
-+
-+	/* only continue if link state is currently up */
-+	if (!netif_carrier_ok(netdev))
-+		return;
-+
-+	netif_info(interface, drv, netdev, "NIC Link is down\n");
-+
-+	netif_carrier_off(netdev);
-+	netif_tx_stop_all_queues(netdev);
-+}
-+
-+/**
-+ * fm10k_update_stats - Update the board statistics counters.
-+ * @interface: board private structure
-+ **/
-+void fm10k_update_stats(struct fm10k_intfc *interface)
-+{
-+	struct net_device_stats *net_stats = &interface->netdev->stats;
-+	struct fm10k_hw *hw = &interface->hw;
-+	u64 rx_errors = 0, rx_csum_errors = 0, tx_csum_errors = 0;
-+	u64 restart_queue = 0, tx_busy = 0, alloc_failed = 0;
-+	u64 rx_bytes_nic = 0, rx_pkts_nic = 0, rx_drops_nic = 0;
-+	u64 tx_bytes_nic = 0, tx_pkts_nic = 0;
-+	u64 bytes, pkts;
-+	int i;
-+
-+	/* do not allow stats update via service task for next second */
-+	interface->next_stats_update = jiffies + HZ;
-+
-+	/* gather some stats to the interface struct that are per queue */
-+	for (bytes = 0, pkts = 0, i = 0; i < interface->num_tx_queues; i++) {
-+		struct fm10k_ring *tx_ring = interface->tx_ring[i];
-+
-+		restart_queue += tx_ring->tx_stats.restart_queue;
-+		tx_busy += tx_ring->tx_stats.tx_busy;
-+		tx_csum_errors += tx_ring->tx_stats.csum_err;
-+		bytes += tx_ring->stats.bytes;
-+		pkts += tx_ring->stats.packets;
-+	}
-+
-+	interface->restart_queue = restart_queue;
-+	interface->tx_busy = tx_busy;
-+	net_stats->tx_bytes = bytes;
-+	net_stats->tx_packets = pkts;
-+	interface->tx_csum_errors = tx_csum_errors;
-+	/* gather some stats to the interface struct that are per queue */
-+	for (bytes = 0, pkts = 0, i = 0; i < interface->num_rx_queues; i++) {
-+		struct fm10k_ring *rx_ring = interface->rx_ring[i];
-+
-+		bytes += rx_ring->stats.bytes;
-+		pkts += rx_ring->stats.packets;
-+		alloc_failed += rx_ring->rx_stats.alloc_failed;
-+		rx_csum_errors += rx_ring->rx_stats.csum_err;
-+		rx_errors += rx_ring->rx_stats.errors;
-+	}
-+
-+	net_stats->rx_bytes = bytes;
-+	net_stats->rx_packets = pkts;
-+	interface->alloc_failed = alloc_failed;
-+	interface->rx_csum_errors = rx_csum_errors;
-+	interface->rx_errors = rx_errors;
-+
-+	hw->mac.ops.update_hw_stats(hw, &interface->stats);
-+
-+	for (i = 0; i < FM10K_MAX_QUEUES_PF; i++) {
-+		struct fm10k_hw_stats_q *q = &interface->stats.q[i];
-+
-+		tx_bytes_nic += q->tx_bytes.count;
-+		tx_pkts_nic += q->tx_packets.count;
-+		rx_bytes_nic += q->rx_bytes.count;
-+		rx_pkts_nic += q->rx_packets.count;
-+		rx_drops_nic += q->rx_drops.count;
-+	}
-+
-+	interface->tx_bytes_nic = tx_bytes_nic;
-+	interface->tx_packets_nic = tx_pkts_nic;
-+	interface->rx_bytes_nic = rx_bytes_nic;
-+	interface->rx_packets_nic = rx_pkts_nic;
-+	interface->rx_drops_nic = rx_drops_nic;
-+
-+	/* Fill out the OS statistics structure */
-+	net_stats->rx_errors = interface->stats.xec.count;
-+	net_stats->rx_dropped = interface->stats.nodesc_drop.count;
-+}
-+
-+/**
-+ * fm10k_watchdog_flush_tx - flush queues on host not ready
-+ * @interface - pointer to the device interface structure
-+ **/
-+static void fm10k_watchdog_flush_tx(struct fm10k_intfc *interface)
-+{
-+	int some_tx_pending = 0;
-+	int i;
-+
-+	/* nothing to do if carrier is up */
-+	if (netif_carrier_ok(interface->netdev))
-+		return;
-+
-+	for (i = 0; i < interface->num_tx_queues; i++) {
-+		struct fm10k_ring *tx_ring = interface->tx_ring[i];
-+
-+		if (tx_ring->next_to_use != tx_ring->next_to_clean) {
-+			some_tx_pending = 1;
++	/* find the port in the list and free it */
++	fm10k_vxlan_port_for_each(vxlan_port, interface) {
++		if ((vxlan_port->port == port) &&
++		    (vxlan_port->sa_family == sa_family)) {
++			list_del(&vxlan_port->list);
++			kfree(vxlan_port);
 +			break;
 +		}
 +	}
 +
-+	/* We've lost link, so the controller stops DMA, but we've got
-+	 * queued Tx work that's never going to get done, so reset
-+	 * controller to flush Tx.
-+	 */
-+	if (some_tx_pending)
-+		interface->flags |= FM10K_FLAG_RESET_REQUESTED;
++	fm10k_restore_vxlan_port(interface);
 +}
 +
 +/**
-+ * fm10k_watchdog_subtask - check and bring link up
-+ * @interface - pointer to the device interface structure
-+ **/
-+static void fm10k_watchdog_subtask(struct fm10k_intfc *interface)
-+{
-+	/* if interface is down do nothing */
-+	if (test_bit(__FM10K_DOWN, &interface->state) ||
-+	    test_bit(__FM10K_RESETTING, &interface->state))
-+		return;
-+
-+	if (interface->host_ready)
-+		fm10k_watchdog_host_is_ready(interface);
-+	else
-+		fm10k_watchdog_host_not_ready(interface);
-+
-+	/* update stats only once every second */
-+	if (time_is_before_jiffies(interface->next_stats_update))
-+		fm10k_update_stats(interface);
-+
-+	/* flush any uncompleted work */
-+	fm10k_watchdog_flush_tx(interface);
-+}
-+
-+/**
-+ * fm10k_check_hang_subtask - check for hung queues and dropped interrupts
-+ * @interface - pointer to the device interface structure
-+ *
-+ * This function serves two purposes.  First it strobes the interrupt lines
-+ * in order to make certain interrupts are occurring.  Secondly it sets the
-+ * bits needed to check for TX hangs.  As a result we should immediately
-+ * determine if a hang has occurred.
-+ */
-+static void fm10k_check_hang_subtask(struct fm10k_intfc *interface)
-+{
-+	int i;
-+
-+	/* If we're down or resetting, just bail */
-+	if (test_bit(__FM10K_DOWN, &interface->state) ||
-+	    test_bit(__FM10K_RESETTING, &interface->state))
-+		return;
-+
-+	/* rate limit tx hang checks to only once every 2 seconds */
-+	if (time_is_after_eq_jiffies(interface->next_tx_hang_check))
-+		return;
-+	interface->next_tx_hang_check = jiffies + (2 * HZ);
-+
-+	if (netif_carrier_ok(interface->netdev)) {
-+		/* Force detection of hung controller */
-+		for (i = 0; i < interface->num_tx_queues; i++)
-+			set_check_for_tx_hang(interface->tx_ring[i]);
-+
-+		/* Rearm all in-use q_vectors for immediate firing */
-+		for (i = 0; i < interface->num_q_vectors; i++) {
-+			struct fm10k_q_vector *qv = interface->q_vector[i];
-+
-+			if (!qv->tx.count && !qv->rx.count)
-+				continue;
-+			writel(FM10K_ITR_ENABLE | FM10K_ITR_PENDING2, qv->itr);
-+		}
-+	}
-+}
-+
-+/**
-+ * fm10k_service_task - manages and runs subtasks
-+ * @work: pointer to work_struct containing our data
-+ **/
-+static void fm10k_service_task(struct work_struct *work)
-+{
-+	struct fm10k_intfc *interface;
-+
-+	interface = container_of(work, struct fm10k_intfc, service_task);
-+
-+	/* tasks always capable of running, but must be rtnl protected */
-+	fm10k_mbx_subtask(interface);
-+	fm10k_detach_subtask(interface);
-+	fm10k_reset_subtask(interface);
-+
-+	/* tasks only run when interface is up */
-+	fm10k_watchdog_subtask(interface);
-+	fm10k_check_hang_subtask(interface);
-+
-+	/* release lock on service events to allow scheduling next event */
-+	fm10k_service_event_complete(interface);
-+}
-+
- static void fm10k_napi_enable_all(struct fm10k_intfc *interface)
- {
- 	struct fm10k_q_vector *q_vector;
-@@ -257,6 +655,20 @@ static irqreturn_t fm10k_msix_mbx_pf(int irq, void *data)
- 		fm10k_mbx_unlock(interface);
- 	}
+  * fm10k_open - Called when a network interface is made active
+  * @netdev: network interface device structure
+  *
+@@ -410,6 +535,11 @@ int fm10k_open(struct net_device *netdev)
+ 	if (err)
+ 		goto err_set_queues;
  
-+	/* if switch toggled state we should reset GLORTs */
-+	if (eicr & FM10K_EICR_SWITCHNOTREADY) {
-+		/* force link down for at least 4 seconds */
-+		interface->link_down_event = jiffies + (4 * HZ);
-+		set_bit(__FM10K_LINK_DOWN, &interface->state);
++#if IS_ENABLED(CONFIG_VXLAN)
++	/* update VXLAN port configuration */
++	vxlan_get_rx_port(netdev);
 +
-+		/* reset dglort_map back to no config */
-+		hw->mac.dglort_map = FM10K_DGLORTMAP_NONE;
-+	}
-+
-+	/* we should validate host state after interrupt event */
-+	hw->mac.get_host_state = 1;
-+	fm10k_service_event_schedule(interface);
-+
- 	/* re-enable mailbox interrupt and indicate 20us delay */
- 	fm10k_write_reg(hw, FM10K_ITR(FM10K_MBX_VECTOR),
- 			FM10K_ITR_ENABLE | FM10K_MBX_INT_DELAY);
-@@ -572,6 +984,9 @@ void fm10k_up(struct fm10k_intfc *interface)
++#endif
+ 	fm10k_up(interface);
  
- 	/* enable transmits */
- 	netif_tx_start_all_queues(interface->netdev);
-+
-+	/* kick off the service timer */
-+	mod_timer(&interface->service_timer, jiffies);
- }
- 
- static void fm10k_napi_disable_all(struct fm10k_intfc *interface)
-@@ -609,6 +1024,11 @@ void fm10k_down(struct fm10k_intfc *interface)
- 	/* disable polling routines */
- 	fm10k_napi_disable_all(interface);
- 
-+	del_timer_sync(&interface->service_timer);
-+
-+	/* capture stats one last time before stopping interface */
-+	fm10k_update_stats(interface);
-+
- 	/* Disable DMA engine for Tx/Rx */
- 	hw->mac.ops.stop_hw(hw);
- }
-@@ -670,6 +1090,9 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
- 		netdev->vlan_features |= NETIF_F_HIGHDMA;
- 	}
- 
-+	/* delay any future reset requests */
-+	interface->last_reset = jiffies + (10 * HZ);
-+
- 	/* reset and initialize the hardware so it is in a known state */
- 	err = hw->mac.ops.reset_hw(hw) ? : hw->mac.ops.init_hw(hw);
- 	if (err) {
-@@ -707,6 +1130,12 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
- 		netdev->hw_features &= ~NETIF_F_GSO_UDP_TUNNEL;
- 	}
- 
-+	/* Initialize service timer and service task */
-+	set_bit(__FM10K_SERVICE_DISABLE, &interface->state);
-+	setup_timer(&interface->service_timer, &fm10k_service_timer,
-+		    (unsigned long)interface);
-+	INIT_WORK(&interface->service_task, fm10k_service_task);
-+
- 	/* set default ring sizes */
- 	interface->tx_ring_count = FM10K_DEFAULT_TXD;
- 	interface->rx_ring_count = FM10K_DEFAULT_RXD;
-@@ -871,6 +1300,9 @@ static int fm10k_probe(struct pci_dev *pdev,
- 	/* print warning for non-optimal configurations */
- 	fm10k_slot_warn(interface);
- 
-+	/* clear the service task disable bit to allow service task to start */
-+	clear_bit(__FM10K_SERVICE_DISABLE, &interface->state);
-+
  	return 0;
+@@ -443,6 +573,8 @@ int fm10k_close(struct net_device *netdev)
  
- err_register:
-@@ -904,6 +1336,9 @@ static void fm10k_remove(struct pci_dev *pdev)
- 	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
- 	struct net_device *netdev = interface->netdev;
+ 	fm10k_qv_free_irq(interface);
  
-+	set_bit(__FM10K_SERVICE_DISABLE, &interface->state);
-+	cancel_work_sync(&interface->service_task);
++	fm10k_del_vxlan_port_all(interface);
 +
- 	/* free netdev, this may bounce the interrupts due to setup_tc */
- 	if (netdev->reg_state == NETREG_REGISTERED)
- 		unregister_netdev(netdev);
+ 	fm10k_free_all_tx_resources(interface);
+ 	fm10k_free_all_rx_resources(interface);
+ 
+@@ -892,6 +1024,9 @@ void fm10k_restore_rx_state(struct fm10k_intfc *interface)
+ 
+ 	/* record updated xcast mode state */
+ 	interface->xcast_mode = xcast_mode;
++
++	/* Restore tunnel configuration */
++	fm10k_restore_vxlan_port(interface);
+ }
+ 
+ void fm10k_reset_rx_state(struct fm10k_intfc *interface)
+@@ -1026,6 +1161,8 @@ static const struct net_device_ops fm10k_netdev_ops = {
+ 	.ndo_set_rx_mode	= fm10k_set_rx_mode,
+ 	.ndo_get_stats64	= fm10k_get_stats64,
+ 	.ndo_setup_tc		= fm10k_setup_tc,
++	.ndo_add_vxlan_port	= fm10k_add_vxlan_port,
++	.ndo_del_vxlan_port	= fm10k_del_vxlan_port,
+ };
+ 
+ #define DEFAULT_DEBUG_LEVEL_SHIFT 3
+@@ -1048,7 +1185,15 @@ struct net_device *fm10k_alloc_netdev(void)
+ 	interface->msg_enable = (1 << DEFAULT_DEBUG_LEVEL_SHIFT) - 1;
+ 
+ 	/* configure default features */
+-	dev->features |= NETIF_F_SG;
++	dev->features |= NETIF_F_IP_CSUM |
++			 NETIF_F_IPV6_CSUM |
++			 NETIF_F_SG |
++			 NETIF_F_TSO |
++			 NETIF_F_TSO6 |
++			 NETIF_F_TSO_ECN |
++			 NETIF_F_GSO_UDP_TUNNEL |
++			 NETIF_F_RXHASH |
++			 NETIF_F_RXCSUM;
+ 
+ 	/* all features defined to this point should be changeable */
+ 	dev->hw_features |= dev->features;
+@@ -1057,7 +1202,13 @@ struct net_device *fm10k_alloc_netdev(void)
+ 	dev->vlan_features |= dev->features;
+ 
+ 	/* configure tunnel offloads */
+-	dev->hw_enc_features = NETIF_F_SG;
++	dev->hw_enc_features = NETIF_F_IP_CSUM |
++			       NETIF_F_TSO |
++			       NETIF_F_TSO6 |
++			       NETIF_F_TSO_ECN |
++			       NETIF_F_GSO_UDP_TUNNEL |
++			       NETIF_F_IPV6_CSUM |
++			       NETIF_F_SG;
+ 
+ 	/* we want to leave these both on as we cannot disable VLAN tag
+ 	 * insertion or stripping on the hardware since it is contained
 -- 
 1.9.3
