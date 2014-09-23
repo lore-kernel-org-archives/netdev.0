@@ -1,100 +1,77 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: bcmgenet: Fix compile warning
-Date: Tue, 23 Sep 2014 09:54:29 -0700
-Message-ID: <CAGVrzcZAq+5bhNACCFxhQnKa7AY3WuE1ut_h87+5QoOnovK_4Q@mail.gmail.com>
-References: <1411478381-9059-1-git-send-email-tklauser@distanz.ch>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: ip6_udp_tunnel fails to load
+Date: Tue, 23 Sep 2014 09:55:31 -0700
+Message-ID: <CA+mtBx9kf7Jj38tF4AxGktDboAMt3uNurdU-99vKAro=gP2Zbw@mail.gmail.com>
+References: <54218FED.4080102@dev.mellanox.co.il>
+	<1411486777.26859.189.camel@edumazet-glaptop2.roam.corp.google.com>
+	<5421A0E1.2050309@dev.mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	netdev <netdev@vger.kernel.org>
-To: Tobias Klauser <tklauser@distanz.ch>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Andy Zhou <azhou@nicira.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: Eyal perry <eyalpe@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:59200 "EHLO
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:61170 "EHLO
 	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753708AbaIWQzK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:55:10 -0400
-Received: by mail-ie0-f182.google.com with SMTP id tp5so4541053ieb.27
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 09:55:09 -0700 (PDT)
-In-Reply-To: <1411478381-9059-1-git-send-email-tklauser@distanz.ch>
+	with ESMTP id S1755742AbaIWQzc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:55:32 -0400
+Received: by mail-ie0-f182.google.com with SMTP id tp5so4555871ieb.13
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 09:55:32 -0700 (PDT)
+In-Reply-To: <5421A0E1.2050309@dev.mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-09-23 6:19 GMT-07:00 Tobias Klauser <tklauser@distanz.ch>:
-> bcmgenet_wol_resume() is only used in bcmgenet_resume(), which is onl=
-y
-> defined when CONFIG_PM_SLEEP is enabled. This leads to the following
-> compile warning when building with !CONFIG_PM_SLEEP:
+On Tue, Sep 23, 2014 at 9:33 AM, Eyal perry <eyalpe@dev.mellanox.co.il> wrote:
+> On 9/23/2014 6:39 PM, Eric Dumazet wrote:
+>> On Tue, 2014-09-23 at 18:21 +0300, Eyal perry wrote:
+>>> Hello Andy,
+>>>
+>>> Lately I've start to observe a phenomena where the mlx4_en driver
+>>> couldn't load on my system as a result of an 'Unknown symbol in module'.
+>>>
+>>> [ 1277.458715] ip6_udp_tunnel: Unknown symbol ip6_local_out (err 0)
+>>> [ 1277.486810] ip6_udp_tunnel: Unknown symbol __put_net (err 0)
+>>>
+>>> Apparently, the mlx4_en driver is depend on the vxlan driver, which
+>>> depends on the ip6_udp_tunnel module which fails to load.
+>>>
+>>> 1. I've bisected this issue down to the following commit:
+>>> fd38441 udp_tunnel: Seperate ipv6 functions into its own file.
+>>>
+>>> 2. on a different host with a different .config, the module is loads
+>>> cleanly.
+>>>
+>>> 3. my sources are based on net-next commit
+>>> 6d967f8 udp_tunnel: Only build ip6_udp_tunnel.c when IPV6 is selected
+>>>
+>>> I'll send you both of the .config files in a private message.
+>>>
+>>> This issue is making any driver which is depend on vxlan/ip6_udp_tunnel
+>>> unusable, please take a look and fix
+>>
+>> Have you tried this patch ?
+>>
+>> https://patchwork.ozlabs.org/patch/392275/
+>>
+>> Thanks
 >
-> drivers/net/ethernet/broadcom/genet/bcmgenet.c:1967:12: warning: =E2=80=
-=98bcmgenet_wol_resume=E2=80=99 defined but not used [-Wunused-function=
-]
->
-> Since bcmgenet_resume() is the only user of bcmgenet_wol_resume(), fi=
-x
-> this by directly inlining the function there.
->
-> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Try https://patchwork.ozlabs.org/patch/392109/
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Tom
 
-> ---
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 23 +++++++---------=
--------
->  1 file changed, 7 insertions(+), 16 deletions(-)
+> Hello Eric,
 >
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers=
-/net/ethernet/broadcom/genet/bcmgenet.c
-> index 313c400..e852d20 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> @@ -1964,19 +1964,6 @@ static void bcmgenet_set_hw_addr(struct bcmgen=
-et_priv *priv,
->         bcmgenet_umac_writel(priv, (addr[4] << 8) | addr[5], UMAC_MAC=
-1);
->  }
+> Now I've tried but it still fails - the vxlan is still depends on the
+> ip6_udp_tunnel and it still fails to load because of the missing symbols
+> mentioned above.
 >
-> -static int bcmgenet_wol_resume(struct bcmgenet_priv *priv)
-> -{
-> -       /* From WOL-enabled suspend, switch to regular clock */
-> -       if (priv->wolopts)
-> -               clk_disable_unprepare(priv->clk_wol);
-> -
-> -       phy_init_hw(priv->phydev);
-> -       /* Speed settings must be restored */
-> -       bcmgenet_mii_config(priv->dev);
-> -
-> -       return 0;
-> -}
-> -
->  /* Returns a reusable dma control register value */
->  static u32 bcmgenet_dma_disable(struct bcmgenet_priv *priv)
->  {
-> @@ -2681,9 +2668,13 @@ static int bcmgenet_resume(struct device *d)
->         if (ret)
->                 goto out_clk_disable;
 >
-> -       ret =3D bcmgenet_wol_resume(priv);
-> -       if (ret)
-> -               goto out_clk_disable;
-> +       /* From WOL-enabled suspend, switch to regular clock */
-> +       if (priv->wolopts)
-> +               clk_disable_unprepare(priv->clk_wol);
-> +
-> +       phy_init_hw(priv->phydev);
-> +       /* Speed settings must be restored */
-> +       bcmgenet_mii_config(priv->dev);
 >
->         /* disable ethernet MAC while updating its registers */
->         umac_enable_set(priv, CMD_TX_EN | CMD_RX_EN, false);
+>
 > --
-> 2.0.1
->
->
-
-
-
---=20
-=46lorian
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
