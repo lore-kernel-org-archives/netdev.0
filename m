@@ -1,58 +1,55 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/5] netfilter: nft_rbtree: no need for spinlock from set
- destroy path
-Date: Tue, 23 Sep 2014 18:10:40 +0200
-Message-ID: <20140923161040.GA3609@salvia>
-References: <1411464288-18069-1-git-send-email-pablo@netfilter.org>
- <1411464288-18069-3-git-send-email-pablo@netfilter.org>
- <1411465957.26859.179.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140923110159.GA20055@salvia>
- <1411473245.26859.188.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv6 net-next 1/3] sunvnet: upgrade to VIO protocol
+ version 1.6
+Date: Tue, 23 Sep 2014 12:24:20 -0400 (EDT)
+Message-ID: <20140923.122420.1216927815526255624.davem@davemloft.net>
+References: <541A2316.5010603@oracle.com>
+	<2AB76E42-C12D-47C5-8476-0D0C611691A5@oracle.com>
+	<541AD838.50700@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1411473245.26859.188.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Raghuram.Kothakota@oracle.com, netdev@vger.kernel.org
+To: david.stevens@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35289 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751783AbaIWQYX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:24:23 -0400
+In-Reply-To: <541AD838.50700@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 23, 2014 at 04:54:05AM -0700, Eric Dumazet wrote:
-> On Tue, 2014-09-23 at 13:01 +0200, Pablo Neira Ayuso wrote:
-> 
-> > I'll send a follow up patch for nf-next to use rb_first() in that
-> > patch. Thanks Eric.
-> 
-> I did a test, and its indeed a bit faster to use rb_first(), by about 5%
-> 
-> Real win is to be able to build a chain using rb_first()/rb_next(),
-> (leaving the tree as is), then deleting the items in the chain, and
-> simply reset rb_root.
-> 
-> This only needs to reuse one pointer to store the item->next pointer.
-> 
-> This is then about ~50% faster, because we do not constantly rebalance
-> tree for every removed item.
+From: David L Stevens <david.stevens@oracle.com>
+Date: Thu, 18 Sep 2014 09:03:52 -0400
 
-Indeed.
+> So, if this is actually too much memory, I was more inclined to reduce the ring
+> size rather than either add complicating code to handle active-ring reallocation
+> that would typically be run once per boot, or another alternative of adding
+> module parameters to specify the buffer size TSO/GSO will need 64K to perform
+> well, regardless of the device MTU.
 
-struct nft_rbtree_elem {
-        struct rb_node          node;
-        u16                     flags;
-        struct nft_data         key;
-        struct nft_data         data[];
-};
+The only reason we are having this discussion is because of how we
+handle TX packets.
 
-Actually, I could add to nft_data a pointer in the union area, but I'm
-not very confortable with adding it for this specific case. At this
-moment we're releasing this from rcu_callback which is "hiding" the
-deletion time from the netlink interface.
+I think we really should directly map the SKBs in vnet_start_xmit()
+instead of having these preallocate TX buffers.
 
-But I'll keep this back in my head if we later on have some pointer
-candidate to be reused in a nice way.
+The only thing to accomodate is the VNET_PACKET_SKIP, but that
+shouldn't be hard at all.
 
-I'll send a patch to make the rb_first()/rb_next() conversion though.
+And I am rather certain that an LDC map call will be cheaper than
+copying the entire packet.
 
-Thanks for your comments!
+Then the MTU will have no material impact on per-vnet_port memory
+costs, and bulk sending performance should also increase.
+
+David I know you've worked hard on this patch set, but I'm going to
+defer on this series for now.  There are several implementation level
+issues that are still seemingly up in the air.
+
+I'm almost completely sold on your PMTU scheme, however if we do
+direct mapping of SKBs in vnet_start_xmit() then the performance
+characteristics with larger MTUs might be different.
+
+Thanks.
