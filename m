@@ -1,41 +1,98 @@
-From: Michal Marek <mmarek@suse.cz>
-Subject: [PATCH 2/5] parisc: Set CONFIG_NET=y in defconfigs
-Date: Tue, 23 Sep 2014 17:44:01 +0200
-Message-ID: <1411487044-14071-2-git-send-email-mmarek@suse.cz>
-References: <54218AEF.5090200@suse.cz>
- <1411487044-14071-1-git-send-email-mmarek@suse.cz>
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-kbuild@vger.kernel.org,
-	linux-parisc@vger.kernel.org
-To: sfr@canb.auug.org.au, rdunlap@infradead.org, davem@davemloft.net
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH v4 3/9] Documentation: bindings: net: add the Marvell
+ PXA168 Ethernet controller
+Date: Tue, 23 Sep 2014 17:45:52 +0200
+Message-ID: <542195B0.6080706@gmail.com>
+References: <1411474536-22626-1-git-send-email-antoine.tenart@free-electrons.com> <20140923140113.GC18924@kwain> <20140923142922.GE18924@kwain> <4014272.rJbSfrLcuB@wuerfel>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
+	jszhang@marvell.com
+To: Arnd Bergmann <arnd@arndb.de>, linux-arm-kernel@lists.infradead.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1411487044-14071-1-git-send-email-mmarek@suse.cz>
+In-Reply-To: <4014272.rJbSfrLcuB@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 5d6be6a5 ("scsi_netlink : Make SCSI_NETLINK dependent on NET
-instead of selecting NET") removed what happened to be the only instance
-of 'select NET'. Defconfigs that were relying on the select now lack
-networking support.
+On 09/23/2014 04:37 PM, Arnd Bergmann wrote:
+> On Tuesday 23 September 2014 16:29:22 Antoine Tenart wrote:
+>>
+>> So I had a look on other Ethernet bindings. Would you agree with
+>> something like the following?
+>>
+>>          eth0: ethernet@f7b90000 {
+>>                  ...
+>>                  #address-cells = <1>;
+>>                  #size-cells = <0>;
+>>                  phy-handle = <&ethphy0>;
+>>
+>>                  ethphy0: ethernet-phy@0 {
+>>                          reg = <0>;
+>>                  };
+>>          };
+>
+> Yes, that looks good.
 
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Cc: linux-parisc@vger.kernel.org
-Signed-off-by: Michal Marek <mmarek@suse.cz>
----
- arch/parisc/configs/c8000_defconfig | 1 +
- 1 file changed, 1 insertion(+)
+nit: ethernet-phy@0 should not be part of the ethernet controller
+but either part of a separate mdio-ctrl node or a separate node itself.
 
-diff --git a/arch/parisc/configs/c8000_defconfig b/arch/parisc/configs/c8000_defconfig
-index 8249ac9..269c23d 100644
---- a/arch/parisc/configs/c8000_defconfig
-+++ b/arch/parisc/configs/c8000_defconfig
-@@ -33,6 +33,7 @@ CONFIG_PCI_LBA=y
- # CONFIG_PDC_CHASSIS_WARN is not set
- # CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
- CONFIG_BINFMT_MISC=m
-+CONFIG_NET=y
- CONFIG_PACKET=y
- CONFIG_UNIX=y
- CONFIG_XFRM_USER=m
--- 
-1.8.4.5
+AFAIKS, Berlin SoCs have internal PHYs, i.e. no MII/MDIO-pins exposed
+but only MLT-3 differential pairs. At least BG2CD also can connect its
+ethernet IP to a PHY capable of HDMI Ethernet Channel (HEC).
+
+So for BG2CD this has to look something like:
+
+eth0: ethernet@f7b90000 {
+	...
+	phy-handle = <&hec>;
+};
+
+cec: cec@f7f00baa {
+	compatible = "marvell,berlin-cec";
+	reg = <0xf7f00baa 0x1234>;
+
+	/* CEC unit contains HEC PHY */
+	hec: ethernet-phy {
+		bla;
+	};
+}
+
+For reference, this is what we have for MVEBU SoCs with multiple ports
+per controller:
+
+eth: ethernet-ctrl@72000 {
+	compatible = "marvell,orion-eth";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	reg = <0x72000 0x4000>;
+	clocks = <&gate_clk 2>;
+	marvell,tx-checksum-limit = <1600>;
+	status = "disabled";
+
+	ethernet-port@0 {
+		compatible = "marvell,orion-eth-port";
+		reg = <0>;
+		interrupts = <29>;
+		/* overwrite MAC address in bootloader */
+		local-mac-address = [00 00 00 00 00 00];
+		phy-handle = <&ethphy>;
+	};
+};
+
+mdio: mdio-bus@72004 {
+	compatible = "marvell,orion-mdio";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	reg = <0x72004 0x84>;
+	interrupts = <30>;
+	clocks = <&gate_clk 2>;
+	status = "disabled";
+	ethphy: ethernet-phy {
+		/* set phy address in board file */
+	};
+};
+
+Sebastian
