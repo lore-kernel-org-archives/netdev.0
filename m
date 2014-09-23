@@ -1,48 +1,32 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
-Date: Tue, 23 Sep 2014 12:26:37 -0700
-Message-ID: <CALCETrWnZtWstBviDxcHpLpjHF3R+sgS48RYf2pbKBYeExZVOQ@mail.gmail.com>
-References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next] vxlan: Fix bug introduced by commit acbf74a76300
+Date: Tue, 23 Sep 2014 15:33:21 -0400 (EDT)
+Message-ID: <20140923.153321.1728757555128556617.davem@davemloft.net>
+References: <1411461891-4442-1-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1411478430-4989-1-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: azhou@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37436 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753540AbaIWTd1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 15:33:27 -0400
+In-Reply-To: <1411461891-4442-1-git-send-email-azhou@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 23, 2014 at 6:20 AM, Nicolas Dichtel
-<nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org> wrote:
-> The goal of this serie is to be able to multicast netlink messages with an
-> attribute that identify a peer netns.
-> This is needed by the userland to interpret some informations contained in
-> netlink messages (like IFLA_LINK value, but also some other attributes in case
-> of x-netns netdevice (see also
-> http://thread.gmane.org/gmane.linux.network/315933/focus=316064 and
-> http://thread.gmane.org/gmane.linux.kernel.containers/28301/focus=4239)).
->
-> Ids are stored in the parent user namespace. These ids are valid only inside
-> this user namespace. The user can retrieve these ids via a new netlink messages,
-> but only if peer netns are in the same user namespace.
+From: Andy Zhou <azhou@nicira.com>
+Date: Tue, 23 Sep 2014 01:44:51 -0700
 
-What about the parent / ancestors of the owning userns?  Can processes
-in those usernses see any form of netns id?
+> Commit acbf74a76300 ("vxlan: Refactor vxlan driver to make use of the common UDP tunnel functions." introduced a bug in vxlan_xmit_one()
+> function, causing it to transmit Vxlan packets without proper
+> Vxlan header inserted. The change was not needed in the first
+> place. Revert it.
+> 
+> Reported-by: Tom Herbert <therbert@google.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Andy Zhou <azhou@nicira.com>
 
---Andy
+Applied, thanks Andy.
