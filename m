@@ -1,54 +1,61 @@
-From: Itzcak Pechtalt <itzcak@flashnetworks.com>
-Subject: [PATCH net] tcp: Fix TLP implementation in case receive window limits
- send
-Date: Tue, 23 Sep 2014 16:28:56 +0000
-Message-ID: <6cbd68ba1ef44c5ca4b21bd3f65846af@AM3PR06MB388.eurprd06.prod.outlook.com>
+From: Eyal perry <eyalpe@dev.mellanox.co.il>
+Subject: Re: ip6_udp_tunnel fails to load
+Date: Tue, 23 Sep 2014 19:33:37 +0300
+Message-ID: <5421A0E1.2050309@dev.mellanox.co.il>
+References: <54218FED.4080102@dev.mellanox.co.il> <1411486777.26859.189.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Andy Zhou <azhou@nicira.com>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0082.outbound.protection.outlook.com ([157.55.234.82]:37453
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751883AbaIWQ3E convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:29:04 -0400
-Content-Language: en-US
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:48348 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755737AbaIWQdk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:33:40 -0400
+Received: by mail-wi0-f176.google.com with SMTP id fb4so5235759wid.3
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 09:33:39 -0700 (PDT)
+In-Reply-To: <1411486777.26859.189.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Itzcak Pechtalt <itzcak@flashnetworks.com>
+On 9/23/2014 6:39 PM, Eric Dumazet wrote:
+> On Tue, 2014-09-23 at 18:21 +0300, Eyal perry wrote:
+>> Hello Andy,
+>>
+>> Lately I've start to observe a phenomena where the mlx4_en driver
+>> couldn't load on my system as a result of an 'Unknown symbol in module'.
+>>
+>> [ 1277.458715] ip6_udp_tunnel: Unknown symbol ip6_local_out (err 0)
+>> [ 1277.486810] ip6_udp_tunnel: Unknown symbol __put_net (err 0)
+>>
+>> Apparently, the mlx4_en driver is depend on the vxlan driver, which
+>> depends on the ip6_udp_tunnel module which fails to load.
+>>
+>> 1. I've bisected this issue down to the following commit:
+>> fd38441 udp_tunnel: Seperate ipv6 functions into its own file.
+>>
+>> 2. on a different host with a different .config, the module is loads
+>> cleanly.
+>>
+>> 3. my sources are based on net-next commit
+>> 6d967f8 udp_tunnel: Only build ip6_udp_tunnel.c when IPV6 is selected
+>>
+>> I'll send you both of the .config files in a private message.
+>>
+>> This issue is making any driver which is depend on vxlan/ip6_udp_tunnel
+>> unusable, please take a look and fix
+> 
+> Have you tried this patch ?
+> 
+> https://patchwork.ozlabs.org/patch/392275/
+> 
+> Thanks
 
-TCP Tail loss probe (TLP) algorithm implementation has some problem.
-According to paper (draft-dukkipati-tcpm-tcp-loss-probe-0 ):
-In case recive window of receiver limits send of new packet in probe ti=
-me than
-a retransmit of last packet send should be done.
+Hello Eric,
 
-Actually, return code from tcp_write_xmit is not checked and only RTO i=
-s
-scheduled,
-So, it will take more time for reovery in this case than without TLP.
-
-Signed-off-by: Itzcak Pechtalt <itzcak@flashnetworks.com>
----
-net/ipv4/tcp_output.c=A0 |=A0=A0=A0 2 +-
-1 file changed, 1 insertions(+),=A0 1 deletions(-)
-
-diff -up a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
---- a/net/ipv4/tcp_output.c=A0=A0=A0=A0 2014-09-23 18:35:37.113771694 +=
-0300
-+++ b/net/ipv4/tcp_output.c=A0=A0=A0=A0 2014-09-23 18:39:58.207726420 +=
-0300
-@@ -2100,7 +2100,8 @@ void tcp_send_loss_probe(struct sock *sk
-
-=A0=A0=A0=A0=A0=A0=A0 if (tcp_send_head(sk) !=3D NULL) {
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 err =3D tcp_write_xmit(sk=
-, mss, TCP_NAGLE_OFF, 2, GFP_ATOMIC);
--=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 goto rearm_timer;
-+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 if (!err)
-+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0got=
-o rearm_timer;
-=A0=A0=A0=A0=A0=A0=A0 }
-
-=A0=A0=A0=A0=A0=A0=A0 /* At most one outstanding TLP retransmission. */
+Now I've tried but it still fails - the vxlan is still depends on the
+ip6_udp_tunnel and it still fails to load because of the missing symbols
+mentioned above.
