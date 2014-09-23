@@ -1,58 +1,69 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Tue, 23 Sep 2014 14:47:45 +0200
-Message-ID: <54216BF1.3060500@broadcom.com>
-References: <52BDE9DC.5040206@msgid.tls.msk.ru> <52BE9CF9.7030305@broadcom.com> <52BEC2F6.7010505@msgid.tls.msk.ru> <52D4FC8B.6090301@msgid.tls.msk.ru> <52F925A9.1030707@msgid.tls.msk.ru> <53526124.6050407@msgid.tls.msk.ru> <53FC1789.6020407@msgid.tls.msk.ru> <53FCA001.6090404@broadcom.com> <53FCB2A3.1050605@msgid.tls.msk.ru> <53FCFE1A.3060508@broadcom.com> <53FDACD1.8090805@msgid.tls.msk.ru> <53FDF8EB.4050905@broadcom.com> <54169D4F.2090607@broadcom.com> <541EEF17.7020806@msgid.tls.msk.ru> <542145B1.4030202@msgid.tls.msk.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <brcm80211-dev-list@broadcom.com>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Seth Forshee <seth.forshee@canonical.com>
-To: Michael Tokarev <mjt@tls.msk.ru>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net] net/mlx4_core: Allow not to specify probe_vf in SRIOV IB mode
+Date: Tue, 23 Sep 2014 16:05:59 +0300
+Message-ID: <1411477559-22155-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Matan Barak <matanb@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:35152 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751551AbaIWMrs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 08:47:48 -0400
-In-Reply-To: <542145B1.4030202@msgid.tls.msk.ru>
+Received: from mailp.voltaire.com ([193.47.165.129]:40922 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751601AbaIWNGG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 09:06:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/23/14 12:04, Michael Tokarev wrote:
-> 21.09.2014 19:30, Michael Tokarev wrote:
->> Namely, after resume, the card does not work. ARP works, ping and
->> DNS sometimes/somewhat work, inital TCP connection establisment
->> works, but eg http download does not work, it stalls almost
->> immediately.
->
-> It does not work at all anymore again.  Not only after resume but also
-> after could power up, it stalls right at start of wget for example.
->
->> http://www.corpit.ru/mjt/tmp/brcmsmac-4313-trace-20140921.dat.gz -- this
->> is a trace collected after resuming from suspend-to-disk
->
-> And here -- http://www.corpit.ru/mjt/tmp/brcmsmac-4313-trace-20140923.dat.gz
-> is another trace, after insmod brcmutils&  brcmsmac, starting trace-cmd record
-> (with network-manager running in the background), and running a wget on
-> http://ip-add-ress-of-the-access-point/somefile (which immediately stalls,
-> showing minimal progress once in a while only).
+From: Matan Barak <matanb@mellanox.com>
 
-Well. This log and the one from a few days ago only show me interrupt 
-status changes, which does not tell me a lot. I do see that the hardware 
-signals transmit completions, but it is far less informative then I 
-hoped it would be. Maybe I am missing some debug configuration here?
+When the HCA is configured in SRIOV IB mode (that is, at least one of
+the ports is IB) and the probe_vf module param isn't specified,
+mlx4_init_one() failed because of the following condition:
 
-Seth, would you know?
+if (ib_ports && (num_vfs_argc > 1 || probe_vfs_argc > 1)) {
+	 .....
+}
 
-Regards,
-Arend
+The root cause for that is a mistake in the initialization of num_vfs_argc
+and probe_vfs_argc. When num_vfs / probe_vf aren't given, their argument
+count counterpart should be 0, fix that.
 
-> Hopefully this will help to find the problem.  And for the record, I'm
-> _again_ without the wifi network.  But unlike of the previous situation,
-> I can at least buy some other, better supported wifi adapter now, because
-> this laptop does not have a bios lock (is 6235ANHMW any good?)
->
-> Thanks,
->
-> /mjt
+Fixes: dd41cc3bb90e ('net/mlx4: Adapt num_vfs/probed_vf params for single port VF')
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+
+Hi Dave, 
+
+This bug was introduced in 3.16, can you please push this patch along 
+with commit a91c772fa0275 "net/mlx4: Correctly configure single ported 
+VFs from the host" to 3.16-stable
+
+Or.
+
+ drivers/net/ethernet/mellanox/mlx4/main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 7e2d5d5..871e3a5 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -78,13 +78,13 @@ MODULE_PARM_DESC(msi_x, "attempt to use MSI-X if nonzero");
+ #endif /* CONFIG_PCI_MSI */
+ 
+ static uint8_t num_vfs[3] = {0, 0, 0};
+-static int num_vfs_argc = 3;
++static int num_vfs_argc;
+ module_param_array(num_vfs, byte , &num_vfs_argc, 0444);
+ MODULE_PARM_DESC(num_vfs, "enable #num_vfs functions if num_vfs > 0\n"
+ 			  "num_vfs=port1,port2,port1+2");
+ 
+ static uint8_t probe_vf[3] = {0, 0, 0};
+-static int probe_vfs_argc = 3;
++static int probe_vfs_argc;
+ module_param_array(probe_vf, byte, &probe_vfs_argc, 0444);
+ MODULE_PARM_DESC(probe_vf, "number of vfs to probe by pf driver (num_vfs > 0)\n"
+ 			   "probe_vf=port1,port2,port1+2");
+-- 
+1.7.1
