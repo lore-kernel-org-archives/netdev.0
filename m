@@ -1,145 +1,78 @@
 From: Michal Marek <mmarek@suse.cz>
-Subject: [PATCH 1/5] mips: Set CONFIG_NET=y in defconfigs
-Date: Tue, 23 Sep 2014 17:44:00 +0200
-Message-ID: <1411487044-14071-1-git-send-email-mmarek@suse.cz>
+Subject: [PATCH 3/5] powerpc: Set CONFIG_NET=y in defconfigs
+Date: Tue, 23 Sep 2014 17:44:02 +0200
+Message-ID: <1411487044-14071-3-git-send-email-mmarek@suse.cz>
 References: <54218AEF.5090200@suse.cz>
+ <1411487044-14071-1-git-send-email-mmarek@suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-kbuild@vger.kernel.org,
-	linux-mips@linux-mips.org
-To: sfr@canb.auug.org.au, rdunlap@infradead.org, davem@davemloft.net
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <54218AEF.5090200@suse.cz>
-Sender: linux-kbuild-owner@vger.kernel.org
+ linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+ linux-kbuild@vger.kernel.org
+To: sfr@canb.auug.org.au,
+	rdunlap@infradead.org,
+	davem@davemloft.net
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1411487044-14071-1-git-send-email-mmarek@suse.cz>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Commit 5d6be6a5 ("scsi_netlink : Make SCSI_NETLINK dependent on NET
-instead of selecting NET") removed what happened to be the only instance
-of 'select NET'. Defconfigs that were relying on the select now lack
-networking support.
-
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Cc: linux-mips@linux-mips.org
-Signed-off-by: Michal Marek <mmarek@suse.cz>
----
- arch/mips/configs/gpr_defconfig             | 1 +
- arch/mips/configs/ip27_defconfig            | 1 +
- arch/mips/configs/jazz_defconfig            | 1 +
- arch/mips/configs/loongson3_defconfig       | 1 +
- arch/mips/configs/malta_defconfig           | 1 +
- arch/mips/configs/malta_kvm_defconfig       | 1 +
- arch/mips/configs/malta_kvm_guest_defconfig | 1 +
- arch/mips/configs/mtx1_defconfig            | 1 +
- arch/mips/configs/rm200_defconfig           | 1 +
- 9 files changed, 9 insertions(+)
-
-diff --git a/arch/mips/configs/gpr_defconfig b/arch/mips/configs/gpr_defconfig
-index 8f219da..e24feb06 100644
---- a/arch/mips/configs/gpr_defconfig
-+++ b/arch/mips/configs/gpr_defconfig
-@@ -19,6 +19,7 @@ CONFIG_MODULE_UNLOAD=y
- # CONFIG_BLK_DEV_BSG is not set
- CONFIG_PCI=y
- CONFIG_BINFMT_MISC=m
-+CONFIG_NET=y
- CONFIG_PACKET=y
- CONFIG_UNIX=y
- CONFIG_INET=y
-diff --git a/arch/mips/configs/ip27_defconfig b/arch/mips/configs/ip27_defconfig
-index cc07560..48e16d9 100644
---- a/arch/mips/configs/ip27_defconfig
-+++ b/arch/mips/configs/ip27_defconfig
-@@ -28,6 +28,7 @@ CONFIG_MIPS32_COMPAT=y
- CONFIG_MIPS32_O32=y
- CONFIG_MIPS32_N32=y
- CONFIG_PM=y
-+CONFIG_NET=y
- CONFIG_PACKET=y
- CONFIG_UNIX=y
- CONFIG_XFRM_USER=m
-diff --git a/arch/mips/configs/jazz_defconfig b/arch/mips/configs/jazz_defconfig
-index 2575302..4f37a59 100644
---- a/arch/mips/configs/jazz_defconfig
-+++ b/arch/mips/configs/jazz_defconfig
-@@ -18,6 +18,7 @@ CONFIG_MODULE_UNLOAD=y
- CONFIG_MODVERSIONS=y
- CONFIG_BINFMT_MISC=m
- CONFIG_PM=y
-+CONFIG_NET=y
- CONFIG_PACKET=m
- CONFIG_UNIX=y
- CONFIG_NET_KEY=m
-diff --git a/arch/mips/configs/loongson3_defconfig b/arch/mips/configs/loongson3_defconfig
-index 4cb787f..1c6191e 100644
---- a/arch/mips/configs/loongson3_defconfig
-+++ b/arch/mips/configs/loongson3_defconfig
-@@ -59,6 +59,7 @@ CONFIG_MIPS32_COMPAT=y
- CONFIG_MIPS32_O32=y
- CONFIG_MIPS32_N32=y
- CONFIG_PM_RUNTIME=y
-+CONFIG_NET=y
- CONFIG_PACKET=y
- CONFIG_UNIX=y
- CONFIG_XFRM_USER=y
-diff --git a/arch/mips/configs/malta_defconfig b/arch/mips/configs/malta_defconfig
-index e18741e..f57b96d 100644
---- a/arch/mips/configs/malta_defconfig
-+++ b/arch/mips/configs/malta_defconfig
-@@ -19,6 +19,7 @@ CONFIG_MODULE_UNLOAD=y
- CONFIG_MODVERSIONS=y
- CONFIG_MODULE_SRCVERSION_ALL=y
- CONFIG_PCI=y
-+CONFIG_NET=y
- CONFIG_PACKET=y
- CONFIG_UNIX=y
- CONFIG_XFRM_USER=m
-diff --git a/arch/mips/configs/malta_kvm_defconfig b/arch/mips/configs/malta_kvm_defconfig
-index cf0e01f..d41742d 100644
---- a/arch/mips/configs/malta_kvm_defconfig
-+++ b/arch/mips/configs/malta_kvm_defconfig
-@@ -20,6 +20,7 @@ CONFIG_MODULE_UNLOAD=y
- CONFIG_MODVERSIONS=y
- CONFIG_MODULE_SRCVERSION_ALL=y
- CONFIG_PCI=y
-+CONFIG_NET=y
- CONFIG_PACKET=y
- CONFIG_UNIX=y
- CONFIG_XFRM_USER=m
-diff --git a/arch/mips/configs/malta_kvm_guest_defconfig b/arch/mips/configs/malta_kvm_guest_defconfig
-index edd9ec9..a7806e8 100644
---- a/arch/mips/configs/malta_kvm_guest_defconfig
-+++ b/arch/mips/configs/malta_kvm_guest_defconfig
-@@ -19,6 +19,7 @@ CONFIG_MODULE_UNLOAD=y
- CONFIG_MODVERSIONS=y
- CONFIG_MODULE_SRCVERSION_ALL=y
- CONFIG_PCI=y
-+CONFIG_NET=y
- CONFIG_PACKET=y
- CONFIG_UNIX=y
- CONFIG_XFRM_USER=m
-diff --git a/arch/mips/configs/mtx1_defconfig b/arch/mips/configs/mtx1_defconfig
-index d269a53..9b6926d 100644
---- a/arch/mips/configs/mtx1_defconfig
-+++ b/arch/mips/configs/mtx1_defconfig
-@@ -27,6 +27,7 @@ CONFIG_PD6729=m
- CONFIG_I82092=m
- CONFIG_BINFMT_MISC=m
- CONFIG_PM=y
-+CONFIG_NET=y
- CONFIG_PACKET=m
- CONFIG_UNIX=y
- CONFIG_XFRM_USER=m
-diff --git a/arch/mips/configs/rm200_defconfig b/arch/mips/configs/rm200_defconfig
-index 29d79ae..db029f4 100644
---- a/arch/mips/configs/rm200_defconfig
-+++ b/arch/mips/configs/rm200_defconfig
-@@ -20,6 +20,7 @@ CONFIG_MODVERSIONS=y
- CONFIG_PCI=y
- CONFIG_BINFMT_MISC=m
- CONFIG_PM=y
-+CONFIG_NET=y
- CONFIG_PACKET=m
- CONFIG_UNIX=y
- CONFIG_NET_KEY=m
--- 
-1.8.4.5
-
+Q29tbWl0IDVkNmJlNmE1ICgic2NzaV9uZXRsaW5rIDogTWFrZSBTQ1NJX05FVExJTksgZGVwZW5k
+ZW50IG9uIE5FVAppbnN0ZWFkIG9mIHNlbGVjdGluZyBORVQiKSByZW1vdmVkIHdoYXQgaGFwcGVu
+ZWQgdG8gYmUgdGhlIG9ubHkgaW5zdGFuY2UKb2YgJ3NlbGVjdCBORVQnLiBEZWZjb25maWdzIHRo
+YXQgd2VyZSByZWx5aW5nIG9uIHRoZSBzZWxlY3Qgbm93IGxhY2sKbmV0d29ya2luZyBzdXBwb3J0
+LgoKUmVwb3J0ZWQtYnk6IFN0ZXBoZW4gUm90aHdlbGwgPHNmckBjYW5iLmF1dWcub3JnLmF1PgpD
+YzogbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKU2lnbmVkLW9mZi1ieTogTWljaGFsIE1h
+cmVrIDxtbWFyZWtAc3VzZS5jej4KLS0tCiBhcmNoL3Bvd2VycGMvY29uZmlncy9wbWFjMzJfZGVm
+Y29uZmlnICAgICB8IDEgKwogYXJjaC9wb3dlcnBjL2NvbmZpZ3MvcHBjNjRfZGVmY29uZmlnICAg
+ICAgfCAxICsKIGFyY2gvcG93ZXJwYy9jb25maWdzL3BwYzY0ZV9kZWZjb25maWcgICAgIHwgMSAr
+CiBhcmNoL3Bvd2VycGMvY29uZmlncy9wc2VyaWVzX2RlZmNvbmZpZyAgICB8IDEgKwogYXJjaC9w
+b3dlcnBjL2NvbmZpZ3MvcHNlcmllc19sZV9kZWZjb25maWcgfCAxICsKIDUgZmlsZXMgY2hhbmdl
+ZCwgNSBpbnNlcnRpb25zKCspCgpkaWZmIC0tZ2l0IGEvYXJjaC9wb3dlcnBjL2NvbmZpZ3MvcG1h
+YzMyX2RlZmNvbmZpZyBiL2FyY2gvcG93ZXJwYy9jb25maWdzL3BtYWMzMl9kZWZjb25maWcKaW5k
+ZXggNTUzZTY2Mi4uMDM1MWI1ZiAxMDA2NDQKLS0tIGEvYXJjaC9wb3dlcnBjL2NvbmZpZ3MvcG1h
+YzMyX2RlZmNvbmZpZworKysgYi9hcmNoL3Bvd2VycGMvY29uZmlncy9wbWFjMzJfZGVmY29uZmln
+CkBAIC0zMSw2ICszMSw3IEBAIENPTkZJR19ISUJFUk5BVElPTj15CiBDT05GSUdfQVBNX0VNVUxB
+VElPTj15CiBDT05GSUdfUENDQVJEPW0KIENPTkZJR19ZRU5UQT1tCitDT05GSUdfTkVUPXkKIENP
+TkZJR19QQUNLRVQ9eQogQ09ORklHX1VOSVg9eQogQ09ORklHX1hGUk1fVVNFUj15CmRpZmYgLS1n
+aXQgYS9hcmNoL3Bvd2VycGMvY29uZmlncy9wcGM2NF9kZWZjb25maWcgYi9hcmNoL3Bvd2VycGMv
+Y29uZmlncy9wcGM2NF9kZWZjb25maWcKaW5kZXggZjZjMDJmOC4uMzY1MTg4NyAxMDA2NDQKLS0t
+IGEvYXJjaC9wb3dlcnBjL2NvbmZpZ3MvcHBjNjRfZGVmY29uZmlnCisrKyBiL2FyY2gvcG93ZXJw
+Yy9jb25maWdzL3BwYzY0X2RlZmNvbmZpZwpAQCAtNTgsNiArNTgsNyBAQCBDT05GSUdfRUxFQ1RS
+QV9DRj15CiBDT05GSUdfSE9UUExVR19QQ0k9eQogQ09ORklHX0hPVFBMVUdfUENJX1JQQT1tCiBD
+T05GSUdfSE9UUExVR19QQ0lfUlBBX0RMUEFSPW0KK0NPTkZJR19ORVQ9eQogQ09ORklHX1BBQ0tF
+VD15CiBDT05GSUdfVU5JWD15CiBDT05GSUdfWEZSTV9VU0VSPW0KZGlmZiAtLWdpdCBhL2FyY2gv
+cG93ZXJwYy9jb25maWdzL3BwYzY0ZV9kZWZjb25maWcgYi9hcmNoL3Bvd2VycGMvY29uZmlncy9w
+cGM2NGVfZGVmY29uZmlnCmluZGV4IDU4N2Y1NTEuLmMzYTMyNjkgMTAwNjQ0Ci0tLSBhL2FyY2gv
+cG93ZXJwYy9jb25maWdzL3BwYzY0ZV9kZWZjb25maWcKKysrIGIvYXJjaC9wb3dlcnBjL2NvbmZp
+Z3MvcHBjNjRlX2RlZmNvbmZpZwpAQCAtMzMsNiArMzMsNyBAQCBDT05GSUdfU1BBUlNFTUVNX01B
+TlVBTD15CiBDT05GSUdfUENJX01TST15CiBDT05GSUdfUENDQVJEPXkKIENPTkZJR19IT1RQTFVH
+X1BDST15CitDT05GSUdfTkVUPXkKIENPTkZJR19QQUNLRVQ9eQogQ09ORklHX1VOSVg9eQogQ09O
+RklHX1hGUk1fVVNFUj1tCmRpZmYgLS1naXQgYS9hcmNoL3Bvd2VycGMvY29uZmlncy9wc2VyaWVz
+X2RlZmNvbmZpZyBiL2FyY2gvcG93ZXJwYy9jb25maWdzL3BzZXJpZXNfZGVmY29uZmlnCmluZGV4
+IDUwMzc1ZjEuLmRkMmE5Y2EgMTAwNjQ0Ci0tLSBhL2FyY2gvcG93ZXJwYy9jb25maWdzL3BzZXJp
+ZXNfZGVmY29uZmlnCisrKyBiL2FyY2gvcG93ZXJwYy9jb25maWdzL3BzZXJpZXNfZGVmY29uZmln
+CkBAIC01Myw2ICs1Myw3IEBAIENPTkZJR19TQ0hFRF9TTVQ9eQogQ09ORklHX0hPVFBMVUdfUENJ
+PXkKIENPTkZJR19IT1RQTFVHX1BDSV9SUEE9bQogQ09ORklHX0hPVFBMVUdfUENJX1JQQV9ETFBB
+Uj1tCitDT05GSUdfTkVUPXkKIENPTkZJR19QQUNLRVQ9eQogQ09ORklHX1VOSVg9eQogQ09ORklH
+X1hGUk1fVVNFUj1tCmRpZmYgLS1naXQgYS9hcmNoL3Bvd2VycGMvY29uZmlncy9wc2VyaWVzX2xl
+X2RlZmNvbmZpZyBiL2FyY2gvcG93ZXJwYy9jb25maWdzL3BzZXJpZXNfbGVfZGVmY29uZmlnCmlu
+ZGV4IDQ0MjhlZTQuLjYzMzkyZjQgMTAwNjQ0Ci0tLSBhL2FyY2gvcG93ZXJwYy9jb25maWdzL3Bz
+ZXJpZXNfbGVfZGVmY29uZmlnCisrKyBiL2FyY2gvcG93ZXJwYy9jb25maWdzL3BzZXJpZXNfbGVf
+ZGVmY29uZmlnCkBAIC01NSw2ICs1NSw3IEBAIENPTkZJR19TQ0hFRF9TTVQ9eQogQ09ORklHX0hP
+VFBMVUdfUENJPXkKIENPTkZJR19IT1RQTFVHX1BDSV9SUEE9bQogQ09ORklHX0hPVFBMVUdfUENJ
+X1JQQV9ETFBBUj1tCitDT05GSUdfTkVUPXkKIENPTkZJR19QQUNLRVQ9eQogQ09ORklHX1VOSVg9
+eQogQ09ORklHX1hGUk1fVVNFUj1tCi0tIAoxLjguNC41CgpfX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4
+cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5m
+by9saW51eHBwYy1kZXY=
