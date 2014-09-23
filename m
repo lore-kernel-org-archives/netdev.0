@@ -1,57 +1,68 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink
-	API
-Date: Tue, 23 Sep 2014 10:18:08 +0100
-Message-ID: <20140923091808.GB6944@casper.infradead.org>
-References: <20140919154946.GH1980@nanopsycho.orion>
- <541C6E6D.9000109@mojatatu.com> <541CAA3C.5080105@intel.com>
- <20140920081426.GE1821@nanopsycho.orion>
- <20140920105354.GA29419@casper.infradead.org>
- <CAADnVQK0wT2Fjqdg+C=ruSt8jF6sKeMo7cFj7K1fsu7-1u5g=g@mail.gmail.com>
- <20140922081341.GA20905@casper.infradead.org>
- <CA+mtBx-ZvkZ2ALGLsLEN7Cgn9gN_rY36ZhuqYC3mZ9WVxjFDaQ@mail.gmail.com>
- <20140922221727.GA4708@casper.infradead.org>
- <CA+mtBx9ZVQ5r5Hzy9-uEnk+iu+HKkOP4+VANC06Xf8VvTxktwQ@mail.gmail.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH v2] brcmfmac: Fix off by one bug in brcmf_count_20mhz_channels()
+Date: Tue, 23 Sep 2014 11:10:03 +0200
+Message-ID: <542138EB.40708@broadcom.com>
+References: <1411426195-13467-1-git-send-email-emilgoode@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- Neil Jerram <Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
- "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
- Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
- Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
- Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
- simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
- Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>,
- Vladislav Yasevich <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev@
-To: Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CA+mtBx9ZVQ5r5Hzy9-uEnk+iu+HKkOP4+VANC06Xf8VvTxktwQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: Brett Rudley <brudley@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Daniel Kim <dekim@broadcom.com>,
+	<linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
+To: Emil Goode <emilgoode@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:49026 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753695AbaIWJKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 05:10:11 -0400
+In-Reply-To: <1411426195-13467-1-git-send-email-emilgoode@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/22/14 at 03:40pm, Tom Herbert wrote:
-> On Mon, Sep 22, 2014 at 3:17 PM, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org> wrote:
-> > What makes stateful offload interesting to me is that the final
-> > desintation of a packet is known at RX and can be redirected to a
-> > queue or VF. This allows to build packet batches on shared pages
-> > while preserving the securiy model.
+On 09/23/14 00:49, Emil Goode wrote:
+> In the brcmf_count_20mhz_channels function we are looping through a list
+> of channels received from firmware. Since the index of the first channel
+> is 0 the condition leads to an off by one bug. This is causing us to hit
+> the WARN_ON_ONCE(1) calls in the brcmu_d11n_decchspec function, which is
+> how I discovered the bug.
+>
+> Introduced by:
+> commit b48d891676f756d48b4d0ee131e4a7a5d43ca417
+> ("brcmfmac: rework wiphy structure setup")
+>
 
-To put this in other words: It is equivalent to applying the snabbswitch
-+ vhost-user principle to the kernel but with encap support. The SR-IOV
-case would be a further optimization of that.
+Hi John,
+
+This bug was introduced in 3.17 so can it still go in the wireless tree? 
+I verified it applies to wireless/master branch.
+
+Regards,
+Arend
+
+> Acked-by: Arend van Spriel<arend@broadcom.com>
+> Signed-off-by: Emil Goode<emilgoode@gmail.com>
+> ---
+> v2: Added Arends "Acked-by" tag.
+>
+>   drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
+> index 12a60ca..0517687 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
+> @@ -4924,7 +4924,7 @@ static void brcmf_count_20mhz_channels(struct brcmf_cfg80211_info *cfg,
+>   	struct brcmu_chan ch;
+>   	int i;
+>
+> -	for (i = 0; i<= total; i++) {
+> +	for (i = 0; i<  total; i++) {
+>   		ch.chspec = (u16)le32_to_cpu(chlist->element[i]);
+>   		cfg->d11inf.decchspec(&ch);
+>
