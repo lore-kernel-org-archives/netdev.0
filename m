@@ -1,135 +1,133 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
-Date: Mon, 22 Sep 2014 20:43:15 -0700
-Message-ID: <CAADnVQ+=vKEjzUTcEW+yzA4bTL4TKabrzzk=gb=OyfuVGwOyPA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Vladislav Yasevich <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linvi
-To: Tom Herbert <therbert@google.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net-next] tcp: abort orphan sockets stalling on zero window probes
+Date: Mon, 22 Sep 2014 20:52:13 -0700
+Message-ID: <1411444333-6013-1-git-send-email-ycheng@google.com>
+Cc: edumazet@google.com, andrey.dmitrov@oktetlabs.ru,
+	ncardwell@google.com, netdev@vger.kernel.org,
+	Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:45961 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750828AbaIWDnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 23:43:17 -0400
-Received: by mail-la0-f42.google.com with SMTP id hz20so8058376lab.29
-        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 20:43:15 -0700 (PDT)
+Received: from mail-pa0-f73.google.com ([209.85.220.73]:35667 "EHLO
+	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751070AbaIWDwr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Sep 2014 23:52:47 -0400
+Received: by mail-pa0-f73.google.com with SMTP id ey11so1255710pad.4
+        for <netdev@vger.kernel.org>; Mon, 22 Sep 2014 20:52:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 22, 2014 at 7:16 PM, Tom Herbert <therbert@google.com> wrote:
-> On Mon, Sep 22, 2014 at 6:54 PM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
->> On Mon, Sep 22, 2014 at 8:10 AM, Tom Herbert <therbert@google.com> wrote:
->>> On Mon, Sep 22, 2014 at 1:13 AM, Thomas Graf <tgraf@suug.ch> wrote:
->>>> On 09/20/14 at 03:50pm, Alexei Starovoitov wrote:
->>>>> I think HW should not be limited by SW abstractions whether
->>>>> these abstractions are called flows, n-tuples, bridge or else.
->>>>> Really looking forward to see "device reporting the headers as
->>>>> header fields (len, offset) and the associated parse graph"
->>>>> as the first step.
->>>>>
->>>>> Another topic that this discussion didn't cover yet is how this
->>>>> all connects to tunnels and what is 'tunnel offloading'.
->>
->>> encapsulation (stuffing a few bytes of header into a packet) is in
->>> itself not nearly an expensive enough operation to warrant offloading
->>> to the NIC. Personally, I wish if NIC vendors are going to focus on
->>
->> On contrary, generic tunneling is most important one to get right
->> when we're talking offloads.
->> Adding encap header is easy to do in hw, but it breaks all other
->> offloads if hw is not generic. Consider gso packet coming from vm.
->> Generic tunnel allows sw to add inner headers, outer headers and
->> setup offload offsets, so that HW does segmentation, checksuming
->> of inner packet, adjusts inner headers and adds final outer encap.
->
-> As I pointed out on a previous thread, we already have a sufficiently
-> generic interface to allow HW to do encapsulated TSO
-> (SKB_GSO_UDP_TUNNEL and SKB_GSO_UDP_TUNNEL_CSUM with the inner
-> headers).
+Currently we have two different policies for orphan sockets
+that repeatedly stall on zero window ACKs. If a socket gets
+a zero window ACK when it is transmitting data, the RTO is
+used to probe the window. The socket is aborted after roughly
+tcp_orphan_retries() retries (as in tcp_write_timeout()).
 
-SKB_GSO_UDP_TUNNEL_CSUM was the right way
-to start splitting overloaded and messy semantics of
-UDP_TUNNEL. I'm still not sure whether you've intended
-it for both rx and tx, since to support tunnel_csum on rx,
-parsing of encap is needed, whereas tx is so much simpler.
-Unless you're assuming checksum_complete model for rx...
+But if the socket was idle when it received the zero window ACK,
+and later wants to send more data, we use the probe timer to
+probe the window. If the receiver always returns zero window ACKs,
+icsk_probes keeps getting reset in tcp_ack() and the orphan socket
+can stall forever until the system reaches the orphan limit (as
+commented in tcp_probe_timer()). This opens up a simple attack
+to create lots of hanging orphan sockets to burn the memory
+and the CPU, as demonstrated in the recent netdev post "TCP
+connection will hang in FIN_WAIT1 after closing if zero window is
+advertised." http://www.spinics.net/lists/netdev/msg296539.html
 
-> If properly implemented, HW can implement a whole bunch of
-> UDP encap protocols without knowing how to parse them.
+This patch follows the design in RTO-based probe: we abort an orphan
+socket stalling on zero window when the probe timer reaches both
+the maximum backoff and the maximum RTO. For example, an 100ms RTT
+connection will timeout after roughly 153 seconds (0.3 + 0.6 +
+.... + 76.8) if the receiver keeps the window shut.
 
-on a tx side... yes, but I cannot see how you can do rx
-with inner csum verify without parsing encap.
-What do you have in mind ?
+In addition, we change TCP_USER_TIMEOUT to cover (life or dead)
+sockets stalled on zero-window probes. This changes the semantics
+of TCP_USER_TIMEOUT slightly because it previously only applies
+when the socket has pending transmission.
 
-> I don't see how
-> a switch on the NIC helps this...
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Reported-by: Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>
+---
+ net/ipv4/tcp.c       |  2 +-
+ net/ipv4/tcp_timer.c | 35 ++++++++++++++++++-----------------
+ 2 files changed, 19 insertions(+), 18 deletions(-)
 
-correct, just a switch on a nic isn't very useful.
-
-If immediate consumer of the packet is a VM,
-then doing switching in the nic after decap doesn't
-add much speed, since bridge+router+nat+policy in sw
-after decap and csum verify done by hw are fast enough.
-But switching in HW becomes useful when VF
-is a destination device, since it avoids hw->sw->hw
-roundtrip as Thomas was saying.
-
-Also there are x86 network gateways where tunneled
-traffic from virtual network is terminated and sent
-over internet or to other datacenter. Performance
-demands are high, so if tunnel+switch+nat+policy
-can be done in off-the-shelf HW it would be great.
-
->> And this is just tx offload. On rx smart tunnel offload in HW parses
->> encap and goes all the way to inner headers to verify checksums,
->> it also steers based on inner headers.
->> Try mellanox nics with and without vxlan offload to see
->> the difference.
->
-> Turn on UDP RSS on the device and I bet you'll see those differences
-> go away!
-
-Logically it should, since all inner flows should get
-hashed into different outer src_port, but somehow
-that didn't work. Need to re-investigate with your
-l4_hash stuff.
-
-> Alexei, I believe you said previously said that SW should not dictate
-> HW models. I agree with this, but also believe the converse is true--
-> HW shouldn't dictate SW model.
-
-completely agree!
-
-> This is really why I'm raising the
-> question of what it means to integrate a switch into the host stack.
-> If this is something that doesn't require any model change to the
-> stack and is just a clever backend for rx-filters or tc, then I'm fine
-> with that!
-
-agree as well. I'm not excited about switchdev
-abstraction from this given patch, since it looks overly
-simplified and not applicable to real silicon, but
-discussion about exposing programmable
-nics/switches to sw in a generic way is worth having :)
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 070aeff..965a197 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2693,7 +2693,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 		break;
+ #endif
+ 	case TCP_USER_TIMEOUT:
+-		/* Cap the max timeout in ms TCP will retry/retrans
++		/* Cap the max time in ms TCP will retry or probe the window
+ 		 * before giving up and aborting (ETIMEDOUT) a connection.
+ 		 */
+ 		if (val < 0)
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index b24360f..aa6773a 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -270,40 +270,41 @@ static void tcp_probe_timer(struct sock *sk)
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	int max_probes;
++	u32 start_ts;
+ 
+ 	if (tp->packets_out || !tcp_send_head(sk)) {
+ 		icsk->icsk_probes_out = 0;
+ 		return;
+ 	}
+ 
+-	/* *WARNING* RFC 1122 forbids this
+-	 *
+-	 * It doesn't AFAIK, because we kill the retransmit timer -AK
+-	 *
+-	 * FIXME: We ought not to do it, Solaris 2.5 actually has fixing
+-	 * this behaviour in Solaris down as a bug fix. [AC]
+-	 *
+-	 * Let me to explain. icsk_probes_out is zeroed by incoming ACKs
+-	 * even if they advertise zero window. Hence, connection is killed only
+-	 * if we received no ACKs for normal connection timeout. It is not killed
+-	 * only because window stays zero for some time, window may be zero
+-	 * until armageddon and even later. We are in full accordance
+-	 * with RFCs, only probe timer combines both retransmission timeout
+-	 * and probe timeout in one bottle.				--ANK
++	/* RFC 1122 4.2.2.17 requires the sender to stay open indefinitely as
++	 * long as the receiver continues to respond probes. We support this by
++	 * default and reset icsk_probes_out with incoming ACKs. But if the
++	 * socket is orphaned or the user specifies TCP_USER_TIMEOUT, we
++	 * kill the socket when the retry count and the time exceeds the
++	 * corresponding system limit. We also implement similar policy when
++	 * we use RTO to probe window in tcp_retransmit_timer().
+ 	 */
+-	max_probes = sysctl_tcp_retries2;
++	start_ts = tcp_skb_timestamp(tcp_send_head(sk));
++	if (!start_ts)
++		skb_mstamp_get(&tcp_send_head(sk)->skb_mstamp);
++	else if (icsk->icsk_user_timeout &&
++		 (s32)(tcp_time_stamp - start_ts) > icsk->icsk_user_timeout)
++		goto abort;
+ 
++	max_probes = sysctl_tcp_retries2;
+ 	if (sock_flag(sk, SOCK_DEAD)) {
+ 		const int alive = inet_csk_rto_backoff(icsk, TCP_RTO_MAX) < TCP_RTO_MAX;
+ 
+ 		max_probes = tcp_orphan_retries(sk, alive);
+-
++		if (!alive && icsk->icsk_backoff >= max_probes)
++			goto abort;
+ 		if (tcp_out_of_resources(sk, alive || icsk->icsk_probes_out <= max_probes))
+ 			return;
+ 	}
+ 
+ 	if (icsk->icsk_probes_out > max_probes) {
+-		tcp_write_err(sk);
++abort:		tcp_write_err(sk);
+ 	} else {
+ 		/* Only send another probe if we didn't close things up. */
+ 		tcp_send_probe0(sk);
+-- 
+2.1.0.rc2.206.gedb03e5
