@@ -1,105 +1,97 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] net: stmmac: fix stmmac_pci_probe failed when CONFIG_HAVE_CLK
- is selected
-Date: Tue, 23 Sep 2014 08:10:09 +0200
-Message-ID: <54210EC1.9070507@st.com>
-References: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com> <20140922.141921.577008114679288180.davem@davemloft.net> <F54AEECA5E2B9541821D670476DAE19C2B7EAE19@PGSMSX102.gar.corp.intel.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Subject: Re: net: stmmac glue layer for Amlogic Meson SoCs
+Date: Tue, 23 Sep 2014 08:16:18 +0200
+Message-ID: <54211032.6010009@st.com>
+References: <1411219757-9201-1-git-send-email-b.galvani@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>,
-	"vbridgers2013@gmail.com" <vbridgers2013@gmail.com>,
-	"wens@csie.org" <wens@csie.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ong, Boon Leong" <boon.leong.ong@intel.com>,
-	"tobias.johannes.klausmann@mni.thm.de"
-	<tobias.johannes.klausmann@mni.thm.de>
-To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F54AEECA5E2B9541821D670476DAE19C2B7EAE19@PGSMSX102.gar.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
+	Jerry Cao <jerry.cao-LpR1jeaWuhtBDgjK7y7TUQ@public.gmane.org>,
+	Victor Wan <victor.wan-LpR1jeaWuhtBDgjK7y7TUQ@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Beniamino Galvani <b.galvani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1411219757-9201-1-git-send-email-b.galvani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 9/23/2014 3:16 AM, Kweh, Hock Leong wrote:
->> -----Original Message-----
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: Tuesday, September 23, 2014 2:19 AM
->> From: Kweh Hock Leong <hock.leong.kweh@intel.com>
->> Date: Thu, 18 Sep 2014 20:34:10 +0800
->>
->> Giuseppe, Kweh, where are we with this patch?
+On 9/20/2014 3:29 PM, Beniamino Galvani wrote:
+> Hi,
 >
-> We are discussing whether this is the correct fix to the issue. Below is the discussion log:
+> the Ethernet controller available in Amlogic Meson6 and Meson8 SoCs is
+> a Synopsys DesignWare MAC IP core, already supported by the stmmac
+> driver.
 >
->>> Hmm I am not sure this is the right fix. The driver has to fail if the
->>> main clock is not found. Indeed dev_warn has to be changed in dev_err.
->>>
->>> Take a look at Documentation/networking/stmmac.txt but I will post
->>> some patch to improve the documentation adding further detail for clocks too.
->>>
->>> The the logic behind the code is that the CSR clock will be set at
->>> runtime if in case of priv->plat->clk_csr ==0 or it will be forced to
->>> a fixed value if passed from the platform instead of.
->>> IIRC This was required on some platforms time ago.
->>> For sure the driver is designed to fail in case of no main clock is found.
->>>
->>> Peppe
->>
->> Hi Peppe,
->>
->> I understand your point from the code below (at file stmmac_main.c line 2784):
->>
->> /* If a specific clk_csr value is passed from the platform
->>    * this means that the CSR Clock Range selection cannot be
->>    * changed at run-time and it is fixed. Viceversa the driver'll try to
->>    * set the MDC clock dynamically according to the csr actual
->>    * clock input.
->>    */
->> if (!priv->plat->clk_csr)
->>          stmmac_clk_csr_set(priv);
->> else
->>          priv->clk_csr = priv->plat->clk_csr;
->>
->>
->> I did search through the whole stmmac_main.c file and found that only stmmac_clk_csr_set()
->> function is leveraging the priv->stmmac_clk params for it calculation. By the logic point of view,
->> I do not need priv->stmmac_clk when I got priv->plat->clk_csr. With this thinking, I propose this
->> fix as when the probe get priv->plat->clk_csr, it shouldn't fail if priv->stmmac_clk has the error value.
+> These patches add a glue layer to the driver for the platform-specific
+> settings required by the Amlogic variant.
 >
-> Hi Peppe,
->
-> Are you trying to tell that if there is a fix CSR clock value, but driver cannot obtain the clk from devm_clk_get()
-> (even it is not in use), the driver should fail the probe?
->
-> You have a case with this condition:
-> HW allow SW to discover the STMMAC controller but HW/SW configures not to supply the CLOCK to STMMAC controller?
->
-> My understanding to these priv->plat->clk_csr and priv->stmmac_clk is that 1st one is fixed and 2nd one is dynamic.
-> When fixed value occurs, dynamic one would not be use. Do I understand this correctly?
+> This has been tested on a Amlogic S802 device with the initial Meson
+> support submitted by Carlo Caione [1].
 
-the logic is: the priv->stmmac_clk must be always provided from the
-platform then we have two cases:
+patches look fine just a warning with checkpatch as shown below then
 
-1) if priv->plat->clk_csr is also passed then it will be adopt in the
-    mdio functions to program the Reg4[5:2]
-    This was required in the past IIRC on SPEAr platforms.
-
-2) if priv->plat->clk_csr is not passed from the platform then the
-    priv->clk_csr will be set according to the priv->stmmac_clk
-    and always used in the mdio part.
-
-So IIUC now you are asking for not passing the priv->stmmac_clk
-and warning this event w/o failing. Why you cannot pass this clock?
-
-peppe
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
 
 
+[cavagiu@lxmcdt5 net.git]$ git-format-patch -2
+0001-net-stmmac-add-Amlogic-Meson-glue-layer.patch
+0002-net-stmmac-meson-document-device-tree-bindings.patch
+[cavagiu@lxmcdt5 net.git]$ !./
+./scripts/checkpatch.pl 000*
+WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
+#57:
+new file mode 100644
+
+WARNING: DT compatible string vendor "amlogic" appears un-documented -- 
+check ./Documentation/devicetree/bindings/vendor-prefixes.txt
+#152: FILE: drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c:34:
++	{ .compatible = "amlogic,meson6-dwmac", .data = &meson6_dwmac_data},
+
+total: 0 errors, 2 warnings, 0 checks, 108 lines checked
+
+0001-net-stmmac-add-Amlogic-Meson-glue-layer.patch has style problems, 
+please review.
+
+If any of these errors are false positives, please report
+them to the maintainer, see CHECKPATCH in MAINTAINERS.
+WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
+#17:
+new file mode 100644
+
+total: 0 errors, 1 warnings, 25 lines checked
+
+0002-net-stmmac-meson-document-device-tree-bindings.patch has style 
+problems, please review.
+
+If any of these errors are false positives, please report
+them to the maintainer, see CHECKPATCH in MAINTAINERS.
+
 >
-> Thanks.
+> [1] http://lwn.net/Articles/612000/
 >
+> Beniamino Galvani (2):
+>    net: stmmac: add Amlogic Meson glue layer
+>    net: stmmac: meson: document device tree bindings
 >
-> Regards,
-> Wilson
+>   .../devicetree/bindings/net/meson-dwmac.txt        | 25 ++++++++
+>   drivers/net/ethernet/stmicro/stmmac/Kconfig        | 10 ++++
+>   drivers/net/ethernet/stmicro/stmmac/Makefile       |  1 +
+>   drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c  | 67 ++++++++++++++++++++++
+>   drivers/net/ethernet/stmicro/stmmac/stmmac.h       |  3 +
+>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  3 +
+>   6 files changed, 109 insertions(+)
+>   create mode 100644 Documentation/devicetree/bindings/net/meson-dwmac.txt
+>   create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c
 >
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
