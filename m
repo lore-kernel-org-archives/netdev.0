@@ -1,64 +1,70 @@
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Subject: RE: [PATCH] net: stmmac: fix stmmac_pci_probe failed when
- CONFIG_HAVE_CLK is selected
-Date: Tue, 23 Sep 2014 07:03:46 +0000
-Message-ID: <F54AEECA5E2B9541821D670476DAE19C2B7EAF23@PGSMSX102.gar.corp.intel.com>
-References: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com>
- <20140922.141921.577008114679288180.davem@davemloft.net>
- <F54AEECA5E2B9541821D670476DAE19C2B7EAE19@PGSMSX102.gar.corp.intel.com>
- <54210EC1.9070507@st.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
+Date: Tue, 23 Sep 2014 08:19:22 +0100
+Message-ID: <20140923071922.GA6944@casper.infradead.org>
+References: <20140920081426.GE1821@nanopsycho.orion>
+ <20140920105354.GA29419@casper.infradead.org>
+ <CAADnVQK0wT2Fjqdg+C=ruSt8jF6sKeMo7cFj7K1fsu7-1u5g=g@mail.gmail.com>
+ <20140922081341.GA20905@casper.infradead.org>
+ <CA+mtBx-ZvkZ2ALGLsLEN7Cgn9gN_rY36ZhuqYC3mZ9WVxjFDaQ@mail.gmail.com>
+ <20140922221727.GA4708@casper.infradead.org>
+ <CA+mtBx9ZVQ5r5Hzy9-uEnk+iu+HKkOP4+VANC06Xf8VvTxktwQ@mail.gmail.com>
+ <20140922225305.GB4708@casper.infradead.org>
+ <CA+mtBx94TrLzQrZDo58d9ktma3ZioOpO=2FAODMRoiyiuYkQ9Q@mail.gmail.com>
+ <5420CEAC.2070104@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>,
-	"vbridgers2013@gmail.com" <vbridgers2013@gmail.com>,
-	"wens@csie.org" <wens@csie.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Herbert <therbert@google.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ong, Boon Leong" <boon.leong.ong@intel.com>,
-	"tobias.johannes.klausmann@mni.thm.de"
-	<tobias.johannes.klausmann@mni.thm.de>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54210EC1.9070507@st.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Vladislav Yasevich <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roop
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:58965 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752245AbaIWHTc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 03:19:32 -0400
+Content-Disposition: inline
+In-Reply-To: <5420CEAC.2070104@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Giuseppe CAVALLARO [mailto:peppe.cavallaro@st.com]
-> Sent: Tuesday, September 23, 2014 2:10 PM
+On 09/22/14 at 06:36pm, John Fastabend wrote:
+> n-tuple has some deficiencies,
 > 
-> the logic is: the priv->stmmac_clk must be always provided from the platform
-> then we have two cases:
+> 	- its not possible to get the capabilities to learn what
+> 	  fields are supported by the device, what actions, etc.
 > 
-> 1) if priv->plat->clk_csr is also passed then it will be adopt in the
->     mdio functions to program the Reg4[5:2]
->     This was required in the past IIRC on SPEAr platforms.
+> 	- its ioctl based so we have to poll the device
 > 
-> 2) if priv->plat->clk_csr is not passed from the platform then the
->     priv->clk_csr will be set according to the priv->stmmac_clk
->     and always used in the mdio part.
+> 	- only supports a single table, where we have devices with
+> 	  multiple tables
 > 
-> So IIUC now you are asking for not passing the priv->stmmac_clk and warning
-> this event w/o failing. Why you cannot pass this clock?
-> 
-> peppe
+> 	- sort of the same as above but it doesn't allow creating new
+> 	  tables or destroying old tables.
 
-
-Hi peppe,
-
-Appreciate for the explanation. Just to clarify that I am not asking not to pass in the priv->stmmac_clk.
-In fact, the fix will fail at case 2 if driver cannot obtain the priv->stmmac_clk, but just not the case 1.
-For case 1, seem like it does not require the stmmac_clk then I think it should be OK not to fail it when
-driver did not get stmmac_clk but have the clk_csr set.
-
-Anyway, I can change the fix by adding the clock registration APIs being call at the stmmac_pci.c probe there before
-calling stmmac_dvr_probe. By doing this, it created a dependency to the pci driver that must have CONFIG_HAVE_CLK
-to be turned on. Besides, I would need you guys to provide me information on other platforms about what is the best 
-value to set? Can I just set to zero since the stmmac_pci driver is always using the priv->plat->clk_csr?
-
-
-Regards,
-Wilson
+OK, I understand where Tom was going. Given we add feature detection
+capabilities this could be used to identify the guest for fixed length
+encap. I still assume HW won't be able to match on the inner header
+for any variable lengh encap with metadata packet unless it can
+actually parse the encap. I hope I didn't bring encap format to this
+thread at this very moment ;-)
