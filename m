@@ -1,79 +1,105 @@
-From: Bernhard Thaler <bernhard.thaler@r-it.at>
-Subject: [PATCHv3 1/1] bluetooth: Check for SCO type before setting retransmission effort
-Date: Tue, 23 Sep 2014 07:59:24 +0200
-Message-ID: <1411451964-4025-1-git-send-email-bernhard.thaler@r-it.at>
-References: <1411035321-10215-1-git-send-email-bernhard.thaler@r-it.at>
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Bernhard Thaler <bernhard.thaler@r-it.at>
-To: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
-	davem@davemloft.net
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] net: stmmac: fix stmmac_pci_probe failed when CONFIG_HAVE_CLK
+ is selected
+Date: Tue, 23 Sep 2014 08:10:09 +0200
+Message-ID: <54210EC1.9070507@st.com>
+References: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com> <20140922.141921.577008114679288180.davem@davemloft.net> <F54AEECA5E2B9541821D670476DAE19C2B7EAE19@PGSMSX102.gar.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>,
+	"vbridgers2013@gmail.com" <vbridgers2013@gmail.com>,
+	"wens@csie.org" <wens@csie.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Ong, Boon Leong" <boon.leong.ong@intel.com>,
+	"tobias.johannes.klausmann@mni.thm.de"
+	<tobias.johannes.klausmann@mni.thm.de>
+To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1411035321-10215-1-git-send-email-bernhard.thaler@r-it.at>
+In-Reply-To: <F54AEECA5E2B9541821D670476DAE19C2B7EAE19@PGSMSX102.gar.corp.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SCO connection cannot be setup to devices that do not support retransmission.
-Patch based on http://permalink.gmane.org/gmane.linux.bluez.kernel/7779 and
-adapted for this kernel version.
-Code changed to check SCO/eSCO type before setting retransmission effort
-and max. latency. The purpose of the patch is to support older devices not
- capable of eSCO.
+On 9/23/2014 3:16 AM, Kweh, Hock Leong wrote:
+>> -----Original Message-----
+>> From: David Miller [mailto:davem@davemloft.net]
+>> Sent: Tuesday, September 23, 2014 2:19 AM
+>> From: Kweh Hock Leong <hock.leong.kweh@intel.com>
+>> Date: Thu, 18 Sep 2014 20:34:10 +0800
+>>
+>> Giuseppe, Kweh, where are we with this patch?
+>
+> We are discussing whether this is the correct fix to the issue. Below is the discussion log:
+>
+>>> Hmm I am not sure this is the right fix. The driver has to fail if the
+>>> main clock is not found. Indeed dev_warn has to be changed in dev_err.
+>>>
+>>> Take a look at Documentation/networking/stmmac.txt but I will post
+>>> some patch to improve the documentation adding further detail for clocks too.
+>>>
+>>> The the logic behind the code is that the CSR clock will be set at
+>>> runtime if in case of priv->plat->clk_csr ==0 or it will be forced to
+>>> a fixed value if passed from the platform instead of.
+>>> IIRC This was required on some platforms time ago.
+>>> For sure the driver is designed to fail in case of no main clock is found.
+>>>
+>>> Peppe
+>>
+>> Hi Peppe,
+>>
+>> I understand your point from the code below (at file stmmac_main.c line 2784):
+>>
+>> /* If a specific clk_csr value is passed from the platform
+>>    * this means that the CSR Clock Range selection cannot be
+>>    * changed at run-time and it is fixed. Viceversa the driver'll try to
+>>    * set the MDC clock dynamically according to the csr actual
+>>    * clock input.
+>>    */
+>> if (!priv->plat->clk_csr)
+>>          stmmac_clk_csr_set(priv);
+>> else
+>>          priv->clk_csr = priv->plat->clk_csr;
+>>
+>>
+>> I did search through the whole stmmac_main.c file and found that only stmmac_clk_csr_set()
+>> function is leveraging the priv->stmmac_clk params for it calculation. By the logic point of view,
+>> I do not need priv->stmmac_clk when I got priv->plat->clk_csr. With this thinking, I propose this
+>> fix as when the probe get priv->plat->clk_csr, it shouldn't fail if priv->stmmac_clk has the error value.
+>
+> Hi Peppe,
+>
+> Are you trying to tell that if there is a fix CSR clock value, but driver cannot obtain the clk from devm_clk_get()
+> (even it is not in use), the driver should fail the probe?
+>
+> You have a case with this condition:
+> HW allow SW to discover the STMMAC controller but HW/SW configures not to supply the CLOCK to STMMAC controller?
+>
+> My understanding to these priv->plat->clk_csr and priv->stmmac_clk is that 1st one is fixed and 2nd one is dynamic.
+> When fixed value occurs, dynamic one would not be use. Do I understand this correctly?
 
-Tested on Blackberry 655+ headset which does not support retransmission.
-Credits go to Alexander Sommerhuber.
+the logic is: the priv->stmmac_clk must be always provided from the
+platform then we have two cases:
 
-Signed-off-by: Bernhard Thaler <bernhard.thaler@r-it.at>
----
- net/bluetooth/hci_conn.c |   22 +++++++++++++++++-----
- 1 file changed, 17 insertions(+), 5 deletions(-)
+1) if priv->plat->clk_csr is also passed then it will be adopt in the
+    mdio functions to program the Reg4[5:2]
+    This was required in the past IIRC on SPEAr platforms.
 
-diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
-index faff624..32dcde1 100644
---- a/net/bluetooth/hci_conn.c
-+++ b/net/bluetooth/hci_conn.c
-@@ -38,7 +38,7 @@ struct sco_param {
- 	u16 max_latency;
- };
- 
--static const struct sco_param sco_param_cvsd[] = {
-+static const struct sco_param esco_param_cvsd[] = {
- 	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x000a }, /* S3 */
- 	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x0007 }, /* S2 */
- 	{ EDR_ESCO_MASK | ESCO_EV3,   0x0007 }, /* S1 */
-@@ -46,6 +46,11 @@ static const struct sco_param sco_param_cvsd[] = {
- 	{ EDR_ESCO_MASK | ESCO_HV1,   0xffff }, /* D0 */
- };
- 
-+static const struct sco_param sco_param_cvsd[] = {
-+	{ EDR_ESCO_MASK | ESCO_HV3,   0xffff }, /* D1 */
-+	{ EDR_ESCO_MASK | ESCO_HV1,   0xffff }, /* D0 */
-+};
-+
- static const struct sco_param sco_param_wideband[] = {
- 	{ EDR_ESCO_MASK & ~ESCO_2EV3, 0x000d }, /* T2 */
- 	{ EDR_ESCO_MASK | ESCO_EV3,   0x0008 }, /* T1 */
-@@ -194,10 +199,17 @@ bool hci_setup_sync(struct hci_conn *conn, __u16 handle)
- 		param = &sco_param_wideband[conn->attempt - 1];
- 		break;
- 	case SCO_AIRMODE_CVSD:
--		if (conn->attempt > ARRAY_SIZE(sco_param_cvsd))
--			return false;
--		cp.retrans_effort = 0x01;
--		param = &sco_param_cvsd[conn->attempt - 1];
-+		if (!lmp_esco_capable(conn->link)) {
-+			if ((conn->attempt) > ARRAY_SIZE(sco_param_cvsd))
-+				return false;
-+			cp.retrans_effort = 0xff;
-+			param = &sco_param_cvsd[conn->attempt - 1];
-+		} else {
-+			if (conn->attempt > ARRAY_SIZE(esco_param_cvsd))
-+				return false;
-+			cp.retrans_effort = 0x01;
-+			param = &esco_param_cvsd[conn->attempt - 1];
-+		}
- 		break;
- 	default:
- 		return false;
--- 
-1.7.10.4
+2) if priv->plat->clk_csr is not passed from the platform then the
+    priv->clk_csr will be set according to the priv->stmmac_clk
+    and always used in the mdio part.
+
+So IIUC now you are asking for not passing the priv->stmmac_clk
+and warning this event w/o failing. Why you cannot pass this clock?
+
+peppe
+
+
+>
+> Thanks.
+>
+>
+> Regards,
+> Wilson
+>
