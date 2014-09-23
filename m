@@ -1,7 +1,7 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH net-next v2 3/5] rtnl: add link netns id to interface messages
-Date: Tue, 23 Sep 2014 15:20:28 +0200
-Message-ID: <1411478430-4989-4-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH net-next v2 1/5] netns: allocate netns ids
+Date: Tue, 23 Sep 2014 15:20:26 +0200
+Message-ID: <1411478430-4989-2-git-send-email-nicolas.dichtel@6wind.com>
 References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, ebiederm@xmission.com,
 	stephen@networkplumber.org, akpm@linux-foundation.org,
@@ -9,100 +9,151 @@ Cc: davem@davemloft.net, ebiederm@xmission.com,
 To: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:46015 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:46011 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751742AbaIWNUw (ORCPT
+	with ESMTP id S1753644AbaIWNUw (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 09:20:52 -0400
 In-Reply-To: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a new attribute (IFLA_LINK_NETNSID) which contains the 'link'
-netns id when this netns is different from the netns where the interface
-stands (for example for x-net interfaces like ip tunnels). When there is no id,
-because user ns of link netns and interface netns is not the same, we put 0
-into this attribute (id 0 is not valid) to indicate to userland that the link
-netns is different from the interface netns. Hence, userland knows that some
-information like IFLA_LINK are not interpretable.
+With this patch, an id is allocated for each netns. Id database is stored in the
+user namespace. It's allowed to get an id of a peer netns only if they share the
+same user ns.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/net/rtnetlink.h      |  2 ++
- include/uapi/linux/if_link.h |  1 +
- net/core/rtnetlink.c         | 22 ++++++++++++++++++++++
- 3 files changed, 25 insertions(+)
+ include/linux/user_namespace.h |  4 ++++
+ include/net/net_namespace.h    | 11 +++++++++++
+ kernel/user_namespace.c        |  6 ++++++
+ net/core/net_namespace.c       | 20 +++++++++++++++++++-
+ 4 files changed, 40 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-index e21b9f9653c0..6c6d5393fc34 100644
---- a/include/net/rtnetlink.h
-+++ b/include/net/rtnetlink.h
-@@ -46,6 +46,7 @@ static inline int rtnl_msg_family(const struct nlmsghdr *nlh)
-  *			    to create when creating a new device.
-  *	@get_num_rx_queues: Function to determine number of receive queues
-  *			    to create when creating a new device.
-+ *	@get_link_net: Function to get the i/o netns of the device
-  */
- struct rtnl_link_ops {
- 	struct list_head	list;
-@@ -93,6 +94,7 @@ struct rtnl_link_ops {
- 	int			(*fill_slave_info)(struct sk_buff *skb,
- 						   const struct net_device *dev,
- 						   const struct net_device *slave_dev);
-+	struct net		*(*get_link_net)(const struct net_device *dev);
+diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
+index e95372654f09..9d122b540422 100644
+--- a/include/linux/user_namespace.h
++++ b/include/linux/user_namespace.h
+@@ -5,6 +5,7 @@
+ #include <linux/nsproxy.h>
+ #include <linux/sched.h>
+ #include <linux/err.h>
++#include <linux/idr.h>
+ 
+ #define UID_GID_MAP_MAX_EXTENTS 5
+ 
+@@ -33,6 +34,9 @@ struct user_namespace {
+ 	struct key		*persistent_keyring_register;
+ 	struct rw_semaphore	persistent_keyring_register_sem;
+ #endif
++#ifdef CONFIG_NET_NS
++	struct idr		netns_ids;
++#endif
  };
  
- int __rtnl_link_register(struct rtnl_link_ops *ops);
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index c80f95f6ee78..21dd2bcb295f 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -145,6 +145,7 @@ enum {
- 	IFLA_CARRIER,
- 	IFLA_PHYS_PORT_ID,
- 	IFLA_CARRIER_CHANGES,
-+	IFLA_LINK_NETNSID,
- 	__IFLA_MAX
- };
+ extern struct user_namespace init_user_ns;
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 361d26077196..92b5f94e2842 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -59,6 +59,7 @@ struct net {
+ 	struct list_head	exit_list;	/* Use only net_mutex */
  
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index a6882686ca3a..99ed83c62685 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -862,6 +862,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + nla_total_size(1) /* IFLA_OPERSTATE */
- 	       + nla_total_size(1) /* IFLA_LINKMODE */
- 	       + nla_total_size(4) /* IFLA_CARRIER_CHANGES */
-+	       + nla_total_size(4) /* IFLA_LINK_NETNSID */
- 	       + nla_total_size(ext_filter_mask
- 			        & RTEXT_FILTER_VF ? 4 : 0) /* IFLA_NUM_VF */
- 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
-@@ -1134,6 +1135,27 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			goto nla_put_failure;
+ 	struct user_namespace   *user_ns;	/* Owning user namespace */
++	int			netnsid;
+ 
+ 	unsigned int		proc_inum;
+ 
+@@ -289,6 +290,16 @@ static inline struct net *read_pnet(struct net * const *pnet)
+ #define __net_initconst	__initconst
+ #endif
+ 
++static inline int peernet2id(struct net *net, struct net *peer)
++{
++	if (net->user_ns != peer->user_ns)
++		return -EPERM;
++
++	return peer->netnsid;
++}
++
++struct net *get_net_from_netnsid(struct net *net, int id);
++
+ struct pernet_operations {
+ 	struct list_head list;
+ 	int (*init)(struct net *net);
+diff --git a/kernel/user_namespace.c b/kernel/user_namespace.c
+index aa312b0dc3ec..30316a2eed49 100644
+--- a/kernel/user_namespace.c
++++ b/kernel/user_namespace.c
+@@ -104,6 +104,9 @@ int create_user_ns(struct cred *new)
+ #ifdef CONFIG_PERSISTENT_KEYRINGS
+ 	init_rwsem(&ns->persistent_keyring_register_sem);
+ #endif
++#ifdef CONFIG_NET_NS
++	idr_init(&ns->netns_ids);
++#endif
+ 	return 0;
+ }
+ 
+@@ -133,6 +136,9 @@ void free_user_ns(struct user_namespace *ns)
+ 
+ 	do {
+ 		parent = ns->parent;
++#ifdef CONFIG_NET_NS
++		idr_destroy(&ns->netns_ids);
++#endif
+ #ifdef CONFIG_PERSISTENT_KEYRINGS
+ 		key_put(ns->persistent_keyring_register);
+ #endif
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 7f155175bba8..f44378de7831 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -144,6 +144,19 @@ static void ops_free_list(const struct pernet_operations *ops,
  	}
+ }
  
-+	if (dev->rtnl_link_ops &&
-+	    dev->rtnl_link_ops->get_link_net) {
-+		struct net *link_net = dev->rtnl_link_ops->get_link_net(dev);
++struct net *get_net_from_netnsid(struct net *net, int id)
++{
++	struct net *peer;
 +
-+		if (!net_eq(dev_net(dev), link_net)) {
-+			int id = peernet2id(dev_net(dev), link_net);
++	rcu_read_lock();
++	peer = idr_find(&net->user_ns->netns_ids, id);
++	if (peer)
++		get_net(peer);
++	rcu_read_unlock();
 +
-+			/* If the link netns is not in the same user ns, put id
-+			 * 0 in IFLA_LINK_NETNSID to indicate to userland that
-+			 * the link netns is not the current netns, but that it
-+			 * don't have access to it.
-+			 */
-+			if (id == -EPERM)
-+				id = 0;
++	return peer;
++}
 +
-+			if (id >= 0 &&
-+			    nla_put_u32(skb, IFLA_LINK_NETNSID, id))
-+				goto nla_put_failure;
-+		}
-+	}
-+
- 	if (!(af_spec = nla_nest_start(skb, IFLA_AF_SPEC)))
- 		goto nla_put_failure;
+ /*
+  * setup_net runs the initializers for the network namespace object.
+  */
+@@ -151,13 +164,16 @@ static __net_init int setup_net(struct net *net, struct user_namespace *user_ns)
+ {
+ 	/* Must be called with net_mutex held */
+ 	const struct pernet_operations *ops, *saved_ops;
+-	int error = 0;
++	int error = 0, id;
+ 	LIST_HEAD(net_exit_list);
+ 
+ 	atomic_set(&net->count, 1);
+ 	atomic_set(&net->passive, 1);
+ 	net->dev_base_seq = 1;
+ 	net->user_ns = user_ns;
++	id = idr_alloc_cyclic(&user_ns->netns_ids, net, 1, 0, GFP_KERNEL);
++	if (id > 0)
++		net->netnsid = id;
+ 
+ #ifdef NETNS_REFCNT_DEBUG
+ 	atomic_set(&net->use_count, 0);
+@@ -288,6 +304,8 @@ static void cleanup_net(struct work_struct *work)
+ 	list_for_each_entry(net, &net_kill_list, cleanup_list) {
+ 		list_del_rcu(&net->list);
+ 		list_add_tail(&net->exit_list, &net_exit_list);
++		if (net->netnsid)
++			idr_remove(&net->user_ns->netns_ids, net->netnsid);
+ 	}
+ 	rtnl_unlock();
  
 -- 
 2.1.0
