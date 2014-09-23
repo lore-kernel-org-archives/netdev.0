@@ -1,44 +1,43 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFC PATCH linux-next] et131x: Promote staging et131x driver to
- drivers/net
-Date: Tue, 23 Sep 2014 22:07:52 +0200
-Message-ID: <20140923200752.GA23375@electric-eye.fr.zoreil.com>
-References: <1411421283-25073-1-git-send-email-mark.einon@gmail.com>
- <20140923072251.GD4657@distanz.ch>
- <20140923094614.GA5130@leicester.auvation.com>
- <20140923190242.GA8096@electric-eye.fr.zoreil.com>
- <1411499875.29268.7.camel@joe-AO725>
+From: Semen Slepov <slepovss@gmail.com>
+Subject: Re: /proc/net/sockstat invalid memory accounting or memory leak in latest kernels?
+Date: Tue, 23 Sep 2014 20:14:31 +0000 (UTC)
+Message-ID: <loom.20140923T221015-507@post.gmane.org>
+References: <40bc2b5fcda47d790f1fd247bc409041@visp.net.lb>  <1405597918.10255.76.camel@edumazet-glaptop2.roam.corp.google.com>  <37e25a5815a18a2da507a5b20b58427d@visp.net.lb>  <1405604568.10255.80.camel@edumazet-glaptop2.roam.corp.google.com>  <a927787503c2f0d71c330b879303b14f@visp.net.lb> <1405672897.10255.95.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org,
- Mark Einon <mark.einon@gmail.com>, davem@davemloft.net
-To: Joe Perches <joe@perches.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1411499875.29268.7.camel@joe-AO725>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:52650 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753090AbaIWUUG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 16:20:06 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1XWWZ9-0002zG-VR
+	for netdev@vger.kernel.org; Tue, 23 Sep 2014 22:20:04 +0200
+Received: from broadband-178-140-15-18.nationalcablenetworks.ru ([178.140.15.18])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 22:20:03 +0200
+Received: from slepovss by broadband-178-140-15-18.nationalcablenetworks.ru with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 22:20:03 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joe Perches <joe@perches.com> :
-> On Tue, 2014-09-23 at 21:02 +0200, Francois Romieu wrote:
-[...]
-> > How about kernel tinification ?
+Eric Dumazet <eric.dumazet <at> gmail.com> writes:
+
 > 
-> The tiny case where a large number of ethernet drivers are included?
+> 
+> tcp believes its under pressure because of some bug on accounting.
+> 
+> If you change /proc/sys/net/ipv4/tcp_mem   (3rd value), it might say it
+> is not under pressure.
+> 
+> I am taking a look, thanks again for the report.
+> 
+> 
 
-No.
-
-A couple of bytes here and there vs a cosmetic kernel wide change.
-
--- 
-Ueimor
+Still have this accounting bug on 3.15.7 . Is there fix in further kernel
+releases (or patch)?
