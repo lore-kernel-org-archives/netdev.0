@@ -1,829 +1,541 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 12/29] fm10k: Add interrupt support
-Date: Tue, 23 Sep 2014 04:16:40 -0700
-Message-ID: <1411471017-28213-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 08/29] fm10k: Add support for configuring PF interface
+Date: Tue, 23 Sep 2014 04:16:36 -0700
+Message-ID: <1411471017-28213-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:33801 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:15440 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755650AbaIWLRM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2014 07:17:12 -0400
+	id S1755315AbaIWLRI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 07:17:08 -0400
 In-Reply-To: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch set adds interrupt support for the fm10k interfaces.  The
-interfaces themselves only support MSI-X, so neither MSI or legacy
-interrupts are used.
+This patch adds support for the operations which will configure filters on
+the interface.  In addition with these patches we begin to introduce the PF
+messages that will be sent to or received from the Switch Management
+entity.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k.h        |  59 +++
- drivers/net/ethernet/intel/fm10k/fm10k_main.c   | 401 +++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |  11 +
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c    | 502 ++++++++++++++++++++++++
- 4 files changed, 973 insertions(+)
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c | 587 +++++++++++++++++++++++++++-
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.h |  98 +++++
+ 2 files changed, 683 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index bd47f28..826a117 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -31,6 +31,45 @@
- 
- #define FM10K_MAX_JUMBO_FRAME_SIZE	15358	/* Maximum supported size 15K */
- 
-+struct fm10k_ring_container {
-+	unsigned int total_bytes;	/* total bytes processed this int */
-+	unsigned int total_packets;	/* total packets processed this int */
-+	u16 work_limit;			/* total work allowed per interrupt */
-+	u16 itr;			/* interrupt throttle rate value */
-+	u8 count;			/* total number of rings in vector */
-+};
-+
-+#define FM10K_ITR_MAX		0x0FFF	/* maximum value for ITR */
-+#define FM10K_ITR_10K		100	/* 100us */
-+#define FM10K_ITR_20K		50	/* 50us */
-+#define FM10K_ITR_ADAPTIVE	0x8000	/* adaptive interrupt moderation flag */
-+
-+#define FM10K_ITR_ENABLE	(FM10K_ITR_AUTOMASK | FM10K_ITR_MASK_CLEAR)
-+
-+#define MAX_Q_VECTORS 256
-+#define MIN_Q_VECTORS	1
-+enum fm10k_non_q_vectors {
-+	FM10K_MBX_VECTOR,
-+	NON_Q_VECTORS_PF
-+};
-+
-+#define NON_Q_VECTORS(hw)	(((hw)->mac.type == fm10k_mac_pf) ? \
-+						NON_Q_VECTORS_PF : \
-+						0)
-+#define MIN_MSIX_COUNT(hw)	(MIN_Q_VECTORS + NON_Q_VECTORS(hw))
-+
-+struct fm10k_q_vector {
-+	struct fm10k_intfc *interface;
-+	u32 __iomem *itr;	/* pointer to ITR register for this vector */
-+	u16 v_idx;		/* index of q_vector within interface array */
-+	struct fm10k_ring_container rx, tx;
-+
-+	struct napi_struct napi;
-+	char name[IFNAMSIZ + 9];
-+
-+	struct rcu_head rcu;	/* to avoid race with update stats on free */
-+};
-+
- enum fm10k_ring_f_enum {
- 	RING_F_RSS,
- 	RING_F_QOS,
-@@ -66,15 +105,29 @@ struct fm10k_intfc {
- #define FM10K_FLAG_SWPRI_CONFIG			(u32)(1 << 4)
- 	int xcast_mode;
- 
-+	/* Tx fast path data */
-+	int num_tx_queues;
-+	u16 tx_itr;
-+
-+	/* Rx fast path data */
-+	int num_rx_queues;
-+	u16 rx_itr;
-+
- 	u64 rx_overrun_pf;
- 	u64 rx_overrun_vf;
- 
-+	/* Queueing vectors */
-+	struct fm10k_q_vector *q_vector[MAX_Q_VECTORS];
-+	struct msix_entry *msix_entries;
-+	int num_q_vectors;	/* current number of q_vectors for device */
- 	struct fm10k_ring_feature ring_feature[RING_F_ARRAY_SIZE];
- 
- 	struct fm10k_hw_stats stats;
- 	struct fm10k_hw hw;
- 	u32 __iomem *uc_addr;
- 	u16 msg_enable;
-+	u16 tx_ring_count;
-+	u16 rx_ring_count;
- 
- 	u32 reta[FM10K_RETA_SIZE];
- 	u32 rssrk[FM10K_RSSRK_SIZE];
-@@ -126,8 +179,14 @@ static inline int fm10k_mbx_trylock(struct fm10k_intfc *interface)
- /* main */
- extern char fm10k_driver_name[];
- extern const char fm10k_driver_version[];
-+int fm10k_init_queueing_scheme(struct fm10k_intfc *interface);
-+void fm10k_clear_queueing_scheme(struct fm10k_intfc *interface);
- 
- /* PCI */
-+void fm10k_mbx_free_irq(struct fm10k_intfc *);
-+int fm10k_mbx_request_irq(struct fm10k_intfc *);
-+void fm10k_qv_free_irq(struct fm10k_intfc *interface);
-+int fm10k_qv_request_irq(struct fm10k_intfc *interface);
- int fm10k_register_pci_driver(void);
- void fm10k_unregister_pci_driver(void);
- void fm10k_up(struct fm10k_intfc *interface);
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index 6ca0614..b0a2ba1 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -66,3 +66,404 @@ static void __exit fm10k_exit_module(void)
- 	fm10k_unregister_pci_driver();
- }
- module_exit(fm10k_exit_module);
-+
-+/**
-+ * fm10k_update_itr - update the dynamic ITR value based on packet size
-+ *
-+ *      Stores a new ITR value based on strictly on packet size.  The
-+ *      divisors and thresholds used by this function were determined based
-+ *      on theoretical maximum wire speed and testing data, in order to
-+ *      minimize response time while increasing bulk throughput.
-+ *
-+ * @ring_container: Container for rings to have ITR updated
-+ **/
-+static void fm10k_update_itr(struct fm10k_ring_container *ring_container)
-+{
-+	unsigned int avg_wire_size, packets;
-+
-+	/* Only update ITR if we are using adaptive setting */
-+	if (!(ring_container->itr & FM10K_ITR_ADAPTIVE))
-+		goto clear_counts;
-+
-+	packets = ring_container->total_packets;
-+	if (!packets)
-+		goto clear_counts;
-+
-+	avg_wire_size = ring_container->total_bytes / packets;
-+
-+	/* Add 24 bytes to size to account for CRC, preamble, and gap */
-+	avg_wire_size += 24;
-+
-+	/* Don't starve jumbo frames */
-+	if (avg_wire_size > 3000)
-+		avg_wire_size = 3000;
-+
-+	/* Give a little boost to mid-size frames */
-+	if ((avg_wire_size > 300) && (avg_wire_size < 1200))
-+		avg_wire_size /= 3;
-+	else
-+		avg_wire_size /= 2;
-+
-+	/* write back value and retain adaptive flag */
-+	ring_container->itr = avg_wire_size | FM10K_ITR_ADAPTIVE;
-+
-+clear_counts:
-+	ring_container->total_bytes = 0;
-+	ring_container->total_packets = 0;
-+}
-+
-+static void fm10k_qv_enable(struct fm10k_q_vector *q_vector)
-+{
-+	/* Enable auto-mask and clear the current mask */
-+	u32 itr = FM10K_ITR_ENABLE;
-+
-+	/* Update Tx ITR */
-+	fm10k_update_itr(&q_vector->tx);
-+
-+	/* Update Rx ITR */
-+	fm10k_update_itr(&q_vector->rx);
-+
-+	/* Store Tx itr in timer slot 0 */
-+	itr |= (q_vector->tx.itr & FM10K_ITR_MAX);
-+
-+	/* Shift Rx itr to timer slot 1 */
-+	itr |= (q_vector->rx.itr & FM10K_ITR_MAX) << FM10K_ITR_INTERVAL1_SHIFT;
-+
-+	/* Write the final value to the ITR register */
-+	writel(itr, q_vector->itr);
-+}
-+
-+static int fm10k_poll(struct napi_struct *napi, int budget)
-+{
-+	struct fm10k_q_vector *q_vector =
-+			       container_of(napi, struct fm10k_q_vector, napi);
-+
-+	/* all work done, exit the polling mode */
-+	napi_complete(napi);
-+
-+	/* re-enable the q_vector */
-+	fm10k_qv_enable(q_vector);
-+
-+	return 0;
-+}
-+
-+/**
-+ * fm10k_set_num_queues: Allocate queues for device, feature dependent
-+ * @interface: board private structure to initialize
-+ *
-+ * This is the top level queue allocation routine.  The order here is very
-+ * important, starting with the "most" number of features turned on at once,
-+ * and ending with the smallest set of features.  This way large combinations
-+ * can be allocated if they're turned on, and smaller combinations are the
-+ * fallthrough conditions.
-+ *
-+ **/
-+static void fm10k_set_num_queues(struct fm10k_intfc *interface)
-+{
-+	/* Start with base case */
-+	interface->num_rx_queues = 1;
-+	interface->num_tx_queues = 1;
-+}
-+
-+/**
-+ * fm10k_alloc_q_vector - Allocate memory for a single interrupt vector
-+ * @interface: board private structure to initialize
-+ * @v_count: q_vectors allocated on interface, used for ring interleaving
-+ * @v_idx: index of vector in interface struct
-+ * @txr_count: total number of Tx rings to allocate
-+ * @txr_idx: index of first Tx ring to allocate
-+ * @rxr_count: total number of Rx rings to allocate
-+ * @rxr_idx: index of first Rx ring to allocate
-+ *
-+ * We allocate one q_vector.  If allocation fails we return -ENOMEM.
-+ **/
-+static int fm10k_alloc_q_vector(struct fm10k_intfc *interface,
-+				unsigned int v_count, unsigned int v_idx,
-+				unsigned int txr_count, unsigned int txr_idx,
-+				unsigned int rxr_count, unsigned int rxr_idx)
-+{
-+	struct fm10k_q_vector *q_vector;
-+	int ring_count, size;
-+
-+	ring_count = txr_count + rxr_count;
-+	size = sizeof(struct fm10k_q_vector);
-+
-+	/* allocate q_vector and rings */
-+	q_vector = kzalloc(size, GFP_KERNEL);
-+	if (!q_vector)
-+		return -ENOMEM;
-+
-+	/* initialize NAPI */
-+	netif_napi_add(interface->netdev, &q_vector->napi,
-+		       fm10k_poll, NAPI_POLL_WEIGHT);
-+
-+	/* tie q_vector and interface together */
-+	interface->q_vector[v_idx] = q_vector;
-+	q_vector->interface = interface;
-+	q_vector->v_idx = v_idx;
-+
-+	/* save Tx ring container info */
-+	q_vector->tx.itr = interface->tx_itr;
-+	q_vector->tx.count = txr_count;
-+
-+	/* save Rx ring container info */
-+	q_vector->rx.itr = interface->rx_itr;
-+	q_vector->rx.count = rxr_count;
-+
-+	return 0;
-+}
-+
-+/**
-+ * fm10k_free_q_vector - Free memory allocated for specific interrupt vector
-+ * @interface: board private structure to initialize
-+ * @v_idx: Index of vector to be freed
-+ *
-+ * This function frees the memory allocated to the q_vector.  In addition if
-+ * NAPI is enabled it will delete any references to the NAPI struct prior
-+ * to freeing the q_vector.
-+ **/
-+static void fm10k_free_q_vector(struct fm10k_intfc *interface, int v_idx)
-+{
-+	struct fm10k_q_vector *q_vector = interface->q_vector[v_idx];
-+
-+	interface->q_vector[v_idx] = NULL;
-+	netif_napi_del(&q_vector->napi);
-+	kfree_rcu(q_vector, rcu);
-+}
-+
-+/**
-+ * fm10k_alloc_q_vectors - Allocate memory for interrupt vectors
-+ * @interface: board private structure to initialize
-+ *
-+ * We allocate one q_vector per queue interrupt.  If allocation fails we
-+ * return -ENOMEM.
-+ **/
-+static int fm10k_alloc_q_vectors(struct fm10k_intfc *interface)
-+{
-+	unsigned int q_vectors = interface->num_q_vectors;
-+	unsigned int rxr_remaining = interface->num_rx_queues;
-+	unsigned int txr_remaining = interface->num_tx_queues;
-+	unsigned int rxr_idx = 0, txr_idx = 0, v_idx = 0;
-+	int err;
-+
-+	if (q_vectors >= (rxr_remaining + txr_remaining)) {
-+		for (; rxr_remaining; v_idx++) {
-+			err = fm10k_alloc_q_vector(interface, q_vectors, v_idx,
-+						   0, 0, 1, rxr_idx);
-+			if (err)
-+				goto err_out;
-+
-+			/* update counts and index */
-+			rxr_remaining--;
-+			rxr_idx++;
-+		}
-+	}
-+
-+	for (; v_idx < q_vectors; v_idx++) {
-+		int rqpv = DIV_ROUND_UP(rxr_remaining, q_vectors - v_idx);
-+		int tqpv = DIV_ROUND_UP(txr_remaining, q_vectors - v_idx);
-+
-+		err = fm10k_alloc_q_vector(interface, q_vectors, v_idx,
-+					   tqpv, txr_idx,
-+					   rqpv, rxr_idx);
-+
-+		if (err)
-+			goto err_out;
-+
-+		/* update counts and index */
-+		rxr_remaining -= rqpv;
-+		txr_remaining -= tqpv;
-+		rxr_idx++;
-+		txr_idx++;
-+	}
-+
-+	return 0;
-+
-+err_out:
-+	interface->num_tx_queues = 0;
-+	interface->num_rx_queues = 0;
-+	interface->num_q_vectors = 0;
-+
-+	while (v_idx--)
-+		fm10k_free_q_vector(interface, v_idx);
-+
-+	return -ENOMEM;
-+}
-+
-+/**
-+ * fm10k_free_q_vectors - Free memory allocated for interrupt vectors
-+ * @interface: board private structure to initialize
-+ *
-+ * This function frees the memory allocated to the q_vectors.  In addition if
-+ * NAPI is enabled it will delete any references to the NAPI struct prior
-+ * to freeing the q_vector.
-+ **/
-+static void fm10k_free_q_vectors(struct fm10k_intfc *interface)
-+{
-+	int v_idx = interface->num_q_vectors;
-+
-+	interface->num_tx_queues = 0;
-+	interface->num_rx_queues = 0;
-+	interface->num_q_vectors = 0;
-+
-+	while (v_idx--)
-+		fm10k_free_q_vector(interface, v_idx);
-+}
-+
-+/**
-+ * f10k_reset_msix_capability - reset MSI-X capability
-+ * @interface: board private structure to initialize
-+ *
-+ * Reset the MSI-X capability back to its starting state
-+ **/
-+static void fm10k_reset_msix_capability(struct fm10k_intfc *interface)
-+{
-+	pci_disable_msix(interface->pdev);
-+	kfree(interface->msix_entries);
-+	interface->msix_entries = NULL;
-+}
-+
-+/**
-+ * f10k_init_msix_capability - configure MSI-X capability
-+ * @interface: board private structure to initialize
-+ *
-+ * Attempt to configure the interrupts using the best available
-+ * capabilities of the hardware and the kernel.
-+ **/
-+static int fm10k_init_msix_capability(struct fm10k_intfc *interface)
-+{
-+	struct fm10k_hw *hw = &interface->hw;
-+	int v_budget, vector;
-+
-+	/* It's easy to be greedy for MSI-X vectors, but it really
-+	 * doesn't do us much good if we have a lot more vectors
-+	 * than CPU's.  So let's be conservative and only ask for
-+	 * (roughly) the same number of vectors as there are CPU's.
-+	 * the default is to use pairs of vectors
-+	 */
-+	v_budget = max(interface->num_rx_queues, interface->num_tx_queues);
-+	v_budget = min_t(u16, v_budget, num_online_cpus());
-+
-+	/* account for vectors not related to queues */
-+	v_budget += NON_Q_VECTORS(hw);
-+
-+	/* At the same time, hardware can only support a maximum of
-+	 * hw.mac->max_msix_vectors vectors.  With features
-+	 * such as RSS and VMDq, we can easily surpass the number of Rx and Tx
-+	 * descriptor queues supported by our device.  Thus, we cap it off in
-+	 * those rare cases where the cpu count also exceeds our vector limit.
-+	 */
-+	v_budget = min_t(int, v_budget, hw->mac.max_msix_vectors);
-+
-+	/* A failure in MSI-X entry allocation is fatal. */
-+	interface->msix_entries = kcalloc(v_budget, sizeof(struct msix_entry),
-+					  GFP_KERNEL);
-+	if (!interface->msix_entries)
-+		return -ENOMEM;
-+
-+	/* populate entry values */
-+	for (vector = 0; vector < v_budget; vector++)
-+		interface->msix_entries[vector].entry = vector;
-+
-+	/* Attempt to enable MSI-X with requested value */
-+	v_budget = pci_enable_msix_range(interface->pdev,
-+					 interface->msix_entries,
-+					 MIN_MSIX_COUNT(hw),
-+					 v_budget);
-+	if (v_budget < 0) {
-+		kfree(interface->msix_entries);
-+		interface->msix_entries = NULL;
-+		return -ENOMEM;
-+	}
-+
-+	/* record the number of queues available for q_vectors */
-+	interface->num_q_vectors = v_budget - NON_Q_VECTORS(hw);
-+
-+	return 0;
-+}
-+
-+static void fm10k_init_reta(struct fm10k_intfc *interface)
-+{
-+	u16 i, rss_i = interface->ring_feature[RING_F_RSS].indices;
-+	u32 reta, base;
-+
-+	/* If the netdev is initialized we have to maintain table if possible */
-+	if (interface->netdev->reg_state) {
-+		for (i = FM10K_RETA_SIZE; i--;) {
-+			reta = interface->reta[i];
-+			if ((((reta << 24) >> 24) < rss_i) &&
-+			    (((reta << 16) >> 24) < rss_i) &&
-+			    (((reta <<  8) >> 24) < rss_i) &&
-+			    (((reta)       >> 24) < rss_i))
-+				continue;
-+			goto repopulate_reta;
-+		}
-+
-+		/* do nothing if all of the elements are in bounds */
-+		return;
-+	}
-+
-+repopulate_reta:
-+	/* Populate the redirection table 4 entries at a time.  To do this
-+	 * we are generating the results for n and n+2 and then interleaving
-+	 * those with the results with n+1 and n+3.
-+	 */
-+	for (i = FM10K_RETA_SIZE; i--;) {
-+		/* first pass generates n and n+2 */
-+		base = ((i * 0x00040004) + 0x00020000) * rss_i;
-+		reta = (base & 0x3F803F80) >> 7;
-+
-+		/* second pass generates n+1 and n+3 */
-+		base += 0x00010001 * rss_i;
-+		reta |= (base & 0x3F803F80) << 1;
-+
-+		interface->reta[i] = reta;
-+	}
-+}
-+
-+/**
-+ * fm10k_init_queueing_scheme - Determine proper queueing scheme
-+ * @interface: board private structure to initialize
-+ *
-+ * We determine which queueing scheme to use based on...
-+ * - Hardware queue count (num_*_queues)
-+ *   - defined by miscellaneous hardware support/features (RSS, etc.)
-+ **/
-+int fm10k_init_queueing_scheme(struct fm10k_intfc *interface)
-+{
-+	int err;
-+
-+	/* Number of supported queues */
-+	fm10k_set_num_queues(interface);
-+
-+	/* Configure MSI-X capability */
-+	err = fm10k_init_msix_capability(interface);
-+	if (err) {
-+		dev_err(&interface->pdev->dev,
-+			"Unable to initialize MSI-X capability\n");
-+		return err;
-+	}
-+
-+	/* Allocate memory for queues */
-+	err = fm10k_alloc_q_vectors(interface);
-+	if (err)
-+		return err;
-+
-+	/* Initialize RSS redirection table */
-+	fm10k_init_reta(interface);
-+
-+	return 0;
-+}
-+
-+/**
-+ * fm10k_clear_queueing_scheme - Clear the current queueing scheme settings
-+ * @interface: board private structure to clear queueing scheme on
-+ *
-+ * We go through and clear queueing specific resources and reset the structure
-+ * to pre-load conditions
-+ **/
-+void fm10k_clear_queueing_scheme(struct fm10k_intfc *interface)
-+{
-+	fm10k_free_q_vectors(interface);
-+	fm10k_reset_msix_capability(interface);
-+}
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index ca84898..487efcb 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -57,6 +57,12 @@ static void fm10k_request_glort_range(struct fm10k_intfc *interface)
- int fm10k_open(struct net_device *netdev)
- {
- 	struct fm10k_intfc *interface = netdev_priv(netdev);
-+	int err;
-+
-+	/* allocate interrupt resources */
-+	err = fm10k_qv_request_irq(interface);
-+	if (err)
-+		goto err_req_irq;
- 
- 	/* setup GLORT assignment for this port */
- 	fm10k_request_glort_range(interface);
-@@ -64,6 +70,9 @@ int fm10k_open(struct net_device *netdev)
- 	fm10k_up(interface);
- 
- 	return 0;
-+
-+err_req_irq:
-+	return err;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+index b798cd5..8da382c 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+@@ -181,6 +181,66 @@ static bool fm10k_is_slot_appropriate_pf(struct fm10k_hw *hw)
  }
  
  /**
-@@ -83,6 +92,8 @@ int fm10k_close(struct net_device *netdev)
- 
- 	fm10k_down(interface);
- 
-+	fm10k_qv_free_irq(interface);
++ *  fm10k_update_vlan_pf - Update status of VLAN ID in VLAN filter table
++ *  @hw: pointer to hardware structure
++ *  @vid: VLAN ID to add to table
++ *  @vsi: Index indicating VF ID or PF ID in table
++ *  @set: Indicates if this is a set or clear operation
++ *
++ *  This function adds or removes the corresponding VLAN ID from the VLAN
++ *  filter table for the corresponding function.  In addition to the
++ *  standard set/clear that supports one bit a multi-bit write is
++ *  supported to set 64 bits at a time.
++ **/
++static s32 fm10k_update_vlan_pf(struct fm10k_hw *hw, u32 vid, u8 vsi, bool set)
++{
++	u32 vlan_table, reg, mask, bit, len;
 +
++	/* verify the VSI index is valid */
++	if (vsi > FM10K_VLAN_TABLE_VSI_MAX)
++		return FM10K_ERR_PARAM;
++
++	/* VLAN multi-bit write:
++	 * The multi-bit write has several parts to it.
++	 *    3			  2		      1			  0
++	 *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
++	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++	 * | RSVD0 |         Length        |C|RSVD0|        VLAN ID        |
++	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++	 *
++	 * VLAN ID: Vlan Starting value
++	 * RSVD0: Reserved section, must be 0
++	 * C: Flag field, 0 is set, 1 is clear (Used in VF VLAN message)
++	 * Length: Number of times to repeat the bit being set
++	 */
++	len = vid >> 16;
++	vid = (vid << 17) >> 17;
++
++	/* verify the reserved 0 fields are 0 */
++	if (len >= FM10K_VLAN_TABLE_VID_MAX ||
++	    vid >= FM10K_VLAN_TABLE_VID_MAX)
++		return FM10K_ERR_PARAM;
++
++	/* Loop through the table updating all required VLANs */
++	for (reg = FM10K_VLAN_TABLE(vsi, vid / 32), bit = vid % 32;
++	     len < FM10K_VLAN_TABLE_VID_MAX;
++	     len -= 32 - bit, reg++, bit = 0) {
++		/* record the initial state of the register */
++		vlan_table = fm10k_read_reg(hw, reg);
++
++		/* truncate mask if we are at the start or end of the run */
++		mask = (~(u32)0 >> ((len < 31) ? 31 - len : 0)) << bit;
++
++		/* make necessary modifications to the register */
++		mask &= set ? ~vlan_table : vlan_table;
++		if (mask)
++			fm10k_write_reg(hw, reg, vlan_table ^ mask);
++	}
++
++	return 0;
++}
++
++/**
+  *  fm10k_read_mac_addr_pf - Read device MAC address
+  *  @hw: pointer to the HW structure
+  *
+@@ -221,6 +281,297 @@ static s32 fm10k_read_mac_addr_pf(struct fm10k_hw *hw)
+ }
+ 
+ /**
++ *  fm10k_glort_valid_pf - Validate that the provided glort is valid
++ *  @hw: pointer to the HW structure
++ *  @glort: base glort to be validated
++ *
++ *  This function will return an error if the provided glort is invalid
++ **/
++bool fm10k_glort_valid_pf(struct fm10k_hw *hw, u16 glort)
++{
++	glort &= hw->mac.dglort_map >> FM10K_DGLORTMAP_MASK_SHIFT;
++
++	return glort == (hw->mac.dglort_map & FM10K_DGLORTMAP_NONE);
++}
++
++/**
++ *  fm10k_update_uc_addr_pf - Update device unicast addresss
++ *  @hw: pointer to the HW structure
++ *  @glort: base resource tag for this request
++ *  @mac: MAC address to add/remove from table
++ *  @vid: VLAN ID to add/remove from table
++ *  @add: Indicates if this is an add or remove operation
++ *  @flags: flags field to indicate add and secure
++ *
++ *  This function generates a message to the Switch API requesting
++ *  that the given logical port add/remove the given L2 MAC/VLAN address.
++ **/
++static s32 fm10k_update_xc_addr_pf(struct fm10k_hw *hw, u16 glort,
++				   const u8 *mac, u16 vid, bool add, u8 flags)
++{
++	struct fm10k_mbx_info *mbx = &hw->mbx;
++	struct fm10k_mac_update mac_update;
++	u32 msg[5];
++
++	/* if glort is not valid return error */
++	if (!fm10k_glort_valid_pf(hw, glort))
++		return FM10K_ERR_PARAM;
++
++	/* drop upper 4 bits of VLAN ID */
++	vid = (vid << 4) >> 4;
++
++	/* record fields */
++	mac_update.mac_lower = cpu_to_le32(((u32)mac[2] << 24) |
++						 ((u32)mac[3] << 16) |
++						 ((u32)mac[4] << 8) |
++						 ((u32)mac[5]));
++	mac_update.mac_upper = cpu_to_le16(((u32)mac[0] << 8) |
++						 ((u32)mac[1]));
++	mac_update.vlan = cpu_to_le16(vid);
++	mac_update.glort = cpu_to_le16(glort);
++	mac_update.action = add ? 0 : 1;
++	mac_update.flags = flags;
++
++	/* populate mac_update fields */
++	fm10k_tlv_msg_init(msg, FM10K_PF_MSG_ID_UPDATE_MAC_FWD_RULE);
++	fm10k_tlv_attr_put_le_struct(msg, FM10K_PF_ATTR_ID_MAC_UPDATE,
++				     &mac_update, sizeof(mac_update));
++
++	/* load onto outgoing mailbox */
++	return mbx->ops.enqueue_tx(hw, mbx, msg);
++}
++
++/**
++ *  fm10k_update_uc_addr_pf - Update device unicast addresss
++ *  @hw: pointer to the HW structure
++ *  @glort: base resource tag for this request
++ *  @mac: MAC address to add/remove from table
++ *  @vid: VLAN ID to add/remove from table
++ *  @add: Indicates if this is an add or remove operation
++ *  @flags: flags field to indicate add and secure
++ *
++ *  This function is used to add or remove unicast addresses for
++ *  the PF.
++ **/
++static s32 fm10k_update_uc_addr_pf(struct fm10k_hw *hw, u16 glort,
++				   const u8 *mac, u16 vid, bool add, u8 flags)
++{
++	/* verify MAC address is valid */
++	if (!is_valid_ether_addr(mac))
++		return FM10K_ERR_PARAM;
++
++	return fm10k_update_xc_addr_pf(hw, glort, mac, vid, add, flags);
++}
++
++/**
++ *  fm10k_update_mc_addr_pf - Update device multicast addresses
++ *  @hw: pointer to the HW structure
++ *  @glort: base resource tag for this request
++ *  @mac: MAC address to add/remove from table
++ *  @vid: VLAN ID to add/remove from table
++ *  @add: Indicates if this is an add or remove operation
++ *
++ *  This function is used to add or remove multicast MAC addresses for
++ *  the PF.
++ **/
++static s32 fm10k_update_mc_addr_pf(struct fm10k_hw *hw, u16 glort,
++				   const u8 *mac, u16 vid, bool add)
++{
++	/* verify multicast address is valid */
++	if (!is_multicast_ether_addr(mac))
++		return FM10K_ERR_PARAM;
++
++	return fm10k_update_xc_addr_pf(hw, glort, mac, vid, add, 0);
++}
++
++/**
++ *  fm10k_update_xcast_mode_pf - Request update of multicast mode
++ *  @hw: pointer to hardware structure
++ *  @glort: base resource tag for this request
++ *  @mode: integer value indicating mode being requested
++ *
++ *  This function will attempt to request a higher mode for the port
++ *  so that it can enable either multicast, multicast promiscuous, or
++ *  promiscuous mode of operation.
++ **/
++static s32 fm10k_update_xcast_mode_pf(struct fm10k_hw *hw, u16 glort, u8 mode)
++{
++	struct fm10k_mbx_info *mbx = &hw->mbx;
++	u32 msg[3], xcast_mode;
++
++	if (mode > FM10K_XCAST_MODE_NONE)
++		return FM10K_ERR_PARAM;
++	/* if glort is not valid return error */
++	if (!fm10k_glort_valid_pf(hw, glort))
++		return FM10K_ERR_PARAM;
++
++	/* write xcast mode as a single u32 value,
++	 * lower 16 bits: glort
++	 * upper 16 bits: mode
++	 */
++	xcast_mode = ((u32)mode << 16) | glort;
++
++	/* generate message requesting to change xcast mode */
++	fm10k_tlv_msg_init(msg, FM10K_PF_MSG_ID_XCAST_MODES);
++	fm10k_tlv_attr_put_u32(msg, FM10K_PF_ATTR_ID_XCAST_MODE, xcast_mode);
++
++	/* load onto outgoing mailbox */
++	return mbx->ops.enqueue_tx(hw, mbx, msg);
++}
++
++/**
++ *  fm10k_update_int_moderator_pf - Update interrupt moderator linked list
++ *  @hw: pointer to hardware structure
++ *
++ *  This function walks through the MSI-X vector table to determine the
++ *  number of active interrupts and based on that information updates the
++ *  interrupt moderator linked list.
++ **/
++static void fm10k_update_int_moderator_pf(struct fm10k_hw *hw)
++{
++	u32 i;
++
++	/* Disable interrupt moderator */
++	fm10k_write_reg(hw, FM10K_INT_CTRL, 0);
++
++	/* loop through PF from last to first looking enabled vectors */
++	for (i = FM10K_ITR_REG_COUNT_PF - 1; i; i--) {
++		if (!fm10k_read_reg(hw, FM10K_MSIX_VECTOR_MASK(i)))
++			break;
++	}
++
++	/* always reset VFITR2[0] to point to last enabled PF vector*/
++	fm10k_write_reg(hw, FM10K_ITR2(FM10K_ITR_REG_COUNT_PF), i);
++
++	/* reset ITR2[0] to point to last enabled PF vector */
++	fm10k_write_reg(hw, FM10K_ITR2(0), i);
++
++	/* Enable interrupt moderator */
++	fm10k_write_reg(hw, FM10K_INT_CTRL, FM10K_INT_CTRL_ENABLEMODERATOR);
++}
++
++/**
++ *  fm10k_update_lport_state_pf - Notify the switch of a change in port state
++ *  @hw: pointer to the HW structure
++ *  @glort: base resource tag for this request
++ *  @count: number of logical ports being updated
++ *  @enable: boolean value indicating enable or disable
++ *
++ *  This function is used to add/remove a logical port from the switch.
++ **/
++static s32 fm10k_update_lport_state_pf(struct fm10k_hw *hw, u16 glort,
++				       u16 count, bool enable)
++{
++	struct fm10k_mbx_info *mbx = &hw->mbx;
++	u32 msg[3], lport_msg;
++
++	/* do nothing if we are being asked to create or destroy 0 ports */
++	if (!count)
++		return 0;
++
++	/* if glort is not valid return error */
++	if (!fm10k_glort_valid_pf(hw, glort))
++		return FM10K_ERR_PARAM;
++
++	/* construct the lport message from the 2 pieces of data we have */
++	lport_msg = ((u32)count << 16) | glort;
++
++	/* generate lport create/delete message */
++	fm10k_tlv_msg_init(msg, enable ? FM10K_PF_MSG_ID_LPORT_CREATE :
++					 FM10K_PF_MSG_ID_LPORT_DELETE);
++	fm10k_tlv_attr_put_u32(msg, FM10K_PF_ATTR_ID_PORT, lport_msg);
++
++	/* load onto outgoing mailbox */
++	return mbx->ops.enqueue_tx(hw, mbx, msg);
++}
++
++/**
++ *  fm10k_configure_dglort_map_pf - Configures GLORT entry and queues
++ *  @hw: pointer to hardware structure
++ *  @dglort: pointer to dglort configuration structure
++ *
++ *  Reads the configuration structure contained in dglort_cfg and uses
++ *  that information to then populate a DGLORTMAP/DEC entry and the queues
++ *  to which it has been assigned.
++ **/
++static s32 fm10k_configure_dglort_map_pf(struct fm10k_hw *hw,
++					 struct fm10k_dglort_cfg *dglort)
++{
++	u16 glort, queue_count, vsi_count, pc_count;
++	u16 vsi, queue, pc, q_idx;
++	u32 txqctl, dglortdec, dglortmap;
++
++	/* verify the dglort pointer */
++	if (!dglort)
++		return FM10K_ERR_PARAM;
++
++	/* verify the dglort values */
++	if ((dglort->idx > 7) || (dglort->rss_l > 7) || (dglort->pc_l > 3) ||
++	    (dglort->vsi_l > 6) || (dglort->vsi_b > 64) ||
++	    (dglort->queue_l > 8) || (dglort->queue_b >= 256))
++		return FM10K_ERR_PARAM;
++
++	/* determine count of VSIs and queues */
++	queue_count = 1 << (dglort->rss_l + dglort->pc_l);
++	vsi_count = 1 << (dglort->vsi_l + dglort->queue_l);
++	glort = dglort->glort;
++	q_idx = dglort->queue_b;
++
++	/* configure SGLORT for queues */
++	for (vsi = 0; vsi < vsi_count; vsi++, glort++) {
++		for (queue = 0; queue < queue_count; queue++, q_idx++) {
++			if (q_idx >= FM10K_MAX_QUEUES)
++				break;
++
++			fm10k_write_reg(hw, FM10K_TX_SGLORT(q_idx), glort);
++			fm10k_write_reg(hw, FM10K_RX_SGLORT(q_idx), glort);
++		}
++	}
++
++	/* determine count of PCs and queues */
++	queue_count = 1 << (dglort->queue_l + dglort->rss_l + dglort->vsi_l);
++	pc_count = 1 << dglort->pc_l;
++
++	/* configure PC for Tx queues */
++	for (pc = 0; pc < pc_count; pc++) {
++		q_idx = pc + dglort->queue_b;
++		for (queue = 0; queue < queue_count; queue++) {
++			if (q_idx >= FM10K_MAX_QUEUES)
++				break;
++
++			txqctl = fm10k_read_reg(hw, FM10K_TXQCTL(q_idx));
++			txqctl &= ~FM10K_TXQCTL_PC_MASK;
++			txqctl |= pc << FM10K_TXQCTL_PC_SHIFT;
++			fm10k_write_reg(hw, FM10K_TXQCTL(q_idx), txqctl);
++
++			q_idx += pc_count;
++		}
++	}
++
++	/* configure DGLORTDEC */
++	dglortdec = ((u32)(dglort->rss_l) << FM10K_DGLORTDEC_RSSLENGTH_SHIFT) |
++		    ((u32)(dglort->queue_b) << FM10K_DGLORTDEC_QBASE_SHIFT) |
++		    ((u32)(dglort->pc_l) << FM10K_DGLORTDEC_PCLENGTH_SHIFT) |
++		    ((u32)(dglort->vsi_b) << FM10K_DGLORTDEC_VSIBASE_SHIFT) |
++		    ((u32)(dglort->vsi_l) << FM10K_DGLORTDEC_VSILENGTH_SHIFT) |
++		    ((u32)(dglort->queue_l));
++	if (dglort->inner_rss)
++		dglortdec |=  FM10K_DGLORTDEC_INNERRSS_ENABLE;
++
++	/* configure DGLORTMAP */
++	dglortmap = (dglort->idx == fm10k_dglort_default) ?
++			FM10K_DGLORTMAP_ANY : FM10K_DGLORTMAP_ZERO;
++	dglortmap <<= dglort->vsi_l + dglort->queue_l + dglort->shared_l;
++	dglortmap |= dglort->glort;
++
++	/* write values to hardware */
++	fm10k_write_reg(hw, FM10K_DGLORTDEC(dglort->idx), dglortdec);
++	fm10k_write_reg(hw, FM10K_DGLORTMAP(dglort->idx), dglortmap);
++
++	return 0;
++}
++
++/**
+  *  fm10k_update_stats_hw_pf - Updates hardware related statistics of PF
+  *  @hw: pointer to hardware structure
+  *  @stats: pointer to the stats structure to update
+@@ -319,6 +670,22 @@ static void fm10k_rebind_hw_stats_pf(struct fm10k_hw *hw,
+ }
+ 
+ /**
++ *  fm10k_set_dma_mask_pf - Configures PhyAddrSpace to limit DMA to system
++ *  @hw: pointer to hardware structure
++ *  @dma_mask: 64 bit DMA mask required for platform
++ *
++ *  This function sets the PHYADDR.PhyAddrSpace bits for the endpoint in order
++ *  to limit the access to memory beyond what is physically in the system.
++ **/
++static void fm10k_set_dma_mask_pf(struct fm10k_hw *hw, u64 dma_mask)
++{
++	/* we need to write the upper 32 bits of DMA mask to PhyAddrSpace */
++	u32 phyaddr = (u32)(dma_mask >> 32);
++
++	fm10k_write_reg(hw, FM10K_PHYADDR, phyaddr);
++}
++
++/**
+  *  fm10k_get_fault_pf - Record a fault in one of the interface units
+  *  @hw: pointer to hardware structure
+  *  @type: pointer to fault type register offset
+@@ -371,6 +738,207 @@ static s32 fm10k_get_fault_pf(struct fm10k_hw *hw, int type,
  	return 0;
  }
  
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index b6d5e72..2257ab1 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -87,6 +87,470 @@ static int fm10k_hw_ready(struct fm10k_intfc *interface)
- 	return FM10K_REMOVED(hw->hw_addr) ? -ENODEV : 0;
- }
- 
-+static void fm10k_napi_enable_all(struct fm10k_intfc *interface)
++/**
++ *  fm10k_request_lport_map_pf - Request LPORT map from the switch API
++ *  @hw: pointer to hardware structure
++ *
++ **/
++static s32 fm10k_request_lport_map_pf(struct fm10k_hw *hw)
 +{
-+	struct fm10k_q_vector *q_vector;
-+	int q_idx;
-+
-+	for (q_idx = 0; q_idx < interface->num_q_vectors; q_idx++) {
-+		q_vector = interface->q_vector[q_idx];
-+		napi_enable(&q_vector->napi);
-+	}
-+}
-+
-+static irqreturn_t fm10k_msix_clean_rings(int irq, void *data)
-+{
-+	struct fm10k_q_vector *q_vector = data;
-+
-+	if (q_vector->rx.count || q_vector->tx.count)
-+		napi_schedule(&q_vector->napi);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+#define FM10K_ERR_MSG(type) case (type): error = #type; break
-+static void fm10k_print_fault(struct fm10k_intfc *interface, int type,
-+			      struct fm10k_fault *fault)
-+{
-+	struct pci_dev *pdev = interface->pdev;
-+	char *error;
-+
-+	switch (type) {
-+	case FM10K_PCA_FAULT:
-+		switch (fault->type) {
-+		default:
-+			error = "Unknown PCA error";
-+			break;
-+		FM10K_ERR_MSG(PCA_NO_FAULT);
-+		FM10K_ERR_MSG(PCA_UNMAPPED_ADDR);
-+		FM10K_ERR_MSG(PCA_BAD_QACCESS_PF);
-+		FM10K_ERR_MSG(PCA_BAD_QACCESS_VF);
-+		FM10K_ERR_MSG(PCA_MALICIOUS_REQ);
-+		FM10K_ERR_MSG(PCA_POISONED_TLP);
-+		FM10K_ERR_MSG(PCA_TLP_ABORT);
-+		}
-+		break;
-+	case FM10K_THI_FAULT:
-+		switch (fault->type) {
-+		default:
-+			error = "Unknown THI error";
-+			break;
-+		FM10K_ERR_MSG(THI_NO_FAULT);
-+		FM10K_ERR_MSG(THI_MAL_DIS_Q_FAULT);
-+		}
-+		break;
-+	case FM10K_FUM_FAULT:
-+		switch (fault->type) {
-+		default:
-+			error = "Unknown FUM error";
-+			break;
-+		FM10K_ERR_MSG(FUM_NO_FAULT);
-+		FM10K_ERR_MSG(FUM_UNMAPPED_ADDR);
-+		FM10K_ERR_MSG(FUM_BAD_VF_QACCESS);
-+		FM10K_ERR_MSG(FUM_ADD_DECODE_ERR);
-+		FM10K_ERR_MSG(FUM_RO_ERROR);
-+		FM10K_ERR_MSG(FUM_QPRC_CRC_ERROR);
-+		FM10K_ERR_MSG(FUM_CSR_TIMEOUT);
-+		FM10K_ERR_MSG(FUM_INVALID_TYPE);
-+		FM10K_ERR_MSG(FUM_INVALID_LENGTH);
-+		FM10K_ERR_MSG(FUM_INVALID_BE);
-+		FM10K_ERR_MSG(FUM_INVALID_ALIGN);
-+		}
-+		break;
-+	default:
-+		error = "Undocumented fault";
-+		break;
-+	}
-+
-+	dev_warn(&pdev->dev,
-+		 "%s Address: 0x%llx SpecInfo: 0x%x Func: %02x.%0x\n",
-+		 error, fault->address, fault->specinfo,
-+		 PCI_SLOT(fault->func), PCI_FUNC(fault->func));
-+}
-+
-+static void fm10k_report_fault(struct fm10k_intfc *interface, u32 eicr)
-+{
-+	struct fm10k_hw *hw = &interface->hw;
-+	struct fm10k_fault fault = { 0 };
-+	int type, err;
-+
-+	for (eicr &= FM10K_EICR_FAULT_MASK, type = FM10K_PCA_FAULT;
-+	     eicr;
-+	     eicr >>= 1, type += FM10K_FAULT_SIZE) {
-+		/* only check if there is an error reported */
-+		if (!(eicr & 0x1))
-+			continue;
-+
-+		/* retrieve fault info */
-+		err = hw->mac.ops.get_fault(hw, type, &fault);
-+		if (err) {
-+			dev_err(&interface->pdev->dev,
-+				"error reading fault\n");
-+			continue;
-+		}
-+
-+		fm10k_print_fault(interface, type, &fault);
-+	}
-+}
-+
-+static void fm10k_reset_drop_on_empty(struct fm10k_intfc *interface, u32 eicr)
-+{
-+	struct fm10k_hw *hw = &interface->hw;
-+	const u32 rxdctl = FM10K_RXDCTL_WRITE_BACK_MIN_DELAY;
-+	u32 maxholdq;
-+	int q;
-+
-+	if (!(eicr & FM10K_EICR_MAXHOLDTIME))
-+		return;
-+
-+	maxholdq = fm10k_read_reg(hw, FM10K_MAXHOLDQ(7));
-+	if (maxholdq)
-+		fm10k_write_reg(hw, FM10K_MAXHOLDQ(7), maxholdq);
-+	for (q = 255;;) {
-+		if (maxholdq & (1 << 31)) {
-+			if (q < FM10K_MAX_QUEUES_PF) {
-+				interface->rx_overrun_pf++;
-+				fm10k_write_reg(hw, FM10K_RXDCTL(q), rxdctl);
-+			} else {
-+				interface->rx_overrun_vf++;
-+			}
-+		}
-+
-+		maxholdq *= 2;
-+		if (!maxholdq)
-+			q &= ~(32 - 1);
-+
-+		if (!q)
-+			break;
-+
-+		if (q-- % 32)
-+			continue;
-+
-+		maxholdq = fm10k_read_reg(hw, FM10K_MAXHOLDQ(q / 32));
-+		if (maxholdq)
-+			fm10k_write_reg(hw, FM10K_MAXHOLDQ(q / 32), maxholdq);
-+	}
-+}
-+
-+static irqreturn_t fm10k_msix_mbx_pf(int irq, void *data)
-+{
-+	struct fm10k_intfc *interface = data;
-+	struct fm10k_hw *hw = &interface->hw;
 +	struct fm10k_mbx_info *mbx = &hw->mbx;
-+	u32 eicr;
++	u32 msg[1];
 +
-+	/* unmask any set bits related to this interrupt */
-+	eicr = fm10k_read_reg(hw, FM10K_EICR);
-+	fm10k_write_reg(hw, FM10K_EICR, eicr & (FM10K_EICR_MAILBOX |
-+						FM10K_EICR_SWITCHREADY |
-+						FM10K_EICR_SWITCHNOTREADY));
++	/* issue request asking for LPORT map */
++	fm10k_tlv_msg_init(msg, FM10K_PF_MSG_ID_LPORT_MAP);
 +
-+	/* report any faults found to the message log */
-+	fm10k_report_fault(interface, eicr);
-+
-+	/* reset any queues disabled due to receiver overrun */
-+	fm10k_reset_drop_on_empty(interface, eicr);
-+
-+	/* service mailboxes */
-+	if (fm10k_mbx_trylock(interface)) {
-+		mbx->ops.process(hw, mbx);
-+		fm10k_mbx_unlock(interface);
-+	}
-+
-+	/* re-enable mailbox interrupt and indicate 20us delay */
-+	fm10k_write_reg(hw, FM10K_ITR(FM10K_MBX_VECTOR),
-+			FM10K_ITR_ENABLE | FM10K_MBX_INT_DELAY);
-+
-+	return IRQ_HANDLED;
++	/* load onto outgoing mailbox */
++	return mbx->ops.enqueue_tx(hw, mbx, msg);
 +}
 +
-+void fm10k_mbx_free_irq(struct fm10k_intfc *interface)
++/**
++ *  fm10k_get_host_state_pf - Returns the state of the switch and mailbox
++ *  @hw: pointer to hardware structure
++ *  @switch_ready: pointer to boolean value that will record switch state
++ *
++ *  This funciton will check the DMA_CTRL2 register and mailbox in order
++ *  to determine if the switch is ready for the PF to begin requesting
++ *  addresses and mapping traffic to the local interface.
++ **/
++static s32 fm10k_get_host_state_pf(struct fm10k_hw *hw, bool *switch_ready)
 +{
-+	struct msix_entry *entry = &interface->msix_entries[FM10K_MBX_VECTOR];
-+	struct fm10k_hw *hw = &interface->hw;
-+	int itr_reg;
++	s32 ret_val = 0;
++	u32 dma_ctrl2;
 +
-+	/* disconnect the mailbox */
-+	hw->mbx.ops.disconnect(hw, &hw->mbx);
++	/* verify the switch is ready for interraction */
++	dma_ctrl2 = fm10k_read_reg(hw, FM10K_DMA_CTRL2);
++	if (!(dma_ctrl2 & FM10K_DMA_CTRL2_SWITCH_READY))
++		goto out;
 +
-+	/* disable Mailbox cause */
-+	if (hw->mac.type == fm10k_mac_pf) {
-+		fm10k_write_reg(hw, FM10K_EIMR,
-+				FM10K_EIMR_DISABLE(PCA_FAULT) |
-+				FM10K_EIMR_DISABLE(FUM_FAULT) |
-+				FM10K_EIMR_DISABLE(MAILBOX) |
-+				FM10K_EIMR_DISABLE(SWITCHREADY) |
-+				FM10K_EIMR_DISABLE(SWITCHNOTREADY) |
-+				FM10K_EIMR_DISABLE(SRAMERROR) |
-+				FM10K_EIMR_DISABLE(VFLR) |
-+				FM10K_EIMR_DISABLE(MAXHOLDTIME));
-+		itr_reg = FM10K_ITR(FM10K_MBX_VECTOR);
-+	}
++	/* retrieve generic host state info */
++	ret_val = fm10k_get_host_state_generic(hw, switch_ready);
++	if (ret_val)
++		goto out;
 +
-+	fm10k_write_reg(hw, itr_reg, FM10K_ITR_MASK_SET);
++	/* interface cannot receive traffic without logical ports */
++	if (hw->mac.dglort_map == FM10K_DGLORTMAP_NONE)
++		ret_val = fm10k_request_lport_map_pf(hw);
 +
-+	free_irq(entry->vector, interface);
++out:
++	return ret_val;
 +}
 +
-+/* generic error handler for mailbox issues */
-+static s32 fm10k_mbx_error(struct fm10k_hw *hw, u32 **results,
++/* This structure defines the attibutes to be parsed below */
++const struct fm10k_tlv_attr fm10k_lport_map_msg_attr[] = {
++	FM10K_TLV_ATTR_U32(FM10K_PF_ATTR_ID_LPORT_MAP),
++	FM10K_TLV_ATTR_LAST
++};
++
++/**
++ *  fm10k_msg_lport_map_pf - Message handler for lport_map message from SM
++ *  @hw: Pointer to hardware structure
++ *  @results: pointer array containing parsed data
++ *  @mbx: Pointer to mailbox information structure
++ *
++ *  This handler configures the lport mapping based on the reply from the
++ *  switch API.
++ **/
++s32 fm10k_msg_lport_map_pf(struct fm10k_hw *hw, u32 **results,
 +			   struct fm10k_mbx_info *mbx)
 +{
-+	struct fm10k_intfc *interface;
-+	struct pci_dev *pdev;
-+
-+	interface = container_of(hw, struct fm10k_intfc, hw);
-+	pdev = interface->pdev;
-+
-+	dev_err(&pdev->dev, "Unknown message ID %u\n",
-+		**results & FM10K_TLV_ID_MASK);
-+
-+	return 0;
-+}
-+
-+static s32 fm10k_lport_map(struct fm10k_hw *hw, u32 **results,
-+			   struct fm10k_mbx_info *mbx)
-+{
-+	struct fm10k_intfc *interface;
-+	u32 dglort_map = hw->mac.dglort_map;
++	u16 glort, mask;
++	u32 dglort_map;
 +	s32 err;
 +
-+	err = fm10k_msg_lport_map_pf(hw, results, mbx);
++	err = fm10k_tlv_attr_get_u32(results[FM10K_PF_ATTR_ID_LPORT_MAP],
++				     &dglort_map);
 +	if (err)
 +		return err;
 +
-+	interface = container_of(hw, struct fm10k_intfc, hw);
++	/* extract values out of the header */
++	glort = FM10K_MSG_HDR_FIELD_GET(dglort_map, LPORT_MAP_GLORT);
++	mask = FM10K_MSG_HDR_FIELD_GET(dglort_map, LPORT_MAP_MASK);
 +
-+	/* we need to reset if port count was just updated */
-+	if (dglort_map != hw->mac.dglort_map)
-+		interface->flags |= FM10K_FLAG_RESET_REQUESTED;
++	/* verify mask is set and none of the masked bits in glort are set */
++	if (!mask || (glort & ~mask))
++		return FM10K_ERR_PARAM;
++
++	/* verify the mask is contiguous, and that it is 1's followed by 0's */
++	if (((~(mask - 1) & mask) + mask) & FM10K_DGLORTMAP_NONE)
++		return FM10K_ERR_PARAM;
++
++	/* record the glort, mask, and port count */
++	hw->mac.dglort_map = dglort_map;
 +
 +	return 0;
 +}
 +
-+static s32 fm10k_update_pvid(struct fm10k_hw *hw, u32 **results,
++const struct fm10k_tlv_attr fm10k_update_pvid_msg_attr[] = {
++	FM10K_TLV_ATTR_U32(FM10K_PF_ATTR_ID_UPDATE_PVID),
++	FM10K_TLV_ATTR_LAST
++};
++
++/**
++ *  fm10k_msg_update_pvid_pf - Message handler for port VLAN message from SM
++ *  @hw: Pointer to hardware structure
++ *  @results: pointer array containing parsed data
++ *  @mbx: Pointer to mailbox information structure
++ *
++ *  This handler configures the default VLAN for the PF
++ **/
++s32 fm10k_msg_update_pvid_pf(struct fm10k_hw *hw, u32 **results,
 +			     struct fm10k_mbx_info *mbx)
 +{
-+	struct fm10k_intfc *interface;
 +	u16 glort, pvid;
 +	u32 pvid_update;
 +	s32 err;
@@ -845,293 +557,219 @@ index b6d5e72..2257ab1 100644
 +	if (pvid >= FM10K_VLAN_TABLE_VID_MAX)
 +		return FM10K_ERR_PARAM;
 +
-+	interface = container_of(hw, struct fm10k_intfc, hw);
-+
-+	/* we need to reset if default VLAN was just updated */
-+	if (pvid != hw->mac.default_vid)
-+		interface->flags |= FM10K_FLAG_RESET_REQUESTED;
-+
++	/* record the port VLAN ID value */
 +	hw->mac.default_vid = pvid;
 +
 +	return 0;
 +}
 +
-+static const struct fm10k_msg_data pf_mbx_data[] = {
-+	FM10K_PF_MSG_ERR_HANDLER(XCAST_MODES, fm10k_msg_err_pf),
-+	FM10K_PF_MSG_ERR_HANDLER(UPDATE_MAC_FWD_RULE, fm10k_msg_err_pf),
-+	FM10K_PF_MSG_LPORT_MAP_HANDLER(fm10k_lport_map),
-+	FM10K_PF_MSG_ERR_HANDLER(LPORT_CREATE, fm10k_msg_err_pf),
-+	FM10K_PF_MSG_ERR_HANDLER(LPORT_DELETE, fm10k_msg_err_pf),
-+	FM10K_PF_MSG_UPDATE_PVID_HANDLER(fm10k_update_pvid),
-+	FM10K_TLV_MSG_ERROR_HANDLER(fm10k_mbx_error),
++/**
++ *  fm10k_record_global_table_data - Move global table data to swapi table info
++ *  @from: pointer to source table data structure
++ *  @to: pointer to destination table info structure
++ *
++ *  This function is will copy table_data to the table_info contained in
++ *  the hw struct.
++ **/
++static void fm10k_record_global_table_data(struct fm10k_global_table_data *from,
++					   struct fm10k_swapi_table_info *to)
++{
++	/* convert from le32 struct to CPU byte ordered values */
++	to->used = le32_to_cpu(from->used);
++	to->avail = le32_to_cpu(from->avail);
++}
++
++const struct fm10k_tlv_attr fm10k_err_msg_attr[] = {
++	FM10K_TLV_ATTR_LE_STRUCT(FM10K_PF_ATTR_ID_ERR,
++				 sizeof(struct fm10k_swapi_error)),
++	FM10K_TLV_ATTR_LAST
 +};
 +
-+static int fm10k_mbx_request_irq_pf(struct fm10k_intfc *interface)
++/**
++ *  fm10k_msg_err_pf - Message handler for error reply
++ *  @hw: Pointer to hardware structure
++ *  @results: pointer array containing parsed data
++ *  @mbx: Pointer to mailbox information structure
++ *
++ *  This handler will capture the data for any error replies to previous
++ *  messages that the PF has sent.
++ **/
++s32 fm10k_msg_err_pf(struct fm10k_hw *hw, u32 **results,
++		     struct fm10k_mbx_info *mbx)
 +{
-+	struct msix_entry *entry = &interface->msix_entries[FM10K_MBX_VECTOR];
-+	struct net_device *dev = interface->netdev;
-+	struct fm10k_hw *hw = &interface->hw;
-+	int err;
++	struct fm10k_swapi_error err_msg;
++	s32 err;
 +
-+	/* Use timer0 for interrupt moderation on the mailbox */
-+	u32 mbx_itr = FM10K_INT_MAP_TIMER0 | entry->entry;
-+	u32 other_itr = FM10K_INT_MAP_IMMEDIATE | entry->entry;
-+
-+	/* register mailbox handlers */
-+	err = hw->mbx.ops.register_handlers(&hw->mbx, pf_mbx_data);
++	/* extract structure from message */
++	err = fm10k_tlv_attr_get_le_struct(results[FM10K_PF_ATTR_ID_ERR],
++					   &err_msg, sizeof(err_msg));
 +	if (err)
 +		return err;
 +
-+	/* request the IRQ */
-+	err = request_irq(entry->vector, fm10k_msix_mbx_pf, 0,
-+			  dev->name, interface);
-+	if (err) {
-+		netif_err(interface, probe, dev,
-+			  "request_irq for msix_mbx failed: %d\n", err);
-+		return err;
-+	}
++	/* record table status */
++	fm10k_record_global_table_data(&err_msg.mac, &hw->swapi.mac);
++	fm10k_record_global_table_data(&err_msg.nexthop, &hw->swapi.nexthop);
++	fm10k_record_global_table_data(&err_msg.ffu, &hw->swapi.ffu);
 +
-+	/* Enable interrupts w/ no moderation for "other" interrupts */
-+	fm10k_write_reg(hw, FM10K_INT_MAP(fm10k_int_PCIeFault), other_itr);
-+	fm10k_write_reg(hw, FM10K_INT_MAP(fm10k_int_SwitchUpDown), other_itr);
-+	fm10k_write_reg(hw, FM10K_INT_MAP(fm10k_int_SRAM), other_itr);
-+	fm10k_write_reg(hw, FM10K_INT_MAP(fm10k_int_MaxHoldTime), other_itr);
-+	fm10k_write_reg(hw, FM10K_INT_MAP(fm10k_int_VFLR), other_itr);
-+
-+	/* Enable interrupts w/ moderation for mailbox */
-+	fm10k_write_reg(hw, FM10K_INT_MAP(fm10k_int_Mailbox), mbx_itr);
-+
-+	/* Enable individual interrupt causes */
-+	fm10k_write_reg(hw, FM10K_EIMR, FM10K_EIMR_ENABLE(PCA_FAULT) |
-+					FM10K_EIMR_ENABLE(FUM_FAULT) |
-+					FM10K_EIMR_ENABLE(MAILBOX) |
-+					FM10K_EIMR_ENABLE(SWITCHREADY) |
-+					FM10K_EIMR_ENABLE(SWITCHNOTREADY) |
-+					FM10K_EIMR_ENABLE(SRAMERROR) |
-+					FM10K_EIMR_ENABLE(VFLR) |
-+					FM10K_EIMR_ENABLE(MAXHOLDTIME));
-+
-+	/* enable interrupt */
-+	fm10k_write_reg(hw, FM10K_ITR(entry->entry), FM10K_ITR_ENABLE);
++	/* record SW API status value */
++	hw->swapi.status = le32_to_cpu(err_msg.status);
 +
 +	return 0;
 +}
 +
-+int fm10k_mbx_request_irq(struct fm10k_intfc *interface)
++static const struct fm10k_msg_data fm10k_msg_data_pf[] = {
++	FM10K_PF_MSG_ERR_HANDLER(XCAST_MODES, fm10k_msg_err_pf),
++	FM10K_PF_MSG_ERR_HANDLER(UPDATE_MAC_FWD_RULE, fm10k_msg_err_pf),
++	FM10K_PF_MSG_LPORT_MAP_HANDLER(fm10k_msg_lport_map_pf),
++	FM10K_PF_MSG_ERR_HANDLER(LPORT_CREATE, fm10k_msg_err_pf),
++	FM10K_PF_MSG_ERR_HANDLER(LPORT_DELETE, fm10k_msg_err_pf),
++	FM10K_PF_MSG_UPDATE_PVID_HANDLER(fm10k_msg_update_pvid_pf),
++	FM10K_TLV_MSG_ERROR_HANDLER(fm10k_tlv_msg_error),
++};
++
+ static struct fm10k_mac_ops mac_ops_pf = {
+ 	.get_bus_info		= &fm10k_get_bus_info_generic,
+ 	.reset_hw		= &fm10k_reset_hw_pf,
+@@ -378,15 +946,30 @@ static struct fm10k_mac_ops mac_ops_pf = {
+ 	.start_hw		= &fm10k_start_hw_generic,
+ 	.stop_hw		= &fm10k_stop_hw_generic,
+ 	.is_slot_appropriate	= &fm10k_is_slot_appropriate_pf,
++	.update_vlan		= &fm10k_update_vlan_pf,
+ 	.read_mac_addr		= &fm10k_read_mac_addr_pf,
++	.update_uc_addr		= &fm10k_update_uc_addr_pf,
++	.update_mc_addr		= &fm10k_update_mc_addr_pf,
++	.update_xcast_mode	= &fm10k_update_xcast_mode_pf,
++	.update_int_moderator	= &fm10k_update_int_moderator_pf,
++	.update_lport_state	= &fm10k_update_lport_state_pf,
+ 	.update_hw_stats	= &fm10k_update_hw_stats_pf,
+ 	.rebind_hw_stats	= &fm10k_rebind_hw_stats_pf,
++	.configure_dglort_map	= &fm10k_configure_dglort_map_pf,
++	.set_dma_mask		= &fm10k_set_dma_mask_pf,
+ 	.get_fault		= &fm10k_get_fault_pf,
+-	.get_host_state		= &fm10k_get_host_state_generic,
++	.get_host_state		= &fm10k_get_host_state_pf,
+ };
+ 
++static s32 fm10k_get_invariants_pf(struct fm10k_hw *hw)
 +{
-+	struct fm10k_hw *hw = &interface->hw;
-+	int err;
++	fm10k_get_invariants_generic(hw);
 +
-+	/* enable Mailbox cause */
-+	err = fm10k_mbx_request_irq_pf(interface);
-+
-+	/* connect mailbox */
-+	if (!err)
-+		err = hw->mbx.ops.connect(hw, &hw->mbx);
-+
-+	return err;
++	return fm10k_sm_mbx_init(hw, &hw->mbx, fm10k_msg_data_pf);
 +}
 +
-+/**
-+ * fm10k_qv_free_irq - release interrupts associated with queue vectors
-+ * @interface: board private structure
-+ *
-+ * Release all interrupts associated with this interface
-+ **/
-+void fm10k_qv_free_irq(struct fm10k_intfc *interface)
-+{
-+	int vector = interface->num_q_vectors;
-+	struct fm10k_hw *hw = &interface->hw;
-+	struct msix_entry *entry;
-+
-+	entry = &interface->msix_entries[NON_Q_VECTORS(hw) + vector];
-+
-+	while (vector) {
-+		struct fm10k_q_vector *q_vector;
-+
-+		vector--;
-+		entry--;
-+		q_vector = interface->q_vector[vector];
-+
-+		if (!q_vector->tx.count && !q_vector->rx.count)
-+			continue;
-+
-+		/* disable interrupts */
-+
-+		writel(FM10K_ITR_MASK_SET, q_vector->itr);
-+
-+		free_irq(entry->vector, q_vector);
-+	}
-+}
-+
-+/**
-+ * fm10k_qv_request_irq - initialize interrupts for queue vectors
-+ * @interface: board private structure
-+ *
-+ * Attempts to configure interrupts using the best available
-+ * capabilities of the hardware and kernel.
-+ **/
-+int fm10k_qv_request_irq(struct fm10k_intfc *interface)
-+{
-+	struct net_device *dev = interface->netdev;
-+	struct fm10k_hw *hw = &interface->hw;
-+	struct msix_entry *entry;
-+	int ri = 0, ti = 0;
-+	int vector, err;
-+
-+	entry = &interface->msix_entries[NON_Q_VECTORS(hw)];
-+
-+	for (vector = 0; vector < interface->num_q_vectors; vector++) {
-+		struct fm10k_q_vector *q_vector = interface->q_vector[vector];
-+
-+		/* name the vector */
-+		if (q_vector->tx.count && q_vector->rx.count) {
-+			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
-+				 "%s-TxRx-%d", dev->name, ri++);
-+			ti++;
-+		} else if (q_vector->rx.count) {
-+			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
-+				 "%s-rx-%d", dev->name, ri++);
-+		} else if (q_vector->tx.count) {
-+			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
-+				 "%s-tx-%d", dev->name, ti++);
-+		} else {
-+			/* skip this unused q_vector */
-+			continue;
-+		}
-+
-+		/* Assign ITR register to q_vector */
-+		q_vector->itr = &interface->uc_addr[FM10K_ITR(entry->entry)];
-+
-+		/* request the IRQ */
-+		err = request_irq(entry->vector, &fm10k_msix_clean_rings, 0,
-+				  q_vector->name, q_vector);
-+		if (err) {
-+			netif_err(interface, probe, dev,
-+				  "request_irq failed for MSIX interrupt Error: %d\n",
-+				  err);
-+			goto err_out;
-+		}
-+
-+		/* Enable q_vector */
-+		writel(FM10K_ITR_ENABLE, q_vector->itr);
-+
-+		entry++;
-+	}
-+
-+	return 0;
-+
-+err_out:
-+	/* wind through the ring freeing all entries and vectors */
-+	while (vector) {
-+		struct fm10k_q_vector *q_vector;
-+
-+		entry--;
-+		vector--;
-+		q_vector = interface->q_vector[vector];
-+
-+		if (!q_vector->tx.count && !q_vector->rx.count)
-+			continue;
-+
-+		/* disable interrupts */
-+
-+		writel(FM10K_ITR_MASK_SET, q_vector->itr);
-+
-+		free_irq(entry->vector, q_vector);
-+	}
-+
-+	return err;
-+}
-+
- void fm10k_up(struct fm10k_intfc *interface)
- {
- 	struct fm10k_hw *hw = &interface->hw;
-@@ -100,6 +564,9 @@ void fm10k_up(struct fm10k_intfc *interface)
- 	/* clear down bit to indicate we are ready to go */
- 	clear_bit(__FM10K_DOWN, &interface->state);
+ struct fm10k_info fm10k_pf_info = {
+ 	.mac		= fm10k_mac_pf,
+-	.get_invariants	= &fm10k_get_invariants_generic,
++	.get_invariants	= &fm10k_get_invariants_pf,
+ 	.mac_ops	= &mac_ops_pf,
+ };
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
+index 054392f..108a7a7 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
+@@ -24,5 +24,103 @@
+ #include "fm10k_type.h"
+ #include "fm10k_common.h"
  
-+	/* enable polling cleanups */
-+	fm10k_napi_enable_all(interface);
++bool fm10k_glort_valid_pf(struct fm10k_hw *hw, u16 glort);
 +
- 	/* re-establish Rx filters */
- 	fm10k_restore_rx_state(interface);
- 
-@@ -107,6 +574,17 @@ void fm10k_up(struct fm10k_intfc *interface)
- 	netif_tx_start_all_queues(interface->netdev);
- }
- 
-+static void fm10k_napi_disable_all(struct fm10k_intfc *interface)
-+{
-+	struct fm10k_q_vector *q_vector;
-+	int q_idx;
++enum fm10k_pf_tlv_msg_id_v1 {
++	FM10K_PF_MSG_ID_TEST			= 0x000, /* msg ID reserved */
++	FM10K_PF_MSG_ID_XCAST_MODES		= 0x001,
++	FM10K_PF_MSG_ID_UPDATE_MAC_FWD_RULE	= 0x002,
++	FM10K_PF_MSG_ID_LPORT_MAP		= 0x100,
++	FM10K_PF_MSG_ID_LPORT_CREATE		= 0x200,
++	FM10K_PF_MSG_ID_LPORT_DELETE		= 0x201,
++	FM10K_PF_MSG_ID_CONFIG			= 0x300,
++	FM10K_PF_MSG_ID_UPDATE_PVID		= 0x400,
++	FM10K_PF_MSG_ID_CREATE_FLOW_TABLE	= 0x501,
++	FM10K_PF_MSG_ID_DELETE_FLOW_TABLE	= 0x502,
++	FM10K_PF_MSG_ID_UPDATE_FLOW		= 0x503,
++	FM10K_PF_MSG_ID_DELETE_FLOW		= 0x504,
++	FM10K_PF_MSG_ID_SET_FLOW_STATE		= 0x505,
++	FM10K_PF_MSG_ID_GET_1588_INFO		= 0x506,
++	FM10K_PF_MSG_ID_1588_TIMESTAMP		= 0x701,
++};
 +
-+	for (q_idx = 0; q_idx < interface->num_q_vectors; q_idx++) {
-+		q_vector = interface->q_vector[q_idx];
-+		napi_disable(&q_vector->napi);
-+	}
-+}
++enum fm10k_pf_tlv_attr_id_v1 {
++	FM10K_PF_ATTR_ID_ERR			= 0x00,
++	FM10K_PF_ATTR_ID_LPORT_MAP		= 0x01,
++	FM10K_PF_ATTR_ID_XCAST_MODE		= 0x02,
++	FM10K_PF_ATTR_ID_MAC_UPDATE		= 0x03,
++	FM10K_PF_ATTR_ID_VLAN_UPDATE		= 0x04,
++	FM10K_PF_ATTR_ID_CONFIG			= 0x05,
++	FM10K_PF_ATTR_ID_CREATE_FLOW_TABLE	= 0x06,
++	FM10K_PF_ATTR_ID_DELETE_FLOW_TABLE	= 0x07,
++	FM10K_PF_ATTR_ID_UPDATE_FLOW		= 0x08,
++	FM10K_PF_ATTR_ID_FLOW_STATE		= 0x09,
++	FM10K_PF_ATTR_ID_FLOW_HANDLE		= 0x0A,
++	FM10K_PF_ATTR_ID_DELETE_FLOW		= 0x0B,
++	FM10K_PF_ATTR_ID_PORT			= 0x0C,
++	FM10K_PF_ATTR_ID_UPDATE_PVID		= 0x0D,
++	FM10K_PF_ATTR_ID_1588_TIMESTAMP		= 0x10,
++};
 +
- void fm10k_down(struct fm10k_intfc *interface)
- {
- 	struct net_device *netdev = interface->netdev;
-@@ -128,6 +606,9 @@ void fm10k_down(struct fm10k_intfc *interface)
- 	/* allow 10ms for device to quiesce */
- 	usleep_range(10000, 20000);
- 
-+	/* disable polling routines */
-+	fm10k_napi_disable_all(interface);
++#define FM10K_MSG_LPORT_MAP_GLORT_SHIFT	0
++#define FM10K_MSG_LPORT_MAP_GLORT_SIZE	16
++#define FM10K_MSG_LPORT_MAP_MASK_SHIFT	16
++#define FM10K_MSG_LPORT_MAP_MASK_SIZE	16
 +
- 	/* Disable DMA engine for Tx/Rx */
- 	hw->mac.ops.stop_hw(hw);
- }
-@@ -226,6 +707,10 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
- 		netdev->hw_features &= ~NETIF_F_GSO_UDP_TUNNEL;
- 	}
- 
-+	/* set default interrupt moderation */
-+	interface->tx_itr = FM10K_ITR_10K;
-+	interface->rx_itr = FM10K_ITR_ADAPTIVE | FM10K_ITR_20K;
++#define FM10K_MSG_UPDATE_PVID_GLORT_SHIFT	0
++#define FM10K_MSG_UPDATE_PVID_GLORT_SIZE	16
++#define FM10K_MSG_UPDATE_PVID_PVID_SHIFT	16
++#define FM10K_MSG_UPDATE_PVID_PVID_SIZE		16
 +
- 	/* initialize vxlan_port list */
- 	INIT_LIST_HEAD(&interface->vxlan_port);
- 
-@@ -341,6 +826,14 @@ static int fm10k_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_sw_init;
- 
-+	err = fm10k_init_queueing_scheme(interface);
-+	if (err)
-+		goto err_sw_init;
++struct fm10k_mac_update {
++	__le32	mac_lower;
++	__le16	mac_upper;
++	__le16	vlan;
++	__le16	glort;
++	u8	flags;
++	u8	action;
++};
 +
-+	err = fm10k_mbx_request_irq(interface);
-+	if (err)
-+		goto err_mbx_interrupt;
++struct fm10k_global_table_data {
++	__le32	used;
++	__le32	avail;
++};
 +
- 	/* final check of hardware state before registering the interface */
- 	err = fm10k_hw_ready(interface);
- 	if (err)
-@@ -377,6 +870,9 @@ static int fm10k_probe(struct pci_dev *pdev,
- 	return 0;
- 
- err_register:
-+	fm10k_mbx_free_irq(interface);
-+err_mbx_interrupt:
-+	fm10k_clear_queueing_scheme(interface);
- err_sw_init:
- 	iounmap(interface->uc_addr);
- err_ioremap:
-@@ -408,6 +904,12 @@ static void fm10k_remove(struct pci_dev *pdev)
- 	if (netdev->reg_state == NETREG_REGISTERED)
- 		unregister_netdev(netdev);
- 
-+	/* disable mailbox interrupt */
-+	fm10k_mbx_free_irq(interface);
++struct fm10k_swapi_error {
++	__le32				status;
++	struct fm10k_global_table_data	mac;
++	struct fm10k_global_table_data	nexthop;
++	struct fm10k_global_table_data	ffu;
++};
 +
-+	/* free interrupts */
-+	fm10k_clear_queueing_scheme(interface);
++struct fm10k_swapi_1588_timestamp {
++	__le64 egress;
++	__le64 ingress;
++	__le16 dglort;
++	__le16 sglort;
++};
 +
- 	iounmap(interface->uc_addr);
- 
- 	free_netdev(netdev);
++s32 fm10k_msg_lport_map_pf(struct fm10k_hw *, u32 **, struct fm10k_mbx_info *);
++extern const struct fm10k_tlv_attr fm10k_lport_map_msg_attr[];
++#define FM10K_PF_MSG_LPORT_MAP_HANDLER(func) \
++	FM10K_MSG_HANDLER(FM10K_PF_MSG_ID_LPORT_MAP, \
++			  fm10k_lport_map_msg_attr, func)
++s32 fm10k_msg_update_pvid_pf(struct fm10k_hw *, u32 **,
++			     struct fm10k_mbx_info *);
++extern const struct fm10k_tlv_attr fm10k_update_pvid_msg_attr[];
++#define FM10K_PF_MSG_UPDATE_PVID_HANDLER(func) \
++	FM10K_MSG_HANDLER(FM10K_PF_MSG_ID_UPDATE_PVID, \
++			  fm10k_update_pvid_msg_attr, func)
++
++s32 fm10k_msg_err_pf(struct fm10k_hw *, u32 **, struct fm10k_mbx_info *);
++extern const struct fm10k_tlv_attr fm10k_err_msg_attr[];
++#define FM10K_PF_MSG_ERR_HANDLER(msg, func) \
++	FM10K_MSG_HANDLER(FM10K_PF_MSG_ID_##msg, fm10k_err_msg_attr, func)
++
++extern const struct fm10k_tlv_attr fm10k_1588_timestamp_msg_attr[];
++#define FM10K_PF_MSG_1588_TIMESTAMP_HANDLER(func) \
++	FM10K_MSG_HANDLER(FM10K_PF_MSG_ID_1588_TIMESTAMP, \
++			  fm10k_1588_timestamp_msg_attr, func)
++
+ extern struct fm10k_info fm10k_pf_info;
+ #endif /* _FM10K_PF_H */
 -- 
 1.9.3
