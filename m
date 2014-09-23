@@ -1,41 +1,82 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Tue, 23 Sep 2014 22:10:22 +0400
-Message-ID: <5421B78E.4050908@msgid.tls.msk.ru>
-References: <53FDACD1.8090805@msgid.tls.msk.ru> <53FDF8EB.4050905@broadcom.com> <54169D4F.2090607@broadcom.com> <541EEF17.7020806@msgid.tls.msk.ru> <542145B1.4030202@msgid.tls.msk.ru> <54216BF1.3060500@broadcom.com> <20140923134419.GA19016@ubuntu-hedt> <54217AA5.2060803@broadcom.com> <542182BE.2000606@msgid.tls.msk.ru> <542183A6.4070207@msgid.tls.msk.ru> <20140923143124.GC19016@ubuntu-hedt> <54219984.2080601@msgid.tls.msk.ru> <5421AF5C.6000106@broadcom.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH v4 3/9] Documentation: bindings: net: add the Marvell PXA168 Ethernet controller
+Date: Tue, 23 Sep 2014 20:18:19 +0200
+Message-ID: <3847496.NqfTxpsf9X@wuerfel>
+References: <1411474536-22626-1-git-send-email-antoine.tenart@free-electrons.com> <5150779.ibmzDh88cj@wuerfel> <5421AE7C.30504@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Seth Forshee <seth.forshee@canonical.com>,
-	brcm80211-dev-list@broadcom.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([86.62.121.231]:46565 "EHLO isrv.corpit.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755293AbaIWSKY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2014 14:10:24 -0400
-In-Reply-To: <5421AF5C.6000106@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, zmxu-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5421AE7C.30504-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-23.09.2014 21:35, Arend van Spriel wrote:
-> On 09/23/14 18:02, Michael Tokarev wrote:
+On Tuesday 23 September 2014 19:31:40 Sebastian Hesselbarth wrote:
+> It has been a while I looked it up in the pxa168 datasheet, but IIRC
+> there is only one port per controller. FWIW, there actually is also
+> just one port per controller for Orion SoCs. The multiple ports per
+> controller comes from the PPC system controllers, i.e. mv643xx hence
+> the name. We just made the binding look like it is more ports available
+> to make it backwards compatible.. although I doubt anyone is still using
+> mv643xx anywhere.
 
->> Oh. Indeed.  While I enabled it, I recompiled only drivers/net/wireless,
->> but not net/.  Rebuilt, another trace is here --
->>
->>   http://www.corpit.ru/mjt/tmp/brcmsmac-4313-trace-201409233.dat.gz
->>
->> Thanks,
+Ok, I see.
+
+> > If there is only one port and we just have to know which one that is,
+> > I don't think we need the child nodes, but if one can have multiple
+> > ports operate independently then the driver will need a rework
+> > to actually be usable with that configuration.
 > 
-> Just to confirm. With this trace you also get a stall during wget?
+> I doubt pxa168 needs port nodes at all, i.e. we have the phy-handle
+> directly as property of the controller node.
 
-Yes.  Initially it started d/loading but some time later the d/load speed
-reduced to 0.  It is possible to wait further, and after some more time
-it will receive some more bytes/kilobytes/packets and stall again.  Overall
-progress is nearing zero.
+Ah, good.
 
-Thanks,
+> The HEC PHY node itself will be a sub-node of some future CEC node,
+> while the (internal) MII PHY node can stay as a sub-node of the
+> controller, e.g.
+> 
+> (one final example to make sure we agree on the same)
+> 
+> eth0: ethernet@f7b90000 {
+>         compatible = "marvell,pxa168-eth";
+>         reg = <...>;
+>         #address-cells = <1>;
+>         #size-cells = <0>;
+>         phy-handle = <&ethphy0>;
+> 
+>         ethphy0: ethernet-phy@0 {
+>                 reg = <0>;
+>         };
+> };
+> 
+> cec0: cec@f7f00baa {
+>         compatible = "marvell,berlin-cec";
+>         reg = <...>;
+>         #address-cells = <1>;
+>         #size-cells = <0>;
+>         
+>         hecphy0: hdmi-ethernet-phy@0 {
+>                 reg = <0>;
+>         };
+> };
+> 
+> With berlin2cd-google-chromecast.dts overwriting
+> 
+> &eth0 { phy-handle = <&hecphy0>; };
 
-/mjt
+Ok, now I also understood how the cec fits into this. Yes, I think this
+looks very good.
+
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
