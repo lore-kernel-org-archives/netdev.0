@@ -1,50 +1,68 @@
-From: Chuck Ebbert <cebbert.lkml@gmail.com>
-Subject: LTP recv/recvmsg tests failing on 3.17
-Date: Tue, 23 Sep 2014 09:11:08 -0500
-Message-ID: <20140923091108.2788de76@as>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
+Date: Tue, 23 Sep 2014 18:25:02 +0400
+Message-ID: <542182BE.2000606@msgid.tls.msk.ru>
+References: <53FC1789.6020407@msgid.tls.msk.ru> <53FCA001.6090404@broadcom.com> <53FCB2A3.1050605@msgid.tls.msk.ru> <53FCFE1A.3060508@broadcom.com> <53FDACD1.8090805@msgid.tls.msk.ru> <53FDF8EB.4050905@broadcom.com> <54169D4F.2090607@broadcom.com> <541EEF17.7020806@msgid.tls.msk.ru> <542145B1.4030202@msgid.tls.msk.ru> <54216BF1.3060500@broadcom.com> <20140923134419.GA19016@ubuntu-hedt> <54217AA5.2060803@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Willem de Bruijn <willemb@google.com>
+Cc: brcm80211-dev-list@broadcom.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Arend van Spriel <arend@broadcom.com>,
+	Seth Forshee <seth.forshee@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:40088 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751978AbaIWOLQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 10:11:16 -0400
-Received: by mail-ob0-f182.google.com with SMTP id wo20so5078569obc.27
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 07:11:13 -0700 (PDT)
+Received: from isrv.corpit.ru ([86.62.121.231]:56443 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752126AbaIWOZF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 10:25:05 -0400
+In-Reply-To: <54217AA5.2060803@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-LTP tests recv01, recvfrom01 and recvmsg01 are reporting failure on
-their "invalid flags" tests on 3.17. They pass a value of -1 for flags
-and expect to get EINVAL back, but now they get EAGAIN. It looks like
-this is due to:
+23.09.2014 17:50, Arend van Spriel wrote:
+> On 09/23/14 15:44, Seth Forshee wrote:
+[]
+>> Well, there are a few different trace events defined for brcmsmac. This
+>> would enable the full set:
+>>
+>>   $ trace-cmd record -e brcmsmac -e brcmsmac_tx -e brcmsmac_msg
+>>
+>> It's been quite some time since I used them, but I think brcmsmac_tx is
+>> quite noisy so you may only want to enable that if you already suspect a
+>> tx problem. I always find it useful to enable the mac80211 and
+>> mac80211_msg events too when debugging wireless, and I often enable
+>> cfg80211 events as well (none of these are especially verbose).
+> 
+> Ah, I read back the email from Sep 21 and it says:
+> 
+> trace-cmd record brcmsmac:* &
+> 
+> I am surprised the capture contains something as -e is missing. Good to know there are different tracers for the driver.
+> 
+>> Of course all of this depends on having the right config options
+>> selected. Looks like the relevant options are CONFIG_BRCM_TRACING and
+>> CONFIG_MAC80211_MESSAGE_TRACING.
 
-commit 4ed2d765dfaccff5ebdac68e2064b59125033a3b
-Author: Willem de Bruijn <willemb@google.com>
-Date:   Mon Aug 4 22:11:49 2014 -0400
+So, what should I enable?  I guess there's a suspection of tx path
+problem (since according to tcpdump, the other side sends packets
+our way, but our side does not receive them), so -e brcmsmac_tx
+shold be okay to enable (and should be easy to filter out if
+needed, too, I guess).  And using -e, now too, like this:
 
-    net-timestamp: TCP timestamping
+ trace-cmd record -e brcmsmac -e brcmsmac_tx -e brcmsmac_msg -e mac80211 -e mac80211 -e cfg80211
 
-which adds this hunk to net/ipv4/tcp.c:
+http://www.corpit.ru/mjt/tmp/brcmsmac-4313-trace-201409232.dat.gz is
+the result from the following:
 
-@@ -1617,6 +1630,9 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-        struct sk_buff *skb;
-        u32 urg_hole = 0;
- 
-+       if (unlikely(flags & MSG_ERRQUEUE))
-+               return ip_recv_error(sk, msg, len, addr_len);
-+
-        if (sk_can_busy_loop(sk) && skb_queue_empty(&sk->sk_receive_queue) &&
-            (sk->sk_state == TCP_ESTABLISHED))
-                sk_busy_loop(sk, nonblock);
+ modprobe brcmsmac (networkmanager is running)
+ trace-cmd as above &
+ wget http://ip-add-ress/random-file -O /dev/null
 
-Before this change, the first flag tested was MSG_OOB, which eventually
-causes EINVAL to be returned. Now this flag gets tested first, and
-ip_recv_err() returns EAGAIN.
+I waited for wget to stall (it d'loaded 240Kb) and hit
+Ctrl+C.
 
-LTP setting every flag and expecting behavior to remain unchanged is
-probably wrong, but is EAGAIN correct here? I can't find any spec for
-this.
+The trace file isn't really that huge.
+
+Thank you!
+
+/mjt
