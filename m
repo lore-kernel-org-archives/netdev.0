@@ -1,7 +1,7 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH net-next v2 2/5] netns: add genl cmd to get the id of a netns
-Date: Tue, 23 Sep 2014 15:20:27 +0200
-Message-ID: <1411478430-4989-3-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH net-next v2 3/5] rtnl: add link netns id to interface messages
+Date: Tue, 23 Sep 2014 15:20:28 +0200
+Message-ID: <1411478430-4989-4-git-send-email-nicolas.dichtel@6wind.com>
 References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, ebiederm@xmission.com,
 	stephen@networkplumber.org, akpm@linux-foundation.org,
@@ -9,232 +9,100 @@ Cc: davem@davemloft.net, ebiederm@xmission.com,
 To: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
 	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:46010 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:46015 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751860AbaIWNUw (ORCPT
+	with ESMTP id S1751742AbaIWNUw (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 09:20:52 -0400
 In-Reply-To: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows a user to get an id of a peer netns. It will be usefull for
-userland to be able to associate a netns file descriptor with a netns id.
-
-Note: to be able to got an id, both netns should be in the same user ns.
+This patch adds a new attribute (IFLA_LINK_NETNSID) which contains the 'link'
+netns id when this netns is different from the netns where the interface
+stands (for example for x-net interfaces like ip tunnels). When there is no id,
+because user ns of link netns and interface netns is not the same, we put 0
+into this attribute (id 0 is not valid) to indicate to userland that the link
+netns is different from the interface netns. Hence, userland knows that some
+information like IFLA_LINK are not interpretable.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- MAINTAINERS                 |  1 +
- include/net/net_namespace.h |  1 +
- include/uapi/linux/Kbuild   |  1 +
- include/uapi/linux/netns.h  | 29 +++++++++++++
- net/core/net_namespace.c    | 99 +++++++++++++++++++++++++++++++++++++++++++++
- net/netlink/genetlink.c     |  4 ++
- 6 files changed, 135 insertions(+)
- create mode 100644 include/uapi/linux/netns.h
+ include/net/rtnetlink.h      |  2 ++
+ include/uapi/linux/if_link.h |  1 +
+ net/core/rtnetlink.c         | 22 ++++++++++++++++++++++
+ 3 files changed, 25 insertions(+)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index b4e23acc6441..dbf691c68473 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -6278,6 +6278,7 @@ F:	include/linux/netdevice.h
- F:	include/uapi/linux/in.h
- F:	include/uapi/linux/net.h
- F:	include/uapi/linux/netdevice.h
-+F:	include/uapi/linux/netns.h
- F:	tools/net/
- F:	tools/testing/selftests/net/
- F:	lib/random32.c
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 92b5f94e2842..1b65f5ccacf5 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -299,6 +299,7 @@ static inline int peernet2id(struct net *net, struct net *peer)
- }
- 
- struct net *get_net_from_netnsid(struct net *net, int id);
-+int netns_genl_register(void);
- 
- struct pernet_operations {
- 	struct list_head list;
-diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
-index fb3f7b675229..840f049c48fa 100644
---- a/include/uapi/linux/Kbuild
-+++ b/include/uapi/linux/Kbuild
-@@ -275,6 +275,7 @@ header-y += netfilter_decnet.h
- header-y += netfilter_ipv4.h
- header-y += netfilter_ipv6.h
- header-y += netlink.h
-+header-y += netns.h
- header-y += netrom.h
- header-y += nfc.h
- header-y += nfs.h
-diff --git a/include/uapi/linux/netns.h b/include/uapi/linux/netns.h
-new file mode 100644
-index 000000000000..72537e31d7d2
---- /dev/null
-+++ b/include/uapi/linux/netns.h
-@@ -0,0 +1,29 @@
-+#ifndef _UAPI_LINUX_NETNS_H_
-+#define _UAPI_LINUX_NETNS_H_
-+
-+/* Generic netlink messages */
-+
-+#define NETNS_GENL_NAME			"netns"
-+#define NETNS_GENL_VERSION		0x1
-+
-+/* Commands */
-+enum {
-+	NETNS_CMD_UNSPEC,
-+	NETNS_CMD_GET,
-+	__NETNS_CMD_MAX,
-+};
-+
-+#define NETNS_CMD_MAX		(__NETNS_CMD_MAX - 1)
-+
-+/* Attributes */
-+enum {
-+	NETNSA_NONE,
-+	NETNSA_NSINDEX,
-+	NETNSA_PID,
-+	NETNSA_FD,
-+	__NETNSA_MAX,
-+};
-+
-+#define NETNSA_MAX		(__NETNSA_MAX - 1)
-+
-+#endif /* _UAPI_LINUX_NETNS_H_ */
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index f44378de7831..a60f2bbf4302 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -15,6 +15,8 @@
- #include <linux/file.h>
- #include <linux/export.h>
- #include <linux/user_namespace.h>
-+#include <linux/netns.h>
-+#include <net/genetlink.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- 
-@@ -417,6 +419,103 @@ static struct pernet_operations __net_initdata net_ns_ops = {
- 	.exit = net_ns_net_exit,
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index e21b9f9653c0..6c6d5393fc34 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -46,6 +46,7 @@ static inline int rtnl_msg_family(const struct nlmsghdr *nlh)
+  *			    to create when creating a new device.
+  *	@get_num_rx_queues: Function to determine number of receive queues
+  *			    to create when creating a new device.
++ *	@get_link_net: Function to get the i/o netns of the device
+  */
+ struct rtnl_link_ops {
+ 	struct list_head	list;
+@@ -93,6 +94,7 @@ struct rtnl_link_ops {
+ 	int			(*fill_slave_info)(struct sk_buff *skb,
+ 						   const struct net_device *dev,
+ 						   const struct net_device *slave_dev);
++	struct net		*(*get_link_net)(const struct net_device *dev);
  };
  
-+static struct genl_family netns_nl_family = {
-+	.id		= GENL_ID_GENERATE,
-+	.name		= NETNS_GENL_NAME,
-+	.version	= NETNS_GENL_VERSION,
-+	.hdrsize	= 0,
-+	.maxattr	= NETNSA_MAX,
-+	.netnsok	= true,
-+};
+ int __rtnl_link_register(struct rtnl_link_ops *ops);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index c80f95f6ee78..21dd2bcb295f 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -145,6 +145,7 @@ enum {
+ 	IFLA_CARRIER,
+ 	IFLA_PHYS_PORT_ID,
+ 	IFLA_CARRIER_CHANGES,
++	IFLA_LINK_NETNSID,
+ 	__IFLA_MAX
+ };
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a6882686ca3a..99ed83c62685 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -862,6 +862,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + nla_total_size(1) /* IFLA_OPERSTATE */
+ 	       + nla_total_size(1) /* IFLA_LINKMODE */
+ 	       + nla_total_size(4) /* IFLA_CARRIER_CHANGES */
++	       + nla_total_size(4) /* IFLA_LINK_NETNSID */
+ 	       + nla_total_size(ext_filter_mask
+ 			        & RTEXT_FILTER_VF ? 4 : 0) /* IFLA_NUM_VF */
+ 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
+@@ -1134,6 +1135,27 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			goto nla_put_failure;
+ 	}
+ 
++	if (dev->rtnl_link_ops &&
++	    dev->rtnl_link_ops->get_link_net) {
++		struct net *link_net = dev->rtnl_link_ops->get_link_net(dev);
 +
-+static struct nla_policy netns_nl_policy[NETNSA_MAX + 1] = {
-+	[NETNSA_NONE]		= { .type = NLA_UNSPEC, },
-+	[NETNSA_NSINDEX]	= { .type = NLA_U32, },
-+	[NETNSA_PID]		= { .type = NLA_U32 },
-+	[NETNSA_FD]		= { .type = NLA_U32 },
-+};
++		if (!net_eq(dev_net(dev), link_net)) {
++			int id = peernet2id(dev_net(dev), link_net);
 +
-+static int netns_nl_get_size(void)
-+{
-+	return nla_total_size(sizeof(u32)) /* NETNSA_NSINDEX */
-+	       ;
-+}
++			/* If the link netns is not in the same user ns, put id
++			 * 0 in IFLA_LINK_NETNSID to indicate to userland that
++			 * the link netns is not the current netns, but that it
++			 * don't have access to it.
++			 */
++			if (id == -EPERM)
++				id = 0;
 +
-+static int netns_nl_fill(struct sk_buff *skb, u32 portid, u32 seq, int flags,
-+			 int cmd, struct net *net, struct net *peer)
-+{
-+	void *hdr;
-+	int id;
-+
-+	hdr = genlmsg_put(skb, portid, seq, &netns_nl_family, flags, cmd);
-+	if (!hdr)
-+		return -EMSGSIZE;
-+
-+	id = peernet2id(net, peer);
-+	if (id < 0)
-+		return id;
-+	if (nla_put_u32(skb, NETNSA_NSINDEX, id))
-+		goto nla_put_failure;
-+
-+	return genlmsg_end(skb, hdr);
-+
-+nla_put_failure:
-+	genlmsg_cancel(skb, hdr);
-+	return -EMSGSIZE;
-+}
-+
-+static int netns_nl_cmd_getid(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net *net = genl_info_net(info);
-+	struct net *peer;
-+	struct sk_buff *msg;
-+	int err = -ENOBUFS;
-+
-+	if (info->attrs[NETNSA_PID])
-+		peer = get_net_ns_by_pid(nla_get_u32(info->attrs[NETNSA_PID]));
-+	else if (info->attrs[NETNSA_FD])
-+		peer = get_net_ns_by_fd(nla_get_u32(info->attrs[NETNSA_FD]));
-+	else
-+		return -EINVAL;
-+
-+	if (IS_ERR(peer))
-+		return PTR_ERR(peer);
-+
-+	msg = genlmsg_new(netns_nl_get_size(), GFP_KERNEL);
-+	if (!msg) {
-+		err = -ENOMEM;
-+		goto out;
++			if (id >= 0 &&
++			    nla_put_u32(skb, IFLA_LINK_NETNSID, id))
++				goto nla_put_failure;
++		}
 +	}
 +
-+	err = netns_nl_fill(msg, info->snd_portid, info->snd_seq,
-+			    NLM_F_ACK, NETNS_CMD_GETID, net, peer);
-+	if (err < 0)
-+		goto err_out;
-+
-+	err = genlmsg_unicast(net, msg, info->snd_portid);
-+	goto out;
-+
-+err_out:
-+	nlmsg_free(msg);
-+out:
-+	put_net(peer);
-+	return err;
-+}
-+
-+static struct genl_ops netns_nl_ops[] = {
-+	{
-+		.cmd = NETNS_CMD_GETID,
-+		.policy = netns_nl_policy,
-+		.doit = netns_nl_cmd_getid,
-+		.flags = GENL_ADMIN_PERM,
-+	},
-+};
-+
-+int netns_genl_register(void)
-+{
-+	return genl_register_family_with_ops(&netns_nl_family, netns_nl_ops);
-+}
-+
- static int __init net_ns_init(void)
- {
- 	struct net_generic *ng;
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 76393f2f4b22..c6f39e40c9f3 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -1029,6 +1029,10 @@ static int __init genl_init(void)
- 	if (err)
- 		goto problem;
+ 	if (!(af_spec = nla_nest_start(skb, IFLA_AF_SPEC)))
+ 		goto nla_put_failure;
  
-+	err = netns_genl_register();
-+	if (err < 0)
-+		goto problem;
-+
- 	return 0;
- 
- problem:
 -- 
 2.1.0
