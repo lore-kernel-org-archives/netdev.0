@@ -1,47 +1,38 @@
-From: "Sharma, Karun" <karun.sharma@intel.com>
-Subject: RE: 3.17 kernel crash while loading IPoIB
-Date: Tue, 23 Sep 2014 11:11:53 +0000
-Message-ID: <637AD4DF2E595346BAB0DF8C46F3A2B0032921A7@BGSMSX101.gar.corp.intel.com>
-References: <637AD4DF2E595346BAB0DF8C46F3A2B003291F06@BGSMSX101.gar.corp.intel.com>
- <1411463138.26859.168.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Richard Alpe <richard.alpe@ericsson.com>
+Subject: Re: [PATCH net-next 04/14] tipc: add sock dump to new netlink api
+Date: Tue, 23 Sep 2014 13:12:47 +0200
+Message-ID: <542155AF.4020805@ericsson.com>
+References: <1410424167-17427-5-git-send-email-richard.alpe@ericsson.com>	<20140912.171038.1165432718811920305.davem@davemloft.net>	<54169B6C.5060709@ericsson.com> <20140915.113846.1276168899072885.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1411463138.26859.168.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sesbmg23.ericsson.net ([193.180.251.37]:54337 "EHLO
+	sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753689AbaIWLN5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 07:13:57 -0400
+In-Reply-To: <20140915.113846.1276168899072885.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhhbmtzIEVyaWMuIFllcywgdGhlIGNvbW1pdHMgYmVsb3cgaGF2ZSBmaXhlZCB0aGUgaXNzdWUu
-DQoNClJlZ2FyZHMsDQpLYXJ1biBTaGFybWENCg0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0t
-LQ0KRnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0gDQpT
-ZW50OiBUdWVzZGF5LCBTZXB0ZW1iZXIgMjMsIDIwMTQgMjozNiBQTQ0KVG86IFNoYXJtYSwgS2Fy
-dW4NCkNjOiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwu
-b3JnDQpTdWJqZWN0OiBSZTogMy4xNyBrZXJuZWwgY3Jhc2ggd2hpbGUgbG9hZGluZyBJUG9JQg0K
-DQpPbiBUdWUsIDIwMTQtMDktMjMgYXQgMDU6MTUgKzAwMDAsIFNoYXJtYSwgS2FydW4gd3JvdGU6
-DQo+IEhlbGxvOg0KPiANCj4gSSBhbSBmYWNpbmcgYW4gaXNzdWUgd2hlcmVpbiBrZXJuZWwgMy4x
-NyBjcmFzaGVzIHdoaWxlIGxvYWRpbmcgSVBvSUIgDQo+IG1vZHVsZS4gSSBndWVzcyB0aGUgaXNz
-dWUgZGlzY3Vzc2VkIGluIHRoaXMgdGhyZWFkDQo+IChodHRwczovL3d3dy5tYWlsLWFyY2hpdmUu
-Y29tL2xpbnV4LXJkbWFAdmdlci5rZXJuZWwub3JnL21zZzIwOTYzLmh0bWwpIGlzIHNpbWlsYXIu
-DQo+IA0KPiBXZSB3ZXJlIGFibGUgdG8gcmVwcm9kdWNlIHRoZSBpc3N1ZSB3aXRoIFJDNiBhbHNv
-LiBIZXJlIGFyZSB0aGUgc3RlcHMgDQo+IEkgZm9sbG93ZWQ6DQo+IA0KPiBJIGNvbXBpbGVkIGFu
-ZCBpbnN0YWxsZWQgMy4xNyBrZXJuZWwgb24gdG9wIG9mIFJIRUwgNi41LiANCj4gVGhlbiBJIGNo
-YW5nZWQgcmRtYS5jb25mIHRvIG5vdCBsb2FkIElQb0lCIChJZiBJIGRvbid0IGRvIHRoaXMsIHRo
-ZSANCj4ga2VybmVsIGNyYXNoZXMgd2hpbGUgYm9vdGluZyBhbmQgc3RhcnRpbmcgUkRNQSBzZXJ2
-aWNlLikgQWZ0ZXIgdGhlIA0KPiBzZXJ2ZXIgY29tZXMgdXAsIEkganVzdCBkaWQgIm1vZHByb2Jl
-IGliX2lwb2liIiBhbmQga2VybmVsIGNyYXNoZXMuDQo+IFBsZWFzZSBzZWUgYmVsb3cgdGhlIGtl
-cm5lbCBiYWNrIHRyYWNlLg0KPiANCj4gU2VlaW5nIHRoZSBhbm5vdW5jZW1lbnQsIGl0IGxvb2tz
-IGxpa2UgUkM2IHdpbGwgYmUgdGhlIGxhc3QgUkMgZm9yDQo+IDMuMTcga2VybmVsLiBXaWxsIHRo
-ZSByZWxlYXNlIGhhcHBlbiB3aXRoIHRoaXMgaXNzdWU/IElzIHRoZXJlIGFueSANCj4gd29ya2Fy
-b3VuZCBhdmFpbGFibGUgZm9yIHRoaXMgaXNzdWU/DQo+IEkgYW0gbm90IHN1cmUgd2hhdCBtZWNo
-YW5pc20vcHJvY2VzcyBpcyB1c2VkIHRvIHJlcG9ydCBpc3N1ZSB0byBrZXJuZWwgDQo+IGNvbW11
-bml0eS4NCj4gDQo+IFJlZ2FyZHMNCj4gS2FydW4NCg0KVGhpcyBzZWVtcyBmaXhlZCBub3cgOg0K
-DQpodHRwOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJuZWwvZ2l0L3RvcnZhbGRzL2xp
-bnV4LmdpdC9jb21taXQvP2lkPTI1NzExNzg2MjYzNGQ4OWRlMzNmZWM3NDg1OGIxYTBiYTVhYjQ0
-NGINCg0KaHR0cDovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgva2VybmVsL2dpdC90b3J2YWxk
-cy9saW51eC5naXQvY29tbWl0Lz9pZD1iNDlmZTM2MjA4YjQ1Zjc2ZGZiY2ZjZDNhZmQ5NTJhMzNm
-YTlmNWNlDQoNCg0K
+On 09/15/2014 05:38 PM, David Miller wrote:
+> From: Richard Alpe <richard.alpe@ericsson.com>
+> Date: Mon, 15 Sep 2014 09:55:24 +0200
+>
+>> The amount of publications a socket can have is large (~65 000). Do
+>> you still think this a viable solution?
+>
+> Then maybe you want to have a completely separate netlink operation to
+> dump the publications, the request would provide a key saying which
+> socket's publications to dump.
+Yes, that would be a nice thing to have.
+
+Ideally I would like to use the existing dump framework .dumpit 
+(netlink_dump_start()) but I can't figure out a way to pass the socket 
+for which to dump publications. I really don't want to reinvent the 
+dumping mechanism. Any suggestions?
+
+Regards
+Richard
