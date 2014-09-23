@@ -1,33 +1,87 @@
-From: Angus Gibson <angus@agibson.me>
-Subject: Re: [RFC PATCH linux-next] et131x: Promote staging et131x driver to
- drivers/net
-Date: Tue, 23 Sep 2014 09:56:53 +1000
-Message-ID: <20140922235653.GA17359@angus-mbp>
-References: <1411421283-25073-1-git-send-email-mark.einon@gmail.com>
+From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+Subject: RE: [PATCH] net: stmmac: fix stmmac_pci_probe failed when
+ CONFIG_HAVE_CLK is selected
+Date: Tue, 23 Sep 2014 01:16:12 +0000
+Message-ID: <F54AEECA5E2B9541821D670476DAE19C2B7EAE19@PGSMSX102.gar.corp.intel.com>
+References: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com>
+ <20140922.141921.577008114679288180.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	devel@driverdev.osuosl.org
-To: mark.einon@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+	"rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>,
+	"vbridgers2013@gmail.com" <vbridgers2013@gmail.com>,
+	"wens@csie.org" <wens@csie.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Ong, Boon Leong" <boon.leong.ong@intel.com>,
+	"tobias.johannes.klausmann@mni.thm.de"
+	<tobias.johannes.klausmann@mni.thm.de>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1411421283-25073-1-git-send-email-mark.einon@gmail.com>
+In-Reply-To: <20140922.141921.577008114679288180.davem@davemloft.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> +config NET_VENDOR_AGERE
-> +	bool "Agere devices"
-> +	default y
-> +	depends on PCI
-> +	---help---
-> +	  If you have a network (Ethernet) card belonging to this class, say =
-> Y
-> +	  and read the Ethernet-HOWTO, available from
-> +	  <http://www.tldp.org/docs.html#howto>.
-> +
-> +	  Note that the answer to this question doesn't directly affect the
-> +	  kernel: saying N will just cause the configurator to skip all
-> +	  the questions about Atheros devices. If you say Y, you will be aske=
-should this be "Agere devices" instead?
-> d
-> +	  for your specific card in the following questions.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, September 23, 2014 2:19 AM
+> From: Kweh Hock Leong <hock.leong.kweh@intel.com>
+> Date: Thu, 18 Sep 2014 20:34:10 +0800
+> 
+> Giuseppe, Kweh, where are we with this patch?
+
+We are discussing whether this is the correct fix to the issue. Below is the discussion log:
+
+> > Hmm I am not sure this is the right fix. The driver has to fail if the 
+> > main clock is not found. Indeed dev_warn has to be changed in dev_err.
+> > 
+> > Take a look at Documentation/networking/stmmac.txt but I will post 
+> > some patch to improve the documentation adding further detail for clocks too.
+> > 
+> > The the logic behind the code is that the CSR clock will be set at 
+> > runtime if in case of priv->plat->clk_csr ==0 or it will be forced to 
+> > a fixed value if passed from the platform instead of.
+> > IIRC This was required on some platforms time ago.
+> > For sure the driver is designed to fail in case of no main clock is found.
+> > 
+> > Peppe
+>
+> Hi Peppe,
+>
+> I understand your point from the code below (at file stmmac_main.c line 2784):
+>
+> /* If a specific clk_csr value is passed from the platform
+>   * this means that the CSR Clock Range selection cannot be
+>   * changed at run-time and it is fixed. Viceversa the driver'll try to
+>   * set the MDC clock dynamically according to the csr actual
+>   * clock input.
+>   */
+> if (!priv->plat->clk_csr)
+>         stmmac_clk_csr_set(priv);
+> else
+>         priv->clk_csr = priv->plat->clk_csr;
+>
+>
+> I did search through the whole stmmac_main.c file and found that only stmmac_clk_csr_set() 
+> function is leveraging the priv->stmmac_clk params for it calculation. By the logic point of view, 
+> I do not need priv->stmmac_clk when I got priv->plat->clk_csr. With this thinking, I propose this 
+> fix as when the probe get priv->plat->clk_csr, it shouldn't fail if priv->stmmac_clk has the error value.
+
+Hi Peppe, 
+
+Are you trying to tell that if there is a fix CSR clock value, but driver cannot obtain the clk from devm_clk_get()
+(even it is not in use), the driver should fail the probe? 
+
+You have a case with this condition:
+HW allow SW to discover the STMMAC controller but HW/SW configures not to supply the CLOCK to STMMAC controller?
+
+My understanding to these priv->plat->clk_csr and priv->stmmac_clk is that 1st one is fixed and 2nd one is dynamic.
+When fixed value occurs, dynamic one would not be use. Do I understand this correctly?
+
+Thanks.
+
+
+Regards,
+Wilson
