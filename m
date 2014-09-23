@@ -1,68 +1,51 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v4 3/9] Documentation: bindings: net: add the Marvell
- PXA168 Ethernet controller
-Date: Tue, 23 Sep 2014 18:40:46 +0200
-Message-ID: <5421A28E.7060600@gmail.com>
-References: <1411474536-22626-1-git-send-email-antoine.tenart@free-electrons.com> <4014272.rJbSfrLcuB@wuerfel> <542195B0.6080706@gmail.com> <9401592.hUYDkriFVO@wuerfel>
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] net: bpf: arm: make hole-faulting more
+ robust
+Date: Tue, 23 Sep 2014 12:40:48 -0400 (EDT)
+Message-ID: <20140923.124048.2006238331601169260.davem@davemloft.net>
+References: <1411131417-23667-1-git-send-email-dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, zmxu-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <9401592.hUYDkriFVO@wuerfel>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux@arm.linux.org.uk, catalin.marinas@arm.com,
+	will.deacon@arm.com, mgherzan@gmail.com, ast@plumgrid.com
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35440 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755822AbaIWQkv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:40:51 -0400
+In-Reply-To: <1411131417-23667-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/23/2014 06:29 PM, Arnd Bergmann wrote:
-> On Tuesday 23 September 2014 17:45:52 Sebastian Hesselbarth wrote:
->> For reference, this is what we have for MVEBU SoCs with multiple ports
->> per controller:
->>
->> eth: ethernet-ctrl@72000 {
->>          compatible = "marvell,orion-eth";
-...
->>          reg = <0x72000 0x4000>;
-...
->>
->>          ethernet-port@0 {
->>                  compatible = "marvell,orion-eth-port";
-...
->>                  phy-handle = <&ethphy>;
->>          };
->> };
->>
->> mdio: mdio-bus@72004 {
->>          compatible = "marvell,orion-mdio";
-...
->>          reg = <0x72004 0x84>;
-..
->>          ethphy: ethernet-phy {
->>                  /* set phy address in board file */
->>          };
->> };
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Fri, 19 Sep 2014 14:56:57 +0200
 
-> But in this example, you have the same registers and the same
-> clocks in two nodes, which are even used by the same device driver
-> at the moment. It's not a big issue, but my feeling is that Antoine's
-> approach was actually better because it more closely reflects
-> the way that the hardware is built.
+> Will Deacon pointed out, that the currently used opcode for filling holes,
+> that is 0xe7ffffff, seems not robust enough ...
+ ...
+> ... which is a bit fragile. The ARM specification defines some *permanently*
+> guaranteed undefined instruction (UDF) space, for example for ARM in ARMv7-AR,
+> section A5.4 and for Thumb in ARMv7-M, section A5.2.6.
+> 
+> Similarly, ptrace, kprobes, kgdb, bug and uprobes make use of such instruction
+> as well to trap. Given mentioned section from the specification, we can find
+> such a universe as (where 'x' denotes 'don't care'):
+> 
+>   ARM:    xxxx 0111 1111 xxxx xxxx xxxx 1111 xxxx
+>   Thumb:  1101 1110 xxxx xxxx
+> 
+> We therefore should use a more robust opcode that fits both. Russell King
+> suggested that we can even reuse a single 32-bit word, that is, 0xe7fddef1
+> which will fault if executed in ARM *or* Thumb mode as done in f928d4f2a86f
+> ("ARM: poison the vectors page"). That will still hold our requirements:
+ ...
+> So on ARM 0xe7fddef1 conforms to the above UDF pattern, and the low 16 bit
+> likewise correspond to UDF in Thumb case. The 0xe7fd part is an unconditional
+> branch back to the UDF instruction.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-I was not referring to the separate mdio bus node, but putting the
-ethernet-phy node as a child of ethernet-ctrl.
-
-Anyway, I can live with the ethernet-phy being a child of the controller
-node until we discover where it is hooked up.
-
-For the internal MII PHY the controller node maybe is the only sane
-place to put it in. The HEC PHY will reside within the CEC IP node but
-that is compatible with Antoine's proposal.
-
-Sebastian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Daniel.
