@@ -1,66 +1,41 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net] tcp: Fix TLP implementation in case receive window
- limits send
-Date: Tue, 23 Sep 2014 10:54:55 -0700
-Message-ID: <CAK6E8=f5GcgX5kuyeOWqhmj2t1KyeyiBqdfehP4V52miUT83LA@mail.gmail.com>
-References: <6cbd68ba1ef44c5ca4b21bd3f65846af@AM3PR06MB388.eurprd06.prod.outlook.com>
- <CAK6E8=eRUq1K5XRt9Ofzn7YWnfc7qP9ndrrF2hm0VXsPXYAeEQ@mail.gmail.com>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
+Date: Tue, 23 Sep 2014 22:10:22 +0400
+Message-ID: <5421B78E.4050908@msgid.tls.msk.ru>
+References: <53FDACD1.8090805@msgid.tls.msk.ru> <53FDF8EB.4050905@broadcom.com> <54169D4F.2090607@broadcom.com> <541EEF17.7020806@msgid.tls.msk.ru> <542145B1.4030202@msgid.tls.msk.ru> <54216BF1.3060500@broadcom.com> <20140923134419.GA19016@ubuntu-hedt> <54217AA5.2060803@broadcom.com> <542182BE.2000606@msgid.tls.msk.ru> <542183A6.4070207@msgid.tls.msk.ru> <20140923143124.GC19016@ubuntu-hedt> <54219984.2080601@msgid.tls.msk.ru> <5421AF5C.6000106@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Itzcak Pechtalt <itzcak@flashnetworks.com>
+Content-Transfer-Encoding: 7bit
+Cc: Seth Forshee <seth.forshee@canonical.com>,
+	brcm80211-dev-list@broadcom.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Arend van Spriel <arend@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:47283 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755293AbaIWRzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 13:55:37 -0400
-Received: by mail-ie0-f181.google.com with SMTP id tr6so9895320ieb.12
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 10:55:36 -0700 (PDT)
-In-Reply-To: <CAK6E8=eRUq1K5XRt9Ofzn7YWnfc7qP9ndrrF2hm0VXsPXYAeEQ@mail.gmail.com>
+Received: from isrv.corpit.ru ([86.62.121.231]:46565 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755293AbaIWSKY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 14:10:24 -0400
+In-Reply-To: <5421AF5C.6000106@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 23, 2014 at 10:52 AM, Yuchung Cheng <ycheng@google.com> wrote:
-> On Tue, Sep 23, 2014 at 9:28 AM, Itzcak Pechtalt
-> <itzcak@flashnetworks.com> wrote:
->> From: Itzcak Pechtalt <itzcak@flashnetworks.com>
->>
->> TCP Tail loss probe (TLP) algorithm implementation has some problem.
->> According to paper (draft-dukkipati-tcpm-tcp-loss-probe-0 ):
->> In case recive window of receiver limits send of new packet in probe time than
->> a retransmit of last packet send should be done.
->>
->> Actually, return code from tcp_write_xmit is not checked and only RTO is
->> scheduled,
->> So, it will take more time for reovery in this case than without TLP.
->>
->> Signed-off-by: Itzcak Pechtalt <itzcak@flashnetworks.com>
->> ---
->> net/ipv4/tcp_output.c  |    2 +-
->> 1 file changed, 1 insertions(+),  1 deletions(-)
->>
->> diff -up a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
->> --- a/net/ipv4/tcp_output.c     2014-09-23 18:35:37.113771694 +0300
->> +++ b/net/ipv4/tcp_output.c     2014-09-23 18:39:58.207726420 +0300
->> @@ -2100,7 +2100,8 @@ void tcp_send_loss_probe(struct sock *sk
->>
->>         if (tcp_send_head(sk) != NULL) {
->>                 err = tcp_write_xmit(sk, mss, TCP_NAGLE_OFF, 2, GFP_ATOMIC);
->> -              goto rearm_timer;
-> Doesn't tcp_write_xmit() return true if tcp_snd_wnd_test() fails? not
-> sure I understand the fix.
-Oops I read an old version of the code. Nevermind...
+23.09.2014 21:35, Arend van Spriel wrote:
+> On 09/23/14 18:02, Michael Tokarev wrote:
 
->
->> +             if (!err)
->> +                       goto rearm_timer;
->>         }
+>> Oh. Indeed.  While I enabled it, I recompiled only drivers/net/wireless,
+>> but not net/.  Rebuilt, another trace is here --
 >>
->>         /* At most one outstanding TLP retransmission. */
+>>   http://www.corpit.ru/mjt/tmp/brcmsmac-4313-trace-201409233.dat.gz
 >>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Thanks,
+> 
+> Just to confirm. With this trace you also get a stall during wget?
+
+Yes.  Initially it started d/loading but some time later the d/load speed
+reduced to 0.  It is possible to wait further, and after some more time
+it will receive some more bytes/kilobytes/packets and stall again.  Overall
+progress is nearing zero.
+
+Thanks,
+
+/mjt
