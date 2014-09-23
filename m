@@ -1,418 +1,485 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 01/29] fm10k: Add skeletal frame for Intel(R) FM10000 Ethernet Switch Host Interface Driver
-Date: Tue, 23 Sep 2014 04:16:29 -0700
-Message-ID: <1411471017-28213-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 13/29] fm10k: add support for Tx/Rx rings
+Date: Tue, 23 Sep 2014 04:16:41 -0700
+Message-ID: <1411471017-28213-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:10551 "EHLO mga11.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:15440 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753694AbaIWLRF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2014 07:17:05 -0400
+	id S1753694AbaIWLRO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 07:17:14 -0400
 In-Reply-To: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds the beginning framework onto which I am going to add the
-fm10k driver which supports the Intel(R) FM10000 Ethernet Switch Host
-Interface.
+This change adds the defines and structures necessary to support both Tx
+and Rx descriptor rings.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/Kconfig            |  19 ++++
- drivers/net/ethernet/intel/Makefile           |   1 +
- drivers/net/ethernet/intel/fm10k/Makefile     |  30 ++++++
- drivers/net/ethernet/intel/fm10k/fm10k.h      |  39 +++++++
- drivers/net/ethernet/intel/fm10k/fm10k_main.c |  67 ++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c  | 145 ++++++++++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_type.h |  27 +++++
- 7 files changed, 328 insertions(+)
- create mode 100644 drivers/net/ethernet/intel/fm10k/Makefile
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k.h
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_main.c
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_pci.c
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_type.h
+ drivers/net/ethernet/intel/fm10k/fm10k.h        | 188 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c   |  63 +++++++-
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |  70 ++++++++-
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c    |   4 +
+ 4 files changed, 323 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index bb9f0ba..6a6d5ee 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -300,4 +300,23 @@ config I40EVF
- 	  will be called i40evf.  MSI-X interrupt support is required
- 	  for this driver to work correctly.
- 
-+config FM10K
-+	tristate "Intel(R) FM10000 Ethernet Switch Host Interface Support"
-+	default n
-+	depends on PCI_MSI
-+	---help---
-+	  This driver supports Intel(R) FM10000 Ethernet Switch Host
-+	  Interface.  For more information on how to identify your adapter,
-+	  go to the Adapter & Driver ID Guide at:
-+
-+	  <http://support.intel.com/support/network/sb/CS-008441.htm>
-+
-+	  For general information and support, go to the Intel support
-+	  website at:
-+
-+	  <http://support.intel.com>
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called fm10k.  MSI-X interrupt support is required
-+
- endif # NET_VENDOR_INTEL
-diff --git a/drivers/net/ethernet/intel/Makefile b/drivers/net/ethernet/intel/Makefile
-index cdbbca8..5ea764d 100644
---- a/drivers/net/ethernet/intel/Makefile
-+++ b/drivers/net/ethernet/intel/Makefile
-@@ -12,3 +12,4 @@ obj-$(CONFIG_IXGBEVF) += ixgbevf/
- obj-$(CONFIG_I40E) += i40e/
- obj-$(CONFIG_IXGB) += ixgb/
- obj-$(CONFIG_I40EVF) += i40evf/
-+obj-$(CONFIG_FM10K) += fm10k/
-diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
-new file mode 100644
-index 0000000..ddc0eb7
---- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/Makefile
-@@ -0,0 +1,30 @@
-+################################################################################
-+#
-+# Intel Ethernet Switch Host Interface Driver
-+# Copyright(c) 2013 - 2014 Intel Corporation.
-+#
-+# This program is free software; you can redistribute it and/or modify it
-+# under the terms and conditions of the GNU General Public License,
-+# version 2, as published by the Free Software Foundation.
-+#
-+# This program is distributed in the hope it will be useful, but WITHOUT
-+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+# more details.
-+#
-+# The full GNU General Public License is included in this distribution in
-+# the file called "COPYING".
-+#
-+# Contact Information:
-+# e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+# Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+#
-+################################################################################
-+
-+#
-+# Makefile for the Intel(R) FM10000 Ethernet Switch Host Interface driver
-+#
-+
-+obj-$(CONFIG_FM10K) += fm10k.o
-+
-+fm10k-objs := fm10k_main.o fm10k_pci.o
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-new file mode 100644
-index 0000000..2e27bd9
---- /dev/null
+index 826a117..c641f41 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -0,0 +1,39 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+@@ -31,7 +31,118 @@
+ 
+ #define FM10K_MAX_JUMBO_FRAME_SIZE	15358	/* Maximum supported size 15K */
+ 
++#define MAX_QUEUES	FM10K_MAX_QUEUES_PF
++
++#define FM10K_MIN_RXD		 128
++#define FM10K_MAX_RXD		4096
++#define FM10K_DEFAULT_RXD	 256
++
++#define FM10K_MIN_TXD		 128
++#define FM10K_MAX_TXD		4096
++#define FM10K_DEFAULT_TXD	 256
++#define FM10K_DEFAULT_TX_WORK	 256
++
++#define FM10K_RXBUFFER_256	  256
++#define FM10K_RXBUFFER_16384	16384
++#define FM10K_RX_HDR_LEN	FM10K_RXBUFFER_256
++#if PAGE_SIZE <= FM10K_RXBUFFER_16384
++#define FM10K_RX_BUFSZ		(PAGE_SIZE / 2)
++#else
++#define FM10K_RX_BUFSZ		FM10K_RXBUFFER_16384
++#endif
++
++/* How many Rx Buffers do we bundle into one write to the hardware ? */
++#define FM10K_RX_BUFFER_WRITE	16	/* Must be power of 2 */
++
++enum fm10k_ring_state_t {
++	__FM10K_TX_DETECT_HANG,
++	__FM10K_HANG_CHECK_ARMED,
++};
++
++#define check_for_tx_hang(ring) \
++	test_bit(__FM10K_TX_DETECT_HANG, &(ring)->state)
++#define set_check_for_tx_hang(ring) \
++	set_bit(__FM10K_TX_DETECT_HANG, &(ring)->state)
++#define clear_check_for_tx_hang(ring) \
++	clear_bit(__FM10K_TX_DETECT_HANG, &(ring)->state)
++
++struct fm10k_tx_buffer {
++	struct fm10k_tx_desc *next_to_watch;
++	struct sk_buff *skb;
++	unsigned int bytecount;
++	u16 gso_segs;
++	u16 tx_flags;
++	DEFINE_DMA_UNMAP_ADDR(dma);
++	DEFINE_DMA_UNMAP_LEN(len);
++};
++
++struct fm10k_rx_buffer {
++	dma_addr_t dma;
++	struct page *page;
++	u32 page_offset;
++};
++
++struct fm10k_queue_stats {
++	u64 packets;
++	u64 bytes;
++};
++
++struct fm10k_tx_queue_stats {
++	u64 restart_queue;
++	u64 csum_err;
++	u64 tx_busy;
++	u64 tx_done_old;
++};
++
++struct fm10k_rx_queue_stats {
++	u64 alloc_failed;
++	u64 csum_err;
++	u64 errors;
++};
++
++struct fm10k_ring {
++	struct fm10k_q_vector *q_vector;/* backpointer to host q_vector */
++	struct net_device *netdev;	/* netdev ring belongs to */
++	struct device *dev;		/* device for DMA mapping */
++	void *desc;			/* descriptor ring memory */
++	union {
++		struct fm10k_tx_buffer *tx_buffer;
++		struct fm10k_rx_buffer *rx_buffer;
++	};
++	u32 __iomem *tail;
++	unsigned long state;
++	dma_addr_t dma;			/* phys. address of descriptor ring */
++	unsigned int size;		/* length in bytes */
++
++	u8 queue_index;			/* needed for queue management */
++	u8 reg_idx;			/* holds the special value that gets
++					 * the hardware register offset
++					 * associated with this ring, which is
++					 * different for DCB and RSS modes
++					 */
++	u8 qos_pc;			/* priority class of queue */
++	u16 vid;			/* default vlan ID of queue */
++	u16 count;			/* amount of descriptors */
++
++	u16 next_to_alloc;
++	u16 next_to_use;
++	u16 next_to_clean;
++
++	struct fm10k_queue_stats stats;
++	struct u64_stats_sync syncp;
++	union {
++		/* Tx */
++		struct fm10k_tx_queue_stats tx_stats;
++		/* Rx */
++		struct {
++			struct fm10k_rx_queue_stats rx_stats;
++			struct sk_buff *skb;
++		};
++	};
++} ____cacheline_internodealigned_in_smp;
++
+ struct fm10k_ring_container {
++	struct fm10k_ring *ring;	/* pointer to linked list of rings */
+ 	unsigned int total_bytes;	/* total bytes processed this int */
+ 	unsigned int total_packets;	/* total packets processed this int */
+ 	u16 work_limit;			/* total work allowed per interrupt */
+@@ -46,6 +157,15 @@ struct fm10k_ring_container {
+ 
+ #define FM10K_ITR_ENABLE	(FM10K_ITR_AUTOMASK | FM10K_ITR_MASK_CLEAR)
+ 
++static inline struct netdev_queue *txring_txq(const struct fm10k_ring *ring)
++{
++	return &ring->netdev->_tx[ring->queue_index];
++}
++
++/* iterator for handling rings in ring container */
++#define fm10k_for_each_ring(pos, head) \
++	for (pos = &(head).ring[(head).count]; (--pos) >= (head).ring;)
++
+ #define MAX_Q_VECTORS 256
+ #define MIN_Q_VECTORS	1
+ enum fm10k_non_q_vectors {
+@@ -68,6 +188,9 @@ struct fm10k_q_vector {
+ 	char name[IFNAMSIZ + 9];
+ 
+ 	struct rcu_head rcu;	/* to avoid race with update stats on free */
++
++	/* for dynamic allocation of rings associated with this q_vector */
++	struct fm10k_ring ring[0] ____cacheline_internodealigned_in_smp;
+ };
+ 
+ enum fm10k_ring_f_enum {
+@@ -113,9 +236,15 @@ struct fm10k_intfc {
+ 	int num_rx_queues;
+ 	u16 rx_itr;
+ 
++	/* TX */
++	struct fm10k_ring *tx_ring[MAX_QUEUES] ____cacheline_aligned_in_smp;
++
+ 	u64 rx_overrun_pf;
+ 	u64 rx_overrun_vf;
+ 
++	/* RX */
++	struct fm10k_ring *rx_ring[MAX_QUEUES];
++
+ 	/* Queueing vectors */
+ 	struct fm10k_q_vector *q_vector[MAX_Q_VECTORS];
+ 	struct msix_entry *msix_entries;
+@@ -176,6 +305,65 @@ static inline int fm10k_mbx_trylock(struct fm10k_intfc *interface)
+ 	return !test_and_set_bit(__FM10K_MBX_LOCK, &interface->state);
+ }
+ 
++/* fm10k_test_staterr - test bits in Rx descriptor status and error fields */
++static inline __le32 fm10k_test_staterr(union fm10k_rx_desc *rx_desc,
++					const u32 stat_err_bits)
++{
++	return rx_desc->d.staterr & cpu_to_le32(stat_err_bits);
++}
++
++/* fm10k_desc_unused - calculate if we have unused descriptors */
++static inline u16 fm10k_desc_unused(struct fm10k_ring *ring)
++{
++	s16 unused = ring->next_to_clean - ring->next_to_use - 1;
++
++	return likely(unused < 0) ? unused + ring->count : unused;
++}
++
++#define FM10K_TX_DESC(R, i)	\
++	(&(((struct fm10k_tx_desc *)((R)->desc))[i]))
++#define FM10K_RX_DESC(R, i)	\
++	 (&(((union fm10k_rx_desc *)((R)->desc))[i]))
++
++#define FM10K_MAX_TXD_PWR	14
++#define FM10K_MAX_DATA_PER_TXD	(1 << FM10K_MAX_TXD_PWR)
++
++/* Tx Descriptors needed, worst case */
++#define TXD_USE_COUNT(S)	DIV_ROUND_UP((S), FM10K_MAX_DATA_PER_TXD)
++#define DESC_NEEDED	(MAX_SKB_FRAGS + 4)
++
++enum fm10k_tx_flags {
++	/* Tx offload flags */
++	FM10K_TX_FLAGS_CSUM	= 0x01,
++};
++
++/* This structure is stored as little endian values as that is the native
++ * format of the Rx descriptor.  The ordering of these fields is reversed
++ * from the actual ftag header to allow for a single bswap to take care
++ * of placing all of the values in network order
 + */
++union fm10k_ftag_info {
++	__le64 ftag;
++	struct {
++		/* dglort and sglort combined into a single 32bit desc read */
++		__le32 glort;
++		/* upper 16 bits of vlan are reserved 0 for swpri_type_user */
++		__le32 vlan;
++	} d;
++	struct {
++		__le16 dglort;
++		__le16 sglort;
++		__le16 vlan;
++		__le16 swpri_type_user;
++	} w;
++};
 +
-+#ifndef _FM10K_H_
-+#define _FM10K_H_
++struct fm10k_cb {
++	union fm10k_ftag_info fi;
++};
 +
-+#include <linux/types.h>
-+#include <linux/etherdevice.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/if_vlan.h>
-+#include <linux/pci.h>
++#define FM10K_CB(skb) ((struct fm10k_cb *)(skb)->cb)
 +
-+#include "fm10k_type.h"
-+
-+/* main */
-+extern char fm10k_driver_name[];
-+extern const char fm10k_driver_version[];
-+
-+/* PCI */
-+int fm10k_register_pci_driver(void);
-+void fm10k_unregister_pci_driver(void);
-+#endif /* _FM10K_H_ */
+ /* main */
+ extern char fm10k_driver_name[];
+ extern const char fm10k_driver_version[];
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-new file mode 100644
-index 0000000..a7822b8
---- /dev/null
+index b0a2ba1..bf84c26 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -0,0 +1,67 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ */
+@@ -183,10 +183,12 @@ static int fm10k_alloc_q_vector(struct fm10k_intfc *interface,
+ 				unsigned int rxr_count, unsigned int rxr_idx)
+ {
+ 	struct fm10k_q_vector *q_vector;
++	struct fm10k_ring *ring;
+ 	int ring_count, size;
+ 
+ 	ring_count = txr_count + rxr_count;
+-	size = sizeof(struct fm10k_q_vector);
++	size = sizeof(struct fm10k_q_vector) +
++	       (sizeof(struct fm10k_ring) * ring_count);
+ 
+ 	/* allocate q_vector and rings */
+ 	q_vector = kzalloc(size, GFP_KERNEL);
+@@ -202,14 +204,66 @@ static int fm10k_alloc_q_vector(struct fm10k_intfc *interface,
+ 	q_vector->interface = interface;
+ 	q_vector->v_idx = v_idx;
+ 
++	/* initialize pointer to rings */
++	ring = q_vector->ring;
 +
-+#include <linux/types.h>
-+#include <linux/module.h>
-+#include <net/ipv6.h>
-+#include <net/ip.h>
-+#include <net/tcp.h>
-+#include <linux/if_macvlan.h>
+ 	/* save Tx ring container info */
++	q_vector->tx.ring = ring;
++	q_vector->tx.work_limit = FM10K_DEFAULT_TX_WORK;
+ 	q_vector->tx.itr = interface->tx_itr;
+ 	q_vector->tx.count = txr_count;
+ 
++	while (txr_count) {
++		/* assign generic ring traits */
++		ring->dev = &interface->pdev->dev;
++		ring->netdev = interface->netdev;
 +
-+#include "fm10k.h"
++		/* configure backlink on ring */
++		ring->q_vector = q_vector;
 +
-+#define DRV_VERSION	"0.12.2-k"
-+const char fm10k_driver_version[] = DRV_VERSION;
-+char fm10k_driver_name[] = "fm10k";
-+static const char fm10k_driver_string[] =
-+	"Intel(R) Ethernet Switch Host Interface Driver";
-+static const char fm10k_copyright[] =
-+	"Copyright (c) 2013 Intel Corporation.";
++		/* apply Tx specific ring traits */
++		ring->count = interface->tx_ring_count;
++		ring->queue_index = txr_idx;
 +
-+MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
-+MODULE_DESCRIPTION("Intel(R) Ethernet Switch Host Interface Driver");
-+MODULE_LICENSE("GPL");
-+MODULE_VERSION(DRV_VERSION);
++		/* assign ring to interface */
++		interface->tx_ring[txr_idx] = ring;
 +
-+/** fm10k_init_module - Driver Registration Routine
-+ *
-+ * fm10k_init_module is the first routine called when the driver is
-+ * loaded.  All it does is register with the PCI subsystem.
-+ **/
-+static int __init fm10k_init_module(void)
-+{
-+	pr_info("%s - version %s\n", fm10k_driver_string, fm10k_driver_version);
-+	pr_info("%s\n", fm10k_copyright);
++		/* update count and index */
++		txr_count--;
++		txr_idx += v_count;
 +
-+	return fm10k_register_pci_driver();
-+}
-+module_init(fm10k_init_module);
++		/* push pointer to next ring */
++		ring++;
++	}
 +
-+/**
-+ * fm10k_exit_module - Driver Exit Cleanup Routine
-+ *
-+ * fm10k_exit_module is called just before the driver is removed
-+ * from memory.
-+ **/
-+static void __exit fm10k_exit_module(void)
-+{
-+	fm10k_unregister_pci_driver();
-+}
-+module_exit(fm10k_exit_module);
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-new file mode 100644
-index 0000000..12089ce
---- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -0,0 +1,145 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ */
+ 	/* save Rx ring container info */
++	q_vector->rx.ring = ring;
+ 	q_vector->rx.itr = interface->rx_itr;
+ 	q_vector->rx.count = rxr_count;
+ 
++	while (rxr_count) {
++		/* assign generic ring traits */
++		ring->dev = &interface->pdev->dev;
++		ring->netdev = interface->netdev;
 +
-+#include <linux/module.h>
++		/* configure backlink on ring */
++		ring->q_vector = q_vector;
 +
-+#include "fm10k.h"
++		/* apply Rx specific ring traits */
++		ring->count = interface->rx_ring_count;
++		ring->queue_index = rxr_idx;
 +
-+/**
-+ * fm10k_pci_tbl - PCI Device ID Table
-+ *
-+ * Wildcard entries (PCI_ANY_ID) should come last
-+ * Last entry must be all 0s
-+ *
-+ * { Vendor ID, Device ID, SubVendor ID, SubDevice ID,
-+ *   Class, Class Mask, private data (not used) }
-+ */
-+static const struct pci_device_id fm10k_pci_tbl[] = {
-+	{ PCI_VDEVICE(INTEL, FM10K_DEV_ID_PF) },
-+	/* required last entry */
-+	{ 0, }
-+};
-+MODULE_DEVICE_TABLE(pci, fm10k_pci_tbl);
++		/* assign ring to interface */
++		interface->rx_ring[rxr_idx] = ring;
 +
-+/**
-+ * fm10k_probe - Device Initialization Routine
-+ * @pdev: PCI device information struct
-+ * @ent: entry in fm10k_pci_tbl
-+ *
-+ * Returns 0 on success, negative on failure
-+ *
-+ * fm10k_probe initializes an interface identified by a pci_dev structure.
-+ * The OS initialization, configuring of the interface private structure,
-+ * and a hardware reset occur.
-+ **/
-+static int fm10k_probe(struct pci_dev *pdev,
-+		       const struct pci_device_id *ent)
-+{
-+	int err;
-+	u64 dma_mask;
++		/* update count and index */
++		rxr_count--;
++		rxr_idx += v_count;
 +
-+	err = pci_enable_device_mem(pdev);
++		/* push pointer to next ring */
++		ring++;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -225,6 +279,13 @@ static int fm10k_alloc_q_vector(struct fm10k_intfc *interface,
+ static void fm10k_free_q_vector(struct fm10k_intfc *interface, int v_idx)
+ {
+ 	struct fm10k_q_vector *q_vector = interface->q_vector[v_idx];
++	struct fm10k_ring *ring;
++
++	fm10k_for_each_ring(ring, q_vector->tx)
++		interface->tx_ring[ring->queue_index] = NULL;
++
++	fm10k_for_each_ring(ring, q_vector->rx)
++		interface->rx_ring[ring->queue_index] = NULL;
+ 
+ 	interface->q_vector[v_idx] = NULL;
+ 	netif_napi_del(&q_vector->napi);
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index 487efcb..b987bb6 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -67,10 +67,19 @@ int fm10k_open(struct net_device *netdev)
+ 	/* setup GLORT assignment for this port */
+ 	fm10k_request_glort_range(interface);
+ 
++	/* Notify the stack of the actual queue counts */
++
++	err = netif_set_real_num_rx_queues(netdev,
++					   interface->num_rx_queues);
 +	if (err)
-+		return err;
++		goto err_set_queues;
 +
-+	/* By default fm10k only supports a 48 bit DMA mask */
-+	dma_mask = DMA_BIT_MASK(48) | dma_get_required_mask(&pdev->dev);
-+
-+	if ((dma_mask <= DMA_BIT_MASK(32)) ||
-+	    dma_set_mask_and_coherent(&pdev->dev, dma_mask)) {
-+		dma_mask &= DMA_BIT_MASK(32);
-+
-+		err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
-+		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
-+		if (err) {
-+			err = dma_set_coherent_mask(&pdev->dev,
-+						    DMA_BIT_MASK(32));
-+			if (err) {
-+				dev_err(&pdev->dev,
-+					"No usable DMA configuration, aborting\n");
-+				goto err_dma;
-+			}
-+		}
-+	}
-+
-+	err = pci_request_selected_regions(pdev,
-+					   pci_select_bars(pdev,
-+							   IORESOURCE_MEM),
-+					   fm10k_driver_name);
-+	if (err) {
-+		dev_err(&pdev->dev,
-+			"pci_request_selected_regions failed 0x%x\n", err);
-+		goto err_pci_reg;
-+	}
-+
-+	pci_set_master(pdev);
-+	pci_save_state(pdev);
-+
-+	return 0;
-+
-+err_pci_reg:
-+err_dma:
-+	pci_disable_device(pdev);
-+	return err;
-+}
-+
+ 	fm10k_up(interface);
+ 
+ 	return 0;
+ 
++err_set_queues:
++	fm10k_qv_free_irq(interface);
+ err_req_irq:
+ 	return err;
+ }
+@@ -474,6 +483,64 @@ void fm10k_reset_rx_state(struct fm10k_intfc *interface)
+ 	__dev_mc_unsync(netdev, NULL);
+ }
+ 
 +/**
-+ * fm10k_remove - Device Removal Routine
-+ * @pdev: PCI device information struct
++ * fm10k_get_stats64 - Get System Network Statistics
++ * @netdev: network interface device structure
++ * @stats: storage space for 64bit statistics
 + *
-+ * fm10k_remove is called by the PCI subsystem to alert the driver
-+ * that it should release a PCI device.  The could be caused by a
-+ * Hot-Plug event, or because the driver is going to be removed from
-+ * memory.
-+ **/
-+static void fm10k_remove(struct pci_dev *pdev)
-+{
-+	pci_release_selected_regions(pdev,
-+				     pci_select_bars(pdev, IORESOURCE_MEM));
-+
-+	pci_disable_device(pdev);
-+}
-+
-+static struct pci_driver fm10k_driver = {
-+	.name			= fm10k_driver_name,
-+	.id_table		= fm10k_pci_tbl,
-+	.probe			= fm10k_probe,
-+	.remove			= fm10k_remove,
-+};
-+
-+/**
-+ * fm10k_register_pci_driver - register driver interface
-+ *
-+ * This funciton is called on module load in order to register the driver.
-+ **/
-+int fm10k_register_pci_driver(void)
-+{
-+	return pci_register_driver(&fm10k_driver);
-+}
-+
-+/**
-+ * fm10k_unregister_pci_driver - unregister driver interface
-+ *
-+ * This funciton is called on module unload in order to remove the driver.
-+ **/
-+void fm10k_unregister_pci_driver(void)
-+{
-+	pci_unregister_driver(&fm10k_driver);
-+}
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-new file mode 100644
-index 0000000..2c06f02
---- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-@@ -0,0 +1,27 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ * Returns 64bit statistics, for use in the ndo_get_stats64 callback. This
++ * function replaces fm10k_get_stats for kernels which support it.
 + */
++static struct rtnl_link_stats64 *fm10k_get_stats64(struct net_device *netdev,
++						   struct rtnl_link_stats64 *stats)
++{
++	struct fm10k_intfc *interface = netdev_priv(netdev);
++	struct fm10k_ring *ring;
++	unsigned int start, i;
++	u64 bytes, packets;
 +
-+#ifndef _FM10K_TYPE_H_
-+#define _FM10K_TYPE_H_
++	rcu_read_lock();
 +
-+#define FM10K_DEV_ID_PF			0x15A4
-+#define FM10K_DEV_ID_VF			0x15A5
++	for (i = 0; i < interface->num_rx_queues; i++) {
++		ring = ACCESS_ONCE(interface->rx_ring[i]);
 +
-+#endif /* _FM10K_TYPE_H */
++		if (!ring)
++			continue;
++
++		do {
++			start = u64_stats_fetch_begin_irq(&ring->syncp);
++			packets = ring->stats.packets;
++			bytes   = ring->stats.bytes;
++		} while (u64_stats_fetch_retry_irq(&ring->syncp, start));
++
++		stats->rx_packets += packets;
++		stats->rx_bytes   += bytes;
++	}
++
++	for (i = 0; i < interface->num_tx_queues; i++) {
++		ring = ACCESS_ONCE(interface->rx_ring[i]);
++
++		if (!ring)
++			continue;
++
++		do {
++			start = u64_stats_fetch_begin_irq(&ring->syncp);
++			packets = ring->stats.packets;
++			bytes   = ring->stats.bytes;
++		} while (u64_stats_fetch_retry_irq(&ring->syncp, start));
++
++		stats->tx_packets += packets;
++		stats->tx_bytes   += bytes;
++	}
++
++	rcu_read_unlock();
++
++	/* following stats updated by fm10k_service_task() */
++	stats->rx_missed_errors	= netdev->stats.rx_missed_errors;
++
++	return stats;
++}
++
+ static const struct net_device_ops fm10k_netdev_ops = {
+ 	.ndo_open		= fm10k_open,
+ 	.ndo_stop		= fm10k_close,
+@@ -484,6 +551,7 @@ static const struct net_device_ops fm10k_netdev_ops = {
+ 	.ndo_vlan_rx_add_vid	= fm10k_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= fm10k_vlan_rx_kill_vid,
+ 	.ndo_set_rx_mode	= fm10k_set_rx_mode,
++	.ndo_get_stats64	= fm10k_get_stats64,
+ };
+ 
+ #define DEFAULT_DEBUG_LEVEL_SHIFT 3
+@@ -493,7 +561,7 @@ struct net_device *fm10k_alloc_netdev(void)
+ 	struct fm10k_intfc *interface;
+ 	struct net_device *dev;
+ 
+-	dev = alloc_etherdev(sizeof(struct fm10k_intfc));
++	dev = alloc_etherdev_mq(sizeof(struct fm10k_intfc), MAX_QUEUES);
+ 	if (!dev)
+ 		return NULL;
+ 
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index 2257ab1..5a28298 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -707,6 +707,10 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
+ 		netdev->hw_features &= ~NETIF_F_GSO_UDP_TUNNEL;
+ 	}
+ 
++	/* set default ring sizes */
++	interface->tx_ring_count = FM10K_DEFAULT_TXD;
++	interface->rx_ring_count = FM10K_DEFAULT_RXD;
++
+ 	/* set default interrupt moderation */
+ 	interface->tx_itr = FM10K_ITR_10K;
+ 	interface->rx_itr = FM10K_ITR_ADAPTIVE | FM10K_ITR_20K;
 -- 
 1.9.3
