@@ -1,40 +1,47 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH] ath: change logging functions to return void
-Date: Tue, 23 Sep 2014 18:17:25 +0300
-Message-ID: <878ulacqnu.fsf@kamboji.qca.qualcomm.com>
-References: <1411407334.2952.46.camel@joe-AO725>
-	<874mvzj7bu.fsf@kamboji.qca.qualcomm.com>
-	<20140923144627.GG23806@tuxdriver.com>
+From: Eyal perry <eyalpe@dev.mellanox.co.il>
+Subject: ip6_udp_tunnel fails to load
+Date: Tue, 23 Sep 2014 18:21:17 +0300
+Message-ID: <54218FED.4080102@dev.mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Joe Perches <joe@perches.com>,
-	Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>,
-	<ath10k@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	wil6210 <wil6210@qca.qualcomm.com>, <ath6kl@lists.infradead.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140923144627.GG23806@tuxdriver.com> (John W. Linville's
-	message of "Tue, 23 Sep 2014 10:46:27 -0400")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: Andy Zhou <azhou@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f178.google.com ([74.125.82.178]:33940 "EHLO
+	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756056AbaIWPVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 11:21:20 -0400
+Received: by mail-we0-f178.google.com with SMTP id t60so4813121wes.37
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 08:21:19 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"John W. Linville" <linville@tuxdriver.com> writes:
+Hello Andy,
 
-> On Tue, Sep 23, 2014 at 07:20:53AM +0300, Kalle Valo wrote:
->> Joe Perches <joe@perches.com> writes:
->> 
->> >  drivers/net/wireless/ath/wil6210/debug.c   | 14 ++++----------
->> >  drivers/net/wireless/ath/wil6210/wil6210.h |  7 +++++--
->> >  7 files changed, 32 insertions(+), 56 deletions(-)
->> 
->> John, as this patch also contains a wil6210 change how do you want to
->> handle this?
->
-> I had presumed that you would merge it through the ath tree, so I
-> deleted it...
+Lately I've start to observe a phenomena where the mlx4_en driver
+couldn't load on my system as a result of an 'Unknown symbol in module'.
 
-That's a clear case then, I'll take it :)
+[ 1277.458715] ip6_udp_tunnel: Unknown symbol ip6_local_out (err 0)
+[ 1277.486810] ip6_udp_tunnel: Unknown symbol __put_net (err 0)
 
--- 
-Kalle Valo
+Apparently, the mlx4_en driver is depend on the vxlan driver, which
+depends on the ip6_udp_tunnel module which fails to load.
+
+1. I've bisected this issue down to the following commit:
+fd38441 udp_tunnel: Seperate ipv6 functions into its own file.
+
+2. on a different host with a different .config, the module is loads
+cleanly.
+
+3. my sources are based on net-next commit
+6d967f8 udp_tunnel: Only build ip6_udp_tunnel.c when IPV6 is selected
+
+I'll send you both of the .config files in a private message.
+
+This issue is making any driver which is depend on vxlan/ip6_udp_tunnel
+unusable, please take a look and fix
+
+Best Regards,
+Eyal.
