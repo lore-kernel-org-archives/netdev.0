@@ -1,69 +1,82 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] net/mlx4_core: Allow not to specify probe_vf in SRIOV IB mode
-Date: Tue, 23 Sep 2014 16:05:59 +0300
-Message-ID: <1411477559-22155-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Matan Barak <matanb@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] net: bcmgenet: Fix compile warning
+Date: Tue, 23 Sep 2014 15:19:41 +0200
+Message-ID: <1411478381-9059-1-git-send-email-tklauser@distanz.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:40922 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751601AbaIWNGG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2014 09:06:06 -0400
+Received: from mail.zhinst.com ([212.126.164.98]:53547 "EHLO mail.zhinst.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751307AbaIWNTt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 09:19:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matan Barak <matanb@mellanox.com>
+bcmgenet_wol_resume() is only used in bcmgenet_resume(), which is only
+defined when CONFIG_PM_SLEEP is enabled. This leads to the following
+compile warning when building with !CONFIG_PM_SLEEP:
 
-When the HCA is configured in SRIOV IB mode (that is, at least one of
-the ports is IB) and the probe_vf module param isn't specified,
-mlx4_init_one() failed because of the following condition:
+drivers/net/ethernet/broadcom/genet/bcmgenet.c:1967:12: warning: =E2=80=
+=98bcmgenet_wol_resume=E2=80=99 defined but not used [-Wunused-function=
+]
 
-if (ib_ports && (num_vfs_argc > 1 || probe_vfs_argc > 1)) {
-	 .....
-}
+Since bcmgenet_resume() is the only user of bcmgenet_wol_resume(), fix
+this by directly inlining the function there.
 
-The root cause for that is a mistake in the initialization of num_vfs_argc
-and probe_vfs_argc. When num_vfs / probe_vf aren't given, their argument
-count counterpart should be 0, fix that.
-
-Fixes: dd41cc3bb90e ('net/mlx4: Adapt num_vfs/probed_vf params for single port VF')
-Signed-off-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 ---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 23 +++++++-----------=
+-----
+ 1 file changed, 7 insertions(+), 16 deletions(-)
 
-Hi Dave, 
-
-This bug was introduced in 3.16, can you please push this patch along 
-with commit a91c772fa0275 "net/mlx4: Correctly configure single ported 
-VFs from the host" to 3.16-stable
-
-Or.
-
- drivers/net/ethernet/mellanox/mlx4/main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 7e2d5d5..871e3a5 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -78,13 +78,13 @@ MODULE_PARM_DESC(msi_x, "attempt to use MSI-X if nonzero");
- #endif /* CONFIG_PCI_MSI */
- 
- static uint8_t num_vfs[3] = {0, 0, 0};
--static int num_vfs_argc = 3;
-+static int num_vfs_argc;
- module_param_array(num_vfs, byte , &num_vfs_argc, 0444);
- MODULE_PARM_DESC(num_vfs, "enable #num_vfs functions if num_vfs > 0\n"
- 			  "num_vfs=port1,port2,port1+2");
- 
- static uint8_t probe_vf[3] = {0, 0, 0};
--static int probe_vfs_argc = 3;
-+static int probe_vfs_argc;
- module_param_array(probe_vf, byte, &probe_vfs_argc, 0444);
- MODULE_PARM_DESC(probe_vf, "number of vfs to probe by pf driver (num_vfs > 0)\n"
- 			   "probe_vf=port1,port2,port1+2");
--- 
-1.7.1
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/n=
+et/ethernet/broadcom/genet/bcmgenet.c
+index 313c400..e852d20 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1964,19 +1964,6 @@ static void bcmgenet_set_hw_addr(struct bcmgenet=
+_priv *priv,
+ 	bcmgenet_umac_writel(priv, (addr[4] << 8) | addr[5], UMAC_MAC1);
+ }
+=20
+-static int bcmgenet_wol_resume(struct bcmgenet_priv *priv)
+-{
+-	/* From WOL-enabled suspend, switch to regular clock */
+-	if (priv->wolopts)
+-		clk_disable_unprepare(priv->clk_wol);
+-
+-	phy_init_hw(priv->phydev);
+-	/* Speed settings must be restored */
+-	bcmgenet_mii_config(priv->dev);
+-
+-	return 0;
+-}
+-
+ /* Returns a reusable dma control register value */
+ static u32 bcmgenet_dma_disable(struct bcmgenet_priv *priv)
+ {
+@@ -2681,9 +2668,13 @@ static int bcmgenet_resume(struct device *d)
+ 	if (ret)
+ 		goto out_clk_disable;
+=20
+-	ret =3D bcmgenet_wol_resume(priv);
+-	if (ret)
+-		goto out_clk_disable;
++	/* From WOL-enabled suspend, switch to regular clock */
++	if (priv->wolopts)
++		clk_disable_unprepare(priv->clk_wol);
++
++	phy_init_hw(priv->phydev);
++	/* Speed settings must be restored */
++	bcmgenet_mii_config(priv->dev);
+=20
+ 	/* disable ethernet MAC while updating its registers */
+ 	umac_enable_set(priv, CMD_TX_EN | CMD_RX_EN, false);
+--=20
+2.0.1
