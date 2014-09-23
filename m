@@ -1,54 +1,35 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: Re: [PATCH v4 0/9] ARM: Berlin: Ethernet support
-Date: Tue, 23 Sep 2014 16:01:52 +0200
-Message-ID: <20140923140152.GD18924@kwain>
-References: <1411474536-22626-1-git-send-email-antoine.tenart@free-electrons.com>
- <3200502.7xjfrZcKCM@wuerfel>
+From: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
+Subject: Re: [PATCH] ath: change logging functions to return void
+Date: Tue, 23 Sep 2014 17:05:34 +0300
+Message-ID: <27145768.oo3Xk8YHvr@lx-wigig-72>
+References: <1411407334.2952.46.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arm-kernel@lists.infradead.org,
-	Antoine Tenart <antoine.tenart@free-electrons.com>,
-	sebastian.hesselbarth@gmail.com,
-	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
-	jszhang@marvell.com
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	<ath10k@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	wil6210 <wil6210@qca.qualcomm.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:57932 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753292AbaIWOB5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 10:01:57 -0400
-Content-Disposition: inline
-In-Reply-To: <3200502.7xjfrZcKCM@wuerfel>
+Received: from sabertooth01.qualcomm.com ([65.197.215.72]:6608 "EHLO
+	sabertooth01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751785AbaIWOFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 10:05:41 -0400
+In-Reply-To: <1411407334.2952.46.camel@joe-AO725>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 23, 2014 at 02:41:47PM +0200, Arnd Bergmann wrote:
-> On Tuesday 23 September 2014 14:15:27 Antoine Tenart wrote:
-> >=20
-> > This series introduce support for the Ethernet controller on Berlin=
- SoCs,
-> > using the existing pxa168 Ethernet driver. In order to do this, DT
-> > support is added to the driver alongside some other modifications a=
-nd
-> > fixes.
-> >=20
->=20
-> Looks great overall, I've commented on two issues I've found, but onl=
-y
-> the phy-addr one really needs to be addressed. Once that is out of th=
-e
-> way, please add
->=20
-> Acked-by: Arnd Bergmann <arnd@arndb.de>
+On Monday, September 22, 2014 10:35:34 AM Joe Perches wrote:
+> Other miscellanea:
+> 
+> o add __printf verification to wil6210 logging functions
+>   No format/argument mismatches found
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> 
 
-Thanks!
+For wil6210:
 
-Antoine
-
---=20
-Antoine T=E9nart, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Acked-by: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
