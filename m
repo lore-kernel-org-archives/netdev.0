@@ -1,16 +1,17 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 17/29] fm10k: Add ethtool support
-Date: Tue, 23 Sep 2014 04:16:45 -0700
-Message-ID: <1411471017-28213-18-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 16/29] fm10k: Add transmit and receive fastpath and interrupt handlers
+Date: Tue, 23 Sep 2014 04:16:44 -0700
+Message-ID: <1411471017-28213-17-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	jogreene@redhat.com, Rick Jones <rick.jones2@hp.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:14536 "EHLO mga01.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:63640 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755744AbaIWLRS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755749AbaIWLRS (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 23 Sep 2014 07:17:18 -0400
 In-Reply-To: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,926 +19,1131 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds basic ethtool support to the device to allow for configuration.
+This change adds the transmit and receive fastpath and interrupt handlers.
+With this code in place the network device is now able to send and receive
+frames over the network interface using a single queue.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+CC: Rick Jones <rick.jones2@hp.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/Makefile        |   2 +-
- drivers/net/ethernet/intel/fm10k/fm10k.h         |   3 +
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 868 +++++++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  |   1 +
- 4 files changed, 873 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+ drivers/net/ethernet/intel/fm10k/fm10k.h        |   5 +
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c   | 938 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |  94 ++-
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c    |   3 +
+ 4 files changed, 1038 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
-index ee4e415..b72815e 100644
---- a/drivers/net/ethernet/intel/fm10k/Makefile
-+++ b/drivers/net/ethernet/intel/fm10k/Makefile
-@@ -28,5 +28,5 @@
- obj-$(CONFIG_FM10K) += fm10k.o
- 
- fm10k-objs := fm10k_main.o fm10k_common.o fm10k_pci.o \
--	      fm10k_netdev.o fm10k_pf.o \
-+	      fm10k_netdev.o fm10k_ethtool.o fm10k_pf.o \
- 	      fm10k_mbx.o fm10k_tlv.o
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index 257287c..d8b0d34 100644
+index a0e8331..257287c 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k.h
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -424,4 +424,7 @@ void fm10k_restore_rx_state(struct fm10k_intfc *);
- void fm10k_reset_rx_state(struct fm10k_intfc *);
- int fm10k_open(struct net_device *netdev);
- int fm10k_close(struct net_device *netdev);
-+
-+/* Ethtool */
-+void fm10k_set_ethtool_ops(struct net_device *dev);
- #endif /* _FM10K_H_ */
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-new file mode 100644
-index 0000000..a88c75c
---- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -0,0 +1,868 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ */
-+
-+#include "fm10k.h"
-+
-+struct fm10k_stats {
-+	char stat_string[ETH_GSTRING_LEN];
-+	int sizeof_stat;
-+	int stat_offset;
-+};
-+
-+#define FM10K_NETDEV_STAT(_net_stat) { \
-+	.stat_string = #_net_stat, \
-+	.sizeof_stat = FIELD_SIZEOF(struct net_device_stats, _net_stat), \
-+	.stat_offset = offsetof(struct net_device_stats, _net_stat) \
-+}
-+
-+static const struct fm10k_stats fm10k_gstrings_net_stats[] = {
-+	FM10K_NETDEV_STAT(tx_packets),
-+	FM10K_NETDEV_STAT(tx_bytes),
-+	FM10K_NETDEV_STAT(tx_errors),
-+	FM10K_NETDEV_STAT(rx_packets),
-+	FM10K_NETDEV_STAT(rx_bytes),
-+	FM10K_NETDEV_STAT(rx_errors),
-+	FM10K_NETDEV_STAT(rx_dropped),
-+
-+	/* detailed Rx errors */
-+	FM10K_NETDEV_STAT(rx_length_errors),
-+	FM10K_NETDEV_STAT(rx_crc_errors),
-+	FM10K_NETDEV_STAT(rx_fifo_errors),
-+};
-+
-+#define FM10K_NETDEV_STATS_LEN	ARRAY_SIZE(fm10k_gstrings_net_stats)
-+
-+#define FM10K_STAT(_name, _stat) { \
-+	.stat_string = _name, \
-+	.sizeof_stat = FIELD_SIZEOF(struct fm10k_intfc, _stat), \
-+	.stat_offset = offsetof(struct fm10k_intfc, _stat) \
-+}
-+
-+static const struct fm10k_stats fm10k_gstrings_stats[] = {
-+	FM10K_STAT("tx_restart_queue", restart_queue),
-+	FM10K_STAT("tx_busy", tx_busy),
-+	FM10K_STAT("tx_csum_errors", tx_csum_errors),
-+	FM10K_STAT("rx_alloc_failed", alloc_failed),
-+	FM10K_STAT("rx_csum_errors", rx_csum_errors),
-+	FM10K_STAT("rx_errors", rx_errors),
-+
-+	FM10K_STAT("tx_packets_nic", tx_packets_nic),
-+	FM10K_STAT("tx_bytes_nic", tx_bytes_nic),
-+	FM10K_STAT("rx_packets_nic", rx_packets_nic),
-+	FM10K_STAT("rx_bytes_nic", rx_bytes_nic),
-+	FM10K_STAT("rx_drops_nic", rx_drops_nic),
-+	FM10K_STAT("rx_overrun_pf", rx_overrun_pf),
-+	FM10K_STAT("rx_overrun_vf", rx_overrun_vf),
-+
-+	FM10K_STAT("timeout", stats.timeout.count),
-+	FM10K_STAT("ur", stats.ur.count),
-+	FM10K_STAT("ca", stats.ca.count),
-+	FM10K_STAT("um", stats.um.count),
-+	FM10K_STAT("xec", stats.xec.count),
-+	FM10K_STAT("vlan_drop", stats.vlan_drop.count),
-+	FM10K_STAT("loopback_drop", stats.loopback_drop.count),
-+	FM10K_STAT("nodesc_drop", stats.nodesc_drop.count),
-+
-+	FM10K_STAT("swapi_status", hw.swapi.status),
-+	FM10K_STAT("mac_rules_used", hw.swapi.mac.used),
-+	FM10K_STAT("mac_rules_avail", hw.swapi.mac.avail),
-+
-+	FM10K_STAT("mbx_tx_busy", hw.mbx.tx_busy),
-+	FM10K_STAT("mbx_tx_dropped", hw.mbx.tx_dropped),
-+	FM10K_STAT("mbx_tx_messages", hw.mbx.tx_messages),
-+	FM10K_STAT("mbx_tx_dwords", hw.mbx.tx_dwords),
-+	FM10K_STAT("mbx_rx_messages", hw.mbx.rx_messages),
-+	FM10K_STAT("mbx_rx_dwords", hw.mbx.rx_dwords),
-+	FM10K_STAT("mbx_rx_parse_err", hw.mbx.rx_parse_err),
-+};
-+
-+#define FM10K_GLOBAL_STATS_LEN ARRAY_SIZE(fm10k_gstrings_stats)
-+
-+#define FM10K_QUEUE_STATS_LEN \
-+	  (MAX_QUEUES * 2 * (sizeof(struct fm10k_queue_stats) / sizeof(u64)))
-+
-+#define FM10K_STATS_LEN (FM10K_GLOBAL_STATS_LEN + \
-+			 FM10K_NETDEV_STATS_LEN + \
-+			 FM10K_QUEUE_STATS_LEN)
-+
-+static void fm10k_get_strings(struct net_device *dev, u32 stringset,
-+			      u8 *data)
+@@ -391,6 +391,11 @@ extern char fm10k_driver_name[];
+ extern const char fm10k_driver_version[];
+ int fm10k_init_queueing_scheme(struct fm10k_intfc *interface);
+ void fm10k_clear_queueing_scheme(struct fm10k_intfc *interface);
++netdev_tx_t fm10k_xmit_frame_ring(struct sk_buff *skb,
++				  struct fm10k_ring *tx_ring);
++void fm10k_tx_timeout_reset(struct fm10k_intfc *interface);
++bool fm10k_check_tx_hang(struct fm10k_ring *tx_ring);
++void fm10k_alloc_rx_buffers(struct fm10k_ring *rx_ring, u16 cleaned_count);
+ 
+ /* PCI */
+ void fm10k_mbx_free_irq(struct fm10k_intfc *);
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index bf84c26..f7220d8 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -24,6 +24,7 @@
+ #include <net/ip.h>
+ #include <net/tcp.h>
+ #include <linux/if_macvlan.h>
++#include <linux/prefetch.h>
+ 
+ #include "fm10k.h"
+ 
+@@ -67,6 +68,921 @@ static void __exit fm10k_exit_module(void)
+ }
+ module_exit(fm10k_exit_module);
+ 
++static bool fm10k_alloc_mapped_page(struct fm10k_ring *rx_ring,
++				    struct fm10k_rx_buffer *bi)
 +{
-+	char *p = (char *)data;
-+	int i;
++	struct page *page = bi->page;
++	dma_addr_t dma;
 +
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		for (i = 0; i < FM10K_NETDEV_STATS_LEN; i++) {
-+			memcpy(p, fm10k_gstrings_net_stats[i].stat_string,
-+			       ETH_GSTRING_LEN);
-+			p += ETH_GSTRING_LEN;
-+		}
-+		for (i = 0; i < FM10K_GLOBAL_STATS_LEN; i++) {
-+			memcpy(p, fm10k_gstrings_stats[i].stat_string,
-+			       ETH_GSTRING_LEN);
-+			p += ETH_GSTRING_LEN;
-+		}
++	/* Only page will be NULL if buffer was consumed */
++	if (likely(page))
++		return true;
 +
-+		for (i = 0; i < MAX_QUEUES; i++) {
-+			sprintf(p, "tx_queue_%u_packets", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "tx_queue_%u_bytes", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "rx_queue_%u_packets", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "rx_queue_%u_bytes", i);
-+			p += ETH_GSTRING_LEN;
-+		}
-+		break;
-+	}
-+}
-+
-+static int fm10k_get_sset_count(struct net_device *dev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return FM10K_STATS_LEN;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static void fm10k_get_ethtool_stats(struct net_device *netdev,
-+				    struct ethtool_stats *stats, u64 *data)
-+{
-+	const int stat_count = sizeof(struct fm10k_queue_stats) / sizeof(u64);
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+	struct net_device_stats *net_stats = &netdev->stats;
-+	char *p;
-+	int i, j;
-+
-+	fm10k_update_stats(interface);
-+
-+	for (i = 0; i < FM10K_NETDEV_STATS_LEN; i++) {
-+		p = (char *)net_stats + fm10k_gstrings_net_stats[i].stat_offset;
-+		*(data++) = (fm10k_gstrings_net_stats[i].sizeof_stat ==
-+			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
++	/* alloc new page for storage */
++	page = alloc_page(GFP_ATOMIC | __GFP_COLD);
++	if (unlikely(!page)) {
++		rx_ring->rx_stats.alloc_failed++;
++		return false;
 +	}
 +
-+	for (i = 0; i < FM10K_GLOBAL_STATS_LEN; i++) {
-+		p = (char *)interface + fm10k_gstrings_stats[i].stat_offset;
-+		*(data++) = (fm10k_gstrings_stats[i].sizeof_stat ==
-+			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
++	/* map page for use */
++	dma = dma_map_page(rx_ring->dev, page, 0, PAGE_SIZE, DMA_FROM_DEVICE);
++
++	/* if mapping failed free memory back to system since
++	 * there isn't much point in holding memory we can't use
++	 */
++	if (dma_mapping_error(rx_ring->dev, dma)) {
++		__free_page(page);
++		bi->page = NULL;
++
++		rx_ring->rx_stats.alloc_failed++;
++		return false;
 +	}
 +
-+	for (i = 0; i < MAX_QUEUES; i++) {
-+		struct fm10k_ring *ring;
-+		u64 *queue_stat;
++	bi->dma = dma;
++	bi->page = page;
++	bi->page_offset = 0;
 +
-+		ring = interface->tx_ring[i];
-+		if (ring)
-+			queue_stat = (u64 *)&ring->stats;
-+		for (j = 0; j < stat_count; j++)
-+			*(data++) = ring ? queue_stat[j] : 0;
-+
-+		ring = interface->rx_ring[i];
-+		if (ring)
-+			queue_stat = (u64 *)&ring->stats;
-+		for (j = 0; j < stat_count; j++)
-+			*(data++) = ring ? queue_stat[j] : 0;
-+	}
++	return true;
 +}
 +
-+/* If function below adds more registers this define needs to be updated */
-+#define FM10K_REGS_LEN_Q 29
-+
-+static void fm10k_get_reg_q(struct fm10k_hw *hw, u32 *buff, int i)
++/**
++ * fm10k_alloc_rx_buffers - Replace used receive buffers
++ * @rx_ring: ring to place buffers on
++ * @cleaned_count: number of buffers to replace
++ **/
++void fm10k_alloc_rx_buffers(struct fm10k_ring *rx_ring, u16 cleaned_count)
 +{
-+	int idx = 0;
++	union fm10k_rx_desc *rx_desc;
++	struct fm10k_rx_buffer *bi;
++	u16 i = rx_ring->next_to_use;
 +
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_RDBAL(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_RDBAH(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_RDLEN(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_TPH_RXCTRL(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_RDH(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_RDT(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_RXQCTL(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_RXDCTL(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_RXINT(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_SRRCTL(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_QPRC(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_QPRDC(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_QBRC_L(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_QBRC_H(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_TDBAL(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_TDBAH(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_TDLEN(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_TPH_TXCTRL(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_TDH(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_TDT(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_TXDCTL(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_TXQCTL(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_TXINT(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_QPTC(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_QBTC_L(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_QBTC_H(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_TQDLOC(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_TX_SGLORT(i));
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_PFVTCTL(i));
-+
-+	BUG_ON(idx != FM10K_REGS_LEN_Q);
-+}
-+
-+/* If function above adds more registers this define needs to be updated */
-+#define FM10K_REGS_LEN_VSI 43
-+
-+static void fm10k_get_reg_vsi(struct fm10k_hw *hw, u32 *buff, int i)
-+{
-+	int idx = 0, j;
-+
-+	buff[idx++] = fm10k_read_reg(hw, FM10K_MRQC(i));
-+	for (j = 0; j < 10; j++)
-+		buff[idx++] = fm10k_read_reg(hw, FM10K_RSSRK(i, j));
-+	for (j = 0; j < 32; j++)
-+		buff[idx++] = fm10k_read_reg(hw, FM10K_RETA(i, j));
-+
-+	BUG_ON(idx != FM10K_REGS_LEN_VSI);
-+}
-+
-+static void fm10k_get_regs(struct net_device *netdev,
-+			   struct ethtool_regs *regs, void *p)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+	struct fm10k_hw *hw = &interface->hw;
-+	u32 *buff = p;
-+	u16 i;
-+
-+	regs->version = (1 << 24) | (hw->revision_id << 16) | hw->device_id;
-+
-+	switch (hw->mac.type) {
-+	case fm10k_mac_pf:
-+		/* General PF Registers */
-+		*(buff++) = fm10k_read_reg(hw, FM10K_CTRL);
-+		*(buff++) = fm10k_read_reg(hw, FM10K_CTRL_EXT);
-+		*(buff++) = fm10k_read_reg(hw, FM10K_GCR);
-+		*(buff++) = fm10k_read_reg(hw, FM10K_GCR_EXT);
-+
-+		for (i = 0; i < 8; i++) {
-+			*(buff++) = fm10k_read_reg(hw, FM10K_DGLORTMAP(i));
-+			*(buff++) = fm10k_read_reg(hw, FM10K_DGLORTDEC(i));
-+		}
-+
-+		for (i = 0; i < 65; i++) {
-+			fm10k_get_reg_vsi(hw, buff, i);
-+			buff += FM10K_REGS_LEN_VSI;
-+		}
-+
-+		*(buff++) = fm10k_read_reg(hw, FM10K_DMA_CTRL);
-+		*(buff++) = fm10k_read_reg(hw, FM10K_DMA_CTRL2);
-+
-+		for (i = 0; i < FM10K_MAX_QUEUES_PF; i++) {
-+			fm10k_get_reg_q(hw, buff, i);
-+			buff += FM10K_REGS_LEN_Q;
-+		}
-+
-+		*(buff++) = fm10k_read_reg(hw, FM10K_TPH_CTRL);
-+
-+		for (i = 0; i < 8; i++)
-+			*(buff++) = fm10k_read_reg(hw, FM10K_INT_MAP(i));
-+
-+		/* Interrupt Throttling Registers */
-+		for (i = 0; i < 130; i++)
-+			*(buff++) = fm10k_read_reg(hw, FM10K_ITR(i));
-+
-+		break;
-+	default:
++	/* nothing to do */
++	if (!cleaned_count)
 +		return;
++
++	rx_desc = FM10K_RX_DESC(rx_ring, i);
++	bi = &rx_ring->rx_buffer[i];
++	i -= rx_ring->count;
++
++	do {
++		if (!fm10k_alloc_mapped_page(rx_ring, bi))
++			break;
++
++		/* Refresh the desc even if buffer_addrs didn't change
++		 * because each write-back erases this info.
++		 */
++		rx_desc->q.pkt_addr = cpu_to_le64(bi->dma + bi->page_offset);
++
++		rx_desc++;
++		bi++;
++		i++;
++		if (unlikely(!i)) {
++			rx_desc = FM10K_RX_DESC(rx_ring, 0);
++			bi = rx_ring->rx_buffer;
++			i -= rx_ring->count;
++		}
++
++		/* clear the hdr_addr for the next_to_use descriptor */
++		rx_desc->q.hdr_addr = 0;
++
++		cleaned_count--;
++	} while (cleaned_count);
++
++	i += rx_ring->count;
++
++	if (rx_ring->next_to_use != i) {
++		/* record the next descriptor to use */
++		rx_ring->next_to_use = i;
++
++		/* update next to alloc since we have filled the ring */
++		rx_ring->next_to_alloc = i;
++
++		/* Force memory writes to complete before letting h/w
++		 * know there are new descriptors to fetch.  (Only
++		 * applicable for weak-ordered memory model archs,
++		 * such as IA-64).
++		 */
++		wmb();
++
++		/* notify hardware of new descriptors */
++		writel(i, rx_ring->tail);
 +	}
 +}
 +
-+/* If function above adds more registers these define need to be updated */
-+#define FM10K_REGS_LEN_PF \
-+(162 + (65 * FM10K_REGS_LEN_VSI) + (FM10K_MAX_QUEUES_PF * FM10K_REGS_LEN_Q))
-+
-+static int fm10k_get_regs_len(struct net_device *netdev)
++/**
++ * fm10k_reuse_rx_page - page flip buffer and store it back on the ring
++ * @rx_ring: rx descriptor ring to store buffers on
++ * @old_buff: donor buffer to have page reused
++ *
++ * Synchronizes page for reuse by the interface
++ **/
++static void fm10k_reuse_rx_page(struct fm10k_ring *rx_ring,
++				struct fm10k_rx_buffer *old_buff)
 +{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+	struct fm10k_hw *hw = &interface->hw;
++	struct fm10k_rx_buffer *new_buff;
++	u16 nta = rx_ring->next_to_alloc;
 +
-+	switch (hw->mac.type) {
-+	case fm10k_mac_pf:
-+		return FM10K_REGS_LEN_PF * sizeof(u32);
-+	default:
-+		return 0;
++	new_buff = &rx_ring->rx_buffer[nta];
++
++	/* update, and store next to alloc */
++	nta++;
++	rx_ring->next_to_alloc = (nta < rx_ring->count) ? nta : 0;
++
++	/* transfer page from old buffer to new buffer */
++	memcpy(new_buff, old_buff, sizeof(struct fm10k_rx_buffer));
++
++	/* sync the buffer for use by the device */
++	dma_sync_single_range_for_device(rx_ring->dev, old_buff->dma,
++					 old_buff->page_offset,
++					 FM10K_RX_BUFSZ,
++					 DMA_FROM_DEVICE);
++}
++
++static bool fm10k_can_reuse_rx_page(struct fm10k_rx_buffer *rx_buffer,
++				    struct page *page,
++				    unsigned int truesize)
++{
++	/* avoid re-using remote pages */
++	if (unlikely(page_to_nid(page) != numa_mem_id()))
++		return false;
++
++#if (PAGE_SIZE < 8192)
++	/* if we are only owner of page we can reuse it */
++	if (unlikely(page_count(page) != 1))
++		return false;
++
++	/* flip page offset to other buffer */
++	rx_buffer->page_offset ^= FM10K_RX_BUFSZ;
++
++	/* since we are the only owner of the page and we need to
++	 * increment it, just set the value to 2 in order to avoid
++	 * an unnecessary locked operation
++	 */
++	atomic_set(&page->_count, 2);
++#else
++	/* move offset up to the next cache line */
++	rx_buffer->page_offset += truesize;
++
++	if (rx_buffer->page_offset > (PAGE_SIZE - FM10K_RX_BUFSZ))
++		return false;
++
++	/* bump ref count on page before it is given to the stack */
++	get_page(page);
++#endif
++
++	return true;
++}
++
++/**
++ * fm10k_add_rx_frag - Add contents of Rx buffer to sk_buff
++ * @rx_ring: rx descriptor ring to transact packets on
++ * @rx_buffer: buffer containing page to add
++ * @rx_desc: descriptor containing length of buffer written by hardware
++ * @skb: sk_buff to place the data into
++ *
++ * This function will add the data contained in rx_buffer->page to the skb.
++ * This is done either through a direct copy if the data in the buffer is
++ * less than the skb header size, otherwise it will just attach the page as
++ * a frag to the skb.
++ *
++ * The function will then update the page offset if necessary and return
++ * true if the buffer can be reused by the interface.
++ **/
++static bool fm10k_add_rx_frag(struct fm10k_ring *rx_ring,
++			      struct fm10k_rx_buffer *rx_buffer,
++			      union fm10k_rx_desc *rx_desc,
++			      struct sk_buff *skb)
++{
++	struct page *page = rx_buffer->page;
++	unsigned int size = le16_to_cpu(rx_desc->w.length);
++#if (PAGE_SIZE < 8192)
++	unsigned int truesize = FM10K_RX_BUFSZ;
++#else
++	unsigned int truesize = ALIGN(size, L1_CACHE_BYTES);
++#endif
++
++	if ((size <= FM10K_RX_HDR_LEN) && !skb_is_nonlinear(skb)) {
++		unsigned char *va = page_address(page) + rx_buffer->page_offset;
++
++		memcpy(__skb_put(skb, size), va, ALIGN(size, sizeof(long)));
++
++		/* we can reuse buffer as-is, just make sure it is local */
++		if (likely(page_to_nid(page) == numa_mem_id()))
++			return true;
++
++		/* this page cannot be reused so discard it */
++		put_page(page);
++		return false;
 +	}
++
++	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
++			rx_buffer->page_offset, size, truesize);
++
++	return fm10k_can_reuse_rx_page(rx_buffer, page, truesize);
 +}
 +
-+static void fm10k_get_drvinfo(struct net_device *dev,
-+			      struct ethtool_drvinfo *info)
++static struct sk_buff *fm10k_fetch_rx_buffer(struct fm10k_ring *rx_ring,
++					     union fm10k_rx_desc *rx_desc,
++					     struct sk_buff *skb)
 +{
-+	struct fm10k_intfc *interface = netdev_priv(dev);
++	struct fm10k_rx_buffer *rx_buffer;
++	struct page *page;
 +
-+	strncpy(info->driver, fm10k_driver_name,
-+		sizeof(info->driver) - 1);
-+	strncpy(info->version, fm10k_driver_version,
-+		sizeof(info->version) - 1);
-+	strncpy(info->bus_info, pci_name(interface->pdev),
-+		sizeof(info->bus_info) - 1);
++	rx_buffer = &rx_ring->rx_buffer[rx_ring->next_to_clean];
 +
-+	info->n_stats = FM10K_STATS_LEN;
++	page = rx_buffer->page;
++	prefetchw(page);
 +
-+	info->regdump_len = fm10k_get_regs_len(dev);
++	if (likely(!skb)) {
++		void *page_addr = page_address(page) +
++				  rx_buffer->page_offset;
++
++		/* prefetch first cache line of first page */
++		prefetch(page_addr);
++#if L1_CACHE_BYTES < 128
++		prefetch(page_addr + L1_CACHE_BYTES);
++#endif
++
++		/* allocate a skb to store the frags */
++		skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
++						FM10K_RX_HDR_LEN);
++		if (unlikely(!skb)) {
++			rx_ring->rx_stats.alloc_failed++;
++			return NULL;
++		}
++
++		/* we will be copying header into skb->data in
++		 * pskb_may_pull so it is in our interest to prefetch
++		 * it now to avoid a possible cache miss
++		 */
++		prefetchw(skb->data);
++	}
++
++	/* we are reusing so sync this buffer for CPU use */
++	dma_sync_single_range_for_cpu(rx_ring->dev,
++				      rx_buffer->dma,
++				      rx_buffer->page_offset,
++				      FM10K_RX_BUFSZ,
++				      DMA_FROM_DEVICE);
++
++	/* pull page into skb */
++	if (fm10k_add_rx_frag(rx_ring, rx_buffer, rx_desc, skb)) {
++		/* hand second half of page back to the ring */
++		fm10k_reuse_rx_page(rx_ring, rx_buffer);
++	} else {
++		/* we are not reusing the buffer so unmap it */
++		dma_unmap_page(rx_ring->dev, rx_buffer->dma,
++			       PAGE_SIZE, DMA_FROM_DEVICE);
++	}
++
++	/* clear contents of rx_buffer */
++	rx_buffer->page = NULL;
++
++	return skb;
 +}
 +
-+static void fm10k_get_pauseparam(struct net_device *dev,
-+				 struct ethtool_pauseparam *pause)
++/**
++ * fm10k_process_skb_fields - Populate skb header fields from Rx descriptor
++ * @rx_ring: rx descriptor ring packet is being transacted on
++ * @rx_desc: pointer to the EOP Rx descriptor
++ * @skb: pointer to current skb being populated
++ *
++ * This function checks the ring, descriptor, and packet information in
++ * order to populate the hash, checksum, VLAN, timestamp, protocol, and
++ * other fields within the skb.
++ **/
++static unsigned int fm10k_process_skb_fields(struct fm10k_ring *rx_ring,
++					     union fm10k_rx_desc *rx_desc,
++					     struct sk_buff *skb)
 +{
-+	struct fm10k_intfc *interface = netdev_priv(dev);
++	unsigned int len = skb->len;
 +
-+	/* record fixed values for autoneg and tx pause */
-+	pause->autoneg = 0;
-+	pause->tx_pause = 1;
++	FM10K_CB(skb)->fi.w.vlan = rx_desc->w.vlan;
 +
-+	pause->rx_pause = interface->rx_pause ? 1 : 0;
++	skb_record_rx_queue(skb, rx_ring->queue_index);
++
++	FM10K_CB(skb)->fi.d.glort = rx_desc->d.glort;
++
++	if (rx_desc->w.vlan) {
++		u16 vid = le16_to_cpu(rx_desc->w.vlan);
++
++		if (vid != rx_ring->vid)
++			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vid);
++	}
++
++	skb->protocol = eth_type_trans(skb, rx_ring->netdev);
++
++	return len;
 +}
 +
-+static int fm10k_set_pauseparam(struct net_device *dev,
-+				struct ethtool_pauseparam *pause)
++/**
++ * fm10k_is_non_eop - process handling of non-EOP buffers
++ * @rx_ring: Rx ring being processed
++ * @rx_desc: Rx descriptor for current buffer
++ *
++ * This function updates next to clean.  If the buffer is an EOP buffer
++ * this function exits returning false, otherwise it will place the
++ * sk_buff in the next buffer to be chained and return true indicating
++ * that this is in fact a non-EOP buffer.
++ **/
++static bool fm10k_is_non_eop(struct fm10k_ring *rx_ring,
++			     union fm10k_rx_desc *rx_desc)
 +{
-+	struct fm10k_intfc *interface = netdev_priv(dev);
-+	struct fm10k_hw *hw = &interface->hw;
++	u32 ntc = rx_ring->next_to_clean + 1;
 +
-+	if (pause->autoneg || !pause->tx_pause)
-+		return -EINVAL;
++	/* fetch, update, and store next to clean */
++	ntc = (ntc < rx_ring->count) ? ntc : 0;
++	rx_ring->next_to_clean = ntc;
 +
-+	/* we can only support pause on the PF to avoid head-of-line blocking */
-+	if (hw->mac.type == fm10k_mac_pf)
-+		interface->rx_pause = pause->rx_pause ? ~0 : 0;
-+	else if (pause->rx_pause)
-+		return -EINVAL;
++	prefetch(FM10K_RX_DESC(rx_ring, ntc));
 +
-+	if (netif_running(dev))
-+		fm10k_update_rx_drop_en(interface);
++	if (likely(fm10k_test_staterr(rx_desc, FM10K_RXD_STATUS_EOP)))
++		return false;
 +
++	return true;
++}
++
++/**
++ * fm10k_pull_tail - fm10k specific version of skb_pull_tail
++ * @rx_ring: rx descriptor ring packet is being transacted on
++ * @rx_desc: pointer to the EOP Rx descriptor
++ * @skb: pointer to current skb being adjusted
++ *
++ * This function is an fm10k specific version of __pskb_pull_tail.  The
++ * main difference between this version and the original function is that
++ * this function can make several assumptions about the state of things
++ * that allow for significant optimizations versus the standard function.
++ * As a result we can do things like drop a frag and maintain an accurate
++ * truesize for the skb.
++ */
++static void fm10k_pull_tail(struct fm10k_ring *rx_ring,
++			    union fm10k_rx_desc *rx_desc,
++			    struct sk_buff *skb)
++{
++	struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[0];
++	unsigned char *va;
++	unsigned int pull_len;
++
++	/* it is valid to use page_address instead of kmap since we are
++	 * working with pages allocated out of the lomem pool per
++	 * alloc_page(GFP_ATOMIC)
++	 */
++	va = skb_frag_address(frag);
++
++	/* we need the header to contain the greater of either ETH_HLEN or
++	 * 60 bytes if the skb->len is less than 60 for skb_pad.
++	 */
++	pull_len = eth_get_headlen(va, FM10K_RX_HDR_LEN);
++
++	/* align pull length to size of long to optimize memcpy performance */
++	skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
++
++	/* update all of the pointers */
++	skb_frag_size_sub(frag, pull_len);
++	frag->page_offset += pull_len;
++	skb->data_len -= pull_len;
++	skb->tail += pull_len;
++}
++
++/**
++ * fm10k_cleanup_headers - Correct corrupted or empty headers
++ * @rx_ring: rx descriptor ring packet is being transacted on
++ * @rx_desc: pointer to the EOP Rx descriptor
++ * @skb: pointer to current skb being fixed
++ *
++ * Address the case where we are pulling data in on pages only
++ * and as such no data is present in the skb header.
++ *
++ * In addition if skb is not at least 60 bytes we need to pad it so that
++ * it is large enough to qualify as a valid Ethernet frame.
++ *
++ * Returns true if an error was encountered and skb was freed.
++ **/
++static bool fm10k_cleanup_headers(struct fm10k_ring *rx_ring,
++				  union fm10k_rx_desc *rx_desc,
++				  struct sk_buff *skb)
++{
++	if (unlikely((fm10k_test_staterr(rx_desc,
++					 FM10K_RXD_STATUS_RXE)))) {
++		dev_kfree_skb_any(skb);
++		rx_ring->rx_stats.errors++;
++		return true;
++	}
++
++	/* place header in linear portion of buffer */
++	if (skb_is_nonlinear(skb))
++		fm10k_pull_tail(rx_ring, rx_desc, skb);
++
++	/* if skb_pad returns an error the skb was freed */
++	if (unlikely(skb->len < 60)) {
++		int pad_len = 60 - skb->len;
++
++		if (skb_pad(skb, pad_len))
++			return true;
++		__skb_put(skb, pad_len);
++	}
++
++	return false;
++}
++
++/**
++ * fm10k_receive_skb - helper function to handle rx indications
++ * @q_vector: structure containing interrupt and ring information
++ * @skb: packet to send up
++ **/
++static void fm10k_receive_skb(struct fm10k_q_vector *q_vector,
++			      struct sk_buff *skb)
++{
++	napi_gro_receive(&q_vector->napi, skb);
++}
++
++static bool fm10k_clean_rx_irq(struct fm10k_q_vector *q_vector,
++			       struct fm10k_ring *rx_ring,
++			       int budget)
++{
++	struct sk_buff *skb = rx_ring->skb;
++	unsigned int total_bytes = 0, total_packets = 0;
++	u16 cleaned_count = fm10k_desc_unused(rx_ring);
++
++	do {
++		union fm10k_rx_desc *rx_desc;
++
++		/* return some buffers to hardware, one at a time is too slow */
++		if (cleaned_count >= FM10K_RX_BUFFER_WRITE) {
++			fm10k_alloc_rx_buffers(rx_ring, cleaned_count);
++			cleaned_count = 0;
++		}
++
++		rx_desc = FM10K_RX_DESC(rx_ring, rx_ring->next_to_clean);
++
++		if (!fm10k_test_staterr(rx_desc, FM10K_RXD_STATUS_DD))
++			break;
++
++		/* This memory barrier is needed to keep us from reading
++		 * any other fields out of the rx_desc until we know the
++		 * RXD_STATUS_DD bit is set
++		 */
++		rmb();
++
++		/* retrieve a buffer from the ring */
++		skb = fm10k_fetch_rx_buffer(rx_ring, rx_desc, skb);
++
++		/* exit if we failed to retrieve a buffer */
++		if (!skb)
++			break;
++
++		cleaned_count++;
++
++		/* fetch next buffer in frame if non-eop */
++		if (fm10k_is_non_eop(rx_ring, rx_desc))
++			continue;
++
++		/* verify the packet layout is correct */
++		if (fm10k_cleanup_headers(rx_ring, rx_desc, skb)) {
++			skb = NULL;
++			continue;
++		}
++
++		/* populate checksum, timestamp, VLAN, and protocol */
++		total_bytes += fm10k_process_skb_fields(rx_ring, rx_desc, skb);
++
++		fm10k_receive_skb(q_vector, skb);
++
++		/* reset skb pointer */
++		skb = NULL;
++
++		/* update budget accounting */
++		total_packets++;
++	} while (likely(total_packets < budget));
++
++	/* place incomplete frames back on ring for completion */
++	rx_ring->skb = skb;
++
++	u64_stats_update_begin(&rx_ring->syncp);
++	rx_ring->stats.packets += total_packets;
++	rx_ring->stats.bytes += total_bytes;
++	u64_stats_update_end(&rx_ring->syncp);
++	q_vector->rx.total_packets += total_packets;
++	q_vector->rx.total_bytes += total_bytes;
++
++	return total_packets < budget;
++}
++
++static bool fm10k_tx_desc_push(struct fm10k_ring *tx_ring,
++			       struct fm10k_tx_desc *tx_desc, u16 i,
++			       dma_addr_t dma, unsigned int size, u8 desc_flags)
++{
++	/* set RS and INT for last frame in a cache line */
++	if ((++i & (FM10K_TXD_WB_FIFO_SIZE - 1)) == 0)
++		desc_flags |= FM10K_TXD_FLAG_RS | FM10K_TXD_FLAG_INT;
++
++	/* record values to descriptor */
++	tx_desc->buffer_addr = cpu_to_le64(dma);
++	tx_desc->flags = desc_flags;
++	tx_desc->buflen = cpu_to_le16(size);
++
++	/* return true if we just wrapped the ring */
++	return i == tx_ring->count;
++}
++
++static void fm10k_tx_map(struct fm10k_ring *tx_ring,
++			 struct fm10k_tx_buffer *first)
++{
++	struct sk_buff *skb = first->skb;
++	struct fm10k_tx_buffer *tx_buffer;
++	struct fm10k_tx_desc *tx_desc;
++	struct skb_frag_struct *frag;
++	unsigned char *data;
++	dma_addr_t dma;
++	unsigned int data_len, size;
++	u16 i = tx_ring->next_to_use;
++	u8 flags = 0;
++
++	tx_desc = FM10K_TX_DESC(tx_ring, i);
++
++	/* add HW VLAN tag */
++	if (vlan_tx_tag_present(skb))
++		tx_desc->vlan = cpu_to_le16(vlan_tx_tag_get(skb));
++	else
++		tx_desc->vlan = 0;
++
++	size = skb_headlen(skb);
++	data = skb->data;
++
++	dma = dma_map_single(tx_ring->dev, data, size, DMA_TO_DEVICE);
++
++	data_len = skb->data_len;
++	tx_buffer = first;
++
++	for (frag = &skb_shinfo(skb)->frags[0];; frag++) {
++		if (dma_mapping_error(tx_ring->dev, dma))
++			goto dma_error;
++
++		/* record length, and DMA address */
++		dma_unmap_len_set(tx_buffer, len, size);
++		dma_unmap_addr_set(tx_buffer, dma, dma);
++
++		while (unlikely(size > FM10K_MAX_DATA_PER_TXD)) {
++			if (fm10k_tx_desc_push(tx_ring, tx_desc++, i++, dma,
++					       FM10K_MAX_DATA_PER_TXD, flags)) {
++				tx_desc = FM10K_TX_DESC(tx_ring, 0);
++				i = 0;
++			}
++
++			dma += FM10K_MAX_DATA_PER_TXD;
++			size -= FM10K_MAX_DATA_PER_TXD;
++		}
++
++		if (likely(!data_len))
++			break;
++
++		if (fm10k_tx_desc_push(tx_ring, tx_desc++, i++,
++				       dma, size, flags)) {
++			tx_desc = FM10K_TX_DESC(tx_ring, 0);
++			i = 0;
++		}
++
++		size = skb_frag_size(frag);
++		data_len -= size;
++
++		dma = skb_frag_dma_map(tx_ring->dev, frag, 0, size,
++				       DMA_TO_DEVICE);
++
++		tx_buffer = &tx_ring->tx_buffer[i];
++	}
++
++	/* write last descriptor with LAST bit set */
++	flags |= FM10K_TXD_FLAG_LAST;
++
++	if (fm10k_tx_desc_push(tx_ring, tx_desc, i++, dma, size, flags))
++		i = 0;
++
++	/* record bytecount for BQL */
++	netdev_tx_sent_queue(txring_txq(tx_ring), first->bytecount);
++
++	/* record SW timestamp if HW timestamp is not available */
++	skb_tx_timestamp(first->skb);
++
++	/* Force memory writes to complete before letting h/w know there
++	 * are new descriptors to fetch.  (Only applicable for weak-ordered
++	 * memory model archs, such as IA-64).
++	 *
++	 * We also need this memory barrier to make certain all of the
++	 * status bits have been updated before next_to_watch is written.
++	 */
++	wmb();
++
++	/* set next_to_watch value indicating a packet is present */
++	first->next_to_watch = tx_desc;
++
++	tx_ring->next_to_use = i;
++
++	/* notify HW of packet */
++	writel(i, tx_ring->tail);
++
++	/* we need this if more than one processor can write to our tail
++	 * at a time, it synchronizes IO on IA64/Altix systems
++	 */
++	mmiowb();
++
++	return;
++dma_error:
++	dev_err(tx_ring->dev, "TX DMA map failed\n");
++
++	/* clear dma mappings for failed tx_buffer map */
++	for (;;) {
++		tx_buffer = &tx_ring->tx_buffer[i];
++		fm10k_unmap_and_free_tx_resource(tx_ring, tx_buffer);
++		if (tx_buffer == first)
++			break;
++		if (i == 0)
++			i = tx_ring->count;
++		i--;
++	}
++
++	tx_ring->next_to_use = i;
++}
++
++static int __fm10k_maybe_stop_tx(struct fm10k_ring *tx_ring, u16 size)
++{
++	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
++
++	smp_mb();
++
++	/* We need to check again in a case another CPU has just
++	 * made room available. */
++	if (likely(fm10k_desc_unused(tx_ring) < size))
++		return -EBUSY;
++
++	/* A reprieve! - use start_queue because it doesn't call schedule */
++	netif_start_subqueue(tx_ring->netdev, tx_ring->queue_index);
++	++tx_ring->tx_stats.restart_queue;
 +	return 0;
 +}
 +
-+static u32 fm10k_get_msglevel(struct net_device *netdev)
++static inline int fm10k_maybe_stop_tx(struct fm10k_ring *tx_ring, u16 size)
 +{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+
-+	return interface->msg_enable;
-+}
-+
-+static void fm10k_set_msglevel(struct net_device *netdev, u32 data)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+
-+	interface->msg_enable = data;
-+}
-+
-+static void fm10k_get_ringparam(struct net_device *netdev,
-+				struct ethtool_ringparam *ring)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+
-+	ring->rx_max_pending = FM10K_MAX_RXD;
-+	ring->tx_max_pending = FM10K_MAX_TXD;
-+	ring->rx_mini_max_pending = 0;
-+	ring->rx_jumbo_max_pending = 0;
-+	ring->rx_pending = interface->rx_ring_count;
-+	ring->tx_pending = interface->tx_ring_count;
-+	ring->rx_mini_pending = 0;
-+	ring->rx_jumbo_pending = 0;
-+}
-+
-+static int fm10k_set_ringparam(struct net_device *netdev,
-+			       struct ethtool_ringparam *ring)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+	struct fm10k_ring *temp_ring;
-+	int i, err = 0;
-+	u32 new_rx_count, new_tx_count;
-+
-+	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
-+		return -EINVAL;
-+
-+	new_tx_count = clamp_t(u32, ring->tx_pending,
-+			       FM10K_MIN_TXD, FM10K_MAX_TXD);
-+	new_tx_count = ALIGN(new_tx_count, FM10K_REQ_TX_DESCRIPTOR_MULTIPLE);
-+
-+	new_rx_count = clamp_t(u32, ring->rx_pending,
-+			       FM10K_MIN_RXD, FM10K_MAX_RXD);
-+	new_rx_count = ALIGN(new_rx_count, FM10K_REQ_RX_DESCRIPTOR_MULTIPLE);
-+
-+	if ((new_tx_count == interface->tx_ring_count) &&
-+	    (new_rx_count == interface->rx_ring_count)) {
-+		/* nothing to do */
++	if (likely(fm10k_desc_unused(tx_ring) >= size))
 +		return 0;
-+	}
++	return __fm10k_maybe_stop_tx(tx_ring, size);
++}
 +
-+	while (test_and_set_bit(__FM10K_RESETTING, &interface->state))
-+		usleep_range(1000, 2000);
++netdev_tx_t fm10k_xmit_frame_ring(struct sk_buff *skb,
++				  struct fm10k_ring *tx_ring)
++{
++	struct fm10k_tx_buffer *first;
++	u32 tx_flags = 0;
++#if PAGE_SIZE > FM10K_MAX_DATA_PER_TXD
++	unsigned short f;
++#endif
++	u16 count = TXD_USE_COUNT(skb_headlen(skb));
 +
-+	if (!netif_running(interface->netdev)) {
-+		for (i = 0; i < interface->num_tx_queues; i++)
-+			interface->tx_ring[i]->count = new_tx_count;
-+		for (i = 0; i < interface->num_rx_queues; i++)
-+			interface->rx_ring[i]->count = new_rx_count;
-+		interface->tx_ring_count = new_tx_count;
-+		interface->rx_ring_count = new_rx_count;
-+		goto clear_reset;
-+	}
-+
-+	/* allocate temporary buffer to store rings in */
-+	i = max_t(int, interface->num_tx_queues, interface->num_rx_queues);
-+	temp_ring = vmalloc(i * sizeof(struct fm10k_ring));
-+
-+	if (!temp_ring) {
-+		err = -ENOMEM;
-+		goto clear_reset;
-+	}
-+
-+	fm10k_down(interface);
-+
-+	/* Setup new Tx resources and free the old Tx resources in that order.
-+	 * We can then assign the new resources to the rings via a memcpy.
-+	 * The advantage to this approach is that we are guaranteed to still
-+	 * have resources even in the case of an allocation failure.
++	/* need: 1 descriptor per page * PAGE_SIZE/FM10K_MAX_DATA_PER_TXD,
++	 *       + 1 desc for skb_headlen/FM10K_MAX_DATA_PER_TXD,
++	 *       + 2 desc gap to keep tail from touching head
++	 * otherwise try next time
 +	 */
-+	if (new_tx_count != interface->tx_ring_count) {
-+		for (i = 0; i < interface->num_tx_queues; i++) {
-+			memcpy(&temp_ring[i], interface->tx_ring[i],
-+			       sizeof(struct fm10k_ring));
++#if PAGE_SIZE > FM10K_MAX_DATA_PER_TXD
++	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
++		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
++#else
++	count += skb_shinfo(skb)->nr_frags;
++#endif
++	if (fm10k_maybe_stop_tx(tx_ring, count + 3)) {
++		tx_ring->tx_stats.tx_busy++;
++		return NETDEV_TX_BUSY;
++	}
 +
-+			temp_ring[i].count = new_tx_count;
-+			err = fm10k_setup_tx_resources(&temp_ring[i]);
-+			if (err) {
-+				while (i) {
-+					i--;
-+					fm10k_free_tx_resources(&temp_ring[i]);
-+				}
-+				goto err_setup;
++	/* record the location of the first descriptor for this packet */
++	first = &tx_ring->tx_buffer[tx_ring->next_to_use];
++	first->skb = skb;
++	first->bytecount = max_t(unsigned int, skb->len, ETH_ZLEN);
++	first->gso_segs = 1;
++
++	/* record initial flags and protocol */
++	first->tx_flags = tx_flags;
++
++	fm10k_tx_map(tx_ring, first);
++
++	fm10k_maybe_stop_tx(tx_ring, DESC_NEEDED);
++
++	return NETDEV_TX_OK;
++}
++
++static u64 fm10k_get_tx_completed(struct fm10k_ring *ring)
++{
++	return ring->stats.packets;
++}
++
++static u64 fm10k_get_tx_pending(struct fm10k_ring *ring)
++{
++	/* use SW head and tail until we have real hardware */
++	u32 head = ring->next_to_clean;
++	u32 tail = ring->next_to_use;
++
++	return ((head <= tail) ? tail : tail + ring->count) - head;
++}
++
++bool fm10k_check_tx_hang(struct fm10k_ring *tx_ring)
++{
++	u32 tx_done = fm10k_get_tx_completed(tx_ring);
++	u32 tx_done_old = tx_ring->tx_stats.tx_done_old;
++	u32 tx_pending = fm10k_get_tx_pending(tx_ring);
++
++	clear_check_for_tx_hang(tx_ring);
++
++	/* Check for a hung queue, but be thorough. This verifies
++	 * that a transmit has been completed since the previous
++	 * check AND there is at least one packet pending. By
++	 * requiring this to fail twice we avoid races with
++	 * clearing the ARMED bit and conditions where we
++	 * run the check_tx_hang logic with a transmit completion
++	 * pending but without time to complete it yet.
++	 */
++	if (!tx_pending || (tx_done_old != tx_done)) {
++		/* update completed stats and continue */
++		tx_ring->tx_stats.tx_done_old = tx_done;
++		/* reset the countdown */
++		clear_bit(__FM10K_HANG_CHECK_ARMED, &tx_ring->state);
++
++		return false;
++	}
++
++	/* make sure it is true for two checks in a row */
++	return test_and_set_bit(__FM10K_HANG_CHECK_ARMED, &tx_ring->state);
++}
++
++/**
++ * fm10k_tx_timeout_reset - initiate reset due to Tx timeout
++ * @interface: driver private struct
++ **/
++void fm10k_tx_timeout_reset(struct fm10k_intfc *interface)
++{
++	/* Do the reset outside of interrupt context */
++	if (!test_bit(__FM10K_DOWN, &interface->state)) {
++		netdev_err(interface->netdev, "Reset interface\n");
++		interface->tx_timeout_count++;
++		interface->flags |= FM10K_FLAG_RESET_REQUESTED;
++		fm10k_service_event_schedule(interface);
++	}
++}
++
++/**
++ * fm10k_clean_tx_irq - Reclaim resources after transmit completes
++ * @q_vector: structure containing interrupt and ring information
++ * @tx_ring: tx ring to clean
++ **/
++static bool fm10k_clean_tx_irq(struct fm10k_q_vector *q_vector,
++			       struct fm10k_ring *tx_ring)
++{
++	struct fm10k_intfc *interface = q_vector->interface;
++	struct fm10k_tx_buffer *tx_buffer;
++	struct fm10k_tx_desc *tx_desc;
++	unsigned int total_bytes = 0, total_packets = 0;
++	unsigned int budget = q_vector->tx.work_limit;
++	unsigned int i = tx_ring->next_to_clean;
++
++	if (test_bit(__FM10K_DOWN, &interface->state))
++		return true;
++
++	tx_buffer = &tx_ring->tx_buffer[i];
++	tx_desc = FM10K_TX_DESC(tx_ring, i);
++	i -= tx_ring->count;
++
++	do {
++		struct fm10k_tx_desc *eop_desc = tx_buffer->next_to_watch;
++
++		/* if next_to_watch is not set then there is no work pending */
++		if (!eop_desc)
++			break;
++
++		/* prevent any other reads prior to eop_desc */
++		read_barrier_depends();
++
++		/* if DD is not set pending work has not been completed */
++		if (!(eop_desc->flags & FM10K_TXD_FLAG_DONE))
++			break;
++
++		/* clear next_to_watch to prevent false hangs */
++		tx_buffer->next_to_watch = NULL;
++
++		/* update the statistics for this packet */
++		total_bytes += tx_buffer->bytecount;
++		total_packets += tx_buffer->gso_segs;
++
++		/* free the skb */
++		dev_consume_skb_any(tx_buffer->skb);
++
++		/* unmap skb header data */
++		dma_unmap_single(tx_ring->dev,
++				 dma_unmap_addr(tx_buffer, dma),
++				 dma_unmap_len(tx_buffer, len),
++				 DMA_TO_DEVICE);
++
++		/* clear tx_buffer data */
++		tx_buffer->skb = NULL;
++		dma_unmap_len_set(tx_buffer, len, 0);
++
++		/* unmap remaining buffers */
++		while (tx_desc != eop_desc) {
++			tx_buffer++;
++			tx_desc++;
++			i++;
++			if (unlikely(!i)) {
++				i -= tx_ring->count;
++				tx_buffer = tx_ring->tx_buffer;
++				tx_desc = FM10K_TX_DESC(tx_ring, 0);
++			}
++
++			/* unmap any remaining paged data */
++			if (dma_unmap_len(tx_buffer, len)) {
++				dma_unmap_page(tx_ring->dev,
++					       dma_unmap_addr(tx_buffer, dma),
++					       dma_unmap_len(tx_buffer, len),
++					       DMA_TO_DEVICE);
++				dma_unmap_len_set(tx_buffer, len, 0);
 +			}
 +		}
 +
-+		for (i = 0; i < interface->num_tx_queues; i++) {
-+			fm10k_free_tx_resources(interface->tx_ring[i]);
-+
-+			memcpy(interface->tx_ring[i], &temp_ring[i],
-+			       sizeof(struct fm10k_ring));
++		/* move us one more past the eop_desc for start of next pkt */
++		tx_buffer++;
++		tx_desc++;
++		i++;
++		if (unlikely(!i)) {
++			i -= tx_ring->count;
++			tx_buffer = tx_ring->tx_buffer;
++			tx_desc = FM10K_TX_DESC(tx_ring, 0);
 +		}
 +
-+		interface->tx_ring_count = new_tx_count;
-+	}
++		/* issue prefetch for next Tx descriptor */
++		prefetch(tx_desc);
 +
-+	/* Repeat the process for the Rx rings if needed */
-+	if (new_rx_count != interface->rx_ring_count) {
-+		for (i = 0; i < interface->num_rx_queues; i++) {
-+			memcpy(&temp_ring[i], interface->rx_ring[i],
-+			       sizeof(struct fm10k_ring));
++		/* update budget accounting */
++		budget--;
++	} while (likely(budget));
 +
-+			temp_ring[i].count = new_rx_count;
-+			err = fm10k_setup_rx_resources(&temp_ring[i]);
-+			if (err) {
-+				while (i) {
-+					i--;
-+					fm10k_free_rx_resources(&temp_ring[i]);
-+				}
-+				goto err_setup;
-+			}
-+		}
++	i += tx_ring->count;
++	tx_ring->next_to_clean = i;
++	u64_stats_update_begin(&tx_ring->syncp);
++	tx_ring->stats.bytes += total_bytes;
++	tx_ring->stats.packets += total_packets;
++	u64_stats_update_end(&tx_ring->syncp);
++	q_vector->tx.total_bytes += total_bytes;
++	q_vector->tx.total_packets += total_packets;
 +
-+		for (i = 0; i < interface->num_rx_queues; i++) {
-+			fm10k_free_rx_resources(interface->rx_ring[i]);
-+
-+			memcpy(interface->rx_ring[i], &temp_ring[i],
-+			       sizeof(struct fm10k_ring));
-+		}
-+
-+		interface->rx_ring_count = new_rx_count;
-+	}
-+
-+err_setup:
-+	fm10k_up(interface);
-+	vfree(temp_ring);
-+clear_reset:
-+	clear_bit(__FM10K_RESETTING, &interface->state);
-+	return err;
-+}
-+
-+static int fm10k_get_coalesce(struct net_device *dev,
-+			      struct ethtool_coalesce *ec)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(dev);
-+
-+	ec->use_adaptive_tx_coalesce =
-+		!!(interface->tx_itr & FM10K_ITR_ADAPTIVE);
-+	ec->tx_coalesce_usecs = interface->tx_itr & ~FM10K_ITR_ADAPTIVE;
-+
-+	ec->use_adaptive_rx_coalesce =
-+		!!(interface->rx_itr & FM10K_ITR_ADAPTIVE);
-+	ec->rx_coalesce_usecs = interface->rx_itr & ~FM10K_ITR_ADAPTIVE;
-+
-+	return 0;
-+}
-+
-+static int fm10k_set_coalesce(struct net_device *dev,
-+			      struct ethtool_coalesce *ec)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(dev);
-+	struct fm10k_q_vector *qv;
-+	u16 tx_itr, rx_itr;
-+	int i;
-+
-+	/* verify limits */
-+	if ((ec->rx_coalesce_usecs > FM10K_ITR_MAX) ||
-+	    (ec->tx_coalesce_usecs > FM10K_ITR_MAX))
-+		return -EINVAL;
-+
-+	/* record settings */
-+	tx_itr = ec->tx_coalesce_usecs;
-+	rx_itr = ec->rx_coalesce_usecs;
-+
-+	/* set initial values for adaptive ITR */
-+	if (ec->use_adaptive_tx_coalesce)
-+		tx_itr = FM10K_ITR_ADAPTIVE | FM10K_ITR_10K;
-+
-+	if (ec->use_adaptive_rx_coalesce)
-+		rx_itr = FM10K_ITR_ADAPTIVE | FM10K_ITR_20K;
-+
-+	/* update interface */
-+	interface->tx_itr = tx_itr;
-+	interface->rx_itr = rx_itr;
-+
-+	/* update q_vectors */
-+	for (i = 0; i < interface->num_q_vectors; i++) {
-+		qv = interface->q_vector[i];
-+		qv->tx.itr = tx_itr;
-+		qv->rx.itr = rx_itr;
-+	}
-+
-+	return 0;
-+}
-+
-+static int fm10k_get_rss_hash_opts(struct fm10k_intfc *interface,
-+				   struct ethtool_rxnfc *cmd)
-+{
-+	cmd->data = 0;
-+
-+	/* Report default options for RSS on fm10k */
-+	switch (cmd->flow_type) {
-+	case TCP_V4_FLOW:
-+	case TCP_V6_FLOW:
-+		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+		/* fall through */
-+	case UDP_V4_FLOW:
-+		if (interface->flags & FM10K_FLAG_RSS_FIELD_IPV4_UDP)
-+			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+		/* fall through */
-+	case SCTP_V4_FLOW:
-+	case SCTP_V6_FLOW:
-+	case AH_ESP_V4_FLOW:
-+	case AH_ESP_V6_FLOW:
-+	case AH_V4_FLOW:
-+	case AH_V6_FLOW:
-+	case ESP_V4_FLOW:
-+	case ESP_V6_FLOW:
-+	case IPV4_FLOW:
-+	case IPV6_FLOW:
-+		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
-+		break;
-+	case UDP_V6_FLOW:
-+		if (interface->flags & FM10K_FLAG_RSS_FIELD_IPV6_UDP)
-+			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int fm10k_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
-+			   u32 *rule_locs)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(dev);
-+	int ret = -EOPNOTSUPP;
-+
-+	switch (cmd->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		cmd->data = interface->num_rx_queues;
-+		ret = 0;
-+		break;
-+	case ETHTOOL_GRXFH:
-+		ret = fm10k_get_rss_hash_opts(interface, cmd);
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
-+#define UDP_RSS_FLAGS (FM10K_FLAG_RSS_FIELD_IPV4_UDP | \
-+		       FM10K_FLAG_RSS_FIELD_IPV6_UDP)
-+static int fm10k_set_rss_hash_opt(struct fm10k_intfc *interface,
-+				  struct ethtool_rxnfc *nfc)
-+{
-+	u32 flags = interface->flags;
-+
-+	/* RSS does not support anything other than hashing
-+	 * to queues on src and dst IPs and ports
-+	 */
-+	if (nfc->data & ~(RXH_IP_SRC | RXH_IP_DST |
-+			  RXH_L4_B_0_1 | RXH_L4_B_2_3))
-+		return -EINVAL;
-+
-+	switch (nfc->flow_type) {
-+	case TCP_V4_FLOW:
-+	case TCP_V6_FLOW:
-+		if (!(nfc->data & RXH_IP_SRC) ||
-+		    !(nfc->data & RXH_IP_DST) ||
-+		    !(nfc->data & RXH_L4_B_0_1) ||
-+		    !(nfc->data & RXH_L4_B_2_3))
-+			return -EINVAL;
-+		break;
-+	case UDP_V4_FLOW:
-+		if (!(nfc->data & RXH_IP_SRC) ||
-+		    !(nfc->data & RXH_IP_DST))
-+			return -EINVAL;
-+		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
-+		case 0:
-+			flags &= ~FM10K_FLAG_RSS_FIELD_IPV4_UDP;
-+			break;
-+		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
-+			flags |= FM10K_FLAG_RSS_FIELD_IPV4_UDP;
-+			break;
-+		default:
-+			return -EINVAL;
-+		}
-+		break;
-+	case UDP_V6_FLOW:
-+		if (!(nfc->data & RXH_IP_SRC) ||
-+		    !(nfc->data & RXH_IP_DST))
-+			return -EINVAL;
-+		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
-+		case 0:
-+			flags &= ~FM10K_FLAG_RSS_FIELD_IPV6_UDP;
-+			break;
-+		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
-+			flags |= FM10K_FLAG_RSS_FIELD_IPV6_UDP;
-+			break;
-+		default:
-+			return -EINVAL;
-+		}
-+		break;
-+	case AH_ESP_V4_FLOW:
-+	case AH_V4_FLOW:
-+	case ESP_V4_FLOW:
-+	case SCTP_V4_FLOW:
-+	case AH_ESP_V6_FLOW:
-+	case AH_V6_FLOW:
-+	case ESP_V6_FLOW:
-+	case SCTP_V6_FLOW:
-+		if (!(nfc->data & RXH_IP_SRC) ||
-+		    !(nfc->data & RXH_IP_DST) ||
-+		    (nfc->data & RXH_L4_B_0_1) ||
-+		    (nfc->data & RXH_L4_B_2_3))
-+			return -EINVAL;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	/* if we changed something we need to update flags */
-+	if (flags != interface->flags) {
++	if (check_for_tx_hang(tx_ring) && fm10k_check_tx_hang(tx_ring)) {
++		/* schedule immediate reset if we believe we hung */
 +		struct fm10k_hw *hw = &interface->hw;
-+		u32 mrqc;
 +
-+		if ((flags & UDP_RSS_FLAGS) &&
-+		    !(interface->flags & UDP_RSS_FLAGS))
-+			netif_warn(interface, drv, interface->netdev,
-+				   "enabling UDP RSS: fragmented packets may arrive out of order to the stack above\n");
++		netif_err(interface, drv, tx_ring->netdev,
++			  "Detected Tx Unit Hang\n"
++			  "  Tx Queue             <%d>\n"
++			  "  TDH, TDT             <%x>, <%x>\n"
++			  "  next_to_use          <%x>\n"
++			  "  next_to_clean        <%x>\n",
++			  tx_ring->queue_index,
++			  fm10k_read_reg(hw, FM10K_TDH(tx_ring->reg_idx)),
++			  fm10k_read_reg(hw, FM10K_TDT(tx_ring->reg_idx)),
++			  tx_ring->next_to_use, i);
 +
-+		interface->flags = flags;
++		netif_stop_subqueue(tx_ring->netdev,
++				    tx_ring->queue_index);
 +
-+		/* Perform hash on these packet types */
-+		mrqc = FM10K_MRQC_IPV4 |
-+		       FM10K_MRQC_TCP_IPV4 |
-+		       FM10K_MRQC_IPV6 |
-+		       FM10K_MRQC_TCP_IPV6;
++		netif_info(interface, probe, tx_ring->netdev,
++			   "tx hang %d detected on queue %d, resetting interface\n",
++			   interface->tx_timeout_count + 1,
++			   tx_ring->queue_index);
 +
-+		if (flags & FM10K_FLAG_RSS_FIELD_IPV4_UDP)
-+			mrqc |= FM10K_MRQC_UDP_IPV4;
-+		if (flags & FM10K_FLAG_RSS_FIELD_IPV6_UDP)
-+			mrqc |= FM10K_MRQC_UDP_IPV6;
++		fm10k_tx_timeout_reset(interface);
 +
-+		fm10k_write_reg(hw, FM10K_MRQC(0), mrqc);
++		/* the netdev is about to reset, no point in enabling stuff */
++		return true;
 +	}
 +
-+	return 0;
-+}
++	/* notify netdev of completed buffers */
++	netdev_tx_completed_queue(txring_txq(tx_ring),
++				  total_packets, total_bytes);
 +
-+static int fm10k_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(dev);
-+	int ret = -EOPNOTSUPP;
-+
-+	switch (cmd->cmd) {
-+	case ETHTOOL_SRXFH:
-+		ret = fm10k_set_rss_hash_opt(interface, cmd);
-+		break;
-+	default:
-+		break;
++#define TX_WAKE_THRESHOLD min_t(u16, FM10K_MIN_TXD - 1, DESC_NEEDED * 2)
++	if (unlikely(total_packets && netif_carrier_ok(tx_ring->netdev) &&
++		     (fm10k_desc_unused(tx_ring) >= TX_WAKE_THRESHOLD))) {
++		/* Make sure that anybody stopping the queue after this
++		 * sees the new next_to_clean.
++		 */
++		smp_mb();
++		if (__netif_subqueue_stopped(tx_ring->netdev,
++					     tx_ring->queue_index) &&
++		    !test_bit(__FM10K_DOWN, &interface->state)) {
++			netif_wake_subqueue(tx_ring->netdev,
++					    tx_ring->queue_index);
++			++tx_ring->tx_stats.restart_queue;
++		}
 +	}
 +
-+	return ret;
++	return !!budget;
 +}
 +
-+static u32 fm10k_get_reta_size(struct net_device *netdev)
-+{
-+	return FM10K_RETA_SIZE * FM10K_RETA_ENTRIES_PER_REG;
-+}
+ /**
+  * fm10k_update_itr - update the dynamic ITR value based on packet size
+  *
+@@ -137,6 +1053,28 @@ static int fm10k_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct fm10k_q_vector *q_vector =
+ 			       container_of(napi, struct fm10k_q_vector, napi);
++	struct fm10k_ring *ring;
++	int per_ring_budget;
++	bool clean_complete = true;
 +
-+static int fm10k_get_reta(struct net_device *netdev, u32 *indir)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+	int i;
++	fm10k_for_each_ring(ring, q_vector->tx)
++		clean_complete &= fm10k_clean_tx_irq(q_vector, ring);
 +
-+	if (!indir)
-+		return 0;
++	/* attempt to distribute budget to each queue fairly, but don't
++	 * allow the budget to go below 1 because we'll exit polling
++	 */
++	if (q_vector->rx.count > 1)
++		per_ring_budget = max(budget/q_vector->rx.count, 1);
++	else
++		per_ring_budget = budget;
 +
-+	for (i = 0; i < FM10K_RETA_SIZE; i++, indir += 4) {
-+		u32 reta = interface->reta[i];
++	fm10k_for_each_ring(ring, q_vector->rx)
++		clean_complete &= fm10k_clean_rx_irq(q_vector, ring,
++						     per_ring_budget);
 +
-+		indir[0] = (reta << 24) >> 24;
-+		indir[1] = (reta << 16) >> 24;
-+		indir[2] = (reta <<  8) >> 24;
-+		indir[3] = (reta) >> 24;
-+	}
-+
-+	return 0;
-+}
-+
-+static int fm10k_set_reta(struct net_device *netdev, const u32 *indir)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+	struct fm10k_hw *hw = &interface->hw;
-+	int i;
-+	u16 rss_i;
-+
-+	if (!indir)
-+		return 0;
-+
-+	/* Verify user input. */
-+	rss_i = interface->ring_feature[RING_F_RSS].indices;
-+	for (i = fm10k_get_reta_size(netdev); i--;) {
-+		if (indir[i] < rss_i)
-+			continue;
-+		return -EINVAL;
-+	}
-+
-+	/* record entries to reta table */
-+	for (i = 0; i < FM10K_RETA_SIZE; i++, indir += 4) {
-+		u32 reta = indir[0] |
-+			   (indir[1] << 8) |
-+			   (indir[2] << 16) |
-+			   (indir[3] << 24);
-+
-+		if (interface->reta[i] == reta)
-+			continue;
-+
-+		interface->reta[i] = reta;
-+		fm10k_write_reg(hw, FM10K_RETA(0, i), reta);
-+	}
-+
-+	return 0;
-+}
-+
-+static u32 fm10k_get_rssrk_size(struct net_device *netdev)
-+{
-+	return FM10K_RSSRK_SIZE * FM10K_RSSRK_ENTRIES_PER_REG;
-+}
-+
-+static int fm10k_get_rssh(struct net_device *netdev, u32 *indir, u8 *key)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+	int i, err;
-+
-+	err = fm10k_get_reta(netdev, indir);
-+	if (err || !key)
-+		return err;
-+
-+	for (i = 0; i < FM10K_RSSRK_SIZE; i++, key += 4)
-+		*(__le32 *)key = cpu_to_le32(interface->rssrk[i]);
-+
-+	return 0;
-+}
-+
-+static int fm10k_set_rssh(struct net_device *netdev, const u32 *indir,
-+			  const u8 *key)
-+{
-+	struct fm10k_intfc *interface = netdev_priv(netdev);
-+	struct fm10k_hw *hw = &interface->hw;
-+	int i, err;
-+
-+	err = fm10k_set_reta(netdev, indir);
-+	if (err || !key)
-+		return err;
-+
-+	for (i = 0; i < FM10K_RSSRK_SIZE; i++, key += 4) {
-+		u32 rssrk = le32_to_cpu(*(__le32 *)key);
-+
-+		if (interface->rssrk[i] == rssrk)
-+			continue;
-+
-+		interface->rssrk[i] = rssrk;
-+		fm10k_write_reg(hw, FM10K_RSSRK(0, i), rssrk);
-+	}
-+
-+	return 0;
-+}
-+
-+static const struct ethtool_ops fm10k_ethtool_ops = {
-+	.get_strings		= fm10k_get_strings,
-+	.get_sset_count		= fm10k_get_sset_count,
-+	.get_ethtool_stats      = fm10k_get_ethtool_stats,
-+	.get_drvinfo		= fm10k_get_drvinfo,
-+	.get_link		= ethtool_op_get_link,
-+	.get_pauseparam		= fm10k_get_pauseparam,
-+	.set_pauseparam		= fm10k_set_pauseparam,
-+	.get_msglevel		= fm10k_get_msglevel,
-+	.set_msglevel		= fm10k_set_msglevel,
-+	.get_ringparam		= fm10k_get_ringparam,
-+	.set_ringparam		= fm10k_set_ringparam,
-+	.get_coalesce		= fm10k_get_coalesce,
-+	.set_coalesce		= fm10k_set_coalesce,
-+	.get_rxnfc		= fm10k_get_rxnfc,
-+	.set_rxnfc		= fm10k_set_rxnfc,
-+	.get_regs               = fm10k_get_regs,
-+	.get_regs_len           = fm10k_get_regs_len,
-+	.get_rxfh_indir_size	= fm10k_get_reta_size,
-+	.get_rxfh_key_size	= fm10k_get_rssrk_size,
-+	.get_rxfh		= fm10k_get_rssh,
-+	.set_rxfh		= fm10k_set_rssh,
-+};
-+
-+void fm10k_set_ethtool_ops(struct net_device *dev)
-+{
-+	dev->ethtool_ops = &fm10k_ethtool_ops;
-+}
++	/* If all work not completed, return budget and keep polling */
++	if (!clean_complete)
++		return budget;
+ 
+ 	/* all work done, exit the polling mode */
+ 	napi_complete(napi);
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 46df658..b9b1459 100644
+index 52673d7..46df658 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -1000,6 +1000,7 @@ struct net_device *fm10k_alloc_netdev(void)
+@@ -451,8 +451,66 @@ int fm10k_close(struct net_device *netdev)
  
- 	/* set net device and ethtool ops */
- 	dev->netdev_ops = &fm10k_netdev_ops;
-+	fm10k_set_ethtool_ops(dev);
+ static netdev_tx_t fm10k_xmit_frame(struct sk_buff *skb, struct net_device *dev)
+ {
+-	dev_kfree_skb_any(skb);
+-	return NETDEV_TX_OK;
++	struct fm10k_intfc *interface = netdev_priv(dev);
++	unsigned int r_idx = 0;
++	int err;
++
++	if ((skb->protocol ==  htons(ETH_P_8021Q)) &&
++	    !vlan_tx_tag_present(skb)) {
++		/* FM10K only supports hardware tagging, any tags in frame
++		 * are considered 2nd level or "outer" tags
++		 */
++		struct vlan_hdr *vhdr;
++		__be16 proto;
++
++		/* make sure skb is not shared */
++		skb = skb_share_check(skb, GFP_ATOMIC);
++		if (!skb)
++			return NETDEV_TX_OK;
++
++		/* make sure there is enough room to move the ethernet header */
++		if (unlikely(!pskb_may_pull(skb, VLAN_ETH_HLEN)))
++			return NETDEV_TX_OK;
++
++		/* verify the skb head is not shared */
++		err = skb_cow_head(skb, 0);
++		if (err)
++			return NETDEV_TX_OK;
++
++		/* locate vlan header */
++		vhdr = (struct vlan_hdr *)(skb->data + ETH_HLEN);
++
++		/* pull the 2 key pieces of data out of it */
++		__vlan_hwaccel_put_tag(skb,
++				       htons(ETH_P_8021Q),
++				       ntohs(vhdr->h_vlan_TCI));
++		proto = vhdr->h_vlan_encapsulated_proto;
++		skb->protocol = (ntohs(proto) >= 1536) ? proto :
++							 htons(ETH_P_802_2);
++
++		/* squash it by moving the ethernet addresses up 4 bytes */
++		memmove(skb->data + VLAN_HLEN, skb->data, 12);
++		__skb_pull(skb, VLAN_HLEN);
++		skb_reset_mac_header(skb);
++	}
++
++	/* The minimum packet size for a single buffer is 17B so pad the skb
++	 * in order to meet this minimum size requirement.
++	 */
++	if (unlikely(skb->len < 17)) {
++		int pad_len = 17 - skb->len;
++
++		if (skb_pad(skb, pad_len))
++			return NETDEV_TX_OK;
++		__skb_put(skb, pad_len);
++	}
++
++	if (r_idx >= interface->num_tx_queues)
++		r_idx %= interface->num_tx_queues;
++
++	err = fm10k_xmit_frame_ring(skb, interface->tx_ring[r_idx]);
++
++	return err;
+ }
  
- 	/* configure default debug level */
- 	interface = netdev_priv(dev);
+ static int fm10k_change_mtu(struct net_device *dev, int new_mtu)
+@@ -465,6 +523,37 @@ static int fm10k_change_mtu(struct net_device *dev, int new_mtu)
+ 	return 0;
+ }
+ 
++/**
++ * fm10k_tx_timeout - Respond to a Tx Hang
++ * @netdev: network interface device structure
++ **/
++static void fm10k_tx_timeout(struct net_device *netdev)
++{
++	struct fm10k_intfc *interface = netdev_priv(netdev);
++	bool real_tx_hang = false;
++	int i;
++
++#define TX_TIMEO_LIMIT 16000
++	for (i = 0; i < interface->num_tx_queues; i++) {
++		struct fm10k_ring *tx_ring = interface->tx_ring[i];
++
++		if (check_for_tx_hang(tx_ring) && fm10k_check_tx_hang(tx_ring))
++			real_tx_hang = true;
++	}
++
++	if (real_tx_hang) {
++		fm10k_tx_timeout_reset(interface);
++	} else {
++		netif_info(interface, drv, netdev,
++			   "Fake Tx hang detected with timeout of %d seconds\n",
++			   netdev->watchdog_timeo/HZ);
++
++		/* fake Tx hang - increase the kernel timeout */
++		if (netdev->watchdog_timeo < TX_TIMEO_LIMIT)
++			netdev->watchdog_timeo *= 2;
++	}
++}
++
+ static int fm10k_uc_vlan_unsync(struct net_device *netdev,
+ 				const unsigned char *uc_addr)
+ {
+@@ -891,6 +980,7 @@ static const struct net_device_ops fm10k_netdev_ops = {
+ 	.ndo_start_xmit		= fm10k_xmit_frame,
+ 	.ndo_set_mac_address	= fm10k_set_mac,
+ 	.ndo_change_mtu		= fm10k_change_mtu,
++	.ndo_tx_timeout		= fm10k_tx_timeout,
+ 	.ndo_vlan_rx_add_vid	= fm10k_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= fm10k_vlan_rx_kill_vid,
+ 	.ndo_set_rx_mode	= fm10k_set_rx_mode,
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index 7529a84..229c7e4 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -661,6 +661,9 @@ static void fm10k_configure_rx_ring(struct fm10k_intfc *interface,
+ 
+ 	/* enable queue */
+ 	fm10k_write_reg(hw, FM10K_RXQCTL(reg_idx), rxqctl);
++
++	/* place buffers on ring for receive data */
++	fm10k_alloc_rx_buffers(ring, fm10k_desc_unused(ring));
+ }
+ 
+ /**
 -- 
 1.9.3
