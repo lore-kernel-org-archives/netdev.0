@@ -1,44 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/5] netfilter: nft_rbtree: no need for spinlock from
- set destroy path
-Date: Tue, 23 Sep 2014 09:29:37 -0700
-Message-ID: <1411489777.15395.1.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1411464288-18069-1-git-send-email-pablo@netfilter.org>
-	 <1411464288-18069-3-git-send-email-pablo@netfilter.org>
-	 <1411465957.26859.179.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140923110159.GA20055@salvia>
-	 <1411473245.26859.188.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140923161040.GA3609@salvia>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH v4 3/9] Documentation: bindings: net: add the Marvell PXA168 Ethernet controller
+Date: Tue, 23 Sep 2014 18:29:48 +0200
+Message-ID: <9401592.hUYDkriFVO@wuerfel>
+References: <1411474536-22626-1-git-send-email-antoine.tenart@free-electrons.com> <4014272.rJbSfrLcuB@wuerfel> <542195B0.6080706@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:64920 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932215AbaIWQ3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 12:29:36 -0400
-In-Reply-To: <20140923161040.GA3609@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, zmxu-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	jszhang-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org
+To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <542195B0.6080706-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-09-23 at 18:10 +0200, Pablo Neira Ayuso wrote:
-
-> Actually, I could add to nft_data a pointer in the union area, but I'm
-> not very confortable with adding it for this specific case. At this
-> moment we're releasing this from rcu_callback which is "hiding" the
-> deletion time from the netlink interface.
+On Tuesday 23 September 2014 17:45:52 Sebastian Hesselbarth wrote:
+> For reference, this is what we have for MVEBU SoCs with multiple ports
+> per controller:
 > 
-> But I'll keep this back in my head if we later on have some pointer
-> candidate to be reused in a nice way.
+> eth: ethernet-ctrl@72000 {
+>         compatible = "marvell,orion-eth";
+>         #address-cells = <1>;
+>         #size-cells = <0>;
+>         reg = <0x72000 0x4000>;
+>         clocks = <&gate_clk 2>;
+>         marvell,tx-checksum-limit = <1600>;
+>         status = "disabled";
 > 
-> I'll send a patch to make the rb_first()/rb_next() conversion though.
+>         ethernet-port@0 {
+>                 compatible = "marvell,orion-eth-port";
+>                 reg = <0>;
+>                 interrupts = <29>;
+>                 /* overwrite MAC address in bootloader */
+>                 local-mac-address = [00 00 00 00 00 00];
+>                 phy-handle = <&ethphy>;
+>         };
+> };
+> 
+> mdio: mdio-bus@72004 {
+>         compatible = "marvell,orion-mdio";
+>         #address-cells = <1>;
+>         #size-cells = <0>;
+>         reg = <0x72004 0x84>;
+>         interrupts = <30>;
+>         clocks = <&gate_clk 2>;
+>         status = "disabled";
+>         ethphy: ethernet-phy {
+>                 /* set phy address in board file */
+>         };
+> };
+> 
 
-Ah, forget what I said, its actually slower to build a list by 7%, I had
-an error in my test.
+But in this example, you have the same registers and the same
+clocks in two nodes, which are even used by the same device driver
+at the moment. It's not a big issue, but my feeling is that Antoine's
+approach was actually better because it more closely reflects
+the way that the hardware is built.
 
-So the rb_first() thing is the easy and fast way.
-
-Thanks
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
