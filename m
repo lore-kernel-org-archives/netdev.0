@@ -1,742 +1,755 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 03/29] fm10k: Add support for TLV message parsing and generation
-Date: Tue, 23 Sep 2014 04:16:31 -0700
-Message-ID: <1411471017-28213-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 15/29] fm10k: Add Tx/Rx hardware ring bring-up/tear-down
+Date: Tue, 23 Sep 2014 04:16:43 -0700
+Message-ID: <1411471017-28213-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:2817 "EHLO mga11.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:33801 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755351AbaIWLRI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Sep 2014 07:17:08 -0400
+	id S1755739AbaIWLRR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Sep 2014 07:17:17 -0400
 In-Reply-To: <1411471017-28213-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds support for the TVL message formats supported by the PF,
-VF, and Switch Management entity.
+This patch adds support for allocating, configuring, and freeing Tx/Rx ring
+resources.  With these changes in place the descriptor queues are in a
+state where they are ready to transmit or receive if provided buffers.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/Makefile    |   3 +-
- drivers/net/ethernet/intel/fm10k/fm10k_tlv.c | 543 +++++++++++++++++++++++++++
- drivers/net/ethernet/intel/fm10k/fm10k_tlv.h | 141 +++++++
- 3 files changed, 686 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
- create mode 100644 drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
+ drivers/net/ethernet/intel/fm10k/fm10k.h        |   8 +
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 343 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c    | 302 +++++++++++++++++++++
+ 3 files changed, 653 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/Makefile b/drivers/net/ethernet/intel/fm10k/Makefile
-index ddc0eb7..1052808 100644
---- a/drivers/net/ethernet/intel/fm10k/Makefile
-+++ b/drivers/net/ethernet/intel/fm10k/Makefile
-@@ -27,4 +27,5 @@
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
+index 26a30ba..a0e8331 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
+@@ -407,6 +407,14 @@ void fm10k_update_rx_drop_en(struct fm10k_intfc *interface);
  
- obj-$(CONFIG_FM10K) += fm10k.o
+ /* Netdev */
+ struct net_device *fm10k_alloc_netdev(void);
++int fm10k_setup_rx_resources(struct fm10k_ring *);
++int fm10k_setup_tx_resources(struct fm10k_ring *);
++void fm10k_free_rx_resources(struct fm10k_ring *);
++void fm10k_free_tx_resources(struct fm10k_ring *);
++void fm10k_clean_all_rx_rings(struct fm10k_intfc *);
++void fm10k_clean_all_tx_rings(struct fm10k_intfc *);
++void fm10k_unmap_and_free_tx_resource(struct fm10k_ring *,
++				      struct fm10k_tx_buffer *);
+ void fm10k_restore_rx_state(struct fm10k_intfc *);
+ void fm10k_reset_rx_state(struct fm10k_intfc *);
+ int fm10k_open(struct net_device *netdev);
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index b987bb6..52673d7 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -19,6 +19,332 @@
+  */
  
--fm10k-objs := fm10k_main.o fm10k_pci.o
-+fm10k-objs := fm10k_main.o fm10k_pci.o \
-+	      fm10k_tlv.o
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
-new file mode 100644
-index 0000000..f1fc709
---- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
-@@ -0,0 +1,543 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ */
-+
-+#include "fm10k_tlv.h"
+ #include "fm10k.h"
++#include <linux/vmalloc.h>
 +
 +/**
-+ *  fm10k_tlv_msg_init - Initialize message block for TLV data storage
-+ *  @msg: Pointer to message block
-+ *  @msg_id: Message ID indicating message type
++ * fm10k_setup_tx_resources - allocate Tx resources (Descriptors)
++ * @tx_ring:    tx descriptor ring (for a specific queue) to setup
 + *
-+ *  This function return success if provided with a valid message pointer
++ * Return 0 on success, negative on failure
 + **/
-+s32 fm10k_tlv_msg_init(u32 *msg, u16 msg_id)
++int fm10k_setup_tx_resources(struct fm10k_ring *tx_ring)
 +{
-+	/* verify pointer is not NULL */
-+	if (!msg)
-+		return FM10K_ERR_PARAM;
++	struct device *dev = tx_ring->dev;
++	int size;
 +
-+	*msg = (FM10K_TLV_FLAGS_MSG << FM10K_TLV_FLAGS_SHIFT) | msg_id;
++	size = sizeof(struct fm10k_tx_buffer) * tx_ring->count;
++
++	tx_ring->tx_buffer = vzalloc(size);
++	if (!tx_ring->tx_buffer)
++		goto err;
++
++	u64_stats_init(&tx_ring->syncp);
++
++	/* round up to nearest 4K */
++	tx_ring->size = tx_ring->count * sizeof(struct fm10k_tx_desc);
++	tx_ring->size = ALIGN(tx_ring->size, 4096);
++
++	tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
++					   &tx_ring->dma, GFP_KERNEL);
++	if (!tx_ring->desc)
++		goto err;
 +
 +	return 0;
++
++err:
++	vfree(tx_ring->tx_buffer);
++	tx_ring->tx_buffer = NULL;
++	return -ENOMEM;
 +}
 +
 +/**
-+ *  fm10k_tlv_attr_put_null_string - Place null terminated string on message
-+ *  @msg: Pointer to message block
-+ *  @attr_id: Attribute ID
-+ *  @string: Pointer to string to be stored in attribute
++ * fm10k_setup_all_tx_resources - allocate all queues Tx resources
++ * @interface: board private structure
 + *
-+ *  This function will reorder a string to be CPU endian and store it in
-+ *  the attribute buffer.  It will return success if provided with a valid
-+ *  pointers.
-+ **/
-+s32 fm10k_tlv_attr_put_null_string(u32 *msg, u16 attr_id,
-+				   const unsigned char *string)
-+{
-+	u32 attr_data = 0, len = 0;
-+	u32 *attr;
-+
-+	/* verify pointers are not NULL */
-+	if (!string || !msg)
-+		return FM10K_ERR_PARAM;
-+
-+	attr = &msg[FM10K_TLV_DWORD_LEN(*msg)];
-+
-+	/* copy string into local variable and then write to msg */
-+	do {
-+		/* write data to message */
-+		if (len && !(len % 4)) {
-+			attr[len / 4] = attr_data;
-+			attr_data = 0;
-+		}
-+
-+		/* record character to offset location */
-+		attr_data |= (u32)(*string) << (8 * (len % 4));
-+		len++;
-+
-+		/* test for NULL and then increment */
-+	} while (*(string++));
-+
-+	/* write last piece of data to message */
-+	attr[(len + 3) / 4] = attr_data;
-+
-+	/* record attribute header, update message length */
-+	len <<= FM10K_TLV_LEN_SHIFT;
-+	attr[0] = len | attr_id;
-+
-+	/* add header length to length */
-+	len += FM10K_TLV_HDR_LEN << FM10K_TLV_LEN_SHIFT;
-+	*msg += FM10K_TLV_LEN_ALIGN(len);
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_tlv_attr_get_null_string - Get null terminated string from attribute
-+ *  @attr: Pointer to attribute
-+ *  @string: Pointer to location of destination string
++ * If this function returns with an error, then it's possible one or
++ * more of the rings is populated (while the rest are not).  It is the
++ * callers duty to clean those orphaned rings.
 + *
-+ *  This function pulls the string back out of the attribute and will place
-+ *  it in the array pointed by by string.  It will return success if provided
-+ *  with a valid pointers.
++ * Return 0 on success, negative on failure
 + **/
-+s32 fm10k_tlv_attr_get_null_string(u32 *attr, unsigned char *string)
++static int fm10k_setup_all_tx_resources(struct fm10k_intfc *interface)
 +{
-+	u32 len;
++	int i, err = 0;
 +
-+	/* verify pointers are not NULL */
-+	if (!string || !attr)
-+		return FM10K_ERR_PARAM;
-+
-+	len = *attr >> FM10K_TLV_LEN_SHIFT;
-+	attr++;
-+
-+	while (len--)
-+		string[len] = (u8)(attr[len / 4] >> (8 * (len % 4)));
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_tlv_attr_put_mac_vlan - Store MAC/VLAN attribute in message
-+ *  @msg: Pointer to message block
-+ *  @attr_id: Attribute ID
-+ *  @mac_addr: MAC address to be stored
-+ *
-+ *  This function will reorder a MAC address to be CPU endian and store it
-+ *  in the attribute buffer.  It will return success if provided with a
-+ *  valid pointers.
-+ **/
-+s32 fm10k_tlv_attr_put_mac_vlan(u32 *msg, u16 attr_id,
-+				const u8 *mac_addr, u16 vlan)
-+{
-+	u32 len = ETH_ALEN << FM10K_TLV_LEN_SHIFT;
-+	u32 *attr;
-+
-+	/* verify pointers are not NULL */
-+	if (!msg || !mac_addr)
-+		return FM10K_ERR_PARAM;
-+
-+	attr = &msg[FM10K_TLV_DWORD_LEN(*msg)];
-+
-+	/* record attribute header, update message length */
-+	attr[0] = len | attr_id;
-+
-+	/* copy value into local variable and then write to msg */
-+	attr[1] = le32_to_cpu(*(const __le32 *)&mac_addr[0]);
-+	attr[2] = le16_to_cpu(*(const __le16 *)&mac_addr[4]);
-+	attr[2] |= (u32)vlan << 16;
-+
-+	/* add header length to length */
-+	len += FM10K_TLV_HDR_LEN << FM10K_TLV_LEN_SHIFT;
-+	*msg += FM10K_TLV_LEN_ALIGN(len);
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_tlv_attr_get_mac_vlan - Get MAC/VLAN stored in attribute
-+ *  @attr: Pointer to attribute
-+ *  @attr_id: Attribute ID
-+ *  @mac_addr: location of buffer to store MAC address
-+ *
-+ *  This function pulls the MAC address back out of the attribute and will
-+ *  place it in the array pointed by by mac_addr.  It will return success
-+ *  if provided with a valid pointers.
-+ **/
-+s32 fm10k_tlv_attr_get_mac_vlan(u32 *attr, u8 *mac_addr, u16 *vlan)
-+{
-+	/* verify pointers are not NULL */
-+	if (!mac_addr || !attr)
-+		return FM10K_ERR_PARAM;
-+
-+	*(__le32 *)&mac_addr[0] = cpu_to_le32(attr[1]);
-+	*(__le16 *)&mac_addr[4] = cpu_to_le16((u16)(attr[2]));
-+	*vlan = (u16)(attr[2] >> 16);
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_tlv_attr_put_bool - Add header indicating value "true"
-+ *  @msg: Pointer to message block
-+ *  @attr_id: Attribute ID
-+ *
-+ *  This function will simply add an attribute header, the fact
-+ *  that the header is here means the attribute value is true, else
-+ *  it is false.  The function will return success if provided with a
-+ *  valid pointers.
-+ **/
-+s32 fm10k_tlv_attr_put_bool(u32 *msg, u16 attr_id)
-+{
-+	/* verify pointers are not NULL */
-+	if (!msg)
-+		return FM10K_ERR_PARAM;
-+
-+	/* record attribute header */
-+	msg[FM10K_TLV_DWORD_LEN(*msg)] = attr_id;
-+
-+	/* add header length to length */
-+	*msg += FM10K_TLV_HDR_LEN << FM10K_TLV_LEN_SHIFT;
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_tlv_attr_put_value - Store integer value attribute in message
-+ *  @msg: Pointer to message block
-+ *  @attr_id: Attribute ID
-+ *  @value: Value to be written
-+ *  @len: Size of value
-+ *
-+ *  This function will place an integer value of up to 8 bytes in size
-+ *  in a message attribute.  The function will return success provided
-+ *  that msg is a valid pointer, and len is 1, 2, 4, or 8.
-+ **/
-+s32 fm10k_tlv_attr_put_value(u32 *msg, u16 attr_id, s64 value, u32 len)
-+{
-+	u32 *attr;
-+
-+	/* verify non-null msg and len is 1, 2, 4, or 8 */
-+	if (!msg || !len || len > 8 || (len & (len - 1)))
-+		return FM10K_ERR_PARAM;
-+
-+	attr = &msg[FM10K_TLV_DWORD_LEN(*msg)];
-+
-+	if (len < 4) {
-+		attr[1] = (u32)value & ((0x1ul << (8 * len)) - 1);
-+	} else {
-+		attr[1] = (u32)value;
-+		if (len > 4)
-+			attr[2] = (u32)(value >> 32);
-+	}
-+
-+	/* record attribute header, update message length */
-+	len <<= FM10K_TLV_LEN_SHIFT;
-+	attr[0] = len | attr_id;
-+
-+	/* add header length to length */
-+	len += FM10K_TLV_HDR_LEN << FM10K_TLV_LEN_SHIFT;
-+	*msg += FM10K_TLV_LEN_ALIGN(len);
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_tlv_attr_get_value - Get integer value stored in attribute
-+ *  @attr: Pointer to attribute
-+ *  @value: Pointer to destination buffer
-+ *  @len: Size of value
-+ *
-+ *  This function will place an integer value of up to 8 bytes in size
-+ *  in the offset pointed to by value.  The function will return success
-+ *  provided that pointers are valid and the len value matches the
-+ *  attribute length.
-+ **/
-+s32 fm10k_tlv_attr_get_value(u32 *attr, void *value, u32 len)
-+{
-+	/* verify pointers are not NULL */
-+	if (!attr || !value)
-+		return FM10K_ERR_PARAM;
-+
-+	if ((*attr >> FM10K_TLV_LEN_SHIFT) != len)
-+		return FM10K_ERR_PARAM;
-+
-+	if (len == 8)
-+		*(u64 *)value = ((u64)attr[2] << 32) | attr[1];
-+	else if (len == 4)
-+		*(u32 *)value = attr[1];
-+	else if (len == 2)
-+		*(u16 *)value = (u16)attr[1];
-+	else
-+		*(u8 *)value = (u8)attr[1];
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_tlv_attr_put_le_struct - Store little endian structure in message
-+ *  @msg: Pointer to message block
-+ *  @attr_id: Attribute ID
-+ *  @le_struct: Pointer to structure to be written
-+ *  @len: Size of le_struct
-+ *
-+ *  This function will place a little endian structure value in a message
-+ *  attribute.  The function will return success provided that all pointers
-+ *  are valid and length is a non-zero multiple of 4.
-+ **/
-+s32 fm10k_tlv_attr_put_le_struct(u32 *msg, u16 attr_id,
-+				 const void *le_struct, u32 len)
-+{
-+	const __le32 *le32_ptr = (const __le32 *)le_struct;
-+	u32 *attr;
-+	u32 i;
-+
-+	/* verify non-null msg and len is in 32 bit words */
-+	if (!msg || !len || (len % 4))
-+		return FM10K_ERR_PARAM;
-+
-+	attr = &msg[FM10K_TLV_DWORD_LEN(*msg)];
-+
-+	/* copy le32 structure into host byte order at 32b boundaries */
-+	for (i = 0; i < (len / 4); i++)
-+		attr[i + 1] = le32_to_cpu(le32_ptr[i]);
-+
-+	/* record attribute header, update message length */
-+	len <<= FM10K_TLV_LEN_SHIFT;
-+	attr[0] = len | attr_id;
-+
-+	/* add header length to length */
-+	len += FM10K_TLV_HDR_LEN << FM10K_TLV_LEN_SHIFT;
-+	*msg += FM10K_TLV_LEN_ALIGN(len);
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_tlv_attr_get_le_struct - Get little endian struct form attribute
-+ *  @attr: Pointer to attribute
-+ *  @le_struct: Pointer to structure to be written
-+ *  @len: Size of structure
-+ *
-+ *  This function will place a little endian structure in the buffer
-+ *  pointed to by le_struct.  The function will return success
-+ *  provided that pointers are valid and the len value matches the
-+ *  attribute length.
-+ **/
-+s32 fm10k_tlv_attr_get_le_struct(u32 *attr, void *le_struct, u32 len)
-+{
-+	__le32 *le32_ptr = (__le32 *)le_struct;
-+	u32 i;
-+
-+	/* verify pointers are not NULL */
-+	if (!le_struct || !attr)
-+		return FM10K_ERR_PARAM;
-+
-+	if ((*attr >> FM10K_TLV_LEN_SHIFT) != len)
-+		return FM10K_ERR_PARAM;
-+
-+	attr++;
-+
-+	for (i = 0; len; i++, len -= 4)
-+		le32_ptr[i] = cpu_to_le32(attr[i]);
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_tlv_attr_nest_start - Start a set of nested attributes
-+ *  @msg: Pointer to message block
-+ *  @attr_id: Attribute ID
-+ *
-+ *  This function will mark off a new nested region for encapsulating
-+ *  a given set of attributes.  The idea is if you wish to place a secondary
-+ *  structure within the message this mechanism allows for that.  The
-+ *  function will return NULL on failure, and a pointer to the start
-+ *  of the nested attributes on success.
-+ **/
-+u32 *fm10k_tlv_attr_nest_start(u32 *msg, u16 attr_id)
-+{
-+	u32 *attr;
-+
-+	/* verify pointer is not NULL */
-+	if (!msg)
-+		return NULL;
-+
-+	attr = &msg[FM10K_TLV_DWORD_LEN(*msg)];
-+
-+	attr[0] = attr_id;
-+
-+	/* return pointer to nest header */
-+	return attr;
-+}
-+
-+/**
-+ *  fm10k_tlv_attr_nest_start - Start a set of nested attributes
-+ *  @msg: Pointer to message block
-+ *
-+ *  This function closes off an existing set of nested attributes.  The
-+ *  message pointer should be pointing to the parent of the nest.  So in
-+ *  the case of a nest within the nest this would be the outer nest pointer.
-+ *  This function will return success provided all pointers are valid.
-+ **/
-+s32 fm10k_tlv_attr_nest_stop(u32 *msg)
-+{
-+	u32 *attr;
-+	u32 len;
-+
-+	/* verify pointer is not NULL */
-+	if (!msg)
-+		return FM10K_ERR_PARAM;
-+
-+	/* locate the nested header and retrieve its length */
-+	attr = &msg[FM10K_TLV_DWORD_LEN(*msg)];
-+	len = (attr[0] >> FM10K_TLV_LEN_SHIFT) << FM10K_TLV_LEN_SHIFT;
-+
-+	/* only include nest if data was added to it */
-+	if (len) {
-+		len += FM10K_TLV_HDR_LEN << FM10K_TLV_LEN_SHIFT;
-+		*msg += len;
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_tlv_attr_validate - Validate attribute metadata
-+ *  @attr: Pointer to attribute
-+ *  @tlv_attr: Type and length info for attribute
-+ *
-+ *  This function does some basic validation of the input TLV.  It
-+ *  verifies the length, and in the case of null terminated strings
-+ *  it verifies that the last byte is null.  The function will
-+ *  return FM10K_ERR_PARAM if any attribute is malformed, otherwise
-+ *  it returns 0.
-+ **/
-+static s32 fm10k_tlv_attr_validate(u32 *attr,
-+				   const struct fm10k_tlv_attr *tlv_attr)
-+{
-+	u32 attr_id = *attr & FM10K_TLV_ID_MASK;
-+	u16 len = *attr >> FM10K_TLV_LEN_SHIFT;
-+
-+	/* verify this is an attribute and not a message */
-+	if (*attr & (FM10K_TLV_FLAGS_MSG << FM10K_TLV_FLAGS_SHIFT))
-+		return FM10K_ERR_PARAM;
-+
-+	/* search through the list of attributes to find a matching ID */
-+	while (tlv_attr->id < attr_id)
-+		tlv_attr++;
-+
-+	/* if didn't find a match then we should exit */
-+	if (tlv_attr->id != attr_id)
-+		return FM10K_NOT_IMPLEMENTED;
-+
-+	/* move to start of attribute data */
-+	attr++;
-+
-+	switch (tlv_attr->type) {
-+	case FM10K_TLV_NULL_STRING:
-+		if (!len ||
-+		    (attr[(len - 1) / 4] & (0xFF << (8 * ((len - 1) % 4)))))
-+			return FM10K_ERR_PARAM;
-+		if (len > tlv_attr->len)
-+			return FM10K_ERR_PARAM;
-+		break;
-+	case FM10K_TLV_MAC_ADDR:
-+		if (len != ETH_ALEN)
-+			return FM10K_ERR_PARAM;
-+		break;
-+	case FM10K_TLV_BOOL:
-+		if (len)
-+			return FM10K_ERR_PARAM;
-+		break;
-+	case FM10K_TLV_UNSIGNED:
-+	case FM10K_TLV_SIGNED:
-+		if (len != tlv_attr->len)
-+			return FM10K_ERR_PARAM;
-+		break;
-+	case FM10K_TLV_LE_STRUCT:
-+		/* struct must be 4 byte aligned */
-+		if ((len % 4) || len != tlv_attr->len)
-+			return FM10K_ERR_PARAM;
-+		break;
-+	case FM10K_TLV_NESTED:
-+		/* nested attributes must be 4 byte aligned */
-+		if (len % 4)
-+			return FM10K_ERR_PARAM;
-+		break;
-+	default:
-+		/* attribute id is mapped to bad value */
-+		return FM10K_ERR_PARAM;
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ *  fm10k_tlv_attr_parse - Parses stream of attribute data
-+ *  @attr: Pointer to attribute list
-+ *  @results: Pointer array to store pointers to attributes
-+ *  @tlv_attr: Type and length info for attributes
-+ *
-+ *  This function validates a stream of attributes and parses them
-+ *  up into an array of pointers stored in results.  The function will
-+ *  return FM10K_ERR_PARAM on any input or message error,
-+ *  FM10K_NOT_IMPLEMENTED for any attribute that is outside of the array
-+ *  and 0 on success.
-+ **/
-+s32 fm10k_tlv_attr_parse(u32 *attr, u32 **results,
-+			 const struct fm10k_tlv_attr *tlv_attr)
-+{
-+	u32 i, attr_id, offset = 0;
-+	s32 err = 0;
-+	u16 len;
-+
-+	/* verify pointers are not NULL */
-+	if (!attr || !results)
-+		return FM10K_ERR_PARAM;
-+
-+	/* initialize results to NULL */
-+	for (i = 0; i < FM10K_TLV_RESULTS_MAX; i++)
-+		results[i] = NULL;
-+
-+	/* pull length from the message header */
-+	len = *attr >> FM10K_TLV_LEN_SHIFT;
-+
-+	/* no attributes to parse if there is no length */
-+	if (!len)
-+		return 0;
-+
-+	/* no attributes to parse, just raw data, message becomes attribute */
-+	if (!tlv_attr) {
-+		results[0] = attr;
-+		return 0;
-+	}
-+
-+	/* move to start of attribute data */
-+	attr++;
-+
-+	/* run through list parsing all attributes */
-+	while (offset < len) {
-+		attr_id = *attr & FM10K_TLV_ID_MASK;
-+
-+		if (attr_id < FM10K_TLV_RESULTS_MAX)
-+			err = fm10k_tlv_attr_validate(attr, tlv_attr);
-+		else
-+			err = FM10K_NOT_IMPLEMENTED;
-+
-+		if (err < 0)
-+			return err;
++	for (i = 0; i < interface->num_tx_queues; i++) {
++		err = fm10k_setup_tx_resources(interface->tx_ring[i]);
 +		if (!err)
-+			results[attr_id] = attr;
++			continue;
 +
-+		/* update offset */
-+		offset += FM10K_TLV_DWORD_LEN(*attr) * 4;
-+
-+		/* move to next attribute */
-+		attr = &attr[FM10K_TLV_DWORD_LEN(*attr)];
++		netif_err(interface, probe, interface->netdev,
++			  "Allocation for Tx Queue %u failed\n", i);
++		goto err_setup_tx;
 +	}
 +
-+	/* we should find ourselves at the end of the list */
-+	if (offset != len)
-+		return FM10K_ERR_PARAM;
++	return 0;
++err_setup_tx:
++	/* rewind the index freeing the rings as we go */
++	while (i--)
++		fm10k_free_tx_resources(interface->tx_ring[i]);
++	return err;
++}
++
++/**
++ * fm10k_setup_rx_resources - allocate Rx resources (Descriptors)
++ * @rx_ring:    rx descriptor ring (for a specific queue) to setup
++ *
++ * Returns 0 on success, negative on failure
++ **/
++int fm10k_setup_rx_resources(struct fm10k_ring *rx_ring)
++{
++	struct device *dev = rx_ring->dev;
++	int size;
++
++	size = sizeof(struct fm10k_rx_buffer) * rx_ring->count;
++
++	rx_ring->rx_buffer = vzalloc(size);
++	if (!rx_ring->rx_buffer)
++		goto err;
++
++	u64_stats_init(&rx_ring->syncp);
++
++	/* Round up to nearest 4K */
++	rx_ring->size = rx_ring->count * sizeof(union fm10k_rx_desc);
++	rx_ring->size = ALIGN(rx_ring->size, 4096);
++
++	rx_ring->desc = dma_alloc_coherent(dev, rx_ring->size,
++					   &rx_ring->dma, GFP_KERNEL);
++	if (!rx_ring->desc)
++		goto err;
 +
 +	return 0;
++err:
++	vfree(rx_ring->rx_buffer);
++	rx_ring->rx_buffer = NULL;
++	return -ENOMEM;
 +}
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
-new file mode 100644
-index 0000000..6d22db6
---- /dev/null
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.h
-@@ -0,0 +1,141 @@
-+/* Intel Ethernet Switch Host Interface Driver
-+ * Copyright(c) 2013 - 2014 Intel Corporation.
++
++/**
++ * fm10k_setup_all_rx_resources - allocate all queues Rx resources
++ * @interface: board private structure
 + *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
++ * If this function returns with an error, then it's possible one or
++ * more of the rings is populated (while the rest are not).  It is the
++ * callers duty to clean those orphaned rings.
 + *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
++ * Return 0 on success, negative on failure
++ **/
++static int fm10k_setup_all_rx_resources(struct fm10k_intfc *interface)
++{
++	int i, err = 0;
++
++	for (i = 0; i < interface->num_rx_queues; i++) {
++		err = fm10k_setup_rx_resources(interface->rx_ring[i]);
++		if (!err)
++			continue;
++
++		netif_err(interface, probe, interface->netdev,
++			  "Allocation for Rx Queue %u failed\n", i);
++		goto err_setup_rx;
++	}
++
++	return 0;
++err_setup_rx:
++	/* rewind the index freeing the rings as we go */
++	while (i--)
++		fm10k_free_rx_resources(interface->rx_ring[i]);
++	return err;
++}
++
++void fm10k_unmap_and_free_tx_resource(struct fm10k_ring *ring,
++				      struct fm10k_tx_buffer *tx_buffer)
++{
++	if (tx_buffer->skb) {
++		dev_kfree_skb_any(tx_buffer->skb);
++		if (dma_unmap_len(tx_buffer, len))
++			dma_unmap_single(ring->dev,
++					 dma_unmap_addr(tx_buffer, dma),
++					 dma_unmap_len(tx_buffer, len),
++					 DMA_TO_DEVICE);
++	} else if (dma_unmap_len(tx_buffer, len)) {
++		dma_unmap_page(ring->dev,
++			       dma_unmap_addr(tx_buffer, dma),
++			       dma_unmap_len(tx_buffer, len),
++			       DMA_TO_DEVICE);
++	}
++	tx_buffer->next_to_watch = NULL;
++	tx_buffer->skb = NULL;
++	dma_unmap_len_set(tx_buffer, len, 0);
++	/* tx_buffer must be completely set up in the transmit path */
++}
++
++/**
++ * fm10k_clean_tx_ring - Free Tx Buffers
++ * @tx_ring: ring to be cleaned
++ **/
++static void fm10k_clean_tx_ring(struct fm10k_ring *tx_ring)
++{
++	struct fm10k_tx_buffer *tx_buffer;
++	unsigned long size;
++	u16 i;
++
++	/* ring already cleared, nothing to do */
++	if (!tx_ring->tx_buffer)
++		return;
++
++	/* Free all the Tx ring sk_buffs */
++	for (i = 0; i < tx_ring->count; i++) {
++		tx_buffer = &tx_ring->tx_buffer[i];
++		fm10k_unmap_and_free_tx_resource(tx_ring, tx_buffer);
++	}
++
++	/* reset BQL values */
++	netdev_tx_reset_queue(txring_txq(tx_ring));
++
++	size = sizeof(struct fm10k_tx_buffer) * tx_ring->count;
++	memset(tx_ring->tx_buffer, 0, size);
++
++	/* Zero out the descriptor ring */
++	memset(tx_ring->desc, 0, tx_ring->size);
++}
++
++/**
++ * fm10k_free_tx_resources - Free Tx Resources per Queue
++ * @tx_ring: Tx descriptor ring for a specific queue
 + *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
++ * Free all transmit software resources
++ **/
++void fm10k_free_tx_resources(struct fm10k_ring *tx_ring)
++{
++	fm10k_clean_tx_ring(tx_ring);
++
++	vfree(tx_ring->tx_buffer);
++	tx_ring->tx_buffer = NULL;
++
++	/* if not set, then don't free */
++	if (!tx_ring->desc)
++		return;
++
++	dma_free_coherent(tx_ring->dev, tx_ring->size,
++			  tx_ring->desc, tx_ring->dma);
++	tx_ring->desc = NULL;
++}
++
++/**
++ * fm10k_clean_all_tx_rings - Free Tx Buffers for all queues
++ * @interface: board private structure
++ **/
++void fm10k_clean_all_tx_rings(struct fm10k_intfc *interface)
++{
++	int i;
++
++	for (i = 0; i < interface->num_tx_queues; i++)
++		fm10k_clean_tx_ring(interface->tx_ring[i]);
++}
++
++/**
++ * fm10k_free_all_tx_resources - Free Tx Resources for All Queues
++ * @interface: board private structure
 + *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ */
++ * Free all transmit software resources
++ **/
++static void fm10k_free_all_tx_resources(struct fm10k_intfc *interface)
++{
++	int i = interface->num_tx_queues;
 +
-+#ifndef _FM10K_TLV_H_
-+#define _FM10K_TLV_H_
++	while (i--)
++		fm10k_free_tx_resources(interface->tx_ring[i]);
++}
 +
-+#include "fm10k_type.h"
++/**
++ * fm10k_clean_rx_ring - Free Rx Buffers per Queue
++ * @rx_ring: ring to free buffers from
++ **/
++static void fm10k_clean_rx_ring(struct fm10k_ring *rx_ring)
++{
++	unsigned long size;
++	u16 i;
 +
-+/* Message / Argument header format
-+ *    3			  2		      1			  0
-+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |	     Length	   | Flags |	      Type / ID		   |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++	if (!rx_ring->rx_buffer)
++		return;
++
++	if (rx_ring->skb)
++		dev_kfree_skb(rx_ring->skb);
++	rx_ring->skb = NULL;
++
++	/* Free all the Rx ring sk_buffs */
++	for (i = 0; i < rx_ring->count; i++) {
++		struct fm10k_rx_buffer *buffer = &rx_ring->rx_buffer[i];
++		/* clean-up will only set page pointer to NULL */
++		if (!buffer->page)
++			continue;
++
++		dma_unmap_page(rx_ring->dev, buffer->dma,
++			       PAGE_SIZE, DMA_FROM_DEVICE);
++		__free_page(buffer->page);
++
++		buffer->page = NULL;
++	}
++
++	size = sizeof(struct fm10k_rx_buffer) * rx_ring->count;
++	memset(rx_ring->rx_buffer, 0, size);
++
++	/* Zero out the descriptor ring */
++	memset(rx_ring->desc, 0, rx_ring->size);
++
++	rx_ring->next_to_alloc = 0;
++	rx_ring->next_to_clean = 0;
++	rx_ring->next_to_use = 0;
++}
++
++/**
++ * fm10k_free_rx_resources - Free Rx Resources
++ * @rx_ring: ring to clean the resources from
 + *
-+ * The message header format described here is used for messages that are
-+ * passed between the PF and the VF.  To allow for messages larger then
-+ * mailbox size we will provide a message with the above header and it
-+ * will be segmented and transported to the mailbox to the other side where
-+ * it is reassembled.  It contains the following fields:
-+ * Len: Length of the message in bytes excluding the message header
-+ * Flags: TBD
-+ * Rule: These will be the message/argument types we pass
-+ */
-+/* message data header */
-+#define FM10K_TLV_ID_SHIFT		0
-+#define FM10K_TLV_ID_SIZE		16
-+#define FM10K_TLV_ID_MASK		((1u << FM10K_TLV_ID_SIZE) - 1)
-+#define FM10K_TLV_FLAGS_SHIFT		16
-+#define FM10K_TLV_FLAGS_MSG		0x1
-+#define FM10K_TLV_FLAGS_SIZE		4
-+#define FM10K_TLV_LEN_SHIFT		20
-+#define FM10K_TLV_LEN_SIZE		12
++ * Free all receive software resources
++ **/
++void fm10k_free_rx_resources(struct fm10k_ring *rx_ring)
++{
++	fm10k_clean_rx_ring(rx_ring);
 +
-+#define FM10K_TLV_HDR_LEN		4ul
-+#define FM10K_TLV_LEN_ALIGN_MASK \
-+	((FM10K_TLV_HDR_LEN - 1) << FM10K_TLV_LEN_SHIFT)
-+#define FM10K_TLV_LEN_ALIGN(tlv) \
-+	(((tlv) + FM10K_TLV_LEN_ALIGN_MASK) & ~FM10K_TLV_LEN_ALIGN_MASK)
-+#define FM10K_TLV_DWORD_LEN(tlv) \
-+	((u16)((FM10K_TLV_LEN_ALIGN(tlv)) >> (FM10K_TLV_LEN_SHIFT + 2)) + 1)
++	vfree(rx_ring->rx_buffer);
++	rx_ring->rx_buffer = NULL;
 +
-+#define FM10K_TLV_RESULTS_MAX		32
++	/* if not set, then don't free */
++	if (!rx_ring->desc)
++		return;
 +
-+enum fm10k_tlv_type {
-+	FM10K_TLV_NULL_STRING,
-+	FM10K_TLV_MAC_ADDR,
-+	FM10K_TLV_BOOL,
-+	FM10K_TLV_UNSIGNED,
-+	FM10K_TLV_SIGNED,
-+	FM10K_TLV_LE_STRUCT,
-+	FM10K_TLV_NESTED,
-+	FM10K_TLV_MAX_TYPE
-+};
++	dma_free_coherent(rx_ring->dev, rx_ring->size,
++			  rx_ring->desc, rx_ring->dma);
 +
-+#define FM10K_TLV_ERROR (~0u)
++	rx_ring->desc = NULL;
++}
 +
-+struct fm10k_tlv_attr {
-+	unsigned int		id;
-+	enum fm10k_tlv_type	type;
-+	u16			len;
-+};
++/**
++ * fm10k_clean_all_rx_rings - Free Rx Buffers for all queues
++ * @interface: board private structure
++ **/
++void fm10k_clean_all_rx_rings(struct fm10k_intfc *interface)
++{
++	int i;
 +
-+#define FM10K_TLV_ATTR_NULL_STRING(id, len) { id, FM10K_TLV_NULL_STRING, len }
-+#define FM10K_TLV_ATTR_MAC_ADDR(id)	    { id, FM10K_TLV_MAC_ADDR, 6 }
-+#define FM10K_TLV_ATTR_BOOL(id)		    { id, FM10K_TLV_BOOL, 0 }
-+#define FM10K_TLV_ATTR_U8(id)		    { id, FM10K_TLV_UNSIGNED, 1 }
-+#define FM10K_TLV_ATTR_U16(id)		    { id, FM10K_TLV_UNSIGNED, 2 }
-+#define FM10K_TLV_ATTR_U32(id)		    { id, FM10K_TLV_UNSIGNED, 4 }
-+#define FM10K_TLV_ATTR_U64(id)		    { id, FM10K_TLV_UNSIGNED, 8 }
-+#define FM10K_TLV_ATTR_S8(id)		    { id, FM10K_TLV_SIGNED, 1 }
-+#define FM10K_TLV_ATTR_S16(id)		    { id, FM10K_TLV_SIGNED, 2 }
-+#define FM10K_TLV_ATTR_S32(id)		    { id, FM10K_TLV_SIGNED, 4 }
-+#define FM10K_TLV_ATTR_S64(id)		    { id, FM10K_TLV_SIGNED, 8 }
-+#define FM10K_TLV_ATTR_LE_STRUCT(id, len)   { id, FM10K_TLV_LE_STRUCT, len }
-+#define FM10K_TLV_ATTR_NESTED(id)	    { id, FM10K_TLV_NESTED }
-+#define FM10K_TLV_ATTR_LAST		    { FM10K_TLV_ERROR }
++	for (i = 0; i < interface->num_rx_queues; i++)
++		fm10k_clean_rx_ring(interface->rx_ring[i]);
++}
 +
-+s32 fm10k_tlv_msg_init(u32 *, u16);
-+s32 fm10k_tlv_attr_put_null_string(u32 *, u16, const unsigned char *);
-+s32 fm10k_tlv_attr_get_null_string(u32 *, unsigned char *);
-+s32 fm10k_tlv_attr_put_mac_vlan(u32 *, u16, const u8 *, u16);
-+s32 fm10k_tlv_attr_get_mac_vlan(u32 *, u8 *, u16 *);
-+s32 fm10k_tlv_attr_put_bool(u32 *, u16);
-+s32 fm10k_tlv_attr_put_value(u32 *, u16, s64, u32);
-+#define fm10k_tlv_attr_put_u8(msg, attr_id, val) \
-+		fm10k_tlv_attr_put_value(msg, attr_id, val, 1)
-+#define fm10k_tlv_attr_put_u16(msg, attr_id, val) \
-+		fm10k_tlv_attr_put_value(msg, attr_id, val, 2)
-+#define fm10k_tlv_attr_put_u32(msg, attr_id, val) \
-+		fm10k_tlv_attr_put_value(msg, attr_id, val, 4)
-+#define fm10k_tlv_attr_put_u64(msg, attr_id, val) \
-+		fm10k_tlv_attr_put_value(msg, attr_id, val, 8)
-+#define fm10k_tlv_attr_put_s8(msg, attr_id, val) \
-+		fm10k_tlv_attr_put_value(msg, attr_id, val, 1)
-+#define fm10k_tlv_attr_put_s16(msg, attr_id, val) \
-+		fm10k_tlv_attr_put_value(msg, attr_id, val, 2)
-+#define fm10k_tlv_attr_put_s32(msg, attr_id, val) \
-+		fm10k_tlv_attr_put_value(msg, attr_id, val, 4)
-+#define fm10k_tlv_attr_put_s64(msg, attr_id, val) \
-+		fm10k_tlv_attr_put_value(msg, attr_id, val, 8)
-+s32 fm10k_tlv_attr_get_value(u32 *, void *, u32);
-+#define fm10k_tlv_attr_get_u8(attr, ptr) \
-+		fm10k_tlv_attr_get_value(attr, ptr, sizeof(u8))
-+#define fm10k_tlv_attr_get_u16(attr, ptr) \
-+		fm10k_tlv_attr_get_value(attr, ptr, sizeof(u16))
-+#define fm10k_tlv_attr_get_u32(attr, ptr) \
-+		fm10k_tlv_attr_get_value(attr, ptr, sizeof(u32))
-+#define fm10k_tlv_attr_get_u64(attr, ptr) \
-+		fm10k_tlv_attr_get_value(attr, ptr, sizeof(u64))
-+#define fm10k_tlv_attr_get_s8(attr, ptr) \
-+		fm10k_tlv_attr_get_value(attr, ptr, sizeof(s8))
-+#define fm10k_tlv_attr_get_s16(attr, ptr) \
-+		fm10k_tlv_attr_get_value(attr, ptr, sizeof(s16))
-+#define fm10k_tlv_attr_get_s32(attr, ptr) \
-+		fm10k_tlv_attr_get_value(attr, ptr, sizeof(s32))
-+#define fm10k_tlv_attr_get_s64(attr, ptr) \
-+		fm10k_tlv_attr_get_value(attr, ptr, sizeof(s64))
-+s32 fm10k_tlv_attr_put_le_struct(u32 *, u16, const void *, u32);
-+s32 fm10k_tlv_attr_get_le_struct(u32 *, void *, u32);
-+u32 *fm10k_tlv_attr_nest_start(u32 *, u16);
-+s32 fm10k_tlv_attr_nest_stop(u32 *);
-+s32 fm10k_tlv_attr_parse(u32 *, u32 **, const struct fm10k_tlv_attr *);
-+#endif /* _FM10K_MSG_H_ */
++/**
++ * fm10k_free_all_rx_resources - Free Rx Resources for All Queues
++ * @interface: board private structure
++ *
++ * Free all receive software resources
++ **/
++static void fm10k_free_all_rx_resources(struct fm10k_intfc *interface)
++{
++	int i = interface->num_rx_queues;
++
++	while (i--)
++		fm10k_free_rx_resources(interface->rx_ring[i]);
++}
+ 
+ /**
+  * fm10k_request_glort_range - Request GLORTs for use in configuring rules
+@@ -59,6 +385,16 @@ int fm10k_open(struct net_device *netdev)
+ 	struct fm10k_intfc *interface = netdev_priv(netdev);
+ 	int err;
+ 
++	/* allocate transmit descriptors */
++	err = fm10k_setup_all_tx_resources(interface);
++	if (err)
++		goto err_setup_tx;
++
++	/* allocate receive descriptors */
++	err = fm10k_setup_all_rx_resources(interface);
++	if (err)
++		goto err_setup_rx;
++
+ 	/* allocate interrupt resources */
+ 	err = fm10k_qv_request_irq(interface);
+ 	if (err)
+@@ -81,6 +417,10 @@ int fm10k_open(struct net_device *netdev)
+ err_set_queues:
+ 	fm10k_qv_free_irq(interface);
+ err_req_irq:
++	fm10k_free_all_rx_resources(interface);
++err_setup_rx:
++	fm10k_free_all_tx_resources(interface);
++err_setup_tx:
+ 	return err;
+ }
+ 
+@@ -103,6 +443,9 @@ int fm10k_close(struct net_device *netdev)
+ 
+ 	fm10k_qv_free_irq(interface);
+ 
++	fm10k_free_all_tx_resources(interface);
++	fm10k_free_all_rx_resources(interface);
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index 33d6f47..7529a84 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -485,6 +485,299 @@ static void fm10k_service_task(struct work_struct *work)
+ 	fm10k_service_event_complete(interface);
+ }
+ 
++/**
++ * fm10k_configure_tx_ring - Configure Tx ring after Reset
++ * @interface: board private structure
++ * @ring: structure containing ring specific data
++ *
++ * Configure the Tx descriptor ring after a reset.
++ **/
++static void fm10k_configure_tx_ring(struct fm10k_intfc *interface,
++				    struct fm10k_ring *ring)
++{
++	struct fm10k_hw *hw = &interface->hw;
++	u64 tdba = ring->dma;
++	u32 size = ring->count * sizeof(struct fm10k_tx_desc);
++	u32 txint = FM10K_INT_MAP_DISABLE;
++	u32 txdctl = FM10K_TXDCTL_ENABLE | (1 << FM10K_TXDCTL_MAX_TIME_SHIFT);
++	u8 reg_idx = ring->reg_idx;
++
++	/* disable queue to avoid issues while updating state */
++	fm10k_write_reg(hw, FM10K_TXDCTL(reg_idx), 0);
++	fm10k_write_flush(hw);
++
++	/* possible poll here to verify ring resources have been cleaned */
++
++	/* set location and size for descriptor ring */
++	fm10k_write_reg(hw, FM10K_TDBAL(reg_idx), tdba & DMA_BIT_MASK(32));
++	fm10k_write_reg(hw, FM10K_TDBAH(reg_idx), tdba >> 32);
++	fm10k_write_reg(hw, FM10K_TDLEN(reg_idx), size);
++
++	/* reset head and tail pointers */
++	fm10k_write_reg(hw, FM10K_TDH(reg_idx), 0);
++	fm10k_write_reg(hw, FM10K_TDT(reg_idx), 0);
++
++	/* store tail pointer */
++	ring->tail = &interface->uc_addr[FM10K_TDT(reg_idx)];
++
++	/* reset ntu and ntc to place SW in sync with hardwdare */
++	ring->next_to_clean = 0;
++	ring->next_to_use = 0;
++
++	/* Map interrupt */
++	if (ring->q_vector) {
++		txint = ring->q_vector->v_idx + NON_Q_VECTORS(hw);
++		txint |= FM10K_INT_MAP_TIMER0;
++	}
++
++	fm10k_write_reg(hw, FM10K_TXINT(reg_idx), txint);
++
++	/* enable use of FTAG bit in Tx descriptor, register is RO for VF */
++	fm10k_write_reg(hw, FM10K_PFVTCTL(reg_idx),
++			FM10K_PFVTCTL_FTAG_DESC_ENABLE);
++
++	/* enable queue */
++	fm10k_write_reg(hw, FM10K_TXDCTL(reg_idx), txdctl);
++}
++
++/**
++ * fm10k_enable_tx_ring - Verify Tx ring is enabled after configuration
++ * @interface: board private structure
++ * @ring: structure containing ring specific data
++ *
++ * Verify the Tx descriptor ring is ready for transmit.
++ **/
++static void fm10k_enable_tx_ring(struct fm10k_intfc *interface,
++				 struct fm10k_ring *ring)
++{
++	struct fm10k_hw *hw = &interface->hw;
++	int wait_loop = 10;
++	u32 txdctl;
++	u8 reg_idx = ring->reg_idx;
++
++	/* if we are already enabled just exit */
++	if (fm10k_read_reg(hw, FM10K_TXDCTL(reg_idx)) & FM10K_TXDCTL_ENABLE)
++		return;
++
++	/* poll to verify queue is enabled */
++	do {
++		usleep_range(1000, 2000);
++		txdctl = fm10k_read_reg(hw, FM10K_TXDCTL(reg_idx));
++	} while (!(txdctl & FM10K_TXDCTL_ENABLE) && --wait_loop);
++	if (!wait_loop)
++		netif_err(interface, drv, interface->netdev,
++			  "Could not enable Tx Queue %d\n", reg_idx);
++}
++
++/**
++ * fm10k_configure_tx - Configure Transmit Unit after Reset
++ * @interface: board private structure
++ *
++ * Configure the Tx unit of the MAC after a reset.
++ **/
++static void fm10k_configure_tx(struct fm10k_intfc *interface)
++{
++	int i;
++
++	/* Setup the HW Tx Head and Tail descriptor pointers */
++	for (i = 0; i < interface->num_tx_queues; i++)
++		fm10k_configure_tx_ring(interface, interface->tx_ring[i]);
++
++	/* poll here to verify that Tx rings are now enabled */
++	for (i = 0; i < interface->num_tx_queues; i++)
++		fm10k_enable_tx_ring(interface, interface->tx_ring[i]);
++}
++
++/**
++ * fm10k_configure_rx_ring - Configure Rx ring after Reset
++ * @interface: board private structure
++ * @ring: structure containing ring specific data
++ *
++ * Configure the Rx descriptor ring after a reset.
++ **/
++static void fm10k_configure_rx_ring(struct fm10k_intfc *interface,
++				    struct fm10k_ring *ring)
++{
++	u64 rdba = ring->dma;
++	struct fm10k_hw *hw = &interface->hw;
++	u32 size = ring->count * sizeof(union fm10k_rx_desc);
++	u32 rxqctl = FM10K_RXQCTL_ENABLE | FM10K_RXQCTL_PF;
++	u32 rxdctl = FM10K_RXDCTL_WRITE_BACK_MIN_DELAY;
++	u32 srrctl = FM10K_SRRCTL_BUFFER_CHAINING_EN;
++	u32 rxint = FM10K_INT_MAP_DISABLE;
++	u8 rx_pause = interface->rx_pause;
++	u8 reg_idx = ring->reg_idx;
++
++	/* disable queue to avoid issues while updating state */
++	fm10k_write_reg(hw, FM10K_RXQCTL(reg_idx), 0);
++	fm10k_write_flush(hw);
++
++	/* possible poll here to verify ring resources have been cleaned */
++
++	/* set location and size for descriptor ring */
++	fm10k_write_reg(hw, FM10K_RDBAL(reg_idx), rdba & DMA_BIT_MASK(32));
++	fm10k_write_reg(hw, FM10K_RDBAH(reg_idx), rdba >> 32);
++	fm10k_write_reg(hw, FM10K_RDLEN(reg_idx), size);
++
++	/* reset head and tail pointers */
++	fm10k_write_reg(hw, FM10K_RDH(reg_idx), 0);
++	fm10k_write_reg(hw, FM10K_RDT(reg_idx), 0);
++
++	/* store tail pointer */
++	ring->tail = &interface->uc_addr[FM10K_RDT(reg_idx)];
++
++	/* reset ntu and ntc to place SW in sync with hardwdare */
++	ring->next_to_clean = 0;
++	ring->next_to_use = 0;
++	ring->next_to_alloc = 0;
++
++	/* Configure the Rx buffer size for one buff without split */
++	srrctl |= FM10K_RX_BUFSZ >> FM10K_SRRCTL_BSIZEPKT_SHIFT;
++
++	/* Configure the Rx ring to supress loopback packets */
++	srrctl |= FM10K_SRRCTL_LOOPBACK_SUPPRESS;
++	fm10k_write_reg(hw, FM10K_SRRCTL(reg_idx), srrctl);
++
++	/* Enable drop on empty */
++#if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
++	if (interface->pfc_en)
++		rx_pause = interface->pfc_en;
++#endif
++	if (!(rx_pause & (1 << ring->qos_pc)))
++		rxdctl |= FM10K_RXDCTL_DROP_ON_EMPTY;
++
++	fm10k_write_reg(hw, FM10K_RXDCTL(reg_idx), rxdctl);
++
++	/* assign default VLAN to queue */
++	ring->vid = hw->mac.default_vid;
++
++	/* Map interrupt */
++	if (ring->q_vector) {
++		rxint = ring->q_vector->v_idx + NON_Q_VECTORS(hw);
++		rxint |= FM10K_INT_MAP_TIMER1;
++	}
++
++	fm10k_write_reg(hw, FM10K_RXINT(reg_idx), rxint);
++
++	/* enable queue */
++	fm10k_write_reg(hw, FM10K_RXQCTL(reg_idx), rxqctl);
++}
++
++/**
++ * fm10k_update_rx_drop_en - Configures the drop enable bits for Rx rings
++ * @interface: board private structure
++ *
++ * Configure the drop enable bits for the Rx rings.
++ **/
++void fm10k_update_rx_drop_en(struct fm10k_intfc *interface)
++{
++	struct fm10k_hw *hw = &interface->hw;
++	u8 rx_pause = interface->rx_pause;
++	int i;
++
++#if defined(HAVE_DCBNL_IEEE) && defined(CONFIG_DCB)
++	if (interface->pfc_en)
++		rx_pause = interface->pfc_en;
++
++#endif
++	for (i = 0; i < interface->num_rx_queues; i++) {
++		struct fm10k_ring *ring = interface->rx_ring[i];
++		u32 rxdctl = FM10K_RXDCTL_WRITE_BACK_MIN_DELAY;
++		u8 reg_idx = ring->reg_idx;
++
++		if (!(rx_pause & (1 << ring->qos_pc)))
++			rxdctl |= FM10K_RXDCTL_DROP_ON_EMPTY;
++
++		fm10k_write_reg(hw, FM10K_RXDCTL(reg_idx), rxdctl);
++	}
++}
++
++/**
++ * fm10k_configure_dglort - Configure Receive DGLORT after reset
++ * @interface: board private structure
++ *
++ * Configure the DGLORT description and RSS tables.
++ **/
++static void fm10k_configure_dglort(struct fm10k_intfc *interface)
++{
++	struct fm10k_dglort_cfg dglort = { 0 };
++	struct fm10k_hw *hw = &interface->hw;
++	int i;
++	u32 mrqc;
++
++	/* Fill out hash function seeds */
++	for (i = 0; i < FM10K_RSSRK_SIZE; i++)
++		fm10k_write_reg(hw, FM10K_RSSRK(0, i), interface->rssrk[i]);
++
++	/* Write RETA table to hardware */
++	for (i = 0; i < FM10K_RETA_SIZE; i++)
++		fm10k_write_reg(hw, FM10K_RETA(0, i), interface->reta[i]);
++
++	/* Generate RSS hash based on packet types, TCP/UDP
++	 * port numbers and/or IPv4/v6 src and dst addresses
++	 */
++	mrqc = FM10K_MRQC_IPV4 |
++	       FM10K_MRQC_TCP_IPV4 |
++	       FM10K_MRQC_IPV6 |
++	       FM10K_MRQC_TCP_IPV6;
++
++	if (interface->flags & FM10K_FLAG_RSS_FIELD_IPV4_UDP)
++		mrqc |= FM10K_MRQC_UDP_IPV4;
++	if (interface->flags & FM10K_FLAG_RSS_FIELD_IPV6_UDP)
++		mrqc |= FM10K_MRQC_UDP_IPV6;
++
++	fm10k_write_reg(hw, FM10K_MRQC(0), mrqc);
++
++	/* configure default DGLORT mapping for RSS/DCB */
++	dglort.inner_rss = 1;
++	dglort.rss_l = fls(interface->ring_feature[RING_F_RSS].mask);
++	dglort.pc_l = fls(interface->ring_feature[RING_F_QOS].mask);
++	hw->mac.ops.configure_dglort_map(hw, &dglort);
++
++	/* assign GLORT per queue for queue mapped testing */
++	if (interface->glort_count > 64) {
++		memset(&dglort, 0, sizeof(dglort));
++		dglort.inner_rss = 1;
++		dglort.glort = interface->glort + 64;
++		dglort.idx = fm10k_dglort_pf_queue;
++		dglort.queue_l = fls(interface->num_rx_queues - 1);
++		hw->mac.ops.configure_dglort_map(hw, &dglort);
++	}
++
++	/* assign glort value for RSS/DCB specific to this interface */
++	memset(&dglort, 0, sizeof(dglort));
++	dglort.inner_rss = 1;
++	dglort.glort = interface->glort;
++	dglort.rss_l = fls(interface->ring_feature[RING_F_RSS].mask);
++	dglort.pc_l = fls(interface->ring_feature[RING_F_QOS].mask);
++	/* configure DGLORT mapping for RSS/DCB */
++	dglort.idx = fm10k_dglort_pf_rss;
++	hw->mac.ops.configure_dglort_map(hw, &dglort);
++}
++
++/**
++ * fm10k_configure_rx - Configure Receive Unit after Reset
++ * @interface: board private structure
++ *
++ * Configure the Rx unit of the MAC after a reset.
++ **/
++static void fm10k_configure_rx(struct fm10k_intfc *interface)
++{
++	int i;
++
++	/* Configure SWPRI to PC map */
++	fm10k_configure_swpri_map(interface);
++
++	/* Configure RSS and DGLORT map */
++	fm10k_configure_dglort(interface);
++
++	/* Setup the HW Rx Head and Tail descriptor pointers */
++	for (i = 0; i < interface->num_rx_queues; i++)
++		fm10k_configure_rx_ring(interface, interface->rx_ring[i]);
++
++	/* possible poll here to verify that Rx rings are now enabled */
++}
++
+ static void fm10k_napi_enable_all(struct fm10k_intfc *interface)
+ {
+ 	struct fm10k_q_vector *q_vector;
+@@ -970,6 +1263,12 @@ void fm10k_up(struct fm10k_intfc *interface)
+ 	/* Enable Tx/Rx DMA */
+ 	hw->mac.ops.start_hw(hw);
+ 
++	/* configure Tx descriptor rings */
++	fm10k_configure_tx(interface);
++
++	/* configure Rx descriptor rings */
++	fm10k_configure_rx(interface);
++
+ 	/* configure interrupts */
+ 	hw->mac.ops.update_int_moderator(hw);
+ 
+@@ -1031,6 +1330,9 @@ void fm10k_down(struct fm10k_intfc *interface)
+ 
+ 	/* Disable DMA engine for Tx/Rx */
+ 	hw->mac.ops.stop_hw(hw);
++
++	/* free any buffers still on the rings */
++	fm10k_clean_all_tx_rings(interface);
+ }
+ 
+ /**
 -- 
 1.9.3
