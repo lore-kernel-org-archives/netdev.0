@@ -1,102 +1,200 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net] sparc: bpf_jit: fix loads from negative offsets
-Date: Tue, 23 Sep 2014 13:50:10 -0700
-Message-ID: <1411505410-25215-1-git-send-email-ast@plumgrid.com>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:41607 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753947AbaIWUuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 16:50:21 -0400
-Received: by mail-pd0-f181.google.com with SMTP id r10so7205910pdi.40
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 13:50:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2] et131x: Promote staging et131x driver to drivers/net
+Date: Tue, 23 Sep 2014 14:07:17 -0700
+Message-ID: <1411506437.29268.13.camel@joe-AO725>
+References: <1411421283-25073-1-git-send-email-mark.einon@gmail.com>
+ <1411502723-4628-1-git-send-email-mark.einon@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, angus@agibson.me, gregkh@linuxfoundation.org,
+ linux-kernel@vger.kernel.org, netdev@vger.kernel.org, davem@davemloft.net
+To: Mark Einon <mark.einon@gmail.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1411502723-4628-1-git-send-email-mark.einon@gmail.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-- fix BPF_LD|ABS|IND from negative offsets:
-  make sure to sign extend lower 32 bits in 64-bit register
-  before calling C helpers from JITed code, otherwise 'int k'
-  argument of bpf_internal_load_pointer_neg_helper() function
-  will be added as large unsigned integer, causing packet size
-  check to trigger and abort the program.
+On Tue, 2014-09-23 at 21:05 +0100, Mark Einon wrote:
+> This patch moves the et131x gigabit ethernet driver from drivers/staging
+> to drivers/net/ethernet/agere.
 
-  It's worth noting that JITed code for 'A = A op K' will affect
-  upper 32 bits differently depending whether K is simm13 or not.
-  Since small constants are sign extended, whereas large constants
-  are stored in temp register and zero extended.
-  That is ok and we don't have to pay a penalty of sign extension
-  for every sethi, since all classic BPF instructions have 32-bit
-  semantics and we only need to set correct upper bits when
-  transitioning from JITed code into C.
+checkpatch type modification you might consider:
 
-- though instructions 'A &= 0' and 'A *= 0' are odd, JIT compiler
-  should not optimize them out
+Reduce logging line count by consolidating repeated dev_warn
+Use ether_addr_copy
+Line wrapping for 80 columns
+Remove unnecessary parentheses
+Remove unnecessary OOM message
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
+ drivers/staging/et131x/et131x.c | 51 ++++++++++++++++-------------------------
+ 1 file changed, 20 insertions(+), 31 deletions(-)
 
-More detailed explanation of 1st bug:
-  BPF_STMT(BPF_LD | BPF_B | BPF_ABS, SKF_LL_OFF)
-will be JITed as:
-  sethi	%hi(0xffe00000), %g3
-  or	%g3, 0, %g3
-  call	bpf_jit_load_byte_negative_offset
-which will do:
-  mov	%g3, %o1
-  call	bpf_internal_load_pointer_neg_helper
-  mov	1, %o2
-
-void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, unsigned int size)
-{
-  ...
-  ptr = skb_mac_header(skb) + k - SKF_LL_OFF;
-  here 'k' will be added as 0xffe00000 instead of SKF_LL_OFF == -0x200000
-
-After these fixes, test_bpf is now clean on sparc64.
-Compile tested only on sparc32
-
- arch/sparc/net/bpf_jit_asm.S  |    3 +++
- arch/sparc/net/bpf_jit_comp.c |    2 +-
- 2 files changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/arch/sparc/net/bpf_jit_asm.S b/arch/sparc/net/bpf_jit_asm.S
-index 9d016c7..8c83f4b 100644
---- a/arch/sparc/net/bpf_jit_asm.S
-+++ b/arch/sparc/net/bpf_jit_asm.S
-@@ -6,10 +6,12 @@
- #define SAVE_SZ		176
- #define SCRATCH_OFF	STACK_BIAS + 128
- #define BE_PTR(label)	be,pn %xcc, label
-+#define SIGN_EXTEND(reg)	sra reg, 0, reg
- #else
- #define SAVE_SZ		96
- #define SCRATCH_OFF	72
- #define BE_PTR(label)	be label
-+#define SIGN_EXTEND(reg)
- #endif
+diff --git a/drivers/staging/et131x/et131x.c b/drivers/staging/et131x/et131x.c
+index eefa9f1..3aaedc9 100644
+--- a/drivers/staging/et131x/et131x.c
++++ b/drivers/staging/et131x/et131x.c
+@@ -1294,9 +1294,8 @@ static int et131x_phy_mii_read(struct et131x_adapter *adapter, u8 addr,
+ 	/* If we hit the max delay, we could not read the register */
+ 	if (delay == 50) {
+ 		dev_warn(&adapter->pdev->dev,
+-			 "reg 0x%08x could not be read\n", reg);
+-		dev_warn(&adapter->pdev->dev, "status is  0x%08x\n",
+-			 mii_indicator);
++			 "reg 0x%08x could not be read - status is 0x%08x\n",
++			 reg, mii_indicator);
  
- #define SKF_MAX_NEG_OFF	(-0x200000) /* SKF_LL_OFF from filter.h */
-@@ -135,6 +137,7 @@ bpf_slow_path_byte_msh:
- 	save	%sp, -SAVE_SZ, %sp;			\
- 	mov	%i0, %o0;				\
- 	mov	r_OFF, %o1;				\
-+	SIGN_EXTEND(%o1);				\
- 	call	bpf_internal_load_pointer_neg_helper;	\
- 	 mov	(LEN), %o2;				\
- 	mov	%o0, r_TMP;				\
-diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
-index 51ae87b..ece4af0 100644
---- a/arch/sparc/net/bpf_jit_comp.c
-+++ b/arch/sparc/net/bpf_jit_comp.c
-@@ -184,7 +184,7 @@ do {								\
- 	 */
- #define emit_alu_K(OPCODE, K)					\
- do {								\
--	if (K) {						\
-+	if (K || OPCODE == AND || OPCODE == MUL) {		\
- 		unsigned int _insn = OPCODE;			\
- 		_insn |= RS1(r_A) | RD(r_A);			\
- 		if (is_simm13(K)) {				\
--- 
-1.7.9.5
+ 		status = -EIO;
+ 		goto out;
+@@ -1371,11 +1370,8 @@ static int et131x_mii_write(struct et131x_adapter *adapter, u8 addr, u8 reg,
+ 		u16 tmp;
+ 
+ 		dev_warn(&adapter->pdev->dev,
+-			 "reg 0x%08x could not be written", reg);
+-		dev_warn(&adapter->pdev->dev, "status is  0x%08x\n",
+-			 mii_indicator);
+-		dev_warn(&adapter->pdev->dev, "command is  0x%08x\n",
+-			 readl(&mac->mii_mgmt_cmd));
++			 "reg 0x%08x could not be written - status is 0x%08x - command is 0x%08x\n",
++			 reg, mii_indicator, readl(&mac->mii_mgmt_cmd));
+ 
+ 		et131x_mii_read(adapter, reg, &tmp);
+ 
+@@ -2444,10 +2440,8 @@ static struct rfd *nic_rx_pkts(struct et131x_adapter *adapter)
+ 	rfd->len = len;
+ 
+ 	skb = dev_alloc_skb(rfd->len + 2);
+-	if (!skb) {
+-		dev_err(&adapter->pdev->dev, "Couldn't alloc an SKB for Rx\n");
++	if (!skb)
+ 		return NULL;
+-	}
+ 
+ 	adapter->netdev->stats.rx_bytes += rfd->len;
+ 
+@@ -2661,7 +2655,7 @@ static int nic_send_packet(struct et131x_adapter *adapter, struct tcb *tcb)
+ 				desc[frag].len_vlan = skb_headlen(skb) / 2;
+ 				dma_addr = dma_map_single(&adapter->pdev->dev,
+ 							  skb->data,
+-							  (skb_headlen(skb) / 2),
++							  skb_headlen(skb) / 2,
+ 							  DMA_TO_DEVICE);
+ 				desc[frag].addr_lo = lower_32_bits(dma_addr);
+ 				desc[frag].addr_hi = upper_32_bits(dma_addr);
+@@ -2670,8 +2664,8 @@ static int nic_send_packet(struct et131x_adapter *adapter, struct tcb *tcb)
+ 				desc[frag].len_vlan = skb_headlen(skb) / 2;
+ 				dma_addr = dma_map_single(&adapter->pdev->dev,
+ 							  skb->data +
+-							  (skb_headlen(skb) / 2),
+-							  (skb_headlen(skb) / 2),
++							  skb_headlen(skb) / 2,
++							  skb_headlen(skb) / 2,
+ 							  DMA_TO_DEVICE);
+ 				desc[frag].addr_lo = lower_32_bits(dma_addr);
+ 				desc[frag].addr_hi = upper_32_bits(dma_addr);
+@@ -3212,15 +3206,13 @@ static void et131x_hwaddr_init(struct et131x_adapter *adapter)
+ 		 * working with so we need to copy the current
+ 		 * address into the permanent address
+ 		 */
+-		memcpy(adapter->rom_addr,
+-		       adapter->addr, ETH_ALEN);
++		ether_addr_copy(adapter->rom_addr, adapter->addr);
+ 	} else {
+ 		/* We do not have an override address, so set the
+ 		 * current address to the permanent address and add
+ 		 * it to the device
+ 		 */
+-		memcpy(adapter->addr,
+-		       adapter->rom_addr, ETH_ALEN);
++		ether_addr_copy(adapter->addr, adapter->rom_addr);
+ 	}
+ }
+ 
+@@ -3415,7 +3407,8 @@ static void et131x_adjust_link(struct net_device *netdev)
+ 			et131x_mii_read(adapter, PHY_MPHY_CONTROL_REG,
+ 					&register18);
+ 			et131x_mii_write(adapter, phydev->addr,
+-					 PHY_MPHY_CONTROL_REG, register18 | 0x4);
++					 PHY_MPHY_CONTROL_REG,
++					 register18 | 0x4);
+ 			et131x_mii_write(adapter, phydev->addr, PHY_INDEX_REG,
+ 					 register18 | 0x8402);
+ 			et131x_mii_write(adapter, phydev->addr, PHY_DATA_REG,
+@@ -3448,7 +3441,8 @@ static void et131x_adjust_link(struct net_device *netdev)
+ 			et131x_mii_read(adapter, PHY_MPHY_CONTROL_REG,
+ 					&register18);
+ 			et131x_mii_write(adapter, phydev->addr,
+-					 PHY_MPHY_CONTROL_REG, register18 | 0x4);
++					 PHY_MPHY_CONTROL_REG,
++					 register18 | 0x4);
+ 			et131x_mii_write(adapter, phydev->addr,
+ 					 PHY_INDEX_REG, register18 | 0x8402);
+ 			et131x_mii_write(adapter, phydev->addr,
+@@ -3778,8 +3772,7 @@ static irqreturn_t et131x_isr(int irq, void *dev_id)
+ 		 */
+ 		/* TRAP();*/
+ 
+-		dev_warn(&adapter->pdev->dev,
+-			 "RxDMA_ERR interrupt, error %x\n",
++		dev_warn(&adapter->pdev->dev, "RxDMA_ERR interrupt, error %x\n",
+ 			 readl(&iomem->txmac.tx_test));
+ 	}
+ 
+@@ -3805,8 +3798,7 @@ static irqreturn_t et131x_isr(int irq, void *dev_id)
+ 		 * occur. In a nutshell, the whole Tx path will have to be reset
+ 		 * and re-configured afterwards.
+ 		 */
+-		dev_warn(&adapter->pdev->dev,
+-			 "TXMAC interrupt, error 0x%08x\n",
++		dev_warn(&adapter->pdev->dev, "TXMAC interrupt, error 0x%08x\n",
+ 			 err);
+ 
+ 		/* If we are debugging, we want to see this error, otherwise we
+@@ -3823,11 +3815,8 @@ static irqreturn_t et131x_isr(int irq, void *dev_id)
+ 		/* MP_SET_FLAG( adapter, FMP_ADAPTER_HARDWARE_ERROR); */
+ 
+ 		dev_warn(&adapter->pdev->dev,
+-			 "RXMAC interrupt, error 0x%08x.  Requesting reset\n",
++			 "RXMAC interrupt, error 0x%08x - requesting reset - Enable 0x%08x, Diag 0x%08x\n",
+ 			 readl(&iomem->rxmac.err_reg));
+-
+-		dev_warn(&adapter->pdev->dev,
+-			 "Enable 0x%08x, Diag 0x%08x\n",
+ 			 readl(&iomem->rxmac.ctrl),
+ 			 readl(&iomem->rxmac.rxq_diag));
+ 
+@@ -4081,7 +4070,7 @@ static void et131x_multicast(struct net_device *netdev)
+ 	netdev_for_each_mc_addr(ha, netdev) {
+ 		if (i == NIC_MAX_MCAST_LIST)
+ 			break;
+-		memcpy(adapter->multicast_list[i++], ha->addr, ETH_ALEN);
++		ether_addr_copy(adapter->multicast_list[i++], ha->addr);
+ 	}
+ 	adapter->multicast_addr_count = i;
+ 
+@@ -4211,7 +4200,7 @@ static int et131x_change_mtu(struct net_device *netdev, int new_mtu)
+ 	et131x_init_send(adapter);
+ 
+ 	et131x_hwaddr_init(adapter);
+-	memcpy(netdev->dev_addr, adapter->addr, ETH_ALEN);
++	ether_addr_copy(netdev->dev_addr, adapter->addr);
+ 
+ 	/* Init the device with the new settings */
+ 	et131x_adapter_setup(adapter);
+@@ -4329,7 +4318,7 @@ static int et131x_pci_setup(struct pci_dev *pdev,
+ 	netif_napi_add(netdev, &adapter->napi, et131x_poll, 64);
+ 
+ 	/* Copy address into the net_device struct */
+-	memcpy(netdev->dev_addr, adapter->addr, ETH_ALEN);
++	ether_addr_copy(netdev->dev_addr, adapter->addr);
+ 
+ 	rc = -ENOMEM;
