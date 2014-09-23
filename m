@@ -1,67 +1,55 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
-Date: Tue, 23 Sep 2014 11:11:29 +0100
-Message-ID: <20140923101129.GD6944@casper.infradead.org>
-References: <541C6E6D.9000109@mojatatu.com>
- <541CAA3C.5080105@intel.com>
- <20140920081426.GE1821@nanopsycho.orion>
- <20140920105354.GA29419@casper.infradead.org>
- <CAADnVQK0wT2Fjqdg+C=ruSt8jF6sKeMo7cFj7K1fsu7-1u5g=g@mail.gmail.com>
- <20140922081341.GA20905@casper.infradead.org>
- <CA+mtBx-ZvkZ2ALGLsLEN7Cgn9gN_rY36ZhuqYC3mZ9WVxjFDaQ@mail.gmail.com>
- <CAADnVQKhUAR=qVg9q82ngYMzQnoDVbq+wupzdMrH8WiCeMiU4A@mail.gmail.com>
- <CA+mtBx-mJE6SW2bqf3_t6iu=o5FY1WAF1ByeZpDJnc+6fpK6nA@mail.gmail.com>
- <20140923041130.GA10808@gospo.home.greyhouse.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <therbert@google.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Vladislav Yasevich <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roop
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 0/3] tcp: better TCP_SKB_CB layout
+Date: Tue, 23 Sep 2014 03:34:09 -0700
+Message-ID: <1411468452-3729-1-git-send-email-edumazet@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Christoph Paasch <christoph.paasch@uclouvain.be>,
+	Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:59960 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755270AbaIWKLe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 06:11:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20140923041130.GA10808@gospo.home.greyhouse.net>
+Received: from mail-ie0-f201.google.com ([209.85.223.201]:58013 "EHLO
+	mail-ie0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755806AbaIWKeQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 06:34:16 -0400
+Received: by mail-ie0-f201.google.com with SMTP id rd18so703505iec.2
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 03:34:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/23/14 at 12:11am, Andy Gospodarek wrote:
-> There are clearly some that are most interested in how an eSwitch on an
-> SR-IOV capable NIC be controlled can provide traditional forwarding help
-> as well as offload the various technologies they hope to terminate
-> at/inside their endpoint (host/guest/container) -- Thomas's _simple_
-> use-case demonstrates this. ;)  This is a logical extention/increase in
-> functionality that is offered in many eSwitches that was previously
-> hidden from the user with the first generation SR-IOV capable network
-> devices on hosts/servers.
+TCP had the assumption that IPCB and IP6CB are first members of skb->cb[]
 
-I think we can define this more broadly and state that providing RX
-steering capabilities to identify a guest in the NIC allows to
-directly map packets into a memory region shared between host and
-guest. Not a new concept at all but the existing dMAC and VLAN rx
-filtering is just too limiting. We require a programmable API with
-support for encap and encryption. SR-IOV is a hardware assisted form
-of that which can expedite the guest to guest path on a host.
+This is fine, except that IPCB/IP6CB are used in TCP for a very short time
+in input path.
+
+What really matters for TCP stack is to get skb->next,
+TCP_SKB_CB(skb)->seq, and TCP_SKB_CB(skb)->end_seq in the same cache line.
+
+skb that are immediately consumed do not care because whole skb->cb[] is
+hot in cpu cache, while skb that sit in wocket write queue or receive queues
+do not need TCP_SKB_CB(skb)->header at all.
+
+This patch set implements the prereq for IPv4, IPv6, and TCP to make this
+possible. This makes TCP more efficient.
+
+
+Eric Dumazet (3):
+  ipv4: rename ip_options_echo to __ip_options_echo()
+  ipv6: add a struct inet6_skb_parm param to ipv6_opt_accepted()
+  tcp: better TCP_SKB_CB layout to reduce cache line misses
+
+ include/net/ip.h      | 15 ++++++++++++---
+ include/net/ipv6.h    |  3 ++-
+ include/net/tcp.h     | 12 ++++++------
+ net/dccp/ipv6.c       |  2 +-
+ net/ipv4/ip_options.c |  6 ++----
+ net/ipv4/ip_output.c  |  8 +++++---
+ net/ipv4/tcp_ipv4.c   | 17 +++++++++++++----
+ net/ipv4/tcp_output.c |  5 +++++
+ net/ipv6/af_inet6.c   |  4 ++--
+ net/ipv6/syncookies.c |  2 +-
+ net/ipv6/tcp_ipv6.c   | 12 ++++++++++--
+ 11 files changed, 59 insertions(+), 27 deletions(-)
+
+-- 
+2.1.0.rc2.206.gedb03e5
