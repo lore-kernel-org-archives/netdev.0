@@ -1,100 +1,53 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
-Date: Tue, 23 Sep 2014 00:11:30 -0400
-Message-ID: <20140923041130.GA10808@gospo.home.greyhouse.net>
-References: <20140919154946.GH1980@nanopsycho.orion>
- <541C6E6D.9000109@mojatatu.com>
- <541CAA3C.5080105@intel.com>
- <20140920081426.GE1821@nanopsycho.orion>
- <20140920105354.GA29419@casper.infradead.org>
- <CAADnVQK0wT2Fjqdg+C=ruSt8jF6sKeMo7cFj7K1fsu7-1u5g=g@mail.gmail.com>
- <20140922081341.GA20905@casper.infradead.org>
- <CA+mtBx-ZvkZ2ALGLsLEN7Cgn9gN_rY36ZhuqYC3mZ9WVxjFDaQ@mail.gmail.com>
- <CAADnVQKhUAR=qVg9q82ngYMzQnoDVbq+wupzdMrH8WiCeMiU4A@mail.gmail.com>
- <CA+mtBx-mJE6SW2bqf3_t6iu=o5FY1WAF1ByeZpDJnc+6fpK6nA@mail.gmail.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH] ath: change logging functions to return void
+Date: Tue, 23 Sep 2014 07:20:53 +0300
+Message-ID: <874mvzj7bu.fsf@kamboji.qca.qualcomm.com>
+References: <1411407334.2952.46.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Vladislav Yasevich <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabh
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:46526 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753122AbaIWEKc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 00:10:32 -0400
-Content-Disposition: inline
-In-Reply-To: <CA+mtBx-mJE6SW2bqf3_t6iu=o5FY1WAF1ByeZpDJnc+6fpK6nA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>,
+	<ath10k@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	wil6210 <wil6210@qca.qualcomm.com>, <ath6kl@lists.infradead.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1411407334.2952.46.camel@joe-AO725> (Joe Perches's message of
+	"Mon, 22 Sep 2014 10:35:34 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 22, 2014 at 07:16:47PM -0700, Tom Herbert wrote:
-[...]
-> 
-> Alexei, I believe you said previously said that SW should not dictate
-> HW models. I agree with this, but also believe the converse is true--
-> HW shouldn't dictate SW model. This is really why I'm raising the
-> question of what it means to integrate a switch into the host stack.
+Joe Perches <joe@perches.com> writes:
 
-Tom, when I read this I cannot help but remind myself that the
-intentions/hopes/dreams of those on this thread and how different their
-views can be on what it means to add additional 'offload support' to the
-kernel.
+> The return values are not used by callers of these functions
+> so change the functions to return void.
+>
+> Other miscellanea:
+>
+> o add __printf verification to wil6210 logging functions
+>   No format/argument mismatches found
+>
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+> This change is associated to a desire to eventually
+> change printk to return void.
+>
+>  drivers/net/wireless/ath/ath10k/debug.c    | 18 +++++-------------
+>  drivers/net/wireless/ath/ath10k/debug.h    |  6 +++---
+>  drivers/net/wireless/ath/ath6kl/common.h   |  2 +-
+>  drivers/net/wireless/ath/ath6kl/debug.c    | 28 ++++++++--------------------
+>  drivers/net/wireless/ath/ath6kl/debug.h    | 13 ++++++-------
 
-There are clearly some that are most interested in how an eSwitch on an
-SR-IOV capable NIC be controlled can provide traditional forwarding help
-as well as offload the various technologies they hope to terminate
-at/inside their endpoint (host/guest/container) -- Thomas's _simple_
-use-case demonstrates this. ;)  This is a logical extention/increase in
-functionality that is offered in many eSwitches that was previously
-hidden from the user with the first generation SR-IOV capable network
-devices on hosts/servers.
+For ath6kl and ath10k:
 
-Others (like Florian who has been working to extend DSA or those pushing
-hardware vendors to make SDKs more open) where the existing bridging/
-routing/offload code can take advantage of the hardware offload/encap
-available in merchant silicon.  The general idea seems to add the
-knowledge of offload hardware to the kernel -- either via new ndo_ops or
-netlink.  This gives users who have this hardware the ability to have a
-solution for their router/switch that makes it feel like Linux is
-actually helping make forwarding decisions -- rather than just being the
-kernel chosen to provide an environment where some other non-community
-code runs that makes all of the decisions.
+Acked-by: Kalle Valo <kvalo@qca.qualcomm.com>
 
-And now we also have the patchset that spawned what I think has been
-more excellent discussion.  Jiri and Scott's patches bring up another,
-more generic model that while not currently backed by hardware provided
-an example/vision for what could be done if such hardware existed and
-how to consider interacting with that driver/hardware (that clearly has
-been met with some resistance, but the discussion has been great).
-There ultimate goals appear to be similar to those that want full
-offload/fordwarding support for a device, but via a different method
-than what some would consider standard.
+>  drivers/net/wireless/ath/wil6210/debug.c   | 14 ++++----------
+>  drivers/net/wireless/ath/wil6210/wil6210.h |  7 +++++--
+>  7 files changed, 32 insertions(+), 56 deletions(-)
 
-I am personally hopeful that most who are passionate about this will be
-able to get together next month at LPC (or send someone to represent
-them!) so that those interested can sit in the same room and try to
-better understand each others desires and start to form some concrete
-direction towards a solution that seems to meet the needs of most while
-not being an architectural disaster.
+John, as this patch also contains a wil6210 change how do you want to
+handle this?
 
-Of course that may be way too optimistic for this crowd!  :-D
+-- 
+Kalle Valo
