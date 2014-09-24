@@ -1,35 +1,83 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: Re: [PATCH/RFC repost 5/8] datapath: Move last_action()
- helper to datapath.h
-Date: Wed, 24 Sep 2014 09:20:15 +0100
-Message-ID: <20140924082015.GC24298@casper.infradead.org>
-References: <1411005311-11752-1-git-send-email-simon.horman@netronome.com>
- <1411005311-11752-6-git-send-email-simon.horman@netronome.com>
- <20140919140638.GC8257@casper.infradead.org>
- <20140924060013.GB13314@vergenet.net>
+From: Mark Einon <mark.einon@gmail.com>
+Subject: [PATCH 1/4] staging: et131x: Use ether_addr_copy when copying
+ ethernet addresses
+Date: Wed, 24 Sep 2014 09:54:39 +0100
+Message-ID: <1411548882-10639-1-git-send-email-mark.einon@gmail.com>
+References: <1411506437.29268.13.camel@joe-AO725>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20140924060013.GB13314-IxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: devel@driverdev.osuosl.org, angus@agibson.me, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, joe@perches.com,
+ Mark Einon <mark.einon@gmail.com>, davem@davemloft.net
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1411506437.29268.13.camel@joe-AO725>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On 09/24/14 at 03:00pm, Simon Horman wrote:
-> On Fri, Sep 19, 2014 at 03:06:38PM +0100, Thomas Graf wrote:
-> > Can we rename & move this to <net/netlink.h> instead?
-> 
-> Sure, how about nla_is_last()?
+Reported-by: Joe Perches <joe@perches.com>
+Signed-off-by: Mark Einon <mark.einon@gmail.com>
+---
+ drivers/staging/et131x/et131x.c |   12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
-Sounds great
+diff --git a/drivers/staging/et131x/et131x.c b/drivers/staging/et131x/et131x.c
+index 4b2ae49..b976c75 100644
+--- a/drivers/staging/et131x/et131x.c
++++ b/drivers/staging/et131x/et131x.c
+@@ -3188,15 +3188,13 @@ static void et131x_hwaddr_init(struct et131x_adapter *adapter)
+ 		 * working with so we need to copy the current
+ 		 * address into the permanent address
+ 		 */
+-		memcpy(adapter->rom_addr,
+-		       adapter->addr, ETH_ALEN);
++		ether_addr_copy(adapter->rom_addr, adapter->addr);
+ 	} else {
+ 		/* We do not have an override address, so set the
+ 		 * current address to the permanent address and add
+ 		 * it to the device
+ 		 */
+-		memcpy(adapter->addr,
+-		       adapter->rom_addr, ETH_ALEN);
++		ether_addr_copy(adapter->addr, adapter->rom_addr);
+ 	}
+ }
+ 
+@@ -4048,7 +4046,7 @@ static void et131x_multicast(struct net_device *netdev)
+ 	netdev_for_each_mc_addr(ha, netdev) {
+ 		if (i == NIC_MAX_MCAST_LIST)
+ 			break;
+-		memcpy(adapter->multicast_list[i++], ha->addr, ETH_ALEN);
++		ether_addr_copy(adapter->multicast_list[i++], ha->addr);
+ 	}
+ 	adapter->multicast_addr_count = i;
+ 
+@@ -4178,7 +4176,7 @@ static int et131x_change_mtu(struct net_device *netdev, int new_mtu)
+ 	et131x_init_send(adapter);
+ 
+ 	et131x_hwaddr_init(adapter);
+-	memcpy(netdev->dev_addr, adapter->addr, ETH_ALEN);
++	ether_addr_copy(netdev->dev_addr, adapter->addr);
+ 
+ 	/* Init the device with the new settings */
+ 	et131x_adapter_setup(adapter);
+@@ -4296,7 +4294,7 @@ static int et131x_pci_setup(struct pci_dev *pdev,
+ 	netif_napi_add(netdev, &adapter->napi, et131x_poll, 64);
+ 
+ 	/* Copy address into the net_device struct */
+-	memcpy(netdev->dev_addr, adapter->addr, ETH_ALEN);
++	ether_addr_copy(netdev->dev_addr, adapter->addr);
+ 
+ 	rc = -ENOMEM;
+ 
+-- 
+1.7.10.4
