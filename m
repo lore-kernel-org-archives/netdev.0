@@ -1,101 +1,64 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: Fw: [Bug 84951] New: 8021q: kernel doesn't take into account
- ethernet header bytes for received packets
-Date: Wed, 24 Sep 2014 10:36:49 -0400
-Message-ID: <5422D701.7080505@gmail.com>
-References: <20140922090134.3a114531@urahara>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCHv6 net-next 1/3] sunvnet: upgrade to VIO protocol version
+ 1.6
+Date: Wed, 24 Sep 2014 10:43:31 -0400
+Message-ID: <5422D893.6050306@oracle.com>
+References: <541AD838.50700@oracle.com>	<20140923.122420.1216927815526255624.davem@davemloft.net>	<5421A497.9060903@oracle.com> <20140923.144432.343377380510348797.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
+Cc: Raghuram.Kothakota@oracle.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f47.google.com ([209.85.192.47]:63827 "EHLO
-	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751228AbaIXOgw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 10:36:52 -0400
-Received: by mail-qg0-f47.google.com with SMTP id z107so6029718qgd.34
-        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 07:36:51 -0700 (PDT)
-In-Reply-To: <20140922090134.3a114531@urahara>
+Received: from userp1040.oracle.com ([156.151.31.81]:16799 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750856AbaIXOnm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 10:43:42 -0400
+In-Reply-To: <20140923.144432.343377380510348797.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/22/2014 12:01 PM, Stephen Hemminger wrote:
-> I am inclined to think this is something that is just an incorrect
-> user expectation.
 
-Looks like a valid bug.  vlan just uses skb->len which already had
-the eth header stripped off, so it will always under-report 12 bytes
-per packet.
 
--vlad
+On 09/23/2014 02:44 PM, David Miller wrote:
+> From: David L Stevens <david.stevens@oracle.com>
+> Date: Tue, 23 Sep 2014 12:49:27 -0400
+> 
+>> Actually, that's exactly what I've been working on for the last few
+>> days. I hope to post this soon. Currently, I allow for misaligned
+>> packets by reallocating the skbs with the proper alignment, skip and
+>> length restrictions, so the code can handle either, but still copies
+>> most of the time. Once I have all the kinks worked out there, I was
+>> planning to possibly make *all* skb allocations on LDOMs and/or SPARC64 fit
+>> those requirements, since they are compatible with the existing alignments
+>> and would allow using the HV copy in any case.
+> 
+> You should be able to avoid the copy on TX almost all of the time.
+> 
+> If you do a skb_push(skb, VNET_PACKET_SKIP) (and initialize with some
+> garbage bytes) it ought to be aligned.
 
-> 
-> Begin forwarded message:
-> 
-> Date: Sun, 21 Sep 2014 11:47:22 -0700
-> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-> Subject: [Bug 84951] New: 8021q: kernel doesn't take into account ethernet header bytes for received packets
-> 
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=84951
-> 
->             Bug ID: 84951
->            Summary: 8021q: kernel doesn't take into account ethernet
->                     header bytes for received packets
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 3.16.1
->           Hardware: All
->                 OS: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->           Assignee: shemminger@linux-foundation.org
->           Reporter: g.djavadyan@gmail.com
->         Regression: No
-> 
-> Statistics exported by the kernel for received packets on 802.1q subinterfaces
-> don't consider Ethernet header bytes (dst MAC, src MAC, type). Statistics for
-> transmitted packets is not affected. The problem is more prominent on
-> high-speed links (>100Mb/s), as networking tools (nload, iftop, ...) display
-> lower bandwidth utilization (>5Mb/s difference) than a report from neighboring
-> routing device (FreeBSD, Cisco). Also, someone monitoring Linux router
-> interfaces will find that the router generates more information than it
-> receives.
-> 
-> Tested on CentOS kernel 2.6.32-431.29.2.el6.x86_64 and vanilla 3.16.1 with
-> drivers: bnx2, atl1c and igb.
-> 
-> How to reproduce:
-> 
-> 1. Create dot1q subinterfaces on two boxes (vconfig add eth0 4040).
-> 2. Assign IP addresses to subinterfaces.
-> 3. Check the connection using ping.
-> 4. Check the output from ifconfig eth0.4040 or 'cat
-> /sys/class/net/eth0.4040/statistics/rx_{packets,bytes}'.
-> 5. Issue standard 56 byte payload ping using 'ping -c 1 neighboring_ip'.
-> 6. Recheck statistics using step 4.
-> 
-> Expected results:
-> 
-> Received packets value should increase by 1 and received bytes value should
-> increase by 98.
-> 
-> dst MAC - 6
-> src MAC - 6
-> ethertype - 2
-> IP header - 20
-> ICMP header - 8
-> ICMP Payload - 56
-> Total: 98 bytes.
-> 
-> 
-> Actual results:
-> 
-> Received packets value increases by 1 and received bytes value increases by 84
-> bytes.
-> 
+I can't touch the data buffer (head or tail) without getting a COW copy,
+which is often also misaligned, but the code I have now is mapping the
+existing head and tail as long as they are part of the skb (ie, headroom
+and tailroom to fit it) and with that, I can avoid copies almost all the
+time in TCP.
+
+ICMP and ARP still copy usually, but aren't generally high-volume. I didn't
+try out UDP yet.
+
+Initial testing shows a ~25% reduction in throughput for the default MTU
+(from ~1Gbps to ~750Mbps), but with 64K MTU, I get a ~25% increase in throughput--
+from ~7.5Gbps with the original patches to 9.6Gbps with the no-copy, but
+remapping, allocating, freeing and unmapping on demand.
+
+Of course the reduction in throughput on the low end eliminates static tx
+buffers so allows scaling up the number of LDOMs per vswitch without any
+penalty in memory, instead of the n^2 growth before.
+
+If the current static buffer allocation is "good enough," despite its poor
+scaling, then we might consider a hybrid where we essentially use the old
+code for smaller packets, and direct mapping for larger ones. I have some
+other ideas to experiment with, too.
+
+							+-DLS
