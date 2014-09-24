@@ -1,64 +1,46 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: Re: [PATCHv6 net-next 1/3] sunvnet: upgrade to VIO protocol version
- 1.6
-Date: Wed, 24 Sep 2014 10:43:31 -0400
-Message-ID: <5422D893.6050306@oracle.com>
-References: <541AD838.50700@oracle.com>	<20140923.122420.1216927815526255624.davem@davemloft.net>	<5421A497.9060903@oracle.com> <20140923.144432.343377380510348797.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Raghuram.Kothakota@oracle.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH] vlan: Fix receive statistics under-reporting
+Date: Wed, 24 Sep 2014 10:45:06 -0400
+Message-ID: <1411569906-31679-1-git-send-email-vyasevic@redhat.com>
+References: <20140922090134.3a114531@urahara>
+Cc: stephen@networkplumber.org,
+	Vladislav Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:16799 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750856AbaIXOnm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 10:43:42 -0400
-In-Reply-To: <20140923.144432.343377380510348797.davem@davemloft.net>
+Received: from mail-qc0-f176.google.com ([209.85.216.176]:65095 "EHLO
+	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751868AbaIXOpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 10:45:17 -0400
+Received: by mail-qc0-f176.google.com with SMTP id o8so3539952qcw.35
+        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 07:45:16 -0700 (PDT)
+In-Reply-To: <20140922090134.3a114531@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Vlan devices uder-report 14 bytes per packet in the recieve statistics.
+This is because the ETH_HLEN bytes of data has been pulled off the skb
+by the time it gets to the vlan receive code.  When accounting for
+receive butes, add ETH_HLEN back.
 
+See also https://bugzilla.kernel.org/show_bug.cgi?id=84951
 
-On 09/23/2014 02:44 PM, David Miller wrote:
-> From: David L Stevens <david.stevens@oracle.com>
-> Date: Tue, 23 Sep 2014 12:49:27 -0400
-> 
->> Actually, that's exactly what I've been working on for the last few
->> days. I hope to post this soon. Currently, I allow for misaligned
->> packets by reallocating the skbs with the proper alignment, skip and
->> length restrictions, so the code can handle either, but still copies
->> most of the time. Once I have all the kinks worked out there, I was
->> planning to possibly make *all* skb allocations on LDOMs and/or SPARC64 fit
->> those requirements, since they are compatible with the existing alignments
->> and would allow using the HV copy in any case.
-> 
-> You should be able to avoid the copy on TX almost all of the time.
-> 
-> If you do a skb_push(skb, VNET_PACKET_SKIP) (and initialize with some
-> garbage bytes) it ought to be aligned.
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+---
+ net/8021q/vlan_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I can't touch the data buffer (head or tail) without getting a COW copy,
-which is often also misaligned, but the code I have now is mapping the
-existing head and tail as long as they are part of the skb (ie, headroom
-and tailroom to fit it) and with that, I can avoid copies almost all the
-time in TCP.
-
-ICMP and ARP still copy usually, but aren't generally high-volume. I didn't
-try out UDP yet.
-
-Initial testing shows a ~25% reduction in throughput for the default MTU
-(from ~1Gbps to ~750Mbps), but with 64K MTU, I get a ~25% increase in throughput--
-from ~7.5Gbps with the original patches to 9.6Gbps with the no-copy, but
-remapping, allocating, freeing and unmapping on demand.
-
-Of course the reduction in throughput on the low end eliminates static tx
-buffers so allows scaling up the number of LDOMs per vswitch without any
-penalty in memory, instead of the n^2 growth before.
-
-If the current static buffer allocation is "good enough," despite its poor
-scaling, then we might consider a hybrid where we essentially use the old
-code for smaller packets, and direct mapping for larger ones. I have some
-other ideas to experiment with, too.
-
-							+-DLS
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 90cc2bd..8bc5d46 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -54,7 +54,7 @@ bool vlan_do_receive(struct sk_buff **skbp)
+ 
+ 	u64_stats_update_begin(&rx_stats->syncp);
+ 	rx_stats->rx_packets++;
+-	rx_stats->rx_bytes += skb->len;
++	rx_stats->rx_bytes += skb->len + ETH_HLEN;
+ 	if (skb->pkt_type == PACKET_MULTICAST)
+ 		rx_stats->rx_multicast++;
+ 	u64_stats_update_end(&rx_stats->syncp);
+-- 
+1.9.3
