@@ -1,43 +1,58 @@
-From: Lars Melin <larsm17-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] usb: gadget: f_rndis: fix usb_interface_descriptor for
- rndis
-Date: Wed, 24 Sep 2014 19:25:30 +0700
-Message-ID: <5422B83A.8030406@gmail.com>
-References: <1411541339-32400-1-git-send-email-hs@denx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>, Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrzej Pietrasiewicz <andrzej.p-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Michal Nazarewicz <mina86-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>,
-	Kyungmin Park <kyungmin.park-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	Macpaul Lin <macpaul-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1411541339-32400-1-git-send-email-hs-ynQEQJNshbs@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: [PATCH net-next v2] tcp: use tcp_flags in tcp_data_queue()
+Date: Wed, 24 Sep 2014 20:42:49 +0800
+Message-ID: <c02ed73dc0aa5bf5bdd479ec49403728db8e73c6.1411562110.git.panweiping3@gmail.com>
+References: <1411556068.15395.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Cc: edumazet@google.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:29190 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752025AbaIXMnD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2014 08:43:03 -0400
+In-Reply-To: <1411556068.15395.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2014-09-24 13:48, Heiko Schocher wrote:
-> use the values for RNDIS over Ethernet as defined in
-> http://www.usb.org/developers/defined_class
-> (search for RDNIS):
->
-> - baseclass: 0xef (miscellaneous)
-> - subclass: 0x04
-> - protocol: 0x01
->
-That is usb class, it is not the same thing as communication device class.
-> --- a/include/uapi/linux/usb/cdc.h
-> +++ b/include/uapi/linux/usb/cdc.h
-> @@ -12,6 +12,7 @@
->   #include <linux/types.h>
->   
->   #define USB_CDC_SUBCLASS_ACM			0x02
-> +#define USB_CDC_SUBCLASS_RNDIS			0x04
-No, no, no.
-There is no CDC_SUBCLASS_RNDIS and you can not define one over an 
-already used cdc subclass number,  0x04 is  Multi-Channel Control Model
+Follow the idea in commit e11ecddf5128 (tcp: use TCP_SKB_CB(skb)->tcp_flags in
+input path), we can use tcp_flags to avoid cache miss.
+
+v2: remove variable th
+
+Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+---
+ net/ipv4/tcp_input.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 13f3da4..a51663f 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4339,7 +4339,6 @@ err:
+ 
+ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ {
+-	const struct tcphdr *th = tcp_hdr(skb);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	int eaten = -1;
+ 	bool fragstolen = false;
+@@ -4348,7 +4347,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ 		goto drop;
+ 
+ 	skb_dst_drop(skb);
+-	__skb_pull(skb, th->doff * 4);
++	__skb_pull(skb, tcp_hdr(skb)->doff * 4);
+ 
+ 	TCP_ECN_accept_cwr(tp, skb);
+ 
+@@ -4392,7 +4391,7 @@ queue_and_out:
+ 		tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+ 		if (skb->len)
+ 			tcp_event_data_recv(sk, skb);
+-		if (th->fin)
++		if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
+ 			tcp_fin(sk);
+ 
+ 		if (!skb_queue_empty(&tp->out_of_order_queue)) {
+-- 
+1.7.4
