@@ -1,54 +1,80 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
-Date: Wed, 24 Sep 2014 18:31:51 +0200
-Message-ID: <5422F1F7.8010308@6wind.com>
-References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>	<CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw@mail.gmail.com>	<54228D87.3070309@6wind.com>	<CAHA+R7NfJYzCsZx0E9YVXKVCQbCm_thPSi+80tix8Z9nVA82Ug@mail.gmail.com>
-	<CAHA+R7MVL=WpepRy8iz6iT6Kkq1RHG+b9TxJothP94ixyAj-3Q@mail.gmail.com>
-Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 85091] New: neighbour table overflow is not reported and
+ impacts localhost TCP connectivity
+Date: Wed, 24 Sep 2014 09:32:16 -0700
+Message-ID: <20140924093216.083c77b4@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <CAHA+R7MVL=WpepRy8iz6iT6Kkq1RHG+b9TxJothP94ixyAj-3Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:41717 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751875AbaIXQcZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 12:32:25 -0400
+Received: by mail-pd0-f174.google.com with SMTP id g10so8318977pdj.5
+        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 09:32:25 -0700 (PDT)
+Received: from urahara (static-50-53-65-80.bvtn.or.frontiernet.net. [50.53.65.80])
+        by mx.google.com with ESMTPSA id fk11sm15189661pdb.91.2014.09.24.09.32.23
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 24 Sep 2014 09:32:24 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TGUgMjQvMDkvMjAxNCAxODoxNSwgQ29uZyBXYW5nIGEgw6ljcml0IDoKPiBPbiBXZWQsIFNlcCAy
-NCwgMjAxNCBhdCA5OjAxIEFNLCBDb25nIFdhbmcgPGN3YW5nQHR3b3BlbnNvdXJjZS5jb20+IHdy
-b3RlOgo+Pgo+PiBBbmQgY2xlYXJseSB5b3UgbWlzc2VkIG15IHF1ZXN0aW9uIGFib3ZlOiBob3cg
-ZG8geW91IGdldCBuZXRucyBpZAo+PiB3aXRob3V0IHNoYXJpbmcgL3Zhci9ydW4vbmV0bnMvID8K
-Pgo+IE9LLCBJIGZvdW5kIGl0Ogo+Cj4+IElkcyBhcmUgc3RvcmVkIGluIHRoZSBwYXJlbnQgdXNl
-ciBuYW1lc3BhY2UuIFRoZXNlIGlkcyBhcmUgdmFsaWQgb25seSBpbnNpZGUKPj4gdGhpcyB1c2Vy
-IG5hbWVzcGFjZS4gVGhlIHVzZXIgY2FuIHJldHJpZXZlIHRoZXNlIGlkcyB2aWEgYSBuZXcgbmV0
-bGluayBtZXNzYWdlcywKPj4gYnV0IG9ubHkgaWYgcGVlciBuZXRucyBhcmUgaW4gdGhlIHNhbWUg
-dXNlciBuYW1lc3BhY2UuCj4KPiBTbyB5b3VyIGV4YW1wbGUgaXMgY29uZnVzaW5nLCBwZXJoYXBz
-IHlvdSBuZWVkIHNvbWUgb3RoZXIgd2F5IHRvIHNob3cgdGhlIElEJ3MKPiBpbnN0ZWFkIG9mIGJp
-bmRpbmcgdG8gaXAgbmV0bnMgb3V0cHV0IHdoaWNoIGlzIGJhc2ljYWxseSBscwo+IC92YXIvcnVu
-L25ldG5zLy4gV2UgZG9uJ3QKPiB3YW50IGFuIGlubmVyIG5ldG5zIGtub3cgYW55dGhpbmcgb3V0
-c2lkZSwgSU9XLCB3ZSBkb24ndCBzaGFyZSAvdmFyL3J1bi9uZXRucy8uCkhtbSwgbm90IHN1cmUg
-dG8gdW5kZXJzdGFuZCB5b3UuIE15IHVzZWNhc2Ugc2hhcmVzIC92YXIvcnVuL25ldG5zLCBiZWNh
-dXNlCnRoZXJlIGlzIG9ubHkgb25lIHVzZXIgbnMgYW5kIG9uZSBtb3VudCBucy4KCj4gSSB0aGlu
-ayBpbiB0aGlzIGNhc2UgeW91ciBJRCdzIGFyZSBzdGlsbCBhdmFpbGFibGUsIGJ1dCBhcmVuJ3Qg
-eW91Cj4gcHJvdmlkaW5nIGEgbmV3IHdheQo+IGZvciB0aGUgaW5uZXIgbmV0bnMgZGV2aWNlIHRv
-IGVzY2FwZSB3aGljaCB3ZSBhcmUgdHJ5aW5nIHRvIGF2b2lkPwpJdCdzIHdoeSB0aGUgaWRzIGRl
-cGVuZCBvbiB1c2VyIG5zLiBPbmx5IGlmIHVzZXIgbnMgYXJlIHRoZSBzYW1lIHdlIGFsbG93IHRv
-CmdldCBhbiBpZCBmb3IgYSBwZWVyIG5ldG5zLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpDb250YWluZXJzIG1haWxpbmcgbGlzdApDb250YWluZXJzQGxp
-c3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9y
-Zy9tYWlsbWFuL2xpc3RpbmZvL2NvbnRhaW5lcnM=
+
+
+Begin forwarded message:
+
+Date: Wed, 24 Sep 2014 03:44:41 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 85091] New: neighbour table overflow is not reported and impacts localhost TCP connectivity
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=85091
+
+            Bug ID: 85091
+           Summary: neighbour table overflow is not reported and impacts
+                    localhost TCP connectivity
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.8 - 3.17-rc6
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+          Assignee: shemminger@linux-foundation.org
+          Reporter: aschultz@tpip.net
+        Regression: No
+
+With the default gc_thresh values and a busy /16 network attached, the
+neighbour cache can overflow. No indication is given that this happens and it
+does impact TCP on localhost.
+
+Test setup:
+
+* about 16k (simulated IP/MAC's) on one interface
+* web server behind on second interface
+* routing between the two
+* HTTP benchmark from the 16k IP's to the web server
+* for localhost connectivity verification a netperf instance is run on
+localhost like so: 'netperf -D 1 -l 600 127.0.0.1'
+
+Result:
+
+Kernel has to learn the 16k IP/MAC combinations, as soon as gc_thresh3 is hit,
+netperf stalls, no syslog/kernel message indicates the problem.
+
+The only indication are log entries like this:
+
+  "net_ratelimit: 1464 callbacks suppressed"
+
+No other messages are logged.
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
