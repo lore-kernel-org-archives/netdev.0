@@ -1,7 +1,7 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 5/5] ARCNET: enable eae arcnet card support
-Date: Wed, 24 Sep 2014 15:41:53 +0200
-Message-ID: <1411566113-15583-6-git-send-email-m.grzeschik@pengutronix.de>
+Subject: [PATCH 1/5] ARCNET: return IRQ_NONE if the interface isn't running
+Date: Wed, 24 Sep 2014 15:41:49 +0200
+Message-ID: <1411566113-15583-2-git-send-email-m.grzeschik@pengutronix.de>
 References: <1411566113-15583-1-git-send-email-m.grzeschik@pengutronix.de>
 Cc: linux-kernel@vger.kernel.org, kernel@pengutronix.de
 To: netdev@vger.kernel.org
@@ -10,47 +10,28 @@ In-Reply-To: <1411566113-15583-1-git-send-email-m.grzeschik@pengutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds support for the EAE arcnet cards
-which has two Interfaces.
+The interrupt handler needs to return IRQ_NONE in case
+two devices are used with the shared interrupt handler.
+Otherwise it could steal interrupts from the other
+interface.
 
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
- drivers/net/arcnet/com20020-pci.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ drivers/net/arcnet/arcnet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
-index fe87576..6c99ff0 100644
---- a/drivers/net/arcnet/com20020-pci.c
-+++ b/drivers/net/arcnet/com20020-pci.c
-@@ -211,6 +211,16 @@ static struct com20020_pci_card_info card_info_sohard = {
- 	.flags = ARC_CAN_10MBIT,
- };
+diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
+index 3b790de..09de683 100644
+--- a/drivers/net/arcnet/arcnet.c
++++ b/drivers/net/arcnet/arcnet.c
+@@ -777,7 +777,7 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
+ 			ACOMMAND(CFLAGScmd | RESETclear);
+ 		AINTMASK(0);
+ 		spin_unlock(&lp->lock);
+-		return IRQ_HANDLED;
++		return retval;
+ 	}
  
-+static struct com20020_pci_card_info card_info_eae = {
-+	.name = "EAE PLX-PCI",
-+	.devcount = 2,
-+	.chan_map_tbl = {
-+		{ 2, 0x00, 0x08 },
-+		{ 2, 0x08, 0x08 }
-+	},
-+	.flags = ARC_CAN_10MBIT,
-+};
-+
- static const struct pci_device_id com20020pci_id_table[] = {
- 	{
- 		0x1571, 0xa001,
-@@ -345,6 +355,12 @@ static const struct pci_device_id com20020pci_id_table[] = {
- 		(kernel_ulong_t)&card_info_sohard
- 	},
- 	{
-+		0x10B5, 0x9050,
-+		0x10B5, 0x3292,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_eae
-+	},
-+	{
- 		0x14BA, 0x6000,
- 		PCI_ANY_ID, PCI_ANY_ID,
- 		0, 0,
+ 	BUGMSG(D_DURING, "in arcnet_inthandler (status=%Xh, intmask=%Xh)\n",
 -- 
 2.1.0
