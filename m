@@ -1,59 +1,36 @@
-From: Heiko Schocher <hs@denx.de>
-Subject: Re: [PATCH] usb: gadget: f_rndis: fix usb_interface_descriptor for
- rndis
-Date: Wed, 24 Sep 2014 15:12:31 +0200
-Message-ID: <5422C33F.400@denx.de>
-References: <1411541339-32400-1-git-send-email-hs@denx.de> <5422B83A.8030406@gmail.com>
-Reply-To: hs@denx.de
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2] tcp: use tcp_flags in tcp_data_queue()
+Date: Wed, 24 Sep 2014 06:22:28 -0700
+Message-ID: <1411564948.15395.31.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1411556068.15395.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <c02ed73dc0aa5bf5bdd479ec49403728db8e73c6.1411562110.git.panweiping3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, Felipe Balbi <balbi@ti.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-api@vger.kernel.org,
-	Andrzej Pietrasiewicz <andrzej.p@samsung.com>,
-	Michal Nazarewicz <mina86@mina86.com>,
-	Kyungmin Park <kyungmin.park@samsung.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	Macpaul Lin <macpaul@gmail.com>
-To: Lars Melin <larsm17@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5422B83A.8030406@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: Weiping Pan <panweiping3@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:58310 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750725AbaIXNWY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 09:22:24 -0400
+Received: by mail-pd0-f172.google.com with SMTP id y10so8684703pdj.31
+        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 06:22:24 -0700 (PDT)
+In-Reply-To: <c02ed73dc0aa5bf5bdd479ec49403728db8e73c6.1411562110.git.panweiping3@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Lars,
+On Wed, 2014-09-24 at 20:42 +0800, Weiping Pan wrote:
+> Follow the idea in commit e11ecddf5128 (tcp: use TCP_SKB_CB(skb)->tcp_flags in
+> input path), we can use tcp_flags to avoid cache miss.
+> 
 
-Am 24.09.2014 14:25, schrieb Lars Melin:
-> On 2014-09-24 13:48, Heiko Schocher wrote:
->> use the values for RNDIS over Ethernet as defined in
->> http://www.usb.org/developers/defined_class
->> (search for RDNIS):
->>
->> - baseclass: 0xef (miscellaneous)
->> - subclass: 0x04
->> - protocol: 0x01
->>
-> That is usb class, it is not the same thing as communication device class.
->> --- a/include/uapi/linux/usb/cdc.h
->> +++ b/include/uapi/linux/usb/cdc.h
->> @@ -12,6 +12,7 @@
->> #include <linux/types.h>
->> #define USB_CDC_SUBCLASS_ACM 0x02
->> +#define USB_CDC_SUBCLASS_RNDIS 0x04
-> No, no, no.
-> There is no CDC_SUBCLASS_RNDIS and you can not define one over an already used cdc subclass number, 0x04 is Multi-Channel Control Model
+Well, there is no cache miss here. Lets try to have precise changelogs.
 
-Ah, ok, so I have to define this values in a new header file, as there
-is no current file for the USB_CLASS_MISC defines? Or is there a proper
-place for them?
+We access tcp_hdr(skb)->doff right before, so the tcp header is in cpu
+cache.
 
-BTW: where do I find the "cdc subclass number, 0x04 is Multi-Channel
-Control Model" define?
+So this patch is a cleanup and a way to help compiler to reduce register
+pressure since skb->cb[] access is fast (skb is probably in a register)
 
-bye,
-Heiko
--- 
-DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+Thanks.
