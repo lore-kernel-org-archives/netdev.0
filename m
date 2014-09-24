@@ -1,77 +1,46 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [ethtool PATCH 1/1] ethtool: Support cpsw ale-table registers
- in -d
-Date: Wed, 24 Sep 2014 11:02:22 +0530
-Message-ID: <54225766.5020407@ti.com>
-References: <1406107764-1737-1-git-send-email-mugunthanvnm@ti.com> <1411340326.20019.32.camel@decadent.org.uk>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH/RFC repost 5/8] datapath: Move last_action() helper to
+ datapath.h
+Date: Wed, 24 Sep 2014 15:00:16 +0900
+Message-ID: <20140924060013.GB13314@vergenet.net>
+References: <1411005311-11752-1-git-send-email-simon.horman@netronome.com>
+ <1411005311-11752-6-git-send-email-simon.horman@netronome.com>
+ <20140919140638.GC8257@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:55044 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750783AbaIXFci (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2014 01:32:38 -0400
-In-Reply-To: <1411340326.20019.32.camel@decadent.org.uk>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:60378 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750913AbaIXGA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 02:00:27 -0400
+Received: by mail-pd0-f169.google.com with SMTP id fp1so3792833pdb.0
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 23:00:27 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140919140638.GC8257@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 22 September 2014 04:28 AM, Ben Hutchings wrote:
-> Sorry I didn't respond to this earlier.
+On Fri, Sep 19, 2014 at 03:06:38PM +0100, Thomas Graf wrote:
+> On 09/18/14 at 10:55am, Simon Horman wrote:
+> > diff --git a/datapath/datapath.h b/datapath/datapath.h
+> > index c5d3c86..74a15e6 100644
+> > --- a/datapath/datapath.h
+> > +++ b/datapath/datapath.h
+> > @@ -209,4 +209,9 @@ do {								\
+> >  	if (net_ratelimit())					\
+> >  		pr_info("netlink: " fmt, ##__VA_ARGS__);	\
+> >  } while (0)
+> > +
+> > +static inline bool last_action(const struct nlattr *a, int rem)
+> > +{
+> > +	return a->nla_len == rem;
+> > +}
+> >  #endif /* datapath.h */
 > 
-> On Wed, 2014-07-23 at 14:59 +0530, Mugunthan V N wrote:
-> [...]
->> --- /dev/null
->> +++ b/cpsw.c
-> [...]
->> +static inline void cpsw_ale_set_field(u32 *ale_entry, u32 start, u32 bits,
->> +				      u32 value)
->> +{
->> +	int idx;
->> +
->> +	value &= BITMASK(bits);
->> +	idx    = start / 32;
->> +	start -= idx * 32;
->> +	idx    = 2 - idx; /* flip */
->> +	ale_entry[idx] &= ~(BITMASK(bits) << start);
->> +	ale_entry[idx] |=  (value << start);
->> +}
->> +
->> +#define DEFINE_ALE_FIELD(name, start, bits)				\
->> +static inline int cpsw_ale_get_##name(u32 *ale_entry)			\
->> +{									\
->> +	return cpsw_ale_get_field(ale_entry, start, bits);		\
->> +}									\
->> +static inline void cpsw_ale_set_##name(u32 *ale_entry, u32 value)	\
->> +{									\
->> +	cpsw_ale_set_field(ale_entry, start, bits, value);		\
->> +}
-> 
-> The setter functions are unused.
+> Can we rename & move this to <net/netlink.h> instead?
 
-Will fis this in next version
-
-> 
-> [...]
->> +int cpsw_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
->> +{
->> +	u32 *reg = (u8 *)regs->data;
->> +	u32 len = regs->len / 3;
->> +	int i;
->> +
->> +	fprintf(stdout, "cpsw hw version %d.%d (%d)\n",
->> +		CPSW_MAJOR_VERSION(regs->version),
->> +		CPSW_MINOR_VERSION(regs->version),
->> +		CPSW_RTL_VERSION(regs->version));
-> [...]
-> 
-> There needs to be a version check here.  Some future version of the
-> hardware or driver may introduce an incompatible dump format.
-> 
-
-Will check the hardware version in v2.
-
-Regards
-Mugunthan V N
+Sure, how about nla_is_last()?
