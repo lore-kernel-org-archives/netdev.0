@@ -1,97 +1,135 @@
 From: Ahmed Amamou <ahmed@gandi.net>
-Subject: [RFC PATCH 03/24] net: rbridge: Add RBridge structure
-Date: Wed, 24 Sep 2014 17:51:59 +0200
-Message-ID: <1411573940-14079-4-git-send-email-ahmed@gandi.net>
+Subject: [RFC PATCH 13/24] net: rbridge: Add set_node function
+Date: Wed, 24 Sep 2014 17:52:09 +0200
+Message-ID: <1411573940-14079-14-git-send-email-ahmed@gandi.net>
 References: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: william@gandi.net, f.cachereul@alphalink.fr,
 	Ahmed Amamou <ahmed@gandi.net>,
 	Kamel Haddadou <kamel@gandi.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:37952 "EHLO mail4.gandi.net"
+Received: from mail4.gandi.net ([217.70.183.210]:57967 "EHLO mail4.gandi.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753076AbaIXP6N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2014 11:58:13 -0400
+	id S1753035AbaIXP6M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2014 11:58:12 -0400
 In-Reply-To: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-add basic RBridge structure
-add basic TRILL constant
-define rbr_nickinfo structure which represent distant RBridge information
+allow daemon to set distant Rbridges information in local database
+daemon has to periodically update distant Rbridges informations in loca=
+l database
+create a new node only if change on distant RBridge information are det=
+ected
 
 Signed-off-by: Ahmed Amamou <ahmed@gandi.net>
 Signed-off-by: Kamel Haddadou <kamel@gandi.net>
+Signed-off-by: Fran=C3=A7ois Cachereul <f.cachereul@alphalink.fr>
+Signed-off-by: William Dauchy <william@gandi.net>
 ---
- net/bridge/rbridge/rbr_private.h | 60 ++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 60 insertions(+)
- create mode 100644 net/bridge/rbridge/rbr_private.h
+ net/bridge/rbridge/rbr_netlink.c | 78 ++++++++++++++++++++++++++++++++=
+++++++++
+ 1 file changed, 78 insertions(+)
 
-diff --git a/net/bridge/rbridge/rbr_private.h b/net/bridge/rbridge/rbr_private.h
-new file mode 100644
-index 0000000..f21e4a5
---- /dev/null
-+++ b/net/bridge/rbridge/rbr_private.h
-@@ -0,0 +1,60 @@
-+#ifndef _RBR_PRIVATE_H
-+#define _RBR_PRIVATE_H
-+
-+#include <linux/atomic.h>
-+
-+#define	RBRIDGE_NICKNAME_MIN	0x0000
-+#define	RBRIDGE_NICKNAME_MAX	0xFFFF
-+
-+/* Define well-known nicknames */
-+#define	RBRIDGE_NICKNAME_NONE	RBRIDGE_NICKNAME_MIN
-+#define	RBRIDGE_NICKNAME_UNUSED	RBRIDGE_NICKNAME_MAX
-+
-+#define	TRILL_PROTOCOL_VERS 0	/* th_version */
-+#define	TRILL_DEFAULT_HOPS 21	/* th_hopcount */
-+#define VALID_NICK(n)	((n) != RBRIDGE_NICKNAME_NONE && \
-+			(n) != RBRIDGE_NICKNAME_UNUSED)
-+
-+struct rbr_nickinfo {
-+	/* Nickname of the RBridge */
-+	uint16_t nick;
-+	/* Next-hop SNPA address to reach this RBridge */
-+	u8 adjsnpa[ETH_ALEN];
-+	/* Link on our system to use to reach next-hop */
-+	uint32_t linkid;
-+	/* Num of *our* adjacencies on a tree rooted at this RBridge */
-+	uint16_t adjcount;
-+	/* Num of distribution tree root nicks chosen by this RBridge */
-+	uint16_t dtrootcount;
-+	/*
-+	 * Variable size bytes to store adjacency nicks, distribution
-+	 * tree roots. Adjacency nicks and
-+	 * distribution tree roots are 16-bit fields.
-+	 */
-+};
-+struct rbr_node {
+diff --git a/net/bridge/rbridge/rbr_netlink.c b/net/bridge/rbridge/rbr_=
+netlink.c
+index 889e6c8..bb893f0 100644
+--- a/net/bridge/rbridge/rbr_netlink.c
++++ b/net/bridge/rbridge/rbr_netlink.c
+@@ -38,9 +38,87 @@ static struct genl_multicast_group trill_mcgrps[] =3D=
+ {
+ 	[TRILL_MCGRP_OFFSET] =3D {.name =3D TRILL_MCAST_NAME,},
+ };
+=20
++static int create_node(struct net_bridge_port *p, struct rbr *rbr,
++		       struct rbr_nickinfo *rbr_ni_partial,
++		       struct genl_info *info)
++{
++	size_t size =3D 0;
++	size_t old_size =3D 0;
++	struct rbr_node *old;
 +	struct rbr_nickinfo *rbr_ni;
-+	atomic_t refs;		/* reference count */
-+};
 +
-+struct rbr {
-+	uint16_t nick;		/* our nickname */
-+	uint16_t treeroot;	/* tree root nickname */
-+	struct rbr_node *rbr_nodes[RBRIDGE_NICKNAME_MAX];
-+	struct net_bridge *br;	/* back pointer */
-+};
++	if (rbr_ni_partial =3D=3D NULL)
++		return -EINVAL;
 +
-+/* Access the adjacency nick list at the end of rbr_nickinfo */
-+#define	RBR_NI_ADJNICKSPTR(v) ((uint16_t *)((struct rbr_nickinfo *)(v)+1))
-+#define	RBR_NI_ADJNICK(v, n) (RBR_NI_ADJNICKSPTR(v)[(n)])
++	size =3D RBR_NI_TOTALSIZE(rbr_ni_partial);
++	if (size > PAGE_SIZE - sizeof(struct trill_nl_header)) {
++		pr_warn_ratelimited
++		    ("create_node: size > (PAGE_SIZE-nickinfo_offset)\n");
++		return -EINVAL;
++	}
++	rbr_ni =3D kzalloc(size, GFP_KERNEL);
++	if (!rbr_ni)
++		return -ENOMEM;
++	old =3D rbr->rbr_nodes[rbr_ni_partial->nick];
++	nla_memcpy(rbr_ni, info->attrs[TRILL_ATTR_BIN], size);
++	if (old)
++		old_size =3D RBR_NI_TOTALSIZE(old->rbr_ni);
++	/* replace old node by a new one only if nickname information have ch=
+anged */
++	if (old =3D=3D NULL || old_size !=3D size ||
++	    memcmp(old->rbr_ni, rbr_ni, size)) {
++		struct rbr_node *new;
 +
-+/* Access the DT root nick list in rbr_nickinfo after adjacency nicks */
-+#define	RBR_NI_DTROOTNICKSPTR(v) (RBR_NI_ADJNICKSPTR(v)+(v)->adjcount)
-+#define	RBR_NI_DTROOTNICK(v, n) (RBR_NI_DTROOTNICKSPTR(v)[(n)])
++		new =3D kzalloc(sizeof(*old), GFP_KERNEL);
++		if (!new) {
++			kfree(rbr_ni);
++			return -ENOMEM;
++		}
++		atomic_set(&new->refs, 1);
++		new->rbr_ni =3D rbr_ni;
++		/* avoid deleting node while it is been used for routing */
++		rcu_assign_pointer(rbr->rbr_nodes[rbr_ni->nick], new);
++		if (old)
++			rbr_node_put(old);
++	} else {
++		kfree(rbr_ni);
++	}
 +
-+#define	RBR_NI_TOTALSIZE(v) (\
-+		(sizeof (struct rbr_nickinfo)) + \
-+		(sizeof (uint16_t) * (v)->adjcount) + \
-+		(sizeof (uint16_t) * (v)->dtrootcount)\
-+		)
-+#endif
--- 
++	return 0;
++}
++
+ static int trill_cmd_set_nicks_info(struct sk_buff *skb, struct genl_i=
+nfo *info)
+ {
++	struct trill_nl_header *trnlhdr;
++	struct rbr_nickinfo rbr_ni;
++	struct net_device *source_port =3D NULL;
++	struct net *net =3D sock_net(skb->sk);
++	struct net_bridge_port *p =3D NULL;
++	int err =3D -EINVAL;
++
++	nla_memcpy(&rbr_ni, info->attrs[TRILL_ATTR_BIN], sizeof(rbr_ni));
++	if (!VALID_NICK(rbr_ni.nick))
++		goto fail;
++
++	trnlhdr =3D info->userhdr;
++	if (trnlhdr->ifindex)
++		source_port =3D __dev_get_by_index(net, trnlhdr->ifindex);
++
++	if (!source_port)
++		goto fail;
++
++	p =3D br_port_get_rcu(source_port);
++	if (!p || !(p->br) || !(p->br->rbr))
++		goto fail;
++
++	err =3D create_node(p, p->br->rbr, &rbr_ni, info);
++	if (err)
++		goto fail;
++
+ 	return 0;
++
++ fail:
++	printk(KERN_WARNING "trill_cmd_set_nicks_info FAILED\n");
++	return err;
+ }
+=20
+ static int trill_cmd_get_nicks_info(struct sk_buff *skb, struct genl_i=
+nfo *info)
+--=20
 1.9.1
