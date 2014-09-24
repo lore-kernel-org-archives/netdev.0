@@ -1,57 +1,58 @@
 From: William Dauchy <william@gandi.net>
-Subject: Re: [RFC PATCH 01/24] net: rbridge: add trill frame description
-Date: Wed, 24 Sep 2014 18:48:28 +0200
-Message-ID: <20140924164828.GF27183@gandi.net>
+Subject: Re: [RFC PATCH 00/24] TRILL implementation
+Date: Wed, 24 Sep 2014 18:54:47 +0200
+Message-ID: <20140924165447.GG27183@gandi.net>
 References: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
- <1411573940-14079-2-git-send-email-ahmed@gandi.net>
- <20140924093846.292a964f@urahara>
+ <20140924094422.2e710ead@urahara>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="cz6wLo+OExbGG7q/"
+	protocol="application/pgp-signature"; boundary="8bBEDOJVaa9YlTAt"
 Cc: Ahmed Amamou <ahmed@gandi.net>, netdev@vger.kernel.org,
-	william@gandi.net, f.cachereul@alphalink.fr,
-	Emmanuel Hocdet <manu@gandi.net>,
-	Kamel Haddadou <kamel@gandi.net>
+	william@gandi.net, f.cachereul@alphalink.fr
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:38761 "EHLO mail4.gandi.net"
+Received: from mail4.gandi.net ([217.70.183.210]:45985 "EHLO mail4.gandi.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751284AbaIXQse (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2014 12:48:34 -0400
+	id S1753013AbaIXQyw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2014 12:54:52 -0400
 Content-Disposition: inline
-In-Reply-To: <20140924093846.292a964f@urahara>
+In-Reply-To: <20140924094422.2e710ead@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---cz6wLo+OExbGG7q/
+--8bBEDOJVaa9YlTAt
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Sep24 09:38, Stephen Hemminger wrote:
-> Excessive paren's.
+On Sep24 09:44, Stephen Hemminger wrote:
+> Is this patch series bisectable? does it build at each step?
 
-true; to be exact, forgot to add a patch that was fixing this.
+it should be the case but we will double check that.
 
-> Did you even run this through checkpatch?
+> Also, it seems when you build with trill you lose normal bridge functiona=
+lity.
+> Whether kernel is doing bridge or rbridge has to be a runtime (not compil=
+e time)
+> choice on a per-bridge basis.
 
-no but we will.
+The normal bridge functionnality are still ok until TRILL is not
+enabled.
 
-Thanks,
 --=20
 William
 
---cz6wLo+OExbGG7q/
+--8bBEDOJVaa9YlTAt
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iEYEARECAAYFAlQi9dwACgkQ1I6eqOUidQECiQCfUEe+/FfedFk1wnFCwANhA/0/
-AWQAnR2AAyWUj2X9HfSGhj3atd6zoxez
-=zlRu
+iEYEARECAAYFAlQi91cACgkQ1I6eqOUidQE7/gCcCKWORk9najRvvdcooeokfqdL
+5vgAoIeBv3LjTZRXcPHNMs4w6MvKDY81
+=Epal
 -----END PGP SIGNATURE-----
 
---cz6wLo+OExbGG7q/--
+--8bBEDOJVaa9YlTAt--
