@@ -1,90 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net : optimize skb_release_data()
-Date: Tue, 23 Sep 2014 18:39:30 -0700
-Message-ID: <1411522770.15395.6.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build warning after merge of the net tree
+Date: Tue, 23 Sep 2014 21:58:58 -0400 (EDT)
+Message-ID: <20140923.215858.1862286673062032624.davem@davemloft.net>
+References: <541A28BA.1060201@infradead.org>
+	<54218AEF.5090200@suse.cz>
+	<20140924072306.799005a3@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:60798 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750717AbaIXBjj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 21:39:39 -0400
-Received: by mail-pa0-f53.google.com with SMTP id hz1so7482885pad.26
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 18:39:38 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mmarek@suse.cz, rdunlap@infradead.org, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-kbuild@vger.kernel.org, torvalds@linux-foundation.org
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20140924072306.799005a3@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 24 Sep 2014 07:23:06 +1000
 
-Cache skb_shinfo(skb) in a variable to avoid computing it multiple
-times.
+> Dave, this is a bit slack of you since I reported that problem a week
+> ago in the net tree and yet it has not been completely fixed before you
+> asked Linus to pull your tree :-(
 
-Reorganize the tests to remove one indentation level.
+There were build failures I saw due to some misbalanced select/depends
+issues which I fixed in:
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/skbuff.c |   43 ++++++++++++++++++++++---------------------
- 1 file changed, 22 insertions(+), 21 deletions(-)
+commit df568d8e5250bf24e38c69ad4374baf0f8d279ba
+Author: David S. Miller <davem@davemloft.net>
+Date:   Mon Sep 22 13:14:33 2014 -0400
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 06a8feb10099..d4fdc649112c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -491,32 +491,33 @@ static void skb_free_head(struct sk_buff *skb)
- 
- static void skb_release_data(struct sk_buff *skb)
- {
--	if (!skb->cloned ||
--	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
--			       &skb_shinfo(skb)->dataref)) {
--		if (skb_shinfo(skb)->nr_frags) {
--			int i;
--			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
--				skb_frag_unref(skb, i);
--		}
-+	struct skb_shared_info *shinfo = skb_shinfo(skb);
-+	int i;
- 
--		/*
--		 * If skb buf is from userspace, we need to notify the caller
--		 * the lower device DMA has done;
--		 */
--		if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
--			struct ubuf_info *uarg;
-+	if (skb->cloned &&
-+	    atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
-+			      &shinfo->dataref))
-+		return;
- 
--			uarg = skb_shinfo(skb)->destructor_arg;
--			if (uarg->callback)
--				uarg->callback(uarg, true);
--		}
-+	for (i = 0; i < shinfo->nr_frags; i++)
-+		__skb_frag_unref(&shinfo->frags[i]);
- 
--		if (skb_has_frag_list(skb))
--			skb_drop_fraglist(skb);
-+	/*
-+	 * If skb buf is from userspace, we need to notify the caller
-+	 * the lower device DMA has done;
-+	 */
-+	if (shinfo->tx_flags & SKBTX_DEV_ZEROCOPY) {
-+		struct ubuf_info *uarg;
- 
--		skb_free_head(skb);
-+		uarg = shinfo->destructor_arg;
-+		if (uarg->callback)
-+			uarg->callback(uarg, true);
- 	}
-+
-+	if (shinfo->frag_list)
-+		kfree_skb_list(shinfo->frag_list);
-+
-+	skb_free_head(skb);
- }
- 
- /*
+    scsi: Use 'depends' with LIBFC instead of 'select'.
+
+which went in yesterday.  I thought that would resolve all of your
+problems.
+
+Believe me, it is a tragic surprise that several defconfigs absolutely
+depended upon this broken usage of select in the scsi layer, to of all
+things make CONFIG_NET=y implicit.
+
+I'll do my best to sort this out, but I hope that this short term pain
+is worth it in the end.
+
+Thanks for your understanding.
