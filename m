@@ -1,72 +1,83 @@
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Subject: RE: [PATCH] net: stmmac: fix stmmac_pci_probe failed when
- CONFIG_HAVE_CLK is selected
-Date: Wed, 24 Sep 2014 10:48:09 +0000
-Message-ID: <F54AEECA5E2B9541821D670476DAE19C2B7EB35E@PGSMSX102.gar.corp.intel.com>
-References: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com>
- <20140922.141921.577008114679288180.davem@davemloft.net>
- <F54AEECA5E2B9541821D670476DAE19C2B7EAE19@PGSMSX102.gar.corp.intel.com>
- <54210EC1.9070507@st.com>
- <F54AEECA5E2B9541821D670476DAE19C2B7EAF23@PGSMSX102.gar.corp.intel.com>
- <54226020.50008@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: use tcp_flags in tcp_data_queue()
+Date: Wed, 24 Sep 2014 03:54:28 -0700
+Message-ID: <1411556068.15395.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <08ce1deee03778416354009d6e11ded50e76fc2a.1411554808.git.panweiping3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>,
-	"vbridgers2013@gmail.com" <vbridgers2013@gmail.com>,
-	"wens@csie.org" <wens@csie.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ong, Boon Leong" <boon.leong.ong@intel.com>,
-	"tobias.johannes.klausmann@mni.thm.de"
-	<tobias.johannes.klausmann@mni.thm.de>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: Weiping Pan <panweiping3@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:32544 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751595AbaIXKsP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 06:48:15 -0400
-In-Reply-To: <54226020.50008@st.com>
-Content-Language: en-US
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:49623 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751620AbaIXKy0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 06:54:26 -0400
+Received: by mail-pa0-f53.google.com with SMTP id hz1so8592902pad.40
+        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 03:54:25 -0700 (PDT)
+In-Reply-To: <08ce1deee03778416354009d6e11ded50e76fc2a.1411554808.git.panweiping3@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Giuseppe CAVALLARO [mailto:peppe.cavallaro@st.com]
-> Sent: Wednesday, September 24, 2014 2:10 PM
-> >
-> > Hi peppe,
-> >
-> > Appreciate for the explanation. Just to clarify that I am not asking not to
-> pass in the priv->stmmac_clk.
-> > In fact, the fix will fail at case 2 if driver cannot obtain the priv->stmmac_clk,
-> but just not the case 1.
-> > For case 1, seem like it does not require the stmmac_clk then I think
-> > it should be OK not to fail it when driver did not get stmmac_clk but have
-> the clk_csr set.
+On Wed, 2014-09-24 at 18:35 +0800, Weiping Pan wrote:
+> Follow the idea in commit e11ecddf5128 (tcp: use TCP_SKB_CB(skb)->tcp_flags in
+> input path), we can use tcp_flags to avoid cache miss.
 > 
-> ok we can do that but this clock is also managed when the iface is down.
-> Maybe it could be convenient to manage it for power consumption.
-> What do you think?
-
-Hi peppe,
-
-I don't really get what you mean here. Are you telling that you are OK with the fix?
-Or you are referring to the bottom idea which introduce clock registration APIs to
-stmmac_pci driver?
-
-Regarding the power management, isn't this taking care by the PCI framework itself
-for the PCI devices / PCI cards?
-
-Sorry, may be would need you to provide a big picture to this. Thanks. :)
-
+> Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+> ---
+>  net/ipv4/tcp_input.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> > Anyway, I can change the fix by adding the clock registration APIs
-> > being call at the stmmac_pci.c probe there before calling
-> > stmmac_dvr_probe. By doing this, it created a dependency to the pci
-> > driver that must have CONFIG_HAVE_CLK to be turned on. Besides, I
-> would need you guys to provide me information on other platforms about
-> what is the best value to set? Can I just set to zero since the stmmac_pci
-> driver is always using the priv->plat->clk_csr?
-> >
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 13f3da4..85298c9 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -4392,7 +4392,7 @@ queue_and_out:
+>  		tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+>  		if (skb->len)
+>  			tcp_event_data_recv(sk, skb);
+> -		if (th->fin)
+> +		if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
+>  			tcp_fin(sk);
+>  
+>  		if (!skb_queue_empty(&tp->out_of_order_queue)) {
+
+I thought of this, but my reasoning was that we needed th anyway, and
+th->fin had the same cost.
+
+But thinking more about this, its possible compiler can generate better
+code, as tcp_hdr() will only be needed at the very beginning of the
+function, and compiler no longer has to keep around th value.
+
+Could you go one step further maybe ?
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index f3f016a15c5a..1a399737802b 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4344,7 +4344,6 @@ err:
+ 
+ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ {
+-	const struct tcphdr *th = tcp_hdr(skb);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	int eaten = -1;
+ 	bool fragstolen = false;
+@@ -4353,7 +4352,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ 		goto drop;
+ 
+ 	skb_dst_drop(skb);
+-	__skb_pull(skb, th->doff * 4);
++	__skb_pull(skb, tcp_hdr(skb)->doff * 4);
+ 
+ 	TCP_ECN_accept_cwr(tp, skb);
+ 
+@@ -4397,7 +4396,7 @@ queue_and_out:
+ 		tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+ 		if (skb->len)
+ 			tcp_event_data_recv(sk, skb);
+-		if (th->fin)
++		if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
+ 			tcp_fin(sk);
+ 
+ 		if (!skb_queue_empty(&tp->out_of_order_queue)) {
