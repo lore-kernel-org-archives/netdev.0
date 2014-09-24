@@ -1,56 +1,77 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC repost 3/8] odp-util: formatting of datapath select
- group action
-Date: Wed, 24 Sep 2014 13:55:44 +0900
-Message-ID: <20140924045540.GA13314@vergenet.net>
-References: <1411005311-11752-1-git-send-email-simon.horman@netronome.com>
- <1411005311-11752-4-git-send-email-simon.horman@netronome.com>
- <20140919134449.GA8257@casper.infradead.org>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [ethtool PATCH 1/1] ethtool: Support cpsw ale-table registers
+ in -d
+Date: Wed, 24 Sep 2014 11:02:22 +0530
+Message-ID: <54225766.5020407@ti.com>
+References: <1406107764-1737-1-git-send-email-mugunthanvnm@ti.com> <1411340326.20019.32.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dev@openvswitch.org, netdev@vger.kernel.org,
-	Pravin Shelar <pshelar@nicira.com>,
-	Jesse Gross <jesse@nicira.com>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:57473 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750767AbaIXEz4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 00:55:56 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kx10so7868778pab.5
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 21:55:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140919134449.GA8257@casper.infradead.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:55044 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750783AbaIXFci (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2014 01:32:38 -0400
+In-Reply-To: <1411340326.20019.32.camel@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 19, 2014 at 02:44:49PM +0100, Thomas Graf wrote:
-> On 09/18/14 at 10:55am, Simon Horman wrote:
-> > Allow formatting of select group action. This is used
-> > when pretty-printing datapath flows. Subsequent patches
-> > will add support for the select group action to the datapath
-> > and ovs-vswtichd.
-> > 
-> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> > ---
-> >  lib/odp-util.c | 67 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-> >  1 file changed, 67 insertions(+)
-> > 
-> > diff --git a/lib/odp-util.c b/lib/odp-util.c
-> > index 77b456f..4c8dd39 100644
-> > --- a/lib/odp-util.c
-> > +++ b/lib/odp-util.c
-> > @@ -182,6 +182,71 @@ format_odp_sample_action(struct ds *ds, const struct nlattr *attr)
-> >      ds_put_format(ds, "))");
-> >  }
-> >  
-> > +static bool
-> > +format_odp_bucket(struct ds *ds, const struct nlattr *attr)
-> > +{
-> > +    static const struct nl_policy ovs_sample_policy[] = {
+On Monday 22 September 2014 04:28 AM, Ben Hutchings wrote:
+> Sorry I didn't respond to this earlier.
 > 
-> Not that it would matter much but you might want to rename that to
-> ovs_bucket_policy[]. Same below.
+> On Wed, 2014-07-23 at 14:59 +0530, Mugunthan V N wrote:
+> [...]
+>> --- /dev/null
+>> +++ b/cpsw.c
+> [...]
+>> +static inline void cpsw_ale_set_field(u32 *ale_entry, u32 start, u32 bits,
+>> +				      u32 value)
+>> +{
+>> +	int idx;
+>> +
+>> +	value &= BITMASK(bits);
+>> +	idx    = start / 32;
+>> +	start -= idx * 32;
+>> +	idx    = 2 - idx; /* flip */
+>> +	ale_entry[idx] &= ~(BITMASK(bits) << start);
+>> +	ale_entry[idx] |=  (value << start);
+>> +}
+>> +
+>> +#define DEFINE_ALE_FIELD(name, start, bits)				\
+>> +static inline int cpsw_ale_get_##name(u32 *ale_entry)			\
+>> +{									\
+>> +	return cpsw_ale_get_field(ale_entry, start, bits);		\
+>> +}									\
+>> +static inline void cpsw_ale_set_##name(u32 *ale_entry, u32 value)	\
+>> +{									\
+>> +	cpsw_ale_set_field(ale_entry, start, bits, value);		\
+>> +}
+> 
+> The setter functions are unused.
 
-Thanks, I renamed all the new instances of ovs_sample_policy
-(which I cut and pasted from the implementation of sample actions).
+Will fis this in next version
+
+> 
+> [...]
+>> +int cpsw_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+>> +{
+>> +	u32 *reg = (u8 *)regs->data;
+>> +	u32 len = regs->len / 3;
+>> +	int i;
+>> +
+>> +	fprintf(stdout, "cpsw hw version %d.%d (%d)\n",
+>> +		CPSW_MAJOR_VERSION(regs->version),
+>> +		CPSW_MINOR_VERSION(regs->version),
+>> +		CPSW_RTL_VERSION(regs->version));
+> [...]
+> 
+> There needs to be a version check here.  Some future version of the
+> hardware or driver may introduce an incompatible dump format.
+> 
+
+Will check the hardware version in v2.
+
+Regards
+Mugunthan V N
