@@ -1,83 +1,70 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v1 3/5] dtb: Add 10GbE node to APM X-Gene SoC device tree
-Date: Tue, 23 Sep 2014 20:51:26 -0700
-Message-ID: <1411530688-2939-4-git-send-email-isubramanian@apm.com>
+Subject: [PATCH v1 5/5] drivers: net: xgene: Add 10GbE ethtool support
+Date: Tue, 23 Sep 2014 20:51:28 -0700
+Message-ID: <1411530688-2939-6-git-send-email-isubramanian@apm.com>
 References: <1411530688-2939-1-git-send-email-isubramanian@apm.com>
 Cc: kchudgar@apm.com, patches@apm.com,
 	Iyappan Subramanian <isubramanian@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og120.obsmtp.com ([64.18.0.137]:46000 "HELO
-	exprod5og120.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752222AbaIXDvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 23:51:46 -0400
-Received: by mail-pa0-f51.google.com with SMTP id eu11so6182034pac.10
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 20:51:45 -0700 (PDT)
+Received: from exprod5og112.obsmtp.com ([64.18.0.24]:52095 "HELO
+	exprod5og112.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752222AbaIXDvu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 23:51:50 -0400
+Received: by mail-pa0-f49.google.com with SMTP id lf10so7899521pab.36
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 20:51:49 -0700 (PDT)
 In-Reply-To: <1411530688-2939-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added 10GbE interface and clock nodes.
-
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 ---
- arch/arm64/boot/dts/apm-mustang.dts |  4 ++++
- arch/arm64/boot/dts/apm-storm.dtsi  | 24 ++++++++++++++++++++++++
- 2 files changed, 28 insertions(+)
+ .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    | 24 ++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
 
-diff --git a/arch/arm64/boot/dts/apm-mustang.dts b/arch/arm64/boot/dts/apm-mustang.dts
-index b2f5622..2ae782b 100644
---- a/arch/arm64/boot/dts/apm-mustang.dts
-+++ b/arch/arm64/boot/dts/apm-mustang.dts
-@@ -32,3 +32,7 @@
- &menet {
- 	status = "ok";
- };
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
+index 63f2aa5..88849a0 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
+@@ -58,11 +58,24 @@ static int xgene_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
+ {
+ 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+ 	struct phy_device *phydev = pdata->phy_dev;
++	int ret = 0;
 +
-+&xgenet {
-+	status = "ok";
-+};
-diff --git a/arch/arm64/boot/dts/apm-storm.dtsi b/arch/arm64/boot/dts/apm-storm.dtsi
-index c0aceef..ae814ef 100644
---- a/arch/arm64/boot/dts/apm-storm.dtsi
-+++ b/arch/arm64/boot/dts/apm-storm.dtsi
-@@ -176,6 +176,16 @@
- 				clock-output-names = "menetclk";
- 			};
++	if (pdata->phy_mode == PHY_INTERFACE_MODE_RGMII) {
++		if (phydev == NULL)
++			return -ENODEV;
++
++		ret = phy_ethtool_gset(phydev, cmd);
++	} else {
++		cmd->supported = SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE;
++		cmd->advertising = cmd->supported;
++		ethtool_cmd_speed_set(cmd, SPEED_10000);
++		cmd->duplex = DUPLEX_FULL;
++		cmd->port = PORT_FIBRE;
++		cmd->transceiver = XCVR_EXTERNAL;
++		cmd->autoneg = AUTONEG_DISABLE;
++	}
  
-+                        xge0clk: xge0clk@1f61c000 {
-+				compatible = "apm,xgene-device-clock";
-+				#clock-cells = <1>;
-+				clocks = <&socplldiv2 0>;
-+				reg = <0x0 0x1f61c000 0x0 0x1000>;
-+				reg-names = "csr-reg";
-+				csr-mask = <0x3>;
-+				clock-output-names = "xge0clk";
-+                        };
-+
- 			sataphy1clk: sataphy1clk@1f21c000 {
- 				compatible = "apm,xgene-device-clock";
- 				#clock-cells = <1>;
-@@ -421,5 +431,19 @@
+-	if (phydev == NULL)
+-		return -ENODEV;
+-
+-	return phy_ethtool_gset(phydev, cmd);
++	return ret;
+ }
  
- 			};
- 		};
+ static int xgene_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
+@@ -70,6 +83,9 @@ static int xgene_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
+ 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+ 	struct phy_device *phydev = pdata->phy_dev;
+ 
++	if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII)
++		return -EINVAL;
 +
-+                xgenet: ethernet@1f610000 {
-+			compatible = "apm,xgene-enet";
-+                        status = "disabled";
-+                        reg = <0x0 0x1f610000 0x0 0xd100>,
-+                              <0x0 0x1f600000 0x0 0X400>,
-+                              <0x0 0x18000000 0x0 0X200>;
-+			reg-names = "enet_csr", "ring_csr", "ring_cmd";
-+                        interrupts = <0x0 0x60 0x4>;
-+			dma-coherent;
-+                        clocks = <&xge0clk 0>;
-+                        local-mac-address = [00 01 73 00 00 04];
-+			phy-connection-type = "xgmii";
-+                };
- 	};
- };
+ 	if (phydev == NULL)
+ 		return -ENODEV;
+ 
 -- 
 1.9.1
