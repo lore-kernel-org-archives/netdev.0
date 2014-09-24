@@ -1,54 +1,110 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
-Date: Wed, 24 Sep 2014 11:31:55 +0200
-Message-ID: <54228F8B.2030804@6wind.com>
-References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
-	<CALCETrWnZtWstBviDxcHpLpjHF3R+sgS48RYf2pbKBYeExZVOQ@mail.gmail.com>
-Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH v1 3/5] dtb: Add 10GbE node to APM X-Gene SoC device tree
+Date: Wed, 24 Sep 2014 10:37:28 +0100
+Message-ID: <20140924093727.GA9162@leverpostej>
+References: <1411530688-2939-1-git-send-email-isubramanian@apm.com>
+ <1411530688-2939-4-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <CALCETrWnZtWstBviDxcHpLpjHF3R+sgS48RYf2pbKBYeExZVOQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"kchudgar@apm.com" <kchudgar@apm.com>,
+	"patches@apm.com" <patches@apm.com>
+To: Iyappan Subramanian <isubramanian@apm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:34972 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752794AbaIXJhh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 05:37:37 -0400
+Content-Disposition: inline
+In-Reply-To: <1411530688-2939-4-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TGUgMjMvMDkvMjAxNCAyMToyNiwgQW5keSBMdXRvbWlyc2tpIGEgw6ljcml0IDoKPiBPbiBUdWUs
-IFNlcCAyMywgMjAxNCBhdCA2OjIwIEFNLCBOaWNvbGFzIERpY2h0ZWwKPiA8bmljb2xhcy5kaWNo
-dGVsQDZ3aW5kLmNvbT4gd3JvdGU6Cj4+IFRoZSBnb2FsIG9mIHRoaXMgc2VyaWUgaXMgdG8gYmUg
-YWJsZSB0byBtdWx0aWNhc3QgbmV0bGluayBtZXNzYWdlcyB3aXRoIGFuCj4+IGF0dHJpYnV0ZSB0
-aGF0IGlkZW50aWZ5IGEgcGVlciBuZXRucy4KPj4gVGhpcyBpcyBuZWVkZWQgYnkgdGhlIHVzZXJs
-YW5kIHRvIGludGVycHJldCBzb21lIGluZm9ybWF0aW9ucyBjb250YWluZWQgaW4KPj4gbmV0bGlu
-ayBtZXNzYWdlcyAobGlrZSBJRkxBX0xJTksgdmFsdWUsIGJ1dCBhbHNvIHNvbWUgb3RoZXIgYXR0
-cmlidXRlcyBpbiBjYXNlCj4+IG9mIHgtbmV0bnMgbmV0ZGV2aWNlIChzZWUgYWxzbwo+PiBodHRw
-Oi8vdGhyZWFkLmdtYW5lLm9yZy9nbWFuZS5saW51eC5uZXR3b3JrLzMxNTkzMy9mb2N1cz0zMTYw
-NjQgYW5kCj4+IGh0dHA6Ly90aHJlYWQuZ21hbmUub3JnL2dtYW5lLmxpbnV4Lmtlcm5lbC5jb250
-YWluZXJzLzI4MzAxL2ZvY3VzPTQyMzkpKS4KPj4KPj4gSWRzIGFyZSBzdG9yZWQgaW4gdGhlIHBh
-cmVudCB1c2VyIG5hbWVzcGFjZS4gVGhlc2UgaWRzIGFyZSB2YWxpZCBvbmx5IGluc2lkZQo+PiB0
-aGlzIHVzZXIgbmFtZXNwYWNlLiBUaGUgdXNlciBjYW4gcmV0cmlldmUgdGhlc2UgaWRzIHZpYSBh
-IG5ldyBuZXRsaW5rIG1lc3NhZ2VzLAo+PiBidXQgb25seSBpZiBwZWVyIG5ldG5zIGFyZSBpbiB0
-aGUgc2FtZSB1c2VyIG5hbWVzcGFjZS4KPgo+IFdoYXQgYWJvdXQgdGhlIHBhcmVudCAvIGFuY2Vz
-dG9ycyBvZiB0aGUgb3duaW5nIHVzZXJucz8gIENhbiBwcm9jZXNzZXMKPiBpbiB0aG9zZSB1c2Vy
-bnNlcyBzZWUgYW55IGZvcm0gb2YgbmV0bnMgaWQ/CldpdGggdGhpcyBzZXJpZSBuby4gSSdtIG5v
-dCBzdXJlIGlmIGFuY2VzdG9ycyByZWFsbHkgbmVlZHMgdG8gYmUgYWJsZSB0bwpnZXQgdGhlc2Ug
-aWRzLiBXaGF0IGlzIHlvdXIgb3Bpbmlvbj8KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX18KQ29udGFpbmVycyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0
-cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcv
-bWFpbG1hbi9saXN0aW5mby9jb250YWluZXJz
+Hi,
+
+For some reason, the below appears to use a mixture of spaces and tabs
+for alignment. Assuming my local mailserver isn't responsible for that,
+could you please correct that and for consistency use tabs?
+
+Could you also please Cc the arm64 maintainers when submitting arm64
+patches?
+
+On Wed, Sep 24, 2014 at 04:51:26AM +0100, Iyappan Subramanian wrote:
+> Added 10GbE interface and clock nodes.
+> 
+> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+> ---
+>  arch/arm64/boot/dts/apm-mustang.dts |  4 ++++
+>  arch/arm64/boot/dts/apm-storm.dtsi  | 24 ++++++++++++++++++++++++
+>  2 files changed, 28 insertions(+)
+> 
+> diff --git a/arch/arm64/boot/dts/apm-mustang.dts b/arch/arm64/boot/dts/apm-mustang.dts
+> index b2f5622..2ae782b 100644
+> --- a/arch/arm64/boot/dts/apm-mustang.dts
+> +++ b/arch/arm64/boot/dts/apm-mustang.dts
+> @@ -32,3 +32,7 @@
+>  &menet {
+>  	status = "ok";
+>  };
+> +
+> +&xgenet {
+> +	status = "ok";
+> +};
+> diff --git a/arch/arm64/boot/dts/apm-storm.dtsi b/arch/arm64/boot/dts/apm-storm.dtsi
+> index c0aceef..ae814ef 100644
+> --- a/arch/arm64/boot/dts/apm-storm.dtsi
+> +++ b/arch/arm64/boot/dts/apm-storm.dtsi
+> @@ -176,6 +176,16 @@
+>  				clock-output-names = "menetclk";
+>  			};
+>  
+> +                        xge0clk: xge0clk@1f61c000 {
+> +				compatible = "apm,xgene-device-clock";
+> +				#clock-cells = <1>;
+> +				clocks = <&socplldiv2 0>;
+> +				reg = <0x0 0x1f61c000 0x0 0x1000>;
+> +				reg-names = "csr-reg";
+> +				csr-mask = <0x3>;
+> +				clock-output-names = "xge0clk";
+> +                        };
+> +
+>  			sataphy1clk: sataphy1clk@1f21c000 {
+>  				compatible = "apm,xgene-device-clock";
+>  				#clock-cells = <1>;
+> @@ -421,5 +431,19 @@
+>  
+>  			};
+>  		};
+> +
+> +                xgenet: ethernet@1f610000 {
+> +			compatible = "apm,xgene-enet";
+> +                        status = "disabled";
+> +                        reg = <0x0 0x1f610000 0x0 0xd100>,
+> +                              <0x0 0x1f600000 0x0 0X400>,
+> +                              <0x0 0x18000000 0x0 0X200>;
+> +			reg-names = "enet_csr", "ring_csr", "ring_cmd";
+> +                        interrupts = <0x0 0x60 0x4>;
+> +			dma-coherent;
+> +                        clocks = <&xge0clk 0>;
+
+> +                        local-mac-address = [00 01 73 00 00 04];
+
+Does it really make sense to hard-code the same mac address for all
+mustang boards?
+
+Mark.
+
+> +			phy-connection-type = "xgmii";
+> +                };
+>  	};
+>  };
+> -- 
+> 1.9.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe devicetree" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
