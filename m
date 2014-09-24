@@ -1,70 +1,55 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v1 5/5] drivers: net: xgene: Add 10GbE ethtool support
-Date: Tue, 23 Sep 2014 20:51:28 -0700
-Message-ID: <1411530688-2939-6-git-send-email-isubramanian@apm.com>
-References: <1411530688-2939-1-git-send-email-isubramanian@apm.com>
-Cc: kchudgar@apm.com, patches@apm.com,
-	Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og112.obsmtp.com ([64.18.0.24]:52095 "HELO
-	exprod5og112.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752222AbaIXDvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 23:51:50 -0400
-Received: by mail-pa0-f49.google.com with SMTP id lf10so7899521pab.36
-        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 20:51:49 -0700 (PDT)
-In-Reply-To: <1411530688-2939-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/5] rhashtable: Remove gfp_flags from insert and remove functions
+Date: Tue, 23 Sep 2014 21:11:31 -0700
+Message-ID: <87sijhwtcc.fsf@x220.int.ebiederm.org>
+References: <cover.1410782841.git.tgraf@suug.ch>
+	<bd3aa4282e89b022620225101ab491e344852f5f.1410782841.git.tgraf@suug.ch>
+	<1410784535.7106.164.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140915124937.GB21541@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	paulmck@linux.vnet.ibm.com, john.r.fastabend@intel.com,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140915124937.GB21541@casper.infradead.org> (Thomas Graf's
+	message of "Mon, 15 Sep 2014 13:49:37 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
----
- .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    | 24 ++++++++++++++++++----
- 1 file changed, 20 insertions(+), 4 deletions(-)
+Thomas Graf <tgraf@suug.ch> writes:
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-index 63f2aa5..88849a0 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-@@ -58,11 +58,24 @@ static int xgene_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
- {
- 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
- 	struct phy_device *phydev = pdata->phy_dev;
-+	int ret = 0;
-+
-+	if (pdata->phy_mode == PHY_INTERFACE_MODE_RGMII) {
-+		if (phydev == NULL)
-+			return -ENODEV;
-+
-+		ret = phy_ethtool_gset(phydev, cmd);
-+	} else {
-+		cmd->supported = SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE;
-+		cmd->advertising = cmd->supported;
-+		ethtool_cmd_speed_set(cmd, SPEED_10000);
-+		cmd->duplex = DUPLEX_FULL;
-+		cmd->port = PORT_FIBRE;
-+		cmd->transceiver = XCVR_EXTERNAL;
-+		cmd->autoneg = AUTONEG_DISABLE;
-+	}
- 
--	if (phydev == NULL)
--		return -ENODEV;
--
--	return phy_ethtool_gset(phydev, cmd);
-+	return ret;
- }
- 
- static int xgene_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
-@@ -70,6 +83,9 @@ static int xgene_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
- 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
- 	struct phy_device *phydev = pdata->phy_dev;
- 
-+	if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII)
-+		return -EINVAL;
-+
- 	if (phydev == NULL)
- 		return -ENODEV;
- 
--- 
-1.9.1
+> On 09/15/14 at 05:35am, Eric Dumazet wrote:
+>> On Mon, 2014-09-15 at 14:18 +0200, Thomas Graf wrote:
+>> > As the expansion/shrinking is moved to a worker thread, no allocations
+>> > will be performed anymore.
+>> > 
+>> 
+>> You meant : no GFP_ATOMIC allocations ?
+>> 
+>> I would rephrase using something like :
+>> 
+>> Because hash resizes are potentially time consuming, they'll be
+>> performed in process context where GFP_KERNEL allocations are preferred.
+>
+> I meant to say no allocations in insert/remove anymore but your wording
+> is even clearer. I'll update it.
+>
+>> > -	tbl = kzalloc(size, flags);
+>> > +	tbl = kzalloc(size, GFP_KERNEL);
+>> 
+>> Add __GFP_NOWARN, as you fallback to vzalloc ?
+>
+> Good point.
+
+It needs to be both __GFP_NOWARN and __GFP_NORETRY.
+
+Otherwise the system will kick in the OOM killer before it falls back to
+vzalloc.  Which I can't imagine anyone wanting.
+
+Look at the history of alloc_fdmem in fs/file.c for the real world
+reasoning.
+
+Eric
