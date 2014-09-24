@@ -1,46 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build warning after merge of the net tree
-Date: Tue, 23 Sep 2014 21:58:58 -0400 (EDT)
-Message-ID: <20140923.215858.1862286673062032624.davem@davemloft.net>
-References: <541A28BA.1060201@infradead.org>
-	<54218AEF.5090200@suse.cz>
-	<20140924072306.799005a3@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mmarek@suse.cz, rdunlap@infradead.org, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-kbuild@vger.kernel.org, torvalds@linux-foundation.org
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20140924072306.799005a3@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v1 0/5] Add 10GbE support to APM X-Gene SoC ethernet driver
+Date: Tue, 23 Sep 2014 20:51:23 -0700
+Message-ID: <1411530688-2939-1-git-send-email-isubramanian@apm.com>
+Cc: kchudgar@apm.com, patches@apm.com,
+	Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod5og108.obsmtp.com ([64.18.0.186]:45840 "HELO
+	exprod5og108.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750891AbaIXDvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Sep 2014 23:51:41 -0400
+Received: by mail-pa0-f53.google.com with SMTP id hz1so7831829pad.12
+        for <netdev@vger.kernel.org>; Tue, 23 Sep 2014 20:51:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 24 Sep 2014 07:23:06 +1000
+Adding 10GbE support to APM X-Gene SoC ethernet driver.
 
-> Dave, this is a bit slack of you since I reported that problem a week
-> ago in the net tree and yet it has not been completely fixed before you
-> asked Linus to pull your tree :-(
+v1:
+* Initial version
+---
 
-There were build failures I saw due to some misbalanced select/depends
-issues which I fixed in:
+Iyappan Subramanian (5):
+  MAINTAINERS: Update APM X-Gene section
+  Documentation: dts: Update section header for APM X-Gene
+  dtb: Add 10GbE node to APM X-Gene SoC device tree
+  drivers: net: xgene: Add 10GbE support
+  drivers: net: xgene: Add 10GbE ethtool support
 
-commit df568d8e5250bf24e38c69ad4374baf0f8d279ba
-Author: David S. Miller <davem@davemloft.net>
-Date:   Mon Sep 22 13:14:33 2014 -0400
+ .../devicetree/bindings/net/apm-xgene-enet.txt     |   4 +-
+ MAINTAINERS                                        |   1 -
+ arch/arm64/boot/dts/apm-mustang.dts                |   4 +
+ arch/arm64/boot/dts/apm-storm.dtsi                 |  24 +++
+ drivers/net/ethernet/apm/xgene/Makefile            |   3 +-
+ .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    |  24 ++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     | 123 ++++++++------
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h     |  31 ++--
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c   |  87 +++++++---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h   |  24 ++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c  | 187 +++++++++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h  |  64 +++++++
+ 12 files changed, 473 insertions(+), 103 deletions(-)
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
 
-    scsi: Use 'depends' with LIBFC instead of 'select'.
-
-which went in yesterday.  I thought that would resolve all of your
-problems.
-
-Believe me, it is a tragic surprise that several defconfigs absolutely
-depended upon this broken usage of select in the scsi layer, to of all
-things make CONFIG_NET=y implicit.
-
-I'll do my best to sort this out, but I hope that this short term pain
-is worth it in the end.
-
-Thanks for your understanding.
+-- 
+1.9.1
