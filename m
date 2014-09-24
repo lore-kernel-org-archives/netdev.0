@@ -1,39 +1,48 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH 0/4] Fix up remaining defconfigs with missing CONFIG_NET
-Date: Wed, 24 Sep 2014 13:45:28 -0700
-Message-ID: <20140924204528.GD27927@roeck-us.net>
-References: <20140924.144908.34261036132770745.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/4] powerpc: Update defconfigs which were missing
+ CONFIG_NET.
+Date: Wed, 24 Sep 2014 16:45:46 -0400 (EDT)
+Message-ID: <20140924.164546.1359832079578231208.davem@davemloft.net>
+References: <20140924.144926.1013677655715591915.davem@davemloft.net>
+	<20140924203801.GA27927@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: linux@roeck-us.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:50273 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779AbaIXUpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 16:45:32 -0400
-Received: by mail-pa0-f54.google.com with SMTP id fb1so9460617pad.13
-        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 13:45:32 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140924.144908.34261036132770745.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48628 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753200AbaIXUps (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 16:45:48 -0400
+In-Reply-To: <20140924203801.GA27927@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 24, 2014 at 02:49:08PM -0400, David Miller wrote:
-> 
-> This is on top of Michal Marek's series and the IA64 fixups which are
-> already in Linus's tree.
-> 
-> I validated things two different ways:
-> 
-> 1) I scanned every arch config file, and if it mentioned CONFIG_INET or
->    CONFIG_UNIX, I made sure it had CONFIG_NET=y
-> 
-> 2) I scanned every arch config file, and if it did not have CONFIG_NET=y
->    I made sure it did not reference any networking config options.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Wed, 24 Sep 2014 13:38:01 -0700
 
-Ah, I was missing Michal's series. Sorry for the noise.
+> On Wed, Sep 24, 2014 at 02:49:26PM -0400, David Miller wrote:
+>> 
+>> Commit df568d8e ("scsi: Use 'depends' with LIBFC instead of
+>> 'select'.")  removed what happened to be the only instance of 'select
+>> NET'. Defconfigs that were relying on the select now lack networking
+>> support.
+>> 
+>> Signed-off-by: David S. Miller <davem@davemloft.net>
+>> ---
+>>  arch/powerpc/configs/c2k_defconfig | 1 +
+> 
+> Sure that is the only affected file ?
+> My list is a bit larger.
+> 
+> powerpc:c2k_defconfig
+> powerpc:pmac32_defconfig
+> powerpc:ppc64_defconfig
+> powerpc:ppc64e_defconfig
+> powerpc:pseries_defconfig
+> powerpc:pseries_le_defconfig
 
-Guenter
+Those all have NET=y in my tree.
+
+I don't see what the problem is.
