@@ -1,151 +1,132 @@
 From: Ahmed Amamou <ahmed@gandi.net>
-Subject: [RFC PATCH 15/24] net: rbridge: Add basic trill frame handling function
-Date: Wed, 24 Sep 2014 17:52:11 +0200
-Message-ID: <1411573940-14079-16-git-send-email-ahmed@gandi.net>
+Subject: [RFC PATCH 16/24] net: rbridge: Update forwarding database
+Date: Wed, 24 Sep 2014 17:52:12 +0200
+Message-ID: <1411573940-14079-17-git-send-email-ahmed@gandi.net>
 References: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: william@gandi.net, f.cachereul@alphalink.fr,
 	Ahmed Amamou <ahmed@gandi.net>,
 	Kamel Haddadou <kamel@gandi.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:60457 "EHLO mail4.gandi.net"
+Received: from mail4.gandi.net ([217.70.183.210]:45308 "EHLO mail4.gandi.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752518AbaIXQDM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2014 12:03:12 -0400
+	id S1751772AbaIXQDK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2014 12:03:10 -0400
 In-Reply-To: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-if trill is not enabled pass frame directly to the old handling functio=
-n
-if trill is enabled
-frames from access port:
-- destination is another access port -> deliver directly
-- unknown or not an access port -> encapsulate (TODO)
-frames from trunk port:
-- 0x22F3 protocol -> trill frame -> TRILL handling process (TODO)
-- desintation is localhost consume frame
+update forwarding database to include nickname information used
+in encapsulation and decapsulation
+add functions to get and update nickname
 
 Signed-off-by: Ahmed Amamou <ahmed@gandi.net>
 Signed-off-by: Kamel Haddadou <kamel@gandi.net>
 Signed-off-by: William Dauchy <william@gandi.net>
-Suggested-by: Fran=C3=A7ois Cachereul <f.cachereul@alphalink.fr>
 ---
- net/bridge/rbridge/rbr.c | 100 +++++++++++++++++++++++++++++++++++++++=
-++++++++
- 1 file changed, 100 insertions(+)
+ net/bridge/br_fdb.c     | 40 ++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_private.h | 11 +++++++++++
+ 2 files changed, 51 insertions(+)
 
-diff --git a/net/bridge/rbridge/rbr.c b/net/bridge/rbridge/rbr.c
-index edd1e7c..4b41d4c 100644
---- a/net/bridge/rbridge/rbr.c
-+++ b/net/bridge/rbridge/rbr.c
-@@ -129,3 +129,103 @@ static void rbr_del_all(struct rbr *rbr)
- 			rbr_del_node(rbr, i);
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 6f6c95c..544151f 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -531,8 +531,14 @@ int br_fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+ 	return ret;
+ }
+ 
++#ifdef CONFIG_TRILL
++void br_fdb_update_nick(struct net_bridge *br, struct net_bridge_port *source,
++			const unsigned char *addr, u16 vid, bool added_by_user,
++			uint16_t nick)
++#else
+ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+ 		   const unsigned char *addr, u16 vid, bool added_by_user)
++#endif
+ {
+ 	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
+ 	struct net_bridge_fdb_entry *fdb;
+@@ -566,6 +572,10 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+ 				fdb->added_by_user = 1;
+ 			if (unlikely(fdb_modified))
+ 				fdb_notify(br, fdb, RTM_NEWNEIGH);
++#ifdef CONFIG_TRILL
++			if (nick != RBRIDGE_NICKNAME_UNUSED)
++				fdb->nick = nick;
++#endif
+ 		}
+ 	} else {
+ 		spin_lock(&br->hash_lock);
+@@ -584,6 +594,17 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
  	}
  }
-+
-+/* handling function hook allow handling
-+ * a frame upon reception called via
-+ * br_handle_frame_hook =3D rbr_handle_frame
-+ * in  br.c
-+ * Return NULL if skb is handled
-+ * note: already called with rcu_read_lock (preempt_disabled)
-+ */
-+rx_handler_result_t rbr_handle_frame(struct sk_buff **pskb)
+ 
++#ifdef CONFIG_TRILL
++void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
++		   const unsigned char *addr, u16 vid, bool added_by_user)
 +{
-+	struct net_bridge *br;
-+	struct net_bridge_port *p;
-+	struct sk_buff *skb =3D *pskb;
-+	u16 vid =3D 0;
-+
-+	p =3D br_port_get_rcu(skb->dev);
-+	if (unlikely(!p))
-+		goto drop_no_stat;
-+	br =3D p->br;
-+
-+	/* if trill is not enabled, handle by bridge */
-+	if (br->trill_enabled =3D=3D BR_NO_TRILL) {
-+		goto handle_by_bridge;
-+	} else {
-+		if (unlikely(skb->pkt_type =3D=3D PACKET_LOOPBACK))
-+			return RX_HANDLER_PASS;
-+		skb =3D skb_share_check(skb, GFP_ATOMIC);
-+		if (!skb)
-+			return RX_HANDLER_CONSUMED;
-+		if (unlikely(!is_valid_ether_addr(eth_hdr(skb)->h_source))) {
-+			pr_warn_ratelimited
-+			    ("rbr_handle_frame:invalid src address\n");
-+			goto drop;
-+		}
-+		if (!br_allowed_ingress(p->br, nbp_get_vlan_info(p), skb, &vid))
-+			goto drop;
-+		/* do not handle any BPDU from the moment */
-+		if (is_all_rbr_address((const u8 *)&eth_hdr(skb)->h_dest)) {
-+			br_fdb_update(br, p, eth_hdr(skb)->h_source, vid, false);
-+			/* BPDU has to be dropped */
-+			goto drop_no_stat;
-+		}
-+		/* DROP if port is in disable state */
-+		if (p->trill_flag & TRILL_FLAG_DISABLE)
-+			goto drop;
-+
-+		/* ACCESS port encapsulate packets */
-+		if (p->trill_flag & TRILL_FLAG_ACCESS) {
-+			/* check if destination is connected on the same bridge */
-+			struct net_bridge_fdb_entry *dst;
-+			dst =3D __br_fdb_get(br, eth_hdr(skb)->h_dest, vid);
-+			if (likely(dst)) {
-+				if (dst->dst->trill_flag & TRILL_FLAG_ACCESS) {
-+					br_deliver(dst->dst, skb);
-+					return RX_HANDLER_CONSUMED;
-+				}
-+			}
-+			/* if packet is from access port and trill is enabled and dest
-+			 * is not an access port or is unknown, encaps it
-+			 */
-+			/* TODO */
-+			return RX_HANDLER_CONSUMED;
-+		}
-+		if (p->trill_flag & TRILL_FLAG_TRUNK) {
-+			/* packet is from trunk port and trill is enabled */
-+			if (eth_hdr(skb)->h_proto =3D=3D
-+			    __constant_htons(ETH_P_TRILL)) {
-+				/*
-+				 * Packet is from trunk port, decapsulate if destined to access po=
-rt
-+				 * or trill forward to next hop
-+				 */
-+				/* TODO */
-+				return RX_HANDLER_CONSUMED;
-+			} else {
-+				/* packet is destinated to localhost */
-+				if (ether_addr_equal(p->br->dev->dev_addr,
-+							eth_hdr(skb)->h_dest)) {
-+					skb->pkt_type =3D PACKET_HOST;
-+					br_handle_frame_finish(skb);
-+					return RX_HANDLER_CONSUMED;
-+				}
-+				/*
-+				 * packet is not from trill  we don't handle
-+				 * such packet from the moment
-+				 */
-+
-+			}
-+		}
-+	}
-+
-+ drop:
-+	if (br->dev)
-+		br->dev->stats.rx_dropped++;
-+ drop_no_stat:
-+	kfree_skb(skb);
-+	return RX_HANDLER_CONSUMED;
-+ handle_by_bridge:
-+	/* trill is not enable return to bridge handle function */
-+	return br_handle_frame(pskb);
++	br_fdb_update_nick(br, source, addr, vid, added_by_user,
++			   RBRIDGE_NICKNAME_UNUSED);
 +}
---=20
++
++#endif
++
++
+ static int fdb_to_nud(const struct net_bridge_fdb_entry *fdb)
+ {
+ 	if (fdb->is_local)
+@@ -1014,3 +1035,22 @@ void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p)
+ 		}
+ 	}
+ }
++#ifdef CONFIG_TRILL
++/* get_nick_from_mac: used to get correspondant nick to Mac address
++ * used only on ingress/Egress Rbridge (those how encapsulate
++ * and decapsulate frames)
++ * must be called while encapsulating  to get mac <-> nick correspondance
++ */
++uint16_t get_nick_from_mac(struct net_bridge_port *p, unsigned char *dest,
++			   u16 vid)
++{
++	struct hlist_head *head = &p->br->hash[br_mac_hash(dest, vid)];
++	struct net_bridge_fdb_entry *fdb;
++	if (is_multicast_ether_addr(dest))
++		return RBRIDGE_NICKNAME_NONE;
++	fdb = fdb_find(head, dest, vid);
++	if (likely(fdb))
++		return fdb->nick;
++	return RBRIDGE_NICKNAME_NONE;
++}
++#endif
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 2d15b35..37456cf 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -118,6 +118,9 @@ struct net_bridge_fdb_entry
+ 	unsigned char			is_static;
+ 	unsigned char			added_by_user;
+ 	__u16				vlan_id;
++#ifdef CONFIG_TRILL
++	__u16				nick; /* destination's nickname */
++#endif
+ };
+ 
+ struct net_bridge_port_group {
+@@ -428,6 +431,14 @@ int br_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+ 		struct net_device *dev, struct net_device *fdev, int idx);
+ int br_fdb_sync_static(struct net_bridge *br, struct net_bridge_port *p);
+ void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p);
++#ifdef CONFIG_TRILL
++void br_fdb_update_nick(struct net_bridge *br,
++			struct net_bridge_port *source,
++			const unsigned char *addr,
++			u16 vid, bool added_by_user, uint16_t nick);
++uint16_t get_nick_from_mac(struct net_bridge_port *p, unsigned char *dest,
++			   u16 vid);
++#endif
+ 
+ /* br_forward.c */
+ void br_deliver(const struct net_bridge_port *to, struct sk_buff *skb);
+-- 
 1.9.1
