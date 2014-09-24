@@ -1,49 +1,35 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH 1/4] mips: Update some more defconfigs which were missing
- CONFIG_NET.
-Date: Wed, 24 Sep 2014 13:40:07 -0700
-Message-ID: <20140924204007.GC27927@roeck-us.net>
-References: <20140924.144914.467369651395057588.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v3 2/3] net: Add Keystone NetCP ethernet driver
+Date: Wed, 24 Sep 2014 16:43:06 -0400 (EDT)
+Message-ID: <20140924.164306.431516399400992046.davem@davemloft.net>
+References: <20140915.123755.1868053059646672094.davem@davemloft.net>
+	<54183EDB.20801@ti.com>
+	<542320B3.9020902@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:43654 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750725AbaIXUkM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 16:40:12 -0400
-Received: by mail-pd0-f174.google.com with SMTP id g10so8772369pdj.33
-        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 13:40:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140924.144914.467369651395057588.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sandeep_n-l0cyMroinI0@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
+To: santosh.shilimkar-l0cyMroinI0@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <542320B3.9020902-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 24, 2014 at 02:49:14PM -0400, David Miller wrote:
-> 
-> Commit df568d8e ("scsi: Use 'depends' with LIBFC instead of
-> 'select'.")  removed what happened to be the only instance of 'select
-> NET'. Defconfigs that were relying on the select now lack networking
-> support.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  arch/mips/configs/nlm_xlp_defconfig | 1 +
->  arch/mips/configs/nlm_xlr_defconfig | 1 +
+From: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+Date: Wed, 24 Sep 2014 15:51:15 -0400
 
-My list of affected configurations is much larger.
+> Here is an updated version with above fixed. Not posting the entire
+> series again since its just small update on the patch.
 
-mips:gpr_defconfig
-mips:ip27_defconfig
-mips:jazz_defconfig
-mips:loongson3_defconfig
-mips:malta_defconfig
-mips:malta_kvm_defconfig
-mips:malta_kvm_guest_defconfig
-mips:mtx1_defconfig
-mips:nlm_xlp_defconfig
-mips:nlm_xlr_defconfig
-mips:rm200_defconfig
+That's not how this works.
 
-Guenter
+If you want your changes re-reviewed and considered for real inclusion,
+you must repost the entire patch series from scratch, with a proper
+list of what changes between the previous submission and the new one.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
