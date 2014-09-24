@@ -1,40 +1,50 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFC PATCH 00/24] TRILL implementation
-Date: Wed, 24 Sep 2014 22:57:52 +0200
-Message-ID: <20140924205752.GC14754@electric-eye.fr.zoreil.com>
-References: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
- <20140924094422.2e710ead@urahara>
- <20140924165447.GG27183@gandi.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH 1/1 V4] qdisc: bulk dequeue support for qdiscs
+ with TCQ_F_ONETXQUEUE
+Date: Wed, 24 Sep 2014 18:13:57 -0400
+Message-ID: <54234225.5000503@mojatatu.com>
+References: <20140924160932.9721.56450.stgit@localhost>	<20140924161047.9721.43080.stgit@localhost>	<1411579395.15395.41.camel@edumazet-glaptop2.roam.corp.google.com> <20140924195831.6fb91051@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Ahmed Amamou <ahmed@gandi.net>, netdev@vger.kernel.org,
-	f.cachereul@alphalink.fr
-To: William Dauchy <william@gandi.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, therbert@google.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexander Duyck <alexander.h.duyck@intel.com>, toke@toke.dk,
+	Florian Westphal <fw@strlen.de>,
+	Dave Taht <dave.taht@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:41179 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750891AbaIXU5z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 16:57:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20140924165447.GG27183@gandi.net>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:36490 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751184AbaIXWOG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 18:14:06 -0400
+Received: by mail-ie0-f170.google.com with SMTP id x19so9702718ier.15
+        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 15:14:05 -0700 (PDT)
+In-Reply-To: <20140924195831.6fb91051@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-William Dauchy <william@gandi.net> :
-> On Sep24 09:44, Stephen Hemminger wrote:
-[...]
-> > Also, it seems when you build with trill you lose normal bridge functionality.
-> > Whether kernel is doing bridge or rbridge has to be a runtime (not compile time)
-> > choice on a per-bridge basis.
-> 
-> The normal bridge functionnality are still ok until TRILL is not
-> enabled.
+On 09/24/14 13:58, Jesper Dangaard Brouer wrote:
+> On Wed, 24 Sep 2014 10:23:15 -0700
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
 
-Imvho you should remove patch #24 and plug directly into br_handle_frame.
-It is not fair for usual bridge interfaces to become second class
-citizens - rbr_handle_frame _is_ unbalanced - as soon as CONFIG_TRILL is
-set and they are not TRILL enabled.
+>
+>> pktgen is nice, but do not represent the majority of the traffic we send
+>> from high performance host where we want this bulk dequeue thing ;)
+>
+> This patch is actually targetted towards more normal use-cases.
+> Pktgen cannot even use this work, as it bypass the qdisc layer...
 
--- 
-Ueimor
+When you post these patches - can you please also post basic performance
+numbers? You dont have to show improvement if it is hard for bulking
+to kick in, but you need to show no harm in at least latency for the
+general use case (i.e not pktgen maybe forwarding activity or something
+sourced from tcp).
+
+cheers,
+jamal
