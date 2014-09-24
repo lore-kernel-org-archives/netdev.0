@@ -1,45 +1,55 @@
-From: Michael Tokarev <mjt-XAri/EZa3C4vJsYlp49lxw@public.gmane.org>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Wed, 24 Sep 2014 18:51:23 +0400
-Message-ID: <8d3f6516-9578-406c-9444-6fe1ba982ea6@email.android.com>
-References: <53FDACD1.8090805@msgid.tls.msk.ru> <53FDF8EB.4050905@broadcom.com> <54169D4F.2090607@broadcom.com> <541EEF17.7020806@msgid.tls.msk.ru> <542145B1.4030202@msgid.tls.msk.ru> <54216BF1.3060500@broadcom.com> <20140923134419.GA19016@ubuntu-hedt> <54217AA5.2060803@broadcom.com> <542182BE.2000606@msgid.tls.msk.ru> <542183A6.4070207@msgid.tls.msk.ru> <20140923143124.GC19016@ubuntu-hedt> <54219984.2080601@msgid.tls.msk.ru> <5421AF5C.6000106@broadcom.com> <5421B78E.4050908@msgid.tls.msk.ru> <5422C6E0.3080002@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] vlan: Fix receive statistics under-reporting
+Date: Wed, 24 Sep 2014 08:08:53 -0700
+Message-ID: <1411571333.15395.33.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140922090134.3a114531@urahara>
+	 <1411569906-31679-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5422C6E0.3080002-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	Vladislav Yasevich <vyasevic@redhat.com>
+To: Vladislav Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:48012 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752894AbaIXPIu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 11:08:50 -0400
+Received: by mail-pa0-f42.google.com with SMTP id et14so8845542pad.15
+        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 08:08:49 -0700 (PDT)
+In-Reply-To: <1411569906-31679-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Wed, 2014-09-24 at 10:45 -0400, Vladislav Yasevich wrote:
+> Vlan devices uder-report 14 bytes per packet in the recieve statistics.
+> This is because the ETH_HLEN bytes of data has been pulled off the skb
+> by the time it gets to the vlan receive code.  When accounting for
+> receive butes, add ETH_HLEN back.
+> 
+> See also https://bugzilla.kernel.org/show_bug.cgi?id=84951
+> 
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+> ---
+>  net/8021q/vlan_core.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+> index 90cc2bd..8bc5d46 100644
+> --- a/net/8021q/vlan_core.c
+> +++ b/net/8021q/vlan_core.c
+> @@ -54,7 +54,7 @@ bool vlan_do_receive(struct sk_buff **skbp)
+>  
+>  	u64_stats_update_begin(&rx_stats->syncp);
+>  	rx_stats->rx_packets++;
+> -	rx_stats->rx_bytes += skb->len;
+> +	rx_stats->rx_bytes += skb->len + ETH_HLEN;
+>  	if (skb->pkt_type == PACKET_MULTICAST)
+>  		rx_stats->rx_multicast++;
+>  	u64_stats_update_end(&rx_stats->syncp);
 
 
->I looked at the log. I see download commence because the packets 
->received of 1562 bytes length. So within one second I see little over 
->200 packets so approx. 3Mbps which is not impressive but I don't know 
->what can be expected.
+I do not think this patch is general enough, it doesn't handle GRO for
+example.
 
-When it works it goes 50+ Mbps. I always tested at the same place and the signal there is good. D/load speed is 11Mb/sec steady. When it works. Today after powercycle it worked fine at 11 megabytes per second, I transferred several gigs of data.
-
-> Indeed after that it stalls and we only seem to 
->receive small packets of 179 bytes that seem to end up in 
->cfg80211_mgmt_rx. It could be that the hardware is somehow bogged and 
->can not receive at higher modulations as management frames are 
->transmitted at lower rates. The hardware will drop packets that are 
->having FCS (aka. checksum) errors. The brcmsmac is missing some code to
->
->read fcs error count from hardware, but I will get back to you with a 
->patch that we can use to confirm this.
-
-I see. Today I ordered an intel wifi  card (which also works at 5MHz) and will swap bcm4313 with it. Since the notebook has to be disassembled for this (it doesn't have separate window for wifi card), and the procedure is rather complex I don't want to do it more times than necessary... ;)
-
-Thanks! 
-
-/mjt from android phone
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+And should not the vlan tag also be accounted ? 
