@@ -1,115 +1,129 @@
 From: Ahmed Amamou <ahmed@gandi.net>
-Subject: [RFC PATCH 14/24] net: rbridge: Add get_node function
-Date: Wed, 24 Sep 2014 17:52:10 +0200
-Message-ID: <1411573940-14079-15-git-send-email-ahmed@gandi.net>
-References: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
+Subject: [RFC PATCH 00/24] TRILL implementation
+Date: Wed, 24 Sep 2014 17:51:56 +0200
+Message-ID: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: william@gandi.net, f.cachereul@alphalink.fr,
-	Ahmed Amamou <ahmed@gandi.net>,
-	Kamel Haddadou <kamel@gandi.net>
+	Ahmed Amamou <ahmed@gandi.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:37848 "EHLO mail4.gandi.net"
+Received: from mail4.gandi.net ([217.70.183.210]:53510 "EHLO mail4.gandi.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753020AbaIXP6L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2014 11:58:11 -0400
-In-Reply-To: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
+	id S1752976AbaIXP6J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2014 11:58:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-allow daemon to get any node information
-daemon has to provide a netlink message containing the nickname of
-requested node.
-This function is provided but not used by the daemon for the moment
-it can be used to check information accuracy in futur version
+Hi,
 
-Signed-off-by: Ahmed Amamou <ahmed@gandi.net>
-Signed-off-by: Kamel Haddadou <kamel@gandi.net>
-Signed-off-by: Fran=C3=A7ois Cachereul <f.cachereul@alphalink.fr>
-Signed-off-by: William Dauchy <william@gandi.net>
----
- net/bridge/rbridge/rbr_netlink.c | 61 ++++++++++++++++++++++++++++++++=
+We have been working on a TRILL implementation in the Linux kernel for =
+some
+months now.  The code has been pushed here https://github.com/Gandi/ktr=
+ill.git
+along the way.  Attached a series of patch as a first proposition.  The=
+ code is
+not perfect and probably still lacks of improvements. It's a first requ=
+est of
+comment in order to get some feedbacks. This code has been tested for s=
+ome
+months now.
+
+These patch tries to implement TRILL protocol RFC 6325.  As a First
+implementation, some RFC details are still not implemented.
+
+We still need to fix these points:=20
+- The use of rtnetlink instead of the actual netlink.
+- BPDU handling
+
+Also some parts may not be fully linux compliant, so we are waiting for
+comments
+
+In order to test theses patches please follow this small wiki download =
+quagga
+(userland) from here https://github.com/Gandi/quagga.git compile it usi=
+ng these
+options ./bootstrap.sh && ./configure --localstatedir=3D/var/run/quagga
+--enable-isisd --enable-trilld --disable-ipv6 --disable-ospfd
+--disable-ospfclient --disable-ripd --disable-babeld --disable-bgpd && =
+make &&
+make install
+
+start zebra and trilld  $ zebra -f $ZEBRA_CONF -P 2121 -u quagga -d $ t=
+rilld -f
+$TRILLD_CONF -P 2021 -u quagga -d
+
+configuration sample can be found here
+https://github.com/Gandi/quagga/blob/dev_trill/zebra/zebra.conf.sample =
+and here
+https://github.com/Gandi/quagga/blob/dev_trill/isisd/trilld.conf.sample
+
+
+=46inally you need to correctly configure bridge port=20
+
+=46or access port (native frames) echo 4 >
+/sys/class/net/<INTERFACE>/brport/trill_state For trunk port (trill fra=
+me and
+control frames) echo 8 > /sys/class/net/<INTERFACE>/brport/trill_state=20
+
+more detail can be found here: https://github.com/Gandi/ktrill/wiki NB:=
+ for port
+state github version has different flags as we did not take into consid=
+eration
+all port flag when implementing it
+
+Ahmed Amamou (23):
+  net: rbridge: add trill frame description
+  net: rbridge: Add RBridge structure
+  net: rbridge: Add CONFIG_TRILL
+  net: rbridge: Adapt Bridge structure
+  net: rbridge: Enable/disable TRILL capability
+  net: rbridge: Add sysfs for trill_state
+  net: rbridge: Add Rbridge netlink message skeleton
+  net: rbridge: Get Rbridge nickname from daemon
+  net: rbridge: Add elected dtroot
+  net: rbridge: Add rbr_node management function
+  net: rbridge: Clean up rbr_node on rbridge stop
+  net: rbridge: Add set_node function
+  net: rbridge: Add get_node function
+  net: rbridge: Add basic trill frame handling function
+  net: rbridge: Update forwarding database
+  net: rbridge: Add test on trill flag before flood
+  net: rbridge: Add encapsulation process
+  net: rbridge: Add receive function
+  net: rbridge: Add multicast recv handling
+  net: rbridge: Add decapsulation function
+  net: rbridge: Add rbr_fwd
+  net: rbridge: Add rbr_multidest_fwd
+  net: rbridge: replace net_port rx_handler
+
+=46ran=C3=A7ois Cachereul (1):
+  net: rbridge: Add layer 2 IS-IS Ethertype
+
+ include/linux/etherdevice.h      |  34 ++
+ include/linux/if_trill.h         |  89 +++++
+ include/uapi/linux/if_ether.h    |   2 +
+ net/bridge/Kconfig               |   8 +
+ net/bridge/Makefile              |   2 +
+ net/bridge/br.c                  |   6 +
+ net/bridge/br_fdb.c              |  40 +++
+ net/bridge/br_forward.c          |  38 ++
+ net/bridge/br_if.c               |   4 +
+ net/bridge/br_private.h          |  51 +++
+ net/bridge/br_sysfs_br.c         |  38 ++
+ net/bridge/br_sysfs_if.c         |  23 ++
+ net/bridge/rbridge/rbr.c         | 723 +++++++++++++++++++++++++++++++=
 ++++++++
- 1 file changed, 61 insertions(+)
+ net/bridge/rbridge/rbr_netlink.c | 404 ++++++++++++++++++++++
+ net/bridge/rbridge/rbr_netlink.h |  62 ++++
+ net/bridge/rbridge/rbr_private.h |  86 +++++
+ 16 files changed, 1610 insertions(+)
+ create mode 100644 include/linux/if_trill.h
+ create mode 100644 net/bridge/rbridge/rbr.c
+ create mode 100644 net/bridge/rbridge/rbr_netlink.c
+ create mode 100644 net/bridge/rbridge/rbr_netlink.h
+ create mode 100644 net/bridge/rbridge/rbr_private.h
 
-diff --git a/net/bridge/rbridge/rbr_netlink.c b/net/bridge/rbridge/rbr_=
-netlink.c
-index bb893f0..983d647 100644
---- a/net/bridge/rbridge/rbr_netlink.c
-+++ b/net/bridge/rbridge/rbr_netlink.c
-@@ -123,7 +123,68 @@ static int trill_cmd_set_nicks_info(struct sk_buff=
- *skb, struct genl_info *info)
-=20
- static int trill_cmd_get_nicks_info(struct sk_buff *skb, struct genl_i=
-nfo *info)
- {
-+	struct sk_buff *msg;
-+	struct nlattr *attr;
-+	struct rbr_nickinfo rbr_ni;
-+	void *data;
-+	struct trill_nl_header *trnlhdr;
-+	struct net_device *source_port =3D NULL;
-+	struct net *net =3D sock_net(skb->sk);
-+	struct net_bridge_port *p =3D NULL;
-+	struct rbr_node *rbr_node;
-+	int err =3D -EINVAL;
-+
-+	nla_memcpy(&rbr_ni, info->attrs[TRILL_ATTR_BIN], sizeof(rbr_ni));
-+	trnlhdr =3D info->userhdr;
-+	if (trnlhdr->ifindex)
-+		source_port =3D __dev_get_by_index(net, trnlhdr->ifindex);
-+
-+	if (!source_port)
-+		goto fail;
-+
-+	p =3D br_port_get_rcu(source_port);
-+	if (!p || !(p->br) || !(p->br->rbr))
-+		goto fail;
-+
-+	rbr_node =3D rbr_find_node(p->br->rbr, rbr_ni.nick);
-+	if (!rbr_node)
-+		goto fail;
-+
-+	err =3D -ENOMEM;
-+	msg =3D nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!msg)
-+		goto fail_put;
-+
-+	trnlhdr =3D genlmsg_put(msg, info->snd_portid, info->snd_seq,
-+			      &trill_genl_family, sizeof(*trnlhdr),
-+			      TRILL_CMD_GET_NICKS_INFO);
-+	if (!trnlhdr)
-+		goto fail_free;
-+
-+	attr =3D nla_reserve(msg, TRILL_ATTR_BIN,
-+			   RBR_NI_TOTALSIZE(rbr_node->rbr_ni));
-+	if (!attr)
-+		goto fail_free;
-+
-+	data =3D nla_data(attr);
-+	trnlhdr->ifindex =3D KERNL_RESPONSE_INTERFACE;
-+	memcpy(data, rbr_node->rbr_ni, RBR_NI_TOTALSIZE(rbr_node->rbr_ni));
-+	genlmsg_end(msg, trnlhdr);
-+	rbr_node_put(rbr_node);
-+
-+	err =3D genlmsg_reply(msg, info);
-+	if (err)
-+		goto fail_put;
-+
- 	return 0;
-+
-+ fail_free:
-+	nlmsg_free(msg);
-+ fail_put:
-+	rbr_node_put(rbr_node);
-+ fail:
-+	printk(KERN_WARNING "trill_cmd_get_nicks_info FAILED\n");
-+	return err;
- }
-=20
- static int trill_cmd_add_nicks_info(struct sk_buff *skb, struct genl_i=
-nfo *info)
 --=20
-1.9.1
+Ahmed Amamou=20
