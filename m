@@ -1,303 +1,183 @@
-From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 3/5] ARCNET: add com20020 PCI IDs with metadata
-Date: Wed, 24 Sep 2014 13:02:01 +0200
-Message-ID: <1411556523-28100-4-git-send-email-m.grzeschik@pengutronix.de>
-References: <1411556523-28100-1-git-send-email-m.grzeschik@pengutronix.de>
-Cc: linux-kernel@vger.kernel.org, kernel@pengutronix.de
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1411556523-28100-1-git-send-email-m.grzeschik@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: change tcp_skb_pcount() location
+Date: Wed, 24 Sep 2014 04:11:22 -0700
+Message-ID: <1411557082.15395.24.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:55468 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750828AbaIXLLU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 07:11:20 -0400
+Received: by mail-pa0-f48.google.com with SMTP id bj1so1183817pad.7
+        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 04:11:19 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds metadata for the com20020 to prepare for devices with
-multiple io address areas with multi card interfaces.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Our goal is to access no more than one cache line access per skb in
+a write or receive queue when doing the various walks.
+
+After recent TCP_SKB_CB() reorganizations, it is almost done.
+
+Last part is tcp_skb_pcount() which currently uses
+skb_shinfo(skb)->gso_segs, which is a terrible choice, because it needs
+3 cache lines in current kernel (skb->head, skb->end, and
+shinfo->gso_segs are all in 3 different cache lines, far from skb->cb)
+
+This very simple patch reuses space currently taken by tcp_tw_isn
+only in input path, as tcp_skb_pcount is only needed for skb stored in
+write queue.
+
+This considerably speeds up tcp_ack(), granted we avoid shinfo->tx_flags
+to get SKBTX_ACK_TSTAMP, which seems possible.
+
+This also speeds up all sack processing in general.
+
+This speeds up tcp_sendmsg() because it no longer has to access/dirty
+shinfo.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/arcnet/com20020-pci.c | 216 ++++++++++++++++++++++++++++++++------
- include/linux/com20020.h          |  16 +++
- 2 files changed, 197 insertions(+), 35 deletions(-)
+Note : This patch applies cleanly after "tcp: better TCP_SKB_CB layout"
+patch serie.
 
-diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
-index cbc44f5..d08d539 100644
---- a/drivers/net/arcnet/com20020-pci.c
-+++ b/drivers/net/arcnet/com20020-pci.c
-@@ -63,6 +63,8 @@ MODULE_LICENSE("GPL");
+ include/net/tcp.h     |   23 +++++++++++++++++++++--
+ net/ipv4/tcp.c        |    4 ++--
+ net/ipv4/tcp_input.c  |    8 ++++----
+ net/ipv4/tcp_output.c |    9 ++++++---
+ 4 files changed, 33 insertions(+), 11 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 4dc6641ee990..222fd43b36c8 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -698,7 +698,16 @@ static inline u32 tcp_skb_timestamp(const struct sk_buff *skb)
+ struct tcp_skb_cb {
+ 	__u32		seq;		/* Starting sequence number	*/
+ 	__u32		end_seq;	/* SEQ + FIN + SYN + datalen	*/
+-	__u32		tcp_tw_isn;	/* isn chosen by tcp_timewait_state_process() */
++	union {
++		/* Note : tcp_tw_isn is used in input path only
++		 *	  (isn chosen by tcp_timewait_state_process())
++		 *
++		 * 	  tcp_gso_segs is used in write queue only,
++		 *	  cf tcp_skb_pcount()
++		 */
++		__u32		tcp_tw_isn;
++		__u32		tcp_gso_segs;
++	};
+ 	__u8		tcp_flags;	/* TCP header flags. (tcp[13])	*/
  
- static int com20020pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	__u8		sacked;		/* State flags for SACK/FACK.	*/
+@@ -746,7 +755,17 @@ TCP_ECN_create_request(struct request_sock *req, const struct sk_buff *skb,
+  */
+ static inline int tcp_skb_pcount(const struct sk_buff *skb)
  {
-+	struct com20020_pci_channel_map *cm;
-+	struct com20020_pci_card_info *ci;
- 	struct net_device *dev;
- 	struct arcnet_local *lp;
- 	int ioaddr, err;
-@@ -75,19 +77,15 @@ static int com20020pci_probe(struct pci_dev *pdev, const struct pci_device_id *i
- 
- 	dev->netdev_ops = &com20020_netdev_ops;
- 
-+	ci = (struct com20020_pci_card_info *)id->driver_data;
+-	return skb_shinfo(skb)->gso_segs;
++	return TCP_SKB_CB(skb)->tcp_gso_segs;
++}
 +
- 	lp = netdev_priv(dev);
- 
- 	pci_set_drvdata(pdev, dev);
- 
--	// SOHARD needs PCI base addr 4
--	if (pdev->vendor==0x10B5) {
--		BUGMSG(D_NORMAL, "SOHARD\n");
--		ioaddr = pci_resource_start(pdev, 4);
--	}
--	else {
--		BUGMSG(D_NORMAL, "Contemporary Controls\n");
--		ioaddr = pci_resource_start(pdev, 2);
--	}
-+	cm = &ci->chan_map_tbl[0];
-+	BUGMSG(D_NORMAL, "%s Controls\n", ci->name);
-+	ioaddr = pci_resource_start(pdev, cm->bar);
- 
- 	if (!request_region(ioaddr, ARCNET_TOTAL_SIZE, "com20020-pci")) {
- 		BUGMSG(D_INIT, "IO region %xh-%xh already allocated.\n",
-@@ -105,7 +103,7 @@ static int com20020pci_probe(struct pci_dev *pdev, const struct pci_device_id *i
- 	dev->irq = pdev->irq;
- 	dev->dev_addr[0] = node;
- 	lp->card_name = "PCI COM20020";
--	lp->card_flags = id->driver_data;
-+	lp->card_flags = ci->flags;
- 	lp->backplane = backplane;
- 	lp->clockp = clockp & 7;
- 	lp->clockm = clockm & 3;
-@@ -144,32 +142,180 @@ static void com20020pci_remove(struct pci_dev *pdev)
- 	free_netdev(dev);
++static inline void tcp_skb_pcount_set(struct sk_buff *skb, int segs)
++{
++	TCP_SKB_CB(skb)->tcp_gso_segs = segs;
++}
++
++static inline void tcp_skb_pcount_add(struct sk_buff *skb, int segs)
++{
++	TCP_SKB_CB(skb)->tcp_gso_segs += segs;
  }
  
-+static struct com20020_pci_card_info card_info_10mbit = {
-+	.name = "ARC-PCI",
-+	.devcount = 1,
-+	.chan_map_tbl = {
-+		{ 2, 0x00, 0x08 },
-+	},
-+	.flags = ARC_CAN_10MBIT,
-+};
-+
-+static struct com20020_pci_card_info card_info_5mbit = {
-+	.name = "ARC-PCI",
-+	.devcount = 1,
-+	.chan_map_tbl = {
-+		{ 2, 0x00, 0x08 },
-+	},
-+	.flags = ARC_IS_5MBIT,
-+};
-+
-+static struct com20020_pci_card_info card_info_sohard = {
-+	.name = "PLX-PCI",
-+	.devcount = 1,
-+	/* SOHARD needs PCI base addr 4 */
-+	.chan_map_tbl = {
-+		{4, 0x00, 0x08},
-+	},
-+	.flags = ARC_CAN_10MBIT,
-+};
-+
- static DEFINE_PCI_DEVICE_TABLE(com20020pci_id_table) = {
--	{ 0x1571, 0xa001, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ 0x1571, 0xa002, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ 0x1571, 0xa003, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ 0x1571, 0xa004, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ 0x1571, 0xa005, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ 0x1571, 0xa006, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ 0x1571, 0xa007, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ 0x1571, 0xa008, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ 0x1571, 0xa009, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_IS_5MBIT },
--	{ 0x1571, 0xa00a, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_IS_5MBIT },
--	{ 0x1571, 0xa00b, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_IS_5MBIT },
--	{ 0x1571, 0xa00c, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_IS_5MBIT },
--	{ 0x1571, 0xa00d, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_IS_5MBIT },
--	{ 0x1571, 0xa00e, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_IS_5MBIT },
--	{ 0x1571, 0xa201, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
--	{ 0x1571, 0xa202, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
--	{ 0x1571, 0xa203, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
--	{ 0x1571, 0xa204, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
--	{ 0x1571, 0xa205, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
--	{ 0x1571, 0xa206, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
--	{ 0x10B5, 0x9030, 0x10B5,     0x2978,     0, 0, ARC_CAN_10MBIT },
--	{ 0x10B5, 0x9050, 0x10B5,     0x2273,     0, 0, ARC_CAN_10MBIT },
--	{ 0x14BA, 0x6000, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
--	{ 0x10B5, 0x2200, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
--	{0,}
-+	{
-+		0x1571, 0xa001,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		0,
-+	},
-+	{
-+		0x1571, 0xa002,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		0,
-+	},
-+	{
-+		0x1571, 0xa003,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		0
-+	},
-+	{
-+		0x1571, 0xa004,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		0,
-+	},
-+	{
-+		0x1571, 0xa005,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		0
-+	},
-+	{
-+		0x1571, 0xa006,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		0
-+	},
-+	{
-+		0x1571, 0xa007,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		0
-+	},
-+	{
-+		0x1571, 0xa008,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		0
-+	},
-+	{
-+		0x1571, 0xa009,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_5mbit
-+	},
-+	{
-+		0x1571, 0xa00a,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_5mbit
-+	},
-+	{
-+		0x1571, 0xa00b,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_5mbit
-+	},
-+	{
-+		0x1571, 0xa00c,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_5mbit
-+	},
-+	{
-+		0x1571, 0xa00d,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_5mbit
-+	},
-+	{
-+		0x1571, 0xa00e,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_5mbit
-+	},
-+	{
-+		0x1571, 0xa201,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_10mbit
-+	},
-+	{
-+		0x1571, 0xa202,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_10mbit
-+	},
-+	{
-+		0x1571, 0xa203,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_10mbit
-+	},
-+	{
-+		0x1571, 0xa204,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_10mbit
-+	},
-+	{
-+		0x1571, 0xa205,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_10mbit
-+	},
-+	{
-+		0x1571, 0xa206,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_10mbit
-+	},
-+	{
-+		0x10B5, 0x9030,
-+		0x10B5, 0x2978,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_sohard
-+	},
-+	{
-+		0x10B5, 0x9050,
-+		0x10B5, 0x2273,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_sohard
-+	},
-+	{
-+		0x14BA, 0x6000,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_10mbit
-+	},
-+	{
-+		0x10B5, 0x2200,
-+		PCI_ANY_ID, PCI_ANY_ID,
-+		0, 0,
-+		(kernel_ulong_t)&card_info_10mbit
-+	},
-+	{ 0, }
- };
+ /* This is valid iff tcp_skb_pcount() > 1. */
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 070aeff1b131..414f590bfee4 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -963,7 +963,7 @@ new_segment:
+ 		skb->ip_summed = CHECKSUM_PARTIAL;
+ 		tp->write_seq += copy;
+ 		TCP_SKB_CB(skb)->end_seq += copy;
+-		skb_shinfo(skb)->gso_segs = 0;
++		tcp_skb_pcount_set(skb, 0);
  
- MODULE_DEVICE_TABLE(pci, com20020pci_id_table);
-diff --git a/include/linux/com20020.h b/include/linux/com20020.h
-index 5dcfb94..6a1ceca 100644
---- a/include/linux/com20020.h
-+++ b/include/linux/com20020.h
-@@ -41,6 +41,22 @@ extern const struct net_device_ops com20020_netdev_ops;
- #define BUS_ALIGN  1
- #endif
+ 		if (!copied)
+ 			TCP_SKB_CB(skb)->tcp_flags &= ~TCPHDR_PSH;
+@@ -1261,7 +1261,7 @@ new_segment:
  
-+#define PLX_PCI_MAX_CARDS 1
-+
-+struct com20020_pci_channel_map {
-+	u32 bar;
-+	u32 offset;
-+	u32 size;               /* 0x00 - auto, e.g. length of entire bar */
-+};
-+
-+struct com20020_pci_card_info {
-+	const char *name;
-+	int devcount;
-+
-+	struct com20020_pci_channel_map chan_map_tbl[PLX_PCI_MAX_CARDS];
-+
-+	unsigned int flags;
-+};
+ 			tp->write_seq += copy;
+ 			TCP_SKB_CB(skb)->end_seq += copy;
+-			skb_shinfo(skb)->gso_segs = 0;
++			tcp_skb_pcount_set(skb, 0);
  
- #define _INTMASK  (ioaddr+BUS_ALIGN*0)	/* writable */
- #define _STATUS   (ioaddr+BUS_ALIGN*0)	/* readable */
--- 
-2.1.0
+ 			from += copy;
+ 			copied += copy;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 13f3da4762e3..da88c0bb287a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1295,9 +1295,9 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
+ 	TCP_SKB_CB(prev)->end_seq += shifted;
+ 	TCP_SKB_CB(skb)->seq += shifted;
+ 
+-	skb_shinfo(prev)->gso_segs += pcount;
+-	BUG_ON(skb_shinfo(skb)->gso_segs < pcount);
+-	skb_shinfo(skb)->gso_segs -= pcount;
++	tcp_skb_pcount_add(prev, pcount);
++	BUG_ON(tcp_skb_pcount(skb) < pcount);
++	tcp_skb_pcount_add(skb, -pcount);
+ 
+ 	/* When we're adding to gso_segs == 1, gso_size will be zero,
+ 	 * in theory this shouldn't be necessary but as long as DSACK
+@@ -1310,7 +1310,7 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
+ 	}
+ 
+ 	/* CHECKME: To clear or not to clear? Mimics normal skb currently */
+-	if (skb_shinfo(skb)->gso_segs <= 1) {
++	if (tcp_skb_pcount(skb) <= 1) {
+ 		skb_shinfo(skb)->gso_size = 0;
+ 		skb_shinfo(skb)->gso_type = 0;
+ 	}
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 6c7949cafd99..b2869a078766 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -384,7 +384,7 @@ static void tcp_init_nondata_skb(struct sk_buff *skb, u32 seq, u8 flags)
+ 	TCP_SKB_CB(skb)->tcp_flags = flags;
+ 	TCP_SKB_CB(skb)->sacked = 0;
+ 
+-	shinfo->gso_segs = 1;
++	tcp_skb_pcount_set(skb, 1);
+ 	shinfo->gso_size = 0;
+ 	shinfo->gso_type = 0;
+ 
+@@ -972,6 +972,9 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 		TCP_ADD_STATS(sock_net(sk), TCP_MIB_OUTSEGS,
+ 			      tcp_skb_pcount(skb));
+ 
++	/* OK, its time to fill skb_shinfo(skb)->gso_segs */
++	skb_shinfo(skb)->gso_segs = tcp_skb_pcount(skb);
++
+ 	/* Our usage of tstamp should remain private */
+ 	skb->tstamp.tv64 = 0;
+ 
+@@ -1019,11 +1022,11 @@ static void tcp_set_skb_tso_segs(const struct sock *sk, struct sk_buff *skb,
+ 		/* Avoid the costly divide in the normal
+ 		 * non-TSO case.
+ 		 */
+-		shinfo->gso_segs = 1;
++		tcp_skb_pcount_set(skb, 1);
+ 		shinfo->gso_size = 0;
+ 		shinfo->gso_type = 0;
+ 	} else {
+-		shinfo->gso_segs = DIV_ROUND_UP(skb->len, mss_now);
++		tcp_skb_pcount_set(skb, DIV_ROUND_UP(skb->len, mss_now));
+ 		shinfo->gso_size = mss_now;
+ 		shinfo->gso_type = sk->sk_gso_type;
+ 	}
