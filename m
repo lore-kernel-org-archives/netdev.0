@@ -1,69 +1,95 @@
-From: Ahmed Amamou <ahmed@gandi.net>
-Subject: [RFC PATCH 07/24] net: rbridge: Add sysfs for trill_state
-Date: Wed, 24 Sep 2014 17:52:03 +0200
-Message-ID: <1411573940-14079-8-git-send-email-ahmed@gandi.net>
-References: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
-Cc: william@gandi.net, f.cachereul@alphalink.fr,
-	Ahmed Amamou <ahmed@gandi.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:42739 "EHLO mail4.gandi.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752968AbaIXP6J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2014 11:58:09 -0400
-In-Reply-To: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
+Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
+Date: Wed, 24 Sep 2014 09:01:05 -0700
+Message-ID: <CAHA+R7NfJYzCsZx0E9YVXKVCQbCm_thPSi+80tix8Z9nVA82Ug@mail.gmail.com>
+References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
+	<CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw@mail.gmail.com>
+	<54228D87.3070309@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <54228D87.3070309-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-in order to activate trill port without need for brctl
-add a sysfs for trill_state for net_bridge_port
+On Wed, Sep 24, 2014 at 2:23 AM, Nicolas Dichtel
+<nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org> wrote:
+> Le 23/09/2014 21:22, Cong Wang a =C3=A9crit :
+>
+>> On Tue, Sep 23, 2014 at 6:20 AM, Nicolas Dichtel
+>> <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org> wrote:
+>>>
+>>>
+>>> Here is a small screenshot to show how it can be used by userland:
+>>> $ ip netns add foo
+>>> $ ip netns del foo
+>>> $ ip netns
+>>> $ touch /var/run/netns/init_net
+>>> $ mount --bind /proc/1/ns/net /var/run/netns/init_net
+>>> $ ip netns add foo
+>>> $ ip netns
+>>> foo (id: 3)
+>>> init_net (id: 1)
+>>> $ ip netns exec foo ip netns
+>>> foo (id: 3)
+>>> init_net (id: 1)
+>>> $ ip netns exec foo ip link add ipip1 link-netnsid 1 type ipip remo=
+te
+>>> 10.16.0.121 local 10.16.0.249
+>>> $ ip netns exec foo ip l ls ipip1
+>>> 6: ipip1@NONE: <POINTOPOINT,NOARP> mtu 1480 qdisc noop state DOWN m=
+ode
+>>> DEFAULT group default
+>>>      link/ipip 10.16.0.249 peer 10.16.0.121 link-netnsid 1
+>>>
+>>> The parameter link-netnsid shows us where the interface sends and
+>>> receives
+>>> packets (and thus we know where encapsulated addresses are set).
+>>>
+>>
+>> So ipip1 is shown in netns foo but functioning in netns init_net? Ge=
+tting
+>> the
+>> id of init_net in foo depends on your mount namespace, /var/run/netn=
+s/ may
+>> not visible inside foo, in this case, link-netnsid is meaningless. I=
+t
+>> is not your
+>> fault, network namespace already heavily relies on mount namespace (=
+sysfs
+>> needs to be remount otherwise you can not create device with the sam=
+e
+>> name.)
+>>
+>> On the other hand, what's the problem you are trying to solve? AFAIK=
+,
+>> the ifindex
+>> issue is purely in output, IOW, the device still functions correctly
+>> even through
+>> its link ifindex is not correct after moving to another namespace. I=
+f
+>> not, it is bug
+>> we need to fix.
+>>
+> The problem is explained here:
+> http://thread.gmane.org/gmane.linux.network/315933/focus=3D316064
+> and here:
+> http://thread.gmane.org/gmane.linux.kernel.containers/28301/focus=3D4=
+239
+>
 
-Signed-off-by: Ahmed Amamou <ahmed@gandi.net>
-Signed-off-by: William Dauchy <william@gandi.net>
----
- net/bridge/br_sysfs_if.c | 23 +++++++++++++++++++++++
- 1 file changed, 23 insertions(+)
+Please, summarize the discussion in your changelog, instead of pointing
+to a long thread.
 
-diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-index e561cd5..6edc00b 100644
---- a/net/bridge/br_sysfs_if.c
-+++ b/net/bridge/br_sysfs_if.c
-@@ -137,6 +137,26 @@ static ssize_t show_port_state(struct net_bridge_port *p, char *buf)
- }
- static BRPORT_ATTR(state, S_IRUGO, show_port_state, NULL);
- 
-+#ifdef CONFIG_TRILL
-+static ssize_t show_port_trill_state(struct net_bridge_port *p, char *buf)
-+{
-+	return sprintf(buf, "%d\n", p->trill_flag);
-+}
-+static int store_port_trill_state(struct net_bridge_port *p,  unsigned long v)
-+{
-+	uint8_t val;
-+	if (!ns_capable(dev_net(p->dev)->user_ns, CAP_NET_ADMIN))
-+		return -EPERM;
-+	val = (uint8_t) v;
-+	if (val > TRILL_FLAG_TRUNK)
-+		return -ERANGE;
-+	p->trill_flag = val;
-+	return 0;
-+}
-+static BRPORT_ATTR(trill_state, S_IRUGO | S_IWUSR, show_port_trill_state,
-+				   store_port_trill_state);
-+#endif
-+
- static ssize_t show_message_age_timer(struct net_bridge_port *p,
- 					    char *buf)
- {
-@@ -198,6 +218,9 @@ static const struct brport_attribute *brport_attrs[] = {
- 	&brport_attr_designated_port,
- 	&brport_attr_designated_cost,
- 	&brport_attr_state,
-+#ifdef CONFIG_TRILL
-+	&brport_attr_trill_state,
-+#endif
- 	&brport_attr_change_ack,
- 	&brport_attr_config_pending,
- 	&brport_attr_message_age_timer,
--- 
-1.9.1
+And clearly you missed my question above: how do you get netns id
+without sharing /var/run/netns/ ?
