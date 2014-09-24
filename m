@@ -1,58 +1,54 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net-next v2] tcp: use tcp_flags in tcp_data_queue()
-Date: Wed, 24 Sep 2014 20:42:49 +0800
-Message-ID: <c02ed73dc0aa5bf5bdd479ec49403728db8e73c6.1411562110.git.panweiping3@gmail.com>
-References: <1411556068.15395.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Cc: edumazet@google.com
-To: netdev@vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v1 4/5] drivers: net: xgene: Add 10GbE support
+Date: Wed, 24 Sep 2014 15:10:07 +0200
+Message-ID: <7752137.3u6F6qDtIo@wuerfel>
+References: <1411530688-2939-1-git-send-email-isubramanian@apm.com> <1411530688-2939-5-git-send-email-isubramanian@apm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, kchudgar@apm.com, patches@apm.com
+To: Iyappan Subramanian <isubramanian@apm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29190 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752025AbaIXMnD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2014 08:43:03 -0400
-In-Reply-To: <1411556068.15395.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mout.kundenserver.de ([212.227.17.24]:54708 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751209AbaIXNKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 09:10:17 -0400
+In-Reply-To: <1411530688-2939-5-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Follow the idea in commit e11ecddf5128 (tcp: use TCP_SKB_CB(skb)->tcp_flags in
-input path), we can use tcp_flags to avoid cache miss.
+On Tuesday 23 September 2014 20:51:27 Iyappan Subramanian wrote:
+> -static void xgene_enet_wr_mcx_mac(struct xgene_enet_pdata *pdata,
+> -                                 u32 wr_addr, u32 wr_data)
+> +void xgene_enet_wr_mac(struct xgene_enet_pdata *pdata, u32 wr_addr, u32 wr_data)
+>  {
+>         void __iomem *addr, *wr, *cmd, *cmd_done;
+>  
+> -       addr = pdata->mcx_mac_addr + MAC_ADDR_REG_OFFSET;
+> -       wr = pdata->mcx_mac_addr + MAC_WRITE_REG_OFFSET;
+> -       cmd = pdata->mcx_mac_addr + MAC_COMMAND_REG_OFFSET;
+> -       cmd_done = pdata->mcx_mac_addr + MAC_COMMAND_DONE_REG_OFFSET;
+> +       addr = pdata->mac_addr + MAC_ADDR_REG_OFFSET;
+> +       wr = pdata->mac_addr + MAC_WRITE_REG_OFFSET;
+> +       cmd = pdata->mac_addr + MAC_COMMAND_REG_OFFSET;
+> +       cmd_done = pdata->mac_addr + MAC_COMMAND_DONE_REG_OFFSET;
+>  
+>         if (!xgene_enet_wr_indirect(addr, wr, cmd, cmd_done, wr_addr, wr_data))
+>                 netdev_err(pdata->ndev, "MCX mac write failed, addr: %04x\n",
+>                            wr_addr);
+>  }
+>  
+> -static void xgene_enet_rd_csr(struct xgene_enet_pdata *pdata,
+> -                             u32 offset, u32 *val)
+> +void xgene_enet_rd_csr(struct xgene_enet_pdata *pdata, u32 offset, u32 *val)
+>  {
+>         void __iomem *addr = pdata->eth_csr_addr + offset;
+>  
+> 
 
-v2: remove variable th
+A lot of the changes in this patch seem to just rename existing interfaces.
+Please split those out into a preparatory patch, to make it easier to
+review the actual functional changes.
 
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
----
- net/ipv4/tcp_input.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 13f3da4..a51663f 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4339,7 +4339,6 @@ err:
- 
- static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
- {
--	const struct tcphdr *th = tcp_hdr(skb);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	int eaten = -1;
- 	bool fragstolen = false;
-@@ -4348,7 +4347,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
- 		goto drop;
- 
- 	skb_dst_drop(skb);
--	__skb_pull(skb, th->doff * 4);
-+	__skb_pull(skb, tcp_hdr(skb)->doff * 4);
- 
- 	TCP_ECN_accept_cwr(tp, skb);
- 
-@@ -4392,7 +4391,7 @@ queue_and_out:
- 		tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
- 		if (skb->len)
- 			tcp_event_data_recv(sk, skb);
--		if (th->fin)
-+		if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
- 			tcp_fin(sk);
- 
- 		if (!skb_queue_empty(&tp->out_of_order_queue)) {
--- 
-1.7.4
+	Arnd
