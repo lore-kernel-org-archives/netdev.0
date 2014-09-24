@@ -1,72 +1,37 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
-Date: Wed, 24 Sep 2014 10:05:59 -0700
-Message-ID: <CALCETrXMkV_1XR2mXOoO_2_vpB=6cPbWAAOhPFhPbDa_1P+zxw@mail.gmail.com>
-References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
- <CALCETrWnZtWstBviDxcHpLpjHF3R+sgS48RYf2pbKBYeExZVOQ@mail.gmail.com> <54228F8B.2030804@6wind.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [RFC PATCH 03/24] net: rbridge: Add RBridge structure
+Date: Wed, 24 Sep 2014 10:18:11 -0700
+Message-ID: <CAHA+R7O5Re3Q0LeE-nXKY4wgH5_39WDWn++ZcDkJUjJtsP-NXA@mail.gmail.com>
+References: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
+	<1411573940-14079-4-git-send-email-ahmed@gandi.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54228F8B.2030804-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, william@gandi.net,
+	f.cachereul@alphalink.fr, Kamel Haddadou <kamel@gandi.net>
+To: Ahmed Amamou <ahmed@gandi.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:38100 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750793AbaIXRSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 13:18:13 -0400
+Received: by mail-lb0-f181.google.com with SMTP id b6so5992603lbj.12
+        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 10:18:12 -0700 (PDT)
+In-Reply-To: <1411573940-14079-4-git-send-email-ahmed@gandi.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 24, 2014 at 2:31 AM, Nicolas Dichtel
-<nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org> wrote:
-> Le 23/09/2014 21:26, Andy Lutomirski a =C3=A9crit :
+On Wed, Sep 24, 2014 at 8:51 AM, Ahmed Amamou <ahmed@gandi.net> wrote:
+> add basic RBridge structure
+> add basic TRILL constant
+> define rbr_nickinfo structure which represent distant RBridge information
 >
->> On Tue, Sep 23, 2014 at 6:20 AM, Nicolas Dichtel
->> <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org> wrote:
->>>
->>> The goal of this serie is to be able to multicast netlink messages =
-with
->>> an
->>> attribute that identify a peer netns.
->>> This is needed by the userland to interpret some informations conta=
-ined
->>> in
->>> netlink messages (like IFLA_LINK value, but also some other attribu=
-tes in
->>> case
->>> of x-netns netdevice (see also
->>> http://thread.gmane.org/gmane.linux.network/315933/focus=3D316064 a=
-nd
->>> http://thread.gmane.org/gmane.linux.kernel.containers/28301/focus=3D=
-4239)).
->>>
->>> Ids are stored in the parent user namespace. These ids are valid on=
-ly
->>> inside
->>> this user namespace. The user can retrieve these ids via a new netl=
-ink
->>> messages,
->>> but only if peer netns are in the same user namespace.
->>
->>
->> What about the parent / ancestors of the owning userns?  Can process=
-es
->> in those usernses see any form of netns id?
->
-> With this serie no. I'm not sure if ancestors really needs to be able=
- to
-> get these ids. What is your opinion?
+> Signed-off-by: Ahmed Amamou <ahmed@gandi.net>
+> Signed-off-by: Kamel Haddadou <kamel@gandi.net>
+> ---
+>  net/bridge/rbridge/rbr_private.h | 60 ++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 60 insertions(+)
+>  create mode 100644 net/bridge/rbridge/rbr_private.h
 
-I might be missing some consideration here, but I would hope that ip
-link would work correctly if I have a veth interface shared with a
-netns that's in a child userns.
-
---Andy
-
---=20
-Andy Lutomirski
-AMA Capital Management, LLC
+Do you really need to create net/bridge/rbridge/ for the code?
+Using rbr_* prefix seems enough for me since they anyway
+share some code elsewhere.
