@@ -1,34 +1,66 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] ip6gre: add a rtnl link alias for ip6gretap
-Date: Wed, 24 Sep 2014 11:03:00 +0200
-Message-ID: <1411549380-4337-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:46926 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752876AbaIXJDQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 05:03:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
+Date: Wed, 24 Sep 2014 11:23:19 +0200
+Message-ID: <54228D87.3070309@6wind.com>
+References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
+	<CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw@mail.gmail.com>
+Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-With this alias, we don't need to load manually the module before adding an
-ip6gretap interface with iproute2.
-
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/ip6_gre.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 5f19dfbc4c6a..d172ec4ec9d3 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -1724,4 +1724,5 @@ MODULE_LICENSE("GPL");
- MODULE_AUTHOR("D. Kozlov (xeb@mail.ru)");
- MODULE_DESCRIPTION("GRE over IPv6 tunneling device");
- MODULE_ALIAS_RTNL_LINK("ip6gre");
-+MODULE_ALIAS_RTNL_LINK("ip6gretap");
- MODULE_ALIAS_NETDEV("ip6gre0");
--- 
-2.1.0
+TGUgMjMvMDkvMjAxNCAyMToyMiwgQ29uZyBXYW5nIGEgw6ljcml0IDoKPiBPbiBUdWUsIFNlcCAy
+MywgMjAxNCBhdCA2OjIwIEFNLCBOaWNvbGFzIERpY2h0ZWwKPiA8bmljb2xhcy5kaWNodGVsQDZ3
+aW5kLmNvbT4gd3JvdGU6Cj4+Cj4+IEhlcmUgaXMgYSBzbWFsbCBzY3JlZW5zaG90IHRvIHNob3cg
+aG93IGl0IGNhbiBiZSB1c2VkIGJ5IHVzZXJsYW5kOgo+PiAkIGlwIG5ldG5zIGFkZCBmb28KPj4g
+JCBpcCBuZXRucyBkZWwgZm9vCj4+ICQgaXAgbmV0bnMKPj4gJCB0b3VjaCAvdmFyL3J1bi9uZXRu
+cy9pbml0X25ldAo+PiAkIG1vdW50IC0tYmluZCAvcHJvYy8xL25zL25ldCAvdmFyL3J1bi9uZXRu
+cy9pbml0X25ldAo+PiAkIGlwIG5ldG5zIGFkZCBmb28KPj4gJCBpcCBuZXRucwo+PiBmb28gKGlk
+OiAzKQo+PiBpbml0X25ldCAoaWQ6IDEpCj4+ICQgaXAgbmV0bnMgZXhlYyBmb28gaXAgbmV0bnMK
+Pj4gZm9vIChpZDogMykKPj4gaW5pdF9uZXQgKGlkOiAxKQo+PiAkIGlwIG5ldG5zIGV4ZWMgZm9v
+IGlwIGxpbmsgYWRkIGlwaXAxIGxpbmstbmV0bnNpZCAxIHR5cGUgaXBpcCByZW1vdGUgMTAuMTYu
+MC4xMjEgbG9jYWwgMTAuMTYuMC4yNDkKPj4gJCBpcCBuZXRucyBleGVjIGZvbyBpcCBsIGxzIGlw
+aXAxCj4+IDY6IGlwaXAxQE5PTkU6IDxQT0lOVE9QT0lOVCxOT0FSUD4gbXR1IDE0ODAgcWRpc2Mg
+bm9vcCBzdGF0ZSBET1dOIG1vZGUgREVGQVVMVCBncm91cCBkZWZhdWx0Cj4+ICAgICAgbGluay9p
+cGlwIDEwLjE2LjAuMjQ5IHBlZXIgMTAuMTYuMC4xMjEgbGluay1uZXRuc2lkIDEKPj4KPj4gVGhl
+IHBhcmFtZXRlciBsaW5rLW5ldG5zaWQgc2hvd3MgdXMgd2hlcmUgdGhlIGludGVyZmFjZSBzZW5k
+cyBhbmQgcmVjZWl2ZXMKPj4gcGFja2V0cyAoYW5kIHRodXMgd2Uga25vdyB3aGVyZSBlbmNhcHN1
+bGF0ZWQgYWRkcmVzc2VzIGFyZSBzZXQpLgo+Pgo+Cj4gU28gaXBpcDEgaXMgc2hvd24gaW4gbmV0
+bnMgZm9vIGJ1dCBmdW5jdGlvbmluZyBpbiBuZXRucyBpbml0X25ldD8gR2V0dGluZyB0aGUKPiBp
+ZCBvZiBpbml0X25ldCBpbiBmb28gZGVwZW5kcyBvbiB5b3VyIG1vdW50IG5hbWVzcGFjZSwgL3Zh
+ci9ydW4vbmV0bnMvIG1heQo+IG5vdCB2aXNpYmxlIGluc2lkZSBmb28sIGluIHRoaXMgY2FzZSwg
+bGluay1uZXRuc2lkIGlzIG1lYW5pbmdsZXNzLiBJdAo+IGlzIG5vdCB5b3VyCj4gZmF1bHQsIG5l
+dHdvcmsgbmFtZXNwYWNlIGFscmVhZHkgaGVhdmlseSByZWxpZXMgb24gbW91bnQgbmFtZXNwYWNl
+IChzeXNmcwo+IG5lZWRzIHRvIGJlIHJlbW91bnQgb3RoZXJ3aXNlIHlvdSBjYW4gbm90IGNyZWF0
+ZSBkZXZpY2Ugd2l0aCB0aGUgc2FtZSBuYW1lLikKPgo+IE9uIHRoZSBvdGhlciBoYW5kLCB3aGF0
+J3MgdGhlIHByb2JsZW0geW91IGFyZSB0cnlpbmcgdG8gc29sdmU/IEFGQUlLLAo+IHRoZSBpZmlu
+ZGV4Cj4gaXNzdWUgaXMgcHVyZWx5IGluIG91dHB1dCwgSU9XLCB0aGUgZGV2aWNlIHN0aWxsIGZ1
+bmN0aW9ucyBjb3JyZWN0bHkKPiBldmVuIHRocm91Z2gKPiBpdHMgbGluayBpZmluZGV4IGlzIG5v
+dCBjb3JyZWN0IGFmdGVyIG1vdmluZyB0byBhbm90aGVyIG5hbWVzcGFjZS4gSWYKPiBub3QsIGl0
+IGlzIGJ1Zwo+IHdlIG5lZWQgdG8gZml4Lgo+ClRoZSBwcm9ibGVtIGlzIGV4cGxhaW5lZCBoZXJl
+OgpodHRwOi8vdGhyZWFkLmdtYW5lLm9yZy9nbWFuZS5saW51eC5uZXR3b3JrLzMxNTkzMy9mb2N1
+cz0zMTYwNjQKYW5kIGhlcmU6Cmh0dHA6Ly90aHJlYWQuZ21hbmUub3JnL2dtYW5lLmxpbnV4Lmtl
+cm5lbC5jb250YWluZXJzLzI4MzAxL2ZvY3VzPTQyMzkKCgpSZWdhcmRzLApOaWNvbGFzCl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkNvbnRhaW5lcnMgbWFp
+bGluZyBsaXN0CkNvbnRhaW5lcnNAbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9s
+aXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vY29udGFpbmVycw==
