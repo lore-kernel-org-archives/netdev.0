@@ -1,82 +1,39 @@
-From: Brian Neu <rob@halomusicgroup.net>
-Subject: from Brian Neu
-Date: Tue, 24 Sep 2014 11:02:11 +0000
-Message-ID: <3086f2a7367c$bf521b87$c81ab7f1$@halomusicgroup.net>
+From: Nana Kojo <kelbro88@post.sk>
+Subject: FAMILY TREASURE FOR SALE
+Date: Wed, 24 Sep 2014 14:14:41 +0200 (CEST)
+Message-ID: <1795165300.3640.1411560881947.JavaMail.root@mbox04>
+Reply-To: "oceanicfamilygold@gmail.com" <oceanicfamilygold@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============8481863937783165896=="
-To: "David Smith" <dsmith2001@cinci.rr.com>, "Taylor" <socrbaby15@aol.com>,
-	"ehart test" <ehart@thejamesgroupinc.com>,
-	"Theresa" <kittensama31@aol.com>, "Bind Users" <bind-users@lists.isc.org>,
-	"Juliette Vara" <lady_leo_05@yahoo.com>,
-	"Jennifer Waller" <Jennifer_Waller@acordia.com>,
-	"Polly Waters" <travelingchic02@yahoo.com>,
-	"oreilly" <oreilly@foxnews.com>,
-	"e1000 devel" <e1000-devel@lists.sourceforge.net>,
-	"Carolyn" <carolyn.wyborny@intel.com>, "netdev" <netdev@vger.kernel.org>,
-	"Majordomo" <Majordomo@vger.kernel.org>,
-	"Majordomo" <Majordomo@cloud9.net>, "Chris Mason" <chris.mason@oracle.com>,
-	"linux btrfs" <linux-btrfs@vger.kernel.org>,
-	"pgsql novice" <pgsql-novice@postgresql.org>,
-	"Tom Lane" <tgl@sss.pgh.pa.us>, "majordomo" <majordomo@postgresql.org>,
-	"backuppc users" <backuppc-users@lists.sourceforge.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
-
---===============8481863937783165896==
-Content-Type: multipart/alternative;
-	boundary="----=_NextPart_000_D5EA_098325F0.0311F9D8"
-
-This is a multi-part message in MIME format.
-
-------=_NextPart_000_D5EA_098325F0.0311F9D8
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-
-Hi! http://pksuae.com/reading.php
-
-
-
-
-Brian Neu
-
-------=_NextPart_000_D5EA_098325F0.0311F9D8--
-Thread-Index: ASzsmVJhiG5tMTUwczY4aHliZW83cw==
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp01.post.sk ([195.146.144.201]:56438 "EHLO smtp01.post.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751012AbaIXMOo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2014 08:14:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---===============8481863937783165896==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
 
-------------------------------------------------------------------------------
-Meet PCI DSS 3.0 Compliance Requirements with EventLog Analyzer
-Achieve PCI DSS 3.0 Compliant Status with Out-of-the-box PCI DSS Reports
-Are you Audit-Ready for PCI DSS 3.0 Compliance? Download White paper
-Comply to PCI DSS 3.0 Requirement 10 and 11.5 with EventLog Analyzer
-http://pubads.g.doubleclick.net/gampad/clk?id=154622311&iu=/4140/ostg.clktrk
---===============8481863937783165896==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Good Day,
+ 
+We are village miners, we have AU Gold of 550kgs Dust/ Bars and 20,000 carats of Rough Uncut Diamonds available ready and willing to sell to use the proceeds to upgrade our mines by acquiring machinery ETC for increase in production. If you are interested to do business with us, respectfully contact me via my email or contact information below for details.
+ 
+Waiting in anticipation for your soonest response.
+ 
+Yours,
 
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
 
---===============8481863937783165896==--
-Thread-Index: ASzsmVJhiG5tMTUwczY4aHliZW83cw==
+ Nana Kojo
+ 
+Tel: +233-236999374
+Skype: oceanic.gold
+ 
+
+
+
+_____________________________________________________________________
+
+Hladate vazny vztah? Zaregistrujte sa na - http://dvaja.sme.sk
