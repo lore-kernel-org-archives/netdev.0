@@ -1,74 +1,101 @@
-From: Lars Melin <larsm17-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] usb: gadget: f_rndis: fix usb_interface_descriptor for
- rndis
-Date: Wed, 24 Sep 2014 21:22:21 +0700
-Message-ID: <5422D39D.70006@gmail.com>
-References: <1411541339-32400-1-git-send-email-hs@denx.de> <5422B83A.8030406@gmail.com> <5422C33F.400@denx.de>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: Fw: [Bug 84951] New: 8021q: kernel doesn't take into account
+ ethernet header bytes for received packets
+Date: Wed, 24 Sep 2014 10:36:49 -0400
+Message-ID: <5422D701.7080505@gmail.com>
+References: <20140922090134.3a114531@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrzej Pietrasiewicz <andrzej.p-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Michal Nazarewicz <mina86-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>,
-	Kyungmin Park <kyungmin.park-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	Macpaul Lin <macpaul-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: hs-ynQEQJNshbs@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5422C33F.400-ynQEQJNshbs@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:63827 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751228AbaIXOgw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 10:36:52 -0400
+Received: by mail-qg0-f47.google.com with SMTP id z107so6029718qgd.34
+        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 07:36:51 -0700 (PDT)
+In-Reply-To: <20140922090134.3a114531@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2014-09-24 20:12, Heiko Schocher wrote:
-> Hello Lars,
->
-> Am 24.09.2014 14:25, schrieb Lars Melin:
->> On 2014-09-24 13:48, Heiko Schocher wrote:
->>> use the values for RNDIS over Ethernet as defined in
->>> http://www.usb.org/developers/defined_class
->>> (search for RDNIS):
->>>
->>> - baseclass: 0xef (miscellaneous)
->>> - subclass: 0x04
->>> - protocol: 0x01
->>>
->> That is usb class, it is not the same thing as communication device 
->> class.
->>> --- a/include/uapi/linux/usb/cdc.h
->>> +++ b/include/uapi/linux/usb/cdc.h
->>> @@ -12,6 +12,7 @@
->>> #include <linux/types.h>
->>> #define USB_CDC_SUBCLASS_ACM 0x02
->>> +#define USB_CDC_SUBCLASS_RNDIS 0x04
->> No, no, no.
->> There is no CDC_SUBCLASS_RNDIS and you can not define one over an 
->> already used cdc subclass number, 0x04 is Multi-Channel Control Model
->
-> Ah, ok, so I have to define this values in a new header file, as there
-> is no current file for the USB_CLASS_MISC defines? Or is there a proper
-> place for them?
->
-> BTW: where do I find the "cdc subclass number, 0x04 is Multi-Channel
-> Control Model" define?
->
-> bye,
-> Heiko
+On 09/22/2014 12:01 PM, Stephen Hemminger wrote:
+> I am inclined to think this is something that is just an incorrect
+> user expectation.
 
-You can still find the original specification usbcdc11.pdf on the net if 
-you google for it, it has been pulled from usb.org where you could 
-download it until a few years ago.
-It is old but covers a lot of what you need to know.
+Looks like a valid bug.  vlan just uses skb->len which already had
+the eth header stripped off, so it will always under-report 12 bytes
+per packet.
 
-Linux has afaik only the cdc.h definition file, everything else is coded 
-by class/subclass in respectively drivers when needed.
-02/02/ff  or  e0/01/03  are the most common interface attribute for 
-rndis,  both of them together with a data interface with attributes 
-0a/00/00.
-Please check the whitelisting in drivers/net/usb/rndis_host.c  and also 
-blacklistings in other net drivers under the same path, it should give 
-you an idea how to bind an interface to a specific driver by interface 
-attributes and/or usb vid:pid.
-You should be able to do the same for your particular device.
+-vlad
+
+> 
+> Begin forwarded message:
+> 
+> Date: Sun, 21 Sep 2014 11:47:22 -0700
+> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+> Subject: [Bug 84951] New: 8021q: kernel doesn't take into account ethernet header bytes for received packets
+> 
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=84951
+> 
+>             Bug ID: 84951
+>            Summary: 8021q: kernel doesn't take into account ethernet
+>                     header bytes for received packets
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 3.16.1
+>           Hardware: All
+>                 OS: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>           Assignee: shemminger@linux-foundation.org
+>           Reporter: g.djavadyan@gmail.com
+>         Regression: No
+> 
+> Statistics exported by the kernel for received packets on 802.1q subinterfaces
+> don't consider Ethernet header bytes (dst MAC, src MAC, type). Statistics for
+> transmitted packets is not affected. The problem is more prominent on
+> high-speed links (>100Mb/s), as networking tools (nload, iftop, ...) display
+> lower bandwidth utilization (>5Mb/s difference) than a report from neighboring
+> routing device (FreeBSD, Cisco). Also, someone monitoring Linux router
+> interfaces will find that the router generates more information than it
+> receives.
+> 
+> Tested on CentOS kernel 2.6.32-431.29.2.el6.x86_64 and vanilla 3.16.1 with
+> drivers: bnx2, atl1c and igb.
+> 
+> How to reproduce:
+> 
+> 1. Create dot1q subinterfaces on two boxes (vconfig add eth0 4040).
+> 2. Assign IP addresses to subinterfaces.
+> 3. Check the connection using ping.
+> 4. Check the output from ifconfig eth0.4040 or 'cat
+> /sys/class/net/eth0.4040/statistics/rx_{packets,bytes}'.
+> 5. Issue standard 56 byte payload ping using 'ping -c 1 neighboring_ip'.
+> 6. Recheck statistics using step 4.
+> 
+> Expected results:
+> 
+> Received packets value should increase by 1 and received bytes value should
+> increase by 98.
+> 
+> dst MAC - 6
+> src MAC - 6
+> ethertype - 2
+> IP header - 20
+> ICMP header - 8
+> ICMP Payload - 56
+> Total: 98 bytes.
+> 
+> 
+> Actual results:
+> 
+> Received packets value increases by 1 and received bytes value increases by 84
+> bytes.
+> 
