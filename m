@@ -1,32 +1,52 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 0/5] ARCNET: add support for EAE multi interfac card
-Date: Wed, 24 Sep 2014 13:01:58 +0200
-Message-ID: <1411556523-28100-1-git-send-email-m.grzeschik@pengutronix.de>
+Subject: [PATCH 2/5] ARCNET: add com20020_set_hwddr to change address
+Date: Wed, 24 Sep 2014 13:02:00 +0200
+Message-ID: <1411556523-28100-3-git-send-email-m.grzeschik@pengutronix.de>
+References: <1411556523-28100-1-git-send-email-m.grzeschik@pengutronix.de>
 Cc: linux-kernel@vger.kernel.org, kernel@pengutronix.de
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1411556523-28100-1-git-send-email-m.grzeschik@pengutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This series adds support for the PLX bridge based multi interface
-pci cards and adds support to change device address on com200xx chips
-during runtime.
+This patch adds com20020_set_hwaddr to make
+it possible to change the hwaddr on runtime.
 
-Thanks,
-Michael
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ drivers/net/arcnet/com20020.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-Michael Grzeschik (5):
-  ARCNET: return IRQ_NONE if the interface isn't running
-  ARCNET: add com20020_set_hwddr to change address
-  ARCNET: add com20020 PCI IDs with metadata
-  ARCNET: add support for multi interfaces on com20020
-  ARCNET: enable eae arcnet card support
-
- drivers/net/arcnet/arcnet.c       |   2 +-
- drivers/net/arcnet/com20020-pci.c | 369 +++++++++++++++++++++++++++++---------
- drivers/net/arcnet/com20020.c     |  14 ++
- include/linux/com20020.h          |  29 +++
- 4 files changed, 330 insertions(+), 84 deletions(-)
-
+diff --git a/drivers/net/arcnet/com20020.c b/drivers/net/arcnet/com20020.c
+index 7b96c5f..1a84378 100644
+--- a/drivers/net/arcnet/com20020.c
++++ b/drivers/net/arcnet/com20020.c
+@@ -149,11 +149,25 @@ int com20020_check(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int com20020_set_hwaddr(struct net_device *dev, void *addr)
++{
++	int ioaddr = dev->base_addr;
++	struct arcnet_local *lp = netdev_priv(dev);
++	struct sockaddr *hwaddr = addr;
++
++	memcpy(dev->dev_addr, hwaddr->sa_data, 1);
++	SET_SUBADR(SUB_NODE);
++	outb(dev->dev_addr[0], _XREG);
++
++	return 0;
++}
++
+ const struct net_device_ops com20020_netdev_ops = {
+ 	.ndo_open	= arcnet_open,
+ 	.ndo_stop	= arcnet_close,
+ 	.ndo_start_xmit = arcnet_send_packet,
+ 	.ndo_tx_timeout = arcnet_timeout,
++	.ndo_set_mac_address = com20020_set_hwaddr,
+ 	.ndo_set_rx_mode = com20020_set_mc_list,
+ };
+ 
 -- 
 2.1.0
