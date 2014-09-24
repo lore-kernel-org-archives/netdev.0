@@ -1,37 +1,58 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [RFC PATCH 03/24] net: rbridge: Add RBridge structure
-Date: Wed, 24 Sep 2014 10:18:11 -0700
-Message-ID: <CAHA+R7O5Re3Q0LeE-nXKY4wgH5_39WDWn++ZcDkJUjJtsP-NXA@mail.gmail.com>
-References: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
-	<1411573940-14079-4-git-send-email-ahmed@gandi.net>
+From: Ignacy =?iso-8859-2?Q?Gaw=EAdzki?=
+	<ignacy.gawedzki@green-communications.fr>
+Subject: [PATCH net] ematch: Fix matching of inverted containers.
+Date: Wed, 24 Sep 2014 18:38:39 +0200
+Message-ID: <20140924163839.GA6925@zenon.in.qult.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, william@gandi.net,
-	f.cachereul@alphalink.fr, Kamel Haddadou <kamel@gandi.net>
-To: Ahmed Amamou <ahmed@gandi.net>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:38100 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750793AbaIXRSN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 13:18:13 -0400
-Received: by mail-lb0-f181.google.com with SMTP id b6so5992603lbj.12
-        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 10:18:12 -0700 (PDT)
-In-Reply-To: <1411573940-14079-4-git-send-email-ahmed@gandi.net>
+Received: from [78.193.33.39] ([78.193.33.39]:50821 "EHLO qult.net"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754386AbaIXRU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2014 13:20:57 -0400
+Received: from zenon.in.qult.net ([192.168.64.1])
+	by qult.net with esmtpsa (TLS1.2:DHE_RSA_AES_128_CBC_SHA1:128)
+	(Exim 4.82)
+	(envelope-from <ignacy.gawedzki@green-communications.fr>)
+	id 1XWpaS-0005pX-SG
+	for netdev@vger.kernel.org; Wed, 24 Sep 2014 18:38:40 +0200
+Received: from ig by zenon.in.qult.net with local (Exim 4.82)
+	(envelope-from <ignacy.gawedzki@green-communications.fr>)
+	id 1XWpaR-0001uu-U8
+	for netdev@vger.kernel.org; Wed, 24 Sep 2014 18:38:39 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 24, 2014 at 8:51 AM, Ahmed Amamou <ahmed@gandi.net> wrote:
-> add basic RBridge structure
-> add basic TRILL constant
-> define rbr_nickinfo structure which represent distant RBridge information
->
-> Signed-off-by: Ahmed Amamou <ahmed@gandi.net>
-> Signed-off-by: Kamel Haddadou <kamel@gandi.net>
-> ---
->  net/bridge/rbridge/rbr_private.h | 60 ++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 60 insertions(+)
->  create mode 100644 net/bridge/rbridge/rbr_private.h
+Negated expressions and sub-expressions need to have their flags checke=
+d for
+TCF_EM_INVERT and their result negated accordingly.
 
-Do you really need to create net/bridge/rbridge/ for the code?
-Using rbr_* prefix seems enough for me since they anyway
-share some code elsewhere.
+Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communications.=
+fr>
+---
+ net/sched/ematch.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/sched/ematch.c b/net/sched/ematch.c
+index 3a633de..ad57f44 100644
+--- a/net/sched/ematch.c
++++ b/net/sched/ematch.c
+@@ -526,9 +526,11 @@ pop_stack:
+ 		match_idx =3D stack[--stackp];
+ 		cur_match =3D tcf_em_get_match(tree, match_idx);
+=20
+-		if (tcf_em_early_end(cur_match, res))
++		if (tcf_em_early_end(cur_match, res)) {
++			if (tcf_em_is_inverted(cur_match))
++				res =3D !res;
+ 			goto pop_stack;
+-		else {
++		} else {
+ 			match_idx++;
+ 			goto proceed;
+ 		}
+--=20
+1.9.1
