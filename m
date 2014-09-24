@@ -1,59 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sparc: bpf_jit: fix loads from negative offsets
-Date: Wed, 24 Sep 2014 15:08:37 -0400 (EDT)
-Message-ID: <20140924.150837.1990547182303548810.davem@davemloft.net>
-References: <1411505410-25215-1-git-send-email-ast@plumgrid.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Fw: [Bug 85091] New: neighbour table overflow is not reported and
+ impacts localhost TCP connectivity
+Date: Wed, 24 Sep 2014 12:11:36 -0700
+Message-ID: <CAHA+R7N=3GZ9sR9G-W4CZtyR8aihDc0DLbtQFifURyyBgC=-5A@mail.gmail.com>
+References: <20140924093216.083c77b4@urahara>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ast@plumgrid.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47824 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750821AbaIXTIj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 15:08:39 -0400
-In-Reply-To: <1411505410-25215-1-git-send-email-ast@plumgrid.com>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:33516 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751175AbaIXTLh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 15:11:37 -0400
+Received: by mail-lb0-f180.google.com with SMTP id b12so11164509lbj.39
+        for <netdev@vger.kernel.org>; Wed, 24 Sep 2014 12:11:36 -0700 (PDT)
+In-Reply-To: <20140924093216.083c77b4@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Tue, 23 Sep 2014 13:50:10 -0700
+On Wed, Sep 24, 2014 at 9:32 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> Result:
+>
+> Kernel has to learn the 16k IP/MAC combinations, as soon as gc_thresh3 is hit,
+> netperf stalls, no syslog/kernel message indicates the problem.
+>
+> The only indication are log entries like this:
+>
+>   "net_ratelimit: 1464 callbacks suppressed"
+>
+> No other messages are logged.
+>
 
-> - fix BPF_LD|ABS|IND from negative offsets:
->   make sure to sign extend lower 32 bits in 64-bit register
->   before calling C helpers from JITed code, otherwise 'int k'
->   argument of bpf_internal_load_pointer_neg_helper() function
->   will be added as large unsigned integer, causing packet size
->   check to trigger and abort the program.
-> 
->   It's worth noting that JITed code for 'A = A op K' will affect
->   upper 32 bits differently depending whether K is simm13 or not.
->   Since small constants are sign extended, whereas large constants
->   are stored in temp register and zero extended.
->   That is ok and we don't have to pay a penalty of sign extension
->   for every sethi, since all classic BPF instructions have 32-bit
->   semantics and we only need to set correct upper bits when
->   transitioning from JITed code into C.
-> 
-> - though instructions 'A &= 0' and 'A *= 0' are odd, JIT compiler
->   should not optimize them out
-> 
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-
-Applied, thanks for fixing this.
-
-What we could do longer-term is change is_simm13() into is_simm12()
-and therefore know that all constants loaded are 32-bit zero extended
-regardless of size.
-
-BTW, there is a trick to load arbitrary negative 32-bit constants sign
-extended to 64-bit, in just two instructions:
-
-	sethi	%(~value), reg
-	xor	reg, ~(0x400 | (value & 0x3ff)), reg
-
-Or something like that, it's been a while.  GCC knows how to emit
-that sequence too.
-
-Anyways, we could adjust the JIT to do that too.
+Looks like we have a race condition between we check gc_thresh3
+and add the new entry into the table after locking in __neigh_create().
+Otherwise the application layer should get EINVAL to stop.
