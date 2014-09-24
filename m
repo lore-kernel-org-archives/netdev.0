@@ -1,69 +1,63 @@
-From: Rob Jones <rob.jones@codethink.co.uk>
-Subject: Re: [PATCH v2] net/netfilter/x_tables.c: use __seq_open_private()
-Date: Wed, 24 Sep 2014 09:14:53 +0100
-Message-ID: <54227D7D.6020909@codethink.co.uk>
-References: <1411491955-9131-1-git-send-email-rob.jones@codethink.co.uk> <1411494387.32579.138.camel@xylophone> <20140923214021.GA4206@salvia>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH/RFC repost 4/8] datapath: execution of select group action
+Date: Wed, 24 Sep 2014 09:19:42 +0100
+Message-ID: <20140924081942.GB24298@casper.infradead.org>
+References: <1411005311-11752-1-git-send-email-simon.horman@netronome.com>
+ <1411005311-11752-5-git-send-email-simon.horman@netronome.com>
+ <20140919140527.GB8257@casper.infradead.org>
+ <20140924060107.GC13314@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@codethink.co.uk,
-	linux-kernel@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Ben Hutchings <ben.hutchings@codethink.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140923214021.GA4206@salvia>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:38655 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754041AbaIXITn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Sep 2014 04:19:43 -0400
+Content-Disposition: inline
+In-Reply-To: <20140924060107.GC13314@vergenet.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 09/24/14 at 03:01pm, Simon Horman wrote:
+> > > +	/* Only possible type of attributes is OVS_SELECT_GROUP_ATTR_BUCKET */
+> > > +	for (bucket = nla_data(attr), rem = nla_len(attr); rem > 0;
+> > > +	     bucket = nla_next(bucket, &rem)) {
+> > > +		uint16_t weight = bucket_weight(bucket);
+> > 
+> > I think we should validate only once when we copy then assume it is
+> > correct.
 
+> That is the intention of this code, is it doing something else?
 
-On 23/09/14 22:40, Pablo Neira Ayuso wrote:
-> On Tue, Sep 23, 2014 at 06:46:27PM +0100, Ben Hutchings wrote:
->> On Tue, 2014-09-23 at 18:05 +0100, Rob Jones wrote:
->>> Reduce boilerplate code by using __seq_open_private() instead of seq_open()
->>> in xt_match_open() and xt_target_open().
->>>
->>> Signed-off-by: Rob Jones <rob.jones@codethink.co.uk>
->>> ---
->>>
->>> This patch uses an existing variant of seq_open() to reduce the kernel code
->>> size.
->>>
->>> The only significant variation from the pre-existing code is the fact that
->>> __seq_open_private() calls kzalloc() rather than kmalloc(), which could
->>> conceivably have an impact on timing.
->>>
->>> This version 2 incorporates a minor initialisation simplification (resulting
->>> from kzalloc() being used) requested by netfilter-devel@vger.kernel.org
->> [...]
->>> --- a/net/netfilter/x_tables.c
->>> +++ b/net/netfilter/x_tables.c
->>> @@ -1080,7 +1080,6 @@ static void *xt_mttg_seq_start(struct seq_file *seq, loff_t *pos,
->>>          struct nf_mttg_trav *trav = seq->private;
->>>          unsigned int j;
->>>
->>> -       trav->class = MTTG_TRAV_INIT;
->>>          for (j = 0; j < *pos; ++j)
->>>                  if (xt_mttg_seq_next(seq, NULL, NULL, is_target) == NULL)
->>>                          return NULL;
->> [...]
->>
->> I'm fairly sure this simplification is wrong, as xt_mttg_seq_start() is
->> potentially called multiple times on the same file handle.
+I must have treated the BUG_ON as validation when I wrote that
+comment ;-)
 
-Well spotted Ben.
+> Nice idea. I think that would work out quite well.
+> 
+> The main question for me would be where to store such a table,
+> which comes back to my remark above about more storing a more
+> efficient efficient form of the action.
 
->
-> Right. I'm going to take v1 of this patch instead, sorry for the
-> inconvenience Rob.
+I had the same issue when working on zone support for the 
+conntrack action that is in the works. It needs to keep a ref to
+a ct template which is registered with the conntrack engine. I
+ended up converting the Netlink attributes to a struct and storing
+that in an attribute in sf_acts then converting it back.
 
-No problem at all. It gave me something to do on the train home last
-night :-)
+You can find the WIP code in the following branch:
+https://github.com/tgraf/ovs/tree/nat
 
--- 
-Rob Jones
-Codethink Ltd
-mailto:rob.jones@codethink.co.uk
-tel:+44 161 236 5575
+datapath: Use central function to free sw_flow_actions 
+RFC: Add support for connection tracking. 
+datapath: Add zone support
+
+> > Do we need a recursion limit here?
+> 
+> I believe that is already handled by the depth check that occurs
+> when the actions are copied.
+
+Right, I can see it now. Thanks.
