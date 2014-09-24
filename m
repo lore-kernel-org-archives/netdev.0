@@ -1,129 +1,69 @@
 From: Ahmed Amamou <ahmed@gandi.net>
-Subject: [RFC PATCH 00/24] TRILL implementation
-Date: Wed, 24 Sep 2014 17:51:56 +0200
-Message-ID: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [RFC PATCH 07/24] net: rbridge: Add sysfs for trill_state
+Date: Wed, 24 Sep 2014 17:52:03 +0200
+Message-ID: <1411573940-14079-8-git-send-email-ahmed@gandi.net>
+References: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
 Cc: william@gandi.net, f.cachereul@alphalink.fr,
 	Ahmed Amamou <ahmed@gandi.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:53510 "EHLO mail4.gandi.net"
+Received: from mail4.gandi.net ([217.70.183.210]:42739 "EHLO mail4.gandi.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752976AbaIXP6J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752968AbaIXP6J (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 24 Sep 2014 11:58:09 -0400
+In-Reply-To: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+in order to activate trill port without need for brctl
+add a sysfs for trill_state for net_bridge_port
 
-We have been working on a TRILL implementation in the Linux kernel for =
-some
-months now.  The code has been pushed here https://github.com/Gandi/ktr=
-ill.git
-along the way.  Attached a series of patch as a first proposition.  The=
- code is
-not perfect and probably still lacks of improvements. It's a first requ=
-est of
-comment in order to get some feedbacks. This code has been tested for s=
-ome
-months now.
+Signed-off-by: Ahmed Amamou <ahmed@gandi.net>
+Signed-off-by: William Dauchy <william@gandi.net>
+---
+ net/bridge/br_sysfs_if.c | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
 
-These patch tries to implement TRILL protocol RFC 6325.  As a First
-implementation, some RFC details are still not implemented.
-
-We still need to fix these points:=20
-- The use of rtnetlink instead of the actual netlink.
-- BPDU handling
-
-Also some parts may not be fully linux compliant, so we are waiting for
-comments
-
-In order to test theses patches please follow this small wiki download =
-quagga
-(userland) from here https://github.com/Gandi/quagga.git compile it usi=
-ng these
-options ./bootstrap.sh && ./configure --localstatedir=3D/var/run/quagga
---enable-isisd --enable-trilld --disable-ipv6 --disable-ospfd
---disable-ospfclient --disable-ripd --disable-babeld --disable-bgpd && =
-make &&
-make install
-
-start zebra and trilld  $ zebra -f $ZEBRA_CONF -P 2121 -u quagga -d $ t=
-rilld -f
-$TRILLD_CONF -P 2021 -u quagga -d
-
-configuration sample can be found here
-https://github.com/Gandi/quagga/blob/dev_trill/zebra/zebra.conf.sample =
-and here
-https://github.com/Gandi/quagga/blob/dev_trill/isisd/trilld.conf.sample
-
-
-=46inally you need to correctly configure bridge port=20
-
-=46or access port (native frames) echo 4 >
-/sys/class/net/<INTERFACE>/brport/trill_state For trunk port (trill fra=
-me and
-control frames) echo 8 > /sys/class/net/<INTERFACE>/brport/trill_state=20
-
-more detail can be found here: https://github.com/Gandi/ktrill/wiki NB:=
- for port
-state github version has different flags as we did not take into consid=
-eration
-all port flag when implementing it
-
-Ahmed Amamou (23):
-  net: rbridge: add trill frame description
-  net: rbridge: Add RBridge structure
-  net: rbridge: Add CONFIG_TRILL
-  net: rbridge: Adapt Bridge structure
-  net: rbridge: Enable/disable TRILL capability
-  net: rbridge: Add sysfs for trill_state
-  net: rbridge: Add Rbridge netlink message skeleton
-  net: rbridge: Get Rbridge nickname from daemon
-  net: rbridge: Add elected dtroot
-  net: rbridge: Add rbr_node management function
-  net: rbridge: Clean up rbr_node on rbridge stop
-  net: rbridge: Add set_node function
-  net: rbridge: Add get_node function
-  net: rbridge: Add basic trill frame handling function
-  net: rbridge: Update forwarding database
-  net: rbridge: Add test on trill flag before flood
-  net: rbridge: Add encapsulation process
-  net: rbridge: Add receive function
-  net: rbridge: Add multicast recv handling
-  net: rbridge: Add decapsulation function
-  net: rbridge: Add rbr_fwd
-  net: rbridge: Add rbr_multidest_fwd
-  net: rbridge: replace net_port rx_handler
-
-=46ran=C3=A7ois Cachereul (1):
-  net: rbridge: Add layer 2 IS-IS Ethertype
-
- include/linux/etherdevice.h      |  34 ++
- include/linux/if_trill.h         |  89 +++++
- include/uapi/linux/if_ether.h    |   2 +
- net/bridge/Kconfig               |   8 +
- net/bridge/Makefile              |   2 +
- net/bridge/br.c                  |   6 +
- net/bridge/br_fdb.c              |  40 +++
- net/bridge/br_forward.c          |  38 ++
- net/bridge/br_if.c               |   4 +
- net/bridge/br_private.h          |  51 +++
- net/bridge/br_sysfs_br.c         |  38 ++
- net/bridge/br_sysfs_if.c         |  23 ++
- net/bridge/rbridge/rbr.c         | 723 +++++++++++++++++++++++++++++++=
-++++++++
- net/bridge/rbridge/rbr_netlink.c | 404 ++++++++++++++++++++++
- net/bridge/rbridge/rbr_netlink.h |  62 ++++
- net/bridge/rbridge/rbr_private.h |  86 +++++
- 16 files changed, 1610 insertions(+)
- create mode 100644 include/linux/if_trill.h
- create mode 100644 net/bridge/rbridge/rbr.c
- create mode 100644 net/bridge/rbridge/rbr_netlink.c
- create mode 100644 net/bridge/rbridge/rbr_netlink.h
- create mode 100644 net/bridge/rbridge/rbr_private.h
-
---=20
-Ahmed Amamou=20
+diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+index e561cd5..6edc00b 100644
+--- a/net/bridge/br_sysfs_if.c
++++ b/net/bridge/br_sysfs_if.c
+@@ -137,6 +137,26 @@ static ssize_t show_port_state(struct net_bridge_port *p, char *buf)
+ }
+ static BRPORT_ATTR(state, S_IRUGO, show_port_state, NULL);
+ 
++#ifdef CONFIG_TRILL
++static ssize_t show_port_trill_state(struct net_bridge_port *p, char *buf)
++{
++	return sprintf(buf, "%d\n", p->trill_flag);
++}
++static int store_port_trill_state(struct net_bridge_port *p,  unsigned long v)
++{
++	uint8_t val;
++	if (!ns_capable(dev_net(p->dev)->user_ns, CAP_NET_ADMIN))
++		return -EPERM;
++	val = (uint8_t) v;
++	if (val > TRILL_FLAG_TRUNK)
++		return -ERANGE;
++	p->trill_flag = val;
++	return 0;
++}
++static BRPORT_ATTR(trill_state, S_IRUGO | S_IWUSR, show_port_trill_state,
++				   store_port_trill_state);
++#endif
++
+ static ssize_t show_message_age_timer(struct net_bridge_port *p,
+ 					    char *buf)
+ {
+@@ -198,6 +218,9 @@ static const struct brport_attribute *brport_attrs[] = {
+ 	&brport_attr_designated_port,
+ 	&brport_attr_designated_cost,
+ 	&brport_attr_state,
++#ifdef CONFIG_TRILL
++	&brport_attr_trill_state,
++#endif
+ 	&brport_attr_change_ack,
+ 	&brport_attr_config_pending,
+ 	&brport_attr_message_age_timer,
+-- 
+1.9.1
