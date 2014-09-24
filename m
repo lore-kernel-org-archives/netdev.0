@@ -1,114 +1,120 @@
 From: Ahmed Amamou <ahmed@gandi.net>
-Subject: [RFC PATCH 21/24] net: rbridge: Add decapsulation function
-Date: Wed, 24 Sep 2014 17:52:17 +0200
-Message-ID: <1411573940-14079-22-git-send-email-ahmed@gandi.net>
+Subject: [RFC PATCH 17/24] net: rbridge: Add test on trill flag before flood
+Date: Wed, 24 Sep 2014 17:52:13 +0200
+Message-ID: <1411573940-14079-18-git-send-email-ahmed@gandi.net>
 References: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
 Cc: william@gandi.net, f.cachereul@alphalink.fr,
-	Ahmed Amamou <ahmed@gandi.net>,
-	Kamel Haddadou <kamel@gandi.net>
+	Ahmed Amamou <ahmed@gandi.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:49972 "EHLO mail4.gandi.net"
+Received: from mail4.gandi.net ([217.70.183.210]:44435 "EHLO mail4.gandi.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751595AbaIXQDN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Sep 2014 12:03:13 -0400
+	id S1751593AbaIXQDK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Sep 2014 12:03:10 -0400
 In-Reply-To: <1411573940-14079-1-git-send-email-ahmed@gandi.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-for frame destined to local RBridge (egress Rbridge == local_nick)
-have de be decapsuled and forwarded to corresponding host
-if frame is from type multicast a copy has to be decapsulated locally
+frame from ACCESS PORT can not be flooded on TRUNK port
+the opposite is also true, so we add a check on trill_flag on
+br_flood function an add a special call
+br_flood_forward_flags and br_flood_deliver_flags for them
 
 Signed-off-by: Ahmed Amamou <ahmed@gandi.net>
-Signed-off-by: Kamel Haddadou <kamel@gandi.net>
-Signed-off-by: William Dauchy <william@gandi.net>
 ---
- net/bridge/rbridge/rbr.c | 56 +++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 53 insertions(+), 3 deletions(-)
+ net/bridge/br_forward.c | 38 ++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_private.h |  4 ++++
+ 2 files changed, 42 insertions(+)
 
-diff --git a/net/bridge/rbridge/rbr.c b/net/bridge/rbridge/rbr.c
-index 9206682..8aa5182 100644
---- a/net/bridge/rbridge/rbr.c
-+++ b/net/bridge/rbridge/rbr.c
-@@ -247,9 +247,59 @@ static void rbr_encaps(struct sk_buff *skb, uint16_t egressnick, u16 vid)
- 	return;
- }
- 
-+static void rbr_decap_finish(struct sk_buff *skb, u16 vid)
-+{
-+	struct net_bridge *br;
-+	const unsigned char *dest = eth_hdr(skb)->h_dest;
-+	struct net_bridge_fdb_entry *dst;
-+	struct net_device *dev = skb->dev;
-+
-+	br = netdev_priv(dev);
-+	dst = __br_fdb_get(br, dest, vid);
-+	if (likely(dst))
-+		br_deliver(dst->dst, skb);
-+	else
-+		/* destination unknown flood on all access ports */
-+		br_flood_deliver_flags(br, skb, true, TRILL_FLAG_ACCESS);
-+
-+}
-+
-+static void rbr_decaps(struct net_bridge_port *p,
-+		       struct sk_buff *skb, size_t trhsize, u16 vid)
-+{
-+	struct trill_hdr *trh;
-+	struct ethhdr *hdr;
-+
-+	if (unlikely(p == NULL))
-+		goto rbr_decaps_drop;
-+	trh = (struct trill_hdr *)skb->data;
-+	if (trhsize >= sizeof(*trh))
-+		skb_pull(skb, sizeof(*trh));
-+	else
-+		goto rbr_decaps_drop;
-+	trhsize -= sizeof(*trh);
-+	skb_reset_mac_header(skb);	/* instead of the inner one */
-+	skb->protocol = eth_hdr(skb)->h_proto;
-+	hdr = (struct ethhdr *)skb->data;
-+	skb_pull(skb, ETH_HLEN);
-+	skb_reset_network_header(skb);
-+	if (skb->encapsulation)
-+		skb->encapsulation = 0;
-+	/* Mark bridge as source device */
-+	skb->dev = p->br->dev;
-+	br_fdb_update_nick(p->br, p, hdr->h_source, vid, false,
-+			   trh->th_ingressnick);
-+	rbr_decap_finish(skb, vid);
-+	return;
-+ rbr_decaps_drop:
-+	if (likely(p && p->br))
-+		p->br->dev->stats.rx_dropped++;
-+	kfree_skb(skb);
-+}
-+
- static void rbr_recv(struct sk_buff *skb, u16 vid)
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 056b67b..a8b3c5d 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -170,7 +170,11 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ 		     struct sk_buff *skb0,
+ 		     void (*__packet_hook)(const struct net_bridge_port *p,
+ 					   struct sk_buff *skb),
++#ifdef CONFIG_TRILL
++		     bool unicast, uint8_t flag)
++#else
+ 		     bool unicast)
++#endif
  {
--	uint16_t local_nick, dtrNick, adjnick, idx;;
-+	uint16_t local_nick, dtrNick, adjnick, idx;
- 	struct rbr *rbr;
- 	uint8_t srcaddr[ETH_ALEN];
- 	struct trill_hdr *trh;
-@@ -329,7 +379,7 @@ static void rbr_recv(struct sk_buff *skb, u16 vid)
- 			goto recv_drop;
- 		}
- 		if (trh->th_egressnick == local_nick) {
--			/* TODO decapsulate function */
-+			rbr_decaps(p, skb, trhsize, vid);
- 		} else if (likely(trill_get_hopcount(trill_flags))) {
- 			br_fdb_update(p->br, p, srcaddr, vid, false);
- 			/* TODO simple forwarding */
-@@ -424,7 +474,7 @@ static void rbr_recv(struct sk_buff *skb, u16 vid)
- 	/*
- 	 * Send de-capsulated frame locally
- 	 */
--	/* TODO decapsulate function */
-+	rbr_decaps(p, skb, trhsize, vid);
+ 	struct net_bridge_port *p;
+ 	struct net_bridge_port *prev;
+@@ -181,6 +185,10 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ 		/* Do not flood unicast traffic to ports that turn it off */
+ 		if (unicast && !(p->flags & BR_FLOOD))
+ 			continue;
++#ifdef CONFIG_TRILL
++		if (flag  && ! (p->trill_flag & flag))
++			continue;
++#endif
+ 		prev = maybe_deliver(prev, p, skb, __packet_hook);
+ 		if (IS_ERR(prev))
+ 			goto out;
+@@ -202,17 +210,47 @@ out:
  
- 	return;
  
+ /* called with rcu_read_lock */
++#ifdef CONFIG_TRILL
++void br_flood_deliver_flags(struct net_bridge *br, struct sk_buff *skb,
++			    bool unicast, uint8_t flags)
++{
++	br_flood(br, skb, NULL, __br_deliver, unicast, flags);
++}
++
++void br_flood_deliver(struct net_bridge *br, struct sk_buff *skb, bool unicast)
++{
++	br_flood_deliver_flags(br, skb, unicast, false);
++}
++
++#else
+ void br_flood_deliver(struct net_bridge *br, struct sk_buff *skb, bool unicast)
+ {
+ 	br_flood(br, skb, NULL, __br_deliver, unicast);
+ }
++#endif
+ 
+ /* called under bridge lock */
++#ifdef CONFIG_TRILL
++void br_flood_forward_flags(struct net_bridge *br, struct sk_buff *skb,
++			    struct sk_buff *skb2, bool unicast, uint8_t flags)
++{
++	br_flood(br, skb, skb2, __br_forward, unicast, flags);
++}
++
++void br_flood_forward(struct net_bridge *br, struct sk_buff *skb,
++		      struct sk_buff *skb2, bool unicast)
++{
++	br_flood_forward_flags(br, skb, skb2, unicast, false);
++}
++#else
+ void br_flood_forward(struct net_bridge *br, struct sk_buff *skb,
+ 		      struct sk_buff *skb2, bool unicast)
+ {
+ 	br_flood(br, skb, skb2, __br_forward, unicast);
+ }
++#endif
++
++
+ 
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ /* called with rcu_read_lock */
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 37456cf..152545e 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -449,6 +449,10 @@ int br_forward_finish(struct sk_buff *skb);
+ void br_flood_deliver(struct net_bridge *br, struct sk_buff *skb, bool unicast);
+ void br_flood_forward(struct net_bridge *br, struct sk_buff *skb,
+ 		      struct sk_buff *skb2, bool unicast);
++void br_flood_deliver_flags(struct net_bridge *br, struct sk_buff *skb,
++			    bool unicast, uint8_t flags);
++void br_flood_forward_flags(struct net_bridge *br, struct sk_buff *skb,
++			    struct sk_buff *skb2, bool unicast, uint8_t flags);
+ 
+ /* br_if.c */
+ void br_port_carrier_check(struct net_bridge_port *p);
 -- 
 1.9.1
