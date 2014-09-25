@@ -1,154 +1,44 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 4/4] cxgb4: Add support for adaptive rx
-Date: Fri, 26 Sep 2014 00:23:55 +0530
-Message-ID: <1411671235-6527-5-git-send-email-hariprasad@chelsio.com>
-References: <1411671235-6527-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, kumaras@chelsio.com,
-	nirranjan@chelsio.com, santosh@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
+From: Andrew Clayton <andrew@digital-domain.net>
+Subject: Re: Networking blowing up in 3.17-rc
+Date: Thu, 25 Sep 2014 20:02:26 +0100
+Message-ID: <20140925200226.0f47c112@omega.digital-domain.net>
+References: <20140925182556.610073d2@omega.digital-domain.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:50768
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751620AbaIYSsv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 14:48:51 -0400
-In-Reply-To: <1411671235-6527-1-git-send-email-hariprasad@chelsio.com>
+Received: from mu.digital-domain.net ([108.61.197.113]:39737 "EHLO
+	mu.digital-domain.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933AbaIYTC3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 15:02:29 -0400
+Received: from omega.digital-domain.net (tau.digital-domain.net [217.169.2.54])
+	(authenticated bits=0)
+	by mu.digital-domain.net (8.14.7/8.14.7) with ESMTP id s8PJ2Qk0010812
+	(version=TLSv1/SSLv3 cipher=AES128-GCM-SHA256 bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 20:02:27 +0100
+In-Reply-To: <20140925182556.610073d2@omega.digital-domain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Based on original work by Kumar Sanghvi <kumaras@chelsio.com>
+On Thu, 25 Sep 2014 18:25:56 +0100, Andrew Clayton wrote:
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   24 +++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |   24 +++++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.h      |    1 +
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    1 +
- 5 files changed, 49 insertions(+), 2 deletions(-)
+> Kernel is 3.17.0-rc6-00180-g452b6361c4d9
+> 
+> System is Fedora 20 64bit on an Intel Quad core Q9400 with 4GB RAM.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 54b10d4..9b2c669 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -452,6 +452,7 @@ struct sge_rspq {                   /* state for an SGE response queue */
- 	u8 gen;                     /* current generation bit */
- 	u8 intr_params;             /* interrupt holdoff parameters */
- 	u8 next_intr_params;        /* holdoff params for next interrupt */
-+	u8 adaptive_rx;
- 	u8 pktcnt_idx;              /* interrupt packet threshold */
- 	u8 uld;                     /* ULD handling this queue */
- 	u8 idx;                     /* queue index within its group */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index b9596a3..321f3d9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -2753,8 +2753,31 @@ static int set_rx_intr_params(struct net_device *dev,
- 	return 0;
- }
- 
-+static int set_adaptive_rx_setting(struct net_device *dev, int adaptive_rx)
-+{
-+	int i;
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adap = pi->adapter;
-+	struct sge_eth_rxq *q = &adap->sge.ethrxq[pi->first_qset];
-+
-+	for (i = 0; i < pi->nqsets; i++, q++)
-+		q->rspq.adaptive_rx = adaptive_rx;
-+
-+	return 0;
-+}
-+
-+static int get_adaptive_rx_setting(struct net_device *dev)
-+{
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adap = pi->adapter;
-+	struct sge_eth_rxq *q = &adap->sge.ethrxq[pi->first_qset];
-+
-+	return q->rspq.adaptive_rx;
-+}
-+
- static int set_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
- {
-+	set_adaptive_rx_setting(dev, c->use_adaptive_rx_coalesce);
- 	return set_rx_intr_params(dev, c->rx_coalesce_usecs,
- 				  c->rx_max_coalesced_frames);
- }
-@@ -2768,6 +2791,7 @@ static int get_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
- 	c->rx_coalesce_usecs = qtimer_val(adap, rq);
- 	c->rx_max_coalesced_frames = (rq->intr_params & QINTR_CNT_EN) ?
- 		adap->sge.counter_val[rq->pktcnt_idx] : 0;
-+	c->use_adaptive_rx_coalesce = get_adaptive_rx_setting(dev);
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 87db533..bb7851e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -203,6 +203,9 @@ enum {
- 	RX_LARGE_MTU_BUF = 0x3,   /* large MTU buffer */
- };
- 
-+static int timer_pkt_quota[] = {1, 1, 2, 3, 4, 5};
-+#define MIN_NAPI_WORK  1
-+
- static inline dma_addr_t get_buf_addr(const struct rx_sw_desc *d)
- {
- 	return d->dma_addr & ~(dma_addr_t)RX_BUF_FLAGS;
-@@ -1969,9 +1972,26 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
- 	u32 val;
- 
- 	if (likely(work_done < budget)) {
-+		int timer_index;
-+
- 		napi_complete(napi);
--		params = q->next_intr_params;
--		q->next_intr_params = q->intr_params;
-+		timer_index = QINTR_TIMER_IDX_GET(q->next_intr_params);
-+
-+		if (q->adaptive_rx) {
-+			if (work_done > max(timer_pkt_quota[timer_index],
-+					    MIN_NAPI_WORK))
-+				timer_index = (timer_index + 1);
-+			else
-+				timer_index = timer_index - 1;
-+
-+			timer_index = clamp(timer_index, 0, SGE_TIMERREGS - 1);
-+			q->next_intr_params = QINTR_TIMER_IDX(timer_index) |
-+							      V_QINTR_CNT_EN;
-+			params = q->next_intr_params;
-+		} else {
-+			params = q->next_intr_params;
-+			q->next_intr_params = q->intr_params;
-+		}
- 	} else
- 		params = QINTR_TIMER_IDX(7);
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-index 6833a7b..c19a90e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-@@ -135,6 +135,7 @@ struct rsp_ctrl {
- #define RSPD_GEN(x)  ((x) >> 7)
- #define RSPD_TYPE(x) (((x) >> 4) & 3)
- 
-+#define V_QINTR_CNT_EN	   0x0
- #define QINTR_CNT_EN       0x1
- #define QINTR_TIMER_IDX(x) ((x) << 1)
- #define QINTR_TIMER_IDX_GET(x) (((x) >> 1) & 0x7)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 847a162..eee2728 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -77,6 +77,7 @@
- #define  PIDX_T5(x)  (((x) >> S_PIDX_T5) & M_PIDX_T5)
- 
- 
-+#define SGE_TIMERREGS	6
- #define SGE_PF_GTS 0x4
- #define  INGRESSQID_MASK   0xffff0000U
- #define  INGRESSQID_SHIFT  16
--- 
-1.7.1
+Typically this isn't reproducible. I rebooted into the latest F20
+kernel 3.16.3-200.fc20.x86_64 and hit that URL in Firefox, then only I
+noticed was the first time I loaded the URL was that the mem field of
+the TCP line in /proc/net/sockstat spiked up to a little over 5000
+before coming back down. But no noticeable ill effects.
+
+I rebooted back into 3.17.0-rc6-00180-g452b6361c4d9, but this time
+Firefox loaded the URL without issue. Rebooted back and forth a couple
+of time but couldn't hit the problem, maybe there's some other factor
+involved. I've too the opportunity to build the latest kernel
+3.17.0-rc6-00247-g005f800508eb. I'll see if I can hit the problem again
+after the machine has been up a while.
+
+Cheers,
+Andrew
