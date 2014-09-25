@@ -1,85 +1,47 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 1/1 V4] qdisc: bulk dequeue support for qdiscs
- with TCQ_F_ONETXQUEUE
-Date: Thu, 25 Sep 2014 17:23:29 +0200
-Message-ID: <20140925172329.7460f787@redhat.com>
-References: <20140924160932.9721.56450.stgit@localhost>
-	<20140924161047.9721.43080.stgit@localhost>
-	<1411579395.15395.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140924195831.6fb91051@redhat.com>
-	<54234225.5000503@mojatatu.com>
-	<20140925102505.494acab1@redhat.com>
-	<54240F34.1050707@mojatatu.com>
-	<CA+mtBx8Nie9AiCG6iuY+EN7HiLAe-bxWpZxTpRhASmYabRUyFA@mail.gmail.com>
-	<20140925165738.646d0783@redhat.com>
-	<CA+mtBx9ZW0qYh+_BEEVTgZ79Xbq0bH1Agfss_7kdEus_syeMhA@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] neigh: check error pointer instead of NULL for ipv4_neigh_lookup()
+Date: Thu, 25 Sep 2014 08:35:03 -0700
+Message-ID: <CAADnVQ+=yuG0+0kSj291MbbxMRvmeYN7D_2PkJsjkLWtnkt4WQ@mail.gmail.com>
+References: <1411603673-19084-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Toke =?UTF-8?B?SMO4aWxhbmQtSsO4cmdlbnNl?= =?UTF-8?B?bg==?=
-	<toke@toke.dk>, Florian Westphal <fw@strlen.de>,
-	Dave Taht <dave.taht@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	brouer@redhat.com
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45235 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753728AbaIYPYZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2014 11:24:25 -0400
-In-Reply-To: <CA+mtBx9ZW0qYh+_BEEVTgZ79Xbq0bH1Agfss_7kdEus_syeMhA@mail.gmail.com>
+Received: from mail-qc0-f175.google.com ([209.85.216.175]:35296 "EHLO
+	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752624AbaIYPfF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 11:35:05 -0400
+Received: by mail-qc0-f175.google.com with SMTP id o8so5184814qcw.34
+        for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 08:35:03 -0700 (PDT)
+In-Reply-To: <1411603673-19084-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 25 Sep 2014 08:05:38 -0700
-Tom Herbert <therbert@google.com> wrote:
-
-> On Thu, Sep 25, 2014 at 7:57 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
-> > On Thu, 25 Sep 2014 07:40:33 -0700
-> > Tom Herbert <therbert@google.com> wrote:
-> >
-> >> A few test results in patch 0 are good. I like to have results for
-> >> with and without patch. These should two things: 1) Any regressions
-> >> caused by the patch 2) Performance gains (in that order of importance
-> >> :-) ). There doesn't need to be a lot here, just something reasonably
-> >> representative, simple, and should be easily reproducible. My
-> >> expectation in bulk dequeue is that we should see no obvious
-> >> regression and hopefully an improvement in CPU utilization-- are you
-> >> able to verify this?
-> >
-> > We are saving 3% CPU, as I described in my post with subject:
-> > "qdisc/UDP_STREAM: measuring effect of qdisc bulk dequeue":
-> >  http://thread.gmane.org/gmane.linux.network/331152/focus=331154
-> >
-> > Using UDP_STREAM on 1Gbit/s driver igb, I can show that the
-> > _raw_spin_lock calls are reduced with approx 3%, when enabling
-> > bulking of just 2 packets.
-> >
+On Wed, Sep 24, 2014 at 5:07 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> Fixes: commit f187bc6efb7250afee0e2009b6106 ("ipv4: No need to set generic neighbour pointer")
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  net/ipv4/route.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> That's great. In commit log, would be good to have results with
-> TCP_STREAM also and please report aggregate CPU utilization changes
-> (like from mpstat).
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 173e7ea..cbadb94 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -746,7 +746,7 @@ static void __ip_do_redirect(struct rtable *rt, struct sk_buff *skb, struct flow
+>         }
+>
+>         n = ipv4_neigh_lookup(&rt->dst, NULL, &new_gw);
+> -       if (n) {
+> +       if (!IS_ERR(n)) {
+>                 if (!(n->nud_state & NUD_VALID)) {
+>                         neigh_event_send(n, NULL);
 
-The TCP_STREAM is not a good test for this, because unless disabling
-both TSO and GSO the packets will not hit the code path (that this
-patch changes).  When we later add support for TSO and GSO bulking,
-then it will make sense to include TCP_STREAM testing, not before.
+assuming symptoms of this was a crash?
+Could you share the stack trace to see how we got to this state ?
+Or was it spotted just by code inspection?
 
-I will redo the tests, once I get home to my testlab, as the remote lab
-I'm using now is annoyingly slow rebooting machines, as we not longer
-have a runtime option for enable/disable (I'm currently in Switzerland).   
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Thanks!
