@@ -1,61 +1,41 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [PATCH v2 net-next 3/3] tcp: better TCP_SKB_CB layout to reduce
- cache line misses
-Date: Thu, 25 Sep 2014 17:48:44 +0200
-Message-ID: <20140925154844.GM5044@cpaasch-mac>
-References: <1411468452-3729-1-git-send-email-edumazet@google.com>
- <1411468452-3729-4-git-send-email-edumazet@google.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] mlx4: exploit skb->xmit_more to conditionally
+ send doorbell
+Date: Thu, 25 Sep 2014 08:53:30 -0700
+Message-ID: <CAADnVQJ_FfZEUbFBz4wwZM9Gfbsagfjk51VVbjWJPG7KgJjHWQ@mail.gmail.com>
+References: <1411654669.16953.17.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f170.google.com ([74.125.82.170]:35410 "EHLO
-	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753821AbaIYPsr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 11:48:47 -0400
-Received: by mail-we0-f170.google.com with SMTP id x48so6758252wes.15
-        for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 08:48:46 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1411468452-3729-4-git-send-email-edumazet@google.com>
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:58896 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753967AbaIYPxb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 11:53:31 -0400
+Received: by mail-qc0-f180.google.com with SMTP id l6so4752610qcy.25
+        for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 08:53:30 -0700 (PDT)
+In-Reply-To: <1411654669.16953.17.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/09/14 - 03:34:12, Eric Dumazet wrote:
-> TCP maintains lists of skb in write queue, and in receive queues
-> (in order and out of order queues)
-> 
-> Scanning these lists both in input and output path usually requires
-> access to skb->next, TCP_SKB_CB(skb)->seq, and TCP_SKB_CB(skb)->end_seq
-> 
-> These fields are currently in two different cache lines, meaning we
-> waste lot of memory bandwidth when these queues are big and flows
-> have either packet drops or packet reorders.
-> 
-> We can move TCP_SKB_CB(skb)->header at the end of TCP_SKB_CB, because
-> this header is not used in fast path. This allows TCP to search much faster
-> in the skb lists.
-> 
-> Even with regular flows, we save one cache line miss in fast path.
-> 
-> Thanks to Christoph Paasch for noticing we need to cleanup
-> skb->cb[] (IPCB/IP6CB) before entering IP stack in tx path.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  include/net/tcp.h     | 12 ++++++------
->  net/ipv4/tcp_ipv4.c   |  7 +++++++
->  net/ipv4/tcp_output.c |  5 +++++
->  net/ipv6/tcp_ipv6.c   |  7 +++++++
->  4 files changed, 25 insertions(+), 6 deletions(-)
+On Thu, Sep 25, 2014 at 7:17 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> skb->xmit_more tells us if another skb is coming next.
+>
+> We need to send doorbell when : xmit_more is not set,
+> or txqueue is stopped (preventing next skb to come immediately)
+>
+> Tested with a modified pktgen version, I got a 40% increase of
+> throughput.
 
-Hello Eric,
+this is awesome!
 
-I think that in tcp_v4_hnd_req() and tcp_v4_save_options() we also need to
-avoid calling IPCB() and do TCP_SKB_CB(skb)->header.h4.opt instead.
+I've been hacking pktgen as well based on Jesper's earlier patch,
+but in slightly different way. Sounds like you already have working
+pktgen with xmit_more. Do you mind sharing it? even rough patch
+would be great.
 
-
-Cheers,
-Christoph
+Thanks
