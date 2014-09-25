@@ -1,61 +1,54 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] ematch: Fix matching of inverted containers.
-Date: Thu, 25 Sep 2014 14:08:24 -0700
-Message-ID: <CAHA+R7N8-4LwaOqv8NHQ=p5-wU6ya9ya3GLsOkkBjQmhBQ94yA@mail.gmail.com>
-References: <20140924163839.GA6925@zenon.in.qult.net>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [Patch net-next 2/2] net_sched: fix another regression in cls_tcindex
+Date: Thu, 25 Sep 2014 14:18:15 -0700
+Message-ID: <54248697.2010202@intel.com>
+References: <1411671965-18887-1-git-send-email-xiyou.wangcong@gmail.com> <1411671965-18887-2-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Graf <tgraf@suug.ch>
-To: =?UTF-8?Q?Ignacy_Gaw=C4=99dzki?=
-	<ignacy.gawedzki@green-communications.fr>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, John Fastabend <john.fastabend@gmail.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:36556 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751636AbaIYVI0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 17:08:26 -0400
-Received: by mail-lb0-f173.google.com with SMTP id 10so11544729lbg.4
-        for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 14:08:24 -0700 (PDT)
-In-Reply-To: <20140924163839.GA6925@zenon.in.qult.net>
+Received: from mga01.intel.com ([192.55.52.88]:39086 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751981AbaIYVSP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Sep 2014 17:18:15 -0400
+In-Reply-To: <1411671965-18887-2-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(Cc'ing Thomas)
-
-On Wed, Sep 24, 2014 at 9:38 AM, Ignacy Gaw=C4=99dzki
-<ignacy.gawedzki@green-communications.fr> wrote:
-> Negated expressions and sub-expressions need to have their flags chec=
-ked for
-> TCF_EM_INVERT and their result negated accordingly.
->
-> Signed-off-by: Ignacy Gaw=C4=99dzki <ignacy.gawedzki@green-communicat=
-ions.fr>
+On 09/25/2014 12:06 PM, Cong Wang wrote:
+> Clearly the following change is not expected:
+> 
+> 	-       if (!cp.perfect && !cp.h)
+> 	-               cp.alloc_hash = cp.hash;
+> 	+       if (!cp->perfect && cp->h)
+> 	+               cp->alloc_hash = cp->hash;
+> 
+> Fixes: commit 331b72922c5f58d48fd ("net: sched: RCU cls_tcindex")
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 > ---
->  net/sched/ematch.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
->
-> diff --git a/net/sched/ematch.c b/net/sched/ematch.c
-> index 3a633de..ad57f44 100644
-> --- a/net/sched/ematch.c
-> +++ b/net/sched/ematch.c
-> @@ -526,9 +526,11 @@ pop_stack:
->                 match_idx =3D stack[--stackp];
->                 cur_match =3D tcf_em_get_match(tree, match_idx);
->
-> -               if (tcf_em_early_end(cur_match, res))
-> +               if (tcf_em_early_end(cur_match, res)) {
-> +                       if (tcf_em_is_inverted(cur_match))
-> +                               res =3D !res;
->                         goto pop_stack;
-> -               else {
-> +               } else {
->                         match_idx++;
->                         goto proceed;
->                 }
-> --
-> 1.9.1
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  net/sched/cls_tcindex.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+> index 9d78fd7..a18eb1b 100644
+> --- a/net/sched/cls_tcindex.c
+> +++ b/net/sched/cls_tcindex.c
+> @@ -303,7 +303,7 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+>  			cp->hash = DEFAULT_HASH_SIZE;
+>  	}
+>  
+> -	if (!cp->perfect && cp->h)
+> +	if (!cp->perfect && !cp->h)
+>  		cp->alloc_hash = cp->hash;
+>  
+>  	/* Note: this could be as restrictive as if (handle & ~(mask >> shift))
+> 
+
+Dang thanks. I added a test to my scripts that doesn't set the
+hash explicitly with TCA_TCINDEX_HASH. It looks like changes to
+the filter after the initial setup could fail without this fix.
+
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
