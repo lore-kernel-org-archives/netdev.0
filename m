@@ -1,44 +1,49 @@
-From: Andrew Clayton <andrew@digital-domain.net>
-Subject: Re: Networking blowing up in 3.17-rc
-Date: Thu, 25 Sep 2014 20:02:26 +0100
-Message-ID: <20140925200226.0f47c112@omega.digital-domain.net>
-References: <20140925182556.610073d2@omega.digital-domain.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next 1/2] net_sched: fix errno in tcindex_set_parms()
+Date: Thu, 25 Sep 2014 12:06:04 -0700
+Message-ID: <1411671965-18887-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: davem@davemloft.net, Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.fastabend@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu.digital-domain.net ([108.61.197.113]:39737 "EHLO
-	mu.digital-domain.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933AbaIYTC3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 15:02:29 -0400
-Received: from omega.digital-domain.net (tau.digital-domain.net [217.169.2.54])
-	(authenticated bits=0)
-	by mu.digital-domain.net (8.14.7/8.14.7) with ESMTP id s8PJ2Qk0010812
-	(version=TLSv1/SSLv3 cipher=AES128-GCM-SHA256 bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 20:02:27 +0100
-In-Reply-To: <20140925182556.610073d2@omega.digital-domain.net>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:62541 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751895AbaIYTGQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 15:06:16 -0400
+Received: by mail-pd0-f176.google.com with SMTP id z10so9872861pdj.35
+        for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 12:06:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 25 Sep 2014 18:25:56 +0100, Andrew Clayton wrote:
+When kmemdup() fails, we should return -ENOMEM.
 
-> Kernel is 3.17.0-rc6-00180-g452b6361c4d9
-> 
-> System is Fedora 20 64bit on an Intel Quad core Q9400 with 4GB RAM.
+Cc: John Fastabend <john.fastabend@gmail.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/sched/cls_tcindex.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-Typically this isn't reproducible. I rebooted into the latest F20
-kernel 3.16.3-200.fc20.x86_64 and hit that URL in Firefox, then only I
-noticed was the first time I loaded the URL was that the mem field of
-the TCP line in /proc/net/sockstat spiked up to a little over 5000
-before coming back down. But no noticeable ill effects.
-
-I rebooted back into 3.17.0-rc6-00180-g452b6361c4d9, but this time
-Firefox loaded the URL without issue. Rebooted back and forth a couple
-of time but couldn't hit the problem, maybe there's some other factor
-involved. I've too the opportunity to build the latest kernel
-3.17.0-rc6-00247-g005f800508eb. I'll see if I can hit the problem again
-after the machine has been up a while.
-
-Cheers,
-Andrew
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index 5054fae..9d78fd7 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -237,15 +237,14 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 	if (err < 0)
+ 		return err;
+ 
++	err = -ENOMEM;
+ 	/* tcindex_data attributes must look atomic to classifier/lookup so
+ 	 * allocate new tcindex data and RCU assign it onto root. Keeping
+ 	 * perfect hash and hash pointers from old data.
+ 	 */
+ 	cp = kzalloc(sizeof(*cp), GFP_KERNEL);
+-	if (!cp) {
+-		err = -ENOMEM;
++	if (!cp)
+ 		goto errout;
+-	}
+ 
+ 	cp->mask = p->mask;
+ 	cp->shift = p->shift;
+-- 
+1.8.3.1
