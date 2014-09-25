@@ -1,7 +1,8 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net-next): ipsec-next 2014-09-25
-Date: Thu, 25 Sep 2014 11:10:21 +0200
-Message-ID: <1411636225-4433-1-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 4/4] ipsec: Remove obsolete MAX_AH_AUTH_LEN
+Date: Thu, 25 Sep 2014 11:10:25 +0200
+Message-ID: <1411636225-4433-5-git-send-email-steffen.klassert@secunet.com>
+References: <1411636225-4433-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -9,63 +10,91 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:54391 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:54406 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752987AbaIYJKq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2014 05:10:46 -0400
+	id S1753035AbaIYJKv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Sep 2014 05:10:51 -0400
+In-Reply-To: <1411636225-4433-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) Remove useless hash_resize_mutex in xfrm_hash_resize().
-   This mutex is used only there, but xfrm_hash_resize()
-   can't be called concurrently at all. From Ying Xue.
+From: Herbert Xu <herbert@gondor.apana.org.au>
 
-2) Extend policy hashing to prefixed policies based on
-   prefix lenght thresholds. From Christophe Gouault.
+While tracking down the MAX_AH_AUTH_LEN crash in an old kernel
+I thought that this limit was rather arbitrary and we should
+just get rid of it.
 
-3) Make the policy hash table thresholds configurable
-   via netlink. From Christophe Gouault.
+In fact it seems that we've already done all the work needed
+to remove it apart from actually removing it.  This limit was
+there in order to limit stack usage.  Since we've already
+switched over to allocating scratch space using kmalloc, there
+is no longer any need to limit the authentication length.
 
-4) Remove the maximum authentication length for AH.
-   This was needed to limit stack usage. We switched
-   already to allocate space, so no need to keep the
-   limit. From Herbert Xu.
+This patch kills all references to it, including the BUG_ONs
+that led me here.
 
-Please pull or let me know if there are problems.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/net/ah.h     | 3 ---
+ net/ipv4/ah4.c       | 2 --
+ net/ipv6/ah6.c       | 2 --
+ net/xfrm/xfrm_user.c | 3 +--
+ 4 files changed, 1 insertion(+), 9 deletions(-)
 
-Thanks!
-
-The following changes since commit a3d1214688d5259a200414def4d38f1e4531febd:
-
-  neigh: document gc_thresh2 (2014-08-25 17:37:10 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
-
-for you to fetch changes up to 689f1c9de2abbd76fda224d12cea5f43568a4335:
-
-  ipsec: Remove obsolete MAX_AH_AUTH_LEN (2014-09-18 10:54:36 +0200)
-
-----------------------------------------------------------------
-Christophe Gouault (2):
-      xfrm: hash prefixed policies based on preflen thresholds
-      xfrm: configure policy hash table thresholds by netlink
-
-Herbert Xu (1):
-      ipsec: Remove obsolete MAX_AH_AUTH_LEN
-
-Ying Xue (1):
-      xfrm: remove useless hash_resize_mutex locks
-
- include/net/ah.h          |   3 -
- include/net/netns/xfrm.h  |  14 +++++
- include/net/xfrm.h        |   1 +
- include/uapi/linux/xfrm.h |   7 +++
- net/ipv4/ah4.c            |   2 -
- net/ipv6/ah6.c            |   2 -
- net/xfrm/xfrm_hash.h      |  76 +++++++++++++++++++++----
- net/xfrm/xfrm_policy.c    | 140 ++++++++++++++++++++++++++++++++++++++++++++--
- net/xfrm/xfrm_state.c     |  13 +----
- net/xfrm/xfrm_user.c      |  83 +++++++++++++++++++++++++--
- 10 files changed, 303 insertions(+), 38 deletions(-)
+diff --git a/include/net/ah.h b/include/net/ah.h
+index ca95b98..4e2dfa4 100644
+--- a/include/net/ah.h
++++ b/include/net/ah.h
+@@ -3,9 +3,6 @@
+ 
+ #include <linux/skbuff.h>
+ 
+-/* This is the maximum truncated ICV length that we know of. */
+-#define MAX_AH_AUTH_LEN	64
+-
+ struct crypto_ahash;
+ 
+ struct ah_data {
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index a2afa89..ac9a32e 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -505,8 +505,6 @@ static int ah_init_state(struct xfrm_state *x)
+ 	ahp->icv_full_len = aalg_desc->uinfo.auth.icv_fullbits/8;
+ 	ahp->icv_trunc_len = x->aalg->alg_trunc_len/8;
+ 
+-	BUG_ON(ahp->icv_trunc_len > MAX_AH_AUTH_LEN);
+-
+ 	if (x->props.flags & XFRM_STATE_ALIGN4)
+ 		x->props.header_len = XFRM_ALIGN4(sizeof(struct ip_auth_hdr) +
+ 						  ahp->icv_trunc_len);
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index fcffd4e..6d16eb0 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -713,8 +713,6 @@ static int ah6_init_state(struct xfrm_state *x)
+ 	ahp->icv_full_len = aalg_desc->uinfo.auth.icv_fullbits/8;
+ 	ahp->icv_trunc_len = x->aalg->alg_trunc_len/8;
+ 
+-	BUG_ON(ahp->icv_trunc_len > MAX_AH_AUTH_LEN);
+-
+ 	x->props.header_len = XFRM_ALIGN8(sizeof(struct ip_auth_hdr) +
+ 					  ahp->icv_trunc_len);
+ 	switch (x->props.mode) {
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index eaf8a8f..e812e98 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -333,8 +333,7 @@ static int attach_auth_trunc(struct xfrm_algo_auth **algpp, u8 *props,
+ 	algo = xfrm_aalg_get_byname(ualg->alg_name, 1);
+ 	if (!algo)
+ 		return -ENOSYS;
+-	if ((ualg->alg_trunc_len / 8) > MAX_AH_AUTH_LEN ||
+-	    ualg->alg_trunc_len > algo->uinfo.auth.icv_fullbits)
++	if (ualg->alg_trunc_len > algo->uinfo.auth.icv_fullbits)
+ 		return -EINVAL;
+ 	*props = algo->desc.sadb_alg_id;
+ 
+-- 
+1.9.1
