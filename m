@@ -1,81 +1,93 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
-Date: Thu, 25 Sep 2014 10:53:31 +0200
-Message-ID: <5423D80B.9060500@6wind.com>
-References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>	<CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw@mail.gmail.com>	<54228D87.3070309@6wind.com>	<CAHA+R7NfJYzCsZx0E9YVXKVCQbCm_thPSi+80tix8Z9nVA82Ug@mail.gmail.com>	<5422F0F4.6000709@6wind.com>
-	<CAHA+R7Ot2kLHb+ne5AW3bFNc87qkFOiEHEyDh9sFrsHqXgrY3g@mail.gmail.com>
-Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 1/4] xfrm: remove useless hash_resize_mutex locks
+Date: Thu, 25 Sep 2014 11:10:22 +0200
+Message-ID: <1411636225-4433-2-git-send-email-steffen.klassert@secunet.com>
+References: <1411636225-4433-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <CAHA+R7Ot2kLHb+ne5AW3bFNc87qkFOiEHEyDh9sFrsHqXgrY3g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:54379 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752384AbaIYJKi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Sep 2014 05:10:38 -0400
+In-Reply-To: <1411636225-4433-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TGUgMjQvMDkvMjAxNCAxODo0NSwgQ29uZyBXYW5nIGEgw6ljcml0IDoKPiBPbiBXZWQsIFNlcCAy
-NCwgMjAxNCBhdCA5OjI3IEFNLCBOaWNvbGFzIERpY2h0ZWwKPiA8bmljb2xhcy5kaWNodGVsQDZ3
-aW5kLmNvbT4gd3JvdGU6Cj4+IE5vdyBpbmZvcm1hdGlvbnMgZ290IHdpdGggJ2lwIGxpbmsnIGFy
-ZSB3cm9uZyBhbmQgaW5jb21wbGV0ZToKPj4gICAgLSB0aGUgbGluayBkZXYgaXMgbm93IHR1bmww
-IGluc3RlYWQgb2YgZXRoMCwgYmVjYXVzZSB3ZSBvbmx5IGdvdCBhbgo+PiBpZmluZGV4Cj4+ICAg
-ICAgZnJvbSB0aGUga2VybmVsIHdpdGhvdXQgYW55IG5ldG5zIGluZm9ybWF0aW9ucy4KPgo+IFRo
-aXMgaXMgbm90IG5ldywgbWFjdmxhbiBoYXMgdGhlIHNhbWUgcHJvYmxlbS4gVGhpcyBpcyB3aHkg
-SSBzYWlkCj4gaXQgaXMgbW9zdGx5IGEgZGlzcGxheSBwcm9ibGVtLCBtYXliZSBqdXN0IG1hcmsg
-dGhlIGlmaW5kZXggYXMgLTEgb3IKPiBzb21ldGhpbmcgd2hlbiBpdCBpcyBub3QgaW4gdGhpcyBu
-ZXRucy4gQXQgbGVhc3QgSSBkb24ndCBleHBlY3QgdGhlIGlubmVyCj4gbmV0bnMga25vdyBhbnl0
-aGluZyBvdXRzaWRlLCBhbmQgSSBkb24ndCB0aGluayBJIGFtIHRoZSBvbmx5IG9uZSB1c2luZwo+
-IG5ldG5zIGluIHRoaXMgd2F5LgpJIHVuZGVyc3RhbmQgeW91ciBwb2ludCBidXQgdGhlcmUgaXMg
-c2V2ZXJhbCB1c2Ugb2YgbmV0bnMuIE5ldG5zIGNhbiBiZSB1c2VkCmFsc28gdG8gaW5zdGFudGlh
-dGUgdmlydHVhbCByb3V0ZXJzLiBJbiB0aGlzIGNhc2UsIGFkbWluaXN0cmF0b3JzIG9yIGRhZW1v
-bnMKbmVlZCB0byBiZSBhYmxlIHRvIG1vbml0b3IgYW5kIGR1bXAgdGhlIGNvbmZpZ3VyYXRpb24g
-b24gYWxsIG5ldG5zCihwYXJ0aWN1bGFybHkgYmVlaW5nIGFibGUgdG8gaWRlbnRpZnkgZnVsbHkg
-eC1uZXRucyBpbnRlcmZhY2VzKS4gV2Ugc3RhcnQgdG8KZGlzY3VzcyB0aGlzIGluIG9uZSBvZiB0
-aGUgdHdvIHRocmVhZCBwb2ludGVkIGluIG15IGNvdmVyIGxldHRlciBhbmQgZ2V0IHRoZQpjb25j
-bHVzaW9uIHRoYXQgY2hlY2tpbmcgdXNlciBucyBpcyBhIGdvb2Qgd2F5IHRvIGtub3cgaWYgYW4g
-aWQgc2hvdWxkIGJlCmRpc2Nsb3NlZCBvciBub3QgZm9yIGEgcGVlciBuZXRucy4KQ2FuIHlvdSBk
-ZXNjcmliZSB5b3VyIHVzZSBjYXNlPwoKPgo+PiAgICAtIHRoZSBlbmNhcHN1bGF0aW9uIGFkZHJl
-c3NlcyBhcmUgbm90IHBhcnQgb2YgdGhpcyBuZXRucyBidXQgdGhlIHVzZXIKPj4gZG9lc24ndAo+
-PiAgICAgIGtub3duIHRoYXQgKHN0aWxsIGJlY2F1c2UgbmV0bnMgaW5mbyBpcyBtaXNzaW5nKS4g
-VGhlc2UgSVB2NCBhZGRyZXNzZXMKPj4gbWF5Cj4+ICAgICAgZXhpc3QgaW50byB0aGlzIG5ldG5z
-Lgo+Cj4gSSBkb24ndCByZW1lbWJlciB5b3VyIHgtbmV0bnMgY29kZSwgYnV0IHdlIGhhdmUgdHdv
-IGNob2ljZXM6Cj4KPiAxKSBMb29rdXAgdGhlIHJvdXRlIG9mIHRoZSBuZXRucyB3aGljaCBpdCBp
-cyBpbgo+Cj4gSWYgdGhlIGFkZHJlc3MgaXMgbm90IGF2YWlsYWJsZSBpbiB0aGlzIG5ldG5zLCBp
-dCB3aWxsIGZhaWwsIHRoaXMgaXMgZXhwZWN0ZWQKPiBzaW5jZSB0dW5uZWwgZGV2aWNlIGlzIG5v
-dCBhIHB1cmUgTDIgZGV2aWNlLiBPciBtYXliZSBqdXN0IGZhaWwKPiBlYXJseSB3aGVuIHdlIG1v
-dmUgaXQuCj4KPiAyKSBMb29rdXAgdGhlIHJvdXRlIG9mIHRoZSBuZXRucyB3aGVyZSBpdCB3YXMg
-Y3JlYXRlZAo+Cj4gVHJhbnNwYXJlbnQgZm9yIHVwcGVyIGxheWVyLCBidXQgYXMgeW91IHNhaWQs
-IHRoZSBvdXRlciBhZGRyZXNzIGlzIG5vdAo+IGF2YWlsYWJsZSBpbiB0aGlzIG5ldG5zIHRoZXJl
-Zm9yZSBoYXJkIHRvIGRpc3BsYXkuIEp1c3QgaGlkaW5nIHRoaXMgaW5mb3JtYXRpb24KPiBkb2Vz
-bid0IHNlZW0gd3JvbmcgdG8gbWUuCllvdXIgYXNzdW1wdGlvbiBoZXJlIGlzIHRoYXQgYWxsIGRh
-bWVvbnMgd2VyZSBzdGFydGVkIGJlZm9yZSB0aGUgdHVubmVsIHdhcwpjcmVhdGVkLiBCdXQgdGhp
-cyBpcyBub3QgdHJ1ZSwgYSBkYWVtb24gbWF5IGJlIHN0YXJ0ZWQgbGF0ZXIuIEFub3RoZXIgY2Fz
-ZSBpcwp3aGVuIGEgZGFlbW9uIGNyYXNoOiB3ZSBuZWVkIHRvIGJlIGFibGUgdG8gcmVzdGFydCBp
-dCBhbmQgaXQgc2hvdWxkIGJlIGFibGUgdG8KcmVjb3ZlciBhbGwgbmVlZGVkIGluZm9ybWF0aW9u
-LgoKPgo+Cj4+ICAgIC0gaXQncyBub3QgcG9zc2libGUgdG8gY3JlYXRlIHRoZSBzYW1lIG5ldGRl
-dmljZSB3aXRoIHRoZXNlIGluZm9zLgo+Pgo+Cj4gVGhpcyBpcyBleHBlY3RlZCwgYmVjYXVzZSBh
-ZnRlciBhbGwgeW91IGFyZSBhbHJlYWR5IGluIGEgZGlmZmVyZW50IG5ldG5zLgo+CkEgZGlmZmVy
-ZW50IG5ldG5zIG9ubHkgbWVhbnMgYSBkaWZmZXJlbnQgbmV0d29yayBzdGFjaywgbm90IGEgZGlm
-ZmVyZW50IHVzZXIgbnMKb3IgbW91bnQgbnMgb3IgUElEIG5zLCAuLi4KSWYgeW91IG9ubHkgcGxh
-eSB3aXRoIG5ldG5zLCB5b3UgbWF5IHdhbnQgdG8gbW9uaXRvciBhbGwgYWN0aXZpZXMgaW4gYWxs
-IG5ldG5zCih0aGlzIGlzIGFscmVhZHkgcG9zc2libGUpIGFuZCBiZWVpbmcgYWJsZSB0byBsaW5r
-IGluZm9ybWF0aW9uIGJldHdlZW4gbmV0bnMKKHRoaXMgaXMgd2hhdCBJJ20gdHJ5aW5nIHRvIHNv
-bHZlKS4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KQ29u
-dGFpbmVycyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9y
-ZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby9jb250
-YWluZXJz
+From: Ying Xue <ying.xue@windriver.com>
+
+In xfrm_state.c, hash_resize_mutex is defined as a local variable
+and only used in xfrm_hash_resize() which is declared as a work
+handler of xfrm.state_hash_work. But when the xfrm.state_hash_work
+work is put in the global workqueue(system_wq) with schedule_work(),
+the work will be really inserted in the global workqueue if it was
+not already queued, otherwise, it is still left in the same position
+on the the global workqueue. This means the xfrm_hash_resize() work
+handler is only executed once at any time no matter how many times
+its work is scheduled, that is, xfrm_hash_resize() is not called
+concurrently at all, so hash_resize_mutex is redundant for us.
+
+Cc: Christophe Gouault <christophe.gouault@6wind.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Acked-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_state.c | 13 +++----------
+ 1 file changed, 3 insertions(+), 10 deletions(-)
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 0ab5413..de971b6 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -97,8 +97,6 @@ static unsigned long xfrm_hash_new_size(unsigned int state_hmask)
+ 	return ((state_hmask + 1) << 1) * sizeof(struct hlist_head);
+ }
+ 
+-static DEFINE_MUTEX(hash_resize_mutex);
+-
+ static void xfrm_hash_resize(struct work_struct *work)
+ {
+ 	struct net *net = container_of(work, struct net, xfrm.state_hash_work);
+@@ -107,22 +105,20 @@ static void xfrm_hash_resize(struct work_struct *work)
+ 	unsigned int nhashmask, ohashmask;
+ 	int i;
+ 
+-	mutex_lock(&hash_resize_mutex);
+-
+ 	nsize = xfrm_hash_new_size(net->xfrm.state_hmask);
+ 	ndst = xfrm_hash_alloc(nsize);
+ 	if (!ndst)
+-		goto out_unlock;
++		return;
+ 	nsrc = xfrm_hash_alloc(nsize);
+ 	if (!nsrc) {
+ 		xfrm_hash_free(ndst, nsize);
+-		goto out_unlock;
++		return;
+ 	}
+ 	nspi = xfrm_hash_alloc(nsize);
+ 	if (!nspi) {
+ 		xfrm_hash_free(ndst, nsize);
+ 		xfrm_hash_free(nsrc, nsize);
+-		goto out_unlock;
++		return;
+ 	}
+ 
+ 	spin_lock_bh(&net->xfrm.xfrm_state_lock);
+@@ -148,9 +144,6 @@ static void xfrm_hash_resize(struct work_struct *work)
+ 	xfrm_hash_free(odst, osize);
+ 	xfrm_hash_free(osrc, osize);
+ 	xfrm_hash_free(ospi, osize);
+-
+-out_unlock:
+-	mutex_unlock(&hash_resize_mutex);
+ }
+ 
+ static DEFINE_SPINLOCK(xfrm_state_afinfo_lock);
+-- 
+1.9.1
