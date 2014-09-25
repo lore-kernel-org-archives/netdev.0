@@ -1,8 +1,8 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC PATCH 13/24] net: rbridge: Add set_node function
-Date: Thu, 25 Sep 2014 15:34:32 +0400
-Message-ID: <5423FDC8.5080901@cogentembedded.com>
-References: <1411573940-14079-1-git-send-email-ahmed@gandi.net> <1411573940-14079-14-git-send-email-ahmed@gandi.net>
+Subject: Re: [RFC PATCH 22/24] net: rbridge: Add rbr_fwd
+Date: Thu, 25 Sep 2014 15:43:14 +0400
+Message-ID: <5423FFD2.103@cogentembedded.com>
+References: <1411573940-14079-1-git-send-email-ahmed@gandi.net> <1411573940-14079-23-git-send-email-ahmed@gandi.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8;
 	format=flowed
@@ -11,139 +11,105 @@ Cc: william@gandi.net, f.cachereul@alphalink.fr,
 	Kamel Haddadou <kamel@gandi.net>
 To: Ahmed Amamou <ahmed@gandi.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:45256 "EHLO
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:53082 "EHLO
 	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751237AbaIYLef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 07:34:35 -0400
-Received: by mail-lb0-f170.google.com with SMTP id n15so700218lbi.29
-        for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 04:34:34 -0700 (PDT)
-In-Reply-To: <1411573940-14079-14-git-send-email-ahmed@gandi.net>
+	with ESMTP id S1751568AbaIYLnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 07:43:17 -0400
+Received: by mail-lb0-f170.google.com with SMTP id n15so709081lbi.15
+        for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 04:43:16 -0700 (PDT)
+In-Reply-To: <1411573940-14079-23-git-send-email-ahmed@gandi.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
 On 9/24/2014 7:52 PM, Ahmed Amamou wrote:
 
-> allow daemon to set distant Rbridges information in local database
-> daemon has to periodically update distant Rbridges informations in lo=
-cal database
-> create a new node only if change on distant RBridge information are d=
-etected
+> add rbridge forward function
+> packets arriving to rbr_fwd should be already encapsulated and correc=
+t egress
+> and ingress nickname should be already assigned
+> rbr_fwd function will assign correct source and destination outer MAC=
+ addresses
+> according to which port will send the frame and next hop to reach
+> the engress nickname
+> Nexthope to reach the egress will be found in node database
 
 > Signed-off-by: Ahmed Amamou <ahmed@gandi.net>
 > Signed-off-by: Kamel Haddadou <kamel@gandi.net>
-> Signed-off-by: Fran=C3=A7ois Cachereul <f.cachereul@alphalink.fr>
 > Signed-off-by: William Dauchy <william@gandi.net>
+> Signed-off-by: Fran=C3=A7ois Cachereul <f.cachereul@alphalink.fr>
 > ---
->   net/bridge/rbridge/rbr_netlink.c | 78 +++++++++++++++++++++++++++++=
-+++++++++++
->   1 file changed, 78 insertions(+)
+>   net/bridge/rbridge/rbr.c | 49 +++++++++++++++++++++++++++++++++++++=
++++++++++--
+>   1 file changed, 47 insertions(+), 2 deletions(-)
 
-> diff --git a/net/bridge/rbridge/rbr_netlink.c b/net/bridge/rbridge/rb=
-r_netlink.c
-> index 889e6c8..bb893f0 100644
-> --- a/net/bridge/rbridge/rbr_netlink.c
-> +++ b/net/bridge/rbridge/rbr_netlink.c
-> @@ -38,9 +38,87 @@ static struct genl_multicast_group trill_mcgrps[] =
-=3D {
->   	[TRILL_MCGRP_OFFSET] =3D {.name =3D TRILL_MCAST_NAME,},
->   };
+> diff --git a/net/bridge/rbridge/rbr.c b/net/bridge/rbridge/rbr.c
+> index 8aa5182..39aa816c 100644
+> --- a/net/bridge/rbridge/rbr.c
+> +++ b/net/bridge/rbridge/rbr.c
+> @@ -177,6 +177,51 @@ static bool add_header(struct sk_buff *skb, uint=
+16_t ingressnick,
+>   	return 0;
+>   }
 >
-> +static int create_node(struct net_bridge_port *p, struct rbr *rbr,
-> +		       struct rbr_nickinfo *rbr_ni_partial,
-> +		       struct genl_info *info)
+> +static void rbr_fwd(struct net_bridge_port *p, struct sk_buff *skb,
+> +		    uint16_t adj_nick, u16 vid)
 > +{
-> +	size_t size =3D 0;
-> +	size_t old_size =3D 0;
-> +	struct rbr_node *old;
-> +	struct rbr_nickinfo *rbr_ni;
+> +	struct rbr_node *adj;
+> +	struct trill_hdr *trh;
+> +	struct ethhdr *outerethhdr;
+> +	struct net *net =3D dev_net(p->br->dev);
+> +	struct net_device *outdev;
 > +
-> +	if (rbr_ni_partial =3D=3D NULL)
-> +		return -EINVAL;
-> +
-> +	size =3D RBR_NI_TOTALSIZE(rbr_ni_partial);
-> +	if (size > PAGE_SIZE - sizeof(struct trill_nl_header)) {
+> +	adj =3D rbr_find_node(p->br->rbr, adj_nick);
+> +    outdev =3D __dev_get_by_index(net, adj->rbr_ni->linkid);
+
+    Indent with a tab please.
+
+> +	if (!outdev) {
+> +		pr_warn_ratelimited("rbr_fwd: cannot find source port device for f=
+orwrding\n");
+> +		goto dest_fwd_fail;
+> +    }
+> +	if (unlikely(adj =3D=3D NULL)) {
 > +		pr_warn_ratelimited
-> +		    ("create_node: size > (PAGE_SIZE-nickinfo_offset)\n");
-> +		return -EINVAL;
-> +	}
-> +	rbr_ni =3D kzalloc(size, GFP_KERNEL);
-> +	if (!rbr_ni)
-> +		return -ENOMEM;
-> +	old =3D rbr->rbr_nodes[rbr_ni_partial->nick];
-> +	nla_memcpy(rbr_ni, info->attrs[TRILL_ATTR_BIN], size);
-> +	if (old)
-> +		old_size =3D RBR_NI_TOTALSIZE(old->rbr_ni);
-> +	/* replace old node by a new one only if nickname information have =
-changed */
-
-    s/have/has/.
-
-> +	if (old =3D=3D NULL || old_size !=3D size ||
-> +	    memcmp(old->rbr_ni, rbr_ni, size)) {
-> +		struct rbr_node *new;
-> +
-> +		new =3D kzalloc(sizeof(*old), GFP_KERNEL);
-> +		if (!new) {
-> +			kfree(rbr_ni);
-> +			return -ENOMEM;
-> +		}
-> +		atomic_set(&new->refs, 1);
-> +		new->rbr_ni =3D rbr_ni;
-> +		/* avoid deleting node while it is been used for routing */
-
-    Either "has been" or "is being".
-
-> +		rcu_assign_pointer(rbr->rbr_nodes[rbr_ni->nick], new);
-> +		if (old)
-> +			rbr_node_put(old);
-> +	} else {
-> +		kfree(rbr_ni);
+> +		    ("rbr_fwd: unable to find adjacent RBridge\n");
+> +		goto dest_fwd_fail;
 > +	}
 > +
-> +	return 0;
+> +	trh =3D (struct trill_hdr *)skb->data;
+> +	trillhdr_dec_hopcount(trh);
+> +	outerethhdr =3D eth_hdr(skb);
+> +
+> +	/* change outer ether header */
+> +	/* bridge become the source_port address in outeretherhdr */
+
+    Becomes?
+
+> +	memcpy(outerethhdr->h_source, p->br->dev->dev_addr, ETH_ALEN);
+> +	/* dist port become dest address in outeretherhdr */
+> +	memcpy(outerethhdr->h_dest, adj->rbr_ni->adjsnpa, ETH_ALEN);
+> +	rbr_node_put(adj);
+> +	/* set Bridge as source device */
+> +	skb->dev =3D p->br->dev;
+> +	br_forward(br_port_get_rcu(outdev), skb, NULL);
+> +
+> +	return;
+> +
+> + dest_fwd_fail:
+> +	if (likely(p && p->br))
+> +		p->br->dev->stats.tx_dropped++;
+> +	kfree_skb(skb);
+> +	return;
 > +}
 > +
->   static int trill_cmd_set_nicks_info(struct sk_buff *skb, struct gen=
-l_info *info)
+> +
+
+    One empty line is enough.
+
+>   static void rbr_encaps(struct sk_buff *skb, uint16_t egressnick, u1=
+6 vid)
 >   {
-> +	struct trill_nl_header *trnlhdr;
-> +	struct rbr_nickinfo rbr_ni;
-> +	struct net_device *source_port =3D NULL;
-> +	struct net *net =3D sock_net(skb->sk);
-> +	struct net_bridge_port *p =3D NULL;
-> +	int err =3D -EINVAL;
-> +
-> +	nla_memcpy(&rbr_ni, info->attrs[TRILL_ATTR_BIN], sizeof(rbr_ni));
-> +	if (!VALID_NICK(rbr_ni.nick))
-> +		goto fail;
-> +
-> +	trnlhdr =3D info->userhdr;
-> +	if (trnlhdr->ifindex)
-> +		source_port =3D __dev_get_by_index(net, trnlhdr->ifindex);
-> +
-> +	if (!source_port)
-> +		goto fail;
-> +
-> +	p =3D br_port_get_rcu(source_port);
-> +	if (!p || !(p->br) || !(p->br->rbr))
-
-    Inner parens not needed.
-
-> +		goto fail;
-> +
-> +	err =3D create_node(p, p->br->rbr, &rbr_ni, info);
-> +	if (err)
-> +		goto fail;
-> +
->   	return 0;
-> +
-> + fail:
-> +	printk(KERN_WARNING "trill_cmd_set_nicks_info FAILED\n");
-
-    pr_warn().
-
+>   	uint16_t local_nick;
 [...]
 
 WBR, Sergei
