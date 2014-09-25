@@ -1,144 +1,358 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 2/4] cxgb4vf: Remove superfluous "idx" parameter of CH_DEVICE() macro.
-Date: Fri, 26 Sep 2014 00:23:53 +0530
-Message-ID: <1411671235-6527-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 1/4] cxgb4: Use BAR2 Going To Sleep (GTS) for T5 and later.
+Date: Fri, 26 Sep 2014 00:23:52 +0530
+Message-ID: <1411671235-6527-2-git-send-email-hariprasad@chelsio.com>
 References: <1411671235-6527-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, kumaras@chelsio.com,
 	nirranjan@chelsio.com, santosh@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:50762
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:50759
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751307AbaIYSsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 14:48:45 -0400
+	by vger.kernel.org with ESMTP id S1751307AbaIYSsn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 14:48:43 -0400
 In-Reply-To: <1411671235-6527-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove redundant idx parameter of CH_DEVICE() macro, its always zero.
+Use BAR2 GTS for T5. If we are on T4 use the old doorbell mechanism;
+otherwise ue the new BAR2 mechanism. Use BAR2 doorbells for refilling FL's.
+
+Based on original work by Casey Leedom <leedom@chelsio.com>
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |  104 ++++++++++----------
- 1 files changed, 52 insertions(+), 52 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h   |    4 +-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c     |  186 ++++++++++++++++++++------
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |   19 +++
+ 3 files changed, 167 insertions(+), 42 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 8253403..656c36e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -2907,60 +2907,60 @@ static void cxgb4vf_pci_shutdown(struct pci_dev *pdev)
- /*
-  * PCI Device registration data structures.
-  */
--#define CH_DEVICE(devid, idx) \
--	{ PCI_VENDOR_ID_CHELSIO, devid, PCI_ANY_ID, PCI_ANY_ID, 0, 0, idx }
-+#define CH_DEVICE(devid) \
-+	{ PCI_VENDOR_ID_CHELSIO, devid, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 }
- 
- static const struct pci_device_id cxgb4vf_pci_tbl[] = {
--	CH_DEVICE(0xb000, 0),	/* PE10K FPGA */
--	CH_DEVICE(0x4801, 0),	/* T420-cr */
--	CH_DEVICE(0x4802, 0),	/* T422-cr */
--	CH_DEVICE(0x4803, 0),	/* T440-cr */
--	CH_DEVICE(0x4804, 0),	/* T420-bch */
--	CH_DEVICE(0x4805, 0),   /* T440-bch */
--	CH_DEVICE(0x4806, 0),	/* T460-ch */
--	CH_DEVICE(0x4807, 0),	/* T420-so */
--	CH_DEVICE(0x4808, 0),	/* T420-cx */
--	CH_DEVICE(0x4809, 0),	/* T420-bt */
--	CH_DEVICE(0x480a, 0),   /* T404-bt */
--	CH_DEVICE(0x480d, 0),   /* T480-cr */
--	CH_DEVICE(0x480e, 0),   /* T440-lp-cr */
--	CH_DEVICE(0x4880, 0),
--	CH_DEVICE(0x4880, 1),
--	CH_DEVICE(0x4880, 2),
--	CH_DEVICE(0x4880, 3),
--	CH_DEVICE(0x4880, 4),
--	CH_DEVICE(0x4880, 5),
--	CH_DEVICE(0x4880, 6),
--	CH_DEVICE(0x4880, 7),
--	CH_DEVICE(0x4880, 8),
--	CH_DEVICE(0x5801, 0),	/* T520-cr */
--	CH_DEVICE(0x5802, 0),	/* T522-cr */
--	CH_DEVICE(0x5803, 0),	/* T540-cr */
--	CH_DEVICE(0x5804, 0),	/* T520-bch */
--	CH_DEVICE(0x5805, 0),   /* T540-bch */
--	CH_DEVICE(0x5806, 0),	/* T540-ch */
--	CH_DEVICE(0x5807, 0),	/* T520-so */
--	CH_DEVICE(0x5808, 0),	/* T520-cx */
--	CH_DEVICE(0x5809, 0),	/* T520-bt */
--	CH_DEVICE(0x580a, 0),   /* T504-bt */
--	CH_DEVICE(0x580b, 0),   /* T520-sr */
--	CH_DEVICE(0x580c, 0),   /* T504-bt */
--	CH_DEVICE(0x580d, 0),   /* T580-cr */
--	CH_DEVICE(0x580e, 0),   /* T540-lp-cr */
--	CH_DEVICE(0x580f, 0),   /* Amsterdam */
--	CH_DEVICE(0x5810, 0),   /* T580-lp-cr */
--	CH_DEVICE(0x5811, 0),   /* T520-lp-cr */
--	CH_DEVICE(0x5812, 0),   /* T560-cr */
--	CH_DEVICE(0x5813, 0),   /* T580-cr */
--	CH_DEVICE(0x5814, 0),   /* T580-so-cr */
--	CH_DEVICE(0x5815, 0),   /* T502-bt */
--	CH_DEVICE(0x5880, 0),
--	CH_DEVICE(0x5881, 0),
--	CH_DEVICE(0x5882, 0),
--	CH_DEVICE(0x5883, 0),
--	CH_DEVICE(0x5884, 0),
--	CH_DEVICE(0x5885, 0),
--	CH_DEVICE(0x5886, 0),
-+	CH_DEVICE(0xb000),	/* PE10K FPGA */
-+	CH_DEVICE(0x4801),	/* T420-cr */
-+	CH_DEVICE(0x4802),	/* T422-cr */
-+	CH_DEVICE(0x4803),	/* T440-cr */
-+	CH_DEVICE(0x4804),	/* T420-bch */
-+	CH_DEVICE(0x4805),	/* T440-bch */
-+	CH_DEVICE(0x4806),	/* T460-ch */
-+	CH_DEVICE(0x4807),	/* T420-so */
-+	CH_DEVICE(0x4808),	/* T420-cx */
-+	CH_DEVICE(0x4809),	/* T420-bt */
-+	CH_DEVICE(0x480a),	/* T404-bt */
-+	CH_DEVICE(0x480d),	/* T480-cr */
-+	CH_DEVICE(0x480e),	/* T440-lp-cr */
-+	CH_DEVICE(0x4880),
-+	CH_DEVICE(0x4880),
-+	CH_DEVICE(0x4880),
-+	CH_DEVICE(0x4880),
-+	CH_DEVICE(0x4880),
-+	CH_DEVICE(0x4880),
-+	CH_DEVICE(0x4880),
-+	CH_DEVICE(0x4880),
-+	CH_DEVICE(0x4880),
-+	CH_DEVICE(0x5801),	/* T520-cr */
-+	CH_DEVICE(0x5802),	/* T522-cr */
-+	CH_DEVICE(0x5803),	/* T540-cr */
-+	CH_DEVICE(0x5804),	/* T520-bch */
-+	CH_DEVICE(0x5805),	/* T540-bch */
-+	CH_DEVICE(0x5806),	/* T540-ch */
-+	CH_DEVICE(0x5807),	/* T520-so */
-+	CH_DEVICE(0x5808),	/* T520-cx */
-+	CH_DEVICE(0x5809),	/* T520-bt */
-+	CH_DEVICE(0x580a),	/* T504-bt */
-+	CH_DEVICE(0x580b),	/* T520-sr */
-+	CH_DEVICE(0x580c),	/* T504-bt */
-+	CH_DEVICE(0x580d),	/* T580-cr */
-+	CH_DEVICE(0x580e),	/* T540-lp-cr */
-+	CH_DEVICE(0x580f),	/* Amsterdam */
-+	CH_DEVICE(0x5810),	/* T580-lp-cr */
-+	CH_DEVICE(0x5811),	/* T520-lp-cr */
-+	CH_DEVICE(0x5812),	/* T560-cr */
-+	CH_DEVICE(0x5813),	/* T580-cr */
-+	CH_DEVICE(0x5814),	/* T580-so-cr */
-+	CH_DEVICE(0x5815),	/* T502-bt */
-+	CH_DEVICE(0x5880),
-+	CH_DEVICE(0x5881),
-+	CH_DEVICE(0x5882),
-+	CH_DEVICE(0x5883),
-+	CH_DEVICE(0x5884),
-+	CH_DEVICE(0x5885),
-+	CH_DEVICE(0x5886),
- 	{ 0, }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index c067b78..54b10d4 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -431,6 +431,7 @@ struct sge_fl {                     /* SGE free-buffer queue state */
+ 	struct rx_sw_desc *sdesc;   /* address of SW Rx descriptor ring */
+ 	__be64 *desc;               /* address of HW Rx descriptor ring */
+ 	dma_addr_t addr;            /* bus address of HW ring start */
++	u64 udb;                    /* BAR2 offset of User Doorbell area */
  };
  
+ /* A packet gather list */
+@@ -459,6 +460,7 @@ struct sge_rspq {                   /* state for an SGE response queue */
+ 	u16 abs_id;                 /* absolute SGE id for the response q */
+ 	__be64 *desc;               /* address of HW response ring */
+ 	dma_addr_t phys_addr;       /* physical address of the ring */
++	u64 udb;                    /* BAR2 offset of User Doorbell area */
+ 	unsigned int iqe_len;       /* entry size */
+ 	unsigned int size;          /* capacity of response queue */
+ 	struct adapter *adap;
+@@ -516,7 +518,7 @@ struct sge_txq {
+ 	int db_disabled;
+ 	unsigned short db_pidx;
+ 	unsigned short db_pidx_inc;
+-	u64 udb;
++	u64 udb;                    /* BAR2 offset of User Doorbell area */
+ };
+ 
+ struct sge_eth_txq {                /* state for an SGE Ethernet Tx queue */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index d22d728..87db533 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -521,9 +521,23 @@ static inline void ring_fl_db(struct adapter *adap, struct sge_fl *q)
+ 		val = PIDX(q->pend_cred / 8);
+ 		if (!is_t4(adap->params.chip))
+ 			val |= DBTYPE(1);
++		val |= DBPRIO(1);
+ 		wmb();
+-		t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL), DBPRIO(1) |
+-			     QID(q->cntxt_id) | val);
++
++		/* If we're on T4, use the old doorbell mechanism; otherwise
++		 * use the new BAR2 mechanism.
++		 */
++		if (is_t4(adap->params.chip)) {
++			t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
++				     val | QID(q->cntxt_id));
++		} else {
++			writel(val,  adap->bar2 + q->udb + SGE_UDB_KDOORBELL);
++
++			/* This Write memory Barrier will force the write to
++			 * the User Doorbell area to be flushed.
++			 */
++			wmb();
++		}
+ 		q->pend_cred &= 7;
+ 	}
+ }
+@@ -859,30 +873,66 @@ static void cxgb_pio_copy(u64 __iomem *dst, u64 *src)
+  */
+ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
+ {
+-	unsigned int *wr, index;
+-	unsigned long flags;
+-
+ 	wmb();            /* write descriptors before telling HW */
+-	spin_lock_irqsave(&q->db_lock, flags);
+-	if (!q->db_disabled) {
+-		if (is_t4(adap->params.chip)) {
++
++	if (is_t4(adap->params.chip)) {
++		u32 val = PIDX(n);
++		unsigned long flags;
++
++		/* For T4 we need to participate in the Doorbell Recovery
++		 * mechanism.
++		 */
++		spin_lock_irqsave(&q->db_lock, flags);
++		if (!q->db_disabled)
+ 			t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
+-				     QID(q->cntxt_id) | PIDX(n));
++				     QID(q->cntxt_id) | val);
++		else
++			q->db_pidx_inc += n;
++		q->db_pidx = q->pidx;
++		spin_unlock_irqrestore(&q->db_lock, flags);
++	} else {
++		u32 val = PIDX_T5(n);
++
++		/* T4 and later chips share the same PIDX field offset within
++		 * the doorbell, but T5 and later shrank the field in order to
++		 * gain a bit for Doorbell Priority.  The field was absurdly
++		 * large in the first place (14 bits) so we just use the T5
++		 * and later limits and warn if a Queue ID is too large.
++		 */
++		WARN_ON(val & DBPRIO(1));
++
++		/* For T5 and later we use the Write-Combine mapped BAR2 User
++		 * Doorbell mechanism.  If we're only writing a single TX
++		 * Descriptor and TX Write Combining hasn't been disabled, we
++		 * can use the Write Combining Gather Buffer; otherwise we use
++		 * the simple doorbell.
++		 */
++		if (n == 1) {
++			int index = (q->pidx
++				     ? (q->pidx - 1)
++				     : (q->size - 1));
++			unsigned int *wr = (unsigned int *)&q->desc[index];
++
++			cxgb_pio_copy((u64 __iomem *)
++				      (adap->bar2 + q->udb +
++				       SGE_UDB_WCDOORBELL),
++				      (u64 *)wr);
+ 		} else {
+-			if (n == 1) {
+-				index = q->pidx ? (q->pidx - 1) : (q->size - 1);
+-				wr = (unsigned int *)&q->desc[index];
+-				cxgb_pio_copy((u64 __iomem *)
+-					      (adap->bar2 + q->udb + 64),
+-					      (u64 *)wr);
+-			} else
+-				writel(n,  adap->bar2 + q->udb + 8);
+-			wmb();
++			writel(val,  adap->bar2 + q->udb + SGE_UDB_KDOORBELL);
+ 		}
+-	} else
+-		q->db_pidx_inc += n;
+-	q->db_pidx = q->pidx;
+-	spin_unlock_irqrestore(&q->db_lock, flags);
++
++		/* This Write Memory Barrier will force the write to the User
++		 * Doorbell area to be flushed.  This is needed to prevent
++		 * writes on different CPUs for the same queue from hitting
++		 * the adapter out of order.  This is required when some Work
++		 * Requests take the Write Combine Gather Buffer path (user
++		 * doorbell area offset [SGE_UDB_WCDOORBELL..+63]) and some
++		 * take the traditional path where we simply increment the
++		 * PIDX (User Doorbell area SGE_UDB_KDOORBELL) and have the
++		 * hardware DMA read the actual Work Request.
++		 */
++		wmb();
++	}
+ }
+ 
+ /**
+@@ -1916,6 +1966,7 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
+ 	unsigned int params;
+ 	struct sge_rspq *q = container_of(napi, struct sge_rspq, napi);
+ 	int work_done = process_responses(q, budget);
++	u32 val;
+ 
+ 	if (likely(work_done < budget)) {
+ 		napi_complete(napi);
+@@ -1924,8 +1975,14 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
+ 	} else
+ 		params = QINTR_TIMER_IDX(7);
+ 
+-	t4_write_reg(q->adap, MYPF_REG(SGE_PF_GTS), CIDXINC(work_done) |
+-		     INGRESSQID((u32)q->cntxt_id) | SEINTARM(params));
++	val = CIDXINC(work_done) | SEINTARM(params);
++	if (is_t4(q->adap->params.chip)) {
++		t4_write_reg(q->adap, MYPF_REG(SGE_PF_GTS),
++			     val | INGRESSQID((u32)q->cntxt_id));
++	} else {
++		writel(val, q->adap->bar2 + q->udb + SGE_UDB_GTS);
++		wmb();
++	}
+ 	return work_done;
+ }
+ 
+@@ -1949,6 +2006,7 @@ static unsigned int process_intrq(struct adapter *adap)
+ 	unsigned int credits;
+ 	const struct rsp_ctrl *rc;
+ 	struct sge_rspq *q = &adap->sge.intrq;
++	u32 val;
+ 
+ 	spin_lock(&adap->sge.intrq_lock);
+ 	for (credits = 0; ; credits++) {
+@@ -1967,8 +2025,14 @@ static unsigned int process_intrq(struct adapter *adap)
+ 		rspq_next(q);
+ 	}
+ 
+-	t4_write_reg(adap, MYPF_REG(SGE_PF_GTS), CIDXINC(credits) |
+-		     INGRESSQID(q->cntxt_id) | SEINTARM(q->intr_params));
++	val =  CIDXINC(credits) | SEINTARM(q->intr_params);
++	if (is_t4(adap->params.chip)) {
++		t4_write_reg(adap, MYPF_REG(SGE_PF_GTS),
++			     val | INGRESSQID(q->cntxt_id));
++	} else {
++		writel(val, adap->bar2 + q->udb + SGE_UDB_GTS);
++		wmb();
++	}
+ 	spin_unlock(&adap->sge.intrq_lock);
+ 	return credits;
+ }
+@@ -2149,6 +2213,51 @@ static void sge_tx_timer_cb(unsigned long data)
+ 	mod_timer(&s->tx_timer, jiffies + (budget ? TX_QCHECK_PERIOD : 2));
+ }
+ 
++/**
++ *      udb_address - return the BAR2 User Doorbell address for a Queue
++ *      @adap: the adapter
++ *      @cntxt_id: the Queue Context ID
++ *      @qpp: Queues Per Page (for all PFs)
++ *
++ *      Returns the BAR2 address of the user Doorbell associated with the
++ *      indicated Queue Context ID.  Note that this is only applicable
++ *      for T5 and later.
++ */
++static u64 udb_address(struct adapter *adap, unsigned int cntxt_id,
++		       unsigned int qpp)
++{
++	u64 udb;
++	unsigned int s_qpp;
++	unsigned short udb_density;
++	unsigned long qpshift;
++	int page;
++
++	BUG_ON(is_t4(adap->params.chip));
++
++	s_qpp = (QUEUESPERPAGEPF0 +
++		(QUEUESPERPAGEPF1 - QUEUESPERPAGEPF0) * adap->fn);
++	udb_density = 1 << ((qpp >> s_qpp) & QUEUESPERPAGEPF0_MASK);
++	qpshift = PAGE_SHIFT - ilog2(udb_density);
++	udb = cntxt_id << qpshift;
++	udb &= PAGE_MASK;
++	page = udb / PAGE_SIZE;
++	udb += (cntxt_id - (page * udb_density)) * SGE_UDB_SIZE;
++
++	return udb;
++}
++
++static u64 udb_address_eq(struct adapter *adap, unsigned int cntxt_id)
++{
++	return udb_address(adap, cntxt_id,
++			   t4_read_reg(adap, SGE_EGRESS_QUEUES_PER_PAGE_PF));
++}
++
++static u64 udb_address_iq(struct adapter *adap, unsigned int cntxt_id)
++{
++	return udb_address(adap, cntxt_id,
++			   t4_read_reg(adap, SGE_INGRESS_QUEUES_PER_PAGE_PF));
++}
++
+ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 		     struct net_device *dev, int intr_idx,
+ 		     struct sge_fl *fl, rspq_handler_t hnd)
+@@ -2214,6 +2323,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 	iq->next_intr_params = iq->intr_params;
+ 	iq->cntxt_id = ntohs(c.iqid);
+ 	iq->abs_id = ntohs(c.physiqid);
++	if (!is_t4(adap->params.chip))
++		iq->udb = udb_address_iq(adap, iq->cntxt_id);
+ 	iq->size--;                           /* subtract status entry */
+ 	iq->netdev = dev;
+ 	iq->handler = hnd;
+@@ -2229,6 +2340,12 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 		fl->pidx = fl->cidx = 0;
+ 		fl->alloc_failed = fl->large_alloc_failed = fl->starving = 0;
+ 		adap->sge.egr_map[fl->cntxt_id - adap->sge.egr_start] = fl;
++
++		/* Note, we must initialize the Free List User Doorbell
++		 * address before refilling the Free List!
++		 */
++		if (!is_t4(adap->params.chip))
++			fl->udb = udb_address_eq(adap, fl->cntxt_id);
+ 		refill_fl(adap, fl, fl_cap(fl), GFP_KERNEL);
+ 	}
+ 	return 0;
+@@ -2254,21 +2371,8 @@ err:
+ static void init_txq(struct adapter *adap, struct sge_txq *q, unsigned int id)
+ {
+ 	q->cntxt_id = id;
+-	if (!is_t4(adap->params.chip)) {
+-		unsigned int s_qpp;
+-		unsigned short udb_density;
+-		unsigned long qpshift;
+-		int page;
+-
+-		s_qpp = QUEUESPERPAGEPF1 * adap->fn;
+-		udb_density = 1 << QUEUESPERPAGEPF0_GET((t4_read_reg(adap,
+-				SGE_EGRESS_QUEUES_PER_PAGE_PF) >> s_qpp));
+-		qpshift = PAGE_SHIFT - ilog2(udb_density);
+-		q->udb = q->cntxt_id << qpshift;
+-		q->udb &= PAGE_MASK;
+-		page = q->udb / PAGE_SIZE;
+-		q->udb += (q->cntxt_id - (page * udb_density)) * 128;
+-	}
++	if (!is_t4(adap->params.chip))
++		q->udb = udb_address_eq(adap, q->cntxt_id);
+ 
+ 	q->in_use = 0;
+ 	q->cidx = q->pidx = 0;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index 39fb325..847a162 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -157,8 +157,27 @@
+ #define  QUEUESPERPAGEPF0_MASK   0x0000000fU
+ #define  QUEUESPERPAGEPF0_GET(x) ((x) & QUEUESPERPAGEPF0_MASK)
+ 
++#define QUEUESPERPAGEPF0    0
+ #define QUEUESPERPAGEPF1    4
+ 
++/* T5 and later support a new BAR2-based doorbell mechanism for Egress Queues.
++ * The User Doorbells are each 128 bytes in length with a Simple Doorbell at
++ * offsets 8x and a Write Combining single 64-byte Egress Queue Unit
++ * (X_IDXSIZE_UNIT) Gather Buffer interface at offset 64.  For Ingress Queues,
++ * we have a Going To Sleep register at offsets 8x+4.
++ *
++ * As noted above, we have many instances of the Simple Doorbell and Going To
++ * Sleep registers at offsets 8x and 8x+4, respectively.  We want to use a
++ * non-64-byte aligned offset for the Simple Doorbell in order to attempt to
++ * avoid buffering of the writes to the Simple Doorbell and we want to use a
++ * non-contiguous offset for the Going To Sleep writes in order to avoid
++ * possible combining between them.
++ */
++#define SGE_UDB_SIZE            128
++#define SGE_UDB_KDOORBELL       8
++#define SGE_UDB_GTS             20
++#define SGE_UDB_WCDOORBELL      64
++
+ #define SGE_INT_CAUSE1 0x1024
+ #define SGE_INT_CAUSE2 0x1030
+ #define SGE_INT_CAUSE3 0x103c
 -- 
 1.7.1
