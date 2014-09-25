@@ -1,49 +1,53 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: Re: [PATCH net-next 2/3] ipv6: mld: do not overwrite uri when receiving
- an mldv2 query
-Date: Thu, 25 Sep 2014 12:02:17 -0400
-Message-ID: <54243C89.6060405@oracle.com>
-References: <1411455828-5196-1-git-send-email-dborkman@redhat.com> <1411455828-5196-3-git-send-email-dborkman@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] mlx4: exploit skb->xmit_more to conditionally
+ send doorbell
+Date: Thu, 25 Sep 2014 09:05:14 -0700
+Message-ID: <1411661114.16953.33.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1411654669.16953.17.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAADnVQJ_FfZEUbFBz4wwZM9Gfbsagfjk51VVbjWJPG7KgJjHWQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:21675 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753476AbaIYQCl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 12:02:41 -0400
-In-Reply-To: <1411455828-5196-3-git-send-email-dborkman@redhat.com>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:47868 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752350AbaIYQFP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 12:05:15 -0400
+Received: by mail-pd0-f171.google.com with SMTP id y13so11023248pdi.2
+        for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 09:05:15 -0700 (PDT)
+In-Reply-To: <CAADnVQJ_FfZEUbFBz4wwZM9Gfbsagfjk51VVbjWJPG7KgJjHWQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While I can see the case you're making, I think the intent of MRC is
-violated by arbitrary URI.
-
-> 5.1.3.  Maximum Response Code
+On Thu, 2014-09-25 at 08:53 -0700, Alexei Starovoitov wrote:
+> On Thu, Sep 25, 2014 at 7:17 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > skb->xmit_more tells us if another skb is coming next.
+> >
+> > We need to send doorbell when : xmit_more is not set,
+> > or txqueue is stopped (preventing next skb to come immediately)
+> >
+> > Tested with a modified pktgen version, I got a 40% increase of
+> > throughput.
 > 
->    The Maximum Response Code field specifies the maximum time allowed
->    before sending a responding Report. 
->...
->    Small values of Maximum Response Delay allow MLDv2 routers to tune
->    the "leave latency" (the time between the moment the last node on a
->    link ceases to listen to a specific multicast address and the moment
->    the routing protocol is notified that there are no more listeners for
->    that address).  Larger values, especially in the exponential range,
->    allow the tuning of the burstiness of MLD traffic on a link.
+> this is awesome!
+> 
+> I've been hacking pktgen as well based on Jesper's earlier patch,
+> but in slightly different way. Sounds like you already have working
+> pktgen with xmit_more. Do you mind sharing it? even rough patch
+> would be great.
 
-If URI is larger than MRD, then a lost unsolicited report, or series,
-specifically will *not* propagate changes throughout the network in less
-than MRD*QRV, as intended.
+The plan was to add a 'pburst x' parameter.
 
-It was an intentional design choice, not required or prohibited by RFC.
+Because not only we want to avoid sending the doorbell, but we could
+also not doing the spinlock for every start_xmit().
 
-I'm not sure what problem you think it's causing, but if they are not
-equal, I think at least the URI should be enforced to <= MRD. The querier,
-IMO, should set these network-wide relevant parameters, not the individual
-hosts.
+We also can enforce a global [p]rate (say 100000 packets per second),
+but still allow pktgen to send burts of x packets to use (and test) this
+xmit_more
 
-Is there actually some bad effect from this?
-
-						+-DLS
+Nothing ready yet ;)
