@@ -1,115 +1,58 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC PATCH 22/24] net: rbridge: Add rbr_fwd
-Date: Thu, 25 Sep 2014 15:43:14 +0400
-Message-ID: <5423FFD2.103@cogentembedded.com>
-References: <1411573940-14079-1-git-send-email-ahmed@gandi.net> <1411573940-14079-23-git-send-email-ahmed@gandi.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH 1/1 V4] qdisc: bulk dequeue support for qdiscs
+ with TCQ_F_ONETXQUEUE
+Date: Thu, 25 Sep 2014 08:48:52 -0400
+Message-ID: <54240F34.1050707@mojatatu.com>
+References: <20140924160932.9721.56450.stgit@localhost>	<20140924161047.9721.43080.stgit@localhost>	<1411579395.15395.41.camel@edumazet-glaptop2.roam.corp.google.com>	<20140924195831.6fb91051@redhat.com>	<54234225.5000503@mojatatu.com> <20140925102505.494acab1@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: william@gandi.net, f.cachereul@alphalink.fr,
-	Kamel Haddadou <kamel@gandi.net>
-To: Ahmed Amamou <ahmed@gandi.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	therbert@google.com, "David S. Miller" <davem@davemloft.net>,
+	Alexander Duyck <alexander.h.duyck@intel.com>, toke@toke.dk,
+	Florian Westphal <fw@strlen.de>,
+	Dave Taht <dave.taht@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:53082 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751568AbaIYLnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 07:43:17 -0400
-Received: by mail-lb0-f170.google.com with SMTP id n15so709081lbi.15
-        for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 04:43:16 -0700 (PDT)
-In-Reply-To: <1411573940-14079-23-git-send-email-ahmed@gandi.net>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:50421 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751423AbaIYMtA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 08:49:00 -0400
+Received: by mail-ig0-f179.google.com with SMTP id l13so8313790iga.6
+        for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 05:48:59 -0700 (PDT)
+In-Reply-To: <20140925102505.494acab1@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/24/2014 7:52 PM, Ahmed Amamou wrote:
+On 09/25/14 04:25, Jesper Dangaard Brouer wrote:
+> On Wed, 24 Sep 2014 18:13:57 -0400
 
-> add rbridge forward function
-> packets arriving to rbr_fwd should be already encapsulated and correc=
-t egress
-> and ingress nickname should be already assigned
-> rbr_fwd function will assign correct source and destination outer MAC=
- addresses
-> according to which port will send the frame and next hop to reach
-> the engress nickname
-> Nexthope to reach the egress will be found in node database
-
-> Signed-off-by: Ahmed Amamou <ahmed@gandi.net>
-> Signed-off-by: Kamel Haddadou <kamel@gandi.net>
-> Signed-off-by: William Dauchy <william@gandi.net>
-> Signed-off-by: Fran=C3=A7ois Cachereul <f.cachereul@alphalink.fr>
-> ---
->   net/bridge/rbridge/rbr.c | 49 +++++++++++++++++++++++++++++++++++++=
-+++++++++--
->   1 file changed, 47 insertions(+), 2 deletions(-)
-
-> diff --git a/net/bridge/rbridge/rbr.c b/net/bridge/rbridge/rbr.c
-> index 8aa5182..39aa816c 100644
-> --- a/net/bridge/rbridge/rbr.c
-> +++ b/net/bridge/rbridge/rbr.c
-> @@ -177,6 +177,51 @@ static bool add_header(struct sk_buff *skb, uint=
-16_t ingressnick,
->   	return 0;
->   }
+> I've done measurements with netperf-wrapper:
+>   http://netoptimizer.blogspot.dk/2014/09/mini-tutorial-for-netperf-wrapper-setup.html
 >
-> +static void rbr_fwd(struct net_bridge_port *p, struct sk_buff *skb,
-> +		    uint16_t adj_nick, u16 vid)
-> +{
-> +	struct rbr_node *adj;
-> +	struct trill_hdr *trh;
-> +	struct ethhdr *outerethhdr;
-> +	struct net *net =3D dev_net(p->br->dev);
-> +	struct net_device *outdev;
-> +
-> +	adj =3D rbr_find_node(p->br->rbr, adj_nick);
-> +    outdev =3D __dev_get_by_index(net, adj->rbr_ni->linkid);
+> I have already previously posted my measurements here:
+>   http://people.netfilter.org/hawk/qdisc/
+>   http://people.netfilter.org/hawk/qdisc/measure01/
+>   http://people.netfilter.org/hawk/qdisc/experiment01/
+>
 
-    Indent with a tab please.
+Theres a lot of data there to digest; all good looking.
+I will try to pay attention to detail and get back to you.
+What you have on those urls is fit for a paper, but what someone
+like me (with ADD) needs is a summary somewhere maybe in the commit
+logs.
 
-> +	if (!outdev) {
-> +		pr_warn_ratelimited("rbr_fwd: cannot find source port device for f=
-orwrding\n");
-> +		goto dest_fwd_fail;
-> +    }
-> +	if (unlikely(adj =3D=3D NULL)) {
-> +		pr_warn_ratelimited
-> +		    ("rbr_fwd: unable to find adjacent RBridge\n");
-> +		goto dest_fwd_fail;
-> +	}
-> +
-> +	trh =3D (struct trill_hdr *)skb->data;
-> +	trillhdr_dec_hopcount(trh);
-> +	outerethhdr =3D eth_hdr(skb);
-> +
-> +	/* change outer ether header */
-> +	/* bridge become the source_port address in outeretherhdr */
+> Please, see my previous mail where I described each graph.
+>
 
-    Becomes?
+Is this patch 0?
+I think a simple statement in the commit log that no cats
+were harmed ^W^W^W performance was affected. A paragraph
+at most but if you want to do more, DaveM actually has no
+problems if you write the details of a novel in patch 0.
 
-> +	memcpy(outerethhdr->h_source, p->br->dev->dev_addr, ETH_ALEN);
-> +	/* dist port become dest address in outeretherhdr */
-> +	memcpy(outerethhdr->h_dest, adj->rbr_ni->adjsnpa, ETH_ALEN);
-> +	rbr_node_put(adj);
-> +	/* set Bridge as source device */
-> +	skb->dev =3D p->br->dev;
-> +	br_forward(br_port_get_rcu(outdev), skb, NULL);
-> +
-> +	return;
-> +
-> + dest_fwd_fail:
-> +	if (likely(p && p->br))
-> +		p->br->dev->stats.tx_dropped++;
-> +	kfree_skb(skb);
-> +	return;
-> +}
-> +
-> +
-
-    One empty line is enough.
-
->   static void rbr_encaps(struct sk_buff *skb, uint16_t egressnick, u1=
-6 vid)
->   {
->   	uint16_t local_nick;
-[...]
-
-WBR, Sergei
+cheers,
+jamal
