@@ -1,126 +1,204 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 1/3] r8152: change the EEE definition
-Date: Thu, 25 Sep 2014 20:54:00 +0800
-Message-ID: <1394712342-15778-47-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-46-Taiwan-albertk@realtek.com>
+From: "Frank.Li@freescale.com" <Frank.Li@freescale.com>
+Subject: RE: [PATCH v1 2/4] net: fec: ptp: Use hardware algorithm to adjust
+ PTP counter.
+Date: Thu, 25 Sep 2014 13:29:36 +0000
+Message-ID: <b50d0af8bff949d4a61debdfe97cca72@BLUPR03MB486.namprd03.prod.outlook.com>
+References: <1411632621-17429-1-git-send-email-b45643@freescale.com>
+ <1411632621-17429-3-git-send-email-b45643@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-46-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
+	"fugang.duan@freescale.com" <fugang.duan@freescale.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: "luwei.zhou@freescale.com" <luwei.zhou@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"richardcochran@gmail.com" <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0118.outbound.protection.outlook.com ([157.56.110.118]:36209
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752479AbaIYN3k convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 09:29:40 -0400
+In-Reply-To: <1411632621-17429-3-git-send-email-b45643@freescale.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Replace the EEE definitions with the ones which is declared
-in "mdio.h".
 
-Chage some definitions to make them readable.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 35 ++++++++++++++---------------------
- 1 file changed, 14 insertions(+), 21 deletions(-)
+> -----Original Message-----
+> From: Luwei Zhou [mailto:b45643@freescale.com]
+> Sent: Thursday, September 25, 2014 3:10 AM
+> To: davem@davemloft.net; richardcochran@gmail.com
+> Cc: netdev@vger.kernel.org; shawn.guo@linaro.org; bhutchings@solarflare.com;
+> Estevam Fabio-R49496; Duan Fugang-B38611; Li Frank-B20596;
+> stephen@networkplumber.org
+> Subject: [PATCH v1 2/4] net: fec: ptp: Use hardware algorithm to adjust PTP
+> counter.
+> 
+> The FEC IP supports hardware adjustment for ptp timer. Refer to the description
+> of ENET_ATCOR and ENET_ATINC registers in the spec about the hardware adjustment.
+> This patch uses hardware support to adjust the ptp offset and frequency on the
+> slave side.
+> 
+> Signed-off-by: Luwei Zhou <b45643@freescale.com>
+> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+> Signed-off-by: Fugang Duan <b38611@freescale.com>
+> ---
+>  drivers/net/ethernet/freescale/fec_ptp.c | 68 +++++++++++++++++++++++++++-----
+>  1 file changed, 58 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec_ptp.c
+> b/drivers/net/ethernet/freescale/fec_ptp.c
+> index 8016bdd..e2bf786 100644
+> --- a/drivers/net/ethernet/freescale/fec_ptp.c
+> +++ b/drivers/net/ethernet/freescale/fec_ptp.c
+> @@ -71,6 +71,7 @@
+> 
+>  #define FEC_CC_MULT	(1 << 31)
+>  #define FEC_COUNTER_PERIOD	(1 << 31)
+> +#define FEC_T_PERIOD_ONE_SEC	(1000000000UL)
+>  /**
+>   * fec_ptp_read - read raw cycle counter (to be used by time counter)
+>   * @cc: the cyclecounter structure
+> @@ -145,33 +146,65 @@ void fec_ptp_start_cyclecounter(struct net_device *ndev)
+>   */
+>  static int fec_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)  {
+> -	u64 diff;
+>  	unsigned long flags;
+>  	int neg_adj = 0;
+> -	u32 mult = FEC_CC_MULT;
+> +	u32 i, tmp;
+> +	u32 ptp_ts_clk, ptp_inc;
+> +	u32 corr_inc, corr_period;
+> +	u32 corr_ns;
+> 
+>  	struct fec_enet_private *fep =
+>  	    container_of(ptp, struct fec_enet_private, ptp_caps);
+> 
+> +	if (ppb == 0)
+> +		return 0;
+> +
+>  	if (ppb < 0) {
+>  		ppb = -ppb;
+>  		neg_adj = 1;
+>  	}
+> 
+> -	diff = mult;
+> -	diff *= ppb;
+> -	diff = div_u64(diff, 1000000000ULL);
+> +	ptp_ts_clk = clk_get_rate(fep->clk_ptp);
+> +	ptp_inc = FEC_T_PERIOD_ONE_SEC / ptp_ts_clk;
+> +
+> +	/*
+> +	 * In theory, corr_inc/corr_period = ppb/FEC_T_PERIOD_ONE_SEC;
+> +	 * Try to find the corr_inc  between 1 to ptp_inc to meet adjustment
+> +	 * requirement.
+> +	 */
+> +	for (i = 1; i <= ptp_inc; i++) {
+> +		if (((i * FEC_T_PERIOD_ONE_SEC) / ppb) >= ptp_inc) {
+> +			corr_inc = i;
+> +			corr_period = ((i * FEC_T_PERIOD_ONE_SEC) /
+> +						(ptp_inc * ppb));
+> +			break;
+> +		}
+> +	}
+> +	/*
+> +	 * Not found? Set it to high value - double speed
+> +	 * correct in every clock step.
+> +	 */
+> +	if (i > ptp_inc) {
+> +		corr_inc = ptp_inc;
+> +		corr_period = 1;
+> +	}
+> +
+> +	if (neg_adj)
+> +		corr_ns = ptp_inc - corr_inc;
+> +	else
+> +		corr_ns = ptp_inc + corr_inc;
+> 
+>  	spin_lock_irqsave(&fep->tmreg_lock, flags);
+> +
+> +	tmp = readl(fep->hwp + FEC_ATIME_INC) & FEC_T_INC_MASK;
+> +	tmp |= corr_ns << FEC_T_INC_CORR_OFFSET;
+> +	writel(tmp, fep->hwp + FEC_ATIME_INC);
+> +	writel(corr_period, fep->hwp + FEC_ATIME_CORR);
+>  	/*
+> -	 * dummy read to set cycle_last in tc to now.
+> -	 * So use adjusted mult to calculate when next call
+> -	 * timercounter_read.
+> +	 * dummy read to update the timer.
+>  	 */
+>  	timecounter_read(&fep->tc);
+> 
+> -	fep->cc.mult = neg_adj ? mult - diff : mult + diff;
+> -
+>  	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+> 
+>  	return 0;
+> @@ -190,12 +223,20 @@ static int fec_ptp_adjtime(struct ptp_clock_info *ptp, s64
+> delta)
+>  	    container_of(ptp, struct fec_enet_private, ptp_caps);
+>  	unsigned long flags;
+>  	u64 now;
+> +	u32 counter;
+> 
+>  	spin_lock_irqsave(&fep->tmreg_lock, flags);
+> 
+>  	now = timecounter_read(&fep->tc);
+>  	now += delta;
+> 
+> +	/*
+> +	 * Get the timer value based on adjusted timestamp.
+> +	 * Update the counter with the masked value.
+> +	 */
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 3d5c39a..d225aa1 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -22,6 +22,8 @@
- #include <linux/ip.h>
- #include <linux/ipv6.h>
- #include <net/ip6_checksum.h>
-+#include <uapi/linux/mdio.h>
-+#include <linux/mdio.h>
- 
- /* Version Information */
- #define DRIVER_VERSION "v1.06.0 (2014/03/03)"
-@@ -129,7 +131,7 @@
- #define OCP_SRAM_ADDR		0xa436
- #define OCP_SRAM_DATA		0xa438
- #define OCP_DOWN_SPEED		0xa442
--#define OCP_EEE_CFG2		0xa5d0
-+#define OCP_EEE_ADV		0xa5d0
- #define OCP_ADC_CFG		0xbc06
- 
- /* SRAM Register */
-@@ -361,7 +363,7 @@
- #define EEE_NWAY_EN		0x1000
- #define TX_QUIET_EN		0x0200
- #define RX_QUIET_EN		0x0100
--#define SDRISETIME		0x0010	/* bit 4 ~ 6 */
-+#define sd_rise_time(x)		(min(x, 7) << 4)	/* bit 4 ~ 6 */
- #define RG_RXLPI_MSK_HFDUP	0x0008
- #define SDFALLTIME		0x0007	/* bit 0 ~ 2 */
- 
-@@ -373,7 +375,7 @@
- #define RG_EEEPRG_EN		0x0010
- 
- /* OCP_EEE_CONFIG3 */
--#define FST_SNR_EYE_R		0x1500	/* bit 7 ~ 15 */
-+#define fast_snr(x)		(min(x, 0x1ff) << 7)	/* bit 7 ~ 15 */
- #define RG_LFS_SEL		0x0060	/* bit 6 ~ 5 */
- #define MSK_PH			0x0006	/* bit 0 ~ 3 */
- 
-@@ -382,11 +384,6 @@
- #define FUN_ADDR		0x0000
- #define FUN_DATA		0x4000
- /* bit[4:0] device addr */
--#define DEVICE_ADDR		0x0007
--
--/* OCP_EEE_DATA */
--#define EEE_ADDR		0x003C
--#define EEE_DATA		0x0002
- 
- /* OCP_EEE_CFG */
- #define CTAP_SHORT_EN		0x0040
-@@ -395,10 +392,6 @@
- /* OCP_DOWN_SPEED */
- #define EN_10M_BGOFF		0x0080
- 
--/* OCP_EEE_CFG2 */
--#define MY1000_EEE		0x0004
--#define MY100_EEE		0x0002
--
- /* OCP_ADC_CFG */
- #define CKADSEL_L		0x0100
- #define ADC_EN			0x0080
-@@ -2967,16 +2960,16 @@ static void r8152b_enable_eee(struct r8152 *tp)
- 	ocp_reg_write(tp, OCP_EEE_CONFIG1, RG_TXLPI_MSK_HFDUP | RG_MATCLR_EN |
- 					   EEE_10_CAP | EEE_NWAY_EN |
- 					   TX_QUIET_EN | RX_QUIET_EN |
--					   SDRISETIME | RG_RXLPI_MSK_HFDUP |
-+					   sd_rise_time(1) | RG_RXLPI_MSK_HFDUP |
- 					   SDFALLTIME);
- 	ocp_reg_write(tp, OCP_EEE_CONFIG2, RG_LPIHYS_NUM | RG_DACQUIET_EN |
- 					   RG_LDVQUIET_EN | RG_CKRSEL |
- 					   RG_EEEPRG_EN);
--	ocp_reg_write(tp, OCP_EEE_CONFIG3, FST_SNR_EYE_R | RG_LFS_SEL | MSK_PH);
--	ocp_reg_write(tp, OCP_EEE_AR, FUN_ADDR | DEVICE_ADDR);
--	ocp_reg_write(tp, OCP_EEE_DATA, EEE_ADDR);
--	ocp_reg_write(tp, OCP_EEE_AR, FUN_DATA | DEVICE_ADDR);
--	ocp_reg_write(tp, OCP_EEE_DATA, EEE_DATA);
-+	ocp_reg_write(tp, OCP_EEE_CONFIG3, fast_snr(42) | RG_LFS_SEL | MSK_PH);
-+	ocp_reg_write(tp, OCP_EEE_AR, FUN_ADDR | MDIO_MMD_AN);
-+	ocp_reg_write(tp, OCP_EEE_DATA, MDIO_AN_EEE_ADV);
-+	ocp_reg_write(tp, OCP_EEE_AR, FUN_DATA | MDIO_MMD_AN);
-+	ocp_reg_write(tp, OCP_EEE_DATA, MDIO_EEE_100TX);
- 	ocp_reg_write(tp, OCP_EEE_AR, 0x0000);
- }
- 
-@@ -2991,9 +2984,9 @@ static void r8153_enable_eee(struct r8152 *tp)
- 	data = ocp_reg_read(tp, OCP_EEE_CFG);
- 	data |= EEE10_EN;
- 	ocp_reg_write(tp, OCP_EEE_CFG, data);
--	data = ocp_reg_read(tp, OCP_EEE_CFG2);
--	data |= MY1000_EEE | MY100_EEE;
--	ocp_reg_write(tp, OCP_EEE_CFG2, data);
-+	data = ocp_reg_read(tp, OCP_EEE_ADV);
-+	data |= MDIO_EEE_1000T | MDIO_EEE_100TX;
-+	ocp_reg_write(tp, OCP_EEE_ADV, data);
- }
- 
- static void r8152b_enable_fc(struct r8152 *tp)
--- 
-1.9.3
+Comments should like
+
+/* Get the xxx
+ * dds
+ */
+
+First empty line is not necessary. 
+Please check the other place.
+
+Did you run checkpatch script?
+
+Best regards
+Frank Li
+	
+> +	counter = now & fep->cc.mask;
+> +	writel(counter, fep->hwp + FEC_ATIME);
+> +
+>  	/* reset the timecounter */
+>  	timecounter_init(&fep->tc, &fep->cc, now);
+> 
+> @@ -246,6 +287,7 @@ static int fec_ptp_settime(struct ptp_clock_info *ptp,
+> 
+>  	u64 ns;
+>  	unsigned long flags;
+> +	u32 counter;
+> 
+>  	mutex_lock(&fep->ptp_clk_mutex);
+>  	/* Check the ptp clock */
+> @@ -256,8 +298,14 @@ static int fec_ptp_settime(struct ptp_clock_info *ptp,
+> 
+>  	ns = ts->tv_sec * 1000000000ULL;
+>  	ns += ts->tv_nsec;
+> +	/*
+> +	 * Get the timer value based on timestamp.
+> +	 * Update the counter with the masked value.
+> +	 */
+> +	counter = ns & fep->cc.mask;
+> 
+>  	spin_lock_irqsave(&fep->tmreg_lock, flags);
+> +	writel(counter, fep->hwp + FEC_ATIME);
+>  	timecounter_init(&fep->tc, &fep->cc, ns);
+>  	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+>  	mutex_unlock(&fep->ptp_clk_mutex);
+> --
+> 1.9.1
