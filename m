@@ -1,8 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/4] xfrm: remove useless hash_resize_mutex locks
-Date: Thu, 25 Sep 2014 11:10:22 +0200
-Message-ID: <1411636225-4433-2-git-send-email-steffen.klassert@secunet.com>
-References: <1411636225-4433-1-git-send-email-steffen.klassert@secunet.com>
+Subject: pull request (net-next): ipsec-next 2014-09-25
+Date: Thu, 25 Sep 2014 11:10:21 +0200
+Message-ID: <1411636225-4433-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -10,84 +9,63 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:54379 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:54391 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752384AbaIYJKi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2014 05:10:38 -0400
-In-Reply-To: <1411636225-4433-1-git-send-email-steffen.klassert@secunet.com>
+	id S1752987AbaIYJKq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Sep 2014 05:10:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
+1) Remove useless hash_resize_mutex in xfrm_hash_resize().
+   This mutex is used only there, but xfrm_hash_resize()
+   can't be called concurrently at all. From Ying Xue.
 
-In xfrm_state.c, hash_resize_mutex is defined as a local variable
-and only used in xfrm_hash_resize() which is declared as a work
-handler of xfrm.state_hash_work. But when the xfrm.state_hash_work
-work is put in the global workqueue(system_wq) with schedule_work(),
-the work will be really inserted in the global workqueue if it was
-not already queued, otherwise, it is still left in the same position
-on the the global workqueue. This means the xfrm_hash_resize() work
-handler is only executed once at any time no matter how many times
-its work is scheduled, that is, xfrm_hash_resize() is not called
-concurrently at all, so hash_resize_mutex is redundant for us.
+2) Extend policy hashing to prefixed policies based on
+   prefix lenght thresholds. From Christophe Gouault.
 
-Cc: Christophe Gouault <christophe.gouault@6wind.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Acked-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_state.c | 13 +++----------
- 1 file changed, 3 insertions(+), 10 deletions(-)
+3) Make the policy hash table thresholds configurable
+   via netlink. From Christophe Gouault.
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 0ab5413..de971b6 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -97,8 +97,6 @@ static unsigned long xfrm_hash_new_size(unsigned int state_hmask)
- 	return ((state_hmask + 1) << 1) * sizeof(struct hlist_head);
- }
- 
--static DEFINE_MUTEX(hash_resize_mutex);
--
- static void xfrm_hash_resize(struct work_struct *work)
- {
- 	struct net *net = container_of(work, struct net, xfrm.state_hash_work);
-@@ -107,22 +105,20 @@ static void xfrm_hash_resize(struct work_struct *work)
- 	unsigned int nhashmask, ohashmask;
- 	int i;
- 
--	mutex_lock(&hash_resize_mutex);
--
- 	nsize = xfrm_hash_new_size(net->xfrm.state_hmask);
- 	ndst = xfrm_hash_alloc(nsize);
- 	if (!ndst)
--		goto out_unlock;
-+		return;
- 	nsrc = xfrm_hash_alloc(nsize);
- 	if (!nsrc) {
- 		xfrm_hash_free(ndst, nsize);
--		goto out_unlock;
-+		return;
- 	}
- 	nspi = xfrm_hash_alloc(nsize);
- 	if (!nspi) {
- 		xfrm_hash_free(ndst, nsize);
- 		xfrm_hash_free(nsrc, nsize);
--		goto out_unlock;
-+		return;
- 	}
- 
- 	spin_lock_bh(&net->xfrm.xfrm_state_lock);
-@@ -148,9 +144,6 @@ static void xfrm_hash_resize(struct work_struct *work)
- 	xfrm_hash_free(odst, osize);
- 	xfrm_hash_free(osrc, osize);
- 	xfrm_hash_free(ospi, osize);
--
--out_unlock:
--	mutex_unlock(&hash_resize_mutex);
- }
- 
- static DEFINE_SPINLOCK(xfrm_state_afinfo_lock);
--- 
-1.9.1
+4) Remove the maximum authentication length for AH.
+   This was needed to limit stack usage. We switched
+   already to allocate space, so no need to keep the
+   limit. From Herbert Xu.
+
+Please pull or let me know if there are problems.
+
+Thanks!
+
+The following changes since commit a3d1214688d5259a200414def4d38f1e4531febd:
+
+  neigh: document gc_thresh2 (2014-08-25 17:37:10 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
+
+for you to fetch changes up to 689f1c9de2abbd76fda224d12cea5f43568a4335:
+
+  ipsec: Remove obsolete MAX_AH_AUTH_LEN (2014-09-18 10:54:36 +0200)
+
+----------------------------------------------------------------
+Christophe Gouault (2):
+      xfrm: hash prefixed policies based on preflen thresholds
+      xfrm: configure policy hash table thresholds by netlink
+
+Herbert Xu (1):
+      ipsec: Remove obsolete MAX_AH_AUTH_LEN
+
+Ying Xue (1):
+      xfrm: remove useless hash_resize_mutex locks
+
+ include/net/ah.h          |   3 -
+ include/net/netns/xfrm.h  |  14 +++++
+ include/net/xfrm.h        |   1 +
+ include/uapi/linux/xfrm.h |   7 +++
+ net/ipv4/ah4.c            |   2 -
+ net/ipv6/ah6.c            |   2 -
+ net/xfrm/xfrm_hash.h      |  76 +++++++++++++++++++++----
+ net/xfrm/xfrm_policy.c    | 140 ++++++++++++++++++++++++++++++++++++++++++++--
+ net/xfrm/xfrm_state.c     |  13 +----
+ net/xfrm/xfrm_user.c      |  83 +++++++++++++++++++++++++--
+ 10 files changed, 303 insertions(+), 38 deletions(-)
