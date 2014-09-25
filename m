@@ -1,90 +1,106 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [net-next PATCH 1/1 V4] qdisc: bulk dequeue support for qdiscs
- with TCQ_F_ONETXQUEUE
-Date: Thu, 25 Sep 2014 08:58:54 -0700
-Message-ID: <CA+mtBx990LcBrZVhfNk224cofpDWGeOD=F0Nbe0DWoEF=LvOUA@mail.gmail.com>
-References: <20140924160932.9721.56450.stgit@localhost>
-	<20140924161047.9721.43080.stgit@localhost>
-	<1411579395.15395.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140924195831.6fb91051@redhat.com>
-	<54234225.5000503@mojatatu.com>
-	<20140925102505.494acab1@redhat.com>
-	<54240F34.1050707@mojatatu.com>
-	<CA+mtBx8Nie9AiCG6iuY+EN7HiLAe-bxWpZxTpRhASmYabRUyFA@mail.gmail.com>
-	<20140925165738.646d0783@redhat.com>
-	<CA+mtBx9ZW0qYh+_BEEVTgZ79Xbq0bH1Agfss_7kdEus_syeMhA@mail.gmail.com>
-	<20140925172329.7460f787@redhat.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: RE: netxen: BUG: sleeping function called from invalid context at
+ include/linux/netdevice.h:476
+Date: Thu, 25 Sep 2014 16:01:29 +0000
+Message-ID: <31AFFC7280259C4184970ABA9AFE8B93E083A9B7@avmb3.qlogic.org>
+References: <1411654896.15810.52.camel@marge.simpson.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	=?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>,
-	Florian Westphal <fw@strlen.de>,
-	Dave Taht <dave.taht@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: Mike Galbraith <umgwanakikbuti@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:37661 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753013AbaIYP6z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 11:58:55 -0400
-Received: by mail-ig0-f178.google.com with SMTP id r10so8653038igi.5
-        for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 08:58:54 -0700 (PDT)
-In-Reply-To: <20140925172329.7460f787@redhat.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:19475 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753072AbaIYQBb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 12:01:31 -0400
+In-Reply-To: <1411654896.15810.52.camel@marge.simpson.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 25, 2014 at 8:23 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> On Thu, 25 Sep 2014 08:05:38 -0700
-> Tom Herbert <therbert@google.com> wrote:
->
->> On Thu, Sep 25, 2014 at 7:57 AM, Jesper Dangaard Brouer
->> <brouer@redhat.com> wrote:
->> > On Thu, 25 Sep 2014 07:40:33 -0700
->> > Tom Herbert <therbert@google.com> wrote:
->> >
->> >> A few test results in patch 0 are good. I like to have results for
->> >> with and without patch. These should two things: 1) Any regressions
->> >> caused by the patch 2) Performance gains (in that order of importance
->> >> :-) ). There doesn't need to be a lot here, just something reasonably
->> >> representative, simple, and should be easily reproducible. My
->> >> expectation in bulk dequeue is that we should see no obvious
->> >> regression and hopefully an improvement in CPU utilization-- are you
->> >> able to verify this?
->> >
->> > We are saving 3% CPU, as I described in my post with subject:
->> > "qdisc/UDP_STREAM: measuring effect of qdisc bulk dequeue":
->> >  http://thread.gmane.org/gmane.linux.network/331152/focus=331154
->> >
->> > Using UDP_STREAM on 1Gbit/s driver igb, I can show that the
->> > _raw_spin_lock calls are reduced with approx 3%, when enabling
->> > bulking of just 2 packets.
->> >
->>
->> That's great. In commit log, would be good to have results with
->> TCP_STREAM also and please report aggregate CPU utilization changes
->> (like from mpstat).
->
-> The TCP_STREAM is not a good test for this, because unless disabling
-> both TSO and GSO the packets will not hit the code path (that this
-> patch changes).  When we later add support for TSO and GSO bulking,
-> then it will make sense to include TCP_STREAM testing, not before.
->
-Disabling TSO and GSO is fine. I'm interested to see interactions with TCP.
-
-> I will redo the tests, once I get home to my testlab, as the remote lab
-> I'm using now is annoyingly slow rebooting machines, as we not longer
-> have a runtime option for enable/disable (I'm currently in Switzerland).
->
-> --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Sr. Network Kernel Developer at Red Hat
->   Author of http://www.iptv-analyzer.org
->   LinkedIn: http://www.linkedin.com/in/brouer
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNaWtlIEdhbGJyYWl0aCBbbWFp
+bHRvOnVtZ3dhbmFraWtidXRpQGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIFNlcHRlbWJl
+ciAyNSwgMjAxNCA3OjUyIFBNDQo+IFRvOiBsaW51eC1rZXJuZWwNCj4gQ2M6IE1hbmlzaCBDaG9w
+cmE7IFNvbnkgQ2hhY2tvOyBSYWplc2ggQm9ydW5kaWE7IG5ldGRldg0KPiBTdWJqZWN0OiBuZXR4
+ZW46IEJVRzogc2xlZXBpbmcgZnVuY3Rpb24gY2FsbGVkIGZyb20gaW52YWxpZCBjb250ZXh0IGF0
+DQo+IGluY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmg6NDc2DQo+IA0KPiBHcmVldGluZ3MsDQo+IA0K
+PiBXaGlsZSB0ZXN0aW5nIHNvbWUgc2NoZWQgcGF0Y2hlcyB0aGF0IHJlcXVpcmUgQ09ORklHX0RF
+QlVHX0FUT01JQ19TTEVFUCwNCj4gdGhlIGJlbG93IGZlbGwgb3V0Lg0KPiANCj4gL2V0Yy9pbml0
+LmQvbmV0d29yayByZXN0YXJ0IC0+IGdyaXBlDQo+IA0KPiBbICAgOTcuODUwNDA4XSBCVUc6IHNs
+ZWVwaW5nIGZ1bmN0aW9uIGNhbGxlZCBmcm9tIGludmFsaWQgY29udGV4dCBhdA0KPiBpbmNsdWRl
+L2xpbnV4L25ldGRldmljZS5oOjQ3Ng0KPiBbICAgOTcuOTQxMTc3XSBpbl9hdG9taWMoKTogMSwg
+aXJxc19kaXNhYmxlZCgpOiAwLCBwaWQ6IDY0NTgsIG5hbWU6IGlwDQo+IFsgICA5OC4wMTI3ODRd
+IFByZWVtcHRpb24gZGlzYWJsZWQgYXQ6WzxmZmZmZmZmZmEwNTA5NzE5Pl0NCj4gX19uZXR4ZW5f
+bmljX2Rvd24rMHg3OS8weDFiMCBbbmV0eGVuX25pY10NCj4gWyAgIDk4LjA0NzI4M10NCj4gWyAg
+IDk4LjA0NzI4OV0gQ1BVOiA2MyBQSUQ6IDY0NTggQ29tbTogaXAgVGFpbnRlZDogRyAgICAgICAg
+ICAgIEUgIDMuMTcuMC1kZWZhdWx0ICM3DQo+IFsgICA5OC4wNDcyOTFdIEhhcmR3YXJlIG5hbWU6
+IEhld2xldHQtUGFja2FyZCBQcm9MaWFudCBETDk4MCBHNywgQklPUyBQNjYNCj4gMDcvMDcvMjAx
+MA0KPiBbICAgOTguMDQ3Mjk1XSAgMDAwMDAwMDBmZmZmZmZmZiBmZmZmODgwMDM3MDJmNTI4IGZm
+ZmZmZmZmODE1ODlkYmQNCj4gMDAwMDAwMDAwMDAwMDAwMA0KPiBbICAgOTguMDQ3MzAxXSAgZmZm
+Zjg4MDI2ZWU5NjIxMCBmZmZmODgwMDM3MDJmNTQ4IGZmZmZmZmZmODEwOGUxZGYNCj4gZmZmZjg4
+MDI2ZWU5NjIxMA0KPiBbICAgOTguMDQ3MzA1XSAgMDAwMDAwMDAwMDAwMDAwMCBmZmZmODgwMDM3
+MDJmNTc4IGZmZmZmZmZmODEwOGUyOTgNCj4gZmZmZjg4MDI2YmY4OWMzOA0KPiBbICAgOTguMDQ3
+MzA3XSBDYWxsIFRyYWNlOg0KPiBbICAgOTguMDQ3MzEzXSAgWzxmZmZmZmZmZjgxNTg5ZGJkPl0g
+ZHVtcF9zdGFjaysweDRkLzB4OTANCj4gWyAgIDk4LjA0NzMzMV0gIFs8ZmZmZmZmZmY4MTA4ZTFk
+Zj5dIF9fX21pZ2h0X3NsZWVwKzB4MTBmLzB4MTgwDQo+IFsgICA5OC4wNDczNDNdICBbPGZmZmZm
+ZmZmODEwOGUyOTg+XSBfX21pZ2h0X3NsZWVwKzB4NDgvMHhkMA0KPiBbICAgOTguMDQ3MzQ4XSAg
+WzxmZmZmZmZmZmEwNTA2ZDU0Pl0gbmV0eGVuX25hcGlfZGlzYWJsZSsweDg0LzB4ZTANCj4gW25l
+dHhlbl9uaWNdDQo+IFsgICA5OC4wNDczNTNdICBbPGZmZmZmZmZmYTA1MDk3ZjA+XSBfX25ldHhl
+bl9uaWNfZG93bisweDE1MC8weDFiMA0KPiBbbmV0eGVuX25pY10NCj4gWyAgIDk4LjA0NzM2N10g
+IFs8ZmZmZmZmZmZhMDUwOWIwYj5dIG5ldHhlbl9uaWNfY2xvc2UrMHgxYi8weDIwIFtuZXR4ZW5f
+bmljXQ0KPiBbICAgOTguMDQ3Mzc1XSAgWzxmZmZmZmZmZjgxNGFhNTI1Pl0gX19kZXZfY2xvc2Vf
+bWFueSsweDk1LzB4ZTANCj4gWyAgIDk4LjA0NzM3OV0gIFs8ZmZmZmZmZmY4MTRhYTVhNj5dIF9f
+ZGV2X2Nsb3NlKzB4MzYvMHg1MA0KPiBbICAgOTguMDQ3Mzg0XSAgWzxmZmZmZmZmZjgxNGFiODlj
+Pl0gX19kZXZfY2hhbmdlX2ZsYWdzKzB4YWMvMHgxODANCj4gWyAgIDk4LjA0NzM4OV0gIFs8ZmZm
+ZmZmZmY4MTRhYjlhNz5dIGRldl9jaGFuZ2VfZmxhZ3MrMHgzNy8weDgwDQo+IFsgICA5OC4wNDcz
+OThdICBbPGZmZmZmZmZmODE0YmU4NzQ+XSBkb19zZXRsaW5rKzB4MjQ0LzB4N2UwDQo+IFsgICA5
+OC4wNDc0MDNdICBbPGZmZmZmZmZmODE0YzAzMTA+XSBydG5sX25ld2xpbmsrMHg1YTAvMHg3ZDAN
+Cj4gWyAgIDk4LjA0NzQwOF0gIFs8ZmZmZmZmZmY4MTRiZmViYT5dID8gcnRubF9uZXdsaW5rKzB4
+MTRhLzB4N2QwDQo+IFsgICA5OC4wNDc0MjFdICBbPGZmZmZmZmZmODEwNTI1OWM+XSA/IF9fZG9f
+cGFnZV9mYXVsdCsweDJhYy8weDUyMA0KPiBbICAgOTguMDQ3NDMxXSAgWzxmZmZmZmZmZjgxMmEx
+NGEwPl0gPyBhcHBhcm1vcl9jYXBhYmxlKzB4MjAvMHg2MA0KPiBbICAgOTguMDQ3NDM2XSAgWzxm
+ZmZmZmZmZjgxNGJmOTgxPl0gcnRuZXRsaW5rX3Jjdl9tc2crMHhhMS8weDI0MA0KPiBbICAgOTgu
+MDQ3NDQ2XSAgWzxmZmZmZmZmZjgxMzA4Zjg2Pl0gPyByaGFzaHRhYmxlX2xvb2t1cF9jb21wYXJl
+KzB4NDYvMHg3MA0KPiBbICAgOTguMDQ3NDUxXSAgWzxmZmZmZmZmZjgxNGJmOGUwPl0gPyBfX3J0
+bmxfdW5sb2NrKzB4MjAvMHgyMA0KPiBbICAgOTguMDQ3NDYzXSAgWzxmZmZmZmZmZjgxNGRjM2Q5
+Pl0gbmV0bGlua19yY3Zfc2tiKzB4ODkvMHhiMA0KPiBbICAgOTguMDQ3NDY2XSAgWzxmZmZmZmZm
+ZjgxNGJmYjdjPl0gcnRuZXRsaW5rX3JjdisweDJjLzB4NDANCj4gWyAgIDk4LjA0NzQ2OF0gIFs8
+ZmZmZmZmZmY4MTRkYmRjOT5dIG5ldGxpbmtfdW5pY2FzdCsweDExOS8weDE4MA0KPiBbICAgOTgu
+MDQ3NDczXSAgWzxmZmZmZmZmZjgxMzA2YTNjPl0gPyBtZW1jcHlfZnJvbWlvdmVjKzB4NmMvMHg5
+MA0KPiBbICAgOTguMDQ3NDc3XSAgWzxmZmZmZmZmZjgxNGRjN2MwPl0gbmV0bGlua19zZW5kbXNn
+KzB4M2MwLzB4NDUwDQo+IFsgICA5OC4wNDc0ODddICBbPGZmZmZmZmZmODE0OTQ0OWM+XSBzb2Nr
+X3NlbmRtc2crMHg5Yy8weGQwDQo+IFsgICA5OC4wNDc0OTddICBbPGZmZmZmZmZmODEwYWExMTM+
+XSA/IF9fd2FrZV91cCsweDUzLzB4NzANCj4gWyAgIDk4LjA0NzUwMl0gIFs8ZmZmZmZmZmY4MTA4
+ZTI5OD5dID8gX19taWdodF9zbGVlcCsweDQ4LzB4ZDANCj4gWyAgIDk4LjA0NzUwOV0gIFs8ZmZm
+ZmZmZmY4MTRhMjA0ZT5dID8gdmVyaWZ5X2lvdmVjKzB4NWUvMHhmMA0KPiBbICAgOTguMDQ3NTEy
+XSAgWzxmZmZmZmZmZjgxNDk0ZGY2Pl0gX19fc3lzX3NlbmRtc2crMHg0MzYvMHg0NDANCj4gWyAg
+IDk4LjA0NzUxNV0gIFs8ZmZmZmZmZmY4MTA4ZTI5OD5dID8gX19taWdodF9zbGVlcCsweDQ4LzB4
+ZDANCj4gWyAgIDk4LjA0NzUyM10gIFs8ZmZmZmZmZmY4MTE5NDUxMz5dID8gbWlnaHRfZmF1bHQr
+MHg0My8weDUwDQo+IFsgICA5OC4wNDc1MjVdICBbPGZmZmZmZmZmODE0OTFlZWY+XSA/IGNvcHlf
+dG9fdXNlcisweDJmLzB4NDANCj4gWyAgIDk4LjA0NzUyOF0gIFs8ZmZmZmZmZmY4MTQ5NTFjYz5d
+ID8gX19fc3lzX3JlY3Ztc2crMHgxOWMvMHgzMTANCj4gWyAgIDk4LjA0NzUzMV0gIFs8ZmZmZmZm
+ZmY4MTA1MjU5Yz5dID8gX19kb19wYWdlX2ZhdWx0KzB4MmFjLzB4NTIwDQo+IFsgICA5OC4wNDc1
+MzhdICBbPGZmZmZmZmZmODExOWU2ODE+XSA/IF9fdm1hX2xpbmtfcmIrMHgxMDEvMHgxMjANCj4g
+WyAgIDk4LjA0NzU0NF0gIFs8ZmZmZmZmZmY4MTE5ZmVmOD5dID8gZG9fYnJrKzB4MWM4LzB4MzQw
+DQo+IFsgICA5OC4wNDc1NTBdICBbPGZmZmZmZmZmODE0OTI0YTI+XSA/IFN5U19nZXRzb2NrbmFt
+ZSsweGIyLzB4YzANCj4gWyAgIDk4LjA0NzU1NV0gIFs8ZmZmZmZmZmY4MTQ5NGZkOT5dIF9fc3lz
+X3NlbmRtc2crMHg0OS8weDgwDQo+IFsgICA5OC4wNDc1NThdICBbPGZmZmZmZmZmODE0OTUwMjk+
+XSBTeVNfc2VuZG1zZysweDE5LzB4MjANCj4gWyAgIDk4LjA0NzU2N10gIFs8ZmZmZmZmZmY4MTU4
+ZjdhOT5dIHN5c3RlbV9jYWxsX2Zhc3RwYXRoKzB4MTYvMHgxYg0KPiANCj4gKGdkYikgbGlzdCAq
+X19uZXR4ZW5fbmljX2Rvd24rMHg3OQ0KPiAweDg3NDkgaXMgaW4gX19uZXR4ZW5fbmljX2Rvd24N
+Cj4gKGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9uZXR4ZW4vbmV0eGVuX25pY19tYWluLmM6
+MTE5MCkuDQo+IDExODUgICAgICAgICAgICBpZiAoIXRlc3RfYW5kX2NsZWFyX2JpdChfX05YX0RF
+Vl9VUCwgJmFkYXB0ZXItPnN0YXRlKSkNCj4gMTE4NiAgICAgICAgICAgICAgICAgICAgcmV0dXJu
+Ow0KPiAxMTg3DQo+IDExODggICAgICAgICAgICBzbXBfbWIoKTsNCj4gMTE4OSAgICAgICAgICAg
+IHNwaW5fbG9jaygmYWRhcHRlci0+dHhfY2xlYW5fbG9jayk7DQo+IDExOTAgICAgICAgICAgICBu
+ZXRpZl9jYXJyaWVyX29mZihuZXRkZXYpOw0KPiAxMTkxICAgICAgICAgICAgbmV0aWZfdHhfZGlz
+YWJsZShuZXRkZXYpOw0KPiAxMTkyDQo+IDExOTMgICAgICAgICAgICBpZiAoYWRhcHRlci0+Y2Fw
+YWJpbGl0aWVzICYNCj4gTlhfRldfQ0FQQUJJTElUWV9MSU5LX05PVElGSUNBVElPTikNCj4gMTE5
+NCAgICAgICAgICAgICAgICAgICAgbmV0eGVuX2xpbmtldmVudF9yZXF1ZXN0KGFkYXB0ZXIsIDAp
+Ow0KDQpIZWxsbyBNaWtlLA0KDQpUaGFua3MgZm9yIGZpbmRpbmcgdGhpcyBvdXQuIE1vc3RseSBJ
+IGhhdmUgZml4IGZvciBpdC4NCkkgd2lsbCBzZW5kIGEgcGF0Y2ggdG8gbmV0IGZvciBmaXhpbmcg
+aXQgYWZ0ZXIgZG9pbmcgc29tZSB0ZXN0aW5nLg0KDQpUaGFua3MsDQpNYW5pc2ggDQoNCg0K
