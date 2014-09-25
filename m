@@ -1,74 +1,48 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 1/1 V4] qdisc: bulk dequeue support for qdiscs
- with TCQ_F_ONETXQUEUE
-Date: Thu, 25 Sep 2014 10:25:05 +0200
-Message-ID: <20140925102505.494acab1@redhat.com>
-References: <20140924160932.9721.56450.stgit@localhost>
-	<20140924161047.9721.43080.stgit@localhost>
-	<1411579395.15395.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140924195831.6fb91051@redhat.com>
-	<54234225.5000503@mojatatu.com>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
+Date: Thu, 25 Sep 2014 10:53:28 +0200
+Message-ID: <5423D808.7050800@6wind.com>
+References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>	<CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw@mail.gmail.com>	<54228D87.3070309@6wind.com>	<CAHA+R7NfJYzCsZx0E9YVXKVCQbCm_thPSi+80tix8Z9nVA82Ug@mail.gmail.com>	<CAHA+R7MVL=WpepRy8iz6iT6Kkq1RHG+b9TxJothP94ixyAj-3Q@mail.gmail.com>	<5422F1F7.8010308@6wind.com>
+	<CAHA+R7MM04ew=J8sHfSQERwoCAgEDfrGgtgRORqs3ePgtjVYWg@mail.gmail.com>
+Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	therbert@google.com, "David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.h.duyck@intel.com>, toke@toke.dk,
-	Florian Westphal <fw@strlen.de>,
-	Dave Taht <dave.taht@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	brouer@redhat.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53401 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751532AbaIYIZ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Sep 2014 04:25:28 -0400
-In-Reply-To: <54234225.5000503@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <CAHA+R7MM04ew=J8sHfSQERwoCAgEDfrGgtgRORqs3ePgtjVYWg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Sep 2014 18:13:57 -0400
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-
-> On 09/24/14 13:58, Jesper Dangaard Brouer wrote:
-> > On Wed, 24 Sep 2014 10:23:15 -0700
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >
-> 
-> >
-> >> pktgen is nice, but do not represent the majority of the traffic we send
-> >> from high performance host where we want this bulk dequeue thing ;)
-> >
-> > This patch is actually targetted towards more normal use-cases.
-> > Pktgen cannot even use this work, as it bypass the qdisc layer...
-> 
-> When you post these patches - can you please also post basic performance
-> numbers? You dont have to show improvement if it is hard for bulking
-> to kick in, but you need to show no harm in at least latency for the
-> general use case (i.e not pktgen maybe forwarding activity or something
-> sourced from tcp).
-
-I've done measurements with netperf-wrapper:
- http://netoptimizer.blogspot.dk/2014/09/mini-tutorial-for-netperf-wrapper-setup.html
-
-I have already previously posted my measurements here:
- http://people.netfilter.org/hawk/qdisc/
- http://people.netfilter.org/hawk/qdisc/measure01/
- http://people.netfilter.org/hawk/qdisc/experiment01/
-
-Please, see my previous mail where I described each graph.
-
-The above measurements is for 10Gbit/s, but I've also done measurements
-on 1Gbit/s driver igb, and 10Mbit/s by forcing igb to use 10Mbit/s.
-Those results I forgot upload (and I cannot upload them right now, as
-I'm currently in Switzerland).
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+TGUgMjQvMDkvMjAxNCAxODo0OCwgQ29uZyBXYW5nIGEgw6ljcml0IDoKPiBPbiBXZWQsIFNlcCAy
+NCwgMjAxNCBhdCA5OjMxIEFNLCBOaWNvbGFzIERpY2h0ZWwKPiA8bmljb2xhcy5kaWNodGVsQDZ3
+aW5kLmNvbT4gd3JvdGU6Cj4+PiBJIHRoaW5rIGluIHRoaXMgY2FzZSB5b3VyIElEJ3MgYXJlIHN0
+aWxsIGF2YWlsYWJsZSwgYnV0IGFyZW4ndCB5b3UKPj4+IHByb3ZpZGluZyBhIG5ldyB3YXkKPj4+
+IGZvciB0aGUgaW5uZXIgbmV0bnMgZGV2aWNlIHRvIGVzY2FwZSB3aGljaCB3ZSBhcmUgdHJ5aW5n
+IHRvIGF2b2lkPwo+Pgo+PiBJdCdzIHdoeSB0aGUgaWRzIGRlcGVuZCBvbiB1c2VyIG5zLiBPbmx5
+IGlmIHVzZXIgbnMgYXJlIHRoZSBzYW1lIHdlIGFsbG93IHRvCj4+IGdldCBhbiBpZCBmb3IgYSBw
+ZWVyIG5ldG5zLgo+Cj4gVG9vIGxhdGUsIHVzZXJucyBpcyByZWxhdGl2ZWx5IG5ldywgcmVseWlu
+ZyBvbiBpdCBicmVha3Mgb3VyIGV4aXN0aW5nCj4gYXNzdW1wdGlvbi4KPgpJIGRvbid0IGdldCB5
+b3VyIHBvaW50LiBuZXRucyBoYXMgYmVlbiBhZGRlZCBpbiBrZXJuZWwgYWZ0ZXIgdXNlciBuczoK
+YWNjZTI5MmM4MmQ0IHVzZXIgbmFtZXNwYWNlOiBhZGQgdGhlIGZyYW1ld29yayA9PiAyLjYuMjMK
+NWYyNTZiZWNkODY4IFtORVRdOiBCYXNpYyBuZXR3b3JrIG5hbWVzcGFjZSBpbmZyYXN0cnVjdHVy
+ZS4gPT4gMi42LjI0CgpJbiB0aGUga2VybmVsLCBlYWNoIG5ldG5zIGlzIGxpbmtlZCB3aXRoIGEg
+dXNlciBucy4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+Q29udGFpbmVycyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5saW51eC1mb3VuZGF0aW9u
+Lm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby9j
+b250YWluZXJz
