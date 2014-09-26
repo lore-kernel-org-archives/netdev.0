@@ -1,135 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] fclone layout suboptimal
-Date: Fri, 26 Sep 2014 06:35:01 -0700
-Message-ID: <1411738501.16953.122.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1411736859.16953.121.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next] bonding: make global bonding stats more reliable
+Date: Fri, 26 Sep 2014 15:35:33 +0200
+Message-ID: <54256BA5.9080803@redhat.com>
+References: <1411650996-2087-1-git-send-email-gospo@cumulusnetworks.com> <54252940.6070100@redhat.com> <20140926132631.GA18564@gospo.home.greyhouse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:39326 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754210AbaIZNfC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 09:35:02 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kx10so13145854pab.5
-        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 06:35:02 -0700 (PDT)
-In-Reply-To: <1411736859.16953.121.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:41277 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752149AbaIZNfp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Sep 2014 09:35:45 -0400
+In-Reply-To: <20140926132631.GA18564@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-09-26 at 06:07 -0700, Eric Dumazet wrote:
+On 26/09/14 15:26, Andy Gospodarek wrote:
+> On Fri, Sep 26, 2014 at 10:52:16AM +0200, Nikolay Aleksandrov wrote:
+>> On 25/09/14 15:16, Andy Gospodarek wrote:
+>>> As the code stands today, bonding stats are based simply on the stats
+>> >from the member interfaces.  If a member was to be removed from a bond,
+>>> the stats would instantly drop.  This would be confusing to an admin
+>>> would would suddonly see interface stats drop while traffic is still
+>>> flowing.
+>>>
+>>> In addition to preventing the stats drops mentioned above, new members
+>>> will now be added to the bond and only traffic received after the member
+>>> was added to the bond will be counted as part of bonding stats.
+>>>
+>>> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+>>> ---
+>> Hi Andy,
+>>
+<<<<snip>>>>
+>>> @@ -4258,6 +4274,9 @@ static int bond_init(struct net_device *bond_dev)
+>>>   	    bond_dev->addr_assign_type == NET_ADDR_PERM)
+>>>   		eth_hw_addr_random(bond_dev);
+>>>
+>>> +	/* initialize persistent stats for the bond */
+>>> +	bond->bond_stats = kzalloc(sizeof(struct rtnl_link_stats64),
+>>> +				   GFP_ATOMIC);
+>> ^^^^^^^^^^^^^^^^^^^^^^^^
+>> I don't think this will get freed if the bond device is destroyed.
+> Another good catch.  Thanks for the review.  V2 incoming after some
+> testing.
+>
+Great, one more thing I forgot to ask, why the GFP_ATOMIC here ? I believe we're 
+allowed to sleep in ndo_init(), and you should probably handle the case where 
+the bond_stats allocation fails, too.
 
-> [sk_buff skb1]
-> [atomic_t fclone_ref]
-> [sk_buff skb2]
-
-Untested patch would be :
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index da1378a3e2c7..e39f03ea1822 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -178,6 +178,15 @@ out:
- 	return skb;
- }
- 
-+/* Layout of fast clones : [skb1][fclone_ref][skb2] */
-+struct sk_buff_fclones {
-+	struct sk_buff	skb1;
-+
-+	atomic_t	fclone_ref;
-+
-+	struct sk_buff	skb2;
-+};
-+
- /**
-  *	__alloc_skb	-	allocate a network buffer
-  *	@size: size to allocate
-@@ -257,16 +266,17 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	kmemcheck_annotate_variable(shinfo->destructor_arg);
- 
- 	if (flags & SKB_ALLOC_FCLONE) {
--		struct sk_buff *child = skb + 1;
--		atomic_t *fclone_ref = (atomic_t *) (child + 1);
-+		struct sk_buff_fclones *fclones;
-+
-+		fclones = (struct sk_buff_fclones *)skb;
- 
--		kmemcheck_annotate_bitfield(child, flags1);
--		kmemcheck_annotate_bitfield(child, flags2);
--		skb->fclone = SKB_FCLONE_ORIG;
--		atomic_set(fclone_ref, 1);
-+		kmemcheck_annotate_bitfield(&fclones->skb2, flags1);
-+		kmemcheck_annotate_bitfield(&fclones->skb2, flags2);
-+		fclones->skb1.fclone = SKB_FCLONE_ORIG;
-+		atomic_set(&fclones->fclone_ref, 1);
- 
--		child->fclone = SKB_FCLONE_UNAVAILABLE;
--		child->pfmemalloc = pfmemalloc;
-+		fclones->skb2.fclone = SKB_FCLONE_UNAVAILABLE;
-+		fclones->skb2.pfmemalloc = pfmemalloc;
- 	}
- out:
- 	return skb;
-@@ -524,8 +534,7 @@ static void skb_release_data(struct sk_buff *skb)
-  */
- static void kfree_skbmem(struct sk_buff *skb)
- {
--	struct sk_buff *other;
--	atomic_t *fclone_ref;
-+	struct sk_buff_fclones *fclones;
- 
- 	switch (skb->fclone) {
- 	case SKB_FCLONE_UNAVAILABLE:
-@@ -533,22 +542,21 @@ static void kfree_skbmem(struct sk_buff *skb)
- 		break;
- 
- 	case SKB_FCLONE_ORIG:
--		fclone_ref = (atomic_t *) (skb + 2);
--		if (atomic_dec_and_test(fclone_ref))
--			kmem_cache_free(skbuff_fclone_cache, skb);
-+		fclones = container_of(skb, struct sk_buff_fclones, skb1);
-+		if (atomic_dec_and_test(&fclones->fclone_ref))
-+			kmem_cache_free(skbuff_fclone_cache, fclones);
- 		break;
- 
- 	case SKB_FCLONE_CLONE:
--		fclone_ref = (atomic_t *) (skb + 1);
--		other = skb - 1;
-+		fclones = container_of(skb, struct sk_buff_fclones, skb2);
- 
- 		/* The clone portion is available for
- 		 * fast-cloning again.
- 		 */
- 		skb->fclone = SKB_FCLONE_UNAVAILABLE;
- 
--		if (atomic_dec_and_test(fclone_ref))
--			kmem_cache_free(skbuff_fclone_cache, other);
-+		if (atomic_dec_and_test(&fclones->fclone_ref))
-+			kmem_cache_free(skbuff_fclone_cache, fclones);
- 		break;
- 	}
- }
-@@ -855,17 +863,16 @@ EXPORT_SYMBOL_GPL(skb_copy_ubufs);
- 
- struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
- {
--	struct sk_buff *n;
-+	struct sk_buff_fclones *fclones = (struct sk_buff_fclones *)skb;
-+	struct sk_buff *n = &fclones->skb2;
- 
- 	if (skb_orphan_frags(skb, gfp_mask))
- 		return NULL;
- 
--	n = skb + 1;
- 	if (skb->fclone == SKB_FCLONE_ORIG &&
- 	    n->fclone == SKB_FCLONE_UNAVAILABLE) {
--		atomic_t *fclone_ref = (atomic_t *) (n + 1);
- 		n->fclone = SKB_FCLONE_CLONE;
--		atomic_inc(fclone_ref);
-+		atomic_inc(&fclones->fclone_ref);
- 	} else {
- 		if (skb_pfmemalloc(skb))
- 			gfp_mask |= __GFP_MEMALLOC;
+>>
+>>>   	return 0;
+>>>   }
+>>>
+>>> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+>>> index 6140bf0..fe25265 100644
+>>> --- a/drivers/net/bonding/bonding.h
+>>> +++ b/drivers/net/bonding/bonding.h
+>>> @@ -24,6 +24,7 @@
+>>>   #include <linux/inetdevice.h>
+>>>   #include <linux/etherdevice.h>
+>>>   #include <linux/reciprocal_div.h>
+>>> +#include <linux/if_link.h>
+>>>
+>>>   #include "bond_3ad.h"
+>>>   #include "bond_alb.h"
+>>> @@ -175,6 +176,7 @@ struct slave {
+>>>   	struct netpoll *np;
+>>>   #endif
+>>>   	struct kobject kobj;
+>>> +	struct rtnl_link_stats64 *slave_stats;
+>>>   };
+>>>
+>>>   /*
+>>> @@ -224,6 +226,7 @@ struct bonding {
+>>>   	/* debugging support via debugfs */
+>>>   	struct	 dentry *debug_dir;
+>>>   #endif /* CONFIG_DEBUG_FS */
+>>> +	struct rtnl_link_stats64 *bond_stats;
+>>>   };
+>>>
+>>>   #define bond_slave_get_rcu(dev) \
+>>>
+>>
