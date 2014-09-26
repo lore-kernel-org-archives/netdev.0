@@ -1,54 +1,51 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: tc rsvp filter show broke
-Date: Fri, 26 Sep 2014 10:41:25 -0700
-Message-ID: <5425A545.1040907@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: mmotm 2014-09-25-16-28 uploaded (nf_nat_masquerade_ipv4.c)
+Date: Fri, 26 Sep 2014 19:45:17 +0200
+Message-ID: <20140926174517.GA11463@salvia>
+References: <5424a53b.o+nym6SX0Tg7EdW6%akpm@linux-foundation.org>
+ <54259A5C.2060102@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:33503 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755042AbaIZRlg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 13:41:36 -0400
-Received: by mail-oi0-f52.google.com with SMTP id a141so8637641oig.39
-        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 10:41:36 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-next@vger.kernel.org, sfr@canb.auug.org.au, mhocko@suse.cz
+To: Randy Dunlap <rdunlap@infradead.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54259A5C.2060102@infradead.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jamal,
+Hi Randy,
 
-Here is another strange 'tc' result that I think is a
-bug. If it was intended I can't see why. Show filter
-commands on rsvp classifiers only list the first entry?
+On Fri, Sep 26, 2014 at 09:54:52AM -0700, Randy Dunlap wrote:
+> On 09/25/14 16:28, akpm@linux-foundation.org wrote:
+> > The mm-of-the-moment snapshot 2014-09-25-16-28 has been uploaded to
+> > 
+> >    http://www.ozlabs.org/~akpm/mmotm/
+> > 
+> > mmotm-readme.txt says
+> > 
+> > README for mm-of-the-moment:
+> > 
+> > http://www.ozlabs.org/~akpm/mmotm/
+> > 
+> > This is a snapshot of my -mm patch queue.  Uploaded at random hopefully
+> > more than once a week.
+> 
+> ../net/ipv4/netfilter/nf_nat_masquerade_ipv4.c: In function 'nf_nat_masquerade_ipv4':
+> ../net/ipv4/netfilter/nf_nat_masquerade_ipv4.c:59:5: error: 'struct nf_conn_nat' has no member named 'masq_index'
+>   nat->masq_index = out->ifindex;
+>      ^
+> ../net/ipv4/netfilter/nf_nat_masquerade_ipv4.c: In function 'device_cmp':
+> ../net/ipv4/netfilter/nf_nat_masquerade_ipv4.c:83:12: error: 'const struct nf_conn_nat' has no member named 'masq_index'
+>   return nat->masq_index == (int)(long)ifindex;
+>             ^
+> ../net/ipv4/netfilter/nf_nat_masquerade_ipv4.c:84:1: warning: control reaches end of non-void function [-Wreturn-type]
 
+I'll pass this patch in the upcoming nf-next batch:
 
-# for i in {10..20}; do
-tc filter add dev p3p2 protocol ip parent 8001: prio $i \
-	rsvp session 12.0.0.$i ipproto udp classid 1:$i;
-done
+http://git.kernel.org/cgit/linux/kernel/git/pablo/nf-next.git/commit/?id=67981fefb20e717cea55b42f9081a833fa46b3be
 
-# tc filter show dev p3p2
-filter parent 8001: protocol ip pref 10 rsvp
-# tc filter show dev p3p2  prio 11
-filter parent 8001: protocol ip rsvp
-# tc filter show dev p3p2  prio 22
-
-Although the entries must still be around because listing
-the prio explicitly show the entries. Also the case where
-the prio doesn't exist returns without any errors. A better
-response might be 'EINVAL' or something.
-
-This is on 3.16 so nothing to do with my changes. I'm
-not sure I'll get a chance until Monday to look at it
-so figured I'll document it here in case someone else has
-a moment.
-
-Thanks,
-John
-
-
--- 
-John Fastabend         Intel Corporation
+Thanks.
