@@ -1,76 +1,115 @@
-From: Michael Tokarev <mjt-XAri/EZa3C4vJsYlp49lxw@public.gmane.org>
-Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
-Date: Fri, 26 Sep 2014 19:20:57 +0400
-Message-ID: <54258459.8020803@msgid.tls.msk.ru>
-References: <53FDACD1.8090805@msgid.tls.msk.ru> <53FDF8EB.4050905@broadcom.com> <54169D4F.2090607@broadcom.com> <541EEF17.7020806@msgid.tls.msk.ru> <542145B1.4030202@msgid.tls.msk.ru> <54216BF1.3060500@broadcom.com> <20140923134419.GA19016@ubuntu-hedt> <54217AA5.2060803@broadcom.com> <542182BE.2000606@msgid.tls.msk.ru> <542183A6.4070207@msgid.tls.msk.ru> <20140923143124.GC19016@ubuntu-hedt> <54219984.2080601@msgid.tls.msk.ru> <5421AF5C.6000106@broadcom.com> <5421B78E.4050908@msgid.tls.msk.ru> <5422C6E0.3080002@broadcom.com> <8d3f6516-9578-406c-9444-6fe1ba982ea6@email.android.com> <54257779.8010903@msgid.tls.msk.ru> <54257B69.3070607@broadcom.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] bonding: make global bonding stats more
+ reliable
+Date: Fri, 26 Sep 2014 11:35:01 -0400
+Message-ID: <20140926153501.GC18564@gospo.home.greyhouse.net>
+References: <1411684631-7509-1-git-send-email-gospo@cumulusnetworks.com>
+ <54257B50.20709@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54257B69.3070607-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:59359 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754825AbaIZPe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 11:34:56 -0400
+Content-Disposition: inline
+In-Reply-To: <54257B50.20709@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-26.09.2014 18:42, Arend van Spriel wrote:
+On Fri, Sep 26, 2014 at 04:42:24PM +0200, Nikolay Aleksandrov wrote:
+> On 26/09/14 00:37, Andy Gospodarek wrote:
+> >As the code stands today, bonding stats are based simply on the stats
+> >from the member interfaces.  If a member was to be removed from a bond,
+> >the stats would instantly drop.  This would be confusing to an admin
+> >would would suddonly see interface stats drop while traffic is still
+> >flowing.
+> >
+> >In addition to preventing the stats drops mentioned above, new members
+> >will now be added to the bond and only traffic received after the member
+> >was added to the bond will be counted as part of bonding stats.
+> >
+> >v2: Changes suggested by Nik to properly allocate/free stats memory.
+> >
+> >Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> >---
+> >  drivers/net/bonding/bond_main.c | 85 +++++++++++++++++++++++++++--------------
+> >  drivers/net/bonding/bonding.h   |  3 ++
+> >  2 files changed, 60 insertions(+), 28 deletions(-)
+> >
+> <<<<snip>>>>
+> >@@ -3857,6 +3874,8 @@ static void bond_uninit(struct net_device *bond_dev)
+> >  		__bond_release_one(bond_dev, slave->dev, true);
+> >  	netdev_info(bond_dev, "Released all slaves\n");
+> >
+> >+	kfree(bond->bond_stats);
+> >+
+> >  	list_del(&bond->bond_list);
+> >
+> >  	bond_debug_unregister(bond);
+> >@@ -4243,7 +4262,13 @@ static int bond_init(struct net_device *bond_dev)
+> >
+> >  	bond->wq = create_singlethread_workqueue(bond_dev->name);
+> >  	if (!bond->wq)
+> >-		return -ENOMEM;
+> >+		goto bond_wq_fail;
+> >+
+> >+	/* initialize persistent stats for the bond */
+> >+	bond->bond_stats = kzalloc(sizeof(struct rtnl_link_stats64),
+> >+				   GFP_KERNEL);
+> >+	if (!bond->bond_stats)
+> >+		goto bond_stats_fail;
+> >
+> >  	bond_set_lockdep_class(bond_dev);
+> >
+> >@@ -4259,6 +4284,10 @@ static int bond_init(struct net_device *bond_dev)
+> >  		eth_hw_addr_random(bond_dev);
+> >
+> >  	return 0;
+> >+bond_stats_fail:
+> >+	kfree(bond->wq);
+> ^^^^^^^^^^
+> I think you should use destroy_workqueue() to properly get rid of the wq.
+I'm beginning to think I should have gone with my first approach and
+placed the rtnl_link_stats64 structs inside struct slave and struct
+bonding rather than creating pointers....
 
-> Being bold here, but would you be willing to send that non-working part of hardware to me. I seem to have 4313 cards over here that just work and it would help greatly investigating the issue. I guess you do not care that much anymore, but might be others do (myself included).
-
-Please note that this is 2nd card of the same model which I
-come across in different laptops (one lenovo which I bought
-last December, and later in a HP Envy which I borrowed from
-my friend because my lenovo didn't work anymore).  Both shows
-exactly the same sympthoms, on several different WiFi networks.
-The sympthoms are rehashed here several times -- sporaric stalls
-of different frequence of occurences, which can be cured by
-re-loading the driver.
-
-I can send it your way, -- guess it will be quite a bit costly,
-but I don't have any use for it anyway (short of throwing it
-away), and since I already spent significantly more money due
-to all this (whole thinkpad plus ssds and several wifi adaptors),
-this additional cost is just a small noize.  But since that's
-2nd card in a row, maybe there's something else in there, the
-prob is not in the card?
-
-I mentioned several times that here, both of these cards worked
-for long periods of time and for many gigabytes transfers (I
-used wget in a loop overnight), -- and worked very well.  Just
-that these "working periods" changes into "non-working periods"
-without any clear cause, sporadically.  And these working
-periods can be rather long, too.
-
-Maybe this is some uninitialized field somewhere, I dunno -
-at least that'd explain the "mystery" and inability to reproduce
-any of the two kinds of "periods".  Ofcourse it's rather difficult
-to debug, but it might not be card-specific.
-
-I also noticed that quite often it does not work after rebooing
-the laptop from windows.  But not always. I thought maybe win
-switches it into some mode which linux driver fails to notice,
-but no, the fact that it sometimes works after windows tells
-me that I'm not right.
-
-And note please that the closed-source wl driver always worked
-with both of these cards, at least when I was able to compile
-it (the prob is always the same - no support for more recent
-kernels; and I don't really like to use recent kernels (I myself
-currently stay with 3.10.x stable line), but both laptops actually
-requires recent kernels to work properly (either because of
-great energy saving support in latest intel cpus, or because of
-support of gpu in latest intel celerons) -- that's why I really
-prefer in-kernel driver).
-
-That to say - the fact that wl always works may tell that the
-hw is fine and the prob is elsewhere.
-
-Thanks,
-
-/mjt
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
+> >+bond_wq_fail:
+> >+	return -ENOMEM;
+> >  }
+> >
+> >  unsigned int bond_get_num_tx_queues(void)
+> >diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+> >index 6140bf0..fe25265 100644
+> >--- a/drivers/net/bonding/bonding.h
+> >+++ b/drivers/net/bonding/bonding.h
+> >@@ -24,6 +24,7 @@
+> >  #include <linux/inetdevice.h>
+> >  #include <linux/etherdevice.h>
+> >  #include <linux/reciprocal_div.h>
+> >+#include <linux/if_link.h>
+> >
+> >  #include "bond_3ad.h"
+> >  #include "bond_alb.h"
+> >@@ -175,6 +176,7 @@ struct slave {
+> >  	struct netpoll *np;
+> >  #endif
+> >  	struct kobject kobj;
+> >+	struct rtnl_link_stats64 *slave_stats;
+> >  };
+> >
+> >  /*
+> >@@ -224,6 +226,7 @@ struct bonding {
+> >  	/* debugging support via debugfs */
+> >  	struct	 dentry *debug_dir;
+> >  #endif /* CONFIG_DEBUG_FS */
+> >+	struct rtnl_link_stats64 *bond_stats;
+> >  };
+> >
+> >  #define bond_slave_get_rcu(dev) \
+> >
+> 
