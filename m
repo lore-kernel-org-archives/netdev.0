@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v15 net-next 02/11] bpf: enable bpf syscall on x64 and i386
-Date: Fri, 26 Sep 2014 00:16:58 -0700
-Message-ID: <1411715827-10430-3-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v15 net-next 09/11] bpf: verifier (add branch/goto checks)
+Date: Fri, 26 Sep 2014 00:17:05 -0700
+Message-ID: <1411715827-10430-10-git-send-email-ast@plumgrid.com>
 References: <1411715827-10430-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -22,84 +22,225 @@ In-Reply-To: <1411715827-10430-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-done as separate commit to ease conflict resolution
+check that control flow graph of eBPF program is a directed acyclic graph
+
+check_cfg() does:
+- detect loops
+- detect unreachable instructions
+- check that program terminates with BPF_EXIT insn
+- check that all branches are within program boundary
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- arch/x86/syscalls/syscall_32.tbl  |    1 +
- arch/x86/syscalls/syscall_64.tbl  |    1 +
- include/linux/syscalls.h          |    3 ++-
- include/uapi/asm-generic/unistd.h |    4 +++-
- kernel/sys_ni.c                   |    3 +++
- 5 files changed, 10 insertions(+), 2 deletions(-)
+ kernel/bpf/verifier.c |  189 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 189 insertions(+)
 
-diff --git a/arch/x86/syscalls/syscall_32.tbl b/arch/x86/syscalls/syscall_32.tbl
-index 028b78168d85..9fe1b5d002f0 100644
---- a/arch/x86/syscalls/syscall_32.tbl
-+++ b/arch/x86/syscalls/syscall_32.tbl
-@@ -363,3 +363,4 @@
- 354	i386	seccomp			sys_seccomp
- 355	i386	getrandom		sys_getrandom
- 356	i386	memfd_create		sys_memfd_create
-+357	i386	bpf			sys_bpf
-diff --git a/arch/x86/syscalls/syscall_64.tbl b/arch/x86/syscalls/syscall_64.tbl
-index 35dd922727b9..281150b539a2 100644
---- a/arch/x86/syscalls/syscall_64.tbl
-+++ b/arch/x86/syscalls/syscall_64.tbl
-@@ -327,6 +327,7 @@
- 318	common	getrandom		sys_getrandom
- 319	common	memfd_create		sys_memfd_create
- 320	common	kexec_file_load		sys_kexec_file_load
-+321	common	bpf			sys_bpf
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 7227543e474b..c689ab8e2713 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -313,6 +313,191 @@ static struct bpf_map *ld_imm64_to_map_ptr(struct bpf_insn *insn)
+ 	return (struct bpf_map *) (unsigned long) imm64;
+ }
  
- #
- # x32-specific system call numbers start at 512 to avoid cache impact
-diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index 0f86d85a9ce4..bda9b81357cc 100644
---- a/include/linux/syscalls.h
-+++ b/include/linux/syscalls.h
-@@ -65,6 +65,7 @@ struct old_linux_dirent;
- struct perf_event_attr;
- struct file_handle;
- struct sigaltstack;
-+union bpf_attr;
- 
- #include <linux/types.h>
- #include <linux/aio_abi.h>
-@@ -875,5 +876,5 @@ asmlinkage long sys_seccomp(unsigned int op, unsigned int flags,
- 			    const char __user *uargs);
- asmlinkage long sys_getrandom(char __user *buf, size_t count,
- 			      unsigned int flags);
--
-+asmlinkage long sys_bpf(int cmd, union bpf_attr *attr, unsigned int size);
- #endif
-diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
-index 11d11bc5c78f..22749c134117 100644
---- a/include/uapi/asm-generic/unistd.h
-+++ b/include/uapi/asm-generic/unistd.h
-@@ -705,9 +705,11 @@ __SYSCALL(__NR_seccomp, sys_seccomp)
- __SYSCALL(__NR_getrandom, sys_getrandom)
- #define __NR_memfd_create 279
- __SYSCALL(__NR_memfd_create, sys_memfd_create)
-+#define __NR_bpf 280
-+__SYSCALL(__NR_bpf, sys_bpf)
- 
- #undef __NR_syscalls
--#define __NR_syscalls 280
-+#define __NR_syscalls 281
- 
- /*
-  * All syscalls below here should go away really,
-diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
-index 391d4ddb6f4b..b4b5083f5f5e 100644
---- a/kernel/sys_ni.c
-+++ b/kernel/sys_ni.c
-@@ -218,3 +218,6 @@ cond_syscall(sys_kcmp);
- 
- /* operate on Secure Computing state */
- cond_syscall(sys_seccomp);
++/* non-recursive DFS pseudo code
++ * 1  procedure DFS-iterative(G,v):
++ * 2      label v as discovered
++ * 3      let S be a stack
++ * 4      S.push(v)
++ * 5      while S is not empty
++ * 6            t <- S.pop()
++ * 7            if t is what we're looking for:
++ * 8                return t
++ * 9            for all edges e in G.adjacentEdges(t) do
++ * 10               if edge e is already labelled
++ * 11                   continue with the next edge
++ * 12               w <- G.adjacentVertex(t,e)
++ * 13               if vertex w is not discovered and not explored
++ * 14                   label e as tree-edge
++ * 15                   label w as discovered
++ * 16                   S.push(w)
++ * 17                   continue at 5
++ * 18               else if vertex w is discovered
++ * 19                   label e as back-edge
++ * 20               else
++ * 21                   // vertex w is explored
++ * 22                   label e as forward- or cross-edge
++ * 23           label t as explored
++ * 24           S.pop()
++ *
++ * convention:
++ * 0x10 - discovered
++ * 0x11 - discovered and fall-through edge labelled
++ * 0x12 - discovered and fall-through and branch edges labelled
++ * 0x20 - explored
++ */
 +
-+/* access BPF programs and maps */
-+cond_syscall(sys_bpf);
++enum {
++	DISCOVERED = 0x10,
++	EXPLORED = 0x20,
++	FALLTHROUGH = 1,
++	BRANCH = 2,
++};
++
++static int *insn_stack;	/* stack of insns to process */
++static int cur_stack;	/* current stack index */
++static int *insn_state;
++
++/* t, w, e - match pseudo-code above:
++ * t - index of current instruction
++ * w - next instruction
++ * e - edge
++ */
++static int push_insn(int t, int w, int e, struct verifier_env *env)
++{
++	if (e == FALLTHROUGH && insn_state[t] >= (DISCOVERED | FALLTHROUGH))
++		return 0;
++
++	if (e == BRANCH && insn_state[t] >= (DISCOVERED | BRANCH))
++		return 0;
++
++	if (w < 0 || w >= env->prog->len) {
++		verbose("jump out of range from insn %d to %d\n", t, w);
++		return -EINVAL;
++	}
++
++	if (insn_state[w] == 0) {
++		/* tree-edge */
++		insn_state[t] = DISCOVERED | e;
++		insn_state[w] = DISCOVERED;
++		if (cur_stack >= env->prog->len)
++			return -E2BIG;
++		insn_stack[cur_stack++] = w;
++		return 1;
++	} else if ((insn_state[w] & 0xF0) == DISCOVERED) {
++		verbose("back-edge from insn %d to %d\n", t, w);
++		return -EINVAL;
++	} else if (insn_state[w] == EXPLORED) {
++		/* forward- or cross-edge */
++		insn_state[t] = DISCOVERED | e;
++	} else {
++		verbose("insn state internal bug\n");
++		return -EFAULT;
++	}
++	return 0;
++}
++
++/* non-recursive depth-first-search to detect loops in BPF program
++ * loop == back-edge in directed graph
++ */
++static int check_cfg(struct verifier_env *env)
++{
++	struct bpf_insn *insns = env->prog->insnsi;
++	int insn_cnt = env->prog->len;
++	int ret = 0;
++	int i, t;
++
++	insn_state = kcalloc(insn_cnt, sizeof(int), GFP_KERNEL);
++	if (!insn_state)
++		return -ENOMEM;
++
++	insn_stack = kcalloc(insn_cnt, sizeof(int), GFP_KERNEL);
++	if (!insn_stack) {
++		kfree(insn_state);
++		return -ENOMEM;
++	}
++
++	insn_state[0] = DISCOVERED; /* mark 1st insn as discovered */
++	insn_stack[0] = 0; /* 0 is the first instruction */
++	cur_stack = 1;
++
++peek_stack:
++	if (cur_stack == 0)
++		goto check_state;
++	t = insn_stack[cur_stack - 1];
++
++	if (BPF_CLASS(insns[t].code) == BPF_JMP) {
++		u8 opcode = BPF_OP(insns[t].code);
++
++		if (opcode == BPF_EXIT) {
++			goto mark_explored;
++		} else if (opcode == BPF_CALL) {
++			ret = push_insn(t, t + 1, FALLTHROUGH, env);
++			if (ret == 1)
++				goto peek_stack;
++			else if (ret < 0)
++				goto err_free;
++		} else if (opcode == BPF_JA) {
++			if (BPF_SRC(insns[t].code) != BPF_K) {
++				ret = -EINVAL;
++				goto err_free;
++			}
++			/* unconditional jump with single edge */
++			ret = push_insn(t, t + insns[t].off + 1,
++					FALLTHROUGH, env);
++			if (ret == 1)
++				goto peek_stack;
++			else if (ret < 0)
++				goto err_free;
++		} else {
++			/* conditional jump with two edges */
++			ret = push_insn(t, t + 1, FALLTHROUGH, env);
++			if (ret == 1)
++				goto peek_stack;
++			else if (ret < 0)
++				goto err_free;
++
++			ret = push_insn(t, t + insns[t].off + 1, BRANCH, env);
++			if (ret == 1)
++				goto peek_stack;
++			else if (ret < 0)
++				goto err_free;
++		}
++	} else {
++		/* all other non-branch instructions with single
++		 * fall-through edge
++		 */
++		ret = push_insn(t, t + 1, FALLTHROUGH, env);
++		if (ret == 1)
++			goto peek_stack;
++		else if (ret < 0)
++			goto err_free;
++	}
++
++mark_explored:
++	insn_state[t] = EXPLORED;
++	if (cur_stack-- <= 0) {
++		verbose("pop stack internal bug\n");
++		ret = -EFAULT;
++		goto err_free;
++	}
++	goto peek_stack;
++
++check_state:
++	for (i = 0; i < insn_cnt; i++) {
++		if (insn_state[i] != EXPLORED) {
++			verbose("unreachable insn %d\n", i);
++			ret = -EINVAL;
++			goto err_free;
++		}
++	}
++	ret = 0; /* cfg looks good */
++
++err_free:
++	kfree(insn_state);
++	kfree(insn_stack);
++	return ret;
++}
++
+ /* look for pseudo eBPF instructions that access map FDs and
+  * replace them with actual map pointers
+  */
+@@ -462,6 +647,10 @@ int bpf_check(struct bpf_prog *prog, union bpf_attr *attr)
+ 	if (ret < 0)
+ 		goto skip_full_check;
+ 
++	ret = check_cfg(env);
++	if (ret < 0)
++		goto skip_full_check;
++
+ 	/* ret = do_check(env); */
+ 
+ skip_full_check:
 -- 
 1.7.9.5
