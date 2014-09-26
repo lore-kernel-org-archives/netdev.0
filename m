@@ -1,30 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/4] qlcnic: Bug fixes.
-Date: Fri, 26 Sep 2014 15:12:20 -0400 (EDT)
-Message-ID: <20140926.151220.1841496045429714934.davem@davemloft.net>
-References: <1411379513-26902-1-git-send-email-manish.chopra@qlogic.com>
+From: David Ahern <lxhacker68-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
+Date: Fri, 26 Sep 2014 13:15:10 -0600
+Message-ID: <5425BB3E.10700@gmail.com>
+References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>	<CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw@mail.gmail.com>	<54228D87.3070309@6wind.com>	<CAHA+R7NfJYzCsZx0E9YVXKVCQbCm_thPSi+80tix8Z9nVA82Ug@mail.gmail.com>	<5422F0F4.6000709@6wind.com>	<CAHA+R7Ot2kLHb+ne5AW3bFNc87qkFOiEHEyDh9sFrsHqXgrY3g@mail.gmail.com>	<5423D80B.9060500@6wind.com>
+	<CAHA+R7Ooyam2L-QfP-TjMEZEOqrQcQDxYiebmw760kgEji4G=g@mail.gmail.com>
+	<54256CCB.4000709@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept-GELinuxNICDev@qlogic.com
-To: manish.chopra@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49986 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752457AbaIZTMX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 15:12:23 -0400
-In-Reply-To: <1411379513-26902-1-git-send-email-manish.chopra@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <54256CCB.4000709-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@qlogic.com>
-Date: Mon, 22 Sep 2014 05:51:49 -0400
+On 9/26/14, 7:40 AM, Nicolas Dichtel wrote:
+>>
+>>
+>> No, I don't want to monitor anything. Even if I wanted, I would just
+>> start one
+>> daemon in each netns instead of one for all.
+> Ok you don't want, but some other people (not only me) want it! And
+> having one
+> daemon per netns does not scale: there are scenarii with thousand netns
+> which
+> are dynamically created and deleted.
 
-> This patch series contains following bug fixes:
-> 
-> * Fixes related to ethtool statistics.
-> * Fix for flash read related API.
-> 
-> Please apply this series to 'net'.
+An example of the scaling problem using quagga (old but still seems to 
+be a relevant data point):
 
-Series applied, thanks.
+ 
+https://lists.quagga.net/pipermail/quagga-users/2010-February/011351.html
+
+"2k VRFs that would be 2.6G"
+
+And that does not include the overhead of each namespace -- roughly 
+200kB/namespace on one kernel I checked (v3.10). So that's a ballpark of 
+3G of memory.
+
+David
