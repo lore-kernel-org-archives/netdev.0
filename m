@@ -1,38 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: abort orphan sockets stalling on zero
- window probes
-Date: Fri, 26 Sep 2014 15:56:11 -0400 (EDT)
-Message-ID: <20140926.155611.954320324745536887.davem@davemloft.net>
-References: <1411444333-6013-1-git-send-email-ycheng@google.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 1/5] udp: Generalize skb_udp_segment
+Date: Fri, 26 Sep 2014 12:56:43 -0700
+Message-ID: <CA+mtBx9SQDz9WOZAEQUXu+D=+ZizfbEHxMCM_gduYYTyOp=Jig@mail.gmail.com>
+References: <CAADnVQJgoW1SbkK6hoJcRtTwyKxgNBtFYqBF-5aW9D4=Zi5ofg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, andrey.dmitrov@oktetlabs.ru,
-	ncardwell@google.com, netdev@vger.kernel.org
-To: ycheng@google.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50552 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754335AbaIZT4O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 15:56:14 -0400
-In-Reply-To: <1411444333-6013-1-git-send-email-ycheng@google.com>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:55138 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754719AbaIZT4o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 15:56:44 -0400
+Received: by mail-ig0-f173.google.com with SMTP id l13so134957iga.6
+        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 12:56:43 -0700 (PDT)
+In-Reply-To: <CAADnVQJgoW1SbkK6hoJcRtTwyKxgNBtFYqBF-5aW9D4=Zi5ofg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Mon, 22 Sep 2014 20:52:13 -0700
+On Fri, Sep 26, 2014 at 12:39 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Fri, Sep 26, 2014 at 9:22 AM, Tom Herbert <therbert@google.com> wrote:
+>> skb_udp_segment is the function called from udp4_ufo_fragment to
+>> segment a UDP tunnel packet. This function currently assumes
+>> segmentation is transparent Ethernet bridging (i.e. VXLAN
+>> encapsulation). This patch generalizes the function to
+>> operate on either Ethertype or IP protocol.
+>
+> this is great generalization.
+> Do you envision that type_ether will cover vlan and mpls, right?
 
-> -
-> +		if (!alive && icsk->icsk_backoff >= max_probes)
-> +			goto abort;
->  		if (tcp_out_of_resources(sk, alive || icsk->icsk_probes_out <= max_probes))
->  			return;
+This design should allow providing GSO for any encapsulation of IP
+protocol or Ethertype of UDP (as long as encapsulation headers don't
+need to be modified for each segment). This actually covers quite a
+lot of possibilities.
 
-This new logic means that the second argument to tcp_out_of_resources()
-will always be 'true'.
+> What if somebody crazy adds a new thing after udp encap
+> that is neither ethernet nor ip header?
+> Like encryption header?
 
-Please make that explicit, because the code is confusing otherwise.
+We could add an internal offloads table for that. This would entail a
+new inner protocol type and then use inner_protocol to set offload
+flavor which we can define. This also might be the path to some sort
+of GSO for application layer protocols (like QUIC maybe...?)
 
-Also perhaps target this for the 'net' tree?
-
-Thanks.
+> I think it would fit this model well...
