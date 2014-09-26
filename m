@@ -1,52 +1,60 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH v5 07/10] net: pxa168_eth: allow Berlin SoCs to use the
- pxa168_eth driver
-Date: Fri, 26 Sep 2014 16:33:53 +0200
-Message-ID: <1411742036-23520-8-git-send-email-antoine.tenart@free-electrons.com>
+Subject: Re: [PATCH v6 00/10] ARM: Berlin: Ethernet support
+Date: Fri, 26 Sep 2014 16:37:37 +0200
+Message-ID: <20140926143737.GA23559@kwain>
 References: <1411742036-23520-1-git-send-email-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
- devicetree@vger.kernel.org, netdev@vger.kernel.org,
- Antoine Tenart <antoine.tenart@free-electrons.com>,
- linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
- jszhang@marvell.com, linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+	alexandre.belloni@free-electrons.com,
+	thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
+	jszhang@marvell.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: sebastian.hesselbarth@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 In-Reply-To: <1411742036-23520-1-git-send-email-antoine.tenart@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Berlin SoCs have an Ethernet controller compatible with the pxa168.
-Allow these SoCs to use the pxa168_eth driver.
+On Fri, Sep 26, 2014 at 04:33:46PM +0200, Antoine Tenart wrote:
+> Hi all,
+>=20
+> This series introduce support for the Ethernet controller on Berlin S=
+oCs,
+> using the existing pxa168 Ethernet driver. In order to do this, DT
+> support is added to the driver alongside some other modifications and
+> fixes.
+>=20
+> This has been tested on a Berlin BG2Q DMP board.
+>=20
+> Changes since v4:
+> 	- removed the phy-addr property and added a phy subnode
+> 	- added COMPILE_TEST for the pxa168_eth driver
+>=20
+> Changes since v3:
+>         - moved the addition of pxa168_eth_get_mac_address() to the p=
+atch
+>           using it first
+>=20
+> Changes since v2:
+>         - reworked how the MAC address is configured
+>         - made the clock anonymous
+>=20
+> Changes since v1:
+>         - removed custom Berlin Ethernet driver
+>         - used the pxa168 Ethernet driver instead
+>         - made modifications to the pxa168 driver (DT support, fixes)
+>=20
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-Acked-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/marvell/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+That's really the cover letter for the v5, not v6, I made a typo in the
+subject...
 
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index 1b4fc7c639e6..48b9466d1781 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -64,7 +64,7 @@ config MVPP2
- 
- config PXA168_ETH
- 	tristate "Marvell pxa168 ethernet support"
--	depends on CPU_PXA168
-+	depends on CPU_PXA168 || ARCH_BERLIN
- 	select PHYLIB
- 	---help---
- 	  This driver supports the pxa168 Ethernet ports.
--- 
-1.9.1
+Antoine
+
+--=20
+Antoine T=E9nart, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
