@@ -1,72 +1,67 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: eBPF verifier thoughts (Re: [PATCH v15 net-next 00/11] eBPF
- syscall, verifier, testsuite)
-Date: Fri, 26 Sep 2014 15:41:56 -0700
-Message-ID: <CALCETrUP=LE2QNzYL8LCukeuWeumOn0bm0eqYscc7GJqq45oYA@mail.gmail.com>
-References: <CALCETrVrHHxGo1RkPu+9LVnPo9XY9yYnJzg2ot0zOgoBspzbOQ@mail.gmail.com>
- <CAMEtUuyt9RASKZ4NeqK_OUYNN8QT6P20+kjcwywchur6QXSt0A@mail.gmail.com>
- <CALCETrXS5KBHm-3Fz031VFPpTHC_BDOLd_zNB6DjCidZa5-x2A@mail.gmail.com>
- <CAMEtUux-WFOGABTrWW=BGUstE=Zz6agXTGCGrRJtNXDfRmx-5A@mail.gmail.com>
- <CALCETrVLtJOYkHwsmwueZ7jsSgrNED564W+m4FmMZJZL-836mg@mail.gmail.com>
- <CAMEtUuxq7oNmDAHZ+1t4Vd-QhW6SV7eoM_juxXGEDJBF3Nfu6A@mail.gmail.com>
- <CALCETrWcmZVmRZARM_s9S-zZ4Xm_TcxRrzJWGwL0O9ySmVgr5A@mail.gmail.com> <CAMEtUuzQF+3uWFWmj5nSdYoJfo0W2F0wkvoyc4pP--EH3O_jYA@mail.gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: tc rsvp filter show broke
+Date: Fri, 26 Sep 2014 18:48:13 -0400
+Message-ID: <5425ED2D.1000005@mojatatu.com>
+References: <5425A545.1040907@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUuzQF+3uWFWmj5nSdYoJfo0W2F0wkvoyc4pP--EH3O_jYA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:47705 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756098AbaIZWsP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 18:48:15 -0400
+Received: by mail-ie0-f179.google.com with SMTP id tp5so11985388ieb.10
+        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 15:48:14 -0700 (PDT)
+In-Reply-To: <5425A545.1040907@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 26, 2014 at 3:26 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> On Fri, Sep 26, 2014 at 3:07 PM, Andy Lutomirski <luto@amacapital.net> wrote:
->> On Fri, Sep 26, 2014 at 3:03 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->>> On Fri, Sep 26, 2014 at 2:47 PM, Andy Lutomirski <luto@amacapital.net> wrote:
->>>>
->>>> Can't you just disallow the 1-byte write to the stack?
->>>
->>> of course not.
->>> That would be extremely limiting to users.
->>> Can you actually see yourself living with stack that only
->>> allows 8-byte writes/reads?
->>> The stack usage will increase a lot, since all char/short
->>> stack variables will become 8-byte...
->>
->> How about requiring that sub-8-byte stack accesses only be to integer slots?
+On 09/26/14 13:41, John Fastabend wrote:
+> Hi Jamal,
 >
-> you mean to reject the sub-8-byte write early if it's going
-> into space where pointers were stored?
-> That will limit stack reuse.
-> gcc/llvm generate code where the same stack location
-> is used by different variables during life of the function.
-> So if I reject the write early, it will break otherwise valid
-> programs.
+> Here is another strange 'tc' result that I think is a
+> bug. If it was intended I can't see why. Show filter
+> commands on rsvp classifiers only list the first entry?
+>
 
-I think that a sub-8-byte write to an integer slot should leave it as
-an integer and a sub-8-byte write to a non-integer slot should turn
-that slot into an integer (if conversions to integer are permitted) or
-be rejected otherwise.  gcc/llvm could emit an 8-byte write first, as
-needed, to make this valid.
+Hrm  - poking inside there and this seems to be one of those
+classifiers that hasnt been getting a lot of love. Doesnt
+support actions well for example.
 
-Alternatively, an integer stack slot could have a bitmask indicating
-which bytes are valid.
+It seems to work for me:
+----------
+/sbin/tc -V
+tc utility, iproute2-ss140610
 
---Andy
+uname -a
+Linux jhs-1 3.16.0-rc2+ #4 SMP Fri Aug 29 11:13:53 EDT 2014 x86_64 
+x86_64 x86_64 GNU/Linux
 
--- 
-Andy Lutomirski
-AMA Capital Management, LLC
+sudo /sbin/tc qdisc add dev eth0 root handle 1:0 prio
+sudo /sbin/tc filter add dev eth0 pref 10 proto ip parent 1:0 rsvp 
+session 10.0.0.1 ipproto icmp classid 1:1  police rate 1kbit burst 90k 
+conform-exceed drop/ok
+/sbin/tc -s filter show dev eth0 parent 1:0
+filter protocol ip pref 10 rsvp
+filter protocol ip pref 10 rsvp fh 0x0001100a flowid 1:1 session 
+10.0.0.1 ipproto icmp
+  Sent 0 bytes 0 pkts (dropped 0, overlimits 0)
+
+Now lets send a fast ping:
+sudo ping -f 10.0.0.1 -c 10000
+.......
+10000 packets transmitted, 386 received, 96% packet loss, time 115495ms
+rtt min/avg/max/mdev = 0.300/0.499/1.262/0.164 ms, ipg/ewma 11.550/0.463 ms
+
+/sbin/tc -s filter show dev eth0 parent 1:0
+filter protocol ip pref 10 rsvp
+filter protocol ip pref 10 rsvp fh 0x0001100a flowid 1:1 session 
+10.0.0.1 ipproto icmp
+  Sent 980000 bytes 10000 pkts (dropped 9614, overlimits 9614)
+
+cheers,
+jamal
