@@ -1,80 +1,170 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH 1/7 NEXT] rtlwifi: rtl8188ee: rtl8821ae: Fix a queue locking problem
-Date: Fri, 26 Sep 2014 16:40:22 -0500
-Message-ID: <1411767628-7965-2-git-send-email-Larry.Finger@lwfinger.net>
-References: <1411767628-7965-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1411767628-7965-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 0/7 NEXT] More updates for the rtlwifi-family of drivers
+Date: Fri, 26 Sep 2014 16:40:21 -0500
+Message-ID: <1411767628-7965-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org, troy_tan@realsil.com.cn,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:59270 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755964AbaIZVki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 17:40:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The code fails to lock the skb queue, which leads to a number of problems.
-This patch also fixes a Sparse warning about using a memset of 1 byte.
+This set of patches, which is intended for the 3.18 stream, converts more of the
+drivers to the 06/28/14 Realtek version, moves the driver for the RTL8192EE from
+staging to the regular wireless tree, and fixes some bugs found in the parts that
+have already been submitted.
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Cc: troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org
----
- drivers/net/wireless/rtlwifi/rtl8188ee/fw.c | 2 +-
- drivers/net/wireless/rtlwifi/rtl8188ee/hw.c | 3 +++
- drivers/net/wireless/rtlwifi/rtl8821ae/fw.c | 2 +-
- 3 files changed, 5 insertions(+), 2 deletions(-)
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/fw.c b/drivers/net/wireless/rtlwifi/rtl8188ee/fw.c
-index eda6617..8d4cf2e 100644
---- a/drivers/net/wireless/rtlwifi/rtl8188ee/fw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/fw.c
-@@ -770,7 +770,7 @@ void rtl88e_set_p2p_ps_offload_cmd(struct ieee80211_hw *hw, u8 p2p_ps_state)
- 	switch (p2p_ps_state) {
- 	case P2P_PS_DISABLE:
- 		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_DISABLE\n");
--		memset(p2p_ps_offload, 0, 1);
-+		memset(p2p_ps_offload, 0, sizeof(*p2p_ps_offload));
- 		break;
- 	case P2P_PS_ENABLE:
- 		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_ENABLE\n");
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c b/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
-index f74b7fb..f2b9713 100644
---- a/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
-@@ -89,7 +89,9 @@ static void _rtl88ee_return_beacon_queue_skb(struct ieee80211_hw *hw)
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
- 	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
- 	struct rtl8192_tx_ring *ring = &rtlpci->tx_ring[BEACON_QUEUE];
-+	unsigned long flags;
- 
-+	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
- 	while (skb_queue_len(&ring->queue)) {
- 		struct rtl_tx_desc *entry = &ring->desc[ring->idx];
- 		struct sk_buff *skb = __skb_dequeue(&ring->queue);
-@@ -101,6 +103,7 @@ static void _rtl88ee_return_beacon_queue_skb(struct ieee80211_hw *hw)
- 		kfree_skb(skb);
- 		ring->idx = (ring->idx + 1) % ring->entries;
- 	}
-+	spin_unlock_irqrestore(&rtlpriv->locks.irq_th_lock, flags);
- }
- 
- static void _rtl88ee_disable_bcn_sub_func(struct ieee80211_hw *hw)
-diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/fw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/fw.c
-index 6f71aaa..2efdb64 100644
---- a/drivers/net/wireless/rtlwifi/rtl8821ae/fw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8821ae/fw.c
-@@ -1757,7 +1757,7 @@ void rtl8821ae_set_p2p_ps_offload_cmd(struct ieee80211_hw *hw, u8 p2p_ps_state)
- 	switch (p2p_ps_state) {
- 	case P2P_PS_DISABLE:
- 		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_DISABLE\n");
--		memset(p2p_ps_offload, 0, 1);
-+		memset(p2p_ps_offload, 0, sizeof(*p2p_ps_offload));
- 		break;
- 	case P2P_PS_ENABLE:
- 		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_ENABLE\n");
+
+Larry Finger (7):
+  rtlwifi: rtl8188ee: rtl8821ae: Fix a queue locking problem
+  rtlwifi: rtl8192ee: Move driver from staging to the regular tree
+  rtlwifi: rtl8723ae: Update driver to match 06/28/14 Realtek version
+  rtlwifi: rtl8723be: Update driver to match Realtek release of 06/28/14
+  rtlwifi: rtl8192ce: rtl8192common: Update for latest version of
+    Realtek drivers
+  rtlwifi: rtl8188ee: rtl8192com: rtl8192cu: rtl8192ee: rtl8723ae:
+    rtl87323be: rtl8821ae: Use common cmd_send_packet
+  rtlwifi: rtl8188ee: rtl8723ae: rtl8821ae: Initialize some variables
+
+ drivers/net/wireless/rtlwifi/Kconfig               |   14 +-
+ drivers/net/wireless/rtlwifi/Makefile              |    1 +
+ drivers/net/wireless/rtlwifi/core.c                |   31 +
+ drivers/net/wireless/rtlwifi/core.h                |    1 +
+ drivers/net/wireless/rtlwifi/efuse.c               |    4 +-
+ drivers/net/wireless/rtlwifi/pci.c                 |   24 +-
+ drivers/net/wireless/rtlwifi/rtl8188ee/fw.c        |   38 +-
+ drivers/net/wireless/rtlwifi/rtl8188ee/hw.c        |    3 +
+ drivers/net/wireless/rtlwifi/rtl8188ee/sw.c        |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c  |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c  |  447 ++-
+ drivers/net/wireless/rtlwifi/rtl8192c/fw_common.h  |   40 +-
+ drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c |  815 ++---
+ drivers/net/wireless/rtlwifi/rtl8192c/phy_common.h |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/def.h       |   15 -
+ drivers/net/wireless/rtlwifi/rtl8192ce/dm.h        |   64 -
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c        |   16 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.h        |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/phy.c       |    3 +
+ drivers/net/wireless/rtlwifi/rtl8192ce/phy.h       |  107 -
+ drivers/net/wireless/rtlwifi/rtl8192ce/sw.c        |    5 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/trx.c       |    4 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/def.h       |    3 -
+ drivers/net/wireless/rtlwifi/rtl8192cu/hw.c        |   17 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/mac.c       |    3 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/phy.c       |    3 +
+ drivers/net/wireless/rtlwifi/rtl8192cu/sw.c        |    4 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/trx.c       |    1 +
+ drivers/net/wireless/rtlwifi/rtl8192de/fw.h        |   12 -
+ drivers/net/wireless/rtlwifi/rtl8192de/trx.c       |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8192ee/Makefile    |   20 +
+ drivers/net/wireless/rtlwifi/rtl8192ee/def.h       |  101 +
+ drivers/net/wireless/rtlwifi/rtl8192ee/dm.c        | 1263 ++++++++
+ drivers/net/wireless/rtlwifi/rtl8192ee/dm.h        |  267 ++
+ drivers/net/wireless/rtlwifi/rtl8192ee/fw.c        |  906 ++++++
+ drivers/net/wireless/rtlwifi/rtl8192ee/fw.h        |  208 ++
+ drivers/net/wireless/rtlwifi/rtl8192ee/hw.c        | 2569 ++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8192ee/hw.h        |   62 +
+ drivers/net/wireless/rtlwifi/rtl8192ee/led.c       |  145 +
+ drivers/net/wireless/rtlwifi/rtl8192ee/led.h       |   34 +
+ drivers/net/wireless/rtlwifi/rtl8192ee/phy.c       | 3219 ++++++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8192ee/phy.h       |  153 +
+ drivers/net/wireless/rtlwifi/rtl8192ee/pwrseq.c    |  112 +
+ drivers/net/wireless/rtlwifi/rtl8192ee/pwrseq.h    |  340 +++
+ drivers/net/wireless/rtlwifi/rtl8192ee/reg.h       | 2231 ++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8192ee/rf.c        |  152 +
+ drivers/net/wireless/rtlwifi/rtl8192ee/rf.h        |   36 +
+ drivers/net/wireless/rtlwifi/rtl8192ee/sw.c        |  399 +++
+ drivers/net/wireless/rtlwifi/rtl8192ee/sw.h        |   33 +
+ drivers/net/wireless/rtlwifi/rtl8192ee/table.c     |  882 ++++++
+ drivers/net/wireless/rtlwifi/rtl8192ee/table.h     |   45 +
+ drivers/net/wireless/rtlwifi/rtl8192ee/trx.c       | 1300 ++++++++
+ drivers/net/wireless/rtlwifi/rtl8192ee/trx.h       |  860 ++++++
+ drivers/net/wireless/rtlwifi/rtl8192se/fw.h        |    1 -
+ drivers/net/wireless/rtlwifi/rtl8723ae/btc.h       |    7 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/def.h       |  197 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/dm.c        |  422 ++-
+ drivers/net/wireless/rtlwifi/rtl8723ae/dm.h        |   50 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/fw.c        |  255 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/fw.h        |   54 +-
+ .../wireless/rtlwifi/rtl8723ae/hal_bt_coexist.c    |  414 ++-
+ .../wireless/rtlwifi/rtl8723ae/hal_bt_coexist.h    |   38 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.c   | 1232 ++++----
+ drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.h   |   66 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/hw.c        | 1512 ++++-----
+ drivers/net/wireless/rtlwifi/rtl8723ae/hw.h        |   66 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/led.c       |   54 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/led.h       |   13 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/phy.c       |  884 +++---
+ drivers/net/wireless/rtlwifi/rtl8723ae/phy.h       |   67 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.c    |   91 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.h    |  543 ++--
+ drivers/net/wireless/rtlwifi/rtl8723ae/reg.h       | 2718 +++++++++--------
+ drivers/net/wireless/rtlwifi/rtl8723ae/rf.c        |  261 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/rf.h        |   18 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/sw.c        |  222 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/sw.h        |   12 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/table.c     |    8 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/table.h     |    8 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/trx.c       |  460 ++-
+ drivers/net/wireless/rtlwifi/rtl8723ae/trx.h       |  325 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/def.h       |  178 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/dm.c        |  243 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/dm.h        |   30 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/fw.c        |  194 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/fw.h        |  200 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/hw.c        | 1319 ++++----
+ drivers/net/wireless/rtlwifi/rtl8723be/hw.h        |    1 +
+ drivers/net/wireless/rtlwifi/rtl8723be/led.c       |    6 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/phy.c       | 1783 +++++++----
+ drivers/net/wireless/rtlwifi/rtl8723be/phy.h       |  110 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/pwrseq.h    |  131 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/reg.h       | 1135 +++----
+ drivers/net/wireless/rtlwifi/rtl8723be/rf.c        |  144 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/sw.c        |   42 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/table.c     | 1053 +++----
+ drivers/net/wireless/rtlwifi/rtl8723be/table.h     |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/trx.c       |  307 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/trx.h       |   34 +-
+ .../net/wireless/rtlwifi/rtl8723com/dm_common.c    |   14 +-
+ .../net/wireless/rtlwifi/rtl8723com/fw_common.c    |   90 +-
+ .../net/wireless/rtlwifi/rtl8723com/fw_common.h    |   59 +-
+ .../net/wireless/rtlwifi/rtl8723com/phy_common.c   |   57 +-
+ drivers/net/wireless/rtlwifi/rtl8821ae/fw.c        |   40 +-
+ drivers/net/wireless/rtlwifi/rtl8821ae/hw.c        |    3 +
+ drivers/net/wireless/rtlwifi/rtl8821ae/sw.c        |    2 +-
+ drivers/net/wireless/rtlwifi/usb.c                 |    4 +-
+ drivers/net/wireless/rtlwifi/wifi.h                |   28 +-
+ 108 files changed, 25156 insertions(+), 9073 deletions(-)
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/Makefile
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/def.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/dm.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/dm.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/fw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/fw.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/hw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/hw.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/led.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/led.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/phy.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/phy.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/pwrseq.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/pwrseq.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/reg.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/rf.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/rf.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/sw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/sw.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/table.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/table.h
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/trx.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8192ee/trx.h
+
 -- 
 1.8.4.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
