@@ -1,48 +1,127 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 4/6 -stable] netfilter: x_tables: allow to use default cgroup match
-Date: Fri, 26 Sep 2014 13:43:42 +0200
-Message-ID: <1411731824-15051-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/6 -stable] netfilter: xt_hashlimit: perform garbage collection from process context
+Date: Fri, 26 Sep 2014 13:43:40 +0200
+Message-ID: <1411731824-15051-3-git-send-email-pablo@netfilter.org>
 References: <1411731824-15051-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:36250 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:36260 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754150AbaIZLmq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Sep 2014 07:42:46 -0400
+	id S1754285AbaIZLmr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Sep 2014 07:42:47 -0400
 In-Reply-To: <1411731824-15051-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
+From: Eric Dumazet <edumazet@google.com>
 
-[ upstream commit caa8ad94edf686d02b555c65a6162c0d1b434958 ]
+[ upstream commit 7bd8490eef9776ced7632345df5133384b6be0fe ]
 
-There's actually no good reason why we cannot use cgroup id 0,
-so lets just remove this artificial barrier.
+xt_hashlimit cannot be used with large hash tables, because garbage
+collector is run from a timer. If table is really big, its possible
+to hold cpu for more than 500 msec, which is unacceptable.
+
+Switch to a work queue, and use proper scheduling points to remove
+latencies spikes.
+
+Later, we also could switch to a smoother garbage collection done
+at lookup time, one bucket at a time...
 
 Cc: <stable@vger.kernel.org> # 3.16.x
 Cc: <stable@vger.kernel.org> # 3.14.x
-Reported-by: Alexey Perevalov <a.perevalov@samsung.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Tested-by: Alexey Perevalov <a.perevalov@samsung.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Florian Westphal <fw@strlen.de>
+Cc: Patrick McHardy <kaber@trash.net>
+Reviewed-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_cgroup.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/xt_hashlimit.c |   31 ++++++++++++++++---------------
+ 1 file changed, 16 insertions(+), 15 deletions(-)
 
-diff --git a/net/netfilter/xt_cgroup.c b/net/netfilter/xt_cgroup.c
-index f4e8330..7198d66 100644
---- a/net/netfilter/xt_cgroup.c
-+++ b/net/netfilter/xt_cgroup.c
-@@ -31,7 +31,7 @@ static int cgroup_mt_check(const struct xt_mtchk_param *par)
- 	if (info->invert & ~1)
- 		return -EINVAL;
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index a3910fc..47dc683 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -104,7 +104,7 @@ struct xt_hashlimit_htable {
+ 	spinlock_t lock;		/* lock for list_head */
+ 	u_int32_t rnd;			/* random seed for hash */
+ 	unsigned int count;		/* number entries in table */
+-	struct timer_list timer;	/* timer for gc */
++	struct delayed_work gc_work;
  
--	return info->id ? 0 : -EINVAL;
-+	return 0;
+ 	/* seq_file stuff */
+ 	struct proc_dir_entry *pde;
+@@ -213,7 +213,7 @@ dsthash_free(struct xt_hashlimit_htable *ht, struct dsthash_ent *ent)
+ 	call_rcu_bh(&ent->rcu, dsthash_free_rcu);
+ 	ht->count--;
+ }
+-static void htable_gc(unsigned long htlong);
++static void htable_gc(struct work_struct *work);
+ 
+ static int htable_create(struct net *net, struct xt_hashlimit_mtinfo1 *minfo,
+ 			 u_int8_t family)
+@@ -273,9 +273,9 @@ static int htable_create(struct net *net, struct xt_hashlimit_mtinfo1 *minfo,
+ 	}
+ 	hinfo->net = net;
+ 
+-	setup_timer(&hinfo->timer, htable_gc, (unsigned long)hinfo);
+-	hinfo->timer.expires = jiffies + msecs_to_jiffies(hinfo->cfg.gc_interval);
+-	add_timer(&hinfo->timer);
++	INIT_DEFERRABLE_WORK(&hinfo->gc_work, htable_gc);
++	queue_delayed_work(system_power_efficient_wq, &hinfo->gc_work,
++			   msecs_to_jiffies(hinfo->cfg.gc_interval));
+ 
+ 	hlist_add_head(&hinfo->node, &hashlimit_net->htables);
+ 
+@@ -300,29 +300,30 @@ static void htable_selective_cleanup(struct xt_hashlimit_htable *ht,
+ {
+ 	unsigned int i;
+ 
+-	/* lock hash table and iterate over it */
+-	spin_lock_bh(&ht->lock);
+ 	for (i = 0; i < ht->cfg.size; i++) {
+ 		struct dsthash_ent *dh;
+ 		struct hlist_node *n;
++
++		spin_lock_bh(&ht->lock);
+ 		hlist_for_each_entry_safe(dh, n, &ht->hash[i], node) {
+ 			if ((*select)(ht, dh))
+ 				dsthash_free(ht, dh);
+ 		}
++		spin_unlock_bh(&ht->lock);
++		cond_resched();
+ 	}
+-	spin_unlock_bh(&ht->lock);
  }
  
- static bool
+-/* hash table garbage collector, run by timer */
+-static void htable_gc(unsigned long htlong)
++static void htable_gc(struct work_struct *work)
+ {
+-	struct xt_hashlimit_htable *ht = (struct xt_hashlimit_htable *)htlong;
++	struct xt_hashlimit_htable *ht;
++
++	ht = container_of(work, struct xt_hashlimit_htable, gc_work.work);
+ 
+ 	htable_selective_cleanup(ht, select_gc);
+ 
+-	/* re-add the timer accordingly */
+-	ht->timer.expires = jiffies + msecs_to_jiffies(ht->cfg.gc_interval);
+-	add_timer(&ht->timer);
++	queue_delayed_work(system_power_efficient_wq,
++			   &ht->gc_work, msecs_to_jiffies(ht->cfg.gc_interval));
+ }
+ 
+ static void htable_remove_proc_entry(struct xt_hashlimit_htable *hinfo)
+@@ -341,7 +342,7 @@ static void htable_remove_proc_entry(struct xt_hashlimit_htable *hinfo)
+ 
+ static void htable_destroy(struct xt_hashlimit_htable *hinfo)
+ {
+-	del_timer_sync(&hinfo->timer);
++	cancel_delayed_work_sync(&hinfo->gc_work);
+ 	htable_remove_proc_entry(hinfo);
+ 	htable_selective_cleanup(hinfo, select_all);
+ 	kfree(hinfo->name);
 -- 
 1.7.10.4
