@@ -1,56 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] dql: dql_queued() should write first to reduce
- bus transactions
-Date: Fri, 26 Sep 2014 05:02:55 -0700
-Message-ID: <1411732975.16953.106.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140924160932.9721.56450.stgit@localhost>
-	 <20140924161047.9721.43080.stgit@localhost>
-	 <1411579395.15395.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140924195831.6fb91051@redhat.com>
-	 <CA+mtBx8s63TDe1XS7TzfscwhiRCgyeLkKLz2p-4et1erX0-dUQ@mail.gmail.com>
-	 <1411586550.15395.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411611140.16953.1.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411688409.16953.64.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411711496.16953.92.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411729595.1776139.172032293.6FCC3EBB@webmail.messagingengine.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] net: stmmac: fix stmmac_pci_probe failed when CONFIG_HAVE_CLK
+ is selected
+Date: Fri, 26 Sep 2014 14:05:38 +0200
+Message-ID: <54255692.8020402@st.com>
+References: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com> <20140922.141921.577008114679288180.davem@davemloft.net> <F54AEECA5E2B9541821D670476DAE19C2B7EAE19@PGSMSX102.gar.corp.intel.com> <54210EC1.9070507@st.com> <F54AEECA5E2B9541821D670476DAE19C2B7EAF23@PGSMSX102.gar.corp.intel.com> <54226020.50008@st.com> <F54AEECA5E2B9541821D670476DAE19C2B7EB35E@PGSMSX102.gar.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
-	Florian Westphal <fw@strlen.de>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:39344 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753986AbaIZMC5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 08:02:57 -0400
-Received: by mail-pd0-f174.google.com with SMTP id g10so12288783pdj.33
-        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 05:02:56 -0700 (PDT)
-In-Reply-To: <1411729595.1776139.172032293.6FCC3EBB@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>,
+	"vbridgers2013@gmail.com" <vbridgers2013@gmail.com>,
+	"wens@csie.org" <wens@csie.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Ong, Boon Leong" <boon.leong.ong@intel.com>,
+	"tobias.johannes.klausmann@mni.thm.de"
+	<tobias.johannes.klausmann@mni.thm.de>
+To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <F54AEECA5E2B9541821D670476DAE19C2B7EB35E@PGSMSX102.gar.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-09-26 at 13:06 +0200, Hannes Frederic Sowa wrote:
+On 9/24/2014 12:48 PM, Kweh, Hock Leong wrote:
+>> -----Original Message-----
+>> From: Giuseppe CAVALLARO [mailto:peppe.cavallaro@st.com]
+>> Sent: Wednesday, September 24, 2014 2:10 PM
+>>>
+>>> Hi peppe,
+>>>
+>>> Appreciate for the explanation. Just to clarify that I am not asking not to
+>> pass in the priv->stmmac_clk.
+>>> In fact, the fix will fail at case 2 if driver cannot obtain the priv->stmmac_clk,
+>> but just not the case 1.
+>>> For case 1, seem like it does not require the stmmac_clk then I think
+>>> it should be OK not to fail it when driver did not get stmmac_clk but have
+>> the clk_csr set.
+>>
+>> ok we can do that but this clock is also managed when the iface is down.
+>> Maybe it could be convenient to manage it for power consumption.
+>> What do you think?
+>
+> Hi peppe,
+>
+> I don't really get what you mean here. Are you telling that you are OK with the fix?
+> Or you are referring to the bottom idea which introduce clock registration APIs to
+> stmmac_pci driver?
 
-> I thought that prefetchw() would be the canonical way to solve write
-> stalls in CPUs and prepare the specific cache line to be written to.
-> Interesting, thanks Eric.
+I just meant that if no clock is passed then the probe doesn't fail and
+we can keep a dev_warn. Pls surround the code with a comment and repost
+the patch. Let me know and sorry for the delay on replying.
 
-True, and I have a tcp_ack() (tcp_clean_rtx_queue() more exactly) patch
-that indeed uses prefetchw() to bring tcp_shinfo() in cache before the 
-tcp_unlink_write_queue(skb, sk);
+peppe
 
-Performance went from 570000 packets per second to 820000 packets per
-second on a TSO=off GSO=off workload.
-
-But this applies after the https://patchwork.ozlabs.org/patch/392877/
-patch (tcp: change tcp_skb_pcount() location )
+>
+> Regarding the power management, isn't this taking care by the PCI framework itself
+> for the PCI devices / PCI cards?
+>
+> Sorry, may be would need you to provide a big picture to this. Thanks. :)
+>
+>>
+>>> Anyway, I can change the fix by adding the clock registration APIs
+>>> being call at the stmmac_pci.c probe there before calling
+>>> stmmac_dvr_probe. By doing this, it created a dependency to the pci
+>>> driver that must have CONFIG_HAVE_CLK to be turned on. Besides, I
+>> would need you guys to provide me information on other platforms about
+>> what is the best value to set? Can I just set to zero since the stmmac_pci
+>> driver is always using the priv->plat->clk_csr?
