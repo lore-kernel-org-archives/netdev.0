@@ -1,46 +1,53 @@
-From: Laurent CARON <lcaron@lncsa.com>
-Subject: Regarding bug 82471
-Date: Fri, 26 Sep 2014 18:35:34 +0200
-Message-ID: <542595D6.6040904@lncsa.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/9] ipv6: fib6: socket dst_entry
+ improvments and cleanups
+Date: Fri, 26 Sep 2014 12:46:43 -0400 (EDT)
+Message-ID: <20140926.124643.202150841147181272.davem@davemloft.net>
+References: <cover.1411308211.git.hannes@stressinduktion.org>
+	<20140926.002853.1097612772155886372.davem@davemloft.net>
+	<1411718323.1731596.171980125.03C65719@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	hideaki@yoshifuji.org, vyasevich@gmail.com,
+	nicolas.dichtel@6wind.com, kafai@fb.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out-siege-002.lncsa.com ([46.21.113.22]:47444 "EHLO
-	smtp-out-siege-002.lncsa.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755344AbaIZQpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 12:45:07 -0400
-Received: from [10.225.0.195] (donald.lncsa.com [10.225.0.195])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	(Authenticated sender: lcaron)
-	by smtp-out-siege-002.lncsa.com (Postfix) with ESMTPSA id 9E41EC067B
-	for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 18:35:31 +0200 (CEST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:47582 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754703AbaIZQqp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 12:46:45 -0400
+In-Reply-To: <1411718323.1731596.171980125.03C65719@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Fri, 26 Sep 2014 09:58:43 +0200
 
-I've been biten by : https://bugzilla.kernel.org/show_bug.cgi?id=82471 
-today.
+> On Fri, Sep 26, 2014, at 06:28, David Miller wrote:
+>> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> Date: Sun, 21 Sep 2014 16:11:44 +0200
+>> 
+>> > Eric Dumazet noticed that rt6_nodes wich are neither RTF_NONEXTHOP nor
+>> > RTF_GATEWAY but DST_HOST ones cause major routing lookup churn because
+>> > their rt6_genid is never renewed, thus ip6_dst_check always considers
+>> > them outdated. This is a major problem, because these kind of routes
+>> > are normally used to in input handling.
+>> 
+>> This series is a disappointment for me from the perspective of the
+>> fact that we have a regression in mainline and this is too complex
+>> of a set of changes for there.
+>> 
+>> If we relookup the thing every TCP input packet, we might as well
+>> not do the input route caching in the socket.
+> 
+> I can understand.
+> 
+> Toss this series, I'll try to do better tomorrow and send changes for
+> net and submit net-next cleanups when your queue is a bit smaller.
 
-I tried various kernels from 3.2.0 to 3.16.3
+BTW, don't get me wrong, I like the new code and for 'net-next' it's
+good.
 
-The last unaffected kernel according to my tests is 3.14 (didn't yet try 
-3.15).
-
-Please see logs when (on 3.16.2)
-1/ using iptables
-2/ having some traffic (even light) going through
-
-http://pastebin.com/JWkFu2w2
-
-My network config is the following:
-
-a bond interface consisting of 2 10Gb ports (intel ixgbe / X520-SR2) on 
-top of which I use 2 vlans.
-
-Thanks for your help,
-
-Laurent
+But for 'net' we have to come up with something simpler meanwhile.
