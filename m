@@ -1,93 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 1/1 V4] qdisc: bulk dequeue support for qdiscs
- with TCQ_F_ONETXQUEUE
-Date: Thu, 25 Sep 2014 16:40:09 -0700
-Message-ID: <1411688409.16953.64.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140924160932.9721.56450.stgit@localhost>
-	 <20140924161047.9721.43080.stgit@localhost>
-	 <1411579395.15395.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140924195831.6fb91051@redhat.com>
-	 <CA+mtBx8s63TDe1XS7TzfscwhiRCgyeLkKLz2p-4et1erX0-dUQ@mail.gmail.com>
-	 <1411586550.15395.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411611140.16953.1.camel@edumazet-glaptop2.roam.corp.google.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [Patch net-next 1/2] net_sched: fix errno in tcindex_set_parms()
+Date: Thu, 25 Sep 2014 17:27:34 -0700
+Message-ID: <5424B2F6.4060201@intel.com>
+References: <1411671965-18887-1-git-send-email-xiyou.wangcong@gmail.com> <5424842A.60802@intel.com> <54249DD9.5060403@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
-	Florian Westphal <fw@strlen.de>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:36626 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752243AbaIYXkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 19:40:11 -0400
-Received: by mail-pa0-f43.google.com with SMTP id kx10so11853056pab.16
-        for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 16:40:10 -0700 (PDT)
-In-Reply-To: <1411611140.16953.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mga01.intel.com ([192.55.52.88]:17304 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752312AbaIZA1v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Sep 2014 20:27:51 -0400
+In-Reply-To: <54249DD9.5060403@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-09-24 at 19:12 -0700, Eric Dumazet wrote:
-> On Wed, 2014-09-24 at 12:22 -0700, Eric Dumazet wrote:
-> > On Wed, 2014-09-24 at 11:34 -0700, Tom Herbert wrote:
-> > > >
-> > > I believe drivers typically use skb->len for BQL tracking. Since
-> > > bytelimit is based on BQL here, it might be more correct to use
-> > > skb->len.
->=20
-> Speaking of BQL, I wonder if we now should try to not wakeup queues a=
-s
-> soon some room was made, and instead have a 50% threshold ?
->=20
-> This would probably increase probability to have bulk dequeues ;)
+On 09/25/2014 03:57 PM, John Fastabend wrote:
+> On 09/25/2014 02:07 PM, John Fastabend wrote:
+>> On 09/25/2014 12:06 PM, Cong Wang wrote:
+>>> When kmemdup() fails, we should return -ENOMEM.
+>>>
+>>> Cc: John Fastabend <john.fastabend@gmail.com>
+>>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>>> ---
+>>
+>> Acked-by: John Fastabend <john.r.fastabend@intel.com>
+>>
+>> Thanks Cong.
+>>
+> 
+> Related to this we should probably push error messages
+> from the dump routines correctly. If you see u32_dump()
+> returns a -EINVAL even though it was due to a memory
+> allocation failure. This is not necessarily due to my
+> patches though I think the error returning from dump
+> has always been a simple -1 value.
+> 
+> I'll take a look at it, unless you beat me to it, after
+> I finish up the percpu stats which I'm doing now.
+> 
+> .John
+> 
 
-It turned out the problem I noticed was caused by compiler trying to be
-smart, but involving a bad MESI transaction.
+Also just in case you hit them, there is an suspicious
+rcu usage from qdisc_watchdog and another from task_csl_state()
+call in cls_cgroup.
 
-  0.05 =E2=94=82  mov    0xc0(%rax),%edi    // LOAD dql->num_queued
-  0.48 =E2=94=82  mov    %edx,0xc8(%rax)    // STORE dql->last_obj_cnt =
-=3D count
- 58.23 =E2=94=82  add    %edx,%edi
-  0.58 =E2=94=82  cmp    %edi,0xc4(%rax)
-  0.76 =E2=94=82  mov    %edi,0xc0(%rax)    // STORE dql->num_queued +=3D=
- count
-  0.72 =E2=94=82  js     bd8
+The qdisc_watchdog is due to the annotation on the qdisc
+and I'm not entirely convinced the cls_cgroup hasn't been
+there all along.
 
+I'm looking into them but most likely wont figure it out
+tonight as I have to take off for a bit.
 
-I get an incredible 10 % gain by making sure cpu wont get the cache lin=
-e
-in Shared mode.
-
-(I also tried a barrier() in netdev_tx_sent_queue() between the
-
-	dql_queued(&dev_queue->dql, bytes);
--
-+	barrier();
- 	if (likely(dql_avail(&dev_queue->dql) >=3D 0))
-
-But following patch seems cleaner
-
-diff --git a/include/linux/dynamic_queue_limits.h b/include/linux/dynam=
-ic_queue_limits.h
-index 5621547d631b..978fbe332090 100644
---- a/include/linux/dynamic_queue_limits.h
-+++ b/include/linux/dynamic_queue_limits.h
-@@ -80,7 +80,7 @@ static inline void dql_queued(struct dql *dql, unsign=
-ed int count)
- /* Returns how many objects can be queued, < 0 indicates over limit. *=
-/
- static inline int dql_avail(const struct dql *dql)
- {
--	return dql->adj_limit - dql->num_queued;
-+	return ACCESS_ONCE(dql->adj_limit) - ACCESS_ONCE(dql->num_queued);
- }
-=20
+Thanks,
+John
