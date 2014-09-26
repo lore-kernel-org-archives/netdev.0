@@ -1,73 +1,39 @@
-From: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
-Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
-Date: Thu, 25 Sep 2014 19:09:37 -0700
-Message-ID: <CAHA+R7Ooyam2L-QfP-TjMEZEOqrQcQDxYiebmw760kgEji4G=g@mail.gmail.com>
-References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
-	<CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw@mail.gmail.com>
-	<54228D87.3070309@6wind.com>
-	<CAHA+R7NfJYzCsZx0E9YVXKVCQbCm_thPSi+80tix8Z9nVA82Ug@mail.gmail.com>
-	<5422F0F4.6000709@6wind.com>
-	<CAHA+R7Ot2kLHb+ne5AW3bFNc87qkFOiEHEyDh9sFrsHqXgrY3g@mail.gmail.com>
-	<5423D80B.9060500@6wind.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net: stmmac glue layer for Amlogic Meson SoCs
+Date: Fri, 26 Sep 2014 00:13:41 -0400 (EDT)
+Message-ID: <20140926.001341.1361691136914532479.davem@davemloft.net>
+References: <1411219757-9201-1-git-send-email-b.galvani@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <5423D80B.9060500-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com, robh+dt@kernel.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	carlo@caione.org, jerry.cao@amlogic.com, victor.wan@amlogic.com,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org
+To: b.galvani@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37491 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751202AbaIZENu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 00:13:50 -0400
+In-Reply-To: <1411219757-9201-1-git-send-email-b.galvani@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBTZXAgMjUsIDIwMTQgYXQgMTo1MyBBTSwgTmljb2xhcyBEaWNodGVsCjxuaWNvbGFz
-LmRpY2h0ZWxANndpbmQuY29tPiB3cm90ZToKPiBMZSAyNC8wOS8yMDE0IDE4OjQ1LCBDb25nIFdh
-bmcgYSDDqWNyaXQgOgo+Pgo+PiBPbiBXZWQsIFNlcCAyNCwgMjAxNCBhdCA5OjI3IEFNLCBOaWNv
-bGFzIERpY2h0ZWwKPj4gPG5pY29sYXMuZGljaHRlbEA2d2luZC5jb20+IHdyb3RlOgo+Pj4KPj4+
-IE5vdyBpbmZvcm1hdGlvbnMgZ290IHdpdGggJ2lwIGxpbmsnIGFyZSB3cm9uZyBhbmQgaW5jb21w
-bGV0ZToKPj4+ICAgIC0gdGhlIGxpbmsgZGV2IGlzIG5vdyB0dW5sMCBpbnN0ZWFkIG9mIGV0aDAs
-IGJlY2F1c2Ugd2Ugb25seSBnb3QgYW4KPj4+IGlmaW5kZXgKPj4+ICAgICAgZnJvbSB0aGUga2Vy
-bmVsIHdpdGhvdXQgYW55IG5ldG5zIGluZm9ybWF0aW9ucy4KPj4KPj4KPj4gVGhpcyBpcyBub3Qg
-bmV3LCBtYWN2bGFuIGhhcyB0aGUgc2FtZSBwcm9ibGVtLiBUaGlzIGlzIHdoeSBJIHNhaWQKPj4g
-aXQgaXMgbW9zdGx5IGEgZGlzcGxheSBwcm9ibGVtLCBtYXliZSBqdXN0IG1hcmsgdGhlIGlmaW5k
-ZXggYXMgLTEgb3IKPj4gc29tZXRoaW5nIHdoZW4gaXQgaXMgbm90IGluIHRoaXMgbmV0bnMuIEF0
-IGxlYXN0IEkgZG9uJ3QgZXhwZWN0IHRoZSBpbm5lcgo+PiBuZXRucyBrbm93IGFueXRoaW5nIG91
-dHNpZGUsIGFuZCBJIGRvbid0IHRoaW5rIEkgYW0gdGhlIG9ubHkgb25lIHVzaW5nCj4+IG5ldG5z
-IGluIHRoaXMgd2F5Lgo+Cj4gSSB1bmRlcnN0YW5kIHlvdXIgcG9pbnQgYnV0IHRoZXJlIGlzIHNl
-dmVyYWwgdXNlIG9mIG5ldG5zLiBOZXRucyBjYW4gYmUgdXNlZAo+IGFsc28gdG8gaW5zdGFudGlh
-dGUgdmlydHVhbCByb3V0ZXJzLiBJbiB0aGlzIGNhc2UsIGFkbWluaXN0cmF0b3JzIG9yIGRhZW1v
-bnMKPiBuZWVkIHRvIGJlIGFibGUgdG8gbW9uaXRvciBhbmQgZHVtcCB0aGUgY29uZmlndXJhdGlv
-biBvbiBhbGwgbmV0bnMKPiAocGFydGljdWxhcmx5IGJlZWluZyBhYmxlIHRvIGlkZW50aWZ5IGZ1
-bGx5IHgtbmV0bnMgaW50ZXJmYWNlcykuIFdlIHN0YXJ0IHRvCj4gZGlzY3VzcyB0aGlzIGluIG9u
-ZSBvZiB0aGUgdHdvIHRocmVhZCBwb2ludGVkIGluIG15IGNvdmVyIGxldHRlciBhbmQgZ2V0IHRo
-ZQo+IGNvbmNsdXNpb24gdGhhdCBjaGVja2luZyB1c2VyIG5zIGlzIGEgZ29vZCB3YXkgdG8ga25v
-dyBpZiBhbiBpZCBzaG91bGQgYmUKPiBkaXNjbG9zZWQgb3Igbm90IGZvciBhIHBlZXIgbmV0bnMu
-CgpUaGVuIHlvdSBhcmUgbGVha2luZyBpbmZvcm1hdGlvbiwgdGhpcyBicmVha3MgaXNvbGF0aW9u
-LgoKPiBDYW4geW91IGRlc2NyaWJlIHlvdXIgdXNlIGNhc2U/CgpZZXMsIHRvbyBzaW1wbGU6IGlz
-b2xhdGlvbiBuZXR3b3JraW5nLCBkaWZmZXJlbnQgbmV0bnMncyBkb24ndCBzZWUgZWFjaCBvdGhl
-cgooaW5jbHVkaW5nIGFueXRoaW5nIGluc2lkZSkgYW5kIG9ubHkgY29tbXVuaWNhdGUgdmlhIHZl
-dGguCgoKPiBJZiB5b3Ugb25seSBwbGF5IHdpdGggbmV0bnMsIHlvdSBtYXkgd2FudCB0byBtb25p
-dG9yIGFsbCBhY3RpdmllcyBpbiBhbGwKPiBuZXRucwo+ICh0aGlzIGlzIGFscmVhZHkgcG9zc2li
-bGUpIGFuZCBiZWVpbmcgYWJsZSB0byBsaW5rIGluZm9ybWF0aW9uIGJldHdlZW4gbmV0bnMKPiAo
-dGhpcyBpcyB3aGF0IEknbSB0cnlpbmcgdG8gc29sdmUpLgoKCk5vLCBJIGRvbid0IHdhbnQgdG8g
-bW9uaXRvciBhbnl0aGluZy4gRXZlbiBpZiBJIHdhbnRlZCwgSSB3b3VsZCBqdXN0IHN0YXJ0IG9u
-ZQpkYWVtb24gaW4gZWFjaCBuZXRucyBpbnN0ZWFkIG9mIG9uZSBmb3IgYWxsLgoKT24gdGhlIG90
-aGVyIGhhbmQsIHdoeSBub3QgZXhjaGFuZ2UgdGhlIGNvbmZpZ3VyYXRpb24gdmlhIHZldGgKYmV0
-d2VlbiBkaWZmZXJlbnQgbmV0bnM/IFRoZXJlIGFyZSBtYW55IHdheXMgdG8gZG8gc28gd2l0aCBU
-Q1AgSFRUUCBldGMuClRoaXMgZG9lc24ndCBoYXZlIHRvIGJlIHNvbHZlZCBpbiBrZXJuZWwuCl9f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkNvbnRhaW5lcnMg
-bWFpbGluZyBsaXN0CkNvbnRhaW5lcnNAbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6
-Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vY29udGFpbmVycw==
+From: Beniamino Galvani <b.galvani@gmail.com>
+Date: Sat, 20 Sep 2014 15:29:15 +0200
+> 
+> the Ethernet controller available in Amlogic Meson6 and Meson8 SoCs is
+> a Synopsys DesignWare MAC IP core, already supported by the stmmac
+> driver.
+> 
+> These patches add a glue layer to the driver for the platform-specific
+> settings required by the Amlogic variant.
+> 
+> This has been tested on a Amlogic S802 device with the initial Meson
+> support submitted by Carlo Caione [1].
+> 
+> [1] http://lwn.net/Articles/612000/
+
+Series applied to net-next, thanks.
