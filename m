@@ -1,105 +1,57 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 0/5] udp: Generalize GSO for UDP tunnels
-Date: Fri, 26 Sep 2014 23:16:20 +0300
-Message-ID: <CAJ3xEMjVx6-XK9Eb2akLHei_43pw10rnHM-zXrOD7pzoXuXaRg@mail.gmail.com>
-References: <1411748554-7346-1-git-send-email-therbert@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 2/5] net: tcp: add flag for ca to indicate
+ that ECN is required
+Date: Fri, 26 Sep 2014 16:20:29 -0400 (EDT)
+Message-ID: <20140926.162029.1735467343159695433.davem@davemloft.net>
+References: <1411248562-26581-3-git-send-email-fw@strlen.de>
+	<20140922.163357.553905454314637491.davem@davemloft.net>
+	<20140923091105.GB13394@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hagen@jauu.net, lars@netapp.com, eric.dumazet@gmail.com,
+	fontana@sharpeleven.org, hannes@stressinduktion.org,
+	glenn.judd@morganstanley.com, dborkman@redhat.com,
+	netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:33177 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754829AbaIZUQV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 16:16:21 -0400
-Received: by mail-ob0-f178.google.com with SMTP id va2so10678354obc.9
-        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 13:16:20 -0700 (PDT)
-In-Reply-To: <1411748554-7346-1-git-send-email-therbert@google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50844 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422641AbaIZUUd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 16:20:33 -0400
+In-Reply-To: <20140923091105.GB13394@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 26, 2014 at 7:22 PM, Tom Herbert <therbert@google.com> wrote:
-[...]
-> Notes:
->   - GSO for GRE/UDP where GRE checksum is enabled does not work.
->     Handling this will require some special case code.
->   - Software GSO now supports many varieties of encapsulation with
->     SKB_GSO_UDP_TUNNEL{_CSUM}. We still need a mechanism to query
->     for device support of particular combinations (I intend to
->     add ndo_gso_check for that).
+From: Florian Westphal <fw@strlen.de>
+Date: Tue, 23 Sep 2014 11:11:05 +0200
 
-Tom,
+> Thanks for your feedback! We have actually thought about that for
+> quite a while before starting on the implementation, and concluded
+> that the behaviour is actually fine as is for three reasons:
+> 
+> 1) DCTCP is very tighly coupled to the ECN machinery as described
+>    in the paper. Not having ECN enabled and nevertheless allowing
+>    DCTCP (if we would implement above feedback) would just make it
+>    fallback to Reno, which would not be useful in the first place.
+>    So an administrator would rather not load DCTCP to the available
+>    congestion control modules in the first place in this case.
+> 
+> 2) Right now an administrator can choose to use DCTCP only for a
+>    particular process, and still avoid exposing ECN to the outside
+>    world for every other process.
+> 
+> 3) An unpriviledged user would not be able to use DCTCP *unless*
+>    an administrator has explicitly allowed to use it. This is being
+>    reflected since Stephen's commit ce7bc3bf15cb ("[TCP]: Restrict
+>    congestion control choices.") where only Reno or the currently
+>    compiled-in default choice is non-restricted.
+> 
+> If you nevertheless think that it is useful to include above feedback
+> to overcome your objection, we could just add a check for tcp_ecn
+> sysctl being set to 1 for the initialization of the congestion control
+> ops of the socket and otherwise fall back to Reno.
 
-As I wrote you earlier on another thread/s, fact is that there are
-upstream drivers who advertize SKB_GSO_UDP_TUNNEL and aren't capable @
-this point to issue proper HW segmentation of something which isn't
-VXLAN.
+Ok, I'm convinced (for now).
 
-Just to make sure, this series isn't expected to introduce a
-regression, right? we don't expect the stack to attempt and xmit a
-large 64KB UDP packet which isn't vxlan through these devices.
-
-
-
->   - MPLS seems to be the only previous user of inner_protocol. I don't
->     believe these patches can affect that. For supporting GSO with
->     MPLS over UDP, the inner_protocol should be set using the
->     helper functions in this patch.
->   - GSO for L2TP/UDP should also be straightforward now.
-
-> Tested GRE, IPIP, and SIT over fou as well as VLXAN. This was
-> done using 200 TCP_STREAMs in netperf.
-[...]
->    VXLAN
->       TCP_STREAM TSO enabled on tun interface
->         16.42% TX CPU utilization
->         23.66% RX CPU utilization
->         9081 Mbps
->       TCP_STREAM TSO disabled on tun interface
->         30.32% TX CPU utilization
->         30.55% RX CPU utilization
->         9185 Mbps
-
-so TSO disabled has better BW vs TSO enabled?
-
->    Baseline (no encp, TSO and LRO enabled)
->       TCP_STREAM
->         11.85% TX CPU utilization
->         15.13% RX CPU utilization
->         9452 Mbps
-
-I would strongly recommend to have a far better baseline when
-developing and testing these changes in the stack in the form of 40Gbs
-NICs.
-
-Or.
-
-
->
-> Tom Herbert (5):
->   udp: Generalize skb_udp_segment
->   sit: Set inner IP protocol in sit
->   ipip: Set inner IP protocol in ipip
->   gre: Set inner protocol in v4 and v6 GRE transmit
->   vxlan: Set inner protocol before transmit
->
->  drivers/net/vxlan.c    |  4 ++++
->  include/linux/skbuff.h | 26 +++++++++++++++++++++++--
->  include/net/udp.h      |  3 ++-
->  net/core/skbuff.c      |  1 +
->  net/ipv4/ip_gre.c      |  2 ++
->  net/ipv4/ipip.c        |  2 ++
->  net/ipv4/udp_offload.c | 51 +++++++++++++++++++++++++++++++++++++++++++++-----
->  net/ipv6/ip6_gre.c     |  8 ++++++--
->  net/ipv6/sit.c         |  4 ++++
->  net/ipv6/udp_offload.c |  2 +-
->  10 files changed, 92 insertions(+), 11 deletions(-)
->
-> --
-> 2.1.0.rc2.206.gedb03e5
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please resubmit this series and I'll apply it, thanks.
