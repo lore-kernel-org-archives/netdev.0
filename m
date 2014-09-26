@@ -1,50 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] net: Eliminate gso_send_check
-Date: Fri, 26 Sep 2014 00:23:43 -0400 (EDT)
-Message-ID: <20140926.002343.1473744968675123105.davem@davemloft.net>
-References: <1411249950-6795-1-git-send-email-therbert@google.com>
+Subject: Re: [PATCH net-next] net: sched: use pinned timers
+Date: Fri, 26 Sep 2014 00:27:10 -0400 (EDT)
+Message-ID: <20140926.002710.1595423408687413602.davem@davemloft.net>
+References: <1411261290.26859.103.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: therbert@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37625 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37634 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751392AbaIZEXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 00:23:45 -0400
-In-Reply-To: <1411249950-6795-1-git-send-email-therbert@google.com>
+	with ESMTP id S1752542AbaIZE1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 00:27:12 -0400
+In-Reply-To: <1411261290.26859.103.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Sat, 20 Sep 2014 14:52:27 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 20 Sep 2014 18:01:30 -0700
 
-> gso_send_check presents a lot of complexity for what it is being used
-> for. It seems that there are only two cases where it might be effective:
-> TCP and UFO paths. In these cases, the gso_send_check function
-> initializes the TCP or UDP checksum respectively to the pseudo header
-> checksum so that the checksum computation is appropriately offloaded or
-> computed in the gso_segment functions. The gso_send_check functions
-> are only called from dev.c in skb_mac_gso_segment when ip_summed !=
-> CHECKSUM_PARTIAL (which seems very unlikely in TCP case). We can move
-> the logic of this into the respective gso_segment functions where the
-> checksum is initialized if ip_summed != CHECKSUM_PARTIAL.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> With the above cases handled, gso_send_check is no longer needed, so
-> we can remove all uses of it and the fields in the offload callbacks.
-> With this change, ip_summed in the skb should be preserved though all
-> the layers of gso_segment calls.
+> While using a MQ + NETEM setup, I had confirmation that the default
+> timer migration ( /proc/sys/kernel/timer_migration ) is killing us.
 > 
-> In follow-on patches, we may be able to remove the check setup code in
-> tcp_gso_segment if we can guarantee that ip_summed will always be
-> CHECKSUM_PARTIAL (verify all paths and probably add an assert in
-> tcp_gro_segment).
+> Installing this on a receiver side of a TCP_STREAM test, (NIC has 8 TX
+> queues) :
+ ...
+> We can see that timers get migrated into a single cpu, presumably idle
+> at the time timers are set up.
+> Then all qdisc dequeues run from this cpu and huge lock contention
+> happens. This single cpu is stuck in softirq mode and cannot dequeue
+> fast enough.
 > 
-> Tested these patches by:
->   - netperf TCP_STREAM test with GSO enabled
->   - Forced ip_summed != CHECKSUM_PARTIAL with above
->   - Ran UDP_RR with 10000 request size over GRE tunnel. This exercised
->     UFO path.
+>     39.24%  [kernel]          [k] _raw_spin_lock
+>      2.65%  [kernel]          [k] netem_enqueue
+>      1.80%  [kernel]          [k] netem_dequeue                         
+>      1.63%  [kernel]          [k] copy_user_enhanced_fast_string
+>      1.45%  [kernel]          [k] _raw_spin_lock_bh        
+> 
+> By pinning qdisc timers on the cpu running the qdisc, we respect proper
+> XPS setting and remove this lock contention.
+> 
+>      5.84%  [kernel]          [k] netem_enqueue                      
+>      4.83%  [kernel]          [k] _raw_spin_lock
+>      2.92%  [kernel]          [k] copy_user_enhanced_fast_string
+> 
+> Current Qdiscs that benefit from this change are :
+> 
+> 	netem, cbq, fq, hfsc, tbf, htb.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Series applied, thanks Tom.
+Looks great, applied, thanks Eric.
