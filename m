@@ -1,32 +1,37 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 1/5] udp: Generalize skb_udp_segment
-Date: Fri, 26 Sep 2014 12:39:50 -0700
-Message-ID: <CAADnVQJgoW1SbkK6hoJcRtTwyKxgNBtFYqBF-5aW9D4=Zi5ofg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: introduce __skb_header_release()
+Date: Fri, 26 Sep 2014 15:40:21 -0400 (EDT)
+Message-ID: <20140926.154021.663234155981881132.davem@davemloft.net>
+References: <1411428572.26859.165.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:45259 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754243AbaIZTjw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 15:39:52 -0400
-Received: by mail-la0-f43.google.com with SMTP id gb8so5507935lab.2
-        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 12:39:50 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:50391 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755047AbaIZTkX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 15:40:23 -0400
+In-Reply-To: <1411428572.26859.165.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 26, 2014 at 9:22 AM, Tom Herbert <therbert@google.com> wrote:
-> skb_udp_segment is the function called from udp4_ufo_fragment to
-> segment a UDP tunnel packet. This function currently assumes
-> segmentation is transparent Ethernet bridging (i.e. VXLAN
-> encapsulation). This patch generalizes the function to
-> operate on either Ethertype or IP protocol.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 22 Sep 2014 16:29:32 -0700
 
-this is great generalization.
-Do you envision that type_ether will cover vlan and mpls, right?
-What if somebody crazy adds a new thing after udp encap
-that is neither ethernet nor ip header?
-Like encryption header?
-I think it would fit this model well...
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> While profiling TCP stack, I noticed one useless atomic operation
+> in tcp_sendmsg(), caused by skb_header_release().
+> 
+> It turns out all current skb_header_release() users have a fresh skb,
+> that no other user can see, so we can avoid one atomic operation.
+> 
+> Introduce __skb_header_release() to clearly document this.
+> 
+> This gave me a 1.5 % improvement on TCP_RR workload.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Looks great, applied, thanks!
