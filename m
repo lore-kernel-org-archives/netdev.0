@@ -1,71 +1,98 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
-Date: Fri, 26 Sep 2014 12:34:16 -0700
-Message-ID: <87mw9myy4n.fsf@x220.int.ebiederm.org>
-References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
-	<CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw@mail.gmail.com>
-	<54228D87.3070309@6wind.com>
-	<CAHA+R7NfJYzCsZx0E9YVXKVCQbCm_thPSi+80tix8Z9nVA82Ug@mail.gmail.com>
-	<5422F0F4.6000709@6wind.com>
-	<CAHA+R7Ot2kLHb+ne5AW3bFNc87qkFOiEHEyDh9sFrsHqXgrY3g@mail.gmail.com>
-	<5423D80B.9060500@6wind.com>
-	<CAHA+R7Ooyam2L-QfP-TjMEZEOqrQcQDxYiebmw760kgEji4G=g@mail.gmail.com>
-	<54256CCB.4000709@6wind.com> <5425BB3E.10700@gmail.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: eBPF verifier thoughts (Re: [PATCH v15 net-next 00/11] eBPF syscall,
+ verifier, testsuite)
+Date: Fri, 26 Sep 2014 12:34:39 -0700
+Message-ID: <CALCETrVrHHxGo1RkPu+9LVnPo9XY9yYnJzg2ot0zOgoBspzbOQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-To: David Ahern <lxhacker68-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5425BB3E.10700-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (David Ahern's message of "Fri, 26 Sep
-	2014 13:15:10 -0600")
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Ahern <lxhacker68-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
-
-> On 9/26/14, 7:40 AM, Nicolas Dichtel wrote:
->>>
->>>
->>> No, I don't want to monitor anything. Even if I wanted, I would just
->>> start one
->>> daemon in each netns instead of one for all.
->> Ok you don't want, but some other people (not only me) want it! And
->> having one
->> daemon per netns does not scale: there are scenarii with thousand netns
->> which
->> are dynamically created and deleted.
+On Fri, Sep 26, 2014 at 12:06 PM, David Miller <davem@davemloft.net> wrote:
+> From: Alexei Starovoitov <ast@plumgrid.com>
+> Date: Fri, 26 Sep 2014 00:16:56 -0700
 >
-> An example of the scaling problem using quagga (old but still seems to be a
-> relevant data point):
+>> v14 -> v15:
+>> - got rid of macros with hidden control flow (suggested by David)
+>>   replaced macro with explicit goto or return and simplified
+>>   where possible (affected patches #9 and #10)
+>> - rebased, retested
 >
->
-> https://lists.quagga.net/pipermail/quagga-users/2010-February/011351.html
->
-> "2k VRFs that would be 2.6G"
->
-> And that does not include the overhead of each namespace -- roughly
-> 200kB/namespace on one kernel I checked (v3.10). So that's a ballpark of 3G of
-> memory.
+> Series applied to net-next, thanks.
 
-Resetting the conversation just a little bit.
+Hi all-
 
-When I wrote the "ip netns" support I never expected that all
-applications would want to run in a specific network namespace.  All
-that is needed is one socket per network namespace.
+I read through the verifier.  Sorry this email is a little bit late.
+Here are some thoughts, in no particular order.
 
-Furthermore one socket or one procesess per network namespaces is
-completely orthogonal to the patches presented.  I do not see a
-identifying where the far end of a veth pair or similar set of
-networking objects as anything that even closely resembles a path to a
-using only a single socket.
+Programs should IMO have feature flags.  One such feature would be
+"can use pointers as integers", for example.
 
-So I think this whole subthread is quite silly and grossly off track.
+UNKNOWN_VALUE is IMO a crappy type.  I think that it should renamed to
+INTEGER and that a bunch of the things that generate it should be
+errors.
 
-Eric
+ALU ops like adding two pointers should IMO be failures.  I don't
+think that they should result in UNKNOWN_VALUE.
+
+I don't like PTR_TO_MAP_VALUE as a type.  I think that there should
+instead be "pointer to (const?) buffer of N bytes".
+
+ARG_PTR_TO_MAP_KEY is odd.  Why do we care what a function does with a
+key?  It just needs to be a big enough buffer, right?
+
+All of the stack spill stuff seems overcomplicated.  Can you just
+disallow unaligned stack access?  Right off the bat, that will delete
+a bunch of code and cut down runtime memory use by nearly a factor of
+eight.
+
+Also, there are no calls to functions written eBPF, right?  If so, why
+not just give each stack slot a *fixed* type for the lifetime of the
+program?  That would be a huge time complexity win, not to mention
+being more comprehensible.  When function calls get added, they'll
+need a whole pile of new infrastructure anyway.
+
+check_call is a mess.  I predict that it will be unmaintainable.
+
+check_ld_abs is messy, IMO.  Can't there be a real type "pointer to
+object of type [type]", where skb would be a type?  Then you could use
+the normal function call logic for skb pointers instead of hardcoded
+crud.
+
+You're doing a depth-first search.  I don't like it.  You need complex
+pruning logic to avoid exponential behavior, and it's not obvious to
+me that pathological programs that cause exponential blowups in the
+verifier don't exist.  Wouldn't it make more sense to do a
+breadth-first search instead and to give each reg/stack slot a
+definite type at each point in the control flow?  You'd need a
+function to find the intersection of two types, but I think that would
+be preferable to the current code that tests whether one type is a
+subset of another.
+
+At some point someone will want loops, and that will open a huge can
+of worms involving explicit typing or type inference.  It might pay to
+add some kind of stack slot (and maybe even register slot) type
+declarations now to get things ready for that.
+
+NB: If this code is actually invoked in net-next when loading a
+filter, please don't push to Linus until there's a convincing argument
+that the verifier has acceptable asymptotic complexity.
+
+--Andy
