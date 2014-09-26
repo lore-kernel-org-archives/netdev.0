@@ -1,275 +1,602 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Subject: [PATCH] xen/xenbus: Use 'void' instead of 'int' for the return of
- xenbus_switch_state()
-Date: Sat, 27 Sep 2014 00:36:42 +0800
-Message-ID: <5425961A.5000604@gmail.com>
+From: Bob Cochran <ppc@mindchasers.com>
+Subject: Re: [PATCH][V2] Freescale Frame Manager Device Tree binding document
+Date: Fri, 26 Sep 2014 12:37:03 -0400
+Message-ID: <5425962F.7090602@mindchasers.com>
+References: <1410952110-32733-1-git-send-email-igal.liberman@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xenproject.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-pci@vger.kernel.org, linux-scsi@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Vrabel <david.vrabel@citrix.com>, konrad.wilk@oracle.com,
-	ian.campbell@citrix.com, wei.liu2@citrix.com,
-	boris.ostrovsky@oracle.com, bhelgaas@google.com, jgross@suse.com,
-	yongjun_wei@trendmicro.com.cn, mukesh.rathor@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: scottwood@freescale.com, Emilian.Medve@freescale.com
+To: "Igal.Liberman" <igal.liberman@freescale.com>,
+	devicetree@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from resqmta-po-08v.sys.comcast.net ([96.114.154.167]:39770 "EHLO
+	resqmta-po-08v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754448AbaIZQnM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 12:43:12 -0400
+In-Reply-To: <1410952110-32733-1-git-send-email-igal.liberman@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When xenbus_switch_state() fails, it will call xenbus_switch_fatal()
-internally, so need not return any status value, then use 'void' instead
-of 'int' for xenbus_switch_state() and __xenbus_switch_state().
+On 09/17/2014 07:08 AM, Igal.Liberman wrote:
+> From: Igal Liberman <Igal.Liberman@freescale.com>
+>
+> The Frame Manager (FMan) combines the Ethernet network interfaces with packet
+> distribution logic to provide intelligent distribution and queuing decisions
+> for incoming traffic at line rate.
+>
+> This binding document describes Freescale's Frame Manager hardware attributes
+> that are used by the Frame Manager driver for its basic initialization and
+> configuration.
+>
+> Difference between [V1] and [V2]:
+> Addressed all comments recieved from Scott in [V1]
+>
+> Signed-off-by: Igal Liberman <Igal.Liberman@freescale.com>
 
-Also need be sure that all callers which check the return value must let
-'err' be 0.
 
-And also need change the related comments for xenbus_switch_state().
+Is there a reference (FMAN) dts file I can compare this against?  I was 
+reviewing this against my (combined) dts file for my t1040rdb built with 
+either FSL's SDK1.6 or Yocto Project meta-fsl-ppc master branch, and I'm 
+not finding a good match between the nodes / properties in my dts file 
+and what you have here.
 
-Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
----
- drivers/block/xen-blkback/xenbus.c |  9 ++-------
- drivers/net/xen-netback/xenbus.c   |  5 +----
- drivers/pci/xen-pcifront.c         | 15 ++++++---------
- drivers/xen/xen-pciback/xenbus.c   | 21 ++++-----------------
- drivers/xen/xen-scsiback.c         |  5 +----
- drivers/xen/xenbus/xenbus_client.c | 16 ++++++++--------
- include/xen/xenbus.h               |  3 ++-
- 7 files changed, 24 insertions(+), 50 deletions(-)
+For example, I don't find the required "clocks" or 
+"fsl,qman-channel-range" properties under my <fman0: fman@400000 ...> 
+node.
+	
+I'm wondering if this document is trailing or leading the source in the 
+latest published FSL SDK (1.6).
 
-diff --git a/drivers/block/xen-blkback/xenbus.c b/drivers/block/xen-blkback/xenbus.c
-index 3a8b810..fdcc584 100644
---- a/drivers/block/xen-blkback/xenbus.c
-+++ b/drivers/block/xen-blkback/xenbus.c
-@@ -587,9 +587,7 @@ static int xen_blkbk_probe(struct xenbus_device *dev,
- 	if (err)
- 		goto fail;
- 
--	err = xenbus_switch_state(dev, XenbusStateInitWait);
--	if (err)
--		goto fail;
-+	xenbus_switch_state(dev, XenbusStateInitWait);
- 
- 	return 0;
- 
-@@ -837,10 +835,7 @@ again:
- 	if (err)
- 		xenbus_dev_fatal(dev, err, "ending transaction");
- 
--	err = xenbus_switch_state(dev, XenbusStateConnected);
--	if (err)
--		xenbus_dev_fatal(dev, err, "%s: switching to Connected state",
--				 dev->nodename);
-+	xenbus_switch_state(dev, XenbusStateConnected);
- 
- 	return;
-  abort:
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 9c47b89..b5c3d47 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -337,10 +337,7 @@ static int netback_probe(struct xenbus_device *dev,
- 	if (err)
- 		pr_debug("Error writing multi-queue-max-queues\n");
- 
--	err = xenbus_switch_state(dev, XenbusStateInitWait);
--	if (err)
--		goto fail;
--
-+	xenbus_switch_state(dev, XenbusStateInitWait);
- 	be->state = XenbusStateInitWait;
- 
- 	/* This kicks hotplug scripts, so do it immediately. */
-diff --git a/drivers/pci/xen-pcifront.c b/drivers/pci/xen-pcifront.c
-index 53df39a..c1d73b7 100644
---- a/drivers/pci/xen-pcifront.c
-+++ b/drivers/pci/xen-pcifront.c
-@@ -901,18 +901,16 @@ static int pcifront_try_connect(struct pcifront_device *pdev)
- 		}
- 	}
- 
--	err = xenbus_switch_state(pdev->xdev, XenbusStateConnected);
--
-+	xenbus_switch_state(pdev->xdev, XenbusStateConnected);
-+	return 0;
- out:
- 	return err;
- }
- 
- static int pcifront_try_disconnect(struct pcifront_device *pdev)
- {
--	int err = 0;
- 	enum xenbus_state prev_state;
- 
--
- 	prev_state = xenbus_read_driver_state(pdev->xdev->nodename);
- 
- 	if (prev_state >= XenbusStateClosing)
-@@ -923,11 +921,10 @@ static int pcifront_try_disconnect(struct pcifront_device *pdev)
- 		pcifront_disconnect(pdev);
- 	}
- 
--	err = xenbus_switch_state(pdev->xdev, XenbusStateClosed);
-+	xenbus_switch_state(pdev->xdev, XenbusStateClosed);
- 
- out:
--
--	return err;
-+	return 0;
- }
- 
- static int pcifront_attach_devices(struct pcifront_device *pdev)
-@@ -1060,8 +1057,8 @@ static int pcifront_detach_devices(struct pcifront_device *pdev)
- 			domain, bus, slot, func);
- 	}
- 
--	err = xenbus_switch_state(pdev->xdev, XenbusStateReconfiguring);
--
-+	xenbus_switch_state(pdev->xdev, XenbusStateReconfiguring);
-+	return 0;
- out:
- 	return err;
- }
-diff --git a/drivers/xen/xen-pciback/xenbus.c b/drivers/xen/xen-pciback/xenbus.c
-index c214daa..630a215 100644
---- a/drivers/xen/xen-pciback/xenbus.c
-+++ b/drivers/xen/xen-pciback/xenbus.c
-@@ -184,10 +184,7 @@ static int xen_pcibk_attach(struct xen_pcibk_device *pdev)
- 
- 	dev_dbg(&pdev->xdev->dev, "Connecting...\n");
- 
--	err = xenbus_switch_state(pdev->xdev, XenbusStateConnected);
--	if (err)
--		xenbus_dev_fatal(pdev->xdev, err,
--				 "Error switching to connected state!");
-+	xenbus_switch_state(pdev->xdev, XenbusStateConnected);
- 
- 	dev_dbg(&pdev->xdev->dev, "Connected? %d\n", err);
- out:
-@@ -500,12 +497,7 @@ static int xen_pcibk_reconfigure(struct xen_pcibk_device *pdev)
- 		}
- 	}
- 
--	err = xenbus_switch_state(pdev->xdev, XenbusStateReconfigured);
--	if (err) {
--		xenbus_dev_fatal(pdev->xdev, err,
--				 "Error switching to reconfigured state!");
--		goto out;
--	}
-+	xenbus_switch_state(pdev->xdev, XenbusStateReconfigured);
- 
- out:
- 	mutex_unlock(&pdev->dev_lock);
-@@ -640,10 +632,7 @@ static int xen_pcibk_setup_backend(struct xen_pcibk_device *pdev)
- 		goto out;
- 	}
- 
--	err = xenbus_switch_state(pdev->xdev, XenbusStateInitialised);
--	if (err)
--		xenbus_dev_fatal(pdev->xdev, err,
--				 "Error switching to initialised state!");
-+	xenbus_switch_state(pdev->xdev, XenbusStateInitialised);
- 
- out:
- 	mutex_unlock(&pdev->dev_lock);
-@@ -683,9 +672,7 @@ static int xen_pcibk_xenbus_probe(struct xenbus_device *dev,
- 	}
- 
- 	/* wait for xend to configure us */
--	err = xenbus_switch_state(dev, XenbusStateInitWait);
--	if (err)
--		goto out;
-+	xenbus_switch_state(dev, XenbusStateInitWait);
- 
- 	/* watch the backend node for backend configuration information */
- 	err = xenbus_watch_path(dev, dev->nodename, &pdev->be_watch,
-diff --git a/drivers/xen/xen-scsiback.c b/drivers/xen/xen-scsiback.c
-index ad11258..847bc9c 100644
---- a/drivers/xen/xen-scsiback.c
-+++ b/drivers/xen/xen-scsiback.c
-@@ -1225,10 +1225,7 @@ static int scsiback_probe(struct xenbus_device *dev,
- 	if (err)
- 		xenbus_dev_error(dev, err, "writing feature-sg-grant");
- 
--	err = xenbus_switch_state(dev, XenbusStateInitWait);
--	if (err)
--		goto fail;
--
-+	xenbus_switch_state(dev, XenbusStateInitWait);
- 	return 0;
- 
- fail:
-diff --git a/drivers/xen/xenbus/xenbus_client.c b/drivers/xen/xenbus/xenbus_client.c
-index ca74410..e2bcd1d 100644
---- a/drivers/xen/xenbus/xenbus_client.c
-+++ b/drivers/xen/xenbus/xenbus_client.c
-@@ -166,7 +166,7 @@ EXPORT_SYMBOL_GPL(xenbus_watch_pathfmt);
- static void xenbus_switch_fatal(struct xenbus_device *, int, int,
- 				const char *, ...);
- 
--static int
-+static void
- __xenbus_switch_state(struct xenbus_device *dev,
- 		      enum xenbus_state state, int depth)
- {
-@@ -188,7 +188,7 @@ __xenbus_switch_state(struct xenbus_device *dev,
- 	int err, abort;
- 
- 	if (state == dev->state)
--		return 0;
-+		return;
- 
- again:
- 	abort = 1;
-@@ -196,7 +196,7 @@ again:
- 	err = xenbus_transaction_start(&xbt);
- 	if (err) {
- 		xenbus_switch_fatal(dev, depth, err, "starting transaction");
--		return 0;
-+		return;
- 	}
- 
- 	err = xenbus_scanf(xbt, dev->nodename, "state", "%d", &current_state);
-@@ -219,7 +219,7 @@ abort:
- 	} else
- 		dev->state = state;
- 
--	return 0;
-+	return;
- }
- 
- /**
-@@ -228,12 +228,12 @@ abort:
-  * @state: new state
-  *
-  * Advertise in the store a change of the given driver to the given new_state.
-- * Return 0 on success, or -errno on error.  On error, the device will switch
-- * to XenbusStateClosing, and the error will be saved in the store.
-+ * When failure occurs, it will call xenbus_switch_fatal() internally, so need
-+ * not return value to notify upper caller.
-  */
--int xenbus_switch_state(struct xenbus_device *dev, enum xenbus_state state)
-+void xenbus_switch_state(struct xenbus_device *dev, enum xenbus_state state)
- {
--	return __xenbus_switch_state(dev, state, 0);
-+	__xenbus_switch_state(dev, state, 0);
- }
- 
- EXPORT_SYMBOL_GPL(xenbus_switch_state);
-diff --git a/include/xen/xenbus.h b/include/xen/xenbus.h
-index 0324c6d..587c53d 100644
---- a/include/xen/xenbus.h
-+++ b/include/xen/xenbus.h
-@@ -195,7 +195,8 @@ int xenbus_watch_pathfmt(struct xenbus_device *dev, struct xenbus_watch *watch,
- 					  const char **, unsigned int),
- 			 const char *pathfmt, ...);
- 
--int xenbus_switch_state(struct xenbus_device *dev, enum xenbus_state new_state);
-+void xenbus_switch_state(struct xenbus_device *dev,
-+			 enum xenbus_state new_state);
- int xenbus_grant_ring(struct xenbus_device *dev, unsigned long ring_mfn);
- int xenbus_map_ring_valloc(struct xenbus_device *dev,
- 			   int gnt_ref, void **vaddr);
--- 
-1.9.3
+And a minor nit pick: twice you write "bellow" where you should have "below"
+
+
+Thanks
+
+Bob
+
+
+
+
+> ---
+>   .../devicetree/bindings/powerpc/fsl/fman.txt       |  529 ++++++++++++++++++++
+>   1 file changed, 529 insertions(+)
+>   create mode 100644 Documentation/devicetree/bindings/powerpc/fsl/fman.txt
+>
+> diff --git a/Documentation/devicetree/bindings/powerpc/fsl/fman.txt b/Documentation/devicetree/bindings/powerpc/fsl/fman.txt
+> new file mode 100644
+> index 0000000..da8e5f2
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/powerpc/fsl/fman.txt
+> @@ -0,0 +1,529 @@
+> +=============================================================================
+> +Freescale Frame Manager Device Bindings
+> +
+> +CONTENTS
+> +  - FMan Node
+> +  - FMan Port Node
+> +  - FMan MURAM Node
+> +  - FMan dTSEC/XGEC/mEMAC Node
+> +  - FMan IEEE 1588 Node
+> +  - Example
+> +
+> +=============================================================================
+> +FMan Node
+> +
+> +DESCRIPTION
+> +
+> +Due to the fact that the FMan is an aggregation of sub-engines (ports, MACs,
+> +etc.) the FMan node will have child nodes for each of them.
+> +
+> +PROPERTIES
+> +
+> +- compatible
+> +		Usage: required
+> +		Value type: <stringlist>
+> +		Definition: Must include "fsl,fman"
+> +		FMan version can be determined via FM_IP_REV_1 register in the
+> +		FMan block. The offset is 0xc4 from the beginning of the
+> +		Frame Processing Manager memory map (0xc3000 from the
+> +		beginning of the FMan node).
+> +
+> +- cell-index
+> +		Usage: required
+> +		Value type: <u32>
+> +		Definition: Specifies the index of the FMan unit.
+> +
+> +		The cell-index value may be used by the SoC, to identify the
+> +		FMan unit in the SoC memory map. In the table bellow,
+> +		there's a description of the cell-index use in each SoC:
+> +
+> +		- P1023:
+> +		register[bit]			FMan unit	cell-index
+> +		============================================================
+> +		DEVDISR[1]			1		0
+> +
+> +		- P2041, P3041, P4080 P5020, P5040:
+> +		register[bit]			FMan unit	cell-index
+> +		============================================================
+> +		DCFG_DEVDISR2[6]		1		0
+> +		DCFG_DEVDISR2[14]		2		1
+> +			(Second FM available only in P4080 and P5040)
+> +
+> +		- B4860, T1040, T2080, T4240:
+> +		register[bit]			FMan unit	cell-index
+> +		============================================================
+> +		DCFG_CCSR_DEVDISR2[24]		1		0
+> +		DCFG_CCSR_DEVDISR2[25]		2		1
+> +			(Second FM available only in T4240)
+> +
+> +		DEVDISR, DCFG_DEVDISR2 and DCFG_CCSR_DEVDISR2 are located in
+> +		the specific SoC "Device Configuration/Pin Control" Memory
+> +		Map.
+> +
+> +- reg
+> +		Usage: required
+> +		Value type: <prop-encoded-array>
+> +		Definition: A standard property. Specifies the offset of the
+> +		following configuration registers:
+> +		- BMI configuration registers.
+> +		- QMI configuration registers.
+> +		- DMA configuration registers.
+> +		- FPM configuration registers.
+> +		- FMan controller configuration registers.
+> +
+> +- ranges
+> +		Usage: required
+> +		Value type: <prop-encoded-array>
+> +		Definition: A standard property.
+> +
+> +- clocks
+> +		Usage: required
+> +		Value type: <prop-encoded-array>
+> +		Definition: phandle for fman clock.
+> +
+> +- clock-names
+> +		usage: optional
+> +		Value type: <stringlist>
+> +		Definition: A standard property
+> +
+> +- interrupts
+> +		Usage: required
+> +		Value type: <prop-encoded-array>
+> +		Definition: A pair of IRQs are specified in this property.
+> +		The first element is associated with the event interrupts and
+> +		the second element is associated with the error interrupts.
+> +
+> +- fsl,qman-channel-range
+> +		Usage: required
+> +		Value type: <prop-encoded-array>
+> +		Definition: Specifies the range of the available dedicated
+> +		channels in the FMan. The first cell specifies the beginning
+> +		of the range and the second cell specifies the number of
+> +		channels.
+> +		Further information available at:
+> +		"Work Queue (WQ) Channel Assignments in the QMan" section
+> +		in DPAA Reference Manual.
+> +
+> +=============================================================================
+> +FMan MURAM Node
+> +
+> +DESCRIPTION
+> +
+> +FMan Internal memory - shared between all the FMan modules.
+> +It contains data structures that are common and written to or read by
+> +the modules.
+> +FMan internal memory is split into the following parts:
+> +	Packet buffering (Tx/Rx FIFOs)
+> +	Frames internal context
+> +
+> +PROPERTIES
+> +
+> +- compatible
+> +		Usage: required
+> +		Value type: <stringlist>
+> +		Definition: Must include "fsl,fman-muram"
+> +
+> +- ranges
+> +		Usage: required
+> +		Value type: <prop-encoded-array>
+> +		Definition: A standard property.
+> +		Specifies the multi-user memory offset and the size within
+> +		the FMan.
+> +
+> +EXAMPLE
+> +
+> +muram@0 {
+> +	compatible = "fsl,fman-muram";
+> +	ranges = <0 0x000000 0x28000>;
+> +};
+> +
+> +=============================================================================
+> +FMan Port Node
+> +
+> +DESCRIPTION
+> +
+> +The Frame Manager (FMan) supports several types of hardware ports:
+> +	Ethernet receiver (RX)
+> +	Ethernet transmitter (TX)
+> +	Offline/Host command (O/H)
+> +
+> +PROPERTIES
+> +
+> +- compatible
+> +		Usage: required
+> +		Value type: <stringlist>
+> +		Definition: A standard property.
+> +		Must include one of the following:
+> +			- "fsl,fman-v2-port-oh" for FManV2 OH ports
+> +			- "fsl,fman-v2-port-rx" for FManV2 RX ports
+> +			- "fsl,fman-v2-port-tx" for FManV2 TX ports
+> +			- "fsl,fman-v3-port-oh" for FManV3 OH ports
+> +			- "fsl,fman-v3-port-rx" for FManV3 RX ports
+> +			- "fsl,fman-v3-port-tx" for FManV3 TX ports
+> +
+> +- cell-index
+> +		Usage: required
+> +		Value type: <u32>
+> +		Definition: Specifies the hardware port id.
+> +		Each hardware port on the FMan has its own hardware PortID.
+> +		Super set of all hardware Port IDs available at FMan Reference
+> +		Manual under "FMan Hardware Ports in Freescale Devices" table.
+> +
+> +		Each hardware port is assigned a 4KB, port-specific page in
+> +		the FMan hardware port memory region (which is part of the
+> +		FMan memory map). The first 4 KB in the FMan hardware ports
+> +		memory region is used for what are called common registers.
+> +		The subsequent 63 4KB pages are allocated to the hardware
+> +		ports.
+> +		The page of a specific port is determined by the cell-index.
+> +
+> +- reg
+> +		Usage: required
+> +		Value type: <prop-encoded-array>
+> +		Definition: There is one reg region describing the port
+> +		configuration registers.
+> +
+> +EXAMPLE
+> +
+> +port@a8000 {
+> +	cell-index = <0x28>;
+> +	compatible = "fsl,fman-v2-port-tx";
+> +	reg = <0xa8000 0x1000>;
+> +};
+> +
+> +port@88000 {
+> +	cell-index = <0x8>;
+> +	compatible = "fsl,fman-v2-port-rx";
+> +	reg = <0x88000 0x1000>;
+> +};
+> +
+> +port@81000 {
+> +	cell-index = <0x1>;
+> +	compatible = "fsl,fman-v2-port-oh";
+> +	reg = <0x81000 0x1000>;
+> +};
+> +
+> +=============================================================================
+> +FMan dTSEC/XGEC/mEMAC Node
+> +
+> +DESCRIPTION
+> +
+> +mEMAC/dTSEC/XGEC are the Ethernet network interfaces
+> +
+> +PROPERTIES
+> +
+> +- compatible
+> +		Usage: required
+> +		Value type: <stringlist>
+> +		Definition: A standard property.
+> +		Must include one of the following:
+> +		- "fsl,fman-dtsec" for dTSEC MAC
+> +		- "fsl,fman-xgec" for XGEC MAC
+> +		- "fsl,fman-memac for mEMAC MAC
+> +
+> +- cell-index
+> +		Usage: required
+> +		Value type: <u32>
+> +		Definition: Specifies the MAC id.
+> +
+> +		The cell-index value may be used by the FMan or the SoC, to
+> +		identify the MAC unit in the FMan (or SoC) memory map.
+> +		In the tables bellow there's a description of the cell-index
+> +		use, there are two tables, one describes the use of cell-index
+> +		by the FMan, the second describes the use by the SoC:
+> +
+> +		1. FMan Registers
+> +
+> +		FManV2:
+> +		register[bit]		MAC		cell-index
+> +		============================================================
+> +		FM_EPI[16]		XGEC		8
+> +		FM_EPI[16+n]		dTSECn		n-1
+> +		FM_NPI[11+n]		dTSECn		n-1
+> +			n = 1,..,5
+> +
+> +		FManV3:
+> +		register[bit]		MAC		cell-index
+> +		============================================================
+> +		FM_EPI[16+n]		mEMACn		n-1
+> +		FM_EPI[25]		mEMAC10		9
+> +
+> +		FM_NPI[11+n]		mEMACn		n-1
+> +		FM_NPI[10]		mEMAC10		9
+> +		FM_NPI[11]		mEMAC9		8
+> +			n = 1,..8
+> +
+> +		FM_EPI and FM_NPI are located in the FMan memory map.
+> +
+> +		2. SoC registers:
+> +
+> +		- P2041, P3041, P4080 P5020, P5040:
+> +		register[bit]		FMan		MAC		cell
+> +					Unit				index
+> +		============================================================
+> +		DCFG_DEVDISR2[7]	1		XGEC		8
+> +		DCFG_DEVDISR2[7+n]	1		dTSECn		n-1
+> +		DCFG_DEVDISR2[15]	2		XGEC		8
+> +		DCFG_DEVDISR2[15+n]	2		dTSECn		n-1
+> +			n = 1,..5
+> +
+> +		- T1040, T2080, T4240, B4860:
+> +		register[bit]			FMan	MAC		cell
+> +						Unit			index
+> +		============================================================
+> +		DCFG_CCSR_DEVDISR2[n-1]		1	mEMACn		n-1
+> +		DCFG_CCSR_DEVDISR2[11+n]	2	mEMACn		n-1
+> +			n = 1,..6,9,10
+> +
+> +		EVDISR, DCFG_DEVDISR2 and DCFG_CCSR_DEVDISR2 are located in
+> +		the specific SoC "Device Configuration/Pin Control" Memory
+> +		Map.
+> +
+> +- reg
+> +		Usage: required
+> +		Value type: <prop-encoded-array>
+> +		Definition: A standard property.
+> +
+> +- fsl,fman-ports
+> +		Usage: required
+> +		Value type: <prop-encoded-array>
+> +		Definition: An array of two phandles - the first references is
+> +		the FMan RX port and the second is the TX port used by this
+> +		MAC.
+> +
+> +- ptp-timer
+> +		Usage required
+> +		Value type: <phandle>
+> +		Definition: A phandle for 1EEE1588 timer.
+> +
+> +EXAMPLE
+> +
+> +fman1_tx28: port@a8000 {
+> +	cell-index = <0x28>;
+> +	compatible = "fsl,fman-v2-port-tx";
+> +	reg = <0xa8000 0x1000>;
+> +};
+> +
+> +fman1_rx8: port@88000 {
+> +	cell-index = <0x8>;
+> +	compatible = "fsl,fman-v2-port-rx";
+> +	reg = <0x88000 0x1000>;
+> +};
+> +
+> +ptp-timer: ptp_timer@fe000 {
+> +	compatible = "fsl,fman-ptp-timer";
+> +	reg = <0xfe000 0x1000>;
+> +};
+> +
+> +ethernet@e0000 {
+> +	compatible = "fsl,fman-dtsec";
+> +	cell-index = <0>;
+> +	reg = <0xe0000 0x1000>;
+> +	fsl,fman-ports = <&fman1_rx8 &fman1_tx28>;
+> +	ptp-timer = <&ptp-timer>;
+> +};
+> +
+> +============================================================================
+> +FMan IEEE 1588 Node
+> +
+> +DESCRIPTION
+> +
+> +The FMan interface to support IEEE 1588
+> +
+> +
+> +PROPERTIES
+> +
+> +- compatible
+> +		Usage: required
+> +		Value type: <stringlist>
+> +		Definition: A standard property.
+> +		Must include "fsl,fman-ptp-timer".
+> +
+> +- reg
+> +		Usage: required
+> +		Value type: <prop-encoded-array>
+> +		Definition: A standard property.
+> +
+> +EXAMPLE
+> +
+> +ptp-timer@fe000 {
+> +	compatible = "fsl,fman-ptp-timer";
+> +	reg = <0xfe000 0x1000>;
+> +};
+> +
+> +=============================================================================
+> +Example
+> +
+> +fman@400000 {
+> +	#address-cells = <1>;
+> +	#size-cells = <1>;
+> +	cell-index = <1>;
+> +	compatible = "fsl,fman"
+> +	ranges = <0 0x400000 0x100000>;
+> +	reg = <0x400000 0x100000>;
+> +	clocks = <&fman_clk>;
+> +	clock-names = "fmanclk";
+> +	interrupts = <
+> +		96 2 0 0
+> +		16 2 1 1>;
+> +	fsl,qman-channel-range = <0x40 0xc>;
+> +
+> +	muram@0 {
+> +		compatible = "fsl,fman-muram";
+> +		reg = <0x0 0x28000>;
+> +	};
+> +
+> +	port@81000 {
+> +		cell-index = <1>;
+> +		compatible = "fsl,fman-v2-port-oh";
+> +		reg = <0x81000 0x1000>;
+> +	};
+> +
+> +	port@82000 {
+> +		cell-index = <2>;
+> +		compatible = "fsl,fman-v2-port-oh";
+> +		reg = <0x82000 0x1000>;
+> +	};
+> +
+> +	port@83000 {
+> +		cell-index = <3>;
+> +		compatible = "fsl,fman-v2-port-oh";
+> +		reg = <0x83000 0x1000>;
+> +	};
+> +
+> +	port@84000 {
+> +		cell-index = <4>;
+> +		compatible = "fsl,fman-v2-port-oh";
+> +		reg = <0x84000 0x1000>;
+> +	};
+> +
+> +	port@85000 {
+> +		cell-index = <5>;
+> +		compatible = "fsl,fman-v2-port-oh";
+> +		reg = <0x85000 0x1000>;
+> +	};
+> +
+> +	port@86000 {
+> +		cell-index = <6>;
+> +		compatible = "fsl,fman-v2-port-oh";
+> +		reg = <0x86000 0x1000>;
+> +	};
+> +
+> +	fman1_rx_0x8: port@88000 {
+> +		cell-index = <0x8>;
+> +		compatible = "fsl,fman-v2-port-rx";
+> +		reg = <0x88000 0x1000>;
+> +	};
+> +
+> +	fman1_rx_0x9: port@89000 {
+> +		cell-index = <0x9>;
+> +		compatible = "fsl,fman-v2-port-rx";
+> +		reg = <0x89000 0x1000>;
+> +	};
+> +
+> +	fman1_rx_0xa: port@8a000 {
+> +		cell-index = <0xa>;
+> +		compatible = "fsl,fman-v2-port-rx";
+> +		reg = <0x8a000 0x1000>;
+> +	};
+> +
+> +	fman1_rx_0xb: port@8b000 {
+> +		cell-index = <0xb>;
+> +		compatible = "fsl,fman-v2-port-rx";
+> +		reg = <0x8b000 0x1000>;
+> +	};
+> +
+> +	fman1_rx_0xc: port@8c000 {
+> +		cell-index = <0xc>;
+> +		compatible = "fsl,fman-v2-port-rx";
+> +		reg = <0x8c000 0x1000>;
+> +	};
+> +
+> +	fman1_rx_0x10: port@90000 {
+> +		cell-index = <0x10>;
+> +		compatible = "fsl,fman-v2-port-rx";
+> +		reg = <0x90000 0x1000>;
+> +	};
+> +
+> +	fman1_tx_0x28: port@a8000 {
+> +		cell-index = <0x28>;
+> +		compatible = "fsl,fman-v2-port-tx";
+> +		reg = <0xa8000 0x1000>;
+> +	};
+> +
+> +	fman1_tx_0x29: port@a9000 {
+> +		cell-index = <0x29>;
+> +		compatible = "fsl,fman-v2-port-tx";
+> +		reg = <0xa9000 0x1000>;
+> +	};
+> +
+> +	fman1_tx_0x2a: port@aa000 {
+> +		cell-index = <0x2a>;
+> +		compatible = "fsl,fman-v2-port-tx";
+> +		reg = <0xaa000 0x1000>;
+> +	};
+> +
+> +	fman1_tx_0x2b: port@ab000 {
+> +		cell-index = <0x2b>;
+> +		compatible = "fsl,fman-v2-port-tx";
+> +		reg = <0xab000 0x1000>;
+> +	};
+> +
+> +	fman1_tx_0x2c: port@ac0000 {
+> +		cell-index = <0x2c>;
+> +		compatible = "fsl,fman-v2-port-tx";
+> +		reg = <0xac000 0x1000>;
+> +	};
+> +
+> +	fman1_tx_0x30: port@b0000 {
+> +		cell-index = <0x30>;
+> +		compatible = "fsl,fman-v2-port-tx";
+> +		reg = <0xb0000 0x1000>;
+> +	};
+> +
+> +	ethernet@e0000 {
+> +		compatible = "fsl,fman-dtsec";
+> +		cell-index = <0>;
+> +		reg = <0xe0000 0x1000>;
+> +		fsl,fman-ports = <&fman1_rx_0x8 &fman1_tx_0x28>;
+> +	};
+> +
+> +	ethernet@e2000 {
+> +		compatible = "fsl,fman-dtsec";
+> +		cell-index = <1>;
+> +		reg = <0xe2000 0x1000>;
+> +		fsl,fman-ports = <&fman1_rx_0x9 &fman1_tx_0x29>;
+> +	};
+> +
+> +	ethernet@e4000 {
+> +		compatible = "fsl,fman-dtsec";
+> +		cell-index = <2>;
+> +		reg = <0xe4000 0x1000>;
+> +		fsl,fman-ports = <&fman1_rx_0xa &fman1_tx_0x2a>;
+> +	};
+> +
+> +	ethernet@e6000 {
+> +		compatible = "fsl,fman-dtsec";
+> +		cell-index = <3>;
+> +		reg = <0xe6000 0x1000>;
+> +		fsl,fman-ports = <&fman1_rx_0xb &fman1_tx_0x2b>;
+> +	};
+> +
+> +	ethernet@e8000 {
+> +		compatible = "fsl,fman-dtsec";
+> +		cell-index = <4>;
+> +		reg = <0xf0000 0x1000>;
+> +		fsl,fman-ports = <&fman1_rx_0xc &fman1_tx_0x2c>;
+> +
+> +	ethernet@f0000 {
+> +		cell-index = <8>;
+> +		compatible = "fsl,fman-xgec";
+> +		reg = <0xf0000 0x1000>;
+> +		fsl,fman-ports = <&fman1_rx_0x10 &fman1_tx_0x30>;
+> +	};
+> +
+> +	ptp-timer@fe000 {
+> +		compatible = "fsl,fman-ptp-timer";
+> +		reg = <0xfe000 0x1000>;
+> +	};
+> +};
+>
