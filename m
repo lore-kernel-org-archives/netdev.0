@@ -1,56 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: sched: use pinned timers
-Date: Fri, 26 Sep 2014 00:27:10 -0400 (EDT)
-Message-ID: <20140926.002710.1595423408687413602.davem@davemloft.net>
-References: <1411261290.26859.103.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2 net-next 0/9] ipv6: fib6: socket dst_entry
+ improvments and cleanups
+Date: Fri, 26 Sep 2014 00:28:53 -0400 (EDT)
+Message-ID: <20140926.002853.1097612772155886372.davem@davemloft.net>
+References: <cover.1411308211.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	hideaki@yoshifuji.org, vyasevich@gmail.com,
+	nicolas.dichtel@6wind.com, kafai@fb.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37634 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37655 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752542AbaIZE1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 00:27:12 -0400
-In-Reply-To: <1411261290.26859.103.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751835AbaIZE2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 00:28:55 -0400
+In-Reply-To: <cover.1411308211.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 20 Sep 2014 18:01:30 -0700
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Sun, 21 Sep 2014 16:11:44 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> While using a MQ + NETEM setup, I had confirmation that the default
-> timer migration ( /proc/sys/kernel/timer_migration ) is killing us.
-> 
-> Installing this on a receiver side of a TCP_STREAM test, (NIC has 8 TX
-> queues) :
- ...
-> We can see that timers get migrated into a single cpu, presumably idle
-> at the time timers are set up.
-> Then all qdisc dequeues run from this cpu and huge lock contention
-> happens. This single cpu is stuck in softirq mode and cannot dequeue
-> fast enough.
-> 
->     39.24%  [kernel]          [k] _raw_spin_lock
->      2.65%  [kernel]          [k] netem_enqueue
->      1.80%  [kernel]          [k] netem_dequeue                         
->      1.63%  [kernel]          [k] copy_user_enhanced_fast_string
->      1.45%  [kernel]          [k] _raw_spin_lock_bh        
-> 
-> By pinning qdisc timers on the cpu running the qdisc, we respect proper
-> XPS setting and remove this lock contention.
-> 
->      5.84%  [kernel]          [k] netem_enqueue                      
->      4.83%  [kernel]          [k] _raw_spin_lock
->      2.92%  [kernel]          [k] copy_user_enhanced_fast_string
-> 
-> Current Qdiscs that benefit from this change are :
-> 
-> 	netem, cbq, fq, hfsc, tbf, htb.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Eric Dumazet noticed that rt6_nodes wich are neither RTF_NONEXTHOP nor
+> RTF_GATEWAY but DST_HOST ones cause major routing lookup churn because
+> their rt6_genid is never renewed, thus ip6_dst_check always considers
+> them outdated. This is a major problem, because these kind of routes
+> are normally used to in input handling.
 
-Looks great, applied, thanks Eric.
+This series is a disappointment for me from the perspective of the
+fact that we have a regression in mainline and this is too complex
+of a set of changes for there.
+
+If we relookup the thing every TCP input packet, we might as well
+not do the input route caching in the socket.
