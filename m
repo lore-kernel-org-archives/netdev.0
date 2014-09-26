@@ -1,49 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/mlx4_core: Allow not to specify probe_vf in
- SRIOV IB mode
-Date: Fri, 26 Sep 2014 16:47:15 -0400 (EDT)
-Message-ID: <20140926.164715.648150882985516578.davem@davemloft.net>
-References: <1411477559-22155-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH] net: bcmgenet: Fix compile warning
+Date: Fri, 26 Sep 2014 16:50:17 -0400 (EDT)
+Message-ID: <20140926.165017.232526414533040628.davem@davemloft.net>
+References: <1411478381-9059-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com,
-	jackm@dev.mellanox.co.il, matanb@mellanox.com
-To: ogerlitz@mellanox.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: f.fainelli@gmail.com, geert@linux-m68k.org, netdev@vger.kernel.org
+To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51242 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51276 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754111AbaIZUrR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 16:47:17 -0400
-In-Reply-To: <1411477559-22155-1-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1754829AbaIZUuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 16:50:19 -0400
+In-Reply-To: <1411478381-9059-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Tue, 23 Sep 2014 16:05:59 +0300
-
-> From: Matan Barak <matanb@mellanox.com>
-> 
-> When the HCA is configured in SRIOV IB mode (that is, at least one of
-> the ports is IB) and the probe_vf module param isn't specified,
-> mlx4_init_one() failed because of the following condition:
-> 
-> if (ib_ports && (num_vfs_argc > 1 || probe_vfs_argc > 1)) {
-> 	 .....
-> }
-> 
-> The root cause for that is a mistake in the initialization of num_vfs_argc
-> and probe_vfs_argc. When num_vfs / probe_vf aren't given, their argument
-> count counterpart should be 0, fix that.
-> 
-> Fixes: dd41cc3bb90e ('net/mlx4: Adapt num_vfs/probed_vf params for single port VF')
-> Signed-off-by: Matan Barak <matanb@mellanox.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-
-Applied.
-
-> This bug was introduced in 3.16, can you please push this patch along 
-> with commit a91c772fa0275 "net/mlx4: Correctly configure single ported 
-> VFs from the host" to 3.16-stable
-
-Both patches queued up for -stable, thanks.
+RnJvbTogVG9iaWFzIEtsYXVzZXIgPHRrbGF1c2VyQGRpc3RhbnouY2g+DQpEYXRlOiBUdWUsIDIz
+IFNlcCAyMDE0IDE1OjE5OjQxICswMjAwDQoNCj4gYmNtZ2VuZXRfd29sX3Jlc3VtZSgpIGlzIG9u
+bHkgdXNlZCBpbiBiY21nZW5ldF9yZXN1bWUoKSwgd2hpY2ggaXMgb25seQ0KPiBkZWZpbmVkIHdo
+ZW4gQ09ORklHX1BNX1NMRUVQIGlzIGVuYWJsZWQuIFRoaXMgbGVhZHMgdG8gdGhlIGZvbGxvd2lu
+Zw0KPiBjb21waWxlIHdhcm5pbmcgd2hlbiBidWlsZGluZyB3aXRoICFDT05GSUdfUE1fU0xFRVA6
+DQo+IA0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9nZW5ldC9iY21nZW5ldC5jOjE5
+Njc6MTI6IHdhcm5pbmc6IKFiY21nZW5ldF93b2xfcmVzdW1loiBkZWZpbmVkIGJ1dCBub3QgdXNl
+ZCBbLVd1bnVzZWQtZnVuY3Rpb25dDQo+IA0KPiBTaW5jZSBiY21nZW5ldF9yZXN1bWUoKSBpcyB0
+aGUgb25seSB1c2VyIG9mIGJjbWdlbmV0X3dvbF9yZXN1bWUoKSwgZml4DQo+IHRoaXMgYnkgZGly
+ZWN0bHkgaW5saW5pbmcgdGhlIGZ1bmN0aW9uIHRoZXJlLg0KPiANCj4gUmVwb3J0ZWQtYnk6IEdl
+ZXJ0IFV5dHRlcmhvZXZlbiA8Z2VlcnRAbGludXgtbTY4ay5vcmc+DQo+IFNpZ25lZC1vZmYtYnk6
+IFRvYmlhcyBLbGF1c2VyIDx0a2xhdXNlckBkaXN0YW56LmNoPg0KDQpBcHBsaWVkIHRvIG5ldC1u
+ZXh0LCB0aGFua3MuDQo=
