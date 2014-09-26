@@ -1,11 +1,12 @@
 From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
 Subject: Re: eBPF verifier thoughts (Re: [PATCH v15 net-next 00/11] eBPF
  syscall, verifier, testsuite)
-Date: Fri, 26 Sep 2014 14:47:50 -0700
-Message-ID: <CALCETrVLtJOYkHwsmwueZ7jsSgrNED564W+m4FmMZJZL-836mg@mail.gmail.com>
+Date: Fri, 26 Sep 2014 14:48:57 -0700
+Message-ID: <CALCETrXmiJKQNC0ipu-pN-XFN4PpvJxvbDEpwfvgWAmXOjnWWw@mail.gmail.com>
 References: <CALCETrVrHHxGo1RkPu+9LVnPo9XY9yYnJzg2ot0zOgoBspzbOQ@mail.gmail.com>
- <CAMEtUuyt9RASKZ4NeqK_OUYNN8QT6P20+kjcwywchur6QXSt0A@mail.gmail.com>
- <CALCETrXS5KBHm-3Fz031VFPpTHC_BDOLd_zNB6DjCidZa5-x2A@mail.gmail.com> <CAMEtUux-WFOGABTrWW=BGUstE=Zz6agXTGCGrRJtNXDfRmx-5A@mail.gmail.com>
+ <CALCETrXFb=etdrabEjbKdxKg51ViPXptOC=6CkKwcGS7Jau8nA@mail.gmail.com>
+ <CAMEtUuzAuX=PVDtfQiRKgO7h5wx3gsTJUajr8VKsF4FR-d=JDw@mail.gmail.com>
+ <CALCETrVAQ7oRm8zDHDiUurjrMw=+ABucLWjed_P__4j8deNE7A@mail.gmail.com> <CAMEtUuw3rmQR5v7zrhUR=jYKrhCTp+GpndHDa-9djT3nBnhsaA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
@@ -24,115 +25,76 @@ Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Ingo Molnar <m
 	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMEtUux-WFOGABTrWW=BGUstE=Zz6agXTGCGrRJtNXDfRmx-5A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+In-Reply-To: <CAMEtUuw3rmQR5v7zrhUR=jYKrhCTp+GpndHDa-9djT3nBnhsaA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 26, 2014 at 2:25 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
-> On Fri, Sep 26, 2014 at 1:39 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
->>> not quite. there is a distinction between key and value.
->>> They both come from map definition and correspond to key_size
->>> and value_size, so they have to have two different corresponding
->>> _internal_ types 'ptr_to_map_key' and 'ptr_to_map_value'
->>> This distinction is needed to properly describe function
->>> arguments constraints.
+On Fri, Sep 26, 2014 at 2:46 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+> On Fri, Sep 26, 2014 at 1:42 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>> On Fri, Sep 26, 2014 at 1:09 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+>>> On Fri, Sep 26, 2014 at 12:51 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>>>> On Fri, Sep 26, 2014 at 12:34 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>>>>
+>>>> To add one more point:
+>>>>
+>>>> With the current verifier design, it's impossible to write a userspace
+>>>> tool that can take an eBPF program and check it.  The verification is
+>>>> far too context-dependent for that to be possible.  I won't go so far
+>>>> as to say that a userspace tool needs to *exist*, but I strongly
+>>>> object to exposing a verification algorithm that *precludes* writing
+>>>> such a tool.
+>>>
+>>> that's just not true.
+>>> why is it not possible?
 >>
->> But they're still just pointers to buffers of some size known to the
->> verifier, right?  By calling them "pointer to map key" and "pointer to
->> map value" you're tying them to map objects in a way that makes little
->> sense to me.
+>> Because the types of referenced objects aren't encoded in the blob
+>> that a user program loads, unless I'm missing something.
 >
-> 'pointer_to_map_key' is internal argument constraint of the
-> in-kernel helper function. It tells verifier how to check the values
-> passed into function.
-> Just pointer + size abstraction is not enough here.
-> verifier has to know the type of what it's checking.
-
-Ignore "pointer_to_map_key" -- that was an error on my part.
-
-I still think that "pointer to map value" should be "pointer to bytes".
-
+> patch #8 'handle pseudo BPF_LD_IMM64 insn' of this set
+> handles first type == map. Other types will be added in the future.
+> The same verification can be done in user space.
+> It's pretty much copy paste for everything from the kernel.
+> I don't understand yet why you really must do it in in userspace
+> in addition to doing it in kernel. It's definitely doable.
+> Instead of asking kernel to create a map, user space
+> can just remember map attributes (key_size, value_size)
+> and continues verification in userspace.
 >
->> So what's "spill part"?  Unless I misunderstood the stack tracking
->> code, you're tracking each byte separately.
->>
->> You're also tracking the type for each stack slot separately for each
->> instruction.  That looks like it'll account for the considerable
->> majority of total memory usage.
+>> But the eBPF binary doesn't encode this information. In fact, the
+>> caller of an ebpf syscall may not even have access to this
+>> information.
 >
-> verifier has to track each byte separately, because
-> malicious program may write a pointer into stack with 8-byte
-> write, then modify single byte with 1-byte write and then
-> try to read 8-byte back. Verifier has to catch that and
-> that's why it's tracking every byte-sized slot independently.
->
+> I don't follow. What info are you talking about?
+> are you saying that program only that references maps via fds
+> is not verifiable unless one knows what this fds refer to?
+> yeah, but we're talking user space verification here.
+> user knows what maps it creates with what attributes.
+> Also we can add a command to this syscall to fetch map
+> attributes. That would be trivial _incremental_ addition, right?
 
-Can't you just disallow the 1-byte write to the stack?
-
->> I don't like the fact that the function proto comes from the
->> environment instead of from the program.
->
-> that's must have.
-> in-kernel function argument constraints must come from
-> kernel. where else?
-> User program says I want to call function foo() and here
-> is my code that invokes it. Kernel sees prototype of this
-> foo() and checks arguments.
-> There is no point for user space program to also
-> pass foo() constraints. The only thing kernel can do
-> with this extra info is to check that it matches what
-> kernel already knows.
-
-User says "I'm calling a function called foo that has this signature".
-Kernel checks (a) that the signature is right and (b) that the call is
-compliant.
+That would also work, I suppose.
 
 >
->>> nope. breadth-first just doesn't work at all.
->>
->> Sorry, I didn't actually mean BFS.  I meant to order the search such
->> that all incoming control flow edges to an insn are visited before any
->> of the outgoing edges are visited.
+>> I think this is addressable as a smallish change on top of your code.
+>> Rather than looking up a map when you need to learn its key and value
+>> size, I think that all you need to do is to look in a program section
+>> for the key and value size (and the fact that it's a map) and confirm
+>> that the referenced map *matches* the stored values.
 >
-> hmm. I'm not sure how exactly you plan on achieving that.
-> I don't think we want to see real control/data flow graph
-> analysis in the kernel the way compilers do things.
-> It will be tens of thousands lines of code.
-> The algorithm you see in this verifier is straight forward and
-> tiny. I guess when time passes by when may get enough
-> courage to attempt something like this, but
-> today 'kiss' principle rules.
-
-I'll try it in Python.  I bet I can get it to be shorter than the current code.
-
+> we can add extra info to the program that will encode
+> program assumptions about maps. Sure. Though I think
+> it's extra info that kernel doesn't really need, since it can
+> only check that program assumptions match to what
+> kernel already knows. Kernel cannot rely on them.
+> So I'm not sure what this extra check really buys.
 >
->>> complexity is actually described in the doc.
->>> There are several limits. Verifier will be aborted if it walks
->>> more then 32k instructions or more then 1k branches.
->>> So the very worst case takes micro seconds to reject
->>> the program. So I don't see your concern.
->>
->> That this will randomly fail, then.  For all I know, there are
->> existing valid BPF programs with vastly more than 32k "instructions"
->> as counted by the verifier.
->
-> you need to double check your data :)
-> classic bpf limit is 4k instructions per program.
-> We're keeping the same limit for eBPF.
-> 32k limit says that verifier will visit each instruction
-> no more than 8 times.
-> if we have a program full of branches, then yes, 32k limit will
-> be reached and that's exactly what 'state pruning' patch is
-> addressing! As I already said, I dropped it out of this set
-> to ease review and to keep patch set size minimal.
-> You can see it my tree:
-> https://git.kernel.org/cgit/linux/kernel/git/ast/bpf.git/commit/?h=v14&id=1d9529ae4ce24bc31ca245a156299aa9e59a29f0
-> I was planning to send it next.
-> It's small incremental patch on top of existing things.
+> Anyway, if you think it's a smallish change, we can do it
+> incrementally on top of existing stuff, right?
+> Why this arguing then?
+> Sounds like you want to help with the development?
+> This is great! I'm all for it :)
 
-Yes, but does it work reliably?
 
---Andy
 
 -- 
 Andy Lutomirski
