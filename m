@@ -1,47 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] fec: Remove fec_enet_select_queue()
-Date: Fri, 26 Sep 2014 15:22:14 -0400 (EDT)
-Message-ID: <20140926.152214.2057397298920833937.davem@davemloft.net>
-References: <1411419329-11957-1-git-send-email-festevam@gmail.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
+Date: Fri, 26 Sep 2014 12:34:16 -0700
+Message-ID: <87mw9myy4n.fsf@x220.int.ebiederm.org>
+References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
+	<CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw@mail.gmail.com>
+	<54228D87.3070309@6wind.com>
+	<CAHA+R7NfJYzCsZx0E9YVXKVCQbCm_thPSi+80tix8Z9nVA82Ug@mail.gmail.com>
+	<5422F0F4.6000709@6wind.com>
+	<CAHA+R7Ot2kLHb+ne5AW3bFNc87qkFOiEHEyDh9sFrsHqXgrY3g@mail.gmail.com>
+	<5423D80B.9060500@6wind.com>
+	<CAHA+R7Ooyam2L-QfP-TjMEZEOqrQcQDxYiebmw760kgEji4G=g@mail.gmail.com>
+	<54256CCB.4000709@6wind.com> <5425BB3E.10700@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Frank.Li@freescale.com, netdev@vger.kernel.org,
-	fabio.estevam@freescale.com
-To: festevam@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50103 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753770AbaIZTWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 15:22:16 -0400
-In-Reply-To: <1411419329-11957-1-git-send-email-festevam@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+To: David Ahern <lxhacker68-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5425BB3E.10700-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (David Ahern's message of "Fri, 26 Sep
+	2014 13:15:10 -0600")
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Mon, 22 Sep 2014 17:55:29 -0300
+David Ahern <lxhacker68-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-> From: Fabio Estevam <fabio.estevam@freescale.com>
-> 
-> Sparse complains about fec_enet_select_queue() not being static.
-> 
-> Feedback from David Miller [1] was to remove this function instead of making it
-> static:
-> 
-> "Please just delete this function.
-> 
-> It's overriding code which does exactly the same thing.
-> 
-> Actually, more precisely, this code is duplicating code in a way that
-> bypasses many core facilitites of the networking.  For example, this
-> override means that socket based flow steering, XPS, etc. are all
-> not happening on these devices.
-> 
-> Without ->ndo_select_queue(), the flow dissector does __netdev_pick_tx
-> which is exactly what you want to happen."
-> 
-> [1] http://www.spinics.net/lists/netdev/msg297653.html
-> 
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> On 9/26/14, 7:40 AM, Nicolas Dichtel wrote:
+>>>
+>>>
+>>> No, I don't want to monitor anything. Even if I wanted, I would just
+>>> start one
+>>> daemon in each netns instead of one for all.
+>> Ok you don't want, but some other people (not only me) want it! And
+>> having one
+>> daemon per netns does not scale: there are scenarii with thousand netns
+>> which
+>> are dynamically created and deleted.
+>
+> An example of the scaling problem using quagga (old but still seems to be a
+> relevant data point):
+>
+>
+> https://lists.quagga.net/pipermail/quagga-users/2010-February/011351.html
+>
+> "2k VRFs that would be 2.6G"
+>
+> And that does not include the overhead of each namespace -- roughly
+> 200kB/namespace on one kernel I checked (v3.10). So that's a ballpark of 3G of
+> memory.
 
-Looks a lot better, applied, thanks!
+Resetting the conversation just a little bit.
+
+When I wrote the "ip netns" support I never expected that all
+applications would want to run in a specific network namespace.  All
+that is needed is one socket per network namespace.
+
+Furthermore one socket or one procesess per network namespaces is
+completely orthogonal to the patches presented.  I do not see a
+identifying where the far end of a veth pair or similar set of
+networking objects as anything that even closely resembles a path to a
+using only a single socket.
+
+So I think this whole subthread is quite silly and grossly off track.
+
+Eric
