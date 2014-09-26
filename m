@@ -1,167 +1,406 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH 7/7 NEXT] rtlwifi: rtl8188ee: rtl8723ae: rtl8821ae: Initialize some variables
-Date: Fri, 26 Sep 2014 16:40:28 -0500
-Message-ID: <1411767628-7965-8-git-send-email-Larry.Finger@lwfinger.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 6/7 NEXT] rtlwifi: rtl8188ee: rtl8192com: rtl8192cu: rtl8192ee: rtl8723ae: rtl87323be: rtl8821ae: Use common cmd_send_packet
+Date: Fri, 26 Sep 2014 16:40:27 -0500
+Message-ID: <1411767628-7965-7-git-send-email-Larry.Finger@lwfinger.net>
 References: <1411767628-7965-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1411767628-7965-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, troy_tan@realsil.com.cn,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:55324 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932066AbaIZVk4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 17:40:56 -0400
+In-Reply-To: <1411767628-7965-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In a number of places, kmalloc or valloc were used to acquire memory.
-To ensure that these locations are correctly initialized, the calls were
-changed to kzalloc and vzalloc. The change fixes a problem that was causing
-HT operations to be cancelled.
+A locking problem was found in routine _rtl92ee_cmd_send_packet() that led
+to system freezes. Upon inspection, several drivers had the same problem;
+however, the routines all used the same code. The common code has been
+moved into rtlwifi.
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/net/wireless/rtlwifi/efuse.c             |  4 ++--
- drivers/net/wireless/rtlwifi/pci.c               | 20 ++++++++++----------
- drivers/net/wireless/rtlwifi/rtl8188ee/sw.c      |  2 +-
- drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.c |  2 +-
- drivers/net/wireless/rtlwifi/rtl8723ae/sw.c      |  2 +-
- drivers/net/wireless/rtlwifi/rtl8821ae/sw.c      |  2 +-
- drivers/net/wireless/rtlwifi/usb.c               |  4 ++--
- 7 files changed, 18 insertions(+), 18 deletions(-)
+ drivers/net/wireless/rtlwifi/core.c               | 31 ++++++++++++++++++
+ drivers/net/wireless/rtlwifi/core.h               |  1 +
+ drivers/net/wireless/rtlwifi/rtl8188ee/fw.c       | 36 ++-------------------
+ drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c | 36 ++-------------------
+ drivers/net/wireless/rtlwifi/rtl8192cu/sw.c       |  1 -
+ drivers/net/wireless/rtlwifi/rtl8192ee/fw.c       | 34 ++------------------
+ drivers/net/wireless/rtlwifi/rtl8723ae/fw.c       |  3 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/fw.c       |  3 +-
+ drivers/net/wireless/rtlwifi/rtl8821ae/fw.c       | 38 ++---------------------
+ drivers/net/wireless/rtlwifi/wifi.h               |  1 -
+ 10 files changed, 45 insertions(+), 139 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/efuse.c b/drivers/net/wireless/rtlwifi/efuse.c
-index 118293b..0b4082c 100644
---- a/drivers/net/wireless/rtlwifi/efuse.c
-+++ b/drivers/net/wireless/rtlwifi/efuse.c
-@@ -251,7 +251,7 @@ void read_efuse(struct ieee80211_hw *hw, u16 _offset, u16 _size_byte, u8 *pbuf)
- 	}
- 
- 	/* allocate memory for efuse_tbl and efuse_word */
--	efuse_tbl = kmalloc(rtlpriv->cfg->maps[EFUSE_HWSET_MAX_SIZE] *
-+	efuse_tbl = kzalloc(rtlpriv->cfg->maps[EFUSE_HWSET_MAX_SIZE] *
- 			    sizeof(u8), GFP_ATOMIC);
- 	if (!efuse_tbl)
- 		return;
-@@ -259,7 +259,7 @@ void read_efuse(struct ieee80211_hw *hw, u16 _offset, u16 _size_byte, u8 *pbuf)
- 	if (!efuse_word)
- 		goto out;
- 	for (i = 0; i < EFUSE_MAX_WORD_UNIT; i++) {
--		efuse_word[i] = kmalloc(efuse_max_section * sizeof(u16),
-+		efuse_word[i] = kzalloc(efuse_max_section * sizeof(u16),
- 					GFP_ATOMIC);
- 		if (!efuse_word[i])
- 			goto done;
-diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
-index 1dbb22b..667aba8 100644
---- a/drivers/net/wireless/rtlwifi/pci.c
-+++ b/drivers/net/wireless/rtlwifi/pci.c
-@@ -2243,16 +2243,6 @@ int rtl_pci_probe(struct pci_dev *pdev,
- 	/*like read eeprom and so on */
- 	rtlpriv->cfg->ops->read_eeprom_info(hw);
- 
--	if (rtlpriv->cfg->ops->init_sw_vars(hw)) {
--		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG, "Can't init_sw_vars\n");
--		err = -ENODEV;
--		goto fail3;
--	}
--	rtlpriv->cfg->ops->init_sw_leds(hw);
--
--	/*aspm */
--	rtl_pci_init_aspm(hw);
--
- 	/* Init mac80211 sw */
- 	err = rtl_init_core(hw);
- 	if (err) {
-@@ -2268,6 +2258,16 @@ int rtl_pci_probe(struct pci_dev *pdev,
- 		goto fail3;
- 	}
- 
-+	if (rtlpriv->cfg->ops->init_sw_vars(hw)) {
-+		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG, "Can't init_sw_vars\n");
-+		err = -ENODEV;
-+		goto fail3;
-+	}
-+	rtlpriv->cfg->ops->init_sw_leds(hw);
+diff --git a/drivers/net/wireless/rtlwifi/core.c b/drivers/net/wireless/rtlwifi/core.c
+index d30f416..2a6e84b 100644
+--- a/drivers/net/wireless/rtlwifi/core.c
++++ b/drivers/net/wireless/rtlwifi/core.c
+@@ -1798,3 +1798,34 @@ bool rtl_hal_pwrseqcmdparsing(struct rtl_priv *rtlpriv, u8 cut_version,
+ 	return true;
+ }
+ EXPORT_SYMBOL(rtl_hal_pwrseqcmdparsing);
 +
-+	/*aspm */
-+	rtl_pci_init_aspm(hw);
++bool rtl_cmd_send_packet(struct ieee80211_hw *hw, struct sk_buff *skb)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
++	struct rtl8192_tx_ring *ring;
++	struct rtl_tx_desc *pdesc;
++	unsigned long flags;
++	struct sk_buff *pskb = NULL;
 +
- 	err = ieee80211_register_hw(hw);
- 	if (err) {
- 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
-index ab7dbfb..1134412 100644
---- a/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
-@@ -159,7 +159,7 @@ int rtl88e_init_sw_vars(struct ieee80211_hw *hw)
- 		rtlpriv->psc.fwctrl_psmode = FW_PS_DTIM_MODE;
++	ring = &rtlpci->tx_ring[BEACON_QUEUE];
++
++	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
++	pskb = __skb_dequeue(&ring->queue);
++	if (pskb)
++		kfree_skb(pskb);
++
++	/*this is wrong, fill_tx_cmddesc needs update*/
++	pdesc = &ring->desc[0];
++
++	rtlpriv->cfg->ops->fill_tx_cmddesc(hw, (u8 *)pdesc, 1, 1, skb);
++
++	__skb_queue_tail(&ring->queue, skb);
++
++	spin_unlock_irqrestore(&rtlpriv->locks.irq_th_lock, flags);
++
++	rtlpriv->cfg->ops->tx_polling(hw, BEACON_QUEUE);
++
++	return true;
++}
++EXPORT_SYMBOL(rtl_cmd_send_packet);
+diff --git a/drivers/net/wireless/rtlwifi/core.h b/drivers/net/wireless/rtlwifi/core.h
+index cdd4727..59cd3b9 100644
+--- a/drivers/net/wireless/rtlwifi/core.h
++++ b/drivers/net/wireless/rtlwifi/core.h
+@@ -41,5 +41,6 @@ void rtl_addr_delay(u32 addr);
+ void rtl_rfreg_delay(struct ieee80211_hw *hw, enum radio_path rfpath, u32 addr,
+ 		     u32 mask, u32 data);
+ void rtl_bb_delay(struct ieee80211_hw *hw, u32 addr, u32 data);
++bool rtl_cmd_send_packet(struct ieee80211_hw *hw, struct sk_buff *skb);
  
- 	/* for firmware buf */
--	rtlpriv->rtlhal.pfirmware = vmalloc(0x8000);
-+	rtlpriv->rtlhal.pfirmware = vzalloc(0x8000);
- 	if (!rtlpriv->rtlhal.pfirmware) {
- 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
- 			 "Can't alloc buffer for fw.\n");
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.c b/drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.c
-index 747958a..00a0531 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.c
-@@ -1735,7 +1735,7 @@ void rtl_8723e_c2h_command_handle(struct ieee80211_hw *hw)
- 		rtl_write_byte(rtlpriv, 0x1AF, 0x00);
- 		return;
- 	}
--	ptmp_buf = kmalloc(c2h_event.cmd_len, GFP_KERNEL);
-+	ptmp_buf = kzalloc(c2h_event.cmd_len, GFP_KERNEL);
- 	if (ptmp_buf == NULL) {
- 		RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
- 			 "malloc cmd buf failed\n");
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/sw.c b/drivers/net/wireless/rtlwifi/rtl8723ae/sw.c
-index d8f8cc4..8280bab 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723ae/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/sw.c
-@@ -164,7 +164,7 @@ int rtl8723e_init_sw_vars(struct ieee80211_hw *hw)
- 		rtlpriv->psc.fwctrl_psmode = FW_PS_DTIM_MODE;
+ #endif
+diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/fw.c b/drivers/net/wireless/rtlwifi/rtl8188ee/fw.c
+index 8d4cf2e..c8058aa 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8188ee/fw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8188ee/fw.c
+@@ -26,6 +26,7 @@
+ #include "../wifi.h"
+ #include "../pci.h"
+ #include "../base.h"
++#include "../core.h"
+ #include "reg.h"
+ #include "def.h"
+ #include "fw.h"
+@@ -512,39 +513,6 @@ void rtl88e_set_fw_ap_off_load_cmd(struct ieee80211_hw *hw,
  
- 	/* for firmware buf */
--	rtlpriv->rtlhal.pfirmware = vmalloc(0x6000);
-+	rtlpriv->rtlhal.pfirmware = vzalloc(0x6000);
- 	if (!rtlpriv->rtlhal.pfirmware) {
- 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
- 			 "Can't alloc buffer for fw.\n");
-diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/sw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/sw.c
-index 3cf7557..fc92dd6 100644
---- a/drivers/net/wireless/rtlwifi/rtl8821ae/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8821ae/sw.c
-@@ -95,7 +95,7 @@ static void load_wowlan_fw(struct rtl_priv *rtlpriv)
- 	int err;
+ }
  
- 	/* for wowlan firmware buf */
--	rtlpriv->rtlhal.wowlan_firmware = vmalloc(0x8000);
-+	rtlpriv->rtlhal.wowlan_firmware = vzalloc(0x8000);
- 	if (!rtlpriv->rtlhal.wowlan_firmware) {
- 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
- 			 "Can't alloc buffer for wowlan fw.\n");
-diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
-index 0398d3e..10cf69c 100644
---- a/drivers/net/wireless/rtlwifi/usb.c
-+++ b/drivers/net/wireless/rtlwifi/usb.c
-@@ -75,11 +75,11 @@ static int _usbctrl_vendorreq_async_write(struct usb_device *udev, u8 request,
- 	pipe = usb_sndctrlpipe(udev, 0); /* write_out */
- 	reqtype =  REALTEK_USB_VENQT_WRITE;
+-static bool _rtl88e_cmd_send_packet(struct ieee80211_hw *hw,
+-				    struct sk_buff *skb)
+-{
+-	struct rtl_priv *rtlpriv = rtl_priv(hw);
+-	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
+-	struct rtl8192_tx_ring *ring;
+-	struct rtl_tx_desc *pdesc;
+-	struct sk_buff *pskb = NULL;
+-	u8 own;
+-	unsigned long flags;
+-
+-	ring = &rtlpci->tx_ring[BEACON_QUEUE];
+-
+-	pskb = __skb_dequeue(&ring->queue);
+-	if (pskb)
+-		kfree_skb(pskb);
+-
+-	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
+-
+-	pdesc = &ring->desc[0];
+-	own = (u8)rtlpriv->cfg->ops->get_desc((u8 *)pdesc, true, HW_DESC_OWN);
+-
+-	rtlpriv->cfg->ops->fill_tx_cmddesc(hw, (u8 *)pdesc, 1, 1, skb);
+-
+-	__skb_queue_tail(&ring->queue, skb);
+-
+-	spin_unlock_irqrestore(&rtlpriv->locks.irq_th_lock, flags);
+-
+-	rtlpriv->cfg->ops->tx_polling(hw, BEACON_QUEUE);
+-
+-	return true;
+-}
+-
+ #define BEACON_PG		0 /* ->1 */
+ #define PSPOLL_PG		2
+ #define NULL_PG			3
+@@ -730,7 +698,7 @@ void rtl88e_set_fw_rsvdpagepkt(struct ieee80211_hw *hw, bool b_dl_finished)
+ 	memcpy(skb_put(skb, totalpacketlen),
+ 	       &reserved_page_packet, totalpacketlen);
  
--	dr = kmalloc(sizeof(*dr), GFP_ATOMIC);
-+	dr = kzalloc(sizeof(*dr), GFP_ATOMIC);
- 	if (!dr)
- 		return -ENOMEM;
+-	rtstatus = _rtl88e_cmd_send_packet(hw, skb);
++	rtstatus = rtl_cmd_send_packet(hw, skb);
  
--	databuf = kmalloc(databuf_maxlen, GFP_ATOMIC);
-+	databuf = kzalloc(databuf_maxlen, GFP_ATOMIC);
- 	if (!databuf) {
- 		kfree(dr);
- 		return -ENOMEM;
+ 	if (rtstatus)
+ 		b_dlok = true;
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c b/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c
+index 6a57e6d..a00861b 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c
+@@ -26,6 +26,7 @@
+ #include "../wifi.h"
+ #include "../pci.h"
+ #include "../base.h"
++#include "../core.h"
+ #include "../rtl8192ce/reg.h"
+ #include "../rtl8192ce/def.h"
+ #include "fw_common.h"
+@@ -538,39 +539,6 @@ void rtl92c_set_fw_pwrmode_cmd(struct ieee80211_hw *hw, u8 mode)
+ }
+ EXPORT_SYMBOL(rtl92c_set_fw_pwrmode_cmd);
+ 
+-static bool _rtl92c_cmd_send_packet(struct ieee80211_hw *hw,
+-				struct sk_buff *skb)
+-{
+-	struct rtl_priv *rtlpriv = rtl_priv(hw);
+-	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
+-	struct rtl8192_tx_ring *ring;
+-	struct rtl_tx_desc *pdesc;
+-	u8 own;
+-	unsigned long flags;
+-	struct sk_buff *pskb = NULL;
+-
+-	ring = &rtlpci->tx_ring[BEACON_QUEUE];
+-
+-	pskb = __skb_dequeue(&ring->queue);
+-	if (pskb)
+-		kfree_skb(pskb);
+-
+-	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
+-
+-	pdesc = &ring->desc[0];
+-	own = (u8)rtlpriv->cfg->ops->get_desc((u8 *)pdesc, true, HW_DESC_OWN);
+-
+-	rtlpriv->cfg->ops->fill_tx_cmddesc(hw, (u8 *)pdesc, 1, 1, skb);
+-
+-	__skb_queue_tail(&ring->queue, skb);
+-
+-	spin_unlock_irqrestore(&rtlpriv->locks.irq_th_lock, flags);
+-
+-	rtlpriv->cfg->ops->tx_polling(hw, BEACON_QUEUE);
+-
+-	return true;
+-}
+-
+ #define BEACON_PG		0 /*->1*/
+ #define PSPOLL_PG		2
+ #define NULL_PG			3
+@@ -754,7 +722,7 @@ void rtl92c_set_fw_rsvdpagepkt(struct ieee80211_hw *hw, bool b_dl_finished)
+ 	memcpy((u8 *)skb_put(skb, totalpacketlen),
+ 	       &reserved_page_packet, totalpacketlen);
+ 
+-	rtstatus = _rtl92c_cmd_send_packet(hw, skb);
++	rtstatus = rtl_cmd_send_packet(hw, skb);
+ 
+ 	if (rtstatus)
+ 		b_dlok = true;
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+index f72f0db..7c5fbaf 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+@@ -122,7 +122,6 @@ static struct rtl_hal_ops rtl8192cu_hal_ops = {
+ 	.fill_tx_desc = rtl92cu_tx_fill_desc,
+ 	.fill_fake_txdesc = rtl92cu_fill_fake_txdesc,
+ 	.fill_tx_cmddesc = rtl92cu_tx_fill_cmddesc,
+-	.cmd_send_packet = rtl92cu_cmd_send_packet,
+ 	.query_rx_desc = rtl92cu_rx_query_desc,
+ 	.set_channel_access = rtl92cu_update_channel_access_setting,
+ 	.radio_onoff_checking = rtl92cu_gpio_radio_on_off_checking,
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/fw.c b/drivers/net/wireless/rtlwifi/rtl8192ee/fw.c
+index 3c4a9a9..45c128b 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192ee/fw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192ee/fw.c
+@@ -26,6 +26,7 @@
+ #include "../wifi.h"
+ #include "../pci.h"
+ #include "../base.h"
++#include "../core.h"
+ #include "reg.h"
+ #include "def.h"
+ #include "fw.h"
+@@ -541,37 +542,6 @@ void rtl92ee_set_fw_media_status_rpt_cmd(struct ieee80211_hw *hw, u8 mstatus)
+ 	rtl92ee_fill_h2c_cmd(hw, H2C_92E_MSRRPT, 3, parm);
+ }
+ 
+-static bool _rtl92ee_cmd_send_packet(struct ieee80211_hw *hw,
+-				     struct sk_buff *skb)
+-{
+-	struct rtl_priv *rtlpriv = rtl_priv(hw);
+-	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
+-	struct rtl8192_tx_ring *ring;
+-	struct rtl_tx_desc *pdesc;
+-	unsigned long flags;
+-	struct sk_buff *pskb = NULL;
+-
+-	ring = &rtlpci->tx_ring[BEACON_QUEUE];
+-
+-	pskb = __skb_dequeue(&ring->queue);
+-	if (pskb)
+-		kfree_skb(pskb);
+-
+-	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
+-	/*this is wrong, fill_tx_cmddesc needs update*/
+-	pdesc = &ring->desc[0];
+-
+-	rtlpriv->cfg->ops->fill_tx_cmddesc(hw, (u8 *)pdesc, 1, 1, skb);
+-
+-	__skb_queue_tail(&ring->queue, skb);
+-
+-	spin_unlock_irqrestore(&rtlpriv->locks.irq_th_lock, flags);
+-
+-	rtlpriv->cfg->ops->tx_polling(hw, BEACON_QUEUE);
+-
+-	return true;
+-}
+-
+ #define BEACON_PG		0 /* ->1 */
+ #define PSPOLL_PG		2
+ #define NULL_PG			3
+@@ -758,7 +728,7 @@ void rtl92ee_set_fw_rsvdpagepkt(struct ieee80211_hw *hw, bool b_dl_finished)
+ 	memcpy((u8 *)skb_put(skb, totalpacketlen),
+ 	       &reserved_page_packet, totalpacketlen);
+ 
+-	rtstatus = _rtl92ee_cmd_send_packet(hw, skb);
++	rtstatus = rtl_cmd_send_packet(hw, skb);
+ 
+ 	if (rtstatus)
+ 		b_dlok = true;
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/fw.c b/drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
+index 97d92e2..b7c0d38 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
+@@ -26,6 +26,7 @@
+ #include "../wifi.h"
+ #include "../pci.h"
+ #include "../base.h"
++#include "../core.h"
+ #include "reg.h"
+ #include "def.h"
+ #include "fw.h"
+@@ -473,7 +474,7 @@ void rtl8723e_set_fw_rsvdpagepkt(struct ieee80211_hw *hw, bool b_dl_finished)
+ 	memcpy((u8 *)skb_put(skb, totalpacketlen),
+ 	       &reserved_page_packet, totalpacketlen);
+ 
+-	rtstatus = rtl8723_cmd_send_packet(hw, skb);
++	rtstatus = rtl_cmd_send_packet(hw, skb);
+ 
+ 	if (rtstatus)
+ 		b_dlok = true;
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/fw.c b/drivers/net/wireless/rtlwifi/rtl8723be/fw.c
+index 0c07992..69d4f0f 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8723be/fw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8723be/fw.c
+@@ -26,6 +26,7 @@
+ #include "../wifi.h"
+ #include "../pci.h"
+ #include "../base.h"
++#include "../core.h"
+ #include "reg.h"
+ #include "def.h"
+ #include "fw.h"
+@@ -467,7 +468,7 @@ void rtl8723be_set_fw_rsvdpagepkt(struct ieee80211_hw *hw,
+ 	memcpy((u8 *)skb_put(skb, totalpacketlen),
+ 	       &reserved_page_packet, totalpacketlen);
+ 
+-	rtstatus = rtl8723_cmd_send_packet(hw, skb);
++	rtstatus = rtl_cmd_send_packet(hw, skb);
+ 
+ 	if (rtstatus)
+ 		b_dlok = true;
+diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/fw.c b/drivers/net/wireless/rtlwifi/rtl8821ae/fw.c
+index 2efdb64..95e9562 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8821ae/fw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8821ae/fw.c
+@@ -26,6 +26,7 @@
+ #include "../wifi.h"
+ #include "../pci.h"
+ #include "../base.h"
++#include "../core.h"
+ #include "reg.h"
+ #include "def.h"
+ #include "fw.h"
+@@ -742,39 +743,6 @@ void rtl8821ae_set_fw_global_info_cmd(struct ieee80211_hw *hw)
+ 		      remote_wakeup_sec_info, H2C_8821AE_AOAC_GLOBAL_INFO_LEN);
+ }
+ 
+-static bool _rtl8821ae_cmd_send_packet(struct ieee80211_hw *hw,
+-				struct sk_buff *skb)
+-{
+-	struct rtl_priv *rtlpriv = rtl_priv(hw);
+-	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
+-	struct rtl8192_tx_ring *ring;
+-	struct rtl_tx_desc *pdesc;
+-	struct sk_buff *pskb = NULL;
+-	u8 own;
+-	unsigned long flags;
+-
+-	ring = &rtlpci->tx_ring[BEACON_QUEUE];
+-
+-	pskb = __skb_dequeue(&ring->queue);
+-	if (pskb)
+-		kfree_skb(pskb);
+-
+-	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
+-
+-	pdesc = &ring->desc[0];
+-	own = (u8)rtlpriv->cfg->ops->get_desc((u8 *)pdesc, true, HW_DESC_OWN);
+-
+-	rtlpriv->cfg->ops->fill_tx_cmddesc(hw, (u8 *)pdesc, 1, 1, skb);
+-
+-	__skb_queue_tail(&ring->queue, skb);
+-
+-	spin_unlock_irqrestore(&rtlpriv->locks.irq_th_lock, flags);
+-
+-	rtlpriv->cfg->ops->tx_polling(hw, BEACON_QUEUE);
+-
+-	return true;
+-}
+-
+ #define BEACON_PG		0
+ #define PSPOLL_PG		1
+ #define NULL_PG			2
+@@ -1581,7 +1549,7 @@ out:
+ 	memcpy((u8 *)skb_put(skb, totalpacketlen),
+ 	       &reserved_page_packet_8812, totalpacketlen);
+ 
+-	rtstatus = _rtl8821ae_cmd_send_packet(hw, skb);
++	rtstatus = rtl_cmd_send_packet(hw, skb);
+ 
+ 	if (rtstatus)
+ 		b_dlok = true;
+@@ -1706,7 +1674,7 @@ out:
+ 	memcpy((u8 *)skb_put(skb, totalpacketlen),
+ 	       &reserved_page_packet_8821, totalpacketlen);
+ 
+-	rtstatus = _rtl8821ae_cmd_send_packet(hw, skb);
++	rtstatus = rtl_cmd_send_packet(hw, skb);
+ 
+ 	if (rtstatus)
+ 		b_dlok = true;
+diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
+index 050a242..c2b4786 100644
+--- a/drivers/net/wireless/rtlwifi/wifi.h
++++ b/drivers/net/wireless/rtlwifi/wifi.h
+@@ -2101,7 +2101,6 @@ struct rtl_hal_ops {
+ 	void (*fill_tx_cmddesc) (struct ieee80211_hw *hw, u8 *pdesc,
+ 				 bool firstseg, bool lastseg,
+ 				 struct sk_buff *skb);
+-	bool (*cmd_send_packet)(struct ieee80211_hw *hw, struct sk_buff *skb);
+ 	bool (*query_rx_desc) (struct ieee80211_hw *hw,
+ 			       struct rtl_stats *stats,
+ 			       struct ieee80211_rx_status *rx_status,
 -- 
 1.8.4.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
