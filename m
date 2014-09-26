@@ -1,475 +1,655 @@
 From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH] [RESEND] ath5k: Remove AHB bus support
-Date: Fri, 26 Sep 2014 13:45:01 -0400
-Message-ID: <20140926174501.GI22967@tuxdriver.com>
-References: <CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
-	<1403087119.1984.93.camel@x220>
-	<CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
-	<1403091974.1984.102.camel@x220> <1409911856.7832.9.camel@x220>
-	<CAHNKnsRipRHicKOUW4dCutD1-sUG6qPnP2QuOveH_t1MFX9XgQ@mail.gmail.com>
-	<1409916824.7832.20.camel@x220>
-	<CAHNKnsQ1gt=DRBTd9Q9yos1idqmXMepEPvhm8a7unP-whzNAgg@mail.gmail.com>
-	<20140909182734.GJ29412@tuxdriver.com>
-	<1410339221.11097.10.camel@x220>
+Subject: Re: [PATCH V2 1/2] brcm80211: use container_of to resolve brcms_phy
+ from brcms_phy_pub
+Date: Fri, 26 Sep 2014 13:46:37 -0400
+Message-ID: <20140926174636.GJ22967@tuxdriver.com>
+References: <1410809448-15982-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>, open-5/S+JYg5SzeELgA04lAiVw@public.gmane.org,
-	Richard Weinberger <richard-/L3Ra7n9ekc@public.gmane.org>,
-	ath5k-devel-juf53994utBLZpfksSYvnA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Oleksij Rempel <linux-YEK0n+YFykbzxQdaRaTXBw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>, list-5/S+JYg5SzeELgA04lAiVw@public.gmane.org,
-	Jonathan Bither <jonbither-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	openwrt-devel-ZwoEplunGu0+xA9t4nZiwti2O/JbrIOy@public.gmane.org, antonynpavlov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>
-Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Fabian Frederick <fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1410339221.11097.10.camel@x220>
-List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
-List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
-Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
+In-Reply-To: <1410809448-15982-1-git-send-email-fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-OK, I'm merging this...
+These two patches don't seem to apply on wireless-next, and I don't
+have time at the moment to fix them up.  Feel free to repost...
 
-On Wed, Sep 10, 2014 at 10:53:41AM +0200, Paul Bolle wrote:
-> AHB bus support was added in v2.6.38, through commit a0b907ee2a71
-> ("ath5k: Add AHB bus support."). That code can only be build if the
-> Kconfig symbol ATHEROS_AR231X is set. But that symbol has never been
-> added to the tree. So AHB bus support has always been dead code.
+On Mon, Sep 15, 2014 at 09:30:46PM +0200, Fabian Frederick wrote:
+> Use container_of instead of casting first structure member.
 > 
-> Let's remove all code that depends on ATHEROS_AR231X. If that symbol
-> ever gets added to the tree the AHB bus support can be re-added too.
-> 
-> Signed-off-by: Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>
+> Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Fabian Frederick <fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
 > ---
-> First sent in https://lkml.org/lkml/2013/5/13/303 . Updated on top of
-> next-20140909.
 > 
-> Build tested only (no access to this hardware).
+> Compiled but untested.
 > 
->  drivers/net/wireless/ath/ath5k/Kconfig  |  14 +-
->  drivers/net/wireless/ath/ath5k/Makefile |   1 -
->  drivers/net/wireless/ath/ath5k/ahb.c    | 234 --------------------------------
->  drivers/net/wireless/ath/ath5k/ath5k.h  |  28 ----
->  drivers/net/wireless/ath/ath5k/base.c   |  14 --
->  drivers/net/wireless/ath/ath5k/led.c    |   6 -
->  6 files changed, 3 insertions(+), 294 deletions(-)
->  delete mode 100644 drivers/net/wireless/ath/ath5k/ahb.c
+> V2: 2 separate patches for brcm80211 (suggested by Arend van Spriel)
 > 
-> diff --git a/drivers/net/wireless/ath/ath5k/Kconfig b/drivers/net/wireless/ath/ath5k/Kconfig
-> index c9f81a388f15..93caf8e68901 100644
-> --- a/drivers/net/wireless/ath/ath5k/Kconfig
-> +++ b/drivers/net/wireless/ath/ath5k/Kconfig
-> @@ -1,13 +1,12 @@
->  config ATH5K
->  	tristate "Atheros 5xxx wireless cards support"
-> -	depends on (PCI || ATHEROS_AR231X) && MAC80211
-> +	depends on PCI && MAC80211
->  	select ATH_COMMON
->  	select MAC80211_LEDS
->  	select LEDS_CLASS
->  	select NEW_LEDS
->  	select AVERAGE
-> -	select ATH5K_AHB if (ATHEROS_AR231X && !PCI)
-> -	select ATH5K_PCI if (!ATHEROS_AR231X && PCI)
-> +	select ATH5K_PCI
->  	---help---
->  	  This module adds support for wireless adapters based on
->  	  Atheros 5xxx chipset.
-> @@ -52,16 +51,9 @@ config ATH5K_TRACER
+>  .../net/wireless/brcm80211/brcmsmac/phy/phy_cmn.c  | 122 ++++++++++-----------
+>  .../net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c  |   6 +-
+>  .../net/wireless/brcm80211/brcmsmac/phy/phy_n.c    |   8 +-
+>  3 files changed, 68 insertions(+), 68 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_cmn.c b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_cmn.c
+> index 57ecc05..941b1e4 100644
+> --- a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_cmn.c
+> +++ b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_cmn.c
+> @@ -128,19 +128,19 @@ static const u8 ofdm_rate_lookup[] = {
 >  
->  	  If unsure, say N.
->  
-> -config ATH5K_AHB
-> -	bool "Atheros 5xxx AHB bus support"
-> -	depends on (ATHEROS_AR231X && !PCI)
-> -	---help---
-> -	  This adds support for WiSoC type chipsets of the 5xxx Atheros
-> -	  family.
-> -
->  config ATH5K_PCI
->  	bool "Atheros 5xxx PCI bus support"
-> -	depends on (!ATHEROS_AR231X && PCI)
-> +	depends on PCI
->  	---help---
->  	  This adds support for PCI type chipsets of the 5xxx Atheros
->  	  family.
-> diff --git a/drivers/net/wireless/ath/ath5k/Makefile b/drivers/net/wireless/ath/ath5k/Makefile
-> index 1b3a34f7f224..51e2d8668041 100644
-> --- a/drivers/net/wireless/ath/ath5k/Makefile
-> +++ b/drivers/net/wireless/ath/ath5k/Makefile
-> @@ -17,6 +17,5 @@ ath5k-y				+= ani.o
->  ath5k-y				+= sysfs.o
->  ath5k-y				+= mac80211-ops.o
->  ath5k-$(CONFIG_ATH5K_DEBUG)	+= debug.o
-> -ath5k-$(CONFIG_ATH5K_AHB)	+= ahb.o
->  ath5k-$(CONFIG_ATH5K_PCI)	+= pci.o
->  obj-$(CONFIG_ATH5K)		+= ath5k.o
-> diff --git a/drivers/net/wireless/ath/ath5k/ahb.c b/drivers/net/wireless/ath/ath5k/ahb.c
-> deleted file mode 100644
-> index 79bffe165cab..000000000000
-> --- a/drivers/net/wireless/ath/ath5k/ahb.c
-> +++ /dev/null
-> @@ -1,234 +0,0 @@
-> -/*
-> - * Copyright (c) 2008-2009 Atheros Communications Inc.
-> - * Copyright (c) 2009 Gabor Juhos <juhosg-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-> - * Copyright (c) 2009 Imre Kaloz <kaloz-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-> - *
-> - * Permission to use, copy, modify, and/or distribute this software for any
-> - * purpose with or without fee is hereby granted, provided that the above
-> - * copyright notice and this permission notice appear in all copies.
-> - *
-> - * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-> - * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-> - * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-> - * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-> - * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-> - * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-> - * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-> - */
-> -
-> -#include <linux/nl80211.h>
-> -#include <linux/platform_device.h>
-> -#include <linux/etherdevice.h>
-> -#include <linux/export.h>
-> -#include <ar231x_platform.h>
-> -#include "ath5k.h"
-> -#include "debug.h"
-> -#include "base.h"
-> -#include "reg.h"
-> -
-> -/* return bus cachesize in 4B word units */
-> -static void ath5k_ahb_read_cachesize(struct ath_common *common, int *csz)
-> -{
-> -	*csz = L1_CACHE_BYTES >> 2;
-> -}
-> -
-> -static bool
-> -ath5k_ahb_eeprom_read(struct ath_common *common, u32 off, u16 *data)
-> -{
-> -	struct ath5k_hw *ah = common->priv;
-> -	struct platform_device *pdev = to_platform_device(ah->dev);
-> -	struct ar231x_board_config *bcfg = dev_get_platdata(&pdev->dev);
-> -	u16 *eeprom, *eeprom_end;
-> -
-> -	eeprom = (u16 *) bcfg->radio;
-> -	eeprom_end = ((void *) bcfg->config) + BOARD_CONFIG_BUFSZ;
-> -
-> -	eeprom += off;
-> -	if (eeprom > eeprom_end)
-> -		return false;
-> -
-> -	*data = *eeprom;
-> -	return true;
-> -}
-> -
-> -int ath5k_hw_read_srev(struct ath5k_hw *ah)
-> -{
-> -	struct platform_device *pdev = to_platform_device(ah->dev);
-> -	struct ar231x_board_config *bcfg = dev_get_platdata(&pdev->dev);
-> -	ah->ah_mac_srev = bcfg->devid;
-> -	return 0;
-> -}
-> -
-> -static int ath5k_ahb_eeprom_read_mac(struct ath5k_hw *ah, u8 *mac)
-> -{
-> -	struct platform_device *pdev = to_platform_device(ah->dev);
-> -	struct ar231x_board_config *bcfg = dev_get_platdata(&pdev->dev);
-> -	u8 *cfg_mac;
-> -
-> -	if (to_platform_device(ah->dev)->id == 0)
-> -		cfg_mac = bcfg->config->wlan0_mac;
-> -	else
-> -		cfg_mac = bcfg->config->wlan1_mac;
-> -
-> -	memcpy(mac, cfg_mac, ETH_ALEN);
-> -	return 0;
-> -}
-> -
-> -static const struct ath_bus_ops ath_ahb_bus_ops = {
-> -	.ath_bus_type = ATH_AHB,
-> -	.read_cachesize = ath5k_ahb_read_cachesize,
-> -	.eeprom_read = ath5k_ahb_eeprom_read,
-> -	.eeprom_read_mac = ath5k_ahb_eeprom_read_mac,
-> -};
-> -
-> -/*Initialization*/
-> -static int ath_ahb_probe(struct platform_device *pdev)
-> -{
-> -	struct ar231x_board_config *bcfg = dev_get_platdata(&pdev->dev);
-> -	struct ath5k_hw *ah;
-> -	struct ieee80211_hw *hw;
-> -	struct resource *res;
-> -	void __iomem *mem;
-> -	int irq;
-> -	int ret = 0;
-> -	u32 reg;
-> -
-> -	if (!dev_get_platdata(&pdev->dev)) {
-> -		dev_err(&pdev->dev, "no platform data specified\n");
-> -		ret = -EINVAL;
-> -		goto err_out;
-> -	}
-> -
-> -	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> -	if (res == NULL) {
-> -		dev_err(&pdev->dev, "no memory resource found\n");
-> -		ret = -ENXIO;
-> -		goto err_out;
-> -	}
-> -
-> -	mem = ioremap_nocache(res->start, resource_size(res));
-> -	if (mem == NULL) {
-> -		dev_err(&pdev->dev, "ioremap failed\n");
-> -		ret = -ENOMEM;
-> -		goto err_out;
-> -	}
-> -
-> -	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-> -	if (res == NULL) {
-> -		dev_err(&pdev->dev, "no IRQ resource found\n");
-> -		ret = -ENXIO;
-> -		goto err_iounmap;
-> -	}
-> -
-> -	irq = res->start;
-> -
-> -	hw = ieee80211_alloc_hw(sizeof(struct ath5k_hw), &ath5k_hw_ops);
-> -	if (hw == NULL) {
-> -		dev_err(&pdev->dev, "no memory for ieee80211_hw\n");
-> -		ret = -ENOMEM;
-> -		goto err_iounmap;
-> -	}
-> -
-> -	ah = hw->priv;
-> -	ah->hw = hw;
-> -	ah->dev = &pdev->dev;
-> -	ah->iobase = mem;
-> -	ah->irq = irq;
-> -	ah->devid = bcfg->devid;
-> -
-> -	if (bcfg->devid >= AR5K_SREV_AR2315_R6) {
-> -		/* Enable WMAC AHB arbitration */
-> -		reg = ioread32((void __iomem *) AR5K_AR2315_AHB_ARB_CTL);
-> -		reg |= AR5K_AR2315_AHB_ARB_CTL_WLAN;
-> -		iowrite32(reg, (void __iomem *) AR5K_AR2315_AHB_ARB_CTL);
-> -
-> -		/* Enable global WMAC swapping */
-> -		reg = ioread32((void __iomem *) AR5K_AR2315_BYTESWAP);
-> -		reg |= AR5K_AR2315_BYTESWAP_WMAC;
-> -		iowrite32(reg, (void __iomem *) AR5K_AR2315_BYTESWAP);
-> -	} else {
-> -		/* Enable WMAC DMA access (assuming 5312 or 231x*/
-> -		/* TODO: check other platforms */
-> -		reg = ioread32((void __iomem *) AR5K_AR5312_ENABLE);
-> -		if (to_platform_device(ah->dev)->id == 0)
-> -			reg |= AR5K_AR5312_ENABLE_WLAN0;
-> -		else
-> -			reg |= AR5K_AR5312_ENABLE_WLAN1;
-> -		iowrite32(reg, (void __iomem *) AR5K_AR5312_ENABLE);
-> -
-> -		/*
-> -		 * On a dual-band AR5312, the multiband radio is only
-> -		 * used as pass-through. Disable 2 GHz support in the
-> -		 * driver for it
-> -		 */
-> -		if (to_platform_device(ah->dev)->id == 0 &&
-> -		    (bcfg->config->flags & (BD_WLAN0 | BD_WLAN1)) ==
-> -		     (BD_WLAN1 | BD_WLAN0))
-> -			ah->ah_capabilities.cap_needs_2GHz_ovr = true;
-> -		else
-> -			ah->ah_capabilities.cap_needs_2GHz_ovr = false;
-> -	}
-> -
-> -	ret = ath5k_init_ah(ah, &ath_ahb_bus_ops);
-> -	if (ret != 0) {
-> -		dev_err(&pdev->dev, "failed to attach device, err=%d\n", ret);
-> -		ret = -ENODEV;
-> -		goto err_free_hw;
-> -	}
-> -
-> -	platform_set_drvdata(pdev, hw);
-> -
-> -	return 0;
-> -
-> - err_free_hw:
-> -	ieee80211_free_hw(hw);
-> - err_iounmap:
-> -        iounmap(mem);
-> - err_out:
-> -	return ret;
-> -}
-> -
-> -static int ath_ahb_remove(struct platform_device *pdev)
-> -{
-> -	struct ar231x_board_config *bcfg = dev_get_platdata(&pdev->dev);
-> -	struct ieee80211_hw *hw = platform_get_drvdata(pdev);
-> -	struct ath5k_hw *ah;
-> -	u32 reg;
-> -
-> -	if (!hw)
-> -		return 0;
-> -
-> -	ah = hw->priv;
-> -
-> -	if (bcfg->devid >= AR5K_SREV_AR2315_R6) {
-> -		/* Disable WMAC AHB arbitration */
-> -		reg = ioread32((void __iomem *) AR5K_AR2315_AHB_ARB_CTL);
-> -		reg &= ~AR5K_AR2315_AHB_ARB_CTL_WLAN;
-> -		iowrite32(reg, (void __iomem *) AR5K_AR2315_AHB_ARB_CTL);
-> -	} else {
-> -		/*Stop DMA access */
-> -		reg = ioread32((void __iomem *) AR5K_AR5312_ENABLE);
-> -		if (to_platform_device(ah->dev)->id == 0)
-> -			reg &= ~AR5K_AR5312_ENABLE_WLAN0;
-> -		else
-> -			reg &= ~AR5K_AR5312_ENABLE_WLAN1;
-> -		iowrite32(reg, (void __iomem *) AR5K_AR5312_ENABLE);
-> -	}
-> -
-> -	ath5k_deinit_ah(ah);
-> -	iounmap(ah->iobase);
-> -	ieee80211_free_hw(hw);
-> -
-> -	return 0;
-> -}
-> -
-> -static struct platform_driver ath_ahb_driver = {
-> -	.probe      = ath_ahb_probe,
-> -	.remove     = ath_ahb_remove,
-> -	.driver		= {
-> -		.name	= "ar231x-wmac",
-> -		.owner	= THIS_MODULE,
-> -	},
-> -};
-> -
-> -module_platform_driver(ath_ahb_driver);
-> diff --git a/drivers/net/wireless/ath/ath5k/ath5k.h b/drivers/net/wireless/ath/ath5k/ath5k.h
-> index 85316bb3f8c6..ed2468220216 100644
-> --- a/drivers/net/wireless/ath/ath5k/ath5k.h
-> +++ b/drivers/net/wireless/ath/ath5k/ath5k.h
-> @@ -1647,32 +1647,6 @@ static inline struct ath_regulatory *ath5k_hw_regulatory(struct ath5k_hw *ah)
->  	return &(ath5k_hw_common(ah)->regulatory);
+>  void wlc_phyreg_enter(struct brcms_phy_pub *pih)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	wlapi_bmac_ucode_wake_override_phyreg_set(pi->sh->physhim);
 >  }
 >  
-> -#ifdef CONFIG_ATHEROS_AR231X
-> -#define AR5K_AR2315_PCI_BASE	((void __iomem *)0xb0100000)
-> -
-> -static inline void __iomem *ath5k_ahb_reg(struct ath5k_hw *ah, u16 reg)
-> -{
-> -	/* On AR2315 and AR2317 the PCI clock domain registers
-> -	 * are outside of the WMAC register space */
-> -	if (unlikely((reg >= 0x4000) && (reg < 0x5000) &&
-> -	    (ah->ah_mac_srev >= AR5K_SREV_AR2315_R6)))
-> -		return AR5K_AR2315_PCI_BASE + reg;
-> -
-> -	return ah->iobase + reg;
-> -}
-> -
-> -static inline u32 ath5k_hw_reg_read(struct ath5k_hw *ah, u16 reg)
-> -{
-> -	return ioread32(ath5k_ahb_reg(ah, reg));
-> -}
-> -
-> -static inline void ath5k_hw_reg_write(struct ath5k_hw *ah, u32 val, u16 reg)
-> -{
-> -	iowrite32(val, ath5k_ahb_reg(ah, reg));
-> -}
-> -
-> -#else
-> -
->  static inline u32 ath5k_hw_reg_read(struct ath5k_hw *ah, u16 reg)
+>  void wlc_phyreg_exit(struct brcms_phy_pub *pih)
 >  {
->  	return ioread32(ah->iobase + reg);
-> @@ -1683,8 +1657,6 @@ static inline void ath5k_hw_reg_write(struct ath5k_hw *ah, u32 val, u16 reg)
->  	iowrite32(val, ah->iobase + reg);
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	wlapi_bmac_ucode_wake_override_phyreg_clear(pi->sh->physhim);
 >  }
 >  
-> -#endif
-> -
->  static inline enum ath_bus_type ath5k_get_bus_type(struct ath5k_hw *ah)
+>  void wlc_radioreg_enter(struct brcms_phy_pub *pih)
 >  {
->  	return ath5k_hw_common(ah)->bus_ops->ath_bus_type;
-> diff --git a/drivers/net/wireless/ath/ath5k/base.c b/drivers/net/wireless/ath/ath5k/base.c
-> index 59a87247aac4..a4a09bb8f2f3 100644
-> --- a/drivers/net/wireless/ath/ath5k/base.c
-> +++ b/drivers/net/wireless/ath/ath5k/base.c
-> @@ -99,15 +99,6 @@ static int ath5k_reset(struct ath5k_hw *ah, struct ieee80211_channel *chan,
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	wlapi_bmac_mctrl(pi->sh->physhim, MCTL_LOCK_RADIO, MCTL_LOCK_RADIO);
 >  
->  /* Known SREVs */
->  static const struct ath5k_srev_name srev_names[] = {
-> -#ifdef CONFIG_ATHEROS_AR231X
-> -	{ "5312",	AR5K_VERSION_MAC,	AR5K_SREV_AR5312_R2 },
-> -	{ "5312",	AR5K_VERSION_MAC,	AR5K_SREV_AR5312_R7 },
-> -	{ "2313",	AR5K_VERSION_MAC,	AR5K_SREV_AR2313_R8 },
-> -	{ "2315",	AR5K_VERSION_MAC,	AR5K_SREV_AR2315_R6 },
-> -	{ "2315",	AR5K_VERSION_MAC,	AR5K_SREV_AR2315_R7 },
-> -	{ "2317",	AR5K_VERSION_MAC,	AR5K_SREV_AR2317_R1 },
-> -	{ "2317",	AR5K_VERSION_MAC,	AR5K_SREV_AR2317_R2 },
-> -#else
->  	{ "5210",	AR5K_VERSION_MAC,	AR5K_SREV_AR5210 },
->  	{ "5311",	AR5K_VERSION_MAC,	AR5K_SREV_AR5311 },
->  	{ "5311A",	AR5K_VERSION_MAC,	AR5K_SREV_AR5311A },
-> @@ -126,7 +117,6 @@ static const struct ath5k_srev_name srev_names[] = {
->  	{ "5418",	AR5K_VERSION_MAC,	AR5K_SREV_AR5418 },
->  	{ "2425",	AR5K_VERSION_MAC,	AR5K_SREV_AR2425 },
->  	{ "2417",	AR5K_VERSION_MAC,	AR5K_SREV_AR2417 },
-> -#endif
->  	{ "xxxxx",	AR5K_VERSION_MAC,	AR5K_SREV_UNKNOWN },
->  	{ "5110",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_5110 },
->  	{ "5111",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_5111 },
-> @@ -142,10 +132,6 @@ static const struct ath5k_srev_name srev_names[] = {
->  	{ "5413",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_5413 },
->  	{ "5424",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_5424 },
->  	{ "5133",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_5133 },
-> -#ifdef CONFIG_ATHEROS_AR231X
-> -	{ "2316",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_2316 },
-> -	{ "2317",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_2317 },
-> -#endif
->  	{ "xxxxx",	AR5K_VERSION_RAD,	AR5K_SREV_UNKNOWN },
->  };
+>  	udelay(10);
+> @@ -148,7 +148,7 @@ void wlc_radioreg_enter(struct brcms_phy_pub *pih)
 >  
-> diff --git a/drivers/net/wireless/ath/ath5k/led.c b/drivers/net/wireless/ath/ath5k/led.c
-> index 2062d1190556..0beb7e7d6075 100644
-> --- a/drivers/net/wireless/ath/ath5k/led.c
-> +++ b/drivers/net/wireless/ath/ath5k/led.c
-> @@ -163,20 +163,14 @@ int ath5k_init_leds(struct ath5k_hw *ah)
+>  void wlc_radioreg_exit(struct brcms_phy_pub *pih)
 >  {
->  	int ret = 0;
->  	struct ieee80211_hw *hw = ah->hw;
-> -#ifndef CONFIG_ATHEROS_AR231X
->  	struct pci_dev *pdev = ah->pdev;
-> -#endif
->  	char name[ATH5K_LED_MAX_NAME_LEN + 1];
->  	const struct pci_device_id *match;
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
 >  
->  	if (!ah->pdev)
->  		return 0;
+>  	(void)bcma_read16(pi->d11core, D11REGOFFS(phyversion));
+>  	pi->phy_wreg = 0;
+> @@ -586,7 +586,7 @@ err:
 >  
-> -#ifdef CONFIG_ATHEROS_AR231X
-> -	match = NULL;
-> -#else
->  	match = pci_match_id(&ath5k_led_devices[0], pdev);
-> -#endif
->  	if (match) {
->  		__set_bit(ATH_STAT_LEDSOFT, ah->status);
->  		ah->led_pin = ATH_PIN(match->driver_data);
+>  void wlc_phy_detach(struct brcms_phy_pub *pih)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	if (pih) {
+>  		if (--pi->refcnt)
+> @@ -613,7 +613,7 @@ bool
+>  wlc_phy_get_phyversion(struct brcms_phy_pub *pih, u16 *phytype, u16 *phyrev,
+>  		       u16 *radioid, u16 *radiover)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	*phytype = (u16) pi->pubpi.phy_type;
+>  	*phyrev = (u16) pi->pubpi.phy_rev;
+>  	*radioid = pi->pubpi.radioid;
+> @@ -624,19 +624,19 @@ wlc_phy_get_phyversion(struct brcms_phy_pub *pih, u16 *phytype, u16 *phyrev,
+>  
+>  bool wlc_phy_get_encore(struct brcms_phy_pub *pih)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	return pi->pubpi.abgphy_encore;
+>  }
+>  
+>  u32 wlc_phy_get_coreflags(struct brcms_phy_pub *pih)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	return pi->pubpi.coreflags;
+>  }
+>  
+>  void wlc_phy_anacore(struct brcms_phy_pub *pih, bool on)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	if (ISNPHY(pi)) {
+>  		if (on) {
+> @@ -673,7 +673,7 @@ void wlc_phy_anacore(struct brcms_phy_pub *pih, bool on)
+>  
+>  u32 wlc_phy_clk_bwbits(struct brcms_phy_pub *pih)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	u32 phy_bw_clkbits = 0;
+>  
+> @@ -698,14 +698,14 @@ u32 wlc_phy_clk_bwbits(struct brcms_phy_pub *pih)
+>  
+>  void wlc_phy_por_inform(struct brcms_phy_pub *ppi)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	pi->phy_init_por = true;
+>  }
+>  
+>  void wlc_phy_edcrs_lock(struct brcms_phy_pub *pih, bool lock)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	pi->edcrs_threshold_lock = lock;
+>  
+> @@ -717,14 +717,14 @@ void wlc_phy_edcrs_lock(struct brcms_phy_pub *pih, bool lock)
+>  
+>  void wlc_phy_initcal_enable(struct brcms_phy_pub *pih, bool initcal)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	pi->do_initcal = initcal;
+>  }
+>  
+>  void wlc_phy_hw_clk_state_upd(struct brcms_phy_pub *pih, bool newstate)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	if (!pi || !pi->sh)
+>  		return;
+> @@ -734,7 +734,7 @@ void wlc_phy_hw_clk_state_upd(struct brcms_phy_pub *pih, bool newstate)
+>  
+>  void wlc_phy_hw_state_upd(struct brcms_phy_pub *pih, bool newstate)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	if (!pi || !pi->sh)
+>  		return;
+> @@ -746,7 +746,7 @@ void wlc_phy_init(struct brcms_phy_pub *pih, u16 chanspec)
+>  {
+>  	u32 mc;
+>  	void (*phy_init)(struct brcms_phy *) = NULL;
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	if (pi->init_in_progress)
+>  		return;
+> @@ -798,7 +798,7 @@ void wlc_phy_init(struct brcms_phy_pub *pih, u16 chanspec)
+>  
+>  void wlc_phy_cal_init(struct brcms_phy_pub *pih)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	void (*cal_init)(struct brcms_phy *) = NULL;
+>  
+>  	if (WARN((bcma_read32(pi->d11core, D11REGOFFS(maccontrol)) &
+> @@ -816,7 +816,7 @@ void wlc_phy_cal_init(struct brcms_phy_pub *pih)
+>  
+>  int wlc_phy_down(struct brcms_phy_pub *pih)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	int callbacks = 0;
+>  
+>  	if (pi->phycal_timer
+> @@ -1070,7 +1070,7 @@ void wlc_phy_do_dummy_tx(struct brcms_phy *pi, bool ofdm, bool pa_on)
+>  
+>  void wlc_phy_hold_upd(struct brcms_phy_pub *pih, u32 id, bool set)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	if (set)
+>  		mboolset(pi->measure_hold, id);
+> @@ -1082,7 +1082,7 @@ void wlc_phy_hold_upd(struct brcms_phy_pub *pih, u32 id, bool set)
+>  
+>  void wlc_phy_mute_upd(struct brcms_phy_pub *pih, bool mute, u32 flags)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	if (mute)
+>  		mboolset(pi->measure_hold, PHY_HOLD_FOR_MUTE);
+> @@ -1096,7 +1096,7 @@ void wlc_phy_mute_upd(struct brcms_phy_pub *pih, bool mute, u32 flags)
+>  
+>  void wlc_phy_clear_tssi(struct brcms_phy_pub *pih)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	if (ISNPHY(pi)) {
+>  		return;
+> @@ -1115,7 +1115,7 @@ static bool wlc_phy_cal_txpower_recalc_sw(struct brcms_phy *pi)
+>  
+>  void wlc_phy_switch_radio(struct brcms_phy_pub *pih, bool on)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	(void)bcma_read32(pi->d11core, D11REGOFFS(maccontrol));
+>  
+>  	if (ISNPHY(pi)) {
+> @@ -1149,35 +1149,35 @@ void wlc_phy_switch_radio(struct brcms_phy_pub *pih, bool on)
+>  
+>  u16 wlc_phy_bw_state_get(struct brcms_phy_pub *ppi)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	return pi->bw;
+>  }
+>  
+>  void wlc_phy_bw_state_set(struct brcms_phy_pub *ppi, u16 bw)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	pi->bw = bw;
+>  }
+>  
+>  void wlc_phy_chanspec_radio_set(struct brcms_phy_pub *ppi, u16 newch)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	pi->radio_chanspec = newch;
+>  
+>  }
+>  
+>  u16 wlc_phy_chanspec_get(struct brcms_phy_pub *ppi)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	return pi->radio_chanspec;
+>  }
+>  
+>  void wlc_phy_chanspec_set(struct brcms_phy_pub *ppi, u16 chanspec)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	u16 m_cur_channel;
+>  	void (*chanspec_set)(struct brcms_phy *, u16) = NULL;
+>  	m_cur_channel = CHSPEC_CHANNEL(chanspec);
+> @@ -1226,7 +1226,7 @@ int wlc_phy_chanspec_bandrange_get(struct brcms_phy *pi, u16 chanspec)
+>  void wlc_phy_chanspec_ch14_widefilter_set(struct brcms_phy_pub *ppi,
+>  					  bool wide_filter)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	pi->channel_14_wide_filter = wide_filter;
+>  
+> @@ -1246,7 +1246,7 @@ void
+>  wlc_phy_chanspec_band_validch(struct brcms_phy_pub *ppi, uint band,
+>  			      struct brcms_chanvec *channels)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	uint i;
+>  	uint channel;
+>  
+> @@ -1267,7 +1267,7 @@ wlc_phy_chanspec_band_validch(struct brcms_phy_pub *ppi, uint band,
+>  
+>  u16 wlc_phy_chanspec_band_firstch(struct brcms_phy_pub *ppi, uint band)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	uint i;
+>  	uint channel;
+>  	u16 chspec;
+> @@ -1311,7 +1311,7 @@ u16 wlc_phy_chanspec_band_firstch(struct brcms_phy_pub *ppi, uint band)
+>  
+>  int wlc_phy_txpower_get(struct brcms_phy_pub *ppi, uint *qdbm, bool *override)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	*qdbm = pi->tx_user_target[0];
+>  	if (override != NULL)
+> @@ -1323,7 +1323,7 @@ void wlc_phy_txpower_target_set(struct brcms_phy_pub *ppi,
+>  				struct txpwr_limits *txpwr)
+>  {
+>  	bool mac_enabled = false;
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	memcpy(&pi->tx_user_target[TXP_FIRST_CCK],
+>  	       &txpwr->cck[0], BRCMS_NUM_RATES_CCK);
+> @@ -1371,7 +1371,7 @@ void wlc_phy_txpower_target_set(struct brcms_phy_pub *ppi,
+>  
+>  int wlc_phy_txpower_set(struct brcms_phy_pub *ppi, uint qdbm, bool override)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	int i;
+>  
+>  	if (qdbm > 127)
+> @@ -1407,7 +1407,7 @@ void
+>  wlc_phy_txpower_sromlimit(struct brcms_phy_pub *ppi, uint channel, u8 *min_pwr,
+>  			  u8 *max_pwr, int txp_rate_idx)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	uint i;
+>  
+>  	*min_pwr = pi->min_txpower * BRCMS_TXPWR_DB_FACTOR;
+> @@ -1456,7 +1456,7 @@ void
+>  wlc_phy_txpower_sromlimit_max_get(struct brcms_phy_pub *ppi, uint chan,
+>  				  u8 *max_txpwr, u8 *min_txpwr)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	u8 tx_pwr_max = 0;
+>  	u8 tx_pwr_min = 255;
+>  	u8 max_num_rate;
+> @@ -1493,14 +1493,14 @@ wlc_phy_txpower_boardlimit_band(struct brcms_phy_pub *ppi, uint bandunit,
+>  
+>  u8 wlc_phy_txpower_get_target_min(struct brcms_phy_pub *ppi)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	return pi->tx_power_min;
+>  }
+>  
+>  u8 wlc_phy_txpower_get_target_max(struct brcms_phy_pub *ppi)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	return pi->tx_power_max;
+>  }
+> @@ -1812,21 +1812,21 @@ wlc_phy_txpower_reg_limit_calc(struct brcms_phy *pi, struct txpwr_limits *txpwr,
+>  
+>  void wlc_phy_txpwr_percent_set(struct brcms_phy_pub *ppi, u8 txpwr_percent)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	pi->txpwr_percent = txpwr_percent;
+>  }
+>  
+>  void wlc_phy_machwcap_set(struct brcms_phy_pub *ppi, u32 machwcap)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	pi->sh->machwcap = machwcap;
+>  }
+>  
+>  void wlc_phy_runbist_config(struct brcms_phy_pub *ppi, bool start_end)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	u16 rxc;
+>  	rxc = 0;
+>  
+> @@ -1857,7 +1857,7 @@ void
+>  wlc_phy_txpower_limit_set(struct brcms_phy_pub *ppi, struct txpwr_limits *txpwr,
+>  			  u16 chanspec)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	wlc_phy_txpower_reg_limit_calc(pi, txpwr, chanspec);
+>  
+> @@ -1881,14 +1881,14 @@ wlc_phy_txpower_limit_set(struct brcms_phy_pub *ppi, struct txpwr_limits *txpwr,
+>  
+>  void wlc_phy_ofdm_rateset_war(struct brcms_phy_pub *pih, bool war)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	pi->ofdm_rateset_war = war;
+>  }
+>  
+>  void wlc_phy_bf_preempt_enable(struct brcms_phy_pub *pih, bool bf_preempt)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	pi->bf_preempt_4306 = bf_preempt;
+>  }
+> @@ -1945,7 +1945,7 @@ void wlc_phy_txpower_update_shm(struct brcms_phy *pi)
+>  
+>  bool wlc_phy_txpower_hw_ctrl_get(struct brcms_phy_pub *ppi)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	if (ISNPHY(pi))
+>  		return pi->nphy_txpwrctrl;
+> @@ -1955,7 +1955,7 @@ bool wlc_phy_txpower_hw_ctrl_get(struct brcms_phy_pub *ppi)
+>  
+>  void wlc_phy_txpower_hw_ctrl_set(struct brcms_phy_pub *ppi, bool hwpwrctrl)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	bool suspend;
+>  
+>  	if (!pi->hwpwrctrl_capable)
+> @@ -2038,7 +2038,7 @@ void
+>  wlc_phy_txpower_get_current(struct brcms_phy_pub *ppi, struct tx_power *power,
+>  			    uint channel)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	uint rate, num_rates;
+>  	u8 min_pwr, max_pwr;
+>  
+> @@ -2136,21 +2136,21 @@ wlc_phy_txpower_get_current(struct brcms_phy_pub *ppi, struct tx_power *power,
+>  
+>  void wlc_phy_antsel_type_set(struct brcms_phy_pub *ppi, u8 antsel_type)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	pi->antsel_type = antsel_type;
+>  }
+>  
+>  bool wlc_phy_test_ison(struct brcms_phy_pub *ppi)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	return pi->phytest_on;
+>  }
+>  
+>  void wlc_phy_ant_rxdiv_set(struct brcms_phy_pub *ppi, u8 val)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	bool suspend;
+>  
+>  	pi->sh->rx_antdiv = val;
+> @@ -2283,7 +2283,7 @@ static s8 wlc_phy_noise_read_shmem(struct brcms_phy *pi)
+>  
+>  void wlc_phy_noise_sample_intr(struct brcms_phy_pub *pih)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	u16 jssi_aux;
+>  	u8 channel = 0;
+>  	s8 noise_dbm = PHY_NOISE_FIXED_VAL_NPHY;
+> @@ -2339,7 +2339,7 @@ void wlc_phy_noise_sample_intr(struct brcms_phy_pub *pih)
+>  static void
+>  wlc_phy_noise_sample_request(struct brcms_phy_pub *pih, u8 reason, u8 ch)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	s8 noise_dbm = PHY_NOISE_FIXED_VAL_NPHY;
+>  	bool sampling_in_progress = (pi->phynoise_state != 0);
+>  	bool wait_for_intr = true;
+> @@ -2531,7 +2531,7 @@ int wlc_phy_rssi_compute(struct brcms_phy_pub *pih,
+>  {
+>  	int rssi = rxh->PhyRxStatus_1 & PRXS1_JSSI_MASK;
+>  	uint radioid = pih->radioid;
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	if ((pi->sh->corerev >= 11)
+>  	    && !(rxh->RxStatus2 & RXS_PHYRXST_VALID)) {
+> @@ -2591,7 +2591,7 @@ void wlc_phy_set_deaf(struct brcms_phy_pub *ppi, bool user_flag)
+>  
+>  void wlc_phy_watchdog(struct brcms_phy_pub *pih)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	bool delay_phy_cal = false;
+>  	pi->sh->now++;
+>  
+> @@ -2651,7 +2651,7 @@ void wlc_phy_watchdog(struct brcms_phy_pub *pih)
+>  
+>  void wlc_phy_BSSinit(struct brcms_phy_pub *pih, bool bonlyap, int rssi)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	uint i;
+>  	uint k;
+>  
+> @@ -2711,7 +2711,7 @@ void wlc_phy_cal_perical(struct brcms_phy_pub *pih, u8 reason)
+>  	s16 nphy_currtemp = 0;
+>  	s16 delta_temp = 0;
+>  	bool do_periodic_cal = true;
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	if (!ISNPHY(pi))
+>  		return;
+> @@ -2804,7 +2804,7 @@ u8 wlc_phy_nbits(s32 value)
+>  
+>  void wlc_phy_stf_chain_init(struct brcms_phy_pub *pih, u8 txchain, u8 rxchain)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	pi->sh->hw_phytxchain = txchain;
+>  	pi->sh->hw_phyrxchain = rxchain;
+> @@ -2815,7 +2815,7 @@ void wlc_phy_stf_chain_init(struct brcms_phy_pub *pih, u8 txchain, u8 rxchain)
+>  
+>  void wlc_phy_stf_chain_set(struct brcms_phy_pub *pih, u8 txchain, u8 rxchain)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	pi->sh->phytxchain = txchain;
+>  
+> @@ -2827,7 +2827,7 @@ void wlc_phy_stf_chain_set(struct brcms_phy_pub *pih, u8 txchain, u8 rxchain)
+>  
+>  void wlc_phy_stf_chain_get(struct brcms_phy_pub *pih, u8 *txchain, u8 *rxchain)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	*txchain = pi->sh->phytxchain;
+>  	*rxchain = pi->sh->phyrxchain;
+> @@ -2837,7 +2837,7 @@ u8 wlc_phy_stf_chain_active_get(struct brcms_phy_pub *pih)
+>  {
+>  	s16 nphy_currtemp;
+>  	u8 active_bitmap;
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	active_bitmap = (pi->phy_txcore_heatedup) ? 0x31 : 0x33;
+>  
+> @@ -2867,7 +2867,7 @@ u8 wlc_phy_stf_chain_active_get(struct brcms_phy_pub *pih)
+>  
+>  s8 wlc_phy_stf_ssmode_get(struct brcms_phy_pub *pih, u16 chanspec)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	u8 siso_mcs_id, cdd_mcs_id;
+>  
+>  	siso_mcs_id =
+> @@ -2944,7 +2944,7 @@ s8 wlc_phy_upd_rssi_offset(struct brcms_phy *pi, s8 rssi, u16 chanspec)
+>  
+>  bool wlc_phy_txpower_ipa_ison(struct brcms_phy_pub *ppi)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	if (ISNPHY(pi))
+>  		return wlc_phy_n_txpower_ipa_ison(pi);
+> diff --git a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c
+> index b2d6d6d..5f13662 100644
+> --- a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c
+> +++ b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c
+> @@ -2865,7 +2865,7 @@ static void wlc_lcnphy_idle_tssi_est(struct brcms_phy_pub *ppi)
+>  {
+>  	bool suspend, tx_gain_override_old;
+>  	struct lcnphy_txgains old_gains;
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	u16 idleTssi, idleTssi0_2C, idleTssi0_OB, idleTssi0_regvalue_OB,
+>  	    idleTssi0_regvalue_2C;
+>  	u16 SAVE_txpwrctrl = wlc_lcnphy_get_tx_pwr_ctrl(pi);
+> @@ -3084,7 +3084,7 @@ static void wlc_lcnphy_tx_pwr_ctrl_init(struct brcms_phy_pub *ppi)
+>  	s32 a1, b0, b1;
+>  	s32 tssi, pwr, maxtargetpwr, mintargetpwr;
+>  	bool suspend;
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  
+>  	suspend = (0 == (bcma_read32(pi->d11core, D11REGOFFS(maccontrol)) &
+>  			 MCTL_EN_MAC));
+> @@ -4348,7 +4348,7 @@ void wlc_lcnphy_tx_power_adjustment(struct brcms_phy_pub *ppi)
+>  {
+>  	s8 index;
+>  	u16 index2;
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	struct brcms_phy_lcnphy *pi_lcn = pi->u.pi_lcnphy;
+>  	u16 SAVE_txpwrctrl = wlc_lcnphy_get_tx_pwr_ctrl(pi);
+>  	if (wlc_lcnphy_tempsense_based_pwr_ctrl_enabled(pi) &&
+> diff --git a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_n.c b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_n.c
+> index 93869e8..084f18f 100644
+> --- a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_n.c
+> +++ b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_n.c
+> @@ -14121,7 +14121,7 @@ static u8 ant_sw_ctrl_tbl_rev8_2057v7_core1[] = {
+>  
+>  bool wlc_phy_bist_check_phy(struct brcms_phy_pub *pih)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	u32 phybist0, phybist1, phybist2, phybist3, phybist4;
+>  
+>  	if (NREV_GE(pi->pubpi.phy_rev, 16))
+> @@ -19734,7 +19734,7 @@ void wlc_phy_rxcore_setstate_nphy(struct brcms_phy_pub *pih, u8 rxcore_bitmask)
+>  	u16 regval;
+>  	u16 tbl_buf[16];
+>  	uint i;
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  	u16 tbl_opcode;
+>  	bool suspend;
+>  
+> @@ -19812,7 +19812,7 @@ void wlc_phy_rxcore_setstate_nphy(struct brcms_phy_pub *pih, u8 rxcore_bitmask)
+>  u8 wlc_phy_rxcore_getstate_nphy(struct brcms_phy_pub *pih)
+>  {
+>  	u16 regval, rxen_bits;
+> -	struct brcms_phy *pi = (struct brcms_phy *) pih;
+> +	struct brcms_phy *pi = container_of(pih, struct brcms_phy, pubpi_ro);
+>  
+>  	regval = read_phy_reg(pi, 0xa2);
+>  	rxen_bits = (regval >> 4) & 0xf;
+> @@ -21342,7 +21342,7 @@ void wlc_phy_chanspec_set_nphy(struct brcms_phy *pi, u16 chanspec)
+>  
+>  void wlc_phy_antsel_init(struct brcms_phy_pub *ppi, bool lut_init)
+>  {
+> -	struct brcms_phy *pi = (struct brcms_phy *) ppi;
+> +	struct brcms_phy *pi = container_of(ppi, struct brcms_phy, pubpi_ro);
+>  	u16 mask = 0xfc00;
+>  	u32 mc = 0;
+>  
 > -- 
-> 1.9.3
-> 
+> 1.9.1
 > 
 > 
 
 -- 
 John W. Linville		Someday the world will need a hero, and you
 linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
