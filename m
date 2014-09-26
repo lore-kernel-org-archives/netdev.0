@@ -1,77 +1,58 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net-next PATCH 1/1 V4] qdisc: bulk dequeue support for qdiscs
- with TCQ_F_ONETXQUEUE
-Date: Fri, 26 Sep 2014 09:23:57 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1749E380@AcuExch.aculab.com>
-References: <20140924160932.9721.56450.stgit@localhost>
-	 <20140924161047.9721.43080.stgit@localhost>
-	 <1411579395.15395.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140924195831.6fb91051@redhat.com>
-	 <CA+mtBx8s63TDe1XS7TzfscwhiRCgyeLkKLz2p-4et1erX0-dUQ@mail.gmail.com>
-	 <1411586550.15395.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411611140.16953.1.camel@edumazet-glaptop2.roam.corp.google.com>
- <1411688409.16953.64.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 2/3] ipv6: mld: do not overwrite uri when receiving
+ an mldv2 query
+Date: Fri, 26 Sep 2014 11:29:30 +0200
+Message-ID: <542531FA.2070701@redhat.com>
+References: <1411455828-5196-1-git-send-email-dborkman@redhat.com> <1411455828-5196-3-git-send-email-dborkman@redhat.com> <54243C89.6060405@oracle.com> <542475E3.6030508@redhat.com> <5424A408.5000208@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Alexander Duyck" <alexander.h.duyck@intel.com>,
-	=?utf-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>,
-	Florian Westphal <fw@strlen.de>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"Daniel Borkmann" <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, hannes@stressinduktion.org,
+	netdev@vger.kernel.org
+To: David L Stevens <david.stevens@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:37722 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753124AbaIZJZa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Sep 2014 05:25:30 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 10422-06 for <netdev@vger.kernel.org>;
- Fri, 26 Sep 2014 10:25:20 +0100 (BST)
-In-Reply-To: <1411688409.16953.64.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:52568 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753275AbaIZJ3j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Sep 2014 05:29:39 -0400
+In-Reply-To: <5424A408.5000208@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0DQo+IE9uIFdlZCwgMjAxNC0wOS0yNCBhdCAxOToxMiAtMDcwMCwg
-RXJpYyBEdW1hemV0IHdyb3RlOg0KLi4uDQo+IEl0IHR1cm5lZCBvdXQgdGhlIHByb2JsZW0gSSBu
-b3RpY2VkIHdhcyBjYXVzZWQgYnkgY29tcGlsZXIgdHJ5aW5nIHRvIGJlDQo+IHNtYXJ0LCBidXQg
-aW52b2x2aW5nIGEgYmFkIE1FU0kgdHJhbnNhY3Rpb24uDQo+IA0KPiAgIDAuMDUgICBtb3YgICAg
-MHhjMCglcmF4KSwlZWRpICAgIC8vIExPQUQgZHFsLT5udW1fcXVldWVkDQo+ICAgMC40OCAgIG1v
-diAgICAlZWR4LDB4YzgoJXJheCkgICAgLy8gU1RPUkUgZHFsLT5sYXN0X29ial9jbnQgPSBjb3Vu
-dA0KPiAgNTguMjMgICBhZGQgICAgJWVkeCwlZWRpDQo+ICAgMC41OCAgIGNtcCAgICAlZWRpLDB4
-YzQoJXJheCkNCj4gICAwLjc2ICAgbW92ICAgICVlZGksMHhjMCglcmF4KSAgICAvLyBTVE9SRSBk
-cWwtPm51bV9xdWV1ZWQgKz0gY291bnQNCj4gICAwLjcyICAganMgICAgIGJkOA0KPiANCj4gDQo+
-IEkgZ2V0IGFuIGluY3JlZGlibGUgMTAgJSBnYWluIGJ5IG1ha2luZyBzdXJlIGNwdSB3b250IGdl
-dCB0aGUgY2FjaGUgbGluZQ0KPiBpbiBTaGFyZWQgbW9kZS4NCg0KVGhhdCBpcyBhIHN0dW5uaW5n
-IGRpZmZlcmVuY2UgYmV0d2VlbiByZXF1ZXN0aW5nICdleGNsdXNpdmUnIGFjY2Vzcw0KYW5kIHVw
-Z3JhZGluZyAnc2hhcmVkJyB0byBleGNsdXNpdmUuDQpTdGlua3Mgb2YgYSBjcHUgYnVnPw0KDQpP
-ciBpcyB0aGUgcmVwb3J0ZWQgc3RhbGwgYSBzaWRlIGVmZmVjdCBvZiB3YWl0aW5nIGZvciB0aGUg
-ZWFybGllcg0KJ2NhY2hlIGxpbmUgcmVhZCcgdG8gY29tcGxldGUgaW4gb3JkZXIgdG8gaXNzdWUg
-dGhlICd1cGdyYWRlIHRvIGV4Y2x1c2l2ZScuDQpJbiB3aGljaCBjYXNlIGdjYydzIGluc3RydWN0
-aW9uIHNjaGVkdWxlciBwcm9iYWJseSBuZWVkcyB0byBiZSB0YXVnaHQNCnRvIHNjaGVkdWxlIHdy
-aXRlcyBiZWZvcmUgcmVhZHMuDQoNCj4gKEkgYWxzbyB0cmllZCBhIGJhcnJpZXIoKSBpbiBuZXRk
-ZXZfdHhfc2VudF9xdWV1ZSgpIGJldHdlZW4gdGhlDQo+IA0KPiAJZHFsX3F1ZXVlZCgmZGV2X3F1
-ZXVlLT5kcWwsIGJ5dGVzKTsNCj4gLQ0KPiArCWJhcnJpZXIoKTsNCj4gIAlpZiAobGlrZWx5KGRx
-bF9hdmFpbCgmZGV2X3F1ZXVlLT5kcWwpID49IDApKQ0KPiANCj4gQnV0IGZvbGxvd2luZyBwYXRj
-aCBzZWVtcyBjbGVhbmVyDQo+IA0KPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9keW5hbWlj
-X3F1ZXVlX2xpbWl0cy5oIGIvaW5jbHVkZS9saW51eC9keW5hbWljX3F1ZXVlX2xpbWl0cy5oDQo+
-IGluZGV4IDU2MjE1NDdkNjMxYi4uOTc4ZmJlMzMyMDkwIDEwMDY0NA0KPiAtLS0gYS9pbmNsdWRl
-L2xpbnV4L2R5bmFtaWNfcXVldWVfbGltaXRzLmgNCj4gKysrIGIvaW5jbHVkZS9saW51eC9keW5h
-bWljX3F1ZXVlX2xpbWl0cy5oDQo+IEBAIC04MCw3ICs4MCw3IEBAIHN0YXRpYyBpbmxpbmUgdm9p
-ZCBkcWxfcXVldWVkKHN0cnVjdCBkcWwgKmRxbCwgdW5zaWduZWQgaW50IGNvdW50KQ0KPiAgLyog
-UmV0dXJucyBob3cgbWFueSBvYmplY3RzIGNhbiBiZSBxdWV1ZWQsIDwgMCBpbmRpY2F0ZXMgb3Zl
-ciBsaW1pdC4gKi8NCj4gIHN0YXRpYyBpbmxpbmUgaW50IGRxbF9hdmFpbChjb25zdCBzdHJ1Y3Qg
-ZHFsICpkcWwpDQo+ICB7DQo+IC0JcmV0dXJuIGRxbC0+YWRqX2xpbWl0IC0gZHFsLT5udW1fcXVl
-dWVkOw0KPiArCXJldHVybiBBQ0NFU1NfT05DRShkcWwtPmFkal9saW1pdCkgLSBBQ0NFU1NfT05D
-RShkcWwtPm51bV9xdWV1ZWQpOw0KDQpEdW5ubywgdGhhdCBjb3VsZCBoYXZlIGFuIGltcGFjdCBv
-biBvdGhlciBjYWxscyB3aGVyZSB0aGUgdmFsdWVzDQphcmUgYWxyZWFkeSBpbiByZWdpc3RlcnMg
-LSBJIHN1c3BlY3QgQUNDRVNTX09OQ0UoKSBmb3JjZXMgYW4gYWNjZXNzLg0KDQoJRGF2aWQNCg0K
+On 09/26/2014 01:23 AM, David L Stevens wrote:
+...
+> Now, probably that discussion should've happened when the tunables were put in, but
+> having the sysctl's is still useful for setting the values when there is no querier
+> present.
+>
+> When there is a querier, however, the original code IMO makes more sense, especially
+> in the absence of any input from an administrator.
+>
+> I'm generally for allowing administrators complete flexibility, even if they use it
+> for evil, so I think I'd prefer something along the lines of:
+>
+> 1) have an initial default of 1sec (v2) or 10sec (v1)
+> 2) if an administrator sets the sysctl, override any
+> 	other choice with that setting
+> 3) if an administator has not set it, use the querier value
+>
+> That combination allows the querier to effectively set an appropriate interval for
+> the entire network, allows an admin to change it per-host if desired, and uses the
+> suggested defaults when there is no querier or admin intervention.
+>
+> Or maybe split the sysctls into one that forces the value and one that just sets
+> a default which can be overridden by queriers.
+>
+> I don't think your patches are incorrect, but I don't think the original behavior
+> is either. With your interpretation, the URI (but not the MRD or QRV), must be
+> changed on every individual host to tune a network away from the default values.
+> The current code doesn't have that problem.
+
+I'm fine with either suggestion. Actually the _current_ situation we're in is
+that in IPv4 we _always_ use the current, uncached _sysctl_ tuned setting of URI
+(independent of any protocol version); while in IPv6 we use the _cached_ sysctl
+URI in case of MLDv1 and _always_ overwrite the URI in case of MLDv2 (even for
+MLDv1). Are you suggesting that, we then better adapt using the maxdelay value
+everywhere and adapt URI to it, plus having a boolean knob defaulting to off for
+an admin to enforce always using the provided sysctl default setting and not
+the snooped MLD?
