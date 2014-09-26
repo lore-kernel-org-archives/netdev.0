@@ -1,87 +1,54 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next] bonding: make global bonding stats more reliable
-Date: Fri, 26 Sep 2014 15:35:33 +0200
-Message-ID: <54256BA5.9080803@redhat.com>
-References: <1411650996-2087-1-git-send-email-gospo@cumulusnetworks.com> <54252940.6070100@redhat.com> <20140926132631.GA18564@gospo.home.greyhouse.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [net-next PATCH 1/1 V4] qdisc: bulk dequeue support for qdiscs
+ with TCQ_F_ONETXQUEUE
+Date: Fri, 26 Sep 2014 06:38:17 -0700
+Message-ID: <1411738697.16953.124.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140924160932.9721.56450.stgit@localhost>
+	 <20140924161047.9721.43080.stgit@localhost>
+	 <1411579395.15395.41.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140924195831.6fb91051@redhat.com>
+	 <CA+mtBx8s63TDe1XS7TzfscwhiRCgyeLkKLz2p-4et1erX0-dUQ@mail.gmail.com>
+	 <1411586550.15395.46.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411611140.16953.1.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411688409.16953.64.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1749E380@AcuExch.aculab.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1749E538@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Cc: Tom Herbert <therbert@google.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
+	Florian Westphal <fw@strlen.de>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41277 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752149AbaIZNfp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Sep 2014 09:35:45 -0400
-In-Reply-To: <20140926132631.GA18564@gospo.home.greyhouse.net>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:48319 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753821AbaIZNiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 09:38:19 -0400
+Received: by mail-pd0-f179.google.com with SMTP id ft15so12926163pdb.38
+        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 06:38:19 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1749E538@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/09/14 15:26, Andy Gospodarek wrote:
-> On Fri, Sep 26, 2014 at 10:52:16AM +0200, Nikolay Aleksandrov wrote:
->> On 25/09/14 15:16, Andy Gospodarek wrote:
->>> As the code stands today, bonding stats are based simply on the stats
->> >from the member interfaces.  If a member was to be removed from a bond,
->>> the stats would instantly drop.  This would be confusing to an admin
->>> would would suddonly see interface stats drop while traffic is still
->>> flowing.
->>>
->>> In addition to preventing the stats drops mentioned above, new members
->>> will now be added to the bond and only traffic received after the member
->>> was added to the bond will be counted as part of bonding stats.
->>>
->>> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
->>> ---
->> Hi Andy,
->>
-<<<<snip>>>>
->>> @@ -4258,6 +4274,9 @@ static int bond_init(struct net_device *bond_dev)
->>>   	    bond_dev->addr_assign_type == NET_ADDR_PERM)
->>>   		eth_hw_addr_random(bond_dev);
->>>
->>> +	/* initialize persistent stats for the bond */
->>> +	bond->bond_stats = kzalloc(sizeof(struct rtnl_link_stats64),
->>> +				   GFP_ATOMIC);
->> ^^^^^^^^^^^^^^^^^^^^^^^^
->> I don't think this will get freed if the bond device is destroyed.
-> Another good catch.  Thanks for the review.  V2 incoming after some
-> testing.
->
-Great, one more thing I forgot to ask, why the GFP_ATOMIC here ? I believe we're 
-allowed to sleep in ndo_init(), and you should probably handle the case where 
-the bond_stats allocation fails, too.
+On Fri, 2014-09-26 at 13:16 +0000, David Laight wrote:
 
->>
->>>   	return 0;
->>>   }
->>>
->>> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->>> index 6140bf0..fe25265 100644
->>> --- a/drivers/net/bonding/bonding.h
->>> +++ b/drivers/net/bonding/bonding.h
->>> @@ -24,6 +24,7 @@
->>>   #include <linux/inetdevice.h>
->>>   #include <linux/etherdevice.h>
->>>   #include <linux/reciprocal_div.h>
->>> +#include <linux/if_link.h>
->>>
->>>   #include "bond_3ad.h"
->>>   #include "bond_alb.h"
->>> @@ -175,6 +176,7 @@ struct slave {
->>>   	struct netpoll *np;
->>>   #endif
->>>   	struct kobject kobj;
->>> +	struct rtnl_link_stats64 *slave_stats;
->>>   };
->>>
->>>   /*
->>> @@ -224,6 +226,7 @@ struct bonding {
->>>   	/* debugging support via debugfs */
->>>   	struct	 dentry *debug_dir;
->>>   #endif /* CONFIG_DEBUG_FS */
->>> +	struct rtnl_link_stats64 *bond_stats;
->>>   };
->>>
->>>   #define bond_slave_get_rcu(dev) \
->>>
->>
+> OTOH it looks as though there is a big hit if you read then write
+> a non-present cache line.
+
+Well, this is exactly what it is about. Welcome to the club.
+
+This is a well known problem.
+
+Look at following old commit :
+
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=3f9d35b9514da6757ca98831372518f9eeb71b33
