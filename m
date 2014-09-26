@@ -1,44 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net-next] net: pktgen: packet bursting via
- skb->xmit_more
-Date: Thu, 25 Sep 2014 18:20:14 -0700
-Message-ID: <1411694414.16953.70.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1411692382-8898-1-git-send-email-ast@plumgrid.com>
+From: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
+Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
+Date: Thu, 25 Sep 2014 18:58:39 -0700
+Message-ID: <CAHA+R7OdOUMShX6Nphdfh8+fGiXyO+sGNHy0ch_XYh5dpURcmQ@mail.gmail.com>
+References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>
+	<CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw@mail.gmail.com>
+	<54228D87.3070309@6wind.com>
+	<CAHA+R7NfJYzCsZx0E9YVXKVCQbCm_thPSi+80tix8Z9nVA82Ug@mail.gmail.com>
+	<CAHA+R7MVL=WpepRy8iz6iT6Kkq1RHG+b9TxJothP94ixyAj-3Q@mail.gmail.com>
+	<5422F1F7.8010308@6wind.com>
+	<CAHA+R7MM04ew=J8sHfSQERwoCAgEDfrGgtgRORqs3ePgtjVYWg@mail.gmail.com>
+	<5423D808.7050800@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:42017 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752948AbaIZBUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Sep 2014 21:20:18 -0400
-Received: by mail-pa0-f44.google.com with SMTP id eu11so11317234pac.31
-        for <netdev@vger.kernel.org>; Thu, 25 Sep 2014 18:20:17 -0700 (PDT)
-In-Reply-To: <1411692382-8898-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <5423D808.7050800-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-09-25 at 17:46 -0700, Alexei Starovoitov wrote:
-> This patch demonstrates the effect of delaying update of HW tailptr.
-> (based on earlier patch by Jesper)
-> 
-> burst=1 is a default. It sends one packet with xmit_more=false
-> burst=2 sends one packet with xmit_more=true and
->         2nd copy of the same packet with xmit_more=false
-> burst=3 sends two copies of the same packet with xmit_more=true and
->         3rd copy with xmit_more=false
-
-> 
-> Cc: Jesper Dangaard Brouer <brouer@redhat.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
-
-Perfect, this is what I had in mind, thanks !
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+T24gVGh1LCBTZXAgMjUsIDIwMTQgYXQgMTo1MyBBTSwgTmljb2xhcyBEaWNodGVsCjxuaWNvbGFz
+LmRpY2h0ZWxANndpbmQuY29tPiB3cm90ZToKPiBMZSAyNC8wOS8yMDE0IDE4OjQ4LCBDb25nIFdh
+bmcgYSDDqWNyaXQgOgo+Cj4+IE9uIFdlZCwgU2VwIDI0LCAyMDE0IGF0IDk6MzEgQU0sIE5pY29s
+YXMgRGljaHRlbAo+PiA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4gd3JvdGU6Cj4+Pj4KPj4+
+PiBJIHRoaW5rIGluIHRoaXMgY2FzZSB5b3VyIElEJ3MgYXJlIHN0aWxsIGF2YWlsYWJsZSwgYnV0
+IGFyZW4ndCB5b3UKPj4+PiBwcm92aWRpbmcgYSBuZXcgd2F5Cj4+Pj4gZm9yIHRoZSBpbm5lciBu
+ZXRucyBkZXZpY2UgdG8gZXNjYXBlIHdoaWNoIHdlIGFyZSB0cnlpbmcgdG8gYXZvaWQ/Cj4+Pgo+
+Pj4KPj4+IEl0J3Mgd2h5IHRoZSBpZHMgZGVwZW5kIG9uIHVzZXIgbnMuIE9ubHkgaWYgdXNlciBu
+cyBhcmUgdGhlIHNhbWUgd2UgYWxsb3cKPj4+IHRvCj4+PiBnZXQgYW4gaWQgZm9yIGEgcGVlciBu
+ZXRucy4KPj4KPj4KPj4gVG9vIGxhdGUsIHVzZXJucyBpcyByZWxhdGl2ZWx5IG5ldywgcmVseWlu
+ZyBvbiBpdCBicmVha3Mgb3VyIGV4aXN0aW5nCj4+IGFzc3VtcHRpb24uCj4+Cj4gSSBkb24ndCBn
+ZXQgeW91ciBwb2ludC4gbmV0bnMgaGFzIGJlZW4gYWRkZWQgaW4ga2VybmVsIGFmdGVyIHVzZXIg
+bnM6Cj4gYWNjZTI5MmM4MmQ0IHVzZXIgbmFtZXNwYWNlOiBhZGQgdGhlIGZyYW1ld29yayA9PiAy
+LjYuMjMKPiA1ZjI1NmJlY2Q4NjggW05FVF06IEJhc2ljIG5ldHdvcmsgbmFtZXNwYWNlIGluZnJh
+c3RydWN0dXJlLiA9PiAyLjYuMjQKCldhcyBpdCBjb21wbGV0ZSBvbiAyLjYueD8gSSBkb3VidC4u
+LgoKaHR0cHM6Ly9sa21sLm9yZy9sa21sLzIwMTQvOC8yMC84MjYKCiAgIEFzIGF0IExpbnV4IDMu
+OCwgbW9zdCByZWxldmFudCBzdWJzeXN0ZW1zIHN1cHBvcnRlZCAgdXNlciAgbmFtZXPigJAKICAg
+ICAgIHBhY2VzLCAgYnV0ICBhIG51bWJlciBvZiBmaWxlc3lzdGVtcyBkaWQgbm90IGhhdmUgdGhl
+IGluZnJhc3RydWPigJAKICAgICAgIHR1cmUgbmVlZGVkIHRvIG1hcCB1c2VyIGFuZCBncm91cCBJ
+RHMgIGJldHdlZW4gIHVzZXIgIG5hbWVzcGFjZXMuCiAgICAgICBMaW51eCAgMy45ICBhZGRlZCB0
+aGUgcmVxdWlyZWQgaW5mcmFzdHJ1Y3R1cmUgc3VwcG9ydCBmb3IgbWFueSBvZgogICAgICAgdGhl
+IHJlbWFpbmluZyB1bnN1cHBvcnRlZCBmaWxlc3lzdGVtcyAoUGxhbiA5ICg5UCksICBBbmRyZXcg
+IEZpbGUKICAgICAgIFN5c3RlbSAgKEFGUyksICBDZXBoLCAgQ0lGUywgIENPREEsICBORlMsIGFu
+ZCBPQ0ZTMikuICBMaW51eCAzLjExCiAgICAgICBhZGRlZCBzdXBwb3J0IHRoZSBsYXN0IG9mIHRo
+ZSB1bnN1cHBvcnRlZCBtYWpvciBmaWxlc3lzdGVtcywgWEZTLgoKCj4KPiBJbiB0aGUga2VybmVs
+LCBlYWNoIG5ldG5zIGlzIGxpbmtlZCB3aXRoIGEgdXNlciBucy4KCkFyZSB5b3Ugc2F5aW5nIGV2
+ZXJ5IHRpbWUgd2UgY3JlYXRlIGEgbmV0bnMgd2UgaGF2ZSBhIG5ldyB1c2VybnM/ClRoaXMgZG9l
+c24ndCBtYWtlIHNlbnNlIGZvciBtZS4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KQ29udGFpbmVycyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5s
+aW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFp
+bG1hbi9saXN0aW5mby9jb250YWluZXJz
