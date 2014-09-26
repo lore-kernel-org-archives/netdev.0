@@ -1,32 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 0/4] net: fec: Code cleanup
-Date: Fri, 26 Sep 2014 16:06:02 -0400 (EDT)
-Message-ID: <20140926.160602.1429816882470314568.davem@davemloft.net>
-References: <1411458058-18934-1-git-send-email-b38611@freescale.com>
+From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
+Subject: Re: [PATCH] Revert "net/macb: add pinctrl consumer support"
+Date: Fri, 26 Sep 2014 13:06:20 -0700
+Message-ID: <b3c8ab73-4dd5-436e-9647-c4a43e40c3a9@BL2FFO11FD051.protection.gbl>
+References: <1411429748-31444-1-git-send-email-soren.brinkmann@xilinx.com>
+ <20140926.154930.1459165439870528648.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b20596@freescale.com
-To: b38611@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50699 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754243AbaIZUGE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 16:06:04 -0400
-In-Reply-To: <1411458058-18934-1-git-send-email-b38611@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <nicolas.ferre@atmel.com>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140926.154930.1459165439870528648.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fugang Duan <b38611@freescale.com>
-Date: Tue, 23 Sep 2014 15:40:54 +0800
+On Fri, 2014-09-26 at 03:49PM -0400, David Miller wrote:
+> From: Soren Brinkmann <soren.brinkmann@xilinx.com>
+> Date: Mon, 22 Sep 2014 16:49:08 -0700
+>=20
+> > This reverts commit 8ef29f8aae524bd51298fb10ac6a5ce6c4c5a3d8.
+> > The driver core already calls pinctrl_get() and claims the default
+> > state. There is no need to replicate this in the driver.
+> > ---
+> > Hi,
+> >=20
+> > I might be mistaken, but I think the driver core does already take =
+care of
+> > calling into the pinctrl framework and the driver does not need to =
+do it on its
+> > own (drivers/base/dd.c:really_probe() calls 'pinctrl_bind_pins() wh=
+ich takes
+> > care of the pinctrl setup).
+> >=20
+>=20
+> Applied and queued up for -stable, thanks.
 
-> This patches does several things:
->   - Fixing multiqueue issue.
->   - Removing the unnecessary errata workaround.
->   - Aligning the data buffer dma map/unmap size.
->   - Freeing resource after probe failed.
+thx
 
-Series applied to net-next, thanks.
+> Next time please provide a proper "Signed-off-by: " in the commit mes=
+sage
+> of your submission.
 
-Please always explicitly state what tree you expect your patches to be
-applied to in the future.
+Yeah, sorry for that. I overlooked that one. My alias for commit takes
+care of this, but I don't have that for revert.
+
+In case you need it:
+Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+
+	S=C3=B6ren
