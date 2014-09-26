@@ -1,88 +1,67 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
-Date: Fri, 26 Sep 2014 15:40:27 +0200
-Message-ID: <54256CCB.4000709@6wind.com>
-References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>	<CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw@mail.gmail.com>	<54228D87.3070309@6wind.com>	<CAHA+R7NfJYzCsZx0E9YVXKVCQbCm_thPSi+80tix8Z9nVA82Ug@mail.gmail.com>	<5422F0F4.6000709@6wind.com>	<CAHA+R7Ot2kLHb+ne5AW3bFNc87qkFOiEHEyDh9sFrsHqXgrY3g@mail.gmail.com>	<5423D80B.9060500@6wind.com>
-	<CAHA+R7Ooyam2L-QfP-TjMEZEOqrQcQDxYiebmw760kgEji4G=g@mail.gmail.com>
-Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <CAHA+R7Ooyam2L-QfP-TjMEZEOqrQcQDxYiebmw760kgEji4G=g@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+From: Kweh Hock Leong <hock.leong.kweh@intel.com>
+Subject: [PATCH v2] net: stmmac: fix stmmac_pci_probe failed when CONFIG_HAVE_CLK is selected
+Date: Fri, 26 Sep 2014 21:42:55 +0800
+Message-ID: <1411738975-20056-1-git-send-email-hock.leong.kweh@intel.com>
+Cc: Vince Bridgers <vbridgers2013@gmail.com>,
+	Chen-Yu Tsai <wens@csie.org>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Ong Boon Leong <boon.leong.ong@intel.com>,
+	Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
+To: "David S. Miller" <davem@davemloft.net>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	rayagond@vayavyalabs.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TGUgMjYvMDkvMjAxNCAwNDowOSwgQ29uZyBXYW5nIGEgw6ljcml0IDoKPiBPbiBUaHUsIFNlcCAy
-NSwgMjAxNCBhdCAxOjUzIEFNLCBOaWNvbGFzIERpY2h0ZWwKPiA8bmljb2xhcy5kaWNodGVsQDZ3
-aW5kLmNvbT4gd3JvdGU6Cj4+IExlIDI0LzA5LzIwMTQgMTg6NDUsIENvbmcgV2FuZyBhIMOpY3Jp
-dCA6Cj4+Pgo+Pj4gT24gV2VkLCBTZXAgMjQsIDIwMTQgYXQgOToyNyBBTSwgTmljb2xhcyBEaWNo
-dGVsCj4+PiA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4gd3JvdGU6Cj4+Pj4KPj4+PiBOb3cg
-aW5mb3JtYXRpb25zIGdvdCB3aXRoICdpcCBsaW5rJyBhcmUgd3JvbmcgYW5kIGluY29tcGxldGU6
-Cj4+Pj4gICAgIC0gdGhlIGxpbmsgZGV2IGlzIG5vdyB0dW5sMCBpbnN0ZWFkIG9mIGV0aDAsIGJl
-Y2F1c2Ugd2Ugb25seSBnb3QgYW4KPj4+PiBpZmluZGV4Cj4+Pj4gICAgICAgZnJvbSB0aGUga2Vy
-bmVsIHdpdGhvdXQgYW55IG5ldG5zIGluZm9ybWF0aW9ucy4KPj4+Cj4+Pgo+Pj4gVGhpcyBpcyBu
-b3QgbmV3LCBtYWN2bGFuIGhhcyB0aGUgc2FtZSBwcm9ibGVtLiBUaGlzIGlzIHdoeSBJIHNhaWQK
-Pj4+IGl0IGlzIG1vc3RseSBhIGRpc3BsYXkgcHJvYmxlbSwgbWF5YmUganVzdCBtYXJrIHRoZSBp
-ZmluZGV4IGFzIC0xIG9yCj4+PiBzb21ldGhpbmcgd2hlbiBpdCBpcyBub3QgaW4gdGhpcyBuZXRu
-cy4gQXQgbGVhc3QgSSBkb24ndCBleHBlY3QgdGhlIGlubmVyCj4+PiBuZXRucyBrbm93IGFueXRo
-aW5nIG91dHNpZGUsIGFuZCBJIGRvbid0IHRoaW5rIEkgYW0gdGhlIG9ubHkgb25lIHVzaW5nCj4+
-PiBuZXRucyBpbiB0aGlzIHdheS4KPj4KPj4gSSB1bmRlcnN0YW5kIHlvdXIgcG9pbnQgYnV0IHRo
-ZXJlIGlzIHNldmVyYWwgdXNlIG9mIG5ldG5zLiBOZXRucyBjYW4gYmUgdXNlZAo+PiBhbHNvIHRv
-IGluc3RhbnRpYXRlIHZpcnR1YWwgcm91dGVycy4gSW4gdGhpcyBjYXNlLCBhZG1pbmlzdHJhdG9y
-cyBvciBkYWVtb25zCj4+IG5lZWQgdG8gYmUgYWJsZSB0byBtb25pdG9yIGFuZCBkdW1wIHRoZSBj
-b25maWd1cmF0aW9uIG9uIGFsbCBuZXRucwo+PiAocGFydGljdWxhcmx5IGJlZWluZyBhYmxlIHRv
-IGlkZW50aWZ5IGZ1bGx5IHgtbmV0bnMgaW50ZXJmYWNlcykuIFdlIHN0YXJ0IHRvCj4+IGRpc2N1
-c3MgdGhpcyBpbiBvbmUgb2YgdGhlIHR3byB0aHJlYWQgcG9pbnRlZCBpbiBteSBjb3ZlciBsZXR0
-ZXIgYW5kIGdldCB0aGUKPj4gY29uY2x1c2lvbiB0aGF0IGNoZWNraW5nIHVzZXIgbnMgaXMgYSBn
-b29kIHdheSB0byBrbm93IGlmIGFuIGlkIHNob3VsZCBiZQo+PiBkaXNjbG9zZWQgb3Igbm90IGZv
-ciBhIHBlZXIgbmV0bnMuCj4KPiBUaGVuIHlvdSBhcmUgbGVha2luZyBpbmZvcm1hdGlvbiwgdGhp
-cyBicmVha3MgaXNvbGF0aW9uLgo+Cj4+IENhbiB5b3UgZGVzY3JpYmUgeW91ciB1c2UgY2FzZT8K
-Pgo+IFllcywgdG9vIHNpbXBsZTogaXNvbGF0aW9uIG5ldHdvcmtpbmcsIGRpZmZlcmVudCBuZXRu
-cydzIGRvbid0IHNlZSBlYWNoIG90aGVyCj4gKGluY2x1ZGluZyBhbnl0aGluZyBpbnNpZGUpIGFu
-ZCBvbmx5IGNvbW11bmljYXRlIHZpYSB2ZXRoLgpJZiB5b3UgYXJlIGEgcHJpdmlsZWdlZCB1c2Vy
-IGFuZCB5b3UgYXJlIGFibGUgdG8gYWNjZXNzIGEgcGVlciBuZXRucyAobW92ZSBhbgppbnRlcmZh
-Y2UgaW50byB0aGlzIHBlZXIgbmV0bnMsIG1vdmUgYW4gaW50ZXJmYWNlIGZyb20gdGhpcyBwZWVy
-IG5ldG5zIHRvIHlvdXIKb3duIG5ldG5zKSwgSSBkb24ndCBzZWUgYW55IHJlYXNvbiB0byBub3Qg
-YmVlaW5nIGFibGUgdG8gZ2V0IGluZm9ybWF0aW9uIGFib3V0CnRoaXMgcGVlciBuZXRucyAoeW91
-IGFyZSBhbHJlYWR5IGEgcHJpdmlsZWdlZCB1c2VyIGluIGJvdGggbmV0bnMpLgpJZiB5b3Ugd2Fu
-dCB0byBpc29sYXRlIHRoaXMgcGVlciBuZXRucyAoSSB0aGluayB5b3UgY2FsbCBpdCAiaW5uZXIg
-bmV0bnMiKSwgeW91CmhhdmUgdG8gY3JlYXRlIGEgbmV3IHVzZXIgbnMgZm9yIHRoaXMgbmV0bnMs
-IGhlbmNlIGEgcHJpdmlsZWdlZCB1c2VyIGludG8gdGhpcwpwZWVyIG5ldG5zIHdpbGwgbm90IGJl
-IGFibGUgdG8gYWN0IGluIHlvdXIgb3duIG5ldG5zLiBBbmQgd2l0aCB0aGlzIHNjZW5hcmlvIGFu
-ZApteSBwYXRjaGVzLCB0aGlzIHByaXZpbGVnZWQgdXNlciB3aWxsIG5vdCBiZSBhYmxlIHRvIGdl
-dCBhbiBpZC4gSXNvbGF0aW9uIGlzCnByZXNlcnZlZC4KSG93IGRvIHlvdSBwcmVzZXJ2ZWQgaXQg
-aW4geW91ciBzY2VuYXJpbz8KCj4KPgo+PiBJZiB5b3Ugb25seSBwbGF5IHdpdGggbmV0bnMsIHlv
-dSBtYXkgd2FudCB0byBtb25pdG9yIGFsbCBhY3RpdmllcyBpbiBhbGwKPj4gbmV0bnMKPj4gKHRo
-aXMgaXMgYWxyZWFkeSBwb3NzaWJsZSkgYW5kIGJlZWluZyBhYmxlIHRvIGxpbmsgaW5mb3JtYXRp
-b24gYmV0d2VlbiBuZXRucwo+PiAodGhpcyBpcyB3aGF0IEknbSB0cnlpbmcgdG8gc29sdmUpLgo+
-Cj4KPiBObywgSSBkb24ndCB3YW50IHRvIG1vbml0b3IgYW55dGhpbmcuIEV2ZW4gaWYgSSB3YW50
-ZWQsIEkgd291bGQganVzdCBzdGFydCBvbmUKPiBkYWVtb24gaW4gZWFjaCBuZXRucyBpbnN0ZWFk
-IG9mIG9uZSBmb3IgYWxsLgpPayB5b3UgZG9uJ3Qgd2FudCwgYnV0IHNvbWUgb3RoZXIgcGVvcGxl
-IChub3Qgb25seSBtZSkgd2FudCBpdCEgQW5kIGhhdmluZyBvbmUKZGFlbW9uIHBlciBuZXRucyBk
-b2VzIG5vdCBzY2FsZTogdGhlcmUgYXJlIHNjZW5hcmlpIHdpdGggdGhvdXNhbmQgbmV0bnMgd2hp
-Y2gKYXJlIGR5bmFtaWNhbGx5IGNyZWF0ZWQgYW5kIGRlbGV0ZWQuCgo+Cj4gT24gdGhlIG90aGVy
-IGhhbmQsIHdoeSBub3QgZXhjaGFuZ2UgdGhlIGNvbmZpZ3VyYXRpb24gdmlhIHZldGgKPiBiZXR3
-ZWVuIGRpZmZlcmVudCBuZXRucz8gVGhlcmUgYXJlIG1hbnkgd2F5cyB0byBkbyBzbyB3aXRoIFRD
-UCBIVFRQIGV0Yy4KPiBUaGlzIGRvZXNuJ3QgaGF2ZSB0byBiZSBzb2x2ZWQgaW4ga2VybmVsLgo+
-ClRoZSBzdGFuZGFyZCB3YXkgd2l0aCBsaW51eCB0byBtb25pdG9yIG5ldHdvcmsgY29uZmlndXJh
-dGlvbiBpcyBuZXRsaW5rLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXwpDb250YWluZXJzIG1haWxpbmcgbGlzdApDb250YWluZXJzQGxpc3RzLmxpbnV4LWZv
-dW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xp
-c3RpbmZvL2NvbnRhaW5lcnM=
+From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+
+When the CONFIG_HAVE_CLK is selected for the system, the stmmac_pci_probe
+will fail with dmesg:
+[    2.167225] stmmaceth 0000:00:14.6: enabling device (0000 -> 0002)
+[    2.178267] stmmaceth 0000:00:14.6: enabling bus mastering
+[    2.178436] stmmaceth 0000:00:14.6: irq 24 for MSI/MSI-X
+[    2.178703] stmmaceth 0000:00:14.6: stmmac_dvr_probe: warning: cannot
+get CSR clock
+[    2.186503] stmmac_pci_probe: main driver probe failed
+[    2.194003] stmmaceth 0000:00:14.6: disabling bus mastering
+[    2.196473] stmmaceth: probe of 0000:00:14.6 failed with error -2
+
+This patch fix the issue by breaking the dependency to devm_clk_get()
+as the CSR clock can be obtained at priv->plat->clk_csr from pci driver.
+
+Reported-by: Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
+Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
+---
+
+changelog v2:
+* retain the dev_warn message while devm_clk_get failed
+* add in comments to indicate clk_csr failed condition
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 08addd6..90cac23 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2716,8 +2716,15 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+ 	if (IS_ERR(priv->stmmac_clk)) {
+ 		dev_warn(priv->device, "%s: warning: cannot get CSR clock\n",
+ 			 __func__);
+-		ret = PTR_ERR(priv->stmmac_clk);
+-		goto error_clk_get;
++		/* If failed to obtain stmmac_clk and specific clk_csr value
++		 * is NOT passed from the platform, probe fail.
++		 */
++		if (!priv->plat->clk_csr) {
++			ret = PTR_ERR(priv->stmmac_clk);
++			goto error_clk_get;
++		} else {
++			priv->stmmac_clk = NULL;
++		}
+ 	}
+ 	clk_prepare_enable(priv->stmmac_clk);
+ 
+-- 
+1.7.9.5
