@@ -1,44 +1,56 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/6 -stable] netfilter: nf_tables: don't update chain with unset counters
-Date: Fri, 26 Sep 2014 13:43:44 +0200
-Message-ID: <1411731824-15051-7-git-send-email-pablo@netfilter.org>
-References: <1411731824-15051-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] dql: dql_queued() should write first to reduce
+ bus transactions
+Date: Fri, 26 Sep 2014 05:02:55 -0700
+Message-ID: <1411732975.16953.106.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140924160932.9721.56450.stgit@localhost>
+	 <20140924161047.9721.43080.stgit@localhost>
+	 <1411579395.15395.41.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140924195831.6fb91051@redhat.com>
+	 <CA+mtBx8s63TDe1XS7TzfscwhiRCgyeLkKLz2p-4et1erX0-dUQ@mail.gmail.com>
+	 <1411586550.15395.46.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411611140.16953.1.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411688409.16953.64.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411711496.16953.92.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411729595.1776139.172032293.6FCC3EBB@webmail.messagingengine.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
+	Florian Westphal <fw@strlen.de>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:36257 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754062AbaIZLmr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Sep 2014 07:42:47 -0400
-In-Reply-To: <1411731824-15051-1-git-send-email-pablo@netfilter.org>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:39344 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753986AbaIZMC5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 08:02:57 -0400
+Received: by mail-pd0-f174.google.com with SMTP id g10so12288783pdj.33
+        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 05:02:56 -0700 (PDT)
+In-Reply-To: <1411729595.1776139.172032293.6FCC3EBB@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ upstream commit b88825de8545ad252c31543fef13cadf4de7a2bc ]
+On Fri, 2014-09-26 at 13:06 +0200, Hannes Frederic Sowa wrote:
 
-Fix possible replacement of the per-cpu chain counters by null
-pointer when updating an existing chain in the commit path.
+> I thought that prefetchw() would be the canonical way to solve write
+> stalls in CPUs and prepare the specific cache line to be written to.
+> Interesting, thanks Eric.
 
-Cc: <stable@vger.kernel.org> # 3.16.x
-Reported-by: Matteo Croce <technoboy85@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_tables_api.c |    3 +++
- 1 file changed, 3 insertions(+)
+True, and I have a tcp_ack() (tcp_clean_rtx_queue() more exactly) patch
+that indeed uses prefetchw() to bring tcp_shinfo() in cache before the 
+tcp_unlink_write_queue(skb, sk);
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index c6f9d3d..9aa31f1 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -899,6 +899,9 @@ static struct nft_stats __percpu *nft_stats_alloc(const struct nlattr *attr)
- static void nft_chain_stats_replace(struct nft_base_chain *chain,
- 				    struct nft_stats __percpu *newstats)
- {
-+	if (newstats == NULL)
-+		return;
-+
- 	if (chain->stats) {
- 		struct nft_stats __percpu *oldstats =
- 				nft_dereference(chain->stats);
--- 
-1.7.10.4
+Performance went from 570000 packets per second to 820000 packets per
+second on a TSO=off GSO=off workload.
+
+But this applies after the https://patchwork.ozlabs.org/patch/392877/
+patch (tcp: change tcp_skb_pcount() location )
