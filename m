@@ -1,67 +1,98 @@
-From: Kweh Hock Leong <hock.leong.kweh@intel.com>
-Subject: [PATCH v2] net: stmmac: fix stmmac_pci_probe failed when CONFIG_HAVE_CLK is selected
-Date: Fri, 26 Sep 2014 21:42:55 +0800
-Message-ID: <1411738975-20056-1-git-send-email-hock.leong.kweh@intel.com>
-Cc: Vince Bridgers <vbridgers2013@gmail.com>,
-	Chen-Yu Tsai <wens@csie.org>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Ong Boon Leong <boon.leong.ong@intel.com>,
-	Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
-To: "David S. Miller" <davem@davemloft.net>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	rayagond@vayavyalabs.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bonding: make global bonding stats more reliable
+Date: Fri, 26 Sep 2014 09:52:08 -0400
+Message-ID: <20140926135208.GB18564@gospo.home.greyhouse.net>
+References: <1411650996-2087-1-git-send-email-gospo@cumulusnetworks.com>
+ <54252940.6070100@redhat.com>
+ <20140926132631.GA18564@gospo.home.greyhouse.net>
+ <54256BA5.9080803@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:47086 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754073AbaIZNwE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 09:52:04 -0400
+Content-Disposition: inline
+In-Reply-To: <54256BA5.9080803@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+On Fri, Sep 26, 2014 at 03:35:33PM +0200, Nikolay Aleksandrov wrote:
+> On 26/09/14 15:26, Andy Gospodarek wrote:
+> >On Fri, Sep 26, 2014 at 10:52:16AM +0200, Nikolay Aleksandrov wrote:
+> >>On 25/09/14 15:16, Andy Gospodarek wrote:
+> >>>As the code stands today, bonding stats are based simply on the stats
+> >>>from the member interfaces.  If a member was to be removed from a bond,
+> >>>the stats would instantly drop.  This would be confusing to an admin
+> >>>would would suddonly see interface stats drop while traffic is still
+> >>>flowing.
+> >>>
+> >>>In addition to preventing the stats drops mentioned above, new members
+> >>>will now be added to the bond and only traffic received after the member
+> >>>was added to the bond will be counted as part of bonding stats.
+> >>>
+> >>>Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> >>>---
+> >>Hi Andy,
+> >>
+> <<<<snip>>>>
+> >>>@@ -4258,6 +4274,9 @@ static int bond_init(struct net_device *bond_dev)
+> >>>  	    bond_dev->addr_assign_type == NET_ADDR_PERM)
+> >>>  		eth_hw_addr_random(bond_dev);
+> >>>
+> >>>+	/* initialize persistent stats for the bond */
+> >>>+	bond->bond_stats = kzalloc(sizeof(struct rtnl_link_stats64),
+> >>>+				   GFP_ATOMIC);
+> >>^^^^^^^^^^^^^^^^^^^^^^^^
+> >>I don't think this will get freed if the bond device is destroyed.
+> >Another good catch.  Thanks for the review.  V2 incoming after some
+> >testing.
+> >
+> Great, one more thing I forgot to ask, why the GFP_ATOMIC here ? I believe
+> we're allowed to sleep in ndo_init(), and you should probably handle the
+ndo_init() can (and likely will) sleep, but since all not skb data
+allocated in bonding appears to be GFP_KERNEL, I'll switch to that for
+consistency.
 
-When the CONFIG_HAVE_CLK is selected for the system, the stmmac_pci_probe
-will fail with dmesg:
-[    2.167225] stmmaceth 0000:00:14.6: enabling device (0000 -> 0002)
-[    2.178267] stmmaceth 0000:00:14.6: enabling bus mastering
-[    2.178436] stmmaceth 0000:00:14.6: irq 24 for MSI/MSI-X
-[    2.178703] stmmaceth 0000:00:14.6: stmmac_dvr_probe: warning: cannot
-get CSR clock
-[    2.186503] stmmac_pci_probe: main driver probe failed
-[    2.194003] stmmaceth 0000:00:14.6: disabling bus mastering
-[    2.196473] stmmaceth: probe of 0000:00:14.6 failed with error -2
+> case where the bond_stats allocation fails, too.
+Yep, on it! :)
 
-This patch fix the issue by breaking the dependency to devm_clk_get()
-as the CSR clock can be obtained at priv->plat->clk_csr from pci driver.
-
-Reported-by: Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
-Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
----
-
-changelog v2:
-* retain the dev_warn message while devm_clk_get failed
-* add in comments to indicate clk_csr failed condition
-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 08addd6..90cac23 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2716,8 +2716,15 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 	if (IS_ERR(priv->stmmac_clk)) {
- 		dev_warn(priv->device, "%s: warning: cannot get CSR clock\n",
- 			 __func__);
--		ret = PTR_ERR(priv->stmmac_clk);
--		goto error_clk_get;
-+		/* If failed to obtain stmmac_clk and specific clk_csr value
-+		 * is NOT passed from the platform, probe fail.
-+		 */
-+		if (!priv->plat->clk_csr) {
-+			ret = PTR_ERR(priv->stmmac_clk);
-+			goto error_clk_get;
-+		} else {
-+			priv->stmmac_clk = NULL;
-+		}
- 	}
- 	clk_prepare_enable(priv->stmmac_clk);
- 
--- 
-1.7.9.5
+> 
+> >>
+> >>>  	return 0;
+> >>>  }
+> >>>
+> >>>diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+> >>>index 6140bf0..fe25265 100644
+> >>>--- a/drivers/net/bonding/bonding.h
+> >>>+++ b/drivers/net/bonding/bonding.h
+> >>>@@ -24,6 +24,7 @@
+> >>>  #include <linux/inetdevice.h>
+> >>>  #include <linux/etherdevice.h>
+> >>>  #include <linux/reciprocal_div.h>
+> >>>+#include <linux/if_link.h>
+> >>>
+> >>>  #include "bond_3ad.h"
+> >>>  #include "bond_alb.h"
+> >>>@@ -175,6 +176,7 @@ struct slave {
+> >>>  	struct netpoll *np;
+> >>>  #endif
+> >>>  	struct kobject kobj;
+> >>>+	struct rtnl_link_stats64 *slave_stats;
+> >>>  };
+> >>>
+> >>>  /*
+> >>>@@ -224,6 +226,7 @@ struct bonding {
+> >>>  	/* debugging support via debugfs */
+> >>>  	struct	 dentry *debug_dir;
+> >>>  #endif /* CONFIG_DEBUG_FS */
+> >>>+	struct rtnl_link_stats64 *bond_stats;
+> >>>  };
+> >>>
+> >>>  #define bond_slave_get_rcu(dev) \
+> >>>
+> >>
+> 
