@@ -1,34 +1,45 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: VRFs and the scalability of namespaces
-Date: Fri, 26 Sep 2014 16:52:41 -0700
-Message-ID: <20140926165241.59cf8a60@urahara>
-References: <5425EAA6.7040302@gmail.com>
+From: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH/RFC repost 2/8] netlink: Allow suppression of
+ warnings for duplicate attributes
+Date: Fri, 26 Sep 2014 16:55:42 -0700
+Message-ID: <20140926235542.GA20493@nicira.com>
+References: <1411005311-11752-1-git-send-email-simon.horman@netronome.com>
+ <1411005311-11752-3-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	nicolas.dichtel@6wind.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:37945 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754739AbaIZXwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 19:52:53 -0400
-Received: by mail-pd0-f174.google.com with SMTP id g10so13096746pdj.5
-        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 16:52:52 -0700 (PDT)
-In-Reply-To: <5425EAA6.7040302@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1411005311-11752-3-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, 26 Sep 2014 16:37:26 -0600
-David Ahern <dsahern@gmail.com> wrote:
-
-> Hi Eric:
+On Thu, Sep 18, 2014 at 10:55:05AM +0900, Simon Horman wrote:
+> Add a multiple field to struct nl_policy which if set suppresses
+> warning of duplicate attributes in nl_parse_nested().
 > 
-> As you suggested [1] I am starting a new thread to discuss scalability 
-> problems using namespaces for VRFs.
+> As is the case without this patch only the last occurrence of an
+> attribute is stored in attrs by nl_parse_nested(). As such
+> if the multiple field of struct nl_policy is set then it
+> is up to the caller to parse the message to extract all the attributes.
 > 
+> This is in preparation for allowing multiple OVS_SELECT_GROUP_ATTR_BUCKET
+> attributes in a nested OVS_ACTION_ATTR_SELECT_GROUP attribute.
+> 
+> Signed-off-by: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
 
-Whining without suggesting a solution or providing code will probably result
-in no action.
+In the other case where we have duplicate attributes, it doesn't make
+sense to process them with the policy functions, because we want to
+see all of the instances of the duplicate attributes and policy
+doesn't allow us to do that.  I'm a little surprised that the new
+attributes work differently.  What's the idea?
