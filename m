@@ -1,54 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [net-next PATCH 1/1 V4] qdisc: bulk dequeue support for qdiscs
- with TCQ_F_ONETXQUEUE
-Date: Fri, 26 Sep 2014 06:38:17 -0700
-Message-ID: <1411738697.16953.124.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140924160932.9721.56450.stgit@localhost>
-	 <20140924161047.9721.43080.stgit@localhost>
-	 <1411579395.15395.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140924195831.6fb91051@redhat.com>
-	 <CA+mtBx8s63TDe1XS7TzfscwhiRCgyeLkKLz2p-4et1erX0-dUQ@mail.gmail.com>
-	 <1411586550.15395.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411611140.16953.1.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411688409.16953.64.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1749E380@AcuExch.aculab.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1749E538@AcuExch.aculab.com>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH net-next v2 0/5] netns: allow to identify peer netns
+Date: Fri, 26 Sep 2014 15:38:57 +0200
+Message-ID: <54256C71.20108@6wind.com>
+References: <1411478430-4989-1-git-send-email-nicolas.dichtel@6wind.com>	<CAHA+R7NnBJ=T3sukzzp-OD2am1nd318XbrXCX84LfSL=nu9ojw@mail.gmail.com>	<54228D87.3070309@6wind.com>	<CAHA+R7NfJYzCsZx0E9YVXKVCQbCm_thPSi+80tix8Z9nVA82Ug@mail.gmail.com>	<CAHA+R7MVL=WpepRy8iz6iT6Kkq1RHG+b9TxJothP94ixyAj-3Q@mail.gmail.com>	<5422F1F7.8010308@6wind.com>	<CAHA+R7MM04ew=J8sHfSQERwoCAgEDfrGgtgRORqs3ePgtjVYWg@mail.gmail.com>	<5423D808.7050800@6wind.com>
+	<CAHA+R7OdOUMShX6Nphdfh8+fGiXyO+sGNHy0ch_XYh5dpURcmQ@mail.gmail.com>
+Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
-	Florian Westphal <fw@strlen.de>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:48319 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753821AbaIZNiT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 09:38:19 -0400
-Received: by mail-pd0-f179.google.com with SMTP id ft15so12926163pdb.38
-        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 06:38:19 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1749E538@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <CAHA+R7OdOUMShX6Nphdfh8+fGiXyO+sGNHy0ch_XYh5dpURcmQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-09-26 at 13:16 +0000, David Laight wrote:
-
-> OTOH it looks as though there is a big hit if you read then write
-> a non-present cache line.
-
-Well, this is exactly what it is about. Welcome to the club.
-
-This is a well known problem.
-
-Look at following old commit :
-
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=3f9d35b9514da6757ca98831372518f9eeb71b33
+TGUgMjYvMDkvMjAxNCAwMzo1OCwgQ29uZyBXYW5nIGEgw6ljcml0IDoKPiBPbiBUaHUsIFNlcCAy
+NSwgMjAxNCBhdCAxOjUzIEFNLCBOaWNvbGFzIERpY2h0ZWwKPiA8bmljb2xhcy5kaWNodGVsQDZ3
+aW5kLmNvbT4gd3JvdGU6Cj4+IExlIDI0LzA5LzIwMTQgMTg6NDgsIENvbmcgV2FuZyBhIMOpY3Jp
+dCA6Cj4+Cj4+PiBPbiBXZWQsIFNlcCAyNCwgMjAxNCBhdCA5OjMxIEFNLCBOaWNvbGFzIERpY2h0
+ZWwKPj4+IDxuaWNvbGFzLmRpY2h0ZWxANndpbmQuY29tPiB3cm90ZToKPj4+Pj4KPj4+Pj4gSSB0
+aGluayBpbiB0aGlzIGNhc2UgeW91ciBJRCdzIGFyZSBzdGlsbCBhdmFpbGFibGUsIGJ1dCBhcmVu
+J3QgeW91Cj4+Pj4+IHByb3ZpZGluZyBhIG5ldyB3YXkKPj4+Pj4gZm9yIHRoZSBpbm5lciBuZXRu
+cyBkZXZpY2UgdG8gZXNjYXBlIHdoaWNoIHdlIGFyZSB0cnlpbmcgdG8gYXZvaWQ/Cj4+Pj4KPj4+
+Pgo+Pj4+IEl0J3Mgd2h5IHRoZSBpZHMgZGVwZW5kIG9uIHVzZXIgbnMuIE9ubHkgaWYgdXNlciBu
+cyBhcmUgdGhlIHNhbWUgd2UgYWxsb3cKPj4+PiB0bwo+Pj4+IGdldCBhbiBpZCBmb3IgYSBwZWVy
+IG5ldG5zLgo+Pj4KPj4+Cj4+PiBUb28gbGF0ZSwgdXNlcm5zIGlzIHJlbGF0aXZlbHkgbmV3LCBy
+ZWx5aW5nIG9uIGl0IGJyZWFrcyBvdXIgZXhpc3RpbmcKPj4+IGFzc3VtcHRpb24uCj4+Pgo+PiBJ
+IGRvbid0IGdldCB5b3VyIHBvaW50LiBuZXRucyBoYXMgYmVlbiBhZGRlZCBpbiBrZXJuZWwgYWZ0
+ZXIgdXNlciBuczoKPj4gYWNjZTI5MmM4MmQ0IHVzZXIgbmFtZXNwYWNlOiBhZGQgdGhlIGZyYW1l
+d29yayA9PiAyLjYuMjMKPj4gNWYyNTZiZWNkODY4IFtORVRdOiBCYXNpYyBuZXR3b3JrIG5hbWVz
+cGFjZSBpbmZyYXN0cnVjdHVyZS4gPT4gMi42LjI0Cj4KPiBXYXMgaXQgY29tcGxldGUgb24gMi42
+Lng/IEkgZG91YnQuLi4KPgo+IGh0dHBzOi8vbGttbC5vcmcvbGttbC8yMDE0LzgvMjAvODI2Cj4K
+PiAgICAgQXMgYXQgTGludXggMy44LCBtb3N0IHJlbGV2YW50IHN1YnN5c3RlbXMgc3VwcG9ydGVk
+ICB1c2VyICBuYW1lc+KAkAo+ICAgICAgICAgcGFjZXMsICBidXQgIGEgbnVtYmVyIG9mIGZpbGVz
+eXN0ZW1zIGRpZCBub3QgaGF2ZSB0aGUgaW5mcmFzdHJ1Y+KAkAo+ICAgICAgICAgdHVyZSBuZWVk
+ZWQgdG8gbWFwIHVzZXIgYW5kIGdyb3VwIElEcyAgYmV0d2VlbiAgdXNlciAgbmFtZXNwYWNlcy4K
+PiAgICAgICAgIExpbnV4ICAzLjkgIGFkZGVkIHRoZSByZXF1aXJlZCBpbmZyYXN0cnVjdHVyZSBz
+dXBwb3J0IGZvciBtYW55IG9mCj4gICAgICAgICB0aGUgcmVtYWluaW5nIHVuc3VwcG9ydGVkIGZp
+bGVzeXN0ZW1zIChQbGFuIDkgKDlQKSwgIEFuZHJldyAgRmlsZQo+ICAgICAgICAgU3lzdGVtICAo
+QUZTKSwgIENlcGgsICBDSUZTLCAgQ09EQSwgIE5GUywgYW5kIE9DRlMyKS4gIExpbnV4IDMuMTEK
+PiAgICAgICAgIGFkZGVkIHN1cHBvcnQgdGhlIGxhc3Qgb2YgdGhlIHVuc3VwcG9ydGVkIG1ham9y
+IGZpbGVzeXN0ZW1zLCBYRlMuCj4KPgo+Pgo+PiBJbiB0aGUga2VybmVsLCBlYWNoIG5ldG5zIGlz
+IGxpbmtlZCB3aXRoIGEgdXNlciBucy4KPgo+IEFyZSB5b3Ugc2F5aW5nIGV2ZXJ5IHRpbWUgd2Ug
+Y3JlYXRlIGEgbmV0bnMgd2UgaGF2ZSBhIG5ldyB1c2VybnM/Cj4gVGhpcyBkb2Vzbid0IG1ha2Ug
+c2Vuc2UgZm9yIG1lLgo+Ck5vLiBJIG1lYW4gdGhhdCBlYWNoIG5ldG5zIGRlcGVuZHMgb24gYSB1
+c2VybnMuClNlZSBpbmNsdWRlL25ldC9uZXRfbmFtZXNwYWNlLmg6CnN0cnVjdCBuZXQgewpbc25p
+cF0KICAgICAgICAgc3RydWN0IHVzZXJfbmFtZXNwYWNlICAgKnVzZXJfbnM7ICAgICAgIC8qIE93
+bmluZyB1c2VyIG5hbWVzcGFjZSAqLwpbc25pcF0KfQpfX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fXwpDb250YWluZXJzIG1haWxpbmcgbGlzdApDb250YWluZXJz
+QGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9u
+Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2NvbnRhaW5lcnM=
