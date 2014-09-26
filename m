@@ -1,127 +1,84 @@
-From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2] bonding: make global bonding stats more reliable
-Date: Fri, 26 Sep 2014 18:16:47 -0400
-Message-ID: <5425E5CF.4040403@cumulusnetworks.com>
-References: <1411684631-7509-1-git-send-email-gospo@cumulusnetworks.com> <54257B50.20709@redhat.com> <20140926153501.GC18564@gospo.home.greyhouse.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: [PATCH V3 1/2] Documentation: add Device tree bindings for QCA7000
+Date: Fri, 26 Sep 2014 22:21:20 +0000
+Message-ID: <1411770081-20995-2-git-send-email-stefan.wahren@i2se.com>
+References: <1411770081-20995-1-git-send-email-stefan.wahren@i2se.com>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36504 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755574AbaIZWQv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 18:16:51 -0400
-In-Reply-To: <20140926153501.GC18564@gospo.home.greyhouse.net>
+Received: from mout.kundenserver.de ([212.227.126.187]:59290 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755683AbaIZWVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 18:21:39 -0400
+In-Reply-To: <1411770081-20995-1-git-send-email-stefan.wahren@i2se.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/26/14, 11:35 AM, Andy Gospodarek wrote:
-> On Fri, Sep 26, 2014 at 04:42:24PM +0200, Nikolay Aleksandrov wrote:
->> On 26/09/14 00:37, Andy Gospodarek wrote:
->>> As the code stands today, bonding stats are based simply on the stats
->> >from the member interfaces.  If a member was to be removed from a bond,
->>> the stats would instantly drop.  This would be confusing to an admin
->>> would would suddonly see interface stats drop while traffic is still
->>> flowing.
->>>
->>> In addition to preventing the stats drops mentioned above, new members
->>> will now be added to the bond and only traffic received after the member
->>> was added to the bond will be counted as part of bonding stats.
->>>
->>> v2: Changes suggested by Nik to properly allocate/free stats memory.
->>>
->>> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
->>> ---
->>>  drivers/net/bonding/bond_main.c | 85 +++++++++++++++++++++++++++--------------
->>>  drivers/net/bonding/bonding.h   |  3 ++
->>>  2 files changed, 60 insertions(+), 28 deletions(-)
->>>
->> <<<<snip>>>>
->>> @@ -3857,6 +3874,8 @@ static void bond_uninit(struct net_device *bond_dev)
->>>  		__bond_release_one(bond_dev, slave->dev, true);
->>>  	netdev_info(bond_dev, "Released all slaves\n");
->>>
->>> +	kfree(bond->bond_stats);
->>> +
->>>  	list_del(&bond->bond_list);
->>>
->>>  	bond_debug_unregister(bond);
->>> @@ -4243,7 +4262,13 @@ static int bond_init(struct net_device *bond_dev)
->>>
->>>  	bond->wq = create_singlethread_workqueue(bond_dev->name);
->>>  	if (!bond->wq)
->>> -		return -ENOMEM;
->>> +		goto bond_wq_fail;
->>> +
->>> +	/* initialize persistent stats for the bond */
->>> +	bond->bond_stats = kzalloc(sizeof(struct rtnl_link_stats64),
->>> +				   GFP_KERNEL);
->>> +	if (!bond->bond_stats)
->>> +		goto bond_stats_fail;
->>>
->>>  	bond_set_lockdep_class(bond_dev);
->>>
->>> @@ -4259,6 +4284,10 @@ static int bond_init(struct net_device *bond_dev)
->>>  		eth_hw_addr_random(bond_dev);
->>>
->>>  	return 0;
->>> +bond_stats_fail:
->>> +	kfree(bond->wq);
->> ^^^^^^^^^^
->> I think you should use destroy_workqueue() to properly get rid of the wq.
-> I'm beginning to think I should have gone with my first approach and
-> placed the rtnl_link_stats64 structs inside struct slave and struct
-> bonding rather than creating pointers....
+This patch adds the Device tree bindings for the
+Ethernet over SPI protocol driver of the Qualcomm
+QCA7000 HomePlug GreenPHY.
 
-I agree, would simplify the initialization and tear-down code. Is there
-any reason statically increasing the slave and bonding structures would
-be a bad idea? Don't see how not allocating those stats structures are
-an option so not sure what the additional dynamic memory buys, one could
-argue it wastes memory.
+Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+---
+ .../devicetree/bindings/net/qca-qca7000-spi.txt    |   47 ++++++++++++++++++++
+ 1 file changed, 47 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
 
-> 
->>
->>
->>> +bond_wq_fail:
->>> +	return -ENOMEM;
->>>  }
->>>
->>>  unsigned int bond_get_num_tx_queues(void)
->>> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->>> index 6140bf0..fe25265 100644
->>> --- a/drivers/net/bonding/bonding.h
->>> +++ b/drivers/net/bonding/bonding.h
->>> @@ -24,6 +24,7 @@
->>>  #include <linux/inetdevice.h>
->>>  #include <linux/etherdevice.h>
->>>  #include <linux/reciprocal_div.h>
->>> +#include <linux/if_link.h>
->>>
->>>  #include "bond_3ad.h"
->>>  #include "bond_alb.h"
->>> @@ -175,6 +176,7 @@ struct slave {
->>>  	struct netpoll *np;
->>>  #endif
->>>  	struct kobject kobj;
->>> +	struct rtnl_link_stats64 *slave_stats;
->>>  };
->>>
->>>  /*
->>> @@ -224,6 +226,7 @@ struct bonding {
->>>  	/* debugging support via debugfs */
->>>  	struct	 dentry *debug_dir;
->>>  #endif /* CONFIG_DEBUG_FS */
->>> +	struct rtnl_link_stats64 *bond_stats;
->>>  };
->>>
->>>  #define bond_slave_get_rcu(dev) \
->>>
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+new file mode 100644
+index 0000000..c74989c
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+@@ -0,0 +1,47 @@
++* Qualcomm QCA7000 (Ethernet over SPI protocol)
++
++Note: The QCA7000 is useable as a SPI device. In this case it must be defined
++as a child of a SPI master in the device tree.
++
++Required properties:
++- compatible : Should be "qca,qca7000"
++- reg : Should specify the SPI chip select
++- interrupts : The first cell should specify the index of the source interrupt
++  and the second cell should specify the trigger type as rising edge
++- spi-cpha : Must be set
++- spi-cpol: Must be set
++
++Optional properties:
++- interrupt-parent : Specify the pHandle of the source interrupt
++- spi-max-frequency : Maximum frequency of the SPI bus the chip can operate at.
++  Numbers smaller than 1000000 or greater than 16000000 are invalid. Missing
++  the property will set the SPI frequency to 8000000 Hertz.
++- local-mac-address: 6 bytes, MAC address
++- qca,legacy-mode : Set the SPI data transfer of the QCA7000 to legacy mode.
++  In this mode the SPI master must toggle the chip select between each data
++  word. In burst mode these gaps aren't necessary, which is faster.
++  This setting depends on how the QCA7000 is setup via GPIO pin strapping.
++  If the property is missing the driver defaults to burst mode.
++
++Example:
++
++/* Freescale i.MX28 SPI master*/
++ssp2: spi@80014000 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++	compatible = "fsl,imx28-spi";
++	pinctrl-names = "default";
++	pinctrl-0 = <&spi2_pins_a>;
++	status = "okay";
++
++	qca7000: ethernet@0 {
++		compatible = "qca,qca7000";
++		reg = <0x0>;
++		interrupt-parent = <&gpio3>;      /* GPIO Bank 3 */
++		interrupts = <25 0x1>;            /* Index: 25, rising edge */
++		spi-cpha;                         /* SPI mode: CPHA=1 */
++		spi-cpol;                         /* SPI mode: CPOL=1 */
++		spi-max-frequency = <8000000>;    /* freq: 8 MHz */
++		local-mac-address = [ A0 B0 C0 D0 E0 F0 ];
++	};
++};
+-- 
+1.7.9.5
