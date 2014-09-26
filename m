@@ -1,46 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macvtap: Fix race between device delete and open.
-Date: Fri, 26 Sep 2014 15:21:27 -0400 (EDT)
-Message-ID: <20140926.152127.303982560731423514.davem@davemloft.net>
-References: <1411418057-18937-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH net-next v3] fec: Remove fec_enet_select_queue()
+Date: Fri, 26 Sep 2014 15:22:14 -0400 (EDT)
+Message-ID: <20140926.152214.2057397298920833937.davem@davemloft.net>
+References: <1411419329-11957-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevic@redhat.com, mst@redhat.com,
-	jasowang@redhat.com
-To: vyasevich@gmail.com
+Cc: Frank.Li@freescale.com, netdev@vger.kernel.org,
+	fabio.estevam@freescale.com
+To: festevam@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50092 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50103 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753428AbaIZTVa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 15:21:30 -0400
-In-Reply-To: <1411418057-18937-1-git-send-email-vyasevic@redhat.com>
+	with ESMTP id S1753770AbaIZTWQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 15:22:16 -0400
+In-Reply-To: <1411419329-11957-1-git-send-email-festevam@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Date: Mon, 22 Sep 2014 16:34:17 -0400
+From: Fabio Estevam <festevam@gmail.com>
+Date: Mon, 22 Sep 2014 17:55:29 -0300
 
-> In macvtap device delete and open calls can race and
-> this causes a list curruption of the vlan queue_list.
+> From: Fabio Estevam <fabio.estevam@freescale.com>
 > 
-> The race intself is triggered by the idr accessors
-> that located the vlan device.  The device is stored
-> into and removed from the idr under both an rtnl and
-> a mutex.  However, when attempting to locate the device
-> in idr, only a mutex is taken.  As a result, once cpu
-> perfoming a delete may take an rtnl and wait for the mutex,
-> while another cput doing an open() will take the idr
-> mutex first to fetch the device pointer and later take
-> an rtnl to add a queue for the device which may have
-> just gotten deleted.
+> Sparse complains about fec_enet_select_queue() not being static.
 > 
-> With this patch, we now hold the rtnl for the duration
-> of the macvtap_open() call thus making sure that
-> open will not race with delete.
+> Feedback from David Miller [1] was to remove this function instead of making it
+> static:
 > 
-> CC: Michael S. Tsirkin <mst@redhat.com>
-> CC: Jason Wang <jasowang@redhat.com>
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+> "Please just delete this function.
+> 
+> It's overriding code which does exactly the same thing.
+> 
+> Actually, more precisely, this code is duplicating code in a way that
+> bypasses many core facilitites of the networking.  For example, this
+> override means that socket based flow steering, XPS, etc. are all
+> not happening on these devices.
+> 
+> Without ->ndo_select_queue(), the flow dissector does __netdev_pick_tx
+> which is exactly what you want to happen."
+> 
+> [1] http://www.spinics.net/lists/netdev/msg297653.html
+> 
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 
-Applied and queued up for -stable, thanks!
+Looks a lot better, applied, thanks!
