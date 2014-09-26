@@ -1,48 +1,149 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 1/5] udp: Generalize skb_udp_segment
-Date: Fri, 26 Sep 2014 12:56:43 -0700
-Message-ID: <CA+mtBx9SQDz9WOZAEQUXu+D=+ZizfbEHxMCM_gduYYTyOp=Jig@mail.gmail.com>
-References: <CAADnVQJgoW1SbkK6hoJcRtTwyKxgNBtFYqBF-5aW9D4=Zi5ofg@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: eBPF verifier thoughts (Re: [PATCH v15 net-next 00/11] eBPF
+ syscall, verifier, testsuite)
+Date: Fri, 26 Sep 2014 13:00:21 -0700
+Message-ID: <CAMEtUuyt9RASKZ4NeqK_OUYNN8QT6P20+kjcwywchur6QXSt0A@mail.gmail.com>
+References: <CALCETrVrHHxGo1RkPu+9LVnPo9XY9yYnJzg2ot0zOgoBspzbOQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:55138 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754719AbaIZT4o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 15:56:44 -0400
-Received: by mail-ig0-f173.google.com with SMTP id l13so134957iga.6
-        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 12:56:43 -0700 (PDT)
-In-Reply-To: <CAADnVQJgoW1SbkK6hoJcRtTwyKxgNBtFYqBF-5aW9D4=Zi5ofg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALCETrVrHHxGo1RkPu+9LVnPo9XY9yYnJzg2ot0zOgoBspzbOQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 26, 2014 at 12:39 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Fri, Sep 26, 2014 at 9:22 AM, Tom Herbert <therbert@google.com> wrote:
->> skb_udp_segment is the function called from udp4_ufo_fragment to
->> segment a UDP tunnel packet. This function currently assumes
->> segmentation is transparent Ethernet bridging (i.e. VXLAN
->> encapsulation). This patch generalizes the function to
->> operate on either Ethertype or IP protocol.
+On Fri, Sep 26, 2014 at 12:34 PM, Andy Lutomirski <luto@amacapital.net> wrote:
+> On Fri, Sep 26, 2014 at 12:06 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Alexei Starovoitov <ast@plumgrid.com>
+>> Date: Fri, 26 Sep 2014 00:16:56 -0700
+>>
+>>> v14 -> v15:
+>>> - got rid of macros with hidden control flow (suggested by David)
+>>>   replaced macro with explicit goto or return and simplified
+>>>   where possible (affected patches #9 and #10)
+>>> - rebased, retested
+>>
+>> Series applied to net-next, thanks.
 >
-> this is great generalization.
-> Do you envision that type_ether will cover vlan and mpls, right?
+> Hi all-
+>
+> I read through the verifier.  Sorry this email is a little bit late.
+> Here are some thoughts, in no particular order.
+>
+> Programs should IMO have feature flags.  One such feature would be
+> "can use pointers as integers", for example.
 
-This design should allow providing GSO for any encapsulation of IP
-protocol or Ethertype of UDP (as long as encapsulation headers don't
-need to be modified for each segment). This actually covers quite a
-lot of possibilities.
+of course.
+I believe we discussed it in the past.
+programs will have flags. I'm not sure why you insist on this in
+the first version.
 
-> What if somebody crazy adds a new thing after udp encap
-> that is neither ethernet nor ip header?
-> Like encryption header?
+> UNKNOWN_VALUE is IMO a crappy type.  I think that it should renamed to
+> INTEGER and that a bunch of the things that generate it should be
+> errors.
 
-We could add an internal offloads table for that. This would entail a
-new inner protocol type and then use inner_protocol to set offload
-flavor which we can define. This also might be the path to some sort
-of GSO for application layer protocols (like QUIC maybe...?)
+it's an internal type.
+Sure, I'm ok renaming it, but 'integer' name doesn't fit.
+It's not integer type.
+When I post a patch for "can use pointers as integers" flag
+you'll see that this 'unknown_value' will be broken down
+into more precise types.
 
-> I think it would fit this model well...
+> ALU ops like adding two pointers should IMO be failures.  I don't
+> think that they should result in UNKNOWN_VALUE.
+
+they will be failures for unprivileged programs.
+In this patch the whole thing is for root only and root programs need
+arithmetic on pointers to compute hashes and so on.
+I wish we spent more time chatting, so I could explain this better.
+
+> I don't like PTR_TO_MAP_VALUE as a type.  I think that there should
+> instead be "pointer to (const?) buffer of N bytes".
+>
+> ARG_PTR_TO_MAP_KEY is odd.  Why do we care what a function does with a
+> key?  It just needs to be a big enough buffer, right?
+
+not quite. there is a distinction between key and value.
+They both come from map definition and correspond to key_size
+and value_size, so they have to have two different corresponding
+_internal_ types 'ptr_to_map_key' and 'ptr_to_map_value'
+This distinction is needed to properly describe function
+arguments constraints.
+
+> All of the stack spill stuff seems overcomplicated.  Can you just
+> disallow unaligned stack access?  Right off the bat, that will delete
+> a bunch of code and cut down runtime memory use by nearly a factor of
+> eight.
+
+not quite. stack spill/fill is not for unaligned access.
+unaligned access is disallowed first.
+See line 663 in check_mem_access().
+Often enough gcc/llvm ran out of registers and have to spill
+them into stack. This spill/fill tracking mechanism keeps
+track of what is stored into stack. Otherwise type violation will be
+possible. We cannot get rid of it. It essential for safety.
+
+> Also, there are no calls to functions written eBPF, right?  If so, why
+> not just give each stack slot a *fixed* type for the lifetime of the
+> program?  That would be a huge time complexity win, not to mention
+> being more comprehensible.  When function calls get added, they'll
+> need a whole pile of new infrastructure anyway.
+
+you cannot. stack cannot be fixed. It's very small and valuable
+resources. Programs will be using differently.
+
+> check_call is a mess.  I predict that it will be unmaintainable.
+
+why? care to provide details?
+
+> check_ld_abs is messy, IMO.  Can't there be a real type "pointer to
+> object of type [type]", where skb would be a type?  Then you could use
+> the normal function call logic for skb pointers instead of hardcoded
+> crud.
+>
+> You're doing a depth-first search.  I don't like it.  You need complex
+> pruning logic to avoid exponential behavior, and it's not obvious to
+
+there was in patch in previous series that did the prunning.
+I dropped out of this set to simplify things.
+
+> me that pathological programs that cause exponential blowups in the
+> verifier don't exist.  Wouldn't it make more sense to do a
+> breadth-first search instead and to give each reg/stack slot a
+> definite type at each point in the control flow?  You'd need a
+> function to find the intersection of two types, but I think that would
+> be preferable to the current code that tests whether one type is a
+> subset of another.
+
+nope. breadth-first just doesn't work at all.
+
+> At some point someone will want loops, and that will open a huge can
+> of worms involving explicit typing or type inference.  It might pay to
+> add some kind of stack slot (and maybe even register slot) type
+> declarations now to get things ready for that.
+
+sure. As discussed we may allow loops in the future.
+
+> NB: If this code is actually invoked in net-next when loading a
+> filter, please don't push to Linus until there's a convincing argument
+> that the verifier has acceptable asymptotic complexity.
+
+complexity is actually described in the doc.
+There are several limits. Verifier will be aborted if it walks
+more then 32k instructions or more then 1k branches.
+So the very worst case takes micro seconds to reject
+the program. So I don't see your concern.
