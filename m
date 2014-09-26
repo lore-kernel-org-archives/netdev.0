@@ -1,50 +1,43 @@
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Subject: RE: [PATCH] net: stmmac: fix stmmac_pci_probe failed when
- CONFIG_HAVE_CLK is selected
-Date: Fri, 26 Sep 2014 12:12:05 +0000
-Message-ID: <F54AEECA5E2B9541821D670476DAE19C2B7F4A0D@PGSMSX102.gar.corp.intel.com>
-References: <1411043650-31712-1-git-send-email-hock.leong.kweh@intel.com>
- <20140922.141921.577008114679288180.davem@davemloft.net>
- <F54AEECA5E2B9541821D670476DAE19C2B7EAE19@PGSMSX102.gar.corp.intel.com>
- <54210EC1.9070507@st.com>
- <F54AEECA5E2B9541821D670476DAE19C2B7EAF23@PGSMSX102.gar.corp.intel.com>
- <54226020.50008@st.com>
- <F54AEECA5E2B9541821D670476DAE19C2B7EB35E@PGSMSX102.gar.corp.intel.com>
- <54255692.8020402@st.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCH net-next 2/3] ipv6: mld: do not overwrite uri when receiving
+ an mldv2 query
+Date: Fri, 26 Sep 2014 08:13:41 -0400
+Message-ID: <54255875.20409@oracle.com>
+References: <1411455828-5196-1-git-send-email-dborkman@redhat.com> <1411455828-5196-3-git-send-email-dborkman@redhat.com> <54243C89.6060405@oracle.com> <542475E3.6030508@redhat.com> <5424A408.5000208@oracle.com> <542531FA.2070701@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>,
-	"vbridgers2013@gmail.com" <vbridgers2013@gmail.com>,
-	"wens@csie.org" <wens@csie.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ong, Boon Leong" <boon.leong.ong@intel.com>,
-	"tobias.johannes.klausmann@mni.thm.de"
-	<tobias.johannes.klausmann@mni.thm.de>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, hannes@stressinduktion.org,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:4128 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753973AbaIZMMM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 08:12:12 -0400
-In-Reply-To: <54255692.8020402@st.com>
-Content-Language: en-US
+Received: from aserp1040.oracle.com ([141.146.126.69]:48613 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751396AbaIZMOG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 08:14:06 -0400
+In-Reply-To: <542531FA.2070701@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Giuseppe CAVALLARO [mailto:peppe.cavallaro@st.com]
-> Sent: Friday, September 26, 2014 8:06 PM
-> > > From: Giuseppe CAVALLARO [mailto:peppe.cavallaro@st.com]
-> > > Sent: Wednesday, September 24, 2014 2:10 PM
-> 
-> I just meant that if no clock is passed then the probe doesn't fail and we can
-> keep a dev_warn. Pls surround the code with a comment and repost the
-> patch. Let me know and sorry for the delay on replying.
-> 
-> peppe
-> 
 
-Now I got you. Okay, will do that and send out the V2 patch. Thanks.
+
+On 09/26/2014 05:29 AM, Daniel Borkmann wrote:
+> On 09/26/2014 01:23 AM, David L Stevens wrote:
+
+> I'm fine with either suggestion. Actually the _current_ situation we're in is
+> that in IPv4 we _always_ use the current, uncached _sysctl_ tuned setting of URI
+> (independent of any protocol version); while in IPv6 we use the _cached_ sysctl
+> URI in case of MLDv1 and _always_ overwrite the URI in case of MLDv2 (even for
+> MLDv1). Are you suggesting that, we then better adapt using the maxdelay value
+> everywhere and adapt URI to it, plus having a boolean knob defaulting to off for
+> an admin to enforce always using the provided sysctl default setting and not
+> the snooped MLD?
+
+Yes.
+
+Definitely, IGMP and MLD, all versions, should do the same thing and I think that
+ought to use the querier MRC, if present and not overridden by an admin.
+
+Further, I think a version switch or failure to hear from a querier for qrv*qi
+ought to reset everything.
+								+-DLS
