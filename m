@@ -1,99 +1,64 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH] net: sched: cls_rcvp, complete rcu conversion
-Date: Fri, 26 Sep 2014 10:02:50 -0700
-Message-ID: <20140926170249.27131.97630.stgit@nitbit.x32>
+From: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
+Subject: Re: mmotm 2014-09-25-16-28 uploaded (nf_nat_masquerade_ipv4.c)
+Date: Fri, 26 Sep 2014 19:03:44 +0200
+Message-ID: <CAOkSjBhqhNYO3S1Gc1A4oOeONAriMbDQ=aStgB6EtZK=W+gNgA@mail.gmail.com>
+References: <5424a53b.o+nym6SX0Tg7EdW6%akpm@linux-foundation.org> <54259A5C.2060102@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xiyou.wangcong@gmail.com, jhs@mojatatu.com, eric.dumazet@gmail.com,
-	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:40348 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755799AbaIZRDO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 13:03:14 -0400
-Received: by mail-ob0-f181.google.com with SMTP id wo20so10356013obc.40
-        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 10:03:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org,
+	Netfilter Development Mailing list
+	<netfilter-devel@vger.kernel.org>, linux-next@vger.kernel.org,
+	sfr@canb.auug.org.au, mhocko@suse.cz
+To: Randy Dunlap <rdunlap@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54259A5C.2060102@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This completes the cls_rsvp conversion to RCU safe
-copy, update semantics.
+On 26 September 2014 18:54, Randy Dunlap <rdunlap@infradead.org> wrote:
+> On 09/25/14 16:28, akpm@linux-foundation.org wrote:
+>> The mm-of-the-moment snapshot 2014-09-25-16-28 has been uploaded to
+>>
+>>    http://www.ozlabs.org/~akpm/mmotm/
+>>
+>> mmotm-readme.txt says
+>>
+>> README for mm-of-the-moment:
+>>
+>> http://www.ozlabs.org/~akpm/mmotm/
+>>
+>> This is a snapshot of my -mm patch queue.  Uploaded at random hopefu=
+lly
+>> more than once a week.
+>
+> ../net/ipv4/netfilter/nf_nat_masquerade_ipv4.c: In function 'nf_nat_m=
+asquerade_ipv4':
+> ../net/ipv4/netfilter/nf_nat_masquerade_ipv4.c:59:5: error: 'struct n=
+f_conn_nat' has no member named 'masq_index'
+>   nat->masq_index =3D out->ifindex;
+>      ^
+> ../net/ipv4/netfilter/nf_nat_masquerade_ipv4.c: In function 'device_c=
+mp':
+> ../net/ipv4/netfilter/nf_nat_masquerade_ipv4.c:83:12: error: 'const s=
+truct nf_conn_nat' has no member named 'masq_index'
+>   return nat->masq_index =3D=3D (int)(long)ifindex;
+>             ^
+> ../net/ipv4/netfilter/nf_nat_masquerade_ipv4.c:84:1: warning: control=
+ reaches end of non-void function [-Wreturn-type]
+>
+>
 
-As a result all cases of tcf_exts_change occur on
-empty lists now.
+That seems fixed in this commit by Pablo Neira:
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- net/sched/cls_rsvp.h |   44 +++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 41 insertions(+), 3 deletions(-)
+http://git.kernel.org/cgit/linux/kernel/git/pablo/nf-next.git/commit/?i=
+d=3D67981fefb20e717cea55b42f9081a833fa46b3be
 
-diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
-index b044c20..2512c46 100644
---- a/net/sched/cls_rsvp.h
-+++ b/net/sched/cls_rsvp.h
-@@ -222,6 +222,33 @@ matched:
- 	return -1;
- }
- 
-+static void rsvp_replace(struct tcf_proto *tp, struct rsvp_filter *n, u32 h)
-+{
-+	struct rsvp_head *head = rtnl_dereference(tp->root);
-+	struct rsvp_session *s;
-+	struct rsvp_filter __rcu **ins;
-+	struct rsvp_filter *pins;
-+	unsigned int h1 = h & 0xFF;
-+	unsigned int h2 = (h >> 8) & 0xFF;
-+
-+	for (s = rtnl_dereference(head->ht[h1]); s;
-+	     s = rtnl_dereference(s->next)) {
-+		for (ins = &s->ht[h2], pins = rtnl_dereference(*ins); ;
-+		     ins = &pins->next, pins = rtnl_dereference(*ins)) {
-+			if (pins->handle == h) {
-+				RCU_INIT_POINTER(n->next, pins->next);
-+				rcu_assign_pointer(*ins, n);
-+				return;
-+			}
-+		}
-+	}
-+
-+	/* Something went wrong if we are trying to replace a non-existant
-+	 * node. Mind as well halt instead of silently failing.
-+	 */
-+	BUG_ON(1);
-+}
-+
- static unsigned long rsvp_get(struct tcf_proto *tp, u32 handle)
- {
- 	struct rsvp_head *head = rtnl_dereference(tp->root);
-@@ -454,15 +481,26 @@ static int rsvp_change(struct net *net, struct sk_buff *in_skb,
- 	f = (struct rsvp_filter *)*arg;
- 	if (f) {
- 		/* Node exists: adjust only classid */
-+		struct rsvp_filter *n;
- 
- 		if (f->handle != handle && handle)
- 			goto errout2;
-+
-+		n = kmemdup(f, sizeof(*f), GFP_KERNEL);
-+		if (!n) {
-+			err = -ENOMEM;
-+			goto errout2;
-+		}
-+
-+		tcf_exts_init(&n->exts, TCA_RSVP_ACT, TCA_RSVP_POLICE);
-+
- 		if (tb[TCA_RSVP_CLASSID]) {
--			f->res.classid = nla_get_u32(tb[TCA_RSVP_CLASSID]);
--			tcf_bind_filter(tp, &f->res, base);
-+			n->res.classid = nla_get_u32(tb[TCA_RSVP_CLASSID]);
-+			tcf_bind_filter(tp, &n->res, base);
- 		}
- 
--		tcf_exts_change(tp, &f->exts, &e);
-+		tcf_exts_change(tp, &n->exts, &e);
-+		rsvp_replace(tp, n, handle);
- 		return 0;
- 	}
- 
+I guess the patch will hit linux-next soon.
+
+Thanks, regards.
+
+--=20
+Arturo Borrero Gonz=C3=A1lez
