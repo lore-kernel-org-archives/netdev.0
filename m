@@ -1,57 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 2/5] net: tcp: add flag for ca to indicate
- that ECN is required
-Date: Fri, 26 Sep 2014 16:20:29 -0400 (EDT)
-Message-ID: <20140926.162029.1735467343159695433.davem@davemloft.net>
-References: <1411248562-26581-3-git-send-email-fw@strlen.de>
-	<20140922.163357.553905454314637491.davem@davemloft.net>
-	<20140923091105.GB13394@breakpoint.cc>
+Subject: Re: [PATCH 0/5] nf pull request for net
+Date: Fri, 26 Sep 2014 16:21:56 -0400 (EDT)
+Message-ID: <20140926.162156.451026088058162233.davem@davemloft.net>
+References: <1411464288-18069-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hagen@jauu.net, lars@netapp.com, eric.dumazet@gmail.com,
-	fontana@sharpeleven.org, hannes@stressinduktion.org,
-	glenn.judd@morganstanley.com, dborkman@redhat.com,
-	netdev@vger.kernel.org
-To: fw@strlen.de
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50844 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50870 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422641AbaIZUUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 16:20:33 -0400
-In-Reply-To: <20140923091105.GB13394@breakpoint.cc>
+	with ESMTP id S1755431AbaIZUV7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 16:21:59 -0400
+In-Reply-To: <1411464288-18069-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Tue, 23 Sep 2014 11:11:05 +0200
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue, 23 Sep 2014 11:24:43 +0200
 
-> Thanks for your feedback! We have actually thought about that for
-> quite a while before starting on the implementation, and concluded
-> that the behaviour is actually fine as is for three reasons:
+> This series contains netfilter fixes for net, they are:
 > 
-> 1) DCTCP is very tighly coupled to the ECN machinery as described
->    in the paper. Not having ECN enabled and nevertheless allowing
->    DCTCP (if we would implement above feedback) would just make it
->    fallback to Reno, which would not be useful in the first place.
->    So an administrator would rather not load DCTCP to the available
->    congestion control modules in the first place in this case.
+> 1) Fix lockdep splat in nft_hash when releasing sets from the
+>    rcu_callback context. We don't the mutex there anymore.
 > 
-> 2) Right now an administrator can choose to use DCTCP only for a
->    particular process, and still avoid exposing ECN to the outside
->    world for every other process.
+> 2) Remove unnecessary spinlock_bh in the destroy path of the nf_tables
+>    rbtree set type from rcu_callback context.
 > 
-> 3) An unpriviledged user would not be able to use DCTCP *unless*
->    an administrator has explicitly allowed to use it. This is being
->    reflected since Stephen's commit ce7bc3bf15cb ("[TCP]: Restrict
->    congestion control choices.") where only Reno or the currently
->    compiled-in default choice is non-restricted.
+> 3) Fix another lockdep splat in rhashtable. None of the callers hold
+>    a mutex when calling rhashtable_destroy.
 > 
-> If you nevertheless think that it is useful to include above feedback
-> to overcome your objection, we could just add a check for tcp_ecn
-> sysctl being set to 1 for the initialization of the congestion control
-> ops of the socket and otherwise fall back to Reno.
+> 4) Fix duplicated error reporting from nfnetlink when aborting and
+>    replaying a batch.
+> 
+> 5) Fix a Kconfig issue reported by kbuild robot.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
 
-Ok, I'm convinced (for now).
-
-Please resubmit this series and I'll apply it, thanks.
+Pulled, thanks Pablo.
