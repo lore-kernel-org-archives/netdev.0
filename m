@@ -1,70 +1,54 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v5 09/10] ARM: dts: berlin: add the Ethernet node
-Date: Fri, 26 Sep 2014 21:25:12 +0400
-Message-ID: <5425A178.4050501@cogentembedded.com>
-References: <1411742036-23520-1-git-send-email-antoine.tenart@free-electrons.com>
- <1411742036-23520-10-git-send-email-antoine.tenart@free-electrons.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: tc rsvp filter show broke
+Date: Fri, 26 Sep 2014 10:41:25 -0700
+Message-ID: <5425A545.1040907@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
- devicetree@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
- jszhang@marvell.com, linux-arm-kernel@lists.infradead.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>,
- sebastian.hesselbarth@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1411742036-23520-10-git-send-email-antoine.tenart@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:33503 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755042AbaIZRlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 13:41:36 -0400
+Received: by mail-oi0-f52.google.com with SMTP id a141so8637641oig.39
+        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 10:41:36 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi Jamal,
 
-On 09/26/2014 06:33 PM, Antoine Tenart wrote:
+Here is another strange 'tc' result that I think is a
+bug. If it was intended I can't see why. Show filter
+commands on rsvp classifiers only list the first entry?
 
-> This patch adds the Ethernet node, enabling the network unit on Berlin
-> BG2Q SoCs.
 
-> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-> Acked-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->   arch/arm/boot/dts/berlin2q.dtsi | 17 +++++++++++++++++
->   1 file changed, 17 insertions(+)
+# for i in {10..20}; do
+tc filter add dev p3p2 protocol ip parent 8001: prio $i \
+	rsvp session 12.0.0.$i ipproto udp classid 1:$i;
+done
 
-> diff --git a/arch/arm/boot/dts/berlin2q.dtsi b/arch/arm/boot/dts/berlin2q.dtsi
-> index 902eddb19cd8..d442b22fd1ea 100644
-> --- a/arch/arm/boot/dts/berlin2q.dtsi
-> +++ b/arch/arm/boot/dts/berlin2q.dtsi
-> @@ -114,6 +114,23 @@
->   			#interrupt-cells = <3>;
->   		};
->
-> +		eth0: ethernet@b90000 {
-> +			compatible = "marvell,pxa168-eth";
-> +			reg = <0xb90000 0x10000>;
-> +			clocks = <&chip CLKID_GETH0>;
-> +			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
-> +			/* set by bootloader */
-> +			local-mac-address = [00 00 00 00 00 00];
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +			phy-handle = <&ethphy0>;
-> +			status = "disabled";
-> +
-> +			ethphy0: ethernet-phy@0 {
-> +				reg = <0>;
-> +			};
-> +		};
-> +
+# tc filter show dev p3p2
+filter parent 8001: protocol ip pref 10 rsvp
+# tc filter show dev p3p2  prio 11
+filter parent 8001: protocol ip rsvp
+# tc filter show dev p3p2  prio 22
 
-    Hm, is the PHY internal to the Ethernet controller?
+Although the entries must still be around because listing
+the prio explicitly show the entries. Also the case where
+the prio doesn't exist returns without any errors. A better
+response might be 'EINVAL' or something.
 
-WBR, Sergei
+This is on 3.16 so nothing to do with my changes. I'm
+not sure I'll get a chance until Monday to look at it
+so figured I'll document it here in case someone else has
+a moment.
+
+Thanks,
+John
+
+
+-- 
+John Fastabend         Intel Corporation
