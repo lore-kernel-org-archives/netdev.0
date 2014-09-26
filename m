@@ -1,149 +1,110 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: eBPF verifier thoughts (Re: [PATCH v15 net-next 00/11] eBPF
- syscall, verifier, testsuite)
-Date: Fri, 26 Sep 2014 13:00:21 -0700
-Message-ID: <CAMEtUuyt9RASKZ4NeqK_OUYNN8QT6P20+kjcwywchur6QXSt0A@mail.gmail.com>
-References: <CALCETrVrHHxGo1RkPu+9LVnPo9XY9yYnJzg2ot0zOgoBspzbOQ@mail.gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [patch net-next v2 8/9] switchdev: introduce Netlink API
+Date: Fri, 26 Sep 2014 23:03:01 +0300
+Message-ID: <CAJ3xEMj0L_09ORvJhHPbcHociCsPN=H9QWui4BhnbWXSFzXDvA@mail.gmail.com>
+References: <541CAA3C.5080105@intel.com>
+	<20140920081426.GE1821@nanopsycho.orion>
+	<20140920105354.GA29419@casper.infradead.org>
+	<CAADnVQK0wT2Fjqdg+C=ruSt8jF6sKeMo7cFj7K1fsu7-1u5g=g@mail.gmail.com>
+	<20140922081341.GA20905@casper.infradead.org>
+	<CA+mtBx-ZvkZ2ALGLsLEN7Cgn9gN_rY36ZhuqYC3mZ9WVxjFDaQ@mail.gmail.com>
+	<CAADnVQKhUAR=qVg9q82ngYMzQnoDVbq+wupzdMrH8WiCeMiU4A@mail.gmail.com>
+	<CA+mtBx-mJE6SW2bqf3_t6iu=o5FY1WAF1ByeZpDJnc+6fpK6nA@mail.gmail.com>
+	<20140923041130.GA10808@gospo.home.greyhouse.net>
+	<542192A3.2020309@mellanox.com>
+	<20140924133246.GB4966@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Tom Herbert <therbert@google.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
 	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Chema Gonzalez <chema@google.com>,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Vladislav Yasevich <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
 	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALCETrVrHHxGo1RkPu+9LVnPo9XY9yYnJzg2ot0zOgoBspzbOQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:36272 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754111AbaIZUDC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 16:03:02 -0400
+Received: by mail-ob0-f175.google.com with SMTP id m8so10514730obr.6
+        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 13:03:01 -0700 (PDT)
+In-Reply-To: <20140924133246.GB4966@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 26, 2014 at 12:34 PM, Andy Lutomirski <luto@amacapital.net> wrote:
-> On Fri, Sep 26, 2014 at 12:06 PM, David Miller <davem@davemloft.net> wrote:
->> From: Alexei Starovoitov <ast@plumgrid.com>
->> Date: Fri, 26 Sep 2014 00:16:56 -0700
+On Wed, Sep 24, 2014 at 4:32 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 09/23/14 at 06:32pm, Or Gerlitz wrote:
+>> Indeed.
 >>
->>> v14 -> v15:
->>> - got rid of macros with hidden control flow (suggested by David)
->>>   replaced macro with explicit goto or return and simplified
->>>   where possible (affected patches #9 and #10)
->>> - rebased, retested
+>> The idea is to leverage OVS to manage eSwitch (embedded NIC switch) =
+as well
+>> (NOT to offload OVS).
 >>
->> Series applied to net-next, thanks.
+>> We envision a seamless integration of user environment which is base=
+d on OVS
+>> with SRIOV eSwitch and the grounds for that were very well supported=
+ in
+>> Jiri=E2=80=99s V1.
 >
-> Hi all-
+> Please consider comparing your model with what is described here [0].
+> I'm trying to write down an architecture document that we can finaliz=
+e
+> in D=C3=BCsseldorf.
+> [0] http://goo.gl/qkzW5y
+
+Yep, this can serve us for the architecture discussion @ LPC. Re the
+SRIOV case, you referred to the case where guest VF traffic goes
+through HW (say) VXLAN encap/decap -- just to make sure, we need also
+to support the simpler case, where guest traffic just goes through
+vlan tag/strip.
+
+
+>> The eSwitch hardware does not need to have multiple tables and =E2=80=
+=98enjoys=E2=80=99 the
+>> flat rule of OVS. The kernel datapath does not need to be aware of t=
+he
+>> existence of HW nor its capabilities, it just pushes the flow also t=
+o the
+>> switchdev which represents the eSwitch.
+
+> I think you are saying that the kernel should not be required to make
+> the offload decision which is fair. We definitely don't want to force
+> the decision to be outside though, there are several legit reasons to
+> support transparent offloads within the kernel as well outside of OVS=
+=2E
 >
-> I read through the verifier.  Sorry this email is a little bit late.
-> Here are some thoughts, in no particular order.
+>> Yep. LPC is the time and place to go over the multiple use-cases (ph=
+yiscal
+>> switch, eSwitch, eBPF, etc) that could (should) be supported by the =
+basic
+>> framework.
 >
-> Programs should IMO have feature flags.  One such feature would be
-> "can use pointers as integers", for example.
+> For reference:
+> http://www.linuxplumbersconf.org/2014/ocw/proposals/2463
 
-of course.
-I believe we discussed it in the past.
-programs will have flags. I'm not sure why you insist on this in
-the first version.
+The SRIOV case is only mentioned here in the "Compatibility with
+existing FDB ioctls for SR-IOV" bullet, so I'm a bit nervous... we
+need to have it clear in the agenda. Also, this BoF needs to be
+double-len, two hours, can you act to get that done?
 
-> UNKNOWN_VALUE is IMO a crappy type.  I think that it should renamed to
-> INTEGER and that a bunch of the things that generate it should be
-> errors.
+thanks,
 
-it's an internal type.
-Sure, I'm ok renaming it, but 'integer' name doesn't fit.
-It's not integer type.
-When I post a patch for "can use pointers as integers" flag
-you'll see that this 'unknown_value' will be broken down
-into more precise types.
-
-> ALU ops like adding two pointers should IMO be failures.  I don't
-> think that they should result in UNKNOWN_VALUE.
-
-they will be failures for unprivileged programs.
-In this patch the whole thing is for root only and root programs need
-arithmetic on pointers to compute hashes and so on.
-I wish we spent more time chatting, so I could explain this better.
-
-> I don't like PTR_TO_MAP_VALUE as a type.  I think that there should
-> instead be "pointer to (const?) buffer of N bytes".
->
-> ARG_PTR_TO_MAP_KEY is odd.  Why do we care what a function does with a
-> key?  It just needs to be a big enough buffer, right?
-
-not quite. there is a distinction between key and value.
-They both come from map definition and correspond to key_size
-and value_size, so they have to have two different corresponding
-_internal_ types 'ptr_to_map_key' and 'ptr_to_map_value'
-This distinction is needed to properly describe function
-arguments constraints.
-
-> All of the stack spill stuff seems overcomplicated.  Can you just
-> disallow unaligned stack access?  Right off the bat, that will delete
-> a bunch of code and cut down runtime memory use by nearly a factor of
-> eight.
-
-not quite. stack spill/fill is not for unaligned access.
-unaligned access is disallowed first.
-See line 663 in check_mem_access().
-Often enough gcc/llvm ran out of registers and have to spill
-them into stack. This spill/fill tracking mechanism keeps
-track of what is stored into stack. Otherwise type violation will be
-possible. We cannot get rid of it. It essential for safety.
-
-> Also, there are no calls to functions written eBPF, right?  If so, why
-> not just give each stack slot a *fixed* type for the lifetime of the
-> program?  That would be a huge time complexity win, not to mention
-> being more comprehensible.  When function calls get added, they'll
-> need a whole pile of new infrastructure anyway.
-
-you cannot. stack cannot be fixed. It's very small and valuable
-resources. Programs will be using differently.
-
-> check_call is a mess.  I predict that it will be unmaintainable.
-
-why? care to provide details?
-
-> check_ld_abs is messy, IMO.  Can't there be a real type "pointer to
-> object of type [type]", where skb would be a type?  Then you could use
-> the normal function call logic for skb pointers instead of hardcoded
-> crud.
->
-> You're doing a depth-first search.  I don't like it.  You need complex
-> pruning logic to avoid exponential behavior, and it's not obvious to
-
-there was in patch in previous series that did the prunning.
-I dropped out of this set to simplify things.
-
-> me that pathological programs that cause exponential blowups in the
-> verifier don't exist.  Wouldn't it make more sense to do a
-> breadth-first search instead and to give each reg/stack slot a
-> definite type at each point in the control flow?  You'd need a
-> function to find the intersection of two types, but I think that would
-> be preferable to the current code that tests whether one type is a
-> subset of another.
-
-nope. breadth-first just doesn't work at all.
-
-> At some point someone will want loops, and that will open a huge can
-> of worms involving explicit typing or type inference.  It might pay to
-> add some kind of stack slot (and maybe even register slot) type
-> declarations now to get things ready for that.
-
-sure. As discussed we may allow loops in the future.
-
-> NB: If this code is actually invoked in net-next when loading a
-> filter, please don't push to Linus until there's a convincing argument
-> that the verifier has acceptable asymptotic complexity.
-
-complexity is actually described in the doc.
-There are several limits. Verifier will be aborted if it walks
-more then 32k instructions or more then 1k branches.
-So the very worst case takes micro seconds to reject
-the program. So I don't see your concern.
+Or.
