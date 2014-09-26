@@ -1,77 +1,198 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net-next PATCH 1/1 V4] qdisc: bulk dequeue support for qdiscs
- with TCQ_F_ONETXQUEUE
-Date: Fri, 26 Sep 2014 13:16:00 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1749E538@AcuExch.aculab.com>
-References: <20140924160932.9721.56450.stgit@localhost>
-	 <20140924161047.9721.43080.stgit@localhost>
-	 <1411579395.15395.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140924195831.6fb91051@redhat.com>
-	 <CA+mtBx8s63TDe1XS7TzfscwhiRCgyeLkKLz2p-4et1erX0-dUQ@mail.gmail.com>
-	 <1411586550.15395.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1411611140.16953.1.camel@edumazet-glaptop2.roam.corp.google.com>
- <1411688409.16953.64.camel@edumazet-glaptop2.roam.corp.google.com>
- <063D6719AE5E284EB5DD2968C1650D6D1749E380@AcuExch.aculab.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bonding: make global bonding stats more reliable
+Date: Fri, 26 Sep 2014 09:26:31 -0400
+Message-ID: <20140926132631.GA18564@gospo.home.greyhouse.net>
+References: <1411650996-2087-1-git-send-email-gospo@cumulusnetworks.com>
+ <54252940.6070100@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Alexander Duyck" <alexander.h.duyck@intel.com>,
-	=?utf-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>,
-	Florian Westphal <fw@strlen.de>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"Daniel Borkmann" <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	'Eric Dumazet' <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:42124 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753782AbaIZNRf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Sep 2014 09:17:35 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 24413-04 for <netdev@vger.kernel.org>;
- Fri, 26 Sep 2014 14:17:26 +0100 (BST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1749E380@AcuExch.aculab.com>
-Content-Language: en-US
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:45849 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753782AbaIZN0d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 09:26:33 -0400
+Content-Disposition: inline
+In-Reply-To: <54252940.6070100@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTGFpZ2h0DQo+IEZyb206IEVyaWMgRHVtYXpldA0KPiA+IE9uIFdlZCwgMjAx
-NC0wOS0yNCBhdCAxOToxMiAtMDcwMCwgRXJpYyBEdW1hemV0IHdyb3RlOg0KPiAuLi4NCj4gPiBJ
-dCB0dXJuZWQgb3V0IHRoZSBwcm9ibGVtIEkgbm90aWNlZCB3YXMgY2F1c2VkIGJ5IGNvbXBpbGVy
-IHRyeWluZyB0byBiZQ0KPiA+IHNtYXJ0LCBidXQgaW52b2x2aW5nIGEgYmFkIE1FU0kgdHJhbnNh
-Y3Rpb24uDQo+ID4NCj4gPiAgIDAuMDUgICBtb3YgICAgMHhjMCglcmF4KSwlZWRpICAgIC8vIExP
-QUQgZHFsLT5udW1fcXVldWVkDQo+ID4gICAwLjQ4ICAgbW92ICAgICVlZHgsMHhjOCglcmF4KSAg
-ICAvLyBTVE9SRSBkcWwtPmxhc3Rfb2JqX2NudCA9IGNvdW50DQo+ID4gIDU4LjIzICAgYWRkICAg
-ICVlZHgsJWVkaQ0KPiA+ICAgMC41OCAgIGNtcCAgICAlZWRpLDB4YzQoJXJheCkNCj4gPiAgIDAu
-NzYgICBtb3YgICAgJWVkaSwweGMwKCVyYXgpICAgIC8vIFNUT1JFIGRxbC0+bnVtX3F1ZXVlZCAr
-PSBjb3VudA0KPiA+ICAgMC43MiAgIGpzICAgICBiZDgNCj4gPg0KPiA+DQo+ID4gSSBnZXQgYW4g
-aW5jcmVkaWJsZSAxMCAlIGdhaW4gYnkgbWFraW5nIHN1cmUgY3B1IHdvbnQgZ2V0IHRoZSBjYWNo
-ZSBsaW5lDQo+ID4gaW4gU2hhcmVkIG1vZGUuDQo+IA0KPiBUaGF0IGlzIGEgc3R1bm5pbmcgZGlm
-ZmVyZW5jZSBiZXR3ZWVuIHJlcXVlc3RpbmcgJ2V4Y2x1c2l2ZScgYWNjZXNzDQo+IGFuZCB1cGdy
-YWRpbmcgJ3NoYXJlZCcgdG8gZXhjbHVzaXZlLg0KPiBTdGlua3Mgb2YgYSBjcHUgYnVnPw0KPiAN
-Cj4gT3IgaXMgdGhlIHJlcG9ydGVkIHN0YWxsIGEgc2lkZSBlZmZlY3Qgb2Ygd2FpdGluZyBmb3Ig
-dGhlIGVhcmxpZXINCj4gJ2NhY2hlIGxpbmUgcmVhZCcgdG8gY29tcGxldGUgaW4gb3JkZXIgdG8g
-aXNzdWUgdGhlICd1cGdyYWRlIHRvIGV4Y2x1c2l2ZScuDQo+IEluIHdoaWNoIGNhc2UgZ2NjJ3Mg
-aW5zdHJ1Y3Rpb24gc2NoZWR1bGVyIHByb2JhYmx5IG5lZWRzIHRvIGJlIHRhdWdodA0KPiB0byBz
-Y2hlZHVsZSB3cml0ZXMgYmVmb3JlIHJlYWRzLg0KDQpUaGlua2luZyBmdXJ0aGVyLg0KZ2NjIGlz
-IHByb2JhYmx5IG1vdmluZyBtZW1vcnkgcmVhZHMgYmVmb3JlIHdyaXRlcyB1bmRlciB0aGUgYXNz
-dW1wdGlvbiB0aGF0DQp0aGUgY3B1IG1pZ2h0IHN0YWxsIHdhaXRpbmcgZm9yIHRoZSByZWFkIHRv
-IGNvbXBsZXRlIGJ1dCB0aGF0IHRoZSB3cml0ZQ0KY2FuIGJlIGJ1ZmZlcmVkIGJ5IHRoZSBoYXJk
-d2FyZS4NCg0KVGhhdCBhc3N1bXB0aW9uIGlzIHRydWUgZm9yIHNpbXBsZSBjcHVzIChsaWtlIHRo
-ZSBOaW9zMiksIGJ1dCBmb3IgeDg2IHdpdGgNCml0cyBtdWx0aXBsZSBpbnN0cnVjdGlvbnMgaW4g
-ZmxpZ2h0IChldGMpIG1heSBtYWtlIGxpdHRsZSBkaWZmZXJlbmNlIGlmDQp0aGUgbWVtb3J5IGlz
-IGluIHRoZSBjYWNoZS4NCg0KT1RPSCBpdCBsb29rcyBhcyB0aG91Z2ggdGhlcmUgaXMgYSBiaWcg
-aGl0IGlmIHlvdSByZWFkIHRoZW4gd3JpdGUNCmEgbm9uLXByZXNlbnQgY2FjaGUgbGluZS4NCihU
-aGlzIG1heSBldmVuIGRlcGVuZCBvbiB3aGljaCBpbnN0cnVjdGlvbnMgZ2V0IGV4ZWN1dGVkIGlu
-IHBhcmFsbGVsLA0KbWlub3IgY2hhbmdlcyB0byB0aGUgY29kZSBjb3VsZCBlYXNpbHkgY2hhbmdl
-IHRoYXQuKQ0KDQpJIHdvbmRlciBob3cgZWFzeSBpdCB3b3VsZCBiZSB0byBtb2RpZnkgZ2NjIHRv
-IHJlbW92ZSAob3IgZXZlbiByZXZlcnNlKQ0KdGhhdCBtZW1vcnkgb3JkZXJpbmcgJ29wdGltaXNh
-dGlvbicuDQoNCglEYXZpZA0KDQoNCg==
+On Fri, Sep 26, 2014 at 10:52:16AM +0200, Nikolay Aleksandrov wrote:
+> On 25/09/14 15:16, Andy Gospodarek wrote:
+> >As the code stands today, bonding stats are based simply on the stats
+> >from the member interfaces.  If a member was to be removed from a bond,
+> >the stats would instantly drop.  This would be confusing to an admin
+> >would would suddonly see interface stats drop while traffic is still
+> >flowing.
+> >
+> >In addition to preventing the stats drops mentioned above, new members
+> >will now be added to the bond and only traffic received after the member
+> >was added to the bond will be counted as part of bonding stats.
+> >
+> >Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> >---
+> Hi Andy,
+> 
+> >  drivers/net/bonding/bond_main.c | 63 +++++++++++++++++++++++++++--------------
+> >  drivers/net/bonding/bonding.h   |  3 ++
+> >  2 files changed, 44 insertions(+), 22 deletions(-)
+> >
+> >diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> >index 5390475..4543c74 100644
+> >--- a/drivers/net/bonding/bond_main.c
+> >+++ b/drivers/net/bonding/bond_main.c
+> >@@ -1149,11 +1149,19 @@ static struct slave *bond_alloc_slave(struct bonding *bond)
+> >  	if (!slave)
+> >  		return NULL;
+> >
+> >+	slave->slave_stats = kzalloc(sizeof(struct rtnl_link_stats64),
+> >+				     GFP_KERNEL);
+> >+	if (!slave->slave_stats) {
+> >+		kfree(slave);
+> >+		return NULL;
+> >+	}
+> >+
+> >  	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+> >  		SLAVE_AD_INFO(slave) = kzalloc(sizeof(struct ad_slave_info),
+> >  					       GFP_KERNEL);
+> >  		if (!SLAVE_AD_INFO(slave)) {
+> >  			kfree(slave);
+> >+			kfree(slave->slave_stats);
+> ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> Wrong order. 1. slave_stats, 2. slave.
+Ah yes, thanks!  Clearly I didn't test the error path.
+
+> 
+> >  			return NULL;
+> >  		}
+> >  	}
+> >@@ -1167,6 +1175,7 @@ static void bond_free_slave(struct slave *slave)
+> >  	if (BOND_MODE(bond) == BOND_MODE_8023AD)
+> >  		kfree(SLAVE_AD_INFO(slave));
+> >
+> >+	kfree(slave->slave_stats);
+> >  	kfree(slave);
+> >  }
+> >
+> >@@ -1344,6 +1353,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+> >  	}
+> >
+> >  	slave_dev->priv_flags |= IFF_BONDING;
+> >+	/* initialize slave stats */
+> >+	dev_get_stats(new_slave->dev, new_slave->slave_stats);
+> >
+> >  	if (bond_is_lb(bond)) {
+> >  		/* bond_alb_init_slave() must be called before all other stages since
+> >@@ -3085,38 +3096,43 @@ static struct rtnl_link_stats64 *bond_get_stats(struct net_device *bond_dev,
+> >  	struct list_head *iter;
+> >  	struct slave *slave;
+> >
+> >-	memset(stats, 0, sizeof(*stats));
+> >+	memcpy(stats, bond->bond_stats, sizeof(*stats));
+> >
+> >  	bond_for_each_slave(bond, slave, iter) {
+> >  		const struct rtnl_link_stats64 *sstats =
+> >  			dev_get_stats(slave->dev, &temp);
+> >+		struct rtnl_link_stats64 *pstats = slave->slave_stats;
+> >+
+> >+		stats->rx_packets +=  sstats->rx_packets - pstats->rx_packets;
+> >+		stats->rx_bytes += sstats->rx_bytes - pstats->rx_bytes;
+> >+		stats->rx_errors += sstats->rx_errors - pstats->rx_errors;
+> >+		stats->rx_dropped += sstats->rx_dropped - pstats->rx_dropped;
+> >
+> >-		stats->rx_packets += sstats->rx_packets;
+> >-		stats->rx_bytes += sstats->rx_bytes;
+> >-		stats->rx_errors += sstats->rx_errors;
+> >-		stats->rx_dropped += sstats->rx_dropped;
+> >+		stats->tx_packets += sstats->tx_packets - pstats->tx_packets;;
+> >+		stats->tx_bytes += sstats->tx_bytes - pstats->tx_bytes;
+> >+		stats->tx_errors += sstats->tx_errors - pstats->tx_errors;
+> >+		stats->tx_dropped += sstats->tx_dropped - pstats->tx_dropped;
+> >
+> >-		stats->tx_packets += sstats->tx_packets;
+> >-		stats->tx_bytes += sstats->tx_bytes;
+> >-		stats->tx_errors += sstats->tx_errors;
+> >-		stats->tx_dropped += sstats->tx_dropped;
+> >+		stats->multicast += sstats->multicast - pstats->multicast;
+> >+		stats->collisions += sstats->collisions - pstats->collisions;
+> >
+> >-		stats->multicast += sstats->multicast;
+> >-		stats->collisions += sstats->collisions;
+> >+		stats->rx_length_errors += sstats->rx_length_errors - pstats->rx_length_errors;
+> >+		stats->rx_over_errors += sstats->rx_over_errors - pstats->rx_over_errors;
+> >+		stats->rx_crc_errors += sstats->rx_crc_errors - pstats->rx_crc_errors;
+> >+		stats->rx_frame_errors += sstats->rx_frame_errors - pstats->rx_frame_errors;
+> >+		stats->rx_fifo_errors += sstats->rx_fifo_errors - pstats->rx_fifo_errors;
+> >+		stats->rx_missed_errors += sstats->rx_missed_errors - pstats->rx_missed_errors;
+> >
+> >-		stats->rx_length_errors += sstats->rx_length_errors;
+> >-		stats->rx_over_errors += sstats->rx_over_errors;
+> >-		stats->rx_crc_errors += sstats->rx_crc_errors;
+> >-		stats->rx_frame_errors += sstats->rx_frame_errors;
+> >-		stats->rx_fifo_errors += sstats->rx_fifo_errors;
+> >-		stats->rx_missed_errors += sstats->rx_missed_errors;
+> >+		stats->tx_aborted_errors += sstats->tx_aborted_errors - pstats->tx_aborted_errors;
+> >+		stats->tx_carrier_errors += sstats->tx_carrier_errors - pstats->tx_carrier_errors;
+> >+		stats->tx_fifo_errors += sstats->tx_fifo_errors - pstats->tx_fifo_errors;
+> >+		stats->tx_heartbeat_errors += sstats->tx_heartbeat_errors - pstats->tx_heartbeat_errors;
+> >+		stats->tx_window_errors += sstats->tx_window_errors - pstats->tx_window_errors;
+> >
+> >-		stats->tx_aborted_errors += sstats->tx_aborted_errors;
+> >-		stats->tx_carrier_errors += sstats->tx_carrier_errors;
+> >-		stats->tx_fifo_errors += sstats->tx_fifo_errors;
+> >-		stats->tx_heartbeat_errors += sstats->tx_heartbeat_errors;
+> >-		stats->tx_window_errors += sstats->tx_window_errors;
+> >+		/* save off the slave stats for the next run */
+> >+		memcpy(pstats, sstats, sizeof(*sstats));
+> >  	}
+> >+	memcpy(bond->bond_stats, stats, sizeof(*stats));
+> >
+> >  	return stats;
+> >  }
+> >@@ -4258,6 +4274,9 @@ static int bond_init(struct net_device *bond_dev)
+> >  	    bond_dev->addr_assign_type == NET_ADDR_PERM)
+> >  		eth_hw_addr_random(bond_dev);
+> >
+> >+	/* initialize persistent stats for the bond */
+> >+	bond->bond_stats = kzalloc(sizeof(struct rtnl_link_stats64),
+> >+				   GFP_ATOMIC);
+> ^^^^^^^^^^^^^^^^^^^^^^^^
+> I don't think this will get freed if the bond device is destroyed.
+Another good catch.  Thanks for the review.  V2 incoming after some
+testing.
+
+> 
+> >  	return 0;
+> >  }
+> >
+> >diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+> >index 6140bf0..fe25265 100644
+> >--- a/drivers/net/bonding/bonding.h
+> >+++ b/drivers/net/bonding/bonding.h
+> >@@ -24,6 +24,7 @@
+> >  #include <linux/inetdevice.h>
+> >  #include <linux/etherdevice.h>
+> >  #include <linux/reciprocal_div.h>
+> >+#include <linux/if_link.h>
+> >
+> >  #include "bond_3ad.h"
+> >  #include "bond_alb.h"
+> >@@ -175,6 +176,7 @@ struct slave {
+> >  	struct netpoll *np;
+> >  #endif
+> >  	struct kobject kobj;
+> >+	struct rtnl_link_stats64 *slave_stats;
+> >  };
+> >
+> >  /*
+> >@@ -224,6 +226,7 @@ struct bonding {
+> >  	/* debugging support via debugfs */
+> >  	struct	 dentry *debug_dir;
+> >  #endif /* CONFIG_DEBUG_FS */
+> >+	struct rtnl_link_stats64 *bond_stats;
+> >  };
+> >
+> >  #define bond_slave_get_rcu(dev) \
+> >
+> 
