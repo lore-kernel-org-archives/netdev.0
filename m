@@ -1,7 +1,7 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v3 3/5] net: tcp: split ack slow/fast events from cwnd_event
-Date: Fri, 26 Sep 2014 22:37:34 +0200
-Message-ID: <1411763856-14230-4-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next v3 2/5] net: tcp: add flag for ca to indicate that ECN is required
+Date: Fri, 26 Sep 2014 22:37:33 +0200
+Message-ID: <1411763856-14230-3-git-send-email-dborkman@redhat.com>
 References: <1411763856-14230-1-git-send-email-dborkman@redhat.com>
 Cc: hagen@jauu.net, lars@netapp.com, eric.dumazet@gmail.com,
 	fontana@sharpeleven.org, hannes@stressinduktion.org,
@@ -9,165 +9,224 @@ Cc: hagen@jauu.net, lars@netapp.com, eric.dumazet@gmail.com,
 	dborkman@redhat.com, fw@strlen.de, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2874 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:14496 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755674AbaIZUiA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Sep 2014 16:38:00 -0400
+	id S1755972AbaIZUiD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Sep 2014 16:38:03 -0400
 In-Reply-To: <1411763856-14230-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+This patch adds a flag to TCP congestion algorithms that allows
+for requesting to mark IPv4/IPv6 sockets with transport as ECN
+capable, that is, ECT(0), when required by a congestion algorithm.
 
-The congestion control ops "cwnd_event" currently supports
-CA_EVENT_FAST_ACK and CA_EVENT_SLOW_ACK events (among others).
-Both FAST and SLOW_ACK are only used by Westwood congestion
-control algorithm.
+It is currently used and needed in DataCenter TCP (DCTCP), as it
+requires both peers to assert ECT on all IP packets sent - it
+uses ECN feedback (i.e. CE, Congestion Encountered information)
+from switches inside the data center to derive feedback to the
+end hosts.
 
-This removes both flags from cwnd_event and adds a new
-in_ack_event callback for this. The goal is to be able to
-provide more detailed information about ACKs, such as whether
-ECE flag was set, or whether the ACK resulted in a window
-update.
+Therefore, simply add a new flag to icsk_ca_ops. Note that DCTCP's
+algorithm/behaviour slightly diverges from RFC3168, therefore this
+is only (!) enabled iff the assigned congestion control ops module
+has requested this. By that, we can tightly couple this logic really
+only to the provided congestion control ops.
 
-It is required for DataCenter TCP (DCTCP) congestion control
-algorithm as it makes a different choice depending on ECE being
-set or not.
+Joint work with Florian Westphal and Glenn Judd.
 
-Joint work with Daniel Borkmann and Glenn Judd.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Glenn Judd <glenn.judd@morganstanley.com>
 Acked-by: Stephen Hemminger <stephen@networkplumber.org>
 ---
- include/net/tcp.h       |  8 ++++++--
- net/ipv4/tcp_input.c    | 12 ++++++++++--
- net/ipv4/tcp_westwood.c | 28 ++++++++++++++++------------
- 3 files changed, 32 insertions(+), 16 deletions(-)
+ include/net/tcp.h     | 61 +++++++++++++++++++++++++++++++++++++--------------
+ net/ipv4/tcp_input.c  |  2 +-
+ net/ipv4/tcp_output.c | 25 +++++++++++++++------
+ 3 files changed, 63 insertions(+), 25 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 82d012e..e71884a 100644
+index 1c75356..82d012e 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -744,8 +744,10 @@ enum tcp_ca_event {
- 	CA_EVENT_CWND_RESTART,	/* congestion window restart */
- 	CA_EVENT_COMPLETE_CWR,	/* end of congestion recovery */
- 	CA_EVENT_LOSS,		/* loss timeout */
--	CA_EVENT_FAST_ACK,	/* in sequence ack */
--	CA_EVENT_SLOW_ACK,	/* other ack */
-+};
-+
-+enum tcp_ca_ack_event_flags {
-+	CA_ACK_SLOWPATH = (1 << 0),
- };
+@@ -724,23 +724,6 @@ struct tcp_skb_cb {
  
- /*
-@@ -777,6 +779,8 @@ struct tcp_congestion_ops {
- 	void (*set_state)(struct sock *sk, u8 new_state);
- 	/* call when cwnd event occurs (optional) */
- 	void (*cwnd_event)(struct sock *sk, enum tcp_ca_event ev);
-+	/* call when ack arrives (optional) */
-+	void (*in_ack_event)(struct sock *sk, u32 flags);
- 	/* new value of cwnd after loss (optional) */
- 	u32  (*undo_cwnd)(struct sock *sk);
- 	/* hook for packet ack accounting (optional) */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ef4f7f0..e28f80a 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3362,6 +3362,14 @@ static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
- 	}
- }
+ #define TCP_SKB_CB(__skb)	((struct tcp_skb_cb *)&((__skb)->cb[0]))
  
-+static inline void tcp_in_ack_event(struct sock *sk, u32 flags)
+-/* RFC3168 : 6.1.1 SYN packets must not have ECT/ECN bits set
+- *
+- * If we receive a SYN packet with these bits set, it means a network is
+- * playing bad games with TOS bits. In order to avoid possible false congestion
+- * notifications, we disable TCP ECN negociation.
+- */
+-static inline void
+-TCP_ECN_create_request(struct request_sock *req, const struct sk_buff *skb,
+-		struct net *net)
+-{
+-	const struct tcphdr *th = tcp_hdr(skb);
+-
+-	if (net->ipv4.sysctl_tcp_ecn && th->ece && th->cwr &&
+-	    INET_ECN_is_not_ect(TCP_SKB_CB(skb)->ip_dsfield))
+-		inet_rsk(req)->ecn_ok = 1;
+-}
+-
+ /* Due to TSO, an SKB can be composed of multiple actual
+  * packets.  To keep these tracked properly, we use this.
+  */
+@@ -772,7 +755,10 @@ enum tcp_ca_event {
+ #define TCP_CA_MAX	128
+ #define TCP_CA_BUF_MAX	(TCP_CA_NAME_MAX*TCP_CA_MAX)
+ 
++/* Algorithm can be set on socket without CAP_NET_ADMIN privileges */
+ #define TCP_CONG_NON_RESTRICTED 0x1
++/* Requires ECN/ECT set on all packets */
++#define TCP_CONG_NEEDS_ECN	0x2
+ 
+ struct tcp_congestion_ops {
+ 	struct list_head	list;
+@@ -821,6 +807,13 @@ u32 tcp_reno_ssthresh(struct sock *sk);
+ void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 acked);
+ extern struct tcp_congestion_ops tcp_reno;
+ 
++static inline bool tcp_ca_needs_ecn(const struct sock *sk)
 +{
 +	const struct inet_connection_sock *icsk = inet_csk(sk);
 +
-+	if (icsk->icsk_ca_ops->in_ack_event)
-+		icsk->icsk_ca_ops->in_ack_event(sk, flags);
++	return icsk->icsk_ca_ops->flags & TCP_CONG_NEEDS_ECN;
 +}
 +
- /* This routine deals with incoming acks, but not outgoing ones. */
- static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ static inline void tcp_set_ca_state(struct sock *sk, const u8 ca_state)
  {
-@@ -3421,7 +3429,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 		tp->snd_una = ack;
- 		flag |= FLAG_WIN_UPDATE;
- 
--		tcp_ca_event(sk, CA_EVENT_FAST_ACK);
-+		tcp_in_ack_event(sk, 0);
- 
- 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPHPACKS);
- 	} else {
-@@ -3439,7 +3447,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 		if (TCP_ECN_rcv_ecn_echo(tp, tcp_hdr(skb)))
- 			flag |= FLAG_ECE;
- 
--		tcp_ca_event(sk, CA_EVENT_SLOW_ACK);
-+		tcp_in_ack_event(sk, CA_ACK_SLOWPATH);
- 	}
- 
- 	/* We passed data and got it acked, remove any soft error
-diff --git a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
-index 81911a9..bb63fba 100644
---- a/net/ipv4/tcp_westwood.c
-+++ b/net/ipv4/tcp_westwood.c
-@@ -220,32 +220,35 @@ static u32 tcp_westwood_bw_rttmin(const struct sock *sk)
- 	return max_t(u32, (w->bw_est * w->rtt_min) / tp->mss_cache, 2);
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+@@ -838,6 +831,40 @@ static inline void tcp_ca_event(struct sock *sk, const enum tcp_ca_event event)
+ 		icsk->icsk_ca_ops->cwnd_event(sk, event);
  }
  
-+static void tcp_westwood_ack(struct sock *sk, u32 ack_flags)
++/* RFC3168 : 6.1.1 SYN packets must not have ECT/ECN bits set
++ *
++ * If we receive a SYN packet with these bits set, it means a
++ * network is playing bad games with TOS bits. In order to
++ * avoid possible false congestion notifications, we disable
++ * TCP ECN negociation.
++ *
++ * Exception: tcp_ca wants ECN. This is required for DCTCP
++ * congestion control; it requires setting ECT on all packets,
++ * including SYN. We inverse the test in this case: If our
++ * local socket wants ECN, but peer only set ece/cwr (but not
++ * ECT in IP header) its probably a non-DCTCP aware sender.
++ */
++static inline void
++TCP_ECN_create_request(struct request_sock *req, const struct sk_buff *skb,
++		       const struct sock *listen_sk)
 +{
-+	if (ack_flags & CA_ACK_SLOWPATH) {
-+		struct westwood *w = inet_csk_ca(sk);
++	const struct tcphdr *th = tcp_hdr(skb);
++	const struct net *net = sock_net(listen_sk);
++	bool th_ecn = th->ece && th->cwr;
++	bool ect, need_ecn;
 +
-+		westwood_update_window(sk);
-+		w->bk += westwood_acked_count(sk);
-+
-+		update_rtt_min(w);
++	if (!th_ecn)
 +		return;
-+	}
 +
-+	westwood_fast_bw(sk);
++	ect = !INET_ECN_is_not_ect(TCP_SKB_CB(skb)->ip_dsfield);
++	need_ecn = tcp_ca_needs_ecn(listen_sk);
++
++	if (!ect && !need_ecn && net->ipv4.sysctl_tcp_ecn)
++		inet_rsk(req)->ecn_ok = 1;
++	else if (ect && need_ecn)
++		inet_rsk(req)->ecn_ok = 1;
 +}
 +
- static void tcp_westwood_event(struct sock *sk, enum tcp_ca_event event)
+ /* These functions determine how the current flow behaves in respect of SACK
+  * handling. SACK is negotiated with the peer, and therefore it can vary
+  * between different flows.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index f3f016a..ef4f7f0 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5945,7 +5945,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 		goto drop_and_free;
+ 
+ 	if (!want_cookie || tmp_opt.tstamp_ok)
+-		TCP_ECN_create_request(req, skb, sock_net(sk));
++		TCP_ECN_create_request(req, skb, sk);
+ 
+ 	if (want_cookie) {
+ 		isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index f173b1c..a6ff21f 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -318,11 +318,15 @@ static u16 tcp_select_window(struct sock *sk)
+ }
+ 
+ /* Packet ECN state for a SYN-ACK */
+-static inline void TCP_ECN_send_synack(const struct tcp_sock *tp, struct sk_buff *skb)
++static inline void TCP_ECN_send_synack(struct sock *sk, struct sk_buff *skb)
  {
++	const struct tcp_sock *tp = tcp_sk(sk);
++
+ 	TCP_SKB_CB(skb)->tcp_flags &= ~TCPHDR_CWR;
+ 	if (!(tp->ecn_flags & TCP_ECN_OK))
+ 		TCP_SKB_CB(skb)->tcp_flags &= ~TCPHDR_ECE;
++	else if (tcp_ca_needs_ecn(sk))
++		INET_ECN_xmit(sk);
+ }
+ 
+ /* Packet ECN state for a SYN.  */
+@@ -331,17 +335,24 @@ static inline void TCP_ECN_send_syn(struct sock *sk, struct sk_buff *skb)
  	struct tcp_sock *tp = tcp_sk(sk);
- 	struct westwood *w = inet_csk_ca(sk);
  
- 	switch (event) {
--	case CA_EVENT_FAST_ACK:
--		westwood_fast_bw(sk);
--		break;
--
- 	case CA_EVENT_COMPLETE_CWR:
- 		tp->snd_cwnd = tp->snd_ssthresh = tcp_westwood_bw_rttmin(sk);
- 		break;
--
- 	case CA_EVENT_LOSS:
- 		tp->snd_ssthresh = tcp_westwood_bw_rttmin(sk);
- 		/* Update RTT_min when next ack arrives */
- 		w->reset_rtt_min = 1;
- 		break;
--
--	case CA_EVENT_SLOW_ACK:
--		westwood_update_window(sk);
--		w->bk += westwood_acked_count(sk);
--		update_rtt_min(w);
--		break;
--
- 	default:
- 		/* don't care */
- 		break;
-@@ -274,6 +277,7 @@ static struct tcp_congestion_ops tcp_westwood __read_mostly = {
- 	.ssthresh	= tcp_reno_ssthresh,
- 	.cong_avoid	= tcp_reno_cong_avoid,
- 	.cwnd_event	= tcp_westwood_event,
-+	.in_ack_event	= tcp_westwood_ack,
- 	.get_info	= tcp_westwood_info,
- 	.pkts_acked	= tcp_westwood_pkts_acked,
+ 	tp->ecn_flags = 0;
+-	if (sock_net(sk)->ipv4.sysctl_tcp_ecn == 1) {
++	if (sock_net(sk)->ipv4.sysctl_tcp_ecn == 1 ||
++	    tcp_ca_needs_ecn(sk)) {
+ 		TCP_SKB_CB(skb)->tcp_flags |= TCPHDR_ECE | TCPHDR_CWR;
+ 		tp->ecn_flags = TCP_ECN_OK;
++		if (tcp_ca_needs_ecn(sk))
++			INET_ECN_xmit(sk);
+ 	}
+ }
  
+ static __inline__ void
+-TCP_ECN_make_synack(const struct request_sock *req, struct tcphdr *th)
++TCP_ECN_make_synack(const struct request_sock *req, struct tcphdr *th,
++		    struct sock *sk)
+ {
+-	if (inet_rsk(req)->ecn_ok)
++	if (inet_rsk(req)->ecn_ok) {
+ 		th->ece = 1;
++		if (tcp_ca_needs_ecn(sk))
++			INET_ECN_xmit(sk);
++	}
+ }
+ 
+ /* Set up ECN state for a packet on a ESTABLISHED socket that is about to
+@@ -362,7 +373,7 @@ static inline void TCP_ECN_send(struct sock *sk, struct sk_buff *skb,
+ 				tcp_hdr(skb)->cwr = 1;
+ 				skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
+ 			}
+-		} else {
++		} else if (!tcp_ca_needs_ecn(sk)) {
+ 			/* ACK or retransmitted segment: clear ECT|CE */
+ 			INET_ECN_dontxmit(sk);
+ 		}
+@@ -2781,7 +2792,7 @@ int tcp_send_synack(struct sock *sk)
+ 		}
+ 
+ 		TCP_SKB_CB(skb)->tcp_flags |= TCPHDR_ACK;
+-		TCP_ECN_send_synack(tcp_sk(sk), skb);
++		TCP_ECN_send_synack(sk, skb);
+ 	}
+ 	return tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC);
+ }
+@@ -2840,7 +2851,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 	memset(th, 0, sizeof(struct tcphdr));
+ 	th->syn = 1;
+ 	th->ack = 1;
+-	TCP_ECN_make_synack(req, th);
++	TCP_ECN_make_synack(req, th, sk);
+ 	th->source = htons(ireq->ir_num);
+ 	th->dest = ireq->ir_rmt_port;
+ 	/* Setting of flags are superfluous here for callers (and ECE is
 -- 
 1.7.11.7
