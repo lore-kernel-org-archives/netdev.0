@@ -1,30 +1,58 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v14 net-next 10/11] bpf: verifier (add verifier core)
-Date: Fri, 26 Sep 2014 00:40:24 -0400 (EDT)
-Message-ID: <20140926.004024.1179261758092351350.davem@davemloft.net>
-References: <1411344411-3824-1-git-send-email-ast@plumgrid.com>
-	<1411344411-3824-11-git-send-email-ast@plumgrid.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ip_tunnel: Don't allow to add the same tunnel
+ multiple times.
+Date: Fri, 26 Sep 2014 00:43:00 -0400 (EDT)
+Message-ID: <20140926.004300.883593012234297777.davem@davemloft.net>
+References: <20140922071108.GY6390@secunet.com>
+	<20140922.164556.736459936247558402.davem@davemloft.net>
+	<20140923113051.GZ6390@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1411344411-3824-11-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37773 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751982AbaIZEnC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 00:43:02 -0400
+In-Reply-To: <20140923113051.GZ6390@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Date: Sun, 21 Sep 2014 17:06:50 -0700
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Tue, 23 Sep 2014 13:30:51 +0200
 
-> +#define _(OP) ({ int ret = (OP); if (ret < 0) return ret; })
+> On Mon, Sep 22, 2014 at 04:45:56PM -0400, David Miller wrote:
+>> From: Steffen Klassert <steffen.klassert@secunet.com>
+>> Date: Mon, 22 Sep 2014 09:11:08 +0200
+>> 
+>> > When we try to add an already existing tunnel, we don't return
+>> > an error. Instead we continue and call ip_tunnel_update().
+>> > This means that we can change existing tunnels by adding
+>> > the same tunnel multiple times. It is even possible to change
+>> > the tunnel endpoints of the fallback device.
+>> > 
+>> > We fix this by returning an error if we try to add an existing
+>> > tunnel.
+>> > 
+>> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+>> > ---
+>> > 
+>> > I was not able to find a commit that introduced this bug.
+>> > Looks like ipip and ip_gre had similar bugs already with
+>> > the initial git commit.
+>> 
+>> I'm not so sure about this, perhaps the behavior of being able to
+>> change a configuration using an ADD call is intentional?
+> 
+> Hm, I don't think so. Initially it was the same like with ipv6.
+> It was possible to add the same tunnel muliple times without
+> getting an error, no config change was made. The possibilty
+> to change the configuration by adding the same tunnel a second
+> time came with the tunnel code unification.
 
-Please do not hide program control flow inside of a macro.
+Ok, makes sense.  Applied, thanks Steffen.
 
-Thank you.
+If I had a euro for every regression introduced by that tunnel
+unification patch set I'd be a rich man indeed :-/
