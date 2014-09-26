@@ -1,68 +1,56 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v3 5/7] net: Add GSO support for UDP tunnels with checksum
-Date: Fri, 26 Sep 2014 14:57:28 -0700
-Message-ID: <CA+mtBx-FqE70TROzxi=-B9DKaUsMs-=KZk3XbY7_qhOk3b2aNQ@mail.gmail.com>
-References: <alpine.DEB.2.02.1406041706450.14949@tomh.mtv.corp.google.com>
-	<CAJZOPZJTfJtuhWZ91_KOZxr=V7J7KPX5OGeR_7rY52iOjWcEVw@mail.gmail.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: eBPF verifier thoughts (Re: [PATCH v15 net-next 00/11] eBPF
+ syscall, verifier, testsuite)
+Date: Fri, 26 Sep 2014 15:03:31 -0700
+Message-ID: <CAMEtUuxq7oNmDAHZ+1t4Vd-QhW6SV7eoM_juxXGEDJBF3Nfu6A@mail.gmail.com>
+References: <CALCETrVrHHxGo1RkPu+9LVnPo9XY9yYnJzg2ot0zOgoBspzbOQ@mail.gmail.com>
+	<CAMEtUuyt9RASKZ4NeqK_OUYNN8QT6P20+kjcwywchur6QXSt0A@mail.gmail.com>
+	<CALCETrXS5KBHm-3Fz031VFPpTHC_BDOLd_zNB6DjCidZa5-x2A@mail.gmail.com>
+	<CAMEtUux-WFOGABTrWW=BGUstE=Zz6agXTGCGrRJtNXDfRmx-5A@mail.gmail.com>
+	<CALCETrVLtJOYkHwsmwueZ7jsSgrNED564W+m4FmMZJZL-836mg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:52032 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756040AbaIZV53 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Sep 2014 17:57:29 -0400
-Received: by mail-ie0-f173.google.com with SMTP id lx4so887656iec.32
-        for <netdev@vger.kernel.org>; Fri, 26 Sep 2014 14:57:29 -0700 (PDT)
-In-Reply-To: <CAJZOPZJTfJtuhWZ91_KOZxr=V7J7KPX5OGeR_7rY52iOjWcEVw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALCETrVLtJOYkHwsmwueZ7jsSgrNED564W+m4FmMZJZL-836mg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 26, 2014 at 2:05 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
-> On Thu, Jun 5, 2014 at 3:20 AM, Tom Herbert <therbert@google.com> wrote:
->>
->> Added a new netif feature for GSO_UDP_TUNNEL_CSUM. This indicates
->> that a device is capable of computing the UDP checksum in the
->> encapsulating header of a UDP tunnel.
+On Fri, Sep 26, 2014 at 2:47 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
 >
->
->
-> Tom,
->
-> Do we have upstream driver that supports GSO_UDP_TUNNEL_CSUM? did you
-> had such driver/patch while doing this patches? when a driver
-> advertizes that bit, should they look over the xmit path on the new
-> encap_hdr_csum bit?
->
-No, no, and encap_hdr_csum should only be set with
-SKB_GSO_UDP_TUNNEL_CSUM or SKB_GSO_GRE_CSUM.
+> Can't you just disallow the 1-byte write to the stack?
 
-find . -name '*.[ch]' -exec fgrep -l GSO_UDP_TUNNEL_CSUM {} \;
+of course not.
+That would be extremely limiting to users.
+Can you actually see yourself living with stack that only
+allows 8-byte writes/reads?
+The stack usage will increase a lot, since all char/short
+stack variables will become 8-byte...
 
-returns nothing.
+> I'll try it in Python.  I bet I can get it to be shorter than the current code.
 
-find . -name '*.[ch]' -exec fgrep -l GSO_UDP_TUNNEL {} \;
+Awesome challenge! :)
+I'll buy you a drink of your choice if you can achieve that.
+Also I'll send you our C programs that we use for
+testing to make sure, your python verifier can analyze them.
+If it passes, I'll be glad to rip mine out. Seriously.
+Deal?
 
-returns
+> Yes, but does it work reliably?
 
-./ethernet/intel/i40e/i40e_main.c
-./ethernet/broadcom/bnx2x/bnx2x_main.c
-./ethernet/qlogic/qlcnic/qlcnic_main.c
-./ethernet/mellanox/mlx4/en_netdev.c
-./ethernet/emulex/benet/be_main.c
-
-> Or.
->
->
->>
->>  include/linux/netdev_features.h |  1 +
->>  include/linux/skbuff.h          |  2 ++
->>  net/ipv4/af_inet.c              |  1 +
->>  net/ipv4/tcp_offload.c          |  1 +
->>  net/ipv4/udp.c                  | 40 +++++++++++++++++++---------------------
->>  net/ipv4/udp_offload.c          |  4 +++-
->>  net/ipv6/ip6_offload.c          |  1 +
->>  net/ipv6/udp_offload.c          |  4 +++-
->>  8 files changed, 31 insertions(+), 23 deletions(-)
+I'm not saying current verifier is perfect. It can get better.
+So far it was enough to let people code freely on top of it.
