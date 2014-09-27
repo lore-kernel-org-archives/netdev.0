@@ -1,46 +1,41 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH v1 0/4] net: fec: Code cleanup
-Date: Sat, 27 Sep 2014 09:51:52 +0000
-Message-ID: <ea65c2c86f264e49940038df21121c9e@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1411458058-18934-1-git-send-email-b38611@freescale.com>
- <20140926.160602.1429816882470314568.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] net: fec: remove memory copy for rx path
+Date: Sat, 27 Sep 2014 13:39:37 +0200
+Message-ID: <20140927113937.GA25265@electric-eye.fr.zoreil.com>
+References: <1411538730-31480-1-git-send-email-b38611@freescale.com>
+ <20140926.170720.2230061639326332503.davem@davemloft.net>
+ <057807be43ca4c79ad51ab07c668519d@BLUPR03MB373.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0109.outbound.protection.outlook.com ([207.46.100.109]:23990
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752031AbaI0KGC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 06:06:02 -0400
-In-Reply-To: <20140926.160602.1429816882470314568.davem@davemloft.net>
-Content-Language: en-US
+Received: from violet.fr.zoreil.com ([92.243.8.30]:49531 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751537AbaI0Ljv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 07:39:51 -0400
+Content-Disposition: inline
+In-Reply-To: <057807be43ca4c79ad51ab07c668519d@BLUPR03MB373.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net> Sent: Saturday, September 27, 2014 4:06 AM
->To: Duan Fugang-B38611
->Cc: netdev@vger.kernel.org; Li Frank-B20596
->Subject: Re: [PATCH v1 0/4] net: fec: Code cleanup
->
->From: Fugang Duan <b38611@freescale.com>
->Date: Tue, 23 Sep 2014 15:40:54 +0800
->
->> This patches does several things:
->>   - Fixing multiqueue issue.
->>   - Removing the unnecessary errata workaround.
->>   - Aligning the data buffer dma map/unmap size.
->>   - Freeing resource after probe failed.
->
->Series applied to net-next, thanks.
->
->Please always explicitly state what tree you expect your patches to be
->applied to in the future.
+fugang.duan@freescale.com <fugang.duan@freescale.com> :
+> From: David Miller <davem@davemloft.net> Sent: Saturday, September 27, 2014 5:07 AM
+[...]
+> >We call this rx_copybreak, and there are many drivers you can look at to
+> >see how this works.
+> >
+> >Thanks.
+> 
+> Great suggestion. I will change it for next version.
 
-No special requirement, just follow the normal rel flow.
+Be aware that copybreak module option should be considered legacy.
 
-Thanks,
-Andy
+There is an ethtool api for it.
+
+-- 
+Ueimor
