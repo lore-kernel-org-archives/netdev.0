@@ -1,55 +1,52 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: Re: [PATCH V2 1/2] brcm80211: use container_of to resolve brcms_phy
- from brcms_phy_pub
-Date: Sat, 27 Sep 2014 10:22:24 +0200 (CEST)
-Message-ID: <2023667085.710256.1411806144444.open-xchange@webmail.nmp.skynet.be>
-References: <1410809448-15982-1-git-send-email-fabf@skynet.be> <20140926174636.GJ22967@tuxdriver.com>
-Reply-To: Fabian Frederick <fabf@skynet.be>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH] net: fec: remove memory copy for rx path
+Date: Sat, 27 Sep 2014 09:15:24 +0000
+Message-ID: <057807be43ca4c79ad51ab07c668519d@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1411538730-31480-1-git-send-email-b38611@freescale.com>
+ <20140926.170720.2230061639326332503.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org,
-	Arend van Spriel <arend@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	brcm80211-dev-list@broadcom.com, brudley@broadcom.com
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140926174636.GJ22967@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [157.56.111.119] ([157.56.111.119]:11424 "EHLO
+	na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751156AbaI0JRS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 05:17:18 -0400
+In-Reply-To: <20140926.170720.2230061639326332503.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-> On 26 September 2014 at 19:46 "John W. Linville" <linville@tuxdriver.=
-com>
-> wrote:
+From: David Miller <davem@davemloft.net> Sent: Saturday, September 27, 2014 5:07 AM
+>To: Duan Fugang-B38611
+>Cc: Li Frank-B20596; netdev@vger.kernel.org; shawn.guo@linaro.org;
+>bhutchings@solarflare.com
+>Subject: Re: [PATCH] net: fec: remove memory copy for rx path
 >
+>From: Fugang Duan <b38611@freescale.com>
+>Date: Wed, 24 Sep 2014 14:05:30 +0800
 >
-> These two patches don't seem to apply on wireless-next, and I don't
-> have time at the moment to fix them up.=C2=A0 Feel free to repost...
+>> Re-allocate skb instead of memory copy skb data in rx path to improve
+>> enet rx performance.
+>>
+>> Signed-off-by: Fugang Duan <B38611@freescale.com>
+>> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+>
+>For small packet sizes, copying is almost certainly faster and it avoids
+>mismatched skb->truesize vs. skb->len which hurts TCP performance.
+>
+>We call this rx_copybreak, and there are many drivers you can look at to
+>see how this works.
+>
+>Thanks.
 
-Hello John,
+Great suggestion. I will change it for next version.
 
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 No problem, you already pushed the 2 same p=
-atches from the first (too
-generic) patchset
-
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 First patchset for drivers/net (see patch 3=
- and 4)
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 http://marc.info/?l=3Dlinux-kernel&m=3D1410=
-64073901334&w=3D2
-=C2=A0 =C2=A0 =C2=A0 =C2=A0
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 No updates in V2 anyway:
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 ("V2: 2 separate patches for brcm80211")
-
-Wireless-next commits:
-a38a9ef1c064
-("brcm80211: use container_of to resolve dma_info from dma_pub")
-
-d68e9f5d8549
-("brcm80211: use container_of to resolve brcms_phy from brcms_phy_pub")
-
-Regards,
-=46abian
+Thanks,
+Andy
