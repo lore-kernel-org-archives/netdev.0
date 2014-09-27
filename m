@@ -1,58 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 3/3] tcp: better TCP_SKB_CB layout to reduce
- cache line misses
-Date: Sat, 27 Sep 2014 09:46:25 -0700
-Message-ID: <1411836385.16953.138.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1411676092-16196-1-git-send-email-edumazet@google.com>
-	 <1411676092-16196-4-git-send-email-edumazet@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Yuchung Cheng <ycheng@google.com>,
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v4 net-next 0/3] tcp: better TCP_SKB_CB layout
+Date: Sat, 27 Sep 2014 09:50:54 -0700
+Message-ID: <1411836657-9542-1-git-send-email-edumazet@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
 	Neal Cardwell <ncardwell@google.com>,
-	Christoph Paasch <christoph.paasch@uclouvain.be>
-To: Eric Dumazet <edumazet@google.com>
+	Christoph Paasch <christoph.paasch@uclouvain.be>,
+	Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:40215 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751985AbaI0Qq2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 12:46:28 -0400
-Received: by mail-pa0-f53.google.com with SMTP id kq14so3019326pab.12
-        for <netdev@vger.kernel.org>; Sat, 27 Sep 2014 09:46:28 -0700 (PDT)
-In-Reply-To: <1411676092-16196-4-git-send-email-edumazet@google.com>
+Received: from mail-yh0-f73.google.com ([209.85.213.73]:45166 "EHLO
+	mail-yh0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752809AbaI0QvE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 12:51:04 -0400
+Received: by mail-yh0-f73.google.com with SMTP id b6so535795yha.0
+        for <netdev@vger.kernel.org>; Sat, 27 Sep 2014 09:51:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-09-25 at 13:14 -0700, Eric Dumazet wrote:
-> TCP maintains lists of skb in write queue, and in receive queues
-> (in order and out of order queues)
-> 
-> Scanning these lists both in input and output path usually requires
-> access to skb->next, TCP_SKB_CB(skb)->seq, and TCP_SKB_CB(skb)->end_seq
-> 
-> These fields are currently in two different cache lines, meaning we
-> waste lot of memory bandwidth when these queues are big and flows
-> have either packet drops or packet reorders.
-> 
-> We can move TCP_SKB_CB(skb)->header at the end of TCP_SKB_CB, because
-> this header is not used in fast path. This allows TCP to search much faster
-> in the skb lists.
-> 
-> Even with regular flows, we save one cache line miss in fast path.
-> 
-> Thanks to Christoph Paasch for noticing we need to cleanup
-> skb->cb[] (IPCB/IP6CB) before entering IP stack in tx path,
-> and that I forgot IPCB use in tcp_v4_hnd_req() and tcp_v4_save_options().
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
+TCP had the assumption that IPCB and IP6CB are first members of skb->cb[]
 
-Silly me, I'll send a v4, sorry for the noise
+This is fine, except that IPCB/IP6CB are used in TCP for a very short time
+in input path.
 
-net/ipv4/tcp_ipv4.c: In function 'tcp_v4_save_options':
-net/ipv4/tcp_ipv4.c:889:33: warning: initialization from incompatible pointer type [enabled by default]
-net/ipv4/tcp_ipv4.c: In function 'tcp_v4_hnd_req':
-net/ipv4/tcp_ipv4.c:1432:43: warning: passing argument 3 of 'cookie_v4_check' from incompatible pointer type [enabled by default]
-In file included from net/ipv4/tcp_ipv4.c:69:0:
-include/net/tcp.h:474:14: note: expected 'struct ip_options *' but argument is of type 'struct inet_skb_parm *'
+What really matters for TCP stack is to get skb->next,
+TCP_SKB_CB(skb)->seq, and TCP_SKB_CB(skb)->end_seq in the same cache line.
+
+skb that are immediately consumed do not care because whole skb->cb[] is
+hot in cpu cache, while skb that sit in wocket write queue or receive queues
+do not need TCP_SKB_CB(skb)->header at all.
+
+This patch set implements the prereq for IPv4, IPv6, and TCP to make this
+possible. This makes TCP more efficient.
+
+
+Eric Dumazet (3):
+  ipv4: rename ip_options_echo to __ip_options_echo()
+  ipv6: add a struct inet6_skb_parm param to ipv6_opt_accepted()
+  tcp: better TCP_SKB_CB layout to reduce cache line misses
+
+ include/net/ip.h      | 15 ++++++++++++---
+ include/net/ipv6.h    |  3 ++-
+ include/net/tcp.h     | 12 ++++++------
+ net/dccp/ipv6.c       |  2 +-
+ net/ipv4/ip_options.c |  6 ++----
+ net/ipv4/ip_output.c  |  8 +++++---
+ net/ipv4/tcp_ipv4.c   | 29 ++++++++++++++++++-----------
+ net/ipv4/tcp_output.c |  5 +++++
+ net/ipv6/af_inet6.c   |  4 ++--
+ net/ipv6/syncookies.c |  2 +-
+ net/ipv6/tcp_ipv6.c   | 12 ++++++++++--
+ 11 files changed, 64 insertions(+), 34 deletions(-)
+
+-- 
+2.1.0.rc2.206.gedb03e5
