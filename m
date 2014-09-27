@@ -1,66 +1,55 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 net-next 0/9] ipv6: fib6: socket dst_entry improvments and
- cleanups
-Date: Sun, 28 Sep 2014 01:32:02 +0200
-Message-ID: <1411860722.372951.172497189.46B78743@webmail.messagingengine.com>
-References: <cover.1411308211.git.hannes@stressinduktion.org>
- <20140926.002853.1097612772155886372.davem@davemloft.net>
- <1411718323.1731596.171980125.03C65719@webmail.messagingengine.com>
- <20140926.124643.202150841147181272.davem@davemloft.net>
+Subject: Re: [PATCH net-next] mlx4: optimize xmit path
+Date: Sun, 28 Sep 2014 01:44:27 +0200
+Message-ID: <1411861467.374982.172498061.37EB43B1@webmail.messagingengine.com>
+References: <1411692382-8898-1-git-send-email-ast@plumgrid.com>
+ <1411694414.16953.70.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1411717322.16953.99.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1411850590.15768.6.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAJ3xEMhQCf7j48Yn5sjH6jaYYdLQUgOe2hk-OZhhdZ7taOyx+Q@mail.gmail.com>
+ <1411853441.15768.13.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1411858593.15768.51.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	hideaki@yoshifuji.org, vyasevich@gmail.com,
-	nicolas.dichtel@6wind.com, kafai@fb.com
-To: David Miller <davem@davemloft.net>
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:44875 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:34826 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750736AbaI0XcD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 19:32:03 -0400
+	by vger.kernel.org with ESMTP id S1750736AbaI0Xo1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 19:44:27 -0400
 Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by gateway2.nyi.internal (Postfix) with ESMTP id CB21920869
-	for <netdev@vger.kernel.org>; Sat, 27 Sep 2014 19:32:02 -0400 (EDT)
-In-Reply-To: <20140926.124643.202150841147181272.davem@davemloft.net>
+	by gateway2.nyi.internal (Postfix) with ESMTP id 46AB7206DD
+	for <netdev@vger.kernel.org>; Sat, 27 Sep 2014 19:44:27 -0400 (EDT)
+In-Reply-To: <1411858593.15768.51.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 26, 2014, at 18:46, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Fri, 26 Sep 2014 09:58:43 +0200
-> 
-> > On Fri, Sep 26, 2014, at 06:28, David Miller wrote:
-> >> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> >> Date: Sun, 21 Sep 2014 16:11:44 +0200
-> >> 
-> >> > Eric Dumazet noticed that rt6_nodes wich are neither RTF_NONEXTHOP nor
-> >> > RTF_GATEWAY but DST_HOST ones cause major routing lookup churn because
-> >> > their rt6_genid is never renewed, thus ip6_dst_check always considers
-> >> > them outdated. This is a major problem, because these kind of routes
-> >> > are normally used to in input handling.
-> >> 
-> >> This series is a disappointment for me from the perspective of the
-> >> fact that we have a regression in mainline and this is too complex
-> >> of a set of changes for there.
-> >> 
-> >> If we relookup the thing every TCP input packet, we might as well
-> >> not do the input route caching in the socket.
-> > 
-> > I can understand.
-> > 
-> > Toss this series, I'll try to do better tomorrow and send changes for
-> > net and submit net-next cleanups when your queue is a bit smaller.
-> 
-> BTW, don't get me wrong, I like the new code and for 'net-next' it's
-> good.
+Hi Eric,
 
-I didn't. ;)
+On Sun, Sep 28, 2014, at 00:56, Eric Dumazet wrote:
+> -       ring->cons += txbbs_skipped;
+> +
+> +       /* we want to dirty this cache line once */
+> +       ACCESS_ONCE(ring->last_nr_txbb) = last_nr_txbb;
+> +       ACCESS_ONCE(ring->cons) = ring_cons + txbbs_skipped;
+> +
 
-> But for 'net' we have to come up with something simpler meanwhile.
+Impressive work!
 
-Sure, I just posted one small patch to address the problem, cleanups and
-smaller performance optimizations come in later after you did a merge.
+I wonder if another macro might be useful for those kind of
+dereferences, because ACCESS_ONCE is associated with correctness in my
+mind and those usages only try to optimize access patterns.
+Does OPTIMIZER_HIDE_VAR generate the same code?
 
-Thanks,
+Bye,
 Hannes
