@@ -1,206 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: cleanup and document skb fclone layout
-Date: Sat, 27 Sep 2014 16:25:41 -0700
-Message-ID: <1411860341.15768.55.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Wheeler <nevdev@lists.ewheeler.net>
+Subject: bna alloc_pages() order 2 failure in bnad.c bnad_rxq_refill_page()
+Date: Sat, 27 Sep 2014 16:44:22 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1409271631530.26069@ware.dreamhost.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Cc: rmody@brocade.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:57186 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750721AbaI0XZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 19:25:43 -0400
-Received: by mail-pa0-f44.google.com with SMTP id et14so419629pad.17
-        for <netdev@vger.kernel.org>; Sat, 27 Sep 2014 16:25:42 -0700 (PDT)
+Received: from homie.mail.dreamhost.com ([208.97.132.208]:36147 "EHLO
+	homiemail-a3.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750736AbaI0Xa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 19:30:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hello all,
 
-Lets use a proper structure to clearly document and implement
-skb fast clones.
+We're using the 10gbe bna card and sometimes we get pages and pages of 
+alloc_pages() failure backtraces like below.  (The maintainer 
+rmody@brocade.com does not appear to have an active email at brocade, but 
+cc'ing again just in case.)
 
-Then, we might experiment more easily alternative layouts.
+It looks like bnad_rxq_refill_page() in bnad.c is allocating for the 
+receive queue but fails.  We've already tried bumping vm.min_free_kbytes 
+and vm.zone_reclaim_mode but it doesn't appear to help.
 
-This patch adds a new skb_fclone_busy() helper, used by tcp and xfrm.
+Suggestions?
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/linux/skbuff.h |   25 ++++++++++++++++++++++
- net/core/skbuff.c      |   44 +++++++++++++++++++--------------------
- net/ipv4/tcp_output.c  |    5 ----
- net/xfrm/xfrm_policy.c |    4 ---
- 4 files changed, 49 insertions(+), 29 deletions(-)
+Would it be appropriate to convert alloc_pages() to a mempool 
+implementation?
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 8eaa62400fca..ed5fc2faa074 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -775,6 +775,31 @@ struct sk_buff *alloc_skb_with_frags(unsigned long header_len,
- 				     int *errcode,
- 				     gfp_t gfp_mask);
- 
-+/* Layout of fast clones : [skb1][skb2][fclone_ref] */
-+struct sk_buff_fclones {
-+	struct sk_buff	skb1;
-+
-+	struct sk_buff	skb2;
-+
-+	atomic_t	fclone_ref;
-+};
-+
-+/**
-+ *	skb_fclone_busy - check if fclone is busy
-+ *	@skb: buffer
-+ *
-+ * Returns true is skb is a fast clone, and its clone is not freed.
-+ */
-+static inline bool skb_fclone_busy(const struct sk_buff *skb)
-+{
-+	const struct sk_buff_fclones *fclones;
-+
-+	fclones = container_of(skb, struct sk_buff_fclones, skb1);
-+
-+	return skb->fclone == SKB_FCLONE_ORIG &&
-+	       fclones->skb2.fclone == SKB_FCLONE_CLONE;
-+}
-+
- static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
- 					       gfp_t priority)
- {
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d4fdc649112c..460f5f4f12a9 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -257,16 +257,18 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	kmemcheck_annotate_variable(shinfo->destructor_arg);
- 
- 	if (flags & SKB_ALLOC_FCLONE) {
--		struct sk_buff *child = skb + 1;
--		atomic_t *fclone_ref = (atomic_t *) (child + 1);
-+		struct sk_buff_fclones *fclones;
- 
--		kmemcheck_annotate_bitfield(child, flags1);
--		kmemcheck_annotate_bitfield(child, flags2);
-+		fclones = container_of(skb, struct sk_buff_fclones, skb1);
-+
-+		kmemcheck_annotate_bitfield(&fclones->skb2, flags1);
-+		kmemcheck_annotate_bitfield(&fclones->skb2, flags2);
- 		skb->fclone = SKB_FCLONE_ORIG;
--		atomic_set(fclone_ref, 1);
- 
--		child->fclone = SKB_FCLONE_UNAVAILABLE;
--		child->pfmemalloc = pfmemalloc;
-+		atomic_set(&fclones->fclone_ref, 1);
-+
-+		fclones->skb2.fclone = SKB_FCLONE_UNAVAILABLE;
-+		fclones->skb2.pfmemalloc = pfmemalloc;
- 	}
- out:
- 	return skb;
-@@ -525,8 +527,7 @@ static void skb_release_data(struct sk_buff *skb)
-  */
- static void kfree_skbmem(struct sk_buff *skb)
- {
--	struct sk_buff *other;
--	atomic_t *fclone_ref;
-+	struct sk_buff_fclones *fclones;
- 
- 	switch (skb->fclone) {
- 	case SKB_FCLONE_UNAVAILABLE:
-@@ -534,22 +535,21 @@ static void kfree_skbmem(struct sk_buff *skb)
- 		break;
- 
- 	case SKB_FCLONE_ORIG:
--		fclone_ref = (atomic_t *) (skb + 2);
--		if (atomic_dec_and_test(fclone_ref))
--			kmem_cache_free(skbuff_fclone_cache, skb);
-+		fclones = container_of(skb, struct sk_buff_fclones, skb1);
-+		if (atomic_dec_and_test(&fclones->fclone_ref))
-+			kmem_cache_free(skbuff_fclone_cache, fclones);
- 		break;
- 
- 	case SKB_FCLONE_CLONE:
--		fclone_ref = (atomic_t *) (skb + 1);
--		other = skb - 1;
-+		fclones = container_of(skb, struct sk_buff_fclones, skb2);
- 
- 		/* The clone portion is available for
- 		 * fast-cloning again.
- 		 */
- 		skb->fclone = SKB_FCLONE_UNAVAILABLE;
- 
--		if (atomic_dec_and_test(fclone_ref))
--			kmem_cache_free(skbuff_fclone_cache, other);
-+		if (atomic_dec_and_test(&fclones->fclone_ref))
-+			kmem_cache_free(skbuff_fclone_cache, fclones);
- 		break;
- 	}
- }
-@@ -856,17 +856,18 @@ EXPORT_SYMBOL_GPL(skb_copy_ubufs);
- 
- struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
- {
--	struct sk_buff *n;
-+	struct sk_buff_fclones *fclones = container_of(skb,
-+						       struct sk_buff_fclones,
-+						       skb1);
-+	struct sk_buff *n = &fclones->skb2;
- 
- 	if (skb_orphan_frags(skb, gfp_mask))
- 		return NULL;
- 
--	n = skb + 1;
- 	if (skb->fclone == SKB_FCLONE_ORIG &&
- 	    n->fclone == SKB_FCLONE_UNAVAILABLE) {
--		atomic_t *fclone_ref = (atomic_t *) (n + 1);
- 		n->fclone = SKB_FCLONE_CLONE;
--		atomic_inc(fclone_ref);
-+		atomic_inc(&fclones->fclone_ref);
- 	} else {
- 		if (skb_pfmemalloc(skb))
- 			gfp_mask |= __GFP_MEMALLOC;
-@@ -3238,8 +3239,7 @@ void __init skb_init(void)
- 					      SLAB_HWCACHE_ALIGN|SLAB_PANIC,
- 					      NULL);
- 	skbuff_fclone_cache = kmem_cache_create("skbuff_fclone_cache",
--						(2*sizeof(struct sk_buff)) +
--						sizeof(atomic_t),
-+						sizeof(struct sk_buff_fclones),
- 						0,
- 						SLAB_HWCACHE_ALIGN|SLAB_PANIC,
- 						NULL);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index f173b1c4f815..fd72d381d924 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2091,10 +2091,7 @@ bool tcp_schedule_loss_probe(struct sock *sk)
- static bool skb_still_in_host_queue(const struct sock *sk,
- 				    const struct sk_buff *skb)
- {
--	const struct sk_buff *fclone = skb + 1;
--
--	if (unlikely(skb->fclone == SKB_FCLONE_ORIG &&
--		     fclone->fclone == SKB_FCLONE_CLONE)) {
-+	if (unlikely(skb_fclone_busy(skb))) {
- 		NET_INC_STATS_BH(sock_net(sk),
- 				 LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES);
- 		return true;
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index fdde51f4271a..b31cb8354c97 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1844,10 +1844,8 @@ static int xdst_queue_output(struct sock *sk, struct sk_buff *skb)
- 	struct xfrm_dst *xdst = (struct xfrm_dst *) dst;
- 	struct xfrm_policy *pol = xdst->pols[0];
- 	struct xfrm_policy_queue *pq = &pol->polq;
--	const struct sk_buff *fclone = skb + 1;
- 
--	if (unlikely(skb->fclone == SKB_FCLONE_ORIG &&
--		     fclone->fclone == SKB_FCLONE_CLONE)) {
-+	if (unlikely(skb_fclone_busy(skb))) {
- 		kfree_skb(skb);
- 		return 0;
- 	}
+-Eric
+
+[135367.300669] swapper/5: page allocation failure: order:2, mode:0x4020
+[135367.300903] CPU: 5 PID: 0 Comm: swapper/5 Tainted: GF          O 3.14.18 #1
+[135367.301137] Hardware name: Supermicro X9SCL/X9SCM/X9SCL/X9SCM, BIOS 2.0c 10/17/2013
+[135367.301557]  0000000000000002 ffff88082fd43a78 ffffffff8159e704 0000000000000010
+[135367.301986]  0000000000004020 ffff88082fd43b08 ffffffff8113b17b 0000000200000000
+[135367.302417]  0000000000000000 00000000fffffffc 0000000000000004 0000003000000000
+[135367.302858] Call Trace:
+[135367.303077]  <IRQ> [<ffffffff8159e704>] dump_stack+0x49/0x5d
+[135367.303310]  [<ffffffff8113b17b>] warn_alloc_failed+0xeb/0x150
+[135367.303536]  [<ffffffff8113e2f0>] __alloc_pages_slowpath+0x4a0/0x7e0
+[135367.303769]  [<ffffffff8113e8e2>] __alloc_pages_nodemask+0x2b2/0x2c0
+[135367.303996]  [<ffffffff81181232>] alloc_pages_current+0xb2/0x170 
+[135367.304226]  [<ffffffffa0239cb4>] bnad_rxq_refill_page+0x154/0x1e0 [bna] <---
+[135367.304459]  [<ffffffffa023c282>] bnad_cq_process+0x462/0x840 [bna]
+[135367.304921]  [<ffffffffa023c6af>] bnad_napi_poll_rx+0x4f/0xc0 [bna]
+[135367.305144]  [<ffffffff814dcf4c>] net_rx_action+0xfc/0x280
+[135367.305364]  [<ffffffff8105ba83>] __do_softirq+0xf3/0x2c0
+[135367.305589]  [<ffffffff8105bd5d>] irq_exit+0xbd/0xd0
+[135367.305811]  [<ffffffff815ae697>] do_IRQ+0x67/0x110
+[135367.306036]  [<ffffffff815a39ad>] common_interrupt+0x6d/0x6d
+[135367.306261]  <EOI> [<ffffffff81486275>] ? cpuidle_enter_state+0x55/0xd0
+[135367.306501]  [<ffffffff8148626b>] ? cpuidle_enter_state+0x4b/0xd0
+[135367.306719]  [<ffffffff814863b7>] cpuidle_idle_call+0xc7/0x160
+[135367.306938]  [<ffffffff8100d73e>] arch_cpu_idle+0xe/0x30
+[135367.307156]  [<ffffffff810b187e>] cpu_idle_loop+0x9e/0x250
+[135367.307376]  [<ffffffff810b1aa0>] cpu_startup_entry+0x70/0x80
+[135367.307598]  [<ffffffff810350d2>] start_secondary+0xd2/0xe0
+
+
+
+--
+Eric Wheeler, President           eWheeler, Inc. dba Global Linux Security
+888-LINUX26 (888-546-8926)        Fax: 503-716-3878           PO Box 25107
+www.GlobalLinuxSecurity.pro       Linux since 1996!     Portland, OR 97298
