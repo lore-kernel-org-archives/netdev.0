@@ -1,55 +1,147 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v4 net-next 0/3] tcp: better TCP_SKB_CB layout
-Date: Sat, 27 Sep 2014 09:50:54 -0700
-Message-ID: <1411836657-9542-1-git-send-email-edumazet@google.com>
+Subject: [PATCH v4 net-next 1/3] ipv4: rename ip_options_echo to __ip_options_echo()
+Date: Sat, 27 Sep 2014 09:50:55 -0700
+Message-ID: <1411836657-9542-2-git-send-email-edumazet@google.com>
+References: <1411836657-9542-1-git-send-email-edumazet@google.com>
 Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
 	Neal Cardwell <ncardwell@google.com>,
 	Christoph Paasch <christoph.paasch@uclouvain.be>,
 	Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f73.google.com ([209.85.213.73]:45166 "EHLO
-	mail-yh0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752809AbaI0QvE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 12:51:04 -0400
-Received: by mail-yh0-f73.google.com with SMTP id b6so535795yha.0
-        for <netdev@vger.kernel.org>; Sat, 27 Sep 2014 09:51:03 -0700 (PDT)
+Received: from mail-pd0-f201.google.com ([209.85.192.201]:40616 "EHLO
+	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753142AbaI0QvF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 12:51:05 -0400
+Received: by mail-pd0-f201.google.com with SMTP id g10so563339pdj.0
+        for <netdev@vger.kernel.org>; Sat, 27 Sep 2014 09:51:04 -0700 (PDT)
+In-Reply-To: <1411836657-9542-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TCP had the assumption that IPCB and IP6CB are first members of skb->cb[]
+ip_options_echo() assumes struct ip_options is provided in &IPCB(skb)->opt
+Lets break this assumption, but provide a helper to not change all call points.
 
-This is fine, except that IPCB/IP6CB are used in TCP for a very short time
-in input path.
+ip_send_unicast_reply() gets a new struct ip_options pointer.
 
-What really matters for TCP stack is to get skb->next,
-TCP_SKB_CB(skb)->seq, and TCP_SKB_CB(skb)->end_seq in the same cache line.
-
-skb that are immediately consumed do not care because whole skb->cb[] is
-hot in cpu cache, while skb that sit in wocket write queue or receive queues
-do not need TCP_SKB_CB(skb)->header at all.
-
-This patch set implements the prereq for IPv4, IPv6, and TCP to make this
-possible. This makes TCP more efficient.
-
-
-Eric Dumazet (3):
-  ipv4: rename ip_options_echo to __ip_options_echo()
-  ipv6: add a struct inet6_skb_parm param to ipv6_opt_accepted()
-  tcp: better TCP_SKB_CB layout to reduce cache line misses
-
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
  include/net/ip.h      | 15 ++++++++++++---
- include/net/ipv6.h    |  3 ++-
- include/net/tcp.h     | 12 ++++++------
- net/dccp/ipv6.c       |  2 +-
  net/ipv4/ip_options.c |  6 ++----
  net/ipv4/ip_output.c  |  8 +++++---
- net/ipv4/tcp_ipv4.c   | 29 ++++++++++++++++++-----------
- net/ipv4/tcp_output.c |  5 +++++
- net/ipv6/af_inet6.c   |  4 ++--
- net/ipv6/syncookies.c |  2 +-
- net/ipv6/tcp_ipv6.c   | 12 ++++++++++--
- 11 files changed, 64 insertions(+), 34 deletions(-)
+ net/ipv4/tcp_ipv4.c   | 10 ++++++----
+ 4 files changed, 25 insertions(+), 14 deletions(-)
 
+diff --git a/include/net/ip.h b/include/net/ip.h
+index fcd9068fb8c3..0bb620702929 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -180,8 +180,10 @@ static inline __u8 ip_reply_arg_flowi_flags(const struct ip_reply_arg *arg)
+ 	return (arg->flags & IP_REPLY_ARG_NOSRCCHECK) ? FLOWI_FLAG_ANYSRC : 0;
+ }
+ 
+-void ip_send_unicast_reply(struct net *net, struct sk_buff *skb, __be32 daddr,
+-			   __be32 saddr, const struct ip_reply_arg *arg,
++void ip_send_unicast_reply(struct net *net, struct sk_buff *skb,
++			   const struct ip_options *sopt,
++			   __be32 daddr, __be32 saddr,
++			   const struct ip_reply_arg *arg,
+ 			   unsigned int len);
+ 
+ #define IP_INC_STATS(net, field)	SNMP_INC_STATS64((net)->mib.ip_statistics, field)
+@@ -511,7 +513,14 @@ int ip_forward(struct sk_buff *skb);
+  
+ void ip_options_build(struct sk_buff *skb, struct ip_options *opt,
+ 		      __be32 daddr, struct rtable *rt, int is_frag);
+-int ip_options_echo(struct ip_options *dopt, struct sk_buff *skb);
++
++int __ip_options_echo(struct ip_options *dopt, struct sk_buff *skb,
++		      const struct ip_options *sopt);
++static inline int ip_options_echo(struct ip_options *dopt, struct sk_buff *skb)
++{
++	return __ip_options_echo(dopt, skb, &IPCB(skb)->opt);
++}
++
+ void ip_options_fragment(struct sk_buff *skb);
+ int ip_options_compile(struct net *net, struct ip_options *opt,
+ 		       struct sk_buff *skb);
+diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+index ad382499bace..5b3d91be2db0 100644
+--- a/net/ipv4/ip_options.c
++++ b/net/ipv4/ip_options.c
+@@ -87,17 +87,15 @@ void ip_options_build(struct sk_buff *skb, struct ip_options *opt,
+  * NOTE: dopt cannot point to skb.
+  */
+ 
+-int ip_options_echo(struct ip_options *dopt, struct sk_buff *skb)
++int __ip_options_echo(struct ip_options *dopt, struct sk_buff *skb,
++		      const struct ip_options *sopt)
+ {
+-	const struct ip_options *sopt;
+ 	unsigned char *sptr, *dptr;
+ 	int soffset, doffset;
+ 	int	optlen;
+ 
+ 	memset(dopt, 0, sizeof(struct ip_options));
+ 
+-	sopt = &(IPCB(skb)->opt);
+-
+ 	if (sopt->optlen == 0)
+ 		return 0;
+ 
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 215af2b155cb..c8fa62476461 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1522,8 +1522,10 @@ static DEFINE_PER_CPU(struct inet_sock, unicast_sock) = {
+ 	.uc_ttl		= -1,
+ };
+ 
+-void ip_send_unicast_reply(struct net *net, struct sk_buff *skb, __be32 daddr,
+-			   __be32 saddr, const struct ip_reply_arg *arg,
++void ip_send_unicast_reply(struct net *net, struct sk_buff *skb,
++			   const struct ip_options *sopt,
++			   __be32 daddr, __be32 saddr,
++			   const struct ip_reply_arg *arg,
+ 			   unsigned int len)
+ {
+ 	struct ip_options_data replyopts;
+@@ -1534,7 +1536,7 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb, __be32 daddr,
+ 	struct sock *sk;
+ 	struct inet_sock *inet;
+ 
+-	if (ip_options_echo(&replyopts.opt.opt, skb))
++	if (__ip_options_echo(&replyopts.opt.opt, skb, sopt))
+ 		return;
+ 
+ 	ipc.addr = daddr;
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 3b2e49cb2b61..28ab90382c01 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -681,8 +681,9 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 
+ 	net = dev_net(skb_dst(skb)->dev);
+ 	arg.tos = ip_hdr(skb)->tos;
+-	ip_send_unicast_reply(net, skb, ip_hdr(skb)->saddr,
+-			      ip_hdr(skb)->daddr, &arg, arg.iov[0].iov_len);
++	ip_send_unicast_reply(net, skb, &TCP_SKB_CB(skb)->header.h4.opt,
++			      ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
++			      &arg, arg.iov[0].iov_len);
+ 
+ 	TCP_INC_STATS_BH(net, TCP_MIB_OUTSEGS);
+ 	TCP_INC_STATS_BH(net, TCP_MIB_OUTRSTS);
+@@ -764,8 +765,9 @@ static void tcp_v4_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
+ 	if (oif)
+ 		arg.bound_dev_if = oif;
+ 	arg.tos = tos;
+-	ip_send_unicast_reply(net, skb, ip_hdr(skb)->saddr,
+-			      ip_hdr(skb)->daddr, &arg, arg.iov[0].iov_len);
++	ip_send_unicast_reply(net, skb, &TCP_SKB_CB(skb)->header.h4.opt,
++			      ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
++			      &arg, arg.iov[0].iov_len);
+ 
+ 	TCP_INC_STATS_BH(net, TCP_MIB_OUTSEGS);
+ }
 -- 
 2.1.0.rc2.206.gedb03e5
