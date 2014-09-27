@@ -1,238 +1,115 @@
-From: Venkat Venkatsubra <venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] IB/ipoib: order:1 failure in ipoib_cm_alloc_rx_skb causes
-	softlockup
-Date: Sat, 27 Sep 2014 11:20:34 -0700
-Message-ID: <20140927182034.GA13698@oracle.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 0/5] udp: Generalize GSO for UDP tunnels
+Date: Sat, 27 Sep 2014 22:26:36 +0300
+Message-ID: <CAJ3xEMi5V0ijSVmga0chTFF1ghUaGs7h9PGfYGb10ZdyPcs5_A@mail.gmail.com>
+References: <1411748554-7346-1-git-send-email-therbert@google.com>
+	<CAJ3xEMjVx6-XK9Eb2akLHei_43pw10rnHM-zXrOD7pzoXuXaRg@mail.gmail.com>
+	<CA+mtBx-0ov5W_xVsgEJsw7o=A9CYSq6ZC_C34=MMsUxgzJWp_g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:57101 "EHLO
+	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751267AbaI0T0g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 15:26:36 -0400
+Received: by mail-oi0-f54.google.com with SMTP id a3so11298954oib.27
+        for <netdev@vger.kernel.org>; Sat, 27 Sep 2014 12:26:36 -0700 (PDT)
+In-Reply-To: <CA+mtBx-0ov5W_xVsgEJsw7o=A9CYSq6ZC_C34=MMsUxgzJWp_g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In ipoib_cm_alloc_rx_skb
-  skb = dev_alloc_skb(IPOIB_CM_HEAD_SIZE + 12);
-results in order:1 allocation because IPOIB_CM_HEAD_SIZE is defined as:
-	IPOIB_ENCAP_LEN     = 4,
-	IPOIB_CM_MTU  = 0x10000 - 0x10, /* padding to align header to 16 */
-	IPOIB_CM_BUF_SIZE	= IPOIB_CM_MTU  + IPOIB_ENCAP_LEN,
-	IPOIB_CM_HEAD_SIZE  = IPOIB_CM_BUF_SIZE % PAGE_SIZE,
+On Sat, Sep 27, 2014 at 2:04 AM, Tom Herbert <therbert@google.com> wrote:
+> On Fri, Sep 26, 2014 at 1:16 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>> On Fri, Sep 26, 2014 at 7:22 PM, Tom Herbert <therbert@google.com> wrote:
+>> [...]
+>>> Notes:
+>>>   - GSO for GRE/UDP where GRE checksum is enabled does not work.
+>>>     Handling this will require some special case code.
+>>>   - Software GSO now supports many varieties of encapsulation with
+>>>     SKB_GSO_UDP_TUNNEL{_CSUM}. We still need a mechanism to query
+>>>     for device support of particular combinations (I intend to
+>>>     add ndo_gso_check for that).
+>>
+>> Tom,
+>>
+>> As I wrote you earlier on another thread/s, fact is that there are
+>> upstream drivers who advertize SKB_GSO_UDP_TUNNEL and aren't capable @
+>> this point to issue proper HW segmentation of something which isn't
+>> VXLAN.
+>>
+>> Just to make sure, this series isn't expected to introduce a
+>> regression, right? we don't expect the stack to attempt and xmit a
+>> large 64KB UDP packet which isn't vxlan through these devices.
 
-For a 4Kbytes PAGE_SIZE IPOIB_CM_HEAD_SIZE ends up as
-(65536 - 16 + 4) % 4096 = 4084 bytes resulting in
-dev_alloc_skb(4084 + 12) or dev_alloc_skb(4096) or order:1 allocation.
+> I am planning to post ndo_gso_check shortly. These patches should not
+> cause a regression with currently deployed functionality (VXLAN).
 
-This fix avoids this by redefining IPOIB_CM_HEAD_SIZE to whatever maximum
-that can fit in a order:0 allocation and adjusting number of scatter/gather
-elements to accommodate the rest of the bytes.
+Can you sum up (please) in 1-2 liner what is the trick to avoid such
+regression? that is what/where is the knob that would prevent such
+giant chunk to be sent down to a NIC driver which does advertize
+SKB_GSO_UDP_TUNNEL?
 
-IPOIB_CM_RX_SG is incremented by 1 to accommodate one extra SG element.
 
-Since using NET_SKB_PAD in IPOIB_CM_HEAD_SIZE now gives the below
-compilation error due to max()
-"braced-group within expression allowed only inside a function"
-actual number of SG elements used is now computed in a variable.
+>>>   - MPLS seems to be the only previous user of inner_protocol. I don't
+>>>     believe these patches can affect that. For supporting GSO with
+>>>     MPLS over UDP, the inner_protocol should be set using the
+>>>     helper functions in this patch.
+>>>   - GSO for L2TP/UDP should also be straightforward now.
+>>
+>>> Tested GRE, IPIP, and SIT over fou as well as VLXAN. This was
+>>> done using 200 TCP_STREAMs in netperf.
+>> [...]
+>>>    VXLAN
+>>>       TCP_STREAM TSO enabled on tun interface
+>>>         16.42% TX CPU utilization
+>>>         23.66% RX CPU utilization
+>>>         9081 Mbps
+>>>       TCP_STREAM TSO disabled on tun interface
+>>>         30.32% TX CPU utilization
+>>>         30.55% RX CPU utilization
+>>>         9185 Mbps
+>>
+>> so TSO disabled has better BW vs TSO enabled?
+>>
+> Yes, I've noticed that on occasion, it does seem like TSO disabled
+> tends to get a little more throughput. I see this with plain GRE, so I
+> don't think it's directly related to fou or these patches. I suppose
+> there may be some subtle interactions with BQL or something like that.
+> I'd probably want to repro this on some other devices at some point to
+> dig deeper.
+>
+>>>    Baseline (no encp, TSO and LRO enabled)
+>>>       TCP_STREAM
+>>>         11.85% TX CPU utilization
+>>>         15.13% RX CPU utilization
+>>>         9452 Mbps
+>>
+>> I would strongly recommend to have a far better baseline when
+>> developing and testing these changes in the stack in the form of 40Gbs
+>> NICs.
+>>
+> The only point of putting the baseline was to show that encapsulation
+> with GSO/GRO/checksum-unnec-conversion is in the ballpark of
+> performance with native traffic which was a goal.
 
-Here is a stack trace of an order:1 failure:
- kswapd0: page allocation failure. order:1, mode:0x20
- Pid: 273, comm: kswapd0 Not tainted 2.6.32-400.11.1.el5uek #1
- Call Trace:
-  <IRQ>  [<ffffffff810ddf74>] __alloc_pages_nodemask+0x524/0x595
-  [<ffffffff8110da3f>] kmem_getpages+0x4f/0xf4
-  [<ffffffff8110dc3c>] fallback_alloc+0x158/0x1ce
-  [<ffffffff8110ddd3>] ____cache_alloc_node+0x121/0x134
-  [<ffffffff8110e3f3>] kmem_cache_alloc_node_notrace+0x84/0xb9
-  [<ffffffff8110e46e>] __kmalloc_node+0x46/0x73
-  [<ffffffff813b9aa8>] ? __alloc_skb+0x72/0x13d
-  [<ffffffff813b9aa8>] __alloc_skb+0x72/0x13d
-  [<ffffffff813b9bdb>] alloc_skb+0x13/0x15
-  [<ffffffff813b9f11>] dev_alloc_skb+0x1b/0x38
-  [<ffffffffa029e722>] ipoib_cm_alloc_rx_skb+0x31/0x1de [ib_ipoib]
-  [<ffffffffa029fd04>] ipoib_cm_handle_rx_wc+0x3a1/0x5b8 [ib_ipoib]
-  [<ffffffffa0191bdc>] ? mlx4_ib_free_srq_wqe+0x27/0x54 [mlx4_ib]
-  [<ffffffffa01894d4>] ? mlx4_ib_poll_cq+0x620/0x65e [mlx4_ib]
-  [<ffffffff813b9015>] ? __kfree_skb+0x79/0x7e
-  [<ffffffffa029e9f7>] ? netif_tx_lock+0x44/0x71 [ib_ipoib]
-  [<ffffffffa029ae97>] ipoib_poll+0x87/0x128 [ib_ipoib]
-  [<ffffffff813c4b69>] net_rx_action+0xc6/0x1cd
-  [<ffffffff8105e8cd>] __do_softirq+0xd7/0x19e
-  [<ffffffff810aefdc>] ? handle_IRQ_event+0x66/0x120
-  [<ffffffff81012eec>] call_softirq+0x1c/0x30
-  [<ffffffff81014695>] do_softirq+0x46/0x89
-  [<ffffffff8105e752>] irq_exit+0x3b/0x7a
-  [<ffffffff8145bea1>] do_IRQ+0x99/0xb0
-  [<ffffffff81012713>] ret_from_intr+0x0/0x11
-  <EOI>  [<ffffffff812379a3>] ? radix_tree_delete+0x8f/0x194
-  [<ffffffffa03693b3>] ? __nfs_access_zap_cache+0x75/0xb0 [nfs]
-  [<ffffffff81207d05>] ? ima_inode_free+0x35/0x55
-  [<ffffffff8112fd9c>] ? __destroy_inode+0x26/0x66
-  [<ffffffff8112fdf2>] ? destroy_inode+0x16/0x44
-  [<ffffffff81130074>] ? dispose_list+0xb2/0xe1
-  [<ffffffff81130251>] ? shrink_icache_memory+0x1ae/0x1e0
-  [<ffffffff810e3f83>] ? shrink_slab+0xe1/0x153
-  [<ffffffff810e5063>] ? kswapd+0x3dd/0x516
-  [<ffffffff810e26f3>] ? isolate_pages_global+0x0/0x1ba
-  [<ffffffff810432be>] ? need_resched+0x23/0x2d
-  [<ffffffff81077030>] ? autoremove_wake_function+0x0/0x3d
-  [<ffffffff810e4c86>] ? kswapd+0x0/0x516
-  [<ffffffff81076c87>] ? kthread+0x6e/0x76
-  [<ffffffff81012dea>] ? child_rip+0xa/0x20
-  [<ffffffff81076c19>] ? kthread+0x0/0x76
-  [<ffffffff81012de0>] ? child_rip+0x0/0x20
+under (over...) 10Gbs, in the ballpark indeed.
 
-Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
----
- drivers/infiniband/ulp/ipoib/ipoib.h      | 11 +++++++++--
- drivers/infiniband/ulp/ipoib/ipoib_cm.c   | 21 +++++++++++++--------
- drivers/infiniband/ulp/ipoib/ipoib_main.c |  7 ++++++-
- 3 files changed, 28 insertions(+), 11 deletions(-)
+We know nothing what would happen with baseline of 38Gbs (SB 40Gbs
+NIC) 56Gbs (two bonded ports of 40Gbs NIC on PCIe gen3) or 100Gbs
+(tomorrow's NIC HW, probably coming up next year)
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib.h b/drivers/infiniband/ulp/ipoib/ipoib.h
-index 3edce61..e0b5a63 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib.h
-+++ b/drivers/infiniband/ulp/ipoib/ipoib.h
-@@ -61,6 +61,11 @@ enum ipoib_flush_level {
- 	IPOIB_FLUSH_HEAVY
- };
- 
-+/* 12 bytes added to align the IP header to a multiple of 16 bytes
-+ * after IPoIB adds 4 byte header.
-+ */
-+#define	IPOIB_CM_HEAD_SIZE SKB_MAX_HEAD(NET_SKB_PAD + 12)
-+
- enum {
- 	IPOIB_ENCAP_LEN		  = 4,
- 
-@@ -69,8 +74,8 @@ enum {
- 
- 	IPOIB_CM_MTU		  = 0x10000 - 0x10, /* padding to align header to 16 */
- 	IPOIB_CM_BUF_SIZE	  = IPOIB_CM_MTU  + IPOIB_ENCAP_LEN,
--	IPOIB_CM_HEAD_SIZE	  = IPOIB_CM_BUF_SIZE % PAGE_SIZE,
--	IPOIB_CM_RX_SG		  = ALIGN(IPOIB_CM_BUF_SIZE, PAGE_SIZE) / PAGE_SIZE,
-+	/* +1 to accommodate residual data in the last SG element */
-+	IPOIB_CM_RX_SG	    = ALIGN(IPOIB_CM_BUF_SIZE, PAGE_SIZE)/PAGE_SIZE + 1,
- 	IPOIB_RX_RING_SIZE	  = 256,
- 	IPOIB_TX_RING_SIZE	  = 128,
- 	IPOIB_MAX_QUEUE_SIZE	  = 8192,
-@@ -543,6 +548,8 @@ int ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca);
- /* We don't support UC connections at the moment */
- #define IPOIB_CM_SUPPORTED(ha)   (ha[0] & (IPOIB_FLAGS_RC))
- 
-+extern int ipoib_cm_rx_sg;
-+
- #ifdef CONFIG_INFINIBAND_IPOIB_CM
- 
- extern int ipoib_max_conn_qp;
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_cm.c b/drivers/infiniband/ulp/ipoib/ipoib_cm.c
-index 933efce..0b5154f6 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_cm.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_cm.c
-@@ -122,13 +122,13 @@ static int ipoib_cm_post_receive_nonsrq(struct net_device *dev,
- 
- 	wr->wr_id = id | IPOIB_OP_CM | IPOIB_OP_RECV;
- 
--	for (i = 0; i < IPOIB_CM_RX_SG; ++i)
-+	for (i = 0; i < ipoib_cm_rx_sg; ++i)
- 		sge[i].addr = rx->rx_ring[id].mapping[i];
- 
- 	ret = ib_post_recv(rx->qp, wr, &bad_wr);
- 	if (unlikely(ret)) {
- 		ipoib_warn(priv, "post recv failed for buf %d (%d)\n", id, ret);
--		ipoib_cm_dma_unmap_rx(priv, IPOIB_CM_RX_SG - 1,
-+		ipoib_cm_dma_unmap_rx(priv, ipoib_cm_rx_sg - 1,
- 				      rx->rx_ring[id].mapping);
- 		dev_kfree_skb_any(rx->rx_ring[id].skb);
- 		rx->rx_ring[id].skb = NULL;
-@@ -199,7 +199,7 @@ static void ipoib_cm_free_rx_ring(struct net_device *dev,
- 
- 	for (i = 0; i < ipoib_recvq_size; ++i)
- 		if (rx_ring[i].skb) {
--			ipoib_cm_dma_unmap_rx(priv, IPOIB_CM_RX_SG - 1,
-+			ipoib_cm_dma_unmap_rx(priv, ipoib_cm_rx_sg - 1,
- 					      rx_ring[i].mapping);
- 			dev_kfree_skb_any(rx_ring[i].skb);
- 		}
-@@ -263,7 +263,7 @@ static struct ib_qp *ipoib_cm_create_rx_qp(struct net_device *dev,
- 
- 	if (!ipoib_cm_has_srq(dev)) {
- 		attr.cap.max_recv_wr  = ipoib_recvq_size;
--		attr.cap.max_recv_sge = IPOIB_CM_RX_SG;
-+		attr.cap.max_recv_sge = ipoib_cm_rx_sg;
- 	}
- 
- 	return ib_create_qp(priv->pd, &attr);
-@@ -382,7 +382,8 @@ static int ipoib_cm_nonsrq_init_rx(struct net_device *dev, struct ib_cm_id *cm_i
- 	spin_unlock_irq(&priv->lock);
- 
- 	for (i = 0; i < ipoib_recvq_size; ++i) {
--		if (!ipoib_cm_alloc_rx_skb(dev, rx->rx_ring, i, IPOIB_CM_RX_SG - 1,
-+		if (!ipoib_cm_alloc_rx_skb(dev, rx->rx_ring, i,
-+					   ipoib_cm_rx_sg - 1,
- 					   rx->rx_ring[i].mapping,
- 					   GFP_KERNEL)) {
- 			ipoib_warn(priv, "failed to allocate receive buffer %d\n", i);
-@@ -1553,16 +1554,20 @@ int ipoib_cm_dev_init(struct net_device *dev)
- 
- 	ipoib_dbg(priv, "max_srq_sge=%d\n", attr.max_srq_sge);
- 
--	attr.max_srq_sge = min_t(int, IPOIB_CM_RX_SG, attr.max_srq_sge);
-+	attr.max_srq_sge = min_t(int, ipoib_cm_rx_sg, attr.max_srq_sge);
- 	ipoib_cm_create_srq(dev, attr.max_srq_sge);
- 	if (ipoib_cm_has_srq(dev)) {
--		priv->cm.max_cm_mtu = attr.max_srq_sge * PAGE_SIZE - 0x10;
-+		int no_skb_frags = attr.max_srq_sge - 1;
-+		u32 maxmtu;
-+
-+		maxmtu = no_skb_frags * PAGE_SIZE + IPOIB_CM_HEAD_SIZE - 0x10;
-+		priv->cm.max_cm_mtu = min_t(int, maxmtu, IPOIB_CM_MTU);
- 		priv->cm.num_frags  = attr.max_srq_sge;
- 		ipoib_dbg(priv, "max_cm_mtu = 0x%x, num_frags=%d\n",
- 			  priv->cm.max_cm_mtu, priv->cm.num_frags);
- 	} else {
- 		priv->cm.max_cm_mtu = IPOIB_CM_MTU;
--		priv->cm.num_frags  = IPOIB_CM_RX_SG;
-+		priv->cm.num_frags  = ipoib_cm_rx_sg;
- 	}
- 
- 	ipoib_cm_init_rx_wr(dev, &priv->cm.rx_wr, priv->cm.rx_sge);
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index 1310acf..50fb941 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -73,6 +73,8 @@ module_param_named(debug_level, ipoib_debug_level, int, 0644);
- MODULE_PARM_DESC(debug_level, "Enable debug tracing if > 0");
- #endif
- 
-+int	ipoib_cm_rx_sg;
-+
- struct ipoib_path_iter {
- 	struct net_device *dev;
- 	struct ipoib_path  path;
-@@ -1257,7 +1259,6 @@ static void ipoib_neigh_hash_uninit(struct net_device *dev)
- 	wait_for_completion(&priv->ntbl.deleted);
- }
- 
--
- int ipoib_dev_init(struct net_device *dev, struct ib_device *ca, int port)
- {
- 	struct ipoib_dev_priv *priv = netdev_priv(dev);
-@@ -1719,6 +1720,10 @@ static void ipoib_remove_one(struct ib_device *device)
- static int __init ipoib_init_module(void)
- {
- 	int ret;
-+	int ipoib_cm_sg_len;
-+
-+	ipoib_cm_sg_len = IPOIB_CM_BUF_SIZE - IPOIB_CM_HEAD_SIZE;
-+	ipoib_cm_rx_sg = ALIGN(ipoib_cm_sg_len, PAGE_SIZE)/PAGE_SIZE + 1;
- 
- 	ipoib_recvq_size = roundup_pow_of_two(ipoib_recvq_size);
- 	ipoib_recvq_size = min(ipoib_recvq_size, IPOIB_MAX_QUEUE_SIZE);
--- 
-1.8.2.1
+> So I'm pretty happy
+> with this performance right now, although it probably does mean remote
+> checksum offload won't show so impressive results with this test (TX
+> csum with data in case isn't so expensive).
+> Out of curiosity, why do you think using 40Gbs is far better for a baseline?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Oh, simply b/c with 40Gbs NICs, the baseline I expect for few sessions
+(1,2,4 or 200 as you did) of plain TCP is four times better vs. your
+current one (38Gbs vs 9.5Gbs) and this should pose a harder challenge
+for the GSO/encapsulating stack to catch up with, agree?
+
+Or.
