@@ -1,115 +1,374 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 0/5] udp: Generalize GSO for UDP tunnels
-Date: Sat, 27 Sep 2014 22:26:36 +0300
-Message-ID: <CAJ3xEMi5V0ijSVmga0chTFF1ghUaGs7h9PGfYGb10ZdyPcs5_A@mail.gmail.com>
-References: <1411748554-7346-1-git-send-email-therbert@google.com>
-	<CAJ3xEMjVx6-XK9Eb2akLHei_43pw10rnHM-zXrOD7pzoXuXaRg@mail.gmail.com>
-	<CA+mtBx-0ov5W_xVsgEJsw7o=A9CYSq6ZC_C34=MMsUxgzJWp_g@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 9/11 V2 NEXT] rtlwifi: rtl8188ee: Update driver to match
+ Realtek release of 06282014
+Date: Sat, 27 Sep 2014 21:49:39 +0200
+Message-ID: <20140927194939.GA28553@electric-eye.fr.zoreil.com>
+References: <1411836726-12699-1-git-send-email-Larry.Finger@lwfinger.net>
+ <1411836726-12699-2-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	troy_tan@realsil.com.cn, netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:57101 "EHLO
-	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751267AbaI0T0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 15:26:36 -0400
-Received: by mail-oi0-f54.google.com with SMTP id a3so11298954oib.27
-        for <netdev@vger.kernel.org>; Sat, 27 Sep 2014 12:26:36 -0700 (PDT)
-In-Reply-To: <CA+mtBx-0ov5W_xVsgEJsw7o=A9CYSq6ZC_C34=MMsUxgzJWp_g@mail.gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:49861 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751613AbaI0TuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 15:50:06 -0400
+Content-Disposition: inline
+In-Reply-To: <1411836726-12699-2-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 27, 2014 at 2:04 AM, Tom Herbert <therbert@google.com> wrote:
-> On Fri, Sep 26, 2014 at 1:16 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->> On Fri, Sep 26, 2014 at 7:22 PM, Tom Herbert <therbert@google.com> wrote:
->> [...]
->>> Notes:
->>>   - GSO for GRE/UDP where GRE checksum is enabled does not work.
->>>     Handling this will require some special case code.
->>>   - Software GSO now supports many varieties of encapsulation with
->>>     SKB_GSO_UDP_TUNNEL{_CSUM}. We still need a mechanism to query
->>>     for device support of particular combinations (I intend to
->>>     add ndo_gso_check for that).
->>
->> Tom,
->>
->> As I wrote you earlier on another thread/s, fact is that there are
->> upstream drivers who advertize SKB_GSO_UDP_TUNNEL and aren't capable @
->> this point to issue proper HW segmentation of something which isn't
->> VXLAN.
->>
->> Just to make sure, this series isn't expected to introduce a
->> regression, right? we don't expect the stack to attempt and xmit a
->> large 64KB UDP packet which isn't vxlan through these devices.
 
-> I am planning to post ndo_gso_check shortly. These patches should not
-> cause a regression with currently deployed functionality (VXLAN).
+Larry Finger <Larry.Finger@lwfinger.net> :
+[...]
+> diff --git a/drivers/net/wireless/rtlwifi/core.c b/drivers/net/wireless/rtlwifi/core.c
+> index 40738e3..d30f416 100644
+> --- a/drivers/net/wireless/rtlwifi/core.c
+> +++ b/drivers/net/wireless/rtlwifi/core.c
+> @@ -28,6 +28,7 @@
+>  #include "cam.h"
+>  #include "base.h"
+>  #include "ps.h"
+> +#include "pwrseqcmd.h"
+>  
+>  #include "btcoexist/rtl_btc.h"
+>  #include <linux/firmware.h>
+> @@ -1700,3 +1701,100 @@ const struct ieee80211_ops rtl_ops = {
+>  };
+>  EXPORT_SYMBOL_GPL(rtl_ops);
+>  
+> +/*	Description:
+> + *		This routine deals with the Power Configuration CMD
+> + *		 parsing for RTL8723/RTL8188E Series IC.
+> + *	Assumption:
+> + *		We should follow specific format that was released from HW SD.
 
-Can you sum up (please) in 1-2 liner what is the trick to avoid such
-regression? that is what/where is the knob that would prevent such
-giant chunk to be sent down to a NIC driver which does advertize
-SKB_GSO_UDP_TUNNEL?
+"released" is a bit misleading if it does not mean "publicly released".
 
+> + */
+> +bool rtl_hal_pwrseqcmdparsing(struct rtl_priv *rtlpriv, u8 cut_version,
+> +			      u8 faversion, u8 interface_type,
+> +			      struct wlan_pwr_cfg pwrcfgcmd[])
+> +{
+> +	struct wlan_pwr_cfg cfg_cmd = {0};
+> +	bool polling_bit = false;
+> +	u32 ary_idx = 0;
 
->>>   - MPLS seems to be the only previous user of inner_protocol. I don't
->>>     believe these patches can affect that. For supporting GSO with
->>>     MPLS over UDP, the inner_protocol should be set using the
->>>     helper functions in this patch.
->>>   - GSO for L2TP/UDP should also be straightforward now.
->>
->>> Tested GRE, IPIP, and SIT over fou as well as VLXAN. This was
->>> done using 200 TCP_STREAMs in netperf.
->> [...]
->>>    VXLAN
->>>       TCP_STREAM TSO enabled on tun interface
->>>         16.42% TX CPU utilization
->>>         23.66% RX CPU utilization
->>>         9081 Mbps
->>>       TCP_STREAM TSO disabled on tun interface
->>>         30.32% TX CPU utilization
->>>         30.55% RX CPU utilization
->>>         9185 Mbps
->>
->> so TSO disabled has better BW vs TSO enabled?
->>
-> Yes, I've noticed that on occasion, it does seem like TSO disabled
-> tends to get a little more throughput. I see this with plain GRE, so I
-> don't think it's directly related to fou or these patches. I suppose
-> there may be some subtle interactions with BQL or something like that.
-> I'd probably want to repro this on some other devices at some point to
-> dig deeper.
->
->>>    Baseline (no encp, TSO and LRO enabled)
->>>       TCP_STREAM
->>>         11.85% TX CPU utilization
->>>         15.13% RX CPU utilization
->>>         9452 Mbps
->>
->> I would strongly recommend to have a far better baseline when
->> developing and testing these changes in the stack in the form of 40Gbs
->> NICs.
->>
-> The only point of putting the baseline was to show that encapsulation
-> with GSO/GRO/checksum-unnec-conversion is in the ballpark of
-> performance with native traffic which was a goal.
+	u32 i;
 
-under (over...) 10Gbs, in the ballpark indeed.
+> +	u8 value = 0;
+> +	u32 offset = 0;
 
-We know nothing what would happen with baseline of 38Gbs (SB 40Gbs
-NIC) 56Gbs (two bonded ports of 40Gbs NIC on PCIe gen3) or 100Gbs
-(tomorrow's NIC HW, probably coming up next year)
+Useless init.
 
-> So I'm pretty happy
-> with this performance right now, although it probably does mean remote
-> checksum offload won't show so impressive results with this test (TX
-> csum with data in case isn't so expensive).
-> Out of curiosity, why do you think using 40Gbs is far better for a baseline?
+> +	u32 polling_count = 0;
 
-Oh, simply b/c with 40Gbs NICs, the baseline I expect for few sessions
-(1,2,4 or 200 as you did) of plain TCP is four times better vs. your
-current one (38Gbs vs 9.5Gbs) and this should pose a harder challenge
-for the GSO/encapsulating stack to catch up with, agree?
+Wrong scope.
 
-Or.
+> +	u32 max_polling_cnt = 5000;
+
+Inverted xmas tree for declaration.
+
+> +
+> +	do {
+
+	while (1) {
+
+> +		cfg_cmd = pwrcfgcmd[ary_idx];
+> +		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
+> +			 "rtl_hal_pwrseqcmdparsing(): offset(%#x),cut_msk(%#x), famsk(%#x), interface_msk(%#x), base(%#x), cmd(%#x), msk(%#x), value(%#x)\n",
+                                                                ^^^ missing space
+
+> +			 GET_PWR_CFG_OFFSET(cfg_cmd),
+> +					    GET_PWR_CFG_CUT_MASK(cfg_cmd),
+> +			 GET_PWR_CFG_FAB_MASK(cfg_cmd),
+> +					      GET_PWR_CFG_INTF_MASK(cfg_cmd),
+> +			 GET_PWR_CFG_BASE(cfg_cmd), GET_PWR_CFG_CMD(cfg_cmd),
+> +			 GET_PWR_CFG_MASK(cfg_cmd), GET_PWR_CFG_VALUE(cfg_cmd));
+> +
+> +		if ((GET_PWR_CFG_FAB_MASK(cfg_cmd)&faversion) &&
+> +		    (GET_PWR_CFG_CUT_MASK(cfg_cmd)&cut_version) &&
+                                                 ^^^ missing spaces
+
+> +		    (GET_PWR_CFG_INTF_MASK(cfg_cmd)&interface_type)) {
+> +			switch (GET_PWR_CFG_CMD(cfg_cmd)) {
+> +			case PWR_CMD_READ:
+> +				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
+> +					"rtl_hal_pwrseqcmdparsing(): PWR_CMD_READ\n");
+
+It should line up after the parenthesis.
+
+> +				break;
+> +			case PWR_CMD_WRITE:
+> +				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
+> +					"rtl_hal_pwrseqcmdparsing(): PWR_CMD_WRITE\n");
+> +				offset = GET_PWR_CFG_OFFSET(cfg_cmd);
+> +
+> +				/*Read the value from system register*/
+> +				value = rtl_read_byte(rtlpriv, offset);
+> +				value &= (~(GET_PWR_CFG_MASK(cfg_cmd)));
+
+Excess parenthsis.
+
+> +				value |= (GET_PWR_CFG_VALUE(cfg_cmd) &
+> +					  GET_PWR_CFG_MASK(cfg_cmd));
+
+Excess parenthsis.
+
+> +
+> +				/*Write the value back to sytem register*/
+> +				rtl_write_byte(rtlpriv, offset, value);
+> +				break;
+> +			case PWR_CMD_POLLING:
+> +				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
+> +					"rtl_hal_pwrseqcmdparsing(): PWR_CMD_POLLING\n");
+
+It should line up after the parenthesis.
+
+> +				polling_bit = false;
+> +				offset = GET_PWR_CFG_OFFSET(cfg_cmd);
+> +
+> +				do {
+> +					value = rtl_read_byte(rtlpriv, offset);
+> +
+> +					value &= GET_PWR_CFG_MASK(cfg_cmd);
+> +					if (value ==
+> +					    (GET_PWR_CFG_VALUE(cfg_cmd) &
+> +					     GET_PWR_CFG_MASK(cfg_cmd)))
+> +						polling_bit = true;
+> +					else
+> +						udelay(10);
+> +
+> +					if (polling_count++ > max_polling_cnt)
+> +						return false;
+> +				} while (!polling_bit);
+
+Simple "for" loop in disguise.
+
+An helper function may help.
+
+Imnsho the whole do { more, more, more } while (1) concept is broken.
+
+[...]
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/def.h b/drivers/net/wireless/rtlwifi/rtl8188ee/def.h
+> index c764fff..d9ea9d0 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8188ee/def.h
+> +++ b/drivers/net/wireless/rtlwifi/rtl8188ee/def.h
+[...]
+> @@ -225,44 +218,37 @@ enum power_polocy_config {
+>  };
+>  
+>  enum interface_select_pci {
+> -	INTF_SEL1_MINICARD,
+> -	INTF_SEL0_PCIE,
+> -	INTF_SEL2_RSV,
+> -	INTF_SEL3_RSV,
+> +	INTF_SEL1_MINICARD = 0,
+> +	INTF_SEL0_PCIE = 1,
+> +	INTF_SEL2_RSV = 2,
+> +	INTF_SEL3_RSV = 3,
+
+Please use tabs to line things up.
+
+[...]
+> +	HAL_FW_C2H_CMD_READ_MACREG = 0,
+> +	HAL_FW_C2H_CMD_READ_BBREG = 1,
+> +	HAL_FW_C2H_CMD_READ_RFREG = 2,
+> +	HAL_FW_C2H_CMD_READ_EEPROM = 3,
+> +	HAL_FW_C2H_CMD_READ_EFUSE = 4,
+
+See above.
+
+[...]
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/dm.c b/drivers/net/wireless/rtlwifi/rtl8188ee/dm.c
+> index f8daa61..2aa34d9 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8188ee/dm.c
+> +++ b/drivers/net/wireless/rtlwifi/rtl8188ee/dm.c
+[...]
+> -			rtl_set_bbreg(hw, ROFDM0_XATXIQIMBAL, MASKDWORD,
+> -				      value32);
+> +			rtl_set_bbreg(hw, ROFDM0_XATXIQIMBALANCE,
+> +				      MASKDWORD, value32);
+
+It lacks of consistency, see the *NICE* marker below.
+
+>  			value32 = (ele_c & 0x000003C0) >> 6;
+> -			rtl_set_bbreg(hw, ROFDM0_XCTXAFE, MASKH4BITS, value32);
+> +			rtl_set_bbreg(hw, ROFDM0_XCTXAFE, MASKH4BITS,
+> +				      value32);
+
+?
+
+>  			value32 = ((iqk_result_x * ele_d) >> 7) & 0x01;
+> -			rtl_set_bbreg(hw, ROFDM0_ECCATHRES, BIT(24), value32);
+> +			rtl_set_bbreg(hw, ROFDM0_ECCATHRESHOLD, BIT(24),
+> +				      value32);
+>  			break;
+>  		case RF90_PATH_B:
+>  			value32 = (ele_d << 22)|((ele_c & 0x3F)<<16) | ele_a;
+> -			rtl_set_bbreg(hw, ROFDM0_XBTXIQIMBAL,
+> -				      MASKDWORD, value32);
+> +			rtl_set_bbreg(hw, ROFDM0_XBTXIQIMBALANCE, MASKDWORD,
+> +				      value32);
+
+*NICE*
+
+[...]
+> @@ -210,16 +209,20 @@ static void rtl88e_set_iqk_matrix(struct ieee80211_hw *hw,
+>  	} else {
+>  		switch (rfpath) {
+>  		case RF90_PATH_A:
+> -			rtl_set_bbreg(hw, ROFDM0_XATXIQIMBAL, MASKDWORD,
+> -				      ofdmswing_table[ofdm_index]);
+> -			rtl_set_bbreg(hw, ROFDM0_XCTXAFE, MASKH4BITS, 0x00);
+> -			rtl_set_bbreg(hw, ROFDM0_ECCATHRES, BIT(24), 0x00);
+> +			rtl_set_bbreg(hw, ROFDM0_XATXIQIMBALANCE,
+> +				      MASKDWORD, ofdmswing_table[ofdm_index]);
+> +			rtl_set_bbreg(hw, ROFDM0_XCTXAFE,
+> +				      MASKH4BITS, 0x00);
+
+			rtl_set_bbreg(hw, ROFDM0_XCTXAFE, MASKH4BITS, 0x00);
+
+> +			rtl_set_bbreg(hw, ROFDM0_ECCATHRESHOLD,
+> +				      BIT(24), 0x00);
+
+			rtl_set_bbreg(hw, ROFDM0_ECCATHRESHOLD, BIT(24), 0x00);
+
+>  			break;
+>  		case RF90_PATH_B:
+> -			rtl_set_bbreg(hw, ROFDM0_XBTXIQIMBAL, MASKDWORD,
+> -				      ofdmswing_table[ofdm_index]);
+> -			rtl_set_bbreg(hw, ROFDM0_XDTXAFE, MASKH4BITS, 0x00);
+> -			rtl_set_bbreg(hw, ROFDM0_ECCATHRES, BIT(28), 0x00);
+> +			rtl_set_bbreg(hw, ROFDM0_XBTXIQIMBALANCE,
+> +				      MASKDWORD, ofdmswing_table[ofdm_index]);
+> +			rtl_set_bbreg(hw, ROFDM0_XDTXAFE,
+> +				      MASKH4BITS, 0x00);
+
+			rtl_set_bbreg(hw, ROFDM0_XDTXAFE, MASKH4BITS, 0x00);
+
+> +			rtl_set_bbreg(hw, ROFDM0_ECCATHRESHOLD,
+> +				      BIT(28), 0x00);
+
+			rtl_set_bbreg(hw, ROFDM0_ECCATHRESHOLD, BIT(28), 0x00);
+
+[...]
+> @@ -263,46 +266,75 @@ void rtl88e_dm_txpower_track_adjust(struct ieee80211_hw *hw,
+>  			 (pwr_val << 24);
+>  }
+>  
+> -
+> -static void rtl88e_chk_tx_track(struct ieee80211_hw *hw,
+> -				enum pwr_track_control_method method,
+> -				u8 rfpath, u8 index)
+> +static void dm_tx_pwr_track_set_pwr(struct ieee80211_hw *hw,
+> +				    enum pwr_track_control_method method,
+> +				    u8 rfpath, u8 channel_mapped_index)
+>  {
+>  	struct rtl_priv *rtlpriv = rtl_priv(hw);
+> -	struct rtl_phy *rtlphy = &(rtlpriv->phy);
+> +	struct rtl_phy *rtlphy = &rtlpriv->phy;
+>  	struct rtl_dm *rtldm = rtl_dm(rtl_priv(hw));
+> -	int jj = rtldm->swing_idx_cck;
+> -	int i;
+>  
+>  	if (method == TXAGC) {
+> -		if (rtldm->swing_flag_ofdm == true ||
+> -		    rtldm->swing_flag_cck == true) {
+> -			u8 chan = rtlphy->current_channel;
+> -			rtl88e_phy_set_txpower_level(hw, chan);
+> +		if (rtldm->swing_flag_ofdm ||
+> +		    rtldm->swing_flag_cck) {
+
+Single line.
+
+> +			rtl88e_phy_set_txpower_level(hw,
+> +						     rtlphy->current_channel);
+>  			rtldm->swing_flag_ofdm = false;
+>  			rtldm->swing_flag_cck = false;
+>  		}
+>  	} else if (method == BBSWING) {
+>  		if (!rtldm->cck_inch14) {
+> -			for (i = 0; i < 8; i++)
+> -				rtl_write_byte(rtlpriv, 0xa22 + i,
+> -					       cck_tbl_ch1_13[jj][i]);
+> +			rtl_write_byte(rtlpriv, 0xa22,
+> +				       cck_tbl_ch1_13[rtldm->swing_idx_cck][0]);
+> +			rtl_write_byte(rtlpriv, 0xa23,
+> +				       cck_tbl_ch1_13[rtldm->swing_idx_cck][1]);
+> +			rtl_write_byte(rtlpriv, 0xa24,
+> +				       cck_tbl_ch1_13[rtldm->swing_idx_cck][2]);
+> +			rtl_write_byte(rtlpriv, 0xa25,
+> +				       cck_tbl_ch1_13[rtldm->swing_idx_cck][3]);
+> +			rtl_write_byte(rtlpriv, 0xa26,
+> +				       cck_tbl_ch1_13[rtldm->swing_idx_cck][4]);
+> +			rtl_write_byte(rtlpriv, 0xa27,
+> +				       cck_tbl_ch1_13[rtldm->swing_idx_cck][5]);
+> +			rtl_write_byte(rtlpriv, 0xa28,
+> +				       cck_tbl_ch1_13[rtldm->swing_idx_cck][6]);
+> +			rtl_write_byte(rtlpriv, 0xa29,
+> +				       cck_tbl_ch1_13[rtldm->swing_idx_cck][7]);
+
+?
+
+I hope someone got the "-R" flag of patch wrong.
+
+>  		} else {
+> -			for (i = 0; i < 8; i++)
+> -				rtl_write_byte(rtlpriv, 0xa22 + i,
+> -					       cck_tbl_ch14[jj][i]);
+> +			rtl_write_byte(rtlpriv, 0xa22,
+> +				       cck_tbl_ch14[rtldm->swing_idx_cck][0]);
+> +			rtl_write_byte(rtlpriv, 0xa23,
+> +				       cck_tbl_ch14[rtldm->swing_idx_cck][1]);
+> +			rtl_write_byte(rtlpriv, 0xa24,
+> +				       cck_tbl_ch14[rtldm->swing_idx_cck][2]);
+> +			rtl_write_byte(rtlpriv, 0xa25,
+> +				       cck_tbl_ch14[rtldm->swing_idx_cck][3]);
+> +			rtl_write_byte(rtlpriv, 0xa26,
+> +				       cck_tbl_ch14[rtldm->swing_idx_cck][4]);
+> +			rtl_write_byte(rtlpriv, 0xa27,
+> +				       cck_tbl_ch14[rtldm->swing_idx_cck][5]);
+> +			rtl_write_byte(rtlpriv, 0xa28,
+> +				       cck_tbl_ch14[rtldm->swing_idx_cck][6]);
+> +			rtl_write_byte(rtlpriv, 0xa29,
+> +				       cck_tbl_ch14[rtldm->swing_idx_cck][7]);
+
+Sic.
+
+>  		}
+>  
+>  		if (rfpath == RF90_PATH_A) {
+> -			long x = rtlphy->iqk_matrix[index].value[0][0];
+> -			long y = rtlphy->iqk_matrix[index].value[0][1];
+> -			u8 indx = rtldm->swing_idx_ofdm[rfpath];
+> -			rtl88e_set_iqk_matrix(hw, indx, rfpath, x, y);
+> +			rtl88e_set_iqk_matrix(hw, rtldm->swing_idx_ofdm[rfpath],
+> +					      rfpath, rtlphy->iqk_matrix
+> +					      [channel_mapped_index].
+> +					      value[0][0],
+> +					      rtlphy->iqk_matrix
+> +					      [channel_mapped_index].
+> +					      value[0][1]);
+>  		} else if (rfpath == RF90_PATH_B) {
+> -			u8 indx = rtldm->swing_idx_ofdm[rfpath];
+> -			long x = rtlphy->iqk_matrix[indx].value[0][4];
+> -			long y = rtlphy->iqk_matrix[indx].value[0][5];
+> -			rtl88e_set_iqk_matrix(hw, indx, rfpath, x, y);
+> +			rtl88e_set_iqk_matrix(hw, rtldm->swing_idx_ofdm[rfpath],
+> +					      rfpath, rtlphy->iqk_matrix
+> +					      [channel_mapped_index].
+> +					      value[0][4],
+> +					      rtlphy->iqk_matrix
+> +					      [channel_mapped_index].
+> +					      value[0][5]);
+
+:o(
+
+I stop here. I don't enjoy playing the bad cop and this patch is feeding crap
+into the kernel.
+
+-- 
+Ueimor
