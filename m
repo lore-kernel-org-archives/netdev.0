@@ -1,41 +1,43 @@
-From: Nicholas Krause <yocto6-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] wireless: Remove unnessary write over of register 11 in rt2800lib.c
-Date: Sat, 27 Sep 2014 17:11:41 -0400
-Message-ID: <1411852301-26857-1-git-send-email-yocto6@gmail.com>
-Cc: helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH net-next] net: pktgen: packet bursting via
+ skb->xmit_more
+Date: Sat, 27 Sep 2014 14:30:41 -0700
+Message-ID: <1411853441.15768.13.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1411692382-8898-1-git-send-email-ast@plumgrid.com>
+	 <1411694414.16953.70.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411717322.16953.99.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1411850590.15768.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAJ3xEMhQCf7j48Yn5sjH6jaYYdLQUgOe2hk-OZhhdZ7taOyx+Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:44501 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752274AbaI0Van (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 17:30:43 -0400
+Received: by mail-pd0-f181.google.com with SMTP id z10so993157pdj.26
+        for <netdev@vger.kernel.org>; Sat, 27 Sep 2014 14:30:42 -0700 (PDT)
+In-Reply-To: <CAJ3xEMhQCf7j48Yn5sjH6jaYYdLQUgOe2hk-OZhhdZ7taOyx+Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This removes the unnecessary  overwrite of register 11 in the function,
-rt2800_config_channel as we are already writing a correct value to the
-register with rt2800_rfcsr_write(rt2x00dev,11.rfcsr).
+On Sat, 2014-09-27 at 23:55 +0300, Or Gerlitz wrote:
 
-Signed-off-by: Nicholas Krause <yocto6-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/wireless/rt2x00/rt2800lib.c | 2 --
- 1 file changed, 2 deletions(-)
+> mmm, so the numberz sound good, the comment sounds as the basics are
+> still not fully behind us (so we have where to improve)... any mlx4
+> patch you want to share?
 
-diff --git a/drivers/net/wireless/rt2x00/rt2800lib.c b/drivers/net/wireless/rt2x00/rt2800lib.c
-index 893c9d5..fb0ae38 100644
---- a/drivers/net/wireless/rt2x00/rt2800lib.c
-+++ b/drivers/net/wireless/rt2x00/rt2800lib.c
-@@ -2787,8 +2787,6 @@ static void rt2800_config_channel_rf55xx(struct rt2x00_dev *rt2x00dev,
- 
- 	if (rf->channel <= 14) {
- 		rt2800_rfcsr_write(rt2x00dev, 10, 0x90);
--		/* FIXME: RF11 owerwrite ? */
--		rt2800_rfcsr_write(rt2x00dev, 11, 0x4A);
- 		rt2800_rfcsr_write(rt2x00dev, 12, 0x52);
- 		rt2800_rfcsr_write(rt2x00dev, 13, 0x42);
- 		rt2800_rfcsr_write(rt2x00dev, 22, 0x40);
--- 
-1.9.1
+Sure, I am definitely not playing around on mlx4 a Saturday to throw
+away my work ;)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll send a patch maybe today if I am not too bored.
