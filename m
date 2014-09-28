@@ -1,52 +1,54 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: tc rsvp filter show broke
-Date: Sun, 28 Sep 2014 14:48:18 -0400
-Message-ID: <542857F2.8090100@mojatatu.com>
-References: <5425A545.1040907@gmail.com> <5425ED2D.1000005@mojatatu.com> <5425F5CC.4070507@intel.com> <542823CE.9020301@mojatatu.com> <CAM_iQpXzXHc7o1WOtkNnF+io_WZFP+DP4zWm8PZbwX7SC38=Pw@mail.gmail.com> <54284A51.5080805@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] mlx4: optimize xmit path
+Date: Sun, 28 Sep 2014 11:52:44 -0700
+Message-ID: <1411930364.15768.80.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAMEtUuxwQ8k1wcT8U0VncnVoN=vZjU3zxswgjYPcQTLPw2pRwA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: John Fastabend <john.fastabend@gmail.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:53568 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753470AbaI1SsW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2014 14:48:22 -0400
-Received: by mail-ie0-f176.google.com with SMTP id ar1so17807045iec.7
-        for <netdev@vger.kernel.org>; Sun, 28 Sep 2014 11:48:21 -0700 (PDT)
-In-Reply-To: <54284A51.5080805@gmail.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:49633 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750921AbaI1Swp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2014 14:52:45 -0400
+Received: by mail-pd0-f182.google.com with SMTP id y10so4092924pdj.27
+        for <netdev@vger.kernel.org>; Sun, 28 Sep 2014 11:52:45 -0700 (PDT)
+In-Reply-To: <CAMEtUuxwQ8k1wcT8U0VncnVoN=vZjU3zxswgjYPcQTLPw2pRwA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/28/14 13:50, John Fastabend wrote:
-> On 09/28/2014 10:15 AM, Cong Wang wrote:
+On Sun, 2014-09-28 at 11:07 -0700, Alexei Starovoitov wrote:
 
->                           act->type = exts->type = TCA_OLD_COMPAT;
->                           list_add(&act->list, &exts->actions);
->              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
->
+> this is great improvement!
+> Thank you for leading this effort.
+> 10G line rate is definitely nice :)
+> Hopefully Or can demo similar numbers with 40G nic as well :)
+> 
+> > +       if (ring->bf_enabled && desc_size <= MAX_BF && !bounce &&
+> > +           !vlan_tx_tag_present(skb) && send_doorbell) {
+> 
+> feels something wrong here, since it checks for
+> send_doorbell, but iowrite() happens in the 'else' part
+> of this branch with another 'if (send_doorbell)'
+> 
 
-Right.
+If we do not plan to send a doorbell, we should not use blueframe.
 
-Note, this exts->xx thing we should eventually kill. It was intended to
-allow for old binary compatibility (for about 10 years now).
-In the earlier days, policer was a speacial action and one could invoke
-it directly from "tc filter ....."
-But over time, the more sane way is:
-"tc filter .. action police ..."
-We have killed ability to compile in the kernel policer to support to
-allow old tools to continue to use it at least 5 years ago.
-tc still has support but I doubt if anyone uses it. Otherwise there
-would have been a lot of fallout from
-commit 4bfb21ca2043dc5251102e4debcc0ae27f7304e7 in iproute2.
+Blueframe is always sending a doorbell by design, as it uses a single
+flip buffer.
 
-So if there are any takers for patches, i think the first thing is
-to kill every call in iproute2 which calls police directly.
-And if nobody whines, then get rid of most of exts->XXX (at minimal
-there would be no need for exts->police)
+So if you want to see any improvement thanks to skb->xmit_more, we have
+to use the iowrite32(), not the blueframe.
 
-cheers,
-jamal
+Therefore , if send_doorbell == false, we do not want the doorbell
+
+Is it making sense now ? ;)
