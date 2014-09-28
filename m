@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net_sched: remove the first parameter from
- tcf_exts_destroy()
-Date: Sun, 28 Sep 2014 17:29:40 -0400 (EDT)
-Message-ID: <20140928.172940.2056250540301674323.davem@davemloft.net>
-References: <1411665997-11013-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [RFC PATCH net-next] arp: Do not perturb drop profiles with
+ ignored ARP packets
+Date: Sun, 28 Sep 2014 17:31:07 -0400 (EDT)
+Message-ID: <20140928.173107.901676705768120733.davem@davemloft.net>
+References: <20140925175528.8DFF329004BA@tardy>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org
+To: raj@tardy.usa.hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47691 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47698 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753569AbaI1V3l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2014 17:29:41 -0400
-In-Reply-To: <1411665997-11013-1-git-send-email-xiyou.wangcong@gmail.com>
+	with ESMTP id S1753352AbaI1VbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2014 17:31:09 -0400
+In-Reply-To: <20140925175528.8DFF329004BA@tardy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu, 25 Sep 2014 10:26:37 -0700
+From: raj@tardy.usa.hp.com (Rick Jones)
+Date: Thu, 25 Sep 2014 10:55:28 -0700 (PDT)
 
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> 
+> From: Rick Jones <rick.jones2@hp.com>
+> 
+> We do not wish to disturb dropwatch or perf drop profiles with an ARP
+> we will ignore.
+> 
+> Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
-Applied.
+This is fine, applied, thanks Rick.
