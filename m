@@ -1,37 +1,47 @@
-From: Mike Galbraith <umgwanakikbuti@gmail.com>
-Subject: Re: SKB Documentation Ideas and How to Write Docs for Kernel
-Date: Sun, 28 Sep 2014 08:29:20 +0200
-Message-ID: <1411885760.5137.58.camel@marge.simpson.net>
-References: <542770B8.3000102@gmail.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [rt2x00-users] [PATCH] wireless: Remove unnessary write over of
+ register 11 in rt2800lib.c
+Date: Sun, 28 Sep 2014 09:09:24 +0200
+Message-ID: <20140928070923.GA2087@redhat.com>
+References: <1411852301-26857-1-git-send-email-yocto6@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, edumazet@google.com, mst@redhat.com,
-	therbert@google.com, willemb@google.com, fw@strlen.de,
-	Paul.Durrant@citrix.com, tgraf@suug.ch, vyasevic@redhat.com,
-	herbert@gondor.apana.org.au, JBeulich@suse.com, mszeredi@suse.cz,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: nick <yocto6@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: IvDoorn@gmail.com, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
+	linux-kernel@vger.kernel.org
+To: Nicholas Krause <yocto6@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <542770B8.3000102@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <1411852301-26857-1-git-send-email-yocto6@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2014-09-27 at 22:21 -0400, nick wrote: 
-> Hello to the maintainers of the file,skb.c ,
-> I am wondering about making it easier for new developers including myself by writing a file in the docs on networking
-> related to skb_buff and it's various methods of use to developing in the kernel's various networking subsystems. If one of the maintainers would like to help give me feedback on my writing of these docs this would be helpful and make it 
-> easier for everyone as from my experience skb_buff is one of the most asked about things in the networking lists and
-> would allow people more thing for other work, including the maintainers of lots of the networking code. I understand
-> you guys are very busy so feel free to respond whenever you get free time during the next few weeks.
+On Sat, Sep 27, 2014 at 05:11:41PM -0400, Nicholas Krause wrote:
+> This removes the unnecessary  overwrite of register 11 in the function,
+> rt2800_config_channel as we are already writing a correct value to the
+> register with rt2800_rfcsr_write(rt2x00dev,11.rfcsr).
+What make you sure that overwrite is unnecessary ?
 
-Observation #2, this time public: despite having been told repeatedly
-that this is not the way to help, step #1 in your work flow continues to
-be to pester people to help YOU.  This repeated pattern of attempts by
-you to TAP the community to help YOU really needs to stop.
+> 
+> Signed-off-by: Nicholas Krause <yocto6@gmail.com>
+> ---
+>  drivers/net/wireless/rt2x00/rt2800lib.c | 2 --
+>  1 file changed, 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/rt2x00/rt2800lib.c b/drivers/net/wireless/rt2x00/rt2800lib.c
+> index 893c9d5..fb0ae38 100644
+> --- a/drivers/net/wireless/rt2x00/rt2800lib.c
+> +++ b/drivers/net/wireless/rt2x00/rt2800lib.c
+> @@ -2787,8 +2787,6 @@ static void rt2800_config_channel_rf55xx(struct rt2x00_dev *rt2x00dev,
+>  
+>  	if (rf->channel <= 14) {
+>  		rt2800_rfcsr_write(rt2x00dev, 10, 0x90);
+> -		/* FIXME: RF11 owerwrite ? */
+> -		rt2800_rfcsr_write(rt2x00dev, 11, 0x4A);
+We need a prove that remove is correct, i.e. some reference to 
+vendor code or spec that current writing register twice with
+different values is wrong.
 
-If you want to work on the linux kernel, get off your butt and get to
-work, but whatever you do, STOP trying to engage developers to become
-your private tutors.  This list is NOT about developing Nick Krause.
+NACK for the patch.
 
--Mike
+Stanislaw
