@@ -1,38 +1,53 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [patch iproute2 1/2] add bridge_slave device support
-Date: Sun, 28 Sep 2014 16:09:28 -0700
-Message-ID: <20140928160928.203fe8d3@urahara>
-References: <1409925092-17808-1-git-send-email-jiri@resnulli.us>
-	<1409925309-17881-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH iproute2] ip monitor: Changed 'Unknown message' format
+ to be more informative
+Date: Sun, 28 Sep 2014 16:15:51 -0700
+Message-ID: <20140928161551.32f0034b@urahara>
+References: <1410891830-4556-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	sfeldma@cumulusnetworks.com, arvid.brodin@alten.se,
-	sucheta.chakraborty@qlogic.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:41041 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752723AbaI1XJk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2014 19:09:40 -0400
-Received: by mail-pa0-f44.google.com with SMTP id et14so1517241pad.31
-        for <netdev@vger.kernel.org>; Sun, 28 Sep 2014 16:09:39 -0700 (PDT)
-In-Reply-To: <1409925309-17881-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:63270 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751985AbaI1XQH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2014 19:16:07 -0400
+Received: by mail-pd0-f176.google.com with SMTP id fp1so3043572pdb.35
+        for <netdev@vger.kernel.org>; Sun, 28 Sep 2014 16:16:07 -0700 (PDT)
+In-Reply-To: <1410891830-4556-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  5 Sep 2014 15:55:08 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
+On Tue, 16 Sep 2014 21:23:50 +0300
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-> Note this depends on "iproute2: allow to change slave options via
-> type_slave"
+> In case if unknown message was handled then it will be displayed as:
 > 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>     Unknown message: type=0x00000044(68) flags=0x00000000(0) len=0x0000004c(76)
+> 
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 > ---
->  ip/Makefile              |   3 +-
->  ip/iplink_bridge_slave.c | 181 +++++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 183 insertions(+), 1 deletion(-)
->  create mode 100644 ip/iplink_bridge_slave.c
+>  ip/ipmonitor.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
+> index 70f2a7a..838934d 100644
+> --- a/ip/ipmonitor.c
+> +++ b/ip/ipmonitor.c
+> @@ -135,8 +135,10 @@ static int accept_msg(const struct sockaddr_nl *who,
+>  		return 0;
+>  	if (n->nlmsg_type != NLMSG_ERROR && n->nlmsg_type != NLMSG_NOOP &&
+>  	    n->nlmsg_type != NLMSG_DONE) {
+> -		fprintf(fp, "Unknown message: %08x %08x %08x\n",
+> -			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
+> +		fprintf(fp, "Unknown message: type=0x%08x(%d) flags=0x%08x(%d)"
+> +			"len=0x%08x(%d)\n", n->nlmsg_type, n->nlmsg_type,
+> +		       	n->nlmsg_flags, n->nlmsg_flags, n->nlmsg_len,
+> +		       	n->nlmsg_len);
+>  	}
+>  	return 0;
+>  }
 
-Both applied
+Patch is formatted improperly, it should be indented only with tabs.
