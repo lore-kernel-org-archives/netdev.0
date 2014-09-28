@@ -1,7 +1,7 @@
 From: Luwei Zhou <b45643@freescale.com>
-Subject: [PATCH v2 1/4] net: fec: ptp: Use the 31-bit ptp timer.
-Date: Sun, 28 Sep 2014 12:20:08 +0800
-Message-ID: <1411878011-21767-2-git-send-email-b45643@freescale.com>
+Subject: [PATCH v2 3/4] ptp: Add PTP_PF_PPS enumeration to ptp_pin_function.
+Date: Sun, 28 Sep 2014 12:20:10 +0800
+Message-ID: <1411878011-21767-4-git-send-email-b45643@freescale.com>
 References: <1411878011-21767-1-git-send-email-b45643@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,57 +11,83 @@ Cc: <netdev@vger.kernel.org>, <shawn.guo@linaro.org>,
 	<stephen@networkplumber.org>
 To: <davem@davemloft.net>, <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0119.outbound.protection.outlook.com ([157.56.111.119]:61264
+Received: from mail-bn1bn0109.outbound.protection.outlook.com ([157.56.110.109]:27728
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751341AbaI1FZV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Sep 2014 01:25:21 -0400
+	id S1750803AbaI1Fj5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Sep 2014 01:39:57 -0400
 In-Reply-To: <1411878011-21767-1-git-send-email-b45643@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When ptp switches from software adjustment to hardware ajustment, linux ptp can't converge.
-It is caused by the IP limit. Hardware adjustment logcial have issue when ptp counter
-runs over 0x80000000(31 bit counter). The internal IP reference manual already remove 32bit
-free-running count support. This patch replace the 32-bit PTP timer with 31-bit.
+PTP_PIN_SET/GETFUNC interface can be used to specify the channel index
+when multi-channel timer is used to ouput PPS. Need to add PPS corresponding
+pin function enumeration in the ptp.
 
 Signed-off-by: Luwei Zhou <b45643@freescale.com>
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- drivers/net/ethernet/freescale/fec_ptp.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ drivers/ptp/ptp_chardev.c        | 8 ++++++++
+ include/linux/ptp_clock_kernel.h | 2 ++
+ include/uapi/linux/ptp_clock.h   | 1 +
+ 3 files changed, 11 insertions(+)
 
-diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-index cca3617..8016bdd 100644
---- a/drivers/net/ethernet/freescale/fec_ptp.c
-+++ b/drivers/net/ethernet/freescale/fec_ptp.c
-@@ -70,6 +70,7 @@
- #define FEC_TS_TIMESTAMP	0x418
+diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
+index f8a7609..a746e5a 100644
+--- a/drivers/ptp/ptp_chardev.c
++++ b/drivers/ptp/ptp_chardev.c
+@@ -48,6 +48,10 @@ static int ptp_disable_pinfunc(struct ptp_clock_info *ops,
+ 		break;
+ 	case PTP_PF_PHYSYNC:
+ 		break;
++	case PTP_PF_PPS:
++		rq.type = PTP_CLK_REQ_PPS;
++		err = ops->enable(ops, &rq, 0);
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -85,6 +89,10 @@ int ptp_set_pinfunc(struct ptp_clock *ptp, unsigned int pin,
+ 		if (chan >= info->n_per_out)
+ 			return -EINVAL;
+ 		break;
++	case PTP_PF_PPS:
++		if (chan >= info->n_pps_chan)
++			return -EINVAL;
++		break;
+ 	case PTP_PF_PHYSYNC:
+ 		if (chan != 0)
+ 			return -EINVAL;
+diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
+index 0d8ff3f..2a5ad1c 100644
+--- a/include/linux/ptp_clock_kernel.h
++++ b/include/linux/ptp_clock_kernel.h
+@@ -49,6 +49,7 @@ struct ptp_clock_request {
+  * @n_alarm:   The number of programmable alarms.
+  * @n_ext_ts:  The number of external time stamp channels.
+  * @n_per_out: The number of programmable periodic signals.
++ * @n_pps_chan: The number of programmable channles for pps output.
+  * @n_pins:    The number of programmable pins.
+  * @pps:       Indicates whether the clock supports a PPS callback.
+  * @pin_config: Array of length 'n_pins'. If the number of
+@@ -99,6 +100,7 @@ struct ptp_clock_info {
+ 	int n_alarm;
+ 	int n_ext_ts;
+ 	int n_per_out;
++	int n_pps_chan;
+ 	int n_pins;
+ 	int pps;
+ 	struct ptp_pin_desc *pin_config;
+diff --git a/include/uapi/linux/ptp_clock.h b/include/uapi/linux/ptp_clock.h
+index f0b7bfe..57ba7e7 100644
+--- a/include/uapi/linux/ptp_clock.h
++++ b/include/uapi/linux/ptp_clock.h
+@@ -86,6 +86,7 @@ enum ptp_pin_function {
+ 	PTP_PF_EXTTS,
+ 	PTP_PF_PEROUT,
+ 	PTP_PF_PHYSYNC,
++	PTP_PF_PPS,
+ };
  
- #define FEC_CC_MULT	(1 << 31)
-+#define FEC_COUNTER_PERIOD	(1 << 31)
- /**
-  * fec_ptp_read - read raw cycle counter (to be used by time counter)
-  * @cc: the cyclecounter structure
-@@ -113,14 +114,15 @@ void fec_ptp_start_cyclecounter(struct net_device *ndev)
- 	/* 1ns counter */
- 	writel(inc << FEC_T_INC_OFFSET, fep->hwp + FEC_ATIME_INC);
- 
--	/* use free running count */
--	writel(0, fep->hwp + FEC_ATIME_EVT_PERIOD);
-+	/* use 31-bit timer counter */
-+	writel(FEC_COUNTER_PERIOD, fep->hwp + FEC_ATIME_EVT_PERIOD);
- 
--	writel(FEC_T_CTRL_ENABLE, fep->hwp + FEC_ATIME_CTRL);
-+	writel(FEC_T_CTRL_ENABLE | FEC_T_CTRL_PERIOD_RST,
-+		fep->hwp + FEC_ATIME_CTRL);
- 
- 	memset(&fep->cc, 0, sizeof(fep->cc));
- 	fep->cc.read = fec_ptp_read;
--	fep->cc.mask = CLOCKSOURCE_MASK(32);
-+	fep->cc.mask = CLOCKSOURCE_MASK(31);
- 	fep->cc.shift = 31;
- 	fep->cc.mult = FEC_CC_MULT;
- 
+ struct ptp_pin_desc {
 -- 
 1.9.1
