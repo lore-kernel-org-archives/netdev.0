@@ -1,42 +1,73 @@
-From: Samuel Thibault <samuel.thibault@ens-lyon.org>
-Subject: [PATCH] Fix getsockopt(SO_PEERNAME) buffer size against potential
- future buffer overflow
-Date: Sun, 28 Sep 2014 15:55:45 +0200
-Message-ID: <20140928135545.GA23220@type.youpi.perso.aquilenet.fr>
+From: Itzcak Pechtalt <itzcak@flashnetworks.com>
+Subject: RE: [PATCH net] tcp: Fix TLP implementation in case receive window
+ limits send
+Date: Sun, 28 Sep 2014 14:26:50 +0000
+Message-ID: <3c8ec45dd7454b0cbcd47aabb03be969@AM3PR06MB388.eurprd06.prod.outlook.com>
+References: <6cbd68ba1ef44c5ca4b21bd3f65846af@AM3PR06MB388.eurprd06.prod.outlook.com>
+	<CAK6E8=fQjqXbbbdCVR-yNBif7C7GRBnPNsq11V7QZbqgb7dtwQ@mail.gmail.com>
+	<CAB_+Fg69V2msVt3dr76VrgdYBOivjsRnvwBAuSWpi-v7Jkd+6Q@mail.gmail.com>
+ <CADVnQy=KofBtktTj+ZW6ZzbkoAxdq_Ks8sehdtQNbO00EbvfdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org
-To: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Yuchung Cheng <ycheng@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Neal Cardwell <ncardwell@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0056.outbound.protection.outlook.com ([157.55.234.56]:5866
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754073AbaI1O0y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Sep 2014 10:26:54 -0400
+In-Reply-To: <CADVnQy=KofBtktTj+ZW6ZzbkoAxdq_Ks8sehdtQNbO00EbvfdQ@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In net/core/sock.c's sock_getsockopt, the address buffer size is
-hardcoded to 128. It happens that sizeof(struct sockaddr_storage) is
-indeed 128, but that is just luck and would probably not get updated
-whenever sockaddr_storage would grow. This patch makes it simply use
-sockaddr_storage instead.
-
-Signed-off-by:  Samuel Thibault <samuel.thibault@ens-lyon.org>
-
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1155,13 +1155,13 @@ int sock_getsockopt(struct socket *sock,
- 
- 	case SO_PEERNAME:
- 	{
--		char address[128];
-+		struct sockaddr_storage address;
- 
--		if (sock->ops->getname(sock, (struct sockaddr *)address, &lv, 2))
-+		if (sock->ops->getname(sock, (struct sockaddr *)&address, &lv, 2))
- 			return -ENOTCONN;
- 		if (lv < len)
- 			return -EINVAL;
--		if (copy_to_user(optval, address, len))
-+		if (copy_to_user(optval, &address, len))
- 			return -EFAULT;
- 		goto lenout;
- 	}
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogTmVhbCBDYXJkd2VsbCBb
+bWFpbHRvOm5jYXJkd2VsbEBnb29nbGUuY29tXQ0KPiBTZW50OiBXZWRuZXNkYXksIFNlcHRlbWJl
+ciAyNCwgMjAxNCAxMDoyNSBQTQ0KPiBUbzogTmFuZGl0YSBEdWtraXBhdGkNCj4gQ2M6IFl1Y2h1
+bmcgQ2hlbmc7IEl0emNhayBQZWNodGFsdDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJq
+ZWN0OiBSZTogW1BBVENIIG5ldF0gdGNwOiBGaXggVExQIGltcGxlbWVudGF0aW9uIGluIGNhc2Ug
+cmVjZWl2ZQ0KPiB3aW5kb3cgbGltaXRzIHNlbmQNCj4gDQo+IE9uIFdlZCwgU2VwIDI0LCAyMDE0
+IGF0IDM6MDAgUE0sIE5hbmRpdGEgRHVra2lwYXRpDQo+IDxuYW5kaXRhZEBnb29nbGUuY29tPiB3
+cm90ZToNCj4gPj4gT24gVHVlLCBTZXAgMjMsIDIwMTQgYXQgOToyOCBBTSwgSXR6Y2FrIFBlY2h0
+YWx0DQo+ID4+IDxpdHpjYWtAZmxhc2huZXR3b3Jrcy5jb20+IHdyb3RlOg0KPiA+Pj4gRnJvbTog
+SXR6Y2FrIFBlY2h0YWx0IDxpdHpjYWtAZmxhc2huZXR3b3Jrcy5jb20+DQo+ID4+Pg0KPiA+Pj4g
+VENQIFRhaWwgbG9zcyBwcm9iZSAoVExQKSBhbGdvcml0aG0gaW1wbGVtZW50YXRpb24gaGFzIHNv
+bWUgcHJvYmxlbS4NCj4gPj4+IEFjY29yZGluZyB0byBwYXBlciAoZHJhZnQtZHVra2lwYXRpLXRj
+cG0tdGNwLWxvc3MtcHJvYmUtMCApOg0KPiA+Pj4gSW4gY2FzZSByZWNpdmUgd2luZG93IG9mIHJl
+Y2VpdmVyIGxpbWl0cyBzZW5kIG9mIG5ldyBwYWNrZXQgaW4gcHJvYmUNCj4gPj4+IHRpbWUgdGhh
+biBhIHJldHJhbnNtaXQgb2YgbGFzdCBwYWNrZXQgc2VuZCBzaG91bGQgYmUgZG9uZS4NCj4gPj4+
+DQo+ID4+PiBBY3R1YWxseSwgcmV0dXJuIGNvZGUgZnJvbSB0Y3Bfd3JpdGVfeG1pdCBpcyBub3Qg
+Y2hlY2tlZCBhbmQgb25seQ0KPiA+Pj4gUlRPIGlzIHNjaGVkdWxlZCwgU28sIGl0IHdpbGwgdGFr
+ZSBtb3JlIHRpbWUgZm9yIHJlb3ZlcnkgaW4gdGhpcw0KPiA+Pj4gY2FzZSB0aGFuIHdpdGhvdXQg
+VExQLg0KPiA+Pj4NCj4gPj4+IFNpZ25lZC1vZmYtYnk6IEl0emNhayBQZWNodGFsdCA8aXR6Y2Fr
+QGZsYXNobmV0d29ya3MuY29tPg0KPiA+PiBBY2tlZC1ieTogWXVjaHVuZyBDaGVuZyA8eWNoZW5n
+QGdvb2dsZS5jb20+DQo+ID4gQWNrZWQtYnk6IE5hbmRpdGEgRHVra2lwYXRpIDxuYW5kaXRhZEBn
+b29nbGUuY29tPg0KPiANCj4gQWNrZWQtYnk6IE5lYWwgQ2FyZHdlbGwgPG5jYXJkd2VsbEBnb29n
+bGUuY29tPg0KPiANCj4gQlRXLCBJdHpjYWssIGhhdmUgeW91IGJlZW4gYWJsZSB0byBjb25zdHJ1
+Y3QgYSB0ZXN0IGNhc2Ugd2hlcmUgdGhpcyBwYXRjaA0KPiBub3cgYWxsb3dzIGEgVExQIGluIGEg
+Y2FzZSB3aGVyZSB0aGUgc2VuZGVyIGlzIGxpbWl0ZWQgYnkgdGhlIHJlY2VpdmUNCj4gd2luZG93
+Pw0KPiANCj4gT2Z0ZW4gd2Ugd2lsbCBiZSBwcmV2ZW50ZWQgZnJvbSBkb2luZyBhbnkga2luZCBv
+ZiBUTFAgaWYgd2UgYXJlIGxpbWl0ZWQgYnkNCj4gdGhlIHJlY2VpdmUgd2luZG93LCBkdWUgdG8g
+dGhlc2UgbGluZXMgaW4NCj4gdGNwX3NjaGVkdWxlX2xvc3NfcHJvYmUoKToNCj4gDQo+ICAgaWYg
+KCh0cC0+c25kX2N3bmQgPiB0Y3BfcGFja2V0c19pbl9mbGlnaHQodHApKSAmJg0KPiAgICAgICAg
+dGNwX3NlbmRfaGVhZChzaykpDQo+ICAgICAgICAgICByZXR1cm4gZmFsc2U7DQo+IA0KPiBCdXQg
+dGhlcmUgaXMgc29tZXRoaW5nIGVsc2UgZ29pbmcgb24gYXMgd2VsbCwgc2luY2UgSSBoYXZlbid0
+IGJlZW4gYWJsZSB0bw0KPiBmb3JjZSBhIFRMUCBldmVuIHdoZW4gY3duZCA9PSByd2luID09IHRj
+cF9wYWNrZXRzX2luX2ZsaWdodCgpID09IDEwLiBCdXQgSQ0KPiBoYXZlbid0IGhhZCBtdWNoIHRp
+bWUgdG8gc3BlbmQgb24gaXQuDQo+IA0KPiBuZWFsDQoNClRoZSBzY2VuYXJpbyB3aWxsIGJlICBp
+biBjYXNlIHRoZSBzZW5kZXIgcHJvY2VzcyBjYWxscyAic2VuZCIgcGVyIHBhY2tldCBzaXplIGRh
+dGEsIA0Kc28gd2hlbiB0Y3Bfc2NoZWR1bGVfbG9zc19wcm9iZSAgaXMgY2FsbGVkIHRoZXJlIGlz
+IG5vIGFkZGl0aW9uYWwgZGF0YSANCih0Y3Bfc2VuZF9oZWFkKHNrKSkgcmV0dXJucyBmYWxzZSks
+ICBidXQgZnVydGhlciBjYWxscyB0byBzZW5kIGZhaWwgZHVlIHRvIHJlY2VpdmUgDQp3aW5kb3cg
+bGltaXQgIChUaGUgc2FtZSBpcyByaWdodCBpZiBkYXRhIGJ1bGsgc2l6ZSBlbmRlZCBleGFjdGx5
+IHdpdGggcmVjZWl2ZSANCndpbmRvdyBsaW1pdCkuDQoNCkJ1dCByZWFsbHkgSSBjYW4ndCB1bmRl
+cnN0YW5kIHdoYXQgaXMgdGhlIGdvYWwgb2YgdGhlIGFib3ZlIDMgbGluZXMgb2YgY29kZS4NCklm
+IHNlbmQgd2FzIHN0b3BwZWQgZnJvbSBhbnkgcmVhc29uLCB3aHkgbm90IHNjaGVkdWxlIFRMUCB0
+aW1lcj8NCkFueXdheSBuZXh0IHNlbmQgd2lsbCBjbGVhciB0aGUgdGltZXIgYnkgdGNwX2V2ZW50
+X25ld19kYXRhX3NlbnQgZnVuY3Rpb24uDQoNCldoYXQgaXMgeW91ciBvcGluaW9uIGFib3V0IGFu
+b3RoZXIgcGF0Y2ggdG8gcmVtb3ZlIHRoZXNlIDMgbGluZXMgb2YgY29kZT8NCg0KSXR6Y2FrDQoN
+CiAgDQo=
