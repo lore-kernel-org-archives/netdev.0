@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] ARCNET: add support for EAE multi interfac card
-Date: Sun, 28 Sep 2014 17:01:50 -0400 (EDT)
-Message-ID: <20140928.170150.1279138730834841306.davem@davemloft.net>
-References: <1411566113-15583-1-git-send-email-m.grzeschik@pengutronix.de>
-	<20140928.164421.1247481867383564525.davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/6] net: dsa: EEE and other PM features
+Date: Sun, 28 Sep 2014 17:14:39 -0400 (EDT)
+Message-ID: <20140928.171439.1167671513010469968.davem@davemloft.net>
+References: <1411603522-8384-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@pengutronix.de
-To: m.grzeschik@pengutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140928.164421.1247481867383564525.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47605 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753397AbaI1VOk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2014 17:14:40 -0400
+In-Reply-To: <1411603522-8384-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogU3VuLCAyOCBT
-ZXAgMjAxNCAxNjo0NDoyMSAtMDQwMCAoRURUKQ0KDQo+IEZyb206IE1pY2hhZWwgR3J6ZXNjaGlr
-IDxtLmdyemVzY2hpa0BwZW5ndXRyb25peC5kZT4NCj4gRGF0ZTogV2VkLCAyNCBTZXAgMjAxNCAx
-NTo0MTo0OCArMDIwMA0KPiANCj4+IHRoaXMgc2VyaWVzIGFkZHMgc3VwcG9ydCBmb3IgdGhlIFBM
-WCBCcmlkZ2UgYmFzZWQgbXVsdGkgaW50ZXJmYWNlDQo+PiBwY2kgY2FyZHMgYW5kIGFkZHMgc3Vw
-cG9ydCB0byBjaGFuZ2UgZGV2aWNlIGFkZHJlc3Mgb24gY29tMjAweHggY2hpcHMNCj4+IGR1cmlu
-ZyBydW50aW1lLg0KPj4gDQo+PiBUaGlzIHNlcmllcyBpcyBiYXNlZCBvbiB2My4xNy1yYzYuDQo+
-IA0KPiBTZXJpZXMgYXBwbGllZCB0byBuZXQtbmV4dCwgdGhhbmtzLg0KDQpJIGhhZCB0byByZXZl
-cnQsIHRoaXMgYnJlYWtzIHRoZSBidWlsZDoNCg0KZHJpdmVycy9uZXQvYXJjbmV0L2NvbTIwMDIw
-X2NzLmM6MTE1Ojg6IGVycm9yOiByZWRlZmluaXRpb24gb2YgoXN0cnVjdCBjb20yMDAyMF9kZXai
-DQogc3RydWN0IGNvbTIwMDIwX2RldiB7DQogICAgICAgIF4NCkluIGZpbGUgaW5jbHVkZWQgZnJv
-bSBkcml2ZXJzL25ldC9hcmNuZXQvY29tMjAwMjBfY3MuYzo0MzowOg0KaW5jbHVkZS9saW51eC9j
-b20yMDAyMC5oOjY2Ojg6IG5vdGU6IG9yaWdpbmFsbHkgZGVmaW5lZCBoZXJlDQogc3RydWN0IGNv
-bTIwMDIwX2RldiB7DQogICAgICAgIF4NCm1ha2VbM106ICoqKiBbZHJpdmVycy9uZXQvYXJjbmV0
-L2NvbTIwMDIwX2NzLm9dIEVycm9yIDENCm1ha2VbMl06ICoqKiBbZHJpdmVycy9uZXQvYXJjbmV0
-XSBFcnJvciAyDQptYWtlWzJdOiAqKiogV2FpdGluZyBmb3IgdW5maW5pc2hlZCBqb2JzLi4uLg0K
-bWFrZVsxXTogKioqIFtkcml2ZXJzL25ldF0gRXJyb3IgMg0KbWFrZVsxXTogKioqIFdhaXRpbmcg
-Zm9yIHVuZmluaXNoZWQgam9icy4uLi4NCm1ha2U6ICoqKiBbZHJpdmVyc10gRXJyb3IgMg0K
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Wed, 24 Sep 2014 17:05:16 -0700
+
+> This patch set allows DSA switch drivers to enable/disable/query EEE on a
+> per-port level, as well as control precisely which switch ports are
+> enable/disabled.
+> 
+> I might already be too late for net-next, if that's the case, I will repost
+> when the tree re-opens.
+
+Series applied, thanks Florian.
