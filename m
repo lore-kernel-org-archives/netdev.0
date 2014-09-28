@@ -1,24 +1,58 @@
-From: nick <yocto6@gmail.com>
-Subject: SKB Documentation Ideas and How to Write Docs for Kernel
-Date: Sat, 27 Sep 2014 22:21:44 -0400
-Message-ID: <542770B8.3000102@gmail.com>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH] net: fec: remove memory copy for rx path
+Date: Sun, 28 Sep 2014 03:30:47 +0000
+Message-ID: <65add7b63c4e41e49ef019bd58bbf404@BY2PR03MB377.namprd03.prod.outlook.com>
+References: <20140926.170720.2230061639326332503.davem@davemloft.net>
+	<057807be43ca4c79ad51ab07c668519d@BLUPR03MB373.namprd03.prod.outlook.com>
+	<20140927113937.GA25265@electric-eye.fr.zoreil.com>
+ <20140927.185600.1057301078747765304.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, mst@redhat.com, therbert@google.com,
-	willemb@google.com, fw@strlen.de, Paul.Durrant@citrix.com,
-	tgraf@suug.ch, vyasevic@redhat.com, herbert@gondor.apana.org.au,
-	JBeulich@suse.com, mszeredi@suse.cz, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>,
+	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [207.46.100.128] ([207.46.100.128]:7680 "EHLO
+	na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753493AbaI1Dck convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 23:32:40 -0400
+In-Reply-To: <20140927.185600.1057301078747765304.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello to the maintainers of the file,skb.c ,
-I am wondering about making it easier for new developers including myself by writing a file in the docs on networking
-related to skb_buff and it's various methods of use to developing in the kernel's various networking subsystems. If one of the maintainers would like to help give me feedback on my writing of these docs this would be helpful and make it 
-easier for everyone as from my experience skb_buff is one of the most asked about things in the networking lists and
-would allow people more thing for other work, including the maintainers of lots of the networking code. I understand
-you guys are very busy so feel free to respond whenever you get free time during the next few weeks.
-Thanks Nick 
+From: David Miller <davem@davemloft.net> Sent: Sunday, September 28, 2014 6:56 AM
+>To: romieu@fr.zoreil.com
+>Cc: Duan Fugang-B38611; Li Frank-B20596; netdev@vger.kernel.org;
+>shawn.guo@linaro.org; bhutchings@solarflare.com
+>Subject: Re: [PATCH] net: fec: remove memory copy for rx path
+>
+>From: Francois Romieu <romieu@fr.zoreil.com>
+>Date: Sat, 27 Sep 2014 13:39:37 +0200
+>
+>> fugang.duan@freescale.com <fugang.duan@freescale.com> :
+>>> From: David Miller <davem@davemloft.net> Sent: Saturday, September
+>>> 27, 2014 5:07 AM
+>> [...]
+>>> >We call this rx_copybreak, and there are many drivers you can look
+>>> >at to see how this works.
+>>> >
+>>> >Thanks.
+>>>
+>>> Great suggestion. I will change it for next version.
+>>
+>> Be aware that copybreak module option should be considered legacy.
+>>
+>> There is an ethtool api for it.
+>
+>Right.
+
+Got it, thanks David and romieu. 
+
+Regards,
+Andy
