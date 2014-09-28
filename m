@@ -1,61 +1,33 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] tun: make sure interface usage can not overflow
-Date: Sun, 28 Sep 2014 16:27:53 -0700
-Message-ID: <20140928232753.GA31180@www.outflux.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch iproute2 1/2] add bridge_slave device support
+Date: Sun, 28 Sep 2014 16:33:57 -0700
+Message-ID: <20140928163357.4f69a21d@urahara>
+References: <1409925092-17808-1-git-send-email-jiri@resnulli.us>
+	<1409925309-17881-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jason Wang <jasowang@redhat.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Tom Herbert <therbert@google.com>,
-	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
-	stephen hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	sfeldma@cumulusnetworks.com, arvid.brodin@alten.se,
+	sucheta.chakraborty@qlogic.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:58108 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751465AbaI1XeP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2014 19:34:15 -0400
+Received: by mail-pd0-f172.google.com with SMTP id g10so4272632pdj.3
+        for <netdev@vger.kernel.org>; Sun, 28 Sep 2014 16:34:14 -0700 (PDT)
+In-Reply-To: <1409925309-17881-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This makes the size argument a const, since it is always populated by
-the caller. Additionally double-checks to make sure the copy_from_user
-can never overflow, keeping CONFIG_DEBUG_STRICT_USER_COPY_CHECKS happy:
+On Fri,  5 Sep 2014 15:55:08 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-   In function 'copy_from_user',
-       inlined from '__tun_chr_ioctl' at drivers/net/tun.c:1871:7:
-       ... copy_from_user() buffer size is not provably correct
+> Note this depends on "iproute2: allow to change slave options via
+> type_slave"
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- drivers/net/tun.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index acaaf6784179..a1f317cba206 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1855,7 +1855,7 @@ unlock:
- }
- 
- static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
--			    unsigned long arg, int ifreq_len)
-+			    unsigned long arg, const size_t ifreq_len)
- {
- 	struct tun_file *tfile = file->private_data;
- 	struct tun_struct *tun;
-@@ -1869,6 +1869,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	int ret;
- 
- 	if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == 0x89) {
-+		BUG_ON(ifreq_len > sizeof(ifr));
- 		if (copy_from_user(&ifr, argp, ifreq_len))
- 			return -EFAULT;
- 	} else {
--- 
-1.9.1
-
-
--- 
-Kees Cook
-Chrome OS Security
+The iproute portion has to go in net-next not master branch of iproute2
