@@ -1,64 +1,46 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH v1 0/4] net: fec: Code cleanup
-Date: Sun, 28 Sep 2014 03:39:40 +0000
-Message-ID: <1779baf41a334eada2d11db0a474641b@BY2PR03MB377.namprd03.prod.outlook.com>
-References: <1411458058-18934-1-git-send-email-b38611@freescale.com>
-	<20140926.160602.1429816882470314568.davem@davemloft.net>
-	<ea65c2c86f264e49940038df21121c9e@BLUPR03MB373.namprd03.prod.outlook.com>
- <20140927.185501.2157704066172736196.davem@davemloft.net>
+From: Luwei Zhou <b45643@freescale.com>
+Subject: [PATCH v2 0/4] net: fec: ptp: Add FEC PPS ouput support.
+Date: Sun, 28 Sep 2014 12:20:07 +0800
+Message-ID: <1411878011-21767-1-git-send-email-b45643@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <shawn.guo@linaro.org>,
+	<bhutchings@solarflare.com>, <R49496@freescale.com>,
+	<b38611@freescale.com>, <b20596@freescale.com>,
+	<stephen@networkplumber.org>
+To: <davem@davemloft.net>, <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bn0105.outbound.protection.outlook.com ([157.56.110.105]:63195
+Received: from mail-bn1bon0110.outbound.protection.outlook.com ([157.56.111.110]:52256
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752180AbaI1Djn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Sep 2014 23:39:43 -0400
-In-Reply-To: <20140927.185501.2157704066172736196.davem@davemloft.net>
-Content-Language: en-US
+	id S1751341AbaI1FZS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Sep 2014 01:25:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net> Sent: Sunday, September 28, 2014 6:55 AM
->To: Duan Fugang-B38611
->Cc: netdev@vger.kernel.org; Li Frank-B20596
->Subject: Re: [PATCH v1 0/4] net: fec: Code cleanup
->
->From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
->Date: Sat, 27 Sep 2014 09:51:52 +0000
->
->> From: David Miller <davem@davemloft.net> Sent: Saturday, September 27,
->> 2014 4:06 AM
->>>To: Duan Fugang-B38611
->>>Cc: netdev@vger.kernel.org; Li Frank-B20596
->>>Subject: Re: [PATCH v1 0/4] net: fec: Code cleanup
->>>
->>>From: Fugang Duan <b38611@freescale.com>
->>>Date: Tue, 23 Sep 2014 15:40:54 +0800
->>>
->>>> This patches does several things:
->>>>   - Fixing multiqueue issue.
->>>>   - Removing the unnecessary errata workaround.
->>>>   - Aligning the data buffer dma map/unmap size.
->>>>   - Freeing resource after probe failed.
->>>
->>>Series applied to net-next, thanks.
->>>
->>>Please always explicitly state what tree you expect your patches to be
->>>applied to in the future.
->>
->> No special requirement, just follow the normal rel flow.
->
->That doesn't mean anything to me.
->
->You must state what tree your patches apply properly to, and thus where
->you expect them to be intergrated.
+These patches use hardeware adjustment to ptp timer and add pps ouput
+support.
 
-I see. It is better let them enter to 3.17 (rc7).
+Change from v1 to v2:
+	- Fix the potential 32-bit multiplication overflow issue.
+	- Optimize the hareware adjustment code to improve efficiency as Richard suggested
+	- Use ptp PTP_PIN_SET/GETFUNC interface to set PPS channel not device tree
+	  and add PTP_PF_PPS enumeration
+	- Modify comments style
+	
+Luwei Zhou (4):
+  net: fec: ptp: Use the 31-bit ptp timer.
+  net: fec: ptp: Use hardware algorithm to adjust PTP counter.
+  ptp: Add PTP_PF_PPS enumeration to ptp_pin_function.
+  net: fec: ptp: Enalbe PPS ouput based on ptp clock
 
-Thanks,
-Andy 
+ drivers/net/ethernet/freescale/fec.h      |  10 +
+ drivers/net/ethernet/freescale/fec_main.c |   2 +
+ drivers/net/ethernet/freescale/fec_ptp.c  | 293 ++++++++++++++++++++++++++++--
+ drivers/ptp/ptp_chardev.c                 |   8 +
+ include/linux/ptp_clock_kernel.h          |   2 +
+ include/uapi/linux/ptp_clock.h            |   1 +
+ 6 files changed, 298 insertions(+), 18 deletions(-)
+
+-- 
+1.9.1
