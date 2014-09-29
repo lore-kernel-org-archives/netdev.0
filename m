@@ -1,72 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 2/3] net: Add Keystone NetCP ethernet driver
-Date: Mon, 29 Sep 2014 15:52:00 -0400 (EDT)
-Message-ID: <20140929.155200.2231132602322345812.davem@davemloft.net>
-References: <1411667317-1163-1-git-send-email-santosh.shilimkar@ti.com>
-	<1411667317-1163-3-git-send-email-santosh.shilimkar@ti.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: [PATCHv8 net-next 0/4] sunvnet: add jumbo frames support
+Date: Mon, 29 Sep 2014 15:53:36 -0400
+Message-ID: <5429B8C0.6080807@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, robh+dt@kernel.org,
-	grant.likely@linaro.org, devicetree@vger.kernel.org,
-	sandeep_n@ti.com, joe@perches.com
-To: santosh.shilimkar@ti.com
+Cc: netdev@vger.kernel.org,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	Raghuram Kothahota <raghuram.kothakota@oracle.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33222 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753247AbaI2TwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 15:52:04 -0400
-In-Reply-To: <1411667317-1163-3-git-send-email-santosh.shilimkar@ti.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:28788 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750860AbaI2TxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 15:53:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Date: Thu, 25 Sep 2014 13:48:36 -0400
+This patch set updates the sunvnet driver to version 1.6 of the VIO protocol
+to support per-port exchange of MTU information and allow non-standard MTU
+sizes, including jumbo frames.
 
-> +static inline int gbe_phy_link_status(struct gbe_slave *slave)
-> +{
-> +	if (!slave->phy)
-> +		return 1;
-> +
-> +	if (slave->phy->link)
-> +		return 1;
-> +
-> +	return 0;
-> +}
+Using large MTUs shows a nearly 5X throughput improvement Linux-Solaris
+and > 10X throughput improvement Linux-Linux.
 
-Please use 'bool' as the return type and return 'true' or 'false'.
+Changes from v7:
+	-handle skb allocation failures in vnet_skb_shape()
+	 per Dave Miller <davem@davemloft.net>
+Changes from v6:
+	-made kernel transmit path zero-copy to remove memory n^2 scaling issue
+	 raised by Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
+Changes from v5:
+	- fixed comment per Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Changes from v4:
+	- changed VNET_MAXPACKET per David Laight <David.Laight@ACULAB.COM>
+	- added cookies to support non-contiguous buffers of max size
+Changes from v3:
+	- added version functions per Dave Miller <davem@davemloft.net>
+	- moved rmtu to vnet_port per Dave Miller <davem@davemloft.net>
+	- explicitly set options bits and capability flags to 0 per
+		Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
+Changes from v2:
+	- make checkpatch clean
+Changes from v1:
+	- fix brace formatting per Dave Miller <davem@davemloft.net>
 
-Do not use 'inline' in foo.c files, let the compiler decide.  Please
-audit this entire submission for this problem.
+David L Stevens (4):
+  sunvnet: upgrade to VIO protocol version 1.6
+  sunvnet: make transmit path zero-copy in the kernel
+  sunvnet: allow admin to set sunvnet MTU
+  sunvnet: generate ICMP PTMUD messages for smaller port MTUs
 
-> +static int gbe_port_reset(struct gbe_slave *slave)
-> +{
-> +	u32 i, v;
-> +
-> +	/* Set the soft reset bit */
-> +	writel_relaxed(SOFT_RESET, GBE_REG_ADDR(slave, emac_regs, soft_reset));
-
-This driver seems to use relaxed readl and writel for almost everything.
-
-That absolutely cannot be right.  For example, here, you depend upon the
-ordering of this writel_relaxed() to reset the chip relative to the
-real_relaxed() you subsequently do to check ths bits.
-
-I seriously think that *_relaxed() should only be done in very special
-circumstances where 1) the performance matters and 2) the validity of
-the usage has been put under a microscope and fully documented with huge
-comments above the *_relaxed() calls.
-
-If you cannot reduce and properly document the really necessary *_relaxed()
-uses, just convert them all to non-_relaxed() for now.
-
-I'm also warning you ahead of time that since nobody else seems to feel
-like reviewing this enormous submission, you are going to have to get used
-to me pushing back on these changes over and over for small things like
-coding style and structural/API issues until some reviews it on a higher
-level.
-
-I really don't want to apply this series until someone thinks seriously
-about the driver's design and the long term ramifications of having a
-driver like this in the tree with so many random TX etc. hooks.
+ arch/sparc/include/asm/vio.h       |   44 +++++-
+ arch/sparc/kernel/ldc.c            |    2 +-
+ arch/sparc/kernel/viohs.c          |   14 ++-
+ drivers/net/ethernet/sun/sunvnet.c |  316 +++++++++++++++++++++++++++++-------
+ drivers/net/ethernet/sun/sunvnet.h |    9 +-
+ 5 files changed, 318 insertions(+), 67 deletions(-)
