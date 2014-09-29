@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 24/34] ipvs: address family of LBLCR entry depends on svc family
-Date: Mon, 29 Sep 2014 14:39:13 +0200
-Message-ID: <1411994363-8451-25-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 27/34] ipvs: Allow heterogeneous pools now that we support them
+Date: Mon, 29 Sep 2014 14:39:16 +0200
+Message-ID: <1411994363-8451-28-git-send-email-pablo@netfilter.org>
 References: <1411994363-8451-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,61 +10,60 @@ In-Reply-To: <1411994363-8451-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Alex Gartrell <agartrell@fb.com>
 
-The LBLCR entries should use svc->af, not dest->af.
-Needed to support svc->af != dest->af.
+Remove the temporary consistency check and add a case statement to only
+allow ipip mixed dests.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Alex Gartrell <agartrell@fb.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_lblcr.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ net/netfilter/ipvs/ip_vs_ctl.c |   24 ++++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index 3f21a2f..2229d2d 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -362,18 +362,18 @@ ip_vs_lblcr_get(int af, struct ip_vs_lblcr_table *tbl,
-  */
- static inline struct ip_vs_lblcr_entry *
- ip_vs_lblcr_new(struct ip_vs_lblcr_table *tbl, const union nf_inet_addr *daddr,
--		struct ip_vs_dest *dest)
-+		u16 af, struct ip_vs_dest *dest)
- {
- 	struct ip_vs_lblcr_entry *en;
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 462760e..ac7ba68 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -854,10 +854,6 @@ ip_vs_new_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest,
  
--	en = ip_vs_lblcr_get(dest->af, tbl, daddr);
-+	en = ip_vs_lblcr_get(af, tbl, daddr);
- 	if (!en) {
- 		en = kmalloc(sizeof(*en), GFP_ATOMIC);
- 		if (!en)
- 			return NULL;
+ 	EnterFunction(2);
  
--		en->af = dest->af;
--		ip_vs_addr_copy(dest->af, &en->addr, daddr);
-+		en->af = af;
-+		ip_vs_addr_copy(af, &en->addr, daddr);
- 		en->lastuse = jiffies;
+-	/* Temporary for consistency */
+-	if (udest->af != svc->af)
+-		return -EINVAL;
+-
+ #ifdef CONFIG_IP_VS_IPV6
+ 	if (udest->af == AF_INET6) {
+ 		atype = ipv6_addr_type(&udest->addr.in6);
+@@ -3403,6 +3399,26 @@ static int ip_vs_genl_set_cmd(struct sk_buff *skb, struct genl_info *info)
+ 		 */
+ 		if (udest.af == 0)
+ 			udest.af = svc->af;
++
++		if (udest.af != svc->af) {
++			/* The synchronization protocol is incompatible
++			 * with mixed family services
++			 */
++			if (net_ipvs(net)->sync_state) {
++				ret = -EINVAL;
++				goto out;
++			}
++
++			/* Which connection types do we support? */
++			switch (udest.conn_flags) {
++			case IP_VS_CONN_F_TUNNEL:
++				/* We are able to forward this */
++				break;
++			default:
++				ret = -EINVAL;
++				goto out;
++			}
++		}
+ 	}
  
- 		/* initialize its dest set */
-@@ -706,13 +706,13 @@ ip_vs_lblcr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
- 	/* If we fail to create a cache entry, we'll just use the valid dest */
- 	spin_lock_bh(&svc->sched_lock);
- 	if (!tbl->dead)
--		ip_vs_lblcr_new(tbl, &iph->daddr, dest);
-+		ip_vs_lblcr_new(tbl, &iph->daddr, svc->af, dest);
- 	spin_unlock_bh(&svc->sched_lock);
- 
- out:
- 	IP_VS_DBG_BUF(6, "LBLCR: destination IP address %s --> server %s:%d\n",
- 		      IP_VS_DBG_ADDR(svc->af, &iph->daddr),
--		      IP_VS_DBG_ADDR(svc->af, &dest->addr), ntohs(dest->port));
-+		      IP_VS_DBG_ADDR(dest->af, &dest->addr), ntohs(dest->port));
- 
- 	return dest;
- }
+ 	switch (cmd) {
 -- 
 1.7.10.4
 
