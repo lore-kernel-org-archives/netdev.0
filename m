@@ -1,56 +1,62 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: VRFs and the scalability of namespaces
-Date: Mon, 29 Sep 2014 17:43:43 -0600
-Message-ID: <5429EEAF.9030702@gmail.com>
-References: <5425EAA6.7040302@gmail.com> <1411824598.2136890.172383085.705271DD@webmail.messagingengine.com> <54295971.2040402@gmail.com> <54298B66.8060807@candelatech.com> <CACP96tR_c3-nVEGhswm1qt1WGXPNzyXA61FCxPutCTPNomjy+g@mail.gmail.com> <54299019.3050604@candelatech.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: [PATCHv9 net-next 0/4] sunvnet: add jumbo frames support
+Date: Mon, 29 Sep 2014 19:47:47 -0400
+Message-ID: <5429EFA3.9050304@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>,
-	Sowmini Varadhan <sowmini05@gmail.com>
+Cc: netdev@vger.kernel.org,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	Raghuram Kothahota <raghuram.kothakota@oracle.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:45053 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751176AbaI2Xnw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 19:43:52 -0400
-Received: by mail-pd0-f171.google.com with SMTP id ft15so2403984pdb.30
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 16:43:52 -0700 (PDT)
-In-Reply-To: <54299019.3050604@candelatech.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:16516 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753411AbaI2XrK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 19:47:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/29/14, 11:00 AM, Ben Greear wrote:
-> On 09/29/2014 09:50 AM, Sowmini Varadhan wrote:
->> On Mon, Sep 29, 2014 at 12:40 PM, Ben Greear <greearb@candelatech.com> wrote:
->>> On 09/29/2014 06:06 AM, David Ahern wrote:
->>
->>>
->>> We have implemented support for at least most of this (excepting duplicate IPs)
->>> using routing tables, rules, and (optionally, xorp as the router).
->>>
->>
->> My undertanding of multiple routing-tables/rules was that they
->> are closer in semantics to switch/router ACLs than to VRFs, eg.,
->> one big difference is that an interface can belong to exactly one
->> VRF at a time, which is not mandated by multiple routing-tables/rules.
->>
->> Was I mistaken?
->
-> You can effectively force an interface to belong to a particular virtual
-> router (table).  It is not trivial to do, and possibly I have still not
-> covered every possible case.  Some rules grow somewhat exponentially as
-> interfaces are added to virtual routers (ie, preference 10 rules).
+This patch set updates the sunvnet driver to version 1.6 of the VIO protocol
+to support per-port exchange of MTU information and allow non-standard MTU
+sizes, including jumbo frames.
 
-An interesting way of doing it; thanks for the reference point.
+Using large MTUs shows a nearly 5X throughput improvement Linux-Solaris
+and > 10X throughput improvement Linux-Linux.
 
-Fundamentally the design should be able to assign interfaces to a single 
-VRF, support duplicate IP addresses on different interfaces in different 
-VRFs and be able to scale to 10,000+ netdevices -- devices representing 
-physical ports as well as logical interfaces built on top of them (e.g., 
-sub-interfaces).
+Changes from v8:
+	-add a short timeout to free pending skbs if a new transmit doesn't
+	 do it first per Dave Miller <davem@davemloft.net>
+Changes from v7:
+	-handle skb allocation failures in vnet_skb_shape()
+	 per Dave Miller <davem@davemloft.net>
+Changes from v6:
+	-made kernel transmit path zero-copy to remove memory n^2 scaling issue
+	 raised by Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
+Changes from v5:
+	- fixed comment per Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Changes from v4:
+	- changed VNET_MAXPACKET per David Laight <David.Laight@ACULAB.COM>
+	- added cookies to support non-contiguous buffers of max size
+Changes from v3:
+	- added version functions per Dave Miller <davem@davemloft.net>
+	- moved rmtu to vnet_port per Dave Miller <davem@davemloft.net>
+	- explicitly set options bits and capability flags to 0 per
+		Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
+Changes from v2:
+	- make checkpatch clean
+Changes from v1:
+	- fix brace formatting per Dave Miller <davem@davemloft.net>
 
-David
+David L Stevens (4):
+  sunvnet: upgrade to VIO protocol version 1.6
+  sunvnet: make transmit path zero-copy in the kernel
+  sunvnet: allow admin to set sunvnet MTU
+  sunvnet: generate ICMP PTMUD messages for smaller port MTUs
+
+ arch/sparc/include/asm/vio.h       |   44 +++++-
+ arch/sparc/kernel/ldc.c            |    2 +-
+ arch/sparc/kernel/viohs.c          |   14 ++-
+ drivers/net/ethernet/sun/sunvnet.c |  358 ++++++++++++++++++++++++++++++------
+ drivers/net/ethernet/sun/sunvnet.h |   16 ++-
+ 5 files changed, 366 insertions(+), 68 deletions(-)
