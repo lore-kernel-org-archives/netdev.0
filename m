@@ -1,8 +1,8 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 33/34] netfilter: nf_tables: store and dump set policy
-Date: Mon, 29 Sep 2014 20:14:59 +0400
-Message-ID: <54298583.3020100@cogentembedded.com>
-References: <1411994363-8451-1-git-send-email-pablo@netfilter.org> <1411994363-8451-34-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH 18/34] ipvs: prevent mixing heterogeneous pools and synchronization
+Date: Mon, 29 Sep 2014 20:17:26 +0400
+Message-ID: <54298616.7080307@cogentembedded.com>
+References: <1411994363-8451-1-git-send-email-pablo@netfilter.org> <1411994363-8451-19-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,41 +10,62 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: Pablo Neira Ayuso <pablo@netfilter.org>,
 	netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1411994363-8451-34-git-send-email-pablo@netfilter.org>
+In-Reply-To: <1411994363-8451-19-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On 09/29/2014 04:39 PM, Pablo Neira Ayuso wrote:
 
-> From: Arturo Borrero <arturo.borrero.glez@gmail.com>
+> From: Alex Gartrell <agartrell@fb.com>
 
-> We want to know in which cases the user explicitly sets the policy
-> options. In that case, we also want to dump back the info.
+> The synchronization protocol is not compatible with heterogeneous pools, so
+> we need to verify that we're not turning both on at the same time.
 
-> Signed-off-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> Signed-off-by: Alex Gartrell <agartrell@fb.com>
+> Acked-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 > ---
->   include/net/netfilter/nf_tables.h |    2 ++
->   net/netfilter/nf_tables_api.c     |    6 ++++++
->   2 files changed, 8 insertions(+)
+>   include/net/ip_vs.h            |    4 ++++
+>   net/netfilter/ipvs/ip_vs_ctl.c |   15 +++++++++++++++
+>   2 files changed, 19 insertions(+)
 
-> diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-> index c4d8619..3d72923 100644
-> --- a/include/net/netfilter/nf_tables.h
-> +++ b/include/net/netfilter/nf_tables.h
+> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+> index 7600dbe..576d7f0 100644
+> --- a/include/net/ip_vs.h
+> +++ b/include/net/ip_vs.h
+> @@ -990,6 +990,10 @@ struct netns_ipvs {
+>   	char			backup_mcast_ifn[IP_VS_IFNAME_MAXLEN];
+>   	/* net name space ptr */
+>   	struct net		*net;            /* Needed by timer routines */
+> +	/* Number of heterogeneous destinations, needed because
+> +	 * heterogeneous are not supported when synchronization is
+> +	 * enabled */
+
+    Multi-line comment style in the networking code is:
+
+/* bla
+  * bla
+  */
+
+
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index 6bd2cc6..462760e 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
 [...]
-> index a476b99..19e79f0 100644
-> --- a/net/netfilter/nf_tables_api.c
-> +++ b/net/netfilter/nf_tables_api.c
-> @@ -2344,6 +2344,11 @@ static int nf_tables_fill_set(struct sk_buff *skb, const struct nft_ctx *ctx,
->   			goto nla_put_failure;
->   	}
+> @@ -3256,6 +3265,12 @@ static int ip_vs_genl_new_daemon(struct net *net, struct nlattr **attrs)
+>   	      attrs[IPVS_DAEMON_ATTR_SYNC_ID]))
+>   		return -EINVAL;
 >
-> +	if (set->policy != NFT_SET_POL_PERFORMANCE) {
-> +		if (nla_put_be32(skb, NFTA_SET_POLICY, htonl(set->policy)))
-> +			goto nla_put_failure;
+> +	/* The synchronization protocol is incompatible with mixed family
+> +	 * services
+> +	 */
 
-    Why not fold these two *if* stetement into a single one?
+    Here you got it right. :-)
+
+> +	if (net_ipvs(net)->mixed_address_family_dests > 0)
+> +		return -EINVAL;
+> +
 
 WBR, Sergei
 
