@@ -1,7 +1,8 @@
 From: David L Stevens <david.stevens@oracle.com>
-Subject: [PATCH net-next 3/4] sunvnet: allow admin to set sunvnet MTU
-Date: Mon, 29 Sep 2014 13:17:01 -0400
-Message-ID: <5429940D.4040500@oracle.com>
+Subject: [PATCH net-next 4/4] sunvnet: generate ICMP PTMUD messages for smaller
+ port MTUs
+Date: Mon, 29 Sep 2014 13:17:06 -0400
+Message-ID: <54299412.2010404@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -10,83 +11,72 @@ Cc: netdev@vger.kernel.org,
 	Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:16997 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752182AbaI2RQd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 13:16:33 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:33204 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752182AbaI2RQj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 13:16:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows an admin to set the MTU on a sunvnet device to arbitrary
-values between the minimum (68) and maximum (65535) IPv4 packet sizes.
+This patch sends ICMP and ICMPv6 messages for Path MTU Discovery when a remote
+port MTU is smaller than the device MTU. This allows mixing newer VIO protocol
+devices that support MTU negotiation with older devices that do not on the
+same vswitch. It also allows Linux-Linux LDOMs to use 64K-1 data packets even
+though Solaris vswitch is limited to <16K MTU.
 
 Signed-off-by: David L Stevens <david.stevens@oracle.com>
 ---
- arch/sparc/kernel/ldc.c            |    2 +-
- drivers/net/ethernet/sun/sunvnet.c |    7 +++++--
- drivers/net/ethernet/sun/sunvnet.h |    6 ++++--
- 3 files changed, 10 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/sun/sunvnet.c |   37 +++++++++++++++++++++++++++++++++++-
+ 1 files changed, 36 insertions(+), 1 deletions(-)
 
-diff --git a/arch/sparc/kernel/ldc.c b/arch/sparc/kernel/ldc.c
-index 66dacd5..0af28b9 100644
---- a/arch/sparc/kernel/ldc.c
-+++ b/arch/sparc/kernel/ldc.c
-@@ -2159,7 +2159,7 @@ int ldc_map_single(struct ldc_channel *lp,
- 	state.pte_idx = (base - iommu->page_table);
- 	state.nc = 0;
- 	fill_cookies(&state, (pa & PAGE_MASK), (pa & ~PAGE_MASK), len);
--	BUG_ON(state.nc != 1);
-+	BUG_ON(state.nc > ncookies);
-  	return state.nc;
- }
 diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index f3a3fc1..1a7dce0 100644
+index 1a7dce0..cb2d2b7 100644
 --- a/drivers/net/ethernet/sun/sunvnet.c
 +++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -884,6 +884,9 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -17,6 +17,13 @@
+ #include <linux/mutex.h>
+ #include <linux/if_vlan.h>
+ +#if IS_ENABLED(CONFIG_IPV6)
++#include <linux/icmpv6.h>
++#endif
++
++#include <net/icmp.h>
++#include <net/route.h>
++
+ #include <asm/vio.h>
+ #include <asm/ldc.h>
+ @@ -884,8 +891,36 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
   	skb = vnet_skb_shape(skb, &start, &nlen);
- +	if (skb->len > port->rmtu)
-+		goto out_dropped;
+ -	if (skb->len > port->rmtu)
++	if (skb->len > port->rmtu) {
++		unsigned long localmtu = port->rmtu - ETH_HLEN;
 +
- 	spin_lock_irqsave(&port->vio.lock, flags);
-  	dr = &port->vio.drings[VIO_DRIVER_TX_RING];
-@@ -914,7 +917,7 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	port->tx_bufs[txi].skb = skb;
-  	err = ldc_map_single(port->vio.lp, start, nlen,
--			     port->tx_bufs[txi].cookies, 2,
-+			     port->tx_bufs[txi].cookies, VNET_MAXCOOKIES,
- 			     (LDC_MAP_SHADOW | LDC_MAP_DIRECT | LDC_MAP_RW));
- 	if (err < 0) {
- 		netdev_info(dev, "tx buffer map error %d\n", err);
-@@ -1143,7 +1146,7 @@ static void vnet_set_rx_mode(struct net_device *dev)
-  static int vnet_change_mtu(struct net_device *dev, int new_mtu)
- {
--	if (new_mtu != ETH_DATA_LEN)
-+	if (new_mtu < 68 || new_mtu > 65535)
- 		return -EINVAL;
-  	dev->mtu = new_mtu;
-diff --git a/drivers/net/ethernet/sun/sunvnet.h b/drivers/net/ethernet/sun/sunvnet.h
-index f18409b..ead9001 100644
---- a/drivers/net/ethernet/sun/sunvnet.h
-+++ b/drivers/net/ethernet/sun/sunvnet.h
-@@ -11,7 +11,7 @@
-  */
- #define VNET_TX_TIMEOUT			(5 * HZ)
- -#define VNET_MAXPACKET			1518ULL /* ETH_FRAMELEN + VLAN_HDR */
-+#define VNET_MAXPACKET			(65535ULL + ETH_HLEN + VLAN_HLEN)
- #define VNET_TX_RING_SIZE		512
- #define VNET_TX_WAKEUP_THRESH(dr)	((dr)->pending / 4)
- @@ -21,10 +21,12 @@
-  */
- #define VNET_PACKET_SKIP		6
- +#define VNET_MAXCOOKIES			(VNET_MAXPACKET/PAGE_SIZE + 1)
++		if (vio_version_after_eq(&port->vio, 1, 3))
++			localmtu -= VLAN_HLEN;
 +
- struct vnet_tx_entry {
- 	struct sk_buff		*skb;
- 	unsigned int		ncookies;
--	struct ldc_trans_cookie	cookies[2];
-+	struct ldc_trans_cookie	cookies[VNET_MAXCOOKIES];
- };
-  struct vnet;
--- 
-1.7.1
++		if (skb->protocol == htons(ETH_P_IP)) {
++			struct flowi4 fl4;
++			struct rtable *rt = NULL;
++
++			memset(&fl4, 0, sizeof(fl4));
++			fl4.flowi4_oif = dev->ifindex;
++			fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
++			fl4.daddr = ip_hdr(skb)->daddr;
++			fl4.saddr = ip_hdr(skb)->saddr;
++
++			rt = ip_route_output_key(dev_net(dev), &fl4);
++			if (!IS_ERR(rt)) {
++				skb_dst_set(skb, &rt->dst);
++				icmp_send(skb, ICMP_DEST_UNREACH,
++					  ICMP_FRAG_NEEDED,
++					  htonl(localmtu));
++			}
++		}
++#if IS_ENABLED(CONFIG_IPV6)
++		else if (skb->protocol == htons(ETH_P_IPV6))
++			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, localmtu);
++#endif
+ 		goto out_dropped;
++	}
+  	spin_lock_irqsave(&port->vio.lock, flags);
+ -- 1.7.1
