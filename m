@@ -1,57 +1,71 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH RESEND v6 0/7] net: cpsw: Support for am335x chip MACIDs
-Date: Mon, 29 Sep 2014 14:21:28 +0530
-Message-ID: <54291D90.4010806@ti.com>
-References: <1411973599-18908-1-git-send-email-mpa@pengutronix.de>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v2 3/4] ptp: Add PTP_PF_PPS enumeration to
+ ptp_pin_function.
+Date: Mon, 29 Sep 2014 10:56:14 +0200
+Message-ID: <20140929085613.GA9891@netboy>
+References: <1411878011-21767-1-git-send-email-b45643@freescale.com>
+ <1411878011-21767-4-git-send-email-b45643@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: =?windows-1252?Q?Beno=EEt_Cousson?= <bcousson@baylibre.com>,
-	Tony Lindgren <tony@atomide.com>,
-	Wolfram Sang <wsa@the-dreams.de>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	<linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	<kernel@pengutronix.de>
-To: Markus Pargmann <mpa@pengutronix.de>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1411973599-18908-1-git-send-email-mpa@pengutronix.de>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, shawn.guo@linaro.org,
+	bhutchings@solarflare.com, R49496@freescale.com,
+	b38611@freescale.com, b20596@freescale.com,
+	stephen@networkplumber.org
+To: Luwei Zhou <b45643@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:60078 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751343AbaI2I4T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 04:56:19 -0400
+Received: by mail-wi0-f180.google.com with SMTP id em10so461498wid.13
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 01:56:18 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1411878011-21767-4-git-send-email-b45643@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 29 September 2014 12:23 PM, Markus Pargmann wrote:
-> Hi,
-> 
-> Another resend of this series to add the netdev list.
-> 
-> This series adds support to the cpsw driver to read the MACIDs of the am335x
-> chip and use them as fallback. These addresses are only used if there are no
-> mac addresses in the devicetree, for example set by a bootloader.
-> 
-> Best regards,
-> 
-> Markus
-> 
-> 
-> Markus Pargmann (7):
->   DT doc: net: cpsw mac-address is optional
->   net: cpsw: Add missing return value
->   net: cpsw: header, Add missing include
->   net: cpsw: Replace pr_err by dev_err
->   net: cpsw: Add am33xx MACID readout
->   am33xx: define syscon control module device node
->   arm: dts: am33xx, Add syscon phandle to cpsw node
-> 
->  Documentation/devicetree/bindings/net/cpsw.txt |  6 +++-
->  arch/arm/boot/dts/am33xx.dtsi                  |  6 ++++
->  drivers/net/ethernet/ti/Kconfig                |  2 ++
->  drivers/net/ethernet/ti/cpsw.c                 | 45 ++++++++++++++++++++++++--
->  drivers/net/ethernet/ti/cpsw.h                 |  1 +
->  5 files changed, 57 insertions(+), 3 deletions(-)
+On Sun, Sep 28, 2014 at 12:20:10PM +0800, Luwei Zhou wrote:
+
+> diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
+> index 0d8ff3f..2a5ad1c 100644
+> --- a/include/linux/ptp_clock_kernel.h
+> +++ b/include/linux/ptp_clock_kernel.h
+> @@ -49,6 +49,7 @@ struct ptp_clock_request {
+>   * @n_alarm:   The number of programmable alarms.
+>   * @n_ext_ts:  The number of external time stamp channels.
+>   * @n_per_out: The number of programmable periodic signals.
+> + * @n_pps_chan: The number of programmable channles for pps output.
+>   * @n_pins:    The number of programmable pins.
+>   * @pps:       Indicates whether the clock supports a PPS callback.
+>   * @pin_config: Array of length 'n_pins'. If the number of
+> @@ -99,6 +100,7 @@ struct ptp_clock_info {
+>  	int n_alarm;
+>  	int n_ext_ts;
+>  	int n_per_out;
+> +	int n_pps_chan;
+
+We don't need this. There is only *one* PPS channel.
+
+We only want to select which of 'n_pins' will be the PPS output.
+
+>  	int n_pins;
+>  	int pps;
+>  	struct ptp_pin_desc *pin_config;
+> diff --git a/include/uapi/linux/ptp_clock.h b/include/uapi/linux/ptp_clock.h
+> index f0b7bfe..57ba7e7 100644
+> --- a/include/uapi/linux/ptp_clock.h
+> +++ b/include/uapi/linux/ptp_clock.h
+> @@ -86,6 +86,7 @@ enum ptp_pin_function {
+>  	PTP_PF_EXTTS,
+>  	PTP_PF_PEROUT,
+>  	PTP_PF_PHYSYNC,
+> +	PTP_PF_PPS,
+>  };
+>  
+>  struct ptp_pin_desc {
+> -- 
+> 1.9.1
 > 
 
-Acked-by: Mugunthan V N <mugunthanvnm@gmail.com>
-
-Regards
-Mugunthan V N
+Thanks,
+Richard
