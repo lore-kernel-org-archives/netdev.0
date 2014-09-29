@@ -1,35 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: llc: check for device before dereferencing
-Date: Mon, 29 Sep 2014 16:45:41 -0400 (EDT)
-Message-ID: <20140929.164541.20059477388052953.davem@davemloft.net>
-References: <1411782103-3059-1-git-send-email-sasha.levin@oracle.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] net: Add ndo_gso_check
+Date: Mon, 29 Sep 2014 13:47:30 -0700
+Message-ID: <CA+mtBx-MdxNrmE82Cqut_T8WuzoOVivPmWKjC0pT8iSrGxWBQg@mail.gmail.com>
+References: <1411962607-27878-1-git-send-email-therbert@google.com>
+	<CAEP_g=-bGgu8QqtvcEDj=txbmvoQgKtcJxrmzX3DR7xB05c0RQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: acme@ghostprotocols.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sasha.levin@oracle.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <gerlitz.or@gmail.com>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33949 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751898AbaI2Upo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 16:45:44 -0400
-In-Reply-To: <1411782103-3059-1-git-send-email-sasha.levin@oracle.com>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:35673 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751176AbaI2Urb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 16:47:31 -0400
+Received: by mail-ie0-f170.google.com with SMTP id rd18so625442iec.29
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 13:47:31 -0700 (PDT)
+In-Reply-To: <CAEP_g=-bGgu8QqtvcEDj=txbmvoQgKtcJxrmzX3DR7xB05c0RQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Fri, 26 Sep 2014 21:41:43 -0400
+On Mon, Sep 29, 2014 at 1:13 PM, Jesse Gross <jesse@nicira.com> wrote:
+> On Sun, Sep 28, 2014 at 8:50 PM, Tom Herbert <therbert@google.com> wrote:
+>> Add ndo_gso_check which a device can define to indicate whether is
+>> is capable of doing GSO on a packet. This funciton would be called from
+>> the stack to determine whether software GSO is needed to be done. A
+>> driver should populate this function if it advertises GSO types for
+>> which there are combinations that it wouldn't be able to handle. For
+>> instance a device that performs UDP tunneling might only implement
+>> support for transparent Ethernet bridging type of inner packets
+>> or might have limitations on lengths of inner headers.
+>>
+>> Signed-off-by: Tom Herbert <therbert@google.com>
+>
+> Offloads that might have limitations extend beyond GSO - checksum is
+> another possibility that could need something like a length check.
+>
+There are several examples of drivers that advertise checksum offload
+but then in TX path decide that they can't do it for various reasons--
+in this case they need to do software checksum calculation themselves.
+Applying this model to GSO, that is drivers do software GSO when they
+need to punt on packet, seems pretty hard to me, but maybe someone can
+look at it.
 
-> llc_ui_sendmsg would not make sure that a device indeed exists before
-> dereferencing it. This caused a user triggerable NULL ptr deref:
-...
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> In addition, while I would also like to be optimistic about the
+> capabilities of existing NICs it's unlikely that any of them that are
+> advertising SKB_GSO_UDP_TUNNEL can actually do it with full
+> generality. So unless we can get the driver writers to chime in about
+> their capabilities (maybe we can, there's only a handful of them right
+> now), we probably need to provide a more conservative implementation
+> for those drivers. I guess I would probably do length equal to VXLAN
+> and perhaps containing Ethernet as a balance between the most
+> conservative and the most optimistic.
 
-The bug is real, but I don't think the fix is in the correct spot.
-
-The real problem seems to be that the guard for calling
-llc_ui_autobind() is inaccurate.
-
-Fix that and there will always be a proper llc->dev attached at
-this location.
+Checking header length in ndo_gso_check would be trivial.
