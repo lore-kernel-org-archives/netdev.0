@@ -1,65 +1,69 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: IPv6 FIB related crash with MACVLANs in 3.9.11+ kernel.
-Date: Mon, 29 Sep 2014 14:24:54 -0700
-Message-ID: <5429CE26.6000108@candelatech.com>
-References: <52EFFE20.5080500@candelatech.com> <20140203220323.GB17999@order.stressinduktion.org> <52F012FF.9030105@candelatech.com> <52F65EB4.1050306@candelatech.com> <20140208172310.GF16198@order.stressinduktion.org> <loom.20140926T001736-777@post.gmane.org> <1411906297.2400343.172598909.66223582@webmail.messagingengine.com> <loom.20140929T195637-887@post.gmane.org> <5429A886.1040809@candelatech.com> <1412017399.14757.4.camel@localhost> <5429B783.20207@candelatech.com> <CAHA+R7O_xghD4a5RD=omhnuMD72pRmKU9VMoxPUVuGcu682jBg@mail.gmail.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v1 5/5] driver-core: add driver asynchronous probe support
+Date: Mon, 29 Sep 2014 17:26:01 -0400
+Message-ID: <20140929212601.GF15925@htj.dyndns.org>
+References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com>
+ <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com>
+ <20140928150329.GC5023@mtj.dyndns.org>
+ <20140929212208.GV17349@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Hongmei Li <duckcncn@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:53544 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751057AbaI2VYz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 17:24:55 -0400
-In-Reply-To: <CAHA+R7O_xghD4a5RD=omhnuMD72pRmKU9VMoxPUVuGcu682jBg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: gregkh@linuxfoundation.org,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	dmitry.torokhov@gmail.com, tiwai@suse.de, arjan@linux.intel.com,
+	teg@jklm.no, rmilasan@suse.com, werner@suse.com, oleg@redhat.com,
+	hare@suse.com, bpoirier@suse.de, santosh@chelsio.com,
+	pmladek@suse.cz, dbueso@suse.com, linux-kernel@vger.kernel.org,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	Casey Leedom <leedom@che
+To: "Luis R. Rodriguez" <mcgrof@suse.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140929212208.GV17349@wotan.suse.de>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/29/2014 01:39 PM, Cong Wang wrote:
-> On Mon, Sep 29, 2014 at 12:48 PM, Ben Greear <greearb@candelatech.com> wrote:
->>
->> We are going to be running up to 20 concurrent scripts that
->> will be dumping routes & ips, and configuring ip addresses
->> and routes during bringup.
->>
->> I don't have a simple stand-alone way to reproduce this,
->> but at least when we reported the problem is was very easy
->> for us to reproduce with our tool.
->>
->> Maybe 20 scripts running in parallel that randomly configured and dumped routes
->> and ip addresses on random interfaces would do the trick?
->>
+Hello, Luis.
+
+On Mon, Sep 29, 2014 at 11:22:08PM +0200, Luis R. Rodriguez wrote:
+> > > +	/* For now lets avoid stupid bug reports */
+> > > +	if (!strcmp(bus->name, "pci") ||
+> > > +	    !strcmp(bus->name, "pci_express") ||
+> > > +	    !strcmp(bus->name, "hid") ||
+> > > +	    !strcmp(bus->name, "sdio") ||
+> > > +	    !strcmp(bus->name, "gameport") ||
+> > > +	    !strcmp(bus->name, "mmc") ||
+> > > +	    !strcmp(bus->name, "i2c") ||
+> > > +	    !strcmp(bus->name, "platform") ||
+> > > +	    !strcmp(bus->name, "usb"))
+> > > +		return true;
+> > 
+> > Ugh... things like this tend to become permanent.  Do we really need
+> > this?  And how are we gonna find out what's broken why w/o bug
+> > reports?
 > 
-> I think the most important question is why is this related with macvlan?
-> IPv6 is L3 while macvlan pure L2, if this is a IPv6 routing bug, it should
-> not be limited to macvlan.
+> Yeah... well we have two options, one is have something like this to
+> at least make it generally useful or remove this and let folks who
+> care start fixing async for all modules. The downside to removing
+> this is it makes async probe pretty much useless on most systems
+> right now, it would mean systemd would have to probably consider
+> the list above if they wanted to start using this without expecting
+> systems to not work.
 
-We saw it using mac-vlans on top of ixgbe.  Probably it can be reproduced
-elsewhere, but since we had a good test case, we didn't bother trying lots
-of other combinations.
+So, I'd much prefer blacklist approach if something like this is a
+necessity.  That way, we'd at least know what doesn't work.
 
-Just enabling some debug code caused the problem to be much harder
-to reproduce, so it is probably some sort of race.  Maybe lots of mac-vlans
-make it easier to hit.
-
-> What does your IPv6 routing table look like? And how do you configure those
-> macvlan interfaces?
-
-Each interface would have it's own routing table, with at least as subnet
-route.  I'm not sure we were adding a default gateway or not.
-
-The main routing table would also have some auto-created routes
-I think.
-
-It is configured using 'ip' to add and dump routes.
-
-Thanks,
-Ben
+Thanks.
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+tejun
