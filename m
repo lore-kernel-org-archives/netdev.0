@@ -1,84 +1,85 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: VRFs and the scalability of namespaces
-Date: Mon, 29 Sep 2014 07:06:57 -0600
-Message-ID: <54295971.2040402@gmail.com>
-References: <5425EAA6.7040302@gmail.com> <1411824598.2136890.172383085.705271DD@webmail.messagingengine.com>
+From: Zhi Li <lznuaa@gmail.com>
+Subject: Re: [PATCH v2 1/1] net: fec: implement rx_copybreak to improve rx performance
+Date: Mon, 29 Sep 2014 08:09:59 -0500
+Message-ID: <CAHrpEqTL+9iv6SUM7V2Nn4SD4G-20+xAfNCfTqvLMGO0weuj1A@mail.gmail.com>
+References: <1411976824-28824-1-git-send-email-b38611@freescale.com>
+	<1411992739.30721.23.camel@edumazet-glaptop2.roam.corp.google.com>
+	<323020b0c5a44235a1707dd0619deba3@BLUPR03MB373.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:64306 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752182AbaI2NG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 09:06:59 -0400
-Received: by mail-pd0-f174.google.com with SMTP id y13so846315pdi.5
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 06:06:58 -0700 (PDT)
-In-Reply-To: <1411824598.2136890.172383085.705271DD@webmail.messagingengine.com>
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:38675 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751753AbaI2NKA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 09:10:00 -0400
+Received: by mail-wg0-f52.google.com with SMTP id n12so11292735wgh.11
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 06:09:59 -0700 (PDT)
+In-Reply-To: <323020b0c5a44235a1707dd0619deba3@BLUPR03MB373.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Hannes:
+On Mon, Sep 29, 2014 at 7:43 AM, fugang.duan@freescale.com
+<fugang.duan@freescale.com> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com> Sent: Monday, September 29, 2014 8:12 PM
+>>To: Duan Fugang-B38611
+>>Cc: Li Frank-B20596; davem@davemloft.net; romieu@fr.zoreil.com;
+>>netdev@vger.kernel.org; shawn.guo@linaro.org; bhutchings@solarflare.com
+>>Subject: Re: [PATCH v2 1/1] net: fec: implement rx_copybreak to improve rx
+>>performance
+>>
+>>On Mon, 2014-09-29 at 15:47 +0800, Fugang Duan wrote:
+>>> - Copy short frames and keep the buffers mapped, re-allocate skb instead
+>>of
+>>>   memory copy for long frames.
+>>> - Add support for setting/getting rx_copybreak using generic ethtool
+>>> tunable
+>>>
+>>> Changes V2:
+>>> * Implements rx_copybreak
+>>
+>>>
+>>> +#define COPYBREAK_DEFAULT 256
+>>> +static unsigned int copybreak __read_mostly = COPYBREAK_DEFAULT;
+>>> +module_param(copybreak, uint, 0644); MODULE_PARM_DESC(copybreak,
+>>> +             "Maximum packet size that is copied to a new buffer on
+>>receive");
+>>> +
+>>
+>>It is not the right way to handle this.
+>>
+>>Old drivers might still have a legacy module parameter.
+>>
+>>New implementations should provide the new ethtool support, and only this.
+>>No new module parameter is accepted.
+>>
+>>For details, check following commits :
+>>
+>>d4ad30b182305ecf97f145a5d4d1fd9e728c6d01 enic: Add tunable_ops support for
+>>rx_copybreak
+>>
+>>f0db9b073415848709dd59a6394969882f517da9 ethtool: Add generic options for
+>>tunables
+>>
+>>
+>>Or check the current tree :
+>>
+>>git grep -n rx_copybreak drivers/net/ethernet/cisco/enic
+>>
+> The patch implement ethtool interface, pls read the patch completely.
 
-On 9/27/14, 7:29 AM, Hannes Frederic Sowa wrote:
-> Did you already did an investigation how maybe the rule and table
-> features could be exploited to suite your needs? Some time back I
+I think Eric's means is that REMOVE module parameter and just keep ethtool API.
 
-I did look into the existing multiple table option but not to the extent 
-of creating a POC. It has been on my to-do list for 4+ months now I just 
-have not had time to get to it. Based on a number of Google searches to 
-review the history of VRFs and the kernel, I did see the use of multiple 
-routing tables has been suggested as well and its problems have been 
-delineated. e.g.,
+best regards
+Frank Li
 
-     http://www.spinics.net/lists/linux-net/msg17502.html
-
-
-> suggested something like "ip route table foo exec ....", keep an default
-> routing lookup indicator in task_struct which gets implicitly propagated
-> to rtnetlink routing table requests/modification for the requested
-> table. Tables already can be specified via rtnetlink, so no change would
-> be needed here.
 >
-> For sockets something like SO_BINDTOTABLE might work, maybe even we can
-> by default use the task_struct information to also bind the sockets to
-> the per-process table. We certainly need to preserve the routing
-> information on the socket as we need those in icmp error handling (e.g.
-> where to apply ipv4/ipv6 redirects too). Directing incoming packets to
-> specific table also works via ip-rule-iif match.
->
-> Advantage with the ip route table foo exec... method would be, that
-> conversion of some unmodified routing management daemons might be
-> easier, others can either use rtnetlink extended attributes which are
-> already available, and we only need to have per-process context routing
-> table control, which seems not too hard to implement in ip-rule
-> subsystem, but I haven't checked.
->
-> The problem I see with rules is that some of those tables already work
-> hand in hand, they already have a implicit semantics, e.g. local, main,
-> default and unspec (this is even worse for IPv6, where addrconf already
-> uses hardcoded tables). Working around this might be very tricky and
-> even more problematic to do from user space.
->
-> I think I am not yet sure what features you want from VRFs, some things
-> seem to match the rule/table features but others I think are pretty hard
-> to implement.
-
-The features of note:
-- resource efficiency -- not having to create a proces/thread/socket per 
-VRF to have a "presence" in all VRFs. e.g., a VRF any context that 
-allows 1 socket to work across VRFs (L3 raw socket, TCP listen socket, 
-unconnected UDP socket). Daemons run a 'vrf any' context; connected 
-clients run a specific vrf context. For non-connected sockets VRF 
-context can be passed via cmsg.
-
-- same IP address on different interfaces in different vrfs. i.e., VRF 
-specific routing and neighbor tables
-
-- cross VRF routing. ability to receive message on 1 vrf and send it on 
-another. Can be handled by the process itself (e.g., L3 vpns).
-
-Thanks,
-David
+> Thanks,
+> Andy
