@@ -1,65 +1,51 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH v5 09/10] ARM: dts: berlin: add the Ethernet node
-Date: Mon, 29 Sep 2014 16:34:02 +0200
-Message-ID: <54296DDA.8000400@gmail.com>
-References: <1411742036-23520-1-git-send-email-antoine.tenart@free-electrons.com> <1411742036-23520-10-git-send-email-antoine.tenart@free-electrons.com> <5425A178.4050501@cogentembedded.com>
-Content-Type: text/plain; charset=windows-1252; format=flowed
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] staging: r8821ae: Remove driver from staging
+Date: Mon, 29 Sep 2014 09:45:33 -0500
+Message-ID: <5429708D.4080402@lwfinger.net>
+References: <1411954791-23779-1-git-send-email-Larry.Finger@lwfinger.net>
+ <20140929061744.GA25093@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, zmxu@marvell.com,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
-	jszhang@marvell.com, linux-arm-kernel@lists.infradead.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Antoine Tenart <antoine.tenart@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5425A178.4050501@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140929061744.GA25093@kroah.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On 09/26/2014 07:25 PM, Sergei Shtylyov wrote:
-> On 09/26/2014 06:33 PM, Antoine Tenart wrote:
->> This patch adds the Ethernet node, enabling the network unit on Berlin
->> BG2Q SoCs.
->
->> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
->> Acked-by: Arnd Bergmann <arnd@arndb.de>
->> ---
->>   arch/arm/boot/dts/berlin2q.dtsi | 17 +++++++++++++++++
->>   1 file changed, 17 insertions(+)
->
->> diff --git a/arch/arm/boot/dts/berlin2q.dtsi
->> b/arch/arm/boot/dts/berlin2q.dtsi
->> index 902eddb19cd8..d442b22fd1ea 100644
->> --- a/arch/arm/boot/dts/berlin2q.dtsi
->> +++ b/arch/arm/boot/dts/berlin2q.dtsi
->> @@ -114,6 +114,23 @@
->>               #interrupt-cells = <3>;
->>           };
+On 09/29/2014 01:17 AM, Greg KH wrote:
+> On Sun, Sep 28, 2014 at 08:39:51PM -0500, Larry Finger wrote:
+>> A new version of this driver has been merged into the wireless-testing tree
+>> as commit 21e4b0726dc671c423e2dc9a85364716219c4502. It is both possible and
+>> desirable to delete the staging version to avoid build errors in linux-next.
 >>
->> +        eth0: ethernet@b90000 {
->> +            compatible = "marvell,pxa168-eth";
->> +            reg = <0xb90000 0x10000>;
->> +            clocks = <&chip CLKID_GETH0>;
->> +            interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
->> +            /* set by bootloader */
->> +            local-mac-address = [00 00 00 00 00 00];
->> +            #address-cells = <1>;
->> +            #size-cells = <0>;
->> +            phy-handle = <&ethphy0>;
->> +            status = "disabled";
->> +
->> +            ethphy0: ethernet-phy@0 {
->> +                reg = <0>;
->> +            };
->> +        };
->> +
+>> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+>> ---
+>>
+>> Greg,
+>>
+>> This removal patch was generated after commit 368c75b98bdfdfad54e7f165016819ef344e3587.
+>> It should apply to your tree unless further modifications have been made to
+>> the staging driver.
 >
->     Hm, is the PHY internal to the Ethernet controller?
+> Wonderful!
+>
+> So, this should be done for 3.18-rc1, right?  Or does wireless-testing
+> take longer to get to Linus than that?
 
-Sergei,
+Yes, it should be for 3.18-rc1. Sorry that I did not make that more clear.
 
-at least for BG2 and BG2CD the PHY is internal to the SoC. Also,
-MDIO bus is part of the ethernet IP, so placing the PHY inside
-the combined Ethernet/MDIO IP node is sane.
+It is also likely that I will be sending a similar delete patch for r8192ee. 
+John has the patch to add a new version to wireless-testing, but has not yet 
+merged it.
 
-Sebastian
+Larry
