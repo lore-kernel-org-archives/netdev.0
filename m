@@ -1,44 +1,46 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v2] ip monitor: Changed 'Unknown message' format to be more informative
-Date: Mon, 29 Sep 2014 23:07:57 +0300
-Message-ID: <1412021277-24020-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH] net: Add ndo_gso_check
+Date: Mon, 29 Sep 2014 13:13:47 -0700
+Message-ID: <CAEP_g=-bGgu8QqtvcEDj=txbmvoQgKtcJxrmzX3DR7xB05c0RQ@mail.gmail.com>
+References: <1411962607-27878-1-git-send-email-therbert@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <gerlitz.or@gmail.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:44351 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751688AbaI2UQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 16:16:29 -0400
-Received: by mail-lb0-f177.google.com with SMTP id w7so1916431lbi.22
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 13:16:27 -0700 (PDT)
+Received: from na6sys009bog033.obsmtp.com ([74.125.150.107]:43083 "HELO
+	na6sys009bog033.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751028AbaI2UTu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 16:19:50 -0400
+Received: by mail-we0-f178.google.com with SMTP id t60so13835015wes.9
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 13:19:48 -0700 (PDT)
+In-Reply-To: <1411962607-27878-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case if unknown message was handled then it will be displayed as:
+On Sun, Sep 28, 2014 at 8:50 PM, Tom Herbert <therbert@google.com> wrote:
+> Add ndo_gso_check which a device can define to indicate whether is
+> is capable of doing GSO on a packet. This funciton would be called from
+> the stack to determine whether software GSO is needed to be done. A
+> driver should populate this function if it advertises GSO types for
+> which there are combinations that it wouldn't be able to handle. For
+> instance a device that performs UDP tunneling might only implement
+> support for transparent Ethernet bridging type of inner packets
+> or might have limitations on lengths of inner headers.
+>
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-    Unknown message: type=0x00000044(68) flags=0x00000000(0) len=0x0000004c(76)
+Offloads that might have limitations extend beyond GSO - checksum is
+another possibility that could need something like a length check.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- ip/ipmonitor.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
-index 088ec54..b7b2d98 100644
---- a/ip/ipmonitor.c
-+++ b/ip/ipmonitor.c
-@@ -143,8 +143,10 @@ static int accept_msg(const struct sockaddr_nl *who,
- 		return 0;
- 	if (n->nlmsg_type != NLMSG_ERROR && n->nlmsg_type != NLMSG_NOOP &&
- 	    n->nlmsg_type != NLMSG_DONE) {
--		fprintf(fp, "Unknown message: %08x %08x %08x\n",
--			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
-+		fprintf(fp, "Unknown message: type=0x%08x(%d) flags=0x%08x(%d)"
-+			"len=0x%08x(%d)\n", n->nlmsg_type, n->nlmsg_type,
-+			n->nlmsg_flags, n->nlmsg_flags, n->nlmsg_len,
-+			n->nlmsg_len);
- 	}
- 	return 0;
- }
--- 
-2.1.0
+In addition, while I would also like to be optimistic about the
+capabilities of existing NICs it's unlikely that any of them that are
+advertising SKB_GSO_UDP_TUNNEL can actually do it with full
+generality. So unless we can get the driver writers to chime in about
+their capabilities (maybe we can, there's only a handful of them right
+now), we probably need to provide a more conservative implementation
+for those drivers. I guess I would probably do length equal to VXLAN
+and perhaps containing Ethernet as a balance between the most
+conservative and the most optimistic.
