@@ -1,70 +1,72 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH] tun: make sure interface usage can not overflow
-Date: Mon, 29 Sep 2014 12:48:47 -0700
-Message-ID: <CAGXu5j+x5pg6-9y72o=mE9TiNEyFqTTE=o8ETh1Ao8R20KNRwA@mail.gmail.com>
-References: <20140928232753.GA31180@www.outflux.net>
-	<20140929114849.GA913@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5 2/3] net: Add Keystone NetCP ethernet driver
+Date: Mon, 29 Sep 2014 15:52:00 -0400 (EDT)
+Message-ID: <20140929.155200.2231132602322345812.davem@davemloft.net>
+References: <1411667317-1163-1-git-send-email-santosh.shilimkar@ti.com>
+	<1411667317-1163-3-git-send-email-santosh.shilimkar@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jason Wang <jasowang@redhat.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	Tom Herbert <therbert@google.com>,
-	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Network Development <netdev@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140929114849.GA913@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, robh+dt@kernel.org,
+	grant.likely@linaro.org, devicetree@vger.kernel.org,
+	sandeep_n@ti.com, joe@perches.com
+To: santosh.shilimkar@ti.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33222 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753247AbaI2TwE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 15:52:04 -0400
+In-Reply-To: <1411667317-1163-3-git-send-email-santosh.shilimkar@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 29, 2014 at 4:48 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Sun, Sep 28, 2014 at 04:27:53PM -0700, Kees Cook wrote:
->> This makes the size argument a const, since it is always populated by
->> the caller. Additionally double-checks to make sure the copy_from_user
->> can never overflow, keeping CONFIG_DEBUG_STRICT_USER_COPY_CHECKS happy:
->>
->>    In function 'copy_from_user',
->>        inlined from '__tun_chr_ioctl' at drivers/net/tun.c:1871:7:
->>        ... copy_from_user() buffer size is not provably correct
->>
->> Signed-off-by: Kees Cook <keescook@chromium.org>
->
-> What exactly is the issue here?
-> __tun_chr_ioctl is called with sizeof(struct compat_ifreq)
-> or  sizeof (struct ifreq) as the last argument.
+From: Santosh Shilimkar <santosh.shilimkar@ti.com>
+Date: Thu, 25 Sep 2014 13:48:36 -0400
 
-Correct. There is no vulnerability here; I am attempting to both make
-the code more defensive to future changes, and to keep
-CONFIG_DEBUG_STRICT_USER_COPY_CHECKS happy.
+> +static inline int gbe_phy_link_status(struct gbe_slave *slave)
+> +{
+> +	if (!slave->phy)
+> +		return 1;
+> +
+> +	if (slave->phy->link)
+> +		return 1;
+> +
+> +	return 0;
+> +}
 
-> So this looks like a false positive, but
-> CONFIG_DEBUG_STRICT_USER_COPY_CHECKS machinery is supposed
-> to avoid false positives.
+Please use 'bool' as the return type and return 'true' or 'false'.
 
-The support in GCC is currently a bit faulty, and it seems that it
-didn't notice the two callers were static values, so instead, adding
-an explicit test keeps it happy.
+Do not use 'inline' in foo.c files, let the compiler decide.  Please
+audit this entire submission for this problem.
 
-> On which architecture is this?
+> +static int gbe_port_reset(struct gbe_slave *slave)
+> +{
+> +	u32 i, v;
+> +
+> +	/* Set the soft reset bit */
+> +	writel_relaxed(SOFT_RESET, GBE_REG_ADDR(slave, emac_regs, soft_reset));
 
-This is on x86, but with CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
-correctly enabled (gcc after 4.6 broke its ability to correctly
-optimize), which I've been playing with trying to get gcc working
-again. I sent the patch because it seems like it's a reasonable
-defensive change to make.
+This driver seems to use relaxed readl and writel for almost everything.
 
-If you want to look more deeply, there's some background here:
-https://code.google.com/p/chromium/issues/detail?id=371036
+That absolutely cannot be right.  For example, here, you depend upon the
+ordering of this writel_relaxed() to reset the chip relative to the
+real_relaxed() you subsequently do to check ths bits.
 
-https://git.kernel.org/cgit/linux/kernel/git/kees/linux.git/commit/?h=gcc-bug&id=92dd7154932d8775a05dfd3de5564124c05a4150
+I seriously think that *_relaxed() should only be done in very special
+circumstances where 1) the performance matters and 2) the validity of
+the usage has been put under a microscope and fully documented with huge
+comments above the *_relaxed() calls.
 
-Thanks,
+If you cannot reduce and properly document the really necessary *_relaxed()
+uses, just convert them all to non-_relaxed() for now.
 
--Kees
+I'm also warning you ahead of time that since nobody else seems to feel
+like reviewing this enormous submission, you are going to have to get used
+to me pushing back on these changes over and over for small things like
+coding style and structural/API issues until some reviews it on a higher
+level.
 
--- 
-Kees Cook
-Chrome OS Security
+I really don't want to apply this series until someone thinks seriously
+about the driver's design and the long term ramifications of having a
+driver like this in the tree with so many random TX etc. hooks.
