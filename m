@@ -1,51 +1,50 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v2 3/4] ptp: Add PTP_PF_PPS enumeration to
- ptp_pin_function.
-Date: Mon, 29 Sep 2014 15:25:51 +0200
-Message-ID: <20140929132551.GA27428@netboy>
-References: <1411878011-21767-1-git-send-email-b45643@freescale.com>
- <1411878011-21767-4-git-send-email-b45643@freescale.com>
- <20140929085613.GA9891@netboy>
- <ee73b9239ea9417e976fdf2c51b2fd60@BY2PR03MB441.namprd03.prod.outlook.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [PATCH] xen/xenbus: Use 'void' instead of 'int' for the return of xenbus_switch_state()
+Date: Mon, 29 Sep 2014 07:35:45 -0600
+Message-ID: <CAErSpo6YEMg1E5KQxFxBTekwAcDvmE0hvsg9MzU-8HJrO9TDAA@mail.gmail.com>
+References: <5425961A.5000604@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Ian Campbell <ian.campbell@citrix.com>, wei.liu2@citrix.com,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>, jgross@suse.com,
+	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	mukesh.rathor@oracle.com,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
-	"fugang.duan@freescale.com" <fugang.duan@freescale.com>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: "luwei.zhou@freescale.com" <luwei.zhou@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:60284 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751936AbaI2NZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 09:25:57 -0400
-Received: by mail-we0-f179.google.com with SMTP id u56so5042553wes.24
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 06:25:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <ee73b9239ea9417e976fdf2c51b2fd60@BY2PR03MB441.namprd03.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Chen Gang <gang.chen.5i5j@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5425961A.5000604@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 29, 2014 at 09:38:44AM +0000, luwei.zhou@freescale.com wrote:
-> My understanding is n_pins should be 1 because there is only one PPS output 
+On Fri, Sep 26, 2014 at 10:36 AM, Chen Gang <gang.chen.5i5j@gmail.com> wrote:
+> When xenbus_switch_state() fails, it will call xenbus_switch_fatal()
+> internally, so need not return any status value, then use 'void' instead
+> of 'int' for xenbus_switch_state() and __xenbus_switch_state().
+>
+> Also need be sure that all callers which check the return value must let
+> 'err' be 0.
+>
+> And also need change the related comments for xenbus_switch_state().
+>
+> Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
+> ---
+>  drivers/block/xen-blkback/xenbus.c |  9 ++-------
+>  drivers/net/xen-netback/xenbus.c   |  5 +----
+>  drivers/pci/xen-pcifront.c         | 15 ++++++---------
+>  drivers/xen/xen-pciback/xenbus.c   | 21 ++++-----------------
+>  drivers/xen/xen-scsiback.c         |  5 +----
+>  drivers/xen/xenbus/xenbus_client.c | 16 ++++++++--------
+>  include/xen/xenbus.h               |  3 ++-
+>  7 files changed, 24 insertions(+), 50 deletions(-)
 
-The field 'n_pins' is the number of *physical* *programmable* pins.
+I don't know enough to review this, but as far as I'm concerned, the
+Xen folks own drivers/pci/xen-pcifront.c, so whatever they want to do
+is fine with me.
 
-If the PPS signal on your SoC can appear on any of 4 different pins,
-then n_pins should be 4.
-
-If the PPS signal on your SoC can only appear on one pin,
-then n_pins should be 0 (zero).
-
-Please see:
-
- Documentation/ptp/testptp.c
- include/linux/ptp_clock_kernel.h
- include/uapi/linux/ptp_clock.h
-
-Thanks,
-Richard
+Bjorn
