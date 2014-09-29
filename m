@@ -1,40 +1,41 @@
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Subject: Re: [PATCH v5 2/3] net: Add Keystone NetCP ethernet driver
-Date: Mon, 29 Sep 2014 17:47:48 -0400
-Message-ID: <5429D384.1040909@ti.com>
-References: <1411667317-1163-3-git-send-email-santosh.shilimkar@ti.com>	<20140929.155200.2231132602322345812.davem@davemloft.net>	<5429BAD0.1050101@ti.com> <20140929.161253.1302757975839499212.davem@davemloft.net>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH next] r8169: add support for Byte Queue Limits
+Date: Mon, 29 Sep 2014 14:49:00 -0700
+Message-ID: <CA+mtBx8rpELodiiez8LkKupKBr9ynbQhrmAq8tcD4QKXHNjyaw@mail.gmail.com>
+References: <1412024209-25468-1-git-send-email-fw@strlen.de>
+	<CA+mtBx95KFr=3h_TZWBeM6e7EF4sKAmjRpz5vLxGwi8xC+qQuw@mail.gmail.com>
+	<20140929211158.GA11633@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <robh+dt@kernel.org>,
-	<grant.likely@linaro.org>, <devicetree@vger.kernel.org>,
-	<sandeep_n@ti.com>, <joe@perches.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140929.161253.1302757975839499212.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Hayes Wang <hayeswang@realtek.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:50412 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751917AbaI2VtA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 17:49:00 -0400
+Received: by mail-ig0-f178.google.com with SMTP id l13so2736327iga.17
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 14:49:00 -0700 (PDT)
+In-Reply-To: <20140929211158.GA11633@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 29 September 2014 04:12 PM, David Miller wrote:
-> From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-> Date: Mon, 29 Sep 2014 16:02:24 -0400
-> 
->> We are badly missing mainline network driver support for the Keystone
->> and hence I request you to help here.
-> 
-> It is absolutely not reasonable for you depend specifically upon me
-> for top-level review of a given change, sorry.
-> 
-Sorry I didn't mean you specifically to review everything. But a guidance
-on how we can move forward. If you can suggest someone, we can try to
-request them to have a look. The design of driver is just now standard
-NIC card. We removed the controversial plug in framework after your
-and Jamal's suggestion. Jamal already commented on the offload design of
-the driver and we addressed them in the last version.
+On Mon, Sep 29, 2014 at 2:11 PM, Florian Westphal <fw@strlen.de> wrote:
+> Tom Herbert <therbert@google.com> wrote:
+>> Thanks for doing this! Can you add a little description in commit log
+>> on test results, something that would indicate accounting is correct.
+>
+> Do you have any specific test in mind?
+>
+> I ran 'super_netperf 40' for 20 minutes without stalls/hangups and
+> bql monitor seemed to look ok.
+>
+> Anything else I should use/test with?
+>
+Watch inflight and limit in the byte_queue_limits for the queue.
+inflight must always go back to zero when link goes idle.
 
-We can follow it up on any comments, suggestions quickly so do let us
-know.
-
-Regards,
-Santosh
+> Thanks,
+> Florian
