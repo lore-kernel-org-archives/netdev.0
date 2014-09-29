@@ -1,71 +1,53 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 18/34] ipvs: prevent mixing heterogeneous pools and synchronization
-Date: Mon, 29 Sep 2014 20:17:26 +0400
-Message-ID: <54298616.7080307@cogentembedded.com>
-References: <1411994363-8451-1-git-send-email-pablo@netfilter.org> <1411994363-8451-19-git-send-email-pablo@netfilter.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] net: reorganize sk_buff for faster
+ __copy_skb_header()
+Date: Mon, 29 Sep 2014 12:27:54 -0400 (EDT)
+Message-ID: <20140929.122754.532408083477986522.davem@davemloft.net>
+References: <1411678046.16953.45.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1411680004.16953.57.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1411967927.30721.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1411994363-8451-19-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, amirv@mellanox.com,
+	john.r.fastabend@intel.com, brouer@redhat.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58619 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755126AbaI2Q17 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 12:27:59 -0400
+In-Reply-To: <1411967927.30721.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/29/2014 04:39 PM, Pablo Neira Ayuso wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 28 Sep 2014 22:18:47 -0700
 
-> From: Alex Gartrell <agartrell@fb.com>
-
-> The synchronization protocol is not compatible with heterogeneous pools, so
-> we need to verify that we're not turning both on at the same time.
-
-> Signed-off-by: Alex Gartrell <agartrell@fb.com>
-> Acked-by: Julian Anastasov <ja@ssi.bg>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> With proliferation of bit fields in sk_buff, __copy_skb_header() became
+> quite expensive, showing as the most expensive function in a GSO
+> workload.
+> 
+> __copy_skb_header() performance is also critical for non GSO TCP
+> operations, as it is used from skb_clone()
+> 
+> This patch carefully moves all the fields that were not copied in a
+> separate zone : cloned, nohdr, fclone, peeked, head_frag, xmit_more
+> 
+> Then I moved all other fields and all other copied fields in a section
+> delimited by headers_start[0]/headers_end[0] section so that we
+> can use a single memcpy() call, inlined by compiler using long
+> word load/stores.
+> 
+> I also tried to make all copies in the natural orders of sk_buff,
+> to help hardware prefetching.
+> 
+> I made sure sk_buff size did not change.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 > ---
->   include/net/ip_vs.h            |    4 ++++
->   net/netfilter/ipvs/ip_vs_ctl.c |   15 +++++++++++++++
->   2 files changed, 19 insertions(+)
+> v2 : added back ipvs_property, oops ;)
 
-> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-> index 7600dbe..576d7f0 100644
-> --- a/include/net/ip_vs.h
-> +++ b/include/net/ip_vs.h
-> @@ -990,6 +990,10 @@ struct netns_ipvs {
->   	char			backup_mcast_ifn[IP_VS_IFNAME_MAXLEN];
->   	/* net name space ptr */
->   	struct net		*net;            /* Needed by timer routines */
-> +	/* Number of heterogeneous destinations, needed because
-> +	 * heterogeneous are not supported when synchronization is
-> +	 * enabled */
-
-    Multi-line comment style in the networking code is:
-
-/* bla
-  * bla
-  */
-
-
-> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> index 6bd2cc6..462760e 100644
-> --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-[...]
-> @@ -3256,6 +3265,12 @@ static int ip_vs_genl_new_daemon(struct net *net, struct nlattr **attrs)
->   	      attrs[IPVS_DAEMON_ATTR_SYNC_ID]))
->   		return -EINVAL;
->
-> +	/* The synchronization protocol is incompatible with mixed family
-> +	 * services
-> +	 */
-
-    Here you got it right. :-)
-
-> +	if (net_ipvs(net)->mixed_address_family_dests > 0)
-> +		return -EINVAL;
-> +
-
-WBR, Sergei
-
+Applied :-)
