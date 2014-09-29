@@ -1,126 +1,127 @@
-From: Lars Melin <larsm17@gmail.com>
-Subject: Re: [PATCH] usb: gadget: f_rndis: fix usb_interface_descriptor for
- rndis
-Date: Mon, 29 Sep 2014 23:05:21 +0700
-Message-ID: <54298341.1080504@gmail.com>
-References: <1411541339-32400-1-git-send-email-hs@denx.de> <5422B83A.8030406@gmail.com> <5422C33F.400@denx.de> <5422D39D.70006@gmail.com> <54294C78.6050006@denx.de>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH] team: add rescheduling jiffy delay on !rtnl_trylock
+Date: Mon, 29 Sep 2014 12:06:01 -0400
+Message-ID: <20140929160601.GD15925@htj.dyndns.org>
+References: <20140929115445.40221d8e@jlaw-desktop.mno.stratus.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, Felipe Balbi <balbi@ti.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-api@vger.kernel.org,
-	Andrzej Pietrasiewicz <andrzej.p@samsung.com>,
-	Michal Nazarewicz <mina86@mina86.com>,
-	Kyungmin Park <kyungmin.park@samsung.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	Macpaul Lin <macpaul@gmail.com>,
-	"Meier, Roger" <r.meier@siemens.com>
-To: hs@denx.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54294C78.6050006@denx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Joe Lawrence <joe.lawrence@stratus.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f52.google.com ([209.85.192.52]:53385 "EHLO
+	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754045AbaI2QGH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 12:06:07 -0400
+Received: by mail-qg0-f52.google.com with SMTP id z60so2389521qgd.25
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 09:06:05 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140929115445.40221d8e@jlaw-desktop.mno.stratus.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2014-09-29 19:11, Heiko Schocher wrote:
-> Hello Lars,
->
-> sorry for my late answer ...
->
-> Am 24.09.2014 16:22, schrieb Lars Melin:
->> On 2014-09-24 20:12, Heiko Schocher wrote:
->>> Hello Lars,
->>>
->>> Am 24.09.2014 14:25, schrieb Lars Melin:
->>>> On 2014-09-24 13:48, Heiko Schocher wrote:
->>>>> use the values for RNDIS over Ethernet as defined in
->>>>> http://www.usb.org/developers/defined_class
->>>>> (search for RDNIS):
->>>>>
->>>>> - baseclass: 0xef (miscellaneous)
->>>>> - subclass: 0x04
->>>>> - protocol: 0x01
->>>>>
->>>> That is usb class, it is not the same thing as communication device 
->>>> class.
->>>>> --- a/include/uapi/linux/usb/cdc.h
->>>>> +++ b/include/uapi/linux/usb/cdc.h
->>>>> @@ -12,6 +12,7 @@
->>>>> #include <linux/types.h>
->>>>> #define USB_CDC_SUBCLASS_ACM 0x02
->>>>> +#define USB_CDC_SUBCLASS_RNDIS 0x04
->>>> No, no, no.
->>>> There is no CDC_SUBCLASS_RNDIS and you can not define one over an 
->>>> already used cdc subclass number, 0x04 is Multi-Channel Control Model
->>>
->>> Ah, ok, so I have to define this values in a new header file, as there
->>> is no current file for the USB_CLASS_MISC defines? Or is there a proper
->>> place for them?
->>>
->>> BTW: where do I find the "cdc subclass number, 0x04 is Multi-Channel
->>> Control Model" define?
->>>
->>> bye,
->>> Heiko
->>
->> You can still find the original specification usbcdc11.pdf on the net 
->> if you google for it, it has been pulled from usb.org where you could 
->> download it until a few years ago.
->> It is old but covers a lot of what you need to know.
->
-> Hmm.. maybe I am to dummy for finding this docment...
->
-> http://www.usb.org/results?q=usbcdc11.pdf&submit=Search
->
-> does not find this document ... could you send me a direct link?
->
-> I found with the above search:
->
-> http://www.usb.org/developers/defined_class
+(cc'ing Paul and quoting the whole body)
 
-I don't know if it is a good idea to provide a link here to a document 
-which usb.org has made unavailable, I told you to google for the file 
-name , not to search for it on usb.org
-> and this site, exactly describes the values for RNDIS over ethernet,
-> as my patch changes [1]
->
->> Linux has afaik only the cdc.h definition file, everything else is 
->> coded by class/subclass in respectively drivers when needed.
->
-> why not in header files? I thought, magical values are not welcome
-> in source code ...
->
+Paul, this is a fix for RCU sched stall observed w/ a work item
+requeueing itself waiting for the RCU grace period.  As the self
+requeueing work item ends up being executed by the same kworker, the
+worker task never stops running in the absence of a higher priority
+task and it seems to delay RCU grace period for a very long time on
+!PREEMPT kernels.  As each work item denotes a boundary which no
+synchronization construct stretches across, I wonder whether it'd be a
+good idea to add a notification for the end of RCU critical section
+between executions of work items.
 
-I was wrong, usb class definitions are included in 
-../include/uapi/linux/usb/ch9.h
-> As for the is_rndis() function case, this function is defined in
-> 2 places:
->
-> - drivers/net/usb/cdc_ether.c
-> - drivers/usb/core/generic.c
->
-> Has this a special reason? This seems suboptimal to me ...
-Yes it has, but the core driver is not an interface driver so it is not 
-of relevance in this case.
-cdc_ether handles interfaces of device connected to the usb bus, not 
-interfaces of gadget devices
-created by linux.
-> I got from a customer this patch (in a similiar version) and
-> he did tests with [3] and saw, that a board which runs linux,
-> is seen in [3] with the values [2] ... so he changed the
-> values in drivers/usb/gadget/function/f_rndis.c to the
-> values [1], which are documented in [4] and with them
-> the test [3] is happy ... and the file
-> "Documentation/usb/linux.inf" is not longer needed on the
-> windows pc!
->
-The patch from your customer removed  the most common rndis interface 
-attributes and substituted them
-with one of many other interface attributes which Microsoft uses, this 
-is not the right way of doing it.
-Why did he patch  ../core/generic.c  and ../net/usb/cdc_ether.c  if he 
-wants to change the interface attributes of g_rndis?
+Thanks.
 
+On Mon, Sep 29, 2014 at 11:54:45AM -0400, Joe Lawrence wrote:
+> Hello Jiri,
+> 
+> I've been debugging a hang on RHEL7 that seems to originate in the
+> teaming driver and the team_notify_peers_work/team_mcast_rejoin_work
+> rtnl_trylock rescheduling logic.  Running a stand-alone minimal driver
+> mimicing the same schedule_delayed_work(.., 0) reproduces the problem on
+> RHEL7 and upstream kernels [1].
+> 
+> A quick summary of the hang:
+> 
+> 1 - systemd-udevd issues an ioctl that heads down dev_ioctl (grabs the
+>     rtnl_mutex), dev_ifsioc, dev_change_name and finally
+>     synchronize_sched.  In every vmcore I've taken of the hang, this
+>     thread is waiting on the RCU.
+> 
+> 2 - A kworker thread goes to 100% CPU.
+> 
+> 3 - Inspecting the running thread on the CPU that rcusched reported as
+>     holding up the RCU grace period usually shows it in either
+>     team_notify_peers_work, team_mcast_rejoin_work, or somewhere in the
+>     workqueue code (process_one_work).  This is the same CPU/thread as
+>     #2.
+> 
+> 4 - team_notify_peers_work and team_mcast_rejoin_work want the rtnl_lock
+>     that systemd-udevd in #1 has, so they try to play nice by calling
+>     rtnl_trylock and rescheduling on failure.  Unfortunately with 0
+>     jiffy delay, process_one_work will "execute immediately" (ie, after
+>     others already in queue, but before the next tick).  With the stock
+>     RHEL7 !CONFIG_PREEMPT at least, this creates a tight loop on
+>     process_one_work + rtnl_trylock that spins the CPU in #2.
+> 
+> 5 - Sometime minutes later, RCU seems to be kicked by a side effect of
+>     a smp_apic_timer_interrupt.  (This was the only other interesting
+>     function reported by ftrace function tracer).
+> 
+> See the patch below for a potential workaround.  Giving at least 1 jiffy
+> should give process_one_work some breathing room before calling back
+> into team_notify_peers_work/team_mcast_rejoin_work and attempting to
+> acquire the rtnl_lock mutex.
+> 
+> Regards,
+> 
+> -- Joe
+> 
+> [1] http://marc.info/?l=linux-kernel&m=141192244232345&w=2
+> 
+> -->8--- -->8--- -->8--- -->8---
+> 
+> From fc5bbf5771b5732f7479ac6e84bbfdde05710023 Mon Sep 17 00:00:00 2001
+> From: Joe Lawrence <joe.lawrence@stratus.com>
+> Date: Mon, 29 Sep 2014 11:09:05 -0400
+> Subject: [PATCH] team: add rescheduling jiffy delay on !rtnl_trylock
+> 
+> Give the CPU running the kworker handling team_notify_peers_work and
+> team_mcast_rejoin_work functions some scheduling air by specifying a
+> non-zero delay.
+> 
+> Signed-off-by: Joe Lawrence <joe.lawrence@stratus.com>
+> ---
+>  drivers/net/team/team.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+> index ef10302..d46df38 100644
+> --- a/drivers/net/team/team.c
+> +++ b/drivers/net/team/team.c
+> @@ -633,7 +633,7 @@ static void team_notify_peers_work(struct work_struct *work)
+>  	team = container_of(work, struct team, notify_peers.dw.work);
+>  
+>  	if (!rtnl_trylock()) {
+> -		schedule_delayed_work(&team->notify_peers.dw, 0);
+> +		schedule_delayed_work(&team->notify_peers.dw, 1);
+>  		return;
+>  	}
+>  	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, team->dev);
+> @@ -673,7 +673,7 @@ static void team_mcast_rejoin_work(struct work_struct *work)
+>  	team = container_of(work, struct team, mcast_rejoin.dw.work);
+>  
+>  	if (!rtnl_trylock()) {
+> -		schedule_delayed_work(&team->mcast_rejoin.dw, 0);
+> +		schedule_delayed_work(&team->mcast_rejoin.dw, 1);
+>  		return;
+>  	}
+>  	call_netdevice_notifiers(NETDEV_RESEND_IGMP, team->dev);
+> -- 
+> 1.7.10.4
+> 
 
-Lars
+-- 
+tejun
