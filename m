@@ -1,60 +1,70 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: IPv6 FIB related crash with MACVLANs in 3.9.11+ kernel.
-Date: Mon, 29 Sep 2014 12:48:19 -0700
-Message-ID: <5429B783.20207@candelatech.com>
-References: <52EFFE20.5080500@candelatech.com>  <20140203220323.GB17999@order.stressinduktion.org>  <52F012FF.9030105@candelatech.com> <52F65EB4.1050306@candelatech.com>  <20140208172310.GF16198@order.stressinduktion.org>  <loom.20140926T001736-777@post.gmane.org>  <1411906297.2400343.172598909.66223582@webmail.messagingengine.com>  <loom.20140929T195637-887@post.gmane.org>  <5429A886.1040809@candelatech.com> <1412017399.14757.4.camel@localhost>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH] tun: make sure interface usage can not overflow
+Date: Mon, 29 Sep 2014 12:48:47 -0700
+Message-ID: <CAGXu5j+x5pg6-9y72o=mE9TiNEyFqTTE=o8ETh1Ao8R20KNRwA@mail.gmail.com>
+References: <20140928232753.GA31180@www.outflux.net>
+	<20140929114849.GA913@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Hongmei Li <duckcncn@gmail.com>, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:52340 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753384AbaI2TsU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 15:48:20 -0400
-In-Reply-To: <1412017399.14757.4.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	Tom Herbert <therbert@google.com>,
+	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
+	stephen hemminger <stephen@networkplumber.org>,
+	Network Development <netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140929114849.GA913@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/29/2014 12:03 PM, Hannes Frederic Sowa wrote:
-> On Mo, 2014-09-29 at 11:44 -0700, Ben Greear wrote:
->> On 09/29/2014 11:15 AM, Hongmei Li wrote:
->>> Thanks Hannes for your prompt response!
->>>
->>> We just encountered this issue two times in our product stability test so far,
->>> and my panic backtrace is the exactly same with the one reported here.
->>> I don't know how to reproduce the issue till now. 
->>> I tried several method, unfortunately, I can not reproduce it by myself. :(
+On Mon, Sep 29, 2014 at 4:48 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> On Sun, Sep 28, 2014 at 04:27:53PM -0700, Kees Cook wrote:
+>> This makes the size argument a const, since it is always populated by
+>> the caller. Additionally double-checks to make sure the copy_from_user
+>> can never overflow, keeping CONFIG_DEBUG_STRICT_USER_COPY_CHECKS happy:
 >>
->> We could reproduce it easily using our user-space tool that creates 1000
->> mac-vlans, configures them, dumps routing tables, etc.  But, we could
->> only reproduce it when we had the ixgbe ports unplugged.  If they
->> were properly connected to a switch, we did not see any crashes.
+>>    In function 'copy_from_user',
+>>        inlined from '__tun_chr_ioctl' at drivers/net/tun.c:1871:7:
+>>        ... copy_from_user() buffer size is not provably correct
 >>
->> My original email on 2/3/2014 has more details, and the thread that
->> follows has some info on debugging we did at the time.
-> 
-> I just tried to reproduce the problem, disabling the port on a switch
-> and setting up 1000 macvlans on a ixgbe, enabling ipv6 and dumping
-> routing tables. Unluckily I had no success. :(
-> 
-> Any more hints?
+>> Signed-off-by: Kees Cook <keescook@chromium.org>
+>
+> What exactly is the issue here?
+> __tun_chr_ioctl is called with sizeof(struct compat_ifreq)
+> or  sizeof (struct ifreq) as the last argument.
 
-We are going to be running up to 20 concurrent scripts that
-will be dumping routes & ips, and configuring ip addresses
-and routes during bringup.
+Correct. There is no vulnerability here; I am attempting to both make
+the code more defensive to future changes, and to keep
+CONFIG_DEBUG_STRICT_USER_COPY_CHECKS happy.
 
-I don't have a simple stand-alone way to reproduce this,
-but at least when we reported the problem is was very easy
-for us to reproduce with our tool.
+> So this looks like a false positive, but
+> CONFIG_DEBUG_STRICT_USER_COPY_CHECKS machinery is supposed
+> to avoid false positives.
 
-Maybe 20 scripts running in parallel that randomly configured and dumped routes
-and ip addresses on random interfaces would do the trick?
+The support in GCC is currently a bit faulty, and it seems that it
+didn't notice the two callers were static values, so instead, adding
+an explicit test keeps it happy.
+
+> On which architecture is this?
+
+This is on x86, but with CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
+correctly enabled (gcc after 4.6 broke its ability to correctly
+optimize), which I've been playing with trying to get gcc working
+again. I sent the patch because it seems like it's a reasonable
+defensive change to make.
+
+If you want to look more deeply, there's some background here:
+https://code.google.com/p/chromium/issues/detail?id=371036
+
+https://git.kernel.org/cgit/linux/kernel/git/kees/linux.git/commit/?h=gcc-bug&id=92dd7154932d8775a05dfd3de5564124c05a4150
 
 Thanks,
-Ben
+
+-Kees
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Kees Cook
+Chrome OS Security
