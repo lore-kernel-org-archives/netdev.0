@@ -1,63 +1,69 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: VRFs and the scalability of namespaces
-Date: Mon, 29 Sep 2014 11:05:36 -0700
-Message-ID: <CAHA+R7MjgT6u7ptRqURJ5mZgdxdhrHcjD4aHL0CXayYWTCxJxQ@mail.gmail.com>
-References: <5425EAA6.7040302@gmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] staging: r8821ae: Remove driver from staging
+Date: Mon, 29 Sep 2014 13:08:21 -0500
+Message-ID: <5429A015.1000700@lwfinger.net>
+References: <1411954791-23779-1-git-send-email-Larry.Finger@lwfinger.net>
+ <20140929170519.GA19823@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:59295 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754888AbaI2SFj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 14:05:39 -0400
-Received: by mail-lb0-f169.google.com with SMTP id u10so5012869lbd.14
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 11:05:38 -0700 (PDT)
-In-Reply-To: <5425EAA6.7040302@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140929170519.GA19823@kroah.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 26, 2014 at 3:37 PM, David Ahern <dsahern@gmail.com> wrote:
+On 09/29/2014 12:05 PM, Greg KH wrote:
+> On Sun, Sep 28, 2014 at 08:39:51PM -0500, Larry Finger wrote:
+>> A new version of this driver has been merged into the wireless-testing tree
+>> as commit 21e4b0726dc671c423e2dc9a85364716219c4502. It is both possible and
+>> desirable to delete the staging version to avoid build errors in linux-next.
+>>
+>> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+>> ---
+>>
+>> Greg,
+>>
+>> This removal patch was generated after commit 368c75b98bdfdfad54e7f165016819ef344e3587.
+>> It should apply to your tree unless further modifications have been made to
+>> the staging driver.
 >
-> Network Namespaces for VRFs
-> ---------------------------
-> For the past 4 years or so the response to VRF questions is a drum beat of
-> "use network namespaces". But namespaces are not a good match for VRFs.
+> Something is odd with this patch, it doesn't apply, even against that
+> commit id:
+> Applying: staging: r8821ae: Remove driver from staging
+> error: patch failed: drivers/staging/rtl8821ae/btcoexist/HalBtc8812a1Ant.c:1
+> error: drivers/staging/rtl8821ae/btcoexist/HalBtc8812a1Ant.c: patch does not apply
+> Patch failed at 0001 staging: r8821ae: Remove driver from staging
+> The copy of the patch that failed is found in:
+>     /home/gregkh/linux/work/staging/.git/rebase-apply/patch
+> When you have resolved this problem, run "git am --continue".
+> If you prefer to skip this patch, run "git am --skip" instead.
+> To restore the original branch and stop patching, run "git am --abort".
 >
-> 1. Network namespaces are a complete separation of the networking stack from
-> network devices up. VRFs are an L3 concept. Using namespaces forces an L3
-> separation concept onto L2 apps -- lldp, cdp, etc.
->
-> There are use cases when you want device level separation, use cases where
-> you want only L3 and up separation, and cases where you want both (e.g.,
-> divy up the netdevices in a system across some small number of namespaces
-> and then provide VRF based features within a namespace).
+> Can you refresh against the staging-next branch of staging.git and try it
+> again?  Or I can just delete it "by hand" which is fine with me, and might be
+> easier fro you, just let me know.
+
+I was on the staging-next branch, but when I pulled after receiving this mail, I 
+got a conflict due to some change in drivers/staging/rtl8821ae/pci.c. That one 
+must have been in your local copy, but not yet pushed when I pulled.
+
+If you don't mind doing the delete there, the traffic on the Cc sites will be 
+reduced. I'm sure you know what is needed, but just in case, delete the files in 
+drivers/staging/rtl8821ae/ and the Makefile and Kconfig entries in drivers/staging/.
+
+Thanks,
+
+Larry
 
 
-With regarding to L3 isolation, not limited to VRF, it _does_ sound
-like a cleaner
-solution than the current L2 isolation, given the fact that:
-
-1) Isolating L2 relies on /sys etc. in practice, which means we have to use
-mount namespace as well. Ideally network isolation should be independent of
-other namespaces.
-
-2) Some resources still need to be shared, otherwise we have to restart
-some services in each of network namespaces as you mentioned. The
-~200kb memory overhead is not a problem I think, as now most servers have 8Gb+
-memory, the real problem is some service, for example udevd, has some
-dependencies, we would fall back to re-implement a whole init service
-chain for each
-netns, which is the expensive part.
-
-Overall, rather than all or none isolation, we should give the user
-some flexibility
-to specify which network resources we want to isolation, which we don't. Again,
-I am not saying VRF is the solution, I am looking for some more
-flexible isolation
-solution.
-
-Thanks.
+Larry
