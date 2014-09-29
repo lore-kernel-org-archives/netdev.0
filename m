@@ -1,34 +1,105 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Tom Herbert <therbert@google.com>
 Subject: Re: [PATCH next] r8169: add support for Byte Queue Limits
-Date: Mon, 29 Sep 2014 14:03:10 -0700
-Message-ID: <1412024590.30721.42.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Mon, 29 Sep 2014 14:05:18 -0700
+Message-ID: <CA+mtBx95KFr=3h_TZWBeM6e7EF4sKAmjRpz5vLxGwi8xC+qQuw@mail.gmail.com>
 References: <1412024209-25468-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Francois Romieu <romieu@fr.zoreil.com>,
 	Hayes Wang <hayeswang@realtek.com>
 To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:41131 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbaI2VDL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 17:03:11 -0400
-Received: by mail-pa0-f44.google.com with SMTP id et14so3364184pad.17
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 14:03:11 -0700 (PDT)
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:61467 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754911AbaI2VFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 17:05:20 -0400
+Received: by mail-ig0-f181.google.com with SMTP id h18so4233548igc.2
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 14:05:19 -0700 (PDT)
 In-Reply-To: <1412024209-25468-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-09-29 at 22:56 +0200, Florian Westphal wrote:
+Hi Florian,
+
+Thanks for doing this! Can you add a little description in commit log
+on test results, something that would indicate accounting is correct.
+
+Thanks,
+Tom
+
+
+On Mon, Sep 29, 2014 at 1:56 PM, Florian Westphal <fw@strlen.de> wrote:
 > tested on RTL8168d/8111d.
-
-One small nit :
-
+>
+> Cc: Francois Romieu <romieu@fr.zoreil.com>
+> Cc: Hayes Wang <hayeswang@realtek.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  drivers/net/ethernet/realtek/r8169.c | 18 ++++++++++++++----
+>  1 file changed, 14 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index 1d81238..73c6ad1 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -4712,6 +4712,8 @@ static void rtl_hw_reset(struct rtl8169_private *tp)
+>         RTL_W8(ChipCmd, CmdReset);
+>
+>         rtl_udelay_loop_wait_low(tp, &rtl_chipcmd_cond, 100, 100);
+> +
+> +       netdev_reset_queue(tp->dev);
+>  }
+>
+>  static void rtl_request_uncached_firmware(struct rtl8169_private *tp)
+> @@ -6592,6 +6594,8 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+>
+>         txd->opts2 = cpu_to_le32(opts[1]);
+>
+> +       netdev_sent_queue(dev, skb->len);
+> +
+>         skb_tx_timestamp(skb);
+>
+>         wmb();
 > @@ -6691,6 +6695,7 @@ static void rtl8169_pcierr_interrupt(struct net_device *dev)
 >  static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
 >  {
->  	unsigned int dirty_tx, tx_left;
-> +	unsigned bytes_compl = 0, pkts_compl = 0;
-
-unsigned int bytes_compl = 0, pkts_compl = 0;
+>         unsigned int dirty_tx, tx_left;
+> +       unsigned bytes_compl = 0, pkts_compl = 0;
+>
+>         dirty_tx = tp->dirty_tx;
+>         smp_rmb();
+> @@ -6709,10 +6714,8 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
+>                 rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
+>                                      tp->TxDescArray + entry);
+>                 if (status & LastFrag) {
+> -                       u64_stats_update_begin(&tp->tx_stats.syncp);
+> -                       tp->tx_stats.packets++;
+> -                       tp->tx_stats.bytes += tx_skb->skb->len;
+> -                       u64_stats_update_end(&tp->tx_stats.syncp);
+> +                       pkts_compl++;
+> +                       bytes_compl += tx_skb->skb->len;
+>                         dev_kfree_skb_any(tx_skb->skb);
+>                         tx_skb->skb = NULL;
+>                 }
+> @@ -6721,6 +6724,13 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
+>         }
+>
+>         if (tp->dirty_tx != dirty_tx) {
+> +               netdev_completed_queue(tp->dev, pkts_compl, bytes_compl);
+> +
+> +               u64_stats_update_begin(&tp->tx_stats.syncp);
+> +               tp->tx_stats.packets += pkts_compl;
+> +               tp->tx_stats.bytes += bytes_compl;
+> +               u64_stats_update_end(&tp->tx_stats.syncp);
+> +
+>                 tp->dirty_tx = dirty_tx;
+>                 /* Sync with rtl8169_start_xmit:
+>                  * - publish dirty_tx ring index (write barrier)
+> --
+> 1.8.1.5
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
