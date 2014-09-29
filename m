@@ -1,55 +1,56 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH][V2] Freescale Frame Manager Device Tree binding document
-Date: Mon, 29 Sep 2014 18:33:00 -0500
-Message-ID: <1412033580.13320.295.camel@snotra.buserror.net>
-References: <1410952110-32733-1-git-send-email-igal.liberman@freescale.com>
- <5425962F.7090602@mindchasers.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: VRFs and the scalability of namespaces
+Date: Mon, 29 Sep 2014 17:43:43 -0600
+Message-ID: <5429EEAF.9030702@gmail.com>
+References: <5425EAA6.7040302@gmail.com> <1411824598.2136890.172383085.705271DD@webmail.messagingengine.com> <54295971.2040402@gmail.com> <54298B66.8060807@candelatech.com> <CACP96tR_c3-nVEGhswm1qt1WGXPNzyXA61FCxPutCTPNomjy+g@mail.gmail.com> <54299019.3050604@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Igal.Liberman" <igal.liberman@freescale.com>, netdev@vger.kernel.org,
- linuxppc-dev@lists.ozlabs.org, Emilian.Medve@freescale.com,
- devicetree@vger.kernel.org
-To: Bob Cochran <ppc@mindchasers.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <5425962F.7090602@mindchasers.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>,
+	Sowmini Varadhan <sowmini05@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:45053 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751176AbaI2Xnw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 19:43:52 -0400
+Received: by mail-pd0-f171.google.com with SMTP id ft15so2403984pdb.30
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 16:43:52 -0700 (PDT)
+In-Reply-To: <54299019.3050604@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCAyMDE0LTA5LTI2IGF0IDEyOjM3IC0wNDAwLCBCb2IgQ29jaHJhbiB3cm90ZToKPiBP
-biAwOS8xNy8yMDE0IDA3OjA4IEFNLCBJZ2FsLkxpYmVybWFuIHdyb3RlOgo+ID4gRnJvbTogSWdh
-bCBMaWJlcm1hbiA8SWdhbC5MaWJlcm1hbkBmcmVlc2NhbGUuY29tPgo+ID4KPiA+IFRoZSBGcmFt
-ZSBNYW5hZ2VyIChGTWFuKSBjb21iaW5lcyB0aGUgRXRoZXJuZXQgbmV0d29yayBpbnRlcmZhY2Vz
-IHdpdGggcGFja2V0Cj4gPiBkaXN0cmlidXRpb24gbG9naWMgdG8gcHJvdmlkZSBpbnRlbGxpZ2Vu
-dCBkaXN0cmlidXRpb24gYW5kIHF1ZXVpbmcgZGVjaXNpb25zCj4gPiBmb3IgaW5jb21pbmcgdHJh
-ZmZpYyBhdCBsaW5lIHJhdGUuCj4gPgo+ID4gVGhpcyBiaW5kaW5nIGRvY3VtZW50IGRlc2NyaWJl
-cyBGcmVlc2NhbGUncyBGcmFtZSBNYW5hZ2VyIGhhcmR3YXJlIGF0dHJpYnV0ZXMKPiA+IHRoYXQg
-YXJlIHVzZWQgYnkgdGhlIEZyYW1lIE1hbmFnZXIgZHJpdmVyIGZvciBpdHMgYmFzaWMgaW5pdGlh
-bGl6YXRpb24gYW5kCj4gPiBjb25maWd1cmF0aW9uLgo+ID4KPiA+IERpZmZlcmVuY2UgYmV0d2Vl
-biBbVjFdIGFuZCBbVjJdOgo+ID4gQWRkcmVzc2VkIGFsbCBjb21tZW50cyByZWNpZXZlZCBmcm9t
-IFNjb3R0IGluIFtWMV0KPiA+Cj4gPiBTaWduZWQtb2ZmLWJ5OiBJZ2FsIExpYmVybWFuIDxJZ2Fs
-LkxpYmVybWFuQGZyZWVzY2FsZS5jb20+Cj4gCj4gCj4gSXMgdGhlcmUgYSByZWZlcmVuY2UgKEZN
-QU4pIGR0cyBmaWxlIEkgY2FuIGNvbXBhcmUgdGhpcyBhZ2FpbnN0PyAgSSB3YXMgCj4gcmV2aWV3
-aW5nIHRoaXMgYWdhaW5zdCBteSAoY29tYmluZWQpIGR0cyBmaWxlIGZvciBteSB0MTA0MHJkYiBi
-dWlsdCB3aXRoIAo+IGVpdGhlciBGU0wncyBTREsxLjYgb3IgWW9jdG8gUHJvamVjdCBtZXRhLWZz
-bC1wcGMgbWFzdGVyIGJyYW5jaCwgYW5kIEknbSAKPiBub3QgZmluZGluZyBhIGdvb2QgbWF0Y2gg
-YmV0d2VlbiB0aGUgbm9kZXMgLyBwcm9wZXJ0aWVzIGluIG15IGR0cyBmaWxlIAo+IGFuZCB3aGF0
-IHlvdSBoYXZlIGhlcmUuCj4gCj4gRm9yIGV4YW1wbGUsIEkgZG9uJ3QgZmluZCB0aGUgcmVxdWly
-ZWQgImNsb2NrcyIgb3IgCj4gImZzbCxxbWFuLWNoYW5uZWwtcmFuZ2UiIHByb3BlcnRpZXMgdW5k
-ZXIgbXkgPGZtYW4wOiBmbWFuQDQwMDAwMCAuLi4+IAo+IG5vZGUuCj4gCQo+IEknbSB3b25kZXJp
-bmcgaWYgdGhpcyBkb2N1bWVudCBpcyB0cmFpbGluZyBvciBsZWFkaW5nIHRoZSBzb3VyY2UgaW4g
-dGhlIAo+IGxhdGVzdCBwdWJsaXNoZWQgRlNMIFNESyAoMS42KS4KClRoZSBTREsncyBkZXZpY2Ug
-dHJlZSBiaW5kaW5nIHdhcyBub3QgY29uc2lkZXJlZCBzdWl0YWJsZSBhbmQgd2UndmUKc3RhcnRl
-ZCBmcm9tIHNjcmF0Y2ggZm9yIHVwc3RyZWFtLgoKLVNjb3R0CgoKX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApM
-aW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlz
-dGluZm8vbGludXhwcGMtZGV2
+On 9/29/14, 11:00 AM, Ben Greear wrote:
+> On 09/29/2014 09:50 AM, Sowmini Varadhan wrote:
+>> On Mon, Sep 29, 2014 at 12:40 PM, Ben Greear <greearb@candelatech.com> wrote:
+>>> On 09/29/2014 06:06 AM, David Ahern wrote:
+>>
+>>>
+>>> We have implemented support for at least most of this (excepting duplicate IPs)
+>>> using routing tables, rules, and (optionally, xorp as the router).
+>>>
+>>
+>> My undertanding of multiple routing-tables/rules was that they
+>> are closer in semantics to switch/router ACLs than to VRFs, eg.,
+>> one big difference is that an interface can belong to exactly one
+>> VRF at a time, which is not mandated by multiple routing-tables/rules.
+>>
+>> Was I mistaken?
+>
+> You can effectively force an interface to belong to a particular virtual
+> router (table).  It is not trivial to do, and possibly I have still not
+> covered every possible case.  Some rules grow somewhat exponentially as
+> interfaces are added to virtual routers (ie, preference 10 rules).
+
+An interesting way of doing it; thanks for the reference point.
+
+Fundamentally the design should be able to assign interfaces to a single 
+VRF, support duplicate IP addresses on different interfaces in different 
+VRFs and be able to scale to 10,000+ netdevices -- devices representing 
+physical ports as well as logical interfaces built on top of them (e.g., 
+sub-interfaces).
+
+David
