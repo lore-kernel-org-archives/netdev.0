@@ -1,44 +1,47 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] staging: r8821ae: Remove driver from staging
-Date: Mon, 29 Sep 2014 02:17:44 -0400
-Message-ID: <20140929061744.GA25093@kroah.com>
-References: <1411954791-23779-1-git-send-email-Larry.Finger@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1411954791-23779-1-git-send-email-Larry.Finger@lwfinger.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+From: Markus Pargmann <mpa@pengutronix.de>
+Subject: [PATCH RESEND v6 1/7] DT doc: net: cpsw mac-address is optional
+Date: Mon, 29 Sep 2014 08:53:13 +0200
+Message-ID: <1411973599-18908-2-git-send-email-mpa@pengutronix.de>
+References: <1411973599-18908-1-git-send-email-mpa@pengutronix.de>
+Cc: =?UTF-8?q?Beno=C3=AEt=20Cousson?= <bcousson@baylibre.com>,
+	Tony Lindgren <tony@atomide.com>,
+	Wolfram Sang <wsa@the-dreams.de>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	linux-omap@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	kernel@pengutronix.de, Markus Pargmann <mpa@pengutronix.de>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1411973599-18908-1-git-send-email-mpa@pengutronix.de>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 28, 2014 at 08:39:51PM -0500, Larry Finger wrote:
-> A new version of this driver has been merged into the wireless-testing tree
-> as commit 21e4b0726dc671c423e2dc9a85364716219c4502. It is both possible and
-> desirable to delete the staging version to avoid build errors in linux-next.
-> 
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> ---
-> 
-> Greg,
-> 
-> This removal patch was generated after commit 368c75b98bdfdfad54e7f165016819ef344e3587.
-> It should apply to your tree unless further modifications have been made to
-> the staging driver.
+mac-address is an optional property. If no mac-address is set, a random
+mac-address will be generated.
 
-Wonderful!
+Signed-off-by: Markus Pargmann <mpa@pengutronix.de>
+Reviewed-by: Wolfram Sang <wsa@the-dreams.de>
+---
+ Documentation/devicetree/bindings/net/cpsw.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-So, this should be done for 3.18-rc1, right?  Or does wireless-testing
-take longer to get to Linus than that?
+diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+index ae2b8b7f9c38..107caf174a0e 100644
+--- a/Documentation/devicetree/bindings/net/cpsw.txt
++++ b/Documentation/devicetree/bindings/net/cpsw.txt
+@@ -29,10 +29,10 @@ Slave Properties:
+ Required properties:
+ - phy_id		: Specifies slave phy id
+ - phy-mode		: See ethernet.txt file in the same directory
+-- mac-address		: See ethernet.txt file in the same directory
+ 
+ Optional properties:
+ - dual_emac_res_vlan	: Specifies VID to be used to segregate the ports
++- mac-address		: See ethernet.txt file in the same directory
+ 
+ Note: "ti,hwmods" field is used to fetch the base address and irq
+ resources from TI, omap hwmod data base during device registration.
+-- 
+2.1.0
 
-greg k-h
