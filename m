@@ -1,34 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv7 net-next 1/4] sunvnet: upgrade to VIO protocol
- version 1.6
-Date: Mon, 29 Sep 2014 15:29:28 -0400 (EDT)
-Message-ID: <20140929.152928.749693479542761839.davem@davemloft.net>
-References: <54299BCD.7050807@oracle.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH][net-next] ipv4: unnecessary to set err on no_route
+ path
+Date: Mon, 29 Sep 2014 22:30:03 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1409292224230.2304@ja.home.ssi.bg>
+References: <1411982198-17416-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
-	Raghuram.Kothakota@oracle.com
-To: david.stevens@oracle.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32827 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860AbaI2T3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 15:29:30 -0400
-In-Reply-To: <54299BCD.7050807@oracle.com>
+Received: from ja.ssi.bg ([178.16.129.10]:41018 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751176AbaI2TaI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Sep 2014 15:30:08 -0400
+In-Reply-To: <1411982198-17416-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David L Stevens <david.stevens@oracle.com>
-Date: Mon, 29 Sep 2014 13:50:05 -0400
 
-> This patch upgrades the sunvnet driver to support VIO protocol version 1.6.
-> In particular, it adds per-port MTU negotiation, allowing MTUs other than
-> ETH_FRAMELEN with ports using newer VIO protocol versions.
+	Hello,
+
+On Mon, 29 Sep 2014, roy.qing.li@gmail.com wrote:
+
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> Signed-off-by: David L Stevens <david.stevens@oracle.com>
+> When the code skips to no_route label, it will skip to local_input at last,
+> then err will be reset on the local_input path before exit function.
 
-Just an FYI, once I apply this series I'm going to extract the
-arch/sparc parts and apply that also to the sparc-next tree in order
-to deal with the pending block driver patches from Dwight Engen and
-Allan Pais.
+	But local_input saves -err into rth->dst.error,
+the places you change provided more-specific error code.
+
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> ---
+>  net/ipv4/route.c |   11 ++++-------
+>  1 file changed, 4 insertions(+), 7 deletions(-)
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index d4bd68d..403914b 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1704,11 +1704,9 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+>  	fl4.daddr = daddr;
+>  	fl4.saddr = saddr;
+>  	err = fib_lookup(net, &fl4, &res);
+> -	if (err != 0) {
+> -		if (!IN_DEV_FORWARD(in_dev))
+> -			err = -EHOSTUNREACH;
+> +	if (err != 0)
+>  		goto no_route;
+> -	}
+> +
+>  
+>  	if (res.type == RTN_BROADCAST)
+>  		goto brd_input;
+> @@ -1721,10 +1719,9 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+>  		goto local_input;
+>  	}
+>  
+> -	if (!IN_DEV_FORWARD(in_dev)) {
+> -		err = -EHOSTUNREACH;
+> +	if (!IN_DEV_FORWARD(in_dev))
+>  		goto no_route;
+> -	}
+> +
+>  	if (res.type != RTN_UNICAST)
+>  		goto martian_destination;
+>  
+> -- 
+> 1.7.10.4
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
