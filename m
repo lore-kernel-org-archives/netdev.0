@@ -1,62 +1,66 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v1 5/5] driver-core: add driver asynchronous probe support
-Date: Mon, 29 Sep 2014 18:24:45 -0400
-Message-ID: <20140929222445.GA10280@kroah.com>
-References: <1411768637-6809-1-git-send-email-mcgrof@do-not-panic.com>
- <1411768637-6809-6-git-send-email-mcgrof@do-not-panic.com>
- <20140928150329.GC5023@mtj.dyndns.org>
- <20140929212208.GV17349@wotan.suse.de>
- <20140929215945.GA1628@kroah.com>
- <CAB=NE6XKeoDnnBxupLSAXz9w3TXVgAW+Yw3o8-ugzzUgH7j13A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj@kernel.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Takashi Iwai <tiwai@suse.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Tom Gundersen <teg@jklm.no>, rmilasan@suse.com,
-	werner@suse.com, Oleg Nesterov <oleg@redhat.com>,
-	hare <hare@suse.com>, Benjamin Poirier <bpoirier@suse.de>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Petr Mladek <pmladek@suse.cz>, dbueso@suse.com,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAB=NE6XKeoDnnBxupLSAXz9w3TXVgAW+Yw3o8-ugzzUgH7j13A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] tests: Allow policer test to be ran
+Date: Tue, 30 Sep 2014 01:22:22 +0300
+Message-ID: <1412029342-9696-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:35170 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753300AbaI2Way (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 18:30:54 -0400
+Received: by mail-la0-f48.google.com with SMTP id q1so7439567lam.35
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 15:30:52 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 29, 2014 at 03:10:22PM -0700, Luis R. Rodriguez wrote:
-> On Mon, Sep 29, 2014 at 2:59 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
-> >> Sure make sense, I wasn't quite sure how to make this quite clear,
-> >> a naming convention seems good to me but I also had added at least
-> >> a print about this on the log. Ideally I think a TAIN_DEBUG would
-> >> be best and it seems it could be useful for many other cases in
-> >> the kernel, we could also just re-use TAINT_CRAP as well. Thoughts?
-> >> Greg?
-> >
-> > TAINT_CRAP is for drivers/staging/ code, don't try to repurpose it for
-> > some other horrid option.  There's no reason we can't add more taint
-> > flags for this.
-> 
-> OK thanks, I'll add TAINT_DEBUG. Any preference where to stuff struct
-> driver_attach_work *attach_work ? On the private data structure as
-> this patch currently implements, saving us 24 bytes and hiding it from
-> drivers, or stuffing it on the device driver and simplifying the core
-> code?
+    Renamed testsuite/tests/policer to testsuite/tests/policer.t
 
-I honestly haven't even looked at this series, sorry.  It's too late
-near the close of the merge window for 3.18 and have been on the road
-for the past week in France.
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ testsuite/tests/policer   | 13 -------------
+ testsuite/tests/policer.t | 13 +++++++++++++
+ 2 files changed, 13 insertions(+), 13 deletions(-)
+ delete mode 100755 testsuite/tests/policer
+ create mode 100755 testsuite/tests/policer.t
 
-greg k-h
+diff --git a/testsuite/tests/policer b/testsuite/tests/policer
+deleted file mode 100755
+index eaf16ac..0000000
+--- a/testsuite/tests/policer
++++ /dev/null
+@@ -1,13 +0,0 @@
+-#!/bin/sh
+-$TC qdisc del dev $DEV root >/dev/null 2>&1
+-$TC qdisc add dev $DEV root handle 10:0 cbq bandwidth 100Mbit avpkt 1400 mpu 64
+-$TC class add dev $DEV parent 10:0  classid 10:12   cbq bandwidth 100mbit rate 100mbit allot 1514 prio 3 maxburst 1 avpkt  500 bounded
+-$TC filter add dev $DEV parent 10:0 protocol ip prio 10 u32 match ip protocol 1 0xff police rate 2kbit buffer 10k drop flowid 10:12
+-$TC qdisc list dev $DEV
+-$TC filter list dev $DEV parent 10:0
+-$TC qdisc del dev $DEV root
+-$TC qdisc list dev $DEV
+-$TC qdisc add dev $DEV root handle 10:0 cbq bandwidth 100Mbit avpkt 1400 mpu 64
+-$TC class add dev $DEV parent 10:0  classid 10:12   cbq bandwidth 100mbit rate 100mbit allot 1514 prio 3 maxburst 1 avpkt  500 bounded
+-$TC filter add dev $DEV parent 10:0 protocol ip prio 10 u32 match ip protocol 1 0xff police rate 2kbit buffer 10k drop flowid 10:12
+-$TC qdisc del dev $DEV root
+diff --git a/testsuite/tests/policer.t b/testsuite/tests/policer.t
+new file mode 100755
+index 0000000..eaf16ac
+--- /dev/null
++++ b/testsuite/tests/policer.t
+@@ -0,0 +1,13 @@
++#!/bin/sh
++$TC qdisc del dev $DEV root >/dev/null 2>&1
++$TC qdisc add dev $DEV root handle 10:0 cbq bandwidth 100Mbit avpkt 1400 mpu 64
++$TC class add dev $DEV parent 10:0  classid 10:12   cbq bandwidth 100mbit rate 100mbit allot 1514 prio 3 maxburst 1 avpkt  500 bounded
++$TC filter add dev $DEV parent 10:0 protocol ip prio 10 u32 match ip protocol 1 0xff police rate 2kbit buffer 10k drop flowid 10:12
++$TC qdisc list dev $DEV
++$TC filter list dev $DEV parent 10:0
++$TC qdisc del dev $DEV root
++$TC qdisc list dev $DEV
++$TC qdisc add dev $DEV root handle 10:0 cbq bandwidth 100Mbit avpkt 1400 mpu 64
++$TC class add dev $DEV parent 10:0  classid 10:12   cbq bandwidth 100mbit rate 100mbit allot 1514 prio 3 maxburst 1 avpkt  500 bounded
++$TC filter add dev $DEV parent 10:0 protocol ip prio 10 u32 match ip protocol 1 0xff police rate 2kbit buffer 10k drop flowid 10:12
++$TC qdisc del dev $DEV root
+-- 
+2.1.0
