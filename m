@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 0/2] add Qualcomm QCA7000 ethernet driver
-Date: Mon, 29 Sep 2014 00:24:45 -0400 (EDT)
-Message-ID: <20140929.002445.1795924959329545473.davem@davemloft.net>
-References: <1411770081-20995-1-git-send-email-stefan.wahren@i2se.com>
+Subject: Re: [PATCH net-next v3 0/5] net: tcp: DCTCP congestion control
+ algorithm
+Date: Mon, 29 Sep 2014 00:25:01 -0400 (EDT)
+Message-ID: <20140929.002501.2087142369863922722.davem@davemloft.net>
+References: <1411763856-14230-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	f.fainelli@gmail.com, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: stefan.wahren@i2se.com
+Cc: hagen@jauu.net, lars@netapp.com, eric.dumazet@gmail.com,
+	fontana@sharpeleven.org, hannes@stressinduktion.org,
+	stephen@networkplumber.org, glenn.judd@morganstanley.com,
+	fw@strlen.de, netdev@vger.kernel.org
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50427 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50439 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750844AbaI2EYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 00:24:47 -0400
-In-Reply-To: <1411770081-20995-1-git-send-email-stefan.wahren@i2se.com>
+	with ESMTP id S1750970AbaI2EZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 00:25:03 -0400
+In-Reply-To: <1411763856-14230-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Date: Fri, 26 Sep 2014 22:21:19 +0000
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Fri, 26 Sep 2014 22:37:31 +0200
 
-> This patch series adds support for the Qualcomm QCA7000 Homeplug GreenPHY.
-> The QCA7000 is serial-to-powerline bridge with two interfaces: UART and SPI.
-> These patches handles only the last one, with an Ethernet over SPI protocol
-> driver.
+> This patch series adds support for the DataCenter TCP (DCTCP) congestion
+> control algorithm. Please see individual patches for the details.
 
-Applied to net-next, thanks.
+Series applied, thanks Daniel.
