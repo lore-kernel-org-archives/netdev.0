@@ -1,53 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: reorganize sk_buff for faster
- __copy_skb_header()
-Date: Mon, 29 Sep 2014 12:27:54 -0400 (EDT)
-Message-ID: <20140929.122754.532408083477986522.davem@davemloft.net>
-References: <1411678046.16953.45.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1411680004.16953.57.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1411967927.30721.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: bna alloc_pages() order 2 failure in bnad.c
+ bnad_rxq_refill_page()
+Date: Mon, 29 Sep 2014 09:28:33 -0700
+Message-ID: <20140929092833.6c2cb7e9@urahara>
+References: <alpine.DEB.2.00.1409271631530.26069@ware.dreamhost.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com,
-	john.r.fastabend@intel.com, brouer@redhat.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, rmody@brocade.com
+To: Eric Wheeler <nevdev@lists.ewheeler.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58619 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755126AbaI2Q17 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 12:27:59 -0400
-In-Reply-To: <1411967927.30721.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:65216 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754236AbaI2Q2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 12:28:46 -0400
+Received: by mail-pa0-f41.google.com with SMTP id eu11so2399776pac.28
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 09:28:46 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.00.1409271631530.26069@ware.dreamhost.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 28 Sep 2014 22:18:47 -0700
+On Sat, 27 Sep 2014 16:44:22 -0700 (PDT)
+Eric Wheeler <nevdev@lists.ewheeler.net> wrote:
 
-> From: Eric Dumazet <edumazet@google.com>
+> Hello all,
 > 
-> With proliferation of bit fields in sk_buff, __copy_skb_header() became
-> quite expensive, showing as the most expensive function in a GSO
-> workload.
+> We're using the 10gbe bna card and sometimes we get pages and pages of 
+> alloc_pages() failure backtraces like below.  (The maintainer 
+> rmody@brocade.com does not appear to have an active email at brocade, but 
+> cc'ing again just in case.)
 > 
-> __copy_skb_header() performance is also critical for non GSO TCP
-> operations, as it is used from skb_clone()
+> It looks like bnad_rxq_refill_page() in bnad.c is allocating for the 
+> receive queue but fails.  We've already tried bumping vm.min_free_kbytes 
+> and vm.zone_reclaim_mode but it doesn't appear to help.
 > 
-> This patch carefully moves all the fields that were not copied in a
-> separate zone : cloned, nohdr, fclone, peeked, head_frag, xmit_more
+> Suggestions?
 > 
-> Then I moved all other fields and all other copied fields in a section
-> delimited by headers_start[0]/headers_end[0] section so that we
-> can use a single memcpy() call, inlined by compiler using long
-> word load/stores.
+> Would it be appropriate to convert alloc_pages() to a mempool 
+> implementation?
 > 
-> I also tried to make all copies in the natural orders of sk_buff,
-> to help hardware prefetching.
-> 
-> I made sure sk_buff size did not change.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
-> v2 : added back ipvs_property, oops ;)
+> -Eric
 
-Applied :-)
+Brocade sold the NIC hardware business off to Qlogic.
+I told them to update MAINTAINERS but they haven't submitted a patch yet.
