@@ -1,41 +1,43 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] net/mlx4_en: mlx4_en_netpoll shouldn't call
- napi_schedule when port is down
-Date: Mon, 29 Sep 2014 09:47:30 -0700
-Message-ID: <CAHA+R7O_QicCpZNpWzWGD_bGD7i4-ySVjV5UuUVpF8EMsohsPg@mail.gmail.com>
-References: <1411988695-30547-1-git-send-email-amirv@mellanox.com>
+From: Sowmini Varadhan <sowmini05@gmail.com>
+Subject: Re: VRFs and the scalability of namespaces
+Date: Mon, 29 Sep 2014 12:50:39 -0400
+Message-ID: <CACP96tR_c3-nVEGhswm1qt1WGXPNzyXA61FCxPutCTPNomjy+g@mail.gmail.com>
+References: <5425EAA6.7040302@gmail.com>
+	<1411824598.2136890.172383085.705271DD@webmail.messagingengine.com>
+	<54295971.2040402@gmail.com>
+	<54298B66.8060807@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ido Shamay <idos@mellanox.com>,
-	netdev <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
+Cc: David Ahern <dsahern@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:50994 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754070AbaI2Qrc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 12:47:32 -0400
-Received: by mail-la0-f49.google.com with SMTP id ge10so3756842lab.8
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 09:47:30 -0700 (PDT)
-In-Reply-To: <1411988695-30547-1-git-send-email-amirv@mellanox.com>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:63164 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753821AbaI2Qum (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 12:50:42 -0400
+Received: by mail-lb0-f178.google.com with SMTP id w7so1560810lbi.9
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 09:50:40 -0700 (PDT)
+In-Reply-To: <54298B66.8060807@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 29, 2014 at 4:04 AM, Amir Vadai <amirv@mellanox.com> wrote:
-> From: Ido Shamay <idos@mellanox.com>
+On Mon, Sep 29, 2014 at 12:40 PM, Ben Greear <greearb@candelatech.com> wrote:
+> On 09/29/2014 06:06 AM, David Ahern wrote:
+
 >
-> mlx4_en_netpoll, which is mlx4_en ndo_poll_controller callback,
-> might be called when port is down, causing a napi_schedule when
-> napi->poll callback in NULL. mutex_trylock is needed to acquire
-> the port_state lock, since other threads may grab it and stop
-> the port while we are in napi scheduling. Using trylock since in atomic
-> context.
+> We have implemented support for at least most of this (excepting duplicate IPs)
+> using routing tables, rules, and (optionally, xorp as the router).
+>
 
-Are you sure it's safe? Its comment says:
+My undertanding of multiple routing-tables/rules was that they
+are closer in semantics to switch/router ACLs than to VRFs, eg.,
+one big difference is that an interface can belong to exactly one
+VRF at a time, which is not mandated by multiple routing-tables/rules.
 
- * This function must not be used in interrupt context. The
- * mutex must be released by the same task that acquired it.
+Was I mistaken?
 
-Did you test it with LOCKDEP enabled?
+--Sowmini
