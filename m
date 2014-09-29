@@ -1,37 +1,43 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/34] netfilter: nf_tables: add NFTA_MASQ_UNSPEC to nft_masq_attributes
-Date: Mon, 29 Sep 2014 14:38:51 +0200
-Message-ID: <1411994363-8451-3-git-send-email-pablo@netfilter.org>
-References: <1411994363-8451-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH v2 net] net: Always untag vlan-tagged traffic on input.
+Date: Mon, 29 Sep 2014 14:44:57 +0200
+Message-ID: <54295449.7030203@6wind.com>
+References: <1407523333-31455-1-git-send-email-vyasevic@redhat.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Jiri Pirko <jiri@resnulli.us>
+To: Vladislav Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:34009 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754015AbaI2MiV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Sep 2014 08:38:21 -0400
-In-Reply-To: <1411994363-8451-1-git-send-email-pablo@netfilter.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:53117 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753509AbaI2MpA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 08:45:00 -0400
+Received: by mail-wi0-f180.google.com with SMTP id em10so920247wid.1
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 05:44:59 -0700 (PDT)
+In-Reply-To: <1407523333-31455-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To keep this consistent with other nft_*_attributes.
+Le 08/08/2014 20:42, Vladislav Yasevich a =C3=A9crit :
+[snip]
+>
+> The patch attempt to fix this another way.  It moves the vlan header
+> stipping code out of the vlan module and always builds it into the
+> kernel network core.  This way, even if vlan is not supported on
+> a virtualizatoin host, the virtual machines running on top of such
+> host will still work with VLANs enabled.
+After this patch (0d5501c1c828 ("net: Always untag vlan-tagged traffic =
+on
+input.")), tcpdump will not be able to display the VLAN header on input=
+ path.
+Is this really intended?
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/uapi/linux/netfilter/nf_tables.h |    1 +
- 1 file changed, 1 insertion(+)
 
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index eeec0ae..66d66dd 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -806,6 +806,7 @@ enum nft_nat_attributes {
-  * @NFTA_MASQ_FLAGS: NAT flags (see NF_NAT_RANGE_* in linux/netfilter/nf_nat.h) (NLA_U32)
-  */
- enum nft_masq_attributes {
-+	NFTA_MASQ_UNSPEC,
- 	NFTA_MASQ_FLAGS,
- 	__NFTA_MASQ_MAX
- };
--- 
-1.7.10.4
+Regards,
+Nicolas
