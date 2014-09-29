@@ -1,86 +1,44 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 1/1 V4] qdisc: bulk dequeue support for qdiscs
- with TCQ_F_ONETXQUEUE
-Date: Mon, 29 Sep 2014 22:14:31 +0200
-Message-ID: <20140929221431.3e322aab@redhat.com>
-References: <20140924160932.9721.56450.stgit@localhost>
-	<20140924161047.9721.43080.stgit@localhost>
-	<1411579395.15395.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140924195831.6fb91051@redhat.com>
-	<54234225.5000503@mojatatu.com>
-	<20140925102505.494acab1@redhat.com>
-	<54240F34.1050707@mojatatu.com>
-	<CA+mtBx8Nie9AiCG6iuY+EN7HiLAe-bxWpZxTpRhASmYabRUyFA@mail.gmail.com>
-	<20140925165738.646d0783@redhat.com>
-	<CA+mtBx9ZW0qYh+_BEEVTgZ79Xbq0bH1Agfss_7kdEus_syeMhA@mail.gmail.com>
-	<20140925172329.7460f787@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Toke =?UTF-8?B?SMO4aWxh?= =?UTF-8?B?bmQtSsO4cmdlbnNlbg==?=
-	<toke@toke.dk>, Florian Westphal <fw@strlen.de>,
-	Dave Taht <dave.taht@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 v2] ip monitor: Changed 'Unknown message' format to be more informative
+Date: Mon, 29 Sep 2014 23:07:57 +0300
+Message-ID: <1412021277-24020-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61173 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754027AbaI2UPJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Sep 2014 16:15:09 -0400
-In-Reply-To: <20140925172329.7460f787@redhat.com>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:44351 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751688AbaI2UQ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 16:16:29 -0400
+Received: by mail-lb0-f177.google.com with SMTP id w7so1916431lbi.22
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 13:16:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+In case if unknown message was handled then it will be displayed as:
 
-On Thu, 25 Sep 2014 17:23:29 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
- 
-> I will redo the tests, once I get home to my testlab, as the remote lab
-> I'm using now is annoyingly slow rebooting machines, as we not longer
-> have a runtime option for enable/disable (I'm currently in Switzerland).   
+    Unknown message: type=0x00000044(68) flags=0x00000000(0) len=0x0000004c(76)
 
-I'm going to change the bulking "budget" from 8 packet to 7 packets,
-based on my netperf-wrapper test.
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ ip/ipmonitor.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-I've designed some tests for the tool "netperf-wrapper" that tries to
-measure the HoL blocking effect.  I've turned down the link speed to
-100Mbit/s on driver igb.  And uses a single TXQ setup
-(cmdline: ethtool -L eth1 combined 1).
-
-I can now show some kind of HoL blocking effect.  The strange part is
-the HoL effect only occurs above 8 packets, 7 packet and below show no
-bad effect of this bulking patch.
-
-Results 100Mbit/s test qdisc_prio_hol, latency in high prio band:
- * GSO: stable average on 2.23ms
- * TSO: varies between min 4.13ms to 4.41ms (range 0.28ms)
- * No bulking: stable average on 1.71ms (3x outliners on 1.95ms)
- * Bulking(8): varies between 1.71ms to 1.95ms (range 0.24ms)
- * Bulking(7): stable average on 1.71ms (1x outliner  on 1.95ms)
- * Bulking(6): stable average on 1.71ms (3x outliners on 1.91ms)
- * Bulking(5): stable average on 1.71ms (1x outliner  on 1.91ms)
- * Bulking(5): stable average on 1.71ms (1x outliner  on 1.91ms)
- * Bulking(4): stable average on 1.71ms (0x outliner)
-
-Bulking(8) the calculation:
- * Added delay were 0.24ms (1.95 - 1.71ms) corrosponding to 3000 bytes
- * 1500 bytes *8 / 100Mbit = 0.12 ms
- * (100*10^6)*(1.95/10^3)/8 = 24375 bytes
- * (100*10^6)*(1.71/10^3)/8 = 21375 bytes
- * Added HoL: 3000 bytes
- * Still compared to TSO and GSO, the added HoL blocking is small.
-
-
+diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
+index 088ec54..b7b2d98 100644
+--- a/ip/ipmonitor.c
++++ b/ip/ipmonitor.c
+@@ -143,8 +143,10 @@ static int accept_msg(const struct sockaddr_nl *who,
+ 		return 0;
+ 	if (n->nlmsg_type != NLMSG_ERROR && n->nlmsg_type != NLMSG_NOOP &&
+ 	    n->nlmsg_type != NLMSG_DONE) {
+-		fprintf(fp, "Unknown message: %08x %08x %08x\n",
+-			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
++		fprintf(fp, "Unknown message: type=0x%08x(%d) flags=0x%08x(%d)"
++			"len=0x%08x(%d)\n", n->nlmsg_type, n->nlmsg_type,
++			n->nlmsg_flags, n->nlmsg_flags, n->nlmsg_len,
++			n->nlmsg_len);
+ 	}
+ 	return 0;
+ }
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.1.0
