@@ -1,49 +1,40 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: Regarding bug 82471
-Date: Mon, 29 Sep 2014 07:51:56 +0200
-Message-ID: <20140929055156.GA13693@unicorn.suse.cz>
-References: <542595D6.6040904@lncsa.com>
+From: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+Subject: Re: Silicom bypass driver promote from staging
+Date: Sun, 28 Sep 2014 21:10:35 -0400
+Message-ID: <20140929011035.GC1167@kroah.com>
+References: <3BFAEADE799AF145974162DF00E013AF018F80FFCF@exchange2010.silicom.local>
+ <20140805150957.GC27303@kroah.com>
+ <3BFAEADE799AF145974162DF00E013AF018F814DAB@exchange2010.silicom.local>
+ <20140807215115.GB19520@electric-eye.fr.zoreil.com>
+ <3BFAEADE799AF145974162DF00E013AF018F8C5848@exchange2010.silicom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Laurent CARON <lcaron@lncsa.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"arnd@arndb.de" <arnd@arndb.de>, Anna Lukin <annal@silicom.co.il>
+To: David Hendel <david@silicom.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:48834 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750936AbaI2FwE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Sep 2014 01:52:04 -0400
+Received: from mail.linuxfoundation.org ([140.211.169.12]:33796 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750768AbaI2GQe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 02:16:34 -0400
 Content-Disposition: inline
-In-Reply-To: <542595D6.6040904@lncsa.com>
+In-Reply-To: <3BFAEADE799AF145974162DF00E013AF018F8C5848@exchange2010.silicom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 26, 2014 at 06:35:34PM +0200, Laurent CARON wrote:
-> Hi,
->=20
-> I've been biten by :
-> https://bugzilla.kernel.org/show_bug.cgi?id=3D82471 today.
->=20
-> I tried various kernels from 3.2.0 to 3.16.3
->=20
-> The last unaffected kernel according to my tests is 3.14 (didn't yet
-> try 3.15).
->=20
-> Please see logs when (on 3.16.2)
-> 1/ using iptables
-> 2/ having some traffic (even light) going through
->=20
-> http://pastebin.com/JWkFu2w2
->=20
-> My network config is the following:
->=20
-> a bond interface consisting of 2 10Gb ports (intel ixgbe / X520-SR2)
-> on top of which I use 2 vlans.
+On Sat, Sep 27, 2014 at 06:54:22AM +0000, David Hendel wrote:
+> This is what we changed in updated patch:
+> 1. Avoid redefining BIT and MII .
+> 2. Fixing returning with spinlock held
+> 3. Remove BP_SYNC_FLAG
+> 4. Use void __iomem * instead of long long in ioremap return
+> 5. Cleanup with checkpatch.pl
 
-I don't see why it would affect ixgbe adapters which support Tx VLAN
-offloading (and with which the original patch was tested) but the
-symptoms look very much like those fixed by commit db115037bb57 ("net:
-fix checksum features handling in netif_skb_features()"). Could you
-please test with 3.17-rc5 or later?
+You sent an attached, compressed, set of patches, we can't do much at
+all with them, sorry.  Please attach them in the proper format as
+described in Documentation/SubmittingPatches.
 
-                                                      Michal Kube=E8ek
+thanks,
+
+greg k-h
