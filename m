@@ -1,361 +1,61 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH v2 1/1] net: fec: implement rx_copybreak to improve rx performance
-Date: Mon, 29 Sep 2014 15:47:04 +0800
-Message-ID: <1411976824-28824-1-git-send-email-b38611@freescale.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH] xen/xenbus: Use 'void' instead of 'int' for
+ the return of xenbus_switch_state()
+Date: Mon, 29 Sep 2014 09:41:51 +0100
+Message-ID: <20140929084102.GE28628@zion.uk.xensource.com>
+References: <5425961A.5000604@gmail.com>
+ <5425AB57.8040804@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <shawn.guo@linaro.org>,
-	<B20596@freescale.com>, <bhutchings@solarflare.com>,
-	<b38611@freescale.com>
-To: <b20596@freescale.com>, <davem@davemloft.net>,
-	<romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0121.outbound.protection.outlook.com ([207.46.100.121]:29092
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751439AbaI2IRQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Sep 2014 04:17:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Chen Gang <gang.chen.5i5j@gmail.com>, <konrad.wilk@oracle.com>,
+	<ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<boris.ostrovsky@oracle.com>, <bhelgaas@google.com>,
+	<jgross@suse.com>, <yongjun_wei@trendmicro.com.cn>,
+	<mukesh.rathor@oracle.com>, <xen-devel@lists.xenproject.org>,
+	<linux-pci@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	<linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5425AB57.8040804@citrix.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-- Copy short frames and keep the buffers mapped, re-allocate skb instead of
-  memory copy for long frames.
-- Add support for setting/getting rx_copybreak using generic ethtool tunable
+On Fri, Sep 26, 2014 at 07:07:19PM +0100, David Vrabel wrote:
+> On 26/09/14 17:36, Chen Gang wrote:
+> > When xenbus_switch_state() fails, it will call xenbus_switch_fatal()
+> > internally, so need not return any status value, then use 'void' instead
+> > of 'int' for xenbus_switch_state() and __xenbus_switch_state().
+> > 
+> > Also need be sure that all callers which check the return value must let
+> > 'err' be 0.
+> 
+> I've rewritten the commit message as:
+> 
+>     xen/xenbus: don't return errors from xenbus_switch_state()
+> 
+>     Most users of xenbus_switch_state() weren't handling the failure of
+>     xenbus_switch_state() correctly.  They either called
+>     xenbus_dev_fatal() (which xenbus_switch_state() has effectively
+>     already tried to do), or ignored errors.
+> 
+>     xenbus_switch_state() may fail because:
+> 
+>     a) The device is being unplugged by the toolstack. The device will
+>     shortly be removed and the error does not need to be handled.
+> 
+>     b) Xenstore is broken.  There isn't much the driver can do in this
+>     case since xenstore is required to signal failure to the toolstack.
+> 
+>     So, don't report any errors from xenbus_switch_state() which removes
+>     some unnecessary error handling in some of the drivers.
+> 
+> I'd appreciate a review from some of the other front/backend driver
+> maintainers on whether this is sensible reasoning.
+> 
 
-Changes V2:
-* Implements rx_copybreak
-* Rx_copybreak provides module parameter to change this value
-* Add tunable_ops support for rx_copybreak
+Looks reasonable to me.
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
- drivers/net/ethernet/freescale/fec.h      |    2 +
- drivers/net/ethernet/freescale/fec_main.c |  212 ++++++++++++++++++++---------
- 2 files changed, 149 insertions(+), 65 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 354a309..1d5e182 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -482,6 +482,8 @@ struct fec_enet_private {
- 	unsigned int tx_pkts_itr;
- 	unsigned int tx_time_itr;
- 	unsigned int itr_clk_rate;
-+
-+	u32 rx_copybreak;
- };
- 
- void fec_ptp_init(struct platform_device *pdev);
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 2c73434..276a0aa 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -176,6 +176,12 @@ static unsigned char macaddr[ETH_ALEN];
- module_param_array(macaddr, byte, NULL, 0);
- MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
- 
-+#define COPYBREAK_DEFAULT 256
-+static unsigned int copybreak __read_mostly = COPYBREAK_DEFAULT;
-+module_param(copybreak, uint, 0644);
-+MODULE_PARM_DESC(copybreak,
-+		 "Maximum packet size that is copied to a new buffer on receive");
-+
- #if defined(CONFIG_M5272)
- /*
-  * Some hardware gets it MAC address out of local flash memory.
-@@ -1322,6 +1328,50 @@ fec_enet_tx(struct net_device *ndev)
- 	return;
- }
- 
-+static int
-+fec_enet_new_rxbdp(struct net_device *ndev, struct bufdesc *bdp, struct sk_buff *skb)
-+{
-+	struct  fec_enet_private *fep = netdev_priv(ndev);
-+	int off;
-+
-+	off = ((unsigned long)skb->data) & fep->rx_align;
-+	if (off)
-+		skb_reserve(skb, fep->rx_align + 1 - off);
-+
-+	bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, skb->data,
-+					  FEC_ENET_RX_FRSIZE - fep->rx_align,
-+					  DMA_FROM_DEVICE);
-+	if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
-+		if (net_ratelimit())
-+			netdev_err(ndev, "Rx DMA memory map failed\n");
-+		return -ENOMEM;
-+	}
-+
-+	return 0;
-+}
-+
-+static bool fec_enet_copybreak(struct net_device *ndev, struct sk_buff **skb,
-+			       struct bufdesc *bdp, u32 length)
-+{
-+	struct  fec_enet_private *fep = netdev_priv(ndev);
-+	struct sk_buff *new_skb;
-+
-+	if (length > fep->rx_copybreak)
-+		return false;
-+
-+	new_skb = netdev_alloc_skb(ndev, length);
-+	if (!new_skb)
-+		return false;
-+
-+	dma_sync_single_for_cpu(&fep->pdev->dev, bdp->cbd_bufaddr,
-+				FEC_ENET_RX_FRSIZE - fep->rx_align,
-+				DMA_FROM_DEVICE);
-+	memcpy(new_skb->data, (*skb)->data, length);
-+	*skb = new_skb;
-+
-+	return true;
-+}
-+
- /* During a receive, the cur_rx points to the current incoming buffer.
-  * When we update through the ring, if the next incoming buffer has
-  * not been given to the system, we just set the empty indicator,
-@@ -1336,7 +1386,8 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
- 	struct fec_enet_priv_rx_q *rxq;
- 	struct bufdesc *bdp;
- 	unsigned short status;
--	struct	sk_buff	*skb;
-+	struct  sk_buff *skb_new = NULL;
-+	struct  sk_buff *skb;
- 	ushort	pkt_len;
- 	__u8 *data;
- 	int	pkt_received = 0;
-@@ -1344,6 +1395,7 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
- 	bool	vlan_packet_rcvd = false;
- 	u16	vlan_tag;
- 	int	index = 0;
-+	bool	is_copybreak;
- 
- #ifdef CONFIG_M532x
- 	flush_cache_all();
-@@ -1401,11 +1453,27 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
- 		ndev->stats.rx_bytes += pkt_len;
- 
- 		index = fec_enet_get_bd_index(rxq->rx_bd_base, bdp, fep);
--		data = rxq->rx_skbuff[index]->data;
--		dma_sync_single_for_cpu(&fep->pdev->dev, bdp->cbd_bufaddr,
--					FEC_ENET_RX_FRSIZE - fep->rx_align,
--					DMA_FROM_DEVICE);
-+		skb = rxq->rx_skbuff[index];
- 
-+		/* The packet length includes FCS, but we don't want to
-+		 * include that when passing upstream as it messes up
-+		 * bridging applications.
-+		 */
-+		is_copybreak = fec_enet_copybreak(ndev, &skb, bdp, pkt_len - 4);
-+		if (!is_copybreak) {
-+			skb_new = netdev_alloc_skb(ndev, FEC_ENET_RX_FRSIZE);
-+			if (unlikely(!skb_new)) {
-+				ndev->stats.rx_dropped++;
-+				goto rx_processing_done;
-+			}
-+			dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
-+					 FEC_ENET_RX_FRSIZE - fep->rx_align,
-+					 DMA_FROM_DEVICE);
-+		}
-+
-+		prefetch(skb->data - NET_IP_ALIGN);
-+		skb_put(skb, pkt_len - 4);
-+		data = skb->data;
- 		if (id_entry->driver_data & FEC_QUIRK_SWAP_FRAME)
- 			swap_buffer(data, pkt_len);
- 
-@@ -1422,62 +1490,48 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
- 			struct vlan_hdr *vlan_header =
- 					(struct vlan_hdr *) (data + ETH_HLEN);
- 			vlan_tag = ntohs(vlan_header->h_vlan_TCI);
--			pkt_len -= VLAN_HLEN;
- 
- 			vlan_packet_rcvd = true;
-+
-+			skb_copy_to_linear_data_offset(skb, VLAN_HLEN,
-+						       data, (2 * ETH_ALEN));
-+			skb_pull(skb, VLAN_HLEN);
- 		}
- 
--		/* This does 16 byte alignment, exactly what we need.
--		 * The packet length includes FCS, but we don't want to
--		 * include that when passing upstream as it messes up
--		 * bridging applications.
--		 */
--		skb = netdev_alloc_skb(ndev, pkt_len - 4 + NET_IP_ALIGN);
-+		skb->protocol = eth_type_trans(skb, ndev);
- 
--		if (unlikely(!skb)) {
--			ndev->stats.rx_dropped++;
--		} else {
--			int payload_offset = (2 * ETH_ALEN);
--			skb_reserve(skb, NET_IP_ALIGN);
--			skb_put(skb, pkt_len - 4);	/* Make room */
--
--			/* Extract the frame data without the VLAN header. */
--			skb_copy_to_linear_data(skb, data, (2 * ETH_ALEN));
--			if (vlan_packet_rcvd)
--				payload_offset = (2 * ETH_ALEN) + VLAN_HLEN;
--			skb_copy_to_linear_data_offset(skb, (2 * ETH_ALEN),
--						       data + payload_offset,
--						       pkt_len - 4 - (2 * ETH_ALEN));
--
--			skb->protocol = eth_type_trans(skb, ndev);
--
--			/* Get receive timestamp from the skb */
--			if (fep->hwts_rx_en && fep->bufdesc_ex)
--				fec_enet_hwtstamp(fep, ebdp->ts,
--						  skb_hwtstamps(skb));
--
--			if (fep->bufdesc_ex &&
--			    (fep->csum_flags & FLAG_RX_CSUM_ENABLED)) {
--				if (!(ebdp->cbd_esc & FLAG_RX_CSUM_ERROR)) {
--					/* don't check it */
--					skb->ip_summed = CHECKSUM_UNNECESSARY;
--				} else {
--					skb_checksum_none_assert(skb);
--				}
-+		/* Get receive timestamp from the skb */
-+		if (fep->hwts_rx_en && fep->bufdesc_ex)
-+			fec_enet_hwtstamp(fep, ebdp->ts,
-+					  skb_hwtstamps(skb));
-+
-+		if (fep->bufdesc_ex &&
-+		    (fep->csum_flags & FLAG_RX_CSUM_ENABLED)) {
-+			if (!(ebdp->cbd_esc & FLAG_RX_CSUM_ERROR)) {
-+				/* don't check it */
-+				skb->ip_summed = CHECKSUM_UNNECESSARY;
-+			} else {
-+				skb_checksum_none_assert(skb);
- 			}
-+		}
- 
--			/* Handle received VLAN packets */
--			if (vlan_packet_rcvd)
--				__vlan_hwaccel_put_tag(skb,
--						       htons(ETH_P_8021Q),
--						       vlan_tag);
-+		/* Handle received VLAN packets */
-+		if (vlan_packet_rcvd)
-+			__vlan_hwaccel_put_tag(skb,
-+					       htons(ETH_P_8021Q),
-+					       vlan_tag);
- 
--			napi_gro_receive(&fep->napi, skb);
-+		napi_gro_receive(&fep->napi, skb);
-+
-+		if (is_copybreak) {
-+			dma_sync_single_for_device(&fep->pdev->dev, bdp->cbd_bufaddr,
-+						   FEC_ENET_RX_FRSIZE - fep->rx_align,
-+						   DMA_FROM_DEVICE);
-+		} else {
-+			rxq->rx_skbuff[index] = skb_new;
-+			fec_enet_new_rxbdp(ndev, bdp, skb_new);
- 		}
- 
--		dma_sync_single_for_device(&fep->pdev->dev, bdp->cbd_bufaddr,
--					   FEC_ENET_RX_FRSIZE - fep->rx_align,
--					   DMA_FROM_DEVICE);
- rx_processing_done:
- 		/* Clear the status flags for this buffer */
- 		status &= ~BD_ENET_RX_STATS;
-@@ -2392,6 +2446,44 @@ static void fec_enet_itr_coal_init(struct net_device *ndev)
- 	fec_enet_set_coalesce(ndev, &ec);
- }
- 
-+static int fec_enet_get_tunable(struct net_device *netdev,
-+				const struct ethtool_tunable *tuna,
-+				void *data)
-+{
-+	struct fec_enet_private *fep = netdev_priv(netdev);
-+	int ret = 0;
-+
-+	switch (tuna->id) {
-+	case ETHTOOL_RX_COPYBREAK:
-+		*(u32 *)data = fep->rx_copybreak;
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
-+static int fec_enet_set_tunable(struct net_device *netdev,
-+				const struct ethtool_tunable *tuna,
-+				const void *data)
-+{
-+	struct fec_enet_private *fep = netdev_priv(netdev);
-+	int ret = 0;
-+
-+	switch (tuna->id) {
-+	case ETHTOOL_RX_COPYBREAK:
-+		fep->rx_copybreak = *(u32 *)data;
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
- static const struct ethtool_ops fec_enet_ethtool_ops = {
- 	.get_settings		= fec_enet_get_settings,
- 	.set_settings		= fec_enet_set_settings,
-@@ -2408,6 +2500,8 @@ static const struct ethtool_ops fec_enet_ethtool_ops = {
- 	.get_sset_count		= fec_enet_get_sset_count,
- #endif
- 	.get_ts_info		= fec_enet_get_ts_info,
-+	.get_tunable		= fec_enet_get_tunable,
-+	.set_tunable		= fec_enet_set_tunable,
- };
- 
- static int fec_enet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
-@@ -2553,33 +2647,20 @@ fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
- 	struct sk_buff *skb;
- 	struct bufdesc	*bdp;
- 	struct fec_enet_priv_rx_q *rxq;
--	unsigned int off;
- 
- 	rxq = fep->rx_queue[queue];
- 	bdp = rxq->rx_bd_base;
- 	for (i = 0; i < rxq->rx_ring_size; i++) {
--		dma_addr_t addr;
--
- 		skb = netdev_alloc_skb(ndev, FEC_ENET_RX_FRSIZE);
- 		if (!skb)
- 			goto err_alloc;
- 
--		off = ((unsigned long)skb->data) & fep->rx_align;
--		if (off)
--			skb_reserve(skb, fep->rx_align + 1 - off);
--
--		addr = dma_map_single(&fep->pdev->dev, skb->data,
--				FEC_ENET_RX_FRSIZE - fep->rx_align, DMA_FROM_DEVICE);
--
--		if (dma_mapping_error(&fep->pdev->dev, addr)) {
-+		if (fec_enet_new_rxbdp(ndev, bdp, skb)) {
- 			dev_kfree_skb(skb);
--			if (net_ratelimit())
--				netdev_err(ndev, "Rx DMA memory map failed\n");
- 			goto err_alloc;
- 		}
- 
- 		rxq->rx_skbuff[i] = skb;
--		bdp->cbd_bufaddr = addr;
- 		bdp->cbd_sc = BD_ENET_RX_EMPTY;
- 
- 		if (fep->bufdesc_ex) {
-@@ -3240,6 +3321,7 @@ fec_probe(struct platform_device *pdev)
- 	if (fep->bufdesc_ex && fep->ptp_clock)
- 		netdev_info(ndev, "registered PHC device %d\n", fep->dev_id);
- 
-+	fep->rx_copybreak = copybreak;
- 	INIT_WORK(&fep->tx_timeout_work, fec_enet_timeout_work);
- 	return 0;
- 
--- 
-1.7.8
+Wei.
