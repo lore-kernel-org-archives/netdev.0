@@ -1,27 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/5] ARCNET: add support for EAE multi interfac card
-Date: Mon, 29 Sep 2014 14:37:05 -0400 (EDT)
-Message-ID: <20140929.143705.1969808728959274484.davem@davemloft.net>
-References: <1411984538-953-1-git-send-email-m.grzeschik@pengutronix.de>
+Subject: Re: [PATCH next 2/2] tcp: change TCP_ECN prefixes to lower case
+Date: Mon, 29 Sep 2014 14:41:51 -0400 (EDT)
+Message-ID: <20140929.144151.516262314020839655.davem@davemloft.net>
+References: <1411988910-23710-1-git-send-email-fw@strlen.de>
+	<1411988910-23710-2-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@pengutronix.de
-To: m.grzeschik@pengutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1411984538-953-1-git-send-email-m.grzeschik@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dborkman@redhat.com
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60331 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750968AbaI2Slx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 14:41:53 -0400
+In-Reply-To: <1411988910-23710-2-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Date: Mon, 29 Sep 2014 11:55:33 +0200
+From: Florian Westphal <fw@strlen.de>
+Date: Mon, 29 Sep 2014 13:08:30 +0200
 
-> this series adds support for the PLX Bridge based multi interface
-> pci cards and adds support to change device address on com200xx chips
-> during runtime.
+> Suggested by Stephen. Also drop inline keyword and let compiler decide.
 > 
-> This series is based on v3.17-rc7.
-> It is fixed for build against com20020_cs.
+> gcc 4.7.3 decides to no longer inline tcp_ecn_check_ce, so split it up.
+> The actual evaluation is not inlined anymore while the ECN_OK test is.
+> 
+> Suggested-by: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Series applied, let's see how to compile goes this time.
+Applied.
