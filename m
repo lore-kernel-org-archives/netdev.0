@@ -1,58 +1,119 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] mlx4: optimize xmit path
-Date: Sun, 28 Sep 2014 19:22:11 -0700
-Message-ID: <1411957331.15768.91.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAMEtUuxwQ8k1wcT8U0VncnVoN=vZjU3zxswgjYPcQTLPw2pRwA@mail.gmail.com>
-	 <1411930364.15768.80.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAMEtUuw861ZM+jvtFnJtwTS9krUFy09Z+rj-9LJ3UYRzOEd9zA@mail.gmail.com>
+From: "Liu, Wei" <lw1a2.jing@gmail.com>
+Subject: i40e nics are down when we use them on Dual CPU
+Date: Mon, 29 Sep 2014 11:04:43 +0800
+Message-ID: <CAO2W35uu9rFQFo_-g=x9VTJPM857dB+DAdh1WifjgL3aCuQYDQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:41550 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753532AbaI2CWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2014 22:22:14 -0400
-Received: by mail-pa0-f44.google.com with SMTP id et14so1747383pad.31
-        for <netdev@vger.kernel.org>; Sun, 28 Sep 2014 19:22:13 -0700 (PDT)
-In-Reply-To: <CAMEtUuw861ZM+jvtFnJtwTS9krUFy09Z+rj-9LJ3UYRzOEd9zA@mail.gmail.com>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:60133 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753122AbaI2DOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2014 23:14:45 -0400
+Received: by mail-ie0-f178.google.com with SMTP id rl12so3486676iec.9
+        for <netdev@vger.kernel.org>; Sun, 28 Sep 2014 20:14:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-09-28 at 13:49 -0700, Alexei Starovoitov wrote:
+Hi All,
 
-> I see. So xmit_more=true overrides blueflame=on settings.
+When we use netperf to generate traffic, i40e nics are down very soon(
+the throughput is about 76Gbps).
 
-Yes, unless Mellanox folks have another way.
+CPU: "Intel(R) Xeon(R) CPU E5-2670 v2 @ 2.50GHz" X2
 
-> I wonder what is the performance difference bf=on vs bf=off,
-> also whether a burst of N packets via bf is slower than
-> burst via queue+doorbell.
-> Some fun exploration for driver experts :)
+TOPO:
+port5, port6, port11, port12 are i40e interfaces.
+port6 and port12 are in a net namespace.
+port5<--->port6: port5 is connected port6 directly.
+port11<--->port12: port11 is connected port12 directly.
 
-Prior situation : bf=on : ~4.5 Mpps
+nics interrupt bind cpu:
+port5: 0, 1, 2, 3, 4 (CPU0)
+port6: 10, 11, 12, 13, 14 (CPU1)
+port11: 5, 6, 7, 8, 9(CPU0)
+port12: 15, 16, 17, 18, 19 (CPU1)
 
-queue + doorbell every 8 packets : ~8 Mpps, up to 10Mpps if tuned
-properly.
+kernel: 3.13.11
+driver: i40e stable
+1.0.15(http://sourceforge.net/projects/e1000/files/i40e%20stable/1.0.15/):
+version: 1.0.15
+firmware-version: f4.1 a1.1 n04.10 e800010e0
+bus-info: 0000:09:00.0
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: yes
+supports-register-dump: yes
+supports-priv-flags: no
+We also tried latest kernel 3.16.3 (with its own driver), it has the same issue.
 
-Rewritten mlx4 tx path and no burst (bf=on doorbell at every packet) :
-5.3 Mpps
+netperf cmd:
+netperf -T 14,19 -L 15.3.2.1 -H 15.3.1.100 -f m -D 1 -l 600 >/dev/null &
+netperf -T 13,18 -L 15.5.2.1 -H 15.5.1.100 -f m -D 1 -l 600 >/dev/null &
+netperf -T 12,17 -L 15.2.2.1 -H 15.2.1.100 -f m -D 1 -l 600 >/dev/null &
+netperf -T 11,16 -L 15.1.2.1 -H 15.1.1.100 -f m -D 1 -l 600 >/dev/null &
+netperf -T 10,15 -L 15.4.2.1 -H 15.4.1.100 -f m -D 1 -l 600 >/dev/null &
+netperf -T 4,9 -L 14.4.2.1 -H 14.4.1.100 -f m -D 1 -l 600 >/dev/null &
+netperf -T 3,8 -L 14.1.2.1 -H 14.1.1.100 -f m -D 1 -l 600 >/dev/null &
+netperf -T 2,7 -L 14.5.2.1 -H 14.5.1.100 -f m -D 1 -l 600 >/dev/null &
+netperf -T 1,6 -L 14.2.2.1 -H 14.2.1.100 -f m -D 1 -l 600 >/dev/null &
+netperf -T 0,5 -L 14.3.2.1 -H 14.3.1.100 -f m -D 1 -l 600 >/dev/null &
 
-With the full mlx4 patch and burst = 8 -> 14.9 Mpps
-
-This is on a 40Gb NIC, with 108 bytes packets.
-
-(Using <= 104 bytes packets actually gives lower pps because of
-'inlining' done by the driver :  8 Mpps for PKTSIZE=40 )
-
-# cat /sys/module/mlx4_en/parameters/inline_thold
-104
+dmesg:
+...
+i40e 0000:09:00.1 port6: NIC Link is Up 40 Gbps Full Duplex, Flow Control: None
+i40e 0000:09:00.0 port5: NIC Link is Up 40 Gbps Full Duplex, Flow Control: None
+IPv6: ADDRCONF(NETDEV_CHANGE): port6: link becomes ready
+IPv6: ADDRCONF(NETDEV_CHANGE): port5: link becomes ready
+i40e 0000:8a:00.0 port11: NIC Link is Up 40 Gbps Full Duplex, Flow Control: None
+i40e 0000:8a:00.1 port12: NIC Link is Up 40 Gbps Full Duplex, Flow Control: None
+IPv6: ADDRCONF(NETDEV_CHANGE): port11: link becomes ready
+IPv6: ADDRCONF(NETDEV_CHANGE): port12: link becomes ready
+------------[ cut here ]------------
+WARNING: at net/sched/sch_generic.c:254 dev_watchdog+0x174/0x1da()
+Hardware name: To be filled by O.E.M.
+NETDEV WATCHDOG: port5 (i40e): transmit queue 3 timed out
+Modules linked in: khttpc(O) khttpd(O) i40e(O) ixgbe(O)
+Pid: 883, comm: kworker/0:1 Tainted: G           O 3.8.4+ #1
+Call Trace:
+<IRQ>  [<ffffffff8022d914>] ? warn_slowpath_common+0x76/0x8a
+[<ffffffff8022d96f>] ? warn_slowpath_fmt+0x47/0x49
+[<ffffffff802373b5>] ? mod_timer+0x107/0x11b
+[<ffffffff80549ec7>] ? dev_watchdog+0x174/0x1da
+[<ffffffff80549d53>] ? dev_graft_qdisc+0x61/0x61
+[<ffffffff802375e8>] ? call_timer_fn.isra.35+0x1c/0x6f
+[<ffffffff8023779e>] ? run_timer_softirq+0x163/0x182
+[<ffffffff80232f11>] ? __do_softirq+0xa0/0x13d
+[<ffffffff8066260c>] ? call_softirq+0x1c/0x26
+[<ffffffff802032b5>] ? do_softirq+0x2a/0x64
+[<ffffffff8023306f>] ? irq_exit+0x3d/0x5a
+[<ffffffff80218af2>] ? smp_apic_timer_interrupt+0x81/0x8d
+[<ffffffff8066200a>] ? apic_timer_interrupt+0x6a/0x70
+<EOI>  [<ffffffffa003e220>] ? i40e_do_reset_safe+0xcd2/0xd84 [i40e]
+[<ffffffffa003dff5>] ? i40e_do_reset_safe+0xaa7/0xd84 [i40e]
+[<ffffffff803af706>] ? delay_tsc+0x20/0x44
+[<ffffffffa0042412>] ? i40e_asq_send_command+0x316/0x441 [i40e]
+[<ffffffffa0043546>] ? i40e_aq_get_link_info+0x47/0x123 [i40e]
+[<ffffffffa0043d64>] ? i40e_get_link_status+0x20/0x28 [i40e]
+[<ffffffffa0036e45>] ? i40e_ioctl+0x1858/0x1a0b [i40e]
+[<ffffffffa003e228>] ? i40e_do_reset_safe+0xcda/0xd84 [i40e]
+[<ffffffff802370ca>] ? internal_add_timer+0xd/0x28
+[<ffffffff802373b5>] ? mod_timer+0x107/0x11b
+[<ffffffff8023f37e>] ? process_one_work+0x1d6/0x2d8
+[<ffffffff8023f6a4>] ? worker_thread+0x201/0x2eb
+[<ffffffff8023f4a3>] ? process_scheduled_works+0x23/0x23
+[<ffffffff80243034>] ? kthread+0xa9/0xb1
+[<ffffffff80242f8b>] ? kthread_stop+0x49/0x49
+[<ffffffff8066146c>] ? ret_from_fork+0x7c/0xb0
+[<ffffffff80242f8b>] ? kthread_stop+0x49/0x49
+---[ end trace bdce93fbb0280b12 ]---
+i40e 0000:09:00.0 port5: tx_timeout recovery level 1
+i40e 0000:09:00.0: i40e_vsi_control_tx: VSI seid 518 Tx ring 3 disable timeout
+i40e 0000:09:00.0: i40e_ptp_init: added PHC on port5
+i40e 0000:09:00.0 port5: adding 00:90:0b:38:4f:7c vid=0
+i40e 0000:09:00.0 port5: set fc fail, aq_err -7
+i40e 0000:09:00.0 port5: NIC Link is Up 40 Gbps Full Duplex, Flow Control: None
+i40e 0000:09:00.0 port5: NIC Link is Down
+i40e 0000:09:00.1 port6: NIC Link is Down
+i40e 0000:09:00.1 port6: NIC Link is Up 40 Gbps Full Duplex, Flow Control: None
+i40e 0000:09:00.0 port5: NIC Link is Up 40 Gbps Full Duplex, Flow Control: None
