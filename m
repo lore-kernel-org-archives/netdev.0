@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] udp: Generalize GSO for UDP tunnels
-Date: Mon, 29 Sep 2014 16:43:06 -0400 (EDT)
-Message-ID: <20140929.164306.1423529448299226409.davem@davemloft.net>
-References: <1411748554-7346-1-git-send-email-therbert@google.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCHv8 net-next 2/4] sunvnet: make transmit path zero-copy
+ in the kernel
+Date: Mon, 29 Sep 2014 16:44:08 -0400
+Message-ID: <5429C498.1000705@oracle.com>
+References: <5429B8E2.40204@oracle.com> <20140929.162950.1960056644564225055.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
+	raghuram.kothakota@oracle.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33923 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751176AbaI2UnJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 16:43:09 -0400
-In-Reply-To: <1411748554-7346-1-git-send-email-therbert@google.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:36554 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753768AbaI2Unj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 16:43:39 -0400
+In-Reply-To: <20140929.162950.1960056644564225055.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Fri, 26 Sep 2014 09:22:29 -0700
 
-> This patch set generalizes the UDP tunnel segmentation functions so
-> that they can work with various protocol encapsulations. The primary
-> change is to set the inner_protocol field in the skbuff when creating
-> the encapsulated packet, and then in skb_udp_tunnel_segment this data
-> is used to determine the function for segmenting the encapsulated
-> packet. The inner_protocol field is overloaded to take either an
-> Ethertype or IP protocol.
 
-Tom, this series needs to be respun due to Eric Dumazet's sk_buff flags
-rework in net-next.
+On 09/29/2014 04:29 PM, David Miller wrote:
 
-Thanks.
+> 
+> It doesn't work to liberate SKBs in the TX ring purely from the
+> ->ndo_start_xmit() method.
+> 
+> All SKBs given to a device must be liberated in a finite, short,
+> amount of time.
+
+I did consider putting a garbage-collector via timer on them, since
+we got such a boost from not ACKing every packet. I guess the question
+is "how short?"
+
+For example, I could leave the "normal" path like this and just start/mod
+a timer to do it after 1 sec if we haven't done it through start_xmit. Do
+you think that's sufficiently short?
+
+							+-DLS
