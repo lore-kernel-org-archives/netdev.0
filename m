@@ -1,33 +1,49 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: Re: [PATCH net-next 3/4] sunvnet: allow admin to set sunvnet MTU
-Date: Mon, 29 Sep 2014 15:13:57 -0400
-Message-ID: <5429AF75.4080301@oracle.com>
-References: <5429940D.4040500@oracle.com> <20140929.145839.1840433438051963991.davem@davemloft.net>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: abort orphan sockets stalling on zero
+ window probes
+Date: Mon, 29 Sep 2014 12:17:52 -0700
+Message-ID: <CAK6E8=ee8=hjQrYZNAKgs2YkCGEMSfzrLpu_Mr5joo987Y6M8Q@mail.gmail.com>
+References: <1411444333-6013-1-git-send-email-ycheng@google.com> <20140926.155611.954320324745536887.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
-	Raghuram.Kothakota@oracle.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@google.com>,
+	Andrey Dmitrov <andrey.dmitrov@oktetlabs.ru>,
+	Neal Cardwell <ncardwell@google.com>,
+	netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:26938 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753536AbaI2TN2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 15:13:28 -0400
-In-Reply-To: <20140929.145839.1840433438051963991.davem@davemloft.net>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:49909 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754122AbaI2TSd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 15:18:33 -0400
+Received: by mail-ie0-f174.google.com with SMTP id tr6so2217161ieb.33
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 12:18:32 -0700 (PDT)
+In-Reply-To: <20140926.155611.954320324745536887.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Sep 26, 2014 at 12:56 PM, David Miller <davem@davemloft.net> wrote:
+> From: Yuchung Cheng <ycheng@google.com>
+> Date: Mon, 22 Sep 2014 20:52:13 -0700
+>
+>> -
+>> +             if (!alive && icsk->icsk_backoff >= max_probes)
+>> +                     goto abort;
+>>               if (tcp_out_of_resources(sk, alive || icsk->icsk_probes_out <= max_probes))
+>>                       return;
+>
+> This new logic means that the second argument to tcp_out_of_resources()
+> will always be 'true'.
+>
+> Please make that explicit, because the code is confusing otherwise.
+>
+> Also perhaps target this for the 'net' tree?
+Sure I'll clear up the patch.
 
+Net-next is probably a better target b/c it's more of a feature patch.
+It also changes TCP_USER_TIMEOUT semantics slightly.
 
-On 09/29/2014 02:58 PM, David Miller wrote:
+Thanks!
 
-> 
-> More patch corruption.
-> 
-
-Yes, sorry about that. I lost my .gitconfig in a crash and the backup
-wasn't quite right; fixed, and the ones with subject "PATCHv7" I believe
-are correct.
-
-						+-DLS
+>
+> Thanks.
