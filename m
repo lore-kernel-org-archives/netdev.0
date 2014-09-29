@@ -1,56 +1,33 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: [PATCH] tun: make sure interface usage can not overflow
-Date: Mon, 29 Sep 2014 22:04:58 +0200
-Message-ID: <1412021098.14757.6.camel@localhost>
-References: <20140928232753.GA31180@www.outflux.net>
-	 <063D6719AE5E284EB5DD2968C1650D6D1749FC70@AcuExch.aculab.com>
-	 <CAGXu5jKL13qdCBet3yqpc3vLYh_LifBACzL+NP8n-A+E8RMZXw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Add ndo_gso_check
+Date: Mon, 29 Sep 2014 16:12:18 -0400 (EDT)
+Message-ID: <20140929.161218.1571834095802997233.davem@davemloft.net>
+References: <1411962607-27878-1-git-send-email-therbert@google.com>
+	<CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@aculab.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jason Wang <jasowang@redhat.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Tom Herbert <therbert@google.com>,
-	Masatake YAMATO <yamato@redhat.com>, Xi Wang <xii@google.com>,
-	stephen hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGXu5jKL13qdCBet3yqpc3vLYh_LifBACzL+NP8n-A+E8RMZXw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: therbert@google.com, jeffrey.t.kirsher@intel.com,
+	alexander.h.duyck@intel.com, netdev@vger.kernel.org, tgraf@suug.ch,
+	pshelar@nicira.com, john.r.fastabend@intel.com
+To: gerlitz.or@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33576 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751028AbaI2UMV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 16:12:21 -0400
+In-Reply-To: <CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mo, 2014-09-29 at 12:41 -0700, Kees Cook wrote:
-> On Mon, Sep 29, 2014 at 4:04 AM, David Laight <David.Laight@aculab.com> wrote:
-> > From: Kees Cook
-> >> This makes the size argument a const, since it is always populated by
-> >> the caller.
-> >
-> > There is almost no point making parameters 'const.
-> > ('const foo *' makes sense).
-> >
-> >> Additionally double-checks to make sure the copy_from_user
-> >> can never overflow, keeping CONFIG_DEBUG_STRICT_USER_COPY_CHECKS happy:
-> >>
-> >>    In function 'copy_from_user',
-> >>        inlined from '__tun_chr_ioctl' at drivers/net/tun.c:1871:7:
-> >>        ... copy_from_user() buffer size is not provably correct
-> >
-> > If 'ifreq_len' could be too big then you want to error the ioctl, not panic.
-> > If it can't be too big you don't need the check.
-> 
-> The ifreq_len comes from the callers, and is the output of "sizeof"
-> which is const. Changing the function parameter to "const" means any
-> changes made in the future where the incoming value isn't const, the
-> compiler will throw a warning.
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Date: Mon, 29 Sep 2014 22:59:39 +0300
 
-Hmmm, I think you want something like BUILD_BUG_ON(!
-__builtin_constant_p(var)). const in function argument only ensures that
-the value cannot be modified in the function.
+> Saying that, while looking quickly on the fm10k driver during it's
+> super fast upstream review cycle,
 
-Bye,
-Hannes
+I call bullshit.  fm10k had been posted for review starting around 10
+days before I pulled it in from Jeff's tree.
+
+If I let most patches rot that long in patchwork there'd be a crowd
+with pitchforks approaching me.
