@@ -1,169 +1,532 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 17/34] ipvs: Supply destination address family to ip_vs_conn_new
-Date: Mon, 29 Sep 2014 14:39:06 +0200
-Message-ID: <1411994363-8451-18-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/34] netfilter: ipset: Add skbinfo extension kernel support for the hash set types.
+Date: Mon, 29 Sep 2014 14:38:57 +0200
+Message-ID: <1411994363-8451-9-git-send-email-pablo@netfilter.org>
 References: <1411994363-8451-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:34235 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:34122 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754167AbaI2Mil (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Sep 2014 08:38:41 -0400
+	id S1754051AbaI2Mic (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Sep 2014 08:38:32 -0400
 In-Reply-To: <1411994363-8451-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alex Gartrell <agartrell@fb.com>
+From: Anton Danilov <littlesmilingcloud@gmail.com>
 
-The assumption that dest af is equal to service af is now unreliable, so we
-must specify it manually so as not to copy just the first 4 bytes of a v6
-address or doing an illegal read of 16 butes on a v6 address.
+Add skbinfo extension kernel support for the hash set types.
+Inroduce the new revisions of all hash set types.
 
-We "lie" in two places: for synchronization (which we will explicitly
-disallow from happening when we have heterogeneous pools) and for black
-hole addresses where there's no real dest.
-
-Signed-off-by: Alex Gartrell <agartrell@fb.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Anton Danilov <littlesmilingcloud@gmail.com>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 ---
- include/net/ip_vs.h             |    3 ++-
- net/netfilter/ipvs/ip_vs_conn.c |    5 +++--
- net/netfilter/ipvs/ip_vs_core.c |    9 +++++----
- net/netfilter/ipvs/ip_vs_ftp.c  |    6 ++++--
- net/netfilter/ipvs/ip_vs_sync.c |    3 ++-
- 5 files changed, 16 insertions(+), 10 deletions(-)
+ net/netfilter/ipset/ip_set_hash_gen.h        |    5 +++++
+ net/netfilter/ipset/ip_set_hash_ip.c         |   14 ++++++++++++--
+ net/netfilter/ipset/ip_set_hash_ipmark.c     |   14 ++++++++++++--
+ net/netfilter/ipset/ip_set_hash_ipport.c     |   14 ++++++++++++--
+ net/netfilter/ipset/ip_set_hash_ipportip.c   |   14 ++++++++++++--
+ net/netfilter/ipset/ip_set_hash_ipportnet.c  |   14 ++++++++++++--
+ net/netfilter/ipset/ip_set_hash_net.c        |   16 +++++++++++++---
+ net/netfilter/ipset/ip_set_hash_netiface.c   |   16 +++++++++++++---
+ net/netfilter/ipset/ip_set_hash_netnet.c     |   16 +++++++++++++---
+ net/netfilter/ipset/ip_set_hash_netport.c    |   16 +++++++++++++---
+ net/netfilter/ipset/ip_set_hash_netportnet.c |   16 +++++++++++++---
+ 11 files changed, 130 insertions(+), 25 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 2fa1155..7600dbe 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -535,6 +535,7 @@ struct ip_vs_conn {
- 	union nf_inet_addr      daddr;          /* destination address */
- 	volatile __u32          flags;          /* status flags */
- 	__u16                   protocol;       /* Which protocol (TCP/UDP) */
-+	__u16			daf;		/* Address family of the dest */
- #ifdef CONFIG_NET_NS
- 	struct net              *net;           /* Name space */
- #endif
-@@ -1213,7 +1214,7 @@ static inline void __ip_vs_conn_put(struct ip_vs_conn *cp)
- void ip_vs_conn_put(struct ip_vs_conn *cp);
- void ip_vs_conn_fill_cport(struct ip_vs_conn *cp, __be16 cport);
+diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
+index 8a38890..ac3a268 100644
+--- a/net/netfilter/ipset/ip_set_hash_gen.h
++++ b/net/netfilter/ipset/ip_set_hash_gen.h
+@@ -720,6 +720,8 @@ reuse_slot:
+ 		ip_set_init_counter(ext_counter(data, set), ext);
+ 	if (SET_WITH_COMMENT(set))
+ 		ip_set_init_comment(ext_comment(data, set), ext);
++	if (SET_WITH_SKBINFO(set))
++		ip_set_init_skbinfo(ext_skbinfo(data, set), ext);
  
--struct ip_vs_conn *ip_vs_conn_new(const struct ip_vs_conn_param *p,
-+struct ip_vs_conn *ip_vs_conn_new(const struct ip_vs_conn_param *p, int dest_af,
- 				  const union nf_inet_addr *daddr,
- 				  __be16 dport, unsigned int flags,
- 				  struct ip_vs_dest *dest, __u32 fwmark);
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 8f4c602..fdb4880 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -854,7 +854,7 @@ void ip_vs_conn_expire_now(struct ip_vs_conn *cp)
-  *	Create a new connection entry and hash it into the ip_vs_conn_tab
-  */
- struct ip_vs_conn *
--ip_vs_conn_new(const struct ip_vs_conn_param *p,
-+ip_vs_conn_new(const struct ip_vs_conn_param *p, int dest_af,
- 	       const union nf_inet_addr *daddr, __be16 dport, unsigned int flags,
- 	       struct ip_vs_dest *dest, __u32 fwmark)
- {
-@@ -873,6 +873,7 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
- 	setup_timer(&cp->timer, ip_vs_conn_expire, (unsigned long)cp);
- 	ip_vs_conn_net_set(cp, p->net);
- 	cp->af		   = p->af;
-+	cp->daf		   = dest_af;
- 	cp->protocol	   = p->protocol;
- 	ip_vs_addr_set(p->af, &cp->caddr, p->caddr);
- 	cp->cport	   = p->cport;
-@@ -880,7 +881,7 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
- 	ip_vs_addr_set(p->protocol == IPPROTO_IP ? AF_UNSPEC : p->af,
- 		       &cp->vaddr, p->vaddr);
- 	cp->vport	   = p->vport;
--	ip_vs_addr_set(p->af, &cp->daddr, daddr);
-+	ip_vs_addr_set(cp->daf, &cp->daddr, daddr);
- 	cp->dport          = dport;
- 	cp->flags	   = flags;
- 	cp->fwmark         = fwmark;
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 5c34e8d..1f6ecb7 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -328,7 +328,7 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
- 		 * This adds param.pe_data to the template,
- 		 * and thus param.pe_data will be destroyed
- 		 * when the template expires */
--		ct = ip_vs_conn_new(&param, &dest->addr, dport,
-+		ct = ip_vs_conn_new(&param, dest->af, &dest->addr, dport,
- 				    IP_VS_CONN_F_TEMPLATE, dest, skb->mark);
- 		if (ct == NULL) {
- 			kfree(param.pe_data);
-@@ -357,7 +357,8 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
- 	ip_vs_conn_fill_param(svc->net, svc->af, iph->protocol, &iph->saddr,
- 			      src_port, &iph->daddr, dst_port, &param);
+ out:
+ 	rcu_read_unlock_bh();
+@@ -797,6 +799,9 @@ mtype_data_match(struct mtype_elem *data, const struct ip_set_ext *ext,
+ 	if (SET_WITH_COUNTER(set))
+ 		ip_set_update_counter(ext_counter(data, set),
+ 				      ext, mext, flags);
++	if (SET_WITH_SKBINFO(set))
++		ip_set_get_skbinfo(ext_skbinfo(data, set),
++				   ext, mext, flags);
+ 	return mtype_do_data_match(data);
+ }
  
--	cp = ip_vs_conn_new(&param, &dest->addr, dport, flags, dest, skb->mark);
-+	cp = ip_vs_conn_new(&param, dest->af, &dest->addr, dport, flags, dest,
-+			    skb->mark);
- 	if (cp == NULL) {
- 		ip_vs_conn_put(ct);
- 		*ignored = -1;
-@@ -479,7 +480,7 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
- 		ip_vs_conn_fill_param(svc->net, svc->af, iph->protocol,
- 				      &iph->saddr, pptr[0], &iph->daddr,
- 				      pptr[1], &p);
--		cp = ip_vs_conn_new(&p, &dest->addr,
-+		cp = ip_vs_conn_new(&p, dest->af, &dest->addr,
- 				    dest->port ? dest->port : pptr[1],
- 				    flags, dest, skb->mark);
- 		if (!cp) {
-@@ -550,7 +551,7 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
- 			ip_vs_conn_fill_param(svc->net, svc->af, iph->protocol,
- 					      &iph->saddr, pptr[0],
- 					      &iph->daddr, pptr[1], &p);
--			cp = ip_vs_conn_new(&p, &daddr, 0,
-+			cp = ip_vs_conn_new(&p, svc->af, &daddr, 0,
- 					    IP_VS_CONN_F_BYPASS | flags,
- 					    NULL, skb->mark);
- 			if (!cp)
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index 77c1732..a64fa15 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -233,7 +233,8 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 			ip_vs_conn_fill_param(ip_vs_conn_net(cp),
- 					      AF_INET, IPPROTO_TCP, &cp->caddr,
- 					      0, &cp->vaddr, port, &p);
--			n_cp = ip_vs_conn_new(&p, &from, port,
-+			/* As above, this is ipv4 only */
-+			n_cp = ip_vs_conn_new(&p, AF_INET, &from, port,
- 					      IP_VS_CONN_F_NO_CPORT |
- 					      IP_VS_CONN_F_NFCT,
- 					      cp->dest, skb->mark);
-@@ -396,7 +397,8 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 				      htons(ntohs(cp->vport)-1), &p);
- 		n_cp = ip_vs_conn_in_get(&p);
- 		if (!n_cp) {
--			n_cp = ip_vs_conn_new(&p, &cp->daddr,
-+			/* This is ipv4 only */
-+			n_cp = ip_vs_conn_new(&p, AF_INET, &cp->daddr,
- 					      htons(ntohs(cp->dport)-1),
- 					      IP_VS_CONN_F_NFCT, cp->dest,
- 					      skb->mark);
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index edd2664..7162c86 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -889,7 +889,8 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
- 				       param->vaddr, param->vport, protocol,
- 				       fwmark, flags);
+diff --git a/net/netfilter/ipset/ip_set_hash_ip.c b/net/netfilter/ipset/ip_set_hash_ip.c
+index e527399..76959d7 100644
+--- a/net/netfilter/ipset/ip_set_hash_ip.c
++++ b/net/netfilter/ipset/ip_set_hash_ip.c
+@@ -26,7 +26,8 @@
+ #define IPSET_TYPE_REV_MIN	0
+ /*				1	   Counters support */
+ /*				2	   Comments support */
+-#define IPSET_TYPE_REV_MAX	3	/* Forceadd support */
++/*				3	   Forceadd support */
++#define IPSET_TYPE_REV_MAX	4	/* skbinfo support  */
  
--		cp = ip_vs_conn_new(param, daddr, dport, flags, dest, fwmark);
-+		cp = ip_vs_conn_new(param, type, daddr, dport, flags, dest,
-+				    fwmark);
- 		rcu_read_unlock();
- 		if (!cp) {
- 			kfree(param->pe_data);
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -111,7 +112,10 @@ hash_ip4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	if (unlikely(!tb[IPSET_ATTR_IP] ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)   ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -247,6 +251,9 @@ hash_ip6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE) ||
+ 		     tb[IPSET_ATTR_IP_TO] ||
+ 		     tb[IPSET_ATTR_CIDR]))
+ 		return -IPSET_ERR_PROTOCOL;
+@@ -295,6 +302,9 @@ static struct ip_set_type hash_ip_type __read_mostly = {
+ 		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_COMMENT]	= { .type = NLA_NUL_STRING },
++		[IPSET_ATTR_SKBMARK]	= { .type = NLA_U64 },
++		[IPSET_ATTR_SKBPRIO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_SKBQUEUE]	= { .type = NLA_U16 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_ipmark.c b/net/netfilter/ipset/ip_set_hash_ipmark.c
+index 4eff0a2..7abf978 100644
+--- a/net/netfilter/ipset/ip_set_hash_ipmark.c
++++ b/net/netfilter/ipset/ip_set_hash_ipmark.c
+@@ -25,7 +25,8 @@
+ #include <linux/netfilter/ipset/ip_set_hash.h>
+ 
+ #define IPSET_TYPE_REV_MIN	0
+-#define IPSET_TYPE_REV_MAX	1	/* Forceadd support */
++/*				1	   Forceadd support */
++#define IPSET_TYPE_REV_MAX	2	/* skbinfo support  */
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Vytas Dauksa <vytas.dauksa@smoothwall.net>");
+@@ -113,7 +114,10 @@ hash_ipmark4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_attr_netorder(tb, IPSET_ATTR_MARK) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -244,6 +248,9 @@ hash_ipmark6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE) ||
+ 		     tb[IPSET_ATTR_IP_TO] ||
+ 		     tb[IPSET_ATTR_CIDR]))
+ 		return -IPSET_ERR_PROTOCOL;
+@@ -301,6 +308,9 @@ static struct ip_set_type hash_ipmark_type __read_mostly = {
+ 		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_COMMENT]	= { .type = NLA_NUL_STRING },
++		[IPSET_ATTR_SKBMARK]	= { .type = NLA_U64 },
++		[IPSET_ATTR_SKBPRIO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_SKBQUEUE]	= { .type = NLA_U16 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_ipport.c b/net/netfilter/ipset/ip_set_hash_ipport.c
+index f37a5ae..dcbcceb 100644
+--- a/net/netfilter/ipset/ip_set_hash_ipport.c
++++ b/net/netfilter/ipset/ip_set_hash_ipport.c
+@@ -28,7 +28,8 @@
+ /*				1    SCTP and UDPLITE support added */
+ /*				2    Counters support added */
+ /*				3    Comments support added */
+-#define IPSET_TYPE_REV_MAX	4 /* Forceadd support added */
++/*				4    Forceadd support added */
++#define IPSET_TYPE_REV_MAX	5 /* skbinfo support added */
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -122,7 +123,10 @@ hash_ipport4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -287,6 +291,9 @@ hash_ipport6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE) ||
+ 		     tb[IPSET_ATTR_IP_TO] ||
+ 		     tb[IPSET_ATTR_CIDR]))
+ 		return -IPSET_ERR_PROTOCOL;
+@@ -370,6 +377,9 @@ static struct ip_set_type hash_ipport_type __read_mostly = {
+ 		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_COMMENT]	= { .type = NLA_NUL_STRING },
++		[IPSET_ATTR_SKBMARK]	= { .type = NLA_U64 },
++		[IPSET_ATTR_SKBPRIO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_SKBQUEUE]	= { .type = NLA_U16 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_ipportip.c b/net/netfilter/ipset/ip_set_hash_ipportip.c
+index 41ef00e..7ef93fc 100644
+--- a/net/netfilter/ipset/ip_set_hash_ipportip.c
++++ b/net/netfilter/ipset/ip_set_hash_ipportip.c
+@@ -28,7 +28,8 @@
+ /*				1    SCTP and UDPLITE support added */
+ /*				2    Counters support added */
+ /*				3    Comments support added */
+-#define IPSET_TYPE_REV_MAX	4 /* Forceadd support added */
++/*				4    Forceadd support added */
++#define IPSET_TYPE_REV_MAX	5 /* skbinfo support added */
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -124,7 +125,10 @@ hash_ipportip4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -295,6 +299,9 @@ hash_ipportip6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE) ||
+ 		     tb[IPSET_ATTR_IP_TO] ||
+ 		     tb[IPSET_ATTR_CIDR]))
+ 		return -IPSET_ERR_PROTOCOL;
+@@ -382,6 +389,9 @@ static struct ip_set_type hash_ipportip_type __read_mostly = {
+ 		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_COMMENT]	= { .type = NLA_NUL_STRING },
++		[IPSET_ATTR_SKBMARK]	= { .type = NLA_U64 },
++		[IPSET_ATTR_SKBPRIO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_SKBQUEUE]	= { .type = NLA_U16 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_ipportnet.c b/net/netfilter/ipset/ip_set_hash_ipportnet.c
+index 7308d84..b6012ad 100644
+--- a/net/netfilter/ipset/ip_set_hash_ipportnet.c
++++ b/net/netfilter/ipset/ip_set_hash_ipportnet.c
+@@ -30,7 +30,8 @@
+ /*				3    nomatch flag support added */
+ /*				4    Counters support added */
+ /*				5    Comments support added */
+-#define IPSET_TYPE_REV_MAX	6 /* Forceadd support added */
++/*				6    Forceadd support added */
++#define IPSET_TYPE_REV_MAX	7 /* skbinfo support added */
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -179,7 +180,10 @@ hash_ipportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -432,6 +436,9 @@ hash_ipportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE) ||
+ 		     tb[IPSET_ATTR_IP_TO] ||
+ 		     tb[IPSET_ATTR_CIDR]))
+ 		return -IPSET_ERR_PROTOCOL;
+@@ -541,6 +548,9 @@ static struct ip_set_type hash_ipportnet_type __read_mostly = {
+ 		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_COMMENT]	= { .type = NLA_NUL_STRING },
++		[IPSET_ATTR_SKBMARK]	= { .type = NLA_U64 },
++		[IPSET_ATTR_SKBPRIO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_SKBQUEUE]	= { .type = NLA_U16 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_net.c b/net/netfilter/ipset/ip_set_hash_net.c
+index 4c7d495..6b3ac10 100644
+--- a/net/netfilter/ipset/ip_set_hash_net.c
++++ b/net/netfilter/ipset/ip_set_hash_net.c
+@@ -27,7 +27,8 @@
+ /*				2    nomatch flag support added */
+ /*				3    Counters support added */
+ /*				4    Comments support added */
+-#define IPSET_TYPE_REV_MAX	5 /* Forceadd support added */
++/*				5    Forceadd support added */
++#define IPSET_TYPE_REV_MAX	6 /* skbinfo mapping support added */
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -150,7 +151,10 @@ hash_net4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -318,7 +322,10 @@ hash_net6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 	if (unlikely(tb[IPSET_ATTR_IP_TO]))
+ 		return -IPSET_ERR_HASH_RANGE_UNSUPPORTED;
+@@ -377,6 +384,9 @@ static struct ip_set_type hash_net_type __read_mostly = {
+ 		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_COMMENT]	= { .type = NLA_NUL_STRING },
++		[IPSET_ATTR_SKBMARK]	= { .type = NLA_U64 },
++		[IPSET_ATTR_SKBPRIO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_SKBQUEUE]	= { .type = NLA_U16 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
+index db26068..03cdb69 100644
+--- a/net/netfilter/ipset/ip_set_hash_netiface.c
++++ b/net/netfilter/ipset/ip_set_hash_netiface.c
+@@ -28,7 +28,8 @@
+ /*				2    /0 support added */
+ /*				3    Counters support added */
+ /*				4    Comments support added */
+-#define IPSET_TYPE_REV_MAX	5 /* Forceadd support added */
++/*				5    Forceadd support added */
++#define IPSET_TYPE_REV_MAX	6 /* skbinfo support added */
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -281,7 +282,10 @@ hash_netiface4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -514,7 +518,10 @@ hash_netiface6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 	if (unlikely(tb[IPSET_ATTR_IP_TO]))
+ 		return -IPSET_ERR_HASH_RANGE_UNSUPPORTED;
+@@ -590,6 +597,9 @@ static struct ip_set_type hash_netiface_type __read_mostly = {
+ 		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_COMMENT]	= { .type = NLA_NUL_STRING },
++		[IPSET_ATTR_SKBMARK]	= { .type = NLA_U64 },
++		[IPSET_ATTR_SKBPRIO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_SKBQUEUE]	= { .type = NLA_U16 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_netnet.c b/net/netfilter/ipset/ip_set_hash_netnet.c
+index 96b1313..da00284 100644
+--- a/net/netfilter/ipset/ip_set_hash_netnet.c
++++ b/net/netfilter/ipset/ip_set_hash_netnet.c
+@@ -24,7 +24,8 @@
+ #include <linux/netfilter/ipset/ip_set_hash.h>
+ 
+ #define IPSET_TYPE_REV_MIN	0
+-#define IPSET_TYPE_REV_MAX	1	/* Forceadd support added */
++/*				1	   Forceadd support added */
++#define IPSET_TYPE_REV_MAX	2	/* skbinfo support added */
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Oliver Smith <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>");
+@@ -171,7 +172,10 @@ hash_netnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -394,7 +398,10 @@ hash_netnet6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 	if (unlikely(tb[IPSET_ATTR_IP_TO] || tb[IPSET_ATTR_IP2_TO]))
+ 		return -IPSET_ERR_HASH_RANGE_UNSUPPORTED;
+@@ -462,6 +469,9 @@ static struct ip_set_type hash_netnet_type __read_mostly = {
+ 		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_COMMENT]	= { .type = NLA_NUL_STRING },
++		[IPSET_ATTR_SKBMARK]	= { .type = NLA_U64 },
++		[IPSET_ATTR_SKBPRIO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_SKBQUEUE]	= { .type = NLA_U16 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_netport.c b/net/netfilter/ipset/ip_set_hash_netport.c
+index 1c645fb..c0ddb58 100644
+--- a/net/netfilter/ipset/ip_set_hash_netport.c
++++ b/net/netfilter/ipset/ip_set_hash_netport.c
+@@ -29,7 +29,8 @@
+ /*				3    nomatch flag support added */
+ /*				4    Counters support added */
+ /*				5    Comments support added */
+-#define IPSET_TYPE_REV_MAX	6 /* Forceadd support added */
++/*				6    Forceadd support added */
++#define IPSET_TYPE_REV_MAX	7 /* skbinfo support added */
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -172,7 +173,10 @@ hash_netport4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -389,7 +393,10 @@ hash_netport6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 	if (unlikely(tb[IPSET_ATTR_IP_TO]))
+ 		return -IPSET_ERR_HASH_RANGE_UNSUPPORTED;
+@@ -489,6 +496,9 @@ static struct ip_set_type hash_netport_type __read_mostly = {
+ 		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_COMMENT]	= { .type = NLA_NUL_STRING },
++		[IPSET_ATTR_SKBMARK]	= { .type = NLA_U64 },
++		[IPSET_ATTR_SKBPRIO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_SKBQUEUE]	= { .type = NLA_U16 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_netportnet.c b/net/netfilter/ipset/ip_set_hash_netportnet.c
+index 2f00343..b8053d6 100644
+--- a/net/netfilter/ipset/ip_set_hash_netportnet.c
++++ b/net/netfilter/ipset/ip_set_hash_netportnet.c
+@@ -26,7 +26,8 @@
+ 
+ #define IPSET_TYPE_REV_MIN	0
+ /*				0    Comments support added */
+-#define IPSET_TYPE_REV_MAX	1 /* Forceadd support added */
++/*				1    Forceadd support added */
++#define IPSET_TYPE_REV_MAX	2 /* skbinfo support added */
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Oliver Smith <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>");
+@@ -189,7 +190,10 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -460,7 +464,10 @@ hash_netportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBMARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBPRIO) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_SKBQUEUE)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 	if (unlikely(tb[IPSET_ATTR_IP_TO] || tb[IPSET_ATTR_IP2_TO]))
+ 		return -IPSET_ERR_HASH_RANGE_UNSUPPORTED;
+@@ -569,6 +576,9 @@ static struct ip_set_type hash_netportnet_type __read_mostly = {
+ 		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 		[IPSET_ATTR_COMMENT]	= { .type = NLA_NUL_STRING },
++		[IPSET_ATTR_SKBMARK]	= { .type = NLA_U64 },
++		[IPSET_ATTR_SKBPRIO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_SKBQUEUE]	= { .type = NLA_U16 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
 -- 
 1.7.10.4
