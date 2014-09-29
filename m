@@ -1,89 +1,68 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: [PATCHv9 net-next 4/4] sunvnet: generate ICMP PTMUD messages for
- smaller port MTUs
-Date: Mon, 29 Sep 2014 19:48:24 -0400
-Message-ID: <5429EFC8.9080107@oracle.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: VRFs and the scalability of namespaces
+Date: Tue, 30 Sep 2014 01:50:24 +0200
+Message-ID: <1412034624.2008259.173208057.03BE7CBA@webmail.messagingengine.com>
+References: <5425EAA6.7040302@gmail.com>
+ <1411824598.2136890.172383085.705271DD@webmail.messagingengine.com>
+ <54295971.2040402@gmail.com> <54298B66.8060807@candelatech.com>
+ <CACP96tR_c3-nVEGhswm1qt1WGXPNzyXA61FCxPutCTPNomjy+g@mail.gmail.com>
+ <54299019.3050604@candelatech.com> <5429EEAF.9030702@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	Raghuram Kothahota <raghuram.kothakota@oracle.com>
-To: David Miller <davem@davemloft.net>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Ahern <dsahern@gmail.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Sowmini Varadhan <sowmini05@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:34380 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753950AbaI2Xrr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 19:47:47 -0400
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:50810 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752538AbaI2XuY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 19:50:24 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by gateway2.nyi.internal (Postfix) with ESMTP id 5E85B20A52
+	for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 19:50:24 -0400 (EDT)
+In-Reply-To: <5429EEAF.9030702@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch sends ICMP and ICMPv6 messages for Path MTU Discovery when a remote
-port MTU is smaller than the device MTU. This allows mixing newer VIO protocol
-devices that support MTU negotiation with older devices that do not on the
-same vswitch. It also allows Linux-Linux LDOMs to use 64K-1 data packets even
-though Solaris vswitch is limited to <16K MTU.
+On Tue, Sep 30, 2014, at 01:43, David Ahern wrote:
+> On 9/29/14, 11:00 AM, Ben Greear wrote:
+> > On 09/29/2014 09:50 AM, Sowmini Varadhan wrote:
+> >> On Mon, Sep 29, 2014 at 12:40 PM, Ben Greear <greearb@candelatech.com> wrote:
+> >>> On 09/29/2014 06:06 AM, David Ahern wrote:
+> >>
+> >>>
+> >>> We have implemented support for at least most of this (excepting duplicate IPs)
+> >>> using routing tables, rules, and (optionally, xorp as the router).
+> >>>
+> >>
+> >> My undertanding of multiple routing-tables/rules was that they
+> >> are closer in semantics to switch/router ACLs than to VRFs, eg.,
+> >> one big difference is that an interface can belong to exactly one
+> >> VRF at a time, which is not mandated by multiple routing-tables/rules.
+> >>
+> >> Was I mistaken?
+> >
+> > You can effectively force an interface to belong to a particular virtual
+> > router (table).  It is not trivial to do, and possibly I have still not
+> > covered every possible case.  Some rules grow somewhat exponentially as
+> > interfaces are added to virtual routers (ie, preference 10 rules).
+> 
+> An interesting way of doing it; thanks for the reference point.
+> 
+> Fundamentally the design should be able to assign interfaces to a single 
+> VRF, support duplicate IP addresses on different interfaces in different 
+> VRFs and be able to scale to 10,000+ netdevices -- devices representing 
+> physical ports as well as logical interfaces built on top of them (e.g., 
+> sub-interfaces).
 
-Signed-off-by: David L Stevens <david.stevens@oracle.com>
----
- drivers/net/ethernet/sun/sunvnet.c |   37 +++++++++++++++++++++++++++++++++++-
- 1 files changed, 36 insertions(+), 1 deletions(-)
+Duplicate IP addresses don't go well with current linux stack being a
+soft end model by default. Current separation is done on arp level today
+if some kind of strong end model is desired. This calls for some kind of
+namespaces again. ;)
 
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 3980471..1262697 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -17,6 +17,13 @@
- #include <linux/mutex.h>
- #include <linux/if_vlan.h>
- 
-+#if IS_ENABLED(CONFIG_IPV6)
-+#include <linux/icmpv6.h>
-+#endif
-+
-+#include <net/icmp.h>
-+#include <net/route.h>
-+
- #include <asm/vio.h>
- #include <asm/ldc.h>
- 
-@@ -913,8 +920,36 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (unlikely(!skb))
- 		goto out_dropped;
- 
--	if (skb->len > port->rmtu)
-+	if (skb->len > port->rmtu) {
-+		unsigned long localmtu = port->rmtu - ETH_HLEN;
-+
-+		if (vio_version_after_eq(&port->vio, 1, 3))
-+			localmtu -= VLAN_HLEN;
-+
-+		if (skb->protocol == htons(ETH_P_IP)) {
-+			struct flowi4 fl4;
-+			struct rtable *rt = NULL;
-+
-+			memset(&fl4, 0, sizeof(fl4));
-+			fl4.flowi4_oif = dev->ifindex;
-+			fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
-+			fl4.daddr = ip_hdr(skb)->daddr;
-+			fl4.saddr = ip_hdr(skb)->saddr;
-+
-+			rt = ip_route_output_key(dev_net(dev), &fl4);
-+			if (!IS_ERR(rt)) {
-+				skb_dst_set(skb, &rt->dst);
-+				icmp_send(skb, ICMP_DEST_UNREACH,
-+					  ICMP_FRAG_NEEDED,
-+					  htonl(localmtu));
-+			}
-+		}
-+#if IS_ENABLED(CONFIG_IPV6)
-+		else if (skb->protocol == htons(ETH_P_IPV6))
-+			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, localmtu);
-+#endif
- 		goto out_dropped;
-+	}
- 
- 	spin_lock_irqsave(&port->vio.lock, flags);
- 
--- 
-1.7.1
+Bye,
+Hannes
