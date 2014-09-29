@@ -1,41 +1,45 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v2 net-next] mlx4: optimize xmit path
-Date: Mon, 29 Sep 2014 10:46:00 -0700
-Message-ID: <CAMEtUuw0UjJuDqSDrK9L-CUWaVdKni1p9cib+VGCOYtBbrCY4Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net/mlx4_en: mlx4_en_netpoll shouldn't call
+ napi_schedule when port is down
+Date: Mon, 29 Sep 2014 13:47:04 -0400 (EDT)
+Message-ID: <20140929.134704.646626597842088240.davem@davemloft.net>
+References: <1411988695-30547-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: idos@mellanox.com, netdev@vger.kernel.org, yevgenyp@mellanox.com,
+	ogerlitz@mellanox.com
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:59205 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754041AbaI2RqC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 13:46:02 -0400
-Received: by mail-wi0-f180.google.com with SMTP id em10so1647518wid.1
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 10:46:00 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:59610 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750822AbaI2RrH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 13:47:07 -0400
+In-Reply-To: <1411988695-30547-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 28, 2014 at 9:19 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->         send_doorbell = !skb->xmit_more || netif_xmit_stopped(ring->tx_queue);
->
->         if (ring->bf_enabled && desc_size <= MAX_BF && !bounce &&
->             !vlan_tx_tag_present(skb) && send_doorbell) {
+From: Amir Vadai <amirv@mellanox.com>
+Date: Mon, 29 Sep 2014 14:04:55 +0300
 
-This patch is good,
+> From: Ido Shamay <idos@mellanox.com>
+> 
+> mlx4_en_netpoll, which is mlx4_en ndo_poll_controller callback,
+> might be called when port is down, causing a napi_schedule when
+> napi->poll callback in NULL. mutex_trylock is needed to acquire
+> the port_state lock, since other threads may grab it and stop
+> the port while we are in napi scheduling. Using trylock since in atomic
+> context.
+> 
+> Signed-off-by: Ido Shamay <idos@mellanox.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
 
-but I've been thinking more about bf+xmit_more and want
-to double check my understanding in that scenario:
-xmit_more=true will queue descriptors normally and
-the last xmit_more=false packet will write into BF.
-I guess BF suppose to pick up the earlier ones from
-the queue, otherwise the whole thing is broken.
-So if indeed BF can pick up the whole chain, then
-it should be the faster way than doing iowrite32(), right?
+I don't think netpoll should 'variably succeed' on poll controller's
+ability to immediately take a trylock.
+
+You need to find a way to make this code always process the queues
+when it is called, the approach you are taking here is not a correct.
+
+If you've designed things in such a way that the locking here is
+difficult, that's unfortunate but you still have to make this
+function behave properly.
