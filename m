@@ -1,78 +1,258 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH 1/1] Drivers: net-next: hyperv: Fix a bug in
- netvsc_start_xmit()
-Date: Mon, 29 Sep 2014 03:51:32 +0000
-Message-ID: <90e56f4692144d77b9d1cee3a2cea667@BY2PR0301MB0711.namprd03.prod.outlook.com>
-References: <1411958991-28049-1-git-send-email-kys@microsoft.com>
- <20140928.231647.1355757349883305047.davem@davemloft.net>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v3] bonding: make global bonding stats more reliable
+Date: Mon, 29 Sep 2014 11:52:33 +0800
+Message-ID: <5428D781.4040700@huawei.com>
+References: <1411693935-4191-1-git-send-email-gospo@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "stable@vger.kernel.org" <stable@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140928.231647.1355757349883305047.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: <j.vosburgh@gmail.com>, <vfalico@gmail.com>, <nikolay@redhat.com>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:37546 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751083AbaI2DxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Sep 2014 23:53:17 -0400
+In-Reply-To: <1411693935-4191-1-git-send-email-gospo@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 2014/9/26 9:12, Andy Gospodarek wrote:
+> As the code stands today, bonding stats are based simply on the stats
+> from the member interfaces.  If a member was to be removed from a bond,
+> the stats would instantly drop.  This would be confusing to an admin
+> would would suddonly see interface stats drop while traffic is still
+> flowing.
+> 
+> In addition to preventing the stats drops mentioned above, new members
+> will now be added to the bond and only traffic received after the member
+> was added to the bond will be counted as part of bonding stats.
+> 
+> v2: Changes suggested by Nik to properly allocate/free stats memory.
+> v3: Properly destroy workqueue and fix netlink configuration path.
+> 
+> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> ---
+>  drivers/net/bonding/bond_main.c    | 84 +++++++++++++++++++++++++-------------
+>  drivers/net/bonding/bond_netlink.c | 13 +++++-
+>  drivers/net/bonding/bonding.h      |  3 ++
+>  3 files changed, 71 insertions(+), 29 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 5390475..10c2dc3 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1147,17 +1147,26 @@ static struct slave *bond_alloc_slave(struct bonding *bond)
+>  
+>  	slave = kzalloc(sizeof(struct slave), GFP_KERNEL);
+>  	if (!slave)
+> -		return NULL;
+> +		goto slave_fail;
+> +
+> +	slave->slave_stats = kzalloc(sizeof(struct rtnl_link_stats64),
+> +				     GFP_KERNEL);
+> +	if (!slave->slave_stats)
+> +		goto slave_stats_fail;
+>  
+>  	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+>  		SLAVE_AD_INFO(slave) = kzalloc(sizeof(struct ad_slave_info),
+>  					       GFP_KERNEL);
+> -		if (!SLAVE_AD_INFO(slave)) {
+> -			kfree(slave);
+> -			return NULL;
+> -		}
+> +		if (!SLAVE_AD_INFO(slave))
+> +			goto slave_ad_fail;
+>  	}
+>  	return slave;
+> +slave_ad_fail:
+> +	kfree(slave->slave_stats);
+> +slave_stats_fail:
+> +	kfree(slave);
+> +slave_fail:
+> +	return NULL;
+>  }
+>  
+>  static void bond_free_slave(struct slave *slave)
+> @@ -1167,6 +1176,7 @@ static void bond_free_slave(struct slave *slave)
+>  	if (BOND_MODE(bond) == BOND_MODE_8023AD)
+>  		kfree(SLAVE_AD_INFO(slave));
+>  
+> +	kfree(slave->slave_stats);
+>  	kfree(slave);
+>  }
+>  
+> @@ -1344,6 +1354,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>  	}
+>  
+>  	slave_dev->priv_flags |= IFF_BONDING;
+> +	/* initialize slave stats */
+> +	dev_get_stats(new_slave->dev, new_slave->slave_stats);
+>  
+>  	if (bond_is_lb(bond)) {
+>  		/* bond_alb_init_slave() must be called before all other stages since
+> @@ -3085,38 +3097,43 @@ static struct rtnl_link_stats64 *bond_get_stats(struct net_device *bond_dev,
+>  	struct list_head *iter;
+>  	struct slave *slave;
+>  
+> -	memset(stats, 0, sizeof(*stats));
+> +	memcpy(stats, bond->bond_stats, sizeof(*stats));
+>  
+>  	bond_for_each_slave(bond, slave, iter) {
+>  		const struct rtnl_link_stats64 *sstats =
+>  			dev_get_stats(slave->dev, &temp);
+> +		struct rtnl_link_stats64 *pstats = slave->slave_stats;
+> +
+> +		stats->rx_packets +=  sstats->rx_packets - pstats->rx_packets;
+> +		stats->rx_bytes += sstats->rx_bytes - pstats->rx_bytes;
+> +		stats->rx_errors += sstats->rx_errors - pstats->rx_errors;
+> +		stats->rx_dropped += sstats->rx_dropped - pstats->rx_dropped;
+>  
+> -		stats->rx_packets += sstats->rx_packets;
+> -		stats->rx_bytes += sstats->rx_bytes;
+> -		stats->rx_errors += sstats->rx_errors;
+> -		stats->rx_dropped += sstats->rx_dropped;
+> +		stats->tx_packets += sstats->tx_packets - pstats->tx_packets;;
+> +		stats->tx_bytes += sstats->tx_bytes - pstats->tx_bytes;
+> +		stats->tx_errors += sstats->tx_errors - pstats->tx_errors;
+> +		stats->tx_dropped += sstats->tx_dropped - pstats->tx_dropped;
+>  
+> -		stats->tx_packets += sstats->tx_packets;
+> -		stats->tx_bytes += sstats->tx_bytes;
+> -		stats->tx_errors += sstats->tx_errors;
+> -		stats->tx_dropped += sstats->tx_dropped;
+> +		stats->multicast += sstats->multicast - pstats->multicast;
+> +		stats->collisions += sstats->collisions - pstats->collisions;
+>  
+> -		stats->multicast += sstats->multicast;
+> -		stats->collisions += sstats->collisions;
+> +		stats->rx_length_errors += sstats->rx_length_errors - pstats->rx_length_errors;
+> +		stats->rx_over_errors += sstats->rx_over_errors - pstats->rx_over_errors;
+> +		stats->rx_crc_errors += sstats->rx_crc_errors - pstats->rx_crc_errors;
+> +		stats->rx_frame_errors += sstats->rx_frame_errors - pstats->rx_frame_errors;
+> +		stats->rx_fifo_errors += sstats->rx_fifo_errors - pstats->rx_fifo_errors;
+> +		stats->rx_missed_errors += sstats->rx_missed_errors - pstats->rx_missed_errors;
+>  
+> -		stats->rx_length_errors += sstats->rx_length_errors;
+> -		stats->rx_over_errors += sstats->rx_over_errors;
+> -		stats->rx_crc_errors += sstats->rx_crc_errors;
+> -		stats->rx_frame_errors += sstats->rx_frame_errors;
+> -		stats->rx_fifo_errors += sstats->rx_fifo_errors;
+> -		stats->rx_missed_errors += sstats->rx_missed_errors;
+> +		stats->tx_aborted_errors += sstats->tx_aborted_errors - pstats->tx_aborted_errors;
+> +		stats->tx_carrier_errors += sstats->tx_carrier_errors - pstats->tx_carrier_errors;
+> +		stats->tx_fifo_errors += sstats->tx_fifo_errors - pstats->tx_fifo_errors;
+> +		stats->tx_heartbeat_errors += sstats->tx_heartbeat_errors - pstats->tx_heartbeat_errors;
+> +		stats->tx_window_errors += sstats->tx_window_errors - pstats->tx_window_errors;
+>  
+> -		stats->tx_aborted_errors += sstats->tx_aborted_errors;
+> -		stats->tx_carrier_errors += sstats->tx_carrier_errors;
+> -		stats->tx_fifo_errors += sstats->tx_fifo_errors;
+> -		stats->tx_heartbeat_errors += sstats->tx_heartbeat_errors;
+> -		stats->tx_window_errors += sstats->tx_window_errors;
+> +		/* save off the slave stats for the next run */
+> +		memcpy(pstats, sstats, sizeof(*sstats));
+>  	}
+> +	memcpy(bond->bond_stats, stats, sizeof(*stats));
+>  
+>  	return stats;
+>  }
+> @@ -3790,6 +3807,9 @@ static void bond_destructor(struct net_device *bond_dev)
+>  	struct bonding *bond = netdev_priv(bond_dev);
+>  	if (bond->wq)
+>  		destroy_workqueue(bond->wq);
+> +	if (bond->bond_stats)
+> +		kfree(bond->bond_stats);
+> +
+>  	free_netdev(bond_dev);
+>  }
+>  
+> @@ -4274,7 +4294,8 @@ unsigned int bond_get_num_tx_queues(void)
+>  int bond_create(struct net *net, const char *name)
+>  {
+>  	struct net_device *bond_dev;
+> -	int res;
+> +	struct bonding *bond;
+> +	int res = -ENOMEM;
+>  
+>  	rtnl_lock();
+>  
+> @@ -4286,8 +4307,15 @@ int bond_create(struct net *net, const char *name)
+>  		rtnl_unlock();
+>  		return -ENOMEM;
+>  	}
+> +	/* alloc persistent stats for the bond */
+> +	bond = netdev_priv(bond_dev);
+> +	bond->bond_stats = kzalloc(sizeof(struct rtnl_link_stats64),
+> +				   GFP_KERNEL);
+> +	if (!bond->bond_stats)
+> +		printk(KERN_CRIT "Stats not available!\n");
+>  
+hi Andy:
 
+why not return here, otherwise terrible things will happen, later other code will access this point directly.
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Sunday, September 28, 2014 8:17 PM
-> To: KY Srinivasan
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> jasowang@redhat.com; stable@vger.kernel.org
-> Subject: Re: [PATCH 1/1] Drivers: net-next: hyperv: Fix a bug in
-> netvsc_start_xmit()
-> 
-> From: "K. Y. Srinivasan" <kys@microsoft.com>
-> Date: Sun, 28 Sep 2014 19:49:51 -0700
-> 
-> > After the packet is successfully sent, we should not touch the skb as
-> > it may have been freed. This patch is based on the work done by Long
-> > Li <longli@microsoft.com>.
-> >
-> > Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> > Tested-by: Long Li <longli@microsoft.com>
-> > Cc: <stable@vger.kernel.org>
-> 
-> You hyperv guys really have to get your act together.  This is not properly
-> submitted.
-> 
-> Most importantly, this is a serious reference to free memory bug.
-> Therefore it should be targetted at 'net' not 'net-next'.
-> 
-> Secondly, you do not CC: stable for networking changes, you instead ask me
-> to queue it up for my next batch of -stable networking changes.
-> 
-> Thirdly, your Subject line is malformed.  You should not use
-> "Drivers: " as a prefix.  Just the driver name is sufficient.
-> You should also not mentionen the target GIT tree outside of the [PATCH ...]
-> bracketed area.
-> 
-> Also, please be cognizant of how much of my time you unnecessarily
-> consume when you make a malformed submission like this.  That is time I
-> could spend reviewing other patches.
+Ding
 
-Sorry about that; I will resubmit this patch after addressing all the issues you have raised.
-
-Regards,
-
-K. Y
+>  	dev_net_set(bond_dev, net);
+> +
+>  	bond_dev->rtnl_link_ops = &bond_link_ops;
+>  
+>  	res = register_netdevice(bond_dev);
+> diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+> index c13d83e..2fdcbe2 100644
+> --- a/drivers/net/bonding/bond_netlink.c
+> +++ b/drivers/net/bonding/bond_netlink.c
+> @@ -381,10 +381,21 @@ static int bond_newlink(struct net *src_net, struct net_device *bond_dev,
+>  			struct nlattr *tb[], struct nlattr *data[])
+>  {
+>  	int err;
+> +	struct bonding *bond = netdev_priv(bond_dev);
+> +
+> +	/* alloc persistent stats for the bond if not already allocated */
+> +	if (!bond->bond_stats) {
+> +		bond->bond_stats = kzalloc(sizeof(struct rtnl_link_stats64),
+> +					   GFP_KERNEL);
+> +		if (!bond->bond_stats)
+> +			return -ENOMEM;
+> +	}
+>  
+>  	err = bond_changelink(bond_dev, tb, data);
+> -	if (err < 0)
+> +	if (err < 0) {
+> +		kfree(bond->bond_stats);
+>  		return err;
+> +	}
+>  
+>  	return register_netdevice(bond_dev);
+>  }
+> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+> index 6140bf0..fe25265 100644
+> --- a/drivers/net/bonding/bonding.h
+> +++ b/drivers/net/bonding/bonding.h
+> @@ -24,6 +24,7 @@
+>  #include <linux/inetdevice.h>
+>  #include <linux/etherdevice.h>
+>  #include <linux/reciprocal_div.h>
+> +#include <linux/if_link.h>
+>  
+>  #include "bond_3ad.h"
+>  #include "bond_alb.h"
+> @@ -175,6 +176,7 @@ struct slave {
+>  	struct netpoll *np;
+>  #endif
+>  	struct kobject kobj;
+> +	struct rtnl_link_stats64 *slave_stats;
+>  };
+>  
+>  /*
+> @@ -224,6 +226,7 @@ struct bonding {
+>  	/* debugging support via debugfs */
+>  	struct	 dentry *debug_dir;
+>  #endif /* CONFIG_DEBUG_FS */
+> +	struct rtnl_link_stats64 *bond_stats;
+>  };
+>  
+>  #define bond_slave_get_rcu(dev) \
+> 
