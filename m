@@ -1,119 +1,60 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH] xen/xenbus: Use 'void' instead of 'int' for the return
- of xenbus_switch_state()
-Date: Mon, 29 Sep 2014 11:40:55 -0400
-Message-ID: <20140929154055.GA31952@laptop.dumpdata.com>
-References: <5425961A.5000604@gmail.com>
- <20140929140229.GA28279@laptop.dumpdata.com>
- <542969E6.1010104@citrix.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 1/1] iproute2: rsvp classifier support for multiple
+ actions
+Date: Mon, 29 Sep 2014 08:48:39 -0700
+Message-ID: <20140929084839.1842edd4@urahara>
+References: <1411922993-5828-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chen Gang <gang.chen.5i5j@gmail.com>, ian.campbell@citrix.com,
-	wei.liu2@citrix.com, boris.ostrovsky@oracle.com,
-	bhelgaas@google.com, jgross@suse.com,
-	yongjun_wei@trendmicro.com.cn, mukesh.rathor@oracle.com,
-	xen-devel@lists.xenproject.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-pci@vger.kernel.org, linux-scsi@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <542969E6.1010104@citrix.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: john.fastabend@gmail.com, netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:49259 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753165AbaI2Psv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 11:48:51 -0400
+Received: by mail-pa0-f43.google.com with SMTP id hz1so4685158pad.2
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 08:48:51 -0700 (PDT)
+In-Reply-To: <1411922993-5828-1-git-send-email-jhs@emojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 29, 2014 at 03:17:10PM +0100, David Vrabel wrote:
-> On 29/09/14 15:02, Konrad Rzeszutek Wilk wrote:
-> > On Sat, Sep 27, 2014 at 12:36:42AM +0800, Chen Gang wrote:
-> >> When xenbus_switch_state() fails, it will call xenbus_switch_fatal()
-> > 
-> > Only on the first depth, not on the subsequent ones (as in if
-> > the first xenbus_switch_fail fails, it won't try to call
-> > xenbus_switch_state again and again).
-> > 
-> >> internally, so need not return any status value, then use 'void' instead
-> >> of 'int' for xenbus_switch_state() and __xenbus_switch_state().
-> > 
-> > When that switch occurs (to XenbusStateConnected) won't the watches
-> > fire - meaning we MUST make sure that the watch functions - if they
-> > use the xenbus_switch_state() they MUST not hold any locks - because
-> > they could be executed once more?
-> > 
-> > Oh wait, we don't have to worry about that right now as the callbacks
-> > that pick up the messages from the XenBus are all gated on one mutex
-> > anyhow.
-> > 
-> > Hm, anyhow, I would add this extra piece of information to the patch:
-> > 
-> > 
-> > diff --git a/drivers/xen/xen-pciback/xenbus.c b/drivers/xen/xen-pciback/xenbus.c
-> > index c214daa..f7399fd 100644
-> > --- a/drivers/xen/xen-pciback/xenbus.c
-> > +++ b/drivers/xen/xen-pciback/xenbus.c
-> > @@ -661,6 +661,12 @@ static void xen_pcibk_be_watch(struct xenbus_watch *watch,
-> >  
-> >  	switch (xenbus_read_driver_state(pdev->xdev->nodename)) {
-> >  	case XenbusStateInitWait:
-> > +		/*
-> > +		 * xenbus_switch_state can call xenbus_switch_fatal which will
-> > +		 * immediately set the state to XenbusStateClosing which
-> > +		 * means if we were reading for it here we MUST drop any
-> > +		 * locks so that we don't dead-lock.
-> > +		 */
-> 
-> Watches are asynchronous and serialised by the xenwatch thread.  I can't
-> see what deadlock you're talking about here.  Particularly since the
-> backend doesn't watch its own state node (it watches the frontend one).
-> 
-> >  		xen_pcibk_setup_backend(pdev);
-> >  		break;
-> >  
-> >>
-> >> Also need be sure that all callers which check the return value must let
-> >> 'err' be 0.
-> > 
-> > I am bit uncomfortable with that, that is due to:
-> > 
-> > 
-> > .. snip..
-> >> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-> >> index 9c47b89..b5c3d47 100644
-> >> --- a/drivers/net/xen-netback/xenbus.c
-> >> +++ b/drivers/net/xen-netback/xenbus.c
-> >> @@ -337,10 +337,7 @@ static int netback_probe(struct xenbus_device *dev,
-> >>  	if (err)
-> >>  		pr_debug("Error writing multi-queue-max-queues\n");
-> >>  
-> >> -	err = xenbus_switch_state(dev, XenbusStateInitWait);
-> >> -	if (err)
-> >> -		goto fail;
-> >> -
-> >> +	xenbus_switch_state(dev, XenbusStateInitWait);
-> > 
-> > Which if it fails it won't call:
-> > 
-> > 354 fail:                                                                           
-> > 355         pr_debug("failed\n");                                                   
-> > 356         netback_remove(dev);                                                    
-> > 357         return err;         
-> > 
-> > 
-> > And since there is no watch on the backend state to go in Closing it won't
-> > ever call those and we leak memory.
-> 
-> It's not leaking the memory.  All resources will be recovered when the
-> device is removed.
+On Sun, 28 Sep 2014 12:49:53 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-I presume you mean when the XenBus entries are torn down? It does look
-like it would call the .remove functionality. That should take care of that.
-
-In which case we can just remove all of the 'netback_remove()' and also
-remove some of the labels.
-
-
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
 > 
-> > The same is for xen-blkback mechanism in the probe function.
+> Example setup:
 > 
-> David
+> sudo tc qdisc del dev eth0 root handle 1:0 prio
+> sudo tc qdisc add dev eth0 root handle 1:0 prio
 > 
+> sudo tc filter add dev eth0 pref 10 proto ip parent 1:0 \
+> rsvp session 10.0.0.1 ipproto icmp \
+> classid 1:1  \
+> action police rate 1kbit burst 90k pipe \
+> action ok
+> 
+> tc -s filter show dev eth0 parent 1:0
+> 
+> filter protocol ip pref 10 rsvp
+> filter protocol ip pref 10 rsvp fh 0x0001100a flowid 1:1 session
+> 10.0.0.1 ipproto icmp
+>         action order 1:  police 0x5 rate 1Kbit burst 23440b mtu 2Kb
+> action pipe overhead 0b
+> ref 1 bind 1
+>         Action statistics:
+>         Sent 98000 bytes 1000 pkt (dropped 0, overlimits 761 requeues 0)
+>         backlog 0b 0p requeues 0
+> 
+>         action order 2: gact action pass
+>          random type none pass val 0
+>          index 2 ref 1 bind 1 installed 60 sec used 3 sec
+>         Action statistics:
+>         Sent 74578 bytes 761 pkt (dropped 0, overlimits 0 requeues 0)
+>         backlog 0b 0p requeues 0
+> 
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+Applied both rsvp patches
