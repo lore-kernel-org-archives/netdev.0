@@ -1,80 +1,389 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 30/34] net/netfilter/x_tables.c: use __seq_open_private()
-Date: Mon, 29 Sep 2014 14:39:19 +0200
-Message-ID: <1411994363-8451-31-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 29/34] netfilter: nf_tables: export rule-set generation ID
+Date: Mon, 29 Sep 2014 14:39:18 +0200
+Message-ID: <1411994363-8451-30-git-send-email-pablo@netfilter.org>
 References: <1411994363-8451-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:34368 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753420AbaI2Mi7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Sep 2014 08:38:59 -0400
 In-Reply-To: <1411994363-8451-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rob Jones <rob.jones@codethink.co.uk>
+This patch exposes the ruleset generation ID in three ways:
 
-Reduce boilerplate code by using __seq_open_private() instead of seq_open()
-in xt_match_open() and xt_target_open().
+1) The new command NFT_MSG_GETGEN that exposes the 32-bits ruleset
+   generation ID. This ID is incremented in every commit and it
+   should be large enough to avoid wraparound problems.
 
-Signed-off-by: Rob Jones <rob.jones@codethink.co.uk>
+2) The less significant 16-bits of the generation ID are exposed through
+   the nfgenmsg->res_id header field. This allows us to quickly catch
+   if the ruleset has change between two consecutive list dumps from
+   different object lists (in this specific case I think the risk of
+   wraparound is unlikely).
+
+3) Userspace subscribers may receive notifications of new rule-set
+   generation after every commit. This also provides an alternative
+   way to monitor the generation ID. If the events are lost, the
+   userspace process hits a overrun error, so it knows that it is
+   working with a stale ruleset anyway.
+
+Patrick spotted that rule-set transformations in userspace may take
+quite some time. In that case, it annotates the 32-bits generation ID
+before fetching the rule-set, then:
+
+1) it compares it to what we obtain after the transformation to
+   make sure it is not working with a stale rule-set and no wraparound
+   has ocurred.
+
+2) it subscribes to ruleset notifications, so it can watch for new
+   generation ID.
+
+This is complementary to the NLM_F_DUMP_INTR approach, which allows
+us to detect an interference in the middle one single list dumping.
+There is no way to explicitly check that an interference has occurred
+between two list dumps from the kernel, since it doesn't know how
+many lists the userspace client is actually going to dump.
+
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/x_tables.c |   30 ++++--------------------------
- 1 file changed, 4 insertions(+), 26 deletions(-)
+ include/uapi/linux/netfilter/nf_tables.h |   16 ++++
+ net/netfilter/nf_tables_api.c            |  140 ++++++++++++++++++++++++------
+ 2 files changed, 130 insertions(+), 26 deletions(-)
 
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 272ae4d..133eb47 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -1101,22 +1101,11 @@ static const struct seq_operations xt_match_seq_ops = {
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index 66d66dd..b72ccfe 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -51,6 +51,8 @@ enum nft_verdicts {
+  * @NFT_MSG_NEWSETELEM: create a new set element (enum nft_set_elem_attributes)
+  * @NFT_MSG_GETSETELEM: get a set element (enum nft_set_elem_attributes)
+  * @NFT_MSG_DELSETELEM: delete a set element (enum nft_set_elem_attributes)
++ * @NFT_MSG_NEWGEN: announce a new generation, only for events (enum nft_gen_attributes)
++ * @NFT_MSG_GETGEN: get the rule-set generation (enum nft_gen_attributes)
+  */
+ enum nf_tables_msg_types {
+ 	NFT_MSG_NEWTABLE,
+@@ -68,6 +70,8 @@ enum nf_tables_msg_types {
+ 	NFT_MSG_NEWSETELEM,
+ 	NFT_MSG_GETSETELEM,
+ 	NFT_MSG_DELSETELEM,
++	NFT_MSG_NEWGEN,
++	NFT_MSG_GETGEN,
+ 	NFT_MSG_MAX,
+ };
  
- static int xt_match_open(struct inode *inode, struct file *file)
+@@ -812,4 +816,16 @@ enum nft_masq_attributes {
+ };
+ #define NFTA_MASQ_MAX		(__NFTA_MASQ_MAX - 1)
+ 
++/**
++ * enum nft_gen_attributes - nf_tables ruleset generation attributes
++ *
++ * @NFTA_GEN_ID: Ruleset generation ID (NLA_U32)
++ */
++enum nft_gen_attributes {
++	NFTA_GEN_UNSPEC,
++	NFTA_GEN_ID,
++	__NFTA_GEN_MAX
++};
++#define NFTA_GEN_MAX		(__NFTA_GEN_MAX - 1)
++
+ #endif /* _LINUX_NF_TABLES_H */
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 8237460..a476b99 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -405,9 +405,9 @@ static const struct nla_policy nft_table_policy[NFTA_TABLE_MAX + 1] = {
+ 	[NFTA_TABLE_FLAGS]	= { .type = NLA_U32 },
+ };
+ 
+-static int nf_tables_fill_table_info(struct sk_buff *skb, u32 portid, u32 seq,
+-				     int event, u32 flags, int family,
+-				     const struct nft_table *table)
++static int nf_tables_fill_table_info(struct sk_buff *skb, struct net *net,
++				     u32 portid, u32 seq, int event, u32 flags,
++				     int family, const struct nft_table *table)
  {
--	struct seq_file *seq;
- 	struct nf_mttg_trav *trav;
--	int ret;
--
--	trav = kmalloc(sizeof(*trav), GFP_KERNEL);
--	if (trav == NULL)
-+	trav = __seq_open_private(file, &xt_match_seq_ops, sizeof(*trav));
-+	if (!trav)
+ 	struct nlmsghdr *nlh;
+ 	struct nfgenmsg *nfmsg;
+@@ -420,7 +420,7 @@ static int nf_tables_fill_table_info(struct sk_buff *skb, u32 portid, u32 seq,
+ 	nfmsg = nlmsg_data(nlh);
+ 	nfmsg->nfgen_family	= family;
+ 	nfmsg->version		= NFNETLINK_V0;
+-	nfmsg->res_id		= 0;
++	nfmsg->res_id		= htons(net->nft.base_seq & 0xffff);
+ 
+ 	if (nla_put_string(skb, NFTA_TABLE_NAME, table->name) ||
+ 	    nla_put_be32(skb, NFTA_TABLE_FLAGS, htonl(table->flags)) ||
+@@ -448,8 +448,8 @@ static int nf_tables_table_notify(const struct nft_ctx *ctx, int event)
+ 	if (skb == NULL)
+ 		goto err;
+ 
+-	err = nf_tables_fill_table_info(skb, ctx->portid, ctx->seq, event, 0,
+-					ctx->afi->family, ctx->table);
++	err = nf_tables_fill_table_info(skb, ctx->net, ctx->portid, ctx->seq,
++					event, 0, ctx->afi->family, ctx->table);
+ 	if (err < 0) {
+ 		kfree_skb(skb);
+ 		goto err;
+@@ -488,7 +488,7 @@ static int nf_tables_dump_tables(struct sk_buff *skb,
+ 			if (idx > s_idx)
+ 				memset(&cb->args[1], 0,
+ 				       sizeof(cb->args) - sizeof(cb->args[0]));
+-			if (nf_tables_fill_table_info(skb,
++			if (nf_tables_fill_table_info(skb, net,
+ 						      NETLINK_CB(cb->skb).portid,
+ 						      cb->nlh->nlmsg_seq,
+ 						      NFT_MSG_NEWTABLE,
+@@ -540,7 +540,7 @@ static int nf_tables_gettable(struct sock *nlsk, struct sk_buff *skb,
+ 	if (!skb2)
  		return -ENOMEM;
  
--	ret = seq_open(file, &xt_match_seq_ops);
--	if (ret < 0) {
--		kfree(trav);
--		return ret;
--	}
--
--	seq = file->private_data;
--	seq->private = trav;
- 	trav->nfproto = (unsigned long)PDE_DATA(inode);
- 	return 0;
+-	err = nf_tables_fill_table_info(skb2, NETLINK_CB(skb).portid,
++	err = nf_tables_fill_table_info(skb2, net, NETLINK_CB(skb).portid,
+ 					nlh->nlmsg_seq, NFT_MSG_NEWTABLE, 0,
+ 					family, table);
+ 	if (err < 0)
+@@ -914,9 +914,9 @@ nla_put_failure:
+ 	return -ENOSPC;
  }
-@@ -1165,22 +1154,11 @@ static const struct seq_operations xt_target_seq_ops = {
  
- static int xt_target_open(struct inode *inode, struct file *file)
+-static int nf_tables_fill_chain_info(struct sk_buff *skb, u32 portid, u32 seq,
+-				     int event, u32 flags, int family,
+-				     const struct nft_table *table,
++static int nf_tables_fill_chain_info(struct sk_buff *skb, struct net *net,
++				     u32 portid, u32 seq, int event, u32 flags,
++				     int family, const struct nft_table *table,
+ 				     const struct nft_chain *chain)
  {
--	struct seq_file *seq;
- 	struct nf_mttg_trav *trav;
--	int ret;
--
--	trav = kmalloc(sizeof(*trav), GFP_KERNEL);
--	if (trav == NULL)
-+	trav = __seq_open_private(file, &xt_target_seq_ops, sizeof(*trav));
-+	if (!trav)
+ 	struct nlmsghdr *nlh;
+@@ -930,7 +930,7 @@ static int nf_tables_fill_chain_info(struct sk_buff *skb, u32 portid, u32 seq,
+ 	nfmsg = nlmsg_data(nlh);
+ 	nfmsg->nfgen_family	= family;
+ 	nfmsg->version		= NFNETLINK_V0;
+-	nfmsg->res_id		= 0;
++	nfmsg->res_id		= htons(net->nft.base_seq & 0xffff);
+ 
+ 	if (nla_put_string(skb, NFTA_CHAIN_TABLE, table->name))
+ 		goto nla_put_failure;
+@@ -988,8 +988,8 @@ static int nf_tables_chain_notify(const struct nft_ctx *ctx, int event)
+ 	if (skb == NULL)
+ 		goto err;
+ 
+-	err = nf_tables_fill_chain_info(skb, ctx->portid, ctx->seq, event, 0,
+-					ctx->afi->family, ctx->table,
++	err = nf_tables_fill_chain_info(skb, ctx->net, ctx->portid, ctx->seq,
++					event, 0, ctx->afi->family, ctx->table,
+ 					ctx->chain);
+ 	if (err < 0) {
+ 		kfree_skb(skb);
+@@ -1031,7 +1031,8 @@ static int nf_tables_dump_chains(struct sk_buff *skb,
+ 				if (idx > s_idx)
+ 					memset(&cb->args[1], 0,
+ 					       sizeof(cb->args) - sizeof(cb->args[0]));
+-				if (nf_tables_fill_chain_info(skb, NETLINK_CB(cb->skb).portid,
++				if (nf_tables_fill_chain_info(skb, net,
++							      NETLINK_CB(cb->skb).portid,
+ 							      cb->nlh->nlmsg_seq,
+ 							      NFT_MSG_NEWCHAIN,
+ 							      NLM_F_MULTI,
+@@ -1090,7 +1091,7 @@ static int nf_tables_getchain(struct sock *nlsk, struct sk_buff *skb,
+ 	if (!skb2)
  		return -ENOMEM;
  
--	ret = seq_open(file, &xt_target_seq_ops);
--	if (ret < 0) {
--		kfree(trav);
--		return ret;
--	}
--
--	seq = file->private_data;
--	seq->private = trav;
- 	trav->nfproto = (unsigned long)PDE_DATA(inode);
+-	err = nf_tables_fill_chain_info(skb2, NETLINK_CB(skb).portid,
++	err = nf_tables_fill_chain_info(skb2, net, NETLINK_CB(skb).portid,
+ 					nlh->nlmsg_seq, NFT_MSG_NEWCHAIN, 0,
+ 					family, table, chain);
+ 	if (err < 0)
+@@ -1647,8 +1648,9 @@ static const struct nla_policy nft_rule_policy[NFTA_RULE_MAX + 1] = {
+ 				    .len = NFT_USERDATA_MAXLEN },
+ };
+ 
+-static int nf_tables_fill_rule_info(struct sk_buff *skb, u32 portid, u32 seq,
+-				    int event, u32 flags, int family,
++static int nf_tables_fill_rule_info(struct sk_buff *skb, struct net *net,
++				    u32 portid, u32 seq, int event,
++				    u32 flags, int family,
+ 				    const struct nft_table *table,
+ 				    const struct nft_chain *chain,
+ 				    const struct nft_rule *rule)
+@@ -1668,7 +1670,7 @@ static int nf_tables_fill_rule_info(struct sk_buff *skb, u32 portid, u32 seq,
+ 	nfmsg = nlmsg_data(nlh);
+ 	nfmsg->nfgen_family	= family;
+ 	nfmsg->version		= NFNETLINK_V0;
+-	nfmsg->res_id		= 0;
++	nfmsg->res_id		= htons(net->nft.base_seq & 0xffff);
+ 
+ 	if (nla_put_string(skb, NFTA_RULE_TABLE, table->name))
+ 		goto nla_put_failure;
+@@ -1724,8 +1726,8 @@ static int nf_tables_rule_notify(const struct nft_ctx *ctx,
+ 	if (skb == NULL)
+ 		goto err;
+ 
+-	err = nf_tables_fill_rule_info(skb, ctx->portid, ctx->seq, event, 0,
+-				       ctx->afi->family, ctx->table,
++	err = nf_tables_fill_rule_info(skb, ctx->net, ctx->portid, ctx->seq,
++				       event, 0, ctx->afi->family, ctx->table,
+ 				       ctx->chain, rule);
+ 	if (err < 0) {
+ 		kfree_skb(skb);
+@@ -1771,7 +1773,7 @@ static int nf_tables_dump_rules(struct sk_buff *skb,
+ 					if (idx > s_idx)
+ 						memset(&cb->args[1], 0,
+ 						       sizeof(cb->args) - sizeof(cb->args[0]));
+-					if (nf_tables_fill_rule_info(skb, NETLINK_CB(cb->skb).portid,
++					if (nf_tables_fill_rule_info(skb, net, NETLINK_CB(cb->skb).portid,
+ 								      cb->nlh->nlmsg_seq,
+ 								      NFT_MSG_NEWRULE,
+ 								      NLM_F_MULTI | NLM_F_APPEND,
+@@ -1837,7 +1839,7 @@ static int nf_tables_getrule(struct sock *nlsk, struct sk_buff *skb,
+ 	if (!skb2)
+ 		return -ENOMEM;
+ 
+-	err = nf_tables_fill_rule_info(skb2, NETLINK_CB(skb).portid,
++	err = nf_tables_fill_rule_info(skb2, net, NETLINK_CB(skb).portid,
+ 				       nlh->nlmsg_seq, NFT_MSG_NEWRULE, 0,
+ 				       family, table, chain, rule);
+ 	if (err < 0)
+@@ -2321,7 +2323,7 @@ static int nf_tables_fill_set(struct sk_buff *skb, const struct nft_ctx *ctx,
+ 	nfmsg = nlmsg_data(nlh);
+ 	nfmsg->nfgen_family	= ctx->afi->family;
+ 	nfmsg->version		= NFNETLINK_V0;
+-	nfmsg->res_id		= 0;
++	nfmsg->res_id		= htons(ctx->net->nft.base_seq & 0xffff);
+ 
+ 	if (nla_put_string(skb, NFTA_SET_TABLE, ctx->table->name))
+ 		goto nla_put_failure;
+@@ -2925,7 +2927,7 @@ static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
+ 	nfmsg = nlmsg_data(nlh);
+ 	nfmsg->nfgen_family = ctx.afi->family;
+ 	nfmsg->version      = NFNETLINK_V0;
+-	nfmsg->res_id       = 0;
++	nfmsg->res_id	    = htons(ctx.net->nft.base_seq & 0xffff);
+ 
+ 	if (nla_put_string(skb, NFTA_SET_ELEM_LIST_TABLE, ctx.table->name))
+ 		goto nla_put_failure;
+@@ -3006,7 +3008,7 @@ static int nf_tables_fill_setelem_info(struct sk_buff *skb,
+ 	nfmsg = nlmsg_data(nlh);
+ 	nfmsg->nfgen_family	= ctx->afi->family;
+ 	nfmsg->version		= NFNETLINK_V0;
+-	nfmsg->res_id		= 0;
++	nfmsg->res_id		= htons(ctx->net->nft.base_seq & 0xffff);
+ 
+ 	if (nla_put_string(skb, NFTA_SET_TABLE, ctx->table->name))
+ 		goto nla_put_failure;
+@@ -3293,6 +3295,87 @@ static int nf_tables_delsetelem(struct sock *nlsk, struct sk_buff *skb,
+ 	return err;
+ }
+ 
++static int nf_tables_fill_gen_info(struct sk_buff *skb, struct net *net,
++				   u32 portid, u32 seq)
++{
++	struct nlmsghdr *nlh;
++	struct nfgenmsg *nfmsg;
++	int event = (NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_NEWGEN;
++
++	nlh = nlmsg_put(skb, portid, seq, event, sizeof(struct nfgenmsg), 0);
++	if (nlh == NULL)
++		goto nla_put_failure;
++
++	nfmsg = nlmsg_data(nlh);
++	nfmsg->nfgen_family	= AF_UNSPEC;
++	nfmsg->version		= NFNETLINK_V0;
++	nfmsg->res_id		= htons(net->nft.base_seq & 0xffff);
++
++	if (nla_put_be32(skb, NFTA_GEN_ID, htonl(net->nft.base_seq)))
++		goto nla_put_failure;
++
++	return nlmsg_end(skb, nlh);
++
++nla_put_failure:
++	nlmsg_trim(skb, nlh);
++	return -EMSGSIZE;
++}
++
++static int nf_tables_gen_notify(struct net *net, struct sk_buff *skb, int event)
++{
++	struct nlmsghdr *nlh = nlmsg_hdr(skb);
++	struct sk_buff *skb2;
++	int err;
++
++	if (nlmsg_report(nlh) &&
++	    !nfnetlink_has_listeners(net, NFNLGRP_NFTABLES))
++		return 0;
++
++	err = -ENOBUFS;
++	skb2 = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	if (skb2 == NULL)
++		goto err;
++
++	err = nf_tables_fill_gen_info(skb2, net, NETLINK_CB(skb).portid,
++				      nlh->nlmsg_seq);
++	if (err < 0) {
++		kfree_skb(skb2);
++		goto err;
++	}
++
++	err = nfnetlink_send(skb2, net, NETLINK_CB(skb).portid,
++			     NFNLGRP_NFTABLES, nlmsg_report(nlh), GFP_KERNEL);
++err:
++	if (err < 0) {
++		nfnetlink_set_err(net, NETLINK_CB(skb).portid, NFNLGRP_NFTABLES,
++				  err);
++	}
++	return err;
++}
++
++static int nf_tables_getgen(struct sock *nlsk, struct sk_buff *skb,
++			    const struct nlmsghdr *nlh,
++			    const struct nlattr * const nla[])
++{
++	struct net *net = sock_net(skb->sk);
++	struct sk_buff *skb2;
++	int err;
++
++	skb2 = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
++	if (skb2 == NULL)
++		return -ENOMEM;
++
++	err = nf_tables_fill_gen_info(skb2, net, NETLINK_CB(skb).portid,
++				      nlh->nlmsg_seq);
++	if (err < 0)
++		goto err;
++
++	return nlmsg_unicast(nlsk, skb2, NETLINK_CB(skb).portid);
++err:
++	kfree_skb(skb2);
++	return err;
++}
++
+ static const struct nfnl_callback nf_tables_cb[NFT_MSG_MAX] = {
+ 	[NFT_MSG_NEWTABLE] = {
+ 		.call_batch	= nf_tables_newtable,
+@@ -3369,6 +3452,9 @@ static const struct nfnl_callback nf_tables_cb[NFT_MSG_MAX] = {
+ 		.attr_count	= NFTA_SET_ELEM_LIST_MAX,
+ 		.policy		= nft_set_elem_list_policy,
+ 	},
++	[NFT_MSG_GETGEN] = {
++		.call		= nf_tables_getgen,
++	},
+ };
+ 
+ static void nft_chain_commit_update(struct nft_trans *trans)
+@@ -3526,6 +3612,8 @@ static int nf_tables_commit(struct sk_buff *skb)
+ 		call_rcu(&trans->rcu_head, nf_tables_commit_release_rcu);
+ 	}
+ 
++	nf_tables_gen_notify(net, skb, NFT_MSG_NEWGEN);
++
  	return 0;
  }
+ 
 -- 
 1.7.10.4
-
