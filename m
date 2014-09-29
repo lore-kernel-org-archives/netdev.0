@@ -1,57 +1,55 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Mon, 29 Sep 2014 13:47:30 -0700
-Message-ID: <CA+mtBx-MdxNrmE82Cqut_T8WuzoOVivPmWKjC0pT8iSrGxWBQg@mail.gmail.com>
-References: <1411962607-27878-1-git-send-email-therbert@google.com>
-	<CAEP_g=-bGgu8QqtvcEDj=txbmvoQgKtcJxrmzX3DR7xB05c0RQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: remove rt6i_genid
+Date: Mon, 29 Sep 2014 16:51:46 -0400 (EDT)
+Message-ID: <20140929.165146.886742875592532179.davem@davemloft.net>
+References: <7e1b4e2dbe855fa461a4e87e0482ac16b6982c2f.1411857958.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Or Gerlitz <gerlitz.or@gmail.com>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	hideaki@yoshifuji.org, vyasevich@gmail.com,
+	nicolas.dichtel@6wind.com, kafai@fb.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:35673 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751176AbaI2Urb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 16:47:31 -0400
-Received: by mail-ie0-f170.google.com with SMTP id rd18so625442iec.29
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 13:47:31 -0700 (PDT)
-In-Reply-To: <CAEP_g=-bGgu8QqtvcEDj=txbmvoQgKtcJxrmzX3DR7xB05c0RQ@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34017 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750968AbaI2Uvt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 16:51:49 -0400
+In-Reply-To: <7e1b4e2dbe855fa461a4e87e0482ac16b6982c2f.1411857958.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 29, 2014 at 1:13 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Sun, Sep 28, 2014 at 8:50 PM, Tom Herbert <therbert@google.com> wrote:
->> Add ndo_gso_check which a device can define to indicate whether is
->> is capable of doing GSO on a packet. This funciton would be called from
->> the stack to determine whether software GSO is needed to be done. A
->> driver should populate this function if it advertises GSO types for
->> which there are combinations that it wouldn't be able to handle. For
->> instance a device that performs UDP tunneling might only implement
->> support for transparent Ethernet bridging type of inner packets
->> or might have limitations on lengths of inner headers.
->>
->> Signed-off-by: Tom Herbert <therbert@google.com>
->
-> Offloads that might have limitations extend beyond GSO - checksum is
-> another possibility that could need something like a length check.
->
-There are several examples of drivers that advertise checksum offload
-but then in TX path decide that they can't do it for various reasons--
-in this case they need to do software checksum calculation themselves.
-Applying this model to GSO, that is drivers do software GSO when they
-need to punt on packet, seems pretty hard to me, but maybe someone can
-look at it.
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Sun, 28 Sep 2014 00:46:06 +0200
 
-> In addition, while I would also like to be optimistic about the
-> capabilities of existing NICs it's unlikely that any of them that are
-> advertising SKB_GSO_UDP_TUNNEL can actually do it with full
-> generality. So unless we can get the driver writers to chime in about
-> their capabilities (maybe we can, there's only a handful of them right
-> now), we probably need to provide a more conservative implementation
-> for those drivers. I guess I would probably do length equal to VXLAN
-> and perhaps containing Ethernet as a balance between the most
-> conservative and the most optimistic.
+> Eric Dumazet noticed that all no-nonexthop or no-gateway routes which
+> are already marked DST_HOST (e.g. input routes routes) will always be
+> invalidated during sk_dst_check. Thus per-socket dst caching absolutely
+> had no effect and early demuxing had no effect.
+> 
+> Thus this patch removes rt6i_genid: fn_sernum already gets modified during
+> add operations, so we only must ensure we mutate fn_sernum during ipv6
+> address remove operations. This is a fairly cost extensive operations,
+> but address removal should not happen that often. Also our mtu update
+> functions do the same and we heard no complains so far. xfrm policy
+> changes also cause a call into fib6_flush_trees. Also plug a hole in
+> rt6_info (no cacheline changes).
+> 
+> I verified via tracing that this change has effect.
+> 
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Checking header length in ndo_gso_check would be trivial.
+Ok, I'll apply this because it does correctly and simply fix the
+problem now, thanks.
+
+I'll also queue it up for -stable.
+
+However, longer-term:
+
+>  static inline void rt_genid_bump_ipv6(struct net *net)
+>  {
+> +	if (__fib6_flush_trees)
+> +		__fib6_flush_trees(net);
+>  }
+
+I'd really like to see this go away.
