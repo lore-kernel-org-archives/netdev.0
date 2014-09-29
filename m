@@ -1,45 +1,73 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] tests: Dont fail cls-testbed.t if tests/cls dir is empty
-Date: Tue, 30 Sep 2014 01:57:16 +0300
-Message-ID: <1412031436-14492-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:48221 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751946AbaI2XFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 19:05:47 -0400
-Received: by mail-la0-f48.google.com with SMTP id q1so7343354lam.21
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 16:05:46 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/7] seq_printf cleanups
+Date: Mon, 29 Sep 2014 16:08:20 -0700
+Message-ID: <cover.1412031505.git.joe@perches.com>
+References: <20140929124246.3e39dac8@gandalf.local.home>
+Cc: Al Viro <viro@ZenIV.linux.org.uk>, Petr Mladek <pmladek@suse.cz>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-mtd@lists.infradead.org, netdev@vger.kernel.org,
+	cluster-devel@redhat.com, linux-fsdevel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140929124246.3e39dac8@gandalf.local.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Curently tests/cls-testbed.t tries to run any *.t in
-tests/cls/ folder but such folder does not exist.
+seq_printf should return void.
 
-The better solution can be like having a generic mechanism which
-allows to SKIP some tests (by return code?).
+Add a public bool seq_is_full function that can be used to shortcut
+unnecesary seq_printf/seq_puts calls when the seq buffer is full.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- testsuite/tests/cls-testbed.t | 5 +++++
- 1 file changed, 5 insertions(+)
+Start removing the misuses of the seq_printf/seq_puts return value.
 
-diff --git a/testsuite/tests/cls-testbed.t b/testsuite/tests/cls-testbed.t
-index efae2a5..be32d79 100755
---- a/testsuite/tests/cls-testbed.t
-+++ b/testsuite/tests/cls-testbed.t
-@@ -5,6 +5,11 @@ source lib/generic.sh
- 
- QDISCS="cbq htb dsmark"
- 
-+if [ ! -d tests/cls ]; then
-+    ts_log "tests/cls folder is empty"
-+    exit 0
-+fi
-+
- for q in ${QDISCS}; do
- 	ts_log "Preparing classifier testbed with qdisc $q"
- 
+Patchset brought forward from an unreplied to set of changes from
+back in December 2013.
+
+https://lkml.org/lkml/2013/12/11/713
+
+Renamed seq_is_buf_full to seq_is_full.
+
+Joe Perches (7):
+  seq_file: Rename static bool seq_overflow to public bool seq_is_full
+  netfilter: Convert print_tuple functions to return void
+  dlm: Use seq_is_full - remove seq_printf returns
+  dlm: Use seq_puts, remove unnecessary trailing spaces
+  fs: Convert show_fdinfo functions to void
+  debugfs: Fix misuse of seq_printf return value
+  docg3: Fix mixuse of seq_printf return value
+
+ Documentation/filesystems/seq_file.txt       |  28 +--
+ Documentation/filesystems/vfs.txt            |   2 +-
+ drivers/mtd/devices/docg3.c                  | 112 ++++++------
+ drivers/net/tun.c                            |   4 +-
+ fs/debugfs/file.c                            |  14 +-
+ fs/dlm/debug_fs.c                            | 260 +++++++++++++--------------
+ fs/eventfd.c                                 |  15 +-
+ fs/eventpoll.c                               |  19 +-
+ fs/notify/fdinfo.c                           |  76 ++++----
+ fs/notify/fdinfo.h                           |   4 +-
+ fs/proc/fd.c                                 |   2 +-
+ fs/seq_file.c                                |  28 +--
+ fs/signalfd.c                                |  10 +-
+ fs/timerfd.c                                 |  27 +--
+ include/linux/fs.h                           |   2 +-
+ include/linux/seq_file.h                     |   8 +
+ include/net/netfilter/nf_conntrack_core.h    |   2 +-
+ include/net/netfilter/nf_conntrack_l3proto.h |   4 +-
+ include/net/netfilter/nf_conntrack_l4proto.h |   4 +-
+ net/netfilter/nf_conntrack_l3proto_generic.c |   5 +-
+ net/netfilter/nf_conntrack_proto_dccp.c      |  10 +-
+ net/netfilter/nf_conntrack_proto_generic.c   |   5 +-
+ net/netfilter/nf_conntrack_proto_gre.c       |  10 +-
+ net/netfilter/nf_conntrack_proto_sctp.c      |  10 +-
+ net/netfilter/nf_conntrack_proto_tcp.c       |  10 +-
+ net/netfilter/nf_conntrack_proto_udp.c       |  10 +-
+ net/netfilter/nf_conntrack_proto_udplite.c   |  10 +-
+ net/netfilter/nf_conntrack_standalone.c      |  15 +-
+ 28 files changed, 333 insertions(+), 373 deletions(-)
+
 -- 
-2.1.0
+1.8.1.2.459.gbcd45b4.dirty
