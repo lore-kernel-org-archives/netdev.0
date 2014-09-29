@@ -1,35 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH next] r8169: add support for Byte Queue Limits
-Date: Mon, 29 Sep 2014 14:00:32 -0700
-Message-ID: <1412024432.30721.41.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1412024209-25468-1-git-send-email-fw@strlen.de>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCHv8 net-next 2/4] sunvnet: make transmit path zero-copy
+ in the kernel
+Date: Mon, 29 Sep 2014 17:02:33 -0400
+Message-ID: <5429C8E9.2070607@oracle.com>
+References: <5429B8E2.40204@oracle.com>	<20140929.162950.1960056644564225055.davem@davemloft.net>	<5429C498.1000705@oracle.com> <20140929.165440.1575595209745066192.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>,
-	Hayes Wang <hayeswang@realtek.com>
-To: Florian Westphal <fw@strlen.de>
+Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
+	raghuram.kothakota@oracle.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:52108 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750968AbaI2VAe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 17:00:34 -0400
-Received: by mail-pd0-f173.google.com with SMTP id g10so508945pdj.32
-        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 14:00:34 -0700 (PDT)
-In-Reply-To: <1412024209-25468-1-git-send-email-fw@strlen.de>
+Received: from aserp1040.oracle.com ([141.146.126.69]:46407 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751742AbaI2VCA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 17:02:00 -0400
+In-Reply-To: <20140929.165440.1575595209745066192.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-09-29 at 22:56 +0200, Florian Westphal wrote:
-> tested on RTL8168d/8111d.
+
+
+On 09/29/2014 04:54 PM, David Miller wrote:
+> From: David L Stevens <david.stevens@oracle.com>
+
+>> For example, I could leave the "normal" path like this and just start/mod
+>> a timer to do it after 1 sec if we haven't done it through start_xmit. Do
+>> you think that's sufficiently short?
 > 
-> Cc: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Hayes Wang <hayeswang@realtek.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  drivers/net/ethernet/realtek/r8169.c | 18 ++++++++++++++----
->  1 file changed, 14 insertions(+), 4 deletions(-)
+> To be honest I'm not %100 sure.
 
-Thanks Florian, this looks good to me.
+Since it won't actually fire when the network is loaded, maybe a
+shorter timer won't hurt. I'll try it out.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+						+-DLS
