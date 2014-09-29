@@ -1,106 +1,84 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/34] netfilter: NFT_CHAIN_NAT_IPV* is independent of NFT_NAT
-Date: Mon, 29 Sep 2014 14:38:52 +0200
-Message-ID: <1411994363-8451-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 01/34] netfilter: fix compilation of masquerading without IP_NF_TARGET_MASQUERADE
+Date: Mon, 29 Sep 2014 14:38:50 +0200
+Message-ID: <1411994363-8451-2-git-send-email-pablo@netfilter.org>
 References: <1411994363-8451-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:33996 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752856AbaI2MiT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Sep 2014 08:38:19 -0400
 In-Reply-To: <1411994363-8451-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that we have masquerading support in nf_tables, the NAT chain can
-be use with it, not only for SNAT/DNAT. So make this chain type
-independent of it.
+ CONFIG_NF_NAT_MASQUERADE_IPV6=3Dm
+ # CONFIG_IP6_NF_TARGET_MASQUERADE is not set
 
-While at it, move it inside the scope of 'if NF_NAT_IPV*' to simplify
-dependencies.
+results in:
 
+net/ipv6/netfilter/nf_nat_masquerade_ipv6.c: In function =E2=80=98nf_na=
+t_masquerade_ipv6=E2=80=99:
+net/ipv6/netfilter/nf_nat_masquerade_ipv6.c:41:14: error: =E2=80=98stru=
+ct nf_conn_nat=E2=80=99 has no member named =E2=80=98masq_index=E2=80=99
+  nfct_nat(ct)->masq_index =3D out->ifindex;
+              ^
+net/ipv6/netfilter/nf_nat_masquerade_ipv6.c: In function =E2=80=98devic=
+e_cmp=E2=80=99:
+net/ipv6/netfilter/nf_nat_masquerade_ipv6.c:61:12: error: =E2=80=98cons=
+t struct nf_conn_nat=E2=80=99 has no member named =E2=80=98masq_index=E2=
+=80=99
+  return nat->masq_index =3D=3D (int)(long)ifindex;
+            ^
+net/ipv6/netfilter/nf_nat_masquerade_ipv6.c:62:1: warning: control
+reaches end of non-void function [-Wreturn-type]
+ }
+ ^
+make[3]: *** [net/ipv6/netfilter/nf_nat_masquerade_ipv6.o] Error 1
+
+=46ix this by using the new NF_NAT_MASQUERADE_IPV4 and _IPV6 symbols
+in include/net/netfilter/nf_nat.h.
+
+Reported-by: Jim Davis <jim.epost@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/Kconfig |   19 +++++++++----------
- net/ipv6/netfilter/Kconfig |   23 +++++++++++++----------
- 2 files changed, 22 insertions(+), 20 deletions(-)
+ include/net/netfilter/nf_nat.h |   10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index d189c52..eb6995f 100644
---- a/net/ipv4/netfilter/Kconfig
-+++ b/net/ipv4/netfilter/Kconfig
-@@ -61,16 +61,6 @@ config NFT_CHAIN_ROUTE_IPV4
- 	  fields such as the source, destination, type of service and
- 	  the packet mark.
- 
--config NFT_CHAIN_NAT_IPV4
--	depends on NF_TABLES_IPV4
--	depends on NF_NAT_IPV4 && NFT_NAT
--	tristate "IPv4 nf_tables nat chain support"
--	help
--	  This option enables the "nat" chain for IPv4 in nf_tables. This
--	  chain type is used to perform Network Address Translation (NAT)
--	  packet transformations such as the source, destination address and
--	  source and destination ports.
--
- config NFT_REJECT_IPV4
- 	depends on NF_TABLES_IPV4
- 	default NFT_REJECT
-@@ -94,6 +84,15 @@ config NF_NAT_IPV4
- 
- if NF_NAT_IPV4
- 
-+config NFT_CHAIN_NAT_IPV4
-+	depends on NF_TABLES_IPV4
-+	tristate "IPv4 nf_tables nat chain support"
-+	help
-+	  This option enables the "nat" chain for IPv4 in nf_tables. This
-+	  chain type is used to perform Network Address Translation (NAT)
-+	  packet transformations such as the source, destination address and
-+	  source and destination ports.
-+
- config NF_NAT_SNMP_BASIC
- 	tristate "Basic SNMP-ALG support"
- 	depends on NF_CONNTRACK_SNMP
-diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
-index a8f2530..e854062 100644
---- a/net/ipv6/netfilter/Kconfig
-+++ b/net/ipv6/netfilter/Kconfig
-@@ -40,16 +40,6 @@ config NFT_CHAIN_ROUTE_IPV6
- 	  fields such as the source, destination, flowlabel, hop-limit and
- 	  the packet mark.
- 
--config NFT_CHAIN_NAT_IPV6
--	depends on NF_TABLES_IPV6
--	depends on NF_NAT_IPV6 && NFT_NAT
--	tristate "IPv6 nf_tables nat chain support"
--	help
--	  This option enables the "nat" chain for IPv6 in nf_tables. This
--	  chain type is used to perform Network Address Translation (NAT)
--	  packet transformations such as the source, destination address and
--	  source and destination ports.
--
- config NFT_REJECT_IPV6
- 	depends on NF_TABLES_IPV6
- 	default NFT_REJECT
-@@ -70,6 +60,19 @@ config NF_NAT_IPV6
- 	  forms of full Network Address Port Translation. This can be
- 	  controlled by iptables or nft.
- 
-+if NF_NAT_IPV6
-+
-+config NFT_CHAIN_NAT_IPV6
-+	depends on NF_TABLES_IPV6
-+	tristate "IPv6 nf_tables nat chain support"
-+	help
-+	  This option enables the "nat" chain for IPv6 in nf_tables. This
-+	  chain type is used to perform Network Address Translation (NAT)
-+	  packet transformations such as the source, destination address and
-+	  source and destination ports.
-+
-+endif # NF_NAT_IPV6
-+
- config IP6_NF_IPTABLES
- 	tristate "IP6 tables support (required for filtering)"
- 	depends on INET && IPV6
--- 
+diff --git a/include/net/netfilter/nf_nat.h b/include/net/netfilter/nf_=
+nat.h
+index a71dd33..344b1ab 100644
+--- a/include/net/netfilter/nf_nat.h
++++ b/include/net/netfilter/nf_nat.h
+@@ -32,10 +32,8 @@ struct nf_conn_nat {
+ 	struct hlist_node bysource;
+ 	struct nf_conn *ct;
+ 	union nf_conntrack_nat_help help;
+-#if defined(CONFIG_IP_NF_TARGET_MASQUERADE) || \
+-    defined(CONFIG_IP_NF_TARGET_MASQUERADE_MODULE) || \
+-    defined(CONFIG_IP6_NF_TARGET_MASQUERADE) || \
+-    defined(CONFIG_IP6_NF_TARGET_MASQUERADE_MODULE)
++#if IS_ENABLED(CONFIG_NF_NAT_MASQUERADE_IPV4) || \
++    IS_ENABLED(CONFIG_NF_NAT_MASQUERADE_IPV6)
+ 	int masq_index;
+ #endif
+ };
+@@ -68,8 +66,8 @@ static inline bool nf_nat_oif_changed(unsigned int ho=
+oknum,
+ 				      struct nf_conn_nat *nat,
+ 				      const struct net_device *out)
+ {
+-#if IS_ENABLED(CONFIG_IP_NF_TARGET_MASQUERADE) || \
+-    IS_ENABLED(CONFIG_IP6_NF_TARGET_MASQUERADE)
++#if IS_ENABLED(CONFIG_NF_NAT_MASQUERADE_IPV4) || \
++    IS_ENABLED(CONFIG_NF_NAT_MASQUERADE_IPV6)
+ 	return nat->masq_index && hooknum =3D=3D NF_INET_POST_ROUTING &&
+ 	       CTINFO2DIR(ctinfo) =3D=3D IP_CT_DIR_ORIGINAL &&
+ 	       nat->masq_index !=3D out->ifindex;
+--=20
 1.7.10.4
-
