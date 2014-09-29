@@ -1,95 +1,60 @@
-From: "luwei.zhou@freescale.com" <luwei.zhou@freescale.com>
-Subject: RE: [PATCH v2 3/4] ptp: Add PTP_PF_PPS enumeration to
- ptp_pin_function.
-Date: Mon, 29 Sep 2014 09:38:44 +0000
-Message-ID: <ee73b9239ea9417e976fdf2c51b2fd60@BY2PR03MB441.namprd03.prod.outlook.com>
-References: <1411878011-21767-1-git-send-email-b45643@freescale.com>
- <1411878011-21767-4-git-send-email-b45643@freescale.com>
- <20140929085613.GA9891@netboy>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
-	"fugang.duan@freescale.com" <fugang.duan@freescale.com>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Richard Cochran <richardcochran@gmail.com>
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Subject: [PATCH v2 5/5] ARCNET: enable eae arcnet card support
+Date: Mon, 29 Sep 2014 11:55:38 +0200
+Message-ID: <1411984538-953-6-git-send-email-m.grzeschik@pengutronix.de>
+References: <1411984538-953-1-git-send-email-m.grzeschik@pengutronix.de>
+Cc: linux-kernel@vger.kernel.org, kernel@pengutronix.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0132.outbound.protection.outlook.com ([157.56.110.132]:40960
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753076AbaI2Jit convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 05:38:49 -0400
-In-Reply-To: <20140929085613.GA9891@netboy>
-Content-Language: en-US
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:51376 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751601AbaI2Jzn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 05:55:43 -0400
+In-Reply-To: <1411984538-953-1-git-send-email-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 29, 2014,at 4:56:00PM +0800, Richard Cochran wrote:
-> -----Original Message-----
-> From: Richard Cochran [mailto:richardcochran@gmail.com]
-> Sent: Monday, September 29, 2014 4:56 PM
-> To: Zhou Luwei-B45643
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; shawn.guo@linaro.org;
-> bhutchings@solarflare.com; Estevam Fabio-R49496; Duan Fugang-B38611; Li
-> Frank-B20596; stephen@networkplumber.org
-> Subject: Re: [PATCH v2 3/4] ptp: Add PTP_PF_PPS enumeration to
-> ptp_pin_function.
-> 
-> On Sun, Sep 28, 2014 at 12:20:10PM +0800, Luwei Zhou wrote:
-> 
-> > diff --git a/include/linux/ptp_clock_kernel.h
-> > b/include/linux/ptp_clock_kernel.h
-> > index 0d8ff3f..2a5ad1c 100644
-> > --- a/include/linux/ptp_clock_kernel.h
-> > +++ b/include/linux/ptp_clock_kernel.h
-> > @@ -49,6 +49,7 @@ struct ptp_clock_request {
-> >   * @n_alarm:   The number of programmable alarms.
-> >   * @n_ext_ts:  The number of external time stamp channels.
-> >   * @n_per_out: The number of programmable periodic signals.
-> > + * @n_pps_chan: The number of programmable channles for pps output.
-> >   * @n_pins:    The number of programmable pins.
-> >   * @pps:       Indicates whether the clock supports a PPS callback.
-> >   * @pin_config: Array of length 'n_pins'. If the number of @@ -99,6
-> > +100,7 @@ struct ptp_clock_info {
-> >  	int n_alarm;
-> >  	int n_ext_ts;
-> >  	int n_per_out;
-> > +	int n_pps_chan;
-> 
-> We don't need this. There is only *one* PPS channel.
-> 
-> We only want to select which of 'n_pins' will be the PPS output.
-Yes, there is only one PPS out. But this pin can choose one channel from index (0~3). I am trying to use n_pps_chan to be the max channel index check.
-I am a little puzzled. The FEC PTP has 4 channel and we output only one PPS signal. User need to tell driver which channel index is used.  In this
-Case, n_pins should be 1 or 4?
-My understanding is n_pins should be 1 because there is only one PPS output 
-> 
-> >  	int n_pins;
-> >  	int pps;
-> >  	struct ptp_pin_desc *pin_config;
-> > diff --git a/include/uapi/linux/ptp_clock.h
-> > b/include/uapi/linux/ptp_clock.h index f0b7bfe..57ba7e7 100644
-> > --- a/include/uapi/linux/ptp_clock.h
-> > +++ b/include/uapi/linux/ptp_clock.h
-> > @@ -86,6 +86,7 @@ enum ptp_pin_function {
-> >  	PTP_PF_EXTTS,
-> >  	PTP_PF_PEROUT,
-> >  	PTP_PF_PHYSYNC,
-> > +	PTP_PF_PPS,
-> >  };
-> >
-> >  struct ptp_pin_desc {
-> > --
-> > 1.9.1
-> >
-> 
-> Thanks,
-> Richard
+This patch adds support for the EAE arcnet cards
+which has two Interfaces.
 
-Thanks,
-Luwei
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ drivers/net/arcnet/com20020-pci.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
+index fe87576..6c99ff0 100644
+--- a/drivers/net/arcnet/com20020-pci.c
++++ b/drivers/net/arcnet/com20020-pci.c
+@@ -211,6 +211,16 @@ static struct com20020_pci_card_info card_info_sohard = {
+ 	.flags = ARC_CAN_10MBIT,
+ };
+ 
++static struct com20020_pci_card_info card_info_eae = {
++	.name = "EAE PLX-PCI",
++	.devcount = 2,
++	.chan_map_tbl = {
++		{ 2, 0x00, 0x08 },
++		{ 2, 0x08, 0x08 }
++	},
++	.flags = ARC_CAN_10MBIT,
++};
++
+ static const struct pci_device_id com20020pci_id_table[] = {
+ 	{
+ 		0x1571, 0xa001,
+@@ -345,6 +355,12 @@ static const struct pci_device_id com20020pci_id_table[] = {
+ 		(kernel_ulong_t)&card_info_sohard
+ 	},
+ 	{
++		0x10B5, 0x9050,
++		0x10B5, 0x3292,
++		0, 0,
++		(kernel_ulong_t)&card_info_eae
++	},
++	{
+ 		0x14BA, 0x6000,
+ 		PCI_ANY_ID, PCI_ANY_ID,
+ 		0, 0,
+-- 
+2.1.0
