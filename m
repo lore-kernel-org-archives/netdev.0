@@ -1,31 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/4] sunvnet: allow admin to set sunvnet MTU
-Date: Mon, 29 Sep 2014 14:58:39 -0400 (EDT)
-Message-ID: <20140929.145839.1840433438051963991.davem@davemloft.net>
-References: <5429940D.4040500@oracle.com>
+Subject: Re: [PATCH net-next] net: cleanup and document skb fclone layout
+Date: Mon, 29 Sep 2014 14:59:08 -0400 (EDT)
+Message-ID: <20140929.145908.1231412213790040437.davem@davemloft.net>
+References: <1411860341.15768.55.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1412011416.30721.24.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
-	Raghuram.Kothakota@oracle.com
-To: david.stevens@oracle.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60647 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60652 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750968AbaI2S6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 14:58:41 -0400
-In-Reply-To: <5429940D.4040500@oracle.com>
+	with ESMTP id S1753249AbaI2S7J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 14:59:09 -0400
+In-Reply-To: <1412011416.30721.24.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David L Stevens <david.stevens@oracle.com>
-Date: Mon, 29 Sep 2014 13:17:01 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 29 Sep 2014 10:23:36 -0700
 
-> @@ -884,6 +884,9 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
->   	skb = vnet_skb_shape(skb, &start, &nlen);
->  +	if (skb->len > port->rmtu)
-> +		goto out_dropped;
-> +
->  	spin_lock_irqsave(&port->vio.lock, flags);
+> On Sat, 2014-09-27 at 16:25 -0700, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>> 
+>> Lets use a proper structure to clearly document and implement
+>> skb fast clones.
+>> 
+>> Then, we might experiment more easily alternative layouts.
+>> 
+>> This patch adds a new skb_fclone_busy() helper, used by tcp and xfrm.
+>> 
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> ---
+>>  include/linux/skbuff.h |   25 ++++++++++++++++++++++
+>>  net/core/skbuff.c      |   44 +++++++++++++++++++--------------------
+>>  net/ipv4/tcp_output.c  |    5 ----
+>>  net/xfrm/xfrm_policy.c |    4 ---
+>>  4 files changed, 49 insertions(+), 29 deletions(-)
+> 
+> 
+> I'll rebase this patch and send a v2.
 
-More patch corruption.
+Thanks.
