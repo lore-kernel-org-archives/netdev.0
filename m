@@ -1,89 +1,41 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: [PATCHv7 net-next 4/4] sunvnet: generate ICMP PTMUD messages for
- smaller port MTUs
-Date: Mon, 29 Sep 2014 13:46:21 -0400
-Message-ID: <54299AED.3040701@oracle.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v2 net-next] mlx4: optimize xmit path
+Date: Mon, 29 Sep 2014 10:46:00 -0700
+Message-ID: <CAMEtUuw0UjJuDqSDrK9L-CUWaVdKni1p9cib+VGCOYtBbrCY4Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:33221 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753249AbaI2Rpx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 13:45:53 -0400
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:59205 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754041AbaI2RqC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Sep 2014 13:46:02 -0400
+Received: by mail-wi0-f180.google.com with SMTP id em10so1647518wid.1
+        for <netdev@vger.kernel.org>; Mon, 29 Sep 2014 10:46:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch sends ICMP and ICMPv6 messages for Path MTU Discovery when a remote
-port MTU is smaller than the device MTU. This allows mixing newer VIO protocol
-devices that support MTU negotiation with older devices that do not on the
-same vswitch. It also allows Linux-Linux LDOMs to use 64K-1 data packets even
-though Solaris vswitch is limited to <16K MTU.
+On Sun, Sep 28, 2014 at 9:19 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>         send_doorbell = !skb->xmit_more || netif_xmit_stopped(ring->tx_queue);
+>
+>         if (ring->bf_enabled && desc_size <= MAX_BF && !bounce &&
+>             !vlan_tx_tag_present(skb) && send_doorbell) {
 
-Signed-off-by: David L Stevens <david.stevens@oracle.com>
----
- drivers/net/ethernet/sun/sunvnet.c |   37 +++++++++++++++++++++++++++++++++++-
- 1 files changed, 36 insertions(+), 1 deletions(-)
+This patch is good,
 
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 1a7dce0..cb2d2b7 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -17,6 +17,13 @@
- #include <linux/mutex.h>
- #include <linux/if_vlan.h>
-
-+#if IS_ENABLED(CONFIG_IPV6)
-+#include <linux/icmpv6.h>
-+#endif
-+
-+#include <net/icmp.h>
-+#include <net/route.h>
-+
- #include <asm/vio.h>
- #include <asm/ldc.h>
-
-@@ -884,8 +891,36 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
-
- 	skb = vnet_skb_shape(skb, &start, &nlen);
-
--	if (skb->len > port->rmtu)
-+	if (skb->len > port->rmtu) {
-+		unsigned long localmtu = port->rmtu - ETH_HLEN;
-+
-+		if (vio_version_after_eq(&port->vio, 1, 3))
-+			localmtu -= VLAN_HLEN;
-+
-+		if (skb->protocol == htons(ETH_P_IP)) {
-+			struct flowi4 fl4;
-+			struct rtable *rt = NULL;
-+
-+			memset(&fl4, 0, sizeof(fl4));
-+			fl4.flowi4_oif = dev->ifindex;
-+			fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
-+			fl4.daddr = ip_hdr(skb)->daddr;
-+			fl4.saddr = ip_hdr(skb)->saddr;
-+
-+			rt = ip_route_output_key(dev_net(dev), &fl4);
-+			if (!IS_ERR(rt)) {
-+				skb_dst_set(skb, &rt->dst);
-+				icmp_send(skb, ICMP_DEST_UNREACH,
-+					  ICMP_FRAG_NEEDED,
-+					  htonl(localmtu));
-+			}
-+		}
-+#if IS_ENABLED(CONFIG_IPV6)
-+		else if (skb->protocol == htons(ETH_P_IPV6))
-+			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, localmtu);
-+#endif
- 		goto out_dropped;
-+	}
-
- 	spin_lock_irqsave(&port->vio.lock, flags);
-
--- 
-1.7.1
+but I've been thinking more about bf+xmit_more and want
+to double check my understanding in that scenario:
+xmit_more=true will queue descriptors normally and
+the last xmit_more=false packet will write into BF.
+I guess BF suppose to pick up the earlier ones from
+the queue, otherwise the whole thing is broken.
+So if indeed BF can pick up the whole chain, then
+it should be the faster way than doing iowrite32(), right?
