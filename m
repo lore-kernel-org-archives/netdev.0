@@ -1,61 +1,81 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] xen/xenbus: Use 'void' instead of 'int' for
- the return of xenbus_switch_state()
-Date: Mon, 29 Sep 2014 09:41:51 +0100
-Message-ID: <20140929084102.GE28628@zion.uk.xensource.com>
-References: <5425961A.5000604@gmail.com>
- <5425AB57.8040804@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Chen Gang <gang.chen.5i5j@gmail.com>, <konrad.wilk@oracle.com>,
-	<ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<boris.ostrovsky@oracle.com>, <bhelgaas@google.com>,
-	<jgross@suse.com>, <yongjun_wei@trendmicro.com.cn>,
-	<mukesh.rathor@oracle.com>, <xen-devel@lists.xenproject.org>,
-	<linux-pci@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	<linux-scsi@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5425AB57.8040804@citrix.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH iproute2-next] ss: output dctcp diag information
+Date: Mon, 29 Sep 2014 10:47:32 +0200
+Message-ID: <1411980452-4669-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57977 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751037AbaI2Irj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Sep 2014 04:47:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 26, 2014 at 07:07:19PM +0100, David Vrabel wrote:
-> On 26/09/14 17:36, Chen Gang wrote:
-> > When xenbus_switch_state() fails, it will call xenbus_switch_fatal()
-> > internally, so need not return any status value, then use 'void' instead
-> > of 'int' for xenbus_switch_state() and __xenbus_switch_state().
-> > 
-> > Also need be sure that all callers which check the return value must let
-> > 'err' be 0.
-> 
-> I've rewritten the commit message as:
-> 
->     xen/xenbus: don't return errors from xenbus_switch_state()
-> 
->     Most users of xenbus_switch_state() weren't handling the failure of
->     xenbus_switch_state() correctly.  They either called
->     xenbus_dev_fatal() (which xenbus_switch_state() has effectively
->     already tried to do), or ignored errors.
-> 
->     xenbus_switch_state() may fail because:
-> 
->     a) The device is being unplugged by the toolstack. The device will
->     shortly be removed and the error does not need to be handled.
-> 
->     b) Xenstore is broken.  There isn't much the driver can do in this
->     case since xenstore is required to signal failure to the toolstack.
-> 
->     So, don't report any errors from xenbus_switch_state() which removes
->     some unnecessary error handling in some of the drivers.
-> 
-> I'd appreciate a review from some of the other front/backend driver
-> maintainers on whether this is sensible reasoning.
-> 
+Dump useful DCTCP state/debug information gathered from diag.
 
-Looks reasonable to me.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ include/linux/inet_diag.h | 13 +++++++++++--
+ misc/ss.c                 | 13 +++++++++++++
+ 2 files changed, 24 insertions(+), 2 deletions(-)
 
-Wei.
+diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+index e34f247..7438dad 100644
+--- a/include/linux/inet_diag.h
++++ b/include/linux/inet_diag.h
+@@ -110,10 +110,10 @@ enum {
+ 	INET_DIAG_TCLASS,
+ 	INET_DIAG_SKMEMINFO,
+ 	INET_DIAG_SHUTDOWN,
++	INET_DIAG_DCTCPINFO,
+ };
+ 
+-#define INET_DIAG_MAX INET_DIAG_SHUTDOWN
+-
++#define INET_DIAG_MAX INET_DIAG_DCTCPINFO
+ 
+ /* INET_DIAG_MEM */
+ 
+@@ -133,5 +133,14 @@ struct tcpvegas_info {
+ 	__u32	tcpv_minrtt;
+ };
+ 
++/* INET_DIAG_DCTCPINFO */
++
++struct tcp_dctcp_info {
++	__u16	dctcp_enabled;
++	__u16	dctcp_ce_state;
++	__u32	dctcp_alpha;
++	__u32	dctcp_ab_ecn;
++	__u32	dctcp_ab_tot;
++};
+ 
+ #endif /* _INET_DIAG_H_ */
+diff --git a/misc/ss.c b/misc/ss.c
+index c847954..f5019e1 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1576,6 +1576,19 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
+ 				rtt =  vinfo->tcpv_rtt;
+ 		}
+ 
++		if (tb[INET_DIAG_DCTCPINFO]) {
++			const struct tcp_dctcp_info *dinfo
++				= RTA_DATA(tb[INET_DIAG_DCTCPINFO]);
++
++			if (dinfo->dctcp_enabled) {
++				printf(" ce_state %u alpha %u ab_ecn %u ab_tot %u",
++				       dinfo->dctcp_ce_state, dinfo->dctcp_alpha,
++				       dinfo->dctcp_ab_ecn, dinfo->dctcp_ab_tot);
++			} else {
++				printf(" fallback_mode");
++			}
++		}
++
+ 		if (rtt > 0 && info->tcpi_snd_mss && info->tcpi_snd_cwnd) {
+ 			printf(" send %sbps",
+ 			       sprint_bw(b1, (double) info->tcpi_snd_cwnd *
+-- 
+1.9.0
